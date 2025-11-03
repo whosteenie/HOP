@@ -5,6 +5,10 @@
             <ui:ProgressBar name="health-bar" low-value="0" high-value="100" value="100" class="health-bar" />
             <ui:Label name="health-value" text="100" class="health-value" />
         </ui:VisualElement>
+        <ui:VisualElement name="velocity-container" class="velocity-container" style="position: absolute; top: auto; left: 830px; bottom: 30px; right: 806px;">
+            <ui:ProgressBar name="velocity-bar" class="velocity-bar" />
+            <ui:Label name="velocity-value" text="1.00x" class="velocity-value" />
+        </ui:VisualElement>
         <ui:VisualElement name="ammo-container" class="ammo-container" style="position: absolute; top: auto; left: auto; right: 30px; bottom: 30px;">
             <ui:Label name="ammo-current" text="30" class="ammo-text" />
             <ui:Label text="/" name="ammo-slash" class="ammo-slash" />

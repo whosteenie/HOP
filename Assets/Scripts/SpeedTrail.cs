@@ -1,0 +1,146 @@
+using System.Collections;
+using System.Collections.Generic;
+using System.Linq;
+using UnityEngine;
+
+public class SpeedTrail : MonoBehaviour
+{
+    // Claude.ai - Created a speed-based afterimage trail effect for the player when weapon damage multiplier is high.
+    // Yes, vibe coded it.
+    
+    [Header("Shader Property IDs")]
+    private static readonly int Mode = Shader.PropertyToID("_Mode");
+    private static readonly int SrcBlend = Shader.PropertyToID("_SrcBlend");
+    private static readonly int DstBlend = Shader.PropertyToID("_DstBlend");
+    private static readonly int ZWrite = Shader.PropertyToID("_ZWrite");
+    
+    [Header("References")]
+    [SerializeField] private WeaponManager weaponManager;
+    [SerializeField] private Weapon weapon;
+    [SerializeField] private SkinnedMeshRenderer playerMesh; // Your player's body mesh
+    
+    [Header("Afterimage Settings")]
+    [SerializeField] private float minMultiplierForTrail = 1.5f;
+    [SerializeField] private float spawnInterval = 0.05f; // How often to spawn ghosts
+    [SerializeField] private float ghostLifetime = 0.3f;
+    [SerializeField] private Material ghostMaterial;
+    [SerializeField] private Color trailColor = new Color(0.3f, 0.7f, 1f, 0.5f);
+    
+    private float _lastSpawnTime;
+    private readonly Queue<GameObject> _ghostPool = new Queue<GameObject>();
+    private const int PoolSize = 20;
+
+    private void Start()
+    {
+        // Create ghost material if not assigned
+        if(ghostMaterial == null)
+        {
+            CreateGhostMaterial();
+        }
+        
+        // Pre-populate ghost pool
+        for(var i = 0; i < PoolSize; i++)
+        {
+            CreateGhost();
+        }
+
+        weapon = weaponManager.CurrentWeapon;
+    }
+    
+    private void Update()
+    {
+        if(weapon == null || playerMesh == null) return;
+        
+        var multiplier = weapon.CurrentDamageMultiplier;
+        
+        // Only spawn afterimages when above threshold
+        if(!(multiplier >= minMultiplierForTrail)) return;
+        // Calculate spawn rate based on speed (faster = more frequent)
+        var speedFactor = Mathf.InverseLerp(minMultiplierForTrail, weapon.maxDamageMultiplier, multiplier);
+        var adjustedInterval = Mathf.Lerp(spawnInterval * 2f, spawnInterval * 0.5f, speedFactor);
+
+        if(!(Time.time - _lastSpawnTime >= adjustedInterval)) return;
+        SpawnAfterimage();
+        _lastSpawnTime = Time.time;
+    }
+    
+    private void CreateGhostMaterial()
+    {
+        ghostMaterial = new Material(Shader.Find("Standard"));
+        ghostMaterial.SetFloat(Mode, 3); // Transparent mode
+        ghostMaterial.SetInt(SrcBlend, (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
+        ghostMaterial.SetInt(DstBlend, (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+        ghostMaterial.SetInt(ZWrite, 0);
+        ghostMaterial.DisableKeyword("_ALPHATEST_ON");
+        ghostMaterial.EnableKeyword("_ALPHABLEND_ON");
+        ghostMaterial.DisableKeyword("_ALPHAPREMULTIPLY_ON");
+        ghostMaterial.renderQueue = 3000;
+        ghostMaterial.color = trailColor;
+    }
+    
+    private GameObject CreateGhost()
+    {
+        var ghost = new GameObject("AfterimageGhost") {
+            layer = LayerMask.NameToLayer("Masked")
+        };
+        ghost.SetActive(false);
+        
+        // Add mesh filter and renderer
+        var mf = ghost.AddComponent<MeshFilter>();
+        var mr = ghost.AddComponent<MeshRenderer>();
+        
+        _ghostPool.Enqueue(ghost);
+        return ghost;
+    }
+    
+    private void SpawnAfterimage()
+    {
+        // Get ghost from pool (find first inactive one)
+        var ghost = _ghostPool.FirstOrDefault(g => !g.activeInHierarchy);
+
+        // If no inactive ghost found, create a new one
+        if(ghost == null) {
+            ghost = CreateGhost();
+        }
+
+        // Position and setup ghost
+        ghost.transform.position = playerMesh.transform.position;
+        ghost.transform.rotation = playerMesh.transform.rotation;
+        ghost.transform.localScale = playerMesh.transform.lossyScale;
+        
+        // Bake mesh from skinned mesh renderer
+        var bakedMesh = new Mesh();
+        playerMesh.BakeMesh(bakedMesh);
+        
+        var mf = ghost.GetComponent<MeshFilter>();
+        mf.mesh = bakedMesh;
+        
+        var mr = ghost.GetComponent<MeshRenderer>();
+        mr.material = ghostMaterial;
+        
+        ghost.SetActive(true);
+        
+        // Start fade coroutine
+        StartCoroutine(FadeAndReturnGhost(ghost, mr));
+    }
+    
+    private IEnumerator FadeAndReturnGhost(GameObject ghost, MeshRenderer ghostRenderer)
+    {
+        var elapsed = 0f;
+        var instanceMat = ghostRenderer.material; // Get instance
+        var startColor = trailColor;
+        
+        while(elapsed < ghostLifetime)
+        {
+            elapsed += Time.deltaTime;
+            var alpha = Mathf.Lerp(startColor.a, 0f, elapsed / ghostLifetime);
+            instanceMat.color = new Color(startColor.r, startColor.g, startColor.b, alpha);
+            yield return null;
+        }
+        
+        // Return to pool
+        ghost.SetActive(false);
+        Destroy(instanceMat); // Clean up material instance
+        _ghostPool.Enqueue(ghost);
+    }
+}

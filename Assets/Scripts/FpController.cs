@@ -53,6 +53,7 @@ public class FpController : MonoBehaviour {
     [SerializeField] private CinemachineCamera fpCamera;
     [SerializeField] private CharacterController characterController;
     [SerializeField] private Animator characterAnimator;
+    [SerializeField] private HUDManager hudManager;
 
     [Header("Player Fields")]
     [SerializeField] private int health = 100;
@@ -83,7 +84,9 @@ public class FpController : MonoBehaviour {
     
     #region Private Properties
     
-    private Vector3 CurrentVelocity { get; set; }
+    public Vector3 CurrentVelocity { get; private set; }
+    
+    public int CurrentHealth { get; private set; }
     private bool IsGrounded => characterController.isGrounded;
     
     private float CurrentPitch {
@@ -288,6 +291,9 @@ public class FpController : MonoBehaviour {
     
     public void TakeDamage(int damage) {
         health = Mathf.Max(0, health - damage);
+        
+        hudManager.UpdateHealth(health, 100);
+        
         Debug.Log($"Player took {damage} damage. Current health: {health}");
 
         if(health <= 0) {

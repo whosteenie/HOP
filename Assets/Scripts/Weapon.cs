@@ -24,7 +24,9 @@ public class Weapon : MonoBehaviour
     [Header("Velocity Damage Scaling")]
     [SerializeField] private float minVelocityThreshold;
     [SerializeField] private float maxVelocityThreshold = 18f;
-    
+    [SerializeField] private float multiplierDecayRate = 2f;
+    [SerializeField] private float multiplierGracePeriod = 1.5f;
+
     [Header("Components")]
     public CinemachineCamera fpCamera;
     public FpController fpController;
@@ -45,12 +47,16 @@ public class Weapon : MonoBehaviour
     
     private float _lastFireTime;
     private float _reloadStartTime;
+    private float _currentDamageMultiplier = 1f;
+    private float _peakDamageMultiplier = 1f;
+    private float _lastPeakTime;
 
     #endregion
     
     #region Properties
 
     public bool IsReloading { get; private set; }
+    public float CurrentDamageMultiplier => _currentDamageMultiplier;
 
     #endregion
 
@@ -91,6 +97,8 @@ public class Weapon : MonoBehaviour
         if(IsReloading && Time.time >= _reloadStartTime + reloadTime) {
             CompleteReload();
         }
+        
+        UpdateDamageMultiplier();
     }
     
     #endregion
@@ -235,14 +243,38 @@ public class Weapon : MonoBehaviour
     }
     
     private float GetScaledDamage() {
-        if(fpController.velocity < minVelocityThreshold) {
-            return baseDamage;
+        return Mathf.Min(baseDamage * _currentDamageMultiplier, damageCap);
+    }
+    
+    private void UpdateDamageMultiplier() {
+        var currentVelocity = fpController.velocity;
+        float targetMultiplier;
+        
+        // Calculate target multiplier based on current velocity
+        if(currentVelocity < minVelocityThreshold) {
+            targetMultiplier = 1f;
+        } else {
+            var scaleFactor = Mathf.InverseLerp(minVelocityThreshold, maxVelocityThreshold, currentVelocity);
+            targetMultiplier = Mathf.Lerp(1f, maxDamageMultiplier, scaleFactor);
         }
         
-        var scaleFactor = Mathf.InverseLerp(minVelocityThreshold, maxVelocityThreshold, fpController.velocity);
-        var damageMultiplier = Mathf.Lerp(1f, maxDamageMultiplier, scaleFactor);
+        // If target is higher than current, jump to it immediately and start grace period
+        if(targetMultiplier > _currentDamageMultiplier) {
+            _currentDamageMultiplier = targetMultiplier;
+            _peakDamageMultiplier = targetMultiplier;
+            _lastPeakTime = Time.time;
+        }
+        // During grace period, hold at peak
+        else if(Time.time - _lastPeakTime < multiplierGracePeriod) {
+            _currentDamageMultiplier = _peakDamageMultiplier;
+        }
+        // After grace period, decay
+        else {
+            // Simple decay towards target
+            _currentDamageMultiplier = Mathf.MoveTowards(_currentDamageMultiplier, targetMultiplier, multiplierDecayRate * Time.deltaTime);
+        }
         
-        return Mathf.Min(baseDamage * damageMultiplier, damageCap);
+        _currentDamageMultiplier = Mathf.Clamp(_currentDamageMultiplier, 1f, maxDamageMultiplier);
     }
     
     #endregion
@@ -280,15 +312,13 @@ public class Weapon : MonoBehaviour
 
     private void PlayReloadEffects() {
         if(weaponAnimator) {
-            weaponAnimator.SetTrigger("Reload");
+            weaponAnimator.SetTrigger(ReloadHash);
         }
         
         SoundFXManager.Instance.PlayRandomSoundFX(reloadSounds, transform);
     }
     
     private IEnumerator SpawnTrail(TrailRenderer trail, Vector3 hitPoint, Vector3 hitNormal, bool madeImpact) {
-        // This has been updated from the video implementation to fix a commonly raised issue about the bullet trails
-        // moving slowly when hitting something close, and not
         var startPosition = trail.transform.position;
         var distance = Vector3.Distance(trail.transform.position, hitPoint);
         var remainingDistance = distance;

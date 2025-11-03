@@ -8,6 +8,7 @@ public class PauseMenuManager : MonoBehaviour {
     
     [SerializeField] private UIDocument uiDocument;
     [SerializeField] private FpController fpController;
+    [SerializeField] private WeaponManager weaponManager;
     [SerializeField] private AudioMixer audioMixer;
     
     #endregion
@@ -16,6 +17,12 @@ public class PauseMenuManager : MonoBehaviour {
     
     private VisualElement _pauseMenuPanel;
     private VisualElement _optionsPanel;
+    
+    // HUD elements
+    private ProgressBar _healthBar;
+    private Label _healthValue;
+    private ProgressBar _velocityBar;
+    private Label _velocityValue;
 
     // Audio sliders
     private Slider _masterVolumeSlider;
@@ -48,6 +55,9 @@ public class PauseMenuManager : MonoBehaviour {
 
     #endregion
     
+    private const float MinVelocityThreshold = FpController.SprintSpeed;
+    private const float MaxVelocityThreshold = 18f;
+    
     #region Unity Lifecycle
     
     private void OnEnable() {
@@ -56,6 +66,12 @@ public class PauseMenuManager : MonoBehaviour {
         // Get panels
         _pauseMenuPanel = root.Q<VisualElement>("pause-menu-panel");
         _optionsPanel = root.Q<VisualElement>("options-panel");
+        
+        // Get HUD elements
+        _healthBar = root.Q<ProgressBar>("health-bar");
+        _healthValue = root.Q<Label>("health-value");
+        _velocityBar = root.Q<ProgressBar>("velocity-bar");
+        _velocityValue = root.Q<Label>("velocity-value");
         
         // Setup main menu buttons
         root.Q<Button>("resume-button").clicked += ResumeGame;
@@ -95,6 +111,24 @@ public class PauseMenuManager : MonoBehaviour {
         // Hide menu initially
         _pauseMenuPanel.AddToClassList("hidden");
         _optionsPanel.AddToClassList("hidden");
+    }
+
+    private void Update() {
+        UpdateVelocityBar();
+    }
+
+    private void UpdateVelocityBar() {
+        var weapon = weaponManager.CurrentWeapon;
+        
+        var progress = Mathf.InverseLerp(1f, weapon.maxDamageMultiplier, weapon.CurrentDamageMultiplier);
+        _velocityBar.value = progress * 100f;
+        _velocityValue.text = $"{weapon.CurrentDamageMultiplier:F2}x";
+    }
+
+    public void UpdateHealthBar() {
+        var healthPercent = (fpController.CurrentHealth / 100f) * 100f;
+        _healthBar.value = healthPercent;
+        _healthValue.text = fpController.CurrentHealth.ToString();
     }
     
     public void TogglePause() {

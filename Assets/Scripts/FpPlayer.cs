@@ -41,7 +41,7 @@ public class Player : MonoBehaviour
         Cursor.visible = false;
         Cursor.lockState = CursorLockMode.Locked;
 
-        currentWeaponIndex = weaponManager.currentWeapon;
+        currentWeaponIndex = weaponManager.currentWeaponIndex;
         currentWeaponModel = fpCamera.transform.GetChild(currentWeaponIndex).gameObject;
     }
 
@@ -151,7 +151,7 @@ public class Player : MonoBehaviour
     private void SwitchWeapon(int weaponIndex) {
         currentWeaponModel.SetActive(false);
         currentWeaponIndex = weaponIndex;
-        weaponManager.currentWeapon = weaponIndex;
+        weaponManager.currentWeaponIndex = weaponIndex;
         currentWeaponModel = fpCamera.transform.GetChild(currentWeaponIndex).gameObject;
         currentWeaponModel.SetActive(true);
     }
