@@ -1693,8 +1693,7 @@ MonoBehaviour:
   fpCamera: {fileID: 1629083763}
   characterController: {fileID: 206661221}
   characterAnimator: {fileID: 1336626559}
-  hudManager: {fileID: 264648590}
-  weaponManager: {fileID: 206661224}
+  hudManager: {fileID: 0}
   health: 100
   velocity: 0
   moveInput: {x: 0, y: 0}

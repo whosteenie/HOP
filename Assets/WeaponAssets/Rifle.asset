@@ -29,3 +29,4 @@ MonoBehaviour:
   reloadSounds:
   - {fileID: 8300000, guid: f9ff77ddbf838464e95ed2fedbf28d34, type: 3}
   bulletTrail: {fileID: 328621789431213768, guid: 4b92d630cd66e7a45a83060b816bdbbe, type: 3}
+  bulletImpact: {fileID: 19800002, guid: 00fedc70b62a31e448e8ccc298257b56, type: 3}

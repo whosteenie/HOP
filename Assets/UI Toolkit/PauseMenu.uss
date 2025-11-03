@@ -133,13 +133,13 @@
 }
 
 .crosshair-line.horizontal {
-    width: 20px;
+    width: 16px;
     height: 2px;
 }
 
 .crosshair-line.vertical {
     width: 2px;
-    height: 20px;
+    height: 16px;
 }
 
 .hidden {

@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 using Unity.Cinemachine;
 
@@ -54,6 +55,7 @@ public class FpController : MonoBehaviour {
     [SerializeField] private CharacterController characterController;
     [SerializeField] private Animator characterAnimator;
     [SerializeField] private HUDManager hudManager;
+    [SerializeField] private WeaponManager weaponManager;
 
     [Header("Player Fields")]
     [SerializeField] private int health = 100;

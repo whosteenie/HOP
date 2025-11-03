@@ -29,4 +29,5 @@ public class WeaponData : ScriptableObject {
     
     [Header("Visuals")]
     public TrailRenderer bulletTrail;
+    public ParticleSystem bulletImpact;
 }

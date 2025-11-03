@@ -20,11 +20,12 @@ public class Weapon : MonoBehaviour
     public AudioClip[] reloadSounds;
     public AudioClip[] dryFireSounds;
     public TrailRenderer bulletTrail;
+    public ParticleSystem bulletImpact;
     
     [Header("Velocity Damage Scaling")]
     [SerializeField] private float minVelocityThreshold;
     [SerializeField] private float maxVelocityThreshold = 18f;
-    [SerializeField] private float multiplierDecayRate = 2f;
+    [SerializeField] private float multiplierDecayRate = 1.5f;
     [SerializeField] private float multiplierGracePeriod = 1.5f;
 
     [Header("Components")]
@@ -40,7 +41,6 @@ public class Weapon : MonoBehaviour
     [SerializeField] private GameObject weaponMuzzle;
     [SerializeField] private VisualEffect muzzleFlashEffect;
     [SerializeField] private GameObject muzzleLight;
-    [SerializeField] private ParticleSystem impactParticleSystem;
     [SerializeField] private float bulletSpeed = 100f;
 
     #region Private Fields
@@ -50,6 +50,7 @@ public class Weapon : MonoBehaviour
     private float _currentDamageMultiplier = 1f;
     private float _peakDamageMultiplier = 1f;
     private float _lastPeakTime;
+    private float _graceEndTime;
 
     #endregion
     
@@ -126,6 +127,7 @@ public class Weapon : MonoBehaviour
         reloadSounds = data.reloadSounds;
         
         bulletTrail = data.bulletTrail;
+        bulletImpact = data.bulletImpact;
     }
 
     private void FindWeaponComponents() {
@@ -333,7 +335,7 @@ public class Weapon : MonoBehaviour
         
         trail.transform.position = hitPoint;
         if (madeImpact) {
-            // Instantiate(impactParticleSystem, hitPoint, Quaternion.LookRotation(hitNormal));
+            // Instantiate(bulletImpact, hitPoint, Quaternion.LookRotation(hitNormal));
         }
 
         Destroy(trail.gameObject, trail.time);
