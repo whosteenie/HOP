@@ -1,0 +1,85 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" editor-extension-mode="False">
+    <Style src="project://database/Assets/UI%20Toolkit/PauseMenu.uss?fileID=7433441132597879392&amp;guid=0324e620d56fe7a479630addfc0f4608&amp;type=3#PauseMenu" />
+    <ui:VisualElement name="hud-container" class="hud">
+        <ui:VisualElement name="health-container" class="health-container" style="position: absolute; top: auto; left: 30px; bottom: 30px;">
+            <ui:ProgressBar name="health-bar" low-value="0" high-value="100" value="100" class="health-bar" />
+            <ui:Label name="health-value" text="100" class="health-value" />
+        </ui:VisualElement>
+        <ui:VisualElement name="ammo-container" class="ammo-container" style="position: absolute; top: auto; left: auto; right: 30px; bottom: 30px;">
+            <ui:Label name="ammo-current" text="30" class="ammo-text" />
+            <ui:Label text="/" name="ammo-slash" class="ammo-slash" />
+            <ui:Label name="ammo-total" text="30" class="ammo-text" />
+        </ui:VisualElement>
+        <ui:VisualElement name="crosshair" class="crosshair" style="top: 0; left: 0; right: 0; bottom: 0;">
+            <ui:VisualElement class="crosshair-line horizontal" />
+            <ui:VisualElement class="crosshair-line vertical" />
+        </ui:VisualElement>
+    </ui:VisualElement>
+    <ui:VisualElement name="pause-menu-panel" class="panel hidden">
+        <ui:VisualElement class="menu-container">
+            <ui:Label text="PAUSED" class="title" />
+            <ui:Button text="Resume" name="resume-button" class="menu-button" />
+            <ui:Button text="Options" name="options-button" class="menu-button" />
+            <ui:Button text="Quit to Menu" name="quit-button" class="menu-button" />
+        </ui:VisualElement>
+    </ui:VisualElement>
+    <ui:VisualElement name="options-panel" class="panel hidden">
+        <ui:VisualElement class="options-container">
+            <ui:Label text="OPTIONS" class="title" />
+            <ui:VisualElement class="section">
+                <ui:Label text="Audio" class="section-title" />
+                <ui:VisualElement class="setting-row">
+                    <ui:Label text="Master Volume" class="setting-label" />
+                    <ui:Slider name="master-volume" low-value="0" high-value="1" class="setting-slider" />
+                    <ui:Label name="master-volume-value" text="100%" class="value-label" />
+                </ui:VisualElement>
+                <ui:VisualElement class="setting-row">
+                    <ui:Label text="Music Volume" class="setting-label" />
+                    <ui:Slider name="music-volume" low-value="0" high-value="1" class="setting-slider" />
+                    <ui:Label name="music-volume-value" text="100%" class="value-label" />
+                </ui:VisualElement>
+                <ui:VisualElement class="setting-row">
+                    <ui:Label text="SFX Volume" class="setting-label" />
+                    <ui:Slider name="sfx-volume" low-value="0" high-value="1" class="setting-slider" />
+                    <ui:Label name="sfx-volume-value" text="100%" class="value-label" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+            <ui:VisualElement class="section">
+                <ui:Label text="Controls" class="section-title" />
+                <ui:VisualElement class="setting-row">
+                    <ui:Label text="Mouse Sensitivity X" class="setting-label" />
+                    <ui:Slider name="sensitivity-x" low-value="0.05" high-value="0.5" class="setting-slider" />
+                    <ui:Label name="sensitivity-x-value" text="0.10" class="value-label" />
+                </ui:VisualElement>
+                <ui:VisualElement class="setting-row">
+                    <ui:Label text="Mouse Sensitivity Y" class="setting-label" />
+                    <ui:Slider name="sensitivity-y" low-value="0.05" high-value="0.5" class="setting-slider" />
+                    <ui:Label name="sensitivity-y-value" text="0.10" class="value-label" />
+                </ui:VisualElement>
+                <ui:VisualElement class="setting-row">
+                    <ui:Label text="Invert Y Axis" class="setting-label" />
+                    <ui:Toggle name="invert-y" class="setting-toggle" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+            <ui:VisualElement class="section">
+                <ui:Label text="Graphics" class="section-title" />
+                <ui:VisualElement class="setting-row">
+                    <ui:Label text="Quality Level" class="setting-label" />
+                    <ui:DropdownField name="quality-level" class="setting-dropdown" />
+                </ui:VisualElement>
+                <ui:VisualElement class="setting-row">
+                    <ui:Label text="VSync" class="setting-label" />
+                    <ui:Toggle name="vsync" class="setting-toggle" />
+                </ui:VisualElement>
+                <ui:VisualElement class="setting-row">
+                    <ui:Label text="Target FPS" class="setting-label" />
+                    <ui:DropdownField name="target-fps" class="setting-dropdown" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+            <ui:VisualElement class="button-row">
+                <ui:Button text="Apply" name="apply-button" class="menu-button" />
+                <ui:Button text="Back" name="back-button" class="menu-button" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

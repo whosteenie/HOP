@@ -1,0 +1,27 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 50d8dbcb146dde54895dd61c404ddb7e, type: 3}
+  m_Name: Grapple
+  m_EditorClassIdentifier: Assembly-CSharp::WeaponData
+  name: Grapple
+  magSize: 2
+  currentAmmo: 2
+  baseDamage: 0
+  maxDamageMultiplier: 0
+  damageCap: 0
+  fireRate: 0.5
+  fireMode: Semi
+  bulletSpread: 0
+  reloadTime: 15
+  fireSounds: []
+  dryFireSounds: []
+  reloadSounds: []

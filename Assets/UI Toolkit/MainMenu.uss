@@ -1,0 +1,62 @@
+/* Reuse shared styles from PauseMenu.uss (recommended) */
+/* Or paste these if you want a standalone file */
+
+/* Utility */
+.hidden { display: none; }
+
+/* Panel */
+.panel {
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    align-items: center;
+    justify-content: center;
+    background-color: rgba(0, 0, 0, 0.8);
+}
+
+/* Container */
+.menu-container {
+    width: 400px;
+    padding: 40px;
+    background-color: rgba(20, 20, 20, 0.95);
+    border-radius: 10px;
+    border-width: 2px;
+    border-color: rgba(255, 255, 255, 0.2);
+    flex-direction: column;
+    align-items: stretch;
+}
+
+/* Title */
+.title {
+    font-size: 36px;
+    -unity-font-style: bold;
+    color: white;
+    margin-bottom: 40px;
+    -unity-text-align: middle-center;
+    letter-spacing: 3px;
+}
+
+/* Buttons */
+.menu-button {
+    height: 50px;
+    margin-top: 12px;
+    background-color: rgba(60, 60, 60, 0.8);
+    color: white;
+    font-size: 16px;
+    border-radius: 5px;
+    border-width: 1px;
+    border-color: rgba(255, 255, 255, 0.2);
+    transition-duration: 0.2s;
+    -unity-text-align: middle-center;
+}
+
+.menu-button:hover {
+    background-color: rgba(200, 60, 60, 0.8);   /* Red hover */
+    border-color: rgba(255, 80, 80, 0.6);
+    scale: 1.02;
+}
+
+.menu-button:active {
+    background-color: rgba(160, 40, 40, 0.8);   /* Deeper red */
+    scale: 0.98;
+}

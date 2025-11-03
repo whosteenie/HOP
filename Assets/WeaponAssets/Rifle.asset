@@ -1,0 +1,31 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 50d8dbcb146dde54895dd61c404ddb7e, type: 3}
+  m_Name: Rifle
+  m_EditorClassIdentifier: Assembly-CSharp::WeaponData
+  name: AK74
+  magSize: 30
+  currentAmmo: 30
+  baseDamage: 35
+  maxDamageMultiplier: 3
+  damageCap: 100
+  fireRate: 0.15
+  fireMode: Full
+  bulletSpread: 2
+  reloadTime: 1
+  fireSounds:
+  - {fileID: 8300000, guid: c745ca072384bd84390c1e8475f3fb74, type: 3}
+  dryFireSounds:
+  - {fileID: 8300000, guid: 689d3a5755a92e64798a6e108f7fa0cb, type: 3}
+  reloadSounds:
+  - {fileID: 8300000, guid: f9ff77ddbf838464e95ed2fedbf28d34, type: 3}
+  bulletTrail: {fileID: 328621789431213768, guid: 4b92d630cd66e7a45a83060b816bdbbe, type: 3}

@@ -1,0 +1,12 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" editor-extension-mode="false">
+    <Style src="project://database/Assets/MainMenu.uss?fileID=7433441132597879392&amp;guid=732b4497aa87f4344abd71219c4ce05a&amp;type=3#MainMenu" />
+    <ui:VisualElement name="main-menu-root" class="panel">
+        <ui:VisualElement class="menu-container">
+            <ui:Label text="DIH: THE GAME" class="title" />
+            <ui:Button text="Play" name="play-button" class="menu-button" />
+            <ui:Button text="Options" name="options-button" class="menu-button" />
+            <ui:Button text="Credits" name="credits-button" class="menu-button" />
+            <ui:Button text="Quit" name="quit-button" class="menu-button" />
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>
