@@ -5,6 +5,8 @@ using UnityEngine.Serialization;
 
 public class Player : MonoBehaviour
 {
+    #region Serialized Fields
+    
     [Header("Components")]
     [SerializeField] private FpController fpController;
     [SerializeField] private CinemachineCamera fpCamera;
@@ -15,11 +17,16 @@ public class Player : MonoBehaviour
     [SerializeField] private bool toggleSprint;
     [SerializeField] private bool toggleCrouch;
     
-    [FormerlySerializedAs("currentWeapon")]
-    [Header("Private Fields")]
-    [SerializeField] private int currentWeaponIndex;
-    [SerializeField] private GameObject currentWeaponModel;
-    public bool isShooting;
+    
+    #endregion
+    
+    #region Private Fields
+    
+    private int _currentWeaponIndex;
+    private Weapon _currentWeapon;
+    private GameObject _currentWeaponModel;
+    
+    #endregion
     
     #region Unity Methods
 
@@ -41,19 +48,19 @@ public class Player : MonoBehaviour
         Cursor.visible = false;
         Cursor.lockState = CursorLockMode.Locked;
 
-        currentWeaponIndex = weaponManager.currentWeaponIndex;
-        currentWeaponModel = fpCamera.transform.GetChild(currentWeaponIndex).gameObject;
+        _currentWeaponIndex = weaponManager.currentWeaponIndex;
+        _currentWeapon = weaponManager.CurrentWeapon;
+        _currentWeaponModel = fpCamera.transform.GetChild(_currentWeaponIndex).gameObject;
     }
 
     private void LateUpdate() {
-        isShooting = Mouse.current.leftButton.isPressed;
-        if(isShooting && !pauseMenuManager.IsPaused && weaponManager.equippedWeapons[currentWeaponIndex].fireMode == "Full") {
-            weaponManager.equippedWeapons[currentWeaponIndex].Shoot();
+        if(Mouse.current.leftButton.isPressed && _currentWeapon.fireMode == "Full" && !pauseMenuManager.IsPaused) {
+            _currentWeapon.Shoot();
         }
     }
     #endregion
     
-    #region Input Handling
+    #region Movement
 
     private void OnLook(InputValue value) {
         if(pauseMenuManager.IsPaused) {
@@ -114,12 +121,16 @@ public class Player : MonoBehaviour
         
         fpController.TryJump();
     }
+    
+    #endregion
+    
+    #region Weapons
 
     private void OnPrimary(InputValue value) {
-        if(pauseMenuManager.IsPaused || currentWeaponIndex == 0) return;
+        if(pauseMenuManager.IsPaused || _currentWeaponIndex == 0) return;
         
-        if(weaponManager.equippedWeapons[currentWeaponIndex].IsReloading) {
-            weaponManager.equippedWeapons[currentWeaponIndex].CancelReload();
+        if(weaponManager.equippedWeapons[_currentWeaponIndex].IsReloading) {
+            weaponManager.equippedWeapons[_currentWeaponIndex].CancelReload();
         }
         
         SwitchWeapon(0);
@@ -127,10 +138,10 @@ public class Player : MonoBehaviour
     }
     
     private void OnSecondary(InputValue value) {
-        if(pauseMenuManager.IsPaused || currentWeaponIndex == 1) return;
+        if(pauseMenuManager.IsPaused || _currentWeaponIndex == 1) return;
 
-        if(weaponManager.equippedWeapons[currentWeaponIndex].IsReloading) {
-            weaponManager.equippedWeapons[currentWeaponIndex].CancelReload();
+        if(weaponManager.equippedWeapons[_currentWeaponIndex].IsReloading) {
+            weaponManager.equippedWeapons[_currentWeaponIndex].CancelReload();
         }
         
         SwitchWeapon(1);
@@ -138,10 +149,10 @@ public class Player : MonoBehaviour
     }
     
     private void OnTertiary(InputValue value) {
-        if(pauseMenuManager.IsPaused || currentWeaponIndex == 2) return;
+        if(pauseMenuManager.IsPaused || _currentWeaponIndex == 2) return;
         
-        if(weaponManager.equippedWeapons[currentWeaponIndex].IsReloading) {
-            weaponManager.equippedWeapons[currentWeaponIndex].CancelReload();
+        if(weaponManager.equippedWeapons[_currentWeaponIndex].IsReloading) {
+            weaponManager.equippedWeapons[_currentWeaponIndex].CancelReload();
         }
         
         SwitchWeapon(2);
@@ -149,11 +160,11 @@ public class Player : MonoBehaviour
     }
     
     private void SwitchWeapon(int weaponIndex) {
-        currentWeaponModel.SetActive(false);
-        currentWeaponIndex = weaponIndex;
+        _currentWeaponModel.SetActive(false);
+        _currentWeaponIndex = weaponIndex;
         weaponManager.currentWeaponIndex = weaponIndex;
-        currentWeaponModel = fpCamera.transform.GetChild(currentWeaponIndex).gameObject;
-        currentWeaponModel.SetActive(true);
+        _currentWeaponModel = fpCamera.transform.GetChild(_currentWeaponIndex).gameObject;
+        _currentWeaponModel.SetActive(true);
     }
 
     private void OnAttack(InputValue value) {
@@ -165,8 +176,12 @@ public class Player : MonoBehaviour
     private void OnReload(InputValue value) {
         if(pauseMenuManager.IsPaused) return;
         
-        weaponManager.equippedWeapons[currentWeaponIndex].StartReload();
+        weaponManager.equippedWeapons[_currentWeaponIndex].StartReload();
     }
+    
+    #endregion
+    
+    #region System
 
     private void OnPause(InputValue value) {
         pauseMenuManager.TogglePause();

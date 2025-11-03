@@ -4,6 +4,8 @@ using UnityEngine;
 public class WeaponData : ScriptableObject {
     [Header("Identity")]
     public new string name;
+    public GameObject prefab;
+    public int weaponSlot;
     
     [Header("Ammo")]
     public int magSize;

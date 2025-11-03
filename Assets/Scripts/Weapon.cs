@@ -1,6 +1,7 @@
 using System.Collections;
 using Unity.Cinemachine;
 using UnityEngine;
+using UnityEngine.Serialization;
 using UnityEngine.VFX;
 
 public class Weapon : MonoBehaviour
@@ -22,9 +23,9 @@ public class Weapon : MonoBehaviour
     public TrailRenderer bulletTrail;
     public ParticleSystem bulletImpact;
     
-    [Header("Velocity Damage Scaling")]
-    [SerializeField] private float minVelocityThreshold;
-    [SerializeField] private float maxVelocityThreshold = 18f;
+    [Header("Speed Damage Scaling")]
+    [SerializeField] private float minSpeedThreshold;
+    [SerializeField] private float maxSpeedThreshold = 18f;
     [SerializeField] private float multiplierDecayRate = 1.5f;
     [SerializeField] private float multiplierGracePeriod = 1.5f;
 
@@ -47,7 +48,6 @@ public class Weapon : MonoBehaviour
     
     private float _lastFireTime;
     private float _reloadStartTime;
-    private float _currentDamageMultiplier = 1f;
     private float _peakDamageMultiplier = 1f;
     private float _lastPeakTime;
     private float _graceEndTime;
@@ -57,7 +57,7 @@ public class Weapon : MonoBehaviour
     #region Properties
 
     public bool IsReloading { get; private set; }
-    public float CurrentDamageMultiplier => _currentDamageMultiplier;
+    public float CurrentDamageMultiplier { get; private set; } = 1f;
 
     #endregion
 
@@ -86,7 +86,7 @@ public class Weapon : MonoBehaviour
     private void Awake() {
         playerBodyLayer = LayerMask.GetMask("Masked");
         _lastFireTime = Time.time;
-        minVelocityThreshold = FpController.SprintSpeed;
+        minSpeedThreshold = FpController.SprintSpeed;
         hudManager = FindFirstObjectByType<HUDManager>();
     }
 
@@ -245,38 +245,38 @@ public class Weapon : MonoBehaviour
     }
     
     private float GetScaledDamage() {
-        return Mathf.Min(baseDamage * _currentDamageMultiplier, damageCap);
+        return Mathf.Min(baseDamage * CurrentDamageMultiplier, damageCap);
     }
     
     private void UpdateDamageMultiplier() {
-        var currentVelocity = fpController.velocity;
+        var currentSpeed = fpController.CurrentVelocity.magnitude;
         float targetMultiplier;
         
         // Calculate target multiplier based on current velocity
-        if(currentVelocity < minVelocityThreshold) {
+        if(currentSpeed < minSpeedThreshold) {
             targetMultiplier = 1f;
         } else {
-            var scaleFactor = Mathf.InverseLerp(minVelocityThreshold, maxVelocityThreshold, currentVelocity);
+            var scaleFactor = Mathf.InverseLerp(minSpeedThreshold, maxSpeedThreshold, currentSpeed);
             targetMultiplier = Mathf.Lerp(1f, maxDamageMultiplier, scaleFactor);
         }
         
         // If target is higher than current, jump to it immediately and start grace period
-        if(targetMultiplier > _currentDamageMultiplier) {
-            _currentDamageMultiplier = targetMultiplier;
+        if(targetMultiplier > CurrentDamageMultiplier) {
+            CurrentDamageMultiplier = targetMultiplier;
             _peakDamageMultiplier = targetMultiplier;
             _lastPeakTime = Time.time;
         }
         // During grace period, hold at peak
         else if(Time.time - _lastPeakTime < multiplierGracePeriod) {
-            _currentDamageMultiplier = _peakDamageMultiplier;
+            CurrentDamageMultiplier = _peakDamageMultiplier;
         }
         // After grace period, decay
         else {
             // Simple decay towards target
-            _currentDamageMultiplier = Mathf.MoveTowards(_currentDamageMultiplier, targetMultiplier, multiplierDecayRate * Time.deltaTime);
+            CurrentDamageMultiplier = Mathf.MoveTowards(CurrentDamageMultiplier, targetMultiplier, multiplierDecayRate * Time.deltaTime);
         }
         
-        _currentDamageMultiplier = Mathf.Clamp(_currentDamageMultiplier, 1f, maxDamageMultiplier);
+        CurrentDamageMultiplier = Mathf.Clamp(CurrentDamageMultiplier, 1f, maxDamageMultiplier);
     }
     
     #endregion

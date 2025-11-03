@@ -59,7 +59,7 @@ public class FpController : MonoBehaviour {
 
     [Header("Player Fields")]
     [SerializeField] private int health = 100;
-    [SerializeField] public float velocity;
+    [SerializeField] private float velocity;
     
     #endregion
     

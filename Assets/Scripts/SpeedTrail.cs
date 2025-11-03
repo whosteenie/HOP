@@ -16,7 +16,6 @@ public class SpeedTrail : MonoBehaviour
     
     [Header("References")]
     [SerializeField] private WeaponManager weaponManager;
-    [SerializeField] private Weapon weapon;
     [SerializeField] private SkinnedMeshRenderer playerMesh; // Your player's body mesh
     
     [Header("Afterimage Settings")]
@@ -43,14 +42,10 @@ public class SpeedTrail : MonoBehaviour
         {
             CreateGhost();
         }
-
-        weapon = weaponManager.CurrentWeapon;
     }
     
-    private void Update()
-    {
-        if(weapon == null || playerMesh == null) return;
-        
+    private void Update() {
+        var weapon = weaponManager.CurrentWeapon;
         var multiplier = weapon.CurrentDamageMultiplier;
         
         // Only spawn afterimages when above threshold
