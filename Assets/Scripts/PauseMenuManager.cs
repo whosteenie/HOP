@@ -201,6 +201,8 @@ public class PauseMenuManager : MonoBehaviour {
         _pauseMenuPanel.RemoveFromClassList("hidden");
         UnityEngine.Cursor.lockState = CursorLockMode.None;
         UnityEngine.Cursor.visible = true;
+        
+        fpController.moveInput = Vector2.zero;
     }
     
     private void ResumeGame() {

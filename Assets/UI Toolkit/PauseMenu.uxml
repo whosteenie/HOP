@@ -17,6 +17,7 @@
         <ui:VisualElement name="crosshair" class="crosshair" style="top: 0; left: 0; right: 0; bottom: 0;">
             <ui:VisualElement class="crosshair-line horizontal" />
             <ui:VisualElement class="crosshair-line vertical" />
+            <ui:VisualElement name="grapple-indicator" class="grapple-indicator" />
         </ui:VisualElement>
     </ui:VisualElement>
     <ui:VisualElement name="pause-menu-panel" class="panel hidden">

@@ -13,6 +13,8 @@ MonoBehaviour:
   m_Name: Pistol
   m_EditorClassIdentifier: Assembly-CSharp::WeaponData
   name: M1911
+  prefab: {fileID: 0}
+  weaponSlot: 1
   magSize: 16
   currentAmmo: 16
   baseDamage: 15
@@ -25,3 +27,5 @@ MonoBehaviour:
   fireSounds: []
   dryFireSounds: []
   reloadSounds: []
+  bulletTrail: {fileID: 0}
+  bulletImpact: {fileID: 0}

@@ -13,6 +13,8 @@ MonoBehaviour:
   m_Name: Grapple
   m_EditorClassIdentifier: Assembly-CSharp::WeaponData
   name: Grapple
+  prefab: {fileID: 0}
+  weaponSlot: 3
   magSize: 2
   currentAmmo: 2
   baseDamage: 0
@@ -25,3 +27,5 @@ MonoBehaviour:
   fireSounds: []
   dryFireSounds: []
   reloadSounds: []
+  bulletTrail: {fileID: 0}
+  bulletImpact: {fileID: 0}

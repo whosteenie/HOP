@@ -25,9 +25,9 @@ public class Weapon : MonoBehaviour
     
     [Header("Speed Damage Scaling")]
     [SerializeField] private float minSpeedThreshold;
-    [SerializeField] private float maxSpeedThreshold = 18f;
-    [SerializeField] private float multiplierDecayRate = 1.5f;
-    [SerializeField] private float multiplierGracePeriod = 1.5f;
+    [SerializeField] private float maxSpeedThreshold = 30f;
+    [SerializeField] private float multiplierDecayRate = 1.8f;
+    [SerializeField] private float multiplierGracePeriod = 1.25f;
 
     [Header("Components")]
     public CinemachineCamera fpCamera;
@@ -233,8 +233,10 @@ public class Weapon : MonoBehaviour
         } else {
             Debug.DrawRay(origin, forward * 500f, Color.red, 5f);
             
-            var trail = Instantiate(bulletTrail, weaponMuzzle.transform.position, Quaternion.identity);
-            StartCoroutine(SpawnTrail(trail, weaponMuzzle.transform.position + fpCamera.transform.forward * 100, Vector3.zero, false));
+            var trailEndPoint = weaponMuzzle.transform.position + forward * 100f;
+
+            var trail = Instantiate(bulletTrail, weaponMuzzle.transform.position, Quaternion.LookRotation(forward));
+            StartCoroutine(SpawnTrail(trail, trailEndPoint, Vector3.zero, false));
         }
         
         currentAmmo--;
@@ -249,7 +251,7 @@ public class Weapon : MonoBehaviour
     }
     
     private void UpdateDamageMultiplier() {
-        var currentSpeed = fpController.CurrentVelocity.magnitude;
+        var currentSpeed = fpController.CurrentFullVelocity.magnitude;
         float targetMultiplier;
         
         // Calculate target multiplier based on current velocity
@@ -261,9 +263,9 @@ public class Weapon : MonoBehaviour
         }
         
         // If target is higher than current, jump to it immediately and start grace period
-        if(targetMultiplier > CurrentDamageMultiplier) {
+        if(targetMultiplier >= CurrentDamageMultiplier) {
             CurrentDamageMultiplier = targetMultiplier;
-            _peakDamageMultiplier = targetMultiplier;
+            _peakDamageMultiplier = CurrentDamageMultiplier;
             _lastPeakTime = Time.time;
         }
         // During grace period, hold at peak

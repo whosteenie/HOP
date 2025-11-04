@@ -12,6 +12,7 @@ public class Player : MonoBehaviour
     [SerializeField] private CinemachineCamera fpCamera;
     [SerializeField] private WeaponManager weaponManager;
     [SerializeField] private PauseMenuManager pauseMenuManager;
+    [SerializeField] private GrappleController grappleController;
     
     [Header("Input Settings")]
     [SerializeField] private bool toggleSprint;
@@ -114,12 +115,31 @@ public class Player : MonoBehaviour
         if(pauseMenuManager.IsPaused) return;
         
         fpController.TryJump();
+        
+        if(grappleController.IsGrappling) {
+            grappleController.CancelGrapple();
+        }
     }
 
     private void OnScrollWheel(InputValue value) {
         if(pauseMenuManager.IsPaused) return;
         
         fpController.TryJump();
+        
+        if(grappleController.IsGrappling) {
+            grappleController.CancelGrapple();
+        }
+    }
+    
+    private void OnGrapple(InputValue value)
+    {
+        if(pauseMenuManager.IsPaused) return;
+
+        if(grappleController.IsGrappling) {
+            grappleController.CancelGrapple();
+        } else {
+            grappleController.TryGrapple();
+        }
     }
     
     #endregion

@@ -142,6 +142,20 @@
     height: 16px;
 }
 
+/* Grapple Indicator - Horseshoe Ring */
+.grapple-indicator {
+    position: absolute;
+    width: 50px;
+    height: 50px;
+    /*border-radius: 50%;*/
+    /*border-width: 3px;*/
+    /*border-color: rgba(0, 0, 0, 0.3);*/
+    /*background-color: transparent;*/
+
+    /* Clip the bottom to create horseshoe effect */
+    /* We'll handle this in code with a custom painter */
+}
+
 .hidden {
     display: none;
 }

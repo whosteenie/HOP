@@ -5,8 +5,9 @@ using Unity.Cinemachine;
 public class FpController : MonoBehaviour {
     #region Constants
     
-    private const float WalkSpeed = 3.5f;
-    public const float SprintSpeed = 8f;
+    private const float WalkSpeed = 5f;
+    public const float SprintSpeed = 10f;
+    private const float JumpHeight = 2f;
     private const float CrouchSpeed = 2.5f;
     private const float StandHeight = 1.7f;
     private const float CrouchHeight = 1.1f;
@@ -37,8 +38,7 @@ public class FpController : MonoBehaviour {
     [Header("Movement Parameters")]
     [SerializeField] private float acceleration = 15f;
     [SerializeField] private float airAcceleration = 50f;
-    [SerializeField] private float maxAirSpeed = 2f;
-    [SerializeField] private float jumpHeight = 2f;
+    [SerializeField] private float maxAirSpeed = 5f;
     [SerializeField] private float friction = 8f;
     
     [Header("Movement Audio Clips")]
@@ -56,6 +56,7 @@ public class FpController : MonoBehaviour {
     [SerializeField] private Animator characterAnimator;
     [SerializeField] private HUDManager hudManager;
     [SerializeField] private WeaponManager weaponManager;
+    [SerializeField] private GrappleController grappleController;
 
     [Header("Player Fields")]
     [SerializeField] private int health = 100;
@@ -87,6 +88,7 @@ public class FpController : MonoBehaviour {
     #region Private Properties
     
     public Vector3 CurrentVelocity { get; private set; }
+    public Vector3 CurrentFullVelocity => new(CurrentVelocity.x, _verticalVelocity, CurrentVelocity.z);
     
     public int CurrentHealth { get; private set; }
     private bool IsGrounded => characterController.isGrounded;
@@ -115,18 +117,21 @@ public class FpController : MonoBehaviour {
         UpdateAnimator();
         
         velocity = CurrentVelocity.magnitude;
+        if(transform.position.y <= 0f) {
+            TakeDamage(health);
+        }
     }
     
     #endregion
 
     #region Public Methods
     
-    public void TryJump() {
+    public void TryJump(float height = JumpHeight) {
         if(!IsGrounded) {
             return;
         }
 
-        var height = CheckForJumpPad() ? 10f : jumpHeight;
+        height = CheckForJumpPad() ? 15f : height;
         
         _verticalVelocity = Mathf.Sqrt(height * -2f * Physics.gravity.y * GravityScale);
         characterAnimator.SetTrigger(JumpTriggerHash);
@@ -151,8 +156,10 @@ public class FpController : MonoBehaviour {
 
     private void OnControllerColliderHit(ControllerColliderHit hit) {
         if(hit.gameObject.CompareTag("JumpPad")) {
-            TryJump();
+            TryJump(15f);
         }
+        
+        grappleController.CancelGrapple();
     }
     
     private bool CheckForJumpPad() {
@@ -346,6 +353,20 @@ public class FpController : MonoBehaviour {
 
     private void PlayRandomAudio(AudioClip[] clips) {
         SoundFXManager.Instance.PlayRandomSoundFX(clips, transform);
+    }
+    
+    #endregion
+    
+    #region Grapple Support Methods
+    
+    public void SetVelocity(Vector3 horizontalVelocity)
+    {
+        CurrentVelocity = new Vector3(horizontalVelocity.x, 0f, horizontalVelocity.z);
+    }
+    
+    public void AddVerticalVelocity(float verticalBoost)
+    {
+        _verticalVelocity += verticalBoost;
     }
     
     #endregion
