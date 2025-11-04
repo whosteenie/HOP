@@ -7,6 +7,8 @@ public class HUDManager : MonoBehaviour
 
     private ProgressBar _healthBar;
     private Label _healthValue;
+    private ProgressBar _multiplierBar;
+    private Label _multiplierValue;
     private Label _ammoCurrent;
     private Label _ammoTotal;
 
@@ -16,6 +18,8 @@ public class HUDManager : MonoBehaviour
 
         _healthBar = root.Q<ProgressBar>("health-bar");
         _healthValue = root.Q<Label>("health-value");
+        _multiplierBar = root.Q<ProgressBar>("multiplier-bar");
+        _multiplierValue = root.Q<Label>("multiplier-value");
         _ammoCurrent = root.Q<Label>("ammo-current");
         _ammoTotal = root.Q<Label>("ammo-total");
     }
@@ -26,6 +30,12 @@ public class HUDManager : MonoBehaviour
         var percent = (current / max) * 100f;
         _healthBar.value = percent;
         _healthValue.text = Mathf.CeilToInt(current).ToString();
+    }
+    
+    public void UpdateMultiplier(float current, float max) {
+        var percent = ((current - 1f) / (max - 1f)) * 100f;
+        _multiplierBar.value = percent;
+        _multiplierValue.text = current.ToString("0.00") + "x";
     }
 
     // Call from Weapon

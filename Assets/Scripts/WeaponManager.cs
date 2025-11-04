@@ -1,21 +1,28 @@
 using System.Collections.Generic;
+using Unity.Cinemachine;
+using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.Serialization;
 
-public class WeaponManager : MonoBehaviour {
+public class WeaponManager : NetworkBehaviour {
     public int currentWeaponIndex;
-    public List<Weapon> equippedWeapons;
+    private List<Weapon> _equippedWeapons;
     [SerializeField] private List<WeaponData> weaponDataList;
-    
-    public Weapon CurrentWeapon => equippedWeapons[currentWeaponIndex];
+
+    public Weapon CurrentWeapon => _equippedWeapons[currentWeaponIndex];
 
     private void Awake() {
-        equippedWeapons = new List<Weapon>();
+        _equippedWeapons = new List<Weapon>();
+    }
 
+    public void InitializeWeapons(CinemachineCamera cam, FpController controller, HUDManager hud) {
+        _equippedWeapons.Clear();
+        
         foreach(var data in weaponDataList) {
             var weapon = gameObject.AddComponent<Weapon>();
             weapon.Initialize(data);
-            equippedWeapons.Add(weapon);
+            weapon.BindAndResolve(cam, controller, this, hud);
+            _equippedWeapons.Add(weapon);
         }
     }
 }

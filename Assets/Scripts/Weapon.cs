@@ -1,10 +1,10 @@
 using System.Collections;
 using Unity.Cinemachine;
+using Unity.Netcode;
 using UnityEngine;
-using UnityEngine.Serialization;
 using UnityEngine.VFX;
 
-public class Weapon : MonoBehaviour
+public class Weapon : NetworkBehaviour
 {
     [Header("Weapon Data")]
     public string weaponName;
@@ -47,10 +47,10 @@ public class Weapon : MonoBehaviour
     #region Private Fields
     
     private float _lastFireTime;
-    private float _reloadStartTime;
     private float _peakDamageMultiplier = 1f;
     private float _lastPeakTime;
     private float _graceEndTime;
+    private Coroutine _reloadCoroutine;
 
     #endregion
     
@@ -81,25 +81,34 @@ public class Weapon : MonoBehaviour
         if(fpController == null) {
             fpController = GetComponent<FpController>();
         }
+
+        if(hudManager == null) {
+            hudManager = FindFirstObjectByType<HUDManager>();
+        }
     }
 
     private void Awake() {
         playerBodyLayer = LayerMask.GetMask("Masked");
         _lastFireTime = Time.time;
         minSpeedThreshold = FpController.SprintSpeed;
-        hudManager = FindFirstObjectByType<HUDManager>();
     }
 
-    private void Start() {
+    public void BindAndResolve(
+        CinemachineCamera cam,
+        FpController controller,
+        WeaponManager mgr,
+        HUDManager hud)
+    {
+        fpCamera = cam;
+        fpController = controller;
+        weaponManager = mgr;
+        hudManager = hud;
+        
         FindWeaponComponents();
     }
 
     private void Update() {
-        if(IsReloading && Time.time >= _reloadStartTime + reloadTime) {
-            CompleteReload();
-        }
-        
-        UpdateDamageMultiplier();
+        if(!IsOwner) return;
     }
     
     #endregion
@@ -130,6 +139,25 @@ public class Weapon : MonoBehaviour
         bulletImpact = data.bulletImpact;
     }
 
+    private void FindWeaponComponentsDebug() {
+        weaponModel = fpCamera.transform.Find(weaponName)?.gameObject;
+        weaponAnimator = weaponManager.CurrentWeapon.GetComponent<Animator>();
+        weaponMuzzle = weaponManager.CurrentWeapon.transform.Find("Muzzle")?.gameObject;
+        if(weaponMuzzle != null) {
+            muzzleFlashEffect = weaponMuzzle.GetComponent<VisualEffect>();
+            muzzleLight = weaponMuzzle.transform.Find("MuzzleLight")?.gameObject;
+        } else {
+            Debug.LogWarning($"Muzzle not found on weapon '{weaponName}'!");
+        }
+
+        if(muzzleLight != null) {
+            muzzleLight.SetActive(false);
+        } else {
+            Debug.LogWarning($"MuzzleLight not found on weapon '{weaponName}'!");
+        }
+
+    }
+    
     private void FindWeaponComponents() {
         if(weaponModel == null) {
             weaponModel = fpCamera.transform.Find(weaponName)?.gameObject;
@@ -168,7 +196,7 @@ public class Weapon : MonoBehaviour
     #endregion
     
     #region Public Methods
-    
+
     public void Shoot() {
         if(!CanFire()) {
             HandleCannotFire();
@@ -178,7 +206,7 @@ public class Weapon : MonoBehaviour
         PerformShot();
         PlayFireEffects();
     }
-    
+
     public void StartReload() {
         if(!CanReload()) {
             Debug.Log($"Cannot reload! - Ammo: {currentAmmo}/{magSize}");
@@ -186,23 +214,25 @@ public class Weapon : MonoBehaviour
         }
         
         IsReloading = true;
-        _reloadStartTime = Time.time;
+        weaponAnimator.SetTrigger(ReloadHash);
+        _reloadCoroutine = StartCoroutine(ReloadCoroutine());
+    }
 
-        if(weaponAnimator) {
-            weaponAnimator.SetTrigger(ReloadHash);
-        }
-        
+    private IEnumerator ReloadCoroutine() {
         PlayReloadEffects();
         
-        Debug.Log($"Reloading {weaponName}... ({reloadTime}s)");
+        yield return new WaitForSeconds(reloadTime);
+        
+        CompleteReload();
     }
     
     public void CancelReload() {
         if(!IsReloading) return;
         
         IsReloading = false;
+        _reloadCoroutine = null;
     }
-    
+
     #endregion
     
     #region Private Methods - Shooting
@@ -212,10 +242,10 @@ public class Weapon : MonoBehaviour
     }
 
     private void HandleCannotFire() {
-        if(!(Time.time >= _lastFireTime + fireRate) || currentAmmo != 0 || IsReloading) return;
+        if(Time.time < _lastFireTime + fireRate || _reloadCoroutine != null || currentAmmo != 0 || IsReloading) return;
         
-        PlayDryFireSound();
         _lastFireTime = Time.time;
+        PlayDryFireSound();
     }
     
     private void PerformShot() {
@@ -250,7 +280,7 @@ public class Weapon : MonoBehaviour
         return Mathf.Min(baseDamage * CurrentDamageMultiplier, damageCap);
     }
     
-    private void UpdateDamageMultiplier() {
+    public void UpdateDamageMultiplier() {
         var currentSpeed = fpController.CurrentFullVelocity.magnitude;
         float targetMultiplier;
         
@@ -294,6 +324,8 @@ public class Weapon : MonoBehaviour
         IsReloading = false;
         
         hudManager.UpdateAmmo(currentAmmo, magSize);
+        _reloadCoroutine = null;
+        Debug.Log($"{weaponName} reloaded! - Ammo: {currentAmmo}/{magSize}");
     }
     
     #endregion

@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Audio;
@@ -7,8 +8,6 @@ public class PauseMenuManager : MonoBehaviour {
     #region Serialized Fields
     
     [SerializeField] private UIDocument uiDocument;
-    [SerializeField] private FpController fpController;
-    [SerializeField] private WeaponManager weaponManager;
     [SerializeField] private AudioMixer audioMixer;
     
     #endregion
@@ -17,12 +16,7 @@ public class PauseMenuManager : MonoBehaviour {
     
     private VisualElement _pauseMenuPanel;
     private VisualElement _optionsPanel;
-    
-    // HUD elements
-    private ProgressBar _healthBar;
-    private Label _healthValue;
-    private ProgressBar _velocityBar;
-    private Label _velocityValue;
+    private FpController _localController;
 
     // Audio sliders
     private Slider _masterVolumeSlider;
@@ -49,14 +43,8 @@ public class PauseMenuManager : MonoBehaviour {
     #region Properties
     
     public bool IsPaused { get; private set; }
-    public float MasterVolume => _masterVolumeSlider.value;
-    public float MusicVolume => _musicVolumeSlider.value;
-    public float SfxVolume => _sfxVolumeSlider.value;
 
     #endregion
-    
-    private const float MinVelocityThreshold = FpController.SprintSpeed;
-    private const float MaxVelocityThreshold = 18f;
     
     #region Unity Lifecycle
     
@@ -66,12 +54,6 @@ public class PauseMenuManager : MonoBehaviour {
         // Get panels
         _pauseMenuPanel = root.Q<VisualElement>("pause-menu-panel");
         _optionsPanel = root.Q<VisualElement>("options-panel");
-        
-        // Get HUD elements
-        _healthBar = root.Q<ProgressBar>("health-bar");
-        _healthValue = root.Q<Label>("health-value");
-        _velocityBar = root.Q<ProgressBar>("velocity-bar");
-        _velocityValue = root.Q<Label>("velocity-value");
         
         // Setup main menu buttons
         root.Q<Button>("resume-button").clicked += ResumeGame;
@@ -113,24 +95,6 @@ public class PauseMenuManager : MonoBehaviour {
         _optionsPanel.AddToClassList("hidden");
     }
 
-    private void Update() {
-        UpdateVelocityBar();
-    }
-
-    private void UpdateVelocityBar() {
-        var weapon = weaponManager.CurrentWeapon;
-        
-        var progress = Mathf.InverseLerp(1f, weapon.maxDamageMultiplier, weapon.CurrentDamageMultiplier);
-        _velocityBar.value = progress * 100f;
-        _velocityValue.text = $"{weapon.CurrentDamageMultiplier:F2}x";
-    }
-
-    public void UpdateHealthBar() {
-        var healthPercent = (fpController.CurrentHealth / 100f) * 100f;
-        _healthBar.value = healthPercent;
-        _healthValue.text = fpController.CurrentHealth.ToString();
-    }
-    
     public void TogglePause() {
         if (IsPaused) {
             if (!_optionsPanel.ClassListContains("hidden")) {
@@ -201,8 +165,17 @@ public class PauseMenuManager : MonoBehaviour {
         _pauseMenuPanel.RemoveFromClassList("hidden");
         UnityEngine.Cursor.lockState = CursorLockMode.None;
         UnityEngine.Cursor.visible = true;
-        
-        fpController.moveInput = Vector2.zero;
+
+        if(_localController != null) {
+            var allControllers = FindObjectsByType<FpController>(FindObjectsSortMode.None);
+            foreach(var controller in allControllers) {
+                if(controller.IsOwner) {
+                    _localController = controller.GetComponent<FpController>();
+                    _localController.moveInput = Vector2.zero;
+                    break;
+                }
+            }
+        }
     }
     
     private void ResumeGame() {
@@ -214,6 +187,7 @@ public class PauseMenuManager : MonoBehaviour {
     }
     
     private void ShowOptions() {
+        LoadSettings();
         _pauseMenuPanel.AddToClassList("hidden");
         _optionsPanel.RemoveFromClassList("hidden");
     }
@@ -223,9 +197,8 @@ public class PauseMenuManager : MonoBehaviour {
         _pauseMenuPanel.RemoveFromClassList("hidden");
     }
     
-    private void QuitToMenu() {
+    private static void QuitToMenu() {
         UnityEngine.SceneManagement.SceneManager.LoadScene("MainMenu");
-        Debug.Log("Quit to Main Menu");
     }
     
     #endregion
@@ -283,15 +256,14 @@ public class PauseMenuManager : MonoBehaviour {
     
     private void ApplySettingsInternal() {
         // Apply audio
-        // AudioListener.volume = _masterVolumeSlider.value;
         audioMixer.SetFloat("masterVolume", LinearToDb(_masterVolumeSlider.value));
         audioMixer.SetFloat("musicVolume", LinearToDb(_musicVolumeSlider.value));
         audioMixer.SetFloat("soundFXVolume", LinearToDb(_sfxVolumeSlider.value));
         
         // Apply sensitivity to player controller
-        if (fpController != null) {
+        if (_localController != null) {
             var invertMultiplier = _invertYToggle.value ? -1f : 1f;
-            fpController.lookSensitivity = new Vector2(
+            _localController.lookSensitivity = new Vector2(
                 _sensitivityXSlider.value,
                 _sensitivityYSlider.value * invertMultiplier
             );

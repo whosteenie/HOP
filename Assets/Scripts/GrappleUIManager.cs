@@ -1,3 +1,5 @@
+using Unity.Cinemachine;
+using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -5,8 +7,8 @@ public class GrappleUIManager : MonoBehaviour
 {
     [Header("References")]
     [SerializeField] private UIDocument uiDocument;
-    [SerializeField] private GrappleController grappleController;
-    [SerializeField] private Camera fpCamera;
+    // [SerializeField] private GrappleController grappleController;
+    // [SerializeField] private CinemachineCamera fpCamera;
     
     [Header("Settings")]
     [SerializeField] private float maxGrappleDistance = 50f;
@@ -22,13 +24,34 @@ public class GrappleUIManager : MonoBehaviour
     private VisualElement[] _segments;
     private bool _isLookingAtGrapplePoint;
     private Color _currentColor;
+    private GrappleController _grappleController;
+    private CinemachineCamera _fpCamera;
     
     private void OnEnable()
     {
+        FindLocalPlayerGrappleController();
+
         var root = uiDocument.rootVisualElement;
         _grappleIndicator = root.Q<VisualElement>("grapple-indicator");
         
+        _currentColor = cooldownColor;
         CreateHorseshoeSegments();
+    }
+    
+    private void FindLocalPlayerGrappleController()
+    {
+        var allGrappleControllers = FindObjectsByType<GrappleController>(FindObjectsSortMode.None);
+        foreach(var controller in allGrappleControllers) {
+            if(controller.IsOwner) {
+                _grappleController = controller;
+                _fpCamera = controller.GetComponentInChildren<CinemachineCamera>();
+                return;
+            }
+        }
+
+        if(_grappleController == null) {
+            Invoke(nameof(FindLocalPlayerGrappleController), 0.1f);
+        }
     }
     
     private void CreateHorseshoeSegments()
@@ -86,21 +109,22 @@ public class GrappleUIManager : MonoBehaviour
         }
     }
     
-    private void Update()
-    {
+    private void Update() {
+        if(_grappleController == null) return;
+        
         CheckGrapplePoint();
         UpdateIndicatorVisual();
     }
     
     private void CheckGrapplePoint()
     {
-        var ray = new Ray(fpCamera.transform.position, fpCamera.transform.forward);
+        var ray = new Ray(_fpCamera.transform.position, _fpCamera.transform.forward);
         _isLookingAtGrapplePoint = Physics.Raycast(ray, maxGrappleDistance, grappleableLayers);
     }
     
     private void UpdateIndicatorVisual()
     {
-        if(grappleController.IsGrappling) {
+        if(_grappleController.IsGrappling) {
             _grappleIndicator.style.opacity = 0f;
             return;
         }
@@ -111,10 +135,10 @@ public class GrappleUIManager : MonoBehaviour
         Color targetColor;
         float fillAmount;
         
-        if(!grappleController.CanGrapple) {
+        if(!_grappleController.CanGrapple) {
             // Cooldown - show progress
             targetColor = cooldownColor;
-            fillAmount = grappleController.CooldownProgress;
+            fillAmount = _grappleController.CooldownProgress;
         } else if(_isLookingAtGrapplePoint) {
             // Ready and targeting
             targetColor = readyColor;

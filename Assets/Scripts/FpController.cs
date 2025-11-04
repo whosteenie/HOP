@@ -1,8 +1,9 @@
 using System;
 using UnityEngine;
 using Unity.Cinemachine;
+using Unity.Netcode;
 
-public class FpController : MonoBehaviour {
+public class FpController : NetworkBehaviour {
     #region Constants
     
     private const float WalkSpeed = 5f;
@@ -54,13 +55,12 @@ public class FpController : MonoBehaviour {
     [SerializeField] private CinemachineCamera fpCamera;
     [SerializeField] private CharacterController characterController;
     [SerializeField] private Animator characterAnimator;
-    [SerializeField] private HUDManager hudManager;
+    // [SerializeField] private HUDManager hudManager;
     [SerializeField] private WeaponManager weaponManager;
     [SerializeField] private GrappleController grappleController;
 
     [Header("Player Fields")]
     [SerializeField] private int health = 100;
-    [SerializeField] private float velocity;
     
     #endregion
     
@@ -78,19 +78,20 @@ public class FpController : MonoBehaviour {
     private float _currentPitch;
     private float _maxSpeed = WalkSpeed;
     private float _verticalVelocity;
+    private Vector3 _horizontalVelocity;
     private bool _isJumping;
     private bool _isFalling;
     private bool _wasFalling;
     private float _crouchTransition;
+    private HUDManager _hudManager;
+    private CinemachineImpulseSource _impulseSource;
     
     #endregion
     
     #region Private Properties
     
-    public Vector3 CurrentVelocity { get; private set; }
-    public Vector3 CurrentFullVelocity => new(CurrentVelocity.x, _verticalVelocity, CurrentVelocity.z);
-    
-    public int CurrentHealth { get; private set; }
+    public Vector3 CurrentVelocity => _horizontalVelocity;
+    public Vector3 CurrentFullVelocity => new(_horizontalVelocity.x, _verticalVelocity, _horizontalVelocity.z);
     private bool IsGrounded => characterController.isGrounded;
     
     private float CurrentPitch {
@@ -109,14 +110,22 @@ public class FpController : MonoBehaviour {
         }
     }
 
+    private void Start() {
+        if(!IsOwner) return;
+
+        _hudManager = FindFirstObjectByType<HUDManager>();
+        _impulseSource = FindFirstObjectByType<CinemachineImpulseSource>();
+    }
+
     private void Update() {
+        if(!IsOwner) return;
+        
         HandleLook();
         HandleMovement();
         HandleCrouch();
         HandleLanding();
         UpdateAnimator();
         
-        velocity = CurrentVelocity.magnitude;
         if(transform.position.y <= 0f) {
             TakeDamage(health);
         }
@@ -198,7 +207,7 @@ public class FpController : MonoBehaviour {
             ApplyDirectionChange(motion);
             
             var targetVelocity = motion.sqrMagnitude >= 0.1f ? motion * _maxSpeed : Vector3.zero;
-            CurrentVelocity = Vector3.MoveTowards(CurrentVelocity, targetVelocity, acceleration * Time.deltaTime);
+            _horizontalVelocity = Vector3.MoveTowards(_horizontalVelocity, targetVelocity, acceleration * Time.deltaTime);
         } else {
             AirStrafe(motion);
         }
@@ -207,30 +216,30 @@ public class FpController : MonoBehaviour {
     private void ApplyFriction() {
         if(!(moveInput.sqrMagnitude < 0.01f)) return;
         
-        var speed = CurrentVelocity.magnitude;
+        var horizontalSpeed = _horizontalVelocity.magnitude;
             
-        if(!(speed > 0.1f)) return;
+        if(!(horizontalSpeed > 0.1f)) return;
             
-        var drop = speed * friction * Time.deltaTime;
-        CurrentVelocity *= Mathf.Max(speed - drop, 0f) / speed;
+        var drop = horizontalSpeed * friction * Time.deltaTime;
+        _horizontalVelocity *= Mathf.Max(horizontalSpeed - drop, 0f) / horizontalSpeed;
     }
 
     private void ApplyDirectionChange(Vector3 motion) {
-        if(!(CurrentVelocity.magnitude > 0.1f) || !(motion.magnitude > 0.1f)) return;
+        if(!(_horizontalVelocity.magnitude > 0.1f) || !(motion.magnitude > 0.1f)) return;
         
-        var angle = Vector3.Angle(CurrentVelocity, motion);
+        var angle = Vector3.Angle(_horizontalVelocity, motion);
 
         if(!(angle > 90f)) return;
         
         var normalizedAngle = Mathf.InverseLerp(90f, 180f, angle);
         var reduction = Mathf.Lerp(0.85f, 0.2f, normalizedAngle * normalizedAngle);
-        CurrentVelocity *= reduction;
+        _horizontalVelocity *= reduction;
     }
 
     private void AirStrafe(Vector3 wishDir) {
         if(moveInput.sqrMagnitude < 0.01f) return;
 
-        var currentSpeed = Vector3.Dot(CurrentVelocity, wishDir);
+        var currentSpeed = Vector3.Dot(_horizontalVelocity, wishDir);
         var addSpeed = maxAirSpeed - currentSpeed;
 
         if(addSpeed <= 0) return;
@@ -238,7 +247,7 @@ public class FpController : MonoBehaviour {
         var accelSpeed = airAcceleration * Time.deltaTime;
         accelSpeed = Mathf.Min(accelSpeed, addSpeed);
         
-        CurrentVelocity += wishDir * accelSpeed;
+        _horizontalVelocity += wishDir * accelSpeed;
     }
 
     private void ApplyGravity() {
@@ -250,7 +259,7 @@ public class FpController : MonoBehaviour {
     }
 
     private void MoveCharacter() {
-        var fullVelocity = new Vector3(CurrentVelocity.x, _verticalVelocity, CurrentVelocity.z);
+        var fullVelocity = new Vector3(_horizontalVelocity.x, _verticalVelocity, _horizontalVelocity.z);
         characterController.Move(fullVelocity * Time.deltaTime);
     }
     
@@ -300,8 +309,8 @@ public class FpController : MonoBehaviour {
     
     public void TakeDamage(int damage) {
         health = Mathf.Max(0, health - damage);
-        
-        hudManager.UpdateHealth(health, 100);
+        _impulseSource.GenerateImpulse();
+        _hudManager.UpdateHealth(health, 100);
         
         Debug.Log($"Player took {damage} damage. Current health: {health}");
 
@@ -335,7 +344,7 @@ public class FpController : MonoBehaviour {
     }
 
     private void UpdateAnimator() {
-        var localVelocity = transform.InverseTransformDirection(CurrentVelocity);
+        var localVelocity = transform.InverseTransformDirection(_horizontalVelocity);
 
         _isFalling = !IsGrounded && _verticalVelocity < -4.5f;
         
@@ -359,13 +368,11 @@ public class FpController : MonoBehaviour {
     
     #region Grapple Support Methods
     
-    public void SetVelocity(Vector3 horizontalVelocity)
-    {
-        CurrentVelocity = new Vector3(horizontalVelocity.x, 0f, horizontalVelocity.z);
+    public void SetVelocity(Vector3 horizontalVelocity) {
+        _horizontalVelocity = new Vector3(horizontalVelocity.x, 0f, horizontalVelocity.z);
     }
     
-    public void AddVerticalVelocity(float verticalBoost)
-    {
+    public void AddVerticalVelocity(float verticalBoost) {
         _verticalVelocity += verticalBoost;
     }
     

@@ -84,6 +84,9 @@ public class SpeedTrail : MonoBehaviour
         var mf = ghost.AddComponent<MeshFilter>();
         var mr = ghost.AddComponent<MeshRenderer>();
         
+        mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        mr.receiveShadows = false;
+        
         _ghostPool.Enqueue(ghost);
         return ghost;
     }

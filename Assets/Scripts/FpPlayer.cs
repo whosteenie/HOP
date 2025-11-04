@@ -1,9 +1,9 @@
 using Unity.Cinemachine;
+using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.InputSystem;
-using UnityEngine.Serialization;
 
-public class Player : MonoBehaviour
+public class FpPlayer : NetworkBehaviour
 {
     #region Serialized Fields
     
@@ -11,60 +11,65 @@ public class Player : MonoBehaviour
     [SerializeField] private FpController fpController;
     [SerializeField] private CinemachineCamera fpCamera;
     [SerializeField] private WeaponManager weaponManager;
-    [SerializeField] private PauseMenuManager pauseMenuManager;
     [SerializeField] private GrappleController grappleController;
     
     [Header("Input Settings")]
     [SerializeField] private bool toggleSprint;
     [SerializeField] private bool toggleCrouch;
     
-    
     #endregion
     
     #region Private Fields
     
+    private PauseMenuManager _pauseMenuManager;
+    private HUDManager _hudManager;
     private int _currentWeaponIndex;
     private Weapon _currentWeapon;
-    private GameObject _currentWeaponModel;
     
     #endregion
     
     #region Unity Methods
 
-    private void OnValidate() {
-        if(fpController == null) {
-            fpController = GetComponent<FpController>();
-        }
-
-        if(weaponManager == null) {
-            weaponManager = GetComponent<WeaponManager>();
-        }
-
-        if(fpCamera == null) {
-            fpCamera = transform.GetComponentInChildren<CinemachineCamera>();
-        }
-    }
-
-    private void Start() {
-        Cursor.visible = false;
-        Cursor.lockState = CursorLockMode.Locked;
+    public override void OnNetworkSpawn() {
+        base.OnNetworkSpawn();
+        
+        if(!IsOwner) return;
+        
+        weaponManager.InitializeWeapons(fpCamera, fpController, FindFirstObjectByType<HUDManager>());
 
         _currentWeaponIndex = weaponManager.currentWeaponIndex;
         _currentWeapon = weaponManager.CurrentWeapon;
-        _currentWeaponModel = fpCamera.transform.GetChild(_currentWeaponIndex).gameObject;
+    }
+
+    private void Start() {
+        if(!IsOwner) return;
+        
+        _pauseMenuManager = FindFirstObjectByType<PauseMenuManager>();
+        _hudManager = FindFirstObjectByType<HUDManager>();
+        
+        Cursor.visible = false;
+        Cursor.lockState = CursorLockMode.Locked;
+        
+        _currentWeaponIndex = weaponManager.currentWeaponIndex;
+        _currentWeapon = weaponManager.CurrentWeapon;
     }
 
     private void LateUpdate() {
-        if(Mouse.current.leftButton.isPressed && _currentWeapon.fireMode == "Full" && !pauseMenuManager.IsPaused) {
+        if(!IsOwner) return;
+        
+        if(Mouse.current.leftButton.isPressed && _currentWeapon.fireMode == "Full" && !_pauseMenuManager.IsPaused) {
             _currentWeapon.Shoot();
         }
+
+        weaponManager.CurrentWeapon.UpdateDamageMultiplier();
+        _hudManager.UpdateMultiplier(weaponManager.CurrentWeapon.CurrentDamageMultiplier, weaponManager.CurrentWeapon.maxDamageMultiplier);
     }
     #endregion
     
     #region Movement
 
     private void OnLook(InputValue value) {
-        if(pauseMenuManager.IsPaused) {
+        if(_pauseMenuManager.IsPaused) {
             fpController.lookInput = Vector2.zero;
             return;
         }
@@ -73,7 +78,7 @@ public class Player : MonoBehaviour
     }
     
     private void OnMove(InputValue value) {
-        if(pauseMenuManager.IsPaused) {
+        if(_pauseMenuManager.IsPaused) {
             fpController.moveInput = Vector2.zero;
             return;
         }
@@ -82,7 +87,7 @@ public class Player : MonoBehaviour
     }
 
     private void OnSprint(InputValue value) {
-        if(pauseMenuManager.IsPaused) {
+        if(_pauseMenuManager.IsPaused) {
             fpController.sprintInput = false;
             return;
         }
@@ -97,7 +102,7 @@ public class Player : MonoBehaviour
     }
     
     private void OnCrouch(InputValue value) {
-        if(pauseMenuManager.IsPaused) {
+        if(_pauseMenuManager.IsPaused) {
             fpController.crouchInput = false;
             return;
         }
@@ -112,7 +117,7 @@ public class Player : MonoBehaviour
     }
     
     private void OnJump(InputValue value) {
-        if(pauseMenuManager.IsPaused) return;
+        if(_pauseMenuManager.IsPaused) return;
         
         fpController.TryJump();
         
@@ -122,7 +127,7 @@ public class Player : MonoBehaviour
     }
 
     private void OnScrollWheel(InputValue value) {
-        if(pauseMenuManager.IsPaused) return;
+        if(_pauseMenuManager.IsPaused) return;
         
         fpController.TryJump();
         
@@ -133,7 +138,7 @@ public class Player : MonoBehaviour
     
     private void OnGrapple(InputValue value)
     {
-        if(pauseMenuManager.IsPaused) return;
+        if(_pauseMenuManager.IsPaused) return;
 
         if(grappleController.IsGrappling) {
             grappleController.CancelGrapple();
@@ -147,10 +152,10 @@ public class Player : MonoBehaviour
     #region Weapons
 
     private void OnPrimary(InputValue value) {
-        if(pauseMenuManager.IsPaused || _currentWeaponIndex == 0) return;
+        if(_pauseMenuManager.IsPaused || _currentWeaponIndex == 0) return;
         
-        if(weaponManager.equippedWeapons[_currentWeaponIndex].IsReloading) {
-            weaponManager.equippedWeapons[_currentWeaponIndex].CancelReload();
+        if(weaponManager.CurrentWeapon.IsReloading) {
+            weaponManager.CurrentWeapon.CancelReload();
         }
         
         SwitchWeapon(0);
@@ -158,10 +163,10 @@ public class Player : MonoBehaviour
     }
     
     private void OnSecondary(InputValue value) {
-        if(pauseMenuManager.IsPaused || _currentWeaponIndex == 1) return;
+        if(_pauseMenuManager.IsPaused || _currentWeaponIndex == 1) return;
 
-        if(weaponManager.equippedWeapons[_currentWeaponIndex].IsReloading) {
-            weaponManager.equippedWeapons[_currentWeaponIndex].CancelReload();
+        if(weaponManager.CurrentWeapon.IsReloading) {
+            weaponManager.CurrentWeapon.CancelReload();
         }
         
         SwitchWeapon(1);
@@ -169,10 +174,10 @@ public class Player : MonoBehaviour
     }
     
     private void OnTertiary(InputValue value) {
-        if(pauseMenuManager.IsPaused || _currentWeaponIndex == 2) return;
+        if(_pauseMenuManager.IsPaused || _currentWeaponIndex == 2) return;
         
-        if(weaponManager.equippedWeapons[_currentWeaponIndex].IsReloading) {
-            weaponManager.equippedWeapons[_currentWeaponIndex].CancelReload();
+        if(weaponManager.CurrentWeapon.IsReloading) {
+            weaponManager.CurrentWeapon.CancelReload();
         }
         
         SwitchWeapon(2);
@@ -180,23 +185,17 @@ public class Player : MonoBehaviour
     }
     
     private void SwitchWeapon(int weaponIndex) {
-        _currentWeaponModel.SetActive(false);
-        _currentWeaponIndex = weaponIndex;
+        _currentWeapon.gameObject.SetActive(false);
         weaponManager.currentWeaponIndex = weaponIndex;
-        _currentWeaponModel = fpCamera.transform.GetChild(_currentWeaponIndex).gameObject;
-        _currentWeaponModel.SetActive(true);
-    }
-
-    private void OnAttack(InputValue value) {
-        // if(optionsMenuManager.isPaused) return;
-        
-        // weaponManager.equippedWeapons[currentWeaponIndex].Shoot();
+        _currentWeaponIndex = weaponIndex;
+        _currentWeapon.BindAndResolve(fpCamera, fpController, weaponManager, FindFirstObjectByType<HUDManager>());
+        _currentWeapon.gameObject.SetActive(true);
     }
     
     private void OnReload(InputValue value) {
-        if(pauseMenuManager.IsPaused) return;
+        if(_pauseMenuManager.IsPaused) return;
         
-        weaponManager.equippedWeapons[_currentWeaponIndex].StartReload();
+        weaponManager.CurrentWeapon.StartReload();
     }
     
     #endregion
@@ -204,11 +203,11 @@ public class Player : MonoBehaviour
     #region System
 
     private void OnPause(InputValue value) {
-        pauseMenuManager.TogglePause();
+        _pauseMenuManager.TogglePause();
     }
     
     private void OnTestDamage(InputValue value) {
-        if(pauseMenuManager.IsPaused) return;
+        if(_pauseMenuManager.IsPaused) return;
         Debug.Log("Taking 10 damage for testing.");
         fpController.TakeDamage(10);
     }

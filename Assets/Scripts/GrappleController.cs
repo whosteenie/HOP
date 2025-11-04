@@ -1,7 +1,9 @@
 using System.Collections;
+using Unity.Cinemachine;
+using Unity.Netcode;
 using UnityEngine;
 
-public class GrappleController : MonoBehaviour
+public class GrappleController : NetworkBehaviour
 {
     [Header("Grapple Settings")]
     [SerializeField] private float maxGrappleDistance = 50f;
@@ -15,7 +17,7 @@ public class GrappleController : MonoBehaviour
     [SerializeField] private float momentumBoost = 1.2f; // Multiplier for final velocity
     
     [Header("Components")]
-    [SerializeField] private Camera fpCamera;
+    [SerializeField] private CinemachineCamera fpCamera;
     [SerializeField] private CharacterController characterController;
     [SerializeField] private FpController fpController;
     [SerializeField] private LineRenderer grappleLine;
@@ -26,9 +28,7 @@ public class GrappleController : MonoBehaviour
     [SerializeField] private Material lineMaterial;
     
     #region Private Fields
-    
-    private bool _isGrappling;
-    private bool _canGrapple = true;
+
     private Vector3 _grapplePoint;
     private float _grappleStartTime;
     private Vector3 _grappleStartPosition;
@@ -38,13 +38,14 @@ public class GrappleController : MonoBehaviour
     
     #region Properties
     
-    public bool IsGrappling => _isGrappling;
-    public bool CanGrapple => _canGrapple;
+    public bool IsGrappling { get; private set; }
+
+    public bool CanGrapple { get; private set; } = true;
 
     public float CooldownProgress {
         get {
-            if(_canGrapple) return 1f;
-            float elapsed = Time.time - _cooldownStartTime;
+            if(CanGrapple) return 1f;
+            var elapsed = Time.time - _cooldownStartTime;
             return Mathf.Clamp01(elapsed / grappleCooldown);
         }
     }
@@ -60,7 +61,9 @@ public class GrappleController : MonoBehaviour
     
     private void Update()
     {
-        if(_isGrappling) {
+        if(!IsOwner) return;
+        
+        if(IsGrappling) {
             UpdateGrapple();
             UpdateGrappleLine();
         }
@@ -101,7 +104,7 @@ public class GrappleController : MonoBehaviour
     
     public void TryGrapple()
     {
-        if(!_canGrapple || _isGrappling) return;
+        if(!CanGrapple || IsGrappling) return;
         
         // Raycast from camera to find grapple point
         var ray = new Ray(fpCamera.transform.position, fpCamera.transform.forward);
@@ -115,7 +118,7 @@ public class GrappleController : MonoBehaviour
     
     public void CancelGrapple()
     {
-        if(!_isGrappling) return;
+        if(!IsGrappling) return;
         
         EndGrapple(true);
     }
@@ -126,7 +129,7 @@ public class GrappleController : MonoBehaviour
     
     private void StartGrapple(Vector3 targetPoint)
     {
-        _isGrappling = true;
+        IsGrappling = true;
         _grapplePoint = targetPoint;
         _grappleStartTime = Time.time;
         _grappleStartPosition = transform.position;
@@ -160,7 +163,6 @@ public class GrappleController : MonoBehaviour
         // Check for walls in the direction we're moving
         var pullVelocity = directionToPoint * grappleSpeed;
         var checkDistance = pullVelocity.magnitude * Time.deltaTime * 3f; // Check slightly ahead
-        
         if(Physics.SphereCast(transform.position, characterController.radius, directionToPoint, out var hit, checkDistance, ~0, QueryTriggerInteraction.Ignore)) {
             // We're about to hit something, end grapple early
             EndGrapple(true);
@@ -173,7 +175,7 @@ public class GrappleController : MonoBehaviour
     
     private void EndGrapple(bool applyMomentum)
     {
-        _isGrappling = false;
+        IsGrappling = false;
         grappleLine.enabled = false;
         
         if(applyMomentum && preserveMomentum) {
@@ -202,10 +204,10 @@ public class GrappleController : MonoBehaviour
     
     private IEnumerator GrappleCooldown()
     {
-        _canGrapple = false;
+        CanGrapple = false;
         _cooldownStartTime = Time.time;
         yield return new WaitForSeconds(grappleCooldown);
-        _canGrapple = true;
+        CanGrapple = true;
     }
     
     private void UpdateGrappleLine()
