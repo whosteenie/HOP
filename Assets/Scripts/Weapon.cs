@@ -1,13 +1,17 @@
 using System.Collections;
 using Unity.Cinemachine;
 using Unity.Netcode;
+using UnityEditor.Rendering;
 using UnityEngine;
+using UnityEngine.Serialization;
 using UnityEngine.VFX;
 
 public class Weapon : NetworkBehaviour
 {
     [Header("Weapon Data")]
     public string weaponName;
+    public GameObject weaponPrefab;
+    public GameObject weaponMuzzle;
     public int currentAmmo;
     public int magSize;
     public int baseDamage;
@@ -37,9 +41,7 @@ public class Weapon : NetworkBehaviour
     public LayerMask playerBodyLayer;
     
     [Header("Weapon References")]
-    [SerializeField] private GameObject weaponModel;
     [SerializeField] private Animator weaponAnimator;
-    [SerializeField] private GameObject weaponMuzzle;
     [SerializeField] private VisualEffect muzzleFlashEffect;
     [SerializeField] private GameObject muzzleLight;
     [SerializeField] private float bulletSpeed = 100f;
@@ -93,22 +95,19 @@ public class Weapon : NetworkBehaviour
         minSpeedThreshold = FpController.SprintSpeed;
     }
 
-    public void BindAndResolve(
-        CinemachineCamera cam,
-        FpController controller,
-        WeaponManager mgr,
-        HUDManager hud)
-    {
+    public void BindAndResolve(CinemachineCamera cam, FpController controller, WeaponManager mgr, HUDManager hud) {
         fpCamera = cam;
         fpController = controller;
         weaponManager = mgr;
         hudManager = hud;
         
-        FindWeaponComponents();
-    }
+        weaponAnimator = weaponPrefab.GetComponent<Animator>();
+        muzzleFlashEffect = weaponMuzzle.GetComponent<VisualEffect>();
 
-    private void Update() {
-        if(!IsOwner) return;
+        muzzleLight = weaponMuzzle.transform.GetChild(0).gameObject;
+        if(muzzleLight != null) {
+            muzzleLight.SetActive(false);
+        }
     }
     
     #endregion
@@ -116,7 +115,9 @@ public class Weapon : NetworkBehaviour
     #region Initialization
     
     public void Initialize(WeaponData data) {
-        weaponName = data.name;
+        weaponName = data.weaponName;
+        weaponPrefab = data.weaponPrefab;
+        weaponMuzzle = data.muzzlePrefab;
         
         magSize = data.magSize;
         currentAmmo = data.currentAmmo;
@@ -137,60 +138,6 @@ public class Weapon : NetworkBehaviour
         
         bulletTrail = data.bulletTrail;
         bulletImpact = data.bulletImpact;
-    }
-
-    private void FindWeaponComponentsDebug() {
-        weaponModel = fpCamera.transform.Find(weaponName)?.gameObject;
-        weaponAnimator = weaponManager.CurrentWeapon.GetComponent<Animator>();
-        weaponMuzzle = weaponManager.CurrentWeapon.transform.Find("Muzzle")?.gameObject;
-        if(weaponMuzzle != null) {
-            muzzleFlashEffect = weaponMuzzle.GetComponent<VisualEffect>();
-            muzzleLight = weaponMuzzle.transform.Find("MuzzleLight")?.gameObject;
-        } else {
-            Debug.LogWarning($"Muzzle not found on weapon '{weaponName}'!");
-        }
-
-        if(muzzleLight != null) {
-            muzzleLight.SetActive(false);
-        } else {
-            Debug.LogWarning($"MuzzleLight not found on weapon '{weaponName}'!");
-        }
-
-    }
-    
-    private void FindWeaponComponents() {
-        if(weaponModel == null) {
-            weaponModel = fpCamera.transform.Find(weaponName)?.gameObject;
-        }
-
-        if(weaponModel == null) {
-            Debug.LogWarning($"Weapon model '{weaponName}' not found under FpCamera!");
-            return;
-        }
-
-        if(weaponAnimator == null) {
-            weaponAnimator = weaponModel.GetComponent<Animator>();
-        }
-
-        if(weaponMuzzle == null) {
-            weaponMuzzle = weaponModel.transform.Find("Muzzle")?.gameObject;
-        }
-
-        if(weaponMuzzle == null) {
-            Debug.LogWarning($"Muzzle not found on weapon '{weaponName}'!");
-            return;
-        }
-
-        if(muzzleFlashEffect == null) {
-            muzzleFlashEffect = weaponMuzzle.GetComponent<VisualEffect>();
-        }
-
-        if(muzzleLight == null) {
-            muzzleLight = weaponMuzzle.transform.Find("MuzzleLight")?.gameObject;
-            if(muzzleLight != null) {
-                muzzleLight.SetActive(false);
-            }
-        }
     }
     
     #endregion
@@ -334,7 +281,7 @@ public class Weapon : NetworkBehaviour
     
     private void PlayFireEffects() {
         if(weaponAnimator) {
-            weaponAnimator.SetTrigger(RecoilHash);
+            weaponAnimator.SetTrigger("Recoil");
         }
         
         SoundFXManager.Instance.PlayRandomSoundFX(fireSounds, transform);
@@ -348,7 +295,7 @@ public class Weapon : NetworkBehaviour
 
     private void PlayReloadEffects() {
         if(weaponAnimator) {
-            weaponAnimator.SetTrigger(ReloadHash);
+            weaponAnimator.SetTrigger("Reload");
         }
         
         SoundFXManager.Instance.PlayRandomSoundFX(reloadSounds, transform);

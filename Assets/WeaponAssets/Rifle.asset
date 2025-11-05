@@ -15,6 +15,8 @@ MonoBehaviour:
   name: AK74
   prefab: {fileID: 1487774384131766, guid: ee329c3cd08e58645834d20702d7f6c6, type: 3}
   weaponSlot: 0
+  positionSpawn: {x: 0.221, y: -0.141, z: 0.163}
+  rotationSpawn: {x: 0, y: 180, z: 0}
   magSize: 30
   currentAmmo: 30
   baseDamage: 35

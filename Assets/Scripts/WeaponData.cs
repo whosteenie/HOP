@@ -1,11 +1,16 @@
 using UnityEngine;
+using UnityEngine.Serialization;
 
 [CreateAssetMenu(fileName = "New Weapon", menuName = "Weapon Data")]
 public class WeaponData : ScriptableObject {
     [Header("Identity")]
-    public new string name;
-    public GameObject prefab;
+    public new string weaponName;
+    public GameObject weaponPrefab;
     public int weaponSlot;
+    public Vector3 positionSpawn;
+    public Vector3 rotationSpawn;
+    public GameObject muzzlePrefab;
+    public Vector3 positionMuzzle;
     
     [Header("Ammo")]
     public int magSize;

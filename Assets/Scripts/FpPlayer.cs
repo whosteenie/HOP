@@ -188,7 +188,7 @@ public class FpPlayer : NetworkBehaviour
         _currentWeapon.gameObject.SetActive(false);
         weaponManager.currentWeaponIndex = weaponIndex;
         _currentWeaponIndex = weaponIndex;
-        _currentWeapon.BindAndResolve(fpCamera, fpController, weaponManager, FindFirstObjectByType<HUDManager>());
+        _currentWeapon.BindAndResolve(fpCamera, fpController, weaponManager, _hudManager);
         _currentWeapon.gameObject.SetActive(true);
     }
     
