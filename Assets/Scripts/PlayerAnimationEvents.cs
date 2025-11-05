@@ -3,7 +3,7 @@ using UnityEngine.Serialization;
 
 public class PlayerAnimationEvents : MonoBehaviour
 {
-    [FormerlySerializedAs("fpController")] public PlayerController playerController;
+    public PlayerController playerController;
     
     private void OnValidate() {
         if(playerController == null) {

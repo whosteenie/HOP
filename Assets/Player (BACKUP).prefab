@@ -213,7 +213,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 2246839148
+  GlobalObjectIdHash: 2080825826
   InScenePlacedSourceGlobalObjectIdHash: 0
   DeferredDespawnTick: 0
   Ownership: 1
@@ -266,12 +266,15 @@ MonoBehaviour:
   - {fileID: 8300000, guid: 304f2bf2228cba94e91cd22803e54bcf, type: 3}
   - {fileID: 8300000, guid: c86476186f357d44eb470d68a2986520, type: 3}
   - {fileID: 8300000, guid: f65b8caedf0c89b4c9f6ea1408f5e362, type: 3}
+  jumpPadSound: {fileID: 0}
   lookSensitivity: {x: 0.1, y: 0.1}
   fpCamera: {fileID: 7545715250371650815}
   characterController: {fileID: 4157602163556837535}
   characterAnimator: {fileID: 8358432768124692647}
   weaponManager: {fileID: 1752355669680099318}
   grappleController: {fileID: 8382341124825033876}
+  playerRagdoll: {fileID: 0}
+  deathCamera: {fileID: 0}
   health: 100
   moveInput: {x: 0, y: 0}
   lookInput: {x: 0, y: 0}
@@ -290,7 +293,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Player
   ShowTopMostFoldoutHeaderGroup: 1
-  fpController: {fileID: 5088684734431513618}
+  playerController: {fileID: 0}
+  deathCamera: {fileID: 0}
   fpCamera: {fileID: 7545715250371650815}
   weaponManager: {fileID: 1752355669680099318}
   grappleController: {fileID: 8382341124825033876}
@@ -331,6 +335,7 @@ MonoBehaviour:
   minMultiplierForTrail: 1.5
   spawnInterval: 0.05
   ghostLifetime: 0.3
+  spawnOffset: 0.5
   ghostMaterial: {fileID: 2100000, guid: 4a4d28cc057b0454396f5f062d3d6031, type: 2}
   trailColor: {r: 0.3, g: 0.7, b: 1, a: 0.5}
 --- !u!114 &8382341124825033876
@@ -357,8 +362,9 @@ MonoBehaviour:
   momentumBoost: 1.2
   fpCamera: {fileID: 7545715250371650815}
   characterController: {fileID: 4157602163556837535}
-  fpController: {fileID: 5088684734431513618}
+  playerController: {fileID: 0}
   grappleLine: {fileID: 0}
+  grappleSounds: []
   lineWidth: 0.05
   grappleColor: {r: 0.078431375, g: 0.078431375, b: 0.078431375, a: 1}
   lineMaterial: {fileID: 0}
@@ -456,6 +462,20 @@ MonoBehaviour:
     DestinationState: 225072382
     TransitionDuration: 0.25
     TriggerNameHash: 113680519
+    TransitionIndex: 1
+  - IsCrossFadeExit: 0
+    Layer: 2
+    OriginatingState: 153482222
+    DestinationState: 997579023
+    TransitionDuration: 0.05
+    TriggerNameHash: 997579023
+    TransitionIndex: 0
+  - IsCrossFadeExit: 0
+    Layer: 2
+    OriginatingState: 153482222
+    DestinationState: -1525363869
+    TransitionDuration: 0.2
+    TriggerNameHash: -1525363869
     TransitionIndex: 1
   m_Animator: {fileID: 8358432768124692647}
 --- !u!1001 &2218342116426764922
@@ -816,7 +836,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0a0a2527e913d0842b309c656b6a6e9c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerAnimationEvents
-  fpController: {fileID: 5088684734431513618}
+  playerController: {fileID: 5088684734431513618}
 --- !u!95 &8358432768124692647 stripped
 Animator:
   m_CorrespondingSourceObject: {fileID: 7869543608362826461, guid: 9bd72731ebe2248478ba4849c274a43b, type: 3}

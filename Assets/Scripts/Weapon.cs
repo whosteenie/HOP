@@ -37,7 +37,6 @@ public class Weapon : NetworkBehaviour
     public PlayerController playerController;
     public Animator playerAnimator;
     public WeaponManager weaponManager;
-    public HUDManager hudManager;
     public LayerMask playerBodyLayer;
     
     [Header("Weapon References")]
@@ -53,6 +52,7 @@ public class Weapon : NetworkBehaviour
     private float _lastPeakTime;
     private float _graceEndTime;
     private Coroutine _reloadCoroutine;
+    private HUDManager _hudManager;
 
     #endregion
     
@@ -71,6 +71,23 @@ public class Weapon : NetworkBehaviour
     #endregion
     
     #region Unity Lifecycle
+
+    private void Awake() {
+        playerBodyLayer = LayerMask.GetMask("Player");
+        _lastFireTime = Time.time;
+        _hudManager = FindFirstObjectByType<HUDManager>();
+    }
+    
+    public override void OnNetworkSpawn() {
+        base.OnNetworkSpawn();
+        
+        if(!IsOwner) return;
+
+        if(_hudManager == null) {
+            _hudManager = FindFirstObjectByType<HUDManager>();
+        }
+    }
+    
     private void OnValidate() {
         if(weaponManager == null) {
             weaponManager = GetComponent<WeaponManager>();
@@ -94,21 +111,16 @@ public class Weapon : NetworkBehaviour
             }
         }
 
-        if(hudManager == null) {
-            hudManager = FindFirstObjectByType<HUDManager>();
-        }
-    }
-
-    private void Awake() {
-        playerBodyLayer = LayerMask.GetMask("Player");
-        _lastFireTime = Time.time;
+        // if(hudManager == null) {
+        //     hudManager = FindFirstObjectByType<HUDManager>();
+        // }
     }
 
     public void BindAndResolve(CinemachineCamera cam, PlayerController controller, WeaponManager mgr, HUDManager hud) {
         fpCamera = cam;
         playerController = controller;
         weaponManager = mgr;
-        hudManager = hud;
+        _hudManager = hud;
         
         weaponAnimator = weaponPrefab.GetComponent<Animator>();
         muzzleFlashEffect = weaponMuzzle.GetComponent<VisualEffect>();
@@ -225,7 +237,8 @@ public class Weapon : NetworkBehaviour
         
         currentAmmo--;
         _lastFireTime = Time.time;
-        hudManager.UpdateAmmo(currentAmmo, magSize);
+        if(_hudManager)
+            _hudManager.UpdateAmmo(currentAmmo, magSize);
     }
     
     private float GetScaledDamage() {
@@ -276,7 +289,8 @@ public class Weapon : NetworkBehaviour
         IsReloading = false;
         _reloadCoroutine = null;
         
-        hudManager.UpdateAmmo(currentAmmo, magSize);
+        if(_hudManager)
+            _hudManager.UpdateAmmo(currentAmmo, magSize);
     }
     
     #endregion

@@ -12,6 +12,7 @@ public class MainMenuManager : MonoBehaviour
     [SerializeField] private UIDocument uiDocument;
     [SerializeField] private AudioMixer audioMixer;
     [SerializeField] private string gameSceneName = "Game";
+    [SerializeField] private SessionManager sessionManager;
     
     #endregion
     
@@ -21,6 +22,7 @@ public class MainMenuManager : MonoBehaviour
     private VisualElement _gamemodePanel;
     private VisualElement _lobbyPanel;
     private VisualElement _optionsPanel;
+    private VisualElement _hudPanel;
     
     private new string _selectedGameMode;
     
@@ -50,6 +52,8 @@ public class MainMenuManager : MonoBehaviour
     
     private void OnEnable()
     {
+        DontDestroyOnLoad(gameObject);
+        
         var root = uiDocument.rootVisualElement;
         
         // Get panels
@@ -57,9 +61,10 @@ public class MainMenuManager : MonoBehaviour
         _gamemodePanel = root.Q<VisualElement>("gamemode-panel");
         _lobbyPanel = root.Q<VisualElement>("lobby-panel");
         _optionsPanel = root.Q<VisualElement>("options-panel");
+        _hudPanel = root.Q<VisualElement>("hud-panel");
         
         // Setup main menu buttons
-        root.Q<Button>("play-button").clicked += ShowGamemodePanel;
+        root.Q<Button>("play-button").clicked += () => ShowPanel(_gamemodePanel);
         root.Q<Button>("select-mode1").clicked += () => OnGameModeSelected("Deathmatch");
         root.Q<Button>("select-mode2").clicked += () => OnGameModeSelected("Team Deathmatch");
         root.Q<Button>("select-mode3").clicked += () => OnGameModeSelected("Capture the Flag");
@@ -161,11 +166,6 @@ public class MainMenuManager : MonoBehaviour
     
     #region Menu Navigation
     
-    private void ShowGamemodePanel()
-    {
-        ShowPanel(_gamemodePanel);
-    }
-    
     private void OnGameModeSelected(string modeName)
     {
         _selectedGameMode = modeName;
@@ -185,7 +185,8 @@ public class MainMenuManager : MonoBehaviour
     private void OnStartGameClicked()
     {
         Debug.Log("Starting game...");
-        SceneManager.LoadScene(gameSceneName);
+        SessionManager.Instance.StartSessionAsHost();
+        ShowPanel(_hudPanel);
     }
     
     private void OnLoadoutClicked()

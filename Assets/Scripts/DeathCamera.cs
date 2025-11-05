@@ -30,13 +30,25 @@ public class DeathCamera : NetworkBehaviour
     
     public Vector2 lookInput;
 
+    private void Awake() {
+        _hudManager = FindFirstObjectByType<HUDManager>();
+    }
+    
+    public override void OnNetworkSpawn() {
+        base.OnNetworkSpawn();
+        
+        if(!IsOwner) return;
+
+        if(_hudManager == null) {
+            _hudManager = FindFirstObjectByType<HUDManager>();
+        }
+    }
+    
     private void Start() {
         if(!IsOwner) return;
         
         _originalLocalPos = fpCamera.transform.localPosition;
         _originalLocalRot = fpCamera.transform.localRotation;
-        
-        _hudManager = FindFirstObjectByType<HUDManager>();
     }
 
     public void EnableDeathCamera() {
@@ -58,7 +70,8 @@ public class DeathCamera : NetworkBehaviour
         // foreach(Transform body in bodyTransform) {
         //     body.gameObject.layer = LayerMask.NameToLayer("Default");
         // }
-        _hudManager.HideHUD();
+        if(_hudManager)
+            _hudManager.HideHUD();
     }
 
     public void DisableDeathCamera() {
@@ -79,7 +92,8 @@ public class DeathCamera : NetworkBehaviour
         // foreach(Transform body in bodyTransform) {
         //     body.gameObject.layer = LayerMask.NameToLayer("Player");
         // }
-        _hudManager.ShowHUD();
+        if(_hudManager)
+            _hudManager.ShowHUD();
     }
 
     public void LateUpdate() {

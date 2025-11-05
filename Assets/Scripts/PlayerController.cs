@@ -112,11 +112,28 @@ public class PlayerController : NetworkBehaviour, IDamageable {
     
     #region Unity Lifecycle
 
+    private void Awake() {
+        _hudManager = FindFirstObjectByType<HUDManager>();
+        _impulseSource = FindFirstObjectByType<CinemachineImpulseSource>();
+    }
+
+    public override void OnNetworkSpawn() {
+        base.OnNetworkSpawn();
+        
+        if(!IsOwner) return;
+
+        if(_hudManager == null) {
+            _hudManager = FindFirstObjectByType<HUDManager>();
+        }
+
+        if(_impulseSource == null) {
+            _impulseSource = FindFirstObjectByType<CinemachineImpulseSource>();
+        }
+    }
+    
     private void Start() {
         if(!IsOwner) return;
 
-        _hudManager = FindFirstObjectByType<HUDManager>();
-        _impulseSource = FindFirstObjectByType<CinemachineImpulseSource>();
     }
 
     private void Update() {
@@ -342,8 +359,10 @@ public class PlayerController : NetworkBehaviour, IDamageable {
         _lastHitNormal = hitNormal;
         
         health = Mathf.Round(Mathf.Max(0f, health - damage));
-        _impulseSource.GenerateImpulse();
-        _hudManager.UpdateHealth(health, 100);
+        if(_impulseSource)
+            _impulseSource.GenerateImpulse();
+        if(_hudManager)
+            _hudManager.UpdateHealth(health, 100);
         
         if(hitPoint.HasValue && hitNormal.HasValue) {
             // weaponManager.ShowHitMarker(hitPoint.Value, hitNormal.Value);
@@ -369,7 +388,8 @@ public class PlayerController : NetworkBehaviour, IDamageable {
     
     public void Respawn() {
         health = 100f;
-        _hudManager.UpdateHealth(health, 100f);
+        if(_hudManager)
+            _hudManager.UpdateHealth(health, 100f);
         
         deathCamera.DisableDeathCamera();
         playerRagdoll.DisableRagdoll();

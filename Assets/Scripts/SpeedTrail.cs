@@ -28,7 +28,7 @@ public class SpeedTrail : MonoBehaviour
     private const int PoolSize = 20;
     private Vector3 _lastPosition;
 
-    private void Start()
+    private void Awake()
     {
         _lastPosition = transform.position;
         
@@ -45,10 +45,11 @@ public class SpeedTrail : MonoBehaviour
         }
     }
     
-    private void Update()
-    {
-        var weapon = weaponManager.CurrentWeapon;
-        var multiplier = weapon.CurrentDamageMultiplier;
+    private void Update() {
+        if(!weaponManager.CurrentWeapon) return;
+        
+        // TODO: NULL REFERENCE EXCEPTION HERE
+        var multiplier = weaponManager.CurrentWeapon.CurrentDamageMultiplier;
         
         // If below threshold, fade out all active ghosts
         if(multiplier < minMultiplierForTrail)
@@ -58,7 +59,7 @@ public class SpeedTrail : MonoBehaviour
         }
         
         // Calculate spawn rate based on speed (faster = more frequent)
-        var speedFactor = Mathf.InverseLerp(minMultiplierForTrail, weapon.maxDamageMultiplier, multiplier);
+        var speedFactor = Mathf.InverseLerp(minMultiplierForTrail, weaponManager.CurrentWeapon.maxDamageMultiplier, multiplier);
         var adjustedInterval = Mathf.Lerp(spawnInterval * 2f, spawnInterval * 0.5f, speedFactor);
 
         if(!(Time.time - _lastSpawnTime >= adjustedInterval)) return;
@@ -113,7 +114,7 @@ public class SpeedTrail : MonoBehaviour
     private void SpawnAfterimage()
     {
         // Get ghost from pool
-        var ghost = _ghostPool.FirstOrDefault(g => !g.activeInHierarchy);
+        var ghost = _ghostPool.FirstOrDefault(g => g !=null && !g.activeInHierarchy);
 
         if(ghost == null)
         {

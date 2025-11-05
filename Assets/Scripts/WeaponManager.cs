@@ -8,13 +8,27 @@ public class WeaponManager : NetworkBehaviour {
     private List<Weapon> _equippedWeapons;
     [SerializeField] private List<WeaponData> weaponDataList;
 
-    public Weapon CurrentWeapon => _equippedWeapons[currentWeaponIndex];
+    // public Weapon CurrentWeapon => _equippedWeapons[currentWeaponIndex];
+    public Weapon CurrentWeapon {
+        get {
+            if(_equippedWeapons == null || _equippedWeapons.Count == 0)
+                return null;
 
+            if(currentWeaponIndex < 0 || currentWeaponIndex >= _equippedWeapons.Count)
+                return null;
+
+            return _equippedWeapons[currentWeaponIndex];
+        }
+    }    
+    
     private void Awake() {
         _equippedWeapons = new List<Weapon>();
     }
 
     public void InitializeWeapons(CinemachineCamera cam, PlayerController controller, HUDManager hud) {
+        if(_equippedWeapons == null)
+            _equippedWeapons = new List<Weapon>();
+        
         _equippedWeapons.Clear();
         
         foreach(var data in weaponDataList) {

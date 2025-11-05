@@ -1,3 +1,5 @@
+using System;
+using System.Collections;
 using Unity.Cinemachine;
 using Unity.Netcode;
 using UnityEngine;
@@ -8,7 +10,6 @@ public class PlayerInput : NetworkBehaviour
 {
     #region Serialized Fields
     
-    [FormerlySerializedAs("fpController")]
     [Header("Components")]
     [SerializeField] private PlayerController playerController;
     [SerializeField] private DeathCamera deathCamera;
@@ -33,46 +34,76 @@ public class PlayerInput : NetworkBehaviour
     
     #region Unity Methods
 
+    private void Awake() {
+        _pauseMenuManager = FindFirstObjectByType<PauseMenuManager>();
+        _hudManager = FindFirstObjectByType<HUDManager>();
+        
+        if(_hudManager) {
+            weaponManager.InitializeWeapons(fpCamera, playerController, _hudManager);
+        }
+    }
+
     public override void OnNetworkSpawn() {
         base.OnNetworkSpawn();
         
         if(!IsOwner) return;
-        
-        weaponManager.InitializeWeapons(fpCamera, playerController, FindFirstObjectByType<HUDManager>());
 
-        _currentWeaponIndex = weaponManager.currentWeaponIndex;
-        _currentWeapon = weaponManager.CurrentWeapon;
+        StartCoroutine(InitializeAfterSceneLoad());
+    }
+
+    private IEnumerator InitializeAfterSceneLoad() {
+        yield return new WaitForEndOfFrame();
+
+        if(_pauseMenuManager == null) {
+            _pauseMenuManager = FindFirstObjectByType<PauseMenuManager>();
+        }
+        
+        if(_hudManager == null) {
+            _hudManager = FindFirstObjectByType<HUDManager>();
+        }
+
+        if(_hudManager) {
+            weaponManager.InitializeWeapons(fpCamera, playerController, _hudManager);
+            _currentWeaponIndex = weaponManager.currentWeaponIndex;
+            _currentWeapon = weaponManager.CurrentWeapon;
+        } else {
+            Debug.LogError("HUDManager not found for PlayerInput.");
+        }
+
+        if(!_pauseMenuManager) {
+            Debug.LogWarning("PauseMenuManager not found for PlayerInput.");
+        }
     }
 
     private void Start() {
         if(!IsOwner) return;
         
-        _pauseMenuManager = FindFirstObjectByType<PauseMenuManager>();
-        _hudManager = FindFirstObjectByType<HUDManager>();
-        
         Cursor.visible = false;
         Cursor.lockState = CursorLockMode.Locked;
-        
-        _currentWeaponIndex = weaponManager.currentWeaponIndex;
-        _currentWeapon = weaponManager.CurrentWeapon;
     }
 
     private void LateUpdate() {
         if(!IsOwner) return;
         
-        if(Mouse.current.leftButton.isPressed && _currentWeapon.fireMode == "Full" && !_pauseMenuManager.IsPaused && !playerController.IsDead) {
+        if(_pauseMenuManager != null && !_pauseMenuManager.IsPaused && 
+           (Mouse.current.leftButton.isPressed || Mouse.current.rightButton.isPressed) && 
+           _currentWeapon.fireMode == "Full" && !playerController.IsDead) {
             _currentWeapon.Shoot();
         }
-
-        weaponManager.CurrentWeapon.UpdateDamageMultiplier();
-        _hudManager.UpdateMultiplier(weaponManager.CurrentWeapon.CurrentDamageMultiplier, weaponManager.CurrentWeapon.maxDamageMultiplier);
+        
+        // TODO: NULL REFERENCE EXCEPTION HERE
+        if(weaponManager.CurrentWeapon)
+            weaponManager.CurrentWeapon.UpdateDamageMultiplier();
+        
+        if(_hudManager && weaponManager.CurrentWeapon)
+            _hudManager.UpdateMultiplier(weaponManager.CurrentWeapon.CurrentDamageMultiplier, weaponManager.CurrentWeapon.maxDamageMultiplier);
     }
     #endregion
     
     #region Movement
 
     private void OnLook(InputValue value) {
-        if(_pauseMenuManager.IsPaused) {
+        if(_pauseMenuManager != null && _pauseMenuManager.IsPaused) {
             playerController.lookInput = Vector2.zero;
             return;
         }
@@ -86,7 +117,7 @@ public class PlayerInput : NetworkBehaviour
     }
     
     private void OnMove(InputValue value) {
-        if(_pauseMenuManager.IsPaused || playerController.IsDead) {
+        if(_pauseMenuManager != null && _pauseMenuManager.IsPaused || playerController.IsDead) {
             playerController.moveInput = Vector2.zero;
             return;
         }
@@ -95,7 +126,7 @@ public class PlayerInput : NetworkBehaviour
     }
 
     private void OnSprint(InputValue value) {
-        if(_pauseMenuManager.IsPaused || playerController.IsDead) {
+        if(_pauseMenuManager != null && _pauseMenuManager.IsPaused || playerController.IsDead) {
             playerController.sprintInput = false;
             return;
         }
@@ -110,7 +141,7 @@ public class PlayerInput : NetworkBehaviour
     }
     
     private void OnCrouch(InputValue value) {
-        if(_pauseMenuManager.IsPaused || playerController.IsDead) {
+        if(_pauseMenuManager != null && _pauseMenuManager.IsPaused || playerController.IsDead) {
             playerController.crouchInput = false;
             return;
         }
@@ -125,7 +156,7 @@ public class PlayerInput : NetworkBehaviour
     }
     
     private void OnJump(InputValue value) {
-        if(_pauseMenuManager.IsPaused || playerController.IsDead) return;
+        if(_pauseMenuManager != null && _pauseMenuManager.IsPaused || playerController.IsDead) return;
         
         playerController.TryJump();
         
@@ -135,7 +166,7 @@ public class PlayerInput : NetworkBehaviour
     }
 
     private void OnScrollWheel(InputValue value) {
-        if(_pauseMenuManager.IsPaused || playerController.IsDead) return;
+        if(_pauseMenuManager != null && _pauseMenuManager.IsPaused || playerController.IsDead) return;
         
         playerController.TryJump();
         
@@ -146,7 +177,7 @@ public class PlayerInput : NetworkBehaviour
     
     private void OnGrapple(InputValue value)
     {
-        if(_pauseMenuManager.IsPaused || playerController.IsDead) return;
+        if(_pauseMenuManager != null && _pauseMenuManager.IsPaused || playerController.IsDead) return;
 
         if(grappleController.IsGrappling) {
             grappleController.CancelGrapple();
@@ -160,7 +191,7 @@ public class PlayerInput : NetworkBehaviour
     #region Weapons
 
     private void OnPrimary(InputValue value) {
-        if(_pauseMenuManager.IsPaused || _currentWeaponIndex == 0 || playerController.IsDead) return;
+        if(_pauseMenuManager != null && _pauseMenuManager.IsPaused || _currentWeaponIndex == 0 || playerController.IsDead) return;
         
         if(weaponManager.CurrentWeapon.IsReloading) {
             weaponManager.CurrentWeapon.CancelReload();
@@ -171,7 +202,7 @@ public class PlayerInput : NetworkBehaviour
     }
     
     private void OnSecondary(InputValue value) {
-        if(_pauseMenuManager.IsPaused || _currentWeaponIndex == 1 || playerController.IsDead) return;
+        if(_pauseMenuManager != null && _pauseMenuManager.IsPaused || _currentWeaponIndex == 1 || playerController.IsDead) return;
 
         if(weaponManager.CurrentWeapon.IsReloading) {
             weaponManager.CurrentWeapon.CancelReload();
@@ -182,7 +213,7 @@ public class PlayerInput : NetworkBehaviour
     }
     
     private void OnTertiary(InputValue value) {
-        if(_pauseMenuManager.IsPaused || _currentWeaponIndex == 2 || playerController.IsDead) return;
+        if(_pauseMenuManager != null && _pauseMenuManager.IsPaused || _currentWeaponIndex == 2 || playerController.IsDead) return;
         
         if(weaponManager.CurrentWeapon.IsReloading) {
             weaponManager.CurrentWeapon.CancelReload();
@@ -201,7 +232,7 @@ public class PlayerInput : NetworkBehaviour
     }
     
     private void OnReload(InputValue value) {
-        if(_pauseMenuManager.IsPaused || playerController.IsDead) return;
+        if(_pauseMenuManager != null && _pauseMenuManager.IsPaused || playerController.IsDead) return;
         
         weaponManager.CurrentWeapon.StartReload();
     }
@@ -211,17 +242,18 @@ public class PlayerInput : NetworkBehaviour
     #region System
 
     private void OnPause(InputValue value) {
-        _pauseMenuManager.TogglePause();
+        if(_pauseMenuManager)
+            _pauseMenuManager.TogglePause();
     }
     
     private void OnTestDamage(InputValue value) {
-        if(_pauseMenuManager.IsPaused || playerController.IsDead) return;
+        if(_pauseMenuManager != null && _pauseMenuManager.IsPaused || playerController.IsDead) return;
         Debug.Log("Taking 10 damage for testing.");
         playerController.TakeDamage(10);
     }
 
     private void OnTestRespawn(InputValue value) {
-        if(_pauseMenuManager.IsPaused || !playerController.IsDead) return;
+        if(_pauseMenuManager != null && _pauseMenuManager.IsPaused || !playerController.IsDead) return;
         Debug.Log("Respawning player for testing.");
         playerController.Respawn();
     }

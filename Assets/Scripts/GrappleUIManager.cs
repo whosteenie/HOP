@@ -1,5 +1,7 @@
+using System;
 using Unity.Cinemachine;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using UnityEngine.UIElements;
 
 public class GrappleUIManager : MonoBehaviour
@@ -25,16 +27,36 @@ public class GrappleUIManager : MonoBehaviour
     private Color _currentColor;
     private GrappleController _grappleController;
     private CinemachineCamera _fpCamera;
-    
-    private void OnEnable()
-    {
-        FindLocalPlayerGrappleController();
 
+    private void Awake() {
+        if(SceneManager.GetActiveScene().name == "Game")
+            FindLocalPlayerGrappleController();
+
+        if(uiDocument == null)
+            Debug.LogError("No UIDocument assigned to GrappleUIManager");
+            
         var root = uiDocument.rootVisualElement;
         _grappleIndicator = root.Q<VisualElement>("grapple-indicator");
         
+        if(_grappleIndicator == null)
+            Debug.LogError("No grapple-indicator found");
+        
         _currentColor = cooldownColor;
         CreateHorseshoeSegments();
+    }
+
+    private void OnEnable()
+    {
+        // FindLocalPlayerGrappleController();
+        //
+        // var root = uiDocument.rootVisualElement;
+        // _grappleIndicator = root.Q<VisualElement>("grapple-indicator");
+        //
+        // if(_grappleIndicator == null)
+        //     Debug.LogError("No grapple-indicator found");
+        //
+        // _currentColor = cooldownColor;
+        // CreateHorseshoeSegments();
     }
     
     private void FindLocalPlayerGrappleController()
@@ -49,6 +71,7 @@ public class GrappleUIManager : MonoBehaviour
         }
 
         if(_grappleController == null) {
+            Debug.LogError("No GrappleController found");
             Invoke(nameof(FindLocalPlayerGrappleController), 0.1f);
         }
     }
@@ -109,10 +132,14 @@ public class GrappleUIManager : MonoBehaviour
     }
     
     private void Update() {
-        if(_grappleController == null) return;
-        
-        CheckGrapplePoint();
-        UpdateIndicatorVisual();
+        if(_grappleController == null && SceneManager.GetActiveScene().name == "Game") {
+            FindLocalPlayerGrappleController();
+        }
+
+        if(SceneManager.GetActiveScene().name == "Game" && _grappleController != null) {
+            CheckGrapplePoint();
+            UpdateIndicatorVisual();
+        }
     }
     
     private void CheckGrapplePoint()

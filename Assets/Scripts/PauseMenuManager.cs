@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Audio;
+using UnityEngine.SceneManagement;
 using UnityEngine.UIElements;
 
 public class PauseMenuManager : MonoBehaviour {
@@ -95,7 +96,9 @@ public class PauseMenuManager : MonoBehaviour {
     }
 
     public void TogglePause() {
-        if (IsPaused) {
+        if(SceneManager.GetActiveScene().name != "Game") return;
+        
+        if(IsPaused) {
             if (!_optionsPanel.ClassListContains("hidden")) {
                 HideOptions();
             } else {
@@ -186,12 +189,14 @@ public class PauseMenuManager : MonoBehaviour {
     }
     
     private void ShowOptions() {
+        if(SceneManager.GetActiveScene().name != "Game") return;
         LoadSettings();
         _pauseMenuPanel.AddToClassList("hidden");
         _optionsPanel.RemoveFromClassList("hidden");
     }
     
     private void HideOptions() {
+        if(SceneManager.GetActiveScene().name != "Game") return;
         _optionsPanel.AddToClassList("hidden");
         _pauseMenuPanel.RemoveFromClassList("hidden");
     }
