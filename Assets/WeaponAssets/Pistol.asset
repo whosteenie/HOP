@@ -12,9 +12,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 50d8dbcb146dde54895dd61c404ddb7e, type: 3}
   m_Name: Pistol
   m_EditorClassIdentifier: Assembly-CSharp::WeaponData
-  name: M1911
-  prefab: {fileID: 0}
+  weaponName: M1911
+  weaponPrefab: {fileID: 1694449805434718, guid: 6f1a7354265853f44b0ed5e2e43676ad, type: 3}
   weaponSlot: 1
+  positionSpawn: {x: 0.35, y: -0.17800009, z: 0.28403}
+  rotationSpawn: {x: 0, y: 180, z: 0}
+  muzzlePrefab: {fileID: 6299671218319471870, guid: d13b2bf13a0548a4aa9c2cd249a35a04, type: 3}
+  positionMuzzle: {x: 0, y: 0, z: 0}
   magSize: 16
   currentAmmo: 16
   baseDamage: 15
@@ -27,5 +31,5 @@ MonoBehaviour:
   fireSounds: []
   dryFireSounds: []
   reloadSounds: []
-  bulletTrail: {fileID: 0}
+  bulletTrail: {fileID: 328621789431213768, guid: 4b92d630cd66e7a45a83060b816bdbbe, type: 3}
   bulletImpact: {fileID: 0}

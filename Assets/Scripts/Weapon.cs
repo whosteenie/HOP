@@ -160,13 +160,12 @@ public class Weapon : NetworkBehaviour
             return;
         }
         
+        PlayReloadEffects();
         IsReloading = true;
-        weaponAnimator.SetTrigger(ReloadHash);
         _reloadCoroutine = StartCoroutine(ReloadCoroutine());
     }
 
     private IEnumerator ReloadCoroutine() {
-        PlayReloadEffects();
         
         yield return new WaitForSeconds(reloadTime);
         
@@ -263,15 +262,15 @@ public class Weapon : NetworkBehaviour
     #region Private Methods - Reloading
     
     private bool CanReload() {
-        return currentAmmo < magSize;
+        return currentAmmo < magSize && _reloadCoroutine == null;
     }
 
     private void CompleteReload() {
         currentAmmo = magSize;
         IsReloading = false;
+        _reloadCoroutine = null;
         
         hudManager.UpdateAmmo(currentAmmo, magSize);
-        _reloadCoroutine = null;
         Debug.Log($"{weaponName} reloaded! - Ammo: {currentAmmo}/{magSize}");
     }
     
