@@ -9,7 +9,7 @@ public class GrappleController : NetworkBehaviour
     [SerializeField] private float maxGrappleDistance = 50f;
     [SerializeField] private float grappleSpeed = 30f;
     [SerializeField] private float grappleDuration = 0.5f;
-    [SerializeField] private float grappleCooldown = 1f;
+    [SerializeField] private float grappleCooldown = 1.3f;
     [SerializeField] private LayerMask grappleableLayers;
     
     [Header("Momentum Settings")]
@@ -19,8 +19,9 @@ public class GrappleController : NetworkBehaviour
     [Header("Components")]
     [SerializeField] private CinemachineCamera fpCamera;
     [SerializeField] private CharacterController characterController;
-    [SerializeField] private FpController fpController;
+    [SerializeField] private PlayerController playerController;
     [SerializeField] private LineRenderer grappleLine;
+    [SerializeField] private AudioClip[] grappleSounds;
     
     [Header("Visual Settings")]
     [SerializeField] private float lineWidth = 0.05f;
@@ -33,6 +34,7 @@ public class GrappleController : NetworkBehaviour
     private float _grappleStartTime;
     private Vector3 _grappleStartPosition;
     private float _cooldownStartTime;
+    private LayerMask _playerLayer;
     
     #endregion
     
@@ -54,27 +56,26 @@ public class GrappleController : NetworkBehaviour
     
     #region Unity Lifecycle
     
-    private void Start()
-    {
+    private void Start() {
+        _playerLayer = LayerMask.GetMask("Player");
+        
         SetupGrappleLine();
     }
     
-    private void Update()
-    {
+    private void Update() {
         if(!IsOwner) return;
         
         if(IsGrappling) {
             UpdateGrapple();
-            UpdateGrappleLine();
         }
+        UpdateGrappleLine();
     }
     
     #endregion
     
     #region Setup
     
-    private void SetupGrappleLine()
-    {
+    private void SetupGrappleLine() {
         if(grappleLine == null) {
             var lineObj = new GameObject("GrappleLine");
             lineObj.transform.SetParent(transform);
@@ -88,11 +89,7 @@ public class GrappleController : NetworkBehaviour
         grappleLine.enabled = false;
         
         // Setup material
-        if(lineMaterial != null) {
-            grappleLine.material = lineMaterial;
-        } else {
-            grappleLine.material = new Material(Shader.Find("Sprites/Default"));
-        }
+        grappleLine.material = lineMaterial != null ? lineMaterial : new Material(Shader.Find("Sprites/Default"));
         
         grappleLine.startColor = grappleColor;
         grappleLine.endColor = grappleColor;
@@ -102,8 +99,7 @@ public class GrappleController : NetworkBehaviour
     
     #region Public Methods
     
-    public void TryGrapple()
-    {
+    public void TryGrapple() {
         if(!CanGrapple || IsGrappling) return;
         
         // Raycast from camera to find grapple point
@@ -111,13 +107,10 @@ public class GrappleController : NetworkBehaviour
         
         if(Physics.Raycast(ray, out var hit, maxGrappleDistance, grappleableLayers)) {
             StartGrapple(hit.point);
-        } else {
-            Debug.Log("No grapple point found in range");
         }
     }
     
-    public void CancelGrapple()
-    {
+    public void CancelGrapple() {
         if(!IsGrappling) return;
         
         EndGrapple(true);
@@ -127,8 +120,7 @@ public class GrappleController : NetworkBehaviour
     
     #region Private Methods - Grapple Logic
     
-    private void StartGrapple(Vector3 targetPoint)
-    {
+    private void StartGrapple(Vector3 targetPoint) {
         IsGrappling = true;
         _grapplePoint = targetPoint;
         _grappleStartTime = Time.time;
@@ -136,12 +128,10 @@ public class GrappleController : NetworkBehaviour
         
         // Enable visual
         grappleLine.enabled = true;
-        
-        Debug.Log($"Grapple started to {targetPoint}");
+        SoundFXManager.Instance.PlayRandomSoundFX(grappleSounds, transform, false, "grapple");
     }
     
-    private void UpdateGrapple()
-    {
+    private void UpdateGrapple() {
         var elapsed = Time.time - _grappleStartTime;
         
         // Check if grapple duration exceeded
@@ -163,7 +153,7 @@ public class GrappleController : NetworkBehaviour
         // Check for walls in the direction we're moving
         var pullVelocity = directionToPoint * grappleSpeed;
         var checkDistance = pullVelocity.magnitude * Time.deltaTime * 3f; // Check slightly ahead
-        if(Physics.SphereCast(transform.position, characterController.radius, directionToPoint, out var hit, checkDistance, ~0, QueryTriggerInteraction.Ignore)) {
+        if(Physics.SphereCast(transform.position, characterController.radius, directionToPoint, out var hit, checkDistance, ~_playerLayer)) {
             // We're about to hit something, end grapple early
             EndGrapple(true);
             return;
@@ -173,10 +163,12 @@ public class GrappleController : NetworkBehaviour
         characterController.Move(pullVelocity * Time.deltaTime);
     }
     
-    private void EndGrapple(bool applyMomentum)
-    {
+    private void EndGrapple(bool applyMomentum) {
         IsGrappling = false;
-        grappleLine.enabled = false;
+        
+        StartCoroutine(DisableLineAfterDelay(0.1f));
+        
+        // grappleLine.enabled = false;
         
         if(applyMomentum && preserveMomentum) {
             // Calculate final momentum direction
@@ -184,22 +176,26 @@ public class GrappleController : NetworkBehaviour
             var finalVelocity = grappleSpeed * momentumBoost * directionToPoint;
             
             // Apply momentum to FpController
-            if(fpController != null) {
+            if(playerController != null) {
                 // Set horizontal velocity (preserve some existing momentum)
                 var horizontalVelocity = new Vector3(finalVelocity.x, 0f, finalVelocity.z);
-                fpController.SetVelocity(horizontalVelocity);
+                playerController.SetVelocity(horizontalVelocity);
                 
                 // Add upward boost if grappling upward
                 if(finalVelocity.y > 0) {
-                    fpController.AddVerticalVelocity(finalVelocity.y);
+                    playerController.AddVerticalVelocity(finalVelocity.y);
                 }
             }
         }
         
         // Start cooldown
         StartCoroutine(GrappleCooldown());
+    }
+
+    private IEnumerator DisableLineAfterDelay(float delay) {
+        yield return new WaitForSeconds(delay);
         
-        Debug.Log("Grapple ended");
+        grappleLine.enabled = false;
     }
     
     private IEnumerator GrappleCooldown()

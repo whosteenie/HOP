@@ -1,5 +1,4 @@
 using Unity.Cinemachine;
-using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -17,7 +16,7 @@ public class GrappleUIManager : MonoBehaviour
     [Header("Visual Settings")]
     [SerializeField] private Color readyColor = new Color(1f, 0.2f, 0.2f, 0.8f);
     [SerializeField] private Color cooldownColor = new Color(0f, 0f, 0f, 0.3f);
-    [SerializeField] private int segments = 20; // Number of segments for the horseshoe
+    [SerializeField] private int segments = 18; // Number of segments for the horseshoe
     [SerializeField] private float colorTransitionSpeed = 25f;
     
     private VisualElement _grappleIndicator;

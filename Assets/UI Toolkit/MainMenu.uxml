@@ -13,11 +13,52 @@
         </ui:VisualElement>
     </ui:VisualElement>
     
+    <!-- Game Mode Selection Panel -->
+    <ui:VisualElement name="gamemode-panel" class="panel hidden">
+        <ui:VisualElement class="menu-container gamemode-container">
+            <ui:Label text="SELECT GAME MODE" class="title" />
+            <ui:VisualElement class="gamemode-grid">
+                <!-- Gamemode 1 -->
+                <ui:VisualElement class="gamemode-card">
+                    <ui:VisualElement name="mode1-image" class="gamemode-image" />
+                    <ui:Label text="Deathmatch" class="gamemode-title" />
+                    <ui:Button text="Select" name="select-mode1" class="menu-button" />
+                </ui:VisualElement>
+                <!-- Gamemode 2 -->
+                <ui:VisualElement class="gamemode-card">
+                    <ui:VisualElement name="mode2-image" class="gamemode-image" />
+                    <ui:Label text="Team Deathmatch" class="gamemode-title" />
+                    <ui:Button text="Select" name="select-mode2" class="menu-button" />
+                </ui:VisualElement>
+                <!-- Gamemode 3 -->
+                <ui:VisualElement class="gamemode-card">
+                    <ui:VisualElement name="mode3-image" class="gamemode-image" />
+                    <ui:Label text="Capture the Flag" class="gamemode-title" />
+                    <ui:Button text="Select" name="select-mode3" class="menu-button" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+            <ui:VisualElement class="button-row">
+                <ui:Button text="Back" name="back-to-main" class="menu-button" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+    </ui:VisualElement>
+    
+    <!-- Lobby Panel -->
+    <ui:VisualElement name="lobby-panel" class="panel hidden">
+        <ui:VisualElement class="menu-container">
+            <ui:Label text="LOBBY" class="title" />
+            <ui:Label text="Waiting for players..." class="lobby-status" />
+            <ui:VisualElement class="button-row">
+                <ui:Button text="Start Game" name="start-game" class="menu-button" />
+                <ui:Button text="Back" name="back-to-gamemode" class="menu-button" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+    </ui:VisualElement>
+    
     <!-- Options Panel -->
     <ui:VisualElement name="options-panel" class="panel hidden">
         <ui:VisualElement class="options-container">
             <ui:Label text="OPTIONS" class="title" />
-            
             <ui:VisualElement class="section">
                 <ui:Label text="Audio" class="section-title" />
                 <ui:VisualElement class="setting-row">
@@ -36,7 +77,6 @@
                     <ui:Label name="sfx-volume-value" text="100%" class="value-label" />
                 </ui:VisualElement>
             </ui:VisualElement>
-            
             <ui:VisualElement class="section">
                 <ui:Label text="Controls" class="section-title" />
                 <ui:VisualElement class="setting-row">
@@ -54,7 +94,6 @@
                     <ui:Toggle name="invert-y" class="setting-toggle" />
                 </ui:VisualElement>
             </ui:VisualElement>
-            
             <ui:VisualElement class="section">
                 <ui:Label text="Graphics" class="section-title" />
                 <ui:VisualElement class="setting-row">
@@ -70,7 +109,6 @@
                     <ui:DropdownField name="target-fps" class="setting-dropdown" />
                 </ui:VisualElement>
             </ui:VisualElement>
-            
             <ui:VisualElement class="button-row">
                 <ui:Button text="Apply" name="apply-button" class="menu-button" />
                 <ui:Button text="Back" name="back-button" class="menu-button" />

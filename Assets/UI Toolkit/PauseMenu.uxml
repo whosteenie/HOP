@@ -14,7 +14,7 @@
             <ui:Label text="/" name="ammo-slash" class="ammo-slash" />
             <ui:Label name="ammo-total" text="30" class="ammo-text" />
         </ui:VisualElement>
-        <ui:VisualElement name="crosshair" class="crosshair" style="top: 0; left: 0; right: 0; bottom: 0;">
+        <ui:VisualElement name="crosshair-container" class="crosshair" style="top: 0; left: 0; right: 0; bottom: 0; visibility: visible;">
             <ui:VisualElement class="crosshair-line horizontal" />
             <ui:VisualElement class="crosshair-line vertical" />
             <ui:VisualElement name="grapple-indicator" class="grapple-indicator" />

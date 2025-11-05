@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Audio;
 using UnityEngine.SceneManagement;
+using UnityEngine.Serialization;
 using UnityEngine.UIElements;
 
 public class MainMenuManager : MonoBehaviour
@@ -17,7 +18,11 @@ public class MainMenuManager : MonoBehaviour
     #region Private Fields
     
     private VisualElement _mainMenuPanel;
+    private VisualElement _gamemodePanel;
+    private VisualElement _lobbyPanel;
     private VisualElement _optionsPanel;
+    
+    private new string _selectedGameMode;
     
     // Audio sliders
     private Slider _masterVolumeSlider;
@@ -49,10 +54,18 @@ public class MainMenuManager : MonoBehaviour
         
         // Get panels
         _mainMenuPanel = root.Q<VisualElement>("main-menu-panel");
+        _gamemodePanel = root.Q<VisualElement>("gamemode-panel");
+        _lobbyPanel = root.Q<VisualElement>("lobby-panel");
         _optionsPanel = root.Q<VisualElement>("options-panel");
         
         // Setup main menu buttons
-        root.Q<Button>("play-button").clicked += OnPlayClicked;
+        root.Q<Button>("play-button").clicked += ShowGamemodePanel;
+        root.Q<Button>("select-mode1").clicked += () => OnGameModeSelected("Deathmatch");
+        root.Q<Button>("select-mode2").clicked += () => OnGameModeSelected("Team Deathmatch");
+        root.Q<Button>("select-mode3").clicked += () => OnGameModeSelected("Capture the Flag");
+        root.Q<Button>("back-to-main").clicked += () => ShowPanel(_mainMenuPanel);
+        root.Q<Button>("back-to-gamemode").clicked += () => ShowPanel(_gamemodePanel);
+        root.Q<Button>("start-game").clicked += OnStartGameClicked;
         root.Q<Button>("loadout-button").clicked += OnLoadoutClicked;
         root.Q<Button>("options-button").clicked += ShowOptions;
         root.Q<Button>("credits-button").clicked += OnCreditsClicked;
@@ -148,9 +161,30 @@ public class MainMenuManager : MonoBehaviour
     
     #region Menu Navigation
     
-    private void OnPlayClicked()
+    private void ShowGamemodePanel()
     {
-        Debug.Log("Loading game...");
+        ShowPanel(_gamemodePanel);
+    }
+    
+    private void OnGameModeSelected(string modeName)
+    {
+        _selectedGameMode = modeName;
+        ShowPanel(_lobbyPanel);
+    }
+    
+    private void ShowPanel(VisualElement panel)
+    {
+        _mainMenuPanel.AddToClassList("hidden");
+        _optionsPanel.AddToClassList("hidden");
+        _gamemodePanel.AddToClassList("hidden");
+        _lobbyPanel.AddToClassList("hidden");
+
+        panel.RemoveFromClassList("hidden");
+    }
+    
+    private void OnStartGameClicked()
+    {
+        Debug.Log("Starting game...");
         SceneManager.LoadScene(gameSceneName);
     }
     

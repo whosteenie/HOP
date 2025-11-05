@@ -14,25 +14,35 @@ public class WeaponManager : NetworkBehaviour {
         _equippedWeapons = new List<Weapon>();
     }
 
-    public void InitializeWeapons(CinemachineCamera cam, FpController controller, HUDManager hud) {
+    public void InitializeWeapons(CinemachineCamera cam, PlayerController controller, HUDManager hud) {
         _equippedWeapons.Clear();
         
         foreach(var data in weaponDataList) {
             var weapon = gameObject.AddComponent<Weapon>();
-            weapon.Initialize(data);
             
-            // add prefab to camera as child
-            var weaponPrefab = Instantiate(data.weaponPrefab).transform;
-            weaponPrefab.SetParent(cam.transform);
-            weaponPrefab.localPosition = data.positionSpawn;
-            weaponPrefab.localEulerAngles = data.rotationSpawn;
+            var weaponInstance = Instantiate(data.weaponPrefab, cam.transform, false);
+            weaponInstance.transform.localPosition = data.positionSpawn;
+            weaponInstance.transform.localEulerAngles = data.rotationSpawn;
 
-            var muzzlePrefab = Instantiate(data.muzzlePrefab).transform;
-            muzzlePrefab.SetParent(weaponPrefab.transform);
-            muzzlePrefab.localPosition = data.positionMuzzle;
+            var muzzleInstance = Instantiate(data.muzzlePrefab, weaponInstance.transform, false);
+            muzzleInstance.transform.localPosition = data.positionMuzzle;
 
-            if(data.weaponSlot != 0) {
-                weaponPrefab.gameObject.SetActive(false);
+            weapon.Initialize(data);
+
+            weapon.weaponPrefab = weaponInstance;
+            weapon.weaponMuzzle = muzzleInstance;
+            
+            var meshRenderers = weaponInstance.GetComponentsInChildren<MeshRenderer>();
+            foreach(var meshRenderer in meshRenderers) {
+                meshRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            }
+            
+            if(data.weaponSlot != 0 || !IsOwner) {
+                weaponInstance.gameObject.SetActive(false);
+            }
+
+            if(!IsOwner) {
+                weapon.weaponPrefab.layer = LayerMask.NameToLayer("Masked");
             }
             
             weapon.BindAndResolve(cam, controller, this, hud);

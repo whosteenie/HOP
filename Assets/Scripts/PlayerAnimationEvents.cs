@@ -1,20 +1,21 @@
 using UnityEngine;
+using UnityEngine.Serialization;
 
 public class PlayerAnimationEvents : MonoBehaviour
 {
-    public FpController fpController;
+    [FormerlySerializedAs("fpController")] public PlayerController playerController;
     
     private void OnValidate() {
-        if(fpController == null) {
-            fpController = transform.parent.GetComponent<FpController>();
+        if(playerController == null) {
+            playerController = transform.parent.GetComponent<PlayerController>();
         }
     }
     
     public void PlayWalkSound() {
-        fpController.PlayWalkSound();
+        playerController.PlayWalkSound();
     }
 
     public void PlayRunSound() {
-        fpController.PlayRunSound();
+        playerController.PlayRunSound();
     }
 }

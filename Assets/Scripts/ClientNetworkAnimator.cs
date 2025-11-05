@@ -1,5 +1,4 @@
 using Unity.Netcode.Components;
-using UnityEngine;
 
 public class ClientNetworkAnimator : NetworkAnimator
 {

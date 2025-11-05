@@ -133,6 +133,15 @@
                     "initialStateCheck": false
                 },
                 {
+                    "name": "Grapple",
+                    "type": "Button",
+                    "id": "5ac6dd6c-79bd-4801-8e00-dd14ffa16c92",
+                    "expectedControlType": "",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
+                },
+                {
                     "name": "TestDamage",
                     "type": "Button",
                     "id": "62baa1b2-f55b-43c1-94b9-0857168bcc33",
@@ -142,9 +151,9 @@
                     "initialStateCheck": false
                 },
                 {
-                    "name": "Grapple",
+                    "name": "TestRespawn",
                     "type": "Button",
-                    "id": "5ac6dd6c-79bd-4801-8e00-dd14ffa16c92",
+                    "id": "43f68b41-25d2-47b9-86ef-44c58decac8c",
                     "expectedControlType": "",
                     "processors": "",
                     "interactions": "",
@@ -528,6 +537,17 @@
                 },
                 {
                     "name": "",
+                    "id": "d001dd3b-ac97-4fc9-a5fe-fc1fb0fb5a03",
+                    "path": "<Keyboard>/leftCtrl",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": ";Keyboard&Mouse",
+                    "action": "Crouch",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
                     "id": "83e6ae4e-b9e1-4a6b-ace3-a5523b73afc7",
                     "path": "<Keyboard>/escape",
                     "interactions": "",
@@ -600,6 +620,17 @@
                     "processors": "",
                     "groups": ";Keyboard&Mouse",
                     "action": "Grapple",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "9df32dc2-e598-40b4-8059-257f6fbb1ae7",
+                    "path": "<Keyboard>/i",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": ";Keyboard&Mouse",
+                    "action": "TestRespawn",
                     "isComposite": false,
                     "isPartOfComposite": false
                 }

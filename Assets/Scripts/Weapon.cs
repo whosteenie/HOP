@@ -1,7 +1,6 @@
 using System.Collections;
 using Unity.Cinemachine;
 using Unity.Netcode;
-using UnityEditor.Rendering;
 using UnityEngine;
 using UnityEngine.Serialization;
 using UnityEngine.VFX;
@@ -9,9 +8,9 @@ using UnityEngine.VFX;
 public class Weapon : NetworkBehaviour
 {
     [Header("Weapon Data")]
-    public string weaponName;
     public GameObject weaponPrefab;
     public GameObject weaponMuzzle;
+    public int weaponSlot;
     public int currentAmmo;
     public int magSize;
     public int baseDamage;
@@ -28,14 +27,15 @@ public class Weapon : NetworkBehaviour
     public ParticleSystem bulletImpact;
     
     [Header("Speed Damage Scaling")]
-    [SerializeField] private float minSpeedThreshold;
+    public const float MinSpeedThreshold = 15f;
     [SerializeField] private float maxSpeedThreshold = 30f;
     [SerializeField] private float multiplierDecayRate = 1.8f;
     [SerializeField] private float multiplierGracePeriod = 1.25f;
 
     [Header("Components")]
     public CinemachineCamera fpCamera;
-    public FpController fpController;
+    public PlayerController playerController;
+    public Animator playerAnimator;
     public WeaponManager weaponManager;
     public HUDManager hudManager;
     public LayerMask playerBodyLayer;
@@ -80,8 +80,18 @@ public class Weapon : NetworkBehaviour
             fpCamera = GetComponentInChildren<CinemachineCamera>();
         }
 
-        if(fpController == null) {
-            fpController = GetComponent<FpController>();
+        if(playerController == null) {
+            playerController = GetComponent<PlayerController>();
+        }
+
+        if(playerAnimator == null) {
+            var animators = GetComponentsInChildren<Animator>();
+            foreach(var anim in animators) {
+                if(anim != weaponAnimator) {
+                    playerAnimator = anim;
+                    break;
+                }
+            }
         }
 
         if(hudManager == null) {
@@ -90,14 +100,13 @@ public class Weapon : NetworkBehaviour
     }
 
     private void Awake() {
-        playerBodyLayer = LayerMask.GetMask("Masked");
+        playerBodyLayer = LayerMask.GetMask("Player");
         _lastFireTime = Time.time;
-        minSpeedThreshold = FpController.SprintSpeed;
     }
 
-    public void BindAndResolve(CinemachineCamera cam, FpController controller, WeaponManager mgr, HUDManager hud) {
+    public void BindAndResolve(CinemachineCamera cam, PlayerController controller, WeaponManager mgr, HUDManager hud) {
         fpCamera = cam;
-        fpController = controller;
+        playerController = controller;
         weaponManager = mgr;
         hudManager = hud;
         
@@ -115,9 +124,9 @@ public class Weapon : NetworkBehaviour
     #region Initialization
     
     public void Initialize(WeaponData data) {
-        weaponName = data.weaponName;
         weaponPrefab = data.weaponPrefab;
         weaponMuzzle = data.muzzlePrefab;
+        weaponSlot = data.weaponSlot;
         
         magSize = data.magSize;
         currentAmmo = data.currentAmmo;
@@ -155,10 +164,7 @@ public class Weapon : NetworkBehaviour
     }
 
     public void StartReload() {
-        if(!CanReload()) {
-            Debug.Log($"Cannot reload! - Ammo: {currentAmmo}/{magSize}");
-            return;
-        }
+        if(!CanReload()) return;
         
         PlayReloadEffects();
         IsReloading = true;
@@ -203,7 +209,9 @@ public class Weapon : NetworkBehaviour
 
         if(shotHit) {
             Debug.DrawRay(origin, forward * hit.distance, Color.green, 5f);
-            
+            var target = hit.collider.GetComponent<IDamageable>();
+            target?.TakeDamage(damage, hit.point, hit.normal);
+
             var trail = Instantiate(bulletTrail, weaponMuzzle.transform.position, Quaternion.identity);
             StartCoroutine(SpawnTrail(trail, hit.point, hit.normal, true));
         } else {
@@ -218,8 +226,6 @@ public class Weapon : NetworkBehaviour
         currentAmmo--;
         _lastFireTime = Time.time;
         hudManager.UpdateAmmo(currentAmmo, magSize);
-        
-        Debug.Log($"{weaponName} fired! - Damage: {damage:F1} | Ammo: {currentAmmo}/{magSize} | Hit: {(shotHit ? "Yes" : "No")}");
     }
     
     private float GetScaledDamage() {
@@ -227,14 +233,14 @@ public class Weapon : NetworkBehaviour
     }
     
     public void UpdateDamageMultiplier() {
-        var currentSpeed = fpController.CurrentFullVelocity.magnitude;
+        var currentSpeed = playerController.CurrentFullVelocity.magnitude;
         float targetMultiplier;
         
         // Calculate target multiplier based on current velocity
-        if(currentSpeed < minSpeedThreshold) {
+        if(currentSpeed < MinSpeedThreshold) {
             targetMultiplier = 1f;
         } else {
-            var scaleFactor = Mathf.InverseLerp(minSpeedThreshold, maxSpeedThreshold, currentSpeed);
+            var scaleFactor = Mathf.InverseLerp(MinSpeedThreshold, maxSpeedThreshold, currentSpeed);
             targetMultiplier = Mathf.Lerp(1f, maxDamageMultiplier, scaleFactor);
         }
         
@@ -271,7 +277,6 @@ public class Weapon : NetworkBehaviour
         _reloadCoroutine = null;
         
         hudManager.UpdateAmmo(currentAmmo, magSize);
-        Debug.Log($"{weaponName} reloaded! - Ammo: {currentAmmo}/{magSize}");
     }
     
     #endregion
@@ -279,25 +284,23 @@ public class Weapon : NetworkBehaviour
     #region Private Methods - Effects
     
     private void PlayFireEffects() {
-        if(weaponAnimator) {
-            weaponAnimator.SetTrigger("Recoil");
-        }
+        weaponAnimator.SetTrigger(RecoilHash);
+        playerAnimator.SetTrigger(RecoilHash);
         
-        SoundFXManager.Instance.PlayRandomSoundFX(fireSounds, transform);
+        SoundFXManager.Instance.PlayRandomSoundFX(fireSounds, transform, true, "shoot");
         muzzleFlashEffect.Play();
         muzzleLight.gameObject.SetActive(true);
     }
     
     private void PlayDryFireSound() {
-        SoundFXManager.Instance.PlayRandomSoundFX(dryFireSounds, transform);
+        SoundFXManager.Instance.PlayRandomSoundFX(dryFireSounds, transform, true, "shoot");
     }
 
     private void PlayReloadEffects() {
-        if(weaponAnimator) {
-            weaponAnimator.SetTrigger("Reload");
-        }
+        weaponAnimator.SetTrigger(ReloadHash);
+        playerAnimator.SetTrigger(ReloadHash);
         
-        SoundFXManager.Instance.PlayRandomSoundFX(reloadSounds, transform);
+        SoundFXManager.Instance.PlayRandomSoundFX(reloadSounds, transform, false, "reload");
     }
     
     private IEnumerator SpawnTrail(TrailRenderer trail, Vector3 hitPoint, Vector3 hitNormal, bool madeImpact) {

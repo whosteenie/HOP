@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Audio;
@@ -16,7 +15,7 @@ public class PauseMenuManager : MonoBehaviour {
     
     private VisualElement _pauseMenuPanel;
     private VisualElement _optionsPanel;
-    private FpController _localController;
+    private PlayerController _localController;
 
     // Audio sliders
     private Slider _masterVolumeSlider;
@@ -167,10 +166,10 @@ public class PauseMenuManager : MonoBehaviour {
         UnityEngine.Cursor.visible = true;
 
         if(_localController != null) {
-            var allControllers = FindObjectsByType<FpController>(FindObjectsSortMode.None);
+            var allControllers = FindObjectsByType<PlayerController>(FindObjectsSortMode.None);
             foreach(var controller in allControllers) {
                 if(controller.IsOwner) {
-                    _localController = controller.GetComponent<FpController>();
+                    _localController = controller.GetComponent<PlayerController>();
                     _localController.moveInput = Vector2.zero;
                     break;
                 }
