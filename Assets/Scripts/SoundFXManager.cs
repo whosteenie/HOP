@@ -12,13 +12,15 @@ public class SoundFXManager : MonoBehaviour {
     private readonly Dictionary<string, AudioSource> _activeSounds = new(); // Track by soundType
 
     private void Awake() {
-        if(Instance == null) {
-            Instance = this;
-            DontDestroyOnLoad(gameObject);
-            InitializePool();
-        } else {
+        if(Instance != null && Instance != this) {
             Destroy(gameObject);
+            return;
         }
+
+        Instance = this;
+        DontDestroyOnLoad(gameObject);
+        
+        InitializePool();
     }
 
     private void InitializePool() {

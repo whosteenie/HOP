@@ -75,7 +75,7 @@ public class Weapon : NetworkBehaviour
     private void Awake() {
         playerBodyLayer = LayerMask.GetMask("Player");
         _lastFireTime = Time.time;
-        _hudManager = FindFirstObjectByType<HUDManager>();
+        _hudManager = HUDManager.Instance;
     }
     
     public override void OnNetworkSpawn() {
@@ -83,9 +83,9 @@ public class Weapon : NetworkBehaviour
         
         if(!IsOwner) return;
 
-        if(_hudManager == null) {
-            _hudManager = FindFirstObjectByType<HUDManager>();
-        }
+        // if(_hudManager == null) {
+        //     _hudManager = HUDManager.Instance;
+        // }
     }
     
     private void OnValidate() {
@@ -237,7 +237,7 @@ public class Weapon : NetworkBehaviour
         
         currentAmmo--;
         _lastFireTime = Time.time;
-        if(_hudManager)
+        if(playerController.IsOwner && _hudManager)
             _hudManager.UpdateAmmo(currentAmmo, magSize);
     }
     

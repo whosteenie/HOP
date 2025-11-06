@@ -187,6 +187,43 @@
     -unity-text-align: middle-center;
 }
 
+.join-code-container {
+    margin-top: 20px;
+    margin-bottom: 20px;
+    padding: 15px;
+    background-color: rgba(0, 0, 0, 0.3);
+    border-radius: 5px;
+}
+
+/* Scrollable Player List */
+.player-list-scroll {
+    max-height: 200px;
+    margin-top: 10px;
+    border-radius: 8px;
+    background-color: rgba(40, 40, 40, 0.6);
+    padding: 12px;
+    /* ScrollView handles overflow automatically */
+}
+
+/* Player List Container */
+.player-list {
+    flex-direction: column;
+    max-height: 200px;
+}
+
+.player-entry {
+    color: rgb(200, 200, 200);
+    font-size: 14px;
+    padding: 6px 10px;
+    border-bottom-width: 1px;
+    border-bottom-color: rgba(255, 255, 255, 0.1);
+}
+
+.player-entry.host {
+    color: rgb(100, 200, 255);
+    -unity-font-style: bold;
+}
+
 .hud {
     position: absolute;
     width: 100%;

@@ -1,5 +1,7 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" editor-extension-mode="False">
     <Style src="project://database/Assets/UI%20Toolkit/StyleSheet.uss?fileID=7433441132597879392&amp;guid=064a26f46686ff94abeba2dfbfd85b75&amp;type=3#StyleSheet" />
+    
+    <!-- Main Menu Panel -->
     <ui:VisualElement name="main-menu-panel" class="panel">
         <ui:VisualElement class="menu-container">
             <ui:Label text="HOP" class="title" />
@@ -10,6 +12,8 @@
             <ui:Button text="Quit" name="quit-button" class="menu-button" />
         </ui:VisualElement>
     </ui:VisualElement>
+    
+    <!-- Gamemode Panel -->
     <ui:VisualElement name="gamemode-panel" class="panel hidden">
         <ui:VisualElement class="menu-container gamemode-container">
             <ui:Label text="SELECT GAME MODE" class="title" />
@@ -35,16 +39,44 @@
             </ui:VisualElement>
         </ui:VisualElement>
     </ui:VisualElement>
+    
+    <!-- Lobby Panel -->
     <ui:VisualElement name="lobby-panel" class="panel hidden">
         <ui:VisualElement class="menu-container">
             <ui:Label text="LOBBY" class="title" />
             <ui:Label text="Waiting for players..." class="lobby-status" />
+        
+            <!-- Host Button + Join Code -->
+            <ui:VisualElement class="setting-row" style="margin-bottom: 20px;">
+                <ui:Button text="Host" name="host-button" class="menu-button" style="flex-grow: 0; width: 120px;" />
+                <ui:Label name="join-code-label" text="Join Code: ----" class="value-label" style="margin-left: 15px; color: rgb(100, 200, 255); font-size: 16px;" />
+            </ui:VisualElement>
+            
+            <!-- Join Code Section -->
+            <ui:VisualElement class="join-code-container">
+                <ui:Label text="Join with Code:" />
+                <ui:TextField name="join-code-input" placeholder-text="Enter join code..." />
+                <ui:Button text="Join Session" name="join-session-button" class="menu-button" />
+            </ui:VisualElement>
+            
+            <!-- Player List with ScrollView -->
+            <ui:VisualElement class="section">
+                <ui:Label text="PLAYERS" class="section-title" />
+                <ui:ScrollView name="player-list-scroll" class="player-list-scroll">
+                    <ui:VisualElement name="player-list" class="player-list">
+                        <!-- Players added here via code -->
+                    </ui:VisualElement>
+                </ui:ScrollView>
+            </ui:VisualElement>
+        
             <ui:VisualElement class="button-row">
-                <ui:Button text="Start Game" name="start-game" class="menu-button" />
+                <ui:Button text="Start Game" name="start-button" class="menu-button" />
                 <ui:Button text="Back" name="back-to-gamemode" class="menu-button" />
             </ui:VisualElement>
         </ui:VisualElement>
     </ui:VisualElement>
+    
+    <!-- Options Panel -->
     <ui:VisualElement name="options-panel" class="panel hidden">
         <ui:VisualElement class="options-container">
             <ui:Label text="OPTIONS" class="title" />
@@ -104,6 +136,8 @@
             </ui:VisualElement>
         </ui:VisualElement>
     </ui:VisualElement>
+    
+    <!-- HUD Panel -->
     <ui:VisualElement name="hud-panel" class="hud hidden">
         <ui:VisualElement name="health-container" class="health-container" style="position: absolute; top: auto; left: 30px; bottom: 30px;">
             <ui:ProgressBar name="health-bar" low-value="0" high-value="100" value="100" class="health-bar" />
@@ -124,6 +158,8 @@
             <ui:VisualElement name="grapple-indicator" class="grapple-indicator" />
         </ui:VisualElement>
     </ui:VisualElement>
+    
+    <!-- Pause Menu Panel -->
     <ui:VisualElement name="pause-menu-panel" class="panel hidden">
         <ui:VisualElement class="menu-container">
             <ui:Label text="PAUSED" class="title" />

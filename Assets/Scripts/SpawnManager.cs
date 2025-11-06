@@ -5,18 +5,18 @@ using UnityEngine;
 
 public class SpawnManager : NetworkBehaviour
 {
-    private static SpawnManager _instance;
-    public static SpawnManager Instance => _instance;
-    
+    public static SpawnManager Instance { get; private set; }
+
     private List<SpawnPoint> _spawnPoints;
     private int _nextSpawnIndex = 0;
     
     private void Awake() {
-        if(_instance != null && _instance != this) {
+        if(Instance != null && Instance != this) {
             Destroy(gameObject);
             return;
         }
-        _instance = this;
+        
+        Instance = this;
         
         // Find all spawn points in the scene
         _spawnPoints = FindObjectsByType<SpawnPoint>(FindObjectsSortMode.None).ToList();

@@ -49,7 +49,7 @@
             <ui:Label text="LOBBY" class="title" />
             <ui:Label text="Waiting for players..." class="lobby-status" />
             <ui:VisualElement class="button-row">
-                <ui:Button text="Start Game" name="start-game" class="menu-button" />
+                <ui:Button text="Host Game" name="host-game" class="menu-button" />
                 <ui:Button text="Back" name="back-to-gamemode" class="menu-button" />
             </ui:VisualElement>
         </ui:VisualElement>

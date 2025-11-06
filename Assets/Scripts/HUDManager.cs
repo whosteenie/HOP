@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -18,6 +19,18 @@ public class HUDManager : MonoBehaviour
     private Label _ammoTotal;
     
     private VisualElement _crosshairContainer;
+
+    public static HUDManager Instance;
+    
+    private void Awake() {
+        if(Instance != null && Instance != this) {
+            Destroy(gameObject);
+            return;
+        }
+        
+        Instance = this;
+        DontDestroyOnLoad(gameObject);
+    }
 
     private void OnEnable() {
         var root = uiDocument.rootVisualElement;
