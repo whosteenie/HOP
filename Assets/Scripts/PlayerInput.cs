@@ -99,12 +99,18 @@ public class PlayerInput : NetworkBehaviour
     }
 
     private void LateUpdate() {
-        if(!IsOwner || weaponManager.CurrentWeapon == null) return;
+        // if(!IsOwner) return;
+        if(weaponManager.CurrentWeapon == null) return;
         
         if(_pauseMenuManager != null && !_pauseMenuManager.IsPaused && 
            (Mouse.current.leftButton.isPressed || Mouse.current.rightButton.isPressed) && 
            weaponManager.CurrentWeapon.fireMode == "Full" && !playerController.IsDead) {
             _currentWeapon.Shoot();
+        }
+
+        if(_pauseMenuManager != null && !_pauseMenuManager.IsPaused &&
+           Mouse.current.scroll.value.magnitude > 0f && !playerController.IsDead) {
+            playerController.TryJump();
         }
         
         if(weaponManager.CurrentWeapon)
@@ -118,7 +124,7 @@ public class PlayerInput : NetworkBehaviour
     #region Movement
 
     private void OnLook(InputValue value) {
-        if(!IsOwner) return;
+        // if(!IsOwner) return;
         if(_pauseMenuManager != null && _pauseMenuManager.IsPaused) {
             playerController.lookInput = Vector2.zero;
             return;
@@ -133,7 +139,7 @@ public class PlayerInput : NetworkBehaviour
     }
     
     private void OnMove(InputValue value) {
-        if(!IsOwner) return;
+        // if(!IsOwner) return;
         if(_pauseMenuManager != null && _pauseMenuManager.IsPaused || playerController.IsDead) {
             playerController.moveInput = Vector2.zero;
             return;
@@ -143,7 +149,7 @@ public class PlayerInput : NetworkBehaviour
     }
 
     private void OnSprint(InputValue value) {
-        if(!IsOwner) return;
+        // if(!IsOwner) return;
         if(_pauseMenuManager != null && _pauseMenuManager.IsPaused || playerController.IsDead) {
             playerController.sprintInput = false;
             return;
@@ -159,7 +165,7 @@ public class PlayerInput : NetworkBehaviour
     }
     
     private void OnCrouch(InputValue value) {
-        if(!IsOwner) return;
+        // if(!IsOwner) return;
         if(_pauseMenuManager != null && _pauseMenuManager.IsPaused || playerController.IsDead) {
             playerController.crouchInput = false;
             return;
@@ -175,7 +181,7 @@ public class PlayerInput : NetworkBehaviour
     }
     
     private void OnJump(InputValue value) {
-        if(!IsOwner) return;
+        // if(!IsOwner) return;
         if(_pauseMenuManager != null && _pauseMenuManager.IsPaused || playerController.IsDead) return;
         
         playerController.TryJump();
@@ -186,7 +192,7 @@ public class PlayerInput : NetworkBehaviour
     }
 
     private void OnScrollWheel(InputValue value) {
-        if(!IsOwner) return;
+        // if(!IsOwner) return;
         if(_pauseMenuManager != null && _pauseMenuManager.IsPaused || playerController.IsDead) return;
         
         playerController.TryJump();
@@ -197,7 +203,7 @@ public class PlayerInput : NetworkBehaviour
     }
     
     private void OnGrapple(InputValue value) {
-        if(!IsOwner) return;
+        // if(!IsOwner) return;
         if(_pauseMenuManager != null && _pauseMenuManager.IsPaused || playerController.IsDead) return;
 
         if(grappleController.IsGrappling) {
@@ -212,7 +218,7 @@ public class PlayerInput : NetworkBehaviour
     #region Weapons
 
     private void OnPrimary(InputValue value) {
-        if(!IsOwner) return;
+        // if(!IsOwner) return;
         if(_pauseMenuManager != null && _pauseMenuManager.IsPaused || _currentWeaponIndex == 0 || playerController.IsDead) return;
         
         if(weaponManager.CurrentWeapon.IsReloading) {
@@ -224,7 +230,7 @@ public class PlayerInput : NetworkBehaviour
     }
     
     private void OnSecondary(InputValue value) {
-        if(!IsOwner) return;
+        // if(!IsOwner) return;
         if(_pauseMenuManager != null && _pauseMenuManager.IsPaused || _currentWeaponIndex == 1 || playerController.IsDead) return;
 
         if(weaponManager.CurrentWeapon.IsReloading) {
@@ -236,7 +242,7 @@ public class PlayerInput : NetworkBehaviour
     }
     
     private void OnTertiary(InputValue value) {
-        if(!IsOwner) return;
+        // if(!IsOwner) return;
         if(_pauseMenuManager != null && _pauseMenuManager.IsPaused || _currentWeaponIndex == 2 || playerController.IsDead) return;
         
         if(weaponManager.CurrentWeapon.IsReloading) {
@@ -256,10 +262,12 @@ public class PlayerInput : NetworkBehaviour
     }
     
     private void OnReload(InputValue value) {
-        if(!IsOwner) return;
+        // if(!IsOwner) return;
         if(_pauseMenuManager != null && _pauseMenuManager.IsPaused || playerController.IsDead) return;
-        
-        weaponManager.CurrentWeapon.StartReload();
+
+        if(weaponManager.CurrentWeapon) {
+            weaponManager.CurrentWeapon.StartReload();
+        }
     }
     
     #endregion
@@ -273,14 +281,14 @@ public class PlayerInput : NetworkBehaviour
     }
     
     private void OnTestDamage(InputValue value) {
-        if(!IsOwner) return;
+        // if(!IsOwner) return;
         if(_pauseMenuManager != null && _pauseMenuManager.IsPaused || playerController.IsDead) return;
         Debug.Log("Taking 10 damage for testing.");
         playerController.TakeDamage(10);
     }
 
     private void OnTestRespawn(InputValue value) {
-        if(!IsOwner) return;
+        // if(!IsOwner) return;
         if(_pauseMenuManager != null && _pauseMenuManager.IsPaused || !playerController.IsDead) return;
         Debug.Log("Respawning player for testing.");
         playerController.Respawn();

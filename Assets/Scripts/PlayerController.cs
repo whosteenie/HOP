@@ -92,6 +92,7 @@ public class PlayerController : NetworkBehaviour, IDamageable {
     private Vector3? _lastHitPoint;
     private Vector3? _lastHitNormal;
     private LayerMask _playerBodyLayer;
+    private LayerMask _maskedLayer;
     
     #endregion
     
@@ -119,6 +120,7 @@ public class PlayerController : NetworkBehaviour, IDamageable {
         _hudManager = HUDManager.Instance;
         _impulseSource = FindFirstObjectByType<CinemachineImpulseSource>();
         _playerBodyLayer = LayerMask.GetMask("Player");
+        _maskedLayer = LayerMask.GetMask("Masked");
     }
 
     public override void OnNetworkSpawn() {
@@ -299,7 +301,9 @@ public class PlayerController : NetworkBehaviour, IDamageable {
 
     private void CheckCeilingHit() {
         Debug.DrawRay(fpCamera.transform.position, 0.75f * Vector3.up, Color.yellow);
-        if(Physics.Raycast(fpCamera.transform.position, Vector3.up, out var hit, 0.75f, ~_playerBodyLayer) && _verticalVelocity > 0f) {
+        
+        var mask = _playerBodyLayer | _maskedLayer;
+        if(Physics.Raycast(fpCamera.transform.position, Vector3.up, out var hit, 0.75f, ~mask) && _verticalVelocity > 0f) {
             grappleController.CancelGrapple();
             _verticalVelocity = 0f;
         }

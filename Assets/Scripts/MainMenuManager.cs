@@ -184,19 +184,27 @@ public class MainMenuManager : MonoBehaviour {
     }
 
     private async void OnStartGameClicked() {
-        Debug.Log("Starting game as host...");
-        await sessionManager.BeginGameplayAsHostAsync();
+        try {
+            Debug.Log("Starting game as host...");
+            await sessionManager.BeginGameplayAsHostAsync();
+        } catch(Exception e) {
+            Debug.LogException(e);
+        }
     }
 
     private async void OnJoinGameClicked(string code) {
-        if(string.IsNullOrWhiteSpace(code)) {
-            Debug.LogWarning("Invalid code");
-            return;
-        }
+        try {
+            if(string.IsNullOrWhiteSpace(code)) {
+                Debug.LogWarning("Invalid code");
+                return;
+            }
 
-        Debug.Log($"Joining game with code: {code}");
-        await sessionManager.JoinSessionByCodeAsync(code);
-        // The host scene load + spawn is automatic; we don’t load scenes here.
+            Debug.Log($"Joining game with code: {code}");
+            await sessionManager.JoinSessionByCodeAsync(code);
+            // The host scene load + spawn is automatic; we don’t load scenes here.
+        } catch(Exception e) {
+            Debug.LogException(e);
+        }
     }
 
     public void AddPlayer(string playerName, bool isHost) {

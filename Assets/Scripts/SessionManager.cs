@@ -2,9 +2,13 @@ using UnityEngine;
 using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
 using Unity.Netcode;
+using Unity.Netcode.Transports.UTP;
+using Unity.Networking.Transport.Relay;
 using Unity.Services.Authentication;
 using Unity.Services.Core;
 using Unity.Services.Multiplayer;
+using Unity.Services.Relay;
+using Unity.Services.Relay.Models;
 using UnityEngine.SceneManagement;
 using UnityEngine.UIElements;
 using UnityUtils;
@@ -15,6 +19,7 @@ public class SessionManager : Singleton<SessionManager> {
     private const string GameSceneName = "Game";
     private bool _isInitialized;
     private bool _loadingGameScene;
+    private string _relayJoinCode;
 
     [SerializeField] private MainMenuManager mainMenuManager; // optional
 
@@ -78,10 +83,24 @@ public class SessionManager : Singleton<SessionManager> {
 
     /// Host clicks "Start Game": now start host and load the networked scene
     public async UniTask BeginGameplayAsHostAsync() {
-        // (If you use Relay, configure UnityTransport here before StartHost)
+        // 1) Allocate Relay & configure transport (NEW API)
+        await ConfigureRelayForHostAsync();
+
+        // 2) Optionally publish the relay code into your Session so clients auto-fetch it
+        if (ActiveSession?.IsHost == true)
+        {
+            var hostSession = ActiveSession.AsHost(); // IHostSession
+            hostSession.SetProperty(
+                "relayCode",
+                new SessionProperty(_relayJoinCode, VisibilityPropertyOptions.Member) // or Public
+            );
+            await hostSession.SavePropertiesAsync();
+        }
 
         if(!NetworkManager.Singleton.IsListening)
             NetworkManager.Singleton.StartHost(); // approval is already set in CustomNetworkManager.Awake
+        
+        await UniTask.Yield();
 
         _loadingGameScene = true;
         NetworkManager.Singleton.SceneManager.OnLoadEventCompleted += OnNetworkSceneLoadComplete;
@@ -95,13 +114,22 @@ public class SessionManager : Singleton<SessionManager> {
 
             ActiveSession = await MultiplayerService.Instance.JoinSessionByCodeAsync(joinCode);
             Debug.Log($"Joined session by code: {ActiveSession?.Id}");
-
-            // Optionally reflect in lobby UI
-            if(ActiveSession != null && mainMenuManager != null) {
-                var props = await GetPlayerProperties();
-                if (props.TryGetValue(PlayerNamePropertyKey, out var val))
-                    mainMenuManager.AddPlayer(val.Value, false);
+            
+            // 2) Read relay code that host published
+            if (ActiveSession == null ||
+                !ActiveSession.Properties.TryGetValue("relayCode", out var relayProp) ||
+                string.IsNullOrEmpty(relayProp.Value))
+            {
+                Debug.LogError("Relay code not available on session yet.");
+                return;
             }
+            var relayJoinCode = relayProp.Value;
+            
+            // 3) Configure NGO transport with Relay
+            var join = await RelayService.Instance.JoinAllocationAsync(relayJoinCode);
+            var rsd = AllocationUtils.ToRelayServerData(join, RelayProtocol.DTLS); // or UDP/WSS
+            var utp = NetworkManager.Singleton.GetComponent<UnityTransport>();
+            utp.SetRelayServerData(rsd);
 
             // (If you use Relay, configure UnityTransport here before StartClient)
 
@@ -141,5 +169,27 @@ public class SessionManager : Singleton<SessionManager> {
             if (rootContainer != null)
                 rootContainer.style.visibility = Visibility.Visible;
         }
+    }
+
+    private async UniTask ConfigureRelayForHostAsync(int maxPlayers = 16) {
+        // Create a Relay allocation; region optional (auto by QoS)
+        var alloc = await RelayService.Instance.CreateAllocationAsync(maxPlayers);
+
+        // Produce RelayServerData using the new helper
+        var rsd = AllocationUtils.ToRelayServerData(alloc, RelayProtocol.DTLS); // or UDP/WSS
+
+        // Apply to NGO transport
+        var utp = NetworkManager.Singleton.GetComponent<UnityTransport>();
+        utp.SetRelayServerData(rsd);
+
+        // Share this with clients (UI or via Session properties)
+        _relayJoinCode = await RelayService.Instance.GetJoinCodeAsync(alloc.AllocationId);
+    }
+
+    private async UniTask ConfigureRelayForClientAsync(string relayJoinCode) {
+        var join = await RelayService.Instance.JoinAllocationAsync(relayJoinCode);
+        var rsd = AllocationUtils.ToRelayServerData(join, RelayProtocol.DTLS); // or UDP/WSS
+        var utp = NetworkManager.Singleton.GetComponent<UnityTransport>();
+        utp.SetRelayServerData(rsd);
     }
 }
