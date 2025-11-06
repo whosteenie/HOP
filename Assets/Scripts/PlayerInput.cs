@@ -34,44 +34,60 @@ public class PlayerInput : NetworkBehaviour
     
     #region Unity Methods
 
-    private void Awake() {
-        _pauseMenuManager = FindFirstObjectByType<PauseMenuManager>();
-        _hudManager = FindFirstObjectByType<HUDManager>();
-        
-        if(_hudManager) {
-            weaponManager.InitializeWeapons(fpCamera, playerController, _hudManager);
-        }
-    }
-
     public override void OnNetworkSpawn() {
         base.OnNetworkSpawn();
+
+        if(!IsOwner) {
+            if(fpCamera != null) {
+                fpCamera.gameObject.SetActive(false);
+            }
+            
+            return;
+        }
         
-        if(!IsOwner) return;
+        if(fpCamera != null) {
+            fpCamera.gameObject.SetActive(true);
+            fpCamera.Priority = 100; // Make sure it's the active camera
+        }
+
+        _pauseMenuManager = PauseMenuManager.Instance;
+        _hudManager = HUDManager.Instance;
+        
+        weaponManager.InitializeWeapons(fpCamera, playerController, _hudManager);
+        _currentWeaponIndex = weaponManager.currentWeaponIndex;
+        _currentWeapon = weaponManager.CurrentWeapon;
 
         StartCoroutine(InitializeAfterSceneLoad());
     }
 
     private IEnumerator InitializeAfterSceneLoad() {
         yield return new WaitForEndOfFrame();
+        
+        if(!IsOwner) {
+            Debug.Log("Not owner, skipping weapon initialization");
+            yield break;
+        }
 
         if(_pauseMenuManager == null) {
-            _pauseMenuManager = FindFirstObjectByType<PauseMenuManager>();
-        }
-        
-        if(_hudManager == null) {
-            _hudManager = FindFirstObjectByType<HUDManager>();
+            _pauseMenuManager = PauseMenuManager.Instance;
         }
 
-        if(_hudManager) {
+        if(_hudManager == null) {
+            _hudManager = HUDManager.Instance;
+        }
+        
+        if(fpCamera == null) {
+            Debug.LogError("FP Camera is null!");
+            yield break;
+        }
+        
+        if(_hudManager != null) {
             weaponManager.InitializeWeapons(fpCamera, playerController, _hudManager);
             _currentWeaponIndex = weaponManager.currentWeaponIndex;
             _currentWeapon = weaponManager.CurrentWeapon;
+            Debug.Log("Weapons initialized successfully!");
         } else {
-            Debug.LogError("HUDManager not found for PlayerInput.");
-        }
-
-        if(!_pauseMenuManager) {
-            Debug.LogWarning("PauseMenuManager not found for PlayerInput.");
+            Debug.LogError("HUDManager not found! Weapons cannot be initialized.");
         }
     }
 
@@ -83,15 +99,14 @@ public class PlayerInput : NetworkBehaviour
     }
 
     private void LateUpdate() {
-        if(!IsOwner) return;
+        if(!IsOwner || weaponManager.CurrentWeapon == null) return;
         
         if(_pauseMenuManager != null && !_pauseMenuManager.IsPaused && 
            (Mouse.current.leftButton.isPressed || Mouse.current.rightButton.isPressed) && 
-           _currentWeapon.fireMode == "Full" && !playerController.IsDead) {
+           weaponManager.CurrentWeapon.fireMode == "Full" && !playerController.IsDead) {
             _currentWeapon.Shoot();
         }
         
-        // TODO: NULL REFERENCE EXCEPTION HERE
         if(weaponManager.CurrentWeapon)
             weaponManager.CurrentWeapon.UpdateDamageMultiplier();
         
@@ -103,6 +118,7 @@ public class PlayerInput : NetworkBehaviour
     #region Movement
 
     private void OnLook(InputValue value) {
+        if(!IsOwner) return;
         if(_pauseMenuManager != null && _pauseMenuManager.IsPaused) {
             playerController.lookInput = Vector2.zero;
             return;
@@ -117,6 +133,7 @@ public class PlayerInput : NetworkBehaviour
     }
     
     private void OnMove(InputValue value) {
+        if(!IsOwner) return;
         if(_pauseMenuManager != null && _pauseMenuManager.IsPaused || playerController.IsDead) {
             playerController.moveInput = Vector2.zero;
             return;
@@ -126,6 +143,7 @@ public class PlayerInput : NetworkBehaviour
     }
 
     private void OnSprint(InputValue value) {
+        if(!IsOwner) return;
         if(_pauseMenuManager != null && _pauseMenuManager.IsPaused || playerController.IsDead) {
             playerController.sprintInput = false;
             return;
@@ -141,6 +159,7 @@ public class PlayerInput : NetworkBehaviour
     }
     
     private void OnCrouch(InputValue value) {
+        if(!IsOwner) return;
         if(_pauseMenuManager != null && _pauseMenuManager.IsPaused || playerController.IsDead) {
             playerController.crouchInput = false;
             return;
@@ -156,6 +175,7 @@ public class PlayerInput : NetworkBehaviour
     }
     
     private void OnJump(InputValue value) {
+        if(!IsOwner) return;
         if(_pauseMenuManager != null && _pauseMenuManager.IsPaused || playerController.IsDead) return;
         
         playerController.TryJump();
@@ -166,6 +186,7 @@ public class PlayerInput : NetworkBehaviour
     }
 
     private void OnScrollWheel(InputValue value) {
+        if(!IsOwner) return;
         if(_pauseMenuManager != null && _pauseMenuManager.IsPaused || playerController.IsDead) return;
         
         playerController.TryJump();
@@ -175,8 +196,8 @@ public class PlayerInput : NetworkBehaviour
         }
     }
     
-    private void OnGrapple(InputValue value)
-    {
+    private void OnGrapple(InputValue value) {
+        if(!IsOwner) return;
         if(_pauseMenuManager != null && _pauseMenuManager.IsPaused || playerController.IsDead) return;
 
         if(grappleController.IsGrappling) {
@@ -191,6 +212,7 @@ public class PlayerInput : NetworkBehaviour
     #region Weapons
 
     private void OnPrimary(InputValue value) {
+        if(!IsOwner) return;
         if(_pauseMenuManager != null && _pauseMenuManager.IsPaused || _currentWeaponIndex == 0 || playerController.IsDead) return;
         
         if(weaponManager.CurrentWeapon.IsReloading) {
@@ -202,6 +224,7 @@ public class PlayerInput : NetworkBehaviour
     }
     
     private void OnSecondary(InputValue value) {
+        if(!IsOwner) return;
         if(_pauseMenuManager != null && _pauseMenuManager.IsPaused || _currentWeaponIndex == 1 || playerController.IsDead) return;
 
         if(weaponManager.CurrentWeapon.IsReloading) {
@@ -213,6 +236,7 @@ public class PlayerInput : NetworkBehaviour
     }
     
     private void OnTertiary(InputValue value) {
+        if(!IsOwner) return;
         if(_pauseMenuManager != null && _pauseMenuManager.IsPaused || _currentWeaponIndex == 2 || playerController.IsDead) return;
         
         if(weaponManager.CurrentWeapon.IsReloading) {
@@ -232,6 +256,7 @@ public class PlayerInput : NetworkBehaviour
     }
     
     private void OnReload(InputValue value) {
+        if(!IsOwner) return;
         if(_pauseMenuManager != null && _pauseMenuManager.IsPaused || playerController.IsDead) return;
         
         weaponManager.CurrentWeapon.StartReload();
@@ -242,17 +267,20 @@ public class PlayerInput : NetworkBehaviour
     #region System
 
     private void OnPause(InputValue value) {
+        if(!IsOwner) return;
         if(_pauseMenuManager)
             _pauseMenuManager.TogglePause();
     }
     
     private void OnTestDamage(InputValue value) {
+        if(!IsOwner) return;
         if(_pauseMenuManager != null && _pauseMenuManager.IsPaused || playerController.IsDead) return;
         Debug.Log("Taking 10 damage for testing.");
         playerController.TakeDamage(10);
     }
 
     private void OnTestRespawn(InputValue value) {
+        if(!IsOwner) return;
         if(_pauseMenuManager != null && _pauseMenuManager.IsPaused || !playerController.IsDead) return;
         Debug.Log("Respawning player for testing.");
         playerController.Respawn();

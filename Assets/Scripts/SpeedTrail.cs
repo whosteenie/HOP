@@ -28,19 +28,16 @@ public class SpeedTrail : MonoBehaviour
     private const int PoolSize = 20;
     private Vector3 _lastPosition;
 
-    private void Awake()
-    {
+    private void Awake() {
         _lastPosition = transform.position;
         
         // Create ghost material if not assigned
-        if(ghostMaterial == null)
-        {
+        if(ghostMaterial == null) {
             CreateGhostMaterial();
         }
         
         // Pre-populate ghost pool
-        for(var i = 0; i < PoolSize; i++)
-        {
+        for(var i = 0; i < PoolSize; i++) {
             CreateGhost();
         }
     }
@@ -48,12 +45,10 @@ public class SpeedTrail : MonoBehaviour
     private void Update() {
         if(!weaponManager.CurrentWeapon) return;
         
-        // TODO: NULL REFERENCE EXCEPTION HERE
         var multiplier = weaponManager.CurrentWeapon.CurrentDamageMultiplier;
         
         // If below threshold, fade out all active ghosts
-        if(multiplier < minMultiplierForTrail)
-        {
+        if(multiplier < minMultiplierForTrail) {
             // FadeOutAllGhosts();
             return;
         }
@@ -68,20 +63,16 @@ public class SpeedTrail : MonoBehaviour
         _lastSpawnTime = Time.time;
     }
     
-    private void FadeOutAllGhosts()
-    {
+    private void FadeOutAllGhosts() {
         // Find all active ghosts and deactivate them
-        foreach(var ghost in _ghostPool)
-        {
-            if(ghost.activeInHierarchy)
-            {
+        foreach(var ghost in _ghostPool) {
+            if(ghost.activeInHierarchy) {
                 ghost.SetActive(false);
             }
         }
     }
     
-    private void CreateGhostMaterial()
-    {
+    private void CreateGhostMaterial() {
         ghostMaterial = new Material(Shader.Find("Standard"));
         ghostMaterial.SetFloat(Mode, 3);
         ghostMaterial.SetInt(SrcBlend, (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
@@ -94,8 +85,7 @@ public class SpeedTrail : MonoBehaviour
         ghostMaterial.color = trailColor;
     }
     
-    private GameObject CreateGhost()
-    {
+    private GameObject CreateGhost() {
         var ghost = new GameObject("AfterimageGhost") {
             layer = LayerMask.NameToLayer("Masked")
         };
@@ -111,27 +101,24 @@ public class SpeedTrail : MonoBehaviour
         return ghost;
     }
     
-    private void SpawnAfterimage()
-    {
+    private void SpawnAfterimage() {
         // Get ghost from pool
         var ghost = _ghostPool.FirstOrDefault(g => g !=null && !g.activeInHierarchy);
 
-        if(ghost == null)
-        {
+        if(!ghost) {
             ghost = CreateGhost();
         }
 
         // Calculate movement direction
-        Vector3 movementDirection = (transform.position - _lastPosition).normalized;
+        var movementDirection = (transform.position - _lastPosition).normalized;
         
         // If no movement, use backward direction
-        if(movementDirection == Vector3.zero)
-        {
+        if(movementDirection == Vector3.zero) {
             movementDirection = -transform.forward;
         }
         
         // Spawn ghost behind the player based on movement direction
-        Vector3 spawnPosition = playerMesh.transform.position - movementDirection * spawnOffset;
+        var spawnPosition = playerMesh.transform.position - movementDirection * spawnOffset;
         
         // Position and setup ghost
         ghost.transform.position = spawnPosition;
@@ -157,14 +144,12 @@ public class SpeedTrail : MonoBehaviour
         StartCoroutine(FadeAndReturnGhost(ghost, mr));
     }
     
-    private IEnumerator FadeAndReturnGhost(GameObject ghost, MeshRenderer ghostRenderer)
-    {
+    private IEnumerator FadeAndReturnGhost(GameObject ghost, MeshRenderer ghostRenderer) {
         var elapsed = 0f;
         var instanceMat = ghostRenderer.material;
         var startColor = trailColor;
         
-        while(elapsed < ghostLifetime)
-        {
+        while(elapsed < ghostLifetime) {
             elapsed += Time.deltaTime;
             var alpha = Mathf.Lerp(startColor.a, 0f, elapsed / ghostLifetime);
             instanceMat.color = new Color(startColor.r, startColor.g, startColor.b, alpha);

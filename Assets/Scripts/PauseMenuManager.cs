@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Audio;
@@ -46,8 +47,20 @@ public class PauseMenuManager : MonoBehaviour {
 
     #endregion
     
-    #region Unity Lifecycle
+    public static PauseMenuManager Instance { get; private set; }
     
+    #region Unity Lifecycle
+
+    private void Awake() {
+        if(Instance != null) {
+            Destroy(gameObject);
+            return;
+        }
+        
+        Instance = this;
+        DontDestroyOnLoad(gameObject);
+    }
+
     private void OnEnable() {
         var root = uiDocument.rootVisualElement;
         

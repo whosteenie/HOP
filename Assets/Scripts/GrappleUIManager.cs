@@ -4,8 +4,7 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UIElements;
 
-public class GrappleUIManager : MonoBehaviour
-{
+public class GrappleUIManager : MonoBehaviour {
     [Header("References")]
     [SerializeField] private UIDocument uiDocument;
     // [SerializeField] private GrappleController grappleController;
@@ -27,40 +26,38 @@ public class GrappleUIManager : MonoBehaviour
     private Color _currentColor;
     private GrappleController _grappleController;
     private CinemachineCamera _fpCamera;
+    
+    public static GrappleUIManager Instance;
 
     private void Awake() {
-        if(SceneManager.GetActiveScene().name == "Game")
+        if(Instance != null && Instance != this) {
+            Destroy(gameObject);
+            return;
+        }
+        
+        Instance = this;
+        DontDestroyOnLoad(gameObject);
+        
+        if(_grappleController == null && SceneManager.GetActiveScene().name == "Game")
             FindLocalPlayerGrappleController();
-
-        if(uiDocument == null)
-            Debug.LogError("No UIDocument assigned to GrappleUIManager");
             
         var root = uiDocument.rootVisualElement;
         _grappleIndicator = root.Q<VisualElement>("grapple-indicator");
         
-        if(_grappleIndicator == null)
-            Debug.LogError("No grapple-indicator found");
+        // if(_grappleIndicator == null)
+        //     Debug.LogError("No grapple-indicator found");
         
         _currentColor = cooldownColor;
         CreateHorseshoeSegments();
     }
 
-    private void OnEnable()
-    {
-        // FindLocalPlayerGrappleController();
-        //
-        // var root = uiDocument.rootVisualElement;
-        // _grappleIndicator = root.Q<VisualElement>("grapple-indicator");
-        //
-        // if(_grappleIndicator == null)
-        //     Debug.LogError("No grapple-indicator found");
-        //
-        // _currentColor = cooldownColor;
-        // CreateHorseshoeSegments();
+    private void Start() {
+        if(_grappleIndicator == null && SceneManager.GetActiveScene().name == "Game") {
+            FindLocalPlayerGrappleController();
+        }
     }
-    
-    private void FindLocalPlayerGrappleController()
-    {
+
+    private void FindLocalPlayerGrappleController() {
         var allGrappleControllers = FindObjectsByType<GrappleController>(FindObjectsSortMode.None);
         foreach(var controller in allGrappleControllers) {
             if(controller.IsOwner) {
@@ -70,14 +67,13 @@ public class GrappleUIManager : MonoBehaviour
             }
         }
 
-        if(_grappleController == null) {
+        if(!_grappleController) {
             Debug.LogError("No GrappleController found");
             Invoke(nameof(FindLocalPlayerGrappleController), 0.1f);
         }
     }
     
-    private void CreateHorseshoeSegments()
-    {
+    private void CreateHorseshoeSegments() {
         // Clear any existing children
         _grappleIndicator.Clear();
         
@@ -98,8 +94,7 @@ public class GrappleUIManager : MonoBehaviour
 
         var startAngle = 360f + (gapDegrees / 2f);
         
-        for(var i = 0; i < segmentsToDraw; i++)
-        {
+        for(var i = 0; i < segmentsToDraw; i++) {
             // Calculate angle for this segment (start from bottom, go clockwise)
             // Skip the bottom 20% (72 degrees) to create horseshoe gap
             var progress = segmentsToDraw > 1 ? i / (float)(segmentsToDraw - 1) : 0f;
@@ -132,9 +127,9 @@ public class GrappleUIManager : MonoBehaviour
     }
     
     private void Update() {
-        if(_grappleController == null && SceneManager.GetActiveScene().name == "Game") {
-            FindLocalPlayerGrappleController();
-        }
+        // if(!_grappleController && SceneManager.GetActiveScene().name == "Game") {
+        //     FindLocalPlayerGrappleController();
+        // }
 
         if(SceneManager.GetActiveScene().name == "Game" && _grappleController != null) {
             CheckGrapplePoint();
@@ -142,14 +137,12 @@ public class GrappleUIManager : MonoBehaviour
         }
     }
     
-    private void CheckGrapplePoint()
-    {
+    private void CheckGrapplePoint() {
         var ray = new Ray(_fpCamera.transform.position, _fpCamera.transform.forward);
         _isLookingAtGrapplePoint = Physics.Raycast(ray, maxGrappleDistance, grappleableLayers);
     }
     
-    private void UpdateIndicatorVisual()
-    {
+    private void UpdateIndicatorVisual() {
         if(_grappleController.IsGrappling) {
             _grappleIndicator.style.opacity = 0f;
             return;

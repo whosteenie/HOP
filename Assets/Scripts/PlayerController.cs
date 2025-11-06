@@ -91,6 +91,7 @@ public class PlayerController : NetworkBehaviour, IDamageable {
     private CinemachineImpulseSource _impulseSource;
     private Vector3? _lastHitPoint;
     private Vector3? _lastHitNormal;
+    private LayerMask _playerBodyLayer;
     
     #endregion
     
@@ -113,8 +114,11 @@ public class PlayerController : NetworkBehaviour, IDamageable {
     #region Unity Lifecycle
 
     private void Awake() {
-        _hudManager = FindFirstObjectByType<HUDManager>();
+        if(!IsOwner) return;
+        
+        _hudManager = HUDManager.Instance;
         _impulseSource = FindFirstObjectByType<CinemachineImpulseSource>();
+        _playerBodyLayer = LayerMask.GetMask("Player");
     }
 
     public override void OnNetworkSpawn() {
@@ -122,9 +126,9 @@ public class PlayerController : NetworkBehaviour, IDamageable {
         
         if(!IsOwner) return;
 
-        if(_hudManager == null) {
-            _hudManager = FindFirstObjectByType<HUDManager>();
-        }
+        // if(_hudManager == null) {
+        //     _hudManager = FindFirstObjectByType<HUDManager>();
+        // }
 
         if(_impulseSource == null) {
             _impulseSource = FindFirstObjectByType<CinemachineImpulseSource>();
@@ -132,8 +136,14 @@ public class PlayerController : NetworkBehaviour, IDamageable {
     }
     
     private void Start() {
-        if(!IsOwner) return;
+        if(!IsOwner) {
+            gameObject.layer = LayerMask.NameToLayer("Default");
+            return;
+        }
 
+        if(_impulseSource == null) {
+            _impulseSource = FindFirstObjectByType<CinemachineImpulseSource>();
+        }
     }
 
     private void Update() {
@@ -289,7 +299,7 @@ public class PlayerController : NetworkBehaviour, IDamageable {
 
     private void CheckCeilingHit() {
         Debug.DrawRay(fpCamera.transform.position, 0.75f * Vector3.up, Color.yellow);
-        if(Physics.Raycast(fpCamera.transform.position, Vector3.up, out var hit, 0.75f) && _verticalVelocity > 0f) {
+        if(Physics.Raycast(fpCamera.transform.position, Vector3.up, out var hit, 0.75f, ~_playerBodyLayer) && _verticalVelocity > 0f) {
             grappleController.CancelGrapple();
             _verticalVelocity = 0f;
         }
@@ -350,7 +360,7 @@ public class PlayerController : NetworkBehaviour, IDamageable {
     
     #endregion
     
-    #region Gameplay Methods - WIP
+    #region Gameplay Methods
     
     public void TakeDamage(float damage, Vector3? hitPoint = null, Vector3? hitNormal = null) {
         if(!IsOwner) return;
@@ -359,9 +369,13 @@ public class PlayerController : NetworkBehaviour, IDamageable {
         _lastHitNormal = hitNormal;
         
         health = Mathf.Round(Mathf.Max(0f, health - damage));
-        if(_impulseSource)
+        if(_impulseSource) {
             _impulseSource.GenerateImpulse();
-        if(_hudManager)
+        } else {
+            Debug.LogWarning("CinemachineImpulseSource not found on PlayerController!");
+        }
+        
+        if(IsOwner && _hudManager)
             _hudManager.UpdateHealth(health, 100);
         
         if(hitPoint.HasValue && hitNormal.HasValue) {
@@ -390,11 +404,45 @@ public class PlayerController : NetworkBehaviour, IDamageable {
         health = 100f;
         if(_hudManager)
             _hudManager.UpdateHealth(health, 100f);
-        
-        deathCamera.DisableDeathCamera();
-        playerRagdoll.DisableRagdoll();
-        
-        Debug.Log("Player has respawned.");
+    
+        // Disable ragdoll first
+        if(playerRagdoll != null) {
+            playerRagdoll.DisableRagdoll();
+        }
+    
+        // Disable death camera
+        if(deathCamera != null) {
+            deathCamera.DisableDeathCamera();
+        }
+    
+        // Get spawn position
+        Vector3 spawnPosition;
+        if(SpawnManager.Instance != null) {
+            spawnPosition = SpawnManager.Instance.GetRandomSpawnPosition();
+        } else {
+            Debug.LogWarning("SpawnManager not found! Using default spawn position.");
+            spawnPosition = new Vector3(0, 5, 0);
+        }
+    
+        // CRITICAL: Disable CharacterController before moving
+        if(characterController != null) {
+            characterController.enabled = false;
+        }
+    
+        // Move player
+        transform.position = spawnPosition;
+        transform.rotation = Quaternion.identity;
+    
+        // Reset velocity
+        _horizontalVelocity = Vector3.zero;
+        _verticalVelocity = 0f;
+    
+        // Re-enable CharacterController
+        if(characterController != null) {
+            characterController.enabled = true;
+        }
+    
+        Debug.Log($"Player respawned at {spawnPosition}");
     }
     
     #endregion

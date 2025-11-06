@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices.WindowsRuntime;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -16,6 +17,7 @@ public class PlayerRagdoll : NetworkBehaviour
     private bool _isRagdoll;
     
     private void Awake() {
+        if(!IsOwner) return;
         // Get all rigidbodies and colliders in children (the ragdoll bones)
         _ragdollRigidbodies = GetComponentsInChildren<Rigidbody>();
         _ragdollColliders = GetComponentsInChildren<Collider>();
@@ -25,7 +27,6 @@ public class PlayerRagdoll : NetworkBehaviour
     }
     
     public void EnableRagdoll(Vector3? hitPoint = null, Vector3? hitDirection = null) {
-        
         if(_isRagdoll) {
             return;
         }
@@ -71,6 +72,8 @@ public class PlayerRagdoll : NetworkBehaviour
     }
     
     private void SetRagdollActive(bool active) {
+        if(!IsOwner) return;
+        
         foreach(var rb in _ragdollRigidbodies) {
             if(rb == null) continue;
             

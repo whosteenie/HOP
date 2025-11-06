@@ -1564,7 +1564,7 @@ MeshCollider:
   m_Enabled: 1
   serializedVersion: 5
   m_Convex: 0
-  m_CookingOptions: 30
+  m_CookingOptions: 18
   m_Mesh: {fileID: 1865975130}
 --- !u!33 &65382476
 MeshFilter:
@@ -10860,6 +10860,51 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 1106471061430962686, guid: 1c4d14349a73300498b86d890673f480, type: 3}
   m_PrefabInstance: {fileID: 792629926}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &315953451
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 315953453}
+  - component: {fileID: 315953452}
+  m_Layer: 0
+  m_Name: HUDManager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &315953452
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 315953451}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ded060613c10dd7488e1915cf308a4a9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::HUDManager
+  uiDocument: {fileID: 1705097052}
+--- !u!4 &315953453
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 315953451}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!43 &318182163
 Mesh:
   m_ObjectHideFlags: 0
@@ -23845,11 +23890,8 @@ GameObject:
   - component: {fileID: 643272508}
   - component: {fileID: 643272507}
   - component: {fileID: 643272509}
-  - component: {fileID: 643272511}
-  - component: {fileID: 643272510}
-  - component: {fileID: 643272512}
   m_Layer: 5
-  m_Name: UIManager
+  m_Name: MainMenuManager
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -23907,56 +23949,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::MainMenuManager
   uiDocument: {fileID: 643272507}
   audioMixer: {fileID: 24100000, guid: 5b25e535414676d478e020121c230f08, type: 2}
-  gameSceneName: Game
   sessionManager: {fileID: 2058666125}
---- !u!114 &643272510
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 643272505}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: ce22ac053ab5fdd4c9908d4da220bc96, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::PauseMenuManager
-  uiDocument: {fileID: 643272507}
-  audioMixer: {fileID: 24100000, guid: 5b25e535414676d478e020121c230f08, type: 2}
---- !u!114 &643272511
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 643272505}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: ded060613c10dd7488e1915cf308a4a9, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::HUDManager
-  uiDocument: {fileID: 643272507}
---- !u!114 &643272512
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 643272505}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 93d352ac5fa819c468b2bdfe7248aac0, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::GrappleUIManager
-  uiDocument: {fileID: 643272507}
-  maxGrappleDistance: 50
-  grappleableLayers:
-    serializedVersion: 2
-    m_Bits: 55
-  readyColor: {r: 1, g: 0.2, b: 0.2, a: 0.8}
-  cooldownColor: {r: 0, g: 0, b: 0, a: 0.3}
-  segments: 18
-  colorTransitionSpeed: 25
+  pauseMenuManager: {fileID: 1705097050}
 --- !u!1 &643279366
 GameObject:
   m_ObjectHideFlags: 0
@@ -49939,7 +49933,7 @@ MonoBehaviour:
   NetworkConfig:
     ProtocolVersion: 0
     NetworkTransport: {fileID: 1228415190}
-    PlayerPrefab: {fileID: 2394102009201851988, guid: 44209664d1ffff54d86b748ca38189e9, type: 3}
+    PlayerPrefab: {fileID: 0}
     Prefabs:
       NetworkPrefabsLists:
       - {fileID: 11400000, guid: 7119618c2c796b043aef47cc59eb15e6, type: 2}
@@ -49993,6 +49987,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: bd520a3d60872014ea855812d09a9d30, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CustomNetworkManager
+  playerPrefab: {fileID: 6677973669287716317, guid: 44209664d1ffff54d86b748ca38189e9, type: 3}
 --- !u!1 &1229849040
 GameObject:
   m_ObjectHideFlags: 0
@@ -60921,7 +60916,7 @@ MeshCollider:
   m_Enabled: 1
   serializedVersion: 5
   m_Convex: 0
-  m_CookingOptions: 30
+  m_CookingOptions: 18
   m_Mesh: {fileID: 2142682113}
 --- !u!33 &1542862286
 MeshFilter:
@@ -69404,6 +69399,76 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 8099699695835408095, guid: 374104f5e82b49240bfcd7f509a248ba, type: 3}
   m_PrefabInstance: {fileID: 1704885218}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &1705097049
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1705097051}
+  - component: {fileID: 1705097050}
+  - component: {fileID: 1705097052}
+  m_Layer: 0
+  m_Name: PauseMenuManager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1705097050
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1705097049}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ce22ac053ab5fdd4c9908d4da220bc96, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PauseMenuManager
+  uiDocument: {fileID: 1705097052}
+  audioMixer: {fileID: 24100000, guid: 5b25e535414676d478e020121c230f08, type: 2}
+--- !u!4 &1705097051
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1705097049}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1705097052
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1705097049}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 19102, guid: 0000000000000000e000000000000000, type: 0}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.dll::UnityEngine.UIElements.UIDocument
+  m_PanelSettings: {fileID: 11400000, guid: e8875c24c1da0c84baa1f8f99e8770f9, type: 2}
+  m_ParentUI: {fileID: 0}
+  sourceAsset: {fileID: 9197481963319205126, guid: e0e98e9a3de45d547a214215ff80cafc, type: 3}
+  m_SortingOrder: 0
+  m_Position: 0
+  m_WorldSpaceSizeMode: 1
+  m_WorldSpaceWidth: 1920
+  m_WorldSpaceHeight: 1080
+  m_PivotReferenceSize: 0
+  m_Pivot: 0
+  m_WorldSpaceCollider: {fileID: 0}
 --- !u!43 &1711477456
 Mesh:
   m_ObjectHideFlags: 0
@@ -71563,7 +71628,7 @@ Light:
   serializedVersion: 11
   m_Type: 1
   m_Color: {r: 1, g: 0.95686275, b: 0.8392157, a: 1}
-  m_Intensity: 1
+  m_Intensity: 2
   m_Range: 10
   m_SpotAngle: 30
   m_InnerSpotAngle: 21.80208
@@ -71606,8 +71671,8 @@ Light:
   m_LightShadowCasterMode: 0
   m_AreaSize: {x: 1, y: 1}
   m_BounceIntensity: 1
-  m_ColorTemperature: 6570
-  m_UseColorTemperature: 0
+  m_ColorTemperature: 5000
+  m_UseColorTemperature: 1
   m_BoundingSphereOverride: {x: 0, y: 0, z: 0, w: 0}
   m_UseBoundingSphereOverride: 0
   m_UseViewFrustumForShadowCasterCull: 1
@@ -71626,7 +71691,7 @@ Transform:
   m_GameObject: {fileID: 1751054464}
   serializedVersion: 2
   m_LocalRotation: {x: 0.40821788, y: -0.23456968, z: 0.10938163, w: 0.8754261}
-  m_LocalPosition: {x: 0, y: 3, z: 0}
+  m_LocalPosition: {x: 46.6, y: 294.2, z: -93.5}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -74704,6 +74769,59 @@ Mesh:
       - serializedVersion: 1
         m_IndexStart: 0
         m_IndexCount: 0
+--- !u!1 &1844649387
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1844649389}
+  - component: {fileID: 1844649388}
+  m_Layer: 0
+  m_Name: GrappleUIManager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1844649388
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1844649387}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 93d352ac5fa819c468b2bdfe7248aac0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::GrappleUIManager
+  uiDocument: {fileID: 1705097052}
+  maxGrappleDistance: 50
+  grappleableLayers:
+    serializedVersion: 2
+    m_Bits: 55
+  readyColor: {r: 1, g: 0.2, b: 0.2, a: 0.8}
+  cooldownColor: {r: 0, g: 0, b: 0, a: 0.3}
+  segments: 18
+  colorTransitionSpeed: 25
+--- !u!4 &1844649389
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1844649387}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!43 &1847008773
 Mesh:
   m_ObjectHideFlags: 0
@@ -75283,7 +75401,7 @@ Mesh:
     m_Center: {x: 0, y: 0, z: 0}
     m_Extent: {x: 120, y: 75, z: 120}
   m_MeshUsageFlags: 0
-  m_CookingOptions: 30
+  m_CookingOptions: 18
   m_BakedConvexCollisionMesh: 
   m_BakedTriangleCollisionMesh: 
   'm_MeshMetrics[0]': 1
@@ -84183,6 +84301,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ccb3786eaf233f54aa2c9f257f186527, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SessionManager
+  mainMenuManager: {fileID: 0}
 --- !u!4 &2058666126
 Transform:
   m_ObjectHideFlags: 0
@@ -86869,7 +86988,7 @@ Mesh:
     m_Center: {x: 0, y: 0, z: 0}
     m_Extent: {x: 60, y: 310, z: 60}
   m_MeshUsageFlags: 0
-  m_CookingOptions: 30
+  m_CookingOptions: 18
   m_BakedConvexCollisionMesh: 
   m_BakedTriangleCollisionMesh: 
   'm_MeshMetrics[0]': 1
@@ -87146,6 +87265,9 @@ SceneRoots:
   m_Roots:
   - {fileID: 1505931947}
   - {fileID: 643272508}
+  - {fileID: 1705097051}
+  - {fileID: 315953453}
+  - {fileID: 1844649389}
   - {fileID: 2058666126}
   - {fileID: 1228415192}
   - {fileID: 1751054467}

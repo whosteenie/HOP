@@ -31,7 +31,7 @@ public class DeathCamera : NetworkBehaviour
     public Vector2 lookInput;
 
     private void Awake() {
-        _hudManager = FindFirstObjectByType<HUDManager>();
+        _hudManager = HUDManager.Instance;
     }
     
     public override void OnNetworkSpawn() {
@@ -39,9 +39,9 @@ public class DeathCamera : NetworkBehaviour
         
         if(!IsOwner) return;
 
-        if(_hudManager == null) {
-            _hudManager = FindFirstObjectByType<HUDManager>();
-        }
+        // if(_hudManager == null) {
+        //     _hudManager = HUDManager.Instance;
+        // }
     }
     
     private void Start() {
