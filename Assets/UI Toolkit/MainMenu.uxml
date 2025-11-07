@@ -59,7 +59,7 @@
                 <ui:VisualElement name="VisualElement" class="lobby-left">
                     <ui:VisualElement name="host-container" class="setting-row">
                         <ui:Button text="Host" name="host-button" class="menu-chip menu-chip-enabled" />
-                        <ui:Label name="host-label" text="Join Code: ----" class="value-label accent" />
+                        <ui:Label name="host-label" text="Join Code: ------" class="value-label accent" />
                     </ui:VisualElement>
                     <ui:VisualElement name="join-container" class="join-code-container">
                         <ui:Label text="Join with Code:" name="join-label" />

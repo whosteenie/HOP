@@ -38,7 +38,6 @@ public class Weapon : NetworkBehaviour
     public CinemachineCamera fpCamera;
     public PlayerController playerController;
     public Animator playerAnimator;
-    public NetworkAnimator networkAnimator;
     public WeaponManager weaponManager;
     public LayerMask enemyLayer;
     public LayerMask worldLayer;
@@ -58,6 +57,7 @@ public class Weapon : NetworkBehaviour
     private Coroutine _reloadCoroutine;
     private HUDManager _hudManager;
     private PlayerDamageRelay _damageRelay;
+    private NetworkSoundRelay _soundRelay;
 
     #endregion
     
@@ -107,23 +107,15 @@ public class Weapon : NetworkBehaviour
             playerController = GetComponent<PlayerController>();
         }
 
-        // if(playerAnimator == null) {
-        //     var animators = GetComponentsInChildren<Animator>();
-        //     foreach(var anim in animators) {
-        //         if(anim != weaponAnimator) {
-        //             playerAnimator = anim;
-        //             break;
-        //         }
-        //     }
-        // }
-        
-        if(networkAnimator == null) {
-            networkAnimator = GetComponent<NetworkAnimator>();
+        if(playerAnimator == null) {
+            var animators = GetComponentsInChildren<Animator>();
+            foreach(var anim in animators) {
+                if(anim != weaponAnimator) {
+                    playerAnimator = anim;
+                    break;
+                }
+            }
         }
-
-        // if(hudManager == null) {
-        //     hudManager = FindFirstObjectByType<HUDManager>();
-        // }
     }
 
     public void BindAndResolve(CinemachineCamera cam, PlayerController controller, WeaponManager mgr, HUDManager hud) {
@@ -141,6 +133,7 @@ public class Weapon : NetworkBehaviour
         }
         
         if (_damageRelay == null) _damageRelay = GetComponent<PlayerDamageRelay>();
+        if (_soundRelay == null) _soundRelay = GetComponent<NetworkSoundRelay>();
     }
     
     #endregion
@@ -183,9 +176,7 @@ public class Weapon : NetworkBehaviour
             return;
         }
 
-        if(muzzleFlashEffect != null && muzzleLight != null) {
-            PlayFireEffects();
-        }
+        PlayFireEffects();
         PerformShot();
     }
 
@@ -265,36 +256,6 @@ public class Weapon : NetworkBehaviour
         }
     }
     
-    // private void PerformShotOld() {
-    //     var origin = fpCamera.transform.position;
-    //     var forward = fpCamera.transform.forward;
-    //     var shotHit = Physics.Raycast(origin, forward, out var hit, Mathf.Infinity, ~playerBodyLayer);
-    //     
-    //     var damage = GetScaledDamage();
-    //
-    //     if(shotHit) {
-    //         Debug.DrawRay(origin, forward * hit.distance, Color.green, 5f);
-    //         var target = hit.collider.GetComponent<IDamageable>();
-    //         target?.TakeDamage(damage, hit.point, hit.normal);
-    //         Debug.Log(target + " took " + damage + " damage.");
-    //
-    //         var trail = Instantiate(bulletTrail, weaponMuzzle.transform.position, Quaternion.identity);
-    //         StartCoroutine(SpawnTrail(trail, hit.point, hit.normal, true));
-    //     } else {
-    //         Debug.DrawRay(origin, forward * 500f, Color.red, 5f);
-    //         
-    //         var trailEndPoint = weaponMuzzle.transform.position + forward * 100f;
-    //
-    //         var trail = Instantiate(bulletTrail, weaponMuzzle.transform.position, Quaternion.LookRotation(forward));
-    //         StartCoroutine(SpawnTrail(trail, trailEndPoint, Vector3.zero, false));
-    //     }
-    //     
-    //     currentAmmo--;
-    //     _lastFireTime = Time.time;
-    //     if(playerController.IsOwner && _hudManager)
-    //         _hudManager.UpdateAmmo(currentAmmo, magSize);
-    // }
-    
     private float GetScaledDamage() {
         return Mathf.Min(baseDamage * CurrentDamageMultiplier, damageCap);
     }
@@ -355,10 +316,20 @@ public class Weapon : NetworkBehaviour
         if(weaponAnimator)
             weaponAnimator.SetTrigger(RecoilHash);
         
-        if(networkAnimator)
-            networkAnimator.SetTrigger(RecoilHash);
+        if(playerAnimator)
+            playerAnimator.SetTrigger(RecoilHash);
         
-        SoundFXManager.Instance.PlayRandomSoundFX(fireSounds, transform, true, "shoot");
+        if (_soundRelay == null) _soundRelay = GetComponent<NetworkSoundRelay>();
+        int idx = (fireSounds != null && fireSounds.Length > 0) ? Random.Range(0, fireSounds.Length) : 0;
+        Vector3 pos = weaponMuzzle ? weaponMuzzle.transform.position : transform.position;
+
+        Debug.LogWarning("Is sound relay not null? " + (_soundRelay != null)); // this is true
+        Debug.LogWarning("Are we the owner? " + playerController.IsOwner); // this is FALSE for me
+        if (_soundRelay != null && playerController.IsOwner) // owner issues the request
+        {
+            Debug.LogWarning("Requesting shoot sound play");
+            _soundRelay?.RequestWorldSfx(SFXKey.Shoot, attachToSelf: true, true);
+        }
         
         if(muzzleFlashEffect)
             muzzleFlashEffect.Play();
@@ -368,17 +339,29 @@ public class Weapon : NetworkBehaviour
     }
     
     private void PlayDryFireSound() {
-        SoundFXManager.Instance.PlayRandomSoundFX(dryFireSounds, transform, true, "shoot");
+        if (_soundRelay == null) _soundRelay = GetComponent<NetworkSoundRelay>();
+        int idx = (dryFireSounds != null && dryFireSounds.Length > 0) ? Random.Range(0, dryFireSounds.Length) : 0;
+        if (_soundRelay != null && playerController.IsOwner)
+        {
+            _soundRelay?.RequestWorldSfx(SFXKey.Dry, attachToSelf: true, true);
+        }
     }
 
     private void PlayReloadEffects() {
         if(weaponAnimator)
             weaponAnimator.SetTrigger(ReloadHash);
         
-        if(networkAnimator)
-            networkAnimator.SetTrigger(ReloadHash);
+        if(playerAnimator)
+            playerAnimator.SetTrigger(ReloadHash);
         
-        SoundFXManager.Instance.PlayRandomSoundFX(reloadSounds, transform, false, "reload");
+        if (_soundRelay == null) _soundRelay = GetComponent<NetworkSoundRelay>();
+        int idx = (reloadSounds != null && reloadSounds.Length > 0) ? Random.Range(0, reloadSounds.Length) : 0;
+        if (_soundRelay != null && playerController.IsOwner)
+        {
+            _soundRelay?.RequestWorldSfx(SFXKey.Reload, attachToSelf: true);
+        }
+        
+        // SoundFXManager.Instance.PlayRandomSoundFX(reloadSounds, transform, false, "reload");
     }
     
     private IEnumerator SpawnTrail(TrailRenderer trail, Vector3 hitPoint, Vector3 hitNormal, bool madeImpact) {

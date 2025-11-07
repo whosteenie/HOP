@@ -154,8 +154,8 @@ GameObject:
   - component: {fileID: 6772666014369885431}
   - component: {fileID: 8382341124825033876}
   - component: {fileID: 7906322676815125306}
-  - component: {fileID: 8958846863885128987}
   - component: {fileID: -935627131628127128}
+  - component: {fileID: 8737367002116917980}
   m_Layer: 7
   m_Name: Player 1
   m_TagString: Untagged
@@ -271,23 +271,12 @@ MonoBehaviour:
   ShowTopMostFoldoutHeaderGroup: 1
   fpCamera: {fileID: 7545715250371650815}
   weaponManager: {fileID: 1752355669680099318}
-  bodyTransform: {fileID: 4262720696514852578}
   orbitDistance: 3
-  minDistance: 1.2
-  maxDistance: 6
   orbitHeight: 1.5
-  orbitYawSpeed: 110
-  orbitPitchSpeed: 90
+  orbitSpeed: 100
   minPitch: -30
   maxPitch: 60
-  positionLerp: 12
-  distanceLerp: 14
-  obstructionMask:
-    serializedVersion: 2
-    m_Bits: 960
-  collisionRadius: 0.2
-  collisionSkin: 0.05
-  popOutDistanceBoost: 0.75
+  transitionSpeed: 5
   lookInput: {x: 0, y: 0}
 --- !u!114 &2584550646514722606
 MonoBehaviour:
@@ -350,10 +339,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::FPController
   ShowTopMostFoldoutHeaderGroup: 1
-  netHealth:
-    m_InternalValue: 100
-  netIsDead:
-    m_InternalValue: 0
   acceleration: 15
   airAcceleration: 50
   maxAirSpeed: 2
@@ -386,16 +371,20 @@ MonoBehaviour:
   fpCamera: {fileID: 7545715250371650815}
   characterController: {fileID: 4157602163556837535}
   characterAnimator: {fileID: 7910596075621510296}
-  networkAnimator: {fileID: 8958846863885128987}
   weaponManager: {fileID: 1752355669680099318}
   grappleController: {fileID: 8382341124825033876}
   playerRagdoll: {fileID: 2584550646514722606}
   deathCamera: {fileID: 7492267641585409974}
-  health: 100
+  damageRelay: {fileID: -2503030706147355686}
+  soundRelay: {fileID: 8737367002116917980}
   moveInput: {x: 0, y: 0}
   lookInput: {x: 0, y: 0}
   sprintInput: 0
   crouchInput: 0
+  netHealth:
+    m_InternalValue: 100
+  netIsDead:
+    m_InternalValue: 0
 --- !u!114 &1564543611840940099
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -487,6 +476,7 @@ MonoBehaviour:
   - {fileID: 8300000, guid: 77366d0dea8272540b1eefb82a67dc28, type: 3}
   - {fileID: 8300000, guid: 7e7e40d5ebea924459b8cbec5751a5ed, type: 3}
   - {fileID: 8300000, guid: e3bbc28cdb7f57a4ba87dbb7cee36478, type: 3}
+  soundRelay: {fileID: 8737367002116917980}
   lineWidth: 0.05
   grappleColor: {r: 0.078431375, g: 0.078431375, b: 0.078431375, a: 1}
   lineMaterial: {fileID: 0}
@@ -536,70 +526,6 @@ MonoBehaviour:
   SwitchTransformSpaceWhenParented: 0
   Interpolate: 0
   SlerpPosition: 0
---- !u!114 &8958846863885128987
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2394102009201851988}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 432d655d8ad4a8e4492995b9f93ee6ed, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::ClientNetworkAnimator
-  ShowTopMostFoldoutHeaderGroup: 1
-  TransitionStateInfoList:
-  - IsCrossFadeExit: 0
-    Layer: 0
-    OriginatingState: 1533177906
-    DestinationState: 137525990
-    TransitionDuration: 0.2604143
-    TriggerNameHash: 21645378
-    TransitionIndex: 0
-  - IsCrossFadeExit: 0
-    Layer: 0
-    OriginatingState: 225072382
-    DestinationState: 137525990
-    TransitionDuration: 0.25
-    TriggerNameHash: 21645378
-    TransitionIndex: 1
-  - IsCrossFadeExit: 0
-    Layer: 0
-    OriginatingState: 137525990
-    DestinationState: 225072382
-    TransitionDuration: 0.05
-    TriggerNameHash: 113680519
-    TransitionIndex: 1
-  - IsCrossFadeExit: 0
-    Layer: 0
-    OriginatingState: 1451057484
-    DestinationState: 225072382
-    TransitionDuration: 0.25
-    TriggerNameHash: 113680519
-    TransitionIndex: 0
-  - IsCrossFadeExit: 0
-    Layer: 0
-    OriginatingState: -1157983092
-    DestinationState: 225072382
-    TransitionDuration: 0.25
-    TriggerNameHash: 113680519
-    TransitionIndex: 1
-  - IsCrossFadeExit: 0
-    Layer: 2
-    OriginatingState: 153482222
-    DestinationState: 997579023
-    TransitionDuration: 0.05
-    TriggerNameHash: 997579023
-    TransitionIndex: 0
-  - IsCrossFadeExit: 0
-    Layer: 2
-    OriginatingState: 153482222
-    DestinationState: -1525363869
-    TransitionDuration: 0.2
-    TriggerNameHash: -1525363869
-    TransitionIndex: 1
-  m_Animator: {fileID: 7910596075621510296}
 --- !u!81 &-935627131628127128
 AudioListener:
   m_ObjectHideFlags: 0
@@ -608,6 +534,19 @@ AudioListener:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2394102009201851988}
   m_Enabled: 1
+--- !u!114 &8737367002116917980
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2394102009201851988}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 126f55af9b13d514f9026ee96954efe7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::NetworkSoundRelay
+  ShowTopMostFoldoutHeaderGroup: 1
 --- !u!1 &8909782718258560110
 GameObject:
   m_ObjectHideFlags: 0
@@ -1042,6 +981,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: d9cd8eb4a074cd84ab2686c58bcf21d9, type: 3}
       insertIndex: -1
       addedObject: {fileID: 5247549515392083778}
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: d9cd8eb4a074cd84ab2686c58bcf21d9, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 5706515478969999216}
     - targetCorrespondingSourceObject: {fileID: -766917891154793864, guid: d9cd8eb4a074cd84ab2686c58bcf21d9, type: 3}
       insertIndex: -1
       addedObject: {fileID: 7619557615056924115}
@@ -1364,6 +1306,70 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerAnimationEvents
   playerController: {fileID: 5088684734431513618}
+--- !u!114 &5706515478969999216
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3486887065898544216}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 70761448b7eb883418435334ca47298c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::OwnerNetworkAnimator
+  ShowTopMostFoldoutHeaderGroup: 1
+  TransitionStateInfoList:
+  - IsCrossFadeExit: 0
+    Layer: 0
+    OriginatingState: 1533177906
+    DestinationState: 137525990
+    TransitionDuration: 0.2604143
+    TriggerNameHash: 21645378
+    TransitionIndex: 0
+  - IsCrossFadeExit: 0
+    Layer: 0
+    OriginatingState: 225072382
+    DestinationState: 137525990
+    TransitionDuration: 0.25
+    TriggerNameHash: 21645378
+    TransitionIndex: 1
+  - IsCrossFadeExit: 0
+    Layer: 0
+    OriginatingState: 137525990
+    DestinationState: 225072382
+    TransitionDuration: 0.05
+    TriggerNameHash: 113680519
+    TransitionIndex: 1
+  - IsCrossFadeExit: 0
+    Layer: 0
+    OriginatingState: 1451057484
+    DestinationState: 225072382
+    TransitionDuration: 0.25
+    TriggerNameHash: 113680519
+    TransitionIndex: 0
+  - IsCrossFadeExit: 0
+    Layer: 0
+    OriginatingState: -1157983092
+    DestinationState: 225072382
+    TransitionDuration: 0.25
+    TriggerNameHash: 113680519
+    TransitionIndex: 1
+  - IsCrossFadeExit: 0
+    Layer: 2
+    OriginatingState: 153482222
+    DestinationState: 997579023
+    TransitionDuration: 0.05
+    TriggerNameHash: 997579023
+    TransitionIndex: 0
+  - IsCrossFadeExit: 0
+    Layer: 2
+    OriginatingState: 153482222
+    DestinationState: -1525363869
+    TransitionDuration: 0.2
+    TriggerNameHash: -1525363869
+    TransitionIndex: 1
+  m_Animator: {fileID: 7910596075621510296}
 --- !u!1 &4205127508820313163 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 502465468816233794, guid: d9cd8eb4a074cd84ab2686c58bcf21d9, type: 3}

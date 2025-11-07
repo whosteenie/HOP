@@ -134,7 +134,7 @@ public class GameMenuManager : MonoBehaviour {
     }
 
     private void MouseHover(MouseOverEvent evt) {
-        SoundFXManager.Instance.PlaySoundFX(buttonHoverSound, transform, true, "UI");
+        SoundFXManager.Instance.PlayUISound(buttonHoverSound);
     }
 
     public void TogglePause() {
@@ -223,7 +223,7 @@ public class GameMenuManager : MonoBehaviour {
     }
     
     private void ResumeGame() {
-        SoundFXManager.Instance.PlaySoundFX(buttonClickSound, transform, true, "UI");
+        SoundFXManager.Instance.PlayUISound(buttonClickSound);
         IsPaused = false;
         _pauseMenuPanel.AddToClassList("hidden");
         _optionsPanel.AddToClassList("hidden");
@@ -233,7 +233,7 @@ public class GameMenuManager : MonoBehaviour {
     
     private void ShowOptions() {
         if(SceneManager.GetActiveScene().name != "Game") return;
-        SoundFXManager.Instance.PlaySoundFX(buttonClickSound, transform, true, "UI");
+        SoundFXManager.Instance.PlayUISound(buttonClickSound);
         LoadSettings();
         _pauseMenuPanel.AddToClassList("hidden");
         _optionsPanel.RemoveFromClassList("hidden");
@@ -241,17 +241,29 @@ public class GameMenuManager : MonoBehaviour {
     
     private void HideOptions() {
         if(SceneManager.GetActiveScene().name != "Game") return;
-        SoundFXManager.Instance.PlaySoundFX(backClickSound, transform, true, "UI");
+        SoundFXManager.Instance.PlayUISound(backClickSound);
         _optionsPanel.AddToClassList("hidden");
         _pauseMenuPanel.RemoveFromClassList("hidden");
     }
     
-    private void QuitToMenu() {
-        SoundFXManager.Instance.PlaySoundFX(backClickSound, transform, true, "UI");
-        var root = uiDocument.rootVisualElement;
-        var rootContainer = root.Q<VisualElement>("root-container");
-        rootContainer.style.display = DisplayStyle.None;
-        UnityEngine.SceneManagement.SceneManager.LoadScene("MainMenu");
+    private async void QuitToMenu() {
+        try {
+            SoundFXManager.Instance.PlayUISound(backClickSound);
+            var root = uiDocument.rootVisualElement;
+            var rootContainer = root.Q<VisualElement>("root-container");
+            rootContainer.style.display = DisplayStyle.None;
+        
+            await SessionManager.Instance.LeaveToMainMenuAsync();
+        
+            SceneManager.LoadScene("MainMenu");
+            _pauseMenuPanel.AddToClassList("hidden");
+            _optionsPanel.AddToClassList("hidden");
+            IsPaused = false;
+            UnityEngine.Cursor.lockState = CursorLockMode.None;
+            UnityEngine.Cursor.visible = true;
+        } catch(Exception e) {
+            Debug.LogException(e);
+        }
     }
     
     #endregion
@@ -302,7 +314,7 @@ public class GameMenuManager : MonoBehaviour {
         
         PlayerPrefs.Save();
         
-        SoundFXManager.Instance.PlaySoundFX(buttonClickSound, transform, true, "UI");
+        SoundFXManager.Instance.PlayUISound(buttonClickSound);
         
         ApplySettingsInternal();
         

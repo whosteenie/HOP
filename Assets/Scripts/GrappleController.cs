@@ -22,6 +22,7 @@ public class GrappleController : NetworkBehaviour
     [SerializeField] private PlayerController playerController;
     [SerializeField] private LineRenderer grappleLine;
     [SerializeField] private AudioClip[] grappleSounds;
+    [SerializeField] private NetworkSoundRelay soundRelay;
     
     [Header("Visual Settings")]
     [SerializeField] private float lineWidth = 0.05f;
@@ -128,7 +129,13 @@ public class GrappleController : NetworkBehaviour
         
         // Enable visual
         grappleLine.enabled = true;
-        SoundFXManager.Instance.PlayRandomSoundFX(grappleSounds, transform, true, "grapple");
+        
+        if (soundRelay != null && IsOwner)
+        {
+            int idx = (grappleSounds != null && grappleSounds.Length > 0) ? Random.Range(0, grappleSounds.Length) : 0;
+            soundRelay?.RequestWorldSfx(SFXKey.Grapple, attachToSelf: true, true);
+        }
+        // SoundFXManager.Instance.PlayRandomSoundFX(grappleSounds, transform, true, "grapple");
     }
     
     private void UpdateGrapple() {

@@ -38,6 +38,7 @@ public class SessionManager : Singleton<SessionManager>
     private bool _loadingGameScene;
     private bool _sessionEventsHooked;
     private string _relayJoinCode; // host-generated
+    private bool _isLeaving;
 
     [SerializeField] private MainMenuManager mainMenuManager; // optional
 
@@ -100,20 +101,74 @@ public class SessionManager : Singleton<SessionManager>
         var nameProp = new PlayerProperty(playerName, VisibilityPropertyOptions.Member);
         return new Dictionary<string, PlayerProperty> { { PlayerNamePropertyKey, nameProp } };
     }
+    
+    /// <summary>
+    /// Cleanly shuts down NGO/Relay and leaves (or deletes, if host) the UGS session,
+    /// then optionally loads MainMenu.
+    /// Safe to call multiple times.
+    /// </summary>
+    public async UniTask LeaveToMainMenuAsync(string mainMenuScene = "MainMenu") {
+        if (_isLeaving) return;
+        _isLeaving = true;
+
+        try {
+            // Unhook scene events if we had them
+            if(NetworkManager.Singleton != null && NetworkManager.Singleton.SceneManager != null) {
+                NetworkManager.Singleton.SceneManager.OnLoadEventCompleted -= OnNetworkSceneLoadComplete;
+            }
+
+            // Stop NGO (host/client/server) -> tears down transport/relay too
+            if(NetworkManager.Singleton != null && NetworkManager.Singleton.IsListening) {
+                NetworkManager.Singleton.Shutdown();
+                await UniTask.Yield(); // let shutdown propagate one frame
+                
+                var cnm = FindFirstObjectByType<CustomNetworkManager>();
+                if (cnm != null)
+                    cnm.ResetSpawningState();
+            }
+
+            // Leave or delete the UGS session
+            if(ActiveSession != null) {
+                try {
+                    if(ActiveSession.IsHost) {
+                        // Host: end the session for everyone
+                        await ActiveSession.AsHost().DeleteAsync();
+                    } else {
+                        // Client: leave
+                        await ActiveSession.LeaveAsync();
+                    }
+                } catch (Exception e) {
+                    Debug.LogWarning($"Leave/Delete session error (safe to ignore if already gone): {e.Message}");
+                }
+
+                UnhookSessionEvents(ActiveSession);
+                ActiveSession = null;
+                _relayJoinCode = null;
+            }
+
+            // Optional: clear any cached UI state here if you keep it in DontDestroyOnLoad objects
+
+            // Load Main Menu
+            if(!string.IsNullOrEmpty(mainMenuScene) && SceneManager.GetActiveScene().name != mainMenuScene) {
+                SceneManager.LoadScene(mainMenuScene, LoadSceneMode.Single);
+            }
+        } catch (Exception e) {
+            Debug.LogException(e);
+        } finally {
+            _isLeaving = false;
+        }
+    }
 
     // ====== Host flow ======
 
     /// <summary>Create UGS session (no network start yet). Returns the lobby join code shown to others.</summary>
-    public async UniTask<string> StartSessionAsHost()
-    {
-        try
-        {
+    public async UniTask<string> StartSessionAsHost() {
+        try {
             if (!_isInitialized) await InitializeUnityServices();
 
             var playerProps = await GetPlayerProperties();
 
-            var options = new SessionOptions
-            {
+            var options = new SessionOptions {
                 MaxPlayers = 16,
                 IsLocked = false,
                 IsPrivate = false,
@@ -125,23 +180,19 @@ public class SessionManager : Singleton<SessionManager>
 
             Debug.Log($"Session created: {ActiveSession.Id}  Code: {ActiveSession.Code}");
             return ActiveSession.Code;
-        }
-        catch (Exception e)
-        {
+        } catch (Exception e) {
             Debug.LogException(e);
             return null;
         }
     }
 
     /// <summary>Allocate Relay, publish join code to the session, start NGO host, then load the game scene.</summary>
-    public async UniTask BeginGameplayAsHostAsync()
-    {
+    public async UniTask BeginGameplayAsHostAsync() {
         // 1) Host sets up Relay & transport
         await ConfigureRelayForHostAsync();
 
         // 2) Publish relay code to session (clients will wait for this)
-        if (ActiveSession?.IsHost == true)
-        {
+        if(ActiveSession?.IsHost == true) {
             var hostSession = ActiveSession.AsHost();
             hostSession.SetProperty(RelayCodePropertyKey,
                 new SessionProperty(_relayJoinCode, VisibilityPropertyOptions.Member));
@@ -149,7 +200,7 @@ public class SessionManager : Singleton<SessionManager>
         }
 
         // 3) Start NGO host + transition scenes
-        if (!NetworkManager.Singleton.IsListening)
+        if(!NetworkManager.Singleton.IsListening)
             NetworkManager.Singleton.StartHost();
 
         await UniTask.Yield();
@@ -164,7 +215,7 @@ public class SessionManager : Singleton<SessionManager>
     /// <summary>Join session by code, wait until host publishes Relay code, then start NGO client.</summary>
     public async UniTask JoinSessionByCodeAsync(string joinCode) {
         try {
-            if (!_isInitialized) await InitializeUnityServices();
+            if(!_isInitialized) await InitializeUnityServices();
 
             ActiveSession = await MultiplayerService.Instance.JoinSessionByCodeAsync(joinCode);
             HookSessionEvents(ActiveSession);
@@ -173,7 +224,7 @@ public class SessionManager : Singleton<SessionManager>
             PlayersChanged?.Invoke(ActiveSession.Players);
 
             // Try to obtain relay code immediately; if not there yet, wait briefly
-            if (!TryGetRelayCode(out var relayJoinCode)) {
+            if(!TryGetRelayCode(out var relayJoinCode)) {
                 using var cts = new CancellationTokenSource();
                 string captured = null;
 
@@ -187,7 +238,7 @@ public class SessionManager : Singleton<SessionManager>
                 relayJoinCode = captured;
             }
 
-            if (string.IsNullOrEmpty(relayJoinCode)) {
+            if(string.IsNullOrEmpty(relayJoinCode)) {
                 Debug.LogError("Relay code not available after waiting.");
                 return;
             }
@@ -198,10 +249,10 @@ public class SessionManager : Singleton<SessionManager>
             var utp = NetworkManager.Singleton.GetComponent<UnityTransport>();
             utp.SetRelayServerData(rsd);
 
-            if (!NetworkManager.Singleton.IsClient && !NetworkManager.Singleton.IsHost)
+            if(!NetworkManager.Singleton.IsClient && !NetworkManager.Singleton.IsHost)
                 NetworkManager.Singleton.StartClient();
 
-            if (!_loadingGameScene) {
+            if(!_loadingGameScene) {
                 _loadingGameScene = true;
                 NetworkManager.Singleton.SceneManager.OnLoadEventCompleted += OnNetworkSceneLoadComplete;
             }

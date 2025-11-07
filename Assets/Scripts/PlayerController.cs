@@ -1,20 +1,9 @@
+using System.Collections;
 using UnityEngine;
 using Unity.Cinemachine;
 using Unity.Netcode;
-using Unity.Netcode.Components;
-using UnityEngine.Rendering;
 
 public class PlayerController : NetworkBehaviour {
-
-    public NetworkVariable<float> netHealth = new(
-        100f,
-        NetworkVariableReadPermission.Everyone,
-        NetworkVariableWritePermission.Server);
-    
-    public NetworkVariable<bool> netIsDead = new(
-        false,
-        NetworkVariableReadPermission.Everyone,
-        NetworkVariableWritePermission.Server);
     
     #region Constants
     
@@ -68,14 +57,12 @@ public class PlayerController : NetworkBehaviour {
     [SerializeField] private CinemachineCamera fpCamera;
     [SerializeField] private CharacterController characterController;
     [SerializeField] private Animator characterAnimator;
-    [SerializeField] private NetworkAnimator networkAnimator;
     [SerializeField] private WeaponManager weaponManager;
     [SerializeField] private GrappleController grappleController;
     [SerializeField] private PlayerRagdoll playerRagdoll;
     [SerializeField] private DeathCamera deathCamera;
-
-    [Header("Player Fields")]
-    [SerializeField] private float health = 100;
+    [SerializeField] private PlayerDamageRelay damageRelay;
+    [SerializeField] private NetworkSoundRelay soundRelay;
     
     #endregion
     
@@ -111,8 +98,6 @@ public class PlayerController : NetworkBehaviour {
     
     public Vector3 CurrentVelocity => _horizontalVelocity;
     public Vector3 CurrentFullVelocity => new(_horizontalVelocity.x, _verticalVelocity, _horizontalVelocity.z);
-    
-    public bool IsDead => health <= 0;
     private bool IsGrounded => characterController.isGrounded;
     
     private float CurrentPitch {
@@ -122,6 +107,9 @@ public class PlayerController : NetworkBehaviour {
     }
     
     #endregion
+    
+    public NetworkVariable<float> netHealth = new(100f);
+    public NetworkVariable<bool> netIsDead = new();
     
     #region Unity Lifecycle
 
@@ -152,20 +140,23 @@ public class PlayerController : NetworkBehaviour {
     }
 
     private void Update() {
-        if(!IsOwner || IsDead) return;
+        if(IsServer) {
+            if(transform.position.y <= 600f) {
+                netHealth.Value = 0f;
+                DieServer();
+            }
+        }
+        
+        if(!IsOwner || netIsDead.Value) return;
         
         HandleLanding();
         HandleMovement();
         HandleCrouch();
         UpdateAnimator();
-
-        if(transform.position.y <= 600f) {
-            ApplyDamageServer(health, transform.position, Vector3.up);
-        }
     }
 
     private void LateUpdate() {
-        if(!IsOwner || IsDead) return;
+        if(!IsOwner || netIsDead.Value) return;
         
         HandleLook();
     }
@@ -180,27 +171,52 @@ public class PlayerController : NetworkBehaviour {
         }
 
         height = CheckForJumpPad() ? 15f : height;
+        
+        if (soundRelay != null && IsOwner)
+        {
+            string key = Mathf.Approximately(height, 15f) ? "jumpPad" : "jump";
+            var clips  = Mathf.Approximately(height, 15f) ? new[] { jumpPadSound } : jumpSounds;
+            int idx    = (clips != null && clips.Length > 0) ? Random.Range(0, clips.Length) : 0;
 
-        if(Mathf.Approximately(height, 15f)) {
-            SoundFXManager.Instance.PlaySoundFX(jumpPadSound, transform, true, "jumpPad");
+            if(key == "jumpPad") {
+                soundRelay?.RequestWorldSfx(SFXKey.JumpPad, attachToSelf: true, true);
+            } else {
+                soundRelay?.RequestWorldSfx(SFXKey.Jump, attachToSelf: true);
+            }
+            
         }
+
+        // if(Mathf.Approximately(height, 15f)) {
+        //     SoundFXManager.Instance.PlaySoundFX(jumpPadSound, transform, true, "jumpPad");
+        // }
         
         _verticalVelocity = Mathf.Sqrt(height * -2f * Physics.gravity.y * GravityScale);
-        networkAnimator.SetTrigger(JumpTriggerHash);
+        characterAnimator.SetTrigger(JumpTriggerHash);
         characterAnimator.SetBool(IsJumpingHash, true);
         _isJumping = true;
-        SoundFXManager.Instance.PlayRandomSoundFX(jumpSounds, transform, false, "jump");
+        // soundRelay?.RequestWorldSfx(SFXKey.Jump, attachToSelf: true);
     }
     
     public void PlayWalkSound() {
         if(!IsGrounded) return;
-        SoundFXManager.Instance.PlayRandomSoundFX(walkSounds, transform, false, "walk");
-
+        
+        if (soundRelay != null && IsOwner)
+        {
+            int idx = (walkSounds != null && walkSounds.Length > 0) ? Random.Range(0, walkSounds.Length) : 0;
+            soundRelay?.RequestWorldSfx(SFXKey.Walk, attachToSelf: true);
+        }
+        // SoundFXManager.Instance.PlayRandomSoundFX(walkSounds, transform, false, "walk");
     }
     
     public void PlayRunSound() {
         if(!IsGrounded) return;
-        SoundFXManager.Instance.PlayRandomSoundFX(runSounds, transform, false, "run");
+        
+        if (soundRelay != null && IsOwner)
+        {
+            int idx = (runSounds != null && runSounds.Length > 0) ? Random.Range(0, runSounds.Length) : 0;
+            soundRelay?.RequestWorldSfx(SFXKey.Run, attachToSelf: true);
+        }
+        // SoundFXManager.Instance.PlayRandomSoundFX(runSounds, transform, false, "run");
     }
     
     #endregion
@@ -363,42 +379,6 @@ public class PlayerController : NetworkBehaviour {
     
     #region Gameplay Methods
     
-    public void TakeDamageOld(float damage, Vector3? hitPoint = null, Vector3? hitNormal = null) {
-        // if(!IsOwner) return;
-        
-        _lastHitPoint = hitPoint;
-        _lastHitNormal = hitNormal;
-        
-        health = Mathf.Round(Mathf.Max(0f, health - damage));
-        if(_impulseSource) {
-            _impulseSource.GenerateImpulse();
-        } else {
-            Debug.LogWarning("CinemachineImpulseSource not found on PlayerController!");
-        }
-        
-        _hudManager.UpdateHealth(health, 100);
-        
-        if(hitPoint.HasValue && hitNormal.HasValue) {
-            Debug.Log("Showing hit marker at point: " + hitPoint.Value + " with normal: " + hitNormal.Value);
-            // weaponManager.ShowHitMarker(hitPoint.Value, hitNormal.Value);
-        }
-
-        if(health <= 0) {
-            //Die();
-        }
-    }
-    
-    private void DieOld() {
-        deathCamera.EnableDeathCamera();
-        
-        Vector3? hitDirection = null;
-        if(_lastHitNormal.HasValue) {
-            hitDirection = -_lastHitNormal.Value;
-        }
-
-        playerRagdoll.EnableRagdoll(_lastHitPoint, hitDirection);
-    }
-    
     public void ApplyDamageServer(float amount, Vector3 hitPoint, Vector3 hitNormal) {
         if(!IsServer) return;
         if(netIsDead.Value) return;
@@ -430,12 +410,20 @@ public class PlayerController : NetworkBehaviour {
 
         if(IsOwner)
             deathCamera?.EnableDeathCamera();
+
+        StartCoroutine(RespawnTimer());
+    }
+
+    private IEnumerator RespawnTimer() {
+         yield return new WaitForSeconds(5f);
+         
+        RequestRespawnServerRpc();
     }
 
     [Rpc(SendTo.Server)]
     public void RequestRespawnServerRpc() {
         if (!IsServer) return;
-        // if (!netIsDead.Value) return; // avoid respawning a living player
+        if (!netIsDead.Value) return; // avoid respawning a living player
 
         DoRespawnServer();
     }
@@ -453,7 +441,7 @@ public class PlayerController : NetworkBehaviour {
 
         // 3) tell OWNER (the authoritative side) to teleport
         TeleportOwnerClientRpc(spawn);
-
+        
         // 4) clear death visuals for everyone; owner will also restore UI/camera
         RespawnVisualsClientRpc();
     }
@@ -485,8 +473,15 @@ public class PlayerController : NetworkBehaviour {
         // Clear ragdoll etc. for all
         playerRagdoll?.DisableRagdoll();
 
-        // Re-enable renderers if you disabled them on death
-        // foreach (var r in GetComponentsInChildren<Renderer>(true)) r.enabled = true;
+        // 2) make sure all renderers are visible again (in case any were toggled)
+        foreach (var r in GetComponentsInChildren<Renderer>(true))
+            r.enabled = true;
+        foreach (var smr in GetComponentsInChildren<SkinnedMeshRenderer>(true))
+            smr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
+
+        // 3) restore expected layer (owner vs others)
+        gameObject.layer = IsOwner ? LayerMask.NameToLayer("Player")
+            : LayerMask.NameToLayer("Enemy");
 
         // Owner-only UI/camera resets
         if (IsOwner)
@@ -494,51 +489,6 @@ public class PlayerController : NetworkBehaviour {
             deathCamera?.DisableDeathCamera();
             HUDManager.Instance?.UpdateHealth(100f, 100f);
         }
-    }
-    
-    public void RespawnOld() {
-        health = 100f;
-        if(_hudManager)
-            _hudManager.UpdateHealth(health, 100f);
-    
-        // Disable ragdoll first
-        if(playerRagdoll != null) {
-            playerRagdoll.DisableRagdoll();
-        }
-    
-        // Disable death camera
-        if(deathCamera != null) {
-            deathCamera.DisableDeathCamera();
-        }
-    
-        // Get spawn position
-        Vector3 spawnPosition;
-        if(SpawnManager.Instance != null) {
-            spawnPosition = SpawnManager.Instance.GetRandomSpawnPosition();
-        } else {
-            Debug.LogWarning("SpawnManager not found! Using default spawn position.");
-            spawnPosition = new Vector3(0, 5, 0);
-        }
-    
-        // CRITICAL: Disable CharacterController before moving
-        if(characterController != null) {
-            characterController.enabled = false;
-        }
-    
-        // Move player
-        transform.position = spawnPosition;
-        transform.rotation = Quaternion.identity;
-    
-        // Reset velocity
-        _horizontalVelocity = Vector3.zero;
-        _verticalVelocity = 0f;
-    
-        // Re-enable CharacterController
-        if(characterController != null) {
-            characterController.enabled = true;
-        }
-    
-        Debug.Log($"Player respawned at {spawnPosition}");
     }
     
     #endregion
@@ -550,16 +500,28 @@ public class PlayerController : NetworkBehaviour {
         if(_isJumping && IsGrounded && _verticalVelocity <= 0f) {
             _isJumping = false;
             characterAnimator.SetBool(IsJumpingHash, false);
-            networkAnimator.SetTrigger(LandTriggerHash);
+            characterAnimator.SetTrigger(LandTriggerHash);
             
-            SoundFXManager.Instance.PlayRandomSoundFX(landSounds, transform, false, "land");
+            if (soundRelay != null && IsOwner)
+            {
+                int idx = (landSounds != null && landSounds.Length > 0) ? Random.Range(0, landSounds.Length) : 0;
+                soundRelay?.RequestWorldSfx(SFXKey.Land, attachToSelf: true);
+            }
+
+            // SoundFXManager.Instance.PlayRandomSoundFX(landSounds, transform, false, "land");
         }
 
         // Landing from a fall
         if(!_isFalling || !IsGrounded) return;
-        networkAnimator.SetTrigger(LandTriggerHash);
+        characterAnimator.SetTrigger(LandTriggerHash);
         
-        SoundFXManager.Instance.PlayRandomSoundFX(landSounds, transform, false, "land");
+        if (soundRelay != null && IsOwner)
+        {
+            int idx = (landSounds != null && landSounds.Length > 0) ? Random.Range(0, landSounds.Length) : 0;
+            soundRelay?.RequestWorldSfx(SFXKey.Land, attachToSelf: true);
+        }
+
+        // SoundFXManager.Instance.PlayRandomSoundFX(landSounds, transform, false, "land");
     }
 
     private void UpdateAnimator() {

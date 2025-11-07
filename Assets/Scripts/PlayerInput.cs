@@ -50,7 +50,6 @@ public class PlayerInput : NetworkBehaviour
         
         if(fpCamera != null) {
             fpCamera.gameObject.SetActive(true);
-            // fpCamera.Priority = 100; // Make sure it's the active camera
         }
 
         _gameMenuManager = GameMenuManager.Instance;
@@ -107,7 +106,6 @@ public class PlayerInput : NetworkBehaviour
         if(_gameMenuManager != null && !_gameMenuManager.IsPaused && 
            (Mouse.current.leftButton.isPressed || Mouse.current.rightButton.isPressed) && 
            weaponManager.CurrentWeapon.fireMode == "Full" && !playerController.netIsDead.Value) {
-            Debug.Log("SHOOTING");
             _currentWeapon.Shoot();
         }
 
@@ -288,8 +286,7 @@ public class PlayerInput : NetworkBehaviour
         if(!IsOwner) return;
         if(_gameMenuManager != null && _gameMenuManager.IsPaused) return;
         Debug.Log("Respawning player for testing.");
-        // playerController.Respawn();
-        playerController.RequestRespawnServerRpc();
+        transform.position = SpawnManager.Instance.GetRandomSpawnPosition();
     }
     
     #endregion

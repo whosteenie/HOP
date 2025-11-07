@@ -47,10 +47,9 @@ public class PlayerRagdoll : NetworkBehaviour
     }
 
     public override void OnNetworkSpawn() {
-        _ragdollRigidbodies = GetComponentsInChildren<Rigidbody>();
-        _ragdollColliders = GetComponentsInChildren<Collider>();
+        _ragdollRigidbodies = GetComponentsInChildren<Rigidbody>(true);
+        _ragdollColliders = GetComponentsInChildren<Collider>(true);
         
-        if(!IsOwner) return;
         SetRagdollActive(false);
     }
     
@@ -105,8 +104,6 @@ public class PlayerRagdoll : NetworkBehaviour
     }
     
     private void SetRagdollActive(bool active) {
-        if(!IsOwner) return;
-        
         foreach(var rb in _ragdollRigidbodies) {
             if(rb == null) continue;
             

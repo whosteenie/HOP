@@ -16,6 +16,8 @@ public class MainMenuManager : MonoBehaviour {
     [SerializeField] private AudioClip buttonClickSound;
     [SerializeField] private AudioClip buttonHoverSound;
     [SerializeField] private AudioClip backClickSound;
+
+    [SerializeField] private Camera mainCamera;
     #endregion
 
     #region Private UI refs
@@ -91,7 +93,10 @@ public class MainMenuManager : MonoBehaviour {
         _loadoutButton.clicked += OnLoadoutClicked;
         _loadoutButton.RegisterCallback<MouseOverEvent>(MouseHover);
         
-        _optionsButton.clicked += () => ShowPanel(_optionsPanel);
+        _optionsButton.clicked += () => {
+            LoadSettings();
+            ShowPanel(_optionsPanel);
+        };
         _optionsButton.RegisterCallback<MouseOverEvent>(MouseHover);
         
         _creditsButton.clicked += OnCreditsClicked;
@@ -119,7 +124,10 @@ public class MainMenuManager : MonoBehaviour {
         _backToMainButton.clicked += () => ShowPanel(_mainMenuPanel, true);
         _backToMainButton.RegisterCallback<MouseOverEvent>(MouseHover);
         
-        _backToGamemodeButton.clicked += () => ShowPanel(_gamemodePanel, true);
+        _backToGamemodeButton.clicked += () => {
+            SessionManager.Instance.LeaveToMainMenuAsync();
+            ShowPanel(_gamemodePanel, true);
+        };
         _backToGamemodeButton.RegisterCallback<MouseOverEvent>(MouseHover);
 
         _applySettingsButton = root.Q<Button>("apply-button");
@@ -191,7 +199,7 @@ public class MainMenuManager : MonoBehaviour {
     #region Navigation
 
     private void OnGameModeSelected(string modeName) {
-        SoundFXManager.Instance.PlaySoundFX(buttonClickSound, transform, true, "UI");
+        SoundFXManager.Instance.PlayUISound(buttonClickSound);
 
         _selectedGameMode = modeName;
 
@@ -207,12 +215,26 @@ public class MainMenuManager : MonoBehaviour {
         }
         
         Debug.LogWarning("Gamemode: " + modeName);
+        _joinCodeLabel.text = $"Join Code: ------";
+
+        if(!_hostButton.ClassListContains("menu-chip-enabled")) {
+            _hostButton.AddToClassList("menu-chip-enabled");
+        }
+        _hostButton.SetEnabled(true);
+        _hostButton.RegisterCallback<MouseOverEvent>(MouseHover);
+
+        _startButton.SetEnabled(false);
+        _startButton.RemoveFromClassList("menu-chip-enabled");
+        _startButton.UnregisterCallback<MouseOverEvent>(MouseHover);
+
+        _joinCodeInput.value = "";
+        _playerList.Clear();
         ShowPanel(_lobbyPanel);
     }
 
     private void ShowPanel(VisualElement panel, bool playBack = false) {
         var clip = playBack ? backClickSound : buttonClickSound;
-        SoundFXManager.Instance.PlaySoundFX(clip, transform, true, "UI");
+        SoundFXManager.Instance.PlayUISound(clip);
         
         _mainMenuPanel.AddToClassList("hidden");
         _optionsPanel.AddToClassList("hidden");
@@ -223,12 +245,12 @@ public class MainMenuManager : MonoBehaviour {
     }
 
     private void MouseHover(MouseOverEvent evt) {
-        SoundFXManager.Instance.PlaySoundFX(buttonHoverSound, transform, true, "UI");
+        SoundFXManager.Instance.PlayUISound(buttonHoverSound);
     }
 
     private async void OnHostClicked() {
         try {
-            SoundFXManager.Instance.PlaySoundFX(buttonClickSound, transform, true, "UI");
+            SoundFXManager.Instance.PlayUISound(buttonClickSound);
 
             var joinCode = await sessionManager.StartSessionAsHost();
             _joinCodeLabel.text = $"Join Code: {joinCode}";
@@ -248,7 +270,7 @@ public class MainMenuManager : MonoBehaviour {
 
     private async void OnStartGameClicked() {
         try {
-            SoundFXManager.Instance.PlaySoundFX(buttonClickSound, transform, true, "UI");
+            SoundFXManager.Instance.PlayUISound(buttonClickSound);
 
             await sessionManager.BeginGameplayAsHostAsync();
         } catch (Exception e) {
@@ -259,13 +281,13 @@ public class MainMenuManager : MonoBehaviour {
     private async void OnJoinGameClicked(string code) {
         try {
             if(string.IsNullOrWhiteSpace(code)) {
-                SoundFXManager.Instance.PlaySoundFX(backClickSound, transform, true, "UI");
+                SoundFXManager.Instance.PlayUISound(backClickSound);
 
                 Debug.LogWarning("Invalid code");
                 return;
             }
             
-            SoundFXManager.Instance.PlaySoundFX(buttonClickSound, transform, true, "UI");
+            SoundFXManager.Instance.PlayUISound(buttonClickSound);
 
             await sessionManager.JoinSessionByCodeAsync(code);
             _joinCodeLabel.text = $"Join Code: {code}";
@@ -281,8 +303,8 @@ public class MainMenuManager : MonoBehaviour {
     
     private void OnRelayCodeAvailable(string code) {
         // Cosmetic: keep label in sync when host publishes/upgrades relay code
-        if(_joinCodeLabel != null)
-            _joinCodeLabel.text = $"Join Code: {code}";
+        // if(_joinCodeLabel != null)
+            // _joinCodeLabel.text = $"Join Code: {code}";
     }
 
     private void OnPlayersChanged(IReadOnlyList<IReadOnlyPlayer> players) {
@@ -397,7 +419,7 @@ public class MainMenuManager : MonoBehaviour {
 
         PlayerPrefs.Save();
         
-        SoundFXManager.Instance.PlaySoundFX(buttonClickSound, transform, true, "UI");
+        SoundFXManager.Instance.PlayUISound(buttonClickSound);
         
         ApplySettingsInternal();
 
@@ -428,19 +450,19 @@ public class MainMenuManager : MonoBehaviour {
     // ===== Misc =====
 
     private void OnLoadoutClicked() {
-        SoundFXManager.Instance.PlaySoundFX(buttonClickSound, transform, true, "UI");
+        SoundFXManager.Instance.PlayUISound(buttonClickSound);
 
         Debug.LogWarning("Loadout menu - not yet implemented");
     }
 
     private void OnCreditsClicked() {
-        SoundFXManager.Instance.PlaySoundFX(buttonClickSound, transform, true, "UI");
+        SoundFXManager.Instance.PlayUISound(buttonClickSound);
         
         Debug.LogWarning("Credits - not yet implemented");
     }
 
     private void OnQuitClicked() {
-        SoundFXManager.Instance.PlaySoundFX(buttonClickSound, transform, true, "UI");
+        SoundFXManager.Instance.PlayUISound(buttonClickSound);
 
         Debug.Log("Quitting game...");
         #if UNITY_EDITOR
