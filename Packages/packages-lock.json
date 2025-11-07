@@ -14,6 +14,17 @@
       "dependencies": {},
       "hash": "af213d3b9e6ff3cb7e862c519f666b686f66a8ea"
     },
+    "com.jiaozi158.unityvolumetriccloudsurp": {
+      "version": "https://github.com/Torgo13/UnityVolumetricCloudsURP.git",
+      "depth": 0,
+      "source": "git",
+      "dependencies": {
+        "com.unity.render-pipelines.core": "14.0.11",
+        "com.unity.render-pipelines.universal": "14.0.11",
+        "com.unity.mathematics": "1.2.6"
+      },
+      "hash": "f06a8c69f1275260b1570ca93df173b6b81321e0"
+    },
     "com.singularitygroup.hotreload": {
       "version": "file:com.singularitygroup.hotreload",
       "depth": 0,

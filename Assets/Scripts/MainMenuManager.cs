@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 using UnityEngine.Audio;
+using UnityEngine.Serialization;
 using UnityEngine.UIElements;
 using Cursor = UnityEngine.Cursor;
 
@@ -11,7 +12,7 @@ public class MainMenuManager : MonoBehaviour {
     [SerializeField] private UIDocument uiDocument;
     [SerializeField] private AudioMixer audioMixer;
     [SerializeField] private SessionManager sessionManager;
-    [SerializeField] private PauseMenuManager pauseMenuManager;
+    [SerializeField] private GameMenuManager gameMenuManager;
     #endregion
 
     #region Private Fields
@@ -54,12 +55,12 @@ public class MainMenuManager : MonoBehaviour {
     private void OnEnable() {
         var root = uiDocument.rootVisualElement;
 
-        _joinCodeInput = root.Q<TextField>("join-code-input");
+        _joinCodeInput = root.Q<TextField>("join-input");
         _hostButton = root.Q<Button>("host-button");
-        _joinCodeLabel = root.Q<Label>("join-code-label");
+        _joinCodeLabel = root.Q<Label>("host-label");
         _playerList = root.Q<VisualElement>("player-list");
         _startButton = root.Q<Button>("start-button");
-        _joinSessionButton = root.Q<Button>("join-session-button");
+        _joinSessionButton = root.Q<Button>("join-button");
 
         _mainMenuPanel = root.Q<VisualElement>("main-menu-panel");
         _gamemodePanel = root.Q<VisualElement>("gamemode-panel");
@@ -67,19 +68,19 @@ public class MainMenuManager : MonoBehaviour {
         _optionsPanel = root.Q<VisualElement>("options-panel");
 
         root.Q<Button>("play-button").clicked += () => ShowPanel(_gamemodePanel);
-        root.Q<Button>("select-mode1").clicked += () => OnGameModeSelected("Deathmatch");
-        root.Q<Button>("select-mode2").clicked += () => OnGameModeSelected("Team Deathmatch");
-        root.Q<Button>("select-mode3").clicked += () => OnGameModeSelected("Capture the Flag");
+        root.Q<Button>("mode-one-button").clicked += () => OnGameModeSelected("Deathmatch");
+        root.Q<Button>("mode-two-button").clicked += () => OnGameModeSelected("Team Deathmatch");
+        root.Q<Button>("mode-three-button").clicked += () => OnGameModeSelected("Private Match");
         root.Q<Button>("back-to-main").clicked += () => ShowPanel(_mainMenuPanel);
         root.Q<Button>("back-to-gamemode").clicked += () => ShowPanel(_gamemodePanel);
         _startButton.clicked += OnStartGameClicked;
         root.Q<Button>("loadout-button").clicked += OnLoadoutClicked;
-        root.Q<Button>("options-button").clicked += ShowOptions;
+        root.Q<Button>("options-button").clicked += () => ShowPanel(_optionsPanel);
         root.Q<Button>("credits-button").clicked += OnCreditsClicked;
         root.Q<Button>("quit-button").clicked += OnQuitClicked;
 
         root.Q<Button>("apply-button").clicked += ApplySettings;
-        root.Q<Button>("back-button").clicked += HideOptions;
+        root.Q<Button>("back-button").clicked += () => ShowPanel(_mainMenuPanel);
 
         _masterVolumeSlider = root.Q<Slider>("master-volume");
         _musicVolumeSlider = root.Q<Slider>("music-volume");
@@ -108,7 +109,6 @@ public class MainMenuManager : MonoBehaviour {
 
         _joinSessionButton.clicked += () => OnJoinGameClicked(_joinCodeInput.value);
         _hostButton.clicked += OnHostClicked;
-        _startButton.SetEnabled(false);
     }
     #endregion
 
@@ -152,30 +152,20 @@ public class MainMenuManager : MonoBehaviour {
         _fpsDropdown.choices = new List<string> { "30", "60", "120", "144", "Unlimited" };
     }
     #endregion
-
-    #region Menu Navigation
-    private void OnGameModeSelected(string modeName) {
-        _selectedGameMode = modeName;
-        ShowPanel(_lobbyPanel);
-    }
-
-    private void ShowPanel(VisualElement panel) {
-        _mainMenuPanel.AddToClassList("hidden");
-        _optionsPanel.AddToClassList("hidden");
-        _gamemodePanel.AddToClassList("hidden");
-        _lobbyPanel.AddToClassList("hidden");
-
-        panel.RemoveFromClassList("hidden");
-    }
-
+    
+    #region Lobby Management
+    
     private async void OnHostClicked() {
         try {
             Debug.Log("Hosting game (session only)...");
             var joinCode = await sessionManager.StartSessionAsHost();
             _joinCodeLabel.text = $"Join Code: {joinCode}";
 
+            _hostButton.RemoveFromClassList("menu-chip-enabled");
             _hostButton.SetEnabled(false);
+            
             _startButton.SetEnabled(true);
+            _startButton.AddToClassList("menu-chip-enabled");
 
             AddPlayer("You (Host)", true);
         } catch(Exception e) {
@@ -201,13 +191,15 @@ public class MainMenuManager : MonoBehaviour {
 
             Debug.Log($"Joining game with code: {code}");
             await sessionManager.JoinSessionByCodeAsync(code);
+            _joinCodeLabel.text = $"Join Code: {code}";
+            AddPlayer("You", false);
             // The host scene load + spawn is automatic; we don’t load scenes here.
         } catch(Exception e) {
             Debug.LogException(e);
         }
     }
 
-    public void AddPlayer(string playerName, bool isHost) {
+    private void AddPlayer(string playerName, bool isHost) {
         foreach(var child in _playerList.Children())
             child.style.borderBottomWidth = 1f;
 
@@ -239,17 +231,39 @@ public class MainMenuManager : MonoBehaviour {
             children.Last().style.borderBottomWidth = 0f;
         }
     }
+    
+    #endregion
 
-    private void OnLoadoutClicked() => Debug.Log("Loadout menu - not yet implemented");
-    private void ShowOptions() {
+    #region Menu Navigation
+    private void OnGameModeSelected(string modeName) {
+        Debug.LogWarning($"Gamemode: {modeName}");
+
+        if(modeName != "Private Match") {
+            _startButton.RemoveFromClassList("menu-chip-enabled");
+            _startButton.SetEnabled(false);
+        } else {
+            // TODO: may not need to check this...
+            if(!_startButton.ClassListContains("menu-chip-enabled")) {
+                _startButton.AddToClassList("menu-chip-enabled");
+            }
+            _startButton.SetEnabled(true);
+        }
+        
+        _selectedGameMode = modeName;
+        ShowPanel(_lobbyPanel);
+    }
+
+    private void ShowPanel(VisualElement panel) {
         _mainMenuPanel.AddToClassList("hidden");
-        _optionsPanel.RemoveFromClassList("hidden");
-    }
-    private void HideOptions() {
         _optionsPanel.AddToClassList("hidden");
-        _mainMenuPanel.RemoveFromClassList("hidden");
+        _gamemodePanel.AddToClassList("hidden");
+        _lobbyPanel.AddToClassList("hidden");
+
+        panel.RemoveFromClassList("hidden");
     }
-    private void OnCreditsClicked() => Debug.Log("Credits - not yet implemented");
+
+    private void OnLoadoutClicked() => Debug.LogWarning("Loadout menu - not yet implemented");
+    private void OnCreditsClicked() => Debug.LogWarning("Credits - not yet implemented");
 
     private void OnQuitClicked() {
         Debug.Log("Quitting game...");

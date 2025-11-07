@@ -161,13 +161,13 @@ public class SessionManager : Singleton<SessionManager> {
         }
 
         // Optional: show in-game UI
-        var pauseMgr = PauseMenuManager.Instance;
-        if(pauseMgr != null) {
-            var uiDoc = pauseMgr.GetComponent<UIDocument>();
+        var gameMenuManager = GameMenuManager.Instance;
+        if(gameMenuManager != null) {
+            var uiDoc = gameMenuManager.GetComponent<UIDocument>();
             var root = uiDoc != null ? uiDoc.rootVisualElement : null;
             var rootContainer = root?.Q<VisualElement>("root-container");
             if (rootContainer != null)
-                rootContainer.style.visibility = Visibility.Visible;
+                rootContainer.style.display = DisplayStyle.Flex;
         }
     }
 

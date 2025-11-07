@@ -4,6 +4,7 @@ using UnityEngine;
 public class CustomNetworkManager : MonoBehaviour {
     [Header("Manual Player Prefab (do NOT rely on NetworkConfig.PlayerPrefab)")]
     [SerializeField] private NetworkObject playerPrefab;
+    [SerializeField] private NetworkObject[] playerPrefabs;
 
     // When true (after Start Game), new joiners will be spawned automatically on connect.
     private bool _allowPlayerSpawns;
@@ -83,5 +84,24 @@ public class CustomNetworkManager : MonoBehaviour {
 
         var instance = Instantiate(playerPrefab, pos, rot);
         instance.SpawnAsPlayerObject(clientId);
+    }
+    
+    private void SpawnPlayerForChooseModel(ulong clientId) {
+        if(playerPrefab == null) {
+            Debug.LogError("[CustomNetworkManager] Player Prefab not assigned.");
+            return;
+        }
+
+        var pos = SpawnManager.Instance != null
+            ? SpawnManager.Instance.GetNextSpawnPosition()
+            : new Vector3(0, 5, 0);
+
+        var rot = SpawnManager.Instance != null
+            ? SpawnManager.Instance.GetNextSpawnRotation()
+            : Quaternion.identity;
+
+        var prefab = playerPrefabs[clientId]; // TODO: placeholder, replace with actual selection logic
+        var instance = Instantiate(prefab, pos, rot);
+        instance.SpawnAsPlayerObject(clientId); // TODO: placeholder
     }
 }
