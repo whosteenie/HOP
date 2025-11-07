@@ -141,6 +141,14 @@
     padding: 10px;
 }
 
-.input {
-    color: rgba(43, 43, 43, 0.91);
+.unity-base-popup-field__text {
+    color: black;
+}
+
+.unity-base-text-field__input-placeholder {
+    color: rgb(0, 0, 0);
+}
+
+.unity-text-element--inner-input-field-component {
+    color: rgb(0, 0, 0);
 }

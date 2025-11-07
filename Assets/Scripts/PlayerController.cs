@@ -1,11 +1,21 @@
-using JetBrains.Annotations;
 using UnityEngine;
 using Unity.Cinemachine;
 using Unity.Netcode;
+using Unity.Netcode.Components;
 using UnityEngine.Rendering;
-using UnityEngine.Rendering.Universal;
 
-public class PlayerController : NetworkBehaviour, IDamageable {
+public class PlayerController : NetworkBehaviour {
+
+    public NetworkVariable<float> netHealth = new(
+        100f,
+        NetworkVariableReadPermission.Everyone,
+        NetworkVariableWritePermission.Server);
+    
+    public NetworkVariable<bool> netIsDead = new(
+        false,
+        NetworkVariableReadPermission.Everyone,
+        NetworkVariableWritePermission.Server);
+    
     #region Constants
     
     private const float WalkSpeed = 5f;
@@ -58,6 +68,7 @@ public class PlayerController : NetworkBehaviour, IDamageable {
     [SerializeField] private CinemachineCamera fpCamera;
     [SerializeField] private CharacterController characterController;
     [SerializeField] private Animator characterAnimator;
+    [SerializeField] private NetworkAnimator networkAnimator;
     [SerializeField] private WeaponManager weaponManager;
     [SerializeField] private GrappleController grappleController;
     [SerializeField] private PlayerRagdoll playerRagdoll;
@@ -123,44 +134,40 @@ public class PlayerController : NetworkBehaviour, IDamageable {
 
     public override void OnNetworkSpawn() {
         base.OnNetworkSpawn();
-        
-        if(_impulseSource == null) {
-            _impulseSource = FindFirstObjectByType<CinemachineImpulseSource>();
-        }
+
+        netHealth.OnValueChanged += (oldV, newV) => {
+            if(IsOwner) {
+                _hudManager.UpdateHealth(newV, 100f);
+                _impulseSource?.GenerateImpulse();
+            }
+
+            if(IsServer && newV <= 0f && !netIsDead.Value) {
+                DieServer();
+            }
+        };
 
         if(!IsOwner) {
-            gameObject.layer = LayerMask.NameToLayer("Default");
-        }
-    }
-    
-    private void Start() {
-        if(_impulseSource == null) {
-            _impulseSource = FindFirstObjectByType<CinemachineImpulseSource>();
+            gameObject.layer = LayerMask.NameToLayer("Enemy");
         }
     }
 
     private void Update() {
-        if(IsOwner) {
-            if(!IsDead) {
-                HandleMovement();
-                HandleCrouch();
-
-                if(transform.position.y <= 600f) {
-                    TakeDamage(health);
-                }
-            }
-        }
+        if(!IsOwner || IsDead) return;
         
-        if(!IsDead) {
-            HandleLanding();
-            UpdateAnimator();
+        HandleLanding();
+        HandleMovement();
+        HandleCrouch();
+        UpdateAnimator();
+
+        if(transform.position.y <= 600f) {
+            ApplyDamageServer(health, transform.position, Vector3.up);
         }
     }
 
     private void LateUpdate() {
-        if(IsOwner && !IsDead) {
-            HandleLook();
-        }
+        if(!IsOwner || IsDead) return;
+        
+        HandleLook();
     }
     
     #endregion
@@ -179,7 +186,7 @@ public class PlayerController : NetworkBehaviour, IDamageable {
         }
         
         _verticalVelocity = Mathf.Sqrt(height * -2f * Physics.gravity.y * GravityScale);
-        characterAnimator.SetTrigger(JumpTriggerHash);
+        networkAnimator.SetTrigger(JumpTriggerHash);
         characterAnimator.SetBool(IsJumpingHash, true);
         _isJumping = true;
         SoundFXManager.Instance.PlayRandomSoundFX(jumpSounds, transform, false, "jump");
@@ -292,7 +299,8 @@ public class PlayerController : NetworkBehaviour, IDamageable {
         Debug.DrawRay(fpCamera.transform.position, 0.75f * Vector3.up, Color.yellow);
         
         var mask = _playerBodyLayer | _maskedLayer;
-        if(Physics.Raycast(fpCamera.transform.position, Vector3.up, out var hit, 0.75f, ~mask) && _verticalVelocity > 0f) {
+        var rayHit = Physics.Raycast(fpCamera.transform.position, Vector3.up, out var hit, 0.75f, ~mask);
+        if(rayHit && _verticalVelocity > 0f) {
             grappleController.CancelGrapple();
             _verticalVelocity = 0f;
         }
@@ -355,8 +363,8 @@ public class PlayerController : NetworkBehaviour, IDamageable {
     
     #region Gameplay Methods
     
-    public void TakeDamage(float damage, Vector3? hitPoint = null, Vector3? hitNormal = null) {
-        if(!IsOwner) return;
+    public void TakeDamageOld(float damage, Vector3? hitPoint = null, Vector3? hitNormal = null) {
+        // if(!IsOwner) return;
         
         _lastHitPoint = hitPoint;
         _lastHitNormal = hitNormal;
@@ -368,19 +376,19 @@ public class PlayerController : NetworkBehaviour, IDamageable {
             Debug.LogWarning("CinemachineImpulseSource not found on PlayerController!");
         }
         
-        if(IsOwner && _hudManager)
-            _hudManager.UpdateHealth(health, 100);
+        _hudManager.UpdateHealth(health, 100);
         
         if(hitPoint.HasValue && hitNormal.HasValue) {
+            Debug.Log("Showing hit marker at point: " + hitPoint.Value + " with normal: " + hitNormal.Value);
             // weaponManager.ShowHitMarker(hitPoint.Value, hitNormal.Value);
         }
 
         if(health <= 0) {
-            Die();
+            //Die();
         }
     }
     
-    private void Die() {
+    private void DieOld() {
         deathCamera.EnableDeathCamera();
         
         Vector3? hitDirection = null;
@@ -389,11 +397,106 @@ public class PlayerController : NetworkBehaviour, IDamageable {
         }
 
         playerRagdoll.EnableRagdoll(_lastHitPoint, hitDirection);
-        
-        // Implement respawn or game over logic here
     }
     
-    public void Respawn() {
+    public void ApplyDamageServer(float amount, Vector3 hitPoint, Vector3 hitNormal) {
+        if(!IsServer) return;
+        if(netIsDead.Value) return;
+
+        _lastHitPoint = hitPoint;
+        _lastHitNormal = hitNormal;
+
+        netHealth.Value = Mathf.Max(0f, netHealth.Value - amount);
+
+        if(netHealth.Value <= 0f && !netIsDead.Value) {
+            DieServer();
+        }
+    }
+    
+    private void DieServer() {
+        if(!IsServer) return;
+        
+        netIsDead.Value = true;
+
+        // Tell everyone to show death visuals; the owner will also switch cameras.
+        DieClientRpc(_lastHitPoint ?? transform.position, _lastHitNormal ?? Vector3.up);
+    }
+    
+    [Rpc(SendTo.Everyone)]
+    private void DieClientRpc(Vector3 hitPoint, Vector3 hitNormal) {
+        // Show ragdoll for everyone; only the owner swaps to death camera/HUD.
+        if(playerRagdoll != null)
+            playerRagdoll.EnableRagdoll(hitPoint, -hitNormal);
+
+        if(IsOwner)
+            deathCamera?.EnableDeathCamera();
+    }
+
+    [Rpc(SendTo.Server)]
+    public void RequestRespawnServerRpc() {
+        if (!IsServer) return;
+        // if (!netIsDead.Value) return; // avoid respawning a living player
+
+        DoRespawnServer();
+    }
+    
+    private void DoRespawnServer()
+    {
+        // 1) reset networked state
+        netIsDead.Value = false;
+        netHealth.Value = 100f;
+
+        // 2) choose spawn
+        var spawn = SpawnManager.Instance 
+            ? SpawnManager.Instance.GetRandomSpawnPosition() 
+            : new Vector3(0f, 5f, 0f);
+
+        // 3) tell OWNER (the authoritative side) to teleport
+        TeleportOwnerClientRpc(spawn);
+
+        // 4) clear death visuals for everyone; owner will also restore UI/camera
+        RespawnVisualsClientRpc();
+    }
+    
+    [Rpc(SendTo.Owner)]
+    private void TeleportOwnerClientRpc(Vector3 spawn)
+    {
+        // OWNER runs this; it has authority if you’re using ClientNetworkTransform
+        if (characterController) characterController.enabled = false;
+
+        var cnt = GetComponent<ClientNetworkTransform>();
+        if (cnt != null)
+        {
+            // Prefer Teleport; falls back to direct set if missing
+            cnt.Teleport(spawn, Quaternion.identity, Vector3.one);
+        }
+        else
+        {
+            // If not using CNT, the owner can still move it and authority will sync
+            transform.SetPositionAndRotation(spawn, Quaternion.identity);
+        }
+
+        if (characterController) characterController.enabled = true;
+    }
+
+    [Rpc(SendTo.Everyone)]
+    private void RespawnVisualsClientRpc()
+    {
+        // Clear ragdoll etc. for all
+        playerRagdoll?.DisableRagdoll();
+
+        // Re-enable renderers if you disabled them on death
+        // foreach (var r in GetComponentsInChildren<Renderer>(true)) r.enabled = true;
+
+        // Owner-only UI/camera resets
+        if (IsOwner)
+        {
+            deathCamera?.DisableDeathCamera();
+            HUDManager.Instance?.UpdateHealth(100f, 100f);
+        }
+    }
+    
+    public void RespawnOld() {
         health = 100f;
         if(_hudManager)
             _hudManager.UpdateHealth(health, 100f);
@@ -447,27 +550,23 @@ public class PlayerController : NetworkBehaviour, IDamageable {
         if(_isJumping && IsGrounded && _verticalVelocity <= 0f) {
             _isJumping = false;
             characterAnimator.SetBool(IsJumpingHash, false);
-            characterAnimator.SetTrigger(LandTriggerHash);
-
-            if(IsOwner) {
-                SoundFXManager.Instance.PlayRandomSoundFX(landSounds, transform, false, "land");
-            }
+            networkAnimator.SetTrigger(LandTriggerHash);
+            
+            SoundFXManager.Instance.PlayRandomSoundFX(landSounds, transform, false, "land");
         }
 
         // Landing from a fall
         if(!_isFalling || !IsGrounded) return;
-        characterAnimator.SetTrigger(LandTriggerHash);
-
-        if(IsOwner) {
-            SoundFXManager.Instance.PlayRandomSoundFX(landSounds, transform, false, "land");
-        }
+        networkAnimator.SetTrigger(LandTriggerHash);
+        
+        SoundFXManager.Instance.PlayRandomSoundFX(landSounds, transform, false, "land");
     }
 
     private void UpdateAnimator() {
         var localVelocity = transform.InverseTransformDirection(_horizontalVelocity);
         var isSprinting = _horizontalVelocity.magnitude > (WalkSpeed + 1f);
 
-        var ray = Physics.Raycast(transform.position, Vector3.down, out var hit, 1f);
+        Physics.Raycast(transform.position, Vector3.down, out var hit, 1f);
         Debug.DrawRay(transform.position, Vector3.down * 1f, Color.red);
         _isFalling = !IsGrounded && hit.distance > 3f;
         
@@ -481,10 +580,6 @@ public class PlayerController : NetworkBehaviour, IDamageable {
         var turnSpeed = Mathf.Abs(yawDelta) > 0.001f ? Mathf.Clamp(yawDelta * 10f, -1f, 1f) : 0f;
 
         characterAnimator.SetFloat(LookXHash, turnSpeed, 0.1f, Time.deltaTime);
-    }
-
-    private void PlayRandomAudio(AudioClip[] clips, bool overlap, string soundType) {
-        SoundFXManager.Instance.PlayRandomSoundFX(clips, transform, overlap, soundType);
     }
     
     #endregion

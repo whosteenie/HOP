@@ -1,3 +1,4 @@
+using System;
 using System.Runtime.InteropServices.WindowsRuntime;
 using Unity.Netcode;
 using UnityEngine;
@@ -9,12 +10,17 @@ public class PlayerRagdoll : NetworkBehaviour
     [SerializeField] private CharacterController characterController;
     
     [Header("Ragdoll Settings")]
-    [SerializeField] private float ragdollForce = 500f;
+    [SerializeField] private float ragdollForce = 1f;
     [SerializeField] private float despawnDelay = 5f;
     
     private Rigidbody[] _ragdollRigidbodies;
     private Collider[] _ragdollColliders;
     private bool _isRagdoll;
+
+    [SerializeField] private Transform hips;
+    public Transform Focus => hips != null ? hips : transform;
+    
+    public event Action<Transform> RagdollBecameActive;
     
     private void Awake() {
         // Get all rigidbodies and colliders in children (the ragdoll bones)
@@ -22,6 +28,20 @@ public class PlayerRagdoll : NetworkBehaviour
         _ragdollColliders = GetComponentsInChildren<Collider>();
         
         if(!IsOwner) return;
+        
+        if (hips == null)
+        {
+            // Your hierarchy: HumanCharacterDummy_M/Rig/B-root/B-hips
+            hips = transform.Find("HumanCharacterDummy_M/Rig/B-root/B-hips");
+            if (hips == null)
+            {
+                // Fallback: search by name
+                foreach (var t in GetComponentsInChildren<Transform>())
+                    if (t.name.Contains("hips", StringComparison.OrdinalIgnoreCase))
+                    { hips = t; break; }
+            }
+        }
+        
         // Disable ragdoll by default
         SetRagdollActive(false);
     }
@@ -57,6 +77,11 @@ public class PlayerRagdoll : NetworkBehaviour
         if(hitPoint.HasValue && hitDirection.HasValue) {
             ApplyRagdollForce(hitPoint.Value, hitDirection.Value);
         }
+
+        var dc = GetComponent<DeathCamera>();
+        if(dc != null) dc.SetRagdollFocus(Focus);
+        
+        RagdollBecameActive?.Invoke(Focus);
     }
 
     public void DisableRagdoll() {

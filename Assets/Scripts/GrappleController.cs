@@ -128,7 +128,7 @@ public class GrappleController : NetworkBehaviour
         
         // Enable visual
         grappleLine.enabled = true;
-        SoundFXManager.Instance.PlayRandomSoundFX(grappleSounds, transform, false, "grapple");
+        SoundFXManager.Instance.PlayRandomSoundFX(grappleSounds, transform, true, "grapple");
     }
     
     private void UpdateGrapple() {

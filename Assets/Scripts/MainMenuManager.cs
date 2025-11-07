@@ -1,21 +1,24 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
+using Unity.Services.Multiplayer;
 using UnityEngine;
 using UnityEngine.Audio;
-using UnityEngine.Serialization;
 using UnityEngine.UIElements;
 using Cursor = UnityEngine.Cursor;
 
 public class MainMenuManager : MonoBehaviour {
-    #region Serialized Fields
+    #region Serialized
     [SerializeField] private UIDocument uiDocument;
     [SerializeField] private AudioMixer audioMixer;
     [SerializeField] private SessionManager sessionManager;
     [SerializeField] private GameMenuManager gameMenuManager;
+    
+    [SerializeField] private AudioClip buttonClickSound;
+    [SerializeField] private AudioClip buttonHoverSound;
+    [SerializeField] private AudioClip backClickSound;
     #endregion
 
-    #region Private Fields
+    #region Private UI refs
     private VisualElement _mainMenuPanel;
     private VisualElement _gamemodePanel;
     private VisualElement _lobbyPanel;
@@ -23,7 +26,7 @@ public class MainMenuManager : MonoBehaviour {
 
     private string _selectedGameMode;
 
-    // Audio sliders
+    // Audio
     private Slider _masterVolumeSlider;
     private Slider _musicVolumeSlider;
     private Slider _sfxVolumeSlider;
@@ -31,57 +34,105 @@ public class MainMenuManager : MonoBehaviour {
     private Label _musicVolumeValue;
     private Label _sfxVolumeValue;
 
-    // Sensitivity sliders
+    // Controls
     private Slider _sensitivityXSlider;
     private Slider _sensitivityYSlider;
     private Label _sensitivityXValue;
     private Label _sensitivityYValue;
     private Toggle _invertYToggle;
 
-    // Graphics controls
+    // Graphics
     private DropdownField _qualityDropdown;
     private Toggle _vsyncToggle;
     private DropdownField _fpsDropdown;
-    #endregion
 
+    // Lobby
     private Label _joinCodeLabel;
     private Button _hostButton;
     private Button _startButton;
     private Button _joinSessionButton;
     private TextField _joinCodeInput;
     private VisualElement _playerList;
+    
+    private Button _playButton;
+    private Button _loadoutButton;
+    private Button _optionsButton;
+    private Button _creditsButton;
+    private Button _quitButton;
+    private Button _modeOneButton;
+    private Button _modeTwoButton;
+    private Button _modeThreeButton;
+    private Button _backToMainButton;
+    private Button _backToGamemodeButton;
+    private Button _applySettingsButton;
+    private Button _backFromOptionsButton;
+    
+    #endregion
 
-    #region Unity Lifecycle
     private void OnEnable() {
         var root = uiDocument.rootVisualElement;
 
-        _joinCodeInput = root.Q<TextField>("join-input");
-        _hostButton = root.Q<Button>("host-button");
-        _joinCodeLabel = root.Q<Label>("host-label");
-        _playerList = root.Q<VisualElement>("player-list");
-        _startButton = root.Q<Button>("start-button");
-        _joinSessionButton = root.Q<Button>("join-button");
-
+        // Panels
         _mainMenuPanel = root.Q<VisualElement>("main-menu-panel");
         _gamemodePanel = root.Q<VisualElement>("gamemode-panel");
         _lobbyPanel = root.Q<VisualElement>("lobby-panel");
         _optionsPanel = root.Q<VisualElement>("options-panel");
+        
+        _playButton = root.Q<Button>("play-button");
+        _loadoutButton = root.Q<Button>("loadout-button");
+        _optionsButton = root.Q<Button>("options-button");
+        _creditsButton = root.Q<Button>("credits-button");
+        _quitButton = root.Q<Button>("quit-button");
 
-        root.Q<Button>("play-button").clicked += () => ShowPanel(_gamemodePanel);
-        root.Q<Button>("mode-one-button").clicked += () => OnGameModeSelected("Deathmatch");
-        root.Q<Button>("mode-two-button").clicked += () => OnGameModeSelected("Team Deathmatch");
-        root.Q<Button>("mode-three-button").clicked += () => OnGameModeSelected("Private Match");
-        root.Q<Button>("back-to-main").clicked += () => ShowPanel(_mainMenuPanel);
-        root.Q<Button>("back-to-gamemode").clicked += () => ShowPanel(_gamemodePanel);
-        _startButton.clicked += OnStartGameClicked;
-        root.Q<Button>("loadout-button").clicked += OnLoadoutClicked;
-        root.Q<Button>("options-button").clicked += () => ShowPanel(_optionsPanel);
-        root.Q<Button>("credits-button").clicked += OnCreditsClicked;
-        root.Q<Button>("quit-button").clicked += OnQuitClicked;
+        // Main actions
+        _playButton.clicked += () => ShowPanel(_gamemodePanel);
+        _playButton.RegisterCallback<MouseOverEvent>(MouseHover);
+        
+        _loadoutButton.clicked += OnLoadoutClicked;
+        _loadoutButton.RegisterCallback<MouseOverEvent>(MouseHover);
+        
+        _optionsButton.clicked += () => ShowPanel(_optionsPanel);
+        _optionsButton.RegisterCallback<MouseOverEvent>(MouseHover);
+        
+        _creditsButton.clicked += OnCreditsClicked;
+        _creditsButton.RegisterCallback<MouseOverEvent>(MouseHover);
+        
+        _quitButton.clicked += OnQuitClicked;
+        _quitButton.RegisterCallback<MouseOverEvent>(MouseHover);
+        
+        _modeOneButton = root.Q<Button>("mode-one-button");
+        _modeTwoButton = root.Q<Button>("mode-two-button");
+        _modeThreeButton = root.Q<Button>("mode-three-button");
+        _backToMainButton = root.Q<Button>("back-to-main");
+        _backToGamemodeButton = root.Q<Button>("back-to-gamemode");
 
-        root.Q<Button>("apply-button").clicked += ApplySettings;
-        root.Q<Button>("back-button").clicked += () => ShowPanel(_mainMenuPanel);
+        // Gamemodes
+        _modeOneButton.clicked += () => OnGameModeSelected("Deathmatch");
+        _modeOneButton.RegisterCallback<MouseOverEvent>(MouseHover);
+        
+        _modeTwoButton.clicked += () => OnGameModeSelected("Team Deathmatch");
+        _modeTwoButton.RegisterCallback<MouseOverEvent>(MouseHover);
+        
+        _modeThreeButton.clicked += () => OnGameModeSelected("Private Match");
+        _modeThreeButton.RegisterCallback<MouseOverEvent>(MouseHover);
+        
+        _backToMainButton.clicked += () => ShowPanel(_mainMenuPanel, true);
+        _backToMainButton.RegisterCallback<MouseOverEvent>(MouseHover);
+        
+        _backToGamemodeButton.clicked += () => ShowPanel(_gamemodePanel, true);
+        _backToGamemodeButton.RegisterCallback<MouseOverEvent>(MouseHover);
 
+        _applySettingsButton = root.Q<Button>("apply-button");
+        _backFromOptionsButton = root.Q<Button>("back-button");
+        
+        // Options
+        _applySettingsButton.clicked += ApplySettings;
+        _applySettingsButton.RegisterCallback<MouseOverEvent>(MouseHover);
+        
+        _backFromOptionsButton.clicked += () => ShowPanel(_mainMenuPanel, true);
+        _backFromOptionsButton.RegisterCallback<MouseOverEvent>(MouseHover);
+
+        // Options controls
         _masterVolumeSlider = root.Q<Slider>("master-volume");
         _musicVolumeSlider = root.Q<Slider>("music-volume");
         _sfxVolumeSlider = root.Q<Slider>("sfx-volume");
@@ -99,6 +150,22 @@ public class MainMenuManager : MonoBehaviour {
         _vsyncToggle = root.Q<Toggle>("vsync");
         _fpsDropdown = root.Q<DropdownField>("target-fps");
 
+        // Lobby
+        _joinCodeInput = root.Q<TextField>("join-input");
+        _hostButton = root.Q<Button>("host-button");
+        _joinCodeLabel = root.Q<Label>("host-label");
+        _playerList = root.Q<VisualElement>("player-list");
+        _startButton = root.Q<Button>("start-button");
+        _joinSessionButton = root.Q<Button>("join-button");
+
+        _startButton.clicked += OnStartGameClicked;
+        
+        _joinSessionButton.clicked += () => OnJoinGameClicked(_joinCodeInput.value);
+        _joinSessionButton.RegisterCallback<MouseOverEvent>(MouseHover);
+        
+        _hostButton.clicked += OnHostClicked;
+        _hostButton.RegisterCallback<MouseOverEvent>(MouseHover);
+
         SetupAudioCallbacks();
         SetupControlsCallbacks();
         SetupGraphicsCallbacks();
@@ -107,23 +174,164 @@ public class MainMenuManager : MonoBehaviour {
         Cursor.visible = true;
         Cursor.lockState = CursorLockMode.None;
 
-        _joinSessionButton.clicked += () => OnJoinGameClicked(_joinCodeInput.value);
-        _hostButton.clicked += OnHostClicked;
+        // Subscribe to session events for lobby UI
+        if(sessionManager != null) {
+            sessionManager.PlayersChanged += OnPlayersChanged;
+            sessionManager.RelayCodeAvailable += OnRelayCodeAvailable;
+        }
     }
-    #endregion
 
-    #region Setup Methods
+    private void OnDisable() {
+        if(sessionManager != null) {
+            sessionManager.PlayersChanged -= OnPlayersChanged;
+            sessionManager.RelayCodeAvailable -= OnRelayCodeAvailable;
+        }
+    }
+
+    #region Navigation
+
+    private void OnGameModeSelected(string modeName) {
+        SoundFXManager.Instance.PlaySoundFX(buttonClickSound, transform, true, "UI");
+
+        _selectedGameMode = modeName;
+
+        if(modeName != "Private Match") {
+            _startButton.RemoveFromClassList("menu-chip-enabled");
+            _startButton.SetEnabled(false);
+            _startButton.UnregisterCallback<MouseOverEvent>(MouseHover);
+        } else {
+            if(!_startButton.ClassListContains("menu-chip-enabled"))
+                _startButton.AddToClassList("menu-chip-enabled");
+            _startButton.SetEnabled(true);
+            _startButton.RegisterCallback<MouseOverEvent>(MouseHover);
+        }
+        
+        Debug.LogWarning("Gamemode: " + modeName);
+        ShowPanel(_lobbyPanel);
+    }
+
+    private void ShowPanel(VisualElement panel, bool playBack = false) {
+        var clip = playBack ? backClickSound : buttonClickSound;
+        SoundFXManager.Instance.PlaySoundFX(clip, transform, true, "UI");
+        
+        _mainMenuPanel.AddToClassList("hidden");
+        _optionsPanel.AddToClassList("hidden");
+        _gamemodePanel.AddToClassList("hidden");
+        _lobbyPanel.AddToClassList("hidden");
+
+        panel.RemoveFromClassList("hidden");
+    }
+
+    private void MouseHover(MouseOverEvent evt) {
+        SoundFXManager.Instance.PlaySoundFX(buttonHoverSound, transform, true, "UI");
+    }
+
+    private async void OnHostClicked() {
+        try {
+            SoundFXManager.Instance.PlaySoundFX(buttonClickSound, transform, true, "UI");
+
+            var joinCode = await sessionManager.StartSessionAsHost();
+            _joinCodeLabel.text = $"Join Code: {joinCode}";
+
+            _hostButton.RemoveFromClassList("menu-chip-enabled");
+            _hostButton.SetEnabled(false);
+            _hostButton.UnregisterCallback<MouseOverEvent>(MouseHover);
+
+            _startButton.SetEnabled(true);
+            _startButton.AddToClassList("menu-chip-enabled");
+            _startButton.RegisterCallback<MouseOverEvent>(MouseHover);
+            // Player list will be filled by PlayersChanged event.
+        } catch(Exception e) {
+            Debug.LogException(e);
+        }
+    }
+
+    private async void OnStartGameClicked() {
+        try {
+            SoundFXManager.Instance.PlaySoundFX(buttonClickSound, transform, true, "UI");
+
+            await sessionManager.BeginGameplayAsHostAsync();
+        } catch (Exception e) {
+            Debug.LogException(e);
+        }
+    }
+
+    private async void OnJoinGameClicked(string code) {
+        try {
+            if(string.IsNullOrWhiteSpace(code)) {
+                SoundFXManager.Instance.PlaySoundFX(backClickSound, transform, true, "UI");
+
+                Debug.LogWarning("Invalid code");
+                return;
+            }
+            
+            SoundFXManager.Instance.PlaySoundFX(buttonClickSound, transform, true, "UI");
+
+            await sessionManager.JoinSessionByCodeAsync(code);
+            _joinCodeLabel.text = $"Join Code: {code}";
+            // Player list will be filled by PlayersChanged event.
+        } catch (Exception e) {
+            Debug.LogException(e);
+        }
+    }
+    
+    #endregion
+    
+    #region Lobby UI Updates
+    
+    private void OnRelayCodeAvailable(string code) {
+        // Cosmetic: keep label in sync when host publishes/upgrades relay code
+        if(_joinCodeLabel != null)
+            _joinCodeLabel.text = $"Join Code: {code}";
+    }
+
+    private void OnPlayersChanged(IReadOnlyList<IReadOnlyPlayer> players) {
+        if(_playerList == null || players == null) return;
+
+        _playerList.Clear();
+
+        // Identify host
+        string hostId = SessionManager.Instance.ActiveSession?.Host;
+
+        foreach(var p in players) {
+            string display = (p.Properties != null &&
+                              p.Properties.TryGetValue("playerName", out var prop) &&
+                              !string.IsNullOrEmpty(prop.Value))
+                             ? prop.Value
+                             : p.Id;
+
+            AddPlayerEntry(display, p.Id == hostId);
+        }
+    }
+
+    private void AddPlayerEntry(string playerName, bool isHost) {
+        foreach(var child in _playerList.Children())
+            child.style.borderBottomWidth = 1f;
+
+        var entry = new VisualElement();
+        entry.AddToClassList("player-entry");
+        if(isHost) entry.AddToClassList("host");
+
+        var label = new Label(playerName);
+        entry.Add(label);
+        _playerList.Add(entry);
+
+        entry.style.borderBottomWidth = 0f;
+    }
+    
+    #endregion
+    
+    #region Settings
+
     private void SetupAudioCallbacks() {
         _masterVolumeSlider.RegisterValueChangedCallback(evt =>
         {
             _masterVolumeValue.text = $"{Mathf.RoundToInt(evt.newValue * 100)}%";
         });
-
         _musicVolumeSlider.RegisterValueChangedCallback(evt =>
         {
             _musicVolumeValue.text = $"{Mathf.RoundToInt(evt.newValue * 100)}%";
         });
-
         _sfxVolumeSlider.RegisterValueChangedCallback(evt =>
         {
             _sfxVolumeValue.text = $"{Mathf.RoundToInt(evt.newValue * 100)}%";
@@ -151,131 +359,7 @@ public class MainMenuManager : MonoBehaviour {
 
         _fpsDropdown.choices = new List<string> { "30", "60", "120", "144", "Unlimited" };
     }
-    #endregion
-    
-    #region Lobby Management
-    
-    private async void OnHostClicked() {
-        try {
-            Debug.Log("Hosting game (session only)...");
-            var joinCode = await sessionManager.StartSessionAsHost();
-            _joinCodeLabel.text = $"Join Code: {joinCode}";
 
-            _hostButton.RemoveFromClassList("menu-chip-enabled");
-            _hostButton.SetEnabled(false);
-            
-            _startButton.SetEnabled(true);
-            _startButton.AddToClassList("menu-chip-enabled");
-
-            AddPlayer("You (Host)", true);
-        } catch(Exception e) {
-            Debug.LogException(e);
-        }
-    }
-
-    private async void OnStartGameClicked() {
-        try {
-            Debug.Log("Starting game as host...");
-            await sessionManager.BeginGameplayAsHostAsync();
-        } catch(Exception e) {
-            Debug.LogException(e);
-        }
-    }
-
-    private async void OnJoinGameClicked(string code) {
-        try {
-            if(string.IsNullOrWhiteSpace(code)) {
-                Debug.LogWarning("Invalid code");
-                return;
-            }
-
-            Debug.Log($"Joining game with code: {code}");
-            await sessionManager.JoinSessionByCodeAsync(code);
-            _joinCodeLabel.text = $"Join Code: {code}";
-            AddPlayer("You", false);
-            // The host scene load + spawn is automatic; we don’t load scenes here.
-        } catch(Exception e) {
-            Debug.LogException(e);
-        }
-    }
-
-    private void AddPlayer(string playerName, bool isHost) {
-        foreach(var child in _playerList.Children())
-            child.style.borderBottomWidth = 1f;
-
-        var entry = new VisualElement();
-        entry.AddToClassList("player-entry");
-        if (isHost) entry.AddToClassList("host");
-
-        var label = new Label(playerName);
-        entry.Add(label);
-        _playerList.Add(entry);
-
-        entry.style.borderBottomWidth = 0f;
-    }
-
-    public void RemovePlayer(string playerName) {
-        foreach(var child in _playerList.Children()) {
-            var label = child.Q<Label>();
-            if(label != null && label.text == playerName) {
-                _playerList.Remove(child);
-                break;
-            }
-        }
-
-        var children = _playerList.Children().ToList();
-        if(children.Count > 0) {
-            foreach(var child in children)
-                child.style.borderBottomWidth = 1f;
-
-            children.Last().style.borderBottomWidth = 0f;
-        }
-    }
-    
-    #endregion
-
-    #region Menu Navigation
-    private void OnGameModeSelected(string modeName) {
-        Debug.LogWarning($"Gamemode: {modeName}");
-
-        if(modeName != "Private Match") {
-            _startButton.RemoveFromClassList("menu-chip-enabled");
-            _startButton.SetEnabled(false);
-        } else {
-            // TODO: may not need to check this...
-            if(!_startButton.ClassListContains("menu-chip-enabled")) {
-                _startButton.AddToClassList("menu-chip-enabled");
-            }
-            _startButton.SetEnabled(true);
-        }
-        
-        _selectedGameMode = modeName;
-        ShowPanel(_lobbyPanel);
-    }
-
-    private void ShowPanel(VisualElement panel) {
-        _mainMenuPanel.AddToClassList("hidden");
-        _optionsPanel.AddToClassList("hidden");
-        _gamemodePanel.AddToClassList("hidden");
-        _lobbyPanel.AddToClassList("hidden");
-
-        panel.RemoveFromClassList("hidden");
-    }
-
-    private void OnLoadoutClicked() => Debug.LogWarning("Loadout menu - not yet implemented");
-    private void OnCreditsClicked() => Debug.LogWarning("Credits - not yet implemented");
-
-    private void OnQuitClicked() {
-        Debug.Log("Quitting game...");
-        #if UNITY_EDITOR
-        UnityEditor.EditorApplication.isPlaying = false;
-        #else
-        Application.Quit();
-        #endif
-    }
-    #endregion
-
-    #region Settings Management
     private void LoadSettings() {
         var masterDb = PlayerPrefs.GetFloat("MasterVolume", 0f);
         var musicDb = PlayerPrefs.GetFloat("MusicVolume", 0f);
@@ -312,6 +396,9 @@ public class MainMenuManager : MonoBehaviour {
         PlayerPrefs.SetInt("TargetFPS", _fpsDropdown.index);
 
         PlayerPrefs.Save();
+        
+        SoundFXManager.Instance.PlaySoundFX(buttonClickSound, transform, true, "UI");
+        
         ApplySettingsInternal();
 
         Debug.Log("Settings applied and saved!");
@@ -335,5 +422,31 @@ public class MainMenuManager : MonoBehaviour {
             case 4: Application.targetFrameRate = -1; break; // Unlimited
         }
     }
+    
     #endregion
+
+    // ===== Misc =====
+
+    private void OnLoadoutClicked() {
+        SoundFXManager.Instance.PlaySoundFX(buttonClickSound, transform, true, "UI");
+
+        Debug.LogWarning("Loadout menu - not yet implemented");
+    }
+
+    private void OnCreditsClicked() {
+        SoundFXManager.Instance.PlaySoundFX(buttonClickSound, transform, true, "UI");
+        
+        Debug.LogWarning("Credits - not yet implemented");
+    }
+
+    private void OnQuitClicked() {
+        SoundFXManager.Instance.PlaySoundFX(buttonClickSound, transform, true, "UI");
+
+        Debug.Log("Quitting game...");
+        #if UNITY_EDITOR
+        UnityEditor.EditorApplication.isPlaying = false;
+        #else
+        Application.Quit();
+        #endif
+    }
 }
