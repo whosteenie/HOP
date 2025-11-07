@@ -37,23 +37,22 @@ public class GrappleUIManager : MonoBehaviour {
         
         Instance = this;
         DontDestroyOnLoad(gameObject);
-        
-        if(_grappleController == null && SceneManager.GetActiveScene().name == "Game")
-            FindLocalPlayerGrappleController();
             
         var root = uiDocument.rootVisualElement;
         _grappleIndicator = root.Q<VisualElement>("grapple-indicator");
         
-        // if(_grappleIndicator == null)
-        //     Debug.LogError("No grapple-indicator found");
-        
         _currentColor = cooldownColor;
         CreateHorseshoeSegments();
     }
-
-    private void Start() {
-        if(_grappleIndicator == null && SceneManager.GetActiveScene().name == "Game") {
+    
+    private void Update() {
+        if(!_grappleController && SceneManager.GetActiveScene().name == "Game") {
             FindLocalPlayerGrappleController();
+        }
+
+        if(SceneManager.GetActiveScene().name == "Game" && _grappleController != null) {
+            CheckGrapplePoint();
+            UpdateIndicatorVisual();
         }
     }
 
@@ -123,17 +122,6 @@ public class GrappleUIManager : MonoBehaviour {
             
             _grappleIndicator.Add(segment);
             _segments[i] = segment;
-        }
-    }
-    
-    private void Update() {
-        // if(!_grappleController && SceneManager.GetActiveScene().name == "Game") {
-        //     FindLocalPlayerGrappleController();
-        // }
-
-        if(SceneManager.GetActiveScene().name == "Game" && _grappleController != null) {
-            CheckGrapplePoint();
-            UpdateIndicatorVisual();
         }
     }
     

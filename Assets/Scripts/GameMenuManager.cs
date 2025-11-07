@@ -5,7 +5,7 @@ using UnityEngine.Audio;
 using UnityEngine.SceneManagement;
 using UnityEngine.UIElements;
 
-public class PauseMenuManager : MonoBehaviour {
+public class GameMenuManager : MonoBehaviour {
     #region Serialized Fields
     
     [SerializeField] private UIDocument uiDocument;
@@ -47,7 +47,7 @@ public class PauseMenuManager : MonoBehaviour {
 
     #endregion
     
-    public static PauseMenuManager Instance { get; private set; }
+    public static GameMenuManager Instance { get; private set; }
     
     #region Unity Lifecycle
 

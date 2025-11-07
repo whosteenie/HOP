@@ -43,7 +43,7 @@ public class Weapon : NetworkBehaviour
     [SerializeField] private Animator weaponAnimator;
     [SerializeField] private VisualEffect muzzleFlashEffect;
     [SerializeField] private GameObject muzzleLight;
-    [SerializeField] private float bulletSpeed = 100f;
+    [SerializeField] private float bulletSpeed = 500f;
 
     #region Private Fields
     

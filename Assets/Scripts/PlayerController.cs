@@ -115,8 +115,6 @@ public class PlayerController : NetworkBehaviour, IDamageable {
     #region Unity Lifecycle
 
     private void Awake() {
-        if(!IsOwner) return;
-        
         _hudManager = HUDManager.Instance;
         _impulseSource = FindFirstObjectByType<CinemachineImpulseSource>();
         _playerBodyLayer = LayerMask.GetMask("Player");
@@ -126,50 +124,41 @@ public class PlayerController : NetworkBehaviour, IDamageable {
     public override void OnNetworkSpawn() {
         base.OnNetworkSpawn();
         
-        if(!IsOwner) return;
-
-        // if(_hudManager == null) {
-        //     _hudManager = FindFirstObjectByType<HUDManager>();
-        // }
-
         if(_impulseSource == null) {
             _impulseSource = FindFirstObjectByType<CinemachineImpulseSource>();
+        }
+
+        if(!IsOwner) {
+            gameObject.layer = LayerMask.NameToLayer("Default");
         }
     }
     
     private void Start() {
-        if(!IsOwner) {
-            gameObject.layer = LayerMask.NameToLayer("Default");
-            return;
-        }
-
         if(_impulseSource == null) {
             _impulseSource = FindFirstObjectByType<CinemachineImpulseSource>();
         }
     }
 
     private void Update() {
-        if(!IsOwner) return;
+        if(IsOwner) {
+            if(!IsDead) {
+                HandleMovement();
+                HandleCrouch();
 
-        Debug.Log(_verticalVelocity);
-        
-        if(!IsDead) {
-            // HandleLook();
-            HandleMovement();
-            HandleCrouch();
-            HandleLanding();
-            UpdateAnimator();
+                if(transform.position.y <= 600f) {
+                    TakeDamage(health);
+                }
+            }
         }
         
-        if(transform.position.y <= 0f) {
-            TakeDamage(health);
+        if(!IsDead) {
+            HandleLanding();
+            UpdateAnimator();
         }
     }
 
     private void LateUpdate() {
-        if(!IsOwner) return;
-        
-        if(!IsDead) {
+        if(IsOwner && !IsDead) {
             HandleLook();
         }
     }
@@ -459,17 +448,24 @@ public class PlayerController : NetworkBehaviour, IDamageable {
             _isJumping = false;
             characterAnimator.SetBool(IsJumpingHash, false);
             characterAnimator.SetTrigger(LandTriggerHash);
-            SoundFXManager.Instance.PlayRandomSoundFX(landSounds, transform, false, "land");
+
+            if(IsOwner) {
+                SoundFXManager.Instance.PlayRandomSoundFX(landSounds, transform, false, "land");
+            }
         }
 
         // Landing from a fall
         if(!_isFalling || !IsGrounded) return;
         characterAnimator.SetTrigger(LandTriggerHash);
-        SoundFXManager.Instance.PlayRandomSoundFX(landSounds, transform, false, "land");
+
+        if(IsOwner) {
+            SoundFXManager.Instance.PlayRandomSoundFX(landSounds, transform, false, "land");
+        }
     }
 
     private void UpdateAnimator() {
         var localVelocity = transform.InverseTransformDirection(_horizontalVelocity);
+        var isSprinting = _horizontalVelocity.magnitude > (WalkSpeed + 1f);
 
         var ray = Physics.Raycast(transform.position, Vector3.down, out var hit, 1f);
         Debug.DrawRay(transform.position, Vector3.down * 1f, Color.red);
@@ -477,7 +473,7 @@ public class PlayerController : NetworkBehaviour, IDamageable {
         
         characterAnimator.SetFloat(MoveXHash, localVelocity.x / _maxSpeed, 0.1f, Time.deltaTime);
         characterAnimator.SetFloat(MoveYHash, localVelocity.z / _maxSpeed, 0.1f, Time.deltaTime);
-        characterAnimator.SetBool(IsSprintingHash, sprintInput);
+        characterAnimator.SetBool(IsSprintingHash, isSprinting);
         characterAnimator.SetBool(IsFallingHash, _isFalling);
     }
     

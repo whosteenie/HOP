@@ -1,117 +1,141 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" editor-extension-mode="False">
-    <Style src="project://database/Assets/MainMenu.uss?fileID=7433441132597879392&amp;guid=732b4497aa87f4344abd71219c4ce05a&amp;type=3#MainMenu" />
-    
-    <!-- Main Menu Panel -->
-    <ui:VisualElement name="main-menu-panel" class="panel">
-        <ui:VisualElement class="menu-container">
-            <ui:Label text="HOP" class="title" />
-            <ui:Button text="Play" name="play-button" class="menu-button" />
-            <ui:Button text="Loadout" name="loadout-button" class="menu-button" />
-            <ui:Button text="Options" name="options-button" class="menu-button" />
-            <ui:Button text="Credits" name="credits-button" class="menu-button" />
-            <ui:Button text="Quit" name="quit-button" class="menu-button" />
-        </ui:VisualElement>
-    </ui:VisualElement>
-    
-    <!-- Game Mode Selection Panel -->
-    <ui:VisualElement name="gamemode-panel" class="panel hidden">
-        <ui:VisualElement class="menu-container gamemode-container">
-            <ui:Label text="SELECT GAME MODE" class="title" />
-            <ui:VisualElement class="gamemode-grid">
-                <!-- Gamemode 1 -->
-                <ui:VisualElement class="gamemode-card">
-                    <ui:VisualElement name="mode1-image" class="gamemode-image" />
-                    <ui:Label text="Deathmatch" class="gamemode-title" />
-                    <ui:Button text="Select" name="select-mode1" class="menu-button" />
-                </ui:VisualElement>
-                <!-- Gamemode 2 -->
-                <ui:VisualElement class="gamemode-card">
-                    <ui:VisualElement name="mode2-image" class="gamemode-image" />
-                    <ui:Label text="Team Deathmatch" class="gamemode-title" />
-                    <ui:Button text="Select" name="select-mode2" class="menu-button" />
-                </ui:VisualElement>
-                <!-- Gamemode 3 -->
-                <ui:VisualElement class="gamemode-card">
-                    <ui:VisualElement name="mode3-image" class="gamemode-image" />
-                    <ui:Label text="Capture the Flag" class="gamemode-title" />
-                    <ui:Button text="Select" name="select-mode3" class="menu-button" />
-                </ui:VisualElement>
+    <Style src="project://database/Assets/UI%20Toolkit/SharedStyles.uss?fileID=7433441132597879392&amp;guid=f1a785b22a99c4f4aa6e7ad3810f5dbe&amp;type=3#SharedStyles" />
+    <Style src="project://database/Assets/UI%20Toolkit/MainMenu.uss?fileID=7433441132597879392&amp;guid=064a26f46686ff94abeba2dfbfd85b75&amp;type=3#MainMenu" />
+    <ui:VisualElement name="main-menu-panel" class="panel full-abs">
+        <ui:Label text="HOP" name="title-label" class="title title-xl main-title" />
+        <ui:VisualElement name="main-menu-container" class="menu-container main-actions">
+            <ui:VisualElement class="menu-entry">
+                <ui:VisualElement class="menu-diamond" />
+                <ui:Button text="Play" name="play-button" class="text-button" />
             </ui:VisualElement>
-            <ui:VisualElement class="button-row">
-                <ui:Button text="Back" name="back-to-main" class="menu-button" />
+            <ui:VisualElement class="menu-entry">
+                <ui:VisualElement class="menu-diamond" />
+                <ui:Button text="Loadout" name="loadout-button" class="text-button" />
+            </ui:VisualElement>
+            <ui:VisualElement class="menu-entry">
+                <ui:VisualElement class="menu-diamond" />
+                <ui:Button text="Options" name="options-button" class="text-button" />
+            </ui:VisualElement>
+            <ui:VisualElement class="menu-entry">
+                <ui:VisualElement class="menu-diamond" />
+                <ui:Button text="Credits" name="credits-button" class="text-button" />
+            </ui:VisualElement>
+            <ui:VisualElement class="menu-entry">
+                <ui:VisualElement class="menu-diamond" />
+                <ui:Button text="Quit" name="quit-button" class="text-button" />
             </ui:VisualElement>
         </ui:VisualElement>
     </ui:VisualElement>
-    
-    <!-- Lobby Panel -->
-    <ui:VisualElement name="lobby-panel" class="panel hidden">
-        <ui:VisualElement class="menu-container">
-            <ui:Label text="LOBBY" class="title" />
-            <ui:Label text="Waiting for players..." class="lobby-status" />
-            <ui:VisualElement class="button-row">
-                <ui:Button text="Host Game" name="host-game" class="menu-button" />
-                <ui:Button text="Back" name="back-to-gamemode" class="menu-button" />
+    <ui:VisualElement name="gamemode-panel" class="panel full-abs center-xy hidden">
+        <ui:VisualElement name="gamemode-container" class="gamemode-container card">
+            <ui:Label text="SELECT GAME MODE" name="gamemode-label" class="title" />
+            <ui:VisualElement name="modes-container" class="gamemode-grid">
+                <ui:VisualElement name="mode-one-container" class="gamemode-card">
+                    <ui:VisualElement name="mode-one-image" class="gamemode-image" />
+                    <ui:Label text="Deathmatch" name="mode-one-label" class="gamemode-title" />
+                    <ui:Button text="Select" name="mode-one-button" class="menu-chip menu-chip-enabled" />
+                </ui:VisualElement>
+                <ui:VisualElement name="mode-two-container" class="gamemode-card">
+                    <ui:VisualElement name="mode-two-image" class="gamemode-image" />
+                    <ui:Label text="Team Deathmatch" name="mode-two-label" class="gamemode-title" />
+                    <ui:Button text="Select" name="mode-two-button" class="menu-chip menu-chip-enabled" />
+                </ui:VisualElement>
+                <ui:VisualElement name="mode-three-container" class="gamemode-card">
+                    <ui:VisualElement name="mode-three-image" class="gamemode-image" />
+                    <ui:Label text="Private Match" name="mode-three-label" class="gamemode-title" />
+                    <ui:Button text="Select" name="mode-three-button" class="menu-chip menu-chip-enabled" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+            <ui:VisualElement name="back-container" class="button-row">
+                <ui:Button text="Back" name="back-to-main" class="menu-chip menu-chip-enabled" />
             </ui:VisualElement>
         </ui:VisualElement>
     </ui:VisualElement>
-    
-    <!-- Options Panel -->
-    <ui:VisualElement name="options-panel" class="panel hidden">
-        <ui:VisualElement class="options-container">
-            <ui:Label text="OPTIONS" class="title" />
-            <ui:VisualElement class="section">
-                <ui:Label text="Audio" class="section-title" />
-                <ui:VisualElement class="setting-row">
-                    <ui:Label text="Master Volume" class="setting-label" />
+    <ui:VisualElement name="lobby-panel" class="panel full-abs center-xy hidden">
+        <ui:VisualElement name="lobby-container" class="lobby-container card">
+            <ui:Label text="LOBBY" name="lobby-label" class="title" />
+            <ui:Label text="Waiting for players..." name="waiting-label" class="lobby-status" />
+            <ui:VisualElement class="lobby-body">
+                <ui:VisualElement name="VisualElement" class="lobby-left">
+                    <ui:VisualElement name="host-container" class="setting-row">
+                        <ui:Button text="Host" name="host-button" class="menu-chip menu-chip-enabled" />
+                        <ui:Label name="host-label" text="Join Code: ----" class="value-label accent" />
+                    </ui:VisualElement>
+                    <ui:VisualElement name="join-container" class="join-code-container">
+                        <ui:Label text="Join with Code:" name="join-label" />
+                        <ui:TextField name="join-input" class="input" placeholder-text="Enter join code..." />
+                        <ui:Button text="Join Session" name="join-button" class="menu-chip menu-chip-enabled" />
+                    </ui:VisualElement>
+                    <ui:VisualElement name="start-container" class="button-row">
+                        <ui:Button text="Back" name="back-to-gamemode" class="menu-chip menu-chip-enabled" />
+                        <ui:Button text="Start Game" name="start-button" class="menu-chip menu-chip-enabled" />
+                    </ui:VisualElement>
+                </ui:VisualElement>
+                <ui:VisualElement name="player-list-container" class="lobby-right">
+                    <ui:Label text="PLAYERS" name="playerlist-label" class="section-title" />
+                    <ui:ScrollView name="playerlist-scroll" class="player-list-scroll scroll-pad">
+                        <ui:VisualElement name="player-list" class="player-list" />
+                    </ui:ScrollView>
+                </ui:VisualElement>
+            </ui:VisualElement>
+        </ui:VisualElement>
+    </ui:VisualElement>
+    <ui:VisualElement name="options-panel" class="panel full-abs center-xy hidden">
+        <ui:VisualElement name="options-container" class="options-container card">
+            <ui:Label text="OPTIONS" name="options-label" class="title" />
+            <ui:VisualElement name="audio-container" class="section">
+                <ui:Label text="Audio" name="audio-label" class="section-title" />
+                <ui:VisualElement name="master-container" class="setting-row">
+                    <ui:Label text="Master Volume" name="master-label" class="setting-label" />
                     <ui:Slider name="master-volume" low-value="0" high-value="1" class="setting-slider" />
                     <ui:Label name="master-volume-value" text="100%" class="value-label" />
                 </ui:VisualElement>
-                <ui:VisualElement class="setting-row">
-                    <ui:Label text="Music Volume" class="setting-label" />
+                <ui:VisualElement name="music-container" class="setting-row">
+                    <ui:Label text="Music Volume" name="music-label" class="setting-label" />
                     <ui:Slider name="music-volume" low-value="0" high-value="1" class="setting-slider" />
                     <ui:Label name="music-volume-value" text="100%" class="value-label" />
                 </ui:VisualElement>
-                <ui:VisualElement class="setting-row">
-                    <ui:Label text="SFX Volume" class="setting-label" />
+                <ui:VisualElement name="sfx-container" class="setting-row">
+                    <ui:Label text="SFX Volume" name="sfx-label" class="setting-label" />
                     <ui:Slider name="sfx-volume" low-value="0" high-value="1" class="setting-slider" />
                     <ui:Label name="sfx-volume-value" text="100%" class="value-label" />
                 </ui:VisualElement>
             </ui:VisualElement>
-            <ui:VisualElement class="section">
-                <ui:Label text="Controls" class="section-title" />
-                <ui:VisualElement class="setting-row">
-                    <ui:Label text="Mouse Sensitivity X" class="setting-label" />
+            <ui:VisualElement name="controls-container" class="section">
+                <ui:Label text="Controls" name="controls-label" class="section-title" />
+                <ui:VisualElement name="sensitivity-x-container" class="setting-row">
+                    <ui:Label text="Mouse Sensitivity X" name="sensitivity-x-label" class="setting-label" />
                     <ui:Slider name="sensitivity-x" low-value="0.05" high-value="0.5" class="setting-slider" />
                     <ui:Label name="sensitivity-x-value" text="0.10" class="value-label" />
                 </ui:VisualElement>
-                <ui:VisualElement class="setting-row">
-                    <ui:Label text="Mouse Sensitivity Y" class="setting-label" />
+                <ui:VisualElement name="sensitivity-y-container" class="setting-row">
+                    <ui:Label text="Mouse Sensitivity Y" name="sensitivity-y-label" class="setting-label" />
                     <ui:Slider name="sensitivity-y" low-value="0.05" high-value="0.5" class="setting-slider" />
                     <ui:Label name="sensitivity-y-value" text="0.10" class="value-label" />
                 </ui:VisualElement>
-                <ui:VisualElement class="setting-row">
-                    <ui:Label text="Invert Y Axis" class="setting-label" />
+                <ui:VisualElement name="invert-y-container" class="setting-row">
+                    <ui:Label text="Invert Y Axis" name="invert-y-label" class="setting-label" />
                     <ui:Toggle name="invert-y" class="setting-toggle" />
                 </ui:VisualElement>
             </ui:VisualElement>
-            <ui:VisualElement class="section">
-                <ui:Label text="Graphics" class="section-title" />
-                <ui:VisualElement class="setting-row">
-                    <ui:Label text="Quality Level" class="setting-label" />
+            <ui:VisualElement name="graphics-container" class="section">
+                <ui:Label text="Graphics" name="graphics-label" class="section-title" />
+                <ui:VisualElement name="quality-container" class="setting-row">
+                    <ui:Label text="Quality Level" name="quality-label" class="setting-label" />
                     <ui:DropdownField name="quality-level" class="setting-dropdown" />
                 </ui:VisualElement>
-                <ui:VisualElement class="setting-row">
-                    <ui:Label text="VSync" class="setting-label" />
+                <ui:VisualElement name="vsync-container" class="setting-row">
+                    <ui:Label text="VSync" name="vsync-label" class="setting-label" />
                     <ui:Toggle name="vsync" class="setting-toggle" />
                 </ui:VisualElement>
-                <ui:VisualElement class="setting-row">
-                    <ui:Label text="Target FPS" class="setting-label" />
+                <ui:VisualElement name="target-fps-container" class="setting-row">
+                    <ui:Label text="Target FPS" name="target-fps-label" class="setting-label" />
                     <ui:DropdownField name="target-fps" class="setting-dropdown" />
                 </ui:VisualElement>
             </ui:VisualElement>
-            <ui:VisualElement class="button-row">
-                <ui:Button text="Apply" name="apply-button" class="menu-button" />
-                <ui:Button text="Back" name="back-button" class="menu-button" />
+            <ui:VisualElement name="apply-container" class="button-row">
+                <ui:Button text="Back" name="back-button" class="menu-chip menu-chip-enabled" />
+                <ui:Button text="Apply" name="apply-button" class="menu-chip menu-chip-enabled" />
             </ui:VisualElement>
         </ui:VisualElement>
     </ui:VisualElement>

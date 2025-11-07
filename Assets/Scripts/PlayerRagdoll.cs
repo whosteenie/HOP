@@ -17,12 +17,20 @@ public class PlayerRagdoll : NetworkBehaviour
     private bool _isRagdoll;
     
     private void Awake() {
-        if(!IsOwner) return;
         // Get all rigidbodies and colliders in children (the ragdoll bones)
         _ragdollRigidbodies = GetComponentsInChildren<Rigidbody>();
         _ragdollColliders = GetComponentsInChildren<Collider>();
         
+        if(!IsOwner) return;
         // Disable ragdoll by default
+        SetRagdollActive(false);
+    }
+
+    public override void OnNetworkSpawn() {
+        _ragdollRigidbodies = GetComponentsInChildren<Rigidbody>();
+        _ragdollColliders = GetComponentsInChildren<Collider>();
+        
+        if(!IsOwner) return;
         SetRagdollActive(false);
     }
     
