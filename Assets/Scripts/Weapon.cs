@@ -1,6 +1,8 @@
 using System.Collections;
+using Cysharp.Threading.Tasks.Triggers;
 using Unity.Cinemachine;
 using Unity.Netcode;
+using Unity.Netcode.Components;
 using UnityEngine;
 using UnityEngine.Serialization;
 using UnityEngine.VFX;
@@ -36,8 +38,10 @@ public class Weapon : NetworkBehaviour
     public CinemachineCamera fpCamera;
     public PlayerController playerController;
     public Animator playerAnimator;
+    public NetworkAnimator networkAnimator;
     public WeaponManager weaponManager;
-    public LayerMask playerBodyLayer;
+    public LayerMask enemyLayer;
+    public LayerMask worldLayer;
     
     [Header("Weapon References")]
     [SerializeField] private Animator weaponAnimator;
@@ -53,6 +57,7 @@ public class Weapon : NetworkBehaviour
     private float _graceEndTime;
     private Coroutine _reloadCoroutine;
     private HUDManager _hudManager;
+    private PlayerDamageRelay _damageRelay;
 
     #endregion
     
@@ -73,7 +78,8 @@ public class Weapon : NetworkBehaviour
     #region Unity Lifecycle
 
     private void Awake() {
-        playerBodyLayer = LayerMask.GetMask("Player");
+        enemyLayer = LayerMask.GetMask("Enemy");
+        worldLayer = LayerMask.GetMask("World");
         _lastFireTime = Time.time;
         _hudManager = HUDManager.Instance;
     }
@@ -101,14 +107,18 @@ public class Weapon : NetworkBehaviour
             playerController = GetComponent<PlayerController>();
         }
 
-        if(playerAnimator == null) {
-            var animators = GetComponentsInChildren<Animator>();
-            foreach(var anim in animators) {
-                if(anim != weaponAnimator) {
-                    playerAnimator = anim;
-                    break;
-                }
-            }
+        // if(playerAnimator == null) {
+        //     var animators = GetComponentsInChildren<Animator>();
+        //     foreach(var anim in animators) {
+        //         if(anim != weaponAnimator) {
+        //             playerAnimator = anim;
+        //             break;
+        //         }
+        //     }
+        // }
+        
+        if(networkAnimator == null) {
+            networkAnimator = GetComponent<NetworkAnimator>();
         }
 
         // if(hudManager == null) {
@@ -129,6 +139,8 @@ public class Weapon : NetworkBehaviour
         if(muzzleLight != null) {
             muzzleLight.SetActive(false);
         }
+        
+        if (_damageRelay == null) _damageRelay = GetComponent<PlayerDamageRelay>();
     }
     
     #endregion
@@ -171,8 +183,10 @@ public class Weapon : NetworkBehaviour
             return;
         }
 
+        if(muzzleFlashEffect != null && muzzleLight != null) {
+            PlayFireEffects();
+        }
         PerformShot();
-        PlayFireEffects();
     }
 
     public void StartReload() {
@@ -184,7 +198,6 @@ public class Weapon : NetworkBehaviour
     }
 
     private IEnumerator ReloadCoroutine() {
-        
         yield return new WaitForSeconds(reloadTime);
         
         CompleteReload();
@@ -215,31 +228,72 @@ public class Weapon : NetworkBehaviour
     private void PerformShot() {
         var origin = fpCamera.transform.position;
         var forward = fpCamera.transform.forward;
-        var shotHit = Physics.Raycast(origin, forward, out var hit, Mathf.Infinity, ~playerBodyLayer);
+        var hitLayer = enemyLayer | worldLayer;
+        var shotHit = Physics.Raycast(origin, forward, out var hit, Mathf.Infinity, hitLayer);
         
         var damage = GetScaledDamage();
-
-        if(shotHit) {
-            Debug.DrawRay(origin, forward * hit.distance, Color.green, 5f);
-            var target = hit.collider.GetComponent<IDamageable>();
-            target?.TakeDamage(damage, hit.point, hit.normal);
-
-            var trail = Instantiate(bulletTrail, weaponMuzzle.transform.position, Quaternion.identity);
-            StartCoroutine(SpawnTrail(trail, hit.point, hit.normal, true));
-        } else {
-            Debug.DrawRay(origin, forward * 500f, Color.red, 5f);
-            
-            var trailEndPoint = weaponMuzzle.transform.position + forward * 100f;
-
-            var trail = Instantiate(bulletTrail, weaponMuzzle.transform.position, Quaternion.LookRotation(forward));
-            StartCoroutine(SpawnTrail(trail, trailEndPoint, Vector3.zero, false));
-        }
         
         currentAmmo--;
         _lastFireTime = Time.time;
-        if(playerController.IsOwner && _hudManager)
+        if(_hudManager)
             _hudManager.UpdateAmmo(currentAmmo, magSize);
+
+        if(shotHit) {
+            Debug.DrawRay(origin, forward * hit.distance, Color.green, 5f);
+
+            if(weaponMuzzle) {
+                var trail = Instantiate(bulletTrail, weaponMuzzle.transform.position, Quaternion.identity);
+                StartCoroutine(SpawnTrail(trail, hit.point, hit.normal, true));
+            }
+
+            NetworkObject targetNO = null;
+            if(hit.collider != null) targetNO = hit.collider.GetComponent<NetworkObject>();
+            if(targetNO == null) targetNO = hit.collider.GetComponent<NetworkObject>();
+            
+            if(targetNO != null && targetNO.IsSpawned && _damageRelay != null) {
+                var targetRef = new NetworkObjectReference(targetNO);
+                _damageRelay.RequestDamageServerRpc(targetRef, damage, hit.point, hit.normal);
+            }
+        } else {
+            Debug.DrawRay(origin, forward * 500f, Color.red, 5f);
+
+            if(weaponMuzzle) {
+                var trailEndPoint = weaponMuzzle.transform.position + forward * 100f;
+                var trail = Instantiate(bulletTrail, weaponMuzzle.transform.position, Quaternion.LookRotation(forward));
+                StartCoroutine(SpawnTrail(trail, trailEndPoint, Vector3.zero, false));
+            }
+        }
     }
+    
+    // private void PerformShotOld() {
+    //     var origin = fpCamera.transform.position;
+    //     var forward = fpCamera.transform.forward;
+    //     var shotHit = Physics.Raycast(origin, forward, out var hit, Mathf.Infinity, ~playerBodyLayer);
+    //     
+    //     var damage = GetScaledDamage();
+    //
+    //     if(shotHit) {
+    //         Debug.DrawRay(origin, forward * hit.distance, Color.green, 5f);
+    //         var target = hit.collider.GetComponent<IDamageable>();
+    //         target?.TakeDamage(damage, hit.point, hit.normal);
+    //         Debug.Log(target + " took " + damage + " damage.");
+    //
+    //         var trail = Instantiate(bulletTrail, weaponMuzzle.transform.position, Quaternion.identity);
+    //         StartCoroutine(SpawnTrail(trail, hit.point, hit.normal, true));
+    //     } else {
+    //         Debug.DrawRay(origin, forward * 500f, Color.red, 5f);
+    //         
+    //         var trailEndPoint = weaponMuzzle.transform.position + forward * 100f;
+    //
+    //         var trail = Instantiate(bulletTrail, weaponMuzzle.transform.position, Quaternion.LookRotation(forward));
+    //         StartCoroutine(SpawnTrail(trail, trailEndPoint, Vector3.zero, false));
+    //     }
+    //     
+    //     currentAmmo--;
+    //     _lastFireTime = Time.time;
+    //     if(playerController.IsOwner && _hudManager)
+    //         _hudManager.UpdateAmmo(currentAmmo, magSize);
+    // }
     
     private float GetScaledDamage() {
         return Mathf.Min(baseDamage * CurrentDamageMultiplier, damageCap);
@@ -298,12 +352,19 @@ public class Weapon : NetworkBehaviour
     #region Private Methods - Effects
     
     private void PlayFireEffects() {
-        weaponAnimator.SetTrigger(RecoilHash);
-        playerAnimator.SetTrigger(RecoilHash);
+        if(weaponAnimator)
+            weaponAnimator.SetTrigger(RecoilHash);
+        
+        if(networkAnimator)
+            networkAnimator.SetTrigger(RecoilHash);
         
         SoundFXManager.Instance.PlayRandomSoundFX(fireSounds, transform, true, "shoot");
-        muzzleFlashEffect.Play();
-        muzzleLight.gameObject.SetActive(true);
+        
+        if(muzzleFlashEffect)
+            muzzleFlashEffect.Play();
+        
+        if(muzzleLight)
+            muzzleLight.gameObject.SetActive(true);
     }
     
     private void PlayDryFireSound() {
@@ -311,8 +372,11 @@ public class Weapon : NetworkBehaviour
     }
 
     private void PlayReloadEffects() {
-        weaponAnimator.SetTrigger(ReloadHash);
-        playerAnimator.SetTrigger(ReloadHash);
+        if(weaponAnimator)
+            weaponAnimator.SetTrigger(ReloadHash);
+        
+        if(networkAnimator)
+            networkAnimator.SetTrigger(ReloadHash);
         
         SoundFXManager.Instance.PlayRandomSoundFX(reloadSounds, transform, false, "reload");
     }

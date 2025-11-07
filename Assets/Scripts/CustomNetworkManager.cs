@@ -76,7 +76,7 @@ public class CustomNetworkManager : MonoBehaviour {
 
         var pos = SpawnManager.Instance != null
             ? SpawnManager.Instance.GetNextSpawnPosition()
-            : new Vector3(0, 5, 0);
+            : new Vector3(-60, 760, -20);
 
         var rot = SpawnManager.Instance != null
             ? SpawnManager.Instance.GetNextSpawnRotation()

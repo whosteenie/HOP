@@ -50,10 +50,12 @@ public class GrappleUIManager : MonoBehaviour {
             FindLocalPlayerGrappleController();
         }
 
-        if(SceneManager.GetActiveScene().name == "Game" && _grappleController != null) {
+        if(_grappleController != null) {
             CheckGrapplePoint();
             UpdateIndicatorVisual();
         }
+
+        Debug.LogWarning("Grappleable: " + _isLookingAtGrapplePoint);
     }
 
     private void FindLocalPlayerGrappleController() {

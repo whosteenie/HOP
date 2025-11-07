@@ -11,6 +11,10 @@ public class GameMenuManager : MonoBehaviour {
     [SerializeField] private UIDocument uiDocument;
     [SerializeField] private AudioMixer audioMixer;
     
+    [SerializeField] private AudioClip buttonClickSound;
+    [SerializeField] private AudioClip buttonHoverSound;
+    [SerializeField] private AudioClip backClickSound;
+    
     #endregion
     
     #region Private Fields
@@ -38,6 +42,12 @@ public class GameMenuManager : MonoBehaviour {
     private DropdownField _qualityDropdown;
     private Toggle _vsyncToggle;
     private DropdownField _fpsDropdown;
+    
+    private Button _resumeButton;
+    private Button _optionsButton;
+    private Button _quitButton;
+    private Button _applyButton;
+    private Button _backButton;
     
     #endregion
     
@@ -68,14 +78,29 @@ public class GameMenuManager : MonoBehaviour {
         _pauseMenuPanel = root.Q<VisualElement>("pause-menu-panel");
         _optionsPanel = root.Q<VisualElement>("options-panel");
         
+        _resumeButton = root.Q<Button>("resume-button");
+        _optionsButton = root.Q<Button>("options-button");
+        _quitButton = root.Q<Button>("quit-button");
+        
         // Setup main menu buttons
-        root.Q<Button>("resume-button").clicked += ResumeGame;
-        root.Q<Button>("options-button").clicked += ShowOptions;
-        root.Q<Button>("quit-button").clicked += QuitToMenu;
+        _resumeButton.clicked += ResumeGame;
+        _resumeButton.RegisterCallback<MouseOverEvent>(MouseHover);
+        
+        _optionsButton.clicked += ShowOptions;
+        _optionsButton.RegisterCallback<MouseOverEvent>(MouseHover);
+        
+        _quitButton.clicked += QuitToMenu;
+        _quitButton.RegisterCallback<MouseOverEvent>(MouseHover);
+        
+        _applyButton = root.Q<Button>("apply-button");
+        _backButton = root.Q<Button>("back-button");
         
         // Setup options buttons
-        root.Q<Button>("apply-button").clicked += ApplySettings;
-        root.Q<Button>("back-button").clicked += HideOptions;
+        _applyButton.clicked += ApplySettings;
+        _applyButton.RegisterCallback<MouseOverEvent>(MouseHover);
+        
+        _backButton.clicked += HideOptions;
+        _backButton.RegisterCallback<MouseOverEvent>(MouseHover);
         
         // Get audio controls
         _masterVolumeSlider = root.Q<Slider>("master-volume");
@@ -106,6 +131,10 @@ public class GameMenuManager : MonoBehaviour {
         // Hide menu initially
         _pauseMenuPanel.AddToClassList("hidden");
         _optionsPanel.AddToClassList("hidden");
+    }
+
+    private void MouseHover(MouseOverEvent evt) {
+        SoundFXManager.Instance.PlaySoundFX(buttonHoverSound, transform, true, "UI");
     }
 
     public void TogglePause() {
@@ -194,6 +223,7 @@ public class GameMenuManager : MonoBehaviour {
     }
     
     private void ResumeGame() {
+        SoundFXManager.Instance.PlaySoundFX(buttonClickSound, transform, true, "UI");
         IsPaused = false;
         _pauseMenuPanel.AddToClassList("hidden");
         _optionsPanel.AddToClassList("hidden");
@@ -203,6 +233,7 @@ public class GameMenuManager : MonoBehaviour {
     
     private void ShowOptions() {
         if(SceneManager.GetActiveScene().name != "Game") return;
+        SoundFXManager.Instance.PlaySoundFX(buttonClickSound, transform, true, "UI");
         LoadSettings();
         _pauseMenuPanel.AddToClassList("hidden");
         _optionsPanel.RemoveFromClassList("hidden");
@@ -210,11 +241,16 @@ public class GameMenuManager : MonoBehaviour {
     
     private void HideOptions() {
         if(SceneManager.GetActiveScene().name != "Game") return;
+        SoundFXManager.Instance.PlaySoundFX(backClickSound, transform, true, "UI");
         _optionsPanel.AddToClassList("hidden");
         _pauseMenuPanel.RemoveFromClassList("hidden");
     }
     
-    private static void QuitToMenu() {
+    private void QuitToMenu() {
+        SoundFXManager.Instance.PlaySoundFX(backClickSound, transform, true, "UI");
+        var root = uiDocument.rootVisualElement;
+        var rootContainer = root.Q<VisualElement>("root-container");
+        rootContainer.style.display = DisplayStyle.None;
         UnityEngine.SceneManagement.SceneManager.LoadScene("MainMenu");
     }
     
@@ -265,6 +301,8 @@ public class GameMenuManager : MonoBehaviour {
         PlayerPrefs.SetInt("TargetFPS", _fpsDropdown.index);
         
         PlayerPrefs.Save();
+        
+        SoundFXManager.Instance.PlaySoundFX(buttonClickSound, transform, true, "UI");
         
         ApplySettingsInternal();
         

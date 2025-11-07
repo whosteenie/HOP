@@ -31,7 +31,7 @@ public class SpawnManager : NetworkBehaviour
     public Vector3 GetNextSpawnPosition() {
         if(_spawnPoints.Count == 0) {
             // Fallback to default position
-            return new Vector3(0, 0, 0);
+            return new Vector3(-60, 760, -20);
         }
         
         // Round-robin spawn

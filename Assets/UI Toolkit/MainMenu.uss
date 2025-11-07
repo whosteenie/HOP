@@ -75,7 +75,7 @@
 }
 
 .lobby-body { flex-direction: row; }
-.lobby-left { margin-right: 20px; width:203px; }
+.lobby-left { margin-right: 30px; width:203px; }
 .lobby-right { margin-right: 0; min-width: 500px; width: 539px; }
 
 .join-code-container {
@@ -83,8 +83,12 @@
     background-color: rgba(0,0,0,0.25); border-radius: 8px;
 }
 
+.unity-text-element--inner-input-field-component {
+    color: rgba(58, 58, 58, 0.75);
+}
+
 .player-list-scroll {
-    max-height: 260px; background-color: rgba(35,35,35,0.9); border-radius: 8px;
+    min-height: 210px; max-height: 210px; background-color: rgba(35,35,35,0.9); border-radius: 8px;
 }
 
 .player-list { flex-direction: column; }

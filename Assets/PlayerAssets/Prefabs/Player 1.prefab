@@ -143,6 +143,7 @@ GameObject:
   - component: {fileID: 1874585666564569488}
   - component: {fileID: 4157602163556837535}
   - component: {fileID: 6677973669287716317}
+  - component: {fileID: -2503030706147355686}
   - component: {fileID: 6107098077044397896}
   - component: {fileID: 7492267641585409974}
   - component: {fileID: 2584550646514722606}
@@ -154,6 +155,7 @@ GameObject:
   - component: {fileID: 8382341124825033876}
   - component: {fileID: 7906322676815125306}
   - component: {fileID: 8958846863885128987}
+  - component: {fileID: -935627131628127128}
   m_Layer: 7
   m_Name: Player 1
   m_TagString: Untagged
@@ -197,7 +199,7 @@ CharacterController:
   m_Enabled: 1
   serializedVersion: 3
   m_Height: 1.9
-  m_Radius: 0.4
+  m_Radius: 0.3
   m_SlopeLimit: 45
   m_StepOffset: 0.3
   m_SkinWidth: 0.08
@@ -228,6 +230,19 @@ MonoBehaviour:
   AutoObjectParentSync: 1
   SyncOwnerTransformWhenParented: 1
   AllowOwnerToParent: 0
+--- !u!114 &-2503030706147355686
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2394102009201851988}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 50ce550ff9b55af49beac7e23af9ec4f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerDamageRelay
+  ShowTopMostFoldoutHeaderGroup: 1
 --- !u!114 &6107098077044397896
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -258,11 +273,21 @@ MonoBehaviour:
   weaponManager: {fileID: 1752355669680099318}
   bodyTransform: {fileID: 4262720696514852578}
   orbitDistance: 3
+  minDistance: 1.2
+  maxDistance: 6
   orbitHeight: 1.5
-  orbitSpeed: 100
+  orbitYawSpeed: 110
+  orbitPitchSpeed: 90
   minPitch: -30
   maxPitch: 60
-  transitionSpeed: 5
+  positionLerp: 12
+  distanceLerp: 14
+  obstructionMask:
+    serializedVersion: 2
+    m_Bits: 960
+  collisionRadius: 0.2
+  collisionSkin: 0.05
+  popOutDistanceBoost: 0.75
   lookInput: {x: 0, y: 0}
 --- !u!114 &2584550646514722606
 MonoBehaviour:
@@ -281,6 +306,7 @@ MonoBehaviour:
   characterController: {fileID: 4157602163556837535}
   ragdollForce: 500
   despawnDelay: 5
+  hips: {fileID: 0}
 --- !u!114 &5213368089628571653
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -324,6 +350,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::FPController
   ShowTopMostFoldoutHeaderGroup: 1
+  netHealth:
+    m_InternalValue: 100
+  netIsDead:
+    m_InternalValue: 0
   acceleration: 15
   airAcceleration: 50
   maxAirSpeed: 2
@@ -356,6 +386,7 @@ MonoBehaviour:
   fpCamera: {fileID: 7545715250371650815}
   characterController: {fileID: 4157602163556837535}
   characterAnimator: {fileID: 7910596075621510296}
+  networkAnimator: {fileID: 8958846863885128987}
   weaponManager: {fileID: 1752355669680099318}
   grappleController: {fileID: 8382341124825033876}
   playerRagdoll: {fileID: 2584550646514722606}
@@ -381,6 +412,7 @@ MonoBehaviour:
   playerController: {fileID: 5088684734431513618}
   deathCamera: {fileID: 7492267641585409974}
   fpCamera: {fileID: 7545715250371650815}
+  audioListener: {fileID: -935627131628127128}
   weaponManager: {fileID: 1752355669680099318}
   grappleController: {fileID: 8382341124825033876}
   toggleSprint: 0
@@ -415,6 +447,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d975a0a98fa329748bdbe4ffc3424df8, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SpeedTrail
+  ShowTopMostFoldoutHeaderGroup: 1
   weaponManager: {fileID: 1752355669680099318}
   playerMesh: {fileID: 7416126299309699566}
   minMultiplierForTrail: 1.5
@@ -442,7 +475,7 @@ MonoBehaviour:
   grappleCooldown: 1
   grappleableLayers:
     serializedVersion: 2
-    m_Bits: 55
+    m_Bits: 513
   preserveMomentum: 1
   momentumBoost: 1.2
   fpCamera: {fileID: 7545715250371650815}
@@ -567,6 +600,14 @@ MonoBehaviour:
     TriggerNameHash: -1525363869
     TransitionIndex: 1
   m_Animator: {fileID: 7910596075621510296}
+--- !u!81 &-935627131628127128
+AudioListener:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2394102009201851988}
+  m_Enabled: 1
 --- !u!1 &8909782718258560110
 GameObject:
   m_ObjectHideFlags: 0

@@ -14,6 +14,7 @@ public class PlayerInput : NetworkBehaviour
     [SerializeField] private PlayerController playerController;
     [SerializeField] private DeathCamera deathCamera;
     [SerializeField] private CinemachineCamera fpCamera;
+    [SerializeField] private AudioListener audioListener;
     [SerializeField] private WeaponManager weaponManager;
     [SerializeField] private GrappleController grappleController;
     
@@ -42,18 +43,19 @@ public class PlayerInput : NetworkBehaviour
                 fpCamera.gameObject.SetActive(false);
             }
             
+            audioListener.enabled = false;
+            
             return;
         }
         
         if(fpCamera != null) {
             fpCamera.gameObject.SetActive(true);
-            fpCamera.Priority = 100; // Make sure it's the active camera
+            // fpCamera.Priority = 100; // Make sure it's the active camera
         }
 
         _gameMenuManager = GameMenuManager.Instance;
         _hudManager = HUDManager.Instance;
         
-        weaponManager.InitializeWeapons(fpCamera, playerController, _hudManager);
         _currentWeaponIndex = weaponManager.currentWeaponIndex;
         _currentWeapon = weaponManager.CurrentWeapon;
 
@@ -99,17 +101,18 @@ public class PlayerInput : NetworkBehaviour
     }
 
     private void LateUpdate() {
-        // if(!IsOwner) return;
+        if(!IsOwner) return;
         if(weaponManager.CurrentWeapon == null) return;
         
         if(_gameMenuManager != null && !_gameMenuManager.IsPaused && 
            (Mouse.current.leftButton.isPressed || Mouse.current.rightButton.isPressed) && 
-           weaponManager.CurrentWeapon.fireMode == "Full" && !playerController.IsDead) {
+           weaponManager.CurrentWeapon.fireMode == "Full" && !playerController.netIsDead.Value) {
+            Debug.Log("SHOOTING");
             _currentWeapon.Shoot();
         }
 
         if(_gameMenuManager != null && !_gameMenuManager.IsPaused &&
-           Mouse.current.scroll.value.magnitude > 0f && !playerController.IsDead) {
+           Mouse.current.scroll.value.magnitude > 0f && !playerController.netIsDead.Value) {
             playerController.TryJump();
             grappleController.CancelGrapple();
         }
@@ -131,7 +134,7 @@ public class PlayerInput : NetworkBehaviour
             return;
         }
 
-        if(playerController.IsDead) {
+        if(playerController.netIsDead.Value) {
             deathCamera.lookInput = value.Get<Vector2>();
         } else {
             playerController.lookInput = value.Get<Vector2>();
@@ -141,7 +144,7 @@ public class PlayerInput : NetworkBehaviour
     
     private void OnMove(InputValue value) {
         // if(!IsOwner) return;
-        if(_gameMenuManager != null && _gameMenuManager.IsPaused || playerController.IsDead) {
+        if(_gameMenuManager != null && _gameMenuManager.IsPaused || playerController.netIsDead.Value) {
             playerController.moveInput = Vector2.zero;
             return;
         }
@@ -151,7 +154,7 @@ public class PlayerInput : NetworkBehaviour
 
     private void OnSprint(InputValue value) {
         // if(!IsOwner) return;
-        if(_gameMenuManager != null && _gameMenuManager.IsPaused || playerController.IsDead) {
+        if(_gameMenuManager != null && _gameMenuManager.IsPaused || playerController.netIsDead.Value) {
             playerController.sprintInput = false;
             return;
         }
@@ -167,7 +170,7 @@ public class PlayerInput : NetworkBehaviour
     
     private void OnCrouch(InputValue value) {
         // if(!IsOwner) return;
-        if(_gameMenuManager != null && _gameMenuManager.IsPaused || playerController.IsDead) {
+        if(_gameMenuManager != null && _gameMenuManager.IsPaused || playerController.netIsDead.Value) {
             playerController.crouchInput = false;
             return;
         }
@@ -183,7 +186,7 @@ public class PlayerInput : NetworkBehaviour
     
     private void OnJump(InputValue value) {
         // if(!IsOwner) return;
-        if(_gameMenuManager != null && _gameMenuManager.IsPaused || playerController.IsDead) return;
+        if(_gameMenuManager != null && _gameMenuManager.IsPaused || playerController.netIsDead.Value) return;
         
         playerController.TryJump();
         
@@ -194,7 +197,7 @@ public class PlayerInput : NetworkBehaviour
 
     private void OnScrollWheel(InputValue value) {
         // if(!IsOwner) return;
-        if(_gameMenuManager != null && _gameMenuManager.IsPaused || playerController.IsDead) return;
+        if(_gameMenuManager != null && _gameMenuManager.IsPaused || playerController.netIsDead.Value) return;
         
         playerController.TryJump();
         
@@ -205,7 +208,7 @@ public class PlayerInput : NetworkBehaviour
     
     private void OnGrapple(InputValue value) {
         // if(!IsOwner) return;
-        if(_gameMenuManager != null && _gameMenuManager.IsPaused || playerController.IsDead) return;
+        if(_gameMenuManager != null && _gameMenuManager.IsPaused || playerController.netIsDead.Value) return;
 
         if(grappleController.IsGrappling) {
             grappleController.CancelGrapple();
@@ -220,7 +223,7 @@ public class PlayerInput : NetworkBehaviour
 
     private void OnPrimary(InputValue value) {
         // if(!IsOwner) return;
-        if(_gameMenuManager != null && _gameMenuManager.IsPaused || _currentWeaponIndex == 0 || playerController.IsDead) return;
+        if(_gameMenuManager != null && _gameMenuManager.IsPaused || _currentWeaponIndex == 0 || playerController.netIsDead.Value) return;
         
         if(weaponManager.CurrentWeapon.IsReloading) {
             weaponManager.CurrentWeapon.CancelReload();
@@ -232,7 +235,7 @@ public class PlayerInput : NetworkBehaviour
     
     private void OnSecondary(InputValue value) {
         // if(!IsOwner) return;
-        if(_gameMenuManager != null && _gameMenuManager.IsPaused || _currentWeaponIndex == 1 || playerController.IsDead) return;
+        if(_gameMenuManager != null && _gameMenuManager.IsPaused || _currentWeaponIndex == 1 || playerController.netIsDead.Value) return;
 
         if(weaponManager.CurrentWeapon.IsReloading) {
             weaponManager.CurrentWeapon.CancelReload();
@@ -244,7 +247,7 @@ public class PlayerInput : NetworkBehaviour
     
     private void OnTertiary(InputValue value) {
         // if(!IsOwner) return;
-        if(_gameMenuManager != null && _gameMenuManager.IsPaused || _currentWeaponIndex == 2 || playerController.IsDead) return;
+        if(_gameMenuManager != null && _gameMenuManager.IsPaused || _currentWeaponIndex == 2 || playerController.netIsDead.Value) return;
         
         if(weaponManager.CurrentWeapon.IsReloading) {
             weaponManager.CurrentWeapon.CancelReload();
@@ -264,7 +267,7 @@ public class PlayerInput : NetworkBehaviour
     
     private void OnReload(InputValue value) {
         // if(!IsOwner) return;
-        if(_gameMenuManager != null && _gameMenuManager.IsPaused || playerController.IsDead) return;
+        if(_gameMenuManager != null && _gameMenuManager.IsPaused || playerController.netIsDead.Value) return;
 
         if(weaponManager.CurrentWeapon) {
             weaponManager.CurrentWeapon.StartReload();
@@ -280,19 +283,13 @@ public class PlayerInput : NetworkBehaviour
         if(_gameMenuManager)
             _gameMenuManager.TogglePause();
     }
-    
-    private void OnTestDamage(InputValue value) {
-        // if(!IsOwner) return;
-        if(_gameMenuManager != null && _gameMenuManager.IsPaused || playerController.IsDead) return;
-        Debug.Log("Taking 10 damage for testing.");
-        playerController.TakeDamage(10);
-    }
 
     private void OnTestRespawn(InputValue value) {
-        // if(!IsOwner) return;
-        if(_gameMenuManager != null && _gameMenuManager.IsPaused || !playerController.IsDead) return;
+        if(!IsOwner) return;
+        if(_gameMenuManager != null && _gameMenuManager.IsPaused) return;
         Debug.Log("Respawning player for testing.");
-        playerController.Respawn();
+        // playerController.Respawn();
+        playerController.RequestRespawnServerRpc();
     }
     
     #endregion

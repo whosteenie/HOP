@@ -1,9 +1,10 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using Unity.Netcode;
 using UnityEngine;
 
-public class SpeedTrail : MonoBehaviour
+public class SpeedTrail : NetworkBehaviour
 {
     [Header("Shader Property IDs")]
     private static readonly int Mode = Shader.PropertyToID("_Mode");
@@ -89,6 +90,11 @@ public class SpeedTrail : MonoBehaviour
         var ghost = new GameObject("AfterimageGhost") {
             layer = LayerMask.NameToLayer("Masked")
         };
+
+        if(IsOwner) {
+            ghost.layer = LayerMask.NameToLayer("Default");
+        }
+        
         ghost.SetActive(false);
         
         var mf = ghost.AddComponent<MeshFilter>();
