@@ -41,6 +41,7 @@ namespace Weapon {
         public CinemachineCamera fpCamera;
         public PlayerController playerController;
         public Animator playerAnimator;
+        public NetworkAnimator networkAnimator;
         public LayerMask enemyLayer;
         public LayerMask worldLayer;
     
@@ -111,6 +112,10 @@ namespace Weapon {
                         break;
                     }
                 }
+            }
+
+            if(networkAnimtor == null) {
+                networkAnimator = GetComponentInChildren<NetworkAnimator>();
             }
         }
 
@@ -330,7 +335,7 @@ namespace Weapon {
 
             if(isOwner) {
                 if(weaponAnimator) weaponAnimator.SetTrigger(RecoilHash);
-                if(playerAnimator) playerAnimator.SetTrigger(RecoilHash);
+                if(networkAnimator) networkAnimator.SetTrigger(RecoilHash);
                 if(muzzleFlashEffect) muzzleFlashEffect.Play();
                 if(muzzleLight) StartCoroutine(FlashLight(muzzleLight, muzzleLightTime));
             } else {
@@ -398,8 +403,8 @@ namespace Weapon {
             if(weaponAnimator)
                 weaponAnimator.SetTrigger(ReloadHash);
         
-            if(playerAnimator)
-                playerAnimator.SetTrigger(ReloadHash);
+            if(networkAnimator)
+                networkAnimator.SetTrigger(ReloadHash);
         
             if(_soundRelay != null && playerController.IsOwner)
                 _soundRelay.RequestWorldSfx(SFXKey.Reload, attachToSelf: true);
