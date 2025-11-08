@@ -1,170 +1,150 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using Player;
 using Unity.Netcode;
 using UnityEngine;
+using Weapon;
 
 public class SpeedTrail : NetworkBehaviour
 {
-    [Header("Shader Property IDs")]
-    private static readonly int Mode = Shader.PropertyToID("_Mode");
-    private static readonly int SrcBlend = Shader.PropertyToID("_SrcBlend");
-    private static readonly int DstBlend = Shader.PropertyToID("_DstBlend");
-    private static readonly int ZWrite = Shader.PropertyToID("_ZWrite");
-    
-    [Header("References")]
-    [SerializeField] private WeaponManager weaponManager;
-    [SerializeField] private SkinnedMeshRenderer playerMesh;
-    
+    [Header("Refs")]
+    [SerializeField] private PlayerController controller;          // assign in inspector or auto-find
+    [SerializeField] private SkinnedMeshRenderer playerMesh;       // WORLD/3P mesh (not FP arms)
+
     [Header("Afterimage Settings")]
     [SerializeField] private float minMultiplierForTrail = 1.5f;
     [SerializeField] private float spawnInterval = 0.05f;
-    [SerializeField] private float ghostLifetime = 0.3f;
-    [SerializeField] private float spawnOffset = 0.5f; // How far behind player to spawn
+    [SerializeField] private float ghostLifetime = 0.30f;
+    [SerializeField] private float spawnOffset = 0.5f; 
     [SerializeField] private Material ghostMaterial;
-    [SerializeField] private Color trailColor = new Color(0.3f, 0.7f, 1f, 0.5f);
-    
+    [SerializeField] private Color trailColor = new(0.3f, 0.7f, 1f, 0.5f);
+
     private float _lastSpawnTime;
-    private readonly Queue<GameObject> _ghostPool = new Queue<GameObject>();
+    private readonly Queue<GameObject> _ghostPool = new();
     private const int PoolSize = 20;
     private Vector3 _lastPosition;
 
-    private void Awake() {
+    public override void OnNetworkSpawn() {
+        base.OnNetworkSpawn();
+        
         _lastPosition = transform.position;
-        
-        // Create ghost material if not assigned
-        if(ghostMaterial == null) {
-            CreateGhostMaterial();
-        }
-        
-        // Pre-populate ghost pool
-        for(var i = 0; i < PoolSize; i++) {
-            CreateGhost();
-        }
+        if(ghostMaterial == null) CreateGhostMaterial();
+        for(var i = 0; i < PoolSize; i++) CreateGhost();
     }
-    
+
     private void Update() {
-        if(!weaponManager.CurrentWeapon) return;
-        
-        var multiplier = weaponManager.CurrentWeapon.CurrentDamageMultiplier;
-        
-        // If below threshold, fade out all active ghosts
-        if(multiplier < minMultiplierForTrail) {
-            // FadeOutAllGhosts();
-            return;
+        return;
+        if(IsOwner) return;
+        if(!playerMesh) return;
+
+        // Compute a multiplier from velocity so it works on ALL clients.
+        // Match your weapon’s thresholds for feel.
+        var speed = controller ? controller.CurrentFullVelocity.magnitude : 0f;
+        var targetMul = 1f;
+        const float minSpeed = Weapon.Weapon.MinSpeedThreshold; // 15f
+        const float maxSpeed = Weapon.Weapon.MaxSpeedThreshold;
+        if(speed > minSpeed) {
+            var t = Mathf.InverseLerp(minSpeed, maxSpeed, speed);
+            targetMul = Mathf.Lerp(1f,  controller ? controller.GetComponent<WeaponManager>()?.CurrentWeapon?.maxDamageMultiplier ?? 2f : 2f, t);
         }
-        
-        // Calculate spawn rate based on speed (faster = more frequent)
-        var speedFactor = Mathf.InverseLerp(minMultiplierForTrail, weaponManager.CurrentWeapon.maxDamageMultiplier, multiplier);
+
+        if(targetMul < minMultiplierForTrail) return;
+
+        // Faster -> more frequent
+        var speedFactor = Mathf.InverseLerp(minMultiplierForTrail, 3f, targetMul);
         var adjustedInterval = Mathf.Lerp(spawnInterval * 2f, spawnInterval * 0.5f, speedFactor);
 
-        if(!(Time.time - _lastSpawnTime >= adjustedInterval)) return;
-        
-        SpawnAfterimage();
-        _lastSpawnTime = Time.time;
-    }
-    
-    private void FadeOutAllGhosts() {
-        // Find all active ghosts and deactivate them
-        foreach(var ghost in _ghostPool) {
-            if(ghost.activeInHierarchy) {
-                ghost.SetActive(false);
-            }
+        if(Time.time - _lastSpawnTime < adjustedInterval) return;
+        if(!controller.IsOwner) {
+            SpawnAfterimage();
+            _lastSpawnTime = Time.time;
         }
     }
-    
-    private void CreateGhostMaterial() {
-        ghostMaterial = new Material(Shader.Find("Standard"));
-        ghostMaterial.SetFloat(Mode, 3);
-        ghostMaterial.SetInt(SrcBlend, (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
-        ghostMaterial.SetInt(DstBlend, (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
-        ghostMaterial.SetInt(ZWrite, 0);
-        ghostMaterial.DisableKeyword("_ALPHATEST_ON");
-        ghostMaterial.EnableKeyword("_ALPHABLEND_ON");
-        ghostMaterial.DisableKeyword("_ALPHAPREMULTIPLY_ON");
-        ghostMaterial.renderQueue = 3000;
-        ghostMaterial.color = trailColor;
-    }
-    
-    private GameObject CreateGhost() {
-        var ghost = new GameObject("AfterimageGhost") {
-            layer = LayerMask.NameToLayer("Masked")
-        };
 
-        if(IsOwner) {
-            ghost.layer = LayerMask.NameToLayer("Default");
+    private GameObject CreateGhost() {
+        var ghost = new GameObject("AfterimageGhost");
+        // Layer decided per-viewer:
+        if(controller) {
+            if(controller.IsOwner) {
+                ghost.layer = LayerMask.NameToLayer("Masked");
+            } else {
+                ghost.layer = LayerMask.NameToLayer("Default");
+            }
+        } else {
+            Debug.LogWarning("SpeedTrail: No PlayerController found on the object.");
+            ghost.layer = LayerMask.NameToLayer("Masked");
         }
-        
+
         ghost.SetActive(false);
-        
-        var mf = ghost.AddComponent<MeshFilter>();
+        ghost.AddComponent<MeshFilter>();
         var mr = ghost.AddComponent<MeshRenderer>();
-        
         mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
         mr.receiveShadows = false;
-        
+
         _ghostPool.Enqueue(ghost);
         return ghost;
     }
-    
+
     private void SpawnAfterimage() {
-        // Get ghost from pool
-        var ghost = _ghostPool.FirstOrDefault(g => g !=null && !g.activeInHierarchy);
+        var ghost = _ghostPool.FirstOrDefault(g => g && !g.activeInHierarchy) ?? CreateGhost();
 
-        if(!ghost) {
-            ghost = CreateGhost();
-        }
+        // Movement direction
+        var moveDir = (transform.position - _lastPosition);
+        if(moveDir.sqrMagnitude < 0.0001f) moveDir = -transform.forward;
+        else moveDir.Normalize();
 
-        // Calculate movement direction
-        var movementDirection = (transform.position - _lastPosition).normalized;
-        
-        // If no movement, use backward direction
-        if(movementDirection == Vector3.zero) {
-            movementDirection = -transform.forward;
-        }
-        
-        // Spawn ghost behind the player based on movement direction
-        var spawnPosition = playerMesh.transform.position - movementDirection * spawnOffset;
-        
-        // Position and setup ghost
-        ghost.transform.position = spawnPosition;
-        ghost.transform.rotation = playerMesh.transform.rotation;
+        var spawnPos = playerMesh.transform.position - moveDir * spawnOffset;
+
+        ghost.transform.SetPositionAndRotation(spawnPos, playerMesh.transform.rotation);
         ghost.transform.localScale = playerMesh.transform.lossyScale;
-        
-        // Update last position for next frame
+
         _lastPosition = transform.position;
-        
-        // Bake mesh from skinned mesh renderer
-        var bakedMesh = new Mesh();
-        playerMesh.BakeMesh(bakedMesh);
-        
+
+        var baked = new Mesh();
+        playerMesh.BakeMesh(baked);
+
         var mf = ghost.GetComponent<MeshFilter>();
-        mf.mesh = bakedMesh;
-        
+        mf.sharedMesh = baked;
+
         var mr = ghost.GetComponent<MeshRenderer>();
-        mr.material = ghostMaterial;
-        
+        // material per instance so alpha fades independently
+        mr.material = ghostMaterial ? new Material(ghostMaterial) : NewGhostMaterial();
+
         ghost.SetActive(true);
-        
-        // Start fade coroutine
         StartCoroutine(FadeAndReturnGhost(ghost, mr));
     }
-    
-    private IEnumerator FadeAndReturnGhost(GameObject ghost, MeshRenderer ghostRenderer) {
-        var elapsed = 0f;
-        var instanceMat = ghostRenderer.material;
-        var startColor = trailColor;
-        
-        while(elapsed < ghostLifetime) {
-            elapsed += Time.deltaTime;
-            var alpha = Mathf.Lerp(startColor.a, 0f, elapsed / ghostLifetime);
-            instanceMat.color = new Color(startColor.r, startColor.g, startColor.b, alpha);
+
+    private IEnumerator FadeAndReturnGhost(GameObject ghost, MeshRenderer mr) {
+        var t = 0f;
+        var mat = mr.material;
+        var c0 = mat.color;
+        while(t < ghostLifetime) {
+            t += Time.deltaTime;
+            var a = Mathf.Lerp(c0.a, 0f, t / ghostLifetime);
+            mat.color = new Color(c0.r, c0.g, c0.b, a);
             yield return null;
         }
-        
-        // Return to pool
         ghost.SetActive(false);
-        Destroy(instanceMat);
+        Destroy(mat); // destroy the instance
         _ghostPool.Enqueue(ghost);
+    }
+
+    private void CreateGhostMaterial() {
+        ghostMaterial = NewGhostMaterial();
+    }
+
+    private Material NewGhostMaterial() {
+        var m = new Material(Shader.Find("Standard"));
+        m.SetFloat(Shader.PropertyToID("Mode"), 3);
+        m.SetInt(Shader.PropertyToID("SrcBlend"), (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
+        m.SetInt(Shader.PropertyToID("DstBlend"), (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+        m.SetInt(Shader.PropertyToID("ZWrite"), 0);
+        m.DisableKeyword("_ALPHATEST_ON");
+        m.EnableKeyword("_ALPHABLEND_ON");
+        m.DisableKeyword("_ALPHAPREMULTIPLY_ON");
+        m.renderQueue = 3000;
+        m.color = trailColor;
+        return m;
     }
 }

@@ -1,4 +1,7 @@
 using System.Collections;
+using Player;
+using Relays;
+using Singletons;
 using Unity.Cinemachine;
 using Unity.Netcode;
 using UnityEngine;
@@ -130,12 +133,9 @@ public class GrappleController : NetworkBehaviour
         // Enable visual
         grappleLine.enabled = true;
         
-        if (soundRelay != null && IsOwner)
-        {
-            int idx = (grappleSounds != null && grappleSounds.Length > 0) ? Random.Range(0, grappleSounds.Length) : 0;
+        if(soundRelay != null && IsOwner) {
             soundRelay?.RequestWorldSfx(SFXKey.Grapple, attachToSelf: true, true);
         }
-        // SoundFXManager.Instance.PlayRandomSoundFX(grappleSounds, transform, true, "grapple");
     }
     
     private void UpdateGrapple() {

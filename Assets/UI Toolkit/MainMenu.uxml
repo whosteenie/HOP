@@ -54,7 +54,8 @@
     <ui:VisualElement name="lobby-panel" class="panel full-abs center-xy hidden">
         <ui:VisualElement name="lobby-container" class="lobby-container card">
             <ui:Label text="LOBBY" name="lobby-label" class="title" />
-            <ui:Label text="Waiting for players..." name="waiting-label" class="lobby-status" />
+            <!-- Rename this reference later... -->
+            <ui:Label text="Join or host" name="waiting-label" class="lobby-status" />
             <ui:VisualElement class="lobby-body">
                 <ui:VisualElement name="VisualElement" class="lobby-left">
                     <ui:VisualElement name="host-container" class="setting-row">
