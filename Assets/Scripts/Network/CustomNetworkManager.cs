@@ -14,6 +14,7 @@ namespace Network {
         private bool _allowPlayerSpawns;
         private NetworkManager _networkManager;
         private int _playerAmount;
+        private NetworkVariable<int> netPlayerCount = new();
 
         private void Awake() {
             _networkManager = NetworkManager.Singleton;
@@ -124,14 +125,16 @@ namespace Network {
             var instance = Instantiate(playerPrefab, pos, rot);
             var cc = instance.GetComponent<CharacterController>();
             if(cc) cc.enabled = false; // Disable CC before spawning to avoid issues
-            instance.name = "Player " + (_playerAmount + 1);
+            instance.name = "Player " + (_netPlayerAmount + 1);
         
             var mesh = instance.gameObject.GetComponentInChildren<SkinnedMeshRenderer>();
             var currentMaterials = mesh.materials;
-            currentMaterials[0] = playerMaterials[_playerAmount % playerMaterials.Length];
+            // Fixes clients not seeing player colors? Have to test later
+            currentMaterials[0] = playerMaterials[netPlayerAmount % playerMaterials.Length];
             mesh.materials = currentMaterials;
         
             _playerAmount++;
+            netPlayerAmount++;
         
             instance.SpawnAsPlayerObject(clientId);
 
