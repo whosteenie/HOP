@@ -27,7 +27,7 @@
     margin-right: 10px; background-color: rgb(200,60,60); rotate: 45deg;
 }
 
-/* ===== GAMEMODE (landscape panel) ===== */
+/* ===== GAMEMODE ===== */
 
 .gamemode-container {
     width: 1100px; height: 550px;
@@ -83,12 +83,44 @@
     background-color: rgba(0,0,0,0.25); border-radius: 8px;
 }
 
+.join-code-display {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    flex-grow: 1;
+    justify-content: flex-end;
+}
+
+/* Square rounded button */
+.copy-button {
+    width: 36px;
+    min-width: 36px;
+    padding-left: 0;
+    padding-right: 0;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Icon inside the button */
+.copy-icon {
+    width: 20px;
+    height: 20px;
+    margin: auto;
+    --unity-image: url('/Assets/UI Toolkit/Images/copy.png');
+}
+
 .unity-text-element--inner-input-field-component {
     color: rgba(58, 58, 58, 0.75);
 }
 
+.player-list-container {
+    height: 269px;
+    min-width: auto;
+    width: 100%;
+}
+
 .player-list-scroll {
-    min-height: 210px; max-height: 210px; background-color: rgba(35,35,35,0.9); border-radius: 8px;
+    height: 100%; background-color: rgba(35,35,35,0.9); border-radius: 8px;
 }
 
 .player-list { flex-direction: column; }
@@ -99,8 +131,108 @@
 }
 .player-entry.host { color: rgb(120,210,255); -unity-font-style: bold; }
 
-/* ===== OPTIONS (panel matches pause style) ===== */
+/* ===== OPTIONS ===== */
 
 .options-container {
     width: 760px; max-height: 80%; padding: 36px;
+}
+
+/* ===== CREDITS ===== */
+
+.credits-container {
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 26px;
+    min-width: 500px;
+    min-height: 400px;
+}
+
+.credits-content {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 0;
+}
+
+.credits-text {
+    font-size: 20px;
+    color: white;
+    -unity-text-align: middle-center;
+}
+
+.main-logo-container {
+    width: 240px;
+    height: 240px;
+}
+
+.main-credits-logo {
+    width: 100%;
+    height: 100%;
+    --unity-image: url('/Assets/UI Toolkit/Images/whostudios-notext.png');
+    --unity-image-size: contain;
+}
+
+.logo-container {
+    width: 60px;
+    height: 60px;
+    margin-top: 16px;
+}
+
+.credits-logo {
+    width: 100%;
+    height: 100%;
+    --unity-image: url('/Assets/UI Toolkit/Images/github.png');
+    --unity-image-size: contain;
+    cursor: link;
+    transition: opacity 0.2s ease;
+}
+
+.credits-logo:hover {
+    opacity: 0.8;
+}
+
+/* -------------------------------------------------------------
+   TOAST – 100% Unity UI Toolkit compatible (2021+)
+   ------------------------------------------------------------- */
+.toast-container {
+    position: absolute;
+    left: 50%;
+    bottom: 80px;
+    translate: -50% 0;  /* Unity's translate property */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+/* Base toast style */
+.toast {
+    background-color: rgba(30,30,30,0.92);
+    color: #ffffff;
+    font-size: 16px;
+    padding: 12px 24px;
+    border-radius: 8px;
+    border-width: 1px;
+    border-color: rgba(0,0,0,0.4);
+    opacity: 0;
+    transition-duration: 0.3s;
+    transition-property: opacity, translate;  /* Changed from transform */
+    transition-timing-function: ease-out;
+}
+
+/* Fake bold text */
+.toast-bold {
+    -unity-text-outline-color: rgba(0,0,0,0.8);
+    -unity-text-outline-width: 0.5;
+}
+
+/* Animation states */
+.toast.show  {
+    opacity: 1;
+    translate: 0 0;  /* No offset */
+}
+.toast.hide  {
+    opacity: 0;
+    translate: 0 -20px;  /* Move up 20px */
 }

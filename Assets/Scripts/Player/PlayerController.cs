@@ -4,14 +4,15 @@ using Relays;
 using Singletons;
 using Unity.Cinemachine;
 using Unity.Netcode;
+using Unity.VisualScripting;
 using UnityEngine;
-using Weapon;
+using UnityEngine.UIElements;
+using Weapons;
 
 namespace Player {
     public class PlayerController : NetworkBehaviour {
-    
         #region Constants
-    
+
         private const float WalkSpeed = 5f;
         private const float SprintSpeed = 10f;
         private const float JumpHeight = 2f;
@@ -23,9 +24,9 @@ namespace Player {
         private const float StandCheckHeight = StandCollider - CrouchCollider;
         private const float PitchLimit = 90f;
         private const float GravityScale = 3f;
-    
+
         #endregion
-    
+
         #region Animation Parameter Hashes
 
         private static readonly int MoveXHash = Animator.StringToHash("moveX");
@@ -39,20 +40,22 @@ namespace Player {
         private static readonly int IsFallingHash = Animator.StringToHash("IsFalling");
 
         #endregion
-    
+
         #region Serialized Fields
-    
-        [Header("Movement Parameters")]
-        [SerializeField] private float acceleration = 15f;
+
+        [Header("Movement Parameters")] [SerializeField]
+        private float acceleration = 15f;
+
         [SerializeField] private float airAcceleration = 50f;
         [SerializeField] private float maxAirSpeed = 5f;
         [SerializeField] private float friction = 8f;
-    
-        [Header("Look Parameters")]
-        [SerializeField] public Vector2 lookSensitivity = new (0.1f, 0.1f);
-    
-        [Header("Components")]
-        [SerializeField] private CinemachineCamera fpCamera;
+
+        [Header("Look Parameters")] [SerializeField]
+        public Vector2 lookSensitivity = new(0.1f, 0.1f);
+
+        [Header("Components")] [SerializeField]
+        private CinemachineCamera fpCamera;
+
         [SerializeField] private CharacterController characterController;
         [SerializeField] private Animator characterAnimator;
         [SerializeField] private WeaponManager weaponManager;
@@ -61,20 +64,20 @@ namespace Player {
         [SerializeField] private DeathCamera deathCamera;
         [SerializeField] private NetworkDamageRelay damageRelay;
         [SerializeField] private NetworkSoundRelay soundRelay;
-    
+
         #endregion
-    
+
         #region Public Input Fields
-    
+
         public Vector2 moveInput;
         public Vector2 lookInput;
         public bool sprintInput;
         public bool crouchInput;
-    
+
         #endregion
-    
+
         #region Private Fields
-    
+
         private float _currentPitch;
         private float _maxSpeed = WalkSpeed;
         private float _verticalVelocity;
@@ -88,30 +91,32 @@ namespace Player {
         private Vector3? _lastHitNormal;
         private LayerMask _playerBodyLayer;
         private LayerMask _maskedLayer;
-    
+
         #endregion
-    
+
         #region Private Properties
-    
+
         public Vector3 CurrentFullVelocity => new(_horizontalVelocity.x, _verticalVelocity, _horizontalVelocity.z);
         private bool IsGrounded => characterController.isGrounded;
-    
+
         private float CurrentPitch {
             get => _currentPitch;
 
             set => _currentPitch = Mathf.Clamp(value, -PitchLimit, PitchLimit);
         }
-    
+
         #endregion
-    
+
         public NetworkVariable<float> netHealth = new(100f);
         public NetworkVariable<bool> netIsDead = new();
-    
+        [SerializeField] private Material[] playerMaterials;
+        public NetworkVariable<int> playerMaterialIndex = new();
+
         #region Unity Lifecycle
 
         public override void OnNetworkSpawn() {
             base.OnNetworkSpawn();
-        
+
             _impulseSource = FindFirstObjectByType<CinemachineImpulseSource>();
             _playerBodyLayer = LayerMask.GetMask("Player");
             _maskedLayer = LayerMask.GetMask("Masked");
@@ -127,9 +132,27 @@ namespace Player {
                 }
             };
 
+            if(!IsServer) {
+                ApplyPlayerMaterial(playerMaterialIndex.Value);
+            }
+
+            if(characterController.enabled == false) {
+                characterController.enabled = true;
+            }
+
             if(!IsOwner) {
                 gameObject.layer = LayerMask.NameToLayer("Enemy");
             }
+
+            var gameMenu = GameMenuManager.Instance;
+            if(gameMenu != null && gameMenu.TryGetComponent(out UIDocument doc)) {
+                var root = doc.rootVisualElement;
+                var rootContainer = root?.Q<VisualElement>("root-container");
+                if(rootContainer != null)
+                    rootContainer.style.display = DisplayStyle.Flex;
+            }
+
+            HUDManager.Instance.ShowHUD();
         }
 
         private void Update() {
@@ -139,9 +162,9 @@ namespace Player {
                     DieServer();
                 }
             }
-        
+
             if(!IsOwner || netIsDead.Value) return;
-        
+
             HandleLanding();
             HandleMovement();
             HandleCrouch();
@@ -150,75 +173,86 @@ namespace Player {
 
         private void LateUpdate() {
             if(!IsOwner || netIsDead.Value) return;
-        
+
             HandleLook();
         }
-    
+
         #endregion
 
+        private void ApplyPlayerMaterial(int index) {
+            var mesh = GetComponentInChildren<SkinnedMeshRenderer>();
+            if(mesh == null) return;
+
+            var materials = mesh.materials;
+            materials[0] = playerMaterials[index % playerMaterials.Length];
+            mesh.materials = materials;
+        }
+
         #region Public Methods
-    
+
         public void TryJump(float height = JumpHeight) {
             if(!IsGrounded) {
                 return;
             }
 
             height = CheckForJumpPad() ? 15f : height;
-        
+
             if(soundRelay != null && IsOwner) {
-                string key = Mathf.Approximately(height, 15f) ? "jumpPad" : "jump";
+                var key = Mathf.Approximately(height, 15f) ? "jumpPad" : "jump";
 
                 if(key == "jumpPad") {
-                    soundRelay?.RequestWorldSfx(SFXKey.JumpPad, attachToSelf: true, true);
+                    soundRelay?.RequestWorldSfx(SfxKey.JumpPad, attachToSelf: true, true);
                 } else {
-                    soundRelay?.RequestWorldSfx(SFXKey.Jump, attachToSelf: true);
+                    soundRelay?.RequestWorldSfx(SfxKey.Jump, attachToSelf: true);
                 }
             }
-        
+
             _verticalVelocity = Mathf.Sqrt(height * -2f * Physics.gravity.y * GravityScale);
             characterAnimator.SetTrigger(JumpTriggerHash);
             characterAnimator.SetBool(IsJumpingHash, true);
             _isJumping = true;
         }
-    
+
         public void PlayWalkSound() {
             if(!IsGrounded) return;
-        
+
             if(soundRelay != null && IsOwner) {
-                soundRelay?.RequestWorldSfx(SFXKey.Walk, attachToSelf: true);
+                soundRelay?.RequestWorldSfx(SfxKey.Walk, attachToSelf: true);
             }
         }
-    
+
         public void PlayRunSound() {
             if(!IsGrounded) return;
-        
+
             if(soundRelay != null && IsOwner) {
-                soundRelay?.RequestWorldSfx(SFXKey.Run, attachToSelf: true);
+                soundRelay?.RequestWorldSfx(SfxKey.Run, attachToSelf: true);
             }
         }
-    
+
         #endregion
-    
+
         #region Movement Methods
 
         private void OnControllerColliderHit(ControllerColliderHit hit) {
             if(hit.gameObject.CompareTag("JumpPad")) {
                 TryJump(15f);
             }
-        
+
             grappleController.CancelGrapple();
         }
-    
+
         private bool CheckForJumpPad() {
             // Raycast downward to check for jump pad
-            if(Physics.Raycast(transform.position, Vector3.down, out RaycastHit hit, characterController.height * 0.6f)) {
+            if(Physics.Raycast(transform.position, Vector3.down, out RaycastHit hit,
+                   characterController.height * 0.6f)) {
                 if(hit.collider.CompareTag("JumpPad")) {
                     return true;
                 }
             }
+
             return false;
         }
-    
+
         private void HandleMovement() {
             UpdateMaxSpeed();
             CalculateHorizontalVelocity();
@@ -244,9 +278,10 @@ namespace Player {
             if(IsGrounded) {
                 ApplyFriction();
                 ApplyDirectionChange(motion);
-            
+
                 var targetVelocity = motion.sqrMagnitude >= 0.1f ? motion * _maxSpeed : Vector3.zero;
-                _horizontalVelocity = Vector3.MoveTowards(_horizontalVelocity, targetVelocity, acceleration * Time.deltaTime);
+                _horizontalVelocity =
+                    Vector3.MoveTowards(_horizontalVelocity, targetVelocity, acceleration * Time.deltaTime);
             } else {
                 AirStrafe(motion);
             }
@@ -254,22 +289,22 @@ namespace Player {
 
         private void ApplyFriction() {
             if(!(moveInput.sqrMagnitude < 0.01f)) return;
-        
+
             var horizontalSpeed = _horizontalVelocity.magnitude;
-            
+
             if(!(horizontalSpeed > 0.1f)) return;
-            
+
             var drop = horizontalSpeed * friction * Time.deltaTime;
             _horizontalVelocity *= Mathf.Max(horizontalSpeed - drop, 0f) / horizontalSpeed;
         }
 
         private void ApplyDirectionChange(Vector3 motion) {
             if(!(_horizontalVelocity.magnitude > 0.1f) || !(motion.magnitude > 0.1f)) return;
-        
+
             var angle = Vector3.Angle(_horizontalVelocity, motion);
 
             if(!(angle > 90f)) return;
-        
+
             var normalizedAngle = Mathf.InverseLerp(90f, 180f, angle);
             var reduction = Mathf.Lerp(0.85f, 0.2f, normalizedAngle * normalizedAngle);
             _horizontalVelocity *= reduction;
@@ -282,16 +317,16 @@ namespace Player {
             var addSpeed = maxAirSpeed - currentSpeed;
 
             if(addSpeed <= 0) return;
-        
+
             var accelSpeed = airAcceleration * Time.deltaTime;
             accelSpeed = Mathf.Min(accelSpeed, addSpeed);
-        
+
             _horizontalVelocity += wishDir * accelSpeed;
         }
 
         private void CheckCeilingHit() {
             Debug.DrawRay(fpCamera.transform.position, 0.75f * Vector3.up, Color.yellow);
-        
+
             var mask = _playerBodyLayer | _maskedLayer;
             var rayHit = Physics.Raycast(fpCamera.transform.position, Vector3.up, out var hit, 0.75f, ~mask);
             if(rayHit && _verticalVelocity > 0f) {
@@ -312,26 +347,26 @@ namespace Player {
             var fullVelocity = new Vector3(_horizontalVelocity.x, _verticalVelocity, _horizontalVelocity.z);
             characterController.Move(fullVelocity * Time.deltaTime);
         }
-    
+
         private void HandleCrouch() {
             if(Physics.Raycast(fpCamera.transform.position, Vector3.up, StandCheckHeight) && !crouchInput) return;
-        
+
             characterAnimator.SetBool(IsCrouchingHash, crouchInput);
 
             var targetTransition = crouchInput ? 1f : 0f;
             _crouchTransition = Mathf.Lerp(_crouchTransition, targetTransition, 10f * Time.deltaTime);
-    
+
             var targetCameraHeight = Mathf.Lerp(StandHeight, CrouchHeight, _crouchTransition);
             var targetColliderHeight = Mathf.Lerp(StandCollider, CrouchCollider, _crouchTransition);
-    
+
             fpCamera.transform.localPosition = new Vector3(0f, targetCameraHeight, 0f);
-    
+
             // Adjust both height and center together
             var centerY = targetColliderHeight / 2f;
             characterController.height = targetColliderHeight;
             characterController.center = new Vector3(0f, centerY, 0f);
         }
-    
+
         #endregion
 
         #region Look Methods
@@ -352,11 +387,11 @@ namespace Player {
         private void UpdateYaw(float yawDelta) {
             transform.Rotate(Vector3.up * yawDelta);
         }
-    
+
         #endregion
-    
+
         #region Gameplay Methods
-    
+
         public void ApplyDamageServer(float amount, Vector3 hitPoint, Vector3 hitNormal) {
             if(!IsServer) return;
             if(netIsDead.Value) return;
@@ -370,16 +405,16 @@ namespace Player {
                 DieServer();
             }
         }
-    
+
         private void DieServer() {
             if(!IsServer) return;
-        
+
             netIsDead.Value = true;
 
             // Tell everyone to show death visuals; the owner will also switch cameras.
             DieClientRpc(_lastHitPoint ?? transform.position, _lastHitNormal ?? Vector3.up);
         }
-    
+
         [Rpc(SendTo.Everyone)]
         private void DieClientRpc(Vector3 hitPoint, Vector3 hitNormal) {
             // Show ragdoll for everyone; only the owner swaps to death camera/HUD.
@@ -387,7 +422,10 @@ namespace Player {
                 playerRagdoll.EnableRagdoll(hitPoint, -hitNormal);
 
             if(IsOwner) {
-                Debug.LogWarning("Player died. Switching to death camera.");
+                if(weaponManager != null) {
+                    fpCamera.transform.GetChild(weaponManager.currentWeaponIndex).gameObject.SetActive(false);
+                }
+
                 HUDManager.Instance.HideHUD();
                 deathCamera.EnableDeathCamera();
             }
@@ -397,18 +435,18 @@ namespace Player {
 
         private IEnumerator RespawnTimer() {
             yield return new WaitForSeconds(3f);
-         
+
             RequestRespawnServerRpc();
         }
 
         [Rpc(SendTo.Server)]
         private void RequestRespawnServerRpc() {
-            if (!IsServer) return;
-            if (!netIsDead.Value) return; // avoid respawning a living player
+            if(!IsServer) return;
+            if(!netIsDead.Value) return; // avoid respawning a living player
 
             DoRespawnServer();
         }
-    
+
         private void DoRespawnServer() {
             // 1) reset networked state
             netIsDead.Value = false;
@@ -420,11 +458,11 @@ namespace Player {
 
             // 3) tell OWNER (the authoritative side) to teleport
             TeleportOwnerClientRpc(position, rotation);
-        
+
             // 4) clear death visuals for everyone; owner will also restore UI/camera
             RespawnVisualsClientRpc();
         }
-    
+
         [Rpc(SendTo.Owner)]
         private void TeleportOwnerClientRpc(Vector3 spawn, Quaternion rotation) {
             // OWNER runs this; it has authority if you’re using ClientNetworkTransform
@@ -464,36 +502,38 @@ namespace Player {
             }
 
             // 3) restore expected layer (owner vs others)
-            gameObject.layer = IsOwner ? LayerMask.NameToLayer("Player")
+            gameObject.layer = IsOwner
+                ? LayerMask.NameToLayer("Player")
                 : LayerMask.NameToLayer("Enemy");
 
             // Owner-only UI/camera resets
             if(GetComponent<NetworkObject>().IsOwner) {
                 deathCamera.DisableDeathCamera();
-                var weapons = GetComponentsInChildren<Weapon.Weapon>();
+                var weapons = GetComponentsInChildren<Weapons.Weapon>();
                 foreach(var w in weapons) {
                     w.ResetWeapon();
                     GetComponent<PlayerInput>().SwitchWeapon(0);
                 }
-            
+
                 // Re-enable current weapon viewmodel
-                // if(weaponManager != null) {
-                //     fpCamera.transform.GetChild(weaponManager.currentWeaponIndex).gameObject.SetActive(true);
-                // }
-            
+                if(weaponManager != null) {
+                    fpCamera.transform.GetChild(weaponManager.currentWeaponIndex).gameObject.SetActive(true);
+                }
+
                 CurrentPitch = 0f;
                 fpCamera.transform.localRotation = Quaternion.Euler(0f, 0f, 0f);
                 lookInput = Vector2.zero;
-            
+                moveInput = Vector2.zero;
+
                 HUDManager.Instance.UpdateHealth(netHealth.Value, 100f);
-                HUDManager.Instance.UpdateAmmo(weaponManager.CurrentWeapon.currentAmmo, weaponManager.CurrentWeapon.magSize);
-                // this isn't being called on player respawn sometimes (this is being called? then why no hud?)
+                HUDManager.Instance.UpdateAmmo(weaponManager.CurrentWeapon.currentAmmo,
+                    weaponManager.CurrentWeapon.magSize);
                 HUDManager.Instance.ShowHUD();
             }
         }
-    
+
         #endregion
-    
+
         #region Private Methods - Animation
 
         private void HandleLanding() {
@@ -502,18 +542,18 @@ namespace Player {
                 _isJumping = false;
                 characterAnimator.SetBool(IsJumpingHash, false);
                 characterAnimator.SetTrigger(LandTriggerHash);
-            
+
                 if(soundRelay != null && IsOwner) {
-                    soundRelay?.RequestWorldSfx(SFXKey.Land, attachToSelf: true);
+                    soundRelay?.RequestWorldSfx(SfxKey.Land, attachToSelf: true);
                 }
             }
 
             // Landing from a fall
             if(!_isFalling || !IsGrounded) return;
             characterAnimator.SetTrigger(LandTriggerHash);
-        
+
             if(soundRelay != null && IsOwner) {
-                soundRelay?.RequestWorldSfx(SFXKey.Land, attachToSelf: true);
+                soundRelay?.RequestWorldSfx(SfxKey.Land, attachToSelf: true);
             }
         }
 
@@ -524,31 +564,31 @@ namespace Player {
             Physics.Raycast(transform.position, Vector3.down, out var hit, 1f);
             Debug.DrawRay(transform.position, Vector3.down * 1f, Color.red);
             _isFalling = !IsGrounded && hit.distance > 3f;
-        
+
             characterAnimator.SetFloat(MoveXHash, localVelocity.x / _maxSpeed, 0.1f, Time.deltaTime);
             characterAnimator.SetFloat(MoveYHash, localVelocity.z / _maxSpeed, 0.1f, Time.deltaTime);
             characterAnimator.SetBool(IsSprintingHash, isSprinting);
             characterAnimator.SetBool(IsFallingHash, _isFalling);
         }
-    
+
         private void UpdateTurnAnimation(float yawDelta) {
             var turnSpeed = Mathf.Abs(yawDelta) > 0.001f ? Mathf.Clamp(yawDelta * 10f, -1f, 1f) : 0f;
 
             characterAnimator.SetFloat(LookXHash, turnSpeed, 0.1f, Time.deltaTime);
         }
-    
+
         #endregion
-    
+
         #region Grapple Support Methods
-    
+
         public void SetVelocity(Vector3 horizontalVelocity) {
             _horizontalVelocity = new Vector3(horizontalVelocity.x, 0f, horizontalVelocity.z);
         }
-    
+
         public void AddVerticalVelocity(float verticalBoost) {
             _verticalVelocity += verticalBoost;
         }
-    
+
         #endregion
     }
 }

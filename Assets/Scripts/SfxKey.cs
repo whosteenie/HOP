@@ -1,4 +1,4 @@
-public enum SFXKey : byte
+public enum SfxKey : byte
 {
     Walk,
     Run,

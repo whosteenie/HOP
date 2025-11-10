@@ -1,6 +1,7 @@
 using Unity.Cinemachine;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using UnityEngine.Serialization;
 using UnityEngine.UIElements;
 
 public class GrappleUIManager : MonoBehaviour {
@@ -23,7 +24,7 @@ public class GrappleUIManager : MonoBehaviour {
     private VisualElement[] _segments;
     private bool _isLookingAtGrapplePoint;
     private Color _currentColor;
-    private GrappleController _grappleController;
+    public GrappleController grappleController;
     private CinemachineCamera _fpCamera;
     
     public static GrappleUIManager Instance;
@@ -45,11 +46,11 @@ public class GrappleUIManager : MonoBehaviour {
     }
     
     private void Update() {
-        if(!_grappleController && SceneManager.GetActiveScene().name == "Game") {
+        if(!grappleController && SceneManager.GetActiveScene().name == "Game") {
             FindLocalPlayerGrappleController();
         }
 
-        if(_grappleController != null) {
+        if(grappleController != null) {
             CheckGrapplePoint();
             UpdateIndicatorVisual();
         }
@@ -59,13 +60,13 @@ public class GrappleUIManager : MonoBehaviour {
         var allGrappleControllers = FindObjectsByType<GrappleController>(FindObjectsSortMode.None);
         foreach(var controller in allGrappleControllers) {
             if(controller.IsOwner) {
-                _grappleController = controller;
+                grappleController = controller;
                 _fpCamera = controller.GetComponentInChildren<CinemachineCamera>();
                 return;
             }
         }
-
-        if(!_grappleController) {
+    
+        if(!grappleController) {
             Debug.LogError("No GrappleController found");
             Invoke(nameof(FindLocalPlayerGrappleController), 0.1f);
         }
@@ -130,7 +131,7 @@ public class GrappleUIManager : MonoBehaviour {
     }
     
     private void UpdateIndicatorVisual() {
-        if(_grappleController.IsGrappling) {
+        if(grappleController.IsGrappling) {
             _grappleIndicator.style.opacity = 0f;
             return;
         }
@@ -141,10 +142,10 @@ public class GrappleUIManager : MonoBehaviour {
         Color targetColor;
         float fillAmount;
         
-        if(!_grappleController.CanGrapple) {
+        if(!grappleController.CanGrapple) {
             // Cooldown - show progress
             targetColor = cooldownColor;
-            fillAmount = _grappleController.CooldownProgress;
+            fillAmount = grappleController.CooldownProgress;
         } else if(_isLookingAtGrapplePoint) {
             // Ready and targeting
             targetColor = readyColor;

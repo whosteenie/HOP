@@ -1,11 +1,11 @@
 using Player;
 using Unity.Netcode;
 using UnityEngine;
+using Weapons;
 
 namespace Relays {
     public class NetworkFXRelay : NetworkBehaviour {
-        // TODO: singleton pattern
-
+        // TODO: FIX!!!
         private PlayerController _playerController;
         private NetworkObject _networkObject;
 
@@ -21,32 +21,33 @@ namespace Relays {
             if(_playerController != null && !_playerController.IsOwner) return;
             if(_networkObject == null || !_networkObject.IsSpawned) return;
 
-            RequestShotFxServerRpc(_networkObject, endPoint);
-        }
+            // CAPTURE EXACT muzzle position at shot time
+            var weapon = GetComponent<Weapon>();
+            Transform activeMuzzle = weapon?.GetActiveMuzzle();
+            Vector3 startPos = activeMuzzle ? activeMuzzle.position : _networkObject.transform.position;
     
-        [Rpc(SendTo.Server)]
-        private void RequestShotFxServerRpc(NetworkObjectReference shooterRef, Vector3 endPoint)
-        {
-            // Forward to everyone (including shooter) so each client can render with its own perspective
-            PlayShotFxClientRpc(shooterRef, endPoint);
+            RequestShotFxServerRpc(_networkObject, startPos, endPoint);
+        }
+        
+        [ServerRpc(RequireOwnership = false)]  // Allow server to validate if needed
+        private void RequestShotFxServerRpc(NetworkObjectReference shooterRef, Vector3 startPoint, Vector3 endPoint) {
+            // Forward identical start/end to EVERY client
+            PlayShotFxClientRpc(shooterRef, startPoint, endPoint);
         }
 
-        [Rpc(SendTo.Everyone)]
-        private void PlayShotFxClientRpc(NetworkObjectReference shooterRef, Vector3 endPoint) {
-            if(!shooterRef.TryGet(out var networkObject) || networkObject == null) return;
+        [ClientRpc]
+        private void PlayShotFxClientRpc(NetworkObjectReference shooterRef, Vector3 startPoint, Vector3 endPoint) {
+            if(!shooterRef.TryGet(out NetworkObject networkObject) || networkObject == null) return;
 
-            // Resolve Weapon on that player
-            var weapon = networkObject.GetComponent<Weapon.Weapon>();
+            var weapon = networkObject.GetComponent<Weapon>();
             if(weapon == null) return;
 
-            // 1) Muzzle flash on this client (owner sees FP flash, others see world flash)
+            // 1. EVERY client plays their LOCAL muzzle flash (owner=FP, others=world)
             weapon.AssignMuzzlesIfMissing();
             weapon.PlayNetworkedMuzzleFlashLocal();
 
-            // 2) Tracer from this client's own muzzle to the shared end point
-            var muzzle = weapon.GetActiveMuzzle();
-            if(muzzle == null) return;
-            weapon.SpawnTracerLocal(muzzle.position, endPoint);
+            // 2. EVERY client spawns tracer from EXACT shared start->end positions
+            weapon.SpawnTracerLocal(startPoint, endPoint);
         }
     }
 }

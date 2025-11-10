@@ -3,35 +3,35 @@ using Unity.Cinemachine;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.InputSystem;
-using Weapon;
+using Weapons;
 
 namespace Player {
     public class PlayerInput : NetworkBehaviour {
         #region Serialized Fields
-    
-        [Header("Components")]
-        [SerializeField] private PlayerController playerController;
+
+        [Header("Components")] [SerializeField]
+        private PlayerController playerController;
+
         [SerializeField] private CinemachineCamera fpCamera;
         [SerializeField] private AudioListener audioListener;
         [SerializeField] private WeaponManager weaponManager;
         [SerializeField] private GrappleController grappleController;
-    
-        [Header("Input Settings")]
-        [SerializeField] private bool toggleSprint = true;
+
+        [Header("Input Settings")] [SerializeField]
+        private bool toggleSprint = true;
+
         [SerializeField] private bool toggleCrouch;
-    
+
         #endregion
-    
-        #region Private Fields
-    
-        #endregion
-    
+
         private bool IsPaused => GameMenuManager.Instance.IsPaused;
         private bool IsPausedOrDead => (GameMenuManager.Instance.IsPaused) || playerController.netIsDead.Value;
-    
-        private GameObject CurrentWeaponModel => fpCamera.transform.GetChild(weaponManager.currentWeaponIndex).gameObject;
-        private Weapon.Weapon CurrentWeapon => weaponManager.CurrentWeapon;
-    
+
+        private GameObject CurrentWeaponModel =>
+            fpCamera.transform.GetChild(weaponManager.currentWeaponIndex).gameObject;
+
+        private Weapons.Weapon CurrentWeapon => weaponManager.CurrentWeapon;
+
         #region Unity Methods
 
         public override void OnNetworkSpawn() {
@@ -40,16 +40,21 @@ namespace Player {
             if(!IsOwner) {
                 fpCamera.gameObject.SetActive(false);
                 audioListener.enabled = false;
-            
+
+                var playerInputComponent = GetComponent<UnityEngine.InputSystem.PlayerInput>();
+                if(playerInputComponent != null) {
+                    playerInputComponent.enabled = false;
+                }
+
                 return;
             }
-        
+
             weaponManager.InitializeWeapons(fpCamera, playerController);
         }
 
         private void Start() {
             if(!IsOwner) return;
-        
+
             Cursor.visible = false;
             Cursor.lockState = CursorLockMode.Locked;
         }
@@ -57,8 +62,9 @@ namespace Player {
         private void LateUpdate() {
             if(!IsOwner) return;
             if(CurrentWeapon == null) return;
-        
-            if(!IsPausedOrDead && CurrentWeapon.fireMode == "Full" && (Mouse.current.leftButton.isPressed || Mouse.current.rightButton.isPressed)) {
+
+            if(!IsPausedOrDead && CurrentWeapon.fireMode == "Full" &&
+               (Mouse.current.leftButton.isPressed || Mouse.current.rightButton.isPressed)) {
                 CurrentWeapon.Shoot();
             }
 
@@ -66,15 +72,17 @@ namespace Player {
                 playerController.TryJump();
                 grappleController.CancelGrapple();
             }
-        
+
             if(CurrentWeapon)
                 CurrentWeapon.UpdateDamageMultiplier();
-        
+
             if(CurrentWeapon)
-                HUDManager.Instance.UpdateMultiplier(CurrentWeapon.CurrentDamageMultiplier, CurrentWeapon.maxDamageMultiplier);
+                HUDManager.Instance.UpdateMultiplier(CurrentWeapon.CurrentDamageMultiplier,
+                    CurrentWeapon.maxDamageMultiplier);
         }
+
         #endregion
-    
+
         #region Movement
 
         private void OnLook(InputValue value) {
@@ -83,17 +91,17 @@ namespace Player {
                 playerController.lookInput = Vector2.zero;
                 return;
             }
-        
+
             playerController.lookInput = value.Get<Vector2>();
         }
-    
+
         private void OnMove(InputValue value) {
             if(!IsOwner) return;
             if(IsPausedOrDead) {
                 playerController.moveInput = Vector2.zero;
                 return;
             }
-        
+
             playerController.moveInput = value.Get<Vector2>();
         }
 
@@ -104,7 +112,7 @@ namespace Player {
                     playerController.sprintInput = false;
                 return;
             }
-        
+
             if(toggleSprint) {
                 // Toggle mode
                 playerController.sprintInput = !playerController.sprintInput;
@@ -113,7 +121,7 @@ namespace Player {
                 playerController.sprintInput = value.isPressed;
             }
         }
-    
+
         private void OnCrouch(InputValue value) {
             if(!IsOwner) return;
             if(IsPausedOrDead) {
@@ -121,7 +129,7 @@ namespace Player {
                     playerController.crouchInput = false;
                 return;
             }
-        
+
             if(toggleCrouch) {
                 // Toggle mode
                 playerController.crouchInput = !playerController.crouchInput;
@@ -130,13 +138,13 @@ namespace Player {
                 playerController.crouchInput = value.isPressed;
             }
         }
-    
+
         private void OnJump(InputValue value) {
             if(!IsOwner) return;
             if(IsPausedOrDead) return;
-        
+
             playerController.TryJump();
-        
+
             if(grappleController.IsGrappling) {
                 grappleController.CancelGrapple();
             }
@@ -146,9 +154,9 @@ namespace Player {
             // TODO: Fix scroll wheel input so we don't have to use Mouse.current.scroll in LateUpdate
             if(!IsOwner) return;
             if(IsPausedOrDead) return;
-        
+
             playerController.TryJump();
-        
+
             if(grappleController.IsGrappling) {
                 grappleController.CancelGrapple();
             }
@@ -157,12 +165,12 @@ namespace Player {
         private void OnAttack(InputValue value) {
             if(!IsOwner) return;
             if(IsPausedOrDead) return;
-        
-            if(CurrentWeapon.fireMode == "Semi") {
+
+            if(CurrentWeapon && CurrentWeapon.fireMode == "Semi") {
                 CurrentWeapon.Shoot();
             }
         }
-    
+
         private void OnGrapple(InputValue value) {
             if(!IsOwner) return;
             if(IsPausedOrDead) return;
@@ -173,45 +181,46 @@ namespace Player {
                 grappleController.TryGrapple();
             }
         }
-    
+
         #endregion
-    
+
         #region Weapons
 
         private void OnPrimary(InputValue value) {
             if(!IsOwner) return;
-        
+
             SwitchWeapon(0);
             Debug.Log("Equipped Primary");
         }
-    
+
         private void OnSecondary(InputValue value) {
             if(!IsOwner) return;
-        
+
             SwitchWeapon(1);
             Debug.Log("Equipped Secondary");
         }
-    
+
         private void OnTertiary(InputValue value) {
             if(!IsOwner) return;
-        
+
             SwitchWeapon(2);
             Debug.Log("Equipped Tertiary");
         }
-    
+
         public void SwitchWeapon(int weaponIndex) {
             if(IsPausedOrDead || weaponManager.currentWeaponIndex == weaponIndex) return;
-        
+
             if(CurrentWeapon.IsReloading) {
                 CurrentWeapon.CancelReload();
             }
 
             CurrentWeaponModel.SetActive(false);
             weaponManager.currentWeaponIndex = weaponIndex;
+            weaponManager.CurrentWeapon.BindAndResolve(fpCamera, playerController);
             CurrentWeaponModel.SetActive(true);
             HUDManager.Instance.UpdateAmmo(CurrentWeapon.currentAmmo, CurrentWeapon.magSize);
         }
-    
+
         private void OnReload(InputValue value) {
             if(!IsOwner) return;
             if(IsPausedOrDead) return;
@@ -220,16 +229,16 @@ namespace Player {
                 weaponManager.CurrentWeapon.StartReload();
             }
         }
-    
+
         #endregion
-    
+
         #region System
 
         private void OnPause(InputValue value) {
             if(!IsOwner) return;
             GameMenuManager.Instance.TogglePause();
         }
-    
+
         #endregion
     }
 }

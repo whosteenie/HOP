@@ -134,7 +134,7 @@ public class GrappleController : NetworkBehaviour
         grappleLine.enabled = true;
         
         if(soundRelay != null && IsOwner) {
-            soundRelay?.RequestWorldSfx(SFXKey.Grapple, attachToSelf: true, true);
+            soundRelay?.RequestWorldSfx(SfxKey.Grapple, attachToSelf: true, true);
         }
     }
     

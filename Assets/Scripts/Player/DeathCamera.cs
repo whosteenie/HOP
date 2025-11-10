@@ -1,7 +1,7 @@
 using Unity.Cinemachine;
 using Unity.Netcode;
 using UnityEngine;
-using Weapon;
+using Weapons;
 
 namespace Player {
     public class DeathCamera : NetworkBehaviour {

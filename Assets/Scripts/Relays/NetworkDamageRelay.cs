@@ -12,16 +12,16 @@ namespace Relays {
         public void RequestDamageServerRpc(NetworkObjectReference targetRef, float damage, Vector3 hitPoint, Vector3 hitNormal) {
             if(!IsServer) return;
 
-            if (!targetRef.TryGet(out var targetNO) || targetNO == null || !targetNO.IsSpawned) {
+            if (!targetRef.TryGet(out var networkObject) || networkObject == null || !networkObject.IsSpawned) {
                 // Target is invalid / despawned / not in table
                 return;
             }
 
-            var targetPc = targetNO.GetComponent<PlayerController>();
+            var targetPc = networkObject.GetComponent<PlayerController>();
             if (targetPc == null || targetPc.netIsDead.Value) return;
 
             // Optional: prevent self-damage via relay
-            if (targetNO.OwnerClientId == OwnerClientId) return;
+            if (networkObject.OwnerClientId == OwnerClientId) return;
 
             targetPc.ApplyDamageServer(damage, hitPoint, hitNormal);
         }

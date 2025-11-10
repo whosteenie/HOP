@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using Network;
 using Unity.Services.Multiplayer;
@@ -9,6 +10,16 @@ using Cursor = UnityEngine.Cursor;
 
 namespace Singletons {
     public class MainMenuManager : MonoBehaviour {
+        #region Debug Logging
+        private const bool DebugLogs = true;
+
+        private static void D(string msg, bool isServer = false) {
+            if(!DebugLogs) return;
+            var prefix = isServer ? "[HOST]" : "[CLIENT]";
+            Debug.Log($"{prefix} {msg} | Frame: {Time.frameCount} | Time: {Time.time:F2}");
+        }
+        #endregion
+        
         #region Serialized
         [SerializeField] private UIDocument uiDocument;
         [SerializeField] private AudioMixer audioMixer;
@@ -27,6 +38,9 @@ namespace Singletons {
         private VisualElement _gamemodePanel;
         private VisualElement _lobbyPanel;
         private VisualElement _optionsPanel;
+        private VisualElement _creditsPanel;
+
+        private List<VisualElement> _panels;
 
         private string _selectedGameMode;
 
@@ -52,13 +66,14 @@ namespace Singletons {
 
         // Lobby
         private Label _joinCodeLabel;
-        private Button _hostButton;
-        private Button _startButton;
-        private Button _joinSessionButton;
+        private Label _waitingLabel;
         private TextField _joinCodeInput;
         private VisualElement _playerList;
-        private Label _waitingLabel;
+        private VisualElement _toastContainer;
     
+        // Buttons
+        private Button _hostButton;
+        private Button _startButton;
         private Button _playButton;
         private Button _loadoutButton;
         private Button _optionsButton;
@@ -67,11 +82,14 @@ namespace Singletons {
         private Button _modeOneButton;
         private Button _modeTwoButton;
         private Button _modeThreeButton;
-        private Button _backToMainButton;
-        private Button _backToGamemodeButton;
+        private Button _backGamemodeButton;
+        private Button _backLobbyButton;
+        private Button _backCreditsButton;
         private Button _applySettingsButton;
-        private Button _backFromOptionsButton;
+        private Button _backOptionsButton;
         private Button _joinButton;
+        private Button _copyButton;
+        private List<Button> _buttons;
     
         #endregion
 
@@ -83,67 +101,60 @@ namespace Singletons {
             _gamemodePanel = root.Q<VisualElement>("gamemode-panel");
             _lobbyPanel = root.Q<VisualElement>("lobby-panel");
             _optionsPanel = root.Q<VisualElement>("options-panel");
+            _creditsPanel = root.Q<VisualElement>("credits-panel");
+            
+            _panels = new List<VisualElement> {
+                _mainMenuPanel,
+                _gamemodePanel,
+                _lobbyPanel,
+                _optionsPanel,
+                _creditsPanel
+            };
         
             _playButton = root.Q<Button>("play-button");
             _loadoutButton = root.Q<Button>("loadout-button");
             _optionsButton = root.Q<Button>("options-button");
             _creditsButton = root.Q<Button>("credits-button");
             _quitButton = root.Q<Button>("quit-button");
-
-            // Main actions
-            _playButton.clicked += () => ShowPanel(_gamemodePanel);
-            _playButton.RegisterCallback<MouseOverEvent>(MouseHover);
-        
-            _loadoutButton.clicked += OnLoadoutClicked;
-            _loadoutButton.RegisterCallback<MouseOverEvent>(MouseHover);
-        
-            _optionsButton.clicked += () => {
-                LoadSettings();
-                ShowPanel(_optionsPanel);
-            };
-            _optionsButton.RegisterCallback<MouseOverEvent>(MouseHover);
-        
-            _creditsButton.clicked += OnCreditsClicked;
-            _creditsButton.RegisterCallback<MouseOverEvent>(MouseHover);
-        
-            _quitButton.clicked += OnQuitClicked;
-            _quitButton.RegisterCallback<MouseOverEvent>(MouseHover);
-        
             _modeOneButton = root.Q<Button>("mode-one-button");
             _modeTwoButton = root.Q<Button>("mode-two-button");
             _modeThreeButton = root.Q<Button>("mode-three-button");
-            _backToMainButton = root.Q<Button>("back-to-main");
-            _backToGamemodeButton = root.Q<Button>("back-to-gamemode");
-
-            // Gamemodes
-            _modeOneButton.clicked += () => OnGameModeSelected("Deathmatch");
-            _modeOneButton.RegisterCallback<MouseOverEvent>(MouseHover);
-        
-            _modeTwoButton.clicked += () => OnGameModeSelected("Team Deathmatch");
-            _modeTwoButton.RegisterCallback<MouseOverEvent>(MouseHover);
-        
-            _modeThreeButton.clicked += () => OnGameModeSelected("Private Match");
-            _modeThreeButton.RegisterCallback<MouseOverEvent>(MouseHover);
-        
-            _backToMainButton.clicked += () => ShowPanel(_mainMenuPanel, true);
-            _backToMainButton.RegisterCallback<MouseOverEvent>(MouseHover);
-        
-            _backToGamemodeButton.clicked += () => {
-                SessionManager.Instance.LeaveToMainMenuAsync();
-                ShowPanel(_gamemodePanel, true);
-            };
-            _backToGamemodeButton.RegisterCallback<MouseOverEvent>(MouseHover);
-
+            _backGamemodeButton = root.Q<Button>("back-to-main");
+            _backLobbyButton = root.Q<Button>("back-to-gamemode");
+            _backCreditsButton = root.Q<Button>("back-to-lobby");
             _applySettingsButton = root.Q<Button>("apply-button");
-            _backFromOptionsButton = root.Q<Button>("back-button");
-        
-            // Options
-            _applySettingsButton.clicked += ApplySettings;
-            _applySettingsButton.RegisterCallback<MouseOverEvent>(MouseHover);
-        
-            _backFromOptionsButton.clicked += () => ShowPanel(_mainMenuPanel, true);
-            _backFromOptionsButton.RegisterCallback<MouseOverEvent>(MouseHover);
+            _backOptionsButton = root.Q<Button>("back-button");
+            _hostButton = root.Q<Button>("host-button");
+            _startButton = root.Q<Button>("start-button");
+            _joinButton = root.Q<Button>("join-button");
+            _copyButton = root.Q<Button>("copy-code-button");
 
+            _buttons = new List<Button> {
+                _playButton,
+                _loadoutButton,
+                _optionsButton,
+                _creditsButton,
+                _quitButton,
+                _modeOneButton,
+                _modeTwoButton,
+                _modeThreeButton,
+                _backGamemodeButton,
+                _backCreditsButton,
+                _backLobbyButton,
+                _backLobbyButton,
+                _applySettingsButton,
+                _backOptionsButton,
+                _hostButton,
+                _startButton,
+                _joinButton,
+                _copyButton
+            };
+
+            foreach(var b in _buttons) {
+                b.clicked += () => OnButtonClicked(b.ClassListContains("back-button"));
+                b.RegisterCallback<MouseOverEvent>(MouseHover);
+            }
+            
             // Options controls
             _masterVolumeSlider = root.Q<Slider>("master-volume");
             _musicVolumeSlider = root.Q<Slider>("music-volume");
@@ -164,13 +175,52 @@ namespace Singletons {
 
             // Lobby
             _joinCodeInput = root.Q<TextField>("join-input");
-            _hostButton = root.Q<Button>("host-button");
             _joinCodeLabel = root.Q<Label>("host-label");
+            _toastContainer = root.Q<VisualElement>("toast-container");
             _playerList = root.Q<VisualElement>("player-list");
-            _startButton = root.Q<Button>("start-button");
-            _joinSessionButton = root.Q<Button>("join-button");
             _waitingLabel = root.Q<Label>("waiting-label");
-            _joinButton = root.Q<Button>("join-button");
+
+            // Main actions
+            _playButton.clicked += () => ShowPanel(_gamemodePanel);
+        
+            _loadoutButton.clicked += () => Debug.LogWarning("Loadout menu - not yet implemented");
+        
+            _optionsButton.clicked += () => {
+                LoadSettings();
+                ShowPanel(_optionsPanel);
+            };
+        
+            _creditsButton.clicked += () => ShowPanel(_creditsPanel);
+            
+            var logo = root.Q<Image>("credits-logo");
+            logo.RegisterCallback<ClickEvent>(evt => {
+                Application.OpenURL("https://github.com/whosteenie/HOP");
+            });
+            
+            _backCreditsButton.clicked += () => ShowPanel(_mainMenuPanel);
+        
+            _quitButton.clicked += OnQuitClicked;
+
+            // Gamemodes
+            _modeOneButton.clicked += () => OnGameModeSelected("Deathmatch");
+        
+            _modeTwoButton.clicked += () => OnGameModeSelected("Team Deathmatch");
+        
+            _modeThreeButton.clicked += () => OnGameModeSelected("Private Match");
+        
+            _backGamemodeButton.clicked += () => {
+                ShowPanel(_mainMenuPanel);
+            };
+        
+            _backLobbyButton.clicked += () => {
+                SessionManager.Instance.LeaveToMainMenuAsync();
+                ShowPanel(_gamemodePanel);
+            };
+        
+            // Options
+            _applySettingsButton.clicked += ApplySettings;
+        
+            _backOptionsButton.clicked += () => ShowPanel(_mainMenuPanel);
 
             // Lobby actions
 
@@ -179,11 +229,11 @@ namespace Singletons {
             _joinCodeInput.RegisterValueChangedCallback(OnJoinCodeInputValueChanged);
             _joinCodeInput.maxLength = 6;
             _joinCodeInput.isDelayed = false;
-            _joinSessionButton.clicked += () => OnJoinGameClicked(_joinCodeInput.value.ToUpper());
-            _joinSessionButton.RegisterCallback<MouseOverEvent>(MouseHover);
+            _joinButton.clicked += () => OnJoinGameClicked(_joinCodeInput.value.ToUpper());
         
             _hostButton.clicked += OnHostClicked;
-            _hostButton.RegisterCallback<MouseOverEvent>(MouseHover);
+            
+            _copyButton.clicked += CopyJoinCodeToClipboard;
 
             SetupAudioCallbacks();
             SetupControlsCallbacks();
@@ -198,6 +248,61 @@ namespace Singletons {
                 sessionManager.PlayersChanged += OnPlayersChanged;
                 sessionManager.RelayCodeAvailable += OnRelayCodeAvailable;
             }
+        }
+        
+        private void CopyJoinCodeToClipboard() {
+            // Extract code from "Join Code: ABC123" → "ABC123"
+            var fullText = _joinCodeLabel.text;
+            var code = fullText.Replace("Join Code: ", "").Trim();
+
+            if(code.Length == 0) return;
+            
+            GUIUtility.systemCopyBuffer = code;
+
+            // StartCoroutine(CopyToast("Copied!"));
+        }
+        
+        private IEnumerator CopyToast(string message)
+        {
+            // Create toast element
+            var toast = new Label(message) {
+                name = "toast"
+            };
+            toast.AddToClassList("toast");
+
+            _toastContainer.Add(toast);
+
+            // Trigger enter animation
+            toast.AddToClassList("show");
+
+            // Wait for display
+            yield return new WaitForSeconds(1.2f);
+
+            // Trigger exit animation
+            toast.RemoveFromClassList("show");
+            toast.AddToClassList("hide");
+
+            // Wait for fade out
+            yield return new WaitForSeconds(0.3f);
+
+            // Remove from hierarchy
+            _toastContainer.Remove(toast);
+        }
+        
+        private void OnButtonClicked(bool isBack = false) {
+            SoundFXManager.Instance.PlayUISound(!isBack ? buttonClickSound : backClickSound);
+        }
+
+        private void EnableButton(Button button) {
+            button.AddToClassList("menu-chip-enabled");
+            button.SetEnabled(true);
+            button.RegisterCallback<MouseOverEvent>(MouseHover);
+        }
+
+        private void DisableButton(Button button) {
+            button.RemoveFromClassList("menu-chip-enabled");
+            button.SetEnabled(false);
+            button.UnregisterCallback<MouseOverEvent>(MouseHover);
         }
     
         private void OnJoinCodeInputValueChanged(ChangeEvent<string> evt) {
@@ -217,52 +322,29 @@ namespace Singletons {
         #region Navigation
 
         private void OnGameModeSelected(string modeName) {
-            SoundFXManager.Instance.PlayUISound(buttonClickSound);
-
             _selectedGameMode = modeName;
 
             if(modeName != "Private Match") {
-                _startButton.RemoveFromClassList("menu-chip-enabled");
-                _startButton.SetEnabled(false);
-                _startButton.UnregisterCallback<MouseOverEvent>(MouseHover);
+                DisableButton(_startButton);
             } else {
-                if(!_startButton.ClassListContains("menu-chip-enabled"))
-                    _startButton.AddToClassList("menu-chip-enabled");
-                _startButton.SetEnabled(true);
-                _startButton.RegisterCallback<MouseOverEvent>(MouseHover);
+                EnableButton(_startButton);
             }
         
-            Debug.LogWarning("Gamemode: " + modeName);
-            _joinCodeLabel.text = "Join Code: ------";
+            _joinCodeLabel.text = "Join Code: - - - - - - -";
             _waitingLabel.text = "Join or host";
 
-            if(!_hostButton.ClassListContains("menu-chip-enabled")) {
-                _hostButton.AddToClassList("menu-chip-enabled");
-            }
-            _hostButton.SetEnabled(true);
-            _hostButton.RegisterCallback<MouseOverEvent>(MouseHover);
-
-            _startButton.SetEnabled(false);
-            _startButton.RemoveFromClassList("menu-chip-enabled");
-            _startButton.UnregisterCallback<MouseOverEvent>(MouseHover);
-        
-            _joinButton.AddToClassList("menu-chip-enabled");
-            _joinButton.SetEnabled(true);
-            _joinButton.RegisterCallback<MouseOverEvent>(MouseHover);
+            EnableButton(_hostButton);
+            EnableButton(_joinButton);
+            DisableButton(_copyButton);
 
             _joinCodeInput.value = "";
             _playerList.Clear();
             ShowPanel(_lobbyPanel);
         }
 
-        private void ShowPanel(VisualElement panel, bool playBack = false) {
-            var clip = playBack ? backClickSound : buttonClickSound;
-            SoundFXManager.Instance.PlayUISound(clip);
-        
-            _mainMenuPanel.AddToClassList("hidden");
-            _optionsPanel.AddToClassList("hidden");
-            _gamemodePanel.AddToClassList("hidden");
-            _lobbyPanel.AddToClassList("hidden");
+        private void ShowPanel(VisualElement panel) {
+            foreach(var p in _panels)
+                p.AddToClassList("hidden");
 
             panel.RemoveFromClassList("hidden");
         }
@@ -273,35 +355,45 @@ namespace Singletons {
 
         private async void OnHostClicked() {
             try {
-                SoundFXManager.Instance.PlayUISound(buttonClickSound);
-                _hostButton.RemoveFromClassList("menu-chip-enabled");
-                _hostButton.SetEnabled(false);
-                _hostButton.UnregisterCallback<MouseOverEvent>(MouseHover);
-                _joinButton.RemoveFromClassList("menu-chip-enabled");
-                _joinButton.SetEnabled(false);
-                _joinButton.UnregisterCallback<MouseOverEvent>(MouseHover);
+                DisableButton(_hostButton);
+                DisableButton(_joinButton);
                 _waitingLabel.text = "Waiting for connection...";
 
                 var joinCode = await sessionManager.StartSessionAsHost();
+                D($"UI: Host created – Code: {joinCode}");
+                
+                if (string.IsNullOrEmpty(joinCode)) {
+                    _waitingLabel.text = "Failed to create session";
+                    EnableButton(_hostButton);
+                    EnableButton(_joinButton);
+                    return;
+                }
+                
                 _joinCodeLabel.text = $"Join Code: {joinCode}";
-
                 _waitingLabel.text = "Lobby ready";
-                _startButton.SetEnabled(true);
-                _startButton.AddToClassList("menu-chip-enabled");
-                _startButton.RegisterCallback<MouseOverEvent>(MouseHover);
+
+                EnableButton(_startButton);
+                EnableButton(_copyButton);
                 // Player list will be filled by PlayersChanged event.
             } catch(Exception e) {
                 Debug.LogException(e);
+                _waitingLabel.text = "Error creating session: " + e.Message;
+                EnableButton(_hostButton);
+                EnableButton(_joinButton);
             }
         }
 
         private async void OnStartGameClicked() {
             try {
-                SoundFXManager.Instance.PlayUISound(buttonClickSound);
-
+                DisableButton(_startButton);
+                _waitingLabel.text = "Starting game...";
+                
+                D("UI: Start Game button clicked");
                 await sessionManager.BeginGameplayAsHostAsync();
             } catch (Exception e) {
                 Debug.LogException(e);
+                _waitingLabel.text = "Failed to start game: " + e.Message;
+                EnableButton(_startButton);
             }
         }
 
@@ -309,37 +401,32 @@ namespace Singletons {
             try {
                 var regexAlphaNum = new System.Text.RegularExpressions.Regex("^[a-zA-Z0-9]*$");
                 if(string.IsNullOrWhiteSpace(code) || code.Length != 6 || !regexAlphaNum.IsMatch(code)) {
-                    SoundFXManager.Instance.PlayUISound(backClickSound);
-
                     _waitingLabel.text = "Invalid join code";
                     return;
                 }
+                
+                D($"UI: Join button clicked – Code: {code}");
             
-                _hostButton.RemoveFromClassList("menu-chip-enabled");
-                _hostButton.SetEnabled(false);
-                _hostButton.UnregisterCallback<MouseOverEvent>(MouseHover);
                 _waitingLabel.text = "Joining lobby...";
-                _joinButton.RemoveFromClassList("menu-chip-enabled");
-                _joinButton.SetEnabled(false);
-                _joinButton.UnregisterCallback<MouseOverEvent>(MouseHover);
-            
-                SoundFXManager.Instance.PlayUISound(buttonClickSound);
-
+                DisableButton(_hostButton);
+                DisableButton(_joinButton);
+                
                 var result = await sessionManager.JoinSessionByCodeAsync(code);
+                D($"UI: Join result: {result}");
                 _waitingLabel.text = result;
                 if(result is "Lobby joined" or "Connected to Local Host (Editor)") {
                     _joinCodeLabel.text = $"Join Code: {code}";
+                    EnableButton(_copyButton);
                 } else {
-                    _joinButton.AddToClassList("menu-chip-enabled");
-                    _joinButton.SetEnabled(true);
-                    _joinButton.RegisterCallback<MouseOverEvent>(MouseHover);
-                    _hostButton.AddToClassList("menu-chip-enabled");
-                    _hostButton.SetEnabled(true);
-                    _hostButton.RegisterCallback<MouseOverEvent>(MouseHover);
+                    EnableButton(_joinButton);
+                    EnableButton(_hostButton);
                 }
                 // Player list will be filled by PlayersChanged event.
             } catch (Exception e) {
                 Debug.LogException(e);
+                _waitingLabel.text = "Error joining session: " + e.Message;
+                EnableButton(_hostButton);
+                EnableButton(_joinButton);
             }
         }
     
@@ -351,6 +438,7 @@ namespace Singletons {
             // Cosmetic: keep label in sync when host publishes/upgrades relay code
             // if(_joinCodeLabel != null)
             // _joinCodeLabel.text = $"Join Code: {code}";
+            Debug.Log("Relay code available: " + code);
         }
 
         private void OnPlayersChanged(IReadOnlyList<IReadOnlyPlayer> players) {
@@ -410,13 +498,11 @@ namespace Singletons {
         private static float DbToLinear(float db) => db <= -80f ? 0f : Mathf.Pow(10f, db / 20);
 
         private void SetupControlsCallbacks() {
-            _sensitivityXSlider.RegisterValueChangedCallback(evt =>
-            {
+            _sensitivityXSlider.RegisterValueChangedCallback(evt => {
                 _sensitivityXValue.text = evt.newValue.ToString("F2");
             });
 
-            _sensitivityYSlider.RegisterValueChangedCallback(evt =>
-            {
+            _sensitivityYSlider.RegisterValueChangedCallback(evt => {
                 _sensitivityYValue.text = evt.newValue.ToString("F2");
             });
         }
@@ -464,9 +550,7 @@ namespace Singletons {
             PlayerPrefs.SetInt("TargetFPS", _fpsDropdown.index);
 
             PlayerPrefs.Save();
-        
-            SoundFXManager.Instance.PlayUISound(buttonClickSound);
-        
+            
             ApplySettingsInternal();
 
             Debug.Log("Settings applied and saved!");
@@ -495,27 +579,13 @@ namespace Singletons {
 
         // ===== Misc =====
 
-        private void OnLoadoutClicked() {
-            SoundFXManager.Instance.PlayUISound(buttonClickSound);
-
-            Debug.LogWarning("Loadout menu - not yet implemented");
-        }
-
-        private void OnCreditsClicked() {
-            SoundFXManager.Instance.PlayUISound(buttonClickSound);
-        
-            Debug.LogWarning("Credits - not yet implemented");
-        }
-
         private void OnQuitClicked() {
-            SoundFXManager.Instance.PlayUISound(buttonClickSound);
-
             Debug.Log("Quitting game...");
-#if UNITY_EDITOR
+            #if UNITY_EDITOR
             UnityEditor.EditorApplication.isPlaying = false;
-#else
-        Application.Quit();
-#endif
+            #else
+            Application.Quit();
+            #endif
         }
     }
 }

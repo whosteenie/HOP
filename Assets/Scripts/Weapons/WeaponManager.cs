@@ -4,13 +4,13 @@ using Unity.Cinemachine;
 using Unity.Netcode;
 using UnityEngine;
 
-namespace Weapon {
+namespace Weapons {
     public class WeaponManager : NetworkBehaviour {
         public int currentWeaponIndex;
-        private List<global::Weapon.Weapon> _equippedWeapons;
+        private List<Weapon> _equippedWeapons;
         [SerializeField] private List<WeaponData> weaponDataList;
 
-        public global::Weapon.Weapon CurrentWeapon {
+        public Weapon CurrentWeapon {
             get {
                 if(_equippedWeapons == null || _equippedWeapons.Count == 0) {
                     Debug.LogWarning("No equipped weapons found.");
@@ -27,16 +27,16 @@ namespace Weapon {
         }    
     
         private void Awake() {
-            _equippedWeapons = new List<global::Weapon.Weapon>();
+            _equippedWeapons = new List<global::Weapons.Weapon>();
         }
 
         public void InitializeWeapons(CinemachineCamera cam, PlayerController controller) {
-            _equippedWeapons ??= new List<global::Weapon.Weapon>();
+            _equippedWeapons ??= new List<global::Weapons.Weapon>();
         
             _equippedWeapons.Clear();
         
             foreach(var data in weaponDataList) {
-                var weapon = gameObject.AddComponent<global::Weapon.Weapon>();
+                var weapon = gameObject.AddComponent<global::Weapons.Weapon>();
             
                 var weaponInstance = Instantiate(data.weaponPrefab, cam.transform, false);
                 weaponInstance.transform.localPosition = data.positionSpawn;

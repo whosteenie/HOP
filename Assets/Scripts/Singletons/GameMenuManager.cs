@@ -57,7 +57,6 @@ namespace Singletons {
         #region Properties
     
         public bool IsPaused { get; private set; }
-
         #endregion
     
         public static GameMenuManager Instance { get; private set; }

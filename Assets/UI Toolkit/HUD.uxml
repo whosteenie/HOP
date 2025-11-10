@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ui:UXML xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" xsi:noNamespaceSchemaLocation="../../UIElementsSchema/UIElements.xsd">
+    <ui:VisualElement name="hud-panel" class="hud" style="visibility: visible;">
+        <ui:VisualElement name="health-container" class="health-container">
+            <ui:ProgressBar name="health-bar" low-value="0" high-value="100" value="100" class="health-bar" />
+            <ui:Label name="health-value" text="100" class="health-value" />
+        </ui:VisualElement>
+        <ui:VisualElement name="multiplier-container" class="multiplier-container">
+            <ui:ProgressBar name="multiplier-bar" class="multiplier-bar" />
+            <ui:Label name="multiplier-value" text="1.00x" class="multiplier-value" />
+        </ui:VisualElement>
+        <ui:VisualElement name="ammo-container" class="ammo-container">
+            <ui:Label name="ammo-current" text="30" class="ammo-text" />
+            <ui:Label text="/" name="ammo-slash" class="ammo-slash" />
+            <ui:Label name="ammo-total" text="30" class="ammo-text" />
+        </ui:VisualElement>
+        <ui:VisualElement name="crosshair-container" class="crosshair">
+            <ui:VisualElement name="crosshair-horizontal" class="crosshair-line horizontal" />
+            <ui:VisualElement name="crosshair-vertical" class="crosshair-line vertical" />
+            <ui:VisualElement name="grapple-indicator" class="grapple-indicator" />
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

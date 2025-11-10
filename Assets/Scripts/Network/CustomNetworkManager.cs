@@ -1,4 +1,5 @@
-using System.Collections;
+using Player;
+using Singletons;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -14,7 +15,6 @@ namespace Network {
         private bool _allowPlayerSpawns;
         private NetworkManager _networkManager;
         private int _playerAmount;
-        private NetworkVariable<int> netPlayerCount = new();
 
         private void Awake() {
             _networkManager = NetworkManager.Singleton;
@@ -55,24 +55,20 @@ namespace Network {
         }
     
         // --- Public utility: call this when leaving to menu/lobby ---
-        public void ResetSpawningState()
-        {
+        public void ResetSpawningState() {
             _allowPlayerSpawns = false;  // late-joiners won't be spawned
         }
 
-        private void OnServerStopped(bool _)
-        {
+        private void OnServerStopped(bool _) {
             // Host stopped -> ensure we never auto-spawn when reconnecting later.
             _allowPlayerSpawns = false;
         }
 
-        private void OnClientStopped(bool _)
-        {
+        private void OnClientStopped(bool _) {
             _allowPlayerSpawns = false;
         }
 
-        private void OnClientDisconnected(ulong _)
-        {
+        private void OnClientDisconnected(ulong _) {
             // nothing special, but handy if you later add per-client tracking
         }
 
@@ -109,61 +105,37 @@ namespace Network {
         }
 
         private void SpawnPlayerFor(ulong clientId) {
-            if(playerPrefab == null) {
-                Debug.LogError("[CustomNetworkManager] Player Prefab not assigned.");
-                return;
+            while(true) {
+                var pos = SpawnManager.Instance.GetNextSpawnPosition();
+                var rot = SpawnManager.Instance.GetNextSpawnRotation();
+
+                var layer = LayerMask.NameToLayer("Player") | LayerMask.NameToLayer("Enemy");
+                if(Physics.SphereCast(new Ray(pos, Vector3.forward * 0f), 0.5f, out var hit, 0f, layer)) {
+                    Debug.LogWarning("Spawn point occupied, finding next...");
+                    continue;
+                }
+
+                var materialIndex = _playerAmount % playerMaterials.Length;
+
+                var instance = Instantiate(playerPrefab, pos, rot);
+                var pc = instance.GetComponent<PlayerController>();
+                pc.playerMaterialIndex.Value = materialIndex;
+
+                var mesh = instance.gameObject.GetComponentInChildren<SkinnedMeshRenderer>();
+                var currentMaterials = mesh.materials;
+                currentMaterials[0] = playerMaterials[_playerAmount % playerMaterials.Length];
+                mesh.materials = currentMaterials;
+
+                var cc = instance.GetComponent<CharacterController>();
+                if(cc) cc.enabled = false;
+                instance.name = "Player " + (_playerAmount + 1);
+
+                _playerAmount++;
+
+                instance.SpawnAsPlayerObject(clientId);
+
+                break;
             }
-
-            var pos = SpawnManager.Instance != null
-                ? SpawnManager.Instance.GetNextSpawnPosition()
-                : new Vector3(-60, 760, -20);
-
-            var rot = SpawnManager.Instance != null
-                ? SpawnManager.Instance.GetNextSpawnRotation()
-                : Quaternion.identity;
-
-            var instance = Instantiate(playerPrefab, pos, rot);
-            var cc = instance.GetComponent<CharacterController>();
-            if(cc) cc.enabled = false; // Disable CC before spawning to avoid issues
-            instance.name = "Player " + (_netPlayerAmount + 1);
-        
-            var mesh = instance.gameObject.GetComponentInChildren<SkinnedMeshRenderer>();
-            var currentMaterials = mesh.materials;
-            // Fixes clients not seeing player colors? Have to test later
-            currentMaterials[0] = playerMaterials[netPlayerAmount % playerMaterials.Length];
-            mesh.materials = currentMaterials;
-        
-            _playerAmount++;
-            netPlayerAmount++;
-        
-            instance.SpawnAsPlayerObject(clientId);
-
-            if(cc) StartCoroutine(ReenableCCNextFixed(cc));
-        }
-
-        private IEnumerator ReenableCCNextFixed(CharacterController cc) {
-            yield return new WaitForSeconds(0.5f);
-            cc.enabled = true;
-        }
-    
-        private void SpawnPlayerForChooseModel(ulong clientId) {
-            if(playerPrefab == null) {
-                Debug.LogError("[CustomNetworkManager] Player Prefab not assigned.");
-                return;
-            }
-
-            var pos = SpawnManager.Instance != null
-                ? SpawnManager.Instance.GetNextSpawnPosition()
-                : new Vector3(0, 5, 0);
-
-            var rot = SpawnManager.Instance != null
-                ? SpawnManager.Instance.GetNextSpawnRotation()
-                : Quaternion.identity;
-
-            var prefab = playerPrefabs[clientId]; // TODO: placeholder, replace with actual selection logic
-            var instance = Instantiate(prefab, pos, rot);
-        
-            instance.SpawnAsPlayerObject(clientId); // TODO: placeholder
         }
     }
 }

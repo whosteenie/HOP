@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Threading;
 using Cysharp.Threading.Tasks;
+using Relays;
 using Singletons;
 using Unity.Netcode;
 using Unity.Netcode.Transports.UTP;
@@ -90,6 +91,107 @@ namespace Network {
             var nameProp = new PlayerProperty(playerName, VisibilityPropertyOptions.Member);
             return new Dictionary<string, PlayerProperty> { { PlayerNamePropertyKey, nameProp } };
         }
+        
+        private async UniTask NotifyClientsToLeaveAsync() {
+            if(!NetworkManager.Singleton?.IsServer ?? true) return;
+
+            var relay = FindFirstObjectByType<SessionExitRelay>();
+            if(relay?.IsSpawned == true) {
+                relay.ReturnToMenuClientRpc();
+                await UniTask.Delay(150);
+            }
+        }
+        
+        private async UniTask CleanupNetworkGameObjectsAsync() {
+            if(NetworkManager.Singleton == null) {
+                return;
+            }
+    
+            if(!NetworkManager.Singleton.IsListening) {
+                return;
+            }
+
+    
+            ClearScenePlacedObjectsCache();
+            NetworkManager.Singleton.Shutdown();
+    
+            int waitFrames = 0;
+            while (NetworkManager.Singleton.ShutdownInProgress && waitFrames < 100) {
+                await UniTask.Yield();
+                waitFrames++;
+            }
+    
+            // CRITICAL: Reset transport to default state
+            var utp = NetworkManager.Singleton.GetComponent<UnityTransport>();
+            if (utp != null) {
+                utp.SetConnectionData("127.0.0.1", 7777);
+            }
+    
+            await UniTask.Delay(500);
+    
+        }
+        
+        private void ClearScenePlacedObjectsCache() {
+            var mgr = NetworkManager.Singleton?.SpawnManager;
+
+            var field = mgr?.GetType().GetField("m_ScenePlacedObjects",
+                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+
+            if(field?.GetValue(mgr) is IDictionary dict)
+                dict.Clear();
+        }
+        
+        private async UniTask LeaveUgsSessionAsync() {
+            if(ActiveSession == null) return;
+
+            try {
+                if(ActiveSession.IsHost)
+                    await ActiveSession.AsHost().DeleteAsync();
+                else
+                    await ActiveSession.LeaveAsync();
+
+                await UniTask.Delay(300);
+            } catch(Exception e) {
+                Debug.LogWarning($"Leave session error: {e.Message}");
+            }
+
+            UnhookSessionEvents(ActiveSession);
+            ActiveSession = null;
+            _relayJoinCode = null;
+        }
+        
+        private void ResetSessionManagerState() {
+            UnhookNetworkSceneCallbacks();
+            UnhookSessionEvents(ActiveSession);
+
+            _loadingGameScene = false;
+            _sessionEventsHooked = false;
+            _relayJoinCode = null;
+            ActiveSession = null;
+
+            FindFirstObjectByType<CustomNetworkManager>()?.ResetSpawningState();
+            Debug.Log("[SessionManager] Clean slate – ready for new session");
+        }
+        
+        private void LoadMainMenuScene(string scene) {
+            if(string.IsNullOrEmpty(scene) || SceneManager.GetActiveScene().name == scene) return;
+            SceneManager.LoadScene(scene, LoadSceneMode.Single);
+        }
+        
+        private void HookNetworkSceneCallbacks() {
+            if(NetworkManager.Singleton?.SceneManager == null) return;
+            var sm = NetworkManager.Singleton.SceneManager;
+
+            sm.OnLoadEventCompleted -= OnNetworkSceneLoadComplete;
+            sm.OnLoadEventCompleted += OnNetworkSceneLoadComplete;
+        }
+
+        private void UnhookNetworkSceneCallbacks() {
+            if(NetworkManager.Singleton?.SceneManager == null) return;
+            var sm = NetworkManager.Singleton.SceneManager;
+
+            sm.OnLoadEventCompleted -= OnNetworkSceneLoadComplete;
+        }
     
         /// <summary>
         /// Cleanly shuts down NGO/Relay and leaves (or deletes, if host) the UGS session,
@@ -97,51 +199,16 @@ namespace Network {
         /// Safe to call multiple times.
         /// </summary>
         public async UniTask LeaveToMainMenuAsync(string mainMenuScene = "MainMenu") {
-            if (_isLeaving) return;
+            if(_isLeaving) return;
             _isLeaving = true;
 
             try {
-                // Unhook scene events if we had them
-                if(NetworkManager.Singleton != null && NetworkManager.Singleton.SceneManager != null) {
-                    NetworkManager.Singleton.SceneManager.OnLoadEventCompleted -= OnNetworkSceneLoadComplete;
-                }
-
-                // Stop NGO (host/client/server) -> tears down transport/relay too
-                if(NetworkManager.Singleton != null && NetworkManager.Singleton.IsListening) {
-                    NetworkManager.Singleton.Shutdown();
-                    await UniTask.Yield(); // let shutdown propagate one frame
-                
-                    var cnm = FindFirstObjectByType<CustomNetworkManager>();
-                    if (cnm != null)
-                        cnm.ResetSpawningState();
-                }
-
-                // Leave or delete the UGS session
-                if(ActiveSession != null) {
-                    try {
-                        if(ActiveSession.IsHost) {
-                            // Host: end the session for everyone
-                            await ActiveSession.AsHost().DeleteAsync();
-                        } else {
-                            // Client: leave
-                            await ActiveSession.LeaveAsync();
-                        }
-                    } catch (Exception e) {
-                        Debug.LogWarning($"Leave/Delete session error (safe to ignore if already gone): {e.Message}");
-                    }
-
-                    UnhookSessionEvents(ActiveSession);
-                    ActiveSession = null;
-                    _relayJoinCode = null;
-                }
-
-                // Optional: clear any cached UI state here if you keep it in DontDestroyOnLoad objects
-
-                // Load Main Menu
-                if(!string.IsNullOrEmpty(mainMenuScene) && SceneManager.GetActiveScene().name != mainMenuScene) {
-                    SceneManager.LoadScene(mainMenuScene, LoadSceneMode.Single);
-                }
-            } catch (Exception e) {
+                await NotifyClientsToLeaveAsync();
+                await CleanupNetworkGameObjectsAsync();
+                await LeaveUgsSessionAsync();
+                ResetSessionManagerState();
+                LoadMainMenuScene(mainMenuScene);
+            } catch(Exception e) {
                 Debug.LogException(e);
             } finally {
                 _isLeaving = false;

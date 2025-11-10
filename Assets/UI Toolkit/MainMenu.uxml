@@ -47,20 +47,26 @@
                 </ui:VisualElement>
             </ui:VisualElement>
             <ui:VisualElement name="back-container" class="button-row">
-                <ui:Button text="Back" name="back-to-main" class="menu-chip menu-chip-enabled" />
+                <ui:Button text="Back" name="back-to-main" class="menu-chip menu-chip-enabled back-button" />
             </ui:VisualElement>
         </ui:VisualElement>
     </ui:VisualElement>
     <ui:VisualElement name="lobby-panel" class="panel full-abs center-xy hidden">
-        <ui:VisualElement name="lobby-container" class="lobby-container card">
+        <ui:VisualElement name="lobby-container" class="lobby-container card" style="width: 866px;">
             <ui:Label text="LOBBY" name="lobby-label" class="title" />
-            <!-- Rename this reference later... -->
             <ui:Label text="Join or host" name="waiting-label" class="lobby-status" />
             <ui:VisualElement class="lobby-body">
-                <ui:VisualElement name="VisualElement" class="lobby-left">
+                <ui:VisualElement name="VisualElement" class="lobby-left" style="margin-right: 25px; width: 420px;">
                     <ui:VisualElement name="host-container" class="setting-row">
                         <ui:Button text="Host" name="host-button" class="menu-chip menu-chip-enabled" />
-                        <ui:Label name="host-label" text="Join Code: ------" class="value-label accent" />
+                        <ui:VisualElement name="join-code-display" class="join-code-display" style="justify-content: flex-start;">
+                            <ui:Label name="host-label" text="Join Code: - - - - - - -" class="value-label accent" style="min-width: auto; margin-right: 4px; margin-left: 8px; padding-right: 1px; max-width: none; width: 146px;" />
+                            <ui:VisualElement style="flex-grow: 1; align-items: flex-end;">
+                                <ui:Button name="copy-code-button" class="copy-button menu-chip" style="width: 36px;">
+                                    <ui:Image name="copy-icon" class="copy-icon" />
+                                </ui:Button>
+                            </ui:VisualElement>
+                        </ui:VisualElement>
                     </ui:VisualElement>
                     <ui:VisualElement name="join-container" class="join-code-container">
                         <ui:Label text="Join with Code:" name="join-label" />
@@ -68,7 +74,7 @@
                         <ui:Button text="Join Session" name="join-button" class="menu-chip menu-chip-enabled" />
                     </ui:VisualElement>
                     <ui:VisualElement name="start-container" class="button-row">
-                        <ui:Button text="Back" name="back-to-gamemode" class="menu-chip menu-chip-enabled" />
+                        <ui:Button text="Back" name="back-to-gamemode" class="menu-chip menu-chip-enabled back-button" />
                         <ui:Button text="Start Game" name="start-button" class="menu-chip menu-chip-enabled" />
                     </ui:VisualElement>
                 </ui:VisualElement>
@@ -135,9 +141,27 @@
                 </ui:VisualElement>
             </ui:VisualElement>
             <ui:VisualElement name="apply-container" class="button-row">
-                <ui:Button text="Back" name="back-button" class="menu-chip menu-chip-enabled" />
+                <ui:Button text="Back" name="back-button" class="menu-chip menu-chip-enabled back-button" />
                 <ui:Button text="Apply" name="apply-button" class="menu-chip menu-chip-enabled" />
             </ui:VisualElement>
         </ui:VisualElement>
     </ui:VisualElement>
+    <ui:VisualElement name="credits-panel" class="panel full-abs center-xy hidden">
+        <ui:VisualElement name="credits-container" class="credits-container card">
+            <ui:Label text="CREDITS" name="credits-label" class="title" />
+            <ui:VisualElement name="credits-content" class="credits-content">
+                <ui:VisualElement name="main-logo-container" class="main-logo-container">
+                    <ui:Image name="main-credits-logo" class="main-credits-logo" />
+                </ui:VisualElement>
+                <ui:Label text="Made in Unity by whosteenie" name="credits-text" class="credits-text" />
+                <ui:VisualElement name="logo-container" class="logo-container">
+                    <ui:Image name="credits-logo" class="credits-logo" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+            <ui:VisualElement name="credits-buttons" class="button-row">
+                <ui:Button text="Back" name="back-to-lobby" class="menu-chip menu-chip-enabled back-button" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+    </ui:VisualElement>
+    <ui:VisualElement name="toast-container" enabled="false" class="toast-container" />
 </ui:UXML>

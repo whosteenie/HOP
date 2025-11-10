@@ -157,6 +157,8 @@ GameObject:
   - component: {fileID: 2584550646514722606}
   - component: {fileID: 6772666014369885431}
   - component: {fileID: -935627131628127128}
+  - component: {fileID: 8203108822323235438}
+  - component: {fileID: -5072903801992662741}
   m_Layer: 7
   m_Name: Player
   m_TagString: Untagged
@@ -198,7 +200,7 @@ CharacterController:
     m_Bits: 0
   m_LayerOverridePriority: 0
   m_ProvidesContacts: 0
-  m_Enabled: 1
+  m_Enabled: 0
   serializedVersion: 3
   m_Height: 1.9
   m_Radius: 0.3
@@ -219,7 +221,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 3921424009
+  GlobalObjectIdHash: 2644075980
   InScenePlacedSourceGlobalObjectIdHash: 0
   DeferredDespawnTick: 0
   Ownership: 1
@@ -404,6 +406,16 @@ MonoBehaviour:
     m_InternalValue: 100
   netIsDead:
     m_InternalValue: 0
+  playerMaterials:
+  - {fileID: 2100000, guid: f4fb8c083a36ec44294f9eabd63bd1f1, type: 2}
+  - {fileID: 2100000, guid: c5d04fd4368b4f44e9abe4a9ce8c9497, type: 2}
+  - {fileID: 2100000, guid: fce9519a7ad6d624db668c0a25f8d84a, type: 2}
+  - {fileID: 2100000, guid: 4bb95055a3ed1c14a8f7f8ac59fe97e3, type: 2}
+  - {fileID: 2100000, guid: e2040610130a73245aedc9fb9f8d9718, type: 2}
+  - {fileID: 2100000, guid: 0a4488b487ef14a4ba7e5698e8217eda, type: 2}
+  - {fileID: 2100000, guid: aaddffe38381a60428eb1aeab1ba8b85, type: 2}
+  playerMaterialIndex:
+    m_InternalValue: 0
 --- !u!114 &1564543611840940099
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -540,6 +552,31 @@ AudioListener:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2394102009201851988}
   m_Enabled: 1
+--- !u!114 &8203108822323235438
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2394102009201851988}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d98a21687ccf2fb47b7e5793ea419ab1, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Relays.SessionExitRelay
+  ShowTopMostFoldoutHeaderGroup: 1
+--- !u!114 &-5072903801992662741
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2394102009201851988}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bea1e704d5524164583e9bb70ab96df6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Network.ClientDisconnectWatcher
 --- !u!1 &4319006866933323338
 GameObject:
   m_ObjectHideFlags: 0
@@ -1106,6 +1143,10 @@ PrefabInstance:
     - target: {fileID: -3078870306507375925, guid: d9cd8eb4a074cd84ab2686c58bcf21d9, type: 3}
       propertyPath: m_Layer
       value: 7
+      objectReference: {fileID: 0}
+    - target: {fileID: -2717395650310496025, guid: d9cd8eb4a074cd84ab2686c58bcf21d9, type: 3}
+      propertyPath: m_UpdateWhenOffscreen
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: -2717395650310496025, guid: d9cd8eb4a074cd84ab2686c58bcf21d9, type: 3}
       propertyPath: m_Materials.Array.size

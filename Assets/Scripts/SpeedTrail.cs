@@ -4,7 +4,7 @@ using System.Linq;
 using Player;
 using Unity.Netcode;
 using UnityEngine;
-using Weapon;
+using Weapons;
 
 public class SpeedTrail : NetworkBehaviour
 {
@@ -42,8 +42,8 @@ public class SpeedTrail : NetworkBehaviour
         // Match your weapon’s thresholds for feel.
         var speed = controller ? controller.CurrentFullVelocity.magnitude : 0f;
         var targetMul = 1f;
-        const float minSpeed = Weapon.Weapon.MinSpeedThreshold; // 15f
-        const float maxSpeed = Weapon.Weapon.MaxSpeedThreshold;
+        const float minSpeed = Weapons.Weapon.MinSpeedThreshold; // 15f
+        const float maxSpeed = Weapons.Weapon.MaxSpeedThreshold;
         if(speed > minSpeed) {
             var t = Mathf.InverseLerp(minSpeed, maxSpeed, speed);
             targetMul = Mathf.Lerp(1f,  controller ? controller.GetComponent<WeaponManager>()?.CurrentWeapon?.maxDamageMultiplier ?? 2f : 2f, t);

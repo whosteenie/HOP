@@ -149,15 +149,6 @@
                     "processors": "",
                     "interactions": "",
                     "initialStateCheck": false
-                },
-                {
-                    "name": "TestRespawn",
-                    "type": "Button",
-                    "id": "43f68b41-25d2-47b9-86ef-44c58decac8c",
-                    "expectedControlType": "",
-                    "processors": "",
-                    "interactions": "",
-                    "initialStateCheck": false
                 }
             ],
             "bindings": [
@@ -620,17 +611,6 @@
                     "processors": "",
                     "groups": ";Keyboard&Mouse",
                     "action": "Grapple",
-                    "isComposite": false,
-                    "isPartOfComposite": false
-                },
-                {
-                    "name": "",
-                    "id": "9df32dc2-e598-40b4-8059-257f6fbb1ae7",
-                    "path": "<Keyboard>/i",
-                    "interactions": "",
-                    "processors": "",
-                    "groups": ";Keyboard&Mouse",
-                    "action": "TestRespawn",
                     "isComposite": false,
                     "isPartOfComposite": false
                 }

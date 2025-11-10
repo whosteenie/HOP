@@ -28,28 +28,23 @@ namespace Singletons {
         private readonly Queue<AudioSource> _audioPool = new();
         private readonly Dictionary<string, AudioSource> _activeSounds = new();
 
-        private void Awake()
-        {
-            if (Instance != null && Instance != this) { Destroy(gameObject); return; }
+        private void Awake() {
+            if(Instance != null && Instance != this) { Destroy(gameObject); return; }
             Instance = this;
             DontDestroyOnLoad(gameObject);
             InitializePool();
         }
 
-        private void InitializePool()
-        {
-            for (int i = 0; i < poolSize; i++)
-            {
+        private void InitializePool() {
+            for(var i = 0; i < poolSize; i++) {
                 var src = Instantiate(soundFXPrefab, transform);
                 src.gameObject.SetActive(false);
                 _audioPool.Enqueue(src);
             }
         }
 
-        private AudioSource GetPooled()
-        {
-            if (_audioPool.Count > 0)
-            {
+        private AudioSource GetPooled() {
+            if(_audioPool.Count > 0) {
                 var s = _audioPool.Dequeue();
                 s.gameObject.SetActive(true);
                 return s;
@@ -59,22 +54,20 @@ namespace Singletons {
 
         private static float DbToLinear(float db) => db <= -80f ? 0f : Mathf.Pow(10f, db / 20f);
 
-        private AudioClip PickRandomFrom(SFXKey key)
-        {
-            AudioClip[] bank = key switch
-            {
-                SFXKey.Walk    => walkClips,
-                SFXKey.Run     => runClips,
-                SFXKey.Jump    => jumpClips,
-                SFXKey.Land    => landClips,
-                SFXKey.Reload  => reloadClips,
-                SFXKey.Dry     => dryClips,
-                SFXKey.Shoot   => shootClips,
-                SFXKey.JumpPad => jumpPadClips,
-                SFXKey.Grapple => grappleClips,
+        private AudioClip PickRandomFrom(SfxKey key) {
+            var bank = key switch {
+                SfxKey.Walk    => walkClips,
+                SfxKey.Run     => runClips,
+                SfxKey.Jump    => jumpClips,
+                SfxKey.Land    => landClips,
+                SfxKey.Reload  => reloadClips,
+                SfxKey.Dry     => dryClips,
+                SfxKey.Shoot   => shootClips,
+                SfxKey.JumpPad => jumpPadClips,
+                SfxKey.Grapple => grappleClips,
                 _ => null
             };
-            if (bank == null || bank.Length == 0) return null;
+            if(bank == null || bank.Length == 0) return null;
             return bank[Random.Range(0, bank.Length)];
         }
 
@@ -82,26 +75,22 @@ namespace Singletons {
         /// Network-consumed entrypoint. If parent != null, the AudioSource is parented (follows player).
         /// Else, it's placed at the provided world position.
         /// </summary>
-        public void PlayKey(SFXKey key, Transform parent, Vector3 worldPos, bool allowOverlap)
-        {
+        public void PlayKey(SfxKey key, Transform parent, Vector3 worldPos, bool allowOverlap) {
             var clip = PickRandomFrom(key);
-            if (clip == null) return;
+            if(clip == null) return;
 
             // overlap policy (shares your old logic; keep simple per-key gate)
-            string trackKey = key.ToString();
-            if (!allowOverlap && _activeSounds.TryGetValue(trackKey, out var playing) && playing != null && playing.isPlaying)
+            var trackKey = key.ToString();
+            if(!allowOverlap && _activeSounds.TryGetValue(trackKey, out var playing) && playing != null && playing.isPlaying)
                 return;
 
             var src = GetPooled();
 
             // parent vs world-pos
-            if (parent != null)
-            {
+            if(parent != null) {
                 src.transform.SetParent(parent, false);
                 src.transform.localPosition = Vector3.zero;
-            }
-            else
-            {
+            } else {
                 src.transform.SetParent(transform, false);
                 src.transform.position = worldPos;
             }
@@ -122,10 +111,9 @@ namespace Singletons {
             StartCoroutine(ReturnAfter(src, clip.length, trackKey));
         }
 
-        private IEnumerator ReturnAfter(AudioSource src, float delay, string trackKey)
-        {
+        private IEnumerator ReturnAfter(AudioSource src, float delay, string trackKey) {
             yield return new WaitForSeconds(delay);
-            if (_activeSounds.TryGetValue(trackKey, out var cur) && cur == src)
+            if(_activeSounds.TryGetValue(trackKey, out var cur) && cur == src)
                 _activeSounds.Remove(trackKey);
             src.Stop();
             src.clip = null;
@@ -135,8 +123,7 @@ namespace Singletons {
         }
 
         // Keep your UI/local helpers if you like:
-        public void PlayUISound(AudioClip clip)
-        {
+        public void PlayUISound(AudioClip clip) {
             if (clip == null) return;
             var src = GetPooled();
             // UI is non-spatial; parent to manager

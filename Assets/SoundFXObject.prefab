@@ -10,7 +10,6 @@ GameObject:
   m_Component:
   - component: {fileID: 3475281035864187362}
   - component: {fileID: 4120442816761199137}
-  - component: {fileID: 8860077903724084092}
   m_Layer: 0
   m_Name: SoundFXObject
   m_TagString: Untagged
@@ -157,16 +156,3 @@ AudioSource:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
---- !u!114 &8860077903724084092
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1219222032974365857}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 4f54ab8fb57adbd4783bccd616dabf30, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::SoundFXData
-  soundType: 

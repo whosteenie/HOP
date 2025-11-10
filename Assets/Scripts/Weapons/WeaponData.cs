@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace Weapon {
+namespace Weapons {
     [CreateAssetMenu(fileName = "New Weapon", menuName = "Weapon Data")]
     public class WeaponData : ScriptableObject {
         [Header("Identity")]
@@ -27,11 +27,6 @@ namespace Weapon {
     
         [Header("Reload")]
         public float reloadTime;
-
-        [Header("Audio")]
-        public AudioClip[] fireSounds;
-        public AudioClip[] dryFireSounds;
-        public AudioClip[] reloadSounds;
     
         [Header("Visuals")]
         public TrailRenderer bulletTrail;

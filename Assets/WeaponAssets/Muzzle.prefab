@@ -11,7 +11,6 @@ GameObject:
   - component: {fileID: 2397790653508655913}
   - component: {fileID: 3285373479825363906}
   - component: {fileID: 5549289142747657081}
-  - component: {fileID: 6154184416841627779}
   m_Layer: 0
   m_Name: MuzzleLight
   m_TagString: Untagged
@@ -128,19 +127,6 @@ MonoBehaviour:
   m_ShadowLayerMask: 1
   m_RenderingLayers: 1
   m_ShadowRenderingLayers: 1
---- !u!114 &6154184416841627779
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 4238211044925451496}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 3ee3b3618091b884bbc3827f6da24ea1, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::MuzzleLight
-  lightDuration: 0.05
 --- !u!1 &6299671218319471870
 GameObject:
   m_ObjectHideFlags: 0

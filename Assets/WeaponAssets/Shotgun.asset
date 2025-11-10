@@ -17,7 +17,7 @@ MonoBehaviour:
   positionSpawn: {x: 0.301, y: -0.13400006, z: 0.368}
   rotationSpawn: {x: 0, y: 180, z: 0}
   muzzlePrefab: {fileID: 6299671218319471870, guid: d13b2bf13a0548a4aa9c2cd249a35a04, type: 3}
-  positionMuzzle: {x: 0, y: 0, z: 0}
+  positionMuzzle: {x: 0, y: 0, z: -0.4702}
   magSize: 10
   currentAmmo: 10
   baseDamage: 30
@@ -27,11 +27,5 @@ MonoBehaviour:
   fireMode: Semi
   bulletSpread: 15
   reloadTime: 4
-  fireSounds:
-  - {fileID: 8300000, guid: c745ca072384bd84390c1e8475f3fb74, type: 3}
-  dryFireSounds:
-  - {fileID: 8300000, guid: 16bca0380dd61414d9df4a1c63d2e05d, type: 3}
-  reloadSounds:
-  - {fileID: 8300000, guid: f9ff77ddbf838464e95ed2fedbf28d34, type: 3}
   bulletTrail: {fileID: 328621789431213768, guid: 4b92d630cd66e7a45a83060b816bdbbe, type: 3}
   bulletImpact: {fileID: 0}

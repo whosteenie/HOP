@@ -69,8 +69,11 @@ namespace Singletons {
             _ammoTotal.text = total.ToString();
         }
 
+        public void DisableHUD() {
+            uiDocument.rootVisualElement.style.display = DisplayStyle.None;
+        }
+
         public void HideHUD() {
-            Debug.LogWarning("Hiding HUD");
             _healthContainer.style.visibility = Visibility.Hidden;
             _multiplierContainer.style.visibility = Visibility.Hidden;
             _ammoContainer.style.visibility = Visibility.Hidden;
@@ -78,7 +81,6 @@ namespace Singletons {
         }
 
         public void ShowHUD() {
-            Debug.LogWarning("Showing HUD");
             _healthContainer.style.visibility = Visibility.Visible;
             _multiplierContainer.style.visibility = Visibility.Visible;
             _ammoContainer.style.visibility = Visibility.Visible;
