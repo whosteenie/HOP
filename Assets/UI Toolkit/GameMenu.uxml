@@ -55,7 +55,7 @@
                     <ui:Label text="Controls" name="control-label" class="section-title" />
                     <ui:VisualElement name="sensitivity-x-container" class="setting-row">
                         <ui:Label text="Mouse Sensitivity X" name="sensitivity-x-label" class="setting-label" />
-                        <ui:Slider name="sensitivity-x" low-value="0.05" high-value="0.5" class="setting-slider" />
+                        <ui:Slider name="sensitivity-x" low-value="0.05" high-value="0.5" value="0" class="setting-slider" />
                         <ui:Label name="sensitivity-x-value" text="0.10" class="value-label" />
                     </ui:VisualElement>
                     <ui:VisualElement name="sensitivity-y-container" class="setting-row">

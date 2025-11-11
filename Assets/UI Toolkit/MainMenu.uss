@@ -445,3 +445,103 @@
     top: 0;
     left: 0;
 }
+
+/* ===== CREDITS ===== */
+
+.credits-container {
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 26px;
+    min-width: 500px;
+    min-height: 400px;
+}
+
+.credits-content {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 0;
+}
+
+.credits-text {
+    font-size: 20px;
+    color: white;
+    -unity-text-align: middle-center;
+}
+
+.main-logo-container {
+    width: 240px;
+    height: 240px;
+}
+
+.main-credits-logo {
+    width: 100%;
+    height: 100%;
+    --unity-image: url('/Assets/UI Toolkit/Images/whostudios-notext.png');
+    --unity-image-size: contain;
+}
+
+.logo-container {
+    width: 60px;
+    height: 60px;
+    margin-top: 16px;
+}
+
+.credits-logo {
+    width: 100%;
+    height: 100%;
+    --unity-image: url('/Assets/UI Toolkit/Images/github.png');
+    --unity-image-size: contain;
+    cursor: link;
+    transition: opacity 0.2s ease;
+}
+
+.credits-logo:hover {
+    opacity: 0.8;
+}
+
+/* -------------------------------------------------------------
+   TOAST – 100% Unity UI Toolkit compatible (2021+)
+   ------------------------------------------------------------- */
+.toast-container {
+    position: absolute;
+    left: 50%;
+    bottom: 80px;
+    translate: -50% 0;  /* Unity's translate property */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+/* Base toast style */
+.toast {
+    background-color: rgba(30,30,30,0.92);
+    color: #ffffff;
+    font-size: 16px;
+    padding: 12px 24px;
+    border-radius: 8px;
+    border-width: 1px;
+    border-color: rgba(0,0,0,0.4);
+    opacity: 0;
+    transition-duration: 0.3s;
+    transition-property: opacity, translate;  /* Changed from transform */
+    transition-timing-function: ease-out;
+}
+
+/* Fake bold text */
+.toast-bold {
+    -unity-text-outline-color: rgba(0,0,0,0.8);
+    -unity-text-outline-width: 0.5;
+}
+
+/* Animation states */
+.toast.show  {
+    opacity: 1;
+    translate: 0 0;  /* No offset */
+}
+.toast.hide  {
+    opacity: 0;
+    translate: 0 -20px;  /* Move up 20px */
+}

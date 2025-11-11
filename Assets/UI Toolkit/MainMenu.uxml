@@ -91,7 +91,6 @@
         <ui:VisualElement name="loadout-container" class="loadout-container card" style="height: auto; top: 275px; padding-left: 20px; padding-right: 20px; padding-bottom: 20px; padding-top: 20px;">
             <ui:VisualElement name="customization-bar" class="customization-bar">
                 <ui:VisualElement name="color-picker-container" class="color-picker-container" style="margin-right: 5px;">
-                    <!-- Current color display - shows only selected -->
                     <ui:VisualElement name="current-color-display" class="current-color-display">
                         <ui:VisualElement name="current-color-0" class="color-circle current-color color-0 hidden" />
                         <ui:VisualElement name="current-color-1" class="color-circle current-color color-1 hidden" />
@@ -101,7 +100,6 @@
                         <ui:VisualElement name="current-color-5" class="color-circle current-color color-5 hidden" />
                         <ui:VisualElement name="current-color-6" class="color-circle current-color color-6 hidden" />
                     </ui:VisualElement>
-                    <!-- Color options dropdown - hides selected -->
                     <ui:VisualElement name="color-options" class="color-options hidden" style="left: auto; flex-direction: row-reverse; top: auto; right: 36px; bottom: -9px; justify-content: space-evenly; align-self: center; width: 240px;">
                         <ui:VisualElement name="option-color-0" class="color-circle color-option color-0" style="margin-bottom: 0;" />
                         <ui:VisualElement name="option-color-1" class="color-circle color-option color-1" style="margin-bottom: 0; margin-right: 0;" />
@@ -233,7 +231,6 @@
             <ui:Label text="WHO ARE YOU?" name="first-time-label" class="title" />
             <ui:VisualElement name="first-time-inputs" class="first-time-inputs" style="margin-top: 20px; margin-bottom: 54px;">
                 <ui:VisualElement name="first-time-color-container" class="first-time-color-container" style="margin-right: 10px;">
-                    <!-- Current color display -->
                     <ui:VisualElement name="first-time-current-color-display" class="current-color-display">
                         <ui:VisualElement name="first-time-current-color-0" class="color-circle current-color color-0 hidden" style="width: 24px; height: 24px;" />
                         <ui:VisualElement name="first-time-current-color-1" class="color-circle current-color color-1 hidden" style="width: 24px; height: 24px;" />
@@ -243,7 +240,6 @@
                         <ui:VisualElement name="first-time-current-color-5" class="color-circle current-color color-5 hidden" style="width: 24px; height: 24px;" />
                         <ui:VisualElement name="first-time-current-color-6" class="color-circle current-color color-6 hidden" style="width: 24px; height: 24px;" />
                     </ui:VisualElement>
-                    <!-- Color options -->
                     <ui:VisualElement name="first-time-color-options" class="color-options first-time-color-options hidden" style="left: -9px; right: auto; min-width: 40px; justify-content: space-evenly; top: 30px; min-height: 215px; padding: 5px;">
                         <ui:VisualElement name="first-time-option-color-0" class="color-circle color-option color-0" style="margin-bottom: 0; width: 24px; height: 24px;" />
                         <ui:VisualElement name="first-time-option-color-1" class="color-circle color-option color-1" style="margin-bottom: 0; width: 24px; height: 24px;" />

@@ -50,6 +50,8 @@ namespace Network.Singletons {
         private Button _quitButton;
         private Button _applyButton;
         private Button _backButton;
+
+        private VisualElement _root;
     
         #endregion
     
@@ -63,7 +65,7 @@ namespace Network.Singletons {
         #region Unity Lifecycle
 
         private void Awake() {
-            if(Instance != null) {
+            if(Instance != null && Instance != this) {
                 Destroy(gameObject);
                 return;
             }
@@ -73,68 +75,103 @@ namespace Network.Singletons {
         }
 
         private void OnEnable() {
-            var root = uiDocument.rootVisualElement;
-        
-            // Get panels
-            _pauseMenuPanel = root.Q<VisualElement>("pause-menu-panel");
-            _optionsPanel = root.Q<VisualElement>("options-panel");
-        
-            _resumeButton = root.Q<Button>("resume-button");
-            _optionsButton = root.Q<Button>("options-button");
-            _quitButton = root.Q<Button>("quit-button");
-        
-            // Setup main menu buttons
-            _resumeButton.clicked += () => {
-                SoundFXManager.Instance.PlayUISound(buttonClickSound);
-                ResumeGame();
-            };
-            _resumeButton.RegisterCallback<MouseOverEvent>(MouseHover);
-        
-            _optionsButton.clicked += ShowOptions;
-            _optionsButton.RegisterCallback<MouseOverEvent>(MouseHover);
-        
-            _quitButton.clicked += QuitToMenu;
-            _quitButton.RegisterCallback<MouseOverEvent>(MouseHover);
-        
-            _applyButton = root.Q<Button>("apply-button");
-            _backButton = root.Q<Button>("back-button");
-        
-            // Setup options buttons
-            _applyButton.clicked += ApplySettings;
-            _applyButton.RegisterCallback<MouseOverEvent>(MouseHover);
-        
-            _backButton.clicked += HideOptions;
-            _backButton.RegisterCallback<MouseOverEvent>(MouseHover);
-        
-            // Get audio controls
-            _masterVolumeSlider = root.Q<Slider>("master-volume");
-            _musicVolumeSlider = root.Q<Slider>("music-volume");
-            _sfxVolumeSlider = root.Q<Slider>("sfx-volume");
-            _masterVolumeValue = root.Q<Label>("master-volume-value");
-            _musicVolumeValue = root.Q<Label>("music-volume-value");
-            _sfxVolumeValue = root.Q<Label>("sfx-volume-value");
-        
-            // Get sensitivity controls
-            _sensitivityXSlider = root.Q<Slider>("sensitivity-x");
-            _sensitivityYSlider = root.Q<Slider>("sensitivity-y");
-            _sensitivityXValue = root.Q<Label>("sensitivity-x-value");
-            _sensitivityYValue = root.Q<Label>("sensitivity-y-value");
-            _invertYToggle = root.Q<Toggle>("invert-y");
-        
-            // Get graphics controls
-            _qualityDropdown = root.Q<DropdownField>("quality-level");
-            _vsyncToggle = root.Q<Toggle>("vsync");
-            _fpsDropdown = root.Q<DropdownField>("target-fps");
+            _root = uiDocument.rootVisualElement;
+            
+            FindUIElements();
+            RegisterUIEvents();
         
             SetupAudioCallbacks();
             SetupControlsCallbacks();
             SetupGraphicsCallbacks();
         
             LoadSettings();
+        }
+
+        private void Update() {
+            if(_localController == null && SceneManager.GetActiveScene().name == "Game") {
+                FindLocalController();
+            }
+        }
+
+        private void FindLocalController() {
+            var allControllers = FindObjectsByType<PlayerController>(FindObjectsSortMode.None);
+            foreach(var controller in allControllers) {
+                if(controller.IsOwner) {
+                    _localController = controller.GetComponent<PlayerController>();
+                    break;
+                }
+            }
+        }
         
-            // Hide menu initially
-            _pauseMenuPanel.AddToClassList("hidden");
-            _optionsPanel.AddToClassList("hidden");
+        private void FindUIElements() {
+            // Get panels
+            _pauseMenuPanel = _root.Q<VisualElement>("pause-menu-panel");
+            _optionsPanel = _root.Q<VisualElement>("options-panel");
+        
+            _resumeButton = _root.Q<Button>("resume-button");
+            _optionsButton = _root.Q<Button>("options-button");
+            _quitButton = _root.Q<Button>("quit-button");
+            
+            _applyButton = _root.Q<Button>("apply-button");
+            _backButton = _root.Q<Button>("back-button");
+            
+            // Get audio controls
+            _masterVolumeSlider = _root.Q<Slider>("master-volume");
+            _musicVolumeSlider = _root.Q<Slider>("music-volume");
+            _sfxVolumeSlider = _root.Q<Slider>("sfx-volume");
+            _masterVolumeValue = _root.Q<Label>("master-volume-value");
+            _musicVolumeValue = _root.Q<Label>("music-volume-value");
+            _sfxVolumeValue = _root.Q<Label>("sfx-volume-value");
+        
+            // Get sensitivity controls
+            _sensitivityXSlider = _root.Q<Slider>("sensitivity-x");
+            _sensitivityYSlider = _root.Q<Slider>("sensitivity-y");
+            _sensitivityXValue = _root.Q<Label>("sensitivity-x-value");
+            _sensitivityYValue = _root.Q<Label>("sensitivity-y-value");
+            _invertYToggle = _root.Q<Toggle>("invert-y");
+        
+            // Get graphics controls
+            _qualityDropdown = _root.Q<DropdownField>("quality-level");
+            _vsyncToggle = _root.Q<Toggle>("vsync");
+            _fpsDropdown = _root.Q<DropdownField>("target-fps");
+        }
+        
+        private void RegisterUIEvents() {
+            // Setup main menu buttons
+            _resumeButton.clicked += () => {
+                OnButtonClicked();
+                ResumeGame();
+            };
+            _resumeButton.RegisterCallback<MouseOverEvent>(MouseHover);
+        
+            _optionsButton.clicked += () => {
+                OnButtonClicked();
+                ShowOptions();
+            };
+            _optionsButton.RegisterCallback<MouseOverEvent>(MouseHover);
+        
+            _quitButton.clicked += () => {
+                OnButtonClicked(true);
+                QuitToMenu();
+            };
+            _quitButton.RegisterCallback<MouseOverEvent>(MouseHover);
+        
+            // Setup options buttons
+            _applyButton.clicked += () => {
+                OnButtonClicked();
+                ApplySettings();
+            };
+            _applyButton.RegisterCallback<MouseOverEvent>(MouseHover);
+        
+            _backButton.clicked += ()=> {
+                OnButtonClicked(true);
+                HideOptions();
+            };
+            _backButton.RegisterCallback<MouseOverEvent>(MouseHover);
+        }
+        
+        private void OnButtonClicked(bool isBack = false) {
+            SoundFXManager.Instance.PlayUISound(!isBack ? buttonClickSound : backClickSound);
         }
 
         private void MouseHover(MouseOverEvent evt) {
@@ -214,15 +251,8 @@ namespace Network.Singletons {
             UnityEngine.Cursor.lockState = CursorLockMode.None;
             UnityEngine.Cursor.visible = true;
 
-            if(_localController != null) {
-                var allControllers = FindObjectsByType<PlayerController>(FindObjectsSortMode.None);
-                foreach(var controller in allControllers) {
-                    if(controller.IsOwner) {
-                        _localController = controller.GetComponent<PlayerController>();
-                        _localController.moveInput = Vector2.zero;
-                        break;
-                    }
-                }
+            if(_localController) {
+                _localController.moveInput = Vector2.zero;
             }
         }
     
@@ -236,7 +266,6 @@ namespace Network.Singletons {
     
         private void ShowOptions() {
             if(SceneManager.GetActiveScene().name != "Game") return;
-            SoundFXManager.Instance.PlayUISound(buttonClickSound);
             LoadSettings();
             _pauseMenuPanel.AddToClassList("hidden");
             _optionsPanel.RemoveFromClassList("hidden");
@@ -244,15 +273,12 @@ namespace Network.Singletons {
     
         private void HideOptions() {
             if(SceneManager.GetActiveScene().name != "Game") return;
-            SoundFXManager.Instance.PlayUISound(backClickSound);
             _optionsPanel.AddToClassList("hidden");
             _pauseMenuPanel.RemoveFromClassList("hidden");
         }
     
         private async void QuitToMenu() {
             try {
-                SoundFXManager.Instance.PlayUISound(backClickSound);
-                
                 await SessionManager.Instance.LeaveToMainMenuAsync();
             
                 var root = uiDocument.rootVisualElement;
@@ -316,8 +342,6 @@ namespace Network.Singletons {
         
             PlayerPrefs.Save();
         
-            SoundFXManager.Instance.PlayUISound(buttonClickSound);
-        
             ApplySettingsInternal();
         
             Debug.Log("Settings applied and saved!");
@@ -328,14 +352,11 @@ namespace Network.Singletons {
             audioMixer.SetFloat("masterVolume", LinearToDb(_masterVolumeSlider.value));
             audioMixer.SetFloat("musicVolume", LinearToDb(_musicVolumeSlider.value));
             audioMixer.SetFloat("soundFXVolume", LinearToDb(_sfxVolumeSlider.value));
-        
-            // Apply sensitivity to player controller
-            if (_localController != null) {
-                var invertMultiplier = _invertYToggle.value ? -1f : 1f;
-                _localController.lookSensitivity = new Vector2(
-                    _sensitivityXSlider.value,
-                    _sensitivityYSlider.value * invertMultiplier
-                );
+            
+            var invertMultiplier = _invertYToggle.value ? -1f : 1f;
+
+            if(_localController) {
+                _localController.lookSensitivity = new Vector2(_sensitivityXSlider.value, _sensitivityYSlider.value * invertMultiplier);
             }
         
             // Apply graphics
@@ -343,7 +364,7 @@ namespace Network.Singletons {
             QualitySettings.vSyncCount = _vsyncToggle.value ? 1 : 0;
         
             // Apply target FPS
-            switch (_fpsDropdown.index) {
+            switch(_fpsDropdown.index) {
                 case 0: Application.targetFrameRate = 30; break;
                 case 1: Application.targetFrameRate = 60; break;
                 case 2: Application.targetFrameRate = 120; break;

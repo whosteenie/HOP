@@ -5579,7 +5579,7 @@ Transform:
   m_GameObject: {fileID: 141476934}
   serializedVersion: 2
   m_LocalRotation: {x: -0.5, y: -0.5, z: 0.5, w: 0.5}
-  m_LocalPosition: {x: 50.343628, y: -101.365875, z: 0.87957764}
+  m_LocalPosition: {x: 50.343628, y: -97.66, z: 0.87957764}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -16118,7 +16118,7 @@ Transform:
   m_GameObject: {fileID: 402273368}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0.7071068, w: 0.7071068}
-  m_LocalPosition: {x: 99.69205, y: -92.98541, z: -44.12059}
+  m_LocalPosition: {x: 99.69205, y: -89.4, z: -44.12059}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -33041,14 +33041,6 @@ MonoBehaviour:
   - weaponName: Benelli
     icon: {fileID: 0}
     weaponPrefab: {fileID: 0}
-  playerColors:
-  - {r: 1, g: 1, b: 1, a: 0}
-  - {r: 1, g: 0, b: 0, a: 0}
-  - {r: 1, g: 0.64705884, b: 0, a: 0}
-  - {r: 1, g: 1, b: 0, a: 0}
-  - {r: 0, g: 1, b: 0, a: 0}
-  - {r: 0, g: 0, b: 1, a: 0}
-  - {r: 0.5019608, g: 0, b: 0.5019608, a: 0}
   playerMaterials:
   - {fileID: 2100000, guid: ebbe52bcd784e3147849a94053a5c035, type: 2}
   - {fileID: 2100000, guid: 1ded9121c1a0a964c938d58ab507c349, type: 2}
@@ -33058,10 +33050,12 @@ MonoBehaviour:
   - {fileID: 2100000, guid: 84ba988c9e922544ea7b389c21406a2f, type: 2}
   - {fileID: 2100000, guid: 0506a00ddfcd6a0499fba55ee5cef747, type: 2}
   previewCamera: {fileID: 1505931946}
-  previewCameraOffset: {fileID: 1992869953}
+  originalCameraTransform: {fileID: 1523405152}
+  previewCameraTransform: {fileID: 1992869953}
   playerModelPrefab: {fileID: 2394102009201851988, guid: 44209664d1ffff54d86b748ca38189e9, type: 3}
   previewRenderTexture: {fileID: 8400000, guid: 2407d211588cebb4685cafb3aa876dc1, type: 2}
   cameraTransitionDuration: 1
+  mainMenuManager: {fileID: 643272509}
 --- !u!4 &855784179
 Transform:
   m_ObjectHideFlags: 0
@@ -44401,7 +44395,7 @@ Transform:
   m_GameObject: {fileID: 1105810797}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0.7071068, w: -0.7071068}
-  m_LocalPosition: {x: -41.167343, y: -97.17706, z: -39.964523}
+  m_LocalPosition: {x: -41.167343, y: -94.51, z: -39.964523}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -61000,7 +60994,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1523405152}
   m_Layer: 9
-  m_Name: MainMenuCam
+  m_Name: MainMenuCamPosition
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -71090,7 +71084,7 @@ Transform:
   m_GameObject: {fileID: 1718600203}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0.7071068, w: -0.7071068}
-  m_LocalPosition: {x: -11.175058, y: -109.78461, z: -101.76297}
+  m_LocalPosition: {x: -11.175058, y: -102.43, z: -101.76297}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []

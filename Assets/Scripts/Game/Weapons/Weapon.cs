@@ -69,7 +69,7 @@ namespace Game.Weapons {
         #region Properties
 
         public bool IsReloading { get; private set; }
-        public float CurrentDamageMultiplier { get; private set; } = 1f;
+        public float CurrentDamageMultiplier { get; set; } = 1f;
 
         #endregion
 

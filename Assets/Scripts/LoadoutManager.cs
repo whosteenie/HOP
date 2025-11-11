@@ -1,7 +1,9 @@
 using System;
 using System.Collections;
 using Network.Singletons;
+using Unity.VisualScripting;
 using UnityEngine;
+using UnityEngine.Serialization;
 using UnityEngine.UIElements;
 
 public class LoadoutManager : MonoBehaviour {
@@ -15,23 +17,20 @@ public class LoadoutManager : MonoBehaviour {
         
     [Header("3D Preview")]
     [SerializeField] private Camera previewCamera;
-    [SerializeField] private Transform previewCameraOffset;
+    [SerializeField] private Transform originalCameraTransform;
+    [SerializeField] private Transform previewCameraTransform;
     [SerializeField] private GameObject playerModelPrefab;
     [SerializeField] private RenderTexture previewRenderTexture;
     [SerializeField] private float cameraTransitionDuration = 1f;
         
     private UIDocument _uiDocument;
     private VisualElement _root;
-    
-    // Camera state
-    private Vector3 _originalCameraPosition;
-    private Quaternion _originalCameraRotation;
-    private bool _isTransitioning;
         
     // UI Elements
     private VisualElement _colorOptions;
     private TextField _playerNameInput;
     private Button _applyNameButton;
+    private Button _backLoadoutButton;
         
     private VisualElement _primarySlot;
     private VisualElement _secondarySlot;
@@ -53,15 +52,11 @@ public class LoadoutManager : MonoBehaviour {
     private int _selectedTertiaryIndex;
     private string _currentPlayerName;
     private string _savedPlayerName;
+    
+    [SerializeField] private MainMenuManager mainMenuManager;
         
     private void Awake() {
-        var mainMenuManager = FindFirstObjectByType<MainMenuManager>();
         _uiDocument = mainMenuManager.uiDocument;
-        
-        if (previewCamera != null) {
-            _originalCameraPosition = previewCamera.transform.position;
-            _originalCameraRotation = previewCamera.transform.rotation;
-        }
     }
         
     private void OnEnable() {
@@ -72,19 +67,14 @@ public class LoadoutManager : MonoBehaviour {
     }
 
     public void ShowLoadout() {
-        if(!_isTransitioning) {
-            Setup3DPreview();
-            StartCoroutine(TransitionCameraToPreview());
-        }
+        Setup3DPreview();
+        StopCoroutine(TransitionCameraToOriginal());
+        StartCoroutine(TransitionCameraToPreview());
     }
     
     private void HideLoadout() {
-        if(!_isTransitioning) {
-            StartCoroutine(TransitionCameraToOriginal());
-            if (_previewPlayerModel != null) {
-                Destroy(_previewPlayerModel);
-            }
-        }
+        StopCoroutine(TransitionCameraToPreview());
+        StartCoroutine(TransitionCameraToOriginal());
     }
         
     private void SetupUIReferences() {
@@ -94,7 +84,10 @@ public class LoadoutManager : MonoBehaviour {
         // Name input
         _playerNameInput = _root.Q<TextField>("player-name-input");
         _applyNameButton = _root.Q<Button>("apply-name-button");
-            
+
+        _applyNameButton.clicked += () => mainMenuManager.OnButtonClicked();
+        _applyNameButton.RegisterCallback<MouseOverEvent>(mainMenuManager.MouseHover);
+        
         // Weapon slots
         _primarySlot = _root.Q<VisualElement>("primary-weapon-slot");
         _secondarySlot = _root.Q<VisualElement>("secondary-weapon-slot");
@@ -109,8 +102,12 @@ public class LoadoutManager : MonoBehaviour {
         _tertiaryWeaponImage = _root.Q<Image>("tertiary-weapon-image");
             
         // Back button
-        var backButton = _root.Q<Button>("back-to-main-from-loadout");
-        backButton.clicked += OnBackClicked;
+        _backLoadoutButton = _root.Q<Button>("back-to-main-from-loadout");
+        _backLoadoutButton.clicked += () => {
+            mainMenuManager.OnButtonClicked(true);
+            OnBackClicked();
+        };
+        _backLoadoutButton.RegisterCallback<MouseOverEvent>(mainMenuManager.MouseHover);
     }
         
     private void SetupEventHandlers() {
@@ -119,15 +116,19 @@ public class LoadoutManager : MonoBehaviour {
             var currentCircle = _root.Q<VisualElement>($"current-color-{i}");
             if (currentCircle != null) {
                 currentCircle.RegisterCallback<ClickEvent>(evt => ToggleColorPicker());
+                currentCircle.RegisterCallback<ClickEvent>(evt => mainMenuManager.OnButtonClicked());
+                currentCircle.RegisterCallback<MouseOverEvent>(evt => mainMenuManager.MouseHover(evt));
             }
         }
         
         // Color option clicks
-        for (int i = 0; i < 7; i++) {
+        for(var i = 0; i < 7; i++) {
             var optionCircle = _root.Q<VisualElement>($"option-color-{i}");
-            if (optionCircle != null) {
+            if(optionCircle != null) {
                 var index = i;
                 optionCircle.RegisterCallback<ClickEvent>(evt => SelectColor(index));
+                optionCircle.RegisterCallback<ClickEvent>(evt => mainMenuManager.OnButtonClicked());
+                optionCircle.RegisterCallback<MouseOverEvent>(evt => mainMenuManager.MouseHover(evt));
             }
         }
             
@@ -137,8 +138,16 @@ public class LoadoutManager : MonoBehaviour {
             
         // Weapon slot clicks
         _primarySlot.RegisterCallback<ClickEvent>(evt => ToggleWeaponDropdown(_primaryDropdown));
+        _primarySlot.RegisterCallback<ClickEvent>(evt => mainMenuManager.OnButtonClicked());
+        _primarySlot.RegisterCallback<MouseOverEvent>(evt => mainMenuManager.MouseHover(evt));
+        
         _secondarySlot.RegisterCallback<ClickEvent>(evt => ToggleWeaponDropdown(_secondaryDropdown));
+        _secondarySlot.RegisterCallback<ClickEvent>(evt => mainMenuManager.OnButtonClicked());
+        _secondarySlot.RegisterCallback<MouseOverEvent>(evt => mainMenuManager.MouseHover(evt));
+        
         _tertiarySlot.RegisterCallback<ClickEvent>(evt => ToggleWeaponDropdown(_tertiaryDropdown));
+        _tertiarySlot.RegisterCallback<ClickEvent>(evt => mainMenuManager.OnButtonClicked());
+        _tertiarySlot.RegisterCallback<MouseOverEvent>(evt => mainMenuManager.MouseHover(evt));
             
         // Populate weapon dropdowns
         PopulateWeaponDropdown(_primaryDropdown.Q<ScrollView>("primary-scroll"), primaryWeapons, SelectPrimaryWeapon);
@@ -180,7 +189,7 @@ public class LoadoutManager : MonoBehaviour {
         selectedCircle?.RemoveFromClassList("hidden");
         
         // Update options dropdown - hide selected, show others
-        for (int i = 0; i < 7; i++) {
+        for (var i = 0; i < 7; i++) {
             var optionCircle = _root.Q<VisualElement>($"option-color-{i}");
             if (optionCircle != null) {
                 if (i == colorIndex) {
@@ -243,7 +252,7 @@ public class LoadoutManager : MonoBehaviour {
         var container = scroll.contentContainer;
         container.Clear();
             
-        for (int i = 0; i < weapons.Length; i++) {
+        for (var i = 0; i < weapons.Length; i++) {
             var weaponOption = new VisualElement();
             weaponOption.AddToClassList("weapon-option");
                 
@@ -302,7 +311,7 @@ public class LoadoutManager : MonoBehaviour {
             Destroy(_previewPlayerModel);
         }
         
-        var modelPosition = previewCameraOffset.position + previewCameraOffset.transform.forward * 3f;
+        var modelPosition = previewCameraTransform.position + previewCameraTransform.transform.forward * 3f;
         modelPosition.y -= 0.5f;
         
         _previewPlayerModel = Instantiate(playerModelPrefab, modelPosition, Quaternion.Euler(0, 180, 0));
@@ -318,12 +327,12 @@ public class LoadoutManager : MonoBehaviour {
     private void UpdatePlayerModel() {
         if (_previewPlayerModel == null) return;
             
-        var renderer = _previewPlayerModel.GetComponentInChildren<SkinnedMeshRenderer>();
-        if (renderer != null && _selectedColorIndex < playerMaterials.Length) {
-            var materials = renderer.materials;
+        var skinnedRenderer = _previewPlayerModel.GetComponentInChildren<SkinnedMeshRenderer>();
+        if (skinnedRenderer != null && _selectedColorIndex < playerMaterials.Length) {
+            var materials = skinnedRenderer.materials;
             if (materials.Length > 0) {
                 materials[0] = playerMaterials[_selectedColorIndex];
-                renderer.materials = materials;
+                skinnedRenderer.materials = materials;
             }
         }
     }
@@ -339,55 +348,45 @@ public class LoadoutManager : MonoBehaviour {
     }
     
     private IEnumerator TransitionCameraToPreview() {
-        _isTransitioning = true;
+        var startPosition = previewCamera.transform.position;
+        var startRotation = previewCamera.transform.rotation;
+        
+        var elapsed = 0f;
             
-        Vector3 startPosition = previewCamera.transform.position;
-        Quaternion startRotation = previewCamera.transform.rotation;
-        Vector3 targetPosition = previewCameraOffset.position;
-        Quaternion targetRotation = previewCameraOffset.rotation;
-            
-        float elapsed = 0f;
-            
-        while (elapsed < cameraTransitionDuration) {
+        while(elapsed < cameraTransitionDuration) {
             elapsed += Time.deltaTime;
-            float t = Mathf.SmoothStep(0f, 1f, elapsed / cameraTransitionDuration);
+            var t = Mathf.SmoothStep(0f, 1f, elapsed / cameraTransitionDuration);
                 
-            previewCamera.transform.position = Vector3.Lerp(startPosition, targetPosition, t);
-            previewCamera.transform.rotation = Quaternion.Slerp(startRotation, targetRotation, t);
+            previewCamera.transform.position = Vector3.Lerp(startPosition, previewCameraTransform.position, t);
+            previewCamera.transform.rotation = Quaternion.Slerp(startRotation, previewCameraTransform.rotation, t);
                 
             yield return null;
         }
-            
-        previewCamera.transform.position = targetPosition;
-        previewCamera.transform.rotation = targetRotation;
-            
-        _isTransitioning = false;
     }
     
     private IEnumerator TransitionCameraToOriginal() {
-        if (previewCamera == null) yield break;
+        if(previewCamera == null) yield break;
+        
+        var startPosition = previewCamera.transform.position;
+        var startRotation = previewCamera.transform.rotation;
             
-        _isTransitioning = true;
+        var elapsed = 0f;
             
-        Vector3 startPosition = previewCamera.transform.position;
-        Quaternion startRotation = previewCamera.transform.rotation;
-            
-        float elapsed = 0f;
-            
-        while (elapsed < cameraTransitionDuration) {
+        while(elapsed < cameraTransitionDuration) {
             elapsed += Time.deltaTime;
-            float t = Mathf.SmoothStep(0f, 1f, elapsed / cameraTransitionDuration);
-                
-            previewCamera.transform.position = Vector3.Lerp(startPosition, _originalCameraPosition, t);
-            previewCamera.transform.rotation = Quaternion.Slerp(startRotation, _originalCameraRotation, t);
-                
+            var t = Mathf.SmoothStep(0f, 1f, elapsed / cameraTransitionDuration);
+            
+            previewCamera.transform.position = Vector3.Lerp(startPosition, originalCameraTransform.position, t);
+            previewCamera.transform.rotation = Quaternion.Slerp(startRotation, originalCameraTransform.rotation, t);
+            
             yield return null;
         }
-            
-        previewCamera.transform.position = _originalCameraPosition;
-        previewCamera.transform.rotation = _originalCameraRotation;
-            
-        _isTransitioning = false;
+
+        if(previewCamera.transform.position == originalCameraTransform.position && previewCamera.transform.rotation == originalCameraTransform.rotation) {
+            if (_previewPlayerModel != null) {
+                Destroy(_previewPlayerModel);
+            }
+        }
     }
 }
     

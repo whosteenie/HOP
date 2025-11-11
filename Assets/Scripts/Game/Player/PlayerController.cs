@@ -52,8 +52,8 @@ namespace Game.Player {
         [SerializeField] private float maxAirSpeed = 5f;
         [SerializeField] private float friction = 8f;
 
-        [Header("Look Parameters")] [SerializeField]
-        public Vector2 lookSensitivity = new(0.1f, 0.1f);
+        [Header("Look Parameters")]
+        [SerializeField] public Vector2 lookSensitivity;
 
         [Header("Components")] [SerializeField]
         private CinemachineCamera fpCamera;
@@ -155,6 +155,8 @@ namespace Game.Player {
             }
 
             HUDManager.Instance.ShowHUD();
+            
+            lookSensitivity = new Vector2(PlayerPrefs.GetFloat("SensitivityX", 0.1f), PlayerPrefs.GetFloat("SensitivityY", 0.1f));
         }
 
         private void Update() {
@@ -564,6 +566,7 @@ namespace Game.Player {
                 _horizontalVelocity = Vector2.zero;
                 _verticalVelocity = 0f;
                 fpCamera.transform.localRotation = Quaternion.Euler(0f, 0f, 0f);
+                weaponManager.CurrentWeapon.CurrentDamageMultiplier = 1f;
                 lookInput = Vector2.zero;
                 // moveInput = Vector2.zero;
 
