@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
 using Unity.Services.Authentication;
 using Unity.Services.Multiplayer;
+using UnityEngine;
 
 namespace Network.Core {
     /// <summary>
@@ -11,6 +12,13 @@ namespace Network.Core {
     public sealed class PlayerIdentity : IPlayerIdentity {
         /// <inheritdoc />
         public async UniTask<Dictionary<string, PlayerProperty>> GetPlayerPropertiesAsync(string key) {
+            if(PlayerPrefs.HasKey("PlayerName")) {
+                var savedName = PlayerPrefs.GetString("PlayerName");
+                if(!string.IsNullOrWhiteSpace(savedName)) {
+                    return new Dictionary<string, PlayerProperty> { { key, new PlayerProperty(savedName, VisibilityPropertyOptions.Member) } };
+                }
+            }
+            
             var playerName = "Player(?)";
             try {
                 playerName = await AuthenticationService.Instance.GetPlayerNameAsync();

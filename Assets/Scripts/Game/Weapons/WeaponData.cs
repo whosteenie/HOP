@@ -6,8 +6,8 @@ namespace Game.Weapons {
         [Header("Identity")]
         public GameObject weaponPrefab;
         public int weaponSlot;
-        public Vector3 positionSpawn;
-        public Vector3 rotationSpawn;
+        public Vector3 spawnPosition;
+        public Vector3 spawnRotation;
         public GameObject muzzlePrefab;
         public Vector3 positionMuzzle;
     

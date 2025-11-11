@@ -1,5 +1,4 @@
-﻿using Unity.Netcode.Transports.UTP;
-using UnityEngine;
+﻿using UnityEngine;
 
 namespace Network.Core {
     /// <summary>
@@ -9,14 +8,18 @@ namespace Network.Core {
     public sealed class LocalhostPolicy : ILocalhostPolicy {
         /// <inheritdoc />
         public bool IsLocalhostTesting() {
+            #if UNITY_EDITOR
+            // In editor, check for ParrelSync clones or explicit localhost flag
             if(Application.dataPath.Contains("_clone")) return true;
-            var name = System.Diagnostics.Process.GetCurrentProcess().ProcessName;
-            if(System.Diagnostics.Process.GetProcessesByName(name).Length > 1) return true;
-
-            if(Unity.Netcode.NetworkManager.Singleton.NetworkConfig.NetworkTransport is not UnityTransport utp)
-                return false;
-
-            return utp.ConnectionData.Address is "127.0.0.1" or "localhost";
+    
+            // You could also add a static flag you set manually for testing:
+            // return LocalhostTestingEnabled;
+    
+            return false; // Editor but not explicitly localhost testing
+            #else
+            // In builds, never use localhost (always use Relay)
+            return false;
+            #endif
         }
 
         /// <inheritdoc />

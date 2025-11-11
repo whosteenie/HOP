@@ -39,8 +39,8 @@ namespace Game.Weapons {
                 var weapon = gameObject.AddComponent<Weapon>();
             
                 var weaponInstance = Instantiate(data.weaponPrefab, cam.transform, false);
-                weaponInstance.transform.localPosition = data.positionSpawn;
-                weaponInstance.transform.localEulerAngles = data.rotationSpawn;
+                weaponInstance.transform.localPosition = data.spawnPosition;
+                weaponInstance.transform.localEulerAngles = data.spawnRotation;
 
                 var muzzleInstance = Instantiate(data.muzzlePrefab, weaponInstance.transform, false);
                 muzzleInstance.transform.localPosition = data.positionMuzzle;

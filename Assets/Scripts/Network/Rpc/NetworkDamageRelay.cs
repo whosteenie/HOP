@@ -1,4 +1,6 @@
 using Game.Player;
+using Network.Singletons;
+using Unity.Cinemachine;
 using Unity.Netcode;
 using UnityEngine;
 
