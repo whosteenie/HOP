@@ -10,6 +10,7 @@ namespace Game.Weapons {
         public Vector3 spawnRotation;
         public GameObject muzzlePrefab;
         public Vector3 positionMuzzle;
+        public Vector3 positionWorldMuzzle;
     
         [Header("Ammo")]
         public int magSize;

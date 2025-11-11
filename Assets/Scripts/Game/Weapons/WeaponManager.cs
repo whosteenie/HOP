@@ -8,6 +8,7 @@ namespace Game.Weapons {
     public class WeaponManager : NetworkBehaviour {
         public int currentWeaponIndex;
         private List<Weapon> _equippedWeapons;
+        public Transform worldMuzzle;
         [SerializeField] private List<WeaponData> weaponDataList;
 
         public Weapon CurrentWeapon {
@@ -28,6 +29,11 @@ namespace Game.Weapons {
     
         private void Awake() {
             _equippedWeapons = new List<Weapon>();
+        }
+        
+        public Weapon GetWeaponByIndex(int index) {
+            if(index < 0 || index >= _equippedWeapons.Count) return null;
+            return _equippedWeapons[index];
         }
 
         public void InitializeWeapons(CinemachineCamera cam, PlayerController controller) {

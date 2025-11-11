@@ -36,6 +36,8 @@ namespace Game.Player {
 
         public override void OnNetworkSpawn() {
             base.OnNetworkSpawn();
+            
+            weaponManager.InitializeWeapons(fpCamera, playerController);
 
             if(!IsOwner) {
                 fpCamera.gameObject.SetActive(false);
@@ -45,11 +47,7 @@ namespace Game.Player {
                 if(playerInputComponent != null) {
                     playerInputComponent.enabled = false;
                 }
-
-                return;
             }
-
-            weaponManager.InitializeWeapons(fpCamera, playerController);
         }
 
         private void Start() {
@@ -79,6 +77,12 @@ namespace Game.Player {
             if(CurrentWeapon)
                 HUDManager.Instance.UpdateMultiplier(CurrentWeapon.CurrentDamageMultiplier,
                     CurrentWeapon.maxDamageMultiplier);
+
+            if(!IsPaused && Keyboard.current.tabKey.isPressed) {
+                GameMenuManager.Instance.ShowScoreboard();
+            } else if(GameMenuManager.Instance.IsScoreboardVisible) {
+                GameMenuManager.Instance.HideScoreboard();
+            }
         }
 
         #endregion

@@ -7,7 +7,7 @@ AvatarMask:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_Name: Weapon Hold
-  m_Mask: 00000000000000000000000000000000000000000100000001000000010000000100000000000000000000000100000001000000
+  m_Mask: 00000000010000000000000000000000000000000100000001000000010000000100000000000000000000000100000001000000
   m_Elements:
   - m_Path: 
     m_Weight: 1
@@ -22,7 +22,7 @@ AvatarMask:
   - m_Path: Rig/B-root/B-hips/B-spine
     m_Weight: 0
   - m_Path: Rig/B-root/B-hips/B-spine/B-chest
-    m_Weight: 0
+    m_Weight: 1
   - m_Path: Rig/B-root/B-hips/B-spine/B-chest/B-neck
     m_Weight: 0
   - m_Path: Rig/B-root/B-hips/B-spine/B-chest/B-neck/B-head
@@ -30,7 +30,7 @@ AvatarMask:
   - m_Path: Rig/B-root/B-hips/B-spine/B-chest/B-neck/B-head/B-jaw
     m_Weight: 0
   - m_Path: Rig/B-root/B-hips/B-spine/B-chest/B-shoulder.L
-    m_Weight: 0
+    m_Weight: 1
   - m_Path: Rig/B-root/B-hips/B-spine/B-chest/B-shoulder.L/B-upperArm.L
     m_Weight: 1
   - m_Path: Rig/B-root/B-hips/B-spine/B-chest/B-shoulder.L/B-upperArm.L/B-forearm.L
@@ -70,7 +70,7 @@ AvatarMask:
   - m_Path: Rig/B-root/B-hips/B-spine/B-chest/B-shoulder.L/B-upperArm.L/B-forearm.L/B-hand.L/B-thumb01.L/B-thumb02.L/B-thumb03.L
     m_Weight: 1
   - m_Path: Rig/B-root/B-hips/B-spine/B-chest/B-shoulder.R
-    m_Weight: 0
+    m_Weight: 1
   - m_Path: Rig/B-root/B-hips/B-spine/B-chest/B-shoulder.R/B-upperArm.R
     m_Weight: 1
   - m_Path: Rig/B-root/B-hips/B-spine/B-chest/B-shoulder.R/B-upperArm.R/B-forearm.R

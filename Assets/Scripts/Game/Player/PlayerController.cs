@@ -1,4 +1,3 @@
-using System;
 using System.Collections;
 using Cysharp.Threading.Tasks;
 using Game.Weapons;
@@ -6,9 +5,10 @@ using Network;
 using Network.Rpc;
 using Network.Singletons;
 using Unity.Cinemachine;
+using Unity.Collections;
 using Unity.Netcode;
+using Unity.Netcode.Transports.UTP;
 using UnityEngine;
-using UnityEngine.Serialization;
 using UnityEngine.UIElements;
 
 namespace Game.Player {
@@ -41,6 +41,11 @@ namespace Game.Player {
         private static readonly int IsJumpingHash = Animator.StringToHash("IsJumping");
         private static readonly int IsFallingHash = Animator.StringToHash("IsFalling");
 
+        // Health Regeneration
+        private const float RegenDelay = 3f; // Seconds after taking damage before regen starts
+        private const float RegenRate = 10f; // Health per second
+        private const float MaxHealth = 100f;
+
         #endregion
 
         #region Serialized Fields
@@ -52,8 +57,8 @@ namespace Game.Player {
         [SerializeField] private float maxAirSpeed = 5f;
         [SerializeField] private float friction = 8f;
 
-        [Header("Look Parameters")]
-        [SerializeField] public Vector2 lookSensitivity;
+        [Header("Look Parameters")] [SerializeField]
+        public Vector2 lookSensitivity;
 
         [Header("Components")] [SerializeField]
         private CinemachineCamera fpCamera;
@@ -68,7 +73,7 @@ namespace Game.Player {
         [SerializeField] private NetworkSfxRelay sfxRelay;
         [SerializeField] private AudioClip hurtSound;
         [SerializeField] private CinemachineImpulseSource impulseSource;
-
+        [SerializeField] private MeshRenderer worldWeapon;
 
         #endregion
 
@@ -94,7 +99,11 @@ namespace Game.Player {
         private Vector3? _lastHitPoint;
         private Vector3? _lastHitNormal;
         private LayerMask _playerBodyLayer;
-        private LayerMask _maskedLayer; 
+        private LayerMask _maskedLayer;
+
+        // Health regeneration tracking
+        private float _lastDamageTime;
+        private bool _isRegenerating;
 
         #endregion
 
@@ -116,6 +125,39 @@ namespace Game.Player {
         [SerializeField] private Material[] playerMaterials;
         public NetworkVariable<int> playerMaterialIndex = new();
 
+        public NetworkVariable<int> kills = new NetworkVariable<int>(0,
+            NetworkVariableReadPermission.Everyone,
+            NetworkVariableWritePermission.Owner);
+
+        public NetworkVariable<int> deaths = new NetworkVariable<int>(0,
+            NetworkVariableReadPermission.Everyone,
+            NetworkVariableWritePermission.Owner);
+
+        public NetworkVariable<int> assists = new NetworkVariable<int>(0,
+            NetworkVariableReadPermission.Everyone,
+            NetworkVariableWritePermission.Owner);
+
+        public NetworkVariable<float> damageDealt = new NetworkVariable<float>(0f,
+            NetworkVariableReadPermission.Everyone,
+            NetworkVariableWritePermission.Owner);
+
+        public NetworkVariable<float> averageVelocity = new NetworkVariable<float>(0f,
+            NetworkVariableReadPermission.Everyone,
+            NetworkVariableWritePermission.Owner);
+
+        public NetworkVariable<FixedString64Bytes> playerName = new NetworkVariable<FixedString64Bytes>("Player",
+            NetworkVariableReadPermission.Everyone,
+            NetworkVariableWritePermission.Owner);
+
+        public NetworkVariable<int> PingMs = new NetworkVariable<int>(
+            0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
+
+        private float _timer;
+        private float _totalVelocitySampled;
+        private int _velocitySampleCount;
+        
+        [SerializeField] private UpperBodyPitch upperBodyPitch;
+
         #region Unity Lifecycle
 
         public override void OnNetworkSpawn() {
@@ -126,17 +168,13 @@ namespace Game.Player {
 
             netHealth.OnValueChanged += (oldV, newV) => {
                 if(IsOwner) {
-                    HUDManager.Instance.UpdateHealth(newV, 100f); 
+                    HUDManager.Instance.UpdateHealth(newV, 100f);
                 }
 
                 if(IsServer && newV <= 0f && !netIsDead.Value) {
                     DieServer();
                 }
             };
-
-            if(!IsServer) {
-                ApplyPlayerMaterial(playerMaterialIndex.Value);
-            }
 
             if(characterController.enabled == false) {
                 characterController.enabled = true;
@@ -155,8 +193,17 @@ namespace Game.Player {
             }
 
             HUDManager.Instance.ShowHUD();
+
+            lookSensitivity = new Vector2(PlayerPrefs.GetFloat("SensitivityX", 0.1f),
+                PlayerPrefs.GetFloat("SensitivityY", 0.1f));
+
+            if(IsOwner) {
+                playerName.Value = PlayerPrefs.GetString("PlayerName", "Unknown Player");
+                int savedColorIndex = PlayerPrefs.GetInt("PlayerColorIndex", 0);
+                playerMaterialIndex.Value = savedColorIndex;
+            }
             
-            lookSensitivity = new Vector2(PlayerPrefs.GetFloat("SensitivityX", 0.1f), PlayerPrefs.GetFloat("SensitivityY", 0.1f));
+            ApplyPlayerMaterial(playerMaterialIndex.Value);
         }
 
         private void Update() {
@@ -165,23 +212,87 @@ namespace Game.Player {
                     netHealth.Value = 0f;
                     DieServer();
                 }
+
+                HandleHealthRegeneration();
+
+                _timer += Time.deltaTime;
+                if(_timer >= 1f) // update once per second
+                {
+                    _timer = 0f;
+                    UpdatePing();
+                }
             }
 
-            if(!IsOwner || netIsDead.Value) return;
+            if(!IsOwner || netIsDead.Value || characterController.enabled == false) return;
 
             HandleLanding();
             HandleMovement();
             HandleCrouch();
             UpdateAnimator();
+            TrackVelocity();
+            
+            
         }
 
         private void LateUpdate() {
             if(!IsOwner || netIsDead.Value) return;
 
             HandleLook();
+            
+            upperBodyPitch.SetLocalPitchFromCamera(CurrentPitch);
         }
 
         #endregion
+
+        private void UpdatePing() {
+            var transport = NetworkManager.Singleton.NetworkConfig.NetworkTransport as UnityTransport;
+            if(transport == null) return;
+
+            foreach(var (clientId, value) in NetworkManager.Singleton.ConnectedClients) {
+                var rtt = transport.GetCurrentRtt(clientId);
+                var player = value.PlayerObject;
+                if(player == null) continue;
+
+                PingMs.Value = (int)rtt;
+            }
+        }
+
+        private void HandleHealthRegeneration() {
+            // Don't regen if dead or already at max health
+            if(netIsDead.Value || netHealth.Value >= MaxHealth) {
+                _isRegenerating = false;
+                return;
+            }
+
+            var timeSinceDamage = Time.time - _lastDamageTime;
+
+            // Check if enough time has passed to start regenerating
+            if(timeSinceDamage >= RegenDelay) {
+                if(!_isRegenerating) {
+                    _isRegenerating = true;
+                    // Optional: Play regen start sound/VFX here
+                    // StartRegenClientRpc();
+                }
+
+                // Regenerate health
+                netHealth.Value = Mathf.Min(MaxHealth, netHealth.Value + RegenRate * Time.deltaTime);
+            } else {
+                _isRegenerating = false;
+            }
+        }
+
+        private void TrackVelocity() {
+            var speed = CurrentFullVelocity.magnitude;
+
+            // Only track if moving at or faster than walking speed
+            if(speed >= WalkSpeed) {
+                _totalVelocitySampled += speed;
+                _velocitySampleCount++;
+
+                // Update networked average - this is the CUMULATIVE average over entire match
+                averageVelocity.Value = _totalVelocitySampled / _velocitySampleCount;
+            }
+        }
 
         private void ApplyPlayerMaterial(int index) {
             var mesh = GetComponentInChildren<SkinnedMeshRenderer>();
@@ -403,20 +514,23 @@ namespace Game.Player {
             _lastHitPoint = hitPoint;
             _lastHitNormal = hitNormal;
 
+            _lastDamageTime = Time.time;
+            _isRegenerating = false;
+
             netHealth.Value = Mathf.Max(0f, netHealth.Value - amount);
-            
+
             PlayHitEffectsClientRpc();
 
             if(netHealth.Value <= 0f && !netIsDead.Value) {
                 DieServer();
             }
         }
-        
+
         [Rpc(SendTo.Owner)]
         private void PlayHitEffectsClientRpc() {
             // This runs only on the client who owns this player (the victim)
             SoundFXManager.Instance.PlayUISound(hurtSound);
-    
+
             if(impulseSource != null) {
                 impulseSource.GenerateImpulse();
             }
@@ -442,8 +556,10 @@ namespace Game.Player {
                     fpCamera.transform.GetChild(weaponManager.currentWeaponIndex).gameObject.SetActive(false);
                 }
 
+                deaths.Value++;
                 HUDManager.Instance.HideHUD();
                 deathCamera.EnableDeathCamera();
+                worldWeapon.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
             }
 
             StartCoroutine(RespawnTimer());
@@ -468,6 +584,10 @@ namespace Game.Player {
             netIsDead.Value = false;
             netHealth.Value = 100f;
 
+            // Reset damage timer on respawn
+            _lastDamageTime = Time.time - RegenDelay; // Start with regen available
+            _isRegenerating = false;
+
             // 2) choose spawn
             var position = SpawnManager.Instance.GetNextSpawnPosition();
             var rotation = SpawnManager.Instance.GetNextSpawnRotation();
@@ -484,7 +604,7 @@ namespace Game.Player {
         private void TeleportOwnerClientRpc(Vector3 spawn, Quaternion rotation) {
             _ = TeleportAndNotifyAsync(spawn, rotation);
         }
-        
+
         private async UniTaskVoid TeleportAndNotifyAsync(Vector3 spawn, Quaternion rotation) {
             // Hide visuals during teleport
             var renderers = GetComponentsInChildren<Renderer>(true);
@@ -493,7 +613,7 @@ namespace Game.Player {
                     r.enabled = false;
                 }
             }
-    
+
             // Disable character controller
             if(characterController) characterController.enabled = false;
 
@@ -504,13 +624,13 @@ namespace Game.Player {
             } else {
                 transform.SetPositionAndRotation(spawn, rotation);
             }
-    
+
             // Wait for network sync
             await UniTask.WaitForFixedUpdate();
-            
+
             // Re-enable character controller
             if(characterController) characterController.enabled = true;
-    
+
             // Tell server we're ready to show visuals
             if(IsOwner) {
                 RespawnVisualsClientRpc();
@@ -540,6 +660,9 @@ namespace Game.Player {
                     smr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
                 }
             }
+            
+            if(IsOwner)
+                worldWeapon.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.ShadowsOnly;
 
             // 3) restore expected layer (owner vs others)
             gameObject.layer = IsOwner
@@ -585,6 +708,7 @@ namespace Game.Player {
             // Landing from a jump
             if(_isJumping && IsGrounded && _verticalVelocity <= 0f) {
                 _isJumping = false;
+                _isFalling = false;
                 characterAnimator.SetBool(IsJumpingHash, false);
                 characterAnimator.SetTrigger(LandTriggerHash);
 
@@ -595,6 +719,7 @@ namespace Game.Player {
 
             // Landing from a fall
             if(!_isFalling || !IsGrounded) return;
+            _isFalling = false;
             characterAnimator.SetTrigger(LandTriggerHash);
 
             if(sfxRelay != null && IsOwner) {
@@ -606,9 +731,12 @@ namespace Game.Player {
             var localVelocity = transform.InverseTransformDirection(_horizontalVelocity);
             var isSprinting = _horizontalVelocity.magnitude > (WalkSpeed + 1f);
 
-            Physics.Raycast(transform.position, Vector3.down, out var hit, 1f);
+            var layer = LayerMask.GetMask("World", "Enemy");
+            Physics.Raycast(transform.position, Vector3.down, out var hit, 1f, layer);
             Debug.DrawRay(transform.position, Vector3.down * 1f, Color.red);
-            _isFalling = !IsGrounded && hit.distance > 3f;
+            
+            if(!_isFalling)
+                _isFalling = !IsGrounded && hit.distance > 3f;
 
             characterAnimator.SetFloat(MoveXHash, localVelocity.x / _maxSpeed, 0.1f, Time.deltaTime);
             characterAnimator.SetFloat(MoveYHash, localVelocity.z / _maxSpeed, 0.1f, Time.deltaTime);

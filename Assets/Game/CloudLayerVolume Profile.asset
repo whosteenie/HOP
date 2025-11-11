@@ -179,7 +179,7 @@ MonoBehaviour:
     m_Value: 0
   globalSpeed:
     m_OverrideState: 1
-    m_Value: 20
+    m_Value: 75
   globalOrientation:
     m_OverrideState: 0
     m_Value: 0
@@ -239,10 +239,10 @@ MonoBehaviour:
     m_Value: 1
   numPrimarySteps:
     m_OverrideState: 1
-    m_Value: 64
+    m_Value: 128
   numLightSteps:
     m_OverrideState: 1
-    m_Value: 4
+    m_Value: 8
   fadeInMode:
     m_OverrideState: 1
     m_Value: 0

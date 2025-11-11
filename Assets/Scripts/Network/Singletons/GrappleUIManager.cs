@@ -49,7 +49,7 @@ namespace Network.Singletons {
                 FindLocalPlayerGrappleController();
             }
 
-            if(grappleController && _fpCamera) {
+            if(grappleController && _fpCamera && SceneManager.GetActiveScene().name == "Game") {
                 CheckGrapplePoint();
                 UpdateIndicatorVisual();
             }

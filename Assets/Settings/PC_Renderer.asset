@@ -72,8 +72,8 @@ MonoBehaviour:
   material: {fileID: 2100000, guid: 3748131af20412e478461c6445c73923, type: 2}
   renderingDebugger: 0
   reflectionProbe: 0
-  resolutionScale: 0.5
-  upscaleMode: 0
+  resolutionScale: 1
+  upscaleMode: 1
   preferredRenderMode: 1
   ambientProbe: 1
   sunAttenuation: 0

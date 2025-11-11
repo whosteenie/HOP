@@ -131,7 +131,7 @@ namespace Network.Singletons {
 
         #region Unity Lifecycle
         
-        private void OnEnable() {
+        private void Start() {
             Cursor.visible = true;
             Cursor.lockState = CursorLockMode.None;
             
@@ -159,12 +159,31 @@ namespace Network.Singletons {
                     rootContainer.style.display = DisplayStyle.None;
             }
         }
+
+        private void OnEnable() {
+            if(SessionManager.Instance != null) {
+                sessionManager.PlayersChanged += OnPlayersChanged;
+                sessionManager.RelayCodeAvailable += OnRelayCodeAvailable;
+                SessionManager.Instance.FrontStatusChanged += UpdateStatusText;
+                sessionManager.SessionJoined += OnSessionJoined;
+            }
+        }
         
         private void OnDisable() {
             if(sessionManager != null) {
                 sessionManager.PlayersChanged -= OnPlayersChanged;
                 sessionManager.RelayCodeAvailable -= OnRelayCodeAvailable;
+                SessionManager.Instance.FrontStatusChanged -= UpdateStatusText;
             }
+        }
+        
+        private void UpdateStatusText(string msg) {
+            _waitingLabel.text = msg;
+        }
+        
+        private void OnSessionJoined(string sessionCode) {
+            _joinCodeLabel.text = $"Join Code: {sessionCode}";
+            EnableButton(_copyButton);
         }
         
         #endregion
@@ -306,12 +325,6 @@ namespace Network.Singletons {
             _logoGithub.RegisterCallback<ClickEvent>(evt => { Application.OpenURL("https://github.com/whosteenie/HOP"); });
             _logoGithub.RegisterCallback<MouseOverEvent>(MouseHover);
             _backCreditsButton.clicked += () => ShowPanel(_mainMenuPanel);
-
-            // === Session Manager Events ===
-            if(sessionManager != null) {
-                sessionManager.PlayersChanged += OnPlayersChanged;
-                sessionManager.RelayCodeAvailable += OnRelayCodeAvailable;
-            }
         }
         
         #endregion
@@ -446,27 +459,27 @@ namespace Network.Singletons {
             try {
                 DisableButton(_hostButton);
                 DisableButton(_joinButton);
-                _waitingLabel.text = "Waiting for connection...";
+                // _waitingLabel.text = "Waiting for connection...";
 
                 var joinCode = await sessionManager.StartSessionAsHost();
                 D($"UI: Host created – Code: {joinCode}");
 
                 if(string.IsNullOrEmpty(joinCode)) {
-                    _waitingLabel.text = "Failed to create session";
+                    // _waitingLabel.text = "Failed to create session";
                     EnableButton(_hostButton);
                     EnableButton(_joinButton);
                     return;
                 }
 
                 _joinCodeLabel.text = $"Join Code: {joinCode}";
-                _waitingLabel.text = "Lobby ready";
+                // _waitingLabel.text = "Lobby ready";
 
                 EnableButton(_startButton);
                 EnableButton(_copyButton);
                 // Player list will be filled by PlayersChanged event.
             } catch(Exception e) {
                 Debug.LogException(e);
-                _waitingLabel.text = "Error creating session: " + e.Message;
+                // _waitingLabel.text = "Error creating session: " + e.Message;
                 EnableButton(_hostButton);
                 EnableButton(_joinButton);
             }
@@ -482,7 +495,7 @@ namespace Network.Singletons {
 
                 D($"UI: Join button clicked – Code: {code}");
 
-                _waitingLabel.text = "Joining lobby...";
+                // _waitingLabel.text = "Joining lobby...";
                 DisableButton(_hostButton);
                 DisableButton(_joinButton);
 
@@ -508,7 +521,7 @@ namespace Network.Singletons {
         private async void OnStartGameClicked() {
             try {
                 DisableButton(_startButton);
-                _waitingLabel.text = "Starting game...";
+                // _waitingLabel.text = "Starting game...";
 
                 D("UI: Start Game button clicked");
                 await sessionManager.BeginGameplayAsHostAsync();
@@ -617,8 +630,8 @@ namespace Network.Singletons {
 
         private void LoadSettings() {
             var masterDb = PlayerPrefs.GetFloat("MasterVolume", 0f);
-            var musicDb = PlayerPrefs.GetFloat("MusicVolume", 0f);
-            var sfxDb = PlayerPrefs.GetFloat("SFXVolume", 0f);
+            var musicDb = PlayerPrefs.GetFloat("MusicVolume", -16.5f);
+            var sfxDb = PlayerPrefs.GetFloat("SFXVolume", -6f);
             _masterVolumeSlider.value = DbToLinear(masterDb);
             _musicVolumeSlider.value = DbToLinear(musicDb);
             _sfxVolumeSlider.value = DbToLinear(sfxDb);
@@ -632,6 +645,12 @@ namespace Network.Singletons {
             _fpsDropdown.index = PlayerPrefs.GetInt("TargetFPS", 1);
 
             ApplySettingsInternal();
+            
+            _masterVolumeValue.text = $"{Mathf.RoundToInt(_masterVolumeSlider.value * 100)}%";
+            _musicVolumeValue.text = $"{Mathf.RoundToInt(_musicVolumeSlider.value * 100)}%";
+            _sfxVolumeValue.text = $"{Mathf.RoundToInt(_sfxVolumeSlider.value * 100)}%";
+            _sensitivityXValue.text = _sensitivityXSlider.value.ToString("F2");
+            _sensitivityYValue.text = _sensitivityYSlider.value.ToString("F2");
         }
 
         private void ApplySettings() {

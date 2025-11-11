@@ -89,5 +89,25 @@
                 </ui:VisualElement>
             </ui:VisualElement>
         </ui:VisualElement>
+        <ui:VisualElement name="scoreboard-panel" class="panel full-abs center-xy hidden">
+            <ui:VisualElement name="scoreboard-container" class="scoreboard-container card">
+                <ui:Label text="SCOREBOARD" name="scoreboard-title" class="title" />
+                <ui:VisualElement name="scoreboard-header" class="scoreboard-header" style="height: 38px;">
+                    <ui:Label text="PING" class="header-cell ping-cell" />
+                    <ui:VisualElement class="header-cell avatar-cell" />
+                    <ui:Label class="header-cell name-cell" />
+                    <ui:Label text="K" class="header-cell stat-cell" />
+                    <ui:Label text="D" class="header-cell stat-cell" />
+                    <ui:Label text="A" class="header-cell stat-cell" />
+                    <ui:Label text="KDA" class="header-cell stat-cell" />
+                    <ui:Label text="DMG" class="header-cell stat-cell" />
+                    <ui:Label text="HS%" class="header-cell stat-cell" />
+                    <ui:Label text="AV" class="header-cell stat-cell" />
+                </ui:VisualElement>
+                <ui:ScrollView name="scoreboard-scroll" class="scoreboard-scroll">
+                    <ui:VisualElement name="player-rows" class="player-rows" />
+                </ui:ScrollView>
+            </ui:VisualElement>
+        </ui:VisualElement>
     </ui:VisualElement>
 </ui:UXML>

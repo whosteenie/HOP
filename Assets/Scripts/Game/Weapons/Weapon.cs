@@ -16,6 +16,7 @@ namespace Game.Weapons {
         public GameObject weaponMuzzle;
         [SerializeField] private Transform fpMuzzle;
         [SerializeField] private Transform worldMuzzle;
+        public Vector3 positionWorldMuzzle;
         public int weaponSlot;
         public int currentAmmo;
         public int magSize;
@@ -146,6 +147,7 @@ namespace Game.Weapons {
             spawnRotation = data.spawnRotation;
             weaponMuzzle = data.muzzlePrefab;
             weaponSlot = data.weaponSlot;
+            positionWorldMuzzle = data.positionWorldMuzzle;
 
             magSize = data.magSize;
             currentAmmo = data.currentAmmo;
@@ -268,8 +270,9 @@ namespace Game.Weapons {
             }
 
             var endPoint = shotHit ? hit.point : (origin + forward * 100f);
-            if(_networkFXRelay != null && playerController.IsOwner)
-                _networkFXRelay.RequestShotFx(endPoint);
+            
+            if(_networkFXRelay != null)
+                _networkFXRelay.RequestShotFx(this, endPoint);
 
             return target;
         }
@@ -332,43 +335,74 @@ namespace Game.Weapons {
 
         #region Private Methods - Effects
 
-        public void PlayNetworkedMuzzleFlashLocal() {
-            // Owner sees FP viewmodel VFX; others see world muzzle prefab
-            var isOwner = playerController != null && playerController.IsOwner;
+        public void PlayNetworkedMuzzleFlashLocal()
+{
+    var isOwner = playerController && playerController.IsOwner;
 
-            if(isOwner) {
-                weaponAnimator?.SetTrigger(RecoilHash);
-                networkAnimator?.SetTrigger(RecoilHash);
-                muzzleFlashEffect?.Play();
-                if(muzzleLight) StartCoroutine(FlashLight(muzzleLight, muzzleLightTime));
-            } else {
-                // Non-owner: World model effects
-                if(worldMuzzleFlashPrefab && worldMuzzle) {
-                    var fx = Instantiate(worldMuzzleFlashPrefab, worldMuzzle.position, worldMuzzle.rotation);
-                    fx.Play();
-                    Destroy(fx.gameObject, 1.0f);
-                }
+    if (isOwner)
+    {
+        weaponAnimator?.SetTrigger(RecoilHash);
+        networkAnimator?.SetTrigger(RecoilHash);
+        if (muzzleFlashEffect) muzzleFlashEffect.Play();
+        if (muzzleLight) StartCoroutine(FlashLight(muzzleLight, muzzleLightTime));
+        return;
+    }
 
-                GameObject worldMuzzleLight = null;
-                if(worldMuzzle) {
-                    // Try to find light child on world muzzle (same hierarchy as FP)
-                    worldMuzzleLight = worldMuzzle.GetComponentInChildren<Light>()?.gameObject;
-                    if(worldMuzzleLight == null) {
-                        // Fallback: search all children for light
-                        foreach(Transform child in worldMuzzle.GetComponentsInChildren<Transform>()) {
-                            if(child.GetComponent<Light>() != null) {
-                                worldMuzzleLight = child.gameObject;
-                                break;
-                            }
-                        }
-                    }
-                }
+    // ---- Non-owner: world model ----
+    AssignMuzzlesIfMissing();
 
-                if(worldMuzzleLight) {
-                    StartCoroutine(FlashLight(worldMuzzleLight, muzzleLightTime));
+    // Prefer a dedicated world VFX prefab
+    if (worldMuzzleFlashPrefab && worldMuzzle)
+    {
+        var fx = Instantiate(worldMuzzleFlashPrefab, worldMuzzle.position, worldMuzzle.rotation);
+        fx.Play();
+        Destroy(fx.gameObject, 1f);
+    }
+    else
+    {
+        // Fallbacks and diagnostics
+        if (!worldMuzzle)
+        {
+            // try to find any child tagged/suffixed as world muzzle
+            foreach (var t in GetComponentsInChildren<Transform>(true))
+            {
+                if (t.CompareTag("WorldMuzzle") || t.name.Contains("WorldMuzzle"))
+                {
+                    worldMuzzle = t;
+                    break;
                 }
             }
         }
+
+        if (worldMuzzle && muzzleFlashEffect)  // sometimes FP effect is shared
+        {
+            // As a last resort, play the same effect at the world muzzle
+            var fxGO = Instantiate(muzzleFlashEffect.gameObject, worldMuzzle.position, worldMuzzle.rotation);
+            var fx = fxGO.GetComponent<VisualEffect>();
+            fx?.Play();
+            Destroy(fxGO, 1f);
+        }
+        else
+        {
+            Debug.LogWarning($"[Weapon] No world muzzle VFX for {name} (worldMuzzle={(worldMuzzle?worldMuzzle.name:"null")}, worldMuzzleFlashPrefab={(worldMuzzleFlashPrefab?"ok":"null")})");
+        }
+    }
+
+    // Try toggling a world light if one exists
+    GameObject worldMuzzleLight = null;
+    if (worldMuzzle)
+    {
+        worldMuzzleLight = worldMuzzle.GetComponentInChildren<Light>()?.gameObject;
+        if (worldMuzzleLight == null)
+        {
+            foreach (Transform child in worldMuzzle.GetComponentsInChildren<Transform>(true))
+            {
+                if (child.GetComponent<Light>() != null) { worldMuzzleLight = child.gameObject; break; }
+            }
+        }
+    }
+    if (worldMuzzleLight) StartCoroutine(FlashLight(worldMuzzleLight, muzzleLightTime));
+}
 
         private IEnumerator FlashLight(GameObject lightObj, float time) {
             if(!lightObj) yield break;
@@ -393,7 +427,14 @@ namespace Game.Weapons {
 
                 if(target == null) return;
 
-                SoundFXManager.Instance.PlayUISound(_targetHealth - _lastHitDamage <= 0 ? _killSound : _hitSound);
+                if(_targetHealth - _lastHitDamage <= 0) {
+                    SoundFXManager.Instance.PlayUISound(_killSound);
+                    playerController.damageDealt.Value += _lastHitDamage;
+                    playerController.kills.Value++;
+                } else {
+                    SoundFXManager.Instance.PlayUISound(_hitSound);
+                    playerController.damageDealt.Value += _lastHitDamage;
+                }
             }
         }
 

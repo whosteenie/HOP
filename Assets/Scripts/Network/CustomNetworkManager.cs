@@ -122,17 +122,17 @@ namespace Network {
                     continue;
                 }
 
-                var materialIndex = _playerAmount % playerMaterials.Length;
+                // var materialIndex = _playerAmount % playerMaterials.Length;
 
                 var instance = Instantiate(playerPrefab, pos, rot);
-                var pc = instance.GetComponent<PlayerController>();
-                pc.playerMaterialIndex.Value = materialIndex;
+                // var pc = instance.GetComponent<PlayerController>();
+                // pc.playerMaterialIndex.Value = materialIndex;
 
-                var mesh = instance.gameObject.GetComponentInChildren<SkinnedMeshRenderer>();
-                var currentMaterials = mesh.materials;
-                var selectedColorIndex = PlayerPrefs.GetInt("PlayerColorIndex");
-                currentMaterials[0] = playerMaterials[selectedColorIndex];
-                mesh.materials = currentMaterials;
+                // var mesh = instance.gameObject.GetComponentInChildren<SkinnedMeshRenderer>();
+                // var currentMaterials = mesh.materials;
+                // var selectedColorIndex = PlayerPrefs.GetInt("PlayerColorIndex");
+                // currentMaterials[0] = playerMaterials[selectedColorIndex];
+                // mesh.materials = currentMaterials;
 
                 var cc = instance.GetComponent<CharacterController>();
                 if(cc) cc.enabled = false;
