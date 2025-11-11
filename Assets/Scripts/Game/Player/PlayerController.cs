@@ -1,4 +1,6 @@
+using System;
 using System.Collections;
+using Cysharp.Threading.Tasks;
 using Game.Weapons;
 using Network;
 using Network.Rpc;
@@ -63,7 +65,10 @@ namespace Game.Player {
         [SerializeField] private PlayerRagdoll playerRagdoll;
         [SerializeField] private DeathCamera deathCamera;
         [SerializeField] private NetworkDamageRelay damageRelay;
-        [FormerlySerializedAs("soundRelay")] [SerializeField] private NetworkSfxRelay sfxRelay;
+        [SerializeField] private NetworkSfxRelay sfxRelay;
+        [SerializeField] private AudioClip hurtSound;
+        [SerializeField] private CinemachineImpulseSource impulseSource;
+
 
         #endregion
 
@@ -86,11 +91,10 @@ namespace Game.Player {
         private bool _isFalling;
         private bool _wasFalling;
         private float _crouchTransition;
-        private CinemachineImpulseSource _impulseSource;
         private Vector3? _lastHitPoint;
         private Vector3? _lastHitNormal;
         private LayerMask _playerBodyLayer;
-        private LayerMask _maskedLayer;
+        private LayerMask _maskedLayer; 
 
         #endregion
 
@@ -117,14 +121,12 @@ namespace Game.Player {
         public override void OnNetworkSpawn() {
             base.OnNetworkSpawn();
 
-            _impulseSource = FindFirstObjectByType<CinemachineImpulseSource>();
             _playerBodyLayer = LayerMask.GetMask("Player");
             _maskedLayer = LayerMask.GetMask("Masked");
 
             netHealth.OnValueChanged += (oldV, newV) => {
                 if(IsOwner) {
-                    HUDManager.Instance.UpdateHealth(newV, 100f);
-                    _impulseSource?.GenerateImpulse();
+                    HUDManager.Instance.UpdateHealth(newV, 100f); 
                 }
 
                 if(IsServer && newV <= 0f && !netIsDead.Value) {
@@ -400,9 +402,21 @@ namespace Game.Player {
             _lastHitNormal = hitNormal;
 
             netHealth.Value = Mathf.Max(0f, netHealth.Value - amount);
+            
+            PlayHitEffectsClientRpc();
 
             if(netHealth.Value <= 0f && !netIsDead.Value) {
                 DieServer();
+            }
+        }
+        
+        [Rpc(SendTo.Owner)]
+        private void PlayHitEffectsClientRpc() {
+            // This runs only on the client who owns this player (the victim)
+            SoundFXManager.Instance.PlayUISound(hurtSound);
+    
+            if(impulseSource != null) {
+                impulseSource.GenerateImpulse();
             }
         }
 
@@ -458,27 +472,49 @@ namespace Game.Player {
 
             // 3) tell OWNER (the authoritative side) to teleport
             TeleportOwnerClientRpc(position, rotation);
+            // TeleportOwnerClientRpc(position, rotation);
 
             // 4) clear death visuals for everyone; owner will also restore UI/camera
-            RespawnVisualsClientRpc();
+            // RespawnVisualsClientRpc();
         }
 
         [Rpc(SendTo.Owner)]
         private void TeleportOwnerClientRpc(Vector3 spawn, Quaternion rotation) {
-            // OWNER runs this; it has authority if you’re using ClientNetworkTransform
+            _ = TeleportAndNotifyAsync(spawn, rotation);
+        }
+        
+        private async UniTaskVoid TeleportAndNotifyAsync(Vector3 spawn, Quaternion rotation) {
+            // Hide visuals during teleport
+            var renderers = GetComponentsInChildren<Renderer>(true);
+            foreach(var r in renderers) {
+                if(r.name != "GrappleLine") {
+                    r.enabled = false;
+                }
+            }
+    
+            // Disable character controller
             if(characterController) characterController.enabled = false;
 
+            // Teleport
             var cnt = GetComponent<ClientNetworkTransform>();
             if(cnt != null) {
-                // Prefer Teleport; falls back to direct set if missing
                 cnt.Teleport(spawn, rotation, Vector3.one);
             } else {
-                // If not using CNT, the owner can still move it and authority will sync
                 transform.SetPositionAndRotation(spawn, rotation);
             }
-
+    
+            // Wait for network sync
+            await UniTask.WaitForFixedUpdate();
+            
+            // Re-enable character controller
             if(characterController) characterController.enabled = true;
+    
+            // Tell server we're ready to show visuals
+            if(IsOwner) {
+                RespawnVisualsClientRpc();
+            }
         }
+
 
         [Rpc(SendTo.Everyone)]
         private void RespawnVisualsClientRpc() {
@@ -487,13 +523,15 @@ namespace Game.Player {
 
             // 2) make sure all renderers are visible again (in case any were toggled)
             // TODO: improve detection of GrappleLine to avoid hardcoding name
-            foreach(var r in GetComponentsInChildren<Renderer>(true)) {
+            var renderers = GetComponentsInChildren<Renderer>(true);
+            foreach(var r in renderers) {
                 if(r.name != "GrappleLine") {
                     r.enabled = true;
                 }
             }
 
-            foreach(var smr in GetComponentsInChildren<SkinnedMeshRenderer>(true)) {
+            var skinnedRenderers = GetComponentsInChildren<SkinnedMeshRenderer>(true);
+            foreach(var smr in skinnedRenderers) {
                 if(IsOwner) {
                     smr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.ShadowsOnly;
                 } else {
@@ -509,10 +547,12 @@ namespace Game.Player {
             // Owner-only UI/camera resets
             if(GetComponent<NetworkObject>().IsOwner) {
                 deathCamera.DisableDeathCamera();
-                var weapons = GetComponentsInChildren<Weapons.Weapon>();
+                var weapons = GetComponentsInChildren<Weapon>();
                 foreach(var w in weapons) {
                     w.ResetWeapon();
                     GetComponent<PlayerInput>().SwitchWeapon(0);
+                    w.weaponPrefab.transform.localPosition = w.spawnPosition;
+                    w.weaponPrefab.transform.localEulerAngles = w.spawnRotation;
                 }
 
                 // Re-enable current weapon viewmodel
@@ -521,9 +561,11 @@ namespace Game.Player {
                 }
 
                 CurrentPitch = 0f;
+                _horizontalVelocity = Vector2.zero;
+                _verticalVelocity = 0f;
                 fpCamera.transform.localRotation = Quaternion.Euler(0f, 0f, 0f);
                 lookInput = Vector2.zero;
-                moveInput = Vector2.zero;
+                // moveInput = Vector2.zero;
 
                 HUDManager.Instance.UpdateHealth(netHealth.Value, 100f);
                 HUDManager.Instance.UpdateAmmo(weaponManager.CurrentWeapon.currentAmmo,

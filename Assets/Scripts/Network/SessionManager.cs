@@ -80,9 +80,30 @@ namespace Network {
                 // DontDestroyOnLoad(gameObject);
                 await _ugs.InitializeAsync();
                 _networkManager = NetworkManager.Singleton;
+                _networkManager.OnClientDisconnectCallback += OnClientDisconnected;
             } catch(Exception e) {
                 Debug.LogException(e);
             }
+        }
+        
+        private void OnClientDisconnected(ulong clientId) {
+            // If we're a client and we got disconnected (not a voluntary leave)
+            if(!_networkManager.IsServer && clientId == _networkManager.LocalClientId && !_isLeaving) {
+                Debug.Log("[SessionManager] Disconnected from host - returning to menu");
+                HandleUnexpectedDisconnect().Forget();
+            }
+        }
+
+        private async UniTaskVoid HandleUnexpectedDisconnect() {
+            await UniTask.Delay(100); // Small delay to let disconnect process
+    
+            HUDManager.Instance?.HideHUD();
+            if(GameMenuManager.Instance?.IsPaused == true) {
+                GameMenuManager.Instance.TogglePause();
+            }
+    
+            ResetSessionState();
+            LoadMainMenu("MainMenu");
         }
         
         #endregion
@@ -100,7 +121,7 @@ namespace Network {
 
             var options = new SessionOptions {
                 MaxPlayers = 16, IsLocked = false, IsPrivate = false, PlayerProperties = props
-            }.WithRelayNetwork();
+            };
 
             ActiveSession = await _ugs.CreateAsync(options);
             HookSessionEvents();
@@ -132,7 +153,6 @@ namespace Network {
             if(_isLeaving) return;
             _isLeaving = true;
             try { 
-                NotifyClientsToLeaveAsync();
                 await _net.CleanupNetworkAsync();
                 await _ugs.LeaveOrDeleteAsync(ActiveSession);
                 ResetSessionState();
@@ -284,15 +304,6 @@ namespace Network {
             }
 
             return false;
-        }
-
-        private void NotifyClientsToLeaveAsync() {
-            if(!_networkManager?.IsServer ?? true) return;
-            var relay = FindFirstObjectByType<SessionExitRelay>();
-            if(relay?.IsSpawned == true) {
-                relay.ReturnToMenuClientRpc();
-                // await UniTask.Delay(150);
-            }
         }
 
         private void ResetSessionState() {

@@ -87,6 +87,70 @@
             </ui:VisualElement>
         </ui:VisualElement>
     </ui:VisualElement>
+    <ui:VisualElement name="loadout-panel" class="panel full-abs center-xy hidden">
+        <ui:VisualElement name="loadout-container" class="loadout-container card" style="height: auto; top: 275px; padding-left: 20px; padding-right: 20px; padding-bottom: 20px; padding-top: 20px;">
+            <ui:VisualElement name="customization-bar" class="customization-bar">
+                <ui:VisualElement name="color-picker-container" class="color-picker-container" style="margin-right: 5px;">
+                    <!-- Current color display - shows only selected -->
+                    <ui:VisualElement name="current-color-display" class="current-color-display">
+                        <ui:VisualElement name="current-color-0" class="color-circle current-color color-0 hidden" />
+                        <ui:VisualElement name="current-color-1" class="color-circle current-color color-1 hidden" />
+                        <ui:VisualElement name="current-color-2" class="color-circle current-color color-2 hidden" />
+                        <ui:VisualElement name="current-color-3" class="color-circle current-color color-3 hidden" />
+                        <ui:VisualElement name="current-color-4" class="color-circle current-color color-4 hidden" />
+                        <ui:VisualElement name="current-color-5" class="color-circle current-color color-5 hidden" />
+                        <ui:VisualElement name="current-color-6" class="color-circle current-color color-6 hidden" />
+                    </ui:VisualElement>
+                    <!-- Color options dropdown - hides selected -->
+                    <ui:VisualElement name="color-options" class="color-options hidden" style="left: auto; flex-direction: row-reverse; top: auto; right: 36px; bottom: -9px; justify-content: space-evenly; align-self: center; width: 240px;">
+                        <ui:VisualElement name="option-color-0" class="color-circle color-option color-0" style="margin-bottom: 0;" />
+                        <ui:VisualElement name="option-color-1" class="color-circle color-option color-1" style="margin-bottom: 0; margin-right: 0;" />
+                        <ui:VisualElement name="option-color-2" class="color-circle color-option color-2" style="margin-bottom: 0; margin-right: 0;" />
+                        <ui:VisualElement name="option-color-3" class="color-circle color-option color-3" style="margin-bottom: 0; margin-right: 0;" />
+                        <ui:VisualElement name="option-color-4" class="color-circle color-option color-4" style="margin-bottom: 0; margin-right: 0;" />
+                        <ui:VisualElement name="option-color-5" class="color-circle color-option color-5" style="margin-bottom: 0; margin-right: 0;" />
+                        <ui:VisualElement name="option-color-6" class="color-circle color-option color-6" style="margin-bottom: 0; margin-right: 0;" />
+                    </ui:VisualElement>
+                </ui:VisualElement>
+                <ui:VisualElement name="name-input-container" class="name-input-container">
+                    <ui:TextField name="player-name-input" placeholder-text="Enter your name..." class="player-name-input" />
+                    <ui:Button text="Apply" name="apply-name-button" class="menu-chip menu-chip-enabled apply-name-button hidden" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+            <ui:VisualElement name="weapon-bar" class="weapon-bar" style="margin-bottom: 0; margin-top: 20px;">
+                <ui:VisualElement name="primary-weapon-container" class="weapon-slot-container">
+                    <ui:VisualElement name="primary-weapon-slot" class="weapon-slot">
+                        <ui:Image name="primary-weapon-image" class="weapon-image" />
+                        <ui:VisualElement name="primary-dropdown" class="weapon-dropdown hidden">
+                            <ui:ScrollView name="primary-scroll" class="weapon-dropdown-scroll" />
+                        </ui:VisualElement>
+                    </ui:VisualElement>
+                    <ui:Label text="PRIMARY" class="weapon-slot-label" />
+                </ui:VisualElement>
+                <ui:VisualElement name="secondary-weapon-container" class="weapon-slot-container">
+                    <ui:VisualElement name="secondary-weapon-slot" class="weapon-slot">
+                        <ui:Image name="secondary-weapon-image" class="weapon-image" />
+                        <ui:VisualElement name="secondary-dropdown" class="weapon-dropdown hidden">
+                            <ui:ScrollView name="secondary-scroll" class="weapon-dropdown-scroll" />
+                        </ui:VisualElement>
+                    </ui:VisualElement>
+                    <ui:Label text="SECONDARY" name="Label" class="weapon-slot-label" />
+                </ui:VisualElement>
+                <ui:VisualElement name="tertiary-weapon-container" class="weapon-slot-container">
+                    <ui:VisualElement name="tertiary-weapon-slot" class="weapon-slot">
+                        <ui:Image name="tertiary-weapon-image" class="weapon-image" />
+                        <ui:VisualElement name="tertiary-dropdown" class="weapon-dropdown hidden">
+                            <ui:ScrollView name="tertiary-scroll" class="weapon-dropdown-scroll" />
+                        </ui:VisualElement>
+                    </ui:VisualElement>
+                    <ui:Label text="TERTIARY" class="weapon-slot-label" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+            <ui:VisualElement name="loadout-buttons" class="button-row">
+                <ui:Button text="Back" name="back-to-main-from-loadout" class="menu-chip menu-chip-enabled back-button" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+    </ui:VisualElement>
     <ui:VisualElement name="options-panel" class="panel full-abs center-xy hidden">
         <ui:VisualElement name="options-container" class="options-container card">
             <ui:Label text="OPTIONS" name="options-label" class="title" />
@@ -164,4 +228,35 @@
         </ui:VisualElement>
     </ui:VisualElement>
     <ui:VisualElement name="toast-container" enabled="false" class="toast-container" />
+    <ui:VisualElement name="first-time-setup-modal" class="modal-overlay full-abs hidden" style="top: 0; left: 0;">
+        <ui:VisualElement name="first-time-setup-container" class="first-time-setup-container card" style="min-height: 350px;">
+            <ui:Label text="WHO ARE YOU?" name="first-time-label" class="title" />
+            <ui:VisualElement name="first-time-inputs" class="first-time-inputs" style="margin-top: 20px; margin-bottom: 54px;">
+                <ui:VisualElement name="first-time-color-container" class="first-time-color-container" style="margin-right: 10px;">
+                    <!-- Current color display -->
+                    <ui:VisualElement name="first-time-current-color-display" class="current-color-display">
+                        <ui:VisualElement name="first-time-current-color-0" class="color-circle current-color color-0 hidden" style="width: 24px; height: 24px;" />
+                        <ui:VisualElement name="first-time-current-color-1" class="color-circle current-color color-1 hidden" style="width: 24px; height: 24px;" />
+                        <ui:VisualElement name="first-time-current-color-2" class="color-circle current-color color-2 hidden" style="width: 24px; height: 24px;" />
+                        <ui:VisualElement name="first-time-current-color-3" class="color-circle current-color color-3 hidden" style="width: 24px; height: 24px;" />
+                        <ui:VisualElement name="first-time-current-color-4" class="color-circle current-color color-4 hidden" style="width: 24px; height: 24px;" />
+                        <ui:VisualElement name="first-time-current-color-5" class="color-circle current-color color-5 hidden" style="width: 24px; height: 24px;" />
+                        <ui:VisualElement name="first-time-current-color-6" class="color-circle current-color color-6 hidden" style="width: 24px; height: 24px;" />
+                    </ui:VisualElement>
+                    <!-- Color options -->
+                    <ui:VisualElement name="first-time-color-options" class="color-options first-time-color-options hidden" style="left: -9px; right: auto; min-width: 40px; justify-content: space-evenly; top: 30px; min-height: 215px; padding: 5px;">
+                        <ui:VisualElement name="first-time-option-color-0" class="color-circle color-option color-0" style="margin-bottom: 0; width: 24px; height: 24px;" />
+                        <ui:VisualElement name="first-time-option-color-1" class="color-circle color-option color-1" style="margin-bottom: 0; width: 24px; height: 24px;" />
+                        <ui:VisualElement name="first-time-option-color-2" class="color-circle color-option color-2" style="margin-bottom: 0; width: 24px; height: 24px;" />
+                        <ui:VisualElement name="first-time-option-color-3" class="color-circle color-option color-3" style="margin-bottom: 0; width: 24px; height: 24px;" />
+                        <ui:VisualElement name="first-time-option-color-4" class="color-circle color-option color-4" style="margin-bottom: 0; width: 24px; height: 24px;" />
+                        <ui:VisualElement name="first-time-option-color-5" class="color-circle color-option color-5" style="margin-bottom: 0; width: 24px; height: 24px;" />
+                        <ui:VisualElement name="first-time-option-color-6" class="color-circle color-option color-6" style="margin-bottom: 0; width: 24px; height: 24px;" />
+                    </ui:VisualElement>
+                </ui:VisualElement>
+                <ui:TextField name="first-time-name-input" placeholder-text="Enter your name..." class="first-time-name-input" style="height: 68px;" />
+            </ui:VisualElement>
+            <ui:Button text="Continue" name="first-time-continue-button" class="menu-chip menu-chip-enabled continue-button" />
+        </ui:VisualElement>
+    </ui:VisualElement>
 </ui:UXML>

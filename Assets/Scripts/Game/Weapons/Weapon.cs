@@ -11,6 +11,8 @@ using UnityEngine.VFX;
 namespace Game.Weapons {
     public class Weapon : NetworkBehaviour {
         [Header("Weapon Data")] public GameObject weaponPrefab;
+        public Vector3 spawnPosition;
+        public Vector3 spawnRotation;
         public GameObject weaponMuzzle;
         [SerializeField] private Transform fpMuzzle;
         [SerializeField] private Transform worldMuzzle;
@@ -140,6 +142,8 @@ namespace Game.Weapons {
 
         public void Initialize(WeaponData data) {
             weaponPrefab = data.weaponPrefab;
+            spawnPosition = data.spawnPosition;
+            spawnRotation = data.spawnRotation;
             weaponMuzzle = data.muzzlePrefab;
             weaponSlot = data.weaponSlot;
 
@@ -212,6 +216,8 @@ namespace Game.Weapons {
 
         public void CancelReload() {
             if(!IsReloading) return;
+            
+            StopCoroutine(_reloadCoroutine);
 
             IsReloading = false;
             _reloadCoroutine = null;

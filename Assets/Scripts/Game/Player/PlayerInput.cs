@@ -97,11 +97,11 @@ namespace Game.Player {
 
         private void OnMove(InputValue value) {
             if(!IsOwner) return;
-            if(IsPausedOrDead) {
+            if(IsPaused) {
                 playerController.moveInput = Vector2.zero;
                 return;
             }
-
+            
             playerController.moveInput = value.Get<Vector2>();
         }
 
@@ -217,6 +217,8 @@ namespace Game.Player {
             CurrentWeaponModel.SetActive(false);
             weaponManager.currentWeaponIndex = weaponIndex;
             weaponManager.CurrentWeapon.BindAndResolve(fpCamera, playerController);
+            CurrentWeaponModel.transform.localPosition = CurrentWeapon.spawnPosition;
+            CurrentWeaponModel.transform.localEulerAngles = CurrentWeapon.spawnRotation;
             CurrentWeaponModel.SetActive(true);
             HUDManager.Instance.UpdateAmmo(CurrentWeapon.currentAmmo, CurrentWeapon.magSize);
         }

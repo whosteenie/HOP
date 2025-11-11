@@ -137,102 +137,311 @@
     width: 760px; max-height: 80%; padding: 36px;
 }
 
-/* ===== CREDITS ===== */
+/* ===== LOADOUT ===== */
 
-.credits-container {
-    flex-direction: column;
-    justify-content: space-between;
-    padding: 26px;
-    min-width: 500px;
-    min-height: 400px;
-}
-
-.credits-content {
-    flex-grow: 1;
-    display: flex;
+.loadout-container {
+    width: 900px;
+    height: 700px;
+    padding: 30px;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
-    margin-bottom: 0;
 }
 
-.credits-text {
-    font-size: 20px;
-    color: white;
+/* Player Model Display */
+.player-model-container {
+    width: 100%;
+    height: 300px;
+    margin-bottom: 20px;
+    align-items: center;
+    justify-content: center;
+}
+
+.player-model-viewport {
+    width: 400px;
+    height: 300px;
+    background-color: rgba(35, 35, 35, 0.9);
+    border-radius: 10px;
+    border-width: 1px;
+    border-color: rgba(255, 255, 255, 0.08);
+}
+
+/* Customization Bar (Color + Name) */
+.customization-bar {
+    width: 100%;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    align-content: center;
+    padding: 0 20px;
+}
+
+/* Color Picker */
+.color-picker-container {
+    flex-direction: row;
+    align-items: center;
+    margin-right: 20px;
+    position: relative;
+}
+
+.loadout-panel .color-options {
+    top: 0;
+    right: 42px; /* Position to the left of the current color circle */
+}
+
+.color-circle {
+    width: 32px;
+    height: 32px;
+    border-radius: 16px;
+    border-width: 2px;
+    border-color: rgba(255, 255, 255, 0.3);
+    transition-duration: 0.2s;
+    margin-bottom: 6px;
+}
+
+.color-circle:hover {
+    scale: 1.15;
+    border-color: rgba(255, 255, 255, 0.6);
+}
+
+.current-color {
+    cursor: link;
+}
+
+.color-options {
+    position: absolute;
+    top: 50px;
+    left: -56px;
+    flex-direction: column;
+    align-items: center;
+    background-color: rgba(35, 35, 35, 0.95);
+    padding: 8px;
+    border-radius: 8px;
+    border-width: 1px;
+    border-color: rgba(255, 255, 255, 0.08);
+}
+
+.color-option {
+    cursor: link;
+    margin-bottom: 6px;
+}
+
+/* Name Input */
+.name-input-container {
+    flex-direction: row;
+    align-items: center;
+    flex-grow: 1;
+    justify-content: flex-start;
+    max-width: 300px;
+}
+
+.player-name-input {
+    width: 300px;
+    height: 65px;
+    font-size: 18px;
+    padding: 10px 15px;
+    border-radius: 8px;
+    border-width: 1px;
+    border-color: rgba(255, 255, 255, 0.2);
+    background-color: rgba(0, 0, 0, 0.3);
+    color: rgb(235, 235, 235);
+    -unity-text-align: middle-left;
+}
+
+.player-name-input:focus {
+    border-color: rgba(255, 255, 255, 0.4);
+    background-color: rgba(0, 0, 0, 0.5);
+}
+
+.apply-name-button {
+    margin-left: 10px;
+    width: 80px;
+    height: 50px;
+}
+
+/* Weapon Selection Bar */
+.weapon-bar {
+    width: 100%;
+    flex-direction: row;
+    justify-content: space-between;
+    padding: 0 30px;
+    margin-bottom: 20px;
+}
+
+.weapon-slot-container {
+    flex-direction: column;
+    align-items: center;
+    width: 200px;
+}
+
+.weapon-slot-label {
+    font-size: 12px;
+    color: rgb(180, 180, 180);
+    margin-bottom: 8px;
+    -unity-font-style: bold;
     -unity-text-align: middle-center;
 }
 
-.main-logo-container {
-    width: 240px;
-    height: 240px;
-}
-
-.main-credits-logo {
-    width: 100%;
-    height: 100%;
-    --unity-image: url('/Assets/UI Toolkit/Images/whostudios-notext.png');
-    --unity-image-size: contain;
-}
-
-.logo-container {
-    width: 60px;
-    height: 60px;
-    margin-top: 16px;
-}
-
-.credits-logo {
-    width: 100%;
-    height: 100%;
-    --unity-image: url('/Assets/UI Toolkit/Images/github.png');
-    --unity-image-size: contain;
+.weapon-slot {
+    width: 183px;
+    height: 120px;
+    background-color: rgba(35, 35, 35, 0.9);
+    border-radius: 8px;
+    border-width: 1px;
+    border-color: rgba(255, 255, 255, 0.08);
+    align-items: center;
+    justify-content: center;
     cursor: link;
-    transition: opacity 0.2s ease;
+    transition-duration: 0.2s;
+    position: relative;
 }
 
-.credits-logo:hover {
-    opacity: 0.8;
+.weapon-slot:hover {
+    border-color: rgba(255, 255, 255, 0.2);
+    background-color: rgba(45, 45, 45, 0.9);
 }
 
-/* -------------------------------------------------------------
-   TOAST – 100% Unity UI Toolkit compatible (2021+)
-   ------------------------------------------------------------- */
-.toast-container {
+.weapon-image {
+    width: 160px;
+    height: 100px;
+    -unity-background-scale-mode: scale-to-fit;
+}
+
+/* Weapon Dropdown */
+.weapon-dropdown {
     position: absolute;
-    left: 50%;
-    bottom: 80px;
-    translate: -50% 0;  /* Unity's translate property */
-    display: flex;
+    bottom: 130px;
+    left: 0;
+    width: 183px;
+    max-height: 300px;
+    background-color: rgba(25, 25, 25, 0.98);
+    border-radius: 8px;
+    border-width: 1px;
+    border-color: rgba(255, 255, 255, 0.08);
+    padding: 8px;
+}
+
+.weapon-dropdown-scroll {
+    max-height: 280px;
+}
+
+.weapon-option {
+    width: 164px;
+    height: 100px;
+    background-color: rgba(35, 35, 35, 0.9);
+    border-radius: 6px;
+    border-width: 1px;
+    border-color: rgba(255, 255, 255, 0.05);
+    margin-bottom: 6px;
+    align-items: center;
+    justify-content: center;
+    cursor: link;
+    transition-duration: 0.2s;
+}
+
+.weapon-option:hover {
+    background-color: rgba(45, 45, 45, 0.9);
+    border-color: rgba(255, 255, 255, 0.15);
+}
+
+.weapon-option-image {
+    width: 140px;
+    height: 80px;
+    -unity-background-scale-mode: scale-to-fit;
+}
+
+/* ===== FIRST TIME SETUP MODAL ===== */
+
+.modal-overlay {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.85);
+    align-items: center;
+    justify-content: center;
+}
+
+.first-time-setup-container {
+    width: 500px;
+    padding: 40px;
     flex-direction: column;
     align-items: center;
 }
 
-/* Base toast style */
-.toast {
-    background-color: rgba(30,30,30,0.92);
-    color: #ffffff;
-    font-size: 16px;
-    padding: 12px 24px;
+.first-time-inputs {
+    width: 100%;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    margin-top: 30px;
+    margin-bottom: 30px;
+}
+
+.first-time-color-container {
+    flex-direction: row;
+    align-items: center;
+    margin-right: 20px;
+    position: relative;
+}
+
+.first-time-color-options {
+    position: absolute;
+    top: 0;
+    right: 42px; /* Adjust based on circle size */
+    flex-direction: column;
+    align-items: center;
+    background-color: rgba(35, 35, 35, 0.95);
+    padding: 8px;
     border-radius: 8px;
     border-width: 1px;
-    border-color: rgba(0,0,0,0.4);
-    opacity: 0;
-    transition-duration: 0.3s;
-    transition-property: opacity, translate;  /* Changed from transform */
-    transition-timing-function: ease-out;
+    border-color: rgba(255, 255, 255, 0.08);
 }
 
-/* Fake bold text */
-.toast-bold {
-    -unity-text-outline-color: rgba(0,0,0,0.8);
-    -unity-text-outline-width: 0.5;
+.first-time-color-options .color-circle {
+    width: 32px;
+    height: 32px;
+    border-radius: 16px;
 }
 
-/* Animation states */
-.toast.show  {
-    opacity: 1;
-    translate: 0 0;  /* No offset */
+.first-time-name-input {
+    width: 320px;
+    height: 50px;
+    font-size: 18px;
+    padding: 10px 15px;
+    border-radius: 8px;
+    border-width: 1px;
+    border-color: rgba(255, 255, 255, 0.2);
+    background-color: rgba(0, 0, 0, 0.3);
+    color: rgb(235, 235, 235);
+    -unity-text-align: middle-left;
 }
-.toast.hide  {
-    opacity: 0;
-    translate: 0 -20px;  /* Move up 20px */
+
+.first-time-name-input:focus {
+    border-color: rgba(255, 255, 255, 0.4);
+    background-color: rgba(0, 0, 0, 0.5);
+}
+
+.continue-button {
+    width: 150px;
+    height: 50px;
+}
+
+/* Add these color classes - replace with your actual colors */
+.color-0 { background-color: rgb(255, 255, 255); } /* White */
+.color-1 { background-color: rgb(255, 0, 0); } /* Red */
+.color-2 { background-color: rgb(255, 165, 0); } /* Orange */
+.color-3 { background-color: rgb(255, 255, 0); } /* Yellow */
+.color-4 { background-color: rgb(0, 255, 0); } /* Green */
+.color-5 { background-color: rgb(0, 0, 255); } /* Blue */
+.color-6 { background-color: rgb(128, 0, 128); } /* Purple */
+
+.current-color-display {
+    position: relative;
+    width: 32px;
+    height: 32px;
+}
+
+.current-color-display .color-circle {
+    position: absolute;
+    top: 0;
+    left: 0;
 }

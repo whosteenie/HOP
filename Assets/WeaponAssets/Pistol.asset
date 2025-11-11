@@ -14,8 +14,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::WeaponData
   weaponPrefab: {fileID: 1694449805434718, guid: 6f1a7354265853f44b0ed5e2e43676ad, type: 3}
   weaponSlot: 1
-  positionSpawn: {x: 0.35, y: -0.17800009, z: 0.28403}
-  rotationSpawn: {x: 0, y: 180, z: 0}
+  spawnPosition: {x: 0.245, y: -0.125, z: 0.207}
+  spawnRotation: {x: 0, y: -180, z: 0}
   muzzlePrefab: {fileID: 6299671218319471870, guid: d13b2bf13a0548a4aa9c2cd249a35a04, type: 3}
   positionMuzzle: {x: 0, y: 0.0266, z: -0.1472}
   magSize: 16

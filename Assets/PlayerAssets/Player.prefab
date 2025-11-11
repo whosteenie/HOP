@@ -157,8 +157,7 @@ GameObject:
   - component: {fileID: 2584550646514722606}
   - component: {fileID: 6772666014369885431}
   - component: {fileID: -935627131628127128}
-  - component: {fileID: 8203108822323235438}
-  - component: {fileID: -5072903801992662741}
+  - component: {fileID: 7184346531640925950}
   m_Layer: 7
   m_Name: Player
   m_TagString: Untagged
@@ -293,6 +292,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerDamageRelay
   ShowTopMostFoldoutHeaderGroup: 1
+  hurtSound: {fileID: 8300000, guid: 9264739833ad159439ccaf19dd3245b7, type: 3}
 --- !u!114 &8737367002116917980
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -397,7 +397,9 @@ MonoBehaviour:
   playerRagdoll: {fileID: 2584550646514722606}
   deathCamera: {fileID: 6297701186958565404}
   damageRelay: {fileID: -2503030706147355686}
-  soundRelay: {fileID: 8737367002116917980}
+  sfxRelay: {fileID: 8737367002116917980}
+  hurtSound: {fileID: 8300000, guid: 9264739833ad159439ccaf19dd3245b7, type: 3}
+  impulseSource: {fileID: 7184346531640925950}
   moveInput: {x: 0, y: 0}
   lookInput: {x: 0, y: 0}
   sprintInput: 0
@@ -485,7 +487,7 @@ MonoBehaviour:
   - {fileID: 8300000, guid: 77366d0dea8272540b1eefb82a67dc28, type: 3}
   - {fileID: 8300000, guid: 7e7e40d5ebea924459b8cbec5751a5ed, type: 3}
   - {fileID: 8300000, guid: e3bbc28cdb7f57a4ba87dbb7cee36478, type: 3}
-  soundRelay: {fileID: 8737367002116917980}
+  sfxRelay: {fileID: 8737367002116917980}
   lineWidth: 0.05
   grappleColor: {r: 0.078431375, g: 0.078431375, b: 0.078431375, a: 1}
   lineMaterial: {fileID: 0}
@@ -552,7 +554,7 @@ AudioListener:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2394102009201851988}
   m_Enabled: 1
---- !u!114 &8203108822323235438
+--- !u!114 &7184346531640925950
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -561,22 +563,50 @@ MonoBehaviour:
   m_GameObject: {fileID: 2394102009201851988}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: d98a21687ccf2fb47b7e5793ea419ab1, type: 3}
+  m_Script: {fileID: 11500000, guid: 180ecf9b41d478f468eb3e9083753217, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Relays.SessionExitRelay
-  ShowTopMostFoldoutHeaderGroup: 1
---- !u!114 &-5072903801992662741
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2394102009201851988}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: bea1e704d5524164583e9bb70ab96df6, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Network.ClientDisconnectWatcher
+  m_EditorClassIdentifier: Unity.Cinemachine::Unity.Cinemachine.CinemachineImpulseSource
+  ImpulseDefinition:
+    ImpulseChannel: 1
+    ImpulseShape: 1
+    CustomImpulseShape:
+      serializedVersion: 2
+      m_Curve: []
+      m_PreInfinity: 2
+      m_PostInfinity: 2
+      m_RotationOrder: 4
+    ImpulseDuration: 0.2
+    ImpulseType: 1
+    DissipationRate: 0.106
+    RawSignal: {fileID: 0}
+    AmplitudeGain: 1
+    FrequencyGain: 1
+    RepeatMode: 0
+    Randomize: 1
+    TimeEnvelope:
+      AttackShape:
+        serializedVersion: 2
+        m_Curve: []
+        m_PreInfinity: 2
+        m_PostInfinity: 2
+        m_RotationOrder: 4
+      DecayShape:
+        serializedVersion: 2
+        m_Curve: []
+        m_PreInfinity: 2
+        m_PostInfinity: 2
+        m_RotationOrder: 4
+      AttackTime: 0
+      SustainTime: 0.2
+      DecayTime: 0.7
+      ScaleWithImpact: 1
+      HoldForever: 0
+    ImpactRadius: 100
+    DirectionMode: 0
+    DissipationMode: 2
+    DissipationDistance: 100
+    PropagationSpeed: 343
+  DefaultVelocity: {x: 0, y: 0.05, z: 0}
 --- !u!1 &4319006866933323338
 GameObject:
   m_ObjectHideFlags: 0

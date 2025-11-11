@@ -130,7 +130,8 @@ namespace Network {
 
                 var mesh = instance.gameObject.GetComponentInChildren<SkinnedMeshRenderer>();
                 var currentMaterials = mesh.materials;
-                currentMaterials[0] = playerMaterials[_playerAmount % playerMaterials.Length];
+                var selectedColorIndex = PlayerPrefs.GetInt("PlayerColorIndex");
+                currentMaterials[0] = playerMaterials[selectedColorIndex];
                 mesh.materials = currentMaterials;
 
                 var cc = instance.GetComponent<CharacterController>();
