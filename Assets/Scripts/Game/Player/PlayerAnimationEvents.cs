@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace Player {
+namespace Game.Player {
     public class PlayerAnimationEvents : MonoBehaviour
     {
         public PlayerController playerController;

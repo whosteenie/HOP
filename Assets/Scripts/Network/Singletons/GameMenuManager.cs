@@ -1,13 +1,12 @@
 using System;
 using System.Collections.Generic;
-using Network;
-using Player;
+using Game.Player;
 using UnityEngine;
 using UnityEngine.Audio;
 using UnityEngine.SceneManagement;
 using UnityEngine.UIElements;
 
-namespace Singletons {
+namespace Network.Singletons {
     public class GameMenuManager : MonoBehaviour {
         #region Serialized Fields
     
@@ -253,16 +252,8 @@ namespace Singletons {
         private async void QuitToMenu() {
             try {
                 SoundFXManager.Instance.PlayUISound(backClickSound);
-        
+                
                 await SessionManager.Instance.LeaveToMainMenuAsync();
-        
-                // NetworkManager.Singleton.SceneManager.LoadScene("MainMenu", LoadSceneMode.Single);
-                // await SceneManager.UnloadSceneAsync("MainMenu");
-                // SceneManager.LoadScene("MainMenu");
-
-                // while(SceneManager.GetActiveScene().name != "MainMenu") {
-                //     await Task.Yield();
-                // }
             
                 var root = uiDocument.rootVisualElement;
                 var rootContainer = root.Q<VisualElement>("root-container");

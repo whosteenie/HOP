@@ -1,8 +1,8 @@
-using Player;
+using Game.Player;
 using Unity.Netcode;
 using UnityEngine;
 
-namespace Relays {
+namespace Network.Rpc {
     public class NetworkDamageRelay : NetworkBehaviour {
         /// <summary>
         /// Called by the local owner (client) to ask the server to apply damage to a target player.

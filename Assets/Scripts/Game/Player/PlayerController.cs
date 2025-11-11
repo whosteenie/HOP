@@ -1,15 +1,15 @@
 using System.Collections;
+using Game.Weapons;
 using Network;
-using Relays;
-using Singletons;
+using Network.Rpc;
+using Network.Singletons;
 using Unity.Cinemachine;
 using Unity.Netcode;
-using Unity.VisualScripting;
 using UnityEngine;
+using UnityEngine.Serialization;
 using UnityEngine.UIElements;
-using Weapons;
 
-namespace Player {
+namespace Game.Player {
     public class PlayerController : NetworkBehaviour {
         #region Constants
 
@@ -63,7 +63,7 @@ namespace Player {
         [SerializeField] private PlayerRagdoll playerRagdoll;
         [SerializeField] private DeathCamera deathCamera;
         [SerializeField] private NetworkDamageRelay damageRelay;
-        [SerializeField] private NetworkSoundRelay soundRelay;
+        [FormerlySerializedAs("soundRelay")] [SerializeField] private NetworkSfxRelay sfxRelay;
 
         #endregion
 
@@ -197,13 +197,13 @@ namespace Player {
 
             height = CheckForJumpPad() ? 15f : height;
 
-            if(soundRelay != null && IsOwner) {
+            if(sfxRelay != null && IsOwner) {
                 var key = Mathf.Approximately(height, 15f) ? "jumpPad" : "jump";
 
                 if(key == "jumpPad") {
-                    soundRelay?.RequestWorldSfx(SfxKey.JumpPad, attachToSelf: true, true);
+                    sfxRelay?.RequestWorldSfx(SfxKey.JumpPad, attachToSelf: true, true);
                 } else {
-                    soundRelay?.RequestWorldSfx(SfxKey.Jump, attachToSelf: true);
+                    sfxRelay?.RequestWorldSfx(SfxKey.Jump, attachToSelf: true);
                 }
             }
 
@@ -216,16 +216,16 @@ namespace Player {
         public void PlayWalkSound() {
             if(!IsGrounded) return;
 
-            if(soundRelay != null && IsOwner) {
-                soundRelay?.RequestWorldSfx(SfxKey.Walk, attachToSelf: true);
+            if(sfxRelay != null && IsOwner) {
+                sfxRelay?.RequestWorldSfx(SfxKey.Walk, attachToSelf: true);
             }
         }
 
         public void PlayRunSound() {
             if(!IsGrounded) return;
 
-            if(soundRelay != null && IsOwner) {
-                soundRelay?.RequestWorldSfx(SfxKey.Run, attachToSelf: true);
+            if(sfxRelay != null && IsOwner) {
+                sfxRelay?.RequestWorldSfx(SfxKey.Run, attachToSelf: true);
             }
         }
 
@@ -543,8 +543,8 @@ namespace Player {
                 characterAnimator.SetBool(IsJumpingHash, false);
                 characterAnimator.SetTrigger(LandTriggerHash);
 
-                if(soundRelay != null && IsOwner) {
-                    soundRelay?.RequestWorldSfx(SfxKey.Land, attachToSelf: true);
+                if(sfxRelay != null && IsOwner) {
+                    sfxRelay?.RequestWorldSfx(SfxKey.Land, attachToSelf: true);
                 }
             }
 
@@ -552,8 +552,8 @@ namespace Player {
             if(!_isFalling || !IsGrounded) return;
             characterAnimator.SetTrigger(LandTriggerHash);
 
-            if(soundRelay != null && IsOwner) {
-                soundRelay?.RequestWorldSfx(SfxKey.Land, attachToSelf: true);
+            if(sfxRelay != null && IsOwner) {
+                sfxRelay?.RequestWorldSfx(SfxKey.Land, attachToSelf: true);
             }
         }
 

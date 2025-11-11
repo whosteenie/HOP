@@ -1,7 +1,7 @@
 using Unity.Netcode;
 using UnityEngine;
 
-namespace Player {
+namespace Game.Player {
     public class PlayerShadow : NetworkBehaviour
     {
         public override void OnNetworkSpawn() {

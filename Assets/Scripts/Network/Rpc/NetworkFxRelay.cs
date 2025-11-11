@@ -1,10 +1,10 @@
-using Player;
+using Game.Player;
+using Game.Weapons;
 using Unity.Netcode;
 using UnityEngine;
-using Weapons;
 
-namespace Relays {
-    public class NetworkFXRelay : NetworkBehaviour {
+namespace Network.Rpc {
+    public class NetworkFxRelay : NetworkBehaviour {
         // TODO: FIX!!!
         private PlayerController _playerController;
         private NetworkObject _networkObject;
@@ -23,8 +23,8 @@ namespace Relays {
 
             // CAPTURE EXACT muzzle position at shot time
             var weapon = GetComponent<Weapon>();
-            Transform activeMuzzle = weapon?.GetActiveMuzzle();
-            Vector3 startPos = activeMuzzle ? activeMuzzle.position : _networkObject.transform.position;
+            var activeMuzzle = weapon?.GetActiveMuzzle();
+            var startPos = activeMuzzle ? activeMuzzle.position : _networkObject.transform.position;
     
             RequestShotFxServerRpc(_networkObject, startPos, endPoint);
         }

@@ -1,9 +1,9 @@
+using Game.Weapons;
 using Unity.Cinemachine;
 using Unity.Netcode;
 using UnityEngine;
-using Weapons;
 
-namespace Player {
+namespace Game.Player {
     public class DeathCamera : NetworkBehaviour {
         [Header("References")]
         [SerializeField] private CinemachineCamera fpCamera;

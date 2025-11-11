@@ -1,7 +1,7 @@
 using Unity.Netcode;
 using UnityEngine;
 
-namespace Player {
+namespace Game.Player {
     public class PlayerRagdoll : NetworkBehaviour
     {
         [Header("References")]

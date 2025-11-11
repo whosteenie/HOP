@@ -3,7 +3,7 @@ using System.Linq;
 using Unity.Netcode;
 using UnityEngine;
 
-namespace Singletons {
+namespace Network.Singletons {
     public class SpawnManager : NetworkBehaviour
     {
         public static SpawnManager Instance { get; private set; }

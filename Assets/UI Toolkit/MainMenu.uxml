@@ -60,7 +60,7 @@
                     <ui:VisualElement name="host-container" class="setting-row">
                         <ui:Button text="Host" name="host-button" class="menu-chip menu-chip-enabled" />
                         <ui:VisualElement name="join-code-display" class="join-code-display" style="justify-content: flex-start;">
-                            <ui:Label name="host-label" text="Join Code: - - - - - - -" class="value-label accent" style="min-width: auto; margin-right: 4px; margin-left: 8px; padding-right: 1px; max-width: none; width: 146px;" />
+                            <ui:Label name="host-label" text="Join Code: - - - - - - -" class="value-label accent" style="min-width: 146px; margin-right: 4px; margin-left: 8px; padding-right: 1px; max-width: none; width: 146px; min-height: 146px;" />
                             <ui:VisualElement style="flex-grow: 1; align-items: flex-end;">
                                 <ui:Button name="copy-code-button" class="copy-button menu-chip" style="width: 36px;">
                                     <ui:Image name="copy-icon" class="copy-icon" />

@@ -1,27 +1,28 @@
 using System.Collections;
-using Cysharp.Threading.Tasks;
-using Network;
-using Singletons;
+using Network.Singletons;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
-namespace Relays {
+namespace Network.Rpc {
     public class SessionExitRelay : NetworkBehaviour {
         #region Debug Logging
 
         private static void D(string msg) => Debug.Log($"[EXIT RELAY] {msg}");
         #endregion
-        [Rpc(SendTo.ClientsAndHost)]
+        [Rpc(SendTo.Owner)]
         public void ReturnToMenuClientRpc() {
             // Client & host both execute this locally
-            StartCoroutine(ReturnToMenuCo());
+            HUDManager.Instance.HideHUD();
+            if(GameMenuManager.Instance.IsPaused) {
+                GameMenuManager.Instance.TogglePause();
+            }
+            
+            SceneManager.LoadScene("MainMenu", LoadSceneMode.Single);
         }
 
-        private IEnumerator ReturnToMenuCo() {
-            // tiny delay so UI has a frame to detach from networked state
-            yield return null;
-            // This is a purely local transition on each process
+        [Rpc(SendTo.ClientsAndHost)]
+        public void ReturnToMenuHostRpc() {
             HUDManager.Instance.HideHUD();
             if(GameMenuManager.Instance.IsPaused) {
                 GameMenuManager.Instance.TogglePause();

@@ -1,5 +1,5 @@
-using Player;
-using Singletons;
+using Game.Player;
+using Network.Singletons;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -17,6 +17,13 @@ namespace Network {
         private int _playerAmount;
 
         private void Awake() {
+            if (NetworkManager.Singleton != null && NetworkManager.Singleton.gameObject != gameObject) {
+                Destroy(gameObject);
+                return;
+            }
+    
+            DontDestroyOnLoad(gameObject);
+            
             _networkManager = NetworkManager.Singleton;
             if(!_networkManager) return;
 
@@ -24,7 +31,6 @@ namespace Network {
             _networkManager.NetworkConfig.ConnectionApproval = true;
 
             // 2) Ensure the built-in auto-spawn path is disabled by leaving PlayerPrefab null.
-            //    Use our own serialized playerPrefab for manual spawning.
             _networkManager.NetworkConfig.PlayerPrefab = null;
 
             // 3) Register approval callback now so the HOST local connection is governed by it.
@@ -40,28 +46,17 @@ namespace Network {
             _networkManager.OnServerStopped += OnServerStopped;
             _networkManager.OnClientStopped += OnClientStopped;
         }
-
-        private void OnDisable() {
-            if(!_networkManager) return;
-            _networkManager.OnClientConnectedCallback -= OnClientConnected;
-            _networkManager.OnClientDisconnectCallback -= OnClientDisconnected;
-        
-            _networkManager.OnServerStopped -= OnServerStopped;
-            _networkManager.OnClientStopped -= OnClientStopped;
-
-            // leave approval callback in place; safe across scenes if this persists
-            if(_networkManager.ConnectionApprovalCallback == ApprovalCheck)
-                _networkManager.ConnectionApprovalCallback = null;
-        }
     
         // --- Public utility: call this when leaving to menu/lobby ---
         public void ResetSpawningState() {
-            _allowPlayerSpawns = false;  // late-joiners won't be spawned
+            _allowPlayerSpawns = false;
+            _playerAmount = 0;
         }
 
         private void OnServerStopped(bool _) {
             // Host stopped -> ensure we never auto-spawn when reconnecting later.
             _allowPlayerSpawns = false;
+            _playerAmount = 0;
         }
 
         private void OnClientStopped(bool _) {
@@ -92,9 +87,21 @@ namespace Network {
         /// </summary>
         public void EnableGameplaySpawningAndSpawnAll() {
             _allowPlayerSpawns = true;
+            
+            Debug.Log($"[CustomNetworkManager] EnableGameplaySpawningAndSpawnAll called. IsServer: {NetworkManager.Singleton.IsServer}, Scene: {SceneManager.GetActiveScene().name}");
 
-            if(!NetworkManager.Singleton.IsServer || SceneManager.GetActiveScene().name != "Game")
+            if(!NetworkManager.Singleton.IsServer) {
+                Debug.LogWarning("[CustomNetworkManager] Not server, skipping spawn");
                 return;
+            }
+
+            if(SceneManager.GetActiveScene().name != "Game") {
+                Debug.LogWarning($"[CustomNetworkManager] Wrong scene: {SceneManager.GetActiveScene().name}");
+                return;
+            }
+            
+            var connectedClients = NetworkManager.Singleton.ConnectedClientsIds;
+            Debug.Log($"[CustomNetworkManager] Spawning for {connectedClients.Count} connected clients: {string.Join(", ", connectedClients)}");
 
             foreach(var id in NetworkManager.Singleton.ConnectedClientsIds)
                 SpawnPlayerFor(id);

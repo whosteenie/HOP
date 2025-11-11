@@ -1,11 +1,11 @@
-using Singletons;
+using Game.Weapons;
+using Network.Singletons;
 using Unity.Cinemachine;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.InputSystem;
-using Weapons;
 
-namespace Player {
+namespace Game.Player {
     public class PlayerInput : NetworkBehaviour {
         #region Serialized Fields
 
@@ -30,7 +30,7 @@ namespace Player {
         private GameObject CurrentWeaponModel =>
             fpCamera.transform.GetChild(weaponManager.currentWeaponIndex).gameObject;
 
-        private Weapons.Weapon CurrentWeapon => weaponManager.CurrentWeapon;
+        private Weapon CurrentWeapon => weaponManager.CurrentWeapon;
 
         #region Unity Methods
 

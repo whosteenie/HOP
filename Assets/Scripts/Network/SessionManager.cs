@@ -5,9 +5,9 @@ using System.Threading;
 using Cysharp.Threading.Tasks;
 using Network.Core;
 using Network.Relay;
+using Network.Rpc;
+using Network.Singletons;
 using Network.UGS;
-using Relays;
-using Singletons;
 using Unity.Netcode;
 using Unity.Netcode.Transports.UTP;
 using Unity.Services.Multiplayer;
@@ -53,6 +53,7 @@ namespace Network {
         private bool _loadingGameScene;
         private bool _isLeaving;
         private string _relayJoinCode;
+        private static NetworkManager _networkManager;
 
         // ===== Services =====
         private readonly IUgsSessionService _ugs = new UgsSessionService();
@@ -62,35 +63,34 @@ namespace Network {
         private readonly IRelayConnector _relay = new RelayConnector();
         private readonly ISceneCoordinator _scenes = new SceneCoordinator();
 
-        // ===== Unity lifecycle =====
+        #region Unity Lifecycle
+
+        protected override void Awake() {
+            if(HasInstance && Instance != this) {
+                Destroy(gameObject);
+                return;
+            }
+            
+            // base.Awake();
+            DontDestroyOnLoad(gameObject);
+        }
+        
         private async void Start() {
             try {
-                DontDestroyOnLoad(gameObject);
+                // DontDestroyOnLoad(gameObject);
                 await _ugs.InitializeAsync();
+                _networkManager = NetworkManager.Singleton;
             } catch(Exception e) {
                 Debug.LogException(e);
             }
         }
+        
+        #endregion
 
         private void OnDestroy() => UnhookSessionEvents();
 
-        // ===== Public API =====
-        /// <summary>Leaves (or deletes, if host) the UGS session, tears down NGO, returns to Main Menu. Safe to call multiple times.</summary>
-        /// <param name="mainMenu">Scene name to load, defaults to "MainMenu".</param>
-        public async UniTask LeaveToMainMenuAsync(string mainMenu = "MainMenu") {
-            if(_isLeaving) return;
-            _isLeaving = true;
-            try {
-                await NotifyClientsToLeaveAsync();
-                await _net.CleanupNetworkAsync();
-                await _ugs.LeaveOrDeleteAsync(ActiveSession);
-                ResetSessionState();
-                LoadMainMenu(mainMenu);
-            } finally {
-                _isLeaving = false;
-            }
-        }
-
+        #region Public API
+        
         /// <summary>Creates a UGS session (no network transport started yet). Returns join code displayed to others.</summary>
         public async UniTask<string> StartSessionAsHost() {
             var props = _localhost.IsLocalhostTesting()
@@ -125,11 +125,30 @@ namespace Network {
             await JoinRemoteAsync(joinCode);
             return "Lobby joined";
         }
+        
+        /// <summary>Leaves (or deletes, if host) the UGS session, tears down NGO, returns to Main Menu. Safe to call multiple times.</summary>
+        /// <param name="mainMenu">Scene name to load, defaults to "MainMenu".</param>
+        public async UniTask LeaveToMainMenuAsync(string mainMenu = "MainMenu") {
+            if(_isLeaving) return;
+            _isLeaving = true;
+            try { 
+                NotifyClientsToLeaveAsync();
+                await _net.CleanupNetworkAsync();
+                await _ugs.LeaveOrDeleteAsync(ActiveSession);
+                ResetSessionState();
+                LoadMainMenu(mainMenu);
+            } finally {
+                _isLeaving = false;
+            }
+        }
+        
+        #endregion
 
-        // ====== Private: Host path ======
+        #region Private - Host path
+        
         /// <summary>Sets UnityTransport for localhost or Relay host and publishes relay code to UGS.</summary>
         private async UniTask SetupHostTransportAndPublishRelayAsync() {
-            var utp = NetworkManager.Singleton.GetComponent<UnityTransport>();
+            var utp = _networkManager.GetComponent<UnityTransport>();
 
             if(_localhost.IsLocalhostTesting()) {
                 utp.ConnectionData.Address = "127.0.0.1";
@@ -150,8 +169,8 @@ namespace Network {
 
         /// <summary>Starts NGO host if not already listening.</summary>
         private static void StartHostIfNeeded() {
-            if(!NetworkManager.Singleton.IsListening)
-                NetworkManager.Singleton.StartHost();
+            if(!_networkManager.IsListening)
+                _networkManager.StartHost();
         }
 
         /// <summary>Arms scene-completion callback and asks server to load the game scene via NGO SceneManager.</summary>
@@ -160,8 +179,11 @@ namespace Network {
             _net.HookSceneCallbacks(OnNetworkSceneLoadComplete);
             _scenes.LoadGameSceneServer(GameSceneName);
         }
+        
+        #endregion
 
-        // ====== Private: Client path ======
+        #region Private - Client path
+        
         /// <summary>Joins localhost host (no Relay), sets IP/port, starts NGO client.</summary>
         private async UniTask JoinLocalhostAsync(string joinCode) {
             var playerName = _localhost.GetLocalEditorName();
@@ -172,11 +194,11 @@ namespace Network {
             HookSessionEvents();
             PlayersChanged?.Invoke(ActiveSession.Players);
 
-            var utp = NetworkManager.Singleton.GetComponent<UnityTransport>();
+            var utp = _networkManager.GetComponent<UnityTransport>();
             utp.ConnectionData.Address = "127.0.0.1";
             utp.ConnectionData.Port = 7777;
-            NetworkManager.Singleton.StartClient();
-            ArmSceneCompletionIfNeeded();
+            _networkManager.StartClient();
+            ArmSceneCompletion();
         }
 
         /// <summary>Joins remote UGS session, waits for Relay code, configures transport, starts NGO client.</summary>
@@ -188,21 +210,29 @@ namespace Network {
 
             var relayCode = await WaitForRelayCodeOrPollAsync();
             var join = await _relay.JoinAllocationAsync(relayCode);
-            var utp = NetworkManager.Singleton.GetComponent<UnityTransport>();
+            var utp = _networkManager.GetComponent<UnityTransport>();
             utp.SetRelayServerData(join.ToRelayServerData(RelayProtocol.DTLS));
-            if(!NetworkManager.Singleton.IsClient && !NetworkManager.Singleton.IsHost)
-                NetworkManager.Singleton.StartClient();
-            ArmSceneCompletionIfNeeded();
+            if(!_networkManager.IsClient && !_networkManager.IsHost)
+                _networkManager.StartClient();
+            ArmSceneCompletion();
         }
 
         /// <summary>Ensures scene-completion callback is hooked only once during client-side load.</summary>
-        private void ArmSceneCompletionIfNeeded() {
+        private void ArmSceneCompletion() {
             if(_loadingGameScene) return;
             _loadingGameScene = true;
             _net.HookSceneCallbacks(OnNetworkSceneLoadComplete);
         }
 
-        // ====== Session events & helpers ======
+        private void DisarmSceneCompletion() {
+            _loadingGameScene = false;
+            _net.UnhookSceneCallbacks(OnNetworkSceneLoadComplete);
+        }
+        
+        #endregion
+        
+        #region Session events & helpers
+
         /// <summary>Returns the published Relay code immediately if available, otherwise polls session properties until received or timeout.</summary>
         private async UniTask<string> WaitForRelayCodeOrPollAsync() {
             if(TryGetRelayCode(out var code)) return code;
@@ -256,12 +286,12 @@ namespace Network {
             return false;
         }
 
-        private async UniTask NotifyClientsToLeaveAsync() {
-            if(!NetworkManager.Singleton?.IsServer ?? true) return;
+        private void NotifyClientsToLeaveAsync() {
+            if(!_networkManager?.IsServer ?? true) return;
             var relay = FindFirstObjectByType<SessionExitRelay>();
             if(relay?.IsSpawned == true) {
                 relay.ReturnToMenuClientRpc();
-                await UniTask.Delay(150);
+                // await UniTask.Delay(150);
             }
         }
 
@@ -271,7 +301,7 @@ namespace Network {
             _relayJoinCode = null;
 
             // Clear spawner state
-            FindFirstObjectByType<CustomNetworkManager>()?.ResetSpawningState();
+            _networkManager.GetComponent<CustomNetworkManager>()?.ResetSpawningState();
             ActiveSession = null;
             Debug.Log("[SessionManager] Clean slate – ready for new session");
         }
@@ -300,32 +330,25 @@ namespace Network {
                 onLeaving: _ => PlayersChanged?.Invoke(ActiveSession?.Players),
                 onPropsChanged: () => { });
         }
+        
+        #endregion
+        
+        #region Scene callback
 
-        // ====== Scene callback ======
         /// <summary>Server-side: finishes bootstrapping after game scene loads (spawns, UI reveal).</summary>
         private void OnNetworkSceneLoadComplete(string scene, LoadSceneMode mode,
             List<ulong> completed, List<ulong> timedOut) {
             if(!_loadingGameScene) return;
-            _loadingGameScene = false;
-            _net.UnhookSceneCallbacks(OnNetworkSceneLoadComplete);
+            DisarmSceneCompletion();
+            Debug.Log($"[SessionManager] Scene load complete. Scene: {scene}, IsServer: {NetworkManager.Singleton.IsServer}");
 
-            if(NetworkManager.Singleton.IsServer) {
-                var spawner = FindFirstObjectByType<CustomNetworkManager>();
-                StartCoroutine(InitializeAfterSceneLoad(spawner));
-            }
-
-            var gameMenu = GameMenuManager.Instance;
-            if(gameMenu != null && gameMenu.TryGetComponent(out UIDocument doc)) {
-                var root = doc.rootVisualElement;
-                var container = root?.Q<VisualElement>("root-container");
-                if(container != null) container.style.display = DisplayStyle.Flex;
+            if(_networkManager.IsServer) {
+                var spawner = _networkManager.GetComponent<CustomNetworkManager>();
+                Debug.Log($"[SessionManager] Found spawner: {spawner != null}");
+                spawner.EnableGameplaySpawningAndSpawnAll();
             }
         }
-
-        private static IEnumerator InitializeAfterSceneLoad(CustomNetworkManager spawner) {
-            yield return new WaitForEndOfFrame();
-            yield return new WaitForFixedUpdate();
-            spawner?.EnableGameplaySpawningAndSpawnAll();
-        }
+        
+        #endregion
     }
 }

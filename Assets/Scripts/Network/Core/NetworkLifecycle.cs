@@ -32,7 +32,7 @@ namespace Network.Core {
             var utp = NetworkManager.Singleton.GetComponent<UnityTransport>();
             if(utp != null) utp.SetConnectionData("127.0.0.1", 7777);
 
-            await UniTask.Delay(500);
+            // await UniTask.Delay(500);
         }
 
         /// <inheritdoc />
@@ -53,6 +53,7 @@ namespace Network.Core {
         /// <inheritdoc />
         public void ClearScenePlacedObjectsCache() {
             var mgr = NetworkManager.Singleton?.SpawnManager;
+
             var field = mgr?.GetType().GetField("m_ScenePlacedObjects",
                 System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
             if(field?.GetValue(mgr) is IDictionary dict) dict.Clear();

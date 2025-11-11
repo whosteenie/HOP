@@ -1,12 +1,10 @@
 using System.Collections.Generic;
-using Singletons;
+using Network.Singletons;
 using Unity.Netcode;
 using UnityEngine;
 
-namespace Relays {
-    public class NetworkSoundRelay : NetworkBehaviour {
-        // TODO: singleton pattern
-    
+namespace Network.Rpc {
+    public class NetworkSfxRelay : NetworkBehaviour {
         // simple anti-spam per key
         private readonly Dictionary<SfxKey, float> _lastSent = new();
         [SerializeField] private float walkMinInterval = 0.10f;

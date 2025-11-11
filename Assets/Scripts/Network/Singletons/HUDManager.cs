@@ -1,7 +1,7 @@
 using UnityEngine;
 using UnityEngine.UIElements;
 
-namespace Singletons {
+namespace Network.Singletons {
     public class HUDManager : MonoBehaviour
     {
         [SerializeField] private UIDocument uiDocument;

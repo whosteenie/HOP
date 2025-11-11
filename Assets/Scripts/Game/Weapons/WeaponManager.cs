@@ -1,10 +1,10 @@
 using System.Collections.Generic;
-using Player;
+using Game.Player;
 using Unity.Cinemachine;
 using Unity.Netcode;
 using UnityEngine;
 
-namespace Weapons {
+namespace Game.Weapons {
     public class WeaponManager : NetworkBehaviour {
         public int currentWeaponIndex;
         private List<Weapon> _equippedWeapons;
@@ -27,16 +27,16 @@ namespace Weapons {
         }    
     
         private void Awake() {
-            _equippedWeapons = new List<global::Weapons.Weapon>();
+            _equippedWeapons = new List<Weapon>();
         }
 
         public void InitializeWeapons(CinemachineCamera cam, PlayerController controller) {
-            _equippedWeapons ??= new List<global::Weapons.Weapon>();
+            _equippedWeapons ??= new List<Weapon>();
         
             _equippedWeapons.Clear();
         
             foreach(var data in weaponDataList) {
-                var weapon = gameObject.AddComponent<global::Weapons.Weapon>();
+                var weapon = gameObject.AddComponent<Weapon>();
             
                 var weaponInstance = Instantiate(data.weaponPrefab, cam.transform, false);
                 weaponInstance.transform.localPosition = data.positionSpawn;

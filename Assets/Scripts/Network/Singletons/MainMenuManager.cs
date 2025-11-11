@@ -1,14 +1,13 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using Network;
 using Unity.Services.Multiplayer;
 using UnityEngine;
 using UnityEngine.Audio;
 using UnityEngine.UIElements;
 using Cursor = UnityEngine.Cursor;
 
-namespace Singletons {
+namespace Network.Singletons {
     public class MainMenuManager : MonoBehaviour {
         #region Debug Logging
         private const bool DebugLogs = true;
@@ -247,6 +246,14 @@ namespace Singletons {
             if(sessionManager != null) {
                 sessionManager.PlayersChanged += OnPlayersChanged;
                 sessionManager.RelayCodeAvailable += OnRelayCodeAvailable;
+            }
+            
+            var gameMenu = GameMenuManager.Instance;
+            if(gameMenu != null && gameMenu.TryGetComponent(out UIDocument doc)) {
+                var gameRoot = doc.rootVisualElement;
+                var rootContainer = gameRoot?.Q<VisualElement>("root-container");
+                if(rootContainer != null)
+                    rootContainer.style.display = DisplayStyle.None;
             }
         }
         

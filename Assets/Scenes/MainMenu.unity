@@ -50135,7 +50135,6 @@ GameObject:
   - component: {fileID: 1228415191}
   - component: {fileID: 1228415190}
   - component: {fileID: 1228415193}
-  - component: {fileID: 1228415194}
   m_Layer: 0
   m_Name: NetworkManager
   m_TagString: Untagged
@@ -50252,18 +50251,6 @@ MonoBehaviour:
   - {fileID: 2100000, guid: e2040610130a73245aedc9fb9f8d9718, type: 2}
   - {fileID: 2100000, guid: 0a4488b487ef14a4ba7e5698e8217eda, type: 2}
   - {fileID: 2100000, guid: aaddffe38381a60428eb1aeab1ba8b85, type: 2}
---- !u!114 &1228415194
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1228415189}
-  m_Enabled: 0
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 0c35ca87d151c8345a0ad23955787d66, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::InitSwitch
 --- !u!1 &1229849040
 GameObject:
   m_ObjectHideFlags: 0
@@ -84902,7 +84889,6 @@ GameObject:
   m_Component:
   - component: {fileID: 2058666126}
   - component: {fileID: 2058666125}
-  - component: {fileID: 2058666127}
   m_Layer: 0
   m_Name: SessionManager
   m_TagString: Untagged
@@ -84937,31 +84923,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &2058666127
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2058666124}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 1232319204
-  InScenePlacedSourceGlobalObjectIdHash: 0
-  DeferredDespawnTick: 0
-  Ownership: 1
-  AlwaysReplicateAsRoot: 0
-  SynchronizeTransform: 1
-  ActiveSceneSynchronization: 0
-  SceneMigrationSynchronization: 0
-  SpawnWithObservers: 1
-  DontDestroyWithOwner: 0
-  AutoObjectParentSync: 1
-  SyncOwnerTransformWhenParented: 1
-  AllowOwnerToParent: 0
 --- !u!4 &2061019328 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 1106471061430962686, guid: 1c4d14349a73300498b86d890673f480, type: 3}

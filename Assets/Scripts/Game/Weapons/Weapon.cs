@@ -1,14 +1,14 @@
 using System.Collections;
-using Player;
-using Relays;
-using Singletons;
+using Game.Player;
+using Network.Rpc;
+using Network.Singletons;
 using Unity.Cinemachine;
 using Unity.Netcode;
 using Unity.Netcode.Components;
 using UnityEngine;
 using UnityEngine.VFX;
 
-namespace Weapons {
+namespace Game.Weapons {
     public class Weapon : NetworkBehaviour {
         [Header("Weapon Data")] public GameObject weaponPrefab;
         public GameObject weaponMuzzle;
@@ -55,10 +55,12 @@ namespace Weapons {
         private float _graceEndTime;
         private Coroutine _reloadCoroutine;
         private NetworkDamageRelay _damageRelay;
-        private NetworkSoundRelay _soundRelay;
-        private NetworkFXRelay _networkFXRelay;
+        private NetworkSfxRelay _sfxRelay;
+        private NetworkFxRelay _networkFXRelay;
         private AudioClip _hitSound;
         private AudioClip _killSound;
+        private float _lastHitDamage;
+        private float _targetHealth;
 
         #endregion
 
@@ -125,11 +127,11 @@ namespace Weapons {
                 muzzleLight.SetActive(false);
             }
 
-            if(_networkFXRelay == null) _networkFXRelay = GetComponent<NetworkFXRelay>();
+            if(_networkFXRelay == null) _networkFXRelay = GetComponent<NetworkFxRelay>();
             AssignMuzzlesIfMissing();
 
             if(_damageRelay == null) _damageRelay = GetComponent<NetworkDamageRelay>();
-            if(_soundRelay == null) _soundRelay = GetComponent<NetworkSoundRelay>();
+            if(_sfxRelay == null) _sfxRelay = GetComponent<NetworkSfxRelay>();
         }
 
         #endregion
@@ -237,7 +239,7 @@ namespace Weapons {
             var hitLayer = enemyLayer | worldLayer;
 
             var shotHit = Physics.Raycast(origin, forward, out var hit, Mathf.Infinity, hitLayer);
-            var damage = GetScaledDamage();
+            _lastHitDamage = GetScaledDamage();
 
             currentAmmo--;
             _lastFireTime = Time.time;
@@ -252,7 +254,8 @@ namespace Weapons {
 
                 if(target != null && target.IsSpawned && _damageRelay != null) {
                     var targetRef = new NetworkObjectReference(target);
-                    _damageRelay.RequestDamageServerRpc(targetRef, damage, hit.point, hit.normal);
+                    _targetHealth = target.GetComponent<PlayerController>().netHealth.Value;
+                    _damageRelay.RequestDamageServerRpc(targetRef, _lastHitDamage, hit.point, hit.normal);
                 }
             } else {
                 Debug.DrawRay(origin, forward * 500f, Color.red, 5f);
@@ -375,26 +378,22 @@ namespace Weapons {
         }
 
         private void PlayFireSound(NetworkObject target) {
-            if(_soundRelay == null)
-                _soundRelay = GetComponent<NetworkSoundRelay>();
+            if(_sfxRelay == null)
+                _sfxRelay = GetComponent<NetworkSfxRelay>();
 
             // owner issues the request
-            if(_soundRelay != null && playerController.IsOwner) {
-                _soundRelay.RequestWorldSfx(SfxKey.Shoot, attachToSelf: true, true);
+            if(_sfxRelay != null && playerController.IsOwner) {
+                _sfxRelay.RequestWorldSfx(SfxKey.Shoot, attachToSelf: true, true);
 
                 if(target == null) return;
 
-                SoundFXManager.Instance.PlayUISound(_hitSound);
-                // SoundFXManager.Instance.PlayUISound(
-                //     target.GetComponent<PlayerController>().netHealth.Value - GetScaledDamage() <= 0
-                //         ? _killSound
-                //         : _hitSound);
+                SoundFXManager.Instance.PlayUISound(_targetHealth - _lastHitDamage <= 0 ? _killSound : _hitSound);
             }
         }
 
         private void PlayDryFireSound() {
-            if(_soundRelay != null && playerController.IsOwner)
-                _soundRelay.RequestWorldSfx(SfxKey.Dry, attachToSelf: true, true);
+            if(_sfxRelay != null && playerController.IsOwner)
+                _sfxRelay.RequestWorldSfx(SfxKey.Dry, attachToSelf: true, true);
         }
 
         private void PlayReloadEffects() {
@@ -404,8 +403,8 @@ namespace Weapons {
             if(networkAnimator)
                 networkAnimator.SetTrigger(ReloadHash);
 
-            if(_soundRelay != null && playerController.IsOwner)
-                _soundRelay.RequestWorldSfx(SfxKey.Reload, attachToSelf: true);
+            if(playerController.IsOwner)
+                _sfxRelay?.RequestWorldSfx(SfxKey.Reload, attachToSelf: true);
         }
 
         private IEnumerator SpawnTrail(TrailRenderer trail, Vector3 hitPoint, Vector3 hitNormal, bool madeImpact) {

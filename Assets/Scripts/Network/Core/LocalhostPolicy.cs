@@ -23,7 +23,7 @@ namespace Network.Core {
         public string GetLocalEditorName() {
             if(Application.dataPath.Contains("_clone")) {
                 var parts = Application.dataPath.Split('_');
-                if(parts.Length > 1 && int.TryParse(parts[^1], out int i)) return $"Editor {i + 1}";
+                if(parts.Length > 1 && int.TryParse(parts[^1], out var i)) return $"Editor {i + 1}";
             }
 
             return $"Editor {System.Diagnostics.Process.GetCurrentProcess().Id}";
