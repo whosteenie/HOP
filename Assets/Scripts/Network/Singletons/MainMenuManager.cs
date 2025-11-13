@@ -14,12 +14,6 @@ namespace Network.Singletons {
 
         private const bool DebugLogs = true;
 
-        private static void D(string msg, bool isServer = false) {
-            if(!DebugLogs) return;
-            var prefix = isServer ? "[HOST]" : "[CLIENT]";
-            Debug.Log($"{prefix} {msg} | Frame: {Time.frameCount} | Time: {Time.time:F2}");
-        }
-
         #endregion
 
         #region Serialized Fields
@@ -464,7 +458,6 @@ namespace Network.Singletons {
                 // _waitingLabel.text = "Waiting for connection...";
 
                 var joinCode = await sessionManager.StartSessionAsHost();
-                D($"UI: Host created – Code: {joinCode}");
 
                 if(string.IsNullOrEmpty(joinCode)) {
                     // _waitingLabel.text = "Failed to create session";
@@ -495,14 +488,12 @@ namespace Network.Singletons {
                     return;
                 }
 
-                D($"UI: Join button clicked – Code: {code}");
 
                 // _waitingLabel.text = "Joining lobby...";
                 DisableButton(_hostButton);
                 DisableButton(_joinButton);
 
                 var result = await sessionManager.JoinSessionByCodeAsync(code);
-                D($"UI: Join result: {result}");
                 _waitingLabel.text = result;
                 if(result is "Lobby joined. Waiting for host to start the game..." or "Connected to Local Host (Editor)") {
                     _joinCodeLabel.text = $"Join Code: {code}";
@@ -525,7 +516,6 @@ namespace Network.Singletons {
                 DisableButton(_startButton);
                 // _waitingLabel.text = "Starting game...";
 
-                D("UI: Start Game button clicked");
                 await sessionManager.BeginGameplayAsHostAsync();
             } catch(Exception e) {
                 Debug.LogException(e);

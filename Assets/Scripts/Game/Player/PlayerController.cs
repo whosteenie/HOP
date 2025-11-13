@@ -8,9 +8,9 @@ using NUnit.Framework;
 using Unity.Cinemachine;
 using Unity.Collections;
 using Unity.Netcode;
-using Unity.Netcode.Components;
 using Unity.Netcode.Transports.UTP;
 using UnityEngine;
+using UnityEngine.Rendering;
 using UnityEngine.UIElements;
 
 namespace Game.Player {
@@ -86,6 +86,14 @@ namespace Game.Player {
         [SerializeField] private Transform tr;
         [SerializeField] private float fallTriggerDistance = 3f; // start fall anim if drop > this
         [SerializeField] private float maxProbeDistance = 6f;
+        [SerializeField] private GameObject[] worldWeaponPrefabs;
+        
+        [Header("FOV (speed boost)")]
+        [SerializeField] private float baseFov = 80f;          // default standing FOV
+        [SerializeField] private float sprintStartSpeed = 9f;  // when to begin boosting (just under 10 = SprintSpeed)
+        [SerializeField] private float maxSpeedForFov = 30f;   // your stated top speed
+        [SerializeField] private float maxFov = 100f;           // gentle +10° at 30 u/s
+        [SerializeField] private float fovSmoothTime = 0.12f;  // responsiveness (lower = snappier)
 
         #endregion
 
@@ -110,6 +118,9 @@ namespace Game.Player {
         private float _crouchTransition;
         private Vector3? _lastHitPoint;
         private Vector3? _lastHitNormal;
+        
+        private float _fovVel;          // SmoothDamp velocity store
+        private float _targetFov;       // cached target
 
         // Health regeneration tracking
         private float _lastDamageTime;
@@ -120,7 +131,7 @@ namespace Game.Player {
         #region Private Properties
 
         public Vector3 CurrentFullVelocity => new(_horizontalVelocity.x, _verticalVelocity, _horizontalVelocity.z);
-        private bool IsGrounded => characterController.isGrounded;
+        public bool IsGrounded => characterController.isGrounded;
 
         private float CurrentPitch {
             get => _currentPitch;
@@ -158,7 +169,10 @@ namespace Game.Player {
         private int _playerMask;
         private int _obstacleMask;
         private float _fallProbeTimer;
+        private bool _isMantling;
         private Weapon[] _weapons;
+        
+        [SerializeField] private MantleController mantleController;
 
         [SerializeField] private UpperBodyPitch upperBodyPitch;
 
@@ -194,6 +208,7 @@ namespace Game.Player {
             }
 
             HUDManager.Instance.ShowHUD();
+            if (IsOwner && fpCamera) fpCamera.Lens.FieldOfView = baseFov;
 
             lookSensitivity = new Vector2(PlayerPrefs.GetFloat("SensitivityX", 0.1f),
                 PlayerPrefs.GetFloat("SensitivityY", 0.1f));
@@ -203,6 +218,14 @@ namespace Game.Player {
                 var savedColorIndex = PlayerPrefs.GetInt("PlayerColorIndex", 0);
                 playerMaterialIndex.Value = savedColorIndex;
                 GrappleUIManager.Instance.RegisterLocalPlayer(this);
+
+                foreach(var w in worldWeaponPrefabs) {
+                    var weaponRenderers = w.GetComponentsInChildren<MeshRenderer>();
+
+                    foreach(var mr in weaponRenderers) {
+                        mr.shadowCastingMode = ShadowCastingMode.ShadowsOnly;
+                    }
+                }
             }
         }
 
@@ -262,12 +285,15 @@ namespace Game.Player {
             HandleCrouch();
             UpdateAnimator();
             TrackVelocity();
+            UpdateSpeedFov();
         }
 
         private void LateUpdate() {
             if(!IsOwner || netIsDead.Value) return;
 
             HandleLook();
+            // if (mantleController != null)
+            //     mantleController.ClampMantleYaw(tr);
 
             upperBodyPitch.SetLocalPitchFromCamera(CurrentPitch);
         }
@@ -305,6 +331,11 @@ namespace Game.Player {
             } else {
                 _isRegenerating = false;
             }
+        }
+        
+        public void ResetVelocity() {
+            _horizontalVelocity = Vector3.zero;
+            _verticalVelocity = 0f;
         }
 
         private void TrackVelocity() {
@@ -412,6 +443,12 @@ namespace Game.Player {
         }
 
         private void HandleMovement() {
+            if(_isMantling) {
+                // Block movement but allow camera rotation
+                moveInput = Vector2.zero;
+                return;
+            }
+            
             UpdateMaxSpeed();
             CalculateHorizontalVelocity();
             CheckCeilingHit();
@@ -548,6 +585,27 @@ namespace Game.Player {
         private void UpdateYaw(float yawDelta) {
             tr.Rotate(Vector3.up * yawDelta);
         }
+        
+        private void UpdateSpeedFov()
+        {
+            if (!IsOwner || fpCamera == null) return;
+
+            // Horizontal speed only – forward motion should drive FOV, not falling
+            float speed = _horizontalVelocity.magnitude;
+
+            // 0 until sprintStartSpeed, then ramp to 1 at maxSpeedForFov
+            float t = Mathf.InverseLerp(sprintStartSpeed, maxSpeedForFov, speed);
+            // Ease in gently (gamma < 1 makes the first part softer)
+            t = Mathf.Pow(t, 0.65f);
+
+            _targetFov = Mathf.Lerp(baseFov, maxFov, t);
+
+            // Smooth to avoid “pumping” when surfing speed
+            // Cinemachine 3 has `FieldOfView` directly; older builds use vcam.m_Lens.FieldOfView.
+            float current = fpCamera.Lens.FieldOfView;
+            float next = Mathf.SmoothDamp(current, _targetFov, ref _fovVel, fovSmoothTime);
+            fpCamera.Lens.FieldOfView = next;
+        }
 
         #endregion
 
@@ -567,7 +625,7 @@ namespace Game.Player {
 
             netHealth.Value = newHp;
             // characterAnimator.SetTrigger(DamageTriggerHash);
-            
+
             PlayHitEffectsClientRpc();
 
             // Credit damage to attacker (server write)
@@ -616,7 +674,7 @@ namespace Game.Player {
                 SoundFXManager.Instance.PlayUISound(hurtSound);
                 impulseSource.GenerateImpulse();
             }
-            
+
             characterAnimator.SetTrigger(DamageTriggerHash);
         }
 
@@ -638,12 +696,16 @@ namespace Game.Player {
 
             if(IsOwner) {
                 if(weaponManager) {
-                    fpCamera.transform.GetChild(weaponManager.currentWeaponIndex).gameObject.SetActive(false);
+                    fpCamera.transform.GetChild(weaponManager.CurrentWeaponIndex).GetChild(0).gameObject.SetActive(false);
                 }
 
                 HUDManager.Instance.HideHUD();
                 deathCamera.EnableDeathCamera();
-                worldWeapon.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
+                worldWeapon.shadowCastingMode = ShadowCastingMode.On;
+                if (IsOwner && fpCamera)
+                {
+                    fpCamera.Lens.FieldOfView = baseFov;   // snap on respawn
+                }
             }
 
             StartCoroutine(RespawnTimer());
@@ -657,7 +719,7 @@ namespace Game.Player {
 
         [Rpc(SendTo.Server)]
         private void RequestRespawnServerRpc() {
-            if(!netIsDead.Value) return; // avoid respawning a living player
+            if(!netIsDead.Value) return;
 
             DoRespawnServer();
         }
@@ -668,9 +730,9 @@ namespace Game.Player {
             netHealth.Value = 100f;
 
             // Reset damage timer on respawn
-            _lastDamageTime = Time.time - RegenDelay; // Start with regen available
+            _lastDamageTime = Time.time - RegenDelay;
             _isRegenerating = false;
-            
+
             // Reset animator state
             characterAnimator.Rebind();
             characterAnimator.Update(0f);
@@ -681,10 +743,6 @@ namespace Game.Player {
 
             // 3) tell OWNER (the authoritative side) to teleport
             TeleportOwnerClientRpc(position, rotation);
-            // TeleportOwnerClientRpc(position, rotation);
-
-            // 4) clear death visuals for everyone; owner will also restore UI/camera
-            // RespawnVisualsClientRpc();
         }
 
         [Rpc(SendTo.Owner)]
@@ -730,8 +788,13 @@ namespace Game.Player {
             // Clear ragdoll etc. for all
             playerRagdoll.DisableRagdoll();
 
-            // 2) make sure all renderers are visible again (in case any were toggled)
-            // TODO: improve detection of GrappleLine to avoid hardcoding name
+            // RESET ANIMATOR
+            if(characterAnimator) {
+                characterAnimator.Rebind();
+                characterAnimator.Update(0f);
+            }
+
+            // Make sure all renderers are visible again
             var renderers = GetComponentsInChildren<Renderer>(true);
             foreach(var r in renderers) {
                 if(r.name != "GrappleLine") {
@@ -748,10 +811,7 @@ namespace Game.Player {
                 }
             }
 
-            if(IsOwner)
-                worldWeapon.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.ShadowsOnly;
-
-            // 3) restore expected layer (owner vs others)
+            // Restore expected layer (owner vs others)
             gameObject.layer = IsOwner
                 ? LayerMask.NameToLayer("Player")
                 : LayerMask.NameToLayer("Enemy");
@@ -759,31 +819,54 @@ namespace Game.Player {
             // Owner-only UI/camera resets
             if(IsOwner) {
                 deathCamera.DisableDeathCamera();
-                foreach(var w in _weapons) {
-                    w.ResetWeapon();
-                    w.weaponPrefab.transform.localPosition = w.spawnPosition;
-                    w.weaponPrefab.transform.localEulerAngles = w.spawnRotation;
+
+                // Reset the single weapon component
+                var currentWeapon = weaponManager.CurrentWeapon;
+                if(currentWeapon) {
+                    currentWeapon.ResetWeapon();
+
+                    // Reset weapon instance position/rotation
+                    var weaponInstance = currentWeapon.GetWeaponPrefab();
+                    if(weaponInstance) {
+                        weaponInstance.transform.localPosition = currentWeapon.GetSpawnPosition();
+                        weaponInstance.transform.localEulerAngles = currentWeapon.GetSpawnRotation();
+                    }
                 }
 
+                // Switch back to first weapon
                 playerInput.SwitchWeapon(0);
 
                 // Re-enable current weapon viewmodel
                 if(weaponManager) {
-                    fpCamera.transform.GetChild(weaponManager.currentWeaponIndex).gameObject.SetActive(true);
+                    var weaponInstance = weaponManager.CurrentWeapon?.GetWeaponPrefab();
+                    if(weaponInstance) {
+                        weaponInstance.SetActive(true);
+                    }
+                }
+                
+                worldWeapon.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.ShadowsOnly;
+
+                // Reset weapon stats
+                if(currentWeapon) {
+                    currentWeapon.CurrentDamageMultiplier = 1f;
+                    HUDManager.Instance.UpdateAmmo(currentWeapon.currentAmmo, currentWeapon.GetMagSize());
                 }
 
-                var currentWeapon = weaponManager.CurrentWeapon;
-                currentWeapon.CurrentDamageMultiplier = 1f;
                 HUDManager.Instance.UpdateHealth(netHealth.Value, 100f);
-                HUDManager.Instance.UpdateAmmo(currentWeapon.currentAmmo, currentWeapon.magSize);
                 HUDManager.Instance.ShowHUD();
 
+                // Reset movement/camera
                 CurrentPitch = 0f;
                 _horizontalVelocity = Vector3.zero;
                 _verticalVelocity = 0f;
                 lookInput = Vector2.zero;
                 fpCamera.transform.localRotation = Quaternion.identity;
             }
+        }
+        
+
+        public void SetMantling(bool mantling) {
+            _isMantling = mantling;
         }
 
         #endregion

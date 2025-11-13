@@ -9,35 +9,37 @@ namespace Game.Player {
     public class PlayerInput : NetworkBehaviour {
         #region Serialized Fields
 
-        [Header("Components")] [SerializeField]
-        private PlayerController playerController;
+        [Header("Components")]
+        [SerializeField] private PlayerController playerController;
+        [SerializeField] Animator playerAnimator;
 
         [SerializeField] private CinemachineCamera fpCamera;
         [SerializeField] private AudioListener audioListener;
         [SerializeField] private WeaponManager weaponManager;
         [SerializeField] private GrappleController grappleController;
+        [SerializeField] private MantleController mantleController;
 
         [Header("Input Settings")] [SerializeField]
         private bool toggleSprint = true;
 
-        [SerializeField] private bool toggleCrouch;
+        [SerializeField] private bool toggleCrouch = true;
 
         #endregion
 
         private bool IsPaused => GameMenuManager.Instance.IsPaused;
         private bool IsPausedOrDead => (GameMenuManager.Instance.IsPaused) || playerController.netIsDead.Value;
 
-        private GameObject CurrentWeaponModel =>
-            fpCamera.transform.GetChild(weaponManager.currentWeaponIndex).gameObject;
-
         private Weapon CurrentWeapon => weaponManager.CurrentWeapon;
+        
+        private bool _sprintBtnDown;
+        private bool _crouchBtnDown;
 
         #region Unity Methods
 
         public override void OnNetworkSpawn() {
             base.OnNetworkSpawn();
             
-            weaponManager.InitializeWeapons(fpCamera, playerController);
+            weaponManager.InitializeWeapons();
 
             if(!IsOwner) {
                 fpCamera.gameObject.SetActive(false);
@@ -58,24 +60,34 @@ namespace Game.Player {
         }
 
         private void LateUpdate() {
-            if(!IsOwner || !CurrentWeapon) return;
+            if(!IsOwner || !CurrentWeapon || !weaponManager) return;
+            
+            var fireMode = weaponManager.GetWeaponDataByIndex(weaponManager.CurrentWeaponIndex)?.fireMode;
 
-            if(!IsPausedOrDead && CurrentWeapon.fireMode == "Full" &&
-               (Mouse.current.leftButton.isPressed || Mouse.current.rightButton.isPressed)) {
+            if(!IsPausedOrDead && fireMode == "Full" && (Mouse.current.leftButton.isPressed || Mouse.current.rightButton.isPressed) && !mantleController.IsMantling) {
                 CurrentWeapon.Shoot();
             }
 
-            if(!IsPausedOrDead && Mouse.current.scroll.value.magnitude > 0f) {
+            if(!IsPausedOrDead && Mouse.current.scroll.value.magnitude > 0f && !mantleController.IsMantling) {
+                if(!playerController.IsGrounded) {
+                    mantleController.TryMantle();
+        
+                    // If we started mantling, don't jump
+                    if(mantleController.IsMantling) {
+                        return;
+                    }
+                }
+                
                 playerController.TryJump();
                 grappleController.CancelGrapple();
             }
 
-            if(CurrentWeapon)
-                CurrentWeapon.UpdateDamageMultiplier();
+            CurrentWeapon.UpdateDamageMultiplier();
 
-            if(CurrentWeapon)
-                HUDManager.Instance.UpdateMultiplier(CurrentWeapon.CurrentDamageMultiplier,
-                    CurrentWeapon.maxDamageMultiplier);
+            var weaponData = weaponManager.GetWeaponDataByIndex(weaponManager.CurrentWeaponIndex);
+            if(weaponData) {
+                HUDManager.Instance.UpdateMultiplier(CurrentWeapon.CurrentDamageMultiplier, weaponData.maxDamageMultiplier);
+            }
 
             if(!IsPaused && Keyboard.current.tabKey.isPressed) {
                 GameMenuManager.Instance.ShowScoreboard();
@@ -100,7 +112,7 @@ namespace Game.Player {
 
         private void OnMove(InputValue value) {
             if(!IsOwner) return;
-            if(IsPaused) {
+            if(IsPaused || mantleController.IsMantling) {
                 playerController.moveInput = Vector2.zero;
                 return;
             }
@@ -116,35 +128,53 @@ namespace Game.Player {
                 return;
             }
 
-            if(toggleSprint) {
-                // Toggle mode
-                playerController.sprintInput = !playerController.sprintInput;
+            bool pressed = value.isPressed;
+
+            if (toggleSprint) {
+                // Toggle only on rising edge
+                if (pressed && !_sprintBtnDown) {
+                    playerController.sprintInput = !playerController.sprintInput;
+                }
+                _sprintBtnDown = pressed;
             } else {
-                // Hold mode
-                playerController.sprintInput = value.isPressed;
+                // Hold-to-sprint
+                playerController.sprintInput = pressed;
             }
         }
 
         private void OnCrouch(InputValue value) {
             if(!IsOwner) return;
-            if(IsPausedOrDead) {
+            if(IsPausedOrDead || mantleController.IsMantling) {
                 if(!toggleCrouch)
                     playerController.crouchInput = false;
                 return;
             }
 
-            if(toggleCrouch) {
-                // Toggle mode
-                playerController.crouchInput = !playerController.crouchInput;
+            bool pressed = value.isPressed;
+
+            if (toggleCrouch) {
+                // Toggle only on rising edge
+                if (pressed && !_crouchBtnDown) {
+                    playerController.crouchInput = !playerController.crouchInput;
+                }
+                _crouchBtnDown = pressed;
             } else {
-                // Hold mode
-                playerController.crouchInput = value.isPressed;
+                // Hold-to-crouch
+                playerController.crouchInput = pressed;
             }
         }
 
         private void OnJump(InputValue value) {
-            if(!IsOwner) return;
-            if(IsPausedOrDead) return;
+            if(!IsOwner || IsPausedOrDead || mantleController.IsMantling) return;
+            
+            if(!playerController.IsGrounded) {
+                mantleController.TryMantle();
+        
+                // If we started mantling, don't jump
+                if(mantleController.IsMantling) {
+                    return;
+                }
+            }
 
             playerController.TryJump();
 
@@ -155,8 +185,7 @@ namespace Game.Player {
 
         private void OnScrollWheel(InputValue value) {
             // TODO: Fix scroll wheel input so we don't have to use Mouse.current.scroll in LateUpdate
-            if(!IsOwner) return;
-            if(IsPausedOrDead) return;
+            if(!IsOwner || IsPausedOrDead || mantleController.IsMantling) return;
 
             playerController.TryJump();
 
@@ -166,17 +195,16 @@ namespace Game.Player {
         }
 
         private void OnAttack(InputValue value) {
-            if(!IsOwner) return;
-            if(IsPausedOrDead) return;
+            if(!IsOwner || IsPausedOrDead || mantleController.IsMantling) return;
 
-            if(CurrentWeapon && CurrentWeapon.fireMode == "Semi") {
+            var fireMode = weaponManager.GetWeaponDataByIndex(weaponManager.CurrentWeaponIndex)?.fireMode;
+            if(CurrentWeapon && fireMode == "Semi") {
                 CurrentWeapon.Shoot();
             }
         }
 
         private void OnGrapple(InputValue value) {
-            if(!IsOwner) return;
-            if(IsPausedOrDead) return;
+            if(!IsOwner || IsPausedOrDead || mantleController.IsMantling) return;
 
             if(grappleController.IsGrappling) {
                 grappleController.CancelGrapple();
@@ -190,46 +218,43 @@ namespace Game.Player {
         #region Weapons
 
         private void OnPrimary(InputValue value) {
-            if(!IsOwner) return;
+            if(!IsOwner || IsPausedOrDead || mantleController.IsMantling) return;
 
             SwitchWeapon(0);
         }
 
         private void OnSecondary(InputValue value) {
-            if(!IsOwner) return;
+            if(!IsOwner || IsPausedOrDead || mantleController.IsMantling) return;
 
             SwitchWeapon(1);
         }
 
         private void OnTertiary(InputValue value) {
-            if(!IsOwner) return;
+            if(!IsOwner || IsPausedOrDead || mantleController.IsMantling) return;
 
-            SwitchWeapon(2);
+            Debug.Log("Tertiary weapon input received.");
+            //SwitchWeapon(2);
         }
 
         public void SwitchWeapon(int weaponIndex) {
-            if(IsPausedOrDead || weaponManager.currentWeaponIndex == weaponIndex) return;
+            if(weaponManager.CurrentWeaponIndex == weaponIndex || weaponManager.IsSwitchingWeapon || !CurrentWeapon) return;
 
             if(CurrentWeapon.IsReloading) {
                 CurrentWeapon.CancelReload();
             }
 
-            CurrentWeaponModel.SetActive(false);
-            weaponManager.currentWeaponIndex = weaponIndex;
-            weaponManager.CurrentWeapon.BindAndResolve(fpCamera, playerController);
-            CurrentWeaponModel.transform.localPosition = CurrentWeapon.spawnPosition;
-            CurrentWeaponModel.transform.localEulerAngles = CurrentWeapon.spawnRotation;
-            CurrentWeaponModel.SetActive(true);
-            HUDManager.Instance.UpdateAmmo(CurrentWeapon.currentAmmo, CurrentWeapon.magSize);
+            // Use WeaponManager's SwitchWeapon method
+            weaponManager.SwitchWeapon(weaponIndex);
+            playerAnimator.SetTrigger("SwitchTrigger");
+
+            // Update HUD
+            // HUDManager.Instance.UpdateAmmo(CurrentWeapon.currentAmmo, CurrentWeapon.GetMagSize());
         }
 
         private void OnReload(InputValue value) {
-            if(!IsOwner) return;
-            if(IsPausedOrDead) return;
-
-            if(weaponManager.CurrentWeapon) {
-                weaponManager.CurrentWeapon.StartReload();
-            }
+            if(!IsOwner || IsPausedOrDead || !CurrentWeapon || mantleController.IsMantling) return;
+            
+            CurrentWeapon.StartReload();
         }
 
         #endregion

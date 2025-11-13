@@ -76,18 +76,13 @@ namespace Game.Player {
             foreach(var rb in _ragdollRigidbodies) {
                 if(!rb) continue;
 
-                rb.isKinematic = !active;
-                rb.detectCollisions = active;
-
-                if(active) {
-                    // Clear velocities when ENABLING ragdoll (redundant but safe)
-                    rb.linearVelocity = Vector3.zero;
-                    rb.angularVelocity = Vector3.zero;
-                } else {
-                    // CRITICAL: Clear velocities when DISABLING too
+                if(!active) {
                     rb.linearVelocity = Vector3.zero;
                     rb.angularVelocity = Vector3.zero;
                 }
+                
+                rb.isKinematic = !active;
+                rb.detectCollisions = active;
             }
 
             foreach(var col in _ragdollColliders) {

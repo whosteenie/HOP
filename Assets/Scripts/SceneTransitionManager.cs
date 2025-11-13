@@ -8,6 +8,7 @@ namespace Network.Singletons {
     public class SceneTransitionManager : MonoBehaviour {
         [SerializeField] private UIDocument transitionDocument;
         [SerializeField] private float fadeDuration = 0.5f;
+        [SerializeField] private float musicFadeDuration = 1.5f; // Slightly longer for smooth music fade
         
         private VisualElement _transitionOverlay;
         private bool _isTransitioning;
@@ -38,6 +39,9 @@ namespace Network.Singletons {
             if(_isTransitioning) yield break;
             
             _isTransitioning = true;
+
+            // Fade out menu music if it exists
+            StartCoroutine(FadeOutMenuMusic());
 
             // Fade to black
             yield return StartCoroutine(FadeOut());
@@ -86,6 +90,29 @@ namespace Network.Singletons {
         }
 
         /// <summary>
+        /// Fade out menu music if MenuMusicPlayer exists
+        /// </summary>
+        private IEnumerator FadeOutMenuMusic() {
+            var menuMusicPlayer = FindFirstObjectByType<MenuMusicPlayer>();
+            if(menuMusicPlayer == null) yield break;
+
+            var musicSource = menuMusicPlayer.GetComponent<AudioSource>();
+            if(musicSource == null || !musicSource.isPlaying) yield break;
+
+            float startVolume = musicSource.volume;
+            float elapsed = 0f;
+
+            while(elapsed < musicFadeDuration) {
+                elapsed += Time.deltaTime;
+                musicSource.volume = Mathf.Lerp(startVolume, 0f, elapsed / musicFadeDuration);
+                yield return null;
+            }
+
+            musicSource.volume = 0f;
+            musicSource.Stop();
+        }
+
+        /// <summary>
         /// Quick fade for instant transitions
         /// </summary>
         public void FadeOutImmediate() {
@@ -99,6 +126,16 @@ namespace Network.Singletons {
 
             _transitionOverlay.RemoveFromClassList("hidden");
             _transitionOverlay.AddToClassList("visible");
+            
+            // Also fade out music instantly
+            var menuMusicPlayer = FindObjectOfType<MenuMusicPlayer>();
+            if(menuMusicPlayer != null) {
+                var musicSource = menuMusicPlayer.GetComponent<AudioSource>();
+                if(musicSource != null && musicSource.isPlaying) {
+                    musicSource.Stop();
+                    musicSource.volume = 0f;
+                }
+            }
             
             // Restore normal transition duration after one frame
             StartCoroutine(RestoreTransitionDuration());
