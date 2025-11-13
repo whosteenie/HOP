@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using Network.Singletons;
+using Unity.Services.Matchmaker.Models;
 using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.Serialization;
@@ -67,6 +68,7 @@ public class LoadoutManager : MonoBehaviour {
     }
 
     public void ShowLoadout() {
+        SelectColor(PlayerPrefs.GetInt("PlayerColorIndex", 0));
         Setup3DPreview();
         StopCoroutine(TransitionCameraToOriginal());
         StartCoroutine(TransitionCameraToPreview());
@@ -112,9 +114,9 @@ public class LoadoutManager : MonoBehaviour {
         
     private void SetupEventHandlers() {
         // Current color display - clicking any visible circle opens dropdown
-        for (int i = 0; i < 7; i++) {
+        for (var i = 0; i < 7; i++) {
             var currentCircle = _root.Q<VisualElement>($"current-color-{i}");
-            if (currentCircle != null) {
+            if (currentCircle is not null) {
                 currentCircle.RegisterCallback<ClickEvent>(evt => ToggleColorPicker());
                 currentCircle.RegisterCallback<ClickEvent>(evt => mainMenuManager.OnButtonClicked());
                 currentCircle.RegisterCallback<MouseOverEvent>(evt => mainMenuManager.MouseHover(evt));
@@ -315,7 +317,8 @@ public class LoadoutManager : MonoBehaviour {
         modelPosition.y -= 0.5f;
         
         _previewPlayerModel = Instantiate(playerModelPrefab, modelPosition, Quaternion.Euler(0, 180, 0));
-            
+        _previewPlayerModel.GetComponentInChildren<SkinnedMeshRenderer>().materials[0] = playerMaterials[PlayerPrefs.GetInt("PlayerSkinIndex", 0)];
+        
         var viewport = _root.Q<VisualElement>("player-model-viewport");
         if (viewport != null && previewRenderTexture != null) {
             viewport.style.backgroundImage = new StyleBackground(Background.FromRenderTexture(previewRenderTexture));

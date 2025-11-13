@@ -2,11 +2,11 @@ fileFormatVersion: 2
 guid: f194a505473e7aa469db0682217fa7f8
 AssetOrigin:
   serializedVersion: 1
-  productId: 157744
-  packageName: Human Basic Motions
-  packageVersion: 2.4
+  productId: 180600
+  packageName: Human Soldier Animations
+  packageVersion: 2.0
   assetPath: Assets/Kevin Iglesias/Human Animations/Animations/Male/Movement/Sprint/HumanM@Sprint01_Left.fbx
-  uploadId: 762144
+  uploadId: 818212
 ModelImporter:
   serializedVersion: 24200
   internalIDToNameTable: []
@@ -62,14 +62,14 @@ ModelImporter:
       bodyMask: 01000000010000000100000001000000010000000100000001000000010000000100000001000000010000000100000001000000
       curves: []
       events:
-      - time: 0.14052697
+      - time: 0.114893615
         functionName: PlayRunSound
         data: 
         objectReferenceParameter: {instanceID: 0}
         floatParameter: 0
         intParameter: 0
         messageOptions: 0
-      - time: 0.6562108
+      - time: 0.6085107
         functionName: PlayRunSound
         data: 
         objectReferenceParameter: {instanceID: 0}

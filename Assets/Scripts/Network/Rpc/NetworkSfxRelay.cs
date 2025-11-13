@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Game.Player;
 using Network.Singletons;
 using Unity.Netcode;
 using UnityEngine;
@@ -7,15 +8,16 @@ namespace Network.Rpc {
     public class NetworkSfxRelay : NetworkBehaviour {
         // simple anti-spam per key
         private readonly Dictionary<SfxKey, float> _lastSent = new();
-        [SerializeField] private float walkMinInterval = 0.10f;
-        [SerializeField] private float runMinInterval  = 0.10f;
-        [SerializeField] private float landMinInterval = 0.25f;
-        [SerializeField] private float jumpMinInterval = 0.10f;
+        [SerializeField] private float walkMinInterval = 0.02f;
+        [SerializeField] private float runMinInterval  = 0.01f;
+        [SerializeField] private float landMinInterval = 0.03f;
+        [SerializeField] private float jumpMinInterval = 0.08f;
         [SerializeField] private float reloadMinInterval = 0.10f;
         [SerializeField] private float dryMinInterval = 0.05f;
         [SerializeField] private float shootMinInterval = 0.01f;
         [SerializeField] private float jumpPadMinInterval = 0.25f;
         [SerializeField] private float grappleMinInterval = 0.10f;
+        [SerializeField] private PlayerController playerController;
 
         private float GetMinInterval(SfxKey key) => key switch {
             SfxKey.Walk    => walkMinInterval,
@@ -37,15 +39,23 @@ namespace Network.Rpc {
         public void RequestWorldSfx(SfxKey key, bool attachToSelf = true, bool allowOverlap = false) {
             // optional rate limit on the caller side as well
             var t = Time.time;
-            if (_lastSent.TryGetValue(key, out var last) && t - last < GetMinInterval(key)) return;
+            if(_lastSent.TryGetValue(key, out var last) && t - last < GetMinInterval(key)) {
+                Debug.LogWarning("[SfxRelay] Suppressed spammy SFX key: " + key);
+                return;
+            }
             _lastSent[key] = t;
+            
+            if(key is SfxKey.Walk or SfxKey.Run) {
+                if(playerController.CurrentFullVelocity.magnitude < 0.1f) {
+                    return;
+                }
+            }
 
             RequestWorldSfxServerRpc(key, attachToSelf, allowOverlap);
         }
 
         [Rpc(SendTo.Server)]
         private void RequestWorldSfxServerRpc(SfxKey key, bool attachToSelf, bool allowOverlap) {
-            // basic sanity
             if (!IsSpawned) return;
 
             var srcRef = new NetworkObjectReference(NetworkObject);
@@ -57,7 +67,7 @@ namespace Network.Rpc {
         [Rpc(SendTo.Everyone)]
         private void PlayWorldSfxClientRpc(SfxKey key, NetworkObjectReference sourceRef, Vector3 pos, bool attachToSource, bool allowOverlap) {
             Transform parent = null;
-            if(attachToSource && sourceRef.TryGet(out var no) && no != null)
+            if(attachToSource && sourceRef.TryGet(out var no) && no)
                 parent = no.transform;
 
             SoundFXManager.Instance?.PlayKey(key, parent, pos, allowOverlap);

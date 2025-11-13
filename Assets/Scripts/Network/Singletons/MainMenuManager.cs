@@ -48,7 +48,7 @@ namespace Network.Singletons {
         #region UI Elements - Panels
         
         private VisualElement _root;
-        private VisualElement _mainMenuPanel;
+        public VisualElement MainMenuPanel;
         private VisualElement _gamemodePanel;
         private VisualElement _lobbyPanel;
         private VisualElement _loadoutPanel;
@@ -192,7 +192,7 @@ namespace Network.Singletons {
         
         private void FindUIElements() {
             // Panels
-            _mainMenuPanel = _root.Q<VisualElement>("main-menu-panel");
+            MainMenuPanel = _root.Q<VisualElement>("main-menu-panel");
             _gamemodePanel = _root.Q<VisualElement>("gamemode-panel");
             _lobbyPanel = _root.Q<VisualElement>("lobby-panel");
             _loadoutPanel = _root.Q<VisualElement>("loadout-panel");
@@ -246,7 +246,7 @@ namespace Network.Singletons {
             _logoGithub = _root.Q<Image>("credits-logo");
             
             _panels = new List<VisualElement> {
-                _mainMenuPanel,
+                MainMenuPanel,
                 _gamemodePanel,
                 _lobbyPanel,
                 _loadoutPanel,
@@ -304,7 +304,7 @@ namespace Network.Singletons {
             _modeOneButton.clicked += () => OnGameModeSelected("Deathmatch");
             _modeTwoButton.clicked += () => OnGameModeSelected("Team Deathmatch");
             _modeThreeButton.clicked += () => OnGameModeSelected("Private Match");
-            _backGamemodeButton.clicked += () => { ShowPanel(_mainMenuPanel); };
+            _backGamemodeButton.clicked += () => { ShowPanel(MainMenuPanel); };
             
             // === Lobby Actions ===
             _hostButton.clicked += OnHostClicked;
@@ -319,12 +319,12 @@ namespace Network.Singletons {
             
             // === Options ===
             _applySettingsButton.clicked += ApplySettings;
-            _backOptionsButton.clicked += () => ShowPanel(_mainMenuPanel);
+            _backOptionsButton.clicked += () => ShowPanel(MainMenuPanel);
             
             // === Credits ===
             _logoGithub.RegisterCallback<ClickEvent>(evt => { Application.OpenURL("https://github.com/whosteenie/HOP"); });
             _logoGithub.RegisterCallback<MouseOverEvent>(MouseHover);
-            _backCreditsButton.clicked += () => ShowPanel(_mainMenuPanel);
+            _backCreditsButton.clicked += () => ShowPanel(MainMenuPanel);
         }
         
         #endregion
@@ -417,13 +417,15 @@ namespace Network.Singletons {
 
             // Hide modal
             _firstTimeModal.AddToClassList("hidden");
+            
+            LoadSettings();
         }
         
         #endregion
         
         #region Navigation
 
-        private void ShowPanel(VisualElement panel) {
+        public void ShowPanel(VisualElement panel) {
             foreach(var p in _panels)
                 p.AddToClassList("hidden");
 
@@ -502,7 +504,7 @@ namespace Network.Singletons {
                 var result = await sessionManager.JoinSessionByCodeAsync(code);
                 D($"UI: Join result: {result}");
                 _waitingLabel.text = result;
-                if(result is "Lobby joined" or "Connected to Local Host (Editor)") {
+                if(result is "Lobby joined. Waiting for host to start the game..." or "Connected to Local Host (Editor)") {
                     _joinCodeLabel.text = $"Join Code: {code}";
                     EnableButton(_copyButton);
                 } else {
@@ -630,8 +632,8 @@ namespace Network.Singletons {
 
         private void LoadSettings() {
             var masterDb = PlayerPrefs.GetFloat("MasterVolume", 0f);
-            var musicDb = PlayerPrefs.GetFloat("MusicVolume", -16.5f);
-            var sfxDb = PlayerPrefs.GetFloat("SFXVolume", -6f);
+            var musicDb = PlayerPrefs.GetFloat("MusicVolume", -20f);
+            var sfxDb = PlayerPrefs.GetFloat("SFXVolume", -8f);
             _masterVolumeSlider.value = DbToLinear(masterDb);
             _musicVolumeSlider.value = DbToLinear(musicDb);
             _sfxVolumeSlider.value = DbToLinear(sfxDb);
@@ -677,11 +679,9 @@ namespace Network.Singletons {
         }
 
         private void ApplySettingsInternal() {
-            if(audioMixer != null) {
-                audioMixer.SetFloat("masterVolume", LinearToDb(_masterVolumeSlider.value));
-                audioMixer.SetFloat("musicVolume", LinearToDb(_musicVolumeSlider.value));
-                audioMixer.SetFloat("soundFXVolume", LinearToDb(_sfxVolumeSlider.value));
-            }
+            audioMixer.SetFloat("masterVolume", LinearToDb(_masterVolumeSlider.value));
+            audioMixer.SetFloat("musicVolume", LinearToDb(_musicVolumeSlider.value));
+            audioMixer.SetFloat("soundFXVolume", LinearToDb(_sfxVolumeSlider.value));
 
             QualitySettings.SetQualityLevel(_qualityDropdown.index);
             QualitySettings.vSyncCount = _vsyncToggle.value ? 1 : 0;

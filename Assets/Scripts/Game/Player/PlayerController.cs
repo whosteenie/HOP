@@ -4,15 +4,19 @@ using Game.Weapons;
 using Network;
 using Network.Rpc;
 using Network.Singletons;
+using NUnit.Framework;
 using Unity.Cinemachine;
 using Unity.Collections;
 using Unity.Netcode;
+using Unity.Netcode.Components;
 using Unity.Netcode.Transports.UTP;
 using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace Game.Player {
-    public class PlayerController : NetworkBehaviour {
+    [DisallowMultipleComponent]
+    [RequireComponent(typeof(CharacterController))]
+    public sealed class PlayerController : NetworkBehaviour {
         #region Constants
 
         private const float WalkSpeed = 5f;
@@ -38,8 +42,10 @@ namespace Game.Player {
         private static readonly int IsCrouchingHash = Animator.StringToHash("IsCrouching");
         private static readonly int JumpTriggerHash = Animator.StringToHash("JumpTrigger");
         private static readonly int LandTriggerHash = Animator.StringToHash("LandTrigger");
+        private static readonly int DamageTriggerHash = Animator.StringToHash("DamageTrigger");
         private static readonly int IsJumpingHash = Animator.StringToHash("IsJumping");
         private static readonly int IsFallingHash = Animator.StringToHash("IsFalling");
+        private static readonly int IsGroundedHash = Animator.StringToHash("IsGrounded");
 
         // Health Regeneration
         private const float RegenDelay = 3f; // Seconds after taking damage before regen starts
@@ -64,6 +70,7 @@ namespace Game.Player {
         private CinemachineCamera fpCamera;
 
         [SerializeField] private CharacterController characterController;
+        [SerializeField] private PlayerInput playerInput;
         [SerializeField] private Animator characterAnimator;
         [SerializeField] private WeaponManager weaponManager;
         [SerializeField] private GrappleController grappleController;
@@ -74,6 +81,11 @@ namespace Game.Player {
         [SerializeField] private AudioClip hurtSound;
         [SerializeField] private CinemachineImpulseSource impulseSource;
         [SerializeField] private MeshRenderer worldWeapon;
+        [SerializeField] private LayerMask worldLayer;
+        [SerializeField] private LayerMask enemyLayer;
+        [SerializeField] private Transform tr;
+        [SerializeField] private float fallTriggerDistance = 3f; // start fall anim if drop > this
+        [SerializeField] private float maxProbeDistance = 6f;
 
         #endregion
 
@@ -98,8 +110,6 @@ namespace Game.Player {
         private float _crouchTransition;
         private Vector3? _lastHitPoint;
         private Vector3? _lastHitNormal;
-        private LayerMask _playerBodyLayer;
-        private LayerMask _maskedLayer;
 
         // Health regeneration tracking
         private float _lastDamageTime;
@@ -123,39 +133,33 @@ namespace Game.Player {
         public NetworkVariable<float> netHealth = new(100f);
         public NetworkVariable<bool> netIsDead = new();
         [SerializeField] private Material[] playerMaterials;
-        public NetworkVariable<int> playerMaterialIndex = new();
 
-        public NetworkVariable<int> kills = new NetworkVariable<int>(0,
+        public NetworkVariable<int> kills = new();
+        public NetworkVariable<int> deaths = new();
+        public NetworkVariable<int> assists = new();
+        public NetworkVariable<float> damageDealt = new();
+        public NetworkVariable<float> averageVelocity = new();
+        public NetworkVariable<int> pingMs = new();
+
+        public NetworkVariable<int> playerMaterialIndex = new(0,
             NetworkVariableReadPermission.Everyone,
             NetworkVariableWritePermission.Owner);
 
-        public NetworkVariable<int> deaths = new NetworkVariable<int>(0,
+        public NetworkVariable<FixedString64Bytes> playerName = new("Player",
             NetworkVariableReadPermission.Everyone,
             NetworkVariableWritePermission.Owner);
-
-        public NetworkVariable<int> assists = new NetworkVariable<int>(0,
-            NetworkVariableReadPermission.Everyone,
-            NetworkVariableWritePermission.Owner);
-
-        public NetworkVariable<float> damageDealt = new NetworkVariable<float>(0f,
-            NetworkVariableReadPermission.Everyone,
-            NetworkVariableWritePermission.Owner);
-
-        public NetworkVariable<float> averageVelocity = new NetworkVariable<float>(0f,
-            NetworkVariableReadPermission.Everyone,
-            NetworkVariableWritePermission.Owner);
-
-        public NetworkVariable<FixedString64Bytes> playerName = new NetworkVariable<FixedString64Bytes>("Player",
-            NetworkVariableReadPermission.Everyone,
-            NetworkVariableWritePermission.Owner);
-
-        public NetworkVariable<int> PingMs = new NetworkVariable<int>(
-            0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
 
         private float _timer;
         private float _totalVelocitySampled;
         private int _velocitySampleCount;
-        
+        private float _velSampleAccum;
+        private int _velSampleCount;
+        private float _velSampleTimer;
+        private int _playerMask;
+        private int _obstacleMask;
+        private float _fallProbeTimer;
+        private Weapon[] _weapons;
+
         [SerializeField] private UpperBodyPitch upperBodyPitch;
 
         #region Unity Lifecycle
@@ -163,29 +167,26 @@ namespace Game.Player {
         public override void OnNetworkSpawn() {
             base.OnNetworkSpawn();
 
-            _playerBodyLayer = LayerMask.GetMask("Player");
-            _maskedLayer = LayerMask.GetMask("Masked");
+            _obstacleMask = worldLayer | enemyLayer;
+            _weapons = GetComponents<Weapon>();
+            EnsureRefs();
 
-            netHealth.OnValueChanged += (oldV, newV) => {
-                if(IsOwner) {
-                    HUDManager.Instance.UpdateHealth(newV, 100f);
-                }
+            playerMaterialIndex.OnValueChanged -= OnMatChanged;
+            playerMaterialIndex.OnValueChanged += OnMatChanged;
+            netHealth.OnValueChanged -= OnHealthChanged;
+            netHealth.OnValueChanged += OnHealthChanged;
 
-                if(IsServer && newV <= 0f && !netIsDead.Value) {
-                    DieServer();
-                }
-            };
+            ApplyPlayerMaterial(playerMaterialIndex.Value);
 
-            if(characterController.enabled == false) {
+            if(characterController.enabled == false)
                 characterController.enabled = true;
-            }
 
-            if(!IsOwner) {
+            // Set others to enemy layer
+            if(!IsOwner)
                 gameObject.layer = LayerMask.NameToLayer("Enemy");
-            }
 
             var gameMenu = GameMenuManager.Instance;
-            if(gameMenu != null && gameMenu.TryGetComponent(out UIDocument doc)) {
+            if(gameMenu && gameMenu.TryGetComponent(out UIDocument doc)) {
                 var root = doc.rootVisualElement;
                 var rootContainer = root?.Q<VisualElement>("root-container");
                 if(rootContainer != null)
@@ -199,25 +200,56 @@ namespace Game.Player {
 
             if(IsOwner) {
                 playerName.Value = PlayerPrefs.GetString("PlayerName", "Unknown Player");
-                int savedColorIndex = PlayerPrefs.GetInt("PlayerColorIndex", 0);
+                var savedColorIndex = PlayerPrefs.GetInt("PlayerColorIndex", 0);
                 playerMaterialIndex.Value = savedColorIndex;
+                GrappleUIManager.Instance.RegisterLocalPlayer(this);
             }
-            
-            ApplyPlayerMaterial(playerMaterialIndex.Value);
+        }
+
+        public override void OnNetworkDespawn() {
+            base.OnNetworkDespawn();
+
+            playerMaterialIndex.OnValueChanged -= OnMatChanged;
+            netHealth.OnValueChanged -= OnHealthChanged;
+        }
+
+        private void OnMatChanged(int _, int newIdx) => ApplyPlayerMaterial(newIdx);
+
+        private void OnHealthChanged(float oldV, float newV) {
+            if(IsOwner) HUDManager.Instance.UpdateHealth(newV, 100f);
+        }
+
+        private void EnsureRefs() {
+            // Dev-only guards: blow up early so production code can drop null checks
+            Assert.IsNotNull(fpCamera, "[PlayerController] fpCamera missing");
+            Assert.IsNotNull(characterController, "[PlayerController] CharacterController missing");
+            Assert.IsNotNull(characterAnimator, "[PlayerController] Animator missing");
+            Assert.IsNotNull(weaponManager, "[PlayerController] WeaponManager missing");
+            Assert.IsNotNull(grappleController, "[PlayerController] GrappleController missing");
+            Assert.IsNotNull(playerRagdoll, "[PlayerController] PlayerRagdoll missing");
+            Assert.IsNotNull(deathCamera, "[PlayerController] DeathCamera missing");
+            Assert.IsNotNull(damageRelay, "[PlayerController] NetworkDamageRelay missing");
+            Assert.IsNotNull(sfxRelay, "[PlayerController] NetworkSfxRelay missing");
+            Assert.IsNotNull(impulseSource, "[PlayerController] ImpulseSource missing");
+            if(playerMaterials == null || playerMaterials.Length == 0)
+                Debug.LogWarning("[PlayerController] playerMaterials not assigned");
         }
 
         private void Update() {
             if(IsServer) {
-                if(transform.position.y <= 600f) {
+                if(tr.position.y <= 600f) {
                     netHealth.Value = 0f;
-                    DieServer();
+                    if(!netIsDead.Value) {
+                        // _isDead = true;
+                        BroadcastKillClientRpc("HOP", playerName.Value.ToString(), ulong.MaxValue);
+                        DieServer();
+                    }
                 }
 
                 HandleHealthRegeneration();
 
                 _timer += Time.deltaTime;
-                if(_timer >= 1f) // update once per second
-                {
+                if(_timer >= 1f) {
                     _timer = 0f;
                     UpdatePing();
                 }
@@ -230,15 +262,13 @@ namespace Game.Player {
             HandleCrouch();
             UpdateAnimator();
             TrackVelocity();
-            
-            
         }
 
         private void LateUpdate() {
             if(!IsOwner || netIsDead.Value) return;
 
             HandleLook();
-            
+
             upperBodyPitch.SetLocalPitchFromCamera(CurrentPitch);
         }
 
@@ -246,15 +276,11 @@ namespace Game.Player {
 
         private void UpdatePing() {
             var transport = NetworkManager.Singleton.NetworkConfig.NetworkTransport as UnityTransport;
-            if(transport == null) return;
+            if(!transport) return;
 
-            foreach(var (clientId, value) in NetworkManager.Singleton.ConnectedClients) {
-                var rtt = transport.GetCurrentRtt(clientId);
-                var player = value.PlayerObject;
-                if(player == null) continue;
+            var rtt = transport.GetCurrentRtt(OwnerClientId);
 
-                PingMs.Value = (int)rtt;
-            }
+            pingMs.Value = (int)rtt;
         }
 
         private void HandleHealthRegeneration() {
@@ -282,21 +308,32 @@ namespace Game.Player {
         }
 
         private void TrackVelocity() {
-            var speed = CurrentFullVelocity.magnitude;
-
-            // Only track if moving at or faster than walking speed
-            if(speed >= WalkSpeed) {
-                _totalVelocitySampled += speed;
-                _velocitySampleCount++;
-
-                // Update networked average - this is the CUMULATIVE average over entire match
-                averageVelocity.Value = _totalVelocitySampled / _velocitySampleCount;
+            var speed = CurrentFullVelocity.sqrMagnitude;
+            if(speed >= WalkSpeed * WalkSpeed) {
+                _velSampleAccum += Mathf.Sqrt(speed);
+                _velSampleCount++;
             }
+
+            _velSampleTimer += Time.deltaTime;
+            if(_velSampleTimer >= 0.1f && _velSampleCount > 0) { // 10 Hz
+                var avg = _velSampleAccum / _velSampleCount;
+                SubmitVelocitySampleServerRpc(avg);
+                _velSampleTimer = 0f;
+                _velSampleAccum = 0f;
+                _velSampleCount = 0;
+            }
+        }
+
+        [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Owner)]
+        void SubmitVelocitySampleServerRpc(float speed) {
+            _totalVelocitySampled += speed;
+            _velocitySampleCount++;
+            averageVelocity.Value = _totalVelocitySampled / _velocitySampleCount;
         }
 
         private void ApplyPlayerMaterial(int index) {
             var mesh = GetComponentInChildren<SkinnedMeshRenderer>();
-            if(mesh == null) return;
+            if(!mesh) return;
 
             var materials = mesh.materials;
             materials[0] = playerMaterials[index % playerMaterials.Length];
@@ -312,35 +349,42 @@ namespace Game.Player {
 
             height = CheckForJumpPad() ? 15f : height;
 
-            if(sfxRelay != null && IsOwner) {
+            if(IsOwner) {
                 var key = Mathf.Approximately(height, 15f) ? "jumpPad" : "jump";
 
                 if(key == "jumpPad") {
-                    sfxRelay?.RequestWorldSfx(SfxKey.JumpPad, attachToSelf: true, true);
-                } else {
-                    sfxRelay?.RequestWorldSfx(SfxKey.Jump, attachToSelf: true);
+                    sfxRelay.RequestWorldSfx(SfxKey.JumpPad, attachToSelf: true, true);
                 }
+
+                sfxRelay.RequestWorldSfx(SfxKey.Jump, attachToSelf: true, true);
             }
 
             _verticalVelocity = Mathf.Sqrt(height * -2f * Physics.gravity.y * GravityScale);
+
+            PlayJumpAnimationServerRpc();
+
+            _isJumping = true;
+        }
+
+        [Rpc(SendTo.Everyone)]
+        private void PlayJumpAnimationServerRpc() {
             characterAnimator.SetTrigger(JumpTriggerHash);
             characterAnimator.SetBool(IsJumpingHash, true);
-            _isJumping = true;
         }
 
         public void PlayWalkSound() {
             if(!IsGrounded) return;
 
-            if(sfxRelay != null && IsOwner) {
-                sfxRelay?.RequestWorldSfx(SfxKey.Walk, attachToSelf: true);
+            if(IsOwner) {
+                sfxRelay.RequestWorldSfx(SfxKey.Walk, attachToSelf: true, true);
             }
         }
 
         public void PlayRunSound() {
             if(!IsGrounded) return;
 
-            if(sfxRelay != null && IsOwner) {
-                sfxRelay?.RequestWorldSfx(SfxKey.Run, attachToSelf: true);
+            if(IsOwner) {
+                sfxRelay.RequestWorldSfx(SfxKey.Run, attachToSelf: true, true);
             }
         }
 
@@ -358,8 +402,7 @@ namespace Game.Player {
 
         private bool CheckForJumpPad() {
             // Raycast downward to check for jump pad
-            if(Physics.Raycast(transform.position, Vector3.down, out RaycastHit hit,
-                   characterController.height * 0.6f)) {
+            if(Physics.Raycast(tr.position, Vector3.down, out var hit, characterController.height * 0.6f)) {
                 if(hit.collider.CompareTag("JumpPad")) {
                     return true;
                 }
@@ -387,7 +430,7 @@ namespace Game.Player {
         }
 
         private void CalculateHorizontalVelocity() {
-            var motion = (transform.forward * moveInput.y + transform.right * moveInput.x).normalized;
+            var motion = (tr.forward * moveInput.y + tr.right * moveInput.x).normalized;
             motion.y = 0f;
 
             if(IsGrounded) {
@@ -403,14 +446,19 @@ namespace Game.Player {
         }
 
         private void ApplyFriction() {
-            if(!(moveInput.sqrMagnitude < 0.01f)) return;
+            // Only when no input
+            if(moveInput.sqrMagnitude >= 0.01f) return;
 
-            var horizontalSpeed = _horizontalVelocity.magnitude;
+            var speed = _horizontalVelocity.magnitude;
 
-            if(!(horizontalSpeed > 0.1f)) return;
+            // If we’re already basically stopped, do nothing (avoid div-by-zero)
+            if(speed < 0.001f) return;
 
-            var drop = horizontalSpeed * friction * Time.deltaTime;
-            _horizontalVelocity *= Mathf.Max(horizontalSpeed - drop, 0f) / horizontalSpeed;
+            var drop = speed * friction * Time.deltaTime;
+            var newSpeed = Mathf.Max(speed - drop, 0f);
+
+            // Scale the vector down proportionally
+            _horizontalVelocity *= newSpeed / speed;
         }
 
         private void ApplyDirectionChange(Vector3 motion) {
@@ -440,10 +488,7 @@ namespace Game.Player {
         }
 
         private void CheckCeilingHit() {
-            Debug.DrawRay(fpCamera.transform.position, 0.75f * Vector3.up, Color.yellow);
-
-            var mask = _playerBodyLayer | _maskedLayer;
-            var rayHit = Physics.Raycast(fpCamera.transform.position, Vector3.up, out var hit, 0.75f, ~mask);
+            var rayHit = Physics.Raycast(fpCamera.transform.position, Vector3.up, out var hit, 0.75f, _obstacleMask);
             if(rayHit && _verticalVelocity > 0f) {
                 grappleController.CancelGrapple();
                 _verticalVelocity = 0f;
@@ -464,7 +509,8 @@ namespace Game.Player {
         }
 
         private void HandleCrouch() {
-            if(Physics.Raycast(fpCamera.transform.position, Vector3.up, StandCheckHeight) && !crouchInput) return;
+            if(Physics.Raycast(fpCamera.transform.position, Vector3.up, StandCheckHeight, _obstacleMask) &&
+               !crouchInput) return;
 
             characterAnimator.SetBool(IsCrouchingHash, crouchInput);
 
@@ -500,63 +546,101 @@ namespace Game.Player {
         }
 
         private void UpdateYaw(float yawDelta) {
-            transform.Rotate(Vector3.up * yawDelta);
+            tr.Rotate(Vector3.up * yawDelta);
         }
 
         #endregion
 
         #region Gameplay Methods
 
-        public void ApplyDamageServer(float amount, Vector3 hitPoint, Vector3 hitNormal) {
-            if(!IsServer) return;
-            if(netIsDead.Value) return;
+        public bool ApplyDamageServer_Auth(float amount, Vector3 hitPoint, Vector3 hitNormal, ulong attackerId) {
+            if(!IsServer || netIsDead.Value) return false;
 
             _lastHitPoint = hitPoint;
             _lastHitNormal = hitNormal;
-
             _lastDamageTime = Time.time;
             _isRegenerating = false;
 
-            netHealth.Value = Mathf.Max(0f, netHealth.Value - amount);
+            var pre = netHealth.Value;
+            var newHp = Mathf.Max(0f, pre - amount);
+            var actualDealt = pre - newHp;
 
+            netHealth.Value = newHp;
+            // characterAnimator.SetTrigger(DamageTriggerHash);
+            
             PlayHitEffectsClientRpc();
 
-            if(netHealth.Value <= 0f && !netIsDead.Value) {
-                DieServer();
+            // Credit damage to attacker (server write)
+            if(NetworkManager.Singleton.ConnectedClients.TryGetValue(attackerId, out var attackerClient)) {
+                var attacker = attackerClient.PlayerObject?.GetComponent<PlayerController>();
+                if(attacker != null) {
+                    attacker.damageDealt.Value += actualDealt;
+                }
             }
+
+            // Lethal?
+            if(newHp <= 0f && !netIsDead.Value) {
+                netIsDead.Value = true;
+
+                // Award kill to attacker; death to victim
+                if(NetworkManager.Singleton.ConnectedClients.TryGetValue(attackerId, out var killerClient)) {
+                    var killer = killerClient.PlayerObject?.GetComponent<PlayerController>();
+                    if(killer) {
+                        killer.kills.Value++;
+                        BroadcastKillClientRpc(killer.playerName.Value.ToString(), playerName.Value.ToString(),
+                            attackerId);
+                    }
+                }
+
+                deaths.Value++;
+
+                // Show ragdoll/etc. on everyone
+                DieClientRpc(_lastHitPoint ?? tr.position, _lastHitNormal ?? Vector3.up);
+                return true;
+            }
+
+            return false;
         }
 
-        [Rpc(SendTo.Owner)]
+        [Rpc(SendTo.Everyone)]
+        private void BroadcastKillClientRpc(string killerName, string victimName, ulong killerClientId) {
+            // Every client shows the kill in their feed
+            var isLocalKiller = NetworkManager.Singleton.LocalClientId == killerClientId;
+            GameMenuManager.Instance.AddKillToFeed(killerName, victimName, isLocalKiller);
+        }
+
+        [Rpc(SendTo.Everyone)]
         private void PlayHitEffectsClientRpc() {
             // This runs only on the client who owns this player (the victim)
-            SoundFXManager.Instance.PlayUISound(hurtSound);
-
-            if(impulseSource != null) {
+            if(IsOwner) {
+                SoundFXManager.Instance.PlayUISound(hurtSound);
                 impulseSource.GenerateImpulse();
             }
+            
+            characterAnimator.SetTrigger(DamageTriggerHash);
         }
 
         private void DieServer() {
             if(!IsServer) return;
 
             netIsDead.Value = true;
+            deaths.Value++;
 
             // Tell everyone to show death visuals; the owner will also switch cameras.
-            DieClientRpc(_lastHitPoint ?? transform.position, _lastHitNormal ?? Vector3.up);
+            DieClientRpc(_lastHitPoint ?? tr.position, _lastHitNormal ?? Vector3.up);
         }
 
         [Rpc(SendTo.Everyone)]
         private void DieClientRpc(Vector3 hitPoint, Vector3 hitNormal) {
             // Show ragdoll for everyone; only the owner swaps to death camera/HUD.
-            if(playerRagdoll != null)
+            if(playerRagdoll)
                 playerRagdoll.EnableRagdoll(hitPoint, -hitNormal);
 
             if(IsOwner) {
-                if(weaponManager != null) {
+                if(weaponManager) {
                     fpCamera.transform.GetChild(weaponManager.currentWeaponIndex).gameObject.SetActive(false);
                 }
 
-                deaths.Value++;
                 HUDManager.Instance.HideHUD();
                 deathCamera.EnableDeathCamera();
                 worldWeapon.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
@@ -573,7 +657,6 @@ namespace Game.Player {
 
         [Rpc(SendTo.Server)]
         private void RequestRespawnServerRpc() {
-            if(!IsServer) return;
             if(!netIsDead.Value) return; // avoid respawning a living player
 
             DoRespawnServer();
@@ -587,6 +670,10 @@ namespace Game.Player {
             // Reset damage timer on respawn
             _lastDamageTime = Time.time - RegenDelay; // Start with regen available
             _isRegenerating = false;
+            
+            // Reset animator state
+            characterAnimator.Rebind();
+            characterAnimator.Update(0f);
 
             // 2) choose spawn
             var position = SpawnManager.Instance.GetNextSpawnPosition();
@@ -619,10 +706,10 @@ namespace Game.Player {
 
             // Teleport
             var cnt = GetComponent<ClientNetworkTransform>();
-            if(cnt != null) {
+            if(cnt) {
                 cnt.Teleport(spawn, rotation, Vector3.one);
             } else {
-                transform.SetPositionAndRotation(spawn, rotation);
+                tr.SetPositionAndRotation(spawn, rotation);
             }
 
             // Wait for network sync
@@ -660,7 +747,7 @@ namespace Game.Player {
                     smr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
                 }
             }
-            
+
             if(IsOwner)
                 worldWeapon.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.ShadowsOnly;
 
@@ -670,33 +757,32 @@ namespace Game.Player {
                 : LayerMask.NameToLayer("Enemy");
 
             // Owner-only UI/camera resets
-            if(GetComponent<NetworkObject>().IsOwner) {
+            if(IsOwner) {
                 deathCamera.DisableDeathCamera();
-                var weapons = GetComponentsInChildren<Weapon>();
-                foreach(var w in weapons) {
+                foreach(var w in _weapons) {
                     w.ResetWeapon();
-                    GetComponent<PlayerInput>().SwitchWeapon(0);
                     w.weaponPrefab.transform.localPosition = w.spawnPosition;
                     w.weaponPrefab.transform.localEulerAngles = w.spawnRotation;
                 }
 
+                playerInput.SwitchWeapon(0);
+
                 // Re-enable current weapon viewmodel
-                if(weaponManager != null) {
+                if(weaponManager) {
                     fpCamera.transform.GetChild(weaponManager.currentWeaponIndex).gameObject.SetActive(true);
                 }
 
-                CurrentPitch = 0f;
-                _horizontalVelocity = Vector2.zero;
-                _verticalVelocity = 0f;
-                fpCamera.transform.localRotation = Quaternion.Euler(0f, 0f, 0f);
-                weaponManager.CurrentWeapon.CurrentDamageMultiplier = 1f;
-                lookInput = Vector2.zero;
-                // moveInput = Vector2.zero;
-
+                var currentWeapon = weaponManager.CurrentWeapon;
+                currentWeapon.CurrentDamageMultiplier = 1f;
                 HUDManager.Instance.UpdateHealth(netHealth.Value, 100f);
-                HUDManager.Instance.UpdateAmmo(weaponManager.CurrentWeapon.currentAmmo,
-                    weaponManager.CurrentWeapon.magSize);
+                HUDManager.Instance.UpdateAmmo(currentWeapon.currentAmmo, currentWeapon.magSize);
                 HUDManager.Instance.ShowHUD();
+
+                CurrentPitch = 0f;
+                _horizontalVelocity = Vector3.zero;
+                _verticalVelocity = 0f;
+                lookInput = Vector2.zero;
+                fpCamera.transform.localRotation = Quaternion.identity;
             }
         }
 
@@ -709,34 +795,60 @@ namespace Game.Player {
             if(_isJumping && IsGrounded && _verticalVelocity <= 0f) {
                 _isJumping = false;
                 _isFalling = false;
-                characterAnimator.SetBool(IsJumpingHash, false);
-                characterAnimator.SetTrigger(LandTriggerHash);
 
-                if(sfxRelay != null && IsOwner) {
-                    sfxRelay?.RequestWorldSfx(SfxKey.Land, attachToSelf: true);
+                if(IsOwner) {
+                    PlayLandingAnimationServerRpc();
+                    sfxRelay.RequestWorldSfx(SfxKey.Land, attachToSelf: true);
                 }
             }
 
             // Landing from a fall
             if(!_isFalling || !IsGrounded) return;
             _isFalling = false;
-            characterAnimator.SetTrigger(LandTriggerHash);
 
-            if(sfxRelay != null && IsOwner) {
-                sfxRelay?.RequestWorldSfx(SfxKey.Land, attachToSelf: true);
+            if(IsOwner) {
+                PlayLandingAnimationServerRpc();
+                sfxRelay.RequestWorldSfx(SfxKey.Land, attachToSelf: true);
+            }
+        }
+
+        [Rpc(SendTo.Everyone)]
+        private void PlayLandingAnimationServerRpc() {
+            // Everyone plays the animation simultaneously
+            characterAnimator.SetTrigger(LandTriggerHash);
+            characterAnimator.SetBool(IsJumpingHash, false);
+            characterAnimator.SetBool(IsFallingHash, false);
+            characterAnimator.SetBool(IsGroundedHash, IsGrounded);
+            _isFalling = false;
+            _isJumping = false;
+        }
+
+        void UpdateFallingState() {
+            // CharacterController's "grounded" is authoritative for "actually touching"
+            if(IsGrounded) {
+                _isFalling = false;
+                return;
+            }
+
+            // Feet origin: a little above the bottom of the capsule
+            var feet = characterController.bounds.center
+                       + Vector3.down * (characterController.height * 0.5f - characterController.radius + 0.02f);
+
+            if(Physics.Raycast(feet, Vector3.down, out var hit, maxProbeDistance, _obstacleMask,
+                   QueryTriggerInteraction.Ignore)) {
+                // If the *immediate* drop under feet is big enough, treat as falling (walked off a ledge)
+                _isFalling = hit.distance > fallTriggerDistance;
+            } else {
+                // Nothing below within probe => definitely falling
+                _isFalling = true;
             }
         }
 
         private void UpdateAnimator() {
-            var localVelocity = transform.InverseTransformDirection(_horizontalVelocity);
-            var isSprinting = _horizontalVelocity.magnitude > (WalkSpeed + 1f);
+            var localVelocity = tr.InverseTransformDirection(_horizontalVelocity);
+            var isSprinting = _horizontalVelocity.sqrMagnitude > (WalkSpeed + 1f) * (WalkSpeed + 1f);
 
-            var layer = LayerMask.GetMask("World", "Enemy");
-            Physics.Raycast(transform.position, Vector3.down, out var hit, 1f, layer);
-            Debug.DrawRay(transform.position, Vector3.down * 1f, Color.red);
-            
-            if(!_isFalling)
-                _isFalling = !IsGrounded && hit.distance > 3f;
+            UpdateFallingState();
 
             characterAnimator.SetFloat(MoveXHash, localVelocity.x / _maxSpeed, 0.1f, Time.deltaTime);
             characterAnimator.SetFloat(MoveYHash, localVelocity.z / _maxSpeed, 0.1f, Time.deltaTime);

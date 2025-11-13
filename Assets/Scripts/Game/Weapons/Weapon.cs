@@ -63,7 +63,6 @@ namespace Game.Weapons {
         private AudioClip _hitSound;
         private AudioClip _killSound;
         private float _lastHitDamage;
-        private float _targetHealth;
 
         #endregion
 
@@ -126,15 +125,24 @@ namespace Game.Weapons {
             muzzleFlashEffect = weaponMuzzle.GetComponent<VisualEffect>();
 
             muzzleLight = weaponMuzzle.transform.GetChild(0).gameObject;
-            if(muzzleLight != null) {
+            if(muzzleLight) {
                 muzzleLight.SetActive(false);
             }
 
-            if(_networkFXRelay == null) _networkFXRelay = GetComponent<NetworkFxRelay>();
+            if(!_networkFXRelay) _networkFXRelay = GetComponent<NetworkFxRelay>();
             AssignMuzzlesIfMissing();
 
-            if(_damageRelay == null) _damageRelay = GetComponent<NetworkDamageRelay>();
-            if(_sfxRelay == null) _sfxRelay = GetComponent<NetworkSfxRelay>();
+            if(!_damageRelay) _damageRelay = GetComponent<NetworkDamageRelay>();
+            if(!_sfxRelay) _sfxRelay = GetComponent<NetworkSfxRelay>();
+
+            if(_damageRelay) {
+                _damageRelay.OnHitConfirm -= OnHitConfirm;
+                _damageRelay.OnHitConfirm += OnHitConfirm;
+            }
+        }
+
+        private void OnHitConfirm(bool wasKill) {
+            SoundFXManager.Instance.PlayUISound(wasKill ? _killSound : _hitSound);
         }
 
         #endregion
@@ -168,17 +176,17 @@ namespace Game.Weapons {
 
         public Transform GetActiveMuzzle() {
             // Prefer the FP muzzle for owner, world muzzle for others
-            if(playerController != null && playerController.IsOwner)
+            if(playerController && playerController.IsOwner)
                 return fpMuzzle ? fpMuzzle : weaponMuzzle?.transform;
             return worldMuzzle ? worldMuzzle : weaponMuzzle?.transform;
         }
 
         public void AssignMuzzlesIfMissing() {
             // Ensure fpMuzzle
-            if(fpMuzzle == null && weaponMuzzle != null)
+            if(!fpMuzzle && weaponMuzzle)
                 fpMuzzle = weaponMuzzle.transform;
 
-            if(worldMuzzle == null) {
+            if(!worldMuzzle) {
                 foreach(var t in GetComponentsInChildren<Transform>(true)) {
                     if(t.CompareTag("WorldMuzzle")) {
                         worldMuzzle = t;
@@ -198,8 +206,8 @@ namespace Game.Weapons {
                 return;
             }
 
-            var target = PerformShot();
-            PlayFireSound(target);
+            PerformShot();
+            PlayFireSound();
         }
 
         public void StartReload() {
@@ -218,7 +226,7 @@ namespace Game.Weapons {
 
         public void CancelReload() {
             if(!IsReloading) return;
-            
+
             StopCoroutine(_reloadCoroutine);
 
             IsReloading = false;
@@ -241,7 +249,7 @@ namespace Game.Weapons {
             PlayDryFireSound();
         }
 
-        private NetworkObject PerformShot() {
+        private void PerformShot() {
             var origin = fpCamera.transform.position;
             var forward = fpCamera.transform.forward;
             var hitLayer = enemyLayer | worldLayer;
@@ -253,28 +261,25 @@ namespace Game.Weapons {
             _lastFireTime = Time.time;
             HUDManager.Instance.UpdateAmmo(currentAmmo, magSize);
 
-            NetworkObject target = null;
-
             if(shotHit) {
-                Debug.DrawRay(origin, forward * hit.distance, Color.green, 5f);
+                var target = hit.collider.GetComponent<NetworkObject>();
 
-                target = hit.collider.GetComponent<NetworkObject>();
-
-                if(target != null && target.IsSpawned && _damageRelay != null) {
+                if(target && target.IsSpawned && _damageRelay) {
                     var targetRef = new NetworkObjectReference(target);
-                    _targetHealth = target.GetComponent<PlayerController>().netHealth.Value;
                     _damageRelay.RequestDamageServerRpc(targetRef, _lastHitDamage, hit.point, hit.normal);
                 }
-            } else {
-                Debug.DrawRay(origin, forward * 500f, Color.red, 5f);
             }
 
             var endPoint = shotHit ? hit.point : (origin + forward * 100f);
             
-            if(_networkFXRelay != null)
-                _networkFXRelay.RequestShotFx(this, endPoint);
+            if (playerController && playerController.IsOwner) {
+                var muzzle = GetActiveMuzzle();
+                var startPos = muzzle ? muzzle.position : origin;
+                SpawnTracerLocal(startPos, endPoint);
+            }
 
-            return target;
+            if(_networkFXRelay)
+                _networkFXRelay.RequestShotFx(this, endPoint);
         }
 
         private float GetScaledDamage() {
@@ -335,74 +340,63 @@ namespace Game.Weapons {
 
         #region Private Methods - Effects
 
-        public void PlayNetworkedMuzzleFlashLocal()
-{
-    var isOwner = playerController && playerController.IsOwner;
+        public void PlayNetworkedMuzzleFlashLocal() {
+            var isOwner = playerController && playerController.IsOwner;
 
-    if (isOwner)
-    {
-        weaponAnimator?.SetTrigger(RecoilHash);
-        networkAnimator?.SetTrigger(RecoilHash);
-        if (muzzleFlashEffect) muzzleFlashEffect.Play();
-        if (muzzleLight) StartCoroutine(FlashLight(muzzleLight, muzzleLightTime));
-        return;
-    }
+            if(isOwner) {
+                weaponAnimator?.SetTrigger(RecoilHash);
+                networkAnimator?.SetTrigger(RecoilHash);
+                if(muzzleFlashEffect) muzzleFlashEffect.Play();
+                if(muzzleLight) StartCoroutine(FlashLight(muzzleLight, muzzleLightTime));
+                return;
+            }
 
-    // ---- Non-owner: world model ----
-    AssignMuzzlesIfMissing();
+            // ---- Non-owner: world model ----
+            AssignMuzzlesIfMissing();
 
-    // Prefer a dedicated world VFX prefab
-    if (worldMuzzleFlashPrefab && worldMuzzle)
-    {
-        var fx = Instantiate(worldMuzzleFlashPrefab, worldMuzzle.position, worldMuzzle.rotation);
-        fx.Play();
-        Destroy(fx.gameObject, 1f);
-    }
-    else
-    {
-        // Fallbacks and diagnostics
-        if (!worldMuzzle)
-        {
-            // try to find any child tagged/suffixed as world muzzle
-            foreach (var t in GetComponentsInChildren<Transform>(true))
-            {
-                if (t.CompareTag("WorldMuzzle") || t.name.Contains("WorldMuzzle"))
-                {
-                    worldMuzzle = t;
-                    break;
+            // Prefer a dedicated world VFX prefab
+            if(worldMuzzleFlashPrefab && worldMuzzle) {
+                var fx = Instantiate(worldMuzzleFlashPrefab, worldMuzzle.position, worldMuzzle.rotation);
+                fx.Play();
+                Destroy(fx.gameObject, 1f);
+            } else {
+                // Fallbacks and diagnostics
+                if(!worldMuzzle) {
+                    // try to find any child tagged/suffixed as world muzzle
+                    foreach(var t in GetComponentsInChildren<Transform>(true)) {
+                        if(t.CompareTag("WorldMuzzle") || t.name.Contains("WorldMuzzle")) {
+                            worldMuzzle = t;
+                            break;
+                        }
+                    }
+                }
+
+                // sometimes FP effect is shared
+                if(worldMuzzle && muzzleFlashEffect) {
+                    // As a last resort, play the same effect at the world muzzle
+                    var fxGo = Instantiate(muzzleFlashEffect.gameObject, worldMuzzle.position, worldMuzzle.rotation);
+                    var fx = fxGo.GetComponent<VisualEffect>();
+                    fx?.Play();
+                    Destroy(fxGo, 1f);
                 }
             }
-        }
 
-        if (worldMuzzle && muzzleFlashEffect)  // sometimes FP effect is shared
-        {
-            // As a last resort, play the same effect at the world muzzle
-            var fxGO = Instantiate(muzzleFlashEffect.gameObject, worldMuzzle.position, worldMuzzle.rotation);
-            var fx = fxGO.GetComponent<VisualEffect>();
-            fx?.Play();
-            Destroy(fxGO, 1f);
-        }
-        else
-        {
-            Debug.LogWarning($"[Weapon] No world muzzle VFX for {name} (worldMuzzle={(worldMuzzle?worldMuzzle.name:"null")}, worldMuzzleFlashPrefab={(worldMuzzleFlashPrefab?"ok":"null")})");
-        }
-    }
-
-    // Try toggling a world light if one exists
-    GameObject worldMuzzleLight = null;
-    if (worldMuzzle)
-    {
-        worldMuzzleLight = worldMuzzle.GetComponentInChildren<Light>()?.gameObject;
-        if (worldMuzzleLight == null)
-        {
-            foreach (Transform child in worldMuzzle.GetComponentsInChildren<Transform>(true))
-            {
-                if (child.GetComponent<Light>() != null) { worldMuzzleLight = child.gameObject; break; }
+            // Try toggling a world light if one exists
+            GameObject worldMuzzleLight = null;
+            if(worldMuzzle) {
+                worldMuzzleLight = worldMuzzle.GetComponentInChildren<Light>()?.gameObject;
+                if(!worldMuzzleLight) {
+                    foreach(var child in worldMuzzle.GetComponentsInChildren<Transform>(true)) {
+                        if(child.GetComponent<Light>() != null) {
+                            worldMuzzleLight = child.gameObject;
+                            break;
+                        }
+                    }
+                }
             }
+
+            if(worldMuzzleLight) StartCoroutine(FlashLight(worldMuzzleLight, muzzleLightTime));
         }
-    }
-    if (worldMuzzleLight) StartCoroutine(FlashLight(worldMuzzleLight, muzzleLightTime));
-}
 
         private IEnumerator FlashLight(GameObject lightObj, float time) {
             if(!lightObj) yield break;
@@ -412,34 +406,23 @@ namespace Game.Weapons {
         }
 
         public void SpawnTracerLocal(Vector3 start, Vector3 end) {
-            if(bulletTrail == null) return;
+            if(!bulletTrail) return;
             var trail = Instantiate(bulletTrail, start, Quaternion.LookRotation(end - start));
             StartCoroutine(SpawnTrail(trail, end, end, true));
         }
 
-        private void PlayFireSound(NetworkObject target) {
-            if(_sfxRelay == null)
+        private void PlayFireSound() {
+            if(!_sfxRelay)
                 _sfxRelay = GetComponent<NetworkSfxRelay>();
 
             // owner issues the request
-            if(_sfxRelay != null && playerController.IsOwner) {
+            if(_sfxRelay && playerController.IsOwner) {
                 _sfxRelay.RequestWorldSfx(SfxKey.Shoot, attachToSelf: true, true);
-
-                if(target == null) return;
-
-                if(_targetHealth - _lastHitDamage <= 0) {
-                    SoundFXManager.Instance.PlayUISound(_killSound);
-                    playerController.damageDealt.Value += _lastHitDamage;
-                    playerController.kills.Value++;
-                } else {
-                    SoundFXManager.Instance.PlayUISound(_hitSound);
-                    playerController.damageDealt.Value += _lastHitDamage;
-                }
             }
         }
 
         private void PlayDryFireSound() {
-            if(_sfxRelay != null && playerController.IsOwner)
+            if(_sfxRelay && playerController.IsOwner)
                 _sfxRelay.RequestWorldSfx(SfxKey.Dry, attachToSelf: true, true);
         }
 
@@ -457,13 +440,13 @@ namespace Game.Weapons {
         private IEnumerator SpawnTrail(TrailRenderer trail, Vector3 hitPoint, Vector3 hitNormal, bool madeImpact) {
             var startPosition = trail.transform.position;
             var distance = Vector3.Distance(trail.transform.position, hitPoint);
+            
             var remainingDistance = distance;
 
             while(remainingDistance > 0) {
-                trail.transform.position = Vector3.Lerp(startPosition, hitPoint, 1 - (remainingDistance / distance));
-
+                var t = 1f - (remainingDistance / distance);
+                trail.transform.position = Vector3.Lerp(startPosition, hitPoint, t);
                 remainingDistance -= bulletSpeed * Time.deltaTime;
-
                 yield return null;
             }
 

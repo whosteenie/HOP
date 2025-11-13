@@ -2,11 +2,11 @@ fileFormatVersion: 2
 guid: b702e254d5e77904da0429cfcbc77709
 AssetOrigin:
   serializedVersion: 1
-  productId: 340690
-  packageName: Human Soldier Animations FREE
-  packageVersion: 1.0
+  productId: 180600
+  packageName: Human Soldier Animations
+  packageVersion: 2.0
   assetPath: Assets/Kevin Iglesias/Human Animations/Animations/Male/Movement/Walk/HumanM@Walk01_Left.fbx
-  uploadId: 807790
+  uploadId: 818212
 ModelImporter:
   serializedVersion: 24200
   internalIDToNameTable: []
@@ -62,14 +62,14 @@ ModelImporter:
       bodyMask: 01000000010000000100000001000000010000000100000001000000010000000100000001000000010000000100000001000000
       curves: []
       events:
-      - time: 0.09277108
+      - time: 0.09148937
         functionName: PlayWalkSound
         data: 
         objectReferenceParameter: {instanceID: 0}
         floatParameter: 0
         intParameter: 0
         messageOptions: 0
-      - time: 0.5506024
+      - time: 0.5425532
         functionName: PlayWalkSound
         data: 
         objectReferenceParameter: {instanceID: 0}

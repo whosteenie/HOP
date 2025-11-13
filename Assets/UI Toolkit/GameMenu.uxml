@@ -21,6 +21,9 @@
                 <ui:VisualElement name="crosshair-vertical" class="crosshair-line vertical" />
                 <ui:VisualElement name="grapple-indicator" class="grapple-indicator" />
             </ui:VisualElement>
+            <ui:VisualElement name="kill-feed-container" class="kill-feed-container">
+                <!-- Kill entries will be added here dynamically -->
+            </ui:VisualElement>
         </ui:VisualElement>
         <ui:VisualElement name="pause-menu-panel" class="panel full-abs center-xy hidden">
             <ui:VisualElement name="pause-container" class="menu-container card">

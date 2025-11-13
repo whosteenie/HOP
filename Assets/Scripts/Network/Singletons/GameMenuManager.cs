@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using Game.Player;
 using UnityEngine;
@@ -16,6 +17,19 @@ namespace Network.Singletons {
         [SerializeField] private AudioClip buttonClickSound;
         [SerializeField] private AudioClip buttonHoverSound;
         [SerializeField] private AudioClip backClickSound;
+
+        [Header("Kill Feed")] 
+        [SerializeField] private Sprite killIconSprite;
+        [SerializeField] private float killFeedDisplayTime = 5f;
+        [SerializeField] private int maxKillFeedEntries = 5; // NEW: Max entries in kill feed
+
+        #endregion
+
+        #region UI Elements - Kill Feed
+
+        private VisualElement _killFeedContainer;
+        private List<VisualElement> _activeKillEntries = new List<VisualElement>();
+        private Dictionary<VisualElement, Coroutine> _fadeCoroutines; // NEW: Track coroutines
 
         #endregion
 
@@ -85,6 +99,8 @@ namespace Network.Singletons {
 
         private void OnEnable() {
             _root = uiDocument.rootVisualElement;
+            
+            _fadeCoroutines = new Dictionary<VisualElement, Coroutine>();
 
             FindUIElements();
             RegisterUIEvents();
@@ -147,6 +163,9 @@ namespace Network.Singletons {
             // Scoreboard
             _scoreboardPanel = _root.Q<VisualElement>("scoreboard-panel");
             _playerRows = _root.Q<VisualElement>("player-rows");
+
+            // Kill Feed
+            _killFeedContainer = _root.Q<VisualElement>("kill-feed-container");
         }
 
         private void RegisterUIEvents() {
@@ -492,7 +511,7 @@ namespace Network.Singletons {
             var headshotPct = new Label("0%");
             headshotPct.AddToClassList("player-stat");
             row.Add(headshotPct);
-            
+
             // Average Velocity (after headshot %)
             var avgVelocity = player.averageVelocity.Value;
             var avgVelocityLabel = new Label($"{avgVelocity:F1} u/s");
@@ -503,12 +522,12 @@ namespace Network.Singletons {
         }
 
         private string GetPingText(PlayerController player) {
-            var ping = player.PingMs.Value;
+            var ping = player.pingMs.Value;
             return $"{ping}ms";
         }
 
         private string GetPingColorClass(PlayerController player) {
-            var ping = player.PingMs.Value;
+            var ping = player.pingMs.Value;
 
             return ping switch {
                 > 100 => "player-ping-critical",
@@ -520,6 +539,133 @@ namespace Network.Singletons {
         private float CalculateKda(int kills, int deaths, int assists) {
             if(deaths == 0) return kills + assists;
             return (kills + assists) / (float)deaths;
+        }
+
+        #endregion
+
+        #region Kill Feed Management
+
+        /// <summary>
+        /// Call this when a kill happens. Pass killer and victim PlayerControllers.
+        /// </summary>
+        public void AddKillToFeed(string killerName, string victimName, bool isLocalKiller) {
+            if(_killFeedContainer == null) return;
+            Debug.LogWarning("AddKillToFeed called: " + killerName + " killed " + victimName);
+
+            // NEW: Check if we're at capacity
+            if(_activeKillEntries.Count >= maxKillFeedEntries) {
+                // Force remove the oldest entry (last in the list)
+                var oldestEntry = _activeKillEntries[^1];
+                RemoveKillEntry(oldestEntry, immediate: true);
+            }
+
+            var killEntry = CreateKillEntry(killerName, victimName, isLocalKiller);
+
+            // Add to top of feed
+            _killFeedContainer.Add(killEntry);
+            _activeKillEntries.Add(killEntry); // Insert at beginning so oldest is at end
+
+            // Start fade-out timer
+            var fadeCoroutine = StartCoroutine(FadeOutKillEntry(killEntry));
+            _fadeCoroutines[killEntry] = fadeCoroutine;
+        }
+
+        private VisualElement CreateKillEntry(string killerName, string victimName, bool isLocalKiller) {
+            var entry = new VisualElement();
+            entry.AddToClassList("kill-entry");
+
+            if(isLocalKiller) {
+                entry.AddToClassList("kill-entry-local");
+            }
+
+            // Killer name
+            var killer = new Label(killerName);
+            killer.AddToClassList("killer-name");
+            if(isLocalKiller) {
+                killer.AddToClassList("killer-name-local");
+            }
+
+            entry.Add(killer);
+
+            // Kill icon (skull)
+            var icon = new VisualElement();
+            icon.AddToClassList("kill-icon");
+            if(killIconSprite != null) {
+                icon.style.backgroundImage = new StyleBackground(killIconSprite);
+            }
+
+            entry.Add(icon);
+
+            // Victim name
+            var victim = new Label(victimName);
+            victim.AddToClassList("victim-name");
+            entry.Add(victim);
+
+            return entry;
+        }
+
+        private IEnumerator FadeOutKillEntry(VisualElement entry) {
+            // Wait for display time
+            yield return new WaitForSeconds(killFeedDisplayTime);
+
+            // Remove the entry
+            RemoveKillEntry(entry, immediate: false);
+        }
+
+        /// <summary>
+        /// Removes a kill entry from the feed.
+        /// </summary>
+        /// <param name="entry">The entry to remove</param>
+        /// <param name="immediate">If true, removes instantly. If false, fades out first.</param>
+        private void RemoveKillEntry(VisualElement entry, bool immediate) {
+            if(entry == null || !_activeKillEntries.Contains(entry)) return;
+
+            // Cancel existing fade coroutine if any
+            if(_fadeCoroutines.TryGetValue(entry, out var coroutine)) {
+                if(coroutine != null) {
+                    StopCoroutine(coroutine);
+                }
+
+                _fadeCoroutines.Remove(entry);
+            }
+
+            if(immediate) {
+                // Immediate removal (when at capacity)
+                entry.AddToClassList("kill-entry-fade");
+
+                // Remove from lists immediately
+                _activeKillEntries.Remove(entry);
+
+                // Wait one frame for fade class to apply, then remove from DOM
+                StartCoroutine(RemoveAfterFrame(entry));
+            } else {
+                // Normal fade out
+                StartCoroutine(FadeAndRemove(entry));
+            }
+        }
+
+        private IEnumerator FadeAndRemove(VisualElement entry) {
+            // Fade out
+            entry.AddToClassList("kill-entry-fade");
+
+            // Wait for fade animation
+            yield return new WaitForSeconds(0.3f);
+
+            // Remove from feed
+            if(_killFeedContainer.Contains(entry)) {
+                _killFeedContainer.Remove(entry);
+                _activeKillEntries.Remove(entry);
+            }
+        }
+
+        private IEnumerator RemoveAfterFrame(VisualElement entry) {
+            // Wait briefly for fade animation to start
+            yield return new WaitForSeconds(0.15f);
+
+            // Remove from DOM
+            if(_killFeedContainer.Contains(entry)) {
+                _killFeedContainer.Remove(entry);
+            }
         }
 
         #endregion

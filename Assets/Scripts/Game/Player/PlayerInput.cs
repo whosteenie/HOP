@@ -58,8 +58,7 @@ namespace Game.Player {
         }
 
         private void LateUpdate() {
-            if(!IsOwner) return;
-            if(CurrentWeapon == null) return;
+            if(!IsOwner || !CurrentWeapon) return;
 
             if(!IsPausedOrDead && CurrentWeapon.fireMode == "Full" &&
                (Mouse.current.leftButton.isPressed || Mouse.current.rightButton.isPressed)) {
@@ -194,21 +193,18 @@ namespace Game.Player {
             if(!IsOwner) return;
 
             SwitchWeapon(0);
-            Debug.Log("Equipped Primary");
         }
 
         private void OnSecondary(InputValue value) {
             if(!IsOwner) return;
 
             SwitchWeapon(1);
-            Debug.Log("Equipped Secondary");
         }
 
         private void OnTertiary(InputValue value) {
             if(!IsOwner) return;
 
             SwitchWeapon(2);
-            Debug.Log("Equipped Tertiary");
         }
 
         public void SwitchWeapon(int weaponIndex) {

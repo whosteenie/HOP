@@ -5,7 +5,6 @@ using System.Threading;
 using Cysharp.Threading.Tasks;
 using Network.Core;
 using Network.Relay;
-using Network.Rpc;
 using Network.Singletons;
 using Network.UGS;
 using Unity.Netcode;
@@ -14,7 +13,6 @@ using Unity.Services.Multiplayer;
 using Unity.Services.Relay.Models;
 using UnityEngine;
 using UnityEngine.SceneManagement;
-using UnityEngine.UIElements;
 using UnityUtils;
 
 namespace Network {
@@ -85,6 +83,9 @@ namespace Network {
         public event Action<string> SessionJoined;
         public SessionPhase Phase { get; private set; }
 
+        private List<ulong> _clientsFinishedLoading = new List<ulong>();
+        private CustomNetworkManager _customNetworkManager;
+
         private void SetFrontStatus(SessionPhase phase, string message) {
             Phase = phase;
             FrontStatusChanged?.Invoke(message);
@@ -113,9 +114,23 @@ namespace Network {
             DontDestroyOnLoad(gameObject);
 
             _networkManager = NetworkManager.Singleton;
+            _customNetworkManager = _networkManager.GetComponent<CustomNetworkManager>();
+        }
+
+        private void OnEnable() {
             if(_networkManager != null) {
                 _networkManager.OnClientDisconnectCallback -= OnClientDisconnected;
                 _networkManager.OnClientDisconnectCallback += OnClientDisconnected;
+                
+                _networkManager.OnClientConnectedCallback -= OnClientConnected;
+                _networkManager.OnClientConnectedCallback += OnClientConnected;
+            }
+        }
+
+        private void OnDisable() {
+            if(_networkManager != null) {
+                _networkManager.OnClientDisconnectCallback -= OnClientDisconnected;
+                _networkManager.OnClientConnectedCallback -= OnClientConnected;
             }
         }
 
@@ -125,6 +140,13 @@ namespace Network {
                 await _ugs.InitializeAsync();
             } catch(Exception e) {
                 Debug.LogException(e);
+            }
+        }
+
+        private void OnSceneEvent(SceneEvent sceneEvent) {
+            // We only care about SceneEventType.LoadComplete
+            if(sceneEvent.SceneEventType == SceneEventType.LoadComplete) {
+                OnGameSceneLoaded(sceneEvent.ClientId, sceneEvent.SceneName, LoadSceneMode.Single);
             }
         }
 
@@ -138,15 +160,40 @@ namespace Network {
 
         private async UniTaskVoid HandleUnexpectedDisconnect() {
             SetFrontStatus(SessionPhase.ReturningToMenu, "Lost connection. Returning to main menu...");
-            await UniTask.Delay(100); // Small delay to let disconnect process
 
-            HUDManager.Instance?.HideHUD();
-            if(GameMenuManager.Instance?.IsPaused == true) {
-                GameMenuManager.Instance.TogglePause();
+            // Fade to black
+            if(SceneTransitionManager.Instance != null) {
+                await SceneTransitionManager.Instance.FadeOut().ToUniTask();
+            }
+
+            await UniTask.Delay(500); // Small delay to let disconnect process
+
+            // Hide game UI if in game
+            if(SceneManager.GetActiveScene().name == "Game") {
+                HUDManager.Instance?.HideHUD();
+                if(GameMenuManager.Instance?.IsPaused == true) {
+                    GameMenuManager.Instance.TogglePause();
+                }
             }
 
             ResetSessionState();
-            LoadMainMenu("MainMenu");
+
+            // Load main menu if not already there
+            if(SceneManager.GetActiveScene().name != "MainMenu") {
+                LoadMainMenu("MainMenu");
+                await UniTask.Delay(500); // Wait for scene to load
+            }
+
+            // Show main menu panel (works whether we were in lobby or game)
+            var mainMenuManager = FindFirstObjectByType<MainMenuManager>();
+            if(mainMenuManager != null) {
+                mainMenuManager.ShowPanel(mainMenuManager.MainMenuPanel);
+            }
+
+            // Fade back in
+            if(SceneTransitionManager.Instance != null) {
+                await SceneTransitionManager.Instance.FadeIn().ToUniTask();
+            }
         }
 
         #endregion
@@ -209,7 +256,8 @@ namespace Network {
             SetFrontStatus(SessionPhase.StartingHost, "Starting game as host...");
             StopWatchingLobby("host starting gameplay");
             
-            SetFrontStatus(SessionPhase.AllocatingRelay, "Setting up relay connection...");
+            _clientsFinishedLoading.Clear();
+
             await EnsureRelayCodePublishedForLobbyAsync();
             await SetupHostTransportAsync();
             StartHostIfNeeded();
@@ -217,8 +265,72 @@ namespace Network {
             if(_networkManager.IsServer)
                 await PublishRelayCodeIfAnyAsync();
 
-            SetFrontStatus(SessionPhase.LoadingScene, "Loading game scene...");
+            SetFrontStatus(SessionPhase.LoadingScene, "Waiting for all players...");
+
+            // DON'T fade yet - wait for clients to connect to relay first
+            // The scene load will happen after everyone connects
+        }
+
+        private void OnClientConnected(ulong clientId) {
+            Debug.Log($"[SessionManager] Client {clientId} connected to relay");
+
+            if(!_networkManager.IsServer) {
+                SetFrontStatus(SessionPhase.LoadingScene, "Waiting for all players...");
+                return;
+            }
+
+            int expectedPlayerCount = ActiveSession?.Players.Count ?? 1;
+            int connectedCount = _networkManager.ConnectedClientsIds.Count;
+
+            Debug.Log($"[SessionManager] {connectedCount}/{expectedPlayerCount} players connected");
+
+            if(connectedCount >= expectedPlayerCount) {
+                Debug.Log("[SessionManager] All lobby players connected! Starting scene transition...");
+
+                // Use bridge to send RPC
+                if(SessionNetworkBridge.Instance != null) {
+                    SessionNetworkBridge.Instance.FadeOutAllClientsClientRpc();
+                }
+
+                StartCoroutine(LoadSceneAfterFade());
+            }
+        }
+
+        private IEnumerator LoadSceneAfterFade() {
+            // Wait for fade to complete
+            yield return new WaitForSeconds(0.5f);
+
+            // Now load the scene
             BeginNetworkSceneLoad();
+        }
+
+        [Rpc(SendTo.Everyone)]
+        private void FadeOutAllClientsClientRpc() {
+            if(SceneTransitionManager.Instance != null) {
+                _ = SceneTransitionManager.Instance.FadeOut().ToUniTask();
+            }
+        }
+
+        private void OnGameSceneLoaded(ulong clientId, string sceneName, LoadSceneMode loadSceneMode) {
+            Debug.Log($"[SessionManager] Client {clientId} reported scene '{sceneName}' loaded");
+
+            if(!_networkManager.IsServer) {
+                return;
+            }
+
+            if(!_clientsFinishedLoading.Contains(clientId))
+                _clientsFinishedLoading.Add(clientId);
+
+            if(_clientsFinishedLoading.Count == _networkManager.ConnectedClientsIds.Count) {
+                Debug.Log("[SessionManager] All clients finished loading. Spawning players...");
+                _networkManager.SceneManager.OnSceneEvent -= OnSceneEvent;
+                _customNetworkManager?.EnableGameplaySpawningAndSpawnAll();
+
+                // Use bridge to send RPC
+                if(SessionNetworkBridge.Instance != null) {
+                    SessionNetworkBridge.Instance.FadeInAllClientsClientRpc();
+                }
+            }
         }
 
         /// <summary>Joins a session by code; waits for host to publish Relay code (if remote), configures client transport, starts NGO Client.</summary>
@@ -246,10 +358,28 @@ namespace Network {
             if(_isLeaving) return;
             _isLeaving = true;
             try {
+                // Fade to black before leaving. unless in main menu already, then just toss session.
+                if(SceneTransitionManager.Instance != null && SceneManager.GetActiveScene().name != "MainMenu") {
+                    await SceneTransitionManager.Instance.FadeOut().ToUniTask();
+                }
+
+                // If we're the host, tell everyone else to fade out too
+                if(_networkManager != null && _networkManager.IsServer && SessionNetworkBridge.Instance != null) {
+                    SessionNetworkBridge.Instance.FadeOutAllClientsClientRpc();
+                    // Give clients a moment to start fading
+                    await UniTask.Delay(600);
+                }
+
                 await _net.CleanupNetworkAsync();
                 await _ugs.LeaveOrDeleteAsync(ActiveSession);
                 ResetSessionState();
                 LoadMainMenu(mainMenu);
+
+                // Fade back in after menu loads
+                await UniTask.Delay(500);
+                if(SceneTransitionManager.Instance != null) {
+                    await SceneTransitionManager.Instance.FadeIn().ToUniTask();
+                }
             } finally {
                 _isLeaving = false;
             }
@@ -294,6 +424,9 @@ namespace Network {
 
         /// <summary>Arms scene-completion callback and asks server to load the game scene via NGO SceneManager.</summary>
         private void BeginNetworkSceneLoad() {
+            if(!_networkManager.IsServer) return;
+            _clientsFinishedLoading.Clear();
+            _networkManager.SceneManager.OnSceneEvent += OnSceneEvent;
             _loadingGameScene = true;
             _net.HookSceneCallbacks(OnNetworkSceneLoadComplete);
             _scenes.LoadGameSceneServer(GameSceneName);
@@ -393,7 +526,7 @@ namespace Network {
                 utp.SetConnectionData("127.0.0.1", 7777);
                 SetFrontStatus(SessionPhase.StartingClient, "Connecting to local host...");
                 StartClientIfNeeded();
-                SetFrontStatus(SessionPhase.LoadingScene, "Loading game scene...");
+                SetFrontStatus(SessionPhase.LoadingScene, "Waiting for all players...");
                 ArmSceneCompletion();
                 return;
             }
@@ -404,7 +537,7 @@ namespace Network {
                 var utp = _networkManager.GetComponent<UnityTransport>();
                 utp.SetRelayServerData(join.ToRelayServerData(RelayProtocol.DTLS));
                 StartClientIfNeeded();
-                SetFrontStatus(SessionPhase.LoadingScene, "Loading game scene...");
+                SetFrontStatus(SessionPhase.LoadingScene, "Waiting for all players...");
                 ArmSceneCompletion();
             } catch(Exception e) {
                 SetFrontStatus(SessionPhase.Error, $"Failed to connect: {e.Message}");
@@ -521,6 +654,7 @@ namespace Network {
             _net.UnhookSceneCallbacks(OnNetworkSceneLoadComplete);
             _loadingGameScene = false;
             _relayJoinCode = null;
+            _clientsFinishedLoading.Clear();
 
             // Clear spawner state
             _networkManager.GetComponent<CustomNetworkManager>()?.ResetSpawningState();
@@ -564,12 +698,12 @@ namespace Network {
             DisarmSceneCompletion();
             Debug.Log(
                 $"[SessionManager] Scene load complete. Scene: {scene}, IsServer: {NetworkManager.Singleton.IsServer}");
-
-            if(_networkManager.IsServer) {
-                var spawner = _networkManager.GetComponent<CustomNetworkManager>();
-                Debug.Log($"[SessionManager] Found spawner: {spawner != null}");
-                spawner.EnableGameplaySpawningAndSpawnAll();
-            }
+            //
+            // if(_networkManager.IsServer) {
+            //     var spawner = _networkManager.GetComponent<CustomNetworkManager>();
+            //     Debug.Log($"[SessionManager] Found spawner: {spawner != null}");
+            //     spawner.EnableGameplaySpawningAndSpawnAll();
+            // }
         }
 
         #endregion

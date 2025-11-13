@@ -2,11 +2,11 @@ fileFormatVersion: 2
 guid: 8bb16e2bf48f0ba498b4ee70d2518ae0
 AssetOrigin:
   serializedVersion: 1
-  productId: 157744
-  packageName: Human Basic Motions
-  packageVersion: 2.4
+  productId: 180600
+  packageName: Human Soldier Animations
+  packageVersion: 2.0
   assetPath: Assets/Kevin Iglesias/Human Animations/Animations/Male/Movement/Crouch/CrouchWalk/HumanM@Crouch01_Walk_Forward.fbx
-  uploadId: 762144
+  uploadId: 818212
 ModelImporter:
   serializedVersion: 24200
   internalIDToNameTable: []
@@ -62,14 +62,14 @@ ModelImporter:
       bodyMask: 01000000010000000100000001000000010000000100000001000000010000000100000001000000010000000100000001000000
       curves: []
       events:
-      - time: 0.09759036
+      - time: 0.07021277
         functionName: PlayWalkSound
         data: 
         objectReferenceParameter: {instanceID: 0}
         floatParameter: 0
         intParameter: 0
         messageOptions: 0
-      - time: 0.5891566
+      - time: 0.5531915
         functionName: PlayWalkSound
         data: 
         objectReferenceParameter: {instanceID: 0}

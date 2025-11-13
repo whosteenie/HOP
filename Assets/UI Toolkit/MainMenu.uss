@@ -203,10 +203,6 @@
     border-color: rgba(255, 255, 255, 0.6);
 }
 
-.current-color {
-    cursor: link;
-}
-
 .color-options {
     position: absolute;
     top: 50px;
@@ -221,7 +217,6 @@
 }
 
 .color-option {
-    cursor: link;
     margin-bottom: 6px;
 }
 
@@ -290,7 +285,6 @@
     border-color: rgba(255, 255, 255, 0.08);
     align-items: center;
     justify-content: center;
-    cursor: link;
     transition-duration: 0.2s;
     position: relative;
 }
@@ -334,7 +328,6 @@
     margin-bottom: 6px;
     align-items: center;
     justify-content: center;
-    cursor: link;
     transition-duration: 0.2s;
 }
 
@@ -494,7 +487,6 @@
     height: 100%;
     --unity-image: url('/Assets/UI Toolkit/Images/github.png');
     --unity-image-size: contain;
-    cursor: link;
     transition: opacity 0.2s ease;
 }
 

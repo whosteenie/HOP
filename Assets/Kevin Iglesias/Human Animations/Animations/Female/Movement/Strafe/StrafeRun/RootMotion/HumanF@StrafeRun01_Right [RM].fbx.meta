@@ -968,9 +968,9 @@ ModelImporter:
   assetBundleVariant: 
 AssetOrigin:
   serializedVersion: 1
-  productId: 157744
-  packageName: Human Basic Motions
-  packageVersion: 2.4
+  productId: 180600
+  packageName: Human Soldier Animations
+  packageVersion: 2.0
   assetPath: Assets/Kevin Iglesias/Human Animations/Animations/Female/Movement/Strafe/StrafeRun/RootMotion/HumanF@StrafeRun01_Right
     [RM].fbx
-  uploadId: 762144
+  uploadId: 818212

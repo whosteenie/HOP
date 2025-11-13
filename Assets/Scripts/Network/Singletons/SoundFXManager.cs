@@ -24,6 +24,17 @@ namespace Network.Singletons {
         [SerializeField] private AudioClip[] shootClips;
         [SerializeField] private AudioClip[] jumpPadClips;
         [SerializeField] private AudioClip[] grappleClips;
+        
+        [Header("Audio Falloff Settings")]
+        [SerializeField] private float walkMaxDistance = 15f;
+        [SerializeField] private float runMaxDistance = 20f;
+        [SerializeField] private float jumpMaxDistance = 25f;
+        [SerializeField] private float landMaxDistance = 25f;
+        [SerializeField] private float reloadMaxDistance = 30f;
+        [SerializeField] private float dryMaxDistance = 30f;
+        [SerializeField] private float shootMaxDistance = 300f; // Heard across map
+        [SerializeField] private float jumpPadMaxDistance = 50f;
+        [SerializeField] private float grappleMaxDistance = 35f;
 
         private readonly Queue<AudioSource> _audioPool = new();
         private readonly Dictionary<string, AudioSource> _activeSounds = new();
@@ -70,6 +81,29 @@ namespace Network.Singletons {
             if(bank == null || bank.Length == 0) return null;
             return bank[Random.Range(0, bank.Length)];
         }
+        
+        private float GetMaxDistance(SfxKey key) => key switch {
+            SfxKey.Walk    => walkMaxDistance,
+            SfxKey.Run     => runMaxDistance,
+            SfxKey.Jump    => jumpMaxDistance,
+            SfxKey.Land    => landMaxDistance,
+            SfxKey.Reload  => reloadMaxDistance,
+            SfxKey.Dry     => dryMaxDistance,
+            SfxKey.Shoot   => shootMaxDistance,
+            SfxKey.JumpPad => jumpPadMaxDistance,
+            SfxKey.Grapple => grappleMaxDistance,
+            _ => 50f
+        };
+
+        private float GetMinDistance(SfxKey key) {
+            // MinDistance is typically 1-5% of max distance for natural falloff
+            var maxDist = GetMaxDistance(key);
+            return key switch {
+                SfxKey.Shoot => maxDist * 0.02f, // Louder close-up
+                SfxKey.Walk or SfxKey.Run => 1f, // Very close for footsteps
+                _ => maxDist * 0.05f
+            };
+        }
 
         /// <summary>
         /// Network-consumed entrypoint. If parent != null, the AudioSource is parented (follows player).
@@ -96,8 +130,9 @@ namespace Network.Singletons {
             }
         
             src.spatialBlend = 1f;
-            src.minDistance = 1f;
-            src.maxDistance = 50f;
+            src.minDistance = GetMinDistance(key);
+            src.maxDistance = GetMaxDistance(key);
+            src.rolloffMode = AudioRolloffMode.Logarithmic;
 
             // apply volumes from PlayerPrefs (per-client mixer-like control)
             var dbMaster = PlayerPrefs.GetFloat("MasterVolume", 0f);

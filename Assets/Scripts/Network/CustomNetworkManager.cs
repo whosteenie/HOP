@@ -112,6 +112,13 @@ namespace Network {
         }
 
         private void SpawnPlayerFor(ulong clientId) {
+            foreach(var client in NetworkManager.Singleton.ConnectedClients.Values) {
+                if(client.ClientId == clientId && client.PlayerObject != null) {
+                    Debug.LogWarning($"[CustomNetworkManager] Player already spawned for {clientId}");
+                    return; // Already spawned!
+                }
+            }
+            
             while(true) {
                 var pos = SpawnManager.Instance.GetNextSpawnPosition();
                 var rot = SpawnManager.Instance.GetNextSpawnRotation();
@@ -122,17 +129,7 @@ namespace Network {
                     continue;
                 }
 
-                // var materialIndex = _playerAmount % playerMaterials.Length;
-
                 var instance = Instantiate(playerPrefab, pos, rot);
-                // var pc = instance.GetComponent<PlayerController>();
-                // pc.playerMaterialIndex.Value = materialIndex;
-
-                // var mesh = instance.gameObject.GetComponentInChildren<SkinnedMeshRenderer>();
-                // var currentMaterials = mesh.materials;
-                // var selectedColorIndex = PlayerPrefs.GetInt("PlayerColorIndex");
-                // currentMaterials[0] = playerMaterials[selectedColorIndex];
-                // mesh.materials = currentMaterials;
 
                 var cc = instance.GetComponent<CharacterController>();
                 if(cc) cc.enabled = false;

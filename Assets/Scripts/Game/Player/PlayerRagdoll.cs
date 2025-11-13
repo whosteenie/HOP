@@ -2,125 +2,128 @@ using Unity.Netcode;
 using UnityEngine;
 
 namespace Game.Player {
-    public class PlayerRagdoll : NetworkBehaviour
-    {
-        [Header("References")]
+    public class PlayerRagdoll : NetworkBehaviour {
+        [Header("References")] 
         [SerializeField] private Animator animator;
         [SerializeField] private CharacterController characterController;
-    
-        [Header("Ragdoll Settings")]
-        [SerializeField] private float ragdollForce = 0.01f;
-        [SerializeField] private float despawnDelay = 5f;
-    
+
+        [Header("Ragdoll Settings")] 
+        [SerializeField] private float ragdollForce = 300f;
+        [SerializeField] private float maxRagdollVelocity = 10f;
+
         private Rigidbody[] _ragdollRigidbodies;
         private Collider[] _ragdollColliders;
         private bool _isRagdoll;
-    
-        private void Awake() {
-            // Get all rigidbodies and colliders in children (the ragdoll bones)
-            _ragdollRigidbodies = GetComponentsInChildren<Rigidbody>();
-            _ragdollColliders = GetComponentsInChildren<Collider>();
-        
-            if(!IsOwner) return;
-        
-            // Disable ragdoll by default
+
+        public override void OnNetworkSpawn() {
+            base.OnNetworkSpawn();
+            
+            _ragdollRigidbodies = GetComponentsInChildren<Rigidbody>(true);
+            _ragdollColliders = GetComponentsInChildren<Collider>(true);
+
+            // Configure rigidbodies for stability
+            foreach(var rb in _ragdollRigidbodies) {
+                if(!rb) continue;
+                
+                // CRITICAL: Set these for stable ragdolls
+                rb.maxAngularVelocity = 7f; // Prevent spinning too fast
+                rb.interpolation = RigidbodyInterpolation.Interpolate; // Smooth movement
+                rb.collisionDetectionMode = CollisionDetectionMode.Continuous; // Better collision
+            }
+
             SetRagdollActive(false);
         }
 
-        public override void OnNetworkSpawn() {
-            _ragdollRigidbodies = GetComponentsInChildren<Rigidbody>(true);
-            _ragdollColliders = GetComponentsInChildren<Collider>(true);
-        
-            SetRagdollActive(false);
-        }
-    
         public void EnableRagdoll(Vector3? hitPoint = null, Vector3? hitDirection = null) {
-            if(_isRagdoll) {
-                return;
-            }
-        
+            if(_isRagdoll) return;
             _isRagdoll = true;
-        
-            // Disable character controller and animator
-            if(characterController != null) {
-                characterController.enabled = false;
-            }
-        
-            if(animator != null) {
-                animator.enabled = false;
-            }
-        
-            // Enable ragdoll physics
+
+            if(characterController) characterController.enabled = false;
+            if(animator) animator.enabled = false;
+
             SetRagdollActive(true);
-        
-            // Apply force if we have hit info
+
+            // Apply force AFTER a single physics frame to ensure rigidbodies are ready
             if(hitPoint.HasValue && hitDirection.HasValue) {
-                ApplyRagdollForce(hitPoint.Value, hitDirection.Value);
+                // Small delay ensures physics is ready
+                Invoke(nameof(ApplyDelayedForce), 0.02f);
+                _pendingHitPoint = hitPoint.Value;
+                _pendingHitDirection = hitDirection.Value;
             }
+        }
+
+        private Vector3 _pendingHitPoint;
+        private Vector3 _pendingHitDirection;
+
+        private void ApplyDelayedForce() {
+            ApplyRagdollForce(_pendingHitPoint, _pendingHitDirection);
         }
 
         public void DisableRagdoll() {
-            if(!_isRagdoll) {
-                return;
-            }
-        
+            if(!_isRagdoll) return;
             _isRagdoll = false;
-        
-            // Disable ragdoll physics
+
+            // Cancel any pending force applications
+            CancelInvoke(nameof(ApplyDelayedForce));
+
             SetRagdollActive(false);
-        
-            // Enable character controller and animator
-            if(characterController != null) {
-                characterController.enabled = true;
-            }
-        
-            if(animator != null) {
-                animator.enabled = true;
-            }
+
+            if(characterController) characterController.enabled = true;
+            if(animator) animator.enabled = true;
         }
-    
+
         private void SetRagdollActive(bool active) {
             foreach(var rb in _ragdollRigidbodies) {
-                if(rb == null) continue;
-            
+                if(!rb) continue;
+
                 rb.isKinematic = !active;
                 rb.detectCollisions = active;
-            
+
                 if(active) {
+                    // Clear velocities when ENABLING ragdoll (redundant but safe)
+                    rb.linearVelocity = Vector3.zero;
+                    rb.angularVelocity = Vector3.zero;
+                } else {
+                    // CRITICAL: Clear velocities when DISABLING too
                     rb.linearVelocity = Vector3.zero;
                     rb.angularVelocity = Vector3.zero;
                 }
             }
-        
-        
+
             foreach(var col in _ragdollColliders) {
-                if(col == null) continue;
-            
-                // Skip the CharacterController's collider
+                if(!col) continue;
                 if(col == characterController) continue;
-            
+
                 col.enabled = active;
             }
         }
-    
+
         private void ApplyRagdollForce(Vector3 hitPoint, Vector3 direction) {
-            // Find the closest rigidbody to the hit point
             Rigidbody closestRb = null;
-            var closestDistance = float.MaxValue;
-        
+            float closestDistance = float.MaxValue;
+
             foreach(var rb in _ragdollRigidbodies) {
-                if(rb == null) continue;
-            
-                var distance = Vector3.Distance(rb.position, hitPoint);
+                if(!rb) continue;
+
+                float distance = Vector3.Distance(rb.position, hitPoint);
                 if(distance < closestDistance) {
                     closestDistance = distance;
                     closestRb = rb;
                 }
             }
-        
-            // Apply force to the closest bone
-            if(closestRb != null) {
-                closestRb.AddForceAtPosition(direction.normalized * ragdollForce, hitPoint, ForceMode.Impulse);
+
+            if(closestRb) {
+                // Normalize and apply force
+                Vector3 force = direction.normalized * ragdollForce;
+                
+                closestRb.AddForceAtPosition(force, hitPoint, ForceMode.Impulse);
+                
+                // CRITICAL: Clamp velocity to prevent explosions
+                if(closestRb.linearVelocity.magnitude > maxRagdollVelocity) {
+                    closestRb.linearVelocity = closestRb.linearVelocity.normalized * maxRagdollVelocity;
+                }
+                
+                Debug.Log($"Applied ragdoll force: {force.magnitude} at {hitPoint}");
             }
         }
     }

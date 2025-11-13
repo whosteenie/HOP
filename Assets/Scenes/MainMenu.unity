@@ -57195,6 +57195,76 @@ Mesh:
       - serializedVersion: 1
         m_IndexStart: 0
         m_IndexCount: 0
+--- !u!1 &1390489083
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1390489086}
+  - component: {fileID: 1390489085}
+  - component: {fileID: 1390489084}
+  m_Layer: 0
+  m_Name: SceneTransitionManager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1390489084
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1390489083}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 19102, guid: 0000000000000000e000000000000000, type: 0}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.dll::UnityEngine.UIElements.UIDocument
+  m_PanelSettings: {fileID: 11400000, guid: e8875c24c1da0c84baa1f8f99e8770f9, type: 2}
+  m_ParentUI: {fileID: 0}
+  sourceAsset: {fileID: 9197481963319205126, guid: 731b037364954ae4cb1cfc355fdf0544, type: 3}
+  m_SortingOrder: 1000
+  m_Position: 0
+  m_WorldSpaceSizeMode: 1
+  m_WorldSpaceWidth: 1920
+  m_WorldSpaceHeight: 1080
+  m_PivotReferenceSize: 0
+  m_Pivot: 0
+  m_WorldSpaceCollider: {fileID: 0}
+--- !u!114 &1390489085
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1390489083}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 20bc62c9e09551a4eaa3c41941efe60a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Network.Singletons.SceneTransitionManager
+  transitionDocument: {fileID: 1390489084}
+  fadeDuration: 0.5
+--- !u!4 &1390489086
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1390489083}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!4 &1401774280 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 1106471061430962686, guid: 1c4d14349a73300498b86d890673f480, type: 3}
@@ -70069,6 +70139,9 @@ MonoBehaviour:
   buttonClickSound: {fileID: 8300000, guid: 261965fc5705a654ab49649ba82bba64, type: 3}
   buttonHoverSound: {fileID: 8300000, guid: deff2fb538f3b7a44aa556210c060408, type: 3}
   backClickSound: {fileID: 8300000, guid: 617d64aac5ce5074fac23c26b4044b0a, type: 3}
+  killIconSprite: {fileID: 21300000, guid: 7066fde2764271d4aac7676c08a197d8, type: 3}
+  killFeedDisplayTime: 5
+  maxKillFeedEntries: 5
 --- !u!4 &1705097051
 Transform:
   m_ObjectHideFlags: 0
@@ -71618,6 +71691,77 @@ Transform:
   m_Children: []
   m_Father: {fileID: 65382474}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1738516194
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1738516197}
+  - component: {fileID: 1738516195}
+  - component: {fileID: 1738516196}
+  m_Layer: 0
+  m_Name: SessionNetworkBridge
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1738516195
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1738516194}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
+  GlobalObjectIdHash: 3632683809
+  InScenePlacedSourceGlobalObjectIdHash: 0
+  DeferredDespawnTick: 0
+  Ownership: 8
+  AlwaysReplicateAsRoot: 1
+  SynchronizeTransform: 0
+  ActiveSceneSynchronization: 1
+  SceneMigrationSynchronization: 0
+  SpawnWithObservers: 1
+  DontDestroyWithOwner: 1
+  AutoObjectParentSync: 1
+  SyncOwnerTransformWhenParented: 1
+  AllowOwnerToParent: 0
+--- !u!114 &1738516196
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1738516194}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fa5841ada6ba7774ea098f432d4605e1, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::SessionNetworkBridge
+  ShowTopMostFoldoutHeaderGroup: 1
+--- !u!4 &1738516197
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1738516194}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!43 &1738790724
 Mesh:
   m_ObjectHideFlags: 0
@@ -72433,6 +72577,15 @@ MonoBehaviour:
   - {fileID: 8300000, guid: 77366d0dea8272540b1eefb82a67dc28, type: 3}
   - {fileID: 8300000, guid: 7e7e40d5ebea924459b8cbec5751a5ed, type: 3}
   - {fileID: 8300000, guid: e3bbc28cdb7f57a4ba87dbb7cee36478, type: 3}
+  walkMaxDistance: 25
+  runMaxDistance: 40
+  jumpMaxDistance: 25
+  landMaxDistance: 30
+  reloadMaxDistance: 40
+  dryMaxDistance: 35
+  shootMaxDistance: 300
+  jumpPadMaxDistance: 70
+  grappleMaxDistance: 65
 --- !u!4 &1757419536
 Transform:
   m_ObjectHideFlags: 0
@@ -75564,7 +75717,6 @@ MonoBehaviour:
   cooldownColor: {r: 0, g: 0, b: 0, a: 0.3}
   segments: 18
   colorTransitionSpeed: 25
-  grappleController: {fileID: 0}
 --- !u!4 &1844649389
 Transform:
   m_ObjectHideFlags: 0
@@ -88317,3 +88469,5 @@ SceneRoots:
   - {fileID: 1857900484}
   - {fileID: 1881141622}
   - {fileID: 383790374}
+  - {fileID: 1390489086}
+  - {fileID: 1738516197}

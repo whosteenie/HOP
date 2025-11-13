@@ -1,20 +1,16 @@
 using Unity.Netcode;
 using UnityEngine;
 
-namespace Game.Player
-{
-    public class UpperBodyPitch : NetworkBehaviour
-    {
-        [Header("Bones")]
-        public Transform hips;
+namespace Game.Player {
+    public class UpperBodyPitch : NetworkBehaviour {
+        [Header("Bones")] public Transform hips;
         public Transform spine;
         public Transform chest;
 
-        [Header("Axis & Limits")]
-        public Vector3 localPitchAxis = Vector3.right;   // set to X for most humanoids
-        public bool invertAxis = false;                  // flip if bending goes the wrong way
-        [Range(-45f, 0f)] public float minPitch = -35f;
-        [Range(0f, 60f)]  public float maxPitch = 45f;
+        [Header("Axis & Limits")] public Vector3 localPitchAxis = Vector3.right; // set to X for most humanoids
+        public bool invertAxis = false; // flip if bending goes the wrong way
+        [Range(-135f, 0f)] public float minPitch = -35f;
+        [Range(0f, 135f)] public float maxPitch = 45f;
         public float smooth = 12f;
 
         [Tooltip("Distribution across hips / spine / chest (sum ~= 1).")]
@@ -28,39 +24,29 @@ namespace Game.Player
         Quaternion _bindHips, _bindSpine, _bindChest;
         float _smoothedPitch;
         Vector3 _axis;
+        private bool _initialized;
 
-        void Awake()
-        {
-            if (hips)  _bindHips  = hips.localRotation;
-            if (spine) _bindSpine = spine.localRotation;
-            if (chest) _bindChest = chest.localRotation;
-
+        void Awake() {
             _axis = localPitchAxis.normalized;
-            if (invertAxis) _axis = -_axis;
+            if(invertAxis) _axis = -_axis;
         }
 
         // Owner calls this every frame with CurrentPitch (or -CurrentPitch if needed)
-        public void SetLocalPitchFromCamera(float cameraPitchDeg)
-        {
-            if (!IsOwner) return;
+        public void SetLocalPitchFromCamera(float cameraPitchDeg) {
+            if(!IsOwner) return;
             netPitchDeg.Value = Mathf.Clamp(cameraPitchDeg, minPitch, maxPitch);
         }
 
-        void LateUpdate()
-        {
-            // Everyone applies the replicated pitch AFTER animator has posed the skeleton
+        void LateUpdate() {
             var target = Mathf.Clamp(netPitchDeg.Value, minPitch, maxPitch);
             _smoothedPitch = Mathf.Lerp(_smoothedPitch, target, 1f - Mathf.Exp(-smooth * Time.deltaTime));
 
-            // compose from the bind pose → stable, no drift, no euler hacks
-            if (hips && distribution.x != 0f)
-                hips.localRotation  = _bindHips  * Quaternion.AngleAxis(_smoothedPitch * distribution.x, _axis);
-
+            // Apply pitch as LOCAL rotation AFTER animator (additive to current pose)
             if (spine && distribution.y != 0f)
-                spine.localRotation = _bindSpine * Quaternion.AngleAxis(_smoothedPitch * distribution.y, _axis);
+                spine.localRotation *= Quaternion.AngleAxis(_smoothedPitch * distribution.y, _axis);
 
             if (chest && distribution.z != 0f)
-                chest.localRotation = _bindChest * Quaternion.AngleAxis(_smoothedPitch * distribution.z, _axis);
+                chest.localRotation *= Quaternion.AngleAxis(_smoothedPitch * distribution.z, _axis);
         }
     }
 }
