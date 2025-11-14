@@ -4,7 +4,6 @@ using Game.Weapons;
 using Network;
 using Network.Rpc;
 using Network.Singletons;
-using NUnit.Framework;
 using Unity.Cinemachine;
 using Unity.Collections;
 using Unity.Netcode;
@@ -66,9 +65,9 @@ namespace Game.Player {
         [Header("Look Parameters")] [SerializeField]
         public Vector2 lookSensitivity;
 
-        [Header("Components")] [SerializeField]
-        private CinemachineCamera fpCamera;
-
+        [Header("Components")] 
+        [SerializeField] private CinemachineCamera fpCamera;
+        [SerializeField] private SwingGrapple swingGrapple;
         [SerializeField] private CharacterController characterController;
         [SerializeField] private PlayerInput playerInput;
         [SerializeField] private Animator characterAnimator;
@@ -87,13 +86,14 @@ namespace Game.Player {
         [SerializeField] private float fallTriggerDistance = 3f; // start fall anim if drop > this
         [SerializeField] private float maxProbeDistance = 6f;
         [SerializeField] private GameObject[] worldWeaponPrefabs;
-        
-        [Header("FOV (speed boost)")]
-        [SerializeField] private float baseFov = 80f;          // default standing FOV
-        [SerializeField] private float sprintStartSpeed = 9f;  // when to begin boosting (just under 10 = SprintSpeed)
-        [SerializeField] private float maxSpeedForFov = 30f;   // your stated top speed
-        [SerializeField] private float maxFov = 100f;           // gentle +10° at 30 u/s
-        [SerializeField] private float fovSmoothTime = 0.12f;  // responsiveness (lower = snappier)
+
+        [Header("FOV (speed boost)")] [SerializeField]
+        private float baseFov = 80f; // default standing FOV
+
+        [SerializeField] private float sprintStartSpeed = 9f; // when to begin boosting (just under 10 = SprintSpeed)
+        [SerializeField] private float maxSpeedForFov = 30f; // your stated top speed
+        [SerializeField] private float maxFov = 100f; // gentle +10° at 30 u/s
+        [SerializeField] private float fovSmoothTime = 0.12f; // responsiveness (lower = snappier)
 
         #endregion
 
@@ -118,9 +118,10 @@ namespace Game.Player {
         private float _crouchTransition;
         private Vector3? _lastHitPoint;
         private Vector3? _lastHitNormal;
-        
-        private float _fovVel;          // SmoothDamp velocity store
-        private float _targetFov;       // cached target
+        private bool _wasGrounded;
+
+        private float _fovVel; // SmoothDamp velocity store
+        private float _targetFov; // cached target
 
         // Health regeneration tracking
         private float _lastDamageTime;
@@ -171,7 +172,7 @@ namespace Game.Player {
         private float _fallProbeTimer;
         private bool _isMantling;
         private Weapon[] _weapons;
-        
+
         [SerializeField] private MantleController mantleController;
 
         [SerializeField] private UpperBodyPitch upperBodyPitch;
@@ -183,7 +184,6 @@ namespace Game.Player {
 
             _obstacleMask = worldLayer | enemyLayer;
             _weapons = GetComponents<Weapon>();
-            EnsureRefs();
 
             playerMaterialIndex.OnValueChanged -= OnMatChanged;
             playerMaterialIndex.OnValueChanged += OnMatChanged;
@@ -208,7 +208,7 @@ namespace Game.Player {
             }
 
             HUDManager.Instance.ShowHUD();
-            if (IsOwner && fpCamera) fpCamera.Lens.FieldOfView = baseFov;
+            if(IsOwner && fpCamera) fpCamera.Lens.FieldOfView = baseFov;
 
             lookSensitivity = new Vector2(PlayerPrefs.GetFloat("SensitivityX", 0.1f),
                 PlayerPrefs.GetFloat("SensitivityY", 0.1f));
@@ -242,28 +242,11 @@ namespace Game.Player {
             if(IsOwner) HUDManager.Instance.UpdateHealth(newV, 100f);
         }
 
-        private void EnsureRefs() {
-            // Dev-only guards: blow up early so production code can drop null checks
-            Assert.IsNotNull(fpCamera, "[PlayerController] fpCamera missing");
-            Assert.IsNotNull(characterController, "[PlayerController] CharacterController missing");
-            Assert.IsNotNull(characterAnimator, "[PlayerController] Animator missing");
-            Assert.IsNotNull(weaponManager, "[PlayerController] WeaponManager missing");
-            Assert.IsNotNull(grappleController, "[PlayerController] GrappleController missing");
-            Assert.IsNotNull(playerRagdoll, "[PlayerController] PlayerRagdoll missing");
-            Assert.IsNotNull(deathCamera, "[PlayerController] DeathCamera missing");
-            Assert.IsNotNull(damageRelay, "[PlayerController] NetworkDamageRelay missing");
-            Assert.IsNotNull(sfxRelay, "[PlayerController] NetworkSfxRelay missing");
-            Assert.IsNotNull(impulseSource, "[PlayerController] ImpulseSource missing");
-            if(playerMaterials == null || playerMaterials.Length == 0)
-                Debug.LogWarning("[PlayerController] playerMaterials not assigned");
-        }
-
         private void Update() {
             if(IsServer) {
                 if(tr.position.y <= 600f) {
                     netHealth.Value = 0f;
                     if(!netIsDead.Value) {
-                        // _isDead = true;
                         BroadcastKillClientRpc("HOP", playerName.Value.ToString(), ulong.MaxValue);
                         DieServer();
                     }
@@ -279,8 +262,10 @@ namespace Game.Player {
             }
 
             if(!IsOwner || netIsDead.Value || characterController.enabled == false) return;
+            
+            UpdateFallingState();
 
-            HandleLanding();
+            // HandleLanding();
             HandleMovement();
             HandleCrouch();
             UpdateAnimator();
@@ -292,8 +277,6 @@ namespace Game.Player {
             if(!IsOwner || netIsDead.Value) return;
 
             HandleLook();
-            // if (mantleController != null)
-            //     mantleController.ClampMantleYaw(tr);
 
             upperBodyPitch.SetLocalPitchFromCamera(CurrentPitch);
         }
@@ -332,7 +315,7 @@ namespace Game.Player {
                 _isRegenerating = false;
             }
         }
-        
+
         public void ResetVelocity() {
             _horizontalVelocity = Vector3.zero;
             _verticalVelocity = 0f;
@@ -356,7 +339,7 @@ namespace Game.Player {
         }
 
         [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Owner)]
-        void SubmitVelocitySampleServerRpc(float speed) {
+        private void SubmitVelocitySampleServerRpc(float speed) {
             _totalVelocitySampled += speed;
             _velocitySampleCount++;
             averageVelocity.Value = _totalVelocitySampled / _velocitySampleCount;
@@ -443,12 +426,11 @@ namespace Game.Player {
         }
 
         private void HandleMovement() {
-            if(_isMantling) {
+            if(_isMantling || (swingGrapple && swingGrapple.IsSwinging)) {
                 // Block movement but allow camera rotation
-                moveInput = Vector2.zero;
                 return;
             }
-            
+
             UpdateMaxSpeed();
             CalculateHorizontalVelocity();
             CheckCeilingHit();
@@ -585,16 +567,15 @@ namespace Game.Player {
         private void UpdateYaw(float yawDelta) {
             tr.Rotate(Vector3.up * yawDelta);
         }
-        
-        private void UpdateSpeedFov()
-        {
-            if (!IsOwner || fpCamera == null) return;
+
+        private void UpdateSpeedFov() {
+            if(!IsOwner || fpCamera) return;
 
             // Horizontal speed only – forward motion should drive FOV, not falling
-            float speed = _horizontalVelocity.magnitude;
+            var speed = _horizontalVelocity.magnitude;
 
             // 0 until sprintStartSpeed, then ramp to 1 at maxSpeedForFov
-            float t = Mathf.InverseLerp(sprintStartSpeed, maxSpeedForFov, speed);
+            var t = Mathf.InverseLerp(sprintStartSpeed, maxSpeedForFov, speed);
             // Ease in gently (gamma < 1 makes the first part softer)
             t = Mathf.Pow(t, 0.65f);
 
@@ -602,8 +583,8 @@ namespace Game.Player {
 
             // Smooth to avoid “pumping” when surfing speed
             // Cinemachine 3 has `FieldOfView` directly; older builds use vcam.m_Lens.FieldOfView.
-            float current = fpCamera.Lens.FieldOfView;
-            float next = Mathf.SmoothDamp(current, _targetFov, ref _fovVel, fovSmoothTime);
+            var current = fpCamera.Lens.FieldOfView;
+            var next = Mathf.SmoothDamp(current, _targetFov, ref _fovVel, fovSmoothTime);
             fpCamera.Lens.FieldOfView = next;
         }
 
@@ -624,14 +605,13 @@ namespace Game.Player {
             var actualDealt = pre - newHp;
 
             netHealth.Value = newHp;
-            // characterAnimator.SetTrigger(DamageTriggerHash);
 
             PlayHitEffectsClientRpc();
 
             // Credit damage to attacker (server write)
             if(NetworkManager.Singleton.ConnectedClients.TryGetValue(attackerId, out var attackerClient)) {
                 var attacker = attackerClient.PlayerObject?.GetComponent<PlayerController>();
-                if(attacker != null) {
+                if(attacker) {
                     attacker.damageDealt.Value += actualDealt;
                 }
             }
@@ -692,19 +672,22 @@ namespace Game.Player {
         private void DieClientRpc(Vector3 hitPoint, Vector3 hitNormal) {
             // Show ragdoll for everyone; only the owner swaps to death camera/HUD.
             if(playerRagdoll)
-                playerRagdoll.EnableRagdoll(hitPoint, -hitNormal);
+                if(_lastHitPoint.HasValue && _lastHitNormal.HasValue)
+                    playerRagdoll.EnableRagdoll(_lastHitPoint, -_lastHitNormal);
+                else
+                    playerRagdoll.EnableRagdoll();
 
             if(IsOwner) {
                 if(weaponManager) {
-                    fpCamera.transform.GetChild(weaponManager.CurrentWeaponIndex).GetChild(0).gameObject.SetActive(false);
+                    fpCamera.transform.GetChild(weaponManager.CurrentWeaponIndex).GetChild(0).gameObject
+                        .SetActive(false);
                 }
 
                 HUDManager.Instance.HideHUD();
                 deathCamera.EnableDeathCamera();
                 worldWeapon.shadowCastingMode = ShadowCastingMode.On;
-                if (IsOwner && fpCamera)
-                {
-                    fpCamera.Lens.FieldOfView = baseFov;   // snap on respawn
+                if(IsOwner && fpCamera) {
+                    fpCamera.Lens.FieldOfView = baseFov; // snap on respawn
                 }
             }
 
@@ -843,7 +826,7 @@ namespace Game.Player {
                         weaponInstance.SetActive(true);
                     }
                 }
-                
+
                 worldWeapon.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.ShadowsOnly;
 
                 // Reset weapon stats
@@ -864,7 +847,6 @@ namespace Game.Player {
             }
         }
         
-
         public void SetMantling(bool mantling) {
             _isMantling = mantling;
         }
@@ -906,32 +888,39 @@ namespace Game.Player {
             _isJumping = false;
         }
 
-        void UpdateFallingState() {
-            // CharacterController's "grounded" is authoritative for "actually touching"
-            if(IsGrounded) {
+        private void UpdateFallingState() {
+            var grounded = IsGrounded;
+
+            // Just left the ground
+            if(_wasGrounded && !grounded) {
+                // If we didn’t jump, this is a fall off a ledge
+                if(!_isJumping) {
+                    _isFalling = true;
+                }
+            }
+
+            // Just landed
+            if(!_wasGrounded && grounded) {
+                // We landed either from a jump or a fall
+                if(_isJumping || _isFalling) {
+                    if(IsOwner) {
+                        PlayLandingAnimationServerRpc();
+                        sfxRelay.RequestWorldSfx(SfxKey.Land, attachToSelf: true);
+                    }
+                }
+
+                _isJumping = false;
                 _isFalling = false;
-                return;
             }
 
-            // Feet origin: a little above the bottom of the capsule
-            var feet = characterController.bounds.center
-                       + Vector3.down * (characterController.height * 0.5f - characterController.radius + 0.02f);
-
-            if(Physics.Raycast(feet, Vector3.down, out var hit, maxProbeDistance, _obstacleMask,
-                   QueryTriggerInteraction.Ignore)) {
-                // If the *immediate* drop under feet is big enough, treat as falling (walked off a ledge)
-                _isFalling = hit.distance > fallTriggerDistance;
-            } else {
-                // Nothing below within probe => definitely falling
-                _isFalling = true;
-            }
+            _wasGrounded = grounded;
         }
 
         private void UpdateAnimator() {
             var localVelocity = tr.InverseTransformDirection(_horizontalVelocity);
             var isSprinting = _horizontalVelocity.sqrMagnitude > (WalkSpeed + 1f) * (WalkSpeed + 1f);
 
-            UpdateFallingState();
+            // UpdateFallingState();
 
             characterAnimator.SetFloat(MoveXHash, localVelocity.x / _maxSpeed, 0.1f, Time.deltaTime);
             characterAnimator.SetFloat(MoveYHash, localVelocity.z / _maxSpeed, 0.1f, Time.deltaTime);

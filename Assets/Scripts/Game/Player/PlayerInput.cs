@@ -9,14 +9,16 @@ namespace Game.Player {
     public class PlayerInput : NetworkBehaviour {
         #region Serialized Fields
 
-        [Header("Components")]
-        [SerializeField] private PlayerController playerController;
+        [Header("Components")] [SerializeField]
+        private PlayerController playerController;
+
         [SerializeField] Animator playerAnimator;
 
         [SerializeField] private CinemachineCamera fpCamera;
         [SerializeField] private AudioListener audioListener;
         [SerializeField] private WeaponManager weaponManager;
         [SerializeField] private GrappleController grappleController;
+        [SerializeField] private SwingGrapple swingGrapple;
         [SerializeField] private MantleController mantleController;
 
         [Header("Input Settings")] [SerializeField]
@@ -30,7 +32,7 @@ namespace Game.Player {
         private bool IsPausedOrDead => (GameMenuManager.Instance.IsPaused) || playerController.netIsDead.Value;
 
         private Weapon CurrentWeapon => weaponManager.CurrentWeapon;
-        
+
         private bool _sprintBtnDown;
         private bool _crouchBtnDown;
 
@@ -38,7 +40,7 @@ namespace Game.Player {
 
         public override void OnNetworkSpawn() {
             base.OnNetworkSpawn();
-            
+
             weaponManager.InitializeWeapons();
 
             if(!IsOwner) {
@@ -61,23 +63,25 @@ namespace Game.Player {
 
         private void LateUpdate() {
             if(!IsOwner || !CurrentWeapon || !weaponManager) return;
-            
+
             var fireMode = weaponManager.GetWeaponDataByIndex(weaponManager.CurrentWeaponIndex)?.fireMode;
 
-            if(!IsPausedOrDead && fireMode == "Full" && (Mouse.current.leftButton.isPressed || Mouse.current.rightButton.isPressed) && !mantleController.IsMantling) {
+            if(!IsPausedOrDead && fireMode == "Full" &&
+               (Mouse.current.leftButton.isPressed || Mouse.current.rightButton.isPressed) &&
+               !mantleController.IsMantling) {
                 CurrentWeapon.Shoot();
             }
 
             if(!IsPausedOrDead && Mouse.current.scroll.value.magnitude > 0f && !mantleController.IsMantling) {
                 if(!playerController.IsGrounded) {
                     mantleController.TryMantle();
-        
+
                     // If we started mantling, don't jump
                     if(mantleController.IsMantling) {
                         return;
                     }
                 }
-                
+
                 playerController.TryJump();
                 grappleController.CancelGrapple();
             }
@@ -86,7 +90,8 @@ namespace Game.Player {
 
             var weaponData = weaponManager.GetWeaponDataByIndex(weaponManager.CurrentWeaponIndex);
             if(weaponData) {
-                HUDManager.Instance.UpdateMultiplier(CurrentWeapon.CurrentDamageMultiplier, weaponData.maxDamageMultiplier);
+                HUDManager.Instance.UpdateMultiplier(CurrentWeapon.CurrentDamageMultiplier,
+                    weaponData.maxDamageMultiplier);
             }
 
             if(!IsPaused && Keyboard.current.tabKey.isPressed) {
@@ -94,6 +99,19 @@ namespace Game.Player {
             } else if(GameMenuManager.Instance.IsScoreboardVisible) {
                 GameMenuManager.Instance.HideScoreboard();
             }
+            
+            // OnSwing
+            // if(IsOwner && !IsPausedOrDead && !mantleController.IsMantling) {
+            //     if(Keyboard.current.eKey.isPressed) {
+            //         if(!swingGrapple.IsSwinging) {
+            //             swingGrapple.TryStartSwing();
+            //         }
+            //     } else {
+            //         if(swingGrapple.IsSwinging) {
+            //             swingGrapple.CancelSwing();
+            //         }
+            //     }
+            // }
         }
 
         #endregion
@@ -112,11 +130,11 @@ namespace Game.Player {
 
         private void OnMove(InputValue value) {
             if(!IsOwner) return;
-            if(IsPaused || mantleController.IsMantling) {
+            if(IsPaused) {
                 playerController.moveInput = Vector2.zero;
                 return;
             }
-            
+
             playerController.moveInput = value.Get<Vector2>();
         }
 
@@ -130,11 +148,12 @@ namespace Game.Player {
 
             bool pressed = value.isPressed;
 
-            if (toggleSprint) {
+            if(toggleSprint) {
                 // Toggle only on rising edge
-                if (pressed && !_sprintBtnDown) {
+                if(pressed && !_sprintBtnDown) {
                     playerController.sprintInput = !playerController.sprintInput;
                 }
+
                 _sprintBtnDown = pressed;
             } else {
                 // Hold-to-sprint
@@ -152,11 +171,12 @@ namespace Game.Player {
 
             bool pressed = value.isPressed;
 
-            if (toggleCrouch) {
+            if(toggleCrouch) {
                 // Toggle only on rising edge
-                if (pressed && !_crouchBtnDown) {
+                if(pressed && !_crouchBtnDown) {
                     playerController.crouchInput = !playerController.crouchInput;
                 }
+
                 _crouchBtnDown = pressed;
             } else {
                 // Hold-to-crouch
@@ -166,10 +186,10 @@ namespace Game.Player {
 
         private void OnJump(InputValue value) {
             if(!IsOwner || IsPausedOrDead || mantleController.IsMantling) return;
-            
+
             if(!playerController.IsGrounded) {
                 mantleController.TryMantle();
-        
+
                 // If we started mantling, don't jump
                 if(mantleController.IsMantling) {
                     return;
@@ -205,12 +225,16 @@ namespace Game.Player {
 
         private void OnGrapple(InputValue value) {
             if(!IsOwner || IsPausedOrDead || mantleController.IsMantling) return;
-
+            
             if(grappleController.IsGrappling) {
                 grappleController.CancelGrapple();
             } else {
                 grappleController.TryGrapple();
             }
+        }
+
+        private void OnSwing(InputValue value) {
+            // TODO: fix hold input
         }
 
         #endregion
@@ -237,7 +261,8 @@ namespace Game.Player {
         }
 
         public void SwitchWeapon(int weaponIndex) {
-            if(weaponManager.CurrentWeaponIndex == weaponIndex || weaponManager.IsSwitchingWeapon || !CurrentWeapon) return;
+            if(weaponManager.CurrentWeaponIndex == weaponIndex || weaponManager.IsSwitchingWeapon ||
+               !CurrentWeapon) return;
 
             if(CurrentWeapon.IsReloading) {
                 CurrentWeapon.CancelReload();
@@ -253,7 +278,7 @@ namespace Game.Player {
 
         private void OnReload(InputValue value) {
             if(!IsOwner || IsPausedOrDead || !CurrentWeapon || mantleController.IsMantling) return;
-            
+
             CurrentWeapon.StartReload();
         }
 
@@ -264,6 +289,10 @@ namespace Game.Player {
         private void OnPause(InputValue value) {
             if(!IsOwner) return;
             GameMenuManager.Instance.TogglePause();
+        }
+
+        private void OnTest(InputValue value) {
+            Debug.LogWarning("[PlayerInput] Test");
         }
 
         #endregion

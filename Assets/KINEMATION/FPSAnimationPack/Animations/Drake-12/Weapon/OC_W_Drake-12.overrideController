@@ -1,0 +1,22 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!221 &22100000
+AnimatorOverrideController:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name: OC_W_Drake-12
+  m_Controller: {fileID: 9100000, guid: 731e770f979a19047b05b058d964b419, type: 2}
+  m_Clips:
+  - m_OriginalClip: {fileID: 7400000, guid: ddbfd5aee7adbd94e82169767db773a4, type: 2}
+    m_OverrideClip: {fileID: 8993902097722301239, guid: 9855c133d7813354398a655832b5fdac,
+      type: 3}
+  - m_OriginalClip: {fileID: 7400000, guid: e01dffafaca715341b21435e49c98376, type: 2}
+    m_OverrideClip: {fileID: 8993902097722301239, guid: efce92abdc126534fb0466be77feb678,
+      type: 3}
+  - m_OriginalClip: {fileID: 7400000, guid: 2ea7070eb60acad44a63c3d2a97cd6de, type: 2}
+    m_OverrideClip: {fileID: 0}
+  - m_OriginalClip: {fileID: 7400000, guid: 6d092a99272ca984b84c820a20ae923b, type: 2}
+    m_OverrideClip: {fileID: 8993902097722301239, guid: fcb56f77dc7a7584f9056535799d204a,
+      type: 3}

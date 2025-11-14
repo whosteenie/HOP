@@ -914,7 +914,7 @@ GameObject:
   - component: {fileID: -2503030706147355686}
   - component: {fileID: 8737367002116917980}
   - component: {fileID: 450411123697177773}
-  - component: {fileID: 5213368089628571653}
+  - component: {fileID: 7417474499678138227}
   - component: {fileID: 6107098077044397896}
   - component: {fileID: 5088684734431513618}
   - component: {fileID: 1564543611840940099}
@@ -928,6 +928,7 @@ GameObject:
   - component: {fileID: -935627131628127128}
   - component: {fileID: 7184346531640925950}
   - component: {fileID: -7001426905214482494}
+  - component: {fileID: 2694798790618388214}
   m_Layer: 7
   m_Name: Player
   m_TagString: Untagged
@@ -1101,7 +1102,7 @@ MonoBehaviour:
   playerController: {fileID: 5088684734431513618}
   playerNetworkObject: {fileID: 6677973669287716317}
   playerWeaponManager: {fileID: 1752355669680099318}
---- !u!114 &5213368089628571653
+--- !u!114 &7417474499678138227
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -1312,6 +1313,7 @@ MonoBehaviour:
   audioListener: {fileID: -935627131628127128}
   weaponManager: {fileID: 1752355669680099318}
   grappleController: {fileID: 8382341124825033876}
+  swingGrapple: {fileID: 2694798790618388214}
   mantleController: {fileID: -7001426905214482494}
   toggleSprint: 0
   toggleCrouch: 0
@@ -1398,6 +1400,7 @@ MonoBehaviour:
   playerLayer:
     serializedVersion: 2
     m_Bits: 128
+  swingGrapple: {fileID: 2694798790618388214}
   lineWidth: 0.05
   grappleColor: {r: 0.078431375, g: 0.078431375, b: 0.078431375, a: 1}
   lineMaterial: {fileID: 0}
@@ -1616,6 +1619,45 @@ MonoBehaviour:
   mantleableLayers:
     serializedVersion: 2
     m_Bits: 512
+--- !u!114 &2694798790618388214
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2394102009201851988}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4a36025822f7038478cffbf007946b79, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Game.Player.SwingGrapple
+  ShowTopMostFoldoutHeaderGroup: 1
+  playerController: {fileID: 5088684734431513618}
+  characterController: {fileID: 4157602163556837535}
+  fpCamera: {fileID: 7545715250371650815}
+  ropeRenderer: {fileID: 0}
+  pullGrapple: {fileID: 8382341124825033876}
+  sfxRelay: {fileID: 8737367002116917980}
+  swingCollider: {fileID: 0}
+  swingRigidbody: {fileID: 0}
+  maxSwingDistance: 50
+  momentumRetention: 0.95
+  spring: 4.5
+  damper: 7
+  massScale: 4.5
+  maxDistanceMultiplier: 0.8
+  minDistanceMultiplier: 0.25
+  horizontalThrustForce: 300
+  forwardThrustForce: 400
+  lineWidth: 0.05
+  ropeColor: {r: 0.078431375, g: 0.078431375, b: 0.078431375, a: 1}
+  ropeMaterial: {fileID: 0}
+  grappleableLayers:
+    serializedVersion: 2
+    m_Bits: 512
+  groundLayers:
+    serializedVersion: 2
+    m_Bits: 0
 --- !u!1 &2420222979777933581
 GameObject:
   m_ObjectHideFlags: 0
@@ -3869,8 +3911,8 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 7345578868383174570}
   serializedVersion: 2
-  m_LocalRotation: {x: -0.49999997, y: 0.50000006, z: 0.49999997, w: 0.50000006}
-  m_LocalPosition: {x: -0.0000004470349, y: -3.7212067, z: 0.0402298}
+  m_LocalRotation: {x: -0.5, y: 0.5, z: 0.5, w: 0.5}
+  m_LocalPosition: {x: -0.000000060535974, y: -3.7212067, z: 0.0402298}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -3953,7 +3995,7 @@ MonoBehaviour:
     SplineCurvature: 0.5
   RecenteringTarget: 2
   HorizontalAxis:
-    Value: -87.902565
+    Value: 172.61595
     Center: 0
     Range: {x: -180, y: 180}
     Wrap: 1

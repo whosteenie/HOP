@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: a5cb4c9bccb81244dbb38f1ba77f2f94
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 7400000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 239796
+  packageName: FPS Animation Lite
+  packageVersion: 3.1.0
+  assetPath: Assets/KINEMATION/FPSAnimationPack/Animations/PDW90/Character/A_FP_PDW90_Reload_Tac.anim
+  uploadId: 797642

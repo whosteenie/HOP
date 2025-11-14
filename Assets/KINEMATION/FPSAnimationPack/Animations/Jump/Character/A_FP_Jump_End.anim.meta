@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: d97121b3a6dacc8468e2e06e79efcfa0
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 7400000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 239796
+  packageName: FPS Animation Lite
+  packageVersion: 3.1.0
+  assetPath: Assets/KINEMATION/FPSAnimationPack/Animations/Jump/Character/A_FP_Jump_End.anim
+  uploadId: 797642

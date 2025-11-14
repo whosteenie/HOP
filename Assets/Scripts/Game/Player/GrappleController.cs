@@ -8,8 +8,8 @@ using UnityEngine.Serialization;
 
 namespace Game.Player {
     public class GrappleController : NetworkBehaviour {
-        [Header("Grapple Settings")] 
-        [SerializeField] private float maxGrappleDistance = 50f;
+        [Header("Grapple Settings")] [SerializeField]
+        private float maxGrappleDistance = 50f;
 
         [SerializeField] private float grappleSpeed = 30f;
         [SerializeField] private float grappleDuration = 0.5f;
@@ -30,6 +30,7 @@ namespace Game.Player {
         [SerializeField] private LineRenderer grappleLine;
         [SerializeField] private NetworkSfxRelay sfxRelay;
         [SerializeField] private LayerMask playerLayer;
+        [SerializeField] private SwingGrapple swingGrapple;
 
         [Header("Visual Settings")] [SerializeField]
         private float lineWidth = 0.05f;
@@ -108,6 +109,11 @@ namespace Game.Player {
         }
 
         #endregion
+
+        public void TriggerCooldown() {
+            if(!CanGrapple) return; // Already on cooldown
+            StartCoroutine(GrappleCooldown());
+        }
 
         [Rpc(SendTo.Server)]
         private void UpdateGrappleServerRpc(bool isGrappling, Vector3 grapplePoint) {
@@ -188,6 +194,7 @@ namespace Game.Player {
         #region Private Methods - Grapple Logic
 
         private void StartGrapple(Vector3 targetPoint) {
+            if(swingGrapple.IsSwinging) swingGrapple.CancelSwing();
             UpdateGrappleServerRpc(true, targetPoint);
             IsGrappling = true;
             _grapplePoint = targetPoint;

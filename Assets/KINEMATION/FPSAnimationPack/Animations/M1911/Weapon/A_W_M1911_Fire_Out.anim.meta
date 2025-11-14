@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: e44c392bab4523d48b1cc3154006190e
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 7400000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 239796
+  packageName: FPS Animation Lite
+  packageVersion: 3.1.0
+  assetPath: Assets/KINEMATION/FPSAnimationPack/Animations/M1911/Weapon/A_W_M1911_Fire_Out.anim
+  uploadId: 797642

@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 6ad61b5a3e0968341a9eee28d0396e3d
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 22100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 239796
+  packageName: FPS Animation Lite
+  packageVersion: 3.1.0
+  assetPath: Assets/KINEMATION/FPSAnimationPack/Animations/PDW90/Character/OC_FP_PDW90.overrideController
+  uploadId: 797642

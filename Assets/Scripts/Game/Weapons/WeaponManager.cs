@@ -50,11 +50,16 @@ namespace Game.Weapons {
                     continue;
                 }
         
+                var bobHolder = new GameObject("BobHolder");
+                bobHolder.AddComponent<WeaponBob>();
                 var swayHolder = new GameObject("SwayHolder");
                 swayHolder.AddComponent<WeaponSway>();
-                swayHolder.transform.SetParent(fpCamera.transform, false);
+                swayHolder.transform.SetParent(bobHolder.transform, false);
                 swayHolder.transform.localPosition = Vector3.zero;
                 swayHolder.transform.localEulerAngles = Vector3.zero;
+                bobHolder.transform.SetParent(fpCamera.transform, false);
+                bobHolder.transform.localPosition = Vector3.zero;
+                bobHolder.transform.localEulerAngles = Vector3.zero;
 
                 var fpWeaponInstance = Instantiate(data.weaponPrefab, swayHolder.transform, false);
                 fpWeaponInstance.transform.localPosition = data.spawnPosition;
@@ -186,7 +191,7 @@ namespace Game.Weapons {
                 
                 // Reset animator state
                 var weaponAnimator = _fpWeaponInstances[newIndex].GetComponent<Animator>();
-                if(weaponAnimator) {
+                if(weaponAnimator && weaponAnimator.enabled) {
                     weaponAnimator.Rebind();
                     weaponAnimator.Update(0f);
                 }

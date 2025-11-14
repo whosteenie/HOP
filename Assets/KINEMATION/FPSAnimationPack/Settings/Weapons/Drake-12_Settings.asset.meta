@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: c30b40f589bcef34ba3253dcb9ede8c4
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 11400000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 239796
+  packageName: FPS Animation Lite
+  packageVersion: 3.1.0
+  assetPath: Assets/KINEMATION/FPSAnimationPack/Settings/Weapons/Drake-12_Settings.asset
+  uploadId: 797642

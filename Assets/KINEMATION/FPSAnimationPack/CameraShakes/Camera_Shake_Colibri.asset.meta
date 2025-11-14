@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: d488ccb41a4a1224c9a97b32cd93bf84
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 11400000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 239796
+  packageName: FPS Animation Lite
+  packageVersion: 3.1.0
+  assetPath: Assets/KINEMATION/FPSAnimationPack/CameraShakes/Camera_Shake_Colibri.asset
+  uploadId: 797642

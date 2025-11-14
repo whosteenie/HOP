@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 494c6e965cc5d96489e06a017a90d15b
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 7400000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 239796
+  packageName: FPS Animation Lite
+  packageVersion: 3.1.0
+  assetPath: Assets/KINEMATION/FPSAnimationPack/Animations/PDW90/Character/A_FP_PDW90_Reload_Empty.anim
+  uploadId: 797642

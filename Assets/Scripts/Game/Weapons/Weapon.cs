@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Collections.Generic;
 using Game.Player;
 using Network.Rpc;
 using Network.Singletons;
@@ -66,6 +67,14 @@ namespace Game.Weapons {
         private static readonly int ReloadHash = Animator.StringToHash("Reload");
 
         #endregion
+        
+        private struct PendingFxShot {
+            public Vector3 EndPoint;
+            public bool MadeImpact;
+            public Vector3 HitNormal;
+        }
+
+        private readonly Queue<PendingFxShot> _pendingFxShots = new();
 
         #region Unity Lifecycle
 
@@ -84,6 +93,19 @@ namespace Game.Weapons {
             // Turn off 3P light when time is up
             if(_worldMuzzleLight && _worldMuzzleLight.activeSelf && Time.time >= _worldLightOffTime) {
                 _worldMuzzleLight.SetActive(false);
+            }
+            
+            while(_pendingFxShots.Count > 0) {
+                var fx = _pendingFxShots.Dequeue();
+
+                // Now the camera, FP weapon, sway & bob are all in their final positions
+                var startPos = GetMuzzlePosition();
+
+                PlayLocalMuzzleFlash();
+                SpawnTracerLocal(startPos, fx.EndPoint);
+
+                // If you want bullet impact spawned by the tracer, you can
+                // extend SpawnTracerLocal / SpawnTrail to pass through fx.hitNormal/fx.madeImpact
             }
         }
 
@@ -265,9 +287,11 @@ namespace Game.Weapons {
             var endPoint = shotHit ? hit.point : (origin + forward * 100f);
 
             if(playerController.IsOwner) {
-                var startPos = GetMuzzlePosition();
-                PlayLocalMuzzleFlash();
-                SpawnTracerLocal(startPos, endPoint);
+                _pendingFxShots.Enqueue(new PendingFxShot {
+                    EndPoint   = endPoint,
+                    MadeImpact = shotHit,
+                    HitNormal  = shotHit ? hit.normal : Vector3.zero
+                });
             }
 
             networkFXRelay.RequestShotFx(endPoint);

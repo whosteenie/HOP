@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: da33efa37a2809b478a7eb4835c56d5e
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 7400000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 239796
+  packageName: FPS Animation Lite
+  packageVersion: 3.1.0
+  assetPath: Assets/KINEMATION/FPSAnimationPack/Animations/M1911/Character/A_FP_M1911_Reload_Tac.anim
+  uploadId: 797642

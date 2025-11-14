@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: c32b6b4f3ec6f3b47b8defcae2aab045
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 7400000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 239796
+  packageName: FPS Animation Lite
+  packageVersion: 3.1.0
+  assetPath: Assets/KINEMATION/FPSAnimationPack/Animations/Kar98K/Character/A_FP_Kar98K_Reload_Empty.anim
+  uploadId: 797642

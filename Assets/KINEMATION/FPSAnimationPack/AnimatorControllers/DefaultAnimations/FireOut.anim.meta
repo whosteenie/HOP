@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 40f96a2217911da428b4db958d2a42ca
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 7400000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 239796
+  packageName: FPS Animation Lite
+  packageVersion: 3.1.0
+  assetPath: Assets/KINEMATION/FPSAnimationPack/AnimatorControllers/DefaultAnimations/FireOut.anim
+  uploadId: 797642

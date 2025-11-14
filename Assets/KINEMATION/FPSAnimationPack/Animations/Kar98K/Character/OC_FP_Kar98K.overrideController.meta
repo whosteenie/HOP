@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 389e01f669ce711488adff4f68084ab9
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 22100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 239796
+  packageName: FPS Animation Lite
+  packageVersion: 3.1.0
+  assetPath: Assets/KINEMATION/FPSAnimationPack/Animations/Kar98K/Character/OC_FP_Kar98K.overrideController
+  uploadId: 797642

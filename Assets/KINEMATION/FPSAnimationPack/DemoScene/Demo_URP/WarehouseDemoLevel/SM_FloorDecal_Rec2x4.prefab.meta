@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: abc00000000003975168615875086303
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 239796
+  packageName: FPS Animation Lite
+  packageVersion: 3.1.0
+  assetPath: Assets/KINEMATION/FPSAnimationPack/DemoScene/Demo_URP/WarehouseDemoLevel/SM_FloorDecal_Rec2x4.prefab
+  uploadId: 797642

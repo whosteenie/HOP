@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 6d092a99272ca984b84c820a20ae923b
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 7400000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 239796
+  packageName: FPS Animation Lite
+  packageVersion: 3.1.0
+  assetPath: Assets/KINEMATION/FPSAnimationPack/AnimatorControllers/DefaultAnimations/Idle.anim
+  uploadId: 797642

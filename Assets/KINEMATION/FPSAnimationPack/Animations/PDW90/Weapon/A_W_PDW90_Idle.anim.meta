@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: a47ce341a2282084fb32abe808f4e9c1
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 7400000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 239796
+  packageName: FPS Animation Lite
+  packageVersion: 3.1.0
+  assetPath: Assets/KINEMATION/FPSAnimationPack/Animations/PDW90/Weapon/A_W_PDW90_Idle.anim
+  uploadId: 797642

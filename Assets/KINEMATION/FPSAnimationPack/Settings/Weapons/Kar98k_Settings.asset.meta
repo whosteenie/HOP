@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 78f9316e88e9d384aa622e3c0264b567
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 11400000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 239796
+  packageName: FPS Animation Lite
+  packageVersion: 3.1.0
+  assetPath: Assets/KINEMATION/FPSAnimationPack/Settings/Weapons/Kar98k_Settings.asset
+  uploadId: 797642

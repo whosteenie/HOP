@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 18026e19b08e60946b5e430108e43ef9
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 7400000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 239796
+  packageName: FPS Animation Lite
+  packageVersion: 3.1.0
+  assetPath: Assets/KINEMATION/FPSAnimationPack/AnimatorControllers/DefaultAnimations/Inspect.anim
+  uploadId: 797642

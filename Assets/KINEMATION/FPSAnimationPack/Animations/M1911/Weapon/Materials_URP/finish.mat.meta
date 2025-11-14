@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 18f52cebf7b2ebc4da8063e759170661
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 239796
+  packageName: FPS Animation Lite
+  packageVersion: 3.1.0
+  assetPath: Assets/KINEMATION/FPSAnimationPack/Animations/M1911/Weapon/Materials_URP/finish.mat
+  uploadId: 797642

@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 1d5b14792d6385d46afede9102e9fd41
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 11400000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 239796
+  packageName: FPS Animation Lite
+  packageVersion: 3.1.0
+  assetPath: Assets/KINEMATION/FPSAnimationPack/DemoScene/Demo_URP/Settings/URP-HighFidelity.asset
+  uploadId: 797642

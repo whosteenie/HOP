@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 994fa12675435d143844dd7c491200fc
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 11400000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 239796
+  packageName: FPS Animation Lite
+  packageVersion: 3.1.0
+  assetPath: Assets/KINEMATION/FPSAnimationPack/Settings/Weapons/MPS5_Settings.asset
+  uploadId: 797642

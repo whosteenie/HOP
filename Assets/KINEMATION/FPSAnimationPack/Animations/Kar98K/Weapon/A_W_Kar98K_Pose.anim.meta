@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: c6a644d042ef5e54e9604d581f19daff
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 7400000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 239796
+  packageName: FPS Animation Lite
+  packageVersion: 3.1.0
+  assetPath: Assets/KINEMATION/FPSAnimationPack/Animations/Kar98K/Weapon/A_W_Kar98K_Pose.anim
+  uploadId: 797642

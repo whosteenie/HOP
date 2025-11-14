@@ -1,0 +1,266 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8c9c04639ae548bdb0a8e927492d029d, type: 3}
+  m_Name: Rig_HumanCharacterDummy_M
+  m_EditorClassIdentifier: KAnimationCore.Runtime::KINEMATION.KAnimationCore.Runtime.Rig.KRig
+  targetAnimator: {fileID: 9100000, guid: eb385e40c39adb44ab8586c12e73d4a9, type: 2}
+  rigHierarchy:
+  - name: B-root
+    index: 0
+    depth: 0
+  - name: B-hips
+    index: 1
+    depth: 1
+  - name: B-spine
+    index: 2
+    depth: 2
+  - name: B-chest
+    index: 3
+    depth: 3
+  - name: B-neck
+    index: 4
+    depth: 4
+  - name: B-head
+    index: 5
+    depth: 5
+  - name: B-jaw
+    index: 6
+    depth: 6
+  - name: IK WeaponBone
+    index: 7
+    depth: 6
+  - name: IK RightHand
+    index: 8
+    depth: 7
+  - name: IK LeftHand
+    index: 9
+    depth: 7
+  - name: IK RightElbow
+    index: 10
+    depth: 7
+  - name: IK LeftElbow
+    index: 11
+    depth: 7
+  - name: Camera
+    index: 12
+    depth: 6
+  - name: B-shoulder.L
+    index: 13
+    depth: 4
+  - name: B-upperArm.L
+    index: 14
+    depth: 5
+  - name: B-forearm.L
+    index: 15
+    depth: 6
+  - name: B-hand.L
+    index: 16
+    depth: 7
+  - name: B-handProp.L
+    index: 17
+    depth: 8
+  - name: B-indexFinger01.L
+    index: 18
+    depth: 8
+  - name: B-indexFinger02.L
+    index: 19
+    depth: 9
+  - name: B-indexFinger03.L
+    index: 20
+    depth: 10
+  - name: B-middleFinger01.L
+    index: 21
+    depth: 8
+  - name: B-middleFinger02.L
+    index: 22
+    depth: 9
+  - name: B-middleFinger03.L
+    index: 23
+    depth: 10
+  - name: B-pinky01.L
+    index: 24
+    depth: 8
+  - name: B-pinky02.L
+    index: 25
+    depth: 9
+  - name: B-pinky03.L
+    index: 26
+    depth: 10
+  - name: B-ringFinger01.L
+    index: 27
+    depth: 8
+  - name: B-ringFinger02.L
+    index: 28
+    depth: 9
+  - name: B-ringFinger03.L
+    index: 29
+    depth: 10
+  - name: B-thumb01.L
+    index: 30
+    depth: 8
+  - name: B-thumb02.L
+    index: 31
+    depth: 9
+  - name: B-thumb03.L
+    index: 32
+    depth: 10
+  - name: IK WeaponBoneLeft
+    index: 33
+    depth: 8
+  - name: B-shoulder.R
+    index: 34
+    depth: 4
+  - name: B-upperArm.R
+    index: 35
+    depth: 5
+  - name: B-forearm.R
+    index: 36
+    depth: 6
+  - name: B-hand.R
+    index: 37
+    depth: 7
+  - name: B-handProp.R
+    index: 38
+    depth: 8
+  - name: B-indexFinger01.R
+    index: 39
+    depth: 8
+  - name: B-indexFinger02.R
+    index: 40
+    depth: 9
+  - name: B-indexFinger03.R
+    index: 41
+    depth: 10
+  - name: B-middleFinger01.R
+    index: 42
+    depth: 8
+  - name: B-middleFinger02.R
+    index: 43
+    depth: 9
+  - name: B-middleFinger03.R
+    index: 44
+    depth: 10
+  - name: B-pinky01.R
+    index: 45
+    depth: 8
+  - name: B-pinky02.R
+    index: 46
+    depth: 9
+  - name: B-pinky03.R
+    index: 47
+    depth: 10
+  - name: B-ringFinger01.R
+    index: 48
+    depth: 8
+  - name: B-ringFinger02.R
+    index: 49
+    depth: 9
+  - name: B-ringFinger03.R
+    index: 50
+    depth: 10
+  - name: B-thumb01.R
+    index: 51
+    depth: 8
+  - name: B-thumb02.R
+    index: 52
+    depth: 9
+  - name: B-thumb03.R
+    index: 53
+    depth: 10
+  - name: IK WeaponBoneRight
+    index: 54
+    depth: 8
+  - name: B-thigh.L
+    index: 55
+    depth: 2
+  - name: B-shin.L
+    index: 56
+    depth: 3
+  - name: B-foot.L
+    index: 57
+    depth: 4
+  - name: B-toe.L
+    index: 58
+    depth: 5
+  - name: B-thigh.R
+    index: 59
+    depth: 2
+  - name: B-shin.R
+    index: 60
+    depth: 3
+  - name: B-foot.R
+    index: 61
+    depth: 4
+  - name: B-toe.R
+    index: 62
+    depth: 5
+  - name: DeathCamCenter
+    index: 63
+    depth: 2
+  - name: B-spineProxy
+    index: 64
+    depth: 1
+  - name: WeaponBone
+    index: 65
+    depth: 1
+  - name: WeaponBoneAdditive
+    index: 66
+    depth: 1
+  - name: IK RightFoot
+    index: 67
+    depth: 1
+  - name: IK LeftFoot
+    index: 68
+    depth: 1
+  - name: IK RightKnee
+    index: 69
+    depth: 1
+  - name: IK LeftKnee
+    index: 70
+    depth: 1
+  rigElementChains:
+  - chainName: PelvisChain
+    elementChain:
+    - name: B-hips
+      index: 1
+      depth: -1
+  - chainName: SpineRootChain
+    elementChain:
+    - name: B-spine
+      index: 2
+      depth: -1
+  - chainName: RightHandChain
+    elementChain:
+    - name: B-hand.R
+      index: 37
+      depth: -1
+  - chainName: LeftHandChain
+    elementChain:
+    - name: B-hand.L
+      index: 16
+      depth: -1
+  - chainName: RightFootChain
+    elementChain:
+    - name: B-foot.R
+      index: 61
+      depth: -1
+  - chainName: LeftFootChain
+    elementChain:
+    - name: B-foot.L
+      index: 57
+      depth: -1
+  inputConfig: {fileID: 11400000, guid: 022095d8cf55fba4080ab3e4c1364954, type: 2}
+  rigCurves:
+  - Overlay
+  - WeaponBoneWeight
+  - MaskAttachHand
+  rigDepths: 00000000010000000200000003000000040000000500000006000000060000000700000007000000070000000700000006000000040000000500000006000000070000000800000008000000090000000a00000008000000090000000a00000008000000090000000a00000008000000090000000a00000008000000090000000a00000008000000040000000500000006000000070000000800000008000000090000000a00000008000000090000000a00000008000000090000000a00000008000000090000000a00000008000000090000000a0000000800000002000000030000000400000005000000020000000300000004000000050000000200000001000000010000000100000001000000010000000100000001000000
