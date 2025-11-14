@@ -62,5 +62,10 @@ namespace Network.UGS {
             s.PlayerLeaving -= onLeaving;
             s.SessionPropertiesChanged -= onPropsChanged;
         }
+        
+        public async UniTask<ISession> ReconnectToSessionAsync(string sessionId) {
+            Active = await MultiplayerService.Instance.ReconnectToSessionAsync(sessionId);
+            return Active;
+        }
     }
 }

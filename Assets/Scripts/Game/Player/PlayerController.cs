@@ -7,6 +7,7 @@ using Network.Singletons;
 using Unity.Cinemachine;
 using Unity.Collections;
 using Unity.Netcode;
+using Unity.Netcode.Components;
 using Unity.Netcode.Transports.UTP;
 using UnityEngine;
 using UnityEngine.Rendering;
@@ -86,6 +87,7 @@ namespace Game.Player {
         [SerializeField] private float fallTriggerDistance = 3f; // start fall anim if drop > this
         [SerializeField] private float maxProbeDistance = 6f;
         [SerializeField] private GameObject[] worldWeaponPrefabs;
+        [SerializeField] private ClientNetworkTransform networkTransform;
 
         [Header("FOV (speed boost)")] [SerializeField]
         private float baseFov = 80f; // default standing FOV
@@ -119,6 +121,7 @@ namespace Game.Player {
         private Vector3? _lastHitPoint;
         private Vector3? _lastHitNormal;
         private bool _wasGrounded;
+        private float _lastDeathTime;
 
         private float _fovVel; // SmoothDamp velocity store
         private float _targetFov; // cached target
@@ -172,6 +175,8 @@ namespace Game.Player {
         private float _fallProbeTimer;
         private bool _isMantling;
         private Weapon[] _weapons;
+        [SerializeField] private CinemachineCamera worldCamera;
+        [SerializeField] private GameObject worldModelRoot;          // parent of mesh, weapons, etc.
 
         [SerializeField] private MantleController mantleController;
 
@@ -209,6 +214,12 @@ namespace Game.Player {
 
             HUDManager.Instance.ShowHUD();
             if(IsOwner && fpCamera) fpCamera.Lens.FieldOfView = baseFov;
+            GameMenuManager.Instance.IsPostMatch = false;
+            
+
+            if(GameMenuManager.Instance.IsPaused) {
+                GameMenuManager.Instance.TogglePause();
+            }
 
             lookSensitivity = new Vector2(PlayerPrefs.GetFloat("SensitivityX", 0.1f),
                 PlayerPrefs.GetFloat("SensitivityY", 0.1f));
@@ -244,9 +255,11 @@ namespace Game.Player {
 
         private void Update() {
             if(IsServer) {
-                if(tr.position.y <= 600f) {
-                    netHealth.Value = 0f;
-                    if(!netIsDead.Value) {
+                Vector3 authPos = networkTransform.transform.position;
+                if(authPos.y <= 600f) {
+                    if(!netIsDead.Value && Time.time - _lastDeathTime >= 4f) {
+                        _lastDeathTime = Time.time;
+                        netHealth.Value = 0f;
                         BroadcastKillClientRpc("HOP", playerName.Value.ToString(), ulong.MaxValue);
                         DieServer();
                     }
@@ -266,11 +279,11 @@ namespace Game.Player {
             UpdateFallingState();
 
             // HandleLanding();
+            UpdateSpeedFov();
             HandleMovement();
             HandleCrouch();
             UpdateAnimator();
             TrackVelocity();
-            UpdateSpeedFov();
         }
 
         private void LateUpdate() {
@@ -282,6 +295,82 @@ namespace Game.Player {
         }
 
         #endregion
+        
+        public void SetGameplayCameraActive(bool active) {
+            if(fpCamera != null) {
+                fpCamera.gameObject.SetActive(active);
+            }
+
+            if(worldCamera != null) {
+                worldCamera.gameObject.SetActive(active);
+            }
+        }
+
+        [Rpc(SendTo.Everyone)]
+        public void SetWorldModelVisibleRpc(bool visible) {
+            characterAnimator.Rebind();
+            characterAnimator.Update(0);
+            
+            // Switch to primary
+            weaponManager.SwitchWeapon(0);
+            
+            // Hide equipped weapon
+            if(weaponManager) {
+                fpCamera.transform.GetChild(weaponManager.CurrentWeaponIndex).GetChild(0).GetChild(0).gameObject
+                    .SetActive(false);
+            }
+            
+            // Show/hide entire world model
+            if(visible) {
+                var skinnedRenderers = GetComponentsInChildren<SkinnedMeshRenderer>();
+                foreach(var sr in skinnedRenderers) {
+                    sr.shadowCastingMode = ShadowCastingMode.On;
+                }
+                
+                // Ensure world weapon is visible
+                var weaponRenderers = worldWeapon.GetComponentsInChildren<MeshRenderer>();
+                foreach(var mr in weaponRenderers) {
+                    mr.shadowCastingMode = ShadowCastingMode.On;
+                }
+            } else {
+                worldModelRoot.SetActive(false);
+                worldWeapon.gameObject.SetActive(false);
+            }
+        }
+        
+        [Rpc(SendTo.Everyone)]
+        public void ResetVelocityRpc() {
+            ResetVelocity();
+        }
+        
+        public void TeleportToPodiumFromServer(Vector3 position, Quaternion rotation) {
+            if (!IsServer) return;
+            TeleportToPodiumOwnerClientRpc(position, rotation);
+        }
+
+        [Rpc(SendTo.Owner)]
+        private void TeleportToPodiumOwnerClientRpc(Vector3 position, Quaternion rotation) {
+            _ = TeleportToPodiumAsync(position, rotation);
+        }
+
+        private async UniTaskVoid TeleportToPodiumAsync(Vector3 position, Quaternion rotation) {
+            // Disable movement during teleport
+            if (characterController) characterController.enabled = false;
+
+            // Use CNT if present so NGO knows we teleported
+            var cnt = GetComponent<ClientNetworkTransform>();
+            if (cnt != null) {
+                cnt.Teleport(position, rotation, Vector3.one);
+            } else {
+                tr.SetPositionAndRotation(position, rotation);
+            }
+
+            // Let physics/network catch up
+            await UniTask.WaitForFixedUpdate();
+
+            // Re-enable movement (you can keep them frozen separately if you want)
+            if (characterController) characterController.enabled = true;
+        }
 
         private void UpdatePing() {
             var transport = NetworkManager.Singleton.NetworkConfig.NetworkTransport as UnityTransport;
@@ -569,7 +658,7 @@ namespace Game.Player {
         }
 
         private void UpdateSpeedFov() {
-            if(!IsOwner || fpCamera) return;
+            if(!IsOwner || !fpCamera) return;
 
             // Horizontal speed only – forward motion should drive FOV, not falling
             var speed = _horizontalVelocity.magnitude;
@@ -606,7 +695,7 @@ namespace Game.Player {
 
             netHealth.Value = newHp;
 
-            PlayHitEffectsClientRpc();
+            PlayHitEffectsClientRpc(hitPoint, amount);
 
             // Credit damage to attacker (server write)
             if(NetworkManager.Singleton.ConnectedClients.TryGetValue(attackerId, out var attackerClient)) {
@@ -617,7 +706,7 @@ namespace Game.Player {
             }
 
             // Lethal?
-            if(newHp <= 0f && !netIsDead.Value) {
+            if(newHp <= 0f && !netIsDead.Value && !PostMatchManager.Instance.PostMatchFlowStarted) {
                 netIsDead.Value = true;
 
                 // Award kill to attacker; death to victim
@@ -648,11 +737,16 @@ namespace Game.Player {
         }
 
         [Rpc(SendTo.Everyone)]
-        private void PlayHitEffectsClientRpc() {
+        private void PlayHitEffectsClientRpc(Vector3 hitPoint, float amount) {
             // This runs only on the client who owns this player (the victim)
             if(IsOwner) {
                 SoundFXManager.Instance.PlayUISound(hurtSound);
                 impulseSource.GenerateImpulse();
+
+                if(DamageVignetteUI.Instance && fpCamera) {
+                    var intensity = Mathf.Clamp01(amount / 50f);
+                    DamageVignetteUI.Instance.ShowHitFromWorldPoint(hitPoint, fpCamera.transform, intensity);
+                }
             }
 
             characterAnimator.SetTrigger(DamageTriggerHash);
@@ -679,7 +773,7 @@ namespace Game.Player {
 
             if(IsOwner) {
                 if(weaponManager) {
-                    fpCamera.transform.GetChild(weaponManager.CurrentWeaponIndex).GetChild(0).gameObject
+                    fpCamera.transform.GetChild(weaponManager.CurrentWeaponIndex).GetChild(0).GetChild(0).gameObject
                         .SetActive(false);
                 }
 
@@ -820,14 +914,19 @@ namespace Game.Player {
                 playerInput.SwitchWeapon(0);
 
                 // Re-enable current weapon viewmodel
+                Debug.LogWarning("Attempting to re-enable weapon viewmodel on respawn");
                 if(weaponManager) {
+                    Debug.LogWarning("WeaponManager found on respawn");
                     var weaponInstance = weaponManager.CurrentWeapon?.GetWeaponPrefab();
                     if(weaponInstance) {
+                        Debug.LogWarning("Re-enabling weapon instance on respawn");
                         weaponInstance.SetActive(true);
+                    } else {
+                        Debug.LogWarning("No weapon instance found to re-enable on respawn");
                     }
                 }
 
-                worldWeapon.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.ShadowsOnly;
+                worldWeapon.shadowCastingMode = ShadowCastingMode.ShadowsOnly;
 
                 // Reset weapon stats
                 if(currentWeapon) {

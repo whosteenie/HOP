@@ -991,7 +991,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 3921424009
+  GlobalObjectIdHash: 2644075980
   InScenePlacedSourceGlobalObjectIdHash: 0
   DeferredDespawnTick: 0
   Ownership: 1
@@ -1164,6 +1164,7 @@ MonoBehaviour:
   friction: 8
   lookSensitivity: {x: 0.1, y: 0.1}
   fpCamera: {fileID: 7545715250371650815}
+  swingGrapple: {fileID: 0}
   characterController: {fileID: 4157602163556837535}
   playerInput: {fileID: 1564543611840940099}
   characterAnimator: {fileID: 7910596075621510296}
@@ -1188,6 +1189,7 @@ MonoBehaviour:
   worldWeaponPrefabs:
   - {fileID: 3275018449593974115}
   - {fileID: 364756482964129255}
+  networkTransform: {fileID: 7906322676815125306}
   baseFov: 80
   sprintStartSpeed: 9
   maxSpeedForFov: 30
@@ -1292,7 +1294,9 @@ MonoBehaviour:
         byte0059: 0
         byte0060: 0
         byte0061: 0
-  mantleController: {fileID: 0}
+  worldCamera: {fileID: 1768170373741884466}
+  worldModelRoot: {fileID: 3486887065898544216}
+  mantleController: {fileID: -7001426905214482494}
   upperBodyPitch: {fileID: -3820369972669731968}
 --- !u!114 &1564543611840940099
 MonoBehaviour:
@@ -1315,6 +1319,7 @@ MonoBehaviour:
   grappleController: {fileID: 8382341124825033876}
   swingGrapple: {fileID: 2694798790618388214}
   mantleController: {fileID: -7001426905214482494}
+  dashController: {fileID: 0}
   toggleSprint: 0
   toggleCrouch: 0
 --- !u!114 &1752355669680099318
@@ -1336,6 +1341,7 @@ MonoBehaviour:
   weaponComponent: {fileID: 8872513821370512775}
   fpCamera: {fileID: 7545715250371650815}
   worldWeaponSocket: {fileID: 1644397444827293543}
+  playerAnimator: {fileID: 7910596075621510296}
 --- !u!114 &8872513821370512775
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1363,6 +1369,7 @@ MonoBehaviour:
   networkFXRelay: {fileID: 450411123697177773}
   hitSound: {fileID: 8300000, guid: 117da55a1c6a55049aecaf04f4d08a86, type: 3}
   killSound: {fileID: 8300000, guid: 77e1d91e188da29419fefc5be25417f6, type: 3}
+  weaponManager: {fileID: 1752355669680099318}
   currentAmmo: 0
   multiplierDecayRate: 1.8
   multiplierGainRate: 0.8
@@ -1638,17 +1645,7 @@ MonoBehaviour:
   ropeRenderer: {fileID: 0}
   pullGrapple: {fileID: 8382341124825033876}
   sfxRelay: {fileID: 8737367002116917980}
-  swingCollider: {fileID: 0}
-  swingRigidbody: {fileID: 0}
   maxSwingDistance: 50
-  momentumRetention: 0.95
-  spring: 4.5
-  damper: 7
-  massScale: 4.5
-  maxDistanceMultiplier: 0.8
-  minDistanceMultiplier: 0.25
-  horizontalThrustForce: 300
-  forwardThrustForce: 400
   lineWidth: 0.05
   ropeColor: {r: 0.078431375, g: 0.078431375, b: 0.078431375, a: 1}
   ropeMaterial: {fileID: 0}
@@ -2386,6 +2383,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerAnimationEvents
   playerController: {fileID: 5088684734431513618}
+  weaponManager: {fileID: 1752355669680099318}
 --- !u!114 &5706515478969999216
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2445,9 +2443,9 @@ MonoBehaviour:
   - IsCrossFadeExit: 0
     Layer: 2
     OriginatingState: 1286489141
-    DestinationState: -1466529294
+    DestinationState: -1128169501
     TransitionDuration: 0.25
-    TriggerNameHash: 294066121
+    TriggerNameHash: 2059042252
     TransitionIndex: 1
   - IsCrossFadeExit: 0
     Layer: 2
@@ -2466,23 +2464,23 @@ MonoBehaviour:
   - IsCrossFadeExit: 0
     Layer: 2
     OriginatingState: 432042788
-    DestinationState: -1466529294
+    DestinationState: -1128169501
     TransitionDuration: 0.25
-    TriggerNameHash: 294066121
+    TriggerNameHash: 2059042252
     TransitionIndex: 2
   - IsCrossFadeExit: 0
     Layer: 2
     OriginatingState: -758163879
-    DestinationState: -1466529294
+    DestinationState: -1128169501
     TransitionDuration: 0.25
-    TriggerNameHash: 294066121
+    TriggerNameHash: 2059042252
     TransitionIndex: 1
   - IsCrossFadeExit: 0
     Layer: 2
     OriginatingState: -1975850510
-    DestinationState: -145442447
+    DestinationState: -936415415
     TransitionDuration: 0.25
-    TriggerNameHash: 294066121
+    TriggerNameHash: 2059042252
     TransitionIndex: 0
   - IsCrossFadeExit: 0
     Layer: 2
@@ -2501,16 +2499,16 @@ MonoBehaviour:
   - IsCrossFadeExit: 0
     Layer: 2
     OriginatingState: -1928501542
-    DestinationState: 1462650771
+    DestinationState: -936415415
     TransitionDuration: 0.25
-    TriggerNameHash: 294066121
+    TriggerNameHash: 2059042252
     TransitionIndex: 1
   - IsCrossFadeExit: 0
     Layer: 2
     OriginatingState: 325874870
-    DestinationState: 1462650771
+    DestinationState: -936415415
     TransitionDuration: 0.25
-    TriggerNameHash: 294066121
+    TriggerNameHash: 2059042252
     TransitionIndex: 1
   - IsCrossFadeExit: 0
     Layer: 3
@@ -3911,8 +3909,8 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 7345578868383174570}
   serializedVersion: 2
-  m_LocalRotation: {x: -0.5, y: 0.5, z: 0.5, w: 0.5}
-  m_LocalPosition: {x: -0.000000060535974, y: -3.7212067, z: 0.0402298}
+  m_LocalRotation: {x: -0.050953437, y: 0.9458441, z: -0.26312628, w: -0.18315926}
+  m_LocalPosition: {x: 1.5983307, y: 3.8608856, z: 4.0124054}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -3995,7 +3993,7 @@ MonoBehaviour:
     SplineCurvature: 0.5
   RecenteringTarget: 2
   HorizontalAxis:
-    Value: 172.61595
+    Value: 111.918945
     Center: 0
     Range: {x: -180, y: 180}
     Wrap: 1
@@ -4005,7 +4003,7 @@ MonoBehaviour:
       Time: 2
     Restrictions: 0
   VerticalAxis:
-    Value: -90
+    Value: 31.092213
     Center: 0
     Range: {x: -90, y: 90}
     Wrap: 0

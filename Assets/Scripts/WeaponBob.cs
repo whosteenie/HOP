@@ -6,7 +6,7 @@ public class WeaponBob : MonoBehaviour {
     [SerializeField] private Transform playerTransform; // To read velocity
 
     [Header("Bob Settings")] [SerializeField]
-    private float bobFrequency = 7f;
+    private float bobFrequency = 6f;
 
     [SerializeField] private float bobHorizontalAmount = 0.01f;
     [SerializeField] private float bobVerticalAmount = 0.03f;

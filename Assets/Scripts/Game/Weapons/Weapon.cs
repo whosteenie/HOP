@@ -21,6 +21,7 @@ namespace Game.Weapons {
         [SerializeField] private NetworkFxRelay networkFXRelay;
         [SerializeField] private AudioClip hitSound;
         [SerializeField] private AudioClip killSound;
+        [SerializeField] private WeaponManager weaponManager;
 
         [Header("Current Weapon State")]
         private WeaponData _currentWeaponData;
@@ -190,6 +191,7 @@ namespace Game.Weapons {
             CompleteReload();
         }
 
+        // TODO: cancel reload sound
         public void CancelReload() {
             if(!IsReloading) return;
             if(_reloadCoroutine != null) {
@@ -248,7 +250,7 @@ namespace Game.Weapons {
         #region Private Methods - Shooting
 
         private bool CanFire() {
-            if(!_currentWeaponData) return false;
+            if(!_currentWeaponData || weaponManager.IsSwitchingWeapon) return false;
             return Time.time >= _lastFireTime + _currentWeaponData.fireRate && currentAmmo > 0 && !IsReloading;
         }
 
@@ -284,7 +286,7 @@ namespace Game.Weapons {
                 }
             }
 
-            var endPoint = shotHit ? hit.point : (origin + forward * 100f);
+            var endPoint = shotHit ? hit.point : (origin + forward * 600f);
 
             if(playerController.IsOwner) {
                 _pendingFxShots.Enqueue(new PendingFxShot {
@@ -342,7 +344,7 @@ namespace Game.Weapons {
         #region Private Methods - Reloading
 
         private bool CanReload() {
-            if(!_currentWeaponData) return false;
+            if(!_currentWeaponData || weaponManager.IsSwitchingWeapon) return false;
             return currentAmmo < _currentWeaponData.magSize && _reloadCoroutine == null;
         }
 
@@ -366,7 +368,9 @@ namespace Game.Weapons {
         /// </summary>
         private void PlayLocalMuzzleFlash() {
             _weaponAnimator?.SetTrigger(RecoilHash);
-            playerAnimator?.SetTrigger(RecoilHash);
+            // playerAnimator?.SetTrigger(RecoilHash);
+            
+            PlayShootAnimationServerRpc();
     
             if(_currentWeaponData?.muzzleFlashPrefab && _currentFpWeaponInstance) {
                 Vector3 muzzlePos = _currentFpWeaponInstance.transform.TransformPoint(_currentWeaponData.fpMuzzleLocalPosition);
@@ -382,6 +386,12 @@ namespace Game.Weapons {
                 _fpMuzzleLight.SetActive(true);
                 _fpLightOffTime = Time.time + muzzleLightTime;
             }
+        }
+        
+        [Rpc(SendTo.Everyone)]
+        private void PlayShootAnimationServerRpc() {
+            // _weaponAnimator?.SetTrigger(RecoilHash);
+            playerAnimator?.SetTrigger(RecoilHash);
         }
 
         /// <summary>
@@ -424,11 +434,19 @@ namespace Game.Weapons {
 
         private void PlayReloadEffects() {
             _weaponAnimator?.SetTrigger(ReloadHash);
-
-            playerAnimator.SetTrigger(ReloadHash);
+            
+            // playerAnimator.SetTrigger(ReloadHash);
+            
+            PlayReloadAnimationServerRpc();
 
             if(playerController.IsOwner)
                 sfxRelay.RequestWorldSfx(SfxKey.Reload, attachToSelf: true);
+        }
+        
+        [Rpc(SendTo.Everyone)]
+        private void PlayReloadAnimationServerRpc() {
+            // _weaponAnimator?.SetTrigger(ReloadHash);
+            playerAnimator.SetTrigger(ReloadHash);
         }
 
         private IEnumerator SpawnTrail(TrailRenderer trail, Vector3 hitPoint, Vector3 hitNormal, bool madeImpact) {

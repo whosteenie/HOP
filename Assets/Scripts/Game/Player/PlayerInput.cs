@@ -20,6 +20,7 @@ namespace Game.Player {
         [SerializeField] private GrappleController grappleController;
         [SerializeField] private SwingGrapple swingGrapple;
         [SerializeField] private MantleController mantleController;
+        [SerializeField] private DashController dashController;
 
         [Header("Input Settings")] [SerializeField]
         private bool toggleSprint = true;
@@ -72,7 +73,7 @@ namespace Game.Player {
                 CurrentWeapon.Shoot();
             }
 
-            if(!IsPausedOrDead && Mouse.current.scroll.value.magnitude > 0f && !mantleController.IsMantling) {
+            if(!IsPausedOrDead && (Mouse.current.scroll.value.magnitude > 0f || Keyboard.current.spaceKey.isPressed) && !mantleController.IsMantling) {
                 if(!playerController.IsGrounded) {
                     mantleController.TryMantle();
 
@@ -130,7 +131,7 @@ namespace Game.Player {
 
         private void OnMove(InputValue value) {
             if(!IsOwner) return;
-            if(IsPaused) {
+            if(IsPaused || GameMenuManager.Instance.IsPostMatch) {
                 playerController.moveInput = Vector2.zero;
                 return;
             }
@@ -140,20 +141,26 @@ namespace Game.Player {
 
         private void OnSprint(InputValue value) {
             if(!IsOwner) return;
+            if(IsPausedOrDead) return;
+
+            // if(!dashController.IsDashing) {
+            //     dashController.OnDashInput();
+            // }
+            
             if(IsPausedOrDead) {
                 if(!toggleSprint)
                     playerController.sprintInput = false;
                 return;
             }
-
+            
             bool pressed = value.isPressed;
-
+            
             if(toggleSprint) {
                 // Toggle only on rising edge
                 if(pressed && !_sprintBtnDown) {
                     playerController.sprintInput = !playerController.sprintInput;
                 }
-
+            
                 _sprintBtnDown = pressed;
             } else {
                 // Hold-to-sprint
@@ -224,7 +231,7 @@ namespace Game.Player {
         }
 
         private void OnGrapple(InputValue value) {
-            if(!IsOwner || IsPausedOrDead || mantleController.IsMantling) return;
+            if(!IsOwner || IsPausedOrDead || mantleController.IsMantling || GameMenuManager.Instance.IsPostMatch) return;
             
             if(grappleController.IsGrappling) {
                 grappleController.CancelGrapple();
@@ -263,17 +270,12 @@ namespace Game.Player {
         public void SwitchWeapon(int weaponIndex) {
             if(weaponManager.CurrentWeaponIndex == weaponIndex || weaponManager.IsSwitchingWeapon ||
                !CurrentWeapon) return;
-
+            
             if(CurrentWeapon.IsReloading) {
                 CurrentWeapon.CancelReload();
             }
 
-            // Use WeaponManager's SwitchWeapon method
             weaponManager.SwitchWeapon(weaponIndex);
-            playerAnimator.SetTrigger("SwitchTrigger");
-
-            // Update HUD
-            // HUDManager.Instance.UpdateAmmo(CurrentWeapon.currentAmmo, CurrentWeapon.GetMagSize());
         }
 
         private void OnReload(InputValue value) {

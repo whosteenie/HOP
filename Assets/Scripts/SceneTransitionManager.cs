@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using Cysharp.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UIElements;
@@ -57,6 +58,9 @@ namespace Network.Singletons {
 
             _isTransitioning = false;
         }
+        
+        public UniTask FadeOutAsync() => FadeOut().ToUniTask();
+        public UniTask FadeInAsync()  => FadeIn().ToUniTask();
 
         /// <summary>
         /// Fade to black only
@@ -128,7 +132,7 @@ namespace Network.Singletons {
             _transitionOverlay.AddToClassList("visible");
             
             // Also fade out music instantly
-            var menuMusicPlayer = FindObjectOfType<MenuMusicPlayer>();
+            var menuMusicPlayer = FindFirstObjectByType<MenuMusicPlayer>();
             if(menuMusicPlayer != null) {
                 var musicSource = menuMusicPlayer.GetComponent<AudioSource>();
                 if(musicSource != null && musicSource.isPlaying) {

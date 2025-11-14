@@ -18,8 +18,7 @@ namespace Network.Singletons {
         [SerializeField] private AudioClip buttonHoverSound;
         [SerializeField] private AudioClip backClickSound;
 
-        [Header("Kill Feed")] 
-        [SerializeField] private Sprite killIconSprite;
+        [Header("Kill Feed")] [SerializeField] private Sprite killIconSprite;
         [SerializeField] private float killFeedDisplayTime = 5f;
         [SerializeField] private int maxKillFeedEntries = 5; // NEW: Max entries in kill feed
 
@@ -37,6 +36,9 @@ namespace Network.Singletons {
 
         private VisualElement _scoreboardPanel;
         private VisualElement _playerRows;
+
+        // NEW: match timer
+        private Label _matchTimerLabel;
 
         #endregion
 
@@ -74,12 +76,38 @@ namespace Network.Singletons {
 
         private VisualElement _root;
 
+        // HUD / Match UI
+        private VisualElement _hudPanel;
+        private VisualElement _matchTimerContainer;
+        private VisualElement _healthContainer;
+        private VisualElement _multiplierContainer;
+        private VisualElement _ammoContainer;
+        private VisualElement _crosshairContainer;
+
+        // Post-match state
+
+        // Podium UI
+        private VisualElement _podiumContainer;
+        private VisualElement _podiumFirstSlot;
+        private VisualElement _podiumSecondSlot;
+        private VisualElement _podiumThirdSlot;
+
+        private Label _podiumFirstName;
+        private Label _podiumSecondName;
+        private Label _podiumThirdName;
+
+        private Label _podiumFirstKills;
+        private Label _podiumSecondKills;
+        private Label _podiumThirdKills;
+
         #endregion
 
         #region Properties
 
         public bool IsPaused { get; private set; }
         public bool IsScoreboardVisible { get; private set; }
+        
+        public bool IsPostMatch { get; set; }
 
         #endregion
 
@@ -99,7 +127,7 @@ namespace Network.Singletons {
 
         private void OnEnable() {
             _root = uiDocument.rootVisualElement;
-            
+
             _fadeCoroutines = new Dictionary<VisualElement, Coroutine>();
 
             FindUIElements();
@@ -166,6 +194,33 @@ namespace Network.Singletons {
 
             // Kill Feed
             _killFeedContainer = _root.Q<VisualElement>("kill-feed-container");
+
+            // NEW: Match timer
+            _matchTimerLabel = _root.Q<Label>("match-timer-label");
+            
+            // HUD root + containers
+            _hudPanel = _root.Q<VisualElement>("hud-panel");
+            _matchTimerContainer = _root.Q<VisualElement>("match-timer-container");
+
+            _healthContainer = _root.Q<VisualElement>("health-container");
+            _multiplierContainer = _root.Q<VisualElement>("multiplier-container");
+            _ammoContainer = _root.Q<VisualElement>("ammo-container");
+            _crosshairContainer = _root.Q<VisualElement>("crosshair-container");
+            
+            // Podium nameplates
+            _podiumContainer  = _root.Q<VisualElement>("podium-nameplates-container");
+            _podiumFirstSlot  = _root.Q<VisualElement>("podium-first-slot");
+            _podiumSecondSlot = _root.Q<VisualElement>("podium-second-slot");
+            _podiumThirdSlot  = _root.Q<VisualElement>("podium-third-slot");
+
+            _podiumFirstName  = _root.Q<Label>("podium-first-name");
+            _podiumSecondName = _root.Q<Label>("podium-second-name");
+            _podiumThirdName  = _root.Q<Label>("podium-third-name");
+
+            _podiumFirstKills  = _root.Q<Label>("podium-first-kills");
+            _podiumSecondKills = _root.Q<Label>("podium-second-kills");
+            _podiumThirdKills  = _root.Q<Label>("podium-third-kills");
+
         }
 
         private void RegisterUIEvents() {
@@ -420,6 +475,18 @@ namespace Network.Singletons {
 
         #region Scoreboard Management
 
+        public void SetMatchTime(int secondsRemaining) {
+            if(_matchTimerLabel == null) return;
+
+            if(secondsRemaining < 0)
+                secondsRemaining = 0;
+
+            int minutes = secondsRemaining / 60;
+            int seconds = secondsRemaining % 60;
+
+            _matchTimerLabel.text = $"{minutes:00}:{seconds:00}";
+        }
+
         public void ShowScoreboard() {
             if(SceneManager.GetActiveScene().name != "Game") return;
 
@@ -492,7 +559,7 @@ namespace Network.Singletons {
             row.Add(assists);
 
             // KDA
-            var kda = CalculateKda(player.kills.Value, player.deaths.Value, 0);
+            var kda = CalculateKdr(player.kills.Value, player.deaths.Value, 0);
             var kdaLabel = new Label(kda.ToString("F2"));
             kdaLabel.AddToClassList("player-stat");
             if(kda >= 2.0f) {
@@ -536,7 +603,7 @@ namespace Network.Singletons {
             };
         }
 
-        private float CalculateKda(int kills, int deaths, int assists) {
+        private float CalculateKdr(int kills, int deaths, int assists) {
             if(deaths == 0) return kills + assists;
             return (kills + assists) / (float)deaths;
         }
@@ -669,5 +736,89 @@ namespace Network.Singletons {
         }
 
         #endregion
+        
+        #region Match Flow / Post-Match
+
+        /// <summary>
+        /// Called when the server-authoritative match timer hits 0.
+        /// Hides in-game HUD and uses SceneTransitionManager to fade to black.
+        /// </summary>
+        public void EnterPostMatch() {
+            if (IsPostMatch)
+                return;
+
+            IsPostMatch = true;
+
+            HUDManager.Instance.HideHUD();
+            HideInGameHudForPostMatch();
+        }
+
+        /// <summary>
+        /// Hides only the in-game HUD elements, but leaves pause/scoreboard usable.
+        /// </summary>
+        private void HideInGameHudForPostMatch() {
+            // If for any reason the whole HUD panel is null, bail gracefully.
+            if (_hudPanel == null)
+                return;
+
+            // Hide individual HUD elements
+            if (_killFeedContainer != null)
+                _killFeedContainer.style.display = DisplayStyle.None;
+            if (_matchTimerContainer != null)
+                _matchTimerContainer.style.display = DisplayStyle.None;
+
+            // Pause menu + scoreboard panels are untouched,
+            // so ESC / Tab (or whatever) still work.
+        }
+        
+        public void ShowInGameHudAfterPostMatch() {
+            // If for any reason the whole HUD panel is null, bail gracefully.
+            if (_hudPanel == null)
+                return;
+
+            // Show individual HUD elements
+            if (_killFeedContainer != null)
+                _killFeedContainer.style.display = DisplayStyle.Flex;
+            if (_matchTimerContainer != null)
+                _matchTimerContainer.style.display = DisplayStyle.Flex;
+            
+            // TODO: this is only being pushed to host...
+            _podiumContainer.style.display = DisplayStyle.None;
+        }
+
+        #endregion
+        
+        public void SetPodiumSlots(
+            string firstName, int firstKills,
+            string secondName, int secondKills,
+            string thirdName, int thirdKills
+        ) {
+            if (_podiumContainer == null)
+                return;
+
+            // Show the container as soon as we have data
+            _podiumContainer.style.display = DisplayStyle.Flex;
+
+            SetPodiumSlot(_podiumFirstSlot,  _podiumFirstName,  _podiumFirstKills,  firstName,  firstKills);
+            SetPodiumSlot(_podiumSecondSlot, _podiumSecondName, _podiumSecondKills, secondName, secondKills);
+            SetPodiumSlot(_podiumThirdSlot,  _podiumThirdName,  _podiumThirdKills,  thirdName,  thirdKills);
+        }
+
+        private void SetPodiumSlot(
+            VisualElement slotRoot,
+            Label nameLabel,
+            Label killsLabel,
+            string playerName,
+            int kills
+        ) {
+            if (slotRoot == null || nameLabel == null || killsLabel == null)
+                return;
+
+            bool hasPlayer = !string.IsNullOrEmpty(playerName);
+
+            slotRoot.style.display = hasPlayer ? DisplayStyle.Flex : DisplayStyle.None;
+            nameLabel.text  = hasPlayer ? playerName : "---";
+            killsLabel.text = hasPlayer ? kills.ToString() : "0";
+        }
     }
 }

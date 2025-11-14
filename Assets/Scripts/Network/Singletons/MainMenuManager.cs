@@ -95,7 +95,8 @@ namespace Network.Singletons {
         #endregion
         
         #region UI Elements - Lobby
-        
+
+        private Label _lobbyLabel;
         private Label _joinCodeLabel;
         private Label _waitingLabel;
         private TextField _joinCodeInput;
@@ -156,18 +157,22 @@ namespace Network.Singletons {
 
         private void OnEnable() {
             if(SessionManager.Instance != null) {
-                sessionManager.PlayersChanged += OnPlayersChanged;
-                sessionManager.RelayCodeAvailable += OnRelayCodeAvailable;
+                SessionManager.Instance.PlayersChanged += OnPlayersChanged;
+                SessionManager.Instance.RelayCodeAvailable += OnRelayCodeAvailable;
                 SessionManager.Instance.FrontStatusChanged += UpdateStatusText;
-                sessionManager.SessionJoined += OnSessionJoined;
+                SessionManager.Instance.SessionJoined += OnSessionJoined;
+                SessionManager.Instance.HostDisconnected += OnHostDisconnected;
+                SessionManager.Instance.LobbyReset += ResetLobbyUI;
             }
         }
         
         private void OnDisable() {
             if(sessionManager != null) {
-                sessionManager.PlayersChanged -= OnPlayersChanged;
-                sessionManager.RelayCodeAvailable -= OnRelayCodeAvailable;
+                SessionManager.Instance.PlayersChanged -= OnPlayersChanged;
+                SessionManager.Instance.RelayCodeAvailable -= OnRelayCodeAvailable;
                 SessionManager.Instance.FrontStatusChanged -= UpdateStatusText;
+                SessionManager.Instance.HostDisconnected -= OnHostDisconnected;
+                SessionManager.Instance.LobbyReset -= ResetLobbyUI;
             }
         }
         
@@ -178,6 +183,20 @@ namespace Network.Singletons {
         private void OnSessionJoined(string sessionCode) {
             _joinCodeLabel.text = $"Join Code: {sessionCode}";
             EnableButton(_copyButton);
+        }
+        
+        private void OnHostDisconnected() {
+            _waitingLabel.text = "Host disconnected. Create or join a new game.";
+            EnableButton(_hostButton);
+            EnableButton(_joinButton);
+            DisableButton(_startButton);
+            DisableButton(_copyButton);
+        }
+
+        private void ResetLobbyUI() {
+            _joinCodeLabel.text = "Join Code: - - - - - -";
+            _playerList.Clear();
+            _joinCodeInput.value = "";
         }
         
         #endregion
@@ -231,6 +250,7 @@ namespace Network.Singletons {
             _fpsDropdown = _root.Q<DropdownField>("target-fps");
 
             // Lobby
+            _lobbyLabel = _root.Q<Label>("lobby-label");
             _joinCodeInput = _root.Q<TextField>("join-input");
             _joinCodeLabel = _root.Q<Label>("host-label");
             _toastContainer = _root.Q<VisualElement>("toast-container");
@@ -428,6 +448,21 @@ namespace Network.Singletons {
         
         private void OnGameModeSelected(string modeName) {
             _selectedGameMode = modeName;
+            
+            _lobbyLabel.text = _selectedGameMode;
+            
+            if (MatchSettings.Instance != null) {
+                var settings = MatchSettings.Instance;
+                settings.selectedGameModeId = modeName;
+
+                // Hard-coded durations for now; you can swap this to ScriptableObjects later.
+                settings.matchDurationSeconds = modeName switch {
+                    "Deathmatch"       => 30,  // 10 min
+                    "Team Deathmatch"  => 900,  // 15 min
+                    "Private Match"    => 1200, // 20 min or whatever
+                    _                  => settings.defaultMatchDurationSeconds
+                };
+            }
 
             if(modeName != "Private Match") {
                 DisableButton(_startButton);
@@ -435,7 +470,7 @@ namespace Network.Singletons {
                 EnableButton(_startButton);
             }
 
-            _joinCodeLabel.text = "Join Code: - - - - - - -";
+            _joinCodeLabel.text = "Join Code: - - - - - -";
             _waitingLabel.text = "Join or host";
 
             EnableButton(_hostButton);
@@ -495,7 +530,7 @@ namespace Network.Singletons {
 
                 var result = await sessionManager.JoinSessionByCodeAsync(code);
                 _waitingLabel.text = result;
-                if(result is "Lobby joined. Waiting for host to start the game..." or "Connected to Local Host (Editor)") {
+                if(result.Contains("Lobby joined")) {
                     _joinCodeLabel.text = $"Join Code: {code}";
                     EnableButton(_copyButton);
                 } else {

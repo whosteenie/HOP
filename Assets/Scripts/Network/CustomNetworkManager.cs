@@ -110,7 +110,7 @@ namespace Network {
             _allowPlayerSpawns = false;
         }
 
-        private void SpawnPlayerFor(ulong clientId) {
+        public void SpawnPlayerFor(ulong clientId) {
             foreach(var client in NetworkManager.Singleton.ConnectedClients.Values) {
                 if(client.ClientId == clientId && client.PlayerObject != null) {
                     Debug.LogWarning($"[CustomNetworkManager] Player already spawned for {clientId}");
