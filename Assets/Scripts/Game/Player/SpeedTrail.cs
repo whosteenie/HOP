@@ -34,7 +34,6 @@ namespace Game.Player {
         }
 
         private void Update() {
-            return;
             if(IsOwner) return;
             if(!playerMesh) return;
 
@@ -44,9 +43,23 @@ namespace Game.Player {
             var targetMul = 1f;
             const float minSpeed = Weapons.Weapon.MinSpeedThreshold; // 15f
             const float maxSpeed = Weapons.Weapon.MaxSpeedThreshold;
+            
             if(speed > minSpeed) {
                 var t = Mathf.InverseLerp(minSpeed, maxSpeed, speed);
-                targetMul = Mathf.Lerp(1f,  controller ? controller.GetComponent<WeaponManager>()?.CurrentWeapon?.maxDamageMultiplier ?? 2f : 2f, t);
+                
+                // Get max damage multiplier from weapon data instead of weapon component
+                float maxDamageMul = 2f;
+                if(controller) {
+                    var weaponManager = controller.GetComponent<WeaponManager>();
+                    if(weaponManager != null) {
+                        var weaponData = weaponManager.GetWeaponDataByIndex(weaponManager.CurrentWeaponIndex);
+                        if(weaponData != null) {
+                            maxDamageMul = weaponData.maxDamageMultiplier;
+                        }
+                    }
+                }
+                
+                targetMul = Mathf.Lerp(1f,  maxDamageMul, t);
             }
 
             if(targetMul < minMultiplierForTrail) return;
@@ -136,10 +149,10 @@ namespace Game.Player {
 
         private Material NewGhostMaterial() {
             var m = new Material(Shader.Find("Standard"));
-            m.SetFloat(Shader.PropertyToID("Mode"), 3);
-            m.SetInt(Shader.PropertyToID("SrcBlend"), (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
-            m.SetInt(Shader.PropertyToID("DstBlend"), (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
-            m.SetInt(Shader.PropertyToID("ZWrite"), 0);
+            m.SetFloat(Shader.PropertyToID("_Mode"), 3);
+            m.SetInt(Shader.PropertyToID("_SrcBlend"), (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
+            m.SetInt(Shader.PropertyToID("_DstBlend"), (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+            m.SetInt(Shader.PropertyToID("_ZWrite"), 0);
             m.DisableKeyword("_ALPHATEST_ON");
             m.EnableKeyword("_ALPHABLEND_ON");
             m.DisableKeyword("_ALPHAPREMULTIPLY_ON");

@@ -2,7 +2,36 @@
     <Style src="project://database/Assets/UI%20Toolkit/SharedStyles.uss?fileID=7433441132597879392&amp;guid=f1a785b22a99c4f4aa6e7ad3810f5dbe&amp;type=3#SharedStyles" />
     <Style src="project://database/Assets/UI%20Toolkit/GameMenu.uss?fileID=7433441132597879392&amp;guid=0324e620d56fe7a479630addfc0f4608&amp;type=3#GameMenu" />
     <ui:VisualElement name="root-container" class="full-abs" style="visibility: visible; display: none;">
+        <ui:VisualElement name="damage-vignette-root" class="damage-vignette-container">
+            <ui:VisualElement name="hit-front" class="damage-vignette side" style="opacity: 0; height: 35px;" />
+            <ui:VisualElement name="hit-back" class="damage-vignette side" style="opacity: 0; height: 35px;" />
+            <ui:VisualElement name="hit-left" class="damage-vignette side" style="opacity: 0; width: 35px;" />
+            <ui:VisualElement name="hit-right" class="damage-vignette side" style="opacity: 0; width: 35px;" />
+            <ui:VisualElement name="hit-frontLeft" class="corner" style="opacity: 0;">
+                <ui:VisualElement class="corner-c" style="width: 35px; height: 35px; background-color: rgba(200, 60, 60, 0.9);" />
+                <ui:VisualElement class="corner-h" style="width: 150px; height: 35px; left: 35px;" />
+                <ui:VisualElement class="corner-v" style="width: 35px; height: 150px; top: 35px;" />
+            </ui:VisualElement>
+            <ui:VisualElement name="hit-frontRight" class="corner" style="opacity: 0;">
+                <ui:VisualElement class="corner-c" style="position: absolute; right: 0; width: 35px; height: 35px; background-color: rgba(200, 60, 60, 0.9);" />
+                <ui:VisualElement class="corner-h" style="right: 35px; left: auto; width: 150px; height: 35px;" />
+                <ui:VisualElement class="corner-v" style="top: 35px; bottom: auto; width: 35px; height: 150px;" />
+            </ui:VisualElement>
+            <ui:VisualElement name="hit-backLeft" class="corner" style="opacity: 0;">
+                <ui:VisualElement class="corner-c" style="background-color: rgba(200, 60, 60, 0.9); width: 35px; height: 35px; bottom: 0; left: 0; position: absolute;" />
+                <ui:VisualElement class="corner-h" style="width: 150px; height: 35px; left: 35px;" />
+                <ui:VisualElement class="corner-v" style="bottom: 35px; width: 35px; height: 150px; top: auto; left: auto;" />
+            </ui:VisualElement>
+            <ui:VisualElement name="hit-backRight" class="corner" style="opacity: 0;">
+                <ui:VisualElement class="corner-c" style="position: absolute; bottom: 0; right: 0; width: 35px; height: 35px; background-color: rgba(200, 60, 60, 0.9);" />
+                <ui:VisualElement class="corner-h" style="left: auto; right: 35px; width: 150px; height: 35px;" />
+                <ui:VisualElement class="corner-v" style="bottom: 35px; top: auto; width: 35px; height: 150px;" />
+            </ui:VisualElement>
+        </ui:VisualElement>
         <ui:VisualElement name="hud-panel" class="hud" style="visibility: visible;">
+            <ui:VisualElement name="match-timer-container" class="match-timer-container" style="max-width: 112px;">
+                <ui:Label name="match-timer-label" text="00:00" class="match-timer-label" />
+            </ui:VisualElement>
             <ui:VisualElement name="health-container" class="health-container">
                 <ui:ProgressBar name="health-bar" low-value="0" high-value="100" value="100" class="health-bar" />
                 <ui:Label name="health-value" text="100" class="health-value" />
@@ -21,9 +50,7 @@
                 <ui:VisualElement name="crosshair-vertical" class="crosshair-line vertical" />
                 <ui:VisualElement name="grapple-indicator" class="grapple-indicator" />
             </ui:VisualElement>
-            <ui:VisualElement name="kill-feed-container" class="kill-feed-container">
-                <!-- Kill entries will be added here dynamically -->
-            </ui:VisualElement>
+            <ui:VisualElement name="kill-feed-container" class="kill-feed-container" />
         </ui:VisualElement>
         <ui:VisualElement name="pause-menu-panel" class="panel full-abs center-xy hidden">
             <ui:VisualElement name="pause-container" class="menu-container card">
@@ -58,12 +85,12 @@
                     <ui:Label text="Controls" name="control-label" class="section-title" />
                     <ui:VisualElement name="sensitivity-x-container" class="setting-row">
                         <ui:Label text="Mouse Sensitivity X" name="sensitivity-x-label" class="setting-label" />
-                        <ui:Slider name="sensitivity-x" low-value="0.05" high-value="0.5" value="0" class="setting-slider" />
+                        <ui:Slider name="sensitivity-x" low-value="0.01" high-value="0.5" value="0" class="setting-slider" />
                         <ui:Label name="sensitivity-x-value" text="0.10" class="value-label" />
                     </ui:VisualElement>
                     <ui:VisualElement name="sensitivity-y-container" class="setting-row">
                         <ui:Label text="Mouse Sensitivity Y" name="sensitivity-y-label" class="setting-label" />
-                        <ui:Slider name="sensitivity-y" low-value="0.05" high-value="0.5" class="setting-slider" />
+                        <ui:Slider name="sensitivity-y" low-value="0.01" high-value="0.5" class="setting-slider" />
                         <ui:Label name="sensitivity-y-value" text="0.10" class="value-label" />
                     </ui:VisualElement>
                     <ui:VisualElement name="invert-y-container" class="setting-row">
@@ -92,6 +119,29 @@
                 </ui:VisualElement>
             </ui:VisualElement>
         </ui:VisualElement>
+        <ui:VisualElement name="podium-nameplates-container" class="podium-nameplates" style="display: none;">
+            <ui:VisualElement name="podium-first-slot" class="podium-slot podium-slot-first" style="min-width: 200px; max-width: 200px; bottom: 164px; left: 959px;">
+                <ui:Label name="podium-first-name" text="FIRST PLACE" class="podium-name" />
+                <ui:VisualElement class="podium-kills-row">
+                    <ui:Label name="podium-first-kills" text="0" class="podium-kills-text" />
+                    <ui:VisualElement name="podium-first-skull" class="podium-kill-icon" style="min-width: 22px; width: 22px; height: 22px;" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+            <ui:VisualElement name="podium-second-slot" class="podium-slot podium-slot-second" style="bottom: 157px; left: 534px; min-width: 200px; max-width: 200px;">
+                <ui:Label name="podium-second-name" text="SECOND PLACE" class="podium-name" />
+                <ui:VisualElement class="podium-kills-row">
+                    <ui:Label name="podium-second-kills" text="0" class="podium-kills-text" />
+                    <ui:VisualElement name="podium-second-skull" class="podium-kill-icon" style="min-width: 22px; width: 22px; height: 22px;" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+            <ui:VisualElement name="podium-third-slot" class="podium-slot podium-slot-third" style="bottom: 201px; right: 570px; min-width: 200px; max-width: 200px;">
+                <ui:Label name="podium-third-name" text="THIRD PLACE" class="podium-name" />
+                <ui:VisualElement class="podium-kills-row">
+                    <ui:Label name="podium-third-kills" text="0" class="podium-kills-text" />
+                    <ui:VisualElement name="podium-third-skull" class="podium-kill-icon" style="width: 22px; height: 22px; min-width: 22px;" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+        </ui:VisualElement>
         <ui:VisualElement name="scoreboard-panel" class="panel full-abs center-xy hidden">
             <ui:VisualElement name="scoreboard-container" class="scoreboard-container card">
                 <ui:Label text="SCOREBOARD" name="scoreboard-title" class="title" />
@@ -102,7 +152,7 @@
                     <ui:Label text="K" class="header-cell stat-cell" />
                     <ui:Label text="D" class="header-cell stat-cell" />
                     <ui:Label text="A" class="header-cell stat-cell" />
-                    <ui:Label text="KDA" class="header-cell stat-cell" />
+                    <ui:Label text="KDR" class="header-cell stat-cell" />
                     <ui:Label text="DMG" class="header-cell stat-cell" />
                     <ui:Label text="HS%" class="header-cell stat-cell" />
                     <ui:Label text="AV" class="header-cell stat-cell" />

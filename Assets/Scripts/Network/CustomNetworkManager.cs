@@ -8,7 +8,6 @@ namespace Network {
     public class CustomNetworkManager : MonoBehaviour {
         [Header("Manual Player Prefab (do NOT rely on NetworkConfig.PlayerPrefab)")]
         [SerializeField] private NetworkObject playerPrefab;
-        [SerializeField] private NetworkObject[] playerPrefabs;
         [SerializeField] private Material[] playerMaterials;
     
         // When true (after Start Game), new joiners will be spawned automatically on connect.
@@ -111,7 +110,7 @@ namespace Network {
             _allowPlayerSpawns = false;
         }
 
-        private void SpawnPlayerFor(ulong clientId) {
+        public void SpawnPlayerFor(ulong clientId) {
             foreach(var client in NetworkManager.Singleton.ConnectedClients.Values) {
                 if(client.ClientId == clientId && client.PlayerObject != null) {
                     Debug.LogWarning($"[CustomNetworkManager] Player already spawned for {clientId}");

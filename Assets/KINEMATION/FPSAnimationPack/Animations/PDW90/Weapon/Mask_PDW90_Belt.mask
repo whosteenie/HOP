@@ -1,0 +1,135 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!319 &31900000
+AvatarMask:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name: Mask_PDW90_Belt
+  m_Mask: 01000000010000000100000001000000010000000100000001000000010000000100000001000000010000000100000001000000
+  m_Elements:
+  - m_Path: 
+    m_Weight: 1
+  - m_Path: Body
+    m_Weight: 0
+  - m_Path: Body/BulletBottom
+    m_Weight: 1
+  - m_Path: Body/BulletBottom/Bullet_028
+    m_Weight: 1
+  - m_Path: Body/BulletBottom/Bullet_029
+    m_Weight: 1
+  - m_Path: Body/BulletBottom/Bullet_030
+    m_Weight: 1
+  - m_Path: Body/BulletBottom/Bullet_031
+    m_Weight: 1
+  - m_Path: Body/BulletBottom/Bullet_032
+    m_Weight: 1
+  - m_Path: Body/BulletBottom/Bullet_033
+    m_Weight: 1
+  - m_Path: Body/BulletBottom/Bullet_034
+    m_Weight: 1
+  - m_Path: Body/BulletBottom/Bullet_035
+    m_Weight: 1
+  - m_Path: Body/BulletBottom/Bullet_036
+    m_Weight: 1
+  - m_Path: Body/BulletBottom/Bullet_037
+    m_Weight: 1
+  - m_Path: Body/BulletBottom/Bullet_038
+    m_Weight: 1
+  - m_Path: Body/BulletBottom/Bullet_039
+    m_Weight: 1
+  - m_Path: Body/BulletBottom/Bullet_040
+    m_Weight: 1
+  - m_Path: Body/BulletBottom/Bullet_041
+    m_Weight: 1
+  - m_Path: Body/BulletBottom/Bullet_043
+    m_Weight: 1
+  - m_Path: Body/BulletBottom/Bullet_044
+    m_Weight: 1
+  - m_Path: Body/BulletBottom/Bullet_045
+    m_Weight: 1
+  - m_Path: Body/BulletBottom/Bullet_046
+    m_Weight: 1
+  - m_Path: Body/BulletBottom/Bullet_047
+    m_Weight: 1
+  - m_Path: Body/BulletBottom/Bullet_048
+    m_Weight: 1
+  - m_Path: Body/BulletBottom/Bullet_0421
+    m_Weight: 1
+  - m_Path: Body/BulletTop
+    m_Weight: 1
+  - m_Path: Body/BulletTop/Bullet
+    m_Weight: 1
+  - m_Path: Body/BulletTop/Bullet_001
+    m_Weight: 1
+  - m_Path: Body/BulletTop/Bullet_002
+    m_Weight: 1
+  - m_Path: Body/BulletTop/Bullet_003
+    m_Weight: 1
+  - m_Path: Body/BulletTop/Bullet_004
+    m_Weight: 1
+  - m_Path: Body/BulletTop/Bullet_005
+    m_Weight: 1
+  - m_Path: Body/BulletTop/Bullet_006
+    m_Weight: 1
+  - m_Path: Body/BulletTop/Bullet_007
+    m_Weight: 1
+  - m_Path: Body/BulletTop/Bullet_008
+    m_Weight: 1
+  - m_Path: Body/BulletTop/Bullet_009
+    m_Weight: 1
+  - m_Path: Body/BulletTop/Bullet_010
+    m_Weight: 1
+  - m_Path: Body/BulletTop/Bullet_011
+    m_Weight: 1
+  - m_Path: Body/BulletTop/Bullet_012
+    m_Weight: 1
+  - m_Path: Body/BulletTop/Bullet_013
+    m_Weight: 1
+  - m_Path: Body/BulletTop/Bullet_014
+    m_Weight: 1
+  - m_Path: Body/BulletTop/Bullet_015
+    m_Weight: 1
+  - m_Path: Body/BulletTop/Bullet_016
+    m_Weight: 1
+  - m_Path: Body/BulletTop/Bullet_017
+    m_Weight: 1
+  - m_Path: Body/BulletTop/Bullet_018
+    m_Weight: 1
+  - m_Path: Body/BulletTop/Bullet_019
+    m_Weight: 1
+  - m_Path: Body/BulletTop/Bullet_020
+    m_Weight: 1
+  - m_Path: Body/BulletTop/Bullet_021
+    m_Weight: 1
+  - m_Path: Body/BulletTop/Bullet_022
+    m_Weight: 1
+  - m_Path: Body/BulletTop/Bullet_023
+    m_Weight: 1
+  - m_Path: Body/BulletTop/Bullet_024
+    m_Weight: 1
+  - m_Path: Body/BulletTop/Bullet_025
+    m_Weight: 1
+  - m_Path: Body/BulletTop/Bullet_026
+    m_Weight: 1
+  - m_Path: Body/BulletTop/Bullet_027
+    m_Weight: 1
+  - m_Path: Body/BulletTop/Bullet_049
+    m_Weight: 1
+  - m_Path: Body/Charger
+    m_Weight: 0
+  - m_Path: Body/Magazine
+    m_Weight: 0
+  - m_Path: Body/Magazine/Mechanism
+    m_Weight: 1
+  - m_Path: Body/Magazine/Spring
+    m_Weight: 1
+  - m_Path: Body/Release1
+    m_Weight: 0
+  - m_Path: Body/Release2
+    m_Weight: 0
+  - m_Path: Body/Trigger
+    m_Weight: 0
+  - m_Path: SKM_PDW90
+    m_Weight: 0

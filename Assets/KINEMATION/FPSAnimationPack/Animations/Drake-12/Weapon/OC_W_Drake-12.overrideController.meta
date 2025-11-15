@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: c8c6c6fd1b5309845831f509b81d553a
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 22100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 239796
+  packageName: FPS Animation Lite
+  packageVersion: 3.1.0
+  assetPath: Assets/KINEMATION/FPSAnimationPack/Animations/Drake-12/Weapon/OC_W_Drake-12.overrideController
+  uploadId: 797642

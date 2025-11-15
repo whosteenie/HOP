@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 7f7c8473ff17e6f4ca25edd0fc43e09c
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 31900000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 239796
+  packageName: FPS Animation Lite
+  packageVersion: 3.1.0
+  assetPath: Assets/KINEMATION/FPSAnimationPack/Masks/Mask_RightHandIndex.mask
+  uploadId: 797642

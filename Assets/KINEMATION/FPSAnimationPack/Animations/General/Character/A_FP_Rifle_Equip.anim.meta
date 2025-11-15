@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 1b855f3518ee5f6478b25a1e0d6fc2cf
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 7400000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 239796
+  packageName: FPS Animation Lite
+  packageVersion: 3.1.0
+  assetPath: Assets/KINEMATION/FPSAnimationPack/Animations/General/Character/A_FP_Rifle_Equip.anim
+  uploadId: 797642

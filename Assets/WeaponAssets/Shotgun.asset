@@ -16,8 +16,11 @@ MonoBehaviour:
   weaponSlot: 3
   spawnPosition: {x: 0.384, y: -0.187, z: 0.371}
   spawnRotation: {x: 0, y: -180, z: 0}
-  muzzlePrefab: {fileID: 6299671218319471870, guid: d13b2bf13a0548a4aa9c2cd249a35a04, type: 3}
-  positionMuzzle: {x: 0, y: 0, z: -0.4702}
+  fpMuzzleLocalPosition: {x: 0, y: 0, z: 0}
+  worldWeaponName: Bennelli_M4
+  worldMuzzleLocalPosition: {x: 0, y: 0, z: 0}
+  fpMuzzleLightChildName: MuzzleLight
+  worldMuzzleLightChildName: MuzzleLight
   magSize: 10
   currentAmmo: 10
   baseDamage: 30
@@ -26,6 +29,7 @@ MonoBehaviour:
   fireRate: 0.5
   fireMode: Semi
   bulletSpread: 15
-  reloadTime: 4
+  reloadTime: 3
   bulletTrail: {fileID: 328621789431213768, guid: 4b92d630cd66e7a45a83060b816bdbbe, type: 3}
   bulletImpact: {fileID: 0}
+  muzzleFlashPrefab: {fileID: 0}

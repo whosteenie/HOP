@@ -9,10 +9,12 @@ using Network.Singletons;
 using Network.UGS;
 using Unity.Netcode;
 using Unity.Netcode.Transports.UTP;
+using Unity.Services.Authentication;
 using Unity.Services.Multiplayer;
 using Unity.Services.Relay.Models;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using UnityEngine.UI;
 using UnityUtils;
 
 namespace Network {
@@ -70,6 +72,7 @@ namespace Network {
         private static bool _startingClient;
         private CancellationTokenSource _lobbyWatchCts;
         private static NetworkManager _networkManager;
+        private int _expectedLobbyCount;
 
         // ===== Services =====
         private readonly IUgsSessionService _ugs = new UgsSessionService();
@@ -85,6 +88,15 @@ namespace Network {
 
         private List<ulong> _clientsFinishedLoading = new List<ulong>();
         private CustomNetworkManager _customNetworkManager;
+
+        private bool _isInGameplay = false; // Add this to track if we're actually in-game
+        private bool _hasCompletedInitialLoad = false; // Add to track if host has done initial load
+        private bool _isReconnecting = false;
+
+        public bool IsInGameplay => _isInGameplay;
+
+        public event Action HostDisconnected; // UI: show message
+        public event Action LobbyReset; // UI: clear player list, reset labels
 
         private void SetFrontStatus(SessionPhase phase, string message) {
             Phase = phase;
@@ -121,7 +133,7 @@ namespace Network {
             if(_networkManager != null) {
                 _networkManager.OnClientDisconnectCallback -= OnClientDisconnected;
                 _networkManager.OnClientDisconnectCallback += OnClientDisconnected;
-                
+
                 _networkManager.OnClientConnectedCallback -= OnClientConnected;
                 _networkManager.OnClientConnectedCallback += OnClientConnected;
             }
@@ -151,7 +163,7 @@ namespace Network {
         }
 
         private void OnClientDisconnected(ulong clientId) {
-            // If we're a client and we got disconnected (not a voluntary leave)
+            // If we're a client, and we got disconnected (not a voluntary leave)
             if(!_networkManager.IsServer && clientId == _networkManager.LocalClientId && !_isLeaving) {
                 Debug.Log("[SessionManager] Disconnected from host - returning to menu");
                 HandleUnexpectedDisconnect().Forget();
@@ -255,43 +267,54 @@ namespace Network {
         public async UniTask BeginGameplayAsHostAsync() {
             SetFrontStatus(SessionPhase.StartingHost, "Starting game as host...");
             StopWatchingLobby("host starting gameplay");
-            
+
+            // Reset state flags for new game session
+            _expectedLobbyCount = ActiveSession?.Players.Count ?? 1;
             _clientsFinishedLoading.Clear();
+            _hasCompletedInitialLoad = false; // Reset this flag
+            _isInGameplay = false;
 
             await EnsureRelayCodePublishedForLobbyAsync();
             await SetupHostTransportAsync();
             StartHostIfNeeded();
 
+            SetFrontStatus(SessionPhase.AllocatingRelay, "Allocating relay...");
             if(_networkManager.IsServer)
                 await PublishRelayCodeIfAnyAsync();
 
             SetFrontStatus(SessionPhase.LoadingScene, "Waiting for all players...");
-
-            // DON'T fade yet - wait for clients to connect to relay first
-            // The scene load will happen after everyone connects
         }
 
         private void OnClientConnected(ulong clientId) {
             Debug.Log($"[SessionManager] Client {clientId} connected to relay");
 
             if(!_networkManager.IsServer) {
-                SetFrontStatus(SessionPhase.LoadingScene, "Waiting for all players...");
+                SetFrontStatus(SessionPhase.LoadingScene, "Loading...");
                 return;
             }
 
-            int expectedPlayerCount = ActiveSession?.Players.Count ?? 1;
+            HandleLateJoiner(clientId);
+
+            // Don't trigger scene transition if we're already in gameplay
+            if(_isInGameplay) {
+                Debug.Log($"[SessionManager] Late joiner {clientId} connected - game already in progress");
+                // Handle late joiner spawning here if needed
+                SessionNetworkBridge.Instance?.FadeInSingleClientClientRpc(); // will be executed on the client
+                return;
+            }
+
+            int expectedPlayerCount = _expectedLobbyCount;
             int connectedCount = _networkManager.ConnectedClientsIds.Count;
 
             Debug.Log($"[SessionManager] {connectedCount}/{expectedPlayerCount} players connected");
 
-            if(connectedCount >= expectedPlayerCount) {
+            // Only do initial scene load once
+            if(connectedCount >= expectedPlayerCount && !_hasCompletedInitialLoad) {
                 Debug.Log("[SessionManager] All lobby players connected! Starting scene transition...");
+                _hasCompletedInitialLoad = true;
 
-                // Use bridge to send RPC
-                if(SessionNetworkBridge.Instance != null) {
-                    SessionNetworkBridge.Instance.FadeOutAllClientsClientRpc();
-                }
-
+                // Use bridge to send RPC - but only to connected clients
+                SessionNetworkBridge.Instance?.FadeOutNewClientsClientRpc();
                 StartCoroutine(LoadSceneAfterFade());
             }
         }
@@ -304,51 +327,98 @@ namespace Network {
             BeginNetworkSceneLoad();
         }
 
-        [Rpc(SendTo.Everyone)]
-        private void FadeOutAllClientsClientRpc() {
-            if(SceneTransitionManager.Instance != null) {
-                _ = SceneTransitionManager.Instance.FadeOut().ToUniTask();
-            }
-        }
-
         private void OnGameSceneLoaded(ulong clientId, string sceneName, LoadSceneMode loadSceneMode) {
-            Debug.Log($"[SessionManager] Client {clientId} reported scene '{sceneName}' loaded");
+            if(sceneName != GameSceneName) return;
 
             if(!_networkManager.IsServer) {
+                _isInGameplay = true;
+                if(SceneTransitionManager.Instance != null) {
+                    _ = SceneTransitionManager.Instance.FadeIn().ToUniTask(); // <-- ALWAYS
+                }
+
                 return;
             }
 
-            if(!_clientsFinishedLoading.Contains(clientId))
+            if(!_clientsFinishedLoading.Contains(clientId)) {
                 _clientsFinishedLoading.Add(clientId);
+            }
 
             if(_clientsFinishedLoading.Count == _networkManager.ConnectedClientsIds.Count) {
-                Debug.Log("[SessionManager] All clients finished loading. Spawning players...");
                 _networkManager.SceneManager.OnSceneEvent -= OnSceneEvent;
+                _isInGameplay = true;
                 _customNetworkManager?.EnableGameplaySpawningAndSpawnAll();
-
-                // Use bridge to send RPC
-                if(SessionNetworkBridge.Instance != null) {
-                    SessionNetworkBridge.Instance.FadeInAllClientsClientRpc();
-                }
+                SessionNetworkBridge.Instance.FadeInAllClientsClientRpc();
             }
         }
 
         /// <summary>Joins a session by code; waits for host to publish Relay code (if remote), configures client transport, starts NGO Client.</summary>
         public async UniTask<string> JoinSessionByCodeAsync(string joinCode) {
-            // Don’t rejoin the same lobby
-            if(ActiveSession != null && ActiveSession.Code == joinCode)
-                return "Already in lobby";
+            string lastSessionId = PlayerPrefs.GetString("LastSessionId", "");
+            string lastCode = PlayerPrefs.GetString("LastJoinCode", "");
 
-            if(_localhost.IsLocalhostTesting()) {
-                SetFrontStatus(SessionPhase.ConnectingToRelay, "Connecting to local host...");
-                await JoinLocalhostAsync(joinCode);
-                SetFrontStatus(SessionPhase.Connected, "Connected to local host.");
-                return "Connected to Local Host (Editor)";
+            // **1. Try silent reconnect if we have a session ID and code matches**
+            if(!string.IsNullOrEmpty(lastSessionId) && lastCode == joinCode) {
+                _isReconnecting = true;
+                try {
+                    SetFrontStatus(SessionPhase.ConnectingToRelay, "Reconnecting to session...");
+                    ActiveSession = await _ugs.ReconnectToSessionAsync(lastSessionId);
+                    HookSessionEvents();
+                    await SetupClientTransportFromSessionAsync(); // See below
+                    StartClientIfNeeded();
+                    SetFrontStatus(SessionPhase.Connected, "Reconnected!");
+                    return "Reconnecting to session...";
+                } catch(Exception ex) {
+                    Debug.Log($"[SessionManager] Reconnect failed (player removed?): {ex.Message}");
+                    // TODO: double check this placement
+                    _isReconnecting = true;
+                    // Continue to normal join — player was kicked
+                }
             }
 
-            SetFrontStatus(SessionPhase.CreatingLobby, "Joining lobby...");
-            await JoinRemoteAsync(joinCode);
-            return "Lobby joined. Waiting for host to start the game...";
+            // **2. Normal join with cache bypass**
+            await ForceLeaveAndCleanupAsync();
+
+            try {
+                SetFrontStatus(SessionPhase.CreatingLobby, "Joining lobby...");
+                await JoinRemoteAsync(joinCode);
+                return "Lobby joined. Waiting for host...";
+            } catch(Exception ex) when(ex.Message.Contains("already a member") || ex.Message.Contains("409")) {
+                // **3. FINAL FALLBACK: Try reconnect again (edge case)**
+                if(!string.IsNullOrEmpty(lastSessionId)) {
+                    try {
+                        ActiveSession = await _ugs.ReconnectToSessionAsync(lastSessionId);
+                        await SetupClientTransportFromSessionAsync();
+                        StartClientIfNeeded();
+                        return "RECONNECTED_AFTER_CACHE";
+                    } catch { /* ignore */
+                    }
+                }
+
+                throw new Exception("Failed to rejoin. Try again in 30s.");
+            }
+        }
+
+        private async UniTask SetupClientTransportFromSessionAsync() {
+            if(ActiveSession == null) return;
+
+            // Extract Relay info from session properties
+            if(ActiveSession.Properties.TryGetValue("relayCode", out var prop) && !string.IsNullOrEmpty(prop.Value)) {
+                var relayCode = prop.Value;
+                var join = await _relay.JoinAllocationAsync(relayCode);
+                var utp = _networkManager.GetComponent<UnityTransport>();
+                utp.SetRelayServerData(join.ToRelayServerData(RelayProtocol.DTLS));
+            }
+        }
+
+        private async UniTask ForceLeaveAndCleanupAsync() {
+            if(ActiveSession != null) {
+                await _ugs.LeaveOrDeleteAsync(ActiveSession);
+                UnhookSessionEvents();
+                ActiveSession = null;
+            }
+
+            await _net.CleanupNetworkAsync();
+            await UniTask.Delay(500);
         }
 
         /// <summary>Leaves (or deletes, if host) the UGS session, tears down NGO, returns to Main Menu. Safe to call multiple times.</summary>
@@ -357,25 +427,36 @@ namespace Network {
             StopWatchingLobby("leave to menu");
             if(_isLeaving) return;
             _isLeaving = true;
+
             try {
-                // Fade to black before leaving. unless in main menu already, then just toss session.
+                // Fade to black before leaving, unless in main menu already
                 if(SceneTransitionManager.Instance != null && SceneManager.GetActiveScene().name != "MainMenu") {
                     await SceneTransitionManager.Instance.FadeOut().ToUniTask();
                 }
+                
+                GameMenuManager.Instance.ShowInGameHudAfterPostMatch();
 
-                // If we're the host, tell everyone else to fade out too
-                if(_networkManager != null && _networkManager.IsServer && SessionNetworkBridge.Instance != null) {
+                // If we're the host and in gameplay, tell everyone else to fade out
+                if(_networkManager != null && _networkManager.IsServer && _isInGameplay &&
+                   SessionNetworkBridge.Instance != null) {
                     SessionNetworkBridge.Instance.FadeOutAllClientsClientRpc();
-                    // Give clients a moment to start fading
                     await UniTask.Delay(600);
                 }
 
+                // Store session reference and clear it immediately to prevent rejoining issues
+                var sessionToLeave = ActiveSession;
+                UnhookSessionEvents();
+                ActiveSession = null;
+
+                // Now cleanup network and leave the stored session
                 await _net.CleanupNetworkAsync();
-                await _ugs.LeaveOrDeleteAsync(ActiveSession);
+                if(sessionToLeave != null) {
+                    await _ugs.LeaveOrDeleteAsync(sessionToLeave);
+                }
+
                 ResetSessionState();
                 LoadMainMenu(mainMenu);
 
-                // Fade back in after menu loads
                 await UniTask.Delay(500);
                 if(SceneTransitionManager.Instance != null) {
                     await SceneTransitionManager.Instance.FadeIn().ToUniTask();
@@ -436,27 +517,17 @@ namespace Network {
 
         #region Private - Client path
 
-        /// <summary>Joins localhost host (no Relay), sets IP/port, starts NGO client.</summary>
-        private async UniTask JoinLocalhostAsync(string joinCode) {
-            var playerName = _localhost.GetLocalEditorName();
-            var props = new Dictionary<string, PlayerProperty> {
-                { PlayerNameKey, new PlayerProperty(playerName, VisibilityPropertyOptions.Member) }
-            };
-            ActiveSession = await _ugs.JoinByCodeAsync(joinCode, new JoinSessionOptions { PlayerProperties = props });
-            HookSessionEvents();
-            PlayersChanged?.Invoke(ActiveSession.Players);
-
-            var utp = _networkManager.GetComponent<UnityTransport>();
-            utp.ConnectionData.Address = "127.0.0.1";
-            utp.ConnectionData.Port = 7777;
-            StartClientIfNeeded();
-            ArmSceneCompletion();
-        }
-
         /// <summary>Joins remote UGS session, waits for Relay code, configures transport, starts NGO client.</summary>
         private async UniTask JoinRemoteAsync(string joinCode) {
             var props = await _ids.GetPlayerPropertiesAsync(PlayerNameKey);
             ActiveSession = await _ugs.JoinByCodeAsync(joinCode, new JoinSessionOptions { PlayerProperties = props });
+
+            PlayerPrefs.SetString("LastSessionId", ActiveSession.Id);
+            PlayerPrefs.SetString("LastJoinCode", joinCode); // Optional: for fallback
+            PlayerPrefs.Save();
+
+            _isReconnecting = false;
+
             HookSessionEvents();
             PlayersChanged?.Invoke(ActiveSession.Players);
 
@@ -472,6 +543,7 @@ namespace Network {
             var ct = _lobbyWatchCts.Token;
 
             string relayCode = null;
+            bool connected = false;
 
             void OnRelay(string c) {
                 if(!string.IsNullOrWhiteSpace(c) && c.Length >= 6) {
@@ -483,31 +555,53 @@ namespace Network {
             RelayCodeAvailable += OnRelay;
 
             try {
-                // Poll until we get a valid relay code
-                await PollRelayCodeAsync(ct);
+                while(!ct.IsCancellationRequested && !connected && string.IsNullOrEmpty(relayCode)) {
+                    if(_networkManager?.IsClient == true || Phase >= SessionPhase.Connected) {
+                        connected = true;
+                        break;
+                    }
 
-                // Wait for the code to be set by the event
-                await UniTask.WaitUntil(() => relayCode != null || ct.IsCancellationRequested, cancellationToken: ct);
+                    try {
+                        await ActiveSession.RefreshAsync();
 
-                if(string.IsNullOrEmpty(relayCode)) {
-                    Debug.LogWarning("[SessionManager] Timed out waiting for host to start game");
-                    SetFrontStatus(SessionPhase.WaitingForRelay, "Host hasn't started yet. Still waiting...");
-                    return;
+                        // ── HOST GONE ──
+                        if(ActiveSession == null ||
+                           string.IsNullOrEmpty(ActiveSession.Host) ||
+                           ActiveSession.Players.Count == 0) {
+                            Debug.Log("[SessionManager] Host gone (poll) – reset UI");
+                            HostDisconnected?.Invoke();
+                            LobbyReset?.Invoke();
+                            StopWatchingLobby("host gone (poll)");
+                            return;
+                        }
+
+                        if(TryGetRelayCode(out var c)) {
+                            relayCode = c;
+                            RelayCodeAvailable?.Invoke(c);
+                            break;
+                        }
+
+                        await UniTask.Delay(500, cancellationToken: ct);
+                    } catch(Exception e) when(e.Message.Contains("not found") || e.Message.Contains("deleted")) {
+                        Debug.Log("[SessionManager] Session deleted – host left");
+                        HostDisconnected?.Invoke();
+                        LobbyReset?.Invoke();
+                        StopWatchingLobby("session deleted");
+                        return;
+                    } catch(Exception e) when(e.Message.Contains("Too Many Requests")) {
+                        await UniTask.Delay(3000, cancellationToken: ct);
+                    } catch(Exception e) {
+                        Debug.Log($"[SessionManager] Poll error: {e.Message}");
+                        break;
+                    }
                 }
 
-                // Now we have a valid relay code - connect!
-                await ConnectToRelayAsync(relayCode);
-            } catch(OperationCanceledException) {
-                // Expected when relay code received or leaving - check if we got the code
-                if(!string.IsNullOrEmpty(relayCode)) {
+                if(!string.IsNullOrEmpty(relayCode) && !connected)
                     await ConnectToRelayAsync(relayCode);
-                } else {
-                    Debug.Log("[SessionManager] Polling canceled (normal behavior)");
-                }
-            } catch(Exception e) {
-                Debug.LogWarning($"[SessionManager] Error while waiting for game start: {e.Message}");
+            } catch(OperationCanceledException) { /* normal */
             } finally {
                 RelayCodeAvailable -= OnRelay;
+                StopWatchingLobby("poll finished");
             }
         }
 
@@ -545,7 +639,7 @@ namespace Network {
             }
         }
 
-        private void StartClientIfNeeded() {
+        private async void StartClientIfNeeded() {
             if(_networkManager == null)
                 _networkManager = NetworkManager.Singleton;
 
@@ -554,6 +648,12 @@ namespace Network {
                 return;
 
             _startingClient = true;
+
+            if(SceneTransitionManager.Instance != null)
+                SceneTransitionManager.Instance.FadeOutAsync().Forget();
+
+            await UniTask.Delay(500);
+
             var ok = _networkManager.StartClient();
             if(!ok)
                 Debug.LogError("[SessionManager] StartClient failed (transport not configured or already running).");
@@ -576,68 +676,6 @@ namespace Network {
 
         #region Session events & helpers
 
-        /// <summary>Returns the published Relay code immediately if available, otherwise waits for callback or polls as fallback.</summary>
-        private async UniTask<string> WaitForRelayCodeOrPollAsync() {
-            if(TryGetRelayCode(out var code)) return code;
-
-            // keep one CTS we can cancel once we have what we need
-            StopWatchingLobby();
-            _lobbyWatchCts = new CancellationTokenSource(TimeSpan.FromMinutes(2));
-            var ct = _lobbyWatchCts.Token;
-
-            string captured = null;
-
-            void OnRelay(string c) {
-                if(!string.IsNullOrWhiteSpace(c)) {
-                    captured = c;
-                    StopWatchingLobby("relay code received"); // ← cancel the poller immediately
-                }
-            }
-
-            RelayCodeAvailable += OnRelay;
-            try {
-                // fire-and-forget poller (will be cancelled by StopWatchingLobby)
-                _ = PollRelayCodeAsync(ct);
-
-                // wait until canceled (by either timeout or receiving code)
-                await UniTask.WaitUntil(() => captured != null || ct.IsCancellationRequested, cancellationToken: ct);
-            } catch { /* ignored */
-            } finally {
-                RelayCodeAvailable -= OnRelay;
-            }
-
-            return captured;
-        }
-
-        private async UniTask PollRelayCodeAsync(CancellationToken ct) {
-            var delayMs = 500;
-            while(!ct.IsCancellationRequested) {
-                // bail if we’re already transitioning to gameplay
-                if(_loadingGameScene || _networkManager?.IsClient == true ||
-                   Phase >= SessionPhase.StartingClient) break;
-
-                try {
-                    await ActiveSession.RefreshAsync();
-                    if(TryGetRelayCode(out var c)) {
-                        RelayCodeAvailable?.Invoke(c);
-                        return;
-                    }
-
-                    await UniTask.Delay(delayMs, cancellationToken: ct);
-                    delayMs = Math.Min(delayMs * 2, 3000);
-                } catch(Exception e) {
-                    if(e.Message.Contains("Too Many Requests")) {
-                        delayMs = Math.Min(delayMs * 2, 5000);
-                        await UniTask.Delay(delayMs, cancellationToken: ct);
-                    } else {
-                        // Normal, e.g., lobby deleted during scene switch
-                        Debug.Log($"[SessionManager] PollRelayCodeAsync: {e.Message}");
-                        await UniTask.Delay(1500, cancellationToken: ct);
-                    }
-                }
-            }
-        }
-
         private bool TryGetRelayCode(out string code) {
             code = null;
             if(ActiveSession == null) return false;
@@ -654,12 +692,35 @@ namespace Network {
             _net.UnhookSceneCallbacks(OnNetworkSceneLoadComplete);
             _loadingGameScene = false;
             _relayJoinCode = null;
+            _hostAllocation = null; // Also clear the allocation
             _clientsFinishedLoading.Clear();
+            _isInGameplay = false; // Reset gameplay flag
+            _hasCompletedInitialLoad = false; // Reset initial load flag
 
             // Clear spawner state
-            _networkManager.GetComponent<CustomNetworkManager>()?.ResetSpawningState();
-            ActiveSession = null;
+            _networkManager?.GetComponent<CustomNetworkManager>()?.ResetSpawningState();
+
+            // ActiveSession should already be null from LeaveToMainMenuAsync
+            if(ActiveSession != null) {
+                UnhookSessionEvents();
+                ActiveSession = null;
+            }
+
             Debug.Log("[SessionManager] Clean slate – ready for new session");
+        }
+
+        public void HandleLateJoiner(ulong clientId) {
+            if(!_networkManager.IsServer || !_isInGameplay) return;
+
+            Debug.Log($"[SessionManager] Handling late joiner {clientId}");
+
+            // Spawn the player for the late joiner without affecting others
+            if(_customNetworkManager != null) {
+                _customNetworkManager.SpawnPlayerFor(clientId);
+            }
+
+            // Send them any necessary game state updates
+            // This would depend on your game's specific needs
         }
 
         private static void LoadMainMenu(string scene) {
@@ -669,12 +730,29 @@ namespace Network {
 
         private void HookSessionEvents() {
             _ugs.HookEvents(ActiveSession,
-                onChanged: () => PlayersChanged?.Invoke(ActiveSession?.Players),
+                onChanged: () => {
+                    // 1. Host left → session.Host becomes null or Players empty
+                    if(ActiveSession == null ||
+                       string.IsNullOrEmpty(ActiveSession.Host) ||
+                       ActiveSession.Players.Count == 0) {
+                        Debug.Log("[SessionManager] Host left – resetting UI");
+                        HostDisconnected?.Invoke();
+                        LobbyReset?.Invoke();
+                        StopWatchingLobby("host left (onChanged)");
+                        return; // ← stop further processing
+                    }
+
+                    PlayersChanged?.Invoke(ActiveSession?.Players);
+                },
                 onJoined: _ => PlayersChanged?.Invoke(ActiveSession?.Players),
-                onLeaving: _ => PlayersChanged?.Invoke(ActiveSession?.Players),
+                onLeaving: player => {
+                    // 2. Any player leaves – we will check on next refresh
+                    Debug.Log("[SessionManager] Player leaving – will verify host");
+                },
                 onPropsChanged: () => {
                     if(ActiveSession == null) return;
-                    if(ActiveSession.Properties.TryGetValue(RelayCodeKey, out var p) && !string.IsNullOrEmpty(p.Value))
+                    if(ActiveSession.Properties.TryGetValue(RelayCodeKey, out var p) &&
+                       !string.IsNullOrEmpty(p.Value))
                         RelayCodeAvailable?.Invoke(p.Value);
                 });
         }
@@ -698,12 +776,6 @@ namespace Network {
             DisarmSceneCompletion();
             Debug.Log(
                 $"[SessionManager] Scene load complete. Scene: {scene}, IsServer: {NetworkManager.Singleton.IsServer}");
-            //
-            // if(_networkManager.IsServer) {
-            //     var spawner = _networkManager.GetComponent<CustomNetworkManager>();
-            //     Debug.Log($"[SessionManager] Found spawner: {spawner != null}");
-            //     spawner.EnableGameplaySpawningAndSpawnAll();
-            // }
         }
 
         #endregion

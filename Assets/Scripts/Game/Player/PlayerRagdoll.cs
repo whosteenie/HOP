@@ -3,13 +3,15 @@ using UnityEngine;
 
 namespace Game.Player {
     public class PlayerRagdoll : NetworkBehaviour {
-        [Header("References")] 
-        [SerializeField] private Animator animator;
+        [Header("References")] [SerializeField]
+        private Animator animator;
+
         [SerializeField] private CharacterController characterController;
 
-        [Header("Ragdoll Settings")] 
-        [SerializeField] private float ragdollForce = 300f;
-        [SerializeField] private float maxRagdollVelocity = 10f;
+        [Header("Ragdoll Settings")] [SerializeField]
+        private float ragdollForce = 150f;
+
+        [SerializeField] private float maxRagdollVelocity = 7f;
 
         private Rigidbody[] _ragdollRigidbodies;
         private Collider[] _ragdollColliders;
@@ -17,14 +19,14 @@ namespace Game.Player {
 
         public override void OnNetworkSpawn() {
             base.OnNetworkSpawn();
-            
+
             _ragdollRigidbodies = GetComponentsInChildren<Rigidbody>(true);
             _ragdollColliders = GetComponentsInChildren<Collider>(true);
 
             // Configure rigidbodies for stability
             foreach(var rb in _ragdollRigidbodies) {
                 if(!rb) continue;
-                
+
                 // CRITICAL: Set these for stable ragdolls
                 rb.maxAngularVelocity = 7f; // Prevent spinning too fast
                 rb.interpolation = RigidbodyInterpolation.Interpolate; // Smooth movement
@@ -76,18 +78,13 @@ namespace Game.Player {
             foreach(var rb in _ragdollRigidbodies) {
                 if(!rb) continue;
 
-                rb.isKinematic = !active;
-                rb.detectCollisions = active;
-
-                if(active) {
-                    // Clear velocities when ENABLING ragdoll (redundant but safe)
-                    rb.linearVelocity = Vector3.zero;
-                    rb.angularVelocity = Vector3.zero;
-                } else {
-                    // CRITICAL: Clear velocities when DISABLING too
+                if(!active) {
                     rb.linearVelocity = Vector3.zero;
                     rb.angularVelocity = Vector3.zero;
                 }
+
+                rb.isKinematic = !active;
+                rb.detectCollisions = active;
             }
 
             foreach(var col in _ragdollColliders) {
@@ -99,13 +96,17 @@ namespace Game.Player {
         }
 
         private void ApplyRagdollForce(Vector3 hitPoint, Vector3 direction) {
+            if(_ragdollRigidbodies == null || _ragdollRigidbodies.Length == 0)
+                return;
+
+            // 1) Find body closest to hit
             Rigidbody closestRb = null;
             float closestDistance = float.MaxValue;
 
             foreach(var rb in _ragdollRigidbodies) {
                 if(!rb) continue;
 
-                float distance = Vector3.Distance(rb.position, hitPoint);
+                float distance = Vector3.Distance(rb.worldCenterOfMass, hitPoint);
                 if(distance < closestDistance) {
                     closestDistance = distance;
                     closestRb = rb;
@@ -113,17 +114,26 @@ namespace Game.Player {
             }
 
             if(closestRb) {
-                // Normalize and apply force
-                Vector3 force = direction.normalized * ragdollForce;
-                
-                closestRb.AddForceAtPosition(force, hitPoint, ForceMode.Impulse);
-                
-                // CRITICAL: Clamp velocity to prevent explosions
-                if(closestRb.linearVelocity.magnitude > maxRagdollVelocity) {
-                    closestRb.linearVelocity = closestRb.linearVelocity.normalized * maxRagdollVelocity;
-                }
-                
-                Debug.Log($"Applied ragdoll force: {force.magnitude} at {hitPoint}");
+                Vector3 dir = direction.normalized;
+                if(dir.sqrMagnitude < 0.0001f)
+                    return;
+
+                // Much softer force to start. Tune this.
+                float impulse = ragdollForce; // e.g. 75–150 instead of 300
+                Vector3 force = dir * impulse;
+
+                closestRb.AddForce(force, ForceMode.Impulse);
+            }
+
+            // 2) Clamp ALL bodies’ velocities & spin so nothing goes nuts
+            foreach(var rb in _ragdollRigidbodies) {
+                if(!rb) continue;
+
+                if(rb.linearVelocity.magnitude > maxRagdollVelocity)
+                    rb.linearVelocity = rb.linearVelocity.normalized * maxRagdollVelocity;
+
+                if(rb.angularVelocity.magnitude > maxRagdollVelocity)
+                    rb.angularVelocity = rb.angularVelocity.normalized * maxRagdollVelocity;
             }
         }
     }

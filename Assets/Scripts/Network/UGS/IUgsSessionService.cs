@@ -33,5 +33,7 @@ namespace Network.UGS {
             System.Action<string> onJoined,
             System.Action<string> onLeaving,
             System.Action onPropsChanged);
+
+        UniTask<ISession> ReconnectToSessionAsync(string sessionId);
     }
 }

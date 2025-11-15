@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: abc00000000017572970858128170013
+NativeFormatImporter:
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 239796
+  packageName: FPS Animation Lite
+  packageVersion: 3.1.0
+  assetPath: Assets/KINEMATION/FPSAnimationPack/DemoScene/Demo_URP/Materials/M_FloorStripes_01.mat
+  uploadId: 797642

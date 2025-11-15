@@ -3,50 +3,62 @@ using UnityEngine;
 
 namespace Game.Player {
     public class UpperBodyPitch : NetworkBehaviour {
-        [Header("Bones")] public Transform hips;
-        public Transform spine;
-        public Transform chest;
+        [Header("Kevin Iglesias Proxy Bone")]
+        [Tooltip("Assign B-spineProxy here (the one with SpineProxy on it, sibling of B-hips).")]
+        public Transform spineProxy;
 
-        [Header("Axis & Limits")] public Vector3 localPitchAxis = Vector3.right; // set to X for most humanoids
-        public bool invertAxis = false; // flip if bending goes the wrong way
+        [Header("Axis & Limits")]
+        public Vector3 localPitchAxis = Vector3.right; // usually X
+        public bool invertAxis = false;
         [Range(-135f, 0f)] public float minPitch = -35f;
         [Range(0f, 135f)] public float maxPitch = 45f;
         public float smooth = 12f;
 
-        [Tooltip("Distribution across hips / spine / chest (sum ~= 1).")]
-        public Vector3 distribution = new Vector3(0.0f, 0.45f, 0.55f); // try spine+chest first
+        [Header("Weighting")]
+        [Tooltip("How strongly to bend around the proxy (0–1).")]
+        [Range(0f, 1f)] public float spineWeight = 1f;
 
         // Networked pitch from owner
         public NetworkVariable<float> netPitchDeg = new(
-            0f, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
+            0f,
+            NetworkVariableReadPermission.Everyone,
+            NetworkVariableWritePermission.Owner
+        );
 
-        // cached bind rotations
-        Quaternion _bindHips, _bindSpine, _bindChest;
         float _smoothedPitch;
         Vector3 _axis;
-        private bool _initialized;
 
         void Awake() {
             _axis = localPitchAxis.normalized;
-            if(invertAxis) _axis = -_axis;
+            if (invertAxis) _axis = -_axis;
         }
 
-        // Owner calls this every frame with CurrentPitch (or -CurrentPitch if needed)
+        /// <summary>
+        /// Owner calls this every frame with the camera pitch (your CurrentPitch).
+        /// </summary>
         public void SetLocalPitchFromCamera(float cameraPitchDeg) {
-            if(!IsOwner) return;
+            if (!IsOwner) return;
             netPitchDeg.Value = Mathf.Clamp(cameraPitchDeg, minPitch, maxPitch);
         }
 
         void LateUpdate() {
-            var target = Mathf.Clamp(netPitchDeg.Value, minPitch, maxPitch);
-            _smoothedPitch = Mathf.Lerp(_smoothedPitch, target, 1f - Mathf.Exp(-smooth * Time.deltaTime));
+            if (!spineProxy) return;
 
-            // Apply pitch as LOCAL rotation AFTER animator (additive to current pose)
-            if (spine && distribution.y != 0f)
-                spine.localRotation *= Quaternion.AngleAxis(_smoothedPitch * distribution.y, _axis);
+            float target = Mathf.Clamp(netPitchDeg.Value, minPitch, maxPitch);
 
-            if (chest && distribution.z != 0f)
-                chest.localRotation *= Quaternion.AngleAxis(_smoothedPitch * distribution.z, _axis);
+            _smoothedPitch = Mathf.Lerp(
+                _smoothedPitch,
+                target,
+                1f - Mathf.Exp(-smooth * Time.deltaTime)
+            );
+
+            // Apply pitch ADDITIVELY in LOCAL space on the proxy.
+            if (spineWeight > 0f) {
+                spineProxy.localRotation *= Quaternion.AngleAxis(
+                    _smoothedPitch * spineWeight,
+                    _axis
+                );
+            }
         }
     }
 }

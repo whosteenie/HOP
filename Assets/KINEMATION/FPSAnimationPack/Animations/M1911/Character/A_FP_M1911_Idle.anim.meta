@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 240293a1bac37b34a98835cb25696d43
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 7400000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 239796
+  packageName: FPS Animation Lite
+  packageVersion: 3.1.0
+  assetPath: Assets/KINEMATION/FPSAnimationPack/Animations/M1911/Character/A_FP_M1911_Idle.anim
+  uploadId: 797642

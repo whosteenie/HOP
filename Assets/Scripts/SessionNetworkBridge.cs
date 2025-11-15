@@ -1,4 +1,5 @@
 using Cysharp.Threading.Tasks;
+using Network;
 using Network.Singletons;
 using Unity.Netcode;
 using UnityEngine;
@@ -29,6 +30,14 @@ public class SessionNetworkBridge : NetworkBehaviour {
             
         Debug.Log("[SessionNetworkBridge] Network spawned");
     }
+    
+    [Rpc(SendTo.Everyone)]
+    public void FadeOutNewClientsClientRpc() {
+        // Only fade if we're not already in gameplay
+        if(!SessionManager.Instance.IsInGameplay && SceneTransitionManager.Instance != null) {
+            _ = SceneTransitionManager.Instance.FadeOut().ToUniTask();
+        }
+    }
 
     [Rpc(SendTo.Everyone)]
     public void FadeOutAllClientsClientRpc() {
@@ -47,6 +56,13 @@ public class SessionNetworkBridge : NetworkBehaviour {
             _ = SceneTransitionManager.Instance.FadeIn().ToUniTask();
         } else {
             Debug.LogError("[SessionNetworkBridge] SceneTransitionManager.Instance is null!");
+        }
+    }
+
+    [ClientRpc]
+    public void FadeInSingleClientClientRpc() {
+        if (SceneTransitionManager.Instance != null) {
+            _ = SceneTransitionManager.Instance.FadeIn().ToUniTask();
         }
     }
 }

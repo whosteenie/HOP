@@ -1,0 +1,27 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fbf4f2a981409c44383dcad289302a47, type: 3}
+  m_Name: FPSPlayer_Settings_Lite
+  m_EditorClassIdentifier: 
+  weaponPrefabs:
+  - {fileID: 2249710175363591869, guid: 8e489e7f96cc8a844a939320b2d379d1, type: 3}
+  - {fileID: 727220435377141568, guid: a3fc2663bfbfab94596da70beea6b979, type: 3}
+  - {fileID: 4032086537580138804, guid: 30c4d5711db263c4d8aa54889bae18db, type: 3}
+  - {fileID: 472434944859137347, guid: 2c4c2d8e2bdf83143a1815ce7344a8eb, type: 3}
+  - {fileID: 3148118508808845219, guid: 69e6a586f8d7ae542aaafdfd29dda057, type: 3}
+  grenadeDelay: 2.1
+  gaitSmoothing: 8
+  ikWeight: 1
+  aimSpeed: 2.5
+  aimingMotion: {fileID: 11400000, guid: 378c58675d76a5447b524e24fd97e160, type: 2}
+  fireModeMotion: {fileID: 11400000, guid: 609ac1aa3b238e94cba7951e370faeae, type: 2}
+  generalSounds: []

@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 086415fa15ad83d418182a4eb84c4dff
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 11400000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 239796
+  packageName: FPS Animation Lite
+  packageVersion: 3.1.0
+  assetPath: Assets/KINEMATION/FPSAnimationPack/CameraShakes/Camera_Shake_Rifle_Light.asset
+  uploadId: 797642

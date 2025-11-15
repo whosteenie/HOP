@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 1fb4c8f6ba2ccb145b95acb7ebcf25c8
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 22100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 239796
+  packageName: FPS Animation Lite
+  packageVersion: 3.1.0
+  assetPath: Assets/KINEMATION/FPSAnimationPack/Animations/M1911/Weapon/OC_W_M1911.overrideController
+  uploadId: 797642

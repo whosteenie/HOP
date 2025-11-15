@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 3860ac5fea039014e9580a6cf44d6df5
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 239796
+  packageName: FPS Animation Lite
+  packageVersion: 3.1.0
+  assetPath: Assets/KINEMATION/FPSAnimationPack/Prefabs/FPSPlayer.prefab
+  uploadId: 797642

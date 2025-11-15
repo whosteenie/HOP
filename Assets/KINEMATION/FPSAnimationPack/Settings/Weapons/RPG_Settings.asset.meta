@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: b70ba7614539a324c9dccd916e459675
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 11400000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 239796
+  packageName: FPS Animation Lite
+  packageVersion: 3.1.0
+  assetPath: Assets/KINEMATION/FPSAnimationPack/Settings/Weapons/RPG_Settings.asset
+  uploadId: 797642

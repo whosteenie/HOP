@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 2beb3a339db7f754ead7c5fb1ef2a7df
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 7400000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 239796
+  packageName: FPS Animation Lite
+  packageVersion: 3.1.0
+  assetPath: Assets/KINEMATION/FPSAnimationPack/AnimatorControllers/DefaultAnimations/Equip_Override.anim
+  uploadId: 797642

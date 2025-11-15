@@ -276,3 +276,224 @@
     margin-left: 8px;
     -unity-text-align: middle-left;
 }
+
+/* ===== DAMAGE VIGNETTE ===== */
+
+.damage-vignette-container {
+    position: absolute;
+    left: 0; right: 0;
+    top: 0; bottom: 0;
+}
+
+.damage-vignette {
+    position: absolute;
+    background-color: rgba(200, 60, 60, 0.9);
+    opacity: 0;
+}
+
+/* Sides (thin bars) */
+
+#hit-front {
+    left: 30%;
+    right: 30%;
+    top: 0;
+    height: 3%;
+}
+
+#hit-back {
+    left: 30%;
+    right: 30%;
+    bottom: 0;
+    height: 3%;
+}
+
+#hit-left {
+    left: 0;
+    top: 30%;
+    bottom: 30%;
+    width: 3%;
+}
+
+#hit-right {
+    right: 0;
+    top: 30%;
+    bottom: 30%;
+    width: 3%;
+}
+
+/* Corner containers just define the region the “L” lives in */
+
+.corner {
+    position: absolute;
+    width: 12%;
+    height: 12%;
+}
+
+/* Top-left corner */
+#hit-frontLeft {
+    left: 0;
+    top: 0;
+}
+
+/* Top-right corner */
+#hit-frontRight {
+    right: 0;
+    top: 0;
+}
+
+/* Bottom-left corner */
+#hit-backLeft {
+    left: 0;
+    bottom: 0;
+}
+
+/* Bottom-right corner */
+#hit-backRight {
+    right: 0;
+    bottom: 0;
+}
+
+/* The “L” shape segments inside each corner */
+
+.corner-h {
+    position: absolute;
+    left: 0;
+    right: 40%;  /* short segment */
+    top: 0;
+    height: 3%;
+    background-color: rgba(200, 60, 60, 0.9);
+}
+
+.corner-v {
+    position: absolute;
+    top: 0;
+    bottom: 40%;
+    left: 0;
+    width: 3%;
+    background-color: rgba(200, 60, 60, 0.9);
+}
+
+/* Mirror for right-hand corners */
+
+#hit-frontRight > .corner-h,
+#hit-backRight > .corner-h {
+    left: 40%;
+    right: 0;
+}
+
+#hit-frontRight > .corner-v,
+#hit-backRight > .corner-v {
+    left: auto;
+    right: 0;
+}
+
+/* Mirror for bottom corners */
+
+#hit-backLeft > .corner-h,
+#hit-backRight > .corner-h {
+    top: auto;
+    bottom: 0;
+}
+
+#hit-backLeft > .corner-v,
+#hit-backRight > .corner-v {
+    top: 40%;
+    bottom: 0;
+}
+
+#match-timer-container {
+    position: absolute;
+    top: 24px;
+    left: 50%;
+    translate: -50% 0;
+    padding: 6px 16px;
+    border-radius: 10px;
+    border-width: 1px;
+    border-color: rgba(200, 60, 60, 0.5);
+    background-color: rgba(18, 18, 18, 0.85);
+    justify-content: center;
+    align-items: center;
+}
+
+.match-timer-label {
+    color: rgb(235, 235, 235);
+    font-size: 22px;
+    -unity-font-style: bold;
+    letter-spacing: 1px;
+    -unity-text-align: middle-center;
+}
+
+/* ===== PODIUM NAMEPLATES ===== */
+
+.podium-nameplates {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    display: none;
+}
+
+.podium-slot {
+    position: absolute;
+    min-width: 170px;
+    padding: 8px 12px;
+    border-radius: 10px;
+    border-width: 1px;
+    border-color: rgba(255, 255, 255, 0.18);
+    background-color: rgba(18, 18, 18, 0.88);
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Positioning – tweak these in UI Builder */
+.podium-slot-first {
+    bottom: 18%;
+    left: 50%;
+    translate: -50% 0;
+}
+
+.podium-slot-second {
+    bottom: 14%;
+    left: 32%;
+}
+
+.podium-slot-third {
+    bottom: 14%;
+    right: 32%;
+}
+
+.podium-name {
+    font-size: 18px;
+    -unity-font-style: bold;
+    color: rgb(235, 235, 235);
+    -unity-text-align: middle-center;
+    text-shadow: 0 0 4px rgba(0, 0, 0, 0.7);
+    margin-bottom: 2px;   /* replaces vertical gap */
+}
+
+/* Kills row */
+.podium-kills-row {
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    /* no gap here either */
+}
+
+.podium-kills-text {
+    font-size: 16px;
+    -unity-font-style: bold;
+    color: rgb(255, 220, 180);
+    -unity-text-align: middle-center;
+    min-width: 28px;
+    margin-right: 4px;    /* replaces horizontal gap */
+}
+
+/* Reserved skull icon spot */
+.podium-kill-icon {
+    width: 18px;
+    height: 18px;
+    min-width: 18px;
+    border-radius: 4px;
+    background-image: url("/Assets/UI Toolkit/Images/skull.png");
+    -unity-background-scale-mode: scale-to-fit;
+}

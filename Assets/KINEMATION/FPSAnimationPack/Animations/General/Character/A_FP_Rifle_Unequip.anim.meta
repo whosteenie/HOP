@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 3a2dbce28bb7d9045b81bb7eea9dc943
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 7400000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 239796
+  packageName: FPS Animation Lite
+  packageVersion: 3.1.0
+  assetPath: Assets/KINEMATION/FPSAnimationPack/Animations/General/Character/A_FP_Rifle_Unequip.anim
+  uploadId: 797642

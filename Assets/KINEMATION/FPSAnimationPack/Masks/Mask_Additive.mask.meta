@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 5ebe49ba809e8bf4184e7ff1960b7053
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 31900000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 239796
+  packageName: FPS Animation Lite
+  packageVersion: 3.1.0
+  assetPath: Assets/KINEMATION/FPSAnimationPack/Masks/Mask_Additive.mask
+  uploadId: 797642

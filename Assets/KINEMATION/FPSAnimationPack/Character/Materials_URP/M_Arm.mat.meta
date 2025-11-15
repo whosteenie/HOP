@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 1005661670ee5c641a9a571e14925497
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 239796
+  packageName: FPS Animation Lite
+  packageVersion: 3.1.0
+  assetPath: Assets/KINEMATION/FPSAnimationPack/Character/Materials_URP/M_Arm.mat
+  uploadId: 797642

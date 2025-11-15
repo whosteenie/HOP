@@ -16,8 +16,11 @@ MonoBehaviour:
   weaponSlot: 1
   spawnPosition: {x: 0.245, y: -0.125, z: 0.207}
   spawnRotation: {x: 0, y: -180, z: 0}
-  muzzlePrefab: {fileID: 6299671218319471870, guid: d13b2bf13a0548a4aa9c2cd249a35a04, type: 3}
-  positionMuzzle: {x: 0, y: 0.0266, z: -0.1472}
+  fpMuzzleLocalPosition: {x: 0, y: 0, z: 0}
+  worldWeaponName: M1911
+  worldMuzzleLocalPosition: {x: 0, y: 0.0251, z: -0.1497}
+  fpMuzzleLightChildName: MuzzleLight
+  worldMuzzleLightChildName: MuzzleLight
   magSize: 16
   currentAmmo: 16
   baseDamage: 15
@@ -26,6 +29,9 @@ MonoBehaviour:
   fireRate: 0.2
   fireMode: Semi
   bulletSpread: 4
-  reloadTime: 3
+  reloadTime: 0.8
+  sheathTime: 0.22
+  drawTime: 0.25
   bulletTrail: {fileID: 328621789431213768, guid: 4b92d630cd66e7a45a83060b816bdbbe, type: 3}
   bulletImpact: {fileID: 0}
+  muzzleFlashPrefab: {fileID: 6299671218319471870, guid: d13b2bf13a0548a4aa9c2cd249a35a04, type: 3}

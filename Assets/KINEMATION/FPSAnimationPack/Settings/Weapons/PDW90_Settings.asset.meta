@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: fb7dc12e43c289e47ab91bdbbdd67c8d
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 11400000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 239796
+  packageName: FPS Animation Lite
+  packageVersion: 3.1.0
+  assetPath: Assets/KINEMATION/FPSAnimationPack/Settings/Weapons/PDW90_Settings.asset
+  uploadId: 797642

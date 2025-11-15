@@ -1,0 +1,42 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 067a66f68d8440b2b8854c722342a2b2, type: 3}
+  m_Name: DGL50_Settings
+  m_EditorClassIdentifier: 
+  characterController: {fileID: 22100000, guid: 2d3feb3e061f1e644a599dd1596f0b84,
+    type: 2}
+  recoilAnimData: {fileID: 11400000, guid: 2c844a366fdbb904ba08f92aa427b572, type: 2}
+  cameraShake: {fileID: 11400000, guid: b786bb4be603b364b9ae835875efde57, type: 2}
+  ikOffset: {x: 0, y: 0.015, z: 0.01}
+  leftClavicleOffset: {x: 0, y: 0, z: 0}
+  rightClavicleOffset: {x: 0, y: 0, z: 0}
+  aimPointOffset: {x: 0, y: 0, z: -0.2}
+  rightHandSprintOffset: {x: -0.005693473, y: 0.13040198, z: -0.043246217, w: 0.9905013}
+  adsBlend: 0.822
+  fireRate: 600
+  ammo: 7
+  aimFov: 60
+  fullAuto: 0
+  useFireClip: 0
+  hasEquipOverride: 0
+  hasFireOut: 1
+  useSprintTriggerDiscipline: 1
+  fireSounds:
+  - {fileID: 8300000, guid: d6a88bb3461988f4297bc7a7c3d4089e, type: 3}
+  - {fileID: 8300000, guid: 1a9babe4a0a537545acada30b10c5868, type: 3}
+  - {fileID: 8300000, guid: 7a33e084665449b419ca9da55d8f2065, type: 3}
+  - {fileID: 8300000, guid: 93536a669532f254db8057fd59ebc6f3, type: 3}
+  firePitchRange: {x: 0.95, y: 1.04}
+  fireVolumeRange: {x: 0.9, y: 1.1}
+  weaponEventSounds:
+  - {fileID: 8300000, guid: b5e9f37bcfb33d745966e050f29f07ae, type: 3}
+  - {fileID: 8300000, guid: 9ab6e87ae9044a24c89d5bb8a6766169, type: 3}
