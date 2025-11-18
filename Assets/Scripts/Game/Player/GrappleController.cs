@@ -228,6 +228,12 @@ namespace Game.Player {
                 return;
             }
 
+            // Check if character controller is active (prevents errors during mantling, respawn, etc.)
+            if(characterController == null || !characterController.enabled) {
+                EndGrapple(false);
+                return;
+            }
+
             // Check for walls in the direction we're moving
             var pullVelocity = directionToPoint * grappleSpeed;
             var checkDistance = pullVelocity.magnitude * Time.deltaTime * 3f; // Check slightly ahead

@@ -19,75 +19,80 @@ namespace Game.Player {
         [SerializeField] private float spawnOffset = 0.5f; 
         [SerializeField] private Material ghostMaterial;
         [SerializeField] private Color trailColor = new(0.3f, 0.7f, 1f, 0.5f);
+        
+        // Color mapping: white, red, orange, yellow, green, blue, purple (index 0-6)
+        private static readonly Color[] PlayerColors = {
+            new Color(1f, 1f, 1f, 1f),      // white (0)
+            new Color(1f, 0f, 0f, 1f),      // red (1)
+            new Color(1f, 0.5f, 0f, 1f),    // orange (2)
+            new Color(1f, 1f, 0f, 1f),      // yellow (3)
+            new Color(0f, 1f, 0f, 1f),      // green (4)
+            new Color(0f, 0.5f, 1f, 1f),    // blue (5)
+            new Color(0.5f, 0f, 1f, 1f)     // purple (6)
+        };
 
         private float _lastSpawnTime;
         private readonly Queue<GameObject> _ghostPool = new();
         private const int PoolSize = 20;
-        private Vector3 _lastPosition;
 
         public override void OnNetworkSpawn() {
             base.OnNetworkSpawn();
         
-            _lastPosition = transform.position;
+            // Auto-find controller if not assigned
+            if(controller == null) {
+                controller = GetComponent<PlayerController>();
+                if(controller == null) {
+                    controller = GetComponentInParent<PlayerController>();
+                }
+            }
+            
+            // Auto-find player mesh if not assigned
+            if(playerMesh == null) {
+                playerMesh = GetComponentInChildren<SkinnedMeshRenderer>();
+            }
+            
             if(ghostMaterial == null) CreateGhostMaterial();
             for(var i = 0; i < PoolSize; i++) CreateGhost();
         }
 
         private void Update() {
             if(IsOwner) return;
-            if(!playerMesh) return;
-
-            // Compute a multiplier from velocity so it works on ALL clients.
-            // Match your weapon’s thresholds for feel.
-            var speed = controller ? controller.CurrentFullVelocity.magnitude : 0f;
-            var targetMul = 1f;
-            const float minSpeed = Weapons.Weapon.MinSpeedThreshold; // 15f
-            const float maxSpeed = Weapons.Weapon.MaxSpeedThreshold;
             
-            if(speed > minSpeed) {
-                var t = Mathf.InverseLerp(minSpeed, maxSpeed, speed);
-                
-                // Get max damage multiplier from weapon data instead of weapon component
-                float maxDamageMul = 2f;
-                if(controller) {
-                    var weaponManager = controller.GetComponent<WeaponManager>();
-                    if(weaponManager != null) {
-                        var weaponData = weaponManager.GetWeaponDataByIndex(weaponManager.CurrentWeaponIndex);
-                        if(weaponData != null) {
-                            maxDamageMul = weaponData.maxDamageMultiplier;
-                        }
-                    }
-                }
-                
-                targetMul = Mathf.Lerp(1f,  maxDamageMul, t);
+            if(!playerMesh || !controller) return;
+
+            // Get the actual damage multiplier from the Weapon component
+            // This matches the same calculation used in Weapon.UpdateDamageMultiplier()
+            var weaponManager = controller.GetComponent<WeaponManager>();
+            if(weaponManager == null || weaponManager.CurrentWeapon == null) return;
+            
+            var weapon = weaponManager.CurrentWeapon;
+            // Use the network-synced multiplier value
+            var currentMultiplier = weapon.netCurrentDamageMultiplier.Value;
+
+            // Only spawn trails when multiplier is at least the minimum threshold
+            if(currentMultiplier < minMultiplierForTrail) {
+                return;
             }
 
-            if(targetMul < minMultiplierForTrail) return;
-
-            // Faster -> more frequent
-            var speedFactor = Mathf.InverseLerp(minMultiplierForTrail, 3f, targetMul);
+            // Faster -> more frequent (based on multiplier, not speed)
+            var speedFactor = Mathf.InverseLerp(minMultiplierForTrail, 3f, currentMultiplier);
             var adjustedInterval = Mathf.Lerp(spawnInterval * 2f, spawnInterval * 0.5f, speedFactor);
 
-            if(Time.time - _lastSpawnTime < adjustedInterval) return;
-            if(!controller.IsOwner) {
-                SpawnAfterimage();
-                _lastSpawnTime = Time.time;
+            var timeSinceLastSpawn = Time.time - _lastSpawnTime;
+            if(timeSinceLastSpawn < adjustedInterval) {
+                return;
             }
+            
+            // Spawn the trail (it will be visible to this client)
+            SpawnAfterimage();
+            _lastSpawnTime = Time.time;
         }
 
         private GameObject CreateGhost() {
             var ghost = new GameObject("AfterimageGhost");
-            // Layer decided per-viewer:
-            if(controller) {
-                if(controller.IsOwner) {
-                    ghost.layer = LayerMask.NameToLayer("Masked");
-                } else {
-                    ghost.layer = LayerMask.NameToLayer("Default");
-                }
-            } else {
-                Debug.LogWarning("SpeedTrail: No PlayerController found on the object.");
-                ghost.layer = LayerMask.NameToLayer("Masked");
-            }
+            // Layer will be set when spawning based on viewer
+            // Default to "Default" layer for now (will be set correctly in SpawnAfterimage)
+            ghost.layer = LayerMask.NameToLayer("Default");
 
             ghost.SetActive(false);
             ghost.AddComponent<MeshFilter>();
@@ -100,29 +105,110 @@ namespace Game.Player {
         }
 
         private void SpawnAfterimage() {
-            var ghost = _ghostPool.FirstOrDefault(g => g && !g.activeInHierarchy) ?? CreateGhost();
+            // Find an available ghost from pool (check if inactive)
+            GameObject ghost = null;
+            var attempts = 0;
+            while(attempts < _ghostPool.Count && _ghostPool.Count > 0) {
+                var candidate = _ghostPool.Dequeue();
+                _ghostPool.Enqueue(candidate); // Put it back at the end
+                
+                if(candidate != null && !candidate.activeInHierarchy) {
+                    ghost = candidate;
+                    break;
+                }
+                attempts++;
+            }
+            
+            // If no available ghost found, create a new one
+            if(ghost == null) {
+                ghost = CreateGhost();
+            }
 
-            // Movement direction
-            var moveDir = (transform.position - _lastPosition);
-            if(moveDir.sqrMagnitude < 0.0001f) moveDir = -transform.forward;
-            else moveDir.Normalize();
+            // Set layer to Default - since Update() only runs on non-owners (IsOwner check),
+            // we're viewing someone else's player, so the trail should be visible
+            ghost.layer = LayerMask.NameToLayer("Default");
 
-            var spawnPos = playerMesh.transform.position - moveDir * spawnOffset;
+            // Movement direction - calculate from velocity if available, otherwise use transform forward
+            Vector3 moveDir;
+            if(controller != null) {
+                // Try to get velocity direction from controller
+                var velocity = controller.CurrentFullVelocity;
+                if(velocity.sqrMagnitude > 0.01f) {
+                    moveDir = -velocity.normalized; // Negative because we want to spawn behind
+                } else {
+                    moveDir = -transform.forward;
+                }
+            } else {
+                // Fallback: use transform forward
+                moveDir = -transform.forward;
+            }
+
+            // Spawn behind the player (negative direction)
+            var spawnPos = playerMesh.transform.position + moveDir * spawnOffset;
 
             ghost.transform.SetPositionAndRotation(spawnPos, playerMesh.transform.rotation);
             ghost.transform.localScale = playerMesh.transform.lossyScale;
-
-            _lastPosition = transform.position;
 
             var baked = new Mesh();
             playerMesh.BakeMesh(baked);
 
             var mf = ghost.GetComponent<MeshFilter>();
+            if(mf == null) {
+                Debug.LogError("[SpeedTrail] Ghost missing MeshFilter!");
+                return;
+            }
             mf.sharedMesh = baked;
 
             var mr = ghost.GetComponent<MeshRenderer>();
+            if(mr == null) {
+                Debug.LogError("[SpeedTrail] Ghost missing MeshRenderer!");
+                return;
+            }
             // material per instance so alpha fades independently
-            mr.material = ghostMaterial ? new Material(ghostMaterial) : NewGhostMaterial();
+            var material = ghostMaterial ? new Material(ghostMaterial) : NewGhostMaterial();
+            
+            // Apply player's selected color to the afterimage
+            if(controller != null) {
+                var materialIndex = controller.playerMaterialIndex.Value;
+                if(materialIndex >= 0 && materialIndex < PlayerColors.Length) {
+                    var playerColor = PlayerColors[materialIndex];
+                    
+                    // Preserve emission intensity from the original material
+                    // For Particles/Standard Unlit shader, emission is typically _EmissionColor
+                    if(material.HasProperty("_EmissionColor")) {
+                        var currentEmission = material.GetColor("_EmissionColor");
+                        // Calculate intensity from the original emission (HDR values can be > 1)
+                        var emissionIntensity = currentEmission.maxColorComponent;
+                        if(emissionIntensity < 0.1f) {
+                            // If no emission set, use a default intensity (matching the red look you liked)
+                            emissionIntensity = 2.4f; // Approximate intensity from inspector
+                        }
+                        // Apply player color with preserved intensity (HDR)
+                        material.SetColor("_EmissionColor", playerColor * emissionIntensity);
+                        material.EnableKeyword("_EMISSION");
+                    } else if(material.HasProperty("_Emission")) {
+                        var currentEmission = material.GetColor("_Emission");
+                        var emissionIntensity = currentEmission.maxColorComponent;
+                        if(emissionIntensity < 0.1f) {
+                            emissionIntensity = 2.4f;
+                        }
+                        material.SetColor("_Emission", playerColor * emissionIntensity);
+                        material.EnableKeyword("_EMISSION");
+                    }
+                    
+                    // Also set the main color (albedo) if the shader supports it
+                    // For Particles shader, this might be _TintColor or _Color
+                    if(material.HasProperty("_TintColor")) {
+                        var currentTint = material.GetColor("_TintColor");
+                        material.SetColor("_TintColor", new Color(playerColor.r, playerColor.g, playerColor.b, currentTint.a));
+                    } else if(material.HasProperty("_Color")) {
+                        var currentColor = material.GetColor("_Color");
+                        material.SetColor("_Color", new Color(playerColor.r, playerColor.g, playerColor.b, currentColor.a));
+                    }
+                }
+            }
+            
+            mr.material = material;
 
             ghost.SetActive(true);
             StartCoroutine(FadeAndReturnGhost(ghost, mr));
@@ -156,7 +242,9 @@ namespace Game.Player {
             m.DisableKeyword("_ALPHATEST_ON");
             m.EnableKeyword("_ALPHABLEND_ON");
             m.DisableKeyword("_ALPHAPREMULTIPLY_ON");
-            m.renderQueue = 3000;
+            // Use a lower render queue so trails render behind the player model
+            // Player models typically render at 2000-2500, so 2500 ensures trails are behind
+            m.renderQueue = 2500;
             m.color = trailColor;
             return m;
         }

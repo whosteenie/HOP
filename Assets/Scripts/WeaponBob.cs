@@ -6,7 +6,7 @@ public class WeaponBob : MonoBehaviour {
     [SerializeField] private Transform playerTransform; // To read velocity
 
     [Header("Bob Settings")] [SerializeField]
-    private float bobFrequency = 6f;
+    private float bobFrequency = 4f; // Base frequency (lowered from 6f)
 
     [SerializeField] private float bobHorizontalAmount = 0.01f;
     [SerializeField] private float bobVerticalAmount = 0.03f;
@@ -17,6 +17,10 @@ public class WeaponBob : MonoBehaviour {
 
     [SerializeField] private float sprintSpeed = 10f;
     [SerializeField] private float sprintBobMultiplier = 1.15f;
+    
+    [Header("Frequency Scaling")]
+    [SerializeField] private float minFrequency = 3.5f; // Minimum frequency (walking)
+    [SerializeField] private float maxFrequency = 7.5f; // Maximum frequency (sprinting) - clamped to prevent going too crazy
 
     [Header("Dynamics")] [SerializeField] private float smoothSpeed = 12f;
     [SerializeField] private float landingBobAmount = 0.04f;
@@ -110,9 +114,25 @@ public class WeaponBob : MonoBehaviour {
         // Smooth intensity transitions
         _currentBobIntensity = Mathf.Lerp(_currentBobIntensity, _targetBobIntensity, smoothSpeed * deltaTime);
 
-        // Advance bob timer based on speed
+        // Calculate dynamic frequency based on speed (only when grounded and moving)
+        float currentFrequency = bobFrequency;
+        if(isGrounded && speed > 0.1f) {
+            // Scale frequency from minFrequency (walking) to maxFrequency (sprinting)
+            if(speed < walkSpeed) {
+                // Walking: frequency scales from minFrequency to base frequency
+                currentFrequency = Mathf.Lerp(minFrequency, bobFrequency, Mathf.InverseLerp(0.1f, walkSpeed, speed));
+            } else {
+                // Running/sprinting: frequency scales from base frequency to maxFrequency
+                float sprintFactor = Mathf.InverseLerp(walkSpeed, sprintSpeed, speed);
+                currentFrequency = Mathf.Lerp(bobFrequency, maxFrequency, sprintFactor);
+            }
+            // Clamp frequency to prevent going too crazy
+            currentFrequency = Mathf.Clamp(currentFrequency, minFrequency, maxFrequency);
+        }
+
+        // Advance bob timer based on dynamic frequency
         if(_currentBobIntensity > 0.01f) {
-            _bobTimer += deltaTime * bobFrequency;
+            _bobTimer += deltaTime * currentFrequency;
         } else {
             _bobTimer = Mathf.Lerp(_bobTimer, 0f, smoothSpeed * deltaTime);
         }

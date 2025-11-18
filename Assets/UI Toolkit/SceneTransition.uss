@@ -17,3 +17,35 @@
     opacity: 0;
     display: none;
 }
+
+/* ===== LOADING ANIMATION ===== */
+
+.loading-animation-container {
+    position: absolute;
+    bottom: 40px;
+    right: 40px;
+    width: 60px;
+    height: 80px;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    /* No transition - will be controlled by code to sync with fade */
+}
+
+.loading-animation-container.visible {
+    opacity: 1;
+}
+
+.loading-animation-container.hidden {
+    opacity: 0;
+    display: none;
+}
+
+.loading-ball {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background-color: rgb(255, 255, 255);
+    position: absolute;
+    bottom: 0;
+}

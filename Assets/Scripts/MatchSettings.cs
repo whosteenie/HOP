@@ -26,6 +26,11 @@ public class MatchSettings : MonoBehaviour {
         if (matchDurationSeconds <= 0) {
             matchDurationSeconds = defaultMatchDurationSeconds;
         }
+        
+        // Initialize gamemode if not set
+        if (string.IsNullOrEmpty(selectedGameModeId)) {
+            selectedGameModeId = "Deathmatch";
+        }
     }
 
     public int GetMatchDurationSeconds() {

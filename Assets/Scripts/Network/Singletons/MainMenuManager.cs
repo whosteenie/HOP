@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
+using Unity.Services.Authentication;
 using Unity.Services.Multiplayer;
 using UnityEngine;
 using UnityEngine.Audio;
@@ -10,25 +11,23 @@ using Cursor = UnityEngine.Cursor;
 
 namespace Network.Singletons {
     public class MainMenuManager : MonoBehaviour {
-        #region Debug Logging
-
-        private const bool DebugLogs = true;
-
-        #endregion
 
         #region Serialized Fields
 
         public UIDocument uiDocument;
         
         [Header("Managers")]
-        [SerializeField] private SessionManager sessionManager;
-        [SerializeField] private GameMenuManager gameMenuManager;
+        // Note: SessionManager and GameMenuManager are now DDOL in Init scene
+        // Access via Instance properties instead of inspector references
         
         [Header("Audio")]
         [SerializeField] private AudioMixer audioMixer;
         [SerializeField] private AudioClip buttonClickSound;
         [SerializeField] private AudioClip buttonHoverSound;
         [SerializeField] private AudioClip backClickSound;
+        
+        [Header("Options")]
+        [SerializeField] private OptionsMenuManager optionsMenuManager;
         
         [Header("Player Customization")]
         [SerializeField] private Color[] playerColors;
@@ -67,8 +66,7 @@ namespace Network.Singletons {
         private Button _backGamemodeButton;
         private Button _backLobbyButton;
         private Button _backCreditsButton;
-        private Button _applySettingsButton;
-        private Button _backOptionsButton;
+        // Apply and back buttons are now handled by OptionsMenuManager
         private Button _joinButton;
         private Button _copyButton;
         private List<Button> _buttons;
@@ -77,31 +75,24 @@ namespace Network.Singletons {
         
         #region UI Elements - Options
         
-        private Slider _masterVolumeSlider;
-        private Slider _musicVolumeSlider;
-        private Slider _sfxVolumeSlider;
-        private Label _masterVolumeValue;
-        private Label _musicVolumeValue;
-        private Label _sfxVolumeValue;
-        private Slider _sensitivityXSlider;
-        private Slider _sensitivityYSlider;
-        private Label _sensitivityXValue;
-        private Label _sensitivityYValue;
-        private Toggle _invertYToggle;
-        private DropdownField _qualityDropdown;
-        private Toggle _vsyncToggle;
-        private DropdownField _fpsDropdown;
+        // Options functionality is now handled by OptionsMenuManager component
 
         #endregion
         
         #region UI Elements - Lobby
 
-        private Label _lobbyLabel;
         private Label _joinCodeLabel;
         private Label _waitingLabel;
         private TextField _joinCodeInput;
         private VisualElement _playerList;
         private VisualElement _toastContainer;
+        
+        // Gamemode dropdown elements
+        private VisualElement _gamemodeDropdownContainer;
+        private Label _gamemodeDisplayLabel;
+        private VisualElement _gamemodeArrow;
+        private VisualElement _gamemodeDropdownMenu;
+        private bool _isGamemodeDropdownOpen;
         
         #endregion
         
@@ -115,6 +106,17 @@ namespace Network.Singletons {
         
         #endregion
         
+        #region UI Elements - Unsaved Changes Dialog
+        
+        private VisualElement _unsavedChangesModal;
+        private Button _unsavedChangesYes;
+        private Button _unsavedChangesNo;
+        private Button _unsavedChangesCancel;
+        
+        // Original settings values are now tracked by OptionsMenuManager
+        
+        #endregion
+        
         #region UI Elements - Misc
         
         private TextField _nameInput;
@@ -123,6 +125,10 @@ namespace Network.Singletons {
         #endregion
         
         private string _selectedGameMode;
+        private bool _isHost;
+        private bool _justCreatedSessionAsHost; // Track if we just created a session as host
+        private bool _isStartingGame; // Track if start button was clicked and game is starting
+        private string _cachedPlayerName; // Temporary cache for our own player name (cleared on session leave)
 
         #region Unity Lifecycle
         
@@ -141,9 +147,7 @@ namespace Network.Singletons {
             _joinCodeInput.maxLength = 6;
             _joinCodeInput.isDelayed = false;
             
-            SetupAudioCallbacks();
-            SetupControlsCallbacks();
-            SetupGraphicsCallbacks();
+            SetupOptionsMenuManager();
             LoadSettings();
 
             var gameMenu = GameMenuManager.Instance;
@@ -153,6 +157,14 @@ namespace Network.Singletons {
                 if(rootContainer != null)
                     rootContainer.style.display = DisplayStyle.None;
             }
+            
+            // Mark initialization as complete after a frame to allow all setup to finish
+            StartCoroutine(FinishInitialization());
+        }
+        
+        private IEnumerator FinishInitialization() {
+            yield return null; // Wait one frame
+            _isInitializing = false;
         }
 
         private void OnEnable() {
@@ -164,16 +176,41 @@ namespace Network.Singletons {
                 SessionManager.Instance.HostDisconnected += OnHostDisconnected;
                 SessionManager.Instance.LobbyReset += ResetLobbyUI;
             }
+            
+            // Hook into session property changes directly
+            HookSessionPropertyChanges();
         }
         
         private void OnDisable() {
-            if(sessionManager != null) {
+            if(SessionManager.Instance != null) {
                 SessionManager.Instance.PlayersChanged -= OnPlayersChanged;
                 SessionManager.Instance.RelayCodeAvailable -= OnRelayCodeAvailable;
                 SessionManager.Instance.FrontStatusChanged -= UpdateStatusText;
+                SessionManager.Instance.SessionJoined -= OnSessionJoined;
                 SessionManager.Instance.HostDisconnected -= OnHostDisconnected;
                 SessionManager.Instance.LobbyReset -= ResetLobbyUI;
             }
+            
+            UnhookSessionPropertyChanges();
+        }
+        
+        private void HookSessionPropertyChanges() {
+            var session = SessionManager.Instance?.ActiveSession;
+            if(session != null) {
+                session.SessionPropertiesChanged += OnSessionPropertiesChanged;
+            }
+        }
+        
+        private void UnhookSessionPropertyChanges() {
+            var session = SessionManager.Instance?.ActiveSession;
+            if(session != null) {
+                session.SessionPropertiesChanged -= OnSessionPropertiesChanged;
+            }
+        }
+        
+        private void OnSessionPropertiesChanged() {
+            // Update gamemode when session properties change
+            UpdateGamemodeFromSession();
         }
         
         private void UpdateStatusText(string msg) {
@@ -183,6 +220,9 @@ namespace Network.Singletons {
         private void OnSessionJoined(string sessionCode) {
             _joinCodeLabel.text = $"Join Code: {sessionCode}";
             EnableButton(_copyButton);
+            HookSessionPropertyChanges(); // Hook into property changes when joining
+            UpdateHostStatus();
+            UpdateGamemodeFromSession(); // Try to get gamemode when joining
         }
         
         private void OnHostDisconnected() {
@@ -197,6 +237,60 @@ namespace Network.Singletons {
             _joinCodeLabel.text = "Join Code: - - - - - -";
             _playerList.Clear();
             _joinCodeInput.value = "";
+            _isHost = false;
+            _justCreatedSessionAsHost = false; // Reset host creation flag
+            _isStartingGame = false; // Reset game starting flag
+            _cachedPlayerName = null; // Clear cached player name on session leave
+            _isGamemodeDropdownOpen = false;
+            
+            // Reset gamemode dropdown UI
+            if(_gamemodeDropdownMenu != null) _gamemodeDropdownMenu.AddToClassList("hidden");
+            if(_gamemodeArrow != null) {
+                _gamemodeArrow.AddToClassList("hidden");
+                _gamemodeArrow.RemoveFromClassList("arrow-down");
+            }
+            
+            // Reset gamemode display label to "Lobby" (default state)
+            if(_gamemodeDisplayLabel != null) {
+                _gamemodeDisplayLabel.text = "Lobby";
+                _gamemodeDisplayLabel.RemoveFromClassList("gamemode-hover");
+                _gamemodeDisplayLabel.RemoveFromClassList("gamemode-clicked");
+            }
+            
+            UnsubscribeFromGamemodeEvents();
+            
+            // Re-enable host and join buttons when resetting lobby
+            EnableButton(_hostButton);
+            EnableButton(_joinButton);
+            
+            // Disable copy button (no join code available yet)
+            DisableButton(_copyButton);
+            
+            // Disable start button (only enabled for hosts)
+            DisableButton(_startButton);
+        }
+        
+        private void ShowArrowWithAnimation() {
+            if(_gamemodeArrow == null) return;
+            
+            // Remove hidden class first
+            _gamemodeArrow.RemoveFromClassList("hidden");
+            
+            // Force a frame to ensure base styles are applied (opacity: 0, translate: -20px)
+            StartCoroutine(AnimateArrowIn());
+        }
+        
+        private IEnumerator AnimateArrowIn() {
+            // Wait one frame to ensure base styles are applied
+            yield return null;
+            
+            // Set initial arrow direction (pointing down when closed - default state, no class needed)
+            _gamemodeArrow?.RemoveFromClassList("arrow-down");
+            
+            // Now add the slide-in class to trigger animation
+            _gamemodeArrow?.AddToClassList("arrow-slide-in");
+            
+            // Keep the class to maintain final position (don't remove it)
         }
         
         #endregion
@@ -224,38 +318,27 @@ namespace Network.Singletons {
             _backGamemodeButton = _root.Q<Button>("back-to-main");
             _backLobbyButton = _root.Q<Button>("back-to-gamemode");
             _backCreditsButton = _root.Q<Button>("back-to-lobby");
-            _applySettingsButton = _root.Q<Button>("apply-button");
-            _backOptionsButton = _root.Q<Button>("back-button");
+            // Apply and back buttons are now handled by OptionsMenuManager
+            // Unsaved changes dialog is now handled by OptionsMenuManager
             _hostButton = _root.Q<Button>("host-button");
             _startButton = _root.Q<Button>("start-button");
             _joinButton = _root.Q<Button>("join-button");
             _copyButton = _root.Q<Button>("copy-code-button");
             
-            // Options controls
-            _masterVolumeSlider = _root.Q<Slider>("master-volume");
-            _musicVolumeSlider = _root.Q<Slider>("music-volume");
-            _sfxVolumeSlider = _root.Q<Slider>("sfx-volume");
-            _masterVolumeValue = _root.Q<Label>("master-volume-value");
-            _musicVolumeValue = _root.Q<Label>("music-volume-value");
-            _sfxVolumeValue = _root.Q<Label>("sfx-volume-value");
-
-            _sensitivityXSlider = _root.Q<Slider>("sensitivity-x");
-            _sensitivityYSlider = _root.Q<Slider>("sensitivity-y");
-            _sensitivityXValue = _root.Q<Label>("sensitivity-x-value");
-            _sensitivityYValue = _root.Q<Label>("sensitivity-y-value");
-            _invertYToggle = _root.Q<Toggle>("invert-y");
-
-            _qualityDropdown = _root.Q<DropdownField>("quality-level");
-            _vsyncToggle = _root.Q<Toggle>("vsync");
-            _fpsDropdown = _root.Q<DropdownField>("target-fps");
+            // Options UI elements are now found by OptionsMenuManager
 
             // Lobby
-            _lobbyLabel = _root.Q<Label>("lobby-label");
             _joinCodeInput = _root.Q<TextField>("join-input");
             _joinCodeLabel = _root.Q<Label>("host-label");
             _toastContainer = _root.Q<VisualElement>("toast-container");
             _playerList = _root.Q<VisualElement>("player-list");
             _waitingLabel = _root.Q<Label>("waiting-label");
+            
+            // Gamemode dropdown
+            _gamemodeDropdownContainer = _root.Q<VisualElement>("gamemode-dropdown-container");
+            _gamemodeDisplayLabel = _root.Q<Label>("gamemode-display-label");
+            _gamemodeArrow = _root.Q<VisualElement>("gamemode-arrow");
+            _gamemodeDropdownMenu = _root.Q<VisualElement>("gamemode-dropdown-menu");
             
             _logoGithub = _root.Q<Image>("credits-logo");
             
@@ -282,12 +365,10 @@ namespace Network.Singletons {
                 
                 _hostButton,
                 _joinButton,
-                _copyButton,
+                // _copyButton - excluded from generic registration; hover sound registered only when enabled (after hosting/joining)
                 _backLobbyButton,
                 _startButton,
                 
-                _backOptionsButton,
-                _applySettingsButton,
                 _backCreditsButton
             };
         }
@@ -296,11 +377,12 @@ namespace Network.Singletons {
             // === Generic Button Events ===
             foreach(var b in _buttons) {
                 b.clicked += () => OnButtonClicked(b.ClassListContains("back-button"));
-                b.RegisterCallback<MouseOverEvent>(MouseHover);
+                // Use MouseEnterEvent instead of MouseOverEvent to prevent multiple triggers from child elements
+                b.RegisterCallback<MouseEnterEvent>(MouseEnter);
             }
             
             // === Main Menu Navigation ===
-            _playButton.clicked += () => ShowPanel(_gamemodePanel);
+            _playButton.clicked += OnPlayClicked;
             _loadoutButton.clicked += () => {
                 _nameInput.value = PlayerPrefs.GetString("PlayerName");
                 var loadoutManager = FindFirstObjectByType<LoadoutManager>();
@@ -308,36 +390,36 @@ namespace Network.Singletons {
                 ShowPanel(_loadoutPanel);
             };
             _optionsButton.clicked += () => {
-                LoadSettings();
+                Debug.Log("[MainMenuManager] Entering options menu");
+                if(optionsMenuManager != null) {
+                    optionsMenuManager.LoadSettings();
+                    optionsMenuManager.OnOptionsPanelShown();
+                }
                 ShowPanel(_optionsPanel);
             };
             _creditsButton.clicked += () => ShowPanel(_creditsPanel);
             _quitButton.clicked += OnQuitClicked;
             
-            // === Game Mode Selection ===
-            _modeOneButton.clicked += () => OnGameModeSelected("Deathmatch");
-            _modeTwoButton.clicked += () => OnGameModeSelected("Team Deathmatch");
-            _modeThreeButton.clicked += () => OnGameModeSelected("Private Match");
-            _backGamemodeButton.clicked += () => { ShowPanel(MainMenuPanel); };
-            
             // === Lobby Actions ===
             _hostButton.clicked += OnHostClicked;
             _joinCodeInput.RegisterValueChangedCallback(OnJoinCodeInputValueChanged);
+            _joinCodeInput.RegisterCallback<FocusInEvent>(OnJoinCodeInputFocusIn);
+            _joinCodeInput.RegisterCallback<FocusOutEvent>(OnJoinCodeInputFocusOut);
+            UpdateJoinCodePlaceholderVisibility();
             _joinButton.clicked += () => OnJoinGameClicked(_joinCodeInput.value.ToUpper());
             _copyButton.clicked += CopyJoinCodeToClipboard;
             _startButton.clicked += OnStartGameClicked;
             _backLobbyButton.clicked += () => {
                 SessionManager.Instance.LeaveToMainMenuAsync().Forget();
-                ShowPanel(_gamemodePanel);
+                ShowPanel(MainMenuPanel);
             };
             
-            // === Options ===
-            _applySettingsButton.clicked += ApplySettings;
-            _backOptionsButton.clicked += () => ShowPanel(MainMenuPanel);
+            // === Gamemode Dropdown ===
+            SetupGamemodeDropdown();
             
             // === Credits ===
-            _logoGithub.RegisterCallback<ClickEvent>(evt => { Application.OpenURL("https://github.com/whosteenie/HOP"); });
-            _logoGithub.RegisterCallback<MouseOverEvent>(MouseHover);
+            _logoGithub.RegisterCallback<ClickEvent>(_ => { Application.OpenURL("https://github.com/whosteenie/HOP"); });
+            _logoGithub.RegisterCallback<MouseEnterEvent>(MouseEnter);
             _backCreditsButton.clicked += () => ShowPanel(MainMenuPanel);
         }
         
@@ -363,9 +445,13 @@ namespace Network.Singletons {
             // Setup current color display clicks
             for(var i = 0; i < 7; i++) {
                 var currentCircle = _root.Q<VisualElement>($"first-time-current-color-{i}");
-                currentCircle?.RegisterCallback<ClickEvent>(evt => {
-                    _firstTimeColorOptions.ToggleInClassList("hidden");
-                });
+                if(currentCircle != null) {
+                    currentCircle.RegisterCallback<ClickEvent>(_ => {
+                        OnButtonClicked();
+                        _firstTimeColorOptions.ToggleInClassList("hidden");
+                    });
+                    currentCircle.RegisterCallback<MouseEnterEvent>(MouseEnter);
+                }
             }
 
             // Show first color by default
@@ -376,16 +462,22 @@ namespace Network.Singletons {
                 var optionCircle = _root.Q<VisualElement>($"first-time-option-color-{i}");
                 if(optionCircle != null) {
                     var index = i;
-                    optionCircle.RegisterCallback<ClickEvent>(evt => {
+                    optionCircle.RegisterCallback<ClickEvent>(_ => {
+                        OnButtonClicked();
                         _firstTimeSelectedColorIndex = index;
                         UpdateFirstTimeColorDisplay(index);
                         _firstTimeColorOptions.AddToClassList("hidden");
                     });
+                    optionCircle.RegisterCallback<MouseEnterEvent>(MouseEnter);
                 }
             }
 
             // Continue button
-            _firstTimeContinueButton.clicked += OnFirstTimeSetupContinue;
+            _firstTimeContinueButton.clicked += () => {
+                OnButtonClicked();
+                OnFirstTimeSetupContinue();
+            };
+            _firstTimeContinueButton.RegisterCallback<MouseEnterEvent>(MouseEnter);
         }
 
         private void UpdateFirstTimeColorDisplay(int colorIndex) {
@@ -440,46 +532,360 @@ namespace Network.Singletons {
         #region Navigation
 
         public void ShowPanel(VisualElement panel) {
-            foreach(var p in _panels)
+            foreach(var p in _panels) {
                 p.AddToClassList("hidden");
+                // Also clear any inline display styles that might override CSS
+                p.style.display = StyleKeyword.Null;
+            }
 
             panel.RemoveFromClassList("hidden");
+            // Ensure display is set to flex (or null to use CSS)
+            panel.style.display = DisplayStyle.Flex;
+            // Bring panel to front to ensure it renders above other panels
+            panel.BringToFront();
+        }
+        
+        private void OnPlayClicked() {
+            // Initialize gamemode from MatchSettings or default to Deathmatch
+            if(MatchSettings.Instance != null) {
+                _selectedGameMode = MatchSettings.Instance.selectedGameModeId;
+                if(string.IsNullOrEmpty(_selectedGameMode)) {
+                    _selectedGameMode = "Deathmatch";
+                    MatchSettings.Instance.selectedGameModeId = _selectedGameMode;
+                }
+            } else {
+                _selectedGameMode = "Deathmatch";
+            }
+            
+            // Show "Lobby" initially (will change to gamemode when host is clicked)
+            if(_gamemodeDisplayLabel != null) {
+                _gamemodeDisplayLabel.text = "Lobby";
+            }
+            
+            ResetLobbyUI();
+            ShowPanel(_lobbyPanel);
+        }
+        
+        private void SetupGamemodeDropdown() {
+            // Don't subscribe to hover/click events yet - wait until host becomes host
+            // Setup gamemode option buttons
+            var deathmatchOption = _root.Q<Button>("gamemode-option-deathmatch");
+            var teamDeathmatchOption = _root.Q<Button>("gamemode-option-team-deathmatch");
+            var tagOption = _root.Q<Button>("gamemode-option-tag");
+            var privateMatchOption = _root.Q<Button>("gamemode-option-private-match");
+            
+            if(deathmatchOption != null) {
+                deathmatchOption.clicked += () => {
+                    if(_isHost) {
+                        OnButtonClicked();
+                        OnGameModeSelected("Deathmatch");
+                    }
+                };
+                deathmatchOption.RegisterCallback<MouseEnterEvent>(evt => {
+                    if(_isHost) {
+                        MouseEnter(evt);
+                    }
+                });
+            }
+            if(teamDeathmatchOption != null) {
+                teamDeathmatchOption.clicked += () => {
+                    if(_isHost) {
+                        OnButtonClicked();
+                        OnGameModeSelected("Team Deathmatch");
+                    }
+                };
+                teamDeathmatchOption.RegisterCallback<MouseEnterEvent>(evt => {
+                    if(_isHost) {
+                        MouseEnter(evt);
+                    }
+                });
+            }
+            if(tagOption != null) {
+                tagOption.clicked += () => {
+                    if(_isHost) {
+                        OnButtonClicked();
+                        OnGameModeSelected("Tag");
+                    }
+                };
+                tagOption.RegisterCallback<MouseEnterEvent>(evt => {
+                    if(_isHost) {
+                        MouseEnter(evt);
+                    }
+                });
+            }
+            if(privateMatchOption != null) {
+                privateMatchOption.clicked += () => {
+                    if(_isHost) {
+                        OnButtonClicked();
+                        OnGameModeSelected("Private Match");
+                    }
+                };
+                privateMatchOption.RegisterCallback<MouseEnterEvent>(evt => {
+                    if(_isHost) {
+                        MouseEnter(evt);
+                    }
+                });
+            }
+        }
+        
+        private void SubscribeToGamemodeEvents() {
+            if(_gamemodeDisplayLabel != null) {
+                _gamemodeDisplayLabel.RegisterCallback<ClickEvent>(OnGamemodeLabelClicked);
+                _gamemodeDisplayLabel.RegisterCallback<MouseEnterEvent>(OnGamemodeMouseEnter);
+                _gamemodeDisplayLabel.RegisterCallback<MouseLeaveEvent>(OnGamemodeMouseLeave);
+            }
+        }
+        
+        private void UnsubscribeFromGamemodeEvents() {
+            if(_gamemodeDisplayLabel != null) {
+                _gamemodeDisplayLabel.UnregisterCallback<ClickEvent>(OnGamemodeLabelClicked);
+                _gamemodeDisplayLabel.UnregisterCallback<MouseEnterEvent>(OnGamemodeMouseEnter);
+                _gamemodeDisplayLabel.UnregisterCallback<MouseLeaveEvent>(OnGamemodeMouseLeave);
+            }
+        }
+        
+        private void OnGamemodeMouseEnter(MouseEnterEvent evt) {
+            if(_isHost) {
+                _gamemodeDisplayLabel?.AddToClassList("gamemode-hover");
+                // Play hover sound when entering the gamemode title (only for host)
+                MouseEnter(evt);
+            }
+        }
+        
+        private void OnGamemodeMouseLeave(MouseLeaveEvent evt) {
+            if(_isHost) {
+                _gamemodeDisplayLabel?.RemoveFromClassList("gamemode-hover");
+                // Don't remove clicked class here - it's handled by coroutine
+            }
+        }
+        
+        private void OnGamemodeLabelClicked(ClickEvent evt) {
+            if(!_isHost) return; // Only host can interact
+            
+            // Play click sound
+            OnButtonClicked();
+            
+            // Add click feedback (brief press effect)
+            _gamemodeDisplayLabel?.AddToClassList("gamemode-clicked");
+            
+            // Remove click feedback after brief moment, returning to hover or normal state
+            StartCoroutine(RemoveClickFeedback());
+            
+            // If clicking the same gamemode that's already selected, just toggle dropdown
+            ToggleGamemodeDropdown();
+        }
+        
+        private IEnumerator RemoveClickFeedback() {
+            yield return new WaitForSeconds(0.15f); // Brief press feedback
+            _gamemodeDisplayLabel?.RemoveFromClassList("gamemode-clicked");
+        }
+        
+        private void ToggleGamemodeDropdown() {
+            if(!_isHost) return;
+            
+            _isGamemodeDropdownOpen = !_isGamemodeDropdownOpen;
+            
+            if(_isGamemodeDropdownOpen) {
+                _gamemodeDropdownMenu?.RemoveFromClassList("hidden");
+                _gamemodeArrow?.RemoveFromClassList("hidden");
+                _gamemodeArrow?.AddToClassList("arrow-down"); // Points up when open
+                
+                // Position dropdown below container
+                if(_gamemodeDropdownMenu != null && _gamemodeDropdownContainer != null) {
+                    var containerWorldPos = _gamemodeDropdownContainer.worldBound.position;
+                    var containerLocalPos = _gamemodeDropdownContainer.parent.WorldToLocal(containerWorldPos);
+                    _gamemodeDropdownMenu.style.left = containerLocalPos.x;
+                    _gamemodeDropdownMenu.style.top = containerLocalPos.y + _gamemodeDropdownContainer.resolvedStyle.height + 8f;
+                }
+                
+                _gamemodeDropdownMenu?.BringToFront();
+            } else {
+                _gamemodeDropdownMenu?.AddToClassList("hidden");
+                _gamemodeArrow?.RemoveFromClassList("arrow-down"); // Points down when closed (default)
+            }
+        }
+        
+        private int GetMatchDurationForMode(string modeName) {
+            return modeName switch {
+                "Deathmatch"       => 600,  // 10 min
+                "Team Deathmatch"  => 900,  // 15 min
+                "Tag"              => 300,  // 5 min (shorter for Tag mode)
+                "Private Match"    => 1200, // 20 min or whatever
+                _                  => MatchSettings.Instance != null ? MatchSettings.Instance.defaultMatchDurationSeconds : 600
+            };
         }
         
         private void OnGameModeSelected(string modeName) {
+            // If clicking the same gamemode, just close the dropdown
+            if(_selectedGameMode == modeName && _isGamemodeDropdownOpen) {
+                ToggleGamemodeDropdown();
+                // Click feedback is handled by coroutine
+                return;
+            }
+            
+            // Update local state immediately for instant feedback
             _selectedGameMode = modeName;
             
-            _lobbyLabel.text = _selectedGameMode;
-            
-            if (MatchSettings.Instance != null) {
+            if(MatchSettings.Instance != null) {
                 var settings = MatchSettings.Instance;
                 settings.selectedGameModeId = modeName;
-
-                // Hard-coded durations for now; you can swap this to ScriptableObjects later.
-                settings.matchDurationSeconds = modeName switch {
-                    "Deathmatch"       => 30,  // 10 min
-                    "Team Deathmatch"  => 900,  // 15 min
-                    "Private Match"    => 1200, // 20 min or whatever
-                    _                  => settings.defaultMatchDurationSeconds
-                };
+                settings.matchDurationSeconds = GetMatchDurationForMode(modeName);
             }
 
-            if(modeName != "Private Match") {
-                DisableButton(_startButton);
+            // Update display immediately (no delay)
+            UpdateGamemodeDisplay();
+            ToggleGamemodeDropdown(); // Close dropdown after selection
+            
+            // Sync gamemode to session properties in background (fire and forget)
+            // This allows the host to see the change immediately while it syncs to clients
+            SyncGamemodeToSessionAsync(modeName).Forget();
+            
+            // Click feedback is handled by coroutine, don't remove here
+            
+            // Start button is always enabled for hosts (regardless of gamemode)
+            // It's disabled for non-hosts in UpdateHostStatus
+        }
+        
+        private async UniTask SyncGamemodeToSessionAsync(string gamemode) {
+            var session = SessionManager.Instance?.ActiveSession;
+            if(session == null || !_isHost) return;
+            
+            try {
+                var host = session.AsHost();
+                if(host != null) {
+                    host.SetProperty("gamemode", new SessionProperty(gamemode, VisibilityPropertyOptions.Member));
+                    await host.SavePropertiesAsync();
+                }
+            } catch(Exception e) {
+                Debug.LogWarning($"[MainMenuManager] Failed to sync gamemode to session: {e.Message}");
+            }
+        }
+        
+        private void UpdateGamemodeDisplay() {
+            if(_gamemodeDisplayLabel != null) {
+                // Show gamemode to host, "Lobby" to clients
+                if(_isHost) {
+                    _gamemodeDisplayLabel.text = _selectedGameMode ?? "Deathmatch";
+                } else {
+                    _gamemodeDisplayLabel.text = "Lobby";
+                }
+            }
+            
+            // Update host status and enable/disable dropdown interaction
+            UpdateHostStatus();
+        }
+        
+        private void UpdateGamemodeFromSession() {
+            var session = SessionManager.Instance?.ActiveSession;
+            if(session == null || _isHost) return; // Only update for clients
+            
+            // Try to get gamemode from session properties
+            if(session.Properties.TryGetValue("gamemode", out var prop) && !string.IsNullOrEmpty(prop.Value)) {
+                _selectedGameMode = prop.Value;
+                if(_gamemodeDisplayLabel != null) {
+                    _gamemodeDisplayLabel.text = _selectedGameMode;
+                }
+                
+                // Also update MatchSettings
+                if(MatchSettings.Instance != null) {
+                    MatchSettings.Instance.selectedGameModeId = _selectedGameMode;
+                }
             } else {
-                EnableButton(_startButton);
+                // No gamemode set yet, show "Lobby"
+                if(_gamemodeDisplayLabel != null) {
+                    _gamemodeDisplayLabel.text = "Lobby";
+                }
             }
-
-            _joinCodeLabel.text = "Join Code: - - - - - -";
-            _waitingLabel.text = "Join or host";
-
-            EnableButton(_hostButton);
-            EnableButton(_joinButton);
-            DisableButton(_copyButton);
-
-            _joinCodeInput.value = "";
-            _playerList.Clear();
-            ShowPanel(_lobbyPanel);
+        }
+        
+        private void UpdateHostStatus() {
+            var session = SessionManager.Instance?.ActiveSession;
+            var wasHost = _isHost;
+            
+            if(session == null) {
+                _isHost = false;
+                Debug.Log("[MainMenuManager] UpdateHostStatus: No active session, setting _isHost = false");
+            } else {
+                // Check if current player is host
+                var hostId = session.Host;
+                bool detectedAsHost = false;
+                
+                if(!string.IsNullOrEmpty(hostId)) {
+                    // Primary check: Use session.IsHost property (most reliable)
+                    if(session.IsHost) {
+                        detectedAsHost = true;
+                        Debug.Log($"[MainMenuManager] UpdateHostStatus: session.IsHost = true, hostId = {hostId}");
+                    } 
+                    // Fallback: If we just created this session as host, we're the host
+                    else if(_justCreatedSessionAsHost) {
+                        detectedAsHost = true;
+                        Debug.Log($"[MainMenuManager] UpdateHostStatus: Just created session as host (fallback), hostId = {hostId}");
+                    }
+                    // Fallback: If we're the only player, we must be the host
+                    else if(session.Players.Count == 1) {
+                        detectedAsHost = true;
+                        Debug.Log($"[MainMenuManager] UpdateHostStatus: Only player in session (count={session.Players.Count}), assuming host");
+                    }
+                    // Additional fallback: Check if we created this session (tracked via session creation)
+                    else {
+                        Debug.Log($"[MainMenuManager] UpdateHostStatus: session.IsHost = {session.IsHost}, Players.Count = {session.Players.Count}, hostId = {hostId}, _justCreatedSessionAsHost = {_justCreatedSessionAsHost}");
+                    }
+                } else {
+                    // Even if no hostId, if we just created the session, we're likely the host
+                    if(_justCreatedSessionAsHost) {
+                        detectedAsHost = true;
+                        Debug.Log("[MainMenuManager] UpdateHostStatus: Just created session as host (no hostId yet)");
+                    } else {
+                        Debug.Log("[MainMenuManager] UpdateHostStatus: No host ID in session");
+                    }
+                }
+                
+                _isHost = detectedAsHost;
+            }
+            
+            Debug.Log($"[MainMenuManager] UpdateHostStatus: Final _isHost = {_isHost} (was {wasHost})");
+            
+            // Subscribe/unsubscribe to events based on host status
+            if(_isHost && !wasHost) {
+                // Just became host - subscribe to events and show arrow with animation
+                Debug.Log("[MainMenuManager] Just became host - subscribing to events and showing arrow");
+                SubscribeToGamemodeEvents();
+                ShowArrowWithAnimation();
+            } else if(!_isHost && wasHost) {
+                // No longer host - unsubscribe from events and hide arrow
+                Debug.Log("[MainMenuManager] No longer host - unsubscribing from events and hiding arrow");
+                UnsubscribeFromGamemodeEvents();
+                _gamemodeArrow?.AddToClassList("hidden");
+                _gamemodeDropdownMenu?.AddToClassList("hidden");
+                _isGamemodeDropdownOpen = false;
+                _gamemodeDisplayLabel?.RemoveFromClassList("gamemode-hover");
+                _gamemodeDisplayLabel?.RemoveFromClassList("gamemode-clicked");
+            } else if(!_isHost) {
+                // Client - try to get gamemode from session
+                UpdateGamemodeFromSession();
+            }
+            
+            // Enable/disable dropdown interaction based on host status
+            if(_gamemodeDisplayLabel != null) {
+                _gamemodeDisplayLabel.SetEnabled(_isHost);
+            }
+            
+            // Start button: enabled for hosts (only if not in gameplay and not already starting), disabled for non-hosts or if already in gameplay or starting
+            if(_isHost && !(SessionManager.Instance?.IsInGameplay ?? false) && !_isStartingGame) {
+                Debug.Log("[MainMenuManager] Enabling start button (host detected, not in gameplay, not starting)");
+                EnableButton(_startButton);
+            } else {
+                Debug.Log($"[MainMenuManager] Disabling start button (not host or in gameplay or starting: isHost={_isHost}, isInGameplay={SessionManager.Instance?.IsInGameplay ?? false}, isStartingGame={_isStartingGame})");
+                DisableButton(_startButton);
+            }
+            
+            // Hide dropdown if not host
+            if(!_isHost) {
+                _gamemodeDropdownMenu?.AddToClassList("hidden");
+                _isGamemodeDropdownOpen = false;
+                _gamemodeArrow?.RemoveFromClassList("arrow-down");
+                _gamemodeArrow?.RemoveFromClassList("arrow-slide-in");
+            }
         }
         
         #endregion
@@ -488,25 +894,100 @@ namespace Network.Singletons {
         
         private async void OnHostClicked() {
             try {
+                _isStartingGame = false; // Reset flag when hosting a new game
                 DisableButton(_hostButton);
                 DisableButton(_joinButton);
                 // _waitingLabel.text = "Waiting for connection...";
+                
+                // Clear player list immediately
+                if(_playerList != null) {
+                    _playerList.Clear();
+                }
+                
+                // Cache our own player name for immediate display
+                _cachedPlayerName = PlayerPrefs.GetString("PlayerName", "Player");
+                if(string.IsNullOrWhiteSpace(_cachedPlayerName)) {
+                    _cachedPlayerName = "Player";
+                }
+                Debug.Log($"[MainMenuManager] Cached player name for host: {_cachedPlayerName}");
 
-                var joinCode = await sessionManager.StartSessionAsHost();
+                var joinCode = await SessionManager.Instance.StartSessionAsHost();
 
                 if(string.IsNullOrEmpty(joinCode)) {
                     // _waitingLabel.text = "Failed to create session";
                     EnableButton(_hostButton);
                     EnableButton(_joinButton);
+                    _cachedPlayerName = null; // Clear cache on failure
                     return;
                 }
+
+                // Mark that we just created a session as host (fallback for host detection)
+                _justCreatedSessionAsHost = true;
+                Debug.Log("[MainMenuManager] Marked as just created session as host");
 
                 _joinCodeLabel.text = $"Join Code: {joinCode}";
                 // _waitingLabel.text = "Lobby ready";
 
-                EnableButton(_startButton);
                 EnableButton(_copyButton);
-                // Player list will be filled by PlayersChanged event.
+                
+                // Hook into property changes when hosting
+                HookSessionPropertyChanges();
+                
+                // Set default gamemode to "Deathmatch" when hosting
+                _selectedGameMode = "Deathmatch";
+                if(MatchSettings.Instance != null) {
+                    var settings = MatchSettings.Instance;
+                    settings.selectedGameModeId = "Deathmatch";
+                    settings.matchDurationSeconds = GetMatchDurationForMode("Deathmatch");
+                }
+                
+                // Update display to show "Deathmatch" instead of "Lobby"
+                if(_gamemodeDisplayLabel != null) {
+                    _gamemodeDisplayLabel.text = "Deathmatch";
+                }
+                
+                // Sync initial gamemode to session
+                await SyncGamemodeToSessionAsync("Deathmatch");
+                
+                // Refresh session to ensure IsHost property is set correctly
+                // Note: This is non-critical - we have fallback logic (_justCreatedSessionAsHost flag)
+                var session = SessionManager.Instance?.ActiveSession;
+                if(session != null) {
+                    try {
+                        // Small delay to avoid rate limiting if multiple operations happened quickly
+                        await UniTask.Delay(100);
+                        await session.RefreshAsync();
+                        Debug.Log($"[MainMenuManager] Session refreshed after hosting. IsHost = {session.IsHost}, Host = {session.Host}, Players = {session.Players.Count}");
+                    } catch(Exception e) {
+                        // Handle rate limiting gracefully - this is non-critical since we have fallback logic
+                        if(e.Message.Contains("Too Many Requests") || e.Message.Contains("429")) {
+                            Debug.Log($"[MainMenuManager] Rate limited on session refresh (non-critical, using fallback host detection)");
+                        } else {
+                            Debug.LogWarning($"[MainMenuManager] Failed to refresh session after hosting: {e.Message}");
+                        }
+                    }
+                }
+                
+                // Immediately refresh player list with current session players (or just ourselves if session hasn't updated)
+                RefreshPlayerList();
+                
+                // Update host status after becoming host (this will enable start button and show arrow)
+                // Also called by PlayersChanged event, but call here to ensure immediate update
+                // Force update host status - the _justCreatedSessionAsHost flag should ensure we're detected as host
+                UpdateHostStatus();
+                
+                // If still not detected as host after refresh, force it (fallback for second+ sessions)
+                if(!_isHost && _justCreatedSessionAsHost) {
+                    Debug.LogWarning("[MainMenuManager] Host not detected after refresh, forcing host status (fallback)");
+                    _isHost = true;
+                    EnableButton(_startButton);
+                    SubscribeToGamemodeEvents();
+                    ShowArrowWithAnimation();
+                    if(_gamemodeDisplayLabel != null) {
+                        _gamemodeDisplayLabel.SetEnabled(true);
+                    }
+                }
+                // Player list will be filled by PlayersChanged event (which may have cached players, so we refresh manually above).
             } catch(Exception e) {
                 Debug.LogException(e);
                 // _waitingLabel.text = "Error creating session: " + e.Message;
@@ -523,21 +1004,37 @@ namespace Network.Singletons {
                     return;
                 }
 
+                // Clear player list immediately
+                if(_playerList != null) {
+                    _playerList.Clear();
+                }
+                
+                // Cache our own player name for immediate display
+                _cachedPlayerName = PlayerPrefs.GetString("PlayerName", "Player");
+                if(string.IsNullOrWhiteSpace(_cachedPlayerName)) {
+                    _cachedPlayerName = "Player";
+                }
+                Debug.Log($"[MainMenuManager] Cached player name for join: {_cachedPlayerName}");
 
                 // _waitingLabel.text = "Joining lobby...";
                 DisableButton(_hostButton);
                 DisableButton(_joinButton);
 
-                var result = await sessionManager.JoinSessionByCodeAsync(code);
+                var result = await SessionManager.Instance.JoinSessionByCodeAsync(code);
                 _waitingLabel.text = result;
                 if(result.Contains("Lobby joined")) {
                     _joinCodeLabel.text = $"Join Code: {code}";
                     EnableButton(_copyButton);
+                    
+                    // Immediately refresh player list with current session players
+                    // This ensures we see the host and any other players even if session state is cached
+                    RefreshPlayerList();
                 } else {
                     EnableButton(_joinButton);
                     EnableButton(_hostButton);
+                    _cachedPlayerName = null; // Clear cache on failure
                 }
-                // Player list will be filled by PlayersChanged event.
+                // Player list will be filled by PlayersChanged event (which may have cached players, so we refresh manually above).
             } catch(Exception e) {
                 Debug.LogException(e);
                 _waitingLabel.text = "Error joining session: " + e.Message;
@@ -548,13 +1045,21 @@ namespace Network.Singletons {
         
         private async void OnStartGameClicked() {
             try {
+                _isStartingGame = true; // Mark that we're starting the game
                 DisableButton(_startButton);
                 // _waitingLabel.text = "Starting game...";
+                
+                // Close gamemode dropdown when starting game (as if a gamemode was selected)
+                if(_isGamemodeDropdownOpen) {
+                    ToggleGamemodeDropdown();
+                }
 
-                await sessionManager.BeginGameplayAsHostAsync();
+                await SessionManager.Instance.BeginGameplayAsHostAsync();
+                // Once gameplay actually starts, IsInGameplay will be true, so the flag will be checked but IsInGameplay takes precedence
             } catch(Exception e) {
                 Debug.LogException(e);
                 _waitingLabel.text = "Failed to start game: " + e.Message;
+                _isStartingGame = false; // Reset flag on error so button can be clicked again
                 EnableButton(_startButton);
             }
         }
@@ -567,22 +1072,62 @@ namespace Network.Singletons {
         }
         
         private void OnPlayersChanged(IReadOnlyList<IReadOnlyPlayer> players) {
-            if(_playerList == null || players == null) return;
-
+            RefreshPlayerList(players);
+        }
+        
+        /// <summary>
+        /// Manually refresh the player list with the given players, or current session players if null.
+        /// This ensures the player list updates immediately even if session state is cached.
+        /// </summary>
+        private void RefreshPlayerList(IReadOnlyList<IReadOnlyPlayer> players = null) {
+            if(_playerList == null) return;
+            
+            // Clear the list first
             _playerList.Clear();
-
+            
+            // Get players from parameter or current session
+            if(players == null) {
+                var session = SessionManager.Instance?.ActiveSession;
+                if(session == null) return;
+                players = session.Players;
+            }
+            
+            if(players == null || players.Count == 0) {
+                Debug.Log("[MainMenuManager] No players to display in player list");
+                return;
+            }
+            
             // Identify host
             var hostId = SessionManager.Instance.ActiveSession?.Host;
-
+            
+            Debug.Log($"[MainMenuManager] Refreshing player list with {players.Count} players (hostId: {hostId})");
+            
             foreach(var p in players) {
-                var display = (p.Properties != null &&
-                               p.Properties.TryGetValue("playerName", out var prop) &&
-                               !string.IsNullOrEmpty(prop.Value))
-                    ? prop.Value
-                    : p.Id;
-
-                AddPlayerEntry(display, p.Id == hostId);
+                string display;
+                
+                // Try to get player name from properties
+                if(p.Properties != null &&
+                   p.Properties.TryGetValue("playerName", out var prop) &&
+                   !string.IsNullOrEmpty(prop.Value)) {
+                    display = prop.Value;
+                } 
+                // Fallback to cached name if available (for ourselves when session hasn't updated yet)
+                else if(!string.IsNullOrEmpty(_cachedPlayerName) && p.Id == AuthenticationService.Instance.PlayerId) {
+                    display = _cachedPlayerName;
+                    Debug.Log($"[MainMenuManager] Using cached player name for self: {display}");
+                }
+                // Final fallback to player ID
+                else {
+                    display = p.Id;
+                }
+                
+                bool isHost = !string.IsNullOrEmpty(hostId) && p.Id == hostId;
+                AddPlayerEntry(display, isHost);
+                Debug.Log($"[MainMenuManager] Added player to list: {display} (isHost: {isHost}, id: {p.Id})");
             }
+            
+            // Update host status after players change
+            UpdateHostStatus();
         }
         
         private void AddPlayerEntry(string playerName, bool isHost) {
@@ -601,6 +1146,9 @@ namespace Network.Singletons {
         }
         
         private void CopyJoinCodeToClipboard() {
+            // Play click sound
+            OnButtonClicked();
+            
             // Extract code from "Join Code: ABC123" → "ABC123"
             var fullText = _joinCodeLabel.text;
             var code = fullText.Replace("Join Code: ", "").Trim();
@@ -617,116 +1165,54 @@ namespace Network.Singletons {
             if(evt.newValue != evt.newValue.ToUpper()) {
                 _joinCodeInput.value = evt.newValue.ToUpper();
             }
+            UpdateJoinCodePlaceholderVisibility();
+        }
+        
+        private void OnJoinCodeInputFocusIn(FocusInEvent evt) {
+            UpdateJoinCodePlaceholderVisibility();
+        }
+        
+        private void OnJoinCodeInputFocusOut(FocusOutEvent evt) {
+            UpdateJoinCodePlaceholderVisibility();
+        }
+        
+        private void UpdateJoinCodePlaceholderVisibility() {
+            if(_joinCodeInput == null) return;
+            
+            // Hide placeholder if field has value or is focused
+            bool hasValue = !string.IsNullOrEmpty(_joinCodeInput.value);
+            
+            // Unity's hide-placeholder-on-focus handles focus, but we need to handle value
+            // We'll use a class to hide the placeholder when there's a value
+            if(hasValue) {
+                _joinCodeInput.AddToClassList("has-value");
+            } else {
+                _joinCodeInput.RemoveFromClassList("has-value");
+            }
         }
         
         #endregion
         
         #region Settings
-
-        private void SetupAudioCallbacks() {
-            _masterVolumeSlider.RegisterValueChangedCallback(evt => {
-                _masterVolumeValue.text = $"{Mathf.RoundToInt(evt.newValue * 100)}%";
-            });
-            _musicVolumeSlider.RegisterValueChangedCallback(evt => {
-                _musicVolumeValue.text = $"{Mathf.RoundToInt(evt.newValue * 100)}%";
-            });
-            _sfxVolumeSlider.RegisterValueChangedCallback(evt => {
-                _sfxVolumeValue.text = $"{Mathf.RoundToInt(evt.newValue * 100)}%";
-            });
-        }
-
-        private static float LinearToDb(float linear) => linear <= 0f ? -80f : 20f * Mathf.Log10(linear);
-        private static float DbToLinear(float db) => db <= -80f ? 0f : Mathf.Pow(10f, db / 20);
-
-        private void SetupControlsCallbacks() {
-            _sensitivityXSlider.RegisterValueChangedCallback(evt => {
-                _sensitivityXValue.text = evt.newValue.ToString("F2");
-            });
-
-            _sensitivityYSlider.RegisterValueChangedCallback(evt => {
-                _sensitivityYValue.text = evt.newValue.ToString("F2");
-            });
-        }
-
-        private void SetupGraphicsCallbacks() {
-            _qualityDropdown.choices = new List<string>(QualitySettings.names);
-            _qualityDropdown.index = QualitySettings.GetQualityLevel();
-
-            _fpsDropdown.choices = new List<string> { "30", "60", "120", "144", "Unlimited" };
-        }
-
-        private void LoadSettings() {
-            var masterDb = PlayerPrefs.GetFloat("MasterVolume", 0f);
-            var musicDb = PlayerPrefs.GetFloat("MusicVolume", -20f);
-            var sfxDb = PlayerPrefs.GetFloat("SFXVolume", -8f);
-            _masterVolumeSlider.value = DbToLinear(masterDb);
-            _musicVolumeSlider.value = DbToLinear(musicDb);
-            _sfxVolumeSlider.value = DbToLinear(sfxDb);
-
-            _sensitivityXSlider.value = PlayerPrefs.GetFloat("SensitivityX", 0.1f);
-            _sensitivityYSlider.value = PlayerPrefs.GetFloat("SensitivityY", 0.1f);
-            _invertYToggle.value = PlayerPrefs.GetInt("InvertY", 0) == 1;
-
-            _qualityDropdown.index = PlayerPrefs.GetInt("QualityLevel", QualitySettings.GetQualityLevel());
-            _vsyncToggle.value = PlayerPrefs.GetInt("VSync", 0) == 1;
-            _fpsDropdown.index = PlayerPrefs.GetInt("TargetFPS", 1);
-
-            ApplySettingsInternal();
+        
+        private void SetupOptionsMenuManager() {
+            if(optionsMenuManager == null) {
+                Debug.LogError("[MainMenuManager] OptionsMenuManager not assigned!");
+                return;
+            }
             
-            _masterVolumeValue.text = $"{Mathf.RoundToInt(_masterVolumeSlider.value * 100)}%";
-            _musicVolumeValue.text = $"{Mathf.RoundToInt(_musicVolumeSlider.value * 100)}%";
-            _sfxVolumeValue.text = $"{Mathf.RoundToInt(_sfxVolumeSlider.value * 100)}%";
-            _sensitivityXValue.text = _sensitivityXSlider.value.ToString("F2");
-            _sensitivityYValue.text = _sensitivityYSlider.value.ToString("F2");
+            // Set up callbacks
+            optionsMenuManager.OnButtonClickedCallback = OnButtonClicked;
+            optionsMenuManager.MouseEnterCallback = MouseEnter;
+            optionsMenuManager.OnBackFromOptionsCallback = () => ShowPanel(MainMenuPanel);
+            
+            // Initialize the options menu manager
+            optionsMenuManager.Initialize();
         }
-
-        private void ApplySettings() {
-            var masterDb = LinearToDb(_masterVolumeSlider.value);
-            var musicDb = LinearToDb(_musicVolumeSlider.value);
-            var sfxDb = LinearToDb(_sfxVolumeSlider.value);
-            PlayerPrefs.SetFloat("MasterVolume", masterDb);
-            PlayerPrefs.SetFloat("MusicVolume", musicDb);
-            PlayerPrefs.SetFloat("SFXVolume", sfxDb);
-
-            PlayerPrefs.SetFloat("SensitivityX", _sensitivityXSlider.value);
-            PlayerPrefs.SetFloat("SensitivityY", _sensitivityYSlider.value);
-            PlayerPrefs.SetInt("InvertY", _invertYToggle.value ? 1 : 0);
-
-            PlayerPrefs.SetInt("QualityLevel", _qualityDropdown.index);
-            PlayerPrefs.SetInt("VSync", _vsyncToggle.value ? 1 : 0);
-            PlayerPrefs.SetInt("TargetFPS", _fpsDropdown.index);
-
-            PlayerPrefs.Save();
-
-            ApplySettingsInternal();
-
-            Debug.Log("Settings applied and saved!");
-        }
-
-        private void ApplySettingsInternal() {
-            audioMixer.SetFloat("masterVolume", LinearToDb(_masterVolumeSlider.value));
-            audioMixer.SetFloat("musicVolume", LinearToDb(_musicVolumeSlider.value));
-            audioMixer.SetFloat("soundFXVolume", LinearToDb(_sfxVolumeSlider.value));
-
-            QualitySettings.SetQualityLevel(_qualityDropdown.index);
-            QualitySettings.vSyncCount = _vsyncToggle.value ? 1 : 0;
-
-            switch(_fpsDropdown.index) {
-                case 0:
-                    Application.targetFrameRate = 30;
-                    break;
-                case 1:
-                    Application.targetFrameRate = 60;
-                    break;
-                case 2:
-                    Application.targetFrameRate = 120;
-                    break;
-                case 3:
-                    Application.targetFrameRate = 144;
-                    break;
-                case 4:
-                    Application.targetFrameRate = -1;
-                    break; // Unlimited
+        
+        private void LoadSettings() {
+            if(optionsMenuManager != null) {
+                optionsMenuManager.LoadSettings();
             }
         }
 
@@ -734,25 +1220,39 @@ namespace Network.Singletons {
         
         #region UI Utilities
         
+        private bool _isInitializing = true;
+        
         public void OnButtonClicked(bool isBack = false) {
-            SoundFXManager.Instance.PlayUISound(!isBack ? buttonClickSound : backClickSound);
+            // Don't play sounds during initialization to prevent startup sound
+            if(_isInitializing) return;
+            
+            if(SoundFXManager.Instance != null) {
+                var sound = !isBack ? buttonClickSound : backClickSound;
+                if(sound != null) {
+                    SoundFXManager.Instance.PlayUISound(sound);
+                }
+            }
         }
         
-        public void MouseHover(MouseOverEvent evt) {
-            SoundFXManager.Instance.PlayUISound(buttonHoverSound);
+        public void MouseEnter(MouseEnterEvent evt) {
+            // MouseEnterEvent only fires when entering the element, not when moving over children
+            // This prevents multiple triggers when moving mouse over child elements (images, etc.)
+            if(SoundFXManager.Instance != null && buttonHoverSound != null) {
+                SoundFXManager.Instance.PlayUISound(buttonHoverSound);
+            }
         }
         
         private void EnableButton(Button button) {
             button.AddToClassList("menu-chip-enabled");
             button.SetEnabled(true);
-            button.UnregisterCallback<MouseOverEvent>(MouseHover);
-            button.RegisterCallback<MouseOverEvent>(MouseHover);
+            button.UnregisterCallback<MouseEnterEvent>(MouseEnter);
+            button.RegisterCallback<MouseEnterEvent>(MouseEnter);
         }
 
         private void DisableButton(Button button) {
             button.RemoveFromClassList("menu-chip-enabled");
             button.SetEnabled(false);
-            button.UnregisterCallback<MouseOverEvent>(MouseHover);
+            button.UnregisterCallback<MouseEnterEvent>(MouseEnter);
         }
         
         private IEnumerator CopyToast(string message) {

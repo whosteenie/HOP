@@ -23,7 +23,7 @@ public class LoadoutManager : MonoBehaviour {
     [SerializeField] private GameObject playerModelPrefab;
     [SerializeField] private RenderTexture previewRenderTexture;
     [SerializeField] private float cameraTransitionDuration = 1f;
-        
+    
     private UIDocument _uiDocument;
     private VisualElement _root;
         
@@ -88,7 +88,7 @@ public class LoadoutManager : MonoBehaviour {
         _applyNameButton = _root.Q<Button>("apply-name-button");
 
         _applyNameButton.clicked += () => mainMenuManager.OnButtonClicked();
-        _applyNameButton.RegisterCallback<MouseOverEvent>(mainMenuManager.MouseHover);
+        _applyNameButton.RegisterCallback<MouseEnterEvent>(mainMenuManager.MouseEnter);
         
         // Weapon slots
         _primarySlot = _root.Q<VisualElement>("primary-weapon-slot");
@@ -109,7 +109,7 @@ public class LoadoutManager : MonoBehaviour {
             mainMenuManager.OnButtonClicked(true);
             OnBackClicked();
         };
-        _backLoadoutButton.RegisterCallback<MouseOverEvent>(mainMenuManager.MouseHover);
+        _backLoadoutButton.RegisterCallback<MouseEnterEvent>(mainMenuManager.MouseEnter);
     }
         
     private void SetupEventHandlers() {
@@ -119,7 +119,7 @@ public class LoadoutManager : MonoBehaviour {
             if (currentCircle is not null) {
                 currentCircle.RegisterCallback<ClickEvent>(evt => ToggleColorPicker());
                 currentCircle.RegisterCallback<ClickEvent>(evt => mainMenuManager.OnButtonClicked());
-                currentCircle.RegisterCallback<MouseOverEvent>(evt => mainMenuManager.MouseHover(evt));
+                currentCircle.RegisterCallback<MouseEnterEvent>(evt => mainMenuManager.MouseEnter(evt));
             }
         }
         
@@ -130,7 +130,7 @@ public class LoadoutManager : MonoBehaviour {
                 var index = i;
                 optionCircle.RegisterCallback<ClickEvent>(evt => SelectColor(index));
                 optionCircle.RegisterCallback<ClickEvent>(evt => mainMenuManager.OnButtonClicked());
-                optionCircle.RegisterCallback<MouseOverEvent>(evt => mainMenuManager.MouseHover(evt));
+                optionCircle.RegisterCallback<MouseEnterEvent>(evt => mainMenuManager.MouseEnter(evt));
             }
         }
             
@@ -141,15 +141,15 @@ public class LoadoutManager : MonoBehaviour {
         // Weapon slot clicks
         _primarySlot.RegisterCallback<ClickEvent>(evt => ToggleWeaponDropdown(_primaryDropdown));
         _primarySlot.RegisterCallback<ClickEvent>(evt => mainMenuManager.OnButtonClicked());
-        _primarySlot.RegisterCallback<MouseOverEvent>(evt => mainMenuManager.MouseHover(evt));
+        _primarySlot.RegisterCallback<MouseEnterEvent>(evt => mainMenuManager.MouseEnter(evt));
         
         _secondarySlot.RegisterCallback<ClickEvent>(evt => ToggleWeaponDropdown(_secondaryDropdown));
         _secondarySlot.RegisterCallback<ClickEvent>(evt => mainMenuManager.OnButtonClicked());
-        _secondarySlot.RegisterCallback<MouseOverEvent>(evt => mainMenuManager.MouseHover(evt));
+        _secondarySlot.RegisterCallback<MouseEnterEvent>(evt => mainMenuManager.MouseEnter(evt));
         
         _tertiarySlot.RegisterCallback<ClickEvent>(evt => ToggleWeaponDropdown(_tertiaryDropdown));
         _tertiarySlot.RegisterCallback<ClickEvent>(evt => mainMenuManager.OnButtonClicked());
-        _tertiarySlot.RegisterCallback<MouseOverEvent>(evt => mainMenuManager.MouseHover(evt));
+        _tertiarySlot.RegisterCallback<MouseEnterEvent>(evt => mainMenuManager.MouseEnter(evt));
             
         // Populate weapon dropdowns
         PopulateWeaponDropdown(_primaryDropdown.Q<ScrollView>("primary-scroll"), primaryWeapons, SelectPrimaryWeapon);
@@ -308,6 +308,12 @@ public class LoadoutManager : MonoBehaviour {
         
     private void Setup3DPreview() {
         if (previewCamera == null || playerModelPrefab == null) return;
+        
+        // Set camera depth higher than UI camera to render above HUD background
+        // UI camera typically has depth 0, so we'll use a higher value
+        if(previewCamera.depth <= 0) {
+            previewCamera.depth = 1; // Render above UI (which is typically depth 0)
+        }
             
         if (_previewPlayerModel != null) {
             Destroy(_previewPlayerModel);
@@ -317,11 +323,19 @@ public class LoadoutManager : MonoBehaviour {
         modelPosition.y -= 0.5f;
         
         _previewPlayerModel = Instantiate(playerModelPrefab, modelPosition, Quaternion.Euler(0, 180, 0));
-        _previewPlayerModel.GetComponentInChildren<SkinnedMeshRenderer>().materials[0] = playerMaterials[PlayerPrefs.GetInt("PlayerSkinIndex", 0)];
+        _previewPlayerModel.GetComponentInChildren<SkinnedMeshRenderer>().materials[1] = playerMaterials[PlayerPrefs.GetInt("PlayerSkinIndex", 0)];
         
         var viewport = _root.Q<VisualElement>("player-model-viewport");
         if (viewport != null && previewRenderTexture != null) {
             viewport.style.backgroundImage = new StyleBackground(Background.FromRenderTexture(previewRenderTexture));
+            // Bring viewport to front of its parent to ensure it renders above other elements
+            viewport.BringToFront();
+            
+            // Also ensure the loadout panel is brought to front
+            var loadoutPanel = _root.Q<VisualElement>("loadout-panel");
+            if(loadoutPanel != null) {
+                loadoutPanel.BringToFront();
+            }
         }
             
         UpdatePlayerModel();
@@ -334,7 +348,7 @@ public class LoadoutManager : MonoBehaviour {
         if (skinnedRenderer != null && _selectedColorIndex < playerMaterials.Length) {
             var materials = skinnedRenderer.materials;
             if (materials.Length > 0) {
-                materials[0] = playerMaterials[_selectedColorIndex];
+                materials[1] = playerMaterials[_selectedColorIndex];
                 skinnedRenderer.materials = materials;
             }
         }
@@ -343,11 +357,19 @@ public class LoadoutManager : MonoBehaviour {
     private void OnBackClicked() {
         HideLoadout();
         
-        var loadoutPanel = _root.Q<VisualElement>("loadout-panel");
-        var mainMenuPanel = _root.Q<VisualElement>("main-menu-panel");
+        // Use MainMenuManager's ShowPanel to ensure proper display handling
+        if(mainMenuManager != null) {
+            mainMenuManager.ShowPanel(mainMenuManager.MainMenuPanel);
+        } else {
+            // Fallback if MainMenuManager is not available
+            var loadoutPanel = _root.Q<VisualElement>("loadout-panel");
+            var mainMenuPanel = _root.Q<VisualElement>("main-menu-panel");
             
-        loadoutPanel?.AddToClassList("hidden");
-        mainMenuPanel?.RemoveFromClassList("hidden");
+            loadoutPanel?.AddToClassList("hidden");
+            loadoutPanel.style.display = StyleKeyword.Null;
+            mainMenuPanel?.RemoveFromClassList("hidden");
+            mainMenuPanel.style.display = DisplayStyle.Flex;
+        }
     }
     
     private IEnumerator TransitionCameraToPreview() {

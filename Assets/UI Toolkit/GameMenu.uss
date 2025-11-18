@@ -7,7 +7,16 @@
     justify-content: space-between;
 }
 
-/* Positions by ID (no inline styles needed) */
+.root-container-visibility {
+    visibility: visible;
+    display: none;
+}
+
+.hud-visibility-visible {
+    visibility: visible;
+}
+
+/* Positions by ID */
 #health-container { position: absolute; left: 30px; bottom: 30px; }
 #multiplier-container { position: absolute; left: 50%; bottom: 30px; translate: -50% 0; }
 #ammo-container { position: absolute; right: 30px; bottom: 30px; }
@@ -16,26 +25,34 @@
 .health-container, .multiplier-container, .ammo-container {
     flex-direction: row; align-items: center;
     min-height: 56px; padding: 10px 16px;
-    border-radius: 10px; border-width: 1px;
-    background-color: rgba(18,18,18,0.75);
+    border-radius: 4px; border-width: 1px;
+    background-color: rgba(12, 12, 18, 0.85);
 }
 
 .health-container, .ammo-container {
-    border-color: rgba(200,60,60,0.5);
-    background-color: rgba(30,12,12,0.7);
+    border-color: rgba(200,60,60,0.4);
+    background-color: rgba(20, 10, 10, 0.85);
 }
 .multiplier-container {
-    border-color: rgba(60,150,200,0.5);
-    background-color: rgba(12,20,28,0.7);
+    border-color: rgba(60,150,200,0.4);
+    background-color: rgba(10, 15, 20, 0.85);
 }
 
 /* Bars */
 .health-bar, .multiplier-bar {
     width: 180px; height: 22px; margin-right: 12px;
-    border-radius: 10px; background-color: rgba(0,0,0,0.55);
+    border-radius: 4px; background-color: rgba(5, 5, 8, 0.8);
+    border-width: 1px;
+    border-color: rgba(200, 60, 60, 0.2);
 }
-.health-bar > .unity-progress-bar__progress { background-color: rgb(200,60,60); border-radius: 10px; }
-.multiplier-bar > .unity-progress-bar__progress { background-color: rgb(60,150,200); border-radius: 10px; }
+.health-bar > .unity-progress-bar__progress { 
+    background-color: rgb(200,60,60); 
+    border-radius: 4px; 
+}
+.multiplier-bar > .unity-progress-bar__progress { 
+    background-color: rgb(60,150,200); 
+    border-radius: 4px; 
+}
 
 /* Values */
 .health-value, .multiplier-value {
@@ -46,7 +63,7 @@
 }
 .ammo-slash { color: rgba(255,255,255,0.8); font-size: 22px; margin-left: 6px; margin-right: 6px; }
 
-/* Crosshair: full alpha red now */
+/* Crosshair */
 .crosshair { 
     position: absolute; 
     width: 100%; 
@@ -59,16 +76,58 @@
 .crosshair-line.horizontal { width: 18px; height: 2px; }
 .crosshair-line.vertical   { width: 2px; height: 18px; }
 
-/* Grapple indicator: intentionally untouched for your custom painter */
 .grapple-indicator { 
     position: absolute;
     width: 50px;
     height: 50px;
 }
 
-/* Pause / Options (reuse shared card look) */
+/* Pause / Options */
 .menu-container { width: 420px; padding: 28px; }
 .options-container { width: 760px; max-height: 80%; padding: 36px; }
+
+.pause-header {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    margin-bottom: 18px;
+}
+
+.pause-join-code-display {
+    flex-direction: row;
+    align-items: center;
+}
+
+.pause-join-code-label {
+    margin-right: 8px;
+}
+
+.pause-join-code-label-inline {
+    min-width: auto;
+    width: auto;
+    min-height: auto;
+    margin-right: 0;
+    margin-left: 0;
+    padding-right: 0;
+    font-size: 14px;
+}
+
+.copy-button {
+    width: 36px;
+    min-width: 36px;
+    padding-left: 0;
+    padding-right: 0;
+    align-items: center;
+    justify-content: center;
+}
+
+.copy-icon {
+    width: 20px;
+    height: 20px;
+    margin: auto;
+    --unity-image: url('/Assets/UI Toolkit/Images/copy.png');
+}
 
 /* ===== SCOREBOARD ===== */
 
@@ -83,11 +142,15 @@
     flex-direction: row;
     align-items: center;
     padding: 12px 16px;
-    background-color: rgba(200, 60, 60, 0.2);
-    border-radius: 8px;
+    background-color: rgba(200, 60, 60, 0.15);
+    border-radius: 4px;
     margin-bottom: 8px;
     border-width: 1px;
     border-color: rgba(200, 60, 60, 0.3);
+}
+
+.scoreboard-header-height-38px {
+    height: 38px;
 }
 
 .header-cell {
@@ -136,27 +199,37 @@
     flex-direction: row;
     align-items: center;
     padding: 10px 16px;
-    background-color: rgba(35, 35, 35, 0.6);
-    border-radius: 6px;
+    background-color: rgba(15, 15, 20, 0.7);
+    border-radius: 4px;
     margin-bottom: 4px;
     border-width: 1px;
-    border-color: rgba(255, 255, 255, 0.05);
+    border-color: rgba(200, 60, 60, 0.15);
     transition-duration: 0.2s;
 }
 
 .player-row:hover {
-    background-color: rgba(45, 45, 45, 0.8);
-    border-color: rgba(255, 255, 255, 0.12);
+    background-color: rgba(25, 25, 30, 0.85);
+    border-color: rgba(255, 100, 100, 0.3);
 }
 
 .player-row-local {
-    background-color: rgba(200, 60, 60, 0.15);
-    border-color: rgba(200, 60, 60, 0.3);
+    background-color: rgba(200, 60, 60, 0.12);
+    border-color: rgba(255, 100, 100, 0.3);
 }
 
 .player-row-local:hover {
-    background-color: rgba(200, 60, 60, 0.25);
-    border-color: rgba(200, 60, 60, 0.5);
+    background-color: rgba(200, 60, 60, 0.2);
+    border-color: rgba(255, 100, 100, 0.5);
+}
+
+.player-row-local-your-team {
+    background-color: rgba(50, 100, 255, 0.12);
+    border-color: rgba(100, 150, 255, 0.3);
+}
+
+.player-row-local-your-team:hover {
+    background-color: rgba(50, 100, 255, 0.2);
+    border-color: rgba(100, 150, 255, 0.5);
 }
 
 .player-ping {
@@ -182,16 +255,17 @@
     margin-left: 8px;
     margin-right: 8px;
     border-radius: 4px;
-    background-color: rgba(100, 100, 100, 0.3);
+    background-color: rgba(20, 20, 25, 0.6);
     border-width: 1px;
-    border-color: rgba(255, 255, 255, 0.15);
+    border-color: rgba(200, 60, 60, 0.2);
+    -unity-background-scale-mode: scale-to-fit;
 }
 
 .player-name {
     flex-grow: 1;
     min-width: 200px;
     font-size: 16px;
-    color: rgb(235, 235, 235);
+    color: rgb(240, 240, 240);
     -unity-text-align: middle-left;
     margin-left: 8px;
     overflow: hidden;
@@ -209,6 +283,161 @@
 .player-stat-highlight {
     color: rgb(255, 200, 100);
     -unity-font-style: bold;
+}
+
+/* ===== TDM SCOREBOARD ===== */
+
+.tdm-scoreboard-container {
+    width: 1100px;
+    max-height: 80%;
+    padding: 24px;
+    flex-direction: column;
+}
+
+.tdm-scoreboard-title {
+    margin-bottom: 12px;
+}
+
+.tdm-team-section {
+    flex-direction: column;
+    flex-grow: 1;
+    min-height: 0;
+}
+
+.tdm-team-section-enemy {
+    margin-bottom: 12px;
+}
+
+.tdm-team-section-your {
+}
+
+.tdm-team-label {
+    font-size: 18px;
+    -unity-font-style: bold;
+    color: rgb(255, 255, 255);
+    margin-bottom: 12px;
+    letter-spacing: 2px;
+}
+
+.tdm-team-header {
+    flex-direction: row;
+    align-items: center;
+    padding: 10px 16px;
+    background-color: rgba(200, 60, 60, 0.15);
+    border-radius: 4px;
+    margin-bottom: 8px;
+    border-width: 1px;
+    border-color: rgba(200, 60, 60, 0.3);
+    height: 36px;
+}
+
+.tdm-team-header-your {
+    background-color: rgba(50, 100, 255, 0.15);
+    border-color: rgba(100, 150, 255, 0.3);
+}
+
+.tdm-team-scroll {
+    flex-grow: 1;
+    max-height: 180px;
+    min-height: 80px;
+}
+
+.tdm-score-display {
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    margin-bottom: 12px;
+}
+
+.tdm-score-enemy {
+    margin-right: 15px;
+}
+
+.tdm-vs-label {
+    margin-left: 15px;
+    margin-right: 15px;
+}
+
+.tdm-score-your {
+    margin-left: 15px;
+}
+
+.tdm-score-container {
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 50px;
+    height: 50px;
+    min-width: 50px;
+    min-height: 50px;
+    padding: 0;
+    border-radius: 4px;
+    background-color: rgba(15, 15, 20, 0.9);
+    border-width: 1px;
+}
+
+.tdm-score-enemy {
+    border-color: rgba(255, 100, 100, 0.4);
+    background-color: rgba(255, 50, 50, 0.1);
+}
+
+.tdm-score-your {
+    border-color: rgba(100, 150, 255, 0.4);
+    background-color: rgba(50, 100, 255, 0.1);
+}
+
+.tdm-score-value {
+    font-size: 24px;
+    -unity-font-style: bold;
+    color: rgb(255, 255, 255);
+    -unity-text-align: middle-center;
+    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
+}
+
+.tdm-vs-label {
+    font-size: 14px;
+    -unity-font-style: bold;
+    color: rgba(255, 255, 255, 0.6);
+    letter-spacing: 1px;
+}
+
+.tdm-score-display-styled {
+    min-width: auto;
+    max-height: none;
+}
+
+.tdm-score-container-styled {
+    margin-left: 0;
+    margin-right: 15px;
+    width: 50px;
+    height: 50px;
+    min-width: 50px;
+    min-height: 50px;
+    max-width: 50px;
+    max-height: 50px;
+}
+
+.tdm-score-container-enemy-styled {
+    margin-left: 15px;
+    margin-right: 0;
+    width: 50px;
+    height: 50px;
+    min-width: 50px;
+    min-height: 50px;
+    max-width: 50px;
+    max-height: 50px;
+}
+
+.tdm-score-value-styled {
+    font-size: 24px;
+    padding: 0;
+    margin: 0;
+}
+
+.tdm-vs-label-styled {
+    padding-left: 2px;
+    font-size: 14px;
 }
 
 /* ===== KILL FEED ===== */
@@ -229,10 +458,10 @@
     justify-content: flex-end;
     padding: 8px 12px;
     margin-bottom: 6px;
-    border-radius: 6px;
-    background-color: rgba(18, 18, 18, 0.85);
+    border-radius: 4px;
+    background-color: rgba(12, 12, 18, 0.9);
     border-width: 1px;
-    border-color: rgba(255, 255, 255, 0.1);
+    border-color: rgba(200, 60, 60, 0.2);
     opacity: 1;
     transition-property: opacity, translate;
     transition-duration: 0.5s;
@@ -240,18 +469,17 @@
 }
 
 .kill-entry-local {
-    background-color: rgba(200, 60, 60, 0.3);
-    border-color: rgba(200, 60, 60, 0.5);
+    background-color: rgba(200, 60, 60, 0.25);
+    border-color: rgba(255, 100, 100, 0.4);
 }
 
 .kill-entry-fade {
     opacity: 0;
-    /*translate: 0 -20px 0;*/
 }
 
 .killer-name {
     font-size: 14px;
-    color: rgb(235, 235, 235);
+    color: rgb(240, 240, 240);
     -unity-font-style: bold;
     margin-right: 8px;
     -unity-text-align: middle-right;
@@ -288,10 +516,101 @@
 .damage-vignette {
     position: absolute;
     background-color: rgba(200, 60, 60, 0.9);
-    opacity: 0;
+    opacity: 0; /* Controlled by DamageVignetteUI script */
 }
 
-/* Sides (thin bars) */
+.corner {
+    position: absolute;
+    width: 12%;
+    height: 12%;
+    opacity: 0; /* Controlled by DamageVignetteUI script */
+}
+
+.corner-c-inline {
+    width: 35px;
+    height: 35px;
+    background-color: rgba(200, 60, 60, 0.9);
+}
+
+.corner-c-position-absolute-right-0 {
+    position: absolute;
+    right: 0;
+    width: 35px;
+    height: 35px;
+    background-color: rgba(200, 60, 60, 0.9);
+}
+
+.corner-c-position-absolute-bottom-0-left-0 {
+    background-color: rgba(200, 60, 60, 0.9);
+    width: 35px;
+    height: 35px;
+    bottom: 0;
+    left: 0;
+    position: absolute;
+}
+
+.corner-c-position-absolute-bottom-0-right-0 {
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    width: 35px;
+    height: 35px;
+    background-color: rgba(200, 60, 60, 0.9);
+}
+
+.corner-h-inline {
+    width: 150px;
+    height: 35px;
+    left: 35px;
+}
+
+.corner-h-inline-right-35px {
+    right: 35px;
+    left: auto;
+    width: 150px;
+    height: 35px;
+}
+
+.corner-h-inline-left-35px {
+    width: 150px;
+    height: 35px;
+    left: 35px;
+}
+
+.corner-h-inline-left-auto-right-35px {
+    left: auto;
+    right: 35px;
+    width: 150px;
+    height: 35px;
+}
+
+.corner-v-inline {
+    width: 35px;
+    height: 150px;
+    top: 35px;
+}
+
+.corner-v-inline-top-35px-bottom-auto {
+    top: 35px;
+    bottom: auto;
+    width: 35px;
+    height: 150px;
+}
+
+.corner-v-inline-bottom-35px-top-auto {
+    bottom: 35px;
+    width: 35px;
+    height: 150px;
+    top: auto;
+    left: auto;
+}
+
+.corner-v-inline-bottom-35px-top-auto-right {
+    bottom: 35px;
+    top: auto;
+    width: 35px;
+    height: 150px;
+}
 
 #hit-front {
     left: 30%;
@@ -321,44 +640,31 @@
     width: 3%;
 }
 
-/* Corner containers just define the region the “L” lives in */
 
-.corner {
-    position: absolute;
-    width: 12%;
-    height: 12%;
-}
-
-/* Top-left corner */
 #hit-frontLeft {
     left: 0;
     top: 0;
 }
 
-/* Top-right corner */
 #hit-frontRight {
     right: 0;
     top: 0;
 }
 
-/* Bottom-left corner */
 #hit-backLeft {
     left: 0;
     bottom: 0;
 }
 
-/* Bottom-right corner */
 #hit-backRight {
     right: 0;
     bottom: 0;
 }
 
-/* The “L” shape segments inside each corner */
-
 .corner-h {
     position: absolute;
     left: 0;
-    right: 40%;  /* short segment */
+    right: 40%;
     top: 0;
     height: 3%;
     background-color: rgba(200, 60, 60, 0.9);
@@ -373,8 +679,6 @@
     background-color: rgba(200, 60, 60, 0.9);
 }
 
-/* Mirror for right-hand corners */
-
 #hit-frontRight > .corner-h,
 #hit-backRight > .corner-h {
     left: 40%;
@@ -386,8 +690,6 @@
     left: auto;
     right: 0;
 }
-
-/* Mirror for bottom corners */
 
 #hit-backLeft > .corner-h,
 #hit-backRight > .corner-h {
@@ -407,16 +709,21 @@
     left: 50%;
     translate: -50% 0;
     padding: 6px 16px;
-    border-radius: 10px;
+    border-radius: 4px;
     border-width: 1px;
-    border-color: rgba(200, 60, 60, 0.5);
-    background-color: rgba(18, 18, 18, 0.85);
+    border-color: rgba(200, 60, 60, 0.4);
+    background-color: rgba(12, 12, 18, 0.9);
     justify-content: center;
     align-items: center;
 }
 
+.match-timer-container-max-width {
+    min-width: 112px;
+    max-width: 112px;
+}
+
 .match-timer-label {
-    color: rgb(235, 235, 235);
+    color: rgb(240, 240, 240);
     font-size: 22px;
     -unity-font-style: bold;
     letter-spacing: 1px;
@@ -432,20 +739,25 @@
     display: none;
 }
 
+.podium-nameplates-inline {
+    display: none;
+    height: 154px;
+    top: 926px;
+}
+
 .podium-slot {
     position: absolute;
     min-width: 170px;
     padding: 8px 12px;
-    border-radius: 10px;
+    border-radius: 4px;
     border-width: 1px;
-    border-color: rgba(255, 255, 255, 0.18);
-    background-color: rgba(18, 18, 18, 0.88);
+    border-color: rgba(200, 60, 60, 0.3);
+    background-color: rgba(12, 12, 18, 0.92);
     flex-direction: column;
     align-items: center;
     justify-content: center;
 }
 
-/* Positioning – tweak these in UI Builder */
 .podium-slot-first {
     bottom: 18%;
     left: 50%;
@@ -462,21 +774,60 @@
     right: 32%;
 }
 
+.podium-slot-first-inline {
+    min-width: 200px;
+    max-width: 200px;
+    bottom: 47%;
+    left: 49%;
+    position: relative;
+    min-height: 88px;
+    top: -9%;
+}
+
+.podium-slot-second-inline {
+    bottom: 90%;
+    left: 28%;
+    min-width: 200px;
+    max-width: 200px;
+    position: relative;
+    min-height: 88px;
+}
+
+.podium-slot-third-inline {
+    bottom: 100%;
+    right: -58%;
+    min-width: 200px;
+    max-width: 200px;
+    position: relative;
+    min-height: 88px;
+    top: -183%;
+}
+
+.podium-kill-icon-inline {
+    min-width: 22px;
+    width: 22px;
+    height: 22px;
+}
+
+.podium-kill-icon-inline-alt {
+    width: 22px;
+    height: 22px;
+    min-width: 22px;
+}
+
 .podium-name {
     font-size: 18px;
     -unity-font-style: bold;
-    color: rgb(235, 235, 235);
+    color: rgb(240, 240, 240);
     -unity-text-align: middle-center;
     text-shadow: 0 0 4px rgba(0, 0, 0, 0.7);
-    margin-bottom: 2px;   /* replaces vertical gap */
+    margin-bottom: 2px;
 }
 
-/* Kills row */
 .podium-kills-row {
     flex-direction: row;
     align-items: center;
     justify-content: center;
-    /* no gap here either */
 }
 
 .podium-kills-text {
@@ -485,10 +836,9 @@
     color: rgb(255, 220, 180);
     -unity-text-align: middle-center;
     min-width: 28px;
-    margin-right: 4px;    /* replaces horizontal gap */
+    margin-right: 4px;
 }
 
-/* Reserved skull icon spot */
 .podium-kill-icon {
     width: 18px;
     height: 18px;
@@ -497,3 +847,4 @@
     background-image: url("/Assets/UI Toolkit/Images/skull.png");
     -unity-background-scale-mode: scale-to-fit;
 }
+

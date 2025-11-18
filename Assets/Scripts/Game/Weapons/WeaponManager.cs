@@ -14,6 +14,7 @@ namespace Game.Weapons {
         [SerializeField] private CinemachineCamera fpCamera;
         [SerializeField] private Transform worldWeaponSocket;
         [SerializeField] private Animator playerAnimator;
+        [SerializeField] private WeaponCameraController weaponCameraController;
 
         private int currentWeaponIndex = -1;
         private int _pendingWeaponIndex = -1;
@@ -25,6 +26,7 @@ namespace Game.Weapons {
         public Weapon CurrentWeapon => weaponComponent;
         public int CurrentWeaponIndex => currentWeaponIndex;
         public bool IsSwitchingWeapon => _isSwitchingWeapon;
+        public WeaponCameraController WeaponCameraController => weaponCameraController;
         
         private static readonly int SheatheHash = Animator.StringToHash("Sheathe");
         
@@ -37,6 +39,19 @@ namespace Game.Weapons {
             if(weaponDataList == null || weaponDataList.Count == 0) {
                 Debug.LogError("[WeaponManager] weaponDataList is empty!");
                 return;
+            }
+            
+            // Initialize weapon camera controller for owner (renders weapons above all geometry)
+            if(IsOwner && fpCamera != null) {
+                if(weaponCameraController == null) {
+                    // Create weapon camera controller if not assigned
+                    var controllerObj = new GameObject("WeaponCameraController");
+                    controllerObj.transform.SetParent(transform, false);
+                    weaponCameraController = controllerObj.AddComponent<WeaponCameraController>();
+                }
+                
+                // Initialize the weapon camera controller
+                weaponCameraController.FpCamera = fpCamera;
             }
 
             // Hide all 3P weapons initially
@@ -75,7 +90,11 @@ namespace Game.Weapons {
                     meshRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
                 }
 
-                if(!IsOwner) {
+                if(IsOwner) {
+                    // Owner: Use Weapon layer (rendered by separate weapon camera above all geometry)
+                    SetGameObjectAndChildrenLayer(fpWeaponInstance, LayerMask.NameToLayer("Weapon"));
+                } else {
+                    // Non-owner: Use Masked layer (hidden from owner's view)
                     fpWeaponInstance.layer = LayerMask.NameToLayer("Masked");
                 }
 
@@ -86,9 +105,6 @@ namespace Game.Weapons {
                 _weaponAmmo[i] = data.magSize;
             }
 
-            Debug.Log(
-                $"[WeaponManager] Initialized ammo: {string.Join(", ", _weaponAmmo.Select(kvp => $"{kvp.Key}={kvp.Value}"))}");
-
             // Switch to first weapon
             if(_fpWeaponInstances.Count > 0) {
                 EquipInitialWeapon(0);
@@ -96,6 +112,7 @@ namespace Game.Weapons {
                 Debug.LogError("[WeaponManager] No weapons instantiated!");
             }
         }
+
 
         public void SwitchWeapon(int newIndex) {
             if(_isSwitchingWeapon || newIndex == currentWeaponIndex)
@@ -175,7 +192,7 @@ namespace Game.Weapons {
                 fp.transform.localEulerAngles = data.spawnRotation;
 
                 var anim = fp.GetComponent<Animator>();
-                if(anim.enabled) {
+                if(anim != null && anim.enabled && fp.activeInHierarchy) {
                     anim.Rebind();
                     anim.Update(0f);
                 }
@@ -265,13 +282,14 @@ namespace Game.Weapons {
                 fp.transform.localPosition = data.spawnPosition;
                 fp.transform.localEulerAngles = data.spawnRotation;
 
+                // Activate GameObject first so Animator.Update() can be called safely
+                fp.SetActive(true);
+
                 var anim = fp.GetComponent<Animator>();
-                if (anim) {
+                if (anim != null && anim.enabled) {
                     anim.Rebind();
                     anim.Update(0f);
                 }
-
-                fp.SetActive(true);
             }
 
             // ---- 3P WORLD WEAPON ----
@@ -299,6 +317,18 @@ namespace Game.Weapons {
                 worldWeaponInstance,
                 restoredAmmo
             );
+        }
+        
+        /// <summary>
+        /// Recursively sets the layer of a GameObject and all its children
+        /// </summary>
+        private void SetGameObjectAndChildrenLayer(GameObject obj, int layer) {
+            if(obj == null) return;
+            
+            obj.layer = layer;
+            foreach(Transform child in obj.transform) {
+                SetGameObjectAndChildrenLayer(child.gameObject, layer);
+            }
         }
     }
 }

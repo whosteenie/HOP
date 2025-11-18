@@ -13,6 +13,7 @@ namespace Game.Player {
 
         public void EnableDeathCamera() {
             playerMesh.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
+            // TODO: move world weapon rendering here from controller
             deathCamera.Priority = fpCamera.Priority + 1;
         }
 

@@ -1,8 +1,10 @@
+/* ===== GLOBAL RESET ===== */
 * {
-    color: rgb(220, 220, 220);
+    color: rgb(240, 240, 240);
     -unity-font-style: normal;
 }
 
+/* ===== UTILITY CLASSES ===== */
 .hidden {
     display: none;
 }
@@ -18,27 +20,32 @@
     justify-content: center;
 }
 
+/* ===== LAYOUT COMPONENTS ===== */
 .panel {
-    background-color: rgba(0, 0, 0, 0.82);
+    background-color: rgba(5, 5, 8, 0.88);
 }
 
 .card {
-    background-color: rgba(22, 22, 22, 0.95);
-    border-radius: 12px;
+    background-color: rgba(12, 12, 18, 0.96);
+    border-radius: 4px;
     border-width: 1px;
-    border-color: rgba(255, 255, 255, 0.08);
+    border-color: rgba(200, 60, 60, 0.2);
+    /* Subtle inner glow effect via border */
 }
 
+/* ===== TYPOGRAPHY ===== */
 .title {
     -unity-font-style: bold;
-    color: white;
-    letter-spacing: 1px;
-    margin-bottom: 18px;
+    color: rgb(255, 255, 255);
+    letter-spacing: 2px;
+    margin-bottom: 10px;
     font-size: 32px;
+    text-shadow: 0 0 8px rgba(200, 60, 60, 0.3);
 }
 
 .title-xl {
     font-size: 100px;
+    text-shadow: 0 0 12px rgba(200, 60, 60, 0.4);
 }
 
 .section {
@@ -49,12 +56,24 @@
 .section-title {
     font-size: 18px;
     -unity-font-style: bold;
-    color: rgb(210, 210, 210);
+    color: rgb(220, 220, 220);
     padding-bottom: 6px;
     border-bottom-width: 1px;
-    border-bottom-color: rgba(255, 255, 255, 0.12);
+    border-bottom-color: rgba(200, 60, 60, 0.3);
 }
 
+/* Remove border from playerlist title */
+#playerlist-label {
+    border-bottom-width: 0;
+    border-bottom-color: transparent;
+    padding-bottom: 0;
+}
+
+.accent {
+    color: rgb(255, 100, 100);
+}
+
+/* ===== FORM ELEMENTS ===== */
 .setting-row {
     flex-direction: row;
     align-items: center;
@@ -66,60 +85,391 @@
     flex-grow: 1;
     font-size: 14px;
     min-width: 180px;
+    color: rgb(220, 220, 220);
 }
 
 .value-label {
     font-size: 14px;
-    color: rgb(170, 170, 170);
+    color: rgb(180, 180, 180);
     min-width: 60px;
     -unity-text-align: middle-right;
     margin-left: 10px;
 }
 
-.setting-toggle {
-    margin-left: auto;
+.value-label.accent {
+    color: rgb(255, 100, 100);
 }
 
+/* ===== UNSAVED CHANGES DIALOG ===== */
+.unsaved-changes-modal {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    top: 0;
+    left: 0;
+    align-items: center;
+    justify-content: center;
+}
+
+.unsaved-changes-container {
+    width: 450px;
+    padding: 32px;
+    flex-direction: column;
+    align-items: center;
+}
+
+/* Hide the unsaved changes title */
+#unsaved-changes-title {
+    display: none;
+}
+
+.unsaved-changes-message {
+    font-size: 16px;
+    color: rgb(220, 220, 220);
+    margin-top: 12px;
+    margin-bottom: 24px;
+    -unity-text-align: middle-center;
+}
+
+.unsaved-changes-buttons {
+    flex-direction: row;
+    width: 100%;
+    justify-content: center;
+}
+
+.unsaved-changes-yes {
+    margin-right: 12px;
+}
+
+.unsaved-changes-no {
+    margin-left: 12px;
+    margin-right: 12px;
+}
+
+.unsaved-changes-cancel {
+    margin-left: 12px;
+}
+
+.setting-toggle {
+    margin-left: auto;
+    width: 20px;
+    height: 20px;
+    min-width: 20px;
+    min-height: 20px;
+    max-width: 20px;
+    max-height: 20px;
+    padding: 0;
+    margin: 0;
+    background-color: rgba(20, 20, 25, 0.9);
+    border-radius: 4px;
+    border-width: 1px;
+    border-color: rgba(200, 60, 60, 0.3);
+    -unity-background-image-tint-color: rgba(20, 20, 25, 0.9);
+    -unity-slice-left: 0;
+    -unity-slice-right: 0;
+    -unity-slice-top: 0;
+    -unity-slice-bottom: 0;
+    transition-duration: 0.2s;
+    /* Ensure no background image in unchecked state */
+    background-image: none;
+    background-size: 12px 12px;
+    background-repeat: no-repeat;
+    background-position: center;
+}
+
+.setting-toggle:hover {
+    border-color: rgba(255, 100, 100, 0.5);
+    background-color: rgba(25, 25, 30, 0.9);
+    -unity-background-image-tint-color: rgba(25, 25, 30, 0.9);
+    /* Ensure no background image in unchecked hover state */
+    background-image: none;
+    background-size: 12px 12px;
+}
+
+/* Checked state - show red background and white checkmark */
+.setting-toggle.checked {
+    background-color: rgba(200, 60, 60, 0.4);
+    border-color: rgba(255, 100, 100, 0.6);
+    background-image: url('/Assets/UI Toolkit/Images/checkmark.png');
+    -unity-background-image-tint-color: rgb(255, 255, 255);
+    background-size: 12px 12px;
+    background-repeat: no-repeat;
+    background-position: center;
+}
+
+.setting-toggle.checked:hover {
+    background-color: rgba(200, 60, 60, 0.5);
+    border-color: rgba(255, 100, 100, 0.8);
+    -unity-background-image-tint-color: rgb(255, 255, 255);
+    background-size: 12px 12px;
+}
+
+/* Completely remove default dropdown styling and apply custom */
 .setting-dropdown {
-    color: black;
+    background-color: rgba(20, 20, 25, 0.9);
+    border-width: 1px;
+    border-color: rgba(200, 60, 60, 0.3);
+    border-radius: 4px;
+    padding: 4px 8px;
     flex-grow: 1;
     max-width: 320px;
+    color: rgb(240, 240, 240);
+    min-height: 24px;
+    -unity-background-image-tint-color: rgba(20, 20, 25, 0.9);
+}
+
+.setting-dropdown:hover {
+    border-color: rgba(255, 100, 100, 0.5);
+    background-color: rgba(25, 25, 30, 0.9);
+    -unity-background-image-tint-color: rgba(25, 25, 30, 0.9);
+}
+
+/* Dropdown input - remove inner white border and default styling */
+.setting-dropdown > .unity-base-dropdown__input,
+.setting-dropdown .unity-base-dropdown__input {
+    background-color: transparent;
+    border-width: 0;
+    border-color: transparent;
+    color: rgb(240, 240, 240);
+    padding: 0;
+    margin: 0;
+    -unity-background-image-tint-color: transparent;
+}
+
+/* Dropdown arrow - equilateral triangle matching gamemode arrow */
+.setting-dropdown > .unity-base-popup-field__arrow,
+.setting-dropdown .unity-base-popup-field__arrow {
+    width: 0;
+    height: 0;
+    min-width: 0;
+    min-height: 0;
+    border-left-width: 7px;
+    border-left-color: transparent;
+    border-right-width: 7px;
+    border-right-color: transparent;
+    border-bottom-width: 12px;
+    border-bottom-color: rgb(255, 100, 100);
+    border-top-width: 0;
+    margin-left: 8px;
+    margin-right: 4px;
+    background-color: transparent;
+    -unity-background-image-tint-color: transparent;
+}
+
+.setting-dropdown > .unity-base-popup-field__arrow.down,
+.setting-dropdown .unity-base-popup-field__arrow.down {
+    border-bottom-width: 0;
+    border-top-width: 12px;
+    border-top-color: rgb(255, 100, 100);
+}
+
+/* ===== KEYBIND BUTTONS ===== */
+.keybind-button {
+    margin-left: 8px;
+    width: 120px;
+    min-width: 120px;
+    max-width: 120px;
+    height: 32px;
+    min-height: 32px;
+    padding: 6px 12px;
+    background-color: rgba(20, 20, 25, 0.9);
+    border-radius: 4px;
+    border-width: 1px;
+    border-color: rgba(200, 60, 60, 0.3);
+    color: rgb(220, 220, 220);
+    font-size: 13px;
+    -unity-text-align: middle-center;
+    transition-duration: 0.2s;
+}
+
+.keybind-button:hover {
+    border-color: rgba(255, 100, 100, 0.5);
+    background-color: rgba(25, 25, 30, 0.9);
+    color: rgb(240, 240, 240);
+}
+
+.keybind-button:active {
+    border-color: rgba(255, 100, 100, 0.7);
+    background-color: rgba(30, 30, 35, 0.9);
+}
+
+/* ===== SCROLLBAR STYLING ===== */
+/* Hide scrollbar arrows (up/down buttons) - using correct Unity class names */
+.unity-scroller__low-button,
+.unity-scroller__high-button,
+ScrollView .unity-scroller__low-button,
+ScrollView .unity-scroller__high-button {
+    display: none;
+    width: 0;
+    height: 0;
+    min-width: 0;
+    min-height: 0;
+    max-width: 0;
+    max-height: 0;
+    visibility: hidden;
+}
+
+/* Add margin-right to content to create space between content and scrollbar */
+.options-content {
+    margin-right: 16px;
+}
+
+ScrollView .unity-scroll-view__horizontal-scrollbars,
+.unity-scroll-view__horizontal-scrollbars {
+    margin-bottom: 12px;
+}
+
+/* Dropdown styling - simplified */
+.unity-base-popup-field__menu,
+.unity-popup-field__menu {
+    background-color: rgba(12, 12, 18, 1.0);
+    border-radius: 4px;
+    border-width: 1px;
+    border-color: rgba(200, 60, 60, 0.3);
+    padding: 6px 0;
+}
+
+.unity-base-dropdown__item {
+    background-color: rgba(20, 20, 25, 0.9);
+    border-radius: 4px;
+    border-width: 1px;
+    border-color: rgba(200, 60, 60, 0.2);
+    margin: 2px 6px;
+    padding: 6px 12px;
+    color: rgb(240, 240, 240);
+    min-height: 32px;
+}
+
+.unity-base-dropdown__item:hover {
+    background-color: rgba(30, 30, 35, 0.9);
+    border-color: rgba(255, 100, 100, 0.4);
+    color: rgb(255, 100, 100);
+}
+
+.unity-base-dropdown__item:active {
+    background-color: rgba(200, 60, 60, 0.3);
 }
 
 .setting-slider {
     flex-grow: 1;
     max-width: 320px;
+    height: 20px;
+    min-height: 20px;
 }
 
-.setting-slider > .unity-base-slider__dragger {
-    background-color: rgb(200, 60, 60);
-    border-radius: 50%;
-}
-
+/* Slider track (background) */
 .setting-slider > .unity-base-slider__tracker {
-    background-color: rgba(255, 255, 255, 0.12);
+    background-color: rgba(20, 20, 25, 0.9);
+    border-width: 1px;
+    border-color: rgba(200, 60, 60, 0.3);
+    border-radius: 4px;
+    height: 6px;
+    -unity-background-image-tint-color: rgba(20, 20, 25, 0.9);
+    -unity-slice-left: 0;
+    -unity-slice-right: 0;
+    -unity-slice-top: 0;
+    -unity-slice-bottom: 0;
 }
 
+/* Slider fill (filled portion) - red progress bar extending to dragger */
+.setting-slider > .unity-base-slider__fill {
+    background-color: rgb(255, 100, 100);
+    border-radius: 4px;
+    height: 6px;
+    -unity-background-image-tint-color: rgb(255, 100, 100);
+    -unity-slice-left: 0;
+    -unity-slice-right: 0;
+    -unity-slice-top: 0;
+    -unity-slice-bottom: 0;
+}
+
+/* Slider dragger (handle) */
+.setting-slider > .unity-base-slider__dragger {
+    background-color: rgb(255, 100, 100);
+    border-radius: 50%;
+    border-width: 2px;
+    border-color: rgba(255, 255, 255, 0.3);
+    width: 16px;
+    height: 16px;
+    min-width: 16px;
+    min-height: 16px;
+    max-width: 16px;
+    max-height: 16px;
+    -unity-background-image-tint-color: rgb(255, 100, 100);
+    -unity-slice-left: 0;
+    -unity-slice-right: 0;
+    -unity-slice-top: 0;
+    -unity-slice-bottom: 0;
+    transition-duration: 0.15s;
+}
+
+/* Dragger hover state */
+.setting-slider > .unity-base-slider__dragger:hover {
+    background-color: rgb(255, 120, 120);
+    border-color: rgba(255, 255, 255, 0.5);
+    width: 18px;
+    height: 18px;
+    min-width: 18px;
+    min-height: 18px;
+    max-width: 18px;
+    max-height: 18px;
+}
+
+/* Dragger active/pressed state */
+.setting-slider > .unity-base-slider__dragger:active {
+    background-color: rgb(200, 60, 60);
+    border-color: rgba(255, 255, 255, 0.4);
+}
+
+/* Remove default Unity slider styling */
+.unity-base-slider {
+    background-color: transparent;
+    -unity-background-image-tint-color: transparent;
+}
+
+.unity-base-slider__tracker {
+    background-color: rgba(20, 20, 25, 0.9);
+    border-width: 1px;
+    border-color: rgba(200, 60, 60, 0.3);
+    -unity-background-image-tint-color: rgba(20, 20, 25, 0.9);
+}
+
+.unity-base-slider__fill {
+    background-color: rgb(255, 100, 100);
+    -unity-background-image-tint-color: rgb(255, 100, 100);
+}
+
+.unity-base-slider__dragger {
+    background-color: rgb(255, 100, 100);
+    border-width: 2px;
+    border-color: rgba(255, 255, 255, 0.3);
+    -unity-background-image-tint-color: rgb(255, 100, 100);
+}
+
+/* ===== BUTTONS ===== */
 .menu-chip {
     height: 36px;
     padding-left: 14px;
     padding-right: 14px;
-    background-color: rgba(50, 50, 50, 0.5);
-    border-radius: 8px;
+    background-color: rgba(20, 20, 25, 0.8);
+    border-radius: 4px;
     border-width: 1px;
-    border-color: rgba(255, 255, 255, 0.1);
+    border-color: rgba(200, 60, 60, 0.3);
     -unity-font-style: bold;
     font-size: 14px;
-    color: rgb(235, 235, 235);
+    color: rgb(240, 240, 240);
+    transition-duration: 0.2s;
 }
 
 .menu-chip-enabled:hover {
-    background-color: rgba(200, 60, 60, 0.9);
-    border-color: rgba(255, 90, 90, 0.6);
+    background-color: rgba(200, 60, 60, 0.2);
+    border-color: rgba(255, 100, 100, 0.6);
+    color: rgb(255, 255, 255);
 }
 
 .menu-chip:active {
-    background-color: rgba(160, 40, 40, 0.9);
+    background-color: rgba(200, 60, 60, 0.4);
+    border-color: rgba(255, 100, 100, 0.8);
 }
 
 .button-row {
@@ -128,30 +478,408 @@
     margin-top: 20px;
 }
 
-.button-row > * {
+.button-row .menu-chip {
     margin-left: 6px;
     margin-right: 6px;
 }
 
-.accent {
-    color: rgb(100, 200, 255);
-}
-
+/* ===== SCROLLING ===== */
 .scroll-pad {
     padding: 10px;
 }
 
+/* ===== UNITY OVERRIDES ===== */
+/* Remove all default white backgrounds from Unity components */
+.unity-base-popup-field {
+    background-color: transparent;
+    -unity-background-image-tint-color: transparent;
+}
+
 .unity-base-popup-field__text {
-    color: black;
+    color: rgb(240, 240, 240);
+    background-color: transparent;
+    -unity-background-image-tint-color: transparent;
+}
+
+
+/* Remove inner borders from dropdown input */
+.unity-base-dropdown__input {
+    background-color: transparent;
+    border-width: 0;
+    border-color: transparent;
+    -unity-background-image-tint-color: transparent;
+    -unity-slice-left: 0;
+    -unity-slice-right: 0;
+    -unity-slice-top: 0;
+    -unity-slice-bottom: 0;
+}
+
+/* Global checkbox overrides - remove all default white styling */
+.unity-toggle {
+    background-color: transparent;
+    -unity-background-image-tint-color: transparent;
+}
+
+.unity-toggle__input {
+    background-color: rgba(20, 20, 25, 0.9);
+    border-width: 1px;
+    border-color: rgba(200, 60, 60, 0.3);
+    border-radius: 4px;
+    -unity-background-image-tint-color: rgba(20, 20, 25, 0.9);
+    -unity-slice-left: 0;
+    -unity-slice-right: 0;
+    -unity-slice-top: 0;
+    -unity-slice-bottom: 0;
+}
+
+.unity-toggle__input:checked {
+    background-color: rgba(200, 60, 60, 0.4);
+    border-color: rgba(255, 100, 100, 0.6);
+    -unity-background-image-tint-color: rgba(200, 60, 60, 0.4);
+}
+
+/* Global checkmark styling - tint the icon red, not a background color */
+.unity-toggle__checkmark {
+    background-color: transparent;
+    -unity-background-image-tint-color: rgb(255, 100, 100);
+    -unity-slice-left: 0;
+    -unity-slice-right: 0;
+    -unity-slice-top: 0;
+    -unity-slice-bottom: 0;
+}
+
+/* Global dropdown item overrides - ensure all items are styled */
+/* This global override ensures Unity's default white styling is completely removed */
+.unity-base-dropdown__item,
+.unity-base-popup-field__menu-item,
+.unity-popup-field__menu-item,
+.unity-dropdown__menu-item {
+    background-color: rgba(20, 20, 25, 0.9);
+    border-width: 1px;
+    border-color: rgba(200, 60, 60, 0.2);
+    border-radius: 4px;
+    color: rgb(240, 240, 240);
+    margin: 2px 6px;
+    padding: 6px 12px;
+    font-size: 14px;
+    min-height: 32px;
+    -unity-background-image-tint-color: rgba(20, 20, 25, 0.9);
+    -unity-slice-left: 0;
+    -unity-slice-right: 0;
+    -unity-slice-top: 0;
+    -unity-slice-bottom: 0;
+}
+
+/* Ensure all dropdown menu items have proper hover states */
+.unity-base-dropdown__item:hover,
+.unity-base-popup-field__menu-item:hover,
+.unity-popup-field__menu-item:hover,
+.unity-dropdown__menu-item:hover {
+    background-color: rgba(30, 30, 35, 0.9);
+    border-color: rgba(255, 100, 100, 0.4);
+    color: rgb(255, 100, 100);
+    -unity-background-image-tint-color: rgba(30, 30, 35, 0.9);
+}
+
+/* Force remove white backgrounds from all Unity base components */
+.unity-base-field {
+    background-color: transparent;
+}
+
+.unity-base-field__input {
+    background-color: transparent;
+    border-width: 0;
 }
 
 .unity-base-text-field__input-placeholder {
-    color: rgb(0, 0, 0);
+    color: rgba(150, 150, 150, 0.6);
+}
+
+/* Hide placeholder when input has value */
+#join-input.has-value > .unity-base-text-field__input-placeholder {
+    display: none;
 }
 
 .unity-text-element--inner-input-field-component {
-    color: rgb(0, 0, 0);
+    color: rgb(240, 240, 240);
+}
+
+/* Join code input styling */
+#join-input {
+    --unity-cursor-color: rgb(240, 240, 240);
+    background-color: rgba(10, 10, 15, 0.9);
+    border-width: 0;
+    border-radius: 4px;
+    padding: 8px 12px;
+}
+
+#join-input > .unity-base-text-field__input {
+    --unity-cursor-color: rgb(240, 240, 240);
+    background-color: rgba(10, 10, 15, 0.9);
+    border-width: 0;
+}
+
+#join-input > .unity-text-element--inner-input-field-component {
+    --unity-cursor-color: rgb(240, 240, 240);
+}
+
+/* Player name input cursor color (loadout screen) */
+.player-name-input {
+    --unity-cursor-color: rgb(240, 240, 240);
+}
+
+.player-name-input > .unity-base-text-field__input {
+    --unity-cursor-color: rgb(240, 240, 240);
+}
+
+.player-name-input > .unity-text-element--inner-input-field-component {
+    --unity-cursor-color: rgb(240, 240, 240);
+}
+
+/* First time modal name input cursor color */
+.first-time-name-input {
+    --unity-cursor-color: rgb(240, 240, 240);
+}
+
+.first-time-name-input > .unity-base-text-field__input {
+    --unity-cursor-color: rgb(240, 240, 240);
+}
+
+.first-time-name-input > .unity-text-element--inner-input-field-component {
+    --unity-cursor-color: rgb(240, 240, 240);
+}
+
+/* ===== INLINE STYLE MIGRATIONS ===== */
+.visibility-visible {
+    visibility: visible;
+}
+
+.display-none {
+    display: none;
+}
+
+.flex-grow-1 {
+    flex-grow: 1;
+}
+
+.align-items-flex-end {
+    align-items: flex-end;
+}
+
+.justify-content-flex-start {
+    justify-content: flex-start;
+}
+
+.position-absolute {
+    position: absolute;
+}
+
+.position-relative {
+    position: relative;
+}
+
+.width-36px {
+    width: 36px;
+}
+
+.width-24px {
+    width: 24px;
+    height: 24px;
+}
+
+.height-auto {
+    height: auto;
+}
+
+.min-width-40px {
+    min-width: 40px;
+}
+
+.min-width-200px {
+    min-width: 200px;
+}
+
+.max-width-200px {
+    max-width: 200px;
+}
+
+.max-width-112px {
+    max-width: 112px;
+}
+
+.min-height-88px {
+    min-height: 88px;
+}
+
+.min-height-350px {
+    min-height: 350px;
+}
+
+.height-68px {
+    height: 68px;
+}
+
+.height-154px {
+    height: 154px;
+}
+
+.height-38px {
+    height: 38px;
+}
+
+.margin-right-25px {
+    margin-right: 25px;
+}
+
+.margin-right-5px {
+    margin-right: 5px;
+}
+
+.margin-right-10px {
+    margin-right: 10px;
+}
+
+.margin-right-0 {
+    margin-right: 0;
+}
+
+.margin-bottom-0 {
+    margin-bottom: 0;
+}
+
+.margin-top-20px {
+    margin-top: 20px;
+}
+
+.margin-top-20px-margin-bottom-54px {
+    margin-top: 20px;
+    margin-bottom: 54px;
+}
+
+.padding-5px {
+    padding: 5px;
+}
+
+.padding-20px {
+    padding: 20px;
 }
 
 .copy-button {
+    width: 36px;
 }
+
+/* ===== OPTIONS TABS ===== */
+.options-tabs {
+    flex-direction: row;
+    margin-top: 20px;
+    margin-bottom: 20px;
+    align-items: center;
+    justify-content: center;
+}
+
+.options-tab {
+    background-color: transparent;
+    border-top-width: 0;
+    border-left-width: 0;
+    border-right-width: 0;
+    border-bottom-width: 2px;
+    border-bottom-color: transparent;
+    border-top-color: transparent;
+    border-left-color: transparent;
+    border-right-color: transparent;
+    color: rgb(180, 180, 180);
+    font-size: 16px;
+    -unity-font-style: normal;
+    padding: 10px 20px;
+    margin-right: 8px;
+    transition-duration: 0.2s;
+    min-height: 40px;
+    width: 120px;
+    min-width: 120px;
+    max-width: 120px;
+    -unity-text-align: middle-center;
+    flex-shrink: 0;
+}
+
+.options-tab,
+.options-tab > .unity-text-element {
+    color: rgb(180, 180, 180);
+}
+
+.options-tab-hover,
+.options-tab-hover > .unity-text-element {
+    color: rgb(240, 240, 240);
+}
+
+.options-tab-hover {
+    border-bottom-color: rgba(200, 60, 60, 0.5);
+}
+
+.options-tab-active,
+.options-tab-active > .unity-text-element {
+    color: rgb(255, 100, 100);
+}
+
+.options-tab-active {
+    border-bottom-color: rgb(255, 100, 100);
+}
+
+.options-content-scroll {
+    flex-grow: 1;
+    min-height: 300px;
+    max-height: 550px;
+    height: 550px;
+    margin-bottom: 20px;
+    border-top-width: 1px;
+    border-top-color: rgba(200, 60, 60, 0.3);
+    border-bottom-width: 1px;
+    border-bottom-color: rgba(200, 60, 60, 0.3);
+}
+
+/* Hide scrollbar arrows specifically for options content scroll */
+.options-content-scroll .unity-scroller__low-button,
+.options-content-scroll .unity-scroller__high-button {
+    display: none;
+    width: 0;
+    height: 0;
+    min-width: 0;
+    min-height: 0;
+    max-width: 0;
+    max-height: 0;
+    visibility: hidden;
+}
+
+/* Scrollbar track styling - make border reach top and bottom */
+.options-content-scroll .unity-scroll-view__vertical-scrollbars,
+.options-content-scroll .unity-scroll-view__vertical-scroller {
+    /* Ensure track reaches full height */
+}
+
+/* Scrollbar thumb (draggable bar) - uniform padding */
+.options-content-scroll .unity-scroller__slider,
+.options-content-scroll .unity-scroller__vertical-slider {
+    margin-top: 4px;
+    margin-bottom: 4px;
+    margin-left: 4px;
+    margin-right: 4px;
+}
+
+.options-content {
+    flex-direction: column;
+    padding: 10px 0;
+    margin-right: 16px;
+}
+
+.options-tab-content {
+    flex-direction: column;
+    width: 100%;
+}
+
+/* ===== OPTIONS CONTAINER ===== */
+.options-container {
+    height: 750px;
+    min-height: 750px;
+    max-height: 750px;
+    overflow: hidden;
+}
+

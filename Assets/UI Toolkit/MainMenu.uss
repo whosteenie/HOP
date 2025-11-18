@@ -11,20 +11,24 @@
     flex-direction: column;
 }
 
-/* Text-only buttons with red markers */
+/* Text-only buttons with red accent */
 .text-button {
     background-color: rgba(0,0,0,0); border-width: 0;
-    color: rgb(235,235,235);
+    color: rgb(240,240,240);
     font-size: 28px; -unity-font-style: bold; -unity-text-align: middle-left;
     padding: 6px 0;
+    transition-duration: 0.2s;
 }
-.text-button:hover  { color: rgb(255,90,90); }
-.text-button:active { color: rgb(220,50,50); }
+.text-button:hover  { 
+    color: rgb(255,100,100); 
+    text-shadow: 0 0 8px rgba(255, 100, 100, 0.4);
+}
+.text-button:active { color: rgb(200,60,60); }
 
 .menu-entry { flex-direction: row; align-items: center; margin-bottom: 8px; }
 .menu-diamond {
-    width: 12px; height: 12px; min-width: 12px; min-height: 12px;
-    margin-right: 10px; background-color: rgb(200,60,60); rotate: 45deg;
+    width: 10px; height: 10px; min-width: 10px; min-height: 10px;
+    margin-right: 12px; background-color: rgb(200,60,60); rotate: 45deg;
 }
 
 /* ===== GAMEMODE ===== */
@@ -37,24 +41,32 @@
 .gamemode-grid {
     flex-direction: row;
     flex-wrap: wrap;
-    justify-content: space-between; /* handles horizontal spacing */
+    justify-content: space-between;
     margin-left: 18px;
     margin-right: 18px;
 }
 
 .gamemode-card {
     width: 310px; min-height: 360px; align-items: center;
-    background-color: rgba(35,35,35,0.9);
-    border-radius: 10px; border-width: 1px; border-color: rgba(255,255,255,0.08);
+    background-color: rgba(15, 15, 20, 0.95);
+    border-radius: 4px; border-width: 1px; border-color: rgba(200, 60, 60, 0.2);
     padding: 14px;
     margin-bottom: 18px;
+    transition-duration: 0.2s;
+}
+
+.gamemode-card:hover {
+    border-color: rgba(255, 100, 100, 0.4);
+    background-color: rgba(20, 20, 25, 0.95);
 }
 
 .gamemode-image {
     width: 260px; height: 210px;
-    background-color: rgba(255,255,255,0.08);
-    border-radius: 8px; margin-bottom: 12px;
+    background-color: rgba(10, 10, 15, 0.8);
+    border-radius: 4px; margin-bottom: 12px;
     margin-top: 8px;
+    border-width: 1px;
+    border-color: rgba(200, 60, 60, 0.15);
 }
 
 .gamemode-title {
@@ -69,18 +81,143 @@
     padding: 26px;
 }
 
+.lobby-container-width-866px {
+    width: 866px;
+}
+
 .lobby-status {
     color: rgb(180,180,180); font-size: 16px; margin-top: 6px; margin-bottom: 16px;
     -unity-text-align: middle-left;
 }
 
+/* ===== GAMEMODE DROPDOWN ===== */
+
+.gamemode-dropdown-container {
+    position: relative;
+    flex-direction: row;
+    align-items: center;
+    margin-bottom: 18px;
+}
+
+.gamemode-display {
+    margin-bottom: 0;
+    transition-duration: 0.2s;
+}
+
+.gamemode-display.gamemode-hover {
+    color: rgb(255, 100, 100);
+}
+
+.gamemode-display.gamemode-clicked {
+    color: rgb(200, 60, 60);
+}
+
+.gamemode-arrow {
+    width: 0;
+    height: 0;
+    border-left-width: 7px;
+    border-left-color: transparent;
+    border-right-width: 7px;
+    border-right-color: transparent;
+    border-bottom-width: 12px;
+    border-bottom-color: rgb(255, 100, 100);
+    border-top-width: 0;
+    margin-left: 12px;
+    margin-bottom: 0;
+    margin-top: 0;
+    opacity: 0;
+    translate: -20px 0;
+    transition-duration: 0.2s;
+    transition-property: opacity, translate, border-bottom-width, border-top-width, border-bottom-color, border-top-color;
+    transition-timing-function: ease-out;
+    align-self: center;
+    position: relative;
+    top: 0;
+}
+
+.gamemode-arrow.arrow-slide-in {
+    opacity: 1;
+    translate: 0 0;
+    transition-duration: 0.3s;
+    transition-property: opacity, translate;
+    transition-timing-function: ease-out;
+}
+
+.gamemode-arrow.arrow-down {
+    border-bottom-width: 0;
+    border-top-width: 12px;
+    border-top-color: rgb(255, 100, 100);
+    top: 2px;
+}
+
+.gamemode-dropdown-menu {
+    position: absolute;
+    flex-direction: column;
+    background-color: rgba(12, 12, 18, 1.0);
+    border-radius: 4px;
+    border-width: 1px;
+    border-color: rgba(200, 60, 60, 0.3);
+    padding: 10px 16px;
+    min-width: 280px;
+}
+
+.gamemode-dropdown-menu-styled {
+    min-width: 270px;
+    padding-right: 10px;
+    padding-left: 10px;
+}
+
+.gamemode-option {
+    width: 100%;
+    height: 40px;
+    background-color: rgba(20, 20, 25, 0.9);
+    border-radius: 4px;
+    border-width: 1px;
+    border-color: rgba(200, 60, 60, 0.2);
+    margin-bottom: 6px;
+    color: rgb(240, 240, 240);
+    font-size: 16px;
+    -unity-font-style: normal;
+    -unity-text-align: middle-center;
+    padding-left: 12px;
+    padding-right: 12px;
+    transition-duration: 0.2s;
+}
+
+.gamemode-option:hover {
+    background-color: rgba(30, 30, 35, 0.9);
+    border-color: rgba(255, 100, 100, 0.4);
+    color: rgb(255, 100, 100);
+}
+
+.gamemode-option:active {
+    background-color: rgba(200, 60, 60, 0.3);
+}
+
+.gamemode-option-styled {
+    width: auto;
+    height: auto;
+    -unity-text-align: middle-left;
+}
+
 .lobby-body { flex-direction: row; }
 .lobby-left { margin-right: 30px; width:203px; }
+.lobby-left-width-420px {
+    margin-right: 25px;
+    width: 420px;
+}
 .lobby-right { margin-right: 0; min-width: 500px; width: 539px; }
+
+/* Hide the "Join with Code:" label */
+#join-label {
+    display: none;
+}
 
 .join-code-container {
     margin-top: 8px; margin-bottom: 12px; padding: 12px;
-    background-color: rgba(0,0,0,0.25); border-radius: 8px;
+    background-color: rgba(10, 10, 15, 0.6); border-radius: 4px;
+    border-width: 1px;
+    border-color: rgba(200, 60, 60, 0.2);
 }
 
 .join-code-display {
@@ -91,7 +228,10 @@
     justify-content: flex-end;
 }
 
-/* Square rounded button */
+.join-code-display-flex-start {
+    justify-content: flex-start;
+}
+
 .copy-button {
     width: 36px;
     min-width: 36px;
@@ -101,7 +241,16 @@
     justify-content: center;
 }
 
-/* Icon inside the button */
+.host-label-inline {
+    min-width: 146px;
+    margin-right: 4px;
+    margin-left: 8px;
+    padding-right: 1px;
+    max-width: none;
+    width: 146px;
+    min-height: 146px;
+}
+
 .copy-icon {
     width: 20px;
     height: 20px;
@@ -110,7 +259,7 @@
 }
 
 .unity-text-element--inner-input-field-component {
-    color: rgba(58, 58, 58, 0.75);
+    color: rgb(240, 240, 240);
 }
 
 .player-list-container {
@@ -120,22 +269,27 @@
 }
 
 .player-list-scroll {
-    height: 100%; background-color: rgba(35,35,35,0.9); border-radius: 8px;
+    height: 100%; background-color: rgba(15, 15, 20, 0.95); border-radius: 4px;
+    border-width: 1px;
+    border-color: rgba(200, 60, 60, 0.2);
 }
 
 .player-list { flex-direction: column; }
 
 .player-entry {
-    color: rgb(210,210,210); font-size: 14px; padding: 6px 8px;
-    border-bottom-width: 1px; border-bottom-color: rgba(255,255,255,0.08);
+    color: rgb(220,220,220); font-size: 14px; padding: 6px 8px;
+    border-bottom-width: 1px; border-bottom-color: rgba(200, 60, 60, 0.1);
 }
-.player-entry.host { color: rgb(120,210,255); -unity-font-style: bold; }
+.player-entry.host { color: rgb(255, 150, 150); -unity-font-style: bold; }
 
 /* ===== OPTIONS ===== */
 
 .options-container {
     width: 760px; max-height: 80%; padding: 36px;
+    flex-direction: column;
 }
+
+/* Options tabs styling moved to SharedStyles.uss */
 
 /* ===== LOADOUT ===== */
 
@@ -147,7 +301,12 @@
     align-items: center;
 }
 
-/* Player Model Display */
+.loadout-container-inline {
+    height: auto;
+    top: 275px;
+    padding: 20px;
+}
+
 .player-model-container {
     width: 100%;
     height: 300px;
@@ -159,13 +318,12 @@
 .player-model-viewport {
     width: 400px;
     height: 300px;
-    background-color: rgba(35, 35, 35, 0.9);
-    border-radius: 10px;
+    background-color: rgba(15, 15, 20, 0.95);
+    border-radius: 4px;
     border-width: 1px;
-    border-color: rgba(255, 255, 255, 0.08);
+    border-color: rgba(200, 60, 60, 0.2);
 }
 
-/* Customization Bar (Color + Name) */
 .customization-bar {
     width: 100%;
     flex-direction: row;
@@ -175,7 +333,6 @@
     padding: 0 20px;
 }
 
-/* Color Picker */
 .color-picker-container {
     flex-direction: row;
     align-items: center;
@@ -183,9 +340,13 @@
     position: relative;
 }
 
+.color-picker-container-margin-5px {
+    margin-right: 5px;
+}
+
 .loadout-panel .color-options {
     top: 0;
-    right: 42px; /* Position to the left of the current color circle */
+    right: 42px;
 }
 
 .color-circle {
@@ -193,14 +354,14 @@
     height: 32px;
     border-radius: 16px;
     border-width: 2px;
-    border-color: rgba(255, 255, 255, 0.3);
+    border-color: rgb(0, 0, 0);
     transition-duration: 0.2s;
     margin-bottom: 6px;
 }
 
 .color-circle:hover {
     scale: 1.15;
-    border-color: rgba(255, 255, 255, 0.6);
+    border-color: rgb(0, 0, 0);
 }
 
 .color-options {
@@ -209,18 +370,37 @@
     left: -56px;
     flex-direction: column;
     align-items: center;
-    background-color: rgba(35, 35, 35, 0.95);
+    background-color: rgba(15, 15, 20, 0.98);
     padding: 8px;
-    border-radius: 8px;
+    border-radius: 4px;
     border-width: 1px;
-    border-color: rgba(255, 255, 255, 0.08);
+    border-color: rgba(200, 60, 60, 0.3);
+}
+
+.color-options-inline {
+    left: auto;
+    flex-direction: row-reverse;
+    top: auto;
+    right: 36px;
+    bottom: -9px;
+    justify-content: space-evenly;
+    align-self: center;
+    width: 240px;
+}
+
+.color-option-margin-0 {
+    margin-bottom: 0;
+}
+
+.color-option-margin-0-right-0 {
+    margin-bottom: 0;
+    margin-right: 0;
 }
 
 .color-option {
     margin-bottom: 6px;
 }
 
-/* Name Input */
 .name-input-container {
     flex-direction: row;
     align-items: center;
@@ -234,17 +414,23 @@
     height: 65px;
     font-size: 18px;
     padding: 10px 15px;
-    border-radius: 8px;
+    border-radius: 4px;
     border-width: 1px;
-    border-color: rgba(255, 255, 255, 0.2);
-    background-color: rgba(0, 0, 0, 0.3);
-    color: rgb(235, 235, 235);
+    border-color: rgba(200, 60, 60, 0.3);
+    background-color: rgba(20, 20, 25, 0.9);
+    color: rgb(240, 240, 240);
     -unity-text-align: middle-left;
+    transition-duration: 0.2s;
+}
+
+.player-name-input:hover {
+    border-color: rgba(255, 100, 100, 0.5);
+    background-color: rgba(25, 25, 30, 0.9);
 }
 
 .player-name-input:focus {
-    border-color: rgba(255, 255, 255, 0.4);
-    background-color: rgba(0, 0, 0, 0.5);
+    border-color: rgba(255, 100, 100, 0.6);
+    background-color: rgba(15, 15, 20, 0.95);
 }
 
 .apply-name-button {
@@ -253,13 +439,17 @@
     height: 50px;
 }
 
-/* Weapon Selection Bar */
 .weapon-bar {
     width: 100%;
     flex-direction: row;
     justify-content: space-between;
     padding: 0 30px;
     margin-bottom: 20px;
+}
+
+.weapon-bar-inline {
+    margin-bottom: 0;
+    margin-top: 20px;
 }
 
 .weapon-slot-container {
@@ -279,10 +469,10 @@
 .weapon-slot {
     width: 183px;
     height: 120px;
-    background-color: rgba(35, 35, 35, 0.9);
-    border-radius: 8px;
+    background-color: rgba(15, 15, 20, 0.95);
+    border-radius: 4px;
     border-width: 1px;
-    border-color: rgba(255, 255, 255, 0.08);
+    border-color: rgba(200, 60, 60, 0.2);
     align-items: center;
     justify-content: center;
     transition-duration: 0.2s;
@@ -290,8 +480,8 @@
 }
 
 .weapon-slot:hover {
-    border-color: rgba(255, 255, 255, 0.2);
-    background-color: rgba(45, 45, 45, 0.9);
+    border-color: rgba(255, 100, 100, 0.4);
+    background-color: rgba(20, 20, 25, 0.95);
 }
 
 .weapon-image {
@@ -300,17 +490,16 @@
     -unity-background-scale-mode: scale-to-fit;
 }
 
-/* Weapon Dropdown */
 .weapon-dropdown {
     position: absolute;
     bottom: 130px;
     left: 0;
     width: 183px;
     max-height: 300px;
-    background-color: rgba(25, 25, 25, 0.98);
-    border-radius: 8px;
+    background-color: rgba(12, 12, 18, 0.98);
+    border-radius: 4px;
     border-width: 1px;
-    border-color: rgba(255, 255, 255, 0.08);
+    border-color: rgba(200, 60, 60, 0.3);
     padding: 8px;
 }
 
@@ -321,10 +510,10 @@
 .weapon-option {
     width: 164px;
     height: 100px;
-    background-color: rgba(35, 35, 35, 0.9);
-    border-radius: 6px;
+    background-color: rgba(20, 20, 25, 0.9);
+    border-radius: 4px;
     border-width: 1px;
-    border-color: rgba(255, 255, 255, 0.05);
+    border-color: rgba(200, 60, 60, 0.2);
     margin-bottom: 6px;
     align-items: center;
     justify-content: center;
@@ -332,8 +521,8 @@
 }
 
 .weapon-option:hover {
-    background-color: rgba(45, 45, 45, 0.9);
-    border-color: rgba(255, 255, 255, 0.15);
+    background-color: rgba(30, 30, 35, 0.9);
+    border-color: rgba(255, 100, 100, 0.4);
 }
 
 .weapon-option-image {
@@ -348,9 +537,14 @@
     position: absolute;
     width: 100%;
     height: 100%;
-    background-color: rgba(0, 0, 0, 0.85);
+    background-color: rgba(0, 0, 0, 0.9);
     align-items: center;
     justify-content: center;
+}
+
+.modal-overlay-top-0-left-0 {
+    top: 0;
+    left: 0;
 }
 
 .first-time-setup-container {
@@ -358,6 +552,10 @@
     padding: 40px;
     flex-direction: column;
     align-items: center;
+}
+
+.first-time-setup-container-min-height {
+    min-height: 350px;
 }
 
 .first-time-inputs {
@@ -369,6 +567,11 @@
     margin-bottom: 30px;
 }
 
+.first-time-inputs-inline {
+    margin-top: 20px;
+    margin-bottom: 54px;
+}
+
 .first-time-color-container {
     flex-direction: row;
     align-items: center;
@@ -376,23 +579,48 @@
     position: relative;
 }
 
+.first-time-color-container-margin-10px {
+    margin-right: 10px;
+}
+
 .first-time-color-options {
     position: absolute;
     top: 0;
-    right: 42px; /* Adjust based on circle size */
+    right: 42px;
     flex-direction: column;
     align-items: center;
-    background-color: rgba(35, 35, 35, 0.95);
+    background-color: rgba(15, 15, 20, 0.98);
     padding: 8px;
-    border-radius: 8px;
+    border-radius: 4px;
     border-width: 1px;
-    border-color: rgba(255, 255, 255, 0.08);
+    border-color: rgba(200, 60, 60, 0.3);
 }
 
 .first-time-color-options .color-circle {
     width: 32px;
     height: 32px;
     border-radius: 16px;
+    border-color: rgb(0, 0, 0);
+}
+
+.first-time-color-options .color-circle:hover {
+    border-color: rgb(0, 0, 0);
+}
+
+.first-time-color-circle-24px {
+    width: 24px;
+    height: 24px;
+    border-color: rgb(0, 0, 0);
+}
+
+.first-time-color-options-inline {
+    left: -9px;
+    right: auto;
+    min-width: 40px;
+    justify-content: space-evenly;
+    top: 30px;
+    min-height: 215px;
+    padding: 5px;
 }
 
 .first-time-name-input {
@@ -400,17 +628,27 @@
     height: 50px;
     font-size: 18px;
     padding: 10px 15px;
-    border-radius: 8px;
+    border-radius: 4px;
     border-width: 1px;
-    border-color: rgba(255, 255, 255, 0.2);
-    background-color: rgba(0, 0, 0, 0.3);
-    color: rgb(235, 235, 235);
+    border-color: rgba(200, 60, 60, 0.3);
+    background-color: rgba(20, 20, 25, 0.9);
+    color: rgb(240, 240, 240);
     -unity-text-align: middle-left;
+    transition-duration: 0.2s;
+}
+
+.first-time-name-input-height-68px {
+    height: 68px;
+}
+
+.first-time-name-input:hover {
+    border-color: rgba(255, 100, 100, 0.5);
+    background-color: rgba(25, 25, 30, 0.9);
 }
 
 .first-time-name-input:focus {
-    border-color: rgba(255, 255, 255, 0.4);
-    background-color: rgba(0, 0, 0, 0.5);
+    border-color: rgba(255, 100, 100, 0.6);
+    background-color: rgba(15, 15, 20, 0.95);
 }
 
 .continue-button {
@@ -418,14 +656,13 @@
     height: 50px;
 }
 
-/* Add these color classes - replace with your actual colors */
-.color-0 { background-color: rgb(255, 255, 255); } /* White */
-.color-1 { background-color: rgb(255, 0, 0); } /* Red */
-.color-2 { background-color: rgb(255, 165, 0); } /* Orange */
-.color-3 { background-color: rgb(255, 255, 0); } /* Yellow */
-.color-4 { background-color: rgb(0, 255, 0); } /* Green */
-.color-5 { background-color: rgb(0, 0, 255); } /* Blue */
-.color-6 { background-color: rgb(128, 0, 128); } /* Purple */
+.color-0 { background-color: rgb(255, 255, 255); }
+.color-1 { background-color: rgb(255, 0, 0); }
+.color-2 { background-color: rgb(255, 165, 0); }
+.color-3 { background-color: rgb(255, 255, 0); }
+.color-4 { background-color: rgb(0, 255, 0); }
+.color-5 { background-color: rgb(0, 0, 255); }
+.color-6 { background-color: rgb(128, 0, 128); }
 
 .current-color-display {
     position: relative;
@@ -494,46 +731,42 @@
     opacity: 0.8;
 }
 
-/* -------------------------------------------------------------
-   TOAST – 100% Unity UI Toolkit compatible (2021+)
-   ------------------------------------------------------------- */
+/* ===== TOAST ===== */
 .toast-container {
     position: absolute;
     left: 50%;
     bottom: 80px;
-    translate: -50% 0;  /* Unity's translate property */
+    translate: -50% 0;
     display: flex;
     flex-direction: column;
     align-items: center;
 }
 
-/* Base toast style */
 .toast {
-    background-color: rgba(30,30,30,0.92);
+    background-color: rgba(15, 15, 20, 0.95);
     color: #ffffff;
     font-size: 16px;
     padding: 12px 24px;
-    border-radius: 8px;
+    border-radius: 4px;
     border-width: 1px;
-    border-color: rgba(0,0,0,0.4);
+    border-color: rgba(200, 60, 60, 0.3);
     opacity: 0;
     transition-duration: 0.3s;
-    transition-property: opacity, translate;  /* Changed from transform */
+    transition-property: opacity, translate;
     transition-timing-function: ease-out;
 }
 
-/* Fake bold text */
 .toast-bold {
     -unity-text-outline-color: rgba(0,0,0,0.8);
-    -unity-text-outline-width: 0.5;
+    -unity-text-outline-width: 1px;
 }
 
-/* Animation states */
 .toast.show  {
     opacity: 1;
-    translate: 0 0;  /* No offset */
+    translate: 0 0;
 }
 .toast.hide  {
     opacity: 0;
-    translate: 0 -20px;  /* Move up 20px */
+    translate: 0 -20px;
 }
+

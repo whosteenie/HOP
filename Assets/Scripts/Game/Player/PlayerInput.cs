@@ -44,13 +44,19 @@ namespace Game.Player {
 
             weaponManager.InitializeWeapons();
 
+            var playerInputComponent = GetComponent<UnityEngine.InputSystem.PlayerInput>();
+            
             if(!IsOwner) {
                 fpCamera.gameObject.SetActive(false);
                 audioListener.enabled = false;
 
-                var playerInputComponent = GetComponent<UnityEngine.InputSystem.PlayerInput>();
                 if(playerInputComponent != null) {
                     playerInputComponent.enabled = false;
+                }
+            } else {
+                // Re-enable PlayerInput for owner (it was disabled during instantiation to prevent control scheme errors)
+                if(playerInputComponent != null) {
+                    playerInputComponent.enabled = true;
                 }
             }
         }
@@ -67,13 +73,43 @@ namespace Game.Player {
 
             var fireMode = weaponManager.GetWeaponDataByIndex(weaponManager.CurrentWeaponIndex)?.fireMode;
 
-            if(!IsPausedOrDead && fireMode == "Full" &&
-               (Mouse.current.leftButton.isPressed || Mouse.current.rightButton.isPressed) &&
-               !mantleController.IsMantling) {
+            // Use Input System actions instead of direct input
+            var playerInputComponent = GetComponent<UnityEngine.InputSystem.PlayerInput>();
+            var playerMap = playerInputComponent?.actions?.FindActionMap("Player");
+            var attackAction = playerMap?.FindAction("Attack");
+            var jumpAction = playerMap?.FindAction("Jump");
+
+            if(!IsPausedOrDead && fireMode == "Full" && attackAction != null && attackAction.IsPressed() && !mantleController.IsMantling) {
                 CurrentWeapon.Shoot();
             }
 
-            if(!IsPausedOrDead && (Mouse.current.scroll.value.magnitude > 0f || Keyboard.current.spaceKey.isPressed) && !mantleController.IsMantling) {
+            // Check jump action or scroll wheel for jump/mantle
+            // Check if scroll is bound to jump via PlayerPrefs
+            bool jumpPressed = jumpAction != null && jumpAction.IsPressed();
+            bool scrollPressed = false;
+            
+            // Check PlayerPrefs for scroll bindings
+            string jumpBinding0 = PlayerPrefs.GetString("Keybind_jump_0", "");
+            string jumpBinding1 = PlayerPrefs.GetString("Keybind_jump_1", "");
+            
+            if(Mouse.current != null && Mouse.current.scroll.value.magnitude > 0f) {
+                Vector2 scrollDelta = Mouse.current.scroll.value;
+                
+                // Check if scroll down is bound to jump
+                if(jumpBinding1 == "SCROLL_DOWN" && scrollDelta.y < 0) {
+                    scrollPressed = true;
+                } else if(jumpBinding0 == "SCROLL_DOWN" && scrollDelta.y < 0) {
+                    scrollPressed = true;
+                }
+                // Check if scroll up is bound to jump
+                else if(jumpBinding1 == "SCROLL_UP" && scrollDelta.y > 0) {
+                    scrollPressed = true;
+                } else if(jumpBinding0 == "SCROLL_UP" && scrollDelta.y > 0) {
+                    scrollPressed = true;
+                }
+            }
+            
+            if(!IsPausedOrDead && (jumpPressed || scrollPressed) && !mantleController.IsMantling) {
                 if(!playerController.IsGrounded) {
                     mantleController.TryMantle();
 
@@ -270,11 +306,8 @@ namespace Game.Player {
         public void SwitchWeapon(int weaponIndex) {
             if(weaponManager.CurrentWeaponIndex == weaponIndex || weaponManager.IsSwitchingWeapon ||
                !CurrentWeapon) return;
-            
-            if(CurrentWeapon.IsReloading) {
-                CurrentWeapon.CancelReload();
-            }
 
+            // Reload cancellation is handled by Weapon.SwitchToWeapon() when the weapon switch completes
             weaponManager.SwitchWeapon(weaponIndex);
         }
 
@@ -291,10 +324,6 @@ namespace Game.Player {
         private void OnPause(InputValue value) {
             if(!IsOwner) return;
             GameMenuManager.Instance.TogglePause();
-        }
-
-        private void OnTest(InputValue value) {
-            Debug.LogWarning("[PlayerInput] Test");
         }
 
         #endregion

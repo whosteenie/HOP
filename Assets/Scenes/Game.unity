@@ -7101,6 +7101,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 05b6abc5e17ff8141b97d0f30a13dea4, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SpawnPoint
+  team: 1
 --- !u!1001 &115077445
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -9014,6 +9015,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 05b6abc5e17ff8141b97d0f30a13dea4, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SpawnPoint
+  team: 0
 --- !u!1 &171117751
 GameObject:
   m_ObjectHideFlags: 0
@@ -28972,6 +28974,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 05b6abc5e17ff8141b97d0f30a13dea4, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SpawnPoint
+  team: 0
 --- !u!1001 &699351902
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -39785,6 +39788,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 05b6abc5e17ff8141b97d0f30a13dea4, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SpawnPoint
+  team: 1
 --- !u!43 &955750347
 Mesh:
   m_ObjectHideFlags: 0
@@ -45796,6 +45800,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 05b6abc5e17ff8141b97d0f30a13dea4, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SpawnPoint
+  team: 1
 --- !u!43 &1055005365
 Mesh:
   m_ObjectHideFlags: 0
@@ -53463,6 +53468,17 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SpawnManager
   ShowTopMostFoldoutHeaderGroup: 1
+  allPoints:
+  - {fileID: 699288533}
+  - {fileID: 1612962647}
+  - {fileID: 1955559777}
+  - {fileID: 168455319}
+  - {fileID: 1493309644}
+  - {fileID: 943553757}
+  - {fileID: 109415986}
+  - {fileID: 1361829654}
+  - {fileID: 1943467511}
+  - {fileID: 1054874849}
 --- !u!4 &1234887484
 Transform:
   m_ObjectHideFlags: 0
@@ -57073,6 +57089,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 05b6abc5e17ff8141b97d0f30a13dea4, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SpawnPoint
+  team: 1
 --- !u!43 &1368990516
 Mesh:
   m_ObjectHideFlags: 0
@@ -63014,6 +63031,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 05b6abc5e17ff8141b97d0f30a13dea4, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SpawnPoint
+  team: 0
 --- !u!1001 &1495164623
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -67970,6 +67988,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 05b6abc5e17ff8141b97d0f30a13dea4, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SpawnPoint
+  team: 0
 --- !u!1001 &1613267102
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -81279,6 +81298,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 05b6abc5e17ff8141b97d0f30a13dea4, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SpawnPoint
+  team: 1
 --- !u!43 &1948280766
 Mesh:
   m_ObjectHideFlags: 0
@@ -81843,6 +81863,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 05b6abc5e17ff8141b97d0f30a13dea4, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SpawnPoint
+  team: 0
 --- !u!1 &1961767622
 GameObject:
   m_ObjectHideFlags: 0

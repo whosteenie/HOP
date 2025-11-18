@@ -13,15 +13,15 @@ using UnityEngine;
 public class PostMatchManager : NetworkBehaviour {
     public static PostMatchManager Instance { get; private set; }
 
-    [Header("Podium Setup")]
-    [SerializeField] private CinemachineCamera podiumCamera;
+    [Header("Podium Setup")] [SerializeField]
+    private CinemachineCamera podiumCamera;
+
     [SerializeField] private Transform firstPlaceAnchor;
     [SerializeField] private Transform secondPlaceAnchor;
     [SerializeField] private Transform thirdPlaceAnchor;
 
-    [Header("Timing")]
-    [Tooltip("How long to stay on podium view before returning to menu.")]
-    [SerializeField] private float podiumDuration = 10f;
+    [Header("Timing")] [Tooltip("How long to stay on podium view before returning to menu.")] [SerializeField]
+    private float podiumDuration = 10f;
 
     // Keep this roughly in sync with SceneTransitionManager.fadeDuration
     [SerializeField] private float fadeDuration = 0.5f;
@@ -30,6 +30,11 @@ public class PostMatchManager : NetworkBehaviour {
     public bool PostMatchFlowStarted { get; private set; }
 
     private void Awake() {
+        var pmm = FindFirstObjectByType<PostMatchManager>();
+        if(pmm != null && pmm != this) {
+            Destroy(this);
+        }
+
         if(Instance != null && Instance != this) {
             Destroy(gameObject);
             return;
@@ -68,7 +73,8 @@ public class PostMatchManager : NetworkBehaviour {
     }
 
     private IEnumerator PostMatchSequence() {
-        Debug.Log($"[PostMatchManager] PostMatchSequence started on server. IsServer={IsServer}, IsSpawned={IsSpawned}");
+        Debug.Log(
+            $"[PostMatchManager] PostMatchSequence started on server. IsServer={IsServer}, IsSpawned={IsSpawned}");
         // 1) Tell all clients to fade to black + hide HUD bits
         RequestFadeToPodiumClientRpc();
 
@@ -108,16 +114,39 @@ public class PostMatchManager : NetworkBehaviour {
 
         if(allPlayers.Count == 0) return;
 
-        // Sort by kills descending, then maybe by damage as tie-breaker later
-        var sorted = allPlayers
-            .OrderByDescending(p => p.kills.Value)
-            .ThenByDescending(p => p.damageDealt.Value)
-            .ToList();
+        // Check if we're in Tag mode
+        var matchSettings = MatchSettings.Instance;
+        bool isTagMode = matchSettings != null && matchSettings.selectedGameModeId == "Tag";
+        
+        // Sort by appropriate stat based on gamemode
+        List<PlayerController> sorted;
+        if(isTagMode) {
+            // Tag mode: sort by time tagged (lowest first), then by tags as tie-breaker
+            sorted = allPlayers
+                .OrderBy(p => p.timeTagged.Value)
+                .ThenByDescending(p => p.tags.Value)
+                .ToList();
+        } else {
+            // Normal mode: sort by kills descending, then by damage as tie-breaker
+            sorted = allPlayers
+                .OrderByDescending(p => p.kills.Value)
+                .ThenByDescending(p => p.damageDealt.Value)
+                .ToList();
+        }
 
         var topThree = new List<PlayerController>();
         if(sorted.Count > 0) topThree.Add(sorted[0]);
         if(sorted.Count > 1) topThree.Add(sorted[1]);
         if(sorted.Count > 2) topThree.Add(sorted[2]);
+
+        foreach(var player in topThree) {
+            if(player == null) continue;
+
+            // If they died before timer ended, bring them back just for podium
+            if(player.netIsDead.Value || player.netHealth.Value <= 0f) {
+                player.ForceRespawnForPodiumServer();
+            }
+        }
 
         // Teleport & face podium
         for(int i = 0; i < topThree.Count; i++) {
@@ -125,9 +154,15 @@ public class PostMatchManager : NetworkBehaviour {
             Transform anchor = null;
 
             switch(i) {
-                case 0: anchor = firstPlaceAnchor; break;
-                case 1: anchor = secondPlaceAnchor; break;
-                case 2: anchor = thirdPlaceAnchor; break;
+                case 0:
+                    anchor = firstPlaceAnchor;
+                    break;
+                case 1:
+                    anchor = secondPlaceAnchor;
+                    break;
+                case 2:
+                    anchor = thirdPlaceAnchor;
+                    break;
             }
 
             if(anchor == null || player == null) continue;
@@ -138,38 +173,29 @@ public class PostMatchManager : NetworkBehaviour {
             // Teleport their transform to podium slot
             netObj.TrySetParent((Transform)null, false); // ensure no odd parents
             player.TeleportToPodiumFromServer(anchor.position, anchor.rotation);
-            
-            foreach (var p in allPlayers) {
+            player.SnapPodiumVisualsClientRpc();
+
+            foreach(var p in allPlayers) {
                 p.ResetVelocityRpc();
             }
-
-
-            // Make sure they face the camera exactly
-            // if(podiumCamera != null) {
-            //     var lookTarget = podiumCamera.transform.position;
-            //     var flatPos = player.transform.position;
-            //     lookTarget.y = flatPos.y; // keep upright
-            //     var lookRot = Quaternion.LookRotation((lookTarget - flatPos).normalized, Vector3.up);
-            //     player.transform.rotation = lookRot;
-            // }
         }
 
         // Hide non-top3 player models (world models only, not cameras)
         foreach(var p in allPlayers) {
             bool isOnPodium = topThree.Contains(p);
-            p.SetWorldModelVisibleRpc(isOnPodium);   // you'll add this helper
+            p.SetWorldModelVisibleRpc(isOnPodium); // you'll add this helper
         }
-                
-        string firstName  = topThree.Count > 0 ? topThree[0].playerName.Value.ToString() : string.Empty;
-        int    firstKills = topThree.Count > 0 ? topThree[0].kills.Value : 0;
 
-        string secondName  = topThree.Count > 1 ? topThree[1].playerName.Value.ToString() : string.Empty;
-        int    secondKills = topThree.Count > 1 ? topThree[1].kills.Value : 0;
+        string firstName = topThree.Count > 0 ? topThree[0].playerName.Value.ToString() : string.Empty;
+        int firstScore = topThree.Count > 0 ? (isTagMode ? topThree[0].timeTagged.Value : topThree[0].kills.Value) : 0;
 
-        string thirdName  = topThree.Count > 2 ? topThree[2].playerName.Value.ToString() : string.Empty;
-        int    thirdKills = topThree.Count > 2 ? topThree[2].kills.Value : 0;
+        string secondName = topThree.Count > 1 ? topThree[1].playerName.Value.ToString() : string.Empty;
+        int secondScore = topThree.Count > 1 ? (isTagMode ? topThree[1].timeTagged.Value : topThree[1].kills.Value) : 0;
 
-        UpdatePodiumUiClientRpc(firstName, firstKills, secondName, secondKills, thirdName, thirdKills);
+        string thirdName = topThree.Count > 2 ? topThree[2].playerName.Value.ToString() : string.Empty;
+        int thirdScore = topThree.Count > 2 ? (isTagMode ? topThree[2].timeTagged.Value : topThree[2].kills.Value) : 0;
+
+        UpdatePodiumUiClientRpc(firstName, firstScore, secondName, secondScore, thirdName, thirdScore);
     }
 
     // --- CLIENT RPCs ---
@@ -202,15 +228,6 @@ public class PostMatchManager : NetworkBehaviour {
     }
 
     [Rpc(SendTo.Everyone)]
-    private void RequestFadeToMenuClientRpc() {
-        if(SceneTransitionManager.Instance != null) {
-            SceneTransitionManager.Instance.StartCoroutine(
-                SceneTransitionManager.Instance.FadeOut()
-            );
-        }
-    }
-
-    [Rpc(SendTo.Everyone)]
     private void ActivatePodiumCameraClientRpc() {
         if(podiumCamera == null) return;
 
@@ -226,17 +243,17 @@ public class PostMatchManager : NetworkBehaviour {
         // Optionally, give it the highest priority if you're using multiple vcams
         // podiumCamera.Priority = 100;
     }
-    
+
     [Rpc(SendTo.Everyone)]
     private void UpdatePodiumUiClientRpc(
-        string firstName, int firstKills,
-        string secondName, int secondKills,
-        string thirdName, int thirdKills
+        string firstName, int firstScore,
+        string secondName, int secondScore,
+        string thirdName, int thirdScore
     ) {
         var menu = GameMenuManager.Instance;
-        if (menu == null)
+        if(menu == null)
             return;
 
-        menu.SetPodiumSlots(firstName, firstKills, secondName, secondKills, thirdName, thirdKills);
+        menu.SetPodiumSlots(firstName, firstScore, secondName, secondScore, thirdName, thirdScore);
     }
 }

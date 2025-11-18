@@ -1,5 +1,6 @@
-using System;
 using System.Collections;
+using System.Linq;
+using Game.Player;
 using Network.Singletons;
 using Unity.Netcode;
 using UnityEngine;
@@ -9,17 +10,13 @@ public class MatchTimerManager : NetworkBehaviour {
     [SerializeField]
     private int matchDurationSeconds = 600; // 10 minutes by default
 
-    private readonly NetworkVariable<int> _timeRemainingSeconds =
-        new NetworkVariable<int>(
-            value: 0,
-            NetworkVariableReadPermission.Everyone,
-            NetworkVariableWritePermission.Server
-        );
+    private readonly NetworkVariable<int> _timeRemainingSeconds = new(value: 0);
 
     public int TimeRemainingSeconds => _timeRemainingSeconds.Value;
 
     private Coroutine _timerRoutine;
-    private bool _hasTriggeredPostMatch = false;
+    private bool _hasTriggeredPostMatch;
+    private bool _hasDesignatedInitialIt;
 
     private void Awake() {
         matchDurationSeconds = MatchSettings.Instance.GetMatchDurationSeconds();
@@ -40,13 +37,19 @@ public class MatchTimerManager : NetworkBehaviour {
                 StopCoroutine(_timerRoutine);
 
             _timerRoutine = StartCoroutine(TimerCoroutine());
+            
+            // Check if we're in Tag mode and designate initial "it" after 5 seconds
+            var matchSettings = MatchSettings.Instance;
+            if(matchSettings != null && matchSettings.selectedGameModeId == "Tag") {
+                StartCoroutine(DesignateInitialItAfterDelay());
+            }
         }
 
         // Push current value to UI immediately when a client joins
         OnTimeRemainingChanged(0, _timeRemainingSeconds.Value);
     }
 
-    private void OnDestroy() {
+    private new void OnDestroy() {
         _timeRemainingSeconds.OnValueChanged -= OnTimeRemainingChanged;
     }
 
@@ -85,5 +88,45 @@ public class MatchTimerManager : NetworkBehaviour {
 
         // If you want to restart timer mid-match, you could also reset
         // _timeRemainingSeconds here and restart the coroutine.
+    }
+    
+    /// <summary>
+    /// Designates a random player as "it" after 5 seconds if no one is tagged yet (Tag mode only).
+    /// </summary>
+    private IEnumerator DesignateInitialItAfterDelay() {
+        yield return new WaitForSeconds(5f);
+        
+        if(_hasDesignatedInitialIt || !IsServer) yield break;
+        
+        var matchSettings = MatchSettings.Instance;
+        if(matchSettings == null || matchSettings.selectedGameModeId != "Tag") yield break;
+        
+        // Check if anyone is already tagged
+        var allPlayers = FindObjectsByType<PlayerController>(FindObjectsSortMode.None)
+            .Where(p => p != null && p.NetworkObject != null && p.NetworkObject.IsSpawned)
+            .ToList();
+        
+        if(allPlayers.Count == 0) yield break;
+        
+        // Check if anyone is already tagged
+        bool anyoneTagged = allPlayers.Any(p => p.isTagged.Value);
+        
+        if(!anyoneTagged) {
+            // Randomly select a player to be "it"
+            var randomPlayer = allPlayers[Random.Range(0, allPlayers.Count)];
+            
+            // Tag the player
+            randomPlayer.isTagged.Value = true;
+            randomPlayer.tagged.Value++;
+            
+            // Play tagged sound for the player who was designated as "it"
+            randomPlayer.PlayTaggedSoundClientRpc();
+            
+            // Broadcast to kill feed with HOP as the tagger (similar to OOB kills)
+            randomPlayer.BroadcastTagTransferFromHOPClientRpc(randomPlayer.OwnerClientId);
+            
+            _hasDesignatedInitialIt = true;
+            Debug.Log($"[MatchTimerManager] Designated {randomPlayer.playerName.Value} as initial 'it' after 5 seconds");
+        }
     }
 }

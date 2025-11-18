@@ -52,9 +52,40 @@ namespace Network.Singletons {
 
         // Call from Player
         public void UpdateHealth(float current, float max) {
+            // Check if we're in Tag mode
+            var matchSettings = MatchSettings.Instance;
+            bool isTagMode = matchSettings != null && matchSettings.selectedGameModeId == "Tag";
+            
+            if(isTagMode) {
+                // Tag mode: don't update health bar (will be updated via UpdateTagStatus)
+                return;
+            }
+            
             var percent = (current / max) * 100f;
             _healthBar.value = percent;
             _healthValue.text = Mathf.CeilToInt(current).ToString();
+        }
+        
+        /// <summary>
+        /// Updates the health bar to show tag status in Tag mode.
+        /// </summary>
+        public void UpdateTagStatus(bool isTagged) {
+            var matchSettings = MatchSettings.Instance;
+            bool isTagMode = matchSettings != null && matchSettings.selectedGameModeId == "Tag";
+            
+            if(!isTagMode) {
+                // Not in Tag mode, don't update
+                return;
+            }
+            
+            // Hide health bar, show text status
+            _healthBar.style.display = DisplayStyle.None;
+            
+            if(isTagged) {
+                _healthValue.text = "You're it!";
+            } else {
+                _healthValue.text = "Not it...";
+            }
         }
     
         public void UpdateMultiplier(float current, float max) {

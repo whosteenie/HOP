@@ -10,7 +10,7 @@ namespace Network.Rpc {
         private readonly Dictionary<SfxKey, float> _lastSent = new();
         [SerializeField] private float walkMinInterval = 0.02f;
         [SerializeField] private float runMinInterval  = 0.01f;
-        [SerializeField] private float landMinInterval = 0.03f;
+        [SerializeField] private float landMinInterval = 0.01f; // Reduced for bunnyhopping - allow more frequent land sounds
         [SerializeField] private float jumpMinInterval = 0.08f;
         [SerializeField] private float reloadMinInterval = 0.10f;
         [SerializeField] private float dryMinInterval = 0.05f;
@@ -40,13 +40,16 @@ namespace Network.Rpc {
             // optional rate limit on the caller side as well
             var t = Time.time;
             if(_lastSent.TryGetValue(key, out var last) && t - last < GetMinInterval(key)) {
-                Debug.LogWarning("[SfxRelay] Suppressed spammy SFX key: " + key);
                 return;
             }
             _lastSent[key] = t;
             
+            // Additional velocity check for walk/run sounds (backup to PlayerController check)
+            // Check horizontal velocity only - vertical velocity shouldn't affect footstep sounds
             if(key is SfxKey.Walk or SfxKey.Run) {
-                if(playerController.CurrentFullVelocity.magnitude < 0.1f) {
+                var horizontalVel = playerController.CurrentFullVelocity;
+                horizontalVel.y = 0f; // Ignore vertical velocity
+                if(horizontalVel.sqrMagnitude < 0.5f * 0.5f) { // ~0.5 m/s minimum speed
                     return;
                 }
             }
@@ -71,6 +74,25 @@ namespace Network.Rpc {
                 parent = no.transform;
 
             SoundFXManager.Instance?.PlayKey(key, parent, pos, allowOverlap);
+        }
+
+        /// <summary>
+        /// Stop a currently playing world sound (e.g., cancel reload sound when switching weapons)
+        /// </summary>
+        public void StopWorldSfx(SfxKey key) {
+            if(!IsOwner) return; // Only owner can request to stop sounds
+            StopWorldSfxServerRpc(key);
+        }
+
+        [Rpc(SendTo.Server)]
+        private void StopWorldSfxServerRpc(SfxKey key) {
+            if(!IsSpawned) return;
+            StopWorldSfxClientRpc(key);
+        }
+
+        [Rpc(SendTo.Everyone)]
+        private void StopWorldSfxClientRpc(SfxKey key) {
+            SoundFXManager.Instance?.StopSound(key);
         }
     }
 }

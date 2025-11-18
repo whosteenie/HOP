@@ -1,35 +1,36 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" editor-extension-mode="False">
-    <Style src="project://database/Assets/UI%20Toolkit/SharedStyles.uss?fileID=7433441132597879392&amp;guid=f1a785b22a99c4f4aa6e7ad3810f5dbe&amp;type=3#SharedStyles" />
-    <Style src="project://database/Assets/UI%20Toolkit/GameMenu.uss?fileID=7433441132597879392&amp;guid=0324e620d56fe7a479630addfc0f4608&amp;type=3#GameMenu" />
-    <ui:VisualElement name="root-container" class="full-abs" style="visibility: visible; display: none;">
+    <Style src="project://database/Assets/UI%20Toolkit/SharedStyles.uss?fileID=7433441132597879392&amp;guid=94b07ae9f6dfe3447bec848c3f2b4d36&amp;type=3#SharedStyles" />
+    <Style src="project://database/Assets/UI%20Toolkit/GameMenu.uss?fileID=7433441132597879392&amp;guid=ba28be69539cc9b4fbc1ee3bcbb05d45&amp;type=3#GameMenu" />
+    <Style src="project://database/Assets/UI%20Toolkit/SceneTransition.uss?fileID=7433441132597879392&amp;guid=4daa9d2117fa153469ed19a28f36d7c7&amp;type=3#SceneTransition" />
+    <ui:VisualElement name="root-container" class="full-abs root-container-visibility">
         <ui:VisualElement name="damage-vignette-root" class="damage-vignette-container">
-            <ui:VisualElement name="hit-front" class="damage-vignette side" style="opacity: 0; height: 35px;" />
-            <ui:VisualElement name="hit-back" class="damage-vignette side" style="opacity: 0; height: 35px;" />
-            <ui:VisualElement name="hit-left" class="damage-vignette side" style="opacity: 0; width: 35px;" />
-            <ui:VisualElement name="hit-right" class="damage-vignette side" style="opacity: 0; width: 35px;" />
-            <ui:VisualElement name="hit-frontLeft" class="corner" style="opacity: 0;">
-                <ui:VisualElement class="corner-c" style="width: 35px; height: 35px; background-color: rgba(200, 60, 60, 0.9);" />
-                <ui:VisualElement class="corner-h" style="width: 150px; height: 35px; left: 35px;" />
-                <ui:VisualElement class="corner-v" style="width: 35px; height: 150px; top: 35px;" />
+            <ui:VisualElement name="hit-front" class="damage-vignette side" style="height: 35px;" />
+            <ui:VisualElement name="hit-back" class="damage-vignette side" style="height: 35px;" />
+            <ui:VisualElement name="hit-left" class="damage-vignette side" style="width: 35px;" />
+            <ui:VisualElement name="hit-right" class="damage-vignette side" style="width: 35px;" />
+            <ui:VisualElement name="hit-frontLeft" class="corner">
+                <ui:VisualElement class="corner-c corner-c-inline" style="position: absolute;" />
+                <ui:VisualElement class="corner-h corner-h-inline" style="height: 35px; left: 35px;" />
+                <ui:VisualElement class="corner-v corner-v-inline" style="top: 35px; width: 35px;" />
             </ui:VisualElement>
-            <ui:VisualElement name="hit-frontRight" class="corner" style="opacity: 0;">
-                <ui:VisualElement class="corner-c" style="position: absolute; right: 0; width: 35px; height: 35px; background-color: rgba(200, 60, 60, 0.9);" />
-                <ui:VisualElement class="corner-h" style="right: 35px; left: auto; width: 150px; height: 35px;" />
-                <ui:VisualElement class="corner-v" style="top: 35px; bottom: auto; width: 35px; height: 150px;" />
+            <ui:VisualElement name="hit-frontRight" class="corner">
+                <ui:VisualElement class="corner-c corner-c-position-absolute-right-0" />
+                <ui:VisualElement class="corner-h corner-h-inline-right-35px" style="left: auto; right: 35px; height: 35px;" />
+                <ui:VisualElement class="corner-v corner-v-inline-top-35px-bottom-auto" style="width: 35px; bottom: auto; top: 35px;" />
             </ui:VisualElement>
-            <ui:VisualElement name="hit-backLeft" class="corner" style="opacity: 0;">
-                <ui:VisualElement class="corner-c" style="background-color: rgba(200, 60, 60, 0.9); width: 35px; height: 35px; bottom: 0; left: 0; position: absolute;" />
-                <ui:VisualElement class="corner-h" style="width: 150px; height: 35px; left: 35px;" />
-                <ui:VisualElement class="corner-v" style="bottom: 35px; width: 35px; height: 150px; top: auto; left: auto;" />
+            <ui:VisualElement name="hit-backLeft" class="corner">
+                <ui:VisualElement class="corner-c corner-c-position-absolute-bottom-0-left-0" />
+                <ui:VisualElement class="corner-h corner-h-inline-left-35px" style="left: 35px; height: 35px;" />
+                <ui:VisualElement class="corner-v corner-v-inline-bottom-35px-top-auto" style="width: 35px; bottom: 35px; top: auto;" />
             </ui:VisualElement>
-            <ui:VisualElement name="hit-backRight" class="corner" style="opacity: 0;">
-                <ui:VisualElement class="corner-c" style="position: absolute; bottom: 0; right: 0; width: 35px; height: 35px; background-color: rgba(200, 60, 60, 0.9);" />
-                <ui:VisualElement class="corner-h" style="left: auto; right: 35px; width: 150px; height: 35px;" />
-                <ui:VisualElement class="corner-v" style="bottom: 35px; top: auto; width: 35px; height: 150px;" />
+            <ui:VisualElement name="hit-backRight" class="corner">
+                <ui:VisualElement class="corner-c corner-c-position-absolute-bottom-0-right-0" />
+                <ui:VisualElement class="corner-h corner-h-inline-left-auto-right-35px" style="height: 35px; right: 35px; left: auto;" />
+                <ui:VisualElement class="corner-v corner-v-inline-bottom-35px-top-auto-right" style="top: auto; bottom: 35px; width: 35px;" />
             </ui:VisualElement>
         </ui:VisualElement>
-        <ui:VisualElement name="hud-panel" class="hud" style="visibility: visible;">
-            <ui:VisualElement name="match-timer-container" class="match-timer-container" style="max-width: 112px;">
+        <ui:VisualElement name="hud-panel" class="hud hud-visibility-visible">
+            <ui:VisualElement name="match-timer-container" class="match-timer-container match-timer-container-max-width">
                 <ui:Label name="match-timer-label" text="00:00" class="match-timer-label" />
             </ui:VisualElement>
             <ui:VisualElement name="health-container" class="health-container">
@@ -50,102 +51,173 @@
                 <ui:VisualElement name="crosshair-vertical" class="crosshair-line vertical" />
                 <ui:VisualElement name="grapple-indicator" class="grapple-indicator" />
             </ui:VisualElement>
-            <ui:VisualElement name="kill-feed-container" class="kill-feed-container" />
         </ui:VisualElement>
+        <ui:VisualElement name="kill-feed-container" class="kill-feed-container" />
         <ui:VisualElement name="pause-menu-panel" class="panel full-abs center-xy hidden">
             <ui:VisualElement name="pause-container" class="menu-container card">
-                <ui:Label text="PAUSED" name="pause-label" class="title" />
+                <ui:VisualElement name="pause-header" class="pause-header pause-header-align-flex-start" style="align-items: flex-start;">
+                    <ui:Label text="PAUSED" name="pause-label" class="title" />
+                    <ui:VisualElement name="pause-join-code-display" class="pause-join-code-display pause-join-code-display-margin-top-7px" style="margin-top: 6px;">
+                        <ui:Label name="pause-join-code-label" text="Join Code: - - - - - -" class="value-label accent pause-join-code-label-inline pause-join-code-label-margin-right-5px" style="margin-right: 11px;" />
+                        <ui:Button name="pause-copy-code-button" class="copy-button menu-chip menu-chip-enabled width-36px">
+                            <ui:Image name="pause-copy-icon" class="copy-icon" />
+                        </ui:Button>
+                    </ui:VisualElement>
+                </ui:VisualElement>
                 <ui:Button text="Resume" name="resume-button" class="menu-chip menu-chip-enabled" />
                 <ui:Button text="Options" name="options-button" class="menu-chip menu-chip-enabled" />
                 <ui:Button text="Quit to Menu" name="quit-button" class="menu-chip menu-chip-enabled" />
             </ui:VisualElement>
         </ui:VisualElement>
-        <ui:VisualElement name="options-panel" class="panel full-abs center-xy hidden">
+        <ui:VisualElement name="options-panel" class="panel full-abs center-xy hidden options-panel-display-none">
             <ui:VisualElement name="options-container" class="options-container card">
                 <ui:Label text="OPTIONS" name="options-title" class="title" />
-                <ui:VisualElement name="audio-container" class="section">
-                    <ui:Label text="Audio" name="audio-label" class="section-title" />
-                    <ui:VisualElement name="master-container" class="setting-row">
-                        <ui:Label text="Master Volume" name="master-label" class="setting-label" />
-                        <ui:Slider name="master-volume" low-value="0" high-value="1" class="setting-slider" />
-                        <ui:Label name="master-volume-value" text="100%" class="value-label" />
-                    </ui:VisualElement>
-                    <ui:VisualElement name="music-container" class="setting-row">
-                        <ui:Label text="Music Volume" name="music-label" class="setting-label" />
-                        <ui:Slider name="music-volume" low-value="0" high-value="1" class="setting-slider" />
-                        <ui:Label name="music-volume-value" text="100%" class="value-label" />
-                    </ui:VisualElement>
-                    <ui:VisualElement name="sfx-container" class="setting-row">
-                        <ui:Label text="SFX Volume" name="sfx-label" class="setting-label" />
-                        <ui:Slider name="sfx-volume" low-value="0" high-value="1" class="setting-slider" />
-                        <ui:Label name="sfx-volume-value" text="100%" class="value-label" />
-                    </ui:VisualElement>
+                <ui:VisualElement name="options-tabs" class="options-tabs">
+                    <ui:Button text="Video" name="tab-video" class="options-tab options-tab-active" />
+                    <ui:Button text="Audio" name="tab-audio" class="options-tab" />
+                    <ui:Button text="Game" name="tab-game" class="options-tab" />
+                    <ui:Button text="Controls" name="tab-controls" class="options-tab" />
                 </ui:VisualElement>
-                <ui:VisualElement name="control-container" class="section">
-                    <ui:Label text="Controls" name="control-label" class="section-title" />
-                    <ui:VisualElement name="sensitivity-x-container" class="setting-row">
-                        <ui:Label text="Mouse Sensitivity X" name="sensitivity-x-label" class="setting-label" />
-                        <ui:Slider name="sensitivity-x" low-value="0.01" high-value="0.5" value="0" class="setting-slider" />
-                        <ui:Label name="sensitivity-x-value" text="0.10" class="value-label" />
+                <ui:ScrollView name="options-content-scroll" vertical-scroller-visibility="Auto" horizontal-scroller-visibility="Hidden" class="options-content-scroll">
+                    <ui:VisualElement name="options-content" class="options-content">
+                        <ui:VisualElement name="video-content" class="options-tab-content">
+                            <ui:VisualElement name="quality-container" class="setting-row">
+                                <ui:Label text="Quality Level" name="quality-label" class="setting-label" />
+                                <ui:DropdownField name="quality-level" class="setting-dropdown" />
+                            </ui:VisualElement>
+                            <ui:VisualElement name="vsync-container" class="setting-row">
+                                <ui:Label text="VSync" name="vsync-label" class="setting-label" />
+                                <ui:Button name="vsync" class="setting-toggle" />
+                            </ui:VisualElement>
+                            <ui:VisualElement name="target-fps-container" class="setting-row">
+                                <ui:Label text="Target FPS" name="target-fps-label" class="setting-label" />
+                                <ui:DropdownField name="target-fps" class="setting-dropdown" />
+                            </ui:VisualElement>
+                        </ui:VisualElement>
+                        <ui:VisualElement name="audio-content" class="options-tab-content hidden">
+                            <ui:VisualElement name="master-container" class="setting-row">
+                                <ui:Label text="Master Volume" name="master-label" class="setting-label" />
+                                <ui:Slider name="master-volume" low-value="0" high-value="1" fill="true" class="setting-slider" />
+                                <ui:Label name="master-volume-value" text="100%" class="value-label" />
+                            </ui:VisualElement>
+                            <ui:VisualElement name="music-container" class="setting-row">
+                                <ui:Label text="Music Volume" name="music-label" class="setting-label" />
+                                <ui:Slider name="music-volume" low-value="0" high-value="1" fill="true" class="setting-slider" />
+                                <ui:Label name="music-volume-value" text="100%" class="value-label" />
+                            </ui:VisualElement>
+                            <ui:VisualElement name="sfx-container" class="setting-row">
+                                <ui:Label text="SFX Volume" name="sfx-label" class="setting-label" />
+                                <ui:Slider name="sfx-volume" low-value="0" high-value="1" fill="true" class="setting-slider" />
+                                <ui:Label name="sfx-volume-value" text="100%" class="value-label" />
+                            </ui:VisualElement>
+                        </ui:VisualElement>
+                        <ui:VisualElement name="game-content" class="options-tab-content hidden" />
+                        <ui:VisualElement name="controls-content" class="options-tab-content hidden">
+                            <ui:VisualElement name="sensitivity-container" class="setting-row">
+                                <ui:Label text="Mouse Sensitivity" name="sensitivity-label" class="setting-label" />
+                                <ui:Slider name="sensitivity" low-value="0.01" high-value="0.5" value="0" fill="true" class="setting-slider" />
+                                <ui:Label name="sensitivity-value" text="0.10" class="value-label" />
+                            </ui:VisualElement>
+                            <ui:VisualElement name="invert-y-container" class="setting-row">
+                                <ui:Label text="Invert Y Axis" name="invert-y-label" class="setting-label" />
+                                <ui:Button name="invert-y" class="setting-toggle" />
+                            </ui:VisualElement>
+                            <ui:VisualElement name="keybind-forward-container" class="setting-row">
+                                <ui:Label text="Forward" name="keybind-forward-label" class="setting-label" />
+                                <ui:Button name="keybind-forward-0" text="None" class="keybind-button" />
+                                <ui:Button name="keybind-forward-1" text="None" class="keybind-button" />
+                            </ui:VisualElement>
+                            <ui:VisualElement name="keybind-back-container" class="setting-row">
+                                <ui:Label text="Back" name="keybind-back-label" class="setting-label" />
+                                <ui:Button name="keybind-back-0" text="None" class="keybind-button" />
+                                <ui:Button name="keybind-back-1" text="None" class="keybind-button" />
+                            </ui:VisualElement>
+                            <ui:VisualElement name="keybind-left-container" class="setting-row">
+                                <ui:Label text="Left" name="keybind-left-label" class="setting-label" />
+                                <ui:Button name="keybind-left-0" text="None" class="keybind-button" />
+                                <ui:Button name="keybind-left-1" text="None" class="keybind-button" />
+                            </ui:VisualElement>
+                            <ui:VisualElement name="keybind-right-container" class="setting-row">
+                                <ui:Label text="Right" name="keybind-right-label" class="setting-label" />
+                                <ui:Button name="keybind-right-0" text="None" class="keybind-button" />
+                                <ui:Button name="keybind-right-1" text="None" class="keybind-button" />
+                            </ui:VisualElement>
+                            <ui:VisualElement name="keybind-jump-container" class="setting-row">
+                                <ui:Label text="Jump" name="keybind-jump-label" class="setting-label" />
+                                <ui:Button name="keybind-jump-0" text="None" class="keybind-button" />
+                                <ui:Button name="keybind-jump-1" text="None" class="keybind-button" />
+                            </ui:VisualElement>
+                            <ui:VisualElement name="keybind-shoot-container" class="setting-row">
+                                <ui:Label text="Shoot" name="keybind-shoot-label" class="setting-label" />
+                                <ui:Button name="keybind-shoot-0" text="None" class="keybind-button" />
+                                <ui:Button name="keybind-shoot-1" text="None" class="keybind-button" />
+                            </ui:VisualElement>
+                            <ui:VisualElement name="keybind-reload-container" class="setting-row">
+                                <ui:Label text="Reload" name="keybind-reload-label" class="setting-label" />
+                                <ui:Button name="keybind-reload-0" text="None" class="keybind-button" />
+                                <ui:Button name="keybind-reload-1" text="None" class="keybind-button" />
+                            </ui:VisualElement>
+                            <ui:VisualElement name="keybind-grapple-container" class="setting-row">
+                                <ui:Label text="Grapple" name="keybind-grapple-label" class="setting-label" />
+                                <ui:Button name="keybind-grapple-0" text="None" class="keybind-button" />
+                                <ui:Button name="keybind-grapple-1" text="None" class="keybind-button" />
+                            </ui:VisualElement>
+                            <ui:VisualElement name="keybind-primary-container" class="setting-row">
+                                <ui:Label text="Primary Weapon" name="keybind-primary-label" class="setting-label" />
+                                <ui:Button name="keybind-primary-0" text="None" class="keybind-button" />
+                                <ui:Button name="keybind-primary-1" text="None" class="keybind-button" />
+                            </ui:VisualElement>
+                            <ui:VisualElement name="keybind-secondary-container" class="setting-row">
+                                <ui:Label text="Secondary Weapon" name="keybind-secondary-label" class="setting-label" />
+                                <ui:Button name="keybind-secondary-0" text="None" class="keybind-button" />
+                                <ui:Button name="keybind-secondary-1" text="None" class="keybind-button" />
+                            </ui:VisualElement>
+                            <ui:VisualElement name="keybind-nextweapon-container" class="setting-row">
+                                <ui:Label text="Next Weapon" name="keybind-nextweapon-label" class="setting-label" />
+                                <ui:Button name="keybind-nextweapon-0" text="None" class="keybind-button" />
+                                <ui:Button name="keybind-nextweapon-1" text="None" class="keybind-button" />
+                            </ui:VisualElement>
+                            <ui:VisualElement name="keybind-previousweapon-container" class="setting-row">
+                                <ui:Label text="Previous Weapon" name="keybind-previousweapon-label" class="setting-label" />
+                                <ui:Button name="keybind-previousweapon-0" text="None" class="keybind-button" />
+                                <ui:Button name="keybind-previousweapon-1" text="None" class="keybind-button" />
+                            </ui:VisualElement>
+                        </ui:VisualElement>
                     </ui:VisualElement>
-                    <ui:VisualElement name="sensitivity-y-container" class="setting-row">
-                        <ui:Label text="Mouse Sensitivity Y" name="sensitivity-y-label" class="setting-label" />
-                        <ui:Slider name="sensitivity-y" low-value="0.01" high-value="0.5" class="setting-slider" />
-                        <ui:Label name="sensitivity-y-value" text="0.10" class="value-label" />
-                    </ui:VisualElement>
-                    <ui:VisualElement name="invert-y-container" class="setting-row">
-                        <ui:Label text="Invert Y Axis" name="invert-y-label" class="setting-label" />
-                        <ui:Toggle name="invert-y" class="setting-toggle" />
-                    </ui:VisualElement>
-                </ui:VisualElement>
-                <ui:VisualElement name="graphics-container" class="section">
-                    <ui:Label text="Graphics" name="graphics-label" class="section-title" />
-                    <ui:VisualElement name="quality-container" class="setting-row">
-                        <ui:Label text="Quality Level" name="quality-label" class="setting-label" />
-                        <ui:DropdownField name="quality-level" class="setting-dropdown" />
-                    </ui:VisualElement>
-                    <ui:VisualElement name="vsync-container" class="setting-row">
-                        <ui:Label text="VSync" name="vsync-label" class="setting-label" />
-                        <ui:Toggle name="vsync" class="setting-toggle" />
-                    </ui:VisualElement>
-                    <ui:VisualElement name="target-fps-container" class="setting-row">
-                        <ui:Label text="Target FPS" name="target-fps-label" class="setting-label" />
-                        <ui:DropdownField name="target-fps" class="setting-dropdown" />
-                    </ui:VisualElement>
-                </ui:VisualElement>
+                </ui:ScrollView>
                 <ui:VisualElement name="apply-container" class="button-row">
                     <ui:Button text="Back" name="back-button" class="menu-chip menu-chip-enabled" />
                     <ui:Button text="Apply" name="apply-button" class="menu-chip menu-chip-enabled" />
                 </ui:VisualElement>
             </ui:VisualElement>
         </ui:VisualElement>
-        <ui:VisualElement name="podium-nameplates-container" class="podium-nameplates" style="display: none;">
-            <ui:VisualElement name="podium-first-slot" class="podium-slot podium-slot-first" style="min-width: 200px; max-width: 200px; bottom: 164px; left: 959px;">
-                <ui:Label name="podium-first-name" text="FIRST PLACE" class="podium-name" />
-                <ui:VisualElement class="podium-kills-row">
-                    <ui:Label name="podium-first-kills" text="0" class="podium-kills-text" />
-                    <ui:VisualElement name="podium-first-skull" class="podium-kill-icon" style="min-width: 22px; width: 22px; height: 22px;" />
-                </ui:VisualElement>
-            </ui:VisualElement>
-            <ui:VisualElement name="podium-second-slot" class="podium-slot podium-slot-second" style="bottom: 157px; left: 534px; min-width: 200px; max-width: 200px;">
+        <ui:VisualElement name="podium-nameplates-container" class="podium-nameplates podium-nameplates-inline podium-nameplates-height-100-top-auto" style="height: 100%; top: auto;">
+            <ui:VisualElement name="podium-second-slot" class="podium-slot podium-slot-second podium-slot-second-inline podium-slot-second-left-556-top-825" style="left: 23%; bottom: auto; top: 73%; position: absolute;">
                 <ui:Label name="podium-second-name" text="SECOND PLACE" class="podium-name" />
                 <ui:VisualElement class="podium-kills-row">
                     <ui:Label name="podium-second-kills" text="0" class="podium-kills-text" />
-                    <ui:VisualElement name="podium-second-skull" class="podium-kill-icon" style="min-width: 22px; width: 22px; height: 22px;" />
+                    <ui:VisualElement name="podium-second-skull" class="podium-kill-icon podium-kill-icon-inline" />
                 </ui:VisualElement>
             </ui:VisualElement>
-            <ui:VisualElement name="podium-third-slot" class="podium-slot podium-slot-third" style="bottom: 201px; right: 570px; min-width: 200px; max-width: 200px;">
+            <ui:VisualElement name="podium-first-slot" class="podium-slot podium-slot-first podium-slot-first-inline podium-slot-first-top-724-left-947" style="top: 81%; position: absolute; left: 51%;">
+                <ui:Label name="podium-first-name" text="FIRST PLACE" class="podium-name" />
+                <ui:VisualElement class="podium-kills-row">
+                    <ui:Label name="podium-first-kills" text="0" class="podium-kills-text" />
+                    <ui:VisualElement name="podium-first-skull" class="podium-kill-icon podium-kill-icon-inline" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+            <ui:VisualElement name="podium-third-slot" class="podium-slot podium-slot-third podium-slot-third-inline podium-slot-third-top-712-left-1125" style="right: auto; top: 65%; bottom: auto; left: 62%; position: absolute;">
                 <ui:Label name="podium-third-name" text="THIRD PLACE" class="podium-name" />
                 <ui:VisualElement class="podium-kills-row">
                     <ui:Label name="podium-third-kills" text="0" class="podium-kills-text" />
-                    <ui:VisualElement name="podium-third-skull" class="podium-kill-icon" style="width: 22px; height: 22px; min-width: 22px;" />
+                    <ui:VisualElement name="podium-third-skull" class="podium-kill-icon podium-kill-icon-inline-alt" />
                 </ui:VisualElement>
             </ui:VisualElement>
         </ui:VisualElement>
         <ui:VisualElement name="scoreboard-panel" class="panel full-abs center-xy hidden">
             <ui:VisualElement name="scoreboard-container" class="scoreboard-container card">
                 <ui:Label text="SCOREBOARD" name="scoreboard-title" class="title" />
-                <ui:VisualElement name="scoreboard-header" class="scoreboard-header" style="height: 38px;">
+                <ui:VisualElement name="scoreboard-header" class="scoreboard-header scoreboard-header-height-38px">
                     <ui:Label text="PING" class="header-cell ping-cell" />
                     <ui:VisualElement class="header-cell avatar-cell" />
                     <ui:Label class="header-cell name-cell" />
@@ -160,6 +232,63 @@
                 <ui:ScrollView name="scoreboard-scroll" class="scoreboard-scroll">
                     <ui:VisualElement name="player-rows" class="player-rows" />
                 </ui:ScrollView>
+            </ui:VisualElement>
+            <ui:VisualElement name="tdm-scoreboard-container" class="tdm-scoreboard-container card hidden">
+                <ui:Label text="TEAM DEATHMATCH" name="tdm-scoreboard-title" class="title" />
+                <ui:VisualElement name="enemy-team-section" class="tdm-team-section tdm-team-section-enemy">
+                    <ui:VisualElement name="enemy-team-header" class="tdm-team-header">
+                        <ui:Label text="PING" class="header-cell ping-cell" />
+                        <ui:VisualElement class="header-cell avatar-cell" />
+                        <ui:Label class="header-cell name-cell" />
+                        <ui:Label text="K" class="header-cell stat-cell" />
+                        <ui:Label text="D" class="header-cell stat-cell" />
+                        <ui:Label text="A" class="header-cell stat-cell" />
+                        <ui:Label text="KDR" class="header-cell stat-cell" />
+                        <ui:Label text="DMG" class="header-cell stat-cell" />
+                        <ui:Label text="HS%" class="header-cell stat-cell" />
+                        <ui:Label text="AV" class="header-cell stat-cell" />
+                    </ui:VisualElement>
+                    <ui:ScrollView name="enemy-team-scroll" class="tdm-team-scroll">
+                        <ui:VisualElement name="enemy-team-rows" class="player-rows" />
+                    </ui:ScrollView>
+                </ui:VisualElement>
+                <ui:VisualElement name="tdm-score-display" class="tdm-score-display tdm-score-display-styled">
+                    <ui:VisualElement name="your-score-container" class="tdm-score-container tdm-score-your tdm-score-container-styled">
+                        <ui:Label name="your-score-value" text="0" class="tdm-score-value tdm-score-value-styled" />
+                    </ui:VisualElement>
+                    <ui:Label text="VS" name="tdm-vs-label" class="tdm-vs-label tdm-vs-label-styled" />
+                    <ui:VisualElement name="enemy-score-container" class="tdm-score-container tdm-score-enemy tdm-score-container-enemy-styled">
+                        <ui:Label name="enemy-score-value" text="0" class="tdm-score-value tdm-score-value-styled" />
+                    </ui:VisualElement>
+                </ui:VisualElement>
+                <ui:VisualElement name="your-team-section" class="tdm-team-section tdm-team-section-your">
+                    <ui:VisualElement name="your-team-header" class="tdm-team-header tdm-team-header-your">
+                        <ui:Label text="PING" class="header-cell ping-cell" />
+                        <ui:VisualElement class="header-cell avatar-cell" />
+                        <ui:Label class="header-cell name-cell" />
+                        <ui:Label text="K" class="header-cell stat-cell" />
+                        <ui:Label text="D" class="header-cell stat-cell" />
+                        <ui:Label text="A" class="header-cell stat-cell" />
+                        <ui:Label text="KDR" class="header-cell stat-cell" />
+                        <ui:Label text="DMG" class="header-cell stat-cell" />
+                        <ui:Label text="HS%" class="header-cell stat-cell" />
+                        <ui:Label text="AV" class="header-cell stat-cell" />
+                    </ui:VisualElement>
+                    <ui:ScrollView name="your-team-scroll" class="tdm-team-scroll">
+                        <ui:VisualElement name="your-team-rows" class="player-rows" />
+                    </ui:ScrollView>
+                </ui:VisualElement>
+            </ui:VisualElement>
+        </ui:VisualElement>
+    </ui:VisualElement>
+    <ui:VisualElement name="unsaved-changes-modal" class="unsaved-changes-modal full-abs hidden">
+        <ui:VisualElement name="unsaved-changes-container" class="unsaved-changes-container card">
+            <ui:Label text="Unsaved Changes" name="unsaved-changes-title" class="title" />
+            <ui:Label text="Do you want to apply unsaved changes?" name="unsaved-changes-message" class="unsaved-changes-message" />
+            <ui:VisualElement name="unsaved-changes-buttons" class="unsaved-changes-buttons">
+                <ui:Button text="Yes" name="unsaved-changes-yes" class="menu-chip menu-chip-enabled" />
+                <ui:Button text="No" name="unsaved-changes-no" class="menu-chip menu-chip-enabled back-button" />
+                <ui:Button text="Cancel" name="unsaved-changes-cancel" class="menu-chip menu-chip-enabled" />
             </ui:VisualElement>
         </ui:VisualElement>
     </ui:VisualElement>

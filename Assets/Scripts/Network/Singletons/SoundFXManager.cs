@@ -46,6 +46,11 @@ namespace Network.Singletons {
             InitializePool();
         }
 
+        private void OnDestroy() {
+            // Stop all sounds when manager is destroyed
+            StopAllSounds();
+        }
+
         private void InitializePool() {
             for(var i = 0; i < poolSize; i++) {
                 var src = Instantiate(soundFXPrefab, transform);
@@ -140,21 +145,94 @@ namespace Network.Singletons {
             src.volume = DbToLinear(dbMaster) * DbToLinear(dbSfx);
 
             src.clip = clip;
-            _activeSounds[trackKey] = src;
             src.Play();
 
-            StartCoroutine(ReturnAfter(src, clip.length, trackKey));
+            // Only track in _activeSounds if overlap is not allowed (for cleanup)
+            // When overlap is allowed, each sound manages its own cleanup
+            if(!allowOverlap) {
+                _activeSounds[trackKey] = src;
+            }
+
+            // Use unique track key for overlapping sounds to avoid conflicts
+            var cleanupKey = allowOverlap ? $"{trackKey}_{src.GetInstanceID()}" : trackKey;
+            StartCoroutine(ReturnAfter(src, clip.length, cleanupKey, allowOverlap ? null : trackKey));
         }
 
-        private IEnumerator ReturnAfter(AudioSource src, float delay, string trackKey) {
+        private IEnumerator ReturnAfter(AudioSource src, float delay, string cleanupKey, string trackKey = null) {
             yield return new WaitForSeconds(delay);
-            if(_activeSounds.TryGetValue(trackKey, out var cur) && cur == src)
+            
+            // Safety check: if AudioSource or its GameObject was destroyed, skip cleanup
+            if(src == null || src.gameObject == null) {
+                // Clean up tracking if it exists
+                if(trackKey != null && _activeSounds.TryGetValue(trackKey, out var cur) && cur == src)
+                    _activeSounds.Remove(trackKey);
+                yield break;
+            }
+            
+            // Only remove from _activeSounds if this was the tracked sound (non-overlapping)
+            if(trackKey != null && _activeSounds.TryGetValue(trackKey, out var cur2) && cur2 == src)
                 _activeSounds.Remove(trackKey);
-            src.Stop();
-            src.clip = null;
-            src.transform.SetParent(transform, false);
-            src.gameObject.SetActive(false);
-            _audioPool.Enqueue(src);
+            
+            // Additional safety check before accessing AudioSource properties
+            if(src != null && src.gameObject != null) {
+                src.Stop();
+                src.clip = null;
+                src.transform.SetParent(transform, false);
+                src.gameObject.SetActive(false);
+                _audioPool.Enqueue(src);
+            }
+        }
+
+        /// <summary>
+        /// Stop a currently playing sound by key (for canceling reloads, etc.)
+        /// </summary>
+        public void StopSound(SfxKey key) {
+            var trackKey = key.ToString();
+            if(_activeSounds.TryGetValue(trackKey, out var src) && src != null && src.gameObject != null) {
+                if(src.isPlaying) {
+                    src.Stop();
+                }
+                src.clip = null;
+                src.transform.SetParent(transform, false);
+                src.gameObject.SetActive(false);
+                _audioPool.Enqueue(src);
+                _activeSounds.Remove(trackKey);
+            }
+        }
+
+        /// <summary>
+        /// Stop all currently playing sounds and return them to the pool.
+        /// Useful when leaving a game/scene to prevent accessing destroyed audio clips.
+        /// </summary>
+        public void StopAllSounds() {
+            // Stop all tracked sounds
+            var keysToRemove = new List<string>();
+            foreach(var kvp in _activeSounds) {
+                if(kvp.Value != null && kvp.Value.gameObject != null) {
+                    kvp.Value.Stop();
+                    kvp.Value.clip = null;
+                    kvp.Value.transform.SetParent(transform, false);
+                    kvp.Value.gameObject.SetActive(false);
+                    _audioPool.Enqueue(kvp.Value);
+                }
+                keysToRemove.Add(kvp.Key);
+            }
+            
+            // Clear the active sounds dictionary
+            foreach(var key in keysToRemove) {
+                _activeSounds.Remove(key);
+            }
+            
+            // Stop all coroutines on this MonoBehaviour (this will stop all ReturnAfter coroutines)
+            StopAllCoroutines();
+            
+            // Also stop any pooled AudioSources that might still be playing
+            foreach(var src in _audioPool) {
+                if(src != null && src.gameObject != null && src.isPlaying) {
+                    src.Stop();
+                    src.clip = null;
+                }
+            }
         }
 
         // Keep your UI/local helpers if you like:

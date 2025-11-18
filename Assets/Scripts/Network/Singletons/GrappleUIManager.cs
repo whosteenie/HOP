@@ -45,7 +45,7 @@ namespace Network.Singletons {
         }
 
         private void Update() {
-            if(_grappleController && _fpCamera && SceneManager.GetActiveScene().name == "Game") {
+            if(_grappleController && _fpCamera && SceneManager.GetActiveScene().name.Contains("Game")) {
                 CheckGrapplePoint();
                 UpdateIndicatorVisual();
             }

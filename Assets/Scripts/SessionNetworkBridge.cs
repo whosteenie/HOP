@@ -1,3 +1,4 @@
+using System.Collections;
 using Cysharp.Threading.Tasks;
 using Network;
 using Network.Singletons;
@@ -63,6 +64,14 @@ public class SessionNetworkBridge : NetworkBehaviour {
     public void FadeInSingleClientClientRpc() {
         if (SceneTransitionManager.Instance != null) {
             _ = SceneTransitionManager.Instance.FadeIn().ToUniTask();
+        }
+    }
+
+    [Rpc(SendTo.Everyone)]
+    public void RefreshPlayerListClientRpc() {
+        // Refresh player list on all clients simultaneously
+        if(SessionManager.Instance != null && SessionManager.Instance.ActiveSession != null) {
+            SessionManager.Instance.RefreshAndUpdatePlayerList().Forget();
         }
     }
 }

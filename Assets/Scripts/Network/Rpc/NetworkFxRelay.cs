@@ -9,19 +9,19 @@ namespace Network.Rpc {
         [SerializeField] private NetworkObject playerNetworkObject;
         [SerializeField] private WeaponManager playerWeaponManager;
 
-        public void RequestShotFx(Vector3 endPoint) {
+        public void RequestShotFx(Vector3 endPoint, Vector3 muzzlePosition) {
             if(!playerController.IsOwner || !playerNetworkObject.IsSpawned) return;
 
-            RequestShotFxServerRpc(playerNetworkObject, endPoint);
+            RequestShotFxServerRpc(playerNetworkObject, endPoint, muzzlePosition);
         }
 
         [Rpc(SendTo.Server)]
-        private void RequestShotFxServerRpc(NetworkObjectReference shooterRef, Vector3 endPoint) {
-            PlayShotFxClientRpc(shooterRef, endPoint);
+        private void RequestShotFxServerRpc(NetworkObjectReference shooterRef, Vector3 endPoint, Vector3 muzzlePosition) {
+            PlayShotFxClientRpc(shooterRef, endPoint, muzzlePosition);
         }
 
         [Rpc(SendTo.NotOwner)]
-        private void PlayShotFxClientRpc(NetworkObjectReference shooterRef, Vector3 endPoint) {
+        private void PlayShotFxClientRpc(NetworkObjectReference shooterRef, Vector3 endPoint, Vector3 muzzlePosition) {
             if(!shooterRef.TryGet(out var networkObject) || networkObject == null) return;
 
             var weaponManager = networkObject.GetComponent<WeaponManager>();
@@ -30,8 +30,9 @@ namespace Network.Rpc {
             var weapon = weaponManager.CurrentWeapon;
             if(weapon == null) return;
 
-            // Get muzzle position for THIS client (each calculates their own)
-            var startPoint = weapon.GetMuzzlePosition();
+            // Use server-provided muzzle position for accurate FX (captured at shot time)
+            // This ensures FX are synced even when moving fast
+            var startPoint = muzzlePosition;
 
             // Play FX
             weapon.PlayNetworkedMuzzleFlash();
