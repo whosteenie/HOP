@@ -154,11 +154,9 @@ MonoBehaviour:
   sessionManager: {fileID: 4402361108633043761}
   sceneTransitionManager: {fileID: 771809372539791604}
   soundFXManager: {fileID: 6068900991373866435}
-  matchSettings: {fileID: 6980494200246059887}
+  matchSettingsManager: {fileID: 6980494200246059887}
   networkManager: {fileID: 1266242196255774367}
-  gameMenuManager: {fileID: 904168862604943403}
   sessionNetworkBridge: {fileID: 5420075277361832014}
-  grappleUIManager: {fileID: 5135183595709985442}
 --- !u!4 &665899838
 Transform:
   m_ObjectHideFlags: 0
@@ -235,50 +233,6 @@ MonoBehaviour:
   fadeDuration: 0.5
   musicFadeDuration: 1.5
   respawnHoldDuration: 0.5
---- !u!114 &904168862604943403
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2721928510101479172}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: ce22ac053ab5fdd4c9908d4da220bc96, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::PauseMenuManager
-  uiDocument: {fileID: 1453059420887439359}
-  audioMixer: {fileID: 24100000, guid: 5b25e535414676d478e020121c230f08, type: 2}
-  buttonClickSound: {fileID: 8300000, guid: 261965fc5705a654ab49649ba82bba64, type: 3}
-  buttonHoverSound: {fileID: 8300000, guid: deff2fb538f3b7a44aa556210c060408, type: 3}
-  backClickSound: {fileID: 8300000, guid: 617d64aac5ce5074fac23c26b4044b0a, type: 3}
-  killIconSprite: {fileID: 21300000, guid: 7066fde2764271d4aac7676c08a197d8, type: 3}
-  youreItIconSprite: {fileID: 21300000, guid: d79fff10e42a6d543a1354400c017d04, type: 3}
-  killFeedDisplayTime: 5
-  maxKillFeedEntries: 5
-  playerIconSprites:
-  - {fileID: 21300000, guid: 9026aedb858cf7747b103c294fab6a67, type: 3}
-  - {fileID: 21300000, guid: 2cdda1ec04deb434a9b018ab36d3180d, type: 3}
-  - {fileID: 21300000, guid: 190487534117f4e47ade79937af85598, type: 3}
-  - {fileID: 21300000, guid: 0361df6a0a5d66e428277e259d739bb1, type: 3}
-  - {fileID: 21300000, guid: 1d5ae698faca35f448f125392ff05df3, type: 3}
-  - {fileID: 21300000, guid: d41b2f72ecc63224896ecc1288f27ef9, type: 3}
-  - {fileID: 21300000, guid: 58c43fa86200dda4e8f9a0cc3d9941bf, type: 3}
---- !u!4 &944301789380160932
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2721928510101479172}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &1266242196255774367
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -299,7 +253,7 @@ MonoBehaviour:
     Prefabs:
       NetworkPrefabsLists:
       - {fileID: 11400000, guid: 7119618c2c796b043aef47cc59eb15e6, type: 2}
-    TickRate: 60
+    TickRate: 90
     ClientConnectionBufferTimeout: 10
     ConnectionApproval: 0
     ConnectionData: 
@@ -322,29 +276,6 @@ MonoBehaviour:
     OldPrefabList: []
   RunInBackground: 1
   LogLevel: 1
---- !u!114 &1453059420887439359
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2721928510101479172}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 19102, guid: 0000000000000000e000000000000000, type: 0}
-  m_Name: 
-  m_EditorClassIdentifier: UnityEngine.dll::UnityEngine.UIElements.UIDocument
-  m_PanelSettings: {fileID: 11400000, guid: e8875c24c1da0c84baa1f8f99e8770f9, type: 2}
-  m_ParentUI: {fileID: 0}
-  sourceAsset: {fileID: 9197481963319205126, guid: e0e98e9a3de45d547a214215ff80cafc, type: 3}
-  m_SortingOrder: 0
-  m_Position: 0
-  m_WorldSpaceSizeMode: 1
-  m_WorldSpaceWidth: 1920
-  m_WorldSpaceHeight: 1080
-  m_PivotReferenceSize: 0
-  m_Pivot: 0
-  m_WorldSpaceCollider: {fileID: 0}
 --- !u!4 &1603041271153868010
 Transform:
   m_ObjectHideFlags: 0
@@ -417,27 +348,6 @@ GameObject:
   - component: {fileID: 7683252449321787177}
   m_Layer: 0
   m_Name: SceneTransitionManager
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!1 &2721928510101479172
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 944301789380160932}
-  - component: {fileID: 1453059420887439359}
-  - component: {fileID: 904168862604943403}
-  - component: {fileID: 7668114275608494858}
-  - component: {fileID: 7258299731859837307}
-  - component: {fileID: 7668114275608494859}
-  m_Layer: 0
-  m_Name: GameMenuManager
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -548,13 +458,13 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::CustomNetworkManager
   playerPrefab: {fileID: 6677973669287716317, guid: 44209664d1ffff54d86b748ca38189e9, type: 3}
   playerMaterials:
-  - {fileID: 2100000, guid: aaddffe38381a60428eb1aeab1ba8b85, type: 2}
-  - {fileID: 2100000, guid: f4fb8c083a36ec44294f9eabd63bd1f1, type: 2}
-  - {fileID: 2100000, guid: c5d04fd4368b4f44e9abe4a9ce8c9497, type: 2}
-  - {fileID: 2100000, guid: fce9519a7ad6d624db668c0a25f8d84a, type: 2}
-  - {fileID: 2100000, guid: 4bb95055a3ed1c14a8f7f8ac59fe97e3, type: 2}
-  - {fileID: 2100000, guid: e2040610130a73245aedc9fb9f8d9718, type: 2}
-  - {fileID: 2100000, guid: 0a4488b487ef14a4ba7e5698e8217eda, type: 2}
+  - {fileID: 2100000, guid: ebbe52bcd784e3147849a94053a5c035, type: 2}
+  - {fileID: 2100000, guid: 1ded9121c1a0a964c938d58ab507c349, type: 2}
+  - {fileID: 2100000, guid: 38e5d2159e694ce43a61565060875118, type: 2}
+  - {fileID: 2100000, guid: 2ce3110cb860556479d44aa5b67b4090, type: 2}
+  - {fileID: 2100000, guid: 01e6863af29bd0e47b1c3cb1687412e5, type: 2}
+  - {fileID: 2100000, guid: 84ba988c9e922544ea7b389c21406a2f, type: 2}
+  - {fileID: 2100000, guid: 0506a00ddfcd6a0499fba55ee5cef747, type: 2}
   autoBalanceTeams: 1
 --- !u!114 &4402361108633043761
 MonoBehaviour:
@@ -568,59 +478,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ccb3786eaf233f54aa2c9f257f186527, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SessionManager
---- !u!4 &4949298026945399206
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5247973336616719712}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &5135183595709985442
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5247973336616719712}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 93d352ac5fa819c468b2bdfe7248aac0, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::GrappleUIManager
-  uiDocument: {fileID: 1453059420887439359}
-  maxGrappleDistance: 50
-  grappleableLayers:
-    serializedVersion: 2
-    m_Bits: 512
-  readyColor: {r: 1, g: 0.2, b: 0.2, a: 0.8}
-  cooldownColor: {r: 0, g: 0, b: 0, a: 0.3}
-  segments: 18
-  colorTransitionSpeed: 25
---- !u!1 &5247973336616719712
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 4949298026945399206}
-  - component: {fileID: 5135183595709985442}
-  m_Layer: 0
-  m_Name: GrappleUIManager
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
 --- !u!114 &5420075277361832014
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -699,6 +556,32 @@ MonoBehaviour:
   - {fileID: 8300000, guid: 77366d0dea8272540b1eefb82a67dc28, type: 3}
   - {fileID: 8300000, guid: 7e7e40d5ebea924459b8cbec5751a5ed, type: 3}
   - {fileID: 8300000, guid: e3bbc28cdb7f57a4ba87dbb7cee36478, type: 3}
+  bulletTrailClips: []
+  hopballSpawnClips:
+  - {fileID: 8300000, guid: dcf85d8a9a995314b9da98355d126f22, type: 3}
+  buttonClickClips:
+  - {fileID: 8300000, guid: 0147746136178ab4584e12c810978362, type: 3}
+  buttonHoverClips:
+  - {fileID: 8300000, guid: a75efdd7debb8c3468fd8ae9e486a026, type: 3}
+  - {fileID: 8300000, guid: c14efd2b5032bf34daae09145c990382, type: 3}
+  backButtonClips:
+  - {fileID: 8300000, guid: 1157d704af9c7d04cbeecaf45f4fe38f, type: 3}
+  timerTickClips:
+  - {fileID: 8300000, guid: bfbbd5735ff6a7648ae6ba101a064c73, type: 3}
+  - {fileID: 8300000, guid: 6f883d3c5153f234eaac9f6d30bc3fb4, type: 3}
+  - {fileID: 8300000, guid: 92ffa71aad2196e47a1ae04367976d3f, type: 3}
+  - {fileID: 8300000, guid: a8998e8e566f823428ff964184de0d88, type: 3}
+  - {fileID: 8300000, guid: 9eeab4d0df988914ab2aa7eceb5bb3d1, type: 3}
+  hitClips:
+  - {fileID: 8300000, guid: 117da55a1c6a55049aecaf04f4d08a86, type: 3}
+  killClips:
+  - {fileID: 8300000, guid: 77e1d91e188da29419fefc5be25417f6, type: 3}
+  hurtClips:
+  - {fileID: 8300000, guid: 9264739833ad159439ccaf19dd3245b7, type: 3}
+  taggedClips:
+  - {fileID: 8300000, guid: ac7ae59ca58b6f74c8ca6d884ed597a4, type: 3}
+  taggingClips:
+  - {fileID: 8300000, guid: 4d1e7b7c9293af14e9115e96a9d46722, type: 3}
   walkMaxDistance: 25
   runMaxDistance: 40
   jumpMaxDistance: 25
@@ -708,6 +591,8 @@ MonoBehaviour:
   shootMaxDistance: 300
   jumpPadMaxDistance: 70
   grappleMaxDistance: 65
+  bulletTrailMaxDistance: 150
+  hopballSpawnMaxDistance: 300
 --- !u!1 &6278191672109600082
 GameObject:
   m_ObjectHideFlags: 0
@@ -753,51 +638,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::MatchSettings
   defaultMatchDurationSeconds: 600
+  preMatchCountdownSeconds: 5
   matchDurationSeconds: 0
   selectedGameModeId: 
---- !u!114 &7258299731859837307
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2721928510101479172}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5da46db8b22d17e40a34399380723297, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::DamageVignetteUI
-  flashDuration: 0.12
-  fadeDuration: 0.3
-  maxAlpha: 0.8
---- !u!114 &7668114275608494858
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2721928510101479172}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: ded060613c10dd7488e1915cf308a4a9, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Singletons.HUDManager
-  uiDocument: {fileID: 1453059420887439359}
---- !u!114 &7668114275608494859
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2721928510101479172}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 886563a048114924fa6f4507bf38502a, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Network.Singletons.OptionsMenuManager
-  uiDocument: {fileID: 1453059420887439359}
-  audioMixer: {fileID: 24100000, guid: 5b25e535414676d478e020121c230f08, type: 2}
-  useCallbacks: 1
 --- !u!114 &7683252449321787176
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -874,8 +717,6 @@ SceneRoots:
   m_ObjectHideFlags: 0
   m_Roots:
   - {fileID: 665899838}
-  - {fileID: 944301789380160932}
-  - {fileID: 4949298026945399206}
   - {fileID: 1603041271153868010}
   - {fileID: 3740367660170908099}
   - {fileID: 5478824735433705132}

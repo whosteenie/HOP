@@ -13,6 +13,7 @@ namespace Game.Player {
         private PlayerController playerController;
 
         [SerializeField] Animator playerAnimator;
+        [SerializeField] private UnityEngine.InputSystem.PlayerInput playerInputComponent;
 
         [SerializeField] private CinemachineCamera fpCamera;
         [SerializeField] private AudioListener audioListener;
@@ -29,8 +30,10 @@ namespace Game.Player {
 
         #endregion
 
-        private bool IsPaused => GameMenuManager.Instance.IsPaused;
-        private bool IsPausedOrDead => (GameMenuManager.Instance.IsPaused) || playerController.netIsDead.Value;
+        private bool IsPaused => GameMenuManager.Instance?.IsPaused ?? false;
+        private bool IsPausedOrDead => (GameMenuManager.Instance?.IsPaused ?? false) || playerController.netIsDead.Value;
+        private bool IsPreMatch => GameMenuManager.Instance?.IsPreMatch ?? false;
+        private bool IsPreMatchOrPausedOrDead => IsPreMatch || IsPausedOrDead;
 
         private Weapon CurrentWeapon => weaponManager.CurrentWeapon;
 
@@ -39,13 +42,25 @@ namespace Game.Player {
 
         #region Unity Methods
 
+        private void Awake() {
+            // Component reference should be assigned in the inspector
+            // Only use GetComponent as a last resort fallback if not assigned
+            if(playerInputComponent == null) {
+                playerInputComponent = GetComponent<UnityEngine.InputSystem.PlayerInput>();
+            }
+        }
+
         public override void OnNetworkSpawn() {
             base.OnNetworkSpawn();
 
             weaponManager.InitializeWeapons();
 
-            var playerInputComponent = GetComponent<UnityEngine.InputSystem.PlayerInput>();
-            
+            // Component reference should be assigned in the inspector
+            // Only use GetComponent as a last resort fallback if not assigned
+            if(playerInputComponent == null) {
+                playerInputComponent = GetComponent<UnityEngine.InputSystem.PlayerInput>();
+            }
+
             if(!IsOwner) {
                 fpCamera.gameObject.SetActive(false);
                 audioListener.enabled = false;
@@ -54,7 +69,6 @@ namespace Game.Player {
                     playerInputComponent.enabled = false;
                 }
             } else {
-                // Re-enable PlayerInput for owner (it was disabled during instantiation to prevent control scheme errors)
                 if(playerInputComponent != null) {
                     playerInputComponent.enabled = true;
                 }
@@ -68,18 +82,24 @@ namespace Game.Player {
             Cursor.lockState = CursorLockMode.Locked;
         }
 
+        // Direct Input System polling for certain actions
         private void LateUpdate() {
             if(!IsOwner || !CurrentWeapon || !weaponManager) return;
 
             var fireMode = weaponManager.GetWeaponDataByIndex(weaponManager.CurrentWeaponIndex)?.fireMode;
 
             // Use Input System actions instead of direct input
-            var playerInputComponent = GetComponent<UnityEngine.InputSystem.PlayerInput>();
+            // Component reference should be assigned in the inspector
+            if(playerInputComponent == null) {
+                playerInputComponent = GetComponent<UnityEngine.InputSystem.PlayerInput>();
+            }
+            
             var playerMap = playerInputComponent?.actions?.FindActionMap("Player");
             var attackAction = playerMap?.FindAction("Attack");
             var jumpAction = playerMap?.FindAction("Jump");
 
-            if(!IsPausedOrDead && fireMode == "Full" && attackAction != null && attackAction.IsPressed() && !mantleController.IsMantling) {
+            if(!IsPreMatchOrPausedOrDead && fireMode == "Full" && attackAction != null && attackAction.IsPressed() &&
+               !mantleController.IsMantling && !(playerController != null && playerController.IsHoldingHopball)) {
                 CurrentWeapon.Shoot();
             }
 
@@ -87,14 +107,14 @@ namespace Game.Player {
             // Check if scroll is bound to jump via PlayerPrefs
             bool jumpPressed = jumpAction != null && jumpAction.IsPressed();
             bool scrollPressed = false;
-            
+
             // Check PlayerPrefs for scroll bindings
             string jumpBinding0 = PlayerPrefs.GetString("Keybind_jump_0", "");
             string jumpBinding1 = PlayerPrefs.GetString("Keybind_jump_1", "");
-            
+
             if(Mouse.current != null && Mouse.current.scroll.value.magnitude > 0f) {
                 Vector2 scrollDelta = Mouse.current.scroll.value;
-                
+
                 // Check if scroll down is bound to jump
                 if(jumpBinding1 == "SCROLL_DOWN" && scrollDelta.y < 0) {
                     scrollPressed = true;
@@ -108,9 +128,13 @@ namespace Game.Player {
                     scrollPressed = true;
                 }
             }
-            
-            if(!IsPausedOrDead && (jumpPressed || scrollPressed) && !mantleController.IsMantling) {
-                if(!playerController.IsGrounded) {
+
+            if(!IsPreMatchOrPausedOrDead && (jumpPressed || scrollPressed) && mantleController.CanJump) {
+                // Check if hold-to-mantle is enabled
+                bool holdMantleEnabled = PlayerPrefs.GetInt("HoldMantle", 1) == 1;
+
+                // Try mantle if enabled and not grounded
+                if(holdMantleEnabled && !playerController.IsGrounded) {
                     mantleController.TryMantle();
 
                     // If we started mantling, don't jump
@@ -119,6 +143,7 @@ namespace Game.Player {
                     }
                 }
 
+                // Always allow hold-to-jump (for scroll wheel support)
                 playerController.TryJump();
                 grappleController.CancelGrapple();
             }
@@ -132,11 +157,11 @@ namespace Game.Player {
             }
 
             if(!IsPaused && Keyboard.current.tabKey.isPressed) {
-                GameMenuManager.Instance.ShowScoreboard();
-            } else if(GameMenuManager.Instance.IsScoreboardVisible) {
-                GameMenuManager.Instance.HideScoreboard();
+                ScoreboardManager.Instance?.ShowScoreboard();
+            } else if(ScoreboardManager.Instance != null && ScoreboardManager.Instance.IsScoreboardVisible) {
+                ScoreboardManager.Instance.HideScoreboard();
             }
-            
+
             // OnSwing
             // if(IsOwner && !IsPausedOrDead && !mantleController.IsMantling) {
             //     if(Keyboard.current.eKey.isPressed) {
@@ -172,31 +197,27 @@ namespace Game.Player {
                 return;
             }
 
+            // Allow movement input to be set even during pre-match
+            // It will be ignored during movement processing instead
             playerController.moveInput = value.Get<Vector2>();
         }
 
         private void OnSprint(InputValue value) {
             if(!IsOwner) return;
-            if(IsPausedOrDead) return;
-
-            // if(!dashController.IsDashing) {
-            //     dashController.OnDashInput();
-            // }
-            
             if(IsPausedOrDead) {
                 if(!toggleSprint)
                     playerController.sprintInput = false;
                 return;
             }
-            
+
             bool pressed = value.isPressed;
-            
+
             if(toggleSprint) {
                 // Toggle only on rising edge
                 if(pressed && !_sprintBtnDown) {
                     playerController.sprintInput = !playerController.sprintInput;
                 }
-            
+
                 _sprintBtnDown = pressed;
             } else {
                 // Hold-to-sprint
@@ -248,7 +269,7 @@ namespace Game.Player {
 
         private void OnScrollWheel(InputValue value) {
             // TODO: Fix scroll wheel input so we don't have to use Mouse.current.scroll in LateUpdate
-            if(!IsOwner || IsPausedOrDead || mantleController.IsMantling) return;
+            if(!IsOwner || IsPreMatchOrPausedOrDead || mantleController.IsMantling) return;
 
             playerController.TryJump();
 
@@ -258,7 +279,8 @@ namespace Game.Player {
         }
 
         private void OnAttack(InputValue value) {
-            if(!IsOwner || IsPausedOrDead || mantleController.IsMantling) return;
+            if(!IsOwner || IsPreMatchOrPausedOrDead || mantleController.IsMantling) return;
+            if(playerController != null && playerController.IsHoldingHopball) return; // Prevent shooting while holding hopball
 
             var fireMode = weaponManager.GetWeaponDataByIndex(weaponManager.CurrentWeaponIndex)?.fireMode;
             if(CurrentWeapon && fireMode == "Semi") {
@@ -267,8 +289,9 @@ namespace Game.Player {
         }
 
         private void OnGrapple(InputValue value) {
-            if(!IsOwner || IsPausedOrDead || mantleController.IsMantling || GameMenuManager.Instance.IsPostMatch) return;
-            
+            if(!IsOwner || IsPreMatchOrPausedOrDead || mantleController.IsMantling ||
+               GameMenuManager.Instance.IsPostMatch) return;
+
             if(grappleController.IsGrappling) {
                 grappleController.CancelGrapple();
             } else {
@@ -284,35 +307,48 @@ namespace Game.Player {
 
         #region Weapons
 
-        private void OnPrimary(InputValue value) {
+        private void OnPrimary(InputValue _) {
             if(!IsOwner || IsPausedOrDead || mantleController.IsMantling) return;
 
             SwitchWeapon(0);
         }
 
-        private void OnSecondary(InputValue value) {
+        private void OnSecondary(InputValue _) {
             if(!IsOwner || IsPausedOrDead || mantleController.IsMantling) return;
 
             SwitchWeapon(1);
         }
 
-        private void OnTertiary(InputValue value) {
+        private void OnTertiary(InputValue _) {
             if(!IsOwner || IsPausedOrDead || mantleController.IsMantling) return;
 
-            Debug.Log("Tertiary weapon input received.");
             //SwitchWeapon(2);
         }
 
-        public void SwitchWeapon(int weaponIndex) {
-            if(weaponManager.CurrentWeaponIndex == weaponIndex || weaponManager.IsSwitchingWeapon ||
-               !CurrentWeapon) return;
+        private void OnNextWeapon(InputValue _) {
+            if(!IsOwner || IsPausedOrDead || mantleController.IsMantling) return;
 
+            SwitchWeapon((weaponManager.CurrentWeaponIndex + 1) % weaponManager.WeaponCount);
+        }
+        
+        private void OnPreviousWeapon(InputValue _) {
+            if(!IsOwner || IsPausedOrDead || mantleController.IsMantling) return;
+
+            SwitchWeapon((weaponManager.CurrentWeaponIndex - 1) % weaponManager.WeaponCount);
+        }
+
+        public void SwitchWeapon(int weaponIndex) {
+            if(weaponManager.IsSwitchingWeapon || !CurrentWeapon) return;
+            
+            // If holding hopball, drop it first (WeaponManager will handle this, but we can also do it here for clarity)
+            // Actually, WeaponManager.SwitchWeapon() will handle dropping, so we just proceed
             // Reload cancellation is handled by Weapon.SwitchToWeapon() when the weapon switch completes
             weaponManager.SwitchWeapon(weaponIndex);
         }
 
-        private void OnReload(InputValue value) {
-            if(!IsOwner || IsPausedOrDead || !CurrentWeapon || mantleController.IsMantling) return;
+        private void OnReload(InputValue _) {
+            if(!IsOwner || IsPreMatchOrPausedOrDead || !CurrentWeapon || mantleController.IsMantling) return;
+            if(playerController != null && playerController.IsHoldingHopball) return; // Prevent reloading while holding hopball
 
             CurrentWeapon.StartReload();
         }
@@ -321,9 +357,16 @@ namespace Game.Player {
 
         #region System
 
-        private void OnPause(InputValue value) {
+        private void OnPause(InputValue _) {
             if(!IsOwner) return;
             GameMenuManager.Instance.TogglePause();
+        }
+
+        private void OnInteract(InputValue _) {
+            Debug.LogWarning("[Player Input] Interact pressed - trying to pick up hopball.");
+            if(!IsOwner || IsPausedOrDead || mantleController.IsMantling) return;
+            
+            playerController.PickupHopball();
         }
 
         #endregion

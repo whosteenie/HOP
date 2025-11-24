@@ -22,7 +22,7 @@
             </ui:VisualElement>
             <ui:VisualElement class="menu-entry">
                 <ui:VisualElement class="menu-diamond" />
-                <ui:Button text="Quit" name="quit-button" class="text-button" />
+                <ui:Button text="Quit" name="quit-button" class="text-button back-button" />
             </ui:VisualElement>
         </ui:VisualElement>
     </ui:VisualElement>
@@ -91,7 +91,8 @@
             <ui:VisualElement name="gamemode-dropdown-menu" class="gamemode-dropdown-menu hidden gamemode-dropdown-menu-styled">
                 <ui:Button text="Deathmatch" name="gamemode-option-deathmatch" class="gamemode-option gamemode-option-styled" />
                 <ui:Button text="Team Deathmatch" name="gamemode-option-team-deathmatch" class="gamemode-option gamemode-option-styled" />
-                <ui:Button text="Tag" name="gamemode-option-tag" class="gamemode-option gamemode-option-styled" />
+                <ui:Button text="Gun Tag" name="gamemode-option-tag" class="gamemode-option gamemode-option-styled" />
+                <ui:Button text="Hopball" name="gamemode-option-hopball" class="gamemode-option gamemode-option-styled" />
                 <ui:Button text="Private Match" name="gamemode-option-private-match" class="gamemode-option gamemode-option-styled" />
             </ui:VisualElement>
         </ui:VisualElement>
@@ -126,28 +127,34 @@
             </ui:VisualElement>
             <ui:VisualElement name="weapon-bar" class="weapon-bar weapon-bar-inline">
                 <ui:VisualElement name="primary-weapon-container" class="weapon-slot-container">
-                    <ui:VisualElement name="primary-weapon-slot" class="weapon-slot">
-                        <ui:Image name="primary-weapon-image" class="weapon-image" />
+                    <ui:VisualElement class="weapon-slot-stack">
                         <ui:VisualElement name="primary-dropdown" class="weapon-dropdown hidden">
                             <ui:ScrollView name="primary-scroll" class="weapon-dropdown-scroll" />
+                        </ui:VisualElement>
+                        <ui:VisualElement name="primary-weapon-slot" class="weapon-slot weapon-slot-primary">
+                            <ui:Image name="primary-weapon-image" class="weapon-image" />
                         </ui:VisualElement>
                     </ui:VisualElement>
                     <ui:Label text="PRIMARY" class="weapon-slot-label" />
                 </ui:VisualElement>
                 <ui:VisualElement name="secondary-weapon-container" class="weapon-slot-container">
-                    <ui:VisualElement name="secondary-weapon-slot" class="weapon-slot">
-                        <ui:Image name="secondary-weapon-image" class="weapon-image" />
+                    <ui:VisualElement class="weapon-slot-stack">
                         <ui:VisualElement name="secondary-dropdown" class="weapon-dropdown hidden">
                             <ui:ScrollView name="secondary-scroll" class="weapon-dropdown-scroll" />
+                        </ui:VisualElement>
+                        <ui:VisualElement name="secondary-weapon-slot" class="weapon-slot weapon-slot-secondary">
+                            <ui:Image name="secondary-weapon-image" class="weapon-image" />
                         </ui:VisualElement>
                     </ui:VisualElement>
                     <ui:Label text="SECONDARY" name="Label" class="weapon-slot-label" />
                 </ui:VisualElement>
                 <ui:VisualElement name="tertiary-weapon-container" class="weapon-slot-container">
-                    <ui:VisualElement name="tertiary-weapon-slot" class="weapon-slot">
-                        <ui:Image name="tertiary-weapon-image" class="weapon-image" />
+                    <ui:VisualElement class="weapon-slot-stack">
                         <ui:VisualElement name="tertiary-dropdown" class="weapon-dropdown hidden">
                             <ui:ScrollView name="tertiary-scroll" class="weapon-dropdown-scroll" />
+                        </ui:VisualElement>
+                        <ui:VisualElement name="tertiary-weapon-slot" class="weapon-slot weapon-slot-tertiary">
+                            <ui:Image name="tertiary-weapon-image" class="weapon-image" />
                         </ui:VisualElement>
                     </ui:VisualElement>
                     <ui:Label text="TERTIARY" class="weapon-slot-label" />
@@ -187,27 +194,34 @@
                         <ui:VisualElement name="master-container" class="setting-row">
                             <ui:Label text="Master Volume" name="master-label" class="setting-label" />
                             <ui:Slider name="master-volume" low-value="0" high-value="1" class="setting-slider" fill="true" />
-                            <ui:Label name="master-volume-value" text="100%" class="value-label" />
+                            <ui:TextField name="master-volume-value" value="100%" max-length="4" class="value-input" />
                         </ui:VisualElement>
                         <ui:VisualElement name="music-container" class="setting-row">
                             <ui:Label text="Music Volume" name="music-label" class="setting-label" />
                             <ui:Slider name="music-volume" low-value="0" high-value="1" class="setting-slider" fill="true" />
-                            <ui:Label name="music-volume-value" text="100%" class="value-label" />
+                            <ui:TextField name="music-volume-value" value="100%" max-length="4" class="value-input" />
                         </ui:VisualElement>
                         <ui:VisualElement name="sfx-container" class="setting-row">
                             <ui:Label text="SFX Volume" name="sfx-label" class="setting-label" />
                             <ui:Slider name="sfx-volume" low-value="0" high-value="1" class="setting-slider" fill="true" />
-                            <ui:Label name="sfx-volume-value" text="100%" class="value-label" />
+                            <ui:TextField name="sfx-volume-value" value="100%" max-length="4" class="value-input" />
                         </ui:VisualElement>
                     </ui:VisualElement>
                     <ui:VisualElement name="game-content" class="options-tab-content hidden">
-                        <!-- Game settings will be added here in the future -->
+                        <ui:VisualElement name="player-trails-container" class="setting-row">
+                            <ui:Label text="Enable player speed trails" name="player-trails-label" class="setting-label" />
+                            <ui:Button name="player-trails" class="setting-toggle" />
+                        </ui:VisualElement>
+                        <ui:VisualElement name="hold-mantle-container" class="setting-row">
+                            <ui:Label text="Hold to mantle" name="hold-mantle-label" class="setting-label" />
+                            <ui:Button name="hold-mantle" class="setting-toggle" />
+                        </ui:VisualElement>
                     </ui:VisualElement>
                     <ui:VisualElement name="controls-content" class="options-tab-content hidden">
                         <ui:VisualElement name="sensitivity-container" class="setting-row">
                             <ui:Label text="Mouse Sensitivity" name="sensitivity-label" class="setting-label" />
                             <ui:Slider name="sensitivity" low-value="0.01" high-value="0.5" class="setting-slider" fill="true" />
-                            <ui:Label name="sensitivity-value" text="0.10" class="value-label" />
+                            <ui:TextField name="sensitivity-value" value="0.10" max-length="5" class="value-input" />
                         </ui:VisualElement>
                         <ui:VisualElement name="invert-y-container" class="setting-row">
                             <ui:Label text="Invert Y Axis" name="invert-y-label" class="setting-label" />
@@ -308,6 +322,26 @@
                 <ui:Button text="Yes" name="unsaved-changes-yes" class="menu-chip menu-chip-enabled" />
                 <ui:Button text="No" name="unsaved-changes-no" class="menu-chip menu-chip-enabled back-button" />
                 <ui:Button text="Cancel" name="unsaved-changes-cancel" class="menu-chip menu-chip-enabled" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+    </ui:VisualElement>
+    <ui:VisualElement name="quit-confirmation-modal" class="unsaved-changes-modal full-abs hidden">
+        <ui:VisualElement name="quit-confirmation-container" class="unsaved-changes-container card">
+            <ui:Label text="Quit Game" name="quit-confirmation-title" class="title" />
+            <ui:Label text="Are you sure you want to quit?" name="quit-confirmation-message" class="unsaved-changes-message" />
+            <ui:VisualElement name="quit-confirmation-buttons" class="unsaved-changes-buttons">
+                <ui:Button text="Yes" name="quit-confirmation-yes" class="menu-chip menu-chip-enabled" />
+                <ui:Button text="No" name="quit-confirmation-no" class="menu-chip menu-chip-enabled" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+    </ui:VisualElement>
+    <ui:VisualElement name="lobby-leave-modal" class="unsaved-changes-modal full-abs hidden">
+        <ui:VisualElement name="lobby-leave-container" class="unsaved-changes-container card">
+            <ui:Label text="Leave Session" name="lobby-leave-title" class="title" />
+            <ui:Label text="Are you sure you want to leave the session?" name="lobby-leave-message" class="unsaved-changes-message" />
+            <ui:VisualElement name="lobby-leave-buttons" class="unsaved-changes-buttons">
+                <ui:Button text="Yes" name="lobby-leave-yes" class="menu-chip menu-chip-enabled back-button" />
+                <ui:Button text="No" name="lobby-leave-no" class="menu-chip menu-chip-enabled" />
             </ui:VisualElement>
         </ui:VisualElement>
     </ui:VisualElement>

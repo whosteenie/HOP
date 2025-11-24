@@ -1,5 +1,4 @@
-public enum SfxKey : byte
-{
+public enum SfxKey : byte {
     Walk,
     Run,
     Jump,
@@ -8,5 +7,17 @@ public enum SfxKey : byte
     Dry,
     Shoot,
     JumpPad,
-    Grapple
+    Grapple,
+    BulletTrail,
+    HopballSpawn,
+    // UI Sounds
+    ButtonClick,
+    ButtonHover,
+    BackButton,
+    TimerTick,
+    Hit,
+    Kill,
+    Hurt,
+    Tagged,
+    Tagging
 }

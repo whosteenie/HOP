@@ -1,21 +1,20 @@
-// SoundFXManager.cs (replace/extend your current version)
-
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
 namespace Network.Singletons {
-    public class SoundFXManager : MonoBehaviour
-    {
+    public class SoundFXManager : MonoBehaviour {
         public static SoundFXManager Instance;
 
         [Header("Pool")]
         [SerializeField] private AudioSource soundFXPrefab;
+
         [SerializeField] private int poolSize = 32;
 
         // Banks for each gameplay key (assign in inspector)
         [Header("Banks")]
         [SerializeField] private AudioClip[] walkClips;
+
         [SerializeField] private AudioClip[] runClips;
         [SerializeField] private AudioClip[] jumpClips;
         [SerializeField] private AudioClip[] landClips;
@@ -24,9 +23,23 @@ namespace Network.Singletons {
         [SerializeField] private AudioClip[] shootClips;
         [SerializeField] private AudioClip[] jumpPadClips;
         [SerializeField] private AudioClip[] grappleClips;
-        
+        [SerializeField] private AudioClip[] bulletTrailClips;
+        [SerializeField] private AudioClip[] hopballSpawnClips;
+
+        [Header("UI Sound Banks")]
+        [SerializeField] private AudioClip[] buttonClickClips;
+        [SerializeField] private AudioClip[] buttonHoverClips;
+        [SerializeField] private AudioClip[] backButtonClips;
+        [SerializeField] private AudioClip[] timerTickClips;
+        [SerializeField] private AudioClip[] hitClips;
+        [SerializeField] private AudioClip[] killClips;
+        [SerializeField] private AudioClip[] hurtClips;
+        [SerializeField] private AudioClip[] taggedClips;
+        [SerializeField] private AudioClip[] taggingClips;
+
         [Header("Audio Falloff Settings")]
         [SerializeField] private float walkMaxDistance = 15f;
+
         [SerializeField] private float runMaxDistance = 20f;
         [SerializeField] private float jumpMaxDistance = 25f;
         [SerializeField] private float landMaxDistance = 25f;
@@ -35,12 +48,18 @@ namespace Network.Singletons {
         [SerializeField] private float shootMaxDistance = 300f; // Heard across map
         [SerializeField] private float jumpPadMaxDistance = 50f;
         [SerializeField] private float grappleMaxDistance = 35f;
+        [SerializeField] private float bulletTrailMaxDistance = 150f;
+        [SerializeField] private float hopballSpawnMaxDistance = 300f; // Same as gunshots - heard across map
 
         private readonly Queue<AudioSource> _audioPool = new();
         private readonly Dictionary<string, AudioSource> _activeSounds = new();
 
         private void Awake() {
-            if(Instance != null && Instance != this) { Destroy(gameObject); return; }
+            if(Instance != null && Instance != this) {
+                Destroy(gameObject);
+                return;
+            }
+
             Instance = this;
             DontDestroyOnLoad(gameObject);
             InitializePool();
@@ -65,38 +84,70 @@ namespace Network.Singletons {
                 s.gameObject.SetActive(true);
                 return s;
             }
+
             return Instantiate(soundFXPrefab, transform);
         }
 
         private static float DbToLinear(float db) => db <= -80f ? 0f : Mathf.Pow(10f, db / 20f);
 
         private AudioClip PickRandomFrom(SfxKey key) {
-            var bank = key switch {
-                SfxKey.Walk    => walkClips,
-                SfxKey.Run     => runClips,
-                SfxKey.Jump    => jumpClips,
-                SfxKey.Land    => landClips,
-                SfxKey.Reload  => reloadClips,
-                SfxKey.Dry     => dryClips,
-                SfxKey.Shoot   => shootClips,
-                SfxKey.JumpPad => jumpPadClips,
-                SfxKey.Grapple => grappleClips,
-                _ => null
-            };
+            AudioClip[] bank = null;
+            try {
+                bank = key switch {
+                    SfxKey.Walk => walkClips,
+                    SfxKey.Run => runClips,
+                    SfxKey.Jump => jumpClips,
+                    SfxKey.Land => landClips,
+                    SfxKey.Reload => reloadClips,
+                    SfxKey.Dry => dryClips,
+                    SfxKey.Shoot => shootClips,
+                    SfxKey.JumpPad => jumpPadClips,
+                    SfxKey.Grapple => grappleClips,
+                    SfxKey.BulletTrail => bulletTrailClips,
+                    SfxKey.HopballSpawn => hopballSpawnClips,
+                    // UI Sounds
+                    SfxKey.ButtonClick => buttonClickClips,
+                    SfxKey.ButtonHover => buttonHoverClips,
+                    SfxKey.BackButton => backButtonClips,
+                    SfxKey.TimerTick => timerTickClips,
+                    SfxKey.Hit => hitClips,
+                    SfxKey.Kill => killClips,
+                    SfxKey.Hurt => hurtClips,
+                    SfxKey.Tagged => taggedClips,
+                    SfxKey.Tagging => taggingClips,
+                    _ => null
+                };
+            } catch(System.Exception) {
+                // If bank array is null or invalid, return null
+                return null;
+            }
+
             if(bank == null || bank.Length == 0) return null;
-            return bank[Random.Range(0, bank.Length)];
+            
+            // Filter out null clips and select from valid ones
+            var validClips = new List<AudioClip>();
+            foreach(var clip in bank) {
+                if(clip != null) {
+                    validClips.Add(clip);
+                }
+            }
+            
+            if(validClips.Count == 0) return null;
+            return validClips[Random.Range(0, validClips.Count)];
         }
-        
+
         private float GetMaxDistance(SfxKey key) => key switch {
-            SfxKey.Walk    => walkMaxDistance,
-            SfxKey.Run     => runMaxDistance,
-            SfxKey.Jump    => jumpMaxDistance,
-            SfxKey.Land    => landMaxDistance,
-            SfxKey.Reload  => reloadMaxDistance,
-            SfxKey.Dry     => dryMaxDistance,
-            SfxKey.Shoot   => shootMaxDistance,
+            SfxKey.Walk => walkMaxDistance,
+            SfxKey.Run => runMaxDistance,
+            SfxKey.Jump => jumpMaxDistance,
+            SfxKey.Land => landMaxDistance,
+            SfxKey.Reload => reloadMaxDistance,
+            SfxKey.Dry => dryMaxDistance,
+            SfxKey.Shoot => shootMaxDistance,
             SfxKey.JumpPad => jumpPadMaxDistance,
             SfxKey.Grapple => grappleMaxDistance,
+            SfxKey.BulletTrail => bulletTrailMaxDistance,
+            SfxKey.HopballSpawn => hopballSpawnMaxDistance,
             _ => 50f
         };
 
@@ -105,22 +156,25 @@ namespace Network.Singletons {
             var maxDist = GetMaxDistance(key);
             return key switch {
                 SfxKey.Shoot => maxDist * 0.02f, // Louder close-up
+                SfxKey.HopballSpawn => maxDist * 0.02f, // Same as gunshots
                 SfxKey.Walk or SfxKey.Run => 1f, // Very close for footsteps
                 _ => maxDist * 0.05f
             };
         }
 
         /// <summary>
-        /// Network-consumed entrypoint. If parent != null, the AudioSource is parented (follows player).
+        /// Network-consumed entrypoint. If parent != null, the AudioSource is parented (follows player/bullet tracer).
         /// Else, it's placed at the provided world position.
         /// </summary>
         public void PlayKey(SfxKey key, Transform parent, Vector3 worldPos, bool allowOverlap) {
             var clip = PickRandomFrom(key);
+            // Return early if no clip found (allows sounds to be optional in inspector)
             if(clip == null) return;
 
             // overlap policy (shares your old logic; keep simple per-key gate)
             var trackKey = key.ToString();
-            if(!allowOverlap && _activeSounds.TryGetValue(trackKey, out var playing) && playing != null && playing.isPlaying)
+            if(!allowOverlap && _activeSounds.TryGetValue(trackKey, out var playing) && playing != null &&
+               playing.isPlaying)
                 return;
 
             var src = GetPooled();
@@ -133,7 +187,7 @@ namespace Network.Singletons {
                 src.transform.SetParent(transform, false);
                 src.transform.position = worldPos;
             }
-        
+
             src.spatialBlend = 1f;
             src.minDistance = GetMinDistance(key);
             src.maxDistance = GetMaxDistance(key);
@@ -141,7 +195,7 @@ namespace Network.Singletons {
 
             // apply volumes from PlayerPrefs (per-client mixer-like control)
             var dbMaster = PlayerPrefs.GetFloat("MasterVolume", 0f);
-            var dbSfx    = PlayerPrefs.GetFloat("SFXVolume", 0f);
+            var dbSfx = PlayerPrefs.GetFloat("SFXVolume", 0f);
             src.volume = DbToLinear(dbMaster) * DbToLinear(dbSfx);
 
             src.clip = clip;
@@ -160,7 +214,7 @@ namespace Network.Singletons {
 
         private IEnumerator ReturnAfter(AudioSource src, float delay, string cleanupKey, string trackKey = null) {
             yield return new WaitForSeconds(delay);
-            
+
             // Safety check: if AudioSource or its GameObject was destroyed, skip cleanup
             if(src == null || src.gameObject == null) {
                 // Clean up tracking if it exists
@@ -168,11 +222,11 @@ namespace Network.Singletons {
                     _activeSounds.Remove(trackKey);
                 yield break;
             }
-            
+
             // Only remove from _activeSounds if this was the tracked sound (non-overlapping)
             if(trackKey != null && _activeSounds.TryGetValue(trackKey, out var cur2) && cur2 == src)
                 _activeSounds.Remove(trackKey);
-            
+
             // Additional safety check before accessing AudioSource properties
             if(src != null && src.gameObject != null) {
                 src.Stop();
@@ -192,6 +246,7 @@ namespace Network.Singletons {
                 if(src.isPlaying) {
                     src.Stop();
                 }
+
                 src.clip = null;
                 src.transform.SetParent(transform, false);
                 src.gameObject.SetActive(false);
@@ -215,17 +270,18 @@ namespace Network.Singletons {
                     kvp.Value.gameObject.SetActive(false);
                     _audioPool.Enqueue(kvp.Value);
                 }
+
                 keysToRemove.Add(kvp.Key);
             }
-            
+
             // Clear the active sounds dictionary
             foreach(var key in keysToRemove) {
                 _activeSounds.Remove(key);
             }
-            
+
             // Stop all coroutines on this MonoBehaviour (this will stop all ReturnAfter coroutines)
             StopAllCoroutines();
-            
+
             // Also stop any pooled AudioSources that might still be playing
             foreach(var src in _audioPool) {
                 if(src != null && src.gameObject != null && src.isPlaying) {
@@ -235,9 +291,15 @@ namespace Network.Singletons {
             }
         }
 
-        // Keep your UI/local helpers if you like:
-        public void PlayUISound(AudioClip clip) {
-            if (clip == null) return;
+        /// <summary>
+        /// Plays a UI sound using a SfxKey. UI sounds are non-spatial (2D) and heard by all players.
+        /// Centralized location for all UI sound clip assignments.
+        /// </summary>
+        public void PlayUISound(SfxKey key) {
+            var clip = PickRandomFrom(key);
+            // Return early if no clip found (allows sounds to be optional in inspector)
+            if(clip == null) return;
+
             var src = GetPooled();
             // UI is non-spatial; parent to manager
             src.transform.SetParent(transform, false);
@@ -248,12 +310,12 @@ namespace Network.Singletons {
             src.maxDistance = 500f;
 
             var dbMaster = PlayerPrefs.GetFloat("MasterVolume", 0f);
-            var dbSfx    = PlayerPrefs.GetFloat("SFXVolume", 0f);
+            var dbSfx = PlayerPrefs.GetFloat("SFXVolume", 0f);
             src.volume = DbToLinear(dbMaster) * DbToLinear(dbSfx);
 
             src.clip = clip;
             src.Play();
-            StartCoroutine(ReturnAfter(src, clip.length, "ui_" + clip.GetInstanceID()));
+            StartCoroutine(ReturnAfter(src, clip.length, "ui_" + key + "_" + src.GetInstanceID()));
         }
     }
 }

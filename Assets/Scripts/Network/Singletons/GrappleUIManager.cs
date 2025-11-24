@@ -6,14 +6,16 @@ using UnityEngine.UIElements;
 
 namespace Network.Singletons {
     public class GrappleUIManager : MonoBehaviour {
-        [Header("References")] [SerializeField]
-        private UIDocument uiDocument;
+        [Header("References")]
+        [SerializeField] private UIDocument uiDocument;
 
-        [Header("Settings")] [SerializeField] private float maxGrappleDistance = 50f;
+        [Header("Settings")]
+        [SerializeField] private float maxGrappleDistance = 50f;
+
         [SerializeField] private LayerMask grappleableLayers;
 
-        [Header("Visual Settings")] [SerializeField]
-        private Color readyColor = new Color(1f, 0.2f, 0.2f, 0.8f);
+        [Header("Visual Settings")]
+        [SerializeField] private Color readyColor = new Color(1f, 0.2f, 0.2f, 0.8f);
 
         [SerializeField] private Color cooldownColor = new Color(0f, 0f, 0f, 0.3f);
         [SerializeField] private int segments = 20; // Number of segments for the horseshoe
@@ -25,6 +27,9 @@ namespace Network.Singletons {
         private Color _currentColor;
         private GrappleController _grappleController;
         private CinemachineCamera _fpCamera;
+        
+        // Cache scene name to avoid string allocations
+        private string _cachedSceneName;
 
         public static GrappleUIManager Instance;
 
@@ -35,20 +40,60 @@ namespace Network.Singletons {
             }
 
             Instance = this;
-            DontDestroyOnLoad(gameObject);
+            // Removed DontDestroyOnLoad - GrappleUIManager should be in Game scene only
+            
+            // Cache scene name to avoid allocations
+            UpdateCachedSceneName();
+        }
+
+        private void OnEnable() {
+            if(uiDocument == null) {
+                Debug.LogError("[GrappleUIManager] UIDocument is not assigned!");
+                return;
+            }
 
             var root = uiDocument.rootVisualElement;
+            if(root == null) {
+                Debug.LogError("[GrappleUIManager] UIDocument rootVisualElement is null! UI may not be loaded yet.");
+                return;
+            }
+
             _grappleIndicator = root.Q<VisualElement>("grapple-indicator");
+            if(_grappleIndicator == null) {
+                Debug.LogError("[GrappleUIManager] Could not find grapple-indicator element in UI!");
+                return;
+            }
 
             _currentColor = cooldownColor;
             CreateHorseshoeSegments();
+            
+            // Subscribe to scene changes to update cache
+            SceneManager.sceneLoaded += OnSceneLoaded;
+        }
+        
+        private void OnDisable() {
+            // Unsubscribe from scene changes
+            SceneManager.sceneLoaded -= OnSceneLoaded;
+        }
+        
+        private void UpdateCachedSceneName() {
+            var activeScene = SceneManager.GetActiveScene();
+            if(activeScene.IsValid()) {
+                _cachedSceneName = activeScene.name;
+            }
+        }
+        
+        private void OnSceneLoaded(Scene scene, LoadSceneMode mode) {
+            UpdateCachedSceneName();
         }
 
         private void Update() {
-            if(_grappleController && _fpCamera && SceneManager.GetActiveScene().name.Contains("Game")) {
-                CheckGrapplePoint();
-                UpdateIndicatorVisual();
-            }
+            // Validate references are not null and not destroyed
+            if(_grappleController == null || _fpCamera == null) return;
+            if(_cachedSceneName == null || !_cachedSceneName.Contains("Game")) return;
+            
+            CheckGrapplePoint();
+            UpdateIndicatorVisual();
         }
 
         public void RegisterLocalPlayer(PlayerController player) {
@@ -111,11 +156,22 @@ namespace Network.Singletons {
         }
 
         private void CheckGrapplePoint() {
+            if(_fpCamera == null || _fpCamera.transform == null) return;
+            
             var ray = new Ray(_fpCamera.transform.position, _fpCamera.transform.forward);
             _isLookingAtGrapplePoint = Physics.Raycast(ray, maxGrappleDistance, grappleableLayers);
         }
 
         private void UpdateIndicatorVisual() {
+            // Validate references before accessing
+            if(_grappleController == null || _grappleIndicator == null || _segments == null) {
+                // Clear references if they're invalid (helps with cleanup)
+                if(_grappleController == null) {
+                    _fpCamera = null;
+                }
+                return;
+            }
+
             if(_grappleController.IsGrappling) {
                 _grappleIndicator.style.opacity = 0f;
                 return;

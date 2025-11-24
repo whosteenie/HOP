@@ -46,7 +46,8 @@ namespace Network.UGS {
         }
 
         /// <inheritdoc />
-        public void HookEvents(ISession s, Action onChanged, Action<string> onJoined, Action<string> onLeaving, Action onPropsChanged) {
+        public void HookEvents(ISession s, Action onChanged, Action<string> onJoined, Action<string> onLeaving,
+            Action onPropsChanged) {
             if(s == null) return;
             s.Changed += onChanged;
             s.PlayerJoined += onJoined;
@@ -55,14 +56,15 @@ namespace Network.UGS {
         }
 
         /// <inheritdoc />
-        public void UnhookEvents(ISession s, Action onChanged, Action<string> onJoined, Action<string> onLeaving, Action onPropsChanged) {
+        public void UnhookEvents(ISession s, Action onChanged, Action<string> onJoined, Action<string> onLeaving,
+            Action onPropsChanged) {
             if(s == null) return;
             s.Changed -= onChanged;
             s.PlayerJoined -= onJoined;
             s.PlayerLeaving -= onLeaving;
             s.SessionPropertiesChanged -= onPropsChanged;
         }
-        
+
         public async UniTask<ISession> ReconnectToSessionAsync(string sessionId) {
             Active = await MultiplayerService.Instance.ReconnectToSessionAsync(sessionId);
             return Active;

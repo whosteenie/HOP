@@ -100,6 +100,48 @@
     color: rgb(255, 100, 100);
 }
 
+/* Value input fields (volume and sensitivity) */
+.value-input {
+    font-size: 14px;
+    color: rgb(240, 240, 240);
+    min-width: 60px;
+    max-width: 80px;
+    -unity-text-align: middle-right;
+    margin-left: 10px;
+    background-color: transparent;
+    border-width: 0;
+    --unity-cursor-color: rgb(240, 240, 240);
+}
+
+/* Sensitivity input - fixed width to prevent growing */
+.value-input.sensitivity-input {
+    max-width: 60px;
+    width: 60px;
+}
+
+.value-input:focus {
+    --unity-cursor-color: rgb(240, 240, 240);
+}
+
+.value-input > .unity-base-text-field__input {
+    --unity-cursor-color: rgb(240, 240, 240);
+    background-color: transparent;
+    border-width: 0;
+}
+
+.value-input:focus > .unity-base-text-field__input {
+    --unity-cursor-color: rgb(240, 240, 240);
+}
+
+.value-input > .unity-text-element--inner-input-field-component {
+    --unity-cursor-color: rgb(240, 240, 240);
+    color: rgb(240, 240, 240);
+}
+
+.value-input:focus > .unity-text-element--inner-input-field-component {
+    --unity-cursor-color: rgb(240, 240, 240);
+}
+
 /* ===== UNSAVED CHANGES DIALOG ===== */
 .unsaved-changes-modal {
     position: absolute;
@@ -109,6 +151,7 @@
     left: 0;
     align-items: center;
     justify-content: center;
+    background-color: rgba(0, 0, 0, 0.95); /* More opaque background for modals */
 }
 
 .unsaved-changes-container {
@@ -147,6 +190,46 @@
 }
 
 .unsaved-changes-cancel {
+    margin-left: 12px;
+}
+
+/* ===== QUIT CONFIRMATION DIALOG ===== */
+/* Reuses unsaved-changes-modal styles, but with different button layout */
+#quit-confirmation-title {
+    display: none;
+}
+
+.quit-confirmation-buttons {
+    flex-direction: row;
+    width: 100%;
+    justify-content: center;
+}
+
+.quit-confirmation-yes {
+    margin-right: 12px;
+}
+
+.quit-confirmation-no {
+    margin-left: 12px;
+}
+
+/* ===== LOBBY LEAVE DIALOG ===== */
+/* Reuses unsaved-changes-modal styles, but with different button layout */
+#lobby-leave-title {
+    display: none;
+}
+
+.lobby-leave-buttons {
+    flex-direction: row;
+    width: 100%;
+    justify-content: center;
+}
+
+.lobby-leave-yes {
+    margin-right: 12px;
+}
+
+.lobby-leave-no {
     margin-left: 12px;
 }
 

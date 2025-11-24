@@ -15,14 +15,15 @@ namespace Network.Core {
             if(PlayerPrefs.HasKey("PlayerName")) {
                 var savedName = PlayerPrefs.GetString("PlayerName");
                 if(!string.IsNullOrWhiteSpace(savedName)) {
-                    return new Dictionary<string, PlayerProperty> { { key, new PlayerProperty(savedName, VisibilityPropertyOptions.Member) } };
+                    return new Dictionary<string, PlayerProperty>
+                        { { key, new PlayerProperty(savedName, VisibilityPropertyOptions.Member) } };
                 }
             }
-            
+
             var playerName = "Player(?)";
             try {
                 playerName = await AuthenticationService.Instance.GetPlayerNameAsync();
-                if (string.IsNullOrWhiteSpace(playerName))
+                if(string.IsNullOrWhiteSpace(playerName))
                     playerName = AuthenticationService.Instance.PlayerName;
             } catch {
                 var pid = AuthenticationService.Instance.PlayerId;
@@ -31,7 +32,9 @@ namespace Network.Core {
                     playerName = $"Player({suffix})";
                 }
             }
-            return new Dictionary<string, PlayerProperty> { { key, new PlayerProperty(playerName, VisibilityPropertyOptions.Member) } };
+
+            return new Dictionary<string, PlayerProperty>
+                { { key, new PlayerProperty(playerName, VisibilityPropertyOptions.Member) } };
         }
     }
 }

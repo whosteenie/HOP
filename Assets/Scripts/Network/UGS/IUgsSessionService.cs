@@ -10,13 +10,16 @@ namespace Network.UGS {
     public interface IUgsSessionService {
         /// <summary>Ensures UGS is initialized and the player is signed in (anonymously if needed).</summary>
         UniTask InitializeAsync();
+
         /// <summary>Holds the last created/joined session (optional convenience).</summary>
         ISession Active { get; set; }
 
         /// <summary>Create a new session with given options.</summary>
         UniTask<ISession> CreateAsync(SessionOptions options);
+
         /// <summary>Join an existing session by code.</summary>
         UniTask<ISession> JoinByCodeAsync(string code, JoinSessionOptions options);
+
         /// <summary>Leave session (client) or delete (host). Swallows transient errors.</summary>
         UniTask LeaveOrDeleteAsync(ISession session);
 

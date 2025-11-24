@@ -14,6 +14,7 @@ namespace Game.Player {
         [SerializeField] private float grappleSpeed = 30f;
         [SerializeField] private float grappleDuration = 0.5f;
         [SerializeField] private float grappleCooldown = 1.3f;
+        [SerializeField] private float taggedPlayerCooldown = 1.0f; // Lower cooldown for tagged players in Gun Tag mode
         [SerializeField] private LayerMask grappleableLayers;
 
         [Header("Momentum Settings")] [SerializeField]
@@ -27,6 +28,7 @@ namespace Game.Player {
         [SerializeField] private Transform grappleOriginTp;
         [SerializeField] private CharacterController characterController;
         [SerializeField] private PlayerController playerController;
+        [SerializeField] private PlayerTagController tagController; // For checking if player is tagged in Gun Tag mode
         [SerializeField] private LineRenderer grappleLine;
         [SerializeField] private NetworkSfxRelay sfxRelay;
         [SerializeField] private LayerMask playerLayer;
@@ -57,14 +59,34 @@ namespace Game.Player {
             get {
                 if(CanGrapple) return 1f;
                 var elapsed = Time.time - _cooldownStartTime;
-                return Mathf.Clamp01(elapsed / grappleCooldown);
+                var currentCooldown = GetCurrentCooldown();
+                return Mathf.Clamp01(elapsed / currentCooldown);
             }
+        }
+        
+        /// <summary>
+        /// Gets the current grapple cooldown based on whether the player is tagged in Gun Tag mode.
+        /// </summary>
+        private float GetCurrentCooldown() {
+            // Check if we're in Gun Tag mode and player is tagged
+            var matchSettings = MatchSettingsManager.Instance;
+            bool isTagMode = matchSettings != null && matchSettings.selectedGameModeId == "Gun Tag";
+            
+            if(isTagMode && tagController != null && tagController.isTagged.Value) {
+                return taggedPlayerCooldown;
+            }
+            
+            return grappleCooldown;
         }
 
         #endregion
 
         private NetworkVariable<bool> _netIsGrappling = new();
         private NetworkVariable<Vector3> _netGrapplePoint = new();
+        
+        // Throttling for network updates (at 90Hz: 3 ticks = ~33ms)
+        private float _lastGrappleUpdateTime;
+        private const float GrappleUpdateInterval = 0.033f; // ~3 ticks at 90Hz
 
         #region Unity Lifecycle
 
@@ -117,8 +139,16 @@ namespace Game.Player {
 
         [Rpc(SendTo.Server)]
         private void UpdateGrappleServerRpc(bool isGrappling, Vector3 grapplePoint) {
-            _netIsGrappling.Value = isGrappling;
-            _netGrapplePoint.Value = grapplePoint;
+            // Throttle network updates - only send if enough time has passed or state changed
+            bool shouldUpdate = Time.time - _lastGrappleUpdateTime >= GrappleUpdateInterval ||
+                               _netIsGrappling.Value != isGrappling ||
+                               Vector3.Distance(_netGrapplePoint.Value, grapplePoint) > 0.1f;
+            
+            if(shouldUpdate) {
+                _netIsGrappling.Value = isGrappling;
+                _netGrapplePoint.Value = grapplePoint;
+                _lastGrappleUpdateTime = Time.time;
+            }
         }
 
         // Called on all clients when grapple state changes
@@ -194,7 +224,8 @@ namespace Game.Player {
         #region Private Methods - Grapple Logic
 
         private void StartGrapple(Vector3 targetPoint) {
-            if(swingGrapple.IsSwinging) swingGrapple.CancelSwing();
+            // TODO: Reimplement when swing grapple is implemented
+            // if(swingGrapple.IsSwinging) swingGrapple.CancelSwing();
             UpdateGrappleServerRpc(true, targetPoint);
             IsGrappling = true;
             _grapplePoint = targetPoint;
@@ -287,7 +318,8 @@ namespace Game.Player {
         private IEnumerator GrappleCooldown() {
             CanGrapple = false;
             _cooldownStartTime = Time.time;
-            yield return new WaitForSeconds(grappleCooldown);
+            var currentCooldown = GetCurrentCooldown();
+            yield return new WaitForSeconds(currentCooldown);
             CanGrapple = true;
         }
 

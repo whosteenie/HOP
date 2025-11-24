@@ -458,6 +458,13 @@
     width: 200px;
 }
 
+.weapon-slot-stack {
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
+    width: 183px;
+}
+
 .weapon-slot-label {
     font-size: 12px;
     color: rgb(180, 180, 180);
@@ -484,6 +491,8 @@
     background-color: rgba(20, 20, 25, 0.95);
 }
 
+/* Weapon slot background images will be assigned via dynamic classes */
+
 .weapon-image {
     width: 160px;
     height: 100px;
@@ -505,6 +514,7 @@
 
 .weapon-dropdown-scroll {
     max-height: 280px;
+    margin-right: 0;
 }
 
 .weapon-option {
@@ -529,6 +539,21 @@
     width: 140px;
     height: 80px;
     -unity-background-scale-mode: scale-to-fit;
+}
+
+.weapon-dropdown-scroll .unity-scroll-view__vertical-scrollbars,
+.weapon-dropdown-scroll .unity-scroll-view__horizontal-scrollbars,
+.weapon-dropdown-scroll .unity-scroller__low-button,
+.weapon-dropdown-scroll .unity-scroller__high-button,
+.weapon-dropdown-scroll .unity-scroller__slider,
+.weapon-dropdown-scroll .unity-scroller__track {
+    display: none;
+    width: 0;
+    height: 0;
+    min-width: 0;
+    min-height: 0;
+    max-width: 0;
+    max-height: 0;
 }
 
 /* ===== FIRST TIME SETUP MODAL ===== */

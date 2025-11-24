@@ -5,9 +5,10 @@ public class SpawnPoint : MonoBehaviour {
         TeamA,
         TeamB
     }
-    
-    [Header("Team")] [SerializeField] private Team team = Team.TeamA;
-    
+
+    [Header("Team")]
+    [SerializeField] private Team team = Team.TeamA;
+
     public Team AssignedTeam => team;
 
     private void OnDrawGizmos() {

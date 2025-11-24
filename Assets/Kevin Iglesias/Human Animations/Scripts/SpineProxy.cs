@@ -10,6 +10,7 @@
 // Contact Support: support@keviniglesias.com
 
 using UnityEngine;
+using Game.Player;
 
 namespace KevinIglesias
 {
@@ -17,6 +18,9 @@ namespace KevinIglesias
     {
         //Assign 'B-spine' (or equivalent) here:
         [SerializeField] private Transform originalSpine;
+
+        [Header("Ragdoll Support")]
+        [SerializeField] private PlayerRagdoll playerRagdoll;
 
         private Quaternion rotationOffset = Quaternion.identity;
 
@@ -50,6 +54,12 @@ namespace KevinIglesias
             {//originalSpine.rotation must be the default rotation in your character T-pose when this happens:
                 rotationOffset = Quaternion.Inverse(transform.rotation) * originalSpine.rotation;
             }
+
+            // Get PlayerRagdoll reference if not assigned
+            if(playerRagdoll == null)
+            {
+                playerRagdoll = GetComponentInParent<PlayerRagdoll>();
+            }
         }
 
         //Copy rotations from spine proxy bone to the original spine bone.
@@ -59,6 +69,13 @@ namespace KevinIglesias
             {
                 return;
             }
+
+            // Don't copy rotations if player is in ragdoll (let physics control the spine)
+            if(playerRagdoll != null && playerRagdoll.IsRagdoll)
+            {
+                return;
+            }
+
             originalSpine.rotation = transform.rotation * rotationOffset;
         }
     }

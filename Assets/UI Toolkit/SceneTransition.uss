@@ -28,17 +28,7 @@
     height: 80px;
     align-items: center;
     justify-content: center;
-    opacity: 0;
-    /* No transition - will be controlled by code to sync with fade */
-}
-
-.loading-animation-container.visible {
-    opacity: 1;
-}
-
-.loading-animation-container.hidden {
-    opacity: 0;
-    display: none;
+    /* Visibility is controlled by parent transition-overlay, no opacity handling here */
 }
 
 .loading-ball {

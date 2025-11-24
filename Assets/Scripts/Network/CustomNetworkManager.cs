@@ -1,4 +1,5 @@
 using System.Collections;
+using Game.Player;
 using Network.Singletons;
 using Unity.Netcode;
 using UnityEngine;
@@ -6,18 +7,17 @@ using UnityEngine.SceneManagement;
 
 namespace Network {
     public class CustomNetworkManager : MonoBehaviour {
-        [Header("Manual Player Prefab (do NOT rely on NetworkConfig.PlayerPrefab)")] [SerializeField]
-        private NetworkObject playerPrefab;
+        [Header("Manual Player Prefab (do NOT rely on NetworkConfig.PlayerPrefab)")]
+        [SerializeField] private NetworkObject playerPrefab;
 
         [SerializeField] private Material[] playerMaterials;
 
         // When true (after Start Game), new joiners will be spawned automatically on connect.
         private bool _allowPlayerSpawns;
         private NetworkManager _networkManager;
-        private int _playerAmount;
 
-        [Header("Team Settings")] [SerializeField]
-        private bool autoBalanceTeams = true;
+        [Header("Team Settings")]
+        [SerializeField] private bool autoBalanceTeams = true;
 
         // Track pending team assignments during initial batch spawn
         private readonly System.Collections.Generic.Dictionary<ulong, SpawnPoint.Team> _pendingTeamAssignments = new();
@@ -65,7 +65,6 @@ namespace Network {
         // --- Public utility: call when leaving to menu/lobby ---
         public void ResetSpawningState() {
             _allowPlayerSpawns = false;
-            _playerAmount = 0;
             _pendingTeamAssignments.Clear();
         }
 
@@ -134,7 +133,7 @@ namespace Network {
                 }
 
                 // 1. Determine game mode
-                var matchSettings = MatchSettings.Instance;
+                var matchSettings = MatchSettingsManager.Instance;
                 var isTeamBased = matchSettings != null && IsTeamBasedMode(matchSettings.selectedGameModeId);
 
                 // 2. Assign team first (if team-based) so we can use it for spawn point selection
@@ -144,18 +143,23 @@ namespace Network {
                 }
 
                 // 3. Choose spawn point
-                Vector3 pos;
-                Quaternion rot;
-
+                SpawnPoint spawnPoint;
                 if(isTeamBased) {
                     // ---- TEAM-BASED SPAWN ----
-                    pos = SpawnManager.Instance.GetNextSpawnPosition(assignedTeam);
-                    rot = SpawnManager.Instance.GetNextSpawnRotation(assignedTeam);
+                    spawnPoint = SpawnManager.Instance.GetNextSpawnPoint(assignedTeam);
                 } else {
                     // ---- FREE-FOR-ALL SPAWN ----
-                    pos = SpawnManager.Instance.GetNextSpawnPosition(); // uses all points
-                    rot = SpawnManager.Instance.GetNextSpawnRotation();
+                    spawnPoint = SpawnManager.Instance.GetNextSpawnPoint();
                 }
+
+                if(spawnPoint == null) {
+                    // Fallback to default position if no spawn points available
+                    Debug.LogWarning("[CustomNetworkManager] No spawn points available, using fallback position");
+                    continue;
+                }
+
+                Vector3 pos = spawnPoint.transform.position;
+                Quaternion rot = spawnPoint.transform.rotation;
 
                 // 4. Validate spawn point (optional safety)
                 var layerMask = LayerMask.GetMask("Player", "Enemy");
@@ -198,8 +202,6 @@ namespace Network {
                 // 8. Re-enable CharacterController next frame
                 StartCoroutine(EnableCcNextFrame(cc));
 
-                _playerAmount++;
-
                 break;
             }
         }
@@ -209,6 +211,7 @@ namespace Network {
         // ========================================================================
         private static bool IsTeamBasedMode(string modeId) => modeId switch {
             "Team Deathmatch" => true,
+            "Hopball" => true,
             "CTF" => true,
             "Oddball" => true,
             "KOTH" => true,

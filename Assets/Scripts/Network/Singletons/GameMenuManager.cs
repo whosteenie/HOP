@@ -4,7 +4,6 @@ using System.Collections.Generic;
 using Game.Player;
 using Unity.Netcode;
 using UnityEngine;
-using UnityEngine.Audio;
 using UnityEngine.SceneManagement;
 using UnityEngine.UIElements;
 
@@ -13,48 +12,29 @@ namespace Network.Singletons {
         #region Serialized Fields
 
         [SerializeField] private UIDocument uiDocument;
-        [SerializeField] private AudioMixer audioMixer;
+        // AudioMixer is now handled by OptionsMenuManager
 
-        [SerializeField] private AudioClip buttonClickSound;
-        [SerializeField] private AudioClip buttonHoverSound;
-        [SerializeField] private AudioClip backClickSound;
 
-        [Header("Kill Feed")] [SerializeField] private Sprite killIconSprite;
-        [SerializeField] private Sprite youreItIconSprite; // Icon for tag transfers in Tag mode
-        [SerializeField] private float killFeedDisplayTime = 5f;
-        [SerializeField] private int maxKillFeedEntries = 5; // NEW: Max entries in kill feed
+        [Header("Kill Feed")]
+        [SerializeField] private KillFeedManager killFeedManager;
 
-        [Header("Player Icons")] [SerializeField] private Sprite[] playerIconSprites; // Order: white, red, orange, yellow, green, blue, purple
+        [Header("Scoreboard")]
+        [SerializeField] private ScoreboardManager scoreboardManager;
+
+        [Header("Options")]
+        [SerializeField] private OptionsMenuManager optionsMenuManager;
 
         #endregion
 
         #region UI Elements - Kill Feed
 
         private VisualElement _killFeedContainer;
-        private List<VisualElement> _activeKillEntries = new List<VisualElement>();
-        private Dictionary<VisualElement, Coroutine> _fadeCoroutines; // NEW: Track coroutines
 
         #endregion
 
         #region UI Elements - Scoreboard
 
-        private VisualElement _scoreboardPanel;
-        private VisualElement _playerRows;
-
-        // FFA Scoreboard
-        private VisualElement _scoreboardContainer;
-
-        // TDM Scoreboard
-        private VisualElement _tdmScoreboardContainer;
-        private VisualElement _enemyTeamSection;
-        private VisualElement _enemyTeamRows;
-        private VisualElement _yourTeamSection;
-        private VisualElement _yourTeamRows;
-        private Label _enemyScoreValue;
-        private Label _yourScoreValue;
-
-        // NEW: match timer
-        private Label _matchTimerLabel;
+        // Scoreboard UI elements are now managed by ScoreboardManager
 
         #endregion
 
@@ -64,68 +44,31 @@ namespace Network.Singletons {
         private VisualElement _optionsPanel;
         private PlayerController _localController;
 
-        // Audio sliders
-        private Slider _masterVolumeSlider;
-        private Slider _musicVolumeSlider;
-        private Slider _sfxVolumeSlider;
-        private Label _masterVolumeValue;
-        private Label _musicVolumeValue;
-        private Label _sfxVolumeValue;
-
-        // Sensitivity slider
-        private Slider _sensitivitySlider;
-        private Label _sensitivityValue;
-        private Button _invertYButton;
-
-        // Graphics controls
-        private DropdownField _qualityDropdown;
-        private Button _vsyncButton;
-        private DropdownField _fpsDropdown;
-
-        // Options tabs
-        private Button _tabVideo;
-        private Button _tabAudio;
-        private Button _tabGame;
-        private Button _tabControls;
-        private VisualElement _videoContent;
-        private VisualElement _audioContent;
-        private VisualElement _gameContent;
-        private VisualElement _controlsContent;
-
-        // Keybind buttons - stored as Dictionary for easier access
-        private Dictionary<string, Button[]> _keybindButtons = new Dictionary<string, Button[]>();
+        // Options functionality is now handled by OptionsMenuManager component
 
         private Button _resumeButton;
         private Button _optionsButton;
         private Button _quitButton;
-        private Button _applyButton;
-        private Button _backButton;
 
         // Pause menu join code
         private Label _pauseJoinCodeLabel;
         private Button _pauseCopyCodeButton;
 
-        // Unsaved changes dialog
-        private VisualElement _unsavedChangesModal;
-        private Button _unsavedChangesYes;
-        private Button _unsavedChangesNo;
-        private Button _unsavedChangesCancel;
-
-        // Track original settings values to detect changes
-        private float _originalMasterVolume;
-        private float _originalMusicVolume;
-        private float _originalSfxVolume;
-        private float _originalSensitivity;
-        private bool _originalInvertY;
-        private int _originalQualityLevel;
-        private bool _originalVsync;
-        private int _originalTargetFPS;
-
         private VisualElement _root;
+
+        // Scoreboard caching is now handled by ScoreboardManager
 
         // HUD / Match UI
         private VisualElement _hudPanel;
         private VisualElement _matchTimerContainer;
+
+        // Score display
+        private VisualElement _leftScoreContainer;
+        private VisualElement _rightScoreContainer;
+        private Label _leftScoreValue;
+        private Label _rightScoreValue;
+        private float _lastScoreUpdateTime;
+        private const float ScoreUpdateInterval = 0.1f; // Update every 0.1 seconds
 
         // Post-match state
 
@@ -143,14 +86,20 @@ namespace Network.Singletons {
         private Label _podiumSecondKills;
         private Label _podiumThirdKills;
 
+        // Cache scene name to avoid string allocations
+        private string _cachedSceneName;
+
         #endregion
 
         #region Properties
 
         public bool IsPaused { get; private set; }
-        public bool IsScoreboardVisible { get; private set; }
+
+        public bool IsScoreboardVisible => scoreboardManager != null && scoreboardManager.IsScoreboardVisible;
 
         public bool IsPostMatch { get; set; }
+
+        public bool IsPreMatch => MatchTimerManager.Instance != null && MatchTimerManager.Instance.IsPreMatch;
 
         #endregion
 
@@ -165,24 +114,29 @@ namespace Network.Singletons {
             }
 
             Instance = this;
-            DontDestroyOnLoad(gameObject);
+            // Removed DontDestroyOnLoad - GameMenuManager should be in Game scene only
         }
 
         private void OnEnable() {
+            if(uiDocument == null) {
+                Debug.LogError("[GameMenuManager] UIDocument is not assigned!");
+                return;
+            }
+
             _root = uiDocument.rootVisualElement;
 
-            _fadeCoroutines = new Dictionary<VisualElement, Coroutine>();
+            // Cache scene name to avoid allocations
+            UpdateCachedSceneName();
+
+            // Subscribe to scene changes to update cache
+            SceneManager.sceneLoaded += OnSceneLoaded;
 
             FindUIElements();
             RegisterUIEvents();
 
-            SetupAudioCallbacks();
-            SetupControlsCallbacks();
-            SetupGraphicsCallbacks();
-            SetupOptionsTabs();
-            SetupKeybinds();
-
-            LoadSettings();
+            SetupOptionsMenuManager();
+            SetupKillFeedManager();
+            SetupScoreboardManager();
 
             // Subscribe to join code updates
             if(SessionManager.Instance != null) {
@@ -195,6 +149,20 @@ namespace Network.Singletons {
             if(SessionManager.Instance != null) {
                 SessionManager.Instance.RelayCodeAvailable -= OnRelayCodeAvailable;
             }
+
+            // Unsubscribe from scene changes
+            SceneManager.sceneLoaded -= OnSceneLoaded;
+        }
+
+        private void UpdateCachedSceneName() {
+            var activeScene = SceneManager.GetActiveScene();
+            if(activeScene.IsValid()) {
+                _cachedSceneName = activeScene.name;
+            }
+        }
+
+        private void OnSceneLoaded(Scene scene, LoadSceneMode mode) {
+            UpdateCachedSceneName();
         }
 
         private void OnRelayCodeAvailable(string joinCode) {
@@ -208,8 +176,14 @@ namespace Network.Singletons {
         }
 
         private void Update() {
-            if(_localController == null && SceneManager.GetActiveScene().name == "Game") {
+            if(_localController == null && _cachedSceneName == "Game") {
                 FindLocalController();
+            }
+            
+            // Update score display periodically
+            if(_cachedSceneName == "Game" && Time.time - _lastScoreUpdateTime >= ScoreUpdateInterval) {
+                UpdateScoreDisplay();
+                _lastScoreUpdateTime = Time.time;
             }
         }
 
@@ -236,70 +210,18 @@ namespace Network.Singletons {
             _pauseJoinCodeLabel = _root.Q<Label>("pause-join-code-label");
             _pauseCopyCodeButton = _root.Q<Button>("pause-copy-code-button");
 
-            _applyButton = _root.Q<Button>("apply-button");
-            _backButton = _root.Q<Button>("back-button");
-
-            // Unsaved changes dialog
-            _unsavedChangesModal = _root.Q<VisualElement>("unsaved-changes-modal");
-            _unsavedChangesYes = _root.Q<Button>("unsaved-changes-yes");
-            _unsavedChangesNo = _root.Q<Button>("unsaved-changes-no");
-            _unsavedChangesCancel = _root.Q<Button>("unsaved-changes-cancel");
-
-            // Get audio controls
-            _masterVolumeSlider = _root.Q<Slider>("master-volume");
-            _musicVolumeSlider = _root.Q<Slider>("music-volume");
-            _sfxVolumeSlider = _root.Q<Slider>("sfx-volume");
-            _masterVolumeValue = _root.Q<Label>("master-volume-value");
-            _musicVolumeValue = _root.Q<Label>("music-volume-value");
-            _sfxVolumeValue = _root.Q<Label>("sfx-volume-value");
-
-            // Get sensitivity controls
-            _sensitivitySlider = _root.Q<Slider>("sensitivity");
-            _sensitivityValue = _root.Q<Label>("sensitivity-value");
-            _invertYButton = _root.Q<Button>("invert-y");
-
-            // Get graphics controls
-            _qualityDropdown = _root.Q<DropdownField>("quality-level");
-            _vsyncButton = _root.Q<Button>("vsync");
-
-            // Setup button checkbox click handlers
-            _invertYButton?.RegisterCallback<ClickEvent>(_ => ToggleCheckbox(_invertYButton));
-            _vsyncButton?.RegisterCallback<ClickEvent>(_ => ToggleCheckbox(_vsyncButton));
-            _fpsDropdown = _root.Q<DropdownField>("target-fps");
-
-            // Options tabs
-            _tabVideo = _root.Q<Button>("tab-video");
-            _tabAudio = _root.Q<Button>("tab-audio");
-            _tabGame = _root.Q<Button>("tab-game");
-            _tabControls = _root.Q<Button>("tab-controls");
-            _videoContent = _root.Q<VisualElement>("video-content");
-            _audioContent = _root.Q<VisualElement>("audio-content");
-            _gameContent = _root.Q<VisualElement>("game-content");
-            _controlsContent = _root.Q<VisualElement>("controls-content");
-
-            // Scoreboard
-            _scoreboardPanel = _root.Q<VisualElement>("scoreboard-panel");
-            _playerRows = _root.Q<VisualElement>("player-rows");
-            _scoreboardContainer = _root.Q<VisualElement>("scoreboard-container");
-
-            // TDM Scoreboard
-            _tdmScoreboardContainer = _root.Q<VisualElement>("tdm-scoreboard-container");
-            _enemyTeamSection = _root.Q<VisualElement>("enemy-team-section");
-            _enemyTeamRows = _root.Q<VisualElement>("enemy-team-rows");
-            _yourTeamSection = _root.Q<VisualElement>("your-team-section");
-            _yourTeamRows = _root.Q<VisualElement>("your-team-rows");
-            _enemyScoreValue = _root.Q<Label>("enemy-score-value");
-            _yourScoreValue = _root.Q<Label>("your-score-value");
-
             // Kill Feed
             _killFeedContainer = _root.Q<VisualElement>("kill-feed-container");
-
-            // NEW: Match timer
-            _matchTimerLabel = _root.Q<Label>("match-timer-label");
 
             // HUD root + containers
             _hudPanel = _root.Q<VisualElement>("hud-panel");
             _matchTimerContainer = _root.Q<VisualElement>("match-timer-container");
+            
+            // Score display
+            _leftScoreContainer = _root.Q<VisualElement>("left-score-container");
+            _rightScoreContainer = _root.Q<VisualElement>("right-score-container");
+            _leftScoreValue = _root.Q<Label>("left-score-value");
+            _rightScoreValue = _root.Q<Label>("right-score-value");
 
             // Podium nameplates
             _podiumContainer = _root.Q<VisualElement>("podium-nameplates-container");
@@ -341,58 +263,36 @@ namespace Network.Singletons {
                 _pauseCopyCodeButton.clicked += CopyPauseJoinCodeToClipboard;
                 _pauseCopyCodeButton.RegisterCallback<MouseEnterEvent>(MouseHover);
             }
-
-            // Setup options buttons
-            _applyButton.clicked += () => {
-                OnButtonClicked();
-                ApplySettings();
-            };
-            _applyButton.RegisterCallback<MouseOverEvent>(MouseHover);
-
-            _backButton.clicked += () => {
-                OnButtonClicked(true);
-                OnBackFromOptions();
-            };
-            _backButton.RegisterCallback<MouseOverEvent>(MouseHover);
-
-            // Setup unsaved changes dialog buttons
-            if(_unsavedChangesYes != null) {
-                _unsavedChangesYes.clicked += OnUnsavedChangesYes;
-                _unsavedChangesYes.RegisterCallback<MouseEnterEvent>(MouseHover);
-            }
-
-            if(_unsavedChangesNo != null) {
-                _unsavedChangesNo.clicked += OnUnsavedChangesNo;
-                _unsavedChangesNo.RegisterCallback<MouseEnterEvent>(MouseHover);
-                // Note: back-button class is already in UXML, so OnButtonClicked will detect it
-            }
-
-            if(_unsavedChangesCancel != null) {
-                _unsavedChangesCancel.clicked += OnUnsavedChangesCancel;
-                _unsavedChangesCancel.RegisterCallback<MouseEnterEvent>(MouseHover);
-            }
         }
 
         private void OnButtonClicked(bool isBack = false) {
             if(SoundFXManager.Instance != null) {
-                var sound = !isBack ? buttonClickSound : backClickSound;
-                if(sound != null) {
-                    SoundFXManager.Instance.PlayUISound(sound);
-                }
+                var soundKey = !isBack ? SfxKey.ButtonClick : SfxKey.BackButton;
+                SoundFXManager.Instance.PlayUISound(soundKey);
+            }
+        }
+
+        private void MouseEnter(MouseEnterEvent evt) {
+            if(SoundFXManager.Instance != null) {
+                SoundFXManager.Instance.PlayUISound(SfxKey.ButtonHover);
             }
         }
 
         private void MouseHover(MouseOverEvent evt) {
-            SoundFXManager.Instance.PlayUISound(buttonHoverSound);
+            if(SoundFXManager.Instance != null) {
+                SoundFXManager.Instance.PlayUISound(SfxKey.ButtonHover);
+            }
         }
 
         private void MouseHover(MouseEnterEvent evt) {
-            SoundFXManager.Instance.PlayUISound(buttonHoverSound);
+            if(SoundFXManager.Instance != null) {
+                SoundFXManager.Instance.PlayUISound(SfxKey.ButtonHover);
+            }
         }
 
         public void TogglePause() {
             // Only allow pausing in Game scene
-            if(!SceneManager.GetActiveScene().name.Contains("Game")) return;
+            if(_cachedSceneName == null || !_cachedSceneName.Contains("Game")) return;
 
             if(IsPaused) {
                 if(!_optionsPanel.ClassListContains("hidden")) {
@@ -409,281 +309,40 @@ namespace Network.Singletons {
 
         #region Setup Methods
 
-        private void SetupAudioCallbacks() {
-            _masterVolumeSlider.RegisterValueChangedCallback(evt => {
-                var linear = evt.newValue;
-                _masterVolumeValue.text = $"{Mathf.RoundToInt(linear * 100)}%";
-            });
-
-            _musicVolumeSlider.RegisterValueChangedCallback(evt => {
-                var linear = evt.newValue;
-                _musicVolumeValue.text = $"{Mathf.RoundToInt(linear * 100)}%";
-            });
-
-            _sfxVolumeSlider.RegisterValueChangedCallback(evt => {
-                var linear = evt.newValue;
-                _sfxVolumeValue.text = $"{Mathf.RoundToInt(linear * 100)}%";
-            });
-        }
-
-        private static float LinearToDb(float linear) {
-            if(linear <= 0f) return -80f;
-            return 20f * Mathf.Log10(linear);
-        }
-
-        private static float DbToLinear(float db) {
-            return db <= -80f ? 0f : Mathf.Pow(10f, db / 20f);
-        }
-
-        // Helper methods for button checkbox state
-        private static bool GetCheckboxValue(Button button) {
-            return button != null && button.ClassListContains("checked");
-        }
-
-        private static void SetCheckboxValue(Button button, bool value) {
-            if(button == null) return;
-            if(value) {
-                button.AddToClassList("checked");
-            } else {
-                button.RemoveFromClassList("checked");
-            }
-        }
-
-        private void ToggleCheckbox(Button button) {
-            if(button == null) return;
-            bool currentValue = GetCheckboxValue(button);
-            SetCheckboxValue(button, !currentValue);
-        }
-
-        private void SetupControlsCallbacks() {
-            _sensitivitySlider.RegisterValueChangedCallback(evt => {
-                _sensitivityValue.text = evt.newValue.ToString("F2");
-            });
-        }
-
-        private void SetupGraphicsCallbacks() {
-            // Setup quality dropdown
-            _qualityDropdown.choices = new List<string>(QualitySettings.names);
-            _qualityDropdown.index = QualitySettings.GetQualityLevel();
-
-            // Setup FPS dropdown
-            _fpsDropdown.choices = new List<string> { "30", "60", "120", "144", "Unlimited" };
-        }
-
-        private void SetupKeybinds() {
-            if(KeybindManager.Instance == null) {
-                Debug.LogWarning("[GameMenuManager] KeybindManager not found, keybinds will not work");
+        private void SetupOptionsMenuManager() {
+            if(optionsMenuManager == null) {
+                Debug.LogError("[GameMenuManager] OptionsMenuManager not assigned!");
                 return;
             }
 
-            var keybindNames = new[] {
-                "forward", "back", "left", "right", "jump", "shoot", "reload", "grapple", "primary", "secondary",
-                "nextweapon", "previousweapon"
-            };
+            // Set up callbacks
+            optionsMenuManager.OnButtonClickedCallback = OnButtonClicked;
+            optionsMenuManager.MouseEnterCallback = MouseEnter;
+            optionsMenuManager.MouseHoverCallback = MouseHover;
+            optionsMenuManager.OnBackFromOptionsCallback = HideOptions;
 
-            foreach(var keybindName in keybindNames) {
-                var buttons = new Button[2];
-                buttons[0] = _root.Q<Button>($"keybind-{keybindName}-0");
-                buttons[1] = _root.Q<Button>($"keybind-{keybindName}-1");
-
-                if(buttons[0] != null && buttons[1] != null) {
-                    _keybindButtons[keybindName] = buttons;
-
-                    // Setup click handlers
-                    for(int i = 0; i < 2; i++) {
-                        var index = i;
-                        buttons[i].clicked += () => OnKeybindButtonClicked(keybindName, index);
-                    }
-                }
-            }
-
-            LoadKeybindDisplayStrings();
+            // Initialize the options menu manager
+            optionsMenuManager.Initialize();
         }
 
-        private void OnKeybindButtonClicked(string keybindName, int bindingIndex) {
-            if(KeybindManager.Instance == null) return;
-
-            var button = _keybindButtons[keybindName][bindingIndex];
-            button.text = "Press key...";
-            button.SetEnabled(false);
-
-            KeybindManager.Instance.StartRebinding(keybindName, bindingIndex, (displayString) => {
-                button.SetEnabled(true);
-                if(!string.IsNullOrEmpty(displayString)) {
-                    button.text = displayString;
-                } else {
-                    // Reload original binding if cancelled
-                    LoadKeybindDisplayString(keybindName, bindingIndex);
-                }
-            });
-        }
-
-        private void LoadKeybindDisplayStrings() {
-            if(KeybindManager.Instance == null) return;
-
-            foreach(var kvp in _keybindButtons) {
-                var keybindName = kvp.Key;
-                var buttons = kvp.Value;
-
-                for(int i = 0; i < buttons.Length; i++) {
-                    // Ensure button is enabled (in case it was disabled during a cancelled rebind)
-                    if(buttons[i] != null) {
-                        buttons[i].SetEnabled(true);
-                    }
-
-                    LoadKeybindDisplayString(keybindName, i);
-                }
-            }
-        }
-
-        private void LoadKeybindDisplayString(string keybindName, int bindingIndex) {
-            if(KeybindManager.Instance == null ||
-               !_keybindButtons.TryGetValue(keybindName, out var keybindButton)) return;
-
-            var button = keybindButton[bindingIndex];
-            if(button != null) {
-                var displayString = KeybindManager.Instance.GetBindingDisplayString(keybindName, bindingIndex);
-                button.text = displayString;
-            }
-        }
-
-        private void SetupOptionsTabs() {
-            // Configure scrollbar visibility for options content scroll
-            var optionsScrollView = _root.Q<ScrollView>("options-content-scroll");
-            if(optionsScrollView != null) {
-                optionsScrollView.verticalScrollerVisibility = ScrollerVisibility.Auto;
-                optionsScrollView.horizontalScrollerVisibility = ScrollerVisibility.Hidden;
+        private void SetupKillFeedManager() {
+            if(killFeedManager == null) {
+                Debug.LogError("[GameMenuManager] KillFeedManager not assigned!");
+                return;
             }
 
-            if(_tabVideo != null) _tabVideo.clicked += () => SwitchOptionsTab("video");
-            if(_tabAudio != null) _tabAudio.clicked += () => SwitchOptionsTab("audio");
-            if(_tabGame != null) _tabGame.clicked += () => SwitchOptionsTab("game");
-            if(_tabControls != null) _tabControls.clicked += () => SwitchOptionsTab("controls");
-
-            // Register hover sounds and add hover class for tabs
-            // Use MouseEnterEvent for sound (only once) and MouseOverEvent for continuous repaint
-            _tabVideo?.RegisterCallback<MouseEnterEvent>(evt => {
-                MouseHover(evt);
-                if(!_tabVideo.ClassListContains("options-tab-active")) {
-                    _tabVideo.AddToClassList("options-tab-hover");
-                    // Force immediate repaint when adding hover class
-                    _tabVideo.schedule.Execute(() => _tabVideo.MarkDirtyRepaint());
-                }
-            });
-            _tabVideo?.RegisterCallback<MouseOverEvent>(_ => {
-                if(!_tabVideo.ClassListContains("options-tab-active") &&
-                   _tabVideo.ClassListContains("options-tab-hover")) {
-                    _tabVideo.MarkDirtyRepaint();
-                }
-            });
-            _tabVideo?.RegisterCallback<MouseLeaveEvent>(_ => {
-                _tabVideo.RemoveFromClassList("options-tab-hover");
-                _tabVideo.MarkDirtyRepaint();
-            });
-
-            _tabAudio?.RegisterCallback<MouseEnterEvent>(evt => {
-                MouseHover(evt);
-                if(!_tabAudio.ClassListContains("options-tab-active")) {
-                    _tabAudio.AddToClassList("options-tab-hover");
-                    _tabAudio.schedule.Execute(() => _tabAudio.MarkDirtyRepaint());
-                }
-            });
-            _tabAudio?.RegisterCallback<MouseOverEvent>(_ => {
-                if(!_tabAudio.ClassListContains("options-tab-active") &&
-                   _tabAudio.ClassListContains("options-tab-hover")) {
-                    _tabAudio.MarkDirtyRepaint();
-                }
-            });
-            _tabAudio?.RegisterCallback<MouseLeaveEvent>(_ => {
-                _tabAudio.RemoveFromClassList("options-tab-hover");
-                _tabAudio.MarkDirtyRepaint();
-            });
-
-            _tabGame?.RegisterCallback<MouseEnterEvent>(evt => {
-                MouseHover(evt);
-                if(!_tabGame.ClassListContains("options-tab-active")) {
-                    _tabGame.AddToClassList("options-tab-hover");
-                    _tabGame.schedule.Execute(() => _tabGame.MarkDirtyRepaint());
-                }
-            });
-            _tabGame?.RegisterCallback<MouseOverEvent>(_ => {
-                if(!_tabGame.ClassListContains("options-tab-active") &&
-                   _tabGame.ClassListContains("options-tab-hover")) {
-                    _tabGame.MarkDirtyRepaint();
-                }
-            });
-            _tabGame?.RegisterCallback<MouseLeaveEvent>(_ => {
-                _tabGame.RemoveFromClassList("options-tab-hover");
-                _tabGame.MarkDirtyRepaint();
-            });
-
-            _tabControls?.RegisterCallback<MouseEnterEvent>(evt => {
-                MouseHover(evt);
-                if(!_tabControls.ClassListContains("options-tab-active")) {
-                    _tabControls.AddToClassList("options-tab-hover");
-                    _tabControls.schedule.Execute(() => _tabControls.MarkDirtyRepaint());
-                }
-            });
-            _tabControls?.RegisterCallback<MouseOverEvent>(_ => {
-                if(!_tabControls.ClassListContains("options-tab-active") &&
-                   _tabControls.ClassListContains("options-tab-hover")) {
-                    _tabControls.MarkDirtyRepaint();
-                }
-            });
-            _tabControls?.RegisterCallback<MouseLeaveEvent>(_ => {
-                _tabControls.RemoveFromClassList("options-tab-hover");
-                _tabControls.MarkDirtyRepaint();
-            });
-
-            // Start with Video tab active
-            SwitchOptionsTab("video");
+            // Initialize kill feed manager with the container
+            killFeedManager.Initialize(_killFeedContainer);
         }
 
-        private void SwitchOptionsTab(string tabName) {
-            // Remove active and hover classes from all tabs
-            _tabVideo?.RemoveFromClassList("options-tab-active");
-            _tabVideo?.RemoveFromClassList("options-tab-hover");
-            _tabAudio?.RemoveFromClassList("options-tab-active");
-            _tabAudio?.RemoveFromClassList("options-tab-hover");
-            _tabGame?.RemoveFromClassList("options-tab-active");
-            _tabGame?.RemoveFromClassList("options-tab-hover");
-            _tabControls?.RemoveFromClassList("options-tab-active");
-            _tabControls?.RemoveFromClassList("options-tab-hover");
-
-            // Hide all content
-            _videoContent?.AddToClassList("hidden");
-            _audioContent?.AddToClassList("hidden");
-            _gameContent?.AddToClassList("hidden");
-            _controlsContent?.AddToClassList("hidden");
-
-            // Show selected tab and content
-            switch(tabName.ToLower()) {
-                case "video":
-                    _tabVideo?.AddToClassList("options-tab-active");
-                    _videoContent?.RemoveFromClassList("hidden");
-                    break;
-                case "audio":
-                    _tabAudio?.AddToClassList("options-tab-active");
-                    _audioContent?.RemoveFromClassList("hidden");
-                    break;
-                case "game":
-                    _tabGame?.AddToClassList("options-tab-active");
-                    _gameContent?.RemoveFromClassList("hidden");
-                    break;
-                case "controls":
-                    _tabControls?.AddToClassList("options-tab-active");
-                    _controlsContent?.RemoveFromClassList("hidden");
-                    break;
+        private void SetupScoreboardManager() {
+            if(scoreboardManager == null) {
+                Debug.LogError("[GameMenuManager] ScoreboardManager not assigned!");
+                return;
             }
 
-            // Force style refresh after tab switch to ensure borders are visible
-            _tabVideo?.MarkDirtyRepaint();
-            _tabAudio?.MarkDirtyRepaint();
-            _tabGame?.MarkDirtyRepaint();
-            _tabControls?.MarkDirtyRepaint();
-
-            // Play click sound
-            OnButtonClicked();
+            // Initialize scoreboard manager with the root
+            scoreboardManager.Initialize(_root);
         }
 
         #endregion
@@ -764,32 +423,18 @@ namespace Network.Singletons {
         }
 
         private void ShowOptions() {
-            if(SceneManager.GetActiveScene().name != "Game") return;
-            LoadSettings();
+            if(_cachedSceneName != "Game") return;
+            if(optionsMenuManager != null) {
+                optionsMenuManager.LoadSettings();
+                optionsMenuManager.OnOptionsPanelShown();
+            }
+
             _pauseMenuPanel.AddToClassList("hidden");
             _optionsPanel.RemoveFromClassList("hidden");
-
-            // Force style recalculation after panel becomes visible
-            // Use multiple schedule calls to ensure styles are applied
-            _optionsPanel.schedule.Execute(() => {
-                // First pass: ensure all buttons are enabled and visible
-                _tabVideo?.SetEnabled(true);
-                _tabAudio?.SetEnabled(true);
-                _tabGame?.SetEnabled(true);
-                _tabControls?.SetEnabled(true);
-
-                // Second pass: force repaint
-                _optionsPanel.schedule.Execute(() => {
-                    _tabVideo?.MarkDirtyRepaint();
-                    _tabAudio?.MarkDirtyRepaint();
-                    _tabGame?.MarkDirtyRepaint();
-                    _tabControls?.MarkDirtyRepaint();
-                });
-            });
         }
 
         private void HideOptions() {
-            if(SceneManager.GetActiveScene().name != "Game") return;
+            if(_cachedSceneName != "Game") return;
             _optionsPanel.AddToClassList("hidden");
             _pauseMenuPanel.RemoveFromClassList("hidden");
         }
@@ -808,945 +453,6 @@ namespace Network.Singletons {
                 UnityEngine.Cursor.visible = true;
             } catch(Exception e) {
                 Debug.LogException(e);
-            }
-        }
-
-        #endregion
-
-        #region Settings Management
-
-        private void LoadSettings() {
-            // Load audio settings
-            var masterDb = PlayerPrefs.GetFloat("MasterVolume", 0f);
-            var musicDb = PlayerPrefs.GetFloat("MusicVolume", 0f);
-            var sfxDb = PlayerPrefs.GetFloat("SFXVolume", 0f);
-            _masterVolumeSlider.value = DbToLinear(masterDb);
-            _musicVolumeSlider.value = DbToLinear(musicDb);
-            _sfxVolumeSlider.value = DbToLinear(sfxDb);
-
-            // Load control settings
-            // Load single sensitivity value, defaulting to 0.1 if not set
-            // If old separate X/Y values exist, use X as the new unified value
-            float sensitivityValue;
-            if(PlayerPrefs.HasKey("Sensitivity")) {
-                sensitivityValue = PlayerPrefs.GetFloat("Sensitivity", 0.1f);
-            } else if(PlayerPrefs.HasKey("SensitivityX")) {
-                sensitivityValue = PlayerPrefs.GetFloat("SensitivityX", 0.1f);
-                // Migrate to new unified key
-                PlayerPrefs.SetFloat("Sensitivity", sensitivityValue);
-            } else {
-                sensitivityValue = 0.1f;
-            }
-
-            _sensitivitySlider.value = sensitivityValue;
-            SetCheckboxValue(_invertYButton, PlayerPrefs.GetInt("InvertY", 0) == 1);
-
-            // Load graphics settings
-            _qualityDropdown.index = PlayerPrefs.GetInt("QualityLevel", QualitySettings.GetQualityLevel());
-            SetCheckboxValue(_vsyncButton, PlayerPrefs.GetInt("VSync", 0) == 1);
-            _fpsDropdown.index = PlayerPrefs.GetInt("TargetFPS", 1);
-
-            // Store original values to detect changes
-            _originalMasterVolume = _masterVolumeSlider.value;
-            _originalMusicVolume = _musicVolumeSlider.value;
-            _originalSfxVolume = _sfxVolumeSlider.value;
-            _originalSensitivity = _sensitivitySlider.value;
-            _originalInvertY = GetCheckboxValue(_invertYButton);
-            _originalQualityLevel = _qualityDropdown.index;
-            _originalVsync = GetCheckboxValue(_vsyncButton);
-            _originalTargetFPS = _fpsDropdown.index;
-
-            // Apply loaded settings
-            ApplySettingsInternal();
-
-            // Load keybind display strings
-            LoadKeybindDisplayStrings();
-        }
-
-        private bool HasUnsavedChanges() {
-            bool hasKeybindChanges = KeybindManager.Instance != null && KeybindManager.Instance.HasPendingBindings();
-            return !Mathf.Approximately(_masterVolumeSlider.value, _originalMasterVolume) ||
-                   !Mathf.Approximately(_musicVolumeSlider.value, _originalMusicVolume) ||
-                   !Mathf.Approximately(_sfxVolumeSlider.value, _originalSfxVolume) ||
-                   !Mathf.Approximately(_sensitivitySlider.value, _originalSensitivity) ||
-                   GetCheckboxValue(_invertYButton) != _originalInvertY ||
-                   _qualityDropdown.index != _originalQualityLevel ||
-                   GetCheckboxValue(_vsyncButton) != _originalVsync ||
-                   _fpsDropdown.index != _originalTargetFPS ||
-                   hasKeybindChanges;
-        }
-
-        private void OnBackFromOptions() {
-            // Cancel any active rebinding operations FIRST (before checking for unsaved changes)
-            // This stops listening for inputs immediately
-            if(KeybindManager.Instance != null) {
-                KeybindManager.Instance.CancelActiveRebinding();
-            }
-
-            // Reset all keybind buttons to enabled state and revert to saved PlayerPrefs values
-            LoadKeybindDisplayStrings();
-
-            // Check for unsaved changes AFTER canceling rebinding (so pending bindings are still checked)
-            bool hasUnsaved = HasUnsavedChanges();
-
-            // Clear pending bindings (revert to saved PlayerPrefs)
-            if(KeybindManager.Instance != null) {
-                KeybindManager.Instance.CancelBindings();
-            }
-
-            if(hasUnsaved) {
-                ShowUnsavedChangesDialog();
-            } else {
-                HideOptions();
-            }
-        }
-
-        private void ShowUnsavedChangesDialog() {
-            if(_unsavedChangesModal != null) {
-                _unsavedChangesModal.RemoveFromClassList("hidden");
-                _unsavedChangesModal.BringToFront(); // Ensure it appears above options menu
-            }
-        }
-
-        private void HideUnsavedChangesDialog() {
-            if(_unsavedChangesModal != null) {
-                _unsavedChangesModal.AddToClassList("hidden");
-            }
-        }
-
-        private void OnUnsavedChangesYes() {
-            OnButtonClicked();
-            ApplySettings(); // Apply and save changes
-            HideUnsavedChangesDialog();
-            HideOptions();
-        }
-
-        private void OnUnsavedChangesNo() {
-            OnButtonClicked(true); // Use back button sound
-            // Cancel keybind changes
-            if(KeybindManager.Instance != null) {
-                KeybindManager.Instance.CancelBindings();
-            }
-
-            LoadSettings(); // Reload original settings (discard changes)
-            HideUnsavedChangesDialog();
-            HideOptions();
-        }
-
-        private void OnUnsavedChangesCancel() {
-            OnButtonClicked(true);
-            HideUnsavedChangesDialog();
-            // Stay in options menu
-        }
-
-        private void ApplySettings() {
-            // Save audio settings
-            var masterDb = LinearToDb(_masterVolumeSlider.value);
-            var musicDb = LinearToDb(_musicVolumeSlider.value);
-            var sfxDb = LinearToDb(_sfxVolumeSlider.value);
-            PlayerPrefs.SetFloat("MasterVolume", masterDb);
-            PlayerPrefs.SetFloat("MusicVolume", musicDb);
-            PlayerPrefs.SetFloat("SFXVolume", sfxDb);
-
-            // Save control settings
-            PlayerPrefs.SetFloat("Sensitivity", _sensitivitySlider.value);
-            PlayerPrefs.SetInt("InvertY", GetCheckboxValue(_invertYButton) ? 1 : 0);
-
-            // Save graphics settings
-            PlayerPrefs.SetInt("QualityLevel", _qualityDropdown.index);
-            PlayerPrefs.SetInt("VSync", GetCheckboxValue(_vsyncButton) ? 1 : 0);
-            PlayerPrefs.SetInt("TargetFPS", _fpsDropdown.index);
-
-            // Save keybinds
-            if(KeybindManager.Instance != null) {
-                KeybindManager.Instance.SaveBindings();
-            }
-
-            PlayerPrefs.Save();
-
-            ApplySettingsInternal();
-
-            // Update original values after applying (no longer unsaved)
-            _originalMasterVolume = _masterVolumeSlider.value;
-            _originalMusicVolume = _musicVolumeSlider.value;
-            _originalSfxVolume = _sfxVolumeSlider.value;
-            _originalSensitivity = _sensitivitySlider.value;
-            _originalInvertY = GetCheckboxValue(_invertYButton);
-            _originalQualityLevel = _qualityDropdown.index;
-            _originalVsync = GetCheckboxValue(_vsyncButton);
-            _originalTargetFPS = _fpsDropdown.index;
-
-            // Reload keybind display strings after saving
-            LoadKeybindDisplayStrings();
-
-            Debug.Log("Settings applied and saved!");
-        }
-
-        private void ApplySettingsInternal() {
-            // Apply audio
-            audioMixer.SetFloat("masterVolume", LinearToDb(_masterVolumeSlider.value));
-            audioMixer.SetFloat("musicVolume", LinearToDb(_musicVolumeSlider.value));
-            audioMixer.SetFloat("soundFXVolume", LinearToDb(_sfxVolumeSlider.value));
-
-            var invertMultiplier = GetCheckboxValue(_invertYButton) ? -1f : 1f;
-
-            if(_localController) {
-                float sensitivity = _sensitivitySlider.value;
-                _localController.lookSensitivity = new Vector2(sensitivity, sensitivity * invertMultiplier);
-            }
-
-            // Apply graphics
-            QualitySettings.SetQualityLevel(_qualityDropdown.index);
-            QualitySettings.vSyncCount = GetCheckboxValue(_vsyncButton) ? 1 : 0;
-
-            // Apply target FPS
-            switch(_fpsDropdown.index) {
-                case 0:
-                    Application.targetFrameRate = 30;
-                    break;
-                case 1:
-                    Application.targetFrameRate = 60;
-                    break;
-                case 2:
-                    Application.targetFrameRate = 120;
-                    break;
-                case 3:
-                    Application.targetFrameRate = 144;
-                    break;
-                case 4:
-                    Application.targetFrameRate = -1;
-                    break; // Unlimited
-            }
-        }
-
-        #endregion
-
-        #region Scoreboard Management
-
-        public void SetMatchTime(int secondsRemaining) {
-            if(_matchTimerLabel == null) return;
-
-            if(secondsRemaining < 0)
-                secondsRemaining = 0;
-
-            int minutes = secondsRemaining / 60;
-            int seconds = secondsRemaining % 60;
-
-            _matchTimerLabel.text = $"{minutes:00}:{seconds:00}";
-        }
-
-        public void ShowScoreboard() {
-            if(SceneManager.GetActiveScene().name != "Game") return;
-
-            IsScoreboardVisible = true;
-            // Ensure root-container is visible (in case it was hidden)
-            var rootContainer = _root.Q<VisualElement>("root-container");
-            if(rootContainer != null) {
-                rootContainer.style.display = DisplayStyle.Flex;
-            }
-
-            // Show scoreboard panel
-            _scoreboardPanel.style.display = DisplayStyle.Flex;
-            _scoreboardPanel.RemoveFromClassList("hidden");
-            UpdateScoreboardHeaders();
-            UpdateScoreboard();
-        }
-
-        private void UpdateScoreboardHeaders() {
-            var matchSettings = MatchSettings.Instance;
-            bool isTagMode = matchSettings != null && matchSettings.selectedGameModeId == "Tag";
-
-            // Get header elements
-            var scoreboardHeader = _root.Q<VisualElement>("scoreboard-header");
-            if(scoreboardHeader == null) return;
-
-            // Find header labels by their text content (they don't have names)
-            var headerLabels = scoreboardHeader.Query<Label>().ToList();
-
-            if(isTagMode) {
-                // Tag mode headers: PING, AVATAR, NAME, TT, Tags, Tagged, TTR, AV
-                // Order: TT (first/main score), Tags (replaces K), Tagged (replaces D), TTR (replaces KDR)
-                // Reuse existing columns: K -> TT, D -> Tags, A -> Tagged, KDR -> TTR
-                // Hide HS% and DMG columns
-                foreach(var label in headerLabels) {
-                    var text = label.text;
-                    if(text == "K") {
-                        label.text = "TT"; // TT is the main score, placed first
-                    } else if(text == "D") {
-                        label.text = "Tags";
-                    } else if(text == "A") {
-                        label.text = "Tagged";
-                    } else if(text == "KDR") {
-                        label.text = "TTR";
-                    } else if(text == "HS%") {
-                        label.style.display = DisplayStyle.None;
-                    } else if(text == "DMG") {
-                        label.style.display = DisplayStyle.None;
-                    }
-                }
-            } else {
-                // Normal mode headers: PING, AVATAR, NAME, K, D, A, KDR, DMG, HS%, AV
-                // Restore all columns
-                foreach(var label in headerLabels) {
-                    var text = label.text;
-                    if(text == "TT") {
-                        label.text = "K";
-                    } else if(text == "Tags") {
-                        label.text = "D";
-                    } else if(text == "Tagged") {
-                        label.text = "A";
-                    } else if(text == "TTR") {
-                        label.text = "KDR";
-                    }
-
-                    label.style.display = DisplayStyle.Flex;
-                }
-            }
-        }
-
-        public void HideScoreboard() {
-            if(SceneManager.GetActiveScene().name != "Game") return;
-
-            IsScoreboardVisible = false;
-            // Remove inline display style so the hidden class can take effect
-            _scoreboardPanel.style.display = StyleKeyword.Null;
-            _scoreboardPanel.AddToClassList("hidden");
-        }
-
-        private void UpdateScoreboard() {
-            // Check if current game mode is team-based
-            var matchSettings = MatchSettings.Instance;
-            bool isTeamBased = matchSettings != null && IsTeamBasedMode(matchSettings.selectedGameModeId);
-
-            if(isTeamBased) {
-                UpdateTdmScoreboard();
-            } else {
-                UpdateFfaScoreboard();
-            }
-        }
-
-        private bool IsTeamBasedMode(string modeId) => modeId switch {
-            "Team Deathmatch" => true,
-            "CTF" => true,
-            "Oddball" => true,
-            "KOTH" => true,
-            _ => false
-        };
-
-        private void UpdateFfaScoreboard() {
-            // Null checks for UI elements
-            if(_scoreboardContainer == null || _tdmScoreboardContainer == null || _playerRows == null) {
-                Debug.LogWarning("[GameMenuManager] FFA scoreboard UI elements not initialized");
-                return;
-            }
-
-            // Show FFA scoreboard, hide TDM
-            _scoreboardContainer.RemoveFromClassList("hidden");
-            _tdmScoreboardContainer.AddToClassList("hidden");
-
-            _playerRows.Clear();
-
-            // Get all player controllers
-            var allControllers = FindObjectsByType<PlayerController>(FindObjectsSortMode.None);
-
-            // Check if we're in Tag mode
-            var matchSettings = MatchSettings.Instance;
-            bool isTagMode = matchSettings != null && matchSettings.selectedGameModeId == "Tag";
-
-            // Sort by appropriate stat
-            var sortedPlayers = new List<PlayerController>(allControllers);
-            if(isTagMode) {
-                // Tag mode: sort by time tagged (lowest first)
-                sortedPlayers.Sort((a, b) => a.timeTagged.Value.CompareTo(b.timeTagged.Value));
-            } else {
-                // Normal mode: sort by kills (descending)
-                sortedPlayers.Sort((a, b) => b.kills.Value.CompareTo(a.kills.Value));
-            }
-
-            foreach(var player in sortedPlayers) {
-                CreatePlayerRow(player, _playerRows, isTagMode: isTagMode);
-            }
-        }
-
-        private void UpdateTdmScoreboard() {
-            // Null checks for UI elements
-            if(_scoreboardContainer == null || _tdmScoreboardContainer == null ||
-               _enemyTeamRows == null || _yourTeamRows == null) {
-                Debug.LogWarning("[GameMenuManager] TDM scoreboard UI elements not initialized, falling back to FFA");
-                UpdateFfaScoreboard();
-                return;
-            }
-
-            // Show TDM scoreboard, hide FFA
-            _scoreboardContainer.AddToClassList("hidden");
-            _tdmScoreboardContainer.RemoveFromClassList("hidden");
-
-            _enemyTeamRows.Clear();
-            _yourTeamRows.Clear();
-
-            // Get local player's team
-            var localPlayer = NetworkManager.Singleton?.LocalClient?.PlayerObject;
-            if(localPlayer == null) {
-                // Fallback to FFA if no local player
-                UpdateFfaScoreboard();
-                return;
-            }
-
-            var localTeamMgr = localPlayer.GetComponent<PlayerTeamManager>();
-            if(localTeamMgr == null) {
-                UpdateFfaScoreboard();
-                return;
-            }
-
-            var localTeam = localTeamMgr.netTeam.Value;
-
-            // Get all players and split by team
-            var allControllers = FindObjectsByType<PlayerController>(FindObjectsSortMode.None);
-            var enemyPlayers = new List<PlayerController>();
-            var yourTeamPlayers = new List<PlayerController>();
-
-            foreach(var player in allControllers) {
-                var teamMgr = player.GetComponent<PlayerTeamManager>();
-                if(teamMgr == null) continue;
-
-                if(teamMgr.netTeam.Value == localTeam) {
-                    yourTeamPlayers.Add(player);
-                } else {
-                    enemyPlayers.Add(player);
-                }
-            }
-
-            // Sort by kills (descending)
-            enemyPlayers.Sort((a, b) => b.kills.Value.CompareTo(a.kills.Value));
-            yourTeamPlayers.Sort((a, b) => b.kills.Value.CompareTo(a.kills.Value));
-
-            // Create rows for each team (simplified stats for TDM)
-            foreach(var player in enemyPlayers) {
-                CreatePlayerRow(player, _enemyTeamRows, simplifiedStats: true, isYourTeam: false);
-            }
-
-            foreach(var player in yourTeamPlayers) {
-                CreatePlayerRow(player, _yourTeamRows, simplifiedStats: true, isYourTeam: true);
-            }
-
-            // Update team scores (total kills per team)
-            int enemyScore = CalculateTeamScore(enemyPlayers);
-            int yourScore = CalculateTeamScore(yourTeamPlayers);
-
-            if(_enemyScoreValue != null) {
-                _enemyScoreValue.text = enemyScore.ToString();
-            }
-
-            if(_yourScoreValue != null) {
-                _yourScoreValue.text = yourScore.ToString();
-            }
-        }
-
-        private int CalculateTeamScore(List<PlayerController> players) {
-            int totalKills = 0;
-            foreach(var player in players) {
-                totalKills += player.kills.Value;
-            }
-
-            return totalKills;
-        }
-
-        private void CreatePlayerRow(PlayerController player, VisualElement parentContainer, bool isTagMode = false) {
-            var row = new VisualElement();
-            row.AddToClassList("player-row");
-
-            // Highlight local player
-            if(player.IsOwner) {
-                row.AddToClassList("player-row-local");
-            }
-
-            // Add to parent container
-            parentContainer.Add(row);
-
-            // Ping
-            var ping = new Label(GetPingText(player));
-            ping.AddToClassList("player-ping");
-            ping.AddToClassList(GetPingColorClass(player));
-            row.Add(ping);
-
-            // Avatar (player icon based on color)
-            var avatar = new VisualElement();
-            avatar.AddToClassList("player-avatar");
-            var playerIcon = GetPlayerIconSprite(player.playerMaterialIndex.Value);
-            if(playerIcon != null) {
-                avatar.style.backgroundImage = new StyleBackground(playerIcon);
-            }
-            row.Add(avatar);
-
-            // Name
-            var playerName = new Label(player.playerName.Value.ToString());
-            playerName.AddToClassList("player-name");
-            row.Add(playerName);
-
-            if(isTagMode) {
-                // Tag mode stats: TT, Tags, Tagged, TTR, DMG, AV
-                // Order matches header: PING, AVATAR, NAME, TT, Tags, Tagged, TTR, DMG, AV
-                // TT (Time Tagged) - main score, shown first (replaces K)
-                var timeTagged = new Label(player.timeTagged.Value.ToString());
-                timeTagged.AddToClassList("player-stat");
-                row.Add(timeTagged);
-
-                // Tags (replaces D)
-                var tags = new Label(player.tags.Value.ToString());
-                tags.AddToClassList("player-stat");
-                row.Add(tags);
-
-                // Tagged (replaces A)
-                var tagged = new Label(player.tagged.Value.ToString());
-                tagged.AddToClassList("player-stat");
-                row.Add(tagged);
-
-                // TTR (Tag-Tagged Ratio) instead of KDR
-                var ttr = CalculateTtr(player.tags.Value, player.tagged.Value);
-                var ttrLabel = new Label(ttr.ToString("F2"));
-                ttrLabel.AddToClassList("player-stat");
-                if(ttr >= 2.0f) {
-                    ttrLabel.AddToClassList("player-stat-highlight");
-                }
-
-                row.Add(ttrLabel);
-
-                // Skip Damage and HS% for Tag mode (no damage dealt in Tag mode)
-
-                // Average Velocity (skip HS% and DMG for Tag mode)
-                var avgVelocity = player.averageVelocity.Value;
-                var avgVelocityLabel = new Label($"{avgVelocity:F1} u/s");
-                avgVelocityLabel.AddToClassList("player-stat");
-                row.Add(avgVelocityLabel);
-            } else {
-                // Normal mode stats
-                // Kills
-                var kills = new Label(player.kills.Value.ToString());
-                kills.AddToClassList("player-stat");
-                row.Add(kills);
-
-                // Deaths
-                var deaths = new Label(player.deaths.Value.ToString());
-                deaths.AddToClassList("player-stat");
-                row.Add(deaths);
-
-                // Assists
-                var assists = new Label(player.assists.Value.ToString());
-                assists.AddToClassList("player-stat");
-                row.Add(assists);
-
-                // KDA
-                var kda = CalculateKdr(player.kills.Value, player.deaths.Value, player.assists.Value);
-                var kdaLabel = new Label(kda.ToString("F2"));
-                kdaLabel.AddToClassList("player-stat");
-                if(kda >= 2.0f) {
-                    kdaLabel.AddToClassList("player-stat-highlight");
-                }
-
-                row.Add(kdaLabel);
-
-                // Damage (placeholder)
-                var damage = Mathf.RoundToInt(player.damageDealt.Value);
-                var damageLabel = new Label($"{damage:N0}");
-                damageLabel.AddToClassList("player-stat");
-                row.Add(damageLabel);
-
-                // Headshot % (placeholder)
-                var headshotPct = new Label("0%");
-                headshotPct.AddToClassList("player-stat");
-                row.Add(headshotPct);
-
-                // Average Velocity (after headshot %)
-                var avgVelocity = player.averageVelocity.Value;
-                var avgVelocityLabel = new Label($"{avgVelocity:F1} u/s");
-                avgVelocityLabel.AddToClassList("player-stat");
-                row.Add(avgVelocityLabel);
-            }
-        }
-
-        // Overload for TDM (includes K, D, A, KDR, DMG, HS%, AV)
-        private void CreatePlayerRow(PlayerController player, VisualElement parentContainer, bool simplifiedStats,
-            bool isYourTeam = false) {
-            if(!simplifiedStats) {
-                CreatePlayerRow(player, parentContainer);
-                return;
-            }
-
-            var row = new VisualElement();
-            row.AddToClassList("player-row");
-
-            // Highlight local player
-            if(player.IsOwner) {
-                row.AddToClassList("player-row-local");
-                if(isYourTeam) {
-                    row.AddToClassList("player-row-local-your-team");
-                }
-            }
-
-            parentContainer.Add(row);
-
-            // Ping
-            var ping = new Label(GetPingText(player));
-            ping.AddToClassList("player-ping");
-            ping.AddToClassList(GetPingColorClass(player));
-            row.Add(ping);
-
-            // Avatar (player icon based on color)
-            var avatar = new VisualElement();
-            avatar.AddToClassList("player-avatar");
-            var playerIcon = GetPlayerIconSprite(player.playerMaterialIndex.Value);
-            if(playerIcon != null) {
-                avatar.style.backgroundImage = new StyleBackground(playerIcon);
-            }
-            row.Add(avatar);
-
-            // Name
-            var playerName = new Label(player.playerName.Value.ToString());
-            playerName.AddToClassList("player-name");
-            row.Add(playerName);
-
-            // Kills
-            var kills = new Label(player.kills.Value.ToString());
-            kills.AddToClassList("player-stat");
-            row.Add(kills);
-
-            // Deaths
-            var deaths = new Label(player.deaths.Value.ToString());
-            deaths.AddToClassList("player-stat");
-            row.Add(deaths);
-
-            // Assists
-            var assists = new Label(player.assists.Value.ToString());
-            assists.AddToClassList("player-stat");
-            row.Add(assists);
-
-            // KDR
-            var kda = CalculateKdr(player.kills.Value, player.deaths.Value, player.assists.Value);
-            var kdaLabel = new Label(kda.ToString("F2"));
-            kdaLabel.AddToClassList("player-stat");
-            if(kda >= 2.0f) {
-                kdaLabel.AddToClassList("player-stat-highlight");
-            }
-
-            row.Add(kdaLabel);
-
-            // Damage
-            var damage = Mathf.RoundToInt(player.damageDealt.Value);
-            var damageLabel = new Label($"{damage:N0}");
-            damageLabel.AddToClassList("player-stat");
-            row.Add(damageLabel);
-
-            // Headshot % (placeholder)
-            var headshotPct = new Label("0%");
-            headshotPct.AddToClassList("player-stat");
-            row.Add(headshotPct);
-
-            // Average Velocity
-            var avgVelocity = player.averageVelocity.Value;
-            var avgVelocityLabel = new Label($"{avgVelocity:F1} u/s");
-            avgVelocityLabel.AddToClassList("player-stat");
-            row.Add(avgVelocityLabel);
-        }
-
-        private string GetPingText(PlayerController player) {
-            var ping = player.pingMs.Value;
-            return $"{ping}ms";
-        }
-
-        private string GetPingColorClass(PlayerController player) {
-            var ping = player.pingMs.Value;
-
-            return ping switch {
-                > 100 => "player-ping-critical",
-                > 50 => "player-ping-high",
-                _ => ""
-            };
-        }
-
-        private float CalculateKdr(int kills, int deaths, int assists) {
-            if(deaths == 0) return kills + assists;
-            return (kills + assists) / (float)deaths;
-        }
-
-        private float CalculateTtr(int tags, int tagged) {
-            if(tagged == 0) return tags;
-            return tags / (float)tagged;
-        }
-
-        /// <summary>
-        /// Gets the player icon sprite based on the player's material index.
-        /// Material index order: 0=white, 1=red, 2=orange, 3=yellow, 4=green, 5=blue, 6=purple
-        /// </summary>
-        private Sprite GetPlayerIconSprite(int materialIndex) {
-            if(playerIconSprites == null || playerIconSprites.Length == 0) {
-                return null;
-            }
-
-            // Clamp index to valid range
-            var clampedIndex = Mathf.Clamp(materialIndex, 0, playerIconSprites.Length - 1);
-            return playerIconSprites[clampedIndex];
-        }
-
-        #endregion
-
-        #region Kill Feed Management
-
-        /// <summary>
-        /// Call this when a kill happens. Pass killer and victim PlayerControllers.
-        /// </summary>
-        public void AddKillToFeed(string killerName, string victimName, bool isLocalKiller, ulong killerClientId,
-            ulong victimClientId) {
-            if(_killFeedContainer == null) return;
-
-            // NEW: Check if we're at capacity
-            if(_activeKillEntries.Count >= maxKillFeedEntries) {
-                // Force remove the oldest entry (last in the list)
-                var oldestEntry = _activeKillEntries[^1];
-                RemoveKillEntry(oldestEntry, immediate: true);
-            }
-
-            var killEntry = CreateKillEntry(killerName, victimName, isLocalKiller, killerClientId, victimClientId);
-
-            // Add to top of feed
-            _killFeedContainer.Add(killEntry);
-            _activeKillEntries.Add(killEntry); // Insert at beginning so oldest is at end
-
-            // Start fade-out timer
-            var fadeCoroutine = StartCoroutine(FadeOutKillEntry(killEntry));
-            _fadeCoroutines[killEntry] = fadeCoroutine;
-        }
-
-        /// <summary>
-        /// Call this when a tag is transferred in Tag mode. Pass tagger and tagged player names.
-        /// </summary>
-        public void AddTagTransferToFeed(string taggerName, string taggedName, bool isLocalTagger, ulong taggerClientId,
-            ulong taggedClientId) {
-            if(_killFeedContainer == null) return;
-
-            // Check if we're at capacity
-            if(_activeKillEntries.Count >= maxKillFeedEntries) {
-                var oldestEntry = _activeKillEntries[^1];
-                RemoveKillEntry(oldestEntry, immediate: true);
-            }
-
-            var tagEntry =
-                CreateTagTransferEntry(taggerName, taggedName, isLocalTagger, taggerClientId, taggedClientId);
-
-            // Add to top of feed
-            _killFeedContainer.Add(tagEntry);
-            _activeKillEntries.Add(tagEntry);
-
-            // Start fade-out timer
-            var fadeCoroutine = StartCoroutine(FadeOutKillEntry(tagEntry));
-            _fadeCoroutines[tagEntry] = fadeCoroutine;
-        }
-
-        private VisualElement CreateKillEntry(string killerName, string victimName, bool isLocalKiller,
-            ulong killerClientId, ulong victimClientId) {
-            var entry = new VisualElement();
-            entry.AddToClassList("kill-entry");
-
-            if(isLocalKiller) {
-                entry.AddToClassList("kill-entry-local");
-            }
-
-            // Get team colors for killer and victim
-            Color killerColor = GetTeamColorForPlayer(killerClientId);
-            Color victimColor = GetTeamColorForPlayer(victimClientId);
-
-            // Killer name
-            var killer = new Label(killerName);
-            killer.AddToClassList("killer-name");
-            if(isLocalKiller) {
-                killer.AddToClassList("killer-name-local");
-            }
-
-            // Apply team color to killer name
-            killer.style.color = new StyleColor(killerColor);
-            entry.Add(killer);
-
-            // Kill icon (skull)
-            var icon = new VisualElement();
-            icon.AddToClassList("kill-icon");
-            if(killIconSprite != null) {
-                icon.style.backgroundImage = new StyleBackground(killIconSprite);
-            }
-
-            entry.Add(icon);
-
-            // Victim name
-            var victim = new Label(victimName);
-            victim.AddToClassList("victim-name");
-            // Apply team color to victim name
-            victim.style.color = new StyleColor(victimColor);
-            entry.Add(victim);
-
-            return entry;
-        }
-
-        private VisualElement CreateTagTransferEntry(string taggerName, string taggedName, bool isLocalTagger,
-            ulong taggerClientId, ulong taggedClientId) {
-            var entry = new VisualElement();
-            entry.AddToClassList("kill-entry");
-
-            if(isLocalTagger) {
-                entry.AddToClassList("kill-entry-local");
-            }
-
-            // Get team colors for tagger and tagged (Tag mode is FFA, so use white/default)
-            Color taggerColor = Color.white;
-            Color taggedColor = Color.white;
-
-            // Tagger name
-            var tagger = new Label(taggerName);
-            tagger.AddToClassList("killer-name");
-            if(isLocalTagger) {
-                tagger.AddToClassList("killer-name-local");
-            }
-
-            tagger.style.color = new StyleColor(taggerColor);
-            entry.Add(tagger);
-
-            // Tag icon (use "you're it" icon for Tag mode)
-            var icon = new VisualElement();
-            icon.AddToClassList("kill-icon");
-            if(youreItIconSprite != null) {
-                icon.style.backgroundImage = new StyleBackground(youreItIconSprite);
-            } else if(killIconSprite != null) {
-                // Fallback to kill icon if you're it icon is not set
-                icon.style.backgroundImage = new StyleBackground(killIconSprite);
-            }
-
-            entry.Add(icon);
-
-            // Tagged name
-            var tagged = new Label(taggedName);
-            tagged.AddToClassList("victim-name");
-            tagged.style.color = new StyleColor(taggedColor);
-            entry.Add(tagged);
-
-            return entry;
-        }
-
-        /// <summary>
-        /// Gets the appropriate team color for a player based on their team and the local player's team.
-        /// Returns a readable RGB color (not HDR) for text display.
-        /// </summary>
-        private Color GetTeamColorForPlayer(ulong clientId) {
-            // Special case: HOP/fall damage (ulong.MaxValue) - use white
-            if(clientId == ulong.MaxValue) {
-                return Color.white;
-            }
-
-            // Check if this is a team-based mode
-            var matchSettings = MatchSettings.Instance;
-            bool isTeamBased = matchSettings != null && IsTeamBasedMode(matchSettings.selectedGameModeId);
-
-            if(!isTeamBased) {
-                // FFA mode: use default white color
-                return Color.white;
-            }
-
-            // Get local player's team
-            var localPlayer = NetworkManager.Singleton?.LocalClient?.PlayerObject;
-            if(localPlayer == null) return Color.white;
-
-            var localTeamMgr = localPlayer.GetComponent<PlayerTeamManager>();
-            if(localTeamMgr == null) return Color.white;
-
-            var localTeam = localTeamMgr.netTeam.Value;
-
-            // Find the player by client ID
-            if(!NetworkManager.Singleton.ConnectedClients.TryGetValue(clientId, out var client)) {
-                return Color.white;
-            }
-
-            var playerObj = client.PlayerObject;
-            if(playerObj == null) return Color.white;
-
-            var playerTeamMgr = playerObj.GetComponent<PlayerTeamManager>();
-            if(playerTeamMgr == null) return Color.white;
-
-            var playerTeam = playerTeamMgr.netTeam.Value;
-
-            // Determine if this player is teammate or enemy
-            bool isTeammate = playerTeam == localTeam;
-
-            // Try to get actual colors from a PlayerTeamManager instance
-            // If we can't find one, use default colors that match the outline colors
-            // Convert HDR colors to readable RGB for text (tone down brightness)
-            if(isTeammate) {
-                // Teammate: cyan-blue
-                // HDR outline: (0, 1.5, 2.5) -> readable text: (0, 0.7, 1.0)
-                return new Color(0f, 0.7f, 1f, 1f); // Bright cyan-blue
-            } else {
-                // Enemy: red
-                // HDR outline: (2.5, 0.5, 0.5) -> readable text: (1.0, 0.3, 0.3)
-                return new Color(1f, 0.3f, 0.3f, 1f); // Bright red
-            }
-        }
-
-        private IEnumerator FadeOutKillEntry(VisualElement entry) {
-            // Wait for display time
-            yield return new WaitForSeconds(killFeedDisplayTime);
-
-            // Remove the entry
-            RemoveKillEntry(entry, immediate: false);
-        }
-
-        /// <summary>
-        /// Removes a kill entry from the feed.
-        /// </summary>
-        /// <param name="entry">The entry to remove</param>
-        /// <param name="immediate">If true, removes instantly. If false, fades out first.</param>
-        private void RemoveKillEntry(VisualElement entry, bool immediate) {
-            if(entry == null || !_activeKillEntries.Contains(entry)) return;
-
-            // Cancel existing fade coroutine if any
-            if(_fadeCoroutines.TryGetValue(entry, out var coroutine)) {
-                if(coroutine != null) {
-                    StopCoroutine(coroutine);
-                }
-
-                _fadeCoroutines.Remove(entry);
-            }
-
-            if(immediate) {
-                // Immediate removal (when at capacity)
-                entry.AddToClassList("kill-entry-fade");
-
-                // Remove from lists immediately
-                _activeKillEntries.Remove(entry);
-
-                // Wait one frame for fade class to apply, then remove from DOM
-                StartCoroutine(RemoveAfterFrame(entry));
-            } else {
-                // Normal fade out
-                StartCoroutine(FadeAndRemove(entry));
-            }
-        }
-
-        private IEnumerator FadeAndRemove(VisualElement entry) {
-            // Fade out
-            entry.AddToClassList("kill-entry-fade");
-
-            // Wait for fade animation
-            yield return new WaitForSeconds(0.3f);
-
-            // Remove from feed
-            if(_killFeedContainer.Contains(entry)) {
-                _killFeedContainer.Remove(entry);
-                _activeKillEntries.Remove(entry);
-            }
-        }
-
-        private IEnumerator RemoveAfterFrame(VisualElement entry) {
-            // Wait briefly for fade animation to start
-            yield return new WaitForSeconds(0.15f);
-
-            // Remove from DOM
-            if(_killFeedContainer.Contains(entry)) {
-                _killFeedContainer.Remove(entry);
             }
         }
 
@@ -1777,13 +483,15 @@ namespace Network.Singletons {
                 return;
 
             // Hide individual HUD elements
-            if(_killFeedContainer != null)
-                _killFeedContainer.style.display = DisplayStyle.None;
+            if(killFeedManager != null)
+                killFeedManager.HideKillFeed();
             if(_matchTimerContainer != null)
                 _matchTimerContainer.style.display = DisplayStyle.None;
-
-            // Pause menu + scoreboard panels are untouched,
-            // so ESC / Tab (or whatever) still work.
+            // Hide score display
+            if(_leftScoreContainer != null)
+                _leftScoreContainer.style.display = DisplayStyle.None;
+            if(_rightScoreContainer != null)
+                _rightScoreContainer.style.display = DisplayStyle.None;
         }
 
         public void ShowInGameHudAfterPostMatch() {
@@ -1792,12 +500,16 @@ namespace Network.Singletons {
                 return;
 
             // Show individual HUD elements
-            if(_killFeedContainer != null)
-                _killFeedContainer.style.display = DisplayStyle.Flex;
+            if(killFeedManager != null)
+                killFeedManager.ShowKillFeed();
             if(_matchTimerContainer != null)
                 _matchTimerContainer.style.display = DisplayStyle.Flex;
+            // Show score display
+            if(_leftScoreContainer != null)
+                _leftScoreContainer.style.display = DisplayStyle.Flex;
+            if(_rightScoreContainer != null)
+                _rightScoreContainer.style.display = DisplayStyle.Flex;
 
-            // TODO: this is only being pushed to host...
             _podiumContainer.style.display = DisplayStyle.None;
         }
 
@@ -1806,8 +518,7 @@ namespace Network.Singletons {
         public void SetPodiumSlots(
             string firstName, int firstKills,
             string secondName, int secondKills,
-            string thirdName, int thirdKills
-        ) {
+            string thirdName, int thirdKills) {
             if(_podiumContainer == null)
                 return;
 
@@ -1828,16 +539,214 @@ namespace Network.Singletons {
             Label nameLabel,
             Label killsLabel,
             string playerName,
-            int kills
-        ) {
+            int kills) {
             if(slotRoot == null || nameLabel == null || killsLabel == null)
                 return;
 
-            bool hasPlayer = !string.IsNullOrEmpty(playerName);
+            var hasPlayer = !string.IsNullOrEmpty(playerName);
 
             slotRoot.style.display = hasPlayer ? DisplayStyle.Flex : DisplayStyle.None;
             nameLabel.text = hasPlayer ? playerName : "---";
             killsLabel.text = hasPlayer ? kills.ToString() : "0";
+        }
+        
+        /// <summary>
+        /// Updates the score display next to the timer based on game mode.
+        /// </summary>
+        private void UpdateScoreDisplay() {
+            if(_leftScoreContainer == null || _rightScoreContainer == null || 
+               _leftScoreValue == null || _rightScoreValue == null) {
+                return;
+            }
+            
+            var matchSettings = MatchSettingsManager.Instance;
+            if(matchSettings == null) return;
+            
+            bool isTeamBased = IsTeamBasedMode(matchSettings.selectedGameModeId);
+            
+            if(isTeamBased) {
+                UpdateTeamBasedScore();
+            } else {
+                UpdateFfaScore();
+            }
+        }
+        
+        /// <summary>
+        /// Checks if a game mode is team-based.
+        /// </summary>
+        private bool IsTeamBasedMode(string modeId) => modeId switch {
+            "Team Deathmatch" => true,
+            "Hopball" => true,
+            "CTF" => true,
+            "Oddball" => true,
+            "KOTH" => true,
+            _ => false
+        };
+        
+        /// <summary>
+        /// Updates score display for team-based modes.
+        /// </summary>
+        private void UpdateTeamBasedScore() {
+            var matchSettings = MatchSettingsManager.Instance;
+            if(matchSettings == null) return;
+            
+            int yourScore = 0;
+            int enemyScore = 0;
+            
+            // Get local player's team
+            var localPlayer = NetworkManager.Singleton?.LocalClient?.PlayerObject;
+            if(localPlayer == null) return;
+            
+            var localTeamMgr = localPlayer.GetComponent<PlayerTeamManager>();
+            if(localTeamMgr == null) return;
+            
+            var localTeam = localTeamMgr.netTeam.Value;
+            
+            // Get scores based on game mode
+            if(matchSettings.selectedGameModeId == "Hopball" && HopballSpawnManager.Instance != null) {
+                var teamAScore = HopballSpawnManager.Instance.GetTeamAScore();
+                var teamBScore = HopballSpawnManager.Instance.GetTeamBScore();
+                
+                if(localTeam == SpawnPoint.Team.TeamA) {
+                    yourScore = teamAScore;
+                    enemyScore = teamBScore;
+                } else {
+                    yourScore = teamBScore;
+                    enemyScore = teamAScore;
+                }
+            } else {
+                // For other team modes, use total kills
+                var allControllers = FindObjectsByType<PlayerController>(FindObjectsSortMode.None);
+                int yourTeamKills = 0;
+                int enemyTeamKills = 0;
+                
+                foreach(var player in allControllers) {
+                    if(player == null || !player.IsSpawned) continue;
+                    var teamMgr = player.GetComponent<PlayerTeamManager>();
+                    if(teamMgr == null) continue;
+                    
+                    if(teamMgr.netTeam.Value == localTeam) {
+                        yourTeamKills += player.kills.Value;
+                    } else {
+                        enemyTeamKills += player.kills.Value;
+                    }
+                }
+                
+                yourScore = yourTeamKills;
+                enemyScore = enemyTeamKills;
+            }
+            
+            _leftScoreValue.text = yourScore.ToString();
+            _rightScoreValue.text = enemyScore.ToString();
+        }
+        
+        /// <summary>
+        /// Updates score display for FFA modes (Deathmatch, Gun Tag, etc.).
+        /// </summary>
+        private void UpdateFfaScore() {
+            var matchSettings = MatchSettingsManager.Instance;
+            if(matchSettings == null) return;
+            
+            bool isTagMode = matchSettings.selectedGameModeId == "Gun Tag";
+            
+            // Get local player
+            if(_localController == null) {
+                FindLocalController();
+            }
+            
+            if(_localController == null) return;
+            
+            // Get local player's score
+            int localScore;
+            if(isTagMode) {
+                var tagCtrl = _localController.GetComponent<PlayerTagController>();
+                localScore = tagCtrl != null ? tagCtrl.timeTagged.Value : int.MaxValue;
+            } else {
+                localScore = _localController.kills.Value;
+            }
+            
+            // Get all players and find the next highest (or highest if local is not first)
+            var allControllers = FindObjectsByType<PlayerController>(FindObjectsSortMode.None);
+            var sortedPlayers = new List<(PlayerController player, int score)>();
+            
+            foreach(var player in allControllers) {
+                if(player == null || !player.IsSpawned) continue;
+                
+                int score;
+                if(isTagMode) {
+                    var tagCtrl = player.GetComponent<PlayerTagController>();
+                    score = tagCtrl != null ? tagCtrl.timeTagged.Value : int.MaxValue;
+                } else {
+                    score = player.kills.Value;
+                }
+                
+                sortedPlayers.Add((player, score));
+            }
+            
+            // Sort based on mode
+            if(isTagMode) {
+                // Gun Tag: sort by time tagged ascending (lowest is best)
+                sortedPlayers.Sort((a, b) => a.score.CompareTo(b.score));
+            } else {
+                // Deathmatch: sort by kills descending (highest is best)
+                sortedPlayers.Sort((a, b) => b.score.CompareTo(a.score));
+            }
+            
+            // Find next highest/lowest score
+            int nextScore = 0;
+            bool foundNext = false;
+            
+            if(isTagMode) {
+                // For Gun Tag, find next LOWEST (or lowest if local is lowest)
+                for(int i = 0; i < sortedPlayers.Count; i++) {
+                    if(sortedPlayers[i].player == _localController) {
+                        // If we're the lowest (1st place), show the next lowest (2nd place)
+                        if(i == 0) {
+                            // Show 2nd place (next lowest)
+                            if(sortedPlayers.Count > 1) {
+                                nextScore = sortedPlayers[1].score;
+                            } else {
+                                nextScore = 0; // Only one player
+                            }
+                            foundNext = true;
+                            break;
+                        }
+                        // Otherwise show the lowest (1st place)
+                        nextScore = sortedPlayers[0].score;
+                        foundNext = true;
+                        break;
+                    }
+                }
+            } else {
+                // For Deathmatch, find next HIGHEST (or highest if local is highest)
+                for(int i = 0; i < sortedPlayers.Count; i++) {
+                    if(sortedPlayers[i].player == _localController) {
+                        // If we're the highest (1st place), show the next highest (2nd place)
+                        if(i == 0) {
+                            // Show 2nd place (next highest)
+                            if(sortedPlayers.Count > 1) {
+                                nextScore = sortedPlayers[1].score;
+                            } else {
+                                nextScore = 0; // Only one player
+                            }
+                            foundNext = true;
+                            break;
+                        }
+                        // Otherwise show the highest (1st place)
+                        nextScore = sortedPlayers[0].score;
+                        foundNext = true;
+                        break;
+                    }
+                }
+            }
+            
+            if(!foundNext && sortedPlayers.Count > 0) {
+                // Fallback: use first place score
+                nextScore = sortedPlayers[0].score;
+            }
+            
+            _leftScoreValue.text = localScore.ToString();
+            _rightScoreValue.text = nextScore.ToString();
         }
     }
 }

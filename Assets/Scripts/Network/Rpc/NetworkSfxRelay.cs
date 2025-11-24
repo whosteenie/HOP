@@ -9,26 +9,30 @@ namespace Network.Rpc {
         // simple anti-spam per key
         private readonly Dictionary<SfxKey, float> _lastSent = new();
         [SerializeField] private float walkMinInterval = 0.02f;
-        [SerializeField] private float runMinInterval  = 0.01f;
+        [SerializeField] private float runMinInterval = 0.01f;
+
         [SerializeField] private float landMinInterval = 0.01f; // Reduced for bunnyhopping - allow more frequent land sounds
+
         [SerializeField] private float jumpMinInterval = 0.08f;
         [SerializeField] private float reloadMinInterval = 0.10f;
         [SerializeField] private float dryMinInterval = 0.05f;
         [SerializeField] private float shootMinInterval = 0.01f;
         [SerializeField] private float jumpPadMinInterval = 0.25f;
         [SerializeField] private float grappleMinInterval = 0.10f;
+        [SerializeField] private float bulletTrailMinInterval = 0.05f;
         [SerializeField] private PlayerController playerController;
 
         private float GetMinInterval(SfxKey key) => key switch {
-            SfxKey.Walk    => walkMinInterval,
-            SfxKey.Run     => runMinInterval,
-            SfxKey.Land    => landMinInterval,
-            SfxKey.Jump    => jumpMinInterval,
-            SfxKey.Reload  => reloadMinInterval,
-            SfxKey.Dry     => dryMinInterval,
-            SfxKey.Shoot   => shootMinInterval,
+            SfxKey.Walk => walkMinInterval,
+            SfxKey.Run => runMinInterval,
+            SfxKey.Land => landMinInterval,
+            SfxKey.Jump => jumpMinInterval,
+            SfxKey.Reload => reloadMinInterval,
+            SfxKey.Dry => dryMinInterval,
+            SfxKey.Shoot => shootMinInterval,
             SfxKey.JumpPad => jumpPadMinInterval,
             SfxKey.Grapple => grappleMinInterval,
+            SfxKey.BulletTrail => bulletTrailMinInterval,
             _ => 0.1f
         };
 
@@ -42,8 +46,9 @@ namespace Network.Rpc {
             if(_lastSent.TryGetValue(key, out var last) && t - last < GetMinInterval(key)) {
                 return;
             }
+
             _lastSent[key] = t;
-            
+
             // Additional velocity check for walk/run sounds (backup to PlayerController check)
             // Check horizontal velocity only - vertical velocity shouldn't affect footstep sounds
             if(key is SfxKey.Walk or SfxKey.Run) {
@@ -59,7 +64,7 @@ namespace Network.Rpc {
 
         [Rpc(SendTo.Server)]
         private void RequestWorldSfxServerRpc(SfxKey key, bool attachToSelf, bool allowOverlap) {
-            if (!IsSpawned) return;
+            if(!IsSpawned) return;
 
             var srcRef = new NetworkObjectReference(NetworkObject);
             var pos = transform.position;
@@ -68,7 +73,8 @@ namespace Network.Rpc {
         }
 
         [Rpc(SendTo.Everyone)]
-        private void PlayWorldSfxClientRpc(SfxKey key, NetworkObjectReference sourceRef, Vector3 pos, bool attachToSource, bool allowOverlap) {
+        private void PlayWorldSfxClientRpc(SfxKey key, NetworkObjectReference sourceRef, Vector3 pos,
+            bool attachToSource, bool allowOverlap) {
             Transform parent = null;
             if(attachToSource && sourceRef.TryGet(out var no) && no)
                 parent = no.transform;

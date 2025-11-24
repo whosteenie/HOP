@@ -12,6 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 50d8dbcb146dde54895dd61c404ddb7e, type: 3}
   m_Name: Rifle
   m_EditorClassIdentifier: Assembly-CSharp::WeaponData
+  weaponName: AK74
   weaponPrefab: {fileID: 1487774384131766, guid: ee329c3cd08e58645834d20702d7f6c6, type: 3}
   weaponSlot: 0
   spawnPosition: {x: 0.221, y: -0.141, z: 0.163}

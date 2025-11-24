@@ -16,7 +16,8 @@ namespace Network.Rpc {
         }
 
         [Rpc(SendTo.Server)]
-        private void RequestShotFxServerRpc(NetworkObjectReference shooterRef, Vector3 endPoint, Vector3 muzzlePosition) {
+        private void RequestShotFxServerRpc(NetworkObjectReference shooterRef, Vector3 endPoint,
+            Vector3 muzzlePosition) {
             PlayShotFxClientRpc(shooterRef, endPoint, muzzlePosition);
         }
 
@@ -30,9 +31,9 @@ namespace Network.Rpc {
             var weapon = weaponManager.CurrentWeapon;
             if(weapon == null) return;
 
-            // Use server-provided muzzle position for accurate FX (captured at shot time)
-            // This ensures FX are synced even when moving fast
-            var startPoint = muzzlePosition;
+            // For non-owners, use world muzzle position (not the owner's FP muzzle position)
+            // This ensures trails spawn from the visible world weapon muzzle
+            var startPoint = weapon.GetMuzzlePosition();
 
             // Play FX
             weapon.PlayNetworkedMuzzleFlash();

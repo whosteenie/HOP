@@ -12,6 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 50d8dbcb146dde54895dd61c404ddb7e, type: 3}
   m_Name: Shotgun
   m_EditorClassIdentifier: Assembly-CSharp::WeaponData
+  weaponName: Bennelli_M4
   weaponPrefab: {fileID: 1236257789494122, guid: 8b0b86b42def11849a8eba21f4a6a684, type: 3}
   weaponSlot: 3
   spawnPosition: {x: 0.384, y: -0.187, z: 0.371}
@@ -30,6 +31,8 @@ MonoBehaviour:
   fireMode: Semi
   bulletSpread: 15
   reloadTime: 3
+  sheathTime: 0
+  drawTime: 0
   bulletTrail: {fileID: 328621789431213768, guid: 4b92d630cd66e7a45a83060b816bdbbe, type: 3}
   bulletImpact: {fileID: 0}
   muzzleFlashPrefab: {fileID: 0}
