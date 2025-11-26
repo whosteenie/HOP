@@ -629,10 +629,9 @@ namespace Network.Singletons {
 
             if(deathmatchOption != null) {
                 deathmatchOption.clicked += () => {
-                    if(_isHost) {
-                        OnButtonClicked();
-                        OnGameModeSelected("Deathmatch");
-                    }
+                    if(!_isHost) return;
+                    OnButtonClicked();
+                    OnGameModeSelected("Deathmatch");
                 };
                 deathmatchOption.RegisterCallback<MouseEnterEvent>(evt => {
                     if(_isHost) {
@@ -643,10 +642,9 @@ namespace Network.Singletons {
 
             if(teamDeathmatchOption != null) {
                 teamDeathmatchOption.clicked += () => {
-                    if(_isHost) {
-                        OnButtonClicked();
-                        OnGameModeSelected("Team Deathmatch");
-                    }
+                    if(!_isHost) return;
+                    OnButtonClicked();
+                    OnGameModeSelected("Team Deathmatch");
                 };
                 teamDeathmatchOption.RegisterCallback<MouseEnterEvent>(evt => {
                     if(_isHost) {
@@ -657,10 +655,9 @@ namespace Network.Singletons {
 
             if(tagOption != null) {
                 tagOption.clicked += () => {
-                    if(_isHost) {
-                        OnButtonClicked();
-                        OnGameModeSelected("Gun Tag");
-                    }
+                    if(!_isHost) return;
+                    OnButtonClicked();
+                    OnGameModeSelected("Gun Tag");
                 };
                 tagOption.RegisterCallback<MouseEnterEvent>(evt => {
                     if(_isHost) {
@@ -671,10 +668,9 @@ namespace Network.Singletons {
 
             if(hopballOption != null) {
                 hopballOption.clicked += () => {
-                    if(_isHost) {
-                        OnButtonClicked();
-                        OnGameModeSelected("Hopball");
-                    }
+                    if(!_isHost) return;
+                    OnButtonClicked();
+                    OnGameModeSelected("Hopball");
                 };
                 hopballOption.RegisterCallback<MouseEnterEvent>(evt => {
                     if(_isHost) {
@@ -683,12 +679,12 @@ namespace Network.Singletons {
                 });
             }
 
-            if(privateMatchOption != null) {
+            if(privateMatchOption == null) return;
+            {
                 privateMatchOption.clicked += () => {
-                    if(_isHost) {
-                        OnButtonClicked();
-                        OnGameModeSelected("Private Match");
-                    }
+                    if(!_isHost) return;
+                    OnButtonClicked();
+                    OnGameModeSelected("Private Match");
                 };
                 privateMatchOption.RegisterCallback<MouseEnterEvent>(evt => {
                     if(_isHost) {
@@ -699,27 +695,24 @@ namespace Network.Singletons {
         }
 
         private void SubscribeToGamemodeEvents() {
-            if(_gamemodeDisplayLabel != null) {
-                _gamemodeDisplayLabel.RegisterCallback<ClickEvent>(OnGamemodeLabelClicked);
-                _gamemodeDisplayLabel.RegisterCallback<MouseEnterEvent>(OnGamemodeMouseEnter);
-                _gamemodeDisplayLabel.RegisterCallback<MouseLeaveEvent>(OnGamemodeMouseLeave);
-            }
+            if(_gamemodeDisplayLabel == null) return;
+            _gamemodeDisplayLabel.RegisterCallback<ClickEvent>(OnGamemodeLabelClicked);
+            _gamemodeDisplayLabel.RegisterCallback<MouseEnterEvent>(OnGamemodeMouseEnter);
+            _gamemodeDisplayLabel.RegisterCallback<MouseLeaveEvent>(OnGamemodeMouseLeave);
         }
 
         private void UnsubscribeFromGamemodeEvents() {
-            if(_gamemodeDisplayLabel != null) {
-                _gamemodeDisplayLabel.UnregisterCallback<ClickEvent>(OnGamemodeLabelClicked);
-                _gamemodeDisplayLabel.UnregisterCallback<MouseEnterEvent>(OnGamemodeMouseEnter);
-                _gamemodeDisplayLabel.UnregisterCallback<MouseLeaveEvent>(OnGamemodeMouseLeave);
-            }
+            if(_gamemodeDisplayLabel == null) return;
+            _gamemodeDisplayLabel.UnregisterCallback<ClickEvent>(OnGamemodeLabelClicked);
+            _gamemodeDisplayLabel.UnregisterCallback<MouseEnterEvent>(OnGamemodeMouseEnter);
+            _gamemodeDisplayLabel.UnregisterCallback<MouseLeaveEvent>(OnGamemodeMouseLeave);
         }
 
         private void OnGamemodeMouseEnter(MouseEnterEvent evt) {
-            if(_isHost) {
-                _gamemodeDisplayLabel?.AddToClassList("gamemode-hover");
-                // Play hover sound when entering the gamemode title (only for host)
-                MouseEnter(evt);
-            }
+            if(!_isHost) return;
+            _gamemodeDisplayLabel?.AddToClassList("gamemode-hover");
+            // Play hover sound when entering the gamemode title (only for host)
+            MouseEnter(evt);
         }
 
         private void OnGamemodeMouseLeave(MouseLeaveEvent evt) {
@@ -776,7 +769,7 @@ namespace Network.Singletons {
             }
         }
 
-        private int GetMatchDurationForMode(string modeName) {
+        private static int GetMatchDurationForMode(string modeName) {
             return modeName switch {
                 "Deathmatch" => 600, // 10 min
                 "Team Deathmatch" => 900, // 15 min
@@ -878,92 +871,72 @@ namespace Network.Singletons {
 
             if(session == null) {
                 _isHost = false;
-                Debug.Log("[MainMenuManager] UpdateHostStatus: No active session, setting _isHost = false");
             } else {
                 // Check if current player is host
                 var hostId = session.Host;
-                bool detectedAsHost = false;
+                var detectedAsHost = false;
 
                 if(!string.IsNullOrEmpty(hostId)) {
                     // Primary check: Use session.IsHost property (most reliable)
                     if(session.IsHost) {
                         detectedAsHost = true;
-                        Debug.Log($"[MainMenuManager] UpdateHostStatus: session.IsHost = true, hostId = {hostId}");
                     }
                     // Fallback: If we just created this session as host, we're the host
                     else if(_justCreatedSessionAsHost) {
                         detectedAsHost = true;
-                        Debug.Log(
-                            $"[MainMenuManager] UpdateHostStatus: Just created session as host (fallback), hostId = {hostId}");
                     }
                     // Fallback: If we're the only player, we must be the host
                     else if(session.Players.Count == 1) {
                         detectedAsHost = true;
-                        Debug.Log(
-                            $"[MainMenuManager] UpdateHostStatus: Only player in session (count={session.Players.Count}), assuming host");
-                    }
-                    // Additional fallback: Check if we created this session (tracked via session creation)
-                    else {
-                        Debug.Log(
-                            $"[MainMenuManager] UpdateHostStatus: session.IsHost = {session.IsHost}, Players.Count = {session.Players.Count}, hostId = {hostId}, _justCreatedSessionAsHost = {_justCreatedSessionAsHost}");
                     }
                 } else {
                     // Even if no hostId, if we just created the session, we're likely the host
                     if(_justCreatedSessionAsHost) {
                         detectedAsHost = true;
-                        Debug.Log("[MainMenuManager] UpdateHostStatus: Just created session as host (no hostId yet)");
-                    } else {
-                        Debug.Log("[MainMenuManager] UpdateHostStatus: No host ID in session");
                     }
                 }
 
                 _isHost = detectedAsHost;
             }
 
-            Debug.Log($"[MainMenuManager] UpdateHostStatus: Final _isHost = {_isHost} (was {wasHost})");
-
-            // Subscribe/unsubscribe to events based on host status
-            if(_isHost && !wasHost) {
-                // Just became host - subscribe to events and show arrow with animation
-                Debug.Log("[MainMenuManager] Just became host - subscribing to events and showing arrow");
-                SubscribeToGamemodeEvents();
-                ShowArrowWithAnimation();
-            } else if(!_isHost && wasHost) {
-                // No longer host - unsubscribe from events and hide arrow
-                Debug.Log("[MainMenuManager] No longer host - unsubscribing from events and hiding arrow");
-                UnsubscribeFromGamemodeEvents();
-                _gamemodeArrow?.AddToClassList("hidden");
-                _gamemodeDropdownMenu?.AddToClassList("hidden");
-                _isGamemodeDropdownOpen = false;
-                _gamemodeDisplayLabel?.RemoveFromClassList("gamemode-hover");
-                _gamemodeDisplayLabel?.RemoveFromClassList("gamemode-clicked");
-            } else if(!_isHost) {
-                // Client - try to get gamemode from session
-                UpdateGamemodeFromSession();
+            switch(_isHost) {
+                // Subscribe/unsubscribe to events based on host status
+                case true when !wasHost:
+                    // Just became host - subscribe to events and show arrow with animation
+                    SubscribeToGamemodeEvents();
+                    ShowArrowWithAnimation();
+                    break;
+                case false when wasHost:
+                    // No longer host - unsubscribe from events and hide arrow
+                    UnsubscribeFromGamemodeEvents();
+                    _gamemodeArrow?.AddToClassList("hidden");
+                    _gamemodeDropdownMenu?.AddToClassList("hidden");
+                    _isGamemodeDropdownOpen = false;
+                    _gamemodeDisplayLabel?.RemoveFromClassList("gamemode-hover");
+                    _gamemodeDisplayLabel?.RemoveFromClassList("gamemode-clicked");
+                    break;
+                case false:
+                    // Client - try to get gamemode from session
+                    UpdateGamemodeFromSession();
+                    break;
             }
 
             // Enable/disable dropdown interaction based on host status
-            if(_gamemodeDisplayLabel != null) {
-                _gamemodeDisplayLabel.SetEnabled(_isHost);
-            }
+            _gamemodeDisplayLabel?.SetEnabled(_isHost);
 
             // Start button: enabled for hosts (only if not in gameplay and not already starting), disabled for non-hosts or if already in gameplay or starting
             if(_isHost && !(SessionManager.Instance?.IsInGameplay ?? false) && !_isStartingGame) {
-                Debug.Log("[MainMenuManager] Enabling start button (host detected, not in gameplay, not starting)");
                 EnableButton(_startButton);
             } else {
-                Debug.Log(
-                    $"[MainMenuManager] Disabling start button (not host or in gameplay or starting: isHost={_isHost}, isInGameplay={SessionManager.Instance?.IsInGameplay ?? false}, isStartingGame={_isStartingGame})");
                 DisableButton(_startButton);
             }
 
             // Hide dropdown if not host
-            if(!_isHost) {
-                _gamemodeDropdownMenu?.AddToClassList("hidden");
-                _isGamemodeDropdownOpen = false;
-                _gamemodeArrow?.RemoveFromClassList("arrow-down");
-                _gamemodeArrow?.RemoveFromClassList("arrow-slide-in");
-            }
+            if(_isHost) return;
+            _gamemodeDropdownMenu?.AddToClassList("hidden");
+            _isGamemodeDropdownOpen = false;
+            _gamemodeArrow?.RemoveFromClassList("arrow-down");
+            _gamemodeArrow?.RemoveFromClassList("arrow-slide-in");
         }
 
         #endregion
@@ -978,17 +951,13 @@ namespace Network.Singletons {
                 // _waitingLabel.text = "Waiting for connection...";
 
                 // Clear player list immediately
-                if(_playerList != null) {
-                    _playerList.Clear();
-                }
+                _playerList?.Clear();
 
                 // Cache our own player name for immediate display
                 _cachedPlayerName = PlayerPrefs.GetString("PlayerName", "Player");
                 if(string.IsNullOrWhiteSpace(_cachedPlayerName)) {
                     _cachedPlayerName = "Player";
                 }
-
-                Debug.Log($"[MainMenuManager] Cached player name for host: {_cachedPlayerName}");
 
                 var joinCode = await SessionManager.Instance.StartSessionAsHost();
 
@@ -1002,7 +971,6 @@ namespace Network.Singletons {
 
                 // Mark that we just created a session as host (fallback for host detection)
                 _justCreatedSessionAsHost = true;
-                Debug.Log("[MainMenuManager] Marked as just created session as host");
 
                 _joinCodeLabel.text = $"Join Code: {joinCode}";
                 // _waitingLabel.text = "Lobby ready";
@@ -1036,8 +1004,6 @@ namespace Network.Singletons {
                         // Small delay to avoid rate limiting if multiple operations happened quickly
                         await UniTask.Delay(100);
                         await session.RefreshAsync();
-                        Debug.Log(
-                            $"[MainMenuManager] Session refreshed after hosting. IsHost = {session.IsHost}, Host = {session.Host}, Players = {session.Players.Count}");
                     } catch(Exception e) {
                         // Handle rate limiting gracefully - this is non-critical since we have fallback logic
                         if(e.Message.Contains("Too Many Requests") || e.Message.Contains("429")) {
@@ -1183,8 +1149,6 @@ namespace Network.Singletons {
             // Identify host
             var hostId = SessionManager.Instance.ActiveSession?.Host;
 
-            Debug.Log($"[MainMenuManager] Refreshing player list with {players.Count} players (hostId: {hostId})");
-
             foreach(var p in players) {
                 string display;
 
@@ -1206,7 +1170,6 @@ namespace Network.Singletons {
 
                 bool isHost = !string.IsNullOrEmpty(hostId) && p.Id == hostId;
                 AddPlayerEntry(display, isHost);
-                Debug.Log($"[MainMenuManager] Added player to list: {display} (isHost: {isHost}, id: {p.Id})");
             }
 
             // Update host status after players change
@@ -1310,13 +1273,12 @@ namespace Network.Singletons {
             // Don't play sounds during initialization to prevent startup sound
             if(_isInitializing) return;
 
-            if(SoundFXManager.Instance != null) {
-                var soundKey = !isBack ? SfxKey.ButtonClick : SfxKey.BackButton;
-                SoundFXManager.Instance.PlayUISound(soundKey);
-            }
+            if(SoundFXManager.Instance == null) return;
+            var soundKey = !isBack ? SfxKey.ButtonClick : SfxKey.BackButton;
+            SoundFXManager.Instance.PlayUISound(soundKey);
         }
 
-        public void MouseEnter(MouseEnterEvent evt) {
+        public static void MouseEnter(MouseEnterEvent evt) {
             // MouseEnterEvent only fires when entering the element, not when moving over children
             // This prevents multiple triggers when moving mouse over child elements (images, etc.)
             if(SoundFXManager.Instance != null) {
@@ -1324,14 +1286,14 @@ namespace Network.Singletons {
             }
         }
 
-        private void EnableButton(Button button) {
+        private static void EnableButton(Button button) {
             button.AddToClassList("menu-chip-enabled");
             button.SetEnabled(true);
             button.UnregisterCallback<MouseEnterEvent>(MouseEnter);
             button.RegisterCallback<MouseEnterEvent>(MouseEnter);
         }
 
-        private void DisableButton(Button button) {
+        private static void DisableButton(Button button) {
             button.RemoveFromClassList("menu-chip-enabled");
             button.SetEnabled(false);
             button.UnregisterCallback<MouseEnterEvent>(MouseEnter);

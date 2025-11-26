@@ -118,8 +118,9 @@ public class HopballIndicator : MonoBehaviour {
             return;
         }
 
-        var localTeamMgr = localPlayer.GetComponent<PlayerTeamManager>();
-        var holderTeamMgr = holderController.GetComponent<PlayerTeamManager>();
+        var localController = localPlayer.GetComponent<PlayerController>();
+        var localTeamMgr = localController?.TeamManager;
+        var holderTeamMgr = holderController?.TeamManager;
 
         if(localTeamMgr == null || holderTeamMgr == null) {
             _currentColor = enemyColor;

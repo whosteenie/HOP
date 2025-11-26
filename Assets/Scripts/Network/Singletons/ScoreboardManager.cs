@@ -27,17 +27,24 @@ namespace Network.Singletons {
         // TDM Scoreboard
         private VisualElement _tdmScoreboardContainer;
         private Label _tdmScoreboardTitle;
-        private VisualElement _enemyTeamSection;
         private VisualElement _enemyTeamRows;
-        private VisualElement _yourTeamSection;
         private VisualElement _yourTeamRows;
         private Label _enemyScoreValue;
         private Label _yourScoreValue;
 
         // Match timer
         private Label _matchTimerLabel;
-        private int _lastTickSecond = -1;
-        private float _lastTickTime = -1f; // Track when we last played a tick to prevent duplicates in same frame
+
+        // Score display (next to timer)
+        private VisualElement _leftScoreContainer;
+        private VisualElement _rightScoreContainer;
+        private Label _leftScoreValue;
+        private Label _rightScoreValue;
+        private float _lastScoreUpdateTime;
+        private const float ScoreUpdateInterval = 0.1f; // Update every 0.1 seconds
+
+        // Local player controller for score calculations
+        private PlayerController _localController;
 
         // Cached references for performance
         private MatchSettingsManager _cachedMatchSettings;
@@ -52,10 +59,10 @@ namespace Network.Singletons {
         private bool _headerLabelsCacheValid;
 
         // Scoreboard optimization: track previous state to avoid unnecessary rebuilds
-        private HashSet<ulong> _previousPlayerIds = new HashSet<ulong>();
-        private Dictionary<ulong, int> _previousSortValues = new Dictionary<ulong, int>(); // kills or timeTagged
-        private Dictionary<ulong, Label> _cachedVelocityLabels = new Dictionary<ulong, Label>(); // clientId -> velocity label
-        private Dictionary<ulong, float> _previousVelocityValues = new Dictionary<ulong, float>(); // Track previous velocity to avoid unnecessary updates
+        private HashSet<ulong> _previousPlayerIds = new();
+        private Dictionary<ulong, int> _previousSortValues = new(); // kills or timeTagged
+        private readonly Dictionary<ulong, Label> _cachedVelocityLabels = new(); // clientId -> velocity label
+        private readonly Dictionary<ulong, float> _previousVelocityValues = new(); // Track previous velocity to avoid unnecessary updates
         
         // Cache scene name to avoid string allocations
         private string _cachedSceneName;
@@ -92,15 +99,19 @@ namespace Network.Singletons {
             // TDM Scoreboard
             _tdmScoreboardContainer = _root.Q<VisualElement>("tdm-scoreboard-container");
             _tdmScoreboardTitle = _root.Q<Label>("tdm-scoreboard-title");
-            _enemyTeamSection = _root.Q<VisualElement>("enemy-team-section");
             _enemyTeamRows = _root.Q<VisualElement>("enemy-team-rows");
-            _yourTeamSection = _root.Q<VisualElement>("your-team-section");
             _yourTeamRows = _root.Q<VisualElement>("your-team-rows");
             _enemyScoreValue = _root.Q<Label>("enemy-score-value");
             _yourScoreValue = _root.Q<Label>("your-score-value");
 
             // Match timer
             _matchTimerLabel = _root.Q<Label>("match-timer-label");
+
+            // Score display
+            _leftScoreContainer = _root.Q<VisualElement>("left-score-container");
+            _rightScoreContainer = _root.Q<VisualElement>("right-score-container");
+            _leftScoreValue = _root.Q<Label>("left-score-value");
+            _rightScoreValue = _root.Q<Label>("right-score-value");
 
             // Cache MatchSettingsManager
             _cachedMatchSettings = MatchSettingsManager.Instance;
@@ -109,6 +120,26 @@ namespace Network.Singletons {
             // Subscribe to network callbacks for cleanup
             if(NetworkManager.Singleton != null) {
                 NetworkManager.Singleton.OnClientDisconnectCallback += OnClientDisconnected;
+            }
+        }
+
+        private void Update() {
+            if(_localController == null && _cachedSceneName == "Game") {
+                FindLocalController();
+            }
+
+            // Update score display periodically
+            if(_cachedSceneName != "Game" || !(Time.time - _lastScoreUpdateTime >= ScoreUpdateInterval)) return;
+            UpdateScoreDisplay();
+            _lastScoreUpdateTime = Time.time;
+        }
+
+        private void FindLocalController() {
+            var allControllers = FindObjectsByType<PlayerController>(FindObjectsSortMode.None);
+            foreach(var controller in allControllers) {
+                if(!controller.IsOwner) continue;
+                _localController = controller.GetComponent<PlayerController>();
+                break;
             }
         }
 
@@ -226,7 +257,7 @@ namespace Network.Singletons {
             }
             
             // Always check fresh - don't cache game mode as it may not be set yet during initialization
-            return _cachedMatchSettings != null && IsTeamBasedMode(_cachedMatchSettings.selectedGameModeId);
+            return _cachedMatchSettings != null && MatchSettingsManager.IsTeamBasedMode(_cachedMatchSettings.selectedGameModeId);
         }
 
         /// <summary>
@@ -330,14 +361,6 @@ namespace Network.Singletons {
             }
         }
 
-        private bool IsTeamBasedMode(string modeId) => modeId switch {
-            "Team Deathmatch" => true,
-            "Hopball" => true,
-            "CTF" => true,
-            "Oddball" => true,
-            "KOTH" => true,
-            _ => false
-        };
 
         private void UpdateFfaScoreboard() {
             // Null checks for UI elements
@@ -351,7 +374,7 @@ namespace Network.Singletons {
             _tdmScoreboardContainer.AddToClassList("hidden");
 
             // Always check fresh - don't cache game mode
-            bool isTagMode = IsTagMode();
+            var isTagMode = IsTagMode();
 
             // Get all player controllers
             var allControllers = FindObjectsByType<PlayerController>(FindObjectsSortMode.None);
@@ -373,15 +396,15 @@ namespace Network.Singletons {
             }
 
             // Check if we need to rebuild (player list changed or sort order changed)
-            bool needsRebuild = !currentPlayerIds.SetEquals(_previousPlayerIds);
+            var needsRebuild = !currentPlayerIds.SetEquals(_previousPlayerIds);
 
             if(!needsRebuild) {
                 // Check if sort values changed (indicating reordering needed)
                 foreach(var kvp in currentSortValues) {
-                    if(!_previousSortValues.TryGetValue(kvp.Key, out var oldValue) || oldValue != kvp.Value) {
-                        needsRebuild = true;
-                        break;
-                    }
+                    if(_previousSortValues.TryGetValue(kvp.Key, out var oldValue) && oldValue == kvp.Value) continue;
+                    
+                    needsRebuild = true;
+                    break;
                 }
             }
 
@@ -409,13 +432,15 @@ namespace Network.Singletons {
 
                 foreach(var player in sortedPlayers) {
                     if(player == null || !player.IsSpawned) continue;
+                    
                     var row = CreatePlayerRow(player, _playerRows, isTagMode: isTagMode);
-                    if(row != null) {
-                        // Cache velocity label for this player (last stat label in the row)
-                        var labels = row.Query<Label>().ToList();
-                        if(labels.Count > 0) {
-                            _cachedVelocityLabels[player.OwnerClientId] = labels[labels.Count - 1];
-                        }
+                    
+                    if(row == null) continue;
+                    // Cache velocity label for this player (last stat label in the row)
+                    var labels = row.Query<Label>().ToList();
+                    
+                    if(labels.Count > 0) {
+                        _cachedVelocityLabels[player.OwnerClientId] = labels[^1];
                     }
                 }
 
@@ -426,18 +451,18 @@ namespace Network.Singletons {
                 // Only update velocity labels for existing rows (only if value changed to avoid flashing)
                 foreach(var player in allControllers) {
                     if(player == null || !player.IsSpawned) continue;
-                    if(_cachedVelocityLabels.TryGetValue(player.OwnerClientId, out var velocityLabel)) {
-                        var statsCtrl = GetCachedStatsController(player);
-                        if(statsCtrl != null && velocityLabel != null) {
-                            var avgVelocity = statsCtrl.averageVelocity.Value;
-                            // Only update if value actually changed (prevents unnecessary re-renders and flashing)
-                            if(!_previousVelocityValues.TryGetValue(player.OwnerClientId, out var prevVelocity) || 
-                               Mathf.Abs(prevVelocity - avgVelocity) > 0.05f) {
-                                velocityLabel.text = $"{avgVelocity:F1} u/s";
-                                _previousVelocityValues[player.OwnerClientId] = avgVelocity;
-                            }
-                        }
-                    }
+                    
+                    if(!_cachedVelocityLabels.TryGetValue(player.OwnerClientId, out var velocityLabel)) continue;
+                    var statsCtrl = GetCachedStatsController(player);
+                    
+                    if(statsCtrl == null || velocityLabel == null) continue;
+                    var avgVelocity = statsCtrl.averageVelocity.Value;
+                    // Only update if value actually changed (prevents unnecessary re-renders and flashing)
+                    
+                    if(_previousVelocityValues.TryGetValue(player.OwnerClientId, out var prevVelocity) &&
+                       !(Mathf.Abs(prevVelocity - avgVelocity) > 0.05f)) continue;
+                    velocityLabel.text = $"{avgVelocity:F1} u/s";
+                    _previousVelocityValues[player.OwnerClientId] = avgVelocity;
                 }
             }
         }
@@ -466,7 +491,8 @@ namespace Network.Singletons {
                 return;
             }
 
-            var localTeamMgr = localPlayer.GetComponent<PlayerTeamManager>();
+            var localController = localPlayer.GetComponent<PlayerController>();
+            var localTeamMgr = localController?.TeamManager;
             if(localTeamMgr == null) {
                 UpdateFfaScoreboard();
                 return;
@@ -481,7 +507,7 @@ namespace Network.Singletons {
 
             foreach(var player in allControllers) {
                 if(player == null || !player.IsSpawned) continue;
-                var teamMgr = player.GetComponent<PlayerTeamManager>();
+                var teamMgr = player.TeamManager;
                 if(teamMgr == null) continue;
 
                 if(teamMgr.netTeam.Value == localTeam) {
@@ -578,7 +604,7 @@ namespace Network.Singletons {
             // Avatar (player icon based on color)
             var avatar = new VisualElement();
             avatar.AddToClassList("player-avatar");
-            var playerIcon = GetPlayerIconSprite(player.playerMaterialIndex.Value);
+        var playerIcon = GetPlayerIconSprite(player.PlayerMaterialIndex.Value);
             if(playerIcon != null) {
                 avatar.style.backgroundImage = new StyleBackground(playerIcon);
             }
@@ -586,7 +612,7 @@ namespace Network.Singletons {
             row.Add(avatar);
 
             // Name
-            var playerName = new Label(player.playerName.Value.ToString());
+        var playerName = new Label(player.PlayerName.Value.ToString());
             playerName.AddToClassList("player-name");
             row.Add(playerName);
 
@@ -623,7 +649,7 @@ namespace Network.Singletons {
             row.Add(kdaLabel);
 
             // Damage
-            var damage = Mathf.RoundToInt(player.damageDealt.Value);
+        var damage = Mathf.RoundToInt(player.DamageDealt.Value);
             var damageLabel = new Label($"{damage:N0}");
             damageLabel.AddToClassList("player-stat");
             row.Add(damageLabel);
@@ -738,6 +764,9 @@ namespace Network.Singletons {
         private PlayerTagController GetCachedTagController(PlayerController player) {
             if(player == null) return null;
 
+            var direct = player.TagController;
+            if(direct != null) return direct;
+
             if(!_cachedTagControllers.TryGetValue(player, out var tagCtrl)) {
                 tagCtrl = player.GetComponent<PlayerTagController>();
                 if(tagCtrl != null) {
@@ -753,6 +782,9 @@ namespace Network.Singletons {
         /// </summary>
         private PlayerStatsController GetCachedStatsController(PlayerController player) {
             if(player == null) return null;
+
+            var direct = player.StatsController;
+            if(direct != null) return direct;
 
             if(!_cachedStatsControllers.TryGetValue(player, out var statsCtrl)) {
                 statsCtrl = player.GetComponent<PlayerStatsController>();
@@ -776,6 +808,202 @@ namespace Network.Singletons {
             // Clamp index to valid range
             var clampedIndex = Mathf.Clamp(materialIndex, 0, playerIconSprites.Length - 1);
             return playerIconSprites[clampedIndex];
+        }
+
+        /// <summary>
+        /// Updates the score display next to the timer based on game mode.
+        /// </summary>
+        private void UpdateScoreDisplay() {
+            if(_leftScoreContainer == null || _rightScoreContainer == null ||
+               _leftScoreValue == null || _rightScoreValue == null) {
+                return;
+            }
+
+            var matchSettings = MatchSettingsManager.Instance;
+            if(matchSettings == null) return;
+
+            var isTeamBased = MatchSettingsManager.IsTeamBasedMode(matchSettings.selectedGameModeId);
+
+            if(isTeamBased) {
+                UpdateTeamBasedScore();
+            } else {
+                UpdateFfaScore();
+            }
+        }
+
+        /// <summary>
+        /// Updates score display for team-based modes.
+        /// </summary>
+        private void UpdateTeamBasedScore() {
+            var matchSettings = MatchSettingsManager.Instance;
+            if(matchSettings == null) return;
+
+            int yourScore;
+            int enemyScore;
+
+            // Get local player's team
+            var localPlayer = NetworkManager.Singleton?.LocalClient?.PlayerObject;
+            if(localPlayer == null) return;
+
+            var localController = localPlayer.GetComponent<PlayerController>();
+            var localTeamMgr = localController?.TeamManager;
+            if(localTeamMgr == null) return;
+
+            var localTeam = localTeamMgr.netTeam.Value;
+
+            // Get scores based on game mode
+            if(matchSettings.selectedGameModeId == "Hopball" && HopballSpawnManager.Instance != null) {
+                var teamAScore = HopballSpawnManager.Instance.GetTeamAScore();
+                var teamBScore = HopballSpawnManager.Instance.GetTeamBScore();
+
+                if(localTeam == SpawnPoint.Team.TeamA) {
+                    yourScore = teamAScore;
+                    enemyScore = teamBScore;
+                } else {
+                    yourScore = teamBScore;
+                    enemyScore = teamAScore;
+                }
+            } else {
+                // For other team modes, use total kills
+                var allControllers = FindObjectsByType<PlayerController>(FindObjectsSortMode.None);
+                var yourTeamKills = 0;
+                var enemyTeamKills = 0;
+
+                foreach(var player in allControllers) {
+                    if(player == null || !player.IsSpawned) continue;
+                    var teamMgr = player.TeamManager;
+                    if(teamMgr == null) continue;
+
+                    if(teamMgr.netTeam.Value == localTeam) {
+                        yourTeamKills += player.kills.Value;
+                    } else {
+                        enemyTeamKills += player.kills.Value;
+                    }
+                }
+
+                yourScore = yourTeamKills;
+                enemyScore = enemyTeamKills;
+            }
+
+            _leftScoreValue.text = yourScore.ToString();
+            _rightScoreValue.text = enemyScore.ToString();
+        }
+
+        /// <summary>
+        /// Updates score display for FFA modes (Deathmatch, Gun Tag, etc.).
+        /// </summary>
+        private void UpdateFfaScore() {
+            var matchSettings = MatchSettingsManager.Instance;
+            if(matchSettings == null) return;
+
+            var isTagMode = matchSettings.selectedGameModeId == "Gun Tag";
+
+            // Get local player
+            if(_localController == null) {
+                FindLocalController();
+            }
+
+            if(_localController == null) return;
+
+            // Get local player's score
+            int localScore;
+            if(isTagMode) {
+                var tagCtrl = _localController.TagController;
+                localScore = tagCtrl != null ? tagCtrl.timeTagged.Value : int.MaxValue;
+            } else {
+                localScore = _localController.kills.Value;
+            }
+
+            // Get all players and find the next highest (or highest if local is not first)
+            var allControllers = FindObjectsByType<PlayerController>(FindObjectsSortMode.None);
+            var sortedPlayers = new List<(PlayerController player, int score)>();
+
+            foreach(var player in allControllers) {
+                if(player == null || !player.IsSpawned) continue;
+
+                int score;
+                if(isTagMode) {
+                    var tagCtrl = player.TagController;
+                    score = tagCtrl != null ? tagCtrl.timeTagged.Value : int.MaxValue;
+                } else {
+                    score = player.kills.Value;
+                }
+
+                sortedPlayers.Add((player, score));
+            }
+
+            // Sort based on mode
+            if(isTagMode) {
+                // Gun Tag: sort by time tagged ascending (lowest is best)
+                sortedPlayers.Sort((a, b) => a.score.CompareTo(b.score));
+            } else {
+                // Deathmatch: sort by kills descending (highest is best)
+                sortedPlayers.Sort((a, b) => b.score.CompareTo(a.score));
+            }
+
+            // Find next highest/lowest score
+            var nextScore = 0;
+            var foundNext = false;
+
+            if(isTagMode) {
+                // For Gun Tag, find next LOWEST (or lowest if local is lowest)
+                for(var i = 0; i < sortedPlayers.Count; i++) {
+                    if(sortedPlayers[i].player != _localController) continue;
+                    // If we're the lowest (1st place), show the next lowest (2nd place)
+                    if(i == 0) {
+                        // Show 2nd place (next lowest)
+                        nextScore = sortedPlayers.Count > 1 ? sortedPlayers[1].score : 0; // Only one player
+
+                        foundNext = true;
+                        break;
+                    }
+
+                    // Otherwise show the lowest (1st place)
+                    nextScore = sortedPlayers[0].score;
+                    foundNext = true;
+                    break;
+                }
+            } else {
+                // For Deathmatch, find next HIGHEST (or highest if local is highest)
+                for(var i = 0; i < sortedPlayers.Count; i++) {
+                    if(sortedPlayers[i].player != _localController) continue;
+                    // If we're the highest (1st place), show the next highest (2nd place)
+                    if(i == 0) {
+                        // Show 2nd place (next highest)
+                        nextScore = sortedPlayers.Count > 1 ? sortedPlayers[1].score : 0; // Only one player
+
+                        foundNext = true;
+                        break;
+                    }
+
+                    // Otherwise show the highest (1st place)
+                    nextScore = sortedPlayers[0].score;
+                    foundNext = true;
+                    break;
+                }
+            }
+
+            if(!foundNext && sortedPlayers.Count > 0) {
+                // Fallback: use first place score
+                nextScore = sortedPlayers[0].score;
+            }
+
+            _leftScoreValue.text = localScore.ToString();
+            _rightScoreValue.text = nextScore.ToString();
+        }
+
+        public void HideScoreDisplay() {
+            if(_leftScoreContainer != null)
+                _leftScoreContainer.style.display = DisplayStyle.None;
+            if(_rightScoreContainer != null)
+                _rightScoreContainer.style.display = DisplayStyle.None;
+        }
+
+        public void ShowScoreDisplay() {
+            if(_leftScoreContainer != null)
+                _leftScoreContainer.style.display = DisplayStyle.Flex;
+            if(_rightScoreContainer != null)
+                _rightScoreContainer.style.display = DisplayStyle.Flex;
         }
     }
 }

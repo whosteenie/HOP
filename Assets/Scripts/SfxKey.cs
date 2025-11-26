@@ -19,5 +19,20 @@ public enum SfxKey : byte {
     Kill,
     Hurt,
     Tagged,
-    Tagging
+    Tagging,
+    // Weapon-specific shoots
+    ShootPistol,
+    ShootDeagle,
+    ShootSMG,
+    ShootRifle,
+    ShootShotgun,
+    ShootSniper,
+    // Weapon-specific reloads
+    ReloadPistol,
+    ReloadDeagle,
+    ReloadSMG,
+    ReloadRifle,
+    ReloadShotgun,
+    ReloadSniper,
+    SniperZoom
 }

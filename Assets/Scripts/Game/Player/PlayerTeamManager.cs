@@ -12,10 +12,7 @@ namespace Game.Player {
         // --------------------------------------------------------------------
         // 1. Networked team (synced once at spawn)
         // --------------------------------------------------------------------
-        public NetworkVariable<SpawnPoint.Team> netTeam = new(
-            SpawnPoint.Team.TeamA,
-            NetworkVariableReadPermission.Everyone,
-            NetworkVariableWritePermission.Server);
+        public NetworkVariable<SpawnPoint.Team> netTeam = new();
 
         // --------------------------------------------------------------------
         // 2. Outline colours (tweak in inspector)
@@ -104,12 +101,11 @@ namespace Game.Player {
             UpdateOutlineColour();
 
             // Also update when local player's team is set (if we're the local player)
-            if(IsOwner) {
-                // Wait a bit more for other players to sync
-                yield return new WaitForSeconds(0.1f);
-                // Update all other players' outlines when our team is set
-                UpdateAllPlayerOutlines();
-            }
+            if(!IsOwner) yield break;
+            // Wait a bit more for other players to sync
+            yield return new WaitForSeconds(0.1f);
+            // Update all other players' outlines when our team is set
+            UpdateAllPlayerOutlines();
         }
 
         private void UpdateAllPlayerOutlines() {
@@ -139,17 +135,6 @@ namespace Game.Player {
             }
         }
 
-        // --------------------------------------------------------------------
-        // Helper: Check if current game mode is team-based
-        // --------------------------------------------------------------------
-        private static bool IsTeamBasedMode(string modeId) => modeId switch {
-            "Team Deathmatch" => true,
-            "Hopball" => true,
-            "CTF" => true,
-            "Oddball" => true,
-            "KOTH" => true,
-            _ => false // Deathmatch, Private Match, etc. are FFA
-        };
 
         // --------------------------------------------------------------------
         // Public method to update outline - can be called by PlayerTagController
@@ -168,7 +153,7 @@ namespace Game.Player {
             // Cache game mode checks
             if(!_gameModeCacheValid) {
                 _cachedGameModeId = _cachedMatchSettings.selectedGameModeId;
-                _cachedIsTeamBased = IsTeamBasedMode(_cachedGameModeId);
+                _cachedIsTeamBased = MatchSettingsManager.IsTeamBasedMode(_cachedGameModeId);
                 _cachedIsTagMode = _cachedGameModeId == "Gun Tag";
                 _gameModeCacheValid = true;
             }
@@ -178,19 +163,19 @@ namespace Game.Player {
                 if(_tagController.isTagged.Value) {
                     // Tagged player: bright yellow-orange glow
                     // Reuse property block instead of creating new one
-                    float outlineSize = CalculateOutlineSize();
+                    var outlineSize = CalculateOutlineSize();
                     _tagPropertyBlock.SetColor(outlineColor, taggedGlow);
                     _tagPropertyBlock.SetFloat(size, outlineSize);
                     _skinned.SetPropertyBlock(_tagPropertyBlock, 0);
                     _lastOutlineSize = outlineSize; // Update cached size
-                    return;
                 } else {
                     // Not tagged: default black outline (handled by shader/material)
                     // Clear the property block to use default material color
                     _skinned.SetPropertyBlock(null, 0);
                     _lastOutlineSize = -1f; // Reset cached size
-                    return;
                 }
+
+                return;
             }
 
             // Team-based mode: update colors
@@ -204,7 +189,8 @@ namespace Game.Player {
                     // Get the LOCAL player's team (only exists on clients)
                     var localPlayer = NetworkManager.Singleton.LocalClient?.PlayerObject;
                     if(localPlayer != null) {
-                        var localTeamMgr = localPlayer.GetComponent<PlayerTeamManager>();
+                    var localController = localPlayer.GetComponent<PlayerController>();
+                    var localTeamMgr = localController?.TeamManager;
                         if(localTeamMgr != null && netTeam.Value == localTeamMgr.netTeam.Value) {
                             target = teammateOutline; // Same team → blue
                         } else {
@@ -216,7 +202,7 @@ namespace Game.Player {
                 }
 
                 // Calculate distance-based outline size for better visibility at distance
-                float outlineSize = CalculateOutlineSize();
+                var outlineSize = CalculateOutlineSize();
 
                 // Use MaterialPropertyBlock to set per-instance property without modifying shared material
                 _propertyBlock.SetColor(outlineColor, target);
@@ -243,14 +229,14 @@ namespace Game.Player {
             }
 
             // Get distance from camera to player
-            float distance = Vector3.Distance(_mainCamera.transform.position, transform.position);
+            var distance = Vector3.Distance(_mainCamera.transform.position, transform.position);
 
             // Clamp distance to scaling range
-            float normalizedDistance = Mathf.InverseLerp(distanceScaleStart, distanceScaleEnd, distance);
+            var normalizedDistance = Mathf.InverseLerp(distanceScaleStart, distanceScaleEnd, distance);
             normalizedDistance = Mathf.Clamp01(normalizedDistance);
 
             // Interpolate between min and max size
-            float outlineSize = Mathf.Lerp(minOutlineSize, maxOutlineSize, normalizedDistance);
+            var outlineSize = Mathf.Lerp(minOutlineSize, maxOutlineSize, normalizedDistance);
 
             return outlineSize;
         }
@@ -273,7 +259,7 @@ namespace Game.Player {
             // Cache game mode checks
             if(!_gameModeCacheValid) {
                 _cachedGameModeId = _cachedMatchSettings.selectedGameModeId;
-                _cachedIsTeamBased = IsTeamBasedMode(_cachedGameModeId);
+                _cachedIsTeamBased = MatchSettingsManager.IsTeamBasedMode(_cachedGameModeId);
                 _cachedIsTagMode = _cachedGameModeId == "Gun Tag";
                 _gameModeCacheValid = true;
             }
@@ -287,22 +273,21 @@ namespace Game.Player {
             }
 
             // Update outline size based on distance
-            float outlineSize = CalculateOutlineSize();
+            var outlineSize = CalculateOutlineSize();
             
             // Only update if size actually changed (avoid unnecessary SetPropertyBlock calls)
             // Use cached last size instead of GetPropertyBlock every frame
-            if(Mathf.Abs(_lastOutlineSize - outlineSize) > 0.001f) {
-                // For tag mode, update the tag property block
-                if(_cachedIsTagMode && _tagController != null && _tagController.isTagged.Value) {
-                    _tagPropertyBlock.SetFloat(size, outlineSize);
-                    _skinned.SetPropertyBlock(_tagPropertyBlock, 0);
-                } else {
-                    // For team-based mode, update the regular property block
-                    _propertyBlock.SetFloat(size, outlineSize);
-                    _skinned.SetPropertyBlock(_propertyBlock, 0);
-                }
-                _lastOutlineSize = outlineSize;
+            if(!(Mathf.Abs(_lastOutlineSize - outlineSize) > 0.001f)) return;
+            // For tag mode, update the tag property block
+            if(_cachedIsTagMode && _tagController != null && _tagController.isTagged.Value) {
+                _tagPropertyBlock.SetFloat(size, outlineSize);
+                _skinned.SetPropertyBlock(_tagPropertyBlock, 0);
+            } else {
+                // For team-based mode, update the regular property block
+                _propertyBlock.SetFloat(size, outlineSize);
+                _skinned.SetPropertyBlock(_propertyBlock, 0);
             }
+            _lastOutlineSize = outlineSize;
         }
     }
 }

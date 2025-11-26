@@ -7,6 +7,7 @@ using Game.Player;
 using Unity.Cinemachine;
 using Unity.Netcode;
 using UnityEngine;
+using UnityEngine.UIElements;
 
 namespace Network.Singletons {
     public class PostMatchManager : NetworkBehaviour {
@@ -19,6 +20,9 @@ namespace Network.Singletons {
         [SerializeField] private Transform secondPlaceAnchor;
         [SerializeField] private Transform thirdPlaceAnchor;
 
+        [Header("UI")]
+        [SerializeField] private UIDocument uiDocument;
+
         [Header("Timing")]
         [Tooltip("How long to stay on podium view before returning to menu.")] [SerializeField]
         private float podiumDuration = 10f;
@@ -26,6 +30,27 @@ namespace Network.Singletons {
         // Keep this roughly in sync with SceneTransitionManager.fadeDuration
         [SerializeField] private float fadeDuration = 0.5f;
         [SerializeField] private float fadeBuffer = 0.1f;
+
+        // Podium UI
+        private VisualElement _root;
+        private VisualElement _podiumContainer;
+        private VisualElement _podiumFirstSlot;
+        private VisualElement _podiumSecondSlot;
+        private VisualElement _podiumThirdSlot;
+
+        private Label _podiumFirstName;
+        private Label _podiumSecondName;
+        private Label _podiumThirdName;
+
+        private Label _podiumFirstKills;
+        private Label _podiumSecondKills;
+        private Label _podiumThirdKills;
+
+        // HUD elements for hiding/showing
+        private VisualElement _hudPanel;
+        private VisualElement _matchTimerContainer;
+        private VisualElement _grappleIndicator;
+        private Visibility _grapplePrevVisibility = Visibility.Visible;
 
         public bool PostMatchFlowStarted { get; private set; }
 
@@ -45,6 +70,35 @@ namespace Network.Singletons {
             if(podiumCamera != null) {
                 podiumCamera.gameObject.SetActive(false);
             }
+
+            // Initialize UI if available
+            if(uiDocument != null) {
+                _root = uiDocument.rootVisualElement;
+                InitializeUI();
+            }
+        }
+
+        private void InitializeUI() {
+            if(_root == null) return;
+
+            // Podium UI
+            _podiumContainer = _root.Q<VisualElement>("podium-nameplates-container");
+            _podiumFirstSlot = _root.Q<VisualElement>("podium-first-slot");
+            _podiumSecondSlot = _root.Q<VisualElement>("podium-second-slot");
+            _podiumThirdSlot = _root.Q<VisualElement>("podium-third-slot");
+
+            _podiumFirstName = _root.Q<Label>("podium-first-name");
+            _podiumSecondName = _root.Q<Label>("podium-second-name");
+            _podiumThirdName = _root.Q<Label>("podium-third-name");
+
+            _podiumFirstKills = _root.Q<Label>("podium-first-kills");
+            _podiumSecondKills = _root.Q<Label>("podium-second-kills");
+            _podiumThirdKills = _root.Q<Label>("podium-third-kills");
+
+            // HUD elements
+            _hudPanel = _root.Q<VisualElement>("hud-panel");
+            _matchTimerContainer = _root.Q<VisualElement>("match-timer-container");
+            _grappleIndicator = _root.Q<VisualElement>("grapple-indicator");
         }
 
         public override void OnNetworkDespawn() {
@@ -174,7 +228,7 @@ namespace Network.Singletons {
                 if(player == null) continue;
 
                 // If they died before timer ended, bring them back just for podium
-                if(player.netIsDead.Value || player.netHealth.Value <= 0f) {
+                if(player.IsDead || player.netHealth.Value <= 0f) {
                     player.ForceRespawnForPodiumServer();
                 }
             }
@@ -255,7 +309,19 @@ namespace Network.Singletons {
                 }
 
                 // Enter post-match HUD mode (hide crosshair, timer, etc.)
-                GameMenuManager.Instance?.EnterPostMatch();
+                if(GameMenuManager.Instance != null) {
+                    GameMenuManager.Instance.IsPostMatch = true;
+                }
+
+                // Find local controller and disable sniper overlay
+                var localPlayer = NetworkManager.Singleton?.LocalClient?.PlayerObject;
+                if(localPlayer != null) {
+                    var localController = localPlayer.GetComponent<PlayerController>();
+                    localController?.PlayerInput?.ForceDisableSniperOverlay(false);
+                }
+
+                HUDManager.Instance?.HideHUD();
+                HideInGameHudForPostMatch();
             } catch(Exception e) {
                 Debug.LogException(e);
             }
@@ -293,11 +359,89 @@ namespace Network.Singletons {
             string secondName, int secondScore,
             string thirdName, int thirdScore
         ) {
-            var menu = GameMenuManager.Instance;
-            if(menu == null)
+            SetPodiumSlots(firstName, firstScore, secondName, secondScore, thirdName, thirdScore);
+        }
+
+        public void SetPodiumSlots(
+            string firstName, int firstKills,
+            string secondName, int secondKills,
+            string thirdName, int thirdKills) {
+            if(_podiumContainer == null)
                 return;
 
-            menu.SetPodiumSlots(firstName, firstScore, secondName, secondScore, thirdName, thirdScore);
+            // Show the container as soon as we have data
+            _podiumContainer.style.display = DisplayStyle.Flex;
+
+            // Allow pointer events to pass through the container so pause menu is clickable
+            // Only the actual podium slots should capture pointer events
+            _podiumContainer.pickingMode = PickingMode.Ignore;
+
+            SetPodiumSlot(_podiumFirstSlot, _podiumFirstName, _podiumFirstKills, firstName, firstKills);
+            SetPodiumSlot(_podiumSecondSlot, _podiumSecondName, _podiumSecondKills, secondName, secondKills);
+            SetPodiumSlot(_podiumThirdSlot, _podiumThirdName, _podiumThirdKills, thirdName, thirdKills);
+        }
+
+        private static void SetPodiumSlot(
+            VisualElement slotRoot,
+            Label nameLabel,
+            Label killsLabel,
+            string playerName,
+            int kills) {
+            if(slotRoot == null || nameLabel == null || killsLabel == null)
+                return;
+
+            var hasPlayer = !string.IsNullOrEmpty(playerName);
+
+            slotRoot.style.display = hasPlayer ? DisplayStyle.Flex : DisplayStyle.None;
+            nameLabel.text = hasPlayer ? playerName : "---";
+            killsLabel.text = hasPlayer ? kills.ToString() : "0";
+        }
+
+        /// <summary>
+        /// Hides only the in-game HUD elements, but leaves pause/scoreboard usable.
+        /// </summary>
+        public void HideInGameHudForPostMatch() {
+            // If for any reason the whole HUD panel is null, bail gracefully.
+            if(_hudPanel == null)
+                return;
+
+            // Hide individual HUD elements
+            if(KillFeedManager.Instance != null)
+                KillFeedManager.Instance.HideKillFeed();
+            if(_matchTimerContainer != null)
+                _matchTimerContainer.style.display = DisplayStyle.None;
+            // Hide score display (handled by ScoreboardManager)
+            if(ScoreboardManager.Instance != null) {
+                ScoreboardManager.Instance.HideScoreDisplay();
+            }
+
+            if(_grappleIndicator == null) return;
+            _grapplePrevVisibility = _grappleIndicator.resolvedStyle.visibility;
+            _grappleIndicator.style.visibility = Visibility.Hidden;
+        }
+
+        public void ShowInGameHudAfterPostMatch() {
+            // If for any reason the whole HUD panel is null, bail gracefully.
+            if(_hudPanel == null)
+                return;
+
+            // Show individual HUD elements
+            if(KillFeedManager.Instance != null)
+                KillFeedManager.Instance.ShowKillFeed();
+            if(_matchTimerContainer != null)
+                _matchTimerContainer.style.display = DisplayStyle.Flex;
+            // Show score display (handled by ScoreboardManager)
+            if(ScoreboardManager.Instance != null) {
+                ScoreboardManager.Instance.ShowScoreDisplay();
+            }
+
+            if(_grappleIndicator != null) {
+                _grappleIndicator.style.visibility = _grapplePrevVisibility;
+            }
+
+            if(_podiumContainer != null) {
+                _podiumContainer.style.display = DisplayStyle.None;
+            }
         }
     }
 }

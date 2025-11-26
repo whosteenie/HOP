@@ -134,7 +134,7 @@ namespace Network {
 
                 // 1. Determine game mode
                 var matchSettings = MatchSettingsManager.Instance;
-                var isTeamBased = matchSettings != null && IsTeamBasedMode(matchSettings.selectedGameModeId);
+                var isTeamBased = matchSettings != null && MatchSettingsManager.IsTeamBasedMode(matchSettings.selectedGameModeId);
 
                 // 2. Assign team first (if team-based) so we can use it for spawn point selection
                 var assignedTeam = SpawnPoint.Team.TeamA;
@@ -189,7 +189,8 @@ namespace Network {
 
                 // 7. TEAM SETUP (only for team modes)
                 if(isTeamBased && NetworkManager.Singleton.IsServer) {
-                    var teamMgr = instance.GetComponent<PlayerTeamManager>();
+                    var controller = instance.GetComponent<PlayerController>();
+                    var teamMgr = controller?.TeamManager;
                     if(teamMgr != null) {
                         teamMgr.netTeam.Value = assignedTeam;
                         // Track pending assignment during initial spawn
@@ -206,18 +207,6 @@ namespace Network {
             }
         }
 
-        // ========================================================================
-        // Helper: Is this a team-based mode?
-        // ========================================================================
-        private static bool IsTeamBasedMode(string modeId) => modeId switch {
-            "Team Deathmatch" => true,
-            "Hopball" => true,
-            "CTF" => true,
-            "Oddball" => true,
-            "KOTH" => true,
-            // Add more team modes here
-            _ => false // Deathmatch, Private Match, etc.
-        };
 
         // ========================================================================
         // Helper: Assign team (auto-balance)
@@ -240,7 +229,8 @@ namespace Network {
             foreach(var client in clients) {
                 if(_pendingTeamAssignments.ContainsKey(client.ClientId)) continue; // Skip if already counted
 
-                var teamMgr = client.PlayerObject?.GetComponent<PlayerTeamManager>();
+                var controller = client.PlayerObject?.GetComponent<PlayerController>();
+                var teamMgr = controller?.TeamManager;
                 if(teamMgr != null) {
                     var team = teamMgr.netTeam.Value;
                     if(team == SpawnPoint.Team.TeamA) countA++;

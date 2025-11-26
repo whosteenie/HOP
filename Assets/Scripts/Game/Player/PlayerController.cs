@@ -2,6 +2,7 @@ using Game.Weapons;
 using Network;
 using Network.Rpc;
 using Network.Singletons;
+using OSI;
 using Unity.Cinemachine;
 using Unity.Collections;
 using Unity.Netcode;
@@ -14,27 +15,76 @@ namespace Game.Player {
     [RequireComponent(typeof(CharacterController))]
     [DefaultExecutionOrder(-100)] // Initialize before sub-controllers
     public partial class PlayerController : NetworkBehaviour {
-
         #region Serialized Fields
 
-        [Header("Components")]
-        [SerializeField] private CinemachineCamera fpCamera;
-        [SerializeField] private SwingGrapple swingGrapple;
+        [Header("Core Components")]
+        [SerializeField] private Transform playerTransform;
         [SerializeField] private CharacterController characterController;
         [SerializeField] private PlayerInput playerInput;
-        [SerializeField] private Animator characterAnimator;
-        [SerializeField] private WeaponManager weaponManager;
-        [SerializeField] private GrappleController grappleController;
+        [SerializeField] private UnityEngine.InputSystem.PlayerInput unityPlayerInput;
+        [SerializeField] private Animator playerAnimator;
+        [SerializeField] private ClientNetworkTransform clientNetworkTransform;
+        [SerializeField] private Target playerTarget;
+
+        [Header("Cameras")]
+        [SerializeField] private CinemachineCamera fpCamera;
+        [SerializeField] private Camera weaponCamera;
+        [SerializeField] private CinemachineCamera deathCamera;
+
+
+        [Header("Player Model")]
+        [SerializeField] private GameObject playerModelRoot;
+        [SerializeField] private SkinnedMeshRenderer playerMesh;
+        [SerializeField] private Material[] playerMaterials;
+        [SerializeField] private PlayerVisualController visualController;
+        [SerializeField] private PlayerShadow playerShadow;
+        [SerializeField] private UpperBodyPitch upperBodyPitch;
         [SerializeField] private PlayerRagdoll playerRagdoll;
-        [SerializeField] private DeathCamera deathCamera;
+        [SerializeField] private Transform deathCameraTarget;
+
+        [Header("Movement Controllers")]
+        [SerializeField] private PlayerMovementController movementController;
+        [SerializeField] private PlayerLookController lookController;
+        [SerializeField] private MantleController mantleController;
+        // [SerializeField] private SwingGrapple swingGrapple;
+        [SerializeField] private GrappleController grappleController;
+
+
+        [Header("Gameplay Controllers")]
+        [SerializeField] private PlayerStatsController statsController;
+        [SerializeField] private PlayerHealthController healthController;
+        [SerializeField] private PlayerAnimationController animationController;
+        [SerializeField] private PlayerTagController tagController;
+        [SerializeField] private PlayerPodiumController podiumController;
+        [SerializeField] private HopballController hopballController;
+        [SerializeField] private PlayerTeamManager playerTeamManager;
+        [SerializeField] private WeaponCameraController weaponCameraController;
+        [SerializeField] private DeathCameraController deathCameraController;
+
+
+        [Header("Weapon System")]
+        [SerializeField] private WeaponManager weaponManager;
+        [SerializeField] private Weapon weaponComponent;
+        [SerializeField] private MeshRenderer worldWeapon;
+        [SerializeField] private Transform worldWeaponSocket;
+        [SerializeField] private GameObject[] worldWeaponPrefabs;
+
+
+        [Header("Audio / Visual Effects")]
+        [SerializeField] private AudioListener audioListener;
+        [SerializeField] private NetworkDamageRelay damageRelay;
+        [SerializeField] private NetworkFxRelay fxRelay;
         [SerializeField] private NetworkSfxRelay sfxRelay;
         [SerializeField] private CinemachineImpulseSource impulseSource;
-        [SerializeField] private MeshRenderer worldWeapon;
+        [SerializeField] private SpeedTrail speedTrail;
+
+
+        [Header("Layers")]
         [SerializeField] private LayerMask worldLayer;
+        [SerializeField] private LayerMask playerLayer;
         [SerializeField] private LayerMask enemyLayer;
-        [SerializeField] private Transform tr;
-        [SerializeField] private GameObject[] worldWeaponPrefabs;
-        [SerializeField] private ClientNetworkTransform networkTransform;
+        [SerializeField] private LayerMask weaponLayer;
+        [SerializeField] private LayerMask hopballLayer;
 
         #endregion
 
@@ -52,31 +102,8 @@ namespace Game.Player {
         private float _lastDeathTime; // Used for OOB check in Update()
 
         // Cache MeshRenderers per weapon instance to avoid repeated GetComponentsInChildren calls
-        private readonly System.Collections.Generic.Dictionary<GameObject, MeshRenderer[]> _cachedWeaponRenderers = new();
-
-        #endregion
-
-        #region Private Properties
-
-        public Vector3 CurrentFullVelocity =>
-            movementController != null ? movementController.CurrentFullVelocity : Vector3.zero;
-
-        public bool IsGrounded => movementController != null && movementController.IsGrounded;
-
-        private float CurrentPitch {
-            get => lookController != null ? lookController.CurrentPitch : 0f;
-            set {
-                if(lookController != null) {
-                    lookController.CurrentPitch = value;
-                }
-            }
-        }
-
-        #endregion
-
-        #region Public Properties
-
-        public CinemachineCamera FpCamera => fpCamera;
+        private readonly System.Collections.Generic.Dictionary<GameObject, MeshRenderer[]> _cachedWeaponRenderers =
+            new();
 
         #endregion
 
@@ -104,71 +131,10 @@ namespace Game.Player {
 
         #endregion
 
-        #region Additional Serialized Fields
-
-        [SerializeField] private Material[] playerMaterials;
-        [SerializeField] private CinemachineCamera worldCamera;
-        [SerializeField] private GameObject worldModelRoot;
-        [SerializeField] private MantleController mantleController;
-        [SerializeField] private UpperBodyPitch upperBodyPitch;
-
-        [Header("Sub-Controllers")]
-        [SerializeField] private PlayerStatsController statsController;
-        [SerializeField] private PlayerTagController tagController;
-        [SerializeField] private PlayerPodiumController podiumController;
-        [SerializeField] private PlayerVisualController visualController;
-        [SerializeField] private PlayerAnimationController animationController;
-        [SerializeField] private PlayerShadow playerShadow;
-        [SerializeField] private PlayerMovementController movementController;
-
-        [SerializeField] private PlayerLookController lookController;
-        [SerializeField] private PlayerHealthController healthController;
-        [SerializeField] private HopballController hopballController;
-
-        [SerializeField] private PlayerTeamManager playerTeamManager;
-
-        #endregion
-
-        #region Additional Private Fields
-
-        private int _playerLayer;
-        private int _enemyLayer;
-
-        #endregion
-
         #region Unity Lifecycle
-
-        private void Awake() {
-            // Initialize transform reference
-            if(tr == null) {
-                tr = transform;
-            }
-
-            // Cache layer masks
-            _playerLayer = LayerMask.NameToLayer("Player");
-            _enemyLayer = LayerMask.NameToLayer("Enemy");
-
-            // All component references should be assigned in the inspector
-            // Only use GetComponent as a last resort fallback if not assigned
-            if(characterController == null) {
-                characterController = GetComponent<CharacterController>();
-            }
-
-            if(playerTeamManager == null) {
-                playerTeamManager = GetComponent<PlayerTeamManager>();
-            }
-
-            if(hopballController == null) {
-                hopballController = GetComponent<HopballController>();
-            }
-        }
 
         public override void OnNetworkSpawn() {
             base.OnNetworkSpawn();
-
-            // All component references should be assigned in the inspector
-            // Only use GetComponent as a last resort fallback if not assigned
-            // (This should rarely happen if prefab is set up correctly)
 
             // Network-dependent initialization
             playerMaterialIndex.OnValueChanged -= OnMatChanged;
@@ -202,8 +168,8 @@ namespace Game.Player {
             }
 
             GameMenuManager.Instance.IsPostMatch = false;
-            GameMenuManager.Instance.ShowInGameHudAfterPostMatch();
-            
+            PostMatchManager.Instance.ShowInGameHudAfterPostMatch();
+
             // Track spawn time to prevent landing sounds on initial spawn
             if(animationController != null) {
                 animationController.ResetSpawnTime();
@@ -218,25 +184,25 @@ namespace Game.Player {
                 var savedColorIndex = PlayerPrefs.GetInt("PlayerColorIndex", 0);
                 playerMaterialIndex.Value = savedColorIndex;
                 GrappleUIManager.Instance.RegisterLocalPlayer(this);
-                
+
                 // Initialize tag status for HUD in Tag mode
                 var matchSettings = MatchSettingsManager.Instance;
                 if(matchSettings != null && matchSettings.selectedGameModeId == "Gun Tag" && tagController != null) {
                     HUDManager.Instance.UpdateTagStatus(tagController.isTagged.Value);
                 }
-                
+
                 if(playerShadow != null) {
                     playerShadow.SetWorldWeaponPrefabsShadowMode(ShadowCastingMode.ShadowsOnly);
                 }
             } else {
                 // Ensure world model root and weapon are active for non-owner players
-                if(worldModelRoot != null && !worldModelRoot.activeSelf) {
-                    worldModelRoot.SetActive(true);
+                if(playerModelRoot != null && !playerModelRoot.activeSelf) {
+                    playerModelRoot.SetActive(true);
                 }
 
                 if(worldWeapon != null && !worldWeapon.gameObject.activeSelf) {
-                        worldWeapon.gameObject.SetActive(true);
-                    }
+                    worldWeapon.gameObject.SetActive(true);
+                }
 
                 // Invalidate renderer cache to force refresh
                 if(visualController != null) {
@@ -267,7 +233,7 @@ namespace Game.Player {
             netHealth.OnValueChanged -= OnHealthChanged;
             netIsCrouching.OnValueChanged -= OnCrouchStateChanged;
         }
-            
+
         private void OnMatChanged(int _, int newIdx) {
             if(visualController != null) {
                 visualController.ApplyPlayerMaterial(newIdx);
@@ -281,12 +247,12 @@ namespace Game.Player {
         private void OnCrouchStateChanged(bool oldValue, bool newValue) {
             if(movementController != null) {
                 movementController.UpdateCrouch(fpCamera);
-                }
+            }
         }
 
         private void Update() {
             if(IsServer) {
-                Vector3 authPos = networkTransform.transform.position;
+                var authPos = clientNetworkTransform.transform.position;
                 if(authPos.y <= 600f) {
                     // Only trigger OOB death if player is not already dead and cooldown has passed
                     // The health controller now resets netIsDead immediately when respawn starts,
@@ -295,7 +261,7 @@ namespace Game.Player {
                         _lastDeathTime = Time.time;
                         // OOB death handled by health controller
                         if(healthController != null) {
-                            healthController.ApplyDamageServer_Auth(1000f, tr.position, Vector3.up, ulong.MaxValue);
+                            healthController.ApplyDamageServer_Auth(1000f, playerTransform.position, Vector3.up, ulong.MaxValue);
                         }
                     }
                 }
@@ -314,15 +280,15 @@ namespace Game.Player {
 
                     if(animationController != null) {
                         animationController.UpdateFallingState(movementController.IsGrounded,
-                            movementController.VerticalVelocity, tr.position);
+                            movementController.VerticalVelocity, playerTransform.position);
                         animationController.UpdateAnimator(movementController.HorizontalVelocity,
                             movementController.MaxSpeed, movementController.CachedHorizontalSpeedSqr);
                     }
-            }
+                }
 
                 if(lookController != null) {
                     lookController.UpdateSpeedFov();
-            }
+                }
 
                 if(statsController != null) {
                     statsController.TrackVelocity();
@@ -334,14 +300,13 @@ namespace Game.Player {
 
                 if(animationController != null) {
                     animationController.SetCrouching(netIsCrouching.Value);
-            }
+                }
 
                 // Periodic visibility check for non-owner players
                 // This helps catch and fix cases where renderers become invisible due to bounds issues
-                if(Time.frameCount % 60 == 0) {
-                    if(visualController != null) {
-                        visualController.VerifyAndFixVisibility();
-                    }
+                if(Time.frameCount % 60 != 0) return;
+                if(visualController != null) {
+                    visualController.VerifyAndFixVisibility();
                 }
             }
         }
@@ -361,27 +326,27 @@ namespace Game.Player {
         private void OnControllerColliderHit(ControllerColliderHit hit) {
             if(hit.gameObject.CompareTag("JumpPad")) {
                 // Cancel any active grapple before launching
-            grappleController.CancelGrapple();
-                
+                grappleController.CancelGrapple();
+
                 // Use the jump pad's own transform.up (surface normal) instead of collision normal
                 // This preserves horizontal velocity (e.g., from grappling) while adding vertical boost
                 if(movementController != null) {
-                    Vector3 padNormal = hit.gameObject.transform.up;
+                    var padNormal = hit.gameObject.transform.up;
                     movementController.LaunchFromJumpPad(padNormal);
-            } else {
+                } else {
                     // Fallback to old behavior if movement controller not available
                     TryJump(15f);
                 }
             } else if(hit.gameObject.CompareTag("MegaPad")) {
                 // Cancel any active grapple before launching
                 grappleController.CancelGrapple();
-                
+
                 // Mega jump pad: provides greater boost
                 // Use the jump pad's own transform.up (surface normal) instead of collision normal
                 if(movementController != null) {
-                    Vector3 padNormal = hit.gameObject.transform.up;
+                    var padNormal = hit.gameObject.transform.up;
                     movementController.LaunchFromJumpPad(padNormal, force: 30f);
-            } else {
+                } else {
                     // Fallback to old behavior if movement controller not available
                     TryJump(30f);
                 }
@@ -395,12 +360,14 @@ namespace Game.Player {
 
         #region Damage & Death Methods
 
-        public bool ApplyDamageServer_Auth(float amount, Vector3 hitPoint, Vector3 hitDirection, ulong attackerId, string bodyPartTag = null, bool isHeadshot = false) {
+        public bool ApplyDamageServer_Auth(float amount, Vector3 hitPoint, Vector3 hitDirection, ulong attackerId,
+            string bodyPartTag = null, bool isHeadshot = false) {
             if(healthController != null) {
-                return healthController.ApplyDamageServer_Auth(amount, hitPoint, hitDirection, attackerId, bodyPartTag, isHeadshot);
-                }
+                return healthController.ApplyDamageServer_Auth(amount, hitPoint, hitDirection, attackerId, bodyPartTag,
+                    isHeadshot);
+            }
 
-                return false;
+            return false;
         }
 
         #endregion
@@ -433,6 +400,7 @@ namespace Game.Player {
                         if(!parent.gameObject.activeSelf) {
                             parent.gameObject.SetActive(true);
                         }
+
                         parent = parent.parent;
                     }
 

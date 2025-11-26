@@ -13,13 +13,12 @@ MonoBehaviour:
   m_Name: Rifle
   m_EditorClassIdentifier: Assembly-CSharp::WeaponData
   weaponName: AK74
-  weaponPrefab: {fileID: 1487774384131766, guid: ee329c3cd08e58645834d20702d7f6c6, type: 3}
+  weaponPrefab: {fileID: 1487774384131766, guid: 584f80cd7126ed349b39841e4504aa66, type: 3}
   weaponSlot: 0
   spawnPosition: {x: 0.221, y: -0.141, z: 0.163}
   spawnRotation: {x: 0, y: -180, z: 0}
-  fpMuzzleLocalPosition: {x: 0, y: 0, z: -0.442}
+  muzzleLocalOffset: {x: 0, y: 0, z: -0.442}
   worldWeaponName: AK74
-  worldMuzzleLocalPosition: {x: 0.0003, y: -0.0007, z: -0.4387}
   fpMuzzleLightChildName: MuzzleLight
   worldMuzzleLightChildName: MuzzleLight
   magSize: 30
@@ -27,12 +26,23 @@ MonoBehaviour:
   baseDamage: 35
   maxDamageMultiplier: 3
   damageCap: 100
+  useDamageFalloff: 1
+  maxDamageRange: 35
+  minDamageRange: 120
+  minDamage: 17
+  usePelletSpread: 0
+  pelletCount: 8
+  pelletDamageMultiplier: 0.15
   fireRate: 0.15
   fireMode: Full
-  bulletSpread: 2
+  bulletSpread: 0
   reloadTime: 1
+  useMagReload: 1
+  perRoundReloadTime: 0.5
   sheathTime: 0.22
   drawTime: 0.22
   bulletTrail: {fileID: 328621789431213768, guid: 4b92d630cd66e7a45a83060b816bdbbe, type: 3}
   bulletImpact: {fileID: 19800002, guid: 00fedc70b62a31e448e8ccc298257b56, type: 3}
   muzzleFlashPrefab: {fileID: 6299671218319471870, guid: d13b2bf13a0548a4aa9c2cd249a35a04, type: 3}
+  shootSfx: 23
+  reloadSfx: 29

@@ -2,7 +2,6 @@ using System.Collections;
 using Cysharp.Threading.Tasks;
 using Game.Weapons;
 using Network;
-using Network.Rpc;
 using Network.Singletons;
 using Unity.Cinemachine;
 using Unity.Netcode;
@@ -15,27 +14,28 @@ namespace Game.Player {
     /// </summary>
     [DefaultExecutionOrder(-90)] // Initialize after PlayerController
     public class PlayerHealthController : NetworkBehaviour {
-        [Header("References")] [SerializeField]
-        private PlayerController playerController;
+        [Header("References")]
+        [SerializeField] private PlayerController playerController;
 
-        [SerializeField] private PlayerTagController tagController;
-        [SerializeField] private PlayerVisualController visualController;
-        [SerializeField] private PlayerAnimationController animationController;
-        [SerializeField] private PlayerShadow playerShadow;
-        [SerializeField] private PlayerRagdoll playerRagdoll;
-        [SerializeField] private DeathCamera deathCamera;
-        [SerializeField] private WeaponManager weaponManager;
-        [SerializeField] private CharacterController characterController;
-        [SerializeField] private ClientNetworkTransform clientNetworkTransform;
-        [SerializeField] private Transform tr;
-        [SerializeField] private PlayerLookController lookController;
-        [SerializeField] private PlayerMovementController movementController;
-        [SerializeField] private PlayerTeamManager teamManager;
-        [SerializeField] private GameObject worldModelRoot;
-        [SerializeField] private Transform worldWeaponSocket; // Socket containing all world weapon GameObjects
-        [SerializeField] private Animator characterAnimator;
-        [SerializeField] private CinemachineCamera fpCamera;
-        [SerializeField] private CinemachineImpulseSource impulseSource;
+        private PlayerTagController _tagController;
+        private PlayerVisualController _visualController;
+        private PlayerAnimationController _animationController;
+        private PlayerShadow _playerShadow;
+        private PlayerRagdoll _playerRagdoll;
+        private DeathCameraController _deathCameraController;
+        private WeaponManager _weaponManager;
+        private CharacterController _characterController;
+        private ClientNetworkTransform _clientNetworkTransform;
+        private Transform _playerTransform;
+        private PlayerLookController _lookController;
+        private PlayerMovementController _movementController;
+        private PlayerTeamManager _teamManager;
+        private GameObject _playerModelRoot;
+        private Transform _worldWeaponSocket;
+        private Animator _playerAnimator;
+        private WeaponCameraController _weaponCameraController;
+        private CinemachineCamera _fpCamera;
+        private CinemachineImpulseSource _impulseSource;
         [SerializeField] private AudioClip hurtSound;
 
         // Health constants
@@ -50,77 +50,55 @@ namespace Game.Player {
         private string _lastBodyPartTag;
         private bool _isRegenerating;
         private Coroutine _respawnFadeCoroutine;
-        
+
         // Spawn reservation
         private SpawnPoint _reservedSpawnPoint;
 
         // Network variables (from PlayerController)
         public NetworkVariable<float> netHealth;
         public NetworkVariable<bool> netIsDead;
-        public NetworkVariable<int> kills;
         public NetworkVariable<int> deaths;
-        public NetworkVariable<int> assists;
-        public NetworkVariable<float> damageDealt;
 
         private void Awake() {
-            // Initialize transform reference
-            if(tr == null) {
-                tr = transform;
-            }
-
-            // Component references should be assigned in the inspector
-            // Only use GetComponent as a last resort fallback if not assigned
-            if(playerController == null) {
-                playerController = GetComponent<PlayerController>();
-            }
-
-            if(tagController == null) {
-                tagController = GetComponent<PlayerTagController>();
-            }
-
-            if(visualController == null) {
-                visualController = GetComponent<PlayerVisualController>();
-            }
-
-            if(animationController == null) {
-                animationController = GetComponent<PlayerAnimationController>();
-            }
-
-            if(playerShadow == null) {
-                playerShadow = GetComponent<PlayerShadow>();
-            }
-
-            if(playerRagdoll == null) {
-                playerRagdoll = GetComponent<PlayerRagdoll>();
-            }
-
-            if(deathCamera == null) {
-                deathCamera = GetComponent<DeathCamera>();
-            }
-
-            if(weaponManager == null) {
-                weaponManager = GetComponent<WeaponManager>();
-            }
-
-            if(characterController == null) {
-                characterController = GetComponent<CharacterController>();
-            }
-
-            if(clientNetworkTransform == null) {
-                clientNetworkTransform = GetComponent<ClientNetworkTransform>();
-            }
+            playerController ??= GetComponent<PlayerController>();
             
-            if(lookController == null) {
-                lookController = GetComponent<PlayerLookController>();
-            }
-            
-            if(movementController == null) {
-                movementController = GetComponent<PlayerMovementController>();
-            }
-            
-            if(teamManager == null) {
-                teamManager = GetComponent<PlayerTeamManager>();
-            }
+            _playerTransform ??= playerController.PlayerTransform;
+
+            _tagController ??= playerController.TagController;
+
+            _visualController ??= playerController.VisualController;
+
+            _animationController ??= playerController.AnimationController;
+
+            _playerShadow ??= playerController.PlayerShadow;
+
+            _playerRagdoll ??= playerController.PlayerRagdoll;
+
+            _deathCameraController ??= playerController.DeathCameraController;
+
+            _weaponManager ??= playerController.WeaponManager;
+
+            _characterController ??= playerController.CharacterController;
+
+            _clientNetworkTransform ??= playerController.ClientNetworkTransform;
+
+            _lookController ??= playerController.LookController;
+
+            _movementController ??= playerController.MovementController;
+
+            _teamManager ??= playerController.TeamManager;
+
+            _playerModelRoot ??= playerController.PlayerModelRoot;
+
+            _worldWeaponSocket ??= playerController.WorldWeaponSocket;
+
+            _playerAnimator ??= playerController.PlayerAnimator;
+
+            _fpCamera ??= playerController.FpCamera;
+
+            _impulseSource ??= playerController.ImpulseSource;
+
+            _weaponCameraController ??= playerController.WeaponCameraController;
         }
 
         public override void OnNetworkSpawn() {
@@ -133,14 +111,10 @@ namespace Game.Player {
             }
 
             // Get network variables from PlayerController (network-dependent)
-            if(playerController != null) {
-                netHealth = playerController.netHealth;
-                netIsDead = playerController.netIsDead;
-                kills = playerController.kills;
-                deaths = playerController.deaths;
-                assists = playerController.assists;
-                damageDealt = playerController.damageDealt;
-            }
+            if(playerController == null) return;
+            netHealth = playerController.NetHealth;
+            netIsDead = playerController.NetIsDead;
+            deaths = playerController.Deaths;
         }
 
         public void UpdateHealthRegeneration() {
@@ -164,12 +138,13 @@ namespace Game.Player {
             }
         }
 
-        public bool ApplyDamageServer_Auth(float amount, Vector3 hitPoint, Vector3 hitDirection, ulong attackerId, string bodyPartTag = null, bool isHeadshot = false) {
+        public bool ApplyDamageServer_Auth(float amount, Vector3 hitPoint, Vector3 hitDirection, ulong attackerId,
+            string bodyPartTag = null, bool isHeadshot = false) {
             if(!IsServer || netIsDead == null || netIsDead.Value) return false;
 
             // Check if we're in Tag mode
             var matchSettings = MatchSettingsManager.Instance;
-            bool isTagMode = matchSettings != null && matchSettings.selectedGameModeId == "Gun Tag";
+            var isTagMode = matchSettings != null && matchSettings.selectedGameModeId == "Gun Tag";
 
             _lastHitPoint = hitPoint;
             _lastHitDirection = hitDirection;
@@ -185,33 +160,32 @@ namespace Game.Player {
             if(isTagMode) {
                 // Tag mode: check if non-tagged player is shooting tagged player
                 // If so, reduce the attacker's accumulated timeTagged by 1 (capped at 0)
-                bool nonTaggedShootingTagged = false;
+                var nonTaggedShootingTagged = false;
                 if(NetworkManager.Singleton.ConnectedClients.TryGetValue(attackerId, out var attackerClient)) {
                     var attacker = attackerClient.PlayerObject?.GetComponent<PlayerController>();
                     var attackerTagController = attacker?.GetComponent<PlayerTagController>();
-                    
+
                     // If attacker is NOT tagged and victim IS tagged, reduce attacker's timeTagged
-                    if(attackerTagController != null && !attackerTagController.isTagged.Value && 
-                       tagController != null && tagController.isTagged.Value) {
+                    if(attackerTagController != null && !attackerTagController.isTagged.Value &&
+                       _tagController != null && _tagController.isTagged.Value) {
                         nonTaggedShootingTagged = true;
                         // Reduce by 1, but cap at 0
                         if(attackerTagController.timeTagged.Value > 0) {
                             attackerTagController.timeTagged.Value--;
                         }
-                        
+
                         // Play hit effects even though no tag transfer occurs
                         if(playerController != null) {
                             playerController.PlayHitEffectsClientRpc(hitPoint, amount);
                         }
                     }
                 }
-                
-                // Tag mode: delegate to PlayerTagController (only if attacker is tagged)
-                if(tagController != null && !nonTaggedShootingTagged) {
-                    tagController.HandleTagTransfer(attackerId, hitPoint, amount);
-                }
 
-                return false; // No kill in tag mode (except OOB)
+                // Tag mode: delegate to PlayerTagController (only if attacker is tagged)
+                if(_tagController != null && !nonTaggedShootingTagged) {
+                    _tagController.HandleTagTransfer(attackerId, hitPoint, amount);
+                }
+                // No kill in tag mode (except OOB)
             } else {
                 // Normal damage mode
                 var pre = netHealth.Value;
@@ -231,53 +205,53 @@ namespace Game.Player {
                     }
                 }
 
-                if(newHp <= 0f && !netIsDead.Value && !(PostMatchManager.Instance?.PostMatchFlowStarted ?? false)) {
-                    netIsDead.Value = true;
-                    
-                    // Drop hopball if holding one when player dies (server-side)
-                    // Check hopball's equipped state and holder ID directly
-                    if(HopballSpawnManager.Instance != null && HopballSpawnManager.Instance.CurrentHopball != null) {
-                        var hopball = HopballSpawnManager.Instance.CurrentHopball;
-                        // Check if this player is the current holder by comparing OwnerClientId
-                        if(hopball.IsEquipped && hopball.HolderController != null && hopball.HolderController.OwnerClientId == OwnerClientId) {
-                            Debug.Log($"[PlayerHealthController] Player {OwnerClientId} died while holding hopball, dropping immediately");
-                            var hopballController = playerController.GetComponent<HopballController>();
-                            if(hopballController != null) {
-                                hopballController.DropHopballOnDeath();
-                            }
+                if(!(newHp <= 0f) || netIsDead.Value || (PostMatchManager.Instance?.PostMatchFlowStarted ?? false))
+                    return false; // No kill in tag mode (except OOB)
+                netIsDead.Value = true;
+
+                // Drop hopball if holding one when player dies (server-side)
+                // Check hopball's equipped state and holder ID directly
+                if(HopballSpawnManager.Instance != null && HopballSpawnManager.Instance.CurrentHopball != null) {
+                    var hopball = HopballSpawnManager.Instance.CurrentHopball;
+                    // Check if this player is the current holder by comparing OwnerClientId
+                    if(hopball.IsEquipped && hopball.HolderController != null &&
+                       hopball.HolderController.OwnerClientId == OwnerClientId) {
+                        var hopballController = playerController?.HopballController;
+                        if(hopballController != null) {
+                            hopballController.DropHopballOnDeath();
                         }
                     }
-
-                    // Handle OOB kills (attackerId == ulong.MaxValue) or normal kills
-                    if(attackerId == ulong.MaxValue) {
-                        // OOB kill - use "HOP" as the killer name
-                        var victimName = playerController.playerName != null
-                            ? playerController.playerName.Value.ToString()
-                            : "Player";
-                        BroadcastKillClientRpc("HOP", victimName, attackerId, OwnerClientId);
-                    } else if(NetworkManager.Singleton.ConnectedClients.TryGetValue(attackerId, out var killerClient)) {
-                        var killer = killerClient.PlayerObject?.GetComponent<PlayerController>();
-                        if(killer != null) {
-                            killer.kills.Value++;
-                            var killerName = killer.playerName != null ? killer.playerName.Value.ToString() : "Player";
-                            var victimName = playerController.playerName != null
-                                ? playerController.playerName.Value.ToString()
-                                : "Player";
-                            BroadcastKillClientRpc(killerName, victimName, attackerId, OwnerClientId);
-                        }
-                    }
-
-                    deaths.Value++;
-                    
-                    // Reserve spawn point immediately when player dies (server-side)
-                    ReserveSpawnPointForDeath();
-                    
-                    DieClientRpc(_lastHitPoint ?? tr.position, _lastHitDirection ?? Vector3.up, _lastBodyPartTag);
-                    return true;
                 }
 
-                return false;
+                // Handle OOB kills (attackerId == ulong.MaxValue) or normal kills
+                if(attackerId == ulong.MaxValue) {
+                    // OOB kill - use "HOP" as the killer name
+                    var victimName = playerController != null && playerController.PlayerName != null
+                        ? playerController.PlayerName.Value.ToString()
+                        : "Player";
+                    BroadcastKillClientRpc("HOP", victimName, attackerId, OwnerClientId);
+                } else if(NetworkManager.Singleton.ConnectedClients.TryGetValue(attackerId, out var killerClient)) {
+                    var killer = killerClient.PlayerObject?.GetComponent<PlayerController>();
+                    if(killer != null) {
+                        killer.kills.Value++;
+                        var killerName = killer.playerName != null ? killer.playerName.Value.ToString() : "Player";
+                        var victimName = playerController != null && playerController.PlayerName != null
+                            ? playerController.PlayerName.Value.ToString()
+                            : "Player";
+                        BroadcastKillClientRpc(killerName, victimName, attackerId, OwnerClientId);
+                    }
+                }
+
+                deaths.Value++;
+
+                // Reserve spawn point immediately when player dies (server-side)
+                ReserveSpawnPointForDeath();
+
+                DieClientRpc(_lastHitPoint ?? _playerTransform.position, _lastHitDirection ?? Vector3.up, _lastBodyPartTag);
+                return true;
             }
+
+            return false; // No kill in tag mode (except OOB)
         }
 
         [Rpc(SendTo.Everyone)]
@@ -293,15 +267,17 @@ namespace Game.Player {
 
             if(netIsDead != null) {
                 netIsDead.Value = true;
-                
+
                 // Drop hopball if holding one when player dies (OOB death)
                 // Check hopball's equipped state and holder ID directly
                 if(HopballSpawnManager.Instance != null && HopballSpawnManager.Instance.CurrentHopball != null) {
                     var hopball = HopballSpawnManager.Instance.CurrentHopball;
                     // Check if this player is the current holder by comparing OwnerClientId
-                    if(hopball.IsEquipped && hopball.HolderController != null && hopball.HolderController.OwnerClientId == OwnerClientId) {
-                        Debug.Log($"[PlayerHealthController] Player {OwnerClientId} died (OOB) while holding hopball, dropping immediately");
-                        var hopballController = playerController.GetComponent<HopballController>();
+                    if(hopball.IsEquipped && hopball.HolderController != null &&
+                       hopball.HolderController.OwnerClientId == OwnerClientId) {
+                        Debug.Log(
+                            $"[PlayerHealthController] Player {OwnerClientId} died (OOB) while holding hopball, dropping immediately");
+                        var hopballController = playerController?.HopballController;
                         if(hopballController != null) {
                             hopballController.DropHopballOnDeath();
                         }
@@ -316,30 +292,31 @@ namespace Game.Player {
             // Reserve spawn point immediately when player dies (server-side)
             ReserveSpawnPointForDeath();
 
-            DieClientRpc(_lastHitPoint ?? tr.position, _lastHitDirection ?? Vector3.up, _lastBodyPartTag);
+            DieClientRpc(_lastHitPoint ?? _playerTransform.position, _lastHitDirection ?? Vector3.up, _lastBodyPartTag);
         }
 
         [Rpc(SendTo.Everyone)]
         private void DieClientRpc(Vector3 hitPoint, Vector3 hitDirection, string bodyPartTag = null) {
-            if(playerRagdoll != null) {
+            if(_playerRagdoll != null) {
                 if(_lastHitPoint.HasValue && _lastHitDirection.HasValue)
-                    playerRagdoll.EnableRagdoll(_lastHitPoint, _lastHitDirection, bodyPartTag);
+                    _playerRagdoll.EnableRagdoll(_lastHitPoint, _lastHitDirection, bodyPartTag);
                 else
-                    playerRagdoll.EnableRagdoll();
+                    _playerRagdoll.EnableRagdoll();
             }
 
-            if(visualController != null) {
-                visualController.SetRenderersEnabled(true);
+            if(_visualController != null) {
+                _visualController.SetRenderersEnabled(true);
             }
 
             if(IsOwner) {
-                if(weaponManager != null && weaponManager.WeaponCameraController != null) {
-                    weaponManager.WeaponCameraController.SetWeaponCameraEnabled(false);
+                playerController?.PlayerInput?.ForceDisableSniperOverlay(false);
+                if(_weaponManager != null && _weaponCameraController != null) {
+                    _weaponCameraController.SetWeaponCameraEnabled(false);
                 }
 
                 HUDManager.Instance?.HideHUD();
-                if(deathCamera != null) {
-                    deathCamera.EnableDeathCamera();
+                if(_deathCameraController != null) {
+                    _deathCameraController.EnableDeathCamera();
                 }
 
                 // Set shadow mode on current world weapon
@@ -351,9 +328,9 @@ namespace Game.Player {
                     }
                 }
 
-                if(IsOwner && fpCamera != null) {
-                    float baseFov = lookController != null ? lookController.BaseFov : 80f;
-                    fpCamera.Lens.FieldOfView = baseFov;
+                if(IsOwner && _fpCamera != null) {
+                    var baseFov = _lookController != null ? _lookController.BaseFov : 80f;
+                    _fpCamera.Lens.FieldOfView = baseFov;
                 }
             }
 
@@ -368,12 +345,12 @@ namespace Game.Player {
             if(!IsServer) return;
 
             var matchSettings = MatchSettingsManager.Instance;
-            bool isTeamBased = matchSettings != null && IsTeamBasedMode(matchSettings.selectedGameModeId);
+            var isTeamBased = matchSettings != null && MatchSettingsManager.IsTeamBasedMode(matchSettings.selectedGameModeId);
 
-            SpawnPoint reservedPoint = null;
+            SpawnPoint reservedPoint;
             if(isTeamBased) {
-                var team = teamManager != null && teamManager.netTeam != null
-                    ? teamManager.netTeam.Value
+                var team = _teamManager != null && _teamManager.netTeam != null
+                    ? _teamManager.netTeam.Value
                     : SpawnPoint.Team.TeamA;
                 reservedPoint = SpawnManager.Instance?.ReserveSpawnPoint(OwnerClientId, team);
             } else {
@@ -391,7 +368,7 @@ namespace Game.Player {
 
         [Rpc(SendTo.Server)]
         private void RequestRespawnServerRpc() {
-            if(netIsDead == null || !netIsDead.Value) return;
+            if(netIsDead is not { Value: true }) return;
 
             DoRespawnServer();
         }
@@ -409,11 +386,11 @@ namespace Game.Player {
             } else {
                 // Fallback: get a new spawn point (should rarely happen)
                 var matchSettings = MatchSettingsManager.Instance;
-                bool isTeamBased = matchSettings != null && IsTeamBasedMode(matchSettings.selectedGameModeId);
+                var isTeamBased = matchSettings != null && MatchSettingsManager.IsTeamBasedMode(matchSettings.selectedGameModeId);
 
                 if(isTeamBased) {
-                    var team = teamManager != null && teamManager.netTeam != null
-                        ? teamManager.netTeam.Value
+                    var team = _teamManager != null && _teamManager.netTeam != null
+                        ? _teamManager.netTeam.Value
                         : SpawnPoint.Team.TeamA;
                     (position, rotation) = GetSpawnPointForTeam(team);
                 } else {
@@ -426,40 +403,29 @@ namespace Game.Player {
 
         [Rpc(SendTo.Everyone)]
         private void PrepareRespawnClientRpc() {
-            if(IsOwner && SceneTransitionManager.Instance != null) {
-                if(_respawnFadeCoroutine != null) {
-                    StopCoroutine(_respawnFadeCoroutine);
-                }
+            if(!IsOwner || SceneTransitionManager.Instance == null) return;
+            if(_respawnFadeCoroutine != null) {
+                StopCoroutine(_respawnFadeCoroutine);
+            }
 
-                if(SceneTransitionManager.Instance != null) {
-                    _respawnFadeCoroutine = StartCoroutine(SceneTransitionManager.Instance.FadeRespawnTransition());
-                }
+            if(SceneTransitionManager.Instance != null) {
+                _respawnFadeCoroutine = StartCoroutine(SceneTransitionManager.Instance.FadeRespawnTransition());
             }
         }
 
-        private static bool IsTeamBasedMode(string modeId) => modeId switch {
-            "Team Deathmatch" => true,
-            "Hopball" => true,
-            "CTF" => true,
-            "Oddball" => true,
-            "KOTH" => true,
-            _ => false
-        };
 
-        private (Vector3 pos, Quaternion rot) GetSpawnPointForTeam(SpawnPoint.Team team) {
+        private static (Vector3 pos, Quaternion rot) GetSpawnPointForTeam(SpawnPoint.Team team) {
             var point = SpawnManager.Instance?.GetNextSpawnPointForRespawn(team);
-            if(point == null) {
-                return (Vector3.zero, Quaternion.identity);
-            }
-            return (point.transform.position, point.transform.rotation);
+            return point == null
+                ? (Vector3.zero, Quaternion.identity)
+                : (point.transform.position, point.transform.rotation);
         }
 
         private (Vector3 pos, Quaternion rot) GetSpawnPointFfa() {
             var point = SpawnManager.Instance?.GetNextSpawnPointForRespawn();
-            if(point == null) {
-                return (Vector3.zero, Quaternion.identity);
-            }
-            return (point.transform.position, point.transform.rotation);
+            return point == null
+                ? (Vector3.zero, Quaternion.identity)
+                : (point.transform.position, point.transform.rotation);
         }
 
         private IEnumerator TeleportAfterPreparation(Vector3 position, Quaternion rotation) {
@@ -497,41 +463,41 @@ namespace Game.Player {
 
         [Rpc(SendTo.Owner)]
         private void RestoreControlAfterFadeInClientRpc() {
-            if(characterController != null) characterController.enabled = true;
+            if(_characterController != null) _characterController.enabled = true;
 
             // Reset pitch and velocity
-            if(lookController != null) {
-                lookController.ResetPitch();
+            if(_lookController != null) {
+                _lookController.ResetPitch();
             }
 
             if(playerController != null) {
                 playerController.lookInput = Vector2.zero;
             }
 
-            if(movementController != null) {
-                movementController.ResetVelocity();
+            if(_movementController != null) {
+                _movementController.ResetVelocity();
             }
 
-            if(fpCamera != null) {
-                fpCamera.transform.localRotation = Quaternion.identity;
+            if(_fpCamera != null) {
+                _fpCamera.transform.localRotation = Quaternion.identity;
             }
 
             HUDManager.Instance?.ShowHUD();
 
-            ShowRespawnVisualsClientRpc(tr.position);
+            ShowRespawnVisualsClientRpc(_playerTransform.position);
         }
 
         [Rpc(SendTo.Everyone)]
         private void ShowRespawnVisualsClientRpc(Vector3 expectedSpawnPosition) {
             if(IsOwner) {
                 // Owner: enable weapon camera and set up shadows-only mode for world model
-                if(weaponManager != null && weaponManager.WeaponCameraController != null) {
-                    weaponManager.WeaponCameraController.SetWeaponCameraEnabled(true);
+                if(_weaponManager != null && _weaponCameraController != null) {
+                    _weaponCameraController.SetWeaponCameraEnabled(true);
                 }
 
                 // Ensure world model root and weapon are active for shadows
-                if(worldModelRoot != null && !worldModelRoot.activeSelf) {
-                    worldModelRoot.SetActive(true);
+                if(_playerModelRoot != null && !_playerModelRoot.activeSelf) {
+                    _playerModelRoot.SetActive(true);
                 }
 
                 // Get current world weapon and ensure it's active for shadows
@@ -541,18 +507,18 @@ namespace Game.Player {
                 }
 
                 // Set renderers to shadows-only mode (owner sees shadows but not the model)
-                if(visualController != null) {
-                    visualController.InvalidateRendererCache();
+                if(_visualController != null) {
+                    _visualController.InvalidateRendererCache();
                 }
 
                 // Set shadow mode to ShadowsOnly for owner (renderers must be enabled to cast shadows)
-                if(playerShadow != null) {
+                if(_playerShadow != null) {
                     // Enable renderers and set to shadows-only mode
-                    playerShadow.SetSkinnedMeshRenderersShadowMode(ShadowCastingMode.ShadowsOnly,
+                    _playerShadow.SetSkinnedMeshRenderersShadowMode(ShadowCastingMode.ShadowsOnly,
                         ShadowCastingMode.ShadowsOnly, true);
-                    playerShadow.SetWorldWeaponRenderersShadowMode(ShadowCastingMode.ShadowsOnly, true);
+                    _playerShadow.SetWorldWeaponRenderersShadowMode(ShadowCastingMode.ShadowsOnly);
                 }
-                
+
                 // Reset weapon state for owner (enables FP weapon renderers)
                 if(playerController != null) {
                     playerController.ResetWeaponState(resetAllAmmo: true, switchToWeapon0: true);
@@ -565,25 +531,24 @@ namespace Game.Player {
 
         [Rpc(SendTo.Everyone)]
         private void DisableRagdollAndTeleportClientRpc(Vector3 position, Quaternion rotation) {
-            if(playerRagdoll != null) {
-                playerRagdoll.DisableRagdoll();
+            if(_playerRagdoll != null) {
+                _playerRagdoll.DisableRagdoll();
             }
 
-            if(visualController != null) {
-                visualController.InvalidateRendererCache();
+            if(_visualController != null) {
+                _visualController.InvalidateRendererCache();
             }
 
             HideVisuals();
 
-            ResetAnimatorState(characterAnimator);
+            ResetAnimatorState(_playerAnimator);
 
-            if(IsOwner) {
-                if(deathCamera != null) {
-                    deathCamera.DisableDeathCamera();
-                }
-
-                TeleportOwnerClientRpc(position, rotation);
+            if(!IsOwner) return;
+            if(_deathCameraController != null) {
+                _deathCameraController.DisableDeathCamera();
             }
+
+            TeleportOwnerClientRpc(position, rotation);
         }
 
         [Rpc(SendTo.Owner)]
@@ -592,23 +557,23 @@ namespace Game.Player {
         }
 
         private async UniTaskVoid TeleportAndNotifyAsync(Vector3 spawn, Quaternion rotation) {
-            if(characterController != null) characterController.enabled = false;
+            if(_characterController != null) _characterController.enabled = false;
 
-            if(clientNetworkTransform != null) {
-                clientNetworkTransform.Teleport(spawn, rotation, Vector3.one);
+            if(_clientNetworkTransform != null) {
+                _clientNetworkTransform.Teleport(spawn, rotation, Vector3.one);
             } else {
-                tr.SetPositionAndRotation(spawn, rotation);
+                _playerTransform.SetPositionAndRotation(spawn, rotation);
             }
 
             // Track respawn time to prevent landing sounds on respawn
-            if(animationController != null) {
-                animationController.ResetSpawnTime();
+            if(_animationController != null) {
+                _animationController.ResetSpawnTime();
             }
 
             await UniTask.WaitForFixedUpdate();
             await UniTask.WaitForFixedUpdate();
 
-            var currentPos = tr.position;
+            var currentPos = _playerTransform.position;
             var distanceMoved = Vector3.Distance(currentPos, spawn);
             if(distanceMoved > 0.1f) {
                 await UniTask.Delay(50);
@@ -616,17 +581,17 @@ namespace Game.Player {
         }
 
         private void HideVisuals() {
-            if(visualController != null) {
-                visualController.SetRenderersEnabled(false);
+            if(_visualController != null) {
+                _visualController.SetRenderersEnabled(false);
             }
         }
 
         private IEnumerator ShowVisualsAfterPositionSync(Vector3 expectedPosition) {
-            int maxWaitFrames = 10;
-            int framesWaited = 0;
+            const int maxWaitFrames = 10;
+            var framesWaited = 0;
 
             while(framesWaited < maxWaitFrames) {
-                var distance = Vector3.Distance(tr.position, expectedPosition);
+                var distance = Vector3.Distance(_playerTransform.position, expectedPosition);
                 if(distance < 5f) {
                     break;
                 }
@@ -640,22 +605,22 @@ namespace Game.Player {
 
         private void ShowVisuals() {
             // Invalidate renderer cache to force refresh (like respawn does)
-            if(visualController != null) {
-                visualController.InvalidateRendererCache();
+            if(_visualController != null) {
+                _visualController.InvalidateRendererCache();
             }
 
             // Ensure world model root and weapon are active
-            if(worldModelRoot != null && !worldModelRoot.activeSelf) {
-                worldModelRoot.SetActive(true);
+            if(_playerModelRoot != null && !_playerModelRoot.activeSelf) {
+                _playerModelRoot.SetActive(true);
             }
 
-            if(visualController != null) {
-                visualController.SetRenderersEnabled(true, true, ShadowCastingMode.On);
+            if(_visualController != null) {
+                _visualController.SetRenderersEnabled(true, true, ShadowCastingMode.On);
             }
 
             // Force bounds update immediately
-            if(visualController != null) {
-                visualController.ForceRendererBoundsUpdate();
+            if(_visualController != null) {
+                _visualController.ForceRendererBoundsUpdate();
             }
         }
 
@@ -672,16 +637,15 @@ namespace Game.Player {
             _isRegenerating = false;
 
             // Tag mode: reset tagged state on respawn
-            if(tagController != null) {
-                tagController.ResetTagState();
+            if(_tagController != null) {
+                _tagController.ResetTagState();
             }
         }
 
-        private void ResetAnimatorState(Animator animator) {
-            if(animator != null) {
-                animator.Rebind();
-                animator.Update(0f);
-            }
+        private static void ResetAnimatorState(Animator animator) {
+            if(animator == null) return;
+            animator.Rebind();
+            animator.Update(0f);
         }
 
         /// <summary>
@@ -689,11 +653,11 @@ namespace Game.Player {
         /// </summary>
         private GameObject GetCurrentWorldWeapon() {
             // Try to get from WeaponManager first (most reliable)
-            if(weaponManager != null) {
-                var weaponData = weaponManager.GetWeaponDataByIndex(weaponManager.CurrentWeaponIndex);
+            if(_weaponManager != null) {
+                var weaponData = _weaponManager.GetWeaponDataByIndex(_weaponManager.CurrentWeaponIndex);
                 if(weaponData != null && !string.IsNullOrEmpty(weaponData.worldWeaponName) &&
-                   worldWeaponSocket != null) {
-                    var worldObj = worldWeaponSocket.Find(weaponData.worldWeaponName);
+                   _worldWeaponSocket != null) {
+                    var worldObj = _worldWeaponSocket.Find(weaponData.worldWeaponName);
                     if(worldObj != null && worldObj.gameObject.activeSelf) {
                         return worldObj.gameObject;
                     }
@@ -701,11 +665,10 @@ namespace Game.Player {
             }
 
             // Fallback: find the first active child in the weapon socket
-            if(worldWeaponSocket != null) {
-                foreach(Transform child in worldWeaponSocket) {
-                    if(child.gameObject.activeSelf) {
-                        return child.gameObject;
-                    }
+            if(_worldWeaponSocket == null) return null;
+            foreach(Transform child in _worldWeaponSocket) {
+                if(child.gameObject.activeSelf) {
+                    return child.gameObject;
                 }
             }
 

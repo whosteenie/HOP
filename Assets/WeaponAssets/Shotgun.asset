@@ -13,26 +13,36 @@ MonoBehaviour:
   m_Name: Shotgun
   m_EditorClassIdentifier: Assembly-CSharp::WeaponData
   weaponName: Bennelli_M4
-  weaponPrefab: {fileID: 1236257789494122, guid: 8b0b86b42def11849a8eba21f4a6a684, type: 3}
+  weaponPrefab: {fileID: 1236257789494122, guid: 450777f025763c243979eb75420ca8fc, type: 3}
   weaponSlot: 3
   spawnPosition: {x: 0.384, y: -0.187, z: 0.371}
   spawnRotation: {x: 0, y: -180, z: 0}
-  fpMuzzleLocalPosition: {x: 0, y: 0, z: 0}
+  muzzleLocalOffset: {x: 0, y: 0, z: -0.4764}
   worldWeaponName: Bennelli_M4
-  worldMuzzleLocalPosition: {x: 0, y: 0, z: 0}
   fpMuzzleLightChildName: MuzzleLight
   worldMuzzleLightChildName: MuzzleLight
-  magSize: 10
-  currentAmmo: 10
+  magSize: 6
+  currentAmmo: 6
   baseDamage: 30
   maxDamageMultiplier: 3
   damageCap: 75
+  useDamageFalloff: 1
+  maxDamageRange: 10
+  minDamageRange: 35
+  minDamage: 10
+  usePelletSpread: 1
+  pelletCount: 8
+  pelletDamageMultiplier: 0.15
   fireRate: 0.5
   fireMode: Semi
-  bulletSpread: 15
+  bulletSpread: 7
   reloadTime: 3
-  sheathTime: 0
-  drawTime: 0
+  useMagReload: 0
+  perRoundReloadTime: 0.5
+  sheathTime: 0.22
+  drawTime: 0.22
   bulletTrail: {fileID: 328621789431213768, guid: 4b92d630cd66e7a45a83060b816bdbbe, type: 3}
   bulletImpact: {fileID: 0}
-  muzzleFlashPrefab: {fileID: 0}
+  muzzleFlashPrefab: {fileID: 6299671218319471870, guid: d13b2bf13a0548a4aa9c2cd249a35a04, type: 3}
+  shootSfx: 24
+  reloadSfx: 30

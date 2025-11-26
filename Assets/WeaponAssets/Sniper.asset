@@ -12,27 +12,38 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 50d8dbcb146dde54895dd61c404ddb7e, type: 3}
   m_Name: Sniper
   m_EditorClassIdentifier: Assembly-CSharp::Game.Weapons.WeaponData
-  weaponName: 
-  weaponPrefab: {fileID: 0}
+  weaponName: M107
+  weaponPrefab: {fileID: 1829597508155286, guid: 4876139417cf14440a8e18e418962a00, type: 3}
   weaponSlot: 0
-  spawnPosition: {x: 0, y: 0, z: 0}
-  spawnRotation: {x: 0, y: 0, z: 0}
-  fpMuzzleLocalPosition: {x: 0, y: 0, z: 0}
-  worldWeaponName: 
-  worldMuzzleLocalPosition: {x: 0, y: 0, z: 0}
+  spawnPosition: {x: 0.299, y: -0.157, z: 0.258}
+  spawnRotation: {x: 0, y: 180, z: 0}
+  muzzleLocalOffset: {x: 0, y: 0.0218, z: -0.6965}
+  worldWeaponName: M107
   fpMuzzleLightChildName: MuzzleLight
   worldMuzzleLightChildName: MuzzleLight
-  magSize: 0
-  currentAmmo: 0
-  baseDamage: 0
-  maxDamageMultiplier: 0
-  damageCap: 0
-  fireRate: 0
-  fireMode: 
+  magSize: 10
+  currentAmmo: 10
+  baseDamage: 75
+  maxDamageMultiplier: 3
+  damageCap: 100
+  useDamageFalloff: 1
+  maxDamageRange: 75
+  minDamageRange: 200
+  minDamage: 52
+  usePelletSpread: 0
+  pelletCount: 8
+  pelletDamageMultiplier: 0.15
+  fireRate: 0.5
+  fireMode: Semi
   bulletSpread: 0
-  reloadTime: 0
-  sheathTime: 0
-  drawTime: 0
-  bulletTrail: {fileID: 0}
+  useSniperOverlay: 1
+  reloadTime: 3
+  useMagReload: 1
+  perRoundReloadTime: 0.5
+  sheathTime: 0.22
+  drawTime: 0.22
+  bulletTrail: {fileID: 328621789431213768, guid: 4b92d630cd66e7a45a83060b816bdbbe, type: 3}
   bulletImpact: {fileID: 0}
-  muzzleFlashPrefab: {fileID: 0}
+  muzzleFlashPrefab: {fileID: 6299671218319471870, guid: d13b2bf13a0548a4aa9c2cd249a35a04, type: 3}
+  shootSfx: 25
+  reloadSfx: 31

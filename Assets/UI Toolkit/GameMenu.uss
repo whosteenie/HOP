@@ -744,13 +744,13 @@
 
 .hud-score-your {
     border-color: rgba(100, 150, 255, 0.4);
-    background-color: rgba(50, 100, 255, 0.1);
+    background-color: rgba(50, 100, 255, 0.35);
     margin-right: 8px;
 }
 
 .hud-score-enemy {
     border-color: rgba(255, 100, 100, 0.4);
-    background-color: rgba(255, 50, 50, 0.1);
+    background-color: rgba(255, 50, 50, 0.35);
     margin-left: 8px;
 }
 
@@ -890,3 +890,41 @@
     -unity-background-scale-mode: scale-to-fit;
 }
 
+/* ===== SNIPER OVERLAY ===== */
+
+.sniper-overlay {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    top: 0;
+    left: 0;
+}
+
+.sniper-crosshair {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    align-items: center;
+    justify-content: center;
+}
+
+.sniper-crosshair-bar {
+    position: absolute;
+    background-color: rgba(0, 0, 0, 1);
+}
+
+.sniper-crosshair-bar.horizontal {
+    width: 100%;
+    height: 1px;
+    top: 50%;
+    left: 0;
+    margin-top: -0.5px;
+}
+
+.sniper-crosshair-bar.vertical {
+    height: 100%;
+    width: 1px;
+    left: 50%;
+    top: 0;
+    margin-left: -0.5px;
+}

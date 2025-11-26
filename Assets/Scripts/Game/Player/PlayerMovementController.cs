@@ -1,4 +1,3 @@
-using Network;
 using Network.Rpc;
 using Unity.Cinemachine;
 using Unity.Netcode;
@@ -8,26 +7,23 @@ namespace Game.Player {
     /// <summary>
     /// Handles all movement-related logic for the player.
     /// </summary>
-    [DefaultExecutionOrder(-90)] // Initialize after PlayerController
+    [DefaultExecutionOrder(-90)]
     public class PlayerMovementController : NetworkBehaviour {
-        [Header("References")] [SerializeField]
-        private PlayerController playerController;
+        [Header("References")]
+        [SerializeField] private PlayerController playerController;
 
-        [SerializeField] private CharacterController characterController;
-        [SerializeField] private GrappleController grappleController;
-        [SerializeField] private SwingGrapple swingGrapple;
-        [SerializeField] private PlayerAnimationController animationController;
-        [SerializeField] private NetworkSfxRelay sfxRelay;
-        [SerializeField] private Transform tr;
-        [SerializeField] private LayerMask worldLayer;
-        [SerializeField] private LayerMask enemyLayer;
+        private CharacterController _characterController;
+        private GrappleController _grappleController;
+        private SwingGrapple _swingGrapple;
+        private PlayerAnimationController _animationController;
+        private NetworkSfxRelay _sfxRelay;
+        private Transform _playerTransform;
 
-        [Header("Movement Parameters")] [SerializeField]
-        private float acceleration = 15f;
-
-        [SerializeField] private float airAcceleration = 50f;
-        [SerializeField] private float maxAirSpeed = 5f;
-        [SerializeField] private float friction = 8f;
+        [Header("Movement Parameters")]
+        private const float Acceleration = 15f;
+        private const float AirAcceleration = 50f;
+        private const float MaxAirSpeed = 5f;
+        private const float Friction = 8f;
 
         // Movement constants
         private const float WalkSpeed = 5f;
@@ -42,12 +38,9 @@ namespace Game.Player {
         private const float GravityScale = 3f;
 
         // Movement state
-        private float _maxSpeed = WalkSpeed;
         private Vector3 _horizontalVelocity;
-        private float _verticalVelocity;
         private float _crouchTransition;
         private Vector3 _moveVelocity;
-        private float _cachedHorizontalSpeedSqr;
         private Vector3 _cachedFullVelocity;
 
         // Physics
@@ -56,51 +49,27 @@ namespace Game.Player {
         private bool _isMantling;
 
         // Input (read from PlayerController)
-        private Vector2 moveInput => playerController != null ? playerController.moveInput : Vector2.zero;
-        private bool sprintInput => playerController != null && playerController.sprintInput;
-        private bool crouchInput => playerController != null && playerController.crouchInput;
+        private Vector2 MoveInput => playerController != null ? playerController.moveInput : Vector2.zero;
+        private bool SprintInput => playerController != null && playerController.sprintInput;
+        private bool CrouchInput => playerController != null && playerController.crouchInput;
 
         // Network state (from PlayerController)
         public NetworkVariable<bool> netIsCrouching;
-        
+
         // Throttling for crouch updates (at 90Hz: 2 ticks = ~22ms)
         private float _lastCrouchUpdateTime;
         private const float CrouchUpdateInterval = 0.022f; // ~2 ticks at 90Hz
 
         private void Awake() {
-            // Initialize transform reference
-            if(tr == null) {
-                tr = transform;
-            }
-
-            // Component references should be assigned in the inspector
-            // Only use GetComponent as a last resort fallback if not assigned
-            if(playerController == null) {
-                playerController = GetComponent<PlayerController>();
-            }
-
-            if(characterController == null) {
-                characterController = GetComponent<CharacterController>();
-            }
-
-            if(grappleController == null) {
-                grappleController = GetComponent<GrappleController>();
-            }
-
-            if(swingGrapple == null) {
-                swingGrapple = GetComponent<SwingGrapple>();
-            }
-
-            if(animationController == null) {
-                animationController = GetComponent<PlayerAnimationController>();
-            }
-
-            if(sfxRelay == null) {
-                sfxRelay = GetComponent<NetworkSfxRelay>();
-            }
+            playerController ??= GetComponent<PlayerController>();
+            _characterController ??= playerController.CharacterController;
+            _playerTransform ??= playerController.PlayerTransform;
+            _grappleController ??= playerController.GrappleController;
+            _animationController ??= playerController.AnimationController;
+            _sfxRelay ??= playerController.SfxRelay;
 
             // Initialize physics (non-network dependent)
-            _obstacleMask = worldLayer | enemyLayer;
+            _obstacleMask = playerController.WorldLayer | playerController.EnemyLayer;
             _gravityY = Physics.gravity.y;
         }
 
@@ -113,18 +82,18 @@ namespace Game.Player {
                 playerController = GetComponent<PlayerController>();
             }
 
-            if(characterController == null) {
-                characterController = GetComponent<CharacterController>();
+            if(_characterController == null) {
+                _characterController = playerController.CharacterController;
             }
 
             // Get network variable from PlayerController (network-dependent)
             if(playerController != null) {
-                netIsCrouching = playerController.netIsCrouching;
+                netIsCrouching = playerController.NetIsCrouching;
             }
         }
 
         public void UpdateMovement(CinemachineCamera fpCamera = null) {
-            if(_isMantling || (swingGrapple != null && swingGrapple.IsSwinging)) {
+            if(_isMantling || (_swingGrapple != null && _swingGrapple.IsSwinging)) {
                 return;
             }
 
@@ -135,14 +104,14 @@ namespace Game.Player {
             MoveCharacter();
 
             // Cache horizontal speed for animation/sound
-            _cachedHorizontalSpeedSqr = _horizontalVelocity.sqrMagnitude;
+            CachedHorizontalSpeedSqr = _horizontalVelocity.sqrMagnitude;
         }
 
         public void UpdateCrouch(CinemachineCamera fpCamera) {
             if(fpCamera == null) return;
 
-            float sphereRadius = characterController != null ? characterController.radius : 0.3f;
-            bool headBlocked = Physics.SphereCast(
+            var sphereRadius = _characterController != null ? _characterController.radius : 0.3f;
+            var headBlocked = Physics.SphereCast(
                 fpCamera.transform.position,
                 sphereRadius,
                 Vector3.up,
@@ -151,10 +120,10 @@ namespace Game.Player {
                 _obstacleMask
             );
 
-            bool isCurrentlyCrouched = _crouchTransition > 0.5f || (netIsCrouching != null && netIsCrouching.Value);
+            var isCurrentlyCrouched = _crouchTransition > 0.5f || netIsCrouching is { Value: true };
 
             bool targetCrouchState;
-            if(crouchInput) {
+            if(CrouchInput) {
                 targetCrouchState = true;
             } else {
                 targetCrouchState = headBlocked && isCurrentlyCrouched;
@@ -168,8 +137,8 @@ namespace Game.Player {
                 }
             }
 
-            if(animationController != null) {
-                animationController.SetCrouching(targetCrouchState);
+            if(_animationController != null) {
+                _animationController.SetCrouching(targetCrouchState);
             }
 
             var targetTransition = targetCrouchState ? 1f : 0f;
@@ -185,49 +154,49 @@ namespace Game.Player {
         }
 
         private void UpdateMaxSpeed() {
-            if(crouchInput) {
-                _maxSpeed = CrouchSpeed;
-            } else if(sprintInput) {
-                _maxSpeed = SprintSpeed;
+            if(CrouchInput) {
+                MaxSpeed = CrouchSpeed;
+            } else if(SprintInput) {
+                MaxSpeed = SprintSpeed;
             } else {
-                _maxSpeed = WalkSpeed;
+                MaxSpeed = WalkSpeed;
             }
         }
 
         private void CalculateHorizontalVelocity() {
             // Block movement during pre-match (but allow input to be set so it feels responsive when match starts)
-            if(Network.Singletons.GameMenuManager.Instance != null && 
+            if(Network.Singletons.GameMenuManager.Instance != null &&
                Network.Singletons.GameMenuManager.Instance.IsPreMatch) {
                 // Still apply friction to slow down if already moving
                 ApplyFriction();
                 var targetVelocity = Vector3.zero;
                 _horizontalVelocity =
-                    Vector3.MoveTowards(_horizontalVelocity, targetVelocity, acceleration * Time.deltaTime);
+                    Vector3.MoveTowards(_horizontalVelocity, targetVelocity, Acceleration * Time.deltaTime);
                 return;
             }
 
-            var motion = (tr.forward * moveInput.y + tr.right * moveInput.x).normalized;
+            var motion = (_playerTransform.forward * MoveInput.y + _playerTransform.right * MoveInput.x).normalized;
             motion.y = 0f;
 
             if(IsGrounded) {
                 ApplyFriction();
                 ApplyDirectionChange(motion);
 
-                var targetVelocity = motion.sqrMagnitude >= 0.1f ? motion * _maxSpeed : Vector3.zero;
+                var targetVelocity = motion.sqrMagnitude >= 0.1f ? motion * MaxSpeed : Vector3.zero;
                 _horizontalVelocity =
-                    Vector3.MoveTowards(_horizontalVelocity, targetVelocity, acceleration * Time.deltaTime);
+                    Vector3.MoveTowards(_horizontalVelocity, targetVelocity, Acceleration * Time.deltaTime);
             } else {
                 AirStrafe(motion);
             }
         }
 
         private void ApplyFriction() {
-            if(moveInput.sqrMagnitude >= 0.01f) return;
+            if(MoveInput.sqrMagnitude >= 0.01f) return;
 
             var speed = _horizontalVelocity.magnitude;
             if(speed < 0.001f) return;
 
-            var drop = speed * friction * Time.deltaTime;
+            var drop = speed * Friction * Time.deltaTime;
             var newSpeed = Mathf.Max(speed - drop, 0f);
             _horizontalVelocity *= newSpeed / speed;
         }
@@ -245,14 +214,14 @@ namespace Game.Player {
         }
 
         private void AirStrafe(Vector3 wishDir) {
-            if(moveInput.sqrMagnitude < 0.01f) return;
+            if(MoveInput.sqrMagnitude < 0.01f) return;
 
             var currentSpeed = Vector3.Dot(_horizontalVelocity, wishDir);
-            var addSpeed = maxAirSpeed - currentSpeed;
+            var addSpeed = MaxAirSpeed - currentSpeed;
 
             if(addSpeed <= 0) return;
 
-            var accelSpeed = airAcceleration * Time.deltaTime;
+            var accelSpeed = AirAcceleration * Time.deltaTime;
             accelSpeed = Mathf.Min(accelSpeed, addSpeed);
 
             _horizontalVelocity += wishDir * accelSpeed;
@@ -262,28 +231,27 @@ namespace Game.Player {
             if(fpCamera == null) return;
 
             var rayHit = Physics.Raycast(fpCamera.transform.position, Vector3.up, out _, 0.75f, _obstacleMask);
-            if(rayHit && _verticalVelocity > 0f) {
-                if(grappleController != null) {
-                    grappleController.CancelGrapple();
-                }
-
-                _verticalVelocity = 0f;
+            if(!rayHit || !(VerticalVelocity > 0f)) return;
+            if(_grappleController != null) {
+                _grappleController.CancelGrapple();
             }
+
+            VerticalVelocity = 0f;
         }
 
         private void ApplyGravity() {
-            if(IsGrounded && _verticalVelocity <= 0.01f) {
-                _verticalVelocity = -3f;
+            if(IsGrounded && VerticalVelocity <= 0.01f) {
+                VerticalVelocity = -3f;
             } else {
-                _verticalVelocity += _gravityY * GravityScale * Time.deltaTime;
+                VerticalVelocity += _gravityY * GravityScale * Time.deltaTime;
             }
         }
 
         private void MoveCharacter() {
             _moveVelocity.x = _horizontalVelocity.x;
-            _moveVelocity.y = _verticalVelocity;
+            _moveVelocity.y = VerticalVelocity;
             _moveVelocity.z = _horizontalVelocity.z;
-            characterController.Move(_moveVelocity * Time.deltaTime);
+            _characterController.Move(_moveVelocity * Time.deltaTime);
         }
 
         private void UpdateCharacterControllerCrouch(bool isCrouching) {
@@ -294,8 +262,8 @@ namespace Game.Player {
 
             var targetColliderHeight = Mathf.Lerp(StandCollider, CrouchCollider, _crouchTransition);
             var centerY = targetColliderHeight / 2f;
-            characterController.height = targetColliderHeight;
-            characterController.center = new Vector3(0f, centerY, 0f);
+            _characterController.height = targetColliderHeight;
+            _characterController.center = new Vector3(0f, centerY, 0f);
         }
 
         public void TryJump(float height = JumpHeight) {
@@ -313,21 +281,20 @@ namespace Game.Player {
                 var key = Mathf.Approximately(height, 15f) || Mathf.Approximately(height, 30f) ? "jumpPad" : "jump";
 
                 if(key == "jumpPad") {
-                    sfxRelay?.RequestWorldSfx(SfxKey.JumpPad, attachToSelf: true, true);
+                    _sfxRelay?.RequestWorldSfx(SfxKey.JumpPad, attachToSelf: true, true);
                 }
 
-                sfxRelay?.RequestWorldSfx(SfxKey.Jump, attachToSelf: true, true);
+                _sfxRelay?.RequestWorldSfx(SfxKey.Jump, attachToSelf: true, true);
             }
 
             // Calculate and apply vertical velocity for jump
-            _verticalVelocity = Mathf.Sqrt(height * -2f * _gravityY * GravityScale);
+            VerticalVelocity = Mathf.Sqrt(height * -2f * _gravityY * GravityScale);
 
             // Ensure velocity is positive (upward) before triggering jump animation
             // This guarantees the jump animation only triggers when velocity is actually applied upward
-            if(_verticalVelocity > 0f) {
-                if(animationController != null) {
-                    animationController.PlayJumpAnimationServerRpc();
-                }
+            if(!(VerticalVelocity > 0f)) return;
+            if(_animationController != null) {
+                _animationController.PlayJumpAnimationServerRpc();
             }
         }
 
@@ -348,39 +315,38 @@ namespace Game.Player {
 
             // Calculate the velocity magnitude equivalent to the jump height
             // This matches the calculation in TryJump: sqrt(height * -2 * gravity * gravityScale)
-            float velocityMagnitude = Mathf.Sqrt(force * -2f * _gravityY * GravityScale);
+            var velocityMagnitude = Mathf.Sqrt(force * -2f * _gravityY * GravityScale);
 
             // Apply velocity in the direction of the pad's normal
             // This gives us the full boost vector (horizontal + vertical components)
-            Vector3 launchVelocity = normal * velocityMagnitude;
-            
+            var launchVelocity = normal * velocityMagnitude;
+
             // Always apply the full velocity boost in the pad's normal direction
             // For vertical pads (normal = up): only vertical component, horizontal preserved
             // For angled/wall pads: both horizontal and vertical components added
-            _verticalVelocity = launchVelocity.y;
+            VerticalVelocity = launchVelocity.y;
             _horizontalVelocity += new Vector3(launchVelocity.x, 0f, launchVelocity.z);
 
             // Play jump pad sound
             if(IsOwner) {
-                sfxRelay?.RequestWorldSfx(SfxKey.JumpPad, attachToSelf: true, true);
-                sfxRelay?.RequestWorldSfx(SfxKey.Jump, attachToSelf: true, true);
+                _sfxRelay?.RequestWorldSfx(SfxKey.JumpPad, attachToSelf: true, true);
+                _sfxRelay?.RequestWorldSfx(SfxKey.Jump, attachToSelf: true, true);
             }
 
             // Trigger jump animation if moving upward
-            if(_verticalVelocity > 0f) {
-                if(animationController != null) {
-                    animationController.PlayJumpAnimationServerRpc();
-                }
+            if(!(VerticalVelocity > 0f)) return;
+            if(_animationController != null) {
+                _animationController.PlayJumpAnimationServerRpc();
             }
         }
 
         private float CheckForJumpPad() {
-            if(Physics.Raycast(tr.position, Vector3.down, out var hit, characterController.height * 0.6f)) {
-                if(hit.collider.CompareTag("JumpPad")) {
-                    return 15f; // Regular jump pad height
-                } else if(hit.collider.CompareTag("MegaPad")) {
-                    return 30f; // Mega jump pad height
-                }
+            if(!Physics.Raycast(_playerTransform.position, Vector3.down, out var hit, _characterController.height * 0.6f))
+                return 0f; // No jump pad found
+            if(hit.collider.CompareTag("JumpPad")) {
+                return 15f; // Regular jump pad height
+            } else if(hit.collider.CompareTag("MegaPad")) {
+                return 30f; // Mega jump pad height
             }
 
             return 0f; // No jump pad found
@@ -388,7 +354,7 @@ namespace Game.Player {
 
         public void ResetVelocity() {
             _horizontalVelocity = Vector3.zero;
-            _verticalVelocity = 0f;
+            VerticalVelocity = 0f;
         }
 
         public void SetVelocity(Vector3 horizontalVelocity) {
@@ -396,7 +362,7 @@ namespace Game.Player {
         }
 
         public void AddVerticalVelocity(float verticalBoost) {
-            _verticalVelocity += verticalBoost;
+            VerticalVelocity += verticalBoost;
         }
 
         public void SetMantling(bool mantling) {
@@ -404,20 +370,22 @@ namespace Game.Player {
         }
 
         // Public getters
-        public bool IsGrounded => characterController != null && characterController.isGrounded;
+        public bool IsGrounded => _characterController != null && _characterController.isGrounded;
 
-        public Vector3 CurrentFullVelocity {
+        public Vector3 FullVelocity {
             get {
                 _cachedFullVelocity.x = _horizontalVelocity.x;
-                _cachedFullVelocity.y = _verticalVelocity;
+                _cachedFullVelocity.y = VerticalVelocity;
                 _cachedFullVelocity.z = _horizontalVelocity.z;
                 return _cachedFullVelocity;
             }
         }
 
         public Vector3 HorizontalVelocity => _horizontalVelocity;
-        public float VerticalVelocity => _verticalVelocity;
-        public float MaxSpeed => _maxSpeed;
-        public float CachedHorizontalSpeedSqr => _cachedHorizontalSpeedSqr;
+        public float VerticalVelocity { get; private set; }
+
+        public float MaxSpeed { get; private set; } = WalkSpeed;
+
+        public float CachedHorizontalSpeedSqr { get; private set; }
     }
 }

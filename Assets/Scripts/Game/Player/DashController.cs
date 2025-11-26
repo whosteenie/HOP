@@ -39,8 +39,8 @@ namespace Game.Player {
 
             netIsDashing.Value = true;
             dashVelocity = direction * dashSpeed;
-            preDashHorizontalVelocity = new Vector3(playerController.CurrentFullVelocity.x, 0f,
-                playerController.CurrentFullVelocity.z); // **Capture!**
+            preDashHorizontalVelocity = new Vector3(playerController.GetFullVelocity.x, 0f,
+                playerController.GetFullVelocity.z); // **Capture!**
             dashTimer = 0f;
             airDashPendingGround = !playerController.IsGrounded;
         }
@@ -74,7 +74,7 @@ namespace Game.Player {
                 dashTimer += Time.deltaTime;
 
                 // **ADDITIVE: Current momentum + dash boost in input direction**
-                Vector3 currentVel = playerController.CurrentFullVelocity;
+                Vector3 currentVel = playerController.GetFullVelocity;
                 Vector3 dashDir = dashVelocity.normalized; // Direction only
                 Vector3 boostedVel = currentVel + dashDir * dashSpeed;
 

@@ -3,21 +3,25 @@ using UnityEngine;
 
 namespace Game.Player {
     public class UpperBodyPitch : NetworkBehaviour {
+        [Header("References")]
+        [SerializeField] private PlayerController playerController;
+        private PlayerRagdoll _playerRagdoll;
+        
         [Header("Kevin Iglesias Proxy Bone")]
         [Tooltip("Assign B-spineProxy here (the one with SpineProxy on it, sibling of B-hips).")]
-        public Transform spineProxy;
+        [SerializeField] private Transform spineProxy;
 
-        [Header("Axis & Limits")] public Vector3 localPitchAxis = Vector3.right; // usually X
-        public bool invertAxis;
-        [Range(-135f, 0f)] public float minPitch = -35f;
-        [Range(0f, 135f)] public float maxPitch = 45f;
-        public float smooth = 12f;
+        [Header("Axis & Limits")]
+        [SerializeField] private Vector3 localPitchAxis = Vector3.right; // usually X
+        [SerializeField] private bool invertAxis;
+        [Range(-135f, 0f)]
+        [SerializeField] private float minPitch = -35f;
+        [Range(0f, 135f)]
+        [SerializeField] private float maxPitch = 45f;
+        [SerializeField] private float smooth = 12f;
 
         [Header("Weighting")] [Tooltip("How strongly to bend around the proxy (0–1).")] [Range(0f, 1f)]
-        public float spineWeight = 1f;
-
-        [Header("References")]
-        [SerializeField] private PlayerRagdoll playerRagdoll;
+        [SerializeField] private float spineWeight = 1f;
 
         // Networked pitch from owner
         // Note: WritePermission.Owner means only the owner can write this value
@@ -32,17 +36,15 @@ namespace Game.Player {
         private float _lastPitchUpdateTime;
         private const float PitchUpdateInterval = 0.033f; // ~3 ticks at 90Hz
 
-        float _smoothedPitch;
-        Vector3 _axis;
+        private float _smoothedPitch;
+        private Vector3 _axis;
 
-        void Awake() {
+        private void Awake() {
+            playerController ??= GetComponent<PlayerController>();
+            _playerRagdoll ??= playerController.PlayerRagdoll;
+            
             _axis = localPitchAxis.normalized;
             if(invertAxis) _axis = -_axis;
-
-            // Get PlayerRagdoll reference if not assigned
-            if(playerRagdoll == null) {
-                playerRagdoll = GetComponent<PlayerRagdoll>();
-            }
         }
 
         /// <summary>
@@ -52,7 +54,7 @@ namespace Game.Player {
             if(!IsOwner) return;
             
             // Don't update pitch if player is in ragdoll
-            if(playerRagdoll != null && playerRagdoll.IsRagdoll) return;
+            if(_playerRagdoll != null && _playerRagdoll.IsRagdoll) return;
             
             var clampedPitch = Mathf.Clamp(cameraPitchDeg, minPitch, maxPitch);
             
@@ -67,7 +69,7 @@ namespace Game.Player {
             if(!spineProxy) return;
 
             // Don't apply pitch rotation if player is in ragdoll
-            if(playerRagdoll != null && playerRagdoll.IsRagdoll) return;
+            if(_playerRagdoll != null && _playerRagdoll.IsRagdoll) return;
 
             float target = Mathf.Clamp(netPitchDeg.Value, minPitch, maxPitch);
 

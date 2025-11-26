@@ -9,16 +9,16 @@ namespace Game.Player {
     /// </summary>
     [DefaultExecutionOrder(-90)] // Initialize after PlayerController
     public class PlayerPodiumController : NetworkBehaviour {
-        [Header("References")] [SerializeField]
-        private PlayerController playerController;
+        [Header("References")]
+        [SerializeField] private PlayerController playerController;
 
-        [SerializeField] private PlayerVisualController visualController;
-        [SerializeField] private PlayerRagdoll playerRagdoll;
-        [SerializeField] private CharacterController characterController;
-        [SerializeField] private ClientNetworkTransform clientNetworkTransform;
+        private PlayerVisualController _visualController;
+        private PlayerRagdoll _playerRagdoll;
+        private CharacterController _characterController;
+        private ClientNetworkTransform _clientNetworkTransform;
 
-        [Header("Podium Settings")] [SerializeField]
-        private Transform rootBone;
+        [Header("Podium Settings")]
+        [SerializeField] private Transform rootBone;
 
         [SerializeField] private float podiumSnapDelay = 0.05f;
 
@@ -29,27 +29,11 @@ namespace Game.Player {
         [SerializeField] private Animator podiumAnimator;
 
         private void Awake() {
-            // Component references should be assigned in the inspector
-            // Only use GetComponent as a last resort fallback if not assigned
-            if(playerController == null) {
-                playerController = GetComponent<PlayerController>();
-            }
-
-            if(visualController == null) {
-                visualController = GetComponent<PlayerVisualController>();
-            }
-
-            if(playerRagdoll == null) {
-                playerRagdoll = GetComponent<PlayerRagdoll>();
-            }
-
-            if(characterController == null) {
-                characterController = GetComponent<CharacterController>();
-            }
-
-            if(clientNetworkTransform == null) {
-                clientNetworkTransform = GetComponent<ClientNetworkTransform>();
-            }
+            playerController ??= GetComponent<PlayerController>();
+            _visualController = playerController.VisualController;
+            _playerRagdoll = playerController.PlayerRagdoll;
+            _characterController = playerController.CharacterController;
+            _clientNetworkTransform = playerController.ClientNetworkTransform;
 
             // Cache podium components
             if(podiumAnimator != null) {
@@ -58,7 +42,7 @@ namespace Game.Player {
                 _podiumSkinned = GetComponentInChildren<SkinnedMeshRenderer>();
             } else if(playerController != null) {
                 // Fallback: try to get from PlayerController
-                var animator = playerController.GetComponent<Animator>();
+                var animator = playerController.PlayerAnimator;
                 if(animator != null) {
                     _podiumAnimator = animator;
                     _podiumSkinned = GetComponentInChildren<SkinnedMeshRenderer>();
@@ -79,8 +63,8 @@ namespace Game.Player {
                 playerController = GetComponent<PlayerController>();
             }
 
-            if(visualController == null) {
-                visualController = GetComponent<PlayerVisualController>();
+            if(_visualController == null) {
+                _visualController = GetComponent<PlayerVisualController>();
             }
         }
 
@@ -97,16 +81,16 @@ namespace Game.Player {
 
         [Rpc(SendTo.Everyone)]
         private void ForceRespawnForPodiumClientRpc() {
-            if(playerRagdoll != null) {
-                playerRagdoll.DisableRagdoll();
+            if(_playerRagdoll != null) {
+                _playerRagdoll.DisableRagdoll();
             }
 
             ResetAnimatorState(_podiumAnimator);
 
             // Ensure world model root and weapon are active for podium
             if(playerController != null) {
-                var worldModelRoot = playerController.GetWorldModelRoot();
-                var worldWeapon = visualController != null ? visualController.GetWorldWeapon() : null;
+                var worldModelRoot = playerController.PlayerModelRoot;
+                var worldWeapon = _visualController != null ? _visualController.GetWorldWeapon() : null;
 
                 if(worldModelRoot != null && !worldModelRoot.activeSelf) {
                     worldModelRoot.SetActive(true);
@@ -117,8 +101,8 @@ namespace Game.Player {
                 }
 
                 // Enable renderers
-                if(visualController != null) {
-                    visualController.SetRenderersEnabled(true, true, UnityEngine.Rendering.ShadowCastingMode.On);
+                if(_visualController != null) {
+                    _visualController.SetRenderersEnabled(true, true, UnityEngine.Rendering.ShadowCastingMode.On);
                 }
             }
 
@@ -143,34 +127,33 @@ namespace Game.Player {
         }
 
         private IEnumerator TeleportAndSnapToPodium(Vector3 pos, Quaternion rot) {
-            if(characterController != null) {
-                characterController.enabled = false;
+            if(_characterController != null) {
+                _characterController.enabled = false;
             }
 
-            if(clientNetworkTransform != null) {
-                clientNetworkTransform.enabled = false;
+            if(_clientNetworkTransform != null) {
+                _clientNetworkTransform.enabled = false;
             }
 
             transform.SetPositionAndRotation(pos, rot);
-            if(clientNetworkTransform != null) {
-                clientNetworkTransform.Teleport(pos, rot, Vector3.one);
+            if(_clientNetworkTransform != null) {
+                _clientNetworkTransform.Teleport(pos, rot, Vector3.one);
             }
 
             yield return new WaitForFixedUpdate();
 
-            if(characterController != null) {
-                characterController.enabled = true;
+            if(_characterController != null) {
+                _characterController.enabled = true;
             }
 
-            if(clientNetworkTransform != null) {
-                clientNetworkTransform.enabled = true;
+            if(_clientNetworkTransform != null) {
+                _clientNetworkTransform.enabled = true;
             }
 
-            if(_awaitingPodiumSnap) {
-                yield return new WaitForSeconds(podiumSnapDelay);
-                SnapBonesToRoot();
-                _awaitingPodiumSnap = false;
-            }
+            if(!_awaitingPodiumSnap) yield break;
+            yield return new WaitForSeconds(podiumSnapDelay);
+            SnapBonesToRoot();
+            _awaitingPodiumSnap = false;
         }
 
         private void SnapBonesToRoot() {
@@ -182,25 +165,22 @@ namespace Game.Player {
             _podiumAnimator.enabled = false;
             _podiumAnimator.enabled = true;
 
-            if(_podiumSkinned != null) {
-                _podiumSkinned.enabled = false;
-                _podiumSkinned.enabled = true;
-            }
+            if(_podiumSkinned == null) return;
+            _podiumSkinned.enabled = false;
+            _podiumSkinned.enabled = true;
         }
 
         [Rpc(SendTo.Everyone)]
         public void SnapPodiumVisualsClientRpc() {
-            if(_awaitingPodiumSnap) {
-                SnapBonesToRoot();
-                _awaitingPodiumSnap = false;
-            }
+            if(!_awaitingPodiumSnap) return;
+            SnapBonesToRoot();
+            _awaitingPodiumSnap = false;
         }
 
-        private void ResetAnimatorState(Animator animator) {
-            if(animator != null) {
-                animator.Rebind();
-                animator.Update(0f);
-            }
+        private static void ResetAnimatorState(Animator animator) {
+            if(animator == null) return;
+            animator.Rebind();
+            animator.Update(0f);
         }
     }
 }

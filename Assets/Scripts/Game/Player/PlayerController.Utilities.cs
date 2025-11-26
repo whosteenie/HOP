@@ -1,4 +1,10 @@
 using Game.Weapons;
+using Network;
+using Network.Rpc;
+using OSI;
+using Unity.Cinemachine;
+using Unity.Collections;
+using Unity.Netcode;
 using UnityEngine;
 
 namespace Game.Player {
@@ -14,8 +20,8 @@ namespace Game.Player {
                 fpCamera.gameObject.SetActive(active);
             }
 
-            if(worldCamera != null) {
-                worldCamera.gameObject.SetActive(active);
+            if(deathCamera != null) {
+                deathCamera.gameObject.SetActive(active);
             }
         }
 
@@ -76,36 +82,125 @@ namespace Game.Player {
         }
 
         #endregion
+        
+        #region Core Components
+        
+        public Transform PlayerTransform => playerTransform != null ? playerTransform : transform;
+        public CharacterController CharacterController => characterController;
+        public PlayerInput PlayerInput => playerInput;
+        public UnityEngine.InputSystem.PlayerInput UnityPlayerInput => unityPlayerInput;
+        public AudioListener AudioListener => audioListener;
+        public Target PlayerTarget => playerTarget;
+        public LayerMask WorldLayer => worldLayer;
+        public LayerMask PlayerLayer => playerLayer;
+        public LayerMask EnemyLayer => enemyLayer;
+        public LayerMask WeaponLayer => weaponLayer;
+        public LayerMask HopballLayer => hopballLayer;
 
-        #region Public Accessors
+        #endregion
 
-        public GameObject GetWorldModelRoot() => worldModelRoot;
-        public MeshRenderer GetWorldWeapon() => worldWeapon;
-        public WeaponManager GetWeaponManager() => weaponManager;
+        #region Cameras
 
-        public Vector3 GetHorizontalVelocity() =>
-            movementController != null ? movementController.HorizontalVelocity : Vector3.zero;
+        public CinemachineCamera FpCamera => fpCamera;
+        public Camera WeaponCamera => weaponCamera;
+        public CinemachineCamera DeathCamera => deathCamera;
+        public WeaponCameraController WeaponCameraController => weaponCameraController;
 
-        public float GetVerticalVelocity() => movementController != null ? movementController.VerticalVelocity : 0f;
-        public float GetMaxSpeed() => movementController != null ? movementController.MaxSpeed : 5f;
+        #endregion
 
-        public float GetCachedHorizontalSpeedSqr() =>
-            movementController != null ? movementController.CachedHorizontalSpeedSqr : 0f;
+        #region Player Model
 
-        public Transform GetTransform() => tr;
+        public GameObject PlayerModelRoot => playerModelRoot;
+        public SkinnedMeshRenderer PlayerMesh => playerMesh;
+        public Material[] PlayerMaterials => playerMaterials;
+        public PlayerVisualController VisualController => visualController;
+        public PlayerAnimationController AnimationController => animationController;
+        public PlayerShadow PlayerShadow => playerShadow;
+        public UpperBodyPitch UpperBodyPitch => upperBodyPitch;
+        public PlayerRagdoll PlayerRagdoll => playerRagdoll;
+        public SpeedTrail SpeedTrail => speedTrail;
+        public Transform DeathCameraTarget => deathCameraTarget;
 
-        // Convenience properties for accessing network variables from sub-controllers
-        public int Tags => tagController != null ? tagController.tags.Value : 0;
-        public int Tagged => tagController != null ? tagController.tagged.Value : 0;
-        public int TimeTagged => tagController != null ? tagController.timeTagged.Value : 0;
-        public bool IsTagged => tagController != null && tagController.isTagged.Value;
-        public float AverageVelocity => statsController != null ? statsController.averageVelocity.Value : 0f;
+        #endregion
+
+        #region Gameplay Controllers
+
+        public PlayerMovementController MovementController => movementController;
+        public PlayerLookController LookController => lookController;
+        public PlayerStatsController StatsController => statsController;
+        public PlayerHealthController HealthController => healthController;
+        public PlayerTagController TagController => tagController;
+        public PlayerPodiumController PodiumController => podiumController;
+        public HopballController HopballController => hopballController;
+        public PlayerTeamManager TeamManager => playerTeamManager;
+        public MantleController MantleController => mantleController;
+        
+        public DeathCameraController DeathCameraController => deathCameraController;
+
+        #endregion
+
+        #region Weapons
+
+        public WeaponManager WeaponManager => weaponManager;
+        public GrappleController GrappleController => grappleController;
+        // public SwingGrapple SwingGrapple => swingGrapple;
+        public NetworkDamageRelay DamageRelay => damageRelay;
+        public NetworkFxRelay FxRelay => fxRelay;
+        public NetworkSfxRelay SfxRelay => sfxRelay;
+        public CinemachineImpulseSource ImpulseSource => impulseSource;
+        public MeshRenderer WorldWeaponRenderer => worldWeapon;
+        public GameObject[] WorldWeaponPrefabs => worldWeaponPrefabs;
+        public Weapon WeaponComponent => weaponComponent;
+        public Animator PlayerAnimator => playerAnimator;
+        public Transform WorldWeaponSocket => worldWeaponSocket;
+
+        #endregion
+
+        #region Network Components
+
+        public ClientNetworkTransform ClientNetworkTransform => clientNetworkTransform;
+        public NetworkVariable<float> NetHealth => netHealth;
+        public NetworkVariable<bool> NetIsDead => netIsDead;
+        public NetworkVariable<bool> NetIsCrouching => netIsCrouching;
+        public NetworkVariable<int> Kills => kills;
+        public NetworkVariable<int> Deaths => deaths;
+        public NetworkVariable<int> Assists => assists;
+        public NetworkVariable<float> DamageDealt => damageDealt;
+        public NetworkVariable<int> PlayerMaterialIndex => playerMaterialIndex;
+        public NetworkVariable<FixedString64Bytes> PlayerName => playerName;
         public int PingMs => statsController != null ? statsController.pingMs.Value : 0;
 
         #endregion
 
-        #region Grapple Support Methods
+        #region Player State
 
+        public Vector3 Position => PlayerTransform.position;
+        public Quaternion Rotation => PlayerTransform.rotation;
+        public bool IsDead => netIsDead is { Value: true };
+        public bool IsCrouching => netIsCrouching is { Value: true };
+        public bool IsGrounded => movementController != null && movementController.IsGrounded;
+
+        #endregion
+
+        #region Velocity Helpers
+
+        public Vector3 GetHorizontalVelocity() =>
+            movementController != null ? movementController.HorizontalVelocity : Vector3.zero;
+
+        public float GetVerticalVelocity() =>
+            movementController != null ? movementController.VerticalVelocity : 0f;
+
+        public Vector3 GetFullVelocity =>
+            movementController != null ? movementController.FullVelocity : Vector3.zero;
+
+        public float GetMaxSpeed() =>
+            movementController != null ? movementController.MaxSpeed : 5f;
+
+        public float GetCachedHorizontalSpeedSqr() =>
+            movementController != null ? movementController.CachedHorizontalSpeedSqr : 0f;
+        
+        public float AverageVelocity => statsController != null ? statsController.averageVelocity.Value : 0f;
+        
         public void SetVelocity(Vector3 horizontalVelocity) {
             if(movementController != null) {
                 movementController.SetVelocity(horizontalVelocity);
@@ -117,6 +212,15 @@ namespace Game.Player {
                 movementController.AddVerticalVelocity(verticalBoost);
             }
         }
+
+        #endregion
+
+        #region Gun Tag Stats
+
+        public int Tags => tagController != null ? tagController.tags.Value : 0;
+        public int Tagged => tagController != null ? tagController.tagged.Value : 0;
+        public int TimeTagged => tagController != null ? tagController.timeTagged.Value : 0;
+        public bool IsTagged => tagController != null && tagController.isTagged.Value;
 
         #endregion
 

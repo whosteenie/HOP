@@ -475,7 +475,7 @@ namespace Network.Singletons {
             }
 
             var keybindNames = new[] {
-                "forward", "back", "left", "right", "jump", "shoot", "reload", "grapple", "primary", "secondary",
+                "forward", "back", "left", "right", "jump", "interact", "shoot", "ads", "reload", "grapple", "primary", "secondary",
                 "nextweapon", "previousweapon"
             };
 

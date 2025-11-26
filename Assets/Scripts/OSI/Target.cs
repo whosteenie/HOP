@@ -52,18 +52,14 @@ namespace OSI {
         /// On enable add this target object to the targets list.
         /// </summary>
         private void OnEnable() {
-            if(OffScreenIndicator.TargetStateChanged != null) {
-                OffScreenIndicator.TargetStateChanged.Invoke(this, true);
-            }
+            OffScreenIndicator.TargetStateChanged?.Invoke(this, true);
         }
 
         /// <summary>
         /// On disable remove this target object from the targets list.
         /// </summary>
         private void OnDisable() {
-            if(OffScreenIndicator.TargetStateChanged != null) {
-                OffScreenIndicator.TargetStateChanged.Invoke(this, false);
-            }
+            OffScreenIndicator.TargetStateChanged?.Invoke(this, false);
         }
 
         /// <summary>

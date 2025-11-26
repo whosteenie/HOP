@@ -12,17 +12,18 @@ public class Hopball : NetworkBehaviour {
     public readonly int IntensityID = Shader.PropertyToID("_EmissionIntensity");
     public readonly int DissolveAmountID = Shader.PropertyToID("_DissolveAmount");
 
-    private const float EnergySmoothing = 1.75f;
+    private const float EnergySmoothing = 3.5f;
     private const float DissolveSmoothing = 2f;
     private const float MaxEnergy = 20;
     private readonly Vector3 _maxEffectScale = new(0.45f, 0.45f, 0.45f);
     private readonly Vector3 _minEffectScale = new(0.23f, 0.23f, 0.23f);
-
+    
     // Network-synced energy (server-authoritative)
     private readonly NetworkVariable<float> _networkEnergy = new(value: MaxEnergy);
-
+    
     private int _lastDrainTime = -1; // Initialize to -1 to track first drain
     private bool _isDissolving; // Track if dissolve is in progress
+    private bool _awaitingRespawn;
 
     [Header("World Model Components (on this prefab)")]
     [SerializeField] private MeshRenderer meshRenderer;
@@ -32,11 +33,11 @@ public class Hopball : NetworkBehaviour {
     [SerializeField] private Target target;
     [SerializeField] private Collider hopballCollider; // Collider to disable when equipped
     [SerializeField] private Rigidbody hopballRigidbody;
+    [SerializeField] private GameObject godrayEffect;
 
     private HopballController _equippedController; // Store reference to controller when equipped
     private readonly HashSet<Collider> _ignoredPlayerColliders = new();
     private bool _isIgnoringPlayerCollisions;
-    private HopballVisualState _lastBroadcastedState;
 
     public float Energy => _networkEnergy.Value;
     public bool IsEquipped { get; private set; }
@@ -45,28 +46,29 @@ public class Hopball : NetworkBehaviour {
     public PlayerController HolderController { get; private set; }
     public Rigidbody Rigidbody => hopballRigidbody;
 
-    public float DissolveAmount { get; private set; }
-    public HopballVisualState CurrentVisualState => _lastBroadcastedState;
+    private float DissolveAmount { get; set; }
+    private float _displayEnergy = MaxEnergy;
+    public HopballVisualState CurrentVisualState { get; private set; }
 
     /// <summary>
     /// Gets the current emission intensity from the world hopball material.
     /// Returns 0 if material is not available or renderer is disabled.
     /// </summary>
-    public float CurrentEmissionIntensity => meshRenderer.material.GetFloat(IntensityID);
+    private float CurrentEmissionIntensity => meshRenderer.material.GetFloat(IntensityID);
 
     /// <summary>
     /// Gets the current effect scale from the world hopball effects transform.
     /// Returns zero vector if effects are not available or if dissolving.
     /// During dissolve, returns zero to ensure FP visuals don't show effects.
     /// </summary>
-    public Vector3 CurrentEffectScale => _isDissolving ? Vector3.zero : effects.localScale;
+    private Vector3 CurrentEffectScale => _isDissolving ? Vector3.zero : effects.localScale;
 
     /// <summary>
     /// Gets the current light intensity from the world hopball light.
     /// Returns 0 if light is not available, disabled, or if dissolving.
     /// During dissolve, returns zero to ensure FP visuals don't show effects.
     /// </summary>
-    public float CurrentLightIntensity => _isDissolving ? 0f : effectLight.intensity;
+    private float CurrentLightIntensity => _isDissolving ? 0f : effectLight.intensity;
 
     [System.Flags]
     private enum HopballStateFlags : byte {
@@ -121,16 +123,18 @@ public class Hopball : NetworkBehaviour {
         Instance = this;
 
         _networkEnergy.OnValueChanged += OnEnergyChanged;
-
+        
         // Reset all state to initial spawn state
         ResetToInitialState();
-
+        
         // Ensure root GameObject is active
         gameObject.SetActive(true);
-
+        
         // Initialize energy display
-        UpdateEffects(_networkEnergy.Value);
-
+        _displayEnergy = MaxEnergy;
+        UpdateEffects(_displayEnergy);
+        NotifyVisualStateChanged(true);
+        
         // Set up dropped visuals initially (since hopball spawns dropped)
         SetupDroppedVisuals();
 
@@ -151,8 +155,6 @@ public class Hopball : NetworkBehaviour {
     }
 
     private void OnEnergyChanged(float previous, float current) {
-        UpdateEffects(current);
-
         // Award scoring points as energy depletes (server only, while equipped)
         if(!IsServer || !IsEquipped || !(previous > current)) return;
         var energyDepleted = previous - current;
@@ -165,26 +167,26 @@ public class Hopball : NetworkBehaviour {
         // Server handles energy drain (only while equipped, unless dissolving)
         // If dissolving, continue draining even if dropped to complete the dissolve
         if(IsServer && (IsEquipped || _isDissolving)) {
-            var currentTime = MatchTimerManager.Instance.TimeRemainingSeconds;
-
-            // Initialize last drain time on first frame
-            if(_lastDrainTime < 0) {
-                _lastDrainTime = currentTime;
-            }
-
-            // Drain energy every 2 seconds
-            if(_lastDrainTime - currentTime >= 2) {
-                var newEnergy = Mathf.Max(0f, _networkEnergy.Value - 1f);
-                _networkEnergy.Value = newEnergy;
-                _lastDrainTime = currentTime;
+                var currentTime = MatchTimerManager.Instance.TimeRemainingSeconds;
+                
+                // Initialize last drain time on first frame
+                if(_lastDrainTime < 0) {
+                    _lastDrainTime = currentTime;
+                }
+                
+                // Drain energy every 2 seconds
+                if(_lastDrainTime - currentTime >= 2) {
+                    var newEnergy = Mathf.Max(0f, _networkEnergy.Value - 1f);
+                    _networkEnergy.Value = newEnergy;
+                    _lastDrainTime = currentTime;
             }
         }
-
+        
         // Update effects on all clients every frame (for visual syncing)
         // Effects now only update when state actually changes; no per-frame visual polling required
 
         // Handle dissolve effect when energy is 0
-        if(_networkEnergy.Value <= 0 && !_isDissolving) {
+        if(_networkEnergy.Value <= 0 && !_isDissolving && !_awaitingRespawn) {
             _isDissolving = true;
             // Set effects scale to 0 immediately before starting dissolve
             // This ensures effects recede into the ball surface and aren't visible during dissolve
@@ -195,6 +197,13 @@ public class Hopball : NetworkBehaviour {
                 // On clients, set effects scale to 0 locally
                 SetEffectsScaleToZero();
             }
+            }
+            
+        // Smoothly interpolate display energy every frame for visual effects
+        SmoothDisplayEnergy(Time.deltaTime);
+
+        if(_awaitingRespawn) {
+            return;
         }
 
         if(_isDissolving) {
@@ -204,6 +213,13 @@ public class Hopball : NetworkBehaviour {
             meshRenderer.material.SetFloat(DissolveAmountID, DissolveAmount);
             NotifyVisualStateChanged(false);
         }
+    }
+
+    private void SmoothDisplayEnergy(float deltaTime) {
+        if(Mathf.Approximately(_displayEnergy, _networkEnergy.Value)) return;
+        _displayEnergy = Mathf.Lerp(_displayEnergy, _networkEnergy.Value,
+            1f - Mathf.Exp(-EnergySmoothing * deltaTime));
+        UpdateEffects(_displayEnergy);
     }
 
     private void UpdateEffects(float energy) {
@@ -237,7 +253,7 @@ public class Hopball : NetworkBehaviour {
 
             _isDissolving = false;
             _equippedController = controller;
-            HolderController = controller != null ? controller.GetComponent<PlayerController>() : null;
+            HolderController = controller != null ? controller.PlayerController : null;
             _lastDrainTime = -1;
         } else {
             _equippedController = null;
@@ -272,6 +288,7 @@ public class Hopball : NetworkBehaviour {
         // Ensure unparented
         transform.SetParent(null);
 
+        _awaitingRespawn = false;
         ResetToInitialState();
 
         BroadcastStateUpdate(new HopballStateUpdate {
@@ -282,8 +299,8 @@ public class Hopball : NetworkBehaviour {
             Position = position,
             Rotation = rotation
         });
-    }
-
+            }
+            
     /// <summary>
     /// Repositions the hopball at a location (for OOB handling).
     /// Retains current energy.
@@ -294,7 +311,7 @@ public class Hopball : NetworkBehaviour {
         transform.rotation = rotation;
 
         // Ensure unparented and dropped (but don't enable Target - this is a reposition, not a natural drop)
-        transform.SetParent(null);
+                    transform.SetParent(null);
         IsEquipped = false;
         IsDropped = true;
         _equippedController = null;
@@ -311,6 +328,7 @@ public class Hopball : NetworkBehaviour {
         hopballRigidbody.isKinematic = true;
         hopballRigidbody.linearVelocity = Vector3.zero;
         hopballRigidbody.angularVelocity = Vector3.zero;
+        godrayEffect.SetActive(true);
     }
 
 
@@ -340,7 +358,7 @@ public class Hopball : NetworkBehaviour {
             });
             // Don't enable target - ball is dissolving, not naturally dropped
             return;
-        }
+                }
 
         BroadcastStateUpdate(new HopballStateUpdate {
             Flags = HopballStateFlags.CleanupVisuals | HopballStateFlags.ShowRealDropped,
@@ -348,17 +366,18 @@ public class Hopball : NetworkBehaviour {
             Position = dropPosition,
             Rotation = dropRotation
         });
-    }
-
+        }
+        
     private void SetupDroppedVisuals() {
         // World model: ShadowsOnly for everyone when dropped
         // Note: FP visual is destroyed separately by HopballController
         meshRenderer.enabled = true;
         meshRenderer.shadowCastingMode = ShadowCastingMode.On;
-
+            
         // Also ensure root GameObject and all children are active
         gameObject.SetActive(true);
-    }
+        // godrayEffect.SetActive(false);
+            }
 
     // ========================================================================
     // Helper Methods
@@ -368,20 +387,20 @@ public class Hopball : NetworkBehaviour {
         ApplyHopballState(update);
         if(IsServer) {
             ApplyHopballStateClientRpc(update);
-        }
+            }
     }
 
     [ClientRpc]
     private void ApplyHopballStateClientRpc(HopballStateUpdate update) {
         if(IsServer) return; // already applied on server
         ApplyHopballState(update);
-    }
+            }
 
     private void ApplyHopballState(HopballStateUpdate update) {
         if((update.Flags & HopballStateFlags.CleanupVisuals) != 0) {
             foreach(var controller in HopballController.Instances) {
                 controller?.CleanupHopballVisuals();
-            }
+        }
         }
 
         if(update.PositionSpecified) {
@@ -428,8 +447,8 @@ public class Hopball : NetworkBehaviour {
         if(col == null) return;
         if(_ignoredPlayerColliders.Add(col)) {
             Physics.IgnoreCollision(hopballCollider, col, true);
-        }
-    }
+                }
+            }
 
     public void OnControllerUnregistered(HopballController controller) {
         var col = controller?.PlayerCollider;
@@ -451,7 +470,7 @@ public class Hopball : NetworkBehaviour {
                 if(col == null || !_ignoredPlayerColliders.Add(col)) continue;
                 Physics.IgnoreCollision(hopballCollider, col, true);
             }
-        } else {
+            } else {
             foreach(var col in _ignoredPlayerColliders) {
                 if(col != null) Physics.IgnoreCollision(hopballCollider, col, false);
             }
@@ -471,13 +490,13 @@ public class Hopball : NetworkBehaviour {
             target != null && target.enabled
         );
 
-        if(!forceBroadcast && ApproximatelyEquals(_lastBroadcastedState, state)) {
+        if(!forceBroadcast && ApproximatelyEquals(CurrentVisualState, state)) {
             return;
         }
 
-        _lastBroadcastedState = state;
+        CurrentVisualState = state;
         VisualStateChanged?.Invoke(state);
-    }
+            }
 
     private static bool ApproximatelyEquals(HopballVisualState a, HopballVisualState b) {
         const float epsilon = 0.0001f;
@@ -523,12 +542,14 @@ public class Hopball : NetworkBehaviour {
 
         // Check if we've reached completion threshold (0.99f is visually complete)
         // Once threshold is reached, clamp to 1.0 to ensure immediate completion detection
-        if(DissolveAmount >= 0.99f) {
+        if(DissolveAmount >= 0.975f) {
             DissolveAmount = 1f;
             meshRenderer.material.SetFloat(DissolveAmountID, DissolveAmount);
+                NotifyVisualStateChanged(false);
             CompleteDissolve();
-        } else {
+            } else {
             meshRenderer.material.SetFloat(DissolveAmountID, DissolveAmount);
+                NotifyVisualStateChanged(false);
         }
     }
 
@@ -546,7 +567,7 @@ public class Hopball : NetworkBehaviour {
             // Disable player Target indicator (ball dissolved, no longer holding)
             controller.DisablePlayerTargetClientRpc();
         }
-
+        
         // Clear equipped state to prevent any lingering references
         IsEquipped = false;
         _equippedController = null;
@@ -559,7 +580,7 @@ public class Hopball : NetworkBehaviour {
         // Respawn at new location (server only)
         if(IsServer && HopballSpawnManager.Instance != null) {
             HopballSpawnManager.Instance.RespawnHopballAtNewLocation();
-        }
+            }
 
         BroadcastStateUpdate(new HopballStateUpdate {
             TargetStateSpecified = true,
@@ -567,6 +588,14 @@ public class Hopball : NetworkBehaviour {
         });
 
         _isDissolving = false;
+    }
+
+    public void PrepareForRespawnDelay() {
+        _awaitingRespawn = true;
+        HideRealHopball();
+        if(target != null) {
+            target.enabled = false;
+        }
     }
 
     /// <summary>
@@ -578,15 +607,16 @@ public class Hopball : NetworkBehaviour {
         effects.gameObject.SetActive(false);
         effectLight.enabled = false;
         hopballCollider.enabled = false;
-    }
+        godrayEffect.SetActive(false);
+            }
 
     private void ShowRealHopball() {
         meshRenderer.enabled = true;
         effects.gameObject.SetActive(true);
         effectLight.enabled = true;
         hopballCollider.enabled = true;
-    }
-
+        }
+        
     /// <summary>
     /// Resets hopball to initial spawn state (full energy, no dissolve, enabled components).
     /// Called on spawn and when respawning.
@@ -596,8 +626,12 @@ public class Hopball : NetworkBehaviour {
             _networkEnergy.Value = MaxEnergy;
         }
 
+        _displayEnergy = _networkEnergy.Value;
+        UpdateEffects(_displayEnergy);
+
         DissolveAmount = 0f;
         meshRenderer.material.SetFloat(DissolveAmountID, DissolveAmount);
+        godrayEffect.SetActive(true);
 
         IsEquipped = false;
         IsDropped = false;

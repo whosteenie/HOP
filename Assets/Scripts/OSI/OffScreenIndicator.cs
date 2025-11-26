@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace OSI {
     /// <summary>
-    /// Attach the script to the off screen indicator panel.
+    /// Attach the script to the off-screen indicator panel.
     /// </summary>
     [DefaultExecutionOrder(-1)]
     public class OffScreenIndicator : MonoBehaviour {
@@ -13,7 +13,7 @@ namespace OSI {
         [SerializeField]
         private float screenBoundOffset = 0.9f;
 
-        [SerializeField] private bool updateScreenBoundsOnScreenChange = false;
+        [SerializeField] private bool updateScreenBoundsOnScreenChange;
 
         private Camera _mainCamera;
         private Vector3 _screenCentre;
@@ -40,17 +40,17 @@ namespace OSI {
         }
 
         /// <summary>
-        /// Draw the indicators on the screen and set thier position and rotation and other properties.
+        /// Draw the indicators on the screen and set their position and rotation and other properties.
         /// </summary>
         private void DrawIndicators() {
             foreach(var target in _targets) {
-            var targetPosition = target.GetWorldPosition();
-            var screenPosition =
-                OffScreenIndicatorCore.GetScreenPosition(_mainCamera, targetPosition);
+                var targetPosition = target.GetWorldPosition();
+                var screenPosition =
+                    OffScreenIndicatorCore.GetScreenPosition(_mainCamera, targetPosition);
                 var isTargetVisible = OffScreenIndicatorCore.IsTargetVisible(screenPosition);
-            var distanceFromCamera = target.NeedDistanceText
-                ? target.GetDistanceFromCamera(_mainCamera.transform.position)
-                : float.MinValue; // Gets the target distance from the camera.
+                var distanceFromCamera = target.NeedDistanceText
+                    ? target.GetDistanceFromCamera(_mainCamera.transform.position)
+                    : float.MinValue; // Gets the target distance from the camera.
                 Indicator indicator = null;
 
                 if(target.NeedBoxIndicator && isTargetVisible) {
@@ -72,13 +72,12 @@ namespace OSI {
                     }
                 }
 
-                if(indicator) {
-                    indicator.SetImageColor(target.TargetColor); // Sets the image color of the indicator.
-                    indicator.SetDistanceText(distanceFromCamera); //Set the distance text for the indicator.
-                    indicator.transform.position = screenPosition; //Sets the position of the indicator on the screen.
-                    indicator.SetTextRotation(Quaternion
-                        .identity); // Sets the rotation of the distance text of the indicator.
-                }
+                if(!indicator) continue;
+                indicator.SetImageColor(target.TargetColor); // Sets the image color of the indicator.
+                indicator.SetDistanceText(distanceFromCamera); //Set the distance text for the indicator.
+                indicator.transform.position = screenPosition; //Sets the position of the indicator on the screen.
+                indicator.SetTextRotation(Quaternion
+                    .identity); // Sets the rotation of the distance text of the indicator.
             }
         }
 
@@ -123,9 +122,9 @@ namespace OSI {
 
         /// <summary>
         /// Get the indicator for the target.
-        /// 1. If its not null and of the same required <paramref name="type"/> 
+        /// 1. If it's not null and of the same required <paramref name="type"/> 
         ///     then return the same indicator;
-        /// 2. If its not null but is of different type from <paramref name="type"/> 
+        /// 2. If it's not null but is of different type from <paramref name="type"/> 
         ///     then deactivate the old reference so that it returns to the pool 
         ///     and request one of another type from pool.
         /// 3. If its null then request one from the pool of <paramref name="type"/>.
@@ -135,19 +134,16 @@ namespace OSI {
         /// <returns></returns>
         private Indicator GetIndicator(ref Indicator indicator, IndicatorType type) {
             if(indicator != null) {
-                if(indicator.Type != type) {
-                    indicator.Activate(false);
-                    indicator = type == IndicatorType.BOX
-                        ? BoxObjectPool.Current.GetPooledObject()
-                        : ArrowObjectPool.Current.GetPooledObject();
-                    indicator.Activate(true); // Sets the indicator as active.
-                }
-            } else {
-                indicator = type == IndicatorType.BOX
-                    ? BoxObjectPool.Current.GetPooledObject()
-                    : ArrowObjectPool.Current.GetPooledObject();
-                indicator.Activate(true); // Sets the indicator as active.
+                if(indicator.Type == type) return indicator;
+                indicator.Activate(false);
+                // Sets the indicator as active.
             }
+
+            // Sets the indicator as active.
+            indicator = type == IndicatorType.BOX
+                ? BoxObjectPool.Current.GetPooledObject()
+                : ArrowObjectPool.Current.GetPooledObject();
+            indicator.Activate(true); // Sets the indicator as active.
 
             return indicator;
         }

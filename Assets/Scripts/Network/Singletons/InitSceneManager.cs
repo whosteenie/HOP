@@ -16,8 +16,6 @@ namespace Network.Singletons {
         [SerializeField]
         private float initializationDelay = 0.1f; // Small delay to ensure all Awake/OnEnable calls complete
 
-        [SerializeField] private bool useFadeTransition = true; // Whether to fade in when loading main menu
-
         [Header("Required Singletons (for validation)")]
         [SerializeField] private SessionManager sessionManager;
 

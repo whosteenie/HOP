@@ -13,26 +13,36 @@ MonoBehaviour:
   m_Name: Pistol
   m_EditorClassIdentifier: Assembly-CSharp::WeaponData
   weaponName: M1911
-  weaponPrefab: {fileID: 1694449805434718, guid: 6f1a7354265853f44b0ed5e2e43676ad, type: 3}
+  weaponPrefab: {fileID: 1694449805434718, guid: aba1ad836888bc746898d67264ba0a56, type: 3}
   weaponSlot: 1
   spawnPosition: {x: 0.245, y: -0.125, z: 0.207}
   spawnRotation: {x: 0, y: -180, z: 0}
-  fpMuzzleLocalPosition: {x: 0.0006, y: 0.0256, z: -0.1461}
+  muzzleLocalOffset: {x: 0.0006, y: 0.0256, z: -0.1461}
   worldWeaponName: M1911
-  worldMuzzleLocalPosition: {x: 0, y: 0.0251, z: -0.1497}
   fpMuzzleLightChildName: MuzzleLight
   worldMuzzleLightChildName: MuzzleLight
-  magSize: 16
-  currentAmmo: 16
+  magSize: 8
+  currentAmmo: 8
   baseDamage: 15
   maxDamageMultiplier: 3
   damageCap: 65
-  fireRate: 0.2
+  useDamageFalloff: 1
+  maxDamageRange: 20
+  minDamageRange: 60
+  minDamage: 5
+  usePelletSpread: 0
+  pelletCount: 8
+  pelletDamageMultiplier: 0.15
+  fireRate: 0.12
   fireMode: Semi
-  bulletSpread: 4
-  reloadTime: 0.8
+  bulletSpread: 0
+  reloadTime: 0.7
+  useMagReload: 1
+  perRoundReloadTime: 0.5
   sheathTime: 0.22
   drawTime: 0.25
   bulletTrail: {fileID: 328621789431213768, guid: 4b92d630cd66e7a45a83060b816bdbbe, type: 3}
   bulletImpact: {fileID: 0}
   muzzleFlashPrefab: {fileID: 6299671218319471870, guid: d13b2bf13a0548a4aa9c2cd249a35a04, type: 3}
+  shootSfx: 20
+  reloadSfx: 26

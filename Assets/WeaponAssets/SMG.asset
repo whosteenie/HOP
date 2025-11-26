@@ -12,27 +12,37 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 50d8dbcb146dde54895dd61c404ddb7e, type: 3}
   m_Name: SMG
   m_EditorClassIdentifier: Assembly-CSharp::Game.Weapons.WeaponData
-  weaponName: 
-  weaponPrefab: {fileID: 0}
-  weaponSlot: 0
-  spawnPosition: {x: 0, y: 0, z: 0}
-  spawnRotation: {x: 0, y: 0, z: 0}
-  fpMuzzleLocalPosition: {x: 0, y: 0, z: 0}
-  worldWeaponName: 
-  worldMuzzleLocalPosition: {x: 0, y: 0, z: 0}
+  weaponName: Uzi
+  weaponPrefab: {fileID: 1095254202041702, guid: 1dde2a099957d704bbc563f40d001369, type: 3}
+  weaponSlot: 1
+  spawnPosition: {x: 0.2541, y: -0.1389, z: 0.254}
+  spawnRotation: {x: 0, y: 180, z: 0}
+  muzzleLocalOffset: {x: 0, y: 0.0242, z: -0.2175}
+  worldWeaponName: Uzi
   fpMuzzleLightChildName: MuzzleLight
   worldMuzzleLightChildName: MuzzleLight
-  magSize: 0
-  currentAmmo: 0
-  baseDamage: 0
-  maxDamageMultiplier: 0
-  damageCap: 0
-  fireRate: 0
-  fireMode: 
-  bulletSpread: 0
-  reloadTime: 0
-  sheathTime: 0
-  drawTime: 0
-  bulletTrail: {fileID: 0}
+  magSize: 32
+  currentAmmo: 32
+  baseDamage: 10
+  maxDamageMultiplier: 3
+  damageCap: 35
+  useDamageFalloff: 1
+  maxDamageRange: 15
+  minDamageRange: 45
+  minDamage: 2
+  usePelletSpread: 0
+  pelletCount: 8
+  pelletDamageMultiplier: 0.15
+  fireRate: 0.1
+  fireMode: Full
+  bulletSpread: 2
+  reloadTime: 2.5
+  useMagReload: 1
+  perRoundReloadTime: 0.5
+  sheathTime: 0.22
+  drawTime: 0.22
+  bulletTrail: {fileID: 328621789431213768, guid: 4b92d630cd66e7a45a83060b816bdbbe, type: 3}
   bulletImpact: {fileID: 0}
-  muzzleFlashPrefab: {fileID: 0}
+  muzzleFlashPrefab: {fileID: 6299671218319471870, guid: d13b2bf13a0548a4aa9c2cd249a35a04, type: 3}
+  shootSfx: 22
+  reloadSfx: 28

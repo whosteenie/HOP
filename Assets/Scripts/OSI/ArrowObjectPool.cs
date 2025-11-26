@@ -47,7 +47,7 @@ namespace OSI {
         }
 
         /// <summary>
-        /// Deactive all the objects in the pool.
+        /// Deactivate all the objects in the pool.
         /// </summary>
         public void DeactivateAllPooledObjects() {
             foreach(var arrow in _pooledObjects) {

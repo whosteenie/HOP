@@ -81,7 +81,7 @@ namespace Network {
         public event Action<string> SessionJoined;
         private SessionPhase Phase { get; set; }
 
-        private List<ulong> _clientsFinishedLoading = new();
+        private readonly List<ulong> _clientsFinishedLoading = new();
         private CustomNetworkManager _customNetworkManager;
 
         private bool _hasCompletedInitialLoad; // Add to track if host has done initial load
@@ -744,9 +744,7 @@ namespace Network {
                     await SceneTransitionManager.Instance.FadeOut().ToUniTask();
                 }
 
-                if(GameMenuManager.Instance != null) {
-                    GameMenuManager.Instance.ShowInGameHudAfterPostMatch();
-                }
+                PostMatchManager.Instance?.ShowInGameHudAfterPostMatch();
 
                 // If we're the host and in gameplay, tell everyone else to fade out
                 // Note: Our own fade already completed above, so no need to wait
@@ -1218,7 +1216,7 @@ namespace Network {
             }
 
             if(mainCamera != null) {
-                var mainCameraData = mainCamera.GetComponent<UnityEngine.Rendering.Universal.UniversalAdditionalCameraData>();
+                var mainCameraData = mainCamera.GetComponent<UniversalAdditionalCameraData>();
                 if(mainCameraData != null && mainCameraData.cameraStack != null) {
                     // Remove all null/destroyed cameras from the stack
                     for(int i = mainCameraData.cameraStack.Count - 1; i >= 0; i--) {

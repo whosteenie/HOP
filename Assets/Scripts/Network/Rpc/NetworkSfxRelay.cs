@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Game.Player;
 using Network.Singletons;
@@ -6,35 +7,39 @@ using UnityEngine;
 
 namespace Network.Rpc {
     public class NetworkSfxRelay : NetworkBehaviour {
+        [SerializeField] private PlayerController playerController;
         // simple anti-spam per key
         private readonly Dictionary<SfxKey, float> _lastSent = new();
-        [SerializeField] private float walkMinInterval = 0.02f;
-        [SerializeField] private float runMinInterval = 0.01f;
+        private const float WalkMinInterval = 0.02f;
+        private const float RunMinInterval = 0.01f;
 
-        [SerializeField] private float landMinInterval = 0.01f; // Reduced for bunnyhopping - allow more frequent land sounds
+        private const float LandMinInterval = 0.01f; // Reduced for bunnyhopping - allow more frequent land sounds
 
-        [SerializeField] private float jumpMinInterval = 0.08f;
-        [SerializeField] private float reloadMinInterval = 0.10f;
-        [SerializeField] private float dryMinInterval = 0.05f;
-        [SerializeField] private float shootMinInterval = 0.01f;
-        [SerializeField] private float jumpPadMinInterval = 0.25f;
-        [SerializeField] private float grappleMinInterval = 0.10f;
-        [SerializeField] private float bulletTrailMinInterval = 0.05f;
-        [SerializeField] private PlayerController playerController;
+        private const float JumpMinInterval = 0.08f;
+        private const float ReloadMinInterval = 0.10f;
+        private const float DryMinInterval = 0.05f;
+        private const float ShootMinInterval = 0.01f;
+        private const float JumpPadMinInterval = 0.25f;
+        private const float GrappleMinInterval = 0.10f;
+        private const float BulletTrailMinInterval = 0.05f;
 
-        private float GetMinInterval(SfxKey key) => key switch {
-            SfxKey.Walk => walkMinInterval,
-            SfxKey.Run => runMinInterval,
-            SfxKey.Land => landMinInterval,
-            SfxKey.Jump => jumpMinInterval,
-            SfxKey.Reload => reloadMinInterval,
-            SfxKey.Dry => dryMinInterval,
-            SfxKey.Shoot => shootMinInterval,
-            SfxKey.JumpPad => jumpPadMinInterval,
-            SfxKey.Grapple => grappleMinInterval,
-            SfxKey.BulletTrail => bulletTrailMinInterval,
+        private static float GetMinInterval(SfxKey key) => key switch {
+            SfxKey.Walk => WalkMinInterval,
+            SfxKey.Run => RunMinInterval,
+            SfxKey.Land => LandMinInterval,
+            SfxKey.Jump => JumpMinInterval,
+            SfxKey.Reload => ReloadMinInterval,
+            SfxKey.Dry => DryMinInterval,
+            SfxKey.Shoot => ShootMinInterval,
+            SfxKey.JumpPad => JumpPadMinInterval,
+            SfxKey.Grapple => GrappleMinInterval,
+            SfxKey.BulletTrail => BulletTrailMinInterval,
             _ => 0.1f
         };
+
+        private void Awake() {
+            playerController ??= GetComponent<PlayerController>();
+        }
 
         /// <summary>
         /// Call this locally on the owner when an SFX-worthy event happens.
@@ -52,7 +57,7 @@ namespace Network.Rpc {
             // Additional velocity check for walk/run sounds (backup to PlayerController check)
             // Check horizontal velocity only - vertical velocity shouldn't affect footstep sounds
             if(key is SfxKey.Walk or SfxKey.Run) {
-                var horizontalVel = playerController.CurrentFullVelocity;
+                var horizontalVel = playerController.GetFullVelocity;
                 horizontalVel.y = 0f; // Ignore vertical velocity
                 if(horizontalVel.sqrMagnitude < 0.5f * 0.5f) { // ~0.5 m/s minimum speed
                     return;

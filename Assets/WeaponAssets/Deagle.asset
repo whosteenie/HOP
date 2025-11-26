@@ -12,27 +12,38 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 50d8dbcb146dde54895dd61c404ddb7e, type: 3}
   m_Name: Deagle
   m_EditorClassIdentifier: Assembly-CSharp::Game.Weapons.WeaponData
-  weaponName: 
-  weaponPrefab: {fileID: 0}
-  weaponSlot: 0
-  spawnPosition: {x: 0, y: 0, z: 0}
+  weaponName: Deagle
+  weaponPrefab: {fileID: 4920507860935382577, guid: 106cf48a324219547809575a632b2ac2, type: 3}
+  weaponSlot: 1
+  spawnPosition: {x: 0.355, y: -0.134, z: 0.332}
   spawnRotation: {x: 0, y: 0, z: 0}
-  fpMuzzleLocalPosition: {x: 0, y: 0, z: 0}
-  worldWeaponName: 
-  worldMuzzleLocalPosition: {x: 0, y: 0, z: 0}
+  muzzleLocalOffset: {x: 0, y: 0.0333, z: 0.2005}
+  worldWeaponName: Deagle
   fpMuzzleLightChildName: MuzzleLight
   worldMuzzleLightChildName: MuzzleLight
-  magSize: 0
-  currentAmmo: 0
-  baseDamage: 0
-  maxDamageMultiplier: 0
-  damageCap: 0
-  fireRate: 0
-  fireMode: 
+  magSize: 7
+  currentAmmo: 7
+  baseDamage: 25
+  maxDamageMultiplier: 3
+  damageCap: 100
+  useDamageFalloff: 1
+  maxDamageRange: 30
+  minDamageRange: 100
+  minDamage: 11
+  usePelletSpread: 0
+  pelletCount: 8
+  pelletDamageMultiplier: 0.15
+  fireRate: 0.19
+  fireMode: Semi
   bulletSpread: 0
-  reloadTime: 0
-  sheathTime: 0
-  drawTime: 0
-  bulletTrail: {fileID: 0}
+  useSniperOverlay: 0
+  reloadTime: 1.1
+  useMagReload: 1
+  perRoundReloadTime: 0.5
+  sheathTime: 0.22
+  drawTime: 0.22
+  bulletTrail: {fileID: 328621789431213768, guid: 4b92d630cd66e7a45a83060b816bdbbe, type: 3}
   bulletImpact: {fileID: 0}
-  muzzleFlashPrefab: {fileID: 0}
+  muzzleFlashPrefab: {fileID: 6299671218319471870, guid: d13b2bf13a0548a4aa9c2cd249a35a04, type: 3}
+  shootSfx: 21
+  reloadSfx: 27

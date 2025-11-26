@@ -59,7 +59,7 @@ namespace Network.Singletons {
             // Check if we're in Tag mode (cache the result)
             if(!_gameModeCacheValid) {
                 _cachedIsTagMode = _cachedMatchSettings != null && _cachedMatchSettings.selectedGameModeId == "Gun Tag";
-                _cachedIsTeamBased = _cachedMatchSettings != null && IsTeamBasedMode(_cachedMatchSettings.selectedGameModeId);
+                _cachedIsTeamBased = _cachedMatchSettings != null && MatchSettingsManager.IsTeamBasedMode(_cachedMatchSettings.selectedGameModeId);
                 _gameModeCacheValid = true;
             }
 
@@ -182,7 +182,7 @@ namespace Network.Singletons {
 
             // Check if this is a team-based mode
             if(!_gameModeCacheValid) {
-                _cachedIsTeamBased = _cachedMatchSettings != null && IsTeamBasedMode(_cachedMatchSettings.selectedGameModeId);
+                _cachedIsTeamBased = _cachedMatchSettings != null && MatchSettingsManager.IsTeamBasedMode(_cachedMatchSettings.selectedGameModeId);
                 _gameModeCacheValid = true;
             }
 
@@ -195,7 +195,8 @@ namespace Network.Singletons {
             var localPlayer = NetworkManager.Singleton?.LocalClient?.PlayerObject;
             if(localPlayer == null) return Color.white;
 
-            var localTeamMgr = localPlayer.GetComponent<PlayerTeamManager>();
+        var localController = localPlayer.GetComponent<PlayerController>();
+        var localTeamMgr = localController?.TeamManager;
             if(localTeamMgr == null) return Color.white;
 
             var localTeam = localTeamMgr.netTeam.Value;
@@ -208,7 +209,8 @@ namespace Network.Singletons {
             var playerObj = client.PlayerObject;
             if(playerObj == null) return Color.white;
 
-            var playerTeamMgr = playerObj.GetComponent<PlayerTeamManager>();
+        var playerController = playerObj.GetComponent<PlayerController>();
+        var playerTeamMgr = playerController?.TeamManager;
             if(playerTeamMgr == null) return Color.white;
 
             var playerTeam = playerTeamMgr.netTeam.Value;
@@ -227,15 +229,6 @@ namespace Network.Singletons {
                 return new Color(1f, 0.3f, 0.3f, 1f); // Bright red
             }
         }
-
-        private bool IsTeamBasedMode(string modeId) => modeId switch {
-            "Team Deathmatch" => true,
-            "Hopball" => true,
-            "CTF" => true,
-            "Oddball" => true,
-            "KOTH" => true,
-            _ => false
-        };
 
         private IEnumerator FadeOutKillEntry(VisualElement entry) {
             // Wait for display time

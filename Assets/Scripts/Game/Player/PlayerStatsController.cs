@@ -8,11 +8,11 @@ namespace Game.Player {
     /// </summary>
     [DefaultExecutionOrder(-90)] // Initialize after PlayerController
     public class PlayerStatsController : NetworkBehaviour {
-        [Header("References")] [SerializeField]
-        private PlayerController playerController;
+        [Header("References")]
+        [SerializeField] private PlayerController playerController;
 
-        [Header("Velocity Tracking")] [SerializeField]
-        private float velocitySampleInterval = 0.1f;
+        [Header("Velocity Tracking")]
+        [SerializeField] private float velocitySampleInterval = 0.1f;
 
         // Network variables (moved from PlayerController)
         public NetworkVariable<float> averageVelocity = new();
@@ -51,10 +51,9 @@ namespace Game.Player {
 
             // Update ping every second
             _timer += Time.deltaTime;
-            if(_timer >= 1f) {
-                _timer = 0f;
-                UpdatePing();
-            }
+            if(!(_timer >= 1f)) return;
+            _timer = 0f;
+            UpdatePing();
         }
 
         /// <summary>
@@ -65,7 +64,7 @@ namespace Game.Player {
             if(!IsOwner || playerController == null) return;
 
             // Get velocity from PlayerController
-            var velocity = playerController.CurrentFullVelocity;
+            var velocity = playerController.GetFullVelocity;
             var speed = velocity.sqrMagnitude;
             // Only track if moving at walk speed or faster
             const float walkSpeed = 5f;
@@ -75,13 +74,12 @@ namespace Game.Player {
             }
 
             _velSampleTimer += Time.deltaTime;
-            if(_velSampleTimer >= velocitySampleInterval && _velSampleCount > 0) {
-                var avg = _velSampleAccum / _velSampleCount;
-                SubmitVelocitySampleServerRpc(avg);
-                _velSampleTimer = 0f;
-                _velSampleAccum = 0f;
-                _velSampleCount = 0;
-            }
+            if(!(_velSampleTimer >= velocitySampleInterval) || _velSampleCount <= 0) return;
+            var avg = _velSampleAccum / _velSampleCount;
+            SubmitVelocitySampleServerRpc(avg);
+            _velSampleTimer = 0f;
+            _velSampleAccum = 0f;
+            _velSampleCount = 0;
         }
 
         [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Owner)]

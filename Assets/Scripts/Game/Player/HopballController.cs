@@ -13,21 +13,26 @@ namespace Game.Player {
     /// Manages weapon visibility and prevents shooting/reloading while holding the ball.
     /// </summary>
     public class HopballController : NetworkBehaviour {
+        public enum HopballDropReason {
+            Manual,
+            WeaponSwitch,
+            PlayerDeath
+        }
         private static readonly List<HopballController> InstancesInternal = new();
         public static IReadOnlyList<HopballController> Instances => InstancesInternal;
 
         [Header("References")]
         [SerializeField] private PlayerController playerController;
 
-        [SerializeField] private WeaponManager weaponManager;
-        [SerializeField] private PlayerHealthController healthController; // For worldWeaponSocket reference
-        [SerializeField] private CinemachineCamera fpCamera; // First-person camera (for FP weapon socket)
+        private WeaponManager _weaponManager;
+        private PlayerHealthController _healthController; // For worldWeaponSocket reference
+        private CinemachineCamera _fpCamera; // First-person camera (for FP weapon socket)
+        private Transform _worldWeaponSocket;
+        private Target _playerTarget; // OSI Target component on this player
+        private CharacterController _characterController;
 
-        [SerializeField]
-        private Transform worldWeaponSocket; // Third-person world weapon socket (can be found from healthController)
-
-        [SerializeField] private LayerMask hopballLayer;
-        [SerializeField] private float pickupRange = 1.5f;
+        private LayerMask _hopballLayer;
+        private const float PickupRange = 2.5f;
 
         [Header("Hopball Settings")]
         [SerializeField] private GameObject hopballVisualPrefab; // Visual-only FP hopball prefab (no state tracking)
@@ -39,75 +44,55 @@ namespace Game.Player {
         public bool IsHoldingHopball => _currentHopball != null;
         public bool IsRestoringAfterDissolve { get; private set; } // Flag to allow weapon switch after dissolve
         private Hopball _currentHopball;
-        [SerializeField] private Target playerTarget; // OSI Target component on this player
-        [SerializeField] private CharacterController characterController;
+
+        public PlayerController PlayerController => playerController;
 
         /// <summary>
         /// Clears the hopball reference. Called by Hopball when it dissolves/respawns.
         /// </summary>
         public void ClearHopballReference() {
             _currentHopball = null;
-            _hopballRigidbody = null;
         }
 
         private GameObject _currentFpWeaponInstance;
         private GameObject _currentWorldWeaponInstance;
-        private Rigidbody _hopballRigidbody;
-
+        
         // Hopball model references
         private GameObject _fpHopballVisualInstance; // Visual-only FP model (no state tracking)
         private GameObject _worldHopballVisualInstance; // Visual-only world model (parented to world weapon socket)
         private Coroutine _restoreWeaponsCoroutine; // Track restore coroutine
         public Collider PlayerCollider { get; private set; }
 
+        private readonly Collider[] _pickupHits = new Collider[10];
+
         private void Awake() {
             InitializeComponentReferences();
-            InitializeFpCamera();
-            InitializeWorldWeaponSocket();
-            InitializeHopballLayer();
             InitializePlayerCollider();
-            InitializePlayerTarget();
-        }
+            }
 
         private void InitializePlayerCollider() {
             if(PlayerCollider != null) return;
-            if(characterController == null) {
-                if(playerController != null) {
-                    characterController = playerController.GetComponent<CharacterController>();
-                } else {
-                    characterController = GetComponent<CharacterController>();
-                }
-            }
 
-            PlayerCollider = characterController;
-        }
+            PlayerCollider = _characterController;
+                }
 
         private void OnEnable() {
             if(!InstancesInternal.Contains(this)) {
                 InstancesInternal.Add(this);
             }
-
+            
             Hopball.Instance?.OnControllerRegistered(this);
-        }
+                }
 
         private void OnDisable() {
             Hopball.Instance?.OnControllerUnregistered(this);
             InstancesInternal.Remove(this);
         }
 
-        /// <summary>
-        /// Initializes the OSI Target component reference.
-        /// </summary>
-        private void InitializePlayerTarget() {
-            if(playerTarget == null) {
-                playerTarget = GetComponent<Target>();
-            }
-        }
-
-        private void OnDestroy() {
-            // Drop hopball if holding when destroyed
+        public override void OnNetworkDespawn() {
+            base.OnNetworkDespawn();
             if(IsHoldingHopball) {
-                DropHopball();
+                DropHopball(HopballDropReason.PlayerDeath);
             }
         }
 
@@ -116,16 +101,24 @@ namespace Game.Player {
         /// Returns true if a hopball was picked up.
         /// </summary>
         public void TryPickupHopball() {
-            var hitColliders = Physics.OverlapSphere(transform.position, pickupRange, hopballLayer);
-
-            foreach(var col in hitColliders) {
-                var hopball = col.GetComponent<Hopball>() ?? col.GetComponentInParent<Hopball>();
-
-                // Only pick up if hopball is not equipped, not dropped (active), and unparented
-                if(hopball != null && !hopball.IsEquipped && hopball.transform.parent == null &&
-                   hopball.gameObject.activeSelf) {
-                    EquipHopball(hopball);
-                }
+            // var colliders = Physics.OverlapSphere(transform.position, PickupRange, _hopballLayer);
+            //
+            // foreach(var col in colliders) {
+            //     var hopball = col.GetComponent<Hopball>() ?? col.GetComponentInParent<Hopball>();
+            //     if(hopball == null || hopball.IsEquipped || hopball.transform.parent != null ||
+            //        !hopball.gameObject.activeSelf) continue;
+            //     EquipHopball(hopball);
+            //     return;
+            // }
+            
+            var hitCount = Physics.OverlapSphereNonAlloc(transform.position, PickupRange, _pickupHits, _hopballLayer);
+            Debug.LogWarning("[HopballController] OverlapSphere hit count: " + hitCount);
+            for(var i = 0; i < hitCount; i++) {
+                var hopball = _pickupHits[i].GetComponent<Hopball>() ?? _pickupHits[i].GetComponentInParent<Hopball>();
+                if(hopball == null || hopball.IsEquipped || hopball.transform.parent != null ||
+                   !hopball.gameObject.activeSelf) continue;
+                EquipHopball(hopball);
+                break;
             }
         }
 
@@ -133,13 +126,14 @@ namespace Game.Player {
         /// Equips the hopball, hides FP weapons, and prevents shooting/reloading.
         /// </summary>
         private void EquipHopball(Hopball hopball) {
+            Debug.LogWarning("[HopballController] Equipping hopball: " + hopball.name);
             if(hopball == null || !IsOwner) return;
 
             _currentHopball = hopball;
-            _hopballRigidbody = hopball.Rigidbody;
+            playerController?.PlayerInput?.ForceDisableSniperOverlay(false);
 
             // Setup FP hopball visual immediately (optimistic, owner sees it right away)
-            SetupFpHopball(hopball);
+            SetupFpHopball();
 
             // Hide FP weapons locally (owner only)
             HideFpWeapons();
@@ -162,7 +156,8 @@ namespace Game.Player {
             var requestingPlayer = NetworkManager.Singleton.ConnectedClients[OwnerClientId].PlayerObject;
             if(requestingPlayer == null) return;
 
-            var controller = requestingPlayer.GetComponent<HopballController>();
+            var requestingController = requestingPlayer.GetComponent<PlayerController>();
+            var controller = requestingController?.HopballController;
             if(controller == null) return;
 
             // Server performs the equip (this will broadcast hopball state update to all clients)
@@ -186,22 +181,22 @@ namespace Game.Player {
             var hopball = networkObject.GetComponent<Hopball>();
             if(hopball == null) return;
 
-            bool isHolder = OwnerClientId == holderClientId && IsOwner;
+            var isHolder = OwnerClientId == holderClientId && IsOwner;
             var localClientId = NetworkManager.Singleton?.LocalClient?.ClientId ?? 0;
 
             // Owner: Hide world weapon and setup world hopball visual (for others to see)
             if(isHolder) {
                 HideWorldWeapon();
-                SetupWorldHopballVisual(hopball);
+                SetupWorldHopballVisual();
             }
             // Non-holders: Setup world hopball visual
             // Enable target on holder's controller only if local client is viewing it (not the holder themselves)
             else {
-                SetupWorldHopballVisual(hopball);
+                SetupWorldHopballVisual();
                 // This controller belongs to the holder, enable target so local client can see indicator
                 // Only enable if local client is NOT the holder (holder doesn't see their own indicator)
                 if(OwnerClientId == holderClientId && localClientId != holderClientId) {
-                    EnablePlayerTarget(holderClientId);
+                    EnablePlayerTarget();
                 }
             }
         }
@@ -209,32 +204,33 @@ namespace Game.Player {
         /// <summary>
         /// Enables the OSI Target for non-owners and sets team-based color.
         /// </summary>
-        private void EnablePlayerTarget(ulong holderClientId) {
-            if(playerTarget == null || IsOwner) return;
+        private void EnablePlayerTarget() {
+            if(_playerTarget == null || IsOwner) return;
 
             // Get local player's team
             var localPlayer = NetworkManager.Singleton?.LocalClient?.PlayerObject;
             if(localPlayer == null) return;
 
-            var localTeamMgr = localPlayer.GetComponent<PlayerTeamManager>();
-            var holderTeamMgr = playerController?.GetComponent<PlayerTeamManager>();
+            var localPlayerController = localPlayer.GetComponent<PlayerController>();
+            var localTeamMgr = localPlayerController?.TeamManager;
+            var holderTeamMgr = playerController?.TeamManager;
 
             if(localTeamMgr == null || holderTeamMgr == null) {
-                playerTarget.SetTargetColor(new Color(1f, 0.392f, 0.392f)); // #FF6464 - Red (default)
+                _playerTarget.SetTargetColor(new Color(1f, 0.392f, 0.392f)); // #FF6464 - Red (default)
             } else {
-                bool isTeammate = localTeamMgr.netTeam.Value == holderTeamMgr.netTeam.Value;
-                playerTarget.SetTargetColor(isTeammate
+                var isTeammate = localTeamMgr.netTeam.Value == holderTeamMgr.netTeam.Value;
+                _playerTarget.SetTargetColor(isTeammate
                     ? new Color(0.392f, 0.588f, 1f) // #6496FF - Blue
                     : new Color(1f, 0.392f, 0.392f)); // #FF6464 - Red
             }
 
-            playerTarget.enabled = true;
+            _playerTarget.enabled = true;
         }
 
         /// <summary>
         /// Sets up the first-person hopball visual (separate visual-only prefab that syncs with world hopball state).
         /// </summary>
-        private void SetupFpHopball(Hopball hopball) {
+        private void SetupFpHopball() {
             _fpHopballVisualInstance = Instantiate(hopballVisualPrefab, FindSwayHolder(), false);
             _fpHopballVisualInstance.transform.localPosition = fpEquippedLocalPosition;
             _fpHopballVisualInstance.transform.localRotation = Quaternion.identity;
@@ -249,15 +245,15 @@ namespace Game.Player {
         /// Finds the SwayHolder transform in the camera hierarchy.
         /// </summary>
         private Transform FindSwayHolder() {
-            var swayCamera = fpCamera ?? weaponManager?.FpCamera;
+            var swayCamera = _fpCamera ?? playerController?.FpCamera;
             if(swayCamera == null) return null;
 
             // Search for SwayHolder (structure: Camera -> BobHolder -> SwayHolder)
             foreach(Transform child in swayCamera.transform) {
-                if(child.name == "BobHolder") {
-                    var swayHolder = child.Find("SwayHolder");
-                    if(swayHolder != null) return swayHolder;
-                }
+                if(child.name != "BobHolder") continue;
+
+                var swayHolder = child.Find("SwayHolder");
+                if(swayHolder != null) return swayHolder;
             }
 
             // Fallback to camera if swayholder not found
@@ -267,7 +263,7 @@ namespace Game.Player {
         /// <summary>
         /// Sets shadow casting mode for all renderers in the FP visual.
         /// </summary>
-        private void SetFpVisualShadows(GameObject obj, bool castShadows) {
+        private static void SetFpVisualShadows(GameObject obj, bool castShadows) {
             var renderers = obj.GetComponentsInChildren<MeshRenderer>();
             var mode = castShadows
                 ? UnityEngine.Rendering.ShadowCastingMode.On
@@ -281,11 +277,11 @@ namespace Game.Player {
         /// Sets up the visual-only world hopball model (parented to world weapon socket).
         /// The real hopball stays unparented and hidden.
         /// </summary>
-        private void SetupWorldHopballVisual(Hopball hopball) {
-            if(worldWeaponSocket == null || hopballVisualPrefab == null) return;
+        private void SetupWorldHopballVisual() {
+            if(_worldWeaponSocket == null || hopballVisualPrefab == null) return;
 
             // Create visual-only world model (not a NetworkObject, so regular parenting works)
-            _worldHopballVisualInstance = Instantiate(hopballVisualPrefab, worldWeaponSocket, false);
+            _worldHopballVisualInstance = Instantiate(hopballVisualPrefab, _worldWeaponSocket, false);
             _worldHopballVisualInstance.transform.localPosition = worldEquippedLocalPosition;
             _worldHopballVisualInstance.transform.localRotation = Quaternion.identity;
 
@@ -299,7 +295,7 @@ namespace Game.Player {
         /// <summary>
         /// Drops the hopball, unparents it, enables physics, and restores weapons.
         /// </summary>
-        public void DropHopball() {
+        public void DropHopball(HopballDropReason reason = HopballDropReason.Manual) {
             if(_currentHopball == null || !IsOwner) return;
 
             var hopball = _currentHopball;
@@ -324,18 +320,21 @@ namespace Game.Player {
             // Request server to drop the hopball at the correct position (since hopball is server-authoritative)
             RequestDropHopballServerRpc(hopball.GetComponent<NetworkObject>(), dropPosition, dropRotation);
 
-            // Clear rigidbody reference (server will handle physics)
-            _hopballRigidbody = null;
-
-            // Restore weapons
-            ShowWeapons();
+            // Restore weapons depending on reason
+            if(reason == HopballDropReason.Manual) {
+                ShowWeapons();
+            } else {
+                // Ensure stored references are cleared so future drops don't resurrect stale objects
+                _currentFpWeaponInstance = null;
+                _currentWorldWeaponInstance = null;
+            }
         }
 
         /// <summary>
         /// Server-side method to drop the hopball at a specific position.
         /// Can be called directly from server or via ServerRpc from client.
         /// </summary>
-        private void DropHopballAtPosition(Hopball hopball, Vector3 dropPosition, Quaternion dropRotation,
+        private static void DropHopballAtPosition(Hopball hopball, Vector3 dropPosition, Quaternion dropRotation,
             ulong requestingClientId) {
             if(hopball == null || !hopball.IsEquipped) return;
 
@@ -357,14 +356,15 @@ namespace Game.Player {
             }
 
             // Notify all clients to disable the player Target (holder no longer holding ball)
-            if(NetworkManager.Singleton.ConnectedClients.TryGetValue(requestingClientId, out var client)) {
-                var requestingPlayer = client.PlayerObject;
-                if(requestingPlayer != null) {
-                    var controller = requestingPlayer.GetComponent<HopballController>();
-                    if(controller != null) {
-                        controller.DisablePlayerTargetClientRpc();
-                    }
-                }
+            if(!NetworkManager.Singleton.ConnectedClients.TryGetValue(requestingClientId, out var client)) return;
+
+            var requestingPlayer = client.PlayerObject;
+            if(requestingPlayer == null) return;
+
+            var requestingController = requestingPlayer.GetComponent<PlayerController>();
+            var controller = requestingController?.HopballController;
+            if(controller != null) {
+                controller.DisablePlayerTargetClientRpc();
             }
         }
 
@@ -400,15 +400,12 @@ namespace Game.Player {
 
             // Get drop position - use player position since server doesn't have world visual
             // Position slightly above player to prevent it from falling through ground
-            Vector3 dropPosition = transform.position + Vector3.up * 1.5f;
-            Quaternion dropRotation = transform.rotation;
+            var dropPosition = transform.position + Vector3.up * 1.5f;
+            var dropRotation = transform.rotation;
 
             // Drop directly on server (we're already on server, so call the method directly)
             DropHopballAtPosition(hopball, dropPosition, dropRotation, OwnerClientId);
-
-            // Clear rigidbody reference
-            _hopballRigidbody = null;
-
+                
             // Notify owner client to clean up visuals and restore weapons
             CleanupVisualsAndRestoreWeaponsClientRpc();
         }
@@ -424,9 +421,7 @@ namespace Game.Player {
             // Destroy visuals
             DestroyFpVisual();
             DestroyWorldVisual();
-
-            // Restore weapons
-            ShowWeapons();
+            // Do not restore weapon visuals here—death flow handles showing weapons when appropriate
         }
 
         /// <summary>
@@ -439,7 +434,6 @@ namespace Game.Player {
 
             // Clear hopball reference
             _currentHopball = null;
-            _hopballRigidbody = null;
 
             // Destroy visuals
             DestroyFpVisual();
@@ -454,8 +448,8 @@ namespace Game.Player {
         /// </summary>
         [ClientRpc]
         public void DisablePlayerTargetClientRpc() {
-            if(playerTarget != null) {
-                playerTarget.enabled = false;
+            if(_playerTarget != null) {
+                _playerTarget.enabled = false;
             }
         }
 
@@ -463,64 +457,63 @@ namespace Game.Player {
         /// Hides the FP weapon model (called locally by owner).
         /// </summary>
         private void HideFpWeapons() {
-            if(weaponManager == null) return;
+            if(_weaponManager == null) return;
 
-            var currentWeapon = weaponManager.CurrentWeapon;
+            var currentWeapon = _weaponManager.CurrentWeapon;
             if(currentWeapon == null) return;
 
-            var fpWeapon = currentWeapon.GetWeaponPrefab();
-            if(fpWeapon != null && fpWeapon.activeSelf) {
-                _currentFpWeaponInstance = fpWeapon;
-                fpWeapon.SetActive(false);
-            }
+                var fpWeapon = currentWeapon.GetWeaponPrefab();
+            if(fpWeapon == null || !fpWeapon.activeSelf) return;
+
+                    _currentFpWeaponInstance = fpWeapon;
+                    fpWeapon.SetActive(false);
         }
 
         /// <summary>
         /// Hides the world weapon model (called via RPC for owner).
         /// </summary>
         private void HideWorldWeapon() {
-            if(worldWeaponSocket == null || weaponManager == null) return;
+            if(_worldWeaponSocket == null || _weaponManager == null) return;
 
-            var currentIndex = weaponManager.CurrentWeaponIndex;
-            var weaponData = weaponManager.GetWeaponDataByIndex(currentIndex);
+            var currentIndex = _weaponManager.CurrentWeaponIndex;
+            var weaponData = _weaponManager.GetWeaponDataByIndex(currentIndex);
             if(weaponData == null || string.IsNullOrEmpty(weaponData.worldWeaponName)) return;
 
-            var worldWeapon = worldWeaponSocket.Find(weaponData.worldWeaponName);
-            if(worldWeapon != null && worldWeapon.gameObject.activeSelf) {
-                _currentWorldWeaponInstance = worldWeapon.gameObject;
-                worldWeapon.gameObject.SetActive(false);
-            }
+            var worldWeapon = _worldWeaponSocket.Find(weaponData.worldWeaponName);
+            if(worldWeapon == null || !worldWeapon.gameObject.activeSelf) return;
+
+                            _currentWorldWeaponInstance = worldWeapon.gameObject;
+                            worldWeapon.gameObject.SetActive(false);
         }
 
         /// <summary>
         /// Shows the current FP and world weapon models.
         /// </summary>
         private void ShowWeapons() {
-            // Restore FP weapon if we have a stored reference
-            if(_currentFpWeaponInstance != null) {
-                _currentFpWeaponInstance.SetActive(true);
-                _currentFpWeaponInstance = null;
+            if(_weaponManager == null) return;
+
+            // Show FP weapon for current selection
+            var currentFp = _weaponManager.GetCurrentFpWeapon();
+            if(currentFp != null && !currentFp.activeSelf) {
+                currentFp.SetActive(true);
             }
 
-            // Restore world weapon if we have a stored reference
-            if(_currentWorldWeaponInstance != null) {
-                _currentWorldWeaponInstance.SetActive(true);
-                _currentWorldWeaponInstance = null;
-            } else {
-                // Fallback: Try to find and show the current world weapon even if reference was lost
-                // This ensures the world weapon is always shown when dropping the hopball
-                if(worldWeaponSocket != null && weaponManager != null) {
-                    var currentIndex = weaponManager.CurrentWeaponIndex;
-                    var weaponData = weaponManager.GetWeaponDataByIndex(currentIndex);
-                    if(weaponData != null && !string.IsNullOrEmpty(weaponData.worldWeaponName)) {
-                        var worldWeapon = worldWeaponSocket.Find(weaponData.worldWeaponName);
-                        if(worldWeapon != null && !worldWeapon.gameObject.activeSelf) {
-                            worldWeapon.gameObject.SetActive(true);
-                        }
+            // Show world weapon for current selection
+            if(_worldWeaponSocket != null) {
+                var currentIndex = _weaponManager.CurrentWeaponIndex;
+                var weaponData = _weaponManager.GetWeaponDataByIndex(currentIndex);
+                if(weaponData != null && !string.IsNullOrEmpty(weaponData.worldWeaponName)) {
+                    var worldWeapon = _worldWeaponSocket.Find(weaponData.worldWeaponName);
+                    if(worldWeapon != null && !worldWeapon.gameObject.activeSelf) {
+                        worldWeapon.gameObject.SetActive(true);
                     }
                 }
             }
-        }
+
+            // Clear stored references (no longer needed)
+            _currentFpWeaponInstance = null;
+                _currentWorldWeaponInstance = null;
+            }
 
         // ========================================================================
         // Helper Methods
@@ -530,61 +523,14 @@ namespace Game.Player {
         /// Initializes component references with fallbacks.
         /// </summary>
         private void InitializeComponentReferences() {
-            if(playerController == null) {
-                playerController = GetComponent<PlayerController>();
-            }
-
-            if(weaponManager == null) {
-                weaponManager = GetComponent<WeaponManager>();
-            }
-
-            if(healthController == null) {
-                healthController = GetComponent<PlayerHealthController>();
-            }
-        }
-
-        /// <summary>
-        /// Initializes FP camera reference with fallbacks.
-        /// </summary>
-        private void InitializeFpCamera() {
-            if(fpCamera != null) return;
-
-            if(weaponManager != null) {
-                fpCamera = weaponManager.FpCamera;
-                if(fpCamera == null && weaponManager.WeaponCameraController != null) {
-                    fpCamera = weaponManager.WeaponCameraController.FpCamera;
-                }
-            }
-        }
-
-        /// <summary>
-        /// Initializes world weapon socket reference with fallbacks.
-        /// </summary>
-        private void InitializeWorldWeaponSocket() {
-            if(worldWeaponSocket != null) return;
-
-            if(weaponManager != null) {
-                worldWeaponSocket = weaponManager.WorldWeaponSocket;
-            }
-
-            if(worldWeaponSocket == null) {
-                worldWeaponSocket = transform.Find("WorldModelRoot/WeaponSocket")
-                                    ?? transform.Find("WorldModelRoot")?.Find("WeaponSocket");
-            }
-        }
-
-        /// <summary>
-        /// Initializes hopball layer mask if not assigned.
-        /// </summary>
-        private void InitializeHopballLayer() {
-            if(hopballLayer.value != 0) return;
-
-            int hopballLayerIndex = LayerMask.NameToLayer("Hopball");
-            if(hopballLayerIndex != -1) {
-                hopballLayer = 1 << hopballLayerIndex;
-            } else {
-                Debug.LogWarning("[HopballController] Hopball layer not found. Please ensure 'Hopball' layer exists.");
-            }
+            playerController ??= GetComponent<PlayerController>();
+            _weaponManager ??= playerController.WeaponManager;
+            _healthController ??= playerController.HealthController;
+            _fpCamera ??= playerController.FpCamera;
+            _worldWeaponSocket ??= playerController.WorldWeaponSocket;
+            _hopballLayer = playerController.HopballLayer;
+            _playerTarget ??= playerController.PlayerTarget;
+            _characterController ??= playerController.CharacterController;
         }
 
 
@@ -618,12 +564,11 @@ namespace Game.Player {
 
                 // Destroy all found FP visuals
                 foreach(var visual in childrenToDestroy) {
-                    if(visual != null) {
-                        // Disable and unparent before destroying
-                        visual.SetActive(false);
-                        visual.transform.SetParent(null);
-                        Destroy(visual);
-                    }
+                    if(visual == null) continue;
+                    // Disable and unparent before destroying
+                    visual.SetActive(false);
+                    visual.transform.SetParent(null);
+                    Destroy(visual);
                 }
             }
 
@@ -635,10 +580,9 @@ namespace Game.Player {
         /// Destroys the world visual instance if it exists.
         /// </summary>
         private void DestroyWorldVisual() {
-            if(_worldHopballVisualInstance != null) {
-                Destroy(_worldHopballVisualInstance);
-                _worldHopballVisualInstance = null;
-            }
+            if(_worldHopballVisualInstance == null) return;
+            Destroy(_worldHopballVisualInstance);
+            _worldHopballVisualInstance = null;
         }
 
         /// <summary>
@@ -646,16 +590,15 @@ namespace Game.Player {
         /// </summary>
         public void CleanupHopballVisuals() {
             // Only cleanup if we're not currently holding the ball
-            if(!IsHoldingHopball) {
-                DestroyFpVisual();
-                DestroyWorldVisual();
-            }
+            if(IsHoldingHopball) return;
+            DestroyFpVisual();
+            DestroyWorldVisual();
         }
 
         /// <summary>
         /// Recursively sets the layer of a GameObject and all its children.
         /// </summary>
-        private void SetGameObjectAndChildrenLayer(GameObject obj, int layer) {
+        private static void SetGameObjectAndChildrenLayer(GameObject obj, int layer) {
             if(obj == null) return;
             obj.layer = layer;
             foreach(Transform child in obj.transform) {
@@ -668,11 +611,11 @@ namespace Game.Player {
         /// </summary>
         public void OnPlayerDeath() {
             if(IsHoldingHopball) {
-                DropHopball();
+                DropHopball(HopballDropReason.PlayerDeath);
             } else {
                 // Even if not holding, ensure Target is disabled on death
-                if(playerTarget != null) {
-                    playerTarget.enabled = false;
+                if(_playerTarget != null) {
+                    _playerTarget.enabled = false;
                 }
             }
         }
@@ -683,21 +626,20 @@ namespace Game.Player {
         /// </summary>
         public void RestoreWeaponsAfterDissolve() {
             if(!IsOwner) return;
-
+            
             // Prevent multiple calls
             if(_restoreWeaponsCoroutine != null) return;
-
+            
             // Clear hopball state (DropHopball already does this, but ensure it's cleared)
             _currentHopball = null;
-            _hopballRigidbody = null;
-
+            
             // Ensure visuals are destroyed (may have already been destroyed by DropHopball)
             DestroyFpVisual();
             DestroyWorldVisual();
 
             // Disable OSI Target script (ball dissolved, player no longer holding)
-            if(playerTarget != null) {
-                playerTarget.enabled = false;
+            if(_playerTarget != null) {
+                _playerTarget.enabled = false;
             }
 
             // Wait a moment for dissolve effect to finish, then clear the flag to allow shooting/reloading
@@ -706,7 +648,7 @@ namespace Game.Player {
 
         private IEnumerator RestoreWeaponsAfterDelay() {
             yield return new WaitForSeconds(0.3f);
-
+            
             // Ensure FP visual is destroyed (double-check)
             DestroyFpVisual();
 

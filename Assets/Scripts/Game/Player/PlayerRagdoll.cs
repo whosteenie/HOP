@@ -1,15 +1,17 @@
+using System.Linq;
 using Unity.Netcode;
 using UnityEngine;
 
 namespace Game.Player {
     public class PlayerRagdoll : NetworkBehaviour {
         [Header("References")]
-        [SerializeField] private Animator animator;
+        [SerializeField] private PlayerController playerController;
 
-        [SerializeField] private CharacterController characterController;
+        private CharacterController _characterController;
+        private Animator _playerAnimator;
 
         [Header("Ragdoll Settings")]
-        [SerializeField] private float ragdollForce = 60f;
+        private const float RagdollForce = 60f;
 
         [Header("Ragdoll Force Target")]
         [Tooltip("Rigidbody to apply ragdoll force to (typically the chest/spine/torso).")]
@@ -22,14 +24,20 @@ namespace Game.Player {
         private Rigidbody[] _ragdollRigidbodies;
         private CharacterJoint[] _ragdollJoints;
         private Collider[] _ragdollColliders;
-        private bool _isRagdoll;
         private Vector3 _hitPoint;
         private Vector3 _hitDir;
 
         /// <summary>
         /// Returns whether the player is currently in ragdoll state.
         /// </summary>
-        public bool IsRagdoll => _isRagdoll;
+        public bool IsRagdoll { get; private set; }
+
+        private void Awake() {
+            playerController ??= GetComponent<PlayerController>();
+            
+            _characterController ??= playerController.CharacterController;
+            _playerAnimator ??= playerController.PlayerAnimator;
+        }
 
         public override void OnNetworkSpawn() {
             base.OnNetworkSpawn();
@@ -58,31 +66,30 @@ namespace Game.Player {
         }
 
         public void EnableRagdoll(Vector3? hitPoint = null, Vector3? hitDirection = null, string bodyPartTag = null) {
-            if(_isRagdoll) return;
-            _isRagdoll = true;
+            if(IsRagdoll) return;
+            IsRagdoll = true;
 
-            characterController.enabled = false;
-            animator.enabled = false;
+            _characterController.enabled = false;
+            _playerAnimator.enabled = false;
             EnableRagdollPhysics();
 
-            if(hitPoint.HasValue && hitDirection.HasValue) {
-                _hitPoint = hitPoint.Value;
-                _hitDir = hitDirection.Value;
-                ApplyHitForce(bodyPartTag);
-            }
+            if(!hitPoint.HasValue || !hitDirection.HasValue) return;
+            _hitPoint = hitPoint.Value;
+            _hitDir = hitDirection.Value;
+            ApplyHitForce(bodyPartTag);
         }
 
         private void ApplyHitForce(string bodyPartTag = null) {
             // Always apply force to chest/torso for consistent, predictable ragdoll behavior
             // bodyPartTag is still used for headshot damage calculation, just not for force direction
             if(chestRigidbody != null) {
-                chestRigidbody.AddForce(_hitDir * ragdollForce, ForceMode.Impulse);
+                chestRigidbody.AddForce(_hitDir * RagdollForce, ForceMode.Impulse);
             } else {
                 // Fallback if not assigned (shouldn't happen if inspector is set up correctly)
                 Debug.LogWarning("[PlayerRagdoll] Chest rigidbody not assigned, using closest rigidbody as fallback.");
                 var fallback = GetClosestRigidbody(_hitPoint);
                 if(fallback != null) {
-                    fallback.AddForce(_hitDir * ragdollForce, ForceMode.Impulse);
+                    fallback.AddForce(_hitDir * RagdollForce, ForceMode.Impulse);
                 }
             }
         }
@@ -90,13 +97,8 @@ namespace Game.Player {
         /// <summary>
         /// Gets a rigidbody by its GameObject tag (e.g., "Head" for headshots).
         /// </summary>
-        private Rigidbody GetRigidbodyByTag(string tag) {
-            foreach(var rb in _ragdollRigidbodies) {
-                if(rb != null && rb.CompareTag(tag)) {
-                    return rb;
-                }
-            }
-            return null;
+        private Rigidbody GetRigidbodyByTag(string rbTag) {
+            return _ragdollRigidbodies.FirstOrDefault(rb => rb != null && rb.CompareTag(rbTag));
         }
 
         private Rigidbody GetClosestRigidbody(Vector3 point) {
@@ -105,24 +107,23 @@ namespace Game.Player {
             foreach(var rb in _ragdollRigidbodies) {
                 if(rb == null) continue;
                 var d = Vector3.Distance(rb.worldCenterOfMass, point);
-                if(d < bestDist) {
-                    bestDist = d;
-                    closest = rb;
-                }
+                if(!(d < bestDist)) continue;
+                bestDist = d;
+                closest = rb;
             }
 
             return closest;
         }
 
         public void DisableRagdoll() {
-            if(!_isRagdoll) return;
-            _isRagdoll = false;
+            if(!IsRagdoll) return;
+            IsRagdoll = false;
 
             // CancelInvoke();
             DisableRagdollPhysics();
 
-            characterController.enabled = true;
-            animator.enabled = true;
+            _characterController.enabled = true;
+            _playerAnimator.enabled = true;
             
             // Ensure colliders are enabled for hit detection after disabling ragdoll
             EnableCollidersForHitDetection();
@@ -173,7 +174,7 @@ namespace Game.Player {
         /// Enables ragdoll colliders for hit detection (raycasts).
         /// Colliders remain enabled even when ragdoll is disabled so bullets can hit them.
         /// </summary>
-        public void EnableCollidersForHitDetection() {
+        private void EnableCollidersForHitDetection() {
             if(_ragdollColliders == null) return;
             
             foreach(var col in _ragdollColliders) {
@@ -194,14 +195,14 @@ namespace Game.Player {
                 return;
             }
 
-            int enemyLayer = LayerMask.NameToLayer("Enemy");
+            var enemyLayer = LayerMask.NameToLayer("Enemy");
             if(enemyLayer == -1) {
                 Debug.LogWarning("[PlayerRagdoll] Enemy layer not found. Make sure 'Enemy' layer exists in project settings.");
                 return;
             }
 
             // Get base GameObject (the one with CharacterController)
-            GameObject baseGameObject = characterController != null ? characterController.gameObject : gameObject;
+            var baseGameObject = _characterController != null ? _characterController.gameObject : gameObject;
 
             // Set rigidbody GameObjects to Enemy layer (excluding base GameObject)
             foreach(var rb in _ragdollRigidbodies) {

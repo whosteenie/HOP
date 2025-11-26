@@ -150,7 +150,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::InitSceneManager
   mainMenuSceneName: MainMenu
   initializationDelay: 0.1
-  useFadeTransition: 1
   sessionManager: {fileID: 4402361108633043761}
   sceneTransitionManager: {fileID: 771809372539791604}
   soundFXManager: {fileID: 6068900991373866435}
@@ -232,7 +231,6 @@ MonoBehaviour:
   transitionDocument: {fileID: 7683252449321787176}
   fadeDuration: 0.5
   musicFadeDuration: 1.5
-  respawnHoldDuration: 0.5
 --- !u!114 &1266242196255774367
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -543,12 +541,6 @@ MonoBehaviour:
   - {fileID: 8300000, guid: 0a5e879be76ab5a4597984f9df76cfbe, type: 3}
   - {fileID: 8300000, guid: 27ac925e5460c3c4ab37249341d83339, type: 3}
   - {fileID: 8300000, guid: bf8036a7fc21ce94c94a5c281cc2eee4, type: 3}
-  reloadClips:
-  - {fileID: 8300000, guid: 574a6ed5942cbdd4ea0db841211831a8, type: 3}
-  dryClips:
-  - {fileID: 8300000, guid: 42c9c1419a4a71a46a90618586c14bf7, type: 3}
-  shootClips:
-  - {fileID: 8300000, guid: a1c9c05b081ba984fa4fe79680faa247, type: 3}
   jumpPadClips:
   - {fileID: 8300000, guid: 3970946040ff21a4780ae7aa7d33d6ce, type: 3}
   grappleClips:
@@ -559,6 +551,36 @@ MonoBehaviour:
   bulletTrailClips: []
   hopballSpawnClips:
   - {fileID: 8300000, guid: dcf85d8a9a995314b9da98355d126f22, type: 3}
+  reloadClips:
+  - {fileID: 8300000, guid: 574a6ed5942cbdd4ea0db841211831a8, type: 3}
+  dryClips:
+  - {fileID: 8300000, guid: 42c9c1419a4a71a46a90618586c14bf7, type: 3}
+  shootClips:
+  - {fileID: 8300000, guid: a1c9c05b081ba984fa4fe79680faa247, type: 3}
+  shootPistolClips:
+  - {fileID: 8300000, guid: 4ce8eadde5b52474882c032d4434907d, type: 3}
+  shootDeagleClips:
+  - {fileID: 8300000, guid: 24816ce84419ad6438ff2a4197416aa7, type: 3}
+  shootSmgClips:
+  - {fileID: 8300000, guid: eb8fbcbccf535e24bb57ad2a61e54669, type: 3}
+  shootRifleClips:
+  - {fileID: 8300000, guid: a1c9c05b081ba984fa4fe79680faa247, type: 3}
+  shootShotgunClips:
+  - {fileID: 8300000, guid: 6f7bd67b0ff50b74ba08684c7ea2c4f4, type: 3}
+  shootSniperClips:
+  - {fileID: 8300000, guid: ca55a775d2b6fea49ab183292a1f4fb1, type: 3}
+  reloadPistolClips:
+  - {fileID: 8300000, guid: cc3333af4b2050c4a88e450f22d62253, type: 3}
+  reloadDeagleClips:
+  - {fileID: 8300000, guid: 0cc7b3eeb7581ee489d1c70c5dfc301f, type: 3}
+  reloadSmgClips:
+  - {fileID: 8300000, guid: 1251efeb85d375f499fb6caafa842995, type: 3}
+  reloadRifleClips:
+  - {fileID: 8300000, guid: 574a6ed5942cbdd4ea0db841211831a8, type: 3}
+  reloadShotgunClips:
+  - {fileID: 8300000, guid: 996b34f1ea26e634888b8b941099ac1e, type: 3}
+  reloadSniperClips:
+  - {fileID: 8300000, guid: 6b20fa323bdf57941be92bac51754b5b, type: 3}
   buttonClickClips:
   - {fileID: 8300000, guid: 0147746136178ab4584e12c810978362, type: 3}
   buttonHoverClips:
@@ -582,6 +604,8 @@ MonoBehaviour:
   - {fileID: 8300000, guid: ac7ae59ca58b6f74c8ca6d884ed597a4, type: 3}
   taggingClips:
   - {fileID: 8300000, guid: 4d1e7b7c9293af14e9115e96a9d46722, type: 3}
+  sniperZoomClips:
+  - {fileID: 8300000, guid: 5a5a0177034a9b841bf8d6ed7b1a8926, type: 3}
   walkMaxDistance: 25
   runMaxDistance: 40
   jumpMaxDistance: 25

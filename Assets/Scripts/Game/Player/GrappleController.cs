@@ -4,39 +4,35 @@ using Network.Singletons;
 using Unity.Cinemachine;
 using Unity.Netcode;
 using UnityEngine;
-using UnityEngine.Serialization;
 
 namespace Game.Player {
     public class GrappleController : NetworkBehaviour {
-        [Header("Grapple Settings")] [SerializeField]
-        private float maxGrappleDistance = 50f;
-
-        [SerializeField] private float grappleSpeed = 30f;
-        [SerializeField] private float grappleDuration = 0.5f;
-        [SerializeField] private float grappleCooldown = 1.3f;
-        [SerializeField] private float taggedPlayerCooldown = 1.0f; // Lower cooldown for tagged players in Gun Tag mode
-        [SerializeField] private LayerMask grappleableLayers;
-
-        [Header("Momentum Settings")] [SerializeField]
-        private bool preserveMomentum = true;
-
-        [SerializeField] private float momentumBoost = 1.2f; // Multiplier for final velocity
-
-        [Header("Components")] [SerializeField]
-        private CinemachineCamera fpCamera;
-
-        [SerializeField] private Transform grappleOriginTp;
-        [SerializeField] private CharacterController characterController;
+        [Header("Components")]
         [SerializeField] private PlayerController playerController;
-        [SerializeField] private PlayerTagController tagController; // For checking if player is tagged in Gun Tag mode
+        private CinemachineCamera _fpCamera;
+        private CharacterController _characterController;
+        private PlayerTagController _tagController; // For checking if player is tagged in Gun Tag mode
+        private NetworkSfxRelay _sfxRelay;
+        private LayerMask _playerLayer;
+        [SerializeField] private Transform grappleOriginTp;
         [SerializeField] private LineRenderer grappleLine;
-        [SerializeField] private NetworkSfxRelay sfxRelay;
-        [SerializeField] private LayerMask playerLayer;
-        [SerializeField] private SwingGrapple swingGrapple;
+        // [SerializeField] private SwingGrapple swingGrapple;
 
-        [Header("Visual Settings")] [SerializeField]
-        private float lineWidth = 0.05f;
+        [Header("Grapple Settings")]
+        private const float MaxGrappleDistance = 50f;
 
+        private const float GrappleSpeed = 30f;
+        private const float GrappleDuration = 0.5f;
+        private const float GrappleCooldown = 1.3f;
+        private const float TaggedPlayerCooldown = 1.0f; // Lower cooldown for tagged players in Gun Tag mode
+        private LayerMask _grappleableLayers;
+
+        [Header("Momentum Settings")]
+        private const bool PreserveMomentum = true;
+        private const float MomentumBoost = 1.2f; // Multiplier for final velocity
+
+        [Header("Visual Settings")]
+        [SerializeField] private float lineWidth = 0.05f;
         [SerializeField] private Color grappleColor = new Color(0.2f, 0.8f, 1f);
         [SerializeField] private Material lineMaterial;
 
@@ -63,32 +59,43 @@ namespace Game.Player {
                 return Mathf.Clamp01(elapsed / currentCooldown);
             }
         }
-        
+
         /// <summary>
         /// Gets the current grapple cooldown based on whether the player is tagged in Gun Tag mode.
         /// </summary>
         private float GetCurrentCooldown() {
             // Check if we're in Gun Tag mode and player is tagged
             var matchSettings = MatchSettingsManager.Instance;
-            bool isTagMode = matchSettings != null && matchSettings.selectedGameModeId == "Gun Tag";
-            
-            if(isTagMode && tagController != null && tagController.isTagged.Value) {
-                return taggedPlayerCooldown;
+            var isTagMode = matchSettings != null && matchSettings.selectedGameModeId == "Gun Tag";
+
+            if(isTagMode && _tagController != null && _tagController.isTagged.Value) {
+                return TaggedPlayerCooldown;
             }
-            
-            return grappleCooldown;
+
+            return GrappleCooldown;
         }
 
         #endregion
 
-        private NetworkVariable<bool> _netIsGrappling = new();
-        private NetworkVariable<Vector3> _netGrapplePoint = new();
-        
+        private readonly NetworkVariable<bool> _netIsGrappling = new();
+        private readonly NetworkVariable<Vector3> _netGrapplePoint = new();
+
         // Throttling for network updates (at 90Hz: 3 ticks = ~33ms)
         private float _lastGrappleUpdateTime;
         private const float GrappleUpdateInterval = 0.033f; // ~3 ticks at 90Hz
 
         #region Unity Lifecycle
+
+        private void Awake() {
+            playerController ??= GetComponent<PlayerController>();
+
+            _fpCamera ??= playerController.FpCamera;
+            _characterController ??= playerController.CharacterController;
+            _tagController ??= playerController.TagController;
+            _sfxRelay ??= playerController.SfxRelay;
+            _playerLayer = playerController.PlayerLayer;
+            _grappleableLayers = playerController.WorldLayer;
+        }
 
         public override void OnNetworkSpawn() {
             base.OnNetworkSpawn();
@@ -103,25 +110,22 @@ namespace Game.Player {
         }
 
         private void Start() {
-            // if(IsOwner && GrappleUIManager.Instance != null) {
-            //     GrappleUIManager.Instance.GrappleController = this;
-            // }
-
             SetupGrappleLine();
         }
 
         private void Update() {
-            if(!IsOwner && _netIsGrappling.Value) {
-                // Non-owners: update line position every frame while grappling
-                if(grappleLine != null) {
+            switch(IsOwner) {
+                case false when _netIsGrappling.Value: {
+                    // Non-owners: update line position every frame while grappling
+                    if(grappleLine == null) return;
                     grappleLine.SetPosition(0, grappleOriginTp.position);
                     grappleLine.SetPosition(1, _netGrapplePoint.Value);
+
+                    return;
                 }
-
-                return;
+                case false:
+                    return;
             }
-
-            if(!IsOwner) return;
 
             if(IsGrappling) {
                 UpdateGrapple();
@@ -134,21 +138,20 @@ namespace Game.Player {
 
         public void TriggerCooldown() {
             if(!CanGrapple) return; // Already on cooldown
-            StartCoroutine(GrappleCooldown());
+            StartCoroutine(StartGrappleCooldown());
         }
 
         [Rpc(SendTo.Server)]
         private void UpdateGrappleServerRpc(bool isGrappling, Vector3 grapplePoint) {
             // Throttle network updates - only send if enough time has passed or state changed
-            bool shouldUpdate = Time.time - _lastGrappleUpdateTime >= GrappleUpdateInterval ||
+            var shouldUpdate = Time.time - _lastGrappleUpdateTime >= GrappleUpdateInterval ||
                                _netIsGrappling.Value != isGrappling ||
                                Vector3.Distance(_netGrapplePoint.Value, grapplePoint) > 0.1f;
-            
-            if(shouldUpdate) {
-                _netIsGrappling.Value = isGrappling;
-                _netGrapplePoint.Value = grapplePoint;
-                _lastGrappleUpdateTime = Time.time;
-            }
+
+            if(!shouldUpdate) return;
+            _netIsGrappling.Value = isGrappling;
+            _netGrapplePoint.Value = grapplePoint;
+            _lastGrappleUpdateTime = Time.time;
         }
 
         // Called on all clients when grapple state changes
@@ -169,10 +172,9 @@ namespace Game.Player {
 
             grappleLine.enabled = isGrappling;
 
-            if(isGrappling) {
-                grappleLine.SetPosition(0, _grappleStartPosition);
-                grappleLine.SetPosition(1, targetPoint);
-            }
+            if(!isGrappling) return;
+            grappleLine.SetPosition(0, _grappleStartPosition);
+            grappleLine.SetPosition(1, targetPoint);
         }
 
         #region Setup
@@ -205,9 +207,9 @@ namespace Game.Player {
             if(!CanGrapple || IsGrappling) return;
 
             // Raycast from camera to find grapple point
-            var ray = new Ray(fpCamera.transform.position, fpCamera.transform.forward);
+            var ray = new Ray(_fpCamera.transform.position, _fpCamera.transform.forward);
 
-            if(Physics.Raycast(ray, out var hit, maxGrappleDistance, grappleableLayers)) {
+            if(Physics.Raycast(ray, out var hit, MaxGrappleDistance, _grappleableLayers)) {
                 StartGrapple(hit.point);
             }
         }
@@ -235,8 +237,8 @@ namespace Game.Player {
             // Enable visual
             grappleLine.enabled = true;
 
-            if(sfxRelay != null && IsOwner) {
-                sfxRelay?.RequestWorldSfx(SfxKey.Grapple, attachToSelf: true, true);
+            if(_sfxRelay != null && IsOwner) {
+                _sfxRelay?.RequestWorldSfx(SfxKey.Grapple, attachToSelf: true, true);
             }
         }
 
@@ -244,7 +246,7 @@ namespace Game.Player {
             var elapsed = Time.time - _grappleStartTime;
 
             // Check if grapple duration exceeded
-            if(elapsed >= grappleDuration) {
+            if(elapsed >= GrappleDuration) {
                 EndGrapple(true);
                 return;
             }
@@ -260,23 +262,23 @@ namespace Game.Player {
             }
 
             // Check if character controller is active (prevents errors during mantling, respawn, etc.)
-            if(characterController == null || !characterController.enabled) {
+            if(_characterController == null || !_characterController.enabled) {
                 EndGrapple(false);
                 return;
             }
 
             // Check for walls in the direction we're moving
-            var pullVelocity = directionToPoint * grappleSpeed;
+            var pullVelocity = directionToPoint * GrappleSpeed;
             var checkDistance = pullVelocity.magnitude * Time.deltaTime * 3f; // Check slightly ahead
-            if(Physics.SphereCast(transform.position, characterController.radius, directionToPoint, out var hit,
-                   checkDistance, ~playerLayer)) {
+            if(Physics.SphereCast(transform.position, _characterController.radius, directionToPoint, out _,
+                   checkDistance, ~_playerLayer)) {
                 // We're about to hit something, end grapple early
                 EndGrapple(true);
                 return;
             }
 
             // Apply movement
-            characterController.Move(pullVelocity * Time.deltaTime);
+            _characterController.Move(pullVelocity * Time.deltaTime);
         }
 
         private void EndGrapple(bool applyMomentum) {
@@ -286,10 +288,10 @@ namespace Game.Player {
 
             // grappleLine.enabled = false;
 
-            if(applyMomentum && preserveMomentum) {
+            if(applyMomentum && PreserveMomentum) {
                 // Calculate final momentum direction
                 var directionToPoint = (_grapplePoint - transform.position).normalized;
-                var finalVelocity = grappleSpeed * momentumBoost * directionToPoint;
+                var finalVelocity = GrappleSpeed * MomentumBoost * directionToPoint;
 
                 // Apply momentum to FpController
                 if(playerController != null) {
@@ -305,7 +307,7 @@ namespace Game.Player {
             }
 
             // Start cooldown
-            StartCoroutine(GrappleCooldown());
+            StartCoroutine(StartGrappleCooldown());
         }
 
         private IEnumerator DisableLineAfterDelay(float delay) {
@@ -315,7 +317,7 @@ namespace Game.Player {
             grappleLine.enabled = false;
         }
 
-        private IEnumerator GrappleCooldown() {
+        private IEnumerator StartGrappleCooldown() {
             CanGrapple = false;
             _cooldownStartTime = Time.time;
             var currentCooldown = GetCurrentCooldown();
@@ -327,8 +329,8 @@ namespace Game.Player {
             if(!grappleLine.enabled) return;
 
             // Update line positions (from hand/weapon to grapple point)
-            var handPosition = fpCamera.transform.position - fpCamera.transform.right * 0.3f -
-                               fpCamera.transform.up * 0.2f;
+            var handPosition = _fpCamera.transform.position - _fpCamera.transform.right * 0.3f -
+                               _fpCamera.transform.up * 0.2f;
 
             grappleLine.SetPosition(0, handPosition);
             grappleLine.SetPosition(1, _grapplePoint);

@@ -10,7 +10,6 @@ namespace Network.Singletons {
         [SerializeField] private UIDocument transitionDocument;
         [SerializeField] private float fadeDuration = 0.5f;
         [SerializeField] private float musicFadeDuration = 1.5f; // Slightly longer for smooth music fade
-        [SerializeField] private float respawnHoldDuration = 0.5f; // How long to hold on black screen during respawn
 
         private VisualElement _transitionOverlay;
         private VisualElement _respawnFadeOverlay; // Separate overlay for respawn fades (from GameMenu)
@@ -188,12 +187,9 @@ namespace Network.Singletons {
             var duration = customDuration ?? fadeDuration;
 
             // Set fade color if provided (otherwise uses default black from CSS)
-            if(!string.IsNullOrEmpty(fadeColor)) {
-                _transitionOverlay.style.backgroundColor = new StyleColor(ParseColor(fadeColor));
-            } else {
+            _transitionOverlay.style.backgroundColor = !string.IsNullOrEmpty(fadeColor) ? new StyleColor(ParseColor(fadeColor)) :
                 // Reset to black (default)
-                _transitionOverlay.style.backgroundColor = new StyleColor(new Color(0, 0, 0, 1));
-            }
+                new StyleColor(new Color(0, 0, 0, 1));
 
             yield return new WaitForSeconds(0.1f); // Small delay for scene to settle
 

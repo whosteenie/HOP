@@ -44,5 +44,28 @@ namespace Network.Singletons {
         public int GetPreMatchCountdownSeconds() {
             return preMatchCountdownSeconds > 0 ? preMatchCountdownSeconds : 5;
         }
+
+        /// <summary>
+        /// Check if a game mode is team-based.
+        /// </summary>
+        /// <param name="modeId">The game mode identifier (e.g., "Team Deathmatch", "Deathmatch")</param>
+        /// <returns>True if the mode is team-based, false otherwise</returns>
+        public static bool IsTeamBasedMode(string modeId) => modeId switch {
+            "Team Deathmatch" => true,
+            "Hopball" => true,
+            "CTF" => true,
+            "Oddball" => true,
+            "KOTH" => true,
+            // Add more team modes here
+            _ => false // Deathmatch, Private Match, Gun Tag, etc. are FFA
+        };
+
+        /// <summary>
+        /// Check if the current game mode (from this instance) is team-based.
+        /// </summary>
+        /// <returns>True if the current mode is team-based, false otherwise</returns>
+        public bool IsCurrentModeTeamBased() {
+            return IsTeamBasedMode(selectedGameModeId);
+        }
     }
 }

@@ -62,8 +62,8 @@ ModelImporter:
       bodyMask: 01000000010000000100000001000000010000000100000001000000010000000100000001000000010000000100000001000000
       curves: []
       events:
-      - time: 0.5695238
-        functionName: WeaponUnsheatheShowFpModel
+      - time: 0.5845411
+        functionName: ShowTpWeapon
         data: 
         objectReferenceParameter: {instanceID: 0}
         floatParameter: 0

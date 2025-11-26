@@ -101,7 +101,7 @@ namespace Game.Player {
         private void StartSwing(Vector3 point) {
             swingPoint = point;
             ropeLength = Vector3.Distance(transform.position, swingPoint);
-            currentVelocity = playerController.CurrentFullVelocity;
+            currentVelocity = playerController.GetFullVelocity;
 
             IsSwinging = true;
             ropeRenderer.enabled = true;

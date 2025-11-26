@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using Game.Weapons;
@@ -6,16 +7,18 @@ using UnityEngine;
 
 namespace Game.Player {
     public class SpeedTrail : NetworkBehaviour {
-        [Header("Refs")] [SerializeField] private PlayerController controller; // assign in inspector or auto-find
-        [SerializeField] private SkinnedMeshRenderer playerMesh; // WORLD/3P mesh (not FP arms)
-        [SerializeField] private DeathCamera deathCamera; // Used to check if death cam is active
+        [Header("References")]
+        [SerializeField] private PlayerController playerController; // assign in inspector or auto-find
 
-        [Header("Afterimage Settings")] [SerializeField]
-        private float minMultiplierForTrail = 1.5f;
+        private SkinnedMeshRenderer _playerMesh; // WORLD/3P mesh (not FP arms)
+        private DeathCameraController _deathCameraController; // Used to check if death cam is active
 
-        [SerializeField] private float spawnInterval = 0.05f;
-        [SerializeField] private float ghostLifetime = 0.30f;
-        [SerializeField] private float spawnOffset = 0.5f;
+        [Header("Afterimage Settings")]
+        private const float MinMultiplierForTrail = 1.5f;
+
+        private const float SpawnInterval = 0.05f;
+        private const float GhostLifetime = 0.30f;
+        private const float SpawnOffset = 0.5f;
         [SerializeField] private Material ghostMaterial;
         [SerializeField] private Color trailColor = new(0.3f, 0.7f, 1f, 0.5f);
 
@@ -38,49 +41,56 @@ namespace Game.Player {
         private float _lastSpawnTime;
         private readonly Queue<GameObject> _ghostPool = new();
         private const int PoolSize = 20;
-        
+
         // Cache WeaponManager reference to prevent GetComponent allocations
         private WeaponManager _cachedWeaponManager;
 
         // Material pool to avoid creating new materials every spawn
         private readonly Queue<Material> _materialPool = new();
         private const int MaterialPoolSize = 20;
-        
+
         // Track active fade coroutines so we can stop them when clearing trails
         private readonly List<Coroutine> _activeFadeCoroutines = new();
+
+        private void Awake() {
+            playerController ??= GetComponent<PlayerController>();
+            
+            _deathCameraController ??= playerController.DeathCameraController;
+            _playerMesh ??= playerController.PlayerMesh;
+        }
 
         public override void OnNetworkSpawn() {
             base.OnNetworkSpawn();
 
             // Auto-find controller if not assigned
-            if(controller == null) {
-                controller = GetComponent<PlayerController>();
-                if(controller == null) {
-                    controller = GetComponentInParent<PlayerController>();
+            if(playerController == null) {
+                playerController = GetComponent<PlayerController>();
+                if(playerController == null) {
+                    playerController = GetComponentInParent<PlayerController>();
                 }
             }
 
             // Auto-find player mesh if not assigned
-            if(playerMesh == null) {
-                playerMesh = GetComponentInChildren<SkinnedMeshRenderer>();
+            if(_playerMesh == null) {
+                _playerMesh = GetComponentInChildren<SkinnedMeshRenderer>();
             }
-            
+
             // Auto-find death camera if not assigned
-            if(deathCamera == null) {
-                deathCamera = GetComponent<DeathCamera>();
-                if(deathCamera == null && controller != null) {
-                    deathCamera = controller.GetComponent<DeathCamera>();
+            if(_deathCameraController == null) {
+                _deathCameraController = GetComponent<DeathCameraController>();
+                if(_deathCameraController == null && playerController != null) {
+                    _deathCameraController = playerController.GetComponent<DeathCameraController>();
                 }
             }
-            
+
             // Cache WeaponManager reference to prevent GetComponent allocations in Update
-            if(controller != null) {
-                _cachedWeaponManager = controller.GetComponent<WeaponManager>();
+            if(playerController != null) {
+                _cachedWeaponManager = playerController.WeaponManager;
             }
 
             if(ghostMaterial == null) CreateGhostMaterial();
             for(var i = 0; i < PoolSize; i++) CreateGhost();
-            
+
             // Pre-populate material pool
             for(var i = 0; i < MaterialPoolSize; i++) {
                 var mat = CreatePooledMaterial();
@@ -93,7 +103,7 @@ namespace Game.Player {
             // For non-owners: always spawn trails (if enabled)
             if(IsOwner) {
                 // Owner: only spawn trails when dead
-                if(controller == null || controller.netIsDead == null || !controller.netIsDead.Value) {
+                if(playerController == null || !playerController.IsDead) {
                     return;
                 }
             }
@@ -101,15 +111,15 @@ namespace Game.Player {
             // Check if player trails are enabled in settings
             if(PlayerPrefs.GetInt("PlayerTrails", 1) == 0) return;
 
-            if(!playerMesh || !controller) return;
+            if(!_playerMesh || !playerController) return;
 
             // Get the actual damage multiplier from the Weapon component
             // This matches the same calculation used in Weapon.UpdateDamageMultiplier()
             // Use cached WeaponManager reference to prevent GetComponent allocations
-            if(_cachedWeaponManager == null && controller != null) {
-                _cachedWeaponManager = controller.GetComponent<WeaponManager>();
+            if(_cachedWeaponManager == null && playerController != null) {
+                _cachedWeaponManager = playerController.WeaponManager;
             }
-            
+
             if(_cachedWeaponManager == null || _cachedWeaponManager.CurrentWeapon == null) return;
 
             var weapon = _cachedWeaponManager.CurrentWeapon;
@@ -117,13 +127,13 @@ namespace Game.Player {
             var currentMultiplier = weapon.netCurrentDamageMultiplier.Value;
 
             // Only spawn trails when multiplier is at least the minimum threshold
-            if(currentMultiplier < minMultiplierForTrail) {
+            if(currentMultiplier < MinMultiplierForTrail) {
                 return;
             }
 
             // Faster -> more frequent (based on multiplier, not speed)
-            var speedFactor = Mathf.InverseLerp(minMultiplierForTrail, 3f, currentMultiplier);
-            var adjustedInterval = Mathf.Lerp(spawnInterval * 2f, spawnInterval * 0.5f, speedFactor);
+            var speedFactor = Mathf.InverseLerp(MinMultiplierForTrail, 3f, currentMultiplier);
+            var adjustedInterval = Mathf.Lerp(SpawnInterval * 2f, SpawnInterval * 0.5f, speedFactor);
 
             var timeSinceLastSpawn = Time.time - _lastSpawnTime;
             if(timeSinceLastSpawn < adjustedInterval) {
@@ -178,9 +188,9 @@ namespace Game.Player {
             // For non-owner: always use "Default" layer (always visible)
             if(IsOwner) {
                 // Owner: use Default layer when dead (visible during death cam), Masked layer while alive
-                bool isDead = controller != null && controller.netIsDead != null && controller.netIsDead.Value;
-                ghost.layer = isDead 
-                    ? LayerMask.NameToLayer("Default") 
+                bool isDead = playerController != null && playerController.IsDead;
+                ghost.layer = isDead
+                    ? LayerMask.NameToLayer("Default")
                     : LayerMask.NameToLayer("Masked");
             } else {
                 // Non-owner: always visible on Default layer
@@ -189,9 +199,9 @@ namespace Game.Player {
 
             // Movement direction - calculate from velocity if available, otherwise use transform forward
             Vector3 moveDir;
-            if(controller != null) {
+            if(playerController != null) {
                 // Try to get velocity direction from controller
-                var velocity = controller.CurrentFullVelocity;
+                var velocity = playerController.GetFullVelocity;
                 if(velocity.sqrMagnitude > 0.01f) {
                     moveDir = -velocity.normalized; // Negative because we want to spawn behind
                 } else {
@@ -203,10 +213,10 @@ namespace Game.Player {
             }
 
             // Spawn behind the player (negative direction)
-            var spawnPos = playerMesh.transform.position + moveDir * spawnOffset;
+            var spawnPos = _playerMesh.transform.position + moveDir * SpawnOffset;
 
-            ghost.transform.SetPositionAndRotation(spawnPos, playerMesh.transform.rotation);
-            ghost.transform.localScale = playerMesh.transform.lossyScale;
+            ghost.transform.SetPositionAndRotation(spawnPos, _playerMesh.transform.rotation);
+            ghost.transform.localScale = _playerMesh.transform.lossyScale;
 
             var mf = ghost.GetComponent<MeshFilter>();
             if(mf == null) {
@@ -218,9 +228,9 @@ namespace Game.Player {
             if(baked == null) {
                 baked = new Mesh();
             }
-            
+
             // Bake the current player mesh state into the mesh
-            playerMesh.BakeMesh(baked);
+            _playerMesh.BakeMesh(baked);
             mf.sharedMesh = baked;
 
             var mr = ghost.GetComponent<MeshRenderer>();
@@ -238,8 +248,8 @@ namespace Game.Player {
             }
 
             // Apply player's selected color to the afterimage
-            if(controller != null) {
-                var materialIndex = controller.playerMaterialIndex.Value;
+            if(playerController != null) {
+                var materialIndex = playerController.playerMaterialIndex.Value;
                 if(materialIndex >= 0 && materialIndex < PlayerColors.Length) {
                     var playerColor = PlayerColors[materialIndex];
 
@@ -293,9 +303,9 @@ namespace Game.Player {
             var t = 0f;
             var mat = mr.material;
             var c0 = mat.color;
-            while(t < ghostLifetime) {
+            while(t < GhostLifetime) {
                 t += Time.deltaTime;
-                var a = Mathf.Lerp(c0.a, 0f, t / ghostLifetime);
+                var a = Mathf.Lerp(c0.a, 0f, t / GhostLifetime);
                 mat.color = new Color(c0.r, c0.g, c0.b, a);
                 yield return null;
             }
@@ -304,7 +314,7 @@ namespace Game.Player {
             _activeFadeCoroutines.RemoveAll(c => c == null);
 
             ghost.SetActive(false);
-            
+
             // Return material to pool instead of destroying it
             if(mat != null && _materialPool.Count < MaterialPoolSize * 2) {
                 // Reset material color to original
@@ -314,14 +324,14 @@ namespace Game.Player {
                 // Pool is full, destroy excess materials
                 Destroy(mat);
             }
-            
+
             // Destroy the mesh to prevent memory leak
             var mf = ghost.GetComponent<MeshFilter>();
             if(mf != null && mf.sharedMesh != null) {
                 Destroy(mf.sharedMesh);
                 mf.sharedMesh = null;
             }
-            
+
             _ghostPool.Enqueue(ghost);
         }
 
@@ -363,6 +373,7 @@ namespace Game.Player {
                     StopCoroutine(coroutine);
                 }
             }
+
             _activeFadeCoroutines.Clear();
 
             // Deactivate all active ghosts and return materials to pool

@@ -103,7 +103,7 @@ namespace Network.Singletons {
             _applyNameButton = _root.Q<Button>("apply-name-button");
 
             _applyNameButton.clicked += () => mainMenuManager.OnButtonClicked();
-            _applyNameButton.RegisterCallback<MouseEnterEvent>(mainMenuManager.MouseEnter);
+            _applyNameButton.RegisterCallback<MouseEnterEvent>(MainMenuManager.MouseEnter);
 
             // Weapon slots (main equipped slot)
             _primarySlot = _root.Q<VisualElement>("primary-weapon-slot");
@@ -127,7 +127,7 @@ namespace Network.Singletons {
                 mainMenuManager.OnButtonClicked(true);
                 OnBackClicked();
             };
-            _backLoadoutButton.RegisterCallback<MouseEnterEvent>(mainMenuManager.MouseEnter);
+            _backLoadoutButton.RegisterCallback<MouseEnterEvent>(MainMenuManager.MouseEnter);
         }
 
         private void SetupEventHandlers() {
@@ -137,7 +137,7 @@ namespace Network.Singletons {
                 if(currentCircle is not null) {
                     currentCircle.RegisterCallback<ClickEvent>(_ => ToggleColorPicker());
                     currentCircle.RegisterCallback<ClickEvent>(_ => mainMenuManager.OnButtonClicked());
-                    currentCircle.RegisterCallback<MouseEnterEvent>(evt => mainMenuManager.MouseEnter(evt));
+                    currentCircle.RegisterCallback<MouseEnterEvent>(evt => MainMenuManager.MouseEnter(evt));
                 }
             }
 
@@ -148,7 +148,7 @@ namespace Network.Singletons {
                     var index = i;
                     optionCircle.RegisterCallback<ClickEvent>(_ => SelectColor(index));
                     optionCircle.RegisterCallback<ClickEvent>(_ => mainMenuManager.OnButtonClicked());
-                    optionCircle.RegisterCallback<MouseEnterEvent>(evt => mainMenuManager.MouseEnter(evt));
+                    optionCircle.RegisterCallback<MouseEnterEvent>(evt => MainMenuManager.MouseEnter(evt));
                 }
             }
 
@@ -159,15 +159,15 @@ namespace Network.Singletons {
             // Weapon slot clicks (main equipped slot - opens dropdown)
             _primarySlot.RegisterCallback<ClickEvent>(_ => ToggleWeaponDropdown(_primaryDropdown));
             _primarySlot.RegisterCallback<ClickEvent>(_ => mainMenuManager.OnButtonClicked());
-            _primarySlot.RegisterCallback<MouseEnterEvent>(evt => mainMenuManager.MouseEnter(evt));
+            _primarySlot.RegisterCallback<MouseEnterEvent>(evt => MainMenuManager.MouseEnter(evt));
 
             _secondarySlot.RegisterCallback<ClickEvent>(_ => ToggleWeaponDropdown(_secondaryDropdown));
             _secondarySlot.RegisterCallback<ClickEvent>(_ => mainMenuManager.OnButtonClicked());
-            _secondarySlot.RegisterCallback<MouseEnterEvent>(evt => mainMenuManager.MouseEnter(evt));
+            _secondarySlot.RegisterCallback<MouseEnterEvent>(evt => MainMenuManager.MouseEnter(evt));
 
             _tertiarySlot.RegisterCallback<ClickEvent>(_ => ToggleWeaponDropdown(_tertiaryDropdown));
             _tertiarySlot.RegisterCallback<ClickEvent>(_ => mainMenuManager.OnButtonClicked());
-            _tertiarySlot.RegisterCallback<MouseEnterEvent>(evt => mainMenuManager.MouseEnter(evt));
+            _tertiarySlot.RegisterCallback<MouseEnterEvent>(evt => MainMenuManager.MouseEnter(evt));
 
             // Populate weapon dropdowns
             PopulateWeaponDropdown(_primaryDropdown.Q<ScrollView>("primary-scroll"), primaryWeapons,
@@ -309,7 +309,7 @@ namespace Network.Singletons {
             var container = scroll.contentContainer;
             container.Clear();
 
-            if(weapons == null || weapons.Length <= 1) {
+            if(weapons is not { Length: > 1 }) {
                 // No alternatives to show
                 return;
             }
@@ -338,9 +338,9 @@ namespace Network.Singletons {
         }
 
         private void CloseAllDropdowns() {
-            if(_primaryDropdown != null) _primaryDropdown.AddToClassList("hidden");
-            if(_secondaryDropdown != null) _secondaryDropdown.AddToClassList("hidden");
-            if(_tertiaryDropdown != null) _tertiaryDropdown.AddToClassList("hidden");
+            _primaryDropdown?.AddToClassList("hidden");
+            _secondaryDropdown?.AddToClassList("hidden");
+            _tertiaryDropdown?.AddToClassList("hidden");
             SetSlotDropdownOpen(_primaryDropdown, false);
             SetSlotDropdownOpen(_secondaryDropdown, false);
             SetSlotDropdownOpen(_tertiaryDropdown, false);
@@ -412,8 +412,7 @@ namespace Network.Singletons {
         private VisualElement GetSlotForDropdown(VisualElement dropdown) {
             if(dropdown == _primaryDropdown) return _primarySlot;
             if(dropdown == _secondaryDropdown) return _secondarySlot;
-            if(dropdown == _tertiaryDropdown) return _tertiarySlot;
-            return null;
+            return dropdown == _tertiaryDropdown ? _tertiarySlot : null;
         }
 
         private void UpdateWeaponSlot(WeaponData[] weapons, ref int selectedIndex, Image targetImage,
@@ -432,11 +431,11 @@ namespace Network.Singletons {
             var weapon = weapons[selectedIndex];
 
             if(targetImage != null) {
-                targetImage.sprite = weapon != null ? weapon.icon : null;
+                targetImage.sprite = weapon?.icon;
                 targetImage.style.visibility = weapon != null ? Visibility.Visible : Visibility.Hidden;
             }
 
-            string displayName = weapon != null && !string.IsNullOrEmpty(weapon.weaponName)
+            var displayName = weapon != null && !string.IsNullOrEmpty(weapon.weaponName)
                 ? weapon.weaponName
                 : weapon?.weaponPrefab != null
                     ? weapon.weaponPrefab.name
@@ -446,7 +445,7 @@ namespace Network.Singletons {
             UpdateWeaponSlotClass(slotElement, ref currentClass, targetClass);
         }
 
-        private void UpdateWeaponSlotClass(VisualElement slotElement, ref string currentClass, string newClass) {
+        private static void UpdateWeaponSlotClass(VisualElement slotElement, ref string currentClass, string newClass) {
             if(slotElement == null) return;
 
             if(!string.IsNullOrEmpty(currentClass)) {
@@ -466,7 +465,7 @@ namespace Network.Singletons {
             value = value.Trim().ToLowerInvariant();
 
             var sanitizedChars = new char[value.Length];
-            for(int i = 0; i < value.Length; i++) {
+            for(var i = 0; i < value.Length; i++) {
                 var c = value[i];
                 sanitizedChars[i] = char.IsLetterOrDigit(c) ? c : '-';
             }
@@ -503,9 +502,7 @@ namespace Network.Singletons {
 
                 // Also ensure the loadout panel is brought to front
                 var loadoutPanel = _root.Q<VisualElement>("loadout-panel");
-                if(loadoutPanel != null) {
-                    loadoutPanel.BringToFront();
-                }
+                loadoutPanel?.BringToFront();
             }
 
             UpdatePlayerModel();
@@ -515,13 +512,11 @@ namespace Network.Singletons {
             if(_previewPlayerModel == null) return;
 
             var skinnedRenderer = _previewPlayerModel.GetComponentInChildren<SkinnedMeshRenderer>();
-            if(skinnedRenderer != null && _selectedColorIndex < playerMaterials.Length) {
-                var materials = skinnedRenderer.materials;
-                if(materials.Length > 0) {
-                    materials[1] = playerMaterials[_selectedColorIndex];
-                    skinnedRenderer.materials = materials;
-                }
-            }
+            if(skinnedRenderer == null || _selectedColorIndex >= playerMaterials.Length) return;
+            var materials = skinnedRenderer.materials;
+            if(materials.Length <= 0) return;
+            materials[1] = playerMaterials[_selectedColorIndex];
+            skinnedRenderer.materials = materials;
         }
 
         private void OnBackClicked() {
@@ -577,11 +572,10 @@ namespace Network.Singletons {
                 yield return null;
             }
 
-            if(previewCamera.transform.position == originalCameraTransform.position &&
-               previewCamera.transform.rotation == originalCameraTransform.rotation) {
-                if(_previewPlayerModel != null) {
-                    Destroy(_previewPlayerModel);
-                }
+            if(previewCamera.transform.position != originalCameraTransform.position ||
+               previewCamera.transform.rotation != originalCameraTransform.rotation) yield break;
+            if(_previewPlayerModel != null) {
+                Destroy(_previewPlayerModel);
             }
         }
     }

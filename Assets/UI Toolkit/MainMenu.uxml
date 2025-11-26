@@ -252,10 +252,20 @@
                             <ui:Button name="keybind-jump-0" text="None" class="keybind-button" />
                             <ui:Button name="keybind-jump-1" text="None" class="keybind-button" />
                         </ui:VisualElement>
+                        <ui:VisualElement name="keybind-interact-container" class="setting-row">
+                            <ui:Label text="Interact" name="keybind-interact-label" class="setting-label" />
+                            <ui:Button name="keybind-interact-0" text="None" class="keybind-button" />
+                            <ui:Button name="keybind-interact-1" text="None" class="keybind-button" />
+                        </ui:VisualElement>
                         <ui:VisualElement name="keybind-shoot-container" class="setting-row">
                             <ui:Label text="Shoot" name="keybind-shoot-label" class="setting-label" />
                             <ui:Button name="keybind-shoot-0" text="None" class="keybind-button" />
                             <ui:Button name="keybind-shoot-1" text="None" class="keybind-button" />
+                        </ui:VisualElement>
+                        <ui:VisualElement name="keybind-ads-container" class="setting-row">
+                            <ui:Label text="ADS" name="keybind-ads-label" class="setting-label" />
+                            <ui:Button name="keybind-ads-0" text="None" class="keybind-button" />
+                            <ui:Button name="keybind-ads-1" text="None" class="keybind-button" />
                         </ui:VisualElement>
                         <ui:VisualElement name="keybind-reload-container" class="setting-row">
                             <ui:Label text="Reload" name="keybind-reload-label" class="setting-label" />
