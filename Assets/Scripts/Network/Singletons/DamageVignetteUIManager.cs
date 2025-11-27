@@ -8,7 +8,6 @@ namespace Network.Singletons {
 
         [Header("Timing")]
         [SerializeField] private float flashDuration = 0.12f; // time at full alpha
-
         [SerializeField] private float fadeDuration = 0.3f; // fade-out
         [SerializeField] private float maxAlpha = 0.8f;
 
@@ -74,14 +73,14 @@ namespace Network.Singletons {
             // SignedAngle:
             // +angle = hit is to the LEFT of forward
             // -angle = hit is to the RIGHT of forward
-            float angle = Vector3.SignedAngle(cameraTransform.forward, flatDir, Vector3.up);
+            var angle = Vector3.SignedAngle(cameraTransform.forward, flatDir, Vector3.up);
 
             // We want 0° = front, increase clockwise (right)
-            float clockwise = angle; // now + is to the right
+            var clockwise = angle; // now + is to the right
             if(clockwise < 0f) clockwise += 360f; // 0..360
 
             // 8 sectors of 45°
-            int sector = Mathf.RoundToInt(clockwise / 45f) % 8;
+            var sector = Mathf.RoundToInt(clockwise / 45f) % 8;
             // 0 = front
             // 1 = front-right
             // 2 = right

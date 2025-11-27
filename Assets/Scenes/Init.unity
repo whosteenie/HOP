@@ -43,7 +43,7 @@ RenderSettings:
 LightmapSettings:
   m_ObjectHideFlags: 0
   serializedVersion: 13
-  m_BakeOnSceneLoad: 0
+  m_BakeOnSceneLoad: 1
   m_GISettings:
     serializedVersion: 2
     m_BounceScale: 1
@@ -93,7 +93,7 @@ LightmapSettings:
     m_ExportTrainingData: 0
     m_TrainingDataDestination: TrainingData
     m_LightProbeSampleCountMultiplier: 4
-  m_LightingDataAsset: {fileID: 20201, guid: 0000000000000000f000000000000000, type: 0}
+  m_LightingDataAsset: {fileID: 112000000, guid: 95347d64ca8943e439f88a11f5242bbc, type: 2}
   m_LightingSettings: {fileID: 0}
 --- !u!196 &4
 NavMeshSettings:
@@ -119,6 +119,50 @@ NavMeshSettings:
     debug:
       m_Flags: 0
   m_NavMeshData: {fileID: 0}
+--- !u!1 &23424725
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 23424727}
+  - component: {fileID: 23424726}
+  m_Layer: 0
+  m_Name: PlayerMaterialPacketManager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &23424726
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 23424725}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3982a5684ee695d41920f7bb6f495fb3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Network.Singletons.PlayerMaterialPacketManager
+--- !u!4 &23424727
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 23424725}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &665899836
 GameObject:
   m_ObjectHideFlags: 0
@@ -413,7 +457,7 @@ MonoBehaviour:
   m_ProtocolType: 0
   m_UseWebSockets: 0
   m_UseEncryption: 0
-  m_MaxPacketQueueSize: 128
+  m_MaxPacketQueueSize: 512
   m_MaxPayloadSize: 1200
   m_HeartbeatTimeoutMS: 500
   m_ConnectTimeoutMS: 1000
@@ -549,6 +593,8 @@ MonoBehaviour:
   - {fileID: 8300000, guid: 7e7e40d5ebea924459b8cbec5751a5ed, type: 3}
   - {fileID: 8300000, guid: e3bbc28cdb7f57a4ba87dbb7cee36478, type: 3}
   bulletTrailClips: []
+  bulletImpactClips:
+  - {fileID: 8300000, guid: 939aff22a4cd7524aa2e6e61d2003fe4, type: 3}
   hopballSpawnClips:
   - {fileID: 8300000, guid: dcf85d8a9a995314b9da98355d126f22, type: 3}
   reloadClips:
@@ -606,6 +652,10 @@ MonoBehaviour:
   - {fileID: 8300000, guid: 4d1e7b7c9293af14e9115e96a9d46722, type: 3}
   sniperZoomClips:
   - {fileID: 8300000, guid: 5a5a0177034a9b841bf8d6ed7b1a8926, type: 3}
+  weaponSwitchClips:
+  - {fileID: 8300000, guid: e55e498244d78914081a4f13e49c49c4, type: 3}
+  - {fileID: 8300000, guid: 0b28016e28f284c47a24534c9d4efcef, type: 3}
+  - {fileID: 8300000, guid: d0f7cc8c0b95c7c4eaa6e38222f7c5fa, type: 3}
   walkMaxDistance: 25
   runMaxDistance: 40
   jumpMaxDistance: 25
@@ -616,6 +666,7 @@ MonoBehaviour:
   jumpPadMaxDistance: 70
   grappleMaxDistance: 65
   bulletTrailMaxDistance: 150
+  bulletImpactMaxDistance: 35
   hopballSpawnMaxDistance: 300
 --- !u!1 &6278191672109600082
 GameObject:
@@ -748,3 +799,4 @@ SceneRoots:
   - {fileID: 6620924763964963253}
   - {fileID: 3133605238879460290}
   - {fileID: 1814218812}
+  - {fileID: 23424727}

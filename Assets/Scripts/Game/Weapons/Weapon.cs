@@ -24,6 +24,7 @@ namespace Game.Weapons {
 
         [Header("Current Weapon State")]
         private WeaponData _currentWeaponData;
+
         private GameObject _currentFpWeaponInstance;
         private GameObject _currentWorldWeaponInstance;
         private Animator _weaponAnimator;
@@ -45,31 +46,32 @@ namespace Game.Weapons {
             get => netCurrentDamageMultiplier.Value;
             set {
                 if(!IsOwner) return;
-                    // Throttle network updates - only send if enough time has passed or value changed significantly
-                    // At 90Hz: 5 ticks = ~55ms
-                    const float damageMultiplierUpdateInterval = 0.055f;
-                    const float changeThreshold = 0.05f; // 5% change threshold
-                    
-                    var shouldUpdate = _lastDamageMultiplierUpdateTime == 0f ||
-                                       Time.time - _lastDamageMultiplierUpdateTime >= damageMultiplierUpdateInterval ||
-                                       Mathf.Abs(netCurrentDamageMultiplier.Value - value) > changeThreshold;
-                    
+                // Throttle network updates - only send if enough time has passed or value changed significantly
+                // At 90Hz: 5 ticks = ~55ms
+                const float damageMultiplierUpdateInterval = 0.055f;
+                const float changeThreshold = 0.05f; // 5% change threshold
+
+                var shouldUpdate = _lastDamageMultiplierUpdateTime == 0f ||
+                                   Time.time - _lastDamageMultiplierUpdateTime >= damageMultiplierUpdateInterval ||
+                                   Mathf.Abs(netCurrentDamageMultiplier.Value - value) > changeThreshold;
+
                 if(!shouldUpdate) return;
-                        netCurrentDamageMultiplier.Value = value;
-                        _lastDamageMultiplierUpdateTime = Time.time;
+                netCurrentDamageMultiplier.Value = value;
+                _lastDamageMultiplierUpdateTime = Time.time;
             }
         }
-        
+
         // Throttling for damage multiplier updates
         private float _lastDamageMultiplierUpdateTime;
 
         [Header("Speed Damage Scaling")]
         private const float MinSpeedThreshold = 15f;
+
         private const float MaxSpeedThreshold = 28f;
-        
+
         private const float MultiplierDecayRate = 4.5f;
         private const float MultiplierGainRate = 2f;
-        
+
         private const float MultiplierGracePeriod = 1f;
 
         [Header("Visual Settings")]
@@ -103,38 +105,52 @@ namespace Game.Weapons {
         #region Unity Lifecycle
 
         private void Awake() {
-            playerController ??= GetComponent<PlayerController>();
+            ValidateComponents();
+        }
 
-            _fpCamera ??= playerController.FpCamera;
-            _playerAnimator ??= playerController.PlayerAnimator;
+        private void ValidateComponents() {
+            if(playerController == null) {
+                playerController = GetComponent<PlayerController>();
+            }
+
+            if(playerController == null) {
+                Debug.LogError("[Weapon] PlayerController not found!");
+                enabled = false;
+                return;
+            }
+
+            if(_fpCamera == null) _fpCamera = playerController.FpCamera;
+            if(_playerAnimator == null) _playerAnimator = playerController.PlayerAnimator;
             _enemyLayer = playerController.EnemyLayer;
             _worldLayer = playerController.WorldLayer;
-            _damageRelay ??= playerController.DamageRelay;
-            _networkFXRelay ??= playerController.FxRelay;
-            _sfxRelay ??= playerController.SfxRelay;
-            _weaponManager ??= playerController.WeaponManager;
-            
+            if(_damageRelay == null) _damageRelay = playerController.DamageRelay;
+            if(_networkFXRelay == null) _networkFXRelay = playerController.FxRelay;
+            if(_sfxRelay == null) _sfxRelay = playerController.SfxRelay;
+            if(_weaponManager == null) _weaponManager = playerController.WeaponManager;
+
             _lastFireTime = Time.time;
 
-            _damageRelay.OnHitConfirm -= OnHitConfirm;
-            _damageRelay.OnHitConfirm += OnHitConfirm;
+            if(_damageRelay != null) {
+                _damageRelay.OnHitConfirm -= OnHitConfirm;
+                _damageRelay.OnHitConfirm += OnHitConfirm;
+            }
         }
 
         private void LateUpdate() {
-            if(_fpMuzzleLight && _fpMuzzleLight.activeSelf && Time.time >= _fpLightOffTime) {
+            if(_fpMuzzleLight != null && _fpMuzzleLight.activeSelf && Time.time >= _fpLightOffTime) {
                 _fpMuzzleLight.SetActive(false);
             }
 
             // Turn off 3P light when time is up
-            if(_worldMuzzleLight && _worldMuzzleLight.activeSelf && Time.time >= _worldLightOffTime) {
+            if(_worldMuzzleLight != null && _worldMuzzleLight.activeSelf && Time.time >= _worldLightOffTime) {
                 _worldMuzzleLight.SetActive(false);
             }
         }
 
         private static void OnHitConfirm(bool wasKill) {
             if(SoundFXManager.Instance == null) return;
-                var soundKey = wasKill ? SfxKey.Kill : SfxKey.Hit;
-                SoundFXManager.Instance.PlayUISound(soundKey);
+            var soundKey = wasKill ? SfxKey.Kill : SfxKey.Hit;
+            SoundFXManager.Instance.PlayUISound(soundKey);
         }
 
         #endregion
@@ -146,9 +162,7 @@ namespace Game.Weapons {
         /// Releases control by clearing IsPullingOut flag.
         /// </summary>
         public void OnPullOutCompleted() {
-            if(_weaponManager != null) {
-                _weaponManager.HandlePullOutCompleted();
-            }
+            _weaponManager?.HandlePullOutCompleted();
         }
 
         /// <summary>
@@ -192,14 +206,13 @@ namespace Game.Weapons {
             }
 
             // Initialize trail pool for new weapon
-            if(_currentWeaponData != null && _currentWeaponData.bulletTrail != null) {
+            if(_currentWeaponData?.bulletTrail != null) {
                 InitializeTrailPool();
             }
 
             // Update HUD
-            if(playerController && playerController.IsOwner) {
-                HUDManager.Instance?.UpdateAmmo(currentAmmo, _currentWeaponData.magSize);
-            }
+            if(playerController == null || !playerController.IsOwner) return;
+            if(_currentWeaponData != null) HUDManager.Instance?.UpdateAmmo(currentAmmo, _currentWeaponData.magSize);
         }
 
         #endregion
@@ -220,9 +233,9 @@ namespace Game.Weapons {
             if(!CanReload()) return;
 
             IsReloading = true;
-            
+
             if(_currentWeaponData.useMagReload) {
-            PlayReloadEffects();
+                PlayReloadEffects();
                 _reloadCoroutine = StartCoroutine(MagReloadCoroutine());
             } else {
                 _reloadCoroutine = StartCoroutine(PerRoundReloadCoroutine());
@@ -255,11 +268,12 @@ namespace Game.Weapons {
                     HUDManager.Instance?.UpdateAmmo(currentAmmo, _currentWeaponData.magSize);
                 }
 
-                if(currentAmmo >= _currentWeaponData.magSize) {
-                    // Trigger reload complete animation (shotgun-style reloads when mag is full)
-                    _weaponAnimator?.SetTrigger(ReloadCompleteHash);
-                    break;
-                }
+                SyncServerAmmo();
+
+                if(currentAmmo < _currentWeaponData.magSize) continue;
+                // Trigger reload complete animation (shotgun-style reloads when mag is full)
+                _weaponAnimator?.SetTrigger(ReloadCompleteHash);
+                break;
             }
 
             IsReloading = false;
@@ -281,6 +295,10 @@ namespace Game.Weapons {
             _reloadCoroutine = null;
         }
 
+        private void SyncServerAmmo() {
+            _weaponManager?.ReportAmmoSync(_weaponManager.CurrentWeaponIndex, currentAmmo);
+        }
+
         public void ResetWeapon() {
             if(!_currentWeaponData) return;
             currentAmmo = _currentWeaponData.magSize;
@@ -289,6 +307,7 @@ namespace Game.Weapons {
             if(IsOwner) {
                 netCurrentDamageMultiplier.Value = 1f;
             }
+            SyncServerAmmo();
         }
 
         #endregion
@@ -306,8 +325,8 @@ namespace Game.Weapons {
             }
 
             var preferWorld = playerController == null ||
-                               !playerController.IsOwner ||
-                               (GameMenuManager.Instance?.IsPostMatch ?? false);
+                              !playerController.IsOwner ||
+                              (GameMenuManager.Instance?.IsPostMatch ?? false);
 
             if(playerController != null && playerController.IsOwner &&
                playerController.PlayerInput != null &&
@@ -324,17 +343,14 @@ namespace Game.Weapons {
         /// This avoids lag from queuing FX for LateUpdate
         /// </summary>
         private Vector3 GetMuzzlePositionFromCamera() {
-            if(playerController && playerController.IsOwner && _currentWeaponData != null) {
-                if(playerController.PlayerInput != null && playerController.PlayerInput.IsSniperOverlayActive) {
-                    return _fpCamera != null
-                        ? _fpCamera.transform.TransformPoint(playerController.PlayerInput.SniperMuzzleCameraOffset)
-                        : transform.position;
-                }
-
-                return ResolveMuzzlePosition(false);
+            if(!playerController || !playerController.IsOwner || _currentWeaponData == null) return GetMuzzlePosition();
+            if(playerController.PlayerInput != null && playerController.PlayerInput.IsSniperOverlayActive) {
+                return _fpCamera != null
+                    ? _fpCamera.transform.TransformPoint(playerController.PlayerInput.SniperMuzzleCameraOffset)
+                    : playerController.Position;
             }
 
-            return GetMuzzlePosition();
+            return ResolveMuzzlePosition(false);
         }
 
         public Quaternion GetMuzzleRotation() {
@@ -342,16 +358,15 @@ namespace Game.Weapons {
                 return _currentWorldWeaponInstance
                     ? _currentWorldWeaponInstance.transform.rotation
                     : transform.rotation;
-                if(GameMenuManager.Instance?.IsPostMatch == true) {
-                    return _currentWorldWeaponInstance
-                        ? _currentWorldWeaponInstance.transform.rotation
-                        : transform.rotation;
-                }
+            if(GameMenuManager.Instance?.IsPostMatch == true) {
+                return _currentWorldWeaponInstance
+                    ? _currentWorldWeaponInstance.transform.rotation
+                    : transform.rotation;
+            }
 
-                return _currentFpWeaponInstance
-                    ? _currentFpWeaponInstance.transform.rotation
+            return _currentFpWeaponInstance
+                ? _currentFpWeaponInstance.transform.rotation
                 : _fpCamera.transform.rotation;
-
         }
 
         public int GetWeaponSlot() => _currentWeaponData?.weaponSlot ?? 0;
@@ -432,6 +447,8 @@ namespace Game.Weapons {
             PlayDryFireSound();
         }
 
+        private ulong _shotSequence;
+
         private void PerformShot() {
             var origin = _fpCamera.transform.position;
             var forward = _fpCamera.transform.forward;
@@ -439,82 +456,93 @@ namespace Game.Weapons {
             currentAmmo--;
             _lastFireTime = Time.time;
 
-            if(playerController && playerController.IsOwner) {
+            if(playerController != null && playerController.IsOwner) {
                 HUDManager.Instance?.UpdateAmmo(currentAmmo, _currentWeaponData.magSize);
             }
+
+            var weaponIndex = _weaponManager?.CurrentWeaponIndex ?? -1;
+            if(weaponIndex < 0) return;
+
+            var shotId = ++_shotSequence;
 
             var pelletCount = 1;
             if(_currentWeaponData != null && _currentWeaponData.usePelletSpread) {
                 pelletCount = Mathf.Max(1, _currentWeaponData.pelletCount);
             }
 
-            var spreadDegrees = _currentWeaponData != null ? _currentWeaponData.bulletSpread : 0f;
+            var spreadDegrees = _currentWeaponData?.bulletSpread ?? 0f;
 
             // Calculate muzzle position directly from camera to bypass weapon transform lag
             var capturedMuzzlePos = GetMuzzlePositionFromCamera();
-            var capturedMuzzleRot = _fpCamera.transform.rotation;
 
-            if(playerController.IsOwner) {
-                PlayLocalMuzzleFlash(capturedMuzzlePos, capturedMuzzleRot);
+            if(playerController != null && playerController.IsOwner) {
+                PlayLocalMuzzleFlash();
             }
 
             for(var i = 0; i < pelletCount; i++) {
                 var direction = ApplySpread(forward, spreadDegrees);
-                var hitSomething = FirePellet(origin, direction, out var endPoint);
+                FirePellet(origin, direction, out var endPoint, out var hitNormal, out var madeImpact,
+                    out var hitPlayer, weaponIndex, shotId);
 
-                if(playerController.IsOwner) {
-                    SpawnTracerLocal(capturedMuzzlePos, endPoint);
+                if(playerController != null && playerController.IsOwner) {
+                    SpawnTracerLocal(capturedMuzzlePos, endPoint, hitNormal, madeImpact, hitPlayer);
                 }
 
                 var playMuzzleFlash = i == 0;
-                _networkFXRelay.RequestShotFx(endPoint, capturedMuzzlePos, playMuzzleFlash);
+                _networkFXRelay.RequestShotFx(endPoint, hitNormal, madeImpact, hitPlayer, playMuzzleFlash);
             }
         }
 
-        private bool FirePellet(Vector3 origin, Vector3 direction, out Vector3 endPoint) {
+        private void FirePellet(Vector3 origin, Vector3 direction, out Vector3 endPoint, out Vector3 hitNormal,
+            out bool madeImpact, out bool hitPlayer, int weaponIndex, ulong shotId) {
             var hitLayer = _enemyLayer | _worldLayer;
             var shotHit = Physics.Raycast(origin, direction, out var hit, Mathf.Infinity, hitLayer);
 
             if(shotHit) {
                 endPoint = hit.point;
+                hitNormal = hit.normal;
+                madeImpact = true;
+                hitPlayer = hit.collider.GetComponentInParent<PlayerController>() != null;
                 var damage = CalculateDamage(hit.distance);
-                ApplyDamageToHit(hit, origin, damage);
+                ApplyDamageToHit(hit, origin, damage, weaponIndex, shotId);
             } else {
                 endPoint = origin + direction * 600f;
+                hitNormal = direction;
+                madeImpact = false;
+                hitPlayer = false;
             }
-
-            return shotHit;
         }
 
-        private void ApplyDamageToHit(RaycastHit hit, Vector3 origin, float damage) {
+        private void ApplyDamageToHit(RaycastHit hit, Vector3 origin, float damage, int weaponIndex, ulong shotId) {
             if(damage <= 0f) return;
 
             var shooterPosition = playerController != null ? playerController.transform.position : origin;
             var hitDirection = (hit.point - shooterPosition).normalized;
-                
-                var hitRigidbody = hit.collider.attachedRigidbody;
+
+            var hitRigidbody = hit.collider.attachedRigidbody;
             var bodyPartTag = string.Empty;
             var isHeadshot = false;
             NetworkObject target;
 
-                if(hitRigidbody != null) {
-                    bodyPartTag = hitRigidbody.tag;
-                    isHeadshot = !string.IsNullOrEmpty(bodyPartTag) && bodyPartTag == "Head";
-                target = hitRigidbody.GetComponent<NetworkObject>() ?? hitRigidbody.GetComponentInParent<NetworkObject>();
+            if(hitRigidbody != null) {
+                bodyPartTag = hitRigidbody.tag;
+                isHeadshot = !string.IsNullOrEmpty(bodyPartTag) && bodyPartTag == "Head";
+                target = hitRigidbody.GetComponent<NetworkObject>() ??
+                         hitRigidbody.GetComponentInParent<NetworkObject>();
             } else {
                 target = hit.collider.GetComponent<NetworkObject>();
-                    }
+            }
 
             if(target == null || !target.IsSpawned) return;
 
-                        if(IsFriendlyFire(target)) {
-                            Debug.Log("[Weapon] Friendly fire blocked - same team");
+            if(IsFriendlyFire(target)) {
                 return;
-                        }
+            }
 
-                            var targetRef = new NetworkObjectReference(target);
+            var targetRef = new NetworkObjectReference(target);
             _damageRelay.RequestDamageServerRpc(targetRef, damage, hit.point, hitDirection,
-                hitRigidbody != null ? bodyPartTag : null, hitRigidbody != null && isHeadshot);
+                hitRigidbody != null ? bodyPartTag : null, hitRigidbody != null && isHeadshot, weaponIndex,
+                shotId);
         }
 
         private Vector3 ApplySpread(Vector3 forward, float spreadDegrees) {
@@ -525,7 +553,8 @@ namespace Game.Weapons {
             var spreadRad = spreadDegrees * Mathf.Deg2Rad;
             var randomOffset = Random.insideUnitCircle;
             var spreadAmount = Mathf.Tan(spreadRad * 0.5f);
-            var offset = (_fpCamera.transform.right * randomOffset.x + _fpCamera.transform.up * randomOffset.y) * spreadAmount;
+            var offset = (_fpCamera.transform.right * randomOffset.x + _fpCamera.transform.up * randomOffset.y) *
+                         spreadAmount;
             var direction = (forward + offset).normalized;
             return direction;
         }
@@ -573,37 +602,40 @@ namespace Game.Weapons {
                 _peakDamageMultiplier = CurrentDamageMultiplier;
                 // Reset grace period timer so it doesn't hold at peak
                 _lastPeakTime = 0f;
-                CurrentDamageMultiplier = Mathf.Clamp(CurrentDamageMultiplier, 1f, _currentWeaponData.maxDamageMultiplier);
+                CurrentDamageMultiplier =
+                    Mathf.Clamp(CurrentDamageMultiplier, 1f, _currentWeaponData.maxDamageMultiplier);
                 return;
             }
 
-            var currentSpeed = playerController.GetFullVelocity.magnitude;
-            float targetMultiplier;
+            if(playerController != null) {
+                var currentSpeed = playerController.GetFullVelocity.magnitude;
+                float targetMultiplier;
 
-            // Calculate target multiplier based on current velocity
-            if(currentSpeed < MinSpeedThreshold) {
-                targetMultiplier = 1f;
-            } else {
-                var scaleFactor = Mathf.InverseLerp(MinSpeedThreshold, MaxSpeedThreshold, currentSpeed);
-                targetMultiplier = Mathf.Lerp(1f, _currentWeaponData.maxDamageMultiplier, scaleFactor);
-            }
+                // Calculate target multiplier based on current velocity
+                if(currentSpeed < MinSpeedThreshold) {
+                    targetMultiplier = 1f;
+                } else {
+                    var scaleFactor = Mathf.InverseLerp(MinSpeedThreshold, MaxSpeedThreshold, currentSpeed);
+                    targetMultiplier = Mathf.Lerp(1f, _currentWeaponData.maxDamageMultiplier, scaleFactor);
+                }
 
-            // If target is higher than current, jump to it immediately and start grace period
-            if(targetMultiplier >= CurrentDamageMultiplier) {
-                CurrentDamageMultiplier = Mathf.Lerp(CurrentDamageMultiplier, targetMultiplier,
-                    MultiplierGainRate * Time.deltaTime);
-                _peakDamageMultiplier = CurrentDamageMultiplier;
-                _lastPeakTime = Time.time;
-            }
-            // During grace period, hold at peak
-            else if(Time.time - _lastPeakTime < MultiplierGracePeriod) {
-                CurrentDamageMultiplier = _peakDamageMultiplier;
-            }
-            // After grace period, decay
-            else {
-                CurrentDamageMultiplier = Mathf.MoveTowards(CurrentDamageMultiplier, targetMultiplier,
-                    MultiplierDecayRate * Time.deltaTime);
-                _peakDamageMultiplier = CurrentDamageMultiplier;
+                // If target is higher than current, jump to it immediately and start grace period
+                if(targetMultiplier >= CurrentDamageMultiplier) {
+                    CurrentDamageMultiplier = Mathf.Lerp(CurrentDamageMultiplier, targetMultiplier,
+                        MultiplierGainRate * Time.deltaTime);
+                    _peakDamageMultiplier = CurrentDamageMultiplier;
+                    _lastPeakTime = Time.time;
+                }
+                // During grace period, hold at peak
+                else if(Time.time - _lastPeakTime < MultiplierGracePeriod) {
+                    CurrentDamageMultiplier = _peakDamageMultiplier;
+                }
+                // After grace period, decay
+                else {
+                    CurrentDamageMultiplier = Mathf.MoveTowards(CurrentDamageMultiplier, targetMultiplier,
+                        MultiplierDecayRate * Time.deltaTime);
+                    _peakDamageMultiplier = CurrentDamageMultiplier;
+                }
             }
 
             CurrentDamageMultiplier = Mathf.Clamp(CurrentDamageMultiplier, 1f, _currentWeaponData.maxDamageMultiplier);
@@ -630,6 +662,8 @@ namespace Game.Weapons {
             if(playerController.IsOwner) {
                 HUDManager.Instance?.UpdateAmmo(currentAmmo, _currentWeaponData.magSize);
             }
+
+            SyncServerAmmo();
         }
 
         #endregion
@@ -640,9 +674,7 @@ namespace Game.Weapons {
         /// Play muzzle flash locally (owner only, FP)
         /// Muzzle flash is parented to weapon muzzle so it follows the player when moving fast.
         /// </summary>
-        /// <param name="muzzlePos">Muzzle position (captured at time of shot - used for tracers, not muzzle flash)</param>
-        /// <param name="muzzleRot">Muzzle rotation (captured at time of shot - used for tracers, not muzzle flash)</param>
-        private void PlayLocalMuzzleFlash(Vector3? muzzlePos = null, Quaternion? muzzleRot = null) {
+        private void PlayLocalMuzzleFlash() {
             _weaponAnimator?.SetTrigger(RecoilHash);
 
             PlayShootAnimationServerRpc();
@@ -664,13 +696,12 @@ namespace Game.Weapons {
             }
 
             if(!_fpMuzzleLight) return;
-                _fpMuzzleLight.SetActive(true);
+            _fpMuzzleLight.SetActive(true);
             _fpLightOffTime = Time.time + MuzzleLightTime;
         }
 
         [Rpc(SendTo.Everyone)]
         private void PlayShootAnimationServerRpc() {
-            // _weaponAnimator?.SetTrigger(RecoilHash);
             _playerAnimator?.SetTrigger(RecoilHash);
         }
 
@@ -681,7 +712,7 @@ namespace Game.Weapons {
         /// </summary>
         public void PlayNetworkedMuzzleFlash() {
             // NON-OWNER ONLY: Play 3P world muzzle flash
-            if(_currentWeaponData?.muzzleFlashPrefab && _currentWorldWeaponInstance) {
+            if(_currentWeaponData?.muzzleFlashPrefab && _currentWorldWeaponInstance != null) {
                 var fxGo = Instantiate(_currentWeaponData.muzzleFlashPrefab, _currentWorldWeaponInstance.transform);
                 fxGo.transform.localPosition = _currentWeaponData.muzzleLocalOffset;
                 fxGo.transform.localRotation = Quaternion.identity;
@@ -692,28 +723,28 @@ namespace Game.Weapons {
             }
 
             if(!_worldMuzzleLight) return;
-                _worldMuzzleLight.SetActive(true);
+            _worldMuzzleLight.SetActive(true);
             _worldLightOffTime = Time.time + MuzzleLightTime;
         }
 
-        public void SpawnTracerLocal(Vector3 start, Vector3 end) {
+        public void SpawnTracerLocal(Vector3 start, Vector3 end, Vector3 hitNormal, bool madeImpact, bool hitPlayer) {
             if(!_currentWeaponData || !_currentWeaponData.bulletTrail) return;
-            
+
             // Get trail from pool
             var trail = GetTrailFromPool();
             if(trail == null) return;
-            
+
             // Set up trail
             trail.transform.position = start;
             trail.transform.rotation = Quaternion.LookRotation(end - start);
             trail.gameObject.SetActive(true);
             trail.Clear(); // Clear any previous trail data
-            
-            StartCoroutine(SpawnTrail(trail, end, end, true));
+
+            StartCoroutine(SpawnTrail(trail, end, hitNormal, madeImpact, hitPlayer));
         }
 
-        private SfxKey GetShootSfxKey() => _currentWeaponData != null ? _currentWeaponData.shootSfx : SfxKey.Shoot;
-        private SfxKey GetReloadSfxKey() => _currentWeaponData != null ? _currentWeaponData.reloadSfx : SfxKey.Reload;
+        private SfxKey GetShootSfxKey() => _currentWeaponData?.shootSfx ?? SfxKey.Shoot;
+        private SfxKey GetReloadSfxKey() => _currentWeaponData?.reloadSfx ?? SfxKey.Reload;
 
         private void PlayFireSound() {
             if(playerController.IsOwner)
@@ -728,8 +759,6 @@ namespace Game.Weapons {
         private void PlayReloadEffects() {
             _weaponAnimator?.SetTrigger(ReloadHash);
 
-            // playerAnimator.SetTrigger(ReloadHash);
-
             PlayReloadAnimationServerRpc();
 
             if(playerController.IsOwner)
@@ -738,11 +767,11 @@ namespace Game.Weapons {
 
         [Rpc(SendTo.Everyone)]
         private void PlayReloadAnimationServerRpc() {
-            // _weaponAnimator?.SetTrigger(ReloadHash);
             _playerAnimator.SetTrigger(ReloadHash);
         }
 
-        private IEnumerator SpawnTrail(TrailRenderer trail, Vector3 hitPoint, Vector3 hitNormal, bool madeImpact) {
+        private IEnumerator SpawnTrail(TrailRenderer trail, Vector3 hitPoint, Vector3 hitNormal, bool madeImpact,
+            bool hitPlayer) {
             var startPosition = trail.transform.position;
             var distance = Vector3.Distance(trail.transform.position, hitPoint);
 
@@ -757,33 +786,49 @@ namespace Game.Weapons {
 
             trail.transform.position = hitPoint;
             if(madeImpact && _currentWeaponData && _currentWeaponData.bulletImpact) {
-                Instantiate(_currentWeaponData.bulletImpact, hitPoint, Quaternion.LookRotation(hitNormal));
+                var rotation = hitNormal.sqrMagnitude > 0.0001f
+                    ? Quaternion.LookRotation(hitNormal)
+                    : Quaternion.identity;
+
+                var spawnPos = hitPoint + hitNormal.normalized * 0.005f;
+
+                var impactInstance = Instantiate(_currentWeaponData.bulletImpact.gameObject, spawnPos, rotation);
+                if(hitPlayer) {
+                    var decal = impactInstance.transform.Find("Decal");
+                    decal?.gameObject.SetActive(false);
+                }
+
+                if(playerController.IsOwner && _sfxRelay != null) {
+                    _sfxRelay.RequestWorldSfxAtPosition(SfxKey.BulletImpact, hitPoint, allowOverlap: true);
+                }
             }
 
             // Wait for trail to fade out, then return to pool
             yield return new WaitForSeconds(trail.time);
-            
+
             ReturnTrailToPool(trail);
         }
 
         /// <summary>
         /// Initializes the trail pool with pre-allocated TrailRenderer objects.
+        /// Only clears inactive trails from the pool - active trails are allowed to finish naturally.
         /// </summary>
         private void InitializeTrailPool() {
-            // Clear existing pool
+            // Clear existing pool (only inactive trails - active trails will finish and be cleaned up naturally)
             while(_trailPool.Count > 0) {
                 var oldTrail = _trailPool.Dequeue();
-                if(oldTrail != null) {
+                // Only destroy if it's inactive - active trails are still animating and will finish on their own
+                if(oldTrail != null && !oldTrail.gameObject.activeInHierarchy) {
                     Destroy(oldTrail.gameObject);
                 }
             }
 
             // Create new pool
-            if(_currentWeaponData == null || _currentWeaponData.bulletTrail == null) return;
+            if(_currentWeaponData?.bulletTrail == null) return;
             for(var i = 0; i < TrailPoolSize; i++) {
-                    var trailObj = Instantiate(_currentWeaponData.bulletTrail);
-                    trailObj.gameObject.SetActive(false);
-                    _trailPool.Enqueue(trailObj);
+                var trailObj = Instantiate(_currentWeaponData.bulletTrail);
+                trailObj.gameObject.SetActive(false);
+                _trailPool.Enqueue(trailObj);
             }
         }
 
@@ -794,21 +839,21 @@ namespace Game.Weapons {
             // Try to find an inactive trail in the pool
             TrailRenderer trail = null;
             var attempts = 0;
-            
+
             while(attempts < _trailPool.Count && _trailPool.Count > 0) {
                 var candidate = _trailPool.Dequeue();
                 _trailPool.Enqueue(candidate); // Put it back at the end
-                
+
                 if(candidate != null && !candidate.gameObject.activeInHierarchy) {
                     trail = candidate;
                     break;
                 }
-                
+
                 attempts++;
             }
 
             // If no available trail found, create a new one
-            if(trail == null && _currentWeaponData != null && _currentWeaponData.bulletTrail != null) {
+            if(trail == null && _currentWeaponData?.bulletTrail != null) {
                 trail = Instantiate(_currentWeaponData.bulletTrail);
             }
 
@@ -817,10 +862,19 @@ namespace Game.Weapons {
 
         /// <summary>
         /// Returns a trail to the pool after it's finished.
+        /// Only returns trails that are still valid and match the current weapon.
         /// </summary>
         private void ReturnTrailToPool(TrailRenderer trail) {
+            // Check if trail was destroyed (e.g., during weapon switch)
             if(trail == null) return;
             
+            // Check if trail's GameObject still exists
+            if(trail.gameObject == null) return;
+            
+            // Don't return trails to pool if weapon has changed (let them be destroyed naturally)
+            // Active trails from previous weapon will just be cleaned up by Unity
+            if(_currentWeaponData?.bulletTrail == null) return;
+
             trail.gameObject.SetActive(false);
             trail.Clear(); // Clear the trail data
             _trailPool.Enqueue(trail);

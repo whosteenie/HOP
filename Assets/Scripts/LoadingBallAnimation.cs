@@ -18,7 +18,7 @@ public class LoadingBallAnimation : MonoBehaviour {
 
     public void StartAnimation(VisualElement ball) {
         if(ball == null) {
-            Debug.LogWarning("[LoadingBallAnimation] Ball VisualElement is null!");
+            Debug.LogWarning("[LoadingBallAnimation] Ball VisualElement == null!");
             return;
         }
 
@@ -30,7 +30,6 @@ public class LoadingBallAnimation : MonoBehaviour {
 
         _isAnimating = true;
         _animationCoroutine = StartCoroutine(AnimateBall());
-        Debug.Log("[LoadingBallAnimation] Started animation coroutine");
     }
 
     public void StopAnimation() {
@@ -47,9 +46,6 @@ public class LoadingBallAnimation : MonoBehaviour {
     }
 
     private IEnumerator AnimateBall() {
-        Debug.Log("[LoadingBallAnimation] Animation coroutine started");
-        var loopCount = 0;
-
         while(_isAnimating && _ball != null) {
             var elapsed = 0f;
 
@@ -61,7 +57,7 @@ public class LoadingBallAnimation : MonoBehaviour {
                 var y = CalculateYPosition(t);
 
                 // Calculate scale (squash on impact)
-                var scale = CalculateScale(t, y);
+                var scale = CalculateScale(t);
 
                 // Apply transforms
                 if(_ball != null) {
@@ -71,46 +67,35 @@ public class LoadingBallAnimation : MonoBehaviour {
 
                 yield return null;
             }
-
-            loopCount++;
-            if(loopCount == 1) {
-                Debug.Log(
-                    $"[LoadingBallAnimation] Completed first animation loop. Ball position: y={CalculateYPosition(0)}, scale={CalculateScale(0, 0)}");
-            }
-
-            // Reset for next loop iteration
-            elapsed = 0f;
         }
-
-        Debug.Log("[LoadingBallAnimation] Animation coroutine ended");
     }
 
-    private float CalculateYPosition(float t) {
+    private static float CalculateYPosition(float t) {
         // Ball only moves when unsquashed. When squashing, it's on the ground (y=0).
         // Rising -> Apex -> Falling -> Ground (squash) -> Ground (unsquash) -> repeat
-            
+
         if(t >= SquashStartT) {
             // Ball is on the ground during squash/unsquash phases
             return 0f;
         }
-            
+
         // Ball is in the air - calculate bounce
         // Remap t from [0, SquashStartT] to [0, 1] for the air phase
-        float airT = t / SquashStartT;
-        float apexT = 0.5f; // Apex is at 50% of air phase
-            
+        var airT = t / SquashStartT;
+        const float apexT = 0.5f; // Apex is at 50% of air phase
+
         if(airT <= apexT) {
             // Going up: smooth acceleration then deceleration
-            float localT = airT / apexT;
+            var localT = airT / apexT;
             return Mathf.Lerp(0f, HopHeight, EaseOutQuad(localT));
         } else {
             // Coming down: smooth acceleration
-            float localT = (airT - apexT) / (1f - apexT);
+            var localT = (airT - apexT) / (1f - apexT);
             return Mathf.Lerp(HopHeight, 0f, EaseInQuad(localT));
         }
     }
 
-    private Vector2 CalculateScale(float t, float y) {
+    private static Vector2 CalculateScale(float t) {
         // Ball is on the ground during squash phases, so scale based on time
         // 1. Rising (t: 0 -> ~0.4): Normal scale
         // 2. Apex (t: ~0.4): Normal scale
@@ -119,37 +104,42 @@ public class LoadingBallAnimation : MonoBehaviour {
         // 5. Max squash (t: max squash -> hold end): Hold max squash
         // 6. Unsquash (t: hold end -> 1.0): Ease out of squash
         // 7. Repeat
-            
-        float squashHoldEndT = MaxSquashT + SquashHoldDuration;
-            
-        if(t >= SquashStartT && t < MaxSquashT) {
-            // Phase 4: Squash - ease into max squash as ball hits ground
-            float localT = (t - SquashStartT) / (MaxSquashT - SquashStartT);
-            float easedIntensity = EaseInQuad(localT);
-            float squashX = Mathf.Lerp(1f, MaxSquashX, easedIntensity);
-            float squashY = Mathf.Lerp(1f, MaxSquashY, easedIntensity);
-            return new Vector2(squashX, squashY);
-        } else if(t >= MaxSquashT && t < squashHoldEndT) {
-            // Phase 5: Max squash - hold at maximum squash
-            return new Vector2(MaxSquashX, MaxSquashY);
-        } else if(t >= squashHoldEndT && t < SquashEndT) {
-            // Phase 6: Unsquash - ease out of squash while on ground
-            float localT = (t - squashHoldEndT) / (SquashEndT - squashHoldEndT);
-            float easedIntensity = EaseOutQuad(1f - localT);
-            float squashX = Mathf.Lerp(1f, MaxSquashX, easedIntensity);
-            float squashY = Mathf.Lerp(1f, MaxSquashY, easedIntensity);
-            return new Vector2(squashX, squashY);
-        } else {
-            // Phases 1-3: Rising, apex, falling - normal scale
-            return Vector2.one;
+
+        const float squashHoldEndT = MaxSquashT + SquashHoldDuration;
+
+        switch(t) {
+            case >= SquashStartT and < MaxSquashT: {
+                // Phase 4: Squash - ease into max squash as ball hits ground
+                var localT = (t - SquashStartT) / (MaxSquashT - SquashStartT);
+                var easedIntensity = EaseInQuad(localT);
+                var squashX = Mathf.Lerp(1f, MaxSquashX, easedIntensity);
+                var squashY = Mathf.Lerp(1f, MaxSquashY, easedIntensity);
+                return new Vector2(squashX, squashY);
+            }
+            case >= MaxSquashT and < squashHoldEndT:
+                // Phase 5: Max squash - hold at maximum squash
+                return new Vector2(MaxSquashX, MaxSquashY);
+            default: {
+                if(t >= squashHoldEndT && t < SquashEndT) {
+                    // Phase 6: Unsquash - ease out of squash while on ground
+                    var localT = (t - squashHoldEndT) / (SquashEndT - squashHoldEndT);
+                    var easedIntensity = EaseOutQuad(1f - localT);
+                    var squashX = Mathf.Lerp(1f, MaxSquashX, easedIntensity);
+                    var squashY = Mathf.Lerp(1f, MaxSquashY, easedIntensity);
+                    return new Vector2(squashX, squashY);
+                } else {
+                    // Phases 1-3: Rising, apex, falling - normal scale
+                    return Vector2.one;
+                }
+            }
         }
     }
 
-    private float EaseOutQuad(float t) {
+    private static float EaseOutQuad(float t) {
         return 1f - (1f - t) * (1f - t);
     }
 
-    private float EaseInQuad(float t) {
+    private static float EaseInQuad(float t) {
         return t * t;
     }
 }

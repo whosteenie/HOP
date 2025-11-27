@@ -30,8 +30,8 @@ namespace Game.Player {
         [SerializeField]
         private Color taggedGlow = new(8f, 6f, 1f, 1f); // Very bright yellow-orange with HDR glow for tagged players
 
-        [Header("Outline Distance Scaling")] [SerializeField]
-        private float minOutlineSize = 0.008f; // Minimum size (close distance)
+        [Header("Outline Distance Scaling")]
+        [SerializeField] private float minOutlineSize = 0.008f; // Minimum size (close distance)
 
         [SerializeField]
         private float maxOutlineSize = 0.025f; // Maximum size (far distance) - much thicker at distance
@@ -65,12 +65,10 @@ namespace Game.Player {
             base.OnNetworkSpawn();
 
             _skinned = GetComponentInChildren<SkinnedMeshRenderer>(true);
-            
+
             // Find and cache main camera once (for dynamically spawned prefabs)
-            if(_mainCamera == null) {
-                _mainCamera = Camera.main;
-            }
-            
+            _mainCamera = Camera.main;
+
             _tagController = GetComponent<PlayerTagController>();
 
             // Cache MatchSettingsManager
@@ -81,7 +79,7 @@ namespace Game.Player {
             if(_skinned != null) {
                 _propertyBlock = new MaterialPropertyBlock();
                 _skinned.GetPropertyBlock(_propertyBlock, 0); // Get existing properties for material index 0
-                
+
                 // Create reusable property block for tagged players
                 _tagPropertyBlock = new MaterialPropertyBlock();
             }
@@ -135,7 +133,6 @@ namespace Game.Player {
             }
         }
 
-
         // --------------------------------------------------------------------
         // Public method to update outline - can be called by PlayerTagController
         // --------------------------------------------------------------------
@@ -185,20 +182,20 @@ namespace Game.Player {
                 if(IsOwner) {
                     // Yourself: don't change (leave as default/unchanged)
                     return;
-                } else {
-                    // Get the LOCAL player's team (only exists on clients)
-                    var localPlayer = NetworkManager.Singleton.LocalClient?.PlayerObject;
-                    if(localPlayer != null) {
+                }
+
+                // Get the LOCAL player's team (only exists on clients)
+                var localPlayer = NetworkManager.Singleton.LocalClient?.PlayerObject;
+                if(localPlayer != null) {
                     var localController = localPlayer.GetComponent<PlayerController>();
                     var localTeamMgr = localController?.TeamManager;
-                        if(localTeamMgr != null && netTeam.Value == localTeamMgr.netTeam.Value) {
-                            target = teammateOutline; // Same team → blue
-                        } else {
-                            target = enemyOutline; // Different team → red
-                        }
+                    if(localTeamMgr != null && netTeam.Value == localTeamMgr.netTeam.Value) {
+                        target = teammateOutline; // Same team → blue
                     } else {
-                        target = enemyOutline; // Fallback (shouldn't happen)
+                        target = enemyOutline; // Different team → red
                     }
+                } else {
+                    target = enemyOutline; // Fallback (shouldn't happen)
                 }
 
                 // Calculate distance-based outline size for better visibility at distance
@@ -222,11 +219,11 @@ namespace Game.Player {
         // Calculate outline size based on distance (larger at distance for visibility)
         // --------------------------------------------------------------------
         private float CalculateOutlineSize() {
-            if(_mainCamera == null || _skinned == null) {
-                // Fallback to Camera.main if cache is lost (shouldn't happen, but safety check)
-                _mainCamera = Camera.main;
-                if(_mainCamera == null) return minOutlineSize;
-            }
+            // if(_mainCamera == null || _skinned == null) {
+            //     // Fallback to Camera.main if cache is lost (shouldn't happen, but safety check)
+            //     _mainCamera = Camera.main;
+            //     if(_mainCamera == null) return minOutlineSize;
+            // }
 
             // Get distance from camera to player
             var distance = Vector3.Distance(_mainCamera.transform.position, transform.position);
@@ -274,7 +271,7 @@ namespace Game.Player {
 
             // Update outline size based on distance
             var outlineSize = CalculateOutlineSize();
-            
+
             // Only update if size actually changed (avoid unnecessary SetPropertyBlock calls)
             // Use cached last size instead of GetPropertyBlock every frame
             if(!(Mathf.Abs(_lastOutlineSize - outlineSize) > 0.001f)) return;
@@ -287,6 +284,7 @@ namespace Game.Player {
                 _propertyBlock.SetFloat(size, outlineSize);
                 _skinned.SetPropertyBlock(_propertyBlock, 0);
             }
+
             _lastOutlineSize = outlineSize;
         }
     }

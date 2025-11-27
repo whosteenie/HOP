@@ -29,20 +29,17 @@ namespace Game.Player {
         private float _timer;
 
         private void Awake() {
-            // Component reference should be assigned in the inspector
-            // Only use GetComponent as a last resort fallback if not assigned
+            ValidateComponents();
+        }
+
+        private void ValidateComponents() {
             if(playerController == null) {
                 playerController = GetComponent<PlayerController>();
             }
-        }
 
-        public override void OnNetworkSpawn() {
-            base.OnNetworkSpawn();
-
-            // Component reference should be assigned in the inspector
-            // Only use GetComponent as a last resort fallback if not assigned
             if(playerController == null) {
-                playerController = GetComponent<PlayerController>();
+                Debug.LogError("[PlayerStatsController] PlayerController not found!");
+                enabled = false;
             }
         }
 

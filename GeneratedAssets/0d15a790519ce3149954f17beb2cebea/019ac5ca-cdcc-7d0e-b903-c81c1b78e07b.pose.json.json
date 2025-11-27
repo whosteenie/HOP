@@ -1,0 +1,11 @@
+{
+    "asset": "0d15a790519ce3149954f17beb2cebea",
+    "fileName": "019ac5ca-cdcc-7d0e-b903-c81c1b78e07b.pose.json",
+    "prompt": "Create a humanoid animation focused on the left arm for a grapple throw. Start with the character’s torso mostly steady, left shoulder driving the motion. The left arm snaps forward from a relaxed pose into a fully extended, forward angle as if launching a grappling hook. Lead with the shoulder and elbow, keeping the wrist aligned for a confident push. Fingers begin open and splayed; once the arm reaches full extension, curl the fingers and thumb inward to form a firm grasp around an invisible cable. Maintain that gripping pose for a brief hold. Ensure the motion is quick but readable, with clear anticipation and follow-through in the arm while the rest of the body remains subtle.",
+    "negativePrompt": "",
+    "model": "9e46c009-67d8-4254-a3a0-32e3168247ee",
+    "modelName": "Text to Motion",
+    "customSeed": 326771436,
+    "w3CTraceId": "61bf9f7a8591aa5ed5c342b452735a9c",
+    "isTrimmed": false
+}

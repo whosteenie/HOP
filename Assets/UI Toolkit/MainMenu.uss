@@ -285,7 +285,7 @@
 /* ===== OPTIONS ===== */
 
 .options-container {
-    width: 760px; max-height: 80%; padding: 36px;
+    width: 760px; max-height: 85%; padding: 36px;
     flex-direction: column;
 }
 
@@ -294,8 +294,8 @@
 /* ===== LOADOUT ===== */
 
 .loadout-container {
-    width: 900px;
-    height: 700px;
+    width: 1400px;
+    height: 800px;
     padding: 30px;
     flex-direction: column;
     align-items: center;
@@ -307,21 +307,126 @@
     padding: 20px;
 }
 
-.player-model-container {
-    width: 100%;
-    height: 300px;
-    margin-bottom: 20px;
-    align-items: center;
-    justify-content: center;
+/* Edge containers for loadout panel - positioned absolutely to keep center clear */
+.loadout-edge-container {
+    position: absolute;
+    padding: 20px;
 }
 
+.weapon-selection-container {
+    left: 40px;
+    top: 0;
+    bottom: 0;
+    width: 220px;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    transition-duration: 0.4s;
+    transition-property: translate;
+    transition-timing-function: ease-out;
+}
+
+.weapon-selection-container.slide-in-from-left {
+    translate: 0 0;
+}
+
+.weapon-selection-container.slide-out-to-left {
+    translate: -100% 0;
+}
+
+.weapon-slot-container-vertical {
+    flex-direction: column;
+    align-items: flex-start;
+    margin-bottom: 30px;
+    width: 100%;
+}
+
+.weapon-slot-row {
+    flex-direction: row;
+    align-items: center;
+    width: 100%;
+    position: relative;
+}
+
+.customization-container {
+    right: 40px;
+    top: 0;
+    bottom: 0;
+    width: 320px;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    transition-duration: 0.4s;
+    transition-property: translate;
+    transition-timing-function: ease-out;
+}
+
+.customization-container.slide-in-from-right {
+    translate: 0 0;
+}
+
+.customization-container.slide-out-to-right {
+    translate: 100% 0;
+}
+
+.customization-content {
+    flex-direction: column;
+    width: 100%;
+}
+
+.customization-section {
+    flex-direction: column;
+    margin-bottom: 30px;
+    width: 100%;
+}
+
+.name-buttons-container {
+    bottom: 40px;
+    left: 0;
+    right: 0;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    padding: 20px 30px;
+    min-width: 600px;
+    transition-duration: 0.4s;
+    transition-property: translate;
+    transition-timing-function: ease-out;
+}
+
+.name-buttons-container.slide-in-from-bottom {
+    translate: 0 0;
+}
+
+.name-buttons-container.slide-out-to-bottom {
+    translate: 0 100%;
+}
+
+/* Full-screen background for render texture - no distortion */
+.player-model-background {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    top: 0;
+    left: 0;
+    background-color: transparent;
+    /* Maintain aspect ratio of render texture */
+    -unity-background-scale-mode: scale-to-fit;
+}
+
+/* Viewport container - only for input detection, no background */
 .player-model-viewport {
-    width: 400px;
-    height: 300px;
-    background-color: rgba(15, 15, 20, 0.95);
-    border-radius: 4px;
-    border-width: 1px;
-    border-color: rgba(200, 60, 60, 0.2);
+    position: absolute;
+    /* Position to avoid overlapping with UI containers */
+    /* Left: after weapon container (40px + 220px = 260px) + 20px margin = 280px */
+    left: 280px;
+    /* Right: before customization container (right: 40px, width: 320px) + 20px margin = 380px */
+    right: 380px;
+    /* Top: small margin from top */
+    top: 20px;
+    /* Bottom: above name container (bottom: 40px, ~120px tall) + 20px margin = 180px */
+    bottom: 180px;
+    background-color: transparent;
 }
 
 .customization-bar {
@@ -404,9 +509,12 @@
 .name-input-container {
     flex-direction: row;
     align-items: center;
-    flex-grow: 1;
-    justify-content: flex-start;
-    max-width: 300px;
+    margin-left: 20px;
+    margin-right: 20px;
+}
+
+.apply-loadout-button {
+    margin-left: 0;
 }
 
 .player-name-input {
@@ -434,9 +542,14 @@
 }
 
 .apply-name-button {
-    margin-left: 10px;
+    margin-left: 0;
+    margin-right: 10px;
     width: 80px;
     height: 50px;
+}
+
+.customize-character-button {
+    margin-left: 10px;
 }
 
 .weapon-bar {
@@ -501,30 +614,43 @@
 
 .weapon-dropdown {
     position: absolute;
-    bottom: 130px;
-    left: 0;
-    width: 183px;
-    max-height: 300px;
+    left: 200px;
+    top: 0;
+    width: auto;
+    max-width: 600px;
+    max-height: 120px;
     background-color: rgba(12, 12, 18, 0.98);
     border-radius: 4px;
     border-width: 1px;
     border-color: rgba(200, 60, 60, 0.3);
     padding: 8px;
+    margin-left: 20px;
 }
 
 .weapon-dropdown-scroll {
-    max-height: 280px;
+    max-height: 104px;
     margin-right: 0;
+}
+
+.weapon-dropdown-scroll-horizontal {
+    flex-direction: row;
+}
+
+.weapon-dropdown-scroll-horizontal .unity-scroll-view__content-container {
+    flex-direction: row;
+    flex-wrap: nowrap;
 }
 
 .weapon-option {
     width: 164px;
     height: 100px;
+    min-width: 164px;
     background-color: rgba(20, 20, 25, 0.9);
     border-radius: 4px;
     border-width: 1px;
     border-color: rgba(200, 60, 60, 0.2);
-    margin-bottom: 6px;
+    margin-right: 6px;
+    margin-bottom: 0;
     align-items: center;
     justify-content: center;
     transition-duration: 0.2s;
@@ -793,5 +919,334 @@
 .toast.hide  {
     opacity: 0;
     translate: 0 -20px;
+}
+
+/* ===== CHARACTER CUSTOMIZATION ===== */
+
+.customization-container {
+    height: auto;
+    max-height: 450px;
+    min-height: auto;
+    padding: 20px 30px;
+    width: 1000px;
+    min-width: 1000px;
+    max-width: 1000px;
+}
+
+/* Old customization styles removed - using new vertical layout */
+
+.customization-section .section-title {
+    margin-bottom: 12px;
+}
+
+.color-picker-full-container {
+    flex-direction: column;
+    align-items: flex-start;
+    margin-top: 12px;
+}
+
+.color-preview-box {
+    width: 80px;
+    height: 80px;
+    min-width: 80px;
+    min-height: 80px;
+    background-color: rgba(20, 20, 25, 0.9);
+    border-radius: 4px;
+    border-width: 1px;
+    border-color: rgba(200, 60, 60, 0.3);
+    margin-bottom: 15px;
+}
+
+.color-preview-button {
+    justify-content: center;
+    align-items: center;
+}
+
+.emission-section {
+    margin-top: 12px;
+}
+
+.emission-header {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.emission-title {
+    margin-bottom: 0;
+}
+
+.emission-toggle {
+    min-width: 120px;
+    justify-content: flex-end;
+}
+
+.emission-picker {
+    align-items: center;
+    margin-top: 12px;
+}
+
+.emission-preview-box {
+    margin-bottom: 0;
+    margin-right: 20px;
+}
+
+.emission-rgb-container .setting-row {
+    margin-bottom: 8px;
+}
+
+#emission-b-input-container {
+    margin-bottom: 0;
+}
+
+.material-packet-panel {
+    align-items: center;
+    justify-content: center;
+}
+
+.material-packet-container {
+    width: 840px;
+    max-width: 90%;
+    max-height: 720px;
+    padding: 24px 32px;
+    display: flex;
+    flex-direction: column;
+}
+
+.material-packet-header {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+}
+
+.material-packet-scroll {
+    flex-grow: 1;
+}
+
+.material-packet-grid {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    padding: 8px 0;
+}
+
+.material-packet-button {
+    width: 150px;
+    height: 150px;
+    margin-right: 16px;
+    margin-bottom: 16px;
+    border-radius: 6px;
+    border-width: 1px;
+    border-color: rgba(255, 255, 255, 0.15);
+    background-color: rgba(20, 20, 25, 0.9);
+    color: #ffffff;
+    font-size: 16px;
+    justify-content: center;
+    align-items: center;
+    -unity-text-align: middle-center;
+    padding: 8px;
+}
+
+.material-packet-button.packet-button-placeholder {
+    opacity: 0.6;
+}
+
+.material-packet-button.packet-button-selected {
+    border-color: rgba(200, 60, 60, 0.8);
+    background-color: rgba(200, 60, 60, 0.25);
+}
+
+.color-rgb-container {
+    flex-direction: column;
+    width: 100%;
+}
+
+.color-rgb-container .setting-row {
+    margin-bottom: 8px;
+}
+
+#color-b-input-container {
+    margin-bottom: 0;
+}
+
+.color-rgb-label {
+    min-width: 30px;
+    width: 30px;
+}
+
+.color-rgb-input {
+    min-width: 50px;
+    max-width: 50px;
+    width: 50px;
+}
+
+/* Ensure sliders have proper width in customization panel */
+.customization-section .setting-row {
+    width: 100%;
+}
+
+.customization-section .setting-slider {
+    width: 200px;
+    min-width: 200px;
+    max-width: 200px;
+    flex-grow: 0;
+    flex-shrink: 0;
+}
+
+/* ===== LOADOUT PANEL INLINE STYLES MERGED ===== */
+
+/* Name flex container */
+#name-flex {
+    flex-grow: 1;
+    align-items: center;
+    justify-content: flex-end;
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+}
+
+/* Name buttons container */
+#name-buttons-container {
+    min-width: 400px;
+    align-items: center;
+    left: auto;
+    right: auto;
+    bottom: 20px;
+    align-self: auto;
+}
+
+/* Customization flex container */
+#customization-flex {
+    flex-grow: 1;
+    position: absolute;
+    top: 0;
+    align-items: center;
+    height: 1080px;
+    right: 0;
+    width: 526px;
+    align-self: center;
+    align-content: center;
+    justify-content: center;
+}
+
+/* Customization container */
+#customization-container {
+    align-items: center;
+    width: 408px;
+    min-width: auto;
+    max-width: none;
+    right: 20px;
+    align-self: center;
+    top: auto;
+    bottom: auto;
+    max-height: none;
+    justify-content: center;
+    height: 501px;
+    align-content: center;
+}
+
+/* Customization content */
+#customization-content {
+    width: 100%;
+}
+
+/* Color section */
+#color-section {
+    align-self: auto;
+    align-items: flex-start;
+    margin-bottom: 0;
+    height: 298px;
+}
+
+/* Color section label */
+#color-section-label {
+    width: 100%;
+}
+
+/* Color picker container */
+#color-picker-container {
+    align-items: center;
+    width: 100%;
+    height: 100%;
+    align-self: center;
+}
+
+/* Color RGB inputs */
+#color-rgb-inputs {
+    width: 100%;
+    height: 100%;
+}
+
+/* Color sliders */
+#color-r-slider,
+#color-g-slider,
+#color-b-slider {
+    max-width: none;
+    min-width: auto;
+    width: 235px;
+}
+
+/* Material section */
+#material-section {
+    margin-bottom: 0;
+}
+
+/* Material section label */
+#material-section-label {
+    width: 100%;
+}
+
+/* Smoothness and Metallic labels */
+#smoothness-label,
+#metallic-label {
+    align-items: stretch;
+    min-width: 93px;
+}
+
+/* Weapons flex container */
+#weapons-flex {
+    flex-grow: 1;
+    justify-content: center;
+    align-self: auto;
+    align-content: auto;
+    align-items: auto;
+    position: absolute;
+    top: 0;
+    height: 1080px;
+    width: 230px;
+    margin-left: 20px;
+    left: 0;
+}
+
+/* Weapon selection container */
+#weapon-selection-container {
+    left: 2%;
+    align-items: auto;
+    align-content: auto;
+    height: 50%;
+    top: auto;
+    bottom: auto;
+    justify-content: space-evenly;
+}
+
+/* Weapon containers */
+#primary-weapon-container,
+#secondary-weapon-container,
+#tertiary-weapon-container {
+    margin-bottom: 0;
+}
+
+/* Lobby panel inline styles */
+#host-label {
+    -unity-text-align: middle-left;
+    margin-left: 20px;
+    margin-right: 0;
+}
+
+.flex-grow-1.align-items-flex-end {
+    align-items: center;
 }
 

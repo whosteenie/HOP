@@ -49,9 +49,9 @@ namespace Game.Player {
         private bool _isMantling;
 
         // Input (read from PlayerController)
-        private Vector2 MoveInput => playerController != null ? playerController.moveInput : Vector2.zero;
-        private bool SprintInput => playerController != null && playerController.sprintInput;
-        private bool CrouchInput => playerController != null && playerController.crouchInput;
+        private Vector2 MoveInput => playerController?.moveInput ?? Vector2.zero;
+        private bool SprintInput => playerController is { sprintInput: true };
+        private bool CrouchInput => playerController is { crouchInput: true };
 
         // Network state (from PlayerController)
         public NetworkVariable<bool> netIsCrouching;
@@ -61,12 +61,25 @@ namespace Game.Player {
         private const float CrouchUpdateInterval = 0.022f; // ~2 ticks at 90Hz
 
         private void Awake() {
-            playerController ??= GetComponent<PlayerController>();
-            _characterController ??= playerController.CharacterController;
-            _playerTransform ??= playerController.PlayerTransform;
-            _grappleController ??= playerController.GrappleController;
-            _animationController ??= playerController.AnimationController;
-            _sfxRelay ??= playerController.SfxRelay;
+            ValidateComponents();
+        }
+
+        private void ValidateComponents() {
+            if(playerController == null) {
+                playerController = GetComponent<PlayerController>();
+            }
+
+            if(playerController == null) {
+                Debug.LogError("[PlayerMovementController] PlayerController not found!");
+                enabled = false;
+                return;
+            }
+
+            if(_characterController == null) _characterController = playerController.CharacterController;
+            if(_playerTransform == null) _playerTransform = playerController.PlayerTransform;
+            if(_grappleController == null) _grappleController = playerController.GrappleController;
+            if(_animationController == null) _animationController = playerController.AnimationController;
+            if(_sfxRelay == null) _sfxRelay = playerController.SfxRelay;
 
             // Initialize physics (non-network dependent)
             _obstacleMask = playerController.WorldLayer | playerController.EnemyLayer;
@@ -75,16 +88,6 @@ namespace Game.Player {
 
         public override void OnNetworkSpawn() {
             base.OnNetworkSpawn();
-
-            // Component references should be assigned in the inspector
-            // Only use GetComponent as a last resort fallback if not assigned
-            if(playerController == null) {
-                playerController = GetComponent<PlayerController>();
-            }
-
-            if(_characterController == null) {
-                _characterController = playerController.CharacterController;
-            }
 
             // Get network variable from PlayerController (network-dependent)
             if(playerController != null) {
@@ -110,7 +113,7 @@ namespace Game.Player {
         public void UpdateCrouch(CinemachineCamera fpCamera) {
             if(fpCamera == null) return;
 
-            var sphereRadius = _characterController != null ? _characterController.radius : 0.3f;
+            var sphereRadius = _characterController?.radius ?? 0.3f;
             var headBlocked = Physics.SphereCast(
                 fpCamera.transform.position,
                 sphereRadius,
@@ -137,9 +140,7 @@ namespace Game.Player {
                 }
             }
 
-            if(_animationController != null) {
-                _animationController.SetCrouching(targetCrouchState);
-            }
+            _animationController?.SetCrouching(targetCrouchState);
 
             var targetTransition = targetCrouchState ? 1f : 0f;
             _crouchTransition = Mathf.Lerp(_crouchTransition, targetTransition, 10f * Time.deltaTime);
@@ -165,8 +166,7 @@ namespace Game.Player {
 
         private void CalculateHorizontalVelocity() {
             // Block movement during pre-match (but allow input to be set so it feels responsive when match starts)
-            if(Network.Singletons.GameMenuManager.Instance != null &&
-               Network.Singletons.GameMenuManager.Instance.IsPreMatch) {
+            if(Network.Singletons.GameMenuManager.Instance != null && Network.Singletons.GameMenuManager.Instance.IsPreMatch) {
                 // Still apply friction to slow down if already moving
                 ApplyFriction();
                 var targetVelocity = Vector3.zero;
@@ -232,9 +232,7 @@ namespace Game.Player {
 
             var rayHit = Physics.Raycast(fpCamera.transform.position, Vector3.up, out _, 0.75f, _obstacleMask);
             if(!rayHit || !(VerticalVelocity > 0f)) return;
-            if(_grappleController != null) {
-                _grappleController.CancelGrapple();
-            }
+            _grappleController?.CancelGrapple();
 
             VerticalVelocity = 0f;
         }
@@ -293,9 +291,7 @@ namespace Game.Player {
             // Ensure velocity is positive (upward) before triggering jump animation
             // This guarantees the jump animation only triggers when velocity is actually applied upward
             if(!(VerticalVelocity > 0f)) return;
-            if(_animationController != null) {
-                _animationController.PlayJumpAnimationServerRpc();
-            }
+            _animationController?.PlayJumpAnimationServerRpc();
         }
 
         /// <summary>
@@ -335,21 +331,18 @@ namespace Game.Player {
 
             // Trigger jump animation if moving upward
             if(!(VerticalVelocity > 0f)) return;
-            if(_animationController != null) {
-                _animationController.PlayJumpAnimationServerRpc();
-            }
+            _animationController?.PlayJumpAnimationServerRpc();
         }
 
         private float CheckForJumpPad() {
-            if(!Physics.Raycast(_playerTransform.position, Vector3.down, out var hit, _characterController.height * 0.6f))
+            if(!Physics.Raycast(playerController.Position, Vector3.down, out var hit, _characterController.height * 0.6f))
                 return 0f; // No jump pad found
             if(hit.collider.CompareTag("JumpPad")) {
                 return 15f; // Regular jump pad height
-            } else if(hit.collider.CompareTag("MegaPad")) {
-                return 30f; // Mega jump pad height
             }
 
-            return 0f; // No jump pad found
+            return hit.collider.CompareTag("MegaPad") ? 30f : // Mega jump pad height
+                0f; // No jump pad found
         }
 
         public void ResetVelocity() {

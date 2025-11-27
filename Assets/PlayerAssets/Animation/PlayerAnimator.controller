@@ -615,8 +615,8 @@ AnimatorStateTransition:
   m_PrefabAsset: {fileID: 0}
   m_Name: 
   m_Conditions:
-  - m_ConditionMode: 1
-    m_ConditionEvent: PullOut
+  - m_ConditionMode: 6
+    m_ConditionEvent: WeaponIndex
     m_EventTreshold: 0
   m_DstStateMachine: {fileID: 0}
   m_DstState: {fileID: 5385658956474638652}
@@ -996,6 +996,9 @@ AnimatorStateTransition:
     m_EventTreshold: 0
   - m_ConditionMode: 2
     m_ConditionEvent: IsFalling
+    m_EventTreshold: 0
+  - m_ConditionMode: 2
+    m_ConditionEvent: IsJumping
     m_EventTreshold: 0
   m_DstStateMachine: {fileID: 0}
   m_DstState: {fileID: -5366041774608731794}
@@ -2334,6 +2337,9 @@ AnimatorStateTransition:
   - m_ConditionMode: 1
     m_ConditionEvent: PullOut
     m_EventTreshold: 0
+  - m_ConditionMode: 6
+    m_ConditionEvent: WeaponIndex
+    m_EventTreshold: 1
   m_DstStateMachine: {fileID: 0}
   m_DstState: {fileID: -2703569177427875381}
   m_Solo: 0

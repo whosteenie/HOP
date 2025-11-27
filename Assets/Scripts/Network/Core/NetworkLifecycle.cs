@@ -30,9 +30,7 @@ namespace Network.Core {
 
             // Keep your legacy default reset (as in your code)
             var utp = NetworkManager.Singleton.GetComponent<UnityTransport>();
-            if(utp != null) utp.SetConnectionData("127.0.0.1", 7777);
-
-            // await UniTask.Delay(500);
+            utp?.SetConnectionData("127.0.0.1", 7777);
         }
 
         /// <inheritdoc />

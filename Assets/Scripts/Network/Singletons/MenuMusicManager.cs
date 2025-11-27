@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.Audio;
 
 namespace Network.Singletons {
     public class MenuMusicPlayer : MonoBehaviour {
@@ -6,6 +7,7 @@ namespace Network.Singletons {
         [SerializeField] private AudioClip[] menuMusicTracks;
 
         [SerializeField] private AudioSource musicSource;
+        [SerializeField] private AudioMixerGroup musicMixerGroup;
 
         [Header("Settings")]
         [SerializeField] private bool shuffleTracks = true;
@@ -16,12 +18,15 @@ namespace Network.Singletons {
         private int _previousTrackIndex = -1; // Track the last played song
 
         private void Start() {
-            if(musicSource == null) {
-                musicSource = gameObject.AddComponent<AudioSource>();
-            }
+            musicSource = gameObject.AddComponent<AudioSource>();
 
             musicSource.loop = false;
             musicSource.playOnAwake = false;
+            if(musicMixerGroup != null) {
+                musicSource.outputAudioMixerGroup = musicMixerGroup;
+            } else {
+                Debug.LogWarning("[MenuMusicPlayer] Music mixer group not assigned. Music volume sliders may not affect menu music.");
+            }
 
             PlayMenuMusic();
         }
@@ -34,7 +39,7 @@ namespace Network.Singletons {
         }
 
         private void PlayMenuMusic() {
-            if(menuMusicTracks == null || menuMusicTracks.Length == 0) return;
+            if(menuMusicTracks is not { Length: not 0 }) return;
 
             _currentTrackIndex = shuffleTracks ? Random.Range(0, menuMusicTracks.Length) : 0;
             _previousTrackIndex = _currentTrackIndex; // Set initial previous track

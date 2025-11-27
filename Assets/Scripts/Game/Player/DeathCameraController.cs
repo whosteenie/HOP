@@ -13,11 +13,23 @@ namespace Game.Player {
         private SpeedTrail _speedTrail;
 
         private void Awake() {
-            playerController ??= GetComponent<PlayerController>();
-            
-            _fpCamera ??= playerController.FpCamera;
-            _deathCamera = playerController.DeathCamera;
-            _speedTrail ??= playerController.SpeedTrail;
+            ValidateComponents();
+        }
+
+        private void ValidateComponents() {
+            if(playerController == null) {
+                playerController = GetComponent<PlayerController>();
+            }
+
+            if(playerController == null) {
+                Debug.LogError("[DeathCameraController] PlayerController not found!");
+                enabled = false;
+                return;
+            }
+
+            if(_fpCamera == null) _fpCamera = playerController.FpCamera;
+            if(_deathCamera == null) _deathCamera = playerController.DeathCamera;
+            if(_speedTrail == null) _speedTrail = playerController.SpeedTrail;
         }
 
         public void EnableDeathCamera() {

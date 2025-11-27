@@ -9,6 +9,7 @@ namespace Game.Player {
     public class GrappleController : NetworkBehaviour {
         [Header("Components")]
         [SerializeField] private PlayerController playerController;
+
         private CinemachineCamera _fpCamera;
         private CharacterController _characterController;
         private PlayerTagController _tagController; // For checking if player is tagged in Gun Tag mode
@@ -29,12 +30,20 @@ namespace Game.Player {
 
         [Header("Momentum Settings")]
         private const bool PreserveMomentum = true;
+
         private const float MomentumBoost = 1.2f; // Multiplier for final velocity
 
         [Header("Visual Settings")]
+        [SerializeField] private bool useLegacyLineRenderer = false;
+
         [SerializeField] private float lineWidth = 0.05f;
-        [SerializeField] private Color grappleColor = new Color(0.2f, 0.8f, 1f);
+        [SerializeField] private Color grappleColor = new(0.2f, 0.8f, 1f);
         [SerializeField] private Material lineMaterial;
+
+        [Header("Mesh Settings (when not using legacy)")]
+        [SerializeField] private int meshSegments = 8;
+
+        [SerializeField] private float meshRadius = 0.02f;
 
         #region Private Fields
 
@@ -42,6 +51,12 @@ namespace Game.Player {
         private float _grappleStartTime;
         private Vector3 _grappleStartPosition;
         private float _cooldownStartTime;
+
+        // Mesh system fields (only used when not using legacy LineRenderer)
+        private GameObject _grappleMeshObject;
+        private MeshFilter _grappleMeshFilter;
+        private MeshRenderer _grappleMeshRenderer;
+        private Mesh _grappleMesh;
 
         #endregion
 
@@ -87,12 +102,30 @@ namespace Game.Player {
         #region Unity Lifecycle
 
         private void Awake() {
-            playerController ??= GetComponent<PlayerController>();
+            ValidateComponents();
+        }
 
-            _fpCamera ??= playerController.FpCamera;
-            _characterController ??= playerController.CharacterController;
-            _tagController ??= playerController.TagController;
-            _sfxRelay ??= playerController.SfxRelay;
+        private void ValidateComponents() {
+            if(playerController == null) {
+                playerController = GetComponent<PlayerController>();
+            }
+            
+            if(_fpCamera == null) {
+                _fpCamera = playerController.FpCamera;
+            }
+            
+            if(_characterController == null) {
+                _characterController = playerController.CharacterController;
+            }
+            
+            if(_tagController == null) {
+                _tagController = playerController.TagController;
+            }
+            
+            if(_sfxRelay == null) {
+                _sfxRelay = playerController.SfxRelay;
+            }
+
             _playerLayer = playerController.PlayerLayer;
             _grappleableLayers = playerController.WorldLayer;
         }
@@ -113,13 +146,26 @@ namespace Game.Player {
             SetupGrappleLine();
         }
 
+        public override void OnDestroy() {
+            base.OnDestroy();
+            // Clean up unparented mesh object
+            if(_grappleMeshObject != null) {
+                Destroy(_grappleMeshObject);
+            }
+        }
+
         private void Update() {
             switch(IsOwner) {
                 case false when _netIsGrappling.Value: {
-                    // Non-owners: update line position every frame while grappling
-                    if(grappleLine == null) return;
-                    grappleLine.SetPosition(0, grappleOriginTp.position);
-                    grappleLine.SetPosition(1, _netGrapplePoint.Value);
+                    // Non-owners: update visual position every frame while grappling
+                    if(useLegacyLineRenderer) {
+                        if(grappleLine == null) return;
+                        grappleLine.SetPosition(0, grappleOriginTp.position);
+                        grappleLine.SetPosition(1, _netGrapplePoint.Value);
+                    } else {
+                        if(_grappleMeshRenderer == null || grappleOriginTp == null) return;
+                        UpdateGrappleMesh(grappleOriginTp.position, _netGrapplePoint.Value);
+                    }
 
                     return;
                 }
@@ -168,22 +214,40 @@ namespace Game.Player {
         }
 
         private void UpdateGrappleVisuals(bool isGrappling, Vector3 targetPoint) {
-            if(grappleLine == null) return;
-
-            grappleLine.enabled = isGrappling;
-
-            if(!isGrappling) return;
-            grappleLine.SetPosition(0, _grappleStartPosition);
-            grappleLine.SetPosition(1, targetPoint);
+            if(useLegacyLineRenderer) {
+                if(grappleLine == null) return;
+                grappleLine.enabled = isGrappling;
+                if(!isGrappling) return;
+                grappleLine.SetPosition(0, _grappleStartPosition);
+                grappleLine.SetPosition(1, targetPoint);
+            } else {
+                if(_grappleMeshRenderer == null) return;
+                _grappleMeshRenderer.enabled = isGrappling;
+                if(!isGrappling) return;
+                if(grappleOriginTp != null) {
+                    UpdateGrappleMesh(grappleOriginTp.position, targetPoint);
+                }
+            }
         }
 
         #region Setup
 
         private void SetupGrappleLine() {
+            if(useLegacyLineRenderer) {
+                SetupLegacyLineRenderer();
+            } else {
+                SetupGrappleMesh();
+            }
+        }
+
+        private void SetupLegacyLineRenderer() {
             if(grappleLine == null) {
                 var lineObj = new GameObject("GrappleLine");
                 lineObj.transform.SetParent(transform);
                 grappleLine = lineObj.AddComponent<LineRenderer>();
+                Debug.Log("[GrappleController] Created new LineRenderer GameObject");
+            } else {
+                Debug.Log("[GrappleController] Using existing LineRenderer from inspector");
             }
 
             grappleLine.startWidth = lineWidth;
@@ -193,10 +257,119 @@ namespace Game.Player {
             grappleLine.enabled = false;
 
             // Setup material
-            grappleLine.material = lineMaterial != null ? lineMaterial : new Material(Shader.Find("Sprites/Default"));
+            grappleLine.material = lineMaterial ?? new Material(Shader.Find("Sprites/Default"));
+            var materialName = grappleLine.sharedMaterial != null
+                ? grappleLine.sharedMaterial.name
+                : (grappleLine.material != null ? grappleLine.material.name : "null");
+            Debug.Log(
+                $"[GrappleController] SetupLegacyLineRenderer - Material: {materialName}, Width: {lineWidth}, Color: {grappleColor}");
 
             grappleLine.startColor = grappleColor;
             grappleLine.endColor = grappleColor;
+        }
+
+        private void SetupGrappleMesh() {
+            // Create mesh object if it doesn't exist
+            if(_grappleMeshObject == null) {
+                _grappleMeshObject = new GameObject("GrappleCable");
+                // Don't parent to transform - mesh vertices are in world space
+                _grappleMeshObject.transform.SetParent(null);
+
+                _grappleMeshFilter = _grappleMeshObject.AddComponent<MeshFilter>();
+                _grappleMeshRenderer = _grappleMeshObject.AddComponent<MeshRenderer>();
+
+                // Create the mesh
+                _grappleMesh = new Mesh();
+                _grappleMesh.name = "GrappleCableMesh";
+                _grappleMeshFilter.mesh = _grappleMesh;
+
+                Debug.Log("[GrappleController] Created new grapple mesh GameObject");
+            } else {
+                Debug.Log("[GrappleController] Using existing grapple mesh from inspector");
+                // Ensure it's not parented if it was assigned in inspector
+                if(_grappleMeshObject.transform.parent != null) {
+                    _grappleMeshObject.transform.SetParent(null);
+                }
+            }
+
+            // Set material (supports complex materials with normals, AO, height, etc.)
+            if(lineMaterial != null) {
+                _grappleMeshRenderer.material = lineMaterial;
+            } else {
+                // Fallback to a simple material if none assigned
+                _grappleMeshRenderer.material = new Material(Shader.Find("Universal Render Pipeline/Lit"));
+                _grappleMeshRenderer.material.color = grappleColor;
+            }
+
+            _grappleMeshRenderer.enabled = false;
+
+            var materialName = _grappleMeshRenderer.sharedMaterial != null
+                ? _grappleMeshRenderer.sharedMaterial.name
+                : "null";
+            Debug.Log(
+                $"[GrappleController] SetupGrappleMesh - Material: {materialName}, Radius: {meshRadius}, Segments: {meshSegments}");
+        }
+
+        private void UpdateGrappleMesh(Vector3 startPos, Vector3 endPos) {
+            if(_grappleMesh == null || _grappleMeshFilter == null) return;
+
+            var direction = (endPos - startPos).normalized;
+            var distance = Vector3.Distance(startPos, endPos);
+
+            // Generate cylinder mesh between two points
+            var vertices = new Vector3[meshSegments * 2];
+            var triangles = new int[meshSegments * 6];
+            var uvs = new Vector2[vertices.Length];
+            var normals = new Vector3[vertices.Length];
+
+            // Calculate perpendicular vectors for cylinder cross-section
+            var right = Vector3.Cross(direction, Vector3.up);
+            if(right.magnitude < 0.1f) {
+                right = Vector3.Cross(direction, Vector3.forward);
+            }
+
+            right.Normalize();
+            var up = Vector3.Cross(right, direction).normalized;
+
+            // Generate vertices for start and end circles
+            for(var i = 0; i < meshSegments; i++) {
+                var angle = (i / (float)meshSegments) * Mathf.PI * 2f;
+                var offset = right * (Mathf.Cos(angle) * meshRadius) + up * (Mathf.Sin(angle) * meshRadius);
+
+                // Start circle
+                vertices[i] = startPos + offset;
+                uvs[i] = new Vector2(i / (float)meshSegments, 0f);
+                normals[i] = offset.normalized;
+
+                // End circle
+                vertices[i + meshSegments] = endPos + offset;
+                uvs[i + meshSegments] = new Vector2(i / (float)meshSegments, distance);
+                normals[i + meshSegments] = offset.normalized;
+            }
+
+            // Generate triangles (quads made of two triangles)
+            var triIndex = 0;
+            for(var i = 0; i < meshSegments; i++) {
+                var next = (i + 1) % meshSegments;
+
+                // First triangle
+                triangles[triIndex++] = i;
+                triangles[triIndex++] = i + meshSegments;
+                triangles[triIndex++] = next;
+
+                // Second triangle
+                triangles[triIndex++] = next;
+                triangles[triIndex++] = i + meshSegments;
+                triangles[triIndex++] = next + meshSegments;
+            }
+
+            // Update mesh
+            _grappleMesh.Clear();
+            _grappleMesh.vertices = vertices;
+            _grappleMesh.triangles = triangles;
+            _grappleMesh.uv = uvs;
+            _grappleMesh.normals = normals;
+            _grappleMesh.RecalculateBounds();
         }
 
         #endregion
@@ -234,8 +407,55 @@ namespace Game.Player {
             _grappleStartTime = Time.time;
             _grappleStartPosition = transform.position;
 
+            if(useLegacyLineRenderer) {
+                if(grappleLine == null) {
+                    SetupGrappleLine();
+                }
+            } else {
+                if(_grappleMeshObject == null) {
+                    SetupGrappleLine();
+                }
+            }
+
             // Enable visual
-            grappleLine.enabled = true;
+            if(useLegacyLineRenderer) {
+                if(grappleLine != null) {
+                    grappleLine.enabled = true;
+                    // Set initial positions immediately
+                    if(_fpCamera != null) {
+                        var handPosition = _fpCamera.transform.position - _fpCamera.transform.right * 0.3f -
+                                           _fpCamera.transform.up * 0.2f;
+                        grappleLine.SetPosition(0, handPosition);
+                        grappleLine.SetPosition(1, _grapplePoint);
+                    }
+
+                    var matName = grappleLine.sharedMaterial != null
+                        ? grappleLine.sharedMaterial.name
+                        : (grappleLine.material != null ? grappleLine.material.name : "null");
+                    Debug.Log(
+                        $"[GrappleController] Grapple started - Line enabled: {grappleLine.enabled}, Material: {matName}, Position 0: {grappleLine.GetPosition(0)}, Position 1: {grappleLine.GetPosition(1)}");
+                } else {
+                    Debug.LogError("[GrappleController] Grapple started but grappleLine == null!");
+                }
+            } else {
+                if(_grappleMeshRenderer != null) {
+                    _grappleMeshRenderer.enabled = true;
+                    // Set initial mesh
+                    if(_fpCamera != null) {
+                        var handPosition = _fpCamera.transform.position - _fpCamera.transform.right * 0.3f -
+                                           _fpCamera.transform.up * 0.2f;
+                        UpdateGrappleMesh(handPosition, _grapplePoint);
+                    }
+
+                    var matName = _grappleMeshRenderer.sharedMaterial != null
+                        ? _grappleMeshRenderer.sharedMaterial.name
+                        : "null";
+                    Debug.Log(
+                        $"[GrappleController] Grapple started - Mesh enabled: {_grappleMeshRenderer.enabled}, Material: {matName}");
+                } else {
+                    Debug.LogError("[GrappleController] Grapple started but grapple mesh is null!");
+                }
+            }
 
             if(_sfxRelay != null && IsOwner) {
                 _sfxRelay?.RequestWorldSfx(SfxKey.Grapple, attachToSelf: true, true);
@@ -314,7 +534,15 @@ namespace Game.Player {
             yield return new WaitForSeconds(delay);
 
             UpdateGrappleServerRpc(false, Vector3.zero);
-            grappleLine.enabled = false;
+            if(useLegacyLineRenderer) {
+                if(grappleLine != null) {
+                    grappleLine.enabled = false;
+                }
+            } else {
+                if(_grappleMeshRenderer != null) {
+                    _grappleMeshRenderer.enabled = false;
+                }
+            }
         }
 
         private IEnumerator StartGrappleCooldown() {
@@ -326,14 +554,71 @@ namespace Game.Player {
         }
 
         private void UpdateGrappleLine() {
-            if(!grappleLine.enabled) return;
+            if(useLegacyLineRenderer) {
+                if(grappleLine == null) {
+                    SetupGrappleLine();
+                }
 
-            // Update line positions (from hand/weapon to grapple point)
-            var handPosition = _fpCamera.transform.position - _fpCamera.transform.right * 0.3f -
-                               _fpCamera.transform.up * 0.2f;
+                if(grappleLine == null) {
+                    if(IsGrappling) {
+                        Debug.LogWarning(
+                            "[GrappleController] UpdateGrappleLine: grappleLine == null but IsGrappling is true!");
+                    }
 
-            grappleLine.SetPosition(0, handPosition);
-            grappleLine.SetPosition(1, _grapplePoint);
+                    return;
+                }
+
+                if(!grappleLine.enabled) {
+                    if(IsGrappling) {
+                        Debug.LogWarning(
+                            $"[GrappleController] UpdateGrappleLine: grappleLine.enabled is false but IsGrappling is true! Line was disabled unexpectedly.");
+                    }
+
+                    return;
+                }
+
+                if(_fpCamera == null) {
+                    Debug.LogError("[GrappleController] UpdateGrappleLine: _fpCamera == null!");
+                    return;
+                }
+
+                // Update line positions (from hand/weapon to grapple point)
+                var handPosition = _fpCamera.transform.position - _fpCamera.transform.right * 0.3f -
+                                   _fpCamera.transform.up * 0.2f;
+
+                grappleLine.SetPosition(0, handPosition);
+                grappleLine.SetPosition(1, _grapplePoint);
+
+                // Debug first few frames to see if positions are being set
+                if(Time.frameCount % 60 == 0 && IsGrappling) {
+                    Debug.Log(
+                        $"[GrappleController] Line update - Enabled: {grappleLine.enabled}, Pos0: {handPosition}, Pos1: {_grapplePoint}, Distance: {Vector3.Distance(handPosition, _grapplePoint)}");
+                }
+            } else {
+                if(_grappleMeshObject == null) {
+                    SetupGrappleLine();
+                }
+
+                if(_grappleMeshRenderer == null || !_grappleMeshRenderer.enabled) {
+                    if(IsGrappling) {
+                        Debug.LogWarning(
+                            $"[GrappleController] UpdateGrappleLine: mesh renderer is disabled but IsGrappling is true!");
+                    }
+
+                    return;
+                }
+
+                if(_fpCamera == null) {
+                    Debug.LogError("[GrappleController] UpdateGrappleLine: _fpCamera == null!");
+                    return;
+                }
+
+                // Update mesh positions (from hand/weapon to grapple point)
+                var handPosition = _fpCamera.transform.position - _fpCamera.transform.right * 0.3f -
+                                   _fpCamera.transform.up * 0.2f;
+
+                UpdateGrappleMesh(handPosition, _grapplePoint);
+            }
         }
 
         #endregion

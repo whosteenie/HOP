@@ -7,15 +7,12 @@ namespace Network.Singletons {
     public class SpawnManager : NetworkBehaviour {
         public static SpawnManager Instance { get; private set; }
 
-        private List<SpawnPoint> _spawnPoints;
-        private NetworkVariable<int> _netNextSpawnIndex = new();
-
         [Header("Team-Based Spawn Points")]
         [SerializeField] private List<SpawnPoint> allTdmPoints = new();
-        
+
         [Header("FFA Spawn Points")]
         [SerializeField] private List<SpawnPoint> allFfaPoints = new();
-        
+
         private readonly List<SpawnPoint> _teamAPoints = new();
         private readonly List<SpawnPoint> _teamBPoints = new();
         private readonly List<SpawnPoint> _ffaPoints = new();
@@ -29,7 +26,10 @@ namespace Network.Singletons {
         private readonly Dictionary<SpawnPoint, ulong> _reservations = new();
         private readonly Dictionary<ulong, SpawnPoint> _playerReservations = new(); // Reverse lookup
         private readonly Dictionary<ulong, float> _reservationTimes = new(); // Track when reservation was made
-        private readonly object _reservationLock = new object();
+        private readonly object _reservationLock = new();
+
+        // Cached array for spawn point validation (non-allocating overlap check)
+        private static readonly Collider[] spawnClearanceHits = new Collider[10];
 
         private void Awake() {
             if(Instance != null && Instance != this) {
@@ -41,9 +41,6 @@ namespace Network.Singletons {
 
             // Cache spawn points by type
             CachePoints();
-            
-            // Initialize _spawnPoints from FFA points (used for round-robin in FFA mode)
-            _spawnPoints = new List<SpawnPoint>(_ffaPoints);
         }
 
         public override void OnNetworkSpawn() {
@@ -112,29 +109,8 @@ namespace Network.Singletons {
         /// Checks for physical clearance to prevent overlapping spawns.
         /// </summary>
         public SpawnPoint GetNextSpawnPoint(SpawnPoint.Team team) {
-            var list = team == SpawnPoint.Team.TeamA ? _teamAPoints : _teamBPoints;
-            if(list.Count == 0) return null;
-
-            // Try to find a clear spawn point (check physical occupancy)
-            int attempts = 0;
-            int startIdx = Random.Range(0, list.Count);
-
-            while(attempts < MaxSpawnAttempts) {
-                var point = list[startIdx];
-                
-                // Check if spawn point is physically clear
-                if(IsSpawnPointClear(point.transform.position)) {
-                    return point;
-                }
-
-                startIdx = (startIdx + 1) % list.Count;
-                attempts++;
-            }
-
-            // Fallback: return first point even if occupied (better than no spawn)
-            Debug.LogWarning(
-                $"[SpawnManager] No clear spawn point found for Team {team} after {MaxSpawnAttempts} attempts. Using fallback.");
-            return list[0];
+            var list = GetSpawnPointList(team);
+            return FindClearSpawnPoint(list, $"Team {team}");
         }
 
         // Optional: expose for editor population
@@ -143,7 +119,7 @@ namespace Network.Singletons {
             allTdmPoints = FindObjectsByType<SpawnPoint>(FindObjectsSortMode.None).ToList();
             CachePoints();
         }
-        
+
         [ContextMenu("Find All FFA SpawnPoints in Scene")]
         private void FindAllFfaInScene() {
             allFfaPoints = FindObjectsByType<SpawnPoint>(FindObjectsSortMode.None).ToList();
@@ -155,31 +131,7 @@ namespace Network.Singletons {
         /// Checks for physical clearance to prevent overlapping spawns.
         /// </summary>
         public SpawnPoint GetNextSpawnPoint() {
-            // Use FFA spawn points
-            if(_ffaPoints.Count == 0) {
-                return null;
-            }
-
-            // Try to find a clear spawn point (check physical occupancy)
-            int attempts = 0;
-            int startIdx = Random.Range(0, _ffaPoints.Count);
-
-            while(attempts < MaxSpawnAttempts) {
-                var point = _ffaPoints[startIdx];
-                
-                // Check if spawn point is physically clear
-                if(IsSpawnPointClear(point.transform.position)) {
-                    return point;
-                }
-
-                startIdx = (startIdx + 1) % _ffaPoints.Count;
-                attempts++;
-            }
-
-            // Fallback: return first point even if occupied (better than no spawn)
-            Debug.LogWarning(
-                $"[SpawnManager] No clear FFA spawn point found after {MaxSpawnAttempts} attempts. Using fallback.");
-            return _ffaPoints[0];
+            return FindClearSpawnPoint(_ffaPoints, "FFA");
         }
 
         /// <summary>
@@ -189,97 +141,15 @@ namespace Network.Singletons {
         public SpawnPoint ReserveSpawnPoint(ulong clientId, SpawnPoint.Team team) {
             if(!IsServer) return null;
 
-            var list = team == SpawnPoint.Team.TeamA ? _teamAPoints : _teamBPoints;
-            if(list.Count == 0) return null;
-
-            lock(_reservationLock) {
-                // Release any existing reservation for this player
-                if(_playerReservations.TryGetValue(clientId, out var oldReservation)) {
-                    _reservations.Remove(oldReservation);
-                    _playerReservations.Remove(clientId);
-                    _reservationTimes.Remove(clientId);
-                }
-
-                int attempts = 0;
-                int startIdx = Random.Range(0, list.Count);
-
-                while(attempts < MaxSpawnAttempts) {
-                    var point = list[startIdx];
-                    
-                    // Check if point is available (not reserved and physically clear)
-                    bool isReserved = _reservations.ContainsKey(point);
-                    bool isPhysicallyClear = IsSpawnPointClear(point.transform.position);
-                    
-                    if(!isReserved && isPhysicallyClear) {
-                        // Reserve this point
-                        _reservations[point] = clientId;
-                        _playerReservations[clientId] = point;
-                        _reservationTimes[clientId] = Time.time;
-                        return point;
-                    }
-
-                    startIdx = (startIdx + 1) % list.Count;
-                    attempts++;
-                }
-
-                // Final fallback: return first point even if occupied/reserved
-                Debug.LogWarning(
-                    $"[SpawnManager] No safe spawn point found for Team {team} after {MaxSpawnAttempts} attempts. Using fallback.");
-                var fallbackPoint = list[0];
-                _reservations[fallbackPoint] = clientId;
-                _playerReservations[clientId] = fallbackPoint;
-                _reservationTimes[clientId] = Time.time;
-                return fallbackPoint;
-            }
+            var list = GetSpawnPointList(team);
+            return ReserveSpawnPointFromList(clientId, list, $"Team {team}");
         }
 
         /// <summary>
         /// Reserves a spawn point for a player in FFA mode.
         /// </summary>
         public SpawnPoint ReserveSpawnPoint(ulong clientId) {
-            if(!IsServer) return null;
-
-            if(_ffaPoints.Count == 0) return null;
-
-            lock(_reservationLock) {
-                // Release any existing reservation for this player
-                if(_playerReservations.TryGetValue(clientId, out var oldReservation)) {
-                    _reservations.Remove(oldReservation);
-                    _playerReservations.Remove(clientId);
-                    _reservationTimes.Remove(clientId);
-                }
-
-                int attempts = 0;
-                int startIdx = Random.Range(0, _ffaPoints.Count);
-
-                while(attempts < MaxSpawnAttempts) {
-                    var point = _ffaPoints[startIdx];
-                    
-                    // Check if point is available (not reserved and physically clear)
-                    bool isReserved = _reservations.ContainsKey(point);
-                    bool isPhysicallyClear = IsSpawnPointClear(point.transform.position);
-                    
-                    if(!isReserved && isPhysicallyClear) {
-                        // Reserve this point
-                        _reservations[point] = clientId;
-                        _playerReservations[clientId] = point;
-                        _reservationTimes[clientId] = Time.time;
-                        return point;
-                    }
-
-                    startIdx = (startIdx + 1) % _ffaPoints.Count;
-                    attempts++;
-                }
-
-                // Final fallback
-                Debug.LogWarning(
-                    $"[SpawnManager] No safe spawn point found in FFA after {MaxSpawnAttempts} attempts. Using fallback.");
-                var fallbackPoint = _ffaPoints[0];
-                _reservations[fallbackPoint] = clientId;
-                _playerReservations[clientId] = fallbackPoint;
-                _reservationTimes[clientId] = Time.time;
-                return fallbackPoint;
-            }
+            return !IsServer ? null : ReserveSpawnPointFromList(clientId, _ffaPoints, "FFA");
         }
 
         /// <summary>
@@ -290,30 +160,12 @@ namespace Network.Singletons {
         public SpawnPoint GetNextSpawnPointForRespawn(SpawnPoint.Team team) {
             // This method is kept for backward compatibility but should not be used for respawning
             // Use ReserveSpawnPoint instead when player dies
-            var list = team == SpawnPoint.Team.TeamA ? _teamAPoints : _teamBPoints;
-            if(list.Count == 0) return null;
-
-            int attempts = 0;
-            int startIdx = Random.Range(0, list.Count);
+            var list = GetSpawnPointList(team);
+            if(list == null || list.Count == 0) return null;
 
             lock(_reservationLock) {
-                while(attempts < MaxSpawnAttempts) {
-                    var point = list[startIdx];
-                    bool isReserved = _reservations.ContainsKey(point);
-                    bool isPhysicallyClear = IsSpawnPointClear(point.transform.position);
-                    
-                    if(!isReserved && isPhysicallyClear)
-                        return point;
-
-                    startIdx = (startIdx + 1) % list.Count;
-                    attempts++;
-                }
+                return FindAvailableSpawnPoint(list, $"Team {team}");
             }
-
-            // Final fallback: return first point even if occupied
-            Debug.LogWarning(
-                $"[SpawnManager] No safe spawn point found for Team {team} after {MaxSpawnAttempts} attempts. Using fallback.");
-            return list[0];
         }
 
         /// <summary>
@@ -324,42 +176,9 @@ namespace Network.Singletons {
         public SpawnPoint GetNextSpawnPointForRespawn() {
             if(_ffaPoints.Count == 0) return null;
 
-            int attempts = 0;
-            int startIdx = Random.Range(0, _ffaPoints.Count);
-
             lock(_reservationLock) {
-                while(attempts < MaxSpawnAttempts) {
-                    var point = _ffaPoints[startIdx];
-                    bool isReserved = _reservations.ContainsKey(point);
-                    bool isPhysicallyClear = IsSpawnPointClear(point.transform.position);
-                    
-                    if(!isReserved && isPhysicallyClear)
-                        return point;
-
-                    startIdx = (startIdx + 1) % _ffaPoints.Count;
-                    attempts++;
-                }
+                return FindAvailableSpawnPoint(_ffaPoints, "FFA");
             }
-
-            // Final fallback
-            Debug.LogWarning(
-                $"[SpawnManager] No safe spawn point found in FFA after {MaxSpawnAttempts} attempts. Using fallback.");
-            return _ffaPoints[0];
-        }
-
-        /// <summary>
-        /// Gets the reserved spawn point for a player, or null if no reservation exists.
-        /// </summary>
-        public SpawnPoint GetReservedSpawnPoint(ulong clientId) {
-            if(!IsServer) return null;
-
-            lock(_reservationLock) {
-                if(_playerReservations.TryGetValue(clientId, out var point)) {
-                    return point;
-                }
-            }
-
-            return null;
         }
 
         /// <summary>
@@ -370,11 +189,10 @@ namespace Network.Singletons {
             if(!IsServer) return;
 
             lock(_reservationLock) {
-                if(_playerReservations.TryGetValue(clientId, out var point)) {
-                    _reservations.Remove(point);
-                    _playerReservations.Remove(clientId);
-                    _reservationTimes.Remove(clientId);
-                }
+                if(!_playerReservations.TryGetValue(clientId, out var point)) return;
+                _reservations.Remove(point);
+                _playerReservations.Remove(clientId);
+                _reservationTimes.Remove(clientId);
             }
         }
 
@@ -382,30 +200,121 @@ namespace Network.Singletons {
         /// Releases all reservations for a disconnected client.
         /// Called when a client disconnects.
         /// </summary>
-        public void OnClientDisconnect(ulong clientId) {
+        private void OnClientDisconnect(ulong clientId) {
             ReleaseReservation(clientId);
         }
 
-        private bool IsSpawnPointClear(Vector3 center) {
-            var layerMask = LayerMask.GetMask("Player", "Enemy");
-            return Physics.OverlapSphere(center, SpawnClearRadius, layerMask).Length == 0;
+        #region Helper Methods
+
+        /// <summary>
+        /// Gets the appropriate spawn point list for a team, or null if invalid.
+        /// </summary>
+        private List<SpawnPoint> GetSpawnPointList(SpawnPoint.Team? team) {
+            if(team == null) return _ffaPoints;
+            return team == SpawnPoint.Team.TeamA ? _teamAPoints : _teamBPoints;
         }
 
+        /// <summary>
+        /// Finds a physically clear spawn point from a list (doesn't check reservations).
+        /// </summary>
+        private static SpawnPoint FindClearSpawnPoint(List<SpawnPoint> list, string context) {
+            if(list == null || list.Count == 0) return null;
 
-        public int GetRandomSpawnIndex() {
-            if(_spawnPoints.Count == 0) {
-                return 0;
+            var attempts = 0;
+            var startIdx = Random.Range(0, list.Count);
+
+            while(attempts < MaxSpawnAttempts) {
+                var point = list[startIdx];
+
+                if(IsSpawnPointClear(point.transform.position)) {
+                    return point;
+                }
+
+                startIdx = (startIdx + 1) % list.Count;
+                attempts++;
             }
 
-            return Random.Range(0, _spawnPoints.Count);
+            // Fallback: return first point even if occupied (better than no spawn)
+            Debug.LogWarning(
+                $"[SpawnManager] No clear spawn point found for {context} after {MaxSpawnAttempts} attempts. Using fallback.");
+            return list[0];
         }
 
-        public Vector3 GetSpawnPosition(int spawnIndex) {
-            return _spawnPoints[spawnIndex].transform.position;
+        /// <summary>
+        /// Finds an available spawn point (not reserved and physically clear) from a list.
+        /// Must be called within a lock(_reservationLock) block.
+        /// </summary>
+        private SpawnPoint FindAvailableSpawnPoint(List<SpawnPoint> list, string context) {
+            if(list == null || list.Count == 0) return null;
+
+            var attempts = 0;
+            var startIdx = Random.Range(0, list.Count);
+
+            while(attempts < MaxSpawnAttempts) {
+                var point = list[startIdx];
+                var isReserved = _reservations.ContainsKey(point);
+                var isPhysicallyClear = IsSpawnPointClear(point.transform.position);
+
+                if(!isReserved && isPhysicallyClear) {
+                    return point;
+                }
+
+                startIdx = (startIdx + 1) % list.Count;
+                attempts++;
+            }
+
+            // Final fallback: return first point even if occupied
+            Debug.LogWarning(
+                $"[SpawnManager] No safe spawn point found for {context} after {MaxSpawnAttempts} attempts. Using fallback.");
+            return list[0];
         }
 
-        public Quaternion GetSpawnRotation(int spawnIndex) {
-            return _spawnPoints[spawnIndex].transform.rotation;
+        /// <summary>
+        /// Reserves a spawn point from a list for a player.
+        /// </summary>
+        private SpawnPoint ReserveSpawnPointFromList(ulong clientId, List<SpawnPoint> list, string context) {
+            if(list == null || list.Count == 0) return null;
+
+            lock(_reservationLock) {
+                ReleaseExistingReservation(clientId);
+
+                var point = FindAvailableSpawnPoint(list, context);
+                if(point != null) {
+                    CreateReservation(point, clientId);
+                }
+
+                return point;
+            }
         }
+
+        /// <summary>
+        /// Releases any existing reservation for a player. Must be called within lock(_reservationLock).
+        /// </summary>
+        private void ReleaseExistingReservation(ulong clientId) {
+            if(!_playerReservations.TryGetValue(clientId, out var oldReservation)) return;
+            _reservations.Remove(oldReservation);
+            _playerReservations.Remove(clientId);
+            _reservationTimes.Remove(clientId);
+        }
+
+        /// <summary>
+        /// Creates a reservation for a spawn point. Must be called within lock(_reservationLock).
+        /// </summary>
+        private void CreateReservation(SpawnPoint point, ulong clientId) {
+            _reservations[point] = clientId;
+            _playerReservations[clientId] = point;
+            _reservationTimes[clientId] = Time.time;
+        }
+
+        /// <summary>
+        /// Checks if a spawn point position is physically clear (no overlapping colliders).
+        /// </summary>
+        private static bool IsSpawnPointClear(Vector3 center) {
+            var layerMask = LayerMask.GetMask("Player", "Enemy");
+            var hitCount = Physics.OverlapSphereNonAlloc(center, SpawnClearRadius, spawnClearanceHits, layerMask);
+            return hitCount == 0;
+        }
+
+        #endregion
     }
 }

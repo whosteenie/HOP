@@ -11,13 +11,11 @@ namespace Network.Singletons {
 
         [Header("Settings")]
         [SerializeField] private float maxGrappleDistance = 50f;
-
         [SerializeField] private LayerMask grappleableLayers;
 
         [Header("Visual Settings")]
-        [SerializeField] private Color readyColor = new Color(1f, 0.2f, 0.2f, 0.8f);
-
-        [SerializeField] private Color cooldownColor = new Color(0f, 0f, 0f, 0.3f);
+        [SerializeField] private Color readyColor = new(1f, 0.2f, 0.2f, 0.8f);
+        [SerializeField] private Color cooldownColor = new(0f, 0f, 0f, 0.3f);
         [SerializeField] private int segments = 20; // Number of segments for the horseshoe
         [SerializeField] private float colorTransitionSpeed = 25f;
 
@@ -90,7 +88,7 @@ namespace Network.Singletons {
         private void Update() {
             // Validate references are not null and not destroyed
             if(_grappleController == null || _fpCamera == null) return;
-            if(_cachedSceneName == null || !_cachedSceneName.Contains("Game")) return;
+            if(_cachedSceneName?.Contains("Game") != true) return;
             
             CheckGrapplePoint();
             UpdateIndicatorVisual();
@@ -119,9 +117,9 @@ namespace Network.Singletons {
             // Gap at bottom: don't draw last 20% of segments
             var segmentsToDraw = Mathf.RoundToInt(segments * 0.8f);
 
-            var arcDegrees = 360f - gapDegrees;
+            const float arcDegrees = 360f - gapDegrees;
 
-            var startAngle = 360f + (gapDegrees / 2f);
+            const float startAngle = 360f + (gapDegrees / 2f);
 
             for(var i = 0; i < segmentsToDraw; i++) {
                 // Calculate angle for this segment (start from bottom, go clockwise)
@@ -156,7 +154,7 @@ namespace Network.Singletons {
         }
 
         private void CheckGrapplePoint() {
-            if(_fpCamera == null || _fpCamera.transform == null) return;
+            if(!_fpCamera) return;
             
             var ray = new Ray(_fpCamera.transform.position, _fpCamera.transform.forward);
             _isLookingAtGrapplePoint = Physics.Raycast(ray, maxGrappleDistance, grappleableLayers);
@@ -164,7 +162,7 @@ namespace Network.Singletons {
 
         private void UpdateIndicatorVisual() {
             // Validate references before accessing
-            if(_grappleController == null || _grappleIndicator == null || _segments == null) {
+            if(!_grappleController || _grappleIndicator == null || _segments == null) {
                 // Clear references if they're invalid (helps with cleanup)
                 if(_grappleController == null) {
                     _fpCamera = null;

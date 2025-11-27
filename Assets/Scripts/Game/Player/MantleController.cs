@@ -1,4 +1,3 @@
-using System;
 using System.Collections;
 using UnityEngine;
 
@@ -23,15 +22,16 @@ namespace Game.Player {
 
         [Header("Mantle Movement")]
         private const float MantleDuration = 0.3f;
-
         private const float RotationClampAngle = 60f;
         [SerializeField] private AnimationCurve mantleHeightCurve = AnimationCurve.EaseInOut(0, 0, 1, 1);
         [SerializeField] private AnimationCurve mantleForwardCurve = AnimationCurve.EaseInOut(0, 0, 1, 1);
 
         [Range(0f, 1f)]
-        private const float ForwardMovementStartRatio = 0.4f; // When forward movement starts (0 = immediately, 1 = at end)
+        private const float
+            ForwardMovementStartRatio = 0.4f; // When forward movement starts (0 = immediately, 1 = at end)
 
-        [Tooltip("Delay after mantle ends before allowing jump (seconds). Prevents accidental jumps when holding jump during mantle.")]
+        [Tooltip(
+            "Delay after mantle ends before allowing jump (seconds). Prevents accidental jumps when holding jump during mantle.")]
         private const float PostMantleJumpDelay = 0.15f;
 
         [Header("Layers")]
@@ -47,9 +47,22 @@ namespace Game.Player {
         private float _postMantleJumpCooldown;
 
         private void Awake() {
-            playerController ??= GetComponent<PlayerController>();
-            _characterController ??= playerController.CharacterController;
-            _cameraTransform ??= playerController.FpCamera.transform;
+            ValidateComponents();
+        }
+
+        private void ValidateComponents() {
+            if(playerController == null) {
+                playerController = GetComponent<PlayerController>();
+            }
+
+            if(playerController == null) {
+                Debug.LogError("[MantleController] PlayerController not found!");
+                enabled = false;
+                return;
+            }
+
+            if(_characterController == null) _characterController = playerController.CharacterController;
+            if(_cameraTransform == null) _cameraTransform = playerController.FpCamera.transform;
             _mantleableLayers = playerController.WorldLayer;
         }
 
@@ -65,7 +78,7 @@ namespace Game.Player {
             var foundWall = false;
 
             for(var checkHeight = MantleCheckHeightMin; checkHeight <= MantleCheckHeightMax; checkHeight += 0.3f) {
-                var sphereCheckOrigin = transform.position + Vector3.up * checkHeight;
+                var sphereCheckOrigin = playerController.Position + Vector3.up * checkHeight;
 
                 if(!Physics.SphereCast(sphereCheckOrigin, DetectionRadius, playerForward, out wallHit,
                        DetectionDistance,
@@ -91,7 +104,7 @@ namespace Game.Player {
             var ledgeSearchStart = wallHit.point + Vector3.up * LedgeSearchHeight - wallNormalHorizontal * 0.2f;
             Debug.DrawLine(wallHit.point, ledgeSearchStart, Color.cyan, 2f);
 
-            if(!Physics.Raycast(ledgeSearchStart, Vector3.down, out RaycastHit ledgeHit,
+            if(!Physics.Raycast(ledgeSearchStart, Vector3.down, out var ledgeHit,
                    LedgeSearchHeight + MaxMantleHeight, _mantleableLayers)) {
                 return;
             }
@@ -103,8 +116,8 @@ namespace Game.Player {
                 return;
             }
 
-            var ledgeHeight = ledgeHit.point.y - transform.position.y;
-            if(ledgeHeight < MinMantleHeight || ledgeHeight > MaxMantleHeight) {
+            var ledgeHeight = ledgeHit.point.y - playerController.Position.y;
+            if(ledgeHeight is < MinMantleHeight or > MaxMantleHeight) {
                 return;
             }
 
@@ -122,8 +135,7 @@ namespace Game.Player {
             if(Physics.CheckCapsule(
                    targetPosition + Vector3.up * _characterController.radius,
                    targetPosition + Vector3.up * (_characterController.height - _characterController.radius),
-                   _characterController.radius * 0.8f,
-                   _mantleableLayers)) {
+                   _characterController.radius * 0.8f, _mantleableLayers)) {
                 return;
             }
 
@@ -135,14 +147,12 @@ namespace Game.Player {
             _mantleTimer = 0f;
             _postMantleJumpCooldown = 0f; // Reset cooldown when starting new mantle
 
-            _mantleStartPosition = transform.position;
+            _mantleStartPosition = playerController.Position;
             _mantleTargetPosition = targetPosition;
             _mantleDirection = mantleDirection;
 
             // Zero out player velocity before starting mantle
-            if(playerController != null) {
-                playerController.ResetVelocity();
-            }
+            playerController?.ResetVelocity();
 
             _characterController.enabled = false;
 
@@ -183,15 +193,13 @@ namespace Game.Player {
 
         private void EndMantle() {
             IsMantling = false;
-            
+
             // Reset velocity again before re-enabling the controller
             // This ensures no stored velocity from before the mantle gets applied
-            if(playerController != null) {
-                playerController.ResetVelocity();
-            }
-            
+            playerController?.ResetVelocity();
+
             _characterController.enabled = true;
-            
+
             // Start post-mantle jump cooldown
             _postMantleJumpCooldown = PostMantleJumpDelay;
         }
@@ -215,8 +223,8 @@ namespace Game.Player {
             forward.Normalize();
 
             Gizmos.color = Color.yellow;
-            var minCheckPos = transform.position + Vector3.up * MantleCheckHeightMin;
-            var maxCheckPos = transform.position + Vector3.up * MantleCheckHeightMax;
+            var minCheckPos = playerController.Position + Vector3.up * MantleCheckHeightMin;
+            var maxCheckPos = playerController.Position + Vector3.up * MantleCheckHeightMax;
 
             Gizmos.DrawWireSphere(minCheckPos + forward * DetectionDistance, DetectionRadius);
             Gizmos.DrawWireSphere(maxCheckPos + forward * DetectionDistance, DetectionRadius);
@@ -227,15 +235,15 @@ namespace Game.Player {
             Gizmos.DrawLine(minCheckPos + forward * DetectionDistance, maxCheckPos + forward * DetectionDistance);
 
             Gizmos.color = Color.green;
-            var minHeightPos = transform.position + Vector3.up * MinMantleHeight;
-            var maxHeightPos = transform.position + Vector3.up * MaxMantleHeight;
+            var minHeightPos = playerController.Position + Vector3.up * MinMantleHeight;
+            var maxHeightPos = playerController.Position + Vector3.up * MaxMantleHeight;
             Gizmos.DrawWireSphere(minHeightPos, 0.2f);
             Gizmos.DrawWireSphere(maxHeightPos, 0.2f);
             Gizmos.DrawLine(minHeightPos, maxHeightPos);
 
             if(!IsMantling) return;
             Gizmos.color = Color.red;
-            var origin = transform.position + Vector3.up * 1.5f;
+            var origin = playerController.Position + Vector3.up * 1.5f;
 
             // Show clamp boundaries relative to mantle direction
             var leftBound = Quaternion.Euler(0, -RotationClampAngle, 0) * _mantleDirection * 2f;

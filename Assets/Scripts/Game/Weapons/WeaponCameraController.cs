@@ -17,19 +17,25 @@ namespace Game.Weapons {
         private Camera _mainSceneCamera; // Main scene camera (not player's fpCamera)
 
         private void Awake() {
-            playerController ??= GetComponent<PlayerController>();
+            ValidateComponents();
+        }
 
-            _fpCamera ??= playerController?.FpCamera;
-            _weaponCamera ??= playerController?.WeaponCamera;
+        private void ValidateComponents() {
+            if(playerController == null) {
+                playerController = GetComponent<PlayerController>();
+            }
+
+            if(playerController == null) {
+                Debug.LogError("[WeaponCameraController] PlayerController not found!");
+                enabled = false;
+                return;
+            }
+
+            if(_fpCamera == null) _fpCamera = playerController.FpCamera;
+            if(_weaponCamera == null) _weaponCamera = playerController.WeaponCamera;
 
             // Get main scene camera (the one in the scene, not the player's fpCamera)
             _mainSceneCamera = Camera.main;
-            if(_mainSceneCamera == null) {
-                var mainCameraObj = GameObject.FindGameObjectWithTag("MainCamera");
-                if(mainCameraObj != null) {
-                    _mainSceneCamera = mainCameraObj.GetComponent<Camera>();
-                }
-            }
 
             SetupWeaponCamera();
         }
@@ -66,7 +72,7 @@ namespace Game.Weapons {
 
         private void LateUpdate() {
             // Sync FOV with fpCamera
-            if(!_weaponCamera || !_fpCamera) return;
+            if(_weaponCamera == null || _fpCamera == null) return;
             var newFov = _fpCamera.Lens.FieldOfView;
             if(Mathf.Abs(_weaponCamera.fieldOfView - newFov) > 0.01f) {
                 _weaponCamera.fieldOfView = newFov;
@@ -90,10 +96,7 @@ namespace Game.Weapons {
             if(_weaponCamera == null) return;
 
             // Try to get main camera (may be null if scene is unloading)
-            var mainCam = _mainSceneCamera;
-            if(mainCam == null) {
-                mainCam = Camera.main;
-            }
+            var mainCam = _mainSceneCamera ?? Camera.main;
 
             if(mainCam == null) {
                 var mainCameraObj = GameObject.FindGameObjectWithTag("MainCamera");
@@ -105,10 +108,9 @@ namespace Game.Weapons {
             if(mainCam == null) return;
 
             var mainCameraData = mainCam.GetUniversalAdditionalCameraData();
-            if(mainCameraData == null || mainCameraData.cameraStack == null) return;
 
             // Remove this weapon camera from the stack
-            if(mainCameraData.cameraStack.Contains(_weaponCamera)) {
+            if(mainCameraData?.cameraStack?.Contains(_weaponCamera) == true) {
                 mainCameraData.cameraStack.Remove(_weaponCamera);
             }
         }

@@ -3,16 +3,12 @@ using UnityEngine;
 
 namespace Game.Player {
     public class PlayerAnimationEvents : MonoBehaviour {
-        public PlayerController playerController;
-        public WeaponManager weaponManager;
+        [SerializeField] private PlayerController playerController;
+        private WeaponManager _weaponManager;
 
-        private void OnValidate() {
-            if(playerController == null) {
-                playerController = transform.parent.GetComponent<PlayerController>();
-            }
-            if(weaponManager == null && playerController != null) {
-                weaponManager = playerController.WeaponManager;
-            }
+        private void Awake() {
+            playerController = GetComponentInParent<PlayerController>();
+            _weaponManager = playerController.WeaponManager;
         }
 
         public void PlayWalkSound() => playerController.PlayWalkSound();
@@ -23,14 +19,30 @@ namespace Game.Player {
         /// Allows shooting and reloading again.
         /// </summary>
         public void WeaponPullOutCompleted() {
-            weaponManager?.HandlePullOutCompleted();
+            // if(_weaponManager == null) {
+            //     playerController = GetComponentInParent<PlayerController>();
+            //     _weaponManager = playerController.WeaponManager;
+            // }
+            
+            if(_weaponManager != null) {
+                _weaponManager.HandlePullOutCompleted();
+            }
         }
 
         /// <summary>
         /// Called from TP player animation event to show the weapon during pull out animation.
         /// </summary>
         public void ShowTpWeapon() {
-            weaponManager?.ShowTpWeapon();
+            // if(_weaponManager == null) {
+            //     playerController = GetComponentInParent<PlayerController>();
+            //     _weaponManager = playerController.WeaponManager;
+            // }
+            
+            if(_weaponManager != null) {
+                _weaponManager.ShowTpWeapon();
+            } else {
+                Debug.LogWarning("[PlayerAnimationEvents] WeaponManager is null in ShowTpWeapon.");
+            }
         }
     }
 }

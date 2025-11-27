@@ -7,14 +7,13 @@ namespace Network.Singletons {
     /// Creates/destroys indicator, tracks hopball holder, and updates indicator state.
     /// </summary>
     public class HopballIndicatorManager : MonoBehaviour {
-        public static HopballIndicatorManager Instance { get; private set; }
+        private static HopballIndicatorManager Instance { get; set; }
 
         [Header("Indicator Prefab")]
         [SerializeField] private GameObject indicatorPrefab;
 
         private HopballIndicator _currentIndicator;
         private Hopball _currentHopball;
-        private PlayerController _lastHolder;
         private bool _wasEquipped;
         private bool _wasDropped;
 
@@ -34,6 +33,7 @@ namespace Network.Singletons {
                 if(_currentIndicator != null) {
                     DestroyIndicator();
                 }
+
                 return;
             }
 
@@ -42,6 +42,7 @@ namespace Network.Singletons {
                 if(_currentIndicator != null) {
                     DestroyIndicator();
                 }
+
                 return;
             }
 
@@ -50,14 +51,15 @@ namespace Network.Singletons {
                 if(_currentIndicator != null) {
                     DestroyIndicator();
                 }
+
                 return;
             }
 
             _currentHopball = hopball;
 
             // Check if state changed
-            bool isEquipped = hopball.IsEquipped;
-            bool isDropped = hopball.IsDropped;
+            var isEquipped = hopball.IsEquipped;
+            var isDropped = hopball.IsDropped;
 
             if(isEquipped != _wasEquipped || isDropped != _wasDropped || _currentIndicator == null) {
                 UpdateIndicator();
@@ -74,11 +76,8 @@ namespace Network.Singletons {
         /// <summary>
         /// Gets the current hopball instance from HopballSpawnManager.
         /// </summary>
-        private Hopball GetCurrentHopball() {
-            if(HopballSpawnManager.Instance != null) {
-                return HopballSpawnManager.Instance.CurrentHopball;
-            }
-            return null;
+        private static Hopball GetCurrentHopball() {
+            return HopballSpawnManager.Instance != null ? HopballSpawnManager.Instance.CurrentHopball : null;
         }
 
         /// <summary>
@@ -99,14 +98,13 @@ namespace Network.Singletons {
 
             // Determine target transform
             Transform targetTransform = null;
-            bool isDropped = _currentHopball.IsDropped;
+            var isDropped = _currentHopball.IsDropped;
 
             if(_currentHopball.IsEquipped) {
                 // Get holder's transform
                 var holderController = GetHolderController();
                 if(holderController != null) {
                     targetTransform = holderController.transform;
-                    _lastHolder = holderController;
                 }
             } else if(isDropped) {
                 // Use hopball transform
@@ -139,10 +137,7 @@ namespace Network.Singletons {
         /// Gets the PlayerController of the current hopball holder.
         /// </summary>
         private PlayerController GetHolderController() {
-            if(_currentHopball == null) return null;
-
-            // Use the public property from Hopball
-            return _currentHopball.HolderController;
+            return _currentHopball?.HolderController;
         }
 
         /// <summary>
@@ -154,9 +149,9 @@ namespace Network.Singletons {
                 return;
             }
 
-            GameObject indicatorObj = Instantiate(indicatorPrefab);
+            var indicatorObj = Instantiate(indicatorPrefab);
             _currentIndicator = indicatorObj.GetComponent<HopballIndicator>();
-            
+
             if(_currentIndicator == null) {
                 Debug.LogError("[HopballIndicatorManager] Indicator prefab does not have HopballIndicator component!");
                 Destroy(indicatorObj);
@@ -171,11 +166,9 @@ namespace Network.Singletons {
         /// Destroys the current indicator instance.
         /// </summary>
         private void DestroyIndicator() {
-            if(_currentIndicator != null) {
-                Destroy(_currentIndicator.gameObject);
-                _currentIndicator = null;
-            }
-            _lastHolder = null;
+            if(_currentIndicator == null) return;
+            Destroy(_currentIndicator.gameObject);
+            _currentIndicator = null;
         }
 
         private void OnDestroy() {
@@ -183,4 +176,3 @@ namespace Network.Singletons {
         }
     }
 }
-

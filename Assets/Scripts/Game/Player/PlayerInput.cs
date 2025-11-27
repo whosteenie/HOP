@@ -40,10 +40,8 @@ namespace Game.Player {
 
         private WeaponManager WeaponManager {
             get {
-                if(_weaponManager == null) {
-                    _weaponManager = playerController != null
-                        ? playerController.WeaponManager
-                        : GetComponent<WeaponManager>();
+                if(_weaponManager == null && playerController != null) {
+                    _weaponManager = playerController.WeaponManager;
                 }
 
                 return _weaponManager;
@@ -52,10 +50,8 @@ namespace Game.Player {
 
         private GrappleController GrappleController {
             get {
-                if(_grappleController == null) {
-                    _grappleController = playerController != null
-                        ? playerController.GrappleController
-                        : GetComponent<GrappleController>();
+                if(_grappleController == null && playerController != null) {
+                    _grappleController = playerController.GrappleController;
                 }
 
                 return _grappleController;
@@ -76,10 +72,8 @@ namespace Game.Player {
 
         private MantleController MantleController {
             get {
-                if(_mantleController == null) {
-                    _mantleController = playerController != null
-                        ? playerController.MantleController
-                        : GetComponent<MantleController>();
+                if(_mantleController == null && playerController != null) {
+                    _mantleController = playerController.MantleController;
                 }
 
                 return _mantleController;
@@ -90,38 +84,41 @@ namespace Game.Player {
 
         private bool _sprintBtnDown;
         private bool _crouchBtnDown;
-        private bool _sniperOverlayActive;
-        public bool IsSniperOverlayActive => _sniperOverlayActive;
+        public bool IsSniperOverlayActive { get; private set; }
+
         [SerializeField] private float sniperZoomFov = 20f;
         private float _defaultFpFov = -1f;
 
         #region Unity Methods
 
         private void Awake() {
-            // Component reference should be assigned in the inspector
-            // Only use GetComponent as a last resort fallback if not assigned
-            playerController ??= GetComponent<PlayerController>();
-            
-            _playerInputComponent ??= playerController.UnityPlayerInput;
+            ValidateComponents();
+        }
 
-            _fpCamera ??= playerController.FpCamera;
+        private void ValidateComponents() {
+            if(playerController == null) {
+                playerController = GetComponent<PlayerController>();
+            }
+
+            if(playerController == null) {
+                Debug.LogError("[PlayerInput] PlayerController not found!");
+                enabled = false;
+                return;
+            }
+
+            if(_playerInputComponent == null) _playerInputComponent = playerController.UnityPlayerInput;
+            if(_fpCamera == null) _fpCamera = playerController.FpCamera;
+            if(_audioListener == null) _audioListener = playerController.AudioListener;
+
             if(_fpCamera != null) {
                 _defaultFpFov = _fpCamera.Lens.FieldOfView;
             }
-            
-            _audioListener ??= playerController.AudioListener;
         }
 
         public override void OnNetworkSpawn() {
             base.OnNetworkSpawn();
 
             WeaponManager?.InitializeWeapons();
-
-            // Component reference should be assigned in the inspector
-            // Only use GetComponent as a last resort fallback if not assigned
-            if(_playerInputComponent == null) {
-                _playerInputComponent = GetComponent<UnityEngine.InputSystem.PlayerInput>();
-            }
 
             if(!IsOwner) {
                 _fpCamera.gameObject.SetActive(false);
@@ -140,11 +137,10 @@ namespace Game.Player {
         }
 
         private void OnDisable() {
-            if(IsOwner) {
-                _sniperOverlayActive = false;
-                SniperOverlayManager.Instance?.ToggleSniperOverlay(false);
-                ApplySniperOverlayEffects(false, playZoomSound: false);
-            }
+            if(!IsOwner) return;
+            IsSniperOverlayActive = false;
+            SniperOverlayManager.Instance?.ToggleSniperOverlay(false);
+            ApplySniperOverlayEffects(false, playZoomSound: false);
         }
 
         private void Start() {
@@ -162,10 +158,8 @@ namespace Game.Player {
 
             // Use Input System actions instead of direct input
             // Component reference should be assigned in the inspector
-            if(_playerInputComponent == null) {
-                _playerInputComponent = GetComponent<UnityEngine.InputSystem.PlayerInput>();
-            }
-
+            if(_playerInputComponent == null) _playerInputComponent = GetComponent<UnityEngine.InputSystem.PlayerInput>();
+            
             var playerMap = _playerInputComponent?.actions?.FindActionMap("Player");
             var attackAction = playerMap?.FindAction("Attack");
             var jumpAction = playerMap?.FindAction("Jump");
@@ -263,7 +257,7 @@ namespace Game.Player {
 
             var rawDelta = value.Get<Vector2>();
 
-            var zoomMultiplier = _sniperOverlayActive ? _sniperSensitivityMultiplier : 1f;
+            var zoomMultiplier = IsSniperOverlayActive ? _sniperSensitivityMultiplier : 1f;
             playerController.lookInput = rawDelta * zoomMultiplier;
         }
 
@@ -379,19 +373,18 @@ namespace Game.Player {
 
             var weaponData = WeaponManager?.GetWeaponDataByIndex(WeaponManager.CurrentWeaponIndex);
             if(weaponData == null || !weaponData.useSniperOverlay) {
-                if(_sniperOverlayActive) {
-                    _sniperOverlayActive = false;
-                    SniperOverlayManager.Instance?.ToggleSniperOverlay(false);
-                } else {
-                    SniperOverlayManager.Instance?.ToggleSniperOverlay(false);
+                if(IsSniperOverlayActive) {
+                    IsSniperOverlayActive = false;
                 }
+
+                SniperOverlayManager.Instance?.ToggleSniperOverlay(false);
 
                 return;
             }
 
-            _sniperOverlayActive = !_sniperOverlayActive;
-            SniperOverlayManager.Instance?.ToggleSniperOverlay(_sniperOverlayActive);
-            ApplySniperOverlayEffects(_sniperOverlayActive, playZoomSound: true);
+            IsSniperOverlayActive = !IsSniperOverlayActive;
+            SniperOverlayManager.Instance?.ToggleSniperOverlay(IsSniperOverlayActive);
+            ApplySniperOverlayEffects(IsSniperOverlayActive, playZoomSound: true);
         }
 
         [UsedImplicitly]
@@ -406,7 +399,7 @@ namespace Game.Player {
             }
         }
 
-        private void OnSwing(InputValue value) {
+        private void OnSwing() {
             // TODO: fix hold input
         }
 
@@ -441,7 +434,7 @@ namespace Game.Player {
             if(WeaponManager == null) return;
             SwitchWeapon((WeaponManager.CurrentWeaponIndex + 1) % WeaponManager.WeaponCount);
         }
-
+        
         [UsedImplicitly]
         private void OnPreviousWeapon(InputValue _) {
             if(!IsOwner || IsPausedOrDead || (MantleController?.IsMantling ?? false)) return;
@@ -456,7 +449,7 @@ namespace Game.Player {
             // Allow switching even during pull out (interruptible switching)
 
             ForceDisableSniperOverlay(false);
-
+            
             // If holding hopball, drop it first (WeaponManager will handle this, but we can also do it here for clarity)
             // Actually, WeaponManager.SwitchWeapon() will handle dropping, so we just proceed
             // Reload cancellation is handled by Weapon.SwitchToWeapon() when the weapon switch completes
@@ -486,9 +479,8 @@ namespace Game.Player {
 
         [UsedImplicitly]
         private void OnInteract(InputValue _) {
-            Debug.LogWarning("[Player Input] Interact pressed - trying to pick up hopball.");
             if(!IsOwner || IsPausedOrDead || (MantleController?.IsMantling ?? false)) return;
-
+            
             playerController.PickupHopball();
         }
 
@@ -497,8 +489,8 @@ namespace Game.Player {
             var canUseOverlay = weaponData != null && weaponData.useSniperOverlay;
 
             if(!canUseOverlay) {
-                if(_sniperOverlayActive) {
-                    _sniperOverlayActive = false;
+                if(IsSniperOverlayActive) {
+                    IsSniperOverlayActive = false;
                 }
 
                 SniperOverlayManager.Instance?.ToggleSniperOverlay(false);
@@ -507,8 +499,8 @@ namespace Game.Player {
                 return;
             }
 
-            SniperOverlayManager.Instance?.ToggleSniperOverlay(_sniperOverlayActive);
-            ApplySniperOverlayEffects(_sniperOverlayActive, playZoomSound: false);
+            SniperOverlayManager.Instance?.ToggleSniperOverlay(IsSniperOverlayActive);
+            ApplySniperOverlayEffects(IsSniperOverlayActive, playZoomSound: false);
             UpdateSniperSensitivityMultiplier();
         }
 
@@ -528,12 +520,10 @@ namespace Game.Player {
                 var fpWeapon = WeaponManager.GetCurrentFpWeapon();
                 if(fpWeapon != null) {
                     if(zoomEnabled) {
-                        if(!_cachedFpWeaponPosition.HasValue) {
+                        if(_cachedFpWeaponPosition == null)
                             _cachedFpWeaponPosition = fpWeapon.transform.localPosition;
-                        }
-                        if(!_cachedFpWeaponRotation.HasValue) {
+                        if(_cachedFpWeaponRotation == null)
                             _cachedFpWeaponRotation = fpWeapon.transform.localEulerAngles;
-                        }
 
                         WeaponManager.OffsetCurrentFpWeapon(sniperScopedWeaponPosition, sniperScopedWeaponRotation);
                     } else {
@@ -564,12 +554,12 @@ namespace Game.Player {
         }
 
         public void ForceDisableSniperOverlay(bool playZoomSound) {
-            if(!_sniperOverlayActive) {
+            if(!IsSniperOverlayActive) {
                 SniperOverlayManager.Instance?.ToggleSniperOverlay(false);
                 return;
             }
 
-            _sniperOverlayActive = false;
+            IsSniperOverlayActive = false;
             SniperOverlayManager.Instance?.ToggleSniperOverlay(false);
             ApplySniperOverlayEffects(false, playZoomSound);
         }

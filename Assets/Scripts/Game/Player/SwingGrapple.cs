@@ -5,8 +5,8 @@ using UnityEngine;
 
 namespace Game.Player {
     public class SwingGrapple : NetworkBehaviour {
-        [Header("References")] [SerializeField]
-        private PlayerController playerController;
+        [Header("References")]
+        [SerializeField] private PlayerController playerController;
 
         [SerializeField] private CharacterController characterController;
         [SerializeField] private CinemachineCamera fpCamera;
@@ -14,27 +14,29 @@ namespace Game.Player {
         [SerializeField] private GrappleController pullGrapple;
         [SerializeField] private NetworkSfxRelay sfxRelay;
 
-        [Header("Swing Settings")] [SerializeField]
-        private float maxSwingDistance = 50f;
+        [Header("Swing Settings")]
+        [SerializeField] private float maxSwingDistance = 50f;
 
-        [Header("Rope Visuals")] [SerializeField]
-        private float lineWidth = 0.05f;
+        [Header("Rope Visuals")]
+        [SerializeField] private float lineWidth = 0.05f;
 
         [SerializeField] private Color ropeColor = new Color(0.2f, 0.8f, 1f);
         [SerializeField] private Material ropeMaterial;
 
-        [Header("Layers")] [SerializeField] private LayerMask grappleableLayers;
+        [Header("Layers")]
+        [SerializeField] private LayerMask grappleableLayers;
+
         [SerializeField] private LayerMask groundLayers;
 
         public bool IsSwinging { get; private set; }
 
-        private Vector3 swingPoint;
-        private float ropeLength;
-        private Vector3 currentVelocity;
+        private Vector3 _swingPoint;
+        private float _ropeLength;
+        private Vector3 _currentVelocity;
 
         // Networked for visuals
-        private NetworkVariable<bool> netIsSwinging = new();
-        private NetworkVariable<Vector3> netSwingPoint = new();
+        private readonly NetworkVariable<bool> _netIsSwinging = new();
+        private readonly NetworkVariable<Vector3> _netSwingPoint = new();
 
         private void Awake() {
             if(!ropeRenderer) {
@@ -53,19 +55,19 @@ namespace Game.Player {
 
         public override void OnNetworkSpawn() {
             base.OnNetworkSpawn();
-            netIsSwinging.OnValueChanged += OnSwingChanged;
-            netSwingPoint.OnValueChanged += OnPointChanged;
+            _netIsSwinging.OnValueChanged += OnSwingChanged;
+            _netSwingPoint.OnValueChanged += OnPointChanged;
         }
 
         public override void OnNetworkDespawn() {
-            netIsSwinging.OnValueChanged -= OnSwingChanged;
-            netSwingPoint.OnValueChanged -= OnPointChanged;
+            _netIsSwinging.OnValueChanged -= OnSwingChanged;
+            _netSwingPoint.OnValueChanged -= OnPointChanged;
         }
 
         [Rpc(SendTo.Server)]
         private void UpdateSwingRpc(bool swinging, Vector3 point) {
-            netIsSwinging.Value = swinging;
-            netSwingPoint.Value = point;
+            _netIsSwinging.Value = swinging;
+            _netSwingPoint.Value = point;
         }
 
         private void OnSwingChanged(bool _, bool newVal) => UpdateRope();
@@ -73,7 +75,7 @@ namespace Game.Player {
 
         private void UpdateRope() {
             if(!ropeRenderer) return;
-            ropeRenderer.enabled = netIsSwinging.Value;
+            ropeRenderer.enabled = _netIsSwinging.Value;
         }
 
         public void TryStartSwing() {
@@ -86,7 +88,7 @@ namespace Game.Player {
             }
         }
 
-        public void CancelSwing() {
+        private void CancelSwing() {
             if(!IsSwinging) return;
 
             IsSwinging = false;
@@ -94,18 +96,18 @@ namespace Game.Player {
             UpdateSwingRpc(false, Vector3.zero);
 
             // Keep momentum when releasing
-            playerController.SetVelocity(new Vector3(currentVelocity.x, 0f, currentVelocity.z));
-            playerController.AddVerticalVelocity(currentVelocity.y);
+            playerController.SetVelocity(new Vector3(_currentVelocity.x, 0f, _currentVelocity.z));
+            playerController.AddVerticalVelocity(_currentVelocity.y);
         }
 
         private void StartSwing(Vector3 point) {
-            swingPoint = point;
-            ropeLength = Vector3.Distance(transform.position, swingPoint);
-            currentVelocity = playerController.GetFullVelocity;
+            _swingPoint = point;
+            _ropeLength = Vector3.Distance(transform.position, _swingPoint);
+            _currentVelocity = playerController.GetFullVelocity;
 
             IsSwinging = true;
             ropeRenderer.enabled = true;
-            UpdateSwingRpc(true, swingPoint);
+            UpdateSwingRpc(true, _swingPoint);
 
             pullGrapple?.TriggerCooldown();
             sfxRelay?.RequestWorldSfx(SfxKey.Grapple, true, true);
@@ -113,7 +115,7 @@ namespace Game.Player {
 
         private void Update() {
             if(!IsOwner) {
-                if(netIsSwinging.Value) DrawRopeVisuals();
+                if(_netIsSwinging.Value) DrawRopeVisuals();
                 return;
             }
 
@@ -130,7 +132,7 @@ namespace Game.Player {
         }
 
         private void SwingUpdate() {
-            var toAnchor = swingPoint - transform.position;
+            var toAnchor = _swingPoint - transform.position;
             var currentDist = toAnchor.magnitude;
 
             // Direction along rope
@@ -140,46 +142,45 @@ namespace Game.Player {
             var gravityTangent = Vector3.ProjectOnPlane(Physics.gravity, ropeDir);
 
             // Apply tangential gravity only
-            currentVelocity += gravityTangent * Time.deltaTime;
+            _currentVelocity += gravityTangent * Time.deltaTime;
 
             // Predict next position
-            var predicted = transform.position + currentVelocity * Time.deltaTime;
+            var predicted = transform.position + _currentVelocity * Time.deltaTime;
 
             // Enforce rope length (project back onto sphere)
-            var fromAnchor = predicted - swingPoint;
-            predicted = swingPoint + fromAnchor.normalized * ropeLength;
+            var fromAnchor = predicted - _swingPoint;
+            predicted = _swingPoint + fromAnchor.normalized * _ropeLength;
 
             // Correct velocity: remove any radial component
             var delta = predicted - transform.position;
-            var radialVel = Vector3.Project(currentVelocity, ropeDir);
-            currentVelocity -= radialVel;
+            var radialVel = Vector3.Project(_currentVelocity, ropeDir);
+            _currentVelocity -= radialVel;
 
             // Move with CharacterController
             characterController.Move(delta);
 
             // Optional: very light air damping (feels better)
-            currentVelocity *= 0.99f;
+            _currentVelocity *= 0.99f;
         }
 
         private void DrawRopeVisuals() {
             if(!ropeRenderer || !ropeRenderer.enabled) return;
 
-            Vector3 handPos = fpCamera.transform.position
-                              - fpCamera.transform.right * 0.3f
-                              - fpCamera.transform.up * 0.2f;
+            var handPos = fpCamera.transform.position
+                          - fpCamera.transform.right * 0.3f
+                          - fpCamera.transform.up * 0.2f;
 
-            Vector3 anchor = IsOwner ? swingPoint : netSwingPoint.Value;
+            var anchor = IsOwner ? _swingPoint : _netSwingPoint.Value;
 
             ropeRenderer.SetPosition(0, handPos);
             ropeRenderer.SetPosition(1, anchor);
         }
 
         private void OnDrawGizmosSelected() {
-            if(IsSwinging) {
-                Gizmos.color = Color.cyan;
-                Gizmos.DrawWireSphere(swingPoint, 0.3f);
-                Gizmos.DrawWireSphere(swingPoint, ropeLength);
-            }
+            if(!IsSwinging) return;
+            Gizmos.color = Color.cyan;
+            Gizmos.DrawWireSphere(_swingPoint, 0.3f);
+            Gizmos.DrawWireSphere(_swingPoint, _ropeLength);
         }
     }
 }

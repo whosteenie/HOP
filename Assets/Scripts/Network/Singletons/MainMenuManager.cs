@@ -25,10 +25,8 @@ namespace Network.Singletons {
         [Header("Options")]
         [SerializeField] private OptionsMenuManager optionsMenuManager;
 
-        [Header("Player Customization")]
-        [SerializeField] private Color[] playerColors;
-
-        [SerializeField] private Material[] playerMaterials;
+        [Header("Character Customization")]
+        [SerializeField] private CharacterCustomizationManager characterCustomizationManager;
 
         [Header("References")]
         [SerializeField] private Camera mainCamera;
@@ -44,7 +42,11 @@ namespace Network.Singletons {
         private VisualElement _loadoutPanel;
         private VisualElement _optionsPanel;
         private VisualElement _creditsPanel;
+        private VisualElement _characterCustomizationPanel;
         private List<VisualElement> _panels;
+        private VisualElement _currentPanel;
+        private Coroutine _panelFadeCoroutine;
+        private const float PANEL_FADE_DURATION = 0.08f;
 
         #endregion
 
@@ -62,7 +64,6 @@ namespace Network.Singletons {
         private Button _modeThreeButton;
         private Button _backGamemodeButton;
         private Button _backLobbyButton;
-
         private Button _backCreditsButton;
 
         // Apply and back buttons are now handled by OptionsMenuManager
@@ -98,10 +99,8 @@ namespace Network.Singletons {
         #region UI Elements - First Time Setup
 
         private VisualElement _firstTimeModal;
-        private VisualElement _firstTimeColorOptions;
         private TextField _firstTimeNameInput;
         private Button _firstTimeContinueButton;
-        private int _firstTimeSelectedColorIndex;
 
         #endregion
 
@@ -264,7 +263,7 @@ namespace Network.Singletons {
             _isGamemodeDropdownOpen = false;
 
             // Reset gamemode dropdown UI
-            if(_gamemodeDropdownMenu != null) _gamemodeDropdownMenu.AddToClassList("hidden");
+            _gamemodeDropdownMenu?.AddToClassList("hidden");
             if(_gamemodeArrow != null) {
                 _gamemodeArrow.AddToClassList("hidden");
                 _gamemodeArrow.RemoveFromClassList("arrow-down");
@@ -326,6 +325,8 @@ namespace Network.Singletons {
             _nameInput = _root.Q<TextField>("player-name-input");
             _optionsPanel = _root.Q<VisualElement>("options-panel");
             _creditsPanel = _root.Q<VisualElement>("credits-panel");
+            // Character customization is now integrated into loadout panel
+            _characterCustomizationPanel = null;
 
             _playButton = _root.Q<Button>("play-button");
             _loadoutButton = _root.Q<Button>("loadout-button");
@@ -379,6 +380,7 @@ namespace Network.Singletons {
                 _loadoutPanel,
                 _optionsPanel,
                 _creditsPanel
+                // _characterCustomizationPanel removed - customization is now integrated into loadout panel
             };
 
             _buttons = new List<Button> {
@@ -432,12 +434,13 @@ namespace Network.Singletons {
             // Quit button - registered separately to handle quit confirmation
             _quitButton.clicked += ShowQuitConfirmation;
             _quitButton.RegisterCallback<MouseEnterEvent>(MouseEnter);
-            
+
             // Quit confirmation modal
             if(_quitConfirmationYes != null) {
                 _quitConfirmationYes.clicked += OnQuitConfirmed;
                 _quitConfirmationYes.RegisterCallback<MouseEnterEvent>(MouseEnter);
             }
+
             if(_quitConfirmationNo != null) {
                 _quitConfirmationNo.clicked += OnQuitCancelled;
                 _quitConfirmationNo.RegisterCallback<MouseEnterEvent>(MouseEnter);
@@ -448,6 +451,7 @@ namespace Network.Singletons {
                 _lobbyLeaveYes.clicked += OnLobbyLeaveConfirmed;
                 _lobbyLeaveYes.RegisterCallback<MouseEnterEvent>(MouseEnter);
             }
+
             if(_lobbyLeaveNo != null) {
                 _lobbyLeaveNo.clicked += OnLobbyLeaveCancelled;
                 _lobbyLeaveNo.RegisterCallback<MouseEnterEvent>(MouseEnter);
@@ -481,48 +485,16 @@ namespace Network.Singletons {
 
         private void CheckFirstTimeSetup() {
             var hasName = PlayerPrefs.HasKey("PlayerName");
-            var hasColor = PlayerPrefs.HasKey("PlayerColorIndex");
 
-            if(!hasName || !hasColor) {
+            if(!hasName) {
                 ShowFirstTimeSetup();
             }
         }
 
         private void SetupFirstTimeModal() {
             _firstTimeModal = _root.Q<VisualElement>("first-time-setup-modal");
-            _firstTimeColorOptions = _root.Q<VisualElement>("first-time-color-options");
             _firstTimeNameInput = _root.Q<TextField>("first-time-name-input");
             _firstTimeContinueButton = _root.Q<Button>("first-time-continue-button");
-
-            // Setup current color display clicks
-            for(var i = 0; i < 7; i++) {
-                var currentCircle = _root.Q<VisualElement>($"first-time-current-color-{i}");
-                if(currentCircle != null) {
-                    currentCircle.RegisterCallback<ClickEvent>(_ => {
-                        OnButtonClicked();
-                        _firstTimeColorOptions.ToggleInClassList("hidden");
-                    });
-                    currentCircle.RegisterCallback<MouseEnterEvent>(MouseEnter);
-                }
-            }
-
-            // Show first color by default
-            UpdateFirstTimeColorDisplay(0);
-
-            // Setup color option clicks
-            for(var i = 0; i < 7; i++) {
-                var optionCircle = _root.Q<VisualElement>($"first-time-option-color-{i}");
-                if(optionCircle != null) {
-                    var index = i;
-                    optionCircle.RegisterCallback<ClickEvent>(_ => {
-                        OnButtonClicked();
-                        _firstTimeSelectedColorIndex = index;
-                        UpdateFirstTimeColorDisplay(index);
-                        _firstTimeColorOptions.AddToClassList("hidden");
-                    });
-                    optionCircle.RegisterCallback<MouseEnterEvent>(MouseEnter);
-                }
-            }
 
             // Continue button
             _firstTimeContinueButton.clicked += () => {
@@ -530,30 +502,6 @@ namespace Network.Singletons {
                 OnFirstTimeSetupContinue();
             };
             _firstTimeContinueButton.RegisterCallback<MouseEnterEvent>(MouseEnter);
-        }
-
-        private void UpdateFirstTimeColorDisplay(int colorIndex) {
-            // Hide all current color circles
-            for(var i = 0; i < 7; i++) {
-                var currentCircle = _root.Q<VisualElement>($"first-time-current-color-{i}");
-                currentCircle?.AddToClassList("hidden");
-            }
-
-            // Show only the selected color
-            var selectedCircle = _root.Q<VisualElement>($"first-time-current-color-{colorIndex}");
-            selectedCircle?.RemoveFromClassList("hidden");
-
-            // Update options - hide selected, show others
-            for(var i = 0; i < 7; i++) {
-                var optionCircle = _root.Q<VisualElement>($"first-time-option-color-{i}");
-                if(optionCircle != null) {
-                    if(i == colorIndex) {
-                        optionCircle.AddToClassList("hidden");
-                    } else {
-                        optionCircle.RemoveFromClassList("hidden");
-                    }
-                }
-            }
         }
 
         private void ShowFirstTimeSetup() {
@@ -570,7 +518,7 @@ namespace Network.Singletons {
 
             // Save to PlayerPrefs
             PlayerPrefs.SetString("PlayerName", playerName);
-            PlayerPrefs.SetInt("PlayerColorIndex", _firstTimeSelectedColorIndex);
+            // Color selection removed - defaults to white via new material system
             PlayerPrefs.Save();
 
             // Hide modal
@@ -584,17 +532,123 @@ namespace Network.Singletons {
         #region Navigation
 
         public void ShowPanel(VisualElement panel) {
-            foreach(var p in _panels) {
-                p.AddToClassList("hidden");
-                // Also clear any inline display styles that might override CSS
-                p.style.display = StyleKeyword.Null;
+            if(panel == null) {
+                Debug.LogError("[MainMenuManager] ShowPanel called with null panel!");
+                return;
             }
 
+            if(_currentPanel == null) {
+                // First time: show immediately
+                foreach(var p in _panels) {
+                    if(p != null && p != panel) {
+                        HidePanelImmediate(p);
+                    }
+                }
+
+                ShowPanelImmediate(panel);
+                _currentPanel = panel;
+                return;
+            }
+
+            if(panel == _currentPanel) return;
+
+            if(_panelFadeCoroutine != null) {
+                StopCoroutine(_panelFadeCoroutine);
+                _panelFadeCoroutine = null;
+            }
+
+            var needFadeOut = _currentPanel != null && _currentPanel != _loadoutPanel;
+            var needFadeIn = panel != _loadoutPanel;
+            var requiresFade = needFadeOut || needFadeIn;
+
+            if(!requiresFade) {
+                HidePanelImmediate(_currentPanel);
+                ShowPanelImmediate(panel);
+                _currentPanel = panel;
+                return;
+            }
+
+            _panelFadeCoroutine = StartCoroutine(FadeBetweenPanels(_currentPanel, panel));
+        }
+
+        private void HidePanelImmediate(VisualElement panel) {
+            if(panel == null) return;
+            panel.AddToClassList("hidden");
+            panel.style.display = StyleKeyword.Null;
+            panel.style.opacity = new StyleFloat(1f);
+        }
+
+        private void ShowPanelImmediate(VisualElement panel) {
+            if(panel == null) return;
             panel.RemoveFromClassList("hidden");
-            // Ensure display is set to flex (or null to use CSS)
             panel.style.display = DisplayStyle.Flex;
-            // Bring panel to front to ensure it renders above other panels
+            panel.style.opacity = new StyleFloat(1f);
             panel.BringToFront();
+        }
+
+        private IEnumerator FadeBetweenPanels(VisualElement oldPanel, VisualElement newPanel) {
+            // Hide all other panels immediately
+            foreach(var p in _panels) {
+                if(p == null) continue;
+                if(p == oldPanel || p == newPanel) continue;
+                HidePanelImmediate(p);
+            }
+
+            var fadeOutPanel = oldPanel == _loadoutPanel ? null : oldPanel;
+            var fadeInPanel = newPanel == _loadoutPanel ? null : newPanel;
+
+            if(fadeInPanel != null) {
+                fadeInPanel.RemoveFromClassList("hidden");
+                fadeInPanel.style.display = DisplayStyle.Flex;
+                fadeInPanel.style.opacity = new StyleFloat(0f);
+                fadeInPanel.BringToFront();
+            } else if(newPanel != null) {
+                ShowPanelImmediate(newPanel);
+            }
+
+            var elapsed = 0f;
+            while(elapsed < PANEL_FADE_DURATION) {
+                elapsed += Time.deltaTime;
+                var t = Mathf.Clamp01(elapsed / PANEL_FADE_DURATION);
+                if(fadeOutPanel != null) {
+                    fadeOutPanel.style.opacity = new StyleFloat(1f - t);
+                }
+                if(fadeInPanel != null) {
+                    fadeInPanel.style.opacity = new StyleFloat(t);
+                }
+                yield return null;
+            }
+
+            if(fadeOutPanel != null) {
+                HidePanelImmediate(fadeOutPanel);
+            }
+            if(fadeInPanel != null) {
+                fadeInPanel.style.opacity = new StyleFloat(1f);
+                fadeInPanel.RemoveFromClassList("hidden");
+                fadeInPanel.style.display = DisplayStyle.Flex;
+                fadeInPanel.BringToFront();
+            }
+
+            _currentPanel = newPanel;
+            _panelFadeCoroutine = null;
+        }
+
+        /// <summary>
+        /// Shows the character customization panel (called from LoadoutManager).
+        /// </summary>
+        public void ShowCharacterCustomization() {
+            // Customization is now always visible in loadout panel
+            // Just ensure callbacks are set up and show loadout panel
+            if(characterCustomizationManager != null) {
+                characterCustomizationManager.OnButtonClickedCallback = OnButtonClicked;
+                characterCustomizationManager.MouseEnterCallback = MouseEnter;
+                characterCustomizationManager.OnBackFromCustomizationCallback = () => {
+                    Debug.Log("[MainMenuManager] Back from customization callback invoked");
+                    ShowPanel(_loadoutPanel);
+                };
+            }
+            ShowPanel(_loadoutPanel);
+            characterCustomizationManager?.ShowCustomization();
         }
 
         private void OnPlayClicked() {
@@ -1008,7 +1062,7 @@ namespace Network.Singletons {
                         // Handle rate limiting gracefully - this is non-critical since we have fallback logic
                         if(e.Message.Contains("Too Many Requests") || e.Message.Contains("429")) {
                             Debug.Log(
-                                $"[MainMenuManager] Rate limited on session refresh (non-critical, using fallback host detection)");
+                                "[MainMenuManager] Rate limited on session refresh (non-critical, using fallback host detection)");
                         } else {
                             Debug.LogWarning($"[MainMenuManager] Failed to refresh session after hosting: {e.Message}");
                         }
@@ -1024,17 +1078,14 @@ namespace Network.Singletons {
                 UpdateHostStatus();
 
                 // If still not detected as host after refresh, force it (fallback for second+ sessions)
-                if(!_isHost && _justCreatedSessionAsHost) {
-                    Debug.LogWarning(
-                        "[MainMenuManager] Host not detected after refresh, forcing host status (fallback)");
-                    _isHost = true;
-                    EnableButton(_startButton);
-                    SubscribeToGamemodeEvents();
-                    ShowArrowWithAnimation();
-                    if(_gamemodeDisplayLabel != null) {
-                        _gamemodeDisplayLabel.SetEnabled(true);
-                    }
-                }
+                if(_isHost || !_justCreatedSessionAsHost) return;
+                Debug.LogWarning(
+                    "[MainMenuManager] Host not detected after refresh, forcing host status (fallback)");
+                _isHost = true;
+                EnableButton(_startButton);
+                SubscribeToGamemodeEvents();
+                ShowArrowWithAnimation();
+                _gamemodeDisplayLabel?.SetEnabled(true);
                 // Player list will be filled by PlayersChanged event (which may have cached players, so we refresh manually above).
             } catch(Exception e) {
                 Debug.LogException(e);
@@ -1053,9 +1104,7 @@ namespace Network.Singletons {
                 }
 
                 // Clear player list immediately
-                if(_playerList != null) {
-                    _playerList.Clear();
-                }
+                _playerList?.Clear();
 
                 // Cache our own player name for immediate display
                 _cachedPlayerName = PlayerPrefs.GetString("PlayerName", "Player");
@@ -1113,11 +1162,11 @@ namespace Network.Singletons {
             }
         }
 
-        private void OnRelayCodeAvailable(string code) {
+        private static void OnRelayCodeAvailable(string code) {
             // Cosmetic: keep label in sync when host publishes/upgrades relay code
             // if(_joinCodeLabel != null)
             // _joinCodeLabel.text = $"Join Code: {code}";
-            Debug.Log("Relay code available: " + code);
+            // Debug.Log("Relay code available: " + code);
         }
 
         private void OnPlayersChanged(IReadOnlyList<IReadOnlyPlayer> players) {
@@ -1142,7 +1191,6 @@ namespace Network.Singletons {
             }
 
             if(players == null || players.Count == 0) {
-                Debug.Log("[MainMenuManager] No players to display in player list");
                 return;
             }
 
@@ -1161,14 +1209,13 @@ namespace Network.Singletons {
                 // Fallback to cached name if available (for ourselves when session hasn't updated yet)
                 else if(!string.IsNullOrEmpty(_cachedPlayerName) && p.Id == AuthenticationService.Instance.PlayerId) {
                     display = _cachedPlayerName;
-                    Debug.Log($"[MainMenuManager] Using cached player name for self: {display}");
                 }
                 // Final fallback to player ID
                 else {
                     display = p.Id;
                 }
 
-                bool isHost = !string.IsNullOrEmpty(hostId) && p.Id == hostId;
+                var isHost = !string.IsNullOrEmpty(hostId) && p.Id == hostId;
                 AddPlayerEntry(display, isHost);
             }
 
@@ -1227,7 +1274,7 @@ namespace Network.Singletons {
             if(_joinCodeInput == null) return;
 
             // Hide placeholder if field has value or is focused
-            bool hasValue = !string.IsNullOrEmpty(_joinCodeInput.value);
+            var hasValue = !string.IsNullOrEmpty(_joinCodeInput.value);
 
             // Unity's hide-placeholder-on-focus handles focus, but we need to handle value
             // We'll use a class to hide the placeholder when there's a value
@@ -1255,6 +1302,16 @@ namespace Network.Singletons {
 
             // Initialize the options menu manager
             optionsMenuManager.Initialize();
+            
+            // Character Customization Manager setup
+            if(characterCustomizationManager != null) {
+                characterCustomizationManager.OnButtonClickedCallback = OnButtonClicked;
+                characterCustomizationManager.MouseEnterCallback = MouseEnter;
+                characterCustomizationManager.OnBackFromCustomizationCallback = () => {
+                    Debug.Log("[MainMenuManager] Back from customization callback invoked");
+                    ShowPanel(_loadoutPanel);
+                };
+            }
         }
 
         private void LoadSettings() {
@@ -1326,27 +1383,25 @@ namespace Network.Singletons {
         }
 
         #endregion
-        
+
         #region Quit Confirmation
 
         private void ShowQuitConfirmation() {
             OnButtonClicked(isBack: true); // Play back button click sound
-            if(_quitConfirmationModal != null) {
-                _quitConfirmationModal.RemoveFromClassList("hidden");
-                _quitConfirmationModal.style.display = DisplayStyle.Flex; // Ensure it's visible
-                // Ensure modal appears on top of all other UI elements
-                _quitConfirmationModal.BringToFront();
-            }
+            if(_quitConfirmationModal == null) return;
+            _quitConfirmationModal.RemoveFromClassList("hidden");
+            _quitConfirmationModal.style.display = DisplayStyle.Flex; // Ensure it's visible
+            // Ensure modal appears on top of all other UI elements
+            _quitConfirmationModal.BringToFront();
         }
 
         private void HideQuitConfirmation() {
-            if(_quitConfirmationModal != null) {
-                _quitConfirmationModal.AddToClassList("hidden");
-                _quitConfirmationModal.style.display = StyleKeyword.Null; // Reset display style
-            }
+            if(_quitConfirmationModal == null) return;
+            _quitConfirmationModal.AddToClassList("hidden");
+            _quitConfirmationModal.style.display = StyleKeyword.Null; // Reset display style
         }
 
-        private void OnQuitConfirmed() {
+        private static void OnQuitConfirmed() {
             // No sound needed - app is quitting
             Debug.Log("Quitting game...");
 #if UNITY_EDITOR
@@ -1368,7 +1423,7 @@ namespace Network.Singletons {
         private void OnBackFromLobbyClicked() {
             // Check if we should show the confirmation modal
             var session = SessionManager.Instance?.ActiveSession;
-            bool shouldShowModal = false;
+            var shouldShowModal = false;
 
             if(session != null) {
                 // Show modal if hosting OR if we joined with a join code (join code input has value)
@@ -1387,19 +1442,17 @@ namespace Network.Singletons {
 
         private void ShowLobbyLeaveConfirmation() {
             OnButtonClicked(isBack: true); // Play back button click sound
-            if(_lobbyLeaveModal != null) {
-                _lobbyLeaveModal.RemoveFromClassList("hidden");
-                _lobbyLeaveModal.style.display = DisplayStyle.Flex; // Ensure it's visible
-                // Ensure modal appears on top of all other UI elements
-                _lobbyLeaveModal.BringToFront();
-            }
+            if(_lobbyLeaveModal == null) return;
+            _lobbyLeaveModal.RemoveFromClassList("hidden");
+            _lobbyLeaveModal.style.display = DisplayStyle.Flex; // Ensure it's visible
+            // Ensure modal appears on top of all other UI elements
+            _lobbyLeaveModal.BringToFront();
         }
 
         private void HideLobbyLeaveConfirmation() {
-            if(_lobbyLeaveModal != null) {
-                _lobbyLeaveModal.AddToClassList("hidden");
-                _lobbyLeaveModal.style.display = StyleKeyword.Null; // Reset display style
-            }
+            if(_lobbyLeaveModal == null) return;
+            _lobbyLeaveModal.AddToClassList("hidden");
+            _lobbyLeaveModal.style.display = StyleKeyword.Null; // Reset display style
         }
 
         private void OnLobbyLeaveConfirmed() {

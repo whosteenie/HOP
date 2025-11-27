@@ -8,7 +8,6 @@ namespace Network.Singletons {
 
         [Header("Pool")]
         [SerializeField] private AudioSource soundFXPrefab;
-
         [SerializeField] private int poolSize = 32;
 
         // Banks for each gameplay key (assign in inspector)
@@ -20,13 +19,14 @@ namespace Network.Singletons {
         [SerializeField] private AudioClip[] jumpPadClips;
         [SerializeField] private AudioClip[] grappleClips;
         [SerializeField] private AudioClip[] bulletTrailClips;
+        [SerializeField] private AudioClip[] bulletImpactClips;
         [SerializeField] private AudioClip[] hopballSpawnClips;
-        
+
         [Header("Generic Weapon Sound Banks")]
         [SerializeField] private AudioClip[] reloadClips;
         [SerializeField] private AudioClip[] dryClips;
         [SerializeField] private AudioClip[] shootClips;
-        
+
         [Header("Weapon Specific Shoot Banks")]
         [SerializeField] private AudioClip[] shootPistolClips;
         [SerializeField] private AudioClip[] shootDeagleClips;
@@ -34,7 +34,7 @@ namespace Network.Singletons {
         [SerializeField] private AudioClip[] shootRifleClips;
         [SerializeField] private AudioClip[] shootShotgunClips;
         [SerializeField] private AudioClip[] shootSniperClips;
-        
+
         [Header("Weapon Specific Reload Banks")]
         [SerializeField] private AudioClip[] reloadPistolClips;
         [SerializeField] private AudioClip[] reloadDeagleClips;
@@ -54,6 +54,7 @@ namespace Network.Singletons {
         [SerializeField] private AudioClip[] taggedClips;
         [SerializeField] private AudioClip[] taggingClips;
         [SerializeField] private AudioClip[] sniperZoomClips;
+        [SerializeField] private AudioClip[] weaponSwitchClips;
 
         [Header("Audio Falloff Settings")]
         [SerializeField] private float walkMaxDistance = 15f;
@@ -66,6 +67,7 @@ namespace Network.Singletons {
         [SerializeField] private float jumpPadMaxDistance = 50f;
         [SerializeField] private float grappleMaxDistance = 35f;
         [SerializeField] private float bulletTrailMaxDistance = 150f;
+        [SerializeField] private float bulletImpactMaxDistance = 35f;
         [SerializeField] private float hopballSpawnMaxDistance = 300f; // Same as gunshots - heard across map
 
         private readonly Queue<AudioSource> _audioPool = new();
@@ -100,7 +102,6 @@ namespace Network.Singletons {
             var s = _audioPool.Dequeue();
             s.gameObject.SetActive(true);
             return s;
-
         }
 
         private static float DbToLinear(float db) => db <= -80f ? 0f : Mathf.Pow(10f, db / 20f);
@@ -119,7 +120,7 @@ namespace Network.Singletons {
                     SfxKey.Reload => reloadClips,
                     SfxKey.ReloadPistol => UseFallback(reloadPistolClips, reloadClips),
                     SfxKey.ReloadDeagle => UseFallback(reloadDeagleClips, reloadClips),
-                    SfxKey.ReloadSMG => UseFallback(reloadSmgClips, reloadClips),
+                    SfxKey.ReloadSmg => UseFallback(reloadSmgClips, reloadClips),
                     SfxKey.ReloadRifle => UseFallback(reloadRifleClips, reloadClips),
                     SfxKey.ReloadShotgun => UseFallback(reloadShotgunClips, reloadClips),
                     SfxKey.ReloadSniper => UseFallback(reloadSniperClips, reloadClips),
@@ -127,13 +128,14 @@ namespace Network.Singletons {
                     SfxKey.Shoot => shootClips,
                     SfxKey.ShootPistol => UseFallback(shootPistolClips, shootClips),
                     SfxKey.ShootDeagle => UseFallback(shootDeagleClips, shootClips),
-                    SfxKey.ShootSMG => UseFallback(shootSmgClips, shootClips),
+                    SfxKey.ShootSmg => UseFallback(shootSmgClips, shootClips),
                     SfxKey.ShootRifle => UseFallback(shootRifleClips, shootClips),
                     SfxKey.ShootShotgun => UseFallback(shootShotgunClips, shootClips),
                     SfxKey.ShootSniper => UseFallback(shootSniperClips, shootClips),
                     SfxKey.JumpPad => jumpPadClips,
                     SfxKey.Grapple => grappleClips,
                     SfxKey.BulletTrail => bulletTrailClips,
+                    SfxKey.BulletImpact => bulletImpactClips,
                     SfxKey.HopballSpawn => hopballSpawnClips,
                     // UI Sounds
                     SfxKey.ButtonClick => buttonClickClips,
@@ -146,15 +148,16 @@ namespace Network.Singletons {
                     SfxKey.Tagged => taggedClips,
                     SfxKey.Tagging => taggingClips,
                     SfxKey.SniperZoom => sniperZoomClips,
+                    SfxKey.WeaponSwitch => weaponSwitchClips,
                     _ => null
                 };
             } catch(System.Exception) {
-                // If bank array is null or invalid, return null
+                // If bank array == null or invalid, return null
                 return null;
             }
 
             if(bank == null || bank.Length == 0) return null;
-            
+
             // Filter out null clips and select from valid ones
             var validClips = new List<AudioClip>();
             foreach(var clip in bank) {
@@ -162,7 +165,7 @@ namespace Network.Singletons {
                     validClips.Add(clip);
                 }
             }
-            
+
             return validClips.Count == 0 ? null : validClips[Random.Range(0, validClips.Count)];
         }
 
@@ -172,15 +175,16 @@ namespace Network.Singletons {
             SfxKey.Jump => jumpMaxDistance,
             SfxKey.Land => landMaxDistance,
             SfxKey.Reload => reloadMaxDistance,
-            SfxKey.ReloadPistol or SfxKey.ReloadDeagle or SfxKey.ReloadSMG or SfxKey.ReloadRifle or SfxKey.ReloadShotgun
+            SfxKey.ReloadPistol or SfxKey.ReloadDeagle or SfxKey.ReloadSmg or SfxKey.ReloadRifle or SfxKey.ReloadShotgun
                 or SfxKey.ReloadSniper => reloadMaxDistance,
             SfxKey.Dry => dryMaxDistance,
             SfxKey.Shoot => shootMaxDistance,
-            SfxKey.ShootPistol or SfxKey.ShootDeagle or SfxKey.ShootSMG or SfxKey.ShootRifle or SfxKey.ShootShotgun
+            SfxKey.ShootPistol or SfxKey.ShootDeagle or SfxKey.ShootSmg or SfxKey.ShootRifle or SfxKey.ShootShotgun
                 or SfxKey.ShootSniper => shootMaxDistance,
             SfxKey.JumpPad => jumpPadMaxDistance,
             SfxKey.Grapple => grappleMaxDistance,
             SfxKey.BulletTrail => bulletTrailMaxDistance,
+            SfxKey.BulletImpact => bulletImpactMaxDistance,
             SfxKey.HopballSpawn => hopballSpawnMaxDistance,
             _ => 50f
         };
@@ -189,9 +193,10 @@ namespace Network.Singletons {
             // MinDistance is typically 1-5% of max distance for natural falloff
             var maxDist = GetMaxDistance(key);
             return key switch {
-                SfxKey.Shoot or SfxKey.ShootPistol or SfxKey.ShootDeagle or SfxKey.ShootSMG or SfxKey.ShootRifle
+                SfxKey.Shoot or SfxKey.ShootPistol or SfxKey.ShootDeagle or SfxKey.ShootSmg or SfxKey.ShootRifle
                     or SfxKey.ShootShotgun or SfxKey.ShootSniper => maxDist * 0.02f, // Louder close-up
                 SfxKey.HopballSpawn => maxDist * 0.02f, // Same as gunshots
+                SfxKey.BulletImpact => maxDist * 0.05f,
                 SfxKey.Walk or SfxKey.Run => 1f, // Very close for footsteps
                 _ => maxDist * 0.05f
             };
@@ -243,17 +248,16 @@ namespace Network.Singletons {
             }
 
             // Use unique track key for overlapping sounds to avoid conflicts
-            var cleanupKey = allowOverlap ? $"{trackKey}_{src.GetInstanceID()}" : trackKey;
-            StartCoroutine(ReturnAfter(src, clip.length, cleanupKey, allowOverlap ? null : trackKey));
+            StartCoroutine(ReturnAfter(src, clip.length, allowOverlap ? null : trackKey));
         }
 
-        private IEnumerator ReturnAfter(AudioSource src, float delay, string cleanupKey, string trackKey = null) {
+        private IEnumerator ReturnAfter(AudioSource src, float delay, string trackKey = null) {
             yield return new WaitForSeconds(delay);
 
             // Safety check: if AudioSource or its GameObject was destroyed, skip cleanup
-            if(src == null || src.gameObject == null) {
+            if(src?.gameObject == null) {
                 // Clean up tracking if it exists
-                if(trackKey != null && _activeSounds.TryGetValue(trackKey, out var cur) && cur == src)
+                if(trackKey != null && _activeSounds.TryGetValue(trackKey, out var cur) && cur == null)
                     _activeSounds.Remove(trackKey);
                 yield break;
             }
@@ -263,7 +267,6 @@ namespace Network.Singletons {
                 _activeSounds.Remove(trackKey);
 
             // Additional safety check before accessing AudioSource properties
-            if(src == null || src.gameObject == null) yield break;
             src.Stop();
             src.clip = null;
             src.transform.SetParent(transform, false);
@@ -276,7 +279,7 @@ namespace Network.Singletons {
         /// </summary>
         public void StopSound(SfxKey key) {
             var trackKey = key.ToString();
-            if(!_activeSounds.TryGetValue(trackKey, out var src) || src == null || src.gameObject == null) return;
+            if(!_activeSounds.TryGetValue(trackKey, out var src) || src?.gameObject == null) return;
             if(src.isPlaying) {
                 src.Stop();
             }
@@ -296,7 +299,7 @@ namespace Network.Singletons {
             // Stop all tracked sounds
             var keysToRemove = new List<string>();
             foreach(var kvp in _activeSounds) {
-                if(kvp.Value != null && kvp.Value.gameObject != null) {
+                if(kvp.Value?.gameObject != null) {
                     kvp.Value.Stop();
                     kvp.Value.clip = null;
                     kvp.Value.transform.SetParent(transform, false);
@@ -317,7 +320,7 @@ namespace Network.Singletons {
 
             // Also stop any pooled AudioSources that might still be playing
             foreach(var src in _audioPool) {
-                if(src == null || src.gameObject == null || !src.isPlaying) continue;
+                if(src?.gameObject == null || !src.isPlaying) continue;
                 src.Stop();
                 src.clip = null;
             }
@@ -347,7 +350,7 @@ namespace Network.Singletons {
 
             src.clip = clip;
             src.Play();
-            StartCoroutine(ReturnAfter(src, clip.length, "ui_" + key + "_" + src.GetInstanceID()));
+            StartCoroutine(ReturnAfter(src, clip.length));
         }
     }
 }

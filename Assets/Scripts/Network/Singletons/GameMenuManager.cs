@@ -1,7 +1,5 @@
 using System;
-using System.Collections.Generic;
 using Game.Player;
-using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UIElements;
@@ -11,7 +9,6 @@ namespace Network.Singletons {
         #region Serialized Fields
 
         [SerializeField] private UIDocument uiDocument;
-        // AudioMixer is now handled by OptionsMenuManager
 
         [Header("Kill Feed")]
         [SerializeField] private KillFeedManager killFeedManager;
@@ -23,7 +20,7 @@ namespace Network.Singletons {
         [SerializeField] private OptionsMenuManager optionsMenuManager;
 
         [Header("Sniper Overlay")]
-        [SerializeField] private SniperOverlayManager _sniperOverlayManager;
+        [SerializeField] private SniperOverlayManager sniperOverlayManager;
 
         #endregion
 
@@ -48,10 +45,6 @@ namespace Network.Singletons {
 
         private VisualElement _root;
 
-        // HUD / Match UI
-        private VisualElement _hudPanel;
-        private VisualElement _matchTimerContainer;
-
         // Cache scene name to avoid string allocations
         private string _cachedSceneName;
 
@@ -60,8 +53,6 @@ namespace Network.Singletons {
         #region Properties
 
         public bool IsPaused { get; private set; }
-
-        public bool IsScoreboardVisible => scoreboardManager != null && scoreboardManager.IsScoreboardVisible;
 
         public bool IsPostMatch { get; set; }
 
@@ -138,15 +129,6 @@ namespace Network.Singletons {
             _pauseCopyCodeButton?.SetEnabled(true);
         }
 
-        private void FindLocalController() {
-            var allControllers = FindObjectsByType<PlayerController>(FindObjectsSortMode.None);
-            foreach(var controller in allControllers) {
-                if(!controller.IsOwner) continue;
-                _localController = controller.GetComponent<PlayerController>();
-                break;
-            }
-        }
-
         private void FindUIElements() {
             // Get panels
             _pauseMenuPanel = _root.Q<VisualElement>("pause-menu-panel");
@@ -162,10 +144,6 @@ namespace Network.Singletons {
 
             // Kill Feed
             _killFeedContainer = _root.Q<VisualElement>("kill-feed-container");
-
-            // HUD root + containers
-            _hudPanel = _root.Q<VisualElement>("hud-panel");
-            _matchTimerContainer = _root.Q<VisualElement>("match-timer-container");
         }
 
         private void RegisterUIEvents() {
@@ -220,7 +198,7 @@ namespace Network.Singletons {
 
         public void TogglePause() {
             // Only allow pausing in Game scene
-            if(_cachedSceneName == null || !_cachedSceneName.Contains("Game")) return;
+            if(_cachedSceneName?.Contains("Game") != true) return;
 
             if(IsPaused) {
                 if(!_optionsPanel.ClassListContains("hidden")) {
@@ -274,13 +252,13 @@ namespace Network.Singletons {
         }
 
         private void SetupSniperOverlayManager() {
-            if(_sniperOverlayManager == null) {
+            if(sniperOverlayManager == null) {
                 Debug.LogError("[GameMenuManager] SniperOverlayManager not assigned!");
                 return;
             }
 
             // Initialize sniper overlay manager with the root
-            _sniperOverlayManager.Initialize(_root);
+            sniperOverlayManager.Initialize(_root);
         }
 
         #endregion
@@ -332,18 +310,16 @@ namespace Network.Singletons {
 
         private void CopyPauseJoinCodeToClipboard() {
             OnButtonClicked();
-            if(_pauseJoinCodeLabel == null) return;
 
             // Extract code from "Join Code: ABC123" → "ABC123"
-            var fullText = _pauseJoinCodeLabel.text;
-            var code = fullText.Replace("Join Code: ", "").Trim();
+            var fullText = _pauseJoinCodeLabel?.text;
+            var code = fullText?.Replace("Join Code: ", "").Trim();
 
             if(string.IsNullOrEmpty(code) || code == "- - - - - -") {
                 return; // No code to copy
             }
 
             GUIUtility.systemCopyBuffer = code;
-            Debug.Log($"[GameMenuManager] Copied join code to clipboard: {code}");
         }
 
         private void ResumeGame() {
@@ -387,10 +363,6 @@ namespace Network.Singletons {
                 Debug.LogException(e);
             }
         }
-
-        #endregion
-
-        #region Match Flow / Post-Match
 
         #endregion
     }

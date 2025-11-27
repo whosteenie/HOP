@@ -1,0 +1,31 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b7568991099fd3a45b71cf6456d39f27, type: 3}
+  m_Name: chainmail
+  m_EditorClassIdentifier: Assembly-CSharp::Game.Player.PlayerMaterialPacket
+  packetName: Chainmail
+  albedoTexture: {fileID: 2800000, guid: 8ef4cd69436c83f4b9d8db32bb8b45a1, type: 3}
+  normalMap: {fileID: 2800000, guid: 8bd29e189aa2c0f448d08c89b11b06aa, type: 3}
+  normalMapStrength: 2
+  heightMap: {fileID: 2800000, guid: 60d35b5e4b0bb5242bd71dc6f30549b3, type: 3}
+  occlusionMap: {fileID: 0}
+  metallicMap: {fileID: 2800000, guid: 0db6dffb19505a94a9c975614087ec6e, type: 3}
+  emissionMap: {fileID: 0}
+  tiling: {x: 8, y: 8}
+  offset: {x: 0, y: 0}
+  useMetallicWorkflow: 1
+  defaultSmoothness: 0.5
+  defaultMetallic: 0
+  defaultSpecularColor: {r: 0.2, g: 0.2, b: 0.2, a: 1}
+  heightMapStrength: 0.02
+  defaultEmissionEnabled: 0
+  defaultEmissionColor: {r: 0, g: 0, b: 0, a: 1}

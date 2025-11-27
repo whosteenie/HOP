@@ -26,8 +26,7 @@ namespace Game.Player {
         // Networked pitch from owner
         // Note: WritePermission.Owner means only the owner can write this value
         // The editor may show warnings when inspecting non-owner instances - this is expected
-        public NetworkVariable<float> netPitchDeg = new(
-            0f,
+        public NetworkVariable<float> netPitchDeg = new(0f,
             NetworkVariableReadPermission.Everyone,
             NetworkVariableWritePermission.Owner
         );
@@ -40,9 +39,22 @@ namespace Game.Player {
         private Vector3 _axis;
 
         private void Awake() {
-            playerController ??= GetComponent<PlayerController>();
-            _playerRagdoll ??= playerController.PlayerRagdoll;
-            
+            ValidateComponents();
+        }
+
+        private void ValidateComponents() {
+            if(playerController == null) {
+                playerController = GetComponent<PlayerController>();
+            }
+
+            if(playerController == null) {
+                Debug.LogError("[UpperBodyPitch] PlayerController not found!");
+                enabled = false;
+                return;
+            }
+
+            if(_playerRagdoll == null) _playerRagdoll = playerController.PlayerRagdoll;
+
             _axis = localPitchAxis.normalized;
             if(invertAxis) _axis = -_axis;
         }
@@ -59,19 +71,19 @@ namespace Game.Player {
             var clampedPitch = Mathf.Clamp(cameraPitchDeg, minPitch, maxPitch);
             
             // Throttle network updates - only send if enough time has passed or value changed significantly
-            if(Time.time - _lastPitchUpdateTime >= PitchUpdateInterval || Mathf.Abs(netPitchDeg.Value - clampedPitch) > 1f) {
-                netPitchDeg.Value = clampedPitch;
-                _lastPitchUpdateTime = Time.time;
-            }
+            if(!(Time.time - _lastPitchUpdateTime >= PitchUpdateInterval) &&
+               !(Mathf.Abs(netPitchDeg.Value - clampedPitch) > 1f)) return;
+            netPitchDeg.Value = clampedPitch;
+            _lastPitchUpdateTime = Time.time;
         }
 
-        void LateUpdate() {
+        private void LateUpdate() {
             if(!spineProxy) return;
 
             // Don't apply pitch rotation if player is in ragdoll
             if(_playerRagdoll != null && _playerRagdoll.IsRagdoll) return;
 
-            float target = Mathf.Clamp(netPitchDeg.Value, minPitch, maxPitch);
+            var target = Mathf.Clamp(netPitchDeg.Value, minPitch, maxPitch);
 
             _smoothedPitch = Mathf.Lerp(
                 _smoothedPitch,

@@ -16,12 +16,8 @@ namespace Network.Singletons {
         private VisualElement _loadingBall; // Loading ball animation element
         private LoadingBallAnimation _loadingBallAnimation; // Animation controller
         private bool _isTransitioning;
-        private bool _isRespawnFading; // Track if respawn fade is in progress
-        private bool _hasRespawnFadeInStarted; // Track when fade in starts (for restoring control)
-        private bool _hasRespawnFadeInCompleted; // Track when fade in completes (for camera switch)
-        private bool _hasRespawnFadeOutCompleted; // Track when fade to black completes
         private bool _serverSignaledFadeIn; // Server-authoritative signal to start fade in
-        
+
         // Cache scene name to avoid string allocations
         private string _cachedSceneName;
 
@@ -46,14 +42,14 @@ namespace Network.Singletons {
         private void OnEnable() {
             // Cache scene name to avoid allocations
             UpdateCachedSceneName();
-            
+
             // Try to refresh, but don't worry if UI isn't loaded yet (we'll retry when needed)
             RefreshOverlayReference();
 
             // Also listen for scene loads to refresh references
             SceneManager.sceneLoaded += OnSceneLoaded;
         }
-        
+
         private void UpdateCachedSceneName() {
             var activeScene = SceneManager.GetActiveScene();
             if(activeScene.IsValid()) {
@@ -68,7 +64,7 @@ namespace Network.Singletons {
         private void OnSceneLoaded(Scene scene, LoadSceneMode mode) {
             // Update cached scene name
             UpdateCachedSceneName();
-            
+
             // Refresh references when a new scene loads (MainMenu or Game)
             RefreshOverlayReference();
             RefreshRespawnFadeOverlay(); // Also refresh respawn fade overlay
@@ -83,7 +79,7 @@ namespace Network.Singletons {
             if(transitionDocument != null) {
                 var root = transitionDocument.rootVisualElement;
                 _transitionOverlay = root.Q<VisualElement>("transition-overlay");
-                
+
                 // Find loading ball within the transition overlay
                 if(_transitionOverlay != null) {
                     _loadingBall = _transitionOverlay.Q<VisualElement>("loading-ball");
@@ -99,17 +95,16 @@ namespace Network.Singletons {
         /// This overlay appears above HUD but below pause menu.
         /// </summary>
         private void RefreshRespawnFadeOverlay() {
-            if(_cachedSceneName != null && _cachedSceneName.Contains("Game")) {
-                var gameMenuManager = GameMenuManager.Instance;
-                if(gameMenuManager != null) {
-                    // Try to get UIDocument component
-                    var gameMenuDoc = gameMenuManager.GetComponent<UIDocument>();
-                    if(gameMenuDoc != null) {
-                        var gameRoot = gameMenuDoc.rootVisualElement;
-                        _respawnFadeOverlay = gameRoot.Q<VisualElement>("respawn-fade-overlay");
-                    }
-                }
-            }
+            if(_cachedSceneName == null || !_cachedSceneName.Contains("Game")) return;
+            
+            var gameMenuManager = GameMenuManager.Instance;
+
+            // Try to get UIDocument component
+            var gameMenuDoc = gameMenuManager?.GetComponent<UIDocument>();
+            if(gameMenuDoc == null) return;
+                    
+            var gameRoot = gameMenuDoc.rootVisualElement;
+            _respawnFadeOverlay = gameRoot.Q<VisualElement>("respawn-fade-overlay");
         }
 
         /// <summary>
@@ -187,7 +182,9 @@ namespace Network.Singletons {
             var duration = customDuration ?? fadeDuration;
 
             // Set fade color if provided (otherwise uses default black from CSS)
-            _transitionOverlay.style.backgroundColor = !string.IsNullOrEmpty(fadeColor) ? new StyleColor(ParseColor(fadeColor)) :
+            _transitionOverlay.style.backgroundColor = !string.IsNullOrEmpty(fadeColor)
+                ? new StyleColor(ParseColor(fadeColor))
+                :
                 // Reset to black (default)
                 new StyleColor(new Color(0, 0, 0, 1));
 
@@ -202,9 +199,7 @@ namespace Network.Singletons {
             _transitionOverlay.style.display = DisplayStyle.None;
 
             // Stop loading ball animation when transition overlay is hidden
-            if(_loadingBallAnimation != null) {
-                _loadingBallAnimation.StopAnimation();
-            }
+            _loadingBallAnimation?.StopAnimation();
         }
 
         /// <summary>
@@ -264,15 +259,15 @@ namespace Network.Singletons {
         /// <summary>
         /// Parses a color string (hex or rgb) to Unity Color
         /// </summary>
-        private Color ParseColor(string colorString) {
+        private static Color ParseColor(string colorString) {
             colorString = colorString.Trim();
 
             // Handle hex format (#rrggbb or #rrggbbaa)
             if(colorString.StartsWith("#")) {
-                colorString = colorString.Substring(1);
+                colorString = colorString[1..];
                 if(colorString.Length == 6) {
                     // RGB hex
-                    var r = System.Convert.ToInt32(colorString.Substring(0, 2), 16) / 255f;
+                    var r = System.Convert.ToInt32(colorString[..2], 16) / 255f;
                     var g = System.Convert.ToInt32(colorString.Substring(2, 2), 16) / 255f;
                     var b = System.Convert.ToInt32(colorString.Substring(4, 2), 16) / 255f;
                     return new Color(r, g, b, 1f);
@@ -299,8 +294,7 @@ namespace Network.Singletons {
         /// Respawn transition: fade to black (using default duration), hold on black screen, then fade back in.
         /// Uses default fade duration for consistency with main menu transitions.
         /// </summary>
-        /// <param name="customHoldDuration">Optional custom hold duration. If null, uses respawnHoldDuration.</param>
-        public IEnumerator FadeRespawnTransition(float? customHoldDuration = null) {
+        public IEnumerator FadeRespawnTransition() {
             // Refresh overlay reference in case GameMenuManager wasn't ready when OnEnable was called
             if(_transitionOverlay == null) {
                 RefreshOverlayReference();
@@ -308,10 +302,6 @@ namespace Network.Singletons {
 
             if(_transitionOverlay == null) yield break;
 
-            _isRespawnFading = true;
-            _hasRespawnFadeInStarted = false;
-            _hasRespawnFadeInCompleted = false;
-            _hasRespawnFadeOutCompleted = false;
             _serverSignaledFadeIn = false;
 
             // Fade to black (using default fade duration) - always use black for respawn
@@ -328,7 +318,6 @@ namespace Network.Singletons {
             yield return new WaitForSeconds(0.05f);
 
             // Signal that fade to black has completed (for teleporting/ragdoll disable)
-            _hasRespawnFadeOutCompleted = true;
 
             // Hold on black screen - wait for server to signal fade in start (server-authoritative)
             // This ensures all clients are synced regardless of network latency
@@ -337,7 +326,6 @@ namespace Network.Singletons {
             }
 
             // Signal that fade in is starting (for restoring control)
-            _hasRespawnFadeInStarted = true;
 
             // Fade back in (using default fade duration) - always use black for respawn
             _respawnFadeOverlay.style.backgroundColor = new StyleColor(new Color(0, 0, 0, 1));
@@ -348,32 +336,7 @@ namespace Network.Singletons {
 
             _respawnFadeOverlay.pickingMode = PickingMode.Ignore;
             _respawnFadeOverlay.style.display = DisplayStyle.None;
-
-            // Signal that fade in has completed (for camera switch)
-            _hasRespawnFadeInCompleted = true;
-
-            _isRespawnFading = false;
         }
-
-        /// <summary>
-        /// Check if respawn fade is currently in progress
-        /// </summary>
-        public bool IsRespawnFading => _isRespawnFading;
-
-        /// <summary>
-        /// Check if respawn fade in has started (use this to restore control)
-        /// </summary>
-        public bool HasRespawnFadeInStarted => _hasRespawnFadeInStarted;
-
-        /// <summary>
-        /// Check if respawn fade in has completed (use this to switch cameras)
-        /// </summary>
-        public bool HasRespawnFadeInCompleted => _hasRespawnFadeInCompleted;
-
-        /// <summary>
-        /// Check if respawn fade to black has completed (use this to teleport/disable ragdoll)
-        /// </summary>
-        public bool HasRespawnFadeOutCompleted => _hasRespawnFadeOutCompleted;
 
         /// <summary>
         /// Server-authoritative: Signal that fade in should start (called by server after hold duration)
@@ -387,13 +350,12 @@ namespace Network.Singletons {
         /// </summary>
         private IEnumerator FadeOutMenuMusic() {
             var menuMusicPlayer = FindFirstObjectByType<MenuMusicPlayer>();
-            if(menuMusicPlayer == null) yield break;
 
-            var musicSource = menuMusicPlayer.GetComponent<AudioSource>();
+            var musicSource = menuMusicPlayer?.GetComponent<AudioSource>();
             if(musicSource == null || !musicSource.isPlaying) yield break;
 
-            float startVolume = musicSource.volume;
-            float elapsed = 0f;
+            var startVolume = musicSource.volume;
+            var elapsed = 0f;
 
             while(elapsed < musicFadeDuration) {
                 elapsed += Time.deltaTime;
@@ -418,7 +380,7 @@ namespace Network.Singletons {
             _transitionOverlay.style.display = DisplayStyle.Flex;
             _transitionOverlay.pickingMode = PickingMode.Position;
 
-            var instantList = new StyleList<TimeValue>(new List<TimeValue> { new TimeValue(0) });
+            var instantList = new StyleList<TimeValue>(new List<TimeValue> { new(0) });
             _transitionOverlay.style.transitionDuration = instantList;
 
             _transitionOverlay.RemoveFromClassList("hidden");

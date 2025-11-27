@@ -16,25 +16,17 @@ namespace Game.Player {
         #region Public API
 
         public void SetGameplayCameraActive(bool active) {
-            if(fpCamera != null) {
-                fpCamera.gameObject.SetActive(active);
-            }
+            fpCamera?.gameObject.SetActive(active);
 
-            if(deathCamera != null) {
-                deathCamera.gameObject.SetActive(active);
-            }
+            deathCamera?.gameObject.SetActive(active);
         }
 
         public void ResetVelocity() {
-            if(movementController != null) {
-                movementController.ResetVelocity();
-            }
+            movementController?.ResetVelocity();
         }
 
         public void TryJump(float height = 2f) {
-            if(movementController != null) {
-                movementController.TryJump(height);
-            }
+            movementController?.TryJump(height);
         }
 
         public void PlayWalkSound() {
@@ -64,28 +56,26 @@ namespace Game.Player {
                 sfxRelay.RequestWorldSfx(SfxKey.Run, attachToSelf: true, true);
             }
         }
-        
+
         public void PickupHopball() {
             if(hopballController != null) {
                 hopballController.TryPickupHopball();
             } else {
-                Debug.LogWarning("HopballController is null, cannot pick up hopball.");
+                Debug.LogWarning("HopballController == null, cannot pick up hopball.");
             }
         }
 
         public bool IsHoldingHopball => hopballController != null && hopballController.IsHoldingHopball;
 
         public void DropHopball() {
-            if(hopballController != null) {
-                hopballController.DropHopball();
-            }
+            hopballController?.DropHopball();
         }
 
         #endregion
-        
+
         #region Core Components
-        
-        public Transform PlayerTransform => playerTransform != null ? playerTransform : transform;
+
+        public Transform PlayerTransform => playerTransform ?? transform;
         public CharacterController CharacterController => characterController;
         public PlayerInput PlayerInput => playerInput;
         public UnityEngine.InputSystem.PlayerInput UnityPlayerInput => unityPlayerInput;
@@ -134,7 +124,7 @@ namespace Game.Player {
         public HopballController HopballController => hopballController;
         public PlayerTeamManager TeamManager => playerTeamManager;
         public MantleController MantleController => mantleController;
-        
+
         public DeathCameraController DeathCameraController => deathCameraController;
 
         #endregion
@@ -142,13 +132,15 @@ namespace Game.Player {
         #region Weapons
 
         public WeaponManager WeaponManager => weaponManager;
+
         public GrappleController GrappleController => grappleController;
+
         // public SwingGrapple SwingGrapple => swingGrapple;
         public NetworkDamageRelay DamageRelay => damageRelay;
         public NetworkFxRelay FxRelay => fxRelay;
         public NetworkSfxRelay SfxRelay => sfxRelay;
         public CinemachineImpulseSource ImpulseSource => impulseSource;
-        public MeshRenderer WorldWeaponRenderer => worldWeapon;
+        // public MeshRenderer WorldWeaponRenderer => worldWeapon;
         public GameObject[] WorldWeaponPrefabs => worldWeaponPrefabs;
         public Weapon WeaponComponent => weaponComponent;
         public Animator PlayerAnimator => playerAnimator;
@@ -185,32 +177,28 @@ namespace Game.Player {
         #region Velocity Helpers
 
         public Vector3 GetHorizontalVelocity() =>
-            movementController != null ? movementController.HorizontalVelocity : Vector3.zero;
+            movementController?.HorizontalVelocity ?? Vector3.zero;
 
         public float GetVerticalVelocity() =>
-            movementController != null ? movementController.VerticalVelocity : 0f;
+            movementController?.VerticalVelocity ?? 0f;
 
         public Vector3 GetFullVelocity =>
-            movementController != null ? movementController.FullVelocity : Vector3.zero;
+            movementController?.FullVelocity ?? Vector3.zero;
 
         public float GetMaxSpeed() =>
-            movementController != null ? movementController.MaxSpeed : 5f;
+            movementController?.MaxSpeed ?? 5f;
 
         public float GetCachedHorizontalSpeedSqr() =>
-            movementController != null ? movementController.CachedHorizontalSpeedSqr : 0f;
-        
+            movementController?.CachedHorizontalSpeedSqr ?? 0f;
+
         public float AverageVelocity => statsController != null ? statsController.averageVelocity.Value : 0f;
-        
+
         public void SetVelocity(Vector3 horizontalVelocity) {
-            if(movementController != null) {
-                movementController.SetVelocity(horizontalVelocity);
-            }
+            movementController?.SetVelocity(horizontalVelocity);
         }
 
         public void AddVerticalVelocity(float verticalBoost) {
-            if(movementController != null) {
-                movementController.AddVerticalVelocity(verticalBoost);
-            }
+            movementController?.AddVerticalVelocity(verticalBoost);
         }
 
         #endregion
@@ -227,18 +215,13 @@ namespace Game.Player {
         #region Podium Methods
 
         public void ForceRespawnForPodiumServer() {
-            if(podiumController != null) {
-                podiumController.ForceRespawnForPodiumServer();
-            }
+            podiumController?.ForceRespawnForPodiumServer();
         }
 
         public void TeleportToPodiumFromServer(Vector3 position, Quaternion rotation) {
-            if(podiumController != null) {
-                podiumController.TeleportToPodiumFromServer(position, rotation);
-            }
+            podiumController?.TeleportToPodiumFromServer(position, rotation);
         }
 
         #endregion
     }
 }
-

@@ -33,10 +33,22 @@ namespace Game.Player {
         public bool IsRagdoll { get; private set; }
 
         private void Awake() {
-            playerController ??= GetComponent<PlayerController>();
-            
-            _characterController ??= playerController.CharacterController;
-            _playerAnimator ??= playerController.PlayerAnimator;
+            ValidateComponents();
+        }
+
+        private void ValidateComponents() {
+            if(playerController == null) {
+                playerController = GetComponent<PlayerController>();
+            }
+
+            if(playerController == null) {
+                Debug.LogError("[PlayerRagdoll] PlayerController not found!");
+                enabled = false;
+                return;
+            }
+
+            if(_characterController == null) _characterController = playerController.CharacterController;
+            if(_playerAnimator == null) _playerAnimator = playerController.PlayerAnimator;
         }
 
         public override void OnNetworkSpawn() {
@@ -45,6 +57,8 @@ namespace Game.Player {
             _ragdollRigidbodies = GetComponentsInChildren<Rigidbody>(true);
             _ragdollJoints = GetComponentsInChildren<CharacterJoint>(true);
             _ragdollColliders = GetComponentsInChildren<Collider>(true);
+            Debug.LogWarning(
+                $"[PlayerRagdoll] Cached ragdoll components. Rigidbodies={_ragdollRigidbodies?.Length ?? 0}, Colliders={_ragdollColliders?.Length ?? 0}, Joints={_ragdollJoints?.Length ?? 0}");
 
             // Validate chest rigidbody is assigned
             if(chestRigidbody == null) {
@@ -53,11 +67,6 @@ namespace Game.Player {
 
             // Set ragdoll components to Enemy layer (excluding base GameObject)
             SetRagdollLayersToEnemy();
-
-            // foreach(var rb in _ragdollRigidbodies) {
-            //     rb.interpolation = RigidbodyInterpolation.Interpolate;
-            //     rb.collisionDetectionMode = CollisionDetectionMode.Continuous;
-            // }
 
             DisableRagdoll();
             
@@ -86,11 +95,8 @@ namespace Game.Player {
                 chestRigidbody.AddForce(_hitDir * RagdollForce, ForceMode.Impulse);
             } else {
                 // Fallback if not assigned (shouldn't happen if inspector is set up correctly)
-                Debug.LogWarning("[PlayerRagdoll] Chest rigidbody not assigned, using closest rigidbody as fallback.");
                 var fallback = GetClosestRigidbody(_hitPoint);
-                if(fallback != null) {
-                    fallback.AddForce(_hitDir * RagdollForce, ForceMode.Impulse);
-                }
+                fallback?.AddForce(_hitDir * RagdollForce, ForceMode.Impulse);
             }
         }
 
@@ -130,6 +136,7 @@ namespace Game.Player {
         }
 
         private void EnableRagdollPhysics() {
+            Debug.LogWarning("[PlayerRagdoll] Enabling ragdoll physics");
             foreach(var rb in _ragdollRigidbodies) {
                 if(rb == null) continue;
                 rb.isKinematic = false; // Make non-kinematic for physics interactions
@@ -150,6 +157,7 @@ namespace Game.Player {
         }
 
         private void DisableRagdollPhysics() {
+            Debug.LogWarning("[PlayerRagdoll] Disabling ragdoll physics");
             foreach(var rb in _ragdollRigidbodies) {
                 if(rb == null) continue;
                 // Set velocities BEFORE making kinematic (can't set velocity on kinematic bodies)

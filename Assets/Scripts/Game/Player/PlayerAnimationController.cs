@@ -39,20 +39,27 @@ namespace Game.Player {
         private const float WalkSpeed = 5f;
 
         private void Awake() {
-            playerController ??= GetComponent<PlayerController>();
-            _playerAnimator ??= playerController.PlayerAnimator;
-            _sfxRelay ??= playerController.SfxRelay;
-            _playerTransform ??= playerController.PlayerTransform;
+            ValidateComponents();
+        }
+
+        private void ValidateComponents() {
+            if(playerController == null) {
+                playerController = GetComponent<PlayerController>();
+            }
+
+            if(playerController == null) {
+                Debug.LogError("[PlayerAnimationController] PlayerController not found!");
+                enabled = false;
+                return;
+            }
+
+            if(_playerAnimator == null) _playerAnimator = playerController.PlayerAnimator;
+            if(_sfxRelay == null) _sfxRelay = playerController.SfxRelay;
+            if(_playerTransform == null) _playerTransform = playerController.PlayerTransform;
         }
 
         public override void OnNetworkSpawn() {
             base.OnNetworkSpawn();
-
-            // Component reference should be assigned in the inspector
-            // Only use GetComponent as a last resort fallback if not assigned
-            if(playerController == null) {
-                playerController = GetComponent<PlayerController>();
-            }
 
             // Network-dependent initialization
             _lastSpawnTime = Time.time;
@@ -121,9 +128,7 @@ namespace Game.Player {
                     PlayLandingAnimationServerRpc();
                     // Only play landing sound if enough time has passed since spawn/respawn
                     if(Time.time - _lastSpawnTime >= LandingSoundCooldown) {
-                        if(_sfxRelay != null) {
-                            _sfxRelay.RequestWorldSfx(SfxKey.Land, attachToSelf: true, allowOverlap: true);
-                        }
+                        _sfxRelay?.RequestWorldSfx(SfxKey.Land, attachToSelf: true, allowOverlap: true);
                     }
                 }
 
@@ -179,16 +184,14 @@ namespace Game.Player {
         /// Sets the crouching state in the animator.
         /// </summary>
         public void SetCrouching(bool isCrouching) {
-            if(_playerAnimator == null) return;
-            _playerAnimator.SetBool(IsCrouchingHash, isCrouching);
+            _playerAnimator?.SetBool(IsCrouchingHash, isCrouching);
         }
 
         /// <summary>
         /// Triggers the damage animation.
         /// </summary>
         public void PlayDamageAnimation() {
-            if(_playerAnimator == null) return;
-            _playerAnimator.SetTrigger(DamageTriggerHash);
+            _playerAnimator?.SetTrigger(DamageTriggerHash);
         }
 
         /// <summary>

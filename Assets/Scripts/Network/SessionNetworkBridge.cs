@@ -27,8 +27,6 @@ namespace Network {
             if(Instance == null) {
                 Instance = this;
             }
-
-            Debug.Log("[SessionNetworkBridge] Network spawned");
         }
 
         [Rpc(SendTo.Everyone)]
@@ -41,21 +39,19 @@ namespace Network {
 
         [Rpc(SendTo.Everyone)]
         public void FadeOutAllClientsClientRpc() {
-            Debug.Log("[SessionNetworkBridge] FadeOut RPC received");
             if(SceneTransitionManager.Instance != null) {
                 _ = SceneTransitionManager.Instance.FadeOut().ToUniTask();
             } else {
-                Debug.LogError("[SessionNetworkBridge] SceneTransitionManager.Instance is null!");
+                Debug.LogError("[SessionNetworkBridge] SceneTransitionManager.Instance == null!");
             }
         }
 
         [Rpc(SendTo.Everyone)]
         public void FadeInAllClientsClientRpc() {
-            Debug.Log("[SessionNetworkBridge] FadeIn RPC received");
             if(SceneTransitionManager.Instance != null) {
                 _ = SceneTransitionManager.Instance.FadeIn().ToUniTask();
             } else {
-                Debug.LogError("[SessionNetworkBridge] SceneTransitionManager.Instance is null!");
+                Debug.LogError("[SessionNetworkBridge] SceneTransitionManager.Instance == null!");
             }
         }
 

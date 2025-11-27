@@ -15,7 +15,6 @@ namespace Network.Singletons {
 
         [Header("Podium Setup")]
         [SerializeField] private CinemachineCamera podiumCamera;
-
         [SerializeField] private Transform firstPlaceAnchor;
         [SerializeField] private Transform secondPlaceAnchor;
         [SerializeField] private Transform thirdPlaceAnchor;
@@ -72,10 +71,9 @@ namespace Network.Singletons {
             }
 
             // Initialize UI if available
-            if(uiDocument != null) {
-                _root = uiDocument.rootVisualElement;
-                InitializeUI();
-            }
+            if(uiDocument == null) return;
+            _root = uiDocument.rootVisualElement;
+            InitializeUI();
         }
 
         private void InitializeUI() {
@@ -127,7 +125,6 @@ namespace Network.Singletons {
                 return;
             }
 
-            Debug.Log("[PostMatchManager] Starting post-match sequence from timer.");
             PostMatchFlowStarted = true;
             StartCoroutine(PostMatchSequence());
         }
@@ -146,14 +143,11 @@ namespace Network.Singletons {
                 return;
             }
 
-            Debug.Log($"[PostMatchManager] Starting post-match sequence from score. Winning team: {winningTeam}");
             PostMatchFlowStarted = true;
             StartCoroutine(PostMatchSequence());
         }
 
         private IEnumerator PostMatchSequence() {
-            Debug.Log(
-                $"[PostMatchManager] PostMatchSequence started on server. IsServer={IsServer}, IsSpawned={IsSpawned}");
             // 1) Tell all clients to fade to black + hide HUD bits
             RequestFadeToPodiumClientRpc();
 
@@ -188,14 +182,14 @@ namespace Network.Singletons {
         /// </summary>
         private void SetupTopThreeOnServer() {
             var allPlayers = FindObjectsByType<PlayerController>(FindObjectsSortMode.None)
-                .Where(p => p != null && p.NetworkObject != null && p.NetworkObject.IsSpawned)
+                .Where(p => p?.NetworkObject != null && p.NetworkObject.IsSpawned)
                 .ToList();
 
             if(allPlayers.Count == 0) return;
 
             // Check if we're in Tag mode
             var matchSettings = MatchSettingsManager.Instance;
-            bool isTagMode = matchSettings != null && matchSettings.selectedGameModeId == "Gun Tag";
+            var isTagMode = matchSettings != null && matchSettings.selectedGameModeId == "Gun Tag";
 
             // Sort by appropriate stat based on gamemode
             List<PlayerController> sorted;
@@ -214,7 +208,7 @@ namespace Network.Singletons {
             } else {
                 // Normal mode: sort by kills descending, then by damage as tie-breaker
                 sorted = allPlayers
-                    .OrderByDescending(p => p.kills.Value)
+                    .OrderByDescending(p => p.Kills.Value)
                     .ThenByDescending(p => p.damageDealt.Value)
                     .ToList();
             }
@@ -234,21 +228,15 @@ namespace Network.Singletons {
             }
 
             // Teleport & face podium
-            for(int i = 0; i < topThree.Count; i++) {
+            for(var i = 0; i < topThree.Count; i++) {
                 var player = topThree[i];
-                Transform anchor = null;
 
-                switch(i) {
-                    case 0:
-                        anchor = firstPlaceAnchor;
-                        break;
-                    case 1:
-                        anchor = secondPlaceAnchor;
-                        break;
-                    case 2:
-                        anchor = thirdPlaceAnchor;
-                        break;
-                }
+                var anchor = i switch {
+                    0 => firstPlaceAnchor,
+                    1 => secondPlaceAnchor,
+                    2 => thirdPlaceAnchor,
+                    _ => null
+                };
 
                 if(anchor == null || player == null) continue;
 
@@ -267,29 +255,29 @@ namespace Network.Singletons {
 
             // Hide non-top3 player models (world models only, not cameras)
             foreach(var p in allPlayers) {
-                bool isOnPodium = topThree.Contains(p);
+                var isOnPodium = topThree.Contains(p);
                 p.SetWorldModelVisibleRpc(isOnPodium); // you'll add this helper
             }
 
-            string firstName = topThree.Count > 0 ? topThree[0].playerName.Value.ToString() : string.Empty;
-            int firstScore = topThree.Count > 0
+            var firstName = topThree.Count > 0 ? topThree[0].playerName.Value.ToString() : string.Empty;
+            var firstScore = topThree.Count > 0
                 ? (isTagMode
                     ? (topThree[0].GetComponent<PlayerTagController>()?.timeTagged.Value ?? 0)
-                    : topThree[0].kills.Value)
+                    : topThree[0].Kills.Value)
                 : 0;
 
-            string secondName = topThree.Count > 1 ? topThree[1].playerName.Value.ToString() : string.Empty;
-            int secondScore = topThree.Count > 1
+            var secondName = topThree.Count > 1 ? topThree[1].playerName.Value.ToString() : string.Empty;
+            var secondScore = topThree.Count > 1
                 ? (isTagMode
                     ? (topThree[1].GetComponent<PlayerTagController>()?.timeTagged.Value ?? 0)
-                    : topThree[1].kills.Value)
+                    : topThree[1].Kills.Value)
                 : 0;
 
-            string thirdName = topThree.Count > 2 ? topThree[2].playerName.Value.ToString() : string.Empty;
-            int thirdScore = topThree.Count > 2
+            var thirdName = topThree.Count > 2 ? topThree[2].playerName.Value.ToString() : string.Empty;
+            var thirdScore = topThree.Count > 2
                 ? (isTagMode
                     ? (topThree[2].GetComponent<PlayerTagController>()?.timeTagged.Value ?? 0)
-                    : topThree[2].kills.Value)
+                    : topThree[2].Kills.Value)
                 : 0;
 
             UpdatePodiumUiClientRpc(firstName, firstScore, secondName, secondScore, thirdName, thirdScore);
@@ -362,7 +350,7 @@ namespace Network.Singletons {
             SetPodiumSlots(firstName, firstScore, secondName, secondScore, thirdName, thirdScore);
         }
 
-        public void SetPodiumSlots(
+        private void SetPodiumSlots(
             string firstName, int firstKills,
             string secondName, int secondKills,
             string thirdName, int thirdKills) {
@@ -400,8 +388,8 @@ namespace Network.Singletons {
         /// <summary>
         /// Hides only the in-game HUD elements, but leaves pause/scoreboard usable.
         /// </summary>
-        public void HideInGameHudForPostMatch() {
-            // If for any reason the whole HUD panel is null, bail gracefully.
+        private void HideInGameHudForPostMatch() {
+            // If for any reason the whole HUD panel == null, bail gracefully.
             if(_hudPanel == null)
                 return;
 
@@ -421,7 +409,7 @@ namespace Network.Singletons {
         }
 
         public void ShowInGameHudAfterPostMatch() {
-            // If for any reason the whole HUD panel is null, bail gracefully.
+            // If for any reason the whole HUD panel == null, bail gracefully.
             if(_hudPanel == null)
                 return;
 

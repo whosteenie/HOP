@@ -23,10 +23,10 @@ namespace Game.Weapons {
                 if(playerController?.WeaponManager != null) {
                     playerController.WeaponManager.HandlePullOutCompleted();
                 } else {
-                    Debug.LogWarning("[WeaponAnimationEvents] Could not find PlayerController or WeaponManager to handle pull out completion!");
+                    Debug.LogWarning(
+                        "[WeaponAnimationEvents] Could not find PlayerController or WeaponManager to handle pull out completion!");
                 }
             }
         }
     }
 }
-

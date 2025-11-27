@@ -19,8 +19,8 @@ namespace Network.Singletons {
         [SerializeField] private int maxKillFeedEntries = 5;
 
         private VisualElement _killFeedContainer;
-        private List<VisualElement> _activeKillEntries = new List<VisualElement>();
-        private Dictionary<VisualElement, Coroutine> _fadeCoroutines = new Dictionary<VisualElement, Coroutine>();
+        private readonly List<VisualElement> _activeKillEntries = new();
+        private readonly Dictionary<VisualElement, Coroutine> _fadeCoroutines = new();
 
         // Cached references for performance
         private MatchSettingsManager _cachedMatchSettings;
@@ -59,13 +59,14 @@ namespace Network.Singletons {
             // Check if we're in Tag mode (cache the result)
             if(!_gameModeCacheValid) {
                 _cachedIsTagMode = _cachedMatchSettings != null && _cachedMatchSettings.selectedGameModeId == "Gun Tag";
-                _cachedIsTeamBased = _cachedMatchSettings != null && MatchSettingsManager.IsTeamBasedMode(_cachedMatchSettings.selectedGameModeId);
+                _cachedIsTeamBased = _cachedMatchSettings != null &&
+                                     MatchSettingsManager.IsTeamBasedMode(_cachedMatchSettings.selectedGameModeId);
                 _gameModeCacheValid = true;
             }
 
             // Use tag icon in Gun Tag mode, otherwise use kill icon
             var icon = _cachedIsTagMode && taggedIconSprite != null ? taggedIconSprite : killIconSprite;
-            
+
             AddEntryToFeedInternal(actorName, targetName, isLocalActor, actorClientId, targetClientId, icon);
         }
 
@@ -98,7 +99,7 @@ namespace Network.Singletons {
         /// Sets the visibility of the kill feed.
         /// </summary>
         /// <param name="visible">True to show, false to hide</param>
-        public void SetKillFeedVisible(bool visible) {
+        private void SetKillFeedVisible(bool visible) {
             if(_killFeedContainer != null) {
                 _killFeedContainer.style.display = visible ? DisplayStyle.Flex : DisplayStyle.None;
             }
@@ -131,8 +132,8 @@ namespace Network.Singletons {
             }
 
             // Get team colors for actor and target (tag mode is FFA, so GetTeamColorForPlayer will return white)
-            Color actorColor = GetTeamColorForPlayer(actorClientId);
-            Color targetColor = GetTeamColorForPlayer(targetClientId);
+            var actorColor = GetTeamColorForPlayer(actorClientId);
+            var targetColor = GetTeamColorForPlayer(targetClientId);
 
             // Actor name (killer/tagger)
             var actor = new Label(actorName);
@@ -182,7 +183,8 @@ namespace Network.Singletons {
 
             // Check if this is a team-based mode
             if(!_gameModeCacheValid) {
-                _cachedIsTeamBased = _cachedMatchSettings != null && MatchSettingsManager.IsTeamBasedMode(_cachedMatchSettings.selectedGameModeId);
+                _cachedIsTeamBased = _cachedMatchSettings != null &&
+                                     MatchSettingsManager.IsTeamBasedMode(_cachedMatchSettings.selectedGameModeId);
                 _gameModeCacheValid = true;
             }
 
@@ -195,8 +197,8 @@ namespace Network.Singletons {
             var localPlayer = NetworkManager.Singleton?.LocalClient?.PlayerObject;
             if(localPlayer == null) return Color.white;
 
-        var localController = localPlayer.GetComponent<PlayerController>();
-        var localTeamMgr = localController?.TeamManager;
+            var localController = localPlayer.GetComponent<PlayerController>();
+            var localTeamMgr = localController?.TeamManager;
             if(localTeamMgr == null) return Color.white;
 
             var localTeam = localTeamMgr.netTeam.Value;
@@ -209,25 +211,23 @@ namespace Network.Singletons {
             var playerObj = client.PlayerObject;
             if(playerObj == null) return Color.white;
 
-        var playerController = playerObj.GetComponent<PlayerController>();
-        var playerTeamMgr = playerController?.TeamManager;
+            var playerController = playerObj.GetComponent<PlayerController>();
+            var playerTeamMgr = playerController?.TeamManager;
             if(playerTeamMgr == null) return Color.white;
 
             var playerTeam = playerTeamMgr.netTeam.Value;
 
             // Determine if this player is teammate or enemy
-            bool isTeammate = playerTeam == localTeam;
+            var isTeammate = playerTeam == localTeam;
 
             // Convert HDR colors to readable RGB for text (tone down brightness)
-            if(isTeammate) {
+            return isTeammate ?
                 // Teammate: cyan-blue
                 // HDR outline: (0, 1.5, 2.5) -> readable text: (0, 0.7, 1.0)
-                return new Color(0f, 0.7f, 1f, 1f); // Bright cyan-blue
-            } else {
+                new Color(0f, 0.7f, 1f, 1f) : // Bright cyan-blue
                 // Enemy: red
                 // HDR outline: (2.5, 0.5, 0.5) -> readable text: (1.0, 0.3, 0.3)
-                return new Color(1f, 0.3f, 0.3f, 1f); // Bright red
-            }
+                new Color(1f, 0.3f, 0.3f, 1f); // Bright red
         }
 
         private IEnumerator FadeOutKillEntry(VisualElement entry) {
@@ -278,10 +278,9 @@ namespace Network.Singletons {
             yield return new WaitForSeconds(0.3f);
 
             // Remove from feed
-            if(_killFeedContainer.Contains(entry)) {
-                _killFeedContainer.Remove(entry);
-                _activeKillEntries.Remove(entry);
-            }
+            if(!_killFeedContainer.Contains(entry)) yield break;
+            _killFeedContainer.Remove(entry);
+            _activeKillEntries.Remove(entry);
         }
 
         private IEnumerator RemoveAfterFrame(VisualElement entry) {
@@ -295,4 +294,3 @@ namespace Network.Singletons {
         }
     }
 }
-

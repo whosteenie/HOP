@@ -1,0 +1,31 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b7568991099fd3a45b71cf6456d39f27, type: 3}
+  m_Name: triangle-tiles
+  m_EditorClassIdentifier: Assembly-CSharp::Game.Player.PlayerMaterialPacket
+  packetName: Triangle Tiles
+  albedoTexture: {fileID: 2800000, guid: a8c697cc846bfe043aeca52baf588ce7, type: 3}
+  normalMap: {fileID: 2800000, guid: 413064e4164ef90479bd3675730db10a, type: 3}
+  normalMapStrength: 5
+  heightMap: {fileID: 2800000, guid: e833cbf5ce44164438b2f9ec6b152543, type: 3}
+  occlusionMap: {fileID: 2800000, guid: 937200aadc64cca46a4392d4f0c90824, type: 3}
+  metallicMap: {fileID: 2800000, guid: 882dd3e5a7541e84bae0ba123bf37a4e, type: 3}
+  emissionMap: {fileID: 2800000, guid: 1499f23259032c947ade05098f273fd6, type: 3}
+  tiling: {x: 25, y: 25}
+  offset: {x: 0, y: 0}
+  useMetallicWorkflow: 1
+  defaultSmoothness: 0.5
+  defaultMetallic: 0
+  defaultSpecularColor: {r: 0.2, g: 0.2, b: 0.2, a: 1}
+  heightMapStrength: 1
+  defaultEmissionEnabled: 0
+  defaultEmissionColor: {r: 0, g: 0, b: 0, a: 1}

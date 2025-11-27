@@ -1,5 +1,7 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
+using Game.Player;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -7,7 +9,6 @@ namespace Network.Singletons {
     public class LoadoutManager : MonoBehaviour {
         [Header("Weapon Data")]
         [SerializeField] private WeaponData[] primaryWeapons;
-
         [SerializeField] private WeaponData[] secondaryWeapons;
         [SerializeField] private WeaponData[] tertiaryWeapons;
 
@@ -16,20 +17,21 @@ namespace Network.Singletons {
 
         [Header("3D Preview")]
         [SerializeField] private Camera previewCamera;
-
-        [SerializeField] private Transform originalCameraTransform;
-        [SerializeField] private Transform previewCameraTransform;
+        [SerializeField] private Transform previewPositionTransform; // Transform where the preview model should spawn
         [SerializeField] private GameObject playerModelPrefab;
-        [SerializeField] private RenderTexture previewRenderTexture;
-        [SerializeField] private float cameraTransitionDuration = 1f;
+        [SerializeField] private GameObject previewPlayerRoot;
+        [SerializeField] private List<GameObject> previewPrimaryWeapons = new();
+        [SerializeField] private List<GameObject> previewSecondaryWeapons = new();
+        [SerializeField] private Transform secondaryWeaponParent; // Optional explicit parent for secondary holster models
+        private RenderTexture previewRenderTexture; // Will be created/updated dynamically
+        [SerializeField] private float panelTransitionDuration = 0.4f;
 
         private UIDocument _uiDocument;
         private VisualElement _root;
 
         // UI Elements
-        private VisualElement _colorOptions;
         private TextField _playerNameInput;
-        private Button _applyNameButton;
+        private Button _applyLoadoutButton;
         private Button _backLoadoutButton;
 
         private VisualElement _primarySlot;
@@ -47,9 +49,36 @@ namespace Network.Singletons {
         private Image _tertiaryWeaponImage;
 
         private GameObject _previewPlayerModel;
+        private readonly List<GameObject> _previewWeaponModels = new();
+        private readonly List<GameObject> _previewSecondaryWeaponModels = new();
+
+        // Rotation state
+        private bool _isDragging;
+        private Vector2 _lastMousePosition;
+        private float _currentRotationVelocity;
+        private float _rotationY;
+        private VisualElement _viewport;
+        private const float MIN_MOVEMENT_THRESHOLD = 0.5f; // Minimum pixel movement to register as actual drag
+        private float _lastMovementDelta; // Track last movement delta to check on release
+        private bool _rotationEnabled = true;
+
+        // Animation state
+        private VisualElement _weaponContainer;
+        private VisualElement _customizationContainer;
+        private VisualElement _nameContainer;
+        private VisualElement _backgroundElement;
+        private Coroutine _backgroundFadeCoroutine;
+        private Coroutine _slideInCoroutine;
+        private Coroutine _slideOutCoroutine;
+        private bool _isSlidingIn;
+        private const float SLIDE_ANIMATION_DURATION = 0.4f;
+        private const float BACKGROUND_FADE_DURATION = 0.2f;
+        private bool _containersInitialized;
+        private static readonly Vector2 WeaponOffscreenPercent = new(-200f, 0f);
+        private static readonly Vector2 CustomizationOffscreenPercent = new(200f, 0f);
+        private static readonly Vector2 NameOffscreenPercent = new(0f, 200f);
 
         // Current selections
-        private int _selectedColorIndex;
         private int _selectedPrimaryIndex;
         private int _selectedSecondaryIndex;
         private int _selectedTertiaryIndex;
@@ -61,10 +90,23 @@ namespace Network.Singletons {
         private string _currentPlayerName;
         private string _savedPlayerName;
 
+        private int _savedPrimaryIndex;
+        private int _savedSecondaryIndex;
+        private int _savedTertiaryIndex;
+        private bool _customizationDirty;
+        private bool _hasUnsavedChanges;
+
         [SerializeField] private MainMenuManager mainMenuManager;
+
+        // Unsaved changes UI
+        private VisualElement _loadoutUnsavedModal;
+        private Button _loadoutUnsavedYes;
+        private Button _loadoutUnsavedNo;
+        private Button _loadoutUnsavedCancel;
 
         private void Awake() {
             _uiDocument = mainMenuManager.uiDocument;
+            ResetPreviewCameraTarget();
         }
 
         private void OnEnable() {
@@ -73,37 +115,137 @@ namespace Network.Singletons {
             SetupEventHandlers();
             RegisterOutsideClickHandler();
             LoadSavedLoadout();
+            
+            // Apply button is always visible now
         }
 
         private void OnDisable() {
-            if(_root != null && _outsideClickHandlerRegistered) {
-                _root.UnregisterCallback<PointerDownEvent>(OnRootPointerDown, TrickleDown.TrickleDown);
-                _outsideClickHandlerRegistered = false;
+            if(_root == null || !_outsideClickHandlerRegistered) return;
+            _root.UnregisterCallback<PointerDownEvent>(OnRootPointerDown, TrickleDown.TrickleDown);
+            _outsideClickHandlerRegistered = false;
+            
+            // Clean up viewport handlers
+            if(_viewport != null) {
+                _viewport.UnregisterCallback<PointerDownEvent>(OnViewportPointerDown);
+                _viewport.UnregisterCallback<PointerMoveEvent>(OnViewportPointerMove);
+                _viewport.UnregisterCallback<PointerUpEvent>(OnViewportPointerUp);
+                _viewport.UnregisterCallback<PointerLeaveEvent>(OnViewportPointerLeave);
             }
+            
+            // Clean up root-level viewport handlers
+            if(_root != null) {
+                _root.UnregisterCallback<PointerDownEvent>(OnRootPointerDownForViewport, TrickleDown.TrickleDown);
+                _root.UnregisterCallback<PointerMoveEvent>(OnRootPointerMoveForViewport, TrickleDown.TrickleDown);
+                _root.UnregisterCallback<PointerUpEvent>(OnRootPointerUpForViewport, TrickleDown.TrickleDown);
+            }
+
+            ResetPreviewCameraTarget();
+        }
+        
+        private void OnDestroy() {
+            ReleasePreviewRenderTexture(true);
         }
 
         public void ShowLoadout() {
-            SelectColor(PlayerPrefs.GetInt("PlayerColorIndex", 0));
             Setup3DPreview();
-            StopCoroutine(TransitionCameraToOriginal());
-            StartCoroutine(TransitionCameraToPreview());
+            
+            // Ensure containers start off-screen the first time
+            if(!_containersInitialized) {
+                SetContainerTranslate(_weaponContainer, WeaponOffscreenPercent);
+                SetContainerTranslate(_customizationContainer, CustomizationOffscreenPercent);
+                SetContainerTranslate(_nameContainer, NameOffscreenPercent);
+                _containersInitialized = true;
+            }
+            
+            // Stop any slide-out animation and start slide-in
+            StopSlideAnimations();
+            FadeBackground(true);
+            StartSlideIn();
         }
 
         private void HideLoadout() {
-            StopCoroutine(TransitionCameraToPreview());
-            StartCoroutine(TransitionCameraToOriginal());
+            // Background slide-out handled separately
+        }
+
+        private void ReleasePreviewRenderTexture(bool destroyAsset = false) {
+            if(previewRenderTexture == null) return;
+
+            if(previewCamera != null && previewCamera.targetTexture == previewRenderTexture) {
+                previewCamera.targetTexture = null;
+            }
+
+            previewRenderTexture.Release();
+
+            if(destroyAsset) {
+                DestroyImmediate(previewRenderTexture, true);
+            }
+
+            previewRenderTexture = null;
+        }
+
+        private void ResetPreviewCameraTarget() {
+            if(previewCamera == null) return;
+
+            if(previewCamera.targetTexture != null) {
+                previewCamera.targetTexture = null;
+            }
+
+            previewCamera.enabled = false;
+
+            var parentCamera = previewCamera.transform.parent?.GetComponent<Camera>();
+            if(parentCamera != null && parentCamera.targetTexture != null) {
+                parentCamera.targetTexture = null;
+            }
         }
 
         private void SetupUIReferences() {
-            // Color picker
-            _colorOptions = _root.Q<VisualElement>("color-options");
+            // Get container references for animations
+            _weaponContainer = _root.Q<VisualElement>("weapon-selection-container");
+            _customizationContainer = _root.Q<VisualElement>("customization-container");
+            _nameContainer = _root.Q<VisualElement>("name-buttons-container");
+            _backgroundElement = _root.Q<VisualElement>("player-model-background");
 
+            if(_backgroundElement != null) {
+                _backgroundElement.style.opacity = new StyleFloat(0f);
+                _backgroundElement.AddToClassList("hidden");
+                _backgroundElement.style.display = StyleKeyword.Null;
+            }
+
+            // Unsaved changes modal
+            _loadoutUnsavedModal = _root.Q<VisualElement>("loadout-unsaved-changes-modal");
+            _loadoutUnsavedYes = _root.Q<Button>("loadout-unsaved-yes");
+            _loadoutUnsavedNo = _root.Q<Button>("loadout-unsaved-no");
+            _loadoutUnsavedCancel = _root.Q<Button>("loadout-unsaved-cancel");
+            _loadoutUnsavedYes?.RegisterCallback<ClickEvent>(_ => OnLoadoutUnsavedYes());
+            _loadoutUnsavedNo?.RegisterCallback<ClickEvent>(_ => OnLoadoutUnsavedNo());
+            _loadoutUnsavedCancel?.RegisterCallback<ClickEvent>(_ => OnLoadoutUnsavedCancel());
+            _loadoutUnsavedYes?.RegisterCallback<MouseEnterEvent>(MainMenuManager.MouseEnter);
+            _loadoutUnsavedNo?.RegisterCallback<MouseEnterEvent>(MainMenuManager.MouseEnter);
+            _loadoutUnsavedCancel?.RegisterCallback<MouseEnterEvent>(MainMenuManager.MouseEnter);
+            
+            // Containers start off-screen via USS, no need to initialize positions here
+            
             // Name input
             _playerNameInput = _root.Q<TextField>("player-name-input");
-            _applyNameButton = _root.Q<Button>("apply-name-button");
-
-            _applyNameButton.clicked += () => mainMenuManager.OnButtonClicked();
-            _applyNameButton.RegisterCallback<MouseEnterEvent>(MainMenuManager.MouseEnter);
+            _applyLoadoutButton = _root.Q<Button>("apply-loadout-button");
+            
+            if(_applyLoadoutButton != null) {
+                // Unregister any existing handlers first
+                _applyLoadoutButton.clicked -= OnApplyLoadoutClicked;
+                _applyLoadoutButton.UnregisterCallback<MouseEnterEvent>(MainMenuManager.MouseEnter);
+                
+                // Register handlers
+                _applyLoadoutButton.clicked += () => {
+                    Debug.Log("[LoadoutManager] Apply button clicked");
+                    if(mainMenuManager != null) {
+                        mainMenuManager.OnButtonClicked();
+                    }
+                    OnApplyLoadoutClicked();
+                };
+                _applyLoadoutButton.RegisterCallback<MouseEnterEvent>(MainMenuManager.MouseEnter);
+            } else {
+                Debug.LogError("[LoadoutManager] Apply button not found!");
+            }
 
             // Weapon slots (main equipped slot)
             _primarySlot = _root.Q<VisualElement>("primary-weapon-slot");
@@ -123,51 +265,41 @@ namespace Network.Singletons {
 
             // Back button
             _backLoadoutButton = _root.Q<Button>("back-to-main-from-loadout");
-            _backLoadoutButton.clicked += () => {
-                mainMenuManager.OnButtonClicked(true);
-                OnBackClicked();
-            };
-            _backLoadoutButton.RegisterCallback<MouseEnterEvent>(MainMenuManager.MouseEnter);
+            if(_backLoadoutButton != null) {
+                // Unregister any existing handlers first
+                _backLoadoutButton.clicked -= OnBackClicked;
+                _backLoadoutButton.UnregisterCallback<MouseEnterEvent>(MainMenuManager.MouseEnter);
+                
+                // Register handlers
+                _backLoadoutButton.clicked += () => {
+                    Debug.Log("[LoadoutManager] Back button clicked");
+                    if(mainMenuManager != null) {
+                        mainMenuManager.OnButtonClicked(true);
+                    }
+                    OnBackClicked();
+                };
+                _backLoadoutButton.RegisterCallback<MouseEnterEvent>(MainMenuManager.MouseEnter);
+            } else {
+                Debug.LogError("[LoadoutManager] Back button not found!");
+            }
         }
 
         private void SetupEventHandlers() {
-            // Current color display - clicking any visible circle opens dropdown
-            for(var i = 0; i < 7; i++) {
-                var currentCircle = _root.Q<VisualElement>($"current-color-{i}");
-                if(currentCircle is not null) {
-                    currentCircle.RegisterCallback<ClickEvent>(_ => ToggleColorPicker());
-                    currentCircle.RegisterCallback<ClickEvent>(_ => mainMenuManager.OnButtonClicked());
-                    currentCircle.RegisterCallback<MouseEnterEvent>(evt => MainMenuManager.MouseEnter(evt));
-                }
-            }
-
-            // Color option clicks
-            for(var i = 0; i < 7; i++) {
-                var optionCircle = _root.Q<VisualElement>($"option-color-{i}");
-                if(optionCircle != null) {
-                    var index = i;
-                    optionCircle.RegisterCallback<ClickEvent>(_ => SelectColor(index));
-                    optionCircle.RegisterCallback<ClickEvent>(_ => mainMenuManager.OnButtonClicked());
-                    optionCircle.RegisterCallback<MouseEnterEvent>(evt => MainMenuManager.MouseEnter(evt));
-                }
-            }
-
             // Name input change
             _playerNameInput.RegisterValueChangedCallback(evt => OnNameChanged(evt.newValue));
-            _applyNameButton.clicked += OnApplyNameClicked;
 
             // Weapon slot clicks (main equipped slot - opens dropdown)
             _primarySlot.RegisterCallback<ClickEvent>(_ => ToggleWeaponDropdown(_primaryDropdown));
             _primarySlot.RegisterCallback<ClickEvent>(_ => mainMenuManager.OnButtonClicked());
-            _primarySlot.RegisterCallback<MouseEnterEvent>(evt => MainMenuManager.MouseEnter(evt));
+            _primarySlot.RegisterCallback<MouseEnterEvent>(MainMenuManager.MouseEnter);
 
             _secondarySlot.RegisterCallback<ClickEvent>(_ => ToggleWeaponDropdown(_secondaryDropdown));
             _secondarySlot.RegisterCallback<ClickEvent>(_ => mainMenuManager.OnButtonClicked());
-            _secondarySlot.RegisterCallback<MouseEnterEvent>(evt => MainMenuManager.MouseEnter(evt));
+            _secondarySlot.RegisterCallback<MouseEnterEvent>(MainMenuManager.MouseEnter);
 
             _tertiarySlot.RegisterCallback<ClickEvent>(_ => ToggleWeaponDropdown(_tertiaryDropdown));
             _tertiarySlot.RegisterCallback<ClickEvent>(_ => mainMenuManager.OnButtonClicked());
-            _tertiarySlot.RegisterCallback<MouseEnterEvent>(evt => MainMenuManager.MouseEnter(evt));
+            _tertiarySlot.RegisterCallback<MouseEnterEvent>(MainMenuManager.MouseEnter);
 
             // Populate weapon dropdowns
             PopulateWeaponDropdown(_primaryDropdown.Q<ScrollView>("primary-scroll"), primaryWeapons,
@@ -185,10 +317,6 @@ namespace Network.Singletons {
         }
 
         private void LoadSavedLoadout() {
-            // Load color
-            _selectedColorIndex = PlayerPrefs.GetInt("PlayerColorIndex", 0);
-            UpdateColorDisplay(_selectedColorIndex);
-
             // Load name
             _savedPlayerName = PlayerPrefs.GetString("PlayerName", "Player");
             _currentPlayerName = _savedPlayerName;
@@ -201,68 +329,47 @@ namespace Network.Singletons {
             _selectedPrimaryIndex = PlayerPrefs.GetInt("PrimaryWeaponIndex", 0);
             _selectedSecondaryIndex = PlayerPrefs.GetInt("SecondaryWeaponIndex", 0);
             _selectedTertiaryIndex = PlayerPrefs.GetInt("TertiaryWeaponIndex", 0);
+            _savedPrimaryIndex = _selectedPrimaryIndex;
+            _savedSecondaryIndex = _selectedSecondaryIndex;
+            _savedTertiaryIndex = _selectedTertiaryIndex;
+            _customizationDirty = false;
+            UpdateDirtyState();
 
             UpdateWeaponImages();
             UpdatePlayerModel();
         }
 
-        private void UpdateColorDisplay(int colorIndex) {
-            // Hide all current color circles
-            for(int i = 0; i < 7; i++) {
-                var currentCircle = _root.Q<VisualElement>($"current-color-{i}");
-                currentCircle?.AddToClassList("hidden");
-            }
-
-            // Show only the selected color
-            var selectedCircle = _root.Q<VisualElement>($"current-color-{colorIndex}");
-            selectedCircle?.RemoveFromClassList("hidden");
-
-            // Update options dropdown - hide selected, show others
-            for(var i = 0; i < 7; i++) {
-                var optionCircle = _root.Q<VisualElement>($"option-color-{i}");
-                if(optionCircle != null) {
-                    if(i == colorIndex) {
-                        optionCircle.AddToClassList("hidden");
-                    } else {
-                        optionCircle.RemoveFromClassList("hidden");
-                    }
-                }
-            }
-        }
-
-        private void ToggleColorPicker() {
-            _colorOptions.ToggleInClassList("hidden");
-        }
-
-        private void SelectColor(int index) {
-            _selectedColorIndex = index;
-            UpdateColorDisplay(index);
-            _colorOptions.AddToClassList("hidden");
-
-            PlayerPrefs.SetInt("PlayerColorIndex", index);
-            PlayerPrefs.Save();
-
-            UpdatePlayerModel();
-        }
 
         private void OnNameChanged(string newName) {
             _currentPlayerName = newName;
-
-            if(_currentPlayerName != _savedPlayerName) {
-                _applyNameButton.RemoveFromClassList("hidden");
-            } else {
-                _applyNameButton.AddToClassList("hidden");
-            }
+            // Apply button is always visible, no need to show/hide it
+            UpdateDirtyState();
         }
 
-        private void OnApplyNameClicked() {
+        private void OnApplyLoadoutClicked() {
+            // Save name
             _savedPlayerName = _currentPlayerName;
             PlayerPrefs.SetString("PlayerName", _savedPlayerName);
+            
+            // Save weapons (already saved when selected, but ensure they're current)
+            PlayerPrefs.SetInt("PrimaryWeaponIndex", _selectedPrimaryIndex);
+            PlayerPrefs.SetInt("SecondaryWeaponIndex", _selectedSecondaryIndex);
+            PlayerPrefs.SetInt("TertiaryWeaponIndex", _selectedTertiaryIndex);
+            
+            // Save customization (apply customization changes)
+            var customizationManager = FindFirstObjectByType<CharacterCustomizationManager>();
+            if(customizationManager != null) {
+                customizationManager.ApplyCustomization();
+            }
+            
             PlayerPrefs.Save();
+            Debug.Log($"[LoadoutManager] All loadout settings saved: Name={_savedPlayerName}, Weapons={_selectedPrimaryIndex}/{_selectedSecondaryIndex}/{_selectedTertiaryIndex}");
 
-            _applyNameButton.AddToClassList("hidden");
-
-            Debug.Log($"Player name saved: {_savedPlayerName}");
+            _savedPrimaryIndex = _selectedPrimaryIndex;
+            _savedSecondaryIndex = _selectedSecondaryIndex;
+            _savedTertiaryIndex = _selectedTertiaryIndex;
+            _customizationDirty = false;
+            UpdateDirtyState();
         }
 
         private void ToggleWeaponDropdown(VisualElement dropdown) {
@@ -294,11 +401,14 @@ namespace Network.Singletons {
             if(dropdown == null) return;
 
             if(dropdown == _primaryDropdown) {
-                PopulateWeaponDropdown(_primaryDropdownScroll, primaryWeapons, _selectedPrimaryIndex, SelectPrimaryWeapon);
+                PopulateWeaponDropdown(_primaryDropdownScroll, primaryWeapons, _selectedPrimaryIndex,
+                    SelectPrimaryWeapon);
             } else if(dropdown == _secondaryDropdown) {
-                PopulateWeaponDropdown(_secondaryDropdownScroll, secondaryWeapons, _selectedSecondaryIndex, SelectSecondaryWeapon);
+                PopulateWeaponDropdown(_secondaryDropdownScroll, secondaryWeapons, _selectedSecondaryIndex,
+                    SelectSecondaryWeapon);
             } else if(dropdown == _tertiaryDropdown) {
-                PopulateWeaponDropdown(_tertiaryDropdownScroll, tertiaryWeapons, _selectedTertiaryIndex, SelectTertiaryWeapon);
+                PopulateWeaponDropdown(_tertiaryDropdownScroll, tertiaryWeapons, _selectedTertiaryIndex,
+                    SelectTertiaryWeapon);
             }
         }
 
@@ -308,6 +418,9 @@ namespace Network.Singletons {
 
             var container = scroll.contentContainer;
             container.Clear();
+            
+            // Set container to horizontal layout
+            container.style.flexDirection = FlexDirection.Row;
 
             if(weapons is not { Length: > 1 }) {
                 // No alternatives to show
@@ -360,23 +473,20 @@ namespace Network.Singletons {
 
         private void SelectPrimaryWeapon(int index) {
             _selectedPrimaryIndex = index;
-            PlayerPrefs.SetInt("PrimaryWeaponIndex", index);
-            PlayerPrefs.Save();
             UpdateWeaponImages();
+            UpdateDirtyState();
         }
 
         private void SelectSecondaryWeapon(int index) {
             _selectedSecondaryIndex = index;
-            PlayerPrefs.SetInt("SecondaryWeaponIndex", index);
-            PlayerPrefs.Save();
             UpdateWeaponImages();
+            UpdateDirtyState();
         }
 
         private void SelectTertiaryWeapon(int index) {
             _selectedTertiaryIndex = index;
-            PlayerPrefs.SetInt("TertiaryWeaponIndex", index);
-            PlayerPrefs.Save();
             UpdateWeaponImages();
+            UpdateDirtyState();
         }
 
         private void UpdateWeaponImages() {
@@ -386,8 +496,10 @@ namespace Network.Singletons {
                 ref _currentSecondarySlotClass, "weapon-secondary");
             UpdateWeaponSlot(tertiaryWeapons, ref _selectedTertiaryIndex, _tertiaryWeaponImage, _tertiarySlot,
                 ref _currentTertiarySlotClass, "weapon-tertiary");
+
+            UpdatePreviewWeaponModel();
         }
-        
+
         private void OnRootPointerDown(PointerDownEvent evt) {
             if(_currentOpenDropdown == null || evt == null) return;
 
@@ -415,7 +527,7 @@ namespace Network.Singletons {
             return dropdown == _tertiaryDropdown ? _tertiarySlot : null;
         }
 
-        private void UpdateWeaponSlot(WeaponData[] weapons, ref int selectedIndex, Image targetImage,
+        private static void UpdateWeaponSlot(WeaponData[] weapons, ref int selectedIndex, Image targetImage,
             VisualElement slotElement, ref string currentClass, string classPrefix) {
             if(weapons == null || weapons.Length == 0) {
                 selectedIndex = 0;
@@ -423,6 +535,7 @@ namespace Network.Singletons {
                     targetImage.sprite = null;
                     targetImage.style.visibility = Visibility.Hidden;
                 }
+
                 UpdateWeaponSlotClass(slotElement, ref currentClass, null);
                 return;
             }
@@ -474,109 +587,826 @@ namespace Network.Singletons {
         }
 
         private void Setup3DPreview() {
-            if(previewCamera == null || playerModelPrefab == null) return;
+            if(previewCamera == null) return;
 
-            // Set camera depth higher than UI camera to render above HUD background
-            // UI camera typically has depth 0, so we'll use a higher value
-            if(previewCamera.depth <= 0) {
-                previewCamera.depth = 1; // Render above UI (which is typically depth 0)
+            // Ensure main camera (parent) is enabled to render the world
+            var mainCam = previewCamera.transform.parent?.GetComponent<Camera>();
+            if(mainCam != null) {
+                mainCam.enabled = true;
             }
 
-            if(_previewPlayerModel != null) {
-                Destroy(_previewPlayerModel);
+            // Create or update render texture to match current screen resolution
+            var screenWidth = Screen.width;
+            var screenHeight = Screen.height;
+            
+            if(previewRenderTexture == null || previewRenderTexture.width != screenWidth || previewRenderTexture.height != screenHeight) {
+                // Release old texture if it exists
+                ReleasePreviewRenderTexture();
+                
+                // Create new render texture matching screen resolution with 8x MSAA
+                previewRenderTexture = new RenderTexture(screenWidth, screenHeight, 24, RenderTextureFormat.ARGB32)
+                    {
+                        antiAliasing = 8, // 8x MSAA for smooth rendering
+                        name = "PlayerPreviewRT"
+                    };
+                Debug.Log($"[LoadoutManager] Created render texture: {screenWidth}x{screenHeight} with 8x MSAA");
             }
 
-            var modelPosition = previewCameraTransform.position + previewCameraTransform.transform.forward * 3f;
-            modelPosition.y -= 0.5f;
+            // Ensure preview camera is enabled and rendering to RenderTexture
+            previewCamera.targetTexture = previewRenderTexture;
+            previewCamera.enabled = true;
+            
+            previewCamera.Render();
 
-            _previewPlayerModel = Instantiate(playerModelPrefab, modelPosition, Quaternion.Euler(0, 180, 0));
-            _previewPlayerModel.GetComponentInChildren<SkinnedMeshRenderer>().materials[1] =
-                playerMaterials[PlayerPrefs.GetInt("PlayerSkinIndex", 0)];
+            if(_previewPlayerModel == null) {
+                if(previewPlayerRoot != null) {
+                    _previewPlayerModel = previewPlayerRoot;
+                    _previewPlayerModel.SetActive(true);
+                } else if(playerModelPrefab != null) {
+                    Vector3 modelPosition;
+                    Quaternion modelRotation;
+                    
+                    if(previewPositionTransform != null) {
+                        modelPosition = previewPositionTransform.position;
+                        modelRotation = previewPositionTransform.rotation;
+                    } else {
+                        modelPosition = Vector3.zero;
+                        modelRotation = Quaternion.Euler(0, 180, 0);
+                    }
+                    
+                    _previewPlayerModel = Instantiate(playerModelPrefab, modelPosition, modelRotation);
+                } else {
+                    Debug.LogWarning("[LoadoutManager] No preview player root or prefab assigned.");
+                    return;
+                }
+            }
+            // Material at index 1 should be set to "None" in the prefab for verification
+            // We'll apply the new material packet system via UpdatePlayerModel()
+            CachePreviewWeaponModels();
+            UpdatePreviewWeaponModel();
 
-            var viewport = _root.Q<VisualElement>("player-model-viewport");
-            if(viewport != null && previewRenderTexture != null) {
-                viewport.style.backgroundImage =
+            // Initialize rotation state
+            _rotationY = 180f; // Match the initial rotation from Instantiate
+            _currentRotationVelocity = 0f;
+            _isDragging = false;
+
+            // Setup the background (full-screen display) and viewport (input detection)
+            var background = _root.Q<VisualElement>("player-model-background");
+            _viewport = _root.Q<VisualElement>("player-model-viewport");
+            var uiOverlay = _root.Q<VisualElement>("ui-overlay");
+            
+            Debug.Log($"[LoadoutManager] Setup3DPreview - Background: {background != null}, Viewport: {_viewport != null}, Overlay: {uiOverlay != null}, RenderTexture: {previewRenderTexture != null}, Model: {_previewPlayerModel != null}");
+            
+            // Set overlay picking mode to ignore so events can pass through
+            if(uiOverlay != null) {
+                uiOverlay.pickingMode = PickingMode.Ignore;
+                Debug.Log($"[LoadoutManager] UI Overlay picking mode set to: {uiOverlay.pickingMode}");
+            }
+            
+            // Set the render texture as background on the full-screen element
+            if(background != null && previewRenderTexture != null) {
+                background.style.backgroundImage =
                     new StyleBackground(Background.FromRenderTexture(previewRenderTexture));
-                // Bring viewport to front of its parent to ensure it renders above other elements
-                viewport.BringToFront();
-
-                // Also ensure the loadout panel is brought to front
-                var loadoutPanel = _root.Q<VisualElement>("loadout-panel");
-                loadoutPanel?.BringToFront();
+                background.pickingMode = PickingMode.Ignore; // Don't capture input, just display
+                Debug.Log("[LoadoutManager] Background image set on full-screen element");
+            }
+            
+            // Setup viewport for input detection only
+            if(_viewport != null && previewRenderTexture != null) {
+                // CRITICAL: Set picking mode to Position so we can receive mouse events for rotation
+                _viewport.pickingMode = PickingMode.Position;
+                
+                // Ensure the viewport can receive input events
+                _viewport.focusable = false; // Don't make it focusable, just receive pointer events
+                
+                // Make sure viewport is visible and can receive events
+                _viewport.style.display = DisplayStyle.Flex;
+                _viewport.style.visibility = Visibility.Visible;
+                
+                Debug.Log($"[LoadoutManager] Viewport picking mode set to: {_viewport.pickingMode}, Size: {_viewport.layout.width}x{_viewport.layout.height}, Display: {_viewport.style.display}, Visibility: {_viewport.style.visibility}");
+                
+                // Unregister any existing handlers first to avoid duplicates
+                _viewport.UnregisterCallback<PointerDownEvent>(OnViewportPointerDown);
+                _viewport.UnregisterCallback<PointerMoveEvent>(OnViewportPointerMove);
+                _viewport.UnregisterCallback<PointerUpEvent>(OnViewportPointerUp);
+                _viewport.UnregisterCallback<PointerLeaveEvent>(OnViewportPointerLeave);
+                
+                // Setup rotation handlers - register with default propagation
+                _viewport.RegisterCallback<PointerDownEvent>(OnViewportPointerDown);
+                _viewport.RegisterCallback<PointerMoveEvent>(OnViewportPointerMove);
+                _viewport.RegisterCallback<PointerUpEvent>(OnViewportPointerUp);
+                _viewport.RegisterCallback<PointerLeaveEvent>(OnViewportPointerLeave);
+                
+                Debug.Log("[LoadoutManager] Viewport event handlers registered");
+                
+                // Also try registering on root to catch events that might be blocked
+                if(_root != null) {
+                    _root.RegisterCallback<PointerDownEvent>(OnRootPointerDownForViewport, TrickleDown.TrickleDown);
+                    _root.RegisterCallback<PointerMoveEvent>(OnRootPointerMoveForViewport, TrickleDown.TrickleDown);
+                    _root.RegisterCallback<PointerUpEvent>(OnRootPointerUpForViewport, TrickleDown.TrickleDown);
+                    Debug.Log("[LoadoutManager] Root-level event handlers registered for viewport");
+                }
+            } else {
+                Debug.LogWarning($"[LoadoutManager] Viewport or RenderTexture is null! Viewport: {_viewport != null}, RenderTexture: {previewRenderTexture != null}");
             }
 
             UpdatePlayerModel();
         }
 
+
         private void UpdatePlayerModel() {
             if(_previewPlayerModel == null) return;
 
             var skinnedRenderer = _previewPlayerModel.GetComponentInChildren<SkinnedMeshRenderer>();
-            if(skinnedRenderer == null || _selectedColorIndex >= playerMaterials.Length) return;
+            if(skinnedRenderer == null) return;
+
+            // Apply new material packet system to preview model
+            var packetIndex = PlayerPrefs.GetInt("PlayerMaterialPacketIndex", 0);
+            var baseColorR = PlayerPrefs.GetFloat("PlayerBaseColorR", 1f);
+            var baseColorG = PlayerPrefs.GetFloat("PlayerBaseColorG", 1f);
+            var baseColorB = PlayerPrefs.GetFloat("PlayerBaseColorB", 1f);
+            var baseColorA = PlayerPrefs.GetFloat("PlayerBaseColorA", 1f);
+            var baseColor = new Color(baseColorR, baseColorG, baseColorB, baseColorA);
+            var smoothness = PlayerPrefs.GetFloat("PlayerSmoothness", 0.5f);
+            var metallic = PlayerPrefs.GetFloat("PlayerMetallic", 0f);
+            var specularR = PlayerPrefs.GetFloat("PlayerSpecularColorR", 0.2f);
+            var specularG = PlayerPrefs.GetFloat("PlayerSpecularColorG", 0.2f);
+            var specularB = PlayerPrefs.GetFloat("PlayerSpecularColorB", 0.2f);
+            var specularA = PlayerPrefs.GetFloat("PlayerSpecularColorA", 1f);
+            var specularColor = new Color(specularR, specularG, specularB, specularA);
+            var heightStrength = PlayerPrefs.GetFloat("PlayerHeightStrength", 0.02f);
+            var emissionEnabled = PlayerPrefs.GetInt("PlayerEmissionEnabled", 0) == 1;
+            var emissionR = PlayerPrefs.GetFloat("PlayerEmissionColorR", 0f);
+            var emissionG = PlayerPrefs.GetFloat("PlayerEmissionColorG", 0f);
+            var emissionB = PlayerPrefs.GetFloat("PlayerEmissionColorB", 0f);
+            var emissionA = PlayerPrefs.GetFloat("PlayerEmissionColorA", 1f);
+            var emissionColor = new Color(emissionR, emissionG, emissionB, emissionA);
+
+            var packet = PlayerMaterialPacketManager.Instance?.GetPacket(packetIndex);
+            if(packet == null) {
+                Debug.LogWarning("[LoadoutManager] Could not load material packet for preview model.");
+                return;
+            }
+
+            var generatedMaterial = PlayerMaterialGenerator.GenerateMaterial(
+                packet,
+                baseColor,
+                smoothness,
+                metallic,
+                specularColor,
+                heightStrength,
+                emissionEnabled,
+                emissionColor
+            );
+
             var materials = skinnedRenderer.materials;
-            if(materials.Length <= 0) return;
-            materials[1] = playerMaterials[_selectedColorIndex];
-            skinnedRenderer.materials = materials;
+            if(materials.Length > 1) {
+                materials[1] = generatedMaterial;
+                skinnedRenderer.materials = materials;
+            } else {
+                Debug.LogWarning("[LoadoutManager] Preview player model does not have enough material slots for customization.");
+            }
+        }
+
+        private void CachePreviewWeaponModels() {
+            CachePreviewPrimaryWeaponModels();
+            CachePreviewSecondaryWeaponModels();
+        }
+
+        private void CachePreviewPrimaryWeaponModels() {
+            _previewWeaponModels.Clear();
+            if(previewPrimaryWeapons is { Count: > 0 }) {
+                foreach(var weapon in previewPrimaryWeapons) {
+                    if(weapon == null) continue;
+                    weapon.SetActive(false);
+                    _previewWeaponModels.Add(weapon);
+                }
+                return;
+            }
+
+            if(_previewPlayerModel == null) return;
+
+            var weaponSocket = _previewPlayerModel.transform.Find("WeaponSocket");
+            if(weaponSocket == null) {
+                Debug.LogWarning("[LoadoutManager] WeaponSocket not found on preview model, and no weapons assigned in inspector.");
+                return;
+            }
+
+            foreach(Transform child in weaponSocket) {
+                child.gameObject.SetActive(false);
+                _previewWeaponModels.Add(child.gameObject);
+            }
+        }
+
+        private void CachePreviewSecondaryWeaponModels() {
+            _previewSecondaryWeaponModels.Clear();
+
+            if(previewSecondaryWeapons is { Count: > 0 }) {
+                foreach(var weapon in previewSecondaryWeapons) {
+                    if(weapon == null) continue;
+                    weapon.SetActive(false);
+                    _previewSecondaryWeaponModels.Add(weapon);
+                }
+                return;
+            }
+
+            if(_previewPlayerModel == null) return;
+
+            var parent = secondaryWeaponParent != null
+                ? secondaryWeaponParent
+                : FindChildRecursive(_previewPlayerModel.transform, "hip");
+
+            if(parent == null) {
+                Debug.LogWarning("[LoadoutManager] Secondary weapon parent not found on preview model. Assign it in inspector for accurate holster previews.");
+                return;
+            }
+
+            var secondaryLookup = new Dictionary<string, GameObject>(StringComparer.OrdinalIgnoreCase);
+            foreach(Transform child in parent) {
+                if(child == null) continue;
+                child.gameObject.SetActive(false);
+                secondaryLookup[child.name] = child.gameObject;
+            }
+
+            if(secondaryWeapons == null || secondaryWeapons.Length == 0) return;
+
+            for(var i = 0; i < secondaryWeapons.Length; i++) {
+                GameObject resolved = null;
+                var weaponData = secondaryWeapons[i];
+                if(weaponData?.weaponPrefab != null) {
+                    var targetName = weaponData.weaponPrefab.name;
+                    if(secondaryLookup.TryGetValue(targetName, out var found)) {
+                        resolved = found;
+                    }
+                }
+
+                _previewSecondaryWeaponModels.Add(resolved);
+            }
+        }
+
+        private static Transform FindChildRecursive(Transform root, string nameContains) {
+            if(root == null || string.IsNullOrEmpty(nameContains)) return null;
+            var lower = nameContains.ToLowerInvariant();
+            var stack = new Stack<Transform>();
+            for(var i = 0; i < root.childCount; i++) {
+                stack.Push(root.GetChild(i));
+            }
+
+            while(stack.Count > 0) {
+                var current = stack.Pop();
+                if(current.name.ToLowerInvariant().Contains(lower)) {
+                    return current;
+                }
+
+                for(var i = 0; i < current.childCount; i++) {
+                    stack.Push(current.GetChild(i));
+                }
+            }
+
+            return null;
+        }
+
+        private void UpdatePreviewWeaponModel() {
+            UpdateWeaponModelSet(_previewWeaponModels, _selectedPrimaryIndex);
+            UpdateWeaponModelSet(_previewSecondaryWeaponModels, _selectedSecondaryIndex);
+        }
+
+        private static void UpdateWeaponModelSet(List<GameObject> models, int selectedIndex) {
+            if(models == null || models.Count == 0) return;
+
+            var safeIndex = Mathf.Clamp(selectedIndex, 0, models.Count - 1);
+            for(var i = 0; i < models.Count; i++) {
+                var weapon = models[i];
+                if(weapon == null) continue;
+                var shouldShow = i == safeIndex;
+                if(weapon.activeSelf != shouldShow) {
+                    weapon.SetActive(shouldShow);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Public method to update the preview model material. Called by CharacterCustomizationManager when settings change.
+        /// </summary>
+        public void UpdatePreviewModelMaterial(int packetIndex, Color baseColor, float smoothness, float metallic, Color specularColor, float heightStrength, bool emissionEnabled, Color emissionColor) {
+            if(_previewPlayerModel == null) return;
+
+            var skinnedRenderer = _previewPlayerModel.GetComponentInChildren<SkinnedMeshRenderer>();
+            if(skinnedRenderer == null) return;
+
+            var packet = PlayerMaterialPacketManager.Instance?.GetPacket(packetIndex);
+            if(packet == null) {
+                Debug.LogWarning("[LoadoutManager] Could not load material packet for preview model.");
+                return;
+            }
+
+            var generatedMaterial = PlayerMaterialGenerator.GenerateMaterial(
+                packet,
+                baseColor,
+                smoothness,
+                metallic,
+                specularColor,
+                heightStrength,
+                emissionEnabled,
+                emissionColor
+            );
+
+            var materials = skinnedRenderer.materials;
+            if(materials.Length > 1) {
+                materials[1] = generatedMaterial;
+                skinnedRenderer.materials = materials;
+            } else {
+                Debug.LogWarning("[LoadoutManager] Preview player model does not have enough material slots for customization.");
+            }
+        }
+
+        private void OnViewportPointerDown(PointerDownEvent evt) {
+            // Use the helper method that doesn't check event target
+            HandleViewportPointerDown(evt.position);
+            evt.StopPropagation();
+            evt.PreventDefault(); // Prevent default behavior
+        }
+
+        private void OnViewportPointerMove(PointerMoveEvent evt) {
+            // Use the helper method that doesn't check event target
+            HandleViewportPointerMove(evt.position);
+        }
+
+        private void OnViewportPointerUp(PointerUpEvent evt) {
+            // Use the helper method that doesn't check event target
+            HandleViewportPointerUp();
+        }
+
+        private void OnViewportPointerLeave(PointerLeaveEvent evt) {
+            if(_isDragging) {
+                _isDragging = false;
+                // Velocity is already set correctly from last move
+                // If it's zero, no spin. If non-zero, deceleration will happen in Update()
+            }
+        }
+        
+        // Root-level handlers to catch events that might be blocked
+        private void OnRootPointerDownForViewport(PointerDownEvent evt) {
+            if(_viewport == null || _previewPlayerModel == null) return;
+            
+            // Check if the click is within the viewport bounds using layout
+            var viewportRect = _viewport.layout;
+            var clickPos = evt.position;
+            
+            // Check if click is within viewport bounds
+            if(clickPos.x >= viewportRect.xMin && clickPos.x <= viewportRect.xMax &&
+               clickPos.y >= viewportRect.yMin && clickPos.y <= viewportRect.yMax) {
+                Debug.Log($"[LoadoutManager] OnRootPointerDownForViewport - Click detected in viewport area at {clickPos}, Viewport bounds: {viewportRect}");
+                // Create a synthetic event for the viewport handler
+                HandleViewportPointerDown(clickPos);
+            }
+        }
+        
+        private void OnRootPointerMoveForViewport(PointerMoveEvent evt) {
+            if(_viewport == null || !_isDragging || _previewPlayerModel == null) return;
+            
+            // Check if the move is within the viewport bounds
+            var viewportRect = _viewport.layout;
+            var movePos = evt.position;
+            
+            if(movePos.x >= viewportRect.xMin && movePos.x <= viewportRect.xMax &&
+               movePos.y >= viewportRect.yMin && movePos.y <= viewportRect.yMax) {
+                HandleViewportPointerMove(movePos);
+            }
+        }
+        
+        private void OnRootPointerUpForViewport(PointerUpEvent evt) {
+            if(_viewport == null || !_isDragging) return;
+            
+            // Check if the release is within the viewport bounds
+            var viewportRect = _viewport.layout;
+            var upPos = evt.position;
+            
+            if(upPos.x >= viewportRect.xMin && upPos.x <= viewportRect.xMax &&
+               upPos.y >= viewportRect.yMin && upPos.y <= viewportRect.yMax) {
+                HandleViewportPointerUp();
+            }
+        }
+        
+        // Helper methods that don't rely on event target
+        private void HandleViewportPointerDown(Vector2 position) {
+            if(_previewPlayerModel == null || !_rotationEnabled) {
+                Debug.LogWarning("[LoadoutManager] HandleViewportPointerDown called but model is null!");
+                return;
+            }
+            
+            // If model is spinning, stop it immediately
+            _currentRotationVelocity = 0f;
+            _lastMovementDelta = 0f; // Reset movement tracking
+            
+            // Start dragging
+            _isDragging = true;
+            _lastMousePosition = position;
+        }
+        
+        private void HandleViewportPointerMove(Vector2 position) {
+            if(!_isDragging || _previewPlayerModel == null || !_rotationEnabled) return;
+            
+            var deltaX = position.x - _lastMousePosition.x;
+            _lastMovementDelta = deltaX; // Track the last movement
+            
+            // Only update rotation and velocity if there's actual movement
+            if(Mathf.Abs(deltaX) > MIN_MOVEMENT_THRESHOLD) {
+                // Reverse direction: negative deltaX rotates right (positive Y rotation)
+                _rotationY -= deltaX * 0.5f; // Adjust sensitivity as needed
+                
+                _previewPlayerModel.transform.rotation = Quaternion.Euler(0, _rotationY, 0);
+                
+                // Set velocity based on movement
+                _currentRotationVelocity = -deltaX * 0.5f;
+            } else {
+                // No movement = no velocity
+                _currentRotationVelocity = 0f;
+            }
+            
+            _lastMousePosition = position;
+        }
+        
+        private void HandleViewportPointerUp() {
+            if(!_rotationEnabled) {
+                _isDragging = false;
+                _currentRotationVelocity = 0f;
+                return;
+            }
+
+            if(_isDragging) {
+                _isDragging = false;
+                
+                // Only preserve velocity if the last movement was significant
+                // This prevents spin when user stopped moving before release
+                if(Mathf.Abs(_lastMovementDelta) <= MIN_MOVEMENT_THRESHOLD) {
+                    _currentRotationVelocity = 0f;
+                }
+                // Otherwise, velocity is already set from last move and will decelerate
+            }
+        }
+
+        private void Update() {
+            if(!_rotationEnabled) return;
+
+            // Handle deceleration when not dragging
+            if(!_isDragging && Mathf.Abs(_currentRotationVelocity) > 0.01f && _previewPlayerModel != null) {
+                _rotationY += _currentRotationVelocity;
+                _previewPlayerModel.transform.rotation = Quaternion.Euler(0, _rotationY, 0);
+                
+                // Apply friction/deceleration - higher value (closer to 1.0) = slower deceleration
+                _currentRotationVelocity *= 0.97f; // Reduced deceleration for longer spins
+                
+                // Stop if velocity is too small
+                if(Mathf.Abs(_currentRotationVelocity) < 0.01f) {
+                    _currentRotationVelocity = 0f;
+                }
+            }
         }
 
         private void OnBackClicked() {
-            HideLoadout();
+            // Auto-apply customization changes when leaving loadout
+            if(_hasUnsavedChanges) {
+                ShowLoadoutUnsavedModal();
+                return;
+            }
 
-            // Use MainMenuManager's ShowPanel to ensure proper display handling
+            StartCoroutine(HideLoadoutAndSwitchPanel());
+        }
+        
+        private IEnumerator HideLoadoutAndSwitchPanel() {
+            // Start slide-out animation immediately
+            StopSlideAnimations();
+            FadeBackground(false);
+            StartSlideOut();
+
+            // Show main menu panel immediately
+            var loadoutPanel = _root.Q<VisualElement>("loadout-panel");
             if(mainMenuManager != null) {
                 mainMenuManager.ShowPanel(mainMenuManager.MainMenuPanel);
             } else {
-                // Fallback if MainMenuManager is not available
-                var loadoutPanel = _root.Q<VisualElement>("loadout-panel");
                 var mainMenuPanel = _root.Q<VisualElement>("main-menu-panel");
-
-                loadoutPanel.AddToClassList("hidden");
-                loadoutPanel.style.display = StyleKeyword.Null;
                 mainMenuPanel.RemoveFromClassList("hidden");
                 mainMenuPanel.style.display = DisplayStyle.Flex;
             }
-        }
 
-        private IEnumerator TransitionCameraToPreview() {
-            var startPosition = previewCamera.transform.position;
-            var startRotation = previewCamera.transform.rotation;
+            // Keep loadout panel visible for animation
+            if(loadoutPanel != null) {
+                loadoutPanel.RemoveFromClassList("hidden");
+                loadoutPanel.style.display = DisplayStyle.Flex;
+                loadoutPanel.BringToFront();
+            }
 
-            var elapsed = 0f;
+            // Wait for slide-out animation to finish
+            yield return new WaitForSeconds(SLIDE_ANIMATION_DURATION);
 
-            while(elapsed < cameraTransitionDuration) {
-                elapsed += Time.deltaTime;
-                var t = Mathf.SmoothStep(0f, 1f, elapsed / cameraTransitionDuration);
-
-                previewCamera.transform.position = Vector3.Lerp(startPosition, previewCameraTransform.position, t);
-                previewCamera.transform.rotation = Quaternion.Slerp(startRotation, previewCameraTransform.rotation, t);
-
-                yield return null;
+            // Hide after animation completes
+            if(loadoutPanel != null) {
+                loadoutPanel.AddToClassList("hidden");
+                loadoutPanel.style.display = StyleKeyword.Null;
             }
         }
 
-        private IEnumerator TransitionCameraToOriginal() {
-            if(previewCamera == null) yield break;
+        // private IEnumerator TransitionCameraToPreview() {
+        //     // Get the parent camera (main camera) if preview camera is a child
+        //     var cameraToMove = previewCamera.transform.parent != null ? previewCamera.transform.parent : previewCamera.transform;
+        //     var startPosition = cameraToMove.position;
+        //     var startRotation = cameraToMove.rotation;
+        //
+        //     var elapsed = 0f;
+        //
+        //     while(elapsed < cameraTransitionDuration) {
+        //         elapsed += Time.deltaTime;
+        //         var t = Mathf.SmoothStep(0f, 1f, elapsed / cameraTransitionDuration);
+        //
+        //         cameraToMove.position = Vector3.Lerp(startPosition, previewCameraTransform.position, t);
+        //         cameraToMove.rotation = Quaternion.Slerp(startRotation, previewCameraTransform.rotation, t);
+        //
+        //         yield return null;
+        //     }
+        // }
 
-            var startPosition = previewCamera.transform.position;
-            var startRotation = previewCamera.transform.rotation;
+        // private IEnumerator TransitionCameraToOriginal() {
+        //     if(previewCamera == null) yield break;
+        //
+        //     // Get the parent camera (main camera) if preview camera is a child
+        //     var cameraToMove = previewCamera.transform.parent != null ? previewCamera.transform.parent : previewCamera.transform;
+        //     var startPosition = cameraToMove.position;
+        //     var startRotation = cameraToMove.rotation;
+        //
+        //     var elapsed = 0f;
+        //
+        //     while(elapsed < cameraTransitionDuration) {
+        //         elapsed += Time.deltaTime;
+        //         var t = Mathf.SmoothStep(0f, 1f, elapsed / cameraTransitionDuration);
+        //
+        //         cameraToMove.position = Vector3.Lerp(startPosition, originalCameraTransform.position, t);
+        //         cameraToMove.rotation = Quaternion.Slerp(startRotation, originalCameraTransform.rotation, t);
+        //
+        //         yield return null;
+        //     }
+        //
+        //     if(cameraToMove.position != originalCameraTransform.position ||
+        //        cameraToMove.rotation != originalCameraTransform.rotation) yield break;
+        //     
+        //     // Camera has fully transitioned back - reset rotation state for next time
+        //     _rotationY = 180f;
+        //     _currentRotationVelocity = 0f;
+        //     _isDragging = false;
+        //     
+        //     if(_previewPlayerModel != null) {
+        //         Destroy(_previewPlayerModel);
+        //     }
+        // }
+        
+        private void StopSlideAnimations() {
+            if(_slideInCoroutine != null) {
+                StopCoroutine(_slideInCoroutine);
+                _slideInCoroutine = null;
+            }
+            if(_slideOutCoroutine != null) {
+                StopCoroutine(_slideOutCoroutine);
+                _slideOutCoroutine = null;
+            }
+            if(_backgroundFadeCoroutine != null) {
+                StopCoroutine(_backgroundFadeCoroutine);
+                _backgroundFadeCoroutine = null;
+            }
+        }
+        
+        private void StartSlideIn() {
+            _isSlidingIn = true;
+            _slideInCoroutine = StartCoroutine(AnimateContainersSlideIn());
+        }
+        
+        private void StartSlideOut() {
+            _isSlidingIn = false;
+            _slideOutCoroutine = StartCoroutine(AnimateContainersSlideOut());
+        }
+        
+        private void SetContainerTranslate(VisualElement element, Vector2 percent) {
+            if(element == null) return;
+            element.style.translate = new StyleTranslate(PercentToTranslate(percent));
+        }
 
+        private void FadeBackground(bool fadeIn) {
+            if(_backgroundElement == null) return;
+            if(_backgroundFadeCoroutine != null) {
+                StopCoroutine(_backgroundFadeCoroutine);
+                _backgroundFadeCoroutine = null;
+            }
+            _backgroundFadeCoroutine = StartCoroutine(AnimateBackgroundFade(fadeIn));
+        }
+
+        private IEnumerator AnimateBackgroundFade(bool fadeIn) {
+            if(_backgroundElement == null) yield break;
+
+            if(fadeIn) {
+                _backgroundElement.RemoveFromClassList("hidden");
+                _backgroundElement.style.display = DisplayStyle.Flex;
+            }
+
+            var startOpacity = _backgroundElement.resolvedStyle.opacity;
+            var targetOpacity = fadeIn ? 1f : 0f;
             var elapsed = 0f;
 
-            while(elapsed < cameraTransitionDuration) {
+            while(elapsed < BACKGROUND_FADE_DURATION) {
                 elapsed += Time.deltaTime;
-                var t = Mathf.SmoothStep(0f, 1f, elapsed / cameraTransitionDuration);
-
-                previewCamera.transform.position = Vector3.Lerp(startPosition, originalCameraTransform.position, t);
-                previewCamera.transform.rotation = Quaternion.Slerp(startRotation, originalCameraTransform.rotation, t);
-
+                var t = Mathf.Clamp01(elapsed / BACKGROUND_FADE_DURATION);
+                var value = Mathf.Lerp(startOpacity, targetOpacity, t);
+                _backgroundElement.style.opacity = new StyleFloat(value);
                 yield return null;
             }
 
-            if(previewCamera.transform.position != originalCameraTransform.position ||
-               previewCamera.transform.rotation != originalCameraTransform.rotation) yield break;
-            if(_previewPlayerModel != null) {
-                Destroy(_previewPlayerModel);
+            _backgroundElement.style.opacity = new StyleFloat(targetOpacity);
+
+            if(!fadeIn) {
+                _backgroundElement.AddToClassList("hidden");
+                _backgroundElement.style.display = StyleKeyword.Null;
             }
+
+            _backgroundFadeCoroutine = null;
+        }
+
+        private void UpdateDirtyState() {
+            var nameDirty = !string.Equals(_currentPlayerName ?? string.Empty, _savedPlayerName ?? string.Empty, StringComparison.Ordinal);
+            var primaryDirty = _selectedPrimaryIndex != _savedPrimaryIndex;
+            var secondaryDirty = _selectedSecondaryIndex != _savedSecondaryIndex;
+            var tertiaryDirty = _selectedTertiaryIndex != _savedTertiaryIndex;
+
+            _hasUnsavedChanges = nameDirty || primaryDirty || secondaryDirty || tertiaryDirty || _customizationDirty;
+        }
+
+        private void ShowLoadoutUnsavedModal() {
+            if(_loadoutUnsavedModal == null) return;
+            _loadoutUnsavedModal.RemoveFromClassList("hidden");
+            _loadoutUnsavedModal.style.display = DisplayStyle.Flex;
+            _loadoutUnsavedModal.BringToFront();
+        }
+
+        private void HideLoadoutUnsavedModal() {
+            if(_loadoutUnsavedModal == null) return;
+            _loadoutUnsavedModal.AddToClassList("hidden");
+            _loadoutUnsavedModal.style.display = StyleKeyword.Null;
+        }
+
+        private void OnLoadoutUnsavedYes() {
+            mainMenuManager?.OnButtonClicked();
+            OnApplyLoadoutClicked();
+            HideLoadoutUnsavedModal();
+            StartCoroutine(HideLoadoutAndSwitchPanel());
+        }
+
+        private void OnLoadoutUnsavedNo() {
+            mainMenuManager?.OnButtonClicked(true);
+            RevertLoadoutChanges();
+            HideLoadoutUnsavedModal();
+            StartCoroutine(HideLoadoutAndSwitchPanel());
+        }
+
+        private void OnLoadoutUnsavedCancel() {
+            mainMenuManager?.OnButtonClicked();
+            HideLoadoutUnsavedModal();
+        }
+
+        private void RevertLoadoutChanges() {
+            _currentPlayerName = _savedPlayerName;
+            _playerNameInput?.SetValueWithoutNotify(_savedPlayerName);
+
+            _selectedPrimaryIndex = _savedPrimaryIndex;
+            _selectedSecondaryIndex = _savedSecondaryIndex;
+            _selectedTertiaryIndex = _savedTertiaryIndex;
+            UpdateWeaponImages();
+
+            var customizationManager = FindFirstObjectByType<CharacterCustomizationManager>();
+            customizationManager?.ReloadSavedCustomization();
+
+            _customizationDirty = false;
+            UpdateDirtyState();
+        }
+
+        public void NotifyCustomizationDirty() {
+            _customizationDirty = true;
+            UpdateDirtyState();
+        }
+
+        public void NotifyCustomizationApplied() {
+            _customizationDirty = false;
+            UpdateDirtyState();
+        }
+
+        public void SetPreviewRotationEnabled(bool enabled) {
+            _rotationEnabled = enabled;
+            if(!enabled) {
+                _isDragging = false;
+                _currentRotationVelocity = 0f;
+            }
+        }
+
+        private IEnumerator AnimateContainersSlideIn() {
+            // Get current positions (in case we're interrupting a slide-out)
+            var weaponStart = GetCurrentTranslatePercent(_weaponContainer);
+            var customizationStart = GetCurrentTranslatePercent(_customizationContainer);
+            var nameStart = GetCurrentTranslatePercent(_nameContainer);
+            
+            // Target positions (on-screen)
+            var weaponTarget = Vector2.zero;
+            var customizationTarget = Vector2.zero;
+            var nameTarget = Vector2.zero;
+            
+            var elapsed = 0f;
+            
+            while(elapsed < SLIDE_ANIMATION_DURATION) {
+                elapsed += Time.deltaTime;
+                var t = Mathf.SmoothStep(0f, 1f, elapsed / SLIDE_ANIMATION_DURATION);
+                
+                // Interpolate positions
+                if(_weaponContainer != null) {
+                    _weaponContainer.style.translate = new StyleTranslate(PercentToTranslate(Vector2.Lerp(weaponStart, weaponTarget, t)));
+                }
+                if(_customizationContainer != null) {
+                    _customizationContainer.style.translate = new StyleTranslate(PercentToTranslate(Vector2.Lerp(customizationStart, customizationTarget, t)));
+                }
+                if(_nameContainer != null) {
+                    _nameContainer.style.translate = new StyleTranslate(PercentToTranslate(Vector2.Lerp(nameStart, nameTarget, t)));
+                }
+                
+                yield return null;
+            }
+            
+            // Ensure final positions
+            if(_weaponContainer != null) {
+                _weaponContainer.style.translate = new StyleTranslate(PercentToTranslate(weaponTarget));
+            }
+            if(_customizationContainer != null) {
+                _customizationContainer.style.translate = new StyleTranslate(PercentToTranslate(customizationTarget));
+            }
+            if(_nameContainer != null) {
+                _nameContainer.style.translate = new StyleTranslate(PercentToTranslate(nameTarget));
+            }
+            
+            _slideInCoroutine = null;
+        }
+        
+        private IEnumerator AnimateContainersSlideOut() {
+            // Get current positions (in case we're interrupting a slide-in)
+            var weaponStart = GetCurrentTranslatePercent(_weaponContainer);
+            var customizationStart = GetCurrentTranslatePercent(_customizationContainer);
+            var nameStart = GetCurrentTranslatePercent(_nameContainer);
+            
+            // Target positions (off-screen)
+            var weaponTarget = WeaponOffscreenPercent;
+            var customizationTarget = CustomizationOffscreenPercent;
+            var nameTarget = NameOffscreenPercent;
+            
+            var elapsed = 0f;
+            
+            while(elapsed < SLIDE_ANIMATION_DURATION) {
+                elapsed += Time.deltaTime;
+                var t = Mathf.SmoothStep(0f, 1f, elapsed / SLIDE_ANIMATION_DURATION);
+                
+                // Interpolate positions
+                if(_weaponContainer != null) {
+                    _weaponContainer.style.translate = new StyleTranslate(PercentToTranslate(Vector2.Lerp(weaponStart, weaponTarget, t)));
+                }
+                if(_customizationContainer != null) {
+                    _customizationContainer.style.translate = new StyleTranslate(PercentToTranslate(Vector2.Lerp(customizationStart, customizationTarget, t)));
+                }
+                if(_nameContainer != null) {
+                    _nameContainer.style.translate = new StyleTranslate(PercentToTranslate(Vector2.Lerp(nameStart, nameTarget, t)));
+                }
+                
+                yield return null;
+            }
+            
+            // Ensure final positions
+            if(_weaponContainer != null) {
+                _weaponContainer.style.translate = new StyleTranslate(PercentToTranslate(weaponTarget));
+            }
+            if(_customizationContainer != null) {
+                _customizationContainer.style.translate = new StyleTranslate(PercentToTranslate(customizationTarget));
+            }
+            if(_nameContainer != null) {
+                _nameContainer.style.translate = new StyleTranslate(PercentToTranslate(nameTarget));
+            }
+            
+            _slideOutCoroutine = null;
+        }
+        
+        private Vector2 GetCurrentTranslatePercent(VisualElement element) {
+            if(element == null) return Vector2.zero;
+            var styleTranslate = element.style.translate;
+            if(styleTranslate.keyword != StyleKeyword.None) {
+                return Vector2.zero;
+            }
+            var translate = styleTranslate.value;
+            var x = translate.x.unit == LengthUnit.Percent ? translate.x.value : 0f;
+            var y = translate.y.unit == LengthUnit.Percent ? translate.y.value : 0f;
+            return new Vector2(x, y);
+        }
+        
+        private Translate PercentToTranslate(Vector2 percent) {
+            return new Translate(new Length(percent.x, LengthUnit.Percent), new Length(percent.y, LengthUnit.Percent));
         }
     }
 

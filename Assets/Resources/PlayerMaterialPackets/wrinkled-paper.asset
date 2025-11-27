@@ -1,0 +1,31 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b7568991099fd3a45b71cf6456d39f27, type: 3}
+  m_Name: wrinkled-paper
+  m_EditorClassIdentifier: Assembly-CSharp::Game.Player.PlayerMaterialPacket
+  packetName: Wrinkled Paper
+  albedoTexture: {fileID: 2800000, guid: 4bbd718eb2d122340b0e7cd45e373d14, type: 3}
+  normalMap: {fileID: 2800000, guid: 82b063906b9785d4b80d537002443a2d, type: 3}
+  normalMapStrength: 1.2
+  heightMap: {fileID: 2800000, guid: a14f9f483107ca84da7bd0a7e1f29810, type: 3}
+  occlusionMap: {fileID: 2800000, guid: 1bc0617c42f971e458bb774f4bfd7298, type: 3}
+  metallicMap: {fileID: 2800000, guid: 26a4ddf834c6d3a43b95584fda716abd, type: 3}
+  emissionMap: {fileID: 0}
+  tiling: {x: 20, y: 20}
+  offset: {x: 0, y: 0}
+  useMetallicWorkflow: 0
+  defaultSmoothness: 0.5
+  defaultMetallic: 0
+  defaultSpecularColor: {r: 0.2, g: 0.2, b: 0.2, a: 1}
+  heightMapStrength: 0.02
+  defaultEmissionEnabled: 0
+  defaultEmissionColor: {r: 0, g: 0, b: 0, a: 1}

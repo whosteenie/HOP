@@ -36,14 +36,11 @@ namespace OSI {
                 }
             }
 
-            if(willGrow) {
-                var box = Instantiate(pooledObject, transform, false);
-                box.Activate(false);
-                _pooledObjects.Add(box);
-                return box;
-            }
-
-            return null;
+            if(!willGrow) return null;
+            var box = Instantiate(pooledObject, transform, false);
+            box.Activate(false);
+            _pooledObjects.Add(box);
+            return box;
         }
 
         /// <summary>

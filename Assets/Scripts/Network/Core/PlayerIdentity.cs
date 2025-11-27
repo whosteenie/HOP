@@ -28,7 +28,7 @@ namespace Network.Core {
             } catch {
                 var pid = AuthenticationService.Instance.PlayerId;
                 if(pid != null) {
-                    var suffix = (pid?.Length ?? 0) >= 4 ? pid[^4..] : pid;
+                    var suffix = pid.Length >= 4 ? pid[^4..] : pid;
                     playerName = $"Player({suffix})";
                 }
             }

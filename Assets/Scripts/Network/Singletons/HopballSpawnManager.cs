@@ -4,7 +4,6 @@ using System.Linq;
 using Game.Player;
 using Unity.Netcode;
 using UnityEngine;
-using UnityEngine.Serialization;
 
 namespace Network.Singletons {
     /// <summary>
@@ -20,7 +19,6 @@ namespace Network.Singletons {
         [SerializeField] private GameObject hopballPrefab;
 
         [Header("Settings")]
-        [FormerlySerializedAs("initialSpawnDelay")]
         [SerializeField] private float postPrematchSpawnDelay = 5f; // Spawn this many seconds after pre-match countdown ends
         [SerializeField] private float oobThreshold = 600f; // Y position threshold for OOB (map is high in the air)
         [SerializeField] private int winScore = 60; // Points needed to win
@@ -30,15 +28,13 @@ namespace Network.Singletons {
         private readonly NetworkVariable<int> _teamAScore = new(value: 0);
         private readonly NetworkVariable<int> _teamBScore = new(value: 0);
 
-        private Hopball _currentHopball;
         private HopballSpawnPoint _mostRecentSpawnPoint; // The most recent spawn point (for OOB respawn)
         private bool _isSpawning;
         private bool _hasSpawnedInitial;
         private ulong _currentHolderId; // Track who is currently holding the ball
-        private float _energyAtPickup; // Track energy when current holder picked it up
         private Coroutine _respawnCoroutine;
 
-        public Hopball CurrentHopball => _currentHopball;
+        public Hopball CurrentHopball { get; private set; }
 
         private void Awake() {
             if(Instance != null && Instance != this) {
@@ -75,14 +71,14 @@ namespace Network.Singletons {
             _teamBScore.OnValueChanged -= OnTeamBScoreChanged;
         }
 
-        private void OnTeamAScoreChanged(int previous, int current) {
+        private static void OnTeamAScoreChanged(int previous, int current) {
             // Update UI if needed
             if(ScoreboardManager.Instance != null) {
                 ScoreboardManager.Instance.UpdateScoreboard();
             }
         }
 
-        private void OnTeamBScoreChanged(int previous, int current) {
+        private static void OnTeamBScoreChanged(int previous, int current) {
             // Update UI if needed
             if(ScoreboardManager.Instance != null) {
                 ScoreboardManager.Instance.UpdateScoreboard();
@@ -97,9 +93,7 @@ namespace Network.Singletons {
         /// </summary>
         private IEnumerator InitialSpawnCoroutine() {
             var matchSettings = MatchSettingsManager.Instance;
-            var preMatchCountdown = matchSettings != null
-                ? matchSettings.GetPreMatchCountdownSeconds()
-                : 5f;
+            var preMatchCountdown = matchSettings?.GetPreMatchCountdownSeconds() ?? 5f;
             yield return new WaitForSeconds(preMatchCountdown + postPrematchSpawnDelay);
 
             if(IsServer && !_hasSpawnedInitial) {
@@ -111,14 +105,11 @@ namespace Network.Singletons {
         /// Spawns a hopball at a random spawn point.
         /// </summary>
         private void SpawnHopball() {
-            Debug.Log($"[HopballSpawnManager] SpawnHopball called. IsServer: {IsServer}, _isSpawning: {_isSpawning}, prefab: {hopballPrefab != null}, currentHopball: {(_currentHopball != null ? "exists" : "null")}");
-            
             if(!IsServer || _isSpawning || hopballPrefab == null) {
-                Debug.Log($"[HopballSpawnManager] SpawnHopball: Cannot spawn (IsServer: {IsServer}, _isSpawning: {_isSpawning}, prefab: {hopballPrefab != null})");
                 return;
             }
-            if(_currentHopball != null && _currentHopball.IsSpawned) {
-                Debug.Log($"[HopballSpawnManager] SpawnHopball: Hopball already exists and is spawned, skipping");
+
+            if(CurrentHopball != null && CurrentHopball.IsSpawned) {
                 return; // Don't spawn if one already exists
             }
 
@@ -140,17 +131,14 @@ namespace Network.Singletons {
             var spawnPoint = validPoints[Random.Range(0, validPoints.Count)];
             _mostRecentSpawnPoint = spawnPoint;
 
-            Debug.Log($"[HopballSpawnManager] SpawnHopball: Instantiating hopball at spawn point {spawnPoint.transform.position}");
-
             // Spawn hopball
             var instance = Instantiate(hopballPrefab, spawnPoint.transform.position, spawnPoint.transform.rotation);
             var networkObject = instance.GetComponent<NetworkObject>();
-            
+
             // Ensure the hopball is active and visible
             instance.SetActive(true);
-            
+
             if(networkObject != null) {
-                Debug.Log($"[HopballSpawnManager] SpawnHopball: Spawning NetworkObject at {spawnPoint.transform.position}");
                 networkObject.Spawn();
             } else {
                 Debug.LogError("[HopballSpawnManager] Hopball prefab missing NetworkObject component!");
@@ -159,8 +147,8 @@ namespace Network.Singletons {
             }
 
             // Get the Hopball component and assign to _currentHopball
-            _currentHopball = instance.GetComponent<Hopball>();
-            if(_currentHopball == null) {
+            CurrentHopball = instance.GetComponent<Hopball>();
+            if(CurrentHopball == null) {
                 Debug.LogError("[HopballSpawnManager] Hopball prefab missing Hopball component!");
                 _isSpawning = false;
                 return;
@@ -171,8 +159,6 @@ namespace Network.Singletons {
 
             // Play spawn sound at spawn location (directional, same falloff as gunshots)
             PlayHopballSpawnSoundClientRpc(spawnPoint.transform.position);
-
-            Debug.Log($"[HopballSpawnManager] SpawnHopball: Successfully spawned hopball at {spawnPoint.transform.position}. Energy: {_currentHopball.Energy}");
         }
 
         /// <summary>
@@ -180,8 +166,9 @@ namespace Network.Singletons {
         /// Called by Hopball when dissolve completes.
         /// </summary>
         public void RespawnHopballAtNewLocation() {
-            if(!IsServer || _currentHopball == null) {
-                Debug.LogWarning("[HopballSpawnManager] RespawnHopballAtNewLocation: Cannot respawn (not server or no hopball)");
+            if(!IsServer || CurrentHopball == null) {
+                Debug.LogWarning(
+                    "[HopballSpawnManager] RespawnHopballAtNewLocation: Cannot respawn (not server or no hopball)");
                 return;
             }
 
@@ -189,14 +176,14 @@ namespace Network.Singletons {
                 StopCoroutine(_respawnCoroutine);
             }
 
-            _currentHopball.PrepareForRespawnDelay();
+            CurrentHopball.PrepareForRespawnDelay();
             _respawnCoroutine = StartCoroutine(RespawnAfterDelay());
         }
 
         private IEnumerator RespawnAfterDelay() {
             yield return new WaitForSeconds(Mathf.Max(0f, dissolveRespawnDelay));
 
-            if(!IsServer || _currentHopball == null) {
+            if(!IsServer || CurrentHopball == null) {
                 _respawnCoroutine = null;
                 yield break;
             }
@@ -217,14 +204,11 @@ namespace Network.Singletons {
             var spawnPoint = validPoints[Random.Range(0, validPoints.Count)];
             _mostRecentSpawnPoint = spawnPoint;
 
-            _currentHopball.RespawnAtLocation(spawnPoint.transform.position, spawnPoint.transform.rotation);
-            
+            CurrentHopball.RespawnAtLocation(spawnPoint.transform.position, spawnPoint.transform.rotation);
+
             _currentHolderId = 0;
-            _energyAtPickup = 0f;
 
             PlayHopballSpawnSoundClientRpc(spawnPoint.transform.position);
-
-            Debug.Log($"[HopballSpawnManager] RespawnHopballAtNewLocation: Respawned at {spawnPoint.transform.position}");
 
             _respawnCoroutine = null;
         }
@@ -235,11 +219,10 @@ namespace Network.Singletons {
         private void Update() {
             if(!IsServer) return;
 
-            if(_currentHopball != null && _currentHopball.IsSpawned && _mostRecentSpawnPoint != null) {
-                // Check if hopball is dropped (not equipped) and OOB
-                if(!_currentHopball.IsEquipped && _currentHopball.transform.position.y <= oobThreshold) {
-                    TeleportHopballToMostRecentSpawn();
-                }
+            if(CurrentHopball == null || !CurrentHopball.IsSpawned || _mostRecentSpawnPoint == null) return;
+            // Check if hopball is dropped (not equipped) and OOB
+            if(!CurrentHopball.IsEquipped && CurrentHopball.transform.position.y <= oobThreshold) {
+                TeleportHopballToMostRecentSpawn();
             }
         }
 
@@ -248,28 +231,24 @@ namespace Network.Singletons {
         /// Retains current energy.
         /// </summary>
         private void TeleportHopballToMostRecentSpawn() {
-            if(_currentHopball == null || _mostRecentSpawnPoint == null) return;
+            if(CurrentHopball == null || _mostRecentSpawnPoint == null) return;
 
             // Reposition at most recent spawn point (retains energy)
-            _currentHopball.RepositionAtLocation(_mostRecentSpawnPoint.transform.position, _mostRecentSpawnPoint.transform.rotation);
+            CurrentHopball.RepositionAtLocation(_mostRecentSpawnPoint.transform.position,
+                _mostRecentSpawnPoint.transform.rotation);
 
             // Play spawn sound at reposition location (directional, same falloff as gunshots)
             PlayHopballSpawnSoundClientRpc(_mostRecentSpawnPoint.transform.position);
-
-            Debug.Log($"[HopballSpawnManager] Teleported hopball back to most recent spawn point (OOB), energy retained: {_currentHopball.Energy}");
         }
 
         /// <summary>
         /// Called by HopballController when player picks up ball. Tracks energy for scoring.
         /// </summary>
         public void OnPlayerPickedUpHopball(ulong playerId) {
-            if(!IsServer || _currentHopball == null) return;
+            if(!IsServer || CurrentHopball == null) return;
 
             // Track who picked it up and at what energy
             _currentHolderId = playerId;
-            _energyAtPickup = _currentHopball.Energy;
-
-            Debug.Log($"[HopballSpawnManager] OnPlayerPickedUpHopball: Player {playerId} picked up ball at energy {_energyAtPickup}");
         }
 
         /// <summary>
@@ -277,9 +256,8 @@ namespace Network.Singletons {
         /// </summary>
         public void OnHopballDropped() {
             if(!IsServer) return;
-            
+
             _currentHolderId = 0;
-            _energyAtPickup = 0f;
         }
 
         /// <summary>
@@ -289,26 +267,23 @@ namespace Network.Singletons {
             if(!IsServer) return;
 
             // Only award points if this player is still holding the ball
-            if(_currentHolderId != playerId || _currentHopball == null || !_currentHopball.IsEquipped) {
+            if(_currentHolderId != playerId || CurrentHopball == null || !CurrentHopball.IsEquipped) {
                 return;
             }
 
             // Get player's team
             var player = GetPlayerById(playerId);
-            if(player == null) return;
 
-            var teamManager = player.TeamManager;
+            var teamManager = player?.TeamManager;
             if(teamManager == null) return;
 
             var team = teamManager.netTeam.Value;
-            
+
             // Award points equal to energy depleted (1 point per 1 energy)
             var pointsToAward = Mathf.RoundToInt(energyDepleted);
-            for(int i = 0; i < pointsToAward; i++) {
+            for(var i = 0; i < pointsToAward; i++) {
                 AwardPointToTeam(team);
             }
-            
-            Debug.Log($"[HopballSpawnManager] OnEnergyDepleted: Awarded {pointsToAward} points to {team} (energy depleted: {energyDepleted})");
         }
 
         /// <summary>
@@ -320,18 +295,14 @@ namespace Network.Singletons {
             // Award point to team
             if(team == SpawnPoint.Team.TeamA) {
                 _teamAScore.Value++;
-                Debug.Log($"[HopballSpawnManager] Team A scored! Score: {_teamAScore.Value} - {_teamBScore.Value}");
             } else {
                 _teamBScore.Value++;
-                Debug.Log($"[HopballSpawnManager] Team B scored! Score: {_teamAScore.Value} - {_teamBScore.Value}");
             }
 
             // Check win condition (60 points)
             if(_teamAScore.Value >= winScore) {
-                Debug.Log("[HopballSpawnManager] Team A wins!");
                 TriggerWinCondition(SpawnPoint.Team.TeamA);
             } else if(_teamBScore.Value >= winScore) {
-                Debug.Log("[HopballSpawnManager] Team B wins!");
                 TriggerWinCondition(SpawnPoint.Team.TeamB);
             }
         }
@@ -348,11 +319,8 @@ namespace Network.Singletons {
             }
         }
 
-        private PlayerController GetPlayerById(ulong playerId) {
-            if(NetworkManager.Singleton.ConnectedClients.TryGetValue(playerId, out var client)) {
-                return client.PlayerObject?.GetComponent<PlayerController>();
-            }
-            return null;
+        private static PlayerController GetPlayerById(ulong playerId) {
+            return NetworkManager.Singleton.ConnectedClients.TryGetValue(playerId, out var client) ? client.PlayerObject?.GetComponent<PlayerController>() : null;
         }
 
         /// <summary>
@@ -373,8 +341,6 @@ namespace Network.Singletons {
         [ContextMenu("Find All Hopball Spawn Points in Scene")]
         private void FindAllSpawnPointsInScene() {
             hopballSpawnPoints = FindObjectsByType<HopballSpawnPoint>(FindObjectsSortMode.None).ToList();
-            Debug.Log($"[HopballSpawnManager] Found {hopballSpawnPoints.Count} hopball spawn points");
         }
     }
 }
-

@@ -37,29 +37,28 @@ namespace Game.Player {
         private float _targetFov;
 
         // Input (read from PlayerController)
-        private Vector2 LookInput => playerController != null ? playerController.lookInput : Vector2.zero;
+        private Vector2 LookInput => playerController?.lookInput ?? Vector2.zero;
 
         private void Awake() {
-            playerController ??= GetComponent<PlayerController>();
-            _playerTransform ??= playerController.PlayerTransform;
-            _animationController ??= playerController.AnimationController;
-            _upperBodyPitch ??= playerController.UpperBodyPitch;
-            _movementController ??= playerController.MovementController;
-            _fpCamera ??= playerController.FpCamera;
+            ValidateComponents();
         }
 
-        public override void OnNetworkSpawn() {
-            base.OnNetworkSpawn();
-
-            // Component references should be assigned in the inspector
-            // Only use GetComponent as a last resort fallback if not assigned
+        private void ValidateComponents() {
             if(playerController == null) {
                 playerController = GetComponent<PlayerController>();
             }
 
-            if(_movementController == null) {
-                _movementController = playerController.MovementController;
+            if(playerController == null) {
+            Debug.LogError("[PlayerLookController] PlayerController not found!");
+                enabled = false;
+                return;
             }
+
+            if(_playerTransform == null) _playerTransform = playerController.PlayerTransform;
+            if(_animationController == null) _animationController = playerController.AnimationController;
+            if(_upperBodyPitch == null) _upperBodyPitch = playerController.UpperBodyPitch;
+            if(_movementController == null) _movementController = playerController.MovementController;
+            if(_fpCamera == null) _fpCamera = playerController.FpCamera;
         }
 
         public void UpdateLook() {
@@ -69,13 +68,9 @@ namespace Game.Player {
             UpdatePitch(lookDelta.y);
             UpdateYaw(lookDelta.x);
 
-            if(_animationController != null) {
-                _animationController.UpdateTurnAnimation(lookDelta.x);
-            }
+            _animationController?.UpdateTurnAnimation(lookDelta.x);
 
-            if(_upperBodyPitch != null) {
-                _upperBodyPitch.SetLocalPitchFromCamera(CurrentPitch);
-            }
+            _upperBodyPitch?.SetLocalPitchFromCamera(CurrentPitch);
         }
 
         /// <summary>
@@ -107,10 +102,6 @@ namespace Game.Player {
         public void UpdateSpeedFov() {
             if(!IsOwner || _fpCamera == null) return;
 
-            if(_movementController == null) {
-                _movementController = GetComponent<PlayerMovementController>();
-            }
-
             if(_movementController == null) return;
 
             var speed = _movementController.HorizontalVelocity.magnitude;
@@ -119,11 +110,11 @@ namespace Game.Player {
 
             _targetFov = Mathf.Lerp(baseFov, maxFov, t);
 
-            var desiredFov = _sniperZoomActive
+            var desiredFov = IsSniperZoomActive
                 ? Mathf.Clamp(_sniperZoomFovOverride > 0f ? _sniperZoomFovOverride : baseFov, 5f, maxFov)
                 : _targetFov;
 
-            if(_sniperZoomActive) {
+            if(IsSniperZoomActive) {
                 _fpCamera.Lens.FieldOfView = desiredFov;
                 return;
             }
@@ -159,11 +150,10 @@ namespace Game.Player {
 
         public float BaseFov => baseFov;
 
-        private bool _sniperZoomActive;
         private float _sniperZoomFovOverride;
 
         public void SetSniperZoomActive(bool active, float zoomFov = 0f) {
-            _sniperZoomActive = active;
+            IsSniperZoomActive = active;
             if(active) {
                 _sniperZoomFovOverride = zoomFov > 0f ? zoomFov : baseFov;
             } else {
@@ -174,6 +164,6 @@ namespace Game.Player {
             }
         }
 
-        public bool IsSniperZoomActive => _sniperZoomActive;
+        public bool IsSniperZoomActive { get; private set; }
     }
 }

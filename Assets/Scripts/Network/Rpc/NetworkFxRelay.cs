@@ -1,4 +1,3 @@
-using System;
 using Game.Player;
 using Game.Weapons;
 using Unity.Netcode;
@@ -11,31 +10,50 @@ namespace Network.Rpc {
         private WeaponManager _playerWeaponManager;
 
         private void Awake() {
-            _playerNetworkObject ??= playerController.NetworkObject;
-            _playerWeaponManager ??= playerController.WeaponManager;
+            ValidateComponents();
         }
 
-        public void RequestShotFx(Vector3 endPoint, Vector3 muzzlePosition, bool playMuzzleFlash = true) {
+        private void ValidateComponents() {
+            if(playerController == null) {
+                playerController = GetComponent<PlayerController>();
+            }
+
+            if(playerController == null) {
+                Debug.LogError("[NetworkFxRelay] PlayerController not found!");
+                enabled = false;
+                return;
+            }
+
+            if(_playerNetworkObject == null) {
+                _playerNetworkObject = playerController.NetworkObject;
+            }
+
+            if(_playerWeaponManager == null) {
+                _playerWeaponManager = playerController.WeaponManager;
+            }
+        }
+
+        public void RequestShotFx(Vector3 endPoint, Vector3 hitNormal, bool madeImpact,
+            bool hitPlayer, bool playMuzzleFlash = true) {
             if(!playerController.IsOwner || !_playerNetworkObject.IsSpawned) return;
 
-            RequestShotFxServerRpc(_playerNetworkObject, endPoint, muzzlePosition, playMuzzleFlash);
+            RequestShotFxServerRpc(_playerNetworkObject, endPoint, hitNormal, madeImpact, hitPlayer, playMuzzleFlash);
         }
 
         [Rpc(SendTo.Server)]
-        private void RequestShotFxServerRpc(NetworkObjectReference shooterRef, Vector3 endPoint,
-            Vector3 muzzlePosition, bool playMuzzleFlash) {
-            PlayShotFxClientRpc(shooterRef, endPoint, muzzlePosition, playMuzzleFlash);
+        private void RequestShotFxServerRpc(NetworkObjectReference shooterRef, Vector3 endPoint, Vector3 hitNormal,
+            bool madeImpact, bool hitPlayer, bool playMuzzleFlash) {
+            PlayShotFxClientRpc(shooterRef, endPoint, hitNormal, madeImpact, hitPlayer, playMuzzleFlash);
         }
 
         [Rpc(SendTo.NotOwner)]
-        private void PlayShotFxClientRpc(NetworkObjectReference shooterRef, Vector3 endPoint, Vector3 muzzlePosition,
-            bool playMuzzleFlash) {
+        private void PlayShotFxClientRpc(NetworkObjectReference shooterRef, Vector3 endPoint, Vector3 hitNormal,
+            bool madeImpact, bool hitPlayer, bool playMuzzleFlash) {
             if(!shooterRef.TryGet(out var networkObject) || networkObject == null) return;
 
             var weaponManager = networkObject.GetComponent<WeaponManager>();
-            if(weaponManager == null) return;
 
-            var weapon = weaponManager.CurrentWeapon;
+            var weapon = weaponManager?.CurrentWeapon;
             if(weapon == null) return;
 
             // For non-owners, use world muzzle position (not the owner's FP muzzle position)
@@ -46,7 +64,7 @@ namespace Network.Rpc {
             if(playMuzzleFlash) {
                 weapon.PlayNetworkedMuzzleFlash();
             }
-            weapon.SpawnTracerLocal(startPoint, endPoint);
+            weapon.SpawnTracerLocal(startPoint, endPoint, hitNormal, madeImpact, hitPlayer);
         }
     }
 }

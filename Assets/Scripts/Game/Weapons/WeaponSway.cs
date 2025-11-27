@@ -37,88 +37,88 @@ namespace Game.Weapons {
         [Range(0f, 1f)] public float adsMultiplier = 1f; // scale down when ADS
 
         // Internal state
-        Vector3 baseLocalPos;
-        Quaternion baseLocalRot;
-        Vector2 lastAngles; // (pitch, yaw)
-        Vector2 smoothedDelta; // smoothed per-frame delta
-        Vector3 curPos, velPos;
-        Vector3 curRotEuler, velRot;
+        private Vector3 _baseLocalPos;
+        private Quaternion _baseLocalRot;
+        private Vector2 _lastAngles; // (pitch, yaw)
+        private Vector2 _smoothedDelta; // smoothed per-frame delta
+        private Vector3 _curPos, _velPos;
+        private Vector3 _curRotEuler, _velRot;
 
-        void Awake() {
-            if(!cam) {
+        private void Awake() {
+            if(cam == null) {
                 var c = GetComponentInParent<CinemachineCamera>();
                 if(c) cam = c.transform;
             }
 
-            baseLocalPos = transform.localPosition;
-            baseLocalRot = transform.localRotation;
+            _baseLocalPos = transform.localPosition;
+            _baseLocalRot = transform.localRotation;
 
             var e = cam ? cam.eulerAngles : Vector3.zero;
-            lastAngles = new Vector2(e.x, e.y);
+            _lastAngles = new Vector2(e.x, e.y);
         }
 
-        void OnEnable() {
-            transform.localPosition = baseLocalPos;
-            transform.localRotation = baseLocalRot;
+        private void OnEnable() {
+            transform.localPosition = _baseLocalPos;
+            transform.localRotation = _baseLocalRot;
 
-            curPos = velPos = Vector3.zero;
-            curRotEuler = velRot = Vector3.zero;
-            smoothedDelta = Vector2.zero;
+            _curPos = _velPos = Vector3.zero;
+            _curRotEuler = _velRot = Vector3.zero;
+            _smoothedDelta = Vector2.zero;
 
             var e = cam ? cam.eulerAngles : Vector3.zero;
-            lastAngles = new Vector2(e.x, e.y);
+            _lastAngles = new Vector2(e.x, e.y);
         }
 
-        void LateUpdate() {
-            if(!cam) {
+        private void LateUpdate() {
+            if(cam == null) {
                 cam = GetComponentInParent<CinemachineCamera>().transform;
                 return;
             }
 
             // 1) Compute per-frame angle delta (in degrees)
             var e = cam.eulerAngles;
-            float dPitch = Mathf.DeltaAngle(lastAngles.x, e.x); // + = look up
-            float dYaw = Mathf.DeltaAngle(lastAngles.y, e.y); // + = look right
-            lastAngles = new Vector2(e.x, e.y);
+            var dPitch = Mathf.DeltaAngle(_lastAngles.x, e.x); // + = look up
+            var dYaw = Mathf.DeltaAngle(_lastAngles.y, e.y); // + = look right
+            _lastAngles = new Vector2(e.x, e.y);
 
             // 2) Smooth the delta so it's not jittery
             var rawDelta = new Vector2(dPitch, dYaw);
             var t = 1f - deltaSmoothing;
-            smoothedDelta = Vector2.Lerp(smoothedDelta, rawDelta, t);
+            _smoothedDelta = Vector2.Lerp(_smoothedDelta, rawDelta, t);
 
             // 3) Build desired position offset (weapon lags opposite to look)
-            float posX = Mathf.Clamp(-smoothedDelta.y * posPerDegYaw, -posMaxX, posMaxX); // yaw → X
-            float posY = Mathf.Clamp(-smoothedDelta.x * posPerDegPitch, -posMaxY, posMaxY); // pitch → Y
+            var posX = Mathf.Clamp(-_smoothedDelta.y * posPerDegYaw, -posMaxX, posMaxX); // yaw → X
+            var posY = Mathf.Clamp(-_smoothedDelta.x * posPerDegPitch, -posMaxY, posMaxY); // pitch → Y
 
-            float combined = Mathf.Abs(smoothedDelta.x) + Mathf.Abs(smoothedDelta.y);
-            float posZ = Mathf.Clamp(combined * posPerDegPush, -posMaxZ, posMaxZ);
+            var combined = Mathf.Abs(_smoothedDelta.x) + Mathf.Abs(_smoothedDelta.y);
+            var posZ = Mathf.Clamp(combined * posPerDegPush, -posMaxZ, posMaxZ);
 
-            Vector3 targetPos = new Vector3(posX, posY, -posZ) * adsMultiplier;
+            var targetPos = new Vector3(posX, posY, -posZ) * adsMultiplier;
 
             // 4) Build desired rotation offset (tiny tilt + bank)
-            float rYaw = Mathf.Clamp(smoothedDelta.y * rotPerDegYaw, -rotMaxYaw, rotMaxYaw);
-            float rPitch = Mathf.Clamp(-smoothedDelta.x * rotPerDegPitch, -rotMaxPitch, rotMaxPitch);
-            float rRoll = Mathf.Clamp(smoothedDelta.y * rotPerDegRoll, -rotMaxRoll, rotMaxRoll);
+            var rYaw = Mathf.Clamp(_smoothedDelta.y * rotPerDegYaw, -rotMaxYaw, rotMaxYaw);
+            var rPitch = Mathf.Clamp(-_smoothedDelta.x * rotPerDegPitch, -rotMaxPitch, rotMaxPitch);
+            var rRoll = Mathf.Clamp(_smoothedDelta.y * rotPerDegRoll, -rotMaxRoll, rotMaxRoll);
 
-            Vector3 targetRot = new Vector3(rPitch, rYaw, rRoll) * adsMultiplier;
+            var targetRot = new Vector3(rPitch, rYaw, rRoll) * adsMultiplier;
 
             // 5) Smoothly move toward offsets
-            float dt = Time.deltaTime;
-            float pSpeed = (targetPos.sqrMagnitude > 0.0001f) ? followPosSpeed : recenterSpeed;
-            float rSpeed = (targetRot.sqrMagnitude > 0.0001f) ? followRotSpeed : recenterSpeed;
+            var dt = Time.deltaTime;
+            var pSpeed = targetPos.sqrMagnitude > 0.0001f ? followPosSpeed : recenterSpeed;
+            var rSpeed = targetRot.sqrMagnitude > 0.0001f ? followRotSpeed : recenterSpeed;
 
-            float pTime = 1f / Mathf.Max(pSpeed, 0.01f);
-            float rTime = 1f / Mathf.Max(rSpeed, 0.01f);
+            var pTime = 1f / Mathf.Max(pSpeed, 0.01f);
+            var rTime = 1f / Mathf.Max(rSpeed, 0.01f);
 
-            curPos = Vector3.SmoothDamp(curPos, targetPos, ref velPos, pTime, Mathf.Infinity, dt);
-            curRotEuler = SmoothDampEuler(curRotEuler, targetRot, ref velRot, rTime, dt);
+            _curPos = Vector3.SmoothDamp(_curPos, targetPos, ref _velPos, pTime, Mathf.Infinity, dt);
+            _curRotEuler = SmoothDampEuler(_curRotEuler, targetRot, ref _velRot, rTime, dt);
 
             // 6) Apply
-            transform.localPosition = baseLocalPos + curPos;
-            transform.localRotation = baseLocalRot * Quaternion.Euler(curRotEuler);
+            transform.localPosition = _baseLocalPos + _curPos;
+            transform.localRotation = _baseLocalRot * Quaternion.Euler(_curRotEuler);
         }
 
-        static Vector3 SmoothDampEuler(Vector3 current, Vector3 target, ref Vector3 vel, float smoothTime, float dt) {
+        private static Vector3 SmoothDampEuler(Vector3 current, Vector3 target, ref Vector3 vel, float smoothTime, float dt) {
             return new Vector3(
                 Mathf.SmoothDamp(current.x, target.x, ref vel.x, smoothTime, Mathf.Infinity, dt),
                 Mathf.SmoothDamp(current.y, target.y, ref vel.y, smoothTime, Mathf.Infinity, dt),
@@ -129,11 +129,11 @@ namespace Game.Weapons {
         public void SetAdsMultiplier(float m) => adsMultiplier = Mathf.Clamp01(m);
 
         public void RecalibrateRestPose() {
-            baseLocalPos = transform.localPosition;
-            baseLocalRot = transform.localRotation;
-            curPos = velPos = Vector3.zero;
-            curRotEuler = velRot = Vector3.zero;
-            smoothedDelta = Vector2.zero;
+            _baseLocalPos = transform.localPosition;
+            _baseLocalRot = transform.localRotation;
+            _curPos = _velPos = Vector3.zero;
+            _curRotEuler = _velRot = Vector3.zero;
+            _smoothedDelta = Vector2.zero;
         }
     }
 }

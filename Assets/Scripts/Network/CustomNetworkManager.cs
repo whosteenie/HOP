@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using Game.Player;
 using Network.Singletons;
@@ -21,6 +22,9 @@ namespace Network {
 
         // Track pending team assignments during initial batch spawn
         private readonly System.Collections.Generic.Dictionary<ulong, SpawnPoint.Team> _pendingTeamAssignments = new();
+
+        // Cached array for spawn point validation (non-allocating overlap check)
+        private readonly Collider[] _spawnValidationHits = new Collider[10];
 
         private void Awake() {
             if(NetworkManager.Singleton != null && NetworkManager.Singleton.gameObject != gameObject) {
@@ -54,12 +58,12 @@ namespace Network {
         }
 
         private void OnDisable() {
-            if(_networkManager) {
-                _networkManager.OnClientConnectedCallback -= OnClientConnected;
-                _networkManager.OnClientDisconnectCallback -= OnClientDisconnected;
-                _networkManager.OnServerStopped -= OnServerStopped;
-                _networkManager.OnClientStopped -= OnClientStopped;
-            }
+            if(!_networkManager) return;
+            
+            _networkManager.OnClientConnectedCallback -= OnClientConnected;
+            _networkManager.OnClientDisconnectCallback -= OnClientDisconnected;
+            _networkManager.OnServerStopped -= OnServerStopped;
+            _networkManager.OnClientStopped -= OnClientStopped;
         }
 
         // --- Public utility: call when leaving to menu/lobby ---
@@ -71,10 +75,10 @@ namespace Network {
         private void OnServerStopped(bool _) => ResetSpawningState();
         private void OnClientStopped(bool _) => _allowPlayerSpawns = false;
 
-        private void OnClientDisconnected(ulong _) {
+        private static void OnClientDisconnected(ulong _) {
         }
 
-        private void ApprovalCheck(NetworkManager.ConnectionApprovalRequest request,
+        private static void ApprovalCheck(NetworkManager.ConnectionApprovalRequest request,
             NetworkManager.ConnectionApprovalResponse response) {
             response.Approved = true;
             response.CreatePlayerObject = false; // We spawn manually
@@ -106,7 +110,6 @@ namespace Network {
             }
 
             var clients = NetworkManager.Singleton.ConnectedClientsIds;
-            Debug.Log($"[CustomNetworkManager] Spawning for {clients.Count} clients: {string.Join(", ", clients)}");
 
             // Clear pending assignments before batch spawn
             _pendingTeamAssignments.Clear();
@@ -134,7 +137,8 @@ namespace Network {
 
                 // 1. Determine game mode
                 var matchSettings = MatchSettingsManager.Instance;
-                var isTeamBased = matchSettings != null && MatchSettingsManager.IsTeamBasedMode(matchSettings.selectedGameModeId);
+                var isTeamBased = matchSettings != null &&
+                                  MatchSettingsManager.IsTeamBasedMode(matchSettings.selectedGameModeId);
 
                 // 2. Assign team first (if team-based) so we can use it for spawn point selection
                 var assignedTeam = SpawnPoint.Team.TeamA;
@@ -143,14 +147,11 @@ namespace Network {
                 }
 
                 // 3. Choose spawn point
-                SpawnPoint spawnPoint;
-                if(isTeamBased) {
+                var spawnPoint =
                     // ---- TEAM-BASED SPAWN ----
-                    spawnPoint = SpawnManager.Instance.GetNextSpawnPoint(assignedTeam);
-                } else {
+                    isTeamBased ? SpawnManager.Instance.GetNextSpawnPoint(assignedTeam) :
                     // ---- FREE-FOR-ALL SPAWN ----
-                    spawnPoint = SpawnManager.Instance.GetNextSpawnPoint();
-                }
+                    SpawnManager.Instance.GetNextSpawnPoint();
 
                 if(spawnPoint == null) {
                     // Fallback to default position if no spawn points available
@@ -158,12 +159,13 @@ namespace Network {
                     continue;
                 }
 
-                Vector3 pos = spawnPoint.transform.position;
-                Quaternion rot = spawnPoint.transform.rotation;
+                var pos = spawnPoint.transform.position;
+                var rot = spawnPoint.transform.rotation;
 
                 // 4. Validate spawn point (optional safety)
                 var layerMask = LayerMask.GetMask("Player", "Enemy");
-                if(Physics.OverlapSphere(pos, 0.5f, layerMask).Length > 0) {
+                var hitCount = Physics.OverlapSphereNonAlloc(pos, 0.5f, _spawnValidationHits, layerMask);
+                if(hitCount > 0) {
                     Debug.LogWarning("Spawn point occupied, retrying...");
                     continue;
                 }
@@ -195,8 +197,6 @@ namespace Network {
                         teamMgr.netTeam.Value = assignedTeam;
                         // Track pending assignment during initial spawn
                         _pendingTeamAssignments[clientId] = assignedTeam;
-                        Debug.Log(
-                            $"[CustomNetworkManager] Assigned team {assignedTeam} to client {clientId} at spawn position {pos}");
                     }
                 }
 
@@ -220,8 +220,16 @@ namespace Network {
 
             // Count teams from pending assignments (players being spawned right now)
             foreach(var assignment in _pendingTeamAssignments.Values) {
-                if(assignment == SpawnPoint.Team.TeamA) countA++;
-                else if(assignment == SpawnPoint.Team.TeamB) countB++;
+                switch(assignment) {
+                    case SpawnPoint.Team.TeamA:
+                        countA++;
+                        break;
+                    case SpawnPoint.Team.TeamB:
+                        countB++;
+                        break;
+                    default:
+                        throw new ArgumentOutOfRangeException();
+                }
             }
 
             // Also count teams from already-spawned players (for late joiners)
@@ -231,10 +239,18 @@ namespace Network {
 
                 var controller = client.PlayerObject?.GetComponent<PlayerController>();
                 var teamMgr = controller?.TeamManager;
-                if(teamMgr != null) {
-                    var team = teamMgr.netTeam.Value;
-                    if(team == SpawnPoint.Team.TeamA) countA++;
-                    else if(team == SpawnPoint.Team.TeamB) countB++;
+                if(teamMgr == null) continue;
+                
+                var team = teamMgr.netTeam.Value;
+                switch(team) {
+                    case SpawnPoint.Team.TeamA:
+                        countA++;
+                        break;
+                    case SpawnPoint.Team.TeamB:
+                        countB++;
+                        break;
+                    default:
+                        throw new ArgumentOutOfRangeException();
                 }
             }
 

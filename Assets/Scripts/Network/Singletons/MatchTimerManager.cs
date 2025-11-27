@@ -17,7 +17,6 @@ namespace Network.Singletons {
 
         public int TimeRemainingSeconds => _timeRemainingSeconds.Value;
         public bool IsPreMatch => _isPreMatch.Value;
-        public int PreMatchCountdownSeconds => _preMatchCountdownSeconds.Value;
 
         private Coroutine _timerRoutine;
         private bool _hasTriggeredPostMatch;
@@ -90,27 +89,25 @@ namespace Network.Singletons {
             }
 
             // Pre-match countdown finished - start the actual match
-            if(IsServer) {
-                _isPreMatch.Value = false;
-                var matchSettings = MatchSettingsManager.Instance;
-                matchDurationSeconds = matchSettings != null ? matchSettings.GetMatchDurationSeconds() : 600;
-                _timeRemainingSeconds.Value = Mathf.Max(0, matchDurationSeconds);
+            if(!IsServer) yield break;
+            
+            _isPreMatch.Value = false;
+            var matchSettings = MatchSettingsManager.Instance;
+            matchDurationSeconds = matchSettings?.GetMatchDurationSeconds() ?? 600;
+            _timeRemainingSeconds.Value = Mathf.Max(0, matchDurationSeconds);
 
-                Debug.Log($"[MatchTimerManager] Pre-match countdown finished. Starting match timer: {matchDurationSeconds} seconds");
-
-                // Check if we're in Tag mode and designate initial "it" after 5 seconds
-                if(matchSettings != null && matchSettings.selectedGameModeId == "Gun Tag") {
-                    StartCoroutine(DesignateInitialItAfterDelay());
-                }
-
-                // Check if we're in Hopball mode and spawn hopball after 5 seconds
-                if(matchSettings != null && matchSettings.selectedGameModeId == "Hopball") {
-                    // HopballSpawnManager will handle spawning
-                }
-
-                // Start the actual match timer
-                _timerRoutine = StartCoroutine(TimerCoroutine());
+            // Check if we're in Tag mode and designate initial "it" after 5 seconds
+            if(matchSettings != null && matchSettings.selectedGameModeId == "Gun Tag") {
+                StartCoroutine(DesignateInitialItAfterDelay());
             }
+
+            // Check if we're in Hopball mode and spawn hopball after 5 seconds
+            if(matchSettings != null && matchSettings.selectedGameModeId == "Hopball") {
+                // HopballSpawnManager will handle spawning
+            }
+
+            // Start the actual match timer
+            _timerRoutine = StartCoroutine(TimerCoroutine());
         }
 
         private IEnumerator TimerCoroutine() {
@@ -122,14 +119,12 @@ namespace Network.Singletons {
             }
 
             // Only trigger post-match if we're not in pre-match (safety check)
-            if(IsServer && !_isPreMatch.Value && !_hasTriggeredPostMatch) {
-                _hasTriggeredPostMatch = true;
-                Debug.Log("[MatchTimerManager] Timer reached zero, triggering post-match flow");
-                if(PostMatchManager.Instance == null) {
-                    Debug.LogWarning("[MatchTimerManager] PostMatchManager.Instance is null on server!");
-                } else {
-                    PostMatchManager.Instance.BeginPostMatchFromTimer();
-                }
+            if(!IsServer || _isPreMatch.Value || _hasTriggeredPostMatch) yield break;
+            _hasTriggeredPostMatch = true;
+            if(PostMatchManager.Instance == null) {
+                Debug.LogWarning("[MatchTimerManager] PostMatchManager.Instance == null on server!");
+            } else {
+                PostMatchManager.Instance.BeginPostMatchFromTimer();
             }
         }
 
@@ -181,18 +176,19 @@ namespace Network.Singletons {
 
             // Check if anyone is already tagged
             var allPlayers = FindObjectsByType<PlayerController>(FindObjectsSortMode.None)
-                .Where(p => p != null && p.NetworkObject != null && p.NetworkObject.IsSpawned)
+                .Where(p => p?.NetworkObject != null && p.NetworkObject.IsSpawned)
                 .ToList();
 
             if(allPlayers.Count == 0) yield break;
 
             // Check if anyone is already tagged
-            bool anyoneTagged = allPlayers.Any(p => {
+            var anyoneTagged = allPlayers.Any(p => {
                 var tagCtrl = p.GetComponent<PlayerTagController>();
                 return tagCtrl != null && tagCtrl.isTagged.Value;
             });
 
-            if(!anyoneTagged) {
+            if(anyoneTagged) yield break;
+            {
                 // Randomly select a player to be "it"
                 var randomPlayer = allPlayers[Random.Range(0, allPlayers.Count)];
                 var tagCtrl = randomPlayer.GetComponent<PlayerTagController>();
@@ -207,13 +203,9 @@ namespace Network.Singletons {
                 }
 
                 // Broadcast to kill feed with HOP as the tagger (similar to OOB kills)
-                if(tagCtrl != null) {
-                    tagCtrl.BroadcastTagTransferFromHopClientRpc(randomPlayer.OwnerClientId);
-                }
+                tagCtrl?.BroadcastTagTransferFromHopClientRpc(randomPlayer.OwnerClientId);
 
                 _hasDesignatedInitialIt = true;
-                Debug.Log(
-                    $"[MatchTimerManager] Designated {randomPlayer.playerName.Value} as initial 'it' after 5 seconds");
             }
         }
     }

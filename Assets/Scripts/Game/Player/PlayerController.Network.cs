@@ -12,16 +12,12 @@ namespace Game.Player {
 
         [Rpc(SendTo.Everyone)]
         public void SetWorldModelVisibleRpc(bool visible) {
-            if(visualController != null) {
-                visualController.SetWorldModelVisibleRpc(visible);
-            }
+            visualController?.SetWorldModelVisibleRpc(visible);
         }
 
         [Rpc(SendTo.Everyone)]
         public void ResetVelocityRpc() {
-            if(movementController != null) {
-                movementController.ResetVelocity();
-            }
+            movementController?.ResetVelocity();
         }
 
         [Rpc(SendTo.Everyone)]
@@ -38,16 +34,12 @@ namespace Game.Player {
                 }
             }
 
-            if(animationController != null) {
-                animationController.PlayDamageAnimation();
-            }
+            animationController?.PlayDamageAnimation();
         }
 
         [Rpc(SendTo.Everyone)]
         public void SnapPodiumVisualsClientRpc() {
-            if(podiumController != null) {
-                podiumController.SnapPodiumVisualsClientRpc();
-            }
+            podiumController?.SnapPodiumVisualsClientRpc();
         }
 
         #endregion

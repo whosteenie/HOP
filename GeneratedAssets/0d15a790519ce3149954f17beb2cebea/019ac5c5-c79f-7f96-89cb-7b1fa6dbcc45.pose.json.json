@@ -1,0 +1,11 @@
+{
+    "asset": "0d15a790519ce3149954f17beb2cebea",
+    "fileName": "019ac5c5-c79f-7f96-89cb-7b1fa6dbcc45.pose.json",
+    "prompt": "extend left arm and grasp with hand",
+    "negativePrompt": "",
+    "model": "9e46c009-67d8-4254-a3a0-32e3168247ee",
+    "modelName": "Text to Motion",
+    "customSeed": 1059450613,
+    "w3CTraceId": "4c337b415bdaa9dff5354bfe3d4d82e2",
+    "isTrimmed": false
+}

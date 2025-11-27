@@ -84,7 +84,7 @@
 
 /* Pause / Options */
 .menu-container { width: 420px; padding: 28px; }
-.options-container { width: 760px; max-height: 80%; padding: 36px; }
+.options-container { width: 760px; max-height: 85%; padding: 36px; }
 
 .pause-header {
     flex-direction: row;
@@ -94,9 +94,37 @@
     margin-bottom: 18px;
 }
 
+/* Pause header inline styles merged */
+#pause-header {
+    align-items: flex-start;
+}
+
+/* Pause header inline styles merged */
+#pause-header {
+    align-items: flex-start;
+}
+
 .pause-join-code-display {
     flex-direction: row;
     align-items: center;
+}
+
+/* Pause join code display inline styles merged */
+#pause-join-code-display {
+    margin-top: 6px;
+}
+
+#pause-join-code-label {
+    margin-right: 11px;
+}
+
+/* Pause join code display inline styles merged */
+#pause-join-code-display {
+    margin-top: 6px;
+}
+
+#pause-join-code-label {
+    margin-right: 11px;
 }
 
 .pause-join-code-label {
@@ -517,6 +545,17 @@
     position: absolute;
     background-color: rgba(200, 60, 60, 0.9);
     opacity: 0; /* Controlled by DamageVignetteUI script */
+}
+
+/* Damage vignette inline styles merged */
+#hit-front,
+#hit-back {
+    height: 35px;
+}
+
+#hit-left,
+#hit-right {
+    width: 35px;
 }
 
 .corner {

@@ -20,18 +20,19 @@ namespace OSI {
         /// </summary>
         public IndicatorType Type => indicatorType;
 
-        void Awake() {
+        private void Awake() {
             _indicatorImage = transform.GetComponent<Image>();
             _distanceText = transform.GetComponentInChildren<Text>();
-            if (_distanceText != null) {
-                _distanceText.color = Color.white;
-                var shadow = _distanceText.GetComponent<Shadow>();
-                if (shadow == null) {
-                    shadow = _distanceText.gameObject.AddComponent<Shadow>();
-                }
-                shadow.effectColor = new Color(0f, 0f, 0f, 0.85f);
-                shadow.effectDistance = new Vector2(1f, -1f);
+            if(_distanceText == null) return;
+            
+            _distanceText.color = Color.white;
+            var shadow = _distanceText.GetComponent<Shadow>();
+            if(shadow == null) {
+                shadow = _distanceText.gameObject.AddComponent<Shadow>();
             }
+
+            shadow.effectColor = new Color(0f, 0f, 0f, 0.85f);
+            shadow.effectDistance = new Vector2(1f, -1f);
         }
 
         /// <summary>
@@ -68,7 +69,7 @@ namespace OSI {
     }
 
     public enum IndicatorType {
-        BOX,
-        ARROW
+        Box,
+        Arrow
     }
 }

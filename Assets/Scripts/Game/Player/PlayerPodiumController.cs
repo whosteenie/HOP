@@ -29,19 +29,30 @@ namespace Game.Player {
         [SerializeField] private Animator podiumAnimator;
 
         private void Awake() {
-            playerController ??= GetComponent<PlayerController>();
-            _visualController = playerController.VisualController;
-            _playerRagdoll = playerController.PlayerRagdoll;
-            _characterController = playerController.CharacterController;
-            _clientNetworkTransform = playerController.ClientNetworkTransform;
+            ValidateComponents();
+        }
+
+        private void ValidateComponents() {
+            if(playerController == null) {
+                playerController = GetComponent<PlayerController>();
+            }
+
+            if(playerController == null) {
+                Debug.LogError("[PlayerPodiumController] PlayerController not found!");
+                enabled = false;
+                return;
+            }
+
+            if(_visualController == null) _visualController = playerController.VisualController;
+            if(_playerRagdoll == null) _playerRagdoll = playerController.PlayerRagdoll;
+            if(_characterController == null) _characterController = playerController.CharacterController;
+            if(_clientNetworkTransform == null) _clientNetworkTransform = playerController.ClientNetworkTransform;
 
             // Cache podium components
             if(podiumAnimator != null) {
                 _podiumAnimator = podiumAnimator;
-                // GetComponentInChildren is acceptable for child components (hierarchy-dependent)
                 _podiumSkinned = GetComponentInChildren<SkinnedMeshRenderer>();
-            } else if(playerController != null) {
-                // Fallback: try to get from PlayerController
+            } else {
                 var animator = playerController.PlayerAnimator;
                 if(animator != null) {
                     _podiumAnimator = animator;
@@ -54,43 +65,25 @@ namespace Game.Player {
             }
         }
 
-        public override void OnNetworkSpawn() {
-            base.OnNetworkSpawn();
-
-            // Component references should be assigned in the inspector
-            // Only use GetComponent as a last resort fallback if not assigned
-            if(playerController == null) {
-                playerController = GetComponent<PlayerController>();
-            }
-
-            if(_visualController == null) {
-                _visualController = GetComponent<PlayerVisualController>();
-            }
-        }
-
         public void ForceRespawnForPodiumServer() {
             if(!IsServer) return;
 
             // Reset health via PlayerController
-            if(playerController != null) {
-                playerController.ResetHealthAndRegenerationState();
-            }
+            playerController?.ResetHealthAndRegenerationState();
 
             ForceRespawnForPodiumClientRpc();
         }
 
         [Rpc(SendTo.Everyone)]
         private void ForceRespawnForPodiumClientRpc() {
-            if(_playerRagdoll != null) {
-                _playerRagdoll.DisableRagdoll();
-            }
+            _playerRagdoll?.DisableRagdoll();
 
             ResetAnimatorState(_podiumAnimator);
 
             // Ensure world model root and weapon are active for podium
             if(playerController != null) {
                 var worldModelRoot = playerController.PlayerModelRoot;
-                var worldWeapon = _visualController != null ? _visualController.GetWorldWeapon() : null;
+                var worldWeapon = _visualController?.GetWorldWeapon();
 
                 if(worldModelRoot != null && !worldModelRoot.activeSelf) {
                     worldModelRoot.SetActive(true);
@@ -101,9 +94,7 @@ namespace Game.Player {
                 }
 
                 // Enable renderers
-                if(_visualController != null) {
-                    _visualController.SetRenderersEnabled(true, true, UnityEngine.Rendering.ShadowCastingMode.On);
-                }
+                _visualController?.SetRenderersEnabled(true, true, UnityEngine.Rendering.ShadowCastingMode.On);
             }
 
             if(_podiumSkinned != null) {
@@ -136,9 +127,7 @@ namespace Game.Player {
             }
 
             transform.SetPositionAndRotation(pos, rot);
-            if(_clientNetworkTransform != null) {
-                _clientNetworkTransform.Teleport(pos, rot, Vector3.one);
-            }
+            _clientNetworkTransform?.Teleport(pos, rot, Vector3.one);
 
             yield return new WaitForFixedUpdate();
 
@@ -159,8 +148,8 @@ namespace Game.Player {
         private void SnapBonesToRoot() {
             if(rootBone == null || _podiumAnimator == null) return;
 
-            rootBone.position = transform.position;
-            rootBone.rotation = transform.rotation;
+            rootBone.position = playerController.Position;
+            rootBone.rotation = playerController.Rotation;
 
             _podiumAnimator.enabled = false;
             _podiumAnimator.enabled = true;

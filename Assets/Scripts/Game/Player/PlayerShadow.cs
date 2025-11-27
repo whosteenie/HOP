@@ -30,20 +30,31 @@ namespace Game.Player {
         private static readonly Bounds MaxBounds = new(Vector3.zero, new Vector3(float.MaxValue, float.MaxValue, float.MaxValue));
 
         private void Awake() {
-            playerController ??= GetComponent<PlayerController>();
+            ValidateComponents();
+        }
 
-            _weaponManager ??= playerController.WeaponManager;
+        private void ValidateComponents() {
+            if(playerController == null) {
+                playerController = GetComponent<PlayerController>();
+            }
 
-            _worldWeaponSocket ??= playerController.WorldWeaponSocket;
+            if(playerController == null) {
+                Debug.LogError("[PlayerShadow] PlayerController not found!");
+                enabled = false;
+                return;
+            }
 
-            _worldWeaponPrefabs ??= playerController.WorldWeaponPrefabs;
+            if(_weaponManager == null) _weaponManager = playerController.WeaponManager;
+            if(_worldWeaponSocket == null) _worldWeaponSocket = playerController.WorldWeaponSocket;
+            if(_worldWeaponPrefabs == null || _worldWeaponPrefabs.Length == 0) {
+                _worldWeaponPrefabs = playerController.WorldWeaponPrefabs;
+            }
 
             _renderersCacheValid = false;
         }
 
         public override void OnNetworkSpawn() {
             base.OnNetworkSpawn();
-            playerController ??= GetComponent<PlayerController>();
 
             // Network-dependent initialization
             // Original behavior: set owner's shadows to ShadowsOnly
@@ -55,8 +66,7 @@ namespace Game.Player {
         /// <summary>
         /// Sets shadow casting mode for all SkinnedMeshRenderers.
         /// </summary>
-        public void SetSkinnedMeshRenderersShadowMode(ShadowCastingMode mode, ShadowCastingMode? ownerMode = null,
-            bool? isEnabled = null) {
+        public void SetSkinnedMeshRenderersShadowMode(ShadowCastingMode mode, ShadowCastingMode? ownerMode = null, bool? isEnabled = null) {
             RefreshRendererCacheIfNeeded();
             var isOwner = playerController != null && playerController.IsOwner;
 
@@ -95,7 +105,7 @@ namespace Game.Player {
             var fpCameraTransform = fpCamera?.transform;
 
             foreach(var mr in _cachedRenderers) {
-                if(mr == null || mr is not MeshRenderer) continue;
+                if(mr is not MeshRenderer) continue;
                 // Skip FP weapon renderers (they're parented to fpCamera)
                 if(fpCameraTransform != null && mr.transform.IsChildOf(fpCameraTransform)) {
                     continue;
@@ -116,7 +126,7 @@ namespace Game.Player {
 
             if(currentWorldWeapon != null) {
                 // Check if weapon changed - if so, refresh cache
-                var currentWeaponIndex = _weaponManager != null ? _weaponManager.CurrentWeaponIndex : -1;
+                var currentWeaponIndex = _weaponManager?.CurrentWeaponIndex ?? -1;
                 if(currentWorldWeapon != _cachedWorldWeapon || currentWeaponIndex != _cachedWeaponIndex) {
                     _cachedWorldWeapon = currentWorldWeapon;
                     _cachedWeaponIndex = currentWeaponIndex;
@@ -142,19 +152,11 @@ namespace Game.Player {
         /// Gets the currently equipped world weapon GameObject from the weapon socket.
         /// </summary>
         private GameObject GetCurrentWorldWeapon() {
-            // Try to get from WeaponManager first (most reliable)
-            if(_weaponManager != null) {
-                var weaponData = _weaponManager.GetWeaponDataByIndex(_weaponManager.CurrentWeaponIndex);
-                if(weaponData != null && !string.IsNullOrEmpty(weaponData.worldWeaponName) &&
-                   _worldWeaponSocket != null) {
-                    var worldObj = _worldWeaponSocket.Find(weaponData.worldWeaponName);
-                    if(worldObj != null && worldObj.gameObject.activeSelf) {
-                        return worldObj.gameObject;
-                    }
-                }
+            var worldWeapon = _weaponManager?.CurrentWorldWeaponInstance;
+            if(worldWeapon != null && worldWeapon.activeSelf) {
+                return worldWeapon;
             }
 
-            // Fallback: find the first active child in the weapon socket
             if(_worldWeaponSocket == null) return null;
             foreach(Transform child in _worldWeaponSocket) {
                 if(child.gameObject.activeSelf) {

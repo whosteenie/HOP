@@ -98,34 +98,33 @@ namespace Network.Singletons {
                 break;
             }
 
-            if(!hasAnySavedBindings) {
-                var defaults = new Dictionary<string, string[]> {
-                    { "forward", new[] { "<Keyboard>/w", "" } },
-                    { "back", new[] { "<Keyboard>/s", "" } },
-                    { "left", new[] { "<Keyboard>/a", "" } },
-                    { "right", new[] { "<Keyboard>/d", "" } },
-                    { "reload", new[] { "<Keyboard>/r", "" } },
-                    { "grapple", new[] { "<Keyboard>/q", "" } },
-                    { "jump", new[] { "<Keyboard>/space", "SCROLL_DOWN" } },
-                    { "interact", new[] { "<Keyboard>/e", "" } },
-                    { "shoot", new[] { "<Mouse>/leftButton", "" } },
-                    { "ads", new[] { "<Mouse>/rightButton", "" } },
-                    { "primary", new[] { "<Keyboard>/1", "" } },
-                    { "secondary", new[] { "<Keyboard>/2", "" } },
-                    { "nextweapon", new[] { "", "" } },
-                    { "previousweapon", new[] { "", "" } }
-                };
+            if(hasAnySavedBindings) return;
+            var defaults = new Dictionary<string, string[]> {
+                { "forward", new[] { "<Keyboard>/w", "" } },
+                { "back", new[] { "<Keyboard>/s", "" } },
+                { "left", new[] { "<Keyboard>/a", "" } },
+                { "right", new[] { "<Keyboard>/d", "" } },
+                { "reload", new[] { "<Keyboard>/r", "" } },
+                { "grapple", new[] { "<Keyboard>/q", "" } },
+                { "jump", new[] { "<Keyboard>/space", "SCROLL_DOWN" } },
+                { "interact", new[] { "<Keyboard>/e", "" } },
+                { "shoot", new[] { "<Mouse>/leftButton", "" } },
+                { "ads", new[] { "<Mouse>/rightButton", "" } },
+                { "primary", new[] { "<Keyboard>/1", "" } },
+                { "secondary", new[] { "<Keyboard>/2", "" } },
+                { "nextweapon", new[] { "", "" } },
+                { "previousweapon", new[] { "", "" } }
+            };
 
-                foreach(var kvp in defaults) {
-                    for(var i = 0; i < kvp.Value.Length; i++) {
-                        if(!string.IsNullOrEmpty(kvp.Value[i])) {
-                            PlayerPrefs.SetString(GetPlayerPrefsKey(kvp.Key, i), kvp.Value[i]);
-                        }
+            foreach(var kvp in defaults) {
+                for(var i = 0; i < kvp.Value.Length; i++) {
+                    if(!string.IsNullOrEmpty(kvp.Value[i])) {
+                        PlayerPrefs.SetString(GetPlayerPrefsKey(kvp.Key, i), kvp.Value[i]);
                     }
                 }
-
-                PlayerPrefs.Save();
             }
+
+            PlayerPrefs.Save();
         }
 
         private void LoadAllBindings() {
@@ -278,20 +277,14 @@ namespace Network.Singletons {
             return false;
         }
 
-        public string GetBindingDisplayString(string keybindName, int bindingIndex) {
+        public static string GetBindingDisplayString(string keybindName, int bindingIndex) {
             var key = GetPlayerPrefsKey(keybindName, bindingIndex);
 
             // PlayerPrefs is source of truth
-            if(PlayerPrefs.HasKey(key)) {
-                var savedPath = PlayerPrefs.GetString(key);
-                if(string.IsNullOrEmpty(savedPath)) {
-                    return "None";
-                }
+            if(!PlayerPrefs.HasKey(key)) return "None";
+            var savedPath = PlayerPrefs.GetString(key);
+            return string.IsNullOrEmpty(savedPath) ? "None" : GetBindingDisplayString(new InputBinding { path = savedPath });
 
-                return GetBindingDisplayString(new InputBinding { path = savedPath });
-            }
-
-            return "None";
         }
 
         public bool IsKeyPressed(string keybindName, int bindingIndex = 0) {
@@ -310,23 +303,22 @@ namespace Network.Singletons {
 
         #region Helper Methods
 
-        private string GetPlayerPrefsKey(string keybindName, int bindingIndex) {
+        private static string GetPlayerPrefsKey(string keybindName, int bindingIndex) {
             return $"Keybind_{keybindName}_{bindingIndex}";
         }
 
-        private int GetBindingIndex(InputAction action, int bindingIndex, string compositePart) {
+        private static int GetBindingIndex(InputAction action, int bindingIndex, string compositePart) {
             if(!string.IsNullOrEmpty(compositePart)) {
                 // Composite binding: find nth occurrence of composite part
                 var occurrence = 0;
                 for(var i = 0; i < action.bindings.Count; i++) {
                     var binding = action.bindings[i];
-                    if(binding.isPartOfComposite && binding.name == compositePart) {
-                        if(occurrence == bindingIndex) {
-                            return i;
-                        }
-
-                        occurrence++;
+                    if(!binding.isPartOfComposite || binding.name != compositePart) continue;
+                    if(occurrence == bindingIndex) {
+                        return i;
                     }
+
+                    occurrence++;
                 }
             } else {
                 // Regular binding: find nth non-composite binding
@@ -343,17 +335,17 @@ namespace Network.Singletons {
                 }
 
                 // Need to create new binding - extract just the path from template
-                if(nonCompositeBindings.Count > 0) {
-                    var templateBinding = action.bindings[nonCompositeBindings[0]];
-                    // Extract just the path (before any semicolon which indicates groups/interactions)
-                    var cleanPath = templateBinding.path;
-                    if(!string.IsNullOrEmpty(cleanPath) && cleanPath.Contains(';')) {
-                        cleanPath = cleanPath.Split(';')[0].Trim();
-                    }
-                    // Add binding with clean path only (no groups/interactions)
-                    action.AddBinding(cleanPath);
-                    return action.bindings.Count - 1;
+                if(nonCompositeBindings.Count <= 0) return -1;
+                var templateBinding = action.bindings[nonCompositeBindings[0]];
+                // Extract just the path (before any semicolon which indicates groups/interactions)
+                var cleanPath = templateBinding.path;
+                if(!string.IsNullOrEmpty(cleanPath) && cleanPath.Contains(';')) {
+                    cleanPath = cleanPath.Split(';')[0].Trim();
                 }
+
+                // Add binding with clean path only (no groups/interactions)
+                action.AddBinding(cleanPath);
+                return action.bindings.Count - 1;
             }
 
             return -1;
@@ -401,18 +393,17 @@ namespace Network.Singletons {
         }
 
         private void ApplyPendingBindings() {
-            foreach(var kvp in _pendingBindings) {
-                var keybindName = kvp.Key;
+            foreach(var (keybindName, value) in _pendingBindings) {
                 var paths = new List<string>();
                 for(var i = 0; i < 2; i++) {
-                    paths.Add(kvp.Value.GetValueOrDefault(i, ""));
+                    paths.Add(value.GetValueOrDefault(i, ""));
                 }
 
                 ApplySavedBindings(keybindName, paths);
             }
         }
 
-        private string GetBindingDisplayString(InputBinding binding) {
+        private static string GetBindingDisplayString(InputBinding binding) {
             var path = binding.effectivePath ?? binding.path;
 
             if(string.IsNullOrEmpty(path) || path == "<Invalid>/None" || path.Contains("<Invalid>")) {
@@ -448,19 +439,17 @@ namespace Network.Singletons {
                 return path.Replace("<Keyboard>/", "").ToUpper();
             }
 
-            if(path.StartsWith("<Mouse>/")) {
-                var mousePath = path.Replace("<Mouse>/", "");
-                return mousePath switch {
-                    "leftButton" => "Left Click",
-                    "rightButton" => "Right Click",
-                    "middleButton" => "Middle Click",
-                    "xButton1" or "forwardButton" => "Mouse 4",
-                    "xButton2" or "backButton" => "Mouse 5",
-                    _ => mousePath
-                };
-            }
+            if(!path.StartsWith("<Mouse>/")) return path;
+            var mousePath = path.Replace("<Mouse>/", "");
+            return mousePath switch {
+                "leftButton" => "Left Click",
+                "rightButton" => "Right Click",
+                "middleButton" => "Middle Click",
+                "xButton1" or "forwardButton" => "Mouse 4",
+                "xButton2" or "backButton" => "Mouse 5",
+                _ => mousePath
+            };
 
-            return path;
         }
 
         #endregion
@@ -482,8 +471,6 @@ namespace Network.Singletons {
         }
 
         private void CleanupRebindingState() {
-            if(this == null) return;
-
             if(_scrollListenerCoroutine != null) {
                 try {
                     StopCoroutine(_scrollListenerCoroutine);
@@ -586,7 +573,7 @@ namespace Network.Singletons {
             }
         }
 
-        private bool CheckMouseButton(string primaryControl, string fallbackControl, ref bool wasPressed) {
+        private static bool CheckMouseButton(string primaryControl, string fallbackControl, ref bool wasPressed) {
             if(Mouse.current == null) return false;
 
             var pressedThisFrame = false;
@@ -609,21 +596,22 @@ namespace Network.Singletons {
                 }
             }
 
-            if(pressedThisFrame && !wasPressed) {
-                wasPressed = true;
-                return true;
-            }
-
-            if(!pressedThisFrame) {
-                try {
-                    var primaryButton = Mouse.current[primaryControl] as ButtonControl;
-                    var fallbackButton = Mouse.current[fallbackControl] as ButtonControl;
-                    if(!(primaryButton?.isPressed == true || fallbackButton?.isPressed == true)) {
-                        wasPressed = false;
+            switch(pressedThisFrame) {
+                case true when !wasPressed:
+                    wasPressed = true;
+                    return true;
+                case false:
+                    try {
+                        var primaryButton = Mouse.current[primaryControl] as ButtonControl;
+                        var fallbackButton = Mouse.current[fallbackControl] as ButtonControl;
+                        if(!(primaryButton?.isPressed == true || fallbackButton?.isPressed == true)) {
+                            wasPressed = false;
+                        }
+                    } catch {
+                        // Control doesn't exist
                     }
-                } catch {
-                    // Control doesn't exist
-                }
+
+                    break;
             }
 
             return false;

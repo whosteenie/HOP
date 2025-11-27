@@ -22,7 +22,6 @@ MonoBehaviour:
   fpMuzzleLightChildName: MuzzleLight
   worldMuzzleLightChildName: MuzzleLight
   magSize: 30
-  currentAmmo: 30
   baseDamage: 35
   maxDamageMultiplier: 3
   damageCap: 100
@@ -36,13 +35,13 @@ MonoBehaviour:
   fireRate: 0.15
   fireMode: Full
   bulletSpread: 0
+  useSniperOverlay: 0
   reloadTime: 1
   useMagReload: 1
   perRoundReloadTime: 0.5
-  sheathTime: 0.22
-  drawTime: 0.22
   bulletTrail: {fileID: 328621789431213768, guid: 4b92d630cd66e7a45a83060b816bdbbe, type: 3}
-  bulletImpact: {fileID: 19800002, guid: 00fedc70b62a31e448e8ccc298257b56, type: 3}
+  bulletImpact: {fileID: 1727084212038952990, guid: 115606d0adf2ebc4cb54af213761100e, type: 3}
   muzzleFlashPrefab: {fileID: 6299671218319471870, guid: d13b2bf13a0548a4aa9c2cd249a35a04, type: 3}
   shootSfx: 23
   reloadSfx: 29
+  maxServerRange: 0

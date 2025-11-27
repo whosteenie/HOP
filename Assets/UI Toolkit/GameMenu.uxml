@@ -4,29 +4,29 @@
     <Style src="project://database/Assets/UI%20Toolkit/SceneTransition.uss?fileID=7433441132597879392&amp;guid=4daa9d2117fa153469ed19a28f36d7c7&amp;type=3#SceneTransition" />
     <ui:VisualElement name="root-container" class="full-abs root-container-visibility">
         <ui:VisualElement name="damage-vignette-root" class="damage-vignette-container">
-            <ui:VisualElement name="hit-front" class="damage-vignette side" style="height: 35px;" />
-            <ui:VisualElement name="hit-back" class="damage-vignette side" style="height: 35px;" />
-            <ui:VisualElement name="hit-left" class="damage-vignette side" style="width: 35px;" />
-            <ui:VisualElement name="hit-right" class="damage-vignette side" style="width: 35px;" />
+            <ui:VisualElement name="hit-front" class="damage-vignette side" />
+            <ui:VisualElement name="hit-back" class="damage-vignette side" />
+            <ui:VisualElement name="hit-left" class="damage-vignette side" />
+            <ui:VisualElement name="hit-right" class="damage-vignette side" />
             <ui:VisualElement name="hit-frontLeft" class="corner">
-                <ui:VisualElement class="corner-c corner-c-inline" style="position: absolute;" />
-                <ui:VisualElement class="corner-h corner-h-inline" style="height: 35px; left: 35px;" />
-                <ui:VisualElement class="corner-v corner-v-inline" style="top: 35px; width: 35px;" />
+                <ui:VisualElement class="corner-c corner-c-inline" />
+                <ui:VisualElement class="corner-h corner-h-inline" />
+                <ui:VisualElement class="corner-v corner-v-inline" />
             </ui:VisualElement>
             <ui:VisualElement name="hit-frontRight" class="corner">
                 <ui:VisualElement class="corner-c corner-c-position-absolute-right-0" />
-                <ui:VisualElement class="corner-h corner-h-inline-right-35px" style="left: auto; right: 35px; height: 35px;" />
-                <ui:VisualElement class="corner-v corner-v-inline-top-35px-bottom-auto" style="width: 35px; bottom: auto; top: 35px;" />
+                <ui:VisualElement class="corner-h corner-h-inline-right-35px" />
+                <ui:VisualElement class="corner-v corner-v-inline-top-35px-bottom-auto" />
             </ui:VisualElement>
             <ui:VisualElement name="hit-backLeft" class="corner">
                 <ui:VisualElement class="corner-c corner-c-position-absolute-bottom-0-left-0" />
-                <ui:VisualElement class="corner-h corner-h-inline-left-35px" style="left: 35px; height: 35px;" />
-                <ui:VisualElement class="corner-v corner-v-inline-bottom-35px-top-auto" style="width: 35px; bottom: 35px; top: auto;" />
+                <ui:VisualElement class="corner-h corner-h-inline-left-35px" />
+                <ui:VisualElement class="corner-v corner-v-inline-bottom-35px-top-auto" />
             </ui:VisualElement>
             <ui:VisualElement name="hit-backRight" class="corner">
                 <ui:VisualElement class="corner-c corner-c-position-absolute-bottom-0-right-0" />
-                <ui:VisualElement class="corner-h corner-h-inline-left-auto-right-35px" style="height: 35px; right: 35px; left: auto;" />
-                <ui:VisualElement class="corner-v corner-v-inline-bottom-35px-top-auto-right" style="top: auto; bottom: 35px; width: 35px;" />
+                <ui:VisualElement class="corner-h corner-h-inline-left-auto-right-35px" />
+                <ui:VisualElement class="corner-v corner-v-inline-bottom-35px-top-auto-right" />
             </ui:VisualElement>
         </ui:VisualElement>
         <ui:VisualElement name="hud-panel" class="hud hud-visibility-visible">
@@ -70,10 +70,10 @@
         </ui:VisualElement>
         <ui:VisualElement name="pause-menu-panel" class="panel full-abs center-xy hidden">
             <ui:VisualElement name="pause-container" class="menu-container card">
-                <ui:VisualElement name="pause-header" class="pause-header pause-header-align-flex-start" style="align-items: flex-start;">
+                <ui:VisualElement name="pause-header" class="pause-header pause-header-align-flex-start">
                     <ui:Label text="PAUSED" name="pause-label" class="title" />
-                    <ui:VisualElement name="pause-join-code-display" class="pause-join-code-display pause-join-code-display-margin-top-7px" style="margin-top: 6px;">
-                        <ui:Label name="pause-join-code-label" text="Join Code: - - - - - -" class="value-label accent pause-join-code-label-inline pause-join-code-label-margin-right-5px" style="margin-right: 11px;" />
+                    <ui:VisualElement name="pause-join-code-display" class="pause-join-code-display pause-join-code-display-margin-top-7px">
+                        <ui:Label name="pause-join-code-label" text="Join Code: - - - - - -" class="value-label accent pause-join-code-label-inline pause-join-code-label-margin-right-5px" />
                         <ui:Button name="pause-copy-code-button" class="copy-button menu-chip menu-chip-enabled width-36px">
                             <ui:Image name="pause-copy-icon" class="copy-icon" />
                         </ui:Button>
@@ -96,9 +96,30 @@
                 <ui:ScrollView name="options-content-scroll" vertical-scroller-visibility="Auto" horizontal-scroller-visibility="Hidden" class="options-content-scroll">
                     <ui:VisualElement name="options-content" class="options-content">
                         <ui:VisualElement name="video-content" class="options-tab-content">
-                            <ui:VisualElement name="quality-container" class="setting-row">
-                                <ui:Label text="Quality Level" name="quality-label" class="setting-label" />
-                                <ui:DropdownField name="quality-level" class="setting-dropdown" />
+                            <ui:VisualElement name="window-mode-container" class="setting-row">
+                                <ui:Label text="Window Mode" name="window-mode-label" class="setting-label" />
+                                <ui:DropdownField name="window-mode" class="setting-dropdown" />
+                            </ui:VisualElement>
+                            <ui:VisualElement name="aspect-ratio-container" class="setting-row">
+                                <ui:Label text="Aspect Ratio" name="aspect-ratio-label" class="setting-label" />
+                                <ui:DropdownField name="aspect-ratio" class="setting-dropdown" />
+                            </ui:VisualElement>
+                            <ui:VisualElement name="resolution-container" class="setting-row">
+                                <ui:Label text="Resolution" name="resolution-label" class="setting-label" />
+                                <ui:DropdownField name="resolution" class="setting-dropdown" />
+                            </ui:VisualElement>
+                            <ui:VisualElement name="msaa-container" class="setting-row">
+                                <ui:Label text="Anti-Aliasing (MSAA)" name="msaa-label" class="setting-label" />
+                                <ui:DropdownField name="msaa" class="setting-dropdown" />
+                            </ui:VisualElement>
+                            <ui:VisualElement name="shadow-distance-container" class="setting-row">
+                                <ui:Label text="Shadow Distance" name="shadow-distance-label" class="setting-label" />
+                                <ui:Slider name="shadow-distance" low-value="0" high-value="500" class="setting-slider" fill="true" />
+                                <ui:TextField name="shadow-distance-value" value="300" max-length="6" class="value-input" />
+                            </ui:VisualElement>
+                            <ui:VisualElement name="shadow-resolution-container" class="setting-row">
+                                <ui:Label text="Shadow Resolution" name="shadow-resolution-label" class="setting-label" />
+                                <ui:DropdownField name="shadow-resolution" class="setting-dropdown" />
                             </ui:VisualElement>
                             <ui:VisualElement name="vsync-container" class="setting-row">
                                 <ui:Label text="VSync" name="vsync-label" class="setting-label" />
@@ -225,22 +246,22 @@
                 </ui:VisualElement>
             </ui:VisualElement>
         </ui:VisualElement>
-        <ui:VisualElement name="podium-nameplates-container" class="podium-nameplates podium-nameplates-inline podium-nameplates-height-100-top-auto" style="height: 100%; top: auto;">
-            <ui:VisualElement name="podium-second-slot" class="podium-slot podium-slot-second podium-slot-second-inline podium-slot-second-left-556-top-825" style="left: 23%; bottom: auto; top: 73%; position: absolute;">
+        <ui:VisualElement name="podium-nameplates-container" class="podium-nameplates podium-nameplates-inline podium-nameplates-height-100-top-auto">
+            <ui:VisualElement name="podium-second-slot" class="podium-slot podium-slot-second podium-slot-second-inline podium-slot-second-left-556-top-825">
                 <ui:Label name="podium-second-name" text="SECOND PLACE" class="podium-name" />
                 <ui:VisualElement class="podium-kills-row">
                     <ui:Label name="podium-second-kills" text="0" class="podium-kills-text" />
                     <ui:VisualElement name="podium-second-skull" class="podium-kill-icon podium-kill-icon-inline" />
                 </ui:VisualElement>
             </ui:VisualElement>
-            <ui:VisualElement name="podium-first-slot" class="podium-slot podium-slot-first podium-slot-first-inline podium-slot-first-top-724-left-947" style="top: 81%; position: absolute; left: 51%;">
+            <ui:VisualElement name="podium-first-slot" class="podium-slot podium-slot-first podium-slot-first-inline podium-slot-first-top-724-left-947">
                 <ui:Label name="podium-first-name" text="FIRST PLACE" class="podium-name" />
                 <ui:VisualElement class="podium-kills-row">
                     <ui:Label name="podium-first-kills" text="0" class="podium-kills-text" />
                     <ui:VisualElement name="podium-first-skull" class="podium-kill-icon podium-kill-icon-inline" />
                 </ui:VisualElement>
             </ui:VisualElement>
-            <ui:VisualElement name="podium-third-slot" class="podium-slot podium-slot-third podium-slot-third-inline podium-slot-third-top-712-left-1125" style="right: auto; top: 65%; bottom: auto; left: 62%; position: absolute;">
+            <ui:VisualElement name="podium-third-slot" class="podium-slot podium-slot-third podium-slot-third-inline podium-slot-third-top-712-left-1125">
                 <ui:Label name="podium-third-name" text="THIRD PLACE" class="podium-name" />
                 <ui:VisualElement class="podium-kills-row">
                     <ui:Label name="podium-third-kills" text="0" class="podium-kills-text" />

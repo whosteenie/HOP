@@ -1,6 +1,8 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" editor-extension-mode="False">
-    <Style src="project://database/Assets/UI%20Toolkit/NewStyles/Style1_MinimalistFuturistic/SharedStyles.uss?fileID=7433441132597879392&amp;guid=94b07ae9f6dfe3447bec848c3f2b4d36&amp;type=3#SharedStyles" />
-    <Style src="project://database/Assets/UI%20Toolkit/NewStyles/Style1_MinimalistFuturistic/MainMenu.uss?fileID=7433441132597879392&amp;guid=6386da34af0d5d145aefc4dcab362169&amp;type=3#MainMenu" />
+    <Style src="project://database/Assets/UI%20Toolkit/SharedStyles.uss?fileID=7433441132597879392&amp;guid=94b07ae9f6dfe3447bec848c3f2b4d36&amp;type=3#SharedStyles" />
+    <Style src="project://database/Assets/UI%20Toolkit/MainMenu.uss?fileID=7433441132597879392&amp;guid=6386da34af0d5d145aefc4dcab362169&amp;type=3#MainMenu" />
+    <ui:VisualElement name="ui-overlay" class="ui-overlay" />
+    <ui:VisualElement name="player-model-background" class="player-model-background" />
     <ui:VisualElement name="main-menu-panel" class="panel full-abs">
         <ui:Label text="HOP" name="title-label" class="title title-xl main-title" />
         <ui:VisualElement name="main-menu-container" class="menu-container main-actions">
@@ -63,8 +65,8 @@
                     <ui:VisualElement name="host-container" class="setting-row">
                         <ui:Button text="Host" name="host-button" class="menu-chip menu-chip-enabled" />
                         <ui:VisualElement name="join-code-display" class="join-code-display join-code-display-flex-start">
-                            <ui:Label name="host-label" text="Join Code: - - - - - -" class="value-label accent host-label-inline" style="-unity-text-align: middle-left; margin-left: 20px; margin-right: 0;" />
-                            <ui:VisualElement class="flex-grow-1 align-items-flex-end" style="align-items: center;">
+                            <ui:Label name="host-label" text="Join Code: - - - - - -" class="value-label accent host-label-inline" />
+                            <ui:VisualElement class="flex-grow-1 align-items-flex-end">
                                 <ui:Button name="copy-code-button" class="copy-button menu-chip width-36px">
                                     <ui:Image name="copy-icon" class="copy-icon" />
                                 </ui:Button>
@@ -98,73 +100,138 @@
         </ui:VisualElement>
     </ui:VisualElement>
     <ui:VisualElement name="loadout-panel" class="panel full-abs center-xy hidden">
-        <ui:VisualElement name="loadout-container" class="loadout-container card loadout-container-inline">
-            <ui:VisualElement name="customization-bar" class="customization-bar">
-                <ui:VisualElement name="color-picker-container" class="color-picker-container color-picker-container-margin-5px">
-                    <ui:VisualElement name="current-color-display" class="current-color-display">
-                        <ui:VisualElement name="current-color-0" class="color-circle current-color color-0 hidden" />
-                        <ui:VisualElement name="current-color-1" class="color-circle current-color color-1 hidden" />
-                        <ui:VisualElement name="current-color-2" class="color-circle current-color color-2 hidden" />
-                        <ui:VisualElement name="current-color-3" class="color-circle current-color color-3 hidden" />
-                        <ui:VisualElement name="current-color-4" class="color-circle current-color color-4 hidden" />
-                        <ui:VisualElement name="current-color-5" class="color-circle current-color color-5 hidden" />
-                        <ui:VisualElement name="current-color-6" class="color-circle current-color color-6 hidden" />
-                    </ui:VisualElement>
-                    <ui:VisualElement name="color-options" class="color-options hidden color-options-inline">
-                        <ui:VisualElement name="option-color-0" class="color-circle color-option color-0 color-option-margin-0" />
-                        <ui:VisualElement name="option-color-1" class="color-circle color-option color-1 color-option-margin-0-right-0" />
-                        <ui:VisualElement name="option-color-2" class="color-circle color-option color-2 color-option-margin-0-right-0" />
-                        <ui:VisualElement name="option-color-3" class="color-circle color-option color-3 color-option-margin-0-right-0" />
-                        <ui:VisualElement name="option-color-4" class="color-circle color-option color-4 color-option-margin-0-right-0" />
-                        <ui:VisualElement name="option-color-5" class="color-circle color-option color-5 color-option-margin-0-right-0" />
-                        <ui:VisualElement name="option-color-6" class="color-circle color-option color-6 color-option-margin-0-right-0" />
-                    </ui:VisualElement>
-                </ui:VisualElement>
+        <ui:VisualElement name="name-flex">
+            <ui:VisualElement name="name-buttons-container" class="loadout-edge-container name-buttons-container card">
+                <ui:Button text="Back" name="back-to-main-from-loadout" class="menu-chip menu-chip-enabled back-button" />
                 <ui:VisualElement name="name-input-container" class="name-input-container">
                     <ui:TextField name="player-name-input" placeholder-text="Enter your name..." class="player-name-input" />
-                    <ui:Button text="Apply" name="apply-name-button" class="menu-chip menu-chip-enabled apply-name-button hidden" />
+                </ui:VisualElement>
+                <ui:Button text="Apply" name="apply-loadout-button" class="menu-chip menu-chip-enabled apply-loadout-button" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+        <ui:VisualElement name="customization-flex">
+            <ui:VisualElement name="customization-container" class="loadout-edge-container customization-container card" style="height: 911px;">
+                <ui:VisualElement name="customization-content" class="customization-content">
+                    <ui:VisualElement name="color-section" class="customization-section">
+                        <ui:Label text="Base Color" name="color-section-label" class="section-title" />
+                        <ui:VisualElement name="color-picker-container" class="color-picker-full-container">
+                            <ui:Button name="color-preview-box" class="color-preview-box color-preview-button" />
+                            <ui:VisualElement name="color-rgb-inputs" class="color-rgb-container">
+                                <ui:VisualElement name="color-r-input-container" class="setting-row">
+                                    <ui:Label text="R" name="color-r-label" class="setting-label color-rgb-label" />
+                                    <ui:Slider name="color-r-slider" low-value="0" high-value="255" fill="true" class="setting-slider" />
+                                    <ui:IntegerField name="color-r-input" value="255" max-length="3" class="value-input color-rgb-input" />
+                                </ui:VisualElement>
+                                <ui:VisualElement name="color-g-input-container" class="setting-row">
+                                    <ui:Label text="G" name="color-g-label" class="setting-label color-rgb-label" />
+                                    <ui:Slider name="color-g-slider" low-value="0" high-value="255" fill="true" class="setting-slider" />
+                                    <ui:IntegerField name="color-g-input" value="255" max-length="3" class="value-input color-rgb-input" />
+                                </ui:VisualElement>
+                                <ui:VisualElement name="color-b-input-container" class="setting-row" style="margin-bottom: 12px;">
+                                    <ui:Label text="B" name="color-b-label" class="setting-label color-rgb-label" />
+                                    <ui:Slider name="color-b-slider" low-value="0" high-value="255" fill="true" class="setting-slider" />
+                                    <ui:IntegerField name="color-b-input" value="255" max-length="3" class="value-input color-rgb-input" />
+                                </ui:VisualElement>
+                            </ui:VisualElement>
+                        </ui:VisualElement>
+                    </ui:VisualElement>
+                    <ui:VisualElement name="material-section" class="customization-section" style="height: 563px;">
+                        <ui:Label text="Material Properties" name="material-section-label" class="section-title" />
+                        <ui:VisualElement name="smoothness-container" class="setting-row">
+                            <ui:Label text="Smoothness" name="smoothness-label" class="setting-label" style="min-width: 110px;" />
+                            <ui:Slider name="smoothness-slider" low-value="0" high-value="1" fill="true" class="setting-slider" style="min-width: auto; max-width: none; width: 160px;" />
+                            <ui:TextField name="smoothness-value" value="0.50" max-length="4" class="value-input" />
+                        </ui:VisualElement>
+                        <ui:VisualElement name="metallic-container" class="setting-row">
+                            <ui:Label text="Metallic" name="metallic-label" class="setting-label" style="min-width: 110px;" />
+                            <ui:Slider name="metallic-slider" low-value="0" high-value="1" fill="true" class="setting-slider" style="width: 160px; min-width: auto; max-width: none;" />
+                            <ui:TextField name="metallic-value" value="0.00" max-length="4" class="value-input" />
+                        </ui:VisualElement>
+                        <ui:VisualElement name="height-container" class="setting-row">
+                            <ui:Label text="Height Strength" name="height-label" class="setting-label" style="min-width: 110px;" />
+                            <ui:Slider name="height-slider" low-value="0.005" high-value="0.08" fill="true" class="setting-slider" style="width: 160px; min-width: auto; max-width: none;" />
+                            <ui:TextField name="height-value" value="0.02" max-length="5" class="value-input" />
+                        </ui:VisualElement>
+                        <ui:VisualElement name="emission-container" class="customization-section emission-section">
+                            <ui:VisualElement name="emission-header" class="emission-header" style="justify-content: flex-start;">
+                                <ui:Label text="Emission" name="emission-label" class="section-title emission-title" style="width: 100%;" />
+                            </ui:VisualElement>
+                            <ui:Toggle text="Enable" name="emission-toggle" class="emission-toggle" />
+                            <ui:VisualElement name="emission-picker-container" class="color-picker-full-container emission-picker">
+                                <ui:Button name="emission-preview-box" class="color-preview-box emission-preview-box" style="margin-bottom: 15px;" />
+                                <ui:VisualElement name="emission-rgb-inputs" class="color-rgb-container emission-rgb-container">
+                                    <ui:VisualElement name="emission-r-input-container" class="setting-row">
+                                        <ui:Label text="R" name="emission-r-label" class="setting-label color-rgb-label" />
+                                        <ui:Slider name="emission-r-slider" low-value="0" high-value="255" fill="true" class="setting-slider" style="width: 235px; min-width: auto; max-width: none;" />
+                                        <ui:IntegerField name="emission-r-input" value="0" max-length="3" class="value-input color-rgb-input" />
+                                    </ui:VisualElement>
+                                    <ui:VisualElement name="emission-g-input-container" class="setting-row">
+                                        <ui:Label text="G" name="emission-g-label" class="setting-label color-rgb-label" />
+                                        <ui:Slider name="emission-g-slider" low-value="0" high-value="255" fill="true" class="setting-slider" style="width: 235px; min-width: auto; max-width: none;" />
+                                        <ui:IntegerField name="emission-g-input" value="0" max-length="3" class="value-input color-rgb-input" />
+                                    </ui:VisualElement>
+                                    <ui:VisualElement name="emission-b-input-container" class="setting-row">
+                                        <ui:Label text="B" name="emission-b-label" class="setting-label color-rgb-label" />
+                                        <ui:Slider name="emission-b-slider" low-value="0" high-value="255" fill="true" class="setting-slider" style="width: 235px; min-width: auto; max-width: none;" />
+                                        <ui:IntegerField name="emission-b-input" value="0" max-length="3" class="value-input color-rgb-input" />
+                                    </ui:VisualElement>
+                                </ui:VisualElement>
+                            </ui:VisualElement>
+                        </ui:VisualElement>
+                    </ui:VisualElement>
                 </ui:VisualElement>
             </ui:VisualElement>
-            <ui:VisualElement name="weapon-bar" class="weapon-bar weapon-bar-inline">
-                <ui:VisualElement name="primary-weapon-container" class="weapon-slot-container">
-                    <ui:VisualElement class="weapon-slot-stack">
-                        <ui:VisualElement name="primary-dropdown" class="weapon-dropdown hidden">
-                            <ui:ScrollView name="primary-scroll" class="weapon-dropdown-scroll" />
-                        </ui:VisualElement>
+        </ui:VisualElement>
+        <ui:VisualElement name="weapons-flex">
+            <ui:VisualElement name="weapon-selection-container" class="loadout-edge-container weapon-selection-container card">
+                <ui:VisualElement name="primary-weapon-container" class="weapon-slot-container-vertical">
+                    <ui:VisualElement name="primary-weapon-row" class="weapon-slot-row">
                         <ui:VisualElement name="primary-weapon-slot" class="weapon-slot weapon-slot-primary">
                             <ui:Image name="primary-weapon-image" class="weapon-image" />
+                        </ui:VisualElement>
+                        <ui:VisualElement name="primary-dropdown" class="weapon-dropdown hidden">
+                            <ui:ScrollView name="primary-scroll" class="weapon-dropdown-scroll weapon-dropdown-scroll-horizontal" />
                         </ui:VisualElement>
                     </ui:VisualElement>
                     <ui:Label text="PRIMARY" class="weapon-slot-label" />
                 </ui:VisualElement>
-                <ui:VisualElement name="secondary-weapon-container" class="weapon-slot-container">
-                    <ui:VisualElement class="weapon-slot-stack">
-                        <ui:VisualElement name="secondary-dropdown" class="weapon-dropdown hidden">
-                            <ui:ScrollView name="secondary-scroll" class="weapon-dropdown-scroll" />
-                        </ui:VisualElement>
+                <ui:VisualElement name="secondary-weapon-container" class="weapon-slot-container-vertical">
+                    <ui:VisualElement name="secondary-weapon-row" class="weapon-slot-row">
                         <ui:VisualElement name="secondary-weapon-slot" class="weapon-slot weapon-slot-secondary">
                             <ui:Image name="secondary-weapon-image" class="weapon-image" />
                         </ui:VisualElement>
-                    </ui:VisualElement>
-                    <ui:Label text="SECONDARY" name="Label" class="weapon-slot-label" />
-                </ui:VisualElement>
-                <ui:VisualElement name="tertiary-weapon-container" class="weapon-slot-container">
-                    <ui:VisualElement class="weapon-slot-stack">
-                        <ui:VisualElement name="tertiary-dropdown" class="weapon-dropdown hidden">
-                            <ui:ScrollView name="tertiary-scroll" class="weapon-dropdown-scroll" />
+                        <ui:VisualElement name="secondary-dropdown" class="weapon-dropdown hidden">
+                            <ui:ScrollView name="secondary-scroll" class="weapon-dropdown-scroll weapon-dropdown-scroll-horizontal" />
                         </ui:VisualElement>
+                    </ui:VisualElement>
+                    <ui:Label text="SECONDARY" class="weapon-slot-label" />
+                </ui:VisualElement>
+                <ui:VisualElement name="tertiary-weapon-container" class="weapon-slot-container-vertical">
+                    <ui:VisualElement name="tertiary-weapon-row" class="weapon-slot-row">
                         <ui:VisualElement name="tertiary-weapon-slot" class="weapon-slot weapon-slot-tertiary">
                             <ui:Image name="tertiary-weapon-image" class="weapon-image" />
+                        </ui:VisualElement>
+                        <ui:VisualElement name="tertiary-dropdown" class="weapon-dropdown hidden">
+                            <ui:ScrollView name="tertiary-scroll" class="weapon-dropdown-scroll weapon-dropdown-scroll-horizontal" />
                         </ui:VisualElement>
                     </ui:VisualElement>
                     <ui:Label text="TERTIARY" class="weapon-slot-label" />
                 </ui:VisualElement>
             </ui:VisualElement>
-            <ui:VisualElement name="loadout-buttons" class="button-row">
-                <ui:Button text="Back" name="back-to-main-from-loadout" class="menu-chip menu-chip-enabled back-button" />
-            </ui:VisualElement>
         </ui:VisualElement>
     </ui:VisualElement>
+    <ui:VisualElement name="material-packet-panel" class="panel full-abs hidden material-packet-panel">
+        <ui:VisualElement name="material-packet-container" class="material-packet-container card">
+            <ui:VisualElement name="material-packet-header" class="material-packet-header">
+                <ui:Button text="Back" name="material-packet-back" class="menu-chip menu-chip-enabled back-button" />
+                <ui:Label text="Select Material Packet" name="material-packet-title" class="title" />
+            </ui:VisualElement>
+            <ui:ScrollView name="material-packet-scroll" vertical-scroller-visibility="Auto" horizontal-scroller-visibility="Hidden" class="material-packet-scroll">
+                <ui:VisualElement name="material-packet-grid" class="material-packet-grid" />
+            </ui:ScrollView>
+        </ui:VisualElement>
+    </ui:VisualElement>
+    <ui:VisualElement name="player-model-viewport" class="player-model-viewport" />
     <ui:VisualElement name="options-panel" class="panel full-abs center-xy hidden">
         <ui:VisualElement name="options-container" class="options-container card">
             <ui:Label text="OPTIONS" name="options-label" class="title" />
@@ -174,12 +241,33 @@
                 <ui:Button text="Game" name="tab-game" class="options-tab" />
                 <ui:Button text="Controls" name="tab-controls" class="options-tab" />
             </ui:VisualElement>
-            <ui:ScrollView name="options-content-scroll" class="options-content-scroll" vertical-scroller-visibility="Auto" horizontal-scroller-visibility="Hidden">
+            <ui:ScrollView name="options-content-scroll" vertical-scroller-visibility="Auto" horizontal-scroller-visibility="Hidden" class="options-content-scroll">
                 <ui:VisualElement name="options-content" class="options-content">
                     <ui:VisualElement name="video-content" class="options-tab-content">
-                        <ui:VisualElement name="quality-container" class="setting-row">
-                            <ui:Label text="Quality Level" name="quality-label" class="setting-label" />
-                            <ui:DropdownField name="quality-level" class="setting-dropdown" />
+                        <ui:VisualElement name="window-mode-container" class="setting-row">
+                            <ui:Label text="Window Mode" name="window-mode-label" class="setting-label" />
+                            <ui:DropdownField name="window-mode" class="setting-dropdown" />
+                        </ui:VisualElement>
+                        <ui:VisualElement name="aspect-ratio-container" class="setting-row">
+                            <ui:Label text="Aspect Ratio" name="aspect-ratio-label" class="setting-label" />
+                            <ui:DropdownField name="aspect-ratio" class="setting-dropdown" />
+                        </ui:VisualElement>
+                        <ui:VisualElement name="resolution-container" class="setting-row">
+                            <ui:Label text="Resolution" name="resolution-label" class="setting-label" />
+                            <ui:DropdownField name="resolution" class="setting-dropdown" />
+                        </ui:VisualElement>
+                        <ui:VisualElement name="msaa-container" class="setting-row">
+                            <ui:Label text="Anti-Aliasing (MSAA)" name="msaa-label" class="setting-label" />
+                            <ui:DropdownField name="msaa" class="setting-dropdown" />
+                        </ui:VisualElement>
+                        <ui:VisualElement name="shadow-distance-container" class="setting-row">
+                            <ui:Label text="Shadow Distance" name="shadow-distance-label" class="setting-label" />
+                            <ui:Slider name="shadow-distance" low-value="0" high-value="500" fill="true" class="setting-slider" />
+                            <ui:TextField name="shadow-distance-value" value="300" max-length="6" class="value-input" />
+                        </ui:VisualElement>
+                        <ui:VisualElement name="shadow-resolution-container" class="setting-row">
+                            <ui:Label text="Shadow Resolution" name="shadow-resolution-label" class="setting-label" />
+                            <ui:DropdownField name="shadow-resolution" class="setting-dropdown" />
                         </ui:VisualElement>
                         <ui:VisualElement name="vsync-container" class="setting-row">
                             <ui:Label text="VSync" name="vsync-label" class="setting-label" />
@@ -193,17 +281,17 @@
                     <ui:VisualElement name="audio-content" class="options-tab-content hidden">
                         <ui:VisualElement name="master-container" class="setting-row">
                             <ui:Label text="Master Volume" name="master-label" class="setting-label" />
-                            <ui:Slider name="master-volume" low-value="0" high-value="1" class="setting-slider" fill="true" />
+                            <ui:Slider name="master-volume" low-value="0" high-value="1" fill="true" class="setting-slider" />
                             <ui:TextField name="master-volume-value" value="100%" max-length="4" class="value-input" />
                         </ui:VisualElement>
                         <ui:VisualElement name="music-container" class="setting-row">
                             <ui:Label text="Music Volume" name="music-label" class="setting-label" />
-                            <ui:Slider name="music-volume" low-value="0" high-value="1" class="setting-slider" fill="true" />
+                            <ui:Slider name="music-volume" low-value="0" high-value="1" fill="true" class="setting-slider" />
                             <ui:TextField name="music-volume-value" value="100%" max-length="4" class="value-input" />
                         </ui:VisualElement>
                         <ui:VisualElement name="sfx-container" class="setting-row">
                             <ui:Label text="SFX Volume" name="sfx-label" class="setting-label" />
-                            <ui:Slider name="sfx-volume" low-value="0" high-value="1" class="setting-slider" fill="true" />
+                            <ui:Slider name="sfx-volume" low-value="0" high-value="1" fill="true" class="setting-slider" />
                             <ui:TextField name="sfx-volume-value" value="100%" max-length="4" class="value-input" />
                         </ui:VisualElement>
                     </ui:VisualElement>
@@ -220,7 +308,7 @@
                     <ui:VisualElement name="controls-content" class="options-tab-content hidden">
                         <ui:VisualElement name="sensitivity-container" class="setting-row">
                             <ui:Label text="Mouse Sensitivity" name="sensitivity-label" class="setting-label" />
-                            <ui:Slider name="sensitivity" low-value="0.01" high-value="0.5" class="setting-slider" fill="true" />
+                            <ui:Slider name="sensitivity" low-value="0.01" high-value="0.5" fill="true" class="setting-slider" />
                             <ui:TextField name="sensitivity-value" value="0.10" max-length="5" class="value-input" />
                         </ui:VisualElement>
                         <ui:VisualElement name="invert-y-container" class="setting-row">
@@ -335,6 +423,17 @@
             </ui:VisualElement>
         </ui:VisualElement>
     </ui:VisualElement>
+    <ui:VisualElement name="loadout-unsaved-changes-modal" class="unsaved-changes-modal full-abs hidden">
+        <ui:VisualElement name="loadout-unsaved-changes-container" class="unsaved-changes-container card">
+            <ui:Label text="Unsaved Changes" name="loadout-unsaved-changes-title" class="title" />
+            <ui:Label text="Do you want to apply your loadout changes?" name="loadout-unsaved-changes-message" class="unsaved-changes-message" />
+            <ui:VisualElement name="loadout-unsaved-changes-buttons" class="unsaved-changes-buttons">
+                <ui:Button text="Apply" name="loadout-unsaved-yes" class="menu-chip menu-chip-enabled" />
+                <ui:Button text="Discard" name="loadout-unsaved-no" class="menu-chip menu-chip-enabled back-button" />
+                <ui:Button text="Cancel" name="loadout-unsaved-cancel" class="menu-chip menu-chip-enabled" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+    </ui:VisualElement>
     <ui:VisualElement name="quit-confirmation-modal" class="unsaved-changes-modal full-abs hidden">
         <ui:VisualElement name="quit-confirmation-container" class="unsaved-changes-container card">
             <ui:Label text="Quit Game" name="quit-confirmation-title" class="title" />
@@ -359,26 +458,6 @@
         <ui:VisualElement name="first-time-setup-container" class="first-time-setup-container card first-time-setup-container-min-height">
             <ui:Label text="WHO ARE YOU?" name="first-time-label" class="title" />
             <ui:VisualElement name="first-time-inputs" class="first-time-inputs first-time-inputs-inline">
-                <ui:VisualElement name="first-time-color-container" class="first-time-color-container first-time-color-container-margin-10px">
-                    <ui:VisualElement name="first-time-current-color-display" class="current-color-display">
-                        <ui:VisualElement name="first-time-current-color-0" class="color-circle current-color color-0 hidden first-time-color-circle-24px" />
-                        <ui:VisualElement name="first-time-current-color-1" class="color-circle current-color color-1 hidden first-time-color-circle-24px" />
-                        <ui:VisualElement name="first-time-current-color-2" class="color-circle current-color color-2 hidden first-time-color-circle-24px" />
-                        <ui:VisualElement name="first-time-current-color-3" class="color-circle current-color color-3 hidden first-time-color-circle-24px" />
-                        <ui:VisualElement name="first-time-current-color-4" class="color-circle current-color color-4 hidden first-time-color-circle-24px" />
-                        <ui:VisualElement name="first-time-current-color-5" class="color-circle current-color color-5 hidden first-time-color-circle-24px" />
-                        <ui:VisualElement name="first-time-current-color-6" class="color-circle current-color color-6 hidden first-time-color-circle-24px" />
-                    </ui:VisualElement>
-                    <ui:VisualElement name="first-time-color-options" class="color-options first-time-color-options hidden first-time-color-options-inline">
-                        <ui:VisualElement name="first-time-option-color-0" class="color-circle color-option color-0 color-option-margin-0 first-time-color-circle-24px" />
-                        <ui:VisualElement name="first-time-option-color-1" class="color-circle color-option color-1 color-option-margin-0 first-time-color-circle-24px" />
-                        <ui:VisualElement name="first-time-option-color-2" class="color-circle color-option color-2 color-option-margin-0 first-time-color-circle-24px" />
-                        <ui:VisualElement name="first-time-option-color-3" class="color-circle color-option color-3 color-option-margin-0 first-time-color-circle-24px" />
-                        <ui:VisualElement name="first-time-option-color-4" class="color-circle color-option color-4 color-option-margin-0 first-time-color-circle-24px" />
-                        <ui:VisualElement name="first-time-option-color-5" class="color-circle color-option color-5 color-option-margin-0 first-time-color-circle-24px" />
-                        <ui:VisualElement name="first-time-option-color-6" class="color-circle color-option color-6 color-option-margin-0 first-time-color-circle-24px" />
-                    </ui:VisualElement>
-                </ui:VisualElement>
                 <ui:TextField name="first-time-name-input" placeholder-text="Enter your name..." class="first-time-name-input first-time-name-input-height-68px" />
             </ui:VisualElement>
             <ui:Button text="Continue" name="first-time-continue-button" class="menu-chip menu-chip-enabled continue-button" />

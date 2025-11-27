@@ -22,16 +22,10 @@ namespace Network.Singletons {
         public static HUDManager Instance;
 
         // Cached values to avoid unnecessary string allocations and UI updates
-        private float _cachedHealthValue = -1f;
-        private float _cachedHealthPercent = -1f;
         private string _cachedHealthText = "";
-        private float _cachedMultiplierValue = -1f;
-        private float _cachedMultiplierPercent = -1f;
         private string _cachedMultiplierText = "";
         private int _cachedAmmoCurrent = -1;
         private int _cachedAmmoTotal = -1;
-        private string _cachedAmmoCurrentText = "";
-        private string _cachedAmmoTotalText = "";
 
         // Cache MatchSettingsManager.Instance to avoid repeated lookups
         private MatchSettingsManager _cachedMatchSettings;
@@ -66,16 +60,14 @@ namespace Network.Singletons {
             // Cache MatchSettingsManager.Instance (but don't cache game mode - check it fresh each time)
             _cachedMatchSettings = MatchSettingsManager.Instance;
         }
-        
+
         /// <summary>
         /// Checks if we're in Gun Tag mode. Always checks fresh to handle build initialization order issues.
         /// </summary>
         private bool IsTagMode() {
             // Refresh MatchSettingsManager cache if needed
-            if(_cachedMatchSettings == null) {
-                _cachedMatchSettings = MatchSettingsManager.Instance;
-            }
-            
+            if(_cachedMatchSettings == null) _cachedMatchSettings = MatchSettingsManager.Instance;
+
             // Always check fresh - don't cache game mode as it may not be set yet during initialization
             return _cachedMatchSettings != null && _cachedMatchSettings.selectedGameModeId == "Gun Tag";
         }
@@ -94,14 +86,11 @@ namespace Network.Singletons {
 
             if(Mathf.Abs(_healthBar.value - percent) > 0.01f) {
                 _healthBar.value = percent;
-                _cachedHealthPercent = percent;
             }
 
-            if(_cachedHealthText != healthText) {
-                _healthValue.text = healthText;
-                _cachedHealthText = healthText;
-                _cachedHealthValue = current;
-            }
+            if(_cachedHealthText == healthText) return;
+            _healthValue.text = healthText;
+            _cachedHealthText = healthText;
         }
 
         /// <summary>
@@ -118,10 +107,9 @@ namespace Network.Singletons {
             _healthBar.style.display = DisplayStyle.None;
 
             var tagText = isTagged ? "You're it!" : "Not it...";
-            if(_cachedHealthText != tagText) {
-                _healthValue.text = tagText;
-                _cachedHealthText = tagText;
-            }
+            if(_cachedHealthText == tagText) return;
+            _healthValue.text = tagText;
+            _cachedHealthText = tagText;
         }
 
         public void UpdateMultiplier(float current, float max) {
@@ -131,14 +119,11 @@ namespace Network.Singletons {
 
             if(Mathf.Abs(_multiplierBar.value - percent) > 0.01f) {
                 _multiplierBar.value = percent;
-                _cachedMultiplierPercent = percent;
             }
 
-            if(_cachedMultiplierText != multiplierText) {
-                _multiplierValue.text = multiplierText;
-                _cachedMultiplierText = multiplierText;
-                _cachedMultiplierValue = current;
-            }
+            if(_cachedMultiplierText == multiplierText) return;
+            _multiplierValue.text = multiplierText;
+            _cachedMultiplierText = multiplierText;
         }
 
         // Call from Weapon
@@ -148,15 +133,12 @@ namespace Network.Singletons {
                 var ammoCurrentText = current.ToString();
                 _ammoCurrent.text = ammoCurrentText;
                 _cachedAmmoCurrent = current;
-                _cachedAmmoCurrentText = ammoCurrentText;
             }
 
-            if(_cachedAmmoTotal != total) {
-                var ammoTotalText = total.ToString();
-                _ammoTotal.text = ammoTotalText;
-                _cachedAmmoTotal = total;
-                _cachedAmmoTotalText = ammoTotalText;
-            }
+            if(_cachedAmmoTotal == total) return;
+            var ammoTotalText = total.ToString();
+            _ammoTotal.text = ammoTotalText;
+            _cachedAmmoTotal = total;
         }
 
         public void DisableHUD() {

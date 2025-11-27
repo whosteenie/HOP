@@ -67,7 +67,8 @@ namespace OSI {
         /// </summary>
         /// <param name="cameraPosition">Camera position</param>
         /// <returns></returns>
-        public float GetDistanceFromCamera(Vector3 cameraPosition) => Vector3.Distance(cameraPosition, GetWorldPosition());
+        public float GetDistanceFromCamera(Vector3 cameraPosition) =>
+            Vector3.Distance(cameraPosition, GetWorldPosition());
 
         /// <summary>
         /// Sets the target color.

@@ -1,4 +1,3 @@
-using System;
 using System.Collections;
 using System.Collections.Generic;
 using Game.Weapons;
@@ -23,16 +22,6 @@ namespace Game.Player {
         [SerializeField] private Color trailColor = new(0.3f, 0.7f, 1f, 0.5f);
 
         // Color mapping: white, red, orange, yellow, green, blue, purple (index 0-6)
-        private static readonly Color[] PlayerColors = {
-            new Color(1f, 1f, 1f, 1f), // white (0)
-            new Color(1f, 0f, 0f, 1f), // red (1)
-            new Color(1f, 0.5f, 0f, 1f), // orange (2)
-            new Color(1f, 1f, 0f, 1f), // yellow (3)
-            new Color(0f, 1f, 0f, 1f), // green (4)
-            new Color(0f, 0.5f, 1f, 1f), // blue (5)
-            new Color(0.5f, 0f, 1f, 1f) // purple (6)
-        };
-
         private static readonly int emissionColor = Shader.PropertyToID("_EmissionColor");
         private static readonly int emission = Shader.PropertyToID("_Emission");
         private static readonly int tintColor = Shader.PropertyToID("_TintColor");
@@ -43,7 +32,7 @@ namespace Game.Player {
         private const int PoolSize = 20;
 
         // Cache WeaponManager reference to prevent GetComponent allocations
-        private WeaponManager _cachedWeaponManager;
+        private WeaponManager _weaponManager;
 
         // Material pool to avoid creating new materials every spawn
         private readonly Queue<Material> _materialPool = new();
@@ -52,41 +41,49 @@ namespace Game.Player {
         // Track active fade coroutines so we can stop them when clearing trails
         private readonly List<Coroutine> _activeFadeCoroutines = new();
 
+        private Color _currentPlayerColor = Color.white;
+
         private void Awake() {
-            playerController ??= GetComponent<PlayerController>();
-            
-            _deathCameraController ??= playerController.DeathCameraController;
-            _playerMesh ??= playerController.PlayerMesh;
+            ValidateComponents();
+        }
+
+        private void ValidateComponents() {
+            if(playerController == null) {
+                playerController = GetComponent<PlayerController>();
+            }
+
+            if(playerController == null) {
+                Debug.LogError("[SpeedTrail] PlayerController not found!");
+                enabled = false;
+                return;
+            }
+
+            if(_deathCameraController == null) {
+                _deathCameraController = playerController.DeathCameraController;
+            }
+
+            if(_playerMesh == null) {
+                _playerMesh = playerController.PlayerMesh;
+            }
+
+            if(_weaponManager == null) {
+                _weaponManager = playerController.WeaponManager;
+            }
+
+            CachePlayerColor();
+        }
+
+        private void OnEnable() {
+            SubscribeToColorChanges();
+        }
+
+        private void OnDisable() {
+            UnsubscribeFromColorChanges();
+            ClearAllTrails();
         }
 
         public override void OnNetworkSpawn() {
             base.OnNetworkSpawn();
-
-            // Auto-find controller if not assigned
-            if(playerController == null) {
-                playerController = GetComponent<PlayerController>();
-                if(playerController == null) {
-                    playerController = GetComponentInParent<PlayerController>();
-                }
-            }
-
-            // Auto-find player mesh if not assigned
-            if(_playerMesh == null) {
-                _playerMesh = GetComponentInChildren<SkinnedMeshRenderer>();
-            }
-
-            // Auto-find death camera if not assigned
-            if(_deathCameraController == null) {
-                _deathCameraController = GetComponent<DeathCameraController>();
-                if(_deathCameraController == null && playerController != null) {
-                    _deathCameraController = playerController.GetComponent<DeathCameraController>();
-                }
-            }
-
-            // Cache WeaponManager reference to prevent GetComponent allocations in Update
-            if(playerController != null) {
-                _cachedWeaponManager = playerController.WeaponManager;
-            }
 
             if(ghostMaterial == null) CreateGhostMaterial();
             for(var i = 0; i < PoolSize; i++) CreateGhost();
@@ -116,13 +113,13 @@ namespace Game.Player {
             // Get the actual damage multiplier from the Weapon component
             // This matches the same calculation used in Weapon.UpdateDamageMultiplier()
             // Use cached WeaponManager reference to prevent GetComponent allocations
-            if(_cachedWeaponManager == null && playerController != null) {
-                _cachedWeaponManager = playerController.WeaponManager;
+            if(_weaponManager == null && playerController != null) {
+                _weaponManager = playerController.WeaponManager;
             }
 
-            if(_cachedWeaponManager == null || _cachedWeaponManager.CurrentWeapon == null) return;
+            if(_weaponManager?.CurrentWeapon == null) return;
 
-            var weapon = _cachedWeaponManager.CurrentWeapon;
+            var weapon = _weaponManager.CurrentWeapon;
             // Use the network-synced multiplier value
             var currentMultiplier = weapon.netCurrentDamageMultiplier.Value;
 
@@ -179,16 +176,14 @@ namespace Game.Player {
             }
 
             // If no available ghost found, create a new one
-            if(ghost == null) {
-                ghost = CreateGhost();
-            }
+            if(ghost == null) ghost = CreateGhost();
 
             // Set layer based on whether this is owner or non-owner
             // For owner: use "Masked" layer while alive (hidden from FP camera), "Default" when dead (visible during death cam)
             // For non-owner: always use "Default" layer (always visible)
             if(IsOwner) {
                 // Owner: use Default layer when dead (visible during death cam), Masked layer while alive
-                bool isDead = playerController != null && playerController.IsDead;
+                var isDead = playerController != null && playerController.IsDead;
                 ghost.layer = isDead
                     ? LayerMask.NameToLayer("Default")
                     : LayerMask.NameToLayer("Masked");
@@ -224,10 +219,7 @@ namespace Game.Player {
             }
 
             // Reuse existing mesh or create new one
-            Mesh baked = mf.sharedMesh;
-            if(baked == null) {
-                baked = new Mesh();
-            }
+            var baked = mf.sharedMesh ?? new Mesh();
 
             // Bake the current player mesh state into the mesh
             _playerMesh.BakeMesh(baked);
@@ -239,56 +231,51 @@ namespace Game.Player {
             }
 
             // Get material from pool (reuse instead of creating new)
-            Material material = null;
-            if(_materialPool.Count > 0) {
-                material = _materialPool.Dequeue();
-            } else {
+            var material = _materialPool.Count > 0
+                ? _materialPool.Dequeue()
+                :
                 // Pool empty, create new one
-                material = CreatePooledMaterial();
-            }
+                CreatePooledMaterial();
 
             // Apply player's selected color to the afterimage
             if(playerController != null) {
-                var materialIndex = playerController.playerMaterialIndex.Value;
-                if(materialIndex >= 0 && materialIndex < PlayerColors.Length) {
-                    var playerColor = PlayerColors[materialIndex];
+                var playerColor = _currentPlayerColor;
 
-                    // Preserve emission intensity from the original material
-                    // For Particles/Standard Unlit shader, emission is typically _EmissionColor
-                    if(material.HasProperty(emissionColor)) {
-                        var currentEmission = material.GetColor(emissionColor);
-                        // Calculate intensity from the original emission (HDR values can be > 1)
-                        var emissionIntensity = currentEmission.maxColorComponent;
-                        if(emissionIntensity < 0.1f) {
-                            // If no emission set, use a default intensity (matching the red look you liked)
-                            emissionIntensity = 2.4f; // Approximate intensity from inspector
-                        }
-
-                        // Apply player color with preserved intensity (HDR)
-                        material.SetColor(emissionColor, playerColor * emissionIntensity);
-                        material.EnableKeyword("_EMISSION");
-                    } else if(material.HasProperty(emission)) {
-                        var currentEmission = material.GetColor(emission);
-                        var emissionIntensity = currentEmission.maxColorComponent;
-                        if(emissionIntensity < 0.1f) {
-                            emissionIntensity = 2.4f;
-                        }
-
-                        material.SetColor(emission, playerColor * emissionIntensity);
-                        material.EnableKeyword("_EMISSION");
+                // Preserve emission intensity from the original material
+                // For Particles/Standard Unlit shader, emission is typically _EmissionColor
+                if(material.HasProperty(emissionColor)) {
+                    var currentEmission = material.GetColor(emissionColor);
+                    // Calculate intensity from the original emission (HDR values can be > 1)
+                    var emissionIntensity = currentEmission.maxColorComponent;
+                    if(emissionIntensity < 0.1f) {
+                        // If no emission set, use a default intensity (matching the red look you liked)
+                        emissionIntensity = 2.4f; // Approximate intensity from inspector
                     }
 
-                    // Also set the main color (albedo) if the shader supports it
-                    // For Particles shader, this might be _TintColor or _Color
-                    if(material.HasProperty(tintColor)) {
-                        var currentTint = material.GetColor(tintColor);
-                        material.SetColor(tintColor,
-                            new Color(playerColor.r, playerColor.g, playerColor.b, currentTint.a));
-                    } else if(material.HasProperty(color)) {
-                        var currentColor = material.GetColor(color);
-                        material.SetColor(color,
-                            new Color(playerColor.r, playerColor.g, playerColor.b, currentColor.a));
+                    // Apply player color with preserved intensity (HDR)
+                    material.SetColor(emissionColor, playerColor * emissionIntensity);
+                    material.EnableKeyword("_EMISSION");
+                } else if(material.HasProperty(emission)) {
+                    var currentEmission = material.GetColor(emission);
+                    var emissionIntensity = currentEmission.maxColorComponent;
+                    if(emissionIntensity < 0.1f) {
+                        emissionIntensity = 2.4f;
                     }
+
+                    material.SetColor(emission, playerColor * emissionIntensity);
+                    material.EnableKeyword("_EMISSION");
+                }
+
+                // Also set the main color (albedo) if the shader supports it
+                // For Particles shader, this might be _TintColor or _Color
+                if(material.HasProperty(tintColor)) {
+                    var currentTint = material.GetColor(tintColor);
+                    material.SetColor(tintColor,
+                        new Color(playerColor.r, playerColor.g, playerColor.b, currentTint.a));
+                } else if(material.HasProperty(color)) {
+                    var currentColor = material.GetColor(color);
+                    material.SetColor(color,
+                        new Color(playerColor.r, playerColor.g, playerColor.b, currentColor.a));
                 }
             }
 
@@ -316,18 +303,18 @@ namespace Game.Player {
             ghost.SetActive(false);
 
             // Return material to pool instead of destroying it
-            if(mat != null && _materialPool.Count < MaterialPoolSize * 2) {
+            if(_materialPool.Count < MaterialPoolSize * 2) {
                 // Reset material color to original
                 mat.color = trailColor;
                 _materialPool.Enqueue(mat);
-            } else if(mat != null) {
+            } else {
                 // Pool is full, destroy excess materials
                 Destroy(mat);
             }
 
             // Destroy the mesh to prevent memory leak
             var mf = ghost.GetComponent<MeshFilter>();
-            if(mf != null && mf.sharedMesh != null) {
+            if(mf?.sharedMesh != null) {
                 Destroy(mf.sharedMesh);
                 mf.sharedMesh = null;
             }
@@ -366,6 +353,27 @@ namespace Game.Player {
         /// Clears all active speed trail afterimages immediately.
         /// Called before respawn to ensure a clean slate.
         /// </summary>
+        private void CachePlayerColor() {
+            if(playerController == null) return;
+            _currentPlayerColor = playerController.CurrentBaseColor;
+        }
+
+        private void SubscribeToColorChanges() {
+            if(playerController == null) return;
+            playerController.playerBaseColor.OnValueChanged -= OnPlayerBaseColorChanged;
+            playerController.playerBaseColor.OnValueChanged += OnPlayerBaseColorChanged;
+            CachePlayerColor();
+        }
+
+        private void UnsubscribeFromColorChanges() {
+            if(playerController == null) return;
+            playerController.playerBaseColor.OnValueChanged -= OnPlayerBaseColorChanged;
+        }
+
+        private void OnPlayerBaseColorChanged(Vector4 _, Vector4 newValue) {
+            _currentPlayerColor = new Color(newValue.x, newValue.y, newValue.z, 1f);
+        }
+
         public void ClearAllTrails() {
             // Stop all fade coroutines
             foreach(var coroutine in _activeFadeCoroutines) {
@@ -386,7 +394,7 @@ namespace Game.Player {
 
             foreach(var ghost in activeGhosts) {
                 var mr = ghost.GetComponent<MeshRenderer>();
-                if(mr != null && mr.material != null) {
+                if(mr?.material != null) {
                     var mat = mr.material;
                     // Reset material color
                     mat.color = trailColor;
@@ -400,7 +408,7 @@ namespace Game.Player {
 
                 // Destroy the mesh to prevent memory leak
                 var mf = ghost.GetComponent<MeshFilter>();
-                if(mf != null && mf.sharedMesh != null) {
+                if(mf?.sharedMesh != null) {
                     Destroy(mf.sharedMesh);
                     mf.sharedMesh = null;
                 }

@@ -10,8 +10,7 @@ namespace OSI {
     public class OffScreenIndicator : MonoBehaviour {
         [Range(0.5f, 0.9f)]
         [Tooltip("Distance offset of the indicators from the centre of the screen")]
-        [SerializeField]
-        private float screenBoundOffset = 0.9f;
+        [SerializeField] private float screenBoundOffset = 0.9f;
 
         [SerializeField] private bool updateScreenBoundsOnScreenChange;
 
@@ -56,14 +55,14 @@ namespace OSI {
                 if(target.NeedBoxIndicator && isTargetVisible) {
                     screenPosition.z = 0;
                     indicator = GetIndicator(ref target.indicator,
-                        IndicatorType.BOX); // Gets the box indicator from the pool.
+                        IndicatorType.Box); // Gets the box indicator from the pool.
                 } else {
                     var angle = float.MinValue;
                     if(target.NeedArrowIndicator && !isTargetVisible) {
                         OffScreenIndicatorCore.GetArrowIndicatorPositionAndAngle(ref screenPosition, ref angle,
                             _screenCentre, _screenBounds);
                         indicator = GetIndicator(ref target.indicator,
-                            IndicatorType.ARROW); // Gets the arrow indicator from the pool.
+                            IndicatorType.Arrow); // Gets the arrow indicator from the pool.
                         indicator.transform.rotation =
                             Quaternion.Euler(0, 0, angle * Mathf.Rad2Deg); // Sets the rotation for the arrow indicator.
                     } else {
@@ -132,7 +131,7 @@ namespace OSI {
         /// <param name="indicator"></param>
         /// <param name="type"></param>
         /// <returns></returns>
-        private Indicator GetIndicator(ref Indicator indicator, IndicatorType type) {
+        private static Indicator GetIndicator(ref Indicator indicator, IndicatorType type) {
             if(indicator != null) {
                 if(indicator.Type == type) return indicator;
                 indicator.Activate(false);
@@ -140,7 +139,7 @@ namespace OSI {
             }
 
             // Sets the indicator as active.
-            indicator = type == IndicatorType.BOX
+            indicator = type == IndicatorType.Box
                 ? BoxObjectPool.Current.GetPooledObject()
                 : ArrowObjectPool.Current.GetPooledObject();
             indicator.Activate(true); // Sets the indicator as active.

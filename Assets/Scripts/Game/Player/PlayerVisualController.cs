@@ -15,7 +15,6 @@ namespace Game.Player {
 
         private PlayerShadow _playerShadow;
         private Weapons.WeaponManager _weaponManager;
-        private Material[] _playerMaterials;
         private SkinnedMeshRenderer _playerMesh;
 
         private GameObject _playerModelRoot;
@@ -26,22 +25,50 @@ namespace Game.Player {
         private SkinnedMeshRenderer[] _cachedSkinnedRenderers;
         private bool _renderersCacheValid;
         private Material[] _cachedMaterialsArray;
-        private int _lastMaterialIndex = -1;
         private const string GrappleLineName = "GrappleLine";
 
         // Cache Bounds object to prevent allocations
-        private static readonly Bounds MaxBounds = new Bounds(Vector3.zero,
+        private static readonly Bounds MaxBounds = new(Vector3.zero,
             new Vector3(float.MaxValue, float.MaxValue, float.MaxValue));
 
         private void Awake() {
-            playerController ??= GetComponent<PlayerController>();
-            _playerShadow ??= playerController.PlayerShadow;
-            _weaponManager ??= playerController.WeaponManager;
-            _playerMaterials ??= playerController.PlayerMaterials;
-            _playerMesh ??= playerController.PlayerMesh;
-            _playerModelRoot ??= playerController.PlayerModelRoot;
-            _worldWeaponSocket ??= playerController.WorldWeaponSocket;
-            _worldWeaponPrefabs ??= playerController.WorldWeaponPrefabs;
+            ValidateComponents();
+        }
+
+        private void ValidateComponents() {
+            if(playerController == null) {
+                playerController = GetComponent<PlayerController>();
+            }
+
+            if(playerController == null) {
+                Debug.LogError("[PlayerVisualController] PlayerController not found!");
+                enabled = false;
+                return;
+            }
+
+            if(_playerShadow == null) {
+                _playerShadow = playerController.PlayerShadow;
+            }
+
+            if(_weaponManager == null) {
+                _weaponManager = playerController.WeaponManager;
+            }
+
+            if(_playerMesh == null) {
+                _playerMesh = playerController.PlayerMesh;
+            }
+
+            if(_playerModelRoot == null) {
+                _playerModelRoot = playerController.PlayerModelRoot;
+            }
+
+            if(_worldWeaponSocket == null) {
+                _worldWeaponSocket = playerController.WorldWeaponSocket;
+            }
+
+            if(_worldWeaponPrefabs == null || _worldWeaponPrefabs.Length == 0) {
+                _worldWeaponPrefabs = playerController.WorldWeaponPrefabs;
+            }
 
             if(_playerMesh != null) {
                 _cachedMaterialsArray = _playerMesh.materials;
@@ -50,53 +77,54 @@ namespace Game.Player {
             _renderersCacheValid = false;
         }
 
-        public override void OnNetworkSpawn() {
-            base.OnNetworkSpawn();
-
-            // Component references should be assigned in the inspector
-            // Only use GetComponent as a last resort fallback if not assigned
-            if(playerController == null) {
-                playerController = GetComponent<PlayerController>();
-            }
-
-            // GetComponentInChildren is acceptable for child components (hierarchy-dependent)
-            // if(skinnedMeshRenderer == null) {
-            //     // _cachedSkinnedMeshRenderer = GetComponentInChildren<SkinnedMeshRenderer>();
-            //     if(_cachedSkinnedMeshRenderer != null && _cachedMaterialsArray == null) {
-            //         _cachedMaterialsArray = _cachedSkinnedMeshRenderer.materials;
-            //     }
-            // }
-        }
-
         /// <summary>
-        /// Applies the selected player material color.
+        /// Applies player material customization using the new packet-based system.
+        /// Generates a URP/Lit material from the packet and customization values.
+        /// Preserves the outline material at index 0.
         /// </summary>
-        public void ApplyPlayerMaterial(int index) {
-            // if(!_cachedSkinnedMeshRenderer) {
-            //     _cachedSkinnedMeshRenderer = GetComponentInChildren<SkinnedMeshRenderer>();
-            //     if(!_cachedSkinnedMeshRenderer) return;
-            // }
-
-            if(index == _lastMaterialIndex && _cachedMaterialsArray != null) {
-                return;
-            }
-
+        /// <param name="packetIndex">Index of the material packet (0 = None, 1+ = loaded packets)</param>
+        /// <param name="baseColor">Base color tint</param>
+        /// <param name="smoothness">Smoothness value (0-1)</param>
+        /// <param name="metallic">Metallic value (0-1), only used if packet uses metallic workflow</param>
+        /// <param name="specularColor">Specular color, only used if packet uses specular workflow</param>
+        /// <param name="heightStrength">Height map strength override, uses packet default if null</param>
+        /// <param name="emissionEnabled"></param>
+        /// <param name="emissionColor"></param>
+        public void ApplyPlayerMaterialCustomization(int packetIndex, Color baseColor, float smoothness, 
+            float metallic = 0f, Color? specularColor = null, float? heightStrength = null,
+            bool emissionEnabled = false, Color? emissionColor = null) {
+            
+            // Ensure materials array is initialized (preserves outline at index 0)
             if(_cachedMaterialsArray == null || _cachedMaterialsArray.Length < 2) {
                 _cachedMaterialsArray = _playerMesh.materials;
             }
 
-            if(_playerMaterials == null || _playerMaterials.Length == 0) return;
+            // Get packet from manager
+            var packetManager = Network.Singletons.PlayerMaterialPacketManager.Instance;
+            if(packetManager == null) {
+                Debug.LogWarning("[PlayerVisualController] PlayerMaterialPacketManager not found. Falling back to legacy system.");
+                return;
+            }
 
-            var selectedMaterial = _playerMaterials[index % _playerMaterials.Length];
+            var packet = packetManager.GetPacket(packetIndex);
+            if(packet == null) {
+                Debug.LogWarning($"[PlayerVisualController] Invalid packet index {packetIndex}. Using None packet.");
+                packet = packetManager.GetNonePacket();
+            }
 
-            // Material array: [0] = outline, [1] = color, [2] = lit
-            // Only modify [1] (color) for player color selection
-            // Do NOT modify [0] (outline) - outline colors handled by shader/material and PlayerTeamManager
+            // Generate material using the packet system
+            var generatedMaterial = PlayerMaterialGenerator.GenerateMaterial(
+                packet, baseColor, smoothness, metallic, specularColor, heightStrength, emissionEnabled, emissionColor);
 
-            if(_cachedMaterialsArray[1] == selectedMaterial) return;
-            _cachedMaterialsArray[1] = selectedMaterial;
+            if(generatedMaterial == null) {
+                Debug.LogError("[PlayerVisualController] Failed to generate material from packet.");
+                return;
+            }
+
+            // Only modify material slot 1 (preserve outline at index 0)
+            if(_cachedMaterialsArray[1] == generatedMaterial) return;
+            _cachedMaterialsArray[1] = generatedMaterial;
             _playerMesh.materials = _cachedMaterialsArray;
-            _lastMaterialIndex = index;
         }
 
         /// <summary>
@@ -104,9 +132,7 @@ namespace Game.Player {
         /// </summary>
         [Rpc(SendTo.Everyone)]
         public void SetWorldModelVisibleRpc(bool visible) {
-            if(_weaponManager != null) {
-                _weaponManager.SwitchWeapon(0);
-            }
+            _weaponManager?.SwitchWeapon(0);
 
             InvalidateRendererCache();
 
@@ -135,23 +161,18 @@ namespace Game.Player {
                 // Schedule delayed bounds update to ensure Unity has positioned everything
                 StartCoroutine(DelayedBoundsUpdate());
             } else {
-                if(_playerModelRoot != null) {
-                    _playerModelRoot.SetActive(false);
-                }
+                _playerModelRoot?.SetActive(false);
 
                 // Deactivate the currently equipped world weapon
                 var currentWorldWeapon = GetCurrentWorldWeapon();
-                if(currentWorldWeapon != null) {
-                    currentWorldWeapon.SetActive(false);
-                }
+                currentWorldWeapon?.SetActive(false);
             }
         }
 
         /// <summary>
         /// Sets whether renderers are enabled or disabled.
         /// </summary>
-        public void SetRenderersEnabled(bool isEnabled, bool excludeGrappleLine = true,
-            ShadowCastingMode? shadowMode = null) {
+        public void SetRenderersEnabled(bool isEnabled, bool excludeGrappleLine = true, ShadowCastingMode? shadowMode = null) {
             RefreshRendererCacheIfNeeded();
             foreach(var r in _cachedRenderers) {
                 if(r == null || (excludeGrappleLine && r.name == GrappleLineName)) continue;
@@ -175,69 +196,9 @@ namespace Game.Player {
         }
 
         /// <summary>
-        /// Sets shadow casting mode for SkinnedMeshRenderers.
-        /// Delegates to PlayerShadow to avoid code duplication.
-        /// </summary>
-        public void SetSkinnedMeshRenderersShadowMode(ShadowCastingMode mode, ShadowCastingMode? ownerMode = null,
-            bool? isEnabled = null) {
-            if(_playerShadow != null) {
-                _playerShadow.SetSkinnedMeshRenderersShadowMode(mode, ownerMode, isEnabled);
-            }
-        }
-
-        /// <summary>
-        /// Sets shadow casting mode for world weapon renderers.
-        /// Delegates to PlayerShadow to avoid code duplication.
-        /// </summary>
-        public void SetWorldWeaponRenderersShadowMode(ShadowCastingMode mode, bool isEnabled = true) {
-            if(_playerShadow != null) {
-                _playerShadow.SetWorldWeaponRenderersShadowMode(mode, isEnabled);
-            }
-        }
-
-        /// <summary>
         /// Gets the currently equipped world weapon GameObject from the weapon socket.
         /// </summary>
-        private GameObject GetCurrentWorldWeapon() {
-            // Try to get from WeaponManager first (most reliable)
-            if(_weaponManager != null) {
-                var weaponData = _weaponManager.GetWeaponDataByIndex(_weaponManager.CurrentWeaponIndex);
-                if(weaponData != null && !string.IsNullOrEmpty(weaponData.worldWeaponName) &&
-                   _worldWeaponSocket != null) {
-                    var worldObj = _worldWeaponSocket.Find(weaponData.worldWeaponName);
-                    if(worldObj != null && worldObj.gameObject.activeSelf) {
-                        return worldObj.gameObject;
-                    }
-                }
-            }
-
-            // Fallback: find the first active child in the weapon socket
-            if(_worldWeaponSocket == null) return null;
-
-            foreach(Transform child in _worldWeaponSocket) {
-                if(child.gameObject.activeSelf) {
-                    return child.gameObject;
-                }
-            }
-
-            return null;
-        }
-
-        /// <summary>
-        /// Sets shadow casting mode for world weapon prefabs.
-        /// </summary>
-        public void SetWorldWeaponPrefabsShadowMode(ShadowCastingMode mode) {
-            if(_worldWeaponPrefabs == null) return;
-
-            foreach(var w in _worldWeaponPrefabs) {
-                var weaponRenderers = w.GetComponentsInChildren<MeshRenderer>();
-                foreach(var mr in weaponRenderers) {
-                    if(mr != null) {
-                        mr.shadowCastingMode = mode;
-                    }
-                }
-            }
-        }
+        private GameObject GetCurrentWorldWeapon() => _weaponManager?.CurrentWorldWeaponInstance;
 
         /// <summary>
         /// Forces all SkinnedMeshRenderers to update their bounds immediately.
@@ -263,7 +224,7 @@ namespace Game.Player {
 
                 // Force Unity to recognize the bounds change by accessing the world-space bounds property
                 // This triggers a recalculation using our maxed localBounds
-                var _ = smr.bounds;
+                _ = smr.bounds;
             }
         }
 
@@ -328,7 +289,6 @@ namespace Game.Player {
         }
 
         // Public getters for PlayerController
-        public GameObject GetWorldModelRoot() => _playerModelRoot;
         public GameObject GetWorldWeapon() => GetCurrentWorldWeapon();
     }
 }

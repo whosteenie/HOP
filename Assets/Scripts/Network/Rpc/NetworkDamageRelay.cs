@@ -1,5 +1,6 @@
 using System;
 using Game.Player;
+using Network.AntiCheat;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -17,7 +18,17 @@ namespace Network.Rpc {
         /// </summary>
         [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
         public void RequestDamageServerRpc(NetworkObjectReference targetRef, float damage, Vector3 hitPoint,
-            Vector3 hitDirection, string bodyPartTag = null, bool isHeadshot = false) {
+            Vector3 hitDirection, string bodyPartTag = null, bool isHeadshot = false, int weaponIndex = -1,
+            ulong shotId = 0) {
+            var config = AntiCheatConfig.Instance;
+            if(config != null) {
+                if(!RpcRateLimiter.TryConsume(OwnerClientId, RpcRateLimiter.Keys.Damage, config.damageRpcLimit,
+                        config.rpcWindowSeconds)) {
+                    AntiCheatLogger.LogRateLimit(OwnerClientId, RpcRateLimiter.Keys.Damage);
+                    return;
+                }
+            }
+
             if(!targetRef.TryGet(out var networkObject) || networkObject == null || !networkObject.IsSpawned) {
                 Debug.LogWarning("[NetworkDamageRelay] Target is invalid/despawned.");
                 return;
@@ -28,8 +39,35 @@ namespace Network.Rpc {
 
             var shooterId = OwnerClientId; // the caller of this RPC
 
+            if(weaponIndex < 0) {
+                AntiCheatLogger.LogInvalidDamage(shooterId, "invalid weapon index");
+                return;
+            }
+
             // Optional: prevent self-damage via this path
             if(victim.OwnerClientId == shooterId) {
+                return;
+            }
+
+            if(!NetworkManager.Singleton.ConnectedClients.TryGetValue(shooterId, out var attackerClient)) {
+                AntiCheatLogger.LogInvalidDamage(shooterId, "shooter not found");
+                return;
+            }
+
+            var shooterController = attackerClient.PlayerObject?.GetComponent<PlayerController>();
+            var shooterWeaponManager = shooterController?.WeaponManager;
+            if(shooterWeaponManager == null) {
+                AntiCheatLogger.LogInvalidDamage(shooterId, "weapon manager missing");
+                return;
+            }
+
+            if(!shooterWeaponManager.ValidateServerShot(weaponIndex, shotId, out var reason)) {
+                AntiCheatLogger.LogInvalidDamage(shooterId, reason);
+                return;
+            }
+
+            if(!shooterWeaponManager.ValidateDamageRange(weaponIndex, hitPoint, out var rangeReason)) {
+                AntiCheatLogger.LogInvalidDamage(shooterId, rangeReason);
                 return;
             }
 

@@ -1,0 +1,31 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b7568991099fd3a45b71cf6456d39f27, type: 3}
+  m_Name: metal-plates
+  m_EditorClassIdentifier: Assembly-CSharp::Game.Player.PlayerMaterialPacket
+  packetName: Metal Plates
+  albedoTexture: {fileID: 2800000, guid: f23460054adc3bc419d550b49b06ec70, type: 3}
+  normalMap: {fileID: 2800000, guid: 3667a6c240d0ad64bbe0beb64abbde33, type: 3}
+  normalMapStrength: 3
+  heightMap: {fileID: 2800000, guid: 8926db14aeef2c64b8dbbb9f65f358a2, type: 3}
+  occlusionMap: {fileID: 0}
+  metallicMap: {fileID: 2800000, guid: f8ddd5a76b6db5744a0e94ee6a6bb93e, type: 3}
+  emissionMap: {fileID: 0}
+  tiling: {x: 20, y: 20}
+  offset: {x: 0, y: 0}
+  useMetallicWorkflow: 1
+  defaultSmoothness: 0.5
+  defaultMetallic: 0
+  defaultSpecularColor: {r: 0.2, g: 0.2, b: 0.2, a: 1}
+  heightMapStrength: 0.02
+  defaultEmissionEnabled: 0
+  defaultEmissionColor: {r: 0, g: 0, b: 0, a: 1}

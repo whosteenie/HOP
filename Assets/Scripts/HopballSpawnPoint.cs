@@ -6,7 +6,8 @@ using UnityEngine;
 /// </summary>
 public class HopballSpawnPoint : MonoBehaviour {
     [Header("Gizmo Settings")]
-    [SerializeField] private Color gizmoColor = new Color(1f, 0f, 1f, 0.5f); // Magenta
+    [SerializeField] private Color gizmoColor = new(1f, 0f, 1f, 0.5f); // Magenta
+
     [SerializeField] private float gizmoRadius = 0.5f;
 
     private void OnDrawGizmos() {
@@ -20,4 +21,3 @@ public class HopballSpawnPoint : MonoBehaviour {
         Gizmos.DrawSphere(transform.position, gizmoRadius * 1.5f);
     }
 }
-

@@ -3,9 +3,9 @@
 namespace OSI {
     public abstract class OffScreenIndicatorCore {
         /// <summary>
-        /// Gets the position of the target mapped to screen cordinates.
+        /// Gets the position of the target mapped to screen coordinates.
         /// </summary>
-        /// <param name="mainCamera">Refrence to the main camera</param>
+        /// <param name="mainCamera">Reference to the main camera</param>
         /// <param name="targetPosition">Target position</param>
         /// <returns></returns>
         public static Vector3 GetScreenPosition(Camera mainCamera, Vector3 targetPosition) {
@@ -14,9 +14,9 @@ namespace OSI {
         }
 
         /// <summary>
-        /// Gets if the target is within the view frustrum.
+        /// Gets if the target is within the view frustum.
         /// </summary>
-        /// <param name="screenPosition">Position of the target mapped to screen cordinates</param>
+        /// <param name="screenPosition">Position of the target mapped to screen coordinates</param>
         /// <returns></returns>
         public static bool IsTargetVisible(Vector3 screenPosition) {
             var isTargetVisible = screenPosition is { z: > 0, x: > 0 } && screenPosition.x < Screen.width &&
@@ -27,7 +27,7 @@ namespace OSI {
         /// <summary>
         /// Gets the screen position and angle for the arrow indicator. 
         /// </summary>
-        /// <param name="screenPosition">Position of the target mapped to screen cordinates</param>
+        /// <param name="screenPosition">Position of the target mapped to screen coordinates</param>
         /// <param name="angle">Angle of the arrow</param>
         /// <param name="screenCentre">The screen  centre</param>
         /// <param name="screenBounds">The screen bounds</param>
@@ -49,7 +49,7 @@ namespace OSI {
             var slope = Mathf.Tan(angle);
 
             // Two point's line's form is (y2 - y1) = m (x2 - x1) + c, 
-            // starting point (x1, y1) is screen botton-left (0, 0),
+            // starting point (x1, y1) is screen bottom-left (0, 0),
             // ending point (x2, y2) is one of the screenBounds,
             // m is the slope
             // c is y intercept which will be 0, as line is passing through origin.
@@ -62,7 +62,7 @@ namespace OSI {
                 screenPosition = new Vector3(-screenBounds.x, -screenBounds.x * slope, 0);
             }
 
-            // Incase the y ScreenPosition exceeds the y screenBounds 
+            // In case the y ScreenPosition exceeds the y screenBounds 
             if(screenPosition.y > screenBounds.y) {
                 // Keep the y screen position to the maximum y bounds and
                 // find the x screen position using x = y/m.

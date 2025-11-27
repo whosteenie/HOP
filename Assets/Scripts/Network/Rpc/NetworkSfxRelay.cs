@@ -1,6 +1,6 @@
-using System;
 using System.Collections.Generic;
 using Game.Player;
+using Network.AntiCheat;
 using Network.Singletons;
 using Unity.Netcode;
 using UnityEngine;
@@ -38,7 +38,18 @@ namespace Network.Rpc {
         };
 
         private void Awake() {
-            playerController ??= GetComponent<PlayerController>();
+            ValidateComponents();
+        }
+
+        private void ValidateComponents() {
+            if(playerController == null) {
+                playerController = GetComponent<PlayerController>();
+            }
+
+            if(playerController == null) {
+                Debug.LogError("[NetworkSfxRelay] PlayerController not found!");
+                enabled = false;
+            }
         }
 
         /// <summary>
@@ -67,14 +78,49 @@ namespace Network.Rpc {
             RequestWorldSfxServerRpc(key, attachToSelf, allowOverlap);
         }
 
+        public void RequestWorldSfxAtPosition(SfxKey key, Vector3 worldPosition, bool allowOverlap = false) {
+            if(!IsOwner) return;
+
+            var t = Time.time;
+            if(_lastSent.TryGetValue(key, out var last) && t - last < GetMinInterval(key)) {
+                return;
+            }
+
+            _lastSent[key] = t;
+            RequestWorldSfxAtPositionServerRpc(key, worldPosition, allowOverlap);
+        }
+
         [Rpc(SendTo.Server)]
         private void RequestWorldSfxServerRpc(SfxKey key, bool attachToSelf, bool allowOverlap) {
             if(!IsSpawned) return;
+
+            var config = AntiCheatConfig.Instance;
+            if(config != null) {
+                if(!RpcRateLimiter.TryConsume(OwnerClientId, RpcRateLimiter.Keys.WorldSfx, config.sfxRpcLimit,
+                        config.rpcWindowSeconds)) {
+                    AntiCheatLogger.LogRateLimit(OwnerClientId, RpcRateLimiter.Keys.WorldSfx);
+                    return;
+                }
+            }
 
             var srcRef = new NetworkObjectReference(NetworkObject);
             var pos = transform.position;
 
             PlayWorldSfxClientRpc(key, srcRef, pos, attachToSelf, allowOverlap);
+        }
+
+        [Rpc(SendTo.Server)]
+        private void RequestWorldSfxAtPositionServerRpc(SfxKey key, Vector3 worldPosition, bool allowOverlap) {
+            if(!IsSpawned) return;
+            var config = AntiCheatConfig.Instance;
+            if(config != null) {
+                if(!RpcRateLimiter.TryConsume(OwnerClientId, RpcRateLimiter.Keys.WorldSfx, config.sfxRpcLimit,
+                        config.rpcWindowSeconds)) {
+                    AntiCheatLogger.LogRateLimit(OwnerClientId, RpcRateLimiter.Keys.WorldSfx);
+                    return;
+                }
+            }
+            PlayWorldSfxAtPositionClientRpc(key, worldPosition, allowOverlap);
         }
 
         [Rpc(SendTo.Everyone)]
@@ -85,6 +131,11 @@ namespace Network.Rpc {
                 parent = no.transform;
 
             SoundFXManager.Instance?.PlayKey(key, parent, pos, allowOverlap);
+        }
+
+        [Rpc(SendTo.Everyone)]
+        private void PlayWorldSfxAtPositionClientRpc(SfxKey key, Vector3 worldPosition, bool allowOverlap) {
+            SoundFXManager.Instance?.PlayKey(key, null, worldPosition, allowOverlap);
         }
 
         /// <summary>

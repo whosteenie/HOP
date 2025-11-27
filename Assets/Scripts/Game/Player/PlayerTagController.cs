@@ -26,8 +26,21 @@ namespace Game.Player {
         private float _timer;
 
         private void Awake() {
-            playerController ??= GetComponent<PlayerController>();
-            _teamManager ??= playerController.TeamManager;
+            ValidateComponents();
+        }
+
+        private void ValidateComponents() {
+            if(playerController == null) {
+                playerController = GetComponent<PlayerController>();
+            }
+
+            if(playerController == null) {
+                Debug.LogError("[PlayerTagController] PlayerController not found!");
+                enabled = false;
+                return;
+            }
+
+            if(_teamManager == null) _teamManager = playerController.TeamManager;
         }
 
         public override void OnNetworkSpawn() {

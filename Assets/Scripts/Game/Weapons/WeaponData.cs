@@ -17,6 +17,10 @@ namespace Game.Weapons {
 
         [Header("3P Weapon (Pre-placed on character)")]
         public string worldWeaponName; // Name of the 3P weapon GameObject on character
+        [Tooltip("Optional holstered primary model reference (if different from worldWeaponName).")]
+        public GameObject holsteredPrimaryModel;
+        [Tooltip("Optional holstered secondary model reference (if different from worldWeaponName).")]
+        public GameObject holsteredSecondaryModel;
 
         [Header("Muzzle Lights (Optional)")]
         public string fpMuzzleLightChildName = "MuzzleLight";
@@ -26,8 +30,6 @@ namespace Game.Weapons {
         [Header("Ammo")]
         public int magSize;
 
-        public int currentAmmo;
-
         [Header("Damage")]
         public float baseDamage;
 
@@ -35,7 +37,7 @@ namespace Game.Weapons {
         public float damageCap;
 
         [Header("Damage Falloff")]
-        public bool useDamageFalloff = false;
+        public bool useDamageFalloff;
         [Tooltip("Distance (meters) at which damage begins to fall off. Full damage at or below this range.")]
         public float maxDamageRange = 15f;
         [Tooltip("Distance (meters) at which damage reaches minimum value.")]
@@ -44,7 +46,7 @@ namespace Game.Weapons {
         public float minDamage = 5f;
 
         [Header("Shotgun Settings")]
-        public bool usePelletSpread = false;
+        public bool usePelletSpread;
         [Tooltip("Number of pellets to fire per shot when using pellet spread.")]
         public int pelletCount = 8;
         [Tooltip("Scales base damage per pellet (e.g., 0.2 means each pellet does 20% of base damage).")]
@@ -58,7 +60,7 @@ namespace Game.Weapons {
 
         [Header("Aiming")]
         [Tooltip("If true, shows the sniper overlay when using Zoom input.")]
-        public bool useSniperOverlay = false;
+        public bool useSniperOverlay;
 
         [Header("Reload")]
         public float reloadTime;
@@ -67,19 +69,17 @@ namespace Game.Weapons {
         [Tooltip("Time between loading individual rounds when not using a full-mag reload.")]
         public float perRoundReloadTime = 0.5f;
 
-        [Header("Switching")]
-        public float sheathTime;
-
-        public float drawTime;
-
         [Header("Visuals")]
         public TrailRenderer bulletTrail;
-
         public ParticleSystem bulletImpact;
         public GameObject muzzleFlashPrefab;
 
         [Header("Audio")]
         public SfxKey shootSfx = SfxKey.Shoot;
         public SfxKey reloadSfx = SfxKey.Reload;
+
+        [Header("Server Validation")]
+        [Tooltip("Maximum range (meters) used when validating hits server-side.")]
+        public float maxServerRange = 150f;
     }
 }

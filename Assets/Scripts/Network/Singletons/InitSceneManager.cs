@@ -13,8 +13,7 @@ namespace Network.Singletons {
         [Header("Scene Settings")]
         [SerializeField] private string mainMenuSceneName = "MainMenu";
 
-        [SerializeField]
-        private float initializationDelay = 0.1f; // Small delay to ensure all Awake/OnEnable calls complete
+        [SerializeField] private float initializationDelay = 0.1f;
 
         [Header("Required Singletons (for validation)")]
         [SerializeField] private SessionManager sessionManager;
@@ -38,8 +37,6 @@ namespace Network.Singletons {
                     return;
                 }
 
-                Debug.Log("[InitSceneManager] Starting initialization sequence...");
-
                 // Wait a frame to ensure all Awake/OnEnable calls complete
                 await UniTask.DelayFrame(1);
 
@@ -53,7 +50,6 @@ namespace Network.Singletons {
                 }
 
                 hasInitialized = true;
-                Debug.Log("[InitSceneManager] All singletons initialized, loading MainMenu...");
 
                 // Load main menu scene
                 await LoadMainMenuAsync();
@@ -62,36 +58,38 @@ namespace Network.Singletons {
             }
         }
 
-        private bool ValidateSingletons() {
-            bool allValid = true;
+        private static bool ValidateSingletons() {
+            var allValid = true;
 
             // Critical singletons (required)
             if(SessionManager.Instance == null) {
-                Debug.LogError("[InitSceneManager] SessionManager.Instance is null!");
+                Debug.LogError("[InitSceneManager] SessionManager.Instance == null!");
                 allValid = false;
             }
 
             // Recommended singletons
             if(SceneTransitionManager.Instance == null) {
-                Debug.LogWarning("[InitSceneManager] SceneTransitionManager.Instance is null (optional but recommended)");
+                Debug.LogWarning(
+                    "[InitSceneManager] SceneTransitionManager.Instance == null (optional but recommended)");
             }
 
             if(SoundFXManager.Instance == null) {
-                Debug.LogWarning("[InitSceneManager] SoundFXManager.Instance is null (optional)");
+                Debug.LogWarning("[InitSceneManager] SoundFXManager.Instance == null (optional)");
             }
 
             // Additional DDOL managers
             if(MatchSettingsManager.Instance == null) {
-                Debug.LogWarning("[InitSceneManager] MatchSettings.Instance is null (optional)");
+                Debug.LogWarning("[InitSceneManager] MatchSettings.Instance == null (optional)");
             }
 
             if(NetworkManager.Singleton == null) {
                 Debug.LogWarning(
-                    "[InitSceneManager] NetworkManager.Singleton is null (optional, but required for networking)");
+                    "[InitSceneManager] NetworkManager.Singleton == null (optional, but required for networking)");
             }
 
             if(SessionNetworkBridge.Instance == null) {
-                Debug.LogWarning("[InitSceneManager] SessionNetworkBridge.Instance is null (optional, spawns at runtime)");
+                Debug.LogWarning(
+                    "[InitSceneManager] SessionNetworkBridge.Instance == null (optional, spawns at runtime)");
             }
 
             return allValid;
@@ -100,7 +98,6 @@ namespace Network.Singletons {
         private async UniTask LoadMainMenuAsync() {
             // Check if main menu is already loaded
             if(SceneManager.GetSceneByName(mainMenuSceneName).isLoaded) {
-                Debug.Log("[InitSceneManager] MainMenu already loaded, activating it");
                 SceneManager.SetActiveScene(SceneManager.GetSceneByName(mainMenuSceneName));
                 return;
             }
@@ -122,16 +119,13 @@ namespace Network.Singletons {
             var mainMenuScene = SceneManager.GetSceneByName(mainMenuSceneName);
             if(mainMenuScene.IsValid()) {
                 SceneManager.SetActiveScene(mainMenuScene);
-                Debug.Log("[InitSceneManager] MainMenu scene loaded and activated");
             } else {
-                Debug.LogError($"[InitSceneManager] MainMenu scene is not valid after loading");
+                Debug.LogError("[InitSceneManager] MainMenu scene is not valid after loading");
                 return;
             }
 
             // Fade transition removed for now - splash screen will handle its own fade into main menu
             // This prevents black flash on application start
-
-            Debug.Log("[InitSceneManager] Initialization complete!");
         }
 
         /// <summary>

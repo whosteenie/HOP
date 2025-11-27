@@ -36,14 +36,12 @@ namespace OSI {
                 }
             }
 
-            if(willGrow) {
-                Indicator arrow = Instantiate(pooledObject, transform, false);
-                arrow.Activate(false);
-                _pooledObjects.Add(arrow);
-                return arrow;
-            }
-
-            return null;
+            if(!willGrow) return null;
+            
+            var arrow = Instantiate(pooledObject, transform, false);
+            arrow.Activate(false);
+            _pooledObjects.Add(arrow);
+            return arrow;
         }
 
         /// <summary>
