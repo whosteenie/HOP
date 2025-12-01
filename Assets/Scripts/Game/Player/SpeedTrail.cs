@@ -147,17 +147,7 @@ namespace Game.Player {
         }
 
         private void Update() {
-            // For owners: only show trails when dead (netIsDead is true)
-            // For non-owners: always show trails (if enabled)
-            if(IsOwner) {
-                // Owner: only show trails when dead
-                if(playerController == null || !playerController.IsDead) {
-                    SetTrailActive(false);
-                    return;
-                }
-            }
-
-            // Check if player trails are enabled in settings
+            // Check if player trails are enabled in settings first
             if(PlayerPrefs.GetInt("PlayerTrails", 1) == 0) {
                 SetTrailActive(false);
                 return;
@@ -166,6 +156,14 @@ namespace Game.Player {
             if(!playerController || speedTrailEffect == null) {
                 SetTrailActive(false);
                 return;
+            }
+
+            // For owners: only show trails when dead (deathcam)
+            if(IsOwner) {
+                if(!playerController.IsDead) {
+                    SetTrailActive(false);
+                    return;
+                }
             }
 
             // Get the actual damage multiplier from the Weapon component
@@ -183,6 +181,8 @@ namespace Game.Player {
             var currentMultiplier = weapon.netCurrentDamageMultiplier.Value;
 
             // Enable/disable trail based on multiplier threshold
+            // For owners: only when dead (already checked above)
+            // For non-owners: when multiplier is high enough
             var shouldBeActive = currentMultiplier >= minMultiplierForTrail;
             SetTrailActive(shouldBeActive);
         }

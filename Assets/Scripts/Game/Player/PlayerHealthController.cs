@@ -7,6 +7,7 @@ using Game.Match;
 using Game.Spawning;
 using Game.UI;
 using Network.Components;
+using Network.Events;
 using Network.Singletons;
 using Unity.Cinemachine;
 using Unity.Netcode;
@@ -178,6 +179,9 @@ namespace Game.Player {
                 deaths.Value++;
                 ReserveSpawnPointForDeath();
                 DieClientRpc(_lastBodyPartTag);
+                
+                // Publish death event
+                EventBus.Publish(new PlayerDiedEvent(OwnerClientId, attackerId, bodyPartTag));
                 return true;
             }
 
@@ -234,6 +238,9 @@ namespace Game.Player {
                 var actualDealt = pre - newHp;
 
                 netHealth.Value = newHp;
+
+                // Publish damage event
+                EventBus.Publish(new PlayerDamagedEvent(OwnerClientId, actualDealt, hitPoint));
 
                 if(playerController != null) {
                     playerController.PlayHitEffectsClientRpc(hitPoint, amount);
@@ -295,6 +302,9 @@ namespace Game.Player {
                 ReserveSpawnPointForDeath();
 
                 DieClientRpc(_lastBodyPartTag);
+                
+                // Publish death event
+                EventBus.Publish(new PlayerDiedEvent(OwnerClientId, attackerId, _lastBodyPartTag));
                 return true;
             }
 
@@ -306,8 +316,8 @@ namespace Game.Player {
             ulong victimClientId) {
             var isLocalKiller = NetworkManager.Singleton.LocalClientId == killerClientId;
             if(KillFeedManager.Instance != null) {
-                KillFeedManager.Instance.AddEntryToFeed(killerName, victimName, isLocalKiller, killerClientId,
-                    victimClientId);
+                EventBus.Publish(new AddKillFeedEntryEvent(killerName, victimName, isLocalKiller, killerClientId,
+                    victimClientId, wasKill: true));
             }
         }
 
@@ -333,7 +343,7 @@ namespace Game.Player {
                 }
 
                 if(HUDManager.Instance != null) {
-                    HUDManager.Instance.HideHUD();
+                    EventBus.Publish(new HideHUDEvent());
                 }
                 if(_deathCameraController != null) {
                     _deathCameraController.EnableDeathCamera();
@@ -532,8 +542,11 @@ namespace Game.Player {
             }
 
             if(HUDManager.Instance != null) {
-                HUDManager.Instance.ShowHUD();
+                EventBus.Publish(new ShowHUDEvent());
             }
+
+            // Publish respawn event
+            EventBus.Publish(new PlayerRespawnedEvent(OwnerClientId));
 
             ShowRespawnVisualsClientRpc(_playerTransform.position);
 

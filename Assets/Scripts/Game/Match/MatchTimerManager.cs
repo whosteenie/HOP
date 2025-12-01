@@ -3,6 +3,7 @@ using System.Linq;
 using Game.Menu;
 using Game.Player;
 using Game.UI;
+using Network.Events;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -138,7 +139,7 @@ namespace Game.Match {
             if(_isPreMatch.Value || GameMenuManager.Instance == null) return;
             // SetMatchTime will handle tick sound playback based on displayed time
             if(ScoreboardManager.Instance != null) {
-                ScoreboardManager.Instance.SetMatchTime(current);
+                EventBus.Publish(new SetMatchTimeEvent(current));
             }
         }
 
@@ -147,7 +148,7 @@ namespace Game.Match {
             if(!_isPreMatch.Value || GameMenuManager.Instance == null) return;
             // SetMatchTime will handle tick sound playback based on displayed time
             if(ScoreboardManager.Instance != null) {
-                ScoreboardManager.Instance.SetMatchTime(current);
+                EventBus.Publish(new SetMatchTimeEvent(current));
             }
         }
 
@@ -155,7 +156,7 @@ namespace Game.Match {
             // When pre-match ends, ensure UI shows match timer
             if(current || GameMenuManager.Instance == null) return;
             if(ScoreboardManager.Instance != null) {
-                ScoreboardManager.Instance.SetMatchTime(_timeRemainingSeconds.Value);
+                EventBus.Publish(new SetMatchTimeEvent(_timeRemainingSeconds.Value));
             }
         }
 

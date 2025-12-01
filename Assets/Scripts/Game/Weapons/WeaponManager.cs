@@ -230,6 +230,9 @@ namespace Game.Weapons {
                 EventBus.Publish(new PlayUISoundEvent(SfxKey.WeaponSwitch));
             }
 
+            // Publish weapon switch event
+            EventBus.Publish(new WeaponSwitchedEvent(newIndex));
+
             // Cache ammo from current weapon before switching away
             if(CurrentWeapon != null && CurrentWeaponIndex >= 0) {
                 _weaponAmmo[CurrentWeaponIndex] = CurrentWeapon.currentAmmo;

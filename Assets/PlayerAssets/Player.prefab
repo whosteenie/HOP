@@ -1102,7 +1102,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 2644075980
+  GlobalObjectIdHash: 3921424009
   InScenePlacedSourceGlobalObjectIdHash: 0
   DeferredDespawnTick: 0
   Ownership: 1
@@ -1250,7 +1250,7 @@ MonoBehaviour:
   animationController: {fileID: -6537445453348264315}
   tagController: {fileID: 8858942629426496327}
   podiumController: {fileID: 203235595652891772}
-  playerHopballController: {fileID: 0}
+  playerHopballController: {fileID: 6778961089975042311}
   playerTeamManager: {fileID: 9125949885910601887}
   weaponCameraController: {fileID: 2936479342035201981}
   deathCameraController: {fileID: 6297701186958565404}

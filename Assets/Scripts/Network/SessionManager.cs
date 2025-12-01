@@ -326,7 +326,7 @@ namespace Network {
 
             // Hide game UI if in game
             if(HUDManager.Instance != null && _cachedSceneName == "Game") {
-                HUDManager.Instance.HideHUD();
+                EventBus.Publish(new HideHUDEvent());
                 if(GameMenuManager.Instance != null && GameMenuManager.Instance.IsPaused) {
                     GameMenuManager.Instance.TogglePause();
                 }

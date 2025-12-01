@@ -239,16 +239,16 @@ namespace Game.Player {
             CurrentWeapon.UpdateDamageMultiplier();
 
             if(weaponData) {
-                HUDManager.Instance.UpdateMultiplier(CurrentWeapon.CurrentDamageMultiplier,
-                    weaponData.maxDamageMultiplier);
+                EventBus.Publish(new UpdateMultiplierEvent(CurrentWeapon.CurrentDamageMultiplier,
+                    weaponData.maxDamageMultiplier));
             }
 
             if(!IsPaused && Keyboard.current.tabKey.isPressed) {
                 if(ScoreboardManager.Instance != null) {
-                    ScoreboardManager.Instance.ShowScoreboard();
+                    EventBus.Publish(new ShowScoreboardEvent());
                 }
             } else if(ScoreboardManager.Instance != null && ScoreboardManager.Instance.IsScoreboardVisible) {
-                ScoreboardManager.Instance.HideScoreboard();
+                EventBus.Publish(new HideScoreboardEvent());
             }
 
             // OnSwing

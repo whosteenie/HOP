@@ -9,6 +9,7 @@ using Game.Spawning;
 using Game.UI;
 using Game.Hopball;
 using Network;
+using Network.Events;
 using Network.Singletons;
 using Unity.Cinemachine;
 using Unity.Netcode;
@@ -328,7 +329,7 @@ namespace Game.Match {
                 }
 
                 if(HUDManager.Instance != null) {
-                    HUDManager.Instance.HideHUD();
+                    EventBus.Publish(new HideHUDEvent());
                 }
                 HideInGameHudForPostMatch();
                 DisableHopballTargets();
@@ -417,7 +418,7 @@ namespace Game.Match {
 
             // Hide individual HUD elements
             if(KillFeedManager.Instance != null)
-                KillFeedManager.Instance.HideKillFeed();
+                EventBus.Publish(new HideKillFeedEvent());
             if(_matchTimerContainer != null)
                 _matchTimerContainer.style.display = DisplayStyle.None;
             // Hide score display (handled by ScoreboardManager)
@@ -438,7 +439,7 @@ namespace Game.Match {
 
             // Show individual HUD elements
             if(KillFeedManager.Instance != null)
-                KillFeedManager.Instance.ShowKillFeed();
+                EventBus.Publish(new ShowKillFeedEvent());
             if(_matchTimerContainer != null)
                 _matchTimerContainer.style.display = DisplayStyle.Flex;
             // Show score display (handled by ScoreboardManager)

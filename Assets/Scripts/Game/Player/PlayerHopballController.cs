@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
 using Game.Hopball;
 using Game.Weapons;
+using Network.Events;
 using OSI;
 using Unity.Cinemachine;
 using Unity.Netcode;
@@ -129,7 +130,26 @@ namespace Game.Player {
         /// Returns true if a hopball was picked up.
         /// </summary>
         public void TryPickupHopball() {
+            if(playerController == null) {
+                Debug.LogWarning("[PlayerHopballController] TryPickupHopball: playerController is null!");
+                return;
+            }
+            
+            if(_hopballLayer == 0) {
+                Debug.LogWarning("[PlayerHopballController] TryPickupHopball: _hopballLayer is 0! Re-initializing...");
+                _hopballLayer = playerController.HopballLayer;
+                if(_hopballLayer == 0) {
+                    Debug.LogError("[PlayerHopballController] TryPickupHopball: HopballLayer is still 0 after re-initialization!");
+                    return;
+                }
+            }
+            
             var hitCount = Physics.OverlapSphereNonAlloc(playerController.Position, PickupRange, _pickupHits, _hopballLayer);
+            if(hitCount == 0) {
+                // No hopballs found in range - this is normal, don't log
+                return;
+            }
+            
             for(var i = 0; i < hitCount; i++) {
                 var hopball = _pickupHits[i].GetComponent<HopballController>();
                 if(hopball == null || hopball.IsEquipped || hopball.transform.parent != null ||
@@ -196,6 +216,9 @@ namespace Game.Player {
 
             // Consolidated RPC: handles all client updates in one call
             controller.OnHopballEquippedClientRpc(hopballRef, OwnerClientId);
+            
+            // Publish hopball picked up event
+            EventBus.Publish(new HopballPickedUpEvent(OwnerClientId));
         }
 
         /// <summary>
@@ -537,6 +560,9 @@ namespace Game.Player {
             if(HopballSpawnManager.Instance != null) {
                 HopballSpawnManager.Instance.OnHopballDropped();
             }
+
+            // Publish hopball dropped event
+            EventBus.Publish(new HopballDroppedEvent(requestingClientId));
 
             // Notify all clients to disable the player Target (holder no longer holding ball)
             if(!NetworkManager.Singleton.ConnectedClients.TryGetValue(requestingClientId, out var client)) return;

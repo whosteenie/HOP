@@ -230,19 +230,16 @@ namespace Game.Menu {
             // BRUTE FORCE: Force the render texture to be created immediately
             _previewRenderTexture.Create();
             
-            Debug.Log($"[LoadoutManager] Recreated render texture: {width}x{height} with 8x MSAA. IsCreated: {_previewRenderTexture.IsCreated()}");
-            
             // Update camera target
             if(previewCamera != null) {
                 previewCamera.targetTexture = _previewRenderTexture;
             }
             
             // Update background image if it exists
-            if(_backgroundElement != null && _previewRenderTexture != null) {
-                _backgroundElement.style.backgroundImage =
-                    new StyleBackground(Background.FromRenderTexture(_previewRenderTexture));
-                _backgroundElement.MarkDirtyRepaint();
-            }
+            if(_backgroundElement == null || _previewRenderTexture == null) return;
+            _backgroundElement.style.backgroundImage =
+                new StyleBackground(Background.FromRenderTexture(_previewRenderTexture));
+            _backgroundElement.MarkDirtyRepaint();
         }
 
         /// <summary>
@@ -842,15 +839,14 @@ namespace Game.Menu {
             // Unity's automatic rendering can occur before the objects exist, resulting in an empty frame.
             // The preview only becomes visible after something triggers a refresh (e.g., moving scene view camera).
             // By manually rendering multiple times after setup completes, we ensure the camera captures the model.
-            if(previewCamera != null && previewCamera.enabled) {
-                // Force bounds update right before rendering to prevent culling
-                // Unity can recalculate bounds from the mesh, overriding our MaxBounds setting
-                ForcePreviewModelBoundsUpdate();
+            if(previewCamera == null || !previewCamera.enabled) return;
+            // Force bounds update right before rendering to prevent culling
+            // Unity can recalculate bounds from the mesh, overriding our MaxBounds setting
+            ForcePreviewModelBoundsUpdate();
                 
-                // Render multiple times immediately
-                for(var i = 0; i < 3; i++) {
-                    previewCamera.Render();
-                }
+            // Render multiple times immediately
+            for(var i = 0; i < 3; i++) {
+                previewCamera.Render();
             }
         }
 
@@ -1266,11 +1262,10 @@ namespace Game.Menu {
         private void LateUpdate() {
             // BRUTE FORCE: Force render again in LateUpdate as backup
             // This ensures rendering happens even if Update() timing is off in builds
-            if(_previewActive && previewCamera != null && previewCamera.enabled && 
-               _previewPlayerModel != null && _previewRenderTexture != null) {
-                ForcePreviewModelBoundsUpdate();
-                previewCamera.Render();
-            }
+            if(!_previewActive || previewCamera == null || !previewCamera.enabled ||
+               _previewPlayerModel == null || _previewRenderTexture == null) return;
+            ForcePreviewModelBoundsUpdate();
+            previewCamera.Render();
         }
         
         /// <summary>

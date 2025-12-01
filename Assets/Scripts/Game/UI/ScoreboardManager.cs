@@ -84,6 +84,48 @@ namespace Game.UI {
             Instance = this;
         }
 
+        private void OnEnable() {
+            // Subscribe to UI events
+            EventBus.Subscribe<SetMatchTimeEvent>(OnSetMatchTime);
+            EventBus.Subscribe<ShowScoreboardEvent>(OnShowScoreboard);
+            EventBus.Subscribe<HideScoreboardEvent>(OnHideScoreboard);
+        }
+        
+        private void OnDisable() {
+            // Unsubscribe from UI events
+            EventBus.Unsubscribe<SetMatchTimeEvent>(OnSetMatchTime);
+            EventBus.Unsubscribe<ShowScoreboardEvent>(OnShowScoreboard);
+            EventBus.Unsubscribe<HideScoreboardEvent>(OnHideScoreboard);
+            
+            // Unsubscribe from network callbacks
+            if(NetworkManager.Singleton != null) {
+                NetworkManager.Singleton.OnClientDisconnectCallback -= OnClientDisconnected;
+            }
+            
+            // Unsubscribe from scene changes
+            SceneManager.sceneLoaded -= OnSceneLoaded;
+
+            // Clear cached dictionaries when match ends
+            ClearCachedPlayerData();
+        }
+
+
+        #region Event Handlers
+
+        private void OnSetMatchTime(SetMatchTimeEvent evt) {
+            SetMatchTime(evt.Seconds);
+        }
+
+        private void OnShowScoreboard(ShowScoreboardEvent evt) {
+            ShowScoreboard();
+        }
+
+        private void OnHideScoreboard(HideScoreboardEvent evt) {
+            HideScoreboard();
+        }
+
+        #endregion
+
         /// <summary>
         /// Initializes the scoreboard manager with UI element references.
         /// </summary>
@@ -148,19 +190,6 @@ namespace Game.UI {
                 break;
             }
         }
-
-        private void OnDisable() {
-            // Unsubscribe from network callbacks
-            if(NetworkManager.Singleton != null) {
-                NetworkManager.Singleton.OnClientDisconnectCallback -= OnClientDisconnected;
-            }
-            
-            // Unsubscribe from scene changes
-            SceneManager.sceneLoaded -= OnSceneLoaded;
-
-            // Clear cached dictionaries when match ends
-            ClearCachedPlayerData();
-        }
         
         private void UpdateCachedSceneName() {
             var activeScene = SceneManager.GetActiveScene();
@@ -204,7 +233,7 @@ namespace Game.UI {
             }
         }
 
-        public void SetMatchTime(int secondsRemaining) {
+        private void SetMatchTime(int secondsRemaining) {
             if(_matchTimerLabel == null) return;
 
             if(secondsRemaining < 0)
@@ -220,7 +249,7 @@ namespace Game.UI {
             }
         }
 
-        public void ShowScoreboard() {
+        private void ShowScoreboard() {
             if(_cachedSceneName != "Game") return;
 
             IsScoreboardVisible = true;
@@ -346,7 +375,7 @@ namespace Game.UI {
             }
         }
 
-        public void HideScoreboard() {
+        private void HideScoreboard() {
             if(_cachedSceneName != "Game") return;
 
             IsScoreboardVisible = false;

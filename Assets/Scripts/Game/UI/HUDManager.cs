@@ -1,4 +1,5 @@
 using Game.Match;
+using Network.Events;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -60,7 +61,53 @@ namespace Game.UI {
 
             // Cache MatchSettingsManager.Instance (but don't cache game mode - check it fresh each time)
             _cachedMatchSettings = MatchSettingsManager.Instance;
+
+            // Subscribe to UI events
+            EventBus.Subscribe<UpdateHealthEvent>(OnUpdateHealth);
+            EventBus.Subscribe<UpdateAmmoEvent>(OnUpdateAmmo);
+            EventBus.Subscribe<UpdateTagStatusEvent>(OnUpdateTagStatus);
+            EventBus.Subscribe<UpdateMultiplierEvent>(OnUpdateMultiplier);
+            EventBus.Subscribe<ShowHUDEvent>(OnShowHUD);
+            EventBus.Subscribe<HideHUDEvent>(OnHideHUD);
         }
+
+        private void OnDisable() {
+            // Unsubscribe from UI events
+            EventBus.Unsubscribe<UpdateHealthEvent>(OnUpdateHealth);
+            EventBus.Unsubscribe<UpdateAmmoEvent>(OnUpdateAmmo);
+            EventBus.Unsubscribe<UpdateTagStatusEvent>(OnUpdateTagStatus);
+            EventBus.Unsubscribe<UpdateMultiplierEvent>(OnUpdateMultiplier);
+            EventBus.Unsubscribe<ShowHUDEvent>(OnShowHUD);
+            EventBus.Unsubscribe<HideHUDEvent>(OnHideHUD);
+        }
+
+        #region Event Handlers
+
+        private void OnUpdateHealth(UpdateHealthEvent evt) {
+            UpdateHealth(evt.Current, evt.Max);
+        }
+
+        private void OnUpdateAmmo(UpdateAmmoEvent evt) {
+            UpdateAmmo(evt.Current, evt.Max);
+        }
+
+        private void OnUpdateTagStatus(UpdateTagStatusEvent evt) {
+            UpdateTagStatus(evt.IsTagged);
+        }
+
+        private void OnUpdateMultiplier(UpdateMultiplierEvent evt) {
+            UpdateMultiplier(evt.Current, evt.Max);
+        }
+
+        private void OnShowHUD(ShowHUDEvent evt) {
+            ShowHUD();
+        }
+
+        private void OnHideHUD(HideHUDEvent evt) {
+            HideHUD();
+        }
+
+        #endregion
 
         /// <summary>
         /// Checks if we're in Gun Tag mode. Always checks fresh to handle build initialization order issues.

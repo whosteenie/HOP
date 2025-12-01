@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using Game.Match;
 using Game.Player;
+using Network.Events;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -37,6 +38,36 @@ namespace Game.UI {
 
             Instance = this;
         }
+
+        private void OnEnable() {
+            // Subscribe to UI events
+            EventBus.Subscribe<AddKillFeedEntryEvent>(OnAddKillFeedEntry);
+            EventBus.Subscribe<ShowKillFeedEvent>(OnShowKillFeed);
+            EventBus.Subscribe<HideKillFeedEvent>(OnHideKillFeed);
+        }
+
+        private void OnDisable() {
+            // Unsubscribe from UI events
+            EventBus.Unsubscribe<AddKillFeedEntryEvent>(OnAddKillFeedEntry);
+            EventBus.Unsubscribe<ShowKillFeedEvent>(OnShowKillFeed);
+            EventBus.Unsubscribe<HideKillFeedEvent>(OnHideKillFeed);
+        }
+
+        #region Event Handlers
+
+        private void OnAddKillFeedEntry(AddKillFeedEntryEvent evt) {
+            AddEntryToFeed(evt.Killer, evt.Victim, evt.IsLocalKiller, evt.KillerId, evt.VictimId);
+        }
+
+        private void OnShowKillFeed(ShowKillFeedEvent evt) {
+            ShowKillFeed();
+        }
+
+        private void OnHideKillFeed(HideKillFeedEvent evt) {
+            HideKillFeed();
+        }
+
+        #endregion
 
         /// <summary>
         /// Initializes the kill feed manager with the kill feed container from the UI.

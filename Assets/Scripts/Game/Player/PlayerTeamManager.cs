@@ -216,7 +216,6 @@ namespace Game.Player {
 
                 if(IsOwner) {
                     // Yourself: don't change (leave as default/unchanged)
-                    Debug.Log($"[PlayerTeamManager] Skipping outline update for owner, GameObject: {gameObject.name}");
                     return;
                 }
 
@@ -237,15 +236,11 @@ namespace Game.Player {
                     }
                     if(localTeamMgr != null && netTeam.Value == localTeamMgr.netTeam.Value) {
                         target = teammateOutline; // Same team → blue
-                        Debug.Log($"[PlayerTeamManager] Same team - using teammate color: {target}, GameObject: {gameObject.name}, MyTeam: {netTeam.Value}, LocalTeam: {localTeamMgr.netTeam.Value}");
                     } else {
                         target = enemyOutline; // Different team → red
-                        var localTeamValue = localTeamMgr != null ? localTeamMgr.netTeam.Value : SpawnPoint.Team.TeamA;
-                        Debug.Log($"[PlayerTeamManager] Different team - using enemy color: {target}, GameObject: {gameObject.name}, MyTeam: {netTeam.Value}, LocalTeam: {localTeamValue}");
                     }
                 } else {
                     target = enemyOutline; // Fallback (shouldn't happen)
-                    Debug.LogWarning($"[PlayerTeamManager] Local player not found, using enemy color as fallback, GameObject: {gameObject.name}");
                 }
 
                 // Calculate distance-based outline size for better visibility at distance
@@ -254,22 +249,17 @@ namespace Game.Player {
                 // Check if shared material has the outline color property (don't create instance just to check)
                 var sharedMaterial = _skinned.sharedMaterial;
                 if(sharedMaterial == null) {
-                    Debug.LogWarning($"[PlayerTeamManager] SkinnedMeshRenderer has no shared material at index 0! GameObject: {gameObject.name}");
                     return;
                 }
                 
                 var hasOutlineColor = sharedMaterial.HasProperty(outlineColor);
-                var hasSize = sharedMaterial.HasProperty(size);
-                Debug.Log($"[PlayerTeamManager] Shared Material: {sharedMaterial.name}, Shader: {sharedMaterial.shader.name}, HasOutlineColor: {hasOutlineColor}, HasSize: {hasSize}, MaterialIndex: 0, GameObject: {gameObject.name}");
                 
                 if(!hasOutlineColor) {
-                    Debug.LogWarning($"[PlayerTeamManager] Shared Material '{sharedMaterial.name}' (Shader: {sharedMaterial.shader.name}) does not have property '_OutlineColor'! GameObject: {gameObject.name}");
                     // Try fallback: set directly on material instance
                     var materialInstance = _skinned.material;
                     if(materialInstance != null && materialInstance.HasProperty(outlineColor)) {
                         materialInstance.SetColor(outlineColor, target);
                         materialInstance.SetFloat(size, outlineSize);
-                        Debug.Log($"[PlayerTeamManager] Fallback: Set outline directly on material instance: {target}, size: {outlineSize}");
                         _lastOutlineSize = outlineSize;
                         return;
                     }
@@ -285,7 +275,6 @@ namespace Game.Player {
                 _propertyBlock.SetFloat(size, outlineSize);
                 _skinned.SetPropertyBlock(_propertyBlock, 0); // Apply to material index 0 (outline material)
                 _lastOutlineSize = outlineSize; // Update cached size
-                Debug.Log($"[PlayerTeamManager] Applied outline color via PropertyBlock: {target}, size: {outlineSize}, GameObject: {gameObject.name}");
                 return;
             }
 
@@ -303,7 +292,6 @@ namespace Game.Player {
                 // Fallback to Camera.main if cache is lost (shouldn't happen, but safety check)
                 _mainCamera = Camera.main;
                 if(_mainCamera == null) {
-                    Debug.LogWarning($"[PlayerTeamManager] Main camera is null, using min outline size. GameObject: {gameObject.name}");
                     return minOutlineSize;
                 }
             }
@@ -341,7 +329,6 @@ namespace Game.Player {
             if(_gameModeCacheValid && _cachedGameModeId != currentGameModeId) {
                 // Game mode changed - invalidate cache and update outline
                 _gameModeCacheValid = false;
-                Debug.Log($"[PlayerTeamManager] Game mode changed from '{_cachedGameModeId}' to '{currentGameModeId}' in Update(), forcing outline update");
                 UpdateOutlineColour(); // Force update when game mode changes
                 return;
             }

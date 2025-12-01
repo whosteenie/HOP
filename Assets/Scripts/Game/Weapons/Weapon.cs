@@ -217,7 +217,7 @@ namespace Game.Weapons {
             // Update HUD
             if(playerController == null || !playerController.IsOwner) return;
             if(_currentWeaponData != null && HUDManager.Instance != null) {
-                HUDManager.Instance.UpdateAmmo(currentAmmo, _currentWeaponData.magSize);
+                EventBus.Publish(new UpdateAmmoEvent(currentAmmo, _currentWeaponData.magSize));
             }
         }
 
@@ -273,7 +273,7 @@ namespace Game.Weapons {
                 currentAmmo = Mathf.Min(currentAmmo + 1, _currentWeaponData.magSize);
 
                 if(playerController.IsOwner && HUDManager.Instance != null) {
-                    HUDManager.Instance.UpdateAmmo(currentAmmo, _currentWeaponData.magSize);
+                    EventBus.Publish(new UpdateAmmoEvent(currentAmmo, _currentWeaponData.magSize));
                 }
 
                 SyncServerAmmo();
@@ -498,7 +498,7 @@ namespace Game.Weapons {
 
             if(playerController != null && playerController.IsOwner) {
                 if(HUDManager.Instance != null) {
-                    HUDManager.Instance.UpdateAmmo(currentAmmo, _currentWeaponData.magSize);
+                    EventBus.Publish(new UpdateAmmoEvent(currentAmmo, _currentWeaponData.magSize));
                 }
             }
 
@@ -757,7 +757,7 @@ namespace Game.Weapons {
             }
 
             if(playerController.IsOwner && HUDManager.Instance != null) {
-                HUDManager.Instance.UpdateAmmo(currentAmmo, _currentWeaponData.magSize);
+                EventBus.Publish(new UpdateAmmoEvent(currentAmmo, _currentWeaponData.magSize));
             }
 
             SyncServerAmmo();

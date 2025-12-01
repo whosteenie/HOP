@@ -1,6 +1,7 @@
 using System.Collections;
 using Game.Audio;
 using Game.Match;
+using Network.Events;
 using Network.Rpc;
 using Unity.Cinemachine;
 using Unity.Netcode;
@@ -369,6 +370,9 @@ namespace Game.Player {
             if(_sfxRelay != null && IsOwner) {
                 _sfxRelay.RequestWorldSfx(SfxKey.Grapple, attachToSelf: true, true);
             }
+
+            // Publish grapple started event
+            EventBus.Publish(new GrappleStartedEvent(targetPoint));
         }
 
         private void UpdateGrapple() {
@@ -411,6 +415,8 @@ namespace Game.Player {
         }
 
         private void EndGrapple(bool applyMomentum) {
+            // Publish grapple ended event
+            EventBus.Publish(new GrappleEndedEvent());
             IsGrappling = false;
 
             StartCoroutine(DisableLineAfterDelay(0.1f));

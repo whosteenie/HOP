@@ -174,7 +174,7 @@ namespace Game.Player {
             if(IsOwner && playerController != null) {
                 var matchSettings = MatchSettingsManager.Instance;
                 if(matchSettings != null && matchSettings.selectedGameModeId == "Gun Tag") {
-                    HUDManager.Instance.UpdateTagStatus(newValue);
+                    EventBus.Publish(new UpdateTagStatusEvent(newValue));
                 }
             }
 
@@ -212,8 +212,8 @@ namespace Game.Player {
 
             var isLocalTagger = NetworkManager.Singleton.LocalClientId == taggerClientId;
             if(KillFeedManager.Instance != null) {
-                KillFeedManager.Instance.AddEntryToFeed(taggerName, taggedName, isLocalTagger, taggerClientId,
-                    taggedClientId);
+                EventBus.Publish(new AddKillFeedEntryEvent(taggerName, taggedName, isLocalTagger, taggerClientId,
+                    taggedClientId, wasKill: false));
             }
         }
 
@@ -237,7 +237,7 @@ namespace Game.Player {
 
             // HOP is never the local player, so isLocalTagger is always false
             if(KillFeedManager.Instance != null) {
-                KillFeedManager.Instance.AddEntryToFeed("HOP", taggedName, false, ulong.MaxValue, taggedClientId);
+                EventBus.Publish(new AddKillFeedEntryEvent("HOP", taggedName, false, ulong.MaxValue, taggedClientId, wasKill: false));
             }
         }
 

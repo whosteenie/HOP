@@ -7,6 +7,7 @@ using Game.Match;
 using Network;
 using Network.AntiCheat;
 using Network.Components;
+using Network.Events;
 using Network.Rpc;
 using Network.Singletons;
 using OSI;
@@ -226,7 +227,7 @@ namespace Game.Player {
                     rootContainer.style.display = DisplayStyle.Flex;
             }
 
-            HUDManager.Instance.ShowHUD();
+            EventBus.Publish(new ShowHUDEvent());
             if(IsOwner && fpCamera && lookController != null) {
                 fpCamera.Lens.FieldOfView = lookController.BaseFov;
             }
@@ -257,7 +258,7 @@ namespace Game.Player {
                 // Initialize tag status for HUD in Tag mode
                 var matchSettings = MatchSettingsManager.Instance;
                 if(matchSettings != null && matchSettings.selectedGameModeId == "Gun Tag" && tagController != null) {
-                    HUDManager.Instance.UpdateTagStatus(tagController.isTagged.Value);
+                    EventBus.Publish(new UpdateTagStatusEvent(tagController.isTagged.Value));
                 }
 
                 if(playerShadow != null)
@@ -464,7 +465,7 @@ namespace Game.Player {
         }
 
         private void OnHealthChanged(float oldV, float newV) {
-            if(IsOwner) HUDManager.Instance.UpdateHealth(newV, 100f);
+            if(IsOwner) EventBus.Publish(new UpdateHealthEvent(newV, 100f));
         }
 
         private void OnCrouchStateChanged(bool oldValue, bool newValue) {
@@ -720,8 +721,8 @@ namespace Game.Player {
                 // }
 
                 if(updateHUD) {
-                    HUDManager.Instance.UpdateAmmo(currentWeapon.currentAmmo, currentWeapon.GetMagSize());
-                    HUDManager.Instance.UpdateHealth(netHealth.Value, 100f);
+                    EventBus.Publish(new UpdateAmmoEvent(currentWeapon.currentAmmo, currentWeapon.GetMagSize()));
+                    EventBus.Publish(new UpdateHealthEvent(netHealth.Value, 100f));
                 }
             }
 
