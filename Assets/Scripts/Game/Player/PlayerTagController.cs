@@ -1,6 +1,7 @@
 using Game.Audio;
 using Game.Match;
 using Game.UI;
+using Network.Events;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -245,9 +246,7 @@ namespace Game.Player {
         /// </summary>
         [Rpc(SendTo.Owner)]
         public void PlayTaggedSoundClientRpc() {
-            if(SoundFXManager.Instance != null) {
-                SoundFXManager.Instance.PlayUISound(SfxKey.Tagged);
-            }
+            EventBus.Publish(new PlayUISoundEvent(SfxKey.Tagged));
         }
 
         /// <summary>
@@ -255,9 +254,7 @@ namespace Game.Player {
         /// </summary>
         [Rpc(SendTo.Owner)]
         private void PlayTaggingSoundClientRpc() {
-            if(SoundFXManager.Instance != null) {
-                SoundFXManager.Instance.PlayUISound(SfxKey.Tagging);
-            }
+            EventBus.Publish(new PlayUISoundEvent(SfxKey.Tagging));
         }
 
         /// <summary>

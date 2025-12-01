@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using Game.Player;
 using Game.Audio;
 using Network.AntiCheat;
-using Network.Singletons;
+using Network.Events;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -132,16 +132,12 @@ namespace Network.Rpc {
                 parent = no.transform;
             }
 
-            if(SoundFXManager.Instance != null) {
-                SoundFXManager.Instance.PlayKey(key, parent, pos, allowOverlap);
-            }
+            EventBus.Publish(new PlayWorldSoundEvent(key, parent, pos, allowOverlap));
         }
 
         [Rpc(SendTo.Everyone)]
         private void PlayWorldSfxAtPositionClientRpc(SfxKey key, Vector3 worldPosition, bool allowOverlap) {
-            if(SoundFXManager.Instance != null) {
-                SoundFXManager.Instance.PlayKey(key, null, worldPosition, allowOverlap);
-            }
+            EventBus.Publish(new PlayWorldSoundEvent(key, null, worldPosition, allowOverlap));
         }
 
         /// <summary>
@@ -160,9 +156,7 @@ namespace Network.Rpc {
 
         [Rpc(SendTo.Everyone)]
         private void StopWorldSfxClientRpc(SfxKey key) {
-            if(SoundFXManager.Instance != null) {
-                SoundFXManager.Instance.StopSound(key);
-            }
+            EventBus.Publish(new StopSoundEvent(key));
         }
     }
 }

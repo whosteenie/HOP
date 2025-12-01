@@ -3,6 +3,7 @@ using Game.Menu;
 using Game.UI;
 using Game.Weapons;
 using JetBrains.Annotations;
+using Network.Events;
 using Unity.Cinemachine;
 using Unity.Netcode;
 using UnityEngine;
@@ -603,9 +604,7 @@ namespace Game.Player {
                 }
             }
             if(playZoomSound) {
-                if(SoundFXManager.Instance != null) {
-                    SoundFXManager.Instance.PlayUISound(SfxKey.SniperZoom);
-                }
+                EventBus.Publish(new PlayUISoundEvent(SfxKey.SniperZoom));
             }
             UpdateSniperSensitivityMultiplier();
         }

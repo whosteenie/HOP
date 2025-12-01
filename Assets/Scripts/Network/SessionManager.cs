@@ -8,6 +8,7 @@ using Game.Match;
 using Game.Menu;
 using Game.UI;
 using Network.Core;
+using Network.Events;
 using Network.Relay;
 using Network.Singletons;
 using Network.UGS;
@@ -316,9 +317,7 @@ namespace Network {
             SetFrontStatus(SessionPhase.ReturningToMenu, "Lost connection. Returning to main menu...");
 
             // Stop all sounds before scene transition to prevent accessing destroyed audio clips
-            if(SoundFXManager.Instance != null) {
-                SoundFXManager.Instance.StopAllSounds();
-            }
+            EventBus.Publish(new StopAllSoundsEvent());
 
             // Fade to black
             if(SceneTransitionManager.Instance != null) {
@@ -750,9 +749,7 @@ namespace Network {
 
             try {
                 // Stop all sounds before scene transition to prevent accessing destroyed audio clips
-                if(SoundFXManager.Instance != null) {
-                    SoundFXManager.Instance.StopAllSounds();
-                }
+                EventBus.Publish(new StopAllSoundsEvent());
 
                 // Fade to black before leaving, unless in main menu already or fade is skipped
                 if(!skipFade && SceneTransitionManager.Instance != null && _cachedSceneName != "MainMenu") {

@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using Network.Events;
 using UnityEngine;
 
 namespace Game.Audio {
@@ -84,10 +85,46 @@ namespace Game.Audio {
             InitializePool();
         }
 
+        private void OnEnable() {
+            // Subscribe to audio events
+            EventBus.Subscribe<PlayUISoundEvent>(OnPlayUISound);
+            EventBus.Subscribe<PlayWorldSoundEvent>(OnPlayWorldSound);
+            EventBus.Subscribe<StopSoundEvent>(OnStopSound);
+            EventBus.Subscribe<StopAllSoundsEvent>(OnStopAllSounds);
+        }
+
+        private void OnDisable() {
+            // Unsubscribe from audio events
+            EventBus.Unsubscribe<PlayUISoundEvent>(OnPlayUISound);
+            EventBus.Unsubscribe<PlayWorldSoundEvent>(OnPlayWorldSound);
+            EventBus.Unsubscribe<StopSoundEvent>(OnStopSound);
+            EventBus.Unsubscribe<StopAllSoundsEvent>(OnStopAllSounds);
+        }
+
         private void OnDestroy() {
             // Stop all sounds when manager is destroyed
             StopAllSounds();
         }
+
+        #region Event Handlers
+
+        private void OnPlayUISound(PlayUISoundEvent evt) {
+            PlayUISound(evt.Key);
+        }
+
+        private void OnPlayWorldSound(PlayWorldSoundEvent evt) {
+            PlayKey(evt.Key, evt.Parent, evt.Position, evt.AllowOverlap);
+        }
+
+        private void OnStopSound(StopSoundEvent evt) {
+            StopSound(evt.Key);
+        }
+
+        private void OnStopAllSounds(StopAllSoundsEvent evt) {
+            StopAllSounds();
+        }
+
+        #endregion
 
         private void InitializePool() {
             for(var i = 0; i < poolSize; i++) {
@@ -206,7 +243,7 @@ namespace Game.Audio {
         /// Network-consumed entrypoint. If parent != null, the AudioSource is parented (follows player/bullet tracer).
         /// Else, it's placed at the provided world position.
         /// </summary>
-        public void PlayKey(SfxKey key, Transform parent, Vector3 worldPos, bool allowOverlap) {
+        private void PlayKey(SfxKey key, Transform parent, Vector3 worldPos, bool allowOverlap) {
             var clip = PickRandomFrom(key);
             // Return early if no clip found (allows sounds to be optional in inspector)
             if(clip == null) return;
@@ -279,7 +316,7 @@ namespace Game.Audio {
         /// <summary>
         /// Stop a currently playing sound by key (for canceling reloads, etc.)
         /// </summary>
-        public void StopSound(SfxKey key) {
+        private void StopSound(SfxKey key) {
             var trackKey = key.ToString();
             if(!_activeSounds.TryGetValue(trackKey, out var src) || src == null || src.gameObject == null) return;
             if(src.isPlaying) {
@@ -297,7 +334,7 @@ namespace Game.Audio {
         /// Stop all currently playing sounds and return them to the pool.
         /// Useful when leaving a game/scene to prevent accessing destroyed audio clips.
         /// </summary>
-        public void StopAllSounds() {
+        private void StopAllSounds() {
             // Stop all tracked sounds
             var keysToRemove = new List<string>();
             foreach(var kvp in _activeSounds) {
@@ -332,7 +369,7 @@ namespace Game.Audio {
         /// Plays a UI sound using a SfxKey. UI sounds are non-spatial (2D) and heard by all players.
         /// Centralized location for all UI sound clip assignments.
         /// </summary>
-        public void PlayUISound(SfxKey key) {
+        private void PlayUISound(SfxKey key) {
             var clip = PickRandomFrom(key);
             // Return early if no clip found (allows sounds to be optional in inspector)
             if(clip == null) return;

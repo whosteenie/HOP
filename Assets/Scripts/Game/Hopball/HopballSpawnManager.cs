@@ -6,6 +6,7 @@ using Game.Audio;
 using Game.Match;
 using Game.Spawning;
 using Game.UI;
+using Network.Events;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -370,10 +371,8 @@ namespace Game.Hopball {
         /// </summary>
         [Rpc(SendTo.Everyone)]
         private void PlayHopballSpawnSoundClientRpc(Vector3 position) {
-            if(SoundFXManager.Instance != null) {
-                // Play sound at position (not attached to any object) with directional falloff
-                SoundFXManager.Instance.PlayKey(SfxKey.HopballSpawn, null, position, allowOverlap: false);
-            }
+            // Play sound at position (not attached to any object) with directional falloff
+            EventBus.Publish(new PlayWorldSoundEvent(SfxKey.HopballSpawn, null, position, allowOverlap: false));
         }
 
         /// <summary>

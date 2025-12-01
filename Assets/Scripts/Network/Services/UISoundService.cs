@@ -1,4 +1,5 @@
 using Game.Audio;
+using Network.Events;
 using UnityEngine.UIElements;
 
 namespace Network.Services {
@@ -12,9 +13,8 @@ namespace Network.Services {
         /// </summary>
         /// <param name="isBack">If true, plays back button sound; otherwise plays normal click sound.</param>
         public static void PlayButtonClick(bool isBack = false) {
-            if(SoundFXManager.Instance == null) return;
             var soundKey = !isBack ? SfxKey.ButtonClick : SfxKey.BackButton;
-            SoundFXManager.Instance.PlayUISound(soundKey);
+            EventBus.Publish(new PlayUISoundEvent(soundKey));
         }
 
         /// <summary>
@@ -22,9 +22,7 @@ namespace Network.Services {
         /// Uses MouseEnterEvent which only fires when entering the element, preventing multiple triggers from child elements.
         /// </summary>
         public static void PlayButtonHover() {
-            if(SoundFXManager.Instance != null) {
-                SoundFXManager.Instance.PlayUISound(SfxKey.ButtonHover);
-            }
+            EventBus.Publish(new PlayUISoundEvent(SfxKey.ButtonHover));
         }
 
         /// <summary>

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Game.Player;
 using Game.Audio;
 using Network.AntiCheat;
+using Network.Events;
 using Unity.Cinemachine;
 using Unity.Netcode;
 using UnityEngine;
@@ -225,8 +226,8 @@ namespace Game.Weapons {
             if(newIndex == CurrentWeaponIndex && !isHoldingHopball && !isRestoringAfterDissolve)
                 return;
 
-            if(IsOwner && SoundFXManager.Instance != null) {
-                SoundFXManager.Instance.PlayUISound(SfxKey.WeaponSwitch);
+            if(IsOwner) {
+                EventBus.Publish(new PlayUISoundEvent(SfxKey.WeaponSwitch));
             }
 
             // Cache ammo from current weapon before switching away

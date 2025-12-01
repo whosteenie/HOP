@@ -5,6 +5,7 @@ using Game.Match;
 using Game.Menu;
 using Game.Player;
 using Game.UI;
+using Network.Events;
 using Network.Rpc;
 using Unity.Cinemachine;
 using Unity.Netcode;
@@ -151,9 +152,8 @@ namespace Game.Weapons {
         }
 
         private static void OnHitConfirm(bool wasKill) {
-            if(SoundFXManager.Instance == null) return;
             var soundKey = wasKill ? SfxKey.Kill : SfxKey.Hit;
-            SoundFXManager.Instance.PlayUISound(soundKey);
+            EventBus.Publish(new PlayUISoundEvent(soundKey));
         }
 
         #endregion

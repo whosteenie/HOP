@@ -1,5 +1,6 @@
 using Game.Audio;
 using Game.UI;
+using Network.Events;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -26,9 +27,7 @@ namespace Game.Player {
         [Rpc(SendTo.Everyone)]
         public void PlayHitEffectsClientRpc(Vector3 hitPoint, float amount) {
             if(IsOwner) {
-                if(SoundFXManager.Instance != null) {
-                    SoundFXManager.Instance.PlayUISound(SfxKey.Hurt);
-                }
+                EventBus.Publish(new PlayUISoundEvent(SfxKey.Hurt));
                 
                 impulseSource.GenerateImpulse();
 

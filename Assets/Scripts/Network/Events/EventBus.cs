@@ -1,7 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
-using System.Linq;
 using UnityEngine;
 
 namespace Network.Events {
@@ -10,12 +8,12 @@ namespace Network.Events {
     /// Provides type-safe event publishing and subscription with comprehensive debugging features.
     /// </summary>
     public static class EventBus {
-        private static readonly Dictionary<Type, List<Delegate>> _subscribers = new();
+        private static readonly Dictionary<Type, List<Delegate>> subscribers = new();
         
         #if UNITY_EDITOR || DEVELOPMENT_BUILD
-        private static readonly List<string> _eventHistory = new();
-        private static readonly Dictionary<string, float> _handlerTimings = new();
-        private static bool _loggingEnabled = true;
+        private static readonly List<string> eventHistory = new();
+        private static readonly Dictionary<string, float> handlerTimings = new();
+        private static bool loggingEnabled = true;
         #endif
 
         /// <summary>
@@ -23,12 +21,12 @@ namespace Network.Events {
         /// </summary>
         public static void Subscribe<T>(Action<T> handler) where T : GameEvent {
             var eventType = typeof(T);
-            if(!_subscribers.ContainsKey(eventType)) {
-                _subscribers[eventType] = new List<Delegate>();
+            if(!subscribers.ContainsKey(eventType)) {
+                subscribers[eventType] = new List<Delegate>();
             }
             
-            if(!_subscribers[eventType].Contains(handler)) {
-                _subscribers[eventType].Add(handler);
+            if(!subscribers[eventType].Contains(handler)) {
+                subscribers[eventType].Add(handler);
             }
         }
 
@@ -37,10 +35,10 @@ namespace Network.Events {
         /// </summary>
         public static void Unsubscribe<T>(Action<T> handler) where T : GameEvent {
             var eventType = typeof(T);
-            if(_subscribers.ContainsKey(eventType)) {
-                _subscribers[eventType].Remove(handler);
-                if(_subscribers[eventType].Count == 0) {
-                    _subscribers.Remove(eventType);
+            if(subscribers.ContainsKey(eventType)) {
+                subscribers[eventType].Remove(handler);
+                if(subscribers[eventType].Count == 0) {
+                    subscribers.Remove(eventType);
                 }
             }
         }
@@ -52,7 +50,7 @@ namespace Network.Events {
         public static void UnsubscribeAll(object subscriber) {
             var toRemove = new List<KeyValuePair<Type, Delegate>>();
             
-            foreach(var kvp in _subscribers) {
+            foreach(var kvp in subscribers) {
                 foreach(var handler in kvp.Value) {
                     if(handler.Target == subscriber) {
                         toRemove.Add(new KeyValuePair<Type, Delegate>(kvp.Key, handler));
@@ -61,9 +59,9 @@ namespace Network.Events {
             }
             
             foreach(var pair in toRemove) {
-                _subscribers[pair.Key].Remove(pair.Value);
-                if(_subscribers[pair.Key].Count == 0) {
-                    _subscribers.Remove(pair.Key);
+                subscribers[pair.Key].Remove(pair.Value);
+                if(subscribers[pair.Key].Count == 0) {
+                    subscribers.Remove(pair.Key);
                 }
             }
         }
@@ -76,29 +74,29 @@ namespace Network.Events {
             var eventType = typeof(T);
             
             #if UNITY_EDITOR || DEVELOPMENT_BUILD
-            if(_loggingEnabled) {
+            if(loggingEnabled) {
                 // Missing subscriber detection
-                if(!_subscribers.ContainsKey(eventType) || _subscribers[eventType].Count == 0) {
+                if(!subscribers.ContainsKey(eventType) || subscribers[eventType].Count == 0) {
                     Debug.LogWarning($"[EventBus] {eventType.Name} published but NO SUBSCRIBERS! " +
                                    $"Is {eventType.Name} handler missing?");
                 }
                 
                 // Caller information
-                var stackTrace = new StackTrace(1, true);
+                var stackTrace = new System.Diagnostics.StackTrace(1, true);
                 var caller = stackTrace.GetFrame(0)?.GetMethod();
                 var callerInfo = caller != null 
                     ? $"{caller.DeclaringType?.Name}.{caller.Name}()" 
                     : "Unknown";
                 
-                var subscriberCount = _subscribers.ContainsKey(eventType) 
-                    ? _subscribers[eventType].Count 
+                var subscriberCount = subscribers.TryGetValue(eventType, out var subscriber) 
+                    ? subscriber.Count 
                     : 0;
                 
                 // Event history (keep last 100)
                 var logEntry = $"[Frame {Time.frameCount}] {eventType.Name} from {callerInfo} → {subscriberCount} subscriber(s)";
-                _eventHistory.Add(logEntry);
-                if(_eventHistory.Count > 100) {
-                    _eventHistory.RemoveAt(0);
+                eventHistory.Add(logEntry);
+                if(eventHistory.Count > 100) {
+                    eventHistory.RemoveAt(0);
                 }
                 
                 Debug.Log($"[EventBus] Publishing {eventType.Name} from {callerInfo} " +
@@ -107,13 +105,13 @@ namespace Network.Events {
             #endif
             
             // Publish with exception handling
-            if(_subscribers.ContainsKey(eventType)) {
+            if(subscribers.ContainsKey(eventType)) {
                 // Create a copy of the list to avoid modification during iteration
-                var handlers = _subscribers[eventType].ToArray();
+                var handlers = subscribers[eventType].ToArray();
                 
                 foreach(var handler in handlers) {
                     #if UNITY_EDITOR || DEVELOPMENT_BUILD
-                    var startTime = _loggingEnabled ? Time.realtimeSinceStartup : 0f;
+                    var startTime = loggingEnabled ? Time.realtimeSinceStartup : 0f;
                     #endif
                     
                     try {
@@ -122,8 +120,8 @@ namespace Network.Events {
                         }
                     } catch(Exception ex) {
                         #if UNITY_EDITOR || DEVELOPMENT_BUILD
-                        if(_loggingEnabled) {
-                            var stackTrace = new StackTrace(1, true);
+                        if(loggingEnabled) {
+                            var stackTrace = new System.Diagnostics.StackTrace(1, true);
                             var caller = stackTrace.GetFrame(0)?.GetMethod();
                             var callerInfo = caller != null 
                                 ? $"{caller.DeclaringType?.Name}.{caller.Name}()" 
@@ -138,7 +136,7 @@ namespace Network.Events {
                         #endif
                     } finally {
                         #if UNITY_EDITOR || DEVELOPMENT_BUILD
-                        if(_loggingEnabled) {
+                        if(loggingEnabled) {
                             var duration = Time.realtimeSinceStartup - startTime;
                             if(duration > 0.01f) { // Log slow handlers (>10ms)
                                 var handlerName = handler.GetType().Name;
@@ -155,10 +153,10 @@ namespace Network.Events {
         /// Clear all subscriptions. Useful for testing or scene transitions.
         /// </summary>
         public static void Clear() {
-            _subscribers.Clear();
+            subscribers.Clear();
             #if UNITY_EDITOR || DEVELOPMENT_BUILD
-            _eventHistory.Clear();
-            _handlerTimings.Clear();
+            eventHistory.Clear();
+            handlerTimings.Clear();
             #endif
         }
 
@@ -168,12 +166,12 @@ namespace Network.Events {
         /// </summary>
         public static void LogSubscriptions() {
             Debug.Log("=== Event Bus Subscriptions ===");
-            if(_subscribers.Count == 0) {
+            if(subscribers.Count == 0) {
                 Debug.Log("No active subscriptions.");
                 return;
             }
             
-            foreach(var kvp in _subscribers) {
+            foreach(var kvp in subscribers) {
                 Debug.Log($"{kvp.Key.Name}: {kvp.Value.Count} subscriber(s)");
                 foreach(var handler in kvp.Value) {
                     var method = handler.GetType().GetMethod("Invoke");
@@ -187,12 +185,12 @@ namespace Network.Events {
         /// </summary>
         public static void PrintEventHistory() {
             Debug.Log("=== Event Bus History (Last 100) ===");
-            if(_eventHistory.Count == 0) {
+            if(eventHistory.Count == 0) {
                 Debug.Log("No events in history.");
                 return;
             }
             
-            foreach(var entry in _eventHistory) {
+            foreach(var entry in eventHistory) {
                 Debug.Log(entry);
             }
         }
@@ -201,7 +199,7 @@ namespace Network.Events {
         /// Clear the event history.
         /// </summary>
         public static void ClearEventHistory() {
-            _eventHistory.Clear();
+            eventHistory.Clear();
             Debug.Log("[EventBus] Event history cleared.");
         }
 
@@ -209,7 +207,7 @@ namespace Network.Events {
         /// Enable or disable event logging. Useful for performance or reducing log spam.
         /// </summary>
         public static void SetLoggingEnabled(bool enabled) {
-            _loggingEnabled = enabled;
+            loggingEnabled = enabled;
             Debug.Log($"[EventBus] Logging {(enabled ? "enabled" : "disabled")}.");
         }
 
@@ -217,7 +215,7 @@ namespace Network.Events {
         /// Get the current logging state.
         /// </summary>
         public static bool IsLoggingEnabled() {
-            return _loggingEnabled;
+            return loggingEnabled;
         }
         #endif
     }

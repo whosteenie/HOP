@@ -5,6 +5,7 @@ using Game.Hopball;
 using Game.Match;
 using Game.Player;
 using Game.Spawning;
+using Network.Events;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -215,7 +216,7 @@ namespace Game.UI {
             _matchTimerLabel.text = $"{minutes:00}:{seconds:00}";
 
             if(minutes == 0 && seconds is <= 5 and >= 1) {
-                SoundFXManager.Instance.PlayUISound(SfxKey.TimerTick);
+                EventBus.Publish(new PlayUISoundEvent(SfxKey.TimerTick));
             }
         }
 
