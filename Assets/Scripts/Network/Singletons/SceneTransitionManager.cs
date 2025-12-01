@@ -1,6 +1,9 @@
 using System.Collections;
 using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
+using Game.Audio;
+using Game.Menu;
+using Game.UI;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UIElements;
@@ -98,9 +101,10 @@ namespace Network.Singletons {
             if(_cachedSceneName == null || !_cachedSceneName.Contains("Game")) return;
             
             var gameMenuManager = GameMenuManager.Instance;
+            if(gameMenuManager == null) return;
 
             // Try to get UIDocument component
-            var gameMenuDoc = gameMenuManager?.GetComponent<UIDocument>();
+            var gameMenuDoc = gameMenuManager.GetComponent<UIDocument>();
             if(gameMenuDoc == null) return;
                     
             var gameRoot = gameMenuDoc.rootVisualElement;
@@ -122,7 +126,9 @@ namespace Network.Singletons {
             yield return StartCoroutine(FadeOut());
 
             // Execute action (scene load, etc.)
-            duringFade?.Invoke();
+            if(duringFade != null) {
+                duringFade.Invoke();
+            }
 
             // Wait a frame for scene to load
             yield return null;
@@ -153,7 +159,7 @@ namespace Network.Singletons {
 
             if(_transitionOverlay == null) yield break;
 
-            var duration = customDuration ?? fadeDuration;
+            var duration = customDuration != null ? customDuration.Value : fadeDuration;
 
             // Always use black for fade out
             _transitionOverlay.style.backgroundColor = new StyleColor(new Color(0, 0, 0, 1));
@@ -179,7 +185,7 @@ namespace Network.Singletons {
         public IEnumerator FadeIn(float? customDuration = null, string fadeColor = null) {
             if(_transitionOverlay == null) yield break;
 
-            var duration = customDuration ?? fadeDuration;
+            var duration = customDuration != null ? customDuration.Value : fadeDuration;
 
             // Set fade color if provided (otherwise uses default black from CSS)
             _transitionOverlay.style.backgroundColor = !string.IsNullOrEmpty(fadeColor)
@@ -199,7 +205,9 @@ namespace Network.Singletons {
             _transitionOverlay.style.display = DisplayStyle.None;
 
             // Stop loading ball animation when transition overlay is hidden
-            _loadingBallAnimation?.StopAnimation();
+            if(_loadingBallAnimation != null) {
+                _loadingBallAnimation.StopAnimation();
+            }
         }
 
         /// <summary>
@@ -215,7 +223,7 @@ namespace Network.Singletons {
 
             if(_respawnFadeOverlay == null) yield break;
 
-            var duration = customDuration ?? fadeDuration;
+            var duration = customDuration != null ? customDuration.Value : fadeDuration;
 
             // Always use black for respawn overlay
             _respawnFadeOverlay.style.backgroundColor = new StyleColor(new Color(0, 0, 0, 1));
@@ -240,7 +248,7 @@ namespace Network.Singletons {
 
             if(_respawnFadeOverlay == null) yield break;
 
-            var duration = customDuration ?? fadeDuration;
+            var duration = customDuration != null ? customDuration.Value : fadeDuration;
 
             // Always use black for respawn overlay
             _respawnFadeOverlay.style.backgroundColor = new StyleColor(new Color(0, 0, 0, 1));
@@ -350,8 +358,9 @@ namespace Network.Singletons {
         /// </summary>
         private IEnumerator FadeOutMenuMusic() {
             var menuMusicPlayer = FindFirstObjectByType<MenuMusicPlayer>();
+            if(menuMusicPlayer == null) yield break;
 
-            var musicSource = menuMusicPlayer?.GetComponent<AudioSource>();
+            var musicSource = menuMusicPlayer.GetComponent<AudioSource>();
             if(musicSource == null || !musicSource.isPlaying) yield break;
 
             var startVolume = musicSource.volume;

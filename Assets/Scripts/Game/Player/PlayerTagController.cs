@@ -1,4 +1,6 @@
-using Network.Singletons;
+using Game.Audio;
+using Game.Match;
+using Game.UI;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -108,8 +110,14 @@ namespace Game.Player {
             // Only allow tagging if the attacker is "it" (tagged)
             if(!NetworkManager.Singleton.ConnectedClients.TryGetValue(attackerId, out var attackerClient)) return;
 
-            var attacker = attackerClient.PlayerObject?.GetComponent<PlayerController>();
-            var attackerTagController = attacker?.GetComponent<PlayerTagController>();
+            PlayerController attacker = null;
+            if(attackerClient.PlayerObject != null) {
+                attacker = attackerClient.PlayerObject.GetComponent<PlayerController>();
+            }
+            PlayerTagController attackerTagController = null;
+            if(attacker != null) {
+                attackerTagController = attacker.GetComponent<PlayerTagController>();
+            }
 
             // If attacker is not tagged, they cannot tag others
             if(attackerTagController == null || !attackerTagController.isTagged.Value) {
@@ -182,22 +190,30 @@ namespace Game.Player {
             var taggedName = "Unknown";
 
             if(NetworkManager.Singleton.ConnectedClients.TryGetValue(taggerClientId, out var taggerClient)) {
-                var tagger = taggerClient.PlayerObject?.GetComponent<PlayerController>();
+                PlayerController tagger = null;
+                if(taggerClient.PlayerObject != null) {
+                    tagger = taggerClient.PlayerObject.GetComponent<PlayerController>();
+                }
                 if(tagger != null) {
                     taggerName = tagger.playerName.Value.ToString();
                 }
             }
 
             if(NetworkManager.Singleton.ConnectedClients.TryGetValue(taggedClientId, out var taggedClient)) {
-                var taggedPlayer = taggedClient.PlayerObject?.GetComponent<PlayerController>();
+                PlayerController taggedPlayer = null;
+                if(taggedClient.PlayerObject != null) {
+                    taggedPlayer = taggedClient.PlayerObject.GetComponent<PlayerController>();
+                }
                 if(taggedPlayer != null) {
                     taggedName = taggedPlayer.playerName.Value.ToString();
                 }
             }
 
             var isLocalTagger = NetworkManager.Singleton.LocalClientId == taggerClientId;
-            KillFeedManager.Instance?.AddEntryToFeed(taggerName, taggedName, isLocalTagger, taggerClientId,
-                taggedClientId);
+            if(KillFeedManager.Instance != null) {
+                KillFeedManager.Instance.AddEntryToFeed(taggerName, taggedName, isLocalTagger, taggerClientId,
+                    taggedClientId);
+            }
         }
 
         /// <summary>
@@ -209,14 +225,19 @@ namespace Game.Player {
             var taggedName = "Unknown";
 
             if(NetworkManager.Singleton.ConnectedClients.TryGetValue(taggedClientId, out var taggedClient)) {
-                var taggedPlayer = taggedClient.PlayerObject?.GetComponent<PlayerController>();
+                PlayerController taggedPlayer = null;
+                if(taggedClient.PlayerObject != null) {
+                    taggedPlayer = taggedClient.PlayerObject.GetComponent<PlayerController>();
+                }
                 if(taggedPlayer != null) {
                     taggedName = taggedPlayer.playerName.Value.ToString();
                 }
             }
 
             // HOP is never the local player, so isLocalTagger is always false
-            KillFeedManager.Instance?.AddEntryToFeed("HOP", taggedName, false, ulong.MaxValue, taggedClientId);
+            if(KillFeedManager.Instance != null) {
+                KillFeedManager.Instance.AddEntryToFeed("HOP", taggedName, false, ulong.MaxValue, taggedClientId);
+            }
         }
 
         /// <summary>

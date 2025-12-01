@@ -57,13 +57,6 @@ namespace Game.Player {
             _ragdollRigidbodies = GetComponentsInChildren<Rigidbody>(true);
             _ragdollJoints = GetComponentsInChildren<CharacterJoint>(true);
             _ragdollColliders = GetComponentsInChildren<Collider>(true);
-            Debug.LogWarning(
-                $"[PlayerRagdoll] Cached ragdoll components. Rigidbodies={_ragdollRigidbodies?.Length ?? 0}, Colliders={_ragdollColliders?.Length ?? 0}, Joints={_ragdollJoints?.Length ?? 0}");
-
-            // Validate chest rigidbody is assigned
-            if(chestRigidbody == null) {
-                Debug.LogError("[PlayerRagdoll] Chest rigidbody not assigned in inspector! Ragdoll force will not work correctly.");
-            }
 
             // Set ragdoll components to Enemy layer (excluding base GameObject)
             SetRagdollLayersToEnemy();
@@ -96,7 +89,9 @@ namespace Game.Player {
             } else {
                 // Fallback if not assigned (shouldn't happen if inspector is set up correctly)
                 var fallback = GetClosestRigidbody(_hitPoint);
-                fallback?.AddForce(_hitDir * RagdollForce, ForceMode.Impulse);
+                if(fallback != null) {
+                    fallback.AddForce(_hitDir * RagdollForce, ForceMode.Impulse);
+                }
             }
         }
 
@@ -136,7 +131,6 @@ namespace Game.Player {
         }
 
         private void EnableRagdollPhysics() {
-            Debug.LogWarning("[PlayerRagdoll] Enabling ragdoll physics");
             foreach(var rb in _ragdollRigidbodies) {
                 if(rb == null) continue;
                 rb.isKinematic = false; // Make non-kinematic for physics interactions
@@ -157,7 +151,6 @@ namespace Game.Player {
         }
 
         private void DisableRagdollPhysics() {
-            Debug.LogWarning("[PlayerRagdoll] Disabling ragdoll physics");
             foreach(var rb in _ragdollRigidbodies) {
                 if(rb == null) continue;
                 // Set velocities BEFORE making kinematic (can't set velocity on kinematic bodies)

@@ -37,7 +37,12 @@ namespace Game.Player {
         private float _targetFov;
 
         // Input (read from PlayerController)
-        private Vector2 LookInput => playerController?.lookInput ?? Vector2.zero;
+        private Vector2 LookInput {
+            get {
+                if(playerController == null) return Vector2.zero;
+                return playerController.lookInput;
+            }
+        }
 
         private void Awake() {
             ValidateComponents();
@@ -49,7 +54,7 @@ namespace Game.Player {
             }
 
             if(playerController == null) {
-            Debug.LogError("[PlayerLookController] PlayerController not found!");
+                Debug.LogError("[PlayerLookController] PlayerController not found!");
                 enabled = false;
                 return;
             }
@@ -68,9 +73,13 @@ namespace Game.Player {
             UpdatePitch(lookDelta.y);
             UpdateYaw(lookDelta.x);
 
-            _animationController?.UpdateTurnAnimation(lookDelta.x);
+            if(_animationController != null) {
+                _animationController.UpdateTurnAnimation(lookDelta.x);
+            }
 
-            _upperBodyPitch?.SetLocalPitchFromCamera(CurrentPitch);
+            if(_upperBodyPitch != null) {
+                _upperBodyPitch.SetLocalPitchFromCamera(CurrentPitch);
+            }
         }
 
         /// <summary>

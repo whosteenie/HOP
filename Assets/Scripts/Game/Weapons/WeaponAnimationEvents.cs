@@ -14,13 +14,14 @@ namespace Game.Weapons {
         public void OnPullOutCompleted() {
             // Find PlayerController via hierarchy (FP weapon is child of camera, camera is child of player)
             var playerController = GetComponentInParent<PlayerController>();
-            if(playerController?.WeaponManager != null) {
+            if(playerController == null) return;
+            if(playerController.WeaponManager != null) {
                 playerController.WeaponManager.HandlePullOutCompleted();
             } else {
                 // Fallback: try to find via root
                 var root = transform.root;
                 playerController = root.GetComponent<PlayerController>();
-                if(playerController?.WeaponManager != null) {
+                if(playerController != null && playerController.WeaponManager != null) {
                     playerController.WeaponManager.HandlePullOutCompleted();
                 } else {
                     Debug.LogWarning(

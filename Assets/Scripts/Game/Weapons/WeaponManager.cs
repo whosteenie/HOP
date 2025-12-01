@@ -1,9 +1,8 @@
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using Game.Player;
+using Game.Audio;
 using Network.AntiCheat;
-using Network.Singletons;
 using Unity.Cinemachine;
 using Unity.Netcode;
 using UnityEngine;
@@ -16,6 +15,7 @@ namespace Game.Weapons {
         private Transform _worldWeaponSocket;
         private Animator _playerAnimator;
         private WeaponCameraController _weaponCameraController;
+        private PlayerRenderer _playerRenderer;
 
         [Header("Loadout Weapon Pools")]
         [SerializeField] private List<WeaponData> primaryWeaponOptions = new();
@@ -32,7 +32,6 @@ namespace Game.Weapons {
 
         private readonly List<GameObject> _fpWeaponInstances = new();
         private readonly Dictionary<int, int> _weaponAmmo = new();
-        private Coroutine _pullOutTimeoutCoroutine;
         private GameObject _pendingTpWeapon; // Track pending TP weapon to show via animation event
         private class ServerWeaponState {
             public float LastShotTime;
@@ -56,6 +55,8 @@ namespace Game.Weapons {
         private readonly Dictionary<string, GameObject> _secondaryHolsterLookup = new(StringComparer.OrdinalIgnoreCase);
         private GameObject _selectedPrimaryHolster;
         private GameObject _selectedSecondaryHolster;
+        public GameObject PrimaryHolster => _selectedPrimaryHolster;
+        public GameObject SecondaryHolster => _selectedSecondaryHolster;
         private int _pendingHolsterHideSlot = -1;
 
         private void Awake() {
@@ -78,6 +79,12 @@ namespace Game.Weapons {
             if(_worldWeaponSocket == null) _worldWeaponSocket = playerController.WorldWeaponSocket;
             if(_playerAnimator == null) _playerAnimator = playerController.PlayerAnimator;
             if(_weaponCameraController == null) _weaponCameraController = playerController.WeaponCameraController;
+            
+            // Validate PlayerRenderer (required for renderer operations)
+            if(_playerRenderer == null) _playerRenderer = playerController.PlayerRenderer;
+            if(_playerRenderer != null) return;
+            Debug.LogError("[WeaponManager] PlayerRenderer not found! Cannot perform renderer operations.");
+            enabled = false;
         }
 
         public void InitializeWeapons() {
@@ -86,8 +93,32 @@ namespace Game.Weapons {
                 return;
             }
 
+            // Subscribe to weapon index changes to rebuild weapon list when they sync
+            if(playerController != null) {
+                playerController.primaryWeaponIndex.OnValueChanged -= OnWeaponIndexChanged;
+                playerController.primaryWeaponIndex.OnValueChanged += OnWeaponIndexChanged;
+                playerController.secondaryWeaponIndex.OnValueChanged -= OnWeaponIndexChanged;
+                playerController.secondaryWeaponIndex.OnValueChanged += OnWeaponIndexChanged;
+            }
+
             BuildEquippedWeaponList();
+            
+            // For non-owners, check if NetworkVariables are still at default (might not be synced yet)
+            if(!IsOwner && playerController != null) {
+                var primaryIndex = playerController.primaryWeaponIndex.Value;
+                var secondaryIndex = playerController.secondaryWeaponIndex.Value;
+                
+                // If both are 0, and we have weapon options, might be unsynced - wait for sync
+                if(primaryIndex == 0 && secondaryIndex == 0 && 
+                   primaryWeaponOptions != null && primaryWeaponOptions.Count > 0) {
+                    // Don't initialize yet - wait for NetworkVariables to sync
+                    // OnWeaponIndexChanged will handle initialization when values arrive
+                    return;
+                }
+            }
+            
             SetupHolsteredWeaponModels();
+            DisableUnequippedWorldWeapons();
 
             if(weaponDataList == null || weaponDataList.Count == 0) {
                 Debug.LogError("[WeaponManager] weaponDataList is empty!");
@@ -110,18 +141,18 @@ namespace Game.Weapons {
                     continue;
                 }
 
-                var bobHolder = new GameObject("BobHolder");
-                bobHolder.AddComponent<WeaponBob>();
                 var swayHolder = new GameObject("SwayHolder");
                 swayHolder.AddComponent<WeaponSway>();
-                swayHolder.transform.SetParent(bobHolder.transform, false);
+                swayHolder.transform.SetParent(_fpCamera.transform, false);
                 swayHolder.transform.localPosition = Vector3.zero;
                 swayHolder.transform.localEulerAngles = Vector3.zero;
-                bobHolder.transform.SetParent(_fpCamera.transform, false);
+                var bobHolder = new GameObject("BobHolder");
+                bobHolder.AddComponent<WeaponBob>();
+                bobHolder.transform.SetParent(swayHolder.transform, false);
                 bobHolder.transform.localPosition = Vector3.zero;
                 bobHolder.transform.localEulerAngles = Vector3.zero;
 
-                var fpWeaponInstance = Instantiate(data.weaponPrefab, swayHolder.transform, false);
+                var fpWeaponInstance = Instantiate(data.weaponPrefab, bobHolder.transform, false);
                 fpWeaponInstance.transform.localPosition = data.spawnPosition;
                 fpWeaponInstance.transform.localEulerAngles = data.spawnRotation;
 
@@ -134,6 +165,9 @@ namespace Game.Weapons {
                 foreach(var meshRenderer in meshRenderers) {
                     meshRenderer.shadowCastingMode = ShadowCastingMode.Off;
                 }
+
+                // Setup SkinnedMeshRenderers (for FP arm models)
+                SetupFpWeaponSkinnedMeshRenderers(fpWeaponInstance);
 
                 if(IsOwner) {
                     // Owner: Use Weapon layer (rendered by separate weapon camera above all geometry)
@@ -171,16 +205,17 @@ namespace Game.Weapons {
             var isHoldingHopball = false;
             var isRestoringAfterDissolve = false;
             if(IsOwner) {
-                var hopballController = playerController?.HopballController;
+                if(playerController == null) return;
+                var hopballController = playerController.PlayerHopballController;
                 if(hopballController != null) {
                     if(hopballController.IsHoldingHopball) {
                         isHoldingHopball = true;
                         // Drop hopball when switching weapons (let weapon switch visuals handle showing)
-                        hopballController.DropHopball(HopballController.HopballDropReason.WeaponSwitch);
+                        hopballController.DropHopball(PlayerHopballController.HopballDropReason.WeaponSwitch);
                     }
 
                     // Check if restoring after dissolve
-                    if(HopballController.IsRestoringAfterDissolve) {
+                    if(PlayerHopballController.IsRestoringAfterDissolve) {
                         isRestoringAfterDissolve = true;
                     }
                 }
@@ -190,8 +225,8 @@ namespace Game.Weapons {
             if(newIndex == CurrentWeaponIndex && !isHoldingHopball && !isRestoringAfterDissolve)
                 return;
 
-            if(IsOwner) {
-                SoundFXManager.Instance?.PlayUISound(SfxKey.WeaponSwitch);
+            if(IsOwner && SoundFXManager.Instance != null) {
+                SoundFXManager.Instance.PlayUISound(SfxKey.WeaponSwitch);
             }
 
             // Cache ammo from current weapon before switching away
@@ -203,15 +238,24 @@ namespace Game.Weapons {
             if(CurrentWeaponIndex >= 0) {
                 // Hide FP weapon
                 var oldFp = _fpWeaponInstances[CurrentWeaponIndex];
-                oldFp?.SetActive(false);
-
-                // Hide 3P weapon
-                var oldName = weaponDataList[CurrentWeaponIndex].worldWeaponName;
-                if(_worldWeaponSocket != null && !string.IsNullOrEmpty(oldName)) {
-                    var oldObj = _worldWeaponSocket.Find(oldName);
-                    if(oldObj)
-                        oldObj.gameObject.SetActive(false);
+                if(oldFp != null) {
+                    oldFp.SetActive(false);
                 }
+
+                // Hide 3P weapon - use CurrentWorldWeaponInstance first (most reliable)
+                if(CurrentWorldWeaponInstance != null) {
+                    CurrentWorldWeaponInstance.SetActive(false);
+                } else {
+                    // Fallback: try to find by name if CurrentWorldWeaponInstance wasn't set
+                    var oldName = weaponDataList[CurrentWeaponIndex].worldWeaponName;
+                    if(_worldWeaponSocket != null && !string.IsNullOrEmpty(oldName)) {
+                        var oldObj = _worldWeaponSocket.Find(oldName);
+                        if(oldObj != null) {
+                            oldObj.gameObject.SetActive(false);
+                        }
+                    }
+                }
+                CurrentWorldWeaponInstance = null; // Clear reference after hiding
             }
 
             // Commit to new weapon index immediately
@@ -227,6 +271,9 @@ namespace Game.Weapons {
 
                 // Activate weapon GameObject
                 fp.SetActive(true);
+
+                // Setup SkinnedMeshRenderers (for FP arm models)
+                SetupFpWeaponSkinnedMeshRenderers(fp);
 
                 // Rebind animator to reset state (will enter PullOut state if configured)
                 var anim = fp.GetComponent<Animator>();
@@ -265,17 +312,7 @@ namespace Game.Weapons {
 
             // Set pulling out state
             // The pull-out animation will call HandlePullOutCompleted() when done
-            // Add a timeout fallback in case animation doesn't exist or event doesn't fire
             IsPullingOut = true;
-
-            // Stop any existing timeout coroutine
-            if(_pullOutTimeoutCoroutine != null) {
-                StopCoroutine(_pullOutTimeoutCoroutine);
-            }
-
-            // Start timeout coroutine (fallback if animation event doesn't fire)
-            // Typical pull out animations are 0.3-0.5 seconds, so 1 second is a safe timeout
-            _pullOutTimeoutCoroutine = StartCoroutine(PullOutTimeoutCoroutine(1f));
 
             // Update player animator weapon index for 3P animations
             if(_playerAnimator == null) return;
@@ -294,6 +331,11 @@ namespace Game.Weapons {
             }
 
             UpdateHolsterVisibility();
+            
+            // Update holster shadow state for owners after weapon switch
+            if(IsOwner && playerController != null && playerController.PlayerShadow != null) {
+                playerController.PlayerShadow.UpdateHolsterShadowStateForOwner();
+            }
         }
 
         /// <summary>
@@ -325,6 +367,11 @@ namespace Game.Weapons {
 
              _pendingHolsterHideSlot = -1;
              UpdateHolsterVisibility();
+             
+             // Update holster shadow state for owners after TP weapon is shown
+             if(IsOwner && playerController != null && playerController.PlayerShadow != null) {
+                 playerController.PlayerShadow.UpdateHolsterShadowStateForOwner();
+             }
         }
 
         /// <summary>
@@ -332,23 +379,42 @@ namespace Game.Weapons {
         /// Allows shooting and reloading again.
         /// </summary>
         public void HandlePullOutCompleted() {
-            if(_pullOutTimeoutCoroutine != null) {
-                StopCoroutine(_pullOutTimeoutCoroutine);
-                _pullOutTimeoutCoroutine = null;
-            }
-
             IsPullingOut = false;
         }
 
         /// <summary>
-        /// Fallback timeout coroutine in case pull out animation doesn't exist or event doesn't fire.
+        /// Triggers the pullout animation. Used when hopball dissolves to restore weapon visibility.
         /// </summary>
-        private IEnumerator PullOutTimeoutCoroutine(float timeout) {
-            yield return new WaitForSeconds(timeout);
-            if(!IsPullingOut) yield break;
-            // Timeout reached, clear pull out state
-            IsPullingOut = false;
-            _pullOutTimeoutCoroutine = null;
+        public void TriggerPullOutAnimation() {
+            if(_playerAnimator == null) return;
+            
+            // If we're not switching weapons (e.g., after hopball dissolve), we need to set up _pendingTpWeapon
+            // so the animation event can show it. The weapon might already be inactive from HideWorldWeapon().
+            if(_pendingTpWeapon == null && CurrentWeaponIndex >= 0 && CurrentWeaponIndex < weaponDataList.Count) {
+                var data = weaponDataList[CurrentWeaponIndex];
+                
+                // Try to find the world weapon - it might already exist but be inactive
+                if(_worldWeaponSocket != null && !string.IsNullOrEmpty(data.worldWeaponName)) {
+                    var worldObj = _worldWeaponSocket.Find(data.worldWeaponName);
+                    if(worldObj) {
+                        _pendingTpWeapon = worldObj.gameObject;
+                        // Ensure it's hidden initially (will be shown by animation event)
+                        _pendingTpWeapon.SetActive(false);
+                    }
+                }
+                
+                // Set holster slot to hide the correct holster during pullout
+                _pendingHolsterHideSlot = GetSlotForIndex(CurrentWeaponIndex);
+                UpdateHolsterVisibility();
+            }
+            
+            // Set weapon index for 3P animations
+            _playerAnimator.SetInteger(weaponIndexHash, CurrentWeaponIndex);
+            // Trigger TP pull out animation
+            _playerAnimator.SetTrigger(PullOutHash);
+            
+            // Mark as pulling out
+            IsPullingOut = true;
         }
 
         private void EnsureWorldWeaponShadowState() {
@@ -364,7 +430,7 @@ namespace Game.Weapons {
 
             var playerShadow = playerController != null ? playerController.PlayerShadow : null;
             if(playerShadow != null) {
-                playerShadow.SetWorldWeaponRenderersShadowMode(targetMode, true);
+                playerShadow.SetWorldWeaponRenderersShadowMode(targetMode);
                 return;
             }
 
@@ -403,15 +469,20 @@ namespace Game.Weapons {
         private void ApplyRemoteWeaponSwitch(int newIndex) {
             if(newIndex < 0 || newIndex >= weaponDataList.Count) return;
 
-            if(CurrentWeaponIndex >= 0 && CurrentWeaponIndex < weaponDataList.Count) {
+            // Hide current 3P weapon - use CurrentWorldWeaponInstance first (most reliable)
+            if(CurrentWorldWeaponInstance != null) {
+                CurrentWorldWeaponInstance.SetActive(false);
+            } else if(CurrentWeaponIndex >= 0 && CurrentWeaponIndex < weaponDataList.Count) {
+                // Fallback: try to find by name if CurrentWorldWeaponInstance wasn't set
                 var previousName = weaponDataList[CurrentWeaponIndex].worldWeaponName;
                 if(_worldWeaponSocket != null && !string.IsNullOrEmpty(previousName)) {
                     var previousObj = _worldWeaponSocket.Find(previousName);
-                    if(previousObj) {
+                    if(previousObj != null) {
                         previousObj.gameObject.SetActive(false);
                     }
                 }
             }
+            CurrentWorldWeaponInstance = null; // Clear reference after hiding
 
             CurrentWeaponIndex = newIndex;
             var data = weaponDataList[newIndex];
@@ -443,11 +514,6 @@ namespace Game.Weapons {
             }
         }
 
-        public Weapon GetWeaponByIndex(int index) {
-            if(index == CurrentWeaponIndex) return CurrentWeapon;
-            return null;
-        }
-
         public void ApplyTpWeaponStateOnRespawn() {
             if(_playerAnimator == null) return;
             var slot = Mathf.Clamp(GetSlotForIndex(CurrentWeaponIndex), 0, 1);
@@ -466,10 +532,7 @@ namespace Game.Weapons {
             var fpWeapon = GetCurrentFpWeapon();
             if(fpWeapon == null) return;
 
-            var renderers = fpWeapon.GetComponentsInChildren<Renderer>(true);
-            foreach(var r in renderers) {
-                r.enabled = visible;
-            }
+            _playerRenderer.SetFpWeaponRenderersEnabled(visible, fpWeapon);
         }
 
         public void OffsetCurrentFpWeapon(Vector3 localPosition, Vector3 localEulerAngles) {
@@ -503,6 +566,9 @@ namespace Game.Weapons {
 
                 // Activate GameObject first so Animator.Update() can be called safely
                 fp.SetActive(true);
+
+                // Setup SkinnedMeshRenderers (for FP arm models)
+                SetupFpWeaponSkinnedMeshRenderers(fp);
 
                 var anim = fp.GetComponent<Animator>();
                 if(anim != null && anim.enabled) {
@@ -542,6 +608,11 @@ namespace Game.Weapons {
 
             _pendingHolsterHideSlot = -1;
             UpdateHolsterVisibility();
+            
+            // Update holster shadow state for owners after initial weapon equip
+            if(IsOwner && playerController != null && playerController.PlayerShadow != null) {
+                playerController.PlayerShadow.UpdateHolsterShadowStateForOwner();
+            }
         }
 
         /// <summary>
@@ -554,6 +625,62 @@ namespace Game.Weapons {
             foreach(Transform child in obj.transform) {
                 SetGameObjectAndChildrenLayer(child.gameObject, layer);
             }
+        }
+
+        /// <summary>
+        /// Enables and configures SkinnedMeshRenderers for FP weapon models (e.g., arm models).
+        /// Sets shadow casting to Off and ensures they are enabled.
+        /// Also applies player material customization from PlayerPrefs (owner only).
+        /// </summary>
+        private void SetupFpWeaponSkinnedMeshRenderers(GameObject fpWeaponInstance) {
+            if(fpWeaponInstance == null) return;
+
+            // Use PlayerRenderer for enabled state
+            _playerRenderer.SetFpWeaponSkinnedRenderersEnabled(true, fpWeaponInstance);
+
+            var skinnedRenderers = fpWeaponInstance.GetComponentsInChildren<SkinnedMeshRenderer>(true);
+            foreach(var skinnedRenderer in skinnedRenderers) {
+                if(skinnedRenderer == null) continue;
+                // Shadow mode is handled by PlayerShadow, but we set it here for initial setup
+                skinnedRenderer.shadowCastingMode = ShadowCastingMode.Off;
+            }
+
+            // Apply player material customization (owner only, local rendering)
+            // Use same approach as hopball arms - apply to all renderers
+            if(IsOwner) {
+                ApplyPlayerMaterialToFpWeapon(fpWeaponInstance);
+            }
+        }
+
+        /// <summary>
+        /// Applies player material customization from PlayerPrefs to FP weapon arms only.
+        /// Only called for owners since FP weapon rendering is fully local.
+        /// Uses same approach as hopball arms for consistency.
+        /// </summary>
+        private void ApplyPlayerMaterialToFpWeapon(GameObject fpWeaponInstance) {
+            if(fpWeaponInstance == null || playerController == null) return;
+
+            // Find the arm GameObject (tagged with "Arm")
+            GameObject armObject = null;
+            foreach(Transform child in fpWeaponInstance.GetComponentsInChildren<Transform>(true)) {
+                if(child.CompareTag("Arm")) {
+                    armObject = child.gameObject;
+                    break;
+                }
+            }
+
+            if(armObject == null) {
+                Debug.LogWarning("[WeaponManager] Could not find Arm tagged object in FP weapon instance.");
+                return;
+            }
+
+            // Get material from player mesh (same as hopball approach)
+            var playerMesh = playerController.PlayerMesh;
+            if(playerMesh == null || playerMesh.materials.Length <= 1) return;
+            var material = new Material(playerMesh.materials[1]); // Index 1 is the player material (0 is outline)
+            
+            // Apply to all renderers in the arm object only (not weapons)
+            PlayerRenderer.ApplyMaterialToRenderers(armObject, material);
         }
 
         #region Holstered Weapons
@@ -665,51 +792,246 @@ namespace Game.Weapons {
                 }
             }
         }
+        
+        #endregion
 
         private int GetSlotForIndex(int index) {
             var data = GetWeaponDataByIndex(index);
             if(data == null) return -1;
             return ResolveWeaponSlot(data, index);
         }
+        public int GetCurrentHolsterSlot() => GetSlotForIndex(CurrentWeaponIndex);
+        public void RefreshHolsterVisibility() => UpdateHolsterVisibility();
 
-        public void SetHolsterShadowMode(int slot, ShadowCastingMode mode) {
-            switch(slot) {
-                case 0:
-                    SetHolsterShadowModeForSlot(_selectedSecondaryHolster, mode);
-                    break;
-                case 1:
-                    SetHolsterShadowModeForSlot(_selectedPrimaryHolster, mode);
-                    break;
-                default:
-                    SetHolsterShadowModeForSlot(_selectedPrimaryHolster, mode);
-                    SetHolsterShadowModeForSlot(_selectedSecondaryHolster, mode);
-                    break;
+        /// <summary>
+        /// Called when weapon index NetworkVariables change. Rebuilds weapon list for non-owners when values sync.
+        /// </summary>
+        private void OnWeaponIndexChanged(int oldValue, int newValue) {
+            // Only rebuild if we're not the owner (owner sets values, non-owners receive them)
+            if(IsOwner) return;
+            // Rebuild weapon list with synced values
+            var oldListCount = weaponDataList != null ? weaponDataList.Count : 0;
+            BuildEquippedWeaponList();
+                
+            // If weapons haven't been initialized yet (waited for NetworkVariable sync), do full initialization now
+            if(_fpWeaponInstances == null || _fpWeaponInstances.Count == 0) {
+                // Do full weapon instantiation (copy from InitializeWeapons)
+                SetupHolsteredWeaponModels();
+                DisableUnequippedWorldWeapons();
+                    
+                if(weaponDataList == null || weaponDataList.Count == 0) {
+                    Debug.LogError("[WeaponManager] weaponDataList is empty after sync!");
+                    return;
+                }
+                    
+                // Hide all 3P weapons initially
+                if(_worldWeaponSocket != null) {
+                    foreach(Transform child in _worldWeaponSocket) {
+                        child.gameObject.SetActive(false);
+                    }
+                }
+                    
+                // Instantiate FP weapon viewmodels
+                for(var i = 0; i < weaponDataList.Count; i++) {
+                    var data = weaponDataList[i];
+                    if(data == null || data.weaponPrefab == null) {
+                        Debug.LogError($"[WeaponManager] Invalid weapon data at index {i}");
+                        continue;
+                    }
+                        
+                    var swayHolder = new GameObject("SwayHolder");
+                    swayHolder.AddComponent<WeaponSway>();
+                    swayHolder.transform.SetParent(_fpCamera.transform, false);
+                    swayHolder.transform.localPosition = Vector3.zero;
+                    swayHolder.transform.localEulerAngles = Vector3.zero;
+                    var bobHolder = new GameObject("BobHolder");
+                    bobHolder.AddComponent<WeaponBob>();
+                    bobHolder.transform.SetParent(swayHolder.transform, false);
+                    bobHolder.transform.localPosition = Vector3.zero;
+                    bobHolder.transform.localEulerAngles = Vector3.zero;
+                        
+                    var fpWeaponInstance = Instantiate(data.weaponPrefab, bobHolder.transform, false);
+                    fpWeaponInstance.transform.localPosition = data.spawnPosition;
+                    fpWeaponInstance.transform.localEulerAngles = data.spawnRotation;
+                        
+                    if(fpWeaponInstance.GetComponent<WeaponAnimationEvents>() == null) {
+                        fpWeaponInstance.AddComponent<WeaponAnimationEvents>();
+                    }
+                        
+                    var meshRenderers = fpWeaponInstance.GetComponentsInChildren<MeshRenderer>();
+                    foreach(var meshRenderer in meshRenderers) {
+                        meshRenderer.shadowCastingMode = ShadowCastingMode.Off;
+                    }
+                        
+                    SetupFpWeaponSkinnedMeshRenderers(fpWeaponInstance);
+                    fpWeaponInstance.layer = LayerMask.NameToLayer("Masked");
+                    fpWeaponInstance.SetActive(false);
+                    _fpWeaponInstances.Add(fpWeaponInstance);
+                    _weaponAmmo[i] = data.magSize;
+                }
+                    
+                // Equip first weapon now that we have the correct list
+                if(_fpWeaponInstances.Count > 0) {
+                    EquipInitialWeapon(0);
+                }
+                    
+                UpdateHolsterVisibility();
+                return;
+            }
+                
+            // If weapon list changed (different count or different weapons), re-instantiate and re-equip
+            if(weaponDataList.Count != oldListCount) {
+                // Destroy old FP weapon instances
+                foreach(var fpWeapon in _fpWeaponInstances) {
+                    if(fpWeapon != null) Destroy(fpWeapon.transform.root.gameObject);
+                }
+                _fpWeaponInstances.Clear();
+                    
+                // Re-instantiate with new weapon list
+                SetupHolsteredWeaponModels();
+                DisableUnequippedWorldWeapons();
+                    
+                if(weaponDataList == null || weaponDataList.Count == 0) {
+                    Debug.LogError("[WeaponManager] weaponDataList is empty after rebuild!");
+                    return;
+                }
+                    
+                // Hide all 3P weapons initially
+                if(_worldWeaponSocket != null) {
+                    foreach(Transform child in _worldWeaponSocket) {
+                        child.gameObject.SetActive(false);
+                    }
+                }
+                    
+                // Instantiate FP weapon viewmodels
+                for(var i = 0; i < weaponDataList.Count; i++) {
+                    var data = weaponDataList[i];
+                    if(data == null || data.weaponPrefab == null) {
+                        Debug.LogError($"[WeaponManager] Invalid weapon data at index {i}");
+                        continue;
+                    }
+                        
+                    var swayHolder = new GameObject("SwayHolder");
+                    swayHolder.AddComponent<WeaponSway>();
+                    swayHolder.transform.SetParent(_fpCamera.transform, false);
+                    swayHolder.transform.localPosition = Vector3.zero;
+                    swayHolder.transform.localEulerAngles = Vector3.zero;
+                    var bobHolder = new GameObject("BobHolder");
+                    bobHolder.AddComponent<WeaponBob>();
+                    bobHolder.transform.SetParent(swayHolder.transform, false);
+                    bobHolder.transform.localPosition = Vector3.zero;
+                    bobHolder.transform.localEulerAngles = Vector3.zero;
+                        
+                    var fpWeaponInstance = Instantiate(data.weaponPrefab, bobHolder.transform, false);
+                    fpWeaponInstance.transform.localPosition = data.spawnPosition;
+                    fpWeaponInstance.transform.localEulerAngles = data.spawnRotation;
+                        
+                    if(fpWeaponInstance.GetComponent<WeaponAnimationEvents>() == null) {
+                        fpWeaponInstance.AddComponent<WeaponAnimationEvents>();
+                    }
+                        
+                    var meshRenderers = fpWeaponInstance.GetComponentsInChildren<MeshRenderer>();
+                    foreach(var meshRenderer in meshRenderers) {
+                        meshRenderer.shadowCastingMode = ShadowCastingMode.Off;
+                    }
+                        
+                    SetupFpWeaponSkinnedMeshRenderers(fpWeaponInstance);
+                    fpWeaponInstance.layer = LayerMask.NameToLayer("Masked");
+                    fpWeaponInstance.SetActive(false);
+                    _fpWeaponInstances.Add(fpWeaponInstance);
+                    _weaponAmmo[i] = data.magSize;
+                }
+                    
+                // Re-equip current weapon (or equip first if current is invalid)
+                if(CurrentWeaponIndex >= 0 && CurrentWeaponIndex < weaponDataList.Count) {
+                    EquipInitialWeapon(CurrentWeaponIndex);
+                } else if(weaponDataList.Count > 0) {
+                    EquipInitialWeapon(0);
+                }
+            } else {
+                // Just update holsters if list didn't change
+                SetupHolsteredWeaponModels();
+                DisableUnequippedWorldWeapons();
+            }
+                
+            // Re-equip current weapon if it's still valid
+            if(CurrentWeaponIndex >= 0 && CurrentWeaponIndex < weaponDataList.Count) {
+                UpdateHolsterVisibility();
             }
         }
 
-        private static void SetHolsterShadowModeForSlot(GameObject holster, ShadowCastingMode mode) {
-            if(holster == null) return;
-            var renderers = holster.GetComponentsInChildren<MeshRenderer>(true);
-            foreach(var renderer in renderers) {
-                if(renderer == null) continue;
-                renderer.shadowCastingMode = mode;
+        /// <summary>
+        /// Disables all world weapons that aren't in the player's equipped weapon list.
+        /// Ensures only selected weapons are visible on the player model.
+        /// </summary>
+        private void DisableUnequippedWorldWeapons() {
+            if(_worldWeaponSocket == null) return;
+            
+            // Collect all world weapon names from equipped weapons
+            var equippedWorldWeaponNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            if(weaponDataList != null) {
+                foreach(var weaponData in weaponDataList) {
+                    if(weaponData != null && !string.IsNullOrEmpty(weaponData.worldWeaponName)) {
+                        equippedWorldWeaponNames.Add(weaponData.worldWeaponName);
+                    }
+                }
+            }
+            
+            // Also include holstered weapon names
+            if(_selectedPrimaryHolster != null) {
+                equippedWorldWeaponNames.Add(_selectedPrimaryHolster.name);
+            }
+            if(_selectedSecondaryHolster != null) {
+                equippedWorldWeaponNames.Add(_selectedSecondaryHolster.name);
+            }
+            
+            // Disable all world weapons that aren't in the equipped list
+            foreach(Transform child in _worldWeaponSocket) {
+                if(child == null) continue;
+                
+                var weaponName = child.name;
+                var normalizedName = NormalizeHolsterKey(weaponName);
+                
+                // Check if this weapon is in the equipped list
+                var isEquipped = equippedWorldWeaponNames.Contains(weaponName) || 
+                                 (!string.IsNullOrEmpty(normalizedName) && equippedWorldWeaponNames.Contains(normalizedName));
+                
+                // Also check if it's the current world weapon (should be active)
+                var isCurrentWeapon = CurrentWorldWeaponInstance != null && 
+                                      CurrentWorldWeaponInstance == child.gameObject;
+                
+                // Disable if not equipped and not current weapon
+                if(!isEquipped && !isCurrentWeapon) {
+                    child.gameObject.SetActive(false);
+                }
             }
         }
-
-        #endregion
 
         private void BuildEquippedWeaponList() {
             weaponDataList = new List<WeaponData>();
             weaponDataList.Clear();
 
-            var primary = GetWeaponFromOptions(primaryWeaponOptions, PlayerPrefs.GetInt("PrimaryWeaponIndex", 0),
-                "Primary");
+            // Get weapon indices from NetworkVariables (synced across all clients)
+            // For owner, these are set from PlayerPrefs in OnNetworkSpawn
+            // For non-owners, these come from the NetworkVariables
+            int primaryIndex;
+            int secondaryIndex;
+            
+            if(playerController != null) {
+                primaryIndex = playerController.primaryWeaponIndex.Value;
+                secondaryIndex = playerController.secondaryWeaponIndex.Value;
+            } else {
+                // Fallback to PlayerPrefs if PlayerController not available (shouldn't happen)
+                primaryIndex = PlayerPrefs.GetInt("PrimaryWeaponIndex", 0);
+                secondaryIndex = PlayerPrefs.GetInt("SecondaryWeaponIndex", 0);
+            }
+
+            var primary = GetWeaponFromOptions(primaryWeaponOptions, primaryIndex, "Primary");
             if(primary != null) {
                 weaponDataList.Add(primary);
             }
 
-            var secondary = GetWeaponFromOptions(secondaryWeaponOptions, PlayerPrefs.GetInt("SecondaryWeaponIndex", 0),
-                "Secondary");
+            var secondary = GetWeaponFromOptions(secondaryWeaponOptions, secondaryIndex, "Secondary");
             if(secondary != null) {
                 weaponDataList.Add(secondary);
             }
@@ -799,7 +1121,7 @@ namespace Game.Weapons {
 
             var config = AntiCheatConfig.Instance;
             var now = Time.time;
-            var grace = config?.fireRateGraceSeconds ?? 0f;
+            var grace = config != null ? config.fireRateGraceSeconds : 0f;
             if(state.LastShotTime > 0f) {
                 var minInterval = Mathf.Max(0.01f, data.fireRate - grace);
                 if(now - state.LastShotTime < minInterval) {

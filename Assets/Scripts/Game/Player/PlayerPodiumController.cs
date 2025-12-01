@@ -1,5 +1,6 @@
 using System.Collections;
 using Network;
+using Network.Components;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -69,21 +70,28 @@ namespace Game.Player {
             if(!IsServer) return;
 
             // Reset health via PlayerController
-            playerController?.ResetHealthAndRegenerationState();
+            if(playerController != null) {
+                playerController.ResetHealthAndRegenerationState();
+            }
 
             ForceRespawnForPodiumClientRpc();
         }
 
         [Rpc(SendTo.Everyone)]
         private void ForceRespawnForPodiumClientRpc() {
-            _playerRagdoll?.DisableRagdoll();
+            if(_playerRagdoll != null) {
+                _playerRagdoll.DisableRagdoll();
+            }
 
             ResetAnimatorState(_podiumAnimator);
 
             // Ensure world model root and weapon are active for podium
             if(playerController != null) {
                 var worldModelRoot = playerController.PlayerModelRoot;
-                var worldWeapon = _visualController?.GetWorldWeapon();
+                GameObject worldWeapon = null;
+                if(_visualController != null) {
+                    worldWeapon = _visualController.GetWorldWeapon();
+                }
 
                 if(worldModelRoot != null && !worldModelRoot.activeSelf) {
                     worldModelRoot.SetActive(true);
@@ -94,7 +102,12 @@ namespace Game.Player {
                 }
 
                 // Enable renderers
-                _visualController?.SetRenderersEnabled(true, true, UnityEngine.Rendering.ShadowCastingMode.On);
+                if(_visualController != null) {
+                    _visualController.SetRenderersEnabled(true);
+                }
+                if(playerController.PlayerShadow != null) {
+                    playerController.PlayerShadow.ApplyPodiumShadowState();
+                }
             }
 
             if(_podiumSkinned != null) {
@@ -127,7 +140,9 @@ namespace Game.Player {
             }
 
             transform.SetPositionAndRotation(pos, rot);
-            _clientNetworkTransform?.Teleport(pos, rot, Vector3.one);
+            if(_clientNetworkTransform != null) {
+                _clientNetworkTransform.Teleport(pos, rot, Vector3.one);
+            }
 
             yield return new WaitForFixedUpdate();
 

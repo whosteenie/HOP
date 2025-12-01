@@ -13,12 +13,14 @@ MonoBehaviour:
   m_Name: Pistol
   m_EditorClassIdentifier: Assembly-CSharp::WeaponData
   weaponName: M1911
-  weaponPrefab: {fileID: 1694449805434718, guid: aba1ad836888bc746898d67264ba0a56, type: 3}
+  weaponPrefab: {fileID: 1694449805434718, guid: 5dc9fad223416134db5eb5ef21362f5d, type: 3}
   weaponSlot: 1
-  spawnPosition: {x: 0.245, y: -0.125, z: 0.207}
+  spawnPosition: {x: 0.245, y: -0.125, z: 0.3}
   spawnRotation: {x: 0, y: -180, z: 0}
   muzzleLocalOffset: {x: 0.0006, y: 0.0256, z: -0.1461}
   worldWeaponName: M1911
+  holsteredPrimaryModel: {fileID: 0}
+  holsteredSecondaryModel: {fileID: 0}
   fpMuzzleLightChildName: MuzzleLight
   worldMuzzleLightChildName: MuzzleLight
   magSize: 8

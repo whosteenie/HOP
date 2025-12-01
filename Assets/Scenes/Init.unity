@@ -561,7 +561,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SoundFXManafer
   soundFXPrefab: {fileID: 4120442816761199137, guid: 89f9c8c7b7d50e24297e85e908dfca88, type: 3}
-  poolSize: 10
+  poolSize: 64
   walkClips:
   - {fileID: 8300000, guid: 5ecd088c693c28747bd481f8e14980dc, type: 3}
   - {fileID: 8300000, guid: d75919d6ab6688744b3db1e397108b7c, type: 3}
@@ -592,9 +592,16 @@ MonoBehaviour:
   - {fileID: 8300000, guid: 77366d0dea8272540b1eefb82a67dc28, type: 3}
   - {fileID: 8300000, guid: 7e7e40d5ebea924459b8cbec5751a5ed, type: 3}
   - {fileID: 8300000, guid: e3bbc28cdb7f57a4ba87dbb7cee36478, type: 3}
-  bulletTrailClips: []
+  bulletTrailClips:
+  - {fileID: 8300000, guid: 79d532dc88d97f64cb5e1b04e8f88711, type: 3}
+  - {fileID: 8300000, guid: 60fa98cbef062134d999bb293945d199, type: 3}
+  - {fileID: 8300000, guid: a80103b3593a2f243ad11bbcbe124495, type: 3}
   bulletImpactClips:
-  - {fileID: 8300000, guid: 939aff22a4cd7524aa2e6e61d2003fe4, type: 3}
+  - {fileID: 8300000, guid: 2906dfad3f9834140bc6453aef5b59a4, type: 3}
+  - {fileID: 8300000, guid: 2906dfad3f9834140bc6453aef5b59a4, type: 3}
+  - {fileID: 8300000, guid: 2906dfad3f9834140bc6453aef5b59a4, type: 3}
+  - {fileID: 8300000, guid: 2906dfad3f9834140bc6453aef5b59a4, type: 3}
+  - {fileID: 8300000, guid: 89eec5eaf9fa66b41941e10f9b53b938, type: 3}
   hopballSpawnClips:
   - {fileID: 8300000, guid: dcf85d8a9a995314b9da98355d126f22, type: 3}
   reloadClips:
@@ -608,11 +615,11 @@ MonoBehaviour:
   shootDeagleClips:
   - {fileID: 8300000, guid: 24816ce84419ad6438ff2a4197416aa7, type: 3}
   shootSmgClips:
-  - {fileID: 8300000, guid: eb8fbcbccf535e24bb57ad2a61e54669, type: 3}
+  - {fileID: 8300000, guid: abca596ead0f7b94d9409b9fd11beb8b, type: 3}
   shootRifleClips:
   - {fileID: 8300000, guid: a1c9c05b081ba984fa4fe79680faa247, type: 3}
   shootShotgunClips:
-  - {fileID: 8300000, guid: 6f7bd67b0ff50b74ba08684c7ea2c4f4, type: 3}
+  - {fileID: 8300000, guid: 4b33d146aae02694689eb853e2cbfc81, type: 3}
   shootSniperClips:
   - {fileID: 8300000, guid: ca55a775d2b6fea49ab183292a1f4fb1, type: 3}
   reloadPistolClips:
@@ -645,7 +652,7 @@ MonoBehaviour:
   killClips:
   - {fileID: 8300000, guid: 77e1d91e188da29419fefc5be25417f6, type: 3}
   hurtClips:
-  - {fileID: 8300000, guid: 9264739833ad159439ccaf19dd3245b7, type: 3}
+  - {fileID: 8300000, guid: 32da95975e6101946a9648290fa44bad, type: 3}
   taggedClips:
   - {fileID: 8300000, guid: ac7ae59ca58b6f74c8ca6d884ed597a4, type: 3}
   taggingClips:

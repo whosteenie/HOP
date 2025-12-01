@@ -1,0 +1,11 @@
+{
+    "asset": "2256d4435261eec4984156e8557e4a25",
+    "fileName": "019acee8-b331-7a4b-9c83-48b9fff09b52.pose.json",
+    "prompt": "hold out right hand, palm up, extend arm forward",
+    "negativePrompt": "",
+    "model": "9e46c009-67d8-4254-a3a0-32e3168247ee",
+    "modelName": "Text to Motion",
+    "customSeed": 1282563374,
+    "w3CTraceId": "f0354c0f174682bcb375d27ca4cdd440",
+    "isTrimmed": false
+}

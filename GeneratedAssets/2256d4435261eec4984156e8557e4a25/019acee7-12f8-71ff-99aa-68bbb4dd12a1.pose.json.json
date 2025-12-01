@@ -1,0 +1,11 @@
+{
+    "asset": "2256d4435261eec4984156e8557e4a25",
+    "fileName": "019acee7-12f8-71ff-99aa-68bbb4dd12a1.pose.json",
+    "prompt": "Create a first-person right arm animation for holding a floating orb. Start from a relaxed rest position at the player's side. Animate the arm smoothly raising forward and upward to an extended position, ending with the hand open, palm facing up, positioned to cradle a floating orb. The hand should be slightly cupped with fingers gently curved. The animation should feel natural and weighted. Ensure the wrist rotates naturally as the arm extends so the palm faces upward at the end pose. The final pose should be ready to hold a glowing orb above the palm.",
+    "negativePrompt": "",
+    "model": "9e46c009-67d8-4254-a3a0-32e3168247ee",
+    "modelName": "Text to Motion",
+    "customSeed": 2059042205,
+    "w3CTraceId": "8860eaf4fb06ac2d00d4c5eb6670a0dd",
+    "isTrimmed": false
+}

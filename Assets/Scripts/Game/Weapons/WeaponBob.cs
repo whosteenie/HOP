@@ -1,11 +1,9 @@
+using Game.Player;
 using UnityEngine;
 
 namespace Game.Weapons {
     [DisallowMultipleComponent]
     public class WeaponBob : MonoBehaviour {
-        [Header("References")]
-        [SerializeField] private Transform playerTransform; // To read velocity
-
         [Header("Bob Settings")]
         [SerializeField] private float bobFrequency = 4f; // Base frequency (lowered from 6f)
         [SerializeField] private float bobHorizontalAmount = 0.01f;
@@ -30,6 +28,20 @@ namespace Game.Weapons {
         [Range(0f, 1f)]
         [SerializeField] private float adsMultiplier = 0.2f;
 
+        [Header("Jump / Fall Animation")]
+        [Tooltip("Maximum weapon offset when at max jump velocity (negative = lower on jump)")]
+        [SerializeField] private float maxJumpLowerAmount = -0.15f;
+        [Tooltip("Maximum weapon offset when at max fall velocity (positive = raise on fall)")]
+        [SerializeField] private float maxFallRaiseAmount = 0.08f;
+        [Tooltip("Smoothing speed for jump/fall transitions")]
+        [SerializeField] private float jumpFallSmoothSpeed = 8f;
+        [Tooltip("Maximum vertical velocity to use for normalization (higher = less sensitive). " +
+                 "Set to ~50 to allow mega jump pads (30f height, ~42 m/s) and account for high fall velocities")]
+        [SerializeField] private float maxVelocityForNormalization = 50f;
+        [Tooltip("Curve exponent for velocity correlation (1.0 = linear, 0.5 = square root, 2.0 = squared). " +
+                 "Lower values = more sensitive at low velocities, less extreme at high velocities")]
+        [SerializeField] private float velocityCurveExponent = 0.5f;
+
         // Internal state
         private Vector3 _baseLocalPos;
         private Quaternion _baseLocalRot;
@@ -39,16 +51,22 @@ namespace Game.Weapons {
         private float _landingBobTimer;
         private bool _wasGrounded = true;
         private CharacterController _characterController;
+        private PlayerController _playerController;
         private bool _initialized;
+        private float _jumpFallOffset;
+        private float _targetJumpFallOffset;
+        private bool _jumpInitiated;
 
         private void Awake() {
-            _baseLocalPos = transform.localPosition;
-            _baseLocalRot = transform.localRotation;
+            var bobTransform = transform;
+            _baseLocalPos = bobTransform.localPosition;
+            _baseLocalRot = bobTransform.localRotation;
         }
 
         private void OnEnable() {
-            _baseLocalPos = transform.localPosition;
-            _baseLocalRot = transform.localRotation;
+            var bobTransform = transform;
+            _baseLocalPos = bobTransform.localPosition;
+            _baseLocalRot = bobTransform.localRotation;
             _bobTimer = 0f;
             _currentBobIntensity = 0f;
             _targetBobIntensity = 0f;
@@ -57,17 +75,32 @@ namespace Game.Weapons {
 
         private void TryInitialize() {
             if(_initialized) return;
-            var current = transform.parent; // FPCamera
-            if(current == null) return;
             
-            current = current.parent; // Player
-            if(current == null) return;
-                
-            playerTransform = current;
-            _characterController = playerTransform.GetComponent<CharacterController>();
+            var current = transform.parent;
+            var depth = 0;
+            const int maxDepth = 6;
 
-            if(_characterController == null) return;
-            _initialized = true;
+            while(current != null && depth < maxDepth) {
+                // Try to find PlayerController first (preferred for jump/fall detection)
+                var playerController = current.GetComponent<PlayerController>();
+                if(playerController != null) {
+                    _playerController = playerController;
+                    _characterController = playerController.CharacterController;
+                    _initialized = true;
+                    return;
+                }
+
+                // Fallback to CharacterController if PlayerController not found
+                var controller = current.GetComponent<CharacterController>();
+                if(controller != null) {
+                    _characterController = controller;
+                    _initialized = true;
+                    return;
+                }
+
+                current = current.parent;
+                depth++;
+            }
         }
 
         private void LateUpdate() {
@@ -78,14 +111,24 @@ namespace Game.Weapons {
             }
 
             var deltaTime = Time.deltaTime;
-            var isGrounded = _characterController.isGrounded;
+            
+            // Use PlayerController's IsGrounded if available (accounts for -3f constant), otherwise fallback to CharacterController
+            var isGrounded = _playerController != null ? _playerController.IsGrounded : _characterController.isGrounded;
 
             // Detect landing
-            if(isGrounded && !_wasGrounded) {
-                _landingBobTimer = landingBobDuration;
-            }
+            var wasGrounded = _wasGrounded;
 
-            _wasGrounded = isGrounded;
+            if(isGrounded && !wasGrounded) {
+                // Only start landing bob if jump wasn't initiated (allows normal landing)
+                // If jump was initiated, skip landing bob and let velocity system handle it
+                if(!_jumpInitiated) {
+                    _landingBobTimer = landingBobDuration;
+                }
+                // Reset jump/fall state when landing
+                _targetJumpFallOffset = 0f;
+                // Reset jump flag when we actually land (safety reset)
+                _jumpInitiated = false;
+            }
 
             // Update landing bob timer
             if(_landingBobTimer > 0f) {
@@ -96,6 +139,47 @@ namespace Game.Weapons {
             var velocity = _characterController.velocity;
             velocity.y = 0;
             var speed = velocity.magnitude;
+
+            // Use PlayerController's VerticalVelocity if available (accounts for -3f constant), otherwise use CharacterController velocity.y
+            var verticalVelocity = _playerController != null ? _playerController.GetVerticalVelocity() : _characterController.velocity.y;
+            
+            // Reset jump flag when we start falling (at apex) - this allows normal landings to play landing bob
+            // If we're falling and the flag is still set, it means we're past the jump phase and can allow landing bob
+            if(!isGrounded && verticalVelocity < -0.1f && _jumpInitiated) {
+                _jumpInitiated = false;
+            }
+            
+            // Velocity-based jump/fall offset: inversely correlated with vertical velocity
+            // Positive velocity (rising) = negative offset (weapon lower)
+            // Negative velocity (falling) = positive offset (weapon higher)
+            if(isGrounded) {
+                // Grounded: reset to idle
+                _targetJumpFallOffset = 0f;
+            } else {
+                // Normalize velocity to 0-1 range based on max velocity
+                var normalizedVelocity = Mathf.Clamp01(Mathf.Abs(verticalVelocity) / maxVelocityForNormalization);
+                
+                // Apply curve to make correlation more natural (more responsive at low velocities, less extreme at high)
+                // Using power curve: lower exponent = more sensitive at start, less extreme at end
+                var curvedVelocity = Mathf.Pow(normalizedVelocity, velocityCurveExponent);
+                
+                if(verticalVelocity > 0.1f) {
+                    // Rising: weapon lowers proportionally to upward velocity (with curve)
+                    _targetJumpFallOffset = Mathf.Lerp(0f, maxJumpLowerAmount, curvedVelocity);
+                } else if(verticalVelocity < -0.1f) {
+                    // Falling: weapon raises proportionally to downward velocity (with curve)
+                    _targetJumpFallOffset = Mathf.Lerp(0f, maxFallRaiseAmount, curvedVelocity);
+                } else {
+                    // Near zero velocity (at apex): return to neutral
+                    _targetJumpFallOffset = 0f;
+                }
+            }
+
+            // Smooth the offset transition
+            _jumpFallOffset = Mathf.Lerp(_jumpFallOffset, _targetJumpFallOffset, jumpFallSmoothSpeed * deltaTime);
+            // Clamp to prevent extreme values
+            _jumpFallOffset = Mathf.Clamp(_jumpFallOffset, maxJumpLowerAmount, maxFallRaiseAmount);
+            _wasGrounded = isGrounded;
 
             // Determine target bob intensity based on speed
             if(!isGrounded) {
@@ -142,16 +226,27 @@ namespace Game.Weapons {
             var yBob = Mathf.Sin(_bobTimer * 2f) * bobVerticalAmount * _currentBobIntensity;
             var rollBob = Mathf.Sin(_bobTimer) * bobRollAmount * _currentBobIntensity;
 
-            // Add landing bob (bouncy effect)
-            if(_landingBobTimer > 0f) {
+            // Apply jump/fall offset only when landing bob is not active to prevent jitter
+            // When landing, the landing bob handles the animation, so we skip the jump/fall offset
+            var finalYBob = yBob;
+            if(_landingBobTimer <= 0f) {
+                // Landing bob is not active, apply jump/fall offset
+                finalYBob += _jumpFallOffset;
+            } else {
+                // Landing bob is active, smoothly reset jump/fall offset to 0 to prevent sudden jumps
+                _jumpFallOffset = Mathf.Lerp(_jumpFallOffset, 0f, jumpFallSmoothSpeed * deltaTime);
+            }
+
+            // Add landing bob (bouncy effect) - only if jump wasn't initiated
+            if(_landingBobTimer > 0f && !_jumpInitiated) {
                 var landingT = _landingBobTimer / landingBobDuration;
                 var landingCurve = Mathf.Sin(landingT * Mathf.PI);
-                yBob -= landingCurve * landingBobAmount;
+                finalYBob -= landingCurve * landingBobAmount;
             }
 
             // Apply ADS multiplier
             var finalMultiplier = adsMultiplier;
-            var bobOffset = new Vector3(xBob, yBob, 0f) * finalMultiplier;
+            var bobOffset = new Vector3(xBob, finalYBob, 0f) * finalMultiplier;
             var bobRotation = new Vector3(0f, 0f, rollBob) * finalMultiplier;
 
             // Apply to transform
@@ -163,13 +258,25 @@ namespace Game.Weapons {
             adsMultiplier = Mathf.Clamp01(multiplier);
         }
 
+        /// <summary>
+        /// Called when a jump is initiated (from input or jump pad).
+        /// Sets flag to prevent landing bob from playing and cancels any active landing animation.
+        /// </summary>
+        public void OnJumpInitiated() {
+            // Set flag to prevent landing bob from playing
+            _jumpInitiated = true;
+            // Cancel landing bob animation if it's playing to prevent additive jitter
+            _landingBobTimer = 0f;
+        }
+
         public void TriggerLandingBob() {
             _landingBobTimer = landingBobDuration;
         }
 
         public void RecalibrateRestPose() {
-            _baseLocalPos = transform.localPosition;
-            _baseLocalRot = transform.localRotation;
+            var bobTransform = transform;
+            _baseLocalPos = bobTransform.localPosition;
+            _baseLocalRot = bobTransform.localRotation;
             _bobTimer = 0f;
             _currentBobIntensity = 0f;
         }

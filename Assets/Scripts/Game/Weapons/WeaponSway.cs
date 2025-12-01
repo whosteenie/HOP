@@ -50,16 +50,18 @@ namespace Game.Weapons {
                 if(c) cam = c.transform;
             }
 
-            _baseLocalPos = transform.localPosition;
-            _baseLocalRot = transform.localRotation;
+            var swayTransform = transform;
+            _baseLocalPos = swayTransform.localPosition;
+            _baseLocalRot = swayTransform.localRotation;
 
             var e = cam ? cam.eulerAngles : Vector3.zero;
             _lastAngles = new Vector2(e.x, e.y);
         }
 
         private void OnEnable() {
-            transform.localPosition = _baseLocalPos;
-            transform.localRotation = _baseLocalRot;
+            var swayTransform = transform;
+            swayTransform.localPosition = _baseLocalPos;
+            swayTransform.localRotation = _baseLocalRot;
 
             _curPos = _velPos = Vector3.zero;
             _curRotEuler = _velRot = Vector3.zero;
@@ -129,8 +131,9 @@ namespace Game.Weapons {
         public void SetAdsMultiplier(float m) => adsMultiplier = Mathf.Clamp01(m);
 
         public void RecalibrateRestPose() {
-            _baseLocalPos = transform.localPosition;
-            _baseLocalRot = transform.localRotation;
+            var swayTransform = transform;
+            _baseLocalPos = swayTransform.localPosition;
+            _baseLocalRot = swayTransform.localRotation;
             _curPos = _velPos = Vector3.zero;
             _curRotEuler = _velRot = Vector3.zero;
             _smoothedDelta = Vector2.zero;

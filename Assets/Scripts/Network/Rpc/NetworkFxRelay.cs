@@ -34,26 +34,27 @@ namespace Network.Rpc {
         }
 
         public void RequestShotFx(Vector3 endPoint, Vector3 hitNormal, bool madeImpact,
-            bool hitPlayer, bool playMuzzleFlash = true) {
+            bool hitPlayer, NetworkObjectReference hitPlayerRef, bool playMuzzleFlash = true) {
             if(!playerController.IsOwner || !_playerNetworkObject.IsSpawned) return;
 
-            RequestShotFxServerRpc(_playerNetworkObject, endPoint, hitNormal, madeImpact, hitPlayer, playMuzzleFlash);
+            RequestShotFxServerRpc(_playerNetworkObject, endPoint, hitNormal, madeImpact, hitPlayer, hitPlayerRef, playMuzzleFlash);
         }
 
         [Rpc(SendTo.Server)]
         private void RequestShotFxServerRpc(NetworkObjectReference shooterRef, Vector3 endPoint, Vector3 hitNormal,
-            bool madeImpact, bool hitPlayer, bool playMuzzleFlash) {
-            PlayShotFxClientRpc(shooterRef, endPoint, hitNormal, madeImpact, hitPlayer, playMuzzleFlash);
+            bool madeImpact, bool hitPlayer, NetworkObjectReference hitPlayerRef, bool playMuzzleFlash) {
+            PlayShotFxClientRpc(shooterRef, endPoint, hitNormal, madeImpact, hitPlayer, hitPlayerRef, playMuzzleFlash);
         }
 
         [Rpc(SendTo.NotOwner)]
         private void PlayShotFxClientRpc(NetworkObjectReference shooterRef, Vector3 endPoint, Vector3 hitNormal,
-            bool madeImpact, bool hitPlayer, bool playMuzzleFlash) {
+            bool madeImpact, bool hitPlayer, NetworkObjectReference hitPlayerRef, bool playMuzzleFlash) {
             if(!shooterRef.TryGet(out var networkObject) || networkObject == null) return;
 
             var weaponManager = networkObject.GetComponent<WeaponManager>();
 
-            var weapon = weaponManager?.CurrentWeapon;
+            if(weaponManager == null) return;
+            var weapon = weaponManager.CurrentWeapon;
             if(weapon == null) return;
 
             // For non-owners, use world muzzle position (not the owner's FP muzzle position)
@@ -64,7 +65,7 @@ namespace Network.Rpc {
             if(playMuzzleFlash) {
                 weapon.PlayNetworkedMuzzleFlash();
             }
-            weapon.SpawnTracerLocal(startPoint, endPoint, hitNormal, madeImpact, hitPlayer);
+            weapon.SpawnTracerLocal(startPoint, endPoint, hitNormal, madeImpact, hitPlayer, hitPlayerRef);
         }
     }
 }

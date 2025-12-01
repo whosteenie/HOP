@@ -1,3 +1,6 @@
+using Game.Audio;
+using Game.Menu;
+using Game.Weapons;
 using Network.Rpc;
 using Unity.Cinemachine;
 using Unity.Netcode;
@@ -21,6 +24,7 @@ namespace Game.Player {
 
         [Header("Movement Parameters")]
         private const float Acceleration = 15f;
+
         private const float AirAcceleration = 50f;
         private const float MaxAirSpeed = 5f;
         private const float Friction = 8f;
@@ -36,6 +40,7 @@ namespace Game.Player {
         private const float CrouchCollider = 1.3f;
         private const float StandCheckHeight = StandCollider - CrouchCollider;
         private const float GravityScale = 3f;
+        private const float TerminalVelocity = -50f; // Maximum fall speed (m/s)
 
         // Movement state
         private Vector3 _horizontalVelocity;
@@ -49,9 +54,11 @@ namespace Game.Player {
         private bool _isMantling;
 
         // Input (read from PlayerController)
-        private Vector2 MoveInput => playerController?.moveInput ?? Vector2.zero;
-        private bool SprintInput => playerController is { sprintInput: true };
-        private bool CrouchInput => playerController is { crouchInput: true };
+        private Vector2 MoveInput => playerController == null ? Vector2.zero : playerController.moveInput;
+
+        private bool SprintInput => playerController != null && playerController.sprintInput;
+
+        private bool CrouchInput => playerController != null && playerController.crouchInput;
 
         // Network state (from PlayerController)
         public NetworkVariable<bool> netIsCrouching;
@@ -113,7 +120,7 @@ namespace Game.Player {
         public void UpdateCrouch(CinemachineCamera fpCamera) {
             if(fpCamera == null) return;
 
-            var sphereRadius = _characterController?.radius ?? 0.3f;
+            var sphereRadius = _characterController != null ? _characterController.radius : 0.3f;
             var headBlocked = Physics.SphereCast(
                 fpCamera.transform.position,
                 sphereRadius,
@@ -123,7 +130,7 @@ namespace Game.Player {
                 _obstacleMask
             );
 
-            var isCurrentlyCrouched = _crouchTransition > 0.5f || netIsCrouching is { Value: true };
+            var isCurrentlyCrouched = _crouchTransition > 0.5f || (netIsCrouching != null && netIsCrouching.Value);
 
             bool targetCrouchState;
             if(CrouchInput) {
@@ -140,7 +147,9 @@ namespace Game.Player {
                 }
             }
 
-            _animationController?.SetCrouching(targetCrouchState);
+            if(_animationController != null) {
+                _animationController.SetCrouching(targetCrouchState);
+            }
 
             var targetTransition = targetCrouchState ? 1f : 0f;
             _crouchTransition = Mathf.Lerp(_crouchTransition, targetTransition, 10f * Time.deltaTime);
@@ -166,7 +175,8 @@ namespace Game.Player {
 
         private void CalculateHorizontalVelocity() {
             // Block movement during pre-match (but allow input to be set so it feels responsive when match starts)
-            if(Network.Singletons.GameMenuManager.Instance != null && Network.Singletons.GameMenuManager.Instance.IsPreMatch) {
+            if(GameMenuManager.Instance != null &&
+               GameMenuManager.IsPreMatch) {
                 // Still apply friction to slow down if already moving
                 ApplyFriction();
                 var targetVelocity = Vector3.zero;
@@ -228,11 +238,11 @@ namespace Game.Player {
         }
 
         private void CheckCeilingHit(CinemachineCamera fpCamera) {
-            if(fpCamera == null) return;
+            if(fpCamera == null || _grappleController == null) return;
 
             var rayHit = Physics.Raycast(fpCamera.transform.position, Vector3.up, out _, 0.75f, _obstacleMask);
             if(!rayHit || !(VerticalVelocity > 0f)) return;
-            _grappleController?.CancelGrapple();
+            _grappleController.CancelGrapple();
 
             VerticalVelocity = 0f;
         }
@@ -242,6 +252,8 @@ namespace Game.Player {
                 VerticalVelocity = -3f;
             } else {
                 VerticalVelocity += _gravityY * GravityScale * Time.deltaTime;
+                // Clamp to terminal velocity to prevent infinite acceleration
+                VerticalVelocity = Mathf.Max(VerticalVelocity, TerminalVelocity);
             }
         }
 
@@ -275,14 +287,14 @@ namespace Game.Player {
                 height = jumpPadHeight;
             }
 
-            if(IsOwner) {
+            if(IsOwner && _sfxRelay != null) {
                 var key = Mathf.Approximately(height, 15f) || Mathf.Approximately(height, 30f) ? "jumpPad" : "jump";
 
                 if(key == "jumpPad") {
-                    _sfxRelay?.RequestWorldSfx(SfxKey.JumpPad, attachToSelf: true, true);
+                    _sfxRelay.RequestWorldSfx(SfxKey.JumpPad, attachToSelf: true, true);
                 }
 
-                _sfxRelay?.RequestWorldSfx(SfxKey.Jump, attachToSelf: true, true);
+                _sfxRelay.RequestWorldSfx(SfxKey.Jump, attachToSelf: true, true);
             }
 
             // Calculate and apply vertical velocity for jump
@@ -291,7 +303,25 @@ namespace Game.Player {
             // Ensure velocity is positive (upward) before triggering jump animation
             // This guarantees the jump animation only triggers when velocity is actually applied upward
             if(!(VerticalVelocity > 0f)) return;
-            _animationController?.PlayJumpAnimationServerRpc();
+
+            // Notify WeaponBob that jump was initiated (owner only, local effect)
+            if(IsOwner && playerController != null) {
+                WeaponBob weaponBob = null;
+                if(playerController.FpCamera != null) {
+                    weaponBob = playerController.FpCamera.GetComponentInChildren<WeaponBob>();
+                }
+
+                if(weaponBob != null) {
+                    weaponBob.OnJumpInitiated();
+                } else {
+                    Debug.LogWarning(
+                        $"[PlayerMovementController] TryJump: WeaponBob not found! FpCamera={playerController.FpCamera != null}");
+                }
+            }
+
+            if(_animationController != null) {
+                _animationController.PlayJumpAnimationServerRpc();
+            }
         }
 
         /// <summary>
@@ -324,24 +354,40 @@ namespace Game.Player {
             _horizontalVelocity += new Vector3(launchVelocity.x, 0f, launchVelocity.z);
 
             // Play jump pad sound
-            if(IsOwner) {
-                _sfxRelay?.RequestWorldSfx(SfxKey.JumpPad, attachToSelf: true, true);
-                _sfxRelay?.RequestWorldSfx(SfxKey.Jump, attachToSelf: true, true);
+            if(IsOwner && _sfxRelay != null) {
+                _sfxRelay.RequestWorldSfx(SfxKey.JumpPad, attachToSelf: true, true);
+                _sfxRelay.RequestWorldSfx(SfxKey.Jump, attachToSelf: true, true);
             }
 
             // Trigger jump animation if moving upward
             if(!(VerticalVelocity > 0f)) return;
-            _animationController?.PlayJumpAnimationServerRpc();
+
+            // Notify WeaponBob that jump pad launch was initiated (owner only, local effect)
+            if(IsOwner && playerController != null && playerController.FpCamera != null) {
+                var weaponBob = playerController.FpCamera.GetComponentInChildren<WeaponBob>();
+                if(weaponBob != null) {
+                    weaponBob.OnJumpInitiated();
+                } else {
+                    Debug.LogWarning(
+                        $"[PlayerMovementController] LaunchFromJumpPad: WeaponBob not found! FpCamera={playerController.FpCamera != null}");
+                }
+            }
+
+            if(_animationController)
+                _animationController.PlayJumpAnimationServerRpc();
         }
 
         private float CheckForJumpPad() {
-            if(!Physics.Raycast(playerController.Position, Vector3.down, out var hit, _characterController.height * 0.6f))
+            if(!Physics.Raycast(playerController.Position, Vector3.down, out var hit,
+                   _characterController.height * 0.6f))
                 return 0f; // No jump pad found
             if(hit.collider.CompareTag("JumpPad")) {
                 return 15f; // Regular jump pad height
             }
 
-            return hit.collider.CompareTag("MegaPad") ? 30f : // Mega jump pad height
+            return hit.collider.CompareTag("MegaPad")
+                ? 30f
+                : // Mega jump pad height
                 0f; // No jump pad found
         }
 
@@ -356,10 +402,6 @@ namespace Game.Player {
 
         public void AddVerticalVelocity(float verticalBoost) {
             VerticalVelocity += verticalBoost;
-        }
-
-        public void SetMantling(bool mantling) {
-            _isMantling = mantling;
         }
 
         // Public getters

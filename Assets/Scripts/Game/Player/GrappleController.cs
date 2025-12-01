@@ -1,6 +1,7 @@
 using System.Collections;
+using Game.Audio;
+using Game.Match;
 using Network.Rpc;
-using Network.Singletons;
 using Unity.Cinemachine;
 using Unity.Netcode;
 using UnityEngine;
@@ -16,7 +17,6 @@ namespace Game.Player {
         private NetworkSfxRelay _sfxRelay;
         private LayerMask _playerLayer;
         [SerializeField] private Transform grappleOriginTp;
-        [SerializeField] private LineRenderer grappleLine;
         // [SerializeField] private SwingGrapple swingGrapple;
 
         [Header("Grapple Settings")]
@@ -34,25 +34,20 @@ namespace Game.Player {
         private const float MomentumBoost = 1.2f; // Multiplier for final velocity
 
         [Header("Visual Settings")]
-        [SerializeField] private bool useLegacyLineRenderer = false;
-
-        [SerializeField] private float lineWidth = 0.05f;
-        [SerializeField] private Color grappleColor = new(0.2f, 0.8f, 1f);
         [SerializeField] private Material lineMaterial;
 
-        [Header("Mesh Settings (when not using legacy)")]
+        [Header("Mesh Settings")]
         [SerializeField] private int meshSegments = 8;
-
         [SerializeField] private float meshRadius = 0.02f;
+        [SerializeField] private Color grappleColor = new(0.2f, 0.8f, 1f);
 
         #region Private Fields
 
         private Vector3 _grapplePoint;
         private float _grappleStartTime;
-        private Vector3 _grappleStartPosition;
         private float _cooldownStartTime;
 
-        // Mesh system fields (only used when not using legacy LineRenderer)
+        // Mesh system fields
         private GameObject _grappleMeshObject;
         private MeshFilter _grappleMeshFilter;
         private MeshRenderer _grappleMeshRenderer;
@@ -158,15 +153,8 @@ namespace Game.Player {
             switch(IsOwner) {
                 case false when _netIsGrappling.Value: {
                     // Non-owners: update visual position every frame while grappling
-                    if(useLegacyLineRenderer) {
-                        if(grappleLine == null) return;
-                        grappleLine.SetPosition(0, grappleOriginTp.position);
-                        grappleLine.SetPosition(1, _netGrapplePoint.Value);
-                    } else {
-                        if(_grappleMeshRenderer == null || grappleOriginTp == null) return;
-                        UpdateGrappleMesh(grappleOriginTp.position, _netGrapplePoint.Value);
-                    }
-
+                    if(_grappleMeshRenderer == null || grappleOriginTp == null) return;
+                    UpdateGrappleMesh(grappleOriginTp.position, _netGrapplePoint.Value);
                     return;
                 }
                 case false:
@@ -214,58 +202,18 @@ namespace Game.Player {
         }
 
         private void UpdateGrappleVisuals(bool isGrappling, Vector3 targetPoint) {
-            if(useLegacyLineRenderer) {
-                if(grappleLine == null) return;
-                grappleLine.enabled = isGrappling;
-                if(!isGrappling) return;
-                grappleLine.SetPosition(0, _grappleStartPosition);
-                grappleLine.SetPosition(1, targetPoint);
-            } else {
-                if(_grappleMeshRenderer == null) return;
-                _grappleMeshRenderer.enabled = isGrappling;
-                if(!isGrappling) return;
-                if(grappleOriginTp != null) {
-                    UpdateGrappleMesh(grappleOriginTp.position, targetPoint);
-                }
+            if(_grappleMeshRenderer == null) return;
+            _grappleMeshRenderer.enabled = isGrappling;
+            if(!isGrappling) return;
+            if(grappleOriginTp != null) {
+                UpdateGrappleMesh(grappleOriginTp.position, targetPoint);
             }
         }
 
         #region Setup
 
         private void SetupGrappleLine() {
-            if(useLegacyLineRenderer) {
-                SetupLegacyLineRenderer();
-            } else {
-                SetupGrappleMesh();
-            }
-        }
-
-        private void SetupLegacyLineRenderer() {
-            if(grappleLine == null) {
-                var lineObj = new GameObject("GrappleLine");
-                lineObj.transform.SetParent(transform);
-                grappleLine = lineObj.AddComponent<LineRenderer>();
-                Debug.Log("[GrappleController] Created new LineRenderer GameObject");
-            } else {
-                Debug.Log("[GrappleController] Using existing LineRenderer from inspector");
-            }
-
-            grappleLine.startWidth = lineWidth;
-            grappleLine.endWidth = lineWidth;
-            grappleLine.positionCount = 2;
-            grappleLine.useWorldSpace = true;
-            grappleLine.enabled = false;
-
-            // Setup material
-            grappleLine.material = lineMaterial ?? new Material(Shader.Find("Sprites/Default"));
-            var materialName = grappleLine.sharedMaterial != null
-                ? grappleLine.sharedMaterial.name
-                : (grappleLine.material != null ? grappleLine.material.name : "null");
-            Debug.Log(
-                $"[GrappleController] SetupLegacyLineRenderer - Material: {materialName}, Width: {lineWidth}, Color: {grappleColor}");
-
-            grappleLine.startColor = grappleColor;
-            grappleLine.endColor = grappleColor;
+            SetupGrappleMesh();
         }
 
         private void SetupGrappleMesh() {
@@ -279,11 +227,10 @@ namespace Game.Player {
                 _grappleMeshRenderer = _grappleMeshObject.AddComponent<MeshRenderer>();
 
                 // Create the mesh
-                _grappleMesh = new Mesh();
-                _grappleMesh.name = "GrappleCableMesh";
+                _grappleMesh = new Mesh {
+                    name = "GrappleCableMesh"
+                };
                 _grappleMeshFilter.mesh = _grappleMesh;
-
-                Debug.Log("[GrappleController] Created new grapple mesh GameObject");
             } else {
                 Debug.Log("[GrappleController] Using existing grapple mesh from inspector");
                 // Ensure it's not parented if it was assigned in inspector
@@ -297,17 +244,13 @@ namespace Game.Player {
                 _grappleMeshRenderer.material = lineMaterial;
             } else {
                 // Fallback to a simple material if none assigned
-                _grappleMeshRenderer.material = new Material(Shader.Find("Universal Render Pipeline/Lit"));
-                _grappleMeshRenderer.material.color = grappleColor;
+                _grappleMeshRenderer.material = new Material(Shader.Find("Universal Render Pipeline/Lit"))
+                    {
+                        color = grappleColor
+                    };
             }
 
             _grappleMeshRenderer.enabled = false;
-
-            var materialName = _grappleMeshRenderer.sharedMaterial != null
-                ? _grappleMeshRenderer.sharedMaterial.name
-                : "null";
-            Debug.Log(
-                $"[GrappleController] SetupGrappleMesh - Material: {materialName}, Radius: {meshRadius}, Segments: {meshSegments}");
         }
 
         private void UpdateGrappleMesh(Vector3 startPos, Vector3 endPos) {
@@ -380,7 +323,7 @@ namespace Game.Player {
             if(!CanGrapple || IsGrappling) return;
 
             // Raycast from camera to find grapple point
-            var ray = new Ray(_fpCamera.transform.position, _fpCamera.transform.forward);
+            var ray = new Ray(playerController.FpCameraTransform.position, playerController.FpCameraTransform.forward);
 
             if(Physics.Raycast(ray, out var hit, MaxGrappleDistance, _grappleableLayers)) {
                 StartGrapple(hit.point);
@@ -405,60 +348,26 @@ namespace Game.Player {
             IsGrappling = true;
             _grapplePoint = targetPoint;
             _grappleStartTime = Time.time;
-            _grappleStartPosition = transform.position;
 
-            if(useLegacyLineRenderer) {
-                if(grappleLine == null) {
-                    SetupGrappleLine();
-                }
-            } else {
-                if(_grappleMeshObject == null) {
-                    SetupGrappleLine();
-                }
+            if(_grappleMeshObject == null) {
+                SetupGrappleLine();
             }
 
             // Enable visual
-            if(useLegacyLineRenderer) {
-                if(grappleLine != null) {
-                    grappleLine.enabled = true;
-                    // Set initial positions immediately
-                    if(_fpCamera != null) {
-                        var handPosition = _fpCamera.transform.position - _fpCamera.transform.right * 0.3f -
-                                           _fpCamera.transform.up * 0.2f;
-                        grappleLine.SetPosition(0, handPosition);
-                        grappleLine.SetPosition(1, _grapplePoint);
-                    }
-
-                    var matName = grappleLine.sharedMaterial != null
-                        ? grappleLine.sharedMaterial.name
-                        : (grappleLine.material != null ? grappleLine.material.name : "null");
-                    Debug.Log(
-                        $"[GrappleController] Grapple started - Line enabled: {grappleLine.enabled}, Material: {matName}, Position 0: {grappleLine.GetPosition(0)}, Position 1: {grappleLine.GetPosition(1)}");
-                } else {
-                    Debug.LogError("[GrappleController] Grapple started but grappleLine == null!");
+            if(_grappleMeshRenderer != null) {
+                _grappleMeshRenderer.enabled = true;
+                // Set initial mesh
+                if(_fpCamera != null) {
+                    var handPosition = playerController.FpCameraTransform.position - playerController.FpCameraTransform.right * 0.3f -
+                                       playerController.FpCameraTransform.up * 0.2f;
+                    UpdateGrappleMesh(handPosition, _grapplePoint);
                 }
             } else {
-                if(_grappleMeshRenderer != null) {
-                    _grappleMeshRenderer.enabled = true;
-                    // Set initial mesh
-                    if(_fpCamera != null) {
-                        var handPosition = _fpCamera.transform.position - _fpCamera.transform.right * 0.3f -
-                                           _fpCamera.transform.up * 0.2f;
-                        UpdateGrappleMesh(handPosition, _grapplePoint);
-                    }
-
-                    var matName = _grappleMeshRenderer.sharedMaterial != null
-                        ? _grappleMeshRenderer.sharedMaterial.name
-                        : "null";
-                    Debug.Log(
-                        $"[GrappleController] Grapple started - Mesh enabled: {_grappleMeshRenderer.enabled}, Material: {matName}");
-                } else {
-                    Debug.LogError("[GrappleController] Grapple started but grapple mesh is null!");
-                }
+                Debug.LogError("[GrappleController] Grapple started but grapple mesh is null!");
             }
 
             if(_sfxRelay != null && IsOwner) {
-                _sfxRelay?.RequestWorldSfx(SfxKey.Grapple, attachToSelf: true, true);
+                _sfxRelay.RequestWorldSfx(SfxKey.Grapple, attachToSelf: true, true);
             }
         }
 
@@ -472,8 +381,8 @@ namespace Game.Player {
             }
 
             // Calculate pull direction and velocity
-            var directionToPoint = (_grapplePoint - transform.position).normalized;
-            var distanceToPoint = Vector3.Distance(transform.position, _grapplePoint);
+            var directionToPoint = (_grapplePoint - playerController.Position).normalized;
+            var distanceToPoint = Vector3.Distance(playerController.Position, _grapplePoint);
 
             // If we're very close, end the grapple
             if(distanceToPoint < 1f) {
@@ -490,7 +399,7 @@ namespace Game.Player {
             // Check for walls in the direction we're moving
             var pullVelocity = directionToPoint * GrappleSpeed;
             var checkDistance = pullVelocity.magnitude * Time.deltaTime * 3f; // Check slightly ahead
-            if(Physics.SphereCast(transform.position, _characterController.radius, directionToPoint, out _,
+            if(Physics.SphereCast(playerController.Position, _characterController.radius, directionToPoint, out _,
                    checkDistance, ~_playerLayer)) {
                 // We're about to hit something, end grapple early
                 EndGrapple(true);
@@ -505,8 +414,6 @@ namespace Game.Player {
             IsGrappling = false;
 
             StartCoroutine(DisableLineAfterDelay(0.1f));
-
-            // grappleLine.enabled = false;
 
             if(applyMomentum && PreserveMomentum) {
                 // Calculate final momentum direction
@@ -534,14 +441,8 @@ namespace Game.Player {
             yield return new WaitForSeconds(delay);
 
             UpdateGrappleServerRpc(false, Vector3.zero);
-            if(useLegacyLineRenderer) {
-                if(grappleLine != null) {
-                    grappleLine.enabled = false;
-                }
-            } else {
-                if(_grappleMeshRenderer != null) {
-                    _grappleMeshRenderer.enabled = false;
-                }
+            if(_grappleMeshRenderer != null) {
+                _grappleMeshRenderer.enabled = false;
             }
         }
 
@@ -554,71 +455,29 @@ namespace Game.Player {
         }
 
         private void UpdateGrappleLine() {
-            if(useLegacyLineRenderer) {
-                if(grappleLine == null) {
-                    SetupGrappleLine();
-                }
-
-                if(grappleLine == null) {
-                    if(IsGrappling) {
-                        Debug.LogWarning(
-                            "[GrappleController] UpdateGrappleLine: grappleLine == null but IsGrappling is true!");
-                    }
-
-                    return;
-                }
-
-                if(!grappleLine.enabled) {
-                    if(IsGrappling) {
-                        Debug.LogWarning(
-                            $"[GrappleController] UpdateGrappleLine: grappleLine.enabled is false but IsGrappling is true! Line was disabled unexpectedly.");
-                    }
-
-                    return;
-                }
-
-                if(_fpCamera == null) {
-                    Debug.LogError("[GrappleController] UpdateGrappleLine: _fpCamera == null!");
-                    return;
-                }
-
-                // Update line positions (from hand/weapon to grapple point)
-                var handPosition = _fpCamera.transform.position - _fpCamera.transform.right * 0.3f -
-                                   _fpCamera.transform.up * 0.2f;
-
-                grappleLine.SetPosition(0, handPosition);
-                grappleLine.SetPosition(1, _grapplePoint);
-
-                // Debug first few frames to see if positions are being set
-                if(Time.frameCount % 60 == 0 && IsGrappling) {
-                    Debug.Log(
-                        $"[GrappleController] Line update - Enabled: {grappleLine.enabled}, Pos0: {handPosition}, Pos1: {_grapplePoint}, Distance: {Vector3.Distance(handPosition, _grapplePoint)}");
-                }
-            } else {
-                if(_grappleMeshObject == null) {
-                    SetupGrappleLine();
-                }
-
-                if(_grappleMeshRenderer == null || !_grappleMeshRenderer.enabled) {
-                    if(IsGrappling) {
-                        Debug.LogWarning(
-                            $"[GrappleController] UpdateGrappleLine: mesh renderer is disabled but IsGrappling is true!");
-                    }
-
-                    return;
-                }
-
-                if(_fpCamera == null) {
-                    Debug.LogError("[GrappleController] UpdateGrappleLine: _fpCamera == null!");
-                    return;
-                }
-
-                // Update mesh positions (from hand/weapon to grapple point)
-                var handPosition = _fpCamera.transform.position - _fpCamera.transform.right * 0.3f -
-                                   _fpCamera.transform.up * 0.2f;
-
-                UpdateGrappleMesh(handPosition, _grapplePoint);
+            if(_grappleMeshObject == null) {
+                SetupGrappleLine();
             }
+
+            if(_grappleMeshRenderer == null || !_grappleMeshRenderer.enabled) {
+                if(IsGrappling) {
+                    Debug.LogWarning(
+                        $"[GrappleController] UpdateGrappleLine: mesh renderer is disabled but IsGrappling is true!");
+                }
+
+                return;
+            }
+
+            if(_fpCamera == null) {
+                Debug.LogError("[GrappleController] UpdateGrappleLine: _fpCamera == null!");
+                return;
+            }
+
+            // Update mesh positions (from hand/weapon to grapple point)
+            var handPosition = playerController.FpCameraTransform.position - playerController.FpCameraTransform.right * 0.3f -
+                               playerController.FpCameraTransform.up * 0.2f;
+
+            UpdateGrappleMesh(handPosition, _grapplePoint);
         }
 
         #endregion

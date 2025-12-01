@@ -1,3 +1,4 @@
+using Game.Audio;
 using Network.Rpc;
 using Unity.Netcode;
 using UnityEngine;
@@ -86,7 +87,7 @@ namespace Game.Player {
             var isGrounded = playerController != null && playerController.IsGrounded;
             if((isGrounded && !IsJumping) || IsFalling) {
                 // Grounded and not jumping, or in air - clear jump trigger
-                _playerAnimator.ResetTrigger(JumpTriggerHash);
+                // _playerAnimator.ResetTrigger(JumpTriggerHash);
             }
         }
 
@@ -127,8 +128,8 @@ namespace Game.Player {
                 if(IsOwner) {
                     PlayLandingAnimationServerRpc();
                     // Only play landing sound if enough time has passed since spawn/respawn
-                    if(Time.time - _lastSpawnTime >= LandingSoundCooldown) {
-                        _sfxRelay?.RequestWorldSfx(SfxKey.Land, attachToSelf: true, allowOverlap: true);
+                    if(_sfxRelay != null && Time.time - _lastSpawnTime >= LandingSoundCooldown) {
+                        _sfxRelay.RequestWorldSfx(SfxKey.Land, attachToSelf: true, allowOverlap: true);
                     }
                 }
 
@@ -184,14 +185,18 @@ namespace Game.Player {
         /// Sets the crouching state in the animator.
         /// </summary>
         public void SetCrouching(bool isCrouching) {
-            _playerAnimator?.SetBool(IsCrouchingHash, isCrouching);
+            if(_playerAnimator != null) {
+                _playerAnimator.SetBool(IsCrouchingHash, isCrouching);
+            }
         }
 
         /// <summary>
         /// Triggers the damage animation.
         /// </summary>
         public void PlayDamageAnimation() {
-            _playerAnimator?.SetTrigger(DamageTriggerHash);
+            if(_playerAnimator != null) {
+                _playerAnimator.SetTrigger(DamageTriggerHash);
+            }
         }
 
         /// <summary>

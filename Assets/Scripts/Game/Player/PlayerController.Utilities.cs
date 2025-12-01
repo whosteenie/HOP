@@ -1,5 +1,6 @@
+using Game.Audio;
 using Game.Weapons;
-using Network;
+using Network.Components;
 using Network.Rpc;
 using OSI;
 using Unity.Cinemachine;
@@ -16,17 +17,25 @@ namespace Game.Player {
         #region Public API
 
         public void SetGameplayCameraActive(bool active) {
-            fpCamera?.gameObject.SetActive(active);
+            if(fpCamera != null) {
+                fpCamera.gameObject.SetActive(active);
+            }
 
-            deathCamera?.gameObject.SetActive(active);
+            if(deathCamera != null) {
+                deathCamera.gameObject.SetActive(active);
+            }
         }
 
         public void ResetVelocity() {
-            movementController?.ResetVelocity();
+            if(movementController != null) {
+                movementController.ResetVelocity();
+            }
         }
 
         public void TryJump(float height = 2f) {
-            movementController?.TryJump(height);
+            if(movementController != null) {
+                movementController.TryJump(height);
+            }
         }
 
         public void PlayWalkSound() {
@@ -58,24 +67,31 @@ namespace Game.Player {
         }
 
         public void PickupHopball() {
-            if(hopballController != null) {
-                hopballController.TryPickupHopball();
+            if(playerHopballController != null) {
+                playerHopballController.TryPickupHopball();
             } else {
                 Debug.LogWarning("HopballController == null, cannot pick up hopball.");
             }
         }
 
-        public bool IsHoldingHopball => hopballController != null && hopballController.IsHoldingHopball;
+        public bool IsHoldingHopball => playerHopballController != null && playerHopballController.IsHoldingHopball;
 
         public void DropHopball() {
-            hopballController?.DropHopball();
+            if(playerHopballController != null) {
+                playerHopballController.DropHopball();
+            }
         }
 
         #endregion
 
         #region Core Components
 
-        public Transform PlayerTransform => playerTransform ?? transform;
+        public Transform PlayerTransform {
+            get {
+                if(playerTransform != null) return playerTransform;
+                return transform;
+            }
+        }
         public CharacterController CharacterController => characterController;
         public PlayerInput PlayerInput => playerInput;
         public UnityEngine.InputSystem.PlayerInput UnityPlayerInput => unityPlayerInput;
@@ -92,6 +108,7 @@ namespace Game.Player {
         #region Cameras
 
         public CinemachineCamera FpCamera => fpCamera;
+        public Transform FpCameraTransform => fpCamera != null ? fpCamera.transform : null;
         public Camera WeaponCamera => weaponCamera;
         public CinemachineCamera DeathCamera => deathCamera;
         public WeaponCameraController WeaponCameraController => weaponCameraController;
@@ -106,6 +123,7 @@ namespace Game.Player {
         public PlayerVisualController VisualController => visualController;
         public PlayerAnimationController AnimationController => animationController;
         public PlayerShadow PlayerShadow => playerShadow;
+        public PlayerRenderer PlayerRenderer => playerRenderer;
         public UpperBodyPitch UpperBodyPitch => upperBodyPitch;
         public PlayerRagdoll PlayerRagdoll => playerRagdoll;
         public SpeedTrail SpeedTrail => speedTrail;
@@ -121,7 +139,7 @@ namespace Game.Player {
         public PlayerHealthController HealthController => healthController;
         public PlayerTagController TagController => tagController;
         public PlayerPodiumController PodiumController => podiumController;
-        public HopballController HopballController => hopballController;
+        public PlayerHopballController PlayerHopballController => playerHopballController;
         public PlayerTeamManager TeamManager => playerTeamManager;
         public MantleController MantleController => mantleController;
 
@@ -176,29 +194,55 @@ namespace Game.Player {
 
         #region Velocity Helpers
 
-        public Vector3 GetHorizontalVelocity() =>
-            movementController?.HorizontalVelocity ?? Vector3.zero;
+        public Vector3 GetHorizontalVelocity() {
+            if(movementController != null) {
+                return movementController.HorizontalVelocity;
+            }
+            return Vector3.zero;
+        }
 
-        public float GetVerticalVelocity() =>
-            movementController?.VerticalVelocity ?? 0f;
+        public float GetVerticalVelocity() {
+            if(movementController != null) {
+                return movementController.VerticalVelocity;
+            }
+            return 0f;
+        }
 
-        public Vector3 GetFullVelocity =>
-            movementController?.FullVelocity ?? Vector3.zero;
+        public Vector3 GetFullVelocity {
+            get {
+                if(movementController != null) {
+                    return movementController.FullVelocity;
+                }
+                return Vector3.zero;
+            }
+        }
 
-        public float GetMaxSpeed() =>
-            movementController?.MaxSpeed ?? 5f;
+        public float GetMaxSpeed() {
+            if(movementController != null) {
+                return movementController.MaxSpeed;
+            }
+            return 5f;
+        }
 
-        public float GetCachedHorizontalSpeedSqr() =>
-            movementController?.CachedHorizontalSpeedSqr ?? 0f;
+        public float GetCachedHorizontalSpeedSqr() {
+            if(movementController != null) {
+                return movementController.CachedHorizontalSpeedSqr;
+            }
+            return 0f;
+        }
 
         public float AverageVelocity => statsController != null ? statsController.averageVelocity.Value : 0f;
 
         public void SetVelocity(Vector3 horizontalVelocity) {
-            movementController?.SetVelocity(horizontalVelocity);
+            if(movementController != null) {
+                movementController.SetVelocity(horizontalVelocity);
+            }
         }
 
         public void AddVerticalVelocity(float verticalBoost) {
-            movementController?.AddVerticalVelocity(verticalBoost);
+            if(movementController != null) {
+                movementController.AddVerticalVelocity(verticalBoost);
+            }
         }
 
         #endregion
@@ -215,11 +259,15 @@ namespace Game.Player {
         #region Podium Methods
 
         public void ForceRespawnForPodiumServer() {
-            podiumController?.ForceRespawnForPodiumServer();
+            if(podiumController != null) {
+                podiumController.ForceRespawnForPodiumServer();
+            }
         }
 
         public void TeleportToPodiumFromServer(Vector3 position, Quaternion rotation) {
-            podiumController?.TeleportToPodiumFromServer(position, rotation);
+            if(podiumController != null) {
+                podiumController.TeleportToPodiumFromServer(position, rotation);
+            }
         }
 
         #endregion

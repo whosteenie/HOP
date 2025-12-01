@@ -1,3 +1,4 @@
+using Game.Audio;
 using Network.Rpc;
 using Unity.Cinemachine;
 using Unity.Netcode;
@@ -109,8 +110,12 @@ namespace Game.Player {
             ropeRenderer.enabled = true;
             UpdateSwingRpc(true, _swingPoint);
 
-            pullGrapple?.TriggerCooldown();
-            sfxRelay?.RequestWorldSfx(SfxKey.Grapple, true, true);
+            if(pullGrapple != null) {
+                pullGrapple.TriggerCooldown();
+            }
+            if(sfxRelay != null) {
+                sfxRelay.RequestWorldSfx(SfxKey.Grapple, true, true);
+            }
         }
 
         private void Update() {

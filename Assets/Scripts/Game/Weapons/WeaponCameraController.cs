@@ -54,8 +54,9 @@ namespace Game.Weapons {
                     _weaponCamera.transform.SetParent(_fpCamera.transform, false);
                 }
 
-                _weaponCamera.transform.localPosition = Vector3.zero;
-                _weaponCamera.transform.localRotation = Quaternion.identity;
+                var weaponCameraTransform = _weaponCamera.transform;
+                weaponCameraTransform.localPosition = Vector3.zero;
+                weaponCameraTransform.localRotation = Quaternion.identity;
             }
 
             // Add weapon camera to main scene camera's camera stack
@@ -96,7 +97,10 @@ namespace Game.Weapons {
             if(_weaponCamera == null) return;
 
             // Try to get main camera (may be null if scene is unloading)
-            var mainCam = _mainSceneCamera ?? Camera.main;
+            var mainCam = _mainSceneCamera;
+            if(mainCam == null) {
+                mainCam = Camera.main;
+            }
 
             if(mainCam == null) {
                 var mainCameraObj = GameObject.FindGameObjectWithTag("MainCamera");
@@ -110,7 +114,7 @@ namespace Game.Weapons {
             var mainCameraData = mainCam.GetUniversalAdditionalCameraData();
 
             // Remove this weapon camera from the stack
-            if(mainCameraData?.cameraStack?.Contains(_weaponCamera) == true) {
+            if(mainCameraData != null && mainCameraData.cameraStack != null && mainCameraData.cameraStack.Contains(_weaponCamera)) {
                 mainCameraData.cameraStack.Remove(_weaponCamera);
             }
         }

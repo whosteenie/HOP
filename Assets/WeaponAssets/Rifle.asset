@@ -13,12 +13,14 @@ MonoBehaviour:
   m_Name: Rifle
   m_EditorClassIdentifier: Assembly-CSharp::WeaponData
   weaponName: AK74
-  weaponPrefab: {fileID: 1487774384131766, guid: 584f80cd7126ed349b39841e4504aa66, type: 3}
+  weaponPrefab: {fileID: 2760174968010719185, guid: 59da40951c532134db003b7f03da6d7d, type: 3}
   weaponSlot: 0
   spawnPosition: {x: 0.221, y: -0.141, z: 0.163}
   spawnRotation: {x: 0, y: -180, z: 0}
   muzzleLocalOffset: {x: 0, y: 0, z: -0.442}
   worldWeaponName: AK74
+  holsteredPrimaryModel: {fileID: 0}
+  holsteredSecondaryModel: {fileID: 0}
   fpMuzzleLightChildName: MuzzleLight
   worldMuzzleLightChildName: MuzzleLight
   magSize: 30

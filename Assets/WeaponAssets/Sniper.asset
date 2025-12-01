@@ -13,12 +13,14 @@ MonoBehaviour:
   m_Name: Sniper
   m_EditorClassIdentifier: Assembly-CSharp::Game.Weapons.WeaponData
   weaponName: M107
-  weaponPrefab: {fileID: 1829597508155286, guid: 4876139417cf14440a8e18e418962a00, type: 3}
+  weaponPrefab: {fileID: 1829597508155286, guid: 87baeaaf4ebe08f41804127d013d1684, type: 3}
   weaponSlot: 0
-  spawnPosition: {x: 0.299, y: -0.157, z: 0.258}
+  spawnPosition: {x: 0.299, y: -0.22, z: 0.258}
   spawnRotation: {x: 0, y: 180, z: 0}
   muzzleLocalOffset: {x: 0, y: 0.0218, z: -0.6965}
   worldWeaponName: M107
+  holsteredPrimaryModel: {fileID: 0}
+  holsteredSecondaryModel: {fileID: 0}
   fpMuzzleLightChildName: MuzzleLight
   worldMuzzleLightChildName: MuzzleLight
   magSize: 10
@@ -30,11 +32,11 @@ MonoBehaviour:
   minDamageRange: 200
   minDamage: 52
   usePelletSpread: 0
-  pelletCount: 8
+  pelletCount: 15
   pelletDamageMultiplier: 0.15
   fireRate: 0.5
   fireMode: Semi
-  bulletSpread: 0
+  bulletSpread: 8
   useSniperOverlay: 1
   reloadTime: 3
   useMagReload: 1

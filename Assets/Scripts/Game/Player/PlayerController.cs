@@ -1,8 +1,12 @@
 using System.Collections.Generic;
 using System.Linq;
 using Game.Weapons;
+using Game.UI;
+using Game.Menu;
+using Game.Match;
 using Network;
 using Network.AntiCheat;
+using Network.Components;
 using Network.Rpc;
 using Network.Singletons;
 using OSI;
@@ -41,6 +45,7 @@ namespace Game.Player {
         [SerializeField] private Material[] playerMaterials;
         [SerializeField] private PlayerVisualController visualController;
         [SerializeField] private PlayerShadow playerShadow;
+        [SerializeField] private PlayerRenderer playerRenderer;
         [SerializeField] private UpperBodyPitch upperBodyPitch;
         [SerializeField] private PlayerRagdoll playerRagdoll;
         [SerializeField] private Transform deathCameraTarget;
@@ -59,7 +64,7 @@ namespace Game.Player {
         [SerializeField] private PlayerAnimationController animationController;
         [SerializeField] private PlayerTagController tagController;
         [SerializeField] private PlayerPodiumController podiumController;
-        [SerializeField] private HopballController hopballController;
+        [SerializeField] private PlayerHopballController playerHopballController;
         [SerializeField] private PlayerTeamManager playerTeamManager;
         [SerializeField] private WeaponCameraController weaponCameraController;
         [SerializeField] private DeathCameraController deathCameraController;
@@ -183,6 +188,15 @@ namespace Game.Player {
             NetworkVariableReadPermission.Everyone,
             NetworkVariableWritePermission.Owner);
 
+        // Weapon selection NetworkVariables (synced across all clients)
+        public NetworkVariable<int> primaryWeaponIndex = new(0,
+            NetworkVariableReadPermission.Everyone,
+            NetworkVariableWritePermission.Owner);
+
+        public NetworkVariable<int> secondaryWeaponIndex = new(0,
+            NetworkVariableReadPermission.Everyone,
+            NetworkVariableWritePermission.Owner);
+
         #endregion
 
         #region Unity Lifecycle
@@ -191,36 +205,15 @@ namespace Game.Player {
             base.OnNetworkSpawn();
 
             // Network-dependent initialization
-            playerMaterialIndex.OnValueChanged -= OnMatChanged;
-            playerMaterialIndex.OnValueChanged += OnMatChanged;
-            
-            // New material packet system callbacks
-            playerMaterialPacketIndex.OnValueChanged -= OnMaterialPacketChanged;
-            playerMaterialPacketIndex.OnValueChanged += OnMaterialPacketChanged;
-            playerBaseColor.OnValueChanged -= OnMaterialCustomizationChanged;
-            playerBaseColor.OnValueChanged += OnMaterialCustomizationChanged;
-            playerSmoothness.OnValueChanged -= OnMaterialCustomizationChanged;
-            playerSmoothness.OnValueChanged += OnMaterialCustomizationChanged;
-            playerMetallic.OnValueChanged -= OnMaterialCustomizationChanged;
-            playerMetallic.OnValueChanged += OnMaterialCustomizationChanged;
-            playerSpecularColor.OnValueChanged -= OnMaterialCustomizationChanged;
-            playerSpecularColor.OnValueChanged += OnMaterialCustomizationChanged;
-            playerHeightStrength.OnValueChanged -= OnMaterialCustomizationChanged;
-            playerHeightStrength.OnValueChanged += OnMaterialCustomizationChanged;
-            playerEmissionEnabled.OnValueChanged -= OnMaterialCustomizationChanged;
-            playerEmissionEnabled.OnValueChanged += OnMaterialCustomizationChanged;
-            playerEmissionColor.OnValueChanged -= OnMaterialCustomizationChanged;
-            playerEmissionColor.OnValueChanged += OnMaterialCustomizationChanged;
-            netHealth.OnValueChanged -= OnHealthChanged;
-            netHealth.OnValueChanged += OnHealthChanged;
-            netIsCrouching.OnValueChanged -= OnCrouchStateChanged;
-            netIsCrouching.OnValueChanged += OnCrouchStateChanged;
+            SubscribeToNetworkVariables();
 
             // Apply new material system (will use defaults if not set)
             UpdatePlayerMaterialFromNetwork();
 
-            if(characterController.enabled == false)
+            // Only enable character controller if player is not dead
+            if(characterController.enabled == false && !netIsDead.Value) {
                 characterController.enabled = true;
+            }
 
             // Note: Main player object should be set to Default layer in inspector
             // Ragdoll components are set to Enemy layer in PlayerRagdoll.OnNetworkSpawn()
@@ -242,7 +235,8 @@ namespace Game.Player {
             PostMatchManager.Instance.ShowInGameHudAfterPostMatch();
 
             // Track spawn time to prevent landing sounds on initial spawn
-            animationController?.ResetSpawnTime();
+            if(animationController != null)
+                animationController.ResetSpawnTime();
 
             if(GameMenuManager.Instance.IsPaused) {
                 GameMenuManager.Instance.TogglePause();
@@ -250,6 +244,10 @@ namespace Game.Player {
 
             if(IsOwner) {
                 playerName.Value = PlayerPrefs.GetString("PlayerName", "Unknown Player");
+                
+                // Load weapon selections from PlayerPrefs and sync via NetworkVariables
+                primaryWeaponIndex.Value = PlayerPrefs.GetInt("PrimaryWeaponIndex", 0);
+                secondaryWeaponIndex.Value = PlayerPrefs.GetInt("SecondaryWeaponIndex", 0);
                 
                 // Load new material customization system
                 LoadMaterialCustomizationFromPrefs();
@@ -262,40 +260,69 @@ namespace Game.Player {
                     HUDManager.Instance.UpdateTagStatus(tagController.isTagged.Value);
                 }
 
-                playerShadow?.SetWorldWeaponPrefabsShadowMode(ShadowCastingMode.ShadowsOnly);
-                playerShadow?.SetWorldWeaponRenderersShadowMode(ShadowCastingMode.ShadowsOnly);
+                if(playerShadow != null)
+                    playerShadow.ApplyOwnerDefaultShadowState();
             } else {
                 // Ensure world model root and weapon are active for non-owner players
                 if(playerModelRoot != null && !playerModelRoot.activeSelf) {
                     playerModelRoot.SetActive(true);
                 }
 
-                // if(worldWeapon != null && !worldWeapon.gameObject.activeSelf) {
-                //     worldWeapon.gameObject.SetActive(true);
-                // }
-
-                // Invalidate renderer cache to force refresh
-                visualController?.InvalidateRendererCache();
-
-                // Enable all renderers and set proper shadow modes
-                visualController?.SetRenderersEnabled(true);
-
-                if(playerShadow != null) {
-                    playerShadow.SetSkinnedMeshRenderersShadowMode(ShadowCastingMode.On, null, true);
-                    playerShadow.SetWorldWeaponRenderersShadowMode(ShadowCastingMode.On);
+                if(visualController != null) {
+                    // Invalidate renderer cache to force refresh
+                    visualController.InvalidateRendererCache();
+                    // Enable all renderers and set proper shadow modes
+                    visualController.SetRenderersEnabled(true);
+                    // Force bounds update immediately
+                    visualController.ForceRendererBoundsUpdate();
                 }
 
-                // Force bounds update immediately
-                visualController?.ForceRendererBoundsUpdate();
+                if(playerShadow != null)
+                    playerShadow.ApplyVisibleShadowState();
             }
         }
 
         public override void OnNetworkDespawn() {
             base.OnNetworkDespawn();
+            UnsubscribeFromNetworkVariables();
+        }
 
+        /// <summary>
+        /// Subscribes to all NetworkVariable value change callbacks.
+        /// </summary>
+        private void SubscribeToNetworkVariables() {
             playerMaterialIndex.OnValueChanged -= OnMatChanged;
+            playerMaterialIndex.OnValueChanged += OnMatChanged;
             
-            // New material packet system cleanup
+            playerMaterialPacketIndex.OnValueChanged -= OnMaterialPacketChanged;
+            playerMaterialPacketIndex.OnValueChanged += OnMaterialPacketChanged;
+            playerBaseColor.OnValueChanged -= OnMaterialCustomizationChanged;
+            playerBaseColor.OnValueChanged += OnMaterialCustomizationChanged;
+            playerSmoothness.OnValueChanged -= OnMaterialCustomizationChanged;
+            playerSmoothness.OnValueChanged += OnMaterialCustomizationChanged;
+            playerMetallic.OnValueChanged -= OnMaterialCustomizationChanged;
+            playerMetallic.OnValueChanged += OnMaterialCustomizationChanged;
+            playerSpecularColor.OnValueChanged -= OnMaterialCustomizationChanged;
+            playerSpecularColor.OnValueChanged += OnMaterialCustomizationChanged;
+            playerHeightStrength.OnValueChanged -= OnMaterialCustomizationChanged;
+            playerHeightStrength.OnValueChanged += OnMaterialCustomizationChanged;
+            playerEmissionEnabled.OnValueChanged -= OnMaterialCustomizationChanged;
+            playerEmissionEnabled.OnValueChanged += OnMaterialCustomizationChanged;
+            playerEmissionColor.OnValueChanged -= OnMaterialCustomizationChanged;
+            playerEmissionColor.OnValueChanged += OnMaterialCustomizationChanged;
+            netHealth.OnValueChanged -= OnHealthChanged;
+            netHealth.OnValueChanged += OnHealthChanged;
+            netIsCrouching.OnValueChanged -= OnCrouchStateChanged;
+            netIsCrouching.OnValueChanged += OnCrouchStateChanged;
+            netIsDead.OnValueChanged -= OnDeathStateChanged;
+            netIsDead.OnValueChanged += OnDeathStateChanged;
+        }
+
+        /// <summary>
+        /// Unsubscribes from all NetworkVariable value change callbacks.
+        /// </summary>
+        private void UnsubscribeFromNetworkVariables() {
+            playerMaterialIndex.OnValueChanged -= OnMatChanged;
             playerMaterialPacketIndex.OnValueChanged -= OnMaterialPacketChanged;
             playerBaseColor.OnValueChanged -= OnMaterialCustomizationChanged;
             playerSmoothness.OnValueChanged -= OnMaterialCustomizationChanged;
@@ -304,9 +331,9 @@ namespace Game.Player {
             playerHeightStrength.OnValueChanged -= OnMaterialCustomizationChanged;
             playerEmissionEnabled.OnValueChanged -= OnMaterialCustomizationChanged;
             playerEmissionColor.OnValueChanged -= OnMaterialCustomizationChanged;
-            
             netHealth.OnValueChanged -= OnHealthChanged;
             netIsCrouching.OnValueChanged -= OnCrouchStateChanged;
+            netIsDead.OnValueChanged -= OnDeathStateChanged;
         }
 
         private void OnMatChanged(int _, int newIdx) {
@@ -441,7 +468,16 @@ namespace Game.Player {
         }
 
         private void OnCrouchStateChanged(bool oldValue, bool newValue) {
-            movementController?.UpdateCrouch(fpCamera);
+            if(movementController != null)
+                movementController.UpdateCrouch(fpCamera);
+        }
+
+        private void OnDeathStateChanged(bool oldValue, bool newValue) {
+            // Disable character controller when player dies
+            if(newValue && characterController != null) {
+                characterController.enabled = false;
+            }
+            // Note: Character controller is re-enabled during respawn in PlayerHealthController.RestoreControlAfterFadeInClientRpc()
         }
 
         private void Update() {
@@ -455,11 +491,13 @@ namespace Game.Player {
                     if(!netIsDead.Value && Time.time - _lastDeathTime >= 4f) {
                         _lastDeathTime = Time.time;
                         // OOB death handled by health controller
-                        healthController?.ApplyDamageServer_Auth(1000f, playerTransform.position, Vector3.up, ulong.MaxValue);
+                        if(healthController != null)
+                            healthController.ApplyDamageServer_Auth(1000f, playerTransform.position, Vector3.up, ulong.MaxValue);
                     }
                 }
 
-                healthController?.UpdateHealthRegeneration();
+                if(healthController != null)
+                    healthController.UpdateHealthRegeneration();
             }
 
             if(netIsDead.Value || characterController.enabled == false) return;
@@ -477,25 +515,30 @@ namespace Game.Player {
                     }
                 }
 
-                lookController?.UpdateSpeedFov();
+                if(lookController != null)
+                    lookController.UpdateSpeedFov();
 
-                statsController?.TrackVelocity();
+                if(statsController != null)
+                    statsController.TrackVelocity();
             } else {
-                movementController?.UpdateCrouch(fpCamera);
+                if(movementController != null)
+                    movementController.UpdateCrouch(fpCamera);
 
-                animationController?.SetCrouching(netIsCrouching.Value);
+                if(animationController != null)
+                    animationController.SetCrouching(netIsCrouching.Value);
 
                 // Periodic visibility check for non-owner players
                 // This helps catch and fix cases where renderers become invisible due to bounds issues
-                if(Time.frameCount % 60 != 0) return;
-                visualController?.VerifyAndFixVisibility();
+                if(visualController == null || Time.frameCount % 60 != 0) return;
+                visualController.VerifyAndFixVisibility();
             }
         }
 
         private void LateUpdate() {
             if(!IsOwner || netIsDead.Value) return;
 
-            lookController?.UpdateLook();
+            if(lookController != null)
+                lookController.UpdateLook();
         }
 
         private void ValidateServerMovement(Vector3 position) {
@@ -584,26 +627,24 @@ namespace Game.Player {
 
                 // Use the jump pad's own transform.up (surface normal) instead of collision normal
                 // This preserves horizontal velocity (e.g., from grappling) while adding vertical boost
-                if(movementController != null) {
-                    var padNormal = hit.gameObject.transform.up;
-                    movementController.LaunchFromJumpPad(padNormal);
-                } else {
-                    // Fallback to old behavior if movement controller not available
-                    TryJump(15f);
+                if(movementController == null) {
+                    Debug.LogError("[PlayerController] MovementController not found! Cannot launch from jump pad.");
+                    return;
                 }
+                var padNormal = hit.gameObject.transform.up;
+                movementController.LaunchFromJumpPad(padNormal);
             } else if(hit.gameObject.CompareTag("MegaPad")) {
                 // Cancel any active grapple before launching
                 grappleController.CancelGrapple();
 
                 // Mega jump pad: provides greater boost
                 // Use the jump pad's own transform.up (surface normal) instead of collision normal
-                if(movementController != null) {
-                    var padNormal = hit.gameObject.transform.up;
-                    movementController.LaunchFromJumpPad(padNormal, force: 30f);
-                } else {
-                    // Fallback to old behavior if movement controller not available
-                    TryJump(30f);
+                if(movementController == null) {
+                    Debug.LogError("[PlayerController] MovementController not found! Cannot launch from mega pad.");
+                    return;
                 }
+                var padNormal = hit.gameObject.transform.up;
+                movementController.LaunchFromJumpPad(padNormal, force: 30f);
             } else {
                 // Cancel grapple for other collisions (non-jump pad)
                 grappleController.CancelGrapple();
@@ -629,7 +670,8 @@ namespace Game.Player {
         #region Health & Animation
 
         public void ResetHealthAndRegenerationState() {
-            healthController?.ResetHealthAndRegenerationState();
+            if(healthController != null)
+                healthController.ResetHealthAndRegenerationState();
         }
 
         public Color CurrentBaseColor => new(
@@ -666,12 +708,11 @@ namespace Game.Player {
                         _cachedWeaponRenderers[weaponInstance] = meshRenderers;
                     }
 
-                    // Explicitly enable all MeshRenderers in the weapon hierarchy
-                    foreach(var meshRenderer in meshRenderers) {
-                        if(meshRenderer != null) {
-                            meshRenderer.enabled = true;
-                        }
+                    if(playerRenderer == null) {
+                        Debug.LogError("[PlayerController] PlayerRenderer not found! Cannot enable world weapon renderers.");
+                        return;
                     }
+                    playerRenderer.SetWorldWeaponRenderersEnabled(true);
                 }
 
                 // if(worldWeapon != null) {
@@ -729,9 +770,16 @@ namespace Game.Player {
                 _cachedWeaponRenderers[weaponInstance] = meshRenderers;
             }
 
+            // Use PlayerRenderer for enabled state, shadow mode is handled by PlayerShadow
+            if(playerRenderer == null) {
+                Debug.LogError("[PlayerController] PlayerRenderer not found! Cannot enable world weapon renderers.");
+                return;
+            }
+            playerRenderer.SetWorldWeaponRenderersEnabled(true);
+            
+            // Shadow mode is handled by PlayerShadow, but we set it here for initial setup
             foreach(var meshRenderer in meshRenderers) {
                 if(meshRenderer == null) continue;
-                meshRenderer.enabled = true;
                 meshRenderer.shadowCastingMode = ShadowCastingMode.On;
             }
         }

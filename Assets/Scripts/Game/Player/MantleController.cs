@@ -152,7 +152,7 @@ namespace Game.Player {
             _mantleDirection = mantleDirection;
 
             // Zero out player velocity before starting mantle
-            playerController?.ResetVelocity();
+            playerController.ResetVelocity();
 
             _characterController.enabled = false;
 
@@ -196,7 +196,7 @@ namespace Game.Player {
 
             // Reset velocity again before re-enabling the controller
             // This ensures no stored velocity from before the mantle gets applied
-            playerController?.ResetVelocity();
+            playerController.ResetVelocity();
 
             _characterController.enabled = true;
 

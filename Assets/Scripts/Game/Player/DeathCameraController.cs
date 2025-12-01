@@ -42,8 +42,6 @@ namespace Game.Player {
             _deathCamera.gameObject.SetActive(false);
             playerController.PlayerMesh.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.ShadowsOnly;
             _deathCamera.Priority = _fpCamera.Priority - 1;
-
-            playerController.SpeedTrail.ClearAllTrails();
         }
     }
 }

@@ -32,7 +32,7 @@ Transform:
   m_GameObject: {fileID: 1479868513324915623}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -0.545, y: 2.121, z: -0.0417}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 0.13, y: 0.13, z: 0.13}
   m_ConstrainProportionsScale: 1
   m_Children:
@@ -110,6 +110,10 @@ MonoBehaviour:
   meshRenderer: {fileID: 3723118034536401552}
   effects: {fileID: 420501553479367280}
   effectLight: {fileID: 550646458293686252}
+  scaleLerpSpeed: 8
+  lightLerpSpeed: 8
+  emissionLerpSpeed: 10
+  dissolveLerpSpeed: 6
 --- !u!108 &550646458293686252
 Light:
   m_ObjectHideFlags: 0

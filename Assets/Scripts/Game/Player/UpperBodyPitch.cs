@@ -54,7 +54,7 @@ namespace Game.Player {
             }
 
             if(_playerRagdoll == null) _playerRagdoll = playerController.PlayerRagdoll;
-
+            
             _axis = localPitchAxis.normalized;
             if(invertAxis) _axis = -_axis;
         }

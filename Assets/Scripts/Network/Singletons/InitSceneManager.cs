@@ -1,5 +1,7 @@
 using System;
 using Cysharp.Threading.Tasks;
+using Game.Audio;
+using Game.Match;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -121,7 +123,6 @@ namespace Network.Singletons {
                 SceneManager.SetActiveScene(mainMenuScene);
             } else {
                 Debug.LogError("[InitSceneManager] MainMenu scene is not valid after loading");
-                return;
             }
 
             // Fade transition removed for now - splash screen will handle its own fade into main menu

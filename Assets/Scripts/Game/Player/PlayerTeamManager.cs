@@ -1,5 +1,6 @@
 using System.Collections;
-using Network.Singletons;
+using Game.Match;
+using Game.Spawning;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -8,6 +9,7 @@ namespace Game.Player {
     public class PlayerTeamManager : NetworkBehaviour {
         private static readonly int outlineColor = Shader.PropertyToID("_OutlineColor");
         private static readonly int size = Shader.PropertyToID("_Size");
+        [SerializeField] private PlayerController playerController;
 
         // --------------------------------------------------------------------
         // 1. Networked team (synced once at spawn)
@@ -64,7 +66,22 @@ namespace Game.Player {
         public override void OnNetworkSpawn() {
             base.OnNetworkSpawn();
 
-            _skinned = GetComponentInChildren<SkinnedMeshRenderer>(true);
+            // Get the correct SkinnedMeshRenderer from PlayerController (the body mesh, not FP arm)
+            if(playerController == null)
+                playerController = GetComponent<PlayerController>();
+            
+            if(playerController == null) {
+                Debug.LogError($"[PlayerTeamManager] PlayerController not found! GameObject: {gameObject.name}");
+                enabled = false;
+                return;
+            }
+
+            _skinned = playerController.PlayerMesh;
+            if(_skinned == null) {
+                Debug.LogError($"[PlayerTeamManager] PlayerController.PlayerMesh is null! GameObject: {gameObject.name}");
+                enabled = false;
+                return;
+            }
 
             // Find and cache main camera once (for dynamically spawned prefabs)
             _mainCamera = Camera.main;
@@ -82,6 +99,8 @@ namespace Game.Player {
 
                 // Create reusable property block for tagged players
                 _tagPropertyBlock = new MaterialPropertyBlock();
+            } else {
+                Debug.LogError($"[PlayerTeamManager] No SkinnedMeshRenderer found! GameObject: {gameObject.name}");
             }
 
             // Subscribe to team changes (including late-joiners)
@@ -100,8 +119,6 @@ namespace Game.Player {
 
             // Also update when local player's team is set (if we're the local player)
             if(!IsOwner) yield break;
-            // Wait a bit more for other players to sync
-            yield return new WaitForSeconds(0.1f);
             // Update all other players' outlines when our team is set
             UpdateAllPlayerOutlines();
         }
@@ -137,7 +154,10 @@ namespace Game.Player {
         // Public method to update outline - can be called by PlayerTagController
         // --------------------------------------------------------------------
         public void UpdateOutlineColour() {
-            if(_skinned == null || _propertyBlock == null) return;
+            if(_skinned == null || _propertyBlock == null) {
+                Debug.LogWarning($"[PlayerTeamManager] Cannot update outline - skinned: {_skinned != null}, propertyBlock: {_propertyBlock != null}, GameObject: {gameObject.name}");
+                return;
+            }
 
             // Refresh MatchSettingsManager cache if needed
             if(_cachedMatchSettings == null) {
@@ -145,31 +165,46 @@ namespace Game.Player {
                 _gameModeCacheValid = false;
             }
 
-            if(_cachedMatchSettings == null) return;
+            if(_cachedMatchSettings == null) {
+                Debug.LogWarning($"[PlayerTeamManager] MatchSettingsManager is null! GameObject: {gameObject.name}");
+                return;
+            }
+
+            // Always check current game mode and invalidate cache if it changed
+            var currentGameModeId = _cachedMatchSettings.selectedGameModeId;
+            if(_gameModeCacheValid && _cachedGameModeId != currentGameModeId) {
+                // Game mode changed - invalidate cache
+                _gameModeCacheValid = false;
+                Debug.Log($"[PlayerTeamManager] Game mode changed from '{_cachedGameModeId}' to '{currentGameModeId}', invalidating cache. GameObject: {gameObject.name}");
+            }
 
             // Cache game mode checks
             if(!_gameModeCacheValid) {
-                _cachedGameModeId = _cachedMatchSettings.selectedGameModeId;
+                _cachedGameModeId = currentGameModeId;
                 _cachedIsTeamBased = MatchSettingsManager.IsTeamBasedMode(_cachedGameModeId);
                 _cachedIsTagMode = _cachedGameModeId == "Gun Tag";
                 _gameModeCacheValid = true;
+                Debug.Log($"[PlayerTeamManager] Cached game mode: '{_cachedGameModeId}', IsTeamBased: {_cachedIsTeamBased}, IsTagMode: {_cachedIsTagMode}, GameObject: {gameObject.name}, IsOwner: {IsOwner}");
             }
 
             // Gun Tag mode: prioritize tag glow
             if(_cachedIsTagMode && _tagController != null) {
                 if(_tagController.isTagged.Value) {
                     // Tagged player: bright yellow-orange glow
-                    // Reuse property block instead of creating new one
+                    // Get existing property block first to preserve other properties
+                    _skinned.GetPropertyBlock(_tagPropertyBlock, 0);
                     var outlineSize = CalculateOutlineSize();
                     _tagPropertyBlock.SetColor(outlineColor, taggedGlow);
                     _tagPropertyBlock.SetFloat(size, outlineSize);
                     _skinned.SetPropertyBlock(_tagPropertyBlock, 0);
                     _lastOutlineSize = outlineSize; // Update cached size
+                    Debug.Log($"[PlayerTeamManager] Set tagged glow color: {taggedGlow}, size: {outlineSize}, GameObject: {gameObject.name}");
                 } else {
                     // Not tagged: default black outline (handled by shader/material)
                     // Clear the property block to use default material color
                     _skinned.SetPropertyBlock(null, 0);
                     _lastOutlineSize = -1f; // Reset cached size
+                    Debug.Log($"[PlayerTeamManager] Cleared property block for non-tagged player, GameObject: {gameObject.name}");
                 }
 
                 return;
@@ -181,31 +216,76 @@ namespace Game.Player {
 
                 if(IsOwner) {
                     // Yourself: don't change (leave as default/unchanged)
+                    Debug.Log($"[PlayerTeamManager] Skipping outline update for owner, GameObject: {gameObject.name}");
                     return;
                 }
 
                 // Get the LOCAL player's team (only exists on clients)
-                var localPlayer = NetworkManager.Singleton.LocalClient?.PlayerObject;
+                GameObject localPlayer = null;
+                var networkManager = NetworkManager.Singleton;
+                if(networkManager != null && networkManager.LocalClient != null) {
+                    var playerObject = networkManager.LocalClient.PlayerObject;
+                    if(playerObject != null) {
+                        localPlayer = playerObject.gameObject;
+                    }
+                }
                 if(localPlayer != null) {
                     var localController = localPlayer.GetComponent<PlayerController>();
-                    var localTeamMgr = localController?.TeamManager;
+                    PlayerTeamManager localTeamMgr = null;
+                    if(localController != null) {
+                        localTeamMgr = localController.TeamManager;
+                    }
                     if(localTeamMgr != null && netTeam.Value == localTeamMgr.netTeam.Value) {
                         target = teammateOutline; // Same team → blue
+                        Debug.Log($"[PlayerTeamManager] Same team - using teammate color: {target}, GameObject: {gameObject.name}, MyTeam: {netTeam.Value}, LocalTeam: {localTeamMgr.netTeam.Value}");
                     } else {
                         target = enemyOutline; // Different team → red
+                        var localTeamValue = localTeamMgr != null ? localTeamMgr.netTeam.Value : SpawnPoint.Team.TeamA;
+                        Debug.Log($"[PlayerTeamManager] Different team - using enemy color: {target}, GameObject: {gameObject.name}, MyTeam: {netTeam.Value}, LocalTeam: {localTeamValue}");
                     }
                 } else {
                     target = enemyOutline; // Fallback (shouldn't happen)
+                    Debug.LogWarning($"[PlayerTeamManager] Local player not found, using enemy color as fallback, GameObject: {gameObject.name}");
                 }
 
                 // Calculate distance-based outline size for better visibility at distance
                 var outlineSize = CalculateOutlineSize();
 
+                // Check if shared material has the outline color property (don't create instance just to check)
+                var sharedMaterial = _skinned.sharedMaterial;
+                if(sharedMaterial == null) {
+                    Debug.LogWarning($"[PlayerTeamManager] SkinnedMeshRenderer has no shared material at index 0! GameObject: {gameObject.name}");
+                    return;
+                }
+                
+                var hasOutlineColor = sharedMaterial.HasProperty(outlineColor);
+                var hasSize = sharedMaterial.HasProperty(size);
+                Debug.Log($"[PlayerTeamManager] Shared Material: {sharedMaterial.name}, Shader: {sharedMaterial.shader.name}, HasOutlineColor: {hasOutlineColor}, HasSize: {hasSize}, MaterialIndex: 0, GameObject: {gameObject.name}");
+                
+                if(!hasOutlineColor) {
+                    Debug.LogWarning($"[PlayerTeamManager] Shared Material '{sharedMaterial.name}' (Shader: {sharedMaterial.shader.name}) does not have property '_OutlineColor'! GameObject: {gameObject.name}");
+                    // Try fallback: set directly on material instance
+                    var materialInstance = _skinned.material;
+                    if(materialInstance != null && materialInstance.HasProperty(outlineColor)) {
+                        materialInstance.SetColor(outlineColor, target);
+                        materialInstance.SetFloat(size, outlineSize);
+                        Debug.Log($"[PlayerTeamManager] Fallback: Set outline directly on material instance: {target}, size: {outlineSize}");
+                        _lastOutlineSize = outlineSize;
+                        return;
+                    }
+                    return; // Can't set outline if property doesn't exist
+                }
+                
+                // Get existing property block first to preserve other properties
+                // MaterialPropertyBlock works on shared materials - it's per-instance
+                _skinned.GetPropertyBlock(_propertyBlock, 0);
+                
                 // Use MaterialPropertyBlock to set per-instance property without modifying shared material
                 _propertyBlock.SetColor(outlineColor, target);
                 _propertyBlock.SetFloat(size, outlineSize);
                 _skinned.SetPropertyBlock(_propertyBlock, 0); // Apply to material index 0 (outline material)
                 _lastOutlineSize = outlineSize; // Update cached size
+                Debug.Log($"[PlayerTeamManager] Applied outline color via PropertyBlock: {target}, size: {outlineSize}, GameObject: {gameObject.name}");
                 return;
             }
 
@@ -219,11 +299,14 @@ namespace Game.Player {
         // Calculate outline size based on distance (larger at distance for visibility)
         // --------------------------------------------------------------------
         private float CalculateOutlineSize() {
-            // if(_mainCamera == null || _skinned == null) {
-            //     // Fallback to Camera.main if cache is lost (shouldn't happen, but safety check)
-            //     _mainCamera = Camera.main;
-            //     if(_mainCamera == null) return minOutlineSize;
-            // }
+            if(_mainCamera == null) {
+                // Fallback to Camera.main if cache is lost (shouldn't happen, but safety check)
+                _mainCamera = Camera.main;
+                if(_mainCamera == null) {
+                    Debug.LogWarning($"[PlayerTeamManager] Main camera is null, using min outline size. GameObject: {gameObject.name}");
+                    return minOutlineSize;
+                }
+            }
 
             // Get distance from camera to player
             var distance = Vector3.Distance(_mainCamera.transform.position, transform.position);
@@ -253,9 +336,19 @@ namespace Game.Player {
 
             if(_cachedMatchSettings == null) return;
 
+            // Always check current game mode and invalidate cache if it changed
+            var currentGameModeId = _cachedMatchSettings.selectedGameModeId;
+            if(_gameModeCacheValid && _cachedGameModeId != currentGameModeId) {
+                // Game mode changed - invalidate cache and update outline
+                _gameModeCacheValid = false;
+                Debug.Log($"[PlayerTeamManager] Game mode changed from '{_cachedGameModeId}' to '{currentGameModeId}' in Update(), forcing outline update");
+                UpdateOutlineColour(); // Force update when game mode changes
+                return;
+            }
+
             // Cache game mode checks
             if(!_gameModeCacheValid) {
-                _cachedGameModeId = _cachedMatchSettings.selectedGameModeId;
+                _cachedGameModeId = currentGameModeId;
                 _cachedIsTeamBased = MatchSettingsManager.IsTeamBasedMode(_cachedGameModeId);
                 _cachedIsTagMode = _cachedGameModeId == "Gun Tag";
                 _gameModeCacheValid = true;

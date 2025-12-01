@@ -29,6 +29,12 @@
                 <ui:VisualElement class="corner-v corner-v-inline-bottom-35px-top-auto-right" />
             </ui:VisualElement>
         </ui:VisualElement>
+        <ui:VisualElement name="sniper-overlay" class="sniper-overlay hidden">
+            <ui:VisualElement name="sniper-crosshair" class="sniper-crosshair">
+                <ui:VisualElement name="sniper-crosshair-horizontal" class="sniper-crosshair-bar horizontal" />
+                <ui:VisualElement name="sniper-crosshair-vertical" class="sniper-crosshair-bar vertical" />
+            </ui:VisualElement>
+        </ui:VisualElement>
         <ui:VisualElement name="hud-panel" class="hud hud-visibility-visible">
             <ui:VisualElement name="match-timer-score-container" class="match-timer-score-container">
                 <ui:VisualElement name="left-score-container" class="hud-score-container hud-score-your">
@@ -62,12 +68,6 @@
         </ui:VisualElement>
         <ui:VisualElement name="kill-feed-container" class="kill-feed-container" />
         <ui:VisualElement name="respawn-fade-overlay" class="transition-overlay hidden" />
-        <ui:VisualElement name="sniper-overlay" class="sniper-overlay hidden">
-            <ui:VisualElement name="sniper-crosshair" class="sniper-crosshair">
-                <ui:VisualElement name="sniper-crosshair-horizontal" class="sniper-crosshair-bar horizontal" />
-                <ui:VisualElement name="sniper-crosshair-vertical" class="sniper-crosshair-bar vertical" />
-            </ui:VisualElement>
-        </ui:VisualElement>
         <ui:VisualElement name="pause-menu-panel" class="panel full-abs center-xy hidden">
             <ui:VisualElement name="pause-container" class="menu-container card">
                 <ui:VisualElement name="pause-header" class="pause-header pause-header-align-flex-start">

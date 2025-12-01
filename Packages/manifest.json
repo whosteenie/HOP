@@ -1,5 +1,6 @@
 {
   "dependencies": {
+    "com.antigravity.ide": "https://github.com/prithvi-bharadwaj/Antigravity-IDE.git",
     "com.cysharp.unitask": "https://github.com/Cysharp/UniTask.git?path=src/UniTask/Assets/Plugins/UniTask",
     "com.gitamend.unityutils": "https://github.com/adammyhre/Unity-Utils.git",
     "com.jiaozi158.unityvolumetriccloudsurp": "https://github.com/Torgo13/UnityVolumetricCloudsURP.git",

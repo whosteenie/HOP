@@ -3,6 +3,10 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Threading;
 using Cysharp.Threading.Tasks;
+using Game.Audio;
+using Game.Match;
+using Game.Menu;
+using Game.UI;
 using Network.Core;
 using Network.Relay;
 using Network.Singletons;
@@ -95,16 +99,22 @@ namespace Network {
 
         private void SetFrontStatus(SessionPhase phase, string message) {
             Phase = phase;
-            FrontStatusChanged?.Invoke(message);
+            if(FrontStatusChanged != null) {
+                FrontStatusChanged.Invoke(message);
+            }
         }
 
         private void StopWatchingLobby() {
             try {
-                _lobbyWatchCts?.Cancel();
+                if(_lobbyWatchCts != null) {
+                    _lobbyWatchCts.Cancel();
+                }
             } catch { /* ignore */
             }
 
-            _lobbyWatchCts?.Dispose();
+            if(_lobbyWatchCts != null) {
+                _lobbyWatchCts.Dispose();
+            }
             _lobbyWatchCts = null;
         }
 
@@ -125,7 +135,11 @@ namespace Network {
             startingClient = false;
 
             // Clear spawner state
-            networkManager?.GetComponent<CustomNetworkManager>()?.ResetSpawningState();
+            if(networkManager != null) {
+                var cnm = networkManager.GetComponent<CustomNetworkManager>();
+                if(cnm != null)
+                    cnm.ResetSpawningState();
+            }
 
             // Unhook and clear session
             if(ActiveSession != null) {
@@ -134,7 +148,9 @@ namespace Network {
             }
 
             // Clear player list in UI
-            PlayersChanged?.Invoke(new List<IReadOnlyPlayer>());
+            if(PlayersChanged != null) {
+                PlayersChanged.Invoke(new List<IReadOnlyPlayer>());
+            }
         }
 
         /// <summary>
@@ -310,9 +326,9 @@ namespace Network {
             }
 
             // Hide game UI if in game
-            if(_cachedSceneName == "Game") {
-                HUDManager.Instance?.HideHUD();
-                if(GameMenuManager.Instance?.IsPaused == true) {
+            if(HUDManager.Instance != null && _cachedSceneName == "Game") {
+                HUDManager.Instance.HideHUD();
+                if(GameMenuManager.Instance != null && GameMenuManager.Instance.IsPaused) {
                     GameMenuManager.Instance.TogglePause();
                 }
             }
@@ -363,7 +379,9 @@ namespace Network {
             RegisterNetworkCallbacks();
 
             // Notify UI of new session players
-            PlayersChanged?.Invoke(ActiveSession.Players);
+            if(PlayersChanged != null) {
+                PlayersChanged.Invoke(ActiveSession.Players);
+            }
 
             SetFrontStatus(SessionPhase.LobbyReady, "Lobby ready. Share the join code with friends!");
             return ActiveSession.Code;
@@ -375,13 +393,15 @@ namespace Network {
                 _hostAllocation = alloc;
                 _relayJoinCode = code;
 
-                var host = ActiveSession?.AsHost();
+                var host = ActiveSession != null ? ActiveSession.AsHost() : null;
                 if(host != null) {
                     host.SetProperty(RelayCodeKey, new SessionProperty(code, VisibilityPropertyOptions.Member));
                     await host.SavePropertiesAsync(); // clients see the real Relay code here
 
                     // Immediately notify any clients that are already polling
-                    RelayCodeAvailable?.Invoke(code);
+                    if(RelayCodeAvailable != null) {
+                        RelayCodeAvailable.Invoke(code);
+                    }
                 } else {
                     Debug.LogWarning("[SessionManager] Cannot publish relay code - host == null");
                 }
@@ -394,7 +414,10 @@ namespace Network {
             StopWatchingLobby();
 
             // Reset state flags for new game session
-            _expectedLobbyCount = ActiveSession?.Players.Count ?? 1;
+            _expectedLobbyCount = 1;
+            if(ActiveSession != null && ActiveSession.Players != null) {
+                _expectedLobbyCount = ActiveSession.Players.Count;
+            }
             _clientsFinishedLoading.Clear();
             _hasCompletedInitialLoad = false; // Reset this flag
             IsInGameplay = false;
@@ -448,7 +471,9 @@ namespace Network {
                 // Force start if timeout (in case of network issues)
                 if(networkManager != null && networkManager.IsServer && networkManager.ConnectedClientsIds.Count > 0) {
                     _hasCompletedInitialLoad = true;
-                    SessionNetworkBridge.Instance?.FadeOutNewClientsClientRpc();
+                    if(SessionNetworkBridge.Instance != null) {
+                        SessionNetworkBridge.Instance.FadeOutNewClientsClientRpc();
+                    }
                     StartCoroutine(LoadSceneAfterFade());
                 }
             }
@@ -498,7 +523,9 @@ namespace Network {
                 case > 0 when connectedCount >= expectedPlayerCount: {
                     _hasCompletedInitialLoad = true;
 
-                    SessionNetworkBridge.Instance?.FadeOutNewClientsClientRpc();
+                    if(SessionNetworkBridge.Instance != null) {
+                        SessionNetworkBridge.Instance.FadeOutNewClientsClientRpc();
+                    }
 
                     // Safety check before starting coroutine - ensure we're still the active instance
                     if(HasInstance && Instance == this && this != null && gameObject != null &&
@@ -516,7 +543,9 @@ namespace Network {
                     Debug.LogWarning(
                         "[SessionManager] Expected count is 0 but players are connected - starting anyway");
                     _hasCompletedInitialLoad = true;
-                    SessionNetworkBridge.Instance?.FadeOutNewClientsClientRpc();
+                    if(SessionNetworkBridge.Instance != null) {
+                        SessionNetworkBridge.Instance.FadeOutNewClientsClientRpc();
+                    }
 
                     // Safety check before starting coroutine - ensure we're still the active instance
                     if(HasInstance && Instance == this && this != null && gameObject != null &&
@@ -570,7 +599,9 @@ namespace Network {
 
             // Don't trigger scene transition if we're already in gameplay
             if(IsInGameplay) {
-                SessionNetworkBridge.Instance?.FadeInSingleClientClientRpc();
+                if(SessionNetworkBridge.Instance != null) {
+                    SessionNetworkBridge.Instance.FadeInSingleClientClientRpc();
+                }
                 return;
             }
 
@@ -616,7 +647,9 @@ namespace Network {
             if(_clientsFinishedLoading.Count != networkManager.ConnectedClientsIds.Count) return;
             networkManager.SceneManager.OnSceneEvent -= OnSceneEvent;
             IsInGameplay = true;
-            _customNetworkManager?.EnableGameplaySpawningAndSpawnAll();
+            if(_customNetworkManager != null) {
+                _customNetworkManager.EnableGameplaySpawningAndSpawnAll();
+            }
             SessionNetworkBridge.Instance.FadeInAllClientsClientRpc();
         }
 
@@ -635,7 +668,9 @@ namespace Network {
                     HookSessionEvents();
                     await SetupClientTransportFromSessionAsync(); // See below
                     StartClientIfNeeded();
-                    PlayersChanged?.Invoke(ActiveSession.Players);
+                    if(PlayersChanged != null) {
+                        PlayersChanged.Invoke(ActiveSession.Players);
+                    }
                     SetFrontStatus(SessionPhase.Connected, "Reconnected!");
                     return "Reconnecting to session...";
                 } catch(Exception ex) {
@@ -724,7 +759,9 @@ namespace Network {
                     await SceneTransitionManager.Instance.FadeOut().ToUniTask();
                 }
 
-                PostMatchManager.Instance?.ShowInGameHudAfterPostMatch();
+                if(PostMatchManager.Instance != null) {
+                    PostMatchManager.Instance.ShowInGameHudAfterPostMatch();
+                }
 
                 // If we're the host and in gameplay, tell everyone else to fade out
                 // Note: Our own fade already completed above, so no need to wait
@@ -804,16 +841,19 @@ namespace Network {
         }
 
         private async UniTask PublishRelayCodeIfAnyAsync() {
-            if(ActiveSession?.IsHost == true && !string.IsNullOrEmpty(_relayJoinCode)) {
+            if(ActiveSession != null && ActiveSession.IsHost && !string.IsNullOrEmpty(_relayJoinCode)) {
                 var host = ActiveSession.AsHost();
                 host.SetProperty(RelayCodeKey, new SessionProperty(_relayJoinCode, VisibilityPropertyOptions.Member));
                 await host.SavePropertiesAsync();
 
                 // Immediately notify clients via event (in case they're already polling)
-                RelayCodeAvailable?.Invoke(_relayJoinCode);
+                if(RelayCodeAvailable != null) {
+                    RelayCodeAvailable.Invoke(_relayJoinCode);
+                }
             } else {
+                var isHost = ActiveSession != null && ActiveSession.IsHost;
                 Debug.LogWarning(
-                    $"[SessionManager] Cannot publish relay code - IsHost={ActiveSession?.IsHost}, Code={_relayJoinCode}");
+                    $"[SessionManager] Cannot publish relay code - IsHost={isHost}, Code={_relayJoinCode}");
             }
         }
 
@@ -852,9 +892,13 @@ namespace Network {
             RegisterNetworkCallbacks();
 
             // Notify UI of session players
-            PlayersChanged?.Invoke(ActiveSession.Players);
+            if(PlayersChanged != null) {
+                PlayersChanged.Invoke(ActiveSession.Players);
+            }
 
-            SessionJoined?.Invoke(ActiveSession.Code);
+            if(SessionJoined != null) {
+                SessionJoined.Invoke(ActiveSession.Code);
+            }
 
             SetFrontStatus(SessionPhase.WaitingForRelay, "Waiting for host to start game...");
             _ = PollForGameStartAsync();
@@ -874,11 +918,13 @@ namespace Network {
                 // Check immediately if relay code is already available
                 if(TryGetRelayCode(out var immediateCode)) {
                     relayCode = immediateCode;
-                    RelayCodeAvailable?.Invoke(immediateCode);
+                    if(RelayCodeAvailable != null) {
+                        RelayCodeAvailable.Invoke(immediateCode);
+                    }
                 }
 
                 while(!ct.IsCancellationRequested && !connected && string.IsNullOrEmpty(relayCode)) {
-                    if(networkManager?.IsClient == true || Phase >= SessionPhase.Connected) {
+                    if((networkManager != null && networkManager.IsClient) || Phase >= SessionPhase.Connected) {
                         connected = true;
                         break;
                     }
@@ -890,22 +936,32 @@ namespace Network {
                         if(ActiveSession == null ||
                            string.IsNullOrEmpty(ActiveSession.Host) ||
                            ActiveSession.Players.Count == 0) {
-                            HostDisconnected?.Invoke();
-                            LobbyReset?.Invoke();
+                            if(HostDisconnected != null) {
+                                HostDisconnected.Invoke();
+                            }
+                            if(LobbyReset != null) {
+                                LobbyReset.Invoke();
+                            }
                             StopWatchingLobby();
                             return;
                         }
 
                         if(TryGetRelayCode(out var c)) {
                             relayCode = c;
-                            RelayCodeAvailable?.Invoke(c);
+                            if(RelayCodeAvailable != null) {
+                                RelayCodeAvailable.Invoke(c);
+                            }
                             break;
                         }
 
                         await UniTask.Delay(500, cancellationToken: ct);
                     } catch(Exception e) when(e.Message.Contains("not found") || e.Message.Contains("deleted")) {
-                        HostDisconnected?.Invoke();
-                        LobbyReset?.Invoke();
+                        if(HostDisconnected != null) {
+                            HostDisconnected.Invoke();
+                        }
+                        if(LobbyReset != null) {
+                            LobbyReset.Invoke();
+                        }
                         StopWatchingLobby();
                         return;
                     } catch(Exception e) when(e.Message.Contains("Too Many Requests")) {
@@ -950,7 +1006,9 @@ namespace Network {
         }
 
         private async UniTask ConnectToRelayAsync(string relayCode) {
-            relayCode = relayCode?.Trim();
+            if(relayCode != null) {
+                relayCode = relayCode.Trim();
+            }
 
             // Validate relay code before attempting connection
             if(string.IsNullOrEmpty(relayCode) || relayCode.Length < 6) {
@@ -1038,7 +1096,9 @@ namespace Network {
             try {
                 await ActiveSession.RefreshAsync();
                 if(ActiveSession != null) {
-                    PlayersChanged?.Invoke(ActiveSession.Players);
+                    if(PlayersChanged != null) {
+                        PlayersChanged.Invoke(ActiveSession.Players);
+                    }
                 }
             } catch {
                 // Ignore refresh errors - session might be gone
@@ -1101,15 +1161,25 @@ namespace Network {
                     if(ActiveSession == null ||
                        string.IsNullOrEmpty(ActiveSession.Host) ||
                        ActiveSession.Players.Count == 0) {
-                        HostDisconnected?.Invoke();
-                        LobbyReset?.Invoke();
+                        if(HostDisconnected != null) {
+                            HostDisconnected.Invoke();
+                        }
+                        if(LobbyReset != null) {
+                            LobbyReset.Invoke();
+                        }
                         StopWatchingLobby();
                         return; // ← stop further processing
                     }
 
-                    PlayersChanged?.Invoke(ActiveSession?.Players);
+                    if(PlayersChanged != null && ActiveSession != null) {
+                        PlayersChanged.Invoke(ActiveSession.Players);
+                    }
                 },
-                onJoined: _ => PlayersChanged?.Invoke(ActiveSession?.Players),
+                onJoined: _ => {
+                    if(PlayersChanged != null && ActiveSession != null) {
+                        PlayersChanged.Invoke(ActiveSession.Players);
+                    }
+                },
                 onLeaving: _ => {
                     // 2. Any player leaves – we will check on next refresh
                 },
@@ -1120,7 +1190,9 @@ namespace Network {
 
                     if(ActiveSession.Properties.TryGetValue(RelayCodeKey, out var p) &&
                        !string.IsNullOrEmpty(p.Value)) {
-                        RelayCodeAvailable?.Invoke(p.Value);
+                        if(RelayCodeAvailable != null) {
+                            RelayCodeAvailable.Invoke(p.Value);
+                        }
                     }
                 });
         }
@@ -1153,8 +1225,9 @@ namespace Network {
                 }
             }
 
-            var mainCameraData = mainCamera?.GetComponent<UniversalAdditionalCameraData>();
-            if(mainCameraData?.cameraStack == null) return;
+            if(mainCamera == null) return;
+            var mainCameraData = mainCamera.GetComponent<UniversalAdditionalCameraData>();
+            if(mainCameraData == null || mainCameraData.cameraStack == null) return;
             // Remove all null/destroyed cameras from the stack
             for(var i = mainCameraData.cameraStack.Count - 1; i >= 0; i--) {
                 var overlayCam = mainCameraData.cameraStack[i];

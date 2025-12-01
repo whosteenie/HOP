@@ -1,6 +1,8 @@
 using System;
 using System.Collections;
+using Game.Match;
 using Game.Player;
+using Game.Spawning;
 using Network.Singletons;
 using Unity.Netcode;
 using UnityEngine;
@@ -159,8 +161,9 @@ namespace Network {
                     continue;
                 }
 
-                var pos = spawnPoint.transform.position;
-                var rot = spawnPoint.transform.rotation;
+                var spawnPointTransform = spawnPoint.transform;
+                var pos = spawnPointTransform.position;
+                var rot = spawnPointTransform.rotation;
 
                 // 4. Validate spawn point (optional safety)
                 var layerMask = LayerMask.GetMask("Player", "Enemy");
@@ -192,7 +195,10 @@ namespace Network {
                 // 7. TEAM SETUP (only for team modes)
                 if(isTeamBased && NetworkManager.Singleton.IsServer) {
                     var controller = instance.GetComponent<PlayerController>();
-                    var teamMgr = controller?.TeamManager;
+                    PlayerTeamManager teamMgr = null;
+                    if(controller != null) {
+                        teamMgr = controller.TeamManager;
+                    }
                     if(teamMgr != null) {
                         teamMgr.netTeam.Value = assignedTeam;
                         // Track pending assignment during initial spawn
@@ -237,8 +243,14 @@ namespace Network {
             foreach(var client in clients) {
                 if(_pendingTeamAssignments.ContainsKey(client.ClientId)) continue; // Skip if already counted
 
-                var controller = client.PlayerObject?.GetComponent<PlayerController>();
-                var teamMgr = controller?.TeamManager;
+                PlayerController controller = null;
+                if(client.PlayerObject != null) {
+                    controller = client.PlayerObject.GetComponent<PlayerController>();
+                }
+                PlayerTeamManager teamMgr = null;
+                if(controller != null) {
+                    teamMgr = controller.TeamManager;
+                }
                 if(teamMgr == null) continue;
                 
                 var team = teamMgr.netTeam.Value;

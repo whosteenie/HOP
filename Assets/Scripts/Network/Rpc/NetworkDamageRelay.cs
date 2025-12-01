@@ -1,5 +1,6 @@
 using System;
 using Game.Player;
+using Game.Weapons;
 using Network.AntiCheat;
 using Unity.Netcode;
 using UnityEngine;
@@ -54,8 +55,14 @@ namespace Network.Rpc {
                 return;
             }
 
-            var shooterController = attackerClient.PlayerObject?.GetComponent<PlayerController>();
-            var shooterWeaponManager = shooterController?.WeaponManager;
+            PlayerController shooterController = null;
+            if(attackerClient.PlayerObject != null) {
+                shooterController = attackerClient.PlayerObject.GetComponent<PlayerController>();
+            }
+            WeaponManager shooterWeaponManager = null;
+            if(shooterController != null) {
+                shooterWeaponManager = shooterController.WeaponManager;
+            }
             if(shooterWeaponManager == null) {
                 AntiCheatLogger.LogInvalidDamage(shooterId, "weapon manager missing");
                 return;
@@ -86,7 +93,9 @@ namespace Network.Rpc {
         private void HitConfirmClientRpc(ulong shooterClientId, bool wasKill) {
             if(NetworkManager == null) return;
             if(NetworkManager.LocalClientId != shooterClientId) return; // only the shooter reacts
-            OnHitConfirm?.Invoke(wasKill);
+            if(OnHitConfirm != null) {
+                OnHitConfirm.Invoke(wasKill);
+            }
         }
     }
 }

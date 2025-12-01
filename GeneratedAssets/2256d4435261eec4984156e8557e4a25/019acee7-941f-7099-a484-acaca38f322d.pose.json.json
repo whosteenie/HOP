@@ -1,0 +1,11 @@
+{
+    "asset": "2256d4435261eec4984156e8557e4a25",
+    "fileName": "019acee7-941f-7099-a484-acaca38f322d.pose.json",
+    "prompt": "hold out right hand",
+    "negativePrompt": "",
+    "model": "9e46c009-67d8-4254-a3a0-32e3168247ee",
+    "modelName": "Text to Motion",
+    "customSeed": 100612465,
+    "w3CTraceId": "8457da3836b7a7e192cdc5d409b981ff",
+    "isTrimmed": false
+}

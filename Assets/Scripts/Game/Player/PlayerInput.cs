@@ -1,6 +1,8 @@
+using Game.Audio;
+using Game.Menu;
+using Game.UI;
 using Game.Weapons;
 using JetBrains.Annotations;
-using Network.Singletons;
 using Unity.Cinemachine;
 using Unity.Netcode;
 using UnityEngine;
@@ -30,12 +32,19 @@ namespace Game.Player {
 
         #endregion
 
-        private static bool IsPaused => GameMenuManager.Instance?.IsPaused ?? false;
+        private static bool IsPaused => GameMenuManager.Instance != null && GameMenuManager.Instance.IsPaused;
 
-        private bool IsPausedOrDead =>
-            (GameMenuManager.Instance?.IsPaused ?? false) || (playerController?.IsDead ?? false);
+        private bool IsPausedOrDead {
+            get {
+                if(GameMenuManager.Instance != null && playerController != null) {
+                    return GameMenuManager.Instance.IsPaused || playerController.IsDead;
+                }
 
-        private static bool IsPreMatch => GameMenuManager.Instance?.IsPreMatch ?? false;
+                return false;
+            }
+        }
+
+        private static bool IsPreMatch => GameMenuManager.Instance != null && GameMenuManager.IsPreMatch;
         private bool IsPreMatchOrPausedOrDead => IsPreMatch || IsPausedOrDead;
 
         private WeaponManager WeaponManager {
@@ -80,7 +89,12 @@ namespace Game.Player {
             }
         }
 
-        private Weapon CurrentWeapon => WeaponManager?.CurrentWeapon;
+        private Weapon CurrentWeapon {
+            get {
+                if(WeaponManager == null) return null;
+                return WeaponManager.CurrentWeapon;
+            }
+        }
 
         private bool _sprintBtnDown;
         private bool _crouchBtnDown;
@@ -118,7 +132,8 @@ namespace Game.Player {
         public override void OnNetworkSpawn() {
             base.OnNetworkSpawn();
 
-            WeaponManager?.InitializeWeapons();
+            if(WeaponManager != null)
+                WeaponManager.InitializeWeapons();
 
             if(!IsOwner) {
                 _fpCamera.gameObject.SetActive(false);
@@ -139,7 +154,8 @@ namespace Game.Player {
         private void OnDisable() {
             if(!IsOwner) return;
             IsSniperOverlayActive = false;
-            SniperOverlayManager.Instance?.ToggleSniperOverlay(false);
+            if(SniperOverlayManager.Instance == null) return;
+            SniperOverlayManager.Instance.ToggleSniperOverlay(false);
             ApplySniperOverlayEffects(false, playZoomSound: false);
         }
 
@@ -154,18 +170,20 @@ namespace Game.Player {
         private void LateUpdate() {
             if(!IsOwner || !CurrentWeapon || WeaponManager == null) return;
 
-            var fireMode = WeaponManager?.GetWeaponDataByIndex(WeaponManager.CurrentWeaponIndex)?.fireMode;
+            var weaponData = WeaponManager.GetWeaponDataByIndex(WeaponManager.CurrentWeaponIndex);
+            var fireMode = weaponData.fireMode;
 
             // Use Input System actions instead of direct input
             // Component reference should be assigned in the inspector
             if(_playerInputComponent == null) _playerInputComponent = GetComponent<UnityEngine.InputSystem.PlayerInput>();
+            if(_playerInputComponent == null) return;
             
-            var playerMap = _playerInputComponent?.actions?.FindActionMap("Player");
-            var attackAction = playerMap?.FindAction("Attack");
-            var jumpAction = playerMap?.FindAction("Jump");
+            var playerMap = _playerInputComponent.actions.FindActionMap("Player");
+            var attackAction = playerMap != null ? playerMap.FindAction("Attack") : null;
+            var jumpAction = playerMap != null ? playerMap.FindAction("Jump") : null;
 
             if(!IsPreMatchOrPausedOrDead && fireMode == "Full" && attackAction != null && attackAction.IsPressed() &&
-               !(MantleController?.IsMantling ?? false) &&
+               !(MantleController != null && MantleController.IsMantling) &&
                !(playerController != null && playerController.IsHoldingHopball)) {
                 CurrentWeapon.Shoot();
             }
@@ -196,13 +214,13 @@ namespace Game.Player {
                 }
             }
 
-            if(!IsPreMatchOrPausedOrDead && (jumpPressed || scrollPressed) && (MantleController?.CanJump ?? false)) {
+            if(!IsPreMatchOrPausedOrDead && (jumpPressed || scrollPressed) && (MantleController != null && MantleController.CanJump)) {
                 // Check if hold-to-mantle is enabled
                 var holdMantleEnabled = PlayerPrefs.GetInt("HoldMantle", 1) == 1;
 
                 // Try mantle if enabled and not grounded
-                if(holdMantleEnabled && !playerController.IsGrounded) {
-                    MantleController?.TryMantle();
+                if(MantleController != null && holdMantleEnabled && !playerController.IsGrounded) {
+                    MantleController.TryMantle();
 
                     // If we started mantling, don't jump
                     if(MantleController != null && MantleController.IsMantling) {
@@ -212,19 +230,22 @@ namespace Game.Player {
 
                 // Always allow hold-to-jump (for scroll wheel support)
                 playerController.TryJump();
-                GrappleController?.CancelGrapple();
+                
+                if(GrappleController != null)
+                    GrappleController.CancelGrapple();
             }
 
             CurrentWeapon.UpdateDamageMultiplier();
 
-            var weaponData = WeaponManager?.GetWeaponDataByIndex(WeaponManager.CurrentWeaponIndex);
             if(weaponData) {
                 HUDManager.Instance.UpdateMultiplier(CurrentWeapon.CurrentDamageMultiplier,
                     weaponData.maxDamageMultiplier);
             }
 
             if(!IsPaused && Keyboard.current.tabKey.isPressed) {
-                ScoreboardManager.Instance?.ShowScoreboard();
+                if(ScoreboardManager.Instance != null) {
+                    ScoreboardManager.Instance.ShowScoreboard();
+                }
             } else if(ScoreboardManager.Instance != null && ScoreboardManager.Instance.IsScoreboardVisible) {
                 ScoreboardManager.Instance.HideScoreboard();
             }
@@ -301,7 +322,8 @@ namespace Game.Player {
         [UsedImplicitly]
         private void OnCrouch(InputValue value) {
             if(!IsOwner) return;
-            if(IsPausedOrDead || (MantleController?.IsMantling ?? false)) {
+            var isMantling = MantleController != null && MantleController.IsMantling;
+            if(IsPausedOrDead || isMantling) {
                 if(!toggleCrouch)
                     playerController.crouchInput = false;
                 return;
@@ -324,10 +346,14 @@ namespace Game.Player {
 
         [UsedImplicitly]
         private void OnJump(InputValue value) {
-            if(!IsOwner || IsPausedOrDead || (MantleController?.IsMantling ?? false)) return;
+            if(!IsOwner || IsPausedOrDead) return;
+            var isMantling = MantleController != null && MantleController.IsMantling;
+            if(isMantling) return;
 
             if(!playerController.IsGrounded) {
-                MantleController?.TryMantle();
+                if(MantleController != null) {
+                    MantleController.TryMantle();
+                }
 
                 // If we started mantling, don't jump
                 if(MantleController != null && MantleController.IsMantling) {
@@ -344,7 +370,9 @@ namespace Game.Player {
 
         private void OnScrollWheel(InputValue _) {
             // TODO: Fix scroll wheel input so we don't have to use Mouse.current.scroll in LateUpdate
-            if(!IsOwner || IsPreMatchOrPausedOrDead || (MantleController?.IsMantling ?? false)) return;
+            if(!IsOwner || IsPreMatchOrPausedOrDead) return;
+            var isMantling = MantleController != null && MantleController.IsMantling;
+            if(isMantling) return;
 
             playerController.TryJump();
 
@@ -355,12 +383,16 @@ namespace Game.Player {
 
         [UsedImplicitly]
         private void OnAttack(InputValue value) {
-            if(!IsOwner || IsPreMatchOrPausedOrDead || (MantleController?.IsMantling ?? false)) return;
+            if(!IsOwner || IsPreMatchOrPausedOrDead) return;
+            var isMantling = MantleController != null && MantleController.IsMantling;
+            if(isMantling) return;
             if(playerController != null && playerController.IsHoldingHopball)
                 return; // Prevent shooting while holding hopball
 
-            var fireMode = WeaponManager?.GetWeaponDataByIndex(WeaponManager.CurrentWeaponIndex)?.fireMode;
-            if(CurrentWeapon && fireMode == "Semi") {
+            if(WeaponManager == null) return;
+            var weaponData = WeaponManager.GetWeaponDataByIndex(WeaponManager.CurrentWeaponIndex);
+            var fireMode = weaponData != null ? weaponData.fireMode : null;
+            if(CurrentWeapon != null && fireMode == "Semi") {
                 CurrentWeapon.Shoot();
             }
         }
@@ -371,31 +403,39 @@ namespace Game.Player {
             
             if(!value.isPressed) return;
 
-            var weaponData = WeaponManager?.GetWeaponDataByIndex(WeaponManager.CurrentWeaponIndex);
+            if(WeaponManager == null) return;
+            var weaponData = WeaponManager.GetWeaponDataByIndex(WeaponManager.CurrentWeaponIndex);
             if(weaponData == null || !weaponData.useSniperOverlay) {
                 if(IsSniperOverlayActive) {
                     IsSniperOverlayActive = false;
                 }
 
-                SniperOverlayManager.Instance?.ToggleSniperOverlay(false);
+                if(SniperOverlayManager.Instance != null) {
+                    SniperOverlayManager.Instance.ToggleSniperOverlay(false);
+                }
 
                 return;
             }
 
             IsSniperOverlayActive = !IsSniperOverlayActive;
-            SniperOverlayManager.Instance?.ToggleSniperOverlay(IsSniperOverlayActive);
+            if(SniperOverlayManager.Instance != null) {
+                SniperOverlayManager.Instance.ToggleSniperOverlay(IsSniperOverlayActive);
+            }
             ApplySniperOverlayEffects(IsSniperOverlayActive, playZoomSound: true);
         }
 
         [UsedImplicitly]
         private void OnGrapple(InputValue value) {
-            if(!IsOwner || IsPreMatchOrPausedOrDead || (MantleController?.IsMantling ?? false) ||
-               GameMenuManager.Instance.IsPostMatch) return;
+            if(!IsOwner || IsPreMatchOrPausedOrDead || GameMenuManager.Instance.IsPostMatch) return;
+            var isMantling = MantleController != null && MantleController.IsMantling;
+            if(isMantling) return;
 
             if(GrappleController != null && GrappleController.IsGrappling) {
                 GrappleController.CancelGrapple();
             } else {
-                GrappleController?.TryGrapple();
+                if(GrappleController != null) {
+                    GrappleController.TryGrapple();
+                }
             }
         }
 
@@ -409,27 +449,35 @@ namespace Game.Player {
 
         [UsedImplicitly]
         private void OnPrimary(InputValue _) {
-            if(!IsOwner || IsPausedOrDead || (MantleController?.IsMantling ?? false)) return;
+            if(!IsOwner || IsPausedOrDead) return;
+            var isMantling = MantleController != null && MantleController.IsMantling;
+            if(isMantling) return;
 
             SwitchWeapon(0);
         }
 
         [UsedImplicitly]
         private void OnSecondary(InputValue _) {
-            if(!IsOwner || IsPausedOrDead || (MantleController?.IsMantling ?? false)) return;
+            if(!IsOwner || IsPausedOrDead) return;
+            var isMantling = MantleController != null && MantleController.IsMantling;
+            if(isMantling) return;
 
             SwitchWeapon(1);
         }
 
         private void OnTertiary(InputValue _) {
-            if(!IsOwner || IsPausedOrDead || (MantleController?.IsMantling ?? false)) return;
+            if(!IsOwner || IsPausedOrDead) return;
+            var isMantling = MantleController != null && MantleController.IsMantling;
+            if(isMantling) return;
 
             //SwitchWeapon(2);
         }
 
         [UsedImplicitly]
         private void OnNextWeapon(InputValue _) {
-            if(!IsOwner || IsPausedOrDead || (MantleController?.IsMantling ?? false)) return;
+            if(!IsOwner || IsPausedOrDead) return;
+            var isMantling = MantleController != null && MantleController.IsMantling;
+            if(isMantling) return;
 
             if(WeaponManager == null) return;
             SwitchWeapon((WeaponManager.CurrentWeaponIndex + 1) % WeaponManager.WeaponCount);
@@ -437,7 +485,9 @@ namespace Game.Player {
         
         [UsedImplicitly]
         private void OnPreviousWeapon(InputValue _) {
-            if(!IsOwner || IsPausedOrDead || (MantleController?.IsMantling ?? false)) return;
+            if(!IsOwner || IsPausedOrDead) return;
+            var isMantling = MantleController != null && MantleController.IsMantling;
+            if(isMantling) return;
 
             if(WeaponManager == null) return;
             SwitchWeapon((WeaponManager.CurrentWeaponIndex - 1 + WeaponManager.WeaponCount) %
@@ -459,8 +509,9 @@ namespace Game.Player {
 
         [UsedImplicitly]
         private void OnReload(InputValue _) {
-            if(!IsOwner || IsPreMatchOrPausedOrDead || !CurrentWeapon ||
-               (MantleController?.IsMantling ?? false)) return;
+            if(!IsOwner || IsPreMatchOrPausedOrDead || !CurrentWeapon) return;
+            var isMantling = MantleController != null && MantleController.IsMantling;
+            if(isMantling) return;
             if(playerController != null && playerController.IsHoldingHopball)
                 return; // Prevent reloading while holding hopball
 
@@ -479,13 +530,16 @@ namespace Game.Player {
 
         [UsedImplicitly]
         private void OnInteract(InputValue _) {
-            if(!IsOwner || IsPausedOrDead || (MantleController?.IsMantling ?? false)) return;
+            if(!IsOwner || IsPausedOrDead) return;
+            var isMantling = MantleController != null && MantleController.IsMantling;
+            if(isMantling) return;
             
             playerController.PickupHopball();
         }
 
         private void RefreshSniperOverlayState() {
-            var weaponData = WeaponManager?.GetWeaponDataByIndex(WeaponManager.CurrentWeaponIndex);
+            if(WeaponManager == null) return;
+            var weaponData = WeaponManager.GetWeaponDataByIndex(WeaponManager.CurrentWeaponIndex);
             var canUseOverlay = weaponData != null && weaponData.useSniperOverlay;
 
             if(!canUseOverlay) {
@@ -493,13 +547,17 @@ namespace Game.Player {
                     IsSniperOverlayActive = false;
                 }
 
-                SniperOverlayManager.Instance?.ToggleSniperOverlay(false);
+                if(SniperOverlayManager.Instance != null) {
+                    SniperOverlayManager.Instance.ToggleSniperOverlay(false);
+                }
                 ApplySniperOverlayEffects(false, playZoomSound: false);
                 UpdateSniperSensitivityMultiplier();
                 return;
             }
 
-            SniperOverlayManager.Instance?.ToggleSniperOverlay(IsSniperOverlayActive);
+            if(SniperOverlayManager.Instance != null) {
+                SniperOverlayManager.Instance.ToggleSniperOverlay(IsSniperOverlayActive);
+            }
             ApplySniperOverlayEffects(IsSniperOverlayActive, playZoomSound: false);
             UpdateSniperSensitivityMultiplier();
         }
@@ -528,8 +586,8 @@ namespace Game.Player {
                         WeaponManager.OffsetCurrentFpWeapon(sniperScopedWeaponPosition, sniperScopedWeaponRotation);
                     } else {
                         if(_cachedFpWeaponPosition.HasValue) {
-                            WeaponManager.OffsetCurrentFpWeapon(_cachedFpWeaponPosition.Value,
-                                _cachedFpWeaponRotation ?? Vector3.zero);
+                            var rotation = _cachedFpWeaponRotation.HasValue ? _cachedFpWeaponRotation.Value : Vector3.zero;
+                            WeaponManager.OffsetCurrentFpWeapon(_cachedFpWeaponPosition.Value, rotation);
                         }
 
                         _cachedFpWeaponPosition = null;
@@ -538,12 +596,16 @@ namespace Game.Player {
                 }
             }
 
-            var lookController = playerController?.LookController;
-            if(lookController != null && lookController.IsSniperZoomActive != zoomEnabled) {
-                lookController.SetSniperZoomActive(zoomEnabled, sniperZoomFov);
+            if(playerController != null) {
+                var lookController = playerController.LookController;
+                if(lookController != null && lookController.IsSniperZoomActive != zoomEnabled) {
+                    lookController.SetSniperZoomActive(zoomEnabled, sniperZoomFov);
+                }
             }
             if(playZoomSound) {
-                SoundFXManager.Instance?.PlayUISound(SfxKey.SniperZoom);
+                if(SoundFXManager.Instance != null) {
+                    SoundFXManager.Instance.PlayUISound(SfxKey.SniperZoom);
+                }
             }
             UpdateSniperSensitivityMultiplier();
         }
@@ -555,12 +617,16 @@ namespace Game.Player {
 
         public void ForceDisableSniperOverlay(bool playZoomSound) {
             if(!IsSniperOverlayActive) {
-                SniperOverlayManager.Instance?.ToggleSniperOverlay(false);
+                if(SniperOverlayManager.Instance != null) {
+                    SniperOverlayManager.Instance.ToggleSniperOverlay(false);
+                }
                 return;
             }
 
             IsSniperOverlayActive = false;
-            SniperOverlayManager.Instance?.ToggleSniperOverlay(false);
+            if(SniperOverlayManager.Instance != null) {
+                SniperOverlayManager.Instance.ToggleSniperOverlay(false);
+            }
             ApplySniperOverlayEffects(false, playZoomSound);
         }
 

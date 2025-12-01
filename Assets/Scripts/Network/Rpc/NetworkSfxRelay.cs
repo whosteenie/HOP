@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Game.Player;
+using Game.Audio;
 using Network.AntiCheat;
 using Network.Singletons;
 using Unity.Netcode;
@@ -67,7 +68,7 @@ namespace Network.Rpc {
 
             // Additional velocity check for walk/run sounds (backup to PlayerController check)
             // Check horizontal velocity only - vertical velocity shouldn't affect footstep sounds
-            if(key is SfxKey.Walk or SfxKey.Run) {
+            if(key == SfxKey.Walk || key == SfxKey.Run) {
                 var horizontalVel = playerController.GetFullVelocity;
                 horizontalVel.y = 0f; // Ignore vertical velocity
                 if(horizontalVel.sqrMagnitude < 0.5f * 0.5f) { // ~0.5 m/s minimum speed
@@ -127,15 +128,20 @@ namespace Network.Rpc {
         private void PlayWorldSfxClientRpc(SfxKey key, NetworkObjectReference sourceRef, Vector3 pos,
             bool attachToSource, bool allowOverlap) {
             Transform parent = null;
-            if(attachToSource && sourceRef.TryGet(out var no) && no)
+            if(attachToSource && sourceRef.TryGet(out var no) && no != null) {
                 parent = no.transform;
+            }
 
-            SoundFXManager.Instance?.PlayKey(key, parent, pos, allowOverlap);
+            if(SoundFXManager.Instance != null) {
+                SoundFXManager.Instance.PlayKey(key, parent, pos, allowOverlap);
+            }
         }
 
         [Rpc(SendTo.Everyone)]
         private void PlayWorldSfxAtPositionClientRpc(SfxKey key, Vector3 worldPosition, bool allowOverlap) {
-            SoundFXManager.Instance?.PlayKey(key, null, worldPosition, allowOverlap);
+            if(SoundFXManager.Instance != null) {
+                SoundFXManager.Instance.PlayKey(key, null, worldPosition, allowOverlap);
+            }
         }
 
         /// <summary>
@@ -154,7 +160,9 @@ namespace Network.Rpc {
 
         [Rpc(SendTo.Everyone)]
         private void StopWorldSfxClientRpc(SfxKey key) {
-            SoundFXManager.Instance?.StopSound(key);
+            if(SoundFXManager.Instance != null) {
+                SoundFXManager.Instance.StopSound(key);
+            }
         }
     }
 }

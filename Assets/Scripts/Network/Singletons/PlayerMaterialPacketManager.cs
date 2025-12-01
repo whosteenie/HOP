@@ -56,19 +56,19 @@ namespace Network.Singletons {
         public PlayerMaterialPacket GetPacket(int index) {
             if(_packets == null || _packets.Count == 0) {
                 Debug.LogWarning("[PlayerMaterialPacketManager] Packets not loaded yet. Returning None packet.");
-                return _nonePacket ?? CreateNonePacket();
+                return _nonePacket != null ? _nonePacket : CreateNonePacket();
             }
 
             if(index >= 0 && index < _packets.Count) return _packets[index];
             Debug.LogWarning($"[PlayerMaterialPacketManager] Invalid packet index {index}. Returning None packet.");
-            return _nonePacket ?? CreateNonePacket();
+            return _nonePacket != null ? _nonePacket : CreateNonePacket();
         }
 
         /// <summary>
         /// Returns the total number of available packets (including "None").
         /// </summary>
         public int GetPacketCount() {
-            return _packets?.Count ?? 1;
+            return _packets != null ? _packets.Count : 1;
         }
 
         /// <summary>
@@ -86,7 +86,7 @@ namespace Network.Singletons {
         /// Gets the "None" packet (index 0).
         /// </summary>
         public PlayerMaterialPacket GetNonePacket() {
-            return _nonePacket ?? CreateNonePacket();
+            return _nonePacket != null ? _nonePacket : CreateNonePacket();
         }
 
         private static PlayerMaterialPacket CreateNonePacket() {

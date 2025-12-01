@@ -1,4 +1,5 @@
-using Network.Singletons;
+using Game.Audio;
+using Game.UI;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -12,12 +13,14 @@ namespace Game.Player {
 
         [Rpc(SendTo.Everyone)]
         public void SetWorldModelVisibleRpc(bool visible) {
-            visualController?.SetWorldModelVisibleRpc(visible);
+            if(visualController != null)
+                visualController.SetWorldModelVisibleRpc(visible);
         }
 
         [Rpc(SendTo.Everyone)]
         public void ResetVelocityRpc() {
-            movementController?.ResetVelocity();
+            if(movementController != null)
+                movementController.ResetVelocity();
         }
 
         [Rpc(SendTo.Everyone)]
@@ -26,6 +29,7 @@ namespace Game.Player {
                 if(SoundFXManager.Instance != null) {
                     SoundFXManager.Instance.PlayUISound(SfxKey.Hurt);
                 }
+                
                 impulseSource.GenerateImpulse();
 
                 if(DamageVignetteUIManager.Instance && fpCamera) {
@@ -34,12 +38,14 @@ namespace Game.Player {
                 }
             }
 
-            animationController?.PlayDamageAnimation();
+            if(animationController != null)
+                animationController.PlayDamageAnimation();
         }
 
         [Rpc(SendTo.Everyone)]
         public void SnapPodiumVisualsClientRpc() {
-            podiumController?.SnapPodiumVisualsClientRpc();
+            if(podiumController != null)
+                podiumController.SnapPodiumVisualsClientRpc();
         }
 
         #endregion

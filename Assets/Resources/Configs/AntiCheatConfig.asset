@@ -15,7 +15,10 @@ MonoBehaviour:
   rpcWindowSeconds: 1
   damageRpcLimit: 15
   sfxRpcLimit: 30
-  weaponSwitchLimit: 6
+  weaponSwitchLimit: 12
   maxSpeedMetersPerSecond: 200
   maxTeleportDistance: 30
+  movementViolationWindowSeconds: 2
+  speedViolationThreshold: 5
+  teleportViolationThreshold: 2
   fireRateGraceSeconds: 0.02

@@ -15,34 +15,31 @@ namespace Game.Player {
         [SerializeField] private float dashDuration = 0.05f;
         [SerializeField] private float dashCooldown = 1.5f;
 
-        public bool IsDashing { get; private set; }
+        private bool IsDashing { get; set; }
 
-        private NetworkVariable<bool> netIsDashing = new();
-        private float dashTimer;
-        private Vector3 dashVelocity;
-        private Vector3 preDashHorizontalVelocity; // **NEW: Capture pre-dash momentum**
-        private float dashCooldownTimer;
-        private bool airDashPendingGround;
+        private readonly NetworkVariable<bool> _netIsDashing = new();
+        private float _dashTimer;
+        private Vector3 _dashVelocity;
+        private float _dashCooldownTimer;
+        private bool _airDashPendingGround;
 
         public override void OnNetworkSpawn() {
             base.OnNetworkSpawn();
-            netIsDashing.OnValueChanged += OnDashChanged;
+            _netIsDashing.OnValueChanged += OnDashChanged;
         }
 
         public override void OnNetworkDespawn() {
-            netIsDashing.OnValueChanged -= OnDashChanged;
+            _netIsDashing.OnValueChanged -= OnDashChanged;
         }
 
         [Rpc(SendTo.Server)]
         private void StartDashRpc(Vector3 direction) {
-            if(netIsDashing.Value || dashCooldownTimer > 0) return;
+            if(_netIsDashing.Value || _dashCooldownTimer > 0) return;
 
-            netIsDashing.Value = true;
-            dashVelocity = direction * dashSpeed;
-            preDashHorizontalVelocity = new Vector3(playerController.GetFullVelocity.x, 0f,
-                playerController.GetFullVelocity.z); // **Capture!**
-            dashTimer = 0f;
-            airDashPendingGround = !playerController.IsGrounded;
+            _netIsDashing.Value = true;
+            _dashVelocity = direction * dashSpeed;
+            _dashTimer = 0f;
+            _airDashPendingGround = !playerController.IsGrounded;
         }
 
         private void OnDashChanged(bool _, bool dashing) {
@@ -50,7 +47,7 @@ namespace Game.Player {
         }
 
         private void TryDash(Vector2 moveInput) {
-            if(!IsOwner || IsDashing || dashCooldownTimer > 0) return;
+            if(!IsOwner || IsDashing || _dashCooldownTimer > 0) return;
 
             if(moveInput.sqrMagnitude < 0.1f) return;
 
@@ -63,39 +60,37 @@ namespace Game.Player {
         private void Update() {
             if(!IsOwner) return;
 
-            dashCooldownTimer = Mathf.Max(0, dashCooldownTimer - Time.deltaTime);
+            _dashCooldownTimer = Mathf.Max(0, _dashCooldownTimer - Time.deltaTime);
 
-            if(airDashPendingGround && playerController.IsGrounded) {
-                airDashPendingGround = false;
-                dashCooldownTimer = dashCooldown;
+            if(_airDashPendingGround && playerController.IsGrounded) {
+                _airDashPendingGround = false;
+                _dashCooldownTimer = dashCooldown;
             }
 
-            if(IsDashing) {
-                dashTimer += Time.deltaTime;
+            if(!IsDashing) return;
+            _dashTimer += Time.deltaTime;
 
-                // **ADDITIVE: Current momentum + dash boost in input direction**
-                Vector3 currentVel = playerController.GetFullVelocity;
-                Vector3 dashDir = dashVelocity.normalized; // Direction only
-                Vector3 boostedVel = currentVel + dashDir * dashSpeed;
+            // **ADDITIVE: Current momentum + dash boost in input direction**
+            var currentVel = playerController.GetFullVelocity;
+            var dashDir = _dashVelocity.normalized; // Direction only
+            var boostedVel = currentVel + dashDir * dashSpeed;
 
-                boostedVel.y = currentVel.y; // Keep vertical
+            boostedVel.y = currentVel.y; // Keep vertical
 
-                characterController.Move(boostedVel * Time.deltaTime);
+            characterController.Move(boostedVel * Time.deltaTime);
 
-                if(dashTimer >= dashDuration) {
-                    // **PRESERVE boosted momentum** - let friction/air strafe control it
-                    playerController.SetVelocity(new Vector3(boostedVel.x, 0f, boostedVel.z));
-                    EndDash();
-                }
-            }
+            if(!(_dashTimer >= dashDuration)) return;
+            // **PRESERVE boosted momentum** - let friction/air strafe control it
+            playerController.SetVelocity(new Vector3(boostedVel.x, 0f, boostedVel.z));
+            EndDash();
         }
 
         private void EndDash() {
             IsDashing = false;
-            netIsDashing.Value = false;
+            _netIsDashing.Value = false;
 
-            if(!airDashPendingGround) {
-                dashCooldownTimer = dashCooldown;
+            if(!_airDashPendingGround) {
+                _dashCooldownTimer = dashCooldown;
             }
         }
 

@@ -54,7 +54,7 @@ namespace Game.Player {
         [Tooltip("Suggested metallic value (0-1). Only used if useMetallicWorkflow is true.\n" +
                  "0 = non-metal (dielectric), 1 = metal (conductor).")]
         [Range(0f, 1f)]
-        public float defaultMetallic = 0f;
+        public float defaultMetallic;
 
         [Tooltip("Suggested specular color. Only used if useMetallicWorkflow is false.\n" +
                  "Controls the color of specular highlights for non-metallic surfaces.")]
@@ -68,7 +68,7 @@ namespace Game.Player {
 
         [Header("Emission Settings")]
         [Tooltip("Whether emission should be enabled by default when this packet is selected.")]
-        public bool defaultEmissionEnabled = false;
+        public bool defaultEmissionEnabled;
 
         [Tooltip("Default emission color used when emission is enabled.")]
         public Color defaultEmissionColor = new Color(0f, 0f, 0f, 1f);
@@ -81,7 +81,7 @@ namespace Game.Player {
         /// <summary>
         /// Returns true if this is the special "None" packet (no textures, just base color customization).
         /// </summary>
-        public bool IsNonePacket => string.IsNullOrEmpty(packetName) || packetName == "None";
+        private bool IsNonePacket => string.IsNullOrEmpty(packetName) || packetName == "None";
     }
 }
 

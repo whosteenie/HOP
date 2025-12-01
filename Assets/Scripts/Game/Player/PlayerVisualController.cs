@@ -1,7 +1,6 @@
 using System.Collections;
 using Unity.Netcode;
 using UnityEngine;
-using UnityEngine.Rendering;
 
 namespace Game.Player {
     /// <summary>
@@ -14,6 +13,7 @@ namespace Game.Player {
         [SerializeField] private PlayerController playerController;
 
         private PlayerShadow _playerShadow;
+        private PlayerRenderer _playerRenderer;
         private Weapons.WeaponManager _weaponManager;
         private SkinnedMeshRenderer _playerMesh;
 
@@ -21,15 +21,7 @@ namespace Game.Player {
         private Transform _worldWeaponSocket;
         private GameObject[] _worldWeaponPrefabs;
 
-        private Renderer[] _cachedRenderers;
-        private SkinnedMeshRenderer[] _cachedSkinnedRenderers;
-        private bool _renderersCacheValid;
         private Material[] _cachedMaterialsArray;
-        private const string GrappleLineName = "GrappleLine";
-
-        // Cache Bounds object to prevent allocations
-        private static readonly Bounds MaxBounds = new(Vector3.zero,
-            new Vector3(float.MaxValue, float.MaxValue, float.MaxValue));
 
         private void Awake() {
             ValidateComponents();
@@ -48,6 +40,10 @@ namespace Game.Player {
 
             if(_playerShadow == null) {
                 _playerShadow = playerController.PlayerShadow;
+            }
+
+            if(_playerRenderer == null) {
+                _playerRenderer = playerController.PlayerRenderer;
             }
 
             if(_weaponManager == null) {
@@ -73,8 +69,6 @@ namespace Game.Player {
             if(_playerMesh != null) {
                 _cachedMaterialsArray = _playerMesh.materials;
             }
-
-            _renderersCacheValid = false;
         }
 
         /// <summary>
@@ -132,9 +126,13 @@ namespace Game.Player {
         /// </summary>
         [Rpc(SendTo.Everyone)]
         public void SetWorldModelVisibleRpc(bool visible) {
-            _weaponManager?.SwitchWeapon(0);
+            if(_weaponManager != null) {
+                _weaponManager.SwitchWeapon(0);
+            }
 
-            InvalidateRendererCache();
+            if(_playerRenderer != null) {
+                _playerRenderer.InvalidateCache();
+            }
 
             if(visible) {
                 // Ensure world model root and weapon are active
@@ -149,108 +147,72 @@ namespace Game.Player {
                 }
 
                 // Enable all renderers and set proper shadow modes
-                SetRenderersEnabled(true);
+                if(_playerRenderer != null) {
+                    _playerRenderer.SetAllRenderersEnabled(true);
+                }
                 if(_playerShadow != null) {
-                    _playerShadow.SetSkinnedMeshRenderersShadowMode(ShadowCastingMode.On);
-                    _playerShadow.SetWorldWeaponRenderersShadowMode(ShadowCastingMode.On);
+                    _playerShadow.ApplyVisibleShadowState();
                 }
 
                 // Force bounds update immediately
-                ForceRendererBoundsUpdate();
+                if(_playerRenderer != null) {
+                    _playerRenderer.ForceAllSkinnedRendererBoundsUpdate();
+                }
 
                 // Schedule delayed bounds update to ensure Unity has positioned everything
                 StartCoroutine(DelayedBoundsUpdate());
             } else {
-                _playerModelRoot?.SetActive(false);
+                if(_playerModelRoot != null) {
+                    _playerModelRoot.SetActive(false);
+                }
 
                 // Deactivate the currently equipped world weapon
                 var currentWorldWeapon = GetCurrentWorldWeapon();
-                currentWorldWeapon?.SetActive(false);
+                if(currentWorldWeapon != null) {
+                    currentWorldWeapon.SetActive(false);
+                }
             }
         }
 
         /// <summary>
         /// Sets whether renderers are enabled or disabled.
+        /// Delegates to PlayerRenderer.
         /// </summary>
-        public void SetRenderersEnabled(bool isEnabled, bool excludeGrappleLine = true, ShadowCastingMode? shadowMode = null) {
-            RefreshRendererCacheIfNeeded();
-            foreach(var r in _cachedRenderers) {
-                if(r == null || (excludeGrappleLine && r.name == GrappleLineName)) continue;
-
-                r.enabled = isEnabled;
-                if(shadowMode.HasValue) {
-                    r.shadowCastingMode = shadowMode.Value;
-                }
-
-                // For SkinnedMeshRenderers, ensure bounds are updated
-                if(r is not SkinnedMeshRenderer smr) continue;
-                smr.updateWhenOffscreen = true;
-
-                // Set bounds to maximum values to prevent culling issues (use cached static bounds)
-                // Note: localBounds is what Unity uses for frustum culling on SkinnedMeshRenderers
-                smr.localBounds = MaxBounds;
-
-                // Force Unity to recognize the bounds change by accessing the world-space bounds property
-                _ = smr.bounds;
+        public void SetRenderersEnabled(bool isEnabled, bool excludeGrappleLine = true) {
+            if(_playerRenderer == null) return;
+            _playerRenderer.SetAllRenderersEnabled(isEnabled, excludeGrappleLine);
+            if(isEnabled) {
+                _playerRenderer.ForceAllSkinnedRendererBoundsUpdate();
             }
         }
 
         /// <summary>
         /// Gets the currently equipped world weapon GameObject from the weapon socket.
         /// </summary>
-        private GameObject GetCurrentWorldWeapon() => _weaponManager?.CurrentWorldWeaponInstance;
+        private GameObject GetCurrentWorldWeapon() {
+            return _weaponManager != null ? _weaponManager.CurrentWorldWeaponInstance : null;
+        }
 
         /// <summary>
         /// Forces all SkinnedMeshRenderers to update their bounds immediately.
-        /// This helps prevent frustum culling issues where renderers become invisible
-        /// even though they're enabled and should be visible.
-        /// Sets bounds to maximum values to prevent culling when players are barely on screen.
+        /// Delegates to PlayerRenderer.
         /// </summary>
         public void ForceRendererBoundsUpdate() {
-            RefreshRendererCacheIfNeeded();
-            foreach(var smr in _cachedSkinnedRenderers) {
-                if(smr == null) continue;
-                // Ensure renderer is enabled and updateWhenOffscreen is true
-                if(!smr.enabled) {
-                    smr.enabled = true;
-                }
-
-                smr.updateWhenOffscreen = true;
-
-                // Set bounds to maximum values to prevent culling issues (use cached static bounds)
-                // Using localBounds (local space) centered at origin with max size
-                // Note: localBounds is what Unity uses for frustum culling on SkinnedMeshRenderers
-                smr.localBounds = MaxBounds;
-
-                // Force Unity to recognize the bounds change by accessing the world-space bounds property
-                // This triggers a recalculation using our maxed localBounds
-                _ = smr.bounds;
-            }
+            if(_playerRenderer == null) return;
+            _playerRenderer.ForceAllSkinnedRendererBoundsUpdate();
         }
 
         /// <summary>
         /// Verifies that renderers are visible and fixes any issues found.
-        /// This is a safety check to catch cases where renderers become invisible.
+        /// Delegates to PlayerRenderer.
         /// </summary>
         public void VerifyAndFixVisibility() {
             // Only check if world model should be visible
             if(_playerModelRoot == null || !_playerModelRoot.activeSelf) return;
             if(playerController == null || playerController.IsDead) return;
 
-            RefreshRendererCacheIfNeeded();
-            var needsFix = false;
-
-            foreach(var smr in _cachedSkinnedRenderers) {
-                if(smr == null || !smr.gameObject.activeInHierarchy) continue;
-                // Check if renderer is enabled but might have bounds issues
-                if(!smr.enabled || smr.updateWhenOffscreen) continue;
-                smr.updateWhenOffscreen = true;
-                needsFix = true;
-            }
-
-            // If we found issues, force a bounds update
-            if(needsFix) {
-                ForceRendererBoundsUpdate();
+            if(_playerRenderer != null) {
+                _playerRenderer.VerifyAndFixVisibility();
             }
         }
 
@@ -263,29 +225,25 @@ namespace Game.Player {
             yield return null;
 
             // Force bounds update again after positioning
-            ForceRendererBoundsUpdate();
+            if(_playerRenderer != null) {
+                _playerRenderer.ForceAllSkinnedRendererBoundsUpdate();
+            }
 
             // Wait another frame and update once more to be thorough
             yield return null;
-            ForceRendererBoundsUpdate();
-        }
-
-        /// <summary>
-        /// Refreshes the renderer cache if it's invalid.
-        /// </summary>
-        private void RefreshRendererCacheIfNeeded() {
-            if(_renderersCacheValid) return;
-
-            _cachedRenderers = GetComponentsInChildren<Renderer>(true);
-            _cachedSkinnedRenderers = GetComponentsInChildren<SkinnedMeshRenderer>(true);
-            _renderersCacheValid = true;
+            if(_playerRenderer != null) {
+                _playerRenderer.ForceAllSkinnedRendererBoundsUpdate();
+            }
         }
 
         /// <summary>
         /// Invalidates the renderer cache, forcing it to be refreshed on next access.
+        /// Delegates to PlayerRenderer.
         /// </summary>
         public void InvalidateRendererCache() {
-            _renderersCacheValid = false;
+            if(_playerRenderer != null) {
+                _playerRenderer.InvalidateCache();
+            }
         }
 
         // Public getters for PlayerController

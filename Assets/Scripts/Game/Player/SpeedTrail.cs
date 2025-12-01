@@ -1,47 +1,47 @@
-using System.Collections;
-using System.Collections.Generic;
 using Game.Weapons;
 using Unity.Netcode;
 using UnityEngine;
+using System.Collections;
 
 namespace Game.Player {
     public class SpeedTrail : NetworkBehaviour {
         [Header("References")]
         [SerializeField] private PlayerController playerController; // assign in inspector or auto-find
+        [SerializeField] private GameObject speedTrailEffect; // The particle system effect GameObject
 
-        private SkinnedMeshRenderer _playerMesh; // WORLD/3P mesh (not FP arms)
-        private DeathCameraController _deathCameraController; // Used to check if death cam is active
-
-        [Header("Afterimage Settings")]
-        private const float MinMultiplierForTrail = 1.5f;
-
-        private const float SpawnInterval = 0.05f;
-        private const float GhostLifetime = 0.30f;
-        private const float SpawnOffset = 0.5f;
-        [SerializeField] private Material ghostMaterial;
-        [SerializeField] private Color trailColor = new(0.3f, 0.7f, 1f, 0.5f);
-
-        // Color mapping: white, red, orange, yellow, green, blue, purple (index 0-6)
-        private static readonly int emissionColor = Shader.PropertyToID("_EmissionColor");
-        private static readonly int emission = Shader.PropertyToID("_Emission");
-        private static readonly int tintColor = Shader.PropertyToID("_TintColor");
-        private static readonly int color = Shader.PropertyToID("_Color");
-
-        private float _lastSpawnTime;
-        private readonly Queue<GameObject> _ghostPool = new();
-        private const int PoolSize = 20;
+        [Header("Trail Material Objects")]
+        [Tooltip("The 'trail' GameObject that has two materials with Color properties")]
+        [SerializeField] private GameObject trailObject;
+        
+        [Tooltip("The 'electric' GameObject that has one material with a Color property")]
+        [SerializeField] private GameObject electricObject;
+        
+        [Tooltip("The 'electric (1)' GameObject that has one material with a Color property")]
+        [SerializeField] private GameObject electricObject1;
 
         // Cache WeaponManager reference to prevent GetComponent allocations
         private WeaponManager _weaponManager;
 
-        // Material pool to avoid creating new materials every spawn
-        private readonly Queue<Material> _materialPool = new();
-        private const int MaterialPoolSize = 20;
-
-        // Track active fade coroutines so we can stop them when clearing trails
-        private readonly List<Coroutine> _activeFadeCoroutines = new();
-
+        [Header("Trail Settings")]
+        [SerializeField] private float minMultiplierForTrail = 1.5f;
+        
+        [Header("Fade Settings")]
+        [SerializeField] private float fadeInDuration = 0.5f; // Time to fade in
+        [SerializeField] private float fadeOutDuration = 0.5f; // Time to fade out
+        
+        // Cache particle systems for the trail and electric objects
+        private ParticleSystem _trailParticleSystem;
+        private ParticleSystem _electricParticleSystem;
+        private ParticleSystem _electricParticleSystem1;
+        
+        // Cache original emission rates
+        private float _trailOriginalEmissionRate;
+        private float _electricOriginalEmissionRate;
+        private float _electric1OriginalEmissionRate;
+        
+        private bool _isTrailActive;
         private Color _currentPlayerColor = Color.white;
+        private Coroutine _fadeCoroutine;
 
         private void Awake() {
             ValidateComponents();
@@ -58,301 +58,159 @@ namespace Game.Player {
                 return;
             }
 
-            if(_deathCameraController == null) {
-                _deathCameraController = playerController.DeathCameraController;
-            }
-
-            if(_playerMesh == null) {
-                _playerMesh = playerController.PlayerMesh;
-            }
-
             if(_weaponManager == null) {
                 _weaponManager = playerController.WeaponManager;
             }
 
+            // Cache renderers for trail and electric objects
+            CacheTrailRenderers();
+
             CachePlayerColor();
         }
 
-        private void OnEnable() {
-            SubscribeToColorChanges();
-        }
+        /// <summary>
+        /// Caches the ParticleSystem components from the trail and electric objects.
+        /// Also caches original emission rates for fade in/out functionality.
+        /// </summary>
+        private void CacheTrailRenderers() {
+            // Cache trail particle system
+            if(trailObject != null) {
+                _trailParticleSystem = trailObject.GetComponent<ParticleSystem>();
+                if(_trailParticleSystem == null) {
+                    Debug.LogWarning($"[SpeedTrail] Trail object '{trailObject.name}' has no ParticleSystem component!");
+                } else {
+                    // Cache original emission rate
+                    var emission = _trailParticleSystem.emission;
+                    _trailOriginalEmissionRate = emission.rateOverTime.constant;
+                }
+            } else {
+                _trailParticleSystem = null;
+            }
 
-        private void OnDisable() {
-            UnsubscribeFromColorChanges();
-            ClearAllTrails();
+            // Cache electric particle system
+            if(electricObject != null) {
+                _electricParticleSystem = electricObject.GetComponent<ParticleSystem>();
+                if(_electricParticleSystem == null) {
+                    Debug.LogWarning($"[SpeedTrail] Electric object '{electricObject.name}' has no ParticleSystem component!");
+                } else {
+                    // Cache original emission rate
+                    var emission = _electricParticleSystem.emission;
+                    _electricOriginalEmissionRate = emission.rateOverTime.constant;
+                }
+            } else {
+                _electricParticleSystem = null;
+            }
+
+            // Cache electric (1) particle system
+            if(electricObject1 != null) {
+                _electricParticleSystem1 = electricObject1.GetComponent<ParticleSystem>();
+                if(_electricParticleSystem1 == null) {
+                    Debug.LogWarning($"[SpeedTrail] Electric (1) object '{electricObject1.name}' has no ParticleSystem component!");
+                } else {
+                    // Cache original emission rate
+                    var emission = _electricParticleSystem1.emission;
+                    _electric1OriginalEmissionRate = emission.rateOverTime.constant;
+                }
+            } else {
+                _electricParticleSystem1 = null;
+            }
         }
 
         public override void OnNetworkSpawn() {
             base.OnNetworkSpawn();
+            
+            // Subscribe to color changes after network spawn to ensure NetworkVariable is initialized
+            SubscribeToColorChanges();
+            
+            // Apply initial color after network spawn (ensures NetworkVariable is synced)
+            CachePlayerColor();
+            ApplyPlayerColorToMaterials();
+        }
 
-            if(ghostMaterial == null) CreateGhostMaterial();
-            for(var i = 0; i < PoolSize; i++) CreateGhost();
+        public override void OnNetworkDespawn() {
+            base.OnNetworkDespawn();
+            UnsubscribeFromColorChanges();
+        }
 
-            // Pre-populate material pool
-            for(var i = 0; i < MaterialPoolSize; i++) {
-                var mat = CreatePooledMaterial();
-                _materialPool.Enqueue(mat);
-            }
+        private void OnEnable() {
+            // Ensure trail starts disabled
+            if(speedTrailEffect == null) return;
+            speedTrailEffect.SetActive(false);
+            _isTrailActive = false;
+        }
+
+        private void OnDisable() {
+            // Disable trail when component is disabled
+            if(speedTrailEffect == null) return;
+            speedTrailEffect.SetActive(false);
+            _isTrailActive = false;
         }
 
         private void Update() {
-            // For owners: only spawn trails when dead (netIsDead is true)
-            // For non-owners: always spawn trails (if enabled)
+            // For owners: only show trails when dead (netIsDead is true)
+            // For non-owners: always show trails (if enabled)
             if(IsOwner) {
-                // Owner: only spawn trails when dead
+                // Owner: only show trails when dead
                 if(playerController == null || !playerController.IsDead) {
+                    SetTrailActive(false);
                     return;
                 }
             }
 
             // Check if player trails are enabled in settings
-            if(PlayerPrefs.GetInt("PlayerTrails", 1) == 0) return;
+            if(PlayerPrefs.GetInt("PlayerTrails", 1) == 0) {
+                SetTrailActive(false);
+                return;
+            }
 
-            if(!_playerMesh || !playerController) return;
+            if(!playerController || speedTrailEffect == null) {
+                SetTrailActive(false);
+                return;
+            }
 
             // Get the actual damage multiplier from the Weapon component
-            // This matches the same calculation used in Weapon.UpdateDamageMultiplier()
-            // Use cached WeaponManager reference to prevent GetComponent allocations
             if(_weaponManager == null && playerController != null) {
                 _weaponManager = playerController.WeaponManager;
             }
 
-            if(_weaponManager?.CurrentWeapon == null) return;
+            if(_weaponManager == null || _weaponManager.CurrentWeapon == null) {
+                SetTrailActive(false);
+                return;
+            }
 
             var weapon = _weaponManager.CurrentWeapon;
             // Use the network-synced multiplier value
             var currentMultiplier = weapon.netCurrentDamageMultiplier.Value;
 
-            // Only spawn trails when multiplier is at least the minimum threshold
-            if(currentMultiplier < MinMultiplierForTrail) {
-                return;
-            }
-
-            // Faster -> more frequent (based on multiplier, not speed)
-            var speedFactor = Mathf.InverseLerp(MinMultiplierForTrail, 3f, currentMultiplier);
-            var adjustedInterval = Mathf.Lerp(SpawnInterval * 2f, SpawnInterval * 0.5f, speedFactor);
-
-            var timeSinceLastSpawn = Time.time - _lastSpawnTime;
-            if(timeSinceLastSpawn < adjustedInterval) {
-                return;
-            }
-
-            // Spawn the trail (it will be visible to this client)
-            SpawnAfterimage();
-            _lastSpawnTime = Time.time;
+            // Enable/disable trail based on multiplier threshold
+            var shouldBeActive = currentMultiplier >= minMultiplierForTrail;
+            SetTrailActive(shouldBeActive);
         }
 
-        private GameObject CreateGhost() {
-            var ghost = new GameObject("AfterimageGhost") {
-                // Layer will be set when spawning based on viewer
-                // Default to "Default" layer for now (will be set correctly in SpawnAfterimage)
-                layer = LayerMask.NameToLayer("Default")
-            };
+        private void SetTrailActive(bool active) {
+            if(speedTrailEffect == null || _isTrailActive == active) return;
 
-            ghost.SetActive(false);
-            ghost.AddComponent<MeshFilter>();
-            var mr = ghost.AddComponent<MeshRenderer>();
-            mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            mr.receiveShadows = false;
-
-            _ghostPool.Enqueue(ghost);
-            return ghost;
-        }
-
-        private void SpawnAfterimage() {
-            // Find an available ghost from pool (check if inactive)
-            GameObject ghost = null;
-            var attempts = 0;
-            while(attempts < _ghostPool.Count && _ghostPool.Count > 0) {
-                var candidate = _ghostPool.Dequeue();
-                _ghostPool.Enqueue(candidate); // Put it back at the end
-
-                if(candidate != null && !candidate.activeInHierarchy) {
-                    ghost = candidate;
-                    break;
-                }
-
-                attempts++;
+            _isTrailActive = active;
+            
+            // Stop any existing fade coroutine
+            if(_fadeCoroutine != null) {
+                StopCoroutine(_fadeCoroutine);
+                _fadeCoroutine = null;
             }
-
-            // If no available ghost found, create a new one
-            if(ghost == null) ghost = CreateGhost();
-
-            // Set layer based on whether this is owner or non-owner
-            // For owner: use "Masked" layer while alive (hidden from FP camera), "Default" when dead (visible during death cam)
-            // For non-owner: always use "Default" layer (always visible)
-            if(IsOwner) {
-                // Owner: use Default layer when dead (visible during death cam), Masked layer while alive
-                var isDead = playerController != null && playerController.IsDead;
-                ghost.layer = isDead
-                    ? LayerMask.NameToLayer("Default")
-                    : LayerMask.NameToLayer("Masked");
+            
+            if(active) {
+                // Apply player color before activating (ensures new particles have correct color)
+                ApplyPlayerColorToMaterials();
+                
+                // Fade in: enable GameObject and fade emission rate from 0 to full
+                speedTrailEffect.SetActive(true);
+                _fadeCoroutine = StartCoroutine(FadeEmissionRate(0f, 1f, fadeInDuration));
             } else {
-                // Non-owner: always visible on Default layer
-                ghost.layer = LayerMask.NameToLayer("Default");
+                // Fade out: fade emission rate from current to 0, then disable GameObject
+                _fadeCoroutine = StartCoroutine(FadeEmissionRate(1f, 0f, fadeOutDuration));
             }
-
-            // Movement direction - calculate from velocity if available, otherwise use transform forward
-            Vector3 moveDir;
-            if(playerController != null) {
-                // Try to get velocity direction from controller
-                var velocity = playerController.GetFullVelocity;
-                if(velocity.sqrMagnitude > 0.01f) {
-                    moveDir = -velocity.normalized; // Negative because we want to spawn behind
-                } else {
-                    moveDir = -transform.forward;
-                }
-            } else {
-                // Fallback: use transform forward
-                moveDir = -transform.forward;
-            }
-
-            // Spawn behind the player (negative direction)
-            var spawnPos = _playerMesh.transform.position + moveDir * SpawnOffset;
-
-            ghost.transform.SetPositionAndRotation(spawnPos, _playerMesh.transform.rotation);
-            ghost.transform.localScale = _playerMesh.transform.lossyScale;
-
-            var mf = ghost.GetComponent<MeshFilter>();
-            if(mf == null) {
-                return;
-            }
-
-            // Reuse existing mesh or create new one
-            var baked = mf.sharedMesh ?? new Mesh();
-
-            // Bake the current player mesh state into the mesh
-            _playerMesh.BakeMesh(baked);
-            mf.sharedMesh = baked;
-
-            var mr = ghost.GetComponent<MeshRenderer>();
-            if(mr == null) {
-                return;
-            }
-
-            // Get material from pool (reuse instead of creating new)
-            var material = _materialPool.Count > 0
-                ? _materialPool.Dequeue()
-                :
-                // Pool empty, create new one
-                CreatePooledMaterial();
-
-            // Apply player's selected color to the afterimage
-            if(playerController != null) {
-                var playerColor = _currentPlayerColor;
-
-                // Preserve emission intensity from the original material
-                // For Particles/Standard Unlit shader, emission is typically _EmissionColor
-                if(material.HasProperty(emissionColor)) {
-                    var currentEmission = material.GetColor(emissionColor);
-                    // Calculate intensity from the original emission (HDR values can be > 1)
-                    var emissionIntensity = currentEmission.maxColorComponent;
-                    if(emissionIntensity < 0.1f) {
-                        // If no emission set, use a default intensity (matching the red look you liked)
-                        emissionIntensity = 2.4f; // Approximate intensity from inspector
-                    }
-
-                    // Apply player color with preserved intensity (HDR)
-                    material.SetColor(emissionColor, playerColor * emissionIntensity);
-                    material.EnableKeyword("_EMISSION");
-                } else if(material.HasProperty(emission)) {
-                    var currentEmission = material.GetColor(emission);
-                    var emissionIntensity = currentEmission.maxColorComponent;
-                    if(emissionIntensity < 0.1f) {
-                        emissionIntensity = 2.4f;
-                    }
-
-                    material.SetColor(emission, playerColor * emissionIntensity);
-                    material.EnableKeyword("_EMISSION");
-                }
-
-                // Also set the main color (albedo) if the shader supports it
-                // For Particles shader, this might be _TintColor or _Color
-                if(material.HasProperty(tintColor)) {
-                    var currentTint = material.GetColor(tintColor);
-                    material.SetColor(tintColor,
-                        new Color(playerColor.r, playerColor.g, playerColor.b, currentTint.a));
-                } else if(material.HasProperty(color)) {
-                    var currentColor = material.GetColor(color);
-                    material.SetColor(color,
-                        new Color(playerColor.r, playerColor.g, playerColor.b, currentColor.a));
-                }
-            }
-
-            mr.material = material;
-
-            ghost.SetActive(true);
-            var fadeCoroutine = StartCoroutine(FadeAndReturnGhost(ghost, mr));
-            _activeFadeCoroutines.Add(fadeCoroutine);
         }
 
-        private IEnumerator FadeAndReturnGhost(GameObject ghost, MeshRenderer mr) {
-            var t = 0f;
-            var mat = mr.material;
-            var c0 = mat.color;
-            while(t < GhostLifetime) {
-                t += Time.deltaTime;
-                var a = Mathf.Lerp(c0.a, 0f, t / GhostLifetime);
-                mat.color = new Color(c0.r, c0.g, c0.b, a);
-                yield return null;
-            }
-
-            // Remove this coroutine from tracking when it completes naturally
-            _activeFadeCoroutines.RemoveAll(c => c == null);
-
-            ghost.SetActive(false);
-
-            // Return material to pool instead of destroying it
-            if(_materialPool.Count < MaterialPoolSize * 2) {
-                // Reset material color to original
-                mat.color = trailColor;
-                _materialPool.Enqueue(mat);
-            } else {
-                // Pool is full, destroy excess materials
-                Destroy(mat);
-            }
-
-            // Destroy the mesh to prevent memory leak
-            var mf = ghost.GetComponent<MeshFilter>();
-            if(mf?.sharedMesh != null) {
-                Destroy(mf.sharedMesh);
-                mf.sharedMesh = null;
-            }
-
-            _ghostPool.Enqueue(ghost);
-        }
-
-        private void CreateGhostMaterial() {
-            ghostMaterial = NewGhostMaterial();
-        }
-
-        private Material NewGhostMaterial() {
-            var m = new Material(Shader.Find("Standard"));
-            m.SetFloat(Shader.PropertyToID("_Mode"), 3);
-            m.SetInt(Shader.PropertyToID("_SrcBlend"), (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
-            m.SetInt(Shader.PropertyToID("_DstBlend"), (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
-            m.SetInt(Shader.PropertyToID("_ZWrite"), 0);
-            m.DisableKeyword("_ALPHATEST_ON");
-            m.EnableKeyword("_ALPHABLEND_ON");
-            m.DisableKeyword("_ALPHAPREMULTIPLY_ON");
-            // Use a lower render queue so trails render behind the player model
-            // Player models typically render at 2000-2500, so 2500 ensures trails are behind
-            m.renderQueue = 2500;
-            m.color = trailColor;
-            return m;
-        }
-
-        /// <summary>
-        /// Creates a material for the pool (based on ghostMaterial if available, otherwise creates new)
-        /// </summary>
-        private Material CreatePooledMaterial() {
-            return ghostMaterial ? new Material(ghostMaterial) : NewGhostMaterial();
-        }
-
-        /// <summary>
-        /// Clears all active speed trail afterimages immediately.
-        /// Called before respawn to ensure a clean slate.
-        /// </summary>
         private void CachePlayerColor() {
             if(playerController == null) return;
             _currentPlayerColor = playerController.CurrentBaseColor;
@@ -372,48 +230,170 @@ namespace Game.Player {
 
         private void OnPlayerBaseColorChanged(Vector4 _, Vector4 newValue) {
             _currentPlayerColor = new Color(newValue.x, newValue.y, newValue.z, 1f);
+            ApplyPlayerColorToMaterials();
+            
+            // Broadcast color change to all clients via RPC
+            if(IsOwner) {
+                BroadcastColorChangeClientRpc(newValue);
+            }
         }
 
-        public void ClearAllTrails() {
-            // Stop all fade coroutines
-            foreach(var coroutine in _activeFadeCoroutines) {
-                if(coroutine != null) {
-                    StopCoroutine(coroutine);
-                }
-            }
+        /// <summary>
+        /// Broadcasts color change to all clients to ensure trail colors stay in sync.
+        /// </summary>
+        [Rpc(SendTo.Everyone)]
+        private void BroadcastColorChangeClientRpc(Vector4 color) {
+            // Only apply if we're not the owner (owner already applied it via OnValueChanged)
+            if(IsOwner) return;
+            _currentPlayerColor = new Color(color.x, color.y, color.z, 1f);
+            ApplyPlayerColorToMaterials();
+        }
 
-            _activeFadeCoroutines.Clear();
+        /// <summary>
+        /// Applies the player's base color to all trail and electric material Color properties.
+        /// Accesses materials through ParticleSystemRenderer module.
+        /// Note: Only the trail object has both Material and Trail Material fields.
+        /// Electric objects only have Material field.
+        /// </summary>
+        private void ApplyPlayerColorToMaterials() {
+            // Common color property names to try
+            string[] colorPropertyNames = { "_Color", "_TintColor", "_BaseColor", "_MainColor", "Color" };
 
-            // Deactivate all active ghosts and return materials to pool
-            var activeGhosts = new List<GameObject>();
-            foreach(var ghost in _ghostPool) {
-                if(ghost != null && ghost.activeInHierarchy) {
-                    activeGhosts.Add(ghost);
-                }
-            }
-
-            foreach(var ghost in activeGhosts) {
-                var mr = ghost.GetComponent<MeshRenderer>();
-                if(mr?.material != null) {
-                    var mat = mr.material;
-                    // Reset material color
-                    mat.color = trailColor;
-                    // Return material to pool if not full
-                    if(_materialPool.Count < MaterialPoolSize * 2) {
-                        _materialPool.Enqueue(mat);
-                    } else {
-                        Destroy(mat);
+            // Apply to trail particle system (has both Material and Trail Material)
+            if(_trailParticleSystem != null) {
+                var psr = _trailParticleSystem.GetComponent<ParticleSystemRenderer>();
+                if(psr != null) {
+                    // Apply to main Material
+                    if(psr.material != null) {
+                        ApplyColorToMaterial(psr.material, colorPropertyNames);
+                    }
+                    
+                    // Apply to Trail Material (only trail object has this)
+                    if(psr.trailMaterial != null) {
+                        ApplyColorToMaterial(psr.trailMaterial, colorPropertyNames);
                     }
                 }
+                
+                // Clear existing particles so new ones use updated material colors
+                _trailParticleSystem.Clear();
+            }
 
-                // Destroy the mesh to prevent memory leak
-                var mf = ghost.GetComponent<MeshFilter>();
-                if(mf?.sharedMesh != null) {
-                    Destroy(mf.sharedMesh);
-                    mf.sharedMesh = null;
+            // Apply to electric particle system (only has Material, no Trail Material)
+            if(_electricParticleSystem != null) {
+                var psr = _electricParticleSystem.GetComponent<ParticleSystemRenderer>();
+                if(psr != null && psr.material != null) {
+                    ApplyColorToMaterial(psr.material, colorPropertyNames);
                 }
+                
+                // Clear existing particles so new ones use updated material colors
+                _electricParticleSystem.Clear();
+            }
 
-                ghost.SetActive(false);
+            // Apply to electric (1) particle system (only has Material, no Trail Material)
+            if(_electricParticleSystem1 == null) return;
+            {
+                var psr = _electricParticleSystem1.GetComponent<ParticleSystemRenderer>();
+                if(psr != null && psr.material != null) {
+                    ApplyColorToMaterial(psr.material, colorPropertyNames);
+                }
+                
+                // Clear existing particles so new ones use updated material colors
+                _electricParticleSystem1.Clear();
+            }
+        }
+
+        /// <summary>
+        /// Helper method to apply color to a material by trying common color property names.
+        /// </summary>
+        private void ApplyColorToMaterial(Material material, string[] colorPropertyNames) {
+            if(material == null) return;
+
+            foreach(var propName in colorPropertyNames) {
+                if(!material.HasProperty(propName)) continue;
+                // Preserve alpha if the property supports it
+                var currentColor = material.GetColor(propName);
+                var newColor = new Color(
+                    _currentPlayerColor.r,
+                    _currentPlayerColor.g,
+                    _currentPlayerColor.b,
+                    currentColor.a // Preserve original alpha
+                );
+                material.SetColor(propName, newColor);
+                break; // Found and set the property
+            }
+        }
+
+        /// <summary>
+        /// Clears/disables the speed trail immediately.
+        /// Called before respawn to ensure a clean slate.
+        /// </summary>
+        public void ClearTrail() {
+            // Stop fade coroutine if running
+            if(_fadeCoroutine != null) {
+                StopCoroutine(_fadeCoroutine);
+                _fadeCoroutine = null;
+            }
+            
+            // Immediately disable without fade
+            if(speedTrailEffect != null) {
+                speedTrailEffect.SetActive(false);
+            }
+            
+            // Reset emission rates to 0
+            SetEmissionRateMultiplier(0f);
+            _isTrailActive = false;
+        }
+
+        /// <summary>
+        /// Coroutine that fades the emission rate of all particle systems over time.
+        /// </summary>
+        private IEnumerator FadeEmissionRate(float startValue, float endValue, float duration) {
+            var elapsed = 0f;
+            
+            while(elapsed < duration) {
+                elapsed += Time.deltaTime;
+                var t = Mathf.Clamp01(elapsed / duration);
+                var currentValue = Mathf.Lerp(startValue, endValue, t);
+                
+                // Apply to all particle systems
+                SetEmissionRateMultiplier(currentValue);
+                
+                yield return null;
+            }
+            
+            // Ensure final value is set
+            SetEmissionRateMultiplier(endValue);
+            
+            // If fading out, disable GameObject after fade completes
+            if(endValue == 0f && speedTrailEffect != null) {
+                speedTrailEffect.SetActive(false);
+            }
+            
+            _fadeCoroutine = null;
+        }
+
+        /// <summary>
+        /// Sets the emission rate multiplier for all particle systems.
+        /// Multiplies the original emission rate by the given multiplier.
+        /// </summary>
+        private void SetEmissionRateMultiplier(float multiplier) {
+            // Trail particle system
+            if(_trailParticleSystem != null) {
+                var emission = _trailParticleSystem.emission;
+                emission.rateOverTime = new ParticleSystem.MinMaxCurve(_trailOriginalEmissionRate * multiplier);
+            }
+            
+            // Electric particle system
+            if(_electricParticleSystem != null) {
+                var emission = _electricParticleSystem.emission;
+                emission.rateOverTime = new ParticleSystem.MinMaxCurve(_electricOriginalEmissionRate * multiplier);
+            }
+            
+            // Electric (1) particle system
+            if(_electricParticleSystem1 == null) return;
+            {
+                var emission = _electricParticleSystem1.emission;
+                emission.rateOverTime = new ParticleSystem.MinMaxCurve(_electric1OriginalEmissionRate * multiplier);
             }
         }
     }
