@@ -101,6 +101,9 @@ namespace Game.Match {
                 matchDurationSeconds = matchSettings.GetMatchDurationSeconds();
             }
             _timeRemainingSeconds.Value = Mathf.Max(0, matchDurationSeconds);
+            
+            // Publish match started event
+            EventBus.Publish(new MatchStartedEvent());
 
             // Check if we're in Tag mode and designate initial "it" after 5 seconds
             if(matchSettings != null && matchSettings.selectedGameModeId == "Gun Tag") {
@@ -127,6 +130,10 @@ namespace Game.Match {
             // Only trigger post-match if we're not in pre-match (safety check)
             if(!IsServer || _isPreMatch.Value || _hasTriggeredPostMatch) yield break;
             _hasTriggeredPostMatch = true;
+            
+            // Publish match ended event
+            EventBus.Publish(new MatchEndedEvent());
+            
             if(PostMatchManager.Instance == null) {
                 Debug.LogWarning("[MatchTimerManager] PostMatchManager.Instance == null on server!");
             } else {
@@ -135,6 +142,9 @@ namespace Game.Match {
         }
 
         private void OnTimeRemainingChanged(int previous, int current) {
+            // Publish match time updated event
+            EventBus.Publish(new MatchTimeUpdatedEvent(current));
+            
             // Only update UI if we're not in pre-match
             if(_isPreMatch.Value || GameMenuManager.Instance == null) return;
             // SetMatchTime will handle tick sound playback based on displayed time
@@ -144,6 +154,8 @@ namespace Game.Match {
         }
 
         private void OnPreMatchCountdownChanged(int previous, int current) {
+            // Publish pre-match countdown event
+            EventBus.Publish(new PreMatchCountdownEvent(current));
             // Display pre-match countdown in UI
             if(!_isPreMatch.Value || GameMenuManager.Instance == null) return;
             // SetMatchTime will handle tick sound playback based on displayed time

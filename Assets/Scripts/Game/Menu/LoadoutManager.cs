@@ -316,7 +316,7 @@ namespace Game.Menu {
                 // Register handlers
                 _applyLoadoutButton.clicked += () => {
                     if(mainMenuManager != null) {
-                        mainMenuManager.OnButtonClicked();
+                        MainMenuManager.OnButtonClicked();
                     }
                     OnApplyLoadoutClicked();
                 };
@@ -352,7 +352,7 @@ namespace Game.Menu {
                 _backLoadoutButton.clicked += () => {
                     Debug.Log("[LoadoutManager] Back button clicked");
                     if(mainMenuManager != null) {
-                        mainMenuManager.OnButtonClicked(true);
+                        MainMenuManager.OnButtonClicked(true);
                     }
                     OnBackClicked();
                 };
@@ -368,15 +368,15 @@ namespace Game.Menu {
 
             // Weapon slot clicks (main equipped slot - opens dropdown)
             _primarySlot.RegisterCallback<ClickEvent>(_ => ToggleWeaponDropdown(_primaryDropdown));
-            _primarySlot.RegisterCallback<ClickEvent>(_ => mainMenuManager.OnButtonClicked());
+            _primarySlot.RegisterCallback<ClickEvent>(_ => MainMenuManager.OnButtonClicked());
             _primarySlot.RegisterCallback<MouseEnterEvent>(MainMenuManager.MouseEnter);
 
             _secondarySlot.RegisterCallback<ClickEvent>(_ => ToggleWeaponDropdown(_secondaryDropdown));
-            _secondarySlot.RegisterCallback<ClickEvent>(_ => mainMenuManager.OnButtonClicked());
+            _secondarySlot.RegisterCallback<ClickEvent>(_ => MainMenuManager.OnButtonClicked());
             _secondarySlot.RegisterCallback<MouseEnterEvent>(MainMenuManager.MouseEnter);
 
             _tertiarySlot.RegisterCallback<ClickEvent>(_ => ToggleWeaponDropdown(_tertiaryDropdown));
-            _tertiarySlot.RegisterCallback<ClickEvent>(_ => mainMenuManager.OnButtonClicked());
+            _tertiarySlot.RegisterCallback<ClickEvent>(_ => MainMenuManager.OnButtonClicked());
             _tertiarySlot.RegisterCallback<MouseEnterEvent>(MainMenuManager.MouseEnter);
 
             // Populate weapon dropdowns
@@ -1435,7 +1435,7 @@ namespace Game.Menu {
 
         private void OnLoadoutUnsavedYes() {
             if(mainMenuManager != null) {
-                mainMenuManager.OnButtonClicked();
+                MainMenuManager.OnButtonClicked();
             }
             OnApplyLoadoutClicked();
             HideLoadoutUnsavedModal();
@@ -1444,7 +1444,7 @@ namespace Game.Menu {
 
         private void OnLoadoutUnsavedNo() {
             if(mainMenuManager != null) {
-                mainMenuManager.OnButtonClicked(true);
+                MainMenuManager.OnButtonClicked(true);
             }
             RevertLoadoutChanges();
             HideLoadoutUnsavedModal();
@@ -1453,7 +1453,7 @@ namespace Game.Menu {
 
         private void OnLoadoutUnsavedCancel() {
             if(mainMenuManager != null) {
-                mainMenuManager.OnButtonClicked();
+                MainMenuManager.OnButtonClicked();
             }
             HideLoadoutUnsavedModal();
         }

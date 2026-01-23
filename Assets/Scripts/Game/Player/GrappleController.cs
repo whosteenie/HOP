@@ -85,6 +85,16 @@ namespace Game.Player {
 
             return GrappleCooldown;
         }
+        
+        /// <summary>
+        /// Gets the grappleable layers for external use (e.g., AI bots for raycasting).
+        /// </summary>
+        public LayerMask GrappleableLayers => _grappleableLayers;
+        
+        /// <summary>
+        /// Gets the max grapple distance for external use (e.g., AI bots).
+        /// </summary>
+        public float MaxGrappleDistanceValue => MaxGrappleDistance;
 
         #endregion
 

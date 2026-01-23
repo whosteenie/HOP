@@ -46,8 +46,6 @@ namespace Network.Singletons {
             // Build packet list: None at index 0, then all loaded packets
             _packets = new List<PlayerMaterialPacket> { _nonePacket };
             _packets.AddRange(loadedPackets);
-
-            Debug.Log($"[PlayerMaterialPacketManager] Loaded {_packets.Count - 1} material packets from Resources (plus 'None' packet). Total: {_packets.Count}");
         }
 
         /// <summary>

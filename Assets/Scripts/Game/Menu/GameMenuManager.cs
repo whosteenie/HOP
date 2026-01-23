@@ -3,6 +3,7 @@ using Game.Player;
 using Game.UI;
 using Game.Match;
 using Network;
+using Network.Events;
 using Network.Services;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -99,16 +100,22 @@ namespace Game.Menu {
             SetupScoreboardManager();
             SetupSniperOverlayManager();
 
-            // Subscribe to join code updates
+            // Subscribe to EventBus events
+            EventBus.Subscribe<RelayCodeAvailableEvent>(OnRelayCodeAvailable);
+            
+            // Keep legacy subscription for backward compatibility during migration
             if(SessionManager.Instance != null) {
-                SessionManager.Instance.RelayCodeAvailable += OnRelayCodeAvailable;
+                SessionManager.Instance.RelayCodeAvailable += OnRelayCodeAvailableLegacy;
             }
         }
 
         private void OnDisable() {
-            // Unsubscribe from join code updates
+            // Unsubscribe from EventBus events
+            EventBus.Unsubscribe<RelayCodeAvailableEvent>(OnRelayCodeAvailable);
+            
+            // Unsubscribe from legacy events
             if(SessionManager.Instance != null) {
-                SessionManager.Instance.RelayCodeAvailable -= OnRelayCodeAvailable;
+                SessionManager.Instance.RelayCodeAvailable -= OnRelayCodeAvailableLegacy;
             }
 
             // Unsubscribe from scene changes
@@ -126,11 +133,25 @@ namespace Game.Menu {
             UpdateCachedSceneName();
         }
 
-        private void OnRelayCodeAvailable(string joinCode) {
+        #region Event Handlers
+
+        private void OnRelayCodeAvailable(RelayCodeAvailableEvent evt) {
+            // Update join code display if pause menu is visible
+            if(!IsPaused || _pauseJoinCodeLabel == null) return;
+            JoinCodeService.UpdateJoinCodeDisplay(_pauseJoinCodeLabel, _pauseCopyCodeButton, evt.Code);
+        }
+
+        #endregion
+
+        #region Legacy Event Handlers (for backward compatibility)
+
+        private void OnRelayCodeAvailableLegacy(string joinCode) {
             // Update join code display if pause menu is visible
             if(!IsPaused || _pauseJoinCodeLabel == null) return;
             JoinCodeService.UpdateJoinCodeDisplay(_pauseJoinCodeLabel, _pauseCopyCodeButton, joinCode);
         }
+
+        #endregion
 
         private void FindUIElements() {
             // Get panels

@@ -1,0 +1,98 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 37b9d8c6db21d92468f6be44cddae1f0, type: 3}
+  m_Name: EventBusLogSettings
+  m_EditorClassIdentifier: Assembly-CSharp::Network.Events.EventBusLogSettings
+  loggingEnabled: 1
+  eventLogSettings:
+  - eventTypeName: Network.Events.AddKillFeedEntryEvent
+    enabled: 0
+  - eventTypeName: Network.Events.ComponentNotFoundEvent
+    enabled: 1
+  - eventTypeName: Network.Events.CriticalErrorEvent
+    enabled: 1
+  - eventTypeName: Network.Events.GameObjectNotFoundEvent
+    enabled: 1
+  - eventTypeName: Network.Events.GrappleEndedEvent
+    enabled: 0
+  - eventTypeName: Network.Events.GrappleStartedEvent
+    enabled: 0
+  - eventTypeName: Network.Events.HideHUDEvent
+    enabled: 0
+  - eventTypeName: Network.Events.HideKillFeedEvent
+    enabled: 0
+  - eventTypeName: Network.Events.HideScoreboardEvent
+    enabled: 0
+  - eventTypeName: Network.Events.HopballDroppedEvent
+    enabled: 0
+  - eventTypeName: Network.Events.HopballPickedUpEvent
+    enabled: 0
+  - eventTypeName: Network.Events.HostDisconnectedEvent
+    enabled: 1
+  - eventTypeName: Network.Events.LobbyResetEvent
+    enabled: 1
+  - eventTypeName: Network.Events.MatchEndedEvent
+    enabled: 1
+  - eventTypeName: Network.Events.MatchStartedEvent
+    enabled: 1
+  - eventTypeName: Network.Events.MatchTimeUpdatedEvent
+    enabled: 0
+  - eventTypeName: Network.Events.NetworkObjectReferenceFailedEvent
+    enabled: 1
+  - eventTypeName: Network.Events.NetworkRpcFailedEvent
+    enabled: 1
+  - eventTypeName: Network.Events.PlayerDamagedEvent
+    enabled: 0
+  - eventTypeName: Network.Events.PlayerDiedEvent
+    enabled: 0
+  - eventTypeName: Network.Events.PlayerRespawnedEvent
+    enabled: 0
+  - eventTypeName: Network.Events.PlayersChangedEvent
+    enabled: 0
+  - eventTypeName: Network.Events.PlayUISoundEvent
+    enabled: 0
+  - eventTypeName: Network.Events.PlayWorldSoundEvent
+    enabled: 0
+  - eventTypeName: Network.Events.PostMatchStartedEvent
+    enabled: 0
+  - eventTypeName: Network.Events.PreMatchCountdownEvent
+    enabled: 0
+  - eventTypeName: Network.Events.RelayCodeAvailableEvent
+    enabled: 0
+  - eventTypeName: Network.Events.SessionJoinedEvent
+    enabled: 0
+  - eventTypeName: Network.Events.SessionPropertiesRefreshedEvent
+    enabled: 0
+  - eventTypeName: Network.Events.SetMatchTimeEvent
+    enabled: 0
+  - eventTypeName: Network.Events.ShowHUDEvent
+    enabled: 0
+  - eventTypeName: Network.Events.ShowKillFeedEvent
+    enabled: 0
+  - eventTypeName: Network.Events.ShowScoreboardEvent
+    enabled: 0
+  - eventTypeName: Network.Events.SingletonNotAvailableEvent
+    enabled: 1
+  - eventTypeName: Network.Events.StopAllSoundsEvent
+    enabled: 0
+  - eventTypeName: Network.Events.StopSoundEvent
+    enabled: 0
+  - eventTypeName: Network.Events.UpdateAmmoEvent
+    enabled: 0
+  - eventTypeName: Network.Events.UpdateHealthEvent
+    enabled: 0
+  - eventTypeName: Network.Events.UpdateMultiplierEvent
+    enabled: 0
+  - eventTypeName: Network.Events.UpdateTagStatusEvent
+    enabled: 0
+  - eventTypeName: Network.Events.WeaponSwitchedEvent
+    enabled: 0

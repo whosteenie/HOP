@@ -2,6 +2,7 @@ using System;
 using Game.Player;
 using Game.Weapons;
 using Network.AntiCheat;
+using Network.Diagnostics;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -30,8 +31,8 @@ namespace Network.Rpc {
                 }
             }
 
-            if(!targetRef.TryGet(out var networkObject) || networkObject == null || !networkObject.IsSpawned) {
-                Debug.LogWarning("[NetworkDamageRelay] Target is invalid/despawned.");
+            if(!DebugHelpers.TryGetNetworkObjectSafe(targetRef, out var networkObject, OwnerClientId, 
+                   "NetworkDamageRelay.RequestDamageServerRpc")) {
                 return;
             }
 

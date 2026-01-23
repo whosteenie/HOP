@@ -150,12 +150,11 @@ namespace Game.Menu {
             }
 
             // Initialize Gamemode Manager
-            if(gamemodeManager != null) {
-                if(gamemodeManager.uiDocument == null) {
-                    gamemodeManager.uiDocument = uiDocument;
-                }
-                // Callbacks already wired in WireSubManagerCallbacks()
+            if(gamemodeManager == null) return;
+            if(gamemodeManager.uiDocument == null) {
+                gamemodeManager.uiDocument = uiDocument;
             }
+            // Callbacks already wired in WireSubManagerCallbacks()
         }
 
         private void WireUIManagerEvents() {
@@ -452,7 +451,8 @@ namespace Game.Menu {
 
             optionsMenuManager.Initialize();
 
-            if(characterCustomizationManager != null) {
+            if(characterCustomizationManager == null) return;
+            {
                 characterCustomizationManager.OnButtonClickedCallback = OnButtonClicked;
                 characterCustomizationManager.MouseEnterCallback = _ => UISoundService.PlayButtonHover();
                 characterCustomizationManager.OnBackFromCustomizationCallback = () => { ShowPanel(_loadoutPanel); };
@@ -469,7 +469,7 @@ namespace Game.Menu {
 
         #region UI Utilities
 
-        public void OnButtonClicked(bool isBack = false) {
+        public static void OnButtonClicked(bool isBack = false) {
             UISoundService.PlayButtonClick(isBack);
         }
 
@@ -490,7 +490,7 @@ namespace Game.Menu {
 #endif
         }
 
-        private void OnQuitCancelled() {
+        private static void OnQuitCancelled() {
             OnButtonClicked();
             // HideQuitConfirmation is handled internally by UIManager
         }

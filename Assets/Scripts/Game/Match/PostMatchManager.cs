@@ -9,6 +9,7 @@ using Game.Spawning;
 using Game.UI;
 using Game.Hopball;
 using Network;
+using Network.Diagnostics;
 using Network.Events;
 using Network.Singletons;
 using Unity.Cinemachine;
@@ -113,6 +114,8 @@ namespace Game.Match {
         /// Called from MatchTimerManager on the server when the timer hits 0.
         /// </summary>
         public void BeginPostMatchFromTimer() {
+            // Publish post-match started event
+            EventBus.Publish(new PostMatchStartedEvent());
             if(!IsServer) {
                 Debug.LogWarning("[MatchTimerManager] Is not server!");
                 return;
@@ -141,6 +144,9 @@ namespace Game.Match {
                 Debug.LogWarning("[PostMatchManager] BeginPostMatchFromScore called on non-server!");
                 return;
             }
+            
+            // Publish post-match started event
+            EventBus.Publish(new PostMatchStartedEvent());
 
             if(PostMatchFlowStarted) {
                 Debug.LogWarning("[PostMatchManager] Post match is already started!");
@@ -334,6 +340,8 @@ namespace Game.Match {
                 HideInGameHudForPostMatch();
                 DisableHopballTargets();
             } catch(Exception e) {
+                DebugHelpers.PublishCriticalError($"PostMatchManager.RequestFadeToPodiumClientRpc failed: {e.Message}", 
+                    "PostMatchManager.RequestFadeToPodiumClientRpc", e);
                 Debug.LogException(e);
             }
         }

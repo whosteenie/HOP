@@ -37,6 +37,64 @@ namespace Game.Match {
             }
         }
 
+        private void Start() {
+            // Sync gamemode from session properties when game scene loads (for clients)
+            SyncGamemodeFromSession();
+            // Hook into session property changes to receive updates in-game
+            HookSessionPropertyChanges();
+        }
+
+        private void OnEnable() {
+            HookSessionPropertyChanges();
+        }
+
+        private void OnDisable() {
+            UnhookSessionPropertyChanges();
+        }
+
+        private void HookSessionPropertyChanges() {
+            var sessionManager = Network.SessionManager.Instance;
+            var session = sessionManager != null ? sessionManager.ActiveSession : null;
+            if(session != null) {
+                session.SessionPropertiesChanged += OnSessionPropertiesChanged;
+                // Also sync immediately when hooking
+                SyncGamemodeFromSession();
+            }
+        }
+
+        private void UnhookSessionPropertyChanges() {
+            var sessionManager = Network.SessionManager.Instance;
+            var session = sessionManager != null ? sessionManager.ActiveSession : null;
+            if(session != null) {
+                session.SessionPropertiesChanged -= OnSessionPropertiesChanged;
+            }
+        }
+
+        private void OnSessionPropertiesChanged() {
+            SyncGamemodeFromSession();
+        }
+
+        private void SyncGamemodeFromSession() {
+            var sessionManager = Network.SessionManager.Instance;
+            var session = sessionManager != null ? sessionManager.ActiveSession : null;
+            if(session == null) return;
+
+            // Try to get gamemode from session properties
+            if(session.Properties.TryGetValue("gamemode", out var prop) && !string.IsNullOrEmpty(prop.Value)) {
+                var newGamemode = prop.Value;
+                if(selectedGameModeId != newGamemode) {
+                    selectedGameModeId = newGamemode;
+                    Debug.Log($"[MatchSettingsManager] Synced gamemode from session: {selectedGameModeId}");
+                    
+                    // Force refresh scoreboard to show new gamemode
+                    var scoreboard = Game.UI.ScoreboardManager.Instance;
+                    if(scoreboard != null) {
+                        scoreboard.RefreshGamemode();
+                    }
+                }
+            }
+        }
+
         public int GetMatchDurationSeconds() {
             return matchDurationSeconds > 0 ? matchDurationSeconds : defaultMatchDurationSeconds;
         }

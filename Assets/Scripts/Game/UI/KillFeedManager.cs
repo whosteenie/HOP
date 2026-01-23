@@ -79,8 +79,9 @@ namespace Game.UI {
         /// <summary>
         /// Adds an entry to the kill feed. Automatically uses the appropriate icon based on game mode.
         /// For kills in normal modes, uses kill icon. For tag transfers in Gun Tag mode, uses tag icon.
+        /// Event handler - called via EventBus
         /// </summary>
-        public void AddEntryToFeed(string actorName, string targetName, bool isLocalActor, ulong actorClientId,
+        private void AddEntryToFeed(string actorName, string targetName, bool isLocalActor, ulong actorClientId,
             ulong targetClientId) {
             // Refresh MatchSettingsManager cache if needed
             if(_cachedMatchSettings == null || !_gameModeCacheValid) {
@@ -139,15 +140,17 @@ namespace Game.UI {
 
         /// <summary>
         /// Hides the kill feed (e.g., during post-match).
+        /// Event handler - called via EventBus
         /// </summary>
-        public void HideKillFeed() {
+        private void HideKillFeed() {
             SetKillFeedVisible(false);
         }
 
         /// <summary>
         /// Shows the kill feed (e.g., after post-match).
+        /// Event handler - called via EventBus
         /// </summary>
-        public void ShowKillFeed() {
+        private void ShowKillFeed() {
             SetKillFeedVisible(true);
         }
 

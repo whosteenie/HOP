@@ -51,6 +51,9 @@
                 <ui:ProgressBar name="health-bar" low-value="0" high-value="100" value="100" class="health-bar" />
                 <ui:Label name="health-value" text="100" class="health-value" />
             </ui:VisualElement>
+            <ui:VisualElement name="grapple-indicator-bottom" class="grapple-indicator-bottom">
+                <ui:VisualElement name="grapple-indicator-fill" class="grapple-indicator-fill" />
+            </ui:VisualElement>
             <ui:VisualElement name="multiplier-container" class="multiplier-container">
                 <ui:ProgressBar name="multiplier-bar" class="multiplier-bar" />
                 <ui:Label name="multiplier-value" text="1.00x" class="multiplier-value" />
@@ -155,6 +158,10 @@
                             <ui:VisualElement name="hold-mantle-container" class="setting-row">
                                 <ui:Label text="Hold to mantle" name="hold-mantle-label" class="setting-label" />
                                 <ui:Button name="hold-mantle" class="setting-toggle" />
+                            </ui:VisualElement>
+                            <ui:VisualElement name="grapple-indicator-container" class="setting-row">
+                                <ui:Label text="Grapple indicator type" name="grapple-indicator-label" class="setting-label" />
+                                <ui:DropdownField name="grapple-indicator" class="setting-dropdown" />
                             </ui:VisualElement>
                         </ui:VisualElement>
                         <ui:VisualElement name="controls-content" class="options-tab-content hidden">

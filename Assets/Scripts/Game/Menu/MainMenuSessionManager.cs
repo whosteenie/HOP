@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
 using Network;
+using Network.Events;
 using Network.Services;
 using Unity.Services.Authentication;
 using Unity.Services.Multiplayer;
@@ -57,24 +58,44 @@ namespace Game.Menu {
         }
 
         private void OnEnable() {
-            if(SessionManager.Instance != null) {
-                SessionManager.Instance.PlayersChanged += OnPlayersChanged;
-                SessionManager.Instance.RelayCodeAvailable += OnRelayCodeAvailableInternal;
-                SessionManager.Instance.FrontStatusChanged += UpdateStatusText;
-                SessionManager.Instance.SessionJoined += OnSessionJoined;
-                SessionManager.Instance.HostDisconnected += OnHostDisconnected;
-                SessionManager.Instance.LobbyReset += ResetLobbyUI;
-            }
+            // Subscribe to EventBus events
+            EventBus.Subscribe<PlayersChangedEvent>(OnPlayersChanged);
+            EventBus.Subscribe<RelayCodeAvailableEvent>(OnRelayCodeAvailable);
+            EventBus.Subscribe<SessionJoinedEvent>(OnSessionJoined);
+            EventBus.Subscribe<HostDisconnectedEvent>(OnHostDisconnected);
+            EventBus.Subscribe<LobbyResetEvent>(OnLobbyReset);
+            
+            // Subscribe to FrontStatusChanged for status label updates
+            SubscribeToFrontStatusChanged();
+        }
+        
+        private void Start() {
+            // Re-check subscription in case SessionManager wasn't ready in OnEnable
+            SubscribeToFrontStatusChanged();
+        }
+        
+        private bool _subscribedToFrontStatus;
+        
+        private void SubscribeToFrontStatusChanged() {
+            if(_subscribedToFrontStatus) return;
+            if(SessionManager.Instance == null) return;
+            
+            SessionManager.Instance.FrontStatusChanged += UpdateStatusText;
+            _subscribedToFrontStatus = true;
         }
 
         private void OnDisable() {
-            if(SessionManager.Instance != null) {
-                SessionManager.Instance.PlayersChanged -= OnPlayersChanged;
-                SessionManager.Instance.RelayCodeAvailable -= OnRelayCodeAvailableInternal;
+            // Unsubscribe from EventBus events
+            EventBus.Unsubscribe<PlayersChangedEvent>(OnPlayersChanged);
+            EventBus.Unsubscribe<RelayCodeAvailableEvent>(OnRelayCodeAvailable);
+            EventBus.Unsubscribe<SessionJoinedEvent>(OnSessionJoined);
+            EventBus.Unsubscribe<HostDisconnectedEvent>(OnHostDisconnected);
+            EventBus.Unsubscribe<LobbyResetEvent>(OnLobbyReset);
+            
+            // Unsubscribe from FrontStatusChanged
+            if(_subscribedToFrontStatus && SessionManager.Instance != null) {
                 SessionManager.Instance.FrontStatusChanged -= UpdateStatusText;
-                SessionManager.Instance.SessionJoined -= OnSessionJoined;
-                SessionManager.Instance.HostDisconnected -= OnHostDisconnected;
-                SessionManager.Instance.LobbyReset -= ResetLobbyUI;
+                _subscribedToFrontStatus = false;
             }
         }
 
@@ -157,22 +178,29 @@ namespace Game.Menu {
             }
         }
 
-        private void OnRelayCodeAvailableInternal(string code) {
+        #region Event Handlers
+
+        private void OnPlayersChanged(PlayersChangedEvent evt) {
+            RefreshPlayerList(evt.Players);
+        }
+
+        private void OnRelayCodeAvailable(RelayCodeAvailableEvent evt) {
             _onRelayCodeAvailable?.Invoke();
         }
 
-        private void UpdateStatusText(string msg) {
-            if(_waitingLabel != null) {
-                _waitingLabel.text = msg;
+        private void OnSessionJoined(SessionJoinedEvent evt) {
+            JoinCodeService.UpdateJoinCodeDisplay(_joinCodeLabel, _copyButton, evt.Code);
+            CalculateAndUpdateHostStatus();
+            
+            // Notify gamemode manager to check session properties (client might have just joined)
+            var gamemodeManager = FindFirstObjectByType<MainMenuGamemodeManager>();
+            if(gamemodeManager != null) {
+                // Trigger gamemode update from session
+                gamemodeManager.UpdateGamemodeFromSession();
             }
         }
 
-        private void OnSessionJoined(string sessionCode) {
-            JoinCodeService.UpdateJoinCodeDisplay(_joinCodeLabel, _copyButton, sessionCode);
-            CalculateAndUpdateHostStatus();
-        }
-
-        private void OnHostDisconnected() {
+        private void OnHostDisconnected(HostDisconnectedEvent evt) {
             if(_waitingLabel != null) {
                 _waitingLabel.text = "Host disconnected. Create or join a new game.";
             }
@@ -180,6 +208,45 @@ namespace Game.Menu {
             MainMenuUIManager.EnableButton(_joinButton);
             MainMenuUIManager.DisableButton(_startButton);
             MainMenuUIManager.DisableButton(_copyButton);
+        }
+
+        private void OnLobbyReset(LobbyResetEvent evt) {
+            ResetLobbyUI();
+        }
+
+        #endregion
+
+        #region Legacy Event Handlers (for backward compatibility)
+
+        private void OnPlayersChangedLegacy(IReadOnlyList<IReadOnlyPlayer> players) {
+            RefreshPlayerList(players);
+        }
+
+        private void OnRelayCodeAvailableInternal(string code) {
+            _onRelayCodeAvailable?.Invoke();
+        }
+
+        private void OnSessionJoinedLegacy(string sessionCode) {
+            JoinCodeService.UpdateJoinCodeDisplay(_joinCodeLabel, _copyButton, sessionCode);
+            CalculateAndUpdateHostStatus();
+        }
+
+        private void OnHostDisconnectedLegacy() {
+            if(_waitingLabel != null) {
+                _waitingLabel.text = "Host disconnected. Create or join a new game.";
+            }
+            MainMenuUIManager.EnableButton(_hostButton);
+            MainMenuUIManager.EnableButton(_joinButton);
+            MainMenuUIManager.DisableButton(_startButton);
+            MainMenuUIManager.DisableButton(_copyButton);
+        }
+
+        #endregion
+
+        private void UpdateStatusText(string msg) {
+            if(_waitingLabel != null) {
+                _waitingLabel.text = msg;
+            }
         }
 
         public void ResetLobbyUI() {
@@ -310,9 +377,6 @@ namespace Game.Menu {
             JoinCodeService.CopyFromLabel(_joinCodeLabel);
         }
 
-        private void OnPlayersChanged(IReadOnlyList<IReadOnlyPlayer> players) {
-            RefreshPlayerList(players);
-        }
 
         private void RefreshPlayerList(IReadOnlyList<IReadOnlyPlayer> players = null) {
             if(_playerList == null) return;

@@ -304,6 +304,10 @@
                             <ui:Label text="Hold to mantle" name="hold-mantle-label" class="setting-label" />
                             <ui:Button name="hold-mantle" class="setting-toggle" />
                         </ui:VisualElement>
+                        <ui:VisualElement name="grapple-indicator-container" class="setting-row">
+                            <ui:Label text="Grapple indicator type" name="grapple-indicator-label" class="setting-label" />
+                            <ui:DropdownField name="grapple-indicator" class="setting-dropdown" />
+                        </ui:VisualElement>
                     </ui:VisualElement>
                     <ui:VisualElement name="controls-content" class="options-tab-content hidden">
                         <ui:VisualElement name="sensitivity-container" class="setting-row">

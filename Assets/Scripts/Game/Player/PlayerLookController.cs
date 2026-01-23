@@ -152,7 +152,7 @@ namespace Game.Player {
         }
 
         // Public getters
-        private float CurrentPitch {
+        public float CurrentPitch {
             get => _currentPitch;
             set => _currentPitch = Mathf.Clamp(value, -PitchLimit, PitchLimit);
         }

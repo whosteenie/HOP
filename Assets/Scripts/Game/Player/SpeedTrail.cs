@@ -85,6 +85,7 @@ namespace Game.Player {
                 }
             } else {
                 _trailParticleSystem = null;
+                Debug.LogWarning("[SpeedTrail] Trail object is null! Make sure it's assigned in inspector.");
             }
 
             // Cache electric particle system
@@ -99,6 +100,7 @@ namespace Game.Player {
                 }
             } else {
                 _electricParticleSystem = null;
+                Debug.LogWarning("[SpeedTrail] Electric object is null! Make sure it's assigned in inspector.");
             }
 
             // Cache electric (1) particle system
@@ -113,6 +115,7 @@ namespace Game.Player {
                 }
             } else {
                 _electricParticleSystem1 = null;
+                Debug.LogWarning("[SpeedTrail] Electric (1) object is null! Make sure it's assigned in inspector.");
             }
         }
 
@@ -158,13 +161,15 @@ namespace Game.Player {
                 return;
             }
 
-            // For owners: only show trails when dead (deathcam)
+            // For owners: only show their own trail when dead (deathcam)
+            // Owners see their own trail in deathcam (TP visuals), not in FP visuals
             if(IsOwner) {
                 if(!playerController.IsDead) {
                     SetTrailActive(false);
                     return;
                 }
             }
+            // For non-owners: always show other players' trails (regardless of dead/alive state)
 
             // Get the actual damage multiplier from the Weapon component
             if(_weaponManager == null && playerController != null) {
@@ -177,18 +182,43 @@ namespace Game.Player {
             }
 
             var weapon = _weaponManager.CurrentWeapon;
+            
+            // Defensive check: Ensure NetworkVariable is initialized
+            if(weapon.netCurrentDamageMultiplier == null) {
+                SetTrailActive(false);
+                #if UNITY_EDITOR || DEVELOPMENT_BUILD
+                if(Time.frameCount % 120 == 0) {
+                    Debug.LogWarning($"[SpeedTrail] netCurrentDamageMultiplier is null for weapon {weapon.name}");
+                }
+                #endif
+                return;
+            }
+            
             // Use the network-synced multiplier value
             var currentMultiplier = weapon.netCurrentDamageMultiplier.Value;
 
             // Enable/disable trail based on multiplier threshold
-            // For owners: only when dead (already checked above)
-            // For non-owners: when multiplier is high enough
+            // Owners: only when dead (already checked above) AND multiplier >= threshold
+            // Non-owners: when multiplier >= threshold (regardless of dead state)
             var shouldBeActive = currentMultiplier >= minMultiplierForTrail;
+            
             SetTrailActive(shouldBeActive);
         }
 
         private void SetTrailActive(bool active) {
-            if(speedTrailEffect == null || _isTrailActive == active) return;
+            if(speedTrailEffect == null) {
+                #if UNITY_EDITOR || DEVELOPMENT_BUILD
+                if(Time.frameCount % 120 == 0) {
+                    Debug.LogWarning("[SpeedTrail] SetTrailActive called but speedTrailEffect is null!");
+                }
+                #endif
+                return;
+            }
+            
+            if(_isTrailActive == active) {
+                // Already in the desired state, no need to change
+                return;
+            }
 
             _isTrailActive = active;
             
@@ -204,6 +234,18 @@ namespace Game.Player {
                 
                 // Fade in: enable GameObject and fade emission rate from 0 to full
                 speedTrailEffect.SetActive(true);
+                
+                // Ensure particle systems are playing
+                if(_trailParticleSystem != null && !_trailParticleSystem.isPlaying) {
+                    _trailParticleSystem.Play();
+                }
+                if(_electricParticleSystem != null && !_electricParticleSystem.isPlaying) {
+                    _electricParticleSystem.Play();
+                }
+                if(_electricParticleSystem1 != null && !_electricParticleSystem1.isPlaying) {
+                    _electricParticleSystem1.Play();
+                }
+                
                 _fadeCoroutine = StartCoroutine(FadeEmissionRate(0f, 1f, fadeInDuration));
             } else {
                 // Fade out: fade emission rate from current to 0, then disable GameObject
@@ -334,6 +376,17 @@ namespace Game.Player {
                 _fadeCoroutine = null;
             }
             
+            // Stop particle systems
+            if(_trailParticleSystem != null && _trailParticleSystem.isPlaying) {
+                _trailParticleSystem.Stop();
+            }
+            if(_electricParticleSystem != null && _electricParticleSystem.isPlaying) {
+                _electricParticleSystem.Stop();
+            }
+            if(_electricParticleSystem1 != null && _electricParticleSystem1.isPlaying) {
+                _electricParticleSystem1.Stop();
+            }
+            
             // Immediately disable without fade
             if(speedTrailEffect != null) {
                 speedTrailEffect.SetActive(false);
@@ -381,12 +434,27 @@ namespace Game.Player {
             if(_trailParticleSystem != null) {
                 var emission = _trailParticleSystem.emission;
                 emission.rateOverTime = new ParticleSystem.MinMaxCurve(_trailOriginalEmissionRate * multiplier);
+
+                switch(multiplier) {
+                    // Ensure particle system is playing if multiplier > 0
+                    case > 0f when !_trailParticleSystem.isPlaying:
+                        _trailParticleSystem.Play();
+                        break;
+                    case 0f when _trailParticleSystem.isPlaying:
+                        // Optionally stop when multiplier reaches 0 (but we'll let fade coroutine handle disabling)
+                        break;
+                }
             }
             
             // Electric particle system
             if(_electricParticleSystem != null) {
                 var emission = _electricParticleSystem.emission;
                 emission.rateOverTime = new ParticleSystem.MinMaxCurve(_electricOriginalEmissionRate * multiplier);
+                
+                // Ensure particle system is playing if multiplier > 0
+                if(multiplier > 0f && !_electricParticleSystem.isPlaying) {
+                    _electricParticleSystem.Play();
+                }
             }
             
             // Electric (1) particle system
@@ -394,6 +462,11 @@ namespace Game.Player {
             {
                 var emission = _electricParticleSystem1.emission;
                 emission.rateOverTime = new ParticleSystem.MinMaxCurve(_electric1OriginalEmissionRate * multiplier);
+                
+                // Ensure particle system is playing if multiplier > 0
+                if(multiplier > 0f && !_electricParticleSystem1.isPlaying) {
+                    _electricParticleSystem1.Play();
+                }
             }
         }
     }

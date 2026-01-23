@@ -298,7 +298,7 @@ namespace Game.Menu {
         public void ShowCustomization() {
             // Ensure callbacks are set up (in case they weren't set in Initialize)
             if(mainMenuManager != null) {
-                OnButtonClickedCallback = mainMenuManager.OnButtonClicked;
+                OnButtonClickedCallback = MainMenuManager.OnButtonClicked;
                 MouseEnterCallback = MainMenuManager.MouseEnter;
                 OnBackFromCustomizationCallback = () => {
                     Debug.Log("[CharacterCustomizationManager] Back callback invoked from ShowCustomization");

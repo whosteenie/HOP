@@ -58,7 +58,10 @@ namespace Network {
 
         // ===== Public surface =====
         public ISession ActiveSession { get; private set; }
+        // Events migrated to EventBus - kept for backward compatibility during migration
+        [System.Obsolete("Use EventBus.Subscribe<PlayersChangedEvent> instead")]
         public event Action<IReadOnlyList<IReadOnlyPlayer>> PlayersChanged;
+        [System.Obsolete("Use EventBus.Subscribe<RelayCodeAvailableEvent> instead")]
         public event Action<string> RelayCodeAvailable;
 
         // ===== Config/State =====
@@ -83,6 +86,7 @@ namespace Network {
         private readonly ISceneCoordinator _scenes = new SceneCoordinator();
 
         public event Action<string> FrontStatusChanged;
+        [System.Obsolete("Use EventBus.Subscribe<SessionJoinedEvent> instead")]
         public event Action<string> SessionJoined;
         private SessionPhase Phase { get; set; }
 
@@ -93,7 +97,9 @@ namespace Network {
 
         public bool IsInGameplay { get; private set; }
 
+        [System.Obsolete("Use EventBus.Subscribe<HostDisconnectedEvent> instead")]
         public event Action HostDisconnected; // UI: show message
+        [System.Obsolete("Use EventBus.Subscribe<LobbyResetEvent> instead")]
         public event Action LobbyReset; // UI: clear player list, reset labels
 
         #region State Management & Helpers
@@ -149,6 +155,7 @@ namespace Network {
             }
 
             // Clear player list in UI
+            EventBus.Publish(new PlayersChangedEvent(new List<IReadOnlyPlayer>()));
             if(PlayersChanged != null) {
                 PlayersChanged.Invoke(new List<IReadOnlyPlayer>());
             }
@@ -378,6 +385,7 @@ namespace Network {
             RegisterNetworkCallbacks();
 
             // Notify UI of new session players
+            EventBus.Publish(new PlayersChangedEvent(ActiveSession.Players));
             if(PlayersChanged != null) {
                 PlayersChanged.Invoke(ActiveSession.Players);
             }
@@ -398,6 +406,7 @@ namespace Network {
                     await host.SavePropertiesAsync(); // clients see the real Relay code here
 
                     // Immediately notify any clients that are already polling
+                    EventBus.Publish(new RelayCodeAvailableEvent(code));
                     if(RelayCodeAvailable != null) {
                         RelayCodeAvailable.Invoke(code);
                     }
@@ -667,6 +676,7 @@ namespace Network {
                     HookSessionEvents();
                     await SetupClientTransportFromSessionAsync(); // See below
                     StartClientIfNeeded();
+                    EventBus.Publish(new PlayersChangedEvent(ActiveSession.Players));
                     if(PlayersChanged != null) {
                         PlayersChanged.Invoke(ActiveSession.Players);
                     }
@@ -844,6 +854,7 @@ namespace Network {
                 await host.SavePropertiesAsync();
 
                 // Immediately notify clients via event (in case they're already polling)
+                EventBus.Publish(new RelayCodeAvailableEvent(_relayJoinCode));
                 if(RelayCodeAvailable != null) {
                     RelayCodeAvailable.Invoke(_relayJoinCode);
                 }
@@ -889,10 +900,12 @@ namespace Network {
             RegisterNetworkCallbacks();
 
             // Notify UI of session players
+            EventBus.Publish(new PlayersChangedEvent(ActiveSession.Players));
             if(PlayersChanged != null) {
                 PlayersChanged.Invoke(ActiveSession.Players);
             }
 
+            EventBus.Publish(new SessionJoinedEvent(ActiveSession.Code));
             if(SessionJoined != null) {
                 SessionJoined.Invoke(ActiveSession.Code);
             }
@@ -915,6 +928,7 @@ namespace Network {
                 // Check immediately if relay code is already available
                 if(TryGetRelayCode(out var immediateCode)) {
                     relayCode = immediateCode;
+                    EventBus.Publish(new RelayCodeAvailableEvent(immediateCode));
                     if(RelayCodeAvailable != null) {
                         RelayCodeAvailable.Invoke(immediateCode);
                     }
@@ -933,6 +947,8 @@ namespace Network {
                         if(ActiveSession == null ||
                            string.IsNullOrEmpty(ActiveSession.Host) ||
                            ActiveSession.Players.Count == 0) {
+                            EventBus.Publish(new HostDisconnectedEvent());
+                            EventBus.Publish(new LobbyResetEvent());
                             if(HostDisconnected != null) {
                                 HostDisconnected.Invoke();
                             }
@@ -945,6 +961,7 @@ namespace Network {
 
                         if(TryGetRelayCode(out var c)) {
                             relayCode = c;
+                            EventBus.Publish(new RelayCodeAvailableEvent(c));
                             if(RelayCodeAvailable != null) {
                                 RelayCodeAvailable.Invoke(c);
                             }
@@ -953,6 +970,8 @@ namespace Network {
 
                         await UniTask.Delay(500, cancellationToken: ct);
                     } catch(Exception e) when(e.Message.Contains("not found") || e.Message.Contains("deleted")) {
+                        EventBus.Publish(new HostDisconnectedEvent());
+                        EventBus.Publish(new LobbyResetEvent());
                         if(HostDisconnected != null) {
                             HostDisconnected.Invoke();
                         }
@@ -1093,6 +1112,7 @@ namespace Network {
             try {
                 await ActiveSession.RefreshAsync();
                 if(ActiveSession != null) {
+                    EventBus.Publish(new PlayersChangedEvent(ActiveSession.Players));
                     if(PlayersChanged != null) {
                         PlayersChanged.Invoke(ActiveSession.Players);
                     }
@@ -1158,6 +1178,8 @@ namespace Network {
                     if(ActiveSession == null ||
                        string.IsNullOrEmpty(ActiveSession.Host) ||
                        ActiveSession.Players.Count == 0) {
+                        EventBus.Publish(new HostDisconnectedEvent());
+                        EventBus.Publish(new LobbyResetEvent());
                         if(HostDisconnected != null) {
                             HostDisconnected.Invoke();
                         }
@@ -1168,13 +1190,19 @@ namespace Network {
                         return; // ← stop further processing
                     }
 
-                    if(PlayersChanged != null && ActiveSession != null) {
-                        PlayersChanged.Invoke(ActiveSession.Players);
+                    if(ActiveSession != null) {
+                        EventBus.Publish(new PlayersChangedEvent(ActiveSession.Players));
+                        if(PlayersChanged != null) {
+                            PlayersChanged.Invoke(ActiveSession.Players);
+                        }
                     }
                 },
                 onJoined: _ => {
-                    if(PlayersChanged != null && ActiveSession != null) {
-                        PlayersChanged.Invoke(ActiveSession.Players);
+                    if(ActiveSession != null) {
+                        EventBus.Publish(new PlayersChangedEvent(ActiveSession.Players));
+                        if(PlayersChanged != null) {
+                            PlayersChanged.Invoke(ActiveSession.Players);
+                        }
                     }
                 },
                 onLeaving: _ => {
@@ -1185,8 +1213,12 @@ namespace Network {
                         return;
                     }
 
+                    // Notify listeners that session properties changed (for gamemode sync, etc.)
+                    EventBus.Publish(new SessionPropertiesRefreshedEvent());
+
                     if(ActiveSession.Properties.TryGetValue(RelayCodeKey, out var p) &&
                        !string.IsNullOrEmpty(p.Value)) {
+                        EventBus.Publish(new RelayCodeAvailableEvent(p.Value));
                         if(RelayCodeAvailable != null) {
                             RelayCodeAvailable.Invoke(p.Value);
                         }

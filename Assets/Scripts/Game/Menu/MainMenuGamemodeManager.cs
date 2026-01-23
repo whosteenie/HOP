@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using Cysharp.Threading.Tasks;
 using Network;
+using Network.Events;
 using Unity.Services.Multiplayer;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -15,6 +16,8 @@ namespace Game.Menu {
     /// Handles all gamemode-related functionality.
     /// </summary>
     public class MainMenuGamemodeManager : MonoBehaviour {
+        private static MainMenuGamemodeManager Instance { get; set; }
+
         [Header("References")]
         public UIDocument uiDocument;
 
@@ -33,6 +36,14 @@ namespace Game.Menu {
         public Action<bool> OnHostStatusChanged; // bool is new host status
 
         private void Awake() {
+            if(Instance != null && Instance != this) {
+                Debug.LogWarning("[MainMenuGamemodeManager] Duplicate instance detected, destroying duplicate");
+                Destroy(gameObject);
+                return;
+            }
+
+            Instance = this;
+
             if(uiDocument == null) {
                 Debug.LogError("[MainMenuGamemodeManager] UIDocument is not assigned!");
                 return;
@@ -43,21 +54,44 @@ namespace Game.Menu {
             SetupGamemodeDropdown();
         }
 
+        private void OnDestroy() {
+            if(Instance == this) {
+                Instance = null;
+            }
+        }
+
         private void OnEnable() {
-            // Hook into session property changes
+            // Subscribe to session refresh events (fired during client polling)
+            EventBus.Subscribe<SessionPropertiesRefreshedEvent>(OnSessionPropertiesRefreshed);
+            
+            // Hook into session property changes (for initial sync when joining)
             HookSessionPropertyChanges();
+            // Also check immediately in case session already exists
+            UpdateGamemodeFromSession();
         }
 
         private void OnDisable() {
+            EventBus.Unsubscribe<SessionPropertiesRefreshedEvent>(OnSessionPropertiesRefreshed);
             UnhookSessionPropertyChanges();
+        }
+        
+        private void OnSessionPropertiesRefreshed(SessionPropertiesRefreshedEvent evt) {
+            // When session properties are refreshed (during polling), update gamemode
+            UpdateGamemodeFromSession();
         }
 
         private void HookSessionPropertyChanges() {
             var sessionManager = SessionManager.Instance;
             var session = sessionManager != null ? sessionManager.ActiveSession : null;
-            if(session != null) {
-                session.SessionPropertiesChanged += OnSessionPropertiesChanged;
+            if(session == null) {
+                Debug.Log("[MainMenuGamemodeManager] No active session, cannot hook property changes");
+                return;
             }
+            
+            Debug.Log("[MainMenuGamemodeManager] Hooking SessionPropertiesChanged event");
+            session.SessionPropertiesChanged += OnSessionPropertiesChanged;
+            // Also check immediately when hooking (in case gamemode was already set)
+            UpdateGamemodeFromSession();
         }
 
         private void UnhookSessionPropertyChanges() {
@@ -69,6 +103,14 @@ namespace Game.Menu {
         }
 
         private void OnSessionPropertiesChanged() {
+            Debug.Log("[MainMenuGamemodeManager] SessionPropertiesChanged event fired");
+            // Small delay to ensure session properties are fully updated
+            StartCoroutine(UpdateGamemodeFromSessionDelayed());
+        }
+
+        private IEnumerator UpdateGamemodeFromSessionDelayed() {
+            yield return null; // Wait one frame for properties to be fully updated
+            Debug.Log("[MainMenuGamemodeManager] Updating gamemode from session after delay");
             UpdateGamemodeFromSession();
         }
 
@@ -138,7 +180,8 @@ namespace Game.Menu {
                 });
             }
 
-            if(privateMatchOption != null) {
+            if(privateMatchOption == null) return;
+            {
                 privateMatchOption.clicked += () => {
                     if(!_isHost) return;
                     UISoundService.PlayButtonClick();
@@ -178,7 +221,7 @@ namespace Game.Menu {
                         _gamemodeDisplayLabel.text = _selectedGameMode;
                     }
                 
-                    // Sync initial gamemode to session
+                    // Sync initial gamemode to clients via session properties
                     SyncGamemodeToSessionAsync(_selectedGameMode).Forget();
                     break;
                 }
@@ -201,8 +244,10 @@ namespace Game.Menu {
                 }
             }
 
-            // Update display
+            // Update display (for clients, check session properties)
             if(!isHost) {
+                // Re-hook session properties in case session just became available
+                HookSessionPropertyChanges();
                 UpdateGamemodeFromSession();
             }
 
@@ -315,6 +360,7 @@ namespace Game.Menu {
 
             _selectedGameMode = modeName;
 
+            // Update locally immediately (host) to prevent UI lag
             if(MatchSettingsManager.Instance != null) {
                 var settings = MatchSettingsManager.Instance;
                 settings.selectedGameModeId = modeName;
@@ -324,9 +370,10 @@ namespace Game.Menu {
             UpdateGamemodeDisplay();
             ToggleGamemodeDropdown();
 
-            // Sync gamemode to session properties in background
+            // Broadcast to clients via session properties
             SyncGamemodeToSessionAsync(modeName).Forget();
         }
+
 
         private static int GetMatchDurationForMode(string modeName) {
             return modeName switch {
@@ -334,7 +381,7 @@ namespace Game.Menu {
                 "Team Deathmatch" => 900, // 15 min
                 "Gun Tag" => 300, // 5 min
                 "Hopball" => 1200, // 20 min
-                "Private Match" => 30,
+                "Private Match" => 999999, // 60 min
                 _ => MatchSettingsManager.Instance != null
                     ? MatchSettingsManager.Instance.defaultMatchDurationSeconds
                     : 600
@@ -342,18 +389,21 @@ namespace Game.Menu {
         }
 
         private async UniTask SyncGamemodeToSessionAsync(string gamemode) {
+            if(!_isHost) return;
+            
             var sessionManager = SessionManager.Instance;
-            var session = sessionManager != null ? sessionManager.ActiveSession : null;
-            if(session == null || !_isHost) return;
+            if(sessionManager == null) return;
+            var session = sessionManager.ActiveSession;
+            if(session == null) return;
 
             try {
                 var host = session.AsHost();
-                if(host != null) {
-                    host.SetProperty("gamemode", new SessionProperty(gamemode, VisibilityPropertyOptions.Member));
-                    await host.SavePropertiesAsync();
-                }
+                if(host == null) return;
+                
+                host.SetProperty("gamemode", new SessionProperty(gamemode, VisibilityPropertyOptions.Member));
+                await host.SavePropertiesAsync();
             } catch(Exception e) {
-                Debug.LogWarning($"[MainMenuGamemodeManager] Failed to sync gamemode to session: {e.Message}");
+                Debug.LogError($"[MainMenuGamemodeManager] Failed to sync gamemode to session: {e.Message}");
             }
         }
 
@@ -366,26 +416,29 @@ namespace Game.Menu {
             }
         }
 
-        private void UpdateGamemodeFromSession() {
+        public void UpdateGamemodeFromSession() {
+            if(_isHost) return;
+            
             var sessionManager = SessionManager.Instance;
-            var session = sessionManager != null ? sessionManager.ActiveSession : null;
-            if(session == null || _isHost) return;
+            if(sessionManager == null) return;
+            var session = sessionManager.ActiveSession;
+            if(session == null) return;
 
-            // Try to get gamemode from session properties
             if(session.Properties.TryGetValue("gamemode", out var prop) && !string.IsNullOrEmpty(prop.Value)) {
-                _selectedGameMode = prop.Value;
-                if(_gamemodeDisplayLabel != null) {
-                    _gamemodeDisplayLabel.text = _selectedGameMode;
-                }
+                var newGamemode = prop.Value;
+                if(_selectedGameMode != newGamemode) {
+                    _selectedGameMode = newGamemode;
+                    
+                    if(_gamemodeDisplayLabel != null) {
+                        _gamemodeDisplayLabel.text = _selectedGameMode;
+                    }
 
-                if(MatchSettingsManager.Instance != null) {
-                    MatchSettingsManager.Instance.selectedGameModeId = _selectedGameMode;
+                    if(MatchSettingsManager.Instance != null) {
+                        MatchSettingsManager.Instance.selectedGameModeId = _selectedGameMode;
+                    }
                 }
-            } else {
-                // No gamemode set yet, show "Lobby"
-                if(_gamemodeDisplayLabel != null) {
-                    _gamemodeDisplayLabel.text = "Lobby";
-                }
+            } else if(_gamemodeDisplayLabel != null && _gamemodeDisplayLabel.text != "Lobby") {
+                _gamemodeDisplayLabel.text = "Lobby";
             }
         }
 

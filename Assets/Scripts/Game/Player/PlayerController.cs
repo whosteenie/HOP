@@ -200,6 +200,12 @@ namespace Game.Player {
 
         #endregion
 
+        #region Public Properties
+
+        public float CurrentPitch => lookController != null ? lookController.CurrentPitch : 0f;
+
+        #endregion
+
         #region Unity Lifecycle
 
         public override void OnNetworkSpawn() {

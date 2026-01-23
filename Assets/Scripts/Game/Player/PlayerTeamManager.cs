@@ -184,7 +184,6 @@ namespace Game.Player {
                 _cachedIsTeamBased = MatchSettingsManager.IsTeamBasedMode(_cachedGameModeId);
                 _cachedIsTagMode = _cachedGameModeId == "Gun Tag";
                 _gameModeCacheValid = true;
-                Debug.Log($"[PlayerTeamManager] Cached game mode: '{_cachedGameModeId}', IsTeamBased: {_cachedIsTeamBased}, IsTagMode: {_cachedIsTagMode}, GameObject: {gameObject.name}, IsOwner: {IsOwner}");
             }
 
             // Gun Tag mode: prioritize tag glow

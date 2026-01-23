@@ -1,5 +1,6 @@
 using Game.Player;
 using Game.Weapons;
+using Network.Diagnostics;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -15,11 +16,10 @@ namespace Network.Rpc {
 
         private void ValidateComponents() {
             if(playerController == null) {
-                playerController = GetComponent<PlayerController>();
+                playerController = this.GetComponentSafe<PlayerController>("NetworkFxRelay.ValidateComponents");
             }
 
             if(playerController == null) {
-                Debug.LogError("[NetworkFxRelay] PlayerController not found!");
                 enabled = false;
                 return;
             }

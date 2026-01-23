@@ -216,56 +216,75 @@ namespace Game.Spawning {
 
         /// <summary>
         /// Finds a physically clear spawn point from a list (doesn't check reservations).
+        /// Uses random selection for true randomness.
         /// </summary>
         private static SpawnPoint FindClearSpawnPoint(List<SpawnPoint> list, string context) {
             if(list == null || list.Count == 0) return null;
 
-            var attempts = 0;
-            var startIdx = Random.Range(0, list.Count);
+            // Create a shuffled copy of indices for random selection
+            var indices = new List<int>();
+            for(var i = 0; i < list.Count; i++) {
+                indices.Add(i);
+            }
+            
+            // Shuffle indices using Fisher-Yates
+            var n = indices.Count;
+            while(n > 1) {
+                n--;
+                var k = Random.Range(0, n + 1);
+                (indices[k], indices[n]) = (indices[n], indices[k]);
+            }
 
-            while(attempts < MaxSpawnAttempts) {
-                var point = list[startIdx];
-
+            // Try each spawn point in random order
+            foreach(var idx in indices) {
+                var point = list[idx];
                 if(IsSpawnPointClear(point.transform.position)) {
                     return point;
                 }
-
-                startIdx = (startIdx + 1) % list.Count;
-                attempts++;
             }
 
             // Fallback: return first point even if occupied (better than no spawn)
             Debug.LogWarning(
-                $"[SpawnManager] No clear spawn point found for {context} after {MaxSpawnAttempts} attempts. Using fallback.");
+                $"[SpawnManager] No clear spawn point found for {context} after checking all {list.Count} points. Using fallback.");
             return list[0];
         }
 
         /// <summary>
         /// Finds an available spawn point (not reserved and physically clear) from a list.
+        /// Uses random selection for true randomness.
         /// Must be called within a lock(_reservationLock) block.
         /// </summary>
         private SpawnPoint FindAvailableSpawnPoint(List<SpawnPoint> list, string context) {
             if(list == null || list.Count == 0) return null;
 
-            var attempts = 0;
-            var startIdx = Random.Range(0, list.Count);
+            // Create a shuffled copy of indices for random selection
+            var indices = new List<int>();
+            for(var i = 0; i < list.Count; i++) {
+                indices.Add(i);
+            }
+            
+            // Shuffle indices using Fisher-Yates
+            var n = indices.Count;
+            while(n > 1) {
+                n--;
+                var k = Random.Range(0, n + 1);
+                (indices[k], indices[n]) = (indices[n], indices[k]);
+            }
 
-            while(attempts < MaxSpawnAttempts) {
-                var point = list[startIdx];
+            // Try each spawn point in random order
+            foreach(var idx in indices) {
+                var point = list[idx];
                 var isReserved = _reservations.ContainsKey(point);
                 var isPhysicallyClear = IsSpawnPointClear(point.transform.position);
 
                 if(!isReserved && isPhysicallyClear) {
                     return point;
                 }
-
-                startIdx = (startIdx + 1) % list.Count;
-                attempts++;
             }
 
             // Final fallback: return first point even if occupied
             Debug.LogWarning(
-                $"[SpawnManager] No safe spawn point found for {context} after {MaxSpawnAttempts} attempts. Using fallback.");
+                $"[SpawnManager] No safe spawn point found for {context} after checking all {list.Count} points. Using fallback.");
             return list[0];
         }
 

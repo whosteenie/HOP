@@ -1,0 +1,47 @@
+{
+    "HopMovement": {
+        "checkpoints": [
+            {
+                "steps": 49901,
+                "file_path": "results\\HopMovement_v2\\HopMovement\\HopMovement-49901.onnx",
+                "reward": 8.449457782506943,
+                "creation_time": 1764761729.4310517,
+                "auxillary_file_paths": [
+                    "results\\HopMovement_v2\\HopMovement\\HopMovement-49901.pt"
+                ]
+            },
+            {
+                "steps": 99978,
+                "file_path": "results\\HopMovement_v2\\HopMovement\\HopMovement-99978.onnx",
+                "reward": 8.461811323960623,
+                "creation_time": 1764762129.698796,
+                "auxillary_file_paths": [
+                    "results\\HopMovement_v2\\HopMovement\\HopMovement-99978.pt"
+                ]
+            },
+            {
+                "steps": 144395,
+                "file_path": "results\\HopMovement_v2\\HopMovement\\HopMovement-144395.onnx",
+                "reward": 7.596866428852081,
+                "creation_time": 1764762481.6109583,
+                "auxillary_file_paths": [
+                    "results\\HopMovement_v2\\HopMovement\\HopMovement-144395.pt"
+                ]
+            }
+        ],
+        "final_checkpoint": {
+            "steps": 144395,
+            "file_path": "results\\HopMovement_v2\\HopMovement.onnx",
+            "reward": 7.596866428852081,
+            "creation_time": 1764762481.6109583,
+            "auxillary_file_paths": [
+                "results\\HopMovement_v2\\HopMovement\\HopMovement-144395.pt"
+            ]
+        }
+    },
+    "metadata": {
+        "stats_format_version": "0.3.0",
+        "mlagents_version": "1.1.0",
+        "torch_version": "2.2.2+cu121"
+    }
+}

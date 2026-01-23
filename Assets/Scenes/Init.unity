@@ -215,6 +215,70 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &681843020
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 681843022}
+  - component: {fileID: 681843021}
+  - component: {fileID: 681843023}
+  m_Layer: 0
+  m_Name: DebugEventLogger
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &681843021
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 681843020}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8a822f63ffe94d24c828ea3c4d57d576, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Network.Diagnostics.DebugEventLogger
+  logComponentNotFound: 1
+  logNetworkObjectReferenceFailed: 1
+  logSingletonNotAvailable: 1
+  logCriticalError: 1
+  logNetworkRpcFailed: 1
+  logGameObjectNotFound: 1
+--- !u!4 &681843022
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 681843020}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &681843023
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 681843020}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 22527ecfcbbddcc4fbd1f319de5e731b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Network.Events.EventBusLogSettingsInitializer
+  logSettings: {fileID: 11400000, guid: 70d0faebc52d4a34c87efbf9cb3b78d7, type: 2}
 --- !u!1 &1814218810
 GameObject:
   m_ObjectHideFlags: 0
@@ -498,15 +562,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: bd520a3d60872014ea855812d09a9d30, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CustomNetworkManager
-  playerPrefab: {fileID: 6677973669287716317, guid: 44209664d1ffff54d86b748ca38189e9, type: 3}
-  playerMaterials:
-  - {fileID: 2100000, guid: ebbe52bcd784e3147849a94053a5c035, type: 2}
-  - {fileID: 2100000, guid: 1ded9121c1a0a964c938d58ab507c349, type: 2}
-  - {fileID: 2100000, guid: 38e5d2159e694ce43a61565060875118, type: 2}
-  - {fileID: 2100000, guid: 2ce3110cb860556479d44aa5b67b4090, type: 2}
-  - {fileID: 2100000, guid: 01e6863af29bd0e47b1c3cb1687412e5, type: 2}
-  - {fileID: 2100000, guid: 84ba988c9e922544ea7b389c21406a2f, type: 2}
-  - {fileID: 2100000, guid: 0506a00ddfcd6a0499fba55ee5cef747, type: 2}
+  playerPrefab: {fileID: 6677973669287716317, guid: de28e2dc2e177e74c9b667dd5d2e7d45, type: 3}
   autoBalanceTeams: 1
 --- !u!114 &4402361108633043761
 MonoBehaviour:
@@ -807,3 +863,4 @@ SceneRoots:
   - {fileID: 3133605238879460290}
   - {fileID: 1814218812}
   - {fileID: 23424727}
+  - {fileID: 681843022}

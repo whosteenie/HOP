@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using Game.Player;
 using Game.Audio;
 using Network.AntiCheat;
+using Network.Diagnostics;
 using Network.Events;
 using Unity.Netcode;
 using UnityEngine;
@@ -44,11 +45,10 @@ namespace Network.Rpc {
 
         private void ValidateComponents() {
             if(playerController == null) {
-                playerController = GetComponent<PlayerController>();
+                playerController = this.GetComponentSafe<PlayerController>("NetworkSfxRelay.ValidateComponents");
             }
 
             if(playerController == null) {
-                Debug.LogError("[NetworkSfxRelay] PlayerController not found!");
                 enabled = false;
             }
         }

@@ -14,9 +14,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Network.AntiCheat.AntiCheatConfig
   rpcWindowSeconds: 1
   damageRpcLimit: 15
-  sfxRpcLimit: 30
+  sfxRpcLimit: 45
   weaponSwitchLimit: 12
-  maxSpeedMetersPerSecond: 200
+  maxSpeedMetersPerSecond: 400
   maxTeleportDistance: 30
   movementViolationWindowSeconds: 2
   speedViolationThreshold: 5

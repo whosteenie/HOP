@@ -86,12 +86,7 @@ namespace Game.Player {
 
         #region Core Components
 
-        public Transform PlayerTransform {
-            get {
-                if(playerTransform != null) return playerTransform;
-                return transform;
-            }
-        }
+        public Transform PlayerTransform => playerTransform != null ? playerTransform : transform;
         public CharacterController CharacterController => characterController;
         public PlayerInput PlayerInput => playerInput;
         public UnityEngine.InputSystem.PlayerInput UnityPlayerInput => unityPlayerInput;

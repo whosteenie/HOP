@@ -30,6 +30,12 @@ namespace Game.Player {
         [SerializeField] private bool toggleSprint = true;
 
         [SerializeField] private bool toggleCrouch = true;
+        
+        [Header("Bot Control")]
+        /// <summary>
+        /// When true, disables Unity Input System reading and allows external control (for AI bots).
+        /// </summary>
+        public bool IsBot { get; set; }
 
         #endregion
 
@@ -103,6 +109,31 @@ namespace Game.Player {
 
         [SerializeField] private float sniperZoomFov = 20f;
         private float _defaultFpFov = -1f;
+        
+        /// <summary>
+        /// Gets whether the jump action is currently being held (for bot recording).
+        /// Respects custom keybinds including scroll wheel.
+        /// </summary>
+        public bool IsJumpHeld {
+            get {
+                if(_playerInputComponent == null) return false;
+                var playerMap = _playerInputComponent.actions.FindActionMap("Player");
+                var jumpAction = playerMap?.FindAction("Jump");
+                return jumpAction != null && jumpAction.IsPressed();
+            }
+        }
+
+        /// <summary>
+        /// Gets whether the grapple action is currently being held (for bot recording).
+        /// </summary>
+        public bool IsGrappleHeld {
+            get {
+                if(_playerInputComponent == null) return false;
+                var playerMap = _playerInputComponent.actions.FindActionMap("Player");
+                var grappleAction = playerMap?.FindAction("Grapple");
+                return grappleAction != null && grappleAction.IsPressed();
+            }
+        }
 
         #region Unity Methods
 
@@ -169,6 +200,7 @@ namespace Game.Player {
 
         // Direct Input System polling for certain actions
         private void LateUpdate() {
+            if(IsBot) return;
             if(!IsOwner || !CurrentWeapon || WeaponManager == null) return;
 
             var weaponData = WeaponManager.GetWeaponDataByIndex(WeaponManager.CurrentWeaponIndex);
@@ -267,10 +299,106 @@ namespace Game.Player {
 
         #endregion
 
+        #region Bot Control Interface
+
+        /// <summary>
+        /// Sets movement input externally (for bots). Bypasses Unity Input System.
+        /// </summary>
+        public void SetMovementInput(Vector2 move) {
+            if(!IsOwner) return; // Only owner can set input (prevents network interference)
+            if(playerController != null) {
+                playerController.moveInput = move;
+            }
+        }
+
+        /// <summary>
+        /// Sets look input externally (for bots). Bypasses Unity Input System.
+        /// </summary>
+        public void SetLookInput(Vector2 look) {
+            if(!IsOwner) return; // Only owner can set input (prevents network interference)
+            if(playerController != null) {
+                playerController.lookInput = look;
+            }
+        }
+
+        /// <summary>
+        /// Triggers jump action externally (for bots).
+        /// </summary>
+        public void TriggerJump() {
+            if(!IsOwner || IsPreMatchOrPausedOrDead) return;
+            var isMantling = MantleController != null && MantleController.IsMantling;
+            if(isMantling) return;
+
+            if(!playerController.IsGrounded && MantleController != null) {
+                MantleController.TryMantle();
+                if(MantleController.IsMantling) return;
+            }
+
+            playerController.TryJump();
+            
+            if(GrappleController != null && GrappleController.IsGrappling) {
+                GrappleController.CancelGrapple();
+            }
+        }
+
+        /// <summary>
+        /// Triggers grapple action externally (for bots).
+        /// </summary>
+        public void TriggerGrapple() {
+            if(!IsOwner || IsPreMatchOrPausedOrDead) return;
+            var isMantling = MantleController != null && MantleController.IsMantling;
+            if(isMantling) return;
+
+            if(GrappleController != null) {
+                if(GrappleController.IsGrappling) {
+                    GrappleController.CancelGrapple();
+                } else {
+                    GrappleController.TryGrapple();
+                }
+            }
+        }
+
+        /// <summary>
+        /// Triggers shoot action externally (for bots).
+        /// </summary>
+        public void TriggerShoot() {
+            if(!IsOwner || IsPreMatchOrPausedOrDead) return;
+            var isMantling = MantleController != null && MantleController.IsMantling;
+            if(isMantling) return;
+            if(playerController != null && playerController.IsHoldingHopball) return;
+
+            if(CurrentWeapon != null) {
+                CurrentWeapon.Shoot();
+            }
+        }
+
+        /// <summary>
+        /// Sets sprint state externally (for bots).
+        /// </summary>
+        public void SetSprintInput(bool sprint) {
+            if(!IsOwner) return; // Only owner can set input (prevents network interference)
+            if(playerController != null) {
+                playerController.sprintInput = sprint;
+            }
+        }
+
+        /// <summary>
+        /// Sets crouch state externally (for bots).
+        /// </summary>
+        public void SetCrouchInput(bool crouch) {
+            if(!IsOwner) return; // Only owner can set input (prevents network interference)
+            if(playerController != null) {
+                playerController.crouchInput = crouch;
+            }
+        }
+
+        #endregion
+
         #region Movement
 
         [UsedImplicitly]
         private void OnLook(InputValue value) {
+            if(IsBot) return;
             if(!IsOwner) return;
             if(IsPausedOrDead) {
                 playerController.lookInput = Vector2.zero;
@@ -285,6 +413,7 @@ namespace Game.Player {
 
         [UsedImplicitly]
         private void OnMove(InputValue value) {
+            if(IsBot) return;
             if(!IsOwner) return;
             if(IsPaused || GameMenuManager.Instance.IsPostMatch) {
                 playerController.moveInput = Vector2.zero;
@@ -298,6 +427,7 @@ namespace Game.Player {
 
         [UsedImplicitly]
         private void OnSprint(InputValue value) {
+            if(IsBot) return;
             if(!IsOwner) return;
             if(IsPausedOrDead) {
                 if(!toggleSprint)
@@ -322,6 +452,7 @@ namespace Game.Player {
 
         [UsedImplicitly]
         private void OnCrouch(InputValue value) {
+            if(IsBot) return;
             if(!IsOwner) return;
             var isMantling = MantleController != null && MantleController.IsMantling;
             if(IsPausedOrDead || isMantling) {
@@ -347,6 +478,7 @@ namespace Game.Player {
 
         [UsedImplicitly]
         private void OnJump(InputValue value) {
+            if(IsBot) return;
             if(!IsOwner || IsPausedOrDead) return;
             var isMantling = MantleController != null && MantleController.IsMantling;
             if(isMantling) return;
@@ -370,6 +502,7 @@ namespace Game.Player {
         }
 
         private void OnScrollWheel(InputValue _) {
+            if(IsBot) return;
             // TODO: Fix scroll wheel input so we don't have to use Mouse.current.scroll in LateUpdate
             if(!IsOwner || IsPreMatchOrPausedOrDead) return;
             var isMantling = MantleController != null && MantleController.IsMantling;
@@ -384,6 +517,7 @@ namespace Game.Player {
 
         [UsedImplicitly]
         private void OnAttack(InputValue value) {
+            if(IsBot) return;
             if(!IsOwner || IsPreMatchOrPausedOrDead) return;
             var isMantling = MantleController != null && MantleController.IsMantling;
             if(isMantling) return;
@@ -400,6 +534,7 @@ namespace Game.Player {
 
         [UsedImplicitly]
         private void OnZoom(InputValue value) {
+            if(IsBot) return;
             if(!IsOwner || IsPausedOrDead) return;
             
             if(!value.isPressed) return;
@@ -427,6 +562,7 @@ namespace Game.Player {
 
         [UsedImplicitly]
         private void OnGrapple(InputValue value) {
+            if(IsBot) return;
             if(!IsOwner || IsPreMatchOrPausedOrDead || GameMenuManager.Instance.IsPostMatch) return;
             var isMantling = MantleController != null && MantleController.IsMantling;
             if(isMantling) return;
@@ -450,6 +586,7 @@ namespace Game.Player {
 
         [UsedImplicitly]
         private void OnPrimary(InputValue _) {
+            if(IsBot) return;
             if(!IsOwner || IsPausedOrDead) return;
             var isMantling = MantleController != null && MantleController.IsMantling;
             if(isMantling) return;
@@ -459,6 +596,7 @@ namespace Game.Player {
 
         [UsedImplicitly]
         private void OnSecondary(InputValue _) {
+            if(IsBot) return;
             if(!IsOwner || IsPausedOrDead) return;
             var isMantling = MantleController != null && MantleController.IsMantling;
             if(isMantling) return;
@@ -467,6 +605,7 @@ namespace Game.Player {
         }
 
         private void OnTertiary(InputValue _) {
+            if(IsBot) return;
             if(!IsOwner || IsPausedOrDead) return;
             var isMantling = MantleController != null && MantleController.IsMantling;
             if(isMantling) return;
@@ -476,6 +615,7 @@ namespace Game.Player {
 
         [UsedImplicitly]
         private void OnNextWeapon(InputValue _) {
+            if(IsBot) return;
             if(!IsOwner || IsPausedOrDead) return;
             var isMantling = MantleController != null && MantleController.IsMantling;
             if(isMantling) return;
@@ -486,6 +626,7 @@ namespace Game.Player {
         
         [UsedImplicitly]
         private void OnPreviousWeapon(InputValue _) {
+            if(IsBot) return;
             if(!IsOwner || IsPausedOrDead) return;
             var isMantling = MantleController != null && MantleController.IsMantling;
             if(isMantling) return;
@@ -510,6 +651,7 @@ namespace Game.Player {
 
         [UsedImplicitly]
         private void OnReload(InputValue _) {
+            if(IsBot) return;
             if(!IsOwner || IsPreMatchOrPausedOrDead || !CurrentWeapon) return;
             var isMantling = MantleController != null && MantleController.IsMantling;
             if(isMantling) return;
@@ -525,12 +667,14 @@ namespace Game.Player {
 
         [UsedImplicitly]
         private void OnPause(InputValue _) {
+            if(IsBot) return;
             if(!IsOwner) return;
             GameMenuManager.Instance.TogglePause();
         }
 
         [UsedImplicitly]
         private void OnInteract(InputValue _) {
+            if(IsBot) return;
             if(!IsOwner || IsPausedOrDead) return;
             var isMantling = MantleController != null && MantleController.IsMantling;
             if(isMantling) return;

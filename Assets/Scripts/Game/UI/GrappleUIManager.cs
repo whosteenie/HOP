@@ -26,6 +26,11 @@ namespace Game.UI {
         private GrappleController _grappleController;
         private CinemachineCamera _fpCamera;
         
+        // Bottom indicator (square)
+        private VisualElement _grappleIndicatorBottom;
+        private VisualElement _grappleIndicatorFill;
+        private float _currentFillOpacity = 1f;
+        
         // Cache scene name to avoid string allocations
         private string _cachedSceneName;
 
@@ -61,9 +66,30 @@ namespace Game.UI {
                 Debug.LogError("[GrappleUIManager] Could not find grapple-indicator element in UI!");
                 return;
             }
+            
+            // Find bottom indicator elements
+            _grappleIndicatorBottom = root.Q<VisualElement>("grapple-indicator-bottom");
+            _grappleIndicatorFill = root.Q<VisualElement>("grapple-indicator-fill");
 
             _currentColor = cooldownColor;
             CreateHorseshoeSegments();
+            
+            // Set initial visibility based on grapple indicator type setting
+            var grappleIndicatorType = PlayerPrefs.GetInt("GrappleIndicator", 0);
+            switch(grappleIndicatorType) {
+                case 0: // Crosshair
+                    ShowCrosshairIndicator();
+                    HideBottomIndicator();
+                    break;
+                case 1: // Bottom
+                    HideCrosshairIndicator();
+                    ShowBottomIndicator();
+                    break;
+                case 2: // None
+                    HideCrosshairIndicator();
+                    HideBottomIndicator();
+                    break;
+            }
             
             // Subscribe to scene changes to update cache
             SceneManager.sceneLoaded += OnSceneLoaded;
@@ -91,7 +117,51 @@ namespace Game.UI {
             if(_cachedSceneName?.Contains("Game") != true) return;
             
             CheckGrapplePoint();
-            UpdateIndicatorVisual();
+            
+            // Check grapple indicator type setting
+            var grappleIndicatorType = PlayerPrefs.GetInt("GrappleIndicator", 0);
+            
+            // Update appropriate indicator based on setting
+            switch(grappleIndicatorType) {
+                case 0: // Crosshair (horseshoe)
+                    ShowCrosshairIndicator();
+                    HideBottomIndicator();
+                    UpdateIndicatorVisual();
+                    break;
+                case 1: // Bottom (square)
+                    HideCrosshairIndicator();
+                    ShowBottomIndicator();
+                    UpdateBottomIndicatorVisual();
+                    break;
+                case 2: // None
+                    HideCrosshairIndicator();
+                    HideBottomIndicator();
+                    break;
+            }
+        }
+        
+        private void ShowCrosshairIndicator() {
+            if(_grappleIndicator != null) {
+                _grappleIndicator.style.display = DisplayStyle.Flex;
+            }
+        }
+        
+        private void HideCrosshairIndicator() {
+            if(_grappleIndicator != null) {
+                _grappleIndicator.style.display = DisplayStyle.None;
+            }
+        }
+        
+        private void ShowBottomIndicator() {
+            if(_grappleIndicatorBottom != null) {
+                _grappleIndicatorBottom.style.display = DisplayStyle.Flex;
+            }
+        }
+        
+        private void HideBottomIndicator() {
+            if(_grappleIndicatorBottom != null) {
+                _grappleIndicatorBottom.style.display = DisplayStyle.None;
+            }
         }
 
         public void RegisterLocalPlayer(PlayerController player) {
@@ -220,15 +290,78 @@ namespace Game.UI {
             if(_grappleIndicator != null) {
                 _grappleIndicator.style.display = DisplayStyle.None;
             }
+            if(_grappleIndicatorBottom != null) {
+                _grappleIndicatorBottom.style.display = DisplayStyle.None;
+            }
         }
 
         /// <summary>
         /// Shows the grapple UI indicator (e.g., when starting a new game).
         /// </summary>
         public void ShowGrappleUI() {
-            if(_grappleIndicator != null) {
-                _grappleIndicator.style.display = DisplayStyle.Flex;
+            // Show appropriate indicator based on setting
+            var grappleIndicatorType = PlayerPrefs.GetInt("GrappleIndicator", 0);
+            switch(grappleIndicatorType) {
+                case 0: // Crosshair
+                    ShowCrosshairIndicator();
+                    HideBottomIndicator();
+                    break;
+                case 1: // Bottom
+                    HideCrosshairIndicator();
+                    ShowBottomIndicator();
+                    break;
+                case 2: // None
+                    HideCrosshairIndicator();
+                    HideBottomIndicator();
+                    break;
             }
+        }
+        
+        /// <summary>
+        /// Updates the bottom grapple indicator (square fill).
+        /// Fill height = cooldown progress (0-100% bottom-to-top).
+        /// Color opacity = target validity (red when valid, transparent when invalid).
+        /// </summary>
+        private void UpdateBottomIndicatorVisual() {
+            if(_grappleIndicatorBottom == null || _grappleIndicatorFill == null) return;
+            
+            // Determine fill height based on cooldown/grappling state
+            float fillHeight;
+            
+            if(_grappleController.IsGrappling) {
+                // Grappling - no fill
+                fillHeight = 0f;
+            } else if(!_grappleController.CanGrapple) {
+                // Cooldown - show progress
+                fillHeight = _grappleController.CooldownProgress;
+            } else {
+                // Ready - full fill
+                fillHeight = 1f;
+            }
+            
+            // Determine color opacity based on target validity
+            float targetOpacity;
+            
+            if(_grappleController.IsGrappling) {
+                // Grappling - transparent
+                targetOpacity = 0f;
+            } else if(_isLookingAtGrapplePoint && _grappleController.CanGrapple) {
+                // Ready and valid target - full red
+                targetOpacity = 1f;
+            } else if(!_grappleController.CanGrapple) {
+                // Cooldown - show based on target (dim red if valid, very dim if not)
+                targetOpacity = _isLookingAtGrapplePoint ? 0.5f : 0.2f;
+            } else {
+                // Ready but invalid target - dim
+                targetOpacity = 0.3f;
+            }
+            
+            // Smooth color opacity transition
+            _currentFillOpacity = Mathf.Lerp(_currentFillOpacity, targetOpacity, colorTransitionSpeed * Time.deltaTime);
+            
+            // Update fill visuals
+            _grappleIndicatorFill.style.height = Length.Percent(fillHeight * 100f);
+            _grappleIndicatorFill.style.opacity = _currentFillOpacity;
         }
     }
 }

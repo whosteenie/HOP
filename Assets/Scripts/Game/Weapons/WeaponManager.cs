@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Game.Player;
 using Game.Audio;
 using Network.AntiCheat;
+using Network.Diagnostics;
 using Network.Events;
 using Unity.Cinemachine;
 using Unity.Netcode;
@@ -66,11 +67,10 @@ namespace Game.Weapons {
 
         private void ValidateComponents() {
             if(playerController == null) {
-                playerController = GetComponent<PlayerController>();
+                playerController = this.GetComponentSafe<PlayerController>("WeaponManager.ValidateComponents");
             }
 
             if(playerController == null) {
-                Debug.LogError("[WeaponManager] PlayerController not found!");
                 enabled = false;
                 return;
             }
@@ -84,7 +84,7 @@ namespace Game.Weapons {
             // Validate PlayerRenderer (required for renderer operations)
             if(_playerRenderer == null) _playerRenderer = playerController.PlayerRenderer;
             if(_playerRenderer != null) return;
-            Debug.LogError("[WeaponManager] PlayerRenderer not found! Cannot perform renderer operations.");
+            // PlayerRenderer not found - event already published by GetComponentSafe if used
             enabled = false;
         }
 

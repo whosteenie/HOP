@@ -45,6 +45,7 @@ namespace Game.Menu {
         private Button _invertYButton;
         private Button _playerTrailsButton;
         private Button _holdMantleButton;
+        private DropdownField _grappleIndicatorDropdown;
         private DropdownField _windowModeDropdown;
         private DropdownField _aspectRatioDropdown;
         private DropdownField _resolutionDropdown;
@@ -89,6 +90,7 @@ namespace Game.Menu {
         private bool _originalInvertY;
         private bool _originalPlayerTrails;
         private bool _originalHoldMantle;
+        private int _originalGrappleIndicator;
         private int _originalWindowMode;
         private string _originalAspectRatio;
         private int _originalResolutionIndex;
@@ -138,6 +140,7 @@ namespace Game.Menu {
             _invertYButton = _root.Q<Button>("invert-y");
             _playerTrailsButton = _root.Q<Button>("player-trails");
             _holdMantleButton = _root.Q<Button>("hold-mantle");
+            _grappleIndicatorDropdown = _root.Q<DropdownField>("grapple-indicator");
 
             // Graphics controls
             _windowModeDropdown = _root.Q<DropdownField>("window-mode");
@@ -181,6 +184,7 @@ namespace Game.Menu {
             SetupAudioCallbacks();
             SetupControlsCallbacks();
             SetupGraphicsCallbacks();
+            SetupGameCallbacks();
 
             // Setup apply and back buttons
             _applyButton?.RegisterCallback<ClickEvent>(_ => {
@@ -262,6 +266,17 @@ namespace Game.Menu {
             _sensitivityValue?.AddToClassList("sensitivity-input");
 
             SetupVolumeInputField(_sensitivitySlider, _sensitivityValue, 0.01f, 0.5f, false);
+        }
+        
+        private void SetupGameCallbacks() {
+            // Setup grapple indicator dropdown
+            if(_grappleIndicatorDropdown != null) {
+                _grappleIndicatorDropdown.choices = new List<string> {
+                    "Crosshair",
+                    "Bottom",
+                    "None"
+                };
+            }
         }
 
         private static void SetupVolumeInputField(Slider slider, TextField textField, float minValue, float maxValue,
@@ -884,6 +899,12 @@ namespace Game.Menu {
             if(_playerTrailsButton != null)
                 SetCheckboxValue(_playerTrailsButton, PlayerPrefs.GetInt("PlayerTrails", 1) == 1);
             if(_holdMantleButton != null) SetCheckboxValue(_holdMantleButton, PlayerPrefs.GetInt("HoldMantle", 1) == 1);
+            
+            // Load grapple indicator setting (0 = Crosshair (default), 1 = Bottom, 2 = None)
+            if(_grappleIndicatorDropdown != null) {
+                var savedGrappleIndicator = PlayerPrefs.GetInt("GrappleIndicator", 0);
+                _grappleIndicatorDropdown.index = Mathf.Clamp(savedGrappleIndicator, 0, _grappleIndicatorDropdown.choices.Count - 1);
+            }
 
             // Load window mode and resolution settings
             if(_windowModeDropdown != null) {
@@ -950,6 +971,7 @@ namespace Game.Menu {
             _originalInvertY = GetCheckboxValue(_invertYButton);
             _originalPlayerTrails = GetCheckboxValue(_playerTrailsButton);
             _originalHoldMantle = GetCheckboxValue(_holdMantleButton);
+            if(_grappleIndicatorDropdown != null) _originalGrappleIndicator = _grappleIndicatorDropdown.index;
             if(_windowModeDropdown != null) _originalWindowMode = _windowModeDropdown.index;
             if(_aspectRatioDropdown != null) _originalAspectRatio = _aspectRatioDropdown.value;
             if(_resolutionDropdown != null) _originalResolutionIndex = _resolutionDropdown.index;
@@ -999,6 +1021,9 @@ namespace Game.Menu {
             var invertYChanged = GetCheckboxValue(_invertYButton) != _originalInvertY;
             var playerTrailsChanged = GetCheckboxValue(_playerTrailsButton) != _originalPlayerTrails;
             var holdMantleChanged = GetCheckboxValue(_holdMantleButton) != _originalHoldMantle;
+            
+            var grappleIndicatorChanged = false;
+            if(_grappleIndicatorDropdown != null) grappleIndicatorChanged = _grappleIndicatorDropdown.index != _originalGrappleIndicator;
 
             var windowModeChanged = false;
             if(_windowModeDropdown != null) windowModeChanged = _windowModeDropdown.index != _originalWindowMode;
@@ -1026,7 +1051,7 @@ namespace Game.Menu {
             if(_fpsDropdown != null) fpsChanged = _fpsDropdown.index != _originalTargetFPS;
 
             return volumeChanged || sensitivityChanged || invertYChanged || playerTrailsChanged || holdMantleChanged ||
-                   windowModeChanged || aspectRatioChanged || resolutionChanged || msaaChanged ||
+                   grappleIndicatorChanged || windowModeChanged || aspectRatioChanged || resolutionChanged || msaaChanged ||
                    shadowDistanceChanged || shadowResolutionChanged || vsyncChanged || fpsChanged || hasKeybindChanges;
         }
 
@@ -1113,6 +1138,11 @@ namespace Game.Menu {
             PlayerPrefs.SetInt("InvertY", GetCheckboxValue(_invertYButton) ? 1 : 0);
             PlayerPrefs.SetInt("PlayerTrails", GetCheckboxValue(_playerTrailsButton) ? 1 : 0);
             PlayerPrefs.SetInt("HoldMantle", GetCheckboxValue(_holdMantleButton) ? 1 : 0);
+            
+            // Save grapple indicator setting
+            if(_grappleIndicatorDropdown != null) {
+                PlayerPrefs.SetInt("GrappleIndicator", _grappleIndicatorDropdown.index);
+            }
 
             // Save window mode and resolution settings
             if(_windowModeDropdown != null) {
@@ -1181,6 +1211,7 @@ namespace Game.Menu {
             _originalInvertY = GetCheckboxValue(_invertYButton);
             _originalPlayerTrails = GetCheckboxValue(_playerTrailsButton);
             _originalHoldMantle = GetCheckboxValue(_holdMantleButton);
+            if(_grappleIndicatorDropdown != null) _originalGrappleIndicator = _grappleIndicatorDropdown.index;
             if(_windowModeDropdown != null) _originalWindowMode = _windowModeDropdown.index;
             if(_aspectRatioDropdown != null) _originalAspectRatio = _aspectRatioDropdown.value;
             if(_resolutionDropdown != null) _originalResolutionIndex = _resolutionDropdown.index;

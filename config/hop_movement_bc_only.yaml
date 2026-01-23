@@ -1,0 +1,38 @@
+behaviors:
+  HopMovement:
+    trainer_type: ppo
+    
+    hyperparameters:
+      batch_size: 1024
+      buffer_size: 10240
+      learning_rate: 0.0001
+      beta: 0.005
+      epsilon: 0.2
+      lambd: 0.95
+      num_epoch: 3
+      learning_rate_schedule: constant
+    
+    network_settings:
+      normalize: true
+      hidden_units: 384
+      num_layers: 2
+    
+    reward_signals:
+      extrinsic:
+        gamma: 0.99
+        strength: 0.01  # Minimal - just enough to keep PPO running
+    
+    # NO GAIL - let BC work alone to establish basic demo patterns
+    
+    behavioral_cloning:
+        strength: 1.0
+        steps: 500000   # Won't reach this - max_steps is lower
+        demo_path: Assets/Demonstrations/HOPMovementv1.demo
+    
+    keep_checkpoints: 20
+    max_steps: 150000   # Short run - just establish basics from demos
+    time_horizon: 128
+    summary_freq: 10000
+    checkpoint_interval: 25000
+
+

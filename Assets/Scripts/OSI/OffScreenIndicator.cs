@@ -66,8 +66,10 @@ namespace OSI {
                         indicator.transform.rotation =
                             Quaternion.Euler(0, 0, angle * Mathf.Rad2Deg); // Sets the rotation for the arrow indicator.
                     } else {
-                        target.indicator?.Activate(false);
-                        target.indicator = null;
+                        if(target.indicator != null) {
+                            target.indicator.Activate(false);
+                            target.indicator = null;
+                        }
                     }
                 }
 
@@ -113,9 +115,11 @@ namespace OSI {
             if(active) {
                 _targets.Add(target);
             } else {
-                target.indicator?.Activate(false);
-                target.indicator = null;
-                _targets.Remove(target);
+                if(target.indicator != null) {
+                    target.indicator.Activate(false);
+                    target.indicator = null;
+                    _targets.Remove(target);
+                }
             }
         }
 

@@ -1,9 +1,9 @@
 using System;
 using System.Collections;
+using System.Linq;
 using Game.Match;
 using Game.Player;
 using Game.Spawning;
-using Network.Singletons;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -12,8 +12,6 @@ namespace Network {
     public class CustomNetworkManager : MonoBehaviour {
         [Header("Manual Player Prefab (do NOT rely on NetworkConfig.PlayerPrefab)")]
         [SerializeField] private NetworkObject playerPrefab;
-
-        [SerializeField] private Material[] playerMaterials;
 
         // When true (after Start Game), new joiners will be spawned automatically on connect.
         private bool _allowPlayerSpawns;
@@ -37,7 +35,7 @@ namespace Network {
             DontDestroyOnLoad(gameObject);
 
             _networkManager = NetworkManager.Singleton;
-            if(!_networkManager) return;
+            if(_networkManager == null) return;
 
             // 1) Enable approval BEFORE networking starts.
             _networkManager.NetworkConfig.ConnectionApproval = true;
@@ -111,7 +109,10 @@ namespace Network {
                 return;
             }
 
-            var clients = NetworkManager.Singleton.ConnectedClientsIds;
+            var clients = NetworkManager.Singleton.ConnectedClientsIds.ToList();
+            
+            // Shuffle client list for random spawn order
+            ShuffleList(clients);
 
             // Clear pending assignments before batch spawn
             _pendingTeamAssignments.Clear();
@@ -145,7 +146,7 @@ namespace Network {
                 // 2. Assign team first (if team-based) so we can use it for spawn point selection
                 var assignedTeam = SpawnPoint.Team.TeamA;
                 if(isTeamBased) {
-                    assignedTeam = AssignTeam(clientId);
+                    assignedTeam = AssignTeam();
                 }
 
                 // 3. Choose spawn point
@@ -215,11 +216,13 @@ namespace Network {
 
 
         // ========================================================================
-        // Helper: Assign team (auto-balance)
+        // Helper: Assign team (auto-balance with randomness)
         // ========================================================================
-        private SpawnPoint.Team AssignTeam(ulong clientId) {
-            if(!autoBalanceTeams)
-                return (clientId % 2 == 0) ? SpawnPoint.Team.TeamA : SpawnPoint.Team.TeamB;
+        private SpawnPoint.Team AssignTeam() {
+            if(!autoBalanceTeams) {
+                // Random team assignment when auto-balance is off
+                return UnityEngine.Random.Range(0, 2) == 0 ? SpawnPoint.Team.TeamA : SpawnPoint.Team.TeamB;
+            }
 
             var countA = 0;
             var countB = 0;
@@ -266,7 +269,25 @@ namespace Network {
                 }
             }
 
-            return countA <= countB ? SpawnPoint.Team.TeamA : SpawnPoint.Team.TeamB;
+            // If teams are balanced, randomly assign
+            if(countA == countB) {
+                return UnityEngine.Random.Range(0, 2) == 0 ? SpawnPoint.Team.TeamA : SpawnPoint.Team.TeamB;
+            }
+            
+            // Otherwise, assign to smaller team
+            return countA < countB ? SpawnPoint.Team.TeamA : SpawnPoint.Team.TeamB;
+        }
+        
+        /// <summary>
+        /// Shuffles a list using Fisher-Yates algorithm for true randomness.
+        /// </summary>
+        private static void ShuffleList<T>(System.Collections.Generic.List<T> list) {
+            var n = list.Count;
+            while(n > 1) {
+                n--;
+                var k = UnityEngine.Random.Range(0, n + 1);
+                (list[k], list[n]) = (list[n], list[k]);
+            }
         }
 
         // ========================================================================

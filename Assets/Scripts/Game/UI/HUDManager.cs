@@ -120,8 +120,8 @@ namespace Game.UI {
             return _cachedMatchSettings != null && _cachedMatchSettings.selectedGameModeId == "Gun Tag";
         }
 
-        // Call from Player
-        public void UpdateHealth(float current, float max) {
+        // Event handler - called via EventBus
+        private void UpdateHealth(float current, float max) {
             // Check if we're in Tag mode (always check fresh)
             if(IsTagMode()) {
                 // Tag mode: don't update health bar (will be updated via UpdateTagStatus)
@@ -154,8 +154,9 @@ namespace Game.UI {
 
         /// <summary>
         /// Updates the health bar to show tag status in Tag mode.
+        /// Event handler - called via EventBus
         /// </summary>
-        public void UpdateTagStatus(bool isTagged) {
+        private void UpdateTagStatus(bool isTagged) {
             // Check if we're in Tag mode (always check fresh)
             if(!IsTagMode()) {
                 // Not in Tag mode, don't update
@@ -171,7 +172,8 @@ namespace Game.UI {
             _cachedHealthText = tagText;
         }
 
-        public void UpdateMultiplier(float current, float max) {
+        // Event handler - called via EventBus
+        private void UpdateMultiplier(float current, float max) {
             // Only update if values have changed
             var percent = ((current - 1f) / (max - 1f)) * 100f;
             var multiplierText = current.ToString("0.00") + "x";
@@ -185,8 +187,8 @@ namespace Game.UI {
             _cachedMultiplierText = multiplierText;
         }
 
-        // Call from Weapon
-        public void UpdateAmmo(int current, int total) {
+        // Event handler - called via EventBus
+        private void UpdateAmmo(int current, int total) {
             // Only update if values have changed
             if(_cachedAmmoCurrent != current) {
                 var ammoCurrentText = current.ToString();
@@ -204,14 +206,16 @@ namespace Game.UI {
             uiDocument.rootVisualElement.style.display = DisplayStyle.None;
         }
 
-        public void HideHUD() {
+        // Event handler - called via EventBus
+        private void HideHUD() {
             _healthContainer.style.visibility = Visibility.Hidden;
             _multiplierContainer.style.visibility = Visibility.Hidden;
             _ammoContainer.style.visibility = Visibility.Hidden;
             _crosshairContainer.style.visibility = Visibility.Hidden;
         }
 
-        public void ShowHUD() {
+        // Event handler - called via EventBus
+        private void ShowHUD() {
             _healthContainer.style.visibility = Visibility.Visible;
             _multiplierContainer.style.visibility = Visibility.Visible;
             _ammoContainer.style.visibility = Visibility.Visible;

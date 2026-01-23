@@ -46,5 +46,12 @@ namespace Network.Events {
             Code = code;
         }
     }
+
+    /// <summary>
+    /// Event published when session properties have been refreshed from the server.
+    /// Clients can use this to update their local state (e.g., gamemode).
+    /// </summary>
+    public class SessionPropertiesRefreshedEvent : GameEvent {
+    }
 }
 

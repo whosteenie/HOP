@@ -215,44 +215,44 @@ namespace Game.Player {
 
         #region Debug Visualization
 
-        private void OnDrawGizmosSelected() {
-            if(transform == null) return;
-
-            var forward = transform.forward;
-            forward.y = 0;
-            forward.Normalize();
-
-            Gizmos.color = Color.yellow;
-            var minCheckPos = playerController.Position + Vector3.up * MantleCheckHeightMin;
-            var maxCheckPos = playerController.Position + Vector3.up * MantleCheckHeightMax;
-
-            Gizmos.DrawWireSphere(minCheckPos + forward * DetectionDistance, DetectionRadius);
-            Gizmos.DrawWireSphere(maxCheckPos + forward * DetectionDistance, DetectionRadius);
-            Gizmos.DrawLine(minCheckPos, minCheckPos + forward * DetectionDistance);
-            Gizmos.DrawLine(maxCheckPos, maxCheckPos + forward * DetectionDistance);
-
-            Gizmos.color = Color.cyan;
-            Gizmos.DrawLine(minCheckPos + forward * DetectionDistance, maxCheckPos + forward * DetectionDistance);
-
-            Gizmos.color = Color.green;
-            var minHeightPos = playerController.Position + Vector3.up * MinMantleHeight;
-            var maxHeightPos = playerController.Position + Vector3.up * MaxMantleHeight;
-            Gizmos.DrawWireSphere(minHeightPos, 0.2f);
-            Gizmos.DrawWireSphere(maxHeightPos, 0.2f);
-            Gizmos.DrawLine(minHeightPos, maxHeightPos);
-
-            if(!IsMantling) return;
-            Gizmos.color = Color.red;
-            var origin = playerController.Position + Vector3.up * 1.5f;
-
-            // Show clamp boundaries relative to mantle direction
-            var leftBound = Quaternion.Euler(0, -RotationClampAngle, 0) * _mantleDirection * 2f;
-            var rightBound = Quaternion.Euler(0, RotationClampAngle, 0) * _mantleDirection * 2f;
-
-            Gizmos.DrawLine(origin, origin + leftBound);
-            Gizmos.DrawLine(origin, origin + rightBound);
-            Gizmos.DrawLine(origin, origin + _mantleDirection * 2f);
-        }
+        // private void OnDrawGizmosSelected() {
+        //     if(transform == null) return;
+        //
+        //     var forward = transform.forward;
+        //     forward.y = 0;
+        //     forward.Normalize();
+        //
+        //     Gizmos.color = Color.yellow;
+        //     var minCheckPos = playerController.Position + Vector3.up * MantleCheckHeightMin;
+        //     var maxCheckPos = playerController.Position + Vector3.up * MantleCheckHeightMax;
+        //
+        //     Gizmos.DrawWireSphere(minCheckPos + forward * DetectionDistance, DetectionRadius);
+        //     Gizmos.DrawWireSphere(maxCheckPos + forward * DetectionDistance, DetectionRadius);
+        //     Gizmos.DrawLine(minCheckPos, minCheckPos + forward * DetectionDistance);
+        //     Gizmos.DrawLine(maxCheckPos, maxCheckPos + forward * DetectionDistance);
+        //
+        //     Gizmos.color = Color.cyan;
+        //     Gizmos.DrawLine(minCheckPos + forward * DetectionDistance, maxCheckPos + forward * DetectionDistance);
+        //
+        //     Gizmos.color = Color.green;
+        //     var minHeightPos = playerController.Position + Vector3.up * MinMantleHeight;
+        //     var maxHeightPos = playerController.Position + Vector3.up * MaxMantleHeight;
+        //     Gizmos.DrawWireSphere(minHeightPos, 0.2f);
+        //     Gizmos.DrawWireSphere(maxHeightPos, 0.2f);
+        //     Gizmos.DrawLine(minHeightPos, maxHeightPos);
+        //
+        //     if(!IsMantling) return;
+        //     Gizmos.color = Color.red;
+        //     var origin = playerController.Position + Vector3.up * 1.5f;
+        //
+        //     // Show clamp boundaries relative to mantle direction
+        //     var leftBound = Quaternion.Euler(0, -RotationClampAngle, 0) * _mantleDirection * 2f;
+        //     var rightBound = Quaternion.Euler(0, RotationClampAngle, 0) * _mantleDirection * 2f;
+        //
+        //     Gizmos.DrawLine(origin, origin + leftBound);
+        //     Gizmos.DrawLine(origin, origin + rightBound);
+        //     Gizmos.DrawLine(origin, origin + _mantleDirection * 2f);
+        // }
 
         #endregion
     }

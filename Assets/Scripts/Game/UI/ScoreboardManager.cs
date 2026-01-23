@@ -68,8 +68,10 @@ namespace Game.UI {
         private HashSet<ulong> _previousPlayerIds = new();
         private Dictionary<ulong, int> _previousSortValues = new(); // kills or timeTagged
         private readonly Dictionary<ulong, Label> _cachedVelocityLabels = new(); // clientId -> velocity label
-        private readonly Dictionary<ulong, float> _previousVelocityValues = new(); // Track previous velocity to avoid unnecessary updates
-        
+
+        private readonly Dictionary<ulong, float>
+            _previousVelocityValues = new(); // Track previous velocity to avoid unnecessary updates
+
         // Cache scene name to avoid string allocations
         private string _cachedSceneName;
 
@@ -90,18 +92,18 @@ namespace Game.UI {
             EventBus.Subscribe<ShowScoreboardEvent>(OnShowScoreboard);
             EventBus.Subscribe<HideScoreboardEvent>(OnHideScoreboard);
         }
-        
+
         private void OnDisable() {
             // Unsubscribe from UI events
             EventBus.Unsubscribe<SetMatchTimeEvent>(OnSetMatchTime);
             EventBus.Unsubscribe<ShowScoreboardEvent>(OnShowScoreboard);
             EventBus.Unsubscribe<HideScoreboardEvent>(OnHideScoreboard);
-            
+
             // Unsubscribe from network callbacks
             if(NetworkManager.Singleton != null) {
                 NetworkManager.Singleton.OnClientDisconnectCallback -= OnClientDisconnected;
             }
-            
+
             // Unsubscribe from scene changes
             SceneManager.sceneLoaded -= OnSceneLoaded;
 
@@ -131,10 +133,10 @@ namespace Game.UI {
         /// </summary>
         public void Initialize(VisualElement root) {
             _root = root;
-            
+
             // Cache scene name to avoid allocations
             UpdateCachedSceneName();
-            
+
             // Subscribe to scene changes to update cache
             SceneManager.sceneLoaded += OnSceneLoaded;
 
@@ -190,14 +192,14 @@ namespace Game.UI {
                 break;
             }
         }
-        
+
         private void UpdateCachedSceneName() {
             var activeScene = SceneManager.GetActiveScene();
             if(activeScene.IsValid()) {
                 _cachedSceneName = activeScene.name;
             }
         }
-        
+
         private void OnSceneLoaded(Scene scene, LoadSceneMode mode) {
             UpdateCachedSceneName();
         }
@@ -279,7 +281,7 @@ namespace Game.UI {
             // Always check fresh - don't cache game mode as it may not be set yet during initialization
             return _cachedMatchSettings != null && _cachedMatchSettings.selectedGameModeId == "Gun Tag";
         }
-        
+
         /// <summary>
         /// Checks if we're in a team-based mode. Always checks fresh to handle build initialization order issues.
         /// </summary>
@@ -288,15 +290,25 @@ namespace Game.UI {
             if(_cachedMatchSettings == null) _cachedMatchSettings = MatchSettingsManager.Instance;
 
             // Always check fresh - don't cache game mode as it may not be set yet during initialization
-            return _cachedMatchSettings != null && MatchSettingsManager.IsTeamBasedMode(_cachedMatchSettings.selectedGameModeId);
+            return _cachedMatchSettings != null &&
+                   MatchSettingsManager.IsTeamBasedMode(_cachedMatchSettings.selectedGameModeId);
+        }
+
+        /// <summary>
+        /// Forces a refresh of the scoreboard title and cached match settings.
+        /// Call this when gamemode changes.
+        /// </summary>
+        public void RefreshGamemode() {
+            _cachedMatchSettings = null; // Clear cache to force refresh
+            UpdateScoreboardTitle();
         }
 
         /// <summary>
         /// Updates the scoreboard title to show the current gamemode name.
         /// </summary>
         private void UpdateScoreboardTitle() {
-            // Refresh MatchSettingsManager cache if needed
-            if(_cachedMatchSettings == null) _cachedMatchSettings = MatchSettingsManager.Instance;
+            // Always refresh MatchSettingsManager cache to get latest gamemode
+            _cachedMatchSettings = MatchSettingsManager.Instance;
 
             var gamemodeName = "SCOREBOARD"; // Default fallback
             if(_cachedMatchSettings != null && !string.IsNullOrEmpty(_cachedMatchSettings.selectedGameModeId)) {
@@ -428,7 +440,7 @@ namespace Game.UI {
                 // Check if sort values changed (indicating reordering needed)
                 foreach(var kvp in currentSortValues) {
                     if(_previousSortValues.TryGetValue(kvp.Key, out var oldValue) && oldValue == kvp.Value) continue;
-                    
+
                     needsRebuild = true;
                     break;
                 }
@@ -444,13 +456,13 @@ namespace Game.UI {
 
                 foreach(var player in sortedPlayers) {
                     if(player == null || !player.IsSpawned) continue;
-                    
+
                     var row = CreatePlayerRow(player, _playerRows, isTagMode: isTagMode);
-                    
+
                     if(row == null) continue;
                     // Cache velocity label for this player (last stat label in the row)
                     var labels = row.Query<Label>().ToList();
-                    
+
                     if(labels.Count > 0) {
                         _cachedVelocityLabels[player.OwnerClientId] = labels[^1];
                     }
@@ -463,14 +475,14 @@ namespace Game.UI {
                 // Only update velocity labels for existing rows (only if value changed to avoid flashing)
                 foreach(var player in allControllers) {
                     if(player == null || !player.IsSpawned) continue;
-                    
+
                     if(!_cachedVelocityLabels.TryGetValue(player.OwnerClientId, out var velocityLabel)) continue;
                     var statsCtrl = GetCachedStatsController(player);
-                    
+
                     if(statsCtrl == null || velocityLabel == null) continue;
                     var avgVelocity = statsCtrl.averageVelocity.Value;
                     // Only update if value actually changed (prevents unnecessary re-renders and flashing)
-                    
+
                     if(_previousVelocityValues.TryGetValue(player.OwnerClientId, out var prevVelocity) &&
                        !(Mathf.Abs(prevVelocity - avgVelocity) > 0.05f)) continue;
                     velocityLabel.text = $"{avgVelocity:F1} u/s";
@@ -501,10 +513,12 @@ namespace Game.UI {
                 UpdateFfaScoreboard(allControllers);
                 return;
             }
+
             if(networkManager.LocalClient == null) {
                 UpdateFfaScoreboard(allControllers);
                 return;
             }
+
             var localPlayer = networkManager.LocalClient.PlayerObject;
             if(localPlayer == null) {
                 // Fallback to FFA if no local player
@@ -517,6 +531,7 @@ namespace Game.UI {
             if(localController != null) {
                 localTeamMgr = localController.TeamManager;
             }
+
             if(localTeamMgr == null) {
                 UpdateFfaScoreboard(allControllers);
                 return;
@@ -554,18 +569,20 @@ namespace Game.UI {
             }
 
             // Update team scores
-            // Check if we're in Hopball mode and get scores from HopballSpawnManager
-            var matchSettings = MatchSettingsManager.Instance;
+            // Always refresh MatchSettingsManager cache to get latest gamemode
+            _cachedMatchSettings = MatchSettingsManager.Instance;
+            var matchSettings = _cachedMatchSettings;
             if(matchSettings != null && matchSettings.selectedGameModeId == "Hopball" &&
                HopballSpawnManager.Instance != null) {
                 var teamAScore = HopballSpawnManager.Instance.GetTeamAScore();
                 var teamBScore = HopballSpawnManager.Instance.GetTeamBScore();
-                
+
                 // Determine which score is enemy vs your team
                 if(localTeam == SpawnPoint.Team.TeamA) {
                     if(_yourScoreValue != null) {
                         _yourScoreValue.text = teamAScore.ToString();
                     }
+
                     if(_enemyScoreValue != null) {
                         _enemyScoreValue.text = teamBScore.ToString();
                     }
@@ -573,6 +590,7 @@ namespace Game.UI {
                     if(_yourScoreValue != null) {
                         _yourScoreValue.text = teamBScore.ToString();
                     }
+
                     if(_enemyScoreValue != null) {
                         _enemyScoreValue.text = teamAScore.ToString();
                     }
@@ -606,7 +624,8 @@ namespace Game.UI {
             return tagCtrl != null ? tagCtrl.timeTagged.Value : int.MaxValue;
         }
 
-        private List<PlayerController> BuildSortedPlayerList(IReadOnlyCollection<PlayerController> players, bool isTagMode) {
+        private List<PlayerController> BuildSortedPlayerList(IReadOnlyCollection<PlayerController> players,
+            bool isTagMode) {
             var sortedPlayers = new List<PlayerController>();
             foreach(var player in players) {
                 if(player == null || !player.IsSpawned) continue;
@@ -662,7 +681,8 @@ namespace Game.UI {
         /// <summary>
         /// Creates the base row structure (row element, ping, avatar, name) shared by all scoreboard rows.
         /// </summary>
-        private VisualElement CreatePlayerRowBase(PlayerController player, VisualElement parentContainer, bool isYourTeam = false) {
+        private VisualElement CreatePlayerRowBase(PlayerController player, VisualElement parentContainer,
+            bool isYourTeam = false) {
             var row = new VisualElement();
             row.AddToClassList("player-row");
 
@@ -695,7 +715,7 @@ namespace Game.UI {
             row.Add(avatar);
 
             // Name
-        var playerName = new Label(player.PlayerName.Value.ToString());
+            var playerName = new Label(player.PlayerName.Value.ToString());
             playerName.AddToClassList("player-name");
             row.Add(playerName);
 
@@ -732,7 +752,7 @@ namespace Game.UI {
             row.Add(kdaLabel);
 
             // Damage
-        var damage = Mathf.RoundToInt(player.DamageDealt.Value);
+            var damage = Mathf.RoundToInt(player.DamageDealt.Value);
             var damageLabel = new Label($"{damage:N0}");
             damageLabel.AddToClassList("player-stat");
             row.Add(damageLabel);
@@ -795,7 +815,8 @@ namespace Game.UI {
         }
 
         // Overload for TDM (includes K, D, A, KDR, DMG, HS%, AV)
-        private void CreatePlayerRow(PlayerController player, VisualElement parentContainer, bool simplifiedStats, bool isYourTeam) {
+        private void CreatePlayerRow(PlayerController player, VisualElement parentContainer, bool simplifiedStats,
+            bool isYourTeam) {
             if(!simplifiedStats) {
                 // Call the FFA version with isTagMode = false
                 CreatePlayerRow(player, parentContainer, isTagMode: false);
@@ -811,6 +832,7 @@ namespace Game.UI {
             if(player != null) {
                 ping = player.PingMs;
             }
+
             return $"{ping}ms";
         }
 
@@ -875,17 +897,17 @@ namespace Game.UI {
             if(playerIconSprites == null || playerIconSprites.Length == 0) {
                 return null;
             }
+
             var paletteIndex = GetClosestIconIndex(baseColor);
             var clampedIndex = Mathf.Clamp(paletteIndex, 0, playerIconSprites.Length - 1);
             return playerIconSprites[clampedIndex];
         }
-        
+
         private int GetClosestIconIndex(Color baseColor) {
             if(playerIconSprites == null || playerIconSprites.Length == 0) return 0;
 
             // Use the legacy palette order: white, red, orange, yellow, green, blue, purple
-            var palette = new[]
-            {
+            var palette = new[] {
                 new Color(1f, 1f, 1f),
                 new Color(1f, 0f, 0f),
                 new Color(1f, 0.5f, 0f),
@@ -956,6 +978,7 @@ namespace Game.UI {
             if(localController != null) {
                 localTeamMgr = localController.TeamManager;
             }
+
             if(localTeamMgr == null) return;
 
             var localTeam = localTeamMgr.netTeam.Value;
@@ -1072,4 +1095,3 @@ namespace Game.UI {
         }
     }
 }
-

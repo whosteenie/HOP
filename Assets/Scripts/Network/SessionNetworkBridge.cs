@@ -69,5 +69,6 @@ namespace Network {
                 SessionManager.Instance.RefreshAndUpdatePlayerList().Forget();
             }
         }
+
     }
 }
