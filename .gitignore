@@ -294,4 +294,25 @@ $RECYCLE.BIN/
 /mlagents-env/*
 *.resS
 
+# JetBrains IDE
 .idea/*
+
+# Unity builds
+/botbuild/
+
+# ML-Agents training results
+/results/
+/results_old/
+
+# Generated Unity UI schemas
+/UIElementsSchema/
+
+# Generated assets backup
+/GeneratedAssets_deleted/
+
+# NuGet/VS config
+App.config
+packages.config
+
+# Local config
+/config/
