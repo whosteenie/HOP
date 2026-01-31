@@ -355,6 +355,12 @@ namespace Game.Player {
         private void StartGrapple(Vector3 targetPoint) {
             // TODO: Reimplement when swing grapple is implemented
             // if(swingGrapple.IsSwinging) swingGrapple.CancelSwing();
+            
+            // Cancel any active slide - grapple takes full control
+            if(playerController != null && playerController.MovementController != null && playerController.MovementController.IsSliding) {
+                playerController.MovementController.CancelSlideForJump();
+            }
+            
             UpdateGrappleServerRpc(true, targetPoint);
             IsGrappling = true;
             _grapplePoint = targetPoint;
@@ -445,6 +451,11 @@ namespace Game.Player {
                     // Add upward boost if grappling upward
                     if(finalVelocity.y > 0) {
                         playerController.AddVerticalVelocity(finalVelocity.y);
+                    }
+                    
+                    // Try to initiate slide if grounded and crouching at speed
+                    if(playerController.MovementController != null) {
+                        playerController.MovementController.TryInitiateSlideFromGrapple();
                     }
                 }
             }

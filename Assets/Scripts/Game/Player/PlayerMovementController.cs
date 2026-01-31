@@ -74,13 +74,6 @@ namespace Game.Player {
         private float _gravityY;
         private bool _isMantling;
 
-        // Wall contact dampening
-        private float _wallContactTime;
-        private const float WallContactThreshold = 0.15f; // Time before dampening kicks in
-        private const float WallDampenRate = 8f; // How fast to reduce velocity when stuck
-        private const float WallBlockRatio = 0.5f; // Movement ratio that counts as "blocked"
-        private const float WallMinSpeedThreshold = 5f; // Minimum speed to trigger wall detection
-
         // Input (read from PlayerController)
         private Vector2 MoveInput => playerController == null ? Vector2.zero : playerController.moveInput;
 
@@ -352,6 +345,11 @@ namespace Game.Player {
                         actualHorizontal,
                         WallDampenRate * Time.deltaTime
                     );
+                    
+                    // Also dampen slide speed if currently sliding
+                    if (_isSliding) {
+                        _slideSpeed = Mathf.Lerp(_slideSpeed, actualSpeed, WallDampenRate * Time.deltaTime);
+                    }
                 }
             } else {
                 // Not blocked - reset timer
@@ -683,6 +681,22 @@ namespace Game.Player {
             if(IsOwner && netIsSliding != null) {
                 netIsSliding.Value = false;
             }
+        }
+
+        /// <summary>
+        /// Called by GrappleController when grapple ends while grounded.
+        /// Checks if slide should initiate based on current state.
+        /// </summary>
+        public void TryInitiateSlideFromGrapple() {
+            if(!IsGrounded) return;
+            if(!CrouchInput) return;
+            if(_isSliding) return;
+
+            var speed = _horizontalVelocity.magnitude;
+            if(speed < SlideMinSpeed) return;
+
+            // Initiate slide in grapple direction
+            BeginSlide();
         }
 
         #endregion
