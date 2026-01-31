@@ -657,34 +657,18 @@ namespace Game.Weapons {
         }
 
         /// <summary>
-        /// Applies player material customization from PlayerPrefs to FP weapon arms only.
+        /// Applies player material customization from PlayerVisualController to FP weapon arms only.
         /// Only called for owners since FP weapon rendering is fully local.
-        /// Uses same approach as hopball arms for consistency.
         /// </summary>
         private void ApplyPlayerMaterialToFpWeapon(GameObject fpWeaponInstance) {
             if(fpWeaponInstance == null || playerController == null) return;
 
-            // Find the arm GameObject (tagged with "Arm")
-            GameObject armObject = null;
-            foreach(Transform child in fpWeaponInstance.GetComponentsInChildren<Transform>(true)) {
-                if(child.CompareTag("Arm")) {
-                    armObject = child.gameObject;
-                    break;
-                }
+            // Use PlayerVisualController to ensure we use the cached, generated material
+            // instead of creating a new one from the mesh which misses customization packets.
+            var visualController = playerController.GetComponent<PlayerVisualController>();
+            if(visualController != null) {
+                visualController.ApplyMaterialToFpArms(fpWeaponInstance);
             }
-
-            if(armObject == null) {
-                Debug.LogWarning("[WeaponManager] Could not find Arm tagged object in FP weapon instance.");
-                return;
-            }
-
-            // Get material from player mesh (same as hopball approach)
-            var playerMesh = playerController.PlayerMesh;
-            if(playerMesh == null || playerMesh.materials.Length <= 1) return;
-            var material = new Material(playerMesh.materials[1]); // Index 1 is the player material (0 is outline)
-            
-            // Apply to all renderers in the arm object only (not weapons)
-            PlayerRenderer.ApplyMaterialToRenderers(armObject, material);
         }
 
         #region Holstered Weapons

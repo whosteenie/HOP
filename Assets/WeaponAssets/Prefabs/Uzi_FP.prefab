@@ -88,6 +88,7 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!1 &1095254202041702
 GameObject:
@@ -184,6 +185,7 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!95 &-1400678377581799353
 Animator:
@@ -296,6 +298,7 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!1 &1429345387413136
 GameObject:
@@ -385,6 +388,7 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!1 &1457460253451528
 GameObject:
@@ -474,6 +478,7 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!1 &1918433302283112
 GameObject:
@@ -563,6 +568,7 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!1 &3181774433372261004
 GameObject:
@@ -1057,16 +1063,16 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -2717395650310496025, guid: 3fa2316aafaf46f4f8067a5285c2f578, type: 3}
       propertyPath: m_Materials.Array.size
-      value: 1
+      value: 2
       objectReference: {fileID: 0}
     - target: {fileID: -2717395650310496025, guid: 3fa2316aafaf46f4f8067a5285c2f578, type: 3}
       propertyPath: 'm_Materials.Array.data[0]'
       value: 
-      objectReference: {fileID: 2100000, guid: 2d2582fdfe2996c47a0caad11d07637d, type: 2}
+      objectReference: {fileID: 2100000, guid: cea146216ef43044dadb7e0c81ef6cc1, type: 2}
     - target: {fileID: -2717395650310496025, guid: 3fa2316aafaf46f4f8067a5285c2f578, type: 3}
       propertyPath: 'm_Materials.Array.data[1]'
       value: 
-      objectReference: {fileID: 0}
+      objectReference: {fileID: 2100000, guid: 2d2582fdfe2996c47a0caad11d07637d, type: 2}
     - target: {fileID: -382367157834192841, guid: 3fa2316aafaf46f4f8067a5285c2f578, type: 3}
       propertyPath: m_LocalRotation.w
       value: 0.15990311

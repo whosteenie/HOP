@@ -88,6 +88,7 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!1 &1673615449923876
 GameObject:
@@ -177,6 +178,7 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!1 &1720912225889422
 GameObject:
@@ -266,6 +268,7 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!1 &1829597508155286
 GameObject:
@@ -362,6 +365,7 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!95 &1540248255799312061
 Animator:
@@ -862,16 +866,16 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -2717395650310496025, guid: 3fa2316aafaf46f4f8067a5285c2f578, type: 3}
       propertyPath: m_Materials.Array.size
-      value: 1
+      value: 2
       objectReference: {fileID: 0}
     - target: {fileID: -2717395650310496025, guid: 3fa2316aafaf46f4f8067a5285c2f578, type: 3}
       propertyPath: 'm_Materials.Array.data[0]'
       value: 
-      objectReference: {fileID: 2100000, guid: 2d2582fdfe2996c47a0caad11d07637d, type: 2}
+      objectReference: {fileID: 2100000, guid: cea146216ef43044dadb7e0c81ef6cc1, type: 2}
     - target: {fileID: -2717395650310496025, guid: 3fa2316aafaf46f4f8067a5285c2f578, type: 3}
       propertyPath: 'm_Materials.Array.data[1]'
       value: 
-      objectReference: {fileID: 0}
+      objectReference: {fileID: 2100000, guid: 2d2582fdfe2996c47a0caad11d07637d, type: 2}
     - target: {fileID: -382367157834192841, guid: 3fa2316aafaf46f4f8067a5285c2f578, type: 3}
       propertyPath: m_LocalRotation.w
       value: 0.15990311

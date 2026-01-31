@@ -65,12 +65,50 @@ namespace Game.Player {
             if(_worldWeaponPrefabs == null || _worldWeaponPrefabs.Length == 0) {
                 _worldWeaponPrefabs = playerController.WorldWeaponPrefabs;
             }
+            
 
-            if(_playerMesh != null) {
-                _cachedMaterialsArray = _playerMesh.materials;
+            
+            // Apply to active FP Weapon Arms
+            if(_weaponManager != null) {
+                var currentFpWeapon = _weaponManager.GetCurrentFpWeapon();
+                if(currentFpWeapon != null) {
+                    ApplyMaterialToFpArms(currentFpWeapon);
+                }
             }
         }
 
+        /// <summary>
+        /// Applies the current generated player material (Index 1) to the FP weapon arms.
+        /// Index 0 is reserved for Outline.
+        /// </summary>
+        public void ApplyMaterialToFpArms(GameObject fpWeaponInstance) {
+            if(fpWeaponInstance == null || _cachedMaterialsArray == null || _cachedMaterialsArray.Length < 2) return;
+            
+            var generatedMaterial = _cachedMaterialsArray[1];
+            if(generatedMaterial == null) return;
+
+            // Find the arm object in the weapon instance (Tagged "Arm")
+            // Delegate this search or logic to WeaponManager? 
+            // Or just search here since we have the instance.
+            // WeaponManager.ApplyPlayerMaterialToFpWeapon logic duplicated finding "Arm".
+            // Let's use a helper in PlayerRenderer or just find it.
+            
+            // Actually, WeaponManager has specific logic to find the "Arm" tag.
+            // Let's rely on PlayerRenderer's ApplyMaterialToRenderers but we need the target.
+            
+            Transform armTransform = null;
+            foreach(Transform child in fpWeaponInstance.GetComponentsInChildren<Transform>(true)) {
+                if(child.CompareTag("Arm")) {
+                    armTransform = child;
+                    break;
+                }
+            }
+
+            if(armTransform != null) {
+                // Apply ONLY to index 1 (Inner Color), leaving index 0 (Outline) alone
+                PlayerRenderer.ApplyMaterialToRenderers(armTransform.gameObject, generatedMaterial, 1);
+            }
+        }
         /// <summary>
         /// Applies player material customization using the new packet-based system.
         /// Generates a URP/Lit material from the packet and customization values.
