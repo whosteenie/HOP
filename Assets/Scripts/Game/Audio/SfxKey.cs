@@ -42,6 +42,7 @@ namespace Game.Audio {
 
     // New additions appended to avoid shifting legacy values
     BulletImpact = 33,
-    WeaponSwitch = 34
+    WeaponSwitch = 34,
+    Slide = 35
     }
 }

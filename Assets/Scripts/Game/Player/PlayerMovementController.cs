@@ -22,6 +22,27 @@ namespace Game.Player {
         private NetworkSfxRelay _sfxRelay;
         private Transform _playerTransform;
 
+        // Wall contact dampening
+        private float _wallContactTime;
+        private const float WallContactThreshold = 0.15f; // Time before dampening kicks in
+        private const float WallDampenRate = 8f; // How fast to reduce velocity when stuck
+        private const float WallBlockRatio = 0.5f; // Movement ratio that counts as "blocked"
+        private const float WallMinSpeedThreshold = 5f; // Minimum speed to trigger wall detection
+
+        // Slide state
+        private bool _isSliding;
+        private Vector3 _slideDirection;
+        private float _slideSpeed;
+        private bool _wasStandingBeforeCrouch; // Track if player was standing before crouch input
+        private bool _wasAirborne; // Track if player was in air (for landing slide)
+
+        // Slide constants
+        private const float SlideMinSpeed = 10f;        // Must be >= sprint speed to initiate
+        private const float SlideBaseFriction = 4f;    // Base deceleration during slide
+        private const float SlideSpeedFriction = 0.15f; // Additional friction proportional to speed
+        private const float SlideExitSpeed = 2.5f;      // Transition to crouch-walk below this speed
+        private const float SlideSlopeMultiplier = 5f;  // How much slopes affect slide speed
+
         [Header("Movement Parameters")]
         private const float Acceleration = 15f;
 
@@ -62,6 +83,7 @@ namespace Game.Player {
 
         // Network state (from PlayerController)
         public NetworkVariable<bool> netIsCrouching;
+        public NetworkVariable<bool> netIsSliding;
 
         // Throttling for crouch updates (at 90Hz: 2 ticks = ~22ms)
         private float _lastCrouchUpdateTime;
@@ -96,9 +118,10 @@ namespace Game.Player {
         public override void OnNetworkSpawn() {
             base.OnNetworkSpawn();
 
-            // Get network variable from PlayerController (network-dependent)
+            // Get network variables from PlayerController (network-dependent)
             if(playerController != null) {
                 netIsCrouching = playerController.NetIsCrouching;
+                netIsSliding = playerController.netIsSliding;
             }
         }
 
@@ -107,8 +130,28 @@ namespace Game.Player {
                 return;
             }
 
-            UpdateMaxSpeed();
-            CalculateHorizontalVelocity();
+            // Track standing state for slide initiation
+            if(!CrouchInput) {
+                _wasStandingBeforeCrouch = true;
+            }
+
+            // Handle sliding
+            if(_isSliding) {
+                ProcessSlide();
+            } else if(CanInitiateSlide()) {
+                BeginSlide();
+            } else if(CanLandingSlide()) {
+                // Re-initiate slide when landing while crouched at speed
+                BeginSlide();
+            } else {
+                // Normal movement
+                UpdateMaxSpeed();
+                CalculateHorizontalVelocity();
+            }
+
+            // Track airborne state for landing slide detection
+            _wasAirborne = !IsGrounded;
+
             CheckCeilingHit(fpCamera);
             ApplyGravity();
             MoveCharacter();
@@ -281,6 +324,11 @@ namespace Game.Player {
                 return;
             }
 
+            // Slide-hop: cancel slide but preserve momentum
+            if(_isSliding) {
+                CancelSlideForJump();
+            }
+
             // Check for jump pads (regular or mega)
             var jumpPadHeight = CheckForJumpPad();
             if(jumpPadHeight > 0f) {
@@ -334,6 +382,11 @@ namespace Game.Player {
         public void LaunchFromJumpPad(Vector3 normal, float force = 15f) {
             if(!IsGrounded) {
                 return;
+            }
+
+            // Cancel slide if active, preserving momentum into the launch
+            if(_isSliding) {
+                CancelSlideForJump();
             }
 
             // Normalize the normal to ensure consistent force
@@ -422,5 +475,164 @@ namespace Game.Player {
         public float MaxSpeed { get; private set; } = WalkSpeed;
 
         public float CachedHorizontalSpeedSqr { get; private set; }
+
+        public bool IsSliding => _isSliding;
+
+        #region Slide Methods
+
+        /// <summary>
+        /// Check if slide can be initiated.
+        /// Requires: grounded, was standing, now crouching, moving fast enough, moving forward-ish.
+        /// </summary>
+        private bool CanInitiateSlide() {
+            if(!IsGrounded) return false;
+            if(!CrouchInput) return false;
+            if(!_wasStandingBeforeCrouch) return false;
+
+            var speed = _horizontalVelocity.magnitude;
+            if(speed < SlideMinSpeed) return false;
+
+            // Don't allow backward slides - check if velocity is roughly forward
+            var velocityDir = _horizontalVelocity.normalized;
+            var forwardDot = Vector3.Dot(velocityDir, _playerTransform.forward);
+            if(forwardDot < -0.3f) return false; // Backward movement
+
+            return true;
+        }
+
+        /// <summary>
+        /// Check if slide should re-initiate on landing.
+        /// Requires: just landed, crouching, moving fast enough.
+        /// </summary>
+        private bool CanLandingSlide() {
+            // Must have been airborne last frame and now grounded
+            if(!_wasAirborne || !IsGrounded) return false;
+            if(!CrouchInput) return false;
+
+            var speed = _horizontalVelocity.magnitude;
+            if(speed < SlideMinSpeed) return false;
+
+            return true;
+        }
+
+        /// <summary>
+        /// Begin sliding. Lock direction to current velocity, set slide speed.
+        /// </summary>
+        private void BeginSlide() {
+            _isSliding = true;
+            _wasStandingBeforeCrouch = false;
+            _slideDirection = _horizontalVelocity.normalized;
+            _slideSpeed = _horizontalVelocity.magnitude;
+
+            // Sync to network
+            if(IsOwner && netIsSliding != null) {
+                netIsSliding.Value = true;
+            }
+
+            // Play slide sound (skeleton - needs audio asset)
+            if(IsOwner && _sfxRelay != null) {
+                _sfxRelay.RequestWorldSfx(SfxKey.Slide, attachToSelf: true);
+            }
+        }
+
+        /// <summary>
+        /// Process active slide. Apply friction, slope influence, check exit conditions.
+        /// </summary>
+        private void ProcessSlide() {
+            // Check exit conditions first
+            if(!CrouchInput) {
+                EndSlide();
+                return;
+            }
+
+            if(!IsGrounded) {
+                // Preserve full momentum when sliding off ledge
+                CancelSlideForJump();
+                return;
+            }
+
+            // Apply proportional friction (faster slides slow down faster)
+            var friction = SlideBaseFriction + (_slideSpeed * SlideSpeedFriction);
+            _slideSpeed -= friction * Time.deltaTime;
+
+            // Apply slope influence
+            ApplySlopeToSlide();
+
+            // Check if slide has ended naturally
+            if(_slideSpeed <= SlideExitSpeed) {
+                EndSlide();
+                return;
+            }
+
+            // Update horizontal velocity to match slide
+            _horizontalVelocity = _slideDirection * _slideSpeed;
+
+            // MaxSpeed is crouch speed during slide (for animation purposes)
+            MaxSpeed = CrouchSpeed;
+        }
+
+        /// <summary>
+        /// Apply slope influence to slide speed.
+        /// Downhill = speed up, uphill = slow down.
+        /// </summary>
+        private void ApplySlopeToSlide() {
+            // Raycast to get ground normal
+            if(!Physics.Raycast(_playerTransform.position, Vector3.down, out var hit, 2f, _obstacleMask)) {
+                return;
+            }
+
+            var groundNormal = hit.normal;
+            var slopeAngle = Vector3.Angle(groundNormal, Vector3.up);
+
+            // Only apply slope influence on actual slopes
+            if(slopeAngle < 5f) return;
+
+            // Calculate slope direction relative to slide direction
+            // Positive dot = sliding downhill, negative = uphill
+            var slopeDirection = Vector3.ProjectOnPlane(Vector3.down, groundNormal).normalized;
+            var slopeDot = Vector3.Dot(_slideDirection, slopeDirection);
+
+            // Apply speed change based on slope
+            _slideSpeed += slopeDot * SlideSlopeMultiplier * Time.deltaTime;
+
+            // Clamp to prevent negative or excessive speed
+            _slideSpeed = Mathf.Clamp(_slideSpeed, 0f, 50f);
+        }
+
+        /// <summary>
+        /// End slide. Transition to crouch-walk with remaining velocity.
+        /// </summary>
+        private void EndSlide() {
+            _isSliding = false;
+
+            // Set remaining velocity (continues in slide direction at current speed)
+            if(_slideSpeed > 0f) {
+                _horizontalVelocity = _slideDirection * Mathf.Min(_slideSpeed, CrouchSpeed);
+            }
+
+            // Sync to network
+            if(IsOwner && netIsSliding != null) {
+                netIsSliding.Value = false;
+            }
+        }
+
+        /// <summary>
+        /// Called from TryJump when slide-hopping.
+        /// Preserves slide momentum into the jump.
+        /// </summary>
+        public void CancelSlideForJump() {
+            if(!_isSliding) return;
+
+            // Preserve full slide velocity for jump
+            _horizontalVelocity = _slideDirection * _slideSpeed;
+            _isSliding = false;
+
+            // Sync to network
+            if(IsOwner && netIsSliding != null) {
+                netIsSliding.Value = false;
+            }
+        }
+
+        #endregion
     }
 }
