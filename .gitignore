@@ -2,6 +2,8 @@
 #
 # Get latest from https://github.com/github/gitignore/blob/main/Unity.gitignore
 #
+# Personal documentation (not tracked)
+/docs/
 .utmp/
 /[Ll]ibrary/
 /[Tt]emp/
@@ -292,7 +294,6 @@ $RECYCLE.BIN/
 *.onnx
 *.pt
 /mlagents-env/*
-*.resS
 
 # JetBrains IDE
 .idea/*
@@ -316,3 +317,8 @@ packages.config
 
 # Local config
 /config/
+
+# IDE/Editor config (personal preference)
+.cursorignore
+.vsconfig
+.agent/
