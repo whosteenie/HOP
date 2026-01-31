@@ -562,7 +562,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: bd520a3d60872014ea855812d09a9d30, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CustomNetworkManager
-  playerPrefab: {fileID: 6677973669287716317, guid: de28e2dc2e177e74c9b667dd5d2e7d45, type: 3}
+  playerPrefab: {fileID: 6677973669287716317, guid: 44209664d1ffff54d86b748ca38189e9, type: 3}
   autoBalanceTeams: 1
 --- !u!114 &4402361108633043761
 MonoBehaviour:
