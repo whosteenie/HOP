@@ -53,6 +53,13 @@ namespace Game.Player {
         private float _gravityY;
         private bool _isMantling;
 
+        // Wall contact dampening
+        private float _wallContactTime;
+        private const float WallContactThreshold = 0.15f; // Time before dampening kicks in
+        private const float WallDampenRate = 8f; // How fast to reduce velocity when stuck
+        private const float WallBlockRatio = 0.5f; // Movement ratio that counts as "blocked"
+        private const float WallMinSpeedThreshold = 5f; // Minimum speed to trigger wall detection
+
         // Input (read from PlayerController)
         private Vector2 MoveInput => playerController == null ? Vector2.zero : playerController.moveInput;
 
@@ -261,7 +268,52 @@ namespace Game.Player {
             _moveVelocity.x = _horizontalVelocity.x;
             _moveVelocity.y = VerticalVelocity;
             _moveVelocity.z = _horizontalVelocity.z;
+            
+            var positionBefore = _playerTransform.position;
             _characterController.Move(_moveVelocity * Time.deltaTime);
+            var positionAfter = _playerTransform.position;
+            
+            HandleWallContactDampening(positionBefore, positionAfter);
+        }
+
+        /// <summary>
+        /// Detects prolonged wall contact and gradually reduces velocity to match actual movement.
+        /// Brief corner clips are preserved, but sustained wall contact dampens stored velocity.
+        /// </summary>
+        private void HandleWallContactDampening(Vector3 positionBefore, Vector3 positionAfter) {
+            // Calculate actual vs intended horizontal movement
+            var actualMove = positionAfter - positionBefore;
+            var actualHorizontal = new Vector3(actualMove.x, 0f, actualMove.z) / Time.deltaTime;
+            var intendedHorizontal = new Vector3(_horizontalVelocity.x, 0f, _horizontalVelocity.z);
+            
+            var intendedSpeed = intendedHorizontal.magnitude;
+            var actualSpeed = actualHorizontal.magnitude;
+            
+            // Only check for wall contact when moving fast enough
+            if (intendedSpeed < WallMinSpeedThreshold) {
+                _wallContactTime = 0f;
+                return;
+            }
+            
+            // Calculate how much of our intended movement actually happened
+            var blockRatio = actualSpeed / intendedSpeed;
+            
+            if (blockRatio < WallBlockRatio) {
+                // We're blocked - accumulate contact time
+                _wallContactTime += Time.deltaTime;
+                
+                if (_wallContactTime > WallContactThreshold) {
+                    // Grace period expired - dampen velocity toward actual movement
+                    _horizontalVelocity = Vector3.Lerp(
+                        _horizontalVelocity,
+                        actualHorizontal,
+                        WallDampenRate * Time.deltaTime
+                    );
+                }
+            } else {
+                // Not blocked - reset timer
+                _wallContactTime = 0f;
+            }
         }
 
         private void UpdateCharacterControllerCrouch(bool isCrouching) {
