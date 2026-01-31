@@ -182,7 +182,9 @@ namespace Game.Weapons {
             _wasGrounded = isGrounded;
 
             // Determine target bob intensity based on speed
-            if(!isGrounded) {
+            // Disable bob when not grounded OR when sliding
+            var isSliding = _playerController != null && _playerController.MovementController != null && _playerController.MovementController.IsSliding;
+            if(!isGrounded || isSliding) {
                 _targetBobIntensity = 0f;
             } else if(speed < 0.1f) {
                 _targetBobIntensity = 0f;

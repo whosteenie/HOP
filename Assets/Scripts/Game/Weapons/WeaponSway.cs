@@ -36,6 +36,10 @@ namespace Game.Weapons {
 
         [Range(0f, 1f)] public float adsMultiplier = 1f; // scale down when ADS
 
+        [Header("Crouch Sway")]
+        [SerializeField] private float crouchSwayAmount = 0.03f; // How far weapon lags behind camera Y
+        [SerializeField] private float crouchSwaySpeed = 10f; // How fast weapon catches up
+
         // Internal state
         private Vector3 _baseLocalPos;
         private Quaternion _baseLocalRot;
@@ -43,6 +47,11 @@ namespace Game.Weapons {
         private Vector2 _smoothedDelta; // smoothed per-frame delta
         private Vector3 _curPos, _velPos;
         private Vector3 _curRotEuler, _velRot;
+        
+        // Crouch sway state
+        private float _lastCameraY;
+        private float _crouchSwayOffset;
+        private float _crouchSwayVel;
 
         private void Awake() {
             if(cam == null) {
@@ -56,6 +65,11 @@ namespace Game.Weapons {
 
             var e = cam ? cam.eulerAngles : Vector3.zero;
             _lastAngles = new Vector2(e.x, e.y);
+            
+            // Initialize crouch sway tracking
+            _lastCameraY = cam ? cam.localPosition.y : 0f;
+            _crouchSwayOffset = 0f;
+            _crouchSwayVel = 0f;
         }
 
         private void OnEnable() {
@@ -96,6 +110,23 @@ namespace Game.Weapons {
             var posZ = Mathf.Clamp(combined * posPerDegPush, -posMaxZ, posMaxZ);
 
             var targetPos = new Vector3(posX, posY, -posZ) * adsMultiplier;
+            
+            // Add crouch sway - weapon lags behind camera local Y changes (crouch height)
+            // Using localPosition.y so falling/jumping doesn't affect this, only crouch transitions
+            var currentCameraLocalY = cam.localPosition.y;
+            var cameraYDelta = currentCameraLocalY - _lastCameraY;
+            _lastCameraY = currentCameraLocalY;
+            
+            // Accumulate sway based on camera movement (inverted - camera down = weapon appears higher initially)
+            _crouchSwayOffset -= cameraYDelta * crouchSwayAmount * 2f; // Subtle effect
+            
+            var dt = Time.deltaTime;
+            
+            // Decay sway back to zero smoothly
+            _crouchSwayOffset = Mathf.SmoothDamp(_crouchSwayOffset, 0f, ref _crouchSwayVel, 1f / crouchSwaySpeed, Mathf.Infinity, dt);
+            
+            // Apply crouch sway to target position
+            targetPos.y += _crouchSwayOffset;
 
             // 4) Build desired rotation offset (tiny tilt + bank)
             var rYaw = Mathf.Clamp(_smoothedDelta.y * rotPerDegYaw, -rotMaxYaw, rotMaxYaw);
@@ -105,7 +136,6 @@ namespace Game.Weapons {
             var targetRot = new Vector3(rPitch, rYaw, rRoll) * adsMultiplier;
 
             // 5) Smoothly move toward offsets
-            var dt = Time.deltaTime;
             var pSpeed = targetPos.sqrMagnitude > 0.0001f ? followPosSpeed : recenterSpeed;
             var rSpeed = targetRot.sqrMagnitude > 0.0001f ? followRotSpeed : recenterSpeed;
 

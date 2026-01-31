@@ -189,6 +189,10 @@ namespace Game.Player {
             NetworkVariableReadPermission.Everyone,
             NetworkVariableWritePermission.Owner);
 
+        public NetworkVariable<bool> netIsSliding = new(false,
+            NetworkVariableReadPermission.Everyone,
+            NetworkVariableWritePermission.Owner);
+
         // Weapon selection NetworkVariables (synced across all clients)
         public NetworkVariable<int> primaryWeaponIndex = new(0,
             NetworkVariableReadPermission.Everyone,
