@@ -65,7 +65,7 @@ namespace Game.Menu {
         public System.Action<string> OnNameInputChanged;
         public System.Action<VisualElement> OnShowPanel;
 
-        private bool _isInitializing = true;
+
 
         private void Awake() {
             if(uiDocument == null) {
@@ -85,13 +85,8 @@ namespace Game.Menu {
             // Register events (callbacks should be wired by MainMenuManager in Awake)
             RegisterUIEvents();
 
-            // Mark initialization as complete after a frame
-            StartCoroutine(FinishInitialization());
-        }
-
-        private IEnumerator FinishInitialization() {
-            yield return null;
-            _isInitializing = false;
+            // Mark initialization as complete
+            // _isInitializing was removed as we now only play sounds on direct user input
         }
 
         public void Initialize() {
@@ -160,16 +155,14 @@ namespace Game.Menu {
             foreach(var b in _buttons) {
                 if(b == null) continue;
                 b.clicked += () => {
-                    if(!_isInitializing) {
-                        UISoundService.PlayButtonClick(b.ClassListContains("back-button"));
-                    }
+                    UISoundService.PlayButtonClick(b.ClassListContains("back-button"));
                 };
                 UISoundService.RegisterButtonHover(b);
             }
 
             // Main menu navigation
             _playButton.clicked += () => {
-                if(!_isInitializing) UISoundService.PlayButtonClick();
+                UISoundService.PlayButtonClick();
                 OnPlayClicked?.Invoke();
             };
 
@@ -177,17 +170,17 @@ namespace Game.Menu {
                 if(_nameInput != null) {
                     _nameInput.value = PlayerPrefs.GetString("PlayerName");
                 }
-                if(!_isInitializing) UISoundService.PlayButtonClick();
+                UISoundService.PlayButtonClick();
                 OnLoadoutClicked?.Invoke();
             };
 
             _optionsButton.clicked += () => {
-                if(!_isInitializing) UISoundService.PlayButtonClick();
+                UISoundService.PlayButtonClick();
                 OnOptionsClicked?.Invoke();
             };
 
             _creditsButton.clicked += () => {
-                if(!_isInitializing) UISoundService.PlayButtonClick();
+                UISoundService.PlayButtonClick();
                 OnCreditsClicked?.Invoke();
             };
 
@@ -243,7 +236,7 @@ namespace Game.Menu {
 
             if(_backCreditsButton != null) {
                 _backCreditsButton.clicked += () => {
-                    if(!_isInitializing) UISoundService.PlayButtonClick(isBack: true);
+                    UISoundService.PlayButtonClick(isBack: true);
                     OnShowPanel?.Invoke(MainMenuPanel);
                 };
             }
@@ -252,7 +245,7 @@ namespace Game.Menu {
         private void SetupFirstTimeModal() {
             if(_firstTimeContinueButton == null) return;
             _firstTimeContinueButton.clicked += () => {
-                if(!_isInitializing) UISoundService.PlayButtonClick();
+                UISoundService.PlayButtonClick();
                 OnFirstTimeContinue?.Invoke();
             };
             UISoundService.RegisterButtonHover(_firstTimeContinueButton);

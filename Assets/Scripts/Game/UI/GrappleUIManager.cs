@@ -318,25 +318,27 @@ namespace Game.UI {
         }
         
         /// <summary>
-        /// Updates the bottom grapple indicator (square fill).
-        /// Fill height = cooldown progress (0-100% bottom-to-top).
+        /// Updates the bottom grapple indicator (horizontal bar).
+        /// Fill width = cooldown progress (0-100% left-to-right).
         /// Color opacity = target validity (red when valid, transparent when invalid).
         /// </summary>
         private void UpdateBottomIndicatorVisual() {
             if(_grappleIndicatorBottom == null || _grappleIndicatorFill == null) return;
             
-            // Determine fill height based on cooldown/grappling state
-            float fillHeight;
+            // Determine fill width based on cooldown/grappling state
+            float fillWidth;
             
             if(_grappleController.IsGrappling) {
-                // Grappling - no fill
-                fillHeight = 0f;
+                // Grappling - empty
+                fillWidth = 0f;
             } else if(!_grappleController.CanGrapple) {
-                // Cooldown - show progress
-                fillHeight = _grappleController.CooldownProgress;
+                // Cooldown - show progress (fills up)
+                // Add a small buffer (5%) to ensure it visually starts effectively empty
+                // This handles cases where the first frame of cooldown might already have progress > 0
+                fillWidth = Mathf.Clamp01((_grappleController.CooldownProgress - 0.05f) / 0.95f);
             } else {
                 // Ready - full fill
-                fillHeight = 1f;
+                fillWidth = 1f;
             }
             
             // Determine color opacity based on target validity
@@ -360,7 +362,7 @@ namespace Game.UI {
             _currentFillOpacity = Mathf.Lerp(_currentFillOpacity, targetOpacity, colorTransitionSpeed * Time.deltaTime);
             
             // Update fill visuals
-            _grappleIndicatorFill.style.height = Length.Percent(fillHeight * 100f);
+            _grappleIndicatorFill.style.width = Length.Percent(fillWidth * 100f);
             _grappleIndicatorFill.style.opacity = _currentFillOpacity;
         }
     }

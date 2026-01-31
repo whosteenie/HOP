@@ -118,6 +118,7 @@ namespace Game.Menu {
 
         private void RegisterUIEvents() {
             _hostButton.clicked += () => {
+                UISoundService.PlayButtonClick();
                 OnHostClicked?.Invoke();
             };
 
@@ -128,12 +129,14 @@ namespace Game.Menu {
 
             _joinButton.clicked += () => {
                 if(_joinCodeInput != null) {
+                    UISoundService.PlayButtonClick();
                     OnJoinClicked?.Invoke(_joinCodeInput.value.ToUpper());
                 }
             };
 
             _copyButton.clicked += CopyJoinCodeToClipboard;
             _startButton.clicked += () => {
+                UISoundService.PlayButtonClick();
                 OnStartGameClicked?.Invoke();
             };
 

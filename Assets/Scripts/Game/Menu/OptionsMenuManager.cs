@@ -651,11 +651,23 @@ namespace Game.Menu {
                 optionsScrollView.horizontalScrollerVisibility = ScrollerVisibility.Hidden;
             }
 
-            // Setup tab click handlers
-            _tabVideo?.RegisterCallback<ClickEvent>(_ => SwitchOptionsTab("video"));
-            _tabAudio?.RegisterCallback<ClickEvent>(_ => SwitchOptionsTab("audio"));
-            _tabGame?.RegisterCallback<ClickEvent>(_ => SwitchOptionsTab("game"));
-            _tabControls?.RegisterCallback<ClickEvent>(_ => SwitchOptionsTab("controls"));
+            // Setup tab click handlers - sounds play here on actual user clicks
+            _tabVideo?.RegisterCallback<ClickEvent>(_ => {
+                OnButtonClicked();
+                SwitchOptionsTab("video");
+            });
+            _tabAudio?.RegisterCallback<ClickEvent>(_ => {
+                OnButtonClicked();
+                SwitchOptionsTab("audio");
+            });
+            _tabGame?.RegisterCallback<ClickEvent>(_ => {
+                OnButtonClicked();
+                SwitchOptionsTab("game");
+            });
+            _tabControls?.RegisterCallback<ClickEvent>(_ => {
+                OnButtonClicked();
+                SwitchOptionsTab("controls");
+            });
 
             // Register hover callbacks for tabs
             SetupTabHoverCallbacks(_tabVideo);
@@ -736,9 +748,6 @@ namespace Game.Menu {
             _tabAudio?.MarkDirtyRepaint();
             _tabGame?.MarkDirtyRepaint();
             _tabControls?.MarkDirtyRepaint();
-
-            // Play click sound
-            OnButtonClicked();
         }
 
         private void SetupKeybinds() {
