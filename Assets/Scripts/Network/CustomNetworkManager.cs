@@ -12,6 +12,9 @@ namespace Network {
     public class CustomNetworkManager : MonoBehaviour {
         [Header("Manual Player Prefab (do NOT rely on NetworkConfig.PlayerPrefab)")]
         [SerializeField] private NetworkObject playerPrefab;
+        
+        [Header("Pre-load Assets")]
+        [SerializeField] private GameObject hopballPrefab;
 
         // When true (after Start Game), new joiners will be spawned automatically on connect.
         private bool _allowPlayerSpawns;
@@ -45,6 +48,18 @@ namespace Network {
 
             // 3) Register approval callback.
             _networkManager.ConnectionApprovalCallback = ApprovalCheck;
+        }
+
+        private void Start() {
+            // Silently pre-load heavy assets (Player, Weapons) to warm up shaders/textures
+            // Only do this if we are not already in a game scene (e.g. standard boot from Menu)
+            var activeScene = SceneManager.GetActiveScene();
+            if(!activeScene.name.Contains("Game")) {
+                var loader = gameObject.AddComponent<Game.Systems.SilentAssetLoader>();
+                var extraAssets = new System.Collections.Generic.List<GameObject>();
+                if(hopballPrefab != null) extraAssets.Add(hopballPrefab);
+                loader.StartLoading(playerPrefab, extraAssets);
+            }
         }
 
         private void OnEnable() {
