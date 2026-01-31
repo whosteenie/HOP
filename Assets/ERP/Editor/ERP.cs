@@ -151,7 +151,7 @@ namespace ERP
             if (!resetOnSceneChange)
             {
                 TimeSpan timeSpan = TimeSpan.FromMilliseconds(EditorAnalyticsSessionInfo.elapsedTime);
-                long timestamp = DateTimeOffset.Now.Add(timeSpan).ToUnixTimeSeconds();
+                long timestamp = DateTimeOffset.Now.Subtract(timeSpan).ToUnixTimeSeconds();
                 Log("Got time stamp: " + timestamp);
                 return timestamp;
             }
