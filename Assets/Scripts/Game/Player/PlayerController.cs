@@ -57,6 +57,7 @@ namespace Game.Player {
         [SerializeField] private MantleController mantleController;
         // [SerializeField] private SwingGrapple swingGrapple;
         [SerializeField] private GrappleController grappleController;
+        [SerializeField] private WallRunController wallRunController;
 
 
         [Header("Gameplay Controllers")]
@@ -207,6 +208,7 @@ namespace Game.Player {
         #region Public Properties
 
         public float CurrentPitch => lookController != null ? lookController.CurrentPitch : 0f;
+        public WallRunController WallRunController => wallRunController;
 
         #endregion
 

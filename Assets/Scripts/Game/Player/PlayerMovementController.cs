@@ -18,6 +18,7 @@ namespace Game.Player {
         private CharacterController _characterController;
         private GrappleController _grappleController;
         private SwingGrapple _swingGrapple;
+        private WallRunController _wallRunController;
         private PlayerAnimationController _animationController;
         private NetworkSfxRelay _sfxRelay;
         private Transform _playerTransform;
@@ -109,6 +110,12 @@ namespace Game.Player {
             if(_characterController == null) _characterController = playerController.CharacterController;
             if(_playerTransform == null) _playerTransform = playerController.PlayerTransform;
             if(_grappleController == null) _grappleController = playerController.GrappleController;
+            if(_wallRunController == null) {
+                _wallRunController = playerController.WallRunController;
+                if (_wallRunController == null) {
+                    _wallRunController = GetComponent<WallRunController>();
+                }
+            }
             if(_animationController == null) _animationController = playerController.AnimationController;
             if(_sfxRelay == null) _sfxRelay = playerController.SfxRelay;
 
@@ -137,8 +144,20 @@ namespace Game.Player {
                 _wasStandingBeforeCrouch = true;
             }
 
+            // Handle wall running
+            if(_wallRunController != null) {
+                _wallRunController.CheckForWall();
+                if(_wallRunController.IsWallRunning) {
+                    _wallRunController.UpdateWallRun();
+                    // Override horizontal velocity completely when wall running
+                    _horizontalVelocity = _wallRunController.GetWallRunVelocity(_playerTransform.forward);
+                }
+            }
+
             // Handle sliding
-            if(_isSliding) {
+            if(_wallRunController != null && _wallRunController.IsWallRunning) {
+                // Skip sliding logic if wall running
+            } else if(_isSliding) {
                 ProcessSlide();
             } else if(CanInitiateSlide()) {
                 BeginSlide();
@@ -241,6 +260,8 @@ namespace Game.Player {
                 _horizontalVelocity =
                     Vector3.MoveTowards(_horizontalVelocity, targetVelocity, Acceleration * Time.deltaTime);
             } else {
+                // Skip air strafe if wall running (velocity handles itself)
+                if(_wallRunController != null && _wallRunController.IsWallRunning) return;
                 AirStrafe(motion);
             }
         }
@@ -293,6 +314,11 @@ namespace Game.Player {
         }
 
         private void ApplyGravity() {
+            if (_wallRunController != null && _wallRunController.IsWallRunning) {
+                VerticalVelocity = 0f; // Gravity suppressed
+                return;
+            }
+
             if(IsGrounded && VerticalVelocity <= 0.01f) {
                 VerticalVelocity = -3f;
             } else {
@@ -373,6 +399,12 @@ namespace Game.Player {
 
         public void TryJump(float height = JumpHeight) {
             if(!IsGrounded) {
+                // Allow wall jump
+                if(_wallRunController != null && _wallRunController.IsWallRunning) {
+                    _wallRunController.WallJump();
+                    return;
+                }
+                
                 return;
             }
 
@@ -522,7 +554,7 @@ namespace Game.Player {
         }
 
         public Vector3 HorizontalVelocity => _horizontalVelocity;
-        public float VerticalVelocity { get; private set; }
+        public float VerticalVelocity { get; set; }
 
         public float MaxSpeed { get; private set; } = WalkSpeed;
 
