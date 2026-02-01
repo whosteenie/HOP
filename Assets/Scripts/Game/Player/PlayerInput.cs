@@ -251,8 +251,20 @@ namespace Game.Player {
                 // Check if hold-to-mantle is enabled
                 var holdMantleEnabled = PlayerPrefs.GetInt("HoldMantle", 1) == 1;
 
-                // Try mantle if enabled and not grounded
-                if(MantleController != null && holdMantleEnabled && !playerController.IsGrounded) {
+                // Prioritize Wall Jump over Mantle
+                var isWallRunning = playerController.WallRunController != null && playerController.WallRunController.IsWallRunning;
+
+                // Prevent "Auto-Hop" (holding jump) from unintentionally triggering wall jumps.
+                // If wall running, require a fresh jump press (triggered) or scroll wheel input.
+                if (isWallRunning && !scrollPressed) {
+                    if (jumpAction != null && !jumpAction.triggered) {
+                        // Jump is held, but not fresh press - ignore for wall jumping
+                        return;
+                    }
+                }
+
+                // Try mantle if enabled and not grounded (and not wall running)
+                if(!isWallRunning && MantleController != null && holdMantleEnabled && !playerController.IsGrounded) {
                     MantleController.TryMantle();
 
                     // If we started mantling, don't jump
@@ -484,6 +496,12 @@ namespace Game.Player {
             if(isMantling) return;
 
             if(!playerController.IsGrounded) {
+                // Prioritize Wall Jump over Mantle
+                if (playerController.WallRunController != null && playerController.WallRunController.IsWallRunning) {
+                    playerController.TryJump();
+                    return;
+                }
+
                 if(MantleController != null) {
                     MantleController.TryMantle();
                 }
