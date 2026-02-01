@@ -381,7 +381,7 @@ namespace Game.Player {
             var playerMesh = playerController.PlayerMesh;
             if(playerMesh == null || playerMesh.materials.Length <= 1) return;
             var material = new Material(playerMesh.materials[1]); // Index 1 is the player material (0 is outline)
-            PlayerRenderer.ApplyMaterialToRenderers(_fpHopballArmInstance, material);
+            PlayerRenderer.ApplyMaterialToRenderers(_fpHopballArmInstance, material, 1);
         }
 
         /// <summary>
