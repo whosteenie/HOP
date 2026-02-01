@@ -20,6 +20,7 @@ namespace Game.Player {
         private GameObject _playerModelRoot;
         private Transform _worldWeaponSocket;
         private GameObject[] _worldWeaponPrefabs;
+        private MaterialPropertyBlock _tagPropertyBlock;
 
         private Material[] _cachedMaterialsArray;
 
@@ -107,6 +108,44 @@ namespace Game.Player {
             if(armTransform != null) {
                 // Apply ONLY to index 1 (Inner Color), leaving index 0 (Outline) alone
                 PlayerRenderer.ApplyMaterialToRenderers(armTransform.gameObject, generatedMaterial, 1);
+            }
+        }
+
+        /// <summary>
+        /// Updates the tag glow on the FP weapon arms.
+        /// </summary>
+        public void UpdateFpArmTagGlow(bool isTagged, GameObject weaponInstance) {
+            if(weaponInstance == null || playerController == null) return;
+
+            var teamManager = playerController.TeamManager;
+            if(teamManager == null) return;
+
+            // Find the arm object in the weapon instance (Tagged "Arm")
+            Transform armTransform = null;
+            foreach(Transform child in weaponInstance.GetComponentsInChildren<Transform>(true)) {
+                if(child.CompareTag("Arm")) {
+                    armTransform = child;
+                    break;
+                }
+            }
+
+            if(armTransform == null) return;
+
+            var renderers = armTransform.GetComponentsInChildren<Renderer>(true);
+            
+            if (isTagged) {
+                if (_tagPropertyBlock == null) _tagPropertyBlock = new MaterialPropertyBlock();
+
+                foreach(var r in renderers) {
+                    r.GetPropertyBlock(_tagPropertyBlock, 0); // Get from index 0 (Outline)
+                    _tagPropertyBlock.SetColor(PlayerTeamManager.OutlineColorID, teamManager.TaggedGlow);
+                    r.SetPropertyBlock(_tagPropertyBlock, 0);
+                }
+            } else {
+                // Clear property block to reset to default material properties
+                foreach(var r in renderers) {
+                    r.SetPropertyBlock(null, 0);
+                }
             }
         }
         /// <summary>

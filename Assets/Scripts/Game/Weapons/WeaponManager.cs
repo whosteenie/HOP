@@ -653,6 +653,15 @@ namespace Game.Weapons {
             // Use same approach as hopball arms - apply to all renderers
             if(IsOwner) {
                 ApplyPlayerMaterialToFpWeapon(fpWeaponInstance);
+
+                 // Add tag glow update
+                var tagController = playerController.GetComponent<PlayerTagController>();
+                if (tagController != null && tagController.isTagged.Value) {
+                     var visualController = playerController.GetComponent<PlayerVisualController>();
+                     if (visualController != null) {
+                         visualController.UpdateFpArmTagGlow(true, fpWeaponInstance);
+                     }
+                }
             }
         }
 

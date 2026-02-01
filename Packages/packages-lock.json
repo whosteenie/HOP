@@ -14,6 +14,12 @@
       "dependencies": {},
       "hash": "73a63b7f672b88f7e9992f6917eb458a8cbb6fa9"
     },
+    "com.discord.partnersdk": {
+      "version": "file:com.discord.partnersdk",
+      "depth": 0,
+      "source": "embedded",
+      "dependencies": {}
+    },
     "com.gitamend.unityutils": {
       "version": "https://github.com/adammyhre/Unity-Utils.git",
       "depth": 0,

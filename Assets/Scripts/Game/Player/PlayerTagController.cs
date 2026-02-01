@@ -182,6 +182,18 @@ namespace Game.Player {
             if(_teamManager != null) {
                 _teamManager.UpdateOutlineColour();
             }
+
+            // Update FP weapon glow (owner only)
+            if(IsOwner && playerController != null) {
+                var weaponManager = playerController.WeaponManager;
+                var visualController = playerController.VisualController;
+                if(weaponManager != null && visualController != null) {
+                    var currentWeapon = weaponManager.GetCurrentFpWeapon();
+                    if(currentWeapon != null) {
+                        visualController.UpdateFpArmTagGlow(newValue, currentWeapon);
+                    }
+                }
+            }
         }
 
         [Rpc(SendTo.Everyone)]
@@ -265,7 +277,8 @@ namespace Game.Player {
 
             var matchSettings = MatchSettingsManager.Instance;
             if(matchSettings != null && matchSettings.selectedGameModeId == "Gun Tag") {
-                isTagged.Value = false;
+                // Do NOT reset tag state on respawn - keep "It" status if they died/fell off map
+                // isTagged.Value = false; 
             }
         }
     }

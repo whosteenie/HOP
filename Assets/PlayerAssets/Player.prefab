@@ -3140,6 +3140,13 @@ MonoBehaviour:
     TriggerNameHash: 113680519
     TransitionIndex: 3
   - IsCrossFadeExit: 0
+    Layer: 0
+    OriginatingState: -1288781466
+    DestinationState: 225072382
+    TransitionDuration: 0.25
+    TriggerNameHash: 113680519
+    TransitionIndex: 3
+  - IsCrossFadeExit: 0
     Layer: 2
     OriginatingState: 1286489141
     DestinationState: -758163879

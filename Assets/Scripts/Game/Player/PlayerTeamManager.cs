@@ -8,6 +8,8 @@ namespace Game.Player {
     [RequireComponent(typeof(PlayerController))]
     public class PlayerTeamManager : NetworkBehaviour {
         private static readonly int outlineColor = Shader.PropertyToID("_OutlineColor");
+        public static int OutlineColorID => outlineColor;
+
         private static readonly int size = Shader.PropertyToID("_Size");
         [SerializeField] private PlayerController playerController;
 
@@ -31,6 +33,7 @@ namespace Game.Player {
         [ColorUsage(true, true)] // HDR enabled
         [SerializeField]
         private Color taggedGlow = new(8f, 6f, 1f, 1f); // Very bright yellow-orange with HDR glow for tagged players
+        public Color TaggedGlow => taggedGlow;
 
         [Header("Outline Distance Scaling")]
         [SerializeField] private float minOutlineSize = 0.008f; // Minimum size (close distance)
