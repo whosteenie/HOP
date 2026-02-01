@@ -51,15 +51,7 @@ namespace Network {
         }
 
         private void Start() {
-            // Silently pre-load heavy assets (Player, Weapons) to warm up shaders/textures
-            // Only do this if we are not already in a game scene (e.g. standard boot from Menu)
-            var activeScene = SceneManager.GetActiveScene();
-            if(!activeScene.name.Contains("Game")) {
-                var loader = gameObject.AddComponent<Game.Systems.SilentAssetLoader>();
-                var extraAssets = new System.Collections.Generic.List<GameObject>();
-                if(hopballPrefab != null) extraAssets.Add(hopballPrefab);
-                loader.StartLoading(playerPrefab, extraAssets);
-            }
+            // Pre-load logic removed
         }
 
         private void OnEnable() {
