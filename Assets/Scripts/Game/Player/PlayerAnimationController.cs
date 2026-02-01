@@ -29,6 +29,7 @@ namespace Game.Player {
         private static readonly int IsJumpingHash = Animator.StringToHash("IsJumping");
         private static readonly int IsFallingHash = Animator.StringToHash("IsFalling");
         private static readonly int IsGroundedHash = Animator.StringToHash("IsGrounded");
+        private static readonly int IsSlidingHash = Animator.StringToHash("IsSliding");
 
         // Animation state tracking
         private bool _wasGrounded;
@@ -179,6 +180,21 @@ namespace Game.Player {
 
             var isGrounded = playerController != null && playerController.IsGrounded;
             _playerAnimator.SetBool(IsGroundedHash, isGrounded);
+        }
+
+        /// <summary>
+        /// Sets the sliding state on all clients.
+        /// </summary>
+        [Rpc(SendTo.Server)]
+        public void SetSlidingServerRpc(bool isSliding) {
+            SetSlidingClientRpc(isSliding);
+        }
+
+        [Rpc(SendTo.Everyone)]
+        private void SetSlidingClientRpc(bool isSliding) {
+            if (_playerAnimator != null) {
+                _playerAnimator.SetBool(IsSlidingHash, isSliding);
+            }
         }
 
         /// <summary>

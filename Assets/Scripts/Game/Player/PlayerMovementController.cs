@@ -42,6 +42,8 @@ namespace Game.Player {
         private const float SlideSpeedFriction = 0.15f; // Additional friction proportional to speed
         private const float SlideExitSpeed = 2.5f;      // Transition to crouch-walk below this speed
         private const float SlideSlopeMultiplier = 5f;  // How much slopes affect slide speed
+        private const float SlideDuration = 0.83f;      // ~50 frames at 60fps
+        private float _slideTimer;
 
         [Header("Movement Parameters")]
         private const float Acceleration = 15f;
@@ -573,10 +575,16 @@ namespace Game.Player {
             _wasStandingBeforeCrouch = false;
             _slideDirection = _horizontalVelocity.normalized;
             _slideSpeed = _horizontalVelocity.magnitude;
+            _slideTimer = 0f;
 
             // Sync to network
             if(IsOwner && netIsSliding != null) {
                 netIsSliding.Value = true;
+            }
+            
+            // Sync animation state
+            if (IsOwner && _animationController != null) {
+                _animationController.SetSlidingServerRpc(true);
             }
 
             // Play slide sound (skeleton - needs audio asset)
@@ -608,8 +616,9 @@ namespace Game.Player {
             // Apply slope influence
             ApplySlopeToSlide();
 
-            // Check if slide has ended naturally
-            if(_slideSpeed <= SlideExitSpeed) {
+            // Increment timer and check duration
+            _slideTimer += Time.deltaTime;
+            if (_slideTimer >= SlideDuration) {
                 EndSlide();
                 return;
             }
@@ -664,6 +673,11 @@ namespace Game.Player {
             if(IsOwner && netIsSliding != null) {
                 netIsSliding.Value = false;
             }
+
+            // Sync animation state
+            if (IsOwner && _animationController != null) {
+                _animationController.SetSlidingServerRpc(false);
+            }
         }
 
         /// <summary>
@@ -680,6 +694,11 @@ namespace Game.Player {
             // Sync to network
             if(IsOwner && netIsSliding != null) {
                 netIsSliding.Value = false;
+            }
+
+            // Sync animation state
+            if (IsOwner && _animationController != null) {
+                _animationController.SetSlidingServerRpc(false);
             }
         }
 

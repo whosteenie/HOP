@@ -3086,6 +3086,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::OwnerNetworkAnimator
   ShowTopMostFoldoutHeaderGroup: 1
+  NetworkAnimatorExpanded: 0
+  AuthorityMode: 0
+  m_Animator: {fileID: 7910596075621510296}
   TransitionStateInfoList:
   - IsCrossFadeExit: 0
     Layer: 0
@@ -3192,7 +3195,77 @@ MonoBehaviour:
     TransitionDuration: 0.25
     TriggerNameHash: -1939766620
     TransitionIndex: 1
-  m_Animator: {fileID: 7910596075621510296}
+  AnimatorParameterEntries:
+    ParameterEntries:
+    - name: JumpTrigger
+      NameHash: 113680519
+      Synchronize: 1
+      ParameterType: 9
+    - name: LandTrigger
+      NameHash: 21645378
+      Synchronize: 1
+      ParameterType: 9
+    - name: IsSprinting
+      NameHash: -980523212
+      Synchronize: 1
+      ParameterType: 4
+    - name: IsCrouching
+      NameHash: -1154928320
+      Synchronize: 1
+      ParameterType: 4
+    - name: IsJumping
+      NameHash: 1749078233
+      Synchronize: 1
+      ParameterType: 4
+    - name: IsFalling
+      NameHash: 268975031
+      Synchronize: 1
+      ParameterType: 4
+    - name: IsGrounded
+      NameHash: 507951781
+      Synchronize: 1
+      ParameterType: 4
+    - name: moveX
+      NameHash: -377228942
+      Synchronize: 1
+      ParameterType: 1
+    - name: moveY
+      NameHash: -1635466780
+      Synchronize: 1
+      ParameterType: 1
+    - name: lookX
+      NameHash: 1503096243
+      Synchronize: 1
+      ParameterType: 1
+    - name: lookY
+      NameHash: 781212965
+      Synchronize: 1
+      ParameterType: 1
+    - name: Recoil
+      NameHash: 997579023
+      Synchronize: 1
+      ParameterType: 9
+    - name: Reload
+      NameHash: -1525363869
+      Synchronize: 1
+      ParameterType: 9
+    - name: DamageTrigger
+      NameHash: -1939766620
+      Synchronize: 1
+      ParameterType: 9
+    - name: WeaponIndex
+      NameHash: 571760438
+      Synchronize: 1
+      ParameterType: 3
+    - name: PullOut
+      NameHash: -1232958937
+      Synchronize: 1
+      ParameterType: 9
+    - name: IsSliding
+      NameHash: -1809564513
+      Synchronize: 1
+      ParameterType: 4
+  AnimatorParametersExpanded: 0
 --- !u!1 &3497374719588777612
 GameObject:
   m_ObjectHideFlags: 0
