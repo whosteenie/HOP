@@ -185,7 +185,7 @@ namespace Game.UI {
         }
 
         private void FindLocalController() {
-            var allControllers = FindObjectsByType<PlayerController>(FindObjectsSortMode.None);
+            var allControllers = GetAllPlayerControllers();
             foreach(var controller in allControllers) {
                 if(!controller.IsOwner) continue;
                 _localController = controller.GetComponent<PlayerController>();
@@ -677,8 +677,28 @@ namespace Game.UI {
             return isTagMode ? aScore.CompareTo(bScore) : bScore.CompareTo(aScore);
         }
 
-        private static PlayerController[] GetAllPlayerControllers() {
-            return FindObjectsByType<PlayerController>(FindObjectsSortMode.None);
+        // Player Registry
+        private readonly HashSet<PlayerController> _allPlayersRegistry = new();
+
+        public void RegisterPlayer(PlayerController player) {
+            if (player != null && !_allPlayersRegistry.Contains(player)) {
+                _allPlayersRegistry.Add(player);
+                // Force an update immediately so the scoreboard reflects the new player
+                UpdateScoreboard();
+            }
+        }
+
+        public void UnregisterPlayer(PlayerController player) {
+            if (player != null && _allPlayersRegistry.Contains(player)) {
+                _allPlayersRegistry.Remove(player);
+                UpdateScoreboard();
+            }
+        }
+
+        private IEnumerable<PlayerController> GetAllPlayerControllers() {
+            // Clean up any nulls that might have slipped in (destroyed objects)
+            _allPlayersRegistry.RemoveWhere(p => p == null);
+            return _allPlayersRegistry;
         }
 
         private static (int yourScore, int enemyScore) CalculateTeamKillScores(

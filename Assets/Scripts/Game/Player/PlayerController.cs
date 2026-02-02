@@ -254,6 +254,11 @@ namespace Game.Player {
             if(GameMenuManager.Instance.IsPaused) {
                 GameMenuManager.Instance.TogglePause();
             }
+            
+            // Register with ScoreboardManager for optimized caching
+            if (ScoreboardManager.Instance != null) {
+                ScoreboardManager.Instance.RegisterPlayer(this);
+            }
 
             if(IsOwner) {
                 playerName.Value = PlayerPrefs.GetString("PlayerName", "Unknown Player");
@@ -298,6 +303,11 @@ namespace Game.Player {
         public override void OnNetworkDespawn() {
             base.OnNetworkDespawn();
             UnsubscribeFromNetworkVariables();
+            
+            // Unregister from ScoreboardManager
+            if (ScoreboardManager.Instance != null && ScoreboardManager.Instance != this) {
+                ScoreboardManager.Instance.UnregisterPlayer(this);
+            }
         }
 
         /// <summary>
