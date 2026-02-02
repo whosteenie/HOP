@@ -51,6 +51,7 @@ namespace Game.Menu {
         private TextField _nameInput;
         private Image _logoGithub;
         private VisualElement _toastContainer;
+        private Label _versionLabel;
 
         // Events
         public System.Action OnPlayClicked;
@@ -138,7 +139,11 @@ namespace Game.Menu {
             // Misc
             _logoGithub = _root.Q<Image>("credits-logo");
             _toastContainer = _root.Q<VisualElement>("toast-container");
-
+            _versionLabel = _root.Q<Label>("version-text");
+            
+            if (_versionLabel != null) {
+                _versionLabel.text = $"v{Application.version}";
+            }
 
             _buttons = new List<Button> {
                 _playButton,

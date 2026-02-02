@@ -95,6 +95,7 @@
                 <ui:Button text="Team Deathmatch" name="gamemode-option-team-deathmatch" class="gamemode-option gamemode-option-styled" />
                 <ui:Button text="Gun Tag" name="gamemode-option-tag" class="gamemode-option gamemode-option-styled" />
                 <ui:Button text="Hopball" name="gamemode-option-hopball" class="gamemode-option gamemode-option-styled" />
+                <ui:Button text="King of the Hill" name="gamemode-option-koth" class="gamemode-option gamemode-option-styled" />
                 <ui:Button text="Private Match" name="gamemode-option-private-match" class="gamemode-option gamemode-option-styled" />
             </ui:VisualElement>
         </ui:VisualElement>
@@ -406,6 +407,7 @@
                     <ui:Image name="main-credits-logo" class="main-credits-logo" />
                 </ui:VisualElement>
                 <ui:Label text="Made in Unity by whosteenie" name="credits-text" class="credits-text" />
+                <ui:Label text="v0.0.0" name="version-text" class="credits-text" style="font-size: 14px; opacity: 0.5; margin-top: 5px;" />
                 <ui:VisualElement name="logo-container" class="logo-container">
                     <ui:Image name="credits-logo" class="credits-logo" />
                 </ui:VisualElement>
