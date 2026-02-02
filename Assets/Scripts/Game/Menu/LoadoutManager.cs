@@ -49,6 +49,7 @@ namespace Game.Menu {
         private Image _tertiaryWeaponImage;
 
         private GameObject _previewPlayerModel;
+        private SkinnedMeshRenderer[] _cachedPreviewRenderers;
         private readonly List<GameObject> _previewWeaponModels = new();
         private readonly List<GameObject> _previewSecondaryWeaponModels = new();
 
@@ -742,6 +743,8 @@ namespace Game.Menu {
                         r.enabled = true;
                     }
                 }
+                // Cache SkinnedMeshRenderers for update loop
+                _cachedPreviewRenderers = _previewPlayerModel.GetComponentsInChildren<SkinnedMeshRenderer>(true);
             }
             
             // Cache initial rotation from editor/prefab (only on first setup)
@@ -1608,8 +1611,12 @@ namespace Game.Menu {
         private void ForcePreviewModelBoundsUpdate() {
             if(_previewPlayerModel == null) return;
             
-            var skinnedRenderers = _previewPlayerModel.GetComponentsInChildren<SkinnedMeshRenderer>(true);
-            foreach(var smr in skinnedRenderers) {
+            // Use cached renderers if available, otherwise fallback (lazy init or expensive call)
+            if(_cachedPreviewRenderers == null) {
+                 _cachedPreviewRenderers = _previewPlayerModel.GetComponentsInChildren<SkinnedMeshRenderer>(true);
+            }
+
+            foreach(var smr in _cachedPreviewRenderers) {
                 if(smr == null) continue;
                 smr.updateWhenOffscreen = true;
                 smr.localBounds = MaxBounds;

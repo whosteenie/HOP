@@ -14,6 +14,7 @@
     "com.unity.collab-proxy": "2.11.2",
     "com.unity.ide.rider": "3.0.39",
     "com.unity.inputsystem": "1.18.0",
+    "com.unity.memoryprofiler": "1.1.10",
     "com.unity.ml-agents": "git+https://github.com/Unity-Technologies/ml-agents.git?path=com.unity.ml-agents#release_23",
     "com.unity.multiplayer.center": "1.0.1",
     "com.unity.multiplayer.center.quickstart": "1.0.1",
