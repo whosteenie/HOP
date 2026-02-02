@@ -695,7 +695,7 @@ namespace Game.UI {
             }
         }
 
-        private IEnumerable<PlayerController> GetAllPlayerControllers() {
+        private IReadOnlyCollection<PlayerController> GetAllPlayerControllers() {
             // Clean up any nulls that might have slipped in (destroyed objects)
             _allPlayersRegistry.RemoveWhere(p => p == null);
             return _allPlayersRegistry;
