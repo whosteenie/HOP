@@ -595,6 +595,29 @@ namespace Game.UI {
                         _enemyScoreValue.text = teamAScore.ToString();
                     }
                 }
+            } else if (matchSettings != null && matchSettings.selectedGameModeId == "KOTH" &&
+                       KingOfTheHillManager.Instance != null) {
+                var teamAScore = KingOfTheHillManager.Instance.GetTeamAScore();
+                var teamBScore = KingOfTheHillManager.Instance.GetTeamBScore();
+
+                // Determine which score is enemy vs your team
+                if(localTeam == SpawnPoint.Team.TeamA) {
+                    if(_yourScoreValue != null) {
+                        _yourScoreValue.text = teamAScore.ToString();
+                    }
+
+                    if(_enemyScoreValue != null) {
+                        _enemyScoreValue.text = teamBScore.ToString();
+                    }
+                } else {
+                    if(_yourScoreValue != null) {
+                        _yourScoreValue.text = teamBScore.ToString();
+                    }
+
+                    if(_enemyScoreValue != null) {
+                        _enemyScoreValue.text = teamAScore.ToString();
+                    }
+                }
             } else {
                 var (yourScore, enemyScore) = CalculateTeamKillScores(allControllers, localTeam);
 
@@ -987,6 +1010,17 @@ namespace Game.UI {
             if(matchSettings.selectedGameModeId == "Hopball" && HopballSpawnManager.Instance != null) {
                 var teamAScore = HopballSpawnManager.Instance.GetTeamAScore();
                 var teamBScore = HopballSpawnManager.Instance.GetTeamBScore();
+
+                if(localTeam == SpawnPoint.Team.TeamA) {
+                    yourScore = teamAScore;
+                    enemyScore = teamBScore;
+                } else {
+                    yourScore = teamBScore;
+                    enemyScore = teamAScore;
+                }
+            } else if(matchSettings.selectedGameModeId == "KOTH" && KingOfTheHillManager.Instance != null) {
+                var teamAScore = KingOfTheHillManager.Instance.GetTeamAScore();
+                var teamBScore = KingOfTheHillManager.Instance.GetTeamBScore();
 
                 if(localTeam == SpawnPoint.Team.TeamA) {
                     yourScore = teamAScore;

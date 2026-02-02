@@ -95,6 +95,7 @@
                 <ui:Button text="Team Deathmatch" name="gamemode-option-team-deathmatch" class="gamemode-option gamemode-option-styled" />
                 <ui:Button text="Gun Tag" name="gamemode-option-tag" class="gamemode-option gamemode-option-styled" />
                 <ui:Button text="Hopball" name="gamemode-option-hopball" class="gamemode-option gamemode-option-styled" />
+                <ui:Button text="King of the Hill" name="gamemode-option-koth" class="gamemode-option gamemode-option-styled" />
                 <ui:Button text="Private Match" name="gamemode-option-private-match" class="gamemode-option gamemode-option-styled" />
             </ui:VisualElement>
         </ui:VisualElement>

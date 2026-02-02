@@ -11,6 +11,7 @@ GameObject:
   - component: {fileID: 8123585202997401387}
   - component: {fileID: 7917242531031552051}
   - component: {fileID: 6973773468191096825}
+  - component: {fileID: 4368290603188194487}
   m_Layer: 0
   m_Name: Zone
   m_TagString: Untagged
@@ -91,6 +92,29 @@ MeshRenderer:
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
+--- !u!136 &4368290603188194487
+CapsuleCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 418823448074953473}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 1
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 2
+  m_Radius: 0.5000001
+  m_Height: 4
+  m_Direction: 1
+  m_Center: {x: 0.000000059604645, y: 0, z: -0.00000008940697}
 --- !u!1 &6578661793138985177
 GameObject:
   m_ObjectHideFlags: 0
@@ -119,7 +143,7 @@ Transform:
   m_GameObject: {fileID: 6578661793138985177}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: -0.945, z: 0}
+  m_LocalPosition: {x: 0, y: -0.977, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []

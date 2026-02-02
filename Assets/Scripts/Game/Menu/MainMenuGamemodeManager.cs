@@ -180,6 +180,20 @@ namespace Game.Menu {
                 });
             }
 
+            var kothOption = _root.Q<Button>("gamemode-option-koth");
+            if(kothOption != null) {
+                kothOption.clicked += () => {
+                    if(!_isHost) return;
+                    UISoundService.PlayButtonClick();
+                    OnGameModeSelected?.Invoke("KOTH");
+                };
+                kothOption.RegisterCallback<MouseEnterEvent>(_ => {
+                    if(_isHost) {
+                        UISoundService.PlayButtonHover();
+                    }
+                });
+            }
+
             if(privateMatchOption == null) return;
             {
                 privateMatchOption.clicked += () => {
@@ -381,6 +395,7 @@ namespace Game.Menu {
                 "Team Deathmatch" => 900, // 15 min
                 "Gun Tag" => 300, // 5 min
                 "Hopball" => 1200, // 20 min
+                "KOTH" => 900, // 15 min
                 "Private Match" => 999999, // 60 min
                 _ => MatchSettingsManager.Instance != null
                     ? MatchSettingsManager.Instance.defaultMatchDurationSeconds
