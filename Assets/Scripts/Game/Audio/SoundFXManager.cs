@@ -22,6 +22,7 @@ namespace Game.Audio {
         [SerializeField] private AudioClip[] bulletTrailClips;
         [SerializeField] private AudioClip[] bulletImpactClips;
         [SerializeField] private AudioClip[] hopballSpawnClips;
+        [SerializeField] private AudioClip[] slideClips;
 
         [Header("Generic Weapon Sound Banks")]
         [SerializeField] private AudioClip[] reloadClips;
@@ -174,6 +175,7 @@ namespace Game.Audio {
                     SfxKey.BulletTrail => bulletTrailClips,
                     SfxKey.BulletImpact => bulletImpactClips,
                     SfxKey.HopballSpawn => hopballSpawnClips,
+                    SfxKey.Slide => slideClips,
                     // UI Sounds
                     SfxKey.ButtonClick => buttonClickClips,
                     SfxKey.ButtonHover => buttonHoverClips,
@@ -223,6 +225,7 @@ namespace Game.Audio {
             SfxKey.BulletTrail => bulletTrailMaxDistance,
             SfxKey.BulletImpact => bulletImpactMaxDistance,
             SfxKey.HopballSpawn => hopballSpawnMaxDistance,
+            SfxKey.Slide => 15f,
             _ => 50f
         };
 
@@ -235,6 +238,7 @@ namespace Game.Audio {
                 SfxKey.HopballSpawn => maxDist * 0.02f, // Same as gunshots
                 SfxKey.BulletImpact => maxDist * 0.05f,
                 SfxKey.Walk or SfxKey.Run => 1f, // Very close for footsteps
+                SfxKey.Slide => 1f,
                 _ => maxDist * 0.05f
             };
         }

@@ -133,10 +133,26 @@ namespace Game.Player {
             _fpCamera.Lens.FieldOfView = currentFov;
         }
 
+        [Header("Tilt")]
+        [SerializeField] private float tiltSmoothTime = 0.1f;
+        
+        private float _targetTilt;
+        private float _currentTilt;
+        private float _tiltVel;
+
+        public void SetTargetTilt(float tilt) {
+            _targetTilt = tilt;
+        }
+
         private void UpdatePitch(float pitchDelta) {
             CurrentPitch -= pitchDelta;
+            
+            // Update Tilt
+            _currentTilt = Mathf.SmoothDamp(_currentTilt, _targetTilt, ref _tiltVel, tiltSmoothTime);
+            
             if(_fpCamera != null) {
-                _fpCamera.transform.localRotation = Quaternion.Euler(CurrentPitch, 0f, 0f);
+                // Apply Pitch (X) and Tilt (Z)
+                _fpCamera.transform.localRotation = Quaternion.Euler(CurrentPitch, 0f, _currentTilt);
             }
         }
 

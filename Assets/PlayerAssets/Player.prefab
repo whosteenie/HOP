@@ -1044,6 +1044,7 @@ GameObject:
   - component: {fileID: 6778961089975042311}
   - component: {fileID: 194846676371062103}
   - component: {fileID: 5746307045948543407}
+  - component: {fileID: -4102731384895396433}
   m_Layer: 0
   m_Name: Player
   m_TagString: Untagged
@@ -1167,7 +1168,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 3921424009
+  GlobalObjectIdHash: 2644075980
   InScenePlacedSourceGlobalObjectIdHash: 0
   DeferredDespawnTick: 0
   Ownership: 1
@@ -1310,6 +1311,7 @@ MonoBehaviour:
   lookController: {fileID: 8792781456619740567}
   mantleController: {fileID: -7001426905214482494}
   grappleController: {fileID: 8382341124825033876}
+  wallRunController: {fileID: -4102731384895396433}
   statsController: {fileID: -4895690177907744954}
   healthController: {fileID: 3923420499004173512}
   animationController: {fileID: -6537445453348264315}
@@ -1891,6 +1893,7 @@ MonoBehaviour:
   maxSpeedForFov: 30
   maxFov: 100
   fovSmoothTime: 0.12
+  tiltSmoothTime: 0.1
 --- !u!114 &3923420499004173512
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1980,6 +1983,31 @@ MonoBehaviour:
   playerController: {fileID: 5088684734431513618}
   shadowRaycastDistance: 1000
   weaponShadowLayer: -1
+--- !u!114 &-4102731384895396433
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2394102009201851988}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: eea6311a40b198e4d8a0146cef75ff28, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Game.Player.WallRunController
+  ShowTopMostFoldoutHeaderGroup: 1
+  playerController: {fileID: 5088684734431513618}
+  wallRunSpeed: 12
+  maxWallRunTime: 3
+  wallJumpUpForce: 12
+  wallJumpSideForce: 10
+  wallRunCameraTilt: 15
+  wallDistanceCheck: 1
+  minWallRunHeight: 1.5
+  wallLayer:
+    serializedVersion: 2
+    m_Bits: 512
+  wallRunAngleThreshold: 20
 --- !u!1 &2420222979777933581
 GameObject:
   m_ObjectHideFlags: 0
