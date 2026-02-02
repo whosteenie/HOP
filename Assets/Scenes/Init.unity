@@ -788,6 +788,12 @@ MonoBehaviour:
   - {fileID: 8300000, guid: 89eec5eaf9fa66b41941e10f9b53b938, type: 3}
   hopballSpawnClips:
   - {fileID: 8300000, guid: dcf85d8a9a995314b9da98355d126f22, type: 3}
+  slideClips:
+  - {fileID: 8300000, guid: e88c15c02459a514e99de9c52d8f32fe, type: 3}
+  - {fileID: 8300000, guid: 2c2cef0330ed6df43bb2f87e2f76e27a, type: 3}
+  - {fileID: 8300000, guid: 85cc80a05e7f9eb40ad6fcc695a12e4d, type: 3}
+  - {fileID: 8300000, guid: 80980e01f5c9a2b4c97f731a646ab7b6, type: 3}
+  - {fileID: 8300000, guid: c0d98b37e8c2cbe4f963338627668d8b, type: 3}
   reloadClips:
   - {fileID: 8300000, guid: 574a6ed5942cbdd4ea0db841211831a8, type: 3}
   dryClips:

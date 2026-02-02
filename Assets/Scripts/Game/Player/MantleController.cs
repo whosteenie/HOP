@@ -66,11 +66,12 @@ namespace Game.Player {
             _mantleableLayers = playerController.WorldLayer;
         }
 
-        public void TryMantle() {
-            if(IsMantling) return;
-            if(playerController.IsGrounded) return;
+        public bool TryMantle(Vector3? overrideForward = null) {
+            if(IsMantling) return false;
+            if(playerController.IsGrounded) return false;
 
-            var playerForward = transform.forward;
+            var forwardVector = overrideForward ?? transform.forward;
+            var playerForward = forwardVector;
             playerForward.y = 0;
             playerForward.Normalize();
 
@@ -89,7 +90,7 @@ namespace Game.Player {
             }
 
             if(!foundWall) {
-                return;
+                return false;
             }
 
             var wallNormalHorizontal = wallHit.normal;
@@ -98,7 +99,7 @@ namespace Game.Player {
 
             var dotProduct = Vector3.Dot(playerForward, -wallNormalHorizontal);
             if(dotProduct < 0.5f) {
-                return;
+                return false;
             }
 
             var ledgeSearchStart = wallHit.point + Vector3.up * LedgeSearchHeight - wallNormalHorizontal * 0.2f;
@@ -106,19 +107,19 @@ namespace Game.Player {
 
             if(!Physics.Raycast(ledgeSearchStart, Vector3.down, out var ledgeHit,
                    LedgeSearchHeight + MaxMantleHeight, _mantleableLayers)) {
-                return;
+                return false;
             }
 
             Debug.DrawLine(ledgeSearchStart, ledgeHit.point, Color.green, 2f);
             Debug.DrawRay(ledgeHit.point, Vector3.up * 0.5f, Color.magenta, 2f);
 
             if(ledgeHit.point.y <= wallHit.point.y + 0.1f) {
-                return;
+                return false;
             }
 
             var ledgeHeight = ledgeHit.point.y - playerController.Position.y;
             if(ledgeHeight is < MinMantleHeight or > MaxMantleHeight) {
-                return;
+                return false;
             }
 
             var mantleDirection = -wallNormalHorizontal;
@@ -129,17 +130,18 @@ namespace Game.Player {
             Debug.DrawLine(ledgeHit.point, targetPosition, Color.yellow, 2f);
 
             if(Physics.Raycast(targetPosition, Vector3.up, _characterController.height + 0.2f, _mantleableLayers)) {
-                return;
+                return false;
             }
 
             if(Physics.CheckCapsule(
                    targetPosition + Vector3.up * _characterController.radius,
                    targetPosition + Vector3.up * (_characterController.height - _characterController.radius),
                    _characterController.radius * 0.8f, _mantleableLayers)) {
-                return;
+                return false;
             }
 
             StartMantle(targetPosition, mantleDirection);
+            return true;
         }
 
         private void StartMantle(Vector3 targetPosition, Vector3 mantleDirection) {

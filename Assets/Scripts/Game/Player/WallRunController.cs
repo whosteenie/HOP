@@ -117,6 +117,11 @@ namespace Game.Player {
 
             if (CanWallRun()) {
                 if (!IsWallRunning) {
+                     // Input Gate: Require holding jump to attach (allows intentionality without needing movement input)
+                     if (playerController.PlayerInput != null && !playerController.PlayerInput.IsJumpHeld) {
+                         return;
+                     }
+
                      // Speed Gate: Only start wall run if moving fast enough (near sprint speed)
                      // This prevents accidental wall runs when just jumping near a wall from standstill
                      if (_movementController.HorizontalVelocity.magnitude < minWallRunSpeed) {
@@ -189,15 +194,42 @@ namespace Game.Player {
         public void UpdateWallRun() {
             if (!IsWallRunning) return;
 
+
+
             _wallRunTimer -= Time.deltaTime;
             if (_wallRunTimer <= 0) {
                  StopWallRun();
                  return;
             }
-            
-            // Stick player to wall
-            // Logic handled in MovementController mostly (velocity overriding)
-             // But we can ensure we stay "sticky" here if needed
+
+            _wallRunTimer -= Time.deltaTime;
+            if (_wallRunTimer <= 0) {
+                 StopWallRun();
+                 return;
+            }
+
+            // Stuck/Bonk Check (Auto-Mantle)
+            // If we are moving significantly slower than our target speed, we hit something.
+            // Wait a small buffer (0.2s) at start to allow acceleration (though we snap speed instantly usually)
+            if (_wallRunTimer < maxWallRunTime - 0.1f) {
+                Vector3 actualVelocity = _characterController.velocity;
+                float actualSpeed = new Vector3(actualVelocity.x, 0, actualVelocity.z).magnitude;
+                
+                // If we drop below 2m/s (Arbitrary low value implies stop), we hit a wall/ledge
+                if (actualSpeed < 2f) {
+                     // Debug.Log($"[WallRun] Bonk detected! Speed: {actualSpeed}");
+                     
+                     Vector3 desiredDir = GetWallRunVelocity(transform.forward).normalized;
+                     
+                     if (playerController.MantleController != null && playerController.MantleController.TryMantle(desiredDir)) {
+                         StopWallRun();
+                         return;
+                     } else {
+                         StopWallRun();
+                         return;
+                     }
+                }
+            }
         }
 
         public Vector3 GetWallRunVelocity(Vector3 currentForward) {

@@ -621,7 +621,7 @@ namespace Game.Player {
 
             // Play slide sound (skeleton - needs audio asset)
             if(IsOwner && _sfxRelay != null) {
-                _sfxRelay.RequestWorldSfx(SfxKey.Slide, attachToSelf: true);
+                _sfxRelay.RequestWorldSfx(SfxKey.Slide, attachToSelf: true, allowOverlap: false);
             }
         }
 
@@ -696,6 +696,10 @@ namespace Game.Player {
         private void EndSlide() {
             _isSliding = false;
 
+            if (IsOwner && _sfxRelay != null) {
+                _sfxRelay.StopWorldSfx(SfxKey.Slide);
+            }
+
             // Set remaining velocity (continues in slide direction at current speed)
             if(_slideSpeed > 0f) {
                 _horizontalVelocity = _slideDirection * Mathf.Min(_slideSpeed, CrouchSpeed);
@@ -718,6 +722,10 @@ namespace Game.Player {
         /// </summary>
         public void CancelSlideForJump() {
             if(!_isSliding) return;
+            
+            if (IsOwner && _sfxRelay != null) {
+                _sfxRelay.StopWorldSfx(SfxKey.Slide);
+            }
 
             // Preserve full slide velocity for jump
             _horizontalVelocity = _slideDirection * _slideSpeed;
