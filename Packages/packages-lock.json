@@ -120,7 +120,7 @@
       "url": "https://packages.unity.com"
     },
     "com.unity.ai.navigation": {
-      "version": "2.0.9",
+      "version": "2.0.10",
       "depth": 0,
       "source": "registry",
       "dependencies": {
@@ -180,7 +180,7 @@
       "url": "https://packages.unity.com"
     },
     "com.unity.collab-proxy": {
-      "version": "2.11.2",
+      "version": "2.11.3",
       "depth": 0,
       "source": "registry",
       "dependencies": {},
@@ -313,15 +313,6 @@
         "com.unity.nuget.mono-cecil": "1.11.4",
         "com.unity.modules.uielements": "1.0.0",
         "com.unity.nuget.newtonsoft-json": "3.2.1"
-      },
-      "url": "https://packages.unity.com"
-    },
-    "com.unity.multiplayer.widgets": {
-      "version": "1.0.3",
-      "depth": 0,
-      "source": "registry",
-      "dependencies": {
-        "com.unity.services.multiplayer": "1.0.0"
       },
       "url": "https://packages.unity.com"
     },

@@ -580,7 +580,7 @@ namespace Game.Weapons {
                 SetupFpWeaponSkinnedMeshRenderers(fp);
 
                 var anim = fp.GetComponent<Animator>();
-                if(anim != null && anim.enabled) {
+                if(anim != null && anim.enabled && anim.gameObject.activeInHierarchy) {
                     anim.Rebind();
                     anim.Update(0f);
                 }

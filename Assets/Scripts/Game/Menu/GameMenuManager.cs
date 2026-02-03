@@ -45,6 +45,11 @@ namespace Game.Menu {
         private Button _optionsButton;
         private Button _quitButton;
 
+        // Quit confirmation modal
+        private VisualElement _quitConfirmationModal;
+        private Button _quitConfirmationYes;
+        private Button _quitConfirmationNo;
+
         // Pause menu join code
         private Label _pauseJoinCodeLabel;
         private Button _pauseCopyCodeButton;
@@ -109,21 +114,11 @@ namespace Game.Menu {
 
             // Subscribe to EventBus events
             EventBus.Subscribe<RelayCodeAvailableEvent>(OnRelayCodeAvailable);
-            
-            // Keep legacy subscription for backward compatibility during migration
-            if(SessionManager.Instance != null) {
-                SessionManager.Instance.RelayCodeAvailable += OnRelayCodeAvailableLegacy;
-            }
         }
 
         private void OnDisable() {
             // Unsubscribe from EventBus events
             EventBus.Unsubscribe<RelayCodeAvailableEvent>(OnRelayCodeAvailable);
-            
-            // Unsubscribe from legacy events
-            if(SessionManager.Instance != null) {
-                SessionManager.Instance.RelayCodeAvailable -= OnRelayCodeAvailableLegacy;
-            }
 
             // Unsubscribe from scene changes
             SceneManager.sceneLoaded -= OnSceneLoaded;
@@ -150,16 +145,6 @@ namespace Game.Menu {
 
         #endregion
 
-        #region Legacy Event Handlers (for backward compatibility)
-
-        private void OnRelayCodeAvailableLegacy(string joinCode) {
-            // Update join code display if pause menu is visible
-            if(!IsPaused || _pauseJoinCodeLabel == null) return;
-            JoinCodeService.UpdateJoinCodeDisplay(_pauseJoinCodeLabel, _pauseCopyCodeButton, joinCode);
-        }
-
-        #endregion
-
         private void FindUIElements() {
             // Get panels
             _pauseMenuPanel = _root.Q<VisualElement>("pause-menu-panel");
@@ -173,12 +158,19 @@ namespace Game.Menu {
             _pauseJoinCodeLabel = _root.Q<Label>("pause-join-code-label");
             _pauseCopyCodeButton = _root.Q<Button>("pause-copy-code-button");
 
+            // Quit confirmation modal
+            _quitConfirmationModal = _root.Q<VisualElement>("quit-confirmation-modal");
+            _quitConfirmationYes = _root.Q<Button>("quit-confirmation-yes");
+            _quitConfirmationNo = _root.Q<Button>("quit-confirmation-no");
+
             // Kill Feed
             _killFeedContainer = _root.Q<VisualElement>("kill-feed-container");
             
             // Build challenge cards for pause menu
             BuildPauseChallengeCards();
         }
+
+
 
         private void Update() {
             // Real-time challenge updates while paused
@@ -413,9 +405,27 @@ namespace Game.Menu {
 
             _quitButton.clicked += () => {
                 UISoundService.PlayButtonClick(isBack: true);
-                QuitToMenu();
+                ShowQuitConfirmation();
             };
             UISoundService.RegisterButtonHover(_quitButton);
+
+            // Quit confirmation modal
+            if(_quitConfirmationYes != null) {
+                _quitConfirmationYes.clicked += () => {
+                    UISoundService.PlayButtonClick(isBack: true); // Negative sound for destructive action
+                    HideQuitConfirmation();
+                    QuitToMenu();
+                };
+                UISoundService.RegisterButtonHover(_quitConfirmationYes);
+            }
+
+            if(_quitConfirmationNo != null) {
+                _quitConfirmationNo.clicked += () => {
+                    UISoundService.PlayButtonClick(); // Positive sound for cancelling
+                    HideQuitConfirmation();
+                };
+                UISoundService.RegisterButtonHover(_quitConfirmationNo);
+            }
 
             // Setup pause menu copy button
             if(_pauseCopyCodeButton == null) return;
@@ -541,6 +551,7 @@ namespace Game.Menu {
             IsPaused = false;
             _pauseMenuPanel.AddToClassList("hidden");
             _optionsPanel.AddToClassList("hidden");
+            HideQuitConfirmation();
             
             // Hide challenge cards
             if (_pauseChallengesContainer != null) {
@@ -566,6 +577,16 @@ namespace Game.Menu {
             if(_cachedSceneName != "Game") return;
             _optionsPanel.AddToClassList("hidden");
             _pauseMenuPanel.RemoveFromClassList("hidden");
+        }
+
+        private void ShowQuitConfirmation() {
+            if(_quitConfirmationModal == null) return;
+            _quitConfirmationModal.RemoveFromClassList("hidden");
+        }
+
+        private void HideQuitConfirmation() {
+            if(_quitConfirmationModal == null) return;
+            _quitConfirmationModal.AddToClassList("hidden");
         }
 
         private async void QuitToMenu() {

@@ -40,7 +40,7 @@ namespace Network {
     /// <item><see cref="ISceneCoordinator"/> – server-driven scene transitions</item>
     /// <item><see cref="IPlayerIdentity"/> – player name/properties</item>
     /// </list>
-    /// Exposes events for UI updates (PlayersChanged, RelayCodeAvailable).
+    /// Publishes events via EventBus (PlayersChangedEvent, RelayCodeAvailableEvent, etc.).
     /// </summary>
     public sealed class SessionManager : Singleton<SessionManager> {
         private enum SessionPhase {
@@ -61,8 +61,6 @@ namespace Network {
         // Events migrated to EventBus - kept for backward compatibility during migration
         [System.Obsolete("Use EventBus.Subscribe<PlayersChangedEvent> instead")]
         public event Action<IReadOnlyList<IReadOnlyPlayer>> PlayersChanged;
-        [System.Obsolete("Use EventBus.Subscribe<RelayCodeAvailableEvent> instead")]
-        public event Action<string> RelayCodeAvailable;
 
         // ===== Config/State =====
         private const string GameSceneName = "Game";
@@ -407,9 +405,6 @@ namespace Network {
 
                     // Immediately notify any clients that are already polling
                     EventBus.Publish(new RelayCodeAvailableEvent(code));
-                    if(RelayCodeAvailable != null) {
-                        RelayCodeAvailable.Invoke(code);
-                    }
                 } else {
                     Debug.LogWarning("[SessionManager] Cannot publish relay code - host == null");
                 }
@@ -855,9 +850,6 @@ namespace Network {
 
                 // Immediately notify clients via event (in case they're already polling)
                 EventBus.Publish(new RelayCodeAvailableEvent(_relayJoinCode));
-                if(RelayCodeAvailable != null) {
-                    RelayCodeAvailable.Invoke(_relayJoinCode);
-                }
             } else {
                 var isHost = ActiveSession != null && ActiveSession.IsHost;
                 Debug.LogWarning(
@@ -922,16 +914,19 @@ namespace Network {
             string relayCode = null;
             var connected = false;
 
-            RelayCodeAvailable += OnRelay;
+            // Use EventBus subscription for relay code events
+            void OnRelayCodeEvent(RelayCodeAvailableEvent evt) {
+                if(!string.IsNullOrWhiteSpace(evt.Code) && evt.Code.Length >= 6) {
+                    relayCode = evt.Code;
+                }
+            }
+            EventBus.Subscribe<RelayCodeAvailableEvent>(OnRelayCodeEvent);
 
             try {
                 // Check immediately if relay code is already available
                 if(TryGetRelayCode(out var immediateCode)) {
                     relayCode = immediateCode;
                     EventBus.Publish(new RelayCodeAvailableEvent(immediateCode));
-                    if(RelayCodeAvailable != null) {
-                        RelayCodeAvailable.Invoke(immediateCode);
-                    }
                 }
 
                 while(!ct.IsCancellationRequested && !connected && string.IsNullOrEmpty(relayCode)) {
@@ -962,9 +957,6 @@ namespace Network {
                         if(TryGetRelayCode(out var c)) {
                             relayCode = c;
                             EventBus.Publish(new RelayCodeAvailableEvent(c));
-                            if(RelayCodeAvailable != null) {
-                                RelayCodeAvailable.Invoke(c);
-                            }
                             break;
                         }
 
@@ -1006,18 +998,8 @@ namespace Network {
                     await ConnectToRelayAsync(relayCode);
                 }
             } finally {
-                RelayCodeAvailable -= OnRelay;
+                EventBus.Unsubscribe<RelayCodeAvailableEvent>(OnRelayCodeEvent);
                 StopWatchingLobby();
-            }
-
-            return;
-
-            void OnRelay(string c) {
-                if(!string.IsNullOrWhiteSpace(c) && c.Length >= 6) {
-                    relayCode = c;
-                    // Don't cancel token here - let the loop break naturally
-                    // This prevents OperationCanceledException from preventing ConnectToRelayAsync
-                }
             }
         }
 
@@ -1219,9 +1201,6 @@ namespace Network {
                     if(ActiveSession.Properties.TryGetValue(RelayCodeKey, out var p) &&
                        !string.IsNullOrEmpty(p.Value)) {
                         EventBus.Publish(new RelayCodeAvailableEvent(p.Value));
-                        if(RelayCodeAvailable != null) {
-                            RelayCodeAvailable.Invoke(p.Value);
-                        }
                     }
                 });
         }
