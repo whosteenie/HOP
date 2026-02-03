@@ -1,4 +1,3 @@
-using System;
 using System.Collections;
 using System.Linq;
 using Game.Match;
@@ -50,10 +49,6 @@ namespace Network {
             _networkManager.ConnectionApprovalCallback = ApprovalCheck;
         }
 
-        private void Start() {
-            // Pre-load logic removed
-        }
-
         private void OnEnable() {
             if(!_networkManager) _networkManager = NetworkManager.Singleton;
             if(!_networkManager) return;
@@ -74,7 +69,7 @@ namespace Network {
         }
 
         // --- Public utility: call when leaving to menu/lobby ---
-        public void ResetSpawningState() {
+        private void ResetSpawningState() {
             _allowPlayerSpawns = false;
             _pendingTeamAssignments.Clear();
         }
@@ -118,8 +113,13 @@ namespace Network {
 
             var clients = NetworkManager.Singleton.ConnectedClientsIds.ToList();
             
-            // Shuffle client list for random spawn order
+            // Shuffle client list for random spawn order (initial shuffle)
             ShuffleList(clients);
+            
+            // Calculate Teams (Batch)
+            if (MatchSettingsManager.IsTeamBasedMode(MatchSettingsManager.Instance.selectedGameModeId)) {
+                CalculateTeamsForBatch(clients);
+            }
 
             // Clear pending assignments before batch spawn
             _pendingTeamAssignments.Clear();
@@ -136,7 +136,7 @@ namespace Network {
         // ========================================================================
         // MAIN SPAWN LOGIC – Game Mode Aware
         // ========================================================================
-        public void SpawnPlayerFor(ulong clientId) {
+        private void SpawnPlayerFor(ulong clientId) {
             while(true) {
                 // Prevent double-spawn
                 if(NetworkManager.Singleton.ConnectedClients.TryGetValue(clientId, out var client) &&
@@ -153,7 +153,7 @@ namespace Network {
                 // 2. Assign team first (if team-based) so we can use it for spawn point selection
                 var assignedTeam = SpawnPoint.Team.TeamA;
                 if(isTeamBased) {
-                    assignedTeam = AssignTeam();
+                    assignedTeam = AssignTeam(clientId);
                 }
 
                 // 3. Choose spawn point
@@ -225,64 +225,134 @@ namespace Network {
         // ========================================================================
         // Helper: Assign team (auto-balance with randomness)
         // ========================================================================
-        private SpawnPoint.Team AssignTeam() {
+        // ========================================================================
+        // Helper: Assign team (Party Aware)
+        // ========================================================================
+        private SpawnPoint.Team AssignTeam(ulong clientId = 0) {
+            // If already assigned via pre-calculated batch, return that
+            if (_pendingTeamAssignments.TryGetValue(clientId, out var assigned)) {
+                return assigned;
+            }
+
+            // Fallback for individual joiners (or if logic failed): Auto-Balance by Count
             if(!autoBalanceTeams) {
-                // Random team assignment when auto-balance is off
-                return UnityEngine.Random.Range(0, 2) == 0 ? SpawnPoint.Team.TeamA : SpawnPoint.Team.TeamB;
+                return Random.Range(0, 2) == 0 ? SpawnPoint.Team.TeamA : SpawnPoint.Team.TeamB;
             }
 
-            var countA = 0;
-            var countB = 0;
+            int countA = 0;
+            int countB = 0;
 
-            // Count teams from pending assignments (players being spawned right now)
-            foreach(var assignment in _pendingTeamAssignments.Values) {
-                switch(assignment) {
-                    case SpawnPoint.Team.TeamA:
-                        countA++;
-                        break;
-                    case SpawnPoint.Team.TeamB:
-                        countB++;
-                        break;
-                    default:
-                        throw new ArgumentOutOfRangeException();
-                }
-            }
-
-            // Also count teams from already-spawned players (for late joiners)
-            var clients = NetworkManager.Singleton.ConnectedClients.Values;
-            foreach(var client in clients) {
-                if(_pendingTeamAssignments.ContainsKey(client.ClientId)) continue; // Skip if already counted
-
-                PlayerController controller = null;
-                if(client.PlayerObject != null) {
-                    controller = client.PlayerObject.GetComponent<PlayerController>();
-                }
-                PlayerTeamManager teamMgr = null;
-                if(controller != null) {
-                    teamMgr = controller.TeamManager;
-                }
-                if(teamMgr == null) continue;
-                
-                var team = teamMgr.netTeam.Value;
-                switch(team) {
-                    case SpawnPoint.Team.TeamA:
-                        countA++;
-                        break;
-                    case SpawnPoint.Team.TeamB:
-                        countB++;
-                        break;
-                    default:
-                        throw new ArgumentOutOfRangeException();
-                }
-            }
-
-            // If teams are balanced, randomly assign
-            if(countA == countB) {
-                return UnityEngine.Random.Range(0, 2) == 0 ? SpawnPoint.Team.TeamA : SpawnPoint.Team.TeamB;
+            // Count existing players (TeamManager netvars)
+            var allPlayers = FindObjectsByType<PlayerTeamManager>(FindObjectsSortMode.None);
+            foreach(var p in allPlayers) {
+                if (p.netTeam.Value == SpawnPoint.Team.TeamA) countA++;
+                else countB++;
             }
             
-            // Otherwise, assign to smaller team
+            // Also count pending (if we are in a loop but somehow missed one)
+            foreach(var team in _pendingTeamAssignments.Values) {
+                if (team == SpawnPoint.Team.TeamA) countA++;
+                else countB++;
+            }
+
+            if(countA == countB) return Random.Range(0, 2) == 0 ? SpawnPoint.Team.TeamA : SpawnPoint.Team.TeamB;
             return countA < countB ? SpawnPoint.Team.TeamA : SpawnPoint.Team.TeamB;
+        }
+
+        private void CalculateTeamsForBatch(System.Collections.Generic.List<ulong> clients) {
+            _pendingTeamAssignments.Clear();
+
+            // 1. Get Party Data for all clients
+            // We assume ClientId == SteamId since we use FacepunchTransport.
+            // We query SessionManager.CurrentLobby for PartyID.
+            
+            var session = SessionManager.Instance;
+            bool isInLobby = session != null && session.CurrentLobby.HasValue;
+            string gameModeType = "Public"; // Default
+            if (isInLobby) {
+                gameModeType = session.CurrentLobby.Value.GetData("GameMode"); 
+            }
+
+            // Group clients by PartyID
+            // Map: PartyId -> List<ClientId>
+            var partyGroups = new System.Collections.Generic.Dictionary<string, System.Collections.Generic.List<ulong>>();
+            var solos = new System.Collections.Generic.List<ulong>();
+
+            foreach (var clientId in clients) {
+                string pId = "";
+                if (isInLobby) {
+                   // Find member with this SteamID
+                   // struct Lobby has Members -> IEnumerable<Friend>
+                   // Friend has Id (SteamId).
+                   // We need to match ClientId (ulong) to Friend.Id (SteamId).
+                   var member = session.CurrentLobby.Value.Members.FirstOrDefault(m => m.Id.Value == clientId);
+                   // Friend struct is value type, checking Id validity?
+                   if (member.Id.Value != 0) {
+                       // Get Party ID Key
+                       // Friend struct does not expose "GetMemberData" directly!
+                       // Use Lobby.GetMemberData(friend, key)
+                       pId = session.CurrentLobby.Value.GetMemberData(member, "PartyId");
+                   }
+                }
+
+                if (string.IsNullOrEmpty(pId)) {
+                    solos.Add(clientId);
+                } else {
+                    if (!partyGroups.ContainsKey(pId)) partyGroups[pId] = new System.Collections.Generic.List<ulong>();
+                    partyGroups[pId].Add(clientId);
+                }
+            }
+
+            // 2. Distribute Teams
+            // Strategy:
+            // Private Match (10 player single party OR explicit "Private"): Split largest party evenly.
+            // Public Match: Keep parties intact, balance total counts.
+
+            // Check for single large party (Private Match scenario)
+            if (gameModeType == "Private" || (partyGroups.Count == 1 && solos.Count == 0 && partyGroups.First().Value.Count > 1)) {
+                // Split logic
+                var allClients = new System.Collections.Generic.List<ulong>(clients);
+                ShuffleList(allClients); // Randomize first
+                
+                for (int i = 0; i < allClients.Count; i++) {
+                    SpawnPoint.Team team = (i % 2 == 0) ? SpawnPoint.Team.TeamA : SpawnPoint.Team.TeamB;
+                    _pendingTeamAssignments[allClients[i]] = team;
+                }
+                Debug.Log($"[CustomNetworkManager] Distributed Private Match/Single Party of {clients.Count} players.");
+                return;
+            }
+
+            // Public / Multiple Parties Logic
+            // Sort parties by size (Descending) to place largest chunks first
+            var sortedParties = partyGroups.Values.OrderByDescending(p => p.Count).ToList();
+
+            var teamAMembers = new System.Collections.Generic.List<ulong>();
+            var teamBMembers = new System.Collections.Generic.List<ulong>();
+
+            foreach (var party in sortedParties) {
+                // Assign entire party to the smaller team
+                if (teamAMembers.Count <= teamBMembers.Count) {
+                    teamAMembers.AddRange(party);
+                    foreach(var id in party) _pendingTeamAssignments[id] = SpawnPoint.Team.TeamA;
+                } else {
+                    teamBMembers.AddRange(party);
+                    foreach(var id in party) _pendingTeamAssignments[id] = SpawnPoint.Team.TeamB;
+                }
+            }
+
+            // Distribute Solos to balance remaining
+            ShuffleList(solos);
+            foreach (var soloId in solos) {
+                 if (teamAMembers.Count <= teamBMembers.Count) {
+                    teamAMembers.Add(soloId);
+                    _pendingTeamAssignments[soloId] = SpawnPoint.Team.TeamA;
+                 } else {
+                     teamBMembers.Add(soloId);
+                     _pendingTeamAssignments[soloId] = SpawnPoint.Team.TeamB;
+                 }
+            }
+             
+            Debug.Log($"[CustomNetworkManager] Distributed Teams (Public): TeamA={teamAMembers.Count}, TeamB={teamBMembers.Count}");
         }
         
         /// <summary>
@@ -292,7 +362,7 @@ namespace Network {
             var n = list.Count;
             while(n > 1) {
                 n--;
-                var k = UnityEngine.Random.Range(0, n + 1);
+                var k = Random.Range(0, n + 1);
                 (list[k], list[n]) = (list[n], list[k]);
             }
         }

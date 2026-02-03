@@ -78,6 +78,19 @@ namespace Game.Menu {
         private VisualElement _toastContainer;
         private Label _versionLabel;
 
+        // Context Menu
+        public VisualElement PartyContextMenu { get; private set; }
+        public VisualElement ContextMenuBackdrop { get; private set; }
+        public Button CtxProfile { get; private set; }
+        public Button CtxSteamProfile { get; private set; }
+        public Button CtxMuteChat { get; private set; }
+        public Button CtxMuteVoice { get; private set; }
+        public Button CtxBlock { get; private set; }
+        public Button CtxMakeHost { get; private set; }
+        public Button CtxKick { get; private set; }
+        public Button CtxLeave { get; private set; }
+        public VisualElement CtxSeparatorManagement { get; private set; }
+
         // Events
         public System.Action OnPlayMatchmakingClicked;
         public System.Action OnPlayPrivateClicked;
@@ -234,6 +247,25 @@ namespace Game.Menu {
             };
             
             _buttons.AddRange(_gamemodeOptions);
+
+            // Context Menu
+            PartyContextMenu = _root.Q<VisualElement>("party-context-menu");
+            ContextMenuBackdrop = _root.Q<VisualElement>("context-menu-backdrop");
+            CtxProfile = _root.Q<Button>("ctx-profile");
+            CtxSteamProfile = _root.Q<Button>("ctx-steam-profile");
+            CtxMuteChat = _root.Q<Button>("ctx-mute-chat");
+            CtxMuteVoice = _root.Q<Button>("ctx-mute-voice");
+            CtxBlock = _root.Q<Button>("ctx-block");
+            CtxMakeHost = _root.Q<Button>("ctx-make-host");
+            CtxKick = _root.Q<Button>("ctx-kick");
+            CtxLeave = _root.Q<Button>("ctx-leave");
+            CtxSeparatorManagement = _root.Q<VisualElement>("ctx-separator-management");
+            
+            // Register hover for Context buttons
+            var ctxButtons = new[] { CtxProfile, CtxSteamProfile, CtxMuteChat, CtxMuteVoice, CtxBlock, CtxMakeHost, CtxKick, CtxLeave };
+            foreach(var b in ctxButtons) {
+                if(b != null) UISoundService.RegisterButtonHover(b);
+            }
         }
 
         private void RegisterUIEvents() {
@@ -401,11 +433,11 @@ namespace Game.Menu {
         // Panel references (for external access - panel management stays in MainMenuManager for now)
 
         // Button Enable/Disable
-        public static void EnableButton(Button button) {
+        public void EnableButton(Button button) {
             SetButtonEnabled(button, true);
         }
 
-        public static void DisableButton(Button button) {
+        public void DisableButton(Button button) {
             SetButtonEnabled(button, false);
         }
 
@@ -427,6 +459,8 @@ namespace Game.Menu {
         }
 
         public VisualElement PlayGamemodePanel => _playGamemodePanel;
+        public Button GetPlayButtonMatchmaking() => _playButtonMatchmaking;
+        public Button GetPlayButtonPrivate() => _playButtonPrivate;
 
         public void SetMenuButtonsEnabled(bool enabled) {
             if (enabled) {

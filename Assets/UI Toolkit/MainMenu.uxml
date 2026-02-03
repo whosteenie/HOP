@@ -64,7 +64,6 @@
         </ui:VisualElement>
         <ui:Button text="Back" name="back-gamemodes-to-main" class="menu-chip menu-chip-enabled back-button gamemode-back-btn" />
     </ui:VisualElement>
-    <ui:VisualElement name="loading-overlay" class="loading-overlay hidden" picking-mode="Ignore" />
 
     <ui:VisualElement name="loadout-panel" class="panel full-abs center-xy hidden">
         <ui:VisualElement name="name-flex">
@@ -446,5 +445,21 @@
     <ui:VisualElement name="status-container" class="status-container hidden" picking-mode="Ignore">
         <ui:Label text="Searching for match..." name="matchmaking-status-label" class="status-label" picking-mode="Ignore" />
         <ui:Button text="Cancel" name="cancel-matchmaking-button" class="menu-chip cancel-button" picking-mode="Position" />
+    </ui:VisualElement>
+
+    <ui:VisualElement name="loading-overlay" class="loading-overlay hidden" picking-mode="Ignore" />
+    
+    <ui:VisualElement name="context-menu-backdrop" class="full-abs hidden" style="background-color: rgba(0,0,0,0.01);" picking-mode="Position" />
+    <ui:VisualElement name="party-context-menu" class="context-menu hidden" picking-mode="Position">
+        <ui:Button text="View Profile" name="ctx-profile" class="context-menu-item" />
+        <ui:Button text="Steam Profile" name="ctx-steam-profile" class="context-menu-item" />
+        <ui:VisualElement class="context-menu-separator" />
+        <ui:Button text="Mute Text Chat" name="ctx-mute-chat" class="context-menu-item" />
+        <ui:Button text="Mute Voice" name="ctx-mute-voice" class="context-menu-item" />
+        <ui:Button text="Block Player" name="ctx-block" class="context-menu-item" />
+        <ui:VisualElement name="ctx-separator-management" class="context-menu-separator" />
+        <ui:Button text="Make Host" name="ctx-make-host" class="context-menu-item" />
+        <ui:Button text="Kick Member" name="ctx-kick" class="context-menu-item" />
+        <ui:Button text="Leave Party" name="ctx-leave" class="context-menu-item" />
     </ui:VisualElement>
 </ui:UXML>

@@ -66,6 +66,18 @@ Logic for the **Find Game** button:
 2.  **Parallel Dev**: Create `SteamSessionManager` alongside `SessionManager` to test without breaking the project immediately?
     *   *Decision*: Better to replace `SessionManager` internals since it's a Singleton used everywhere. We will use `#if UNITY_EDITOR` toggles or just full replacement if committed.
 
+## 6. Gamemode Configuration & Party Logic
+*   **Gamemode Definitions**:
+    *   Create `GamemodeDef` struct/class in `MatchSettingsManager` (MinPlayers, MaxPlayers, MaxPartySize).
+    *   Update `MatchSettingsManager` to store definitions for all modes (Deathmatch, TDM, Hopball, KOTH, Gun Tag).
+*   **UI Constraints**:
+    *   Update `MainMenuSessionManager` to enforce:
+        - Disable "Play" if PartySize > Gamemode.MaxPartySize (Public only).
+        - Hide/Disable "Invite" if PartySize >= 10.
+        - Check "Private" overrides (ignore min players).
+*   **Matchmaking**:
+    *   Update `SessionManager.FindGameAsync` to filter lobbies by available slots >= PartySize.
+
 ## Risks
 *   **Steam DLLs**: Sometimes Unity has trouble loading the native `.dll` if not placed correctly.
 *   **Firewall**: P2P usually punches through, but testing required.

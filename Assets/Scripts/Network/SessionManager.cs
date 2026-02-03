@@ -64,6 +64,9 @@ namespace Network {
         private bool _isLeaving;
         private bool _hasCompletedInitialLoad;
         private CancellationTokenSource _matchmakingCts;
+        
+        // Track if we expect a disconnect (e.g. intentionally leaving)
+        private bool _expectedDisconnect = false;
 
         public bool IsSearching {
             get {
@@ -161,6 +164,25 @@ namespace Network {
                 var partyId = lobby.GetData(PartyIdKey);
                 if (!string.IsNullOrEmpty(partyId) && partyId != CurrentPartyId) {
                     CurrentPartyId = partyId;
+                }
+                
+                // HOST MIGRATION (Menu)
+                // Check if owner changed and update local IsPartyLeader state
+                if (lobby.Owner.Id != 0) { // Valid ID
+                     bool amIHost = lobby.Owner.Id == SteamClient.SteamId;
+                     // Trigger valid migration if leader state differs OR if we detect a network mismatch (e.g. I am client but owner is me)
+                     // Or simply if the owner ID changed from what we last tracked?
+                     // We don't track "_lastOwnerId", but we can infer.
+                     // Simplest: If IsPartyLeader mismatch.
+                     
+                    if (IsPartyLeader != amIHost) {
+                        Debug.Log($"[SessionManager] Host changed to {lobby.Owner.Name}. Migrating Netcode...");
+                        IsPartyLeader = amIHost;
+                        FrontStatusChanged?.Invoke(null); // Update UI visuals
+                        
+                        // Execute Netcode Migration
+                        MigrateNetcodeToNewHost(lobby.Owner.Id).Forget();
+                    }
                 }
 
                 // Handle "Follow Leader" Migration
@@ -375,7 +397,7 @@ namespace Network {
 
             try {
                 // Cleanup before we start searching so Phase=Menu doesn't flicker
-                LeaveLobby();
+                // LeaveLobby(); // <-- REMOVED! Do NOT leave lobby if we are bringing a party!
                 await CleanupNetworkAsync();
 
                 SetFrontStatus(SessionPhase.Searching, $"Searching for {SelectedGameMode}...");
@@ -390,20 +412,46 @@ namespace Network {
 
                 if (token.IsCancellationRequested) return;
 
+                // Matchmaking Logic:
+                // If we are in a party (CurrentLobby != null), preserving it means:
+                // 1. We search for a lobby with (Max - Cur) >= OurPartySize
+                // However, FindGameAsync currently calls LeaveLobby() at line 378 blindly! 
+                // This breaks the "Party Search" feature completely.
+                
+                // CRITICAL FIX: Do NOT leave the current lobby if we are the leader searching for a game.
+                // We only leave if we successfully find a target to join.
+                // If we don't find one, we convert our current lobby to Public.
+                
+                // Let's refactor the "LeaveLobby()" call.
+                // If CurrentLobby has value, we are likely in a "Private" or "Party" state.
+                // We should NOT leave it yet.
+                int myPartySize = 1;
+                if (CurrentLobby.HasValue) {
+                    myPartySize = CurrentLobby.Value.MemberCount;
+                } else {
+                    // If we have no lobby, we are truly solo. ensuring CLEAN state is good.
+                     // But wait, "DrawSoloPlayer" in UI implies we are alone.
+                     // If we are truly alone, creating a fresh lobby is fine.
+                }
+
                 if (lobbies != null) {
                     foreach (var lobby in lobbies) {
                         if (token.IsCancellationRequested) return;
-                        if (lobby.MemberCount + (CurrentLobby?.MemberCount ?? 1) <= lobby.MaxMembers) {
-                            Debug.Log($"[SessionManager] Found Lobby {lobby.Id}, Joining with Party...");
+                        
+                        // Check slots
+                        // NOTE: "lobby.MemberCount" from Search result might be slightly stale, but usually okay.
+                        int availableSlots = lobby.MaxMembers - lobby.MemberCount;
+                        
+                        if (availableSlots >= myPartySize) {
+                            Debug.Log($"[SessionManager] Found Lobby {lobby.Id} with {availableSlots} slots for party of {myPartySize}. Joining...");
                             
-                            // 1a. Tell our party members to follow us
+                            // 1a. If we have a party, tell them to follow
                             if (CurrentLobby.HasValue) {
                                 CurrentLobby.Value.SetData(FollowLobbyIdKey, lobby.Id.ToString());
-                                // Small delay to let the data propagate before we leave?
-                                // Actually Steam is pretty good, but let's wait a frame.
                                 await UniTask.Yield(); 
                             }
-
+                            
+                            // Now we join. JoinSessionByLobbyAsync handles the transition.
                             await JoinSessionByLobbyAsync(lobby);
                             return;
                         }
@@ -426,7 +474,13 @@ namespace Network {
                     Debug.Log($"[SessionManager] No {SelectedGameMode} lobbies found. Creating new public lobby.");
                     SetFrontStatus(SessionPhase.CreatingLobby, $"Creating {SelectedGameMode} Lobby...");
                     
-                    var result = await SteamMatchmaking.CreateLobbyAsync(16);
+                    int maxPlayers = 10;
+                    if (Game.Match.MatchSettingsManager.Instance != null) {
+                        var def = Game.Match.MatchSettingsManager.Instance.GetGamemodeDef(SelectedGameMode);
+                        if (def.MaxPlayers > 0) maxPlayers = def.MaxPlayers;
+                    }
+
+                    var result = await SteamMatchmaking.CreateLobbyAsync(maxPlayers);
                     if (token.IsCancellationRequested) {
                         if (result.HasValue) result.Value.Leave();
                         return;
@@ -436,6 +490,20 @@ namespace Network {
                         CurrentLobby = result.Value;
                         CurrentLobby.Value.SetPublic();
                         CurrentLobby.Value.SetJoinable(true);
+                        // Also set MaxMembers based on Gamemode?
+                        // Steam Lobby default is often 16 or user defined.
+                        // We should set it to Gamemode.MaxPlayers (e.g. 10).
+                        if (Game.Match.MatchSettingsManager.Instance != null) {
+                             var def = Game.Match.MatchSettingsManager.Instance.GetGamemodeDef(SelectedGameMode);
+                             if (def.MaxPlayers > 0) {
+                                 // CurrentLobby.Value.SetMemberLimit(def.MaxPlayers); // Not exposed in Facepunch.Steamworks struct easily? 
+                                 // Actually it is: SetMemberLimit is not on the Struct, usually on the Lobby object.
+                                 // But Facepunch Lobby struct has limited setters. 
+                                 // We set it during CreateLobbyAsync(maxMembers).
+                                 // Since we created with 16 above... we might want to change it.
+                                 // Refactoring CreateLobbyAsync(16) -> CreateLobbyAsync(GamemodeMax).
+                             }
+                        }
                         CurrentLobby.Value.SetData(HostAddressKey, SteamClient.SteamId.ToString());
                         CurrentLobby.Value.SetData(GameModeKey, "Public");
                         CurrentLobby.Value.SetData("TargetMode", SelectedGameMode);
@@ -504,6 +572,15 @@ namespace Network {
         public async UniTask JoinSessionByLobbyAsync(Lobby lobby) {
             SetFrontStatus(SessionPhase.JoiningLobby, "Joining...");
             
+            // Clean up old lobby properly (Migrate host if needed)
+            if (CurrentLobby.HasValue && CurrentLobby.Value.Id != lobby.Id) {
+                Debug.Log("[SessionManager] Switching lobbies. Leaving current...");
+                LeaveLobby();
+                // Note: LeaveLobby sets Phase to Menu, but we are about to Join.
+                // Reset Phase to JoiningLobby just in case logic checks it.
+                Phase = SessionPhase.JoiningLobby;
+            }
+
             var result = await lobby.Join();
             if (result != RoomEnter.Success) {
                 SetFrontStatus(SessionPhase.Error, $"Failed to join: {result}");
@@ -532,6 +609,9 @@ namespace Network {
 
             // Wait for Host Address to be set
             SetFrontStatus(SessionPhase.StartingClient, "Connecting to Host...");
+            
+            // Allow time for Netcode host to start if just promoted
+            await UniTask.Delay(500);
             
             // 4. Get Host Data & Connect
             string hostAddress = lobby.GetData(HostAddressKey);
@@ -612,11 +692,25 @@ namespace Network {
         }
         
         public void LeaveLobby() {
+            _expectedDisconnect = true; // Mark as expected
             if (CurrentLobby.HasValue) {
+                // Host Migration: If we are leader and have > 2 members, pass the torch
+                // If only 2 members (Me + 1), just disband (Host leaves, Client sees disconnect -> Self Heals)
+                if (IsPartyLeader && CurrentLobby.Value.MemberCount > 2) {
+                    // Try to find a new owner (first member who isn't me)
+                    var currentLobby = CurrentLobby.Value;
+                    var newOwner = currentLobby.Members.FirstOrDefault(m => m.Id != SteamClient.SteamId);
+                    if (newOwner.Id != 0) {
+                        Debug.Log($"[SessionManager] Migrating host to {newOwner.Name} before leaving.");
+                        currentLobby.Owner = newOwner;
+                    }
+                }
+                
                 CurrentLobby.Value.Leave();
                 CurrentLobby = null;
             }
             Phase = SessionPhase.Menu;
+            IsPartyLeader = false; // Reset
         }
         
         public async UniTask LeaveToMainMenuAsync() {
@@ -743,15 +837,105 @@ namespace Network {
         }
 
         private void OnClientDisconnected(ulong clientId) {
-             if (clientId == networkManager.LocalClientId) {
-                 // We disconnected
-                 HandleUnexpectedDisconnect().Forget();
-             }
+              if (clientId == networkManager.LocalClientId) {
+                  // We disconnected
+                  if (!_expectedDisconnect) {
+                      Debug.Log("[SessionManager] Unexpected Disconnect (Kick or Error).");
+                      HandleUnexpectedDisconnect().Forget();
+                  } else {
+                      // Reset flag
+                      _expectedDisconnect = false;
+                  }
+              }
         }
         
         private async UniTaskVoid HandleUnexpectedDisconnect() {
-            SetFrontStatus(SessionPhase.Error, "Disconnected.");
-            await LeaveToMainMenuAsync();
+            SetFrontStatus(SessionPhase.Error, "Disconnected from party.");
+            
+            // If we are in-game, go to menu
+            string currentScene = SceneManager.GetActiveScene().name;
+            if (currentScene != "MainMenu") {
+                 await LeaveToMainMenuAsync();
+                 // LeaveToMainMenuAsync already handles self-healing in some cases,
+                 // but let's ensure we get a fresh lobby.
+            } else {
+                // If in menu, we just need to clean up and make a new lobby (Self-Healing)
+                LeaveLobby(); // Clean up old
+                await CleanupNetworkAsync();
+                
+                Debug.Log("[SessionManager] Creating Personal Lobby (Self-Healing)...");
+                await CreatePrivateLobbyAsync();
+            }
+        }
+
+        // NEW: Kick Implementation
+        public void KickMember(SteamId targetId) {
+             if (!IsPartyLeader) return;
+             
+             // Netcode Disconnect
+             if (networkManager.IsServer) {
+                 networkManager.DisconnectClient(targetId.Value);
+                 Debug.Log($"[SessionManager] Kicked Client {targetId}");
+             }
+        }
+
+        public void PromoteMember(SteamId targetId) {
+             if (!IsPartyLeader || !CurrentLobby.HasValue) return;
+             
+             // Steam Ownership Change
+             // This will trigger OnLobbyDataChanged for everyone
+             var lobby = CurrentLobby.Value; // Fix struct modification error
+             lobby.Owner = new Friend(targetId);
+             Debug.Log($"[SessionManager] Promoted {targetId} to Host.");
+        }
+
+        private async UniTaskVoid MigrateNetcodeToNewHost(ulong newHostId) {
+             SetFrontStatus(SessionPhase.JoiningLobby, "Migrating Host...");
+             
+             // 1. Shutdown current Netcode
+             await CleanupNetworkAsync();
+             
+             // 2. If I am New Host -> Start Host
+             if (newHostId == SteamClient.SteamId) {
+                 Debug.Log("[SessionManager] I am the new Host. Starting Server...");
+                 StartHost();
+                 // Update Lobby Data so others can find me
+                 CurrentLobby?.SetData(HostAddressKey, SteamClient.SteamId.ToString());
+                 SetFrontStatus(SessionPhase.LobbyReady, "You are now Host.");
+             } else {
+                 // 3. If I am Client -> Connect to New Host
+                 Debug.Log($"[SessionManager] Connecting to new Host {newHostId}...");
+                 
+                 // Wait for HostAddressKey to update? 
+                 // It might take a moment for the new host to set it.
+                 // We can re-use JoinSessionByLobbyAsync's logic or custom loop.
+                 // But JoinSessionByLobbyAsync does strict "Join Steam Lobby" checks leading to leaves.
+                 // We are IN the lobby, just need to connect Netcode.
+                 
+                 // Poll for address update
+                 string hostAddress = "";
+                 int retries = 0;
+                 while(retries < 20) {
+                     if (CurrentLobby.HasValue) hostAddress = CurrentLobby.Value.GetData(HostAddressKey);
+                     if (hostAddress == newHostId.ToString()) break; // Found matches new owner
+                     await UniTask.Delay(500);
+                     retries++;
+                 }
+                 
+                 if (hostAddress == newHostId.ToString()) {
+                     // Connect
+                     var transport = networkManager.GetComponent<FacepunchTransport>();
+                     if (transport != null) {
+                         transport.targetSteamId = newHostId;
+                         networkManager.StartClient();
+                         SetFrontStatus(SessionPhase.LobbyReady, "Connected to new Host.");
+                     }
+                 } else {
+                     Debug.LogError("[SessionManager] Failed to resolve new Host Address.");
+                     SetFrontStatus(SessionPhase.Error, "Host Migration Failed.");
+                     // Recover? Leave?
+                 }
+             }
         }
 
         #endregion

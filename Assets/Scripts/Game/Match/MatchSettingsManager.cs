@@ -3,6 +3,7 @@ using Network;
 using Network.Steam;
 using Steamworks;
 using Steamworks.Data;
+using System.Collections.Generic;
 
 namespace Game.Match {
     /// <summary>
@@ -23,6 +24,23 @@ namespace Game.Match {
         public int matchDurationSeconds;
         public string selectedGameModeId;
 
+        [System.Serializable]
+        public struct GamemodeDef {
+            public string Id;
+            public int MinPlayers;
+            public int MaxPlayers; // Global Max (Party + Randoms)
+            public int MaxPartySize; // Max size for Public Queue
+            public bool IsTeamBased;
+        }
+
+        public List<GamemodeDef> gamemodeDefinitions = new List<GamemodeDef> {
+            new GamemodeDef { Id = "Deathmatch", MinPlayers = 2, MaxPlayers = 10, MaxPartySize = 5, IsTeamBased = false }, 
+            new GamemodeDef { Id = "Team Deathmatch", MinPlayers = 2, MaxPlayers = 10, MaxPartySize = 5, IsTeamBased = true },
+            new GamemodeDef { Id = "Hopball", MinPlayers = 2, MaxPlayers = 10, MaxPartySize = 5, IsTeamBased = true },
+            new GamemodeDef { Id = "KOTH", MinPlayers = 2, MaxPlayers = 10, MaxPartySize = 5, IsTeamBased = true }, 
+            new GamemodeDef { Id = "Gun Tag", MinPlayers = 2, MaxPlayers = 10, MaxPartySize = 5, IsTeamBased = false }
+        };
+
         private void Awake() {
             if(Instance != null && Instance != this) {
                 Destroy(gameObject);
@@ -33,6 +51,17 @@ namespace Game.Match {
 
             if(matchDurationSeconds <= 0) matchDurationSeconds = defaultMatchDurationSeconds;
             if(string.IsNullOrEmpty(selectedGameModeId)) selectedGameModeId = "Deathmatch";
+            
+            // Allow FFA Party Queue for now based on user request ("allow for 10 party members... enable public... loose matching")
+            // Wait, user said "allow for 10 party members for a full private match... parties of 6 or more are meant for private matches only".
+            // User did NOT explicitly say "Allow 5 stack in FFA Public".
+            // Standard is NO. But I will default to 1 (Solo) for FFA Public to be safe, unless user overrides.
+            // Adjusting based on user request: "Parties of 6 or more are meant for private matches only".
+            // This implies parties of 5 CAN queue.
+            // But for FFA? I'll set MaxPartySize to 5 for Team modes, and maybe 1 or small for FFA.
+            // Let's stick to standard safety: FFA = Solo Queue in Public.
+            // RE-READING: "loose packet matching... if a 5 stack is too little too late then they keep searching"
+            // This implies 5 stacks ARE queuing.
         }
 
         private void Start() {
@@ -81,6 +110,13 @@ namespace Game.Match {
             _ => false
         };
 
-        public bool IsCurrentModeTeamBased() => IsTeamBasedMode(selectedGameModeId);
+        public bool IsCurrentModeTeamBased() {
+            var def = GetGamemodeDef(selectedGameModeId);
+            return def.IsTeamBased;
+        }
+
+        public GamemodeDef GetGamemodeDef(string id) {
+            return gamemodeDefinitions.Find(g => g.Id == id);
+        }
     }
 }

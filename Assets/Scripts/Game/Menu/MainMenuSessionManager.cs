@@ -8,6 +8,7 @@ using Network.Services; // Ensure namespace correct or remove if unused
 using Network.Steam;
 using Steamworks;
 using Steamworks.Data;
+using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -118,17 +119,81 @@ namespace Game.Menu {
         private void Update() {
             if (SessionManager.Instance == null) return;
 
+
             // Handle Matchmaking Status & Locking
             bool isSearching = SessionManager.Instance.IsSearching;
             bool showStatus = SessionManager.Instance.ShowMatchmakingStatus;
             bool isPartyMember = SessionManager.Instance.CurrentLobby.HasValue && !SessionManager.Instance.IsPartyLeader;
 
-            // Only update buttons if state changed? 
-            // Better to just enforce it, SetMenuButtonsEnabled checks current state anyway (mostly).
-            // But checking local input/interaction state might be needed.
-            // For now, enforcing it ensures we don't drift.
+            // --- Party Constraint Logic ---
+            int currentPartySize = 1;
+            if (SessionManager.Instance.CurrentLobby.HasValue) {
+                currentPartySize = SessionManager.Instance.CurrentLobby.Value.MemberCount;
+            }
+
+            // Check Invite Button Visibility
+            if (_inviteButton != null) {
+                // Hide if party is full (10) or if we are not the host/leader
+                bool canInvite = (currentPartySize < 10) && (SessionManager.Instance.CurrentLobby.HasValue ? SessionManager.Instance.IsPartyLeader : true);
+                // Also can't invite if searching
+                if (isSearching) canInvite = false;
+                
+                _inviteButton.style.display = canInvite ? DisplayStyle.Flex : DisplayStyle.None;
+            }
+
+            // Check Play Button Enable/Disable
+            // 1. Must not be searching
+            // 2. Must be party leader (or solo)
+            // 3. Current Party Size must be <= Gamemode.MaxPartySize (for Public Matches)
+            //    Note: We only know the "selected" gamemode via SessionManager/MatchSettingsManager
+            
+            bool canPlay = !isSearching && !isPartyMember; // Base rules
+            if (_isSilentHosting) canPlay = true; // Allow interaction during silent host setup
+
+            if (canPlay && Game.Match.MatchSettingsManager.Instance != null) {
+                string selectedMode = SessionManager.Instance.SelectedGameMode;
+                var def = Game.Match.MatchSettingsManager.Instance.GetGamemodeDef(selectedMode);
+                
+                // If attempting Public Match (standard Play button)
+                // We assume "Play" button implies Public Queue unless "Private" is handled separately.
+                // Actually, MainMenuUIManager handles separate buttons for "Play Matchmaking" vs "Private".
+                // Here we just set "MenuButtonsEnabled". 
+                // We should technically selectively disable the Matchmaking button but allow Private if party is large.
+                // However, MainMenuUIManager.SetMenuButtonsEnabled toggles BOTH.
+                // Refinement: 
+                // If Party > MaxPartySize (e.g. 6 > 5), we must disable PUBLIC matchmaking.
+                // But Private matchmaking should still be allowed? 
+                // Current UI structure links them. 
+                // Use a dedicated check for the Public Play button if possible, but for now we will disable globally 
+                // if the constraint is violated, assuming user will switch to Private via logic or we block the click.
+                // Better approach: Let's block the *State* or show a tooltip? 
+                // Tooltips are hard in UI Toolkit without setup.
+                // Let's just enforce the strict rule: "Parties of 6 or more are meant for private matches only".
+                // If Party > 5, we should visually indicate this? 
+                
+                // For this pass, I'll stick to the requested implementation: 
+                // "disable the play button when you have more than 5 total party members"
+                
+                if (currentPartySize > 5) { // Hard limit as per request "parties of 6 or more... private matches only"
+                     // Wait, user said "disable the play button... parties of 6 or more are meant for private matches onluy"
+                     // This implies the "Play" (Public) button is disabled, but "Private" might remain?
+                     // My SetMenuButtonsEnabled disables ALL. 
+                     // I will need to modify MainMenuUIManager to separate them if I want that granular control.
+                     // For now, I will assume "Play" usually means the big green button (Matchmaking).
+                     // But if I disable all, they can't start Private either.
+                     // IMPORTANT: I will assume I need to disable ONLY the Matchmaking button if party is large.
+                }
+            }
+
             if (uiManager != null) {
-                uiManager.SetMenuButtonsEnabled((!isSearching && !isPartyMember) || _isSilentHosting);
+                // If Party > 5, Disable Public Play, Enable Private
+                if (currentPartySize > 5) {
+                     uiManager.DisableButton(uiManager.GetPlayButtonMatchmaking()); // Need getter or public access
+                     if (!isSearching) uiManager.EnableButton(uiManager.GetPlayButtonPrivate());
+                } else {
+                     // Normal logic
+                     uiManager.SetMenuButtonsEnabled((!isSearching && !isPartyMember) || _isSilentHosting);
+                }
 
                 if (uiManager.StatusContainer != null) {
                     var targetDisplay = showStatus ? DisplayStyle.Flex : DisplayStyle.None;
@@ -172,7 +237,121 @@ namespace Game.Menu {
                     UISoundService.PlayButtonClick(isBack: true);
                     SessionManager.Instance.CancelMatchmaking();
                 };
+                
+                // Close context menu on any click outside
+                // OLD METHOD: TrickleDown on Root (Deleted - unreliable)
+                
+                // NEW METHOD: Backdrop Click
+                if (uiManager.ContextMenuBackdrop != null) {
+                    uiManager.ContextMenuBackdrop.RegisterCallback<PointerDownEvent>(evt => {
+                        Debug.Log("[MainMenuSessionManager] Backdrop clicked. Hiding Context Menu.");
+                        HideContextMenu();
+                    });
+                }
+
+                // Context Menu Actions
+                if(uiManager.CtxLeave != null) uiManager.CtxLeave.clicked += () => HandleContextAction("Leave");
+                if(uiManager.CtxKick != null) uiManager.CtxKick.clicked += () => HandleContextAction("Kick");
+                if(uiManager.CtxMakeHost != null) uiManager.CtxMakeHost.clicked += () => HandleContextAction("Promote");
+                if(uiManager.CtxProfile != null) uiManager.CtxProfile.clicked += () => HandleContextAction("Profile");
+                if(uiManager.CtxSteamProfile != null) uiManager.CtxSteamProfile.clicked += () => HandleContextAction("SteamProfile");
+                // placeholders
+                if(uiManager.CtxMuteChat != null) uiManager.CtxMuteChat.clicked += () => HideContextMenu(); 
+                if(uiManager.CtxMuteVoice != null) uiManager.CtxMuteVoice.clicked += () => HideContextMenu();
+                if(uiManager.CtxBlock != null) uiManager.CtxBlock.clicked += () => HideContextMenu();
             }
+        }
+
+        private SteamId _contextMenuTargetId;
+
+        private void HideContextMenu() {
+            if(uiManager != null && uiManager.PartyContextMenu != null) {
+                uiManager.PartyContextMenu.AddToClassList("hidden");
+                if (uiManager.ContextMenuBackdrop != null) {
+                     uiManager.ContextMenuBackdrop.AddToClassList("hidden");
+                }
+            }
+        }
+
+        private void ShowContextMenu(Vector2 position, SteamId targetId, bool isMe, bool amIHost, bool isTargetHost) {
+            if(uiManager == null || uiManager.PartyContextMenu == null) return;
+
+            _contextMenuTargetId = targetId;
+
+            // Toggle buttons based on context
+            // Profile & Steam Profile: Always Visible for everyone (Self & Others)
+            if(uiManager.CtxProfile != null) uiManager.CtxProfile.style.display = DisplayStyle.Flex;
+            if(uiManager.CtxSteamProfile != null) uiManager.CtxSteamProfile.style.display = DisplayStyle.Flex;
+            
+            // Leave: Only for Self, and only if NOT solo
+            bool isSolo = SessionManager.Instance != null && SessionManager.Instance.CurrentLobby.HasValue && SessionManager.Instance.CurrentLobby.Value.MemberCount <= 1;
+            bool showLeave = isMe && !isSolo;
+            if(uiManager.CtxLeave != null) uiManager.CtxLeave.style.display = showLeave ? DisplayStyle.Flex : DisplayStyle.None;
+
+            // Separator Logic: Hide if Leave AND (Kick/Promote) are hidden
+            bool canManage = amIHost && !isMe;
+            bool showManageBlock = canManage; // Kick/Promote
+            bool showSeparator = showLeave || showManageBlock;
+            if (uiManager.CtxSeparatorManagement != null) {
+                uiManager.CtxSeparatorManagement.style.display = showSeparator ? DisplayStyle.Flex : DisplayStyle.None;
+            }
+
+            // Kick / Make Host: Only if I am Host AND Target is NOT Me
+            if(uiManager.CtxKick != null) uiManager.CtxKick.style.display = canManage ? DisplayStyle.Flex : DisplayStyle.None;
+            if(uiManager.CtxMakeHost != null) uiManager.CtxMakeHost.style.display = canManage ? DisplayStyle.Flex : DisplayStyle.None;
+            
+            // Mute/Block: Only if Not Me
+            bool isOther = !isMe;
+            if(uiManager.CtxMuteChat != null) uiManager.CtxMuteChat.style.display = isOther ? DisplayStyle.Flex : DisplayStyle.None;
+            if(uiManager.CtxMuteVoice != null) uiManager.CtxMuteVoice.style.display = isOther ? DisplayStyle.Flex : DisplayStyle.None;
+            if(uiManager.CtxBlock != null) uiManager.CtxBlock.style.display = isOther ? DisplayStyle.Flex : DisplayStyle.None;
+            
+            // Separators? Hard to toggle individually if they are un-named. Use classes or just leave them.
+
+            // Position
+            uiManager.PartyContextMenu.style.left = position.x;
+            uiManager.PartyContextMenu.style.top = position.y;
+            
+            uiManager.PartyContextMenu.RemoveFromClassList("hidden");
+            uiManager.PartyContextMenu.BringToFront();
+            
+            // Show Backdrop
+            if (uiManager.ContextMenuBackdrop != null) {
+                uiManager.ContextMenuBackdrop.RemoveFromClassList("hidden");
+                uiManager.ContextMenuBackdrop.BringToFront();
+                // Ensure Menu is ABOVE Backdrop
+                uiManager.PartyContextMenu.BringToFront();
+            }
+
+            UISoundService.PlayButtonClick();
+        }
+
+        private void HandleContextAction(string action) {
+             HideContextMenu();
+             if(_contextMenuTargetId.Value == 0) return;
+
+             Debug.Log($"[MainMenuSessionManager] Context Action: {action}");
+
+             switch(action) {
+                 case "Leave":
+                     // Trigger Leave Logic
+                     SessionManager.Instance.LeaveLobby();
+                     // TODO: This might need confirmation modal?
+                     // Currently just leaves.
+                     break;
+                 case "Kick":
+                     SessionManager.Instance.KickMember(_contextMenuTargetId);
+                     break;
+                 case "Promote":
+                     SessionManager.Instance.PromoteMember(_contextMenuTargetId);
+                     break;
+                 case "Profile":
+                     Debug.Log($"View Profile: {_contextMenuTargetId}");
+                     break;
+                 case "SteamProfile":
+                     SteamFriends.OpenUserOverlay(_contextMenuTargetId, "steamid");
+                     break;
+             }
         }
 
         private void UpdateStatusText(string msg) {
@@ -342,7 +521,28 @@ namespace Game.Menu {
             
             if (!isLocal) row.AddToClassList("party-member-entry");
 
-            bool showHostIndicator = isHost && !isLocal;
+            // Host Indicator Logic:
+            // - Show if isHost is true.
+            // - BUT, if isLocal is true, only show if we have other party members (handled by caller passing isHost correctly?).
+            //   Caller logic in UpdateGlobalPartyUI passes member.Id == hostId.
+            //   So if I am host, isHost is true here.
+            
+            // New Requirement: "indicate to the host that they are host... just dont want to show it when youre in the main menu without any other players"
+            // We need to know if there are other players. 
+            // The method signature doesn't pass total member count.
+            // But UpdateGlobalPartyUI iterates members.
+            // We can infer "Solo" if !inMyParty or just check global lobby state?
+            // Actually, we can just check SessionManager.CurrentLobby.MemberCount > 1.
+            
+            bool showHostIndicator = isHost;
+            if (isLocal && isHost) {
+                 // Only show if lobby has > 1 member
+                 int memberCount = 1;
+                 if (SessionManager.Instance != null && SessionManager.Instance.CurrentLobby.HasValue) {
+                     memberCount = SessionManager.Instance.CurrentLobby.Value.MemberCount;
+                 }
+                 if (memberCount <= 1) showHostIndicator = false;
+            }
 
             // Avatar
             var avatarBox = new VisualElement {
@@ -379,6 +579,16 @@ namespace Game.Menu {
             row.Add(nameLabel);
 
             targetContainer.Add(row);
+
+            // Right Click Event
+            row.RegisterCallback<PointerDownEvent>(evt => {
+                if(evt.button == 1) { // Right Click
+                    // Calculate correct position relative to screen/panel
+                    // Event position is usually window space coordinates
+                    ShowContextMenu(evt.position, id, isLocal, IsHost, isHost);
+                    evt.StopPropagation(); // Prevent standard context menu?
+                }
+            });
         }
 
         private void UpdateHostStatus(bool isHost) {
