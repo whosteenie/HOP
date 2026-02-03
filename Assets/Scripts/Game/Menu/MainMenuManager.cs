@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
+using Discord;
 using Game.Match;
 using Network;
 using Network.Services;
@@ -91,6 +92,11 @@ namespace Game.Menu {
 
             // Check first time setup
             CheckFirstTimeSetup();
+
+            // Set initial Discord status
+            if(DiscordManager.Instance != null) {
+                DiscordManager.Instance.SetStatus("In Main Menu", "Browsing");
+            }
         }
 
         private void WireSubManagerCallbacks() {
@@ -305,6 +311,7 @@ namespace Game.Menu {
                 }
 
                 ShowPanelImmediate(panel);
+                UpdateDiscordStatusForPanel(panel);
                 _currentPanel = panel;
                 return;
             }
@@ -323,11 +330,27 @@ namespace Game.Menu {
             if(!requiresFade) {
                 HidePanelImmediate(_currentPanel);
                 ShowPanelImmediate(panel);
+                UpdateDiscordStatusForPanel(panel);
                 _currentPanel = panel;
                 return;
             }
 
             _panelFadeCoroutine = StartCoroutine(FadeBetweenPanels(_currentPanel, panel));
+            UpdateDiscordStatusForPanel(panel);
+        }
+
+        private void UpdateDiscordStatusForPanel(VisualElement panel) {
+            if(DiscordManager.Instance == null) return;
+
+            if(panel == MainMenuPanel) {
+                DiscordManager.Instance.SetStatus("In Main Menu", "Browsing");
+            } else if(panel == _lobbyPanel) {
+                DiscordManager.Instance.SetStatus("In Lobby", "Waiting for Match");
+            } else if(panel == _gamemodePanel) {
+                DiscordManager.Instance.SetStatus("In Main Menu", "Selecting Gamemode");
+            } else if(panel == _loadoutPanel) {
+                DiscordManager.Instance.SetStatus("In Main Menu", "Editing Loadout");
+            }
         }
 
         private static void HidePanelImmediate(VisualElement panel) {

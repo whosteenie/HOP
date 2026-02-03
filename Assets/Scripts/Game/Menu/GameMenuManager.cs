@@ -1,4 +1,5 @@
 using System;
+using Discord;
 using Game.Player;
 using Game.Progression;
 using Game.UI;
@@ -88,6 +89,21 @@ namespace Game.Menu {
             }
 
             Instance = this;
+        }
+
+        private void Start() {
+            if(DiscordManager.Instance != null) {
+                string mode = "Deathmatch";
+                if(Game.Match.MatchSettingsManager.Instance != null) {
+                    mode = Game.Match.MatchSettingsManager.Instance.selectedGameModeId;
+                    if(mode == "KOTH") mode = "King of the Hill";
+                    else if(mode == "TDM") mode = "Team Deathmatch";
+                    
+                    if(string.IsNullOrEmpty(mode)) mode = "Deathmatch";
+                }
+                
+                DiscordManager.Instance.SetStatus("Playing " + mode, "In Match", System.DateTimeOffset.UtcNow.ToUnixTimeSeconds());
+            }
         }
 
         private void OnEnable() {
