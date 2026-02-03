@@ -9,6 +9,7 @@ using Network.Components;
 using Network.Events;
 using Network.Rpc;
 using OSI;
+using Steamworks;
 using Unity.Cinemachine;
 using Unity.Collections;
 using Unity.Netcode;
@@ -180,6 +181,10 @@ namespace Game.Player {
             NetworkVariableReadPermission.Everyone,
             NetworkVariableWritePermission.Owner);
 
+        public NetworkVariable<ulong> steamId = new(0,
+            NetworkVariableReadPermission.Everyone,
+            NetworkVariableWritePermission.Owner);
+
         public NetworkVariable<FixedString64Bytes> playerName = new("Player",
             NetworkVariableReadPermission.Everyone,
             NetworkVariableWritePermission.Owner);
@@ -259,7 +264,15 @@ namespace Game.Player {
             }
 
             if(IsOwner) {
-                playerName.Value = PlayerPrefs.GetString("PlayerName", "Unknown Player");
+                // Determine player name
+                string pName = "Unknown Player";
+                if (SteamClient.IsValid) {
+                    pName = SteamClient.Name;
+                    steamId.Value = SteamClient.SteamId.Value;
+                } else {
+                     pName = PlayerPrefs.GetString("PlayerName", "Unknown Player");
+                }
+                playerName.Value = pName;
                 
                 // Load weapon selections from PlayerPrefs and sync via NetworkVariables
                 primaryWeaponIndex.Value = PlayerPrefs.GetInt("PrimaryWeaponIndex", 0);

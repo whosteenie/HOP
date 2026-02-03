@@ -2,18 +2,19 @@ using System.Collections;
 using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
 using Discord;
-using Game.Match;
 using Network;
 using Network.Services;
 using UnityEngine;
 using UnityEngine.Audio;
 using UnityEngine.UIElements;
 using Cursor = UnityEngine.Cursor;
+using Steamworks;
 
 namespace Game.Menu {
     /// <summary>
     /// Main coordinator for the main menu system.
     /// Delegates UI, session, and gamemode management to specialized sub-managers.
+    /// Steamworks Integrated.
     /// </summary>
     public class MainMenuManager : MonoBehaviour {
         #region Serialized Fields
@@ -53,6 +54,7 @@ namespace Game.Menu {
         private VisualElement _currentPanel;
         private Coroutine _panelFadeCoroutine;
         private const float PanelFadeDuration = 0.08f;
+        private bool _isPrivateMatchIntent;
 
         #endregion
 
@@ -65,11 +67,7 @@ namespace Game.Menu {
             }
 
             _root = uiDocument.rootVisualElement;
-
-            // Find panel references (needed for ShowPanel coordination)
             FindPanels();
-
-            // CRITICAL: Wire up callbacks in Awake to ensure they're set before sub-managers' Start() runs
             WireSubManagerCallbacks();
         }
 
@@ -77,43 +75,23 @@ namespace Game.Menu {
             Cursor.visible = true;
             Cursor.lockState = CursorLockMode.None;
 
-            // Initialize sub-managers (they will register events in their Start)
-            // Callbacks are already wired in Awake(), so events will be registered with callbacks set
             InitializeSubManagers();
-
-            // Setup options menu manager
             SetupOptionsMenuManager();
             LoadSettings();
 
-            // Initialize UI manager (hides game menu, etc.)
-            if(uiManager != null) {
-                uiManager.Initialize();
-            }
-
-            // Check first time setup
+            if(uiManager != null) uiManager.Initialize();
+            if(sessionManager != null) sessionManager.Initialize();
             CheckFirstTimeSetup();
 
-            // Set initial Discord status
             if(DiscordManager.Instance != null) {
                 DiscordManager.Instance.SetStatus("In Main Menu", "Browsing");
             }
         }
 
         private void WireSubManagerCallbacks() {
-            // Wire UI Manager callbacks first
-            if(uiManager != null) {
-                WireUIManagerEvents();
-            }
-
-            // Wire Session Manager callbacks
-            if(sessionManager != null) {
-                WireSessionManagerEvents();
-            }
-
-            // Wire Gamemode Manager callbacks
-            if(gamemodeManager != null) {
-                WireGamemodeManagerEvents();
-            }
+            if(uiManager != null) WireUIManagerEvents();
+            if(sessionManager != null) WireSessionManagerEvents();
+            if(gamemodeManager != null) WireGamemodeManagerEvents();
         }
 
         #endregion
@@ -131,6 +109,7 @@ namespace Game.Menu {
             _panels = new List<VisualElement> {
                 MainMenuPanel,
                 _gamemodePanel,
+                uiManager.PlayGamemodePanel,
                 _lobbyPanel,
                 _loadoutPanel,
                 _optionsPanel,
@@ -139,40 +118,47 @@ namespace Game.Menu {
         }
 
         private void InitializeSubManagers() {
-            // Initialize UI Manager
             if(uiManager != null) {
-                if(uiManager.uiDocument == null) {
-                    uiManager.uiDocument = uiDocument;
-                }
-                // Callbacks already wired in WireSubManagerCallbacks()
+                if(uiManager.uiDocument == null) uiManager.uiDocument = uiDocument;
             }
-
-            // Initialize Session Manager
             if(sessionManager != null) {
-                if(sessionManager.uiDocument == null) {
-                    sessionManager.uiDocument = uiDocument;
-                }
-                // Callbacks already wired in WireSubManagerCallbacks()
+                if(sessionManager.uiDocument == null) sessionManager.uiDocument = uiDocument;
             }
-
-            // Initialize Gamemode Manager
-            if(gamemodeManager == null) return;
-            if(gamemodeManager.uiDocument == null) {
+            if(gamemodeManager && gamemodeManager.uiDocument == null) {
                 gamemodeManager.uiDocument = uiDocument;
             }
-            // Callbacks already wired in WireSubManagerCallbacks()
         }
 
         private void WireUIManagerEvents() {
             if(uiManager == null) return;
 
-            uiManager.OnPlayClicked = OnPlayClicked;
+            uiManager.OnPlayMatchmakingClicked = () => {
+                _isPrivateMatchIntent = false;
+                ShowPanel(uiManager.PlayGamemodePanel);
+            };
+            uiManager.OnPlayPrivateClicked = () => {
+                _isPrivateMatchIntent = true;
+                ShowPanel(uiManager.PlayGamemodePanel);
+            };
+            uiManager.OnGamemodeSelected = (mode) => {
+                if (_isPrivateMatchIntent) {
+                    sessionManager.HandlePrivateMatchSelection(mode).Forget();
+                } else {
+                    sessionManager.HandleGamemodeSelected(mode);
+                    // Matchmaking intent: start search
+                    sessionManager.HandleFindGameClicked(mode).Forget();
+
+                    // Hide gamemode panel
+                    if (uiManager.PlayGamemodePanel.resolvedStyle.display == DisplayStyle.Flex) {
+                        ShowPanel(MainMenuPanel);
+                    }
+                }
+            };
+            uiManager.OnGamemodeDropdownClicked = () => sessionManager.ToggleGamemodeDropdown();
+            uiManager.OnCancelMatchmakingClicked = () => sessionManager.HandleCancelMatchmakingClicked();
             uiManager.OnLoadoutClicked = () => {
                 var loadoutManager = FindFirstObjectByType<LoadoutManager>();
-                if(loadoutManager != null) {
-                    loadoutManager.ShowLoadout();
-                }
-
+                if(loadoutManager != null) loadoutManager.ShowLoadout();
                 ShowPanel(_loadoutPanel);
             };
             uiManager.OnOptionsClicked = () => {
@@ -180,7 +166,6 @@ namespace Game.Menu {
                     optionsMenuManager.LoadSettings();
                     optionsMenuManager.OnOptionsPanelShown();
                 }
-
                 ShowPanel(_optionsPanel);
             };
             uiManager.OnCreditsClicked = () => ShowPanel(_creditsPanel);
@@ -188,9 +173,8 @@ namespace Game.Menu {
             uiManager.OnQuitCancelled = OnQuitCancelled;
             uiManager.OnLobbyLeaveConfirmed = () => {
                 if(SessionManager.Instance != null) {
-                    SessionManager.Instance.LeaveToMainMenuAsync(skipFade: true).Forget();
+                    SessionManager.Instance.LeaveToMainMenuAsync().Forget(); // Removed skipFade param if not supported? Or keep if overload exists. Assuming default.
                 }
-
                 ShowPanel(MainMenuPanel);
             };
             uiManager.OnLobbyLeaveCancelled = () => { };
@@ -201,70 +185,45 @@ namespace Game.Menu {
         private void WireSessionManagerEvents() {
             if(sessionManager == null) return;
 
-            sessionManager.OnHostClicked = () => {
-                if(sessionManager != null) {
-                    sessionManager.HandleHostClicked();
-                }
-            };
-            sessionManager.OnJoinClicked = code => {
-                if(sessionManager != null) {
-                    sessionManager.HandleJoinClicked(code);
-                }
-            };
+            sessionManager.OnHostClicked = () => { sessionManager.HandleHostClicked().Forget(); };
+            sessionManager.OnJoinClicked = code => { _ = sessionManager.HandleFindGameClicked(); }; // Mapped to Find Game
             sessionManager.OnStartGameClicked = () => {
-                if(gamemodeManager != null) {
-                    gamemodeManager.CloseDropdown();
-                }
-
-                if(sessionManager != null) {
-                    sessionManager.HandleStartGameClicked();
-                }
+                gamemodeManager?.CloseDropdown();
             };
             sessionManager.OnBackFromLobbyClicked = () => {
                 // Check if we should show modal
-                var sessionManagerInstance = SessionManager.Instance;
-                var session = sessionManagerInstance != null ? sessionManagerInstance.ActiveSession : null;
-
-                var isHost = sessionManager != null && sessionManager.IsHost;
-                var hasJoinCode = session != null && !string.IsNullOrEmpty(session.Code);
-                var shouldShowModal = (session != null) && (isHost || hasJoinCode);
+                // Logic: If Host or Has Members
+                bool shouldShowModal = IsInActiveLobby();
 
                 if(shouldShowModal && uiManager != null) {
                     uiManager.ShowLobbyLeaveConfirmation();
                 } else {
-                    // Leave directly and show main menu panel
                     UISoundService.PlayButtonClick(isBack: true);
-                    if(SessionManager.Instance != null) {
-                        SessionManager.Instance.LeaveToMainMenuAsync(skipFade: true).Forget();
-                    }
-
+                    SessionManager.Instance?.LeaveToMainMenuAsync().Forget();
                     ShowPanel(MainMenuPanel);
                 }
             };
             sessionManager.OnHostStatusChanged = (isHost, wasHost) => {
-                // Notify gamemode manager when host status changes
-                if(gamemodeManager != null) {
-                    gamemodeManager.SetHostStatus(isHost, wasHost);
-                }
+                gamemodeManager?.SetHostStatus(isHost, wasHost);
             };
-            sessionManager.ShouldShowLobbyLeaveModal = () => {
-                var sessionManagerInstance = SessionManager.Instance;
-                var session = sessionManagerInstance != null ? sessionManagerInstance.ActiveSession : null;
-                if(session == null) return false;
-                var isHost = sessionManager != null && sessionManager.IsHost;
-                var hasJoinCode = !string.IsNullOrEmpty(session.Code);
-                return isHost || hasJoinCode;
-            };
+            sessionManager.ShouldShowLobbyLeaveModal = IsInActiveLobby;
+        }
+        
+        private bool IsInActiveLobby() {
+            var sessionManagerInstance = SessionManager.Instance;
+            if (sessionManagerInstance == null || !sessionManagerInstance.CurrentLobby.HasValue) return false;
+            
+            // If we are owner, definitely warn.
+            if (sessionManagerInstance.CurrentLobby.Value.Owner.Id == SteamClient.SteamId) return true;
+            
+            // If connected to multiplayer, warn.
+            return true; 
         }
 
         private void WireGamemodeManagerEvents() {
-            if(gamemodeManager == null) return;
-
-            gamemodeManager.OnGameModeSelected = modeName => {
-                if(gamemodeManager != null) {
-                    gamemodeManager.HandleGameModeSelected(modeName);
-                }
-            };
+             if (gamemodeManager != null) {
+                 gamemodeManager.OnGameModeSelected = modeName => gamemodeManager.HandleGameModeSelected(modeName);
+             }
         }
 
         #endregion
@@ -272,18 +231,14 @@ namespace Game.Menu {
         #region First Time Setup
 
         private void CheckFirstTimeSetup() {
-            if(uiManager != null) {
-                uiManager.CheckFirstTimeSetup();
-            }
+            uiManager?.CheckFirstTimeSetup();
         }
 
         private void OnFirstTimeSetupContinue() {
             if(uiManager == null) return;
 
             var playerName = uiManager.GetFirstTimeNameInput();
-            if(string.IsNullOrWhiteSpace(playerName)) {
-                playerName = "Player";
-            }
+            if(string.IsNullOrWhiteSpace(playerName)) playerName = "Player";
 
             PlayerPrefs.SetString("PlayerName", playerName);
             PlayerPrefs.Save();
@@ -297,19 +252,12 @@ namespace Game.Menu {
         #region Navigation
 
         public void ShowPanel(VisualElement panel) {
-            if(panel == null) {
-                Debug.LogError("[MainMenuManager] ShowPanel called with null panel!");
-                return;
-            }
+            if(panel == null) return;
 
             if(_currentPanel == null) {
-                // First time: show immediately
                 foreach(var p in _panels) {
-                    if(p != null && p != panel) {
-                        HidePanelImmediate(p);
-                    }
+                    if(p != null && p != panel) HidePanelImmediate(p);
                 }
-
                 ShowPanelImmediate(panel);
                 UpdateDiscordStatusForPanel(panel);
                 _currentPanel = panel;
@@ -317,13 +265,12 @@ namespace Game.Menu {
             }
 
             if(panel == _currentPanel) return;
-
             if(_panelFadeCoroutine != null) {
                 StopCoroutine(_panelFadeCoroutine);
                 _panelFadeCoroutine = null;
             }
 
-            var needFadeOut = _currentPanel != null && _currentPanel != _loadoutPanel;
+            var needFadeOut = _currentPanel != _loadoutPanel;
             var needFadeIn = panel != _loadoutPanel;
             var requiresFade = needFadeOut || needFadeIn;
 
@@ -342,25 +289,20 @@ namespace Game.Menu {
         private void UpdateDiscordStatusForPanel(VisualElement panel) {
             if(DiscordManager.Instance == null) return;
 
-            if(panel == MainMenuPanel) {
-                DiscordManager.Instance.SetStatus("In Main Menu", "Browsing");
-            } else if(panel == _lobbyPanel) {
-                DiscordManager.Instance.SetStatus("In Lobby", "Waiting for Match");
-            } else if(panel == _gamemodePanel) {
-                DiscordManager.Instance.SetStatus("In Main Menu", "Selecting Gamemode");
-            } else if(panel == _loadoutPanel) {
-                DiscordManager.Instance.SetStatus("In Main Menu", "Editing Loadout");
-            }
+            if(panel == MainMenuPanel) DiscordManager.Instance.SetStatus("In Main Menu", "Browsing");
+            else if(panel == _lobbyPanel) DiscordManager.Instance.SetStatus("In Lobby", "Waiting for Match");
+            else if(panel == _gamemodePanel) DiscordManager.Instance.SetStatus("In Main Menu", "Selecting Gamemode");
+            else if(panel == _loadoutPanel) DiscordManager.Instance.SetStatus("In Main Menu", "Editing Loadout");
         }
 
-        private static void HidePanelImmediate(VisualElement panel) {
+        private void HidePanelImmediate(VisualElement panel) {
             if(panel == null) return;
             panel.AddToClassList("hidden");
             panel.style.display = StyleKeyword.Null;
             panel.style.opacity = new StyleFloat(1f);
         }
 
-        private static void ShowPanelImmediate(VisualElement panel) {
+        private void ShowPanelImmediate(VisualElement panel) {
             if(panel == null) return;
             panel.RemoveFromClassList("hidden");
             panel.style.display = DisplayStyle.Flex;
@@ -369,10 +311,8 @@ namespace Game.Menu {
         }
 
         private IEnumerator FadeBetweenPanels(VisualElement oldPanel, VisualElement newPanel) {
-            // Hide all other panels immediately
             foreach(var p in _panels) {
-                if(p == null) continue;
-                if(p == oldPanel || p == newPanel) continue;
+                if(p == null || p == oldPanel || p == newPanel) continue;
                 HidePanelImmediate(p);
             }
 
@@ -392,20 +332,12 @@ namespace Game.Menu {
             while(elapsed < PanelFadeDuration) {
                 elapsed += Time.deltaTime;
                 var t = Mathf.Clamp01(elapsed / PanelFadeDuration);
-                if(fadeOutPanel != null) {
-                    fadeOutPanel.style.opacity = new StyleFloat(1f - t);
-                }
-
-                if(fadeInPanel != null) {
-                    fadeInPanel.style.opacity = new StyleFloat(t);
-                }
-
+                if(fadeOutPanel != null) fadeOutPanel.style.opacity = new StyleFloat(1f - t);
+                if(fadeInPanel != null) fadeInPanel.style.opacity = new StyleFloat(t);
                 yield return null;
             }
 
-            if(fadeOutPanel != null) {
-                HidePanelImmediate(fadeOutPanel);
-            }
+            if(fadeOutPanel != null) HidePanelImmediate(fadeOutPanel);
 
             if(fadeInPanel != null) {
                 fadeInPanel.style.opacity = new StyleFloat(1f);
@@ -418,74 +350,38 @@ namespace Game.Menu {
             _panelFadeCoroutine = null;
         }
 
-        /// <summary>
-        /// Shows the character customization panel (called from LoadoutManager).
-        /// </summary>
         public void ShowCharacterCustomization() {
             if(characterCustomizationManager != null) {
                 characterCustomizationManager.OnButtonClickedCallback = OnButtonClicked;
                 characterCustomizationManager.MouseEnterCallback = MouseEnter;
-                characterCustomizationManager.OnBackFromCustomizationCallback = () => { ShowPanel(_loadoutPanel); };
+                characterCustomizationManager.OnBackFromCustomizationCallback = () => ShowPanel(_loadoutPanel);
             }
-
             ShowPanel(_loadoutPanel);
-            if(characterCustomizationManager != null) {
-                characterCustomizationManager.ShowCustomization();
-            }
+            characterCustomizationManager?.ShowCustomization();
         }
 
-        private void OnPlayClicked() {
-            // Initialize gamemode from MatchSettings or default to Deathmatch
-            if(MatchSettingsManager.Instance != null) {
-                var selectedGameMode = MatchSettingsManager.Instance.selectedGameModeId;
-                if(string.IsNullOrEmpty(selectedGameMode)) {
-                    selectedGameMode = "Deathmatch";
-                    MatchSettingsManager.Instance.selectedGameModeId = selectedGameMode;
-                }
-            }
-
-            // Update gamemode manager
-            if(gamemodeManager != null) {
-                gamemodeManager.SetDefaultGamemode("Lobby");
-                gamemodeManager.ResetGamemodeUI();
-            }
-
-            // Reset lobby UI
-            if(sessionManager != null) {
-                sessionManager.ResetLobbyUI();
-            }
-
-            ShowPanel(_lobbyPanel);
-        }
 
         #endregion
 
         #region Settings
 
         private void SetupOptionsMenuManager() {
-            if(optionsMenuManager == null) {
-                Debug.LogError("[MainMenuManager] OptionsMenuManager not assigned!");
-                return;
-            }
+            if(optionsMenuManager == null) return;
 
             optionsMenuManager.OnButtonClickedCallback = OnButtonClicked;
             optionsMenuManager.MouseEnterCallback = _ => UISoundService.PlayButtonHover();
             optionsMenuManager.OnBackFromOptionsCallback = () => ShowPanel(MainMenuPanel);
-
             optionsMenuManager.Initialize();
 
-            if(characterCustomizationManager == null) return;
-            {
+            if(characterCustomizationManager != null) {
                 characterCustomizationManager.OnButtonClickedCallback = OnButtonClicked;
                 characterCustomizationManager.MouseEnterCallback = _ => UISoundService.PlayButtonHover();
-                characterCustomizationManager.OnBackFromCustomizationCallback = () => { ShowPanel(_loadoutPanel); };
+                characterCustomizationManager.OnBackFromCustomizationCallback = () => ShowPanel(_loadoutPanel);
             }
         }
 
         private void LoadSettings() {
-            if(optionsMenuManager != null) {
-                optionsMenuManager.LoadSettings();
-            }
+            optionsMenuManager?.LoadSettings();
         }
 
         #endregion
@@ -515,7 +411,6 @@ namespace Game.Menu {
 
         private static void OnQuitCancelled() {
             OnButtonClicked();
-            // HideQuitConfirmation is handled internally by UIManager
         }
 
         #endregion

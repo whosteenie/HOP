@@ -17,20 +17,45 @@ namespace Game.Menu {
         private VisualElement _root;
         private VisualElement MainMenuPanel { get; set; }
         private VisualElement _gamemodePanel;
+        private VisualElement _playGamemodePanel;
         private VisualElement _lobbyPanel;
         private VisualElement _loadoutPanel;
         private VisualElement _optionsPanel;
         private VisualElement _creditsPanel;
+        private Button _cardGunTag;
+
+        // HUD / Global Containers
+        public VisualElement PartyContainer { get; private set; }
+        public VisualElement StatusContainer { get; private set; }
+        public VisualElement LoadingOverlay { get; private set; }
+        public Label MatchmakingStatusLabel { get; private set; }
+        public Button CancelMatchmakingButton { get; private set; }
 
         // Buttons
-        private Button _playButton;
+        private Button _playButtonMatchmaking;
+        private Button _playButtonPrivate;
         private Button _loadoutButton;
         private Button _optionsButton;
         private Button _creditsButton;
         private Button _quitButton;
         private Button _backGamemodeButton;
+        private Button _backGamemodesButton;
         private Button _backCreditsButton;
+
+        // Gamemode Cards
+        private Button _cardDeathmatch;
+        private Button _cardTeamDeathmatch;
+        private Button _cardHopball;
+        private Button _cardKoth;
+
+        // Private Lobby Dropdown
+        public VisualElement GamemodeDropdownContainer { get; private set; }
+        public Label GamemodeDisplayLabel { get; private set; }
+        public VisualElement GamemodeDropdownMenu { get; private set; }
+        private List<Button> _gamemodeOptions;
+
         private List<Button> _buttons;
+        private List<Button> _backButtons;
 
         // First-time setup modal
         private VisualElement _firstTimeModal;
@@ -54,7 +79,10 @@ namespace Game.Menu {
         private Label _versionLabel;
 
         // Events
-        public System.Action OnPlayClicked;
+        public System.Action OnPlayMatchmakingClicked;
+        public System.Action OnPlayPrivateClicked;
+        public System.Action<string> OnGamemodeSelected;
+        public System.Action OnCancelMatchmakingClicked;
         public System.Action OnLoadoutClicked;
         public System.Action OnOptionsClicked;
         public System.Action OnCreditsClicked;
@@ -65,6 +93,7 @@ namespace Game.Menu {
         public System.Action OnFirstTimeContinue;
         public System.Action<string> OnNameInputChanged;
         public System.Action<VisualElement> OnShowPanel;
+        public System.Action OnGamemodeDropdownClicked;
 
 
 
@@ -105,7 +134,7 @@ namespace Game.Menu {
         private void FindUIElements() {
             // Panels
             MainMenuPanel = _root.Q<VisualElement>("main-menu-panel");
-            _gamemodePanel = _root.Q<VisualElement>("gamemode-panel");
+            _playGamemodePanel = _root.Q<VisualElement>("play-gamemode-panel");
             _lobbyPanel = _root.Q<VisualElement>("lobby-panel");
             _loadoutPanel = _root.Q<VisualElement>("loadout-panel");
             _nameInput = _root.Q<TextField>("player-name-input");
@@ -113,13 +142,31 @@ namespace Game.Menu {
             _creditsPanel = _root.Q<VisualElement>("credits-panel");
 
             // Buttons
-            _playButton = _root.Q<Button>("play-button");
+            _playButtonMatchmaking = _root.Q<Button>("play-button-matchmaking");
+            _playButtonPrivate = _root.Q<Button>("play-button-private");
             _loadoutButton = _root.Q<Button>("loadout-button");
             _optionsButton = _root.Q<Button>("options-button");
             _creditsButton = _root.Q<Button>("credits-button");
             _quitButton = _root.Q<Button>("quit-button");
             _backGamemodeButton = _root.Q<Button>("back-to-main");
+            _backGamemodesButton = _root.Q<Button>("back-gamemodes-to-main");
             _backCreditsButton = _root.Q<Button>("back-to-lobby");
+
+            // Gamemode Cards
+            _cardDeathmatch = _root.Q<Button>("card-deathmatch");
+            _cardTeamDeathmatch = _root.Q<Button>("card-team-deathmatch");
+            _cardHopball = _root.Q<Button>("card-hopball");
+            _cardKoth = _root.Q<Button>("card-koth");
+            _cardGunTag = _root.Q<Button>("card-gun-tag");
+
+            LoadingOverlay = _root.Q<VisualElement>("loading-overlay");
+
+            // Private Lobby Dropdown (Deprecated but keeping variables for now to avoid breaking other scripts immediately)
+            GamemodeDropdownContainer = _root.Q<VisualElement>("gamemode-dropdown-container");
+            GamemodeDisplayLabel = _root.Q<Label>("gamemode-display-label");
+            GamemodeDropdownMenu = _root.Q<VisualElement>("gamemode-dropdown-menu");
+            
+            _gamemodeOptions = new List<Button>();
 
             // First-time setup modal
             _firstTimeModal = _root.Q<VisualElement>("first-time-setup-modal");
@@ -141,41 +188,87 @@ namespace Game.Menu {
             _toastContainer = _root.Q<VisualElement>("toast-container");
             _versionLabel = _root.Q<Label>("version-text");
             
+            // Setup global containers from UXML
+            PartyContainer = _root.Q<VisualElement>("party-container");
+            StatusContainer = _root.Q<VisualElement>("status-container");
+            Debug.Log($"[MainMenuUIManager] StatusContainer: {(StatusContainer != null ? "FOUND" : "NULL")}");
+            if (StatusContainer != null) {
+                MatchmakingStatusLabel = _root.Q<Label>("matchmaking-status-label");
+                CancelMatchmakingButton = _root.Q<Button>("cancel-matchmaking-button");
+                
+                Debug.Log($"[MainMenuUIManager] CancelMatchmakingButton: {(CancelMatchmakingButton != null ? "FOUND" : "NULL")}");
+
+                // C# Fallback for pickingMode
+                StatusContainer.pickingMode = PickingMode.Ignore;
+                if (MatchmakingStatusLabel != null) MatchmakingStatusLabel.pickingMode = PickingMode.Ignore;
+                if (CancelMatchmakingButton != null) CancelMatchmakingButton.pickingMode = PickingMode.Position;
+            }
+            
+            if (PartyContainer != null) {
+                PartyContainer.pickingMode = PickingMode.Ignore;
+            }
+
             if (_versionLabel != null) {
                 _versionLabel.text = $"v{Application.version}";
             }
 
             _buttons = new List<Button> {
-                _playButton,
+                _playButtonMatchmaking,
+                _playButtonPrivate,
                 _loadoutButton,
                 _optionsButton,
                 _creditsButton,
+                _quitButton,
+                _cardDeathmatch,
+                _cardTeamDeathmatch,
+                _cardHopball,
+                _cardKoth,
+                _cardGunTag,
+                CancelMatchmakingButton
+            };
+
+            _backButtons = new List<Button> {
                 _backGamemodeButton,
+                _backGamemodesButton,
                 _backCreditsButton
             };
+            
+            _buttons.AddRange(_gamemodeOptions);
         }
 
         private void RegisterUIEvents() {
-            // Generic button events
             foreach(var b in _buttons) {
                 if(b == null) continue;
-                b.clicked += () => {
-                    UISoundService.PlayButtonClick(b.ClassListContains("back-button"));
-                };
                 UISoundService.RegisterButtonHover(b);
+                b.clicked += () => UISoundService.PlayButtonClick();
+            }
+
+            foreach(var b in _backButtons) {
+                if(b == null) continue;
+                UISoundService.RegisterButtonHover(b);
+                // No generic click here, handled in specialized ones below
+            }
+
+            if (CancelMatchmakingButton != null) {
+                Debug.Log($"[MainMenuUIManager] Registering Cancel button click event");
+                CancelMatchmakingButton.clicked += () => {
+                    Debug.Log("[MainMenuUIManager] Cancel button CLICKED!");
+                    OnCancelMatchmakingClicked?.Invoke();
+                };
             }
 
             // Main menu navigation
-            _playButton.clicked += () => {
-                UISoundService.PlayButtonClick();
-                OnPlayClicked?.Invoke();
-            };
+            if (_playButtonMatchmaking != null) {
+                _playButtonMatchmaking.clicked += () => OnPlayMatchmakingClicked?.Invoke();
+            }
+            if (_playButtonPrivate != null) {
+                _playButtonPrivate.clicked += () => OnPlayPrivateClicked?.Invoke();
+            }
 
             _loadoutButton.clicked += () => {
                 if(_nameInput != null) {
                     _nameInput.value = PlayerPrefs.GetString("PlayerName");
                 }
-                UISoundService.PlayButtonClick();
                 OnLoadoutClicked?.Invoke();
             };
 
@@ -191,6 +284,41 @@ namespace Game.Menu {
 
             _quitButton.clicked += ShowQuitConfirmation;
             UISoundService.RegisterButtonHover(_quitButton);
+
+            // Gamemode Card Clicks
+            if (_cardDeathmatch != null) _cardDeathmatch.clicked += () => OnGamemodeSelected?.Invoke("Deathmatch");
+            if (_cardTeamDeathmatch != null) _cardTeamDeathmatch.clicked += () => OnGamemodeSelected?.Invoke("Team Deathmatch");
+            if (_cardHopball != null) _cardHopball.clicked += () => OnGamemodeSelected?.Invoke("Hopball");
+            if (_cardKoth != null) _cardKoth.clicked += () => OnGamemodeSelected?.Invoke("King of the Hill");
+            if (_cardGunTag != null) _cardGunTag.clicked += () => OnGamemodeSelected?.Invoke("Gun Tag");
+
+            // Back buttons
+            if (_backGamemodeButton != null) _backGamemodeButton.clicked += () => OnShowPanel?.Invoke(MainMenuPanel);
+            if (_backGamemodesButton != null) {
+                _backGamemodesButton.clicked += () => {
+                    UISoundService.PlayButtonClick(isBack: true);
+                    OnShowPanel?.Invoke(MainMenuPanel);
+                };
+            }
+            if (_backCreditsButton != null) {
+                _backCreditsButton.clicked += () => {
+                    UISoundService.PlayButtonClick(isBack: true);
+                    OnShowPanel?.Invoke(MainMenuPanel);
+                };
+            }
+
+            // Private Lobby Dropdown
+            if (GamemodeDropdownContainer != null) {
+                GamemodeDropdownContainer.RegisterCallback<ClickEvent>(evt => OnGamemodeDropdownClicked?.Invoke());
+            }
+
+            foreach (var opt in _gamemodeOptions) {
+                if (opt == null) continue;
+                opt.clicked += () => {
+                    UISoundService.PlayButtonClick();
+                    OnGamemodeSelected?.Invoke(opt.text);
+                };
+            }
 
             // Quit confirmation modal
             if(_quitConfirmationYes != null) {
@@ -238,13 +366,6 @@ namespace Game.Menu {
                     UISoundService.PlayButtonHover();
                 });
             }
-
-            if(_backCreditsButton != null) {
-                _backCreditsButton.clicked += () => {
-                    UISoundService.PlayButtonClick(isBack: true);
-                    OnShowPanel?.Invoke(MainMenuPanel);
-                };
-            }
         }
 
         private void SetupFirstTimeModal() {
@@ -257,10 +378,8 @@ namespace Game.Menu {
         }
 
         public void CheckFirstTimeSetup() {
-            var hasName = PlayerPrefs.HasKey("PlayerName");
-            if(!hasName) {
-                ShowFirstTimeSetup();
-            }
+            // Deprecated: Player name is now pulled from Steam
+            HideFirstTimeSetup();
         }
 
         private void ShowFirstTimeSetup() {
@@ -283,17 +402,40 @@ namespace Game.Menu {
 
         // Button Enable/Disable
         public static void EnableButton(Button button) {
-            if(button == null) return;
-            button.AddToClassList("menu-chip-enabled");
-            button.SetEnabled(true);
-            UISoundService.RegisterButtonHover(button);
+            SetButtonEnabled(button, true);
         }
 
         public static void DisableButton(Button button) {
+            SetButtonEnabled(button, false);
+        }
+
+        private static void SetButtonEnabled(Button button, bool enabled) {
             if(button == null) return;
-            button.RemoveFromClassList("menu-chip-enabled");
-            button.SetEnabled(false);
-            UISoundService.UnregisterButtonHover(button);
+            
+            button.SetEnabled(enabled);
+
+            // Handle different styles
+            bool isTextButton = button.ClassListContains("text-button");
+
+            if (enabled) {
+                if (!isTextButton) button.AddToClassList("menu-chip-enabled");
+                UISoundService.RegisterButtonHover(button);
+            } else {
+                button.RemoveFromClassList("menu-chip-enabled");
+                UISoundService.UnregisterButtonHover(button);
+            }
+        }
+
+        public VisualElement PlayGamemodePanel => _playGamemodePanel;
+
+        public void SetMenuButtonsEnabled(bool enabled) {
+            if (enabled) {
+                EnableButton(_playButtonMatchmaking);
+                EnableButton(_playButtonPrivate);
+            } else {
+                DisableButton(_playButtonMatchmaking);
+                DisableButton(_playButtonPrivate);
+            }
         }
 
         // Quit Confirmation

@@ -10,6 +10,10 @@ using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UIElements;
+using Steamworks;
+using Steamworks.Data;
+using Cysharp.Threading.Tasks;
+using Color = UnityEngine.Color;
 
 namespace Game.UI {
     /// <summary>
@@ -71,6 +75,9 @@ namespace Game.UI {
 
         private readonly Dictionary<ulong, float>
             _previousVelocityValues = new(); // Track previous velocity to avoid unnecessary updates
+
+        // Steam Avatar Cache
+        private readonly Dictionary<ulong, Texture2D> _avatarCache = new();
 
         // Cache scene name to avoid string allocations
         private string _cachedSceneName;
@@ -798,13 +805,19 @@ namespace Game.UI {
             // Avatar (player icon based on color)
             var avatar = new VisualElement();
             avatar.AddToClassList("player-avatar");
-            var baseColor = player != null ? player.CurrentBaseColor : Color.white;
-            var playerIcon = GetPlayerIconSprite(baseColor);
-            if(playerIcon != null) {
-                avatar.style.backgroundImage = new StyleBackground(playerIcon);
-            }
-
             row.Add(avatar);
+
+            // Fetch Steam Avatar
+            if (player != null && player.steamId.Value != 0) {
+                 LoadSteamAvatar(player.steamId.Value, avatar).Forget();
+            } else {
+                 // Fallback to simple colors if no Steam ID or Steam not active
+                 var baseColor = player != null ? player.CurrentBaseColor : Color.white;
+                 var playerIcon = GetPlayerIconSprite(baseColor);
+                 if(playerIcon != null) {
+                     avatar.style.backgroundImage = new StyleBackground(playerIcon);
+                 }
+            }
 
             // Name
             var playerName = new Label(player.PlayerName.Value.ToString());
@@ -985,7 +998,7 @@ namespace Game.UI {
         /// Gets the player icon sprite based on the player's material index.
         /// Material index order: 0=white, 1=red, 2=orange, 3=yellow, 4=green, 5=blue, 6=purple
         /// </summary>
-        private Sprite GetPlayerIconSprite(Color baseColor) {
+        private Sprite GetPlayerIconSprite(UnityEngine.Color baseColor) {
             if(playerIconSprites == null || playerIconSprites.Length == 0) {
                 return null;
             }
@@ -995,18 +1008,18 @@ namespace Game.UI {
             return playerIconSprites[clampedIndex];
         }
 
-        private int GetClosestIconIndex(Color baseColor) {
+        private int GetClosestIconIndex(UnityEngine.Color baseColor) {
             if(playerIconSprites == null || playerIconSprites.Length == 0) return 0;
 
             // Use the legacy palette order: white, red, orange, yellow, green, blue, purple
             var palette = new[] {
-                new Color(1f, 1f, 1f),
-                new Color(1f, 0f, 0f),
-                new Color(1f, 0.5f, 0f),
-                new Color(1f, 1f, 0f),
-                new Color(0f, 1f, 0f),
-                new Color(0f, 0f, 1f),
-                new Color(0.5f, 0f, 1f)
+                new UnityEngine.Color(1f, 1f, 1f),
+                new UnityEngine.Color(1f, 0f, 0f),
+                new UnityEngine.Color(1f, 0.5f, 0f),
+                new UnityEngine.Color(1f, 1f, 0f),
+                new UnityEngine.Color(0f, 1f, 0f),
+                new UnityEngine.Color(0f, 0f, 1f),
+                new UnityEngine.Color(0.5f, 0f, 1f)
             };
 
             var bestIndex = 0;
@@ -1195,6 +1208,31 @@ namespace Game.UI {
                 _leftScoreContainer.style.display = DisplayStyle.Flex;
             if(_rightScoreContainer != null)
                 _rightScoreContainer.style.display = DisplayStyle.Flex;
+        }
+
+        private async UniTaskVoid LoadSteamAvatar(ulong steamId, VisualElement avatarElement) {
+            if (_avatarCache.TryGetValue(steamId, out var tex)) {
+                 if (avatarElement != null) avatarElement.style.backgroundImage = new StyleBackground(tex);
+                 return;
+            }
+
+            // Fetch
+            var image = await SteamFriends.GetLargeAvatarAsync(steamId);
+            if (image.HasValue) {
+                var texture = GetTextureFromImage(image.Value);
+                if (texture != null) {
+                    _avatarCache[steamId] = texture;
+                    // Check if element is still valid (it might have been rebuilt)
+                    if (avatarElement != null) avatarElement.style.backgroundImage = new StyleBackground(texture);
+                }
+            }
+        }
+
+        private Texture2D GetTextureFromImage(Steamworks.Data.Image image) {
+             var texture = new Texture2D((int)image.Width, (int)image.Height, TextureFormat.RGBA32, false);
+             texture.LoadRawTextureData(image.Data);
+             texture.Apply();
+             return texture;
         }
     }
 }

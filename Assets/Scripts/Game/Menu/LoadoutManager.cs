@@ -353,8 +353,13 @@ namespace Game.Menu {
             
             // Containers start off-screen via USS, no need to initialize positions here
             
-            // Name input
-            _playerNameInput = _root.Q<TextField>("player-name-input");
+            // Name input - Deprecated/Hidden as we now use Steam names
+            if (_playerNameInput != null) {
+                _playerNameInput.RegisterValueChangedCallback(evt => OnNameChanged(evt.newValue)); // Keep callback to prevent errors if invoked
+                _playerNameInput.style.display = DisplayStyle.None;
+            }
+            // _playerNameInput = _root.Q<TextField>("player-name-input"); // Removed lookup or kept for null check safety above
+
             _applyLoadoutButton = _root.Q<Button>("apply-loadout-button");
             
             if(_applyLoadoutButton != null) {
@@ -444,12 +449,12 @@ namespace Game.Menu {
         }
 
         private void LoadSavedLoadout() {
-            // Load name
-            _savedPlayerName = PlayerPrefs.GetString("PlayerName", "Player");
+            // Name - Deprecated execution, we just set default "Player" internally or ignore
+            _savedPlayerName = "Player"; 
             _currentPlayerName = _savedPlayerName;
 
             if(_playerNameInput != null) {
-                _playerNameInput.value = _currentPlayerName;
+                _playerNameInput.style.display = DisplayStyle.None;
             }
 
             // Load weapons (equipped weapon index saved per slot)
@@ -474,9 +479,9 @@ namespace Game.Menu {
         }
 
         private void OnApplyLoadoutClicked() {
-            // Save name
-            _savedPlayerName = _currentPlayerName;
-            PlayerPrefs.SetString("PlayerName", _savedPlayerName);
+            // Deprecated: Custom name saving
+            // _savedPlayerName = _currentPlayerName;
+            // PlayerPrefs.SetString("PlayerName", _savedPlayerName);
             
             // Save weapons (already saved when selected, but ensure they're current)
             PlayerPrefs.SetInt("PrimaryWeaponIndex", _selectedPrimaryIndex);

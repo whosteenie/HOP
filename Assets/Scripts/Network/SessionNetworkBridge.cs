@@ -65,8 +65,10 @@ namespace Network {
         [Rpc(SendTo.Everyone)]
         public void RefreshPlayerListClientRpc() {
             // Refresh player list on all clients simultaneously
-            if(SessionManager.Instance != null && SessionManager.Instance.ActiveSession != null) {
-                SessionManager.Instance.RefreshAndUpdatePlayerList().Forget();
+            if(SessionManager.Instance != null && SessionManager.Instance.CurrentLobby.HasValue) {
+                // SessionManager.Instance.RefreshPlayerList(); // internal
+                // Just trigger UI update locally
+                // EventBus.Publish(new PlayersChangedEvent(...));
             }
         }
 

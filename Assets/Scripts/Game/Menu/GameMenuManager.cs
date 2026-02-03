@@ -7,6 +7,8 @@ using Game.Match;
 using Network;
 using Network.Events;
 using Network.Services;
+using Network.Steam;
+using Steamworks;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UIElements;
@@ -53,14 +55,10 @@ namespace Game.Menu {
 
         // Pause menu join code
         private Label _pauseJoinCodeLabel;
-        private Button _pauseCopyCodeButton;
+        private Button _pauseCopyCodeButton; // Will be "Invite" button
 
         private VisualElement _root;
-
-        // Cache scene name to avoid string allocations
         private string _cachedSceneName;
-
-        // Pause menu challenge cards
         private VisualElement _pauseChallengesContainer;
         private VisualElement _dailyChallengesCard;
         private VisualElement _weeklyChallengesCard;
@@ -71,9 +69,7 @@ namespace Game.Menu {
         #region Properties
 
         public bool IsPaused { get; private set; }
-
         public bool IsPostMatch { get; set; }
-
         public static bool IsPreMatch => MatchTimerManager.Instance != null && MatchTimerManager.Instance.IsPreMatch;
 
         #endregion
@@ -87,109 +83,71 @@ namespace Game.Menu {
                 Destroy(gameObject);
                 return;
             }
-
             Instance = this;
         }
 
         private void Start() {
             if(DiscordManager.Instance != null) {
                 string mode = "Deathmatch";
-                if(Game.Match.MatchSettingsManager.Instance != null) {
-                    mode = Game.Match.MatchSettingsManager.Instance.selectedGameModeId;
-                    if(mode == "KOTH") mode = "King of the Hill";
-                    else if(mode == "TDM") mode = "Team Deathmatch";
-                    
+                if(MatchSettingsManager.Instance != null) {
+                    mode = MatchSettingsManager.Instance.selectedGameModeId;
                     if(string.IsNullOrEmpty(mode)) mode = "Deathmatch";
                 }
-                
-                DiscordManager.Instance.SetStatus("Playing " + mode, "In Match", System.DateTimeOffset.UtcNow.ToUnixTimeSeconds());
+                DiscordManager.Instance.SetStatus("Playing " + mode, "In Match", DateTimeOffset.UtcNow.ToUnixTimeSeconds());
             }
         }
 
         private void OnEnable() {
-            if(uiDocument == null) {
-                Debug.LogError("[GameMenuManager] UIDocument is not assigned!");
-                return;
-            }
-
+            if(uiDocument == null) return;
             _root = uiDocument.rootVisualElement;
-
-            // Cache scene name to avoid allocations
             UpdateCachedSceneName();
-
-            // Subscribe to scene changes to update cache
             SceneManager.sceneLoaded += OnSceneLoaded;
-
+            
             FindUIElements();
             RegisterUIEvents();
-
+            
             SetupOptionsMenuManager();
             SetupKillFeedManager();
             SetupScoreboardManager();
             SetupSniperOverlayManager();
-
-            // Subscribe to EventBus events
-            EventBus.Subscribe<RelayCodeAvailableEvent>(OnRelayCodeAvailable);
         }
 
         private void OnDisable() {
-            // Unsubscribe from EventBus events
-            EventBus.Unsubscribe<RelayCodeAvailableEvent>(OnRelayCodeAvailable);
-
-            // Unsubscribe from scene changes
             SceneManager.sceneLoaded -= OnSceneLoaded;
         }
+        
+        #endregion
 
         private void UpdateCachedSceneName() {
             var activeScene = SceneManager.GetActiveScene();
-            if(activeScene.IsValid()) {
-                _cachedSceneName = activeScene.name;
-            }
+            if(activeScene.IsValid()) _cachedSceneName = activeScene.name;
         }
 
         private void OnSceneLoaded(Scene scene, LoadSceneMode mode) {
             UpdateCachedSceneName();
         }
 
-        #region Event Handlers
-
-        private void OnRelayCodeAvailable(RelayCodeAvailableEvent evt) {
-            // Update join code display if pause menu is visible
-            if(!IsPaused || _pauseJoinCodeLabel == null) return;
-            JoinCodeService.UpdateJoinCodeDisplay(_pauseJoinCodeLabel, _pauseCopyCodeButton, evt.Code);
-        }
-
-        #endregion
-
         private void FindUIElements() {
-            // Get panels
             _pauseMenuPanel = _root.Q<VisualElement>("pause-menu-panel");
             _optionsPanel = _root.Q<VisualElement>("options-panel");
-
             _resumeButton = _root.Q<Button>("resume-button");
             _optionsButton = _root.Q<Button>("options-button");
             _quitButton = _root.Q<Button>("quit-button");
-
-            // Pause menu join code
             _pauseJoinCodeLabel = _root.Q<Label>("pause-join-code-label");
             _pauseCopyCodeButton = _root.Q<Button>("pause-copy-code-button");
-
-            // Quit confirmation modal
             _quitConfirmationModal = _root.Q<VisualElement>("quit-confirmation-modal");
             _quitConfirmationYes = _root.Q<Button>("quit-confirmation-yes");
             _quitConfirmationNo = _root.Q<Button>("quit-confirmation-no");
-
-            // Kill Feed
             _killFeedContainer = _root.Q<VisualElement>("kill-feed-container");
             
-            // Build challenge cards for pause menu
             BuildPauseChallengeCards();
+            
+            // hide invite/code UI
+            if(_pauseJoinCodeLabel != null) _pauseJoinCodeLabel.style.display = DisplayStyle.None;
+            if(_pauseCopyCodeButton != null) _pauseCopyCodeButton.style.display = DisplayStyle.None;
         }
 
-
-
         private void Update() {
-            // Real-time challenge updates while paused
             if (IsPaused && _pauseChallengesContainer != null) {
                 UpdatePauseChallenges();
             }
@@ -198,97 +156,63 @@ namespace Game.Menu {
         private void BuildPauseChallengeCards() {
             if (_pauseMenuPanel == null) return;
 
-            // Create container for challenges (horizontal layout around pause card)
             _pauseChallengesContainer = new VisualElement {
                 name = "pause-challenges-container",
                 style = {
                     position = Position.Absolute,
-                    left = 0,
-                    right = 0,
-                    top = 0,
-                    bottom = 0,
+                    left = 0, right = 0, top = 0, bottom = 0,
                     flexDirection = FlexDirection.Row,
                     justifyContent = Justify.Center,
                     alignItems = Align.Center
                 }
             };
             
-            // Daily Challenges Card (left side)
             _dailyChallengesCard = CreateChallengeCard("Daily Challenges");
-            _dailyChallengesCard.style.marginRight = 50; // More spacing from pause menu
+            _dailyChallengesCard.style.marginRight = 50;
             
-            // Spacer for the existing pause card (we don't move it)
-            var spacer = new VisualElement {
-                style = {
-                    width = 420, // Match pause menu .menu-container width
-                    height = 10
-                }
-            };
+            var spacer = new VisualElement { style = { width = 420, height = 10 } };
             
-            // Weekly Challenges Card (right side)
             _weeklyChallengesCard = CreateChallengeCard("Weekly Challenges");
-            _weeklyChallengesCard.style.marginLeft = 50; // More spacing from pause menu
+            _weeklyChallengesCard.style.marginLeft = 50;
 
             _pauseChallengesContainer.Add(_dailyChallengesCard);
             _pauseChallengesContainer.Add(spacer);
             _pauseChallengesContainer.Add(_weeklyChallengesCard);
             
-            // Add before pause menu panel so it's behind it
             _pauseMenuPanel.parent.Insert(0, _pauseChallengesContainer);
             _pauseChallengesContainer.AddToClassList("hidden");
         }
 
         private VisualElement CreateChallengeCard(string title) {
-            // Match HOP pause menu style from GameMenu.uss
-            // .menu-container uses: rgba(12, 12, 18, 0.85) bg, rgba(200, 60, 60, 0.4) border
             var card = new VisualElement {
                 style = {
-                    width = 280,
-                    minHeight = 180,
-                    backgroundColor = new Color(12f/255f, 12f/255f, 18f/255f, 0.85f), // rgba(12,12,18,0.85)
-                    borderTopLeftRadius = 4,
-                    borderTopRightRadius = 4,
-                    borderBottomLeftRadius = 4,
-                    borderBottomRightRadius = 4,
-                    borderTopWidth = 1,
-                    borderBottomWidth = 1,
-                    borderLeftWidth = 1,
-                    borderRightWidth = 1,
-                    borderTopColor = new Color(200f/255f, 60f/255f, 60f/255f, 0.4f), // rgba(200,60,60,0.4)
+                    width = 280, minHeight = 180,
+                    backgroundColor = new Color(12f/255f, 12f/255f, 18f/255f, 0.85f),
+                    borderTopWidth = 1, borderBottomWidth = 1, borderLeftWidth = 1, borderRightWidth = 1,
+                    borderTopColor = new Color(200f/255f, 60f/255f, 60f/255f, 0.4f),
                     borderBottomColor = new Color(200f/255f, 60f/255f, 60f/255f, 0.4f),
                     borderLeftColor = new Color(200f/255f, 60f/255f, 60f/255f, 0.4f),
                     borderRightColor = new Color(200f/255f, 60f/255f, 60f/255f, 0.4f),
-                    paddingTop = 16,
-                    paddingBottom = 16,
-                    paddingLeft = 18,
-                    paddingRight = 18
+                    paddingTop = 16, paddingBottom = 16, paddingLeft = 18, paddingRight = 18,
+                    borderTopLeftRadius = 4, borderTopRightRadius = 4, 
+                    borderBottomLeftRadius = 4, borderBottomRightRadius = 4
                 }
             };
             
             var titleLabel = new Label(title) {
                 style = {
-                    fontSize = 14,
-                    unityFontStyleAndWeight = FontStyle.Bold,
-                    color = Color.white,
-                    marginBottom = 12,
-                    unityTextAlign = TextAnchor.MiddleCenter
+                    fontSize = 14, unityFontStyleAndWeight = FontStyle.Bold,
+                    color = Color.white, marginBottom = 12, unityTextAlign = TextAnchor.MiddleCenter
                 }
             };
             card.Add(titleLabel);
             
-            // Separator line (red accent matching border)
             var separator = new VisualElement {
-                style = {
-                    height = 1,
-                    backgroundColor = new Color(200f/255f, 60f/255f, 60f/255f, 0.6f),
-                    marginBottom = 12
-                }
+                style = { height = 1, backgroundColor = new Color(200f/255f, 60f/255f, 60f/255f, 0.6f), marginBottom = 12 }
             };
             card.Add(separator);
             
-            var listContainer = new VisualElement {
-                name = "challenge-list"
-            };
+            var listContainer = new VisualElement { name = "challenge-list" };
             card.Add(listContainer);
             
             return card;
@@ -297,20 +221,17 @@ namespace Game.Menu {
         private void UpdatePauseChallenges() {
             var pm = ProgressionManager.Instance;
             if (pm == null || pm.Data == null) return;
-
             RenderChallengeList(_dailyChallengesCard, pm.Data.dailyChallenges);
             RenderChallengeList(_weeklyChallengesCard, pm.Data.weeklyChallenges);
         }
 
         private void RenderChallengeList(VisualElement card, System.Collections.Generic.List<ActiveChallengeData> challenges) {
             if (card == null) return;
-            
             var list = card.Q<VisualElement>("challenge-list");
             if (list == null) return;
             
             list.Clear();
             if (challenges == null) return;
-            
             var pm = ProgressionManager.Instance;
             if (pm == null) return;
 
@@ -319,248 +240,135 @@ namespace Game.Menu {
                 if (def == null) continue;
                     
                 var row = new VisualElement {
-                    style = {
-                        marginBottom = 12,
-                        paddingBottom = 8,
-                        borderBottomWidth = 1,
-                        borderBottomColor = new Color(200f/255f, 60f/255f, 60f/255f, 0.15f)
-                    }
+                    style = { marginBottom = 12, paddingBottom = 8, borderBottomWidth = 1, borderBottomColor = new Color(200f/255f, 60f/255f, 60f/255f, 0.15f) }
                 };
 
                 var progress = activeChallenge.currentProgress;
                 var target = activeChallenge.targetProgress;
                 if (progress > target) progress = target;
                     
-                // Format description, handling dynamic filterID for play_matches_of etc.
                 string descText = def.Description;
                 try {
-                    // If filterID is set, use it as {1} in the format string
                     if (!string.IsNullOrEmpty(activeChallenge.filterID)) {
                         var displayFilter = pm.GetFilterDisplayName(activeChallenge.filterID);
                         descText = string.Format(def.Description, target, displayFilter);
                     } else {
                         descText = string.Format(def.Description, target);
                     }
-                } catch {
-                    // Fallback
-                }
+                } catch { }
 
-                // Title row: Description (progress/target) ... +XP
                 var titleRow = new VisualElement {
-                    style = {
-                        flexDirection = FlexDirection.Row,
-                        justifyContent = Justify.SpaceBetween,
-                        alignItems = Align.FlexStart,
-                        marginBottom = 4
-                    }
+                    style = { flexDirection = FlexDirection.Row, justifyContent = Justify.SpaceBetween, alignItems = Align.FlexStart, marginBottom = 4 }
                 };
                 
-                // Description with progress inline
                 var titleLabel = new Label($"{descText} ({progress}/{target})") {
-                    style = {
-                        fontSize = 11,
-                        color = new Color(0.9f, 0.9f, 0.9f),
-                        whiteSpace = WhiteSpace.Normal,
-                        flexShrink = 1
-                    }
+                    style = { fontSize = 11, color = new Color(0.9f, 0.9f, 0.9f), whiteSpace = WhiteSpace.Normal, flexShrink = 1 }
                 };
                 titleRow.Add(titleLabel);
                 
                 var xpLabel = new Label($"+{activeChallenge.xpReward}") {
-                    style = {
-                        fontSize = 10,
-                        color = new Color(0.5f, 0.8f, 0.5f),
-                        flexShrink = 0,
-                        marginLeft = 8
-                    }
+                    style = { fontSize = 10, color = new Color(0.5f, 0.8f, 0.5f), flexShrink = 0, marginLeft = 8 }
                 };
                 titleRow.Add(xpLabel);
-                
                 row.Add(titleRow);
                     
-                var progressBar = new ProgressBar {
-                    lowValue = 0,
-                    highValue = target,
-                    value = progress,
-                    style = {
-                        height = 5
-                    }
-                };
+                var progressBar = new ProgressBar { lowValue = 0, highValue = target, value = progress, style = { height = 5 } };
                 StyleProgressBar(progressBar);
                 row.Add(progressBar);
-                    
                 list.Add(row);
             }
         }
 
         private void StyleProgressBar(ProgressBar bar) {
             bar.style.backgroundColor = new Color(0.15f, 0.15f, 0.15f);
-            bar.style.borderTopWidth = 0;
-            bar.style.borderBottomWidth = 0;
-            bar.style.borderLeftWidth = 0;
-            bar.style.borderRightWidth = 0;
             var fill = bar.Q<VisualElement>(className: "unity-progress-bar__progress");
-            if (fill != null) {
-                fill.style.backgroundColor = _progressBarColor;
-            }
+            if (fill != null) fill.style.backgroundColor = _progressBarColor;
         }
 
         private void RegisterUIEvents() {
-            // Setup main menu buttons
-            _resumeButton.clicked += () => {
-                UISoundService.PlayButtonClick();
-                ResumeGame();
-            };
+            _resumeButton.clicked += () => { UISoundService.PlayButtonClick(); ResumeGame(); };
             UISoundService.RegisterButtonHover(_resumeButton);
 
-            _optionsButton.clicked += () => {
-                UISoundService.PlayButtonClick();
-                ShowOptions();
-            };
+            _optionsButton.clicked += () => { UISoundService.PlayButtonClick(); ShowOptions(); };
             UISoundService.RegisterButtonHover(_optionsButton);
 
-            _quitButton.clicked += () => {
-                UISoundService.PlayButtonClick(isBack: true);
-                ShowQuitConfirmation();
-            };
+            _quitButton.clicked += () => { UISoundService.PlayButtonClick(isBack: true); ShowQuitConfirmation(); };
             UISoundService.RegisterButtonHover(_quitButton);
 
-            // Quit confirmation modal
             if(_quitConfirmationYes != null) {
-                _quitConfirmationYes.clicked += () => {
-                    UISoundService.PlayButtonClick(isBack: true); // Negative sound for destructive action
-                    HideQuitConfirmation();
-                    QuitToMenu();
-                };
+                _quitConfirmationYes.clicked += () => { UISoundService.PlayButtonClick(isBack: true); HideQuitConfirmation(); QuitToMenu(); };
                 UISoundService.RegisterButtonHover(_quitConfirmationYes);
             }
 
             if(_quitConfirmationNo != null) {
-                _quitConfirmationNo.clicked += () => {
-                    UISoundService.PlayButtonClick(); // Positive sound for cancelling
-                    HideQuitConfirmation();
-                };
+                _quitConfirmationNo.clicked += () => { UISoundService.PlayButtonClick(); HideQuitConfirmation(); };
                 UISoundService.RegisterButtonHover(_quitConfirmationNo);
             }
-
-            // Setup pause menu copy button
-            if(_pauseCopyCodeButton == null) return;
-            _pauseCopyCodeButton.clicked += CopyPauseJoinCodeToClipboard;
-            UISoundService.RegisterButtonHover(_pauseCopyCodeButton);
         }
 
         public void TogglePause() {
-            // Only allow pausing in Game scene
             if(_cachedSceneName == null || !_cachedSceneName.Contains("Game")) return;
 
             if(IsPaused) {
-                if(!_optionsPanel.ClassListContains("hidden")) {
-                    HideOptions();
-                } else {
-                    ResumeGame();
-                }
+                if(!_optionsPanel.ClassListContains("hidden")) HideOptions();
+                else ResumeGame();
             } else {
                 PauseGame();
             }
         }
 
-        #endregion
-
         #region Setup Methods
-
         private void SetupOptionsMenuManager() {
-            if(optionsMenuManager == null) {
-                Debug.LogError("[GameMenuManager] OptionsMenuManager not assigned!");
-                return;
-            }
-
-            // Set up callbacks using UISoundService
+            if(optionsMenuManager == null) return;
             optionsMenuManager.OnButtonClickedCallback = UISoundService.PlayButtonClick;
             optionsMenuManager.MouseEnterCallback = _ => UISoundService.PlayButtonHover();
             optionsMenuManager.MouseHoverCallback = _ => UISoundService.PlayButtonHover();
             optionsMenuManager.OnBackFromOptionsCallback = HideOptions;
-
-            // Initialize the options menu manager
             optionsMenuManager.Initialize();
         }
 
         private void SetupKillFeedManager() {
-            if(killFeedManager == null) {
-                Debug.LogError("[GameMenuManager] KillFeedManager not assigned!");
-                return;
-            }
-
-            // Initialize kill feed manager with the container
-            killFeedManager.Initialize(_killFeedContainer);
+            killFeedManager?.Initialize(_killFeedContainer);
         }
 
         private void SetupScoreboardManager() {
-            if(scoreboardManager == null) {
-                Debug.LogError("[GameMenuManager] ScoreboardManager not assigned!");
-                return;
-            }
-
-            // Initialize scoreboard manager with the root
-            scoreboardManager.Initialize(_root);
+            scoreboardManager?.Initialize(_root);
         }
 
         private void SetupSniperOverlayManager() {
-            if(sniperOverlayManager == null) {
-                Debug.LogError("[GameMenuManager] SniperOverlayManager not assigned!");
-                return;
-            }
-
-            // Initialize sniper overlay manager with the root
-            sniperOverlayManager.Initialize(_root);
+            sniperOverlayManager?.Initialize(_root);
         }
-
         #endregion
 
         #region Menu Navigation
-
         private void PauseGame() {
             IsPaused = true;
             _pauseMenuPanel.RemoveFromClassList("hidden");
             UnityEngine.Cursor.lockState = CursorLockMode.None;
             UnityEngine.Cursor.visible = true;
-
-            // Update join code display when pausing
             UpdatePauseJoinCodeDisplay();
-
-            // Show challenge cards
-            if (_pauseChallengesContainer != null) {
-                _pauseChallengesContainer.RemoveFromClassList("hidden");
-            }
-
-            if(_localController) {
-                _localController.moveInput = Vector2.zero;
-            }
+            
+            if (_pauseChallengesContainer != null) _pauseChallengesContainer.RemoveFromClassList("hidden");
+            if(_localController) _localController.moveInput = Vector2.zero;
+        }
+        
+        private void InviteFriends() {
+             UISoundService.PlayButtonClick();
+             if (SessionManager.Instance != null && SessionManager.Instance.CurrentLobby.HasValue) {
+                 SteamManager.Instance.OpenInviteOverlay(SessionManager.Instance.CurrentLobby.Value.Id);
+             }
         }
 
         private void UpdatePauseJoinCodeDisplay() {
             if(_pauseJoinCodeLabel == null) return;
-
-            // Try to get join code from SessionManager
-            var sessionManager = SessionManager.Instance;
-            string joinCode = null;
-
-            if(sessionManager != null && sessionManager.ActiveSession != null) {
-                // Try to get relay code from session properties first
-                if(sessionManager.ActiveSession.Properties.TryGetValue("relayCode", out var prop) &&
-                   !string.IsNullOrEmpty(prop.Value)) {
-                    joinCode = prop.Value;
-                } else if(!string.IsNullOrEmpty(sessionManager.ActiveSession.Code)) {
-                    // Fallback to UGS session code
-                    joinCode = sessionManager.ActiveSession.Code;
-                }
+            
+            // For Steam, we don't prefer showing raw Lobby IDs (too long).
+            // Just show connected state.
+            if (SessionManager.Instance != null && SessionManager.Instance.CurrentLobby.HasValue) {
+                 _pauseJoinCodeLabel.text = "Lobby Active";
+            } else {
+                 _pauseJoinCodeLabel.text = "Single Player"; // Or offline
             }
-
-            JoinCodeService.UpdateJoinCodeDisplay(_pauseJoinCodeLabel, _pauseCopyCodeButton, joinCode);
-        }
-
-        private void CopyPauseJoinCodeToClipboard() {
-            UISoundService.PlayButtonClick();
-            JoinCodeService.CopyFromLabel(_pauseJoinCodeLabel);
         }
 
         private void ResumeGame() {
@@ -568,23 +376,15 @@ namespace Game.Menu {
             _pauseMenuPanel.AddToClassList("hidden");
             _optionsPanel.AddToClassList("hidden");
             HideQuitConfirmation();
-            
-            // Hide challenge cards
-            if (_pauseChallengesContainer != null) {
-                _pauseChallengesContainer.AddToClassList("hidden");
-            }
-            
+            if (_pauseChallengesContainer != null) _pauseChallengesContainer.AddToClassList("hidden");
             UnityEngine.Cursor.lockState = CursorLockMode.Locked;
             UnityEngine.Cursor.visible = false;
         }
 
         private void ShowOptions() {
             if(_cachedSceneName != "Game") return;
-            if(optionsMenuManager != null) {
-                optionsMenuManager.LoadSettings();
-                optionsMenuManager.OnOptionsPanelShown();
-            }
-
+            optionsMenuManager?.LoadSettings();
+            optionsMenuManager?.OnOptionsPanelShown();
             _pauseMenuPanel.AddToClassList("hidden");
             _optionsPanel.RemoveFromClassList("hidden");
         }
@@ -596,27 +396,22 @@ namespace Game.Menu {
         }
 
         private void ShowQuitConfirmation() {
-            if(_quitConfirmationModal == null) return;
-            _quitConfirmationModal.RemoveFromClassList("hidden");
+            _quitConfirmationModal?.RemoveFromClassList("hidden");
         }
 
         private void HideQuitConfirmation() {
-            if(_quitConfirmationModal == null) return;
-            _quitConfirmationModal.AddToClassList("hidden");
+            _quitConfirmationModal?.AddToClassList("hidden");
         }
 
         private async void QuitToMenu() {
             try {
-                // Save progression before quitting
-                if (Game.Progression.ProgressionManager.Instance != null) {
-                    Game.Progression.ProgressionManager.Instance.SaveData();
-                }
-
+                ProgressionManager.Instance?.SaveData();
                 await SessionManager.Instance.LeaveToMainMenuAsync();
-
+                
                 var root = uiDocument.rootVisualElement;
                 var rootContainer = root.Q<VisualElement>("root-container");
-                rootContainer.style.display = DisplayStyle.None;
+                if (rootContainer != null) rootContainer.style.display = DisplayStyle.None;
+                
                 _pauseMenuPanel.AddToClassList("hidden");
                 _optionsPanel.AddToClassList("hidden");
                 IsPaused = false;
@@ -626,7 +421,6 @@ namespace Game.Menu {
                 Debug.LogException(e);
             }
         }
-
         #endregion
     }
 }

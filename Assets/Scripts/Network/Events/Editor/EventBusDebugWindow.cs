@@ -20,9 +20,6 @@ namespace Network.Events.Editor {
         
         private string _eventFilter = "";
         private bool _autoScroll = true;
-        private bool _showSubscriptions = true;
-        private bool _showPerformance = true;
-        private bool _showHistory = true;
         
         private int _selectedTab = 0;
         private readonly string[] _tabNames = { "Event Stream", "Subscriptions", "Performance", "History" };

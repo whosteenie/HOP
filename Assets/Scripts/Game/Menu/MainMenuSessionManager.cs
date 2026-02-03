@@ -1,500 +1,390 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Cysharp.Threading.Tasks;
 using Network;
 using Network.Events;
-using Network.Services;
-using Unity.Services.Authentication;
-using Unity.Services.Multiplayer;
+using Network.Services; // Ensure namespace correct or remove if unused
+using Network.Steam;
+using Steamworks;
+using Steamworks.Data;
 using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace Game.Menu {
     /// <summary>
-    /// Manages session creation, joining, player list, and relay code for the main menu.
-    /// Handles all multiplayer session-related functionality.
+    /// Manages session creation (Steam Lobbies) and player list display in the Main Menu.
+    /// Adapted for Steamworks: Join Code Logic replaced by Steam Invites.
     /// </summary>
     public class MainMenuSessionManager : MonoBehaviour {
         [Header("References")]
+        [SerializeField] private MainMenuUIManager uiManager;
         public UIDocument uiDocument;
 
         private VisualElement _root;
-        private Label _joinCodeLabel;
-        private Label _waitingLabel;
-        private TextField _joinCodeInput;
-        private VisualElement _playerList;
-        private Button _hostButton;
-        private Button _joinButton;
-        private Button _copyButton;
-        private Button _startButton;
-        private Button _backLobbyButton;
+        private VisualElement _loadingOverlay;
 
-        private bool _justCreatedSessionAsHost;
-        private bool _isStartingGame;
-        private string _cachedPlayerName;
-
+        // Global Party UI
+        private VisualElement _partyMembersList;
+        private Button _inviteButton;
+        private VisualElement _partySeparator;
+        private VisualElement _localProfileContainer;
+        private ulong _lastLobbyId;
+        private int _lastMemberCount;
+        private bool _hasDrawnSolo;
+        private bool _isSilentHosting;
+        
         // Events
         public Action OnHostClicked;
         public Action<string> OnJoinClicked;
         public Action OnStartGameClicked;
         public Action OnBackFromLobbyClicked;
         public Action<bool, bool> OnHostStatusChanged; // isHost, wasHost
-        private readonly Action _onRelayCodeAvailable;
         public Func<bool> ShouldShowLobbyLeaveModal;
 
-        public MainMenuSessionManager(Action onRelayCodeAvailable) {
-            _onRelayCodeAvailable = onRelayCodeAvailable;
+        private void Awake() {
+            // No longer checking for uiDocument here as it might be assigned later by MainMenuManager
         }
 
-        private void Awake() {
+        public void Initialize() {
             if(uiDocument == null) {
-                Debug.LogError("[MainMenuSessionManager] UIDocument is not assigned!");
+                Debug.LogError("[MainMenuSessionManager] UIDocument is not assigned during Initialize!");
                 return;
             }
+
+            if (_root != null) return; // Already initialized
 
             _root = uiDocument.rootVisualElement;
             FindUIElements();
             RegisterUIEvents();
-        }
+            
+            if (uiManager == null) uiManager = GetComponent<MainMenuUIManager>();
 
-        private void OnEnable() {
-            // Subscribe to EventBus events
-            EventBus.Subscribe<PlayersChangedEvent>(OnPlayersChanged);
-            EventBus.Subscribe<RelayCodeAvailableEvent>(OnRelayCodeAvailable);
-            EventBus.Subscribe<SessionJoinedEvent>(OnSessionJoined);
-            EventBus.Subscribe<HostDisconnectedEvent>(OnHostDisconnected);
-            EventBus.Subscribe<LobbyResetEvent>(OnLobbyReset);
-            
-            // Subscribe to FrontStatusChanged for status label updates
-            SubscribeToFrontStatusChanged();
-        }
-        
-        private void Start() {
-            // Re-check subscription in case SessionManager wasn't ready in OnEnable
-            SubscribeToFrontStatusChanged();
-        }
-        
-        private bool _subscribedToFrontStatus;
-        
-        private void SubscribeToFrontStatusChanged() {
-            if(_subscribedToFrontStatus) return;
-            if(SessionManager.Instance == null) return;
-            
-            SessionManager.Instance.FrontStatusChanged += UpdateStatusText;
-            _subscribedToFrontStatus = true;
-        }
+            string partyStatus = (uiManager != null && uiManager.PartyContainer != null) ? "Found" : "Missing";
+            string statusStatus = (uiManager != null && uiManager.StatusContainer != null) ? "Found" : "Missing";
+            Debug.Log($"[MainMenuSessionManager] Initialized. UI Manager: {uiManager != null}, Party UI: {partyStatus}, Status UI: {statusStatus}");
 
-        private void OnDisable() {
-            // Unsubscribe from EventBus events
-            EventBus.Unsubscribe<PlayersChangedEvent>(OnPlayersChanged);
-            EventBus.Unsubscribe<RelayCodeAvailableEvent>(OnRelayCodeAvailable);
-            EventBus.Unsubscribe<SessionJoinedEvent>(OnSessionJoined);
-            EventBus.Unsubscribe<HostDisconnectedEvent>(OnHostDisconnected);
-            EventBus.Unsubscribe<LobbyResetEvent>(OnLobbyReset);
-            
-            // Unsubscribe from FrontStatusChanged
-            if(_subscribedToFrontStatus && SessionManager.Instance != null) {
-                SessionManager.Instance.FrontStatusChanged -= UpdateStatusText;
-                _subscribedToFrontStatus = false;
+            // Draw initial solo state
+            DrawSoloPlayer();
+
+            // Proactive hosting: Create a private lobby in the background 
+            // so things like "Invite Friends" are instant.
+            if (SessionManager.Instance != null && !SessionManager.Instance.CurrentLobby.HasValue) {
+                HandleHostClicked(silent: true).Forget();
             }
         }
 
-        private void FindUIElements() {
-            _joinCodeLabel = _root.Q<Label>("host-label");
-            _waitingLabel = _root.Q<Label>("waiting-label");
-            _joinCodeInput = _root.Q<TextField>("join-input");
-            _playerList = _root.Q<VisualElement>("player-list");
-            _hostButton = _root.Q<Button>("host-button");
-            _joinButton = _root.Q<Button>("join-button");
-            _copyButton = _root.Q<Button>("copy-code-button");
-            _startButton = _root.Q<Button>("start-button");
-            _backLobbyButton = _root.Q<Button>("back-to-gamemode");
+        private void OnEnable() {
+            // New EventBus? Or polling?
+            // Since SteamManager updates loop, events might come from SessionManager.
+            if (SessionManager.Instance != null) {
+                SessionManager.Instance.FrontStatusChanged += UpdateStatusText;
+            }
+            
+            // We should listen to Steam Callbacks wrapper events if we added them to session manager
+            // Or just poll. For simple UI, polling in Update is fine, but lets assume SessionManager fires events.
+            // But I didn't add the EventBus publishes in SessionManager yet (TODO).
+            // So we will Poll for now.
+        }
 
-            if(_joinCodeInput != null) {
-                _joinCodeInput.maxLength = 6;
-                _joinCodeInput.isDelayed = false;
+        private void OnDisable() {
+            if (SessionManager.Instance != null) {
+                SessionManager.Instance.FrontStatusChanged -= UpdateStatusText;
+            }
+        }
+        
+
+        private void FindUIElements() {
+            _loadingOverlay = _root.Q<VisualElement>("loading-overlay");
+
+            // Global Party UI
+            _partyMembersList = _root.Q<VisualElement>("party-members-list");
+            _inviteButton = _root.Q<Button>("invite-friends-button");
+            _partySeparator = _root.Q<VisualElement>("party-separator");
+            _localProfileContainer = _root.Q<VisualElement>("local-player-profile");
+        }
+
+        private async UniTaskVoid OpenSteamInviteOverlay() {
+            if (SessionManager.Instance != null && SessionManager.Instance.CurrentLobby.HasValue) {
+                SteamManager.Instance.OpenInviteOverlay(SessionManager.Instance.CurrentLobby.Value.Id);
+            } else {
+                bool success = await HandleHostClicked(silent: false);
+                if (success && SessionManager.Instance != null && SessionManager.Instance.CurrentLobby.HasValue) {
+                    SteamManager.Instance.OpenInviteOverlay(SessionManager.Instance.CurrentLobby.Value.Id);
+                }
+            }
+        }
+
+        private void Update() {
+            if (SessionManager.Instance == null) return;
+
+            // Handle Matchmaking Status & Locking
+            bool isSearching = SessionManager.Instance.IsSearching;
+            bool showStatus = SessionManager.Instance.ShowMatchmakingStatus;
+            bool isPartyMember = SessionManager.Instance.CurrentLobby.HasValue && !SessionManager.Instance.IsPartyLeader;
+
+            // Only update buttons if state changed? 
+            // Better to just enforce it, SetMenuButtonsEnabled checks current state anyway (mostly).
+            // But checking local input/interaction state might be needed.
+            // For now, enforcing it ensures we don't drift.
+            if (uiManager != null) {
+                uiManager.SetMenuButtonsEnabled((!isSearching && !isPartyMember) || _isSilentHosting);
+
+                if (uiManager.StatusContainer != null) {
+                    var targetDisplay = showStatus ? DisplayStyle.Flex : DisplayStyle.None;
+                    if (uiManager.StatusContainer.style.display != targetDisplay) {
+                        uiManager.StatusContainer.style.display = targetDisplay;
+                    }
+                }
+            }
+
+            // Check if we are in a lobby
+            if (SessionManager.Instance.CurrentLobby.HasValue) {
+                var lobby = SessionManager.Instance.CurrentLobby.Value;
+                // Only rebuild if members changed or lobby changed
+                if (lobby.Id != _lastLobbyId || lobby.MemberCount != _lastMemberCount) {
+                    _lastLobbyId = lobby.Id;
+                    _lastMemberCount = lobby.MemberCount;
+                    RefreshPlayerList(lobby);
+                }
+                _hasDrawnSolo = false;
+            } else {
+                // Not in a lobby - just draw ourselves if we haven't already
+                if (!_hasDrawnSolo) {
+                     DrawSoloPlayer();
+                     _hasDrawnSolo = true;
+                     _lastLobbyId = 0;
+                     _lastMemberCount = 0;
+                }
             }
         }
 
         private void RegisterUIEvents() {
-            _hostButton.clicked += () => {
-                UISoundService.PlayButtonClick();
-                OnHostClicked?.Invoke();
-            };
-
-            _joinCodeInput.RegisterValueChangedCallback(OnJoinCodeInputValueChanged);
-            _joinCodeInput.RegisterCallback<FocusInEvent>(OnJoinCodeInputFocusIn);
-            _joinCodeInput.RegisterCallback<FocusOutEvent>(OnJoinCodeInputFocusOut);
-            UpdateJoinCodePlaceholderVisibility();
-
-            _joinButton.clicked += () => {
-                if(_joinCodeInput != null) {
+            if (_inviteButton != null) {
+                _inviteButton.clicked += () => {
                     UISoundService.PlayButtonClick();
-                    OnJoinClicked?.Invoke(_joinCodeInput.value.ToUpper());
-                }
-            };
+                    OpenSteamInviteOverlay().Forget();
+                };
+            }
 
-            _copyButton.clicked += CopyJoinCodeToClipboard;
-            _startButton.clicked += () => {
-                UISoundService.PlayButtonClick();
-                OnStartGameClicked?.Invoke();
-            };
-
-            _backLobbyButton.clicked += () => {
-                if(ShouldShowLobbyLeaveModal != null && ShouldShowLobbyLeaveModal()) {
-                    // Modal will be shown by MainMenuManager
-                    OnBackFromLobbyClicked?.Invoke();
-                } else {
-                    // Leave directly
+            if (uiManager != null) {
+                uiManager.OnCancelMatchmakingClicked = () => {
                     UISoundService.PlayButtonClick(isBack: true);
-                    if(SessionManager.Instance != null) {
-                        SessionManager.Instance.LeaveToMainMenuAsync(skipFade: true).Forget();
-                    }
-                    OnBackFromLobbyClicked?.Invoke();
-                }
-            };
-        }
-
-        private void OnJoinCodeInputValueChanged(ChangeEvent<string> evt) {
-            // Force uppercase
-            if(evt.newValue != evt.newValue.ToUpper()) {
-                _joinCodeInput.value = evt.newValue.ToUpper();
-            }
-            UpdateJoinCodePlaceholderVisibility();
-        }
-
-        private void OnJoinCodeInputFocusIn(FocusInEvent evt) {
-            UpdateJoinCodePlaceholderVisibility();
-        }
-
-        private void OnJoinCodeInputFocusOut(FocusOutEvent evt) {
-            UpdateJoinCodePlaceholderVisibility();
-        }
-
-        private void UpdateJoinCodePlaceholderVisibility() {
-            if(_joinCodeInput == null) return;
-            var hasValue = !string.IsNullOrEmpty(_joinCodeInput.value);
-            if(hasValue) {
-                _joinCodeInput.AddToClassList("has-value");
-            } else {
-                _joinCodeInput.RemoveFromClassList("has-value");
+                    SessionManager.Instance.CancelMatchmaking();
+                };
             }
         }
-
-        #region Event Handlers
-
-        private void OnPlayersChanged(PlayersChangedEvent evt) {
-            RefreshPlayerList(evt.Players);
-        }
-
-        private void OnRelayCodeAvailable(RelayCodeAvailableEvent evt) {
-            _onRelayCodeAvailable?.Invoke();
-        }
-
-        private void OnSessionJoined(SessionJoinedEvent evt) {
-            JoinCodeService.UpdateJoinCodeDisplay(_joinCodeLabel, _copyButton, evt.Code);
-            CalculateAndUpdateHostStatus();
-            
-            // Notify gamemode manager to check session properties (client might have just joined)
-            var gamemodeManager = FindFirstObjectByType<MainMenuGamemodeManager>();
-            if(gamemodeManager != null) {
-                // Trigger gamemode update from session
-                gamemodeManager.UpdateGamemodeFromSession();
-            }
-        }
-
-        private void OnHostDisconnected(HostDisconnectedEvent evt) {
-            if(_waitingLabel != null) {
-                _waitingLabel.text = "Host disconnected. Create or join a new game.";
-            }
-            MainMenuUIManager.EnableButton(_hostButton);
-            MainMenuUIManager.EnableButton(_joinButton);
-            MainMenuUIManager.DisableButton(_startButton);
-            MainMenuUIManager.DisableButton(_copyButton);
-        }
-
-        private void OnLobbyReset(LobbyResetEvent evt) {
-            ResetLobbyUI();
-        }
-
-        #endregion
-
-        #region Legacy Event Handlers (for backward compatibility)
-
-        private void OnPlayersChangedLegacy(IReadOnlyList<IReadOnlyPlayer> players) {
-            RefreshPlayerList(players);
-        }
-
-        private void OnRelayCodeAvailableInternal(string code) {
-            _onRelayCodeAvailable?.Invoke();
-        }
-
-        private void OnSessionJoinedLegacy(string sessionCode) {
-            JoinCodeService.UpdateJoinCodeDisplay(_joinCodeLabel, _copyButton, sessionCode);
-            CalculateAndUpdateHostStatus();
-        }
-
-        private void OnHostDisconnectedLegacy() {
-            if(_waitingLabel != null) {
-                _waitingLabel.text = "Host disconnected. Create or join a new game.";
-            }
-            MainMenuUIManager.EnableButton(_hostButton);
-            MainMenuUIManager.EnableButton(_joinButton);
-            MainMenuUIManager.DisableButton(_startButton);
-            MainMenuUIManager.DisableButton(_copyButton);
-        }
-
-        #endregion
 
         private void UpdateStatusText(string msg) {
-            if(_waitingLabel != null) {
-                _waitingLabel.text = msg;
+            // Update global status
+            if (uiManager != null && uiManager.MatchmakingStatusLabel != null && !string.IsNullOrEmpty(msg)) {
+                uiManager.MatchmakingStatusLabel.text = msg;
+            }
+
+            // Sync Gamemode Label
+            if (uiManager != null && uiManager.GamemodeDisplayLabel != null && SessionManager.Instance != null) {
+                uiManager.GamemodeDisplayLabel.text = SessionManager.Instance.SelectedGameMode;
             }
         }
 
         public void ResetLobbyUI() {
-            JoinCodeService.UpdateJoinCodeDisplay(_joinCodeLabel, _copyButton, null);
-            if(_playerList != null) {
-                _playerList.Clear();
-            }
-            if(_joinCodeInput != null) {
-                _joinCodeInput.value = "";
-            }
+            _partyMembersList?.Clear();
+            _localProfileContainer?.Clear();
+            _lastLobbyId = 0;
+            _lastMemberCount = 0;
+            _hasDrawnSolo = false;
+
             IsHost = false;
-            _justCreatedSessionAsHost = false;
-            _isStartingGame = false;
-            _cachedPlayerName = null;
-
-            MainMenuUIManager.EnableButton(_hostButton);
-            MainMenuUIManager.EnableButton(_joinButton);
-            MainMenuUIManager.DisableButton(_copyButton);
-            MainMenuUIManager.DisableButton(_startButton);
         }
 
-        public async void HandleHostClicked() {
-            try {
-                _isStartingGame = false;
-                MainMenuUIManager.DisableButton(_hostButton);
-                MainMenuUIManager.DisableButton(_joinButton);
-
-                // Clear player list immediately
-                if(_playerList != null) {
-                    _playerList.Clear();
-                }
-
-                // Cache our own player name for immediate display
-                _cachedPlayerName = PlayerPrefs.GetString("PlayerName", "Player");
-                if(string.IsNullOrWhiteSpace(_cachedPlayerName)) {
-                    _cachedPlayerName = "Player";
-                }
-
-                var joinCode = await SessionManager.Instance.StartSessionAsHost();
-
-                if(string.IsNullOrEmpty(joinCode)) {
-                    MainMenuUIManager.EnableButton(_hostButton);
-                    MainMenuUIManager.EnableButton(_joinButton);
-                    _cachedPlayerName = null;
-                    return;
-                }
-
-                _justCreatedSessionAsHost = true;
-                JoinCodeService.UpdateJoinCodeDisplay(_joinCodeLabel, _copyButton, joinCode);
-                MainMenuUIManager.EnableButton(_copyButton);
-
-                // Immediately refresh player list
-                RefreshPlayerList();
-                CalculateAndUpdateHostStatus();
-            } catch(Exception e) {
-                Debug.LogException(e);
-                MainMenuUIManager.EnableButton(_hostButton);
-                MainMenuUIManager.EnableButton(_joinButton);
-            }
-        }
-
-        public async void HandleJoinClicked(string code) {
-            try {
-                var regexAlphaNum = new System.Text.RegularExpressions.Regex("^[a-zA-Z0-9]*$");
-                if(string.IsNullOrWhiteSpace(code) || code.Length != 6 || !regexAlphaNum.IsMatch(code)) {
-                    if(_waitingLabel != null) {
-                        _waitingLabel.text = "Invalid join code";
-                    }
-                    return;
-                }
-
-                // Clear player list immediately
-                if(_playerList != null) {
-                    _playerList.Clear();
-                }
-
-                // Cache our own player name for immediate display
-                _cachedPlayerName = PlayerPrefs.GetString("PlayerName", "Player");
-                if(string.IsNullOrWhiteSpace(_cachedPlayerName)) {
-                    _cachedPlayerName = "Player";
-                }
-
-                MainMenuUIManager.DisableButton(_hostButton);
-                MainMenuUIManager.DisableButton(_joinButton);
-
-                var result = await SessionManager.Instance.JoinSessionByCodeAsync(code);
-                if(_waitingLabel != null) {
-                    _waitingLabel.text = result;
-                }
-
-                if(result.Contains("Lobby joined")) {
-                    JoinCodeService.UpdateJoinCodeDisplay(_joinCodeLabel, _copyButton, code);
-                    MainMenuUIManager.EnableButton(_copyButton);
-                    RefreshPlayerList();
-                } else {
-                    MainMenuUIManager.EnableButton(_joinButton);
-                    MainMenuUIManager.EnableButton(_hostButton);
-                    _cachedPlayerName = null;
-                }
-            } catch(Exception e) {
-                Debug.LogException(e);
-                if(_waitingLabel != null) {
-                    _waitingLabel.text = "Error joining session: " + e.Message;
-                }
-                MainMenuUIManager.EnableButton(_hostButton);
-                MainMenuUIManager.EnableButton(_joinButton);
-            }
-        }
-
-        public async void HandleStartGameClicked() {
-            try {
-                _isStartingGame = true;
-                MainMenuUIManager.DisableButton(_startButton);
-
-                await SessionManager.Instance.BeginGameplayAsHostAsync();
-            } catch(Exception e) {
-                Debug.LogException(e);
-                if(_waitingLabel != null) {
-                    _waitingLabel.text = "Failed to start game: " + e.Message;
-                }
-                _isStartingGame = false;
-                MainMenuUIManager.EnableButton(_startButton);
-            }
-        }
-
-        private void CopyJoinCodeToClipboard() {
+        public async UniTask HandlePrivateMatchSelection(string mode) {
             UISoundService.PlayButtonClick();
-            JoinCodeService.CopyFromLabel(_joinCodeLabel);
+            // Request SessionManager to start the synchronized load
+            if (SessionManager.Instance != null) {
+                await SessionManager.Instance.StartPrivateMatchSync(mode);
+            }
         }
 
-
-        private void RefreshPlayerList(IReadOnlyList<IReadOnlyPlayer> players = null) {
-            if(_playerList == null) return;
-
-            _playerList.Clear();
-
-            if(players == null) {
-                var sessionManagerInstance = SessionManager.Instance;
-                var session = sessionManagerInstance != null ? sessionManagerInstance.ActiveSession : null;
-                if(session == null) return;
-                players = session.Players;
-            }
-
-            if(players == null || players.Count == 0) {
-                return;
-            }
-
-            // Identify host
-            var sessionManagerInstanceForHost = SessionManager.Instance;
-            var activeSessionForHost = sessionManagerInstanceForHost != null ? sessionManagerInstanceForHost.ActiveSession : null;
-            var hostId = activeSessionForHost != null ? activeSessionForHost.Host : null;
-
-            foreach(var p in players) {
-                string display;
-
-                // Try to get player name from properties
-                if(p.Properties != null &&
-                   p.Properties.TryGetValue("playerName", out var prop) &&
-                   !string.IsNullOrEmpty(prop.Value)) {
-                    display = prop.Value;
+        public async UniTask<bool> HandleHostClicked(bool silent = false) {
+            _isSilentHosting = silent;
+            try {
+                bool success = await SessionManager.Instance.CreatePrivateLobbyAsync();
+                if (success) {
+                    IsHost = true;
                 }
-                // Fallback to cached name if available
-                else if(!string.IsNullOrEmpty(_cachedPlayerName) && p.Id == AuthenticationService.Instance.PlayerId) {
-                    display = _cachedPlayerName;
-                }
-                // Final fallback to player ID
-                else {
-                    display = p.Id;
-                }
-
-                var isHost = !string.IsNullOrEmpty(hostId) && p.Id == hostId;
-                AddPlayerEntry(display, isHost);
+                return success;
+            } catch (Exception e) {
+                Debug.LogException(e);
+                return false;
+            } finally {
+                _isSilentHosting = false;
             }
-
-            CalculateAndUpdateHostStatus();
         }
 
-        private void AddPlayerEntry(string playerName, bool isHost) {
-            foreach(var child in _playerList.Children()) {
-                child.style.borderBottomWidth = 1f;
-            }
-
-            var entry = new VisualElement();
-            entry.AddToClassList("player-entry");
-            if(isHost) entry.AddToClassList("host");
-
-            var label = new Label(playerName);
-            entry.Add(label);
-            _playerList.Add(entry);
-
-            entry.style.borderBottomWidth = 0f;
+        public async UniTaskVoid HandleFindGameClicked(string mode = null) {
+             try {
+                if (uiManager != null) uiManager.SetMenuButtonsEnabled(false);
+                await SessionManager.Instance.FindGameAsync(mode);
+             } catch(Exception e) {
+                Debug.LogException(e);
+                if (uiManager != null) uiManager.SetMenuButtonsEnabled(true);
+             }
         }
 
-        private void CalculateAndUpdateHostStatus() {
-            var sessionManagerInstance = SessionManager.Instance;
-            var session = sessionManagerInstance != null ? sessionManagerInstance.ActiveSession : null;
-            var detectedAsHost = false;
+        public void HandleGamemodeSelected(string mode) {
+            if (SessionManager.Instance == null) return;
+            SessionManager.Instance.SetGamemode(mode);
+        }
 
-            if(session != null) {
-                var hostId = session.Host;
-                if(!string.IsNullOrEmpty(hostId)) {
-                    if(session.IsHost) {
-                        detectedAsHost = true;
-                    } else if(_justCreatedSessionAsHost) {
-                        detectedAsHost = true;
-                    } else if(session.Players.Count == 1) {
-                        detectedAsHost = true;
-                    }
+        public void ToggleGamemodeDropdown() {
+             if (uiManager == null || uiManager.GamemodeDropdownMenu == null) return;
+             
+             // Only host can toggle
+             if (!IsHost) return;
+ 
+             bool isHidden = uiManager.GamemodeDropdownMenu.ClassListContains("hidden");
+             if (isHidden) {
+                 uiManager.GamemodeDropdownMenu.RemoveFromClassList("hidden");
+                 UISoundService.PlayButtonClick();
+             } else {
+                 uiManager.GamemodeDropdownMenu.AddToClassList("hidden");
+                 UISoundService.PlayButtonClick(isBack: true);
+             }
+        }
+
+        public void HandleCancelMatchmakingClicked() {
+            if (uiManager != null) {
+                // Play sound (back) handled by UI button usually, but if not:
+                // Check if user complained about double sound. "cancel button has two button click sounds"
+                // So we remove it here.
+                
+                // Call session manager logic
+                if (SessionManager.Instance != null) {
+                    SessionManager.Instance.CancelMatchmaking();
+                }
+                
+                // Re-enable global buttons immediately if we want instant feedback?
+                // But SessionManager update loop should handle it via 'IsSearching' property check.
+                // But let's force it to ensure responsiveness.
+                uiManager.SetMenuButtonsEnabled(true);
+            }
+        }
+
+        private void RefreshPlayerList(Lobby lobby) {
+            if (uiManager == null || uiManager.PartyContainer == null) return;
+            
+            // Update Global Party UI (Top Right)
+            UpdateGlobalPartyUI(lobby).Forget();
+
+            // Check host status (ownership transfer?)
+            bool amIHost = lobby.Owner.Id == SteamClient.SteamId;
+            if (amIHost != IsHost) {
+                IsHost = amIHost;
+                UpdateHostStatus(IsHost);
+            }
+        }
+
+        private void DrawSoloPlayer() {
+            if (uiManager == null) return;
+            
+            _partyMembersList?.Clear();
+            _localProfileContainer?.Clear();
+
+            // Draw just us in the local profile section
+            CreatePlayerRow(SteamClient.Name, SteamClient.SteamId, true, _localProfileContainer).Forget();
+
+            // Show invite button and separator
+            if (_inviteButton != null) _inviteButton.style.display = DisplayStyle.Flex;
+            if (_partySeparator != null) _partySeparator.style.display = DisplayStyle.Flex;
+        }
+
+        private async UniTaskVoid UpdateGlobalPartyUI(Lobby lobby) {
+            if (uiManager == null) return;
+
+            _partyMembersList?.Clear();
+            _localProfileContainer?.Clear();
+
+            // Host indicator logic: find who is host
+            SteamId hostId = lobby.Owner.Id;
+            string myPartyId = SessionManager.Instance?.CurrentPartyId;
+
+            foreach (var member in lobby.Members) {
+                bool inMyParty = lobby.GetMemberData(member, "PartyId") == myPartyId;
+
+                if (member.Id == SteamClient.SteamId) {
+                    // Local player always goes to the profile section
+                    await CreatePlayerRow(member.Name, member.Id, true, _localProfileContainer, member.Id == hostId, inMyParty);
                 } else {
-                    if(_justCreatedSessionAsHost) {
-                        detectedAsHost = true;
-                    }
+                    // Other members go to the party members row
+                    await CreatePlayerRow(member.Name, member.Id, false, _partyMembersList, member.Id == hostId, inMyParty);
                 }
             }
 
-            UpdateHostStatus(detectedAsHost);
+            // Always show invite button and separator if in a lobby
+            if (_inviteButton != null) _inviteButton.style.display = DisplayStyle.Flex;
+            if (_partySeparator != null) _partySeparator.style.display = DisplayStyle.Flex;
+        }
+
+        private async UniTask CreatePlayerRow(string name, SteamId id, bool isLocal, VisualElement targetContainer, bool isHost = false, bool isPartyMember = false) {
+            if (targetContainer == null) return;
+
+            var row = new VisualElement {
+                style = {
+                    flexDirection = FlexDirection.Row,
+                    alignItems = Align.Center,
+                    backgroundColor = isLocal ? StyleKeyword.Null : new UnityEngine.Color(0, 0, 0, 0.4f),
+                    paddingBottom = 4, paddingTop = 4, paddingLeft = 8, paddingRight = 8,
+                    borderTopLeftRadius = 4, borderTopRightRadius = 4,
+                    borderBottomLeftRadius = 4, borderBottomRightRadius = 4,
+                    marginRight = isLocal ? 0 : 8
+                }
+            };
+            
+            if (!isLocal) row.AddToClassList("party-member-entry");
+
+            bool showHostIndicator = isHost && !isLocal;
+
+            // Avatar
+            var avatarBox = new VisualElement {
+                style = {
+                    width = 40, height = 40,
+                    backgroundColor = new UnityEngine.Color(0.2f, 0.2f, 0.2f),
+                    marginRight = 10,
+                    borderTopWidth = showHostIndicator ? 2 : (isPartyMember && !isLocal ? 1 : 0),
+                    borderBottomWidth = showHostIndicator ? 2 : (isPartyMember && !isLocal ? 1 : 0),
+                    borderLeftWidth = showHostIndicator ? 2 : (isPartyMember && !isLocal ? 1 : 0),
+                    borderRightWidth = showHostIndicator ? 2 : (isPartyMember && !isLocal ? 1 : 0),
+                    borderTopColor = showHostIndicator ? new UnityEngine.Color(1, 0.8f, 0, 0.6f) : (isPartyMember ? new UnityEngine.Color(0.2f, 0.6f, 1f, 0.6f) : StyleKeyword.Null),
+                    borderBottomColor = showHostIndicator ? new UnityEngine.Color(1, 0.8f, 0, 0.6f) : (isPartyMember ? new UnityEngine.Color(0.2f, 0.6f, 1f, 0.6f) : StyleKeyword.Null),
+                    borderLeftColor = showHostIndicator ? new UnityEngine.Color(1, 0.8f, 0, 0.6f) : (isPartyMember ? new UnityEngine.Color(0.2f, 0.6f, 1f, 0.6f) : StyleKeyword.Null),
+                    borderRightColor = showHostIndicator ? new UnityEngine.Color(1, 0.8f, 0, 0.6f) : (isPartyMember ? new UnityEngine.Color(0.2f, 0.6f, 1f, 0.6f) : StyleKeyword.Null)
+                }
+            };
+            avatarBox.AddToClassList("steam-avatar");
+            
+            var avatarTex = await SteamManager.Instance.GetAvatarAsync(id);
+            if (avatarTex != null) {
+                avatarBox.style.backgroundImage = new StyleBackground(avatarTex);
+            }
+            row.Add(avatarBox);
+
+            // Name
+            var nameLabel = new Label(name) {
+                style = {
+                    color = UnityEngine.Color.white,
+                    fontSize = 13,
+                    unityFontStyleAndWeight = FontStyle.Bold
+                }
+            };
+            row.Add(nameLabel);
+
+            targetContainer.Add(row);
         }
 
         private void UpdateHostStatus(bool isHost) {
-            var wasHost = IsHost;
-            IsHost = isHost;
-
-            var sessionManagerInstance = SessionManager.Instance;
-            var isInGameplay = sessionManagerInstance != null && sessionManagerInstance.IsInGameplay;
-
-            // Start button: enabled for hosts (only if not in gameplay and not already starting)
-            if(IsHost && !isInGameplay && !_isStartingGame) {
-                MainMenuUIManager.EnableButton(_startButton);
-            } else {
-                MainMenuUIManager.DisableButton(_startButton);
-            }
-
-            // Notify listeners of host status change
-            if(wasHost != isHost) {
-                OnHostStatusChanged?.Invoke(isHost, wasHost);
-            }
+             OnHostStatusChanged?.Invoke(isHost, !isHost);
         }
-
-        public void SetJustCreatedSessionAsHost(bool value) {
-            _justCreatedSessionAsHost = value;
-        }
-
+        
         public bool IsHost { get; private set; }
-
-        public bool JustCreatedSessionAsHost => _justCreatedSessionAsHost;
-        public bool IsStartingGame => _isStartingGame;
     }
 }

@@ -1,6 +1,14 @@
 using UnityEngine;
+using Network;
+using Network.Steam;
+using Steamworks;
+using Steamworks.Data;
 
 namespace Game.Match {
+    /// <summary>
+    /// Manages match settings (Duration, Gamemode).
+    /// Syncs with Steam Lobby Data ("GameMode").
+    /// </summary>
     public class MatchSettingsManager : MonoBehaviour {
         public static MatchSettingsManager Instance { get; private set; }
 
@@ -8,14 +16,11 @@ namespace Game.Match {
         [Tooltip("Fallback duration if nothing else is set (seconds).")]
         public int defaultMatchDurationSeconds = 600; // 10 minutes
 
-        [Tooltip("Pre-match countdown duration in seconds. Players cannot move/shoot/grapple during this time.")]
+        [Tooltip("Pre-match countdown duration in seconds.")]
         public int preMatchCountdownSeconds = 5;
 
         [Header("Runtime")]
-        [Tooltip("Set by main menu / gamemode selection before loading the Game scene.")]
         public int matchDurationSeconds;
-
-        [Tooltip("Optional identifier for current gamemode, e.g. 'Deathmatch'.")]
         public string selectedGameModeId;
 
         private void Awake() {
@@ -23,107 +28,59 @@ namespace Game.Match {
                 Destroy(gameObject);
                 return;
             }
-
             Instance = this;
             DontDestroyOnLoad(gameObject);
 
-            if(matchDurationSeconds <= 0) {
-                matchDurationSeconds = defaultMatchDurationSeconds;
-            }
-
-            // Initialize gamemode if not set
-            if(string.IsNullOrEmpty(selectedGameModeId)) {
-                selectedGameModeId = "Deathmatch";
-            }
+            if(matchDurationSeconds <= 0) matchDurationSeconds = defaultMatchDurationSeconds;
+            if(string.IsNullOrEmpty(selectedGameModeId)) selectedGameModeId = "Deathmatch";
         }
 
         private void Start() {
-            // Sync gamemode from session properties when game scene loads (for clients)
             SyncGamemodeFromSession();
-            // Hook into session property changes to receive updates in-game
-            HookSessionPropertyChanges();
         }
 
         private void OnEnable() {
-            HookSessionPropertyChanges();
+            SteamMatchmaking.OnLobbyDataChanged += OnLobbyDataChanged;
+            SyncGamemodeFromSession();
         }
 
         private void OnDisable() {
-            UnhookSessionPropertyChanges();
+            SteamMatchmaking.OnLobbyDataChanged -= OnLobbyDataChanged;
         }
 
-        private void HookSessionPropertyChanges() {
-            var sessionManager = Network.SessionManager.Instance;
-            var session = sessionManager != null ? sessionManager.ActiveSession : null;
-            if(session != null) {
-                session.SessionPropertiesChanged += OnSessionPropertiesChanged;
-                // Also sync immediately when hooking
-                SyncGamemodeFromSession();
-            }
-        }
-
-        private void UnhookSessionPropertyChanges() {
-            var sessionManager = Network.SessionManager.Instance;
-            var session = sessionManager != null ? sessionManager.ActiveSession : null;
-            if(session != null) {
-                session.SessionPropertiesChanged -= OnSessionPropertiesChanged;
-            }
-        }
-
-        private void OnSessionPropertiesChanged() {
+        private void OnLobbyDataChanged(Lobby lobby) {
             SyncGamemodeFromSession();
         }
 
         private void SyncGamemodeFromSession() {
-            var sessionManager = Network.SessionManager.Instance;
-            var session = sessionManager != null ? sessionManager.ActiveSession : null;
-            if(session == null) return;
-
-            // Try to get gamemode from session properties
-            if(session.Properties.TryGetValue("gamemode", out var prop) && !string.IsNullOrEmpty(prop.Value)) {
-                var newGamemode = prop.Value;
-                if(selectedGameModeId != newGamemode) {
-                    selectedGameModeId = newGamemode;
-                    Debug.Log($"[MatchSettingsManager] Synced gamemode from session: {selectedGameModeId}");
-                    
-                    // Force refresh scoreboard to show new gamemode
-                    var scoreboard = Game.UI.ScoreboardManager.Instance;
-                    if(scoreboard != null) {
-                        scoreboard.RefreshGamemode();
-                    }
+            var sessionManager = SessionManager.Instance;
+            if (sessionManager == null || !sessionManager.CurrentLobby.HasValue) return;
+            
+            string newGamemode = sessionManager.CurrentLobby.Value.GetData("GameMode");
+            
+            if (!string.IsNullOrEmpty(newGamemode) && selectedGameModeId != newGamemode) {
+                selectedGameModeId = newGamemode;
+                Debug.Log($"[MatchSettingsManager] Synced gamemode from Steam Lobby: {selectedGameModeId}");
+                
+                // Force refresh scoreboard
+                if(Game.UI.ScoreboardManager.Instance != null) {
+                    Game.UI.ScoreboardManager.Instance.RefreshGamemode();
                 }
             }
         }
 
-        public int GetMatchDurationSeconds() {
-            return matchDurationSeconds > 0 ? matchDurationSeconds : defaultMatchDurationSeconds;
-        }
+        public int GetMatchDurationSeconds() => matchDurationSeconds > 0 ? matchDurationSeconds : defaultMatchDurationSeconds;
+        public int GetPreMatchCountdownSeconds() => preMatchCountdownSeconds > 0 ? preMatchCountdownSeconds : 5;
 
-        public int GetPreMatchCountdownSeconds() {
-            return preMatchCountdownSeconds > 0 ? preMatchCountdownSeconds : 5;
-        }
-
-        /// <summary>
-        /// Check if a game mode is team-based.
-        /// </summary>
-        /// <param name="modeId">The game mode identifier (e.g., "Team Deathmatch", "Deathmatch")</param>
-        /// <returns>True if the mode is team-based, false otherwise</returns>
         public static bool IsTeamBasedMode(string modeId) => modeId switch {
             "Team Deathmatch" => true,
             "Hopball" => true,
             "CTF" => true,
             "Oddball" => true,
             "KOTH" => true,
-            // Add more team modes here
-            _ => false // Deathmatch, Private Match, Gun Tag, etc. are FFA
+            _ => false
         };
 
-        /// <summary>
-        /// Check if the current game mode (from this instance) is team-based.
-        /// </summary>
-        /// <returns>True if the current mode is team-based, false otherwise</returns>
-        public bool IsCurrentModeTeamBased() {
-            return IsTeamBasedMode(selectedGameModeId);
-        }
+        public bool IsCurrentModeTeamBased() => IsTeamBasedMode(selectedGameModeId);
     }
 }
