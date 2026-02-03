@@ -29,8 +29,9 @@ namespace Discord {
                 _discord.SetApplicationId((ulong)AppId);
                 
                 // Also register launch command to ensure Discord knows how to launch us?
-                // _discord.RegisterLaunchCommand((ulong)AppId, ""); 
-                // Commenting out RegisterLaunchCommand as SetApplicationId is the primary requirement for RP error.
+                // This links the current specific executable (or Unity Editor) to the App ID, 
+                // allowing it to appear in the "Game Activity" / "Go Live" section.
+                _discord.RegisterLaunchCommand((ulong)AppId, ""); 
             
                 Debug.Log("[DiscordManager] Discord SDK initialized (Partner SDK).");
             } catch (Exception e) {
