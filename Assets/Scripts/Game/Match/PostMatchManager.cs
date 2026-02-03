@@ -388,11 +388,9 @@ namespace Game.Match {
                                      matchSettings.selectedGameModeId == "KOTH");
 
             if (isTrackedGamemode && localTeam != SpawnPoint.Team.None) {
-                var isWin = false;
                 if (localTeam == winningTeam) {
                      Progression.ProgressionManager.Instance.AddXp(500); // Win Bonus
                      Progression.ProgressionManager.Instance.RecordWin();
-                     isWin = true;
                 } else if (winningTeam != SpawnPoint.Team.None) {
                      // Only record loss if there was a winner (not a draw) and we didn't win
                      Progression.ProgressionManager.Instance.RecordLoss();

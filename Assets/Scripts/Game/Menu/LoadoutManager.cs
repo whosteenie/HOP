@@ -1969,9 +1969,15 @@ namespace Game.Menu {
                 var target = activeChallenge.targetProgress;
                 if (progress > target) progress = target;
                     
+                // Format description, handling dynamic filterID for play_matches_of etc.
                 string descText = def.Description;
                 try {
-                    descText = string.Format(def.Description, target);
+                    if (!string.IsNullOrEmpty(activeChallenge.filterID)) {
+                        var displayFilter = pm.GetFilterDisplayName(activeChallenge.filterID);
+                        descText = string.Format(def.Description, target, displayFilter);
+                    } else {
+                        descText = string.Format(def.Description, target);
+                    }
                 } catch {
                     // Fallback
                 }

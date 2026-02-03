@@ -1,14 +1,13 @@
 using System.Collections.Generic;
 using Unity.Netcode;
 using UnityEngine;
-using UnityEngine.AI;
 using Game.Player;
 using Game.Spawning;
 
 namespace Game.Match {
     /// <summary>
     /// Controls the Hill behavior: wandering and detecting players.
-    /// Uses NavMeshAgent for movement, with a fallback to direct movement if NavMesh is invalid.
+    /// Uses a simple bounds reflection system for movement (bounces off walls like a Roomba).
     /// </summary>
     public class HillController : NetworkBehaviour {
         private static readonly int BaseColor = Shader.PropertyToID("_BaseColor");
@@ -22,11 +21,10 @@ namespace Game.Match {
         }
 
         [Header("Movement Settings")]
-        [SerializeField] private float wanderRadius = 5.0f; // Raycast distance
+        [SerializeField] private float wanderRadius = 5.0f; // Raycast distance for wall detection
         [SerializeField] private float moveSpeed = 5.0f;
 
         [Header("Components")]
-        [SerializeField] private NavMeshAgent navAgent;
         [SerializeField] private Collider zoneCollider;
         [SerializeField] private MeshRenderer visualRenderer;
 
@@ -44,9 +42,6 @@ namespace Game.Match {
         private bool _isMoving;
         private Vector3 _targetPosition;
 
-        // Fallback movement
-        private bool _usingFallbackMovement = false;
-
         public SpawnPoint.Team? ControllingTeam {
             get {
                 return _currentState.Value switch {
@@ -61,10 +56,7 @@ namespace Game.Match {
             base.OnNetworkSpawn();
             
             if (IsServer) {
-                // Initialize Movement (Disable NavMesh if present)
-                if (navAgent != null) navAgent.enabled = false;
-                
-                // Set initial direction
+                // Set initial random direction
                 _targetPosition = Random.onUnitSphere;
                 _targetPosition.y = 0; // Flatten direction
                 _targetPosition.Normalize();
@@ -131,9 +123,6 @@ namespace Game.Match {
             // Control Logic
             UpdateControlState();
         }
-        
-        // Unused but kept for interface compatibility if needed later
-        private void SetNewDestination() { }
 
         private void UpdateControlState() {
             // Clean up nulls

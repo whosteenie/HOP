@@ -11,6 +11,7 @@ public class ChallengeAssetGenerator {
             Directory.CreateDirectory(path);
         }
 
+        // --- Daily Pool ---
         CreateChallenge("kill_generic", ChallengeType.Kill, "Get {0} Kills", 10, 50, 500);
         CreateChallenge("kill_speed", ChallengeType.SpeedKill, "Get {0} Kills while moving > 15m/s", 3, 5, 750);
         CreateChallenge("kill_aerial", ChallengeType.AerialKill, "Get {0} Kills while Airborne", 5, 10, 750);
@@ -18,11 +19,19 @@ public class ChallengeAssetGenerator {
         CreateChallenge("hop_dissolve", ChallengeType.HopballDissolve, "Hold Hopball until Dissolve {0} times", 1, 3, 1000);
         CreateChallenge("tag_count", ChallengeType.TagCount, "Tag {0} Players", 5, 10, 500);
         CreateChallenge("win_match", ChallengeType.Win, "Win {0} Matches", 1, 3, 1000);
-
         CreateChallenge("kill_rampage", ChallengeType.KillStreak, "Get a Killstreak of {0}", 3, 5, 1000);
 
-        // Weapon Challenges
-        CreateWeaponChallenge("kill_railgun", "Railgun", "Get {0} Kills with Railgun", 5, 10, 600);
+        // Gamemode Participation (dynamically assigned at generation time)
+        // Uses special handling in ProgressionManager to pick a random gamemode
+        CreateChallenge("play_matches_of", ChallengeType.MatchesPlayed, "Play {0} Matches of {1}", 2, 5, 500);
+
+        // Placement Challenges
+        CreateFilteredChallenge("place_top3", ChallengeType.Placement, "top3", "Place in the Top 3 {0} times", 1, 3, 800);
+        CreateFilteredChallenge("place_top5", ChallengeType.Placement, "top5", "Place in the Top 5 {0} times", 2, 5, 600);
+
+        // Weapon Challenges (dynamically assigned at generation time)
+        // Uses special handling in ProgressionManager to pick a random weapon
+        CreateChallenge("weapon_kills", ChallengeType.WeaponKill, "Get {0} Kills with {1}", 5, 15, 600);
 
         AssetDatabase.SaveAssets();
         AssetDatabase.Refresh();
@@ -30,10 +39,15 @@ public class ChallengeAssetGenerator {
     }
 
     private static void CreateChallenge(string id, ChallengeType type, string desc, int min, int max, int xp) {
+        CreateFilteredChallenge(id, type, "", desc, min, max, xp);
+    }
+
+    private static void CreateFilteredChallenge(string id, ChallengeType type, string filter, string desc, int min, int max, int xp) {
         ChallengeDefinition asset = ScriptableObject.CreateInstance<ChallengeDefinition>();
         asset.ID = id;
         asset.Type = type;
-        asset.DescriptionTemplate = desc; // Public field is DescriptionTemplate based on my view_file earlier
+        asset.WeaponID = filter; // Using WeaponID as generic Filter ID
+        asset.DescriptionTemplate = desc;
         asset.MinTarget = min;
         asset.MaxTarget = max;
         asset.BaseXPReward = xp;
@@ -43,16 +57,6 @@ public class ChallengeAssetGenerator {
     }
 
     private static void CreateWeaponChallenge(string id, string weaponName, string desc, int min, int max, int xp) {
-        ChallengeDefinition asset = ScriptableObject.CreateInstance<ChallengeDefinition>();
-        asset.ID = id;
-        asset.Type = ChallengeType.WeaponKill;
-        asset.WeaponID = weaponName;
-        asset.DescriptionTemplate = desc;
-        asset.MinTarget = min;
-        asset.MaxTarget = max;
-        asset.BaseXPReward = xp;
-
-        string assetPath = $"Assets/Resources/Challenges/{id}.asset";
-        AssetDatabase.CreateAsset(asset, assetPath);
+        CreateFilteredChallenge(id, ChallengeType.WeaponKill, weaponName, desc, min, max, xp);
     }
 }

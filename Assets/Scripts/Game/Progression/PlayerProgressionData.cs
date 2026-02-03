@@ -52,6 +52,7 @@ namespace Game.Progression {
     [Serializable]
     public class ActiveChallengeData {
         public string challengeID;
+        public string filterID; // Dynamic filter (gamemode, weapon, etc.) set at generation time
         public int currentProgress;
         public int targetProgress;
         public int xpReward;

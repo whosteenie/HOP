@@ -182,33 +182,6 @@ namespace Game.Progression {
             // Check MatchesPlayed
             UpdateChallengeProgress(ChallengeType.MatchesPlayed, 1, gamemode);
             
-            // Check Placement (if we placed X or better, i.e. placement <= target)
-            // Placement challenges usually say "Place Top 3", so Target=3. If placement=1, 1<=3 passed.
-            // Problem: Standard logic is progress >= target.
-            // Special handling for Placement type in UpdateChallengeProgress?
-            // OR: We interpret "Progress" as "Times we placed Top X".
-            // So: "Place Top 3" (Target: 5 times). 
-            // IF placement <= 3, progress++.
-            
-            // Iterate manually here for special placement logic to find "Target Rank" from definition?
-            // Actually, let's treat placement in UpdateChallengeProgress carefully.
-            // If the challenge is "Place Top 3" 5 times... 
-            // The Definition would likely store "3" somewhere? Or we use MinTarget/MaxTarget as the Rank?
-            // Let's assume for now the ChallengeDefinition Description says "Place Top {0}" and MinTarget/MaxTarget IS the rank?
-            // But we need "Times". 
-            // Let's stick to simple "Play Match" for now unless refined.
-            // If the user wants "Place Top 5", maybe the Challenge PARAMETER is 5. 
-            // But ActiveChallengeData only has IDs and Counts.
-            // Let's assume "Placement" challenge means "Win" (Place 1st) for now or use generic "UpdateChallengeProgress" logic
-            // where we pass "placement" and let check handle it?
-            // NO, `UpdateChallengeProgress` adds AMOUNT.
-            
-            // Let's implement: "Place Top 3" -> We need to know "3".
-            // If we assume a specific ChallengeID like "top_3_placement", we can check ID.
-            // For generic handling, maybe we just record "Placement" as a generic stat?
-            // User requested: "Place top 5" or "Place first".
-            // "Place First" = Win. We have generic Win.
-            // "Place Top 5": 
             if (placement <= 5) {
                  UpdateChallengeProgress(ChallengeType.Placement, 1, "top5");
             }
@@ -278,31 +251,32 @@ namespace Game.Progression {
                 var def = GetChallengeDefinition(challenge.challengeID);
                 if (def == null || def.Type != type) continue;
 
+                // Get the filter from the active challenge (dynamic) or definition (static)
+                var filterToUse = !string.IsNullOrEmpty(challenge.filterID) ? challenge.filterID : def.WeaponID;
+
                 // Validate Weapon Filter / Context
-                if (type == ChallengeType.WeaponKill && !string.IsNullOrEmpty(def.WeaponID)) {
-                    if (contextId != def.WeaponID) continue;
+                if (type == ChallengeType.WeaponKill && !string.IsNullOrEmpty(filterToUse)) {
+                    if (contextId != filterToUse) continue;
                 }
                 
-                // Validate Gamemode for MatchesPlayed?
-                // If contextId is passed for MatchesPlayed, we could check if Description or ID contains it?
-                // Typically we'd put "Deathmatch" in WeaponID field or similar "FilterID".
-                if (type == ChallengeType.MatchesPlayed && !string.IsNullOrEmpty(def.WeaponID)) { // Reusing WeaponID as generic FilterID
-                     if (contextId != def.WeaponID) continue;
+                // Validate Gamemode for MatchesPlayed (uses filterID from active challenge)
+                if (type == ChallengeType.MatchesPlayed && !string.IsNullOrEmpty(filterToUse)) {
+                     if (contextId != filterToUse) continue;
                 }
                 
                 // Validate Placement Context (top5, top3 etc)
-                if (type == ChallengeType.Placement && !string.IsNullOrEmpty(def.WeaponID)) {
-                     if (contextId != def.WeaponID) continue;
+                if (type == ChallengeType.Placement && !string.IsNullOrEmpty(filterToUse)) {
+                     if (contextId != filterToUse) continue;
                 }
 
                 challenge.currentProgress += amount;
                 if (challenge.currentProgress >= challenge.targetProgress) {
                     challenge.currentProgress = challenge.targetProgress;
                     challenge.isCompleted = true;
-                    AddXp(def.BaseXPReward);
+                    AddXp(challenge.xpReward);
                     // Notify user?
                 }
-            }
+             }
         }
         private void Update() {
             if (Data != null) {
@@ -395,6 +369,33 @@ namespace Game.Progression {
              }
         }
 
+        // Available gamemodes for dynamic "play_matches_of" challenges
+        private static readonly string[] AvailableGamemodes = {
+            "Deathmatch", "TeamDeathmatch", "Hopball", "KingOfTheHill", "GunTag"
+        };
+        
+        private static readonly Dictionary<string, string> GamemodeDisplayNames = new() {
+            { "Deathmatch", "Deathmatch" },
+            { "TeamDeathmatch", "Team Deathmatch" },
+            { "Hopball", "Hopball" },
+            { "KingOfTheHill", "KOTH" },
+            { "GunTag", "Gun Tag" }
+        };
+        
+        // Available weapons for dynamic "weapon_kills" challenges
+        private static readonly string[] AvailableWeapons = {
+            "Deagle", "M1911", "AK74", "Bennelli_M4", "Uzi", "M107"
+        };
+        
+        private static readonly Dictionary<string, string> WeaponDisplayNames = new() {
+            { "Deagle", "Deagle" },
+            { "M1911", "Pistol" },
+            { "AK74", "Assault Rifle" },
+            { "Bennelli_M4", "Shotgun" },
+            { "Uzi", "SMG" },
+            { "M107", "Sniper Rifle" }
+        };
+
         private void GenerateDailyChallenges() {
             if (challengePool == null || challengePool.Count == 0) return;
 
@@ -407,6 +408,10 @@ namespace Game.Progression {
 
             // Pick 3 random challenges
             var activeIds = GetActiveChallengeIDs();
+            var usedGamemodes = new HashSet<string>(); // Track gamemodes for play_matches_of
+            var usedWeapons = new HashSet<string>();   // Track weapons for weapon_kills
+            int playMatchesChallengeCount = 0;
+            int weaponKillsChallengeCount = 0;
             int addedCount = 0;
             int maxAttempts = 50; // Safety break
 
@@ -414,20 +419,83 @@ namespace Game.Progression {
                 maxAttempts--;
                 var def = dailyPool[UnityEngine.Random.Range(0, dailyPool.Count)];
                 
-                // Prevent duplicate
+                // Special handling for play_matches_of (allow up to 2, but no duplicate gamemodes)
+                if (def.ID == "play_matches_of") {
+                    if (playMatchesChallengeCount >= 2) continue; // Max 2 of this type
+                    
+                    // Pick a random unused gamemode
+                    var availableForPicking = new List<string>();
+                    foreach(var gm in AvailableGamemodes) {
+                        if (!usedGamemodes.Contains(gm)) availableForPicking.Add(gm);
+                    }
+                    if (availableForPicking.Count == 0) continue; // All gamemodes used
+                    
+                    var chosenGamemode = availableForPicking[UnityEngine.Random.Range(0, availableForPicking.Count)];
+                    usedGamemodes.Add(chosenGamemode);
+                    playMatchesChallengeCount++;
+                    
+                    var target = UnityEngine.Random.Range(def.MinTarget, def.MaxTarget + 1);
+                    var reward = CalculateXpReward(def, target);
+                    
+                    var challenge = new ActiveChallengeData {
+                        challengeID = def.ID,
+                        filterID = chosenGamemode,
+                        targetProgress = target,
+                        currentProgress = 0,
+                        xpReward = reward,
+                        isCompleted = false
+                    };
+                    Data.dailyChallenges.Add(challenge);
+                    addedCount++;
+                    continue;
+                }
+                
+                // Special handling for weapon_kills (allow up to 2, but no duplicate weapons)
+                if (def.ID == "weapon_kills") {
+                    if (weaponKillsChallengeCount >= 2) continue; // Max 2 of this type
+                    
+                    // Pick a random unused weapon
+                    var availableForPicking = new List<string>();
+                    foreach(var w in AvailableWeapons) {
+                        if (!usedWeapons.Contains(w)) availableForPicking.Add(w);
+                    }
+                    if (availableForPicking.Count == 0) continue; // All weapons used
+                    
+                    var chosenWeapon = availableForPicking[UnityEngine.Random.Range(0, availableForPicking.Count)];
+                    usedWeapons.Add(chosenWeapon);
+                    weaponKillsChallengeCount++;
+                    
+                    var target = UnityEngine.Random.Range(def.MinTarget, def.MaxTarget + 1);
+                    var reward = CalculateXpReward(def, target);
+                    
+                    var challenge = new ActiveChallengeData {
+                        challengeID = def.ID,
+                        filterID = chosenWeapon,
+                        targetProgress = target,
+                        currentProgress = 0,
+                        xpReward = reward,
+                        isCompleted = false
+                    };
+                    Data.dailyChallenges.Add(challenge);
+                    addedCount++;
+                    continue;
+                }
+                
+                // Standard duplicate check for other challenges
                 if (activeIds.Contains(def.ID)) continue;
 
-                var target = UnityEngine.Random.Range(def.MinTarget, def.MaxTarget);
-                var reward = CalculateXpReward(def, target);
+                var standardTarget = UnityEngine.Random.Range(def.MinTarget, def.MaxTarget + 1);
+                var standardReward = CalculateXpReward(def, standardTarget);
                 
-                var challenge = new ActiveChallengeData {
+                var standardChallenge = new ActiveChallengeData {
                     challengeID = def.ID,
-                    targetProgress = target,
+                    filterID = def.WeaponID, // Use static filter if defined
+                    targetProgress = standardTarget,
                     currentProgress = 0,
-                    xpReward = reward,
+                    xpReward = standardReward,
                     isCompleted = false
                 };
-                Data.dailyChallenges.Add(challenge);
+                Data.dailyChallenges.Add(standardChallenge);
                 activeIds.Add(def.ID); // Mark as used for this session
                 addedCount++;
             }
@@ -486,6 +554,24 @@ namespace Game.Progression {
         
         public ChallengeDefinition GetChallengeDefinition(string id) {
             return challengePool.Find(c => c.ID == id);
+        }
+        
+        public string GetGamemodeDisplayName(string gamemodeId) {
+            if (string.IsNullOrEmpty(gamemodeId)) return "";
+            return GamemodeDisplayNames.TryGetValue(gamemodeId, out var name) ? name : gamemodeId;
+        }
+        
+        public string GetWeaponDisplayName(string weaponId) {
+            if (string.IsNullOrEmpty(weaponId)) return "";
+            return WeaponDisplayNames.TryGetValue(weaponId, out var name) ? name : weaponId;
+        }
+        
+        // Unified filter display name lookup (tries gamemode first, then weapon)
+        public string GetFilterDisplayName(string filterId) {
+            if (string.IsNullOrEmpty(filterId)) return "";
+            if (GamemodeDisplayNames.TryGetValue(filterId, out var gmName)) return gmName;
+            if (WeaponDisplayNames.TryGetValue(filterId, out var wpName)) return wpName;
+            return filterId;
         }
         
         private HashSet<string> GetActiveChallengeIDs() {

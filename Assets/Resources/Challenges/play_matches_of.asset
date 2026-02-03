@@ -10,12 +10,13 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: c9ed70c8fe86b6c4ba44e42c9ed95404, type: 3}
-  m_Name: kill_ak47
+  m_Name: play_matches_of
   m_EditorClassIdentifier: Assembly-CSharp::Game.Progression.ChallengeDefinition
-  ID: kill_ak47
-  Type: 11
-  DescriptionTemplate: Get {0} Kills with AK47
-  MinTarget: 5
-  MaxTarget: 10
-  BaseXPReward: 600
-  WeaponID: AK47
+  ID: play_matches_of
+  Type: 13
+  DescriptionTemplate: Play {0} Matches of {1}
+  MinTarget: 2
+  MaxTarget: 5
+  BaseXPReward: 500
+  IsWeekly: 0
+  WeaponID: 
