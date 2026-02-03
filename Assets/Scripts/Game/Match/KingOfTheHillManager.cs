@@ -1,8 +1,11 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
+using Game.Spawning;
 using Game.UI;
 using Unity.Netcode;
 using UnityEngine;
+using Random = UnityEngine.Random;
 
 namespace Game.Match {
     /// <summary>
@@ -60,6 +63,10 @@ namespace Game.Match {
 
             _teamAScore.OnValueChanged += OnScoreChanged;
             _teamBScore.OnValueChanged += OnScoreChanged;
+
+            if (Progression.ProgressionManager.Instance != null) {
+                Progression.ProgressionManager.Instance.StartMatch();
+            }
         }
 
         public override void OnNetworkDespawn() {
@@ -84,7 +91,7 @@ namespace Game.Match {
             
             // Only start logic if this is the selected gamemode
             var settings = MatchSettingsManager.Instance;
-            Debug.Log($"[KOTH] CheckAndStartGame. Settings: {settings != null}, Mode: {settings?.selectedGameModeId}");
+            Debug.Log($"[KOTH] CheckAndStartGame. Settings: {settings != null}, Mode: {(settings != null ? settings.selectedGameModeId : null)}");
 
             if (settings != null && settings.selectedGameModeId == "KOTH") {
                 // Refresh spawn points for the new scene
@@ -125,7 +132,7 @@ namespace Game.Match {
             if (_currentHill != null) return;
 
             // Determine spawn position
-            Vector3 spawnPos = Vector3.zero;
+            Vector3 spawnPos;
             if (hillSpawnPoints != null && hillSpawnPoints.Count > 0) {
                 var randomPoint = hillSpawnPoints[Random.Range(0, hillSpawnPoints.Count)];
                 spawnPos = randomPoint.position;
@@ -177,14 +184,19 @@ namespace Game.Match {
 
             var controllingTeam = _currentHill.ControllingTeam;
 
-            if (controllingTeam == null) {
-                return; // No points
-            }
-
-            if (controllingTeam.Value == Game.Spawning.SpawnPoint.Team.TeamA) {
-                _teamAScore.Value += pointsPerInterval;
-            } else if (controllingTeam.Value == Game.Spawning.SpawnPoint.Team.TeamB) {
-                _teamBScore.Value += pointsPerInterval;
+            switch(controllingTeam) {
+                case SpawnPoint.Team.None:
+                    break;
+                case null:
+                    return; // No points
+                case SpawnPoint.Team.TeamA:
+                    _teamAScore.Value += pointsPerInterval;
+                    break;
+                case SpawnPoint.Team.TeamB:
+                    _teamBScore.Value += pointsPerInterval;
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException();
             }
 
             CheckWinCondition();
@@ -192,13 +204,13 @@ namespace Game.Match {
 
         private void CheckWinCondition() {
             if (_teamAScore.Value >= winScore) {
-                EndGame(Game.Spawning.SpawnPoint.Team.TeamA);
+                EndGame(SpawnPoint.Team.TeamA);
             } else if (_teamBScore.Value >= winScore) {
-                EndGame(Game.Spawning.SpawnPoint.Team.TeamB);
+                EndGame(SpawnPoint.Team.TeamB);
             }
         }
 
-        private void EndGame(Game.Spawning.SpawnPoint.Team winningTeam) {
+        private void EndGame(SpawnPoint.Team winningTeam) {
             _isGameActive = false;
             
             if (PostMatchManager.Instance != null) {

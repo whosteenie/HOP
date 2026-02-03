@@ -79,9 +79,11 @@ namespace Network.Rpc {
                 return;
             }
 
+            var weaponId = shooterWeaponManager.GetWeaponIdByIndex(weaponIndex);
+
             // Apply on server (authoritative). This function will update stats (kills/deaths/damageDealt) on server.
             // Body part tag and headshot flag are passed through for future headshot multiplier implementation
-            var wasKill = victim.ApplyDamageServer_Auth(damage, hitPoint, hitDirection, shooterId, bodyPartTag, isHeadshot);
+            var wasKill = victim.ApplyDamageServer_Auth(damage, hitPoint, hitDirection, shooterId, bodyPartTag, isHeadshot, weaponId);
 
             // Send a confirmation to EVERYONE, but only the shooter will act on it (self-filter).
             HitConfirmClientRpc(shooterId, wasKill);

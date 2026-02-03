@@ -551,6 +551,11 @@ namespace Game.Weapons {
             return weaponDataList[index];
         }
 
+        public string GetWeaponIdByIndex(int index) {
+            var data = GetWeaponDataByIndex(index);
+            return data != null ? data.weaponName : null;
+        }
+
         private void EquipInitialWeapon(int index) {
             if(index < 0 || index >= weaponDataList.Count) {
                 Debug.LogError($"[WeaponManager] EquipInitialWeapon: invalid index {index}");

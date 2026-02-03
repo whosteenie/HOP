@@ -57,7 +57,10 @@ namespace Game.Match {
         private VisualElement _hudPanel;
         private VisualElement _matchTimerContainer;
 
+        private PostMatchXpDisplay _xpDisplay;
+
         public bool PostMatchFlowStarted { get; private set; }
+        private SpawnPoint.Team _winningTeam = SpawnPoint.Team.None;
 
         private void Awake() {
             var pmm = FindFirstObjectByType<PostMatchManager>();
@@ -79,6 +82,12 @@ namespace Game.Match {
             // Initialize UI if available
             if(uiDocument == null) return;
             _root = uiDocument.rootVisualElement;
+            
+            _xpDisplay = GetComponent<PostMatchXpDisplay>();
+            if (_xpDisplay == null) {
+                _xpDisplay = gameObject.AddComponent<PostMatchXpDisplay>();
+            }
+            
             InitializeUI();
         }
 
@@ -153,6 +162,7 @@ namespace Game.Match {
                 return;
             }
 
+            _winningTeam = winningTeam;
             PostMatchFlowStarted = true;
             StartCoroutine(PostMatchSequence());
         }
@@ -160,6 +170,12 @@ namespace Game.Match {
         private IEnumerator PostMatchSequence() {
             // 1) Tell all clients to fade to black + hide HUD bits
             RequestFadeToPodiumClientRpc();
+
+            // 1b) Announce results and award XP
+            // We need to fetch the winner if we came from score.
+            // Note: Currently PostMatchSequence doesn't know the winner if called via Coroutine from StartCoroutine(PostMatchSequence()).
+            // Implementation Gaps: We need to store the winning team in a member variable before starting sequence.
+            AnnounceMatchResultClientRpc(_winningTeam);
 
             yield return new WaitForSeconds(fadeDuration + fadeBuffer);
 
@@ -347,6 +363,78 @@ namespace Game.Match {
         }
 
         [Rpc(SendTo.Everyone)]
+        private void AnnounceMatchResultClientRpc(SpawnPoint.Team winningTeam) {
+            if (Progression.ProgressionManager.Instance == null) return;
+
+            // Match Completion XP
+            Progression.ProgressionManager.Instance.AddXp(100);
+
+            // Win Bonus
+            // We need to check our local team.
+            // Assumption: PlayerTeamManager sets the local player's team in a way we can access, or we check NetworkManager.LocalClient
+            var localTeam = SpawnPoint.Team.None;
+            if (NetworkManager.Singleton != null && NetworkManager.Singleton.LocalClient != null && 
+                NetworkManager.Singleton.LocalClient.PlayerObject != null) {
+                var teamManager = NetworkManager.Singleton.LocalClient.PlayerObject.GetComponent<PlayerTeamManager>();
+                if (teamManager != null) {
+                    localTeam = teamManager.netTeam.Value;
+                }
+            }
+
+            var matchSettings = Game.Match.MatchSettingsManager.Instance;
+            var isTrackedGamemode = matchSettings != null && 
+                                    (matchSettings.selectedGameModeId == "Team Deathmatch" || 
+                                     matchSettings.selectedGameModeId == "Hopball" || 
+                                     matchSettings.selectedGameModeId == "KOTH");
+
+            if (isTrackedGamemode && localTeam != SpawnPoint.Team.None) {
+                var isWin = false;
+                if (localTeam == winningTeam) {
+                     Progression.ProgressionManager.Instance.AddXp(500); // Win Bonus
+                     Progression.ProgressionManager.Instance.RecordWin();
+                     isWin = true;
+                } else if (winningTeam != SpawnPoint.Team.None) {
+                     // Only record loss if there was a winner (not a draw) and we didn't win
+                     Progression.ProgressionManager.Instance.RecordLoss();
+                }
+                
+                // Track "Matches Played" for team modes, but NOT placement for now.
+                Progression.ProgressionManager.Instance.RecordMatchComplete(matchSettings.selectedGameModeId, 0); // 0 = no placement context
+
+            } else {
+                // FFA Mode (Gun Tag, Deathmatch)
+                if (Game.UI.ScoreboardManager.Instance != null && 
+                    Game.UI.ScoreboardManager.Instance.GetLocalPlayerPlacement(out int rank, out int total)) {
+                    
+                    // Award Win if Rank 1?
+                    if (rank == 1) {
+                        Progression.ProgressionManager.Instance.AddXp(500);
+                        Progression.ProgressionManager.Instance.RecordWin();
+                    } else {
+                        Progression.ProgressionManager.Instance.RecordLoss();
+                    }
+                    
+                    if (matchSettings != null) {
+                        Progression.ProgressionManager.Instance.RecordMatchComplete(matchSettings.selectedGameModeId, rank);
+                    }
+                }
+            }
+
+            // Record Average Speed for this match
+
+            // Record Average Speed for this match
+            if (NetworkManager.Singleton != null && NetworkManager.Singleton.LocalClient != null && 
+                NetworkManager.Singleton.LocalClient.PlayerObject != null) {
+                var statsCtrl = NetworkManager.Singleton.LocalClient.PlayerObject.GetComponent<PlayerStatsController>();
+                if (statsCtrl != null) {
+                    Progression.ProgressionManager.Instance.RecordMatchAverageSpeed(statsCtrl.averageVelocity.Value);
+                }
+            }
+
+            Progression.ProgressionManager.Instance.EndMatch();
+        }
+
+        [Rpc(SendTo.Everyone)]
         private void RequestFadeInFromPodiumClientRpc() {
             if(SceneTransitionManager.Instance != null) {
                 SceneTransitionManager.Instance.StartCoroutine(
@@ -398,6 +486,23 @@ namespace Game.Match {
             SetPodiumSlot(_podiumFirstSlot, _podiumFirstName, _podiumFirstKills, firstName, firstKills);
             SetPodiumSlot(_podiumSecondSlot, _podiumSecondName, _podiumSecondKills, secondName, secondKills);
             SetPodiumSlot(_podiumThirdSlot, _podiumThirdName, _podiumThirdKills, thirdName, thirdKills);
+
+            // Show XP Bar for local player
+            if(_xpDisplay == null || Progression.ProgressionManager.Instance == null) return;
+            var pm = Progression.ProgressionManager.Instance;
+            var nextLevelXp = pm.GetXpRequiredForLevel(pm.StartMatchLevel); // Max XP for the START level
+                
+            // Note: If we leveled up multiple times, the animation might be a bit weird with just start/end,
+            // but PostMatchXPDisplay handles basic level up logic.
+                
+            _xpDisplay.ShowXp(
+                pm.StartMatchLevel,
+                pm.StartMatchCurrentXp,
+                pm.Data.level,
+                pm.Data.currentXp,
+                pm.CurrentMatchXp,
+                nextLevelXp
+            );
         }
 
         private static void SetPodiumSlot(

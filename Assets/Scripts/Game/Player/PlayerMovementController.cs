@@ -5,6 +5,7 @@ using Network.Rpc;
 using Unity.Cinemachine;
 using Unity.Netcode;
 using UnityEngine;
+using Game.Progression;
 
 namespace Game.Player {
     /// <summary>
@@ -77,6 +78,10 @@ namespace Game.Player {
         private float _gravityY;
         private bool _isMantling;
 
+        // Progression Tracking
+        private int _currentWallRunChain;
+        private bool _wasWallRunningLastFrame;
+
         // Input (read from PlayerController)
         private Vector2 MoveInput => playerController == null ? Vector2.zero : playerController.moveInput;
 
@@ -148,10 +153,29 @@ namespace Game.Player {
             if(_wallRunController != null) {
                 _wallRunController.CheckForWall();
                 if(_wallRunController.IsWallRunning) {
+                    // Progression: Track Wall Run Chains
+                    if (!_wasWallRunningLastFrame) {
+                        _currentWallRunChain++;
+                        // Report logic: Only report if chain > 0 (meaning we did wall run -> something -> wall run)
+                        // Or just report every wall run event as a chain increment?
+                        // Challenge assumes "Chain X Wall Runs", so we should simply report the current chain count.
+                        if (IsOwner && Progression.ProgressionManager.Instance != null) {
+                            Progression.ProgressionManager.Instance.RecordWallRunChain(_currentWallRunChain);
+                        }
+                    }
+                    _wasWallRunningLastFrame = true;
+
                     _wallRunController.UpdateWallRun();
                     // Override horizontal velocity completely when wall running
                     _horizontalVelocity = _wallRunController.GetWallRunVelocity(_playerTransform.forward);
+                } else {
+                    _wasWallRunningLastFrame = false;
                 }
+            }
+
+            // Reset chain if grounded
+            if (IsGrounded) {
+                _currentWallRunChain = 0;
             }
 
             // Handle sliding
@@ -337,6 +361,20 @@ namespace Game.Player {
             _characterController.Move(_moveVelocity * Time.deltaTime);
             var positionAfter = _playerTransform.position;
             
+            // Progression: Track distance traveled
+            if (IsOwner && ProgressionManager.Instance != null) {
+                if (IsGrounded) {
+                    var dist = Vector3.Distance(new Vector3(positionBefore.x, 0, positionBefore.z), 
+                                              new Vector3(positionAfter.x, 0, positionAfter.z));
+                    if (dist > 0) {
+                         ProgressionManager.Instance.AddDistanceTraveled(dist);
+                    }
+                } else {
+                    // Progression: Track Airtime
+                    ProgressionManager.Instance.RecordAirtime(Time.deltaTime);
+                }
+            }
+
             HandleWallContactDampening(positionBefore, positionAfter);
         }
 
@@ -494,6 +532,10 @@ namespace Game.Player {
             if(IsOwner && _sfxRelay != null) {
                 _sfxRelay.RequestWorldSfx(SfxKey.JumpPad, attachToSelf: true, true);
                 _sfxRelay.RequestWorldSfx(SfxKey.Jump, attachToSelf: true, true);
+            }
+
+            if (IsOwner && ProgressionManager.Instance != null) {
+                ProgressionManager.Instance.RecordJumpPadUsed();
             }
 
             // Trigger jump animation if moving upward

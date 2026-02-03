@@ -4,6 +4,7 @@ using Game.Audio;
 using Game.Match;
 using Game.Menu;
 using Game.Player;
+using Game.Progression;
 using Game.UI;
 using Network.Events;
 using Network.Rpc;
@@ -524,14 +525,22 @@ namespace Game.Weapons {
             // Calculate muzzle position directly from camera to bypass weapon transform lag
             var capturedMuzzlePos = GetMuzzlePositionFromCamera();
 
-            if(playerController != null && playerController.IsOwner) {
+            if (playerController != null && playerController.IsOwner) {
                 PlayLocalMuzzleFlash();
+                // Record Stats
+                if (ProgressionManager.Instance != null) {
+                    ProgressionManager.Instance.RecordShotFired();
+                }
             }
+
+            var anyPelletHitPlayer = false;
 
             for(var i = 0; i < pelletCount; i++) {
                 var direction = ApplySpread(forward, spreadDegrees);
                 FirePellet(origin, direction, out var endPoint, out var hitNormal, out var madeImpact,
                     out var hitPlayer, out var hitPlayerRef, weaponIndex, shotId);
+
+                if (hitPlayer) anyPelletHitPlayer = true;
 
                 if(playerController != null && playerController.IsOwner) {
                     SpawnTracerLocal(capturedMuzzlePos, endPoint, hitNormal, madeImpact, hitPlayer, hitPlayerRef);
@@ -539,6 +548,12 @@ namespace Game.Weapons {
 
                 var playMuzzleFlash = i == 0;
                 _networkFXRelay.RequestShotFx(endPoint, hitNormal, madeImpact, hitPlayer, hitPlayerRef, playMuzzleFlash);
+            }
+
+            // If any pellet hit a player, count it as a "Shot Hit" (accuracy = Shots Hit / Shots Fired)
+            // This prevents shotguns from giving > 100% accuracy
+            if (anyPelletHitPlayer && playerController != null && playerController.IsOwner && ProgressionManager.Instance != null) {
+                ProgressionManager.Instance.RecordShotHit();
             }
         }
 

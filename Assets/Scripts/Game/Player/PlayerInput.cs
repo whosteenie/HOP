@@ -254,22 +254,22 @@ namespace Game.Player {
                 // Prioritize Wall Jump over Mantle
                 var isWallRunning = playerController.WallRunController != null && playerController.WallRunController.IsWallRunning;
 
-                // Prevent "Auto-Hop" (holding jump) from unintentionally triggering wall jumps.
-                // If wall running, require a fresh jump press (triggered) or scroll wheel input.
-                if (isWallRunning && !scrollPressed) {
-                    if (jumpAction != null && !jumpAction.triggered) {
+                switch(isWallRunning) {
+                    // Prevent "Auto-Hop" (holding jump) from unintentionally triggering wall jumps.
+                    // If wall running, require a fresh jump press (triggered) or scroll wheel input.
+                    case true when !scrollPressed && !jumpAction.triggered && !jumpAction.triggered:
                         // Jump is held, but not fresh press - ignore for wall jumping
                         return;
-                    }
-                }
+                    // Try mantle if enabled and not grounded (and not wall running)
+                    case false when MantleController != null && holdMantleEnabled && !playerController.IsGrounded: {
+                        MantleController.TryMantle();
 
-                // Try mantle if enabled and not grounded (and not wall running)
-                if(!isWallRunning && MantleController != null && holdMantleEnabled && !playerController.IsGrounded) {
-                    MantleController.TryMantle();
+                        // If we started mantling, don't jump
+                        if(MantleController != null && MantleController.IsMantling) {
+                            return;
+                        }
 
-                    // If we started mantling, don't jump
-                    if(MantleController != null && MantleController.IsMantling) {
-                        return;
+                        break;
                     }
                 }
 

@@ -1,4 +1,3 @@
-using System.Collections;
 using System.Collections.Generic;
 using Unity.Netcode;
 using UnityEngine;
@@ -12,7 +11,10 @@ namespace Game.Match {
     /// Uses NavMeshAgent for movement, with a fallback to direct movement if NavMesh is invalid.
     /// </summary>
     public class HillController : NetworkBehaviour {
-        public enum HillState {
+        private static readonly int BaseColor = Shader.PropertyToID("_BaseColor");
+        private static readonly int EmissionColor = Shader.PropertyToID("_EmissionColor");
+
+        private enum HillState {
             Uncontested,
             Contested,
             ControlledTeamA,
@@ -32,10 +34,10 @@ namespace Game.Match {
         [SerializeField] private Color colorUncontested = Color.white;
         [SerializeField] private Color colorContested = Color.yellow;
         [SerializeField] private Color colorTeamA = Color.cyan; // Blue-ish
-        [SerializeField] private Color colorTeamB = new Color(1f, 0.5f, 0f); // Orange
+        [SerializeField] private Color colorTeamB = new(1f, 0.5f, 0f); // Orange
 
         // Runtime State
-        private readonly NetworkVariable<HillState> _currentState = new(HillState.Uncontested);
+        private readonly NetworkVariable<HillState> _currentState = new();
         
         private readonly HashSet<PlayerController> _playersInZone = new();
         private float _timer;
@@ -47,11 +49,11 @@ namespace Game.Match {
 
         public SpawnPoint.Team? ControllingTeam {
             get {
-                switch (_currentState.Value) {
-                    case HillState.ControlledTeamA: return SpawnPoint.Team.TeamA;
-                    case HillState.ControlledTeamB: return SpawnPoint.Team.TeamB;
-                    default: return null;
-                }
+                return _currentState.Value switch {
+                    HillState.ControlledTeamA => SpawnPoint.Team.TeamA,
+                    HillState.ControlledTeamB => SpawnPoint.Team.TeamB,
+                    _ => null
+                };
             }
         }
 
@@ -83,23 +85,34 @@ namespace Game.Match {
             UpdateVisuals(current);
         }
 
+        private PlayerController _localPlayerInZone;
+
         private void Update() {
+             // Client-side Personal KOTH time tracking
+            if (_localPlayerInZone != null && 
+                _localPlayerInZone.netIsDead != null && 
+                !_localPlayerInZone.netIsDead.Value && 
+                Progression.ProgressionManager.Instance != null) {
+                 Progression.ProgressionManager.Instance.AddTimeAsKing(Time.deltaTime);
+            }
+
             if (!IsServer) return;
 
             // Roomba Movement Logic
             // Move forward in current direction (_targetPosition is used as direction vector here)
             if (_isMoving) {
-                Vector3 currentPos = transform.position;
-                Vector3 moveDir = _targetPosition;
+                var currentPos = transform.position;
+                var moveDir = _targetPosition;
                 
                 // Raycast ahead to detect walls (Enable Trigger Detection)
-                Ray ray = new Ray(currentPos, moveDir);
+                var ray = new Ray(currentPos, moveDir);
                 // Note: User specified "Bounds" layer. We use QueryTriggerInteraction.Collide to hit Triggers.
-                if (Physics.Raycast(ray, out RaycastHit hit, wanderRadius, LayerMask.GetMask("Default", "Ground", "Wall", "Bounds"), QueryTriggerInteraction.Collide)) {
+                if (Physics.Raycast(ray, out var hit, wanderRadius, LayerMask.GetMask("Bounds"), 
+                        QueryTriggerInteraction.Collide)) {
                     // If we are close to a wall, reflect direction
                     if (hit.distance < 2.0f) {
-                        Vector3 reflectDir = Vector3.Reflect(moveDir, hit.normal);
-                        reflectDir.y = 0; // Keep flat
+                        var reflectDir = Vector3.Reflect(moveDir, hit.normal);
+                        reflectDir.y = 0; // Flatten direction
                         _targetPosition = reflectDir.normalized;
                     }
                 }
@@ -109,7 +122,7 @@ namespace Game.Match {
 
                 // Force Height (Safety net against physics drift or low spawn)
                 if (transform.position.y < 753f) {
-                     Vector3 pos = transform.position;
+                     var pos = transform.position;
                      pos.y = 753f;
                      transform.position = pos;
                 }
@@ -118,7 +131,7 @@ namespace Game.Match {
             // Control Logic
             UpdateControlState();
         }
-
+        
         // Unused but kept for interface compatibility if needed later
         private void SetNewDestination() { }
 
@@ -166,48 +179,59 @@ namespace Game.Match {
             visualRenderer.material.color = targetColor; 
             
             // If custom shader uses _BaseColor or event emission
-            if (visualRenderer.material.HasProperty("_BaseColor"))
-                visualRenderer.material.SetColor("_BaseColor", targetColor);
-             if (visualRenderer.material.HasProperty("_EmissionColor"))
-                visualRenderer.material.SetColor("_EmissionColor", targetColor * 1.5f);
+            if (visualRenderer.material.HasProperty(BaseColor))
+                visualRenderer.material.SetColor(BaseColor, targetColor);
+            if (visualRenderer.material.HasProperty(EmissionColor))
+                visualRenderer.material.SetColor(EmissionColor, targetColor * 1.5f);
         }
 
         private void OnTriggerEnter(Collider other) {
-            if (!IsServer) return;
-            
             var player = other.GetComponent<PlayerController>();
             if (player == null) player = other.GetComponentInParent<PlayerController>(); // Check parent if collider is on child part
-            
-            if (player != null) {
-                Debug.Log($"[HillController] Player {player.name} entered zone.");
-                _playersInZone.Add(player);
+
+            if(player == null) return;
+            // Client-side check for local player
+            if (player.IsOwner) {
+                _localPlayerInZone = player;
             }
+
+            // Server-side logic
+            if(!IsServer) return;
+            Debug.Log($"[HillController] Player {player.name} entered zone.");
+            _playersInZone.Add(player);
         }
 
         private void OnTriggerExit(Collider other) {
-            if (!IsServer) return;
-            
             var player = other.GetComponent<PlayerController>();
             if (player == null) player = other.GetComponentInParent<PlayerController>();
 
-            if (player != null) {
-                Debug.Log($"[HillController] Player {player.name} exited zone.");
-                _playersInZone.Remove(player);
+            if(player == null) return;
+            // Client-side check for local player
+            if (player.IsOwner) {
+                _localPlayerInZone = null;
             }
+
+            // Server-side logic
+            if(!IsServer) return;
+            Debug.Log($"[HillController] Player {player.name} exited zone.");
+            _playersInZone.Remove(player);
         }
 
         private void OnDrawGizmos() {
             Gizmos.color = new Color(0, 1, 0, 0.3f);
-            if (zoneCollider != null) {
-                if (zoneCollider is BoxCollider box) {
+            if(zoneCollider == null) return;
+            switch(zoneCollider) {
+                case BoxCollider box:
                     Gizmos.matrix = transform.localToWorldMatrix;
                     Gizmos.DrawCube(box.center, box.size);
-                } else if (zoneCollider is SphereCollider sphere) {
+                    break;
+                case SphereCollider sphere:
                     Gizmos.matrix = transform.localToWorldMatrix;
                     Gizmos.DrawSphere(sphere.center, sphere.radius);
-                } else {
-                     Gizmos.DrawWireSphere(transform.position, wanderRadius);
-                }
+                    break;
+                default:
+                    Gizmos.DrawWireSphere(transform.position, wanderRadius);
+                    break;
             }
         }
     }

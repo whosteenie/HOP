@@ -1,5 +1,6 @@
 using System;
 using Game.Player;
+using Game.Progression;
 using Game.UI;
 using Game.Match;
 using Network;
@@ -52,6 +53,12 @@ namespace Game.Menu {
 
         // Cache scene name to avoid string allocations
         private string _cachedSceneName;
+
+        // Pause menu challenge cards
+        private VisualElement _pauseChallengesContainer;
+        private VisualElement _dailyChallengesCard;
+        private VisualElement _weeklyChallengesCard;
+        private readonly Color _progressBarColor = new(1f, 0.392f, 0.392f); // #ff6464
 
         #endregion
 
@@ -168,6 +175,219 @@ namespace Game.Menu {
 
             // Kill Feed
             _killFeedContainer = _root.Q<VisualElement>("kill-feed-container");
+            
+            // Build challenge cards for pause menu
+            BuildPauseChallengeCards();
+        }
+
+        private void Update() {
+            // Real-time challenge updates while paused
+            if (IsPaused && _pauseChallengesContainer != null) {
+                UpdatePauseChallenges();
+            }
+        }
+
+        private void BuildPauseChallengeCards() {
+            if (_pauseMenuPanel == null) return;
+
+            // Create container for challenges (horizontal layout around pause card)
+            _pauseChallengesContainer = new VisualElement {
+                name = "pause-challenges-container",
+                style = {
+                    position = Position.Absolute,
+                    left = 0,
+                    right = 0,
+                    top = 0,
+                    bottom = 0,
+                    flexDirection = FlexDirection.Row,
+                    justifyContent = Justify.Center,
+                    alignItems = Align.Center
+                }
+            };
+            
+            // Daily Challenges Card (left side)
+            _dailyChallengesCard = CreateChallengeCard("Daily Challenges");
+            _dailyChallengesCard.style.marginRight = 50; // More spacing from pause menu
+            
+            // Spacer for the existing pause card (we don't move it)
+            var spacer = new VisualElement {
+                style = {
+                    width = 420, // Match pause menu .menu-container width
+                    height = 10
+                }
+            };
+            
+            // Weekly Challenges Card (right side)
+            _weeklyChallengesCard = CreateChallengeCard("Weekly Challenges");
+            _weeklyChallengesCard.style.marginLeft = 50; // More spacing from pause menu
+
+            _pauseChallengesContainer.Add(_dailyChallengesCard);
+            _pauseChallengesContainer.Add(spacer);
+            _pauseChallengesContainer.Add(_weeklyChallengesCard);
+            
+            // Add before pause menu panel so it's behind it
+            _pauseMenuPanel.parent.Insert(0, _pauseChallengesContainer);
+            _pauseChallengesContainer.AddToClassList("hidden");
+        }
+
+        private VisualElement CreateChallengeCard(string title) {
+            // Match HOP pause menu style from GameMenu.uss
+            // .menu-container uses: rgba(12, 12, 18, 0.85) bg, rgba(200, 60, 60, 0.4) border
+            var card = new VisualElement {
+                style = {
+                    width = 280,
+                    minHeight = 180,
+                    backgroundColor = new Color(12f/255f, 12f/255f, 18f/255f, 0.85f), // rgba(12,12,18,0.85)
+                    borderTopLeftRadius = 4,
+                    borderTopRightRadius = 4,
+                    borderBottomLeftRadius = 4,
+                    borderBottomRightRadius = 4,
+                    borderTopWidth = 1,
+                    borderBottomWidth = 1,
+                    borderLeftWidth = 1,
+                    borderRightWidth = 1,
+                    borderTopColor = new Color(200f/255f, 60f/255f, 60f/255f, 0.4f), // rgba(200,60,60,0.4)
+                    borderBottomColor = new Color(200f/255f, 60f/255f, 60f/255f, 0.4f),
+                    borderLeftColor = new Color(200f/255f, 60f/255f, 60f/255f, 0.4f),
+                    borderRightColor = new Color(200f/255f, 60f/255f, 60f/255f, 0.4f),
+                    paddingTop = 16,
+                    paddingBottom = 16,
+                    paddingLeft = 18,
+                    paddingRight = 18
+                }
+            };
+            
+            var titleLabel = new Label(title) {
+                style = {
+                    fontSize = 14,
+                    unityFontStyleAndWeight = FontStyle.Bold,
+                    color = Color.white,
+                    marginBottom = 12,
+                    unityTextAlign = TextAnchor.MiddleCenter
+                }
+            };
+            card.Add(titleLabel);
+            
+            // Separator line (red accent matching border)
+            var separator = new VisualElement {
+                style = {
+                    height = 1,
+                    backgroundColor = new Color(200f/255f, 60f/255f, 60f/255f, 0.6f),
+                    marginBottom = 12
+                }
+            };
+            card.Add(separator);
+            
+            var listContainer = new VisualElement {
+                name = "challenge-list"
+            };
+            card.Add(listContainer);
+            
+            return card;
+        }
+
+        private void UpdatePauseChallenges() {
+            var pm = ProgressionManager.Instance;
+            if (pm == null || pm.Data == null) return;
+
+            RenderChallengeList(_dailyChallengesCard, pm.Data.dailyChallenges);
+            RenderChallengeList(_weeklyChallengesCard, pm.Data.weeklyChallenges);
+        }
+
+        private void RenderChallengeList(VisualElement card, System.Collections.Generic.List<ActiveChallengeData> challenges) {
+            if (card == null) return;
+            
+            var list = card.Q<VisualElement>("challenge-list");
+            if (list == null) return;
+            
+            list.Clear();
+            if (challenges == null) return;
+            
+            var pm = ProgressionManager.Instance;
+            if (pm == null) return;
+
+            foreach (var activeChallenge in challenges) {
+                var def = pm.GetChallengeDefinition(activeChallenge.challengeID);
+                if (def == null) continue;
+                    
+                var row = new VisualElement {
+                    style = {
+                        marginBottom = 12,
+                        paddingBottom = 8,
+                        borderBottomWidth = 1,
+                        borderBottomColor = new Color(200f/255f, 60f/255f, 60f/255f, 0.15f)
+                    }
+                };
+
+                var progress = activeChallenge.currentProgress;
+                var target = activeChallenge.targetProgress;
+                if (progress > target) progress = target;
+                    
+                string descText = def.Description;
+                try {
+                    descText = string.Format(def.Description, target);
+                } catch {
+                    // Fallback
+                }
+
+                // Title row: Description (progress/target) ... +XP
+                var titleRow = new VisualElement {
+                    style = {
+                        flexDirection = FlexDirection.Row,
+                        justifyContent = Justify.SpaceBetween,
+                        alignItems = Align.FlexStart,
+                        marginBottom = 4
+                    }
+                };
+                
+                // Description with progress inline
+                var titleLabel = new Label($"{descText} ({progress}/{target})") {
+                    style = {
+                        fontSize = 11,
+                        color = new Color(0.9f, 0.9f, 0.9f),
+                        whiteSpace = WhiteSpace.Normal,
+                        flexShrink = 1
+                    }
+                };
+                titleRow.Add(titleLabel);
+                
+                var xpLabel = new Label($"+{activeChallenge.xpReward}") {
+                    style = {
+                        fontSize = 10,
+                        color = new Color(0.5f, 0.8f, 0.5f),
+                        flexShrink = 0,
+                        marginLeft = 8
+                    }
+                };
+                titleRow.Add(xpLabel);
+                
+                row.Add(titleRow);
+                    
+                var progressBar = new ProgressBar {
+                    lowValue = 0,
+                    highValue = target,
+                    value = progress,
+                    style = {
+                        height = 5
+                    }
+                };
+                StyleProgressBar(progressBar);
+                row.Add(progressBar);
+                    
+                list.Add(row);
+            }
+        }
+
+        private void StyleProgressBar(ProgressBar bar) {
+            bar.style.backgroundColor = new Color(0.15f, 0.15f, 0.15f);
+            bar.style.borderTopWidth = 0;
+            bar.style.borderBottomWidth = 0;
+            bar.style.borderLeftWidth = 0;
+            bar.style.borderRightWidth = 0;
+            var fill = bar.Q<VisualElement>(className: "unity-progress-bar__progress");
+            if (fill != null) {
+                fill.style.backgroundColor = _progressBarColor;
+            }
         }
 
         private void RegisterUIEvents() {
@@ -274,6 +494,11 @@ namespace Game.Menu {
             // Update join code display when pausing
             UpdatePauseJoinCodeDisplay();
 
+            // Show challenge cards
+            if (_pauseChallengesContainer != null) {
+                _pauseChallengesContainer.RemoveFromClassList("hidden");
+            }
+
             if(_localController) {
                 _localController.moveInput = Vector2.zero;
             }
@@ -309,6 +534,12 @@ namespace Game.Menu {
             IsPaused = false;
             _pauseMenuPanel.AddToClassList("hidden");
             _optionsPanel.AddToClassList("hidden");
+            
+            // Hide challenge cards
+            if (_pauseChallengesContainer != null) {
+                _pauseChallengesContainer.AddToClassList("hidden");
+            }
+            
             UnityEngine.Cursor.lockState = CursorLockMode.Locked;
             UnityEngine.Cursor.visible = false;
         }
@@ -332,6 +563,11 @@ namespace Game.Menu {
 
         private async void QuitToMenu() {
             try {
+                // Save progression before quitting
+                if (Game.Progression.ProgressionManager.Instance != null) {
+                    Game.Progression.ProgressionManager.Instance.SaveData();
+                }
+
                 await SessionManager.Instance.LeaveToMainMenuAsync();
 
                 var root = uiDocument.rootVisualElement;
