@@ -4,7 +4,8 @@ namespace Game.Spawning {
     public class SpawnPoint : MonoBehaviour {
     public enum Team {
         TeamA,
-        TeamB
+        TeamB,
+        None
     }
 
     [Header("Team")]

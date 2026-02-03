@@ -279,6 +279,53 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Network.Events.EventBusLogSettingsInitializer
   logSettings: {fileID: 11400000, guid: 70d0faebc52d4a34c87efbf9cb3b78d7, type: 2}
+--- !u!1 &1220292144
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1220292146}
+  - component: {fileID: 1220292145}
+  m_Layer: 0
+  m_Name: ProgressionManager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1220292145
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1220292144}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b9f6cba614d51f2499fcdeae37101a3c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Game.Progression.ProgressionManager
+  challengePool: []
+  baseXp: 1000
+  xpMultiplier: 1.2
+--- !u!4 &1220292146
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1220292144}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1356954156
 GameObject:
   m_ObjectHideFlags: 0
@@ -490,7 +537,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 2133805637}
-  - component: {fileID: 2133805636}
+  - component: {fileID: 2133805638}
   m_Layer: 0
   m_Name: DiscordManager
   m_TagString: Untagged
@@ -498,21 +545,6 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &2133805636
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2133805635}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: ca79f53dc6a9c004e87fd58ddea3ecdd, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::DiscordManager
-  clientId: 0
-  loginButton: {fileID: 0}
-  statusText: {fileID: 0}
 --- !u!4 &2133805637
 Transform:
   m_ObjectHideFlags: 0
@@ -528,6 +560,18 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &2133805638
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2133805635}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 122ea796e572f1549b05242142b84968, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Discord.DiscordManager
 --- !u!114 &771809372539791604
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1079,3 +1123,4 @@ SceneRoots:
   - {fileID: 2133805637}
   - {fileID: 1356954159}
   - {fileID: 1760249736}
+  - {fileID: 1220292146}

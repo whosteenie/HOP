@@ -19,7 +19,9 @@ namespace Game.Player {
 
         [Header("Body Part Tags")]
         [Tooltip("Tag used for head body part (for headshot detection).")]
+        #pragma warning disable CS0414 // Field is assigned but never used (reserved for future headshot feature)
         [SerializeField] private string headTag = "Head";
+        #pragma warning restore CS0414
 
         private Rigidbody[] _ragdollRigidbodies;
         private CharacterJoint[] _ragdollJoints;

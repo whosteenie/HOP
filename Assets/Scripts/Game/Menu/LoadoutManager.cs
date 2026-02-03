@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using Game.Player;
 using Network.Singletons;
+using Game.Progression;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -12,6 +13,8 @@ namespace Game.Menu {
         [SerializeField] private WeaponData[] primaryWeapons;
         [SerializeField] private WeaponData[] secondaryWeapons;
         [SerializeField] private WeaponData[] tertiaryWeapons;
+
+        private readonly Color _progressBarColor = new(1f, 0.392f, 0.392f); // #ff6464
 
         [Header("Color/Material Options")]
         [SerializeField] private Material[] playerMaterials; // Must have 6 materials matching color-0 through color-5
@@ -80,6 +83,10 @@ namespace Game.Menu {
         // Animation state
         private VisualElement _weaponContainer;
         private VisualElement _customizationContainer;
+        private VisualElement _statsContainer; 
+        private VisualElement _challengesContainer; // New: Right side
+        private Button _statsButton; 
+        private bool _showingStats; 
         private VisualElement _nameContainer;
         private VisualElement _backgroundElement;
         private Coroutine _backgroundFadeCoroutine;
@@ -142,6 +149,11 @@ namespace Game.Menu {
         private void OnDisable() {
             // Stop brute force rendering
             _previewActive = false;
+            _showingStats = false;
+
+            _showingStats = false;
+            _showingStats = false;
+
             
             if(_root == null || !_outsideClickHandlerRegistered) return;
             _root.UnregisterCallback<PointerDownEvent>(OnRootPointerDown, TrickleDown.TrickleDown);
@@ -178,11 +190,21 @@ namespace Game.Menu {
             // Mark preview as active for brute force rendering
             _previewActive = true;
             
+            // Reset Stats state (User request: "reset state to showing loadout when re-entering")
+            _showingStats = false;
+            if(_statsButton != null) _statsButton.text = "CAREER";
+            if(_statsContainer != null) _statsContainer.style.display = DisplayStyle.None;
+            if(_challengesContainer != null) _challengesContainer.style.display = DisplayStyle.None;
+            if(_weaponContainer != null) _weaponContainer.style.display = DisplayStyle.Flex;
+            if(_customizationContainer != null) _customizationContainer.style.display = DisplayStyle.Flex;
+            
             // Ensure containers start off-screen the first time
             if(!_containersInitialized) {
                 SetContainerTranslate(_weaponContainer, WeaponOffscreenPercent);
                 SetContainerTranslate(_customizationContainer, CustomizationOffscreenPercent);
                 SetContainerTranslate(_nameContainer, NameOffscreenPercent);
+                SetContainerTranslate(_statsContainer, WeaponOffscreenPercent); // Stats slides from left
+                SetContainerTranslate(_challengesContainer, CustomizationOffscreenPercent); // Challenges from right
                 _containersInitialized = true;
             }
             
@@ -297,11 +319,37 @@ namespace Game.Menu {
             if(_loadoutUnsavedNo != null) {
                 _loadoutUnsavedNo.RegisterCallback<ClickEvent>(_ => OnLoadoutUnsavedNo());
                 _loadoutUnsavedNo.RegisterCallback<MouseEnterEvent>(MainMenuManager.MouseEnter);
-            }
-            if(_loadoutUnsavedCancel != null) {
-                _loadoutUnsavedCancel.RegisterCallback<ClickEvent>(_ => OnLoadoutUnsavedCancel());
                 _loadoutUnsavedCancel.RegisterCallback<MouseEnterEvent>(MainMenuManager.MouseEnter);
             }
+            
+            // NEW: Stats Button
+            _statsButton = new Button { text = "CAREER" };
+            _statsButton.AddToClassList("menu-chip");
+            _statsButton.AddToClassList("menu-chip-enabled");
+            _statsButton.style.height = 50;
+            _statsButton.style.width = 120;
+            _statsButton.clicked += ToggleStats;
+            _statsButton.RegisterCallback<MouseEnterEvent>(MainMenuManager.MouseEnter);
+            
+            // Insert Stats button into Name Container (index 1, after Back button)
+            if (_nameContainer != null) {
+                // Ensure we don't duplicate if OnEnable runs multiple times without full reload
+                // Helper to check children? Standard approach is Clear or Check.
+                // Since this runs on OnEnable, and we might destroy/recreated UIs...
+                // But UXML is persistent in _root? OnDisable does not clear.
+                // Check if button exists.
+                // Simplest: Always remove our custom button on Disable?
+                // For now, let's just add if not present basically.
+                // BETTER: Don't rely on index.
+                bool hasStats = false;
+                foreach(var child in _nameContainer.Children()) {
+                     if (child == _statsButton) hasStats = true;
+                }
+                if (!hasStats) _nameContainer.Insert(1, _statsButton);
+            }
+
+            // Create Stats Container
+            BuildStatsUI();
             
             // Containers start off-screen via USS, no need to initialize positions here
             
@@ -1503,11 +1551,15 @@ namespace Game.Menu {
             var weaponStart = GetCurrentTranslatePercent(_weaponContainer);
             var customizationStart = GetCurrentTranslatePercent(_customizationContainer);
             var nameStart = GetCurrentTranslatePercent(_nameContainer);
+            var statsStart = GetCurrentTranslatePercent(_statsContainer);
+            var challengesStart = GetCurrentTranslatePercent(_challengesContainer);
             
             // Target positions (on-screen)
             var weaponTarget = Vector2.zero;
             var customizationTarget = Vector2.zero;
             var nameTarget = Vector2.zero;
+            var statsTarget = Vector2.zero;
+            var challengesTarget = Vector2.zero;
             
             var elapsed = 0f;
             
@@ -1525,6 +1577,12 @@ namespace Game.Menu {
                 if(_nameContainer != null) {
                     _nameContainer.style.translate = new StyleTranslate(PercentToTranslate(Vector2.Lerp(nameStart, nameTarget, t)));
                 }
+                if(_statsContainer != null) {
+                    _statsContainer.style.translate = new StyleTranslate(PercentToTranslate(Vector2.Lerp(statsStart, statsTarget, t)));
+                }
+                if(_challengesContainer != null) {
+                    _challengesContainer.style.translate = new StyleTranslate(PercentToTranslate(Vector2.Lerp(challengesStart, challengesTarget, t)));
+                }
                 
                 yield return null;
             }
@@ -1538,6 +1596,12 @@ namespace Game.Menu {
             }
             if(_nameContainer != null) {
                 _nameContainer.style.translate = new StyleTranslate(PercentToTranslate(nameTarget));
+            }
+            if(_statsContainer != null) {
+                _statsContainer.style.translate = new StyleTranslate(PercentToTranslate(statsTarget));
+            }
+            if(_challengesContainer != null) {
+                _challengesContainer.style.translate = new StyleTranslate(PercentToTranslate(challengesTarget));
             }
             
             _slideInCoroutine = null;
@@ -1548,11 +1612,17 @@ namespace Game.Menu {
             var weaponStart = GetCurrentTranslatePercent(_weaponContainer);
             var customizationStart = GetCurrentTranslatePercent(_customizationContainer);
             var nameStart = GetCurrentTranslatePercent(_nameContainer);
+            var statsStart = GetCurrentTranslatePercent(_statsContainer);
+            var challengesStart = GetCurrentTranslatePercent(_challengesContainer);
             
             // Target positions (off-screen)
             var weaponTarget = WeaponOffscreenPercent;
             var customizationTarget = CustomizationOffscreenPercent;
             var nameTarget = NameOffscreenPercent;
+            // Stats slides out to left
+            var statsTarget = WeaponOffscreenPercent;
+            // Challenges slides out to right
+            var challengesTarget = CustomizationOffscreenPercent;
             
             var elapsed = 0f;
             
@@ -1570,6 +1640,12 @@ namespace Game.Menu {
                 if(_nameContainer != null) {
                     _nameContainer.style.translate = new StyleTranslate(PercentToTranslate(Vector2.Lerp(nameStart, nameTarget, t)));
                 }
+                if(_statsContainer != null) {
+                    _statsContainer.style.translate = new StyleTranslate(PercentToTranslate(Vector2.Lerp(statsStart, statsTarget, t)));
+                }
+                if(_challengesContainer != null) {
+                    _challengesContainer.style.translate = new StyleTranslate(PercentToTranslate(Vector2.Lerp(challengesStart, challengesTarget, t)));
+                }
                 
                 yield return null;
             }
@@ -1583,6 +1659,12 @@ namespace Game.Menu {
             }
             if(_nameContainer != null) {
                 _nameContainer.style.translate = new StyleTranslate(PercentToTranslate(nameTarget));
+            }
+            if(_statsContainer != null) {
+                _statsContainer.style.translate = new StyleTranslate(PercentToTranslate(statsTarget));
+            }
+            if(_challengesContainer != null) {
+                _challengesContainer.style.translate = new StyleTranslate(PercentToTranslate(challengesTarget));
             }
             
             _slideOutCoroutine = null;
@@ -1638,6 +1720,310 @@ namespace Game.Menu {
             // Wait another frame and update once more to be thorough
             yield return null;
             ForcePreviewModelBoundsUpdate();
+        }
+
+        // --- Stats UI Methods ---
+
+        private void BuildStatsUI() {
+            var loadoutPanel = _root.Q("loadout-panel");
+            
+            // --- Left: Stats Container ---
+            var existingStats = _root.Q<VisualElement>("stats-container");
+            if (existingStats != null) {
+                _statsContainer = existingStats;
+                _statsContainer.Clear(); 
+            } else {
+                 _statsContainer = new VisualElement();
+                 _statsContainer.name = "stats-container";
+                 _statsContainer.AddToClassList("loadout-edge-container");
+                 _statsContainer.AddToClassList("card"); 
+                 _statsContainer.style.position = Position.Absolute;
+                 _statsContainer.style.left = 20; 
+                 _statsContainer.style.top = 100;
+                 _statsContainer.style.bottom = 20;
+                 _statsContainer.style.width = 450;
+                 _statsContainer.style.display = DisplayStyle.None;
+                 
+                 if (loadoutPanel != null) loadoutPanel.Add(_statsContainer);
+                 else _root.Add(_statsContainer);
+            }
+            
+            // Content: Stats
+            var title = new Label("CAREER Stats");
+            title.AddToClassList("title");
+            _statsContainer.Add(title);
+            
+            // Level
+            var levelRow = new VisualElement();
+            levelRow.style.flexDirection = FlexDirection.Row;
+            levelRow.style.marginBottom = 20;
+            _statsContainer.Add(levelRow);
+            
+            var levelLabel = new Label("LEVEL 1");
+            levelLabel.name = "stats-level-label";
+            levelLabel.style.fontSize = 24;
+            levelLabel.style.marginBottom = 5;
+            levelRow.Add(levelLabel);
+            
+            var xpBar = new ProgressBar();
+            xpBar.name = "stats-xp-bar";
+            xpBar.style.height = 20;
+            xpBar.style.marginTop = 5;
+            StyleProgressBar(xpBar, _progressBarColor);
+            _statsContainer.Add(xpBar);
+
+            var xpText = new Label("0 / 1000 XP");
+            xpText.name = "stats-xp-text";
+            xpText.style.alignSelf = Align.Center;
+            _statsContainer.Add(xpText);
+            
+            // Stats Grid
+            var grid = new VisualElement();
+            grid.style.marginTop = 30;
+            _statsContainer.Add(grid);
+            
+            CreateStatRow(grid, "Kills", "0", "stats-kills");
+            CreateStatRow(grid, "Deaths", "0", "stats-deaths");
+            CreateStatRow(grid, "KDR", "0.00", "stats-kdr");
+            CreateStatRow(grid, "Highest Killstreak", "0", "stats-streak");
+            CreateStatRow(grid, "Accuracy", "0%", "stats-accuracy");
+            CreateStatRow(grid, "Wins", "0", "stats-wins");
+            CreateStatRow(grid, "Losses", "0", "stats-losses");
+            CreateStatRow(grid, "OOB Deaths", "0", "stats-oob");
+            
+            CreateStatRow(grid, "Grapples", "0", "stats-grapples");
+            CreateStatRow(grid, "Jump Pads", "0", "stats-jumppads");
+            CreateStatRow(grid, "Airtime", "00:00", "stats-airtime");
+            
+            CreateStatRow(grid, "Playtime", "00:00:00", "stats-playtime");
+            CreateStatRow(grid, "Avg Speed", "0.0 m/s", "stats-speed");
+            CreateStatRow(grid, "Ball Time", "00:00", "stats-balltime");
+            CreateStatRow(grid, "Hill Time", "00:00", "stats-hilltime");
+            CreateStatRow(grid, "Time Tagged", "00:00", "stats-taggedtime");
+
+            // --- Right: Challenges Container ---
+            var existingChallenges = _root.Q<VisualElement>("challenges-container");
+            if (existingChallenges != null) {
+                _challengesContainer = existingChallenges;
+                _challengesContainer.Clear();
+            } else {
+                 _challengesContainer = new VisualElement();
+                 _challengesContainer.name = "challenges-container";
+                 _challengesContainer.AddToClassList("loadout-edge-container");
+                 _challengesContainer.AddToClassList("card");
+                 _challengesContainer.style.position = Position.Absolute;
+                 _challengesContainer.style.right = 20; // Right side
+                 _challengesContainer.style.top = 100;
+                 _challengesContainer.style.bottom = 20;
+                 _challengesContainer.style.width = 450;
+                 _challengesContainer.style.display = DisplayStyle.None;
+                 
+                 if (loadoutPanel != null) loadoutPanel.Add(_challengesContainer);
+                 else _root.Add(_challengesContainer);
+            }
+
+            var cTitle = new Label("Daily Challenges");
+            cTitle.AddToClassList("title");
+            _challengesContainer.Add(cTitle);
+
+            // Daily Challenges List
+            var challengesList = new VisualElement();
+            challengesList.name = "stats-challenges-list";
+            challengesList.style.marginTop = 20;
+            _challengesContainer.Add(challengesList);
+            
+            // Weekly Challenges Section
+            var wTitle = new Label("Weekly Challenges");
+            wTitle.AddToClassList("title");
+            wTitle.style.marginTop = 20;
+            _challengesContainer.Add(wTitle);
+            
+            var weeklyList = new VisualElement();
+            weeklyList.name = "stats-weekly-challenges-list";
+            weeklyList.style.marginTop = 10;
+            _challengesContainer.Add(weeklyList);
+        }
+
+        private void CreateStatRow(VisualElement parent, string label, string value, string valueName) {
+            var row = new VisualElement();
+            row.style.flexDirection = FlexDirection.Row;
+            row.style.justifyContent = Justify.SpaceBetween;
+            row.style.marginBottom = 5;
+            
+            var l = new Label(label);
+            l.style.unityFontStyleAndWeight = FontStyle.Bold;
+            row.Add(l);
+            
+            if (!string.IsNullOrEmpty(valueName)) {
+                var v = new Label(value);
+                v.name = valueName;
+                row.Add(v);
+            }
+            
+            parent.Add(row);
+        }
+
+        private void ToggleStats() {
+            _showingStats = !_showingStats;
+            
+            if (_showingStats) {
+                UpdateStatsUI();
+                _statsContainer.style.display = DisplayStyle.Flex;
+                _challengesContainer.style.display = DisplayStyle.Flex;
+                if(_customizationContainer != null) _customizationContainer.style.display = DisplayStyle.None;
+                if(_weaponContainer != null) _weaponContainer.style.display = DisplayStyle.None;
+                _statsButton.text = "LOADOUT";
+            } else {
+                _statsContainer.style.display = DisplayStyle.None;
+                _challengesContainer.style.display = DisplayStyle.None;
+                if(_customizationContainer != null) _customizationContainer.style.display = DisplayStyle.Flex;
+                if(_weaponContainer != null) _weaponContainer.style.display = DisplayStyle.Flex;
+                _statsButton.text = "CAREER";
+            }
+        }
+
+        private void UpdateStatsUI() {
+            if (Progression.ProgressionManager.Instance == null) return;
+            var pm = Progression.ProgressionManager.Instance;
+            var data = pm.Data;
+            
+            // Level
+            var levelLabel = _statsContainer.Q<Label>("stats-level-label");
+            if (levelLabel != null) levelLabel.text = $"LEVEL {data.level}";
+            
+            // XP
+            var maxXp = pm.GetXpRequiredForLevel(data.level);
+            var bar = _statsContainer.Q<ProgressBar>("stats-xp-bar");
+            if (bar != null) {
+                bar.lowValue = 0;
+                bar.highValue = maxXp;
+                bar.value = data.currentXp;
+            }
+            var xpText = _statsContainer.Q<Label>("stats-xp-text");
+            if (xpText != null) xpText.text = $"{data.currentXp} / {maxXp} XP";
+
+            // Basic Stats
+            SetLabelText("stats-kills", data.stats.kills.ToString());
+            SetLabelText("stats-deaths", data.stats.deaths.ToString());
+            
+            var kdr = data.stats.deaths > 0 ? (float)data.stats.kills / data.stats.deaths : data.stats.kills;
+            SetLabelText("stats-kdr", kdr.ToString("F2"));
+            
+            SetLabelText("stats-wins", data.stats.wins.ToString());
+            SetLabelText("stats-losses", data.stats.losses.ToString());
+            
+            var accuracy = data.stats.shotsFired > 0 
+                ? ((float)data.stats.shotsHit / data.stats.shotsFired) * 100f 
+                : 0f;
+            SetLabelText("stats-accuracy", $"{accuracy:F1}%");
+            
+            // New Stats
+            SetLabelText("stats-streak", data.stats.highestKillStreak.ToString());
+            SetLabelText("stats-oob", data.stats.oobDeaths.ToString());
+            
+            SetLabelText("stats-grapples", data.stats.grapplesUsed.ToString());
+            SetLabelText("stats-jumppads", data.stats.jumpPadsUsed.ToString());
+            SetLabelText("stats-airtime", FormatTime(data.stats.totalAirTime));
+            
+            SetLabelText("stats-playtime", FormatTime(data.stats.totalPlayTimeSeconds));
+            
+            var avgSpeed = data.stats.totalPlayTimeSeconds > 0 
+                ? data.stats.totalDistanceTraveled / data.stats.totalPlayTimeSeconds 
+                : 0;
+            SetLabelText("stats-speed", $"{avgSpeed:F1} m/s");
+            
+            SetLabelText("stats-balltime", FormatTime(data.stats.timeHoldingHopball));
+            SetLabelText("stats-hilltime", FormatTime(data.stats.timeAsKing));
+            SetLabelText("stats-taggedtime", FormatTime(data.stats.timeTagged));
+
+            // Daily Challenges
+            var list = _challengesContainer.Q<VisualElement>("stats-challenges-list");
+            if (list == null) return;
+            RenderChallengeList(list, data.dailyChallenges);
+
+            // Weekly Challenges
+            var weeklyList = _challengesContainer.Q<VisualElement>("stats-weekly-challenges-list");
+            if (weeklyList != null) {
+                RenderChallengeList(weeklyList, data.weeklyChallenges);
+            }
+        }
+        
+        private void RenderChallengeList(VisualElement container, List<ActiveChallengeData> challenges) {
+            container.Clear();
+            if (challenges == null) return;
+            
+            var pm = ProgressionManager.Instance;
+            if (pm == null) return;
+
+            foreach (var activeChallenge in challenges) {
+                var def = pm.GetChallengeDefinition(activeChallenge.challengeID);
+                if (def == null) continue;
+                    
+                var challengeRow = new VisualElement {
+                    style = {
+                        marginBottom = 10
+                    }
+                };
+
+                var progress = activeChallenge.currentProgress;
+                var target = activeChallenge.targetProgress;
+                if (progress > target) progress = target;
+                    
+                // Format description, handling dynamic filterID for play_matches_of etc.
+                string descText = def.Description;
+                try {
+                    if (!string.IsNullOrEmpty(activeChallenge.filterID)) {
+                        var displayFilter = pm.GetFilterDisplayName(activeChallenge.filterID);
+                        descText = string.Format(def.Description, target, displayFilter);
+                    } else {
+                        descText = string.Format(def.Description, target);
+                    }
+                } catch {
+                    // Fallback
+                }
+
+                // Add XP Reward to Title
+                var title = new Label($"{descText} ({progress}/{target}) [+{activeChallenge.xpReward} XP]") {
+                    style = {
+                        fontSize = 12
+                    }
+                };
+                challengeRow.Add(title);
+                    
+                var cBar = new ProgressBar {
+                    lowValue = 0,
+                    highValue = target,
+                    value = progress,
+                    style = {
+                        height = 10
+                    }
+                };
+                StyleProgressBar(cBar, _progressBarColor);
+                challengeRow.Add(cBar);
+                    
+                container.Add(challengeRow);
+            }
+        }
+        
+        private void SetLabelText(string name, string text) {
+            var l = _statsContainer.Q<Label>(name);
+            if (l != null) l.text = text;
+        }
+        
+        private static string FormatTime(float seconds) {
+            var ts = TimeSpan.FromSeconds(seconds);
+            return ts.TotalHours >= 1 ? $"{(int)ts.TotalHours}:{ts.Minutes:D2}:{ts.Seconds:D2}" : $"{ts.Minutes}:{ts.Seconds:D2}";
+        }
+        
+        private void StyleProgressBar(ProgressBar bar, Color color) {
+            if (bar == null) return;
+            // Schedule styling to ensure shadow tree is built/accessible
+            bar.schedule.Execute(() => {
+                var fill = bar.Q(className: "unity-progress-bar__progress");
+                if (fill != null) {
+                    fill.style.backgroundColor = color;
+                }
+            });
         }
     }
 

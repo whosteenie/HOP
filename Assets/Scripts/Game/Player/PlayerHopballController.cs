@@ -22,7 +22,7 @@ namespace Game.Player {
         }
 
         private static readonly List<PlayerHopballController> InstancesInternal = new();
-        private static readonly int putAwayHash = Animator.StringToHash("PutAway");
+        private static readonly int PutAwayHash = Animator.StringToHash("PutAway");
         public static IReadOnlyList<PlayerHopballController> Instances => InstancesInternal;
 
         [Header("References")]
@@ -106,6 +106,13 @@ namespace Game.Player {
 
             if(HopballController.Instance != null) {
                 HopballController.Instance.OnControllerRegistered(this);
+            }
+        }
+        
+        private void Update() {
+            // Progression: Track time holding hopball
+            if (IsOwner && IsHoldingHopball && Progression.ProgressionManager.Instance != null) {
+                Progression.ProgressionManager.Instance.AddTimeHoldingHopball(Time.deltaTime);
             }
         }
 
@@ -647,6 +654,11 @@ namespace Game.Player {
             HopballController.VisualStateChanged -= OnHopballVisualStateChanged;
 
             if(IsOwner) {
+                // Progression: Record Hopball Dissolve Challenge
+                if (Progression.ProgressionManager.Instance != null) {
+                    Progression.ProgressionManager.Instance.RecordHopballDissolve();
+                }
+
                 // Owner: Destroy visuals and restore weapons
                 DestroyFpVisual();
                 DestroyWorldVisual();
@@ -755,7 +767,7 @@ namespace Game.Player {
             }
 
             // Trigger PutAway animation - PutAwayComplete animation event will destroy the arm automatically
-            animator.SetTrigger(putAwayHash);
+            animator.SetTrigger(PutAwayHash);
         }
 
         /// <summary>

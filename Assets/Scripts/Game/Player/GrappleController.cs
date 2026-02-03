@@ -6,6 +6,7 @@ using Network.Rpc;
 using Unity.Cinemachine;
 using Unity.Netcode;
 using UnityEngine;
+using Game.Progression;
 
 namespace Game.Player {
     public class GrappleController : NetworkBehaviour {
@@ -389,6 +390,10 @@ namespace Game.Player {
 
             // Publish grapple started event
             EventBus.Publish(new GrappleStartedEvent(targetPoint));
+            
+            if (IsOwner && ProgressionManager.Instance != null) {
+                ProgressionManager.Instance.RecordGrappleUsed();
+            }
         }
 
         private void UpdateGrapple() {

@@ -354,4 +354,14 @@
             </ui:VisualElement>
         </ui:VisualElement>
     </ui:VisualElement>
+    <ui:VisualElement name="quit-confirmation-modal" class="unsaved-changes-modal full-abs hidden">
+        <ui:VisualElement name="quit-confirmation-container" class="unsaved-changes-container card">
+            <ui:Label text="Quit to Menu" name="quit-confirmation-title" class="title" />
+            <ui:Label text="Are you sure you want to leave the match?" name="quit-confirmation-message" class="unsaved-changes-message" />
+            <ui:VisualElement name="quit-confirmation-buttons" class="unsaved-changes-buttons">
+                <ui:Button text="Yes" name="quit-confirmation-yes" class="menu-chip menu-chip-enabled" />
+                <ui:Button text="No" name="quit-confirmation-no" class="menu-chip menu-chip-enabled" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+    </ui:VisualElement>
 </ui:UXML>

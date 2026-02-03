@@ -99,6 +99,17 @@ namespace Game.Player {
                 var current = timeTagged.Value;
                 timeTagged.Value = current + 1;
             }
+            
+            // Progression: Track time tagged locally (Server handles the network var, but we want local progression too)
+            // Actually, this Update block only runs on Server.
+            // We need a separate client-side check for progression.
+        }
+        
+        private void LateUpdate() {
+            // Client-side progression tracking
+            if (IsOwner && isTagged.Value && Game.Progression.ProgressionManager.Instance != null) {
+                 Game.Progression.ProgressionManager.Instance.AddTimeTagged(Time.deltaTime);
+            }
         }
 
         /// <summary>
@@ -267,6 +278,9 @@ namespace Game.Player {
         [Rpc(SendTo.Owner)]
         private void PlayTaggingSoundClientRpc() {
             EventBus.Publish(new PlayUISoundEvent(SfxKey.Tagging));
+            if (Game.Progression.ProgressionManager.Instance != null) {
+                Game.Progression.ProgressionManager.Instance.RecordTag();
+            }
         }
 
         /// <summary>

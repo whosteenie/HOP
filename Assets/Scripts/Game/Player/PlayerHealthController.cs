@@ -73,6 +73,9 @@ namespace Game.Player {
         public NetworkVariable<float> netHealth;
         public NetworkVariable<bool> netIsDead;
         public NetworkVariable<int> deaths;
+        
+        // Progression
+        private int _currentKillStreak;
 
         private void Awake() {
             ValidateComponents();
@@ -141,7 +144,7 @@ namespace Game.Player {
         }
 
         public bool ApplyDamageServer_Auth(float amount, Vector3 hitPoint, Vector3 hitDirection, ulong attackerId,
-            string bodyPartTag = null, bool isHeadshot = false) {
+            string bodyPartTag = null, bool isHeadshot = false, string weaponId = null) {
             if(!IsServer || netIsDead == null || netIsDead.Value) return false;
 
             // Handle OOB kills FIRST - they should always kill regardless of game mode
@@ -175,7 +178,9 @@ namespace Game.Player {
                 if(playerController != null && playerController.PlayerName != null) {
                     victimName = playerController.PlayerName.Value.ToString();
                 }
-                BroadcastKillClientRpc("HOP", victimName, attackerId, OwnerClientId);
+                BroadcastKillClientRpc("HOP", victimName, attackerId, OwnerClientId, null);
+                
+                // Reset streak on server side too? Not strictly necessary as ClientRpc handles it for owner.
                 deaths.Value++;
                 ReserveSpawnPointForDeath();
                 DieClientRpc(_lastBodyPartTag);
@@ -292,7 +297,7 @@ namespace Game.Player {
                         if(playerController != null && playerController.PlayerName != null) {
                             victimName = playerController.PlayerName.Value.ToString();
                         }
-                        BroadcastKillClientRpc(killerName, victimName, attackerId, OwnerClientId);
+                        BroadcastKillClientRpc(killerName, victimName, attackerId, OwnerClientId, weaponId);
                     }
                 }
 
@@ -313,8 +318,46 @@ namespace Game.Player {
 
         [Rpc(SendTo.Everyone)]
         private void BroadcastKillClientRpc(string killerName, string victimName, ulong killerClientId,
-            ulong victimClientId) {
+            ulong victimClientId, string weaponId) { // Added weaponId
             var isLocalKiller = NetworkManager.Singleton.LocalClientId == killerClientId;
+            
+            // Progression: Award XP for kills & Update Killstreak
+            if (isLocalKiller) {
+                if (killerClientId != victimClientId) {
+                    // It's a kill
+                    _currentKillStreak++;
+                    if (Game.Progression.ProgressionManager.Instance != null) {
+                        Game.Progression.ProgressionManager.Instance.AddXp(100);
+                        
+                        // Collect Kill Context
+                        var killerSpeed = 0f;
+                        var isGrounded = true;
+                        
+                        if(_movementController != null) {
+                            killerSpeed = _movementController.FullVelocity.magnitude;
+                            isGrounded = _movementController.IsGrounded;
+                        } else if(_characterController != null) {
+                             killerSpeed = _characterController.velocity.magnitude;
+                             isGrounded = _characterController.isGrounded;
+                        }
+                        
+                        Game.Progression.ProgressionManager.Instance.RecordKill(killerSpeed, isGrounded, weaponId);
+                        Game.Progression.ProgressionManager.Instance.UpdateKillStreak(_currentKillStreak);
+                    }
+                }
+            }
+            
+            // Progression: Reset streak on death
+            if (NetworkManager.Singleton.LocalClientId == victimClientId) {
+                 _currentKillStreak = 0;
+                 // Record Death (Normal or OOB)
+                 if (Progression.ProgressionManager.Instance != null) {
+                     // Check if OOB (killer is "HOP")
+                     var isOob = killerName == "HOP";
+                     Progression.ProgressionManager.Instance.RecordDeath(isOob);
+                 }
+            }
+
             if(KillFeedManager.Instance != null) {
                 EventBus.Publish(new AddKillFeedEntryEvent(killerName, victimName, isLocalKiller, killerClientId,
                     victimClientId, wasKill: true));

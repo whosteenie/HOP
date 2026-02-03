@@ -405,6 +405,34 @@ namespace Game.UI {
             } else {
                 UpdateFfaScoreboard(allControllers);
             }
+            if(IsTeamBased()) {
+                UpdateTdmScoreboard(allControllers);
+            } else {
+                UpdateFfaScoreboard(allControllers);
+            }
+        }
+
+        public bool GetLocalPlayerPlacement(out int placement, out int totalPlayers) {
+            placement = 0;
+            totalPlayers = 0;
+            
+            var allControllers = GetAllPlayerControllers();
+            totalPlayers = allControllers.Count;
+            if (totalPlayers == 0) return false;
+
+            // Sort players just like the scoreboard does
+            var isTagMode = IsTagMode();
+            var sortedPlayers = BuildSortedPlayerList(allControllers, isTagMode);
+
+            // Find local player index
+            var localClientId = NetworkManager.Singleton.LocalClientId;
+            for (var i = 0; i < sortedPlayers.Count; i++) {
+                if (sortedPlayers[i].OwnerClientId == localClientId) {
+                    placement = i + 1; // 1-based rank
+                    return true;
+                }
+            }
+            return false;
         }
 
 
@@ -681,18 +709,39 @@ namespace Game.UI {
         private readonly HashSet<PlayerController> _allPlayersRegistry = new();
 
         public void RegisterPlayer(PlayerController player) {
-            if (player != null && !_allPlayersRegistry.Contains(player)) {
-                _allPlayersRegistry.Add(player);
+            if (player != null && _allPlayersRegistry.Add(player)) {
+                // Subscribe to changes
+                player.playerName.OnValueChanged += OnPlayerProfileChanged;
+                player.playerBaseColor.OnValueChanged += OnPlayerProfileChanged;
+                
                 // Force an update immediately so the scoreboard reflects the new player
                 UpdateScoreboard();
             }
         }
 
         public void UnregisterPlayer(PlayerController player) {
-            if (player != null && _allPlayersRegistry.Contains(player)) {
-                _allPlayersRegistry.Remove(player);
-                UpdateScoreboard();
-            }
+            if(player == null || !_allPlayersRegistry.Contains(player)) return;
+            
+            // Unsubscribe
+            player.playerName.OnValueChanged -= OnPlayerProfileChanged;
+            player.playerBaseColor.OnValueChanged -= OnPlayerProfileChanged;
+            
+            _allPlayersRegistry.Remove(player);
+            UpdateScoreboard();
+        }
+        
+        private void OnPlayerProfileChanged<T>(T oldValue, T newValue) {
+            // Clear cache to force full rebuild
+            _previousPlayerIds.Clear();
+            _previousSortValues.Clear();
+            UpdateScoreboard();
+        }
+        
+        private void OnPlayerProfileChanged(Unity.Collections.FixedString64Bytes oldValue, Unity.Collections.FixedString64Bytes newValue) {
+            // Clear cache to force full rebuild
+            _previousPlayerIds.Clear();
+            _previousSortValues.Clear();
+            UpdateScoreboard();
         }
 
         private IReadOnlyCollection<PlayerController> GetAllPlayerControllers() {

@@ -4,12 +4,10 @@ using Game.Weapons;
 using Game.UI;
 using Game.Menu;
 using Game.Match;
-using Network;
 using Network.AntiCheat;
 using Network.Components;
 using Network.Events;
 using Network.Rpc;
-using Network.Singletons;
 using OSI;
 using Unity.Cinemachine;
 using Unity.Collections;
@@ -679,10 +677,10 @@ namespace Game.Player {
         #region Damage & Death Methods
 
         public bool ApplyDamageServer_Auth(float amount, Vector3 hitPoint, Vector3 hitDirection, ulong attackerId,
-            string bodyPartTag = null, bool isHeadshot = false) {
+            string bodyPartTag = null, bool isHeadshot = false, string weaponId = null) {
             if(healthController != null) {
                 return healthController.ApplyDamageServer_Auth(amount, hitPoint, hitDirection, attackerId, bodyPartTag,
-                    isHeadshot);
+                    isHeadshot, weaponId);
             }
 
             return false;
