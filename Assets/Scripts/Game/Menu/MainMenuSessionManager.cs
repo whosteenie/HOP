@@ -89,7 +89,7 @@ namespace Game.Menu {
         }
 
         private void OnDisable() {
-            if (SessionManager.Instance != null) {
+            if (SessionManager.HasInstance) {
                 SessionManager.Instance.FrontStatusChanged -= UpdateStatusText;
             }
         }
@@ -200,6 +200,20 @@ namespace Game.Menu {
                     if (uiManager.StatusContainer.style.display != targetDisplay) {
                         uiManager.StatusContainer.style.display = targetDisplay;
                     }
+
+                    // Update Timer & Gamemode info
+                    if (showStatus && isSearching) {
+                        if (uiManager.QueueGamemodeLabel != null) {
+                            uiManager.QueueGamemodeLabel.text = SessionManager.Instance.SelectedGameMode;
+                        }
+
+                        if (uiManager.QueueTimerLabel != null) {
+                            float elapsed = Time.time - SessionManager.Instance.MatchmakingStartTime;
+                            int minutes = Mathf.FloorToInt(elapsed / 60f);
+                            int seconds = Mathf.FloorToInt(elapsed % 60f);
+                            uiManager.QueueTimerLabel.text = $"{minutes:00}:{seconds:00}";
+                        }
+                    }
                 }
             }
 
@@ -225,6 +239,7 @@ namespace Game.Menu {
         }
 
         private void RegisterUIEvents() {
+
             if (_inviteButton != null) {
                 _inviteButton.clicked += () => {
                     UISoundService.PlayButtonClick();
@@ -241,25 +256,55 @@ namespace Game.Menu {
                 // Close context menu on any click outside
                 // OLD METHOD: TrickleDown on Root (Deleted - unreliable)
                 
-                // NEW METHOD: Backdrop Click
-                if (uiManager.ContextMenuBackdrop != null) {
-                    uiManager.ContextMenuBackdrop.RegisterCallback<PointerDownEvent>(evt => {
-                        Debug.Log("[MainMenuSessionManager] Backdrop clicked. Hiding Context Menu.");
-                        HideContextMenu();
-                    });
-                }
-
-                // Context Menu Actions
-                if(uiManager.CtxLeave != null) uiManager.CtxLeave.clicked += () => HandleContextAction("Leave");
-                if(uiManager.CtxKick != null) uiManager.CtxKick.clicked += () => HandleContextAction("Kick");
-                if(uiManager.CtxMakeHost != null) uiManager.CtxMakeHost.clicked += () => HandleContextAction("Promote");
-                if(uiManager.CtxProfile != null) uiManager.CtxProfile.clicked += () => HandleContextAction("Profile");
-                if(uiManager.CtxSteamProfile != null) uiManager.CtxSteamProfile.clicked += () => HandleContextAction("SteamProfile");
-                // placeholders
-                if(uiManager.CtxMuteChat != null) uiManager.CtxMuteChat.clicked += () => HideContextMenu(); 
-                if(uiManager.CtxMuteVoice != null) uiManager.CtxMuteVoice.clicked += () => HideContextMenu();
-                if(uiManager.CtxBlock != null) uiManager.CtxBlock.clicked += () => HideContextMenu();
+                
+                // --- EVENT DELEGATION REFACTOR ---
+                // We register ONE callback on the root to handle ALL context menu interactions.
+                // This bypasses initialization order issues where 'uiManager.CtxLeave' might be null at Start.
+                _root.RegisterCallback<PointerDownEvent>(HandleContextMenuInteraction, TrickleDown.TrickleDown);
             }
+        }
+
+        private void HandleContextMenuInteraction(PointerDownEvent evt) {
+            // Only process if menu is showing
+            if (uiManager == null || uiManager.PartyContextMenu == null || uiManager.PartyContextMenu.ClassListContains("hidden")) {
+                return;
+            }
+
+            var target = evt.target as VisualElement;
+            if (target == null) return;
+
+            // 1. Check Buttons (Using Names to avoid Stale Reference/Zombie Object issues)
+            string tName = target.name;
+            
+            // Note: Use evt.StopPropagation() if we handle it
+            
+            if (tName == "ctx-leave") { HandleContextAction("Leave"); evt.StopPropagation(); return; }
+            if (tName == "ctx-kick") { HandleContextAction("Kick"); evt.StopPropagation(); return; }
+            if (tName == "ctx-make-host") { HandleContextAction("Promote"); evt.StopPropagation(); return; }
+            if (tName == "ctx-profile") { HandleContextAction("Profile"); evt.StopPropagation(); return; }
+            if (tName == "ctx-steam-profile") { HandleContextAction("SteamProfile"); evt.StopPropagation(); return; }
+            if (tName == "ctx-mute-chat") { HideContextMenu(); evt.StopPropagation(); return; }
+            if (tName == "ctx-mute-voice") { HideContextMenu(); evt.StopPropagation(); return; }
+            if (tName == "ctx-block") { HideContextMenu(); evt.StopPropagation(); return; }
+
+            // 2. Check Backdrop
+            if (tName == "context-menu-backdrop") {
+                // Debug.Log("[MainMenuSessionManager] Backdrop Clicked. Hiding.");
+                HideContextMenu();
+                evt.StopPropagation();
+                return;
+            }
+
+            // 3. Fallback: If we clicked *inside* the menu but missed a specific button (e.g. spacer, label)
+            // AND the menu is open, we generally don't want to close it? 
+            // Or maybe we do? Standard UI: Click background of menu -> do nothing.
+            // Click outside -> close.
+            // Our Backdrop covers "Outside". So if we are here, we are either:
+            // a) Clicking the menu background (Descendant of Menu)
+            // b) Clicking something else if Backdrop is missing priority?
+            // Since Backdrop is full screen behind menu, any outside click hits Backdrop.
+            // Any inside click hits Menu.
+            // So we do nothing here.
         }
 
         private SteamId _contextMenuTargetId;
@@ -306,7 +351,10 @@ namespace Game.Menu {
             if(uiManager.CtxMuteVoice != null) uiManager.CtxMuteVoice.style.display = isOther ? DisplayStyle.Flex : DisplayStyle.None;
             if(uiManager.CtxBlock != null) uiManager.CtxBlock.style.display = isOther ? DisplayStyle.Flex : DisplayStyle.None;
             
-            // Separators? Hard to toggle individually if they are un-named. Use classes or just leave them.
+            // Hide the separator above Mute/Block if we are hiding Mute/Block (isOther == false)
+            if (uiManager.CtxSeparatorMute != null) {
+                uiManager.CtxSeparatorMute.style.display = isOther ? DisplayStyle.Flex : DisplayStyle.None;
+            }
 
             // Position
             uiManager.PartyContextMenu.style.left = position.x;
@@ -346,7 +394,23 @@ namespace Game.Menu {
                      SessionManager.Instance.PromoteMember(_contextMenuTargetId);
                      break;
                  case "Profile":
-                     Debug.Log($"View Profile: {_contextMenuTargetId}");
+                     string targetName = "Unknown";
+                     if (SessionManager.Instance != null && SessionManager.Instance.CurrentLobby.HasValue) {
+                         var member = SessionManager.Instance.CurrentLobby.Value.Members.FirstOrDefault(m => m.Id == _contextMenuTargetId);
+                         if (member.Id != 0) targetName = member.Name;
+                     } 
+                     
+                     bool isMe = _contextMenuTargetId == SteamClient.SteamId;
+                     var mainMenuManager = FindFirstObjectByType<MainMenuManager>();
+                     
+                     if (isMe) {
+                         if (mainMenuManager != null) mainMenuManager.ShowLoadoutPanel();
+                         break;
+                     }
+                     
+                     if (mainMenuManager != null) {
+                         mainMenuManager.ShowProfileView(_contextMenuTargetId, targetName, false);
+                     }
                      break;
                  case "SteamProfile":
                      SteamFriends.OpenUserOverlay(_contextMenuTargetId, "steamid");
@@ -507,89 +571,77 @@ namespace Game.Menu {
         private async UniTask CreatePlayerRow(string name, SteamId id, bool isLocal, VisualElement targetContainer, bool isHost = false, bool isPartyMember = false) {
             if (targetContainer == null) return;
 
-            var row = new VisualElement {
-                style = {
-                    flexDirection = FlexDirection.Row,
-                    alignItems = Align.Center,
-                    backgroundColor = isLocal ? StyleKeyword.Null : new UnityEngine.Color(0, 0, 0, 0.4f),
-                    paddingBottom = 4, paddingTop = 4, paddingLeft = 8, paddingRight = 8,
-                    borderTopLeftRadius = 4, borderTopRightRadius = 4,
-                    borderBottomLeftRadius = 4, borderBottomRightRadius = 4,
-                    marginRight = isLocal ? 0 : 8
-                }
-            };
-            
-            if (!isLocal) row.AddToClassList("party-member-entry");
+            if (uiManager != null && uiManager.PartyMemberTemplate != null) {
+                // Instantiate from UXML Template
+                TemplateContainer instance = uiManager.PartyMemberTemplate.Instantiate();
+                VisualElement row = instance.Q("party-member-row");
+                VisualElement avatarBox = instance.Q("avatar-box");
+                Label nameLabel = instance.Q<Label>("player-name-label");
 
-            // Host Indicator Logic:
-            // - Show if isHost is true.
-            // - BUT, if isLocal is true, only show if we have other party members (handled by caller passing isHost correctly?).
-            //   Caller logic in UpdateGlobalPartyUI passes member.Id == hostId.
-            //   So if I am host, isHost is true here.
-            
-            // New Requirement: "indicate to the host that they are host... just dont want to show it when youre in the main menu without any other players"
-            // We need to know if there are other players. 
-            // The method signature doesn't pass total member count.
-            // But UpdateGlobalPartyUI iterates members.
-            // We can infer "Solo" if !inMyParty or just check global lobby state?
-            // Actually, we can just check SessionManager.CurrentLobby.MemberCount > 1.
-            
-            bool showHostIndicator = isHost;
-            if (isLocal && isHost) {
-                 // Only show if lobby has > 1 member
-                 int memberCount = 1;
-                 if (SessionManager.Instance != null && SessionManager.Instance.CurrentLobby.HasValue) {
-                     memberCount = SessionManager.Instance.CurrentLobby.Value.MemberCount;
-                 }
-                 if (memberCount <= 1) showHostIndicator = false;
+                // Logic: Local Player vs Party Member styles
+                // NOTE: Most styles should be in USS classes on 'party-member-row', 
+                // but preserving existing dynamic logic here for parity.
+                
+                if (!isLocal) {
+                    row.AddToClassList("party-member-entry");
+                    row.style.backgroundColor = new StyleColor(new UnityEngine.Color(0, 0, 0, 0.4f));
+                    row.style.marginRight = 8;
+                } else {
+                    row.style.backgroundColor = new StyleColor(StyleKeyword.Null);
+                    row.style.marginRight = 0;
+                }
+
+                // Host Indicator Check
+                bool showHostIndicator = isHost;
+                if (isLocal && isHost) {
+                     int memberCount = 1;
+                     if (SessionManager.Instance != null && SessionManager.Instance.CurrentLobby.HasValue) {
+                         memberCount = SessionManager.Instance.CurrentLobby.Value.MemberCount;
+                     }
+                     if (memberCount <= 1) showHostIndicator = false;
+                }
+
+                // Apply Avatar Box Border Styles (Host/Party Colors)
+                // Ideally this would be state based in USS (e.g. .host-border), but keeping logic for now.
+                var hostColor = new UnityEngine.Color(1, 0.8f, 0, 0.6f);
+                var partyColor = new UnityEngine.Color(0.2f, 0.6f, 1f, 0.6f);
+                
+                float borderSize = showHostIndicator ? 2 : (isPartyMember && !isLocal ? 1 : 0);
+                StyleColor borderColor = showHostIndicator ? new StyleColor(hostColor) : (isPartyMember ? new StyleColor(partyColor) : new StyleColor(StyleKeyword.Null));
+
+                avatarBox.style.borderTopWidth = borderSize;
+                avatarBox.style.borderBottomWidth = borderSize;
+                avatarBox.style.borderLeftWidth = borderSize;
+                avatarBox.style.borderRightWidth = borderSize;
+                
+                avatarBox.style.borderTopColor = borderColor;
+                avatarBox.style.borderBottomColor = borderColor;
+                avatarBox.style.borderLeftColor = borderColor;
+                avatarBox.style.borderRightColor = borderColor;
+
+                // Set Data
+                nameLabel.text = name;
+
+                var avatarTex = await SteamManager.Instance.GetAvatarAsync(id);
+                if (avatarTex != null) {
+                    avatarBox.style.backgroundImage = new StyleBackground(avatarTex);
+                }
+
+                // Events
+                row.RegisterCallback<PointerDownEvent>(evt => {
+                    if(evt.button == 1) { // Right Click
+                        ShowContextMenu(evt.position, id, isLocal, IsHost, isHost);
+                        evt.StopPropagation(); 
+                    }
+                });
+
+                // Add to Container (Unwrap from TemplateContainer)
+                targetContainer.Add(row);
+            } else {
+                Debug.LogError("[MainMenuSessionManager] PartyMemberTemplate is missing in UIManager!");
             }
-
-            // Avatar
-            var avatarBox = new VisualElement {
-                style = {
-                    width = 40, height = 40,
-                    backgroundColor = new UnityEngine.Color(0.2f, 0.2f, 0.2f),
-                    marginRight = 10,
-                    borderTopWidth = showHostIndicator ? 2 : (isPartyMember && !isLocal ? 1 : 0),
-                    borderBottomWidth = showHostIndicator ? 2 : (isPartyMember && !isLocal ? 1 : 0),
-                    borderLeftWidth = showHostIndicator ? 2 : (isPartyMember && !isLocal ? 1 : 0),
-                    borderRightWidth = showHostIndicator ? 2 : (isPartyMember && !isLocal ? 1 : 0),
-                    borderTopColor = showHostIndicator ? new UnityEngine.Color(1, 0.8f, 0, 0.6f) : (isPartyMember ? new UnityEngine.Color(0.2f, 0.6f, 1f, 0.6f) : StyleKeyword.Null),
-                    borderBottomColor = showHostIndicator ? new UnityEngine.Color(1, 0.8f, 0, 0.6f) : (isPartyMember ? new UnityEngine.Color(0.2f, 0.6f, 1f, 0.6f) : StyleKeyword.Null),
-                    borderLeftColor = showHostIndicator ? new UnityEngine.Color(1, 0.8f, 0, 0.6f) : (isPartyMember ? new UnityEngine.Color(0.2f, 0.6f, 1f, 0.6f) : StyleKeyword.Null),
-                    borderRightColor = showHostIndicator ? new UnityEngine.Color(1, 0.8f, 0, 0.6f) : (isPartyMember ? new UnityEngine.Color(0.2f, 0.6f, 1f, 0.6f) : StyleKeyword.Null)
-                }
-            };
-            avatarBox.AddToClassList("steam-avatar");
-            
-            var avatarTex = await SteamManager.Instance.GetAvatarAsync(id);
-            if (avatarTex != null) {
-                avatarBox.style.backgroundImage = new StyleBackground(avatarTex);
-            }
-            row.Add(avatarBox);
-
-            // Name
-            var nameLabel = new Label(name) {
-                style = {
-                    color = UnityEngine.Color.white,
-                    fontSize = 13,
-                    unityFontStyleAndWeight = FontStyle.Bold
-                }
-            };
-            row.Add(nameLabel);
-
-            targetContainer.Add(row);
-
-            // Right Click Event
-            row.RegisterCallback<PointerDownEvent>(evt => {
-                if(evt.button == 1) { // Right Click
-                    // Calculate correct position relative to screen/panel
-                    // Event position is usually window space coordinates
-                    ShowContextMenu(evt.position, id, isLocal, IsHost, isHost);
-                    evt.StopPropagation(); // Prevent standard context menu?
-                }
-            });
         }
+
 
         private void UpdateHostStatus(bool isHost) {
              OnHostStatusChanged?.Invoke(isHost, !isHost);

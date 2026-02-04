@@ -63,7 +63,9 @@ namespace Network {
         private NetworkManager networkManager;
         private bool _isLeaving;
         private bool _hasCompletedInitialLoad;
+        private bool _isShuttingDown;
         private CancellationTokenSource _matchmakingCts;
+        public float MatchmakingStartTime { get; private set; }
         
         // Track if we expect a disconnect (e.g. intentionally leaving)
         private bool _expectedDisconnect = false;
@@ -145,7 +147,12 @@ namespace Network {
         }
 
         private void OnDestroy() {
+            if (_isShuttingDown) return;
             LeaveLobby();
+        }
+
+        private void OnApplicationQuit() {
+            _isShuttingDown = true;
         }
 
         #endregion
@@ -401,6 +408,7 @@ namespace Network {
                 await CleanupNetworkAsync();
 
                 SetFrontStatus(SessionPhase.Searching, $"Searching for {SelectedGameMode}...");
+                MatchmakingStartTime = Time.time;
 
                 if (token.IsCancellationRequested) return;
 
@@ -643,6 +651,7 @@ namespace Network {
                 return;
             }
             transport.targetSteamId = steamId;
+            networkManager.NetworkConfig.NetworkTransport = transport;
 
             Debug.Log($"[SessionManager] Starting Client connecting to {steamId}");
             networkManager.StartClient();
@@ -694,9 +703,9 @@ namespace Network {
         public void LeaveLobby() {
             _expectedDisconnect = true; // Mark as expected
             if (CurrentLobby.HasValue) {
-                // Host Migration: If we are leader and have > 2 members, pass the torch
-                // If only 2 members (Me + 1), just disband (Host leaves, Client sees disconnect -> Self Heals)
-                if (IsPartyLeader && CurrentLobby.Value.MemberCount > 2) {
+                // Host Migration logic
+                // SteamClient.IsValid and !_isShuttingDown checks to prevent NRE/Crashes during quit
+                if (!_isShuttingDown && SteamClient.IsValid && IsPartyLeader && CurrentLobby.Value.MemberCount > 2) {
                     // Try to find a new owner (first member who isn't me)
                     var currentLobby = CurrentLobby.Value;
                     var newOwner = currentLobby.Members.FirstOrDefault(m => m.Id != SteamClient.SteamId);
@@ -768,8 +777,11 @@ namespace Network {
 
         private void StartHost() {
             var transport = networkManager.GetComponent<FacepunchTransport>();
-            // Host does not set targetSteamId usually, or sets it to self? 
-            // Transport.StartServer() handles it via creating a Socket.
+            if (transport != null) {
+                networkManager.NetworkConfig.NetworkTransport = transport;
+            } else {
+                Debug.LogError("[SessionManager] FacepunchTransport missing! Falling back to default (UnityTransport), which may cause port conflicts.");
+            }
             networkManager.StartHost();
         }
 

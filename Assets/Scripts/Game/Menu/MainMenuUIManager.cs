@@ -13,6 +13,7 @@ namespace Game.Menu {
     public class MainMenuUIManager : MonoBehaviour {
         [Header("References")]
         public UIDocument uiDocument;
+        public LoadoutManager LoadoutManager; // Added for Profile View access
 
         private VisualElement _root;
         private VisualElement MainMenuPanel { get; set; }
@@ -25,10 +26,16 @@ namespace Game.Menu {
         private Button _cardGunTag;
 
         // HUD / Global Containers
+        [Header("Templates")]
+        [SerializeField] private VisualTreeAsset partyMemberTemplate;
+        public VisualTreeAsset PartyMemberTemplate => partyMemberTemplate;
+
         public VisualElement PartyContainer { get; private set; }
         public VisualElement StatusContainer { get; private set; }
         public VisualElement LoadingOverlay { get; private set; }
         public Label MatchmakingStatusLabel { get; private set; }
+        public Label QueueGamemodeLabel { get; private set; }
+        public Label QueueTimerLabel { get; private set; }
         public Button CancelMatchmakingButton { get; private set; }
 
         // Buttons
@@ -90,6 +97,7 @@ namespace Game.Menu {
         public Button CtxKick { get; private set; }
         public Button CtxLeave { get; private set; }
         public VisualElement CtxSeparatorManagement { get; private set; }
+        public VisualElement CtxSeparatorMute { get; private set; }
 
         // Events
         public System.Action OnPlayMatchmakingClicked;
@@ -207,6 +215,8 @@ namespace Game.Menu {
             Debug.Log($"[MainMenuUIManager] StatusContainer: {(StatusContainer != null ? "FOUND" : "NULL")}");
             if (StatusContainer != null) {
                 MatchmakingStatusLabel = _root.Q<Label>("matchmaking-status-label");
+                QueueGamemodeLabel = _root.Q<Label>("queue-gamemode-label");
+                QueueTimerLabel = _root.Q<Label>("queue-timer-label");
                 CancelMatchmakingButton = _root.Q<Button>("cancel-matchmaking-button");
                 
                 Debug.Log($"[MainMenuUIManager] CancelMatchmakingButton: {(CancelMatchmakingButton != null ? "FOUND" : "NULL")}");
@@ -236,8 +246,8 @@ namespace Game.Menu {
                 _cardTeamDeathmatch,
                 _cardHopball,
                 _cardKoth,
-                _cardGunTag,
-                CancelMatchmakingButton
+                _cardGunTag
+                // CancelMatchmakingButton removed from generic list to prevent double sound registration
             };
 
             _backButtons = new List<Button> {
@@ -260,6 +270,7 @@ namespace Game.Menu {
             CtxKick = _root.Q<Button>("ctx-kick");
             CtxLeave = _root.Q<Button>("ctx-leave");
             CtxSeparatorManagement = _root.Q<VisualElement>("ctx-separator-management");
+            CtxSeparatorMute = _root.Q<VisualElement>("ctx-separator-mute");
             
             // Register hover for Context buttons
             var ctxButtons = new[] { CtxProfile, CtxSteamProfile, CtxMuteChat, CtxMuteVoice, CtxBlock, CtxMakeHost, CtxKick, CtxLeave };

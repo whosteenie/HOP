@@ -187,18 +187,18 @@
 
 .scoreboard-container {
     width: 1100px;
-    max-height: 80%;
-    padding: 30px;
+    max-height: 85%;
+    padding: 15px 30px; /* Reduced vertical padding */
     flex-direction: column;
 }
 
 .scoreboard-header {
     flex-direction: row;
     align-items: center;
-    padding: 12px 16px;
+    padding: 6px 16px; /* Reduced vertical padding */
     background-color: rgba(200, 60, 60, 0.15);
     border-radius: 4px;
-    margin-bottom: 8px;
+    margin-bottom: 6px;
     border-width: 1px;
     border-color: rgba(200, 60, 60, 0.3);
 }
@@ -216,33 +216,36 @@
 }
 
 .ping-cell {
-    width: 60px;
-    min-width: 60px;
+    width: 40px;
+    min-width: 40px;
+    flex-shrink: 0;
 }
 
 .avatar-cell {
-    width: 40px;
-    height: 40px;
-    min-width: 40px;
+    width: 32px; /* Reduced from 40 */
+    height: 32px;
+    min-width: 32px;
     margin-left: 8px;
     margin-right: 8px;
+    flex-shrink: 0;
 }
 
 .name-cell {
     flex-grow: 1;
-    min-width: 200px;
+    min-width: 150px; /* Reduced min-width */
     -unity-text-align: middle-left;
     margin-left: 8px;
 }
 
 .stat-cell {
-    width: 70px;
-    min-width: 70px;
+    width: 60px;
+    min-width: 60px;
+    flex-shrink: 0;
 }
 
 .scoreboard-scroll {
     flex-grow: 1;
-    max-height: 500px;
+    max-height: 560px; /* Increased slightly */
 }
 
 .player-rows {
@@ -252,13 +255,21 @@
 .player-row {
     flex-direction: row;
     align-items: center;
-    padding: 10px 16px;
+    padding: 4px 12px; /* Reduced further */
     background-color: rgba(15, 15, 20, 0.7);
     border-radius: 4px;
-    margin-bottom: 4px;
+    margin-bottom: 2px;
     border-width: 1px;
     border-color: rgba(200, 60, 60, 0.15);
     transition-duration: 0.2s;
+}
+
+.player-row-alt {
+    background-color: rgba(10, 10, 15, 0.5);
+}
+
+.player-row-empty {
+    opacity: 0.3;
 }
 
 .player-row:hover {
@@ -287,11 +298,12 @@
 }
 
 .player-ping {
-    width: 60px;
-    min-width: 60px;
-    font-size: 14px;
+    width: 40px;
+    min-width: 40px;
+    font-size: 13px;
     -unity-text-align: middle-center;
     color: rgb(100, 200, 100);
+    flex-shrink: 0;
 }
 
 .player-ping-high {
@@ -303,9 +315,9 @@
 }
 
 .player-avatar {
-    width: 40px;
-    height: 40px;
-    min-width: 40px;
+    width: 32px; /* Reduced from 40 */
+    height: 32px;
+    min-width: 32px;
     margin-left: 8px;
     margin-right: 8px;
     border-radius: 4px;
@@ -313,12 +325,14 @@
     border-width: 1px;
     border-color: rgba(200, 60, 60, 0.2);
     -unity-background-scale-mode: scale-to-fit;
+    scale: 1 -1; /* Flip upside down icons */
+    flex-shrink: 0;
 }
 
 .player-name {
     flex-grow: 1;
-    min-width: 200px;
-    font-size: 16px;
+    min-width: 120px;
+    font-size: 14px;
     color: rgb(240, 240, 240);
     -unity-text-align: middle-left;
     margin-left: 8px;
@@ -327,11 +341,12 @@
 }
 
 .player-stat {
-    width: 70px;
-    min-width: 70px;
+    width: 60px;
+    min-width: 60px;
     font-size: 14px;
     -unity-text-align: middle-center;
     color: rgb(200, 200, 200);
+    flex-shrink: 0;
 }
 
 .player-stat-highlight {
@@ -343,8 +358,8 @@
 
 .tdm-scoreboard-container {
     width: 1100px;
-    max-height: 80%;
-    padding: 24px;
+    max-height: 85%;
+    padding: 15px 24px;
     flex-direction: column;
 }
 
@@ -359,30 +374,30 @@
 }
 
 .tdm-team-section-enemy {
-    margin-bottom: 12px;
+    margin-bottom: 6px;
 }
 
 .tdm-team-section-your {
 }
 
 .tdm-team-label {
-    font-size: 18px;
+    font-size: 16px; /* Slightly smaller */
     -unity-font-style: bold;
     color: rgb(255, 255, 255);
-    margin-bottom: 12px;
+    margin-bottom: 8px;
     letter-spacing: 2px;
 }
 
 .tdm-team-header {
     flex-direction: row;
     align-items: center;
-    padding: 10px 16px;
+    padding: 4px 12px; /* Reduced */
     background-color: rgba(200, 60, 60, 0.15);
     border-radius: 4px;
-    margin-bottom: 8px;
+    margin-bottom: 2px; /* Reduced */
     border-width: 1px;
     border-color: rgba(200, 60, 60, 0.3);
-    height: 36px;
+    height: 28px; /* Reduced from 32 */
 }
 
 .tdm-team-header-your {
@@ -392,7 +407,7 @@
 
 .tdm-team-scroll {
     flex-grow: 1;
-    max-height: 180px;
+    max-height: 250px;
     min-height: 80px;
 }
 
@@ -401,7 +416,7 @@
     align-items: center;
     justify-content: center;
     padding: 0;
-    margin-bottom: 12px;
+    margin-bottom: 6px;
 }
 
 .tdm-score-enemy {

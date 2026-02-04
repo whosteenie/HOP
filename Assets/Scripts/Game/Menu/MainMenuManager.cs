@@ -129,6 +129,20 @@ namespace Game.Menu {
             }
         }
 
+        public void ShowLoadoutPanel() {
+            var loadoutManager = FindFirstObjectByType<LoadoutManager>();
+            if(loadoutManager != null) loadoutManager.ShowLoadout();
+            ShowPanel(_loadoutPanel);
+        }
+
+        public void ShowProfileView(ulong steamId, string playerName, bool isEditable) {
+            var loadoutManager = FindFirstObjectByType<LoadoutManager>();
+            if(loadoutManager != null) {
+                loadoutManager.ShowProfileView(steamId, playerName, isEditable);
+            }
+            ShowPanel(_loadoutPanel);
+        }
+
         private void WireUIManagerEvents() {
             if(uiManager == null) return;
 

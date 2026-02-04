@@ -488,11 +488,14 @@ namespace Game.UI {
                 _previousVelocityValues.Clear();
 
                 var sortedPlayers = BuildSortedPlayerList(allControllers, isTagMode);
+                int rowCount = 0;
 
                 foreach(var player in sortedPlayers) {
                     if(player == null || !player.IsSpawned) continue;
 
                     var row = CreatePlayerRow(player, _playerRows, isTagMode: isTagMode);
+                    if (rowCount % 2 == 1) row.AddToClassList("player-row-alt");
+                    rowCount++;
 
                     if(row == null) continue;
                     // Cache velocity label for this player (last stat label in the row)
@@ -501,6 +504,13 @@ namespace Game.UI {
                     if(labels.Count > 0) {
                         _cachedVelocityLabels[player.OwnerClientId] = labels[^1];
                     }
+                }
+
+                // Pad with empty rows
+                while(rowCount < 10) {
+                    var row = CreateEmptyRow(_playerRows, isTagMode);
+                    if (rowCount % 2 == 1) row.AddToClassList("player-row-alt");
+                    rowCount++;
                 }
 
                 // Update cached state
@@ -595,12 +605,32 @@ namespace Game.UI {
             yourTeamPlayers.Sort((a, b) => b.Kills.Value.CompareTo(a.Kills.Value));
 
             // Create rows for each team (simplified stats for TDM)
+            int enemyCount = 0;
             foreach(var player in enemyPlayers) {
-                CreatePlayerRow(player, _enemyTeamRows, simplifiedStats: true, isYourTeam: false);
+                var row = CreatePlayerRow(player, _enemyTeamRows, simplifiedStats: true, isYourTeam: false);
+                if (enemyCount % 2 == 1) row.AddToClassList("player-row-alt");
+                enemyCount++;
             }
 
+            // Pad enemy team
+            while(enemyCount < 5) {
+                var row = CreateEmptyRow(_enemyTeamRows, isTagMode: false);
+                if (enemyCount % 2 == 1) row.AddToClassList("player-row-alt");
+                enemyCount++;
+            }
+
+            int yourCount = 0;
             foreach(var player in yourTeamPlayers) {
-                CreatePlayerRow(player, _yourTeamRows, simplifiedStats: true, isYourTeam: true);
+                var row = CreatePlayerRow(player, _yourTeamRows, simplifiedStats: true, isYourTeam: true);
+                if (yourCount % 2 == 1) row.AddToClassList("player-row-alt");
+                yourCount++;
+            }
+
+            // Pad your team
+            while(yourCount < 5) {
+                var row = CreateEmptyRow(_yourTeamRows, isTagMode: false, isYourTeam: true);
+                if (yourCount % 2 == 1) row.AddToClassList("player-row-alt");
+                yourCount++;
             }
 
             // Update team scores
@@ -920,16 +950,61 @@ namespace Game.UI {
         }
 
         // Overload for TDM (includes K, D, A, KDR, DMG, HS%, AV)
-        private void CreatePlayerRow(PlayerController player, VisualElement parentContainer, bool simplifiedStats,
+        private VisualElement CreatePlayerRow(PlayerController player, VisualElement parentContainer, bool simplifiedStats,
             bool isYourTeam) {
             if(!simplifiedStats) {
                 // Call the FFA version with isTagMode = false
-                CreatePlayerRow(player, parentContainer, isTagMode: false);
-                return;
+                return CreatePlayerRow(player, parentContainer, isTagMode: false);
             }
 
             var row = CreatePlayerRowBase(player, parentContainer, isYourTeam);
             AddNormalModeStats(row, player);
+            return row;
+        }
+
+        private VisualElement CreateEmptyRow(VisualElement parentContainer, bool isTagMode, bool isYourTeam = false) {
+            var row = new VisualElement();
+            row.AddToClassList("player-row");
+            row.AddToClassList("player-row-empty");
+            
+            if (isYourTeam) {
+                row.AddToClassList("player-row-local-your-team");
+            }
+
+            parentContainer.Add(row);
+
+            // Ping
+            var ping = new Label("-");
+            ping.AddToClassList("player-ping");
+            row.Add(ping);
+
+            // Avatar
+            var avatar = new VisualElement();
+            avatar.AddToClassList("player-avatar"); 
+            row.Add(avatar);
+
+            // Name
+            var playerName = new Label("-");
+            playerName.AddToClassList("player-name");
+            row.Add(playerName);
+
+            if (isTagMode) {
+                // TT, Tags, Tagged, TTR, AV (5 stats)
+                for (int i = 0; i < 5; i++) {
+                    var label = new Label("-");
+                    label.AddToClassList("player-stat");
+                    row.Add(label);
+                }
+            } else {
+                // K, D, A, KDR, DMG, HS%, AV (7 stats)
+                for (int i = 0; i < 7; i++) {
+                    var label = new Label("-");
+                    label.AddToClassList("player-stat");
+                    row.Add(label);
+                }
+            }
+
+            return row;
         }
 
         private static string GetPingText(PlayerController player) {

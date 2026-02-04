@@ -1080,6 +1080,32 @@ MonoBehaviour:
   preMatchCountdownSeconds: 5
   matchDurationSeconds: 0
   selectedGameModeId: 
+  gamemodeDefinitions:
+  - Id: Deathmatch
+    MinPlayers: 2
+    MaxPlayers: 10
+    MaxPartySize: 5
+    IsTeamBased: 0
+  - Id: Team Deathmatch
+    MinPlayers: 2
+    MaxPlayers: 10
+    MaxPartySize: 5
+    IsTeamBased: 1
+  - Id: Hopball
+    MinPlayers: 2
+    MaxPlayers: 10
+    MaxPartySize: 5
+    IsTeamBased: 1
+  - Id: KOTH
+    MinPlayers: 2
+    MaxPlayers: 10
+    MaxPartySize: 5
+    IsTeamBased: 1
+  - Id: Gun Tag
+    MinPlayers: 2
+    MaxPlayers: 10
+    MaxPartySize: 5
+    IsTeamBased: 0
 --- !u!114 &7683252449321787176
 MonoBehaviour:
   m_ObjectHideFlags: 0
