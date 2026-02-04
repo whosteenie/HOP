@@ -78,7 +78,6 @@ namespace Game.Player {
         private void Update() {
             if(!IsServer) return;
 
-            // Tag mode: increment time tagged every second while tagged
             var matchSettings = MatchSettingsManager.Instance;
             var isTagMode = matchSettings != null && matchSettings.selectedGameModeId == "Gun Tag";
 
@@ -89,20 +88,13 @@ namespace Game.Player {
 
             if(!isTagMode || !isTagged.Value) return;
 
-            // Tag mode: increment time tagged
-            // Throttle network updates - only send if enough time has passed
             if(Time.time - lastTagStatsUpdateTime >= TagStatsUpdateInterval) {
                 timeTagged.Value++;
                 lastTagStatsUpdateTime = Time.time;
             } else {
-                // Still increment locally, will sync on next update
                 var current = timeTagged.Value;
                 timeTagged.Value = current + 1;
             }
-            
-            // Progression: Track time tagged locally (Server handles the network var, but we want local progression too)
-            // Actually, this Update block only runs on Server.
-            // We need a separate client-side check for progression.
         }
         
         private void LateUpdate() {
@@ -119,7 +111,6 @@ namespace Game.Player {
         public void HandleTagTransfer(ulong attackerId, Vector3 hitPoint, float amount) {
             if(!IsServer) return;
 
-            // Only allow tagging if the attacker is "it" (tagged)
             if(!NetworkManager.Singleton.ConnectedClients.TryGetValue(attackerId, out var attackerClient)) return;
 
             PlayerController attacker = null;
@@ -131,55 +122,44 @@ namespace Game.Player {
                 attackerTagController = attacker.GetComponent<PlayerTagController>();
             }
 
-            // If attacker is not tagged, they cannot tag others
             if(attackerTagController == null || !attackerTagController.isTagged.Value) {
                 return;
             }
 
-            // Attacker is tagged, proceed with tagging logic
-            // Play hit effects (flinch animation) - this will be called on all clients
             if(playerController != null) {
                 playerController.PlayHitEffectsClientRpc(hitPoint, amount);
             }
 
-            // Tag the player (1 bullet = tag) - only if victim is not already tagged
             var wasTagged = isTagged.Value;
             if(wasTagged) return;
-            // isTagged is critical - update immediately, but throttle other stats
             isTagged.Value = true;
 
-            // Throttle tag stats updates
             if(Time.time - lastTagStatsUpdateTime >= TagStatsUpdateInterval) {
                 tagged.Value++;
                 lastTagStatsUpdateTime = Time.time;
             } else {
-                tagged.Value++; // Still update, will sync on next interval
+                tagged.Value++;
             }
 
-            // Play UI sound for getting tagged (on victim's client)
             PlayTaggedSoundClientRpc();
 
-            // Untag the attacker (they successfully tagged someone)
-            // isTagged is critical - update immediately
             attackerTagController.isTagged.Value = false;
 
-            // Throttle tag stats updates
             if(Time.time - attackerTagController.lastTagStatsUpdateTime >= TagStatsUpdateInterval) {
                 attackerTagController.tags.Value++;
                 attackerTagController.lastTagStatsUpdateTime = Time.time;
             } else {
-                attackerTagController.tags.Value++; // Still update, will sync on next interval
+                attackerTagController.tags.Value++;
             }
 
-            // Play UI sound for tagging someone (on attacker's client)
             attackerTagController.PlayTaggingSoundClientRpc();
 
-            // Broadcast tag transfer to kill feed (only on first bullet that tags)
             BroadcastTagTransferClientRpc(attackerId, OwnerClientId);
-
-            // Attacker not found, can't verify if they're tagged - don't allow tagging
         }
 
+        /// <summary>
+        /// Handles changes to the tagged state.
+        /// </summary>
         private void OnTaggedStateChanged(bool oldValue, bool newValue) {
             // Update HUD for Tag mode
             if(IsOwner && playerController != null) {

@@ -30,13 +30,12 @@ namespace Game.Menu {
         [SerializeField] private VisualTreeAsset partyMemberTemplate;
         public VisualTreeAsset PartyMemberTemplate => partyMemberTemplate;
 
-        public VisualElement PartyContainer { get; private set; }
-        public VisualElement StatusContainer { get; private set; }
-        public VisualElement LoadingOverlay { get; private set; }
+        public VisualElement PartyContainer { get; }
+        public VisualElement StatusContainer { get; }
         public Label MatchmakingStatusLabel { get; private set; }
         public Label QueueGamemodeLabel { get; private set; }
         public Label QueueTimerLabel { get; private set; }
-        public Button CancelMatchmakingButton { get; private set; }
+        private Button CancelMatchmakingButton { get; set; }
 
         // Buttons
         private Button _playButtonMatchmaking;
@@ -56,7 +55,7 @@ namespace Game.Menu {
         private Button _cardKoth;
 
         // Private Lobby Dropdown
-        public VisualElement GamemodeDropdownContainer { get; private set; }
+        private VisualElement GamemodeDropdownContainer { get; set; }
         public Label GamemodeDisplayLabel { get; private set; }
         public VisualElement GamemodeDropdownMenu { get; private set; }
         private List<Button> _gamemodeOptions;
@@ -116,6 +115,11 @@ namespace Game.Menu {
         public System.Action<VisualElement> OnShowPanel;
         public System.Action OnGamemodeDropdownClicked;
 
+        public MainMenuUIManager(VisualElement partyContainer, VisualElement statusContainer, List<Button> gamemodeOptions) {
+            PartyContainer = partyContainer;
+            StatusContainer = statusContainer;
+            _gamemodeOptions = gamemodeOptions;
+        }
 
 
         private void Awake() {
@@ -132,16 +136,13 @@ namespace Game.Menu {
         private void Start() {
             Cursor.visible = true;
             Cursor.lockState = CursorLockMode.None;
-
-            // Register events (callbacks should be wired by MainMenuManager in Awake)
             RegisterUIEvents();
-
-            // Mark initialization as complete
-            // _isInitializing was removed as we now only play sounds on direct user input
         }
 
+        /// <summary>
+        /// Initializes the UI manager and ensures proper visibility of global containers.
+        /// </summary>
         public void Initialize() {
-            // Hide game menu root container if it exists
             var gameMenu = GameMenuManager.Instance;
             if(gameMenu != null && gameMenu.TryGetComponent(out UIDocument doc) && doc != null) {
                 var gameRoot = doc.rootVisualElement;
@@ -152,6 +153,9 @@ namespace Game.Menu {
             }
         }
 
+        /// <summary>
+        /// Queries and caches all necessary UI elements from the UXML root.
+        /// </summary>
         private void FindUIElements() {
             // Panels
             MainMenuPanel = _root.Q<VisualElement>("main-menu-panel");
@@ -180,9 +184,7 @@ namespace Game.Menu {
             _cardKoth = _root.Q<Button>("card-koth");
             _cardGunTag = _root.Q<Button>("card-gun-tag");
 
-            LoadingOverlay = _root.Q<VisualElement>("loading-overlay");
-
-            // Private Lobby Dropdown (Deprecated but keeping variables for now to avoid breaking other scripts immediately)
+            _root.Q<VisualElement>("loading-overlay");
             GamemodeDropdownContainer = _root.Q<VisualElement>("gamemode-dropdown-container");
             GamemodeDisplayLabel = _root.Q<Label>("gamemode-display-label");
             GamemodeDropdownMenu = _root.Q<VisualElement>("gamemode-dropdown-menu");
@@ -209,19 +211,12 @@ namespace Game.Menu {
             _toastContainer = _root.Q<VisualElement>("toast-container");
             _versionLabel = _root.Q<Label>("version-text");
             
-            // Setup global containers from UXML
-            PartyContainer = _root.Q<VisualElement>("party-container");
-            StatusContainer = _root.Q<VisualElement>("status-container");
-            Debug.Log($"[MainMenuUIManager] StatusContainer: {(StatusContainer != null ? "FOUND" : "NULL")}");
             if (StatusContainer != null) {
                 MatchmakingStatusLabel = _root.Q<Label>("matchmaking-status-label");
                 QueueGamemodeLabel = _root.Q<Label>("queue-gamemode-label");
                 QueueTimerLabel = _root.Q<Label>("queue-timer-label");
                 CancelMatchmakingButton = _root.Q<Button>("cancel-matchmaking-button");
                 
-                Debug.Log($"[MainMenuUIManager] CancelMatchmakingButton: {(CancelMatchmakingButton != null ? "FOUND" : "NULL")}");
-
-                // C# Fallback for pickingMode
                 StatusContainer.pickingMode = PickingMode.Ignore;
                 if (MatchmakingStatusLabel != null) MatchmakingStatusLabel.pickingMode = PickingMode.Ignore;
                 if (CancelMatchmakingButton != null) CancelMatchmakingButton.pickingMode = PickingMode.Position;
@@ -279,6 +274,9 @@ namespace Game.Menu {
             }
         }
 
+        /// <summary>
+        /// Registers click and hover events for UI buttons and interactive elements.
+        /// </summary>
         private void RegisterUIEvents() {
             foreach(var b in _buttons) {
                 if(b == null) continue;
@@ -293,11 +291,7 @@ namespace Game.Menu {
             }
 
             if (CancelMatchmakingButton != null) {
-                Debug.Log($"[MainMenuUIManager] Registering Cancel button click event");
-                CancelMatchmakingButton.clicked += () => {
-                    Debug.Log("[MainMenuUIManager] Cancel button CLICKED!");
-                    OnCancelMatchmakingClicked?.Invoke();
-                };
+                CancelMatchmakingButton.clicked += () => OnCancelMatchmakingClicked?.Invoke();
             }
 
             // Main menu navigation
@@ -352,7 +346,7 @@ namespace Game.Menu {
 
             // Private Lobby Dropdown
             if (GamemodeDropdownContainer != null) {
-                GamemodeDropdownContainer.RegisterCallback<ClickEvent>(evt => OnGamemodeDropdownClicked?.Invoke());
+                GamemodeDropdownContainer.RegisterCallback<ClickEvent>(_ => OnGamemodeDropdownClicked?.Invoke());
             }
 
             foreach (var opt in _gamemodeOptions) {
@@ -420,15 +414,11 @@ namespace Game.Menu {
             UISoundService.RegisterButtonHover(_firstTimeContinueButton);
         }
 
+        /// <summary>
+        /// Logic for handling first-time setup or name entry (Deprecated/Unused).
+        /// </summary>
         public void CheckFirstTimeSetup() {
-            // Deprecated: Player name is now pulled from Steam
             HideFirstTimeSetup();
-        }
-
-        private void ShowFirstTimeSetup() {
-            if(_firstTimeModal != null) {
-                _firstTimeModal.RemoveFromClassList("hidden");
-            }
         }
 
         public void HideFirstTimeSetup() {
@@ -437,17 +427,25 @@ namespace Game.Menu {
             }
         }
 
+        /// <summary>
+        /// Returns the text from the first-time name input field.
+        /// </summary>
         public string GetFirstTimeNameInput() {
             return _firstTimeNameInput != null ? _firstTimeNameInput.value : string.Empty;
         }
 
         // Panel references (for external access - panel management stays in MainMenuManager for now)
 
-        // Button Enable/Disable
+        /// <summary>
+        /// Enables a specific button and registers its hover events.
+        /// </summary>
         public void EnableButton(Button button) {
             SetButtonEnabled(button, true);
         }
 
+        /// <summary>
+        /// Disables a specific button and unregisters its hover events.
+        /// </summary>
         public void DisableButton(Button button) {
             SetButtonEnabled(button, false);
         }
@@ -473,6 +471,9 @@ namespace Game.Menu {
         public Button GetPlayButtonMatchmaking() => _playButtonMatchmaking;
         public Button GetPlayButtonPrivate() => _playButtonPrivate;
 
+        /// <summary>
+        /// Enables or disables the primary matchmaking and private game buttons.
+        /// </summary>
         public void SetMenuButtonsEnabled(bool enabled) {
             if (enabled) {
                 EnableButton(_playButtonMatchmaking);
@@ -483,7 +484,9 @@ namespace Game.Menu {
             }
         }
 
-        // Quit Confirmation
+        /// <summary>
+        /// Shows the quit confirmation modal.
+        /// </summary>
         private void ShowQuitConfirmation() {
             UISoundService.PlayButtonClick(isBack: true);
             if(_quitConfirmationModal == null) return;
@@ -498,7 +501,9 @@ namespace Game.Menu {
             _quitConfirmationModal.style.display = StyleKeyword.Null;
         }
 
-        // Lobby Leave Confirmation
+        /// <summary>
+        /// Shows the confirmation modal for leaving a lobby.
+        /// </summary>
         public void ShowLobbyLeaveConfirmation() {
             UISoundService.PlayButtonClick(isBack: true);
             if(_lobbyLeaveModal == null) return;
@@ -513,7 +518,10 @@ namespace Game.Menu {
             _lobbyLeaveModal.style.display = StyleKeyword.Null;
         }
 
-        // Toast notifications
+        /// <summary>
+        /// Coroutine to display a temporary toast notification.
+        /// </summary>
+        /// <param name="message">The message to display.</param>
         public IEnumerator CopyToast(string message) {
             if(_toastContainer == null) yield break;
 

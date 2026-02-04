@@ -23,7 +23,14 @@ namespace Game.Player {
             }
         }
 
+        /// <summary>
+        /// Animation event to play the walk sound.
+        /// </summary>
         public void PlayWalkSound() => playerController.PlayWalkSound();
+
+        /// <summary>
+        /// Animation event to play the run sound.
+        /// </summary>
         public void PlayRunSound() => playerController.PlayRunSound();
 
         /// <summary>

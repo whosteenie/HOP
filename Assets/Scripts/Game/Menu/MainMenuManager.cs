@@ -158,7 +158,7 @@ namespace Game.Menu {
                 if (_isPrivateMatchIntent) {
                     sessionManager.HandlePrivateMatchSelection(mode).Forget();
                 } else {
-                    sessionManager.HandleGamemodeSelected(mode);
+                    MainMenuSessionManager.HandleGamemodeSelected(mode);
                     // Matchmaking intent: start search
                     sessionManager.HandleFindGameClicked(mode).Forget();
 

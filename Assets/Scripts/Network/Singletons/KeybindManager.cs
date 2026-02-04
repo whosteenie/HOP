@@ -146,13 +146,17 @@ namespace Network.Singletons {
         public void StartRebinding(string keybindName, int bindingIndex, Action<string> onComplete) {
             if(!_keybindMap.TryGetValue(keybindName, out var value)) {
                 Debug.LogError($"[KeybindManager] Unknown keybind: {keybindName}");
-                onComplete?.Invoke(null);
+                if(onComplete != null) {
+                    onComplete.Invoke(null);
+                }
                 return;
             }
 
             if(!_actions.TryGetValue(keybindName, out var action)) {
                 Debug.LogError($"[KeybindManager] Action not found for keybind: {keybindName}");
-                onComplete?.Invoke(null);
+                if(onComplete != null) {
+                    onComplete.Invoke(null);
+                }
                 return;
             }
 
@@ -168,7 +172,9 @@ namespace Network.Singletons {
             if(actualBindingIndex < 0 || actualBindingIndex >= action.bindings.Count) {
                 Debug.LogError($"[KeybindManager] Invalid binding index for {keybindName}[{bindingIndex}]");
                 CleanupRebindingState();
-                onComplete?.Invoke(null);
+                if(onComplete != null) {
+                    onComplete.Invoke(null);
+                }
                 return;
             }
 
@@ -201,7 +207,9 @@ namespace Network.Singletons {
                        (bindingPath.Contains("scroll") || bindingPath.Contains("Scroll"))) {
                         CleanupRebindingState();
                         operation.Dispose();
-                        onComplete?.Invoke(null);
+                        if(onComplete != null) {
+                            onComplete.Invoke(null);
+                        }
                         return;
                     }
 
@@ -213,7 +221,9 @@ namespace Network.Singletons {
                     CleanupRebindingState();
                     var displayString = GetBindingDisplayString(new InputBinding { path = bindingPath });
                     StorePendingBinding(keybindName, bindingIndex, bindingPath);
-                    onComplete?.Invoke(displayString);
+                    if(onComplete != null) {
+                        onComplete.Invoke(displayString);
+                    }
                     operation.Dispose();
                 })
                 .OnCancel(operation => {
@@ -223,7 +233,9 @@ namespace Network.Singletons {
 
                     CleanupRebindingState();
                     StorePendingBinding(keybindName, bindingIndex, "");
-                    onComplete?.Invoke("None");
+                    if(onComplete != null) {
+                        onComplete.Invoke("None");
+                    }
                     operation.Dispose();
                 })
                 .Start();
@@ -534,7 +546,9 @@ namespace Network.Singletons {
 
                         StorePendingBinding(keybindName, bindingIndex, scrollPath);
                         CleanupRebindingState();
-                        callback?.Invoke(displayString);
+                        if(callback != null) {
+                            callback.Invoke(displayString);
+                        }
                         yield break;
                     }
 
@@ -604,7 +618,11 @@ namespace Network.Singletons {
                     try {
                         var primaryButton = Mouse.current[primaryControl] as ButtonControl;
                         var fallbackButton = Mouse.current[fallbackControl] as ButtonControl;
-                        if(!(primaryButton?.isPressed == true || fallbackButton?.isPressed == true)) {
+                        bool isActuallyPressed = false;
+                        if(primaryButton != null && primaryButton.isPressed) isActuallyPressed = true;
+                        if(fallbackButton != null && fallbackButton.isPressed) isActuallyPressed = true;
+                        
+                        if(!isActuallyPressed) {
                             wasPressed = false;
                         }
                     } catch {
@@ -637,7 +655,9 @@ namespace Network.Singletons {
 
             StorePendingBinding(keybindName, bindingIndex, path);
             CleanupRebindingState();
-            callback?.Invoke(displayName);
+            if(callback != null) {
+                callback.Invoke(displayName);
+            }
         }
 
         #endregion

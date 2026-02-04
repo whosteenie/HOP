@@ -122,6 +122,9 @@ namespace Game.Player {
             deaths = playerController.Deaths;
         }
 
+        /// <summary>
+        /// Updates the player's health regeneration state based on time since last damage.
+        /// </summary>
         public void UpdateHealthRegeneration() {
             if(netIsDead == null || netHealth == null) return;
 
@@ -143,13 +146,14 @@ namespace Game.Player {
             }
         }
 
+        /// <summary>
+        /// Applies damage to the player on the server (authoritative).
+        /// </summary>
         public bool ApplyDamageServer_Auth(float amount, Vector3 hitPoint, Vector3 hitDirection, ulong attackerId,
             string bodyPartTag = null, bool isHeadshot = false, string weaponId = null) {
             if(!IsServer || netIsDead == null || netIsDead.Value) return false;
 
-            // Handle OOB kills FIRST - they should always kill regardless of game mode
             if(attackerId == ulong.MaxValue) {
-                // OOB kill - always kill, even in tag mode
                 netHealth.Value = 0f;
                 netIsDead.Value = true;
                 
@@ -159,7 +163,6 @@ namespace Game.Player {
                 _isRegenerating = false;
                 _lastBodyPartTag = bodyPartTag;
 
-                // Drop hopball if holding one when player dies (server-side)
                 if(HopballSpawnManager.Instance != null && HopballSpawnManager.Instance.CurrentHopballController != null) {
                     var hopball = HopballSpawnManager.Instance.CurrentHopballController;
                     if(hopball.IsEquipped && hopball.HolderController != null &&
@@ -173,19 +176,16 @@ namespace Game.Player {
                     }
                 }
 
-                // OOB kill - use "HOP" as the killer name
                 var victimName = "Player";
                 if(playerController != null && playerController.PlayerName != null) {
                     victimName = playerController.PlayerName.Value.ToString();
                 }
                 BroadcastKillClientRpc("HOP", victimName, attackerId, OwnerClientId, null);
                 
-                // Reset streak on server side too? Not strictly necessary as ClientRpc handles it for owner.
                 deaths.Value++;
                 ReserveSpawnPointForDeath();
                 DieClientRpc(_lastBodyPartTag);
                 
-                // Publish death event
                 EventBus.Publish(new PlayerDiedEvent(OwnerClientId, attackerId, bodyPartTag));
                 return true;
             }
@@ -200,14 +200,8 @@ namespace Game.Player {
             _isRegenerating = false;
             _lastBodyPartTag = bodyPartTag; // Store for ragdoll force application
 
-            // TODO: Apply headshot multiplier when balancing weapons
-            // if(isHeadshot) {
-            //     amount *= headshotMultiplier; // e.g., 2.0f for double damage
-            // }
 
             if(isTagMode) {
-                // Tag mode: check if non-tagged player is shooting tagged player
-                // If so, reduce the attacker's accumulated timeTagged by 1 (capped at 0)
                 var nonTaggedShootingTagged = false;
                 if(NetworkManager.Singleton.ConnectedClients.TryGetValue(attackerId, out var attackerClient)) {
                     if(attackerClient.PlayerObject == null) return false;
@@ -215,16 +209,13 @@ namespace Game.Player {
                     if(attacker == null) return false;
                     var attackerTagController = attacker.GetComponent<PlayerTagController>();
 
-                    // If attacker is NOT tagged and victim IS tagged, reduce attacker's timeTagged
                     if(attackerTagController != null && !attackerTagController.isTagged.Value && 
                        _tagController != null && _tagController.isTagged.Value) {
                         nonTaggedShootingTagged = true;
-                        // Reduce by 1, but cap at 0
                         if(attackerTagController.timeTagged.Value > 0) {
                             attackerTagController.timeTagged.Value--;
                         }
 
-                        // Play hit effects even though no tag transfer occurs
                         if(playerController != null) {
                             playerController.PlayHitEffectsClientRpc(hitPoint, amount);
                         }
@@ -266,14 +257,11 @@ namespace Game.Player {
                     isPostMatchFlowStarted = PostMatchManager.Instance.PostMatchFlowStarted;
                 }
                 if(!(newHp <= 0f) || netIsDead.Value || isPostMatchFlowStarted)
-                    return false; // No kill in tag mode (except OOB)
+                    return false;
                 netIsDead.Value = true;
 
-                // Drop hopball if holding one when player dies (server-side)
-                // Check hopball's equipped state and holder ID directly
                 if(HopballSpawnManager.Instance != null && HopballSpawnManager.Instance.CurrentHopballController != null) {
                     var hopball = HopballSpawnManager.Instance.CurrentHopballController;
-                    // Check if this player is the current holder by comparing OwnerClientId
                     if(hopball.IsEquipped && hopball.HolderController != null &&
                        hopball.HolderController.OwnerClientId == OwnerClientId) {
                         if(playerController != null) {
@@ -285,7 +273,6 @@ namespace Game.Player {
                     }
                 }
 
-                // Handle normal kills (OOB kills are handled at the top of the method)
                 if(NetworkManager.Singleton.ConnectedClients.TryGetValue(attackerId, out var killerClient)) {
                     if(killerClient.PlayerObject == null) return false;
                     var killer = killerClient.PlayerObject.GetComponent<PlayerController>();
@@ -326,8 +313,8 @@ namespace Game.Player {
                 if (killerClientId != victimClientId) {
                     // It's a kill
                     _currentKillStreak++;
-                    if (Game.Progression.ProgressionManager.Instance != null) {
-                        Game.Progression.ProgressionManager.Instance.AddXp(100);
+                    if (Progression.ProgressionManager.Instance != null) {
+                        Progression.ProgressionManager.Instance.AddXp(100);
                         
                         // Collect Kill Context
                         var killerSpeed = 0f;
@@ -341,8 +328,8 @@ namespace Game.Player {
                              isGrounded = _characterController.isGrounded;
                         }
                         
-                        Game.Progression.ProgressionManager.Instance.RecordKill(killerSpeed, isGrounded, weaponId);
-                        Game.Progression.ProgressionManager.Instance.UpdateKillStreak(_currentKillStreak);
+                        Progression.ProgressionManager.Instance.RecordKill(killerSpeed, isGrounded, weaponId);
+                        Progression.ProgressionManager.Instance.UpdateKillStreak(_currentKillStreak);
                     }
                 }
             }
@@ -392,7 +379,6 @@ namespace Game.Player {
                     _deathCameraController.EnableDeathCamera();
                 }
 
-                // Check if player was holding hopball (check hopball controller state and hopball instance as fallback)
                 var wasHoldingHopball = false;
                 if(playerController != null) {
                     var hopballController = playerController.PlayerHopballController;
@@ -400,7 +386,6 @@ namespace Game.Player {
                         wasHoldingHopball = hopballController.IsHoldingHopball;
                     }
                 }
-                // Fallback: check hopball instance directly in case controller state was already cleared
                 if(!wasHoldingHopball && HopballController.Instance != null && HopballController.Instance.IsEquipped &&
                    HopballController.Instance.HolderController != null &&
                    HopballController.Instance.HolderController.OwnerClientId == OwnerClientId) {
@@ -464,19 +449,20 @@ namespace Game.Player {
             DoRespawnServer();
         }
 
+        /// <summary>
+        /// Orchestrates the respawn sequence on the server.
+        /// </summary>
         private void DoRespawnServer() {
             PrepareRespawnClientRpc();
 
             Vector3 position;
             Quaternion rotation;
 
-            // Use reserved spawn point if available, otherwise fall back to finding a new one
             if(_reservedSpawnPoint != null) {
                 var reservedSpawnTransform = _reservedSpawnPoint.transform;
                 position = reservedSpawnTransform.position;
                 rotation = reservedSpawnTransform.rotation;
             } else {
-                // Fallback: get a new spawn point (should rarely happen)
                 var matchSettings = MatchSettingsManager.Instance;
                 var isTeamBased = matchSettings != null &&
                                   MatchSettingsManager.IsTeamBasedMode(matchSettings.selectedGameModeId);
@@ -534,12 +520,8 @@ namespace Game.Player {
 
             yield return new WaitForSeconds(fadeDuration + buffer);
 
-            // Reset health and death state RIGHT BEFORE teleport to prevent race conditions
-            // This ensures netIsDead is false immediately before teleporting, preventing OOB checks
-            // from triggering again if the player is still below y=600f during the brief moment before teleport
             ResetHealthAndRegenerationState();
 
-            // Release spawn point reservation when player actually spawns
             if(IsServer && _reservedSpawnPoint != null) {
                 if(SpawnManager.Instance != null) {
                     SpawnManager.Instance.ReleaseReservation(OwnerClientId);
@@ -567,7 +549,6 @@ namespace Game.Player {
         private void RestoreControlAfterFadeInClientRpc() {
             if(_characterController != null) _characterController.enabled = true;
 
-            // Reset pitch and velocity
             if(_lookController != null) {
                 _lookController.ResetPitch();
             }
@@ -588,12 +569,10 @@ namespace Game.Player {
                 EventBus.Publish(new ShowHUDEvent());
             }
 
-            // Publish respawn event
             EventBus.Publish(new PlayerRespawnedEvent(OwnerClientId));
 
             ShowRespawnVisualsClientRpc(_playerTransform.position);
 
-            // Reset TP animator weapon state so the world model starts from a clean pose
             var animator = _playerAnimator;
             if(animator != null) {
                 animator.Rebind();
@@ -608,23 +587,19 @@ namespace Game.Player {
         [Rpc(SendTo.Everyone)]
         private void ShowRespawnVisualsClientRpc(Vector3 expectedSpawnPosition) {
             if(IsOwner) {
-                // Owner: enable weapon camera and set up shadows-only mode for world model
                 if(_weaponManager != null && _weaponCameraController != null) {
                     _weaponCameraController.SetWeaponCameraEnabled(true);
                 }
 
-                // Ensure world model root and weapon are active for shadows
                 if(_playerModelRoot != null && !_playerModelRoot.activeSelf) {
                     _playerModelRoot.SetActive(true);
                 }
 
-                // Get current world weapon and ensure it's active for shadows
                 var currentWorldWeapon = GetCurrentWorldWeapon();
                 if(currentWorldWeapon != null && !currentWorldWeapon.activeSelf) {
                     currentWorldWeapon.SetActive(true);
                 }
 
-                // Set renderers to shadows-only mode (owner sees shadows but not the model)
                 if(_visualController != null) {
                     _visualController.InvalidateRendererCache();
                 }
@@ -633,12 +608,10 @@ namespace Game.Player {
                     _playerShadow.ApplyOwnerDefaultShadowState();
                 }
 
-                // Reset weapon state for owner (enables FP weapon renderers) and update HUD ammo
                 if(playerController != null) {
                     playerController.ResetWeaponState(resetAllAmmo: true, switchToWeapon0: true, updateHUD: true);
                 }
             } else {
-                // Non-owner: show world model after position sync
                 StartCoroutine(ShowVisualsAfterPositionSync(expectedSpawnPosition));
             }
         }
@@ -717,13 +690,14 @@ namespace Game.Player {
             ShowVisuals();
         }
 
+        /// <summary>
+        /// Shows the player's visuals and shadow.
+        /// </summary>
         private void ShowVisuals() {
-            // Invalidate renderer cache to force refresh (like respawn does)
             if(_visualController != null) {
                 _visualController.InvalidateRendererCache();
             }
 
-            // Ensure world model root and weapon are active
             if(_playerModelRoot != null && !_playerModelRoot.activeSelf) {
                 _playerModelRoot.SetActive(true);
             }
@@ -735,12 +709,14 @@ namespace Game.Player {
                 _playerShadow.ApplyVisibleShadowState();
             }
 
-            // Force bounds update immediately
             if(_visualController != null) {
                 _visualController.ForceRendererBoundsUpdate();
             }
         }
 
+        /// <summary>
+        /// Resets the player's health and regeneration state.
+        /// </summary>
         public void ResetHealthAndRegenerationState() {
             if(netIsDead != null) {
                 netIsDead.Value = false;

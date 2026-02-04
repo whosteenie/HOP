@@ -98,16 +98,10 @@ namespace Game.Player {
             // Initialize MaterialPropertyBlock for per-instance properties
             if(_skinned != null) {
                 _propertyBlock = new MaterialPropertyBlock();
-                _skinned.GetPropertyBlock(_propertyBlock, 0); // Get existing properties for material index 0
-
-                // Create reusable property block for tagged players
+                _skinned.GetPropertyBlock(_propertyBlock, 0);
                 _tagPropertyBlock = new MaterialPropertyBlock();
-            } else {
-                Debug.LogError($"[PlayerTeamManager] No SkinnedMeshRenderer found! GameObject: {gameObject.name}");
             }
 
-            // Subscribe to team changes (including late-joiners)
-            // Note: netTeam is set by server during spawn, clients should not write to it
             netTeam.OnValueChanged -= OnTeamChanged;
             netTeam.OnValueChanged += OnTeamChanged;
 
@@ -156,6 +150,9 @@ namespace Game.Player {
         // --------------------------------------------------------------------
         // Public method to update outline - can be called by PlayerTagController
         // --------------------------------------------------------------------
+        /// <summary>
+        /// Updates the outline color based on the current team and game mode.
+        /// </summary>
         public void UpdateOutlineColour() {
             if(_skinned == null || _propertyBlock == null) {
                 Debug.LogWarning($"[PlayerTeamManager] Cannot update outline - skinned: {_skinned != null}, propertyBlock: {_propertyBlock != null}, GameObject: {gameObject.name}");
@@ -189,24 +186,17 @@ namespace Game.Player {
                 _gameModeCacheValid = true;
             }
 
-            // Gun Tag mode: prioritize tag glow
             if(_cachedIsTagMode && _tagController != null) {
                 if(_tagController.isTagged.Value) {
-                    // Tagged player: bright yellow-orange glow
-                    // Get existing property block first to preserve other properties
                     _skinned.GetPropertyBlock(_tagPropertyBlock, 0);
                     var outlineSize = CalculateOutlineSize();
                     _tagPropertyBlock.SetColor(outlineColor, taggedGlow);
                     _tagPropertyBlock.SetFloat(size, outlineSize);
                     _skinned.SetPropertyBlock(_tagPropertyBlock, 0);
-                    _lastOutlineSize = outlineSize; // Update cached size
-                    Debug.Log($"[PlayerTeamManager] Set tagged glow color: {taggedGlow}, size: {outlineSize}, GameObject: {gameObject.name}");
+                    _lastOutlineSize = outlineSize;
                 } else {
-                    // Not tagged: default black outline (handled by shader/material)
-                    // Clear the property block to use default material color
                     _skinned.SetPropertyBlock(null, 0);
-                    _lastOutlineSize = -1f; // Reset cached size
-                    Debug.Log($"[PlayerTeamManager] Cleared property block for non-tagged player, GameObject: {gameObject.name}");
+                    _lastOutlineSize = -1f;
                 }
 
                 return;
@@ -217,11 +207,9 @@ namespace Game.Player {
                 Color target;
 
                 if(IsOwner) {
-                    // Yourself: don't change (leave as default/unchanged)
                     return;
                 }
 
-                // Get the LOCAL player's team (only exists on clients)
                 GameObject localPlayer = null;
                 var networkManager = NetworkManager.Singleton;
                 if(networkManager != null && networkManager.LocalClient != null) {
@@ -237,18 +225,16 @@ namespace Game.Player {
                         localTeamMgr = localController.TeamManager;
                     }
                     if(localTeamMgr != null && netTeam.Value == localTeamMgr.netTeam.Value) {
-                        target = teammateOutline; // Same team → blue
+                        target = teammateOutline;
                     } else {
-                        target = enemyOutline; // Different team → red
+                        target = enemyOutline;
                     }
                 } else {
-                    target = enemyOutline; // Fallback (shouldn't happen)
+                    target = enemyOutline;
                 }
 
-                // Calculate distance-based outline size for better visibility at distance
                 var outlineSize = CalculateOutlineSize();
 
-                // Check if shared material has the outline color property (don't create instance just to check)
                 var sharedMaterial = _skinned.sharedMaterial;
                 if(sharedMaterial == null) {
                     return;
@@ -257,7 +243,6 @@ namespace Game.Player {
                 var hasOutlineColor = sharedMaterial.HasProperty(outlineColor);
                 
                 if(!hasOutlineColor) {
-                    // Try fallback: set directly on material instance
                     var materialInstance = _skinned.material;
                     if(materialInstance != null && materialInstance.HasProperty(outlineColor)) {
                         materialInstance.SetColor(outlineColor, target);
@@ -265,47 +250,41 @@ namespace Game.Player {
                         _lastOutlineSize = outlineSize;
                         return;
                     }
-                    return; // Can't set outline if property doesn't exist
+                    return;
                 }
                 
-                // Get existing property block first to preserve other properties
-                // MaterialPropertyBlock works on shared materials - it's per-instance
                 _skinned.GetPropertyBlock(_propertyBlock, 0);
                 
-                // Use MaterialPropertyBlock to set per-instance property without modifying shared material
                 _propertyBlock.SetColor(outlineColor, target);
                 _propertyBlock.SetFloat(size, outlineSize);
-                _skinned.SetPropertyBlock(_propertyBlock, 0); // Apply to material index 0 (outline material)
-                _lastOutlineSize = outlineSize; // Update cached size
+                _skinned.SetPropertyBlock(_propertyBlock, 0);
+                _lastOutlineSize = outlineSize;
                 return;
             }
 
-            // FFA mode: don't update outline color (leave it as default/unchanged)
-            // Clear the property block to use default material color
             _skinned.SetPropertyBlock(null, 0);
-            _lastOutlineSize = -1f; // Reset cached size
+            _lastOutlineSize = -1f;
         }
 
         // --------------------------------------------------------------------
         // Calculate outline size based on distance (larger at distance for visibility)
         // --------------------------------------------------------------------
+        /// <summary>
+        /// Calculates the outline size based on the distance from the main camera.
+        /// </summary>
         private float CalculateOutlineSize() {
             if(_mainCamera == null) {
-                // Fallback to Camera.main if cache is lost (shouldn't happen, but safety check)
                 _mainCamera = Camera.main;
                 if(_mainCamera == null) {
                     return minOutlineSize;
                 }
             }
 
-            // Get distance from camera to player
             var distance = Vector3.Distance(_mainCamera.transform.position, transform.position);
 
-            // Clamp distance to scaling range
             var normalizedDistance = Mathf.InverseLerp(distanceScaleStart, distanceScaleEnd, distance);
             normalizedDistance = Mathf.Clamp01(normalizedDistance);
 
-            // Interpolate between min and max size
             var outlineSize = Mathf.Lerp(minOutlineSize, maxOutlineSize, normalizedDistance);
 
             return outlineSize;

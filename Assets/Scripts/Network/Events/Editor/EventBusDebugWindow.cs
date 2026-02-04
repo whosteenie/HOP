@@ -277,8 +277,13 @@ namespace Network.Events.Editor {
                 
                 foreach(var handler in kvp.Value) {
                     var method = handler.GetType().GetMethod("Invoke");
-                    var declaringType = method?.DeclaringType?.Name ?? "Unknown";
-                    var methodName = method?.Name ?? "Unknown";
+                    string declaringType = "Unknown";
+                    string methodName = "Unknown";
+                    if(method != null) {
+                        methodName = method.Name;
+                        var decType = method.DeclaringType;
+                        if(decType != null) declaringType = decType.Name;
+                    }
                     
                     EditorGUILayout.BeginHorizontal();
                     GUILayout.Space(20);

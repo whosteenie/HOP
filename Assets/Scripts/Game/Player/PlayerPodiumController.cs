@@ -66,6 +66,9 @@ namespace Game.Player {
             }
         }
 
+        /// <summary>
+        /// Resets the player state on the server to prepare for the podium display.
+        /// </summary>
         public void ForceRespawnForPodiumServer() {
             if(!IsServer) return;
 
@@ -120,6 +123,9 @@ namespace Game.Player {
             _awaitingPodiumSnap = true;
         }
 
+        /// <summary>
+        /// Teleports the player to the podium position from the server.
+        /// </summary>
         public void TeleportToPodiumFromServer(Vector3 position, Quaternion rotation) {
             if(!IsServer) return;
             TeleportToPodiumOwnerClientRpc(position, rotation);
@@ -174,6 +180,9 @@ namespace Game.Player {
             _podiumSkinned.enabled = true;
         }
 
+        /// <summary>
+        /// Snaps the podium visuals on all clients.
+        /// </summary>
         [Rpc(SendTo.Everyone)]
         public void SnapPodiumVisualsClientRpc() {
             if(!_awaitingPodiumSnap) return;

@@ -5,10 +5,8 @@ using Game.Progression;
 using Game.UI;
 using Game.Match;
 using Network;
-using Network.Events;
 using Network.Services;
 using Network.Steam;
-using Steamworks;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UIElements;
@@ -87,14 +85,14 @@ namespace Game.Menu {
         }
 
         private void Start() {
-            if(DiscordManager.Instance != null) {
-                string mode = "Deathmatch";
-                if(MatchSettingsManager.Instance != null) {
-                    mode = MatchSettingsManager.Instance.selectedGameModeId;
-                    if(string.IsNullOrEmpty(mode)) mode = "Deathmatch";
-                }
-                DiscordManager.Instance.SetStatus("Playing " + mode, "In Match", DateTimeOffset.UtcNow.ToUnixTimeSeconds());
+            if(DiscordManager.Instance == null) return;
+            var mode = "Deathmatch";
+            if(MatchSettingsManager.Instance != null) {
+                mode = MatchSettingsManager.Instance.selectedGameModeId;
+                if(string.IsNullOrEmpty(mode)) mode = "Deathmatch";
             }
+            DiscordManager.Instance.SetStatus("Playing " + mode, "In Match", 
+                DateTimeOffset.UtcNow.ToUnixTimeSeconds());
         }
 
         private void OnEnable() {
@@ -183,7 +181,7 @@ namespace Game.Menu {
             _pauseChallengesContainer.AddToClassList("hidden");
         }
 
-        private VisualElement CreateChallengeCard(string title) {
+        private static VisualElement CreateChallengeCard(string title) {
             var card = new VisualElement {
                 style = {
                     width = 280, minHeight = 180,
@@ -247,7 +245,7 @@ namespace Game.Menu {
                 var target = activeChallenge.targetProgress;
                 if (progress > target) progress = target;
                     
-                string descText = def.Description;
+                var descText = def.Description;
                 try {
                     if (!string.IsNullOrEmpty(activeChallenge.filterID)) {
                         var displayFilter = pm.GetFilterDisplayName(activeChallenge.filterID);
@@ -300,10 +298,9 @@ namespace Game.Menu {
                 UISoundService.RegisterButtonHover(_quitConfirmationYes);
             }
 
-            if(_quitConfirmationNo != null) {
-                _quitConfirmationNo.clicked += () => { UISoundService.PlayButtonClick(); HideQuitConfirmation(); };
-                UISoundService.RegisterButtonHover(_quitConfirmationNo);
-            }
+            if(_quitConfirmationNo == null) return;
+            _quitConfirmationNo.clicked += () => { UISoundService.PlayButtonClick(); HideQuitConfirmation(); };
+            UISoundService.RegisterButtonHover(_quitConfirmationNo);
         }
 
         public void TogglePause() {

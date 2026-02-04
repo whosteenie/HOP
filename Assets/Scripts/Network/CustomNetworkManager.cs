@@ -239,8 +239,8 @@ namespace Network {
                 return Random.Range(0, 2) == 0 ? SpawnPoint.Team.TeamA : SpawnPoint.Team.TeamB;
             }
 
-            int countA = 0;
-            int countB = 0;
+            var countA = 0;
+            var countB = 0;
 
             // Count existing players (TeamManager netvars)
             var allPlayers = FindObjectsByType<PlayerTeamManager>(FindObjectsSortMode.None);
@@ -267,8 +267,8 @@ namespace Network {
             // We query SessionManager.CurrentLobby for PartyID.
             
             var session = SessionManager.Instance;
-            bool isInLobby = session != null && session.CurrentLobby.HasValue;
-            string gameModeType = "Public"; // Default
+            var isInLobby = session != null && session.CurrentLobby.HasValue;
+            var gameModeType = "Public"; // Default
             if (isInLobby) {
                 gameModeType = session.CurrentLobby.Value.GetData("GameMode"); 
             }
@@ -279,12 +279,12 @@ namespace Network {
             var solos = new System.Collections.Generic.List<ulong>();
 
             foreach (var clientId in clients) {
-                string pId = "";
+                var pId = "";
                 if (isInLobby) {
                    // Find member with this SteamID
                    // struct Lobby has Members -> IEnumerable<Friend>
-                   // Friend has Id (SteamId).
-                   // We need to match ClientId (ulong) to Friend.Id (SteamId).
+                   // Friend has ID (SteamId).
+                   // We need to match ClientId (ulong) to Friend.ID (SteamId).
                    var member = session.CurrentLobby.Value.Members.FirstOrDefault(m => m.Id.Value == clientId);
                    // Friend struct is value type, checking Id validity?
                    if (member.Id.Value != 0) {
@@ -314,8 +314,8 @@ namespace Network {
                 var allClients = new System.Collections.Generic.List<ulong>(clients);
                 ShuffleList(allClients); // Randomize first
                 
-                for (int i = 0; i < allClients.Count; i++) {
-                    SpawnPoint.Team team = (i % 2 == 0) ? SpawnPoint.Team.TeamA : SpawnPoint.Team.TeamB;
+                for (var i = 0; i < allClients.Count; i++) {
+                    var team = (i % 2 == 0) ? SpawnPoint.Team.TeamA : SpawnPoint.Team.TeamB;
                     _pendingTeamAssignments[allClients[i]] = team;
                 }
                 Debug.Log($"[CustomNetworkManager] Distributed Private Match/Single Party of {clients.Count} players.");

@@ -24,7 +24,6 @@ namespace Game.Player {
         private GrappleController _grappleController;
         private SwingGrapple _swingGrapple;
         private MantleController _mantleController;
-        // [SerializeField] private DashController dashController;
 
         [Header("Input Settings")]
         [SerializeField] private bool toggleSprint = true;
@@ -74,17 +73,6 @@ namespace Game.Player {
             }
         }
 
-        // private SwingGrapple SwingGrapple {
-        //     get {
-        //         if(_swingGrapple == null) {
-        //             _swingGrapple = playerController != null
-        //                 ? playerController.SwingGrapple
-        //                 : GetComponent<SwingGrapple>();
-        //         }
-        //
-        //         return _swingGrapple;
-        //     }
-        // }
 
         private MantleController MantleController {
             get {
@@ -206,7 +194,6 @@ namespace Game.Player {
             var weaponData = WeaponManager.GetWeaponDataByIndex(WeaponManager.CurrentWeaponIndex);
             var fireMode = weaponData.fireMode;
 
-            // Use Input System actions instead of direct input
             // Component reference should be assigned in the inspector
             if(_playerInputComponent == null) _playerInputComponent = GetComponent<UnityEngine.InputSystem.PlayerInput>();
             if(_playerInputComponent == null) return;
@@ -221,8 +208,6 @@ namespace Game.Player {
                 CurrentWeapon.Shoot();
             }
 
-            // Check jump action or scroll wheel for jump/mantle
-            // Check if scroll is bound to jump via PlayerPrefs
             var jumpPressed = jumpAction != null && jumpAction.IsPressed();
             var scrollPressed = false;
 
@@ -295,18 +280,6 @@ namespace Game.Player {
                 EventBus.Publish(new HideScoreboardEvent());
             }
 
-            // OnSwing
-            // if(IsOwner && !IsPausedOrDead && !(MantleController?.IsMantling ?? false)) {
-            //     if(Keyboard.current.eKey.isPressed) {
-            //         if(!SwingGrapple?.IsSwinging ?? true) {
-            //             SwingGrapple?.TryStartSwing();
-            //         }
-            //     } else {
-            //         if(SwingGrapple?.IsSwinging ?? false) {
-            //             SwingGrapple.CancelSwing();
-            //         }
-            //     }
-            // }
         }
 
         #endregion
@@ -520,8 +493,6 @@ namespace Game.Player {
         }
 
         private void OnScrollWheel(InputValue _) {
-            if(IsBot) return;
-            // TODO: Fix scroll wheel input so we don't have to use Mouse.current.scroll in LateUpdate
             if(!IsOwner || IsPreMatchOrPausedOrDead) return;
             var isMantling = MantleController != null && MantleController.IsMantling;
             if(isMantling) return;
@@ -594,9 +565,6 @@ namespace Game.Player {
             }
         }
 
-        private void OnSwing() {
-            // TODO: fix hold input
-        }
 
         #endregion
 
@@ -654,6 +622,9 @@ namespace Game.Player {
                          WeaponManager.WeaponCount);
         }
 
+        /// <summary>
+        /// Switches the current weapon to the specified index.
+        /// </summary>
         public void SwitchWeapon(int weaponIndex) {
             if(WeaponManager == null || !CurrentWeapon) return;
             // Allow switching even during pull out (interruptible switching)
@@ -776,6 +747,9 @@ namespace Game.Player {
             _sniperSensitivityMultiplier = Mathf.Clamp(sniperZoomFov / _defaultFpFov, 0.01f, 1f);
         }
 
+        /// <summary>
+        /// Disables the sniper overlay and restores weapon visuals.
+        /// </summary>
         public void ForceDisableSniperOverlay(bool playZoomSound) {
             if(!IsSniperOverlayActive) {
                 if(SniperOverlayManager.Instance != null) {

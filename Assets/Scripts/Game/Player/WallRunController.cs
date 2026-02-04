@@ -69,31 +69,24 @@ namespace Game.Player {
         }
 
         private void OnWallRunStateChanged(bool previousValue, bool newValue) {
-             // Can be used for third-person animations later
         }
         
+        /// <summary>
+        /// Checks for surrounding walls and initiates or stops a wall run.
+        /// </summary>
         public void CheckForWall() {
             if (!IsOwner) return;
 
-             // Start conditions: Airborne, moving fast enough (checked by movement controller ideally, or here)
             if (_characterController.isGrounded) {
                 if (IsWallRunning) StopWallRun();
                 return;
             }
 
-            // Cooldown check
             if (_jumpCooldownTimer > 0f) {
                 _jumpCooldownTimer -= Time.deltaTime;
                 return;
             }
             
-            // Check for wall
-            // Debug visualization
-            if (IsOwner) {
-                Debug.DrawRay(transform.position, -transform.right * wallDistanceCheck, Color.red);
-                Debug.DrawRay(transform.position, transform.right * wallDistanceCheck, Color.blue);
-            }
-
             if (Physics.Raycast(transform.position, -transform.right, out var leftHit, wallDistanceCheck, wallLayer)) {
                 IsWallLeft = true;
                 _wallHit = leftHit;
@@ -107,34 +100,21 @@ namespace Game.Player {
             }
 
             if (IsWallRunning) {
-                // If already running, we don't need to re-check the angle or height strictly every frame
-                // We just need to make sure we are still close enough to the wall (raycast check above covers this)
-                // However, if we want to allow 360 aiming, we shouldn't call StopWallRun just because CanWallRun returns false due to angle.
-                
-                // We only stop if we lost the wall raycast (already handled above in the raycast block)
                  return;
             }
 
             if (CanWallRun()) {
                 if (!IsWallRunning) {
-                     // Input Gate: Require holding jump to attach (allows intentionality without needing movement input)
                      if (playerController.PlayerInput != null && !playerController.PlayerInput.IsJumpHeld) {
                          return;
                      }
 
-                     // Speed Gate: Only start wall run if moving fast enough (near sprint speed)
-                     // This prevents accidental wall runs when just jumping near a wall from standstill
                      if (_movementController.HorizontalVelocity.magnitude < minWallRunSpeed) {
                          return;
                      }
 
-                     // Debug.Log($"[WallRun] Starting wall run! Wall: {_wallHit.collider.name}");
                      StartWallRun();
                 }
-            } else {
-                 // For fresh entry, failed checks mean no wall run
-                 // But we already handled the "IsWallRunning" case above, so this block is only for !IsWallRunning
-                 // No action needed
             }
         }
 
@@ -191,47 +171,37 @@ namespace Game.Player {
             }
         }
 
+        /// <summary>
+        /// Updates the active wall run state, handling timers and speed checks.
+        /// </summary>
         public void UpdateWallRun() {
             if (!IsWallRunning) return;
 
-
-
             _wallRunTimer -= Time.deltaTime;
             if (_wallRunTimer <= 0) {
                  StopWallRun();
                  return;
             }
 
-            _wallRunTimer -= Time.deltaTime;
-            if (_wallRunTimer <= 0) {
-                 StopWallRun();
-                 return;
-            }
-
-            // Stuck/Bonk Check (Auto-Mantle)
-            // If we are moving significantly slower than our target speed, we hit something.
-            // Wait a small buffer (0.2s) at start to allow acceleration (though we snap speed instantly usually)
             if (_wallRunTimer < maxWallRunTime - 0.1f) {
                 Vector3 actualVelocity = _characterController.velocity;
                 float actualSpeed = new Vector3(actualVelocity.x, 0, actualVelocity.z).magnitude;
                 
-                // If we drop below 2m/s (Arbitrary low value implies stop), we hit a wall/ledge
                 if (actualSpeed < 2f) {
-                     // Debug.Log($"[WallRun] Bonk detected! Speed: {actualSpeed}");
-                     
                      Vector3 desiredDir = GetWallRunVelocity(transform.forward).normalized;
                      
                      if (playerController.MantleController != null && playerController.MantleController.TryMantle(desiredDir)) {
                          StopWallRun();
-                         return;
                      } else {
                          StopWallRun();
-                         return;
                      }
                 }
             }
         }
 
+        /// <summary>
+        /// Calculates the velocity vector for a wall run based on the wall normal.
+        /// </summary>
         public Vector3 GetWallRunVelocity(Vector3 currentForward) {
              // Calculate direction along the wall
              Vector3 wallForward = Vector3.Cross(WallNormal, Vector3.up);
@@ -244,6 +214,9 @@ namespace Game.Player {
              return wallForward * _currentWallRunSpeed;
         }
 
+        /// <summary>
+        /// Performs a wall jump, applying forces away from the wall and upward.
+        /// </summary>
         public void WallJump() {
              if (!IsWallRunning) return;
 

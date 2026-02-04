@@ -1,7 +1,6 @@
 using System;
 using Steamworks;
 using UnityEngine;
-using Network.Singletons;
 using UnityUtils;
 using Cysharp.Threading.Tasks;
 
@@ -15,9 +14,9 @@ namespace Network.Steam {
         [Tooltip("Your Steam App ID. Use 480 for testing (Spacewar).")]
         [SerializeField] private uint appId = 480;
 
-        public bool IsInitialized { get; private set; }
-        public SteamId LocalSteamId => SteamClient.SteamId;
-        public string LocalPlayerName => SteamClient.Name;
+        private bool IsInitialized { get; set; }
+        private static SteamId LocalSteamId => SteamClient.SteamId;
+        private static string LocalPlayerName => SteamClient.Name;
 
         // Event for when Steam is ready
         public event Action OnSteamInitialized;
@@ -34,7 +33,9 @@ namespace Network.Steam {
                 IsInitialized = true;
                 Debug.Log($"[SteamManager] Initialized Steamworks (AppID: {appId}). Logged in as: {LocalPlayerName} ({LocalSteamId})");
                 
-                OnSteamInitialized?.Invoke();
+                if(OnSteamInitialized != null) {
+                    OnSteamInitialized.Invoke();
+                }
             }
             catch (Exception e) {
                 Debug.LogError($"[SteamManager] Failed to initialize Steamworks: {e.Message}");

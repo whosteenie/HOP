@@ -134,26 +134,21 @@ namespace Game.Player {
 
         /// <summary>
         /// Tries to pick up a hopball within pickup range.
-        /// Returns true if a hopball was picked up.
         /// </summary>
         public void TryPickupHopball() {
             if(playerController == null) {
-                Debug.LogWarning("[PlayerHopballController] TryPickupHopball: playerController is null!");
                 return;
             }
             
             if(_hopballLayer == 0) {
-                Debug.LogWarning("[PlayerHopballController] TryPickupHopball: _hopballLayer is 0! Re-initializing...");
                 _hopballLayer = playerController.HopballLayer;
                 if(_hopballLayer == 0) {
-                    Debug.LogError("[PlayerHopballController] TryPickupHopball: HopballLayer is still 0 after re-initialization!");
                     return;
                 }
             }
             
             var hitCount = Physics.OverlapSphereNonAlloc(playerController.Position, PickupRange, _pickupHits, _hopballLayer);
             if(hitCount == 0) {
-                // No hopballs found in range - this is normal, don't log
                 return;
             }
             
@@ -167,7 +162,7 @@ namespace Game.Player {
         }
 
         /// <summary>
-        /// Equips the hopball, hides FP weapons, and prevents shooting/reloading.
+        /// Equips the hopball and handles local visual state.
         /// </summary>
         private void EquipHopball(HopballController hopballController) {
             if(hopballController == null || !IsOwner) return;
@@ -178,19 +173,12 @@ namespace Game.Player {
                 playerController.PlayerInput.ForceDisableSniperOverlay(false);
             }
 
-            // Setup FP hopball visual immediately (optimistic, owner sees it right away)
             SetupFpHopball();
-
-            // Hide FP weapons locally (owner only)
             HideFpWeapons();
 
-            // Subscribe to visual state changes for dissolve handling
             HopballController.VisualStateChanged += OnHopballVisualStateChanged;
-
-            // Transition animation layers (weapon hold -> right hand hold)
             TransitionToHopballLayers();
 
-            // Request server to equip the hopball (server will handle world visuals via RPC)
             RequestEquipHopballServerRpc(hopballController.GetComponent<NetworkObject>());
         }
 
@@ -245,26 +233,17 @@ namespace Game.Player {
                 localClientId = NetworkManager.Singleton.LocalClient.ClientId;
             }
 
-            // Owner: Hide world weapon, show both holsters, and setup world hopball visual (for others to see)
             if(isHolder) {
                 HideWorldWeapon();
-                SetupWorldHopballVisual(true); // Pass true because local client is the holder
-                // Show both holsters when holding hopball (neither weapon is "equipped")
+                SetupWorldHopballVisual(true);
                 ShowBothHolsters();
-                // Apply shadow state for hopball holding (both holsters ShadowsOnly, in-hand weapon ShadowsOff)
                 if(playerController != null && playerController.PlayerShadow != null) {
                     playerController.PlayerShadow.ApplyHopballShadowState(true, true);
                 }
-            }
-            // Non-holders: Setup world hopball visual
-            // Enable target on holder's controller only if local client is viewing it (not the holder themselves)
-            else {
-                SetupWorldHopballVisual(); // Pass false because local client is NOT the holder
-                // This controller belongs to the holder, enable target so local client can see indicator
-                // Only enable if local client is NOT the holder (holder doesn't see their own indicator)
+            } else {
+                SetupWorldHopballVisual();
                 if(OwnerClientId != holderClientId || localClientId == holderClientId) return;
                 EnablePlayerTarget();
-                // For non-owners viewing the holder: show both holsters, hide in-hand weapon, apply shadow state
                 ShowBothHolsters();
                 HideWorldWeapon();
                 if(playerController != null && playerController.PlayerShadow != null) {
@@ -334,7 +313,6 @@ namespace Game.Player {
 
         /// <summary>
         /// Finds the BobHolder transform for the currently active weapon.
-        /// Structure: Camera -> SwayHolder -> BobHolder -> Weapon
         /// </summary>
         private Transform FindBobHolder() {
             var swayCamera = _fpCamera;
@@ -345,11 +323,9 @@ namespace Game.Player {
                 return null;
             }
 
-            // First, try to find the active weapon's BobHolder via WeaponManager
             if(_weaponManager != null) {
                 var currentFpWeapon = _weaponManager.GetCurrentFpWeapon();
                 if(currentFpWeapon != null && currentFpWeapon.activeSelf) {
-                    // Walk up the hierarchy to find BobHolder
                     var parent = currentFpWeapon.transform.parent;
                     while(parent != null) {
                         if(parent.name == "BobHolder") {
@@ -360,8 +336,6 @@ namespace Game.Player {
                 }
             }
 
-            // Search for any active BobHolder in the camera hierarchy
-            // Structure: Camera -> SwayHolder -> BobHolder
             foreach(Transform swayHolder in swayCamera.transform) {
                 if(swayHolder.name != "SwayHolder") continue;
                 
@@ -393,7 +367,6 @@ namespace Game.Player {
 
         /// <summary>
         /// Finds the SwayHolder transform in the camera hierarchy.
-        /// Structure: Camera -> SwayHolder -> BobHolder -> Weapon
         /// </summary>
         private Transform FindSwayHolder() {
             var swayCamera = _fpCamera;
@@ -402,15 +375,12 @@ namespace Game.Player {
             }
             if(swayCamera == null) return null;
 
-            // Search for SwayHolder directly as a child of the camera
-            // Structure: Camera -> SwayHolder -> BobHolder -> Weapon
             foreach(Transform child in swayCamera.transform) {
                 if(child.name == "SwayHolder") {
                     return child;
                 }
             }
 
-            // SwayHolder should always exist - if not found, return null (fail fast)
             Debug.LogError("[HopballController] FindSwayHolder: SwayHolder not found in camera hierarchy!");
             return null;
         }
@@ -460,35 +430,30 @@ namespace Game.Player {
         }
 
         /// <summary>
-        /// Drops the hopball, unparents it, enables physics, and restores weapons.
+        /// Drops the hopball and restores weapons.
         /// </summary>
         public void DropHopball(HopballDropReason reason = HopballDropReason.Manual) {
             if(_currentHopballController == null || !IsOwner) return;
 
             var hopball = _currentHopballController;
-            _currentHopballController = null; // Clear reference early to prevent re-entry
+            _currentHopballController = null;
 
-            // Get drop position from world visual (where it appears on the player)
             Vector3 dropPosition;
             Quaternion dropRotation;
             if(_worldHopballVisualInstance != null) {
                 dropPosition = _worldHopballVisualInstance.transform.position;
                 dropRotation = _worldHopballVisualInstance.transform.rotation;
             } else {
-                // Fallback to hopball's stored position if visual doesn't exist
                 var hopballTransform = hopball.transform;
                 dropPosition = hopballTransform.position;
                 dropRotation = hopballTransform.rotation;
             }
 
-            // Unsubscribe from visual state changes
             HopballController.VisualStateChanged -= OnHopballVisualStateChanged;
 
-            // Hide hopball visual immediately, but handle arm separately for PutAway animation
             HideFpHopballVisualImmediate();
             DestroyWorldVisual();
 
-            // Move arm to active weapon's BobHolder if it exists (in case weapon switch happened)
             if(_fpHopballArmInstance != null) {
                 var activeBobHolder = FindBobHolder();
                 if(activeBobHolder != null && _fpHopballArmInstance.transform.parent != activeBobHolder) {
@@ -496,30 +461,21 @@ namespace Game.Player {
                 }
             }
 
-            // Handle arm PutAway animation and delayed hiding
             HandleArmPutAwayAnimation();
-
-            // Request server to drop the hopball at the correct position (since hopball is server-authoritative)
             RequestDropHopballServerRpc(hopball.GetComponent<NetworkObject>(), dropPosition, dropRotation);
 
-            // Restore weapons and holster visibility depending on reason
             if(reason == HopballDropReason.Manual) {
                 ShowWeapons();
-                // Restore normal holster visibility (only show unequipped holster)
                 if(_weaponManager != null) {
                     _weaponManager.RefreshHolsterVisibility();
                 }
-                // Restore shadow state for owners
                 if(playerController != null && playerController.PlayerShadow != null) {
                     playerController.PlayerShadow.ApplyHopballShadowState(false, playerController.IsOwner);
                     playerController.PlayerShadow.ApplyOwnerDefaultShadowState();
                 }
                 
-                // Transition animation layers back (right hand hold -> weapon hold)
                 TransitionToWeaponLayers();
             } else {
-                // Ensure stored references are cleared so future drops don't resurrect stale objects
-                // Still transition layers back even on death/weapon switch
                 TransitionToWeaponLayers();
             }
         }
@@ -532,14 +488,9 @@ namespace Game.Player {
             ulong requestingClientId) {
             if(hopball == null || !hopball.IsEquipped) return;
 
-            // Step 1: Hide hopball on all clients before teleport (prevents seeing teleport)
             hopball.PrepareDropClientRpc();
-
-            // Step 2: Wait a frame to ensure hide RPC is processed
             await UniTask.WaitForEndOfFrame();
 
-            // Step 3: Teleport using NetworkTransform (if available) or direct transform
-            // Preserve the hopball's current scale (should be 0.13, 0.13, 0.13 from prefab)
             var currentScale = hopball.transform.localScale;
             var networkTransform = hopball.GetComponent<Unity.Netcode.Components.NetworkTransform>();
             if(networkTransform != null) {
@@ -548,30 +499,24 @@ namespace Game.Player {
                 var hopballTransform = hopball.transform;
                 hopballTransform.position = dropPosition;
                 hopballTransform.rotation = dropRotation;
-                hopballTransform.localScale = currentScale; // Ensure scale is preserved
+                hopballTransform.localScale = currentScale;
             }
             
-            hopball.transform.SetParent(null); // Ensure it's unparented
+            hopball.transform.SetParent(null);
 
-            // Step 4: Wait for network sync (same as respawn pattern)
             await UniTask.WaitForFixedUpdate();
 
-            // Step 5: Now show the hopball at the new position
             hopball.SetDropped();
 
-            // Enable physics on the main hopball object
             hopball.Rigidbody.isKinematic = false;
             hopball.Rigidbody.linearVelocity = Vector3.down * 2f;
 
-            // Notify HopballSpawnManager that ball was dropped
             if(HopballSpawnManager.Instance != null) {
                 HopballSpawnManager.Instance.OnHopballDropped();
             }
 
-            // Publish hopball dropped event
             EventBus.Publish(new HopballDroppedEvent(requestingClientId));
 
-            // Notify all clients to disable the player Target (holder no longer holding ball)
             if(!NetworkManager.Singleton.ConnectedClients.TryGetValue(requestingClientId, out var client)) return;
 
             var requestingPlayer = client.PlayerObject;
@@ -598,31 +543,22 @@ namespace Game.Player {
         }
 
         /// <summary>
-        /// Server-side method to drop the hopball when player dies.
-        /// Called from PlayerHealthController on the server.
+        /// Drops the hopball when the player dies.
         /// </summary>
         public void DropHopballOnDeath() {
-            // Get hopball from HopballSpawnManager since server doesn't have _currentHopball reference
             if(HopballSpawnManager.Instance == null || HopballSpawnManager.Instance.CurrentHopballController == null) return;
 
             var hopball = HopballSpawnManager.Instance.CurrentHopballController;
 
-            // Verify this player is actually holding it
             if(!hopball.IsEquipped || hopball.HolderController == null ||
                hopball.HolderController.OwnerClientId != OwnerClientId) return;
 
-            // Clear local reference if it exists (for owner client cleanup)
             _currentHopballController = null;
 
-            // Get drop position - use player position since server doesn't have world visual
-            // Position slightly above player to prevent it from falling through ground
             var dropPosition = playerController.Position + Vector3.up * 1.5f;
             var dropRotation = playerController.Rotation;
 
-            // Drop directly on server (we're already on server, so call the method directly)
             _ = DropHopballAtPosition(hopball, dropPosition, dropRotation, OwnerClientId);
-
-            // Notify owner client to clean up visuals and restore weapons
             CleanupVisualsAndRestoreWeaponsClientRpc();
         }
 
@@ -702,51 +638,39 @@ namespace Game.Player {
         [ClientRpc]
         public void OnHopballReleasedClientRpc() {
             if(IsOwner) {
-                // Owner: Hide hopball visual immediately if still visible
                 HideFpHopballVisualImmediate();
-
-                // Handle arm PutAway animation and delayed hiding
                 HandleArmPutAwayAnimation();
             } else {
-                // Non-owner viewing the holder: Restore holster visibility and show in-hand weapon
-                // This controller belongs to the holder who just dropped the hopball
                 if(_weaponManager != null) {
                     _weaponManager.RefreshHolsterVisibility();
-                    // Show the in-hand weapon (it was hidden when holding hopball)
                     var currentWeapon = _weaponManager.CurrentWorldWeaponInstance;
                     if(currentWeapon != null) {
                         currentWeapon.SetActive(true);
                     }
                 }
-                // Restore shadow state for non-owners (revert from hopball state)
                 if(playerController != null && playerController.PlayerShadow != null) {
                     playerController.PlayerShadow.ApplyHopballShadowState(false, false);
-                    // Apply visible shadow state for non-owners
                     playerController.PlayerShadow.ApplyVisibleShadowState();
                 }
             }
         }
 
         /// <summary>
-        /// Hides the FP hopball visual immediately, but keeps the arm visible for animation.
+        /// Hides the FP hopball visual immediately.
         /// </summary>
         private void HideFpHopballVisualImmediate() {
             if(_fpHopballVisualInstance == null) return;
 
-            // Hide all renderers in the hopball visual
             PlayerRenderer.SetHopballVisualRenderersEnabled(false, _fpHopballVisualInstance);
 
-            // Also hide the HopballVisual component's effects and light
             var hopballVisual = _fpHopballVisualInstance.GetComponent<HopballVisual>();
             if(hopballVisual != null) {
                 var visualTransform = hopballVisual.transform;
-                // Disable effects and light
                 foreach(Transform child in visualTransform) {
                     child.gameObject.SetActive(false);
                 }
             }
 
-            // Destroy the hopball visual instance (arm is separate and will be destroyed via animation event)
             _fpHopballVisualInstance.SetActive(false);
             _fpHopballVisualInstance.transform.SetParent(null);
             Destroy(_fpHopballVisualInstance);
@@ -778,10 +702,9 @@ namespace Game.Player {
             if(!IsOwner) return;
 
             // Trigger PutAway animation when dissolve reaches threshold
-            if(!_putAwayAnimationTriggered && state.DissolveAmount >= putAwayDissolveThreshold) {
-                _putAwayAnimationTriggered = true;
-                HandleArmPutAwayAnimation();
-            }
+            if(_putAwayAnimationTriggered || !(state.DissolveAmount >= putAwayDissolveThreshold)) return;
+            _putAwayAnimationTriggered = true;
+            HandleArmPutAwayAnimation();
         }
 
         /// <summary>
@@ -899,23 +822,23 @@ namespace Game.Player {
             if(_playerAnimator == null && playerController != null) {
                 _playerAnimator = playerController.PlayerAnimator;
             }
-            if(_playerAnimator != null) {
-                // Use inspector values if set, otherwise auto-detect by name
-                _weaponHoldLayerIndex = weaponHoldLayerIndex >= 0 
-                    ? weaponHoldLayerIndex 
-                    : _playerAnimator.GetLayerIndex("Weapon Hold Layer");
+
+            if(_playerAnimator == null) return;
+            // Use inspector values if set, otherwise auto-detect by name
+            _weaponHoldLayerIndex = weaponHoldLayerIndex >= 0 
+                ? weaponHoldLayerIndex 
+                : _playerAnimator.GetLayerIndex("Weapon Hold Layer");
                 
-                _rightHandHoldLayerIndex = rightHandHoldLayerIndex >= 0 
-                    ? rightHandHoldLayerIndex 
-                    : _playerAnimator.GetLayerIndex("Right Hand Hold Layer");
+            _rightHandHoldLayerIndex = rightHandHoldLayerIndex >= 0 
+                ? rightHandHoldLayerIndex 
+                : _playerAnimator.GetLayerIndex("Right Hand Hold Layer");
                 
-                // Log layer indices for debugging
-                if(_weaponHoldLayerIndex < 0) {
-                    Debug.LogWarning("[HopballController] Weapon Hold Layer not found!");
-                }
-                if(_rightHandHoldLayerIndex < 0) {
-                    Debug.LogWarning("[HopballController] Right Hand Hold Layer not found!");
-                }
+            // Log layer indices for debugging
+            if(_weaponHoldLayerIndex < 0) {
+                Debug.LogWarning("[HopballController] Weapon Hold Layer not found!");
+            }
+            if(_rightHandHoldLayerIndex < 0) {
+                Debug.LogWarning("[HopballController] Right Hand Hold Layer not found!");
             }
         }
 

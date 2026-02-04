@@ -205,6 +205,9 @@ namespace Game.Player {
             SetTrailActive(shouldBeActive);
         }
 
+        /// <summary>
+        /// Activates or deactivates the speed trail effect.
+        /// </summary>
         private void SetTrailActive(bool active) {
             if(speedTrailEffect == null) {
                 #if UNITY_EDITOR || DEVELOPMENT_BUILD
@@ -253,11 +256,17 @@ namespace Game.Player {
             }
         }
 
+        /// <summary>
+        /// Caches the player's base color from the PlayerController.
+        /// </summary>
         private void CachePlayerColor() {
             if(playerController == null) return;
             _currentPlayerColor = playerController.CurrentBaseColor;
         }
 
+        /// <summary>
+        /// Subscribes to player color changes.
+        /// </summary>
         private void SubscribeToColorChanges() {
             if(playerController == null) return;
             playerController.playerBaseColor.OnValueChanged -= OnPlayerBaseColorChanged;
@@ -265,16 +274,21 @@ namespace Game.Player {
             CachePlayerColor();
         }
 
+        /// <summary>
+        /// Unsubscribes from player color changes.
+        /// </summary>
         private void UnsubscribeFromColorChanges() {
             if(playerController == null) return;
             playerController.playerBaseColor.OnValueChanged -= OnPlayerBaseColorChanged;
         }
 
+        /// <summary>
+        /// Handles player base color changes.
+        /// </summary>
         private void OnPlayerBaseColorChanged(Vector4 _, Vector4 newValue) {
             _currentPlayerColor = new Color(newValue.x, newValue.y, newValue.z, 1f);
             ApplyPlayerColorToMaterials();
             
-            // Broadcast color change to all clients via RPC
             if(IsOwner) {
                 BroadcastColorChangeClientRpc(newValue);
             }

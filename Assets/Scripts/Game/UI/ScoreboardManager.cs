@@ -11,7 +11,6 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UIElements;
 using Steamworks;
-using Steamworks.Data;
 using Cysharp.Threading.Tasks;
 using Color = UnityEngine.Color;
 
@@ -1073,7 +1072,7 @@ namespace Game.UI {
         /// Gets the player icon sprite based on the player's material index.
         /// Material index order: 0=white, 1=red, 2=orange, 3=yellow, 4=green, 5=blue, 6=purple
         /// </summary>
-        private Sprite GetPlayerIconSprite(UnityEngine.Color baseColor) {
+        private Sprite GetPlayerIconSprite(Color baseColor) {
             if(playerIconSprites == null || playerIconSprites.Length == 0) {
                 return null;
             }
@@ -1083,18 +1082,18 @@ namespace Game.UI {
             return playerIconSprites[clampedIndex];
         }
 
-        private int GetClosestIconIndex(UnityEngine.Color baseColor) {
+        private int GetClosestIconIndex(Color baseColor) {
             if(playerIconSprites == null || playerIconSprites.Length == 0) return 0;
 
             // Use the legacy palette order: white, red, orange, yellow, green, blue, purple
             var palette = new[] {
-                new UnityEngine.Color(1f, 1f, 1f),
-                new UnityEngine.Color(1f, 0f, 0f),
-                new UnityEngine.Color(1f, 0.5f, 0f),
-                new UnityEngine.Color(1f, 1f, 0f),
-                new UnityEngine.Color(0f, 1f, 0f),
-                new UnityEngine.Color(0f, 0f, 1f),
-                new UnityEngine.Color(0.5f, 0f, 1f)
+                new Color(1f, 1f, 1f),
+                new Color(1f, 0f, 0f),
+                new Color(1f, 0.5f, 0f),
+                new Color(1f, 1f, 0f),
+                new Color(0f, 1f, 0f),
+                new Color(0f, 0f, 1f),
+                new Color(0.5f, 0f, 1f)
             };
 
             var bestIndex = 0;

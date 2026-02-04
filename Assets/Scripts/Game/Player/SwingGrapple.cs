@@ -79,6 +79,9 @@ namespace Game.Player {
             ropeRenderer.enabled = _netIsSwinging.Value;
         }
 
+        /// <summary>
+        /// Attempts to start a swing grapple if looking at a grappleable surface.
+        /// </summary>
         public void TryStartSwing() {
             if(!IsOwner || IsSwinging || characterController.isGrounded) return;
             if(pullGrapple && !pullGrapple.CanGrapple) return;
