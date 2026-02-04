@@ -49,7 +49,6 @@ namespace Game.Match {
 
         public override void OnNetworkSpawn() {
             base.OnNetworkSpawn();
-            Debug.Log($"[KOTH] OnNetworkSpawn. IsServer: {IsServer}");
 
             if (IsServer) {
                 _teamAScore.Value = 0;
@@ -80,7 +79,6 @@ namespace Game.Match {
 
         private void OnSceneLoaded(string sceneName, UnityEngine.SceneManagement.LoadSceneMode loadSceneMode, List<ulong> clientsCompleted, List<ulong> clientsTimedOut) {
             if (!IsServer) return;
-            Debug.Log($"[KOTH] OnSceneLoaded: {sceneName}");
             CheckAndStartGame();
         }
 
@@ -91,13 +89,11 @@ namespace Game.Match {
             
             // Only start logic if this is the selected gamemode
             var settings = MatchSettingsManager.Instance;
-            Debug.Log($"[KOTH] CheckAndStartGame. Settings: {settings != null}, Mode: {(settings != null ? settings.selectedGameModeId : null)}");
 
-            if (settings != null && settings.selectedGameModeId == "KOTH") {
-                // Refresh spawn points for the new scene
-                FindSpawnPoints();
-                _spawnCoroutine = StartCoroutine(GameStartRoutine());
-            }
+            if(settings == null || settings.selectedGameModeId != "KOTH") return;
+            // Refresh spawn points for the new scene
+            FindSpawnPoints();
+            _spawnCoroutine = StartCoroutine(GameStartRoutine());
         }
 
         private void OnScoreChanged(int previous, int current) {

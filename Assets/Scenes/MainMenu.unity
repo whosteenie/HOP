@@ -39431,6 +39431,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4f9fa8205eb424f46aa4aa2cc1263ac5, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Network.Singletons.LoadoutManager
+  uiDocument: {fileID: 2437191754305144469}
   primaryWeapons:
   - weaponName: AK74
     icon: {fileID: 21300000, guid: 75ef8ab7fcce49342a2c7a64f750f651, type: 3}
@@ -39472,6 +39473,8 @@ MonoBehaviour:
   - {fileID: 1082226786}
   - {fileID: 1082226785}
   - {fileID: 1082226784}
+  weaponOptionTemplate: {fileID: 9197481963319205126, guid: 2ca87d11ab0a87e49870e8bb5cb23432, type: 3}
+  challengeRowTemplate: {fileID: 9197481963319205126, guid: 15bba09b50799a343b3d3f8f84a61e10, type: 3}
   secondaryWeaponParent: {fileID: 1082226783}
   mainMenuManager: {fileID: 7165998097423180928}
 --- !u!4 &855784179
@@ -95877,6 +95880,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6082a8432b3b8a94495566ab4ef316af, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Network.Singletons.CharacterCustomizationManager
+  uiDocument: {fileID: 2437191754305144469}
   mainMenuManager: {fileID: 7165998097423180928}
   loadoutManager: {fileID: 855784178}
 --- !u!114 &7165998097423180931
@@ -95904,8 +95908,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b581bb8e4313c5c41b52f8894bb09b3a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Network.Singletons.MainMenuSessionManager
-  uiManager: {fileID: 7165998097423180933}
   uiDocument: {fileID: 2437191754305144469}
+  uiManager: {fileID: 7165998097423180933}
 --- !u!114 &7165998097423180933
 MonoBehaviour:
   m_ObjectHideFlags: 0

@@ -2,13 +2,15 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using Game.Player;
+using Game.UI;
+using Network.Services;
 using Network.Singletons;
 using Game.Progression;
 using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace Game.Menu {
-    public class LoadoutManager : MonoBehaviour {
+    public class LoadoutManager : UIElementBase {
         [Header("Weapon Data")]
         [SerializeField] private WeaponData[] primaryWeapons;
 
@@ -35,13 +37,14 @@ namespace Game.Menu {
         [SerializeField] private List<GameObject> previewPrimaryWeapons = new();
         [SerializeField] private List<GameObject> previewSecondaryWeapons = new();
 
+        [Header("UI Templates")]
+        [SerializeField] private VisualTreeAsset weaponOptionTemplate;
+        [SerializeField] private VisualTreeAsset challengeRowTemplate;
+
         [SerializeField]
         private Transform secondaryWeaponParent; // Optional explicit parent for secondary holster models
 
         private RenderTexture _previewRenderTexture; // Will be created/updated dynamically
-
-        private UIDocument _uiDocument;
-        private VisualElement _root;
 
         // UI Elements
         private TextField _playerNameInput;
@@ -141,35 +144,31 @@ namespace Game.Menu {
         // Preview active tracking for brute force rendering
         private bool _previewActive;
 
-        private void Awake() {
-            _uiDocument = mainMenuManager.uiDocument;
+        protected override void Awake() {
+            base.Awake();
+            if(mainMenuManager != null && uiDocument == null) {
+                uiDocument = mainMenuManager.uiDocument;
+            }
             ResetPreviewCameraTarget();
         }
 
-        private void OnEnable() {
-            _root = _uiDocument.rootVisualElement;
-            SetupUIReferences();
-            SetupEventHandlers();
-            RegisterOutsideClickHandler();
-            LoadSavedLoadout();
-
+        protected override void OnEnable() {
+            base.OnEnable();
             // Subscribe to resolution changes
             OptionsMenuManager.OnResolutionChanged += OnResolutionChanged;
-
-            // Apply button is always visible now
+            RegisterCleanup(() => OptionsMenuManager.OnResolutionChanged -= OnResolutionChanged);
         }
 
-        private void OnDisable() {
+        protected override void OnDisable() {
             // Stop brute force rendering
             _previewActive = false;
             _showingStats = false;
 
-            _showingStats = false;
-            _showingStats = false;
-
-
-            if(_root == null || !_outsideClickHandlerRegistered) return;
-            _root.UnregisterCallback<PointerDownEvent>(OnRootPointerDown, TrickleDown.TrickleDown);
+            if(Root == null || !_outsideClickHandlerRegistered) {
+                base.OnDisable();
+                return;
+            }
+            Root.UnregisterCallback<PointerDownEvent>(OnRootPointerDown, TrickleDown.TrickleDown);
             _outsideClickHandlerRegistered = false;
 
             // Clean up viewport handlers
@@ -181,20 +180,36 @@ namespace Game.Menu {
             }
 
             // Clean up root-level viewport handlers
-            if(_root != null) {
-                _root.UnregisterCallback<PointerDownEvent>(OnRootPointerDownForViewport, TrickleDown.TrickleDown);
-                _root.UnregisterCallback<PointerMoveEvent>(OnRootPointerMoveForViewport, TrickleDown.TrickleDown);
-                _root.UnregisterCallback<PointerUpEvent>(OnRootPointerUpForViewport, TrickleDown.TrickleDown);
+            if(Root != null) {
+                Root.UnregisterCallback<PointerDownEvent>(OnRootPointerDownForViewport, TrickleDown.TrickleDown);
+                Root.UnregisterCallback<PointerMoveEvent>(OnRootPointerMoveForViewport, TrickleDown.TrickleDown);
+                Root.UnregisterCallback<PointerUpEvent>(OnRootPointerUpForViewport, TrickleDown.TrickleDown);
             }
 
             // Unsubscribe from resolution changes
             OptionsMenuManager.OnResolutionChanged -= OnResolutionChanged;
 
             ResetPreviewCameraTarget();
+            base.OnDisable();
         }
 
-        private void OnDestroy() {
+        protected override void OnInitialize() {
+            SetupUIReferences();
+            SetupEventHandlers();
+            RegisterOutsideClickHandler();
+            LoadSavedLoadout();
+        }
+
+        protected override Dictionary<string, System.Type> GetRequiredElements() {
+            return new Dictionary<string, System.Type> {
+                { "weapon-selection-container", typeof(VisualElement) },
+                { "apply-loadout-button", typeof(Button) }
+            };
+        }
+
+        protected override void OnDestroy() {
             ReleasePreviewRenderTexture(true);
+            base.OnDestroy();
         }
 
         public void ShowLoadout() {
@@ -290,7 +305,6 @@ namespace Game.Menu {
             SetContainerTranslate(_nameContainer, NameOffscreenPercent);
             SetContainerTranslate(_statsContainer, WeaponOffscreenPercent); // Stats slides from left
             SetContainerTranslate(_challengesContainer, CustomizationOffscreenPercent); // Challenges from right
-            _containersInitialized = true;
 
             // Stop any slide-out animation and start slide-in
             StopSlideAnimations();
@@ -381,10 +395,10 @@ namespace Game.Menu {
 
         private void SetupUIReferences() {
             // Get container references for animations
-            _weaponContainer = _root.Q<VisualElement>("weapon-selection-container");
-            _customizationContainer = _root.Q<VisualElement>("customization-container");
-            _nameContainer = _root.Q<VisualElement>("name-buttons-container");
-            _backgroundElement = _root.Q<VisualElement>("player-model-background");
+            _weaponContainer = QRequired<VisualElement>("weapon-selection-container");
+            _customizationContainer = QOptional<VisualElement>("customization-container");
+            _nameContainer = QOptional<VisualElement>("name-buttons-container");
+            _backgroundElement = QOptional<VisualElement>("player-model-background");
 
             if(_backgroundElement != null) {
                 _backgroundElement.style.opacity = new StyleFloat(0f);
@@ -393,19 +407,31 @@ namespace Game.Menu {
             }
 
             // Unsaved changes modal
-            _loadoutUnsavedModal = _root.Q<VisualElement>("loadout-unsaved-changes-modal");
-            _loadoutUnsavedYes = _root.Q<Button>("loadout-unsaved-yes");
-            _loadoutUnsavedNo = _root.Q<Button>("loadout-unsaved-no");
-            _loadoutUnsavedCancel = _root.Q<Button>("loadout-unsaved-cancel");
+            _loadoutUnsavedModal = QOptional<VisualElement>("loadout-unsaved-changes-modal");
+            _loadoutUnsavedYes = QOptional<Button>("loadout-unsaved-yes");
+            _loadoutUnsavedNo = QOptional<Button>("loadout-unsaved-no");
+            _loadoutUnsavedCancel = QOptional<Button>("loadout-unsaved-cancel");
             if(_loadoutUnsavedYes != null) {
-                _loadoutUnsavedYes.RegisterCallback<ClickEvent>(_ => OnLoadoutUnsavedYes());
-                _loadoutUnsavedYes.RegisterCallback<MouseEnterEvent>(MainMenuManager.MouseEnter);
+                EventCallback<ClickEvent> yesHandler = _ => OnLoadoutUnsavedYes();
+                _loadoutUnsavedYes.RegisterCallback(yesHandler);
+                RegisterCleanup(() => _loadoutUnsavedYes.UnregisterCallback(yesHandler));
+                EventCallback<MouseEnterEvent> yesEnterHandler = MainMenuManager.MouseEnter;
+                _loadoutUnsavedYes.RegisterCallback(yesEnterHandler);
+                RegisterCleanup(() => _loadoutUnsavedYes.UnregisterCallback(yesEnterHandler));
             }
 
             if(_loadoutUnsavedNo != null) {
-                _loadoutUnsavedNo.RegisterCallback<ClickEvent>(_ => OnLoadoutUnsavedNo());
-                _loadoutUnsavedNo.RegisterCallback<MouseEnterEvent>(MainMenuManager.MouseEnter);
-                _loadoutUnsavedCancel.RegisterCallback<MouseEnterEvent>(MainMenuManager.MouseEnter);
+                EventCallback<ClickEvent> noHandler = _ => OnLoadoutUnsavedNo();
+                _loadoutUnsavedNo.RegisterCallback(noHandler);
+                RegisterCleanup(() => _loadoutUnsavedNo.UnregisterCallback(noHandler));
+                EventCallback<MouseEnterEvent> noEnterHandler = MainMenuManager.MouseEnter;
+                _loadoutUnsavedNo.RegisterCallback(noEnterHandler);
+                RegisterCleanup(() => _loadoutUnsavedNo.UnregisterCallback(noEnterHandler));
+            }
+            if(_loadoutUnsavedCancel != null) {
+                EventCallback<MouseEnterEvent> cancelEnterHandler = MainMenuManager.MouseEnter;
+                _loadoutUnsavedCancel.RegisterCallback(cancelEnterHandler);
+                RegisterCleanup(() => _loadoutUnsavedCancel.UnregisterCallback(cancelEnterHandler));
             }
 
             // NEW: Stats Button
@@ -414,8 +440,16 @@ namespace Game.Menu {
             _statsButton.AddToClassList("menu-chip-enabled");
             _statsButton.style.height = 50;
             _statsButton.style.width = 120;
-            _statsButton.clicked += ToggleStats;
-            _statsButton.RegisterCallback<MouseEnterEvent>(MainMenuManager.MouseEnter);
+            System.Action statsClickHandler = () => {
+                // Play positive sound when going to career, negative when going back to loadout
+                UISoundService.PlayButtonClick(isBack: _showingStats);
+                ToggleStats();
+            };
+            _statsButton.clicked += statsClickHandler;
+            RegisterCleanup(() => _statsButton.clicked -= statsClickHandler);
+            EventCallback<MouseEnterEvent> statsEnterHandler = MainMenuManager.MouseEnter;
+            _statsButton.RegisterCallback(statsEnterHandler);
+            RegisterCleanup(() => _statsButton.UnregisterCallback(statsEnterHandler));
 
             // Insert Stats button into Name Container (index 1, after Back button)
             if(_nameContainer != null) {
@@ -442,52 +476,46 @@ namespace Game.Menu {
 
             // Name input - Deprecated/Hidden as we now use Steam names
             if(_playerNameInput != null) {
-                _playerNameInput.RegisterValueChangedCallback(evt =>
-                    OnNameChanged(evt.newValue)); // Keep callback to prevent errors if invoked
+                EventCallback<ChangeEvent<string>> nameHandler = evt => OnNameChanged(evt.newValue);
+                _playerNameInput.RegisterValueChangedCallback(nameHandler);
+                RegisterCleanup(() => _playerNameInput.UnregisterCallback(nameHandler));
                 _playerNameInput.style.display = DisplayStyle.None;
             }
-            // _playerNameInput = _root.Q<TextField>("player-name-input"); // Removed lookup or kept for null check safety above
 
-            _applyLoadoutButton = _root.Q<Button>("apply-loadout-button");
+            _applyLoadoutButton = QRequired<Button>("apply-loadout-button");
 
-            if(_applyLoadoutButton != null) {
-                // Unregister any existing handlers first
-                _applyLoadoutButton.clicked -= OnApplyLoadoutClicked;
-                _applyLoadoutButton.UnregisterCallback<MouseEnterEvent>(MainMenuManager.MouseEnter);
-
-                // Register handlers
-                _applyLoadoutButton.clicked += () => {
-                    if(mainMenuManager != null) {
-                        MainMenuManager.OnButtonClicked();
-                    }
-
-                    OnApplyLoadoutClicked();
-                };
-                _applyLoadoutButton.RegisterCallback<MouseEnterEvent>(MainMenuManager.MouseEnter);
-            } else {
-                Debug.LogError("[LoadoutManager] Apply button not found!");
-            }
+            System.Action applyClickHandler = () => {
+                if(mainMenuManager != null) {
+                    MainMenuManager.OnButtonClicked();
+                }
+                OnApplyLoadoutClicked();
+            };
+            _applyLoadoutButton.clicked += applyClickHandler;
+            RegisterCleanup(() => _applyLoadoutButton.clicked -= applyClickHandler);
+            EventCallback<MouseEnterEvent> applyEnterHandler = MainMenuManager.MouseEnter;
+            _applyLoadoutButton.RegisterCallback(applyEnterHandler);
+            RegisterCleanup(() => _applyLoadoutButton.UnregisterCallback(applyEnterHandler));
 
             // Weapon slots (main equipped slot)
-            _primarySlot = _root.Q<VisualElement>("primary-weapon-slot");
-            _secondarySlot = _root.Q<VisualElement>("secondary-weapon-slot");
-            _tertiarySlot = _root.Q<VisualElement>("tertiary-weapon-slot");
+            _primarySlot = QOptional<VisualElement>("primary-weapon-slot");
+            _secondarySlot = QOptional<VisualElement>("secondary-weapon-slot");
+            _tertiarySlot = QOptional<VisualElement>("tertiary-weapon-slot");
 
-            _primaryDropdown = _root.Q<VisualElement>("primary-dropdown");
-            _secondaryDropdown = _root.Q<VisualElement>("secondary-dropdown");
-            _tertiaryDropdown = _root.Q<VisualElement>("tertiary-dropdown");
+            _primaryDropdown = QOptional<VisualElement>("primary-dropdown");
+            _secondaryDropdown = QOptional<VisualElement>("secondary-dropdown");
+            _tertiaryDropdown = QOptional<VisualElement>("tertiary-dropdown");
             _primaryDropdownScroll = _primaryDropdown != null ? _primaryDropdown.Q<ScrollView>("primary-scroll") : null;
             _secondaryDropdownScroll =
                 _secondaryDropdown != null ? _secondaryDropdown.Q<ScrollView>("secondary-scroll") : null;
             _tertiaryDropdownScroll =
                 _tertiaryDropdown != null ? _tertiaryDropdown.Q<ScrollView>("tertiary-scroll") : null;
 
-            _primaryWeaponImage = _root.Q<Image>("primary-weapon-image");
-            _secondaryWeaponImage = _root.Q<Image>("secondary-weapon-image");
-            _tertiaryWeaponImage = _root.Q<Image>("tertiary-weapon-image");
+            _primaryWeaponImage = QOptional<Image>("primary-weapon-image");
+            _secondaryWeaponImage = QOptional<Image>("secondary-weapon-image");
+            _tertiaryWeaponImage = QOptional<Image>("tertiary-weapon-image");
 
             // Back button
-            _backLoadoutButton = _root.Q<Button>("back-to-main-from-loadout");
+            _backLoadoutButton = QOptional<Button>("back-to-main-from-loadout");
             if(_backLoadoutButton != null) {
                 // Unregister any existing handlers first
                 _backLoadoutButton.clicked -= OnBackClicked;
@@ -495,7 +523,6 @@ namespace Game.Menu {
 
                 // Register handlers
                 _backLoadoutButton.clicked += () => {
-                    Debug.Log("[LoadoutManager] Back button clicked");
                     if(mainMenuManager != null) {
                         MainMenuManager.OnButtonClicked(true);
                     }
@@ -535,8 +562,13 @@ namespace Game.Menu {
         }
 
         private void RegisterOutsideClickHandler() {
-            if(_outsideClickHandlerRegistered || _root == null) return;
-            _root.RegisterCallback<PointerDownEvent>(OnRootPointerDown, TrickleDown.TrickleDown);
+            if(_outsideClickHandlerRegistered || Root == null) return;
+            Root.RegisterCallback<PointerDownEvent>(OnRootPointerDown, TrickleDown.TrickleDown);
+            RegisterCleanup(() => {
+                if(Root != null) {
+                    Root.UnregisterCallback<PointerDownEvent>(OnRootPointerDown, TrickleDown.TrickleDown);
+                }
+            });
             _outsideClickHandlerRegistered = true;
         }
 
@@ -655,13 +687,23 @@ namespace Game.Menu {
             for(var i = 0; i < weapons.Length; i++) {
                 if(i == selectedIndex) continue;
 
-                var weaponOption = new VisualElement();
-                weaponOption.AddToClassList("weapon-option");
+                VisualElement weaponOption;
+                Image weaponImage;
 
-                var weaponImage = new Image();
-                weaponImage.AddToClassList("weapon-option-image");
-                weaponImage.sprite = weapons[i].icon;
-                weaponOption.Add(weaponImage);
+                if(weaponOptionTemplate != null) {
+                    weaponOption = weaponOptionTemplate.CloneTree();
+                    weaponImage = weaponOption.Q<Image>("weapon-image");
+                } else {
+                    weaponOption = new VisualElement();
+                    weaponOption.AddToClassList("weapon-option");
+                    weaponImage = new Image();
+                    weaponImage.AddToClassList("weapon-option-image");
+                    weaponOption.Add(weaponImage);
+                }
+
+                if(weaponImage != null && weapons[i].icon != null) {
+                    weaponImage.sprite = weapons[i].icon;
+                }
 
                 var index = i;
                 weaponOption.RegisterCallback<ClickEvent>(evt => {
@@ -923,9 +965,9 @@ namespace Game.Menu {
             _isDragging = false;
 
             // Set up the background (full-screen display) and viewport (input detection)
-            var background = _root.Q<VisualElement>("player-model-background");
-            _viewport = _root.Q<VisualElement>("player-model-viewport");
-            var uiOverlay = _root.Q<VisualElement>("ui-overlay");
+            var background = QOptional<VisualElement>("player-model-background");
+            _viewport = QOptional<VisualElement>("player-model-viewport");
+            var uiOverlay = QOptional<VisualElement>("ui-overlay");
 
             // Set overlay picking mode to ignore so events can pass through
             if(uiOverlay != null) {
@@ -975,10 +1017,10 @@ namespace Game.Menu {
                 _viewport.RegisterCallback<PointerLeaveEvent>(OnViewportPointerLeave);
 
                 // Also try registering on root to catch events that might be blocked
-                if(_root != null) {
-                    _root.RegisterCallback<PointerDownEvent>(OnRootPointerDownForViewport, TrickleDown.TrickleDown);
-                    _root.RegisterCallback<PointerMoveEvent>(OnRootPointerMoveForViewport, TrickleDown.TrickleDown);
-                    _root.RegisterCallback<PointerUpEvent>(OnRootPointerUpForViewport, TrickleDown.TrickleDown);
+                if(Root != null) {
+                    Root.RegisterCallback<PointerDownEvent>(OnRootPointerDownForViewport, TrickleDown.TrickleDown);
+                    Root.RegisterCallback<PointerMoveEvent>(OnRootPointerMoveForViewport, TrickleDown.TrickleDown);
+                    Root.RegisterCallback<PointerUpEvent>(OnRootPointerUpForViewport, TrickleDown.TrickleDown);
                 }
             } else {
                 Debug.LogWarning(
@@ -1264,8 +1306,7 @@ namespace Game.Menu {
             // Check if click is within viewport bounds
             if(!(clickPos.x >= viewportRect.xMin) || !(clickPos.x <= viewportRect.xMax) ||
                !(clickPos.y >= viewportRect.yMin) || !(clickPos.y <= viewportRect.yMax)) return;
-            Debug.Log(
-                $"[LoadoutManager] OnRootPointerDownForViewport - Click detected in viewport area at {clickPos}, Viewport bounds: {viewportRect}");
+            
             // Create a synthetic event for the viewport handler
             HandleViewportPointerDown(clickPos);
         }
@@ -1475,13 +1516,15 @@ namespace Game.Menu {
             StartSlideOut();
 
             // Show main menu panel immediately
-            var loadoutPanel = _root.Q<VisualElement>("loadout-panel");
+            var loadoutPanel = QOptional<VisualElement>("loadout-panel");
             if(mainMenuManager != null) {
                 mainMenuManager.ShowPanel(mainMenuManager.MainMenuPanel);
             } else {
-                var mainMenuPanel = _root.Q<VisualElement>("main-menu-panel");
-                mainMenuPanel.RemoveFromClassList("hidden");
-                mainMenuPanel.style.display = DisplayStyle.Flex;
+                var mainMenuPanel = QOptional<VisualElement>("main-menu-panel");
+                if(mainMenuPanel != null) {
+                    mainMenuPanel.RemoveFromClassList("hidden");
+                    mainMenuPanel.style.display = DisplayStyle.Flex;
+                }
             }
 
             // Keep loadout panel visible for animation
@@ -1875,10 +1918,10 @@ namespace Game.Menu {
         // --- Stats UI Methods ---
 
         private void BuildStatsUI() {
-            var loadoutPanel = _root.Q("loadout-panel");
+            var loadoutPanel = QOptional<VisualElement>("loadout-panel");
 
             // --- Left: Stats Container ---
-            var existingStats = _root.Q<VisualElement>("stats-container");
+            var existingStats = QOptional<VisualElement>("stats-container");
             if(existingStats != null) {
                 _statsContainer = existingStats;
                 _statsContainer.Clear();
@@ -1895,7 +1938,7 @@ namespace Game.Menu {
                 _statsContainer.style.display = DisplayStyle.None;
 
                 if(loadoutPanel != null) loadoutPanel.Add(_statsContainer);
-                else _root.Add(_statsContainer);
+                else Root.Add(_statsContainer);
             }
 
             // Content: Stats
@@ -1952,7 +1995,7 @@ namespace Game.Menu {
             CreateStatRow(grid, "Time Tagged", "00:00", "stats-taggedtime");
 
             // --- Right: Challenges Container ---
-            var existingChallenges = _root.Q<VisualElement>("challenges-container");
+            var existingChallenges = QOptional<VisualElement>("challenges-container");
             if(existingChallenges != null) {
                 _challengesContainer = existingChallenges;
                 _challengesContainer.Clear();
@@ -1969,28 +2012,39 @@ namespace Game.Menu {
                 _challengesContainer.style.display = DisplayStyle.None;
 
                 if(loadoutPanel != null) loadoutPanel.Add(_challengesContainer);
-                else _root.Add(_challengesContainer);
+                else Root.Add(_challengesContainer);
             }
 
-            var cTitle = new Label("Daily Challenges");
-            cTitle.AddToClassList("title");
-            _challengesContainer.Add(cTitle);
-
-            // Daily Challenges List
+            // Single big WIP text that fills the card
+            var wipContainer = new VisualElement {
+                style = {
+                    flexDirection = FlexDirection.Column,
+                    alignItems = Align.Center,
+                    justifyContent = Justify.Center,
+                    flexGrow = 1,
+                    width = Length.Percent(100)
+                }
+            };
+            var wipLabel = new Label("WIP") {
+                style = {
+                    fontSize = 120,
+                    unityFontStyleAndWeight = FontStyle.Bold,
+                    color = new Color(200f/255f, 60f/255f, 60f/255f),
+                    unityTextAlign = TextAnchor.MiddleCenter
+                }
+            };
+            wipContainer.Add(wipLabel);
+            _challengesContainer.Add(wipContainer);
+            
+            // Keep these for UpdateStatsUI compatibility (they won't be used)
             var challengesList = new VisualElement();
             challengesList.name = "stats-challenges-list";
-            challengesList.style.marginTop = 20;
+            challengesList.style.display = DisplayStyle.None;
             _challengesContainer.Add(challengesList);
-
-            // Weekly Challenges Section
-            var wTitle = new Label("Weekly Challenges");
-            wTitle.AddToClassList("title");
-            wTitle.style.marginTop = 20;
-            _challengesContainer.Add(wTitle);
 
             var weeklyList = new VisualElement();
             weeklyList.name = "stats-weekly-challenges-list";
-            weeklyList.style.marginTop = 10;
+            weeklyList.style.display = DisplayStyle.None;
             _challengesContainer.Add(weeklyList);
         }
 
@@ -2033,8 +2087,8 @@ namespace Game.Menu {
         }
 
         private void UpdateStatsUI() {
-            if(Progression.ProgressionManager.Instance == null) return;
-            var pm = Progression.ProgressionManager.Instance;
+            if(ProgressionManager.Instance == null) return;
+            var pm = ProgressionManager.Instance;
             var data = pm.Data;
 
             // Level
@@ -2087,16 +2141,8 @@ namespace Game.Menu {
             SetLabelText("stats-hilltime", FormatTime(data.stats.timeAsKing));
             SetLabelText("stats-taggedtime", FormatTime(data.stats.timeTagged));
 
-            // Daily Challenges
-            var list = _challengesContainer.Q<VisualElement>("stats-challenges-list");
-            if(list == null) return;
-            RenderChallengeList(list, data.dailyChallenges);
-
-            // Weekly Challenges
-            var weeklyList = _challengesContainer.Q<VisualElement>("stats-weekly-challenges-list");
-            if(weeklyList != null) {
-                RenderChallengeList(weeklyList, data.weeklyChallenges);
-            }
+            // Daily Challenges - WIP is shown, no need to update
+            // Weekly Challenges - WIP is shown, no need to update
         }
 
         private void RenderChallengeList(VisualElement container, List<ActiveChallengeData> challenges) {
@@ -2110,17 +2156,43 @@ namespace Game.Menu {
                 var def = pm.GetChallengeDefinition(activeChallenge.challengeID);
                 if(def == null) continue;
 
-                var challengeRow = new VisualElement {
-                    style = {
-                        marginBottom = 10
-                    }
-                };
+                VisualElement challengeRow;
+                VisualElement titleRow;
+                Label descriptionLabel;
+                Label xpLabel;
+                ProgressBar cBar;
+
+                if(challengeRowTemplate != null) {
+                    challengeRow = challengeRowTemplate.CloneTree();
+                    titleRow = challengeRow.Q<VisualElement>("title-row");
+                    descriptionLabel = challengeRow.Q<Label>("description-label");
+                    xpLabel = challengeRow.Q<Label>("xp-label");
+                    cBar = challengeRow.Q<ProgressBar>("progress-bar");
+                    challengeRow.style.marginBottom = 10;
+                } else {
+                    challengeRow = new VisualElement {
+                        style = { marginBottom = 10 }
+                    };
+                    titleRow = new VisualElement();
+                    challengeRow.Add(titleRow);
+                    descriptionLabel = new Label {
+                        style = { fontSize = 12 }
+                    };
+                    titleRow.Add(descriptionLabel);
+                    xpLabel = null;
+                    cBar = new ProgressBar {
+                        lowValue = 0,
+                        highValue = 100,
+                        value = 0,
+                        style = { height = 10 }
+                    };
+                    challengeRow.Add(cBar);
+                }
 
                 var progress = activeChallenge.currentProgress;
                 var target = activeChallenge.targetProgress;
                 if(progress > target) progress = target;
 
-                // Format description, handling dynamic filterID for play_matches_of etc.
                 string descText = def.Description;
                 try {
                     if(!string.IsNullOrEmpty(activeChallenge.filterID)) {
@@ -2133,24 +2205,24 @@ namespace Game.Menu {
                     // Fallback
                 }
 
-                // Add XP Reward to Title
-                var title = new Label($"{descText} ({progress}/{target}) [+{activeChallenge.xpReward} XP]") {
-                    style = {
-                        fontSize = 12
+                if(descriptionLabel != null) {
+                    if(xpLabel != null) {
+                        descriptionLabel.text = $"{descText} ({progress}/{target})";
+                    } else {
+                        descriptionLabel.text = $"{descText} ({progress}/{target}) [+{activeChallenge.xpReward} XP]";
                     }
-                };
-                challengeRow.Add(title);
+                }
 
-                var cBar = new ProgressBar {
-                    lowValue = 0,
-                    highValue = target,
-                    value = progress,
-                    style = {
-                        height = 10
-                    }
-                };
-                StyleProgressBar(cBar, _progressBarColor);
-                challengeRow.Add(cBar);
+                if(xpLabel != null) {
+                    xpLabel.text = $"+{activeChallenge.xpReward} XP";
+                }
+
+                if(cBar != null) {
+                    cBar.lowValue = 0;
+                    cBar.highValue = target;
+                    cBar.value = progress;
+                    StyleProgressBar(cBar, _progressBarColor);
+                }
 
                 container.Add(challengeRow);
             }

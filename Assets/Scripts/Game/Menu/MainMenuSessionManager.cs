@@ -1,6 +1,8 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using Cysharp.Threading.Tasks;
+using Game.UI;
 using Network;
 using Network.Services;
 using Network.Steam;
@@ -14,13 +16,9 @@ namespace Game.Menu {
     /// Manages session creation (Steam Lobbies) and player list display in the Main Menu.
     /// Adapted for Steamworks: Join Code Logic replaced by Steam Invites.
     /// </summary>
-    public class MainMenuSessionManager : MonoBehaviour {
+    public class MainMenuSessionManager : UIElementBase {
         [Header("References")]
         [SerializeField] private MainMenuUIManager uiManager;
-
-        public UIDocument uiDocument;
-
-        private VisualElement _root;
 
         // Global Party UI
         private VisualElement _partyMembersList;
@@ -40,19 +38,7 @@ namespace Game.Menu {
         public Action<bool, bool> OnHostStatusChanged; // isHost, wasHost
         public Func<bool> ShouldShowLobbyLeaveModal;
 
-        /// <summary>
-        /// Initializes the session manager, sets up UI event listeners, and ensures 
-        /// the local player is correctly represented in the party UI.
-        /// </summary>
-        public void Initialize() {
-            if(uiDocument == null) {
-                Debug.LogError("[MainMenuSessionManager] UIDocument is not assigned during Initialize!");
-                return;
-            }
-
-            if(_root != null) return;
-
-            _root = uiDocument.rootVisualElement;
+        protected override void OnInitialize() {
             FindUIElements();
             RegisterUIEvents();
 
@@ -65,28 +51,51 @@ namespace Game.Menu {
             }
         }
 
-        private void OnEnable() {
+        /// <summary>
+        /// Public Initialize method for external calls. Calls base Initialize() and then custom logic.
+        /// </summary>
+        public new void Initialize() {
+            base.Initialize();
+        }
+
+        protected override void OnEnable() {
+            base.OnEnable();
             if(SessionManager.Instance != null) {
                 SessionManager.Instance.FrontStatusChanged += UpdateStatusText;
                 SessionManager.Instance.OnPartyStateChanged += HandlePartyStateChanged;
+                RegisterCleanup(() => {
+                    if(SessionManager.HasInstance) {
+                        SessionManager.Instance.FrontStatusChanged -= UpdateStatusText;
+                        SessionManager.Instance.OnPartyStateChanged -= HandlePartyStateChanged;
+                    }
+                });
             }
         }
 
-        private void OnDisable() {
+        protected override void OnDisable() {
             if(SessionManager.HasInstance) {
                 SessionManager.Instance.FrontStatusChanged -= UpdateStatusText;
                 SessionManager.Instance.OnPartyStateChanged -= HandlePartyStateChanged;
             }
+            base.OnDisable();
+        }
+
+        protected override Dictionary<string, System.Type> GetRequiredElements() {
+            return new Dictionary<string, System.Type> {
+                { "party-members-list", typeof(VisualElement) },
+                { "invite-friends-button", typeof(Button) },
+                { "local-player-profile", typeof(VisualElement) }
+            };
         }
 
         private void FindUIElements() {
-            _root.Q<VisualElement>("loading-overlay");
+            QOptional<VisualElement>("loading-overlay");
 
             // Global Party UI
-            _partyMembersList = _root.Q<VisualElement>("party-members-list");
-            _inviteButton = _root.Q<Button>("invite-friends-button");
-            _partySeparator = _root.Q<VisualElement>("party-separator");
-            _localProfileContainer = _root.Q<VisualElement>("local-player-profile");
+            _partyMembersList = QRequired<VisualElement>("party-members-list");
+            _inviteButton = QRequired<Button>("invite-friends-button");
+            _partySeparator = QOptional<VisualElement>("party-separator");
+            _localProfileContainer = QRequired<VisualElement>("local-player-profile");
         }
 
         private async UniTaskVoid OpenSteamInviteOverlay() {
@@ -124,10 +133,6 @@ namespace Game.Menu {
 
             var canPlay = !isSearching && !isPartyMember || _isSilentHosting;
 
-            var selectedMode = SessionManager.Instance.SelectedGameMode;
-            if(!canPlay || Match.MatchSettingsManager.Instance == null) return;
-            Match.MatchSettingsManager.Instance.GetGamemodeDef(selectedMode);
-
             if(uiManager != null) {
                 if(currentPartySize > 5) {
                     uiManager.DisableButton(uiManager.GetPlayButtonMatchmaking());
@@ -137,9 +142,12 @@ namespace Game.Menu {
                 }
 
                 if(uiManager.StatusContainer != null) {
-                    var targetDisplay = showStatus ? DisplayStyle.Flex : DisplayStyle.None;
-                    if(uiManager.StatusContainer.style.display != targetDisplay) {
-                        uiManager.StatusContainer.style.display = targetDisplay;
+                    if(showStatus) {
+                        uiManager.StatusContainer.RemoveFromClassList("hidden");
+                        uiManager.StatusContainer.style.display = DisplayStyle.Flex;
+                    } else {
+                        uiManager.StatusContainer.AddToClassList("hidden");
+                        uiManager.StatusContainer.style.display = DisplayStyle.None;
                     }
 
                     // Update Timer & Gamemode info
@@ -173,10 +181,12 @@ namespace Game.Menu {
 
         private void RegisterUIEvents() {
             if(_inviteButton != null) {
-                _inviteButton.clicked += () => {
+                System.Action inviteHandler = () => {
                     UISoundService.PlayButtonClick();
                     OpenSteamInviteOverlay().Forget();
                 };
+                _inviteButton.clicked += inviteHandler;
+                RegisterCleanup(() => _inviteButton.clicked -= inviteHandler);
             }
 
             if(uiManager == null) return;
@@ -186,7 +196,9 @@ namespace Game.Menu {
             };
 
             // Listen to context menu interactions on the root to avoid late initialization issues
-            _root.RegisterCallback<PointerDownEvent>(HandleContextMenuInteraction, TrickleDown.TrickleDown);
+            EventCallback<PointerDownEvent> contextMenuHandler = HandleContextMenuInteraction;
+            Root.RegisterCallback(contextMenuHandler, TrickleDown.TrickleDown);
+            RegisterCleanup(() => Root.UnregisterCallback(contextMenuHandler));
         }
 
         /// <summary>
@@ -350,7 +362,9 @@ namespace Game.Menu {
 
                     break;
                 case "SteamProfile":
-                    SteamFriends.OpenUserOverlay(_contextMenuTargetId, "steamid");
+                    // Open Steam profile page in overlay browser
+                    var profileUrl = $"https://steamcommunity.com/profiles/{_contextMenuTargetId.Value}";
+                    SteamFriends.OpenWebOverlay(profileUrl, false);
                     break;
             }
         }

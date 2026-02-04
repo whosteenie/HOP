@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
 using Network;
 using Network.Events;
@@ -16,13 +17,8 @@ namespace Game.Menu {
     /// Manages gamemode selection for Steam Lobbies.
     /// Syncs "GameMode" key in Lobby Data.
     /// </summary>
-    public class MainMenuGamemodeManager : MonoBehaviour {
+    public class MainMenuGamemodeManager : Game.UI.UIElementBase {
         private static MainMenuGamemodeManager Instance { get; set; }
-
-        [Header("References")]
-        public UIDocument uiDocument;
-
-        private VisualElement _root;
         private VisualElement _gamemodeDropdownContainer;
         private Label _gamemodeDisplayLabel;
         private VisualElement _gamemodeArrow;
@@ -35,31 +31,40 @@ namespace Game.Menu {
         // Events
         public Action<string> OnGameModeSelected;
 
-        private void Awake() {
+        protected override void Awake() {
             if(Instance != null && Instance != this) {
                 Destroy(gameObject);
                 return;
             }
             Instance = this;
+            base.Awake();
+        }
 
-            if(uiDocument == null) return;
-            _root = uiDocument.rootVisualElement;
+        protected override void OnInitialize() {
             FindUIElements();
             SetupGamemodeDropdown();
         }
 
-        private void OnDestroy() {
+        protected override Dictionary<string, System.Type> GetRequiredElements() {
+            return new Dictionary<string, System.Type>();
+        }
+
+        protected override void OnDestroy() {
             if(Instance == this) Instance = null;
+            base.OnDestroy();
         }
 
-        private void OnEnable() {
-             SteamMatchmaking.OnLobbyDataChanged += OnLobbyDataChanged;
-             // Initial Check
-             UpdateGamemodeFromSession();
+        protected override void OnEnable() {
+            base.OnEnable();
+            SteamMatchmaking.OnLobbyDataChanged += OnLobbyDataChanged;
+            RegisterCleanup(() => SteamMatchmaking.OnLobbyDataChanged -= OnLobbyDataChanged);
+            // Initial Check
+            UpdateGamemodeFromSession();
         }
 
-        private void OnDisable() {
-             SteamMatchmaking.OnLobbyDataChanged -= OnLobbyDataChanged;
+        protected override void OnDisable() {
+            SteamMatchmaking.OnLobbyDataChanged -= OnLobbyDataChanged;
+            base.OnDisable();
         }
 
         private void OnLobbyDataChanged(Lobby lobby) {
@@ -67,10 +72,10 @@ namespace Game.Menu {
         }
 
         private void FindUIElements() {
-            _gamemodeDropdownContainer = _root.Q<VisualElement>("gamemode-dropdown-container");
-            _gamemodeDisplayLabel = _root.Q<Label>("gamemode-display-label");
-            _gamemodeArrow = _root.Q<VisualElement>("gamemode-arrow");
-            _gamemodeDropdownMenu = _root.Q<VisualElement>("gamemode-dropdown-menu");
+            _gamemodeDropdownContainer = QOptional<VisualElement>("gamemode-dropdown-container");
+            _gamemodeDisplayLabel = QOptional<Label>("gamemode-display-label");
+            _gamemodeArrow = QOptional<VisualElement>("gamemode-arrow");
+            _gamemodeDropdownMenu = QOptional<VisualElement>("gamemode-dropdown-menu");
         }
 
         private void SetupGamemodeDropdown() {
@@ -83,14 +88,16 @@ namespace Game.Menu {
         }
         
         private void SetupOption(string uiName, string modeName) {
-            var btn = _root.Q<Button>(uiName);
+            var btn = QOptional<Button>(uiName);
             if (btn != null) {
-                btn.clicked += () => {
+                System.Action clickHandler = () => {
                     if (!_isHost) return;
                     UISoundService.PlayButtonClick();
                     HandleGameModeSelected(modeName);
                     OnGameModeSelected?.Invoke(modeName);
                 };
+                btn.clicked += clickHandler;
+                RegisterCleanup(() => btn.clicked -= clickHandler);
             }
         }
 
@@ -126,12 +133,14 @@ namespace Game.Menu {
 
         private void SubscribeToGamemodeEvents() {
             if(_gamemodeDisplayLabel == null) return;
-            _gamemodeDisplayLabel.RegisterCallback<ClickEvent>(OnGamemodeLabelClicked);
+            EventCallback<ClickEvent> handler = OnGamemodeLabelClicked;
+            _gamemodeDisplayLabel.RegisterCallback(handler);
+            RegisterCleanup(() => _gamemodeDisplayLabel.UnregisterCallback(handler));
         }
 
         private void UnsubscribeFromGamemodeEvents() {
             if(_gamemodeDisplayLabel == null) return;
-            _gamemodeDisplayLabel.UnregisterCallback<ClickEvent>(OnGamemodeLabelClicked);
+            // Cleanup is handled by RegisterCleanup
         }
 
         private void OnGamemodeLabelClicked(ClickEvent evt) {

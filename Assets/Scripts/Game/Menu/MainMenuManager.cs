@@ -7,6 +7,7 @@ using Network.Services;
 using UnityEngine;
 using UnityEngine.Audio;
 using UnityEngine.UIElements;
+using Game.UI;
 using Cursor = UnityEngine.Cursor;
 using Steamworks;
 
@@ -16,10 +17,8 @@ namespace Game.Menu {
     /// Delegates UI, session, and gamemode management to specialized sub-managers.
     /// Steamworks Integrated.
     /// </summary>
-    public class MainMenuManager : MonoBehaviour {
+    public class MainMenuManager : UIElementBase {
         #region Serialized Fields
-
-        public UIDocument uiDocument;
 
         [Header("Audio")]
         [SerializeField] private AudioMixer audioMixer;
@@ -42,8 +41,6 @@ namespace Game.Menu {
         #endregion
 
         #region UI Elements - Panels
-
-        private VisualElement _root;
         public VisualElement MainMenuPanel { get; private set; }
         private VisualElement _gamemodePanel;
         private VisualElement _lobbyPanel;
@@ -51,27 +48,26 @@ namespace Game.Menu {
         private VisualElement _optionsPanel;
         private VisualElement _creditsPanel;
         private List<VisualElement> _panels;
-        private VisualElement _currentPanel;
-        private Coroutine _panelFadeCoroutine;
         private const float PanelFadeDuration = 0.08f;
         private bool _isPrivateMatchIntent;
+
+        // Shared UI navigation helper for main menu panels
+        private UINavigator _navigator;
 
         #endregion
 
         #region Unity Lifecycle
 
-        private void Awake() {
-            if(uiDocument == null) {
-                Debug.LogError("[MainMenuManager] UIDocument is not assigned!");
+        protected override void Awake() {
+            base.Awake();
+            if(Root == null) {
+                Debug.LogError("[MainMenuManager] Root is null after base.Awake()!");
                 return;
             }
-
-            _root = uiDocument.rootVisualElement;
-            FindPanels();
-            WireSubManagerCallbacks();
         }
 
-        private void Start() {
+        protected override void Start() {
+            base.Start();
             Cursor.visible = true;
             Cursor.lockState = CursorLockMode.None;
 
@@ -79,13 +75,25 @@ namespace Game.Menu {
             SetupOptionsMenuManager();
             LoadSettings();
 
-            if(uiManager != null) uiManager.Initialize();
+            if(uiManager != null) uiManager.InitializeGameMenuVisibility();
             if(sessionManager != null) sessionManager.Initialize();
             CheckFirstTimeSetup();
 
             if(DiscordManager.Instance != null) {
                 DiscordManager.Instance.SetStatus("In Main Menu", "Browsing");
             }
+        }
+
+        protected override void OnInitialize() {
+            FindPanels();
+            InitializeNavigator();
+            WireSubManagerCallbacks();
+        }
+
+        protected override Dictionary<string, System.Type> GetRequiredElements() {
+            return new Dictionary<string, System.Type> {
+                { "main-menu-panel", typeof(VisualElement) }
+            };
         }
 
         private void WireSubManagerCallbacks() {
@@ -99,12 +107,12 @@ namespace Game.Menu {
         #region Initialization
 
         private void FindPanels() {
-            MainMenuPanel = _root.Q<VisualElement>("main-menu-panel");
-            _gamemodePanel = _root.Q<VisualElement>("gamemode-panel");
-            _lobbyPanel = _root.Q<VisualElement>("lobby-panel");
-            _loadoutPanel = _root.Q<VisualElement>("loadout-panel");
-            _optionsPanel = _root.Q<VisualElement>("options-panel");
-            _creditsPanel = _root.Q<VisualElement>("credits-panel");
+            MainMenuPanel = QRequired<VisualElement>("main-menu-panel");
+            _gamemodePanel = QOptional<VisualElement>("gamemode-panel");
+            _lobbyPanel = QOptional<VisualElement>("lobby-panel");
+            _loadoutPanel = QOptional<VisualElement>("loadout-panel");
+            _optionsPanel = QOptional<VisualElement>("options-panel");
+            _creditsPanel = QOptional<VisualElement>("credits-panel");
 
             _panels = new List<VisualElement> {
                 MainMenuPanel,
@@ -115,6 +123,16 @@ namespace Game.Menu {
                 _optionsPanel,
                 _creditsPanel
             };
+        }
+
+        private void InitializeNavigator() {
+            // Loadout panel keeps its snappy behavior (no cross-fade) to preserve UX.
+            _navigator = new UINavigator(
+                this,
+                _panels,
+                PanelFadeDuration,
+                panel => panel == _loadoutPanel
+            );
         }
 
         private void InitializeSubManagers() {
@@ -268,36 +286,27 @@ namespace Game.Menu {
         public void ShowPanel(VisualElement panel) {
             if(panel == null) return;
 
-            if(_currentPanel == null) {
-                foreach(var p in _panels) {
-                    if(p != null && p != panel) HidePanelImmediate(p);
+            if(_navigator == null) {
+                // Fallback: show panel directly if navigator is not initialized.
+                panel.RemoveFromClassList("hidden");
+                panel.style.display = DisplayStyle.Flex;
+                panel.BringToFront();
+                UpdateDiscordStatusForPanel(panel);
+                
+                // Refresh challenges when main menu panel is shown
+                if(panel == MainMenuPanel && uiManager != null) {
+                    uiManager.RefreshMainMenuChallenges();
                 }
-                ShowPanelImmediate(panel);
-                UpdateDiscordStatusForPanel(panel);
-                _currentPanel = panel;
                 return;
             }
 
-            if(panel == _currentPanel) return;
-            if(_panelFadeCoroutine != null) {
-                StopCoroutine(_panelFadeCoroutine);
-                _panelFadeCoroutine = null;
-            }
-
-            var needFadeOut = _currentPanel != _loadoutPanel;
-            var needFadeIn = panel != _loadoutPanel;
-            var requiresFade = needFadeOut || needFadeIn;
-
-            if(!requiresFade) {
-                HidePanelImmediate(_currentPanel);
-                ShowPanelImmediate(panel);
-                UpdateDiscordStatusForPanel(panel);
-                _currentPanel = panel;
-                return;
-            }
-
-            _panelFadeCoroutine = StartCoroutine(FadeBetweenPanels(_currentPanel, panel));
+            _navigator.Show(panel);
             UpdateDiscordStatusForPanel(panel);
+            
+            // Refresh challenges when main menu panel is shown
+            if(panel == MainMenuPanel && uiManager != null) {
+                uiManager.RefreshMainMenuChallenges();
+            }
         }
 
         private void UpdateDiscordStatusForPanel(VisualElement panel) {
@@ -309,60 +318,6 @@ namespace Game.Menu {
             else if(panel == _loadoutPanel) DiscordManager.Instance.SetStatus("In Main Menu", "Editing Loadout");
         }
 
-        private void HidePanelImmediate(VisualElement panel) {
-            if(panel == null) return;
-            panel.AddToClassList("hidden");
-            panel.style.display = StyleKeyword.Null;
-            panel.style.opacity = new StyleFloat(1f);
-        }
-
-        private void ShowPanelImmediate(VisualElement panel) {
-            if(panel == null) return;
-            panel.RemoveFromClassList("hidden");
-            panel.style.display = DisplayStyle.Flex;
-            panel.style.opacity = new StyleFloat(1f);
-            panel.BringToFront();
-        }
-
-        private IEnumerator FadeBetweenPanels(VisualElement oldPanel, VisualElement newPanel) {
-            foreach(var p in _panels) {
-                if(p == null || p == oldPanel || p == newPanel) continue;
-                HidePanelImmediate(p);
-            }
-
-            var fadeOutPanel = oldPanel == _loadoutPanel ? null : oldPanel;
-            var fadeInPanel = newPanel == _loadoutPanel ? null : newPanel;
-
-            if(fadeInPanel != null) {
-                fadeInPanel.RemoveFromClassList("hidden");
-                fadeInPanel.style.display = DisplayStyle.Flex;
-                fadeInPanel.style.opacity = new StyleFloat(0f);
-                fadeInPanel.BringToFront();
-            } else if(newPanel != null) {
-                ShowPanelImmediate(newPanel);
-            }
-
-            var elapsed = 0f;
-            while(elapsed < PanelFadeDuration) {
-                elapsed += Time.deltaTime;
-                var t = Mathf.Clamp01(elapsed / PanelFadeDuration);
-                if(fadeOutPanel != null) fadeOutPanel.style.opacity = new StyleFloat(1f - t);
-                if(fadeInPanel != null) fadeInPanel.style.opacity = new StyleFloat(t);
-                yield return null;
-            }
-
-            if(fadeOutPanel != null) HidePanelImmediate(fadeOutPanel);
-
-            if(fadeInPanel != null) {
-                fadeInPanel.style.opacity = new StyleFloat(1f);
-                fadeInPanel.RemoveFromClassList("hidden");
-                fadeInPanel.style.display = DisplayStyle.Flex;
-                fadeInPanel.BringToFront();
-            }
-
-            _currentPanel = newPanel;
-            _panelFadeCoroutine = null;
-        }
 
         public void ShowCharacterCustomization() {
             if(characterCustomizationManager != null) {

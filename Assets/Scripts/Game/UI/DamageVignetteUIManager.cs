@@ -1,9 +1,10 @@
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace Game.UI {
-    public class DamageVignetteUIManager : MonoBehaviour {
+    public class DamageVignetteUIManager : UIElementBase {
         public static DamageVignetteUIManager Instance { get; private set; }
 
         [Header("Timing")]
@@ -11,14 +12,11 @@ namespace Game.UI {
         [SerializeField] private float fadeDuration = 0.3f; // fade-out
         [SerializeField] private float maxAlpha = 0.8f;
 
-        private UIDocument _uiDocument;
-        private VisualElement _root;
-
         // Order: 0=Front,1=FrontRight,2=Right,3=BackRight,4=Back,5=BackLeft,6=Left,7=FrontLeft
         private VisualElement[] _indicators;
         private Coroutine[] _runningCoroutines;
 
-        private void Awake() {
+        protected override void Awake() {
             if(Instance != null && Instance != this) {
                 Destroy(gameObject);
                 return;
@@ -26,14 +24,14 @@ namespace Game.UI {
 
             Instance = this;
 
-            _uiDocument = GetComponent<UIDocument>();
-            _root = _uiDocument.rootVisualElement;
-
-            var container = _root.Q<VisualElement>("damage-vignette-root");
-            if(container == null) {
-                Debug.LogError("[DamageVignetteUI] damage-vignette-root not found in UXML");
-                return;
+            if(uiDocument == null) {
+                uiDocument = GetComponent<UIDocument>();
             }
+            base.Awake();
+        }
+
+        protected override void OnInitialize() {
+            var container = QRequired<VisualElement>("damage-vignette-root");
 
             _indicators = new[] {
                 container.Q<VisualElement>("hit-front"),
@@ -53,6 +51,12 @@ namespace Game.UI {
                 if(t != null)
                     t.style.opacity = 0f;
             }
+        }
+
+        protected override Dictionary<string, System.Type> GetRequiredElements() {
+            return new Dictionary<string, System.Type> {
+                { "damage-vignette-root", typeof(VisualElement) }
+            };
         }
 
         /// <summary>

@@ -1,11 +1,11 @@
+using System.Collections.Generic;
 using Game.Match;
 using Network.Events;
 using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace Game.UI {
-    public class HUDManager : MonoBehaviour {
-        [SerializeField] private UIDocument uiDocument;
+    public class HUDManager : UIElementBase {
 
         private VisualElement _healthContainer;
         private ProgressBar _healthBar;
@@ -32,7 +32,7 @@ namespace Game.UI {
         // Cache MatchSettingsManager.Instance to avoid repeated lookups
         private MatchSettingsManager _cachedMatchSettings;
 
-        private void Awake() {
+        protected override void Awake() {
             if(Instance != null && Instance != this) {
                 Destroy(gameObject);
                 return;
@@ -40,25 +40,11 @@ namespace Game.UI {
 
             Instance = this;
             DontDestroyOnLoad(gameObject);
+            base.Awake();
         }
 
-        private void OnEnable() {
-            var root = uiDocument.rootVisualElement;
-
-            _healthContainer = root.Q<VisualElement>("health-container");
-            _healthBar = root.Q<ProgressBar>("health-bar");
-            _healthValue = root.Q<Label>("health-value");
-
-            _multiplierContainer = root.Q<VisualElement>("multiplier-container");
-            _multiplierBar = root.Q<ProgressBar>("multiplier-bar");
-            _multiplierValue = root.Q<Label>("multiplier-value");
-
-            _ammoContainer = root.Q<VisualElement>("ammo-container");
-            _ammoCurrent = root.Q<Label>("ammo-current");
-            _ammoTotal = root.Q<Label>("ammo-total");
-
-            _crosshairContainer = root.Q<VisualElement>("crosshair-container");
-
+        protected override void OnEnable() {
+            base.OnEnable();
             // Cache MatchSettingsManager.Instance (but don't cache game mode - check it fresh each time)
             _cachedMatchSettings = MatchSettingsManager.Instance;
 
@@ -69,9 +55,17 @@ namespace Game.UI {
             EventBus.Subscribe<UpdateMultiplierEvent>(OnUpdateMultiplier);
             EventBus.Subscribe<ShowHUDEvent>(OnShowHUD);
             EventBus.Subscribe<HideHUDEvent>(OnHideHUD);
+            RegisterCleanup(() => {
+                EventBus.Unsubscribe<UpdateHealthEvent>(OnUpdateHealth);
+                EventBus.Unsubscribe<UpdateAmmoEvent>(OnUpdateAmmo);
+                EventBus.Unsubscribe<UpdateTagStatusEvent>(OnUpdateTagStatus);
+                EventBus.Unsubscribe<UpdateMultiplierEvent>(OnUpdateMultiplier);
+                EventBus.Unsubscribe<ShowHUDEvent>(OnShowHUD);
+                EventBus.Unsubscribe<HideHUDEvent>(OnHideHUD);
+            });
         }
 
-        private void OnDisable() {
+        protected override void OnDisable() {
             // Unsubscribe from UI events
             EventBus.Unsubscribe<UpdateHealthEvent>(OnUpdateHealth);
             EventBus.Unsubscribe<UpdateAmmoEvent>(OnUpdateAmmo);
@@ -79,6 +73,32 @@ namespace Game.UI {
             EventBus.Unsubscribe<UpdateMultiplierEvent>(OnUpdateMultiplier);
             EventBus.Unsubscribe<ShowHUDEvent>(OnShowHUD);
             EventBus.Unsubscribe<HideHUDEvent>(OnHideHUD);
+            base.OnDisable();
+        }
+
+        protected override void OnInitialize() {
+            _healthContainer = QOptional<VisualElement>("health-container");
+            _healthBar = QOptional<ProgressBar>("health-bar");
+            _healthValue = QOptional<Label>("health-value");
+
+            _multiplierContainer = QOptional<VisualElement>("multiplier-container");
+            _multiplierBar = QOptional<ProgressBar>("multiplier-bar");
+            _multiplierValue = QOptional<Label>("multiplier-value");
+
+            _ammoContainer = QOptional<VisualElement>("ammo-container");
+            _ammoCurrent = QOptional<Label>("ammo-current");
+            _ammoTotal = QOptional<Label>("ammo-total");
+
+            _crosshairContainer = QOptional<VisualElement>("crosshair-container");
+        }
+
+        protected override Dictionary<string, System.Type> GetRequiredElements() {
+            return new Dictionary<string, System.Type> {
+                { "health-container", typeof(VisualElement) },
+                { "health-bar", typeof(ProgressBar) },
+                { "ammo-container", typeof(VisualElement) },
+                { "crosshair-container", typeof(VisualElement) }
+            };
         }
 
         #region Event Handlers
@@ -203,7 +223,9 @@ namespace Game.UI {
         }
 
         public void DisableHUD() {
-            uiDocument.rootVisualElement.style.display = DisplayStyle.None;
+            if(Root != null) {
+                Root.style.display = DisplayStyle.None;
+            }
         }
 
         // Event handler - called via EventBus

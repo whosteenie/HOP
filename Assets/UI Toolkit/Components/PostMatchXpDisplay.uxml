@@ -1,0 +1,7 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" editor-extension-mode="False">
+    <ui:VisualElement name="xp-postmatch-container" class="xp-postmatch-container">
+        <ui:Label name="level-label" class="xp-level-label" text="LEVEL 1" />
+        <ui:ProgressBar name="xp-bar" class="xp-progress-bar" low-value="0" high-value="1000" value="0" />
+        <ui:Label name="xp-gained-label" class="xp-gained-label" text="+0 XP" />
+    </ui:VisualElement>
+</ui:UXML>

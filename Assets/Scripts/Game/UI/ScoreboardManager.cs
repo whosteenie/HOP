@@ -806,13 +806,40 @@ namespace Game.UI {
             return (yourTeamKills, enemyTeamKills);
         }
 
+        [Header("UI Templates")]
+        [SerializeField] private VisualTreeAsset scoreboardRowTemplate;
+
         /// <summary>
         /// Creates the base row structure (row element, ping, avatar, name) shared by all scoreboard rows.
+        /// Uses a UXML template when available; falls back to code-only construction otherwise.
         /// </summary>
         private VisualElement CreatePlayerRowBase(PlayerController player, VisualElement parentContainer,
             bool isYourTeam = false) {
-            var row = new VisualElement();
-            row.AddToClassList("player-row");
+            VisualElement row;
+            Label pingLabel;
+            VisualElement avatar;
+            Label nameLabel;
+            bool usingTemplate = false;
+
+            if(scoreboardRowTemplate != null) {
+                row = scoreboardRowTemplate.CloneTree();
+                pingLabel = row.Q<Label>("ping-label");
+                avatar = row.Q<VisualElement>("avatar");
+                nameLabel = row.Q<Label>("name-label");
+                usingTemplate = true;
+            } else {
+                row = new VisualElement();
+                row.AddToClassList("player-row");
+                pingLabel = new Label();
+                pingLabel.AddToClassList("player-ping");
+                row.Add(pingLabel);
+                avatar = new VisualElement();
+                avatar.AddToClassList("player-avatar");
+                row.Add(avatar);
+                nameLabel = new Label();
+                nameLabel.AddToClassList("player-name");
+                row.Add(nameLabel);
+            }
 
             // Highlight local player
             if(player.IsOwner) {
@@ -826,120 +853,202 @@ namespace Game.UI {
             parentContainer.Add(row);
 
             // Ping
-            var ping = new Label(GetPingText(player));
-            ping.AddToClassList("player-ping");
-            ping.AddToClassList(GetPingColorClass(player));
-            row.Add(ping);
+            if(pingLabel != null) {
+                pingLabel.text = GetPingText(player);
+                var pingClass = GetPingColorClass(player);
+                if(pingClass != string.Empty) {
+                    pingLabel.AddToClassList(pingClass);
+                }
+            }
 
             // Avatar (player icon based on color)
-            var avatar = new VisualElement();
-            avatar.AddToClassList("player-avatar");
-            row.Add(avatar);
-
-            // Fetch Steam Avatar
-            if (player != null && player.steamId.Value != 0) {
-                 LoadSteamAvatar(player.steamId.Value, avatar).Forget();
-            } else {
-                 // Fallback to simple colors if no Steam ID or Steam not active
-                 var baseColor = player != null ? player.CurrentBaseColor : Color.white;
-                 var playerIcon = GetPlayerIconSprite(baseColor);
-                 if(playerIcon != null) {
-                     avatar.style.backgroundImage = new StyleBackground(playerIcon);
-                 }
+            if(avatar != null) {
+                if(player != null && player.steamId.Value != 0) {
+                    LoadSteamAvatar(player.steamId.Value, avatar).Forget();
+                } else {
+                    // Fallback to simple colors if no Steam ID or Steam not active
+                    var baseColor = player != null ? player.CurrentBaseColor : Color.white;
+                    var playerIcon = GetPlayerIconSprite(baseColor);
+                    if(playerIcon != null) {
+                        avatar.style.backgroundImage = new StyleBackground(playerIcon);
+                    }
+                }
             }
 
             // Name
-            var playerName = new Label(player.PlayerName.Value.ToString());
-            playerName.AddToClassList("player-name");
-            row.Add(playerName);
+            if(nameLabel != null) {
+                nameLabel.text = player.PlayerName.Value.ToString();
+            }
+
+            // Store template flag for stat population
+            if(usingTemplate) {
+                row.userData = true;
+            }
 
             return row;
         }
 
         /// <summary>
         /// Adds normal mode stats (K, D, A, KDR, DMG, HS%, AV) to a player row.
+        /// Uses template stat labels if available, otherwise creates new labels.
         /// </summary>
         private void AddNormalModeStats(VisualElement row, PlayerController player) {
-            // Kills
-            var kills = new Label(player.Kills.Value.ToString());
-            kills.AddToClassList("player-stat");
-            row.Add(kills);
+            var usingTemplate = row.userData is bool && (bool)row.userData;
+            var statLabels = new List<Label>();
 
-            // Deaths
-            var deaths = new Label(player.Deaths.Value.ToString());
-            deaths.AddToClassList("player-stat");
-            row.Add(deaths);
-
-            // Assists
-            var assists = new Label(player.Assists.Value.ToString());
-            assists.AddToClassList("player-stat");
-            row.Add(assists);
-
-            // KDA
-            var kda = CalculateKdr(player.Kills.Value, player.Deaths.Value, player.Assists.Value);
-            var kdaLabel = new Label(kda.ToString("F2"));
-            kdaLabel.AddToClassList("player-stat");
-            if(kda >= 2.0f) {
-                kdaLabel.AddToClassList("player-stat-highlight");
+            if(usingTemplate) {
+                for(var i = 0; i < 7; i++) {
+                    var label = row.Q<Label>($"stat-{i}");
+                    if(label != null) statLabels.Add(label);
+                }
             }
 
-            row.Add(kdaLabel);
+            // Kills (stat-0)
+            if(statLabels.Count > 0 && statLabels[0] != null) {
+                statLabels[0].text = player.Kills.Value.ToString();
+            } else {
+                var kills = new Label(player.Kills.Value.ToString());
+                kills.AddToClassList("player-stat");
+                row.Add(kills);
+            }
 
-            // Damage
+            // Deaths (stat-1)
+            if(statLabels.Count > 1 && statLabels[1] != null) {
+                statLabels[1].text = player.Deaths.Value.ToString();
+            } else {
+                var deaths = new Label(player.Deaths.Value.ToString());
+                deaths.AddToClassList("player-stat");
+                row.Add(deaths);
+            }
+
+            // Assists (stat-2)
+            if(statLabels.Count > 2 && statLabels[2] != null) {
+                statLabels[2].text = player.Assists.Value.ToString();
+            } else {
+                var assists = new Label(player.Assists.Value.ToString());
+                assists.AddToClassList("player-stat");
+                row.Add(assists);
+            }
+
+            // KDA (stat-3)
+            var kda = CalculateKdr(player.Kills.Value, player.Deaths.Value, player.Assists.Value);
+            if(statLabels.Count > 3 && statLabels[3] != null) {
+                statLabels[3].text = kda.ToString("F2");
+                if(kda >= 2.0f) {
+                    statLabels[3].AddToClassList("player-stat-highlight");
+                } else {
+                    statLabels[3].RemoveFromClassList("player-stat-highlight");
+                }
+            } else {
+                var kdaLabel = new Label(kda.ToString("F2"));
+                kdaLabel.AddToClassList("player-stat");
+                if(kda >= 2.0f) {
+                    kdaLabel.AddToClassList("player-stat-highlight");
+                }
+                row.Add(kdaLabel);
+            }
+
+            // Damage (stat-4)
             var damage = Mathf.RoundToInt(player.DamageDealt.Value);
-            var damageLabel = new Label($"{damage:N0}");
-            damageLabel.AddToClassList("player-stat");
-            row.Add(damageLabel);
+            if(statLabels.Count > 4 && statLabels[4] != null) {
+                statLabels[4].text = $"{damage:N0}";
+            } else {
+                var damageLabel = new Label($"{damage:N0}");
+                damageLabel.AddToClassList("player-stat");
+                row.Add(damageLabel);
+            }
 
-            // Headshot % (placeholder)
-            var headshotPct = new Label("0%");
-            headshotPct.AddToClassList("player-stat");
-            row.Add(headshotPct);
+            // Headshot % (stat-5)
+            if(statLabels.Count > 5 && statLabels[5] != null) {
+                statLabels[5].text = "0%";
+            } else {
+                var headshotPct = new Label("0%");
+                headshotPct.AddToClassList("player-stat");
+                row.Add(headshotPct);
+            }
 
-            // Average Velocity
-            row.Add(CreateAverageVelocityLabel(player));
+            // Average Velocity (stat-6)
+            var avgVelLabel = CreateAverageVelocityLabel(player);
+            if(statLabels.Count > 6 && statLabels[6] != null) {
+                statLabels[6].text = avgVelLabel.text;
+            } else {
+                row.Add(avgVelLabel);
+            }
         }
 
         private VisualElement CreatePlayerRow(PlayerController player, VisualElement parentContainer, bool isTagMode) {
             var row = CreatePlayerRowBase(player, parentContainer);
+            var usingTemplate = row.userData is bool && (bool)row.userData;
+            var statLabels = new List<Label>();
+
+            if(usingTemplate) {
+                for(var i = 0; i < 7; i++) {
+                    var label = row.Q<Label>($"stat-{i}");
+                    if(label != null) statLabels.Add(label);
+                }
+            }
 
             if(isTagMode) {
-                // Tag mode stats: TT, Tags, Tagged, TTR, DMG, AV
-                // Order matches header: PING, AVATAR, NAME, TT, Tags, Tagged, TTR, DMG, AV
-                // TT (Time Tagged) - main score, shown first (replaces K)
+                // Tag mode stats: TT, Tags, Tagged, TTR, AV (5 stats, skip DMG and HS%)
                 var tagCtrl = GetCachedTagController(player);
                 var timeTaggedVal = tagCtrl != null ? tagCtrl.timeTagged.Value : 0;
                 var tagsVal = tagCtrl != null ? tagCtrl.tags.Value : 0;
                 var taggedVal = tagCtrl != null ? tagCtrl.tagged.Value : 0;
 
-                var timeTagged = new Label(timeTaggedVal.ToString());
-                timeTagged.AddToClassList("player-stat");
-                row.Add(timeTagged);
-
-                // Tags (replaces D)
-                var tags = new Label(tagsVal.ToString());
-                tags.AddToClassList("player-stat");
-                row.Add(tags);
-
-                // Tagged (replaces A)
-                var tagged = new Label(taggedVal.ToString());
-                tagged.AddToClassList("player-stat");
-                row.Add(tagged);
-
-                // TTR (Tag-Tagged Ratio) instead of KDR
-                var ttr = CalculateTtr(tagsVal, taggedVal);
-                var ttrLabel = new Label(ttr.ToString("F2"));
-                ttrLabel.AddToClassList("player-stat");
-                if(ttr >= 2.0f) {
-                    ttrLabel.AddToClassList("player-stat-highlight");
+                // TT (stat-0)
+                if(statLabels.Count > 0 && statLabels[0] != null) {
+                    statLabels[0].text = timeTaggedVal.ToString();
+                } else {
+                    var timeTagged = new Label(timeTaggedVal.ToString());
+                    timeTagged.AddToClassList("player-stat");
+                    row.Add(timeTagged);
                 }
 
-                row.Add(ttrLabel);
+                // Tags (stat-1)
+                if(statLabels.Count > 1 && statLabels[1] != null) {
+                    statLabels[1].text = tagsVal.ToString();
+                } else {
+                    var tags = new Label(tagsVal.ToString());
+                    tags.AddToClassList("player-stat");
+                    row.Add(tags);
+                }
 
-                // Skip Damage and HS% for Tag mode (no damage dealt in Tag mode)
+                // Tagged (stat-2)
+                if(statLabels.Count > 2 && statLabels[2] != null) {
+                    statLabels[2].text = taggedVal.ToString();
+                } else {
+                    var tagged = new Label(taggedVal.ToString());
+                    tagged.AddToClassList("player-stat");
+                    row.Add(tagged);
+                }
 
-                // Average Velocity (skip HS% and DMG for Tag mode)
-                row.Add(CreateAverageVelocityLabel(player));
+                // TTR (stat-3)
+                var ttr = CalculateTtr(tagsVal, taggedVal);
+                if(statLabels.Count > 3 && statLabels[3] != null) {
+                    statLabels[3].text = ttr.ToString("F2");
+                    if(ttr >= 2.0f) {
+                        statLabels[3].AddToClassList("player-stat-highlight");
+                    } else {
+                        statLabels[3].RemoveFromClassList("player-stat-highlight");
+                    }
+                } else {
+                    var ttrLabel = new Label(ttr.ToString("F2"));
+                    ttrLabel.AddToClassList("player-stat");
+                    if(ttr >= 2.0f) {
+                        ttrLabel.AddToClassList("player-stat-highlight");
+                    }
+                    row.Add(ttrLabel);
+                }
+
+                // Skip stat-4 (DMG) and stat-5 (HS%) for Tag mode
+
+                // Average Velocity (stat-6)
+                var avgVelLabel = CreateAverageVelocityLabel(player);
+                if(statLabels.Count > 6 && statLabels[6] != null) {
+                    statLabels[6].text = avgVelLabel.text;
+                } else {
+                    row.Add(avgVelLabel);
+                }
             } else {
                 // Normal mode stats
                 AddNormalModeStats(row, player);
@@ -962,44 +1071,71 @@ namespace Game.UI {
         }
 
         private VisualElement CreateEmptyRow(VisualElement parentContainer, bool isTagMode, bool isYourTeam = false) {
-            var row = new VisualElement();
-            row.AddToClassList("player-row");
+            VisualElement row;
+            Label pingLabel;
+            VisualElement avatar;
+            Label nameLabel;
+            bool usingTemplate = false;
+            var statLabels = new List<Label>();
+
+            if(scoreboardRowTemplate != null) {
+                row = scoreboardRowTemplate.CloneTree();
+                pingLabel = row.Q<Label>("ping-label");
+                avatar = row.Q<VisualElement>("avatar");
+                nameLabel = row.Q<Label>("name-label");
+                for(var i = 0; i < 7; i++) {
+                    var label = row.Q<Label>($"stat-{i}");
+                    if(label != null) statLabels.Add(label);
+                }
+                usingTemplate = true;
+            } else {
+                row = new VisualElement();
+                row.AddToClassList("player-row");
+                pingLabel = new Label("-");
+                pingLabel.AddToClassList("player-ping");
+                row.Add(pingLabel);
+                avatar = new VisualElement();
+                avatar.AddToClassList("player-avatar");
+                row.Add(avatar);
+                nameLabel = new Label("-");
+                nameLabel.AddToClassList("player-name");
+                row.Add(nameLabel);
+            }
+
             row.AddToClassList("player-row-empty");
             
-            if (isYourTeam) {
+            if(isYourTeam) {
                 row.AddToClassList("player-row-local-your-team");
             }
 
             parentContainer.Add(row);
 
-            // Ping
-            var ping = new Label("-");
-            ping.AddToClassList("player-ping");
-            row.Add(ping);
+            if(pingLabel != null) pingLabel.text = "-";
+            if(nameLabel != null) nameLabel.text = "-";
 
-            // Avatar
-            var avatar = new VisualElement();
-            avatar.AddToClassList("player-avatar"); 
-            row.Add(avatar);
-
-            // Name
-            var playerName = new Label("-");
-            playerName.AddToClassList("player-name");
-            row.Add(playerName);
-
-            if (isTagMode) {
+            if(isTagMode) {
                 // TT, Tags, Tagged, TTR, AV (5 stats)
-                for (int i = 0; i < 5; i++) {
-                    var label = new Label("-");
-                    label.AddToClassList("player-stat");
-                    row.Add(label);
+                var count = usingTemplate ? Math.Min(5, statLabels.Count) : 5;
+                for(var i = 0; i < count; i++) {
+                    if(usingTemplate && i < statLabels.Count && statLabels[i] != null) {
+                        statLabels[i].text = "-";
+                    } else {
+                        var label = new Label("-");
+                        label.AddToClassList("player-stat");
+                        row.Add(label);
+                    }
                 }
             } else {
                 // K, D, A, KDR, DMG, HS%, AV (7 stats)
-                for (int i = 0; i < 7; i++) {
-                    var label = new Label("-");
-                    label.AddToClassList("player-stat");
-                    row.Add(label);
+                var count = usingTemplate ? statLabels.Count : 7;
+                for(var i = 0; i < count; i++) {
+                    if(usingTemplate && i < statLabels.Count && statLabels[i] != null) {
+                        statLabels[i].text = "-";
+                    } else {
+                        var label = new Label("-");
+                        label.AddToClassList("player-stat");
+                        row.Add(label);
+                    }
                 }
             }
 
