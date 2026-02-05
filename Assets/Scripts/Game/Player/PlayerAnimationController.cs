@@ -82,13 +82,8 @@ namespace Game.Player {
             _playerAnimator.SetBool(IsSprintingHash, isSprinting);
             _playerAnimator.SetBool(IsFallingHash, IsFalling);
 
-            // Reset jump trigger when grounded and not jumping, or when in air (falling)
-            // Since _isFalling is now true during entire jump (up and down), we reset it whenever in air
-            // Note: Land trigger is never reset - let the animator consume it naturally
             var isGrounded = playerController != null && playerController.IsGrounded;
             if((isGrounded && !IsJumping) || IsFalling) {
-                // Grounded and not jumping, or in air - clear jump trigger
-                // _playerAnimator.ResetTrigger(JumpTriggerHash);
             }
         }
 
@@ -223,8 +218,14 @@ namespace Game.Player {
         }
 
         // Public getters for state
+        /// <summary>
+        /// Gets or sets whether the player is currently in a jumping state.
+        /// </summary>
         private bool IsJumping { get; set; }
 
+        /// <summary>
+        /// Gets or sets whether the player is currently in a falling state.
+        /// </summary>
         private bool IsFalling { get; set; }
     }
 }

@@ -14,8 +14,12 @@ namespace Game.Player {
     /// Separated into partial class for better organization.
     /// </summary>
     public partial class PlayerController {
+
         #region Public API
 
+        /// <summary>
+        /// Sets the active state of both the gameplay (FP) and death cameras.
+        /// </summary>
         public void SetGameplayCameraActive(bool active) {
             if(fpCamera != null) {
                 fpCamera.gameObject.SetActive(active);
@@ -26,18 +30,27 @@ namespace Game.Player {
             }
         }
 
+        /// <summary>
+        /// Resets the player's current velocity.
+        /// </summary>
         public void ResetVelocity() {
             if(movementController != null) {
                 movementController.ResetVelocity();
             }
         }
 
+        /// <summary>
+        /// Attempts to make the player jump with a specific height.
+        /// </summary>
         public void TryJump(float height = 2f) {
             if(movementController != null) {
                 movementController.TryJump(height);
             }
         }
 
+        /// <summary>
+        /// Plays the player's walk sound if grounded and moving.
+        /// </summary>
         public void PlayWalkSound() {
             if(!IsGrounded) return;
 
@@ -52,6 +65,9 @@ namespace Game.Player {
             }
         }
 
+        /// <summary>
+        /// Plays the player's run sound if grounded and moving fast enough.
+        /// </summary>
         public void PlayRunSound() {
             if(!IsGrounded) return;
 
@@ -66,6 +82,9 @@ namespace Game.Player {
             }
         }
 
+        /// <summary>
+        /// Attempts to pick up a nearby Hopball.
+        /// </summary>
         public void PickupHopball() {
             if(playerHopballController != null) {
                 playerHopballController.TryPickupHopball();
@@ -76,6 +95,9 @@ namespace Game.Player {
 
         public bool IsHoldingHopball => playerHopballController != null && playerHopballController.IsHoldingHopball;
 
+        /// <summary>
+        /// Drops the currently held Hopball.
+        /// </summary>
         public void DropHopball() {
             if(playerHopballController != null) {
                 playerHopballController.DropHopball();
@@ -189,6 +211,9 @@ namespace Game.Player {
 
         #region Velocity Helpers
 
+        /// <summary>
+        /// Gets the current horizontal velocity vector.
+        /// </summary>
         public Vector3 GetHorizontalVelocity() {
             if(movementController != null) {
                 return movementController.HorizontalVelocity;
@@ -196,6 +221,9 @@ namespace Game.Player {
             return Vector3.zero;
         }
 
+        /// <summary>
+        /// Gets the current vertical velocity value.
+        /// </summary>
         public float GetVerticalVelocity() {
             if(movementController != null) {
                 return movementController.VerticalVelocity;
@@ -203,6 +231,9 @@ namespace Game.Player {
             return 0f;
         }
 
+        /// <summary>
+        /// Gets the full velocity vector including horizontal and vertical components.
+        /// </summary>
         public Vector3 GetFullVelocity {
             get {
                 if(movementController != null) {
@@ -212,6 +243,9 @@ namespace Game.Player {
             }
         }
 
+        /// <summary>
+        /// Gets the maximum movement speed currently allowed.
+        /// </summary>
         public float GetMaxSpeed() {
             if(movementController != null) {
                 return movementController.MaxSpeed;
@@ -219,6 +253,9 @@ namespace Game.Player {
             return 5f;
         }
 
+        /// <summary>
+        /// Gets the cached horizontal speed squared value.
+        /// </summary>
         public float GetCachedHorizontalSpeedSqr() {
             if(movementController != null) {
                 return movementController.CachedHorizontalSpeedSqr;
@@ -234,6 +271,9 @@ namespace Game.Player {
             }
         }
 
+        /// <summary>
+        /// Adds a vertical velocity boost to the player.
+        /// </summary>
         public void AddVerticalVelocity(float verticalBoost) {
             if(movementController != null) {
                 movementController.AddVerticalVelocity(verticalBoost);

@@ -385,7 +385,7 @@ namespace Game.Player {
         public T[] GetRenderersFromGameObject<T>(GameObject obj, bool includeInactive = true) where T : Renderer {
             return obj == null ? Array.Empty<T>() : obj.GetComponentsInChildren<T>(includeInactive);
         }
-
+        
         #endregion
     }
 }

@@ -31,7 +31,6 @@ namespace Game.Progression {
                 var loaded = Resources.LoadAll<ChallengeDefinition>("Challenges");
                 if (loaded != null && loaded.Length > 0) {
                     challengePool = new List<ChallengeDefinition>(loaded);
-                    Debug.Log($"[ProgressionManager] Auto-loaded {challengePool.Count} challenges from Resources.");
                 } else {
                     Debug.LogWarning("[ProgressionManager] No challenges found in Resources/Challenges!");
                 }

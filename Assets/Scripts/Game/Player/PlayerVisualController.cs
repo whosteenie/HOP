@@ -70,11 +70,10 @@ namespace Game.Player {
 
             
             // Apply to active FP Weapon Arms
-            if(_weaponManager != null) {
-                var currentFpWeapon = _weaponManager.GetCurrentFpWeapon();
-                if(currentFpWeapon != null) {
-                    ApplyMaterialToFpArms(currentFpWeapon);
-                }
+            if(_weaponManager == null) return;
+            var currentFpWeapon = _weaponManager.GetCurrentFpWeapon();
+            if(currentFpWeapon != null) {
+                ApplyMaterialToFpArms(currentFpWeapon);
             }
         }
 
@@ -87,26 +86,15 @@ namespace Game.Player {
             
             var generatedMaterial = _cachedMaterialsArray[1];
             if(generatedMaterial == null) return;
-
-            // Find the arm object in the weapon instance (Tagged "Arm")
-            // Delegate this search or logic to WeaponManager? 
-            // Or just search here since we have the instance.
-            // WeaponManager.ApplyPlayerMaterialToFpWeapon logic duplicated finding "Arm".
-            // Let's use a helper in PlayerRenderer or just find it.
-            
-            // Actually, WeaponManager has specific logic to find the "Arm" tag.
-            // Let's rely on PlayerRenderer's ApplyMaterialToRenderers but we need the target.
             
             Transform armTransform = null;
-            foreach(Transform child in fpWeaponInstance.GetComponentsInChildren<Transform>(true)) {
-                if(child.CompareTag("Arm")) {
-                    armTransform = child;
-                    break;
-                }
+            foreach(var child in fpWeaponInstance.GetComponentsInChildren<Transform>(true)) {
+                if(!child.CompareTag("Arm")) continue;
+                armTransform = child;
+                break;
             }
 
             if(armTransform != null) {
-                // Apply ONLY to index 1 (Inner Color), leaving index 0 (Outline) alone
                 PlayerRenderer.ApplyMaterialToRenderers(armTransform.gameObject, generatedMaterial, 1);
             }
         }
@@ -132,9 +120,9 @@ namespace Game.Player {
             if(armTransform == null) return;
 
             var renderers = armTransform.GetComponentsInChildren<Renderer>(true);
-            
-            if (isTagged) {
-                if (_tagPropertyBlock == null) _tagPropertyBlock = new MaterialPropertyBlock();
+
+            if(isTagged) {
+                if(_tagPropertyBlock == null) _tagPropertyBlock = new MaterialPropertyBlock();
 
                 foreach(var r in renderers) {
                     r.GetPropertyBlock(_tagPropertyBlock, 0); // Get from index 0 (Outline)
@@ -148,10 +136,9 @@ namespace Game.Player {
                 }
             }
         }
+
         /// <summary>
         /// Applies player material customization using the new packet-based system.
-        /// Generates a URP/Lit material from the packet and customization values.
-        /// Preserves the outline material at index 0.
         /// </summary>
         /// <param name="packetIndex">Index of the material packet (0 = None, 1+ = loaded packets)</param>
         /// <param name="baseColor">Base color tint</param>
@@ -159,8 +146,8 @@ namespace Game.Player {
         /// <param name="metallic">Metallic value (0-1), only used if packet uses metallic workflow</param>
         /// <param name="specularColor">Specular color, only used if packet uses specular workflow</param>
         /// <param name="heightStrength">Height map strength override, uses packet default if null</param>
-        /// <param name="emissionEnabled"></param>
-        /// <param name="emissionColor"></param>
+        /// <param name="emissionEnabled">Whether emission is enabled</param>
+        /// <param name="emissionColor">Emission color tint</param>
         public void ApplyPlayerMaterialCustomization(int packetIndex, Color baseColor, float smoothness, 
             float metallic = 0f, Color? specularColor = null, float? heightStrength = null,
             bool emissionEnabled = false, Color? emissionColor = null) {

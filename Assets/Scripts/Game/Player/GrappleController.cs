@@ -19,7 +19,6 @@ namespace Game.Player {
         private NetworkSfxRelay _sfxRelay;
         private LayerMask _playerLayer;
         [SerializeField] private Transform grappleOriginTp;
-        // [SerializeField] private SwingGrapple swingGrapple;
 
         [Header("Grapple Settings")]
         private const float MaxGrappleDistance = 50f;
@@ -182,6 +181,9 @@ namespace Game.Player {
 
         #endregion
 
+        /// <summary>
+        /// Triggers the grapple cooldown.
+        /// </summary>
         public void TriggerCooldown() {
             if(!CanGrapple) return; // Already on cooldown
             StartCoroutine(StartGrappleCooldown());
@@ -207,6 +209,9 @@ namespace Game.Player {
             UpdateGrappleVisuals(newValue, _netGrapplePoint.Value);
         }
 
+        /// <summary>
+        /// Called when the grapple point is updated on the network.
+        /// </summary>
         private void OnGrapplePointChanged(Vector3 previousValue, Vector3 newValue) {
             if(IsOwner) return;
 
@@ -229,33 +234,26 @@ namespace Game.Player {
         }
 
         private void SetupGrappleMesh() {
-            // Create mesh object if it doesn't exist
             if(_grappleMeshObject == null) {
                 _grappleMeshObject = new GameObject("GrappleCable");
-                // Don't parent to transform - mesh vertices are in world space
                 _grappleMeshObject.transform.SetParent(null);
 
                 _grappleMeshFilter = _grappleMeshObject.AddComponent<MeshFilter>();
                 _grappleMeshRenderer = _grappleMeshObject.AddComponent<MeshRenderer>();
 
-                // Create the mesh
                 _grappleMesh = new Mesh {
                     name = "GrappleCableMesh"
                 };
                 _grappleMeshFilter.mesh = _grappleMesh;
             } else {
-                Debug.Log("[GrappleController] Using existing grapple mesh from inspector");
-                // Ensure it's not parented if it was assigned in inspector
                 if(_grappleMeshObject.transform.parent != null) {
                     _grappleMeshObject.transform.SetParent(null);
                 }
             }
 
-            // Set material (supports complex materials with normals, AO, height, etc.)
             if(lineMaterial != null) {
                 _grappleMeshRenderer.material = lineMaterial;
             } else {
-                // Fallback to a simple material if none assigned
                 _grappleMeshRenderer.material = new Material(Shader.Find("Universal Render Pipeline/Lit"))
                     {
                         color = grappleColor
@@ -331,10 +329,12 @@ namespace Game.Player {
 
         #region Public Methods
 
+        /// <summary>
+        /// Attempts to start a grapple if looking at a grappleable surface.
+        /// </summary>
         public void TryGrapple() {
             if(!CanGrapple || IsGrappling) return;
 
-            // Raycast from camera to find grapple point
             var ray = new Ray(playerController.FpCameraTransform.position, playerController.FpCameraTransform.forward);
 
             if(Physics.Raycast(ray, out var hit, MaxGrappleDistance, _grappleableLayers)) {
@@ -342,6 +342,9 @@ namespace Game.Player {
             }
         }
 
+        /// <summary>
+        /// Cancels the active grapple.
+        /// </summary>
         public void CancelGrapple() {
             if(!IsGrappling) return;
 
@@ -354,8 +357,6 @@ namespace Game.Player {
         #region Private Methods - Grapple Logic
 
         private void StartGrapple(Vector3 targetPoint) {
-            // TODO: Reimplement when swing grapple is implemented
-            // if(swingGrapple.IsSwinging) swingGrapple.CancelSwing();
             
             // Cancel any active slide - grapple takes full control
             if(playerController != null && playerController.MovementController != null && playerController.MovementController.IsSliding) {
@@ -423,10 +424,9 @@ namespace Game.Player {
 
             // Check for walls in the direction we're moving
             var pullVelocity = directionToPoint * GrappleSpeed;
-            var checkDistance = pullVelocity.magnitude * Time.deltaTime * 3f; // Check slightly ahead
+            var checkDistance = pullVelocity.magnitude * Time.deltaTime * 3f;
             if(Physics.SphereCast(playerController.Position, _characterController.radius, directionToPoint, out _,
                    checkDistance, ~_playerLayer)) {
-                // We're about to hit something, end grapple early
                 EndGrapple(true);
                 return;
             }

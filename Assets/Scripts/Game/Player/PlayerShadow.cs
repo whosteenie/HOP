@@ -212,6 +212,9 @@ namespace Game.Player {
             }
         }
 
+        /// <summary>
+        /// Applies the default shadow state for the owner (shadows only).
+        /// </summary>
         public void ApplyOwnerDefaultShadowState() {
             // Ensure renderers are enabled (they may have been disabled during death)
             // Set shadow modes to ShadowsOnly so owner sees their shadow but not the model
@@ -221,6 +224,10 @@ namespace Game.Player {
             TrySetHolsterShadowState(true, false, ShadowCastingMode.ShadowsOnly);
         }
 
+        /// <summary>
+        /// Applies the shadow state for the death camera.
+        /// </summary>
+        /// <param name="wasHoldingHopball">Whether the player was holding a hopball at death.</param>
         public void ApplyDeathShadowState(bool wasHoldingHopball = false) {
             // For death camera, all third-person models should be ShadowsOn (visible)
             SetSkinnedMeshRenderersShadowMode(ShadowCastingMode.On);
@@ -232,18 +239,29 @@ namespace Game.Player {
             TrySetHolsterShadowState(true, wasHoldingHopball, ShadowCastingMode.On);
         }
 
+        /// <summary>
+        /// Applies the visible shadow state for non-owners.
+        /// </summary>
         public void ApplyVisibleShadowState() {
             SetSkinnedMeshRenderersShadowMode(ShadowCastingMode.On, null, true);
             SetWorldWeaponRenderersShadowMode(ShadowCastingMode.On);
             TrySetHolsterShadowState(false, false);
         }
 
+        /// <summary>
+        /// Applies the shadow state for the podium display.
+        /// </summary>
         public void ApplyPodiumShadowState() {
             SetSkinnedMeshRenderersShadowMode(ShadowCastingMode.On, null, true);
             SetWorldWeaponRenderersShadowMode(ShadowCastingMode.On);
             TrySetHolsterShadowState(true, false, ShadowCastingMode.On);
         }
 
+        /// <summary>
+        /// Applies shadow state changes based on hopball holding status.
+        /// </summary>
+        /// <param name="holdingHopball">Whether the player is holding a hopball.</param>
+        /// <param name="isOwner">Whether the player is the owner of this GameObject.</param>
         public void ApplyHopballShadowState(bool holdingHopball, bool isOwner) {
             if(!_holsterDataInitialized) InitializeHolsterData();
             if(_holsterData != null) {

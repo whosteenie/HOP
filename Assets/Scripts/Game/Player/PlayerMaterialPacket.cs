@@ -79,7 +79,7 @@ namespace Game.Player {
         public bool IsValid => albedoTexture != null || IsNonePacket;
 
         /// <summary>
-        /// Returns true if this is the special "None" packet (no textures, just base color customization).
+        /// Gets whether this is the special "None" packet (no textures, just base color customization).
         /// </summary>
         private bool IsNonePacket => string.IsNullOrEmpty(packetName) || packetName == "None";
     }

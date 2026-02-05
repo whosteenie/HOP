@@ -19,11 +19,14 @@
     padding: 6px 0;
     transition-duration: 0.2s;
 }
-.text-button:hover  { 
+.text-button:hover:enabled  { 
     color: rgb(255,100,100); 
     text-shadow: 0 0 8px rgba(255, 100, 100, 0.4);
 }
-.text-button:active { color: rgb(200,60,60); }
+.text-button:active:enabled { color: rgb(200,60,60); }
+.text-button:disabled {
+    color: rgba(240,240,240,0.3);
+}
 
 .menu-entry { flex-direction: row; align-items: center; margin-bottom: 8px; }
 .menu-diamond {
@@ -74,20 +77,14 @@
     margin-top: 6px; margin-bottom: 12px;
 }
 
-/* ===== LOBBY ===== */
-
-.lobby-container {
-    width: 900px; min-height: 440px;
-    padding: 26px;
-}
-
-.lobby-container-width-866px {
-    width: 866px;
-}
-
-.lobby-status {
-    color: rgb(180,180,180); font-size: 16px; margin-top: 6px; margin-bottom: 16px;
-    -unity-text-align: middle-left;
+/* ===== LOADING OVERLAY ===== */
+.loading-overlay {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    top: 0;
+    left: 0;
+    background-color: rgb(0, 0, 0);
 }
 
 /* ===== GAMEMODE DROPDOWN ===== */
@@ -1249,7 +1246,292 @@
     margin-right: 0;
 }
 
+
 .flex-grow-1.align-items-flex-end {
     align-items: center;
 }
 
+/* ===== STEAM GLOBAL UI ===== */
+
+.party-container {
+    position: absolute;
+    top: 20px;
+    right: 30px;
+    flex-direction: row;
+    align-items: center;
+}
+
+.status-container {
+    position: absolute;
+    top: 40px;
+    left: 50%;
+    translate: -50% 0;
+    flex-direction: row;
+    align-items: center;
+    padding: 8px 16px;
+    background-color: rgba(12, 12, 18, 0.98);
+    border-radius: 4px;
+    border-width: 1px;
+    border-color: rgba(200, 60, 60, 0.4);
+    width: 380px;
+    justify-content: center;
+    border-top-width: 1px;
+    border-bottom-left-radius: 6px;
+    border-bottom-right-radius: 6px;
+    border-top-left-radius: 6px;
+    border-top-right-radius: 6px;
+}
+
+.status-info-grouping {
+    flex-direction: column;
+    align-items: flex-start;
+    margin-right: 20px;
+}
+
+.status-label {
+    font-size: 16px;
+    -unity-font-style: bold;
+    color: white;
+    margin-right: 0;
+    margin-bottom: 2px;
+    letter-spacing: 1px;
+}
+
+.queue-details-row {
+    flex-direction: row;
+    align-items: center;
+    opacity: 0.7;
+}
+
+.queue-info-label {
+    font-size: 13px;
+    color: rgb(200, 200, 200);
+}
+
+.queue-info-separator {
+    margin: 0 8px;
+    color: rgba(200, 60, 60, 0.5);
+    font-size: 12px;
+}
+
+.cancel-button {
+    background-color: rgba(200, 60, 60, 0.15);
+    border-color: rgba(200, 60, 60, 0.6);
+    padding: 4px 12px;
+    font-size: 12px;
+    height: 32px;
+    color: rgb(255, 100, 100);
+}
+
+.cancel-button:hover {
+    background-color: rgba(200, 60, 60, 0.3);
+    border-color: rgba(255, 100, 100, 0.8);
+    color: white;
+}
+
+.steam-avatar {
+    width: 40px;
+    height: 40px;
+    background-color: rgb(50, 50, 50);
+    scale: 1 -1;
+    margin-right: 12px;
+}
+
+
+
+.party-member-row {
+    flex-direction: row;
+    align-items: center;
+    padding: 5px 10px;
+    border-radius: 4px;
+}
+
+.player-name-label {
+    color: white;
+    font-size: 14px;
+    -unity-font-style: bold;
+    margin: 0;
+    padding: 0;
+}
+
+/* ===== GAMEMODE SELECTION OVERHAUL ===== */
+
+.gamemode-selection-header {
+    margin-top: 60px;
+    margin-bottom: 40px;
+    -unity-text-align: upper-center;
+    letter-spacing: 4px;
+    color: rgb(255, 255, 255);
+    text-shadow: 0 0 10px rgba(255, 60, 60, 0.5);
+}
+
+.gamemode-cards-scroll {
+    flex-direction: row;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    height: 650px;
+}
+
+.gamemode-card {
+    width: 290px;
+    height: 460px;
+    margin: 0 12px;
+    background-color: rgba(20, 20, 25, 0.85);
+    border-width: 2px;
+    border-color: rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    padding: 0;
+    transition-duration: 0.2s;
+    transition-property: all;
+    transition-timing-function: ease-out-back;
+    overflow: hidden;
+}
+
+.gamemode-card:hover {
+    scale: 1.05;
+    border-color: rgba(255, 60, 60, 0.8);
+    background-color: rgba(30, 30, 35, 0.95);
+    translate: 0 -10px;
+}
+
+.gamemode-card-image {
+    width: 100%;
+    height: 65%;
+    background-color: rgb(15, 15, 18);
+    border-bottom-width: 2px;
+    border-color: rgba(255, 255, 255, 0.05);
+    -unity-background-scale-mode: scale-to-fit;
+    padding: 24px;
+}
+
+.gamemode-card-title {
+    margin-top: 16px;
+    padding: 0 16px;
+    font-size: 22px;
+    -unity-font-style: bold;
+    color: white;
+    -unity-text-align: middle-left;
+    letter-spacing: 1px;
+}
+
+.gamemode-card-desc {
+    padding: 8px 16px;
+    font-size: 13px;
+    color: rgba(240, 240, 240, 0.7);
+    white-space: normal;
+    -unity-text-align: middle-left;
+}
+
+.gamemode-back-btn {
+    margin-top: 40px;
+    align-self: center;
+}
+
+
+/* Specific Gamemode Card Icons */
+.dm-image { 
+    background-image: url('project://database/Assets/UI%20Toolkit/Images/gamemodes/dm_icon.png');
+}
+.tdm-image { 
+    background-image: url('project://database/Assets/UI%20Toolkit/Images/gamemodes/tdm_icon.png');
+}
+.hopball-image { 
+    background-image: url('project://database/Assets/UI%20Toolkit/Images/gamemodes/hopball_icon.png');
+}
+.koth-image { 
+    background-image: url('project://database/Assets/UI%20Toolkit/Images/gamemodes/koth_icon.png');
+}
+.tag-image {
+    background-image: url('project://database/Assets/UI%20Toolkit/Images/gamemodes/tag_icon.png');
+}
+
+.party-members-row {
+    flex-direction: row;
+    align-items: center;
+}
+
+.invite-button {
+    width: 42px;
+    height: 42px;
+    padding: 0;
+    margin: 0 10px;
+    justify-content: center;
+    align-items: center;
+    background-color: rgba(60, 60, 65, 0.4);
+    border-color: rgba(255, 255, 255, 0.1);
+}
+
+.invite-button:hover {
+    background-color: rgba(80, 80, 85, 0.6);
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+.plus-icon {
+    width: 20px;
+    height: 20px;
+    -unity-background-image-tint-color: white;
+    background-image: url('project://database/Assets/UI%20Toolkit/Images/plus.png');
+}
+
+.party-separator {
+    width: 1px;
+    height: 30px;
+    background-color: rgba(255, 255, 255, 0.15);
+    margin: 0 15px;
+}
+
+.local-player-profile {
+    flex-direction: row;
+    align-items: center;
+    padding: 4px 12px;
+    background-color: rgba(0, 0, 0, 0.4);
+    border-radius: 4px;
+}
+
+.party-member-entry {
+    flex-direction: row;
+    align-items: center;
+    margin-right: 12px;
+}
+
+.global-overlay {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    top: 0;
+    left: 0;
+}
+/* ===== CONTEXT MENU ===== */
+.context-menu {
+    position: absolute;
+    width: 160px;
+    background-color: rgba(12, 12, 18, 0.98);
+    border-radius: 4px;
+    border-width: 1px;
+    border-color: rgba(200, 60, 60, 0.3);
+    padding: 6px 0;
+    flex-direction: column;
+}
+
+.context-menu-item {
+    font-size: 14px;
+    color: rgb(220, 220, 220);
+    background-color: transparent;
+    border-width: 0;
+    -unity-text-align: middle-left;
+    padding: 8px 12px;
+    margin: 0;
+    border-radius: 0;
+}
+
+.context-menu-item:hover {
+    background-color: rgba(255, 100, 100, 0.2);
+    color: white;
+}
+
+.context-menu-separator {
+    height: 1px;
+    background-color: rgba(200, 60, 60, 0.2);
+    margin: 4px 0;
+}

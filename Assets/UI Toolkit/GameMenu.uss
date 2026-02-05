@@ -47,12 +47,14 @@
     border-color: rgba(200, 60, 60, 0.2);
 }
 .health-bar > .unity-progress-bar__progress { 
-    background-color: rgb(200,60,60); 
-    border-radius: 4px; 
+    background-color: rgb(255, 100, 100);
+    background-image: none;
+    border-radius: 4px;
 }
 .multiplier-bar > .unity-progress-bar__progress { 
-    background-color: rgb(60,150,200); 
-    border-radius: 4px; 
+    background-color: rgb(60, 150, 200);
+    background-image: none;
+    border-radius: 4px;
 }
 
 /* Values */
@@ -187,18 +189,18 @@
 
 .scoreboard-container {
     width: 1100px;
-    max-height: 80%;
-    padding: 30px;
+    max-height: 85%;
+    padding: 15px 30px; /* Reduced vertical padding */
     flex-direction: column;
 }
 
 .scoreboard-header {
     flex-direction: row;
     align-items: center;
-    padding: 12px 16px;
+    padding: 6px 16px; /* Reduced vertical padding */
     background-color: rgba(200, 60, 60, 0.15);
     border-radius: 4px;
-    margin-bottom: 8px;
+    margin-bottom: 6px;
     border-width: 1px;
     border-color: rgba(200, 60, 60, 0.3);
 }
@@ -216,33 +218,36 @@
 }
 
 .ping-cell {
-    width: 60px;
-    min-width: 60px;
+    width: 40px;
+    min-width: 40px;
+    flex-shrink: 0;
 }
 
 .avatar-cell {
-    width: 40px;
-    height: 40px;
-    min-width: 40px;
+    width: 32px; /* Reduced from 40 */
+    height: 32px;
+    min-width: 32px;
     margin-left: 8px;
     margin-right: 8px;
+    flex-shrink: 0;
 }
 
 .name-cell {
     flex-grow: 1;
-    min-width: 200px;
+    min-width: 150px; /* Reduced min-width */
     -unity-text-align: middle-left;
     margin-left: 8px;
 }
 
 .stat-cell {
-    width: 70px;
-    min-width: 70px;
+    width: 60px;
+    min-width: 60px;
+    flex-shrink: 0;
 }
 
 .scoreboard-scroll {
     flex-grow: 1;
-    max-height: 500px;
+    max-height: 560px; /* Increased slightly */
 }
 
 .player-rows {
@@ -252,13 +257,21 @@
 .player-row {
     flex-direction: row;
     align-items: center;
-    padding: 10px 16px;
+    padding: 4px 12px; /* Reduced further */
     background-color: rgba(15, 15, 20, 0.7);
     border-radius: 4px;
-    margin-bottom: 4px;
+    margin-bottom: 2px;
     border-width: 1px;
     border-color: rgba(200, 60, 60, 0.15);
     transition-duration: 0.2s;
+}
+
+.player-row-alt {
+    background-color: rgba(10, 10, 15, 0.5);
+}
+
+.player-row-empty {
+    opacity: 0.3;
 }
 
 .player-row:hover {
@@ -287,11 +300,12 @@
 }
 
 .player-ping {
-    width: 60px;
-    min-width: 60px;
-    font-size: 14px;
+    width: 40px;
+    min-width: 40px;
+    font-size: 13px;
     -unity-text-align: middle-center;
     color: rgb(100, 200, 100);
+    flex-shrink: 0;
 }
 
 .player-ping-high {
@@ -303,9 +317,9 @@
 }
 
 .player-avatar {
-    width: 40px;
-    height: 40px;
-    min-width: 40px;
+    width: 32px; /* Reduced from 40 */
+    height: 32px;
+    min-width: 32px;
     margin-left: 8px;
     margin-right: 8px;
     border-radius: 4px;
@@ -313,12 +327,13 @@
     border-width: 1px;
     border-color: rgba(200, 60, 60, 0.2);
     -unity-background-scale-mode: scale-to-fit;
+    flex-shrink: 0;
 }
 
 .player-name {
     flex-grow: 1;
-    min-width: 200px;
-    font-size: 16px;
+    min-width: 120px;
+    font-size: 14px;
     color: rgb(240, 240, 240);
     -unity-text-align: middle-left;
     margin-left: 8px;
@@ -327,11 +342,12 @@
 }
 
 .player-stat {
-    width: 70px;
-    min-width: 70px;
+    width: 60px;
+    min-width: 60px;
     font-size: 14px;
     -unity-text-align: middle-center;
     color: rgb(200, 200, 200);
+    flex-shrink: 0;
 }
 
 .player-stat-highlight {
@@ -343,8 +359,8 @@
 
 .tdm-scoreboard-container {
     width: 1100px;
-    max-height: 80%;
-    padding: 24px;
+    max-height: 85%;
+    padding: 15px 24px;
     flex-direction: column;
 }
 
@@ -359,30 +375,30 @@
 }
 
 .tdm-team-section-enemy {
-    margin-bottom: 12px;
+    margin-bottom: 6px;
 }
 
 .tdm-team-section-your {
 }
 
 .tdm-team-label {
-    font-size: 18px;
+    font-size: 16px; /* Slightly smaller */
     -unity-font-style: bold;
     color: rgb(255, 255, 255);
-    margin-bottom: 12px;
+    margin-bottom: 8px;
     letter-spacing: 2px;
 }
 
 .tdm-team-header {
     flex-direction: row;
     align-items: center;
-    padding: 10px 16px;
+    padding: 4px 12px; /* Reduced */
     background-color: rgba(200, 60, 60, 0.15);
     border-radius: 4px;
-    margin-bottom: 8px;
+    margin-bottom: 2px; /* Reduced */
     border-width: 1px;
     border-color: rgba(200, 60, 60, 0.3);
-    height: 36px;
+    height: 28px; /* Reduced from 32 */
 }
 
 .tdm-team-header-your {
@@ -392,7 +408,7 @@
 
 .tdm-team-scroll {
     flex-grow: 1;
-    max-height: 180px;
+    max-height: 250px;
     min-height: 80px;
 }
 
@@ -401,7 +417,7 @@
     align-items: center;
     justify-content: center;
     padding: 0;
-    margin-bottom: 12px;
+    margin-bottom: 6px;
 }
 
 .tdm-score-enemy {
@@ -992,4 +1008,352 @@
     left: 50%;
     top: 0;
     margin-left: -0.5px;
+}
+
+/* ===== CHALLENGE CARDS (Pause Menu) ===== */
+.challenge-card {
+    width: 280px;
+    min-height: 180px;
+    background-color: rgba(12, 12, 18, 0.85);
+    border-width: 1px;
+    border-color: rgba(200, 60, 60, 0.4);
+    padding-top: 16px;
+    padding-bottom: 16px;
+    padding-left: 18px;
+    padding-right: 18px;
+    border-top-left-radius: 4px;
+    border-top-right-radius: 4px;
+    border-bottom-left-radius: 4px;
+    border-bottom-right-radius: 4px;
+}
+
+.challenge-card-title {
+    font-size: 14px;
+    -unity-font-style: bold;
+    color: rgb(255, 255, 255);
+    margin-bottom: 12px;
+    -unity-text-align: middle-center;
+}
+
+.challenge-card-separator {
+    height: 1px;
+    background-color: rgba(200, 60, 60, 0.6);
+    margin-bottom: 12px;
+}
+
+.challenge-list {
+    flex-direction: column;
+}
+
+.challenge-row {
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom-width: 1px;
+    border-bottom-color: rgba(200, 60, 60, 0.15);
+}
+
+.challenge-title-row {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 4px;
+}
+
+.challenge-description {
+    font-size: 11px;
+    color: rgba(230, 230, 230, 1);
+    white-space: normal;
+    flex-shrink: 1;
+}
+
+.challenge-xp {
+    font-size: 10px;
+    color: rgba(128, 204, 128, 1);
+    flex-shrink: 0;
+    margin-left: 8px;
+}
+
+.challenge-progress-bar {
+    height: 5px;
+}
+
+.challenge-progress-bar > .unity-progress-bar__progress {
+    background-color: rgb(255, 100, 100);
+}
+
+/* ===== POST-MATCH XP DISPLAY ===== */
+.xp-postmatch-container {
+    position: absolute;
+    bottom: 100px;
+    width: 40%;
+    left: 30%;
+    background-color: rgba(0, 0, 0, 0.7);
+    padding-top: 10px;
+    padding-bottom: 10px;
+    padding-left: 20px;
+    padding-right: 20px;
+    border-top-left-radius: 10px;
+    border-top-right-radius: 10px;
+    border-bottom-left-radius: 10px;
+    border-bottom-right-radius: 10px;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+}
+
+.xp-level-label {
+    color: rgb(255, 255, 255);
+    font-size: 24px;
+    -unity-font-style: bold;
+    align-self: center;
+    margin-bottom: 5px;
+}
+
+.xp-progress-bar {
+    height: 30px;
+    width: 100%;
+}
+
+.xp-progress-bar > .unity-progress-bar__progress {
+    background-color: rgb(50, 200, 50);
+    border-radius: 4px;
+}
+
+.xp-gained-label {
+    color: rgba(51, 255, 51, 1);
+    font-size: 20px;
+    align-self: center;
+    margin-top: 5px;
+}
+
+/* ===== CHAT ===== */
+.chat-container {
+    position: absolute;
+    bottom: 110px; /* Above health bar */
+    left: 30px;
+    width: 340px;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-end;
+}
+
+/* History Container - Shown when chat is open */
+.chat-history-container {
+    width: 100%;
+    height: 200px;
+    max-height: 200px;
+    min-height: 200px;
+    background-color: rgba(8, 8, 12, 0.85);
+    border-top-width: 1px;
+    border-bottom-width: 1px;
+    border-left-width: 1px;
+    border-right-width: 1px;
+    border-top-color: rgba(200, 60, 60, 0.5);
+    border-bottom-color: rgba(200, 60, 60, 0.5);
+    border-left-color: rgba(200, 60, 60, 0.5);
+    border-right-color: rgba(200, 60, 60, 0.5);
+    border-top-left-radius: 4px;
+    border-top-right-radius: 4px;
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+    margin-bottom: 4px;
+    margin-left: 0;
+    margin-right: 0;
+    margin-top: 0;
+    padding-left: 0;
+    padding-right: 0;
+    align-self: stretch;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.chat-history-container.hidden {
+    display: none;
+}
+
+.chat-scroll {
+    flex-grow: 1;
+    flex-shrink: 1;
+    overflow: scroll;
+}
+
+.chat-message-list {
+    flex-direction: column;
+    padding: 8px;
+}
+
+.chat-message {
+    font-size: 15px;
+    color: rgba(255, 255, 255, 0.9);
+    margin-bottom: 3px;
+    text-shadow: 1px 1px 1px rgba(0, 0, 0, 0.8);
+    white-space: normal;
+    padding: 2px 4px;
+    background-color: rgba(0,0,0,0.2); /* Slight backing */
+    border-radius: 4px;
+}
+
+.chat-message-system {
+    color: rgb(255, 200, 80);
+    -unity-font-style: bold;
+}
+
+.chat-input {
+    width: 100%;
+    height: 36px;
+    background-color: rgba(10, 10, 15, 0.9);
+    border-width: 1px;
+    border-color: rgba(200, 60, 60, 0.5);
+    border-radius: 4px;
+    color: white;
+    font-size: 14px;
+    margin-left: 0;
+    margin-right: 0;
+    margin-top: 0;
+    margin-bottom: 0;
+    padding-left: 2px;
+    padding-right: 0;
+    align-self: stretch;
+    --unity-cursor-color: white;
+}
+
+.chat-input > .unity-text-field__input {
+    background-color: rgba(0,0,0,0);
+    border-width: 0;
+    margin-left: 0;
+    margin-right: 0;
+    color: white;
+    --unity-cursor-color: white;
+}
+
+.chat-input > .unity-text-element--inner-input-field-component {
+    --unity-cursor-color: white;
+    color: white;
+}
+
+/* Recent Messages Area - Shown when chat is closed, fades out */
+.chat-recent-messages {
+    position: absolute;
+    bottom: 110px;
+    left: 30px;
+    width: 340px;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: flex-end;
+}
+
+.chat-recent-message {
+    font-size: 15px;
+    color: rgba(255, 255, 255, 0.9);
+    margin-bottom: 3px;
+    text-shadow: 1px 1px 1px rgba(0, 0, 0, 0.8);
+    white-space: normal;
+    padding: 2px 4px;
+    background-color: rgba(0,0,0,0.2);
+    border-radius: 4px;
+    opacity: 1;
+    transition-duration: 0.5s;
+    transition-property: opacity;
+}
+
+.chat-recent-message.fading {
+    opacity: 0;
+}
+
+.chat-recent-message-system {
+    color: rgb(255, 200, 80);
+    -unity-font-style: bold;
+}
+
+
+/* ===== VOICE CHAT ===== */
+.speaking-indicator {
+    position: absolute;
+    bottom: -4px;
+    right: -4px;
+    width: 12px;
+    height: 12px;
+    border-radius: 6px;
+    background-color: rgb(0, 255, 0);
+    border-width: 1px;
+    border-color: rgba(0,0,0,0.5);
+    display: none;
+}
+.speaking-indicator.active {
+    display: flex;
+}
+
+
+/* ===== VOICE OVERLAY ===== */
+.voice-overlay-container {
+    display: flex;
+    position: absolute;
+    top: 15%; /* Discord-Safe Offset */
+    left: 20px;
+    width: 250px;
+    flex-direction: column;
+    align-items: flex-start;
+}
+
+.voice-entry {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    padding: 4px 8px;
+    margin-bottom: 4px;
+    background-color: rgba(12, 12, 18, 0.7);
+    border-radius: 4px;
+    border-left-width: 3px;
+    border-left-color: rgb(200, 60, 60); /* Hopball Red */
+    opacity: 1;
+    transition-duration: 0.2s;
+    transition-property: opacity, translate;
+}
+
+.voice-entry-avatar {
+    width: 24px;
+    height: 24px;
+    border-radius: 2px;
+    margin-right: 8px;
+    background-color: rgba(255,255,255,0.1);
+}
+
+.voice-entry-name {
+    font-size: 14px;
+    color: rgb(240, 240, 240);
+    -unity-font-style: bold;
+}
+
+/* ===== CONTEXT MENU ===== */
+.context-menu {
+    position: absolute;
+    width: 160px;
+    background-color: rgba(12, 12, 18, 0.98);
+    border-radius: 4px;
+    border-width: 1px;
+    border-color: rgba(200, 60, 60, 0.3);
+    padding: 6px 0;
+    flex-direction: column;
+}
+
+.context-menu-item {
+    font-size: 14px;
+    color: rgb(220, 220, 220);
+    background-color: transparent;
+    border-width: 0;
+    -unity-text-align: middle-left;
+    padding: 8px 12px;
+    margin: 0;
+    border-radius: 0;
+}
+
+.context-menu-item:hover {
+    background-color: rgba(255, 100, 100, 0.2);
+    color: white;
+}
+
+.context-menu-separator {
+    height: 1px;
+    background-color: rgba(200, 60, 60, 0.2);
+    margin: 4px 0;
 }

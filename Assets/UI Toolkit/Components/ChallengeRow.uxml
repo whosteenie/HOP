@@ -1,0 +1,9 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" editor-extension-mode="False">
+    <ui:VisualElement name="challenge-row-root" class="challenge-row">
+        <ui:VisualElement name="title-row" class="challenge-title-row">
+            <ui:Label name="description-label" class="challenge-description" text="Challenge Description" />
+            <ui:Label name="xp-label" class="challenge-xp" text="+0 XP" />
+        </ui:VisualElement>
+        <ui:ProgressBar name="progress-bar" class="challenge-progress-bar" low-value="0" high-value="100" value="0" />
+    </ui:VisualElement>
+</ui:UXML>

@@ -1,107 +1,798 @@
 using System;
-using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using Cysharp.Threading.Tasks;
-using Game.Audio;
-using Game.Match;
-using Game.Menu;
-using Game.UI;
-using Network.Core;
+using Game.Social;
 using Network.Events;
-using Network.Relay;
 using Network.Singletons;
-using Network.UGS;
+using Network.Steam;
+using Steamworks;
+using Steamworks.Data;
 using Unity.Netcode;
-using Unity.Netcode.Transports.UTP;
-using Unity.Services.Multiplayer;
-using Unity.Services.Relay.Models;
 using UnityEngine;
-using UnityEngine.Rendering.Universal;
 using UnityEngine.SceneManagement;
 using UnityUtils;
 
 namespace Network {
-    // ─────────────────────────────────────────────────────────────────────────────
-    // SessionManager
-    // Orchestrates high-level multiplayer flows (host/client) by delegating to
-    // small services: UGS sessions, Relay, NGO lifecycle, and scene loading.
-    // Public API remains: StartSessionAsHost, BeginGameplayAsHostAsync,
-    // JoinSessionByCodeAsync, LeaveToMainMenuAsync.
-    // ─────────────────────────────────────────────────────────────────────────────
-
     /// <summary>
-    /// High-level coordinator for hosting/joining/tearing-down a session.
-    /// Delegates low-level work to injected services:
-    /// <list type="bullet">
-    /// <item><see cref="IUgsSessionService"/> – create/join/leave/delete sessions</item>
-    /// <item><see cref="IRelayConnector"/> – Relay allocate/join</item>
-    /// <item><see cref="INetworkLifecycle"/> – NGO shutdown, cache clearing, scene hooks</item>
-    /// <item><see cref="ISceneCoordinator"/> – server-driven scene transitions</item>
-    /// <item><see cref="IPlayerIdentity"/> – player name/properties</item>
-    /// </list>
-    /// Publishes events via EventBus (PlayersChangedEvent, RelayCodeAvailableEvent, etc.).
+    /// Steamworks-based Session Manager.
+    /// Handles Lobby creation, joining, and matchmaking (Quick Play).
+    /// Orchestrates NetworkManager start/stop using FacepunchTransport.
     /// </summary>
     public sealed class SessionManager : Singleton<SessionManager> {
         private enum SessionPhase {
+            Menu,
+            Searching,
             CreatingLobby,
+            JoiningLobby,
             LobbyReady,
-            AllocatingRelay,
-            WaitingForRelay,
-            ConnectingToRelay,
             StartingHost,
+            StartingClient,
+            SynchronizingLoad,
             LoadingScene,
-            Connected,
-            ReturningToMenu,
+            InGame,
             Error
         }
 
-        // ===== Public surface =====
-        public ISession ActiveSession { get; private set; }
-        // Events migrated to EventBus - kept for backward compatibility during migration
-        [System.Obsolete("Use EventBus.Subscribe<PlayersChangedEvent> instead")]
-        public event Action<IReadOnlyList<IReadOnlyPlayer>> PlayersChanged;
+        // ===== Events =====
+        public event Action OnPartyStateChanged;
 
-        // ===== Config/State =====
-        private const string GameSceneName = "Game";
-        private const string PlayerNameKey = "playerName";
-        private const string RelayCodeKey = "relayCode";
-
-        private bool _loadingGameScene;
-        private bool _isLeaving;
-        private string _relayJoinCode;
-        private Allocation _hostAllocation;
-        private static bool startingClient;
-        private CancellationTokenSource _lobbyWatchCts;
-        private static NetworkManager networkManager;
-        private int _expectedLobbyCount;
-
-        // ===== Services =====
-        private readonly IUgsSessionService _ugs = new UgsSessionService();
-        private readonly INetworkLifecycle _net = new NetworkLifecycle();
-        private readonly IPlayerIdentity _ids = new PlayerIdentity();
-        private readonly IRelayConnector _relay = new RelayConnector();
-        private readonly ISceneCoordinator _scenes = new SceneCoordinator();
-
-        public event Action<string> FrontStatusChanged;
-        [System.Obsolete("Use EventBus.Subscribe<SessionJoinedEvent> instead")]
-        public event Action<string> SessionJoined;
+        // ===== State =====
+        public Lobby? CurrentLobby { get; private set; }
         private SessionPhase Phase { get; set; }
+        public bool IsInGameplay { get; private set; }
+        public string SelectedGameMode { get; private set; } = "Deathmatch";
 
+        private const string GameSceneName = "Game";
+        public string CurrentPartyId { get; private set; }
+        public bool IsPartyLeader { get; private set; }
+
+        private const string HostAddressKey = "HostAddress";
+        private const string GameModeKey = "GameMode";
+        private const string PartyIdKey = "PartyId";
+        private const string FollowLobbyIdKey = "FollowLobbyId";
+        private const string LobbyStateKey = "LobbyState";
+        private const string TargetModeKey = "TargetMode";
+        private const string MemberReadyKey = "ReadyToLoad";
         private readonly List<ulong> _clientsFinishedLoading = new();
         private CustomNetworkManager _customNetworkManager;
+        private NetworkManager _networkManager;
+        private bool _isLeaving;
+        private bool _hasCompletedInitialLoad;
+        private bool _isShuttingDown;
+        private CancellationTokenSource _matchmakingCts;
+        public float MatchmakingStartTime { get; private set; }
 
-        private bool _hasCompletedInitialLoad; // Add to track if host has done initial load
+        // Track if we expect a disconnect (e.g. intentionally leaving)
+        private bool _expectedDisconnect;
 
-        public bool IsInGameplay { get; private set; }
+        public bool IsSearching {
+            get {
+                return Phase switch {
+                    SessionPhase.Searching or SessionPhase.CreatingLobby or SessionPhase.JoiningLobby
+                        or SessionPhase.StartingClient or SessionPhase.SynchronizingLoad
+                        or SessionPhase.LoadingScene => true,
+                    SessionPhase.LobbyReady =>
+                        // We are only "Locked/Searching" if the lobby is public (queueing)
+                        CurrentLobby.HasValue && CurrentLobby.Value.GetData(GameModeKey) == "Public",
+                    _ => false
+                };
+            }
+        }
 
-        [System.Obsolete("Use EventBus.Subscribe<HostDisconnectedEvent> instead")]
-        public event Action HostDisconnected; // UI: show message
-        [System.Obsolete("Use EventBus.Subscribe<LobbyResetEvent> instead")]
-        public event Action LobbyReset; // UI: clear player list, reset labels
+        public bool ShowMatchmakingStatus {
+            get {
+                switch(Phase) {
+                    case SessionPhase.Menu:
+                    case SessionPhase.InGame:
+                    case SessionPhase.Error:
+                    case SessionPhase.SynchronizingLoad:
+                    case SessionPhase.LoadingScene:
+                        return false;
+                    // Don't show status card for private lobbies when they are ready (except when syncing load)
+                    case SessionPhase.LobbyReady:
+                    case SessionPhase.StartingHost: {
+                        if(CurrentLobby.HasValue && CurrentLobby.Value.GetData(GameModeKey) == "Private") return false;
+                        break;
+                    }
+                    case SessionPhase.Searching:
+                    case SessionPhase.CreatingLobby:
+                    case SessionPhase.JoiningLobby:
+                    case SessionPhase.StartingClient:
+                        break;
+                    default:
+                        throw new ArgumentOutOfRangeException();
+                }
 
-        #region State Management & Helpers
+                return IsSearching;
+            }
+        }
 
+        // Events
+        public event Action<string> FrontStatusChanged;
+
+        #region Unity Lifecycle
+
+        protected override void Awake() {
+            if(HasInstance && Instance != this) {
+                Destroy(gameObject);
+                return;
+            }
+
+            DontDestroyOnLoad(gameObject);
+
+            _networkManager = NetworkManager.Singleton;
+            if(_networkManager != null) {
+                _customNetworkManager = _networkManager.GetComponent<CustomNetworkManager>();
+            }
+        }
+
+        private void OnEnable() {
+            RegisterNetworkCallbacks();
+            SceneManager.sceneLoaded += OnSceneLoaded;
+
+            // Steam Callbacks
+            SteamMatchmaking.OnLobbyMemberJoined += OnLobbyMemberJoined;
+            SteamMatchmaking.OnLobbyMemberLeave += OnLobbyMemberLeave;
+            SteamMatchmaking.OnLobbyDataChanged += OnLobbyDataChanged;
+            SteamMatchmaking.OnLobbyMemberDataChanged += OnLobbyMemberDataChanged;
+            SteamFriends.OnGameLobbyJoinRequested += OnGameLobbyJoinRequested;
+        }
+
+        private void OnDisable() {
+            UnregisterNetworkCallbacks();
+            SceneManager.sceneLoaded -= OnSceneLoaded;
+
+            SteamMatchmaking.OnLobbyMemberJoined -= OnLobbyMemberJoined;
+            SteamMatchmaking.OnLobbyMemberLeave -= OnLobbyMemberLeave;
+            SteamMatchmaking.OnLobbyDataChanged -= OnLobbyDataChanged;
+            SteamMatchmaking.OnLobbyMemberDataChanged -= OnLobbyMemberDataChanged;
+            SteamFriends.OnGameLobbyJoinRequested -= OnGameLobbyJoinRequested;
+        }
+
+        private void Start() {
+            if(SteamManager.Instance == null) {
+                Debug.LogError("[SessionManager] SteamManager not found!");
+            }
+        }
+
+        private void OnDestroy() {
+            if(_isShuttingDown) return;
+            LeaveLobby();
+        }
+
+        private void OnApplicationQuit() {
+            _isShuttingDown = true;
+        }
+
+        #endregion
+
+        #region Steam Callbacks
+
+        private void OnLobbyDataChanged(Lobby lobby) {
+            if(lobby.Id == CurrentLobby?.Id) {
+                // Handle GameMode display
+                var mode = lobby.GetData(TargetModeKey);
+                if(!string.IsNullOrEmpty(mode) && mode != SelectedGameMode) {
+                    SelectedGameMode = mode;
+                    if(FrontStatusChanged != null) {
+                        FrontStatusChanged.Invoke(null); // Force UI Refresh
+                    }
+                }
+
+                // Handle Party Persistence
+                var partyId = lobby.GetData(PartyIdKey);
+                if(!string.IsNullOrEmpty(partyId) && partyId != CurrentPartyId) {
+                    CurrentPartyId = partyId;
+                }
+
+                if(lobby.Owner.Id != 0) {
+                    bool amIHost = lobby.Owner.Id == SteamClient.SteamId;
+
+                    if(IsPartyLeader != amIHost) {
+                        Debug.Log($"[SessionManager] Host changed to {lobby.Owner.Name}. Migrating Netcode...");
+                        IsPartyLeader = amIHost;
+                        if(FrontStatusChanged != null) {
+                            FrontStatusChanged.Invoke(null);
+                        }
+
+                        MigrateNetcodeToNewHost(lobby.Owner.Id).Forget();
+                    }
+                }
+
+                // Handle "Follow Leader" Migration
+                var followIdStr = lobby.GetData(FollowLobbyIdKey);
+                if(!string.IsNullOrEmpty(followIdStr) && Phase != SessionPhase.InGame) {
+                    ulong followId = ulong.Parse(followIdStr);
+                    if(followId != lobby.Id) {
+                        Debug.Log($"[SessionManager] Leader moved to lobby {followId}. Following...");
+                        JoinSessionByLobbyIdAsync(followId).Forget();
+                    }
+                }
+
+                // Handle Synchronization
+                var state = lobby.GetData(LobbyStateKey);
+                if(state == "SynchronizingLoad") {
+                    if(Phase != SessionPhase.SynchronizingLoad && Phase != SessionPhase.LoadingScene) {
+                        HandleSynchronizationStart().Forget();
+                    }
+                } else if(state == "LoadingScene") {
+                    if(Phase != SessionPhase.LoadingScene) {
+                        Phase = SessionPhase.LoadingScene;
+                        BeginSceneLoad();
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Handles the transition into the synchronization phase before loading a scene.
+        /// </summary>
+        private async UniTask HandleSynchronizationStart() {
+            SetFrontStatus(SessionPhase.SynchronizingLoad, "Waiting for party...");
+
+            // Trigger Fade Out via SceneTransitionManager
+            if(SceneTransitionManager.Instance != null) {
+                await SceneTransitionManager.Instance.FadeOutAsync();
+            } else {
+                // Fallback if no transition manager
+                await UniTask.Delay(500);
+            }
+
+            // Once fully black, report ready
+            if(CurrentLobby != null) {
+                CurrentLobby.Value.SetMemberData(MemberReadyKey, "true");
+            }
+        }
+
+        /// <summary>
+        /// Steam callback for when a member's data (like readiness) changes.
+        /// </summary>
+        private void OnLobbyMemberDataChanged(Lobby lobby, Friend friend) {
+            if(lobby.Id != CurrentLobby?.Id) return;
+
+            // Host monitors member readiness
+            if(IsPartyLeader && Phase == SessionPhase.SynchronizingLoad) {
+                CheckAllMembersReady();
+            }
+        }
+
+        /// <summary>
+        /// Checks if all members are ready to load the scene.
+        /// </summary>
+        private void CheckAllMembersReady() {
+            if(!CurrentLobby.HasValue) return;
+
+            var members = CurrentLobby.Value.Members.ToList();
+            bool allReady = true;
+            foreach(var member in members) {
+                if(CurrentLobby.Value.GetMemberData(member, MemberReadyKey) != "true") {
+                    allReady = false;
+                    break;
+                }
+            }
+
+            if(allReady) {
+                Debug.Log("[SessionManager] All members ready! Starting scene transition...");
+                CurrentLobby.Value.SetData(LobbyStateKey, "LoadingScene");
+            }
+        }
+
+        /// <summary>
+        /// initiates the Netcode scene load.
+        /// </summary>
+        private void BeginSceneLoad() {
+            string mode = null;
+            if(CurrentLobby != null) {
+                mode = CurrentLobby.Value.GetData(TargetModeKey);
+            }
+            if(!string.IsNullOrEmpty(mode)) SelectedGameMode = mode;
+
+            if(IsPartyLeader) {
+                _networkManager.SceneManager.LoadScene(GameSceneName, LoadSceneMode.Single);
+            }
+        }
+
+        private static void OnLobbyMemberJoined(Lobby lobby, Friend friend) {
+            Debug.Log($"[SessionManager] Member Joined: {friend.Name}");
+            NotifyPartyStateChanged();
+        }
+
+        private static void OnLobbyMemberLeave(Lobby lobby, Friend friend) {
+            Debug.Log($"[SessionManager] Member Left: {friend.Name}");
+            NotifyPartyStateChanged();
+        }
+
+        private async void OnGameLobbyJoinRequested(Lobby lobby, SteamId id) {
+            Debug.Log($"[SessionManager] Accepted Invite to Lobby {lobby.Id}");
+            await JoinSessionByLobbyAsync(lobby);
+        }
+
+        /// <summary>
+        /// Triggers the OnPartyStateChanged event to notify UI listeners.
+        /// </summary>
+        private static void NotifyPartyStateChanged() {
+            if(HasInstance) {
+                var instance = Instance;
+                if(instance.OnPartyStateChanged != null) {
+                    instance.OnPartyStateChanged.Invoke();
+                }
+            }
+        }
+
+        #endregion
+
+        /// <summary>
+        /// Synchronizes the start of a private match across all party members.
+        /// </summary>
+        /// <param name="mode">The gamemode ID to start.</param>
+        public async UniTask StartPrivateMatchSync(string mode) {
+            if(!IsPartyLeader || !CurrentLobby.HasValue) return;
+
+            SelectedGameMode = mode;
+            // Set targets for everyone
+            CurrentLobby.Value.SetData(TargetModeKey, mode);
+
+            CurrentLobby.Value.SetData(GameModeKey, mode);
+
+            // Start the synchronization phase
+            Phase = SessionPhase.SynchronizingLoad;
+
+            // Clear previous ready states
+            foreach(var unused in CurrentLobby.Value.Members) {
+                CurrentLobby.Value.SetMemberData(MemberReadyKey, "false");
+            }
+
+            // Broadcast state to trigger synchronization on all clients
+
+            // Trigger UI update
+            if(FrontStatusChanged != null) {
+                FrontStatusChanged.Invoke("Synchronizing party...");
+            }
+
+            // Set data to trigger everyone else
+            CurrentLobby.Value.SetData(LobbyStateKey, "SynchronizingLoad");
+
+            // We need to also lock ourselves in.
+            await HandleSynchronizationStart();
+        }
+
+        #region Public API - Matchmaking
+
+        /// <summary>
+        /// Creates a private Steam lobby and starts the Netcode host.
+        /// </summary>
+        /// <returns>True if successful.</returns>
+        public async UniTask<bool> CreatePrivateLobbyAsync() {
+            SetFrontStatus(SessionPhase.CreatingLobby, "Creating Private Lobby...");
+
+            // 1. Leave current
+            LeaveLobby();
+            await CleanupNetworkAsync();
+
+            try {
+                // 2. Create Steam Lobby
+                var result = await SteamMatchmaking.CreateLobbyAsync(16);
+                if(!result.HasValue) {
+                    SetFrontStatus(SessionPhase.Error, "Failed to create lobby.");
+                    return false;
+                }
+
+                CurrentLobby = result.Value;
+                CurrentLobby.Value.SetPrivate(); // Friends Only
+                CurrentLobby.Value.SetData(HostAddressKey, SteamClient.SteamId.ToString());
+                CurrentLobby.Value.SetData(GameModeKey, "Private");
+
+                if(string.IsNullOrEmpty(CurrentPartyId)) {
+                    CurrentPartyId = Guid.NewGuid().ToString();
+                }
+
+                IsPartyLeader = true; // We created this!
+                CurrentLobby.Value.SetData(PartyIdKey, CurrentPartyId);
+                CurrentLobby.Value.SetMemberData(PartyIdKey, CurrentPartyId);
+
+                // Join Voice Channel
+                if (VoiceManager.Instance != null) {
+                    VoiceManager.Instance.JoinChannelAsync("match_" + CurrentLobby.Value.Id).Forget();
+                }
+
+                SetFrontStatus(SessionPhase.LobbyReady, "Lobby Ready. Invite Friends!");
+
+                // 3. Start Host (using FacepunchTransport)
+                StartHost();
+                return true;
+            } catch(Exception ex) {
+                Debug.LogError(ex);
+                SetFrontStatus(SessionPhase.Error, "Error creating lobby.");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Searches for an open public lobby or creates one if none are found.
+        /// </summary>
+        /// <param name="mode">The gamemode ID to search for.</param>
+        public async UniTask FindGameAsync(string mode = null) {
+            // Cancel any previous search
+            CancelMatchmaking();
+
+            if(!string.IsNullOrEmpty(mode)) {
+                SelectedGameMode = mode;
+            }
+
+            _matchmakingCts = new CancellationTokenSource();
+            var token = _matchmakingCts.Token;
+
+            try {
+                // Cleanup before we start searching so Phase=Menu doesn't flicker
+                // LeaveLobby(); // <-- REMOVED! Do NOT leave lobby if we are bringing a party!
+                await CleanupNetworkAsync();
+
+                SetFrontStatus(SessionPhase.Searching, $"Searching for {SelectedGameMode}...");
+                MatchmakingStartTime = Time.time;
+
+                if(token.IsCancellationRequested) return;
+
+                // 1. Search
+                var lobbies = await SteamMatchmaking.LobbyList
+                    .WithKeyValue(GameModeKey, "Public")
+                    .WithKeyValue("TargetMode", SelectedGameMode)
+                    .RequestAsync();
+
+                if(token.IsCancellationRequested) return;
+
+                // Matchmaking Logic:
+                // If we are in a party, we search for a lobby with enough available slots.
+                var myPartySize = CurrentLobby.HasValue ? CurrentLobby.Value.MemberCount : 1;
+
+                if(lobbies != null) {
+                    foreach(var lobby in lobbies) {
+                        if(token.IsCancellationRequested) return;
+
+                        var availableSlots = lobby.MaxMembers - lobby.MemberCount;
+                        if(availableSlots < myPartySize) continue;
+                        Debug.Log(
+                            $"[SessionManager] Found Lobby {lobby.Id} with {availableSlots} slots. Joining...");
+
+                        if(CurrentLobby.HasValue) {
+                            CurrentLobby.Value.SetData(FollowLobbyIdKey, lobby.Id.ToString());
+                            await UniTask.Yield();
+                        }
+
+                        await JoinSessionByLobbyAsync(lobby);
+                        return;
+                    }
+                }
+
+                if(token.IsCancellationRequested) return;
+
+                // No suitable lobby found -> Create public or convert existing
+                if(CurrentLobby.HasValue && CurrentLobby.Value.GetData(GameModeKey) == "Private") {
+                    Debug.Log($"[SessionManager] Reusing private lobby for public game.");
+                    CurrentLobby.Value.SetPublic();
+                    CurrentLobby.Value.SetJoinable(true);
+                    CurrentLobby.Value.SetData(GameModeKey, "Public");
+                    CurrentLobby.Value.SetData("TargetMode", SelectedGameMode);
+
+                    StartHost();
+                    SetFrontStatus(SessionPhase.LobbyReady, "Waiting for players...");
+                } else {
+                    Debug.Log($"[SessionManager] No {SelectedGameMode} lobbies found. Creating new public lobby.");
+                    SetFrontStatus(SessionPhase.CreatingLobby, $"Creating {SelectedGameMode} Lobby...");
+
+                    var maxPlayers = 10;
+                    if(Game.Match.MatchSettingsManager.Instance != null) {
+                        var def = Game.Match.MatchSettingsManager.Instance.GetGamemodeDef(SelectedGameMode);
+                        if(def.maxPlayers > 0) maxPlayers = def.maxPlayers;
+                    }
+
+                    var result = await SteamMatchmaking.CreateLobbyAsync(maxPlayers);
+                    if(token.IsCancellationRequested) {
+                        if(result.HasValue) result.Value.Leave();
+                        return;
+                    }
+
+                    if(result.HasValue) {
+                        CurrentLobby = result.Value;
+                        CurrentLobby.Value.SetPublic();
+                        CurrentLobby.Value.SetJoinable(true);
+                        // Also set MaxMembers based on Gamemode?
+                        // Steam Lobby default is often 16 or user defined.
+                        // We should set it to Gamemode.MaxPlayers (e.g. 10).
+                        if(Game.Match.MatchSettingsManager.Instance != null) {
+                            var def = Game.Match.MatchSettingsManager.Instance.GetGamemodeDef(SelectedGameMode);
+                            if(def.maxPlayers > 0) {
+                                // CurrentLobby.Value.SetMemberLimit(def.MaxPlayers); // Not exposed in Facepunch.Steamworks struct easily? 
+                                // Actually it is: SetMemberLimit is not on the Struct, usually on the Lobby object.
+                                // But Facepunch Lobby struct has limited setters. 
+                                // We set it during CreateLobbyAsync(maxMembers).
+                                // Since we created with 16 above... we might want to change it.
+                                // Refactoring CreateLobbyAsync(16) -> CreateLobbyAsync(GamemodeMax).
+                            }
+                        }
+
+                        CurrentLobby.Value.SetData(HostAddressKey, SteamClient.SteamId.ToString());
+                        CurrentLobby.Value.SetData(GameModeKey, "Public");
+                        CurrentLobby.Value.SetData("TargetMode", SelectedGameMode);
+                        CurrentLobby.Value.SetData(PartyIdKey, CurrentPartyId);
+
+                        StartHost();
+                        SetFrontStatus(SessionPhase.LobbyReady, "Waiting for players...");
+                    } else {
+                        SetFrontStatus(SessionPhase.Error, "Failed to create match.");
+                    }
+                }
+            } catch(OperationCanceledException) {
+                Debug.Log("[SessionManager] Matchmaking Cancelled.");
+            } finally {
+                if(_matchmakingCts != null) {
+                    _matchmakingCts.Dispose();
+                    _matchmakingCts = null;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Cancels current matchmaking search and reverts the lobby state.
+        /// </summary>
+        public void CancelMatchmaking() {
+            Debug.Log($"[SessionManager] CancelMatchmaking Called. Current Phase: {Phase}");
+            if(_matchmakingCts != null) {
+                _matchmakingCts.Cancel();
+                _matchmakingCts.Dispose();
+                _matchmakingCts = null;
+            }
+
+            // If we are hosting a public lobby (or were searching), revert to private lobby
+            if(CurrentLobby.HasValue && IsPartyLeader) {
+                // Keep the lobby, just make it private
+                CurrentLobby.Value.SetPrivate();
+                CurrentLobby.Value.SetData(GameModeKey, "Private");
+                // Reset phase to LobbyReady (Private) which hides the status card
+                SetFrontStatus(SessionPhase.LobbyReady, "");
+            } else if(Phase != SessionPhase.InGame && Phase != SessionPhase.Menu) {
+                if(!IsPartyLeader && CurrentLobby.HasValue) {
+                    LeaveLobby();
+                    CleanupNetworkAsync().Forget();
+                    SetFrontStatus(SessionPhase.Menu, "");
+                } else {
+                    SetFrontStatus(SessionPhase.Menu, "");
+                    if(!CurrentLobby.HasValue) {
+                        CreatePrivateLobbyAsync().Forget();
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Joins a specific Steam lobby and synchronizes the session.
+        /// </summary>
+        /// <param name="lobby">The lobby to join.</param>
+        private async UniTask JoinSessionByLobbyAsync(Lobby lobby) {
+            SetFrontStatus(SessionPhase.JoiningLobby, "Joining...");
+
+            // Clean up old lobby properly (Migrate host if needed)
+            if(CurrentLobby.HasValue && CurrentLobby.Value.Id != lobby.Id) {
+                Debug.Log("[SessionManager] Switching lobbies. Leaving current...");
+                LeaveLobby();
+                // Note: LeaveLobby sets Phase to Menu, but we are about to Join.
+                // Reset Phase to JoiningLobby just in case logic checks it.
+                Phase = SessionPhase.JoiningLobby;
+            }
+
+            var result = await lobby.Join();
+            if(result != RoomEnter.Success) {
+                SetFrontStatus(SessionPhase.Error, $"Failed to join: {result}");
+                return;
+            }
+
+            CurrentLobby = lobby;
+
+            // Join Voice Channel
+            if (VoiceManager.Instance != null) {
+                VoiceManager.Instance.JoinChannelAsync("match_" + lobby.Id).Forget();
+            }
+
+            // Sync Party ID from lobby
+            var lobbyPartyId = lobby.GetData(PartyIdKey);
+            if(!string.IsNullOrEmpty(lobbyPartyId)) {
+                CurrentPartyId = lobbyPartyId;
+                // If we joined a lobby with a party ID, we are NOT the global leader (unless it's ours)
+                if(lobby.Owner.Id != SteamClient.SteamId) {
+                    IsPartyLeader = false;
+                }
+            } else if(lobby.Owner.Id == SteamClient.SteamId) {
+                // We are host of a lobby that has no party ID? (Shouldn't happen with our logic)
+                IsPartyLeader = true;
+            }
+
+            // Tag ourselves as being in this party
+            if(!string.IsNullOrEmpty(CurrentPartyId)) {
+                lobby.SetMemberData(PartyIdKey, CurrentPartyId);
+            }
+
+            // Wait for Host Address to be set
+            SetFrontStatus(SessionPhase.StartingClient, "Connecting to Host...");
+
+            // Allow time for Netcode host to start if just promoted
+            await UniTask.Delay(500);
+
+            // 4. Get Host Data & Connect
+            var hostAddress = lobby.GetData(HostAddressKey);
+
+            // Retry logic if host hasn't set data yet
+            var retries = 0;
+            while(string.IsNullOrEmpty(hostAddress) && retries < 10) {
+                await UniTask.Delay(500);
+                hostAddress = lobby.GetData(HostAddressKey);
+                retries++;
+            }
+
+            if(string.IsNullOrEmpty(hostAddress)) {
+                SetFrontStatus(SessionPhase.Error, "Host address not found.");
+                LeaveLobby();
+                return;
+            }
+
+            if(!ulong.TryParse(hostAddress, out ulong steamId)) {
+                SetFrontStatus(SessionPhase.Error, "Invalid Host ID.");
+                LeaveLobby();
+                return;
+            }
+
+            // Configure Transport
+            var transport = _networkManager.GetComponent<FacepunchTransport>();
+            if(transport == null) {
+                Debug.LogError("FacepunchTransport missing on NetworkManager!");
+                return;
+            }
+
+            transport.targetSteamId = steamId;
+            _networkManager.NetworkConfig.NetworkTransport = transport;
+
+            Debug.Log($"[SessionManager] Starting Client connecting to {steamId}");
+            _networkManager.StartClient();
+        }
+
+        /// <summary>
+        /// Attempts to join a session using its Steam Lobby ID.
+        /// </summary>
+        /// <param name="lobbyId">The ulong ID of the lobby.</param>
+        private async UniTask JoinSessionByLobbyIdAsync(ulong lobbyId) {
+            var joinedLobby = await SteamMatchmaking.JoinLobbyAsync(lobbyId);
+            if(joinedLobby.HasValue) {
+                await JoinSessionByLobbyAsync(joinedLobby.Value);
+            } else {
+                SetFrontStatus(SessionPhase.Error, "Target lobby not found or join failed.");
+            }
+        }
+
+        /// <summary>
+        /// Sets the selected gamemode and updates lobby data if hosting.
+        /// </summary>
+        /// <param name="mode">The gamemode ID.</param>
+        public void SetGamemode(string mode) {
+            SelectedGameMode = mode;
+            if(CurrentLobby.HasValue && CurrentLobby.Value.Owner.Id == SteamClient.SteamId) {
+                CurrentLobby.Value.SetData("TargetMode", mode);
+            }
+
+            if(FrontStatusChanged != null) {
+                FrontStatusChanged.Invoke(null);
+            }
+        }
+
+
+        /// <summary>
+        /// Leaves the current Steam lobby and resets networking state.
+        /// </summary>
+        public void LeaveLobby() {
+            _expectedDisconnect = true;
+            if(CurrentLobby.HasValue) {
+                if(!_isShuttingDown && SteamClient.IsValid && IsPartyLeader && CurrentLobby.Value.MemberCount > 2) {
+                    var currentLobby = CurrentLobby.Value;
+                    var newOwner = currentLobby.Members.FirstOrDefault(m => m.Id != SteamClient.SteamId);
+                    if(newOwner.Id != 0) {
+                        Debug.Log($"[SessionManager] Migrating host to {newOwner.Name} before leaving.");
+                        currentLobby.Owner = newOwner;
+                    }
+                }
+
+                CurrentLobby.Value.Leave();
+                CurrentLobby = null;
+            }
+
+            Phase = SessionPhase.Menu;
+            IsPartyLeader = false;
+        }
+
+        /// <summary>
+        /// Transitions the local player back to the main menu and handles party reformation.
+        /// </summary>
+        public async UniTask LeaveToMainMenuAsync() {
+            EventBus.Publish(new StopAllSoundsEvent());
+
+            var currentScene = SceneManager.GetActiveScene().name;
+            var shouldFade = currentScene != "MainMenu";
+
+            if(shouldFade && SceneTransitionManager.Instance != null)
+                await SceneTransitionManager.Instance.FadeOut().ToUniTask();
+
+            LeaveLobby();
+            await CleanupNetworkAsync();
+
+            if(currentScene != "MainMenu") {
+                SceneManager.LoadScene("MainMenu");
+            }
+
+            if(shouldFade && SceneTransitionManager.Instance != null)
+                await SceneTransitionManager.Instance.FadeIn().ToUniTask();
+
+            if(currentScene != "MainMenu") {
+                if(IsPartyLeader) {
+                    Debug.Log("[SessionManager] Returning to menu as Party Leader. Re-hosting party lobby...");
+                    CreatePrivateLobbyAsync().Forget();
+                } else if(!string.IsNullOrEmpty(CurrentPartyId)) {
+                    Debug.Log("[SessionManager] Returning to menu as Party Member. Searching for leader's lobby...");
+                    TryRejoinPartyLobby().Forget();
+                }
+            }
+        }
+
+        /// <summary>
+        /// Attempts to find and rejoin the party lobby after returning to the main menu.
+        /// </summary>
+        private async UniTaskVoid TryRejoinPartyLobby() {
+            await UniTask.Delay(1000);
+
+            var lobbies = await SteamMatchmaking.LobbyList
+                .WithKeyValue(PartyIdKey, CurrentPartyId)
+                .RequestAsync();
+
+            if(lobbies != null && lobbies.Length > 0) {
+                await JoinSessionByLobbyAsync(lobbies[0]);
+            } else {
+                Debug.LogWarning("[SessionManager] Failed to find party lobby to rejoin.");
+            }
+        }
+
+        #endregion
+
+        #region Internal / Networking
+
+        /// <summary>
+        /// Starts the Netcode host using FacepunchTransport.
+        /// </summary>
+        private void StartHost() {
+            var transport = _networkManager.GetComponent<FacepunchTransport>();
+            if(transport != null) {
+                _networkManager.NetworkConfig.NetworkTransport = transport;
+            } else {
+                Debug.LogError(
+                    "[SessionManager] FacepunchTransport missing! Falling back to default (UnityTransport), which may cause port conflicts.");
+            }
+
+            _networkManager.StartHost();
+        }
+
+        /// <summary>
+        /// Shuts down the Netcode network manager.
+        /// </summary>
+        private async UniTask CleanupNetworkAsync() {
+            if(_networkManager.IsListening) {
+                _networkManager.Shutdown();
+            }
+
+            // Wait for shutdown?
+            await UniTask.Yield();
+        }
+
+        /// <summary>
+        /// Updates the session phase and triggers status change events.
+        /// </summary>
+        /// <param name="phase">The new session phase.</param>
+        /// <param name="message">The status message to display.</param>
         private void SetFrontStatus(SessionPhase phase, string message) {
             Phase = phase;
             if(FrontStatusChanged != null) {
@@ -109,1154 +800,152 @@ namespace Network {
             }
         }
 
-        private void StopWatchingLobby() {
-            try {
-                if(_lobbyWatchCts != null) {
-                    _lobbyWatchCts.Cancel();
-                }
-            } catch { /* ignore */
-            }
-
-            if(_lobbyWatchCts != null) {
-                _lobbyWatchCts.Dispose();
-            }
-            _lobbyWatchCts = null;
-        }
-
-        /// <summary>
-        /// Resets all session state to a clean slate. Called after leaving sessions or errors.
-        /// Includes: StopWatchingLobby, UnhookSessionEvents, clear ActiveSession, reset flags, etc.
-        /// </summary>
-        private void ResetSessionState() {
-            StopWatchingLobby();
-            _net.UnhookSceneCallbacks(OnNetworkSceneLoadComplete);
-            _loadingGameScene = false;
-            _relayJoinCode = null;
-            _hostAllocation = null;
-            _clientsFinishedLoading.Clear();
-            _expectedLobbyCount = 0;
-            IsInGameplay = false;
-            _hasCompletedInitialLoad = false;
-            startingClient = false;
-
-            // Clear spawner state
-            if(networkManager != null) {
-                var cnm = networkManager.GetComponent<CustomNetworkManager>();
-                if(cnm != null)
-                    cnm.ResetSpawningState();
-            }
-
-            // Unhook and clear session
-            if(ActiveSession != null) {
-                UnhookSessionEvents();
-                ActiveSession = null;
-            }
-
-            // Clear player list in UI
-            EventBus.Publish(new PlayersChangedEvent(new List<IReadOnlyPlayer>()));
-            if(PlayersChanged != null) {
-                PlayersChanged.Invoke(new List<IReadOnlyPlayer>());
-            }
-        }
-
-        /// <summary>
-        /// Ensures clean state before starting a new session. Leaves existing session, cleans network, resets state.
-        /// </summary>
-        private async UniTask EnsureCleanStateForNewSession() {
-            // Leave existing session if present
-            if(ActiveSession != null) {
-                try {
-                    await _ugs.LeaveOrDeleteAsync(ActiveSession);
-                } catch {
-                    // Ignore errors - session might already be gone
-                }
-            }
-
-            // Ensure network is fully shut down
-            if(networkManager != null && networkManager.IsListening) {
-                await _net.CleanupNetworkAsync();
-            }
-
-            // Reset all state (includes StopWatchingLobby, UnhookSessionEvents, clearing ActiveSession, etc.)
-            ResetSessionState();
-
-            // Re-register callbacks after cleanup
-            RegisterNetworkCallbacks();
-        }
-
-        /// <summary>Gets NetworkManager, trying Singleton if cached reference == null.</summary>
-        private static NetworkManager GetNetworkManager() {
-            return networkManager = NetworkManager.Singleton;
-        }
-
-        /// <summary>
-        /// Waits for a scene to finish loading asynchronously.
-        /// </summary>
-        private static async UniTask WaitForSceneLoadAsync(string sceneName) {
-            var scene = SceneManager.GetSceneByName(sceneName);
-            if(scene.IsValid() && scene.isLoaded) {
-                return; // Already loaded
-            }
-
-            // Wait for scene to load (max 10 seconds timeout)
-            var elapsed = 0f;
-            while(elapsed < 10f) {
-                scene = SceneManager.GetSceneByName(sceneName);
-                if(scene.IsValid() && scene.isLoaded) {
-                    return;
-                }
-
-                await UniTask.Yield();
-                elapsed += Time.unscaledDeltaTime;
-            }
-
-            Debug.LogWarning($"[SessionManager] Timeout waiting for scene {sceneName} to load");
-        }
-
-        #endregion
-
-        #region Unity Lifecycle
-
-        protected override void Awake() {
-            if(HasInstance && Instance != this) {
-                Debug.LogWarning(
-                    "[SessionManager] Duplicate SessionManager instance detected - destroying duplicate (keeping existing instance)");
-                Destroy(gameObject);
-                return;
-            }
-
-            // NEVER destroy the SessionManager - it must persist across scenes
-            DontDestroyOnLoad(gameObject);
-
-            networkManager = NetworkManager.Singleton;
-            if(networkManager != null) {
-                _customNetworkManager = networkManager.GetComponent<CustomNetworkManager>();
-            } else {
-                Debug.LogWarning("[SessionManager] NetworkManager.Singleton == null in Awake");
-            }
-        }
-
-        // Cache scene name to avoid string allocations
-        private string _cachedSceneName;
-
-        private void OnEnable() {
-            RegisterNetworkCallbacks();
-
-            // Cache scene name to avoid allocations
-            UpdateCachedSceneName();
-
-            // Subscribe to scene changes to update cache
-            SceneManager.sceneLoaded += OnSceneLoaded;
-        }
-
-        private void OnDisable() {
-            UnregisterNetworkCallbacks();
-
-            // Unsubscribe from scene changes
-            SceneManager.sceneLoaded -= OnSceneLoaded;
-        }
-
-        private void UpdateCachedSceneName() {
-            var activeScene = SceneManager.GetActiveScene();
-            if(activeScene.IsValid()) {
-                _cachedSceneName = activeScene.name;
-            }
-        }
-
-        private void OnSceneLoaded(Scene scene, LoadSceneMode mode) {
-            UpdateCachedSceneName();
-        }
-
         private void RegisterNetworkCallbacks() {
-            var nm = GetNetworkManager();
-            if(nm == null) return;
-            networkManager = nm; // Update cached reference
-
-            // Always unregister first to prevent duplicates
-            networkManager.OnClientDisconnectCallback -= OnClientDisconnected;
-            networkManager.OnClientConnectedCallback -= OnClientConnected;
-
-            // Then register
-            networkManager.OnClientDisconnectCallback += OnClientDisconnected;
-            networkManager.OnClientConnectedCallback += OnClientConnected;
+            if(_networkManager == null) _networkManager = NetworkManager.Singleton;
+            if(_networkManager == null) return;
+            _networkManager.OnClientConnectedCallback += OnClientConnected;
+            _networkManager.OnClientDisconnectCallback += OnClientDisconnected;
         }
 
         private void UnregisterNetworkCallbacks() {
-            var nm = GetNetworkManager();
-            if(nm == null) return;
-            networkManager = nm; // Update cached reference
-
-            networkManager.OnClientDisconnectCallback -= OnClientDisconnected;
-            networkManager.OnClientConnectedCallback -= OnClientConnected;
+            if(_networkManager == null) return;
+            _networkManager.OnClientConnectedCallback -= OnClientConnected;
+            _networkManager.OnClientDisconnectCallback -= OnClientDisconnected;
         }
 
-        private async void Start() {
-            try {
-                // DontDestroyOnLoad(gameObject);
-                await _ugs.InitializeAsync();
-            } catch(Exception e) {
-                Debug.LogException(e);
+        private void OnSceneLoaded(Scene scene, LoadSceneMode mode) {
+            var activeScene = SceneManager.GetActiveScene();
+            if(activeScene.IsValid()) {
+            }
+
+            if(scene.name == GameSceneName) {
+                OnGameSceneLoaded();
             }
         }
 
-        private void OnDestroy() {
-            StopWatchingLobby();
-            UnhookSessionEvents();
+        private void OnGameSceneLoaded() {
+            if(_networkManager.IsServer) {
+                _clientsFinishedLoading.Clear();
+                // We are server, we are ready.
+                // Wait for clients?
+                // Logic passed to CustomNetworkManager spawning.
+                IsInGameplay = true;
+                if(_customNetworkManager != null) {
+                    _customNetworkManager.EnableGameplaySpawningAndSpawnAll();
+                }
+            }
+
+            // Fade In
+            if(SceneTransitionManager.Instance != null)
+                SceneTransitionManager.Instance.FadeIn().ToUniTask().Forget();
         }
 
-        private void OnSceneEvent(SceneEvent sceneEvent) {
-            // We only care about SceneEventType.LoadComplete
-            if(sceneEvent.SceneEventType == SceneEventType.LoadComplete) {
-                OnGameSceneLoaded(sceneEvent.ClientId, sceneEvent.SceneName);
+        private void OnClientConnected(ulong clientId) {
+            // Handle connection
+            if(!_networkManager.IsServer) return;
+            NotifyPartyStateChanged();
+            // Maybe check if we need to load game scene for them
+            if(IsInGameplay) {
+                // Sync scene
             }
         }
 
         private void OnClientDisconnected(ulong clientId) {
-            // If we're a client, and we got disconnected (not a voluntary leave)
-            if(!networkManager.IsServer && clientId == networkManager.LocalClientId && !_isLeaving) {
-                HandleUnexpectedDisconnect().Forget();
-            }
-        }
-
-        private async UniTaskVoid HandleUnexpectedDisconnect() {
-            SetFrontStatus(SessionPhase.ReturningToMenu, "Lost connection. Returning to main menu...");
-
-            // Stop all sounds before scene transition to prevent accessing destroyed audio clips
-            EventBus.Publish(new StopAllSoundsEvent());
-
-            // Fade to black
-            if(SceneTransitionManager.Instance != null) {
-                await SceneTransitionManager.Instance.FadeOut().ToUniTask();
-            }
-
-            // Hide game UI if in game
-            if(HUDManager.Instance != null && _cachedSceneName == "Game") {
-                EventBus.Publish(new HideHUDEvent());
-                if(GameMenuManager.Instance != null && GameMenuManager.Instance.IsPaused) {
-                    GameMenuManager.Instance.TogglePause();
-                }
-            }
-
-            ResetSessionState();
-
-            // Clear camera stacks before leaving scene (prevents warnings about missing overlays)
-            ClearCameraStacks();
-
-            // Load main menu if not already there
-            if(_cachedSceneName != "MainMenu") {
-                LoadMainMenu("MainMenu");
-                await WaitForSceneLoadAsync("MainMenu");
-            }
-
-            // Show main menu panel (works whether we were in lobby or game)
-            var mainMenuManager = FindFirstObjectByType<MainMenuManager>();
-            if(mainMenuManager != null) {
-                mainMenuManager.ShowPanel(mainMenuManager.MainMenuPanel);
-            }
-
-            // Fade back in
-            if(SceneTransitionManager.Instance != null) {
-                await SceneTransitionManager.Instance.FadeIn().ToUniTask();
-            }
-        }
-
-        #endregion
-
-        #region Public API
-
-        /// <summary>Creates a UGS session (no network transport started yet). Returns join code displayed to others.</summary>
-        public async UniTask<string> StartSessionAsHost() {
-            // Ensure clean state before starting new session
-            await EnsureCleanStateForNewSession();
-
-            SetFrontStatus(SessionPhase.CreatingLobby, "Creating lobby...");
-            var props = await _ids.GetPlayerPropertiesAsync(PlayerNameKey);
-
-            var options = new SessionOptions {
-                MaxPlayers = 16, IsLocked = false, IsPrivate = false, PlayerProperties = props
-            };
-
-            ActiveSession = await _ugs.CreateAsync(options);
-            HookSessionEvents();
-
-            // Ensure callbacks are registered
-            RegisterNetworkCallbacks();
-
-            // Notify UI of new session players
-            EventBus.Publish(new PlayersChangedEvent(ActiveSession.Players));
-            if(PlayersChanged != null) {
-                PlayersChanged.Invoke(ActiveSession.Players);
-            }
-
-            SetFrontStatus(SessionPhase.LobbyReady, "Lobby ready. Share the join code with friends!");
-            return ActiveSession.Code;
-        }
-
-        private async UniTask EnsureRelayCodePublishedForLobbyAsync() {
-            if(_hostAllocation == null || string.IsNullOrEmpty(_relayJoinCode)) {
-                var (alloc, code) = await _relay.CreateAllocationAsync(16);
-                _hostAllocation = alloc;
-                _relayJoinCode = code;
-
-                var host = ActiveSession != null ? ActiveSession.AsHost() : null;
-                if(host != null) {
-                    host.SetProperty(RelayCodeKey, new SessionProperty(code, VisibilityPropertyOptions.Member));
-                    await host.SavePropertiesAsync(); // clients see the real Relay code here
-
-                    // Immediately notify any clients that are already polling
-                    EventBus.Publish(new RelayCodeAvailableEvent(code));
+            if(clientId == _networkManager.LocalClientId) {
+                // We disconnected
+                if(!_expectedDisconnect) {
+                    Debug.Log("[SessionManager] Unexpected Disconnect (Kick or Error).");
+                    HandleUnexpectedDisconnect().Forget();
                 } else {
-                    Debug.LogWarning("[SessionManager] Cannot publish relay code - host == null");
+                    // Reset flag
+                    _expectedDisconnect = false;
                 }
             }
+
+            NotifyPartyStateChanged();
         }
 
-        /// <summary>Allocates Relay + configures transport, publishes join code, then starts NGO Host and loads the game.</summary>
-        public async UniTask BeginGameplayAsHostAsync() {
-            SetFrontStatus(SessionPhase.StartingHost, "Starting game as host...");
-            StopWatchingLobby();
+        /// <summary>
+        /// Handles cleanup and recovery after an unexpected network disconnect.
+        /// </summary>
+        private async UniTaskVoid HandleUnexpectedDisconnect() {
+            SetFrontStatus(SessionPhase.Error, "Disconnected from party.");
 
-            // Reset state flags for new game session
-            _expectedLobbyCount = 1;
-            if(ActiveSession != null && ActiveSession.Players != null) {
-                _expectedLobbyCount = ActiveSession.Players.Count;
-            }
-            _clientsFinishedLoading.Clear();
-            _hasCompletedInitialLoad = false; // Reset this flag
-            IsInGameplay = false;
+            var currentScene = SceneManager.GetActiveScene().name;
+            if(currentScene != "MainMenu") {
+                await LeaveToMainMenuAsync();
+            } else {
+                LeaveLobby();
+                await CleanupNetworkAsync();
 
-            await EnsureRelayCodePublishedForLobbyAsync();
-            await SetupHostTransportAsync();
-            StartHostIfNeeded();
-
-            SetFrontStatus(SessionPhase.AllocatingRelay, "Allocating relay...");
-            if(networkManager.IsServer)
-                await PublishRelayCodeIfAnyAsync();
-
-            SetFrontStatus(SessionPhase.LoadingScene, "Waiting for all players...");
-
-            // Check if all players are already connected (including host-only scenario)
-            // Wait a frame for network manager to update ConnectedClientsIds
-            await UniTask.DelayFrame(1);
-            CheckAndStartSceneLoadIfReady();
-
-            // If not ready yet, start polling for clients to connect
-            if(!_hasCompletedInitialLoad) {
-                StartPollingForAllPlayers().Forget();
+                Debug.Log("[SessionManager] Creating Personal Lobby (Self-Healing)...");
+                await CreatePrivateLobbyAsync();
             }
         }
 
         /// <summary>
-        /// Polls periodically to check if all players have connected.
-        /// This handles cases where clients connect after the host has already started.
+        /// Kicked a member from the session.
         /// </summary>
-        private async UniTaskVoid StartPollingForAllPlayers() {
-            const float pollInterval = 0.5f; // Check every 0.5 seconds
-            const float maxWaitTime = 30f; // Maximum 30 seconds wait
+        /// <param name="targetId">The Steam ID of the member to kick.</param>
+        public void KickMember(SteamId targetId) {
+            if(!IsPartyLeader) return;
 
-            var elapsed = 0f;
-
-            while(!_hasCompletedInitialLoad && elapsed < maxWaitTime && networkManager != null &&
-                  networkManager.IsServer) {
-                await UniTask.Delay(TimeSpan.FromSeconds(pollInterval));
-                elapsed += pollInterval;
-
-                CheckAndStartSceneLoadIfReady();
-
-                // If scene load started, break out of polling
-                if(_hasCompletedInitialLoad) {
-                    break;
-                }
-            }
-
-            if(!_hasCompletedInitialLoad && elapsed >= maxWaitTime) {
-                Debug.LogWarning("[SessionManager] Timeout waiting for all players to connect. Starting game anyway.");
-                // Force start if timeout (in case of network issues)
-                if(networkManager != null && networkManager.IsServer && networkManager.ConnectedClientsIds.Count > 0) {
-                    _hasCompletedInitialLoad = true;
-                    if(SessionNetworkBridge.Instance != null) {
-                        SessionNetworkBridge.Instance.FadeOutNewClientsClientRpc();
-                    }
-                    StartCoroutine(LoadSceneAfterFade());
-                }
-            }
+            if(!_networkManager.IsServer) return;
+            _networkManager.DisconnectClient(targetId.Value);
+            Debug.Log($"[SessionManager] Kicked Client {targetId}");
         }
 
         /// <summary>
-        /// Checks if all expected players are connected and starts scene load if ready.
-        /// This handles both host-only and multi-player scenarios.
+        /// Promotes a member to be the new party leader.
         /// </summary>
-        private void CheckAndStartSceneLoadIfReady() {
-            // Safety check: ensure we're the active instance and haven't been destroyed
-            // Check if this instance == null/destroyed first (Unity's special null check)
-            if(this == null) {
-                Debug.LogWarning(
-                    "[SessionManager] CheckAndStartSceneLoadIfReady called on destroyed SessionManager instance");
-                return;
-            }
+        /// <param name="targetId">The Steam ID of the member to promote.</param>
+        public void PromoteMember(SteamId targetId) {
+            if(!IsPartyLeader || !CurrentLobby.HasValue) return;
 
-            // Then check if we're the active singleton instance
-            if(!HasInstance || Instance != this) {
-                Debug.LogWarning(
-                    "[SessionManager] CheckAndStartSceneLoadIfReady called but this is not the active SessionManager instance");
-                return;
-            }
-
-            // Finally check if GameObject is valid and active
-            if(gameObject == null || !gameObject.activeInHierarchy) {
-                Debug.LogWarning(
-                    "[SessionManager] CheckAndStartSceneLoadIfReady called but SessionManager GameObject == null or inactive");
-                return;
-            }
-
-            if(networkManager == null || !networkManager.IsServer || IsInGameplay || _hasCompletedInitialLoad) return;
-
-            var expectedPlayerCount = _expectedLobbyCount;
-            var connectedCount = networkManager.ConnectedClientsIds.Count;
-
-            // Ensure we have at least 1 connected (the host itself)
-            // Host is always client ID 0 and should be in ConnectedClientsIds
-            if(connectedCount == 0 && networkManager.IsHost) {
-                Debug.LogWarning("[SessionManager] Host started but not in ConnectedClientsIds yet - waiting...");
-                return;
-            }
-
-            switch(expectedPlayerCount) {
-                // Start scene load if we have all expected players OR if we have at least 1 player (host-only scenario)
-                case > 0 when connectedCount >= expectedPlayerCount: {
-                    _hasCompletedInitialLoad = true;
-
-                    if(SessionNetworkBridge.Instance != null) {
-                        SessionNetworkBridge.Instance.FadeOutNewClientsClientRpc();
-                    }
-
-                    // Safety check before starting coroutine - ensure we're still the active instance
-                    if(HasInstance && Instance == this && this != null && gameObject != null &&
-                       gameObject.activeInHierarchy) {
-                        StartCoroutine(LoadSceneAfterFade());
-                    } else {
-                        Debug.LogError(
-                            "[SessionManager] Cannot start coroutine - SessionManager is destroyed, inactive, or not the active instance");
-                    }
-
-                    break;
-                }
-                case 0 when connectedCount > 0: {
-                    // Fallback: if expected count is 0 (shouldn't happen), but we have players, start anyway
-                    Debug.LogWarning(
-                        "[SessionManager] Expected count is 0 but players are connected - starting anyway");
-                    _hasCompletedInitialLoad = true;
-                    if(SessionNetworkBridge.Instance != null) {
-                        SessionNetworkBridge.Instance.FadeOutNewClientsClientRpc();
-                    }
-
-                    // Safety check before starting coroutine - ensure we're still the active instance
-                    if(HasInstance && Instance == this && this != null && gameObject != null &&
-                       gameObject.activeInHierarchy) {
-                        StartCoroutine(LoadSceneAfterFade());
-                    } else {
-                        Debug.LogError(
-                            "[SessionManager] Cannot start coroutine - SessionManager is destroyed, inactive, or not the active instance");
-                    }
-
-                    break;
-                }
-            }
+            var lobby = CurrentLobby.Value;
+            lobby.Owner = new Friend(targetId);
+            Debug.Log($"[SessionManager] Promoted {targetId} to Host.");
         }
-
-        private void OnClientConnected(ulong clientId) {
-            // Safety check: ensure we're the active instance and haven't been destroyed
-            // Check if this instance == null/destroyed first (Unity's special null check)
-            if(this == null) {
-                Debug.LogWarning(
-                    $"[SessionManager] OnClientConnected called on destroyed SessionManager instance (clientId: {clientId})");
-                return;
-            }
-
-            // Then check if we're the active singleton instance
-            if(!HasInstance || Instance != this) {
-                Debug.LogWarning(
-                    $"[SessionManager] OnClientConnected called but this is not the active SessionManager instance (clientId: {clientId}, HasInstance: {HasInstance})");
-                return;
-            }
-
-            // Finally check if GameObject is valid and active
-            if(gameObject == null || !gameObject.activeInHierarchy) {
-                Debug.LogWarning(
-                    $"[SessionManager] OnClientConnected called but SessionManager GameObject == null or inactive (clientId: {clientId})");
-                return;
-            }
-
-            // If we don't have an active session, this is a stale connection - ignore it
-            if(ActiveSession == null) {
-                Debug.LogWarning($"[SessionManager] Client {clientId} connected but no active session - ignoring");
-                return;
-            }
-
-            if(networkManager == null || !networkManager.IsServer) {
-                SetFrontStatus(SessionPhase.LoadingScene, "Loading...");
-                return;
-            }
-
-            HandleLateJoiner(clientId);
-
-            // Don't trigger scene transition if we're already in gameplay
-            if(IsInGameplay) {
-                if(SessionNetworkBridge.Instance != null) {
-                    SessionNetworkBridge.Instance.FadeInSingleClientClientRpc();
-                }
-                return;
-            }
-
-            // Update player list when client connects using RPC to synchronize all clients
-            // This ensures all players (including the new one) see the update at the same time
-            if(ActiveSession != null && SessionNetworkBridge.Instance != null) {
-                SessionNetworkBridge.Instance.RefreshPlayerListClientRpc();
-            }
-
-            // Use the shared method to check and start scene load
-            CheckAndStartSceneLoadIfReady();
-        }
-
-        private IEnumerator LoadSceneAfterFade() {
-            // Wait for fade to complete using actual fade duration
-            if(SceneTransitionManager.Instance != null) {
-                yield return SceneTransitionManager.Instance.FadeOut();
-            } else {
-                // Fallback if SceneTransitionManager is not available
-                yield return new WaitForSeconds(0.5f);
-            }
-
-            // Now load the scene
-            BeginNetworkSceneLoad();
-        }
-
-        private void OnGameSceneLoaded(ulong clientId, string sceneName) {
-            if(sceneName != GameSceneName) return;
-
-            if(!networkManager.IsServer) {
-                IsInGameplay = true;
-                if(SceneTransitionManager.Instance != null) {
-                    _ = SceneTransitionManager.Instance.FadeIn().ToUniTask(); // <-- ALWAYS
-                }
-
-                return;
-            }
-
-            if(!_clientsFinishedLoading.Contains(clientId)) {
-                _clientsFinishedLoading.Add(clientId);
-            }
-
-            if(_clientsFinishedLoading.Count != networkManager.ConnectedClientsIds.Count) return;
-            networkManager.SceneManager.OnSceneEvent -= OnSceneEvent;
-            IsInGameplay = true;
-            if(_customNetworkManager != null) {
-                _customNetworkManager.EnableGameplaySpawningAndSpawnAll();
-            }
-            SessionNetworkBridge.Instance.FadeInAllClientsClientRpc();
-        }
-
-        /// <summary>Joins a session by code; waits for host to publish Relay code (if remote), configures client transport, starts NGO Client.</summary>
-        public async UniTask<string> JoinSessionByCodeAsync(string joinCode) {
-            var lastSessionId = PlayerPrefs.GetString("LastSessionId", "");
-            var lastCode = PlayerPrefs.GetString("LastJoinCode", "");
-
-            // **1. Try silent reconnect if we have a session ID and code matches**
-            var attemptedReconnect = false;
-            if(!string.IsNullOrEmpty(lastSessionId) && lastCode == joinCode) {
-                try {
-                    SetFrontStatus(SessionPhase.ConnectingToRelay, "Reconnecting to session...");
-                    attemptedReconnect = true;
-                    ActiveSession = await _ugs.ReconnectToSessionAsync(lastSessionId);
-                    HookSessionEvents();
-                    await SetupClientTransportFromSessionAsync(); // See below
-                    StartClientIfNeeded();
-                    EventBus.Publish(new PlayersChangedEvent(ActiveSession.Players));
-                    if(PlayersChanged != null) {
-                        PlayersChanged.Invoke(ActiveSession.Players);
-                    }
-                    SetFrontStatus(SessionPhase.Connected, "Reconnected!");
-                    return "Reconnecting to session...";
-                } catch(Exception ex) {
-                    Debug.Log($"[SessionManager] Reconnect failed (player removed?): {ex.Message}");
-                    // Continue to normal join — player was kicked
-                    // Update status for fresh join
-                    SetFrontStatus(SessionPhase.CreatingLobby, "Joining session...");
-                }
-            }
-
-            // **2. Normal join with cache bypass**
-            await ForceLeaveAndCleanupAsync();
-
-            try {
-                // Only set status if we didn't already set it after failed reconnect
-                if(!attemptedReconnect) {
-                    SetFrontStatus(SessionPhase.CreatingLobby, "Joining session...");
-                }
-
-                await JoinRemoteAsync(joinCode);
-                return "Lobby joined. Waiting for host...";
-            } catch(Exception ex) when(ex.Message.Contains("already a member") || ex.Message.Contains("409")) {
-                // **3. FINAL FALLBACK: Try to reconnect again (edge case)**
-                if(string.IsNullOrEmpty(lastSessionId)) throw new Exception("Failed to rejoin. Try again in 30s.");
-                try {
-                    ActiveSession = await _ugs.ReconnectToSessionAsync(lastSessionId);
-                    await SetupClientTransportFromSessionAsync();
-                    StartClientIfNeeded();
-                    return "RECONNECTED_AFTER_CACHE";
-                } catch { /* ignore */
-                }
-
-                throw new Exception("Failed to rejoin. Try again in 30s.");
-            }
-        }
-
-        private async UniTask SetupClientTransportFromSessionAsync() {
-            if(ActiveSession == null) return;
-
-            // Extract Relay info from session properties
-            if(ActiveSession.Properties.TryGetValue("relayCode", out var prop) && !string.IsNullOrEmpty(prop.Value)) {
-                var relayCode = prop.Value;
-                var join = await _relay.JoinAllocationAsync(relayCode);
-                var utp = networkManager.GetComponent<UnityTransport>();
-
-                // Optimize transport settings for lower latency
-                utp.HeartbeatTimeoutMS = 500;
-                utp.DisconnectTimeoutMS = 2000;
-
-                utp.SetRelayServerData(join.ToRelayServerData(RelayProtocol.DTLS));
-            }
-        }
-
-        private async UniTask ForceLeaveAndCleanupAsync() {
-            // Leave session if exists (ResetSessionState will unhook events)
-            if(ActiveSession != null) {
-                try {
-                    await _ugs.LeaveOrDeleteAsync(ActiveSession);
-                } catch {
-                    // Session might already be deleted
-                }
-            }
-
-            // Cleanup network
-            await _net.CleanupNetworkAsync();
-
-            // Reset state (includes StopWatchingLobby, UnhookSessionEvents, etc.)
-            ResetSessionState();
-        }
-
-        /// <summary>Leaves (or deletes, if host) the UGS session, tears down NGO, returns to Main Menu. Safe to call multiple times.</summary>
-        /// <param name="mainMenu">Scene name to load, defaults to "MainMenu".</param>
-        /// <param name="skipFade">If true, skips the fade transition (for voluntary lobby leaves). Defaults to false.</param>
-        public async UniTask LeaveToMainMenuAsync(string mainMenu = "MainMenu", bool skipFade = false) {
-            if(_isLeaving) return;
-            _isLeaving = true;
-
-            try {
-                // Stop all sounds before scene transition to prevent accessing destroyed audio clips
-                EventBus.Publish(new StopAllSoundsEvent());
-
-                // Fade to black before leaving, unless in main menu already or fade is skipped
-                if(!skipFade && SceneTransitionManager.Instance != null && _cachedSceneName != "MainMenu") {
-                    await SceneTransitionManager.Instance.FadeOut().ToUniTask();
-                }
-
-                if(PostMatchManager.Instance != null) {
-                    PostMatchManager.Instance.ShowInGameHudAfterPostMatch();
-                }
-
-                // If we're the host and in gameplay, tell everyone else to fade out
-                // Note: Our own fade already completed above, so no need to wait
-                if(networkManager != null && networkManager.IsServer && IsInGameplay &&
-                   SessionNetworkBridge.Instance != null) {
-                    SessionNetworkBridge.Instance.FadeOutAllClientsClientRpc();
-                }
-
-                // Store session reference before cleanup
-                var sessionToLeave = ActiveSession;
-
-                // Cleanup network
-                await _net.CleanupNetworkAsync();
-
-                // Clear camera stacks before leaving scene (prevents warnings about missing overlays)
-                ClearCameraStacks();
-
-                // Leave session
-                if(sessionToLeave != null) {
-                    try {
-                        await _ugs.LeaveOrDeleteAsync(sessionToLeave);
-                    } catch {
-                        // Session might already be deleted
-                    }
-                }
-
-                // Reset all state (includes StopWatchingLobby, UnhookSessionEvents, etc.)
-                ResetSessionState();
-
-                // Re-register callbacks after cleanup
-                RegisterNetworkCallbacks();
-
-                LoadMainMenu(mainMenu);
-
-                await WaitForSceneLoadAsync(mainMenu);
-                // Only fade in if we faded out
-                if(!skipFade && SceneTransitionManager.Instance != null) {
-                    await SceneTransitionManager.Instance.FadeIn().ToUniTask();
-                }
-            } finally {
-                _isLeaving = false;
-            }
-        }
-
-        #endregion
-
-        #region Private - Host path
-
-        /// <summary>Sets UnityTransport for Relay host and publishes relay code to UGS.</summary>
-        private async UniTask SetupHostTransportAsync() {
-            var nm = GetNetworkManager();
-            if(nm == null) {
-                Debug.LogError("[SessionManager] NetworkManager.Singleton == null in SetupHostTransportAsync");
-                return;
-            }
-
-            networkManager = nm; // Update cached reference
-
-            var utp = nm.GetComponent<UnityTransport>();
-            if(utp == null) {
-                Debug.LogError("[SessionManager] UnityTransport component not found on NetworkManager");
-                return;
-            }
-
-            // Optimize transport settings for lower latency
-            utp.HeartbeatTimeoutMS = 500; // Default is often 1000ms+ - reduce for faster disconnect detection
-            utp.DisconnectTimeoutMS = 2000; // Default is often 10000ms - reduce for faster cleanup
-
-            // Use the cached allocation we created in the lobby step
-            if(_hostAllocation == null || string.IsNullOrEmpty(_relayJoinCode)) {
-                var (alloc, code) = await _relay.CreateAllocationAsync(16);
-                _hostAllocation = alloc;
-                _relayJoinCode = code;
-            }
-
-            utp.SetRelayServerData(_hostAllocation.ToRelayServerData(RelayProtocol.DTLS));
-        }
-
-        private async UniTask PublishRelayCodeIfAnyAsync() {
-            if(ActiveSession != null && ActiveSession.IsHost && !string.IsNullOrEmpty(_relayJoinCode)) {
-                var host = ActiveSession.AsHost();
-                host.SetProperty(RelayCodeKey, new SessionProperty(_relayJoinCode, VisibilityPropertyOptions.Member));
-                await host.SavePropertiesAsync();
-
-                // Immediately notify clients via event (in case they're already polling)
-                EventBus.Publish(new RelayCodeAvailableEvent(_relayJoinCode));
-            } else {
-                var isHost = ActiveSession != null && ActiveSession.IsHost;
-                Debug.LogWarning(
-                    $"[SessionManager] Cannot publish relay code - IsHost={isHost}, Code={_relayJoinCode}");
-            }
-        }
-
-        /// <summary>Starts NGO host if not already listening.</summary>
-        private static void StartHostIfNeeded() {
-            if(!networkManager.IsListening)
-                networkManager.StartHost();
-        }
-
-        /// <summary>Arms scene-completion callback and asks server to load the game scene via NGO SceneManager.</summary>
-        private void BeginNetworkSceneLoad() {
-            if(!networkManager.IsServer) return;
-            _clientsFinishedLoading.Clear();
-            networkManager.SceneManager.OnSceneEvent += OnSceneEvent;
-            _loadingGameScene = true;
-            _net.HookSceneCallbacks(OnNetworkSceneLoadComplete);
-            _scenes.LoadGameSceneServer(GameSceneName);
-        }
-
-        #endregion
-
-        #region Private - Client path
-
-        /// <summary>Joins remote UGS session, waits for Relay code, configures transport, starts NGO client.</summary>
-        private async UniTask JoinRemoteAsync(string joinCode) {
-            var props = await _ids.GetPlayerPropertiesAsync(PlayerNameKey);
-            ActiveSession = await _ugs.JoinByCodeAsync(joinCode, new JoinSessionOptions { PlayerProperties = props });
-
-            PlayerPrefs.SetString("LastSessionId", ActiveSession.Id);
-            PlayerPrefs.SetString("LastJoinCode", joinCode);
-            PlayerPrefs.Save();
-
-            HookSessionEvents();
-
-            // Ensure callbacks are registered
-            RegisterNetworkCallbacks();
-
-            // Notify UI of session players
-            EventBus.Publish(new PlayersChangedEvent(ActiveSession.Players));
-            if(PlayersChanged != null) {
-                PlayersChanged.Invoke(ActiveSession.Players);
-            }
-
-            EventBus.Publish(new SessionJoinedEvent(ActiveSession.Code));
-            if(SessionJoined != null) {
-                SessionJoined.Invoke(ActiveSession.Code);
-            }
-
-            SetFrontStatus(SessionPhase.WaitingForRelay, "Waiting for host to start game...");
-            _ = PollForGameStartAsync();
-        }
-
-        private async UniTask PollForGameStartAsync() {
-            StopWatchingLobby();
-            _lobbyWatchCts = new CancellationTokenSource(TimeSpan.FromMinutes(10));
-            var ct = _lobbyWatchCts.Token;
-
-            string relayCode = null;
-            var connected = false;
-
-            // Use EventBus subscription for relay code events
-            void OnRelayCodeEvent(RelayCodeAvailableEvent evt) {
-                if(!string.IsNullOrWhiteSpace(evt.Code) && evt.Code.Length >= 6) {
-                    relayCode = evt.Code;
-                }
-            }
-            EventBus.Subscribe<RelayCodeAvailableEvent>(OnRelayCodeEvent);
-
-            try {
-                // Check immediately if relay code is already available
-                if(TryGetRelayCode(out var immediateCode)) {
-                    relayCode = immediateCode;
-                    EventBus.Publish(new RelayCodeAvailableEvent(immediateCode));
-                }
-
-                while(!ct.IsCancellationRequested && !connected && string.IsNullOrEmpty(relayCode)) {
-                    if((networkManager != null && networkManager.IsClient) || Phase >= SessionPhase.Connected) {
-                        connected = true;
-                        break;
-                    }
-
-                    try {
-                        await ActiveSession.RefreshAsync();
-
-                        // ── HOST GONE ──
-                        if(ActiveSession == null ||
-                           string.IsNullOrEmpty(ActiveSession.Host) ||
-                           ActiveSession.Players.Count == 0) {
-                            EventBus.Publish(new HostDisconnectedEvent());
-                            EventBus.Publish(new LobbyResetEvent());
-                            if(HostDisconnected != null) {
-                                HostDisconnected.Invoke();
-                            }
-                            if(LobbyReset != null) {
-                                LobbyReset.Invoke();
-                            }
-                            StopWatchingLobby();
-                            return;
-                        }
-
-                        if(TryGetRelayCode(out var c)) {
-                            relayCode = c;
-                            EventBus.Publish(new RelayCodeAvailableEvent(c));
-                            break;
-                        }
-
-                        await UniTask.Delay(500, cancellationToken: ct);
-                    } catch(Exception e) when(e.Message.Contains("not found") || e.Message.Contains("deleted")) {
-                        EventBus.Publish(new HostDisconnectedEvent());
-                        EventBus.Publish(new LobbyResetEvent());
-                        if(HostDisconnected != null) {
-                            HostDisconnected.Invoke();
-                        }
-                        if(LobbyReset != null) {
-                            LobbyReset.Invoke();
-                        }
-                        StopWatchingLobby();
-                        return;
-                    } catch(Exception e) when(e.Message.Contains("Too Many Requests")) {
-                        await UniTask.Delay(3000, cancellationToken: ct);
-                    } catch(OperationCanceledException) {
-                        // If cancelled, but we have a relay code, break out to connect
-                        if(!string.IsNullOrEmpty(relayCode)) {
-                            break;
-                        }
-
-                        throw; // Re-throw if no relay code
-                    } catch(Exception) {
-                        break;
-                    }
-                }
-
-                // Connect to relay if we have a code, even if polling was cancelled
-                if(!string.IsNullOrEmpty(relayCode) && !connected) {
-                    await ConnectToRelayAsync(relayCode);
-                } else if(!connected) {
-                    Debug.LogWarning("[SessionManager] Client finished polling but no relay code found");
-                }
-            } catch(OperationCanceledException) {
-                // Check if we have a relay code even though polling was cancelled
-                if(!string.IsNullOrEmpty(relayCode) && !connected) {
-                    await ConnectToRelayAsync(relayCode);
-                }
-            } finally {
-                EventBus.Unsubscribe<RelayCodeAvailableEvent>(OnRelayCodeEvent);
-                StopWatchingLobby();
-            }
-        }
-
-        private async UniTask ConnectToRelayAsync(string relayCode) {
-            if(relayCode != null) {
-                relayCode = relayCode.Trim();
-            }
-
-            // Validate relay code before attempting connection
-            if(string.IsNullOrEmpty(relayCode) || relayCode.Length < 6) {
-                Debug.LogWarning($"[SessionManager] Invalid relay code received: '{relayCode}' - not connecting");
-                SetFrontStatus(SessionPhase.WaitingForRelay, "Waiting for valid connection code...");
-                return; // Don't attempt connection with invalid code
-            }
-
-            try {
-                SetFrontStatus(SessionPhase.ConnectingToRelay, "Connecting to host...");
-                var join = await _relay.JoinAllocationAsync(relayCode);
-                var utp = networkManager.GetComponent<UnityTransport>();
-
-                // Optimize transport settings for lower latency
-                utp.HeartbeatTimeoutMS = 500;
-                utp.DisconnectTimeoutMS = 2000;
-
-                utp.SetRelayServerData(join.ToRelayServerData(RelayProtocol.DTLS));
-                StartClientIfNeeded();
-                SetFrontStatus(SessionPhase.LoadingScene, "Waiting for all players...");
-                ArmSceneCompletion();
-            } catch(Exception e) {
-                SetFrontStatus(SessionPhase.Error, $"Failed to connect: {e.Message}");
-                Debug.LogError($"[SessionManager] Failed to connect to relay: {e}");
-            }
-        }
-
-        private static async void StartClientIfNeeded() {
-            try {
-                if(networkManager == null)
-                    networkManager = NetworkManager.Singleton;
-
-                // Already a client or running as host? Nothing to do.
-                if(networkManager.IsClient || networkManager.IsHost || startingClient)
-                    return;
-
-                startingClient = true;
-
-                // Await fade completion before starting client
-                if(SceneTransitionManager.Instance != null) {
-                    await SceneTransitionManager.Instance.FadeOutAsync();
-                }
-
-                var ok = networkManager.StartClient();
-                if(!ok)
-                    Debug.LogError(
-                        "[SessionManager] StartClient failed (transport not configured or already running).");
-                startingClient = false;
-            } catch(Exception e) {
-                Debug.LogException(e);
-            }
-        }
-
-        /// <summary>Ensures scene-completion callback is hooked only once during client-side load.</summary>
-        private void ArmSceneCompletion() {
-            if(_loadingGameScene) return;
-            _loadingGameScene = true;
-            _net.HookSceneCallbacks(OnNetworkSceneLoadComplete);
-        }
-
-        private void DisarmSceneCompletion() {
-            _loadingGameScene = false;
-            _net.UnhookSceneCallbacks(OnNetworkSceneLoadComplete);
-        }
-
-        #endregion
-
-        #region Session events & helpers
-
-        private bool TryGetRelayCode(out string code) {
-            code = null;
-            if(ActiveSession == null) {
-                return false;
-            }
-
-            if(!ActiveSession.Properties.TryGetValue(RelayCodeKey, out var prop) ||
-               string.IsNullOrEmpty(prop.Value)) return false;
-            code = prop.Value;
-            return true;
-        }
-
-        public async UniTaskVoid RefreshAndUpdatePlayerList() {
-            if(ActiveSession == null) return;
-
-            try {
-                await ActiveSession.RefreshAsync();
-                if(ActiveSession != null) {
-                    EventBus.Publish(new PlayersChangedEvent(ActiveSession.Players));
-                    if(PlayersChanged != null) {
-                        PlayersChanged.Invoke(ActiveSession.Players);
-                    }
-                }
-            } catch {
-                // Ignore refresh errors - session might be gone
-            }
-        }
-
-        private void HandleLateJoiner(ulong clientId) {
-            if(!networkManager.IsServer || !IsInGameplay) return;
-
-            // Spawn the player for the late joiner without affecting others
-            if(_customNetworkManager != null) {
-                _customNetworkManager.SpawnPlayerFor(clientId);
-            }
-        }
-
-        private static void LoadMainMenu(string scene) {
-            if(string.IsNullOrEmpty(scene)) return;
-
-            // Check if scene is already loaded
-            var existingScene = SceneManager.GetSceneByName(scene);
-            if(existingScene.IsValid() && existingScene.isLoaded) {
-                // Scene already loaded, just activate it
-                SceneManager.SetActiveScene(existingScene);
-                return;
-            }
-
-            // Load scene additively (init scene should persist)
-            // If init scene doesn't exist, fall back to Single mode
-            var initScene = SceneManager.GetSceneByName("Init");
-            if(initScene.IsValid() && initScene.isLoaded) {
-                // Init scene exists, load additively
-                var loadOp = SceneManager.LoadSceneAsync(scene, LoadSceneMode.Additive);
-                if(loadOp == null) return;
-                // Wait for load to complete in a coroutine
-                var sessionManagerInstance = Instance;
-                if(sessionManagerInstance != null) {
-                    sessionManagerInstance.StartCoroutine(SetActiveSceneWhenLoaded(loadOp, scene));
-                }
-            } else {
-                // No init scene, use Single mode (legacy behavior)
-                SceneManager.LoadScene(scene, LoadSceneMode.Single);
-            }
-        }
-
-        private static IEnumerator SetActiveSceneWhenLoaded(AsyncOperation loadOp, string sceneName) {
-            while(!loadOp.isDone) {
-                yield return null;
-            }
-
-            var scene = SceneManager.GetSceneByName(sceneName);
-            if(scene.IsValid()) {
-                SceneManager.SetActiveScene(scene);
-            }
-        }
-
-        private void HookSessionEvents() {
-            _ugs.HookEvents(ActiveSession,
-                onChanged: () => {
-                    // 1. Host left → session.Host becomes null or Players empty
-                    if(ActiveSession == null ||
-                       string.IsNullOrEmpty(ActiveSession.Host) ||
-                       ActiveSession.Players.Count == 0) {
-                        EventBus.Publish(new HostDisconnectedEvent());
-                        EventBus.Publish(new LobbyResetEvent());
-                        if(HostDisconnected != null) {
-                            HostDisconnected.Invoke();
-                        }
-                        if(LobbyReset != null) {
-                            LobbyReset.Invoke();
-                        }
-                        StopWatchingLobby();
-                        return; // ← stop further processing
-                    }
-
-                    if(ActiveSession != null) {
-                        EventBus.Publish(new PlayersChangedEvent(ActiveSession.Players));
-                        if(PlayersChanged != null) {
-                            PlayersChanged.Invoke(ActiveSession.Players);
-                        }
-                    }
-                },
-                onJoined: _ => {
-                    if(ActiveSession != null) {
-                        EventBus.Publish(new PlayersChangedEvent(ActiveSession.Players));
-                        if(PlayersChanged != null) {
-                            PlayersChanged.Invoke(ActiveSession.Players);
-                        }
-                    }
-                },
-                onLeaving: _ => {
-                    // 2. Any player leaves – we will check on next refresh
-                },
-                onPropsChanged: () => {
-                    if(ActiveSession == null) {
-                        return;
-                    }
-
-                    // Notify listeners that session properties changed (for gamemode sync, etc.)
-                    EventBus.Publish(new SessionPropertiesRefreshedEvent());
-
-                    if(ActiveSession.Properties.TryGetValue(RelayCodeKey, out var p) &&
-                       !string.IsNullOrEmpty(p.Value)) {
-                        EventBus.Publish(new RelayCodeAvailableEvent(p.Value));
-                    }
-                });
-        }
-
-        private void UnhookSessionEvents() {
-            // Only unhook if we have an active session
-            if(ActiveSession != null) {
-                _ugs.UnhookEvents(ActiveSession,
-                    onChanged: () => { },
-                    onJoined: _ => { },
-                    onLeaving: _ => { },
-                    onPropsChanged: () => { });
-            }
-        }
-
-        #endregion
-
-        #region Camera Stack Cleanup
 
         /// <summary>
-        /// Clears all camera overlays from the main camera's stack before leaving the scene.
-        /// This prevents Unity warnings about missing camera overlays when cameras are destroyed.
+        /// Logic for migrating the Netcode session to a new host during host migration.
         /// </summary>
-        private static void ClearCameraStacks() {
-            var mainCamera = Camera.main;
-            if(mainCamera == null) {
-                var mainCameraObj = GameObject.FindGameObjectWithTag("MainCamera");
-                if(mainCameraObj != null) {
-                    mainCamera = mainCameraObj.GetComponent<Camera>();
+        private async UniTaskVoid MigrateNetcodeToNewHost(ulong newHostId) {
+            SetFrontStatus(SessionPhase.JoiningLobby, "Migrating Host...");
+
+            await CleanupNetworkAsync();
+
+            if(newHostId == SteamClient.SteamId) {
+                Debug.Log("[SessionManager] I am the new Host. Starting Server...");
+                StartHost();
+                if(CurrentLobby != null) {
+                    CurrentLobby.Value.SetData(HostAddressKey, SteamClient.SteamId.ToString());
+                }
+                SetFrontStatus(SessionPhase.LobbyReady, "You are now Host.");
+            } else {
+                Debug.Log($"[SessionManager] Connecting to new Host {newHostId}...");
+
+                var hostAddress = "";
+                var retries = 0;
+                while(retries < 20) {
+                    if(CurrentLobby.HasValue) hostAddress = CurrentLobby.Value.GetData(HostAddressKey);
+                    if(hostAddress == newHostId.ToString()) break;
+                    await UniTask.Delay(500);
+                    retries++;
+                }
+
+                if(hostAddress == newHostId.ToString()) {
+                    var transport = _networkManager.GetComponent<FacepunchTransport>();
+                    if(transport != null) {
+                        transport.targetSteamId = newHostId;
+                        _networkManager.StartClient();
+                        SetFrontStatus(SessionPhase.LobbyReady, "Connected to new Host.");
+                    }
+                } else {
+                    Debug.LogError("[SessionManager] Failed to resolve new Host Address.");
+                    SetFrontStatus(SessionPhase.Error, "Host Migration Failed.");
                 }
             }
-
-            if(mainCamera == null) return;
-            var mainCameraData = mainCamera.GetComponent<UniversalAdditionalCameraData>();
-            if(mainCameraData == null || mainCameraData.cameraStack == null) return;
-            // Remove all null/destroyed cameras from the stack
-            for(var i = mainCameraData.cameraStack.Count - 1; i >= 0; i--) {
-                var overlayCam = mainCameraData.cameraStack[i];
-                if(overlayCam == null) {
-                    mainCameraData.cameraStack.RemoveAt(i);
-                }
-            }
-
-            // Clear the entire stack to ensure clean state
-            mainCameraData.cameraStack.Clear();
-        }
-
-        #endregion
-
-        #region Scene callback
-
-        /// <summary>Server-side: finishes bootstrapping after game scene loads (spawns, UI reveal).</summary>
-        private void OnNetworkSceneLoadComplete(string scene, LoadSceneMode mode,
-            List<ulong> completed, List<ulong> timedOut) {
-            if(!_loadingGameScene) return;
-            DisarmSceneCompletion();
         }
 
         #endregion

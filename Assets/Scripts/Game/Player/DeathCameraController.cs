@@ -32,12 +32,18 @@ namespace Game.Player {
             if(_speedTrail == null) _speedTrail = playerController.SpeedTrail;
         }
 
+        /// <summary>
+        /// Enables the death camera and sets its priority.
+        /// </summary>
         public void EnableDeathCamera() {
             playerController.PlayerMesh.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
             _deathCamera.Priority = _fpCamera.Priority + 1;
             _deathCamera.gameObject.SetActive(true);
         }
 
+        /// <summary>
+        /// Disables the death camera.
+        /// </summary>
         public void DisableDeathCamera() {
             _deathCamera.gameObject.SetActive(false);
             playerController.PlayerMesh.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.ShadowsOnly;

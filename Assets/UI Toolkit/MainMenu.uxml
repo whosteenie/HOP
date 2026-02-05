@@ -1,14 +1,20 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" editor-extension-mode="False">
     <Style src="project://database/Assets/UI%20Toolkit/SharedStyles.uss?fileID=7433441132597879392&amp;guid=94b07ae9f6dfe3447bec848c3f2b4d36&amp;type=3#SharedStyles" />
     <Style src="project://database/Assets/UI%20Toolkit/MainMenu.uss?fileID=7433441132597879392&amp;guid=6386da34af0d5d145aefc4dcab362169&amp;type=3#MainMenu" />
-    <ui:VisualElement name="ui-overlay" class="ui-overlay" />
-    <ui:VisualElement name="player-model-background" class="player-model-background" />
-    <ui:VisualElement name="main-menu-panel" class="panel full-abs">
+    <ui:VisualElement name="ui-overlay" class="ui-overlay" picking-mode="Ignore">
+        <ui:VisualElement name="voice-overlay-container" class="voice-overlay-container" picking-mode="Ignore" />
+    </ui:VisualElement>
+    <ui:VisualElement name="player-model-background" class="player-model-background" picking-mode="Ignore" />
+    <ui:VisualElement name="main-menu-panel" class="panel full-abs" picking-mode="Ignore">
         <ui:Label text="HOP" name="title-label" class="title title-xl main-title" />
         <ui:VisualElement name="main-menu-container" class="menu-container main-actions">
             <ui:VisualElement class="menu-entry">
                 <ui:VisualElement class="menu-diamond" />
-                <ui:Button text="Play" name="play-button" class="text-button" />
+                <ui:Button text="Play" name="play-button-matchmaking" class="text-button" />
+            </ui:VisualElement>
+            <ui:VisualElement class="menu-entry">
+                <ui:VisualElement class="menu-diamond" />
+                <ui:Button text="Private Match" name="play-button-private" class="text-button" />
             </ui:VisualElement>
             <ui:VisualElement class="menu-entry">
                 <ui:VisualElement class="menu-diamond" />
@@ -28,78 +34,39 @@
             </ui:VisualElement>
         </ui:VisualElement>
     </ui:VisualElement>
-    <ui:VisualElement name="gamemode-panel" class="panel full-abs center-xy hidden">
-        <ui:VisualElement name="gamemode-container" class="gamemode-container card">
-            <ui:Label text="SELECT GAME MODE" name="gamemode-label" class="title" />
-            <ui:VisualElement name="modes-container" class="gamemode-grid">
-                <ui:VisualElement name="mode-one-container" class="gamemode-card">
-                    <ui:VisualElement name="mode-one-image" class="gamemode-image" />
-                    <ui:Label text="Deathmatch" name="mode-one-label" class="gamemode-title" />
-                    <ui:Button text="Select" name="mode-one-button" class="menu-chip menu-chip-enabled" />
-                </ui:VisualElement>
-                <ui:VisualElement name="mode-two-container" class="gamemode-card">
-                    <ui:VisualElement name="mode-two-image" class="gamemode-image" />
-                    <ui:Label text="Team Deathmatch" name="mode-two-label" class="gamemode-title" />
-                    <ui:Button text="Select" name="mode-two-button" class="menu-chip menu-chip-enabled" />
-                </ui:VisualElement>
-                <ui:VisualElement name="mode-three-container" class="gamemode-card">
-                    <ui:VisualElement name="mode-three-image" class="gamemode-image" />
-                    <ui:Label text="Private Match" name="mode-three-label" class="gamemode-title" />
-                    <ui:Button text="Select" name="mode-three-button" class="menu-chip menu-chip-enabled" />
-                </ui:VisualElement>
-            </ui:VisualElement>
-            <ui:VisualElement name="back-container" class="button-row">
-                <ui:Button text="Back" name="back-to-main" class="menu-chip menu-chip-enabled back-button" />
-            </ui:VisualElement>
+
+    <ui:VisualElement name="play-gamemode-panel" class="panel full-abs hidden" picking-mode="Ignore">
+        <ui:Label text="SELECT GAMEMODE" name="gamemode-title" class="title title-l gamemode-selection-header" />
+        <ui:VisualElement name="gamemode-cards-container" class="gamemode-cards-scroll">
+            <ui:Button name="card-deathmatch" class="gamemode-card">
+                <ui:VisualElement class="gamemode-card-image dm-image" />
+                <ui:Label text="Deathmatch" class="gamemode-card-title" />
+                <ui:Label text="Free-for-all combat. First to reaching the score limit wins." class="gamemode-card-desc" />
+            </ui:Button>
+            <ui:Button name="card-team-deathmatch" class="gamemode-card">
+                <ui:VisualElement class="gamemode-card-image tdm-image" />
+                <ui:Label text="Team Deathmatch" class="gamemode-card-title" />
+                <ui:Label text="Two teams battle for supremacy. Work together to win." class="gamemode-card-desc" />
+            </ui:Button>
+            <ui:Button name="card-hopball" class="gamemode-card">
+                <ui:VisualElement class="gamemode-card-image hopball-image" />
+                <ui:Label text="Hopball" class="gamemode-card-title" />
+                <ui:Label text="Score goals while avoiding being tagged. High-speed sport." class="gamemode-card-desc" />
+            </ui:Button>
+            <ui:Button name="card-koth" class="gamemode-card">
+                <ui:VisualElement class="gamemode-card-image koth-image" />
+                <ui:Label text="King of the Hill" class="gamemode-card-title" />
+                <ui:Label text="Capture and hold the objective to earn points." class="gamemode-card-desc" />
+            </ui:Button>
+            <ui:Button name="card-gun-tag" class="gamemode-card">
+                <ui:VisualElement class="gamemode-card-image tag-image" />
+                <ui:Label text="Gun Tag" class="gamemode-card-title" />
+                <ui:Label text="High-stakes Tag. One hit and you're IT. Keep your eyes peeled!" class="gamemode-card-desc" />
+            </ui:Button>
         </ui:VisualElement>
+        <ui:Button text="Back" name="back-gamemodes-to-main" class="menu-chip menu-chip-enabled back-button gamemode-back-btn" />
     </ui:VisualElement>
-    <ui:VisualElement name="lobby-panel" class="panel full-abs center-xy hidden">
-        <ui:VisualElement name="lobby-container" class="lobby-container card lobby-container-width-866px">
-            <ui:VisualElement name="gamemode-dropdown-container" class="gamemode-dropdown-container">
-                <ui:Label text="Deathmatch" name="gamemode-display-label" class="title gamemode-display" />
-                <ui:VisualElement name="gamemode-arrow" class="gamemode-arrow hidden" />
-            </ui:VisualElement>
-            <ui:Label text="Join or host" name="waiting-label" class="lobby-status" />
-            <ui:VisualElement class="lobby-body">
-                <ui:VisualElement name="VisualElement" class="lobby-left lobby-left-width-420px">
-                    <ui:VisualElement name="host-container" class="setting-row">
-                        <ui:Button text="Host" name="host-button" class="menu-chip menu-chip-enabled" />
-                        <ui:VisualElement name="join-code-display" class="join-code-display join-code-display-flex-start">
-                            <ui:Label name="host-label" text="Join Code: - - - - - -" class="value-label accent host-label-inline" />
-                            <ui:VisualElement class="flex-grow-1 align-items-flex-end">
-                                <ui:Button name="copy-code-button" class="copy-button menu-chip width-36px">
-                                    <ui:Image name="copy-icon" class="copy-icon" />
-                                </ui:Button>
-                            </ui:VisualElement>
-                        </ui:VisualElement>
-                    </ui:VisualElement>
-                    <ui:VisualElement name="join-container" class="join-code-container">
-                        <ui:Label text="Join with Code:" name="join-label" />
-                        <ui:TextField name="join-input" placeholder-text="Enter join code..." hide-placeholder-on-focus="true" class="input" />
-                        <ui:Button text="Join Session" name="join-button" class="menu-chip menu-chip-enabled" />
-                    </ui:VisualElement>
-                    <ui:VisualElement name="start-container" class="button-row">
-                        <ui:Button text="Back" name="back-to-gamemode" class="menu-chip menu-chip-enabled back-button" />
-                        <ui:Button text="Start Game" name="start-button" class="menu-chip menu-chip-enabled" />
-                    </ui:VisualElement>
-                </ui:VisualElement>
-                <ui:VisualElement name="player-list-container" class="lobby-right">
-                    <ui:Label text="PLAYERS" name="playerlist-label" class="section-title" />
-                    <ui:ScrollView name="playerlist-scroll" class="player-list-scroll scroll-pad">
-                        <ui:VisualElement name="player-list" class="player-list" />
-                    </ui:ScrollView>
-                </ui:VisualElement>
-            </ui:VisualElement>
-            <ui:VisualElement name="gamemode-dropdown-menu" class="gamemode-dropdown-menu hidden gamemode-dropdown-menu-styled">
-                <ui:Button text="Deathmatch" name="gamemode-option-deathmatch" class="gamemode-option gamemode-option-styled" />
-                <ui:Button text="Team Deathmatch" name="gamemode-option-team-deathmatch" class="gamemode-option gamemode-option-styled" />
-                <ui:Button text="Gun Tag" name="gamemode-option-tag" class="gamemode-option gamemode-option-styled" />
-                <ui:Button text="Hopball" name="gamemode-option-hopball" class="gamemode-option gamemode-option-styled" />
-                <ui:Button text="King of the Hill" name="gamemode-option-koth" class="gamemode-option gamemode-option-styled" />
-                <ui:Button text="Private Match" name="gamemode-option-private-match" class="gamemode-option gamemode-option-styled" />
-            </ui:VisualElement>
-        </ui:VisualElement>
-    </ui:VisualElement>
+
     <ui:VisualElement name="loadout-panel" class="panel full-abs center-xy hidden">
         <ui:VisualElement name="name-flex">
             <ui:VisualElement name="name-buttons-container" class="loadout-edge-container name-buttons-container card">
@@ -295,6 +262,20 @@
                             <ui:Slider name="sfx-volume" low-value="0" high-value="1" fill="true" class="setting-slider" />
                             <ui:TextField name="sfx-volume-value" value="100%" max-length="4" class="value-input" />
                         </ui:VisualElement>
+                        <ui:VisualElement name="voice-volume-container" class="setting-row">
+                            <ui:Label text="Voice Chat Volume" name="voice-volume-label" class="setting-label" />
+                            <ui:Slider name="voice-volume" low-value="0" high-value="1" fill="true" class="setting-slider" />
+                            <ui:TextField name="voice-volume-value" value="100%" max-length="4" class="value-input" />
+                        </ui:VisualElement>
+                        <ui:VisualElement name="voice-input-volume-container" class="setting-row">
+                            <ui:Label text="Microphone Volume" name="voice-input-volume-label" class="setting-label" />
+                            <ui:Slider name="voice-input-volume" low-value="0" high-value="1" fill="true" class="setting-slider" />
+                            <ui:TextField name="voice-input-volume-value" value="100%" max-length="4" class="value-input" />
+                        </ui:VisualElement>
+                        <ui:VisualElement name="voice-device-container" class="setting-row">
+                            <ui:Label text="Microphone" name="voice-device-label" class="setting-label" />
+                            <ui:DropdownField name="voice-device" class="setting-dropdown" />
+                        </ui:VisualElement>
                     </ui:VisualElement>
                     <ui:VisualElement name="game-content" class="options-tab-content hidden">
                         <ui:VisualElement name="player-trails-container" class="setting-row">
@@ -308,6 +289,14 @@
                         <ui:VisualElement name="grapple-indicator-container" class="setting-row">
                             <ui:Label text="Grapple indicator type" name="grapple-indicator-label" class="setting-label" />
                             <ui:DropdownField name="grapple-indicator" class="setting-dropdown" />
+                        </ui:VisualElement>
+                        <ui:VisualElement name="profanity-filter-container" class="setting-row">
+                            <ui:Label text="Chat Profanity Filter" name="profanity-filter-label" class="setting-label" />
+                            <ui:Button name="profanity-filter" class="setting-toggle" />
+                        </ui:VisualElement>
+                        <ui:VisualElement name="voice-mode-container" class="setting-row">
+                            <ui:Label text="Voice Input Mode" name="voice-mode-label" class="setting-label" />
+                            <ui:DropdownField name="voice-mode" class="setting-dropdown" />
                         </ui:VisualElement>
                     </ui:VisualElement>
                     <ui:VisualElement name="controls-content" class="options-tab-content hidden">
@@ -390,6 +379,11 @@
                             <ui:Button name="keybind-previousweapon-0" text="None" class="keybind-button" />
                             <ui:Button name="keybind-previousweapon-1" text="None" class="keybind-button" />
                         </ui:VisualElement>
+                        <ui:VisualElement name="keybind-ptt-container" class="setting-row">
+                            <ui:Label text="Push To Talk" name="keybind-ptt-label" class="setting-label" />
+                            <ui:Button name="keybind-ptt-0" text="None" class="keybind-button" />
+                            <ui:Button name="keybind-ptt-1" text="None" class="keybind-button" />
+                        </ui:VisualElement>
                     </ui:VisualElement>
                 </ui:VisualElement>
             </ui:ScrollView>
@@ -468,5 +462,40 @@
             </ui:VisualElement>
             <ui:Button text="Continue" name="first-time-continue-button" class="menu-chip menu-chip-enabled continue-button" />
         </ui:VisualElement>
+    </ui:VisualElement>
+    <ui:VisualElement name="party-container" class="party-container" picking-mode="Ignore">
+        <ui:VisualElement name="party-members-list" class="party-members-row" picking-mode="Ignore" />
+        <ui:Button name="invite-friends-button" class="invite-button menu-chip">
+            <ui:Image name="invite-icon" class="plus-icon" />
+        </ui:Button>
+        <ui:VisualElement name="party-separator" class="party-separator" />
+        <ui:VisualElement name="local-player-profile" class="local-player-profile" picking-mode="Ignore" />
+    </ui:VisualElement>
+    <ui:VisualElement name="status-container" class="status-container hidden" picking-mode="Ignore">
+        <ui:VisualElement name="status-info" class="status-info-grouping" picking-mode="Ignore">
+            <ui:Label text="Searching for match..." name="matchmaking-status-label" class="status-label" picking-mode="Ignore" />
+            <ui:VisualElement name="queue-details" class="queue-details-row" picking-mode="Ignore">
+                <ui:Label text="Deathmatch" name="queue-gamemode-label" class="queue-info-label" picking-mode="Ignore" />
+                <ui:Label text="|" class="queue-info-separator" picking-mode="Ignore" />
+                <ui:Label text="00:00" name="queue-timer-label" class="queue-info-label" picking-mode="Ignore" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+        <ui:Button text="Cancel" name="cancel-matchmaking-button" class="menu-chip cancel-button" picking-mode="Position" />
+    </ui:VisualElement>
+
+    <ui:VisualElement name="loading-overlay" class="loading-overlay hidden" picking-mode="Ignore" />
+    
+    <ui:VisualElement name="context-menu-backdrop" class="full-abs hidden" style="background-color: rgba(0,0,0,0.01);" picking-mode="Position" />
+    <ui:VisualElement name="party-context-menu" class="context-menu hidden" picking-mode="Position">
+        <ui:Button text="View Profile" name="ctx-profile" class="context-menu-item" />
+        <ui:Button text="Steam Profile" name="ctx-steam-profile" class="context-menu-item" />
+        <ui:VisualElement name="ctx-separator-mute" class="context-menu-separator" />
+        <ui:Button text="Mute Text Chat" name="ctx-mute-chat" class="context-menu-item" />
+        <ui:Button text="Mute Voice" name="ctx-mute-voice" class="context-menu-item" />
+        <ui:Button text="Block Player" name="ctx-block" class="context-menu-item" />
+        <ui:VisualElement name="ctx-separator-management" class="context-menu-separator" />
+        <ui:Button text="Make Host" name="ctx-make-host" class="context-menu-item" />
+        <ui:Button text="Kick Member" name="ctx-kick" class="context-menu-item" />
+        <ui:Button text="Leave Party" name="ctx-leave" class="context-menu-item" />
     </ui:VisualElement>
 </ui:UXML>

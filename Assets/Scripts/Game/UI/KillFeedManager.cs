@@ -20,6 +20,9 @@ namespace Game.UI {
         [SerializeField] private float killFeedDisplayTime = 5f;
         [SerializeField] private int maxKillFeedEntries = 5;
 
+        [Header("UI Templates")]
+        [SerializeField] private VisualTreeAsset killFeedEntryTemplate;
+
         private VisualElement _killFeedContainer;
         private readonly List<VisualElement> _activeKillEntries = new();
         private readonly Dictionary<VisualElement, Coroutine> _fadeCoroutines = new();
@@ -156,11 +159,34 @@ namespace Game.UI {
 
         /// <summary>
         /// Creates a feed entry (kill or tag transfer) with the specified icon.
+        /// Uses a UXML template when available; falls back to code-only construction otherwise.
         /// </summary>
         private VisualElement CreateFeedEntry(string actorName, string targetName, bool isLocalActor,
             ulong actorClientId, ulong targetClientId, Sprite iconSprite) {
-            var entry = new VisualElement();
-            entry.AddToClassList("kill-entry");
+            VisualElement entry;
+            Label killerLabel;
+            Label victimLabel;
+            VisualElement iconElement;
+
+            if(killFeedEntryTemplate != null) {
+                entry = killFeedEntryTemplate.CloneTree();
+                // Root of template is the kill-entry element
+                killerLabel = entry.Q<Label>("killer-label");
+                victimLabel = entry.Q<Label>("victim-label");
+                iconElement = entry.Q<VisualElement>("icon");
+            } else {
+                entry = new VisualElement();
+                entry.AddToClassList("kill-entry");
+                killerLabel = new Label();
+                killerLabel.AddToClassList("killer-name");
+                entry.Add(killerLabel);
+                iconElement = new VisualElement();
+                iconElement.AddToClassList("kill-icon");
+                entry.Add(iconElement);
+                victimLabel = new Label();
+                victimLabel.AddToClassList("victim-name");
+                entry.Add(victimLabel);
+            }
 
             if(isLocalActor) {
                 entry.AddToClassList("kill-entry-local");
@@ -171,31 +197,24 @@ namespace Game.UI {
             var targetColor = GetTeamColorForPlayer(targetClientId);
 
             // Actor name (killer/tagger)
-            var actor = new Label(actorName);
-            actor.AddToClassList("killer-name");
-            if(isLocalActor) {
-                actor.AddToClassList("killer-name-local");
+            if(killerLabel != null) {
+                killerLabel.text = actorName;
+                if(isLocalActor) {
+                    killerLabel.AddToClassList("killer-name-local");
+                }
+                killerLabel.style.color = new StyleColor(actorColor);
             }
-
-            // Apply team color to actor name
-            actor.style.color = new StyleColor(actorColor);
-            entry.Add(actor);
 
             // Icon (kill or tag)
-            var icon = new VisualElement();
-            icon.AddToClassList("kill-icon");
-            if(iconSprite != null) {
-                icon.style.backgroundImage = new StyleBackground(iconSprite);
+            if(iconElement != null && iconSprite != null) {
+                iconElement.style.backgroundImage = new StyleBackground(iconSprite);
             }
 
-            entry.Add(icon);
-
             // Target name (victim/tagged)
-            var target = new Label(targetName);
-            target.AddToClassList("victim-name");
-            // Apply team color to target name
-            target.style.color = new StyleColor(targetColor);
-            entry.Add(target);
+            if(victimLabel != null) {
+                victimLabel.text = targetName;
+                victimLabel.style.color = new StyleColor(targetColor);
+            }
 
             return entry;
         }

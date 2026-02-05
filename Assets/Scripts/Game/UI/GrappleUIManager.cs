@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Game.Player;
 using Unity.Cinemachine;
 using UnityEngine;
@@ -5,9 +6,7 @@ using UnityEngine.SceneManagement;
 using UnityEngine.UIElements;
 
 namespace Game.UI {
-    public class GrappleUIManager : MonoBehaviour {
-        [Header("References")]
-        [SerializeField] private UIDocument uiDocument;
+    public class GrappleUIManager : UIElementBase {
 
         [Header("Settings")]
         [SerializeField] private float maxGrappleDistance = 50f;
@@ -36,7 +35,7 @@ namespace Game.UI {
 
         public static GrappleUIManager Instance;
 
-        private void Awake() {
+        protected override void Awake() {
             if(Instance != null && Instance != this) {
                 Destroy(gameObject);
                 return;
@@ -47,29 +46,28 @@ namespace Game.UI {
             
             // Cache scene name to avoid allocations
             UpdateCachedSceneName();
+            base.Awake();
         }
 
-        private void OnEnable() {
-            if(uiDocument == null) {
-                Debug.LogError("[GrappleUIManager] UIDocument is not assigned!");
-                return;
-            }
+        protected override void OnEnable() {
+            base.OnEnable();
+            // Subscribe to scene changes to update cache
+            SceneManager.sceneLoaded += OnSceneLoaded;
+            RegisterCleanup(() => SceneManager.sceneLoaded -= OnSceneLoaded);
+        }
+        
+        protected override void OnDisable() {
+            // Unsubscribe from scene changes
+            SceneManager.sceneLoaded -= OnSceneLoaded;
+            base.OnDisable();
+        }
 
-            var root = uiDocument.rootVisualElement;
-            if(root == null) {
-                Debug.LogError("[GrappleUIManager] UIDocument rootVisualElement is null! UI may not be loaded yet.");
-                return;
-            }
-
-            _grappleIndicator = root.Q<VisualElement>("grapple-indicator");
-            if(_grappleIndicator == null) {
-                Debug.LogError("[GrappleUIManager] Could not find grapple-indicator element in UI!");
-                return;
-            }
+        protected override void OnInitialize() {
+            _grappleIndicator = QRequired<VisualElement>("grapple-indicator");
             
             // Find bottom indicator elements
-            _grappleIndicatorBottom = root.Q<VisualElement>("grapple-indicator-bottom");
-            _grappleIndicatorFill = root.Q<VisualElement>("grapple-indicator-fill");
+            _grappleIndicatorBottom = QOptional<VisualElement>("grapple-indicator-bottom");
+            _grappleIndicatorFill = QOptional<VisualElement>("grapple-indicator-fill");
 
             _currentColor = cooldownColor;
             CreateHorseshoeSegments();
@@ -90,14 +88,12 @@ namespace Game.UI {
                     HideBottomIndicator();
                     break;
             }
-            
-            // Subscribe to scene changes to update cache
-            SceneManager.sceneLoaded += OnSceneLoaded;
         }
-        
-        private void OnDisable() {
-            // Unsubscribe from scene changes
-            SceneManager.sceneLoaded -= OnSceneLoaded;
+
+        protected override Dictionary<string, System.Type> GetRequiredElements() {
+            return new Dictionary<string, System.Type> {
+                { "grapple-indicator", typeof(VisualElement) }
+            };
         }
         
         private void UpdateCachedSceneName() {

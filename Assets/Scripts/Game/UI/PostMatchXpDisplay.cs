@@ -1,87 +1,87 @@
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UIElements;
 using Game.Progression;
 
 namespace Game.UI {
-    public class PostMatchXpDisplay : MonoBehaviour {
-        [SerializeField] private UIDocument uiDocument;
-        
-        private VisualElement _root;
+    public class PostMatchXpDisplay : UIElementBase {
+        [Header("UI Templates")]
+        [SerializeField] private VisualTreeAsset xpDisplayTemplate;
         private VisualElement _xpContainer;
         private ProgressBar _xpBar;
         private Label _levelLabel;
         private Label _xpGainedLabel;
 
-        private void Awake() {
-            if (uiDocument == null) uiDocument = GetComponent<UIDocument>();
+        protected override void Awake() {
+            base.Awake();
+            if(uiDocument == null) uiDocument = GetComponent<UIDocument>();
         }
 
-        private void Start() {
-            if(uiDocument == null) return;
-            _root = uiDocument.rootVisualElement;
+        protected override void OnInitialize() {
             CreateXpBarUI();
         }
 
+        protected override Dictionary<string, System.Type> GetRequiredElements() {
+            return new Dictionary<string, System.Type>();
+        }
+
         private void CreateXpBarUI() {
-            if (_root == null) return;
+            if(Root == null) return;
 
-            // Create Container
-            _xpContainer = new VisualElement {
-                name = "xp-postmatch-container",
-                style = {
-                    position = Position.Absolute,
-                    bottom = 100, // Positioned near bottom
-                    width = Length.Percent(40),
-                    left = Length.Percent(30),
-                    backgroundColor = new StyleColor(new Color(0, 0, 0, 0.7f)),
-                    paddingTop = 10,
-                    paddingBottom = 10,
-                    paddingLeft = 20,
-                    paddingRight = 20,
-                    borderTopLeftRadius = 10,
-                    borderTopRightRadius = 10,
-                    borderBottomLeftRadius = 10,
-                    borderBottomRightRadius = 10,
-                    display = DisplayStyle.None // Hidden by default
-                }
-            };
+            if(xpDisplayTemplate != null) {
+                _xpContainer = xpDisplayTemplate.CloneTree();
+                _levelLabel = _xpContainer.Q<Label>("level-label");
+                _xpBar = _xpContainer.Q<ProgressBar>("xp-bar");
+                _xpGainedLabel = _xpContainer.Q<Label>("xp-gained-label");
+                Root.Add(_xpContainer);
+            } else {
+                // Fallback: create in code
+                _xpContainer = new VisualElement {
+                    name = "xp-postmatch-container",
+                    style = {
+                        position = Position.Absolute,
+                        bottom = 100,
+                        width = Length.Percent(40),
+                        left = Length.Percent(30),
+                        backgroundColor = new StyleColor(new Color(0, 0, 0, 0.7f)),
+                        paddingTop = 10,
+                        paddingBottom = 10,
+                        paddingLeft = 20,
+                        paddingRight = 20,
+                        borderTopLeftRadius = 10,
+                        borderTopRightRadius = 10,
+                        borderBottomLeftRadius = 10,
+                        borderBottomRightRadius = 10,
+                        display = DisplayStyle.None
+                    }
+                };
+                _levelLabel = new Label("LEVEL 1") {
+                    style = {
+                        color = Color.white,
+                        fontSize = 24,
+                        unityFontStyleAndWeight = FontStyle.Bold,
+                        alignSelf = Align.Center,
+                        marginBottom = 5
+                    }
+                };
+                _xpContainer.Add(_levelLabel);
+                _xpBar = new ProgressBar {
+                    style = { height = 30 }
+                };
+                _xpContainer.Add(_xpBar);
+                _xpGainedLabel = new Label("+0 XP") {
+                    style = {
+                        color = new StyleColor(new Color(0.2f, 1f, 0.2f)),
+                        fontSize = 20,
+                        alignSelf = Align.Center,
+                        marginTop = 5
+                    }
+                };
+                _xpContainer.Add(_xpGainedLabel);
+            }
 
-            // Level Label
-            _levelLabel = new Label("LEVEL 1") {
-                style = {
-                    color = Color.white,
-                    fontSize = 24,
-                    unityFontStyleAndWeight = FontStyle.Bold,
-                    alignSelf = Align.Center,
-                    marginBottom = 5
-                }
-            };
-            _xpContainer.Add(_levelLabel);
-
-            // Progress Bar
-            _xpBar = new ProgressBar {
-                style = {
-                    height = 30
-                }
-            };
-            // Style the progress bar fill (this might require USS for deep customization, using basic color for now)
-            // Unity Default ProgressBar is tricky to style just via code without querying children.
-            // We'll trust default for now or add a class.
-            _xpContainer.Add(_xpBar);
-
-            // Gained Label
-            _xpGainedLabel = new Label("+0 XP") {
-                style = {
-                    color = new StyleColor(new Color(0.2f, 1f, 0.2f)), // Green
-                    fontSize = 20,
-                    alignSelf = Align.Center,
-                    marginTop = 5
-                }
-            };
-            _xpContainer.Add(_xpGainedLabel);
-
-            _root.Add(_xpContainer);
+            Root.Add(_xpContainer);
         }
 
         public void ShowXp(int oldLevel, int oldXp, int currentLevel, int currentXp, int xpGained, int nextLevelXp) {

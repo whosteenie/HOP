@@ -62,6 +62,9 @@ namespace Game.Player {
         /// <summary>
         /// Owner calls this every frame with the camera pitch (your CurrentPitch).
         /// </summary>
+        /// <summary>
+        /// Sets the local pitch rotation based on camera input.
+        /// </summary>
         public void SetLocalPitchFromCamera(float cameraPitchDeg) {
             if(!IsOwner) return;
             

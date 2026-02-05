@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Game.Player;
+using Game.UI;
 using Network.Singletons;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -9,14 +10,10 @@ namespace Game.Menu {
     /// <summary>
     /// Manages the character customization panel UI and material customization.
     /// </summary>
-    public class CharacterCustomizationManager : MonoBehaviour {
+    public class CharacterCustomizationManager : UIElementBase {
         [Header("References")]
         [SerializeField] private MainMenuManager mainMenuManager;
         [SerializeField] private LoadoutManager loadoutManager;
-        
-        private UIDocument _uiDocument;
-
-        private VisualElement _root;
 
         // Material packet selection UI
         private Button _colorPreviewButton;
@@ -89,12 +86,13 @@ namespace Game.Menu {
         public EventCallback<MouseEnterEvent> MouseEnterCallback;
         public Action OnBackFromCustomizationCallback;
 
-        private void Awake() {
-            if(mainMenuManager != null) {
-                _uiDocument = mainMenuManager.uiDocument;
+        protected override void Awake() {
+            base.Awake();
+            if(mainMenuManager != null && uiDocument == null) {
+                uiDocument = mainMenuManager.uiDocument;
             }
-            if(_uiDocument == null) {
-                _uiDocument = FindFirstObjectByType<UIDocument>();
+            if(uiDocument == null) {
+                uiDocument = FindFirstObjectByType<UIDocument>();
             }
 
             // Find LoadoutManager if not assigned
@@ -103,22 +101,27 @@ namespace Game.Menu {
             }
         }
 
-        private void OnEnable() {
-            if(_uiDocument == null) {
+        protected override void OnEnable() {
+            base.OnEnable();
+            if(uiDocument == null) {
                 if(mainMenuManager != null) {
-                    _uiDocument = mainMenuManager.uiDocument;
+                    uiDocument = mainMenuManager.uiDocument;
                 }
-                if(_uiDocument == null) {
-                    _uiDocument = FindFirstObjectByType<UIDocument>();
+                if(uiDocument == null) {
+                    uiDocument = FindFirstObjectByType<UIDocument>();
                 }
             }
             
-            if(_uiDocument == null) {
-                Debug.LogError("[CharacterCustomizationManager] UIDocument not found!");
-                return;
+            if(Root == null && uiDocument != null) {
+                // Force initialization if Root is null
+                if(uiDocument.rootVisualElement != null) {
+                    // This will be set by base.Awake(), but if OnEnable is called before Awake,
+                    // we need to ensure Root is set
+                }
             }
-            
-            _root = _uiDocument.rootVisualElement;
+        }
+
+        protected override void OnInitialize() {
             SetupUIReferences();
             SetupEventHandlers();
             LoadSavedCustomization();
@@ -126,173 +129,272 @@ namespace Game.Menu {
             UpdatePacketSelectionHighlight();
         }
 
+        protected override Dictionary<string, System.Type> GetRequiredElements() {
+            return new Dictionary<string, System.Type>();
+        }
+
         private void SetupUIReferences() {
             // Customization is now integrated into loadout panel, no separate panel needed
 
             // Color picker
-            _colorPreviewButton = _root.Q<Button>("color-preview-box");
+            _colorPreviewButton = QOptional<Button>("color-preview-box");
             if(_colorPreviewButton == null) {
-                _colorPreviewBox = _root.Q<VisualElement>("color-preview-box");
+                _colorPreviewBox = QOptional<VisualElement>("color-preview-box");
             } else {
                 _colorPreviewBox = _colorPreviewButton;
             }
-            _colorRSlider = _root.Q<Slider>("color-r-slider");
-            _colorGSlider = _root.Q<Slider>("color-g-slider");
-            _colorBSlider = _root.Q<Slider>("color-b-slider");
-            _colorRInput = _root.Q<IntegerField>("color-r-input");
-            _colorGInput = _root.Q<IntegerField>("color-g-input");
-            _colorBInput = _root.Q<IntegerField>("color-b-input");
+            _colorRSlider = QOptional<Slider>("color-r-slider");
+            _colorGSlider = QOptional<Slider>("color-g-slider");
+            _colorBSlider = QOptional<Slider>("color-b-slider");
+            _colorRInput = QOptional<IntegerField>("color-r-input");
+            _colorGInput = QOptional<IntegerField>("color-g-input");
+            _colorBInput = QOptional<IntegerField>("color-b-input");
 
             // Emission controls
-            _emissionToggle = _root.Q<Toggle>("emission-toggle");
-            _emissionPreviewButton = _root.Q<Button>("emission-preview-box");
-            _emissionRSlider = _root.Q<Slider>("emission-r-slider");
-            _emissionGSlider = _root.Q<Slider>("emission-g-slider");
-            _emissionBSlider = _root.Q<Slider>("emission-b-slider");
-            _emissionRInput = _root.Q<IntegerField>("emission-r-input");
-            _emissionGInput = _root.Q<IntegerField>("emission-g-input");
-            _emissionBInput = _root.Q<IntegerField>("emission-b-input");
+            _emissionToggle = QOptional<Toggle>("emission-toggle");
+            _emissionPreviewButton = QOptional<Button>("emission-preview-box");
+            _emissionRSlider = QOptional<Slider>("emission-r-slider");
+            _emissionGSlider = QOptional<Slider>("emission-g-slider");
+            _emissionBSlider = QOptional<Slider>("emission-b-slider");
+            _emissionRInput = QOptional<IntegerField>("emission-r-input");
+            _emissionGInput = QOptional<IntegerField>("emission-g-input");
+            _emissionBInput = QOptional<IntegerField>("emission-b-input");
 
             // Packet selection panel
-            _materialPacketPanel = _root.Q<VisualElement>("material-packet-panel");
-            _materialPacketBackButton = _root.Q<Button>("material-packet-back");
-            _root.Q<ScrollView>("material-packet-scroll");
-            _materialPacketGrid = _root.Q<VisualElement>("material-packet-grid");
+            _materialPacketPanel = QOptional<VisualElement>("material-packet-panel");
+            _materialPacketBackButton = QOptional<Button>("material-packet-back");
+            QOptional<ScrollView>("material-packet-scroll");
+            _materialPacketGrid = QOptional<VisualElement>("material-packet-grid");
 
             // Material properties
-            _smoothnessSlider = _root.Q<Slider>("smoothness-slider");
-            _smoothnessValue = _root.Q<TextField>("smoothness-value");
-            _metallicSlider = _root.Q<Slider>("metallic-slider");
-            _metallicValue = _root.Q<TextField>("metallic-value");
-            _heightSlider = _root.Q<Slider>("height-slider");
-            _heightValue = _root.Q<TextField>("height-value");
+            _smoothnessSlider = QOptional<Slider>("smoothness-slider");
+            _smoothnessValue = QOptional<TextField>("smoothness-value");
+            _metallicSlider = QOptional<Slider>("metallic-slider");
+            _metallicValue = QOptional<TextField>("metallic-value");
+            _heightSlider = QOptional<Slider>("height-slider");
+            _heightValue = QOptional<TextField>("height-value");
 
             // Buttons removed - customization now auto-applies when leaving loadout
 
             // Unsaved changes modal
-            _unsavedChangesModal = _root.Q<VisualElement>("unsaved-changes-modal");
-            _unsavedChangesYes = _root.Q<Button>("unsaved-changes-yes");
-            _unsavedChangesNo = _root.Q<Button>("unsaved-changes-no");
-            _unsavedChangesCancel = _root.Q<Button>("unsaved-changes-cancel");
+            _unsavedChangesModal = QOptional<VisualElement>("unsaved-changes-modal");
+            _unsavedChangesYes = QOptional<Button>("unsaved-changes-yes");
+            _unsavedChangesNo = QOptional<Button>("unsaved-changes-no");
+            _unsavedChangesCancel = QOptional<Button>("unsaved-changes-cancel");
         }
 
         private void SetupEventHandlers() {
             // Color sliders
-            if(_colorRSlider != null) _colorRSlider.RegisterValueChangedCallback(evt => OnColorRChanged(evt.newValue));
-            if(_colorGSlider != null) _colorGSlider.RegisterValueChangedCallback(evt => OnColorGChanged(evt.newValue));
-            if(_colorBSlider != null) _colorBSlider.RegisterValueChangedCallback(evt => OnColorBChanged(evt.newValue));
+            if(_colorRSlider != null) {
+                EventCallback<ChangeEvent<float>> handler = evt => OnColorRChanged(evt.newValue);
+                _colorRSlider.RegisterValueChangedCallback(handler);
+                RegisterCleanup(() => _colorRSlider.UnregisterCallback(handler));
+            }
+            if(_colorGSlider != null) {
+                EventCallback<ChangeEvent<float>> handler = evt => OnColorGChanged(evt.newValue);
+                _colorGSlider.RegisterValueChangedCallback(handler);
+                RegisterCleanup(() => _colorGSlider.UnregisterCallback(handler));
+            }
+            if(_colorBSlider != null) {
+                EventCallback<ChangeEvent<float>> handler = evt => OnColorBChanged(evt.newValue);
+                _colorBSlider.RegisterValueChangedCallback(handler);
+                RegisterCleanup(() => _colorBSlider.UnregisterCallback(handler));
+            }
 
             // Color inputs
-            if(_colorRInput != null) _colorRInput.RegisterValueChangedCallback(evt => OnColorRInputChanged(evt.newValue));
-            if(_colorGInput != null) _colorGInput.RegisterValueChangedCallback(evt => OnColorGInputChanged(evt.newValue));
-            if(_colorBInput != null) _colorBInput.RegisterValueChangedCallback(evt => OnColorBInputChanged(evt.newValue));
+            if(_colorRInput != null) {
+                EventCallback<ChangeEvent<int>> handler = evt => OnColorRInputChanged(evt.newValue);
+                _colorRInput.RegisterValueChangedCallback(handler);
+                RegisterCleanup(() => _colorRInput.UnregisterCallback(handler));
+            }
+            if(_colorGInput != null) {
+                EventCallback<ChangeEvent<int>> handler = evt => OnColorGInputChanged(evt.newValue);
+                _colorGInput.RegisterValueChangedCallback(handler);
+                RegisterCleanup(() => _colorGInput.UnregisterCallback(handler));
+            }
+            if(_colorBInput != null) {
+                EventCallback<ChangeEvent<int>> handler = evt => OnColorBInputChanged(evt.newValue);
+                _colorBInput.RegisterValueChangedCallback(handler);
+                RegisterCleanup(() => _colorBInput.UnregisterCallback(handler));
+            }
 
             // Color preview button -> open packet panel
             if(_colorPreviewButton != null) {
-                _colorPreviewButton.RegisterCallback<MouseEnterEvent>(evt => {
+                EventCallback<MouseEnterEvent> enterHandler = evt => {
                     if(MouseEnterCallback != null) {
                         MouseEnterCallback.Invoke(evt);
                     }
-                });
-                _colorPreviewButton.RegisterCallback<ClickEvent>(_ => {
+                };
+                _colorPreviewButton.RegisterCallback(enterHandler);
+                RegisterCleanup(() => _colorPreviewButton.UnregisterCallback(enterHandler));
+
+                EventCallback<ClickEvent> clickHandler = _ => {
                     if(OnButtonClickedCallback != null) {
                         OnButtonClickedCallback.Invoke(false);
                     }
                     ShowMaterialPacketPanel();
-                });
+                };
+                _colorPreviewButton.RegisterCallback(clickHandler);
+                RegisterCleanup(() => _colorPreviewButton.UnregisterCallback(clickHandler));
             }
 
             // Packet panel back button
             if(_materialPacketBackButton != null) {
-                _materialPacketBackButton.RegisterCallback<MouseEnterEvent>(evt => {
+                EventCallback<MouseEnterEvent> enterHandler = evt => {
                     if(MouseEnterCallback != null) {
                         MouseEnterCallback.Invoke(evt);
                     }
-                });
-                _materialPacketBackButton.RegisterCallback<ClickEvent>(_ => {
+                };
+                _materialPacketBackButton.RegisterCallback(enterHandler);
+                RegisterCleanup(() => _materialPacketBackButton.UnregisterCallback(enterHandler));
+
+                EventCallback<ClickEvent> clickHandler = _ => {
                     if(OnButtonClickedCallback != null) {
                         OnButtonClickedCallback.Invoke(true);
                     }
                     HideMaterialPacketPanel();
-                });
+                };
+                _materialPacketBackButton.RegisterCallback(clickHandler);
+                RegisterCleanup(() => _materialPacketBackButton.UnregisterCallback(clickHandler));
             }
 
             // Material sliders
-            if(_smoothnessSlider != null) _smoothnessSlider.RegisterValueChangedCallback(evt => OnSmoothnessChanged(evt.newValue));
-            if(_metallicSlider != null) _metallicSlider.RegisterValueChangedCallback(evt => OnMetallicChanged(evt.newValue));
-            if(_heightSlider != null) _heightSlider.RegisterValueChangedCallback(evt => OnHeightStrengthChanged(evt.newValue));
-            if(_emissionRSlider != null) _emissionRSlider.RegisterValueChangedCallback(evt => OnEmissionRChanged(evt.newValue));
-            if(_emissionGSlider != null) _emissionGSlider.RegisterValueChangedCallback(evt => OnEmissionGChanged(evt.newValue));
-            if(_emissionBSlider != null) _emissionBSlider.RegisterValueChangedCallback(evt => OnEmissionBChanged(evt.newValue));
+            if(_smoothnessSlider != null) {
+                EventCallback<ChangeEvent<float>> handler = evt => OnSmoothnessChanged(evt.newValue);
+                _smoothnessSlider.RegisterValueChangedCallback(handler);
+                RegisterCleanup(() => _smoothnessSlider.UnregisterCallback(handler));
+            }
+            if(_metallicSlider != null) {
+                EventCallback<ChangeEvent<float>> handler = evt => OnMetallicChanged(evt.newValue);
+                _metallicSlider.RegisterValueChangedCallback(handler);
+                RegisterCleanup(() => _metallicSlider.UnregisterCallback(handler));
+            }
+            if(_heightSlider != null) {
+                EventCallback<ChangeEvent<float>> handler = evt => OnHeightStrengthChanged(evt.newValue);
+                _heightSlider.RegisterValueChangedCallback(handler);
+                RegisterCleanup(() => _heightSlider.UnregisterCallback(handler));
+            }
+            if(_emissionRSlider != null) {
+                EventCallback<ChangeEvent<float>> handler = evt => OnEmissionRChanged(evt.newValue);
+                _emissionRSlider.RegisterValueChangedCallback(handler);
+                RegisterCleanup(() => _emissionRSlider.UnregisterCallback(handler));
+            }
+            if(_emissionGSlider != null) {
+                EventCallback<ChangeEvent<float>> handler = evt => OnEmissionGChanged(evt.newValue);
+                _emissionGSlider.RegisterValueChangedCallback(handler);
+                RegisterCleanup(() => _emissionGSlider.UnregisterCallback(handler));
+            }
+            if(_emissionBSlider != null) {
+                EventCallback<ChangeEvent<float>> handler = evt => OnEmissionBChanged(evt.newValue);
+                _emissionBSlider.RegisterValueChangedCallback(handler);
+                RegisterCleanup(() => _emissionBSlider.UnregisterCallback(handler));
+            }
 
             // Material value fields
             if(_smoothnessValue != null) {
-                _smoothnessValue.RegisterValueChangedCallback(evt => {
-                if(float.TryParse(evt.newValue, out var val)) {
-                    val = Mathf.Clamp01(val);
-                    _smoothnessSlider.value = val;
-                    _currentSmoothness = val;
-                    UpdateSmoothnessDisplay();
-                    ApplyToLocalPlayer();
-                    NotifyLoadoutDirty();
-                }
-                });
+                EventCallback<ChangeEvent<string>> handler = evt => {
+                    if(float.TryParse(evt.newValue, out var val)) {
+                        val = Mathf.Clamp01(val);
+                        _smoothnessSlider.value = val;
+                        _currentSmoothness = val;
+                        UpdateSmoothnessDisplay();
+                        ApplyToLocalPlayer();
+                        NotifyLoadoutDirty();
+                    }
+                };
+                _smoothnessValue.RegisterValueChangedCallback(handler);
+                RegisterCleanup(() => _smoothnessValue.UnregisterCallback(handler));
             }
 
             if(_metallicValue != null) {
-                _metallicValue.RegisterValueChangedCallback(evt => {
-                if(float.TryParse(evt.newValue, out var val)) {
-                    val = Mathf.Clamp01(val);
-                    _metallicSlider.value = val;
-                    _currentMetallic = val;
-                    UpdateMetallicDisplay();
-                    ApplyToLocalPlayer();
-                    NotifyLoadoutDirty();
-                }
-                });
+                EventCallback<ChangeEvent<string>> handler = evt => {
+                    if(float.TryParse(evt.newValue, out var val)) {
+                        val = Mathf.Clamp01(val);
+                        _metallicSlider.value = val;
+                        _currentMetallic = val;
+                        UpdateMetallicDisplay();
+                        ApplyToLocalPlayer();
+                        NotifyLoadoutDirty();
+                    }
+                };
+                _metallicValue.RegisterValueChangedCallback(handler);
+                RegisterCleanup(() => _metallicValue.UnregisterCallback(handler));
             }
 
             if(_heightValue != null) {
-                _heightValue.RegisterValueChangedCallback(evt => {
-                if(float.TryParse(evt.newValue, out var val)) {
-                    val = Mathf.Clamp(val, MinHeightStrength, MaxHeightStrength);
-                    _heightSlider.value = val;
-                    _currentHeightStrength = val;
-                    UpdateHeightDisplay();
-                    ApplyToLocalPlayer();
-                    NotifyLoadoutDirty();
-                }
-                });
+                EventCallback<ChangeEvent<string>> handler = evt => {
+                    if(float.TryParse(evt.newValue, out var val)) {
+                        val = Mathf.Clamp(val, MinHeightStrength, MaxHeightStrength);
+                        _heightSlider.value = val;
+                        _currentHeightStrength = val;
+                        UpdateHeightDisplay();
+                        ApplyToLocalPlayer();
+                        NotifyLoadoutDirty();
+                    }
+                };
+                _heightValue.RegisterValueChangedCallback(handler);
+                RegisterCleanup(() => _heightValue.UnregisterCallback(handler));
             }
 
             // Emission toggle & inputs
             if(_emissionToggle != null) {
-                _emissionToggle.RegisterCallback<MouseEnterEvent>(evt => {
+                EventCallback<MouseEnterEvent> enterHandler = evt => {
                     if(MouseEnterCallback != null) {
                         MouseEnterCallback.Invoke(evt);
                     }
-                });
-                _emissionToggle.RegisterValueChangedCallback(evt => OnEmissionToggleChanged(evt.newValue));
+                };
+                _emissionToggle.RegisterCallback(enterHandler);
+                RegisterCleanup(() => _emissionToggle.UnregisterCallback(enterHandler));
+
+                EventCallback<ChangeEvent<bool>> toggleHandler = evt => OnEmissionToggleChanged(evt.newValue);
+                _emissionToggle.RegisterValueChangedCallback(toggleHandler);
+                RegisterCleanup(() => _emissionToggle.UnregisterCallback(toggleHandler));
             }
 
             if(_emissionPreviewButton != null) {
-                _emissionPreviewButton.RegisterCallback<MouseEnterEvent>(evt => {
+                EventCallback<MouseEnterEvent> enterHandler = evt => {
                     if(MouseEnterCallback != null) {
                         MouseEnterCallback.Invoke(evt);
                     }
-                });
+                };
+                _emissionPreviewButton.RegisterCallback(enterHandler);
+                RegisterCleanup(() => _emissionPreviewButton.UnregisterCallback(enterHandler));
             }
 
-            if(_emissionRInput != null) _emissionRInput.RegisterValueChangedCallback(evt => OnEmissionRInputChanged(evt.newValue));
-            if(_emissionGInput != null) _emissionGInput.RegisterValueChangedCallback(evt => OnEmissionGInputChanged(evt.newValue));
-            if(_emissionBInput != null) _emissionBInput.RegisterValueChangedCallback(evt => OnEmissionBInputChanged(evt.newValue));
+            if(_emissionRInput != null) {
+                EventCallback<ChangeEvent<int>> handler = evt => OnEmissionRInputChanged(evt.newValue);
+                _emissionRInput.RegisterValueChangedCallback(handler);
+                RegisterCleanup(() => _emissionRInput.UnregisterCallback(handler));
+            }
+            if(_emissionGInput != null) {
+                EventCallback<ChangeEvent<int>> handler = evt => OnEmissionGInputChanged(evt.newValue);
+                _emissionGInput.RegisterValueChangedCallback(handler);
+                RegisterCleanup(() => _emissionGInput.UnregisterCallback(handler));
+            }
+            if(_emissionBInput != null) {
+                EventCallback<ChangeEvent<int>> handler = evt => OnEmissionBInputChanged(evt.newValue);
+                _emissionBInput.RegisterValueChangedCallback(handler);
+                RegisterCleanup(() => _emissionBInput.UnregisterCallback(handler));
+            }
 
             // Buttons removed - customization now auto-applies when leaving loadout
 
             // Unsaved changes modal
-            if(_unsavedChangesYes != null) _unsavedChangesYes.RegisterCallback<ClickEvent>(_ => OnUnsavedChangesYes());
-            if(_unsavedChangesNo != null) _unsavedChangesNo.RegisterCallback<ClickEvent>(_ => OnUnsavedChangesNo());
-            if(_unsavedChangesCancel != null) _unsavedChangesCancel.RegisterCallback<ClickEvent>(_ => OnUnsavedChangesCancel());
+            if(_unsavedChangesYes != null) {
+                EventCallback<ClickEvent> handler = _ => OnUnsavedChangesYes();
+                _unsavedChangesYes.RegisterCallback(handler);
+                RegisterCleanup(() => _unsavedChangesYes.UnregisterCallback(handler));
+            }
+            if(_unsavedChangesNo != null) {
+                EventCallback<ClickEvent> handler = _ => OnUnsavedChangesNo();
+                _unsavedChangesNo.RegisterCallback(handler);
+                RegisterCleanup(() => _unsavedChangesNo.UnregisterCallback(handler));
+            }
+            if(_unsavedChangesCancel != null) {
+                EventCallback<ClickEvent> handler = _ => OnUnsavedChangesCancel();
+                _unsavedChangesCancel.RegisterCallback(handler);
+                RegisterCleanup(() => _unsavedChangesCancel.UnregisterCallback(handler));
+            }
         }
 
         public void ShowCustomization() {
@@ -303,7 +405,7 @@ namespace Game.Menu {
                 OnBackFromCustomizationCallback = () => {
                     Debug.Log("[CharacterCustomizationManager] Back callback invoked from ShowCustomization");
                     if(mainMenuManager == null) return;
-                    var loadoutPanel = _root.Q<VisualElement>("loadout-panel");
+                    var loadoutPanel = QOptional<VisualElement>("loadout-panel");
                     if(loadoutPanel != null) {
                         mainMenuManager.ShowPanel(loadoutPanel);
                     }
@@ -813,17 +915,22 @@ namespace Game.Menu {
                 return button;
             }
 
-            button.RegisterCallback<MouseEnterEvent>(evt => {
+            EventCallback<MouseEnterEvent> enterHandler = evt => {
                 if(MouseEnterCallback != null) {
                     MouseEnterCallback.Invoke(evt);
                 }
-            });
-            button.RegisterCallback<ClickEvent>(_ => {
+            };
+            button.RegisterCallback(enterHandler);
+            RegisterCleanup(() => button.UnregisterCallback(enterHandler));
+
+            EventCallback<ClickEvent> clickHandler = _ => {
                 if(OnButtonClickedCallback != null) {
                     OnButtonClickedCallback.Invoke(false);
                 }
                 OnPacketButtonClicked(index);
-            });
+            };
+            button.RegisterCallback(clickHandler);
+            RegisterCleanup(() => button.UnregisterCallback(clickHandler));
 
             return button;
         }

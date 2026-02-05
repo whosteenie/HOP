@@ -1,0 +1,5 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" editor-extension-mode="False">
+    <ui:VisualElement name="weapon-option-root" class="weapon-option">
+        <ui:Image name="weapon-image" class="weapon-option-image" />
+    </ui:VisualElement>
+</ui:UXML>

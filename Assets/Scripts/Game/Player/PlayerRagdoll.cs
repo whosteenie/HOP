@@ -69,6 +69,9 @@ namespace Game.Player {
             EnableCollidersForHitDetection();
         }
 
+        /// <summary>
+        /// Enables the ragdoll effect on the player.
+        /// </summary>
         public void EnableRagdoll(Vector3? hitPoint = null, Vector3? hitDirection = null, string bodyPartTag = null) {
             if(IsRagdoll) return;
             IsRagdoll = true;
@@ -83,6 +86,9 @@ namespace Game.Player {
             ApplyHitForce(bodyPartTag);
         }
 
+        /// <summary>
+        /// Applies a hit force to the ragdoll.
+        /// </summary>
         private void ApplyHitForce(string bodyPartTag = null) {
             // Always apply force to chest/torso for consistent, predictable ragdoll behavior
             // bodyPartTag is still used for headshot damage calculation, just not for force direction
@@ -118,6 +124,9 @@ namespace Game.Player {
             return closest;
         }
 
+        /// <summary>
+        /// Disables the ragdoll effect and returns the player to the normal state.
+        /// </summary>
         public void DisableRagdoll() {
             if(!IsRagdoll) return;
             IsRagdoll = false;
@@ -152,6 +161,9 @@ namespace Game.Player {
             }
         }
 
+        /// <summary>
+        /// Disables physics on the ragdoll components.
+        /// </summary>
         private void DisableRagdollPhysics() {
             foreach(var rb in _ragdollRigidbodies) {
                 if(rb == null) continue;
