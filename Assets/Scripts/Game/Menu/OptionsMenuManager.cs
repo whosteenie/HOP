@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using Game.Social;
 using Game.UI;
 using Network.Singletons;
 using UnityEngine;
@@ -7,6 +9,7 @@ using UnityEngine.Audio;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 using UnityEngine.UIElements;
+using UnityUtils;
 
 namespace Game.Menu {
     /// <summary>
@@ -35,15 +38,21 @@ namespace Game.Menu {
         private Slider _masterVolumeSlider;
         private Slider _musicVolumeSlider;
         private Slider _sfxVolumeSlider;
+        private Slider _voiceVolumeSlider;
+        private Slider _voiceInputVolumeSlider;
         private TextField _masterVolumeValue;
         private TextField _musicVolumeValue;
         private TextField _sfxVolumeValue;
+        private TextField _voiceVolumeValue;
+        private TextField _voiceInputVolumeValue;
         private Slider _sensitivitySlider;
         private TextField _sensitivityValue;
         private Button _invertYButton;
         private Button _playerTrailsButton;
         private Button _holdMantleButton;
+        private Button _profanityFilterButton;
         private DropdownField _grappleIndicatorDropdown;
+        private DropdownField _voiceModeDropdown;
         private DropdownField _windowModeDropdown;
         private DropdownField _aspectRatioDropdown;
         private DropdownField _resolutionDropdown;
@@ -53,6 +62,7 @@ namespace Game.Menu {
         private DropdownField _shadowResolutionDropdown;
         private Button _vsyncButton;
         private DropdownField _fpsDropdown;
+        private DropdownField _voiceDeviceDropdown;
 
         // Options tabs
         private Button _tabVideo;
@@ -84,11 +94,14 @@ namespace Game.Menu {
         private float _originalMasterVolume;
         private float _originalMusicVolume;
         private float _originalSfxVolume;
+        private float _originalVoiceVolume;
         private float _originalSensitivity;
         private bool _originalInvertY;
         private bool _originalPlayerTrails;
         private bool _originalHoldMantle;
+        private bool _originalProfanityFilter;
         private int _originalGrappleIndicator;
+        private int _originalVoiceMode;
         private int _originalWindowMode;
         private string _originalAspectRatio;
         private int _originalResolutionIndex;
@@ -97,6 +110,7 @@ namespace Game.Menu {
         private int _originalShadowResolution;
         private bool _originalVsync;
         private int _originalTargetFPS;
+        private string _originalVoiceDevice;
 
         #endregion
 
@@ -120,8 +134,8 @@ namespace Game.Menu {
             SetupKeybinds();
         }
 
-        protected override Dictionary<string, System.Type> GetRequiredElements() {
-            return new Dictionary<string, System.Type> {
+        protected override Dictionary<string, Type> GetRequiredElements() {
+            return new Dictionary<string, Type> {
                 { "apply-button", typeof(Button) },
                 { "back-button", typeof(Button) }
             };
@@ -139,6 +153,10 @@ namespace Game.Menu {
             _masterVolumeValue = QOptional<TextField>("master-volume-value");
             _musicVolumeValue = QOptional<TextField>("music-volume-value");
             _sfxVolumeValue = QOptional<TextField>("sfx-volume-value");
+            _voiceVolumeSlider = QOptional<Slider>("voice-volume");
+            _voiceVolumeValue = QOptional<TextField>("voice-volume-value");
+            _voiceInputVolumeSlider = QOptional<Slider>("voice-input-volume");
+            _voiceInputVolumeValue = QOptional<TextField>("voice-input-volume-value");
 
             // Sensitivity controls
             _sensitivitySlider = QOptional<Slider>("sensitivity");
@@ -146,7 +164,10 @@ namespace Game.Menu {
             _invertYButton = QOptional<Button>("invert-y");
             _playerTrailsButton = QOptional<Button>("player-trails");
             _holdMantleButton = QOptional<Button>("hold-mantle");
+            _profanityFilterButton = QOptional<Button>("profanity-filter");
             _grappleIndicatorDropdown = QOptional<DropdownField>("grapple-indicator");
+            _voiceModeDropdown = QOptional<DropdownField>("voice-mode");
+            _voiceDeviceDropdown = QOptional<DropdownField>("voice-device");
 
             // Graphics controls
             _windowModeDropdown = QOptional<DropdownField>("window-mode");
@@ -194,6 +215,11 @@ namespace Game.Menu {
                 EventCallback<ClickEvent> handler = _ => ToggleCheckbox(_holdMantleButton);
                 _holdMantleButton.RegisterCallback(handler);
                 RegisterCleanup(() => _holdMantleButton.UnregisterCallback(handler));
+            }
+            if(_profanityFilterButton != null) {
+                EventCallback<ClickEvent> handler = _ => ToggleCheckbox(_profanityFilterButton);
+                _profanityFilterButton.RegisterCallback(handler);
+                RegisterCleanup(() => _profanityFilterButton.UnregisterCallback(handler));
             }
             if(_vsyncButton != null) {
                 EventCallback<ClickEvent> handler = _ => ToggleCheckbox(_vsyncButton);
@@ -300,6 +326,28 @@ namespace Game.Menu {
                 };
                 _sfxVolumeSlider.RegisterValueChangedCallback(handler);
                 RegisterCleanup(() => _sfxVolumeSlider.UnregisterCallback(handler));
+            }
+            if(_voiceVolumeSlider != null) {
+                EventCallback<ChangeEvent<float>> handler = evt => {
+                    if(_voiceVolumeValue != null) {
+                        _voiceVolumeValue.value = Mathf.RoundToInt(evt.newValue * 100) + "%";
+                    }
+                };
+                _voiceVolumeSlider.RegisterValueChangedCallback(handler);
+                RegisterCleanup(() => _voiceVolumeSlider.UnregisterCallback(handler));
+            }
+            if(_voiceInputVolumeSlider != null) {
+                EventCallback<ChangeEvent<float>> handler = evt => {
+                    if(_voiceInputVolumeValue != null) {
+                        _voiceInputVolumeValue.value = Mathf.RoundToInt(evt.newValue * 100) + "%";
+                    }
+                };
+                _voiceInputVolumeSlider.RegisterValueChangedCallback(handler);
+                RegisterCleanup(() => _voiceInputVolumeSlider.UnregisterCallback(handler));
+            }
+            
+            if (_voiceDeviceDropdown != null) {
+                _voiceDeviceDropdown.choices = VoiceManager.Instance.GetAvailableInputDevices();
             }
 
             // Setup text field input validation and callbacks
@@ -859,7 +907,7 @@ namespace Game.Menu {
             var keybindNames = new[] {
                 "forward", "back", "left", "right", "jump", "interact", "shoot", "ads", "reload", "grapple", "primary",
                 "secondary",
-                "nextweapon", "previousweapon"
+                "nextweapon", "previousweapon", "ptt"
             };
 
             foreach(var keybindName in keybindNames) {
@@ -876,9 +924,7 @@ namespace Game.Menu {
                     EventCallback<ClickEvent> handler = _ => OnKeybindButtonClicked(keybindName, index);
                     button.RegisterCallback(handler);
                     RegisterCleanup(() => {
-                        if(button != null) {
-                            button.UnregisterCallback(handler);
-                        }
+                        button.UnregisterCallback(handler);
                     });
                 }
             }
@@ -998,6 +1044,10 @@ namespace Game.Menu {
             if(_masterVolumeSlider != null) _masterVolumeSlider.value = DbToLinear(masterDb);
             if(_musicVolumeSlider != null) _musicVolumeSlider.value = DbToLinear(musicDb);
             if(_sfxVolumeSlider != null) _sfxVolumeSlider.value = DbToLinear(sfxDb);
+            if(_voiceVolumeSlider != null) _voiceVolumeSlider.value = SocialSettings.VoiceVolume;
+            if(_voiceVolumeValue != null) _voiceVolumeValue.value = Mathf.RoundToInt(SocialSettings.VoiceVolume * 100) + "%";
+            if(_voiceInputVolumeSlider != null) _voiceInputVolumeSlider.value = SocialSettings.VoiceInputVolume;
+            if(_voiceInputVolumeValue != null) _voiceInputVolumeValue.value = Mathf.RoundToInt(SocialSettings.VoiceInputVolume * 100) + "%";
 
             // Load sensitivity (with migration from old X/Y values)
             float sensitivityValue;
@@ -1015,11 +1065,27 @@ namespace Game.Menu {
             if(_playerTrailsButton != null)
                 SetCheckboxValue(_playerTrailsButton, PlayerPrefs.GetInt("PlayerTrails", 1) == 1);
             if(_holdMantleButton != null) SetCheckboxValue(_holdMantleButton, PlayerPrefs.GetInt("HoldMantle", 1) == 1);
+            if(_profanityFilterButton != null) SetCheckboxValue(_profanityFilterButton, SocialSettings.ProfanityFilterEnabled);
             
             // Load grapple indicator setting (0 = Crosshair (default), 1 = Bottom, 2 = None)
             if(_grappleIndicatorDropdown != null) {
                 var savedGrappleIndicator = PlayerPrefs.GetInt("GrappleIndicator", 0);
                 _grappleIndicatorDropdown.index = Mathf.Clamp(savedGrappleIndicator, 0, _grappleIndicatorDropdown.choices.Count - 1);
+            }
+
+            if(_voiceModeDropdown != null) {
+                _voiceModeDropdown.choices = Enum.GetNames(typeof(VoiceInputMode)).ToList();
+                _voiceModeDropdown.index = (int)SocialSettings.InputMode;
+            }
+
+            if (_voiceDeviceDropdown != null) {
+                var devices = VoiceManager.Instance.GetAvailableInputDevices();
+                _voiceDeviceDropdown.choices = devices;
+                var savedDevice = SocialSettings.InputDevice;
+                _voiceDeviceDropdown.index = devices.IndexOf(savedDevice);
+                if (_voiceDeviceDropdown.index == -1 && devices.Count > 0) {
+                    _voiceDeviceDropdown.index = 0;
+                }
             }
 
             // Load window mode and resolution settings
@@ -1080,22 +1146,27 @@ namespace Game.Menu {
             if(_fpsDropdown != null) _fpsDropdown.index = PlayerPrefs.GetInt("TargetFPS", 1);
 
             // Store original values
-            if(_masterVolumeSlider != null) _originalMasterVolume = _masterVolumeSlider.value;
-            if(_musicVolumeSlider != null) _originalMusicVolume = _musicVolumeSlider.value;
-            if(_sfxVolumeSlider != null) _originalSfxVolume = _sfxVolumeSlider.value;
-            if(_sensitivitySlider != null) _originalSensitivity = _sensitivitySlider.value;
+            _originalMasterVolume = _masterVolumeSlider?.value ?? 0f;
+            _originalMusicVolume = _musicVolumeSlider?.value ?? 0f;
+            _originalSfxVolume = _sfxVolumeSlider?.value ?? 0f;
+            _originalVoiceVolume = SocialSettings.VoiceVolume;
+
+            _originalSensitivity = _sensitivitySlider?.value ?? 0.1f;
             _originalInvertY = GetCheckboxValue(_invertYButton);
             _originalPlayerTrails = GetCheckboxValue(_playerTrailsButton);
             _originalHoldMantle = GetCheckboxValue(_holdMantleButton);
-            if(_grappleIndicatorDropdown != null) _originalGrappleIndicator = _grappleIndicatorDropdown.index;
-            if(_windowModeDropdown != null) _originalWindowMode = _windowModeDropdown.index;
-            if(_aspectRatioDropdown != null) _originalAspectRatio = _aspectRatioDropdown.value;
-            if(_resolutionDropdown != null) _originalResolutionIndex = _resolutionDropdown.index;
-            if(_msaaDropdown != null) _originalMsaa = _msaaDropdown.index;
-            if(_shadowDistanceSlider != null) _originalShadowDistance = _shadowDistanceSlider.value;
-            if(_shadowResolutionDropdown != null) _originalShadowResolution = _shadowResolutionDropdown.index;
+            _originalProfanityFilter = SocialSettings.ProfanityFilterEnabled;
+            _originalGrappleIndicator = _grappleIndicatorDropdown?.index ?? 0;
+            _originalVoiceMode = (int)SocialSettings.InputMode;
+
+            _originalWindowMode = _windowModeDropdown?.index ?? 0;
+            _originalAspectRatio = _aspectRatioDropdown?.value ?? "";
+            _originalResolutionIndex = _resolutionDropdown?.index ?? 0;
+            _originalMsaa = _msaaDropdown?.index ?? 0;
+            _originalShadowDistance = _shadowDistanceSlider?.value ?? 50f;
+            _originalShadowResolution = _shadowResolutionDropdown?.index ?? 2;
             _originalVsync = GetCheckboxValue(_vsyncButton);
-            if(_fpsDropdown != null) _originalTargetFPS = _fpsDropdown.index;
+            _originalTargetFPS = _fpsDropdown?.index ?? 1;
 
             ApplySettingsInternal();
 
@@ -1129,6 +1200,9 @@ namespace Game.Menu {
                 volumeChanged |= !Mathf.Approximately(_musicVolumeSlider.value, _originalMusicVolume);
             if(_sfxVolumeSlider != null)
                 volumeChanged |= !Mathf.Approximately(_sfxVolumeSlider.value, _originalSfxVolume);
+            
+            if(_voiceVolumeSlider != null)
+                volumeChanged |= !Mathf.Approximately(_voiceVolumeSlider.value, _originalVoiceVolume);
 
             var sensitivityChanged = false;
             if(_sensitivitySlider != null)
@@ -1137,9 +1211,13 @@ namespace Game.Menu {
             var invertYChanged = GetCheckboxValue(_invertYButton) != _originalInvertY;
             var playerTrailsChanged = GetCheckboxValue(_playerTrailsButton) != _originalPlayerTrails;
             var holdMantleChanged = GetCheckboxValue(_holdMantleButton) != _originalHoldMantle;
+            var profanityFilterChanged = GetCheckboxValue(_profanityFilterButton) != _originalProfanityFilter;
             
             var grappleIndicatorChanged = false;
             if(_grappleIndicatorDropdown != null) grappleIndicatorChanged = _grappleIndicatorDropdown.index != _originalGrappleIndicator;
+
+            var voiceModeChanged = false;
+            if(_voiceModeDropdown != null) voiceModeChanged = _voiceModeDropdown.index != _originalVoiceMode;
 
             var windowModeChanged = false;
             if(_windowModeDropdown != null) windowModeChanged = _windowModeDropdown.index != _originalWindowMode;
@@ -1167,6 +1245,7 @@ namespace Game.Menu {
             if(_fpsDropdown != null) fpsChanged = _fpsDropdown.index != _originalTargetFPS;
 
             return volumeChanged || sensitivityChanged || invertYChanged || playerTrailsChanged || holdMantleChanged ||
+                   profanityFilterChanged || voiceModeChanged ||
                    grappleIndicatorChanged || windowModeChanged || aspectRatioChanged || resolutionChanged || msaaChanged ||
                    shadowDistanceChanged || shadowResolutionChanged || vsyncChanged || fpsChanged || hasKeybindChanges;
         }
@@ -1246,6 +1325,9 @@ namespace Game.Menu {
                 PlayerPrefs.SetFloat("SFXVolume", sfxDb);
             }
 
+            SocialSettings.VoiceVolume = _voiceVolumeSlider?.value ?? SocialSettings.VoiceVolume;
+            SocialSettings.VoiceInputVolume = _voiceInputVolumeSlider?.value ?? SocialSettings.VoiceInputVolume;
+
             // Save control settings
             if(_sensitivitySlider != null) {
                 PlayerPrefs.SetFloat("Sensitivity", _sensitivitySlider.value);
@@ -1254,10 +1336,22 @@ namespace Game.Menu {
             PlayerPrefs.SetInt("InvertY", GetCheckboxValue(_invertYButton) ? 1 : 0);
             PlayerPrefs.SetInt("PlayerTrails", GetCheckboxValue(_playerTrailsButton) ? 1 : 0);
             PlayerPrefs.SetInt("HoldMantle", GetCheckboxValue(_holdMantleButton) ? 1 : 0);
+            SocialSettings.ProfanityFilterEnabled = GetCheckboxValue(_profanityFilterButton);
             
             // Save grapple indicator setting
             if(_grappleIndicatorDropdown != null) {
                 PlayerPrefs.SetInt("GrappleIndicator", _grappleIndicatorDropdown.index);
+            }
+            
+            if(_voiceModeDropdown != null) {
+                SocialSettings.InputMode = (VoiceInputMode)_voiceModeDropdown.index;
+            }
+
+            if (_voiceDeviceDropdown != null) {
+                SocialSettings.InputDevice = _voiceDeviceDropdown.value;
+                if (VoiceManager.Instance != null) {
+                    VoiceManager.Instance.SetActiveMicAsync(_voiceDeviceDropdown.value).Forget();
+                }
             }
 
             // Save window mode and resolution settings
@@ -1320,22 +1414,27 @@ namespace Game.Menu {
             ApplySettingsInternal();
 
             // Update original values
-            if(_masterVolumeSlider != null) _originalMasterVolume = _masterVolumeSlider.value;
-            if(_musicVolumeSlider != null) _originalMusicVolume = _musicVolumeSlider.value;
-            if(_sfxVolumeSlider != null) _originalSfxVolume = _sfxVolumeSlider.value;
-            if(_sensitivitySlider != null) _originalSensitivity = _sensitivitySlider.value;
+            _originalMasterVolume = _masterVolumeSlider?.value ?? 0f;
+            _originalMusicVolume = _musicVolumeSlider?.value ?? 0f;
+            _originalSfxVolume = _sfxVolumeSlider?.value ?? 0f;
+            _originalVoiceVolume = SocialSettings.VoiceVolume;
+
+            _originalSensitivity = _sensitivitySlider?.value ?? 0.1f;
             _originalInvertY = GetCheckboxValue(_invertYButton);
             _originalPlayerTrails = GetCheckboxValue(_playerTrailsButton);
             _originalHoldMantle = GetCheckboxValue(_holdMantleButton);
-            if(_grappleIndicatorDropdown != null) _originalGrappleIndicator = _grappleIndicatorDropdown.index;
-            if(_windowModeDropdown != null) _originalWindowMode = _windowModeDropdown.index;
-            if(_aspectRatioDropdown != null) _originalAspectRatio = _aspectRatioDropdown.value;
-            if(_resolutionDropdown != null) _originalResolutionIndex = _resolutionDropdown.index;
-            if(_msaaDropdown != null) _originalMsaa = _msaaDropdown.index;
-            if(_shadowDistanceSlider != null) _originalShadowDistance = _shadowDistanceSlider.value;
-            if(_shadowResolutionDropdown != null) _originalShadowResolution = _shadowResolutionDropdown.index;
+            _originalProfanityFilter = SocialSettings.ProfanityFilterEnabled;
+            _originalGrappleIndicator = _grappleIndicatorDropdown?.index ?? 0;
+            _originalVoiceMode = (int)SocialSettings.InputMode;
+
+            _originalWindowMode = _windowModeDropdown?.index ?? 0;
+            _originalAspectRatio = _aspectRatioDropdown?.value ?? "";
+            _originalResolutionIndex = _resolutionDropdown?.index ?? 0;
+            _originalMsaa = _msaaDropdown?.index ?? 0;
+            _originalShadowDistance = _shadowDistanceSlider?.value ?? 50f;
+            _originalShadowResolution = _shadowResolutionDropdown?.index ?? 2;
             _originalVsync = GetCheckboxValue(_vsyncButton);
-            if(_fpsDropdown != null) _originalTargetFPS = _fpsDropdown.index;
+            _originalTargetFPS = _fpsDropdown?.index ?? 1;
 
             LoadKeybindDisplayStrings();
         }

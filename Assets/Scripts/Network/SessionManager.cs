@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using Cysharp.Threading.Tasks;
+using Game.Social;
 using Network.Events;
 using Network.Singletons;
 using Network.Steam;
@@ -391,6 +392,11 @@ namespace Network {
                 CurrentLobby.Value.SetData(PartyIdKey, CurrentPartyId);
                 CurrentLobby.Value.SetMemberData(PartyIdKey, CurrentPartyId);
 
+                // Join Voice Channel
+                if (VoiceManager.Instance != null) {
+                    VoiceManager.Instance.JoinChannelAsync("match_" + CurrentLobby.Value.Id).Forget();
+                }
+
                 SetFrontStatus(SessionPhase.LobbyReady, "Lobby Ready. Invite Friends!");
 
                 // 3. Start Host (using FacepunchTransport)
@@ -582,6 +588,11 @@ namespace Network {
             }
 
             CurrentLobby = lobby;
+
+            // Join Voice Channel
+            if (VoiceManager.Instance != null) {
+                VoiceManager.Instance.JoinChannelAsync("match_" + lobby.Id).Forget();
+            }
 
             // Sync Party ID from lobby
             var lobbyPartyId = lobby.GetData(PartyIdKey);

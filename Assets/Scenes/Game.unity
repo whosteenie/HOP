@@ -15603,6 +15603,77 @@ Mesh:
       - serializedVersion: 1
         m_IndexStart: 0
         m_IndexCount: 0
+--- !u!1 &237642928
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 237642931}
+  - component: {fileID: 237642929}
+  - component: {fileID: 237642930}
+  m_Layer: 0
+  m_Name: ChatManager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &237642929
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 237642928}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
+  GlobalObjectIdHash: 3171330726
+  InScenePlacedSourceGlobalObjectIdHash: 0
+  DeferredDespawnTick: 0
+  Ownership: 1
+  AlwaysReplicateAsRoot: 0
+  SynchronizeTransform: 1
+  ActiveSceneSynchronization: 0
+  SceneMigrationSynchronization: 0
+  SpawnWithObservers: 1
+  DontDestroyWithOwner: 0
+  AutoObjectParentSync: 1
+  SyncOwnerTransformWhenParented: 1
+  AllowOwnerToParent: 0
+--- !u!114 &237642930
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 237642928}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 60cb4a41f28c0ac43914ca96b6d76783, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Game.Social.ChatManager
+  ShowTopMostFoldoutHeaderGroup: 1
+--- !u!4 &237642931
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 237642928}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!43 &242864831
 Mesh:
   m_ObjectHideFlags: 0
@@ -125916,6 +125987,8 @@ MonoBehaviour:
   scoreboardManager: {fileID: 7668114275608494861}
   optionsMenuManager: {fileID: 7668114275608494859}
   sniperOverlayManager: {fileID: 7668114275608494863}
+  chatUIManager: {fileID: 7668114275608494865}
+  voiceOverlayManager: {fileID: 7668114275608494864}
   challengeCardTemplate: {fileID: 9197481963319205126, guid: 8b1e935a25318314eb9e1b4d95256a01, type: 3}
   challengeRowTemplate: {fileID: 9197481963319205126, guid: 15bba09b50799a343b3d3f8f84a61e10, type: 3}
 --- !u!4 &944301789380160932
@@ -126065,6 +126138,8 @@ GameObject:
   - component: {fileID: 7668114275608494861}
   - component: {fileID: 7668114275608494862}
   - component: {fileID: 7668114275608494863}
+  - component: {fileID: 7668114275608494865}
+  - component: {fileID: 7668114275608494864}
   m_Layer: 0
   m_Name: GameMenuManager
   m_TagString: Untagged
@@ -126153,6 +126228,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5da46db8b22d17e40a34399380723297, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DamageVignetteUI
+  uiDocument: {fileID: 0}
   flashDuration: 0.12
   fadeDuration: 0.3
   maxAlpha: 0.8
@@ -126259,6 +126335,33 @@ MonoBehaviour:
   sniperOverlayFeather: 0.08
   sniperOverlayTextureResolution: 1024
   sniperOverlayColor: {r: 0, g: 0, b: 0, a: 1}
+--- !u!114 &7668114275608494864
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2721928510101479172}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3c2109b142bb9114c85dfe6eab572c07, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Game.UI.VoiceOverlayManager
+  uiDocument: {fileID: 1453059420887439359}
+  pollInterval: 0.1
+--- !u!114 &7668114275608494865
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2721928510101479172}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5b8c3c17724feab4198f95d118603263, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Game.UI.ChatUIManager
+  uiDocument: {fileID: 1453059420887439359}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
@@ -126278,3 +126381,4 @@ SceneRoots:
   - {fileID: 829867039}
   - {fileID: 1309230225}
   - {fileID: 2124224295}
+  - {fileID: 237642931}

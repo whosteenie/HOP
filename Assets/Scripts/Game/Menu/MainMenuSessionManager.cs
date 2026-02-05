@@ -6,6 +6,7 @@ using Game.UI;
 using Network;
 using Network.Services;
 using Network.Steam;
+using Game.Social; // Added
 using Steamworks;
 using Steamworks.Data;
 using UnityEngine;
@@ -237,15 +238,15 @@ namespace Game.Menu {
                     evt.StopPropagation();
                     return;
                 case "ctx-mute-chat":
-                    HideContextMenu();
+                    HandleContextAction("MuteChat");
                     evt.StopPropagation();
                     return;
                 case "ctx-mute-voice":
-                    HideContextMenu();
+                    HandleContextAction("MuteVoice");
                     evt.StopPropagation();
                     return;
                 case "ctx-block":
-                    HideContextMenu();
+                    HandleContextAction("Block");
                     evt.StopPropagation();
                     return;
                 case "context-menu-backdrop":
@@ -365,6 +366,30 @@ namespace Game.Menu {
                     // Open Steam profile page in overlay browser
                     var profileUrl = $"https://steamcommunity.com/profiles/{_contextMenuTargetId.Value}";
                     SteamFriends.OpenWebOverlay(profileUrl, false);
+                    break;
+                case "MuteChat":
+                    // For now, blocking chat mutes voice too usually, or just chat
+                    // SocialSettings only has "Muted" (Audio) or Blocked (Both)
+                    // Let's implement MuteChat as Block for now? Or just ignore chat?
+                    // The prompt asked for specific behaviors.
+                    // User Request: "maybe mute just mutes audio, where block mutes audio and chat?"
+                    // So MuteVoice = SocialSettings.SetMuted
+                    // Block = SocialSettings.SetBlocked
+                    // MuteChat? Maybe not supported yet or just mute voice?
+                    // Let's assume MuteVoice is the primary mute.
+                    Debug.LogWarning("Mute Chat standalone not fully implemented, separate lists needed.");
+                    break;
+                case "MuteVoice":
+                    bool isMuted = SocialSettings.IsMuted(_contextMenuTargetId.ToString());
+                    SocialSettings.SetMuted(_contextMenuTargetId.ToString(), !isMuted);
+                    // Also update Vivox
+                    VoiceManager.Instance.MuteUser(_contextMenuTargetId.ToString(), !isMuted);
+                    break;
+                case "Block":
+                    bool isBlocked = SocialSettings.IsBlocked(_contextMenuTargetId.ToString());
+                    SocialSettings.SetBlocked(_contextMenuTargetId.ToString(), !isBlocked);
+                    // Update Vivox if blocked
+                    VoiceManager.Instance.MuteUser(_contextMenuTargetId.ToString(), !isBlocked);
                     break;
             }
         }

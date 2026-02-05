@@ -34,6 +34,7 @@ namespace Game.Menu {
 
         [SerializeField] private MainMenuSessionManager sessionManager;
         [SerializeField] private MainMenuGamemodeManager gamemodeManager;
+        [SerializeField] private VoiceOverlayManager voiceOverlayManager;
 
         [Header("References")]
         [SerializeField] private Camera mainCamera;
@@ -77,6 +78,7 @@ namespace Game.Menu {
 
             if(uiManager != null) uiManager.InitializeGameMenuVisibility();
             if(sessionManager != null) sessionManager.Initialize();
+            if(voiceOverlayManager != null) voiceOverlayManager.Initialize(Root);
             CheckFirstTimeSetup();
 
             if(DiscordManager.Instance != null) {
@@ -136,6 +138,8 @@ namespace Game.Menu {
         }
 
         private void InitializeSubManagers() {
+            if(voiceOverlayManager == null) voiceOverlayManager = GetComponentInChildren<VoiceOverlayManager>();
+            
             if(uiManager != null) {
                 if(uiManager.uiDocument == null) uiManager.uiDocument = uiDocument;
             }

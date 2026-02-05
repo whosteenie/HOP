@@ -70,6 +70,12 @@ namespace Game.UI {
             IsInitialized = true;
         }
 
+        public void Initialize(VisualElement root) {
+            if(IsInitialized) return;
+            Root = root;
+            Initialize();
+        }
+
         /// <summary>
         /// Override this method to perform initialization logic after required elements are validated.
         /// </summary>

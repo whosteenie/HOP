@@ -22,6 +22,7 @@ namespace Game.Player {
     [RequireComponent(typeof(CharacterController))]
     [DefaultExecutionOrder(-100)] // Initialize before sub-controllers
     public partial class PlayerController : NetworkBehaviour {
+        public static PlayerController LocalPlayer { get; private set; }
         #region Serialized Fields
 
         [Header("Core Components")]
@@ -103,6 +104,7 @@ namespace Game.Player {
         public Vector2 lookInput;
         public bool sprintInput;
         public bool crouchInput;
+        public bool LockLook { get; set; }
 
         #endregion
 
@@ -205,6 +207,11 @@ namespace Game.Player {
         public NetworkVariable<int> secondaryWeaponIndex = new(0,
             NetworkVariableReadPermission.Everyone,
             NetworkVariableWritePermission.Owner);
+        
+        // Voice PTT state (synced so other players see speaking indicator)
+        public NetworkVariable<bool> isPttActive = new(false,
+            NetworkVariableReadPermission.Everyone,
+            NetworkVariableWritePermission.Owner);
 
         #endregion
 
@@ -219,6 +226,10 @@ namespace Game.Player {
 
         public override void OnNetworkSpawn() {
             base.OnNetworkSpawn();
+
+            if (IsOwner) {
+                LocalPlayer = this;
+            }
 
             SubscribeToNetworkVariables();
             UpdatePlayerMaterialFromNetwork();
@@ -296,6 +307,11 @@ namespace Game.Player {
 
         public override void OnNetworkDespawn() {
             base.OnNetworkDespawn();
+            
+            if (LocalPlayer == this) {
+                LocalPlayer = null;
+            }
+
             UnsubscribeFromNetworkVariables();
             
             // Unregister from ScoreboardManager

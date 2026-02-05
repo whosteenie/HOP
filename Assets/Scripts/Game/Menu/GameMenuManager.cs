@@ -27,6 +27,10 @@ namespace Game.Menu {
 
         [Header("Sniper Overlay")]
         [SerializeField] private SniperOverlayManager sniperOverlayManager;
+        
+        [Header("Social")]
+        [SerializeField] private ChatUIManager chatUIManager;
+        [SerializeField] private VoiceOverlayManager voiceOverlayManager;
 
         [Header("UI Templates")]
         [SerializeField] private VisualTreeAsset challengeCardTemplate;
@@ -70,6 +74,7 @@ namespace Game.Menu {
         #region Properties
 
         public bool IsPaused { get; private set; }
+        public bool IsChatOpen => chatUIManager != null && chatUIManager.IsChatOpen;
         public bool IsPostMatch { get; set; }
         public static bool IsPreMatch => MatchTimerManager.Instance != null && MatchTimerManager.Instance.IsPreMatch;
 
@@ -122,6 +127,12 @@ namespace Game.Menu {
             SetupKillFeedManager();
             SetupScoreboardManager();
             SetupSniperOverlayManager();
+            SetupSocialUI();
+            
+            // Clear chat history when initializing (new match)
+            if(chatUIManager != null) {
+                chatUIManager.ClearChatHistory();
+            }
         }
 
         protected override Dictionary<string, System.Type> GetRequiredElements() {
@@ -142,6 +153,36 @@ namespace Game.Menu {
 
         private void OnSceneLoaded(Scene scene, LoadSceneMode mode) {
             UpdateCachedSceneName();
+            
+            // When loading a game scene, ensure pause menu and challenges are hidden
+            if(_cachedSceneName != null && _cachedSceneName.Contains("Game")) {
+                // Reset pause state
+                IsPaused = false;
+                
+                // Hide pause menu
+                if(_pauseMenuPanel != null) {
+                    _pauseMenuPanel.AddToClassList("hidden");
+                }
+                
+                // Hide challenges container
+                if(_pauseChallengesContainer != null) {
+                    _pauseChallengesContainer.AddToClassList("hidden");
+                }
+                
+                // Hide options panel
+                if(_optionsPanel != null) {
+                    _optionsPanel.AddToClassList("hidden");
+                }
+                
+                // Reset cursor state
+                UnityEngine.Cursor.lockState = CursorLockMode.Locked;
+                UnityEngine.Cursor.visible = false;
+                
+                // Clear chat history for new match
+                if(chatUIManager != null) {
+                    chatUIManager.ClearChatHistory();
+                }
+            }
         }
 
         private void FindUIElements() {
@@ -374,7 +415,14 @@ namespace Game.Menu {
             if(_quitConfirmationNo == null) return;
             System.Action noHandler = () => { 
                 UISoundService.PlayButtonClick(); 
-                _modalHost.HideModal("quit-confirmation"); 
+                _modalHost.HideModal("quit-confirmation");
+                // Show pause menu and challenges again when canceling quit
+                if(_pauseMenuPanel != null) {
+                    _pauseMenuPanel.RemoveFromClassList("hidden");
+                }
+                if(_pauseChallengesContainer != null) {
+                    _pauseChallengesContainer.RemoveFromClassList("hidden");
+                }
             };
             _quitConfirmationNo.clicked += noHandler;
             RegisterCleanup(() => _quitConfirmationNo.clicked -= noHandler);
@@ -412,6 +460,12 @@ namespace Game.Menu {
 
         private void SetupSniperOverlayManager() {
             sniperOverlayManager?.Initialize(Root);
+        }
+
+        private void SetupSocialUI() {
+            if(voiceOverlayManager == null) voiceOverlayManager = GetComponentInChildren<VoiceOverlayManager>();
+            chatUIManager?.Initialize(Root);
+            voiceOverlayManager?.Initialize(Root);
         }
         #endregion
 
@@ -461,6 +515,10 @@ namespace Game.Menu {
             optionsMenuManager?.LoadSettings();
             optionsMenuManager?.OnOptionsPanelShown();
             _pauseMenuPanel.AddToClassList("hidden");
+            // Hide challenges when showing options
+            if(_pauseChallengesContainer != null) {
+                _pauseChallengesContainer.AddToClassList("hidden");
+            }
             _optionsPanel.RemoveFromClassList("hidden");
         }
 
@@ -468,10 +526,21 @@ namespace Game.Menu {
             if(_cachedSceneName != "Game") return;
             _optionsPanel.AddToClassList("hidden");
             _pauseMenuPanel.RemoveFromClassList("hidden");
+            // Show challenges again when returning to pause menu
+            if(_pauseChallengesContainer != null) {
+                _pauseChallengesContainer.RemoveFromClassList("hidden");
+            }
         }
 
         private void ShowQuitConfirmation() {
             if(_quitConfirmationModal != null) {
+                // Hide pause menu and challenges when showing quit confirmation modal
+                if(_pauseMenuPanel != null) {
+                    _pauseMenuPanel.AddToClassList("hidden");
+                }
+                if(_pauseChallengesContainer != null) {
+                    _pauseChallengesContainer.AddToClassList("hidden");
+                }
                 _modalHost.ShowExistingModal(_quitConfirmationModal, "quit-confirmation");
             }
         }

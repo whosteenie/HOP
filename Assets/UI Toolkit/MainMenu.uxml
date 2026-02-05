@@ -1,7 +1,9 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" editor-extension-mode="False">
     <Style src="project://database/Assets/UI%20Toolkit/SharedStyles.uss?fileID=7433441132597879392&amp;guid=94b07ae9f6dfe3447bec848c3f2b4d36&amp;type=3#SharedStyles" />
     <Style src="project://database/Assets/UI%20Toolkit/MainMenu.uss?fileID=7433441132597879392&amp;guid=6386da34af0d5d145aefc4dcab362169&amp;type=3#MainMenu" />
-    <ui:VisualElement name="ui-overlay" class="ui-overlay" picking-mode="Ignore" />
+    <ui:VisualElement name="ui-overlay" class="ui-overlay" picking-mode="Ignore">
+        <ui:VisualElement name="voice-overlay-container" class="voice-overlay-container" picking-mode="Ignore" />
+    </ui:VisualElement>
     <ui:VisualElement name="player-model-background" class="player-model-background" picking-mode="Ignore" />
     <ui:VisualElement name="main-menu-panel" class="panel full-abs" picking-mode="Ignore">
         <ui:Label text="HOP" name="title-label" class="title title-xl main-title" />
@@ -260,6 +262,20 @@
                             <ui:Slider name="sfx-volume" low-value="0" high-value="1" fill="true" class="setting-slider" />
                             <ui:TextField name="sfx-volume-value" value="100%" max-length="4" class="value-input" />
                         </ui:VisualElement>
+                        <ui:VisualElement name="voice-volume-container" class="setting-row">
+                            <ui:Label text="Voice Chat Volume" name="voice-volume-label" class="setting-label" />
+                            <ui:Slider name="voice-volume" low-value="0" high-value="1" fill="true" class="setting-slider" />
+                            <ui:TextField name="voice-volume-value" value="100%" max-length="4" class="value-input" />
+                        </ui:VisualElement>
+                        <ui:VisualElement name="voice-input-volume-container" class="setting-row">
+                            <ui:Label text="Microphone Volume" name="voice-input-volume-label" class="setting-label" />
+                            <ui:Slider name="voice-input-volume" low-value="0" high-value="1" fill="true" class="setting-slider" />
+                            <ui:TextField name="voice-input-volume-value" value="100%" max-length="4" class="value-input" />
+                        </ui:VisualElement>
+                        <ui:VisualElement name="voice-device-container" class="setting-row">
+                            <ui:Label text="Microphone" name="voice-device-label" class="setting-label" />
+                            <ui:DropdownField name="voice-device" class="setting-dropdown" />
+                        </ui:VisualElement>
                     </ui:VisualElement>
                     <ui:VisualElement name="game-content" class="options-tab-content hidden">
                         <ui:VisualElement name="player-trails-container" class="setting-row">
@@ -273,6 +289,14 @@
                         <ui:VisualElement name="grapple-indicator-container" class="setting-row">
                             <ui:Label text="Grapple indicator type" name="grapple-indicator-label" class="setting-label" />
                             <ui:DropdownField name="grapple-indicator" class="setting-dropdown" />
+                        </ui:VisualElement>
+                        <ui:VisualElement name="profanity-filter-container" class="setting-row">
+                            <ui:Label text="Chat Profanity Filter" name="profanity-filter-label" class="setting-label" />
+                            <ui:Button name="profanity-filter" class="setting-toggle" />
+                        </ui:VisualElement>
+                        <ui:VisualElement name="voice-mode-container" class="setting-row">
+                            <ui:Label text="Voice Input Mode" name="voice-mode-label" class="setting-label" />
+                            <ui:DropdownField name="voice-mode" class="setting-dropdown" />
                         </ui:VisualElement>
                     </ui:VisualElement>
                     <ui:VisualElement name="controls-content" class="options-tab-content hidden">
@@ -354,6 +378,11 @@
                             <ui:Label text="Previous Weapon" name="keybind-previousweapon-label" class="setting-label" />
                             <ui:Button name="keybind-previousweapon-0" text="None" class="keybind-button" />
                             <ui:Button name="keybind-previousweapon-1" text="None" class="keybind-button" />
+                        </ui:VisualElement>
+                        <ui:VisualElement name="keybind-ptt-container" class="setting-row">
+                            <ui:Label text="Push To Talk" name="keybind-ptt-label" class="setting-label" />
+                            <ui:Button name="keybind-ptt-0" text="None" class="keybind-button" />
+                            <ui:Button name="keybind-ptt-1" text="None" class="keybind-button" />
                         </ui:VisualElement>
                     </ui:VisualElement>
                 </ui:VisualElement>
