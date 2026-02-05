@@ -462,7 +462,14 @@ namespace Game.Player {
             }
 
             HandleArmPutAwayAnimation();
-            RequestDropHopballServerRpc(hopball.GetComponent<NetworkObject>(), dropPosition, dropRotation);
+            
+            // Get player velocity to transfer to ball
+            var playerVelocity = Vector3.zero;
+            if(playerController != null) {
+                playerVelocity = playerController.GetFullVelocity;
+            }
+            
+            RequestDropHopballServerRpc(hopball.GetComponent<NetworkObject>(), dropPosition, dropRotation, playerVelocity);
 
             if(reason == HopballDropReason.Manual) {
                 ShowWeapons();
@@ -485,31 +492,101 @@ namespace Game.Player {
         /// Can be called directly from server or via ServerRpc from client.
         /// </summary>
         private static async UniTaskVoid DropHopballAtPosition(HopballController hopball, Vector3 dropPosition, Quaternion dropRotation,
-            ulong requestingClientId) {
+            ulong requestingClientId, Vector3 playerVelocity) {
             if(hopball == null || !hopball.IsEquipped) return;
 
             hopball.PrepareDropClientRpc();
             await UniTask.WaitForEndOfFrame();
 
+            // Get hopball collider radius for accurate ground checking
+            var hopballCollider = hopball.GetComponent<Collider>();
+            var hopballRadius = 0.5f; // Default fallback
+            if(hopballCollider is SphereCollider sphereCollider) {
+                hopballRadius = sphereCollider.radius * Mathf.Max(hopball.transform.lossyScale.x, hopball.transform.lossyScale.y, hopball.transform.lossyScale.z);
+            } else if(hopballCollider is CapsuleCollider capsuleCollider) {
+                hopballRadius = capsuleCollider.radius * Mathf.Max(hopball.transform.lossyScale.x, hopball.transform.lossyScale.z);
+            }
+            
+            // Preserve original drop position for visual fidelity (player's hand position)
+            // Only adjust if it would fall through the floor
+            var finalDropPosition = dropPosition;
+            var worldLayer = LayerMask.GetMask("Default", "World");
+            var raycastDistance = 15f;
+            var safetyMargin = 0.2f; // Safety margin above ground
+            
+            // Use sphere cast to check if hopball would intersect with ground at drop position
+            var sphereCastRadius = hopballRadius + safetyMargin;
+            var sphereCastStart = dropPosition + Vector3.up * sphereCastRadius;
+            var sphereCastDistance = sphereCastRadius * 2f + 5f; // Check well below the drop position
+
+            var sphereHit = Physics.SphereCast(sphereCastStart, sphereCastRadius, Vector3.down, out var hit, sphereCastDistance, worldLayer);
+
+            if(sphereHit) {
+                var groundHeight = hit.point.y + sphereCastRadius;
+                // Only adjust if drop position would intersect with ground
+                if(dropPosition.y < groundHeight) {
+                    finalDropPosition = new Vector3(dropPosition.x, groundHeight, dropPosition.z);
+                }
+            } else {
+                // Fallback: if sphere cast fails, try regular raycast
+                if(Physics.Raycast(dropPosition + Vector3.up * 0.1f, Vector3.down, out var rayHit, raycastDistance, worldLayer)) {
+                    var groundHeight = rayHit.point.y + sphereCastRadius;
+                    if(dropPosition.y < groundHeight) {
+                        finalDropPosition = new Vector3(dropPosition.x, groundHeight, dropPosition.z);
+                    }
+                } else {
+                    // If no ground found below, check if we're already below ground level
+                    if(Physics.Raycast(dropPosition + Vector3.down * 5f, Vector3.up, out var hitUp, 15f, worldLayer)) {
+                        var groundHeight = hitUp.point.y + sphereCastRadius;
+                        if(dropPosition.y < groundHeight) {
+                            finalDropPosition = new Vector3(dropPosition.x, groundHeight, dropPosition.z);
+                        }
+                    }
+                }
+            }
+
             var currentScale = hopball.transform.localScale;
             var networkTransform = hopball.GetComponent<Unity.Netcode.Components.NetworkTransform>();
+            var rb = hopball.Rigidbody;
+
+            // Ensure physics body is synced to the teleport target.
+            // Evidence: logs showed transform teleported while Rigidbody stayed at old position, then snapped back.
+            rb.isKinematic = true;
+            rb.linearVelocity = Vector3.zero;
+            rb.angularVelocity = Vector3.zero;
+            rb.position = finalDropPosition;
+            rb.rotation = dropRotation;
+
             if(networkTransform != null) {
-                networkTransform.Teleport(dropPosition, dropRotation, currentScale);
+                networkTransform.Teleport(finalDropPosition, dropRotation, currentScale);
             } else {
                 var hopballTransform = hopball.transform;
-                hopballTransform.position = dropPosition;
+                hopballTransform.position = finalDropPosition;
                 hopballTransform.rotation = dropRotation;
                 hopballTransform.localScale = currentScale;
             }
             
             hopball.transform.SetParent(null);
 
+            // Re-assert RB pose after teleport and sync transforms so physics can't snap us back.
+            rb.position = finalDropPosition;
+            rb.rotation = dropRotation;
+            Physics.SyncTransforms();
+
             await UniTask.WaitForFixedUpdate();
 
             hopball.SetDropped();
 
             hopball.Rigidbody.isKinematic = false;
-            hopball.Rigidbody.linearVelocity = Vector3.down * 2f;
+            
+            // Apply fraction of player velocity to ball (0.3 = 30% of player velocity)
+            var velocityTransferFactor = 0.3f;
+            var ballVelocity = playerVelocity * velocityTransferFactor;
+            // Ensure minimum downward velocity for natural drop
+            if(ballVelocity.y > -1f) {
+                ballVelocity.y = -2f;
+            }
+            hopball.Rigidbody.linearVelocity = ballVelocity;
 
             if(HopballSpawnManager.Instance != null) {
                 HopballSpawnManager.Instance.OnHopballDropped();
@@ -535,11 +612,11 @@ namespace Game.Player {
         /// </summary>
         [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
         private void RequestDropHopballServerRpc(NetworkObjectReference hopballRef, Vector3 dropPosition,
-            Quaternion dropRotation) {
+            Quaternion dropRotation, Vector3 playerVelocity) {
             if(!hopballRef.TryGet(out var networkObject) || networkObject == null) return;
 
             var hopball = networkObject.GetComponent<HopballController>();
-            _ = DropHopballAtPosition(hopball, dropPosition, dropRotation, OwnerClientId);
+            _ = DropHopballAtPosition(hopball, dropPosition, dropRotation, OwnerClientId, playerVelocity);
         }
 
         /// <summary>
@@ -557,8 +634,11 @@ namespace Game.Player {
 
             var dropPosition = playerController.Position + Vector3.up * 1.5f;
             var dropRotation = playerController.Rotation;
+            
+            // On death, use zero velocity (player is dead, no momentum transfer)
+            var deathVelocity = Vector3.zero;
 
-            _ = DropHopballAtPosition(hopball, dropPosition, dropRotation, OwnerClientId);
+            _ = DropHopballAtPosition(hopball, dropPosition, dropRotation, OwnerClientId, deathVelocity);
             CleanupVisualsAndRestoreWeaponsClientRpc();
         }
 

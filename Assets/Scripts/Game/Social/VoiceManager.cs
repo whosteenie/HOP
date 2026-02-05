@@ -12,7 +12,7 @@ namespace Game.Social {
         public static VoiceManager Instance { get; private set; }
 
         private bool IsInitialized { get; set; }
-        private bool IsLoggedIn { get; set; }
+        public bool IsLoggedIn { get; private set; }
         
         // State
         private bool _isMicOpen;
@@ -185,6 +185,9 @@ namespace Game.Social {
 
         private void UpdatePosition() {
             if(!IsLoggedIn || string.IsNullOrEmpty(_currentChannelName)) return;
+
+            // Verify channel is actually joined before calling Set3DPosition
+            if(!VivoxService.Instance.ActiveChannels.ContainsKey(_currentChannelName)) return;
 
             // Update 3D position if in a positional channel (assuming Camera/Player position)
             // TODO: Get actual player head transform

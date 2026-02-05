@@ -183,8 +183,12 @@ namespace Game.Weapons {
 
             // Determine target bob intensity based on speed
             // Disable bob when not grounded OR when sliding
+            // Allow bob when wall running (treat like grounded for bobbing purposes)
             var isSliding = _playerController != null && _playerController.MovementController != null && _playerController.MovementController.IsSliding;
-            if(!isGrounded || isSliding) {
+            var isWallRunning = _playerController != null && _playerController.WallRunController != null && _playerController.WallRunController.IsWallRunning;
+            var canBob = isGrounded || isWallRunning;
+            
+            if(!canBob || isSliding) {
                 _targetBobIntensity = 0f;
             } else if(speed < 0.1f) {
                 _targetBobIntensity = 0f;
@@ -198,9 +202,9 @@ namespace Game.Weapons {
             // Smooth intensity transitions
             _currentBobIntensity = Mathf.Lerp(_currentBobIntensity, _targetBobIntensity, smoothSpeed * deltaTime);
 
-            // Calculate dynamic frequency based on speed (only when grounded and moving)
+            // Calculate dynamic frequency based on speed (only when grounded/wall running and moving)
             var currentFrequency = bobFrequency;
-            if(isGrounded && speed > 0.1f) {
+            if(canBob && speed > 0.1f) {
                 // Scale frequency from minFrequency (walking) to maxFrequency (sprinting)
                 if(speed < walkSpeed) {
                     // Walking: frequency scales from minFrequency to base frequency

@@ -457,6 +457,11 @@ namespace Game.UI {
         }
 
         public void UpdateScoreboard() {
+            // Skip if UI not initialized yet (happens during early player spawn)
+            if(_root == null) {
+                return;
+            }
+            
             var allControllers = GetAllPlayerControllers();
 
             // Always check fresh - don't cache game mode
@@ -493,9 +498,11 @@ namespace Game.UI {
 
 
         private void UpdateFfaScoreboard(IReadOnlyCollection<PlayerController> allControllers) {
-            // Null checks for UI elements
+            // Null checks for UI elements (only warn if root is initialized but elements are missing)
             if(_scoreboardContainer == null || _tdmScoreboardContainer == null || _playerRows == null) {
-                Debug.LogWarning("[ScoreboardManager] FFA scoreboard UI elements not initialized");
+                if(_root != null) {
+                    Debug.LogWarning("[ScoreboardManager] FFA scoreboard UI elements not initialized");
+                }
                 return;
             }
 
@@ -586,10 +593,12 @@ namespace Game.UI {
         }
 
         private void UpdateTdmScoreboard(IReadOnlyCollection<PlayerController> allControllers) {
-            // Null checks for UI elements
+            // Null checks for UI elements (only warn if root is initialized but elements are missing)
             if(_scoreboardContainer == null || _tdmScoreboardContainer == null ||
                _enemyTeamRows == null || _yourTeamRows == null) {
-                Debug.LogWarning("[ScoreboardManager] TDM scoreboard UI elements not initialized, falling back to FFA");
+                if(_root != null) {
+                    Debug.LogWarning("[ScoreboardManager] TDM scoreboard UI elements not initialized, falling back to FFA");
+                }
                 UpdateFfaScoreboard(allControllers);
                 return;
             }

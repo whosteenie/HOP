@@ -349,9 +349,14 @@ namespace Game.Hopball {
             Rotation = rotation
         });
 
-        hopballRigidbody.isKinematic = true;
+        // Temporarily set to non-kinematic to allow velocity changes, then set back to kinematic
+        var wasKinematic = hopballRigidbody.isKinematic;
+        if(wasKinematic) {
+            hopballRigidbody.isKinematic = false;
+        }
         hopballRigidbody.linearVelocity = Vector3.zero;
         hopballRigidbody.angularVelocity = Vector3.zero;
+        hopballRigidbody.isKinematic = true;
         godrayEffect.SetActive(true);
     }
 
@@ -691,6 +696,11 @@ namespace Game.Hopball {
         SetupDroppedVisuals(isDrop: false); // Respawn - keep godray enabled
         target.enabled = false;
 
+        // Temporarily set to non-kinematic to allow velocity changes, then set back to kinematic
+        var wasKinematic = hopballRigidbody.isKinematic;
+        if(wasKinematic) {
+            hopballRigidbody.isKinematic = false;
+        }
         hopballRigidbody.linearVelocity = Vector3.zero;
         hopballRigidbody.angularVelocity = Vector3.zero;
         hopballRigidbody.isKinematic = true;

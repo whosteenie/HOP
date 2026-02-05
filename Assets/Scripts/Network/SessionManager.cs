@@ -392,8 +392,8 @@ namespace Network {
                 CurrentLobby.Value.SetData(PartyIdKey, CurrentPartyId);
                 CurrentLobby.Value.SetMemberData(PartyIdKey, CurrentPartyId);
 
-                // Join Voice Channel
-                if (VoiceManager.Instance != null) {
+                // Join Voice Channel (only if logged in, otherwise it will be joined after login)
+                if (VoiceManager.Instance != null && VoiceManager.Instance.IsLoggedIn) {
                     VoiceManager.Instance.JoinChannelAsync("match_" + CurrentLobby.Value.Id).Forget();
                 }
 
