@@ -1,0 +1,7 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" editor-extension-mode="False">
+    <ui:VisualElement name="party-member-row" class="party-member-row" picking-mode="Position">
+        <ui:VisualElement name="avatar-box" class="steam-avatar" picking-mode="Ignore" />
+        <ui:Label text="Player Name" name="player-name-label" class="player-name-label" picking-mode="Ignore" />
+        <ui:VisualElement name="host-icon" class="host-icon hidden" picking-mode="Ignore" />
+    </ui:VisualElement>
+</ui:UXML>

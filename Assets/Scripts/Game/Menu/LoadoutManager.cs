@@ -2,17 +2,26 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using Game.Player;
+using Game.UI;
+using Network.Services;
 using Network.Singletons;
 using Game.Progression;
 using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace Game.Menu {
-    public class LoadoutManager : MonoBehaviour {
+    public class LoadoutManager : UIElementBase {
         [Header("Weapon Data")]
         [SerializeField] private WeaponData[] primaryWeapons;
+
         [SerializeField] private WeaponData[] secondaryWeapons;
         [SerializeField] private WeaponData[] tertiaryWeapons;
+
+        // --- Profile Inspection State ---
+        private bool _isInspectMode = false;
+        private ulong _inspectTargetSteamId;
+        private string _inspectTargetName;
+        // --------------------------------
 
         private readonly Color _progressBarColor = new(1f, 0.392f, 0.392f); // #ff6464
 
@@ -21,16 +30,21 @@ namespace Game.Menu {
 
         [Header("3D Preview")]
         [SerializeField] private Camera previewCamera;
+
         [SerializeField] private Transform previewPositionTransform; // Transform where the preview model should spawn
         [SerializeField] private GameObject playerModelPrefab;
         [SerializeField] private GameObject previewPlayerRoot;
         [SerializeField] private List<GameObject> previewPrimaryWeapons = new();
         [SerializeField] private List<GameObject> previewSecondaryWeapons = new();
-        [SerializeField] private Transform secondaryWeaponParent; // Optional explicit parent for secondary holster models
-        private RenderTexture _previewRenderTexture; // Will be created/updated dynamically
 
-        private UIDocument _uiDocument;
-        private VisualElement _root;
+        [Header("UI Templates")]
+        [SerializeField] private VisualTreeAsset weaponOptionTemplate;
+        [SerializeField] private VisualTreeAsset challengeRowTemplate;
+
+        [SerializeField]
+        private Transform secondaryWeaponParent; // Optional explicit parent for secondary holster models
+
+        private RenderTexture _previewRenderTexture; // Will be created/updated dynamically
 
         // UI Elements
         private TextField _playerNameInput;
@@ -66,15 +80,17 @@ namespace Game.Menu {
         private VisualElement _viewport;
         private const float MinMovementThreshold = 0.5f; // Minimum pixel movement to register as actual drag
         private bool _rotationEnabled = true;
-        
+
         // Bounds cache for preview model anti-culling fix
-        private static readonly Bounds MaxBounds = new(Vector3.zero, new Vector3(float.MaxValue, float.MaxValue, float.MaxValue));
-        
+        private static readonly Bounds MaxBounds = new(Vector3.zero,
+            new Vector3(float.MaxValue, float.MaxValue, float.MaxValue));
+
         // Velocity sampling
         private struct MovementSample {
             public float Time;
             public float X;
         }
+
         private readonly List<MovementSample> _movementSamples = new();
         private const float VelocitySampleWindow = 0.1f; // 100ms window
         private const float RotationSensitivity = 0.5f;
@@ -83,10 +99,10 @@ namespace Game.Menu {
         // Animation state
         private VisualElement _weaponContainer;
         private VisualElement _customizationContainer;
-        private VisualElement _statsContainer; 
+        private VisualElement _statsContainer;
         private VisualElement _challengesContainer; // New: Right side
-        private Button _statsButton; 
-        private bool _showingStats; 
+        private Button _statsButton;
+        private bool _showingStats;
         private VisualElement _nameContainer;
         private VisualElement _backgroundElement;
         private Coroutine _backgroundFadeCoroutine;
@@ -124,41 +140,37 @@ namespace Game.Menu {
         private Button _loadoutUnsavedYes;
         private Button _loadoutUnsavedNo;
         private Button _loadoutUnsavedCancel;
-        
+
         // Preview active tracking for brute force rendering
         private bool _previewActive;
 
-        private void Awake() {
-            _uiDocument = mainMenuManager.uiDocument;
+        protected override void Awake() {
+            base.Awake();
+            if(mainMenuManager != null && uiDocument == null) {
+                uiDocument = mainMenuManager.uiDocument;
+            }
             ResetPreviewCameraTarget();
         }
 
-        private void OnEnable() {
-            _root = _uiDocument.rootVisualElement;
-            SetupUIReferences();
-            SetupEventHandlers();
-            RegisterOutsideClickHandler();
-            LoadSavedLoadout();
-            
+        protected override void OnEnable() {
+            base.OnEnable();
             // Subscribe to resolution changes
             OptionsMenuManager.OnResolutionChanged += OnResolutionChanged;
-            
-            // Apply button is always visible now
+            RegisterCleanup(() => OptionsMenuManager.OnResolutionChanged -= OnResolutionChanged);
         }
 
-        private void OnDisable() {
+        protected override void OnDisable() {
             // Stop brute force rendering
             _previewActive = false;
             _showingStats = false;
 
-            _showingStats = false;
-            _showingStats = false;
-
-            
-            if(_root == null || !_outsideClickHandlerRegistered) return;
-            _root.UnregisterCallback<PointerDownEvent>(OnRootPointerDown, TrickleDown.TrickleDown);
+            if(Root == null || !_outsideClickHandlerRegistered) {
+                base.OnDisable();
+                return;
+            }
+            Root.UnregisterCallback<PointerDownEvent>(OnRootPointerDown, TrickleDown.TrickleDown);
             _outsideClickHandlerRegistered = false;
-            
+
             // Clean up viewport handlers
             if(_viewport != null) {
                 _viewport.UnregisterCallback<PointerDownEvent>(OnViewportPointerDown);
@@ -166,30 +178,46 @@ namespace Game.Menu {
                 _viewport.UnregisterCallback<PointerUpEvent>(OnViewportPointerUp);
                 _viewport.UnregisterCallback<PointerLeaveEvent>(OnViewportPointerLeave);
             }
-            
+
             // Clean up root-level viewport handlers
-            if(_root != null) {
-                _root.UnregisterCallback<PointerDownEvent>(OnRootPointerDownForViewport, TrickleDown.TrickleDown);
-                _root.UnregisterCallback<PointerMoveEvent>(OnRootPointerMoveForViewport, TrickleDown.TrickleDown);
-                _root.UnregisterCallback<PointerUpEvent>(OnRootPointerUpForViewport, TrickleDown.TrickleDown);
+            if(Root != null) {
+                Root.UnregisterCallback<PointerDownEvent>(OnRootPointerDownForViewport, TrickleDown.TrickleDown);
+                Root.UnregisterCallback<PointerMoveEvent>(OnRootPointerMoveForViewport, TrickleDown.TrickleDown);
+                Root.UnregisterCallback<PointerUpEvent>(OnRootPointerUpForViewport, TrickleDown.TrickleDown);
             }
 
             // Unsubscribe from resolution changes
             OptionsMenuManager.OnResolutionChanged -= OnResolutionChanged;
 
             ResetPreviewCameraTarget();
+            base.OnDisable();
         }
-        
-        private void OnDestroy() {
+
+        protected override void OnInitialize() {
+            SetupUIReferences();
+            SetupEventHandlers();
+            RegisterOutsideClickHandler();
+            LoadSavedLoadout();
+        }
+
+        protected override Dictionary<string, System.Type> GetRequiredElements() {
+            return new Dictionary<string, System.Type> {
+                { "weapon-selection-container", typeof(VisualElement) },
+                { "apply-loadout-button", typeof(Button) }
+            };
+        }
+
+        protected override void OnDestroy() {
             ReleasePreviewRenderTexture(true);
+            base.OnDestroy();
         }
 
         public void ShowLoadout() {
             Setup3DPreview();
-            
+
             // Mark preview as active for brute force rendering
             _previewActive = true;
-            
+
             // Reset Stats state (User request: "reset state to showing loadout when re-entering")
             _showingStats = false;
             if(_statsButton != null) _statsButton.text = "CAREER";
@@ -197,22 +225,92 @@ namespace Game.Menu {
             if(_challengesContainer != null) _challengesContainer.style.display = DisplayStyle.None;
             if(_weaponContainer != null) _weaponContainer.style.display = DisplayStyle.Flex;
             if(_customizationContainer != null) _customizationContainer.style.display = DisplayStyle.Flex;
-            
-            // Ensure containers start off-screen the first time
-            if(!_containersInitialized) {
-                SetContainerTranslate(_weaponContainer, WeaponOffscreenPercent);
-                SetContainerTranslate(_customizationContainer, CustomizationOffscreenPercent);
-                SetContainerTranslate(_nameContainer, NameOffscreenPercent);
-                SetContainerTranslate(_statsContainer, WeaponOffscreenPercent); // Stats slides from left
-                SetContainerTranslate(_challengesContainer, CustomizationOffscreenPercent); // Challenges from right
-                _containersInitialized = true;
+
+            // Reload data (Local or Remote based on mode)
+            LoadLoadoutData();
+
+            // Finish init/animation
+            FinishShowLoadout();
+        }
+
+        public void ShowProfileView(ulong steamId, string playerName, bool isEditable) {
+            _isInspectMode = !isEditable;
+            _inspectTargetSteamId = steamId;
+            _inspectTargetName = playerName;
+
+            ShowLoadout();
+
+            if(_isInspectMode) {
+                // Disable editing UI
+                if(_applyLoadoutButton != null) {
+                    _applyLoadoutButton.SetEnabled(false);
+                    _applyLoadoutButton.text = $"VIEWING {playerName.ToUpper()}";
+                }
+                if(_playerNameInput != null) _playerNameInput.isReadOnly = true;
+            } else {
+                // Normal mode
+                if(_applyLoadoutButton != null) {
+                    _applyLoadoutButton.SetEnabled(true);
+                    _applyLoadoutButton.text = "APPLY LOADOUT";
+                }
+                if(_playerNameInput != null) _playerNameInput.isReadOnly = false;
             }
-            
+        }
+
+        private void LoadLoadoutData() {
+            if(_isInspectMode) {
+                LoadRemoteLoadout(_inspectTargetSteamId);
+            } else {
+                LoadLocalLoadout();
+            }
+        }
+
+        private void LoadRemoteLoadout(ulong steamId) {
+            // MOCK DATA for now
+            // In a real implementation, we would fetch this from Steam Lobby Data or NetworkVariable
+            UnityEngine.Random.InitState((int)steamId); // Deterministic mock based on ID
+
+            _selectedPrimaryIndex = UnityEngine.Random.Range(0, primaryWeapons.Length);
+            _selectedSecondaryIndex = UnityEngine.Random.Range(0, secondaryWeapons.Length);
+            _selectedTertiaryIndex = UnityEngine.Random.Range(0, tertiaryWeapons.Length);
+
+            _playerNameInput.value = _inspectTargetName;
+
+            UpdateDropdownSelection(_primaryDropdown, _selectedPrimaryIndex, primaryWeapons);
+            UpdateDropdownSelection(_secondaryDropdown, _selectedSecondaryIndex, secondaryWeapons);
+            UpdateDropdownSelection(_tertiaryDropdown, _selectedTertiaryIndex, tertiaryWeapons);
+
+            UpdateWeaponPreview();
+        }
+
+        private void LoadLocalLoadout() {
+            _selectedPrimaryIndex = PlayerPrefs.GetInt("PrimaryWeaponIndex", 0);
+            _selectedSecondaryIndex = PlayerPrefs.GetInt("SecondaryWeaponIndex", 0);
+            _selectedTertiaryIndex = PlayerPrefs.GetInt("TertiaryWeaponIndex", 0);
+
+            string savedName = PlayerPrefs.GetString("PlayerName", "Player");
+            if(_playerNameInput != null) _playerNameInput.value = savedName;
+
+            UpdateDropdownSelection(_primaryDropdown, _selectedPrimaryIndex, primaryWeapons);
+            UpdateDropdownSelection(_secondaryDropdown, _selectedSecondaryIndex, secondaryWeapons);
+            UpdateDropdownSelection(_tertiaryDropdown, _selectedTertiaryIndex, tertiaryWeapons);
+
+            UpdateWeaponPreview();
+        }
+
+        private void FinishShowLoadout() {
+            // Reset containers to off-screen positions to ensure a consistent slide-in animation
+            SetContainerTranslate(_weaponContainer, WeaponOffscreenPercent);
+            SetContainerTranslate(_customizationContainer, CustomizationOffscreenPercent);
+            SetContainerTranslate(_nameContainer, NameOffscreenPercent);
+            SetContainerTranslate(_statsContainer, WeaponOffscreenPercent); // Stats slides from left
+            SetContainerTranslate(_challengesContainer, CustomizationOffscreenPercent); // Challenges from right
+
             // Stop any slide-out animation and start slide-in
             StopSlideAnimations();
             FadeBackground(true);
             StartSlideIn();
-            
+
             // Start aggressive rendering coroutine for first few seconds
             StartCoroutine(BruteForceInitialRendering());
         }
@@ -240,7 +338,7 @@ namespace Game.Menu {
         private void RecreateRenderTexture(int width, int height) {
             // Release old texture
             ReleasePreviewRenderTexture();
-            
+
             // BRUTE FORCE: Create render texture with explicit settings that work in builds
             // Use ARGB32 format which is most compatible, and ensure it's created properly
             _previewRenderTexture = new RenderTexture(width, height, 24, RenderTextureFormat.ARGB32) {
@@ -249,15 +347,15 @@ namespace Game.Menu {
                 useMipMap = false,
                 autoGenerateMips = false
             };
-            
+
             // BRUTE FORCE: Force the render texture to be created immediately
             _previewRenderTexture.Create();
-            
+
             // Update camera target
             if(previewCamera != null) {
                 previewCamera.targetTexture = _previewRenderTexture;
             }
-            
+
             // Update background image if it exists
             if(_backgroundElement == null || _previewRenderTexture == null) return;
             _backgroundElement.style.backgroundImage =
@@ -289,6 +387,7 @@ namespace Game.Menu {
             if(previewCamera.transform.parent != null) {
                 parentCamera = previewCamera.transform.parent.GetComponent<Camera>();
             }
+
             if(parentCamera != null && parentCamera.targetTexture != null) {
                 parentCamera.targetTexture = null;
             }
@@ -296,10 +395,10 @@ namespace Game.Menu {
 
         private void SetupUIReferences() {
             // Get container references for animations
-            _weaponContainer = _root.Q<VisualElement>("weapon-selection-container");
-            _customizationContainer = _root.Q<VisualElement>("customization-container");
-            _nameContainer = _root.Q<VisualElement>("name-buttons-container");
-            _backgroundElement = _root.Q<VisualElement>("player-model-background");
+            _weaponContainer = QRequired<VisualElement>("weapon-selection-container");
+            _customizationContainer = QOptional<VisualElement>("customization-container");
+            _nameContainer = QOptional<VisualElement>("name-buttons-container");
+            _backgroundElement = QOptional<VisualElement>("player-model-background");
 
             if(_backgroundElement != null) {
                 _backgroundElement.style.opacity = new StyleFloat(0f);
@@ -308,31 +407,52 @@ namespace Game.Menu {
             }
 
             // Unsaved changes modal
-            _loadoutUnsavedModal = _root.Q<VisualElement>("loadout-unsaved-changes-modal");
-            _loadoutUnsavedYes = _root.Q<Button>("loadout-unsaved-yes");
-            _loadoutUnsavedNo = _root.Q<Button>("loadout-unsaved-no");
-            _loadoutUnsavedCancel = _root.Q<Button>("loadout-unsaved-cancel");
+            _loadoutUnsavedModal = QOptional<VisualElement>("loadout-unsaved-changes-modal");
+            _loadoutUnsavedYes = QOptional<Button>("loadout-unsaved-yes");
+            _loadoutUnsavedNo = QOptional<Button>("loadout-unsaved-no");
+            _loadoutUnsavedCancel = QOptional<Button>("loadout-unsaved-cancel");
             if(_loadoutUnsavedYes != null) {
-                _loadoutUnsavedYes.RegisterCallback<ClickEvent>(_ => OnLoadoutUnsavedYes());
-                _loadoutUnsavedYes.RegisterCallback<MouseEnterEvent>(MainMenuManager.MouseEnter);
+                EventCallback<ClickEvent> yesHandler = _ => OnLoadoutUnsavedYes();
+                _loadoutUnsavedYes.RegisterCallback(yesHandler);
+                RegisterCleanup(() => _loadoutUnsavedYes.UnregisterCallback(yesHandler));
+                EventCallback<MouseEnterEvent> yesEnterHandler = MainMenuManager.MouseEnter;
+                _loadoutUnsavedYes.RegisterCallback(yesEnterHandler);
+                RegisterCleanup(() => _loadoutUnsavedYes.UnregisterCallback(yesEnterHandler));
             }
+
             if(_loadoutUnsavedNo != null) {
-                _loadoutUnsavedNo.RegisterCallback<ClickEvent>(_ => OnLoadoutUnsavedNo());
-                _loadoutUnsavedNo.RegisterCallback<MouseEnterEvent>(MainMenuManager.MouseEnter);
-                _loadoutUnsavedCancel.RegisterCallback<MouseEnterEvent>(MainMenuManager.MouseEnter);
+                EventCallback<ClickEvent> noHandler = _ => OnLoadoutUnsavedNo();
+                _loadoutUnsavedNo.RegisterCallback(noHandler);
+                RegisterCleanup(() => _loadoutUnsavedNo.UnregisterCallback(noHandler));
+                EventCallback<MouseEnterEvent> noEnterHandler = MainMenuManager.MouseEnter;
+                _loadoutUnsavedNo.RegisterCallback(noEnterHandler);
+                RegisterCleanup(() => _loadoutUnsavedNo.UnregisterCallback(noEnterHandler));
             }
-            
+            if(_loadoutUnsavedCancel != null) {
+                EventCallback<MouseEnterEvent> cancelEnterHandler = MainMenuManager.MouseEnter;
+                _loadoutUnsavedCancel.RegisterCallback(cancelEnterHandler);
+                RegisterCleanup(() => _loadoutUnsavedCancel.UnregisterCallback(cancelEnterHandler));
+            }
+
             // NEW: Stats Button
             _statsButton = new Button { text = "CAREER" };
             _statsButton.AddToClassList("menu-chip");
             _statsButton.AddToClassList("menu-chip-enabled");
             _statsButton.style.height = 50;
             _statsButton.style.width = 120;
-            _statsButton.clicked += ToggleStats;
-            _statsButton.RegisterCallback<MouseEnterEvent>(MainMenuManager.MouseEnter);
-            
+            System.Action statsClickHandler = () => {
+                // Play positive sound when going to career, negative when going back to loadout
+                UISoundService.PlayButtonClick(isBack: _showingStats);
+                ToggleStats();
+            };
+            _statsButton.clicked += statsClickHandler;
+            RegisterCleanup(() => _statsButton.clicked -= statsClickHandler);
+            EventCallback<MouseEnterEvent> statsEnterHandler = MainMenuManager.MouseEnter;
+            _statsButton.RegisterCallback(statsEnterHandler);
+            RegisterCleanup(() => _statsButton.UnregisterCallback(statsEnterHandler));
+
             // Insert Stats button into Name Container (index 1, after Back button)
-            if (_nameContainer != null) {
+            if(_nameContainer != null) {
                 // Ensure we don't duplicate if OnEnable runs multiple times without full reload
                 // Helper to check children? Standard approach is Clear or Check.
                 // Since this runs on OnEnable, and we might destroy/recreated UIs...
@@ -343,66 +463,70 @@ namespace Game.Menu {
                 // BETTER: Don't rely on index.
                 bool hasStats = false;
                 foreach(var child in _nameContainer.Children()) {
-                     if (child == _statsButton) hasStats = true;
+                    if(child == _statsButton) hasStats = true;
                 }
-                if (!hasStats) _nameContainer.Insert(1, _statsButton);
+
+                if(!hasStats) _nameContainer.Insert(1, _statsButton);
             }
 
             // Create Stats Container
             BuildStatsUI();
-            
+
             // Containers start off-screen via USS, no need to initialize positions here
-            
-            // Name input
-            _playerNameInput = _root.Q<TextField>("player-name-input");
-            _applyLoadoutButton = _root.Q<Button>("apply-loadout-button");
-            
-            if(_applyLoadoutButton != null) {
-                // Unregister any existing handlers first
-                _applyLoadoutButton.clicked -= OnApplyLoadoutClicked;
-                _applyLoadoutButton.UnregisterCallback<MouseEnterEvent>(MainMenuManager.MouseEnter);
-                
-                // Register handlers
-                _applyLoadoutButton.clicked += () => {
-                    if(mainMenuManager != null) {
-                        MainMenuManager.OnButtonClicked();
-                    }
-                    OnApplyLoadoutClicked();
-                };
-                _applyLoadoutButton.RegisterCallback<MouseEnterEvent>(MainMenuManager.MouseEnter);
-            } else {
-                Debug.LogError("[LoadoutManager] Apply button not found!");
+
+            // Name input - Deprecated/Hidden as we now use Steam names
+            if(_playerNameInput != null) {
+                EventCallback<ChangeEvent<string>> nameHandler = evt => OnNameChanged(evt.newValue);
+                _playerNameInput.RegisterValueChangedCallback(nameHandler);
+                RegisterCleanup(() => _playerNameInput.UnregisterCallback(nameHandler));
+                _playerNameInput.style.display = DisplayStyle.None;
             }
 
+            _applyLoadoutButton = QRequired<Button>("apply-loadout-button");
+
+            System.Action applyClickHandler = () => {
+                if(mainMenuManager != null) {
+                    MainMenuManager.OnButtonClicked();
+                }
+                OnApplyLoadoutClicked();
+            };
+            _applyLoadoutButton.clicked += applyClickHandler;
+            RegisterCleanup(() => _applyLoadoutButton.clicked -= applyClickHandler);
+            EventCallback<MouseEnterEvent> applyEnterHandler = MainMenuManager.MouseEnter;
+            _applyLoadoutButton.RegisterCallback(applyEnterHandler);
+            RegisterCleanup(() => _applyLoadoutButton.UnregisterCallback(applyEnterHandler));
+
             // Weapon slots (main equipped slot)
-            _primarySlot = _root.Q<VisualElement>("primary-weapon-slot");
-            _secondarySlot = _root.Q<VisualElement>("secondary-weapon-slot");
-            _tertiarySlot = _root.Q<VisualElement>("tertiary-weapon-slot");
+            _primarySlot = QOptional<VisualElement>("primary-weapon-slot");
+            _secondarySlot = QOptional<VisualElement>("secondary-weapon-slot");
+            _tertiarySlot = QOptional<VisualElement>("tertiary-weapon-slot");
 
-            _primaryDropdown = _root.Q<VisualElement>("primary-dropdown");
-            _secondaryDropdown = _root.Q<VisualElement>("secondary-dropdown");
-            _tertiaryDropdown = _root.Q<VisualElement>("tertiary-dropdown");
+            _primaryDropdown = QOptional<VisualElement>("primary-dropdown");
+            _secondaryDropdown = QOptional<VisualElement>("secondary-dropdown");
+            _tertiaryDropdown = QOptional<VisualElement>("tertiary-dropdown");
             _primaryDropdownScroll = _primaryDropdown != null ? _primaryDropdown.Q<ScrollView>("primary-scroll") : null;
-            _secondaryDropdownScroll = _secondaryDropdown != null ? _secondaryDropdown.Q<ScrollView>("secondary-scroll") : null;
-            _tertiaryDropdownScroll = _tertiaryDropdown != null ? _tertiaryDropdown.Q<ScrollView>("tertiary-scroll") : null;
+            _secondaryDropdownScroll =
+                _secondaryDropdown != null ? _secondaryDropdown.Q<ScrollView>("secondary-scroll") : null;
+            _tertiaryDropdownScroll =
+                _tertiaryDropdown != null ? _tertiaryDropdown.Q<ScrollView>("tertiary-scroll") : null;
 
-            _primaryWeaponImage = _root.Q<Image>("primary-weapon-image");
-            _secondaryWeaponImage = _root.Q<Image>("secondary-weapon-image");
-            _tertiaryWeaponImage = _root.Q<Image>("tertiary-weapon-image");
+            _primaryWeaponImage = QOptional<Image>("primary-weapon-image");
+            _secondaryWeaponImage = QOptional<Image>("secondary-weapon-image");
+            _tertiaryWeaponImage = QOptional<Image>("tertiary-weapon-image");
 
             // Back button
-            _backLoadoutButton = _root.Q<Button>("back-to-main-from-loadout");
+            _backLoadoutButton = QOptional<Button>("back-to-main-from-loadout");
             if(_backLoadoutButton != null) {
                 // Unregister any existing handlers first
                 _backLoadoutButton.clicked -= OnBackClicked;
                 _backLoadoutButton.UnregisterCallback<MouseEnterEvent>(MainMenuManager.MouseEnter);
-                
+
                 // Register handlers
                 _backLoadoutButton.clicked += () => {
-                    Debug.Log("[LoadoutManager] Back button clicked");
                     if(mainMenuManager != null) {
                         MainMenuManager.OnButtonClicked(true);
                     }
+
                     OnBackClicked();
                 };
                 _backLoadoutButton.RegisterCallback<MouseEnterEvent>(MainMenuManager.MouseEnter);
@@ -438,18 +562,23 @@ namespace Game.Menu {
         }
 
         private void RegisterOutsideClickHandler() {
-            if(_outsideClickHandlerRegistered || _root == null) return;
-            _root.RegisterCallback<PointerDownEvent>(OnRootPointerDown, TrickleDown.TrickleDown);
+            if(_outsideClickHandlerRegistered || Root == null) return;
+            Root.RegisterCallback<PointerDownEvent>(OnRootPointerDown, TrickleDown.TrickleDown);
+            RegisterCleanup(() => {
+                if(Root != null) {
+                    Root.UnregisterCallback<PointerDownEvent>(OnRootPointerDown, TrickleDown.TrickleDown);
+                }
+            });
             _outsideClickHandlerRegistered = true;
         }
 
         private void LoadSavedLoadout() {
-            // Load name
-            _savedPlayerName = PlayerPrefs.GetString("PlayerName", "Player");
+            // Name - Deprecated execution, we just set default "Player" internally or ignore
+            _savedPlayerName = "Player";
             _currentPlayerName = _savedPlayerName;
 
             if(_playerNameInput != null) {
-                _playerNameInput.value = _currentPlayerName;
+                _playerNameInput.style.display = DisplayStyle.None;
             }
 
             // Load weapons (equipped weapon index saved per slot)
@@ -474,23 +603,24 @@ namespace Game.Menu {
         }
 
         private void OnApplyLoadoutClicked() {
-            // Save name
-            _savedPlayerName = _currentPlayerName;
-            PlayerPrefs.SetString("PlayerName", _savedPlayerName);
-            
+            // Deprecated: Custom name saving
+            // _savedPlayerName = _currentPlayerName;
+            // PlayerPrefs.SetString("PlayerName", _savedPlayerName);
+
             // Save weapons (already saved when selected, but ensure they're current)
             PlayerPrefs.SetInt("PrimaryWeaponIndex", _selectedPrimaryIndex);
             PlayerPrefs.SetInt("SecondaryWeaponIndex", _selectedSecondaryIndex);
             PlayerPrefs.SetInt("TertiaryWeaponIndex", _selectedTertiaryIndex);
-            
+
             // Save customization (apply customization changes)
             var customizationManager = FindFirstObjectByType<CharacterCustomizationManager>();
             if(customizationManager != null) {
                 customizationManager.ApplyCustomization();
             }
-            
+
             PlayerPrefs.Save();
-            Debug.Log($"[LoadoutManager] All loadout settings saved: Name={_savedPlayerName}, Weapons={_selectedPrimaryIndex}/{_selectedSecondaryIndex}/{_selectedTertiaryIndex}");
+            Debug.Log(
+                $"[LoadoutManager] All loadout settings saved: Name={_savedPlayerName}, Weapons={_selectedPrimaryIndex}/{_selectedSecondaryIndex}/{_selectedTertiaryIndex}");
 
             _savedPrimaryIndex = _selectedPrimaryIndex;
             _savedSecondaryIndex = _selectedSecondaryIndex;
@@ -545,7 +675,7 @@ namespace Game.Menu {
 
             var container = scroll.contentContainer;
             container.Clear();
-            
+
             // Set container to horizontal layout
             container.style.flexDirection = FlexDirection.Row;
 
@@ -557,13 +687,23 @@ namespace Game.Menu {
             for(var i = 0; i < weapons.Length; i++) {
                 if(i == selectedIndex) continue;
 
-                var weaponOption = new VisualElement();
-                weaponOption.AddToClassList("weapon-option");
+                VisualElement weaponOption;
+                Image weaponImage;
 
-                var weaponImage = new Image();
-                weaponImage.AddToClassList("weapon-option-image");
-                weaponImage.sprite = weapons[i].icon;
-                weaponOption.Add(weaponImage);
+                if(weaponOptionTemplate != null) {
+                    weaponOption = weaponOptionTemplate.CloneTree();
+                    weaponImage = weaponOption.Q<Image>("weapon-image");
+                } else {
+                    weaponOption = new VisualElement();
+                    weaponOption.AddToClassList("weapon-option");
+                    weaponImage = new Image();
+                    weaponImage.AddToClassList("weapon-option-image");
+                    weaponOption.Add(weaponImage);
+                }
+
+                if(weaponImage != null && weapons[i].icon != null) {
+                    weaponImage.sprite = weapons[i].icon;
+                }
 
                 var index = i;
                 weaponOption.RegisterCallback<ClickEvent>(evt => {
@@ -582,12 +722,15 @@ namespace Game.Menu {
             if(_primaryDropdown != null) {
                 _primaryDropdown.AddToClassList("hidden");
             }
+
             if(_secondaryDropdown != null) {
                 _secondaryDropdown.AddToClassList("hidden");
             }
+
             if(_tertiaryDropdown != null) {
                 _tertiaryDropdown.AddToClassList("hidden");
             }
+
             SetSlotDropdownOpen(_primaryDropdown, false);
             SetSlotDropdownOpen(_secondaryDropdown, false);
             SetSlotDropdownOpen(_tertiaryDropdown, false);
@@ -731,6 +874,7 @@ namespace Game.Menu {
             if(previewCamera.transform.parent != null) {
                 mainCam = previewCamera.transform.parent.GetComponent<Camera>();
             }
+
             if(mainCam != null) {
                 mainCam.enabled = true;
             }
@@ -738,9 +882,9 @@ namespace Game.Menu {
             // Create or update render texture to match current screen resolution
             var screenWidth = Screen.width;
             var screenHeight = Screen.height;
-            
-            if(_previewRenderTexture == null || 
-               _previewRenderTexture.width != screenWidth || 
+
+            if(_previewRenderTexture == null ||
+               _previewRenderTexture.width != screenWidth ||
                _previewRenderTexture.height != screenHeight) {
                 RecreateRenderTexture(screenWidth, screenHeight);
             }
@@ -748,14 +892,14 @@ namespace Game.Menu {
             // BRUTE FORCE: Ensure camera can see everything - set culling mask to Everything
             // This ensures the model is visible regardless of layer
             previewCamera.cullingMask = -1; // Everything
-            
+
             // Ensure preview camera is enabled and rendering to RenderTexture
             previewCamera.targetTexture = _previewRenderTexture;
             previewCamera.enabled = true;
-            
+
             // BRUTE FORCE: Force camera to render immediately
             previewCamera.Render();
-            
+
             // Don't render here - model isn't set up yet! Render after setup completes.
 
             if(_previewPlayerModel == null) {
@@ -765,7 +909,7 @@ namespace Game.Menu {
                 } else if(playerModelPrefab != null) {
                     Vector3 modelPosition;
                     Quaternion modelRotation;
-                    
+
                     if(previewPositionTransform != null) {
                         modelPosition = previewPositionTransform.position;
                         modelRotation = previewPositionTransform.rotation;
@@ -773,14 +917,14 @@ namespace Game.Menu {
                         modelPosition = Vector3.zero;
                         modelRotation = Quaternion.Euler(0, 180, 0);
                     }
-                    
+
                     _previewPlayerModel = Instantiate(playerModelPrefab, modelPosition, modelRotation);
                 } else {
                     Debug.LogWarning("[LoadoutManager] No preview player root or prefab assigned.");
                     return;
                 }
             }
-            
+
             // BRUTE FORCE: Ensure model is definitely active and visible
             if(_previewPlayerModel != null) {
                 _previewPlayerModel.SetActive(true);
@@ -791,25 +935,26 @@ namespace Game.Menu {
                         r.enabled = true;
                     }
                 }
+
                 // Cache SkinnedMeshRenderers for update loop
                 _cachedPreviewRenderers = _previewPlayerModel.GetComponentsInChildren<SkinnedMeshRenderer>(true);
             }
-            
+
             // Cache initial rotation from editor/prefab (only on first setup)
             if(_previewPlayerModel != null && !_hasCachedInitialRotation) {
                 _initialRotationY = _previewPlayerModel.transform.rotation.eulerAngles.y;
                 _hasCachedInitialRotation = true;
             }
-            
+
             // Sync _rotationY with model's actual rotation to prevent first-rotation snap
             // This ensures _rotationY matches the model's current rotation state
             if(_previewPlayerModel != null) {
                 _rotationY = _previewPlayerModel.transform.rotation.eulerAngles.y;
             }
-            
+
             // Apply bounds update to prevent culling (same treatment as real player models)
             ForcePreviewModelBoundsUpdate();
-            
+
             // Material at index 1 should be set to "None" in the prefab for verification
             // We'll apply the new material packet system via UpdatePlayerModel()
             CachePreviewWeaponModels();
@@ -820,15 +965,15 @@ namespace Game.Menu {
             _isDragging = false;
 
             // Set up the background (full-screen display) and viewport (input detection)
-            var background = _root.Q<VisualElement>("player-model-background");
-            _viewport = _root.Q<VisualElement>("player-model-viewport");
-            var uiOverlay = _root.Q<VisualElement>("ui-overlay");
-            
+            var background = QOptional<VisualElement>("player-model-background");
+            _viewport = QOptional<VisualElement>("player-model-viewport");
+            var uiOverlay = QOptional<VisualElement>("ui-overlay");
+
             // Set overlay picking mode to ignore so events can pass through
             if(uiOverlay != null) {
                 uiOverlay.pickingMode = PickingMode.Ignore;
             }
-            
+
             // Set the render texture as background on the full-screen element
             if(background != null && _previewRenderTexture != null) {
                 // CRITICAL: Ensure background is visible immediately (even if transparent)
@@ -839,52 +984,54 @@ namespace Game.Menu {
                 background.style.backgroundImage =
                     new StyleBackground(Background.FromRenderTexture(_previewRenderTexture));
                 background.pickingMode = PickingMode.Ignore; // Don't capture input, just display
-                
+
                 // BRUTE FORCE: Force UI to update immediately
                 background.MarkDirtyRepaint();
             } else {
-                Debug.LogError($"[LoadoutManager] Background or RenderTexture is null! Background: {background != null}, RenderTexture: {_previewRenderTexture != null}");
+                Debug.LogError(
+                    $"[LoadoutManager] Background or RenderTexture is null! Background: {background != null}, RenderTexture: {_previewRenderTexture != null}");
             }
-            
+
             // Setup viewport for input detection only
             if(_viewport != null && _previewRenderTexture != null) {
                 // CRITICAL: Set picking mode to Position so we can receive mouse events for rotation
                 _viewport.pickingMode = PickingMode.Position;
-                
+
                 // Ensure the viewport can receive input events
                 _viewport.focusable = false; // Don't make it focusable, just receive pointer events
-                
+
                 // Make sure viewport is visible and can receive events
                 _viewport.style.display = DisplayStyle.Flex;
                 _viewport.style.visibility = Visibility.Visible;
-                
+
                 // Unregister any existing handlers first to avoid duplicates
                 _viewport.UnregisterCallback<PointerDownEvent>(OnViewportPointerDown);
                 _viewport.UnregisterCallback<PointerMoveEvent>(OnViewportPointerMove);
                 _viewport.UnregisterCallback<PointerUpEvent>(OnViewportPointerUp);
                 _viewport.UnregisterCallback<PointerLeaveEvent>(OnViewportPointerLeave);
-                
+
                 // Setup rotation handlers - register with default propagation
                 _viewport.RegisterCallback<PointerDownEvent>(OnViewportPointerDown);
                 _viewport.RegisterCallback<PointerMoveEvent>(OnViewportPointerMove);
                 _viewport.RegisterCallback<PointerUpEvent>(OnViewportPointerUp);
                 _viewport.RegisterCallback<PointerLeaveEvent>(OnViewportPointerLeave);
-                
+
                 // Also try registering on root to catch events that might be blocked
-                if(_root != null) {
-                    _root.RegisterCallback<PointerDownEvent>(OnRootPointerDownForViewport, TrickleDown.TrickleDown);
-                    _root.RegisterCallback<PointerMoveEvent>(OnRootPointerMoveForViewport, TrickleDown.TrickleDown);
-                    _root.RegisterCallback<PointerUpEvent>(OnRootPointerUpForViewport, TrickleDown.TrickleDown);
+                if(Root != null) {
+                    Root.RegisterCallback<PointerDownEvent>(OnRootPointerDownForViewport, TrickleDown.TrickleDown);
+                    Root.RegisterCallback<PointerMoveEvent>(OnRootPointerMoveForViewport, TrickleDown.TrickleDown);
+                    Root.RegisterCallback<PointerUpEvent>(OnRootPointerUpForViewport, TrickleDown.TrickleDown);
                 }
             } else {
-                Debug.LogWarning($"[LoadoutManager] Viewport or RenderTexture is null! Viewport: {_viewport != null}, RenderTexture: {_previewRenderTexture != null}");
+                Debug.LogWarning(
+                    $"[LoadoutManager] Viewport or RenderTexture is null! Viewport: {_viewport != null}, RenderTexture: {_previewRenderTexture != null}");
             }
 
             UpdatePlayerModel();
-            
+
             // Force another bounds update after material is applied (in case material changes affect bounds)
             StartCoroutine(DelayedPreviewBoundsUpdate());
-            
+
             // BRUTE FORCE: Multiple renders to ensure capture
             // When a camera with targetTexture is enabled and objects are instantiated in the same frame,
             // Unity's automatic rendering can occur before the objects exist, resulting in an empty frame.
@@ -894,7 +1041,7 @@ namespace Game.Menu {
             // Force bounds update right before rendering to prevent culling
             // Unity can recalculate bounds from the mesh, overriding our MaxBounds setting
             ForcePreviewModelBoundsUpdate();
-                
+
             // Render multiple times immediately
             for(var i = 0; i < 3; i++) {
                 previewCamera.Render();
@@ -934,6 +1081,7 @@ namespace Game.Menu {
             if(PlayerMaterialPacketManager.Instance != null) {
                 packet = PlayerMaterialPacketManager.Instance.GetPacket(packetIndex);
             }
+
             if(packet == null) {
                 Debug.LogWarning("[LoadoutManager] Could not load material packet for preview model.");
                 return;
@@ -955,7 +1103,8 @@ namespace Game.Menu {
                 materials[1] = generatedMaterial;
                 skinnedRenderer.materials = materials;
             } else {
-                Debug.LogWarning("[LoadoutManager] Preview player model does not have enough material slots for customization.");
+                Debug.LogWarning(
+                    "[LoadoutManager] Preview player model does not have enough material slots for customization.");
             }
         }
 
@@ -972,6 +1121,7 @@ namespace Game.Menu {
                     weapon.SetActive(false);
                     _previewWeaponModels.Add(weapon);
                 }
+
                 return;
             }
 
@@ -979,7 +1129,8 @@ namespace Game.Menu {
 
             var weaponSocket = _previewPlayerModel.transform.Find("WeaponSocket");
             if(weaponSocket == null) {
-                Debug.LogWarning("[LoadoutManager] WeaponSocket not found on preview model, and no weapons assigned in inspector.");
+                Debug.LogWarning(
+                    "[LoadoutManager] WeaponSocket not found on preview model, and no weapons assigned in inspector.");
                 return;
             }
 
@@ -999,6 +1150,7 @@ namespace Game.Menu {
                     weapon.SetActive(false);
                     _previewSecondaryWeaponModels.Add(weapon);
                 }
+
                 return;
             }
 
@@ -1009,7 +1161,8 @@ namespace Game.Menu {
                 : FindChildRecursive(_previewPlayerModel.transform, "hip");
 
             if(parent == null) {
-                Debug.LogWarning("[LoadoutManager] Secondary weapon parent not found on preview model. Assign it in inspector for accurate holster previews.");
+                Debug.LogWarning(
+                    "[LoadoutManager] Secondary weapon parent not found on preview model. Assign it in inspector for accurate holster previews.");
                 return;
             }
 
@@ -1080,7 +1233,8 @@ namespace Game.Menu {
         /// <summary>
         /// Public method to update the preview model material. Called by CharacterCustomizationManager when settings change.
         /// </summary>
-        public void UpdatePreviewModelMaterial(int packetIndex, Color baseColor, float smoothness, float metallic, Color specularColor, float heightStrength, bool emissionEnabled, Color emissionColor) {
+        public void UpdatePreviewModelMaterial(int packetIndex, Color baseColor, float smoothness, float metallic,
+            Color specularColor, float heightStrength, bool emissionEnabled, Color emissionColor) {
             if(_previewPlayerModel == null) return;
 
             var skinnedRenderer = _previewPlayerModel.GetComponentInChildren<SkinnedMeshRenderer>();
@@ -1090,6 +1244,7 @@ namespace Game.Menu {
             if(PlayerMaterialPacketManager.Instance != null) {
                 packet = PlayerMaterialPacketManager.Instance.GetPacket(packetIndex);
             }
+
             if(packet == null) {
                 Debug.LogWarning("[LoadoutManager] Could not load material packet for preview model.");
                 return;
@@ -1111,7 +1266,8 @@ namespace Game.Menu {
                 materials[1] = generatedMaterial;
                 skinnedRenderer.materials = materials;
             } else {
-                Debug.LogWarning("[LoadoutManager] Preview player model does not have enough material slots for customization.");
+                Debug.LogWarning(
+                    "[LoadoutManager] Preview player model does not have enough material slots for customization.");
             }
         }
 
@@ -1138,94 +1294,94 @@ namespace Game.Menu {
                 // If it's zero, no spin. If non-zero, deceleration will happen in Update()
             }
         }
-        
+
         // Root-level handlers to catch events that might be blocked
         private void OnRootPointerDownForViewport(PointerDownEvent evt) {
             if(_viewport == null || _previewPlayerModel == null) return;
-            
+
             // Check if the click is within the viewport bounds using layout
             var viewportRect = _viewport.layout;
             var clickPos = evt.position;
-            
+
             // Check if click is within viewport bounds
             if(!(clickPos.x >= viewportRect.xMin) || !(clickPos.x <= viewportRect.xMax) ||
                !(clickPos.y >= viewportRect.yMin) || !(clickPos.y <= viewportRect.yMax)) return;
-            Debug.Log($"[LoadoutManager] OnRootPointerDownForViewport - Click detected in viewport area at {clickPos}, Viewport bounds: {viewportRect}");
+            
             // Create a synthetic event for the viewport handler
             HandleViewportPointerDown(clickPos);
         }
-        
+
         private void OnRootPointerMoveForViewport(PointerMoveEvent evt) {
             if(_viewport == null || !_isDragging || _previewPlayerModel == null) return;
-            
+
             // Check if the move is within the viewport bounds
             var viewportRect = _viewport.layout;
             var movePos = evt.position;
-            
+
             if(movePos.x >= viewportRect.xMin && movePos.x <= viewportRect.xMax &&
                movePos.y >= viewportRect.yMin && movePos.y <= viewportRect.yMax) {
                 HandleViewportPointerMove(movePos);
             }
         }
-        
+
         private void OnRootPointerUpForViewport(PointerUpEvent evt) {
             if(_viewport == null || !_isDragging) return;
-            
+
             // Check if the release is within the viewport bounds
             var viewportRect = _viewport.layout;
             var upPos = evt.position;
-            
+
             if(upPos.x >= viewportRect.xMin && upPos.x <= viewportRect.xMax &&
                upPos.y >= viewportRect.yMin && upPos.y <= viewportRect.yMax) {
                 HandleViewportPointerUp();
             }
         }
-        
+
         // Helper methods that don't rely on event target
         private void HandleViewportPointerDown(Vector2 position) {
             if(_previewPlayerModel == null || !_rotationEnabled) {
                 Debug.LogWarning("[LoadoutManager] HandleViewportPointerDown called but model is null!");
                 return;
             }
-            
+
             // If model is spinning, stop it immediately
             _currentRotationVelocity = 0f;
-            
+
             // Start dragging
             _isDragging = true;
             _lastMousePosition = position;
-            
+
             // Initialize sampling
             _movementSamples.Clear();
             _movementSamples.Add(new MovementSample { Time = Time.time, X = position.x });
         }
-        
+
         private void HandleViewportPointerMove(Vector2 position) {
             if(!_isDragging || _previewPlayerModel == null || !_rotationEnabled) return;
-            
+
             var deltaX = position.x - _lastMousePosition.x;
-            
+
             // Add sample
             var now = Time.time;
             _movementSamples.Add(new MovementSample { Time = now, X = position.x });
-            
+
             // Prune old samples
             for(var i = _movementSamples.Count - 1; i >= 0; i--) {
-                if (now - _movementSamples[i].Time > VelocitySampleWindow) {
+                if(now - _movementSamples[i].Time > VelocitySampleWindow) {
                     _movementSamples.RemoveAt(i);
                 }
             }
-            
+
             // Only update rotation if there's actual movement
             if(Mathf.Abs(deltaX) > MinMovementThreshold) {
                 // Reverse direction: negative deltaX rotates right (positive Y rotation)
                 _rotationY -= deltaX * RotationSensitivity;
                 _previewPlayerModel.transform.rotation = Quaternion.Euler(0, _rotationY, 0);
             }
-            
+
             _lastMousePosition = position;
         }
-        
+
         private void HandleViewportPointerUp() {
             if(!_rotationEnabled) {
                 _isDragging = false;
@@ -1235,26 +1391,26 @@ namespace Game.Menu {
 
             if(!_isDragging) return;
             _isDragging = false;
-                
+
             // Calculate velocity from samples
             var now = Time.time;
-                
+
             // Prune old samples first
-            for (var i = _movementSamples.Count - 1; i >= 0; i--) {
-                if (now - _movementSamples[i].Time > VelocitySampleWindow) {
+            for(var i = _movementSamples.Count - 1; i >= 0; i--) {
+                if(now - _movementSamples[i].Time > VelocitySampleWindow) {
                     _movementSamples.RemoveAt(i);
                 }
             }
-                
-            if (_movementSamples.Count >= 2) {
+
+            if(_movementSamples.Count >= 2) {
                 var first = _movementSamples[0];
                 var last = _movementSamples[^1];
                 var timeDelta = last.Time - first.Time;
-                    
-                if (timeDelta > 0.001f) {
+
+                if(timeDelta > 0.001f) {
                     var distDelta = last.X - first.X;
                     var pixelsPerSec = distDelta / timeDelta;
-                        
+
                     // Convert to degrees per second
                     // Note: Negative sign because dragging left (negative X) should rotate right (positive Y)
                     _currentRotationVelocity = -pixelsPerSec * RotationSensitivity;
@@ -1279,7 +1435,7 @@ namespace Game.Menu {
                 // Always update bounds to prevent culling
                 // Unity can recalculate bounds from the mesh, overriding our MaxBounds setting
                 ForcePreviewModelBoundsUpdate();
-                
+
                 // BRUTE FORCE: Force render every single frame when preview is active
                 // In builds, cameras with RenderTexture targets don't always render automatically
                 // This ensures the preview is always visible, even on game launch
@@ -1287,25 +1443,25 @@ namespace Game.Menu {
                     previewCamera.Render();
                 }
             }
-            
+
             if(!_rotationEnabled) return;
 
             // Handle deceleration when not dragging
             if(_isDragging || !(Mathf.Abs(_currentRotationVelocity) > 0.1f) || _previewPlayerModel == null) return;
             _rotationY += _currentRotationVelocity * Time.deltaTime;
             _previewPlayerModel.transform.rotation = Quaternion.Euler(0, _rotationY, 0);
-                
+
             // Apply friction/deceleration
             // Lerp towards 0 over time
             const float decelerationRate = 2.0f; // Adjust for how quickly it stops
             _currentRotationVelocity = Mathf.Lerp(_currentRotationVelocity, 0f, Time.deltaTime * decelerationRate);
-                
+
             // Stop if velocity is too small
             if(Mathf.Abs(_currentRotationVelocity) < 1f) {
                 _currentRotationVelocity = 0f;
             }
         }
-        
+
         /// <summary>
         /// BRUTE FORCE: Backup render in LateUpdate to ensure it happens after all updates.
         /// This is especially important in builds where render timing can differ from editor.
@@ -1318,7 +1474,7 @@ namespace Game.Menu {
             ForcePreviewModelBoundsUpdate();
             previewCamera.Render();
         }
-        
+
         /// <summary>
         /// BRUTE FORCE: Aggressively render the camera multiple times immediately after setup.
         /// This helps fix visibility issues on game launch where a single render might not be enough.
@@ -1328,9 +1484,10 @@ namespace Game.Menu {
             // This is especially important in builds where timing can be different
             for(var i = 0; i < 20; i++) {
                 yield return null; // Wait a frame
-                
-                if(!_previewActive || previewCamera == null || !previewCamera.enabled || _previewPlayerModel == null) break;
-                
+
+                if(!_previewActive || previewCamera == null || !previewCamera.enabled ||
+                   _previewPlayerModel == null) break;
+
                 // Force bounds update before each render
                 ForcePreviewModelBoundsUpdate();
                 if(_previewRenderTexture != null) {
@@ -1348,24 +1505,26 @@ namespace Game.Menu {
 
             StartCoroutine(HideLoadoutAndSwitchPanel());
         }
-        
+
         private IEnumerator HideLoadoutAndSwitchPanel() {
             // Mark preview as inactive to stop brute force rendering
             _previewActive = false;
-            
+
             // Start slide-out animation immediately
             StopSlideAnimations();
             FadeBackground(false);
             StartSlideOut();
 
             // Show main menu panel immediately
-            var loadoutPanel = _root.Q<VisualElement>("loadout-panel");
+            var loadoutPanel = QOptional<VisualElement>("loadout-panel");
             if(mainMenuManager != null) {
                 mainMenuManager.ShowPanel(mainMenuManager.MainMenuPanel);
             } else {
-                var mainMenuPanel = _root.Q<VisualElement>("main-menu-panel");
-                mainMenuPanel.RemoveFromClassList("hidden");
-                mainMenuPanel.style.display = DisplayStyle.Flex;
+                var mainMenuPanel = QOptional<VisualElement>("main-menu-panel");
+                if(mainMenuPanel != null) {
+                    mainMenuPanel.RemoveFromClassList("hidden");
+                    mainMenuPanel.style.display = DisplayStyle.Flex;
+                }
             }
 
             // Keep loadout panel visible for animation
@@ -1383,12 +1542,13 @@ namespace Game.Menu {
             loadoutPanel.AddToClassList("hidden");
             loadoutPanel.style.display = StyleKeyword.Null;
         }
-        
+
         private void StopSlideAnimations() {
             if(_slideInCoroutine != null) {
                 StopCoroutine(_slideInCoroutine);
                 _slideInCoroutine = null;
             }
+
             if(_slideOutCoroutine != null) {
                 StopCoroutine(_slideOutCoroutine);
                 _slideOutCoroutine = null;
@@ -1398,15 +1558,15 @@ namespace Game.Menu {
             StopCoroutine(_backgroundFadeCoroutine);
             _backgroundFadeCoroutine = null;
         }
-        
+
         private void StartSlideIn() {
             _slideInCoroutine = StartCoroutine(AnimateContainersSlideIn());
         }
-        
+
         private void StartSlideOut() {
             _slideOutCoroutine = StartCoroutine(AnimateContainersSlideOut());
         }
-        
+
         private static void SetContainerTranslate(VisualElement element, Vector2 percent) {
             if(element == null) return;
             element.style.translate = new StyleTranslate(PercentToTranslate(percent));
@@ -1418,6 +1578,7 @@ namespace Game.Menu {
                 StopCoroutine(_backgroundFadeCoroutine);
                 _backgroundFadeCoroutine = null;
             }
+
             _backgroundFadeCoroutine = StartCoroutine(AnimateBackgroundFade(fadeIn));
         }
 
@@ -1446,7 +1607,7 @@ namespace Game.Menu {
             if(!fadeIn) {
                 _backgroundElement.AddToClassList("hidden");
                 _backgroundElement.style.display = StyleKeyword.Null;
-                
+
                 // Fade-out completed - reset preview rotation to initial value while user is not in loadout
                 // This ensures the rotation is already reset when they re-enter, so they don't see it change
                 // Only reset if the model exists, and we have a cached initial rotation
@@ -1488,6 +1649,7 @@ namespace Game.Menu {
             if(mainMenuManager != null) {
                 MainMenuManager.OnButtonClicked();
             }
+
             OnApplyLoadoutClicked();
             HideLoadoutUnsavedModal();
             StartCoroutine(HideLoadoutAndSwitchPanel());
@@ -1497,6 +1659,7 @@ namespace Game.Menu {
             if(mainMenuManager != null) {
                 MainMenuManager.OnButtonClicked(true);
             }
+
             RevertLoadoutChanges();
             HideLoadoutUnsavedModal();
             StartCoroutine(HideLoadoutAndSwitchPanel());
@@ -1506,6 +1669,7 @@ namespace Game.Menu {
             if(mainMenuManager != null) {
                 MainMenuManager.OnButtonClicked();
             }
+
             HideLoadoutUnsavedModal();
         }
 
@@ -1553,60 +1717,74 @@ namespace Game.Menu {
             var nameStart = GetCurrentTranslatePercent(_nameContainer);
             var statsStart = GetCurrentTranslatePercent(_statsContainer);
             var challengesStart = GetCurrentTranslatePercent(_challengesContainer);
-            
+
             // Target positions (on-screen)
             var weaponTarget = Vector2.zero;
             var customizationTarget = Vector2.zero;
             var nameTarget = Vector2.zero;
             var statsTarget = Vector2.zero;
             var challengesTarget = Vector2.zero;
-            
+
             var elapsed = 0f;
-            
+
             while(elapsed < SlideAnimationDuration) {
                 elapsed += Time.deltaTime;
                 var t = Mathf.SmoothStep(0f, 1f, elapsed / SlideAnimationDuration);
-                
+
                 // Interpolate positions
                 if(_weaponContainer != null) {
-                    _weaponContainer.style.translate = new StyleTranslate(PercentToTranslate(Vector2.Lerp(weaponStart, weaponTarget, t)));
+                    _weaponContainer.style.translate =
+                        new StyleTranslate(PercentToTranslate(Vector2.Lerp(weaponStart, weaponTarget, t)));
                 }
+
                 if(_customizationContainer != null) {
-                    _customizationContainer.style.translate = new StyleTranslate(PercentToTranslate(Vector2.Lerp(customizationStart, customizationTarget, t)));
+                    _customizationContainer.style.translate =
+                        new StyleTranslate(
+                            PercentToTranslate(Vector2.Lerp(customizationStart, customizationTarget, t)));
                 }
+
                 if(_nameContainer != null) {
-                    _nameContainer.style.translate = new StyleTranslate(PercentToTranslate(Vector2.Lerp(nameStart, nameTarget, t)));
+                    _nameContainer.style.translate =
+                        new StyleTranslate(PercentToTranslate(Vector2.Lerp(nameStart, nameTarget, t)));
                 }
+
                 if(_statsContainer != null) {
-                    _statsContainer.style.translate = new StyleTranslate(PercentToTranslate(Vector2.Lerp(statsStart, statsTarget, t)));
+                    _statsContainer.style.translate =
+                        new StyleTranslate(PercentToTranslate(Vector2.Lerp(statsStart, statsTarget, t)));
                 }
+
                 if(_challengesContainer != null) {
-                    _challengesContainer.style.translate = new StyleTranslate(PercentToTranslate(Vector2.Lerp(challengesStart, challengesTarget, t)));
+                    _challengesContainer.style.translate =
+                        new StyleTranslate(PercentToTranslate(Vector2.Lerp(challengesStart, challengesTarget, t)));
                 }
-                
+
                 yield return null;
             }
-            
+
             // Ensure final positions
             if(_weaponContainer != null) {
                 _weaponContainer.style.translate = new StyleTranslate(PercentToTranslate(weaponTarget));
             }
+
             if(_customizationContainer != null) {
                 _customizationContainer.style.translate = new StyleTranslate(PercentToTranslate(customizationTarget));
             }
+
             if(_nameContainer != null) {
                 _nameContainer.style.translate = new StyleTranslate(PercentToTranslate(nameTarget));
             }
+
             if(_statsContainer != null) {
                 _statsContainer.style.translate = new StyleTranslate(PercentToTranslate(statsTarget));
             }
+
             if(_challengesContainer != null) {
                 _challengesContainer.style.translate = new StyleTranslate(PercentToTranslate(challengesTarget));
             }
-            
+
             _slideInCoroutine = null;
         }
-        
+
         private IEnumerator AnimateContainersSlideOut() {
             // Get current positions (in case we're interrupting a slide-in)
             var weaponStart = GetCurrentTranslatePercent(_weaponContainer);
@@ -1614,7 +1792,7 @@ namespace Game.Menu {
             var nameStart = GetCurrentTranslatePercent(_nameContainer);
             var statsStart = GetCurrentTranslatePercent(_statsContainer);
             var challengesStart = GetCurrentTranslatePercent(_challengesContainer);
-            
+
             // Target positions (off-screen)
             var weaponTarget = WeaponOffscreenPercent;
             var customizationTarget = CustomizationOffscreenPercent;
@@ -1623,65 +1801,80 @@ namespace Game.Menu {
             var statsTarget = WeaponOffscreenPercent;
             // Challenges slides out to right
             var challengesTarget = CustomizationOffscreenPercent;
-            
+
             var elapsed = 0f;
-            
+
             while(elapsed < SlideAnimationDuration) {
                 elapsed += Time.deltaTime;
                 var t = Mathf.SmoothStep(0f, 1f, elapsed / SlideAnimationDuration);
-                
+
                 // Interpolate positions
                 if(_weaponContainer != null) {
-                    _weaponContainer.style.translate = new StyleTranslate(PercentToTranslate(Vector2.Lerp(weaponStart, weaponTarget, t)));
+                    _weaponContainer.style.translate =
+                        new StyleTranslate(PercentToTranslate(Vector2.Lerp(weaponStart, weaponTarget, t)));
                 }
+
                 if(_customizationContainer != null) {
-                    _customizationContainer.style.translate = new StyleTranslate(PercentToTranslate(Vector2.Lerp(customizationStart, customizationTarget, t)));
+                    _customizationContainer.style.translate =
+                        new StyleTranslate(
+                            PercentToTranslate(Vector2.Lerp(customizationStart, customizationTarget, t)));
                 }
+
                 if(_nameContainer != null) {
-                    _nameContainer.style.translate = new StyleTranslate(PercentToTranslate(Vector2.Lerp(nameStart, nameTarget, t)));
+                    _nameContainer.style.translate =
+                        new StyleTranslate(PercentToTranslate(Vector2.Lerp(nameStart, nameTarget, t)));
                 }
+
                 if(_statsContainer != null) {
-                    _statsContainer.style.translate = new StyleTranslate(PercentToTranslate(Vector2.Lerp(statsStart, statsTarget, t)));
+                    _statsContainer.style.translate =
+                        new StyleTranslate(PercentToTranslate(Vector2.Lerp(statsStart, statsTarget, t)));
                 }
+
                 if(_challengesContainer != null) {
-                    _challengesContainer.style.translate = new StyleTranslate(PercentToTranslate(Vector2.Lerp(challengesStart, challengesTarget, t)));
+                    _challengesContainer.style.translate =
+                        new StyleTranslate(PercentToTranslate(Vector2.Lerp(challengesStart, challengesTarget, t)));
                 }
-                
+
                 yield return null;
             }
-            
+
             // Ensure final positions
             if(_weaponContainer != null) {
                 _weaponContainer.style.translate = new StyleTranslate(PercentToTranslate(weaponTarget));
             }
+
             if(_customizationContainer != null) {
                 _customizationContainer.style.translate = new StyleTranslate(PercentToTranslate(customizationTarget));
             }
+
             if(_nameContainer != null) {
                 _nameContainer.style.translate = new StyleTranslate(PercentToTranslate(nameTarget));
             }
+
             if(_statsContainer != null) {
                 _statsContainer.style.translate = new StyleTranslate(PercentToTranslate(statsTarget));
             }
+
             if(_challengesContainer != null) {
                 _challengesContainer.style.translate = new StyleTranslate(PercentToTranslate(challengesTarget));
             }
-            
+
             _slideOutCoroutine = null;
         }
-        
+
         private static Vector2 GetCurrentTranslatePercent(VisualElement element) {
             if(element == null) return Vector2.zero;
             var styleTranslate = element.style.translate;
             if(styleTranslate.keyword != StyleKeyword.None) {
                 return Vector2.zero;
             }
+
             var translate = styleTranslate.value;
             var x = translate.x.unit == LengthUnit.Percent ? translate.x.value : 0f;
             var y = translate.y.unit == LengthUnit.Percent ? translate.y.value : 0f;
             return new Vector2(x, y);
         }
-        
+
         private static Translate PercentToTranslate(Vector2 percent) {
             return new Translate(new Length(percent.x, LengthUnit.Percent), new Length(percent.y, LengthUnit.Percent));
         }
@@ -1692,10 +1885,10 @@ namespace Game.Menu {
         /// </summary>
         private void ForcePreviewModelBoundsUpdate() {
             if(_previewPlayerModel == null) return;
-            
+
             // Use cached renderers if available, otherwise fallback (lazy init or expensive call)
             if(_cachedPreviewRenderers == null) {
-                 _cachedPreviewRenderers = _previewPlayerModel.GetComponentsInChildren<SkinnedMeshRenderer>(true);
+                _cachedPreviewRenderers = _previewPlayerModel.GetComponentsInChildren<SkinnedMeshRenderer>(true);
             }
 
             foreach(var smr in _cachedPreviewRenderers) {
@@ -1713,10 +1906,10 @@ namespace Game.Menu {
         private IEnumerator DelayedPreviewBoundsUpdate() {
             // Wait a frame to let Unity position everything
             yield return null;
-            
+
             // Force bounds update again after positioning
             ForcePreviewModelBoundsUpdate();
-            
+
             // Wait another frame and update once more to be thorough
             yield return null;
             ForcePreviewModelBoundsUpdate();
@@ -1725,46 +1918,46 @@ namespace Game.Menu {
         // --- Stats UI Methods ---
 
         private void BuildStatsUI() {
-            var loadoutPanel = _root.Q("loadout-panel");
-            
+            var loadoutPanel = QOptional<VisualElement>("loadout-panel");
+
             // --- Left: Stats Container ---
-            var existingStats = _root.Q<VisualElement>("stats-container");
-            if (existingStats != null) {
+            var existingStats = QOptional<VisualElement>("stats-container");
+            if(existingStats != null) {
                 _statsContainer = existingStats;
-                _statsContainer.Clear(); 
+                _statsContainer.Clear();
             } else {
-                 _statsContainer = new VisualElement();
-                 _statsContainer.name = "stats-container";
-                 _statsContainer.AddToClassList("loadout-edge-container");
-                 _statsContainer.AddToClassList("card"); 
-                 _statsContainer.style.position = Position.Absolute;
-                 _statsContainer.style.left = 20; 
-                 _statsContainer.style.top = 100;
-                 _statsContainer.style.bottom = 20;
-                 _statsContainer.style.width = 450;
-                 _statsContainer.style.display = DisplayStyle.None;
-                 
-                 if (loadoutPanel != null) loadoutPanel.Add(_statsContainer);
-                 else _root.Add(_statsContainer);
+                _statsContainer = new VisualElement();
+                _statsContainer.name = "stats-container";
+                _statsContainer.AddToClassList("loadout-edge-container");
+                _statsContainer.AddToClassList("card");
+                _statsContainer.style.position = Position.Absolute;
+                _statsContainer.style.left = 20;
+                _statsContainer.style.top = 100;
+                _statsContainer.style.bottom = 20;
+                _statsContainer.style.width = 450;
+                _statsContainer.style.display = DisplayStyle.None;
+
+                if(loadoutPanel != null) loadoutPanel.Add(_statsContainer);
+                else Root.Add(_statsContainer);
             }
-            
+
             // Content: Stats
             var title = new Label("CAREER Stats");
             title.AddToClassList("title");
             _statsContainer.Add(title);
-            
+
             // Level
             var levelRow = new VisualElement();
             levelRow.style.flexDirection = FlexDirection.Row;
             levelRow.style.marginBottom = 20;
             _statsContainer.Add(levelRow);
-            
+
             var levelLabel = new Label("LEVEL 1");
             levelLabel.name = "stats-level-label";
             levelLabel.style.fontSize = 24;
             levelLabel.style.marginBottom = 5;
             levelRow.Add(levelLabel);
-            
+
             var xpBar = new ProgressBar();
             xpBar.name = "stats-xp-bar";
             xpBar.style.height = 20;
@@ -1776,12 +1969,12 @@ namespace Game.Menu {
             xpText.name = "stats-xp-text";
             xpText.style.alignSelf = Align.Center;
             _statsContainer.Add(xpText);
-            
+
             // Stats Grid
             var grid = new VisualElement();
             grid.style.marginTop = 30;
             _statsContainer.Add(grid);
-            
+
             CreateStatRow(grid, "Kills", "0", "stats-kills");
             CreateStatRow(grid, "Deaths", "0", "stats-deaths");
             CreateStatRow(grid, "KDR", "0.00", "stats-kdr");
@@ -1790,11 +1983,11 @@ namespace Game.Menu {
             CreateStatRow(grid, "Wins", "0", "stats-wins");
             CreateStatRow(grid, "Losses", "0", "stats-losses");
             CreateStatRow(grid, "OOB Deaths", "0", "stats-oob");
-            
+
             CreateStatRow(grid, "Grapples", "0", "stats-grapples");
             CreateStatRow(grid, "Jump Pads", "0", "stats-jumppads");
             CreateStatRow(grid, "Airtime", "00:00", "stats-airtime");
-            
+
             CreateStatRow(grid, "Playtime", "00:00:00", "stats-playtime");
             CreateStatRow(grid, "Avg Speed", "0.0 m/s", "stats-speed");
             CreateStatRow(grid, "Ball Time", "00:00", "stats-balltime");
@@ -1802,45 +1995,56 @@ namespace Game.Menu {
             CreateStatRow(grid, "Time Tagged", "00:00", "stats-taggedtime");
 
             // --- Right: Challenges Container ---
-            var existingChallenges = _root.Q<VisualElement>("challenges-container");
-            if (existingChallenges != null) {
+            var existingChallenges = QOptional<VisualElement>("challenges-container");
+            if(existingChallenges != null) {
                 _challengesContainer = existingChallenges;
                 _challengesContainer.Clear();
             } else {
-                 _challengesContainer = new VisualElement();
-                 _challengesContainer.name = "challenges-container";
-                 _challengesContainer.AddToClassList("loadout-edge-container");
-                 _challengesContainer.AddToClassList("card");
-                 _challengesContainer.style.position = Position.Absolute;
-                 _challengesContainer.style.right = 20; // Right side
-                 _challengesContainer.style.top = 100;
-                 _challengesContainer.style.bottom = 20;
-                 _challengesContainer.style.width = 450;
-                 _challengesContainer.style.display = DisplayStyle.None;
-                 
-                 if (loadoutPanel != null) loadoutPanel.Add(_challengesContainer);
-                 else _root.Add(_challengesContainer);
+                _challengesContainer = new VisualElement();
+                _challengesContainer.name = "challenges-container";
+                _challengesContainer.AddToClassList("loadout-edge-container");
+                _challengesContainer.AddToClassList("card");
+                _challengesContainer.style.position = Position.Absolute;
+                _challengesContainer.style.right = 20; // Right side
+                _challengesContainer.style.top = 100;
+                _challengesContainer.style.bottom = 20;
+                _challengesContainer.style.width = 450;
+                _challengesContainer.style.display = DisplayStyle.None;
+
+                if(loadoutPanel != null) loadoutPanel.Add(_challengesContainer);
+                else Root.Add(_challengesContainer);
             }
 
-            var cTitle = new Label("Daily Challenges");
-            cTitle.AddToClassList("title");
-            _challengesContainer.Add(cTitle);
-
-            // Daily Challenges List
+            // Single big WIP text that fills the card
+            var wipContainer = new VisualElement {
+                style = {
+                    flexDirection = FlexDirection.Column,
+                    alignItems = Align.Center,
+                    justifyContent = Justify.Center,
+                    flexGrow = 1,
+                    width = Length.Percent(100)
+                }
+            };
+            var wipLabel = new Label("WIP") {
+                style = {
+                    fontSize = 120,
+                    unityFontStyleAndWeight = FontStyle.Bold,
+                    color = new Color(200f/255f, 60f/255f, 60f/255f),
+                    unityTextAlign = TextAnchor.MiddleCenter
+                }
+            };
+            wipContainer.Add(wipLabel);
+            _challengesContainer.Add(wipContainer);
+            
+            // Keep these for UpdateStatsUI compatibility (they won't be used)
             var challengesList = new VisualElement();
             challengesList.name = "stats-challenges-list";
-            challengesList.style.marginTop = 20;
+            challengesList.style.display = DisplayStyle.None;
             _challengesContainer.Add(challengesList);
-            
-            // Weekly Challenges Section
-            var wTitle = new Label("Weekly Challenges");
-            wTitle.AddToClassList("title");
-            wTitle.style.marginTop = 20;
-            _challengesContainer.Add(wTitle);
-            
+
             var weeklyList = new VisualElement();
             weeklyList.name = "stats-weekly-challenges-list";
-            weeklyList.style.marginTop = 10;
+            weeklyList.style.display = DisplayStyle.None;
             _challengesContainer.Add(weeklyList);
         }
 
@@ -1849,24 +2053,24 @@ namespace Game.Menu {
             row.style.flexDirection = FlexDirection.Row;
             row.style.justifyContent = Justify.SpaceBetween;
             row.style.marginBottom = 5;
-            
+
             var l = new Label(label);
             l.style.unityFontStyleAndWeight = FontStyle.Bold;
             row.Add(l);
-            
-            if (!string.IsNullOrEmpty(valueName)) {
+
+            if(!string.IsNullOrEmpty(valueName)) {
                 var v = new Label(value);
                 v.name = valueName;
                 row.Add(v);
             }
-            
+
             parent.Add(row);
         }
 
         private void ToggleStats() {
             _showingStats = !_showingStats;
-            
-            if (_showingStats) {
+
+            if(_showingStats) {
                 UpdateStatsUI();
                 _statsContainer.style.display = DisplayStyle.Flex;
                 _challengesContainer.style.display = DisplayStyle.Flex;
@@ -1883,96 +2087,115 @@ namespace Game.Menu {
         }
 
         private void UpdateStatsUI() {
-            if (Progression.ProgressionManager.Instance == null) return;
-            var pm = Progression.ProgressionManager.Instance;
+            if(ProgressionManager.Instance == null) return;
+            var pm = ProgressionManager.Instance;
             var data = pm.Data;
-            
+
             // Level
             var levelLabel = _statsContainer.Q<Label>("stats-level-label");
-            if (levelLabel != null) levelLabel.text = $"LEVEL {data.level}";
-            
+            if(levelLabel != null) levelLabel.text = $"LEVEL {data.level}";
+
             // XP
             var maxXp = pm.GetXpRequiredForLevel(data.level);
             var bar = _statsContainer.Q<ProgressBar>("stats-xp-bar");
-            if (bar != null) {
+            if(bar != null) {
                 bar.lowValue = 0;
                 bar.highValue = maxXp;
                 bar.value = data.currentXp;
             }
+
             var xpText = _statsContainer.Q<Label>("stats-xp-text");
-            if (xpText != null) xpText.text = $"{data.currentXp} / {maxXp} XP";
+            if(xpText != null) xpText.text = $"{data.currentXp} / {maxXp} XP";
 
             // Basic Stats
             SetLabelText("stats-kills", data.stats.kills.ToString());
             SetLabelText("stats-deaths", data.stats.deaths.ToString());
-            
+
             var kdr = data.stats.deaths > 0 ? (float)data.stats.kills / data.stats.deaths : data.stats.kills;
             SetLabelText("stats-kdr", kdr.ToString("F2"));
-            
+
             SetLabelText("stats-wins", data.stats.wins.ToString());
             SetLabelText("stats-losses", data.stats.losses.ToString());
-            
-            var accuracy = data.stats.shotsFired > 0 
-                ? ((float)data.stats.shotsHit / data.stats.shotsFired) * 100f 
+
+            var accuracy = data.stats.shotsFired > 0
+                ? ((float)data.stats.shotsHit / data.stats.shotsFired) * 100f
                 : 0f;
             SetLabelText("stats-accuracy", $"{accuracy:F1}%");
-            
+
             // New Stats
             SetLabelText("stats-streak", data.stats.highestKillStreak.ToString());
             SetLabelText("stats-oob", data.stats.oobDeaths.ToString());
-            
+
             SetLabelText("stats-grapples", data.stats.grapplesUsed.ToString());
             SetLabelText("stats-jumppads", data.stats.jumpPadsUsed.ToString());
             SetLabelText("stats-airtime", FormatTime(data.stats.totalAirTime));
-            
+
             SetLabelText("stats-playtime", FormatTime(data.stats.totalPlayTimeSeconds));
-            
-            var avgSpeed = data.stats.totalPlayTimeSeconds > 0 
-                ? data.stats.totalDistanceTraveled / data.stats.totalPlayTimeSeconds 
+
+            var avgSpeed = data.stats.totalPlayTimeSeconds > 0
+                ? data.stats.totalDistanceTraveled / data.stats.totalPlayTimeSeconds
                 : 0;
             SetLabelText("stats-speed", $"{avgSpeed:F1} m/s");
-            
+
             SetLabelText("stats-balltime", FormatTime(data.stats.timeHoldingHopball));
             SetLabelText("stats-hilltime", FormatTime(data.stats.timeAsKing));
             SetLabelText("stats-taggedtime", FormatTime(data.stats.timeTagged));
 
-            // Daily Challenges
-            var list = _challengesContainer.Q<VisualElement>("stats-challenges-list");
-            if (list == null) return;
-            RenderChallengeList(list, data.dailyChallenges);
-
-            // Weekly Challenges
-            var weeklyList = _challengesContainer.Q<VisualElement>("stats-weekly-challenges-list");
-            if (weeklyList != null) {
-                RenderChallengeList(weeklyList, data.weeklyChallenges);
-            }
+            // Daily Challenges - WIP is shown, no need to update
+            // Weekly Challenges - WIP is shown, no need to update
         }
-        
+
         private void RenderChallengeList(VisualElement container, List<ActiveChallengeData> challenges) {
             container.Clear();
-            if (challenges == null) return;
-            
-            var pm = ProgressionManager.Instance;
-            if (pm == null) return;
+            if(challenges == null) return;
 
-            foreach (var activeChallenge in challenges) {
+            var pm = ProgressionManager.Instance;
+            if(pm == null) return;
+
+            foreach(var activeChallenge in challenges) {
                 var def = pm.GetChallengeDefinition(activeChallenge.challengeID);
-                if (def == null) continue;
-                    
-                var challengeRow = new VisualElement {
-                    style = {
-                        marginBottom = 10
-                    }
-                };
+                if(def == null) continue;
+
+                VisualElement challengeRow;
+                VisualElement titleRow;
+                Label descriptionLabel;
+                Label xpLabel;
+                ProgressBar cBar;
+
+                if(challengeRowTemplate != null) {
+                    challengeRow = challengeRowTemplate.CloneTree();
+                    titleRow = challengeRow.Q<VisualElement>("title-row");
+                    descriptionLabel = challengeRow.Q<Label>("description-label");
+                    xpLabel = challengeRow.Q<Label>("xp-label");
+                    cBar = challengeRow.Q<ProgressBar>("progress-bar");
+                    challengeRow.style.marginBottom = 10;
+                } else {
+                    challengeRow = new VisualElement {
+                        style = { marginBottom = 10 }
+                    };
+                    titleRow = new VisualElement();
+                    challengeRow.Add(titleRow);
+                    descriptionLabel = new Label {
+                        style = { fontSize = 12 }
+                    };
+                    titleRow.Add(descriptionLabel);
+                    xpLabel = null;
+                    cBar = new ProgressBar {
+                        lowValue = 0,
+                        highValue = 100,
+                        value = 0,
+                        style = { height = 10 }
+                    };
+                    challengeRow.Add(cBar);
+                }
 
                 var progress = activeChallenge.currentProgress;
                 var target = activeChallenge.targetProgress;
-                if (progress > target) progress = target;
-                    
-                // Format description, handling dynamic filterID for play_matches_of etc.
+                if(progress > target) progress = target;
+
                 string descText = def.Description;
                 try {
-                    if (!string.IsNullOrEmpty(activeChallenge.filterID)) {
+                    if(!string.IsNullOrEmpty(activeChallenge.filterID)) {
                         var displayFilter = pm.GetFilterDisplayName(activeChallenge.filterID);
                         descText = string.Format(def.Description, target, displayFilter);
                     } else {
@@ -1982,55 +2205,74 @@ namespace Game.Menu {
                     // Fallback
                 }
 
-                // Add XP Reward to Title
-                var title = new Label($"{descText} ({progress}/{target}) [+{activeChallenge.xpReward} XP]") {
-                    style = {
-                        fontSize = 12
+                if(descriptionLabel != null) {
+                    if(xpLabel != null) {
+                        descriptionLabel.text = $"{descText} ({progress}/{target})";
+                    } else {
+                        descriptionLabel.text = $"{descText} ({progress}/{target}) [+{activeChallenge.xpReward} XP]";
                     }
-                };
-                challengeRow.Add(title);
-                    
-                var cBar = new ProgressBar {
-                    lowValue = 0,
-                    highValue = target,
-                    value = progress,
-                    style = {
-                        height = 10
-                    }
-                };
-                StyleProgressBar(cBar, _progressBarColor);
-                challengeRow.Add(cBar);
-                    
+                }
+
+                if(xpLabel != null) {
+                    xpLabel.text = $"+{activeChallenge.xpReward} XP";
+                }
+
+                if(cBar != null) {
+                    cBar.lowValue = 0;
+                    cBar.highValue = target;
+                    cBar.value = progress;
+                    StyleProgressBar(cBar, _progressBarColor);
+                }
+
                 container.Add(challengeRow);
             }
         }
-        
+
         private void SetLabelText(string name, string text) {
             var l = _statsContainer.Q<Label>(name);
-            if (l != null) l.text = text;
+            if(l != null) l.text = text;
         }
-        
+
         private static string FormatTime(float seconds) {
             var ts = TimeSpan.FromSeconds(seconds);
-            return ts.TotalHours >= 1 ? $"{(int)ts.TotalHours}:{ts.Minutes:D2}:{ts.Seconds:D2}" : $"{ts.Minutes}:{ts.Seconds:D2}";
+            return ts.TotalHours >= 1
+                ? $"{(int)ts.TotalHours}:{ts.Minutes:D2}:{ts.Seconds:D2}"
+                : $"{ts.Minutes}:{ts.Seconds:D2}";
         }
-        
+
         private void StyleProgressBar(ProgressBar bar, Color color) {
-            if (bar == null) return;
+            if(bar == null) return;
             // Schedule styling to ensure shadow tree is built/accessible
             bar.schedule.Execute(() => {
                 var fill = bar.Q(className: "unity-progress-bar__progress");
-                if (fill != null) {
+                if(fill != null) {
                     fill.style.backgroundColor = color;
                 }
             });
         }
-    }
 
-    [Serializable]
-    public class WeaponData {
-        public string weaponName;
-        public Sprite icon;
-        public GameObject weaponPrefab;
+
+        // Helper methods added for Profile View Refactor
+        private void UpdateDropdownSelection(VisualElement dropdown, int selectedIndex, WeaponData[] data) {
+            if(dropdown == null || data == null || selectedIndex < 0 || selectedIndex >= data.Length) return;
+
+            var label = dropdown.Q<Label>("selected-label");
+            if(label != null) label.text = data[selectedIndex].weaponName;
+
+            var icon = dropdown.Q<Image>("selected-icon");
+            if(icon != null) icon.sprite = data[selectedIndex].icon;
+        }
+
+        private void UpdateWeaponPreview() {
+            UpdateWeaponImages();
+            UpdatePlayerModel();
+        }
+
+        [Serializable]
+        public class WeaponData {
+            public string weaponName;
+            public Sprite icon;
+            public GameObject weaponPrefab;
+        }
     }
 }

@@ -2,6 +2,7 @@ using Game.Audio;
 using Game.Menu;
 using Game.UI;
 using Game.Weapons;
+using Game.Social;
 using JetBrains.Annotations;
 using Network.Events;
 using Unity.Cinemachine;
@@ -24,18 +25,13 @@ namespace Game.Player {
         private GrappleController _grappleController;
         private SwingGrapple _swingGrapple;
         private MantleController _mantleController;
-        // [SerializeField] private DashController dashController;
 
         [Header("Input Settings")]
         [SerializeField] private bool toggleSprint = true;
 
         [SerializeField] private bool toggleCrouch = true;
         
-        [Header("Bot Control")]
-        /// <summary>
-        /// When true, disables Unity Input System reading and allows external control (for AI bots).
-        /// </summary>
-        public bool IsBot { get; set; }
+        [Header("Bot Control")] public bool IsBot { get; set; }
 
         #endregion
 
@@ -43,9 +39,12 @@ namespace Game.Player {
 
         private bool IsPausedOrDead {
             get {
-                if(GameMenuManager.Instance != null && playerController != null) {
-                    return GameMenuManager.Instance.IsPaused || playerController.IsDead;
+                if(GameMenuManager.Instance != null) {
+                    if (GameMenuManager.Instance.IsChatOpen) return true;
+                    if (GameMenuManager.Instance.IsPaused) return true;
                 }
+                
+                if(playerController != null && playerController.IsDead) return true;
 
                 return false;
             }
@@ -74,17 +73,6 @@ namespace Game.Player {
             }
         }
 
-        // private SwingGrapple SwingGrapple {
-        //     get {
-        //         if(_swingGrapple == null) {
-        //             _swingGrapple = playerController != null
-        //                 ? playerController.SwingGrapple
-        //                 : GetComponent<SwingGrapple>();
-        //         }
-        //
-        //         return _swingGrapple;
-        //     }
-        // }
 
         private MantleController MantleController {
             get {
@@ -105,6 +93,7 @@ namespace Game.Player {
 
         private bool _sprintBtnDown;
         private bool _crouchBtnDown;
+        private bool _voiceBtnDown;
         public bool IsSniperOverlayActive { get; private set; }
 
         [SerializeField] private float sniperZoomFov = 20f;
@@ -206,7 +195,6 @@ namespace Game.Player {
             var weaponData = WeaponManager.GetWeaponDataByIndex(WeaponManager.CurrentWeaponIndex);
             var fireMode = weaponData.fireMode;
 
-            // Use Input System actions instead of direct input
             // Component reference should be assigned in the inspector
             if(_playerInputComponent == null) _playerInputComponent = GetComponent<UnityEngine.InputSystem.PlayerInput>();
             if(_playerInputComponent == null) return;
@@ -214,6 +202,14 @@ namespace Game.Player {
             var playerMap = _playerInputComponent.actions.FindActionMap("Player");
             var attackAction = playerMap != null ? playerMap.FindAction("Attack") : null;
             var jumpAction = playerMap != null ? playerMap.FindAction("Jump") : null;
+            var voiceAction = playerMap != null ? playerMap.FindAction("Voice") : null;
+
+            if (VoiceManager.Instance != null && voiceAction != null) {
+                bool isPressed = voiceAction.IsPressed();
+                VoiceManager.Instance.SetPttActive(isPressed);
+
+                _voiceBtnDown = isPressed;
+            }
 
             if(!IsPreMatchOrPausedOrDead && fireMode == "Full" && attackAction != null && attackAction.IsPressed() &&
                !(MantleController != null && MantleController.IsMantling) &&
@@ -221,8 +217,6 @@ namespace Game.Player {
                 CurrentWeapon.Shoot();
             }
 
-            // Check jump action or scroll wheel for jump/mantle
-            // Check if scroll is bound to jump via PlayerPrefs
             var jumpPressed = jumpAction != null && jumpAction.IsPressed();
             var scrollPressed = false;
 
@@ -294,19 +288,18 @@ namespace Game.Player {
             } else if(ScoreboardManager.Instance != null && ScoreboardManager.Instance.IsScoreboardVisible) {
                 EventBus.Publish(new HideScoreboardEvent());
             }
+            
+            // Handle right-click to unlock mouse when scoreboard is open
+            if(ScoreboardManager.Instance != null && ScoreboardManager.Instance.IsScoreboardVisible) {
+                if(Mouse.current != null && Mouse.current.rightButton.wasPressedThisFrame && Cursor.lockState == CursorLockMode.Locked) {
+                    Cursor.lockState = CursorLockMode.None;
+                    Cursor.visible = true;
+                    if(PlayerController.LocalPlayer != null) {
+                        PlayerController.LocalPlayer.LockLook = true;
+                    }
+                }
+            }
 
-            // OnSwing
-            // if(IsOwner && !IsPausedOrDead && !(MantleController?.IsMantling ?? false)) {
-            //     if(Keyboard.current.eKey.isPressed) {
-            //         if(!SwingGrapple?.IsSwinging ?? true) {
-            //             SwingGrapple?.TryStartSwing();
-            //         }
-            //     } else {
-            //         if(SwingGrapple?.IsSwinging ?? false) {
-            //             SwingGrapple.CancelSwing();
-            //         }
-            //     }
-            // }
         }
 
         #endregion
@@ -412,7 +405,7 @@ namespace Game.Player {
         private void OnLook(InputValue value) {
             if(IsBot) return;
             if(!IsOwner) return;
-            if(IsPausedOrDead) {
+            if(IsPausedOrDead || playerController.LockLook) {
                 playerController.lookInput = Vector2.zero;
                 return;
             }
@@ -427,7 +420,7 @@ namespace Game.Player {
         private void OnMove(InputValue value) {
             if(IsBot) return;
             if(!IsOwner) return;
-            if(IsPaused || GameMenuManager.Instance.IsPostMatch) {
+            if(IsPausedOrDead || GameMenuManager.Instance.IsPostMatch) {
                 playerController.moveInput = Vector2.zero;
                 return;
             }
@@ -520,8 +513,6 @@ namespace Game.Player {
         }
 
         private void OnScrollWheel(InputValue _) {
-            if(IsBot) return;
-            // TODO: Fix scroll wheel input so we don't have to use Mouse.current.scroll in LateUpdate
             if(!IsOwner || IsPreMatchOrPausedOrDead) return;
             var isMantling = MantleController != null && MantleController.IsMantling;
             if(isMantling) return;
@@ -594,9 +585,6 @@ namespace Game.Player {
             }
         }
 
-        private void OnSwing() {
-            // TODO: fix hold input
-        }
 
         #endregion
 
@@ -654,6 +642,9 @@ namespace Game.Player {
                          WeaponManager.WeaponCount);
         }
 
+        /// <summary>
+        /// Switches the current weapon to the specified index.
+        /// </summary>
         public void SwitchWeapon(int weaponIndex) {
             if(WeaponManager == null || !CurrentWeapon) return;
             // Allow switching even during pull out (interruptible switching)
@@ -687,6 +678,10 @@ namespace Game.Player {
         private void OnPause(InputValue _) {
             if(IsBot) return;
             if(!IsOwner) return;
+
+            // If chat is open, ignore pause input (Escape closes chat instead)
+            if (GameMenuManager.Instance != null && GameMenuManager.Instance.IsChatOpen) return;
+
             GameMenuManager.Instance.TogglePause();
         }
 
@@ -776,6 +771,9 @@ namespace Game.Player {
             _sniperSensitivityMultiplier = Mathf.Clamp(sniperZoomFov / _defaultFpFov, 0.01f, 1f);
         }
 
+        /// <summary>
+        /// Disables the sniper overlay and restores weapon visuals.
+        /// </summary>
         public void ForceDisableSniperOverlay(bool playZoomSound) {
             if(!IsSniperOverlayActive) {
                 if(SniperOverlayManager.Instance != null) {

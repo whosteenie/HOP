@@ -1,0 +1,16 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" editor-extension-mode="False">
+    <ui:VisualElement name="scoreboard-row-root" class="player-row">
+        <ui:Label name="ping-label" class="player-ping" text="0ms" />
+        <ui:VisualElement name="avatar" class="player-avatar" />
+        <ui:Label name="name-label" class="player-name" text="Player" />
+        <!-- Stat cells follow existing layout order; text/content is filled from code -->
+        <ui:Label name="stat-0" class="player-stat" text="0" />
+        <ui:Label name="stat-1" class="player-stat" text="0" />
+        <ui:Label name="stat-2" class="player-stat" text="0" />
+        <ui:Label name="stat-3" class="player-stat" text="0.00" />
+        <ui:Label name="stat-4" class="player-stat" text="0" />
+        <ui:Label name="stat-5" class="player-stat" text="0%" />
+        <ui:Label name="stat-6" class="player-stat" text="0.0" />
+    </ui:VisualElement>
+</ui:UXML>
+

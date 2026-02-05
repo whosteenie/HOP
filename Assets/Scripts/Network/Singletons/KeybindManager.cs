@@ -44,7 +44,8 @@ namespace Network.Singletons {
                 { "primary", ("Primary", null) },
                 { "secondary", ("Secondary", null) },
                 { "nextweapon", ("NextWeapon", null) },
-                { "previousweapon", ("PreviousWeapon", null) }
+                { "previousweapon", ("PreviousWeapon", null) },
+                { "ptt", ("Voice", null) }
             };
 
         private void Awake() {
@@ -90,15 +91,6 @@ namespace Network.Singletons {
 
 
         private void SetDefaultBindingsIfNeeded() {
-            // Check if any bindings exist
-            var hasAnySavedBindings = false;
-            foreach(var keybindName in _keybindMap.Keys) {
-                if(!PlayerPrefs.HasKey(GetPlayerPrefsKey(keybindName, 0))) continue;
-                hasAnySavedBindings = true;
-                break;
-            }
-
-            if(hasAnySavedBindings) return;
             var defaults = new Dictionary<string, string[]> {
                 { "forward", new[] { "<Keyboard>/w", "" } },
                 { "back", new[] { "<Keyboard>/s", "" } },
@@ -113,18 +105,26 @@ namespace Network.Singletons {
                 { "primary", new[] { "<Keyboard>/1", "" } },
                 { "secondary", new[] { "<Keyboard>/2", "" } },
                 { "nextweapon", new[] { "", "" } },
-                { "previousweapon", new[] { "", "" } }
+                { "previousweapon", new[] { "", "" } },
+                { "ptt", new[] { "<Keyboard>/v", "" } }
             };
 
+            var changesMade = false;
             foreach(var kvp in defaults) {
-                for(var i = 0; i < kvp.Value.Length; i++) {
-                    if(!string.IsNullOrEmpty(kvp.Value[i])) {
-                        PlayerPrefs.SetString(GetPlayerPrefsKey(kvp.Key, i), kvp.Value[i]);
+                // Check if the first binding for this action exists
+                if(!PlayerPrefs.HasKey(GetPlayerPrefsKey(kvp.Key, 0))) {
+                    for(var i = 0; i < kvp.Value.Length; i++) {
+                        if(!string.IsNullOrEmpty(kvp.Value[i])) {
+                            PlayerPrefs.SetString(GetPlayerPrefsKey(kvp.Key, i), kvp.Value[i]);
+                        }
                     }
+                    changesMade = true;
                 }
             }
 
-            PlayerPrefs.Save();
+            if(changesMade) {
+                PlayerPrefs.Save();
+            }
         }
 
         private void LoadAllBindings() {
@@ -146,13 +146,15 @@ namespace Network.Singletons {
         public void StartRebinding(string keybindName, int bindingIndex, Action<string> onComplete) {
             if(!_keybindMap.TryGetValue(keybindName, out var value)) {
                 Debug.LogError($"[KeybindManager] Unknown keybind: {keybindName}");
-                onComplete?.Invoke(null);
+                if(onComplete != null) {
+                    onComplete.Invoke(null);
+                }
+
                 return;
             }
 
             if(!_actions.TryGetValue(keybindName, out var action)) {
                 Debug.LogError($"[KeybindManager] Action not found for keybind: {keybindName}");
-                onComplete?.Invoke(null);
                 return;
             }
 
@@ -168,7 +170,10 @@ namespace Network.Singletons {
             if(actualBindingIndex < 0 || actualBindingIndex >= action.bindings.Count) {
                 Debug.LogError($"[KeybindManager] Invalid binding index for {keybindName}[{bindingIndex}]");
                 CleanupRebindingState();
-                onComplete?.Invoke(null);
+                if(onComplete != null) {
+                    onComplete.Invoke(null);
+                }
+
                 return;
             }
 
@@ -201,7 +206,10 @@ namespace Network.Singletons {
                        (bindingPath.Contains("scroll") || bindingPath.Contains("Scroll"))) {
                         CleanupRebindingState();
                         operation.Dispose();
-                        onComplete?.Invoke(null);
+                        if(onComplete != null) {
+                            onComplete.Invoke(null);
+                        }
+
                         return;
                     }
 
@@ -213,7 +221,10 @@ namespace Network.Singletons {
                     CleanupRebindingState();
                     var displayString = GetBindingDisplayString(new InputBinding { path = bindingPath });
                     StorePendingBinding(keybindName, bindingIndex, bindingPath);
-                    onComplete?.Invoke(displayString);
+                    if(onComplete != null) {
+                        onComplete.Invoke(displayString);
+                    }
+
                     operation.Dispose();
                 })
                 .OnCancel(operation => {
@@ -223,7 +234,10 @@ namespace Network.Singletons {
 
                     CleanupRebindingState();
                     StorePendingBinding(keybindName, bindingIndex, "");
-                    onComplete?.Invoke("None");
+                    if(onComplete != null) {
+                        onComplete.Invoke("None");
+                    }
+
                     operation.Dispose();
                 })
                 .Start();
@@ -283,8 +297,9 @@ namespace Network.Singletons {
             // PlayerPrefs is source of truth
             if(!PlayerPrefs.HasKey(key)) return "None";
             var savedPath = PlayerPrefs.GetString(key);
-            return string.IsNullOrEmpty(savedPath) ? "None" : GetBindingDisplayString(new InputBinding { path = savedPath });
-
+            return string.IsNullOrEmpty(savedPath)
+                ? "None"
+                : GetBindingDisplayString(new InputBinding { path = savedPath });
         }
 
         public bool IsKeyPressed(string keybindName, int bindingIndex = 0) {
@@ -449,7 +464,6 @@ namespace Network.Singletons {
                 "xButton2" or "backButton" => "Mouse 5",
                 _ => mousePath
             };
-
         }
 
         #endregion
@@ -534,7 +548,10 @@ namespace Network.Singletons {
 
                         StorePendingBinding(keybindName, bindingIndex, scrollPath);
                         CleanupRebindingState();
-                        callback?.Invoke(displayString);
+                        if(callback != null) {
+                            callback.Invoke(displayString);
+                        }
+
                         yield break;
                     }
 
@@ -604,7 +621,10 @@ namespace Network.Singletons {
                     try {
                         var primaryButton = Mouse.current[primaryControl] as ButtonControl;
                         var fallbackButton = Mouse.current[fallbackControl] as ButtonControl;
-                        if(!(primaryButton?.isPressed == true || fallbackButton?.isPressed == true)) {
+                        var isActuallyPressed = primaryButton != null && primaryButton.isPressed
+                                                || fallbackButton != null && fallbackButton.isPressed;
+
+                        if(!isActuallyPressed) {
                             wasPressed = false;
                         }
                     } catch {
@@ -637,7 +657,9 @@ namespace Network.Singletons {
 
             StorePendingBinding(keybindName, bindingIndex, path);
             CleanupRebindingState();
-            callback?.Invoke(displayName);
+            if(callback != null) {
+                callback.Invoke(displayName);
+            }
         }
 
         #endregion

@@ -79,6 +79,9 @@ namespace Game.Player {
             _velSampleCount = 0;
         }
 
+        /// <summary>
+        /// Submits a velocity sample to the server to update the average velocity.
+        /// </summary>
         [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Owner)]
         private void SubmitVelocitySampleServerRpc(float speed) {
             _totalVelocitySampled += speed;
@@ -86,6 +89,9 @@ namespace Game.Player {
             averageVelocity.Value = _totalVelocitySampled / _velocitySampleCount;
         }
 
+        /// <summary>
+        /// Updates the player's ping based on the network transport.
+        /// </summary>
         private void UpdatePing() {
             if(!IsServer) return;
 

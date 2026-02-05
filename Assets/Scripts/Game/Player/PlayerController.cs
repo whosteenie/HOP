@@ -9,6 +9,7 @@ using Network.Components;
 using Network.Events;
 using Network.Rpc;
 using OSI;
+using Steamworks;
 using Unity.Cinemachine;
 using Unity.Collections;
 using Unity.Netcode;
@@ -21,6 +22,7 @@ namespace Game.Player {
     [RequireComponent(typeof(CharacterController))]
     [DefaultExecutionOrder(-100)] // Initialize before sub-controllers
     public partial class PlayerController : NetworkBehaviour {
+        public static PlayerController LocalPlayer { get; private set; }
         #region Serialized Fields
 
         [Header("Core Components")]
@@ -102,6 +104,7 @@ namespace Game.Player {
         public Vector2 lookInput;
         public bool sprintInput;
         public bool crouchInput;
+        public bool LockLook { get; set; }
 
         #endregion
 
@@ -180,6 +183,10 @@ namespace Game.Player {
             NetworkVariableReadPermission.Everyone,
             NetworkVariableWritePermission.Owner);
 
+        public NetworkVariable<ulong> steamId = new(0,
+            NetworkVariableReadPermission.Everyone,
+            NetworkVariableWritePermission.Owner);
+
         public NetworkVariable<FixedString64Bytes> playerName = new("Player",
             NetworkVariableReadPermission.Everyone,
             NetworkVariableWritePermission.Owner);
@@ -200,6 +207,11 @@ namespace Game.Player {
         public NetworkVariable<int> secondaryWeaponIndex = new(0,
             NetworkVariableReadPermission.Everyone,
             NetworkVariableWritePermission.Owner);
+        
+        // Voice PTT state (synced so other players see speaking indicator)
+        public NetworkVariable<bool> isPttActive = new(false,
+            NetworkVariableReadPermission.Everyone,
+            NetworkVariableWritePermission.Owner);
 
         #endregion
 
@@ -215,19 +227,16 @@ namespace Game.Player {
         public override void OnNetworkSpawn() {
             base.OnNetworkSpawn();
 
-            // Network-dependent initialization
-            SubscribeToNetworkVariables();
+            if (IsOwner) {
+                LocalPlayer = this;
+            }
 
-            // Apply new material system (will use defaults if not set)
+            SubscribeToNetworkVariables();
             UpdatePlayerMaterialFromNetwork();
 
-            // Only enable character controller if player is not dead
             if(characterController.enabled == false && !netIsDead.Value) {
                 characterController.enabled = true;
             }
-
-            // Note: Main player object should be set to Default layer in inspector
-            // Ragdoll components are set to Enemy layer in PlayerRagdoll.OnNetworkSpawn()
 
             var gameMenu = GameMenuManager.Instance;
             if(gameMenu != null && gameMenu.TryGetComponent(out UIDocument doc)) {
@@ -245,7 +254,6 @@ namespace Game.Player {
             GameMenuManager.Instance.IsPostMatch = false;
             PostMatchManager.Instance.ShowInGameHudAfterPostMatch();
 
-            // Track spawn time to prevent landing sounds on initial spawn
             if(animationController != null)
                 animationController.ResetSpawnTime();
 
@@ -253,24 +261,27 @@ namespace Game.Player {
                 GameMenuManager.Instance.TogglePause();
             }
             
-            // Register with ScoreboardManager for optimized caching
             if (ScoreboardManager.Instance != null) {
                 ScoreboardManager.Instance.RegisterPlayer(this);
             }
 
             if(IsOwner) {
-                playerName.Value = PlayerPrefs.GetString("PlayerName", "Unknown Player");
+                string pName;
+                if (SteamClient.IsValid) {
+                    pName = SteamClient.Name;
+                    steamId.Value = SteamClient.SteamId.Value;
+                } else {
+                     pName = PlayerPrefs.GetString("PlayerName", "Unknown Player");
+                }
+                playerName.Value = pName;
                 
-                // Load weapon selections from PlayerPrefs and sync via NetworkVariables
                 primaryWeaponIndex.Value = PlayerPrefs.GetInt("PrimaryWeaponIndex", 0);
                 secondaryWeaponIndex.Value = PlayerPrefs.GetInt("SecondaryWeaponIndex", 0);
                 
-                // Load new material customization system
                 LoadMaterialCustomizationFromPrefs();
                 
                 GrappleUIManager.Instance.RegisterLocalPlayer(this);
 
-                // Initialize tag status for HUD in Tag mode
                 var matchSettings = MatchSettingsManager.Instance;
                 if(matchSettings != null && matchSettings.selectedGameModeId == "Gun Tag" && tagController != null) {
                     EventBus.Publish(new UpdateTagStatusEvent(tagController.isTagged.Value));
@@ -279,17 +290,13 @@ namespace Game.Player {
                 if(playerShadow != null)
                     playerShadow.ApplyOwnerDefaultShadowState();
             } else {
-                // Ensure world model root and weapon are active for non-owner players
                 if(playerModelRoot != null && !playerModelRoot.activeSelf) {
                     playerModelRoot.SetActive(true);
                 }
 
                 if(visualController != null) {
-                    // Invalidate renderer cache to force refresh
                     visualController.InvalidateRendererCache();
-                    // Enable all renderers and set proper shadow modes
                     visualController.SetRenderersEnabled(true);
-                    // Force bounds update immediately
                     visualController.ForceRendererBoundsUpdate();
                 }
 
@@ -300,6 +307,11 @@ namespace Game.Player {
 
         public override void OnNetworkDespawn() {
             base.OnNetworkDespawn();
+            
+            if (LocalPlayer == this) {
+                LocalPlayer = null;
+            }
+
             UnsubscribeFromNetworkVariables();
             
             // Unregister from ScoreboardManager
@@ -358,7 +370,6 @@ namespace Game.Player {
         }
 
         private void OnMatChanged(int _, int newIdx) {
-            // Legacy material system - no longer used, new system handles materials via UpdatePlayerMaterialFromNetwork()
         }
 
         /// <summary>
@@ -416,38 +427,29 @@ namespace Game.Player {
 
         /// <summary>
         /// Loads material customization values from PlayerPrefs.
-        /// Falls back to defaults if not found.
         /// </summary>
         private void LoadMaterialCustomizationFromPrefs() {
-            // Packet index (0 = None, 1+ = loaded packets)
             var savedPacketIndex = PlayerPrefs.GetInt("PlayerMaterialPacketIndex", 0);
             playerMaterialPacketIndex.Value = savedPacketIndex;
 
-            // Base color (RGBA)
             var baseColorR = PlayerPrefs.GetFloat("PlayerBaseColorR", 1f);
             var baseColorG = PlayerPrefs.GetFloat("PlayerBaseColorG", 1f);
             var baseColorB = PlayerPrefs.GetFloat("PlayerBaseColorB", 1f);
             var baseColorA = PlayerPrefs.GetFloat("PlayerBaseColorA", 1f);
             playerBaseColor.Value = new Vector4(baseColorR, baseColorG, baseColorB, baseColorA);
 
-            // Smoothness
             playerSmoothness.Value = PlayerPrefs.GetFloat("PlayerSmoothness", 0f);
-
-            // Metallic
             playerMetallic.Value = PlayerPrefs.GetFloat("PlayerMetallic", 0f);
 
-            // Specular color (RGBA)
             var specularR = PlayerPrefs.GetFloat("PlayerSpecularColorR", 0.2f);
             var specularG = PlayerPrefs.GetFloat("PlayerSpecularColorG", 0.2f);
             var specularB = PlayerPrefs.GetFloat("PlayerSpecularColorB", 0.2f);
             var specularA = PlayerPrefs.GetFloat("PlayerSpecularColorA", 1f);
             playerSpecularColor.Value = new Vector4(specularR, specularG, specularB, specularA);
 
-            // Height strength
             var savedHeight = PlayerPrefs.GetFloat("PlayerHeightStrength", 0.02f);
             playerHeightStrength.Value = Mathf.Clamp(savedHeight, MinHeightStrength, MaxHeightStrength);
 
-            // Emission
             playerEmissionEnabled.Value = PlayerPrefs.GetInt("PlayerEmissionEnabled", 0) == 1;
             var emissionR = PlayerPrefs.GetFloat("PlayerEmissionColorR", 0f);
             var emissionG = PlayerPrefs.GetFloat("PlayerEmissionColorG", 0f);
@@ -455,7 +457,6 @@ namespace Game.Player {
             var emissionA = PlayerPrefs.GetFloat("PlayerEmissionColorA", 1f);
             playerEmissionColor.Value = new Vector4(emissionR, emissionG, emissionB, emissionA);
 
-            // Apply immediately
             UpdatePlayerMaterialFromNetwork();
         }
 
@@ -494,24 +495,22 @@ namespace Game.Player {
         }
 
         private void OnDeathStateChanged(bool oldValue, bool newValue) {
-            // Disable character controller when player dies
             if(newValue && characterController != null) {
                 characterController.enabled = false;
             }
-            // Note: Character controller is re-enabled during respawn in PlayerHealthController.RestoreControlAfterFadeInClientRpc()
         }
+    
+        /// <summary>
+        /// Main update loop for core player logic, movement synchronization, and server validation.
+        /// </summary>
 
         private void Update() {
             if(IsServer) {
                 var authPos = clientNetworkTransform.transform.position;
                 ValidateServerMovement(authPos);
                 if(authPos.y <= 600f) {
-                    // Only trigger OOB death if player is not already dead and cooldown has passed
-                    // The health controller now resets netIsDead immediately when respawn starts,
-                    // so this check prevents race conditions during respawn
                     if(!netIsDead.Value && Time.time - _lastDeathTime >= 4f) {
                         _lastDeathTime = Time.time;
-                        // OOB death handled by health controller
                         if(healthController != null)
                             healthController.ApplyDamageServer_Auth(1000f, playerTransform.position, Vector3.up, ulong.MaxValue);
                     }
@@ -548,8 +547,6 @@ namespace Game.Player {
                 if(animationController != null)
                     animationController.SetCrouching(netIsCrouching.Value);
 
-                // Periodic visibility check for non-owner players
-                // This helps catch and fix cases where renderers become invisible due to bounds issues
                 if(visualController == null || Time.frameCount % 60 != 0) return;
                 visualController.VerifyAndFixVisibility();
             }
@@ -562,6 +559,9 @@ namespace Game.Player {
                 lookController.UpdateLook();
         }
 
+        /// <summary>
+        /// Validates client movement on the server to prevent cheating (teleporting/speed hacking).
+        /// </summary>
         private void ValidateServerMovement(Vector3 position) {
             var config = AntiCheatConfig.Instance;
             if(config == null || clientNetworkTransform == null) return;
@@ -574,7 +574,6 @@ namespace Game.Player {
                 return;
             }
 
-            // Clean up old violations outside the time window
             _movementViolations.RemoveAll(v => now - v.Time > config.movementViolationWindowSeconds);
 
             var delta = position - _lastServerMovementPosition;
@@ -582,11 +581,9 @@ namespace Game.Player {
             var dt = Mathf.Max(0.0001f, now - _lastServerMovementTime);
             var adjustedPosition = position;
 
-            // Check for teleport violation
             if(distance > config.maxTeleportDistance) {
                 _movementViolations.Add(new MovementViolation { Time = now, WasSpeedViolation = false });
                 
-                // Count violations in the time window
                 var teleportViolations = _movementViolations.Count(v => !v.WasSpeedViolation);
                 
                 if(teleportViolations >= config.teleportViolationThreshold) {
@@ -606,12 +603,10 @@ namespace Game.Player {
                 }
             }
 
-            // Check for speed violation
             var speed = distance / dt;
             if(speed > config.maxSpeedMetersPerSecond && delta.sqrMagnitude > 0.0001f) {
                 _movementViolations.Add(new MovementViolation { Time = now, WasSpeedViolation = true });
                 
-                // Count speed violations in the time window
                 var speedViolations = _movementViolations.Count(v => v.WasSpeedViolation);
                 
                 if(speedViolations >= config.speedViolationThreshold) {
@@ -625,8 +620,6 @@ namespace Game.Player {
                     adjustedPosition = clamped;
                 }
             } else {
-                // Player is within speed limits - clear violation history if they've been good for a bit
-                // This allows occasional spikes without penalty
                 if(_movementViolations.Count == 0 || now - _movementViolations[^1].Time > config.movementViolationWindowSeconds * 0.5f) {
                     _movementViolations.Clear();
                 }
@@ -643,31 +636,24 @@ namespace Game.Player {
 
         private void OnControllerColliderHit(ControllerColliderHit hit) {
             if(hit.gameObject.CompareTag("JumpPad")) {
-                // Cancel any active grapple before launching
                 grappleController.CancelGrapple();
 
-                // Use the jump pad's own transform.up (surface normal) instead of collision normal
-                // This preserves horizontal velocity (e.g., from grappling) while adding vertical boost
                 if(movementController == null) {
-                    Debug.LogError("[PlayerController] MovementController not found! Cannot launch from jump pad.");
+                    Debug.LogError("[PlayerController] MovementController not found!");
                     return;
                 }
                 var padNormal = hit.gameObject.transform.up;
                 movementController.LaunchFromJumpPad(padNormal);
             } else if(hit.gameObject.CompareTag("MegaPad")) {
-                // Cancel any active grapple before launching
                 grappleController.CancelGrapple();
 
-                // Mega jump pad: provides greater boost
-                // Use the jump pad's own transform.up (surface normal) instead of collision normal
                 if(movementController == null) {
-                    Debug.LogError("[PlayerController] MovementController not found! Cannot launch from mega pad.");
+                    Debug.LogError("[PlayerController] MovementController not found!");
                     return;
                 }
                 var padNormal = hit.gameObject.transform.up;
                 movementController.LaunchFromJumpPad(padNormal, force: 30f);
             } else {
-                // Cancel grapple for other collisions (non-jump pad)
                 grappleController.CancelGrapple();
             }
         }
@@ -690,6 +676,9 @@ namespace Game.Player {
 
         #region Health & Animation
 
+        /// <summary>
+        /// Resets the player's health and regeneration state.
+        /// </summary>
         public void ResetHealthAndRegenerationState() {
             if(healthController != null)
                 healthController.ResetHealthAndRegenerationState();
@@ -702,6 +691,9 @@ namespace Game.Player {
             playerBaseColor.Value.w
         );
 
+        /// <summary>
+        /// Resets the player's weapon state, ammo, and HUD.
+        /// </summary>
         public void ResetWeaponState(bool resetAllAmmo = false, bool switchToWeapon0 = false, bool updateHUD = false) {
             if(!IsOwner || weaponManager == null) return;
 
@@ -719,26 +711,20 @@ namespace Game.Player {
                     EnsureWeaponHierarchyActive(weaponInstance);
                     EnsureWeaponShadowVisibility(weaponInstance);
 
-                    // Set position and rotation
                     weaponInstance.transform.localPosition = currentWeapon.GetSpawnPosition();
                     weaponInstance.transform.localEulerAngles = currentWeapon.GetSpawnRotation();
 
-                    // Get cached MeshRenderers or cache them if not found
                     if(!_cachedWeaponRenderers.TryGetValue(weaponInstance, out var meshRenderers)) {
                         meshRenderers = weaponInstance.GetComponentsInChildren<MeshRenderer>(true);
                         _cachedWeaponRenderers[weaponInstance] = meshRenderers;
                     }
 
                     if(playerRenderer == null) {
-                        Debug.LogError("[PlayerController] PlayerRenderer not found! Cannot enable world weapon renderers.");
+                        Debug.LogError("[PlayerController] PlayerRenderer not found!");
                         return;
                     }
                     playerRenderer.SetWorldWeaponRenderersEnabled(true);
                 }
-
-                // if(worldWeapon != null) {
-                //     worldWeapon.shadowCastingMode = ShadowCastingMode.ShadowsOnly;
-                // }
 
                 if(updateHUD) {
                     EventBus.Publish(new UpdateAmmoEvent(currentWeapon.currentAmmo, currentWeapon.GetMagSize()));

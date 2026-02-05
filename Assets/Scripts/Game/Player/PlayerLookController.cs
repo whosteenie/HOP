@@ -66,6 +66,9 @@ namespace Game.Player {
             if(_fpCamera == null) _fpCamera = playerController.FpCamera;
         }
 
+        /// <summary>
+        /// Updates the player's look orientation based on input.
+        /// </summary>
         public void UpdateLook() {
             var sensitivity = GetLookSensitivity();
             var lookDelta = new Vector2(LookInput.x * sensitivity.x, LookInput.y * sensitivity.y);
@@ -108,6 +111,9 @@ namespace Game.Player {
             return new Vector2(sensitivityValue, sensitivityValue * yMultiplier);
         }
 
+        /// <summary>
+        /// Updates the field of view based on movement speed.
+        /// </summary>
         public void UpdateSpeedFov() {
             if(!IsOwner || _fpCamera == null) return;
 
@@ -140,10 +146,16 @@ namespace Game.Player {
         private float _currentTilt;
         private float _tiltVel;
 
+        /// <summary>
+        /// Sets the target tilt for the camera.
+        /// </summary>
         public void SetTargetTilt(float tilt) {
             _targetTilt = tilt;
         }
 
+        /// <summary>
+        /// Updates the camera pitch based on Delta input.
+        /// </summary>
         private void UpdatePitch(float pitchDelta) {
             CurrentPitch -= pitchDelta;
             
@@ -156,10 +168,16 @@ namespace Game.Player {
             }
         }
 
+        /// <summary>
+        /// Updates the player yaw based on Delta input.
+        /// </summary>
         private void UpdateYaw(float yawDelta) {
             _playerTransform.Rotate(Vector3.up * yawDelta);
         }
 
+        /// <summary>
+        /// Resets the camera pitch to zero.
+        /// </summary>
         public void ResetPitch() {
             CurrentPitch = 0f;
             if(_fpCamera != null) {
@@ -177,6 +195,9 @@ namespace Game.Player {
 
         private float _sniperZoomFovOverride;
 
+        /// <summary>
+        /// Sets whether sniper zoom is active and optionally overrides the FOV.
+        /// </summary>
         public void SetSniperZoomActive(bool active, float zoomFov = 0f) {
             IsSniperZoomActive = active;
             if(active) {

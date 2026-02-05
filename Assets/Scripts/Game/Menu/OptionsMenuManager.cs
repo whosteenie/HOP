@@ -1,20 +1,23 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using Game.Social;
+using Game.UI;
 using Network.Singletons;
 using UnityEngine;
 using UnityEngine.Audio;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 using UnityEngine.UIElements;
+using UnityUtils;
 
 namespace Game.Menu {
     /// <summary>
     /// Shared options menu manager that handles all options functionality.
     /// Can be used by both MainMenuManager and GameMenuManager.
     /// </summary>
-    public class OptionsMenuManager : MonoBehaviour {
+    public class OptionsMenuManager : UIElementBase {
         [Header("References")]
-        [SerializeField] private UIDocument uiDocument;
         [SerializeField] private AudioMixer audioMixer;
 
         [Header("Callbacks")]
@@ -32,20 +35,24 @@ namespace Game.Menu {
         public static event Action<int, int> OnResolutionChanged; // width, height
 
         #region UI Elements - Options
-
-        private VisualElement _root;
         private Slider _masterVolumeSlider;
         private Slider _musicVolumeSlider;
         private Slider _sfxVolumeSlider;
+        private Slider _voiceVolumeSlider;
+        private Slider _voiceInputVolumeSlider;
         private TextField _masterVolumeValue;
         private TextField _musicVolumeValue;
         private TextField _sfxVolumeValue;
+        private TextField _voiceVolumeValue;
+        private TextField _voiceInputVolumeValue;
         private Slider _sensitivitySlider;
         private TextField _sensitivityValue;
         private Button _invertYButton;
         private Button _playerTrailsButton;
         private Button _holdMantleButton;
+        private Button _profanityFilterButton;
         private DropdownField _grappleIndicatorDropdown;
+        private DropdownField _voiceModeDropdown;
         private DropdownField _windowModeDropdown;
         private DropdownField _aspectRatioDropdown;
         private DropdownField _resolutionDropdown;
@@ -55,6 +62,7 @@ namespace Game.Menu {
         private DropdownField _shadowResolutionDropdown;
         private Button _vsyncButton;
         private DropdownField _fpsDropdown;
+        private DropdownField _voiceDeviceDropdown;
 
         // Options tabs
         private Button _tabVideo;
@@ -86,11 +94,14 @@ namespace Game.Menu {
         private float _originalMasterVolume;
         private float _originalMusicVolume;
         private float _originalSfxVolume;
+        private float _originalVoiceVolume;
         private float _originalSensitivity;
         private bool _originalInvertY;
         private bool _originalPlayerTrails;
         private bool _originalHoldMantle;
+        private bool _originalProfanityFilter;
         private int _originalGrappleIndicator;
+        private int _originalVoiceMode;
         private int _originalWindowMode;
         private string _originalAspectRatio;
         private int _originalResolutionIndex;
@@ -99,26 +110,35 @@ namespace Game.Menu {
         private int _originalShadowResolution;
         private bool _originalVsync;
         private int _originalTargetFPS;
+        private string _originalVoiceDevice;
 
         #endregion
 
         #region Unity Lifecycle
 
-        private void Awake() {
-            uiDocument = GetComponent<UIDocument>();
+        protected override void Awake() {
+            base.Awake();
+            if(uiDocument == null) {
+                uiDocument = GetComponent<UIDocument>();
+            }
         }
 
-        public void Initialize() {
-            if(uiDocument == null) {
-                Debug.LogError("[OptionsMenuManager] UIDocument not assigned!");
-                return;
-            }
+        public new void Initialize() {
+            base.Initialize();
+        }
 
-            _root = uiDocument.rootVisualElement;
+        protected override void OnInitialize() {
             FindUIElements();
             SetupCallbacks();
             SetupOptionsTabs();
             SetupKeybinds();
+        }
+
+        protected override Dictionary<string, Type> GetRequiredElements() {
+            return new Dictionary<string, Type> {
+                { "apply-button", typeof(Button) },
+                { "back-button", typeof(Button) }
+            };
         }
 
         #endregion
@@ -127,57 +147,85 @@ namespace Game.Menu {
 
         private void FindUIElements() {
             // Audio controls
-            _masterVolumeSlider = _root.Q<Slider>("master-volume");
-            _musicVolumeSlider = _root.Q<Slider>("music-volume");
-            _sfxVolumeSlider = _root.Q<Slider>("sfx-volume");
-            _masterVolumeValue = _root.Q<TextField>("master-volume-value");
-            _musicVolumeValue = _root.Q<TextField>("music-volume-value");
-            _sfxVolumeValue = _root.Q<TextField>("sfx-volume-value");
+            _masterVolumeSlider = QOptional<Slider>("master-volume");
+            _musicVolumeSlider = QOptional<Slider>("music-volume");
+            _sfxVolumeSlider = QOptional<Slider>("sfx-volume");
+            _masterVolumeValue = QOptional<TextField>("master-volume-value");
+            _musicVolumeValue = QOptional<TextField>("music-volume-value");
+            _sfxVolumeValue = QOptional<TextField>("sfx-volume-value");
+            _voiceVolumeSlider = QOptional<Slider>("voice-volume");
+            _voiceVolumeValue = QOptional<TextField>("voice-volume-value");
+            _voiceInputVolumeSlider = QOptional<Slider>("voice-input-volume");
+            _voiceInputVolumeValue = QOptional<TextField>("voice-input-volume-value");
 
             // Sensitivity controls
-            _sensitivitySlider = _root.Q<Slider>("sensitivity");
-            _sensitivityValue = _root.Q<TextField>("sensitivity-value");
-            _invertYButton = _root.Q<Button>("invert-y");
-            _playerTrailsButton = _root.Q<Button>("player-trails");
-            _holdMantleButton = _root.Q<Button>("hold-mantle");
-            _grappleIndicatorDropdown = _root.Q<DropdownField>("grapple-indicator");
+            _sensitivitySlider = QOptional<Slider>("sensitivity");
+            _sensitivityValue = QOptional<TextField>("sensitivity-value");
+            _invertYButton = QOptional<Button>("invert-y");
+            _playerTrailsButton = QOptional<Button>("player-trails");
+            _holdMantleButton = QOptional<Button>("hold-mantle");
+            _profanityFilterButton = QOptional<Button>("profanity-filter");
+            _grappleIndicatorDropdown = QOptional<DropdownField>("grapple-indicator");
+            _voiceModeDropdown = QOptional<DropdownField>("voice-mode");
+            _voiceDeviceDropdown = QOptional<DropdownField>("voice-device");
 
             // Graphics controls
-            _windowModeDropdown = _root.Q<DropdownField>("window-mode");
-            _aspectRatioDropdown = _root.Q<DropdownField>("aspect-ratio");
-            _resolutionDropdown = _root.Q<DropdownField>("resolution");
-            _msaaDropdown = _root.Q<DropdownField>("msaa");
-            _shadowDistanceSlider = _root.Q<Slider>("shadow-distance");
-            _shadowDistanceValue = _root.Q<TextField>("shadow-distance-value");
-            _shadowResolutionDropdown = _root.Q<DropdownField>("shadow-resolution");
-            _vsyncButton = _root.Q<Button>("vsync");
-            _fpsDropdown = _root.Q<DropdownField>("target-fps");
+            _windowModeDropdown = QOptional<DropdownField>("window-mode");
+            _aspectRatioDropdown = QOptional<DropdownField>("aspect-ratio");
+            _resolutionDropdown = QOptional<DropdownField>("resolution");
+            _msaaDropdown = QOptional<DropdownField>("msaa");
+            _shadowDistanceSlider = QOptional<Slider>("shadow-distance");
+            _shadowDistanceValue = QOptional<TextField>("shadow-distance-value");
+            _shadowResolutionDropdown = QOptional<DropdownField>("shadow-resolution");
+            _vsyncButton = QOptional<Button>("vsync");
+            _fpsDropdown = QOptional<DropdownField>("target-fps");
 
             // Options tabs
-            _tabVideo = _root.Q<Button>("tab-video");
-            _tabAudio = _root.Q<Button>("tab-audio");
-            _tabGame = _root.Q<Button>("tab-game");
-            _tabControls = _root.Q<Button>("tab-controls");
-            _videoContent = _root.Q<VisualElement>("video-content");
-            _audioContent = _root.Q<VisualElement>("audio-content");
-            _gameContent = _root.Q<VisualElement>("game-content");
-            _controlsContent = _root.Q<VisualElement>("controls-content");
+            _tabVideo = QOptional<Button>("tab-video");
+            _tabAudio = QOptional<Button>("tab-audio");
+            _tabGame = QOptional<Button>("tab-game");
+            _tabControls = QOptional<Button>("tab-controls");
+            _videoContent = QOptional<VisualElement>("video-content");
+            _audioContent = QOptional<VisualElement>("audio-content");
+            _gameContent = QOptional<VisualElement>("game-content");
+            _controlsContent = QOptional<VisualElement>("controls-content");
 
             // Unsaved changes dialog
-            _unsavedChangesModal = _root.Q<VisualElement>("unsaved-changes-modal");
-            _unsavedChangesYes = _root.Q<Button>("unsaved-changes-yes");
-            _unsavedChangesNo = _root.Q<Button>("unsaved-changes-no");
-            _unsavedChangesCancel = _root.Q<Button>("unsaved-changes-cancel");
+            _unsavedChangesModal = QOptional<VisualElement>("unsaved-changes-modal");
+            _unsavedChangesYes = QOptional<Button>("unsaved-changes-yes");
+            _unsavedChangesNo = QOptional<Button>("unsaved-changes-no");
+            _unsavedChangesCancel = QOptional<Button>("unsaved-changes-cancel");
 
             // Apply and back buttons
-            _applyButton = _root.Q<Button>("apply-button");
-            _backButton = _root.Q<Button>("back-button");
+            _applyButton = QRequired<Button>("apply-button");
+            _backButton = QRequired<Button>("back-button");
 
             // Setup checkbox click handlers
-            _invertYButton?.RegisterCallback<ClickEvent>(_ => ToggleCheckbox(_invertYButton));
-            _playerTrailsButton?.RegisterCallback<ClickEvent>(_ => ToggleCheckbox(_playerTrailsButton));
-            _holdMantleButton?.RegisterCallback<ClickEvent>(_ => ToggleCheckbox(_holdMantleButton));
-            _vsyncButton?.RegisterCallback<ClickEvent>(_ => ToggleCheckbox(_vsyncButton));
+            if(_invertYButton != null) {
+                EventCallback<ClickEvent> handler = _ => ToggleCheckbox(_invertYButton);
+                _invertYButton.RegisterCallback(handler);
+                RegisterCleanup(() => _invertYButton.UnregisterCallback(handler));
+            }
+            if(_playerTrailsButton != null) {
+                EventCallback<ClickEvent> handler = _ => ToggleCheckbox(_playerTrailsButton);
+                _playerTrailsButton.RegisterCallback(handler);
+                RegisterCleanup(() => _playerTrailsButton.UnregisterCallback(handler));
+            }
+            if(_holdMantleButton != null) {
+                EventCallback<ClickEvent> handler = _ => ToggleCheckbox(_holdMantleButton);
+                _holdMantleButton.RegisterCallback(handler);
+                RegisterCleanup(() => _holdMantleButton.UnregisterCallback(handler));
+            }
+            if(_profanityFilterButton != null) {
+                EventCallback<ClickEvent> handler = _ => ToggleCheckbox(_profanityFilterButton);
+                _profanityFilterButton.RegisterCallback(handler);
+                RegisterCleanup(() => _profanityFilterButton.UnregisterCallback(handler));
+            }
+            if(_vsyncButton != null) {
+                EventCallback<ClickEvent> handler = _ => ToggleCheckbox(_vsyncButton);
+                _vsyncButton.RegisterCallback(handler);
+                RegisterCleanup(() => _vsyncButton.UnregisterCallback(handler));
+            }
         }
 
         private void SetupCallbacks() {
@@ -187,66 +235,120 @@ namespace Game.Menu {
             SetupGameCallbacks();
 
             // Setup apply and back buttons
-            _applyButton?.RegisterCallback<ClickEvent>(_ => {
+            EventCallback<ClickEvent> applyHandler = _ => {
                 OnButtonClicked();
                 ApplySettings();
-            });
-            if(_applyButton != null && useCallbacks) {
+            };
+            _applyButton.RegisterCallback(applyHandler);
+            RegisterCleanup(() => _applyButton.UnregisterCallback(applyHandler));
+            if(useCallbacks) {
                 RegisterHoverCallback(_applyButton);
             }
 
-            _backButton?.RegisterCallback<ClickEvent>(_ => {
+            EventCallback<ClickEvent> backHandler = _ => {
                 OnButtonClicked(true);
                 OnBackFromOptions();
-            });
-            if(_backButton != null && useCallbacks) {
+            };
+            _backButton.RegisterCallback(backHandler);
+            RegisterCleanup(() => _backButton.UnregisterCallback(backHandler));
+            if(useCallbacks) {
                 RegisterHoverCallback(_backButton);
             }
 
             // Setup unsaved changes dialog buttons
-            _unsavedChangesYes?.RegisterCallback<ClickEvent>(_ => OnUnsavedChangesYes());
-            if(_unsavedChangesYes != null && useCallbacks) {
-                RegisterHoverCallback(_unsavedChangesYes);
+            if(_unsavedChangesYes != null) {
+                EventCallback<ClickEvent> yesHandler = _ => OnUnsavedChangesYes();
+                _unsavedChangesYes.RegisterCallback(yesHandler);
+                RegisterCleanup(() => _unsavedChangesYes.UnregisterCallback(yesHandler));
+                if(useCallbacks) {
+                    RegisterHoverCallback(_unsavedChangesYes);
+                }
             }
 
-            _unsavedChangesNo?.RegisterCallback<ClickEvent>(_ => OnUnsavedChangesNo());
-            if(_unsavedChangesNo != null && useCallbacks) {
-                RegisterHoverCallback(_unsavedChangesNo);
+            if(_unsavedChangesNo != null) {
+                EventCallback<ClickEvent> noHandler = _ => OnUnsavedChangesNo();
+                _unsavedChangesNo.RegisterCallback(noHandler);
+                RegisterCleanup(() => _unsavedChangesNo.UnregisterCallback(noHandler));
+                if(useCallbacks) {
+                    RegisterHoverCallback(_unsavedChangesNo);
+                }
             }
 
-            _unsavedChangesCancel?.RegisterCallback<ClickEvent>(_ => OnUnsavedChangesCancel());
-            if(_unsavedChangesCancel != null && useCallbacks) {
-                RegisterHoverCallback(_unsavedChangesCancel);
+            if(_unsavedChangesCancel != null) {
+                EventCallback<ClickEvent> cancelHandler = _ => OnUnsavedChangesCancel();
+                _unsavedChangesCancel.RegisterCallback(cancelHandler);
+                RegisterCleanup(() => _unsavedChangesCancel.UnregisterCallback(cancelHandler));
+                if(useCallbacks) {
+                    RegisterHoverCallback(_unsavedChangesCancel);
+                }
             }
         }
 
         private void RegisterHoverCallback(Button button) {
             if(MouseEnterCallback != null) {
-                button.RegisterCallback<MouseEnterEvent>(evt => MouseEnterCallback(evt));
+                EventCallback<MouseEnterEvent> enterHandler = evt => MouseEnterCallback(evt);
+                button.RegisterCallback(enterHandler);
+                RegisterCleanup(() => button.UnregisterCallback(enterHandler));
             }
 
             if(MouseHoverCallback != null) {
-                button.RegisterCallback<MouseOverEvent>(evt => MouseHoverCallback(evt));
+                EventCallback<MouseOverEvent> hoverHandler = evt => MouseHoverCallback(evt);
+                button.RegisterCallback(hoverHandler);
+                RegisterCleanup(() => button.UnregisterCallback(hoverHandler));
             }
         }
 
         private void SetupAudioCallbacks() {
             // Update text fields when sliders change (with % sign for volumes)
-            _masterVolumeSlider?.RegisterValueChangedCallback(evt => {
-                if(_masterVolumeValue != null) {
-                    _masterVolumeValue.value = Mathf.RoundToInt(evt.newValue * 100) + "%";
-                }
-            });
-            _musicVolumeSlider?.RegisterValueChangedCallback(evt => {
-                if(_musicVolumeValue != null) {
-                    _musicVolumeValue.value = Mathf.RoundToInt(evt.newValue * 100) + "%";
-                }
-            });
-            _sfxVolumeSlider?.RegisterValueChangedCallback(evt => {
-                if(_sfxVolumeValue != null) {
-                    _sfxVolumeValue.value = Mathf.RoundToInt(evt.newValue * 100) + "%";
-                }
-            });
+            if(_masterVolumeSlider != null) {
+                EventCallback<ChangeEvent<float>> handler = evt => {
+                    if(_masterVolumeValue != null) {
+                        _masterVolumeValue.value = Mathf.RoundToInt(evt.newValue * 100) + "%";
+                    }
+                };
+                _masterVolumeSlider.RegisterValueChangedCallback(handler);
+                RegisterCleanup(() => _masterVolumeSlider.UnregisterCallback(handler));
+            }
+            if(_musicVolumeSlider != null) {
+                EventCallback<ChangeEvent<float>> handler = evt => {
+                    if(_musicVolumeValue != null) {
+                        _musicVolumeValue.value = Mathf.RoundToInt(evt.newValue * 100) + "%";
+                    }
+                };
+                _musicVolumeSlider.RegisterValueChangedCallback(handler);
+                RegisterCleanup(() => _musicVolumeSlider.UnregisterCallback(handler));
+            }
+            if(_sfxVolumeSlider != null) {
+                EventCallback<ChangeEvent<float>> handler = evt => {
+                    if(_sfxVolumeValue != null) {
+                        _sfxVolumeValue.value = Mathf.RoundToInt(evt.newValue * 100) + "%";
+                    }
+                };
+                _sfxVolumeSlider.RegisterValueChangedCallback(handler);
+                RegisterCleanup(() => _sfxVolumeSlider.UnregisterCallback(handler));
+            }
+            if(_voiceVolumeSlider != null) {
+                EventCallback<ChangeEvent<float>> handler = evt => {
+                    if(_voiceVolumeValue != null) {
+                        _voiceVolumeValue.value = Mathf.RoundToInt(evt.newValue * 100) + "%";
+                    }
+                };
+                _voiceVolumeSlider.RegisterValueChangedCallback(handler);
+                RegisterCleanup(() => _voiceVolumeSlider.UnregisterCallback(handler));
+            }
+            if(_voiceInputVolumeSlider != null) {
+                EventCallback<ChangeEvent<float>> handler = evt => {
+                    if(_voiceInputVolumeValue != null) {
+                        _voiceInputVolumeValue.value = Mathf.RoundToInt(evt.newValue * 100) + "%";
+                    }
+                };
+                _voiceInputVolumeSlider.RegisterValueChangedCallback(handler);
+                RegisterCleanup(() => _voiceInputVolumeSlider.UnregisterCallback(handler));
+            }
+            
+            if (_voiceDeviceDropdown != null) {
+                _voiceDeviceDropdown.choices = VoiceManager.Instance.GetAvailableInputDevices();
+            }
 
             // Setup text field input validation and callbacks
             SetupVolumeInputField(_masterVolumeSlider, _masterVolumeValue, 0f, 1f, true);
@@ -256,11 +358,15 @@ namespace Game.Menu {
 
         private void SetupControlsCallbacks() {
             // Update text field when slider changes
-            _sensitivitySlider?.RegisterValueChangedCallback(evt => {
-                if(_sensitivityValue != null) {
-                    _sensitivityValue.value = evt.newValue.ToString("F2");
-                }
-            });
+            if(_sensitivitySlider != null) {
+                EventCallback<ChangeEvent<float>> handler = evt => {
+                    if(_sensitivityValue != null) {
+                        _sensitivityValue.value = evt.newValue.ToString("F2");
+                    }
+                };
+                _sensitivitySlider.RegisterValueChangedCallback(handler);
+                RegisterCleanup(() => _sensitivitySlider.UnregisterCallback(handler));
+            }
 
             // Setup sensitivity input field (with fixed width class)
             _sensitivityValue?.AddToClassList("sensitivity-input");
@@ -279,7 +385,7 @@ namespace Game.Menu {
             }
         }
 
-        private static void SetupVolumeInputField(Slider slider, TextField textField, float minValue, float maxValue,
+        private void SetupVolumeInputField(Slider slider, TextField textField, float minValue, float maxValue,
             bool isPercentage) {
             if(slider == null || textField == null) return;
 
@@ -288,7 +394,7 @@ namespace Game.Menu {
             textField.isDelayed = false;
 
             // Filter input in real-time using ValueChanged callback (like join code input)
-            textField.RegisterValueChangedCallback(evt => {
+            EventCallback<ChangeEvent<string>> valueChangedHandler = evt => {
                 var newValue = evt.newValue;
                 var filtered = "";
 
@@ -325,18 +431,24 @@ namespace Game.Menu {
                 if(filtered != newValue) {
                     textField.value = filtered;
                 }
-            });
+            };
+            textField.RegisterValueChangedCallback(valueChangedHandler);
+            RegisterCleanup(() => textField.UnregisterCallback(valueChangedHandler));
 
             // Handle value change on Enter or focus loss
-            textField.RegisterCallback<KeyDownEvent>(evt => {
+            EventCallback<KeyDownEvent> keyDownHandler = evt => {
                 if(evt.keyCode != KeyCode.Return && evt.keyCode != KeyCode.KeypadEnter) return;
                 ApplyTextFieldValue(slider, textField, minValue, maxValue, isPercentage);
                 textField.Blur(); // Remove focus
-            });
+            };
+            textField.RegisterCallback(keyDownHandler);
+            RegisterCleanup(() => textField.UnregisterCallback(keyDownHandler));
 
-            textField.RegisterCallback<BlurEvent>(_ => {
+            EventCallback<BlurEvent> blurHandler = _ => {
                 ApplyTextFieldValue(slider, textField, minValue, maxValue, isPercentage);
-            });
+            };
+            textField.RegisterCallback(blurHandler);
+            RegisterCleanup(() => textField.UnregisterCallback(blurHandler));
         }
 
         private static void ApplyTextFieldValue(Slider slider, TextField textField, float minValue, float maxValue,
@@ -461,11 +573,13 @@ namespace Game.Menu {
             if(_shadowDistanceSlider == null || _shadowDistanceValue == null) return;
 
             // Update text field when slider changes
-            _shadowDistanceSlider.RegisterValueChangedCallback(evt => {
+            EventCallback<ChangeEvent<float>> sliderHandler = evt => {
                 if(_shadowDistanceValue != null) {
                     _shadowDistanceValue.value = Mathf.RoundToInt(evt.newValue).ToString();
                 }
-            });
+            };
+            _shadowDistanceSlider.RegisterValueChangedCallback(sliderHandler);
+            RegisterCleanup(() => _shadowDistanceSlider.UnregisterCallback(sliderHandler));
 
             // Setup input field validation
             SetupShadowDistanceInputField();
@@ -478,7 +592,7 @@ namespace Game.Menu {
             _shadowDistanceValue.isDelayed = false;
 
             // Filter input to only allow digits
-            _shadowDistanceValue.RegisterValueChangedCallback(evt => {
+            EventCallback<ChangeEvent<string>> valueChangedHandler = evt => {
                 var newValue = evt.newValue;
                 var filtered = "";
 
@@ -495,16 +609,24 @@ namespace Game.Menu {
                 if(filtered != newValue) {
                     _shadowDistanceValue.value = filtered;
                 }
-            });
+            };
+            _shadowDistanceValue.RegisterValueChangedCallback(valueChangedHandler);
+            RegisterCleanup(() => _shadowDistanceValue.UnregisterCallback(valueChangedHandler));
 
             // Handle value change on Enter or focus loss
-            _shadowDistanceValue.RegisterCallback<KeyDownEvent>(evt => {
-                if(evt.keyCode is not (KeyCode.Return or KeyCode.KeypadEnter)) return;
-                ApplyShadowDistanceTextFieldValue();
-                _shadowDistanceValue.Blur();
-            });
+            if(_shadowDistanceValue != null) {
+                EventCallback<KeyDownEvent> keyDownHandler = evt => {
+                    if(evt.keyCode is not (KeyCode.Return or KeyCode.KeypadEnter)) return;
+                    ApplyShadowDistanceTextFieldValue();
+                    _shadowDistanceValue.Blur();
+                };
+                _shadowDistanceValue.RegisterCallback(keyDownHandler);
+                RegisterCleanup(() => _shadowDistanceValue.UnregisterCallback(keyDownHandler));
 
-            _shadowDistanceValue.RegisterCallback<BlurEvent>(_ => { ApplyShadowDistanceTextFieldValue(); });
+                EventCallback<BlurEvent> blurHandler = _ => { ApplyShadowDistanceTextFieldValue(); };
+                _shadowDistanceValue.RegisterCallback(blurHandler);
+                RegisterCleanup(() => _shadowDistanceValue.UnregisterCallback(blurHandler));
+            }
         }
 
         private void ApplyShadowDistanceTextFieldValue() {
@@ -599,7 +721,11 @@ namespace Game.Menu {
             FilterResolutionsByAspectRatio(defaultAspectRatio);
 
             // Setup aspect ratio change callback
-            _aspectRatioDropdown.RegisterValueChangedCallback(evt => { FilterResolutionsByAspectRatio(evt.newValue); });
+            if(_aspectRatioDropdown != null) {
+                EventCallback<ChangeEvent<string>> aspectRatioHandler = evt => { FilterResolutionsByAspectRatio(evt.newValue); };
+                _aspectRatioDropdown.RegisterValueChangedCallback(aspectRatioHandler);
+                RegisterCleanup(() => _aspectRatioDropdown.UnregisterCallback(aspectRatioHandler));
+            }
         }
 
         private void FilterResolutionsByAspectRatio(string aspectRatio) {
@@ -645,29 +771,45 @@ namespace Game.Menu {
 
         private void SetupOptionsTabs() {
             // Configure scrollbar visibility
-            var optionsScrollView = _root.Q<ScrollView>("options-content-scroll");
+            var optionsScrollView = QOptional<ScrollView>("options-content-scroll");
             if(optionsScrollView != null) {
                 optionsScrollView.verticalScrollerVisibility = ScrollerVisibility.Auto;
                 optionsScrollView.horizontalScrollerVisibility = ScrollerVisibility.Hidden;
             }
 
             // Setup tab click handlers - sounds play here on actual user clicks
-            _tabVideo?.RegisterCallback<ClickEvent>(_ => {
-                OnButtonClicked();
-                SwitchOptionsTab("video");
-            });
-            _tabAudio?.RegisterCallback<ClickEvent>(_ => {
-                OnButtonClicked();
-                SwitchOptionsTab("audio");
-            });
-            _tabGame?.RegisterCallback<ClickEvent>(_ => {
-                OnButtonClicked();
-                SwitchOptionsTab("game");
-            });
-            _tabControls?.RegisterCallback<ClickEvent>(_ => {
-                OnButtonClicked();
-                SwitchOptionsTab("controls");
-            });
+            if(_tabVideo != null) {
+                EventCallback<ClickEvent> handler = _ => {
+                    OnButtonClicked();
+                    SwitchOptionsTab("video");
+                };
+                _tabVideo.RegisterCallback(handler);
+                RegisterCleanup(() => _tabVideo.UnregisterCallback(handler));
+            }
+            if(_tabAudio != null) {
+                EventCallback<ClickEvent> handler = _ => {
+                    OnButtonClicked();
+                    SwitchOptionsTab("audio");
+                };
+                _tabAudio.RegisterCallback(handler);
+                RegisterCleanup(() => _tabAudio.UnregisterCallback(handler));
+            }
+            if(_tabGame != null) {
+                EventCallback<ClickEvent> handler = _ => {
+                    OnButtonClicked();
+                    SwitchOptionsTab("game");
+                };
+                _tabGame.RegisterCallback(handler);
+                RegisterCleanup(() => _tabGame.UnregisterCallback(handler));
+            }
+            if(_tabControls != null) {
+                EventCallback<ClickEvent> handler = _ => {
+                    OnButtonClicked();
+                    SwitchOptionsTab("controls");
+                };
+                _tabControls.RegisterCallback(handler);
+                RegisterCleanup(() => _tabControls.UnregisterCallback(handler));
+            }
 
             // Register hover callbacks for tabs
             SetupTabHoverCallbacks(_tabVideo);
@@ -682,15 +824,17 @@ namespace Game.Menu {
         private void SetupTabHoverCallbacks(Button tab) {
             if(tab == null) return;
 
-            tab.RegisterCallback<MouseEnterEvent>(evt => {
+            EventCallback<MouseEnterEvent> enterHandler = evt => {
                 MouseEnterCallback?.Invoke(evt);
 
                 if(tab.ClassListContains("options-tab-active")) return;
                 tab.AddToClassList("options-tab-hover");
                 tab.schedule.Execute(tab.MarkDirtyRepaint);
-            });
+            };
+            tab.RegisterCallback(enterHandler);
+            RegisterCleanup(() => tab.UnregisterCallback(enterHandler));
 
-            tab.RegisterCallback<MouseOverEvent>(evt => {
+            EventCallback<MouseOverEvent> overHandler = evt => {
                 if(MouseHoverCallback != null && !tab.ClassListContains("options-tab-active")) {
                     MouseHoverCallback(evt);
                 }
@@ -698,12 +842,16 @@ namespace Game.Menu {
                 if(!tab.ClassListContains("options-tab-active") && tab.ClassListContains("options-tab-hover")) {
                     tab.MarkDirtyRepaint();
                 }
-            });
+            };
+            tab.RegisterCallback(overHandler);
+            RegisterCleanup(() => tab.UnregisterCallback(overHandler));
 
-            tab.RegisterCallback<MouseLeaveEvent>(_ => {
+            EventCallback<MouseLeaveEvent> leaveHandler = _ => {
                 tab.RemoveFromClassList("options-tab-hover");
                 tab.MarkDirtyRepaint();
-            });
+            };
+            tab.RegisterCallback(leaveHandler);
+            RegisterCleanup(() => tab.UnregisterCallback(leaveHandler));
         }
 
         private void SwitchOptionsTab(string tabName) {
@@ -759,20 +907,25 @@ namespace Game.Menu {
             var keybindNames = new[] {
                 "forward", "back", "left", "right", "jump", "interact", "shoot", "ads", "reload", "grapple", "primary",
                 "secondary",
-                "nextweapon", "previousweapon"
+                "nextweapon", "previousweapon", "ptt"
             };
 
             foreach(var keybindName in keybindNames) {
                 var buttons = new Button[2];
-                buttons[0] = _root.Q<Button>($"keybind-{keybindName}-0");
-                buttons[1] = _root.Q<Button>($"keybind-{keybindName}-1");
+                buttons[0] = QOptional<Button>($"keybind-{keybindName}-0");
+                buttons[1] = QOptional<Button>($"keybind-{keybindName}-1");
 
                 if(buttons[0] == null || buttons[1] == null) continue;
                 _keybindButtons[keybindName] = buttons;
 
                 for(var i = 0; i < 2; i++) {
                     var index = i;
-                    buttons[i].RegisterCallback<ClickEvent>(_ => OnKeybindButtonClicked(keybindName, index));
+                    var button = buttons[i]; // Capture button reference directly
+                    EventCallback<ClickEvent> handler = _ => OnKeybindButtonClicked(keybindName, index);
+                    button.RegisterCallback(handler);
+                    RegisterCleanup(() => {
+                        button.UnregisterCallback(handler);
+                    });
                 }
             }
 
@@ -891,6 +1044,10 @@ namespace Game.Menu {
             if(_masterVolumeSlider != null) _masterVolumeSlider.value = DbToLinear(masterDb);
             if(_musicVolumeSlider != null) _musicVolumeSlider.value = DbToLinear(musicDb);
             if(_sfxVolumeSlider != null) _sfxVolumeSlider.value = DbToLinear(sfxDb);
+            if(_voiceVolumeSlider != null) _voiceVolumeSlider.value = SocialSettings.VoiceVolume;
+            if(_voiceVolumeValue != null) _voiceVolumeValue.value = Mathf.RoundToInt(SocialSettings.VoiceVolume * 100) + "%";
+            if(_voiceInputVolumeSlider != null) _voiceInputVolumeSlider.value = SocialSettings.VoiceInputVolume;
+            if(_voiceInputVolumeValue != null) _voiceInputVolumeValue.value = Mathf.RoundToInt(SocialSettings.VoiceInputVolume * 100) + "%";
 
             // Load sensitivity (with migration from old X/Y values)
             float sensitivityValue;
@@ -908,11 +1065,27 @@ namespace Game.Menu {
             if(_playerTrailsButton != null)
                 SetCheckboxValue(_playerTrailsButton, PlayerPrefs.GetInt("PlayerTrails", 1) == 1);
             if(_holdMantleButton != null) SetCheckboxValue(_holdMantleButton, PlayerPrefs.GetInt("HoldMantle", 1) == 1);
+            if(_profanityFilterButton != null) SetCheckboxValue(_profanityFilterButton, SocialSettings.ProfanityFilterEnabled);
             
             // Load grapple indicator setting (0 = Crosshair (default), 1 = Bottom, 2 = None)
             if(_grappleIndicatorDropdown != null) {
                 var savedGrappleIndicator = PlayerPrefs.GetInt("GrappleIndicator", 0);
                 _grappleIndicatorDropdown.index = Mathf.Clamp(savedGrappleIndicator, 0, _grappleIndicatorDropdown.choices.Count - 1);
+            }
+
+            if(_voiceModeDropdown != null) {
+                _voiceModeDropdown.choices = Enum.GetNames(typeof(VoiceInputMode)).ToList();
+                _voiceModeDropdown.index = (int)SocialSettings.InputMode;
+            }
+
+            if (_voiceDeviceDropdown != null) {
+                var devices = VoiceManager.Instance.GetAvailableInputDevices();
+                _voiceDeviceDropdown.choices = devices;
+                var savedDevice = SocialSettings.InputDevice;
+                _voiceDeviceDropdown.index = devices.IndexOf(savedDevice);
+                if (_voiceDeviceDropdown.index == -1 && devices.Count > 0) {
+                    _voiceDeviceDropdown.index = 0;
+                }
             }
 
             // Load window mode and resolution settings
@@ -973,22 +1146,27 @@ namespace Game.Menu {
             if(_fpsDropdown != null) _fpsDropdown.index = PlayerPrefs.GetInt("TargetFPS", 1);
 
             // Store original values
-            if(_masterVolumeSlider != null) _originalMasterVolume = _masterVolumeSlider.value;
-            if(_musicVolumeSlider != null) _originalMusicVolume = _musicVolumeSlider.value;
-            if(_sfxVolumeSlider != null) _originalSfxVolume = _sfxVolumeSlider.value;
-            if(_sensitivitySlider != null) _originalSensitivity = _sensitivitySlider.value;
+            _originalMasterVolume = _masterVolumeSlider?.value ?? 0f;
+            _originalMusicVolume = _musicVolumeSlider?.value ?? 0f;
+            _originalSfxVolume = _sfxVolumeSlider?.value ?? 0f;
+            _originalVoiceVolume = SocialSettings.VoiceVolume;
+
+            _originalSensitivity = _sensitivitySlider?.value ?? 0.1f;
             _originalInvertY = GetCheckboxValue(_invertYButton);
             _originalPlayerTrails = GetCheckboxValue(_playerTrailsButton);
             _originalHoldMantle = GetCheckboxValue(_holdMantleButton);
-            if(_grappleIndicatorDropdown != null) _originalGrappleIndicator = _grappleIndicatorDropdown.index;
-            if(_windowModeDropdown != null) _originalWindowMode = _windowModeDropdown.index;
-            if(_aspectRatioDropdown != null) _originalAspectRatio = _aspectRatioDropdown.value;
-            if(_resolutionDropdown != null) _originalResolutionIndex = _resolutionDropdown.index;
-            if(_msaaDropdown != null) _originalMsaa = _msaaDropdown.index;
-            if(_shadowDistanceSlider != null) _originalShadowDistance = _shadowDistanceSlider.value;
-            if(_shadowResolutionDropdown != null) _originalShadowResolution = _shadowResolutionDropdown.index;
+            _originalProfanityFilter = SocialSettings.ProfanityFilterEnabled;
+            _originalGrappleIndicator = _grappleIndicatorDropdown?.index ?? 0;
+            _originalVoiceMode = (int)SocialSettings.InputMode;
+
+            _originalWindowMode = _windowModeDropdown?.index ?? 0;
+            _originalAspectRatio = _aspectRatioDropdown?.value ?? "";
+            _originalResolutionIndex = _resolutionDropdown?.index ?? 0;
+            _originalMsaa = _msaaDropdown?.index ?? 0;
+            _originalShadowDistance = _shadowDistanceSlider?.value ?? 50f;
+            _originalShadowResolution = _shadowResolutionDropdown?.index ?? 2;
             _originalVsync = GetCheckboxValue(_vsyncButton);
-            if(_fpsDropdown != null) _originalTargetFPS = _fpsDropdown.index;
+            _originalTargetFPS = _fpsDropdown?.index ?? 1;
 
             ApplySettingsInternal();
 
@@ -1022,6 +1200,9 @@ namespace Game.Menu {
                 volumeChanged |= !Mathf.Approximately(_musicVolumeSlider.value, _originalMusicVolume);
             if(_sfxVolumeSlider != null)
                 volumeChanged |= !Mathf.Approximately(_sfxVolumeSlider.value, _originalSfxVolume);
+            
+            if(_voiceVolumeSlider != null)
+                volumeChanged |= !Mathf.Approximately(_voiceVolumeSlider.value, _originalVoiceVolume);
 
             var sensitivityChanged = false;
             if(_sensitivitySlider != null)
@@ -1030,9 +1211,13 @@ namespace Game.Menu {
             var invertYChanged = GetCheckboxValue(_invertYButton) != _originalInvertY;
             var playerTrailsChanged = GetCheckboxValue(_playerTrailsButton) != _originalPlayerTrails;
             var holdMantleChanged = GetCheckboxValue(_holdMantleButton) != _originalHoldMantle;
+            var profanityFilterChanged = GetCheckboxValue(_profanityFilterButton) != _originalProfanityFilter;
             
             var grappleIndicatorChanged = false;
             if(_grappleIndicatorDropdown != null) grappleIndicatorChanged = _grappleIndicatorDropdown.index != _originalGrappleIndicator;
+
+            var voiceModeChanged = false;
+            if(_voiceModeDropdown != null) voiceModeChanged = _voiceModeDropdown.index != _originalVoiceMode;
 
             var windowModeChanged = false;
             if(_windowModeDropdown != null) windowModeChanged = _windowModeDropdown.index != _originalWindowMode;
@@ -1060,6 +1245,7 @@ namespace Game.Menu {
             if(_fpsDropdown != null) fpsChanged = _fpsDropdown.index != _originalTargetFPS;
 
             return volumeChanged || sensitivityChanged || invertYChanged || playerTrailsChanged || holdMantleChanged ||
+                   profanityFilterChanged || voiceModeChanged ||
                    grappleIndicatorChanged || windowModeChanged || aspectRatioChanged || resolutionChanged || msaaChanged ||
                    shadowDistanceChanged || shadowResolutionChanged || vsyncChanged || fpsChanged || hasKeybindChanges;
         }
@@ -1139,6 +1325,9 @@ namespace Game.Menu {
                 PlayerPrefs.SetFloat("SFXVolume", sfxDb);
             }
 
+            SocialSettings.VoiceVolume = _voiceVolumeSlider?.value ?? SocialSettings.VoiceVolume;
+            SocialSettings.VoiceInputVolume = _voiceInputVolumeSlider?.value ?? SocialSettings.VoiceInputVolume;
+
             // Save control settings
             if(_sensitivitySlider != null) {
                 PlayerPrefs.SetFloat("Sensitivity", _sensitivitySlider.value);
@@ -1147,10 +1336,22 @@ namespace Game.Menu {
             PlayerPrefs.SetInt("InvertY", GetCheckboxValue(_invertYButton) ? 1 : 0);
             PlayerPrefs.SetInt("PlayerTrails", GetCheckboxValue(_playerTrailsButton) ? 1 : 0);
             PlayerPrefs.SetInt("HoldMantle", GetCheckboxValue(_holdMantleButton) ? 1 : 0);
+            SocialSettings.ProfanityFilterEnabled = GetCheckboxValue(_profanityFilterButton);
             
             // Save grapple indicator setting
             if(_grappleIndicatorDropdown != null) {
                 PlayerPrefs.SetInt("GrappleIndicator", _grappleIndicatorDropdown.index);
+            }
+            
+            if(_voiceModeDropdown != null) {
+                SocialSettings.InputMode = (VoiceInputMode)_voiceModeDropdown.index;
+            }
+
+            if (_voiceDeviceDropdown != null) {
+                SocialSettings.InputDevice = _voiceDeviceDropdown.value;
+                if (VoiceManager.Instance != null) {
+                    VoiceManager.Instance.SetActiveMicAsync(_voiceDeviceDropdown.value).Forget();
+                }
             }
 
             // Save window mode and resolution settings
@@ -1213,22 +1414,27 @@ namespace Game.Menu {
             ApplySettingsInternal();
 
             // Update original values
-            if(_masterVolumeSlider != null) _originalMasterVolume = _masterVolumeSlider.value;
-            if(_musicVolumeSlider != null) _originalMusicVolume = _musicVolumeSlider.value;
-            if(_sfxVolumeSlider != null) _originalSfxVolume = _sfxVolumeSlider.value;
-            if(_sensitivitySlider != null) _originalSensitivity = _sensitivitySlider.value;
+            _originalMasterVolume = _masterVolumeSlider?.value ?? 0f;
+            _originalMusicVolume = _musicVolumeSlider?.value ?? 0f;
+            _originalSfxVolume = _sfxVolumeSlider?.value ?? 0f;
+            _originalVoiceVolume = SocialSettings.VoiceVolume;
+
+            _originalSensitivity = _sensitivitySlider?.value ?? 0.1f;
             _originalInvertY = GetCheckboxValue(_invertYButton);
             _originalPlayerTrails = GetCheckboxValue(_playerTrailsButton);
             _originalHoldMantle = GetCheckboxValue(_holdMantleButton);
-            if(_grappleIndicatorDropdown != null) _originalGrappleIndicator = _grappleIndicatorDropdown.index;
-            if(_windowModeDropdown != null) _originalWindowMode = _windowModeDropdown.index;
-            if(_aspectRatioDropdown != null) _originalAspectRatio = _aspectRatioDropdown.value;
-            if(_resolutionDropdown != null) _originalResolutionIndex = _resolutionDropdown.index;
-            if(_msaaDropdown != null) _originalMsaa = _msaaDropdown.index;
-            if(_shadowDistanceSlider != null) _originalShadowDistance = _shadowDistanceSlider.value;
-            if(_shadowResolutionDropdown != null) _originalShadowResolution = _shadowResolutionDropdown.index;
+            _originalProfanityFilter = SocialSettings.ProfanityFilterEnabled;
+            _originalGrappleIndicator = _grappleIndicatorDropdown?.index ?? 0;
+            _originalVoiceMode = (int)SocialSettings.InputMode;
+
+            _originalWindowMode = _windowModeDropdown?.index ?? 0;
+            _originalAspectRatio = _aspectRatioDropdown?.value ?? "";
+            _originalResolutionIndex = _resolutionDropdown?.index ?? 0;
+            _originalMsaa = _msaaDropdown?.index ?? 0;
+            _originalShadowDistance = _shadowDistanceSlider?.value ?? 50f;
+            _originalShadowResolution = _shadowResolutionDropdown?.index ?? 2;
             _originalVsync = GetCheckboxValue(_vsyncButton);
-            if(_fpsDropdown != null) _originalTargetFPS = _fpsDropdown.index;
+            _originalTargetFPS = _fpsDropdown?.index ?? 1;
 
             LoadKeybindDisplayStrings();
         }
@@ -1376,7 +1582,7 @@ namespace Game.Menu {
         /// Call this when the options panel becomes visible to force style refresh.
         /// </summary>
         public void OnOptionsPanelShown() {
-            var optionsPanel = _root?.Q<VisualElement>("options-panel");
+            var optionsPanel = Root?.Q<VisualElement>("options-panel");
 
             // Force style recalculation
             optionsPanel?.schedule.Execute(() => {

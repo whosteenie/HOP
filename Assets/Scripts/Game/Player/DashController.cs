@@ -32,6 +32,9 @@ namespace Game.Player {
             _netIsDashing.OnValueChanged -= OnDashChanged;
         }
 
+        /// <summary>
+        /// Starts the dash on the server.
+        /// </summary>
         [Rpc(SendTo.Server)]
         private void StartDashRpc(Vector3 direction) {
             if(_netIsDashing.Value || _dashCooldownTimer > 0) return;
@@ -67,12 +70,8 @@ namespace Game.Player {
                 _dashCooldownTimer = dashCooldown;
             }
 
-            if(!IsDashing) return;
-            _dashTimer += Time.deltaTime;
-
-            // **ADDITIVE: Current momentum + dash boost in input direction**
             var currentVel = playerController.GetFullVelocity;
-            var dashDir = _dashVelocity.normalized; // Direction only
+            var dashDir = _dashVelocity.normalized;
             var boostedVel = currentVel + dashDir * dashSpeed;
 
             boostedVel.y = currentVel.y; // Keep vertical
@@ -80,7 +79,6 @@ namespace Game.Player {
             characterController.Move(boostedVel * Time.deltaTime);
 
             if(!(_dashTimer >= dashDuration)) return;
-            // **PRESERVE boosted momentum** - let friction/air strafe control it
             playerController.SetVelocity(new Vector3(boostedVel.x, 0f, boostedVel.z));
             EndDash();
         }
@@ -94,6 +92,9 @@ namespace Game.Player {
             }
         }
 
+        /// <summary>
+        /// Called when the dash input is received.
+        /// </summary>
         public void OnDashInput() {
             TryDash(playerController.moveInput);
         }

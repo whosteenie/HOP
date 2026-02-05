@@ -1,21 +1,20 @@
 using System;
+using System.Collections.Generic;
 using Discord;
 using Game.Player;
 using Game.Progression;
 using Game.UI;
 using Game.Match;
 using Network;
-using Network.Events;
 using Network.Services;
+using Network.Steam;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UIElements;
 
 namespace Game.Menu {
-    public class GameMenuManager : MonoBehaviour {
+    public class GameMenuManager : UIElementBase {
         #region Serialized Fields
-
-        [SerializeField] private UIDocument uiDocument;
 
         [Header("Kill Feed")]
         [SerializeField] private KillFeedManager killFeedManager;
@@ -28,6 +27,14 @@ namespace Game.Menu {
 
         [Header("Sniper Overlay")]
         [SerializeField] private SniperOverlayManager sniperOverlayManager;
+        
+        [Header("Social")]
+        [SerializeField] private ChatUIManager chatUIManager;
+        [SerializeField] private VoiceOverlayManager voiceOverlayManager;
+
+        [Header("UI Templates")]
+        [SerializeField] private VisualTreeAsset challengeCardTemplate;
+        [SerializeField] private VisualTreeAsset challengeRowTemplate;
 
         #endregion
 
@@ -53,27 +60,22 @@ namespace Game.Menu {
 
         // Pause menu join code
         private Label _pauseJoinCodeLabel;
-        private Button _pauseCopyCodeButton;
+        private Button _pauseCopyCodeButton; // Will be "Invite" button
 
-        private VisualElement _root;
-
-        // Cache scene name to avoid string allocations
         private string _cachedSceneName;
-
-        // Pause menu challenge cards
         private VisualElement _pauseChallengesContainer;
         private VisualElement _dailyChallengesCard;
         private VisualElement _weeklyChallengesCard;
         private readonly Color _progressBarColor = new(1f, 0.392f, 0.392f); // #ff6464
+        private UIModalHost _modalHost;
 
         #endregion
 
         #region Properties
 
         public bool IsPaused { get; private set; }
-
+        public bool IsChatOpen => chatUIManager != null && chatUIManager.IsChatOpen;
         public bool IsPostMatch { get; set; }
-
         public static bool IsPreMatch => MatchTimerManager.Instance != null && MatchTimerManager.Instance.IsPreMatch;
 
         #endregion
@@ -82,114 +84,128 @@ namespace Game.Menu {
 
         #region Unity Lifecycle
 
-        private void Awake() {
+        protected override void Awake() {
             if(Instance != null && Instance != this) {
                 Destroy(gameObject);
                 return;
             }
-
             Instance = this;
+            base.Awake();
+            if(Root == null) return;
+            _modalHost = new UIModalHost(this, Root);
         }
 
-        private void Start() {
-            if(DiscordManager.Instance != null) {
-                string mode = "Deathmatch";
-                if(Game.Match.MatchSettingsManager.Instance != null) {
-                    mode = Game.Match.MatchSettingsManager.Instance.selectedGameModeId;
-                    if(mode == "KOTH") mode = "King of the Hill";
-                    else if(mode == "TDM") mode = "Team Deathmatch";
-                    
-                    if(string.IsNullOrEmpty(mode)) mode = "Deathmatch";
-                }
-                
-                DiscordManager.Instance.SetStatus("Playing " + mode, "In Match", System.DateTimeOffset.UtcNow.ToUnixTimeSeconds());
+        protected override void Start() {
+            base.Start();
+            if(DiscordManager.Instance == null) return;
+            var mode = "Deathmatch";
+            if(MatchSettingsManager.Instance != null) {
+                mode = MatchSettingsManager.Instance.selectedGameModeId;
+                if(string.IsNullOrEmpty(mode)) mode = "Deathmatch";
             }
+            DiscordManager.Instance.SetStatus("Playing " + mode, "In Match", 
+                DateTimeOffset.UtcNow.ToUnixTimeSeconds());
         }
 
-        private void OnEnable() {
-            if(uiDocument == null) {
-                Debug.LogError("[GameMenuManager] UIDocument is not assigned!");
-                return;
-            }
-
-            _root = uiDocument.rootVisualElement;
-
-            // Cache scene name to avoid allocations
+        protected override void OnEnable() {
+            base.OnEnable();
             UpdateCachedSceneName();
-
-            // Subscribe to scene changes to update cache
             SceneManager.sceneLoaded += OnSceneLoaded;
+            RegisterCleanup(() => SceneManager.sceneLoaded -= OnSceneLoaded);
+        }
 
+        protected override void OnDisable() {
+            SceneManager.sceneLoaded -= OnSceneLoaded;
+            base.OnDisable();
+        }
+
+        protected override void OnInitialize() {
             FindUIElements();
             RegisterUIEvents();
-
+            
             SetupOptionsMenuManager();
             SetupKillFeedManager();
             SetupScoreboardManager();
             SetupSniperOverlayManager();
-
-            // Subscribe to EventBus events
-            EventBus.Subscribe<RelayCodeAvailableEvent>(OnRelayCodeAvailable);
+            SetupSocialUI();
+            
+            // Clear chat history when initializing (new match)
+            if(chatUIManager != null) {
+                chatUIManager.ClearChatHistory();
+            }
         }
 
-        private void OnDisable() {
-            // Unsubscribe from EventBus events
-            EventBus.Unsubscribe<RelayCodeAvailableEvent>(OnRelayCodeAvailable);
-
-            // Unsubscribe from scene changes
-            SceneManager.sceneLoaded -= OnSceneLoaded;
+        protected override Dictionary<string, System.Type> GetRequiredElements() {
+            return new Dictionary<string, System.Type> {
+                { "pause-menu-panel", typeof(VisualElement) },
+                { "resume-button", typeof(Button) },
+                { "options-button", typeof(Button) },
+                { "quit-button", typeof(Button) }
+            };
         }
+        
+        #endregion
 
         private void UpdateCachedSceneName() {
             var activeScene = SceneManager.GetActiveScene();
-            if(activeScene.IsValid()) {
-                _cachedSceneName = activeScene.name;
-            }
+            if(activeScene.IsValid()) _cachedSceneName = activeScene.name;
         }
 
         private void OnSceneLoaded(Scene scene, LoadSceneMode mode) {
             UpdateCachedSceneName();
+            
+            // When loading a game scene, ensure pause menu and challenges are hidden
+            if(_cachedSceneName != null && _cachedSceneName.Contains("Game")) {
+                // Reset pause state
+                IsPaused = false;
+                
+                // Hide pause menu
+                if(_pauseMenuPanel != null) {
+                    _pauseMenuPanel.AddToClassList("hidden");
+                }
+                
+                // Hide challenges container
+                if(_pauseChallengesContainer != null) {
+                    _pauseChallengesContainer.AddToClassList("hidden");
+                }
+                
+                // Hide options panel
+                if(_optionsPanel != null) {
+                    _optionsPanel.AddToClassList("hidden");
+                }
+                
+                // Reset cursor state
+                UnityEngine.Cursor.lockState = CursorLockMode.Locked;
+                UnityEngine.Cursor.visible = false;
+                
+                // Clear chat history for new match
+                if(chatUIManager != null) {
+                    chatUIManager.ClearChatHistory();
+                }
+            }
         }
-
-        #region Event Handlers
-
-        private void OnRelayCodeAvailable(RelayCodeAvailableEvent evt) {
-            // Update join code display if pause menu is visible
-            if(!IsPaused || _pauseJoinCodeLabel == null) return;
-            JoinCodeService.UpdateJoinCodeDisplay(_pauseJoinCodeLabel, _pauseCopyCodeButton, evt.Code);
-        }
-
-        #endregion
 
         private void FindUIElements() {
-            // Get panels
-            _pauseMenuPanel = _root.Q<VisualElement>("pause-menu-panel");
-            _optionsPanel = _root.Q<VisualElement>("options-panel");
-
-            _resumeButton = _root.Q<Button>("resume-button");
-            _optionsButton = _root.Q<Button>("options-button");
-            _quitButton = _root.Q<Button>("quit-button");
-
-            // Pause menu join code
-            _pauseJoinCodeLabel = _root.Q<Label>("pause-join-code-label");
-            _pauseCopyCodeButton = _root.Q<Button>("pause-copy-code-button");
-
-            // Quit confirmation modal
-            _quitConfirmationModal = _root.Q<VisualElement>("quit-confirmation-modal");
-            _quitConfirmationYes = _root.Q<Button>("quit-confirmation-yes");
-            _quitConfirmationNo = _root.Q<Button>("quit-confirmation-no");
-
-            // Kill Feed
-            _killFeedContainer = _root.Q<VisualElement>("kill-feed-container");
+            _pauseMenuPanel = QRequired<VisualElement>("pause-menu-panel");
+            _optionsPanel = QOptional<VisualElement>("options-panel");
+            _resumeButton = QRequired<Button>("resume-button");
+            _optionsButton = QRequired<Button>("options-button");
+            _quitButton = QRequired<Button>("quit-button");
+            _pauseJoinCodeLabel = QOptional<Label>("pause-join-code-label");
+            _pauseCopyCodeButton = QOptional<Button>("pause-copy-code-button");
+            _quitConfirmationModal = QOptional<VisualElement>("quit-confirmation-modal");
+            _quitConfirmationYes = QOptional<Button>("quit-confirmation-yes");
+            _quitConfirmationNo = QOptional<Button>("quit-confirmation-no");
+            _killFeedContainer = QOptional<VisualElement>("kill-feed-container");
             
-            // Build challenge cards for pause menu
             BuildPauseChallengeCards();
+            
+            // hide invite/code UI
+            if(_pauseJoinCodeLabel != null) _pauseJoinCodeLabel.style.display = DisplayStyle.None;
+            if(_pauseCopyCodeButton != null) _pauseCopyCodeButton.style.display = DisplayStyle.None;
         }
 
-
-
         private void Update() {
-            // Real-time challenge updates while paused
             if (IsPaused && _pauseChallengesContainer != null) {
                 UpdatePauseChallenges();
             }
@@ -198,394 +214,311 @@ namespace Game.Menu {
         private void BuildPauseChallengeCards() {
             if (_pauseMenuPanel == null) return;
 
-            // Create container for challenges (horizontal layout around pause card)
             _pauseChallengesContainer = new VisualElement {
                 name = "pause-challenges-container",
                 style = {
                     position = Position.Absolute,
-                    left = 0,
-                    right = 0,
-                    top = 0,
-                    bottom = 0,
+                    left = 0, right = 0, top = 0, bottom = 0,
                     flexDirection = FlexDirection.Row,
                     justifyContent = Justify.Center,
                     alignItems = Align.Center
                 }
             };
             
-            // Daily Challenges Card (left side)
             _dailyChallengesCard = CreateChallengeCard("Daily Challenges");
-            _dailyChallengesCard.style.marginRight = 50; // More spacing from pause menu
+            if(_dailyChallengesCard != null) {
+                _dailyChallengesCard.style.marginRight = 50;
+            }
             
-            // Spacer for the existing pause card (we don't move it)
-            var spacer = new VisualElement {
-                style = {
-                    width = 420, // Match pause menu .menu-container width
-                    height = 10
-                }
-            };
+            var spacer = new VisualElement { style = { width = 420, height = 10 } };
             
-            // Weekly Challenges Card (right side)
             _weeklyChallengesCard = CreateChallengeCard("Weekly Challenges");
-            _weeklyChallengesCard.style.marginLeft = 50; // More spacing from pause menu
+            if(_weeklyChallengesCard != null) {
+                _weeklyChallengesCard.style.marginLeft = 50;
+            }
 
-            _pauseChallengesContainer.Add(_dailyChallengesCard);
+            if(_dailyChallengesCard != null) _pauseChallengesContainer.Add(_dailyChallengesCard);
             _pauseChallengesContainer.Add(spacer);
-            _pauseChallengesContainer.Add(_weeklyChallengesCard);
+            if(_weeklyChallengesCard != null) _pauseChallengesContainer.Add(_weeklyChallengesCard);
             
-            // Add before pause menu panel so it's behind it
             _pauseMenuPanel.parent.Insert(0, _pauseChallengesContainer);
             _pauseChallengesContainer.AddToClassList("hidden");
         }
 
         private VisualElement CreateChallengeCard(string title) {
-            // Match HOP pause menu style from GameMenu.uss
-            // .menu-container uses: rgba(12, 12, 18, 0.85) bg, rgba(200, 60, 60, 0.4) border
-            var card = new VisualElement {
-                style = {
-                    width = 280,
-                    minHeight = 180,
-                    backgroundColor = new Color(12f/255f, 12f/255f, 18f/255f, 0.85f), // rgba(12,12,18,0.85)
-                    borderTopLeftRadius = 4,
-                    borderTopRightRadius = 4,
-                    borderBottomLeftRadius = 4,
-                    borderBottomRightRadius = 4,
-                    borderTopWidth = 1,
-                    borderBottomWidth = 1,
-                    borderLeftWidth = 1,
-                    borderRightWidth = 1,
-                    borderTopColor = new Color(200f/255f, 60f/255f, 60f/255f, 0.4f), // rgba(200,60,60,0.4)
-                    borderBottomColor = new Color(200f/255f, 60f/255f, 60f/255f, 0.4f),
-                    borderLeftColor = new Color(200f/255f, 60f/255f, 60f/255f, 0.4f),
-                    borderRightColor = new Color(200f/255f, 60f/255f, 60f/255f, 0.4f),
-                    paddingTop = 16,
-                    paddingBottom = 16,
-                    paddingLeft = 18,
-                    paddingRight = 18
-                }
-            };
-            
-            var titleLabel = new Label(title) {
-                style = {
-                    fontSize = 14,
-                    unityFontStyleAndWeight = FontStyle.Bold,
-                    color = Color.white,
-                    marginBottom = 12,
-                    unityTextAlign = TextAnchor.MiddleCenter
-                }
-            };
-            card.Add(titleLabel);
-            
-            // Separator line (red accent matching border)
-            var separator = new VisualElement {
-                style = {
-                    height = 1,
-                    backgroundColor = new Color(200f/255f, 60f/255f, 60f/255f, 0.6f),
-                    marginBottom = 12
-                }
-            };
-            card.Add(separator);
-            
-            var listContainer = new VisualElement {
-                name = "challenge-list"
-            };
-            card.Add(listContainer);
-            
+            VisualElement card;
+            Label titleLabel;
+            VisualElement separator;
+            VisualElement listContainer;
+
+            if(challengeCardTemplate != null) {
+                card = challengeCardTemplate.CloneTree();
+                titleLabel = card.Q<Label>("title-label");
+                separator = card.Q<VisualElement>("separator");
+                listContainer = card.Q<VisualElement>("challenge-list");
+            } else {
+                card = new VisualElement {
+                    style = {
+                        width = 280, minHeight = 180,
+                        backgroundColor = new Color(12f/255f, 12f/255f, 18f/255f, 0.85f),
+                        borderTopWidth = 1, borderBottomWidth = 1, borderLeftWidth = 1, borderRightWidth = 1,
+                        borderTopColor = new Color(200f/255f, 60f/255f, 60f/255f, 0.4f),
+                        borderBottomColor = new Color(200f/255f, 60f/255f, 60f/255f, 0.4f),
+                        borderLeftColor = new Color(200f/255f, 60f/255f, 60f/255f, 0.4f),
+                        borderRightColor = new Color(200f/255f, 60f/255f, 60f/255f, 0.4f),
+                        paddingTop = 16, paddingBottom = 16, paddingLeft = 18, paddingRight = 18,
+                        borderTopLeftRadius = 4, borderTopRightRadius = 4, 
+                        borderBottomLeftRadius = 4, borderBottomRightRadius = 4
+                    }
+                };
+                titleLabel = new Label {
+                    style = {
+                        fontSize = 14, unityFontStyleAndWeight = FontStyle.Bold,
+                        color = Color.white, marginBottom = 12, unityTextAlign = TextAnchor.MiddleCenter
+                    }
+                };
+                card.Add(titleLabel);
+                separator = new VisualElement {
+                    style = { height = 1, backgroundColor = new Color(200f/255f, 60f/255f, 60f/255f, 0.6f), marginBottom = 12 }
+                };
+                card.Add(separator);
+                listContainer = new VisualElement { name = "challenge-list" };
+                card.Add(listContainer);
+            }
+
+            if(titleLabel != null) {
+                titleLabel.text = title;
+            }
+
             return card;
         }
 
         private void UpdatePauseChallenges() {
             var pm = ProgressionManager.Instance;
             if (pm == null || pm.Data == null) return;
-
             RenderChallengeList(_dailyChallengesCard, pm.Data.dailyChallenges);
             RenderChallengeList(_weeklyChallengesCard, pm.Data.weeklyChallenges);
         }
 
         private void RenderChallengeList(VisualElement card, System.Collections.Generic.List<ActiveChallengeData> challenges) {
             if (card == null) return;
-            
             var list = card.Q<VisualElement>("challenge-list");
             if (list == null) return;
             
             list.Clear();
             if (challenges == null) return;
-            
             var pm = ProgressionManager.Instance;
             if (pm == null) return;
 
             foreach (var activeChallenge in challenges) {
                 var def = pm.GetChallengeDefinition(activeChallenge.challengeID);
                 if (def == null) continue;
-                    
-                var row = new VisualElement {
-                    style = {
-                        marginBottom = 12,
-                        paddingBottom = 8,
-                        borderBottomWidth = 1,
-                        borderBottomColor = new Color(200f/255f, 60f/255f, 60f/255f, 0.15f)
-                    }
-                };
+
+                VisualElement row;
+                VisualElement titleRow;
+                Label descriptionLabel;
+                Label xpLabel;
+                ProgressBar progressBar;
+
+                if(challengeRowTemplate != null) {
+                    row = challengeRowTemplate.CloneTree();
+                    titleRow = row.Q<VisualElement>("title-row");
+                    descriptionLabel = row.Q<Label>("description-label");
+                    xpLabel = row.Q<Label>("xp-label");
+                    progressBar = row.Q<ProgressBar>("progress-bar");
+                } else {
+                    row = new VisualElement {
+                        style = { marginBottom = 12, paddingBottom = 8, borderBottomWidth = 1, borderBottomColor = new Color(200f/255f, 60f/255f, 60f/255f, 0.15f) }
+                    };
+                    titleRow = new VisualElement {
+                        style = { flexDirection = FlexDirection.Row, justifyContent = Justify.SpaceBetween, alignItems = Align.FlexStart, marginBottom = 4 }
+                    };
+                    row.Add(titleRow);
+                    descriptionLabel = new Label {
+                        style = { fontSize = 11, color = new Color(0.9f, 0.9f, 0.9f), whiteSpace = WhiteSpace.Normal, flexShrink = 1 }
+                    };
+                    titleRow.Add(descriptionLabel);
+                    xpLabel = new Label {
+                        style = { fontSize = 10, color = new Color(0.5f, 0.8f, 0.5f), flexShrink = 0, marginLeft = 8 }
+                    };
+                    titleRow.Add(xpLabel);
+                    progressBar = new ProgressBar { lowValue = 0, highValue = 100, value = 0, style = { height = 5 } };
+                    row.Add(progressBar);
+                }
 
                 var progress = activeChallenge.currentProgress;
                 var target = activeChallenge.targetProgress;
                 if (progress > target) progress = target;
                     
-                // Format description, handling dynamic filterID for play_matches_of etc.
-                string descText = def.Description;
+                var descText = def.Description;
                 try {
-                    // If filterID is set, use it as {1} in the format string
                     if (!string.IsNullOrEmpty(activeChallenge.filterID)) {
                         var displayFilter = pm.GetFilterDisplayName(activeChallenge.filterID);
                         descText = string.Format(def.Description, target, displayFilter);
                     } else {
                         descText = string.Format(def.Description, target);
                     }
-                } catch {
-                    // Fallback
+                } catch { }
+
+                if(descriptionLabel != null) {
+                    descriptionLabel.text = $"{descText} ({progress}/{target})";
                 }
 
-                // Title row: Description (progress/target) ... +XP
-                var titleRow = new VisualElement {
-                    style = {
-                        flexDirection = FlexDirection.Row,
-                        justifyContent = Justify.SpaceBetween,
-                        alignItems = Align.FlexStart,
-                        marginBottom = 4
-                    }
-                };
-                
-                // Description with progress inline
-                var titleLabel = new Label($"{descText} ({progress}/{target})") {
-                    style = {
-                        fontSize = 11,
-                        color = new Color(0.9f, 0.9f, 0.9f),
-                        whiteSpace = WhiteSpace.Normal,
-                        flexShrink = 1
-                    }
-                };
-                titleRow.Add(titleLabel);
-                
-                var xpLabel = new Label($"+{activeChallenge.xpReward}") {
-                    style = {
-                        fontSize = 10,
-                        color = new Color(0.5f, 0.8f, 0.5f),
-                        flexShrink = 0,
-                        marginLeft = 8
-                    }
-                };
-                titleRow.Add(xpLabel);
-                
-                row.Add(titleRow);
-                    
-                var progressBar = new ProgressBar {
-                    lowValue = 0,
-                    highValue = target,
-                    value = progress,
-                    style = {
-                        height = 5
-                    }
-                };
-                StyleProgressBar(progressBar);
-                row.Add(progressBar);
-                    
+                if(xpLabel != null) {
+                    xpLabel.text = $"+{activeChallenge.xpReward}";
+                }
+
+                if(progressBar != null) {
+                    progressBar.lowValue = 0;
+                    progressBar.highValue = target;
+                    progressBar.value = progress;
+                    StyleProgressBar(progressBar);
+                }
+
                 list.Add(row);
             }
         }
 
         private void StyleProgressBar(ProgressBar bar) {
             bar.style.backgroundColor = new Color(0.15f, 0.15f, 0.15f);
-            bar.style.borderTopWidth = 0;
-            bar.style.borderBottomWidth = 0;
-            bar.style.borderLeftWidth = 0;
-            bar.style.borderRightWidth = 0;
             var fill = bar.Q<VisualElement>(className: "unity-progress-bar__progress");
-            if (fill != null) {
-                fill.style.backgroundColor = _progressBarColor;
-            }
+            if (fill != null) fill.style.backgroundColor = _progressBarColor;
         }
 
         private void RegisterUIEvents() {
-            // Setup main menu buttons
-            _resumeButton.clicked += () => {
-                UISoundService.PlayButtonClick();
-                ResumeGame();
-            };
+            System.Action resumeHandler = () => { UISoundService.PlayButtonClick(); ResumeGame(); };
+            _resumeButton.clicked += resumeHandler;
+            RegisterCleanup(() => _resumeButton.clicked -= resumeHandler);
             UISoundService.RegisterButtonHover(_resumeButton);
 
-            _optionsButton.clicked += () => {
-                UISoundService.PlayButtonClick();
-                ShowOptions();
-            };
+            System.Action optionsHandler = () => { UISoundService.PlayButtonClick(); ShowOptions(); };
+            _optionsButton.clicked += optionsHandler;
+            RegisterCleanup(() => _optionsButton.clicked -= optionsHandler);
             UISoundService.RegisterButtonHover(_optionsButton);
 
-            _quitButton.clicked += () => {
-                UISoundService.PlayButtonClick(isBack: true);
-                ShowQuitConfirmation();
-            };
+            System.Action quitHandler = () => { UISoundService.PlayButtonClick(isBack: true); ShowQuitConfirmation(); };
+            _quitButton.clicked += quitHandler;
+            RegisterCleanup(() => _quitButton.clicked -= quitHandler);
             UISoundService.RegisterButtonHover(_quitButton);
 
-            // Quit confirmation modal
             if(_quitConfirmationYes != null) {
-                _quitConfirmationYes.clicked += () => {
-                    UISoundService.PlayButtonClick(isBack: true); // Negative sound for destructive action
-                    HideQuitConfirmation();
-                    QuitToMenu();
+                System.Action yesHandler = () => { 
+                    UISoundService.PlayButtonClick(isBack: true); 
+                    _modalHost.HideModal("quit-confirmation"); 
+                    QuitToMenu(); 
                 };
+                _quitConfirmationYes.clicked += yesHandler;
+                RegisterCleanup(() => _quitConfirmationYes.clicked -= yesHandler);
                 UISoundService.RegisterButtonHover(_quitConfirmationYes);
             }
 
-            if(_quitConfirmationNo != null) {
-                _quitConfirmationNo.clicked += () => {
-                    UISoundService.PlayButtonClick(); // Positive sound for cancelling
-                    HideQuitConfirmation();
-                };
-                UISoundService.RegisterButtonHover(_quitConfirmationNo);
-            }
-
-            // Setup pause menu copy button
-            if(_pauseCopyCodeButton == null) return;
-            _pauseCopyCodeButton.clicked += CopyPauseJoinCodeToClipboard;
-            UISoundService.RegisterButtonHover(_pauseCopyCodeButton);
+            if(_quitConfirmationNo == null) return;
+            System.Action noHandler = () => { 
+                UISoundService.PlayButtonClick(); 
+                _modalHost.HideModal("quit-confirmation");
+                // Show pause menu and challenges again when canceling quit
+                if(_pauseMenuPanel != null) {
+                    _pauseMenuPanel.RemoveFromClassList("hidden");
+                }
+                if(_pauseChallengesContainer != null) {
+                    _pauseChallengesContainer.RemoveFromClassList("hidden");
+                }
+            };
+            _quitConfirmationNo.clicked += noHandler;
+            RegisterCleanup(() => _quitConfirmationNo.clicked -= noHandler);
+            UISoundService.RegisterButtonHover(_quitConfirmationNo);
         }
 
         public void TogglePause() {
-            // Only allow pausing in Game scene
             if(_cachedSceneName == null || !_cachedSceneName.Contains("Game")) return;
 
             if(IsPaused) {
-                if(!_optionsPanel.ClassListContains("hidden")) {
-                    HideOptions();
-                } else {
-                    ResumeGame();
-                }
+                if(!_optionsPanel.ClassListContains("hidden")) HideOptions();
+                else ResumeGame();
             } else {
                 PauseGame();
             }
         }
 
-        #endregion
-
         #region Setup Methods
-
         private void SetupOptionsMenuManager() {
-            if(optionsMenuManager == null) {
-                Debug.LogError("[GameMenuManager] OptionsMenuManager not assigned!");
-                return;
-            }
-
-            // Set up callbacks using UISoundService
+            if(optionsMenuManager == null) return;
             optionsMenuManager.OnButtonClickedCallback = UISoundService.PlayButtonClick;
             optionsMenuManager.MouseEnterCallback = _ => UISoundService.PlayButtonHover();
             optionsMenuManager.MouseHoverCallback = _ => UISoundService.PlayButtonHover();
             optionsMenuManager.OnBackFromOptionsCallback = HideOptions;
-
-            // Initialize the options menu manager
             optionsMenuManager.Initialize();
         }
 
         private void SetupKillFeedManager() {
-            if(killFeedManager == null) {
-                Debug.LogError("[GameMenuManager] KillFeedManager not assigned!");
-                return;
-            }
-
-            // Initialize kill feed manager with the container
-            killFeedManager.Initialize(_killFeedContainer);
+            killFeedManager?.Initialize(_killFeedContainer);
         }
 
         private void SetupScoreboardManager() {
-            if(scoreboardManager == null) {
-                Debug.LogError("[GameMenuManager] ScoreboardManager not assigned!");
-                return;
-            }
-
-            // Initialize scoreboard manager with the root
-            scoreboardManager.Initialize(_root);
+            scoreboardManager?.Initialize(Root);
         }
 
         private void SetupSniperOverlayManager() {
-            if(sniperOverlayManager == null) {
-                Debug.LogError("[GameMenuManager] SniperOverlayManager not assigned!");
-                return;
-            }
-
-            // Initialize sniper overlay manager with the root
-            sniperOverlayManager.Initialize(_root);
+            sniperOverlayManager?.Initialize(Root);
         }
 
+        private void SetupSocialUI() {
+            if(voiceOverlayManager == null) voiceOverlayManager = GetComponentInChildren<VoiceOverlayManager>();
+            chatUIManager?.Initialize(Root);
+            voiceOverlayManager?.Initialize(Root);
+        }
         #endregion
 
         #region Menu Navigation
-
         private void PauseGame() {
             IsPaused = true;
             _pauseMenuPanel.RemoveFromClassList("hidden");
             UnityEngine.Cursor.lockState = CursorLockMode.None;
             UnityEngine.Cursor.visible = true;
-
-            // Update join code display when pausing
             UpdatePauseJoinCodeDisplay();
-
-            // Show challenge cards
-            if (_pauseChallengesContainer != null) {
-                _pauseChallengesContainer.RemoveFromClassList("hidden");
-            }
-
-            if(_localController) {
-                _localController.moveInput = Vector2.zero;
-            }
+            
+            if (_pauseChallengesContainer != null) _pauseChallengesContainer.RemoveFromClassList("hidden");
+            if(_localController) _localController.moveInput = Vector2.zero;
+        }
+        
+        private void InviteFriends() {
+             UISoundService.PlayButtonClick();
+             if (SessionManager.Instance != null && SessionManager.Instance.CurrentLobby.HasValue) {
+                 SteamManager.Instance.OpenInviteOverlay(SessionManager.Instance.CurrentLobby.Value.Id);
+             }
         }
 
         private void UpdatePauseJoinCodeDisplay() {
             if(_pauseJoinCodeLabel == null) return;
-
-            // Try to get join code from SessionManager
-            var sessionManager = SessionManager.Instance;
-            string joinCode = null;
-
-            if(sessionManager != null && sessionManager.ActiveSession != null) {
-                // Try to get relay code from session properties first
-                if(sessionManager.ActiveSession.Properties.TryGetValue("relayCode", out var prop) &&
-                   !string.IsNullOrEmpty(prop.Value)) {
-                    joinCode = prop.Value;
-                } else if(!string.IsNullOrEmpty(sessionManager.ActiveSession.Code)) {
-                    // Fallback to UGS session code
-                    joinCode = sessionManager.ActiveSession.Code;
-                }
+            
+            // For Steam, we don't prefer showing raw Lobby IDs (too long).
+            // Just show connected state.
+            if (SessionManager.Instance != null && SessionManager.Instance.CurrentLobby.HasValue) {
+                 _pauseJoinCodeLabel.text = "Lobby Active";
+            } else {
+                 _pauseJoinCodeLabel.text = "Single Player"; // Or offline
             }
-
-            JoinCodeService.UpdateJoinCodeDisplay(_pauseJoinCodeLabel, _pauseCopyCodeButton, joinCode);
-        }
-
-        private void CopyPauseJoinCodeToClipboard() {
-            UISoundService.PlayButtonClick();
-            JoinCodeService.CopyFromLabel(_pauseJoinCodeLabel);
         }
 
         private void ResumeGame() {
             IsPaused = false;
             _pauseMenuPanel.AddToClassList("hidden");
             _optionsPanel.AddToClassList("hidden");
-            HideQuitConfirmation();
-            
-            // Hide challenge cards
-            if (_pauseChallengesContainer != null) {
-                _pauseChallengesContainer.AddToClassList("hidden");
-            }
-            
+            _modalHost.HideModal("quit-confirmation");
+            if (_pauseChallengesContainer != null) _pauseChallengesContainer.AddToClassList("hidden");
             UnityEngine.Cursor.lockState = CursorLockMode.Locked;
             UnityEngine.Cursor.visible = false;
         }
 
         private void ShowOptions() {
             if(_cachedSceneName != "Game") return;
-            if(optionsMenuManager != null) {
-                optionsMenuManager.LoadSettings();
-                optionsMenuManager.OnOptionsPanelShown();
-            }
-
+            optionsMenuManager?.LoadSettings();
+            optionsMenuManager?.OnOptionsPanelShown();
             _pauseMenuPanel.AddToClassList("hidden");
+            // Hide challenges when showing options
+            if(_pauseChallengesContainer != null) {
+                _pauseChallengesContainer.AddToClassList("hidden");
+            }
             _optionsPanel.RemoveFromClassList("hidden");
         }
 
@@ -593,30 +526,33 @@ namespace Game.Menu {
             if(_cachedSceneName != "Game") return;
             _optionsPanel.AddToClassList("hidden");
             _pauseMenuPanel.RemoveFromClassList("hidden");
+            // Show challenges again when returning to pause menu
+            if(_pauseChallengesContainer != null) {
+                _pauseChallengesContainer.RemoveFromClassList("hidden");
+            }
         }
 
         private void ShowQuitConfirmation() {
-            if(_quitConfirmationModal == null) return;
-            _quitConfirmationModal.RemoveFromClassList("hidden");
-        }
-
-        private void HideQuitConfirmation() {
-            if(_quitConfirmationModal == null) return;
-            _quitConfirmationModal.AddToClassList("hidden");
+            if(_quitConfirmationModal != null) {
+                // Hide pause menu and challenges when showing quit confirmation modal
+                if(_pauseMenuPanel != null) {
+                    _pauseMenuPanel.AddToClassList("hidden");
+                }
+                if(_pauseChallengesContainer != null) {
+                    _pauseChallengesContainer.AddToClassList("hidden");
+                }
+                _modalHost.ShowExistingModal(_quitConfirmationModal, "quit-confirmation");
+            }
         }
 
         private async void QuitToMenu() {
             try {
-                // Save progression before quitting
-                if (Game.Progression.ProgressionManager.Instance != null) {
-                    Game.Progression.ProgressionManager.Instance.SaveData();
-                }
-
+                ProgressionManager.Instance?.SaveData();
                 await SessionManager.Instance.LeaveToMainMenuAsync();
-
-                var root = uiDocument.rootVisualElement;
-                var rootContainer = root.Q<VisualElement>("root-container");
-                rootContainer.style.display = DisplayStyle.None;
+                
+                var rootContainer = Root.Q<VisualElement>("root-container");
+                if (rootContainer != null) rootContainer.style.display = DisplayStyle.None;
+                
                 _pauseMenuPanel.AddToClassList("hidden");
                 _optionsPanel.AddToClassList("hidden");
                 IsPaused = false;
@@ -626,7 +562,6 @@ namespace Game.Menu {
                 Debug.LogException(e);
             }
         }
-
         #endregion
     }
 }

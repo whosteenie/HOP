@@ -134,14 +134,21 @@ namespace Network.Events {
 
                 // Caller information
                 var stackTrace = new System.Diagnostics.StackTrace(1, true);
-                var caller = stackTrace.GetFrame(0)?.GetMethod();
-                var callerInfo = caller != null
-                    ? $"{caller.DeclaringType?.Name}.{caller.Name}()"
-                    : "Unknown";
+                var frame = stackTrace.GetFrame(0);
+                var caller = frame != null ? frame.GetMethod() : null;
+                string callerInfo = "Unknown";
+                if(caller != null) {
+                    var declaringType = caller.DeclaringType;
+                    var typeName = declaringType != null ? declaringType.Name : "Unknown";
+                    callerInfo = $"{typeName}.{caller.Name}()";
+                }
 
-                var subscriberCount = subscribers.TryGetValue(eventType, out var subscriber)
-                    ? subscriber.Count
-                    : 0;
+                int subscriberCount = 0;
+                if(subscribers.TryGetValue(eventType, out var subscriber)) {
+                    if(subscriber != null) {
+                        subscriberCount = subscriber.Count;
+                    }
+                }
 
                 // Event history (keep last 100)
                 var logEntry =
@@ -177,10 +184,14 @@ namespace Network.Events {
                         shouldLog = loggingEnabled && ShouldLogEvent(eventType);
                         if(shouldLog) {
                             var stackTrace = new System.Diagnostics.StackTrace(1, true);
-                            var caller = stackTrace.GetFrame(0)?.GetMethod();
-                            var callerInfo = caller != null
-                                ? $"{caller.DeclaringType?.Name}.{caller.Name}()"
-                                : "Unknown";
+                            var frame = stackTrace.GetFrame(0);
+                            var caller = frame != null ? frame.GetMethod() : null;
+                            string callerInfo = "Unknown";
+                            if(caller != null) {
+                                var declaringType = caller.DeclaringType;
+                                var typeName = declaringType != null ? declaringType.Name : "Unknown";
+                                callerInfo = $"{typeName}.{caller.Name}()";
+                            }
 
                             Debug.LogError($"[EventBus] Exception in {eventType.Name} handler:\n" +
                                            $"Event: {gameEvent}\n" +
@@ -200,7 +211,9 @@ namespace Network.Events {
                             }
 
                             // Track handler timings for editor window
-                            var handlerKey = $"{handler.Method.DeclaringType?.Name}.{handler.Method.Name}";
+                            var declaringType = handler.Method.DeclaringType;
+                            var typeName = declaringType != null ? declaringType.Name : "Unknown";
+                            var handlerKey = $"{typeName}.{handler.Method.Name}";
                             handlerTimings.TryAdd(handlerKey, 0f);
                             handlerTimings[handlerKey] =
                                 Mathf.Max(handlerTimings[handlerKey], duration * 1000f); // Store max in ms
@@ -237,7 +250,14 @@ namespace Network.Events {
                 Debug.Log($"{kvp.Key.Name}: {kvp.Value.Count} subscriber(s)");
                 foreach(var handler in kvp.Value) {
                     var method = handler.GetType().GetMethod("Invoke");
-                    Debug.Log($"  - {method?.DeclaringType?.Name}.{method?.Name}");
+                    string methodName = "Unknown";
+                    string typeName = "Unknown";
+                    if(method != null) {
+                        methodName = method.Name;
+                        var declaringType = method.DeclaringType;
+                        if(declaringType != null) typeName = declaringType.Name;
+                    }
+                    Debug.Log($"  - {typeName}.{methodName}");
                 }
             }
         }

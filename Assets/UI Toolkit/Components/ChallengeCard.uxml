@@ -1,0 +1,8 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" editor-extension-mode="False">
+    <Style src="project://database/Assets/UI%20Toolkit/SharedStyles.uss?fileID=7433441132597879392&amp;guid=94b07ae9f6dfe3447bec848c3f2b4d36&amp;type=3#SharedStyles" />
+    <ui:VisualElement name="challenge-card-root" class="challenge-card">
+        <ui:Label name="title-label" class="challenge-card-title" text="Daily Challenges" />
+        <ui:VisualElement name="separator" class="challenge-card-separator" />
+        <ui:VisualElement name="challenge-list" class="challenge-list" />
+    </ui:VisualElement>
+</ui:UXML>

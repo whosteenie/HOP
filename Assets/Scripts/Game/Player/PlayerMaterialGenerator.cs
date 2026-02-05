@@ -139,18 +139,12 @@ namespace Game.Player {
             }
 
             if(finalEmissionEnabled) {
-                // CRITICAL: Set emission color BEFORE enabling keyword for build compatibility
-                // In builds, Unity's shader variant stripping can cause issues if order is wrong
                 material.SetColor(EmissionColorId, finalEmissionColor);
                 
-                // Enable emission keyword AFTER setting color
                 material.EnableKeyword("_EMISSION");
                 
-                // Set global illumination flags for proper emission rendering
                 material.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive;
                 
-                // BRUTE FORCE: Also try setting emission intensity explicitly (some shader variants need this)
-                // This ensures emission works even if variant stripping is aggressive
                 if(material.HasProperty(EmissionIntensityId)) {
                     // Calculate intensity from color (max component)
                     var intensity = finalEmissionColor.maxColorComponent;
@@ -191,15 +185,12 @@ namespace Game.Player {
             material.SetFloat(WorkflowModeId, 0f); // Metallic workflow
 
             if(emissionEnabled && emissionColor.HasValue) {
-                // CRITICAL: Set emission color BEFORE enabling keyword for build compatibility
                 material.SetColor(EmissionColorId, emissionColor.Value);
                 
-                // Enable emission keyword AFTER setting color
                 material.EnableKeyword("_EMISSION");
                 
                 material.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive;
                 
-                // BRUTE FORCE: Also try setting emission intensity explicitly
                 if(material.HasProperty(EmissionIntensityId)) {
                     var intensity = emissionColor.Value.maxColorComponent;
                     material.SetFloat(EmissionIntensityId, intensity > 0.001f ? intensity : 1f);

@@ -1,0 +1,13 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" editor-extension-mode="False">
+    <Style src="project://database/Assets/UI%20Toolkit/SharedStyles.uss?fileID=7433441132597879392&amp;guid=94b07ae9f6dfe3447bec848c3f2b4d36&amp;type=3#SharedStyles" />
+    <ui:VisualElement name="modal-root" class="unsaved-changes-modal full-abs hidden">
+        <ui:VisualElement name="modal-container" class="unsaved-changes-container card">
+            <ui:Label name="modal-title" class="title" text="Title" />
+            <ui:Label name="modal-message" class="unsaved-changes-message" text="Message" />
+            <ui:VisualElement name="modal-buttons" class="unsaved-changes-buttons">
+                <ui:Button name="modal-yes" class="menu-chip menu-chip-enabled" text="Yes" />
+                <ui:Button name="modal-no" class="menu-chip menu-chip-enabled" text="No" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

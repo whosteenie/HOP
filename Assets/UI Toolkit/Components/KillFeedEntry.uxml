@@ -1,0 +1,8 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" editor-extension-mode="False">
+    <ui:VisualElement name="kill-entry-root" class="kill-entry">
+        <ui:Label name="killer-label" class="killer-name" text="KILLER" />
+        <ui:VisualElement name="icon" class="kill-icon" />
+        <ui:Label name="victim-label" class="victim-name" text="VICTIM" />
+    </ui:VisualElement>
+</ui:UXML>
+

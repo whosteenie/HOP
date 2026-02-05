@@ -124,7 +124,6 @@ namespace Game.Player {
             if(_animationController == null) _animationController = playerController.AnimationController;
             if(_sfxRelay == null) _sfxRelay = playerController.SfxRelay;
 
-            // Initialize physics (non-network dependent)
             _obstacleMask = playerController.WorldLayer | playerController.EnemyLayer;
             _gravityY = Physics.gravity.y;
         }
@@ -132,79 +131,71 @@ namespace Game.Player {
         public override void OnNetworkSpawn() {
             base.OnNetworkSpawn();
 
-            // Get network variables from PlayerController (network-dependent)
             if(playerController != null) {
                 netIsCrouching = playerController.NetIsCrouching;
                 netIsSliding = playerController.netIsSliding;
             }
         }
 
+        /// <summary>
+        /// Main movement update loop called by PlayerController.
+        /// Handles wall running, sliding, and normal movement state transitions.
+        /// </summary>
         public void UpdateMovement(CinemachineCamera fpCamera = null) {
             if(_isMantling || (_swingGrapple != null && _swingGrapple.IsSwinging)) {
                 return;
             }
 
-            // Track standing state for slide initiation
             if(!CrouchInput) {
                 _wasStandingBeforeCrouch = true;
             }
 
-            // Handle wall running
             if(_wallRunController != null) {
                 _wallRunController.CheckForWall();
                 if(_wallRunController.IsWallRunning) {
-                    // Progression: Track Wall Run Chains
                     if (!_wasWallRunningLastFrame) {
                         _currentWallRunChain++;
-                        // Report logic: Only report if chain > 0 (meaning we did wall run -> something -> wall run)
-                        // Or just report every wall run event as a chain increment?
-                        // Challenge assumes "Chain X Wall Runs", so we should simply report the current chain count.
-                        if (IsOwner && Progression.ProgressionManager.Instance != null) {
-                            Progression.ProgressionManager.Instance.RecordWallRunChain(_currentWallRunChain);
+                        if (IsOwner && ProgressionManager.Instance != null) {
+                            ProgressionManager.Instance.RecordWallRunChain(_currentWallRunChain);
                         }
                     }
                     _wasWallRunningLastFrame = true;
 
                     _wallRunController.UpdateWallRun();
-                    // Override horizontal velocity completely when wall running
                     _horizontalVelocity = _wallRunController.GetWallRunVelocity(_playerTransform.forward);
                 } else {
                     _wasWallRunningLastFrame = false;
                 }
             }
 
-            // Reset chain if grounded
             if (IsGrounded) {
                 _currentWallRunChain = 0;
             }
 
-            // Handle sliding
             if(_wallRunController != null && _wallRunController.IsWallRunning) {
-                // Skip sliding logic if wall running
             } else if(_isSliding) {
                 ProcessSlide();
             } else if(CanInitiateSlide()) {
                 BeginSlide();
             } else if(CanLandingSlide()) {
-                // Re-initiate slide when landing while crouched at speed
                 BeginSlide();
             } else {
-                // Normal movement
                 UpdateMaxSpeed();
                 CalculateHorizontalVelocity();
             }
 
-            // Track airborne state for landing slide detection
             _wasAirborne = !IsGrounded;
 
             CheckCeilingHit(fpCamera);
             ApplyGravity();
             MoveCharacter();
 
-            // Cache horizontal speed for animation/sound
             CachedHorizontalSpeedSqr = _horizontalVelocity.sqrMagnitude;
         }
 
+        /// <summary>
+        /// Updates the player's crouch state, camera height, and collider height.
+        /// </summary>
         public void UpdateCrouch(CinemachineCamera fpCamera) {
             if(fpCamera == null) return;
 
@@ -228,7 +219,6 @@ namespace Game.Player {
             }
 
             if(IsOwner && netIsCrouching != null && netIsCrouching.Value != targetCrouchState) {
-                // Throttle network updates - only send if enough time has passed (state change is immediate)
                 if(Time.time - _lastCrouchUpdateTime >= CrouchUpdateInterval) {
                     netIsCrouching.Value = targetCrouchState;
                     _lastCrouchUpdateTime = Time.time;
@@ -251,6 +241,9 @@ namespace Game.Player {
             UpdateCharacterControllerCrouch(targetCrouchState);
         }
 
+        /// <summary>
+        /// Updates the max speed allowed based on current player input state.
+        /// </summary>
         private void UpdateMaxSpeed() {
             if(CrouchInput) {
                 MaxSpeed = CrouchSpeed;
@@ -261,15 +254,14 @@ namespace Game.Player {
             }
         }
 
+        /// <summary>
+        /// Calculates the horizontal velocity vector for the player based on input.
+        /// </summary>
         private void CalculateHorizontalVelocity() {
-            // Block movement during pre-match (but allow input to be set so it feels responsive when match starts)
-            if(GameMenuManager.Instance != null &&
-               GameMenuManager.IsPreMatch) {
-                // Still apply friction to slow down if already moving
+            if(GameMenuManager.Instance != null && GameMenuManager.IsPreMatch) {
                 ApplyFriction();
-                var targetVelocity = Vector3.zero;
-                _horizontalVelocity =
-                    Vector3.MoveTowards(_horizontalVelocity, targetVelocity, Acceleration * Time.deltaTime);
+                var targetVel = Vector3.zero;
+                _horizontalVelocity = Vector3.MoveTowards(_horizontalVelocity, targetVel, Acceleration * Time.deltaTime);
                 return;
             }
 
@@ -284,12 +276,14 @@ namespace Game.Player {
                 _horizontalVelocity =
                     Vector3.MoveTowards(_horizontalVelocity, targetVelocity, Acceleration * Time.deltaTime);
             } else {
-                // Skip air strafe if wall running (velocity handles itself)
                 if(_wallRunController != null && _wallRunController.IsWallRunning) return;
                 AirStrafe(motion);
             }
         }
 
+        /// <summary>
+        /// Applies movement friction when no input is provided.
+        /// </summary>
         private void ApplyFriction() {
             if(MoveInput.sqrMagnitude >= 0.01f) return;
 
@@ -301,6 +295,9 @@ namespace Game.Player {
             _horizontalVelocity *= newSpeed / speed;
         }
 
+        /// <summary>
+        /// Reduces horizontal velocity when changing directions sharply.
+        /// </summary>
         private void ApplyDirectionChange(Vector3 motion) {
             if(!(_horizontalVelocity.magnitude > 0.1f) || !(motion.magnitude > 0.1f)) return;
 
@@ -313,6 +310,9 @@ namespace Game.Player {
             _horizontalVelocity *= reduction;
         }
 
+        /// <summary>
+        /// Handles airstrafing logic for the player while airborne.
+        /// </summary>
         private void AirStrafe(Vector3 wishDir) {
             if(MoveInput.sqrMagnitude < 0.01f) return;
 
@@ -327,6 +327,9 @@ namespace Game.Player {
             _horizontalVelocity += wishDir * accelSpeed;
         }
 
+        /// <summary>
+        /// Checks for ceiling collisions and stops vertical velocity.
+        /// </summary>
         private void CheckCeilingHit(CinemachineCamera fpCamera) {
             if(fpCamera == null || _grappleController == null) return;
 
@@ -337,9 +340,12 @@ namespace Game.Player {
             VerticalVelocity = 0f;
         }
 
+        /// <summary>
+        /// Applies gravity to the player's vertical velocity.
+        /// </summary>
         private void ApplyGravity() {
             if (_wallRunController != null && _wallRunController.IsWallRunning) {
-                VerticalVelocity = 0f; // Gravity suppressed
+                VerticalVelocity = 0f;
                 return;
             }
 
@@ -347,11 +353,13 @@ namespace Game.Player {
                 VerticalVelocity = -3f;
             } else {
                 VerticalVelocity += _gravityY * GravityScale * Time.deltaTime;
-                // Clamp to terminal velocity to prevent infinite acceleration
                 VerticalVelocity = Mathf.Max(VerticalVelocity, TerminalVelocity);
             }
         }
 
+        /// <summary>
+        /// Applies the calculated velocity vectors to the character controller.
+        /// </summary>
         private void MoveCharacter() {
             _moveVelocity.x = _horizontalVelocity.x;
             _moveVelocity.y = VerticalVelocity;
@@ -361,16 +369,14 @@ namespace Game.Player {
             _characterController.Move(_moveVelocity * Time.deltaTime);
             var positionAfter = _playerTransform.position;
             
-            // Progression: Track distance traveled
             if (IsOwner && ProgressionManager.Instance != null) {
                 if (IsGrounded) {
                     var dist = Vector3.Distance(new Vector3(positionBefore.x, 0, positionBefore.z), 
-                                              new Vector3(positionAfter.x, 0, positionAfter.z));
+                                               new Vector3(positionAfter.x, 0, positionAfter.z));
                     if (dist > 0) {
                          ProgressionManager.Instance.AddDistanceTraveled(dist);
                     }
                 } else {
-                    // Progression: Track Airtime
                     ProgressionManager.Instance.RecordAirtime(Time.deltaTime);
                 }
             }
@@ -435,9 +441,15 @@ namespace Game.Player {
             _characterController.center = new Vector3(0f, centerY, 0f);
         }
 
+        /// <summary>
+        /// Initiates a jump or wall jump.
+        /// </summary>
+        /// <param name="height">The desired jump height (m).</param>
+        /// <summary>
+        /// Attempts to perform a jump or wall jump.
+        /// </summary>
         public void TryJump(float height = JumpHeight) {
             if(!IsGrounded) {
-                // Allow wall jump
                 if(_wallRunController != null && _wallRunController.IsWallRunning) {
                     _wallRunController.WallJump();
                     return;
@@ -446,7 +458,6 @@ namespace Game.Player {
                 return;
             }
 
-            // Slide-hop: cancel slide but preserve momentum
             if(_isSliding) {
                 CancelSlideForJump();
             }
@@ -467,14 +478,10 @@ namespace Game.Player {
                 _sfxRelay.RequestWorldSfx(SfxKey.Jump, attachToSelf: true, true);
             }
 
-            // Calculate and apply vertical velocity for jump
             VerticalVelocity = Mathf.Sqrt(height * -2f * _gravityY * GravityScale);
 
-            // Ensure velocity is positive (upward) before triggering jump animation
-            // This guarantees the jump animation only triggers when velocity is actually applied upward
             if(!(VerticalVelocity > 0f)) return;
 
-            // Notify WeaponBob that jump was initiated (owner only, local effect)
             if(IsOwner && playerController != null) {
                 WeaponBob weaponBob = null;
                 if(playerController.FpCamera != null) {
@@ -483,9 +490,6 @@ namespace Game.Player {
 
                 if(weaponBob != null) {
                     weaponBob.OnJumpInitiated();
-                } else {
-                    Debug.LogWarning(
-                        $"[PlayerMovementController] TryJump: WeaponBob not found! FpCamera={playerController.FpCamera != null}");
                 }
             }
 
@@ -496,39 +500,25 @@ namespace Game.Player {
 
         /// <summary>
         /// Applies a jump pad launch in the direction of the jump pad's surface normal.
-        /// For vertical/flat pads: adds vertical boost, preserving horizontal velocity (e.g., from grappling).
-        /// For wall/slope pads: adds boost in pad's normal direction (both horizontal and vertical components).
         /// </summary>
-        /// <param name="normal">The surface normal of the jump pad (from transform.up)</param>
-        /// <param name="force">The force magnitude to apply (defaults to equivalent of 15f jump height)</param>
+        /// <param name="normal">The surface normal of the jump pad.</param>
+        /// <param name="force">The force magnitude to apply.</param>
         public void LaunchFromJumpPad(Vector3 normal, float force = 15f) {
             if(!IsGrounded) {
                 return;
             }
 
-            // Cancel slide if active, preserving momentum into the launch
             if(_isSliding) {
                 CancelSlideForJump();
             }
 
-            // Normalize the normal to ensure consistent force
             normal = normal.normalized;
-
-            // Calculate the velocity magnitude equivalent to the jump height
-            // This matches the calculation in TryJump: sqrt(height * -2 * gravity * gravityScale)
             var velocityMagnitude = Mathf.Sqrt(force * -2f * _gravityY * GravityScale);
-
-            // Apply velocity in the direction of the pad's normal
-            // This gives us the full boost vector (horizontal + vertical components)
             var launchVelocity = normal * velocityMagnitude;
 
-            // Always apply the full velocity boost in the pad's normal direction
-            // For vertical pads (normal = up): only vertical component, horizontal preserved
-            // For angled/wall pads: both horizontal and vertical components added
             VerticalVelocity = launchVelocity.y;
             _horizontalVelocity += new Vector3(launchVelocity.x, 0f, launchVelocity.z);
 
-            // Play jump pad sound
             if(IsOwner && _sfxRelay != null) {
                 _sfxRelay.RequestWorldSfx(SfxKey.JumpPad, attachToSelf: true, true);
                 _sfxRelay.RequestWorldSfx(SfxKey.Jump, attachToSelf: true, true);
@@ -538,7 +528,6 @@ namespace Game.Player {
                 ProgressionManager.Instance.RecordJumpPadUsed();
             }
 
-            // Trigger jump animation if moving upward
             if(!(VerticalVelocity > 0f)) return;
 
             // Notify WeaponBob that jump pad launch was initiated (owner only, local effect)
@@ -570,15 +559,24 @@ namespace Game.Player {
                 0f; // No jump pad found
         }
 
+        /// <summary>
+        /// Resets player velocity and vertical speed to zero.
+        /// </summary>
         public void ResetVelocity() {
             _horizontalVelocity = Vector3.zero;
             VerticalVelocity = 0f;
         }
 
+        /// <summary>
+        /// Sets a new horizontal velocity for the player.
+        /// </summary>
         public void SetVelocity(Vector3 horizontalVelocity) {
             _horizontalVelocity = new Vector3(horizontalVelocity.x, 0f, horizontalVelocity.z);
         }
 
+        /// <summary>
+        /// Adds a vertical velocity boost to the player.
+        /// </summary>
         public void AddVerticalVelocity(float verticalBoost) {
             VerticalVelocity += verticalBoost;
         }
@@ -642,7 +640,7 @@ namespace Game.Player {
         }
 
         /// <summary>
-        /// Begin sliding. Lock direction to current velocity, set slide speed.
+        /// Initiates a slide based on current player movement and direction.
         /// </summary>
         private void BeginSlide() {
             _isSliding = true;
@@ -651,17 +649,14 @@ namespace Game.Player {
             _slideSpeed = _horizontalVelocity.magnitude;
             _slideTimer = 0f;
 
-            // Sync to network
             if(IsOwner && netIsSliding != null) {
                 netIsSliding.Value = true;
             }
             
-            // Sync animation state
             if (IsOwner && _animationController != null) {
                 _animationController.SetSlidingServerRpc(true);
             }
 
-            // Play slide sound (skeleton - needs audio asset)
             if(IsOwner && _sfxRelay != null) {
                 _sfxRelay.RequestWorldSfx(SfxKey.Slide, attachToSelf: true, allowOverlap: false);
             }
@@ -705,11 +700,9 @@ namespace Game.Player {
         }
 
         /// <summary>
-        /// Apply slope influence to slide speed.
-        /// Downhill = speed up, uphill = slow down.
+        /// Applies slope influence to the slide speed.
         /// </summary>
         private void ApplySlopeToSlide() {
-            // Raycast to get ground normal
             if(!Physics.Raycast(_playerTransform.position, Vector3.down, out var hit, 2f, _obstacleMask)) {
                 return;
             }
@@ -717,18 +710,12 @@ namespace Game.Player {
             var groundNormal = hit.normal;
             var slopeAngle = Vector3.Angle(groundNormal, Vector3.up);
 
-            // Only apply slope influence on actual slopes
             if(slopeAngle < 5f) return;
 
-            // Calculate slope direction relative to slide direction
-            // Positive dot = sliding downhill, negative = uphill
             var slopeDirection = Vector3.ProjectOnPlane(Vector3.down, groundNormal).normalized;
             var slopeDot = Vector3.Dot(_slideDirection, slopeDirection);
 
-            // Apply speed change based on slope
             _slideSpeed += slopeDot * SlideSlopeMultiplier * Time.deltaTime;
-
-            // Clamp to prevent negative or excessive speed
             _slideSpeed = Mathf.Clamp(_slideSpeed, 0f, 50f);
         }
 
