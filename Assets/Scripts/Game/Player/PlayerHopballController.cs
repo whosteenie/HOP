@@ -498,6 +498,16 @@ namespace Game.Player {
             hopball.PrepareDropClientRpc();
             await UniTask.WaitForEndOfFrame();
 
+            PlayerController requestingController = null;
+            if(NetworkManager.Singleton != null) {
+                if(NetworkManager.Singleton.ConnectedClients.TryGetValue(requestingClientId, out var client)) {
+                    var requestingPlayer = client.PlayerObject;
+                    if(requestingPlayer != null) {
+                        requestingController = requestingPlayer.GetComponent<PlayerController>();
+                    }
+                }
+            }
+
             // Get hopball collider radius for accurate ground checking
             var hopballCollider = hopball.GetComponent<Collider>();
             var hopballRadius = 0.5f; // Default fallback
@@ -508,15 +518,33 @@ namespace Game.Player {
             }
             
             // Preserve original drop position for visual fidelity (player's hand position)
-            // Only adjust if it would fall through the floor
+            // Clamp if the hand point is pushed through world geometry (e.g. against a wall).
+            // We spherecast from the player toward the intended drop point and clamp to the first world hit.
             var finalDropPosition = dropPosition;
             var worldLayer = LayerMask.GetMask("Default", "World");
+            if(requestingController != null) {
+                worldLayer = requestingController.WorldLayer.value;
+                var origin = requestingController.Position + Vector3.up * 1.2f;
+                var toDrop = finalDropPosition - origin;
+                var distToDrop = toDrop.magnitude;
+                if(distToDrop > 0.001f) {
+                    var dirToDrop = toDrop / distToDrop;
+                    var wallMargin = 0.03f;
+                    var castRadius = hopballRadius + wallMargin;
+                    if(Physics.SphereCast(origin, castRadius, dirToDrop, out var wallHit, distToDrop, worldLayer)) {
+                        // Place just before the wall along the player->hand line.
+                        finalDropPosition = wallHit.point - dirToDrop * (castRadius + 0.01f);
+                    }
+                }
+            }
+
+            // Only adjust if it would fall through the floor
             var raycastDistance = 15f;
             var safetyMargin = 0.2f; // Safety margin above ground
             
             // Use sphere cast to check if hopball would intersect with ground at drop position
             var sphereCastRadius = hopballRadius + safetyMargin;
-            var sphereCastStart = dropPosition + Vector3.up * sphereCastRadius;
+            var sphereCastStart = finalDropPosition + Vector3.up * sphereCastRadius;
             var sphereCastDistance = sphereCastRadius * 2f + 5f; // Check well below the drop position
 
             var sphereHit = Physics.SphereCast(sphereCastStart, sphereCastRadius, Vector3.down, out var hit, sphereCastDistance, worldLayer);
@@ -524,22 +552,22 @@ namespace Game.Player {
             if(sphereHit) {
                 var groundHeight = hit.point.y + sphereCastRadius;
                 // Only adjust if drop position would intersect with ground
-                if(dropPosition.y < groundHeight) {
-                    finalDropPosition = new Vector3(dropPosition.x, groundHeight, dropPosition.z);
+                if(finalDropPosition.y < groundHeight) {
+                    finalDropPosition = new Vector3(finalDropPosition.x, groundHeight, finalDropPosition.z);
                 }
             } else {
                 // Fallback: if sphere cast fails, try regular raycast
-                if(Physics.Raycast(dropPosition + Vector3.up * 0.1f, Vector3.down, out var rayHit, raycastDistance, worldLayer)) {
+                if(Physics.Raycast(finalDropPosition + Vector3.up * 0.1f, Vector3.down, out var rayHit, raycastDistance, worldLayer)) {
                     var groundHeight = rayHit.point.y + sphereCastRadius;
-                    if(dropPosition.y < groundHeight) {
-                        finalDropPosition = new Vector3(dropPosition.x, groundHeight, dropPosition.z);
+                    if(finalDropPosition.y < groundHeight) {
+                        finalDropPosition = new Vector3(finalDropPosition.x, groundHeight, finalDropPosition.z);
                     }
                 } else {
                     // If no ground found below, check if we're already below ground level
-                    if(Physics.Raycast(dropPosition + Vector3.down * 5f, Vector3.up, out var hitUp, 15f, worldLayer)) {
+                    if(Physics.Raycast(finalDropPosition + Vector3.down * 5f, Vector3.up, out var hitUp, 15f, worldLayer)) {
                         var groundHeight = hitUp.point.y + sphereCastRadius;
-                        if(dropPosition.y < groundHeight) {
-                            finalDropPosition = new Vector3(dropPosition.x, groundHeight, dropPosition.z);
+                        if(finalDropPosition.y < groundHeight) {
+                            finalDropPosition = new Vector3(finalDropPosition.x, groundHeight, finalDropPosition.z);
                         }
                     }
                 }
@@ -594,12 +622,6 @@ namespace Game.Player {
 
             EventBus.Publish(new HopballDroppedEvent(requestingClientId));
 
-            if(!NetworkManager.Singleton.ConnectedClients.TryGetValue(requestingClientId, out var client)) return;
-
-            var requestingPlayer = client.PlayerObject;
-            if(requestingPlayer == null) return;
-
-            var requestingController = requestingPlayer.GetComponent<PlayerController>();
             if(requestingController == null) return;
             var controller = requestingController.PlayerHopballController;
             if(controller == null) return;
