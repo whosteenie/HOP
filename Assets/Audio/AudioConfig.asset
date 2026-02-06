@@ -1,0 +1,33 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 54a0cff55757cbe40a1ab2bf540fdef9, type: 3}
+  m_Name: AudioConfig
+  m_EditorClassIdentifier: Assembly-CSharp::Game.Audio2.AudioConfig
+  mixer: {fileID: 24100000, guid: 5b25e535414676d478e020121c230f08, type: 2}
+  audioSourcePrefab: {fileID: 1800925315529243152, guid: d86354394723ff3448922d8bfeb332b8, type: 3}
+  globalMaxVoices: 64
+  buses:
+  - bus: 0
+    outputGroup: {fileID: 24300002, guid: 5b25e535414676d478e020121c230f08, type: 2}
+    mixerVolumeParam: masterVolume
+    prewarmSources: 0
+    maxPoolSize: 0
+  - bus: 1
+    outputGroup: {fileID: -8711128661379289526, guid: 5b25e535414676d478e020121c230f08, type: 2}
+    mixerVolumeParam: musicVolume
+    prewarmSources: 10
+    maxPoolSize: 32
+  - bus: 6
+    outputGroup: {fileID: -6068766989123709038, guid: 5b25e535414676d478e020121c230f08, type: 2}
+    mixerVolumeParam: soundFXVolume
+    prewarmSources: 1
+    maxPoolSize: 2

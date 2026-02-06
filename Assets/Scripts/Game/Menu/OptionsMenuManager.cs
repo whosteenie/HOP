@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Game.Settings;
 using Game.Social;
 using Game.UI;
 using Network.Singletons;
@@ -73,6 +74,9 @@ namespace Game.Menu {
         private VisualElement _audioContent;
         private VisualElement _gameContent;
         private VisualElement _controlsContent;
+
+        private static readonly Color OptionsTabHoverTextColor = new(240f / 255f, 240f / 255f, 240f / 255f, 1f);
+        private static readonly Color OptionsTabHoverBorderColor = new(200f / 255f, 60f / 255f, 60f / 255f, 0.5f);
 
         // Keybind buttons
         private readonly Dictionary<string, Button[]> _keybindButtons = new();
@@ -824,15 +828,15 @@ namespace Game.Menu {
         private void SetupTabHoverCallbacks(Button tab) {
             if(tab == null) return;
 
-            EventCallback<MouseEnterEvent> enterHandler = evt => {
-                MouseEnterCallback?.Invoke(evt);
-
-                if(tab.ClassListContains("options-tab-active")) return;
-                tab.AddToClassList("options-tab-hover");
-                tab.schedule.Execute(tab.MarkDirtyRepaint);
-            };
-            tab.RegisterCallback(enterHandler);
-            RegisterCleanup(() => tab.UnregisterCallback(enterHandler));
+            // Hover sounds only for non-active tabs (active tab is effectively a no-op click).
+            if(MouseEnterCallback != null) {
+                EventCallback<MouseEnterEvent> enterHandler = evt => {
+                    if(tab.ClassListContains("options-tab-active")) return;
+                    MouseEnterCallback(evt);
+                };
+                tab.RegisterCallback(enterHandler);
+                RegisterCleanup(() => tab.UnregisterCallback(enterHandler));
+            }
 
             EventCallback<MouseOverEvent> overHandler = evt => {
                 if(MouseHoverCallback != null && !tab.ClassListContains("options-tab-active")) {
@@ -846,12 +850,27 @@ namespace Game.Menu {
             tab.RegisterCallback(overHandler);
             RegisterCleanup(() => tab.UnregisterCallback(overHandler));
 
-            EventCallback<MouseLeaveEvent> leaveHandler = _ => {
-                tab.RemoveFromClassList("options-tab-hover");
+            // Visual hover state: Pointer enter/leave + inline style override (paint quirk workaround).
+            EventCallback<PointerEnterEvent> pointerEnterHandler = _ => {
+                if(tab.ClassListContains("options-tab-active")) return;
+                if(!tab.ClassListContains("options-tab-hover")) {
+                    tab.AddToClassList("options-tab-hover");
+                }
+                tab.style.color = new StyleColor(OptionsTabHoverTextColor);
+                tab.style.borderBottomColor = new StyleColor(OptionsTabHoverBorderColor);
                 tab.MarkDirtyRepaint();
             };
-            tab.RegisterCallback(leaveHandler);
-            RegisterCleanup(() => tab.UnregisterCallback(leaveHandler));
+            tab.RegisterCallback(pointerEnterHandler);
+            RegisterCleanup(() => tab.UnregisterCallback(pointerEnterHandler));
+
+            EventCallback<PointerLeaveEvent> pointerLeaveHandler = _ => {
+                tab.RemoveFromClassList("options-tab-hover");
+                tab.style.color = StyleKeyword.Null;
+                tab.style.borderBottomColor = StyleKeyword.Null;
+                tab.MarkDirtyRepaint();
+            };
+            tab.RegisterCallback(pointerLeaveHandler);
+            RegisterCleanup(() => tab.UnregisterCallback(pointerLeaveHandler));
         }
 
         private void SwitchOptionsTab(string tabName) {
@@ -864,6 +883,24 @@ namespace Game.Menu {
             _tabGame?.RemoveFromClassList("options-tab-hover");
             _tabControls?.RemoveFromClassList("options-tab-active");
             _tabControls?.RemoveFromClassList("options-tab-hover");
+
+            // Clear inline hover overrides (paint quirk workaround)
+            if(_tabVideo != null) {
+                _tabVideo.style.color = StyleKeyword.Null;
+                _tabVideo.style.borderBottomColor = StyleKeyword.Null;
+            }
+            if(_tabAudio != null) {
+                _tabAudio.style.color = StyleKeyword.Null;
+                _tabAudio.style.borderBottomColor = StyleKeyword.Null;
+            }
+            if(_tabGame != null) {
+                _tabGame.style.color = StyleKeyword.Null;
+                _tabGame.style.borderBottomColor = StyleKeyword.Null;
+            }
+            if(_tabControls != null) {
+                _tabControls.style.color = StyleKeyword.Null;
+                _tabControls.style.borderBottomColor = StyleKeyword.Null;
+            }
 
             // Hide all content
             _videoContent?.AddToClassList("hidden");
@@ -978,6 +1015,8 @@ namespace Game.Menu {
         #region Settings Management
 
         private void LoadGraphicsSettings() {
+            var data = GameSettings.Data;
+
             // Get current URP asset values as defaults
             var urpAsset = GetUrpAsset();
             var currentMsaa = 1; // Off
@@ -992,7 +1031,7 @@ namespace Game.Menu {
 
             // Load MSAA
             if(_msaaDropdown != null) {
-                var savedMsaa = PlayerPrefs.GetInt("MSAA", currentMsaa);
+                var savedMsaa = data.video != null && data.video.msaa > 0 ? data.video.msaa : currentMsaa;
                 // Map MSAA value to dropdown index: 1=Off, 2=2x, 4=4x, 8=8x
                 var msaaIndex = savedMsaa switch {
                     1 => 0, // Off
@@ -1006,7 +1045,9 @@ namespace Game.Menu {
 
             // Load shadow distance
             if(_shadowDistanceSlider != null) {
-                var savedShadowDistance = PlayerPrefs.GetFloat("ShadowDistance", currentShadowDistance);
+                var savedShadowDistance = data.video != null && data.video.shadowDistance > 0f
+                    ? data.video.shadowDistance
+                    : currentShadowDistance;
                 _shadowDistanceSlider.value = Mathf.Clamp(savedShadowDistance, 0f, 500f);
                 if(_shadowDistanceValue != null) {
                     _shadowDistanceValue.value = Mathf.RoundToInt(_shadowDistanceSlider.value).ToString();
@@ -1015,7 +1056,9 @@ namespace Game.Menu {
 
             // Load shadow resolution
             if(_shadowResolutionDropdown == null) return;
-            var savedShadowResolution = PlayerPrefs.GetInt("ShadowResolution", currentShadowResolution);
+            var savedShadowResolution = data.video != null && data.video.shadowResolution > 0
+                ? data.video.shadowResolution
+                : currentShadowResolution;
             // Map resolution to preset index: Low=512, Medium=1024, High=2048, Ultra=4096
             var resolutionIndex = savedShadowResolution switch {
                 512 => 0,
@@ -1037,10 +1080,12 @@ namespace Game.Menu {
         }
 
         public void LoadSettings() {
+            var data = GameSettings.Data;
+
             // Load audio settings
-            var masterDb = PlayerPrefs.GetFloat("MasterVolume", 0f);
-            var musicDb = PlayerPrefs.GetFloat("MusicVolume", -20f);
-            var sfxDb = PlayerPrefs.GetFloat("SFXVolume", -8f);
+            var masterDb = data.audio != null ? data.audio.masterVolumeDb : 0f;
+            var musicDb = data.audio != null ? data.audio.musicVolumeDb : -20f;
+            var sfxDb = data.audio != null ? data.audio.sfxVolumeDb : -8f;
             if(_masterVolumeSlider != null) _masterVolumeSlider.value = DbToLinear(masterDb);
             if(_musicVolumeSlider != null) _musicVolumeSlider.value = DbToLinear(musicDb);
             if(_sfxVolumeSlider != null) _sfxVolumeSlider.value = DbToLinear(sfxDb);
@@ -1049,27 +1094,19 @@ namespace Game.Menu {
             if(_voiceInputVolumeSlider != null) _voiceInputVolumeSlider.value = SocialSettings.VoiceInputVolume;
             if(_voiceInputVolumeValue != null) _voiceInputVolumeValue.value = Mathf.RoundToInt(SocialSettings.VoiceInputVolume * 100) + "%";
 
-            // Load sensitivity (with migration from old X/Y values)
-            float sensitivityValue;
-            if(PlayerPrefs.HasKey("Sensitivity")) {
-                sensitivityValue = PlayerPrefs.GetFloat("Sensitivity", 0.1f);
-            } else if(PlayerPrefs.HasKey("SensitivityX")) {
-                sensitivityValue = PlayerPrefs.GetFloat("SensitivityX", 0.1f);
-                PlayerPrefs.SetFloat("Sensitivity", sensitivityValue);
-            } else {
-                sensitivityValue = 0.1f;
-            }
+            // Load sensitivity
+            var sensitivityValue = data.controls != null ? data.controls.sensitivity : 0.1f;
 
             if(_sensitivitySlider != null) _sensitivitySlider.value = sensitivityValue;
-            if(_invertYButton != null) SetCheckboxValue(_invertYButton, PlayerPrefs.GetInt("InvertY", 0) == 1);
+            if(_invertYButton != null) SetCheckboxValue(_invertYButton, data.controls != null && data.controls.invertY);
             if(_playerTrailsButton != null)
-                SetCheckboxValue(_playerTrailsButton, PlayerPrefs.GetInt("PlayerTrails", 1) == 1);
-            if(_holdMantleButton != null) SetCheckboxValue(_holdMantleButton, PlayerPrefs.GetInt("HoldMantle", 1) == 1);
+                SetCheckboxValue(_playerTrailsButton, data.controls == null || data.controls.playerTrails);
+            if(_holdMantleButton != null) SetCheckboxValue(_holdMantleButton, data.controls == null || data.controls.holdMantle);
             if(_profanityFilterButton != null) SetCheckboxValue(_profanityFilterButton, SocialSettings.ProfanityFilterEnabled);
             
             // Load grapple indicator setting (0 = Crosshair (default), 1 = Bottom, 2 = None)
             if(_grappleIndicatorDropdown != null) {
-                var savedGrappleIndicator = PlayerPrefs.GetInt("GrappleIndicator", 0);
+                var savedGrappleIndicator = data.controls != null ? data.controls.grappleIndicator : 0;
                 _grappleIndicatorDropdown.index = Mathf.Clamp(savedGrappleIndicator, 0, _grappleIndicatorDropdown.choices.Count - 1);
             }
 
@@ -1091,12 +1128,12 @@ namespace Game.Menu {
             // Load window mode and resolution settings
             if(_windowModeDropdown != null) {
                 // Default to current fullscreen mode
-                var savedWindowMode = PlayerPrefs.GetInt("WindowMode", GetCurrentWindowModeIndex());
+                var savedWindowMode = data.video != null ? data.video.windowMode : GetCurrentWindowModeIndex();
                 _windowModeDropdown.index = Mathf.Clamp(savedWindowMode, 0, _windowModeDropdown.choices.Count - 1);
             }
 
             // Load aspect ratio (default to 16:9 or current resolution's aspect ratio)
-            var savedAspectRatio = PlayerPrefs.GetString("AspectRatio", "");
+            var savedAspectRatio = data.video != null ? data.video.aspectRatio : "";
             if(_aspectRatioDropdown != null && _aspectRatioDropdown.choices.Count > 0) {
                 if(string.IsNullOrEmpty(savedAspectRatio)) {
                     // Try to detect current aspect ratio
@@ -1118,8 +1155,8 @@ namespace Game.Menu {
 
             // Load resolution
             if(_resolutionDropdown != null && _filteredResolutions.Count > 0) {
-                var savedWidth = PlayerPrefs.GetInt("ResolutionWidth", Screen.width);
-                var savedHeight = PlayerPrefs.GetInt("ResolutionHeight", Screen.height);
+                var savedWidth = data.video != null && data.video.resolutionWidth > 0 ? data.video.resolutionWidth : Screen.width;
+                var savedHeight = data.video != null && data.video.resolutionHeight > 0 ? data.video.resolutionHeight : Screen.height;
 
                 // Find matching resolution in filtered list
                 var resolutionIndex = -1;
@@ -1142,8 +1179,8 @@ namespace Game.Menu {
             // Load graphics settings
             LoadGraphicsSettings();
 
-            if(_vsyncButton != null) SetCheckboxValue(_vsyncButton, PlayerPrefs.GetInt("VSync", 0) == 1);
-            if(_fpsDropdown != null) _fpsDropdown.index = PlayerPrefs.GetInt("TargetFPS", 1);
+            if(_vsyncButton != null) SetCheckboxValue(_vsyncButton, data.video != null && data.video.vsync);
+            if(_fpsDropdown != null) _fpsDropdown.index = data.video != null ? data.video.targetFpsIndex : 1;
 
             // Store original values
             _originalMasterVolume = _masterVolumeSlider?.value ?? 0f;
@@ -1309,38 +1346,40 @@ namespace Game.Menu {
         }
 
         private void ApplySettings() {
+            var data = GameSettings.Data;
+
             // Save audio settings
             if(_masterVolumeSlider != null) {
                 var masterDb = LinearToDb(_masterVolumeSlider.value);
-                PlayerPrefs.SetFloat("MasterVolume", masterDb);
+                if(data.audio != null) data.audio.masterVolumeDb = masterDb;
             }
 
             if(_musicVolumeSlider != null) {
                 var musicDb = LinearToDb(_musicVolumeSlider.value);
-                PlayerPrefs.SetFloat("MusicVolume", musicDb);
+                if(data.audio != null) data.audio.musicVolumeDb = musicDb;
             }
 
             if(_sfxVolumeSlider != null) {
                 var sfxDb = LinearToDb(_sfxVolumeSlider.value);
-                PlayerPrefs.SetFloat("SFXVolume", sfxDb);
+                if(data.audio != null) data.audio.sfxVolumeDb = sfxDb;
             }
 
-            SocialSettings.VoiceVolume = _voiceVolumeSlider?.value ?? SocialSettings.VoiceVolume;
-            SocialSettings.VoiceInputVolume = _voiceInputVolumeSlider?.value ?? SocialSettings.VoiceInputVolume;
+            if(_voiceVolumeSlider != null) SocialSettings.VoiceVolume = _voiceVolumeSlider.value;
+            if(_voiceInputVolumeSlider != null) SocialSettings.VoiceInputVolume = _voiceInputVolumeSlider.value;
 
             // Save control settings
             if(_sensitivitySlider != null) {
-                PlayerPrefs.SetFloat("Sensitivity", _sensitivitySlider.value);
+                if(data.controls != null) data.controls.sensitivity = _sensitivitySlider.value;
             }
 
-            PlayerPrefs.SetInt("InvertY", GetCheckboxValue(_invertYButton) ? 1 : 0);
-            PlayerPrefs.SetInt("PlayerTrails", GetCheckboxValue(_playerTrailsButton) ? 1 : 0);
-            PlayerPrefs.SetInt("HoldMantle", GetCheckboxValue(_holdMantleButton) ? 1 : 0);
+            if(data.controls != null) data.controls.invertY = GetCheckboxValue(_invertYButton);
+            if(data.controls != null) data.controls.playerTrails = GetCheckboxValue(_playerTrailsButton);
+            if(data.controls != null) data.controls.holdMantle = GetCheckboxValue(_holdMantleButton);
             SocialSettings.ProfanityFilterEnabled = GetCheckboxValue(_profanityFilterButton);
             
             // Save grapple indicator setting
             if(_grappleIndicatorDropdown != null) {
-                PlayerPrefs.SetInt("GrappleIndicator", _grappleIndicatorDropdown.index);
+                if(data.controls != null) data.controls.grappleIndicator = _grappleIndicatorDropdown.index;
             }
             
             if(_voiceModeDropdown != null) {
@@ -1356,18 +1395,18 @@ namespace Game.Menu {
 
             // Save window mode and resolution settings
             if(_windowModeDropdown != null) {
-                PlayerPrefs.SetInt("WindowMode", _windowModeDropdown.index);
+                if(data.video != null) data.video.windowMode = _windowModeDropdown.index;
             }
 
             if(_aspectRatioDropdown != null) {
-                PlayerPrefs.SetString("AspectRatio", _aspectRatioDropdown.value);
+                if(data.video != null) data.video.aspectRatio = _aspectRatioDropdown.value;
             }
 
             if(_resolutionDropdown is { index: >= 0 } &&
                _resolutionDropdown.index < _filteredResolutions.Count) {
                 var selectedRes = _filteredResolutions[_resolutionDropdown.index];
-                PlayerPrefs.SetInt("ResolutionWidth", selectedRes.Width);
-                PlayerPrefs.SetInt("ResolutionHeight", selectedRes.Height);
+                if(data.video != null) data.video.resolutionWidth = selectedRes.Width;
+                if(data.video != null) data.video.resolutionHeight = selectedRes.Height;
             }
 
             // Save graphics settings
@@ -1380,11 +1419,11 @@ namespace Game.Menu {
                     3 => 8, // 8x
                     _ => 1 // Default to Off
                 };
-                PlayerPrefs.SetInt("MSAA", msaaValue);
+                if(data.video != null) data.video.msaa = msaaValue;
             }
 
             if(_shadowDistanceSlider != null) {
-                PlayerPrefs.SetFloat("ShadowDistance", _shadowDistanceSlider.value);
+                if(data.video != null) data.video.shadowDistance = _shadowDistanceSlider.value;
             }
 
             if(_shadowResolutionDropdown != null) {
@@ -1396,12 +1435,12 @@ namespace Game.Menu {
                     3 => 4096, // Ultra
                     _ => 2048 // Default to High (2048)
                 };
-                PlayerPrefs.SetInt("ShadowResolution", resolutionValue);
+                if(data.video != null) data.video.shadowResolution = resolutionValue;
             }
 
-            PlayerPrefs.SetInt("VSync", GetCheckboxValue(_vsyncButton) ? 1 : 0);
+            if(data.video != null) data.video.vsync = GetCheckboxValue(_vsyncButton);
             if(_fpsDropdown != null) {
-                PlayerPrefs.SetInt("TargetFPS", _fpsDropdown.index);
+                if(data.video != null) data.video.targetFpsIndex = _fpsDropdown.index;
             }
 
             // Save keybinds
@@ -1409,32 +1448,32 @@ namespace Game.Menu {
                 KeybindManager.Instance.SaveBindings();
             }
 
-            PlayerPrefs.Save();
+            GameSettings.Save();
 
             ApplySettingsInternal();
 
             // Update original values
-            _originalMasterVolume = _masterVolumeSlider?.value ?? 0f;
-            _originalMusicVolume = _musicVolumeSlider?.value ?? 0f;
-            _originalSfxVolume = _sfxVolumeSlider?.value ?? 0f;
+            _originalMasterVolume = _masterVolumeSlider != null ? _masterVolumeSlider.value : 0f;
+            _originalMusicVolume = _musicVolumeSlider != null ? _musicVolumeSlider.value : 0f;
+            _originalSfxVolume = _sfxVolumeSlider != null ? _sfxVolumeSlider.value : 0f;
             _originalVoiceVolume = SocialSettings.VoiceVolume;
 
-            _originalSensitivity = _sensitivitySlider?.value ?? 0.1f;
+            _originalSensitivity = _sensitivitySlider != null ? _sensitivitySlider.value : 0.1f;
             _originalInvertY = GetCheckboxValue(_invertYButton);
             _originalPlayerTrails = GetCheckboxValue(_playerTrailsButton);
             _originalHoldMantle = GetCheckboxValue(_holdMantleButton);
             _originalProfanityFilter = SocialSettings.ProfanityFilterEnabled;
-            _originalGrappleIndicator = _grappleIndicatorDropdown?.index ?? 0;
+            _originalGrappleIndicator = _grappleIndicatorDropdown != null ? _grappleIndicatorDropdown.index : 0;
             _originalVoiceMode = (int)SocialSettings.InputMode;
 
-            _originalWindowMode = _windowModeDropdown?.index ?? 0;
-            _originalAspectRatio = _aspectRatioDropdown?.value ?? "";
-            _originalResolutionIndex = _resolutionDropdown?.index ?? 0;
-            _originalMsaa = _msaaDropdown?.index ?? 0;
-            _originalShadowDistance = _shadowDistanceSlider?.value ?? 50f;
-            _originalShadowResolution = _shadowResolutionDropdown?.index ?? 2;
+            _originalWindowMode = _windowModeDropdown != null ? _windowModeDropdown.index : 0;
+            _originalAspectRatio = _aspectRatioDropdown != null ? _aspectRatioDropdown.value : "";
+            _originalResolutionIndex = _resolutionDropdown != null ? _resolutionDropdown.index : 0;
+            _originalMsaa = _msaaDropdown != null ? _msaaDropdown.index : 0;
+            _originalShadowDistance = _shadowDistanceSlider != null ? _shadowDistanceSlider.value : 50f;
+            _originalShadowResolution = _shadowResolutionDropdown != null ? _shadowResolutionDropdown.index : 2;
             _originalVsync = GetCheckboxValue(_vsyncButton);
-            _originalTargetFPS = _fpsDropdown?.index ?? 1;
+            _originalTargetFPS = _fpsDropdown != null ? _fpsDropdown.index : 1;
 
             LoadKeybindDisplayStrings();
         }

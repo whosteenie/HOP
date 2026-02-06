@@ -371,8 +371,11 @@ namespace Game.Hopball {
         /// </summary>
         [Rpc(SendTo.Everyone)]
         private void PlayHopballSpawnSoundClientRpc(Vector3 position) {
-            // Play sound at position (not attached to any object) with directional falloff
-            EventBus.Publish(new PlayWorldSoundEvent(SfxKey.HopballSpawn, null, position, allowOverlap: false));
+            if(Game.Audio2.AudioService.Instance == null) return;
+
+            var soundId = "gameplay.hopball.spawn";
+            Game.Audio2.AudioService.Instance.Stop(soundId);
+            Game.Audio2.AudioService.Instance.Play(soundId, position);
         }
 
         /// <summary>

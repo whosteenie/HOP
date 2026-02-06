@@ -1,6 +1,5 @@
 using System;
 using Cysharp.Threading.Tasks;
-using Game.Audio;
 using Game.Match;
 using Unity.Netcode;
 using UnityEngine;
@@ -21,7 +20,6 @@ namespace Network.Singletons {
         [SerializeField] private SessionManager sessionManager;
 
         [SerializeField] private SceneTransitionManager sceneTransitionManager;
-        [SerializeField] private SoundFXManager soundFXManager;
 
         [Header("Additional DDOL Managers")]
         [SerializeField] private MatchSettingsManager matchSettingsManager;
@@ -73,10 +71,6 @@ namespace Network.Singletons {
             if(SceneTransitionManager.Instance == null) {
                 Debug.LogWarning(
                     "[InitSceneManager] SceneTransitionManager.Instance == null (optional but recommended)");
-            }
-
-            if(SoundFXManager.Instance == null) {
-                Debug.LogWarning("[InitSceneManager] SoundFXManager.Instance == null (optional)");
             }
 
             // Additional DDOL managers

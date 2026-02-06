@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Game.Player;
 using Game.UI;
+using Game.Settings;
 using Network.Singletons;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -419,24 +420,15 @@ namespace Game.Menu {
         }
 
         private void LoadSavedCustomization() {
-            // Load from PlayerPrefs (defaults to white, 0 smoothness, 0 metallic)
-            var baseColorR = PlayerPrefs.GetFloat("PlayerBaseColorR", 1f);
-            var baseColorG = PlayerPrefs.GetFloat("PlayerBaseColorG", 1f);
-            var baseColorB = PlayerPrefs.GetFloat("PlayerBaseColorB", 1f);
-            var baseColorA = PlayerPrefs.GetFloat("PlayerBaseColorA", 1f);
+            var c = GameSettings.Data.player.customization;
 
-            _currentBaseColor = new Color(baseColorR, baseColorG, baseColorB, baseColorA);
-            _currentSmoothness = PlayerPrefs.GetFloat("PlayerSmoothness", 0f);
-            _currentMetallic = PlayerPrefs.GetFloat("PlayerMetallic", 0f);
-            _currentPacketIndex = Mathf.Max(0, PlayerPrefs.GetInt("PlayerMaterialPacketIndex", 0));
-            var savedHeight = PlayerPrefs.GetFloat("PlayerHeightStrength", 0.02f);
-            _currentHeightStrength = Mathf.Clamp(savedHeight, MinHeightStrength, MaxHeightStrength);
-            _currentEmissionEnabled = PlayerPrefs.GetInt("PlayerEmissionEnabled", 0) == 1;
-            var emissionR = PlayerPrefs.GetFloat("PlayerEmissionColorR", 0f);
-            var emissionG = PlayerPrefs.GetFloat("PlayerEmissionColorG", 0f);
-            var emissionB = PlayerPrefs.GetFloat("PlayerEmissionColorB", 0f);
-            var emissionA = PlayerPrefs.GetFloat("PlayerEmissionColorA", 1f);
-            _currentEmissionColor = new Color(emissionR, emissionG, emissionB, emissionA);
+            _currentPacketIndex = Mathf.Max(0, c.materialPacketIndex);
+            _currentBaseColor = new Color(c.baseColor.x, c.baseColor.y, c.baseColor.z, c.baseColor.w);
+            _currentSmoothness = c.smoothness;
+            _currentMetallic = c.metallic;
+            _currentHeightStrength = Mathf.Clamp(c.heightStrength, MinHeightStrength, MaxHeightStrength);
+            _currentEmissionEnabled = c.emissionEnabled;
+            _currentEmissionColor = new Color(c.emissionColor.x, c.emissionColor.y, c.emissionColor.z, c.emissionColor.w);
 
             // Update UI
             UpdateColorUI();
@@ -737,20 +729,16 @@ namespace Game.Menu {
         /// </summary>
         public void ApplyCustomization() {
             // Save to PlayerPrefs
-            PlayerPrefs.SetFloat("PlayerBaseColorR", _currentBaseColor.r);
-            PlayerPrefs.SetFloat("PlayerBaseColorG", _currentBaseColor.g);
-            PlayerPrefs.SetFloat("PlayerBaseColorB", _currentBaseColor.b);
-            PlayerPrefs.SetFloat("PlayerBaseColorA", _currentBaseColor.a);
-            PlayerPrefs.SetFloat("PlayerSmoothness", _currentSmoothness);
-            PlayerPrefs.SetFloat("PlayerMetallic", _currentMetallic);
-            PlayerPrefs.SetFloat("PlayerHeightStrength", _currentHeightStrength);
-            PlayerPrefs.SetInt("PlayerEmissionEnabled", _currentEmissionEnabled ? 1 : 0);
-            PlayerPrefs.SetFloat("PlayerEmissionColorR", _currentEmissionColor.r);
-            PlayerPrefs.SetFloat("PlayerEmissionColorG", _currentEmissionColor.g);
-            PlayerPrefs.SetFloat("PlayerEmissionColorB", _currentEmissionColor.b);
-            PlayerPrefs.SetFloat("PlayerEmissionColorA", _currentEmissionColor.a);
-            PlayerPrefs.SetInt("PlayerMaterialPacketIndex", _currentPacketIndex);
-            PlayerPrefs.Save();
+            var c = GameSettings.Data.player.customization;
+            c.materialPacketIndex = Mathf.Max(0, _currentPacketIndex);
+            c.baseColor = new Vector4(_currentBaseColor.r, _currentBaseColor.g, _currentBaseColor.b, _currentBaseColor.a);
+            c.smoothness = Mathf.Clamp01(_currentSmoothness);
+            c.metallic = Mathf.Clamp01(_currentMetallic);
+            c.heightStrength = Mathf.Clamp(_currentHeightStrength, MinHeightStrength, MaxHeightStrength);
+            c.emissionEnabled = _currentEmissionEnabled;
+            c.emissionColor = new Vector4(_currentEmissionColor.r, _currentEmissionColor.g, _currentEmissionColor.b, _currentEmissionColor.a);
+
+            GameSettings.Save();
 
             // Update original values
             _originalBaseColor = _currentBaseColor;

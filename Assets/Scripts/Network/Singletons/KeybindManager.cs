@@ -1,14 +1,14 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using Game.Settings;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.Controls;
 
 namespace Network.Singletons {
     /// <summary>
-    /// Simplified keybind manager that uses PlayerPrefs as the source of truth.
-    /// Applies bindings simply when compatible with Unity Input System, uses fallbacks for incompatible types.
+    /// Simplified keybind manager that uses settings.json as the source of truth.
     /// </summary>
     public class KeybindManager : MonoBehaviour {
         public static KeybindManager Instance { get; private set; }
@@ -109,30 +109,49 @@ namespace Network.Singletons {
                 { "ptt", new[] { "<Keyboard>/v", "" } }
             };
 
+            var settings = GameSettings.Data.keybinds;
+            if(settings == null) return;
+
+            if(settings.entries == null) {
+                settings.entries = new List<SettingsData.KeybindEntry>();
+            }
+
             var changesMade = false;
             foreach(var kvp in defaults) {
-                // Check if the first binding for this action exists
-                if(!PlayerPrefs.HasKey(GetPlayerPrefsKey(kvp.Key, 0))) {
-                    for(var i = 0; i < kvp.Value.Length; i++) {
-                        if(!string.IsNullOrEmpty(kvp.Value[i])) {
-                            PlayerPrefs.SetString(GetPlayerPrefsKey(kvp.Key, i), kvp.Value[i]);
-                        }
-                    }
+                var entry = GetOrCreateKeybindEntry(settings.entries, kvp.Key);
+                if(entry == null) continue;
+
+                // Only set defaults when empty (don't stomp player edits).
+                if(string.IsNullOrEmpty(entry.binding0) && !string.IsNullOrEmpty(kvp.Value[0])) {
+                    entry.binding0 = kvp.Value[0];
+                    changesMade = true;
+                }
+
+                if(string.IsNullOrEmpty(entry.binding1) && !string.IsNullOrEmpty(kvp.Value[1])) {
+                    entry.binding1 = kvp.Value[1];
                     changesMade = true;
                 }
             }
 
             if(changesMade) {
-                PlayerPrefs.Save();
+                GameSettings.Save();
             }
         }
 
         private void LoadAllBindings() {
+            var settings = GameSettings.Data.keybinds;
+            if(settings == null) return;
+            if(settings.entries == null) return;
+
             foreach(var keybindName in _keybindMap.Keys) {
                 var paths = new List<string>();
-                for(var i = 0; i < 2; i++) {
-                    var key = GetPlayerPrefsKey(keybindName, i);
-                    paths.Add(PlayerPrefs.HasKey(key) ? PlayerPrefs.GetString(key) : "");
+                var entry = FindKeybindEntry(settings.entries, keybindName);
+                if(entry != null) {
+                    paths.Add(entry.binding0);
+                    paths.Add(entry.binding1);
+                } else {
+                    paths.Add("");
+                    paths.Add("");
                 }
 
                 ApplySavedBindings(keybindName, paths);
@@ -244,13 +263,24 @@ namespace Network.Singletons {
         }
 
         public void SaveBindings() {
+            var settings = GameSettings.Data.keybinds;
+            if(settings == null) return;
+            if(settings.entries == null) settings.entries = new List<SettingsData.KeybindEntry>();
+
             foreach(var (keybindName, value) in _pendingBindings) {
                 foreach(var (bindingIndex, path) in value) {
-                    PlayerPrefs.SetString(GetPlayerPrefsKey(keybindName, bindingIndex), path ?? "");
+                    var entry = GetOrCreateKeybindEntry(settings.entries, keybindName);
+                    if(entry == null) continue;
+
+                    if(bindingIndex == 0) {
+                        entry.binding0 = path ?? "";
+                    } else if(bindingIndex == 1) {
+                        entry.binding1 = path ?? "";
+                    }
                 }
             }
 
-            PlayerPrefs.Save();
+            GameSettings.Save();
             ApplyPendingBindings();
             _pendingBindings.Clear();
             LoadAllBindings();
@@ -292,14 +322,19 @@ namespace Network.Singletons {
         }
 
         public static string GetBindingDisplayString(string keybindName, int bindingIndex) {
-            var key = GetPlayerPrefsKey(keybindName, bindingIndex);
+            var settings = GameSettings.Data.keybinds;
+            if(settings == null || settings.entries == null) return "None";
 
-            // PlayerPrefs is source of truth
-            if(!PlayerPrefs.HasKey(key)) return "None";
-            var savedPath = PlayerPrefs.GetString(key);
-            return string.IsNullOrEmpty(savedPath)
-                ? "None"
-                : GetBindingDisplayString(new InputBinding { path = savedPath });
+            var entry = FindKeybindEntry(settings.entries, keybindName);
+            if(entry == null) return "None";
+
+            var savedPath = bindingIndex == 0 ? entry.binding0 : entry.binding1;
+            if(string.IsNullOrEmpty(savedPath)) return "None";
+
+            if(savedPath == "SCROLL_UP") return "Scroll Up";
+            if(savedPath == "SCROLL_DOWN") return "Scroll Down";
+
+            return GetBindingDisplayString(new InputBinding { path = savedPath });
         }
 
         public bool IsKeyPressed(string keybindName, int bindingIndex = 0) {
@@ -318,8 +353,29 @@ namespace Network.Singletons {
 
         #region Helper Methods
 
-        private static string GetPlayerPrefsKey(string keybindName, int bindingIndex) {
-            return $"Keybind_{keybindName}_{bindingIndex}";
+        private static SettingsData.KeybindEntry FindKeybindEntry(List<SettingsData.KeybindEntry> list, string keybindName) {
+            if(list == null) return null;
+            if(string.IsNullOrEmpty(keybindName)) return null;
+
+            for(var i = 0; i < list.Count; i++) {
+                var e = list[i];
+                if(e == null) continue;
+                if(e.name == keybindName) return e;
+            }
+
+            return null;
+        }
+
+        private static SettingsData.KeybindEntry GetOrCreateKeybindEntry(List<SettingsData.KeybindEntry> list, string keybindName) {
+            var existing = FindKeybindEntry(list, keybindName);
+            if(existing != null) return existing;
+            if(list == null) return null;
+            if(string.IsNullOrEmpty(keybindName)) return null;
+
+            var created = new SettingsData.KeybindEntry();
+            created.name = keybindName;
+            list.Add(created);
+            return created;
         }
 
         private static int GetBindingIndex(InputAction action, int bindingIndex, string compositePart) {

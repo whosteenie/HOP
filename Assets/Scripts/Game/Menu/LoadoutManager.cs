@@ -6,6 +6,7 @@ using Game.UI;
 using Network.Services;
 using Network.Singletons;
 using Game.Progression;
+using Game.Settings;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -284,11 +285,12 @@ namespace Game.Menu {
         }
 
         private void LoadLocalLoadout() {
-            _selectedPrimaryIndex = PlayerPrefs.GetInt("PrimaryWeaponIndex", 0);
-            _selectedSecondaryIndex = PlayerPrefs.GetInt("SecondaryWeaponIndex", 0);
-            _selectedTertiaryIndex = PlayerPrefs.GetInt("TertiaryWeaponIndex", 0);
+            var p = GameSettings.Data.player;
+            _selectedPrimaryIndex = p.primaryWeaponIndex;
+            _selectedSecondaryIndex = p.secondaryWeaponIndex;
+            _selectedTertiaryIndex = p.tertiaryWeaponIndex;
 
-            string savedName = PlayerPrefs.GetString("PlayerName", "Player");
+            var savedName = p.playerName;
             if(_playerNameInput != null) _playerNameInput.value = savedName;
 
             UpdateDropdownSelection(_primaryDropdown, _selectedPrimaryIndex, primaryWeapons);
@@ -582,9 +584,10 @@ namespace Game.Menu {
             }
 
             // Load weapons (equipped weapon index saved per slot)
-            _selectedPrimaryIndex = PlayerPrefs.GetInt("PrimaryWeaponIndex", 0);
-            _selectedSecondaryIndex = PlayerPrefs.GetInt("SecondaryWeaponIndex", 0);
-            _selectedTertiaryIndex = PlayerPrefs.GetInt("TertiaryWeaponIndex", 0);
+            var p = GameSettings.Data.player;
+            _selectedPrimaryIndex = p.primaryWeaponIndex;
+            _selectedSecondaryIndex = p.secondaryWeaponIndex;
+            _selectedTertiaryIndex = p.tertiaryWeaponIndex;
             _savedPrimaryIndex = _selectedPrimaryIndex;
             _savedSecondaryIndex = _selectedSecondaryIndex;
             _savedTertiaryIndex = _selectedTertiaryIndex;
@@ -605,12 +608,12 @@ namespace Game.Menu {
         private void OnApplyLoadoutClicked() {
             // Deprecated: Custom name saving
             // _savedPlayerName = _currentPlayerName;
-            // PlayerPrefs.SetString("PlayerName", _savedPlayerName);
 
             // Save weapons (already saved when selected, but ensure they're current)
-            PlayerPrefs.SetInt("PrimaryWeaponIndex", _selectedPrimaryIndex);
-            PlayerPrefs.SetInt("SecondaryWeaponIndex", _selectedSecondaryIndex);
-            PlayerPrefs.SetInt("TertiaryWeaponIndex", _selectedTertiaryIndex);
+            var p = GameSettings.Data.player;
+            p.primaryWeaponIndex = _selectedPrimaryIndex;
+            p.secondaryWeaponIndex = _selectedSecondaryIndex;
+            p.tertiaryWeaponIndex = _selectedTertiaryIndex;
 
             // Save customization (apply customization changes)
             var customizationManager = FindFirstObjectByType<CharacterCustomizationManager>();
@@ -618,7 +621,7 @@ namespace Game.Menu {
                 customizationManager.ApplyCustomization();
             }
 
-            PlayerPrefs.Save();
+            GameSettings.Save();
             Debug.Log(
                 $"[LoadoutManager] All loadout settings saved: Name={_savedPlayerName}, Weapons={_selectedPrimaryIndex}/{_selectedSecondaryIndex}/{_selectedTertiaryIndex}");
 
@@ -1056,26 +1059,15 @@ namespace Game.Menu {
             if(skinnedRenderer == null) return;
 
             // Apply new material packet system to preview model
-            var packetIndex = PlayerPrefs.GetInt("PlayerMaterialPacketIndex", 0);
-            var baseColorR = PlayerPrefs.GetFloat("PlayerBaseColorR", 1f);
-            var baseColorG = PlayerPrefs.GetFloat("PlayerBaseColorG", 1f);
-            var baseColorB = PlayerPrefs.GetFloat("PlayerBaseColorB", 1f);
-            var baseColorA = PlayerPrefs.GetFloat("PlayerBaseColorA", 1f);
-            var baseColor = new Color(baseColorR, baseColorG, baseColorB, baseColorA);
-            var smoothness = PlayerPrefs.GetFloat("PlayerSmoothness", 0.5f);
-            var metallic = PlayerPrefs.GetFloat("PlayerMetallic", 0f);
-            var specularR = PlayerPrefs.GetFloat("PlayerSpecularColorR", 0.2f);
-            var specularG = PlayerPrefs.GetFloat("PlayerSpecularColorG", 0.2f);
-            var specularB = PlayerPrefs.GetFloat("PlayerSpecularColorB", 0.2f);
-            var specularA = PlayerPrefs.GetFloat("PlayerSpecularColorA", 1f);
-            var specularColor = new Color(specularR, specularG, specularB, specularA);
-            var heightStrength = PlayerPrefs.GetFloat("PlayerHeightStrength", 0.02f);
-            var emissionEnabled = PlayerPrefs.GetInt("PlayerEmissionEnabled", 0) == 1;
-            var emissionR = PlayerPrefs.GetFloat("PlayerEmissionColorR", 0f);
-            var emissionG = PlayerPrefs.GetFloat("PlayerEmissionColorG", 0f);
-            var emissionB = PlayerPrefs.GetFloat("PlayerEmissionColorB", 0f);
-            var emissionA = PlayerPrefs.GetFloat("PlayerEmissionColorA", 1f);
-            var emissionColor = new Color(emissionR, emissionG, emissionB, emissionA);
+            var c = GameSettings.Data.player.customization;
+            var packetIndex = c.materialPacketIndex;
+            var baseColor = new Color(c.baseColor.x, c.baseColor.y, c.baseColor.z, c.baseColor.w);
+            var smoothness = c.smoothness;
+            var metallic = c.metallic;
+            var specularColor = new Color(c.specularColor.x, c.specularColor.y, c.specularColor.z, c.specularColor.w);
+            var heightStrength = c.heightStrength;
+            var emissionEnabled = c.emissionEnabled;
+            var emissionColor = new Color(c.emissionColor.x, c.emissionColor.y, c.emissionColor.z, c.emissionColor.w);
 
             PlayerMaterialPacket packet = null;
             if(PlayerMaterialPacketManager.Instance != null) {

@@ -16,10 +16,12 @@ using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.UIElements;
+using Game.Settings;
 
 namespace Game.Player {
     [DisallowMultipleComponent]
     [RequireComponent(typeof(CharacterController))]
+    [RequireComponent(typeof(NetworkAudioRelay))]
     [DefaultExecutionOrder(-100)] // Initialize before sub-controllers
     public partial class PlayerController : NetworkBehaviour {
         public static PlayerController LocalPlayer { get; private set; }
@@ -84,7 +86,7 @@ namespace Game.Player {
         [SerializeField] private AudioListener audioListener;
         [SerializeField] private NetworkDamageRelay damageRelay;
         [SerializeField] private NetworkFxRelay fxRelay;
-        [SerializeField] private NetworkSfxRelay sfxRelay;
+        [SerializeField] private NetworkAudioRelay audioRelay;
         [SerializeField] private CinemachineImpulseSource impulseSource;
         [SerializeField] private SpeedTrail speedTrail;
 
@@ -224,6 +226,12 @@ namespace Game.Player {
 
         #region Unity Lifecycle
 
+        private void Awake() {
+            if(audioRelay == null) {
+                audioRelay = GetComponent<NetworkAudioRelay>();
+            }
+        }
+
         public override void OnNetworkSpawn() {
             base.OnNetworkSpawn();
 
@@ -271,12 +279,12 @@ namespace Game.Player {
                     pName = SteamClient.Name;
                     steamId.Value = SteamClient.SteamId.Value;
                 } else {
-                     pName = PlayerPrefs.GetString("PlayerName", "Unknown Player");
+                     pName = GameSettings.Data.player.playerName;
                 }
                 playerName.Value = pName;
                 
-                primaryWeaponIndex.Value = PlayerPrefs.GetInt("PrimaryWeaponIndex", 0);
-                secondaryWeaponIndex.Value = PlayerPrefs.GetInt("SecondaryWeaponIndex", 0);
+                primaryWeaponIndex.Value = GameSettings.Data.player.primaryWeaponIndex;
+                secondaryWeaponIndex.Value = GameSettings.Data.player.secondaryWeaponIndex;
                 
                 LoadMaterialCustomizationFromPrefs();
                 
@@ -426,63 +434,37 @@ namespace Game.Player {
         }
 
         /// <summary>
-        /// Loads material customization values from PlayerPrefs.
+        /// Loads material customization values from settings.json.
         /// </summary>
         private void LoadMaterialCustomizationFromPrefs() {
-            var savedPacketIndex = PlayerPrefs.GetInt("PlayerMaterialPacketIndex", 0);
-            playerMaterialPacketIndex.Value = savedPacketIndex;
+            var c = GameSettings.Data.player.customization;
 
-            var baseColorR = PlayerPrefs.GetFloat("PlayerBaseColorR", 1f);
-            var baseColorG = PlayerPrefs.GetFloat("PlayerBaseColorG", 1f);
-            var baseColorB = PlayerPrefs.GetFloat("PlayerBaseColorB", 1f);
-            var baseColorA = PlayerPrefs.GetFloat("PlayerBaseColorA", 1f);
-            playerBaseColor.Value = new Vector4(baseColorR, baseColorG, baseColorB, baseColorA);
-
-            playerSmoothness.Value = PlayerPrefs.GetFloat("PlayerSmoothness", 0f);
-            playerMetallic.Value = PlayerPrefs.GetFloat("PlayerMetallic", 0f);
-
-            var specularR = PlayerPrefs.GetFloat("PlayerSpecularColorR", 0.2f);
-            var specularG = PlayerPrefs.GetFloat("PlayerSpecularColorG", 0.2f);
-            var specularB = PlayerPrefs.GetFloat("PlayerSpecularColorB", 0.2f);
-            var specularA = PlayerPrefs.GetFloat("PlayerSpecularColorA", 1f);
-            playerSpecularColor.Value = new Vector4(specularR, specularG, specularB, specularA);
-
-            var savedHeight = PlayerPrefs.GetFloat("PlayerHeightStrength", 0.02f);
-            playerHeightStrength.Value = Mathf.Clamp(savedHeight, MinHeightStrength, MaxHeightStrength);
-
-            playerEmissionEnabled.Value = PlayerPrefs.GetInt("PlayerEmissionEnabled", 0) == 1;
-            var emissionR = PlayerPrefs.GetFloat("PlayerEmissionColorR", 0f);
-            var emissionG = PlayerPrefs.GetFloat("PlayerEmissionColorG", 0f);
-            var emissionB = PlayerPrefs.GetFloat("PlayerEmissionColorB", 0f);
-            var emissionA = PlayerPrefs.GetFloat("PlayerEmissionColorA", 1f);
-            playerEmissionColor.Value = new Vector4(emissionR, emissionG, emissionB, emissionA);
+            playerMaterialPacketIndex.Value = c.materialPacketIndex;
+            playerBaseColor.Value = c.baseColor;
+            playerSmoothness.Value = c.smoothness;
+            playerMetallic.Value = c.metallic;
+            playerSpecularColor.Value = c.specularColor;
+            playerHeightStrength.Value = Mathf.Clamp(c.heightStrength, MinHeightStrength, MaxHeightStrength);
+            playerEmissionEnabled.Value = c.emissionEnabled;
+            playerEmissionColor.Value = c.emissionColor;
 
             UpdatePlayerMaterialFromNetwork();
         }
 
         /// <summary>
-        /// Saves material customization values to PlayerPrefs.
+        /// Saves material customization values to settings.json.
         /// </summary>
         public void SaveMaterialCustomizationToPrefs() {
-            PlayerPrefs.SetInt("PlayerMaterialPacketIndex", playerMaterialPacketIndex.Value);
-            PlayerPrefs.SetFloat("PlayerBaseColorR", playerBaseColor.Value.x);
-            PlayerPrefs.SetFloat("PlayerBaseColorG", playerBaseColor.Value.y);
-            PlayerPrefs.SetFloat("PlayerBaseColorB", playerBaseColor.Value.z);
-            PlayerPrefs.SetFloat("PlayerBaseColorA", playerBaseColor.Value.w);
-            PlayerPrefs.SetFloat("PlayerSmoothness", playerSmoothness.Value);
-            PlayerPrefs.SetFloat("PlayerMetallic", playerMetallic.Value);
-            PlayerPrefs.SetFloat("PlayerSpecularColorR", playerSpecularColor.Value.x);
-            PlayerPrefs.SetFloat("PlayerSpecularColorG", playerSpecularColor.Value.y);
-            PlayerPrefs.SetFloat("PlayerSpecularColorB", playerSpecularColor.Value.z);
-            PlayerPrefs.SetFloat("PlayerSpecularColorA", playerSpecularColor.Value.w);
-            var clampedHeight = Mathf.Clamp(playerHeightStrength.Value, MinHeightStrength, MaxHeightStrength);
-            PlayerPrefs.SetFloat("PlayerHeightStrength", clampedHeight);
-            PlayerPrefs.SetInt("PlayerEmissionEnabled", playerEmissionEnabled.Value ? 1 : 0);
-            PlayerPrefs.SetFloat("PlayerEmissionColorR", playerEmissionColor.Value.x);
-            PlayerPrefs.SetFloat("PlayerEmissionColorG", playerEmissionColor.Value.y);
-            PlayerPrefs.SetFloat("PlayerEmissionColorB", playerEmissionColor.Value.z);
-            PlayerPrefs.SetFloat("PlayerEmissionColorA", playerEmissionColor.Value.w);
-            PlayerPrefs.Save();
+            var c = GameSettings.Data.player.customization;
+            c.materialPacketIndex = playerMaterialPacketIndex.Value;
+            c.baseColor = playerBaseColor.Value;
+            c.smoothness = playerSmoothness.Value;
+            c.metallic = playerMetallic.Value;
+            c.specularColor = playerSpecularColor.Value;
+            c.heightStrength = Mathf.Clamp(playerHeightStrength.Value, MinHeightStrength, MaxHeightStrength);
+            c.emissionEnabled = playerEmissionEnabled.Value;
+            c.emissionColor = playerEmissionColor.Value;
+            GameSettings.Save();
         }
 
         private void OnHealthChanged(float oldV, float newV) {

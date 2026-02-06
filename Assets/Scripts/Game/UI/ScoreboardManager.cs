@@ -292,7 +292,9 @@ namespace Game.UI {
             _matchTimerLabel.text = $"{minutes:00}:{seconds:00}";
 
             if(minutes == 0 && seconds is <= 5 and >= 1) {
-                EventBus.Publish(new PlayUISoundEvent(SfxKey.TimerTick));
+                if(Game.Audio2.AudioService.Instance != null) {
+                    Game.Audio2.AudioService.Instance.Play("ui.timer", Vector3.zero);
+                }
             }
         }
 

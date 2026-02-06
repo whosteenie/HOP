@@ -249,7 +249,9 @@ namespace Game.Player {
         /// </summary>
         [Rpc(SendTo.Owner)]
         public void PlayTaggedSoundClientRpc() {
-            EventBus.Publish(new PlayUISoundEvent(SfxKey.Tagged));
+            if(Game.Audio2.AudioService.Instance != null) {
+                Game.Audio2.AudioService.Instance.Play("ui.tag.tagged", Vector3.zero);
+            }
         }
 
         /// <summary>
@@ -257,7 +259,9 @@ namespace Game.Player {
         /// </summary>
         [Rpc(SendTo.Owner)]
         private void PlayTaggingSoundClientRpc() {
-            EventBus.Publish(new PlayUISoundEvent(SfxKey.Tagging));
+            if(Game.Audio2.AudioService.Instance != null) {
+                Game.Audio2.AudioService.Instance.Play("ui.tag.tagger", Vector3.zero);
+            }
             if (Game.Progression.ProgressionManager.Instance != null) {
                 Game.Progression.ProgressionManager.Instance.RecordTag();
             }

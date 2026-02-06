@@ -1,4 +1,3 @@
-using Game.Audio;
 using Network.Rpc;
 using Unity.Cinemachine;
 using Unity.Netcode;
@@ -13,7 +12,7 @@ namespace Game.Player {
         [SerializeField] private CinemachineCamera fpCamera;
         [SerializeField] private LineRenderer ropeRenderer;
         [SerializeField] private GrappleController pullGrapple;
-        [SerializeField] private NetworkSfxRelay sfxRelay;
+        [SerializeField] private NetworkAudioRelay audioRelay;
 
         [Header("Swing Settings")]
         [SerializeField] private float maxSwingDistance = 50f;
@@ -40,6 +39,10 @@ namespace Game.Player {
         private readonly NetworkVariable<Vector3> _netSwingPoint = new();
 
         private void Awake() {
+            if(audioRelay == null) {
+                audioRelay = GetComponent<NetworkAudioRelay>();
+            }
+
             if(!ropeRenderer) {
                 var go = new GameObject("SwingRope");
                 go.transform.SetParent(transform);
@@ -116,8 +119,8 @@ namespace Game.Player {
             if(pullGrapple != null) {
                 pullGrapple.TriggerCooldown();
             }
-            if(sfxRelay != null) {
-                sfxRelay.RequestWorldSfx(SfxKey.Grapple, true, true);
+            if(audioRelay != null) {
+                audioRelay.RequestPlayAttached("gameplay.grapple", new NetworkObjectReference(NetworkObject), allowOverlap: true);
             }
         }
 

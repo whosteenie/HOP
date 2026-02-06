@@ -1,6 +1,7 @@
 using Game.Weapons;
 using Unity.Netcode;
 using UnityEngine;
+using Game.Settings;
 using System.Collections;
 
 namespace Game.Player {
@@ -151,7 +152,8 @@ namespace Game.Player {
 
         private void Update() {
             // Check if player trails are enabled in settings first
-            if(PlayerPrefs.GetInt("PlayerTrails", 1) == 0) {
+            var controls = GameSettings.Data.controls;
+            if(controls != null && !controls.playerTrails) {
                 SetTrailActive(false);
                 return;
             }

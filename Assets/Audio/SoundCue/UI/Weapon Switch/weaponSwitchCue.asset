@@ -1,0 +1,44 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: eefa7fc14ec118b44ad82cb18af67667, type: 3}
+  m_Name: weaponSwitchCue
+  m_EditorClassIdentifier: Assembly-CSharp::Game.Audio2.SoundCue
+  id: ui.weapon.switch
+  variants:
+  - clip: {fileID: 8300000, guid: f909ee4a9ae32574f98fdbfd911f1764, type: 3}
+    weight: 1
+    volumeDb: -15
+    pitch: 0
+    randomPitch: 0.04
+  - clip: {fileID: 8300000, guid: 6f18f23e9da42d54a8e620923195bfd0, type: 3}
+    weight: 1
+    volumeDb: -15
+    pitch: 0
+    randomPitch: 0.04
+  - clip: {fileID: 8300000, guid: 1cdd12ef4b4eda74682fb8394f7edad5, type: 3}
+    weight: 1
+    volumeDb: -15
+    pitch: 0
+    randomPitch: 0.04
+  bus: 1
+  outputGroup: {fileID: -8711128661379289526, guid: 5b25e535414676d478e020121c230f08, type: 2}
+  is3D: 0
+  spatialBlend: 1
+  minDistance: 1
+  maxDistance: 50
+  rolloffMode: 0
+  priority: 128
+  maxInstances: 4
+  cooldownSeconds: 0
+  stealPolicy: 1
+  stopBehavior: 1
+  preload: 0

@@ -1,4 +1,3 @@
-using Game.Audio;
 using Game.Weapons;
 using Network.Components;
 using Network.Rpc;
@@ -61,7 +60,8 @@ namespace Game.Player {
             }
 
             if(IsOwner) {
-                sfxRelay.RequestWorldSfx(SfxKey.Walk, attachToSelf: true, true);
+                if(audioRelay == null) return;
+                audioRelay.RequestPlayAttached("foley.tile.walk", new NetworkObjectReference(NetworkObject), allowOverlap: true);
             }
         }
 
@@ -78,7 +78,8 @@ namespace Game.Player {
             }
 
             if(IsOwner) {
-                sfxRelay.RequestWorldSfx(SfxKey.Run, attachToSelf: true, true);
+                if(audioRelay == null) return;
+                audioRelay.RequestPlayAttached("foley.tile.run", new NetworkObjectReference(NetworkObject), allowOverlap: true);
             }
         }
 
@@ -173,7 +174,7 @@ namespace Game.Player {
         // public SwingGrapple SwingGrapple => swingGrapple;
         public NetworkDamageRelay DamageRelay => damageRelay;
         public NetworkFxRelay FxRelay => fxRelay;
-        public NetworkSfxRelay SfxRelay => sfxRelay;
+        public NetworkAudioRelay AudioRelay => audioRelay;
         public CinemachineImpulseSource ImpulseSource => impulseSource;
         // public MeshRenderer WorldWeaponRenderer => worldWeapon;
         public GameObject[] WorldWeaponPrefabs => worldWeaponPrefabs;

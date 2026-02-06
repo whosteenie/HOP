@@ -8,6 +8,7 @@ using UnityEngine;
 using UnityEngine.Audio;
 using UnityEngine.UIElements;
 using Game.UI;
+using Game.Settings;
 using Cursor = UnityEngine.Cursor;
 using Steamworks;
 
@@ -276,8 +277,8 @@ namespace Game.Menu {
             var playerName = uiManager.GetFirstTimeNameInput();
             if(string.IsNullOrWhiteSpace(playerName)) playerName = "Player";
 
-            PlayerPrefs.SetString("PlayerName", playerName);
-            PlayerPrefs.Save();
+            GameSettings.Data.player.playerName = playerName;
+            GameSettings.Save();
 
             uiManager.HideFirstTimeSetup();
             LoadSettings();

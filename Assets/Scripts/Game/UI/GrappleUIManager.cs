@@ -4,6 +4,7 @@ using Unity.Cinemachine;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UIElements;
+using Game.Settings;
 
 namespace Game.UI {
     public class GrappleUIManager : UIElementBase {
@@ -73,7 +74,8 @@ namespace Game.UI {
             CreateHorseshoeSegments();
             
             // Set initial visibility based on grapple indicator type setting
-            var grappleIndicatorType = PlayerPrefs.GetInt("GrappleIndicator", 0);
+            var controls = GameSettings.Data.controls;
+            var grappleIndicatorType = controls != null ? controls.grappleIndicator : 0;
             switch(grappleIndicatorType) {
                 case 0: // Crosshair
                     ShowCrosshairIndicator();
@@ -115,7 +117,8 @@ namespace Game.UI {
             CheckGrapplePoint();
             
             // Check grapple indicator type setting
-            var grappleIndicatorType = PlayerPrefs.GetInt("GrappleIndicator", 0);
+            var controls = GameSettings.Data.controls;
+            var grappleIndicatorType = controls != null ? controls.grappleIndicator : 0;
             
             // Update appropriate indicator based on setting
             switch(grappleIndicatorType) {
@@ -296,7 +299,8 @@ namespace Game.UI {
         /// </summary>
         public void ShowGrappleUI() {
             // Show appropriate indicator based on setting
-            var grappleIndicatorType = PlayerPrefs.GetInt("GrappleIndicator", 0);
+            var controls = GameSettings.Data.controls;
+            var grappleIndicatorType = controls != null ? controls.grappleIndicator : 0;
             switch(grappleIndicatorType) {
                 case 0: // Crosshair
                     ShowCrosshairIndicator();

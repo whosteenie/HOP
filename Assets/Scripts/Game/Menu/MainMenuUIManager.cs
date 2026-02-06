@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using Game.Progression;
 using Game.UI;
+using Game.Settings;
 using Network.Services;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -260,7 +261,6 @@ namespace Game.Menu {
                 _loadoutButton,
                 _optionsButton,
                 _creditsButton,
-                _quitButton,
                 _cardDeathmatch,
                 _cardTeamDeathmatch,
                 _cardHopball,
@@ -338,7 +338,7 @@ namespace Game.Menu {
 
             System.Action loadoutHandler = () => {
                 if(_nameInput != null) {
-                    _nameInput.value = PlayerPrefs.GetString("PlayerName");
+                    _nameInput.value = GameSettings.Data.player.playerName;
                 }
                 OnLoadoutClicked?.Invoke();
             };
@@ -346,14 +346,12 @@ namespace Game.Menu {
             RegisterCleanup(() => _loadoutButton.clicked -= loadoutHandler);
 
             System.Action optionsHandler = () => {
-                UISoundService.PlayButtonClick();
                 OnOptionsClicked?.Invoke();
             };
             _optionsButton.clicked += optionsHandler;
             RegisterCleanup(() => _optionsButton.clicked -= optionsHandler);
 
             System.Action creditsHandler = () => {
-                UISoundService.PlayButtonClick();
                 OnCreditsClicked?.Invoke();
             };
             _creditsButton.clicked += creditsHandler;

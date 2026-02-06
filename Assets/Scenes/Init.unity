@@ -196,7 +196,6 @@ MonoBehaviour:
   initializationDelay: 0.1
   sessionManager: {fileID: 4402361108633043761}
   sceneTransitionManager: {fileID: 771809372539791604}
-  soundFXManager: {fileID: 6068900991373866435}
   matchSettingsManager: {fileID: 6980494200246059887}
   networkManager: {fileID: 1266242196255774367}
   sessionNetworkBridge: {fileID: 5420075277361832014}
@@ -899,139 +898,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &6068900991373866435
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 6278191672109600082}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 11fa03ea2865fdb44855d85e68587fb3, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::SoundFXManafer
-  soundFXPrefab: {fileID: 4120442816761199137, guid: 89f9c8c7b7d50e24297e85e908dfca88, type: 3}
-  poolSize: 64
-  walkClips:
-  - {fileID: 8300000, guid: 5ecd088c693c28747bd481f8e14980dc, type: 3}
-  - {fileID: 8300000, guid: d75919d6ab6688744b3db1e397108b7c, type: 3}
-  - {fileID: 8300000, guid: b70ecd768d65176498ad0a5e8ef45955, type: 3}
-  - {fileID: 8300000, guid: bad23e1ab87e57e4b8f31f61085edd5e, type: 3}
-  - {fileID: 8300000, guid: ad427e5dee5c62445a8a22a21c1ef197, type: 3}
-  - {fileID: 8300000, guid: 77f5a09d90181c644982ad0351b4c598, type: 3}
-  - {fileID: 8300000, guid: 7524dd27fb0855b4c9fcc2f236156040, type: 3}
-  - {fileID: 8300000, guid: da412d558d82f21428afe3a95d199039, type: 3}
-  runClips:
-  - {fileID: 8300000, guid: 6ba47fba13d0d3c4696a6133d7720bfc, type: 3}
-  - {fileID: 8300000, guid: 2b001bfd97d2c184cb73cf509f36aa2f, type: 3}
-  - {fileID: 8300000, guid: 28326d1434b321f4abb412ad6e27ebab, type: 3}
-  - {fileID: 8300000, guid: f6088b85ff55a54458e58e9f78677b7c, type: 3}
-  - {fileID: 8300000, guid: 20358bb96c49f764c9d68b9ca6bbf723, type: 3}
-  - {fileID: 8300000, guid: af14474a2444f9b43a7a55e0e3a6d0a9, type: 3}
-  jumpClips:
-  - {fileID: 8300000, guid: 67e4eb71ab3372b4298b493908afdfe7, type: 3}
-  - {fileID: 8300000, guid: 1609dd0e017261743a2603c4998b8254, type: 3}
-  landClips:
-  - {fileID: 8300000, guid: 0a5e879be76ab5a4597984f9df76cfbe, type: 3}
-  - {fileID: 8300000, guid: 27ac925e5460c3c4ab37249341d83339, type: 3}
-  - {fileID: 8300000, guid: bf8036a7fc21ce94c94a5c281cc2eee4, type: 3}
-  jumpPadClips:
-  - {fileID: 8300000, guid: 3970946040ff21a4780ae7aa7d33d6ce, type: 3}
-  grappleClips:
-  - {fileID: 8300000, guid: 126477d6c506779418d86516a8c41a94, type: 3}
-  - {fileID: 8300000, guid: 77366d0dea8272540b1eefb82a67dc28, type: 3}
-  - {fileID: 8300000, guid: 7e7e40d5ebea924459b8cbec5751a5ed, type: 3}
-  - {fileID: 8300000, guid: e3bbc28cdb7f57a4ba87dbb7cee36478, type: 3}
-  bulletTrailClips:
-  - {fileID: 8300000, guid: 79d532dc88d97f64cb5e1b04e8f88711, type: 3}
-  - {fileID: 8300000, guid: 60fa98cbef062134d999bb293945d199, type: 3}
-  - {fileID: 8300000, guid: a80103b3593a2f243ad11bbcbe124495, type: 3}
-  bulletImpactClips:
-  - {fileID: 8300000, guid: 2906dfad3f9834140bc6453aef5b59a4, type: 3}
-  - {fileID: 8300000, guid: 2906dfad3f9834140bc6453aef5b59a4, type: 3}
-  - {fileID: 8300000, guid: 2906dfad3f9834140bc6453aef5b59a4, type: 3}
-  - {fileID: 8300000, guid: 2906dfad3f9834140bc6453aef5b59a4, type: 3}
-  - {fileID: 8300000, guid: 89eec5eaf9fa66b41941e10f9b53b938, type: 3}
-  hopballSpawnClips:
-  - {fileID: 8300000, guid: dcf85d8a9a995314b9da98355d126f22, type: 3}
-  slideClips:
-  - {fileID: 8300000, guid: e88c15c02459a514e99de9c52d8f32fe, type: 3}
-  - {fileID: 8300000, guid: 2c2cef0330ed6df43bb2f87e2f76e27a, type: 3}
-  - {fileID: 8300000, guid: 85cc80a05e7f9eb40ad6fcc695a12e4d, type: 3}
-  - {fileID: 8300000, guid: 80980e01f5c9a2b4c97f731a646ab7b6, type: 3}
-  - {fileID: 8300000, guid: c0d98b37e8c2cbe4f963338627668d8b, type: 3}
-  reloadClips:
-  - {fileID: 8300000, guid: 574a6ed5942cbdd4ea0db841211831a8, type: 3}
-  dryClips:
-  - {fileID: 8300000, guid: 42c9c1419a4a71a46a90618586c14bf7, type: 3}
-  shootClips:
-  - {fileID: 8300000, guid: a1c9c05b081ba984fa4fe79680faa247, type: 3}
-  shootPistolClips:
-  - {fileID: 8300000, guid: 4ce8eadde5b52474882c032d4434907d, type: 3}
-  shootDeagleClips:
-  - {fileID: 8300000, guid: 24816ce84419ad6438ff2a4197416aa7, type: 3}
-  shootSmgClips:
-  - {fileID: 8300000, guid: abca596ead0f7b94d9409b9fd11beb8b, type: 3}
-  shootRifleClips:
-  - {fileID: 8300000, guid: a1c9c05b081ba984fa4fe79680faa247, type: 3}
-  shootShotgunClips:
-  - {fileID: 8300000, guid: 4b33d146aae02694689eb853e2cbfc81, type: 3}
-  shootSniperClips:
-  - {fileID: 8300000, guid: ca55a775d2b6fea49ab183292a1f4fb1, type: 3}
-  reloadPistolClips:
-  - {fileID: 8300000, guid: cc3333af4b2050c4a88e450f22d62253, type: 3}
-  reloadDeagleClips:
-  - {fileID: 8300000, guid: 0cc7b3eeb7581ee489d1c70c5dfc301f, type: 3}
-  reloadSmgClips:
-  - {fileID: 8300000, guid: 1251efeb85d375f499fb6caafa842995, type: 3}
-  reloadRifleClips:
-  - {fileID: 8300000, guid: 574a6ed5942cbdd4ea0db841211831a8, type: 3}
-  reloadShotgunClips:
-  - {fileID: 8300000, guid: 996b34f1ea26e634888b8b941099ac1e, type: 3}
-  reloadSniperClips:
-  - {fileID: 8300000, guid: 6b20fa323bdf57941be92bac51754b5b, type: 3}
-  buttonClickClips:
-  - {fileID: 8300000, guid: 0147746136178ab4584e12c810978362, type: 3}
-  buttonHoverClips:
-  - {fileID: 8300000, guid: a75efdd7debb8c3468fd8ae9e486a026, type: 3}
-  - {fileID: 8300000, guid: c14efd2b5032bf34daae09145c990382, type: 3}
-  backButtonClips:
-  - {fileID: 8300000, guid: 1157d704af9c7d04cbeecaf45f4fe38f, type: 3}
-  timerTickClips:
-  - {fileID: 8300000, guid: bfbbd5735ff6a7648ae6ba101a064c73, type: 3}
-  - {fileID: 8300000, guid: 6f883d3c5153f234eaac9f6d30bc3fb4, type: 3}
-  - {fileID: 8300000, guid: 92ffa71aad2196e47a1ae04367976d3f, type: 3}
-  - {fileID: 8300000, guid: a8998e8e566f823428ff964184de0d88, type: 3}
-  - {fileID: 8300000, guid: 9eeab4d0df988914ab2aa7eceb5bb3d1, type: 3}
-  hitClips:
-  - {fileID: 8300000, guid: 117da55a1c6a55049aecaf04f4d08a86, type: 3}
-  killClips:
-  - {fileID: 8300000, guid: 77e1d91e188da29419fefc5be25417f6, type: 3}
-  hurtClips:
-  - {fileID: 8300000, guid: 32da95975e6101946a9648290fa44bad, type: 3}
-  taggedClips:
-  - {fileID: 8300000, guid: ac7ae59ca58b6f74c8ca6d884ed597a4, type: 3}
-  taggingClips:
-  - {fileID: 8300000, guid: 4d1e7b7c9293af14e9115e96a9d46722, type: 3}
-  sniperZoomClips:
-  - {fileID: 8300000, guid: 5a5a0177034a9b841bf8d6ed7b1a8926, type: 3}
-  weaponSwitchClips:
-  - {fileID: 8300000, guid: e55e498244d78914081a4f13e49c49c4, type: 3}
-  - {fileID: 8300000, guid: 0b28016e28f284c47a24534c9d4efcef, type: 3}
-  - {fileID: 8300000, guid: d0f7cc8c0b95c7c4eaa6e38222f7c5fa, type: 3}
-  walkMaxDistance: 25
-  runMaxDistance: 40
-  jumpMaxDistance: 25
-  landMaxDistance: 30
-  reloadMaxDistance: 40
-  dryMaxDistance: 35
-  shootMaxDistance: 300
-  jumpPadMaxDistance: 70
-  grappleMaxDistance: 65
-  bulletTrailMaxDistance: 150
-  bulletImpactMaxDistance: 35
-  hopballSpawnMaxDistance: 300
 --- !u!1 &6278191672109600082
 GameObject:
   m_ObjectHideFlags: 0
@@ -1041,14 +907,41 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 3133605238879460290}
-  - component: {fileID: 6068900991373866435}
+  - component: {fileID: 6278191672109600083}
+  - component: {fileID: 6278191672109600084}
   m_Layer: 0
-  m_Name: SoundFXManager
+  m_Name: AudioServiceManager
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
+--- !u!114 &6278191672109600083
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6278191672109600082}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0bf19c4fa36d8374abd41761f7331892, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Game.Audio2.AudioService
+  config: {fileID: 11400000, guid: 8c3f0f0a1a7ebb443939ada75a5804e1, type: 2}
+  catalog: {fileID: 11400000, guid: 69b71dd6cf9dbc94ca249eb9a0664bcc, type: 2}
+--- !u!114 &6278191672109600084
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6278191672109600082}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a1a2ac54fdbe5094f8cdde1980bbaf70, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Game.Audio2.AudioServiceEventBusBridge
 --- !u!4 &6620924763964963253
 Transform:
   m_ObjectHideFlags: 0
