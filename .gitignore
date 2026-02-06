@@ -322,3 +322,19 @@ packages.config
 .cursorignore
 .vsconfig
 .agent/
+
+# SteamPipe tooling + generated VDFs/logs
+/SteamPipe/steamcmd/
+/SteamPipe/out/
+/SteamPipe/*.log
+/SteamPipe/*
+
+# Local Unity build outputs (if you build into repo folders)
+# (you already have /Build/ and /Builds/ ignored, so only add if you use different names)
+/BuildOutput/
+/ReleaseBuilds/
+/Deploy/
+/Artifacts/
+
+# SteamPipe upload cache (if any future tools create it)
+*.vdf

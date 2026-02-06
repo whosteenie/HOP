@@ -6,8 +6,7 @@ using Network.Steam;
 
 namespace Game.Editor {
     /// <summary>
-    /// Automatically handles Steam deployment requirements like steam_appid.txt
-    /// after a build is completed.
+    /// Post-build helper for Steam runtime DLL placement.
     /// </summary>
     public static class SteamBuildPostProcessor {
         [PostProcessBuild]
@@ -21,21 +20,9 @@ namespace Game.Editor {
             string buildDir = Path.GetDirectoryName(pathToBuiltProject);
             if (string.IsNullOrEmpty(buildDir)) return;
 
-            // 1. Create steam_appid.txt
-            uint appId = GetAppIdFromManager();
-            string appIdPath = Path.Combine(buildDir, "steam_appid.txt");
-            
-            try {
-                File.WriteAllText(appIdPath, appId.ToString());
-                Debug.Log($"[SteamBuild] Successfully created steam_appid.txt with AppID {appId} in {buildDir}");
-            }
-            catch (System.Exception e) {
-                Debug.LogError($"[SteamBuild] Failed to create steam_appid.txt: {e.Message}");
-            }
-
-            // 2. Copy Steam runtime DLL(s)
-            // Facepunch Steamworks requires steam_api(64).dll to be present in the built player output.
-            // In practice, having it next to the .exe is the most reliable for overlay/injection.
+            // Copy Steam runtime DLL(s).
+            // Steam does NOT provide steam_api(64).dll for you at runtime; it must be shipped with your build content.
+            // In practice, having it next to the .exe is the most reliable for Steam overlay/injection.
             CopySteamRuntimeDlls(target, pathToBuiltProject, buildDir);
         }
 
@@ -113,21 +100,9 @@ namespace Game.Editor {
             }
         }
 
-        private static uint GetAppIdFromManager() {
-            // Try to find the SteamManager in the project to get the AppID
-            // If we can't find it, fallback to 480 (Spacewar)
-            var manager = Object.FindFirstObjectByType<SteamManager>();
-            if (manager != null) {
-                // Since appId is private in SteamManager, we might need to make it public 
-                // or just hardcode to 480 if it's the most common case.
-                // For now, let's assume 480 or use a serialized field if we can access it via SerializedObject.
-                
-                var so = new SerializedObject(manager);
-                var prop = so.FindProperty("appId");
-                if (prop != null) return (uint)prop.intValue;
-            }
-            
-            return 480; 
-        }
+        // Note:
+        // We intentionally do not generate steam_appid.txt here.
+        // - For Steam builds launched by Steam, Steam provides the AppID context.
+        // - For local non-Steam testing, you can create steam_appid.txt manually as needed.
     }
 }
