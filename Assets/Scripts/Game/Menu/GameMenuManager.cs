@@ -8,6 +8,7 @@ using Game.Match;
 using Network;
 using Network.Services;
 using Network.Steam;
+using Steamworks;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UIElements;
@@ -91,8 +92,6 @@ namespace Game.Menu {
             }
             Instance = this;
             base.Awake();
-            if(Root == null) return;
-            _modalHost = new UIModalHost(this, Root);
         }
 
         protected override void Start() {
@@ -121,6 +120,9 @@ namespace Game.Menu {
 
         protected override void OnInitialize() {
             FindUIElements();
+            if(_modalHost == null && Root != null) {
+                _modalHost = new UIModalHost(this, Root);
+            }
             RegisterUIEvents();
             
             SetupOptionsMenuManager();
@@ -483,7 +485,11 @@ namespace Game.Menu {
         
         private void InviteFriends() {
              UISoundService.PlayButtonClick();
-             if (SessionManager.Instance != null && SessionManager.Instance.CurrentLobby.HasValue) {
+             if(!SteamClient.IsValid || !SteamClient.IsLoggedOn) {
+                 return;
+             }
+
+             if(SessionManager.Instance != null && SessionManager.Instance.CurrentLobby.HasValue) {
                  SteamManager.Instance.OpenInviteOverlay(SessionManager.Instance.CurrentLobby.Value.Id);
              }
         }
@@ -533,6 +539,11 @@ namespace Game.Menu {
         }
 
         private void ShowQuitConfirmation() {
+            if(_modalHost == null) {
+                Debug.LogWarning("[GameMenuManager] Quit modal host is not initialized yet.");
+                return;
+            }
+
             if(_quitConfirmationModal != null) {
                 // Hide pause menu and challenges when showing quit confirmation modal
                 if(_pauseMenuPanel != null) {

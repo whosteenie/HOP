@@ -275,11 +275,11 @@ namespace Game.Player {
 
             if(IsOwner) {
                 string pName;
-                if (SteamClient.IsValid) {
-                    pName = SteamClient.Name;
+                if(SteamClient.IsValid) {
+                    pName = Game.Social.StreamerMode.GetLocalDisplayName();
                     steamId.Value = SteamClient.SteamId.Value;
                 } else {
-                     pName = GameSettings.Data.player.playerName;
+                    pName = Game.Social.StreamerMode.LocalDisplayName;
                 }
                 playerName.Value = pName;
                 

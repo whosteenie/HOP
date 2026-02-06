@@ -23,15 +23,13 @@ namespace Game.UI {
                 Debug.LogError($"[{GetType().Name}] UIDocument is not assigned!");
                 return;
             }
-
-            Root = uiDocument.rootVisualElement;
-            if(Root == null) {
-                Debug.LogError($"[{GetType().Name}] Failed to get root visual element from UIDocument!");
-                return;
-            }
         }
 
         protected virtual void Start() {
+            if(!TryBindRoot()) {
+                Debug.LogError($"[{GetType().Name}] Failed to get root visual element from UIDocument!");
+                return;
+            }
             Initialize();
         }
 
@@ -56,6 +54,9 @@ namespace Game.UI {
         public void Initialize() {
             if(IsInitialized) return;
             if(Root == null) {
+                TryBindRoot();
+            }
+            if(Root == null) {
                 Debug.LogError($"[{GetType().Name}] Cannot initialize: Root is null");
                 return;
             }
@@ -74,6 +75,15 @@ namespace Game.UI {
             if(IsInitialized) return;
             Root = root;
             Initialize();
+        }
+
+        private bool TryBindRoot() {
+            if(Root != null) return true;
+            if(uiDocument == null) return false;
+
+            Root = uiDocument.rootVisualElement;
+            if(Root == null) return false;
+            return true;
         }
 
         /// <summary>

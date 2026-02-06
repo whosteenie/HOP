@@ -1,16 +1,21 @@
 using UnityEditor;
 using UnityEditor.Callbacks;
+using UnityEditor.Build;
+using UnityEditor.Build.Reporting;
 using System.IO;
+using System.Text.RegularExpressions;
 using UnityEngine;
-using Network.Steam;
 
 namespace Game.Editor {
     /// <summary>
-    /// Post-build helper for Steam runtime DLL placement.
+    /// Post-build helper for Steam runtime DLL placement and local testing conveniences.
     /// </summary>
     public static class SteamBuildPostProcessor {
         [PostProcessBuild]
-        public static void OnPostProcessBuild(BuildTarget target, string pathToBuiltProject) {
+        public static void OnPostProcessBuild(BuildReport report) {
+            var target = report.summary.platform;
+            var pathToBuiltProject = report.summary.outputPath;
+
             // Only handle Windows builds for now as Steam integration is primary on Windows
             if (target != BuildTarget.StandaloneWindows && target != BuildTarget.StandaloneWindows64) {
                 return;
@@ -20,10 +25,62 @@ namespace Game.Editor {
             string buildDir = Path.GetDirectoryName(pathToBuiltProject);
             if (string.IsNullOrEmpty(buildDir)) return;
 
+            // For local/non-Steam launches, Steamworks requires steam_appid.txt to resolve an AppID.
+            // We only generate this for Development builds (so we don't accidentally ship it).
+            TryCreateSteamAppIdFileForDevelopmentBuild(report, buildDir);
+
             // Copy Steam runtime DLL(s).
             // Steam does NOT provide steam_api(64).dll for you at runtime; it must be shipped with your build content.
             // In practice, having it next to the .exe is the most reliable for Steam overlay/injection.
             CopySteamRuntimeDlls(target, pathToBuiltProject, buildDir);
+        }
+
+        private static void TryCreateSteamAppIdFileForDevelopmentBuild(BuildReport report, string buildDir) {
+            if(report == null) return;
+
+            // Note: This is the correct place to check dev-vs-release for an Editor-only script.
+            // Preprocessor defines like DEVELOPMENT_BUILD apply to the player, not the Editor assembly.
+            bool isDevelopmentBuild = (report.summary.options & BuildOptions.Development) == BuildOptions.Development;
+            if(!isDevelopmentBuild) return;
+
+            const uint defaultTestingAppId = 480;
+            uint appId;
+            if(!TryReadAppIdFromInitScene(out appId)) {
+                appId = defaultTestingAppId;
+                Debug.LogWarning($"[SteamBuild] Could not read Steam AppID from Init scene. Writing {appId} (Spacewar) to steam_appid.txt.");
+            }
+
+            var appIdPath = Path.Combine(buildDir, "steam_appid.txt");
+            try {
+                File.WriteAllText(appIdPath, appId.ToString());
+                Debug.Log($"[SteamBuild] Development build: wrote steam_appid.txt ({appId}) to {appIdPath}");
+            } catch(System.Exception e) {
+                Debug.LogError($"[SteamBuild] Failed to write steam_appid.txt: {e.Message}");
+            }
+        }
+
+        private static bool TryReadAppIdFromInitScene(out uint appId) {
+            appId = 0;
+
+            // This project currently stores SteamManager's serialized AppID in Assets/Scenes/Init.unity.
+            // We parse the YAML for an 'appId: <number>' entry to match your configured value.
+            // If you move SteamManager to a different bootstrap scene, update this path.
+            var projectRoot = Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
+            var initScenePath = Path.Combine(projectRoot, "Assets", "Scenes", "Init.unity");
+            if(!File.Exists(initScenePath)) return false;
+
+            string text;
+            try {
+                text = File.ReadAllText(initScenePath);
+            } catch {
+                return false;
+            }
+
+            var match = Regex.Match(text, @"(?m)^\s*appId:\s*(\d+)\s*$");
+            if(!match.Success) return false;
+
+            if(!uint.TryParse(match.Groups[1].Value, out appId)) return false;
+            return appId > 0;
         }
 
         private static void CopySteamRuntimeDlls(BuildTarget target, string pathToBuiltProject, string buildDir) {
@@ -100,9 +157,5 @@ namespace Game.Editor {
             }
         }
 
-        // Note:
-        // We intentionally do not generate steam_appid.txt here.
-        // - For Steam builds launched by Steam, Steam provides the AppID context.
-        // - For local non-Steam testing, you can create steam_appid.txt manually as needed.
     }
 }

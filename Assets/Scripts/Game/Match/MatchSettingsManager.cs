@@ -7,7 +7,7 @@ using System.Collections.Generic;
 namespace Game.Match {
     /// <summary>
     /// Manages match settings (Duration, Gamemode).
-    /// Syncs with Steam Lobby Data ("GameMode").
+    /// Syncs with Steam Lobby Data ("TargetMode").
     /// </summary>
     public class MatchSettingsManager : MonoBehaviour {
         public static MatchSettingsManager Instance { get; private set; }
@@ -73,7 +73,7 @@ namespace Game.Match {
             var sessionManager = SessionManager.Instance;
             if (sessionManager == null || !sessionManager.CurrentLobby.HasValue) return;
             
-            var newGamemode = sessionManager.CurrentLobby.Value.GetData("GameMode");
+            var newGamemode = sessionManager.CurrentLobby.Value.GetData("TargetMode");
 
             if(string.IsNullOrEmpty(newGamemode) || selectedGameModeId == newGamemode) return;
             selectedGameModeId = newGamemode;

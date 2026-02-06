@@ -48,7 +48,7 @@ namespace Game.Menu {
         private RenderTexture _previewRenderTexture; // Will be created/updated dynamically
 
         // UI Elements
-        private TextField _playerNameInput;
+        private Label _playerNameLabel;
         private Button _applyLoadoutButton;
         private Button _backLoadoutButton;
 
@@ -125,9 +125,6 @@ namespace Game.Menu {
         private string _currentTertiarySlotClass;
         private VisualElement _currentOpenDropdown;
         private bool _outsideClickHandlerRegistered;
-        private string _currentPlayerName;
-        private string _savedPlayerName;
-
         private int _savedPrimaryIndex;
         private int _savedSecondaryIndex;
         private int _savedTertiaryIndex;
@@ -247,14 +244,12 @@ namespace Game.Menu {
                     _applyLoadoutButton.SetEnabled(false);
                     _applyLoadoutButton.text = $"VIEWING {playerName.ToUpper()}";
                 }
-                if(_playerNameInput != null) _playerNameInput.isReadOnly = true;
             } else {
                 // Normal mode
                 if(_applyLoadoutButton != null) {
                     _applyLoadoutButton.SetEnabled(true);
                     _applyLoadoutButton.text = "APPLY LOADOUT";
                 }
-                if(_playerNameInput != null) _playerNameInput.isReadOnly = false;
             }
         }
 
@@ -275,7 +270,7 @@ namespace Game.Menu {
             _selectedSecondaryIndex = UnityEngine.Random.Range(0, secondaryWeapons.Length);
             _selectedTertiaryIndex = UnityEngine.Random.Range(0, tertiaryWeapons.Length);
 
-            _playerNameInput.value = _inspectTargetName;
+            if(_playerNameLabel != null) _playerNameLabel.text = _inspectTargetName;
 
             UpdateDropdownSelection(_primaryDropdown, _selectedPrimaryIndex, primaryWeapons);
             UpdateDropdownSelection(_secondaryDropdown, _selectedSecondaryIndex, secondaryWeapons);
@@ -289,9 +284,7 @@ namespace Game.Menu {
             _selectedPrimaryIndex = p.primaryWeaponIndex;
             _selectedSecondaryIndex = p.secondaryWeaponIndex;
             _selectedTertiaryIndex = p.tertiaryWeaponIndex;
-
-            var savedName = p.playerName;
-            if(_playerNameInput != null) _playerNameInput.value = savedName;
+            if(_playerNameLabel != null) _playerNameLabel.text = Game.Social.StreamerMode.GetLocalDisplayName();
 
             UpdateDropdownSelection(_primaryDropdown, _selectedPrimaryIndex, primaryWeapons);
             UpdateDropdownSelection(_secondaryDropdown, _selectedSecondaryIndex, secondaryWeapons);
@@ -401,6 +394,7 @@ namespace Game.Menu {
             _customizationContainer = QOptional<VisualElement>("customization-container");
             _nameContainer = QOptional<VisualElement>("name-buttons-container");
             _backgroundElement = QOptional<VisualElement>("player-model-background");
+            _playerNameLabel = QOptional<Label>("player-name-label");
 
             if(_backgroundElement != null) {
                 _backgroundElement.style.opacity = new StyleFloat(0f);
@@ -476,13 +470,7 @@ namespace Game.Menu {
 
             // Containers start off-screen via USS, no need to initialize positions here
 
-            // Name input - Deprecated/Hidden as we now use Steam names
-            if(_playerNameInput != null) {
-                EventCallback<ChangeEvent<string>> nameHandler = evt => OnNameChanged(evt.newValue);
-                _playerNameInput.RegisterValueChangedCallback(nameHandler);
-                RegisterCleanup(() => _playerNameInput.UnregisterCallback(nameHandler));
-                _playerNameInput.style.display = DisplayStyle.None;
-            }
+            if(_playerNameLabel != null) _playerNameLabel.text = Game.Social.StreamerMode.GetLocalDisplayName();
 
             _applyLoadoutButton = QRequired<Button>("apply-loadout-button");
 
@@ -538,9 +526,6 @@ namespace Game.Menu {
         }
 
         private void SetupEventHandlers() {
-            // Name input change
-            _playerNameInput.RegisterValueChangedCallback(evt => OnNameChanged(evt.newValue));
-
             // Weapon slot clicks (main equipped slot - opens dropdown)
             _primarySlot.RegisterCallback<ClickEvent>(_ => ToggleWeaponDropdown(_primaryDropdown));
             _primarySlot.RegisterCallback<ClickEvent>(_ => MainMenuManager.OnButtonClicked());
@@ -575,13 +560,7 @@ namespace Game.Menu {
         }
 
         private void LoadSavedLoadout() {
-            // Name - Deprecated execution, we just set default "Player" internally or ignore
-            _savedPlayerName = "Player";
-            _currentPlayerName = _savedPlayerName;
-
-            if(_playerNameInput != null) {
-                _playerNameInput.style.display = DisplayStyle.None;
-            }
+            if(_playerNameLabel != null) _playerNameLabel.text = Game.Social.StreamerMode.GetLocalDisplayName();
 
             // Load weapons (equipped weapon index saved per slot)
             var p = GameSettings.Data.player;
@@ -599,15 +578,9 @@ namespace Game.Menu {
         }
 
 
-        private void OnNameChanged(string newName) {
-            _currentPlayerName = newName;
-            // Apply button is always visible, no need to show/hide it
-            UpdateDirtyState();
-        }
-
         private void OnApplyLoadoutClicked() {
             // Deprecated: Custom name saving
-            // _savedPlayerName = _currentPlayerName;
+            // Player display name is derived from Steam/StreamerMode and is not saved in settings.
 
             // Save weapons (already saved when selected, but ensure they're current)
             var p = GameSettings.Data.player;
@@ -623,7 +596,7 @@ namespace Game.Menu {
 
             GameSettings.Save();
             Debug.Log(
-                $"[LoadoutManager] All loadout settings saved: Name={_savedPlayerName}, Weapons={_selectedPrimaryIndex}/{_selectedSecondaryIndex}/{_selectedTertiaryIndex}");
+                $"[LoadoutManager] All loadout settings saved: Weapons={_selectedPrimaryIndex}/{_selectedSecondaryIndex}/{_selectedTertiaryIndex}");
 
             _savedPrimaryIndex = _selectedPrimaryIndex;
             _savedSecondaryIndex = _selectedSecondaryIndex;
@@ -1614,14 +1587,11 @@ namespace Game.Menu {
         }
 
         private void UpdateDirtyState() {
-            var currentName = _currentPlayerName != null ? _currentPlayerName : string.Empty;
-            var savedName = _savedPlayerName != null ? _savedPlayerName : string.Empty;
-            var nameDirty = !string.Equals(currentName, savedName, StringComparison.Ordinal);
             var primaryDirty = _selectedPrimaryIndex != _savedPrimaryIndex;
             var secondaryDirty = _selectedSecondaryIndex != _savedSecondaryIndex;
             var tertiaryDirty = _selectedTertiaryIndex != _savedTertiaryIndex;
 
-            _hasUnsavedChanges = nameDirty || primaryDirty || secondaryDirty || tertiaryDirty || _customizationDirty;
+            _hasUnsavedChanges = primaryDirty || secondaryDirty || tertiaryDirty || _customizationDirty;
         }
 
         private void ShowLoadoutUnsavedModal() {
@@ -1666,10 +1636,7 @@ namespace Game.Menu {
         }
 
         private void RevertLoadoutChanges() {
-            _currentPlayerName = _savedPlayerName;
-            if(_playerNameInput != null) {
-                _playerNameInput.SetValueWithoutNotify(_savedPlayerName);
-            }
+            if(_playerNameLabel != null) _playerNameLabel.text = Game.Social.StreamerMode.GetLocalDisplayName();
 
             _selectedPrimaryIndex = _savedPrimaryIndex;
             _selectedSecondaryIndex = _savedSecondaryIndex;

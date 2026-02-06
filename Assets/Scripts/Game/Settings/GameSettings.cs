@@ -50,7 +50,7 @@ namespace Game.Settings {
         private static void ValidateAndClamp(SettingsData d) {
             if(d == null) return;
 
-            if(d.version < 1) {
+            if(d.version < SettingsData.CurrentVersion) {
                 d.version = SettingsData.CurrentVersion;
             }
 
@@ -87,9 +87,6 @@ namespace Game.Settings {
             TrimList(d.social.blockedPlayers, 200);
 
             // Player
-            if(string.IsNullOrWhiteSpace(d.player.playerName)) {
-                d.player.playerName = "Unknown Player";
-            }
             d.player.primaryWeaponIndex = Mathf.Max(0, d.player.primaryWeaponIndex);
             d.player.secondaryWeaponIndex = Mathf.Max(0, d.player.secondaryWeaponIndex);
             d.player.tertiaryWeaponIndex = Mathf.Max(0, d.player.tertiaryWeaponIndex);
@@ -167,7 +164,6 @@ namespace Game.Settings {
             if(PlayerPrefs.HasKey("TargetFPS")) d.video.targetFpsIndex = PlayerPrefs.GetInt("TargetFPS", d.video.targetFpsIndex);
 
             // Player
-            if(PlayerPrefs.HasKey("PlayerName")) d.player.playerName = PlayerPrefs.GetString("PlayerName", d.player.playerName);
             if(PlayerPrefs.HasKey("PrimaryWeaponIndex")) d.player.primaryWeaponIndex = PlayerPrefs.GetInt("PrimaryWeaponIndex", d.player.primaryWeaponIndex);
             if(PlayerPrefs.HasKey("SecondaryWeaponIndex")) d.player.secondaryWeaponIndex = PlayerPrefs.GetInt("SecondaryWeaponIndex", d.player.secondaryWeaponIndex);
             if(PlayerPrefs.HasKey("TertiaryWeaponIndex")) d.player.tertiaryWeaponIndex = PlayerPrefs.GetInt("TertiaryWeaponIndex", d.player.tertiaryWeaponIndex);

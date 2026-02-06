@@ -84,7 +84,6 @@ namespace Game.Menu {
             SetupOption("gamemode-option-tag", "Gun Tag");
             SetupOption("gamemode-option-hopball", "Hopball");
             SetupOption("gamemode-option-koth", "KOTH");
-            SetupOption("gamemode-option-private-match", "Private Match");
         }
         
         private void SetupOption(string uiName, string modeName) {
@@ -180,8 +179,8 @@ namespace Game.Menu {
 
         private void SyncGamemodeToSession(string gamemode) {
             if(!_isHost) return;
-            if (SessionManager.Instance != null && SessionManager.Instance.CurrentLobby.HasValue) {
-                SessionManager.Instance.CurrentLobby.Value.SetData("GameMode", gamemode);
+            if(SessionManager.Instance != null) {
+                SessionManager.Instance.SetGamemode(gamemode);
             }
         }
 
@@ -193,8 +192,8 @@ namespace Game.Menu {
         public void UpdateGamemodeFromSession() {
             if(_isHost) return;
             
-            if (SessionManager.Instance != null && SessionManager.Instance.CurrentLobby.HasValue) {
-                string mode = SessionManager.Instance.CurrentLobby.Value.GetData("GameMode");
+            if(SessionManager.Instance != null && SessionManager.Instance.CurrentLobby.HasValue) {
+                string mode = SessionManager.Instance.CurrentLobby.Value.GetData("TargetMode");
                 if (!string.IsNullOrEmpty(mode) && mode != _selectedGameMode) {
                     _selectedGameMode = mode;
                     UpdateGamemodeDisplay();

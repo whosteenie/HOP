@@ -70,7 +70,7 @@
             <ui:VisualElement name="name-buttons-container" class="loadout-edge-container name-buttons-container card">
                 <ui:Button text="Back" name="back-to-main-from-loadout" class="menu-chip menu-chip-enabled back-button"/>
                 <ui:VisualElement name="name-input-container" class="name-input-container">
-                    <ui:TextField name="player-name-input" placeholder-text="Enter your name..." class="player-name-input"/>
+                    <ui:Label text=" " name="player-name-label" class="player-name-input"/>
                 </ui:VisualElement>
                 <ui:Button text="Apply" name="apply-loadout-button" class="menu-chip menu-chip-enabled apply-loadout-button"/>
             </ui:VisualElement>
@@ -279,6 +279,10 @@
                         <ui:VisualElement name="player-trails-container" class="setting-row">
                             <ui:Label text="Enable player speed trails" name="player-trails-label" class="setting-label"/>
                             <ui:Button name="player-trails" class="setting-toggle"/>
+                        </ui:VisualElement>
+                        <ui:VisualElement name="streamer-mode-container" class="setting-row">
+                            <ui:Label text="Streamer Mode (hide your name)" name="streamer-mode-label" class="setting-label"/>
+                            <ui:Button name="streamer-mode" class="setting-toggle"/>
                         </ui:VisualElement>
                         <ui:VisualElement name="hold-mantle-container" class="setting-row">
                             <ui:Label text="Hold to mantle" name="hold-mantle-label" class="setting-label"/>

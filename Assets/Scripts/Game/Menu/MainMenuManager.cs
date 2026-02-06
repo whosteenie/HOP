@@ -62,10 +62,6 @@ namespace Game.Menu {
 
         protected override void Awake() {
             base.Awake();
-            if(Root == null) {
-                Debug.LogError("[MainMenuManager] Root is null after base.Awake()!");
-                return;
-            }
         }
 
         protected override void Start() {
@@ -178,7 +174,14 @@ namespace Game.Menu {
                 ShowPanel(uiManager.PlayGamemodePanel);
             };
             uiManager.OnGamemodeSelected = (mode) => {
-                if (_isPrivateMatchIntent) {
+                var session = SessionManager.Instance;
+                bool isInPrivateLobby = false;
+                if(session != null && session.CurrentLobby.HasValue) {
+                    var lobbyMode = session.CurrentLobby.Value.GetData("GameMode");
+                    isInPrivateLobby = lobbyMode == "Private";
+                }
+
+                if(_isPrivateMatchIntent || isInPrivateLobby) {
                     sessionManager.HandlePrivateMatchSelection(mode).Forget();
                 } else {
                     MainMenuSessionManager.HandleGamemodeSelected(mode);
@@ -258,9 +261,8 @@ namespace Game.Menu {
         }
 
         private void WireGamemodeManagerEvents() {
-             if (gamemodeManager != null) {
-                 gamemodeManager.OnGameModeSelected = modeName => gamemodeManager.HandleGameModeSelected(modeName);
-             }
+            // MainMenuGamemodeManager already applies selection locally and syncs to SessionManager.
+            // Do not re-invoke HandleGameModeSelected() here (would double-apply selection).
         }
 
         #endregion
@@ -273,12 +275,6 @@ namespace Game.Menu {
 
         private void OnFirstTimeSetupContinue() {
             if(uiManager == null) return;
-
-            var playerName = uiManager.GetFirstTimeNameInput();
-            if(string.IsNullOrWhiteSpace(playerName)) playerName = "Player";
-
-            GameSettings.Data.player.playerName = playerName;
-            GameSettings.Save();
 
             uiManager.HideFirstTimeSetup();
             LoadSettings();

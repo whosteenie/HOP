@@ -14,7 +14,7 @@ namespace Game.Settings {
         public PlayerSettings player = new();
         public KeybindSettings keybinds = new();
 
-        public const int CurrentVersion = 1;
+        public const int CurrentVersion = 2;
 
         [Serializable]
         public sealed class AudioSettings {
@@ -53,6 +53,7 @@ namespace Game.Settings {
             public float voiceInputVolume = 1f;
             public string voiceInputDevice = "Default";
             public bool profanityFilterEnabled = false;
+            public bool streamerModeEnabled = false;
 
             public List<string> mutedPlayers = new();
             public List<string> blockedPlayers = new();
@@ -60,7 +61,6 @@ namespace Game.Settings {
 
         [Serializable]
         public sealed class PlayerSettings {
-            public string playerName = "Unknown Player";
             public int primaryWeaponIndex = 0;
             public int secondaryWeaponIndex = 0;
             public int tertiaryWeaponIndex = 0;

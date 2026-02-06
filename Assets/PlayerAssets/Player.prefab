@@ -1036,6 +1036,7 @@ GameObject:
   - component: {fileID: 8858942629426496327}
   - component: {fileID: -2894409740433754161}
   - component: {fileID: -6537445453348264315}
+  - component: {fileID: 4731733018257820657}
   - component: {fileID: 1659687221336305720}
   - component: {fileID: 8792781456619740567}
   - component: {fileID: 3923420499004173512}
@@ -1320,7 +1321,7 @@ MonoBehaviour:
   audioListener: {fileID: -935627131628127128}
   damageRelay: {fileID: -2503030706147355686}
   fxRelay: {fileID: 450411123697177773}
-  audioRelay: {fileID: 0}
+  audioRelay: {fileID: 1488962690683598236}
   impulseSource: {fileID: 7184346531640925950}
   speedTrail: {fileID: 6772666014369885431}
   worldLayer:
@@ -1844,6 +1845,19 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Game.Player.PlayerAnimationController
   ShowTopMostFoldoutHeaderGroup: 1
+  playerController: {fileID: 5088684734431513618}
+--- !u!114 &4731733018257820657
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2394102009201851988}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0a0a2527e913d0842b309c656b6a6e9c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Game.Player.PlayerAnimationEvents
   playerController: {fileID: 5088684734431513618}
 --- !u!114 &1659687221336305720
 MonoBehaviour:

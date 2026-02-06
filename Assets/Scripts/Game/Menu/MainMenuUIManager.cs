@@ -89,10 +89,13 @@ namespace Game.Menu {
         private Button _lobbyLeaveNo;
 
         // Misc
-        private TextField _nameInput;
+        private Label _playerNameLabel;
         private Image _logoGithub;
         private VisualElement _toastContainer;
         private Label _versionLabel;
+        private Label _toastLabel;
+        private Coroutine _toastRoutine;
+        private string _toastMessage;
 
         // Context Menu
         public VisualElement PartyContextMenu { get; private set; }
@@ -127,8 +130,6 @@ namespace Game.Menu {
 
         protected override void Awake() {
             base.Awake();
-            if(Root == null) return;
-            _modalHost = new UIModalHost(this, Root);
         }
 
         protected override void Start() {
@@ -139,6 +140,9 @@ namespace Game.Menu {
 
         protected override void OnInitialize() {
             FindUIElements();
+            if(_modalHost == null && Root != null) {
+                _modalHost = new UIModalHost(this, Root);
+            }
             SetupFirstTimeModal();
             RegisterUIEvents();
             SetupMainMenuChallenges();
@@ -180,7 +184,7 @@ namespace Game.Menu {
             _playGamemodePanel = QOptional<VisualElement>("play-gamemode-panel");
             _lobbyPanel = QOptional<VisualElement>("lobby-panel");
             _loadoutPanel = QOptional<VisualElement>("loadout-panel");
-            _nameInput = QOptional<TextField>("player-name-input");
+            _playerNameLabel = QOptional<Label>("player-name-label");
             _optionsPanel = QOptional<VisualElement>("options-panel");
             _creditsPanel = QOptional<VisualElement>("credits-panel");
 
@@ -337,9 +341,7 @@ namespace Game.Menu {
             }
 
             System.Action loadoutHandler = () => {
-                if(_nameInput != null) {
-                    _nameInput.value = GameSettings.Data.player.playerName;
-                }
+                if(_playerNameLabel != null) _playerNameLabel.text = Game.Social.StreamerMode.GetLocalDisplayName();
                 OnLoadoutClicked?.Invoke();
             };
             _loadoutButton.clicked += loadoutHandler;
@@ -378,7 +380,7 @@ namespace Game.Menu {
                 RegisterCleanup(() => _cardHopball.clicked -= cardHandler);
             }
             if (_cardKoth != null) {
-                System.Action cardHandler = () => OnGamemodeSelected?.Invoke("King of the Hill");
+                System.Action cardHandler = () => OnGamemodeSelected?.Invoke("KOTH");
                 _cardKoth.clicked += cardHandler;
                 RegisterCleanup(() => _cardKoth.clicked -= cardHandler);
             }
@@ -589,26 +591,123 @@ namespace Game.Menu {
         }
 
         /// <summary>
-        /// Coroutine to display a temporary toast notification.
+        /// Shows a temporary toast notification. Reuses a single toast (no stacking).
         /// </summary>
         /// <param name="message">The message to display.</param>
-        public IEnumerator CopyToast(string message) {
-            if(_toastContainer == null) yield break;
+        /// <param name="anchor">Optional anchor element to position near.</param>
+        public void ShowToast(string message, VisualElement anchor = null) {
+            if(_toastContainer == null) return;
+            if(string.IsNullOrEmpty(message)) return;
 
-            var toast = new Label(message) {
-                name = "toast"
-            };
-            toast.AddToClassList("toast");
-            _toastContainer.Add(toast);
-            toast.AddToClassList("show");
+            _toastMessage = message;
+
+            if(_toastRoutine != null) {
+                StopCoroutine(_toastRoutine);
+                _toastRoutine = null;
+            }
+
+            if(_toastLabel == null) {
+                _toastLabel = new Label {
+                    name = "toast"
+                };
+                _toastLabel.AddToClassList("toast");
+            }
+
+            _toastLabel.text = message;
+
+            _toastContainer.Clear();
+            _toastContainer.Add(_toastLabel);
+
+            if(anchor != null) {
+                // Position toast near the anchor so it's noticed at point-of-click.
+                // Try left-of-anchor first; if it would likely be off-screen, flip to right; otherwise center.
+                var wb = anchor.worldBound;
+                var rb = Root.worldBound;
+
+                var x = wb.xMin - 12f;
+                var useLeft = true;
+                var useRight = false;
+
+                // Heuristic: short toasts are ~220px wide; keep a little margin.
+                if(x - 220f < rb.xMin + 8f) {
+                    useLeft = false;
+                    useRight = true;
+                    x = wb.xMax + 12f;
+                }
+
+                if(useRight && x + 220f > rb.xMax - 8f) {
+                    useRight = false;
+                    x = wb.center.x;
+                }
+
+                _toastContainer.style.position = Position.Absolute;
+                _toastContainer.style.left = x;
+                _toastContainer.style.top = wb.center.y;
+                _toastContainer.style.bottom = StyleKeyword.Null;
+
+                if(useLeft) {
+                    _toastContainer.style.translate = new Translate(
+                        new Length(-100, LengthUnit.Percent),
+                        new Length(-50, LengthUnit.Percent),
+                        0
+                    );
+                } else if(useRight) {
+                    _toastContainer.style.translate = new Translate(
+                        new Length(0, LengthUnit.Percent),
+                        new Length(-50, LengthUnit.Percent),
+                        0
+                    );
+                } else {
+                    _toastContainer.style.translate = new Translate(
+                        new Length(-50, LengthUnit.Percent),
+                        new Length(-50, LengthUnit.Percent),
+                        0
+                    );
+                }
+            } else {
+                // Reset to default (bottom center) styling from USS.
+                _toastContainer.style.position = StyleKeyword.Null;
+                _toastContainer.style.left = StyleKeyword.Null;
+                _toastContainer.style.top = StyleKeyword.Null;
+                _toastContainer.style.bottom = StyleKeyword.Null;
+                _toastContainer.style.translate = StyleKeyword.Null;
+            }
+
+            _toastRoutine = StartCoroutine(ToastRoutine());
+        }
+
+        /// <summary>
+        /// Back-compat coroutine wrapper. Prefer <see cref="ShowToast"/>.
+        /// </summary>
+        public IEnumerator CopyToast(string message) {
+            ShowToast(message);
+            yield return null;
+        }
+
+        private IEnumerator ToastRoutine() {
+            if(_toastLabel == null) yield break;
+
+            _toastLabel.RemoveFromClassList("hide");
+            _toastLabel.AddToClassList("show");
 
             yield return new WaitForSeconds(1.2f);
 
-            toast.RemoveFromClassList("show");
-            toast.AddToClassList("hide");
+            // If another toast replaced our message, don't hide the new one.
+            if(_toastLabel == null) yield break;
+            if(_toastLabel.text != _toastMessage) yield break;
+
+            _toastLabel.RemoveFromClassList("show");
+            _toastLabel.AddToClassList("hide");
 
             yield return new WaitForSeconds(0.3f);
-            _toastContainer.Remove(toast);
+
+            if(_toastLabel == null) yield break;
+            if(_toastLabel.text != _toastMessage) yield break;
+
+            if(_toastContainer != null) {
+                _toastContainer.Clear();
+            }
+            _toastRoutine = null;
         }
 
         private void SetupMainMenuChallenges() {

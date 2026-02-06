@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using Cysharp.Threading.Tasks;
+using Game.Settings;
 using Game.Social;
 using Network.Events;
 using Network.Singletons;
@@ -10,6 +11,7 @@ using Network.Steam;
 using Steamworks;
 using Steamworks.Data;
 using Unity.Netcode;
+using Unity.Netcode.Transports.UTP;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityUtils;
@@ -51,6 +53,9 @@ namespace Network {
         private const string HostAddressKey = "HostAddress";
         private const string GameModeKey = "GameMode";
         private const string PartyIdKey = "PartyId";
+        private const string DisplayNameKey = "DisplayName";
+        private const string AvatarHiddenKey = "AvatarHidden";
+        private const string PlayerIconKey = "PlayerIcon";
         private const string FollowLobbyIdKey = "FollowLobbyId";
         private const string LobbyStateKey = "LobbyState";
         private const string TargetModeKey = "TargetMode";
@@ -138,6 +143,8 @@ namespace Network {
             SteamMatchmaking.OnLobbyDataChanged += OnLobbyDataChanged;
             SteamMatchmaking.OnLobbyMemberDataChanged += OnLobbyMemberDataChanged;
             SteamFriends.OnGameLobbyJoinRequested += OnGameLobbyJoinRequested;
+
+            GameSettings.OnSettingsChanged += OnLocalSettingsChanged;
         }
 
         private void OnDisable() {
@@ -149,6 +156,33 @@ namespace Network {
             SteamMatchmaking.OnLobbyDataChanged -= OnLobbyDataChanged;
             SteamMatchmaking.OnLobbyMemberDataChanged -= OnLobbyMemberDataChanged;
             SteamFriends.OnGameLobbyJoinRequested -= OnGameLobbyJoinRequested;
+
+            GameSettings.OnSettingsChanged -= OnLocalSettingsChanged;
+        }
+
+        private void OnLocalSettingsChanged() {
+            // Streamer mode toggle can change the display name we want other players to see.
+            UpdateLocalDisplayNameInLobby();
+        }
+
+        private void UpdateLocalDisplayNameInLobby() {
+            if(!CurrentLobby.HasValue) return;
+            if(!SteamClient.IsValid || !SteamClient.IsLoggedOn) return;
+
+            try {
+                var displayName = Game.Social.StreamerMode.GetLocalDisplayName();
+                if(string.IsNullOrEmpty(displayName)) return;
+                CurrentLobby.Value.SetMemberData(DisplayNameKey, displayName);
+                var hide = Game.Social.StreamerMode.Enabled;
+                CurrentLobby.Value.SetMemberData(AvatarHiddenKey, hide ? "1" : "0");
+
+                var data = GameSettings.Data;
+                var baseColor = data.player.customization.baseColor;
+                var iconId = Game.Social.PlayerIconPicker.PickIconIdFromBaseColor(baseColor, hide);
+                CurrentLobby.Value.SetMemberData(PlayerIconKey, iconId);
+            } catch {
+                // If Steam is transitioning offline, ignore.
+            }
         }
 
         private void Start() {
@@ -252,6 +286,9 @@ namespace Network {
         private void OnLobbyMemberDataChanged(Lobby lobby, Friend friend) {
             if(lobby.Id != CurrentLobby?.Id) return;
 
+            // Refresh any UI that depends on member data (e.g. streamer-mode display names).
+            NotifyPartyStateChanged();
+
             // Host monitors member readiness
             if(IsPartyLeader && Phase == SessionPhase.SynchronizingLoad) {
                 CheckAllMembersReady();
@@ -334,7 +371,9 @@ namespace Network {
             // Set targets for everyone
             CurrentLobby.Value.SetData(TargetModeKey, mode);
 
-            CurrentLobby.Value.SetData(GameModeKey, mode);
+            // Keep the lobby's mode as Private. GameModeKey is used as the public/private discriminator
+            // throughout the menu/session logic.
+            CurrentLobby.Value.SetData(GameModeKey, "Private");
 
             // Start the synchronization phase
             Phase = SessionPhase.SynchronizingLoad;
@@ -391,6 +430,7 @@ namespace Network {
                 IsPartyLeader = true; // We created this!
                 CurrentLobby.Value.SetData(PartyIdKey, CurrentPartyId);
                 CurrentLobby.Value.SetMemberData(PartyIdKey, CurrentPartyId);
+                UpdateLocalDisplayNameInLobby();
 
                 // Join Voice Channel (only if logged in, otherwise it will be joined after login)
                 if (VoiceManager.Instance != null && VoiceManager.Instance.IsLoggedIn) {
@@ -566,6 +606,67 @@ namespace Network {
         }
 
         /// <summary>
+        /// Starts a local "private match" without Steam (offline).
+        /// This is a host-only loopback session (LAN/multiplayer offline is handled later).
+        /// </summary>
+        public async UniTask StartOfflinePrivateMatchAsync(string mode) {
+            if(string.IsNullOrEmpty(mode)) return;
+
+            // Cancel any in-flight matchmaking without auto-hosting a Steam lobby.
+            if(_matchmakingCts != null) {
+                _matchmakingCts.Cancel();
+                _matchmakingCts.Dispose();
+                _matchmakingCts = null;
+            }
+
+            // Leave any Steam lobby context (safe even if Steam is offline).
+            LeaveLobby();
+
+            // Shut down NGO if it was previously listening.
+            await CleanupNetworkAsync();
+
+            SelectedGameMode = mode;
+            var matchSettings = Game.Match.MatchSettingsManager.Instance;
+            if(matchSettings != null) {
+                matchSettings.selectedGameModeId = mode;
+            }
+
+            SetFrontStatus(SessionPhase.StartingHost, "Starting offline match...");
+
+            // Fade out (keeps UX consistent with Steam private match flow).
+            if(SceneTransitionManager.Instance != null) {
+                await SceneTransitionManager.Instance.FadeOutAsync();
+            } else {
+                await UniTask.Delay(300);
+            }
+
+            if(_networkManager == null) {
+                _networkManager = NetworkManager.Singleton;
+            }
+            if(_networkManager == null) {
+                Debug.LogError("[SessionManager] NetworkManager.Singleton is null. Cannot start offline match.");
+                SetFrontStatus(SessionPhase.Error, "Offline networking not configured.");
+                return;
+            }
+
+            var utp = _networkManager.GetComponent<UnityTransport>();
+            if(utp == null) {
+                Debug.LogError("[SessionManager] UnityTransport missing on NetworkManager. Cannot start offline match.");
+                SetFrontStatus(SessionPhase.Error, "Offline networking not configured.");
+                return;
+            }
+
+            // Ensure we use UTP loopback.
+            utp.SetConnectionData("127.0.0.1", 7777);
+            _networkManager.NetworkConfig.NetworkTransport = utp;
+
+            // Start host and load the game scene via NGO scene management.
+            _networkManager.StartHost();
+            Phase = SessionPhase.LoadingScene;
+            _networkManager.SceneManager.LoadScene(GameSceneName, LoadSceneMode.Single);
+        }
+
+        /// <summary>
         /// Joins a specific Steam lobby and synchronizes the session.
         /// </summary>
         /// <param name="lobby">The lobby to join.</param>
@@ -611,6 +712,7 @@ namespace Network {
             if(!string.IsNullOrEmpty(CurrentPartyId)) {
                 lobby.SetMemberData(PartyIdKey, CurrentPartyId);
             }
+            UpdateLocalDisplayNameInLobby();
 
             // Wait for Host Address to be set
             SetFrontStatus(SessionPhase.StartingClient, "Connecting to Host...");

@@ -38,9 +38,8 @@ namespace Network.Steam {
                 }
             }
             catch (Exception e) {
-                Debug.LogError($"[SteamManager] Failed to initialize Steamworks: {e.Message}");
-                // In development, maybe we want to continue offline?
-                // For now, let's just log it.
+                IsInitialized = false;
+                Debug.LogWarning($"[SteamManager] Steam is unavailable/offline. Online features disabled. ({e.Message})");
             }
         }
 

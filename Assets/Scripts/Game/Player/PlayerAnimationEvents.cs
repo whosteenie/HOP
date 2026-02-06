@@ -10,12 +10,15 @@ namespace Game.Player {
         private WeaponManager _weaponManager;
 
         private void Awake() {
-            playerController = GetComponentInParent<PlayerController>();
+            // Preserve prefab/inspector wiring. Only attempt to auto-find if not assigned.
             if(playerController == null) {
-                playerController = transform.root.GetComponent<PlayerController>();
-            }
-            if(playerController == null) {
-                playerController = transform.root.GetComponentInChildren<PlayerController>();
+                playerController = GetComponentInParent<PlayerController>();
+                if(playerController == null) {
+                    playerController = transform.root.GetComponent<PlayerController>();
+                }
+                if(playerController == null) {
+                    playerController = transform.root.GetComponentInChildren<PlayerController>();
+                }
             }
 
             if(playerController != null) {
@@ -26,12 +29,18 @@ namespace Game.Player {
         /// <summary>
         /// Animation event to play the walk sound.
         /// </summary>
-        public void PlayWalkSound() => playerController.PlayWalkSound();
+        public void PlayWalkSound() {
+            if(playerController == null) return;
+            playerController.PlayWalkSound();
+        }
 
         /// <summary>
         /// Animation event to play the run sound.
         /// </summary>
-        public void PlayRunSound() => playerController.PlayRunSound();
+        public void PlayRunSound() {
+            if(playerController == null) return;
+            playerController.PlayRunSound();
+        }
 
         /// <summary>
         /// Called when the weapon pull out animation completes.

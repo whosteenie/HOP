@@ -338,3 +338,5 @@ packages.config
 
 # SteamPipe upload cache (if any future tools create it)
 *.vdf
+
+steam_appid.txt

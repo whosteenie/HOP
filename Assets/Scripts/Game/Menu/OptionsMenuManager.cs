@@ -50,6 +50,7 @@ namespace Game.Menu {
         private TextField _sensitivityValue;
         private Button _invertYButton;
         private Button _playerTrailsButton;
+        private Button _streamerModeButton;
         private Button _holdMantleButton;
         private Button _profanityFilterButton;
         private DropdownField _grappleIndicatorDropdown;
@@ -102,6 +103,7 @@ namespace Game.Menu {
         private float _originalSensitivity;
         private bool _originalInvertY;
         private bool _originalPlayerTrails;
+        private bool _originalStreamerMode;
         private bool _originalHoldMantle;
         private bool _originalProfanityFilter;
         private int _originalGrappleIndicator;
@@ -167,6 +169,7 @@ namespace Game.Menu {
             _sensitivityValue = QOptional<TextField>("sensitivity-value");
             _invertYButton = QOptional<Button>("invert-y");
             _playerTrailsButton = QOptional<Button>("player-trails");
+            _streamerModeButton = QOptional<Button>("streamer-mode");
             _holdMantleButton = QOptional<Button>("hold-mantle");
             _profanityFilterButton = QOptional<Button>("profanity-filter");
             _grappleIndicatorDropdown = QOptional<DropdownField>("grapple-indicator");
@@ -214,6 +217,11 @@ namespace Game.Menu {
                 EventCallback<ClickEvent> handler = _ => ToggleCheckbox(_playerTrailsButton);
                 _playerTrailsButton.RegisterCallback(handler);
                 RegisterCleanup(() => _playerTrailsButton.UnregisterCallback(handler));
+            }
+            if(_streamerModeButton != null) {
+                EventCallback<ClickEvent> handler = _ => ToggleCheckbox(_streamerModeButton);
+                _streamerModeButton.RegisterCallback(handler);
+                RegisterCleanup(() => _streamerModeButton.UnregisterCallback(handler));
             }
             if(_holdMantleButton != null) {
                 EventCallback<ClickEvent> handler = _ => ToggleCheckbox(_holdMantleButton);
@@ -1101,6 +1109,8 @@ namespace Game.Menu {
             if(_invertYButton != null) SetCheckboxValue(_invertYButton, data.controls != null && data.controls.invertY);
             if(_playerTrailsButton != null)
                 SetCheckboxValue(_playerTrailsButton, data.controls == null || data.controls.playerTrails);
+            if(_streamerModeButton != null)
+                SetCheckboxValue(_streamerModeButton, data.social != null && data.social.streamerModeEnabled);
             if(_holdMantleButton != null) SetCheckboxValue(_holdMantleButton, data.controls == null || data.controls.holdMantle);
             if(_profanityFilterButton != null) SetCheckboxValue(_profanityFilterButton, SocialSettings.ProfanityFilterEnabled);
             
@@ -1191,6 +1201,7 @@ namespace Game.Menu {
             _originalSensitivity = _sensitivitySlider?.value ?? 0.1f;
             _originalInvertY = GetCheckboxValue(_invertYButton);
             _originalPlayerTrails = GetCheckboxValue(_playerTrailsButton);
+            _originalStreamerMode = GetCheckboxValue(_streamerModeButton);
             _originalHoldMantle = GetCheckboxValue(_holdMantleButton);
             _originalProfanityFilter = SocialSettings.ProfanityFilterEnabled;
             _originalGrappleIndicator = _grappleIndicatorDropdown?.index ?? 0;
@@ -1247,6 +1258,7 @@ namespace Game.Menu {
 
             var invertYChanged = GetCheckboxValue(_invertYButton) != _originalInvertY;
             var playerTrailsChanged = GetCheckboxValue(_playerTrailsButton) != _originalPlayerTrails;
+            var streamerModeChanged = GetCheckboxValue(_streamerModeButton) != _originalStreamerMode;
             var holdMantleChanged = GetCheckboxValue(_holdMantleButton) != _originalHoldMantle;
             var profanityFilterChanged = GetCheckboxValue(_profanityFilterButton) != _originalProfanityFilter;
             
@@ -1281,7 +1293,8 @@ namespace Game.Menu {
             var fpsChanged = false;
             if(_fpsDropdown != null) fpsChanged = _fpsDropdown.index != _originalTargetFPS;
 
-            return volumeChanged || sensitivityChanged || invertYChanged || playerTrailsChanged || holdMantleChanged ||
+            return volumeChanged || sensitivityChanged || invertYChanged || playerTrailsChanged || streamerModeChanged ||
+                   holdMantleChanged ||
                    profanityFilterChanged || voiceModeChanged ||
                    grappleIndicatorChanged || windowModeChanged || aspectRatioChanged || resolutionChanged || msaaChanged ||
                    shadowDistanceChanged || shadowResolutionChanged || vsyncChanged || fpsChanged || hasKeybindChanges;
@@ -1374,6 +1387,7 @@ namespace Game.Menu {
 
             if(data.controls != null) data.controls.invertY = GetCheckboxValue(_invertYButton);
             if(data.controls != null) data.controls.playerTrails = GetCheckboxValue(_playerTrailsButton);
+            if(data.social != null) data.social.streamerModeEnabled = GetCheckboxValue(_streamerModeButton);
             if(data.controls != null) data.controls.holdMantle = GetCheckboxValue(_holdMantleButton);
             SocialSettings.ProfanityFilterEnabled = GetCheckboxValue(_profanityFilterButton);
             
@@ -1461,6 +1475,7 @@ namespace Game.Menu {
             _originalSensitivity = _sensitivitySlider != null ? _sensitivitySlider.value : 0.1f;
             _originalInvertY = GetCheckboxValue(_invertYButton);
             _originalPlayerTrails = GetCheckboxValue(_playerTrailsButton);
+            _originalStreamerMode = GetCheckboxValue(_streamerModeButton);
             _originalHoldMantle = GetCheckboxValue(_holdMantleButton);
             _originalProfanityFilter = SocialSettings.ProfanityFilterEnabled;
             _originalGrappleIndicator = _grappleIndicatorDropdown != null ? _grappleIndicatorDropdown.index : 0;

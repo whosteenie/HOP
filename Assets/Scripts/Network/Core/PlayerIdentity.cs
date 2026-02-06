@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
-using Game.Settings;
+using Game.Social;
 using Unity.Services.Authentication;
 using Unity.Services.Multiplayer;
 using UnityEngine;
@@ -13,10 +13,10 @@ namespace Network.Core {
     public sealed class PlayerIdentity : IPlayerIdentity {
         /// <inheritdoc />
         public async UniTask<Dictionary<string, PlayerProperty>> GetPlayerPropertiesAsync(string key) {
-            var savedName = GameSettings.Data.player.playerName;
-            if(!string.IsNullOrWhiteSpace(savedName)) {
+            var localName = StreamerMode.GetLocalDisplayName();
+            if(!string.IsNullOrWhiteSpace(localName)) {
                 return new Dictionary<string, PlayerProperty>
-                    { { key, new PlayerProperty(savedName, VisibilityPropertyOptions.Member) } };
+                    { { key, new PlayerProperty(localName, VisibilityPropertyOptions.Member) } };
             }
 
             var playerName = "Player(?)";

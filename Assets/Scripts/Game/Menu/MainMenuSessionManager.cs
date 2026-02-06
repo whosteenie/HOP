@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Cysharp.Threading.Tasks;
+using Game.Settings;
 using Game.UI;
 using Network;
 using Network.Services;
@@ -11,6 +12,7 @@ using Steamworks;
 using Steamworks.Data;
 using UnityEngine;
 using UnityEngine.UIElements;
+using Image = UnityEngine.UIElements.Image;
 
 namespace Game.Menu {
     /// <summary>
@@ -24,6 +26,7 @@ namespace Game.Menu {
         // Global Party UI
         private VisualElement _partyMembersList;
         private Button _inviteButton;
+        private Image _inviteIcon;
         private VisualElement _partySeparator;
         private VisualElement _localProfileContainer;
         private ulong _lastLobbyId;
@@ -47,7 +50,10 @@ namespace Game.Menu {
 
             DrawSoloPlayer();
 
-            if(SessionManager.Instance != null && !SessionManager.Instance.CurrentLobby.HasValue) {
+            // Auto-host a Steam private lobby when online (used for party/invite UX).
+            // When Steam is offline, we stay solo and allow "offline private match" when selecting a gamemode.
+            if(SessionManager.Instance != null && !SessionManager.Instance.CurrentLobby.HasValue
+               && SteamClient.IsValid && SteamClient.IsLoggedOn) {
                 HandleHostClicked(silent: true).Forget();
             }
         }
@@ -95,11 +101,19 @@ namespace Game.Menu {
             // Global Party UI
             _partyMembersList = QRequired<VisualElement>("party-members-list");
             _inviteButton = QRequired<Button>("invite-friends-button");
+            _inviteIcon = QOptional<Image>("invite-icon");
             _partySeparator = QOptional<VisualElement>("party-separator");
             _localProfileContainer = QRequired<VisualElement>("local-player-profile");
         }
 
         private async UniTaskVoid OpenSteamInviteOverlay() {
+            if(!SteamClient.IsValid || !SteamClient.IsLoggedOn) {
+                if(uiManager != null) {
+                    uiManager.ShowToast("Steam is offline. Invites unavailable.", _inviteButton);
+                }
+                return;
+            }
+
             if(SessionManager.Instance != null && SessionManager.Instance.CurrentLobby.HasValue) {
                 SteamManager.Instance.OpenInviteOverlay(SessionManager.Instance.CurrentLobby.Value.Id);
             } else {
@@ -119,6 +133,8 @@ namespace Game.Menu {
             var isPartyMember =
                 SessionManager.Instance.CurrentLobby.HasValue && !SessionManager.Instance.IsPartyLeader;
 
+            var steamOnline = SteamClient.IsValid && SteamClient.IsLoggedOn;
+
             // Update UI constraints based on party state
             var currentPartySize = SessionManager.Instance.CurrentLobby.HasValue
                 ? SessionManager.Instance.CurrentLobby.Value.MemberCount
@@ -130,6 +146,26 @@ namespace Game.Menu {
                 if(isSearching) canInvite = false;
 
                 _inviteButton.style.display = canInvite ? DisplayStyle.Flex : DisplayStyle.None;
+                _inviteButton.SetEnabled(canInvite);
+                _inviteButton.tooltip = steamOnline ? "Invite friends" : "Steam is offline. Invites unavailable.";
+
+                if(steamOnline) {
+                    _inviteButton.RemoveFromClassList("steam-offline");
+                    if(_inviteIcon != null) {
+                        _inviteIcon.RemoveFromClassList("offline-icon");
+                        if(!_inviteIcon.ClassListContains("plus-icon")) {
+                            _inviteIcon.AddToClassList("plus-icon");
+                        }
+                    }
+                } else {
+                    _inviteButton.AddToClassList("steam-offline");
+                    if(_inviteIcon != null) {
+                        _inviteIcon.RemoveFromClassList("plus-icon");
+                        if(!_inviteIcon.ClassListContains("offline-icon")) {
+                            _inviteIcon.AddToClassList("offline-icon");
+                        }
+                    }
+                }
             }
 
             var canPlay = !isSearching && !isPartyMember || _isSilentHosting;
@@ -433,9 +469,16 @@ namespace Game.Menu {
         }
 
         public async UniTask HandlePrivateMatchSelection(string mode) {
-            UISoundService.PlayButtonClick();
             // Request SessionManager to start the synchronized load
             if(SessionManager.Instance != null) {
+                if(!SteamClient.IsValid || !SteamClient.IsLoggedOn) {
+                    if(uiManager != null) {
+                        uiManager.ShowToast("Steam is offline. Starting offline match.");
+                    }
+                    await SessionManager.Instance.StartOfflinePrivateMatchAsync(mode);
+                    return;
+                }
+
                 await SessionManager.Instance.StartPrivateMatchSync(mode);
             }
         }
@@ -526,7 +569,13 @@ namespace Game.Menu {
             _localProfileContainer?.Clear();
 
             // Draw just us in the local profile section
-            CreatePlayerRow(SteamClient.Name, SteamClient.SteamId, true, _localProfileContainer).Forget();
+            var steamOnline = SteamClient.IsValid && SteamClient.IsLoggedOn;
+            var displayName = Game.Social.StreamerMode.GetLocalDisplayName();
+            var displayId = steamOnline ? SteamClient.SteamId : default(SteamId);
+
+            var hide = !steamOnline || Game.Social.StreamerMode.Enabled;
+            var iconId = Game.Social.PlayerIconPicker.PickIconIdFromBaseColor(GameSettings.Data.player.customization.baseColor, hide);
+            CreatePlayerRow(displayName, displayId, iconId, true, _localProfileContainer).Forget();
 
             // Show invite button and separator
             if(_inviteButton != null) _inviteButton.style.display = DisplayStyle.Flex;
@@ -547,13 +596,23 @@ namespace Game.Menu {
 
             foreach(var member in lobby.Members) {
                 var inMyParty = lobby.GetMemberData(member, "PartyId") == myPartyId;
+                var displayName = lobby.GetMemberData(member, "DisplayName");
+                if(string.IsNullOrEmpty(displayName)) {
+                    displayName = member.Name;
+                }
+
+                var avatarHidden = lobby.GetMemberData(member, "AvatarHidden") == "1";
+                var iconId = lobby.GetMemberData(member, "PlayerIcon");
+                if(string.IsNullOrEmpty(iconId)) {
+                    iconId = Game.Social.PlayerIconPicker.PickDeterministicIconId(member.Id.Value, avatarHidden);
+                }
 
                 if(member.Id == SteamClient.SteamId) {
-                    await CreatePlayerRow(member.Name, member.Id, true, _localProfileContainer, member.Id == hostId,
-                        inMyParty);
+                    await CreatePlayerRow(displayName, member.Id, iconId, true, _localProfileContainer, member.Id == hostId,
+                        inMyParty, avatarHidden);
                 } else {
-                    await CreatePlayerRow(member.Name, member.Id, false, _partyMembersList, member.Id == hostId,
-                        inMyParty);
+                    await CreatePlayerRow(displayName, member.Id, iconId, false, _partyMembersList, member.Id == hostId,
+                        inMyParty, avatarHidden);
                 }
             }
 
@@ -564,9 +623,9 @@ namespace Game.Menu {
         /// <summary>
         /// Creates and styles a single player row in the party UI.
         /// </summary>
-        private async UniTask CreatePlayerRow(string playerName, SteamId id, bool isLocal, VisualElement targetContainer,
-            bool isHost = false, bool isPartyMember = false) {
-            if(targetContainer == null) return;
+        private UniTask CreatePlayerRow(string playerName, SteamId id, string iconId, bool isLocal,
+            VisualElement targetContainer, bool isHost = false, bool isPartyMember = false, bool hideAvatar = false) {
+            if(targetContainer == null) return UniTask.CompletedTask;
 
             if(uiManager != null && uiManager.PartyMemberTemplate != null) {
                 var instance = uiManager.PartyMemberTemplate.Instantiate();
@@ -613,10 +672,20 @@ namespace Game.Menu {
 
                 nameLabel.text = playerName;
 
-                var avatarTex = await SteamManager.Instance.GetAvatarAsync(id);
-                if(avatarTex != null) {
-                    avatarBox.style.backgroundImage = new StyleBackground(avatarTex);
-                }
+                // Use classic player icon system (closest base color). Streamer mode/offline forces a neutral icon.
+                avatarBox.style.backgroundImage = StyleKeyword.Null;
+                avatarBox.RemoveFromClassList("default-avatar");
+                avatarBox.RemoveFromClassList("player-icon-red");
+                avatarBox.RemoveFromClassList("player-icon-orange");
+                avatarBox.RemoveFromClassList("player-icon-yellow");
+                avatarBox.RemoveFromClassList("player-icon-green");
+                avatarBox.RemoveFromClassList("player-icon-blue");
+                avatarBox.RemoveFromClassList("player-icon-purple");
+                avatarBox.RemoveFromClassList("player-icon-white");
+
+                var resolved = hideAvatar ? Game.Social.PlayerIconPicker.White : iconId;
+                if(string.IsNullOrEmpty(resolved)) resolved = Game.Social.PlayerIconPicker.White;
+                avatarBox.AddToClassList("player-icon-" + resolved);
 
                 row.RegisterCallback<PointerDownEvent>(evt => {
                     if(evt.button != 1) return;
@@ -628,6 +697,8 @@ namespace Game.Menu {
             } else {
                 Debug.LogError("[MainMenuSessionManager] PartyMemberTemplate is missing in UIManager!");
             }
+
+            return UniTask.CompletedTask;
         }
 
 

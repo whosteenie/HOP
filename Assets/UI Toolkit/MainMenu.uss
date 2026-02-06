@@ -1333,8 +1333,42 @@
     width: 40px;
     height: 40px;
     background-color: rgb(50, 50, 50);
-    scale: 1 -1;
+    scale: 1 1;
     margin-right: 12px;
+}
+
+.steam-avatar.default-avatar {
+    background-image: url('project://database/Assets/UI%20Toolkit/Images/default-avatar.jpg');
+    -unity-background-scale-mode: scale-to-fit;
+}
+
+.steam-avatar.player-icon-red {
+    background-image: url('project://database/Assets/UI%20Toolkit/Images/player_icons/red_icon.png');
+    -unity-background-scale-mode: scale-to-fit;
+}
+.steam-avatar.player-icon-orange {
+    background-image: url('project://database/Assets/UI%20Toolkit/Images/player_icons/orange_icon.png');
+    -unity-background-scale-mode: scale-to-fit;
+}
+.steam-avatar.player-icon-yellow {
+    background-image: url('project://database/Assets/UI%20Toolkit/Images/player_icons/yellow_icon.png');
+    -unity-background-scale-mode: scale-to-fit;
+}
+.steam-avatar.player-icon-green {
+    background-image: url('project://database/Assets/UI%20Toolkit/Images/player_icons/green_icon.png');
+    -unity-background-scale-mode: scale-to-fit;
+}
+.steam-avatar.player-icon-blue {
+    background-image: url('project://database/Assets/UI%20Toolkit/Images/player_icons/blue_icon.png');
+    -unity-background-scale-mode: scale-to-fit;
+}
+.steam-avatar.player-icon-purple {
+    background-image: url('project://database/Assets/UI%20Toolkit/Images/player_icons/purple_icon.png');
+    -unity-background-scale-mode: scale-to-fit;
+}
+.steam-avatar.player-icon-white {
+    background-image: url('project://database/Assets/UI%20Toolkit/Images/player_icons/white_icon.png');
+    -unity-background-scale-mode: scale-to-fit;
 }
 
 
@@ -1479,6 +1513,18 @@
     height: 20px;
     -unity-background-image-tint-color: white;
     background-image: url('project://database/Assets/UI%20Toolkit/Images/plus.png');
+}
+
+.offline-icon {
+    width: 20px;
+    height: 20px;
+    -unity-background-image-tint-color: rgba(255, 120, 120, 1);
+    background-image: url('project://database/Assets/UI%20Toolkit/Images/skull.png');
+}
+
+.invite-button.steam-offline {
+    background-color: rgba(90, 40, 40, 0.5);
+    border-color: rgba(255, 140, 140, 0.25);
 }
 
 .party-separator {
