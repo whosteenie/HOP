@@ -75,6 +75,9 @@ namespace Game.Menu {
         private VisualElement _gameContent;
         private VisualElement _controlsContent;
 
+        private static readonly Color OptionsTabHoverTextColor = new(240f / 255f, 240f / 255f, 240f / 255f, 1f);
+        private static readonly Color OptionsTabHoverBorderColor = new(200f / 255f, 60f / 255f, 60f / 255f, 0.5f);
+
         // Keybind buttons
         private readonly Dictionary<string, Button[]> _keybindButtons = new();
 
@@ -825,15 +828,15 @@ namespace Game.Menu {
         private void SetupTabHoverCallbacks(Button tab) {
             if(tab == null) return;
 
-            EventCallback<MouseEnterEvent> enterHandler = evt => {
-                MouseEnterCallback?.Invoke(evt);
-
-                if(tab.ClassListContains("options-tab-active")) return;
-                tab.AddToClassList("options-tab-hover");
-                tab.schedule.Execute(tab.MarkDirtyRepaint);
-            };
-            tab.RegisterCallback(enterHandler);
-            RegisterCleanup(() => tab.UnregisterCallback(enterHandler));
+            // Hover sounds only for non-active tabs (active tab is effectively a no-op click).
+            if(MouseEnterCallback != null) {
+                EventCallback<MouseEnterEvent> enterHandler = evt => {
+                    if(tab.ClassListContains("options-tab-active")) return;
+                    MouseEnterCallback(evt);
+                };
+                tab.RegisterCallback(enterHandler);
+                RegisterCleanup(() => tab.UnregisterCallback(enterHandler));
+            }
 
             EventCallback<MouseOverEvent> overHandler = evt => {
                 if(MouseHoverCallback != null && !tab.ClassListContains("options-tab-active")) {
@@ -847,12 +850,27 @@ namespace Game.Menu {
             tab.RegisterCallback(overHandler);
             RegisterCleanup(() => tab.UnregisterCallback(overHandler));
 
-            EventCallback<MouseLeaveEvent> leaveHandler = _ => {
-                tab.RemoveFromClassList("options-tab-hover");
+            // Visual hover state: Pointer enter/leave + inline style override (paint quirk workaround).
+            EventCallback<PointerEnterEvent> pointerEnterHandler = _ => {
+                if(tab.ClassListContains("options-tab-active")) return;
+                if(!tab.ClassListContains("options-tab-hover")) {
+                    tab.AddToClassList("options-tab-hover");
+                }
+                tab.style.color = new StyleColor(OptionsTabHoverTextColor);
+                tab.style.borderBottomColor = new StyleColor(OptionsTabHoverBorderColor);
                 tab.MarkDirtyRepaint();
             };
-            tab.RegisterCallback(leaveHandler);
-            RegisterCleanup(() => tab.UnregisterCallback(leaveHandler));
+            tab.RegisterCallback(pointerEnterHandler);
+            RegisterCleanup(() => tab.UnregisterCallback(pointerEnterHandler));
+
+            EventCallback<PointerLeaveEvent> pointerLeaveHandler = _ => {
+                tab.RemoveFromClassList("options-tab-hover");
+                tab.style.color = StyleKeyword.Null;
+                tab.style.borderBottomColor = StyleKeyword.Null;
+                tab.MarkDirtyRepaint();
+            };
+            tab.RegisterCallback(pointerLeaveHandler);
+            RegisterCleanup(() => tab.UnregisterCallback(pointerLeaveHandler));
         }
 
         private void SwitchOptionsTab(string tabName) {
@@ -865,6 +883,24 @@ namespace Game.Menu {
             _tabGame?.RemoveFromClassList("options-tab-hover");
             _tabControls?.RemoveFromClassList("options-tab-active");
             _tabControls?.RemoveFromClassList("options-tab-hover");
+
+            // Clear inline hover overrides (paint quirk workaround)
+            if(_tabVideo != null) {
+                _tabVideo.style.color = StyleKeyword.Null;
+                _tabVideo.style.borderBottomColor = StyleKeyword.Null;
+            }
+            if(_tabAudio != null) {
+                _tabAudio.style.color = StyleKeyword.Null;
+                _tabAudio.style.borderBottomColor = StyleKeyword.Null;
+            }
+            if(_tabGame != null) {
+                _tabGame.style.color = StyleKeyword.Null;
+                _tabGame.style.borderBottomColor = StyleKeyword.Null;
+            }
+            if(_tabControls != null) {
+                _tabControls.style.color = StyleKeyword.Null;
+                _tabControls.style.borderBottomColor = StyleKeyword.Null;
+            }
 
             // Hide all content
             _videoContent?.AddToClassList("hidden");

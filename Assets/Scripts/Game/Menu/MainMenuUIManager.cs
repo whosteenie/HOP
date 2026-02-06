@@ -261,7 +261,6 @@ namespace Game.Menu {
                 _loadoutButton,
                 _optionsButton,
                 _creditsButton,
-                _quitButton,
                 _cardDeathmatch,
                 _cardTeamDeathmatch,
                 _cardHopball,
@@ -347,14 +346,12 @@ namespace Game.Menu {
             RegisterCleanup(() => _loadoutButton.clicked -= loadoutHandler);
 
             System.Action optionsHandler = () => {
-                UISoundService.PlayButtonClick();
                 OnOptionsClicked?.Invoke();
             };
             _optionsButton.clicked += optionsHandler;
             RegisterCleanup(() => _optionsButton.clicked -= optionsHandler);
 
             System.Action creditsHandler = () => {
-                UISoundService.PlayButtonClick();
                 OnCreditsClicked?.Invoke();
             };
             _creditsButton.clicked += creditsHandler;
