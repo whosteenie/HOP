@@ -1,4 +1,3 @@
-using Game.Audio;
 using UnityEngine;
 
 namespace Game.Weapons {
@@ -76,8 +75,11 @@ namespace Game.Weapons {
         public GameObject muzzleFlashPrefab;
 
         [Header("Audio")]
-        public SfxKey shootSfx = SfxKey.Shoot;
-        public SfxKey reloadSfx = SfxKey.Reload;
+        [Tooltip("SoundCatalog id used when firing this weapon (e.g. 'weapons.pistol.shoot').")]
+        public string shootSoundId = "";
+
+        [Tooltip("SoundCatalog id used when reloading this weapon (e.g. 'weapons.pistol.reload').")]
+        public string reloadSoundId = "";
 
         [Header("Server Validation")]
         [Tooltip("Maximum range (meters) used when validating hits server-side.")]

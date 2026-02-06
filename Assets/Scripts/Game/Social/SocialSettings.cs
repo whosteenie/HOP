@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
+using Game.Settings;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -12,17 +12,9 @@ namespace Game.Social {
 
     /// <summary>
     /// Manages persistent settings for Social features (Voice/Chat).
-    /// Saves to PlayerPrefs.
+    /// Saves to settings.json.
     /// </summary>
     public static class SocialSettings {
-        private const string PREF_VOICE_INPUT_MODE = "Social_VoiceInputMode";
-        private const string PREF_VOICE_VOLUME = "Social_VoiceVolume"; // Output volume 0.0 to 1.0
-        private const string PREF_VOICE_INPUT_VOLUME = "Social_VoiceInputVolume"; // Input volume 0.0 to 1.0
-        private const string PREF_VOICE_INPUT_DEVICE = "Social_VoiceInputDevice";
-        private const string PREF_PROFANITY_FILTER = "Social_ProfanityFilter";
-        private const string PREF_MUTED_PLAYERS = "Social_MutedPlayers"; // CSV of IDs
-        private const string PREF_BLOCKED_PLAYERS = "Social_BlockedPlayers"; // CSV of IDs
-        
         private const int MAX_MUTED_PLAYERS = 200; // Cap to prevent unbounded growth
 
         public static event Action OnSettingsChanged;
@@ -30,17 +22,29 @@ namespace Game.Social {
 
         // --- Voice Output ---
         public static VoiceInputMode InputMode {
-            get => (VoiceInputMode)PlayerPrefs.GetInt(PREF_VOICE_INPUT_MODE, (int)VoiceInputMode.PushToTalk);
+            get {
+                var s = GameSettings.Data.social;
+                if(s == null) return VoiceInputMode.PushToTalk;
+                return (VoiceInputMode)s.voiceInputMode;
+            }
             set {
-                PlayerPrefs.SetInt(PREF_VOICE_INPUT_MODE, (int)value);
+                var s = GameSettings.Data.social;
+                if(s == null) return;
+                s.voiceInputMode = (int)value;
                 Save();
             }
         }
 
         public static string InputDevice {
-            get => PlayerPrefs.GetString(PREF_VOICE_INPUT_DEVICE, "Default");
+            get {
+                var s = GameSettings.Data.social;
+                if(s == null) return "Default";
+                return s.voiceInputDevice;
+            }
             set {
-                PlayerPrefs.SetString(PREF_VOICE_INPUT_DEVICE, value);
+                var s = GameSettings.Data.social;
+                if(s == null) return;
+                s.voiceInputDevice = value;
                 Save();
             }
         }
@@ -49,9 +53,15 @@ namespace Game.Social {
         /// Voice output volume (how loud you hear others). 0.0 to 1.0.
         /// </summary>
         public static float VoiceVolume {
-            get => PlayerPrefs.GetFloat(PREF_VOICE_VOLUME, 1.0f);
+            get {
+                var s = GameSettings.Data.social;
+                if(s == null) return 1f;
+                return s.voiceVolume;
+            }
             set {
-                PlayerPrefs.SetFloat(PREF_VOICE_VOLUME, Mathf.Clamp01(value));
+                var s = GameSettings.Data.social;
+                if(s == null) return;
+                s.voiceVolume = Mathf.Clamp01(value);
                 Save();
             }
         }
@@ -60,18 +70,30 @@ namespace Game.Social {
         /// Voice input volume (your microphone sensitivity). 0.0 to 1.0.
         /// </summary>
         public static float VoiceInputVolume {
-            get => PlayerPrefs.GetFloat(PREF_VOICE_INPUT_VOLUME, 1.0f);
+            get {
+                var s = GameSettings.Data.social;
+                if(s == null) return 1f;
+                return s.voiceInputVolume;
+            }
             set {
-                PlayerPrefs.SetFloat(PREF_VOICE_INPUT_VOLUME, Mathf.Clamp01(value));
+                var s = GameSettings.Data.social;
+                if(s == null) return;
+                s.voiceInputVolume = Mathf.Clamp01(value);
                 Save();
             }
         }
 
         // --- Chat ---
         public static bool ProfanityFilterEnabled {
-            get => PlayerPrefs.GetInt(PREF_PROFANITY_FILTER, 0) == 1; // Default Off
+            get {
+                var s = GameSettings.Data.social;
+                if(s == null) return false;
+                return s.profanityFilterEnabled;
+            }
             set {
-                PlayerPrefs.SetInt(PREF_PROFANITY_FILTER, value ? 1 : 0);
+                var s = GameSettings.Data.social;
+                if(s == null) return;
+                s.profanityFilterEnabled = value;
                 Save();
             }
         }
@@ -127,20 +149,39 @@ namespace Game.Social {
         }
 
         private static void LoadLists() {
-            var mutedStr = PlayerPrefs.GetString(PREF_MUTED_PLAYERS, "");
-            _mutedList = new List<string>(mutedStr.Split(new[] {','}, StringSplitOptions.RemoveEmptyEntries));
+            var s = GameSettings.Data.social;
+            if(s == null) {
+                _mutedList = new List<string>();
+                _mutedCache = new HashSet<string>();
+                _blockedCache = new HashSet<string>();
+                return;
+            }
+
+            _mutedList = s.mutedPlayers != null ? new List<string>(s.mutedPlayers) : new List<string>();
             _mutedCache = new HashSet<string>(_mutedList);
-            _blockedCache = new HashSet<string>(PlayerPrefs.GetString(PREF_BLOCKED_PLAYERS, "").Split(new[] {','}, StringSplitOptions.RemoveEmptyEntries));
+            _blockedCache = s.blockedPlayers != null ? new HashSet<string>(s.blockedPlayers) : new HashSet<string>();
         }
 
         private static void SaveLists() {
-            PlayerPrefs.SetString(PREF_MUTED_PLAYERS, string.Join(",", _mutedList));
-            PlayerPrefs.SetString(PREF_BLOCKED_PLAYERS, string.Join(",", _blockedCache));
+            var s = GameSettings.Data.social;
+            if(s == null) return;
+            if(s.mutedPlayers == null) s.mutedPlayers = new List<string>();
+            if(s.blockedPlayers == null) s.blockedPlayers = new List<string>();
+
+            s.mutedPlayers.Clear();
+            for(var i = 0; i < _mutedList.Count; i++) {
+                s.mutedPlayers.Add(_mutedList[i]);
+            }
+
+            s.blockedPlayers.Clear();
+            foreach(var id in _blockedCache) {
+                s.blockedPlayers.Add(id);
+            }
             Save();
         }
 
         private static void Save() {
-            PlayerPrefs.Save();
+            GameSettings.Save();
             OnSettingsChanged?.Invoke();
         }
     }

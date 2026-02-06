@@ -58,10 +58,6 @@ MonoBehaviour:
     enabled: 0
   - eventTypeName: Network.Events.PlayersChangedEvent
     enabled: 0
-  - eventTypeName: Network.Events.PlayUISoundEvent
-    enabled: 0
-  - eventTypeName: Network.Events.PlayWorldSoundEvent
-    enabled: 0
   - eventTypeName: Network.Events.PostMatchStartedEvent
     enabled: 0
   - eventTypeName: Network.Events.PreMatchCountdownEvent
@@ -82,9 +78,19 @@ MonoBehaviour:
     enabled: 0
   - eventTypeName: Network.Events.SingletonNotAvailableEvent
     enabled: 1
-  - eventTypeName: Network.Events.StopAllSoundsEvent
+  - eventTypeName: Network.Events.PlayLocalSoundIdEvent
     enabled: 0
-  - eventTypeName: Network.Events.StopSoundEvent
+  - eventTypeName: Network.Events.PlayLocalWorldSoundIdEvent
+    enabled: 0
+  - eventTypeName: Network.Events.PlayLocalAttachedSoundIdEvent
+    enabled: 0
+  - eventTypeName: Network.Events.StopLocalSoundIdEvent
+    enabled: 0
+  - eventTypeName: Network.Events.StopAllLocalSoundsEvent
+    enabled: 0
+  - eventTypeName: Network.Events.RequestNetworkWorldSoundIdEvent
+    enabled: 0
+  - eventTypeName: Network.Events.RequestNetworkAttachedSoundIdEvent
     enabled: 0
   - eventTypeName: Network.Events.UpdateAmmoEvent
     enabled: 0

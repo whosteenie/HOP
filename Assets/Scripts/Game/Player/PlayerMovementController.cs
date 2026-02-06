@@ -21,7 +21,7 @@ namespace Game.Player {
         private SwingGrapple _swingGrapple;
         private WallRunController _wallRunController;
         private PlayerAnimationController _animationController;
-        private NetworkSfxRelay _sfxRelay;
+        private NetworkAudioRelay _audioRelay;
         private Transform _playerTransform;
 
         // Wall contact dampening
@@ -122,7 +122,7 @@ namespace Game.Player {
                 }
             }
             if(_animationController == null) _animationController = playerController.AnimationController;
-            if(_sfxRelay == null) _sfxRelay = playerController.SfxRelay;
+            if(_audioRelay == null) _audioRelay = playerController.AudioRelay;
 
             _obstacleMask = playerController.WorldLayer | playerController.EnemyLayer;
             _gravityY = Physics.gravity.y;
@@ -468,14 +468,16 @@ namespace Game.Player {
                 height = jumpPadHeight;
             }
 
-            if(IsOwner && _sfxRelay != null) {
+            if(IsOwner && _audioRelay != null) {
                 var key = Mathf.Approximately(height, 15f) || Mathf.Approximately(height, 30f) ? "jumpPad" : "jump";
 
                 if(key == "jumpPad") {
-                    _sfxRelay.RequestWorldSfx(SfxKey.JumpPad, attachToSelf: true, true);
+                    _audioRelay.RequestPlayAttached("gameplay.jumppad", new NetworkObjectReference(playerController.NetworkObject),
+                        allowOverlap: true);
                 }
 
-                _sfxRelay.RequestWorldSfx(SfxKey.Jump, attachToSelf: true, true);
+                _audioRelay.RequestPlayAttached("foley.tile.jump.start", new NetworkObjectReference(playerController.NetworkObject),
+                    allowOverlap: true);
             }
 
             VerticalVelocity = Mathf.Sqrt(height * -2f * _gravityY * GravityScale);
@@ -519,9 +521,11 @@ namespace Game.Player {
             VerticalVelocity = launchVelocity.y;
             _horizontalVelocity += new Vector3(launchVelocity.x, 0f, launchVelocity.z);
 
-            if(IsOwner && _sfxRelay != null) {
-                _sfxRelay.RequestWorldSfx(SfxKey.JumpPad, attachToSelf: true, true);
-                _sfxRelay.RequestWorldSfx(SfxKey.Jump, attachToSelf: true, true);
+            if(IsOwner && _audioRelay != null) {
+                _audioRelay.RequestPlayAttached("gameplay.jumppad", new NetworkObjectReference(playerController.NetworkObject),
+                    allowOverlap: true);
+                _audioRelay.RequestPlayAttached("foley.tile.jump.start", new NetworkObjectReference(playerController.NetworkObject),
+                    allowOverlap: true);
             }
 
             if (IsOwner && ProgressionManager.Instance != null) {
@@ -657,8 +661,9 @@ namespace Game.Player {
                 _animationController.SetSlidingServerRpc(true);
             }
 
-            if(IsOwner && _sfxRelay != null) {
-                _sfxRelay.RequestWorldSfx(SfxKey.Slide, attachToSelf: true, allowOverlap: false);
+            if(IsOwner && _audioRelay != null) {
+                _audioRelay.RequestPlayAttached("foley.slide", new NetworkObjectReference(playerController.NetworkObject),
+                    allowOverlap: false);
             }
         }
 
@@ -725,8 +730,8 @@ namespace Game.Player {
         private void EndSlide() {
             _isSliding = false;
 
-            if (IsOwner && _sfxRelay != null) {
-                _sfxRelay.StopWorldSfx(SfxKey.Slide);
+            if(IsOwner && _audioRelay != null) {
+                _audioRelay.RequestStop("foley.slide");
             }
 
             // Set remaining velocity (continues in slide direction at current speed)
@@ -752,8 +757,8 @@ namespace Game.Player {
         public void CancelSlideForJump() {
             if(!_isSliding) return;
             
-            if (IsOwner && _sfxRelay != null) {
-                _sfxRelay.StopWorldSfx(SfxKey.Slide);
+            if(IsOwner && _audioRelay != null) {
+                _audioRelay.RequestStop("foley.slide");
             }
 
             // Preserve full slide velocity for jump

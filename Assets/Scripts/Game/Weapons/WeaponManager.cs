@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Game.Player;
 using Game.Audio;
+using Game.Settings;
 using Network.AntiCheat;
 using Network.Diagnostics;
 using Network.Events;
@@ -227,7 +228,9 @@ namespace Game.Weapons {
                 return;
 
             if(IsOwner) {
-                EventBus.Publish(new PlayUISoundEvent(SfxKey.WeaponSwitch));
+                if(Game.Audio2.AudioService.Instance != null) {
+                    Game.Audio2.AudioService.Instance.Play("ui.weapon.switch", Vector3.zero);
+                }
             }
 
             // Publish weapon switch event
@@ -1023,9 +1026,10 @@ namespace Game.Weapons {
                 primaryIndex = playerController.primaryWeaponIndex.Value;
                 secondaryIndex = playerController.secondaryWeaponIndex.Value;
             } else {
-                // Fallback to PlayerPrefs if PlayerController not available (shouldn't happen)
-                primaryIndex = PlayerPrefs.GetInt("PrimaryWeaponIndex", 0);
-                secondaryIndex = PlayerPrefs.GetInt("SecondaryWeaponIndex", 0);
+                // Use local settings if PlayerController not available (shouldn't happen)
+                var p = GameSettings.Data.player;
+                primaryIndex = p.primaryWeaponIndex;
+                secondaryIndex = p.secondaryWeaponIndex;
             }
 
             var primary = GetWeaponFromOptions(primaryWeaponOptions, primaryIndex, "Primary");
@@ -1049,7 +1053,14 @@ namespace Game.Weapons {
             if(clampedIndex != storedIndex) {
                 Debug.LogWarning(
                     $"[WeaponManager] {slotLabel} weapon index {storedIndex} out of range. Using {clampedIndex} instead.");
-                PlayerPrefs.SetInt($"{slotLabel}WeaponIndex", clampedIndex);
+                var p = GameSettings.Data.player;
+                if(slotLabel == "Primary") {
+                    p.primaryWeaponIndex = clampedIndex;
+                    GameSettings.Save();
+                } else if(slotLabel == "Secondary") {
+                    p.secondaryWeaponIndex = clampedIndex;
+                    GameSettings.Save();
+                }
             }
 
             var weaponData = options[clampedIndex];

@@ -1,0 +1,87 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 698b59b855b2e1440b120d18f798d5d1, type: 3}
+  m_Name: SoundCatalog
+  m_EditorClassIdentifier: Assembly-CSharp::Game.Audio2.SoundCatalog
+  entries:
+  - id: foley.tile.jump.land
+    cue: {fileID: 11400000, guid: c601d05809f3f5b4dbbb33a1d04e8bed, type: 2}
+  - id: foley.tile.jump.start
+    cue: {fileID: 11400000, guid: 6de3b825dd6c20f498fae6e8d30c22f3, type: 2}
+  - id: foley.tile.run
+    cue: {fileID: 11400000, guid: e5a2f237c583fdb44b1da0ee0df86aa9, type: 2}
+  - id: foley.slide
+    cue: {fileID: 11400000, guid: 86fb7cae21faf194f9095a76ba67f1ab, type: 2}
+  - id: foley.tile.walk
+    cue: {fileID: 11400000, guid: 15ffb2d886183d140a6fb8fceb81b1e7, type: 2}
+  - id: gameplay.grapple
+    cue: {fileID: 11400000, guid: 6e263a462fcf57548800c8876084e064, type: 2}
+  - id: gameplay.hopball.spawn
+    cue: {fileID: 11400000, guid: 6fc58c7d13097f34a99ad86208a19a8d, type: 2}
+  - id: gameplay.jumppad
+    cue: {fileID: 11400000, guid: c92e2204999ac2d4793abc9e5fe8e1c6, type: 2}
+  - id: music.main
+    cue: {fileID: 11400000, guid: 5cb9429b87ff68546999bfcf00ac13aa, type: 2}
+  - id: ui.button.back
+    cue: {fileID: 11400000, guid: 2fff572d156617a4687f730fdbf61e55, type: 2}
+  - id: ui.button.forward
+    cue: {fileID: 11400000, guid: 1e2033a1f08e0d6409e48429ad7008e2, type: 2}
+  - id: ui.button.hover
+    cue: {fileID: 11400000, guid: 8d8fab99f7cb7af42b8cb86d83efc901, type: 2}
+  - id: ui.hit.hitmarker.hit
+    cue: {fileID: 11400000, guid: 30cc14eea123e044fb3fd3d29b04fb2b, type: 2}
+  - id: ui.hit.hitmarker.kill
+    cue: {fileID: 11400000, guid: 61b5962c0e61c5341a03b015f427627f, type: 2}
+  - id: ui.hit.hurt
+    cue: {fileID: 11400000, guid: 93334e0ff57133a4592a1272ff15db38, type: 2}
+  - id: ui.tag.tagged
+    cue: {fileID: 11400000, guid: 2cc9813232b043e44982decaaadb065d, type: 2}
+  - id: ui.tag.tagger
+    cue: {fileID: 11400000, guid: efbeb09ea9f357d44bc8d570e78b6f2b, type: 2}
+  - id: ui.timer
+    cue: {fileID: 11400000, guid: 1cdf6d2636c6f48449c9c41bc9f62545, type: 2}
+  - id: ui.weapon.switch
+    cue: {fileID: 11400000, guid: 9b03769450c5641458ac8afc9230f820, type: 2}
+  - id: ui.sniper.zoom
+    cue: {fileID: 11400000, guid: 16a108a0a0628fd42bc1dd280611c411, type: 2}
+  - id: weapons.bullet.hurt
+    cue: {fileID: 11400000, guid: 221a9d178af81034a98e8a3cb4196cfd, type: 2}
+  - id: weapons.bullet.impact
+    cue: {fileID: 11400000, guid: dab3c1e2c5fc21d46b2541d76ade5e27, type: 2}
+  - id: weapons.bullet.trail
+    cue: {fileID: 11400000, guid: d041f32f80cdb2e4989d7931e778e108, type: 2}
+  - id: weapons.bullet.dry
+    cue: {fileID: 11400000, guid: 58c12a014a16dc4498295c3d2c340cfa, type: 2}
+  - id: weapons.deagle.reload
+    cue: {fileID: 11400000, guid: 1dabeb86e0acd9344b32083bb69bae6e, type: 2}
+  - id: weapons.deagle.shoot
+    cue: {fileID: 11400000, guid: 137c61c1fc970e44494098631bc34994, type: 2}
+  - id: weapons.pistol.reload
+    cue: {fileID: 11400000, guid: c4029978ed5cd8b4c96c8070589bb823, type: 2}
+  - id: weapons.pistol.shoot
+    cue: {fileID: 11400000, guid: 9afbe53afbce9154bbecfca19b1015e8, type: 2}
+  - id: weapons.rifle.reload
+    cue: {fileID: 11400000, guid: f31b59af676a58547a8f0d2aa535a606, type: 2}
+  - id: weapons.rifle.shoot
+    cue: {fileID: 11400000, guid: f39311e5ad5a7bd48a24101bbdbdbcaa, type: 2}
+  - id: weapons.shotgun.reload
+    cue: {fileID: 11400000, guid: 306b08a97a1968d44a627417904afa83, type: 2}
+  - id: weapons.shotgun.shoot
+    cue: {fileID: 11400000, guid: 4693334122a011b4f9a182ea6107eed2, type: 2}
+  - id: weapons.smg.reload
+    cue: {fileID: 11400000, guid: bf43324dca848694c93bdf4f636d6bf3, type: 2}
+  - id: weapons.smg.shoot
+    cue: {fileID: 11400000, guid: 04b6c1a05e135b74caf218b9ad57b507, type: 2}
+  - id: weapons.sniper.reload
+    cue: {fileID: 11400000, guid: 52a27065052f9ea4ab3ba6191343196f, type: 2}
+  - id: weapons.sniper.shoot
+    cue: {fileID: 11400000, guid: 62b2435aaee2ecf44bda8fa2b220ef78, type: 2}

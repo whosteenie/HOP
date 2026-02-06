@@ -711,7 +711,9 @@ namespace Network {
         /// Transitions the local player back to the main menu and handles party reformation.
         /// </summary>
         public async UniTask LeaveToMainMenuAsync() {
-            EventBus.Publish(new StopAllSoundsEvent());
+            if(Game.Audio2.AudioService.Instance != null) {
+                Game.Audio2.AudioService.Instance.StopAll();
+            }
 
             var currentScene = SceneManager.GetActiveScene().name;
             var shouldFade = currentScene != "MainMenu";

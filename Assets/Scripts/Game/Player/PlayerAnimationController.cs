@@ -1,4 +1,3 @@
-using Game.Audio;
 using Network.Rpc;
 using Unity.Netcode;
 using UnityEngine;
@@ -14,7 +13,7 @@ namespace Game.Player {
         [SerializeField] private PlayerController playerController;
 
         private Animator _playerAnimator;
-        private NetworkSfxRelay _sfxRelay;
+        private NetworkAudioRelay _audioRelay;
         private Transform _playerTransform;
 
         // Animation parameter hashes
@@ -56,7 +55,7 @@ namespace Game.Player {
             }
 
             if(_playerAnimator == null) _playerAnimator = playerController.PlayerAnimator;
-            if(_sfxRelay == null) _sfxRelay = playerController.SfxRelay;
+            if(_audioRelay == null) _audioRelay = playerController.AudioRelay;
             if(_playerTransform == null) _playerTransform = playerController.PlayerTransform;
         }
 
@@ -124,8 +123,9 @@ namespace Game.Player {
                 if(IsOwner) {
                     PlayLandingAnimationServerRpc();
                     // Only play landing sound if enough time has passed since spawn/respawn
-                    if(_sfxRelay != null && Time.time - _lastSpawnTime >= LandingSoundCooldown) {
-                        _sfxRelay.RequestWorldSfx(SfxKey.Land, attachToSelf: true, allowOverlap: true);
+                    if(_audioRelay != null && Time.time - _lastSpawnTime >= LandingSoundCooldown) {
+                        _audioRelay.RequestPlayAttached("foley.tile.jump.land", new NetworkObjectReference(playerController.NetworkObject),
+                            allowOverlap: true);
                     }
                 }
 

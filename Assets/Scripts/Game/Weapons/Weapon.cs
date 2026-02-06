@@ -1,6 +1,5 @@
 using System.Collections;
 using System.Collections.Generic;
-using Game.Audio;
 using Game.Match;
 using Game.Menu;
 using Game.Player;
@@ -24,7 +23,7 @@ namespace Game.Weapons {
         private LayerMask _worldLayer;
         private NetworkDamageRelay _damageRelay;
         private NetworkFxRelay _networkFXRelay;
-        private NetworkSfxRelay _sfxRelay;
+        private NetworkAudioRelay _audioRelay;
         private WeaponManager _weaponManager;
 
         [Header("Current Weapon State")]
@@ -130,7 +129,7 @@ namespace Game.Weapons {
             _worldLayer = playerController.WorldLayer;
             if(_damageRelay == null) _damageRelay = playerController.DamageRelay;
             if(_networkFXRelay == null) _networkFXRelay = playerController.FxRelay;
-            if(_sfxRelay == null) _sfxRelay = playerController.SfxRelay;
+            if(_audioRelay == null) _audioRelay = playerController.AudioRelay;
             if(_weaponManager == null) _weaponManager = playerController.WeaponManager;
 
             _lastFireTime = Time.time;
@@ -153,8 +152,10 @@ namespace Game.Weapons {
         }
 
         private static void OnHitConfirm(bool wasKill) {
-            var soundKey = wasKill ? SfxKey.Kill : SfxKey.Hit;
-            EventBus.Publish(new PlayUISoundEvent(soundKey));
+            if(Game.Audio2.AudioService.Instance == null) return;
+
+            var soundId = wasKill ? "ui.hit.hitmarker.kill" : "ui.hit.hitmarker.hit";
+            Game.Audio2.AudioService.Instance.Play(soundId, Vector3.zero);
         }
 
         #endregion
@@ -264,8 +265,12 @@ namespace Game.Weapons {
 
             while(IsReloading && currentAmmo < _currentWeaponData.magSize) {
                 // Play reload sound for each round (audio feedback)
-                if(playerController.IsOwner && _sfxRelay != null) {
-                    _sfxRelay.RequestWorldSfx(GetReloadSfxKey(), attachToSelf: true);
+                if(playerController.IsOwner && _audioRelay != null) {
+                    var soundId = _currentWeaponData != null ? _currentWeaponData.reloadSoundId : "";
+                    if(!string.IsNullOrWhiteSpace(soundId)) {
+                        _audioRelay.RequestPlayAttached(soundId, new NetworkObjectReference(playerController.NetworkObject),
+                            allowOverlap: false);
+                    }
                 }
 
                 yield return new WaitForSeconds(perRoundTime);
@@ -298,8 +303,11 @@ namespace Game.Weapons {
             }
 
             // Cancel reload sound when switching weapons or canceling reload
-            if(playerController.IsOwner && _sfxRelay != null) {
-                _sfxRelay.StopWorldSfx(GetReloadSfxKey());
+            if(playerController.IsOwner && _audioRelay != null) {
+                var soundId = _currentWeaponData != null ? _currentWeaponData.reloadSoundId : "";
+                if(!string.IsNullOrWhiteSpace(soundId)) {
+                    _audioRelay.RequestStop(soundId);
+                }
             }
 
             IsReloading = false;
@@ -870,31 +878,28 @@ namespace Game.Weapons {
 
             // Play trail sound immediately on spawn when bullet misses (no impact)
             // When hitting world or players, impact sounds are already played
-            if(!madeImpact && playerController != null && playerController.IsOwner && _sfxRelay != null) {
-                // Play at start position for immediate audio feedback
-                _sfxRelay.RequestWorldSfxAtPosition(SfxKey.BulletTrail, start, allowOverlap: true);
+            if(!madeImpact && playerController != null && playerController.IsOwner && _audioRelay != null) {
+                _audioRelay.RequestPlay("weapons.bullet.trail", start, allowOverlap: true);
             }
 
             StartCoroutine(SpawnTrail(trail, end, hitNormal, madeImpact, hitPlayer, hitPlayerRef));
         }
 
-        private SfxKey GetShootSfxKey() {
-            if(_currentWeaponData == null) return SfxKey.Shoot;
-            return _currentWeaponData.shootSfx;
-        }
-        private SfxKey GetReloadSfxKey() {
-            if(_currentWeaponData == null) return SfxKey.Reload;
-            return _currentWeaponData.reloadSfx;
-        }
-
         private void PlayFireSound() {
-            if(playerController.IsOwner)
-                _sfxRelay.RequestWorldSfx(GetShootSfxKey(), attachToSelf: true, true);
+            if(!playerController.IsOwner) return;
+            if(_audioRelay == null) return;
+
+            var soundId = _currentWeaponData != null ? _currentWeaponData.shootSoundId : "";
+            if(!string.IsNullOrWhiteSpace(soundId)) {
+                _audioRelay.RequestPlayAttached(soundId, new NetworkObjectReference(playerController.NetworkObject), allowOverlap: true);
+            }
         }
 
         private void PlayDryFireSound() {
-            if(playerController.IsOwner)
-                _sfxRelay.RequestWorldSfx(SfxKey.Dry, attachToSelf: true, true);
+            if(!playerController.IsOwner) return;
+            if(_audioRelay == null) return;
+            _audioRelay.RequestPlayAttached("weapons.bullet.dry",
+                new NetworkObjectReference(playerController.NetworkObject), allowOverlap: true);
         }
 
         private void PlayReloadEffects() {
@@ -904,8 +909,12 @@ namespace Game.Weapons {
 
             PlayReloadAnimationServerRpc();
 
-            if(playerController.IsOwner)
-                _sfxRelay.RequestWorldSfx(GetReloadSfxKey(), attachToSelf: true);
+            if(!playerController.IsOwner) return;
+            if(_audioRelay == null) return;
+            var soundId = _currentWeaponData != null ? _currentWeaponData.reloadSoundId : "";
+            if(!string.IsNullOrWhiteSpace(soundId)) {
+                _audioRelay.RequestPlayAttached(soundId, new NetworkObjectReference(playerController.NetworkObject), allowOverlap: false);
+            }
         }
 
         [Rpc(SendTo.Everyone)]
@@ -954,8 +963,8 @@ namespace Game.Weapons {
                 }
 
                 // Don't play bullet impact sound when hitting a player (hitmarker and hurt sounds handle this)
-                if(!hitPlayer && playerController.IsOwner && _sfxRelay != null) {
-                    _sfxRelay.RequestWorldSfxAtPosition(SfxKey.BulletImpact, hitPoint, allowOverlap: true);
+                if(!hitPlayer && playerController.IsOwner && _audioRelay != null) {
+                    _audioRelay.RequestPlay("weapons.bullet.impact", hitPoint, allowOverlap: true);
                 }
             }
 

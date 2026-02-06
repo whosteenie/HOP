@@ -1,6 +1,7 @@
 using Unity.Cinemachine;
 using Unity.Netcode;
 using UnityEngine;
+using Game.Settings;
 
 namespace Game.Player {
     /// <summary>
@@ -86,26 +87,14 @@ namespace Game.Player {
         }
 
         /// <summary>
-        /// Gets the look sensitivity from PlayerPrefs, with fallback to default value.
+        /// Gets the look sensitivity from settings.json.
         /// Handles invert Y setting.
         /// </summary>
         private Vector2 GetLookSensitivity() {
-            float sensitivityValue;
+            var s = GameSettings.Data.controls;
+            var sensitivityValue = s != null ? s.sensitivity : defaultLookSensitivity.x;
 
-            // Load single sensitivity value, defaulting to 0.1 if not set
-            // If old separate X/Y values exist, use X as the new unified value
-            if(PlayerPrefs.HasKey("Sensitivity")) {
-                sensitivityValue = PlayerPrefs.GetFloat("Sensitivity", defaultLookSensitivity.x);
-            } else if(PlayerPrefs.HasKey("SensitivityX")) {
-                sensitivityValue = PlayerPrefs.GetFloat("SensitivityX", defaultLookSensitivity.x);
-                // Migrate to new unified key
-                PlayerPrefs.SetFloat("Sensitivity", sensitivityValue);
-            } else {
-                sensitivityValue = defaultLookSensitivity.x;
-            }
-
-            // Apply invert Y multiplier
-            var invertY = PlayerPrefs.GetInt("InvertY", 0) == 1;
+            var invertY = s != null && s.invertY;
             var yMultiplier = invertY ? -1f : 1f;
 
             return new Vector2(sensitivityValue, sensitivityValue * yMultiplier);

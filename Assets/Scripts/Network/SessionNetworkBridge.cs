@@ -71,6 +71,5 @@ namespace Network {
                 // EventBus.Publish(new PlayersChangedEvent(...));
             }
         }
-
     }
 }

@@ -16,7 +16,7 @@ namespace Game.Player {
         private CinemachineCamera _fpCamera;
         private CharacterController _characterController;
         private PlayerTagController _tagController; // For checking if player is tagged in Gun Tag mode
-        private NetworkSfxRelay _sfxRelay;
+        private NetworkAudioRelay _audioRelay;
         private LayerMask _playerLayer;
         [SerializeField] private Transform grappleOriginTp;
 
@@ -128,8 +128,8 @@ namespace Game.Player {
                 _tagController = playerController.TagController;
             }
             
-            if(_sfxRelay == null) {
-                _sfxRelay = playerController.SfxRelay;
+            if(_audioRelay == null) {
+                _audioRelay = playerController.AudioRelay;
             }
 
             _playerLayer = playerController.PlayerLayer;
@@ -385,8 +385,9 @@ namespace Game.Player {
                 Debug.LogError("[GrappleController] Grapple started but grapple mesh is null!");
             }
 
-            if(_sfxRelay != null && IsOwner) {
-                _sfxRelay.RequestWorldSfx(SfxKey.Grapple, attachToSelf: true, true);
+            if(_audioRelay != null && IsOwner) {
+                _audioRelay.RequestPlayAttached("gameplay.grapple", new NetworkObjectReference(playerController.NetworkObject),
+                    allowOverlap: true);
             }
 
             // Publish grapple started event

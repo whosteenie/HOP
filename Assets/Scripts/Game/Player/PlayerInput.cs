@@ -8,6 +8,7 @@ using Network.Events;
 using Unity.Cinemachine;
 using Unity.Netcode;
 using UnityEngine;
+using Game.Settings;
 using UnityEngine.InputSystem;
 
 namespace Game.Player {
@@ -220,9 +221,20 @@ namespace Game.Player {
             var jumpPressed = jumpAction != null && jumpAction.IsPressed();
             var scrollPressed = false;
 
-            // Check PlayerPrefs for scroll bindings
-            var jumpBinding0 = PlayerPrefs.GetString("Keybind_jump_0", "");
-            var jumpBinding1 = PlayerPrefs.GetString("Keybind_jump_1", "");
+            // Check settings.json for scroll bindings
+            var jumpBinding0 = "";
+            var jumpBinding1 = "";
+            var binds = GameSettings.Data.keybinds;
+            if(binds != null && binds.entries != null) {
+                for(var i = 0; i < binds.entries.Count; i++) {
+                    var e = binds.entries[i];
+                    if(e == null) continue;
+                    if(e.name != "jump") continue;
+                    jumpBinding0 = e.binding0;
+                    jumpBinding1 = e.binding1;
+                    break;
+                }
+            }
 
             if(Mouse.current != null && Mouse.current.scroll.value.magnitude > 0f) {
                 var scrollDelta = Mouse.current.scroll.value;
@@ -243,7 +255,8 @@ namespace Game.Player {
 
             if(!IsPreMatchOrPausedOrDead && (jumpPressed || scrollPressed) && (MantleController != null && MantleController.CanJump)) {
                 // Check if hold-to-mantle is enabled
-                var holdMantleEnabled = PlayerPrefs.GetInt("HoldMantle", 1) == 1;
+                var controls = GameSettings.Data.controls;
+                var holdMantleEnabled = controls == null || controls.holdMantle;
 
                 // Prioritize Wall Jump over Mantle
                 var isWallRunning = playerController.WallRunController != null && playerController.WallRunController.IsWallRunning;
@@ -761,7 +774,9 @@ namespace Game.Player {
                 }
             }
             if(playZoomSound) {
-                EventBus.Publish(new PlayUISoundEvent(SfxKey.SniperZoom));
+                if(Game.Audio2.AudioService.Instance != null) {
+                    Game.Audio2.AudioService.Instance.Play("ui.sniper.zoom", Vector3.zero);
+                }
             }
             UpdateSniperSensitivityMultiplier();
         }

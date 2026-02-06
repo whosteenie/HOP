@@ -1016,7 +1016,6 @@ GameObject:
   - component: {fileID: 6677973669287716317}
   - component: {fileID: 7906322676815125306}
   - component: {fileID: -2503030706147355686}
-  - component: {fileID: 8737367002116917980}
   - component: {fileID: 450411123697177773}
   - component: {fileID: 5088684734431513618}
   - component: {fileID: 7417474499678138227}
@@ -1045,6 +1044,7 @@ GameObject:
   - component: {fileID: 194846676371062103}
   - component: {fileID: 5746307045948543407}
   - component: {fileID: -4102731384895396433}
+  - component: {fileID: 1488962690683598236}
   m_Layer: 0
   m_Name: Player
   m_TagString: Untagged
@@ -1240,20 +1240,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerDamageRelay
   ShowTopMostFoldoutHeaderGroup: 1
---- !u!114 &8737367002116917980
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2394102009201851988}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 126f55af9b13d514f9026ee96954efe7, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::NetworkSoundRelay
-  ShowTopMostFoldoutHeaderGroup: 1
-  playerController: {fileID: 5088684734431513618}
 --- !u!114 &450411123697177773
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1334,7 +1320,7 @@ MonoBehaviour:
   audioListener: {fileID: -935627131628127128}
   damageRelay: {fileID: -2503030706147355686}
   fxRelay: {fileID: 450411123697177773}
-  sfxRelay: {fileID: 8737367002116917980}
+  audioRelay: {fileID: 0}
   impulseSource: {fileID: 7184346531640925950}
   speedTrail: {fileID: 6772666014369885431}
   worldLayer:
@@ -1386,6 +1372,8 @@ MonoBehaviour:
     m_InternalValue: 0
   playerEmissionColor:
     m_InternalValue: {x: 0, y: 0, z: 0, w: 1}
+  steamId:
+    m_InternalValue: 0
   playerName:
     m_InternalValue:
       utf8LengthInBytes: 6
@@ -1462,6 +1450,8 @@ MonoBehaviour:
   primaryWeaponIndex:
     m_InternalValue: 0
   secondaryWeaponIndex:
+    m_InternalValue: 0
+  isPttActive:
     m_InternalValue: 0
 --- !u!114 &7417474499678138227
 MonoBehaviour:
@@ -2008,6 +1998,21 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 512
   wallRunAngleThreshold: 20
+  wallJumpCooldown: 0.35
+  minWallRunSpeed: 9
+--- !u!114 &1488962690683598236
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2394102009201851988}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e5dded686191b9643a82576b3bf9718c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Network.Rpc.NetworkAudioRelay
+  ShowTopMostFoldoutHeaderGroup: 1
 --- !u!1 &2420222979777933581
 GameObject:
   m_ObjectHideFlags: 0
@@ -6473,7 +6478,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::KevinIglesias.SpineProxy
   originalSpine: {fileID: 8296752615115954031}
-  playerRagdoll: {fileID: 2584550646514722606}
 --- !u!1 &8867018955883452921
 GameObject:
   m_ObjectHideFlags: 0

@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
+using Game.Settings;
 using Unity.Services.Authentication;
 using Unity.Services.Multiplayer;
 using UnityEngine;
@@ -12,12 +13,10 @@ namespace Network.Core {
     public sealed class PlayerIdentity : IPlayerIdentity {
         /// <inheritdoc />
         public async UniTask<Dictionary<string, PlayerProperty>> GetPlayerPropertiesAsync(string key) {
-            if(PlayerPrefs.HasKey("PlayerName")) {
-                var savedName = PlayerPrefs.GetString("PlayerName");
-                if(!string.IsNullOrWhiteSpace(savedName)) {
-                    return new Dictionary<string, PlayerProperty>
-                        { { key, new PlayerProperty(savedName, VisibilityPropertyOptions.Member) } };
-                }
+            var savedName = GameSettings.Data.player.playerName;
+            if(!string.IsNullOrWhiteSpace(savedName)) {
+                return new Dictionary<string, PlayerProperty>
+                    { { key, new PlayerProperty(savedName, VisibilityPropertyOptions.Member) } };
             }
 
             var playerName = "Player(?)";
@@ -27,10 +26,11 @@ namespace Network.Core {
                     playerName = AuthenticationService.Instance.PlayerName;
             } catch {
                 var pid = AuthenticationService.Instance.PlayerId;
-                if(pid != null) {
-                    var suffix = pid.Length >= 4 ? pid[^4..] : pid;
-                    playerName = $"Player({suffix})";
-                }
+                if(pid == null) return new Dictionary<string, PlayerProperty>
+                    { { key, new PlayerProperty(playerName, VisibilityPropertyOptions.Member) } };
+
+                var suffix = pid.Length >= 4 ? pid[^4..] : pid;
+                playerName = $"Player({suffix})";
             }
 
             return new Dictionary<string, PlayerProperty>

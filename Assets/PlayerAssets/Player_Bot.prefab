@@ -977,14 +977,14 @@ Light:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2203269224533039399}
   m_Enabled: 0
-  serializedVersion: 11
+  serializedVersion: 12
   m_Type: 2
   m_Color: {r: 1, g: 0.6392157, b: 0, a: 1}
   m_Intensity: 1
   m_Range: 10
   m_SpotAngle: 30
   m_InnerSpotAngle: 21.80208
-  m_CookieSize: 10
+  m_CookieSize2D: {x: 10, y: 10}
   m_Shadows:
     m_Type: 0
     m_Resolution: -1
@@ -1140,7 +1140,6 @@ GameObject:
   - component: {fileID: 6677973669287716317}
   - component: {fileID: 7906322676815125306}
   - component: {fileID: -2503030706147355686}
-  - component: {fileID: 8737367002116917980}
   - component: {fileID: 450411123697177773}
   - component: {fileID: 5088684734431513618}
   - component: {fileID: 7417474499678138227}
@@ -1174,6 +1173,7 @@ GameObject:
   - component: {fileID: 7568698214038087049}
   - component: {fileID: 3058426367663356388}
   - component: {fileID: -1945327057750869996}
+  - component: {fileID: 1488962690683598236}
   m_Layer: 0
   m_Name: Player_Bot
   m_TagString: Untagged
@@ -1372,20 +1372,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerDamageRelay
   ShowTopMostFoldoutHeaderGroup: 1
---- !u!114 &8737367002116917980
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2394102009201851988}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 126f55af9b13d514f9026ee96954efe7, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::NetworkSoundRelay
-  ShowTopMostFoldoutHeaderGroup: 1
-  playerController: {fileID: 5088684734431513618}
 --- !u!114 &450411123697177773
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1443,6 +1429,7 @@ MonoBehaviour:
   lookController: {fileID: 8792781456619740567}
   mantleController: {fileID: -7001426905214482494}
   grappleController: {fileID: 8382341124825033876}
+  wallRunController: {fileID: 0}
   statsController: {fileID: -4895690177907744954}
   healthController: {fileID: 3923420499004173512}
   animationController: {fileID: -6537445453348264315}
@@ -1465,7 +1452,7 @@ MonoBehaviour:
   audioListener: {fileID: -935627131628127128}
   damageRelay: {fileID: -2503030706147355686}
   fxRelay: {fileID: 450411123697177773}
-  sfxRelay: {fileID: 8737367002116917980}
+  audioRelay: {fileID: 0}
   impulseSource: {fileID: 7184346531640925950}
   speedTrail: {fileID: 6772666014369885431}
   worldLayer:
@@ -1517,6 +1504,8 @@ MonoBehaviour:
     m_InternalValue: 0
   playerEmissionColor:
     m_InternalValue: {x: 0, y: 0, z: 0, w: 1}
+  steamId:
+    m_InternalValue: 0
   playerName:
     m_InternalValue:
       utf8LengthInBytes: 6
@@ -1588,9 +1577,13 @@ MonoBehaviour:
         byte0061: 0
   netIsCrouching:
     m_InternalValue: 0
+  netIsSliding:
+    m_InternalValue: 0
   primaryWeaponIndex:
     m_InternalValue: 0
   secondaryWeaponIndex:
+    m_InternalValue: 0
+  isPttActive:
     m_InternalValue: 0
 --- !u!114 &7417474499678138227
 MonoBehaviour:
@@ -2000,6 +1993,8 @@ MonoBehaviour:
   playerController: {fileID: 5088684734431513618}
   netIsCrouching:
     m_InternalValue: 0
+  netIsSliding:
+    m_InternalValue: 0
 --- !u!114 &8792781456619740567
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2020,6 +2015,7 @@ MonoBehaviour:
   maxSpeedForFov: 30
   maxFov: 100
   fovSmoothTime: 0.12
+  tiltSmoothTime: 0.1
 --- !u!114 &3923420499004173512
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2234,6 +2230,19 @@ MonoBehaviour:
   rayMissColor: {r: 1, g: 1, b: 1, a: 1}
   m_StartVerticalOffset: 0.4
   m_EndVerticalOffset: 0
+--- !u!114 &1488962690683598236
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2394102009201851988}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e5dded686191b9643a82576b3bf9718c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Network.Rpc.NetworkAudioRelay
+  ShowTopMostFoldoutHeaderGroup: 1
 --- !u!1 &2420222979777933581
 GameObject:
   m_ObjectHideFlags: 0
@@ -2979,6 +2988,7 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!1 &3275018449593974115
 GameObject:
@@ -3072,6 +3082,7 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!1 &3275018449593974117
 GameObject:
@@ -3161,6 +3172,7 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!1 &3275018449593974119
 GameObject:
@@ -3250,6 +3262,7 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!1 &3365120580739727156
 GameObject:
@@ -3398,6 +3411,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::OwnerNetworkAnimator
   ShowTopMostFoldoutHeaderGroup: 1
+  NetworkAnimatorExpanded: 0
+  AuthorityMode: 0
+  m_Animator: {fileID: 7910596075621510296}
   TransitionStateInfoList:
   - IsCrossFadeExit: 0
     Layer: 0
@@ -3444,6 +3460,13 @@ MonoBehaviour:
   - IsCrossFadeExit: 0
     Layer: 0
     OriginatingState: 1233332330
+    DestinationState: 225072382
+    TransitionDuration: 0.25
+    TriggerNameHash: 113680519
+    TransitionIndex: 3
+  - IsCrossFadeExit: 0
+    Layer: 0
+    OriginatingState: -1288781466
     DestinationState: 225072382
     TransitionDuration: 0.25
     TriggerNameHash: 113680519
@@ -3504,7 +3527,77 @@ MonoBehaviour:
     TransitionDuration: 0.25
     TriggerNameHash: -1939766620
     TransitionIndex: 1
-  m_Animator: {fileID: 7910596075621510296}
+  AnimatorParameterEntries:
+    ParameterEntries:
+    - name: JumpTrigger
+      NameHash: 113680519
+      Synchronize: 1
+      ParameterType: 9
+    - name: LandTrigger
+      NameHash: 21645378
+      Synchronize: 1
+      ParameterType: 9
+    - name: IsSprinting
+      NameHash: -980523212
+      Synchronize: 1
+      ParameterType: 4
+    - name: IsCrouching
+      NameHash: -1154928320
+      Synchronize: 1
+      ParameterType: 4
+    - name: IsJumping
+      NameHash: 1749078233
+      Synchronize: 1
+      ParameterType: 4
+    - name: IsFalling
+      NameHash: 268975031
+      Synchronize: 1
+      ParameterType: 4
+    - name: IsGrounded
+      NameHash: 507951781
+      Synchronize: 1
+      ParameterType: 4
+    - name: IsSliding
+      NameHash: -1809564513
+      Synchronize: 1
+      ParameterType: 4
+    - name: moveX
+      NameHash: -377228942
+      Synchronize: 1
+      ParameterType: 1
+    - name: moveY
+      NameHash: -1635466780
+      Synchronize: 1
+      ParameterType: 1
+    - name: lookX
+      NameHash: 1503096243
+      Synchronize: 1
+      ParameterType: 1
+    - name: lookY
+      NameHash: 781212965
+      Synchronize: 1
+      ParameterType: 1
+    - name: Recoil
+      NameHash: 997579023
+      Synchronize: 1
+      ParameterType: 9
+    - name: Reload
+      NameHash: -1525363869
+      Synchronize: 1
+      ParameterType: 9
+    - name: DamageTrigger
+      NameHash: -1939766620
+      Synchronize: 1
+      ParameterType: 9
+    - name: WeaponIndex
+      NameHash: 571760438
+      Synchronize: 1
+      ParameterType: 3
+    - name: PullOut
+      NameHash: -1232958937
+      Synchronize: 1
+      ParameterType: 9
+  AnimatorParametersExpanded: 0
 --- !u!1 &3497374719588777612
 GameObject:
   m_ObjectHideFlags: 0
@@ -4374,6 +4467,7 @@ SkinnedMeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   serializedVersion: 2
   m_Quality: 0
   m_UpdateWhenOffscreen: 1
@@ -6676,7 +6770,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::KevinIglesias.SpineProxy
   originalSpine: {fileID: 8296752615115954031}
-  playerRagdoll: {fileID: 2584550646514722606}
 --- !u!1 &8867018955883452921
 GameObject:
   m_ObjectHideFlags: 0
@@ -7009,14 +7102,14 @@ Light:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 9095768817498021700}
   m_Enabled: 0
-  serializedVersion: 11
+  serializedVersion: 12
   m_Type: 2
   m_Color: {r: 1, g: 0.6390434, b: 0, a: 1}
   m_Intensity: 8
   m_Range: 1
   m_SpotAngle: 30
   m_InnerSpotAngle: 21.80208
-  m_CookieSize: 10
+  m_CookieSize2D: {x: 10, y: 10}
   m_Shadows:
     m_Type: 0
     m_Resolution: -1

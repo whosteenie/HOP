@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using Game.Progression;
 using Game.UI;
+using Game.Settings;
 using Network.Services;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -338,7 +339,7 @@ namespace Game.Menu {
 
             System.Action loadoutHandler = () => {
                 if(_nameInput != null) {
-                    _nameInput.value = PlayerPrefs.GetString("PlayerName");
+                    _nameInput.value = GameSettings.Data.player.playerName;
                 }
                 OnLoadoutClicked?.Invoke();
             };
