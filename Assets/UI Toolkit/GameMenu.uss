@@ -23,44 +23,75 @@
 #ammo-container { position: absolute; right: 30px; bottom: 30px; }
 
 /* Stat containers */
-.health-container, .multiplier-container {
-    flex-direction: row; align-items: center;
-    min-height: 56px; padding: 10px 16px;
-    border-radius: 4px; border-width: 1px;
-    background-color: rgba(12, 12, 18, 0.85);
+.multiplier-container {
+    flex-direction: row; 
+    align-items: center;
+    min-height: 56px; 
+    padding: 8px 16px;
+    background-color: rgba(12, 12, 18, 0.4);
+    border-top-width: 2px;
+    border-top-color: rgba(60, 150, 200, 0.6);
 }
 
-.ammo-container {
+.health-container, .ammo-container {
     flex-direction: row; 
     align-items: center;
     min-height: 84px; 
-    padding: 4px 24px;
-    border-top-width: 4px;
-    border-bottom-width: 4px;
-    border-top-color: rgb(200, 60, 60);
-    border-bottom-color: rgb(200, 60, 60);
+    padding: 4px 0;
 }
 
-.health-container {
-    border-color: rgba(200,60,60,0.4);
-    background-color: rgba(20, 10, 10, 0.85);
-}
-.multiplier-container {
-    border-color: rgba(60,150,200,0.4);
-    background-color: rgba(10, 15, 20, 0.85);
-}
+
 
 /* Bars */
-.health-bar, .multiplier-bar {
+.health-bar {
+    width: 260px; 
+    height: 32px;
+    min-height: 32px;
+    margin: 0;
+    margin-right: 20px;
+    padding: 0;
+    background-color: transparent;
+    border-width: 0;
+}
+
+.health-bar .unity-progress-bar__container {
+    background-color: transparent;
+    border-width: 0;
+    margin: 0;
+    padding: 0;
+    max-height: none;
+    min-height: 32px;
+    height: 32px;
+}
+
+.health-bar .unity-progress-bar__background {
+    background-color: rgba(0, 0, 0, 0.5);
+    border-width: 1px;
+    border-color: rgba(200, 60, 60, 0.8);
+    margin: 0;
+    padding: 0;
+    max-height: none;
+    min-height: 32px;
+    height: 32px;
+}
+
+.multiplier-bar {
     width: 180px; height: 22px; margin-right: 12px;
     border-radius: 4px; background-color: rgba(5, 5, 8, 0.8);
     border-width: 1px;
     border-color: rgba(200, 60, 60, 0.2);
 }
-.health-bar > .unity-progress-bar__progress { 
-    background-color: rgb(255, 100, 100);
-    background-image: none;
-    border-radius: 4px;
+.health-bar .unity-progress-bar__progress { 
+    background-color: rgb(200, 60, 60) !important;
+    background-image: none !important;
+    border-width: 0;
+    border-radius: 0;
+    margin: 0;
+    padding: 0;
+    height: 32px !important;
+    min-height: 32px !important;
+    border-top-width: 1px;
+    border-top-color: rgba(255, 255, 255, 0.2);
 }
 .multiplier-bar > .unity-progress-bar__progress { 
     background-color: rgb(60, 150, 200);
@@ -69,7 +100,18 @@
 }
 
 /* Values */
-.health-value, .multiplier-value {
+.health-value {
+    color: white; 
+    font-size: 44px; 
+    -unity-font-style: bold; 
+    min-width: 80px; 
+    margin: 0;
+    padding: 0;
+    -unity-text-align: middle-left;
+    text-shadow: 2px 2px 3px rgba(0, 0, 0, 1);
+}
+
+.multiplier-value {
     color: white; font-size: 22px; -unity-font-style: bold; min-width: 60px; -unity-text-align: middle-right;
 }
 .ammo-text {
