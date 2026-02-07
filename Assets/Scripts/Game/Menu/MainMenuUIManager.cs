@@ -44,7 +44,9 @@ namespace Game.Menu {
         // Challenges (Main Menu - Bottom Right)
         private VisualElement _mainMenuChallengesContainer;
         private VisualElement _dailyChallengesCard;
+        private Label _dailyTimerLabel;
         private VisualElement _weeklyChallengesCard;
+        private Label _weeklyTimerLabel;
         private readonly Color _progressBarColor = new(1f, 0.392f, 0.392f); // #ff6464
 
         // Buttons
@@ -728,14 +730,14 @@ namespace Game.Menu {
             }
 
             // Create Daily Challenges Card
-            _dailyChallengesCard = CreateChallengeCard("D A I L Y");
+            _dailyChallengesCard = CreateChallengeCard("D A I L Y", out _dailyTimerLabel);
             if(_dailyChallengesCard != null) {
                 _dailyChallengesCard.style.marginBottom = 10;
                 _mainMenuChallengesContainer.Add(_dailyChallengesCard);
             }
 
             // Create Weekly Challenges Card
-            _weeklyChallengesCard = CreateChallengeCard("W E E K L Y");
+            _weeklyChallengesCard = CreateChallengeCard("W E E K L Y", out _weeklyTimerLabel);
             if(_weeklyChallengesCard != null) {
                 _mainMenuChallengesContainer.Add(_weeklyChallengesCard);
             }
@@ -744,17 +746,27 @@ namespace Game.Menu {
             UpdateMainMenuChallenges();
         }
 
-        private VisualElement CreateChallengeCard(string title) {
+        private VisualElement CreateChallengeCard(string title, out Label timerLabel) {
             VisualElement card;
             Label titleLabel;
-            VisualElement separator;
+            VisualElement separatorContainer;
             VisualElement listContainer;
+            timerLabel = null;
 
             if(challengeCardTemplate != null) {
                 card = challengeCardTemplate.CloneTree();
                 titleLabel = card.Q<Label>("title-label");
-                separator = card.Q<VisualElement>("separator");
+                // Attempt to find timer label
+                timerLabel = card.Q<Label>("timer-label");
+                
+                if (timerLabel == null) {
+                    Debug.LogWarning($"[MainMenuUIManager] Timer label not found in template for {title}. Check ChallengeCard.uxml.");
+                } else {
+                    timerLabel.text = "--:--:--"; // Init
+                }
+
                 listContainer = card.Q<VisualElement>("challenge-list");
+
                 // Ensure list container exists
                 if(listContainer == null) {
                     listContainer = new VisualElement { name = "challenge-list" };
@@ -768,9 +780,24 @@ namespace Game.Menu {
                 titleLabel.AddToClassList("challenge-card-title");
                 card.Add(titleLabel);
                 
-                separator = new VisualElement();
-                separator.AddToClassList("challenge-card-separator");
-                card.Add(separator);
+                // Fallback for no template - Recreate structure manually
+                separatorContainer = new VisualElement();
+                separatorContainer.AddToClassList("challenge-card-separator-container");
+                
+                var line1 = new VisualElement();
+                line1.AddToClassList("challenge-card-separator-line");
+                separatorContainer.Add(line1);
+
+                timerLabel = new Label();
+                timerLabel.AddToClassList("challenge-card-timer");
+                timerLabel.text = "--:--:--";
+                separatorContainer.Add(timerLabel);
+                
+                var line2 = new VisualElement();
+                line2.AddToClassList("challenge-card-separator-line");
+                separatorContainer.Add(line2);
+
+                card.Add(separatorContainer);
                 
                 listContainer = new VisualElement { name = "challenge-list" };
                 listContainer.AddToClassList("challenge-list");
@@ -780,8 +807,35 @@ namespace Game.Menu {
             if(titleLabel != null) {
                 titleLabel.text = title;
             }
+            
+            // Ensure timer label is visible
+            if (timerLabel != null) {
+                timerLabel.style.display = DisplayStyle.Flex;
+            }
 
             return card;
+        }
+
+        private void Update() {
+            if (ProgressionManager.Instance == null) return;
+
+            if (_dailyTimerLabel != null) {
+                var time = ProgressionManager.Instance.GetTimeUntilDailyReset();
+                _dailyTimerLabel.text = $"{time.Hours:D2}:{time.Minutes:D2}:{time.Seconds:D2}";
+                // Daily is always short format
+                _dailyTimerLabel.RemoveFromClassList("challenge-card-timer--long");
+            }
+
+            if (_weeklyTimerLabel != null) {
+                var time = ProgressionManager.Instance.GetTimeUntilWeeklyReset();
+                if (time.TotalDays >= 1) {
+                    _weeklyTimerLabel.text = $"{(int)time.TotalDays} days remaining";
+                    _weeklyTimerLabel.AddToClassList("challenge-card-timer--long");
+                } else {
+                    _weeklyTimerLabel.text = $"{((int)time.TotalHours):D2}:{time.Minutes:D2}:{time.Seconds:D2}";
+                    _weeklyTimerLabel.RemoveFromClassList("challenge-card-timer--long");
+                }
+            }
         }
 
         private void UpdateMainMenuChallenges() {

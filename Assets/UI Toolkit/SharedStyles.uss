@@ -649,10 +649,31 @@ ScrollView .unity-scroll-view__horizontal-scrollbars,
     -unity-text-align: middle-center;
 }
 
-.challenge-card-separator {
+.challenge-card-separator-container {
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 12px !important;
+}
+
+.challenge-card-separator-line {
+    flex-grow: 1;
     height: 1px;
-    background-color: rgba(200, 60, 60, 0.5) !important;
-    margin-bottom: 16px !important;
+    background-color: rgba(200, 60, 60, 0.5);
+}
+
+.challenge-card-timer {
+    margin-left: 12px;
+    margin-right: 12px;
+    font-size: 14px;
+    color: rgba(200, 60, 60, 1);
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+    width: 86px; /* Default width for HH:MM:SS */
+}
+
+.challenge-card-timer--long {
+    width: 148px; /* Width for "XX days remaining" */
 }
 
 .challenge-list {

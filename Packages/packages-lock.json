@@ -250,7 +250,7 @@
       "url": "https://packages.unity.com"
     },
     "com.unity.memoryprofiler": {
-      "version": "1.1.10",
+      "version": "1.1.11",
       "depth": 0,
       "source": "registry",
       "dependencies": {
@@ -317,7 +317,7 @@
       "url": "https://packages.unity.com"
     },
     "com.unity.netcode.gameobjects": {
-      "version": "2.8.0",
+      "version": "2.9.1",
       "depth": 0,
       "source": "registry",
       "dependencies": {

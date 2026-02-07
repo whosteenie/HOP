@@ -368,6 +368,26 @@ namespace Game.Progression {
              }
         }
 
+        public TimeSpan GetTimeUntilDailyReset() {
+             if (Data == null || string.IsNullOrEmpty(Data.lastDailyReset)) return TimeSpan.Zero;
+             if (DateTime.TryParse(Data.lastDailyReset, out DateTime lastReset)) {
+                 var nextReset = lastReset.AddDays(1);
+                 var remaining = nextReset - DateTime.Now;
+                 return remaining > TimeSpan.Zero ? remaining : TimeSpan.Zero;
+             }
+             return TimeSpan.Zero;
+        }
+
+        public TimeSpan GetTimeUntilWeeklyReset() {
+             if (Data == null || string.IsNullOrEmpty(Data.lastWeeklyReset)) return TimeSpan.Zero;
+             if (DateTime.TryParse(Data.lastWeeklyReset, out DateTime lastReset)) {
+                 var nextReset = lastReset.AddDays(7);
+                 var remaining = nextReset - DateTime.Now;
+                 return remaining > TimeSpan.Zero ? remaining : TimeSpan.Zero;
+             }
+             return TimeSpan.Zero;
+        }
+
         // Available gamemodes for dynamic "play_matches_of" challenges
         private static readonly string[] AvailableGamemodes = {
             "Deathmatch", "TeamDeathmatch", "Hopball", "KingOfTheHill", "GunTag"

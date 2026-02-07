@@ -2,7 +2,11 @@
     <Style src="project://database/Assets/UI%20Toolkit/SharedStyles.uss?fileID=7433441132597879392&amp;guid=94b07ae9f6dfe3447bec848c3f2b4d36&amp;type=3#SharedStyles" />
     <ui:VisualElement name="challenge-card-root" class="challenge-card">
         <ui:Label name="title-label" class="challenge-card-title" text="D A I L Y" />
-        <ui:VisualElement name="separator" class="challenge-card-separator" />
+        <ui:VisualElement name="separator-container" class="challenge-card-separator-container">
+            <ui:VisualElement class="challenge-card-separator-line" />
+            <ui:Label name="timer-label" class="challenge-card-timer" text="00:00:00" />
+            <ui:VisualElement class="challenge-card-separator-line" />
+        </ui:VisualElement>
         <ui:VisualElement name="challenge-list" class="challenge-list" />
     </ui:VisualElement>
 </ui:UXML>
