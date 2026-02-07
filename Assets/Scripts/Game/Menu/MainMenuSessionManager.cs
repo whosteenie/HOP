@@ -623,9 +623,9 @@ namespace Game.Menu {
         /// <summary>
         /// Creates and styles a single player row in the party UI.
         /// </summary>
-        private UniTask CreatePlayerRow(string playerName, SteamId id, string iconId, bool isLocal,
+        private async UniTask CreatePlayerRow(string playerName, SteamId id, string iconId, bool isLocal,
             VisualElement targetContainer, bool isHost = false, bool isPartyMember = false, bool hideAvatar = false) {
-            if(targetContainer == null) return UniTask.CompletedTask;
+            if(targetContainer == null) return;
 
             if(uiManager != null && uiManager.PartyMemberTemplate != null) {
                 var instance = uiManager.PartyMemberTemplate.Instantiate();
@@ -672,20 +672,51 @@ namespace Game.Menu {
 
                 nameLabel.text = playerName;
 
-                // Use classic player icon system (closest base color). Streamer mode/offline forces a neutral icon.
-                avatarBox.style.backgroundImage = StyleKeyword.Null;
-                avatarBox.RemoveFromClassList("default-avatar");
-                avatarBox.RemoveFromClassList("player-icon-red");
-                avatarBox.RemoveFromClassList("player-icon-orange");
-                avatarBox.RemoveFromClassList("player-icon-yellow");
-                avatarBox.RemoveFromClassList("player-icon-green");
-                avatarBox.RemoveFromClassList("player-icon-blue");
-                avatarBox.RemoveFromClassList("player-icon-purple");
-                avatarBox.RemoveFromClassList("player-icon-white");
+                void ApplyIconFallback() {
+                    // Only use fallback icon when Steam isn't available or fetching failed.
+                    avatarBox.style.backgroundImage = StyleKeyword.Null;
+                    avatarBox.RemoveFromClassList("steam-avatar-flip");
 
-                var resolved = hideAvatar ? Game.Social.PlayerIconPicker.White : iconId;
-                if(string.IsNullOrEmpty(resolved)) resolved = Game.Social.PlayerIconPicker.White;
-                avatarBox.AddToClassList("player-icon-" + resolved);
+                    avatarBox.RemoveFromClassList("default-avatar");
+                    avatarBox.RemoveFromClassList("player-icon-red");
+                    avatarBox.RemoveFromClassList("player-icon-orange");
+                    avatarBox.RemoveFromClassList("player-icon-yellow");
+                    avatarBox.RemoveFromClassList("player-icon-green");
+                    avatarBox.RemoveFromClassList("player-icon-blue");
+                    avatarBox.RemoveFromClassList("player-icon-purple");
+                    avatarBox.RemoveFromClassList("player-icon-white");
+
+                    var resolved = hideAvatar ? Game.Social.PlayerIconPicker.White : iconId;
+                    if(string.IsNullOrEmpty(resolved)) resolved = Game.Social.PlayerIconPicker.White;
+                    avatarBox.AddToClassList("player-icon-" + resolved);
+                }
+
+                // Prefer Steam avatar when online; fallback only when Steam can't be reached or avatar fetch fails.
+                var steamOnline = SteamClient.IsValid && SteamClient.IsLoggedOn;
+                if(!steamOnline || hideAvatar || id.Value == 0) {
+                    ApplyIconFallback();
+                } else {
+                    // Clear icon classes before setting background image.
+                    avatarBox.RemoveFromClassList("steam-avatar-flip");
+                    avatarBox.RemoveFromClassList("default-avatar");
+                    avatarBox.RemoveFromClassList("player-icon-red");
+                    avatarBox.RemoveFromClassList("player-icon-orange");
+                    avatarBox.RemoveFromClassList("player-icon-yellow");
+                    avatarBox.RemoveFromClassList("player-icon-green");
+                    avatarBox.RemoveFromClassList("player-icon-blue");
+                    avatarBox.RemoveFromClassList("player-icon-purple");
+                    avatarBox.RemoveFromClassList("player-icon-white");
+
+                    var avatarTex = await SteamManager.Instance.GetAvatarAsync(id);
+                    if(avatarTex != null) {
+                        avatarBox.style.backgroundImage = new StyleBackground(avatarTex);
+                        if(!avatarBox.ClassListContains("steam-avatar-flip")) {
+                            avatarBox.AddToClassList("steam-avatar-flip");
+                        }
+                    } else {
+                        ApplyIconFallback();
+                    }
+                }
 
                 row.RegisterCallback<PointerDownEvent>(evt => {
                     if(evt.button != 1) return;
@@ -697,8 +728,6 @@ namespace Game.Menu {
             } else {
                 Debug.LogError("[MainMenuSessionManager] PartyMemberTemplate is missing in UIManager!");
             }
-
-            return UniTask.CompletedTask;
         }
 
 

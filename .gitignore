@@ -344,3 +344,7 @@ steam_appid.txt
 # Hot Reload (Development tool)
 /Packages/com.singularitygroup.hotreload/
 /Packages/com.singularitygroup.hotreload.meta
+
+# Unity Multiplayer Center onboarding
+/Assets/UserChoices.choices
+/Assets/UserChoices.choices.meta

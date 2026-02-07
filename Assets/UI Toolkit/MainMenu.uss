@@ -1337,6 +1337,10 @@
     margin-right: 12px;
 }
 
+.steam-avatar.steam-avatar-flip {
+    scale: 1 -1;
+}
+
 .steam-avatar.default-avatar {
     background-image: url('project://database/Assets/UI%20Toolkit/Images/default-avatar.jpg');
     -unity-background-scale-mode: scale-to-fit;

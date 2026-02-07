@@ -40,7 +40,7 @@
             <ui:Button name="card-deathmatch" class="gamemode-card">
                 <ui:VisualElement class="gamemode-card-image dm-image"/>
                 <ui:Label text="Deathmatch" class="gamemode-card-title"/>
-                <ui:Label text="Free-for-all combat. First to reaching the score limit wins." class="gamemode-card-desc"/>
+                <ui:Label text="Free-for-all combat. First to reach the score limit wins." class="gamemode-card-desc"/>
             </ui:Button>
             <ui:Button name="card-team-deathmatch" class="gamemode-card">
                 <ui:VisualElement class="gamemode-card-image tdm-image"/>
@@ -50,7 +50,7 @@
             <ui:Button name="card-hopball" class="gamemode-card">
                 <ui:VisualElement class="gamemode-card-image hopball-image"/>
                 <ui:Label text="Hopball" class="gamemode-card-title"/>
-                <ui:Label text="Score goals while avoiding being tagged. High-speed sport." class="gamemode-card-desc"/>
+                <ui:Label text="Race for the Hopball. Hold it to drain energy and score - then run for your life." class="gamemode-card-desc"/>
             </ui:Button>
             <ui:Button name="card-koth" class="gamemode-card">
                 <ui:VisualElement class="gamemode-card-image koth-image"/>
