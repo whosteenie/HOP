@@ -475,11 +475,10 @@
     </ui:VisualElement>
     <ui:VisualElement name="status-container" picking-mode="Ignore" class="status-container hidden">
         <ui:VisualElement name="status-info" picking-mode="Ignore" class="status-info-grouping">
-            <ui:Label text="Searching for match..." name="matchmaking-status-label" picking-mode="Ignore" class="status-label"/>
             <ui:VisualElement name="queue-details" picking-mode="Ignore" class="queue-details-row">
-                <ui:Label text="Deathmatch" name="queue-gamemode-label" picking-mode="Ignore" class="queue-info-label"/>
+                <ui:Label text="Deathmatch" name="queue-gamemode-label" picking-mode="Ignore" class="queue-info-label queue-gamemode"/>
                 <ui:Label text="|" picking-mode="Ignore" class="queue-info-separator"/>
-                <ui:Label text="00:00" name="queue-timer-label" picking-mode="Ignore" class="queue-info-label"/>
+                <ui:Label text="00:00" name="queue-timer-label" picking-mode="Ignore" class="queue-info-label queue-timer"/>
             </ui:VisualElement>
         </ui:VisualElement>
         <ui:Button text="Cancel" name="cancel-matchmaking-button" picking-mode="Position" class="menu-chip cancel-button"/>
