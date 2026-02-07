@@ -49,7 +49,18 @@ namespace Network {
 
         // ===== State =====
         public Lobby? CurrentLobby { get; private set; }
-        private SessionPhase Phase { get; set; }
+        private SessionPhase _phase;
+        private float _phaseStartTime;
+        private SessionPhase Phase {
+            get => _phase;
+            set {
+                if (_phase != value) {
+                    _phase = value;
+                    _phaseStartTime = Time.time;
+                    if (Debug.isDebugBuild) Debug.Log($"[SessionManager] Phase -> {value}");
+                }
+            }
+        }
         public bool IsInGameplay { get; private set; }
         public string SelectedGameMode { get; private set; } = "Deathmatch";
 
@@ -902,10 +913,15 @@ namespace Network {
 
             if(currentScene != "MainMenu") {
                 SceneManager.LoadScene("MainMenu");
+                
+                // Allow scene load to finish and refresh UI before fading in
+                await UniTask.Yield();
             }
 
-            if(shouldFade && SceneTransitionManager.Instance != null)
-                await SceneTransitionManager.Instance.FadeIn().ToUniTask();
+            // Recovery: Ensure the screen fades back in if we were stuck in a black screen phase
+            if(SceneTransitionManager.Instance != null) {
+                await SceneTransitionManager.Instance.FadeInAsync();
+            }
 
             if(currentScene != "MainMenu") {
                 if(IsPartyLeader) {
@@ -1087,6 +1103,15 @@ namespace Network {
         private void Update() {
             if(_ugsPartyLobby == null && _ugsMatchLobby == null) return;
 
+            // Global Watchdog: If we are stuck in a black screen phase too long, abort.
+            if (Phase == SessionPhase.SynchronizingLoad) {
+                if (Time.time - _phaseStartTime > 30f) {
+                    Debug.LogError("[SessionManager] Stuck in SynchronizingLoad for >30s. Aborting to menu...");
+                    LeaveToMainMenuAsync().Forget();
+                    return;
+                }
+            }
+
             if(Time.unscaledTime >= _nextUgsHeartbeatTime) {
                 _nextUgsHeartbeatTime = Time.unscaledTime + UgsHeartbeatIntervalSeconds;
                 SendUgsHeartbeatsAsync().Forget();
@@ -1235,15 +1260,31 @@ namespace Network {
             await HandleUgsMatchSynchronizationStartAsync();
 
             // Host waits until all expected party members are ready (or are not present).
+            var syncStartTime = Time.time;
+            const float syncTimeout = 20f;
             while(true) {
-                var refreshed = await LobbyService.Instance.GetLobbyAsync(_ugsMatchLobby.Id);
-                if(refreshed != null) _ugsMatchLobby = refreshed;
-
-                if(AreAllExpectedPlayersReady(_ugsMatchLobby, expectedPlayers)) {
-                    break;
+                if(Time.time - syncStartTime > syncTimeout) {
+                    Debug.LogWarning("[SessionManager] Private match sync timed out! Aborting to menu...");
+                    LeaveToMainMenuAsync().Forget();
+                    return;
                 }
 
-                await UniTask.Delay(250);
+                try {
+                    var refreshed = await LobbyService.Instance.GetLobbyAsync(_ugsMatchLobby.Id);
+                    if(refreshed != null) _ugsMatchLobby = refreshed;
+
+                    if(AreAllExpectedPlayersReady(_ugsMatchLobby, expectedPlayers)) {
+                        break;
+                    }
+                } catch(LobbyServiceException ex) when (ex.Reason == LobbyExceptionReason.RateLimited) {
+                    Debug.LogWarning("[SessionManager] Rate limited during sync. Retrying...");
+                } catch(Exception ex) {
+                    Debug.LogError($"[SessionManager] Error during sync: {ex.Message}. Aborting...");
+                    LeaveToMainMenuAsync().Forget();
+                    return;
+                }
+
+                await UniTask.Delay(500);
             }
 
             // Signal clients to connect.
@@ -1389,8 +1430,11 @@ namespace Network {
 
                 _ugsMatchLobby = await LobbyService.Instance.UpdatePlayerAsync(_ugsMatchLobby.Id, localUgsId, opts);
                 _ugsLocalReadySubmitted = true;
-            } catch {
-                // If the update fails transiently, we'll retry next poll tick.
+            } catch(LobbyServiceException ex) when (ex.Reason == LobbyExceptionReason.RateLimited) {
+                Debug.LogWarning("[SessionManager] Rate limited updating ready state. Polling will retry.");
+            } catch(Exception ex) {
+                Debug.LogError($"[SessionManager] Failed to update ready state: {ex.Message}. Aborting to menu...");
+                LeaveToMainMenuAsync().Forget();
             } finally {
                 _ugsSyncInProgress = false;
             }
@@ -1881,15 +1925,23 @@ namespace Network {
 
             // Poll lobby query until the host publishes the match lobby.
             for(var i = 0; i < 30; i++) {
-                var lobby = await QueryMatchLobbyByMatchIdAsync(matchId);
-                if(lobby != null) {
-                    await JoinUgsMatchLobbyByIdAsync(lobby.Id);
-                    return;
+                try {
+                    var lobby = await QueryMatchLobbyByMatchIdAsync(matchId);
+                    if(lobby != null) {
+                        await JoinUgsMatchLobbyByIdAsync(lobby.Id);
+                        return;
+                    }
+                } catch(LobbyServiceException ex) when (ex.Reason == LobbyExceptionReason.RateLimited) {
+                    Debug.LogWarning("[SessionManager] Rate limited querying match. Retrying...");
+                } catch(Exception ex) {
+                    Debug.LogError($"[SessionManager] Terminal error querying match: {ex.Message}. Aborting...");
+                    break;
                 }
                 await UniTask.Delay(1000);
             }
 
-            Debug.LogError("[SessionManager] Timed out waiting for match lobby.");
+            Debug.LogError("[SessionManager] Timed out or failed waiting for match lobby. Returning to menu...");
+            LeaveToMainMenuAsync().Forget();
         }
 
         private async UniTask<Unity.Services.Lobbies.Models.Lobby> QueryMatchLobbyByMatchIdAsync(string matchId) {
