@@ -505,13 +505,14 @@ namespace Game.Menu {
         private void ShowOptions() {
             if(_cachedSceneName != "Game") return;
             optionsMenuManager?.LoadSettings();
-            optionsMenuManager?.OnOptionsPanelShown();
             _pauseMenuPanel.AddToClassList("hidden");
             // Hide challenges when showing options
             if(_pauseChallengesContainer != null) {
                 _pauseChallengesContainer.AddToClassList("hidden");
             }
             _optionsPanel.RemoveFromClassList("hidden");
+            // Call after panel is visible to ensure repaint works
+            optionsMenuManager?.OnOptionsPanelShown();
         }
 
         private void HideOptions() {
