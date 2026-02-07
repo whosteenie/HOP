@@ -15,7 +15,6 @@ namespace Network.Events {
         private void Awake() {
             if(logSettings != null) {
                 EventBus.SetLogSettings(logSettings);
-                Debug.Log($"[EventBusLogSettingsInitializer] EventBus log settings initialized from '{logSettings.name}'");
             } else {
                 Debug.LogWarning("[EventBusLogSettingsInitializer] No log settings assigned. EventBus will log all events by default.");
             }

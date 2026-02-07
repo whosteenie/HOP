@@ -312,7 +312,6 @@ namespace Network.Events {
         public static void SetLogSettings(EventBusLogSettings settings) {
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
             logSettings = settings;
-            Debug.Log($"[EventBus] Log settings {(settings != null ? "assigned" : "cleared")}.");
 #else
             // In non-dev builds, settings are ignored but method exists to prevent compilation errors
 #endif
