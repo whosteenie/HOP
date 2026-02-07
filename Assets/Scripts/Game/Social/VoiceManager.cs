@@ -18,6 +18,8 @@ namespace Game.Social {
         private bool _isMicOpen;
         private bool _isPttActive;
         private string _currentChannelName;
+        private bool _isJoiningChannel;
+        private string _joiningChannelName;
         private readonly Dictionary<string, Action> _participantSpeechActions = new();
         
         // Events
@@ -111,15 +113,39 @@ namespace Game.Social {
                 Debug.LogWarning("[VoiceManager] JoinChannelAsync called before login!");
                 return;
             }
-            
-            // Leave old channel if needed
-            if(!string.IsNullOrEmpty(_currentChannelName)) {
-                Debug.Log($"[VoiceManager] Leaving old channel '{_currentChannelName}' before joining '{channelName}'");
-                await VivoxService.Instance.LeaveChannelAsync(_currentChannelName);
+
+            if(string.IsNullOrEmpty(channelName)) {
+                return;
             }
 
+            if(_isJoiningChannel) {
+                // Avoid concurrent join/leave races which can produce Vivox errors (e.g. ether channel limit).
+                if(_joiningChannelName == channelName) {
+                    return;
+                }
+                return;
+            }
+
+            if(!string.IsNullOrEmpty(_currentChannelName)) {
+                if(_currentChannelName == channelName) {
+                    if(VivoxService.Instance != null && VivoxService.Instance.ActiveChannels.ContainsKey(_currentChannelName)) {
+                        return;
+                    }
+                }
+            }
+
+            _isJoiningChannel = true;
+            _joiningChannelName = channelName;
+            
             try {
-                _currentChannelName = channelName;
+                // Leave old channel if needed (only if we are actually in it).
+                if(!string.IsNullOrEmpty(_currentChannelName)) {
+                    if(VivoxService.Instance != null && VivoxService.Instance.ActiveChannels.ContainsKey(_currentChannelName)) {
+                        Debug.Log($"[VoiceManager] Leaving old channel '{_currentChannelName}' before joining '{channelName}'");
+                        await VivoxService.Instance.LeaveChannelAsync(_currentChannelName);
+                    }
+                    _currentChannelName = null;
+                }
                 
                 if (positional) {
                     // 3D Positional Channel
@@ -131,16 +157,26 @@ namespace Game.Social {
                     Debug.Log($"[VoiceManager] Joining group channel: {channelName}");
                     await VivoxService.Instance.JoinGroupChannelAsync(channelName, ChatCapability.AudioOnly);
                 }
+
+                _currentChannelName = channelName;
                 
                 Debug.Log($"[VoiceManager] Successfully joined channel: {channelName}. ActiveChannels Count: {VivoxService.Instance.ActiveChannels.Count}");
 
             } catch (Exception e) {
                 Debug.LogError($"[VoiceManager] Join Channel Failed: {e.Message}");
+            } finally {
+                _isJoiningChannel = false;
+                _joiningChannelName = null;
             }
         }
         
         public async Task LeaveChannelAsync() {
              if(!IsLoggedIn || string.IsNullOrEmpty(_currentChannelName)) return;
+             if(VivoxService.Instance == null) return;
+             if(!VivoxService.Instance.ActiveChannels.ContainsKey(_currentChannelName)) {
+                 _currentChannelName = null;
+                 return;
+             }
              Debug.Log($"[VoiceManager] Leaving channel: {_currentChannelName}");
              await VivoxService.Instance.LeaveChannelAsync(_currentChannelName);
              _currentChannelName = null;
