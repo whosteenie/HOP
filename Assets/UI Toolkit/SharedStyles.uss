@@ -392,20 +392,44 @@
 }
 
 /* ===== SCROLLBAR STYLING ===== */
-/* Hide scrollbar arrows (up/down buttons) - using correct Unity class names */
+/* Hide scrollbar arrows (up/down buttons) */
 .unity-scroller__low-button,
-.unity-scroller__high-button,
-ScrollView .unity-scroller__low-button,
-ScrollView .unity-scroller__high-button {
+.unity-scroller__high-button {
     display: none;
-    width: 0;
-    height: 0;
-    min-width: 0;
-    min-height: 0;
-    max-width: 0;
-    max-height: 0;
+    width: 0; height: 0;
     visibility: hidden;
 }
+
+/* Global Thin Vertical Scroller */
+.unity-scroller--vertical,
+.unity-scroll-view__vertical-scroller,
+.unity-scroll-view__vertical-scrollbars {
+    width: 6px;
+    margin: 0;
+    padding: 0;
+    height: 100%;
+}
+
+.unity-scroller--vertical .unity-scroller__slider {
+    margin: 0;
+    width: 6px;
+    min-width: 6px;
+}
+
+.unity-scroller--vertical .unity-base-slider__tracker {
+    background-color: rgba(255, 255, 255, 0.05);
+    border-width: 0;
+}
+
+.unity-scroller--vertical .unity-base-slider__dragger {
+    background-color: rgb(255, 100, 100);
+    border-radius: 3px;
+    width: 6px;
+    left: 0;
+    border-width: 0;
+    -unity-background-image-tint-color: rgba(0,0,0,0);
+}
+
 
 /* Add margin-right to content to create space between content and scrollbar */
 .options-content {
@@ -599,7 +623,117 @@ ScrollView .unity-scroll-view__horizontal-scrollbars,
     -unity-background-image-tint-color: transparent;
 }
 
+/* ===== CHALLENGE CARDS ===== */
+.challenge-card {
+    width: 320px;
+    min-height: 200px;
+    background-color: rgba(12, 12, 18, 0.9);
+    border-width: 1px;
+    border-color: rgba(200, 60, 60, 0.4);
+    padding-top: 12px;
+    padding-bottom: 4px;
+    padding-left: 20px;
+    padding-right: 20px;
+    border-top-left-radius: 4px;
+    border-top-right-radius: 4px;
+    border-bottom-left-radius: 4px;
+    border-bottom-right-radius: 4px;
+}
 
+.challenge-card-title {
+    font-size: 38px !important;
+    -unity-font-style: bold;
+    color: rgb(255, 255, 255);
+    margin-top: 4px !important;
+    margin-bottom: 12px !important;
+    -unity-text-align: middle-center;
+}
+
+.challenge-card-separator {
+    height: 1px;
+    background-color: rgba(200, 60, 60, 0.5) !important;
+    margin-bottom: 16px !important;
+}
+
+.challenge-list {
+    flex-direction: column;
+}
+
+.challenge-row {
+    margin-bottom: 12px !important;
+}
+
+.challenge-title-row {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 6px !important;
+}
+
+.challenge-description {
+    font-size: 13px !important;
+    color: rgba(240, 240, 240, 1) !important;
+    white-space: normal;
+    flex-shrink: 1;
+    flex-grow: 0;
+    max-width: 220px;
+}
+
+.challenge-xp {
+    font-size: 13px !important;
+    -unity-font-style: bold;
+    color: rgb(100, 200, 100) !important;
+    margin-left: 8px;
+    flex-shrink: 0;
+    min-width: 50px;
+    -unity-text-align: middle-right;
+}
+
+.challenge-progress-bar {
+    height: 2px !important;
+    min-height: 2px !important;
+    max-height: 2px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    margin-top: 10px !important;
+    background-color: transparent !important;
+    border-width: 0 !important;
+}
+
+.challenge-progress-bar .unity-progress-bar__container {
+    height: 2px !important;
+    min-height: 2px !important;
+    max-height: 2px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background-color: transparent !important;
+}
+
+.challenge-progress-bar .unity-progress-bar__background {
+    height: 2px !important;
+    min-height: 2px !important;
+    max-height: 2px !important;
+    background-color: rgba(255, 255, 255, 0.15) !important;
+    border-width: 0 !important;
+    border-radius: 1px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+.challenge-progress-bar .unity-progress-bar__progress {
+    height: 2px !important;
+    min-height: 2px !important;
+    max-height: 2px !important;
+    background-color: rgb(255, 80, 80) !important;
+    border-radius: 1px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+.challenge-progress-bar .unity-progress-bar__title-container {
+    display: none !important;
+    height: 0 !important;
+}
 /* Remove inner borders from dropdown input */
 .unity-base-dropdown__input {
     background-color: transparent;
@@ -947,17 +1081,12 @@ ScrollView .unity-scroll-view__horizontal-scrollbars,
     visibility: hidden;
 }
 
-/* Scrollbar track styling - make border reach top and bottom */
-.options-content-scroll .unity-scroll-view__vertical-scrollbars,
+/* Options content specific scrollbar tweaks */
 .options-content-scroll .unity-scroll-view__vertical-scroller {
-    /* Ensure track reaches full height */
+    margin-top: 0;
+    margin-bottom: 0;
 }
 
-/* Scrollbar thumb (draggable bar) - uniform padding */
-.options-content-scroll .unity-scroller__slider,
-.options-content-scroll .unity-scroller__vertical-slider {
-    margin: 4px;
-}
 
 .options-content {
     flex-direction: column;

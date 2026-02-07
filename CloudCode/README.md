@@ -24,7 +24,7 @@ In the Unity Dashboard (UGS):
 - **Enable Cloud Code**
   - Create a Cloud Code **Script** named **`VivoxToken`**
   - Paste the contents of `CloudCode/VivoxToken.js` into it.
-  - Configure environment variables (per environment):
+  - Configure **Secret Manager** secrets (per environment):
     - `VIVOX_ISSUER`: your Vivox token issuer (title id)
     - `VIVOX_TOKEN_KEY`: your Vivox signing key (secret)
 

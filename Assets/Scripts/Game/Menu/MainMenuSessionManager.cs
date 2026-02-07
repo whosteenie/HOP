@@ -229,7 +229,13 @@ namespace Game.Menu {
             if(uiManager == null) return;
             uiManager.OnCancelMatchmakingClicked = () => {
                 UISoundService.PlayButtonClick(isBack: true);
-                SessionManager.Instance.CancelMatchmaking();
+                if(SessionManager.Instance != null) {
+                    if(SessionManager.Instance.UseUgsBackend) {
+                        SessionManager.Instance.CancelUgsMatchmaking();
+                    } else {
+                        SessionManager.Instance.CancelMatchmaking();
+                    }
+                }
             };
 
             // Listen to context menu interactions on the root to avoid late initialization issues
@@ -459,8 +465,8 @@ namespace Game.Menu {
         }
 
         public void ResetLobbyUI() {
-            _partyMembersList?.Clear();
-            _localProfileContainer?.Clear();
+            if(_partyMembersList != null) _partyMembersList.Clear();
+            if(_localProfileContainer != null) _localProfileContainer.Clear();
             _lastLobbyId = 0;
             _lastMemberCount = 0;
             _hasDrawnSolo = false;
@@ -471,6 +477,19 @@ namespace Game.Menu {
         public async UniTask HandlePrivateMatchSelection(string mode) {
             // Request SessionManager to start the synchronized load
             if(SessionManager.Instance != null) {
+                if(SessionManager.Instance.UseUgsBackend) {
+                    var matchSettings = Game.Match.MatchSettingsManager.Instance;
+                    var maxPlayers = 10;
+                    if(matchSettings != null) {
+                        var def = matchSettings.GetGamemodeDef(mode);
+                        if(def.maxPlayers > 0) maxPlayers = def.maxPlayers;
+                    }
+
+                    await SessionManager.Instance.CreateUgsPartyLobbyAsync(maxPlayers, true);
+                    await SessionManager.Instance.StartUgsPrivateMatchAsync(mode, maxPlayers);
+                    return;
+                }
+
                 if(!SteamClient.IsValid || !SteamClient.IsLoggedOn) {
                     if(uiManager != null) {
                         uiManager.ShowToast("Steam is offline. Starting offline match.");
@@ -490,6 +509,19 @@ namespace Game.Menu {
         public async UniTask<bool> HandleHostClicked(bool silent = false) {
             _isSilentHosting = silent;
             try {
+                if(SessionManager.Instance.UseUgsBackend) {
+                    var matchSettings = Game.Match.MatchSettingsManager.Instance;
+                    var maxPlayers = 10;
+                    if(matchSettings != null) {
+                        var def = matchSettings.GetGamemodeDef(SessionManager.Instance.SelectedGameMode);
+                        if(def.maxPlayers > 0) maxPlayers = def.maxPlayers;
+                    }
+
+                    await SessionManager.Instance.CreateUgsPartyLobbyAsync(maxPlayers, true);
+                    IsHost = true;
+                    return true;
+                }
+
                 var success = await SessionManager.Instance.CreatePrivateLobbyAsync();
                 if(success) {
                     IsHost = true;
@@ -510,7 +542,11 @@ namespace Game.Menu {
         public async UniTaskVoid HandleFindGameClicked(string mode = null) {
             try {
                 if(uiManager != null) uiManager.SetMenuButtonsEnabled(false);
-                await SessionManager.Instance.FindGameAsync(mode);
+                if(SessionManager.Instance != null && SessionManager.Instance.UseUgsBackend) {
+                    await SessionManager.Instance.StartMatchmakerQuickPlayAsync(mode);
+                } else {
+                    await SessionManager.Instance.FindGameAsync(mode);
+                }
             } catch(Exception e) {
                 Debug.LogException(e);
                 if(uiManager != null) uiManager.SetMenuButtonsEnabled(true);
@@ -543,7 +579,11 @@ namespace Game.Menu {
 
             // Call session manager logic
             if(SessionManager.Instance != null) {
-                SessionManager.Instance.CancelMatchmaking();
+                if(SessionManager.Instance.UseUgsBackend) {
+                    SessionManager.Instance.CancelUgsMatchmaking();
+                } else {
+                    SessionManager.Instance.CancelMatchmaking();
+                }
             }
 
             uiManager.SetMenuButtonsEnabled(true);
@@ -565,8 +605,8 @@ namespace Game.Menu {
         private void DrawSoloPlayer() {
             if(uiManager == null) return;
 
-            _partyMembersList?.Clear();
-            _localProfileContainer?.Clear();
+            if(_partyMembersList != null) _partyMembersList.Clear();
+            if(_localProfileContainer != null) _localProfileContainer.Clear();
 
             // Draw just us in the local profile section
             var steamOnline = SteamClient.IsValid && SteamClient.IsLoggedOn;
@@ -588,11 +628,15 @@ namespace Game.Menu {
         private async UniTaskVoid UpdateGlobalPartyUI(Lobby lobby) {
             if(uiManager == null) return;
 
-            _partyMembersList?.Clear();
-            _localProfileContainer?.Clear();
+            if(_partyMembersList != null) _partyMembersList.Clear();
+            if(_localProfileContainer != null) _localProfileContainer.Clear();
 
             var hostId = lobby.Owner.Id;
-            var myPartyId = SessionManager.Instance?.CurrentPartyId;
+            var myPartyId = "";
+            var session = SessionManager.Instance;
+            if(session != null) {
+                myPartyId = session.CurrentPartyId;
+            }
 
             foreach(var member in lobby.Members) {
                 var inMyParty = lobby.GetMemberData(member, "PartyId") == myPartyId;
@@ -732,7 +776,9 @@ namespace Game.Menu {
 
 
         private void UpdateHostStatus(bool isHost) {
-            OnHostStatusChanged?.Invoke(isHost, !isHost);
+            if(OnHostStatusChanged != null) {
+                OnHostStatusChanged.Invoke(isHost, !isHost);
+            }
         }
 
         private bool IsHost { get; set; }

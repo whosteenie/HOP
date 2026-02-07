@@ -227,14 +227,14 @@ namespace Game.Menu {
                 }
             };
             
-            _dailyChallengesCard = CreateChallengeCard("Daily Challenges");
+            _dailyChallengesCard = CreateChallengeCard("D A I L Y");
             if(_dailyChallengesCard != null) {
                 _dailyChallengesCard.style.marginRight = 50;
             }
             
             var spacer = new VisualElement { style = { width = 420, height = 10 } };
             
-            _weeklyChallengesCard = CreateChallengeCard("Weekly Challenges");
+            _weeklyChallengesCard = CreateChallengeCard("W E E K L Y");
             if(_weeklyChallengesCard != null) {
                 _weeklyChallengesCard.style.marginLeft = 50;
             }
@@ -259,32 +259,19 @@ namespace Game.Menu {
                 separator = card.Q<VisualElement>("separator");
                 listContainer = card.Q<VisualElement>("challenge-list");
             } else {
-                card = new VisualElement {
-                    style = {
-                        width = 280, minHeight = 180,
-                        backgroundColor = new Color(12f/255f, 12f/255f, 18f/255f, 0.85f),
-                        borderTopWidth = 1, borderBottomWidth = 1, borderLeftWidth = 1, borderRightWidth = 1,
-                        borderTopColor = new Color(200f/255f, 60f/255f, 60f/255f, 0.4f),
-                        borderBottomColor = new Color(200f/255f, 60f/255f, 60f/255f, 0.4f),
-                        borderLeftColor = new Color(200f/255f, 60f/255f, 60f/255f, 0.4f),
-                        borderRightColor = new Color(200f/255f, 60f/255f, 60f/255f, 0.4f),
-                        paddingTop = 16, paddingBottom = 16, paddingLeft = 18, paddingRight = 18,
-                        borderTopLeftRadius = 4, borderTopRightRadius = 4, 
-                        borderBottomLeftRadius = 4, borderBottomRightRadius = 4
-                    }
-                };
-                titleLabel = new Label {
-                    style = {
-                        fontSize = 14, unityFontStyleAndWeight = FontStyle.Bold,
-                        color = Color.white, marginBottom = 12, unityTextAlign = TextAnchor.MiddleCenter
-                    }
-                };
+                card = new VisualElement();
+                card.AddToClassList("challenge-card");
+                
+                titleLabel = new Label();
+                titleLabel.AddToClassList("challenge-card-title");
                 card.Add(titleLabel);
-                separator = new VisualElement {
-                    style = { height = 1, backgroundColor = new Color(200f/255f, 60f/255f, 60f/255f, 0.6f), marginBottom = 12 }
-                };
+                
+                separator = new VisualElement();
+                separator.AddToClassList("challenge-card-separator");
                 card.Add(separator);
+                
                 listContainer = new VisualElement { name = "challenge-list" };
+                listContainer.AddToClassList("challenge-list");
                 card.Add(listContainer);
             }
 
@@ -329,22 +316,23 @@ namespace Game.Menu {
                     xpLabel = row.Q<Label>("xp-label");
                     progressBar = row.Q<ProgressBar>("progress-bar");
                 } else {
-                    row = new VisualElement {
-                        style = { marginBottom = 12, paddingBottom = 8, borderBottomWidth = 1, borderBottomColor = new Color(200f/255f, 60f/255f, 60f/255f, 0.15f) }
-                    };
-                    titleRow = new VisualElement {
-                        style = { flexDirection = FlexDirection.Row, justifyContent = Justify.SpaceBetween, alignItems = Align.FlexStart, marginBottom = 4 }
-                    };
+                    row = new VisualElement();
+                    row.AddToClassList("challenge-row");
+                    
+                    titleRow = new VisualElement();
+                    titleRow.AddToClassList("challenge-title-row");
                     row.Add(titleRow);
-                    descriptionLabel = new Label {
-                        style = { fontSize = 11, color = new Color(0.9f, 0.9f, 0.9f), whiteSpace = WhiteSpace.Normal, flexShrink = 1 }
-                    };
+                    
+                    descriptionLabel = new Label();
+                    descriptionLabel.AddToClassList("challenge-description");
                     titleRow.Add(descriptionLabel);
-                    xpLabel = new Label {
-                        style = { fontSize = 10, color = new Color(0.5f, 0.8f, 0.5f), flexShrink = 0, marginLeft = 8 }
-                    };
+                    
+                    xpLabel = new Label();
+                    xpLabel.AddToClassList("challenge-xp");
                     titleRow.Add(xpLabel);
-                    progressBar = new ProgressBar { lowValue = 0, highValue = 100, value = 0, style = { height = 5 } };
+                    
+                    progressBar = new ProgressBar { lowValue = 0, highValue = 100, value = 0 };
+                    progressBar.AddToClassList("challenge-progress-bar");
                     row.Add(progressBar);
                 }
 
@@ -382,9 +370,7 @@ namespace Game.Menu {
         }
 
         private void StyleProgressBar(ProgressBar bar) {
-            bar.style.backgroundColor = new Color(0.15f, 0.15f, 0.15f);
-            var fill = bar.Q<VisualElement>(className: "unity-progress-bar__progress");
-            if (fill != null) fill.style.backgroundColor = _progressBarColor;
+            // Styling is handled in SharedStyles.uss
         }
 
         private void RegisterUIEvents() {
@@ -519,13 +505,14 @@ namespace Game.Menu {
         private void ShowOptions() {
             if(_cachedSceneName != "Game") return;
             optionsMenuManager?.LoadSettings();
-            optionsMenuManager?.OnOptionsPanelShown();
             _pauseMenuPanel.AddToClassList("hidden");
             // Hide challenges when showing options
             if(_pauseChallengesContainer != null) {
                 _pauseChallengesContainer.AddToClassList("hidden");
             }
             _optionsPanel.RemoveFromClassList("hidden");
+            // Call after panel is visible to ensure repaint works
+            optionsMenuManager?.OnOptionsPanelShown();
         }
 
         private void HideOptions() {

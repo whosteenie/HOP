@@ -95,6 +95,7 @@ namespace Game.Player {
         private bool _sprintBtnDown;
         private bool _crouchBtnDown;
         private bool _voiceBtnDown;
+        private bool _attackBtnDown;
         public bool IsSniperOverlayActive { get; private set; }
 
         [SerializeField] private float sniperZoomFov = 20f;
@@ -212,9 +213,18 @@ namespace Game.Player {
                 _voiceBtnDown = isPressed;
             }
 
-            if(!IsPreMatchOrPausedOrDead && fireMode == "Full" && attackAction != null && attackAction.IsPressed() &&
+            var attackPressed = attackAction != null && attackAction.IsPressed();
+            var attackPressedThisFrame = attackPressed && _attackBtnDown == false;
+            _attackBtnDown = attackPressed;
+
+            if(!IsPreMatchOrPausedOrDead && fireMode == "Full" && attackPressed &&
                !(MantleController != null && MantleController.IsMantling) &&
                !(playerController != null && playerController.IsHoldingHopball)) {
+                if(attackPressedThisFrame) {
+                    if(CurrentWeapon.TryAutoReloadFromEmptyClick()) {
+                        return;
+                    }
+                }
                 CurrentWeapon.Shoot();
             }
 
@@ -386,6 +396,7 @@ namespace Game.Player {
             if(playerController != null && playerController.IsHoldingHopball) return;
 
             if(CurrentWeapon != null) {
+                if(CurrentWeapon.TryAutoReloadFromEmptyClick()) return;
                 CurrentWeapon.Shoot();
             }
         }
@@ -550,6 +561,7 @@ namespace Game.Player {
             var weaponData = WeaponManager.GetWeaponDataByIndex(WeaponManager.CurrentWeaponIndex);
             var fireMode = weaponData != null ? weaponData.fireMode : null;
             if(CurrentWeapon != null && fireMode == "Semi") {
+                if(CurrentWeapon.TryAutoReloadFromEmptyClick()) return;
                 CurrentWeapon.Shoot();
             }
         }

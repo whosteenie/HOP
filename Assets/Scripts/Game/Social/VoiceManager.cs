@@ -7,6 +7,7 @@ using Unity.Services.Authentication;
 using Unity.Services.Core;
 using Unity.Services.Vivox;
 using Steamworks;
+using Network.UGS;
 
 namespace Game.Social {
     public class VoiceManager : MonoBehaviour {
@@ -64,14 +65,7 @@ namespace Game.Social {
 
         private async Task InitializeVivoxAsync() {
             try {
-                if(UnityServices.State != ServicesInitializationState.Initialized) {
-                    await UnityServices.InitializeAsync();
-                }
-
-                // Vivox in production expects server-side token vending. We call Cloud Code, which requires UGS Auth.
-                if(!AuthenticationService.Instance.IsSignedIn) {
-                    await AuthenticationService.Instance.SignInAnonymouslyAsync();
-                }
+                await UgsAuthService.InitializeAndSignInAsync();
 
                 // Must be registered before initializing Vivox when Test Mode is disabled and no client signing key is present.
                 VivoxService.Instance.SetTokenProvider(new VivoxCloudCodeTokenProvider());

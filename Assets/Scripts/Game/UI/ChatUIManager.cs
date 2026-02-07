@@ -10,31 +10,41 @@ using Cursor = UnityEngine.Cursor;
 namespace Game.UI {
     public class ChatUIManager : UIElementBase {
         private VisualElement _chatContainer;
-        private VisualElement _chatHistoryContainer;
+        private VisualElement _chatBackground;
         private ScrollView _chatScroll;
         private VisualElement _chatMessageList;
-        private VisualElement _chatRecentMessages;
         private TextField _chatInput;
 
-        private const int MAX_RECENT_MESSAGES = 5;
-        private const float RECENT_MESSAGE_FADE_TIME = 5f; // Seconds before fade starts
-        private List<VisualElement> _recentMessageElements = new List<VisualElement>();
-        private Queue<ChatMessage> _messageHistory = new Queue<ChatMessage>();
-        private Coroutine _fadeOutCoroutine;
+        private const int MAX_MESSAGES = 50; // Maximum messages to keep in history
+        private const float MESSAGE_LIFETIME = 8f; // Seconds before message fades when chat is closed
+        private const float FADE_DURATION = 1.5f; // Fade out duration
+
+        private class ChatMessageElement {
+            public VisualElement Element;
+            public float Timestamp;
+            public bool IsVisible = true;
+        }
+
+        private List<ChatMessageElement> _messageElements = new List<ChatMessageElement>();
+        private Coroutine _lifetimeCheckCoroutine;
 
         public bool IsChatOpen { get; private set; }
 
         protected override void OnInitialize() {
             _chatContainer = QOptional<VisualElement>("chat-container");
-            _chatHistoryContainer = QOptional<VisualElement>("chat-history-container");
+            _chatBackground = QOptional<VisualElement>("chat-background");
             _chatScroll = QOptional<ScrollView>("chat-scroll");
             _chatMessageList = QOptional<VisualElement>("chat-message-list");
-            _chatRecentMessages = QOptional<VisualElement>("chat-recent-messages");
             _chatInput = QOptional<TextField>("chat-input");
 
             if(_chatInput != null) {
                 // Register Submit event
                 _chatInput.RegisterCallback<KeyDownEvent>(OnChatInputKeyDown);
+            }
+            
+            // Start with chat non-interactive (closed state)
+            if(_chatScroll != null) {
+                _chatScroll.pickingMode = PickingMode.Ignore;
             }
 
             if(ChatManager.Instance != null) {
@@ -45,9 +55,8 @@ namespace Game.UI {
         protected override Dictionary<string, System.Type> GetRequiredElements() {
             return new Dictionary<string, System.Type> {
                 { "chat-container", typeof(VisualElement) },
-                { "chat-history-container", typeof(VisualElement) },
+                { "chat-background", typeof(VisualElement) },
                 { "chat-message-list", typeof(VisualElement) },
-                { "chat-recent-messages", typeof(VisualElement) },
                 { "chat-input", typeof(TextField) }
             };
         }
@@ -58,23 +67,22 @@ namespace Game.UI {
             }
         }
 
-
         public void ClearChatHistory() {
-            // Clear message history queue
-            _messageHistory.Clear();
+            // Clear message elements
+            foreach(var msgElement in _messageElements) {
+                msgElement.Element?.RemoveFromHierarchy();
+            }
+            _messageElements.Clear();
             
             // Clear visual message list
             if(_chatMessageList != null) {
                 _chatMessageList.Clear();
             }
             
-            // Clear recent messages
-            ClearRecentMessages();
-            
-            // Stop any fade-out coroutine
-            if(_fadeOutCoroutine != null) {
-                StopCoroutine(_fadeOutCoroutine);
-                _fadeOutCoroutine = null;
+            // Stop lifetime check coroutine
+            if(_lifetimeCheckCoroutine != null) {
+                StopCoroutine(_lifetimeCheckCoroutine);
+                _lifetimeCheckCoroutine = null;
             }
             
             // Ensure chat is closed
@@ -84,7 +92,6 @@ namespace Game.UI {
         }
 
         private void Update() {
-            // Toggle Chat
             // Toggle Chat (New Input System)
             if(UnityEngine.InputSystem.Keyboard.current != null) {
                 if(UnityEngine.InputSystem.Keyboard.current.enterKey.wasPressedThisFrame) {
@@ -106,32 +113,43 @@ namespace Game.UI {
             
             IsChatOpen = true;
             
-            // Show history container and input
-            if(_chatHistoryContainer != null) {
-                _chatHistoryContainer.RemoveFromClassList("hidden");
+            // Show background and input
+            if(_chatBackground != null) {
+                _chatBackground.RemoveFromClassList("minimized");
             }
-            _chatInput.RemoveFromClassList("hidden");
+            _chatInput.RemoveFromClassList("minimized");
+            _chatInput.RemoveFromClassList("hidden"); // Also remove hidden if it was set by UXML
+
             
-            // Stop any fade-out coroutine
-            if(_fadeOutCoroutine != null) {
-                StopCoroutine(_fadeOutCoroutine);
-                _fadeOutCoroutine = null;
+            // Show scrollbar when open
+            if(_chatScroll != null) {
+                _chatScroll.verticalScrollerVisibility = ScrollerVisibility.Auto;
             }
             
-            // Clear recent messages when opening chat (they're now in history)
-            ClearRecentMessages();
+            // Enable mouse interaction with scroll view
+            if(_chatScroll != null) {
+                _chatScroll.pickingMode = PickingMode.Position;
+            }
             
-            // Populate history container with stored messages if empty
-            if(_chatMessageList != null && _chatMessageList.childCount == 0 && _messageHistory.Count > 0) {
-                foreach(var msg in _messageHistory) {
-                    var row = CreateMessageRow(msg);
-                    _chatMessageList.Add(row);
+            // Stop lifetime check
+            if(_lifetimeCheckCoroutine != null) {
+                StopCoroutine(_lifetimeCheckCoroutine);
+                _lifetimeCheckCoroutine = null;
+            }
+            
+            // Show all messages (remove fading class)
+            foreach(var msgElement in _messageElements) {
+                if(msgElement.Element != null) {
+                    msgElement.Element.RemoveFromClassList("fading");
+                    msgElement.Element.style.display = DisplayStyle.Flex;
+                    msgElement.IsVisible = true;
                 }
-                // Scroll to bottom after populating
-                StartCoroutine(ScrollToBottom());
             }
             
-            // Focus input field after a frame to ensure it's ready
+            // Scroll to bottom
+            StartCoroutine(ScrollToBottom());
+            
+            // Focus input field after a frame
             StartCoroutine(FocusInputField());
             
             // Unlock mouse
@@ -156,23 +174,39 @@ namespace Game.UI {
 
             IsChatOpen = false;
             _chatInput.value = ""; // Clear input
-            _chatInput.AddToClassList("hidden");
+            _chatInput.AddToClassList("minimized");
             
-            // Hide history container
-            if(_chatHistoryContainer != null) {
-                _chatHistoryContainer.AddToClassList("hidden");
-            }
-            
-            // Move recent messages from history to recent messages area
-            MoveRecentMessagesToDisplay();
-            
-            // Start fade-out timer for recent messages
-            if(_recentMessageElements.Count > 0) {
-                if(_fadeOutCoroutine != null) {
-                    StopCoroutine(_fadeOutCoroutine);
+            // Instantly hide any expired messages upon closing
+            float currentTime = Time.time;
+            foreach(var msgElement in _messageElements) {
+                if(msgElement.Element == null) continue;
+                if(currentTime - msgElement.Timestamp >= MESSAGE_LIFETIME) {
+                    msgElement.Element.style.display = DisplayStyle.None;
+                    msgElement.IsVisible = false;
                 }
-                _fadeOutCoroutine = StartCoroutine(FadeOutRecentMessages());
             }
+
+            
+            // Hide background (minimize)
+            if(_chatBackground != null) {
+                _chatBackground.AddToClassList("minimized");
+            }
+            
+            // Hide scrollbar when closed
+            if(_chatScroll != null) {
+                _chatScroll.verticalScrollerVisibility = ScrollerVisibility.Hidden;
+            }
+            
+            // Disable mouse interaction with scroll view
+            if(_chatScroll != null) {
+                _chatScroll.pickingMode = PickingMode.Ignore;
+            }
+            
+            // Start lifetime-based visibility check
+            StartLifetimeCheck();
+            
+            // Ensure we are scrolled to the bottom so newest messages are visible
+            StartCoroutine(ScrollToBottom());
             
             // Only re-lock if scoreboard isn't also visible
             var scoreboardVisible = ScoreboardManager.Instance != null && ScoreboardManager.Instance.IsScoreboardVisible;
@@ -200,10 +234,10 @@ namespace Game.UI {
                  // Clear input but keep chat open
                  _chatInput.value = "";
                  
-                 // Refocus input field after a frame to ensure it's ready and can receive input
+                 // Refocus input field
                  StartCoroutine(FocusInputField());
              } else {
-                 // Empty input - close chat (common game pattern for quick chat checking)
+                 // Empty input - close chat
                  CloseChat();
              }
         }
@@ -216,158 +250,116 @@ namespace Game.UI {
         }
 
         private void HandleMessageReceived(ChatMessage msg) {
-            if(IsChatOpen) {
-                // Add to history container
-                AddMessageToHistory(msg);
-            } else {
-                // Add to recent messages area (shown on screen)
-                AddMessageToRecent(msg);
-            }
+            AddMessage(msg);
         }
 
-        private void AddMessageToHistory(ChatMessage msg) {
+        private void AddMessage(ChatMessage msg) {
             if(_chatMessageList == null) return;
 
-            // Store message in history
-            _messageHistory.Enqueue(msg);
-            if(_messageHistory.Count > 50) { // Limit history size
-                _messageHistory.Dequeue();
-            }
-
             var row = CreateMessageRow(msg);
-            // Insert at the end (bottom) - Add() adds to the end
+            var msgElement = new ChatMessageElement {
+                Element = row,
+                Timestamp = Time.time,
+                IsVisible = true
+            };
+
+            _messageElements.Add(msgElement);
             _chatMessageList.Add(row);
 
-            // Auto-scroll to bottom (newest at bottom)
+            // Limit message history
+            if(_messageElements.Count > MAX_MESSAGES) {
+                var oldest = _messageElements[0];
+                _messageElements.RemoveAt(0);
+                oldest.Element?.RemoveFromHierarchy();
+            }
+
+            // Always scroll to bottom to see newest message
             StartCoroutine(ScrollToBottom());
+
+            // If chat is closed, ensure lifetime check is running
+            if(!IsChatOpen && _lifetimeCheckCoroutine == null) {
+                StartLifetimeCheck();
+            }
         }
 
-        private void AddMessageToRecent(ChatMessage msg) {
-            if(_chatRecentMessages == null) return;
-
-            // Also store in history for when chat is opened
-            _messageHistory.Enqueue(msg);
-            if(_messageHistory.Count > 50) { // Limit history size
-                _messageHistory.Dequeue();
-            }
-
-            // Stop fade-out if in progress
-            if(_fadeOutCoroutine != null) {
-                StopCoroutine(_fadeOutCoroutine);
-                _fadeOutCoroutine = null;
-            }
-
-            // Reset opacity on existing messages
-            foreach(var elem in _recentMessageElements) {
-                elem.RemoveFromClassList("fading");
-                elem.style.opacity = 1f;
-            }
-
-            var row = CreateMessageRow(msg, isRecent: true);
-            _recentMessageElements.Add(row);
-            _chatRecentMessages.Add(row);
-
-            // Limit recent messages
-            if(_recentMessageElements.Count > MAX_RECENT_MESSAGES) {
-                var oldest = _recentMessageElements[0];
-                _recentMessageElements.RemoveAt(0);
-                oldest.RemoveFromHierarchy();
-            }
-
-            // Start fade-out timer
-            _fadeOutCoroutine = StartCoroutine(FadeOutRecentMessages());
-        }
-
-        private VisualElement CreateMessageRow(ChatMessage msg, bool isRecent = false) {
+        private VisualElement CreateMessageRow(ChatMessage msg) {
             var row = new VisualElement();
             row.style.flexDirection = FlexDirection.Row;
             row.style.flexWrap = Wrap.Wrap;
 
             if(msg.IsSystemMessage) {
                 var label = new Label(msg.MessageContent);
-                label.AddToClassList(isRecent ? "chat-recent-message" : "chat-message");
-                if(isRecent) {
-                    label.AddToClassList("chat-recent-message-system");
-                } else {
-                    label.AddToClassList("chat-message-system");
-                }
+                label.AddToClassList("chat-message");
+                label.AddToClassList("chat-message-system");
                 row.Add(label);
             } else {
                 var nameLabel = new Label(msg.SenderName);
-                if(isRecent) {
-                    nameLabel.AddToClassList("chat-recent-message");
-                } else {
-                    nameLabel.AddToClassList("chat-message-name");
-                }
+                nameLabel.AddToClassList("chat-message-name");
                 nameLabel.style.unityFontStyleAndWeight = FontStyle.Bold;
                 
-                // Click handler for context menu (Right-click) - only in history
-                if(!isRecent) {
-                    nameLabel.RegisterCallback<PointerDownEvent>(evt => {
-                        if (evt.button != 1) return; // Right-click only
-                        if (msg.SenderSteamId == 0) return;
-                        
-                        // Don't show for self
-                        if (Steamworks.SteamClient.SteamId == msg.SenderSteamId) return;
+                // Click handler for context menu (Right-click)
+                nameLabel.RegisterCallback<PointerDownEvent>(evt => {
+                    if (evt.button != 1) return; // Right-click only
+                    if (msg.SenderSteamId == 0) return;
+                    
+                    // Don't show for self
+                    if (Steamworks.SteamClient.SteamId == msg.SenderSteamId) return;
 
-                        if (InGameContextMenuManager.Instance != null) {
-                            InGameContextMenuManager.Instance.Show(msg.SenderSteamId, evt.position);
-                        }
-                    });
-                }
+                    if (InGameContextMenuManager.Instance != null) {
+                        InGameContextMenuManager.Instance.Show(msg.SenderSteamId, evt.position);
+                    }
+                });
                 
                 row.Add(nameLabel);
                 
                 var contentLabel = new Label($": {msg.MessageContent}");
-                if(isRecent) {
-                    contentLabel.AddToClassList("chat-recent-message");
-                } else {
-                    contentLabel.AddToClassList("chat-message-content");
-                }
+                contentLabel.AddToClassList("chat-message-content");
                 row.Add(contentLabel);
             }
 
             return row;
         }
 
-        private void MoveRecentMessagesToDisplay() {
-            if(_chatRecentMessages == null) return;
-
-            // Clear existing recent messages
-            ClearRecentMessages();
-
-            // Get the last few messages from history
-            var messagesArray = _messageHistory.ToArray();
-            var startIndex = Mathf.Max(0, messagesArray.Length - MAX_RECENT_MESSAGES);
-            
-            // Add recent messages from history (oldest to newest)
-            for(int i = startIndex; i < messagesArray.Length; i++) {
-                var msg = messagesArray[i];
-                var row = CreateMessageRow(msg, isRecent: true);
-                _recentMessageElements.Add(row);
-                _chatRecentMessages.Add(row);
+        private void StartLifetimeCheck() {
+            if(_lifetimeCheckCoroutine != null) {
+                StopCoroutine(_lifetimeCheckCoroutine);
             }
+            _lifetimeCheckCoroutine = StartCoroutine(LifetimeCheckRoutine());
         }
 
-        private void ClearRecentMessages() {
-            if(_chatRecentMessages == null) return;
-            _chatRecentMessages.Clear();
-            _recentMessageElements.Clear();
-        }
+        private IEnumerator LifetimeCheckRoutine() {
+            while(!IsChatOpen) {
+                float currentTime = Time.time;
+                bool anyChanges = false;
 
-        private IEnumerator FadeOutRecentMessages() {
-            yield return new WaitForSeconds(RECENT_MESSAGE_FADE_TIME);
-            
-            // Fade out all recent messages
-            foreach(var elem in _recentMessageElements) {
-                elem.AddToClassList("fading");
+                foreach(var msgElement in _messageElements) {
+                    if(msgElement.Element == null) continue;
+
+                    float age = currentTime - msgElement.Timestamp;
+                    
+                    // Start fading when approaching lifetime
+                    if(age >= MESSAGE_LIFETIME && msgElement.IsVisible) {
+                        msgElement.Element.AddToClassList("fading");
+                        msgElement.IsVisible = false;
+                        anyChanges = true;
+                    }
+                }
+
+                // Wait for fade duration, then hide faded messages
+                if(anyChanges) {
+                    yield return new WaitForSeconds(FADE_DURATION);
+                    
+                    foreach(var msgElement in _messageElements) {
+                        if(msgElement.Element != null && !msgElement.IsVisible) {
+                            msgElement.Element.style.display = DisplayStyle.None;
+                        }
+                    }
+                }
+
+                yield return new WaitForSeconds(0.5f); // Check every 0.5 seconds
             }
-            
-            yield return new WaitForSeconds(0.5f); // Wait for fade animation
-            
-            // Remove faded messages
-            ClearRecentMessages();
-            _fadeOutCoroutine = null;
+
+            _lifetimeCheckCoroutine = null;
         }
 
         private IEnumerator ScrollToBottom() {
@@ -375,8 +367,6 @@ namespace Game.UI {
             yield return null; // Wait another frame for layout to stabilize
             if(_chatScroll != null && _chatMessageList != null) {
                 // Scroll to show the bottom (newest messages)
-                // With justify-content: flex-end, newest messages are at the bottom
-                // ScrollView scrolls from top (0) to bottom (max), so we want max scroll
                 var contentHeight = _chatScroll.contentContainer.layout.height;
                 var viewportHeight = _chatScroll.contentViewport.layout.height;
                 if(contentHeight > viewportHeight) {

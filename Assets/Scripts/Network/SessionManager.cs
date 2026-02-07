@@ -6,15 +6,22 @@ using Cysharp.Threading.Tasks;
 using Game.Settings;
 using Game.Social;
 using Network.Events;
+using Network.Core;
 using Network.Singletons;
 using Network.Steam;
 using Steamworks;
 using Steamworks.Data;
+using Unity.Services.Authentication;
 using Unity.Netcode;
 using Unity.Netcode.Transports.UTP;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityUtils;
+using Network.UGS;
+using Unity.Services.Lobbies;
+using Unity.Services.Relay;
+using Unity.Services.Matchmaker;
+using Unity.Services.Matchmaker.Models;
 
 namespace Network {
     /// <summary>
@@ -60,6 +67,35 @@ namespace Network {
         private const string LobbyStateKey = "LobbyState";
         private const string TargetModeKey = "TargetMode";
         private const string MemberReadyKey = "ReadyToLoad";
+
+        // ===== UGS Lobby keys (separate namespace from Steam lobby data) =====
+        private const string UgsPartyIdKey = "partyId";
+        private const string UgsMatchTypeKey = "matchType"; // "Public" | "Private"
+        private const string UgsTargetModeKey = "targetMode";
+        private const string UgsRelayJoinCodeKey = "relayJoinCode";
+        private const string UgsMatchIdKey = "matchId";
+        private const string UgsFollowMatchLobbyIdKey = "followMatchLobbyId";
+        private const string UgsLobbyStateKey = "lobbyState";
+        private const string UgsExpectedPlayersKey = "expectedPlayers";
+        private const string UgsMemberReadyKey = "readyToLoad";
+
+        // ===== UGS Lobby state =====
+        private Unity.Services.Lobbies.Models.Lobby _ugsPartyLobby;
+        private Unity.Services.Lobbies.Models.Lobby _ugsMatchLobby;
+        private CancellationTokenSource _ugsLobbyCts;
+        private float _nextUgsHeartbeatTime;
+        private float _nextUgsPollTime;
+        private const float UgsHeartbeatIntervalSeconds = 15f;
+        private const float UgsPollIntervalSeconds = 2f;
+        private bool _ugsSyncInProgress;
+        private bool _ugsLocalReadySubmitted;
+        private bool _ugsClientStartedForMatch;
+        private bool _ugsHostPreFadedOut;
+
+        // ===== Matchmaker state =====
+        private string _matchmakerTicketId;
+        private string _matchmakerQueueName;
+        private CancellationTokenSource _matchmakerCts;
         private readonly List<ulong> _clientsFinishedLoading = new();
         private CustomNetworkManager _customNetworkManager;
         private NetworkManager _networkManager;
@@ -114,6 +150,10 @@ namespace Network {
             }
         }
 
+        public bool UseUgsBackend {
+            get { return true; }
+        }
+
         // Events
         public event Action<string> FrontStatusChanged;
 
@@ -143,6 +183,7 @@ namespace Network {
             SteamMatchmaking.OnLobbyDataChanged += OnLobbyDataChanged;
             SteamMatchmaking.OnLobbyMemberDataChanged += OnLobbyMemberDataChanged;
             SteamFriends.OnGameLobbyJoinRequested += OnGameLobbyJoinRequested;
+            SteamFriends.OnGameRichPresenceJoinRequested += OnGameRichPresenceJoinRequested;
 
             GameSettings.OnSettingsChanged += OnLocalSettingsChanged;
         }
@@ -156,6 +197,7 @@ namespace Network {
             SteamMatchmaking.OnLobbyDataChanged -= OnLobbyDataChanged;
             SteamMatchmaking.OnLobbyMemberDataChanged -= OnLobbyMemberDataChanged;
             SteamFriends.OnGameLobbyJoinRequested -= OnGameLobbyJoinRequested;
+            SteamFriends.OnGameRichPresenceJoinRequested -= OnGameRichPresenceJoinRequested;
 
             GameSettings.OnSettingsChanged -= OnLocalSettingsChanged;
         }
@@ -189,6 +231,9 @@ namespace Network {
             if(SteamManager.Instance == null) {
                 Debug.LogError("[SessionManager] SteamManager not found!");
             }
+
+            // Bootstrap UGS identity early so Lobby/Matchmaker/Vivox can rely on it later.
+            UgsAuthService.InitializeAndSignInAsync().Forget();
         }
 
         private void OnDestroy() {
@@ -344,6 +389,32 @@ namespace Network {
         private async void OnGameLobbyJoinRequested(Lobby lobby, SteamId id) {
             Debug.Log($"[SessionManager] Accepted Invite to Lobby {lobby.Id}");
             await JoinSessionByLobbyAsync(lobby);
+        }
+
+        private void OnGameRichPresenceJoinRequested(Friend friend, string connect) {
+            if(string.IsNullOrEmpty(connect)) return;
+            HandleSteamConnectStringAsync(connect).Forget();
+        }
+
+        private async UniTaskVoid HandleSteamConnectStringAsync(string connect) {
+            // Expected formats:
+            // - "UGS_PARTY_CODE:<lobbyCode>"
+            // - "UGS_MATCH_ID:<lobbyId>"
+            const string partyPrefix = "UGS_PARTY_CODE:";
+            const string matchPrefix = "UGS_MATCH_ID:";
+
+            if(connect.StartsWith(partyPrefix)) {
+                var code = connect.Substring(partyPrefix.Length);
+                if(string.IsNullOrEmpty(code)) return;
+                await JoinUgsPartyLobbyByCodeAsync(code);
+                return;
+            }
+
+            if(connect.StartsWith(matchPrefix)) {
+                var lobbyId = connect.Substring(matchPrefix.Length);
+                if(string.IsNullOrEmpty(lobbyId)) return;
+                await JoinUgsMatchLobbyByIdAsync(lobbyId);
+            }
         }
 
         /// <summary>
@@ -661,6 +732,7 @@ namespace Network {
             _networkManager.NetworkConfig.NetworkTransport = utp;
 
             // Start host and load the game scene via NGO scene management.
+            ApplyLocalConnectionPayload(true);
             _networkManager.StartHost();
             Phase = SessionPhase.LoadingScene;
             _networkManager.SceneManager.LoadScene(GameSceneName, LoadSceneMode.Single);
@@ -754,6 +826,8 @@ namespace Network {
             _networkManager.NetworkConfig.NetworkTransport = transport;
 
             Debug.Log($"[SessionManager] Starting Client connecting to {steamId}");
+            var isPrivateMatch = lobby.GetData(GameModeKey) == "Private";
+            ApplyLocalConnectionPayload(isPrivateMatch);
             _networkManager.StartClient();
         }
 
@@ -864,11 +938,32 @@ namespace Network {
         #endregion
 
         #region Internal / Networking
+        
+        private void ApplyLocalConnectionPayload(bool isPrivateMatch) {
+            if(_networkManager == null) _networkManager = NetworkManager.Singleton;
+            if(_networkManager == null) return;
+
+            var payload = new ConnectionPayload {
+                partyId = CurrentPartyId,
+                isPrivateMatch = isPrivateMatch,
+                steamId = LocalIdentity.GetSteamId(),
+                ugsPlayerId = LocalIdentity.GetUgsPlayerId(),
+                displayName = LocalIdentity.GetDisplayName()
+            };
+
+            _networkManager.NetworkConfig.ConnectionData = ConnectionPayload.Encode(payload);
+        }
 
         /// <summary>
         /// Starts the Netcode host using FacepunchTransport.
         /// </summary>
         private void StartHost() {
+            var isPrivateMatch = false;
+            if(CurrentLobby.HasValue) {
+                isPrivateMatch = CurrentLobby.Value.GetData(GameModeKey) == "Private";
+            }
+            ApplyLocalConnectionPayload(isPrivateMatch);
+
             var transport = _networkManager.GetComponent<FacepunchTransport>();
             if(transport != null) {
                 _networkManager.NetworkConfig.NetworkTransport = transport;
@@ -986,6 +1081,841 @@ namespace Network {
                 await CreatePrivateLobbyAsync();
             }
         }
+
+        #region UGS Lobby (Party + Match)
+
+        private void Update() {
+            if(_ugsPartyLobby == null && _ugsMatchLobby == null) return;
+
+            if(Time.unscaledTime >= _nextUgsHeartbeatTime) {
+                _nextUgsHeartbeatTime = Time.unscaledTime + UgsHeartbeatIntervalSeconds;
+                SendUgsHeartbeatsAsync().Forget();
+            }
+
+            if(Time.unscaledTime >= _nextUgsPollTime) {
+                _nextUgsPollTime = Time.unscaledTime + UgsPollIntervalSeconds;
+                PollUgsPartyLobbyAsync().Forget();
+                PollUgsMatchLobbyAsync().Forget();
+            }
+        }
+
+        public async UniTask CreateUgsPartyLobbyAsync(int maxPlayers, bool isPrivate) {
+            await UgsAuthService.InitializeAndSignInAsync();
+
+            if(string.IsNullOrEmpty(CurrentPartyId)) {
+                CurrentPartyId = Guid.NewGuid().ToString();
+            }
+
+            var options = new CreateLobbyOptions();
+            options.IsPrivate = isPrivate;
+            options.Player = BuildUgsLobbyPlayer();
+            options.Data = new Dictionary<string, Unity.Services.Lobbies.Models.DataObject>();
+            options.Data[UgsPartyIdKey] = new Unity.Services.Lobbies.Models.DataObject(
+                Unity.Services.Lobbies.Models.DataObject.VisibilityOptions.Member, CurrentPartyId);
+            options.Data[UgsFollowMatchLobbyIdKey] = new Unity.Services.Lobbies.Models.DataObject(
+                Unity.Services.Lobbies.Models.DataObject.VisibilityOptions.Member, "");
+            options.Data[UgsLobbyStateKey] = new Unity.Services.Lobbies.Models.DataObject(
+                Unity.Services.Lobbies.Models.DataObject.VisibilityOptions.Member, "Party");
+
+            _ugsPartyLobby = await LobbyService.Instance.CreateLobbyAsync("HOP Party", maxPlayers, options);
+            _ugsMatchLobby = null;
+            _nextUgsHeartbeatTime = Time.unscaledTime + 1f;
+            _nextUgsPollTime = Time.unscaledTime + 1f;
+            UpdateSteamRichPresenceForUgs();
+        }
+
+        public async UniTask JoinUgsPartyLobbyByCodeAsync(string code) {
+            await UgsAuthService.InitializeAndSignInAsync();
+            if(string.IsNullOrEmpty(code)) return;
+
+            var options = new JoinLobbyByCodeOptions();
+            options.Player = BuildUgsLobbyPlayer();
+
+            _ugsPartyLobby = await LobbyService.Instance.JoinLobbyByCodeAsync(code, options);
+            _ugsMatchLobby = null;
+
+            if(_ugsPartyLobby != null && _ugsPartyLobby.Data != null) {
+                if(_ugsPartyLobby.Data.TryGetValue(UgsPartyIdKey, out var partyIdObj)) {
+                    if(partyIdObj != null && !string.IsNullOrEmpty(partyIdObj.Value)) {
+                        CurrentPartyId = partyIdObj.Value;
+                    }
+                }
+            }
+
+            _nextUgsHeartbeatTime = Time.unscaledTime + 1f;
+            _nextUgsPollTime = Time.unscaledTime + 1f;
+            UpdateSteamRichPresenceForUgs();
+        }
+
+        public async UniTask StartUgsPrivateMatchAsync(string mode, int maxPlayers) {
+            await UgsAuthService.InitializeAndSignInAsync();
+            if(_ugsPartyLobby == null) return;
+
+            var localUgsId = AuthenticationService.Instance.PlayerId;
+            if(string.IsNullOrEmpty(localUgsId)) return;
+
+            if(string.IsNullOrEmpty(mode)) return;
+
+            SelectedGameMode = mode;
+            var matchSettings = Game.Match.MatchSettingsManager.Instance;
+            if(matchSettings != null) {
+                matchSettings.selectedGameModeId = mode;
+            }
+
+            // Immediate feedback for the host: start fading out right away.
+            // We'll avoid double-fading later when we mark ourselves ready.
+            _ugsHostPreFadedOut = false;
+            if(SceneTransitionManager.Instance != null) {
+                _ugsHostPreFadedOut = true;
+                Phase = SessionPhase.SynchronizingLoad;
+                SetFrontStatus(SessionPhase.SynchronizingLoad, "Waiting for party...");
+                await SceneTransitionManager.Instance.FadeOutAsync();
+            }
+
+            if(string.IsNullOrEmpty(CurrentPartyId)) {
+                if(_ugsPartyLobby.Data != null && _ugsPartyLobby.Data.TryGetValue(UgsPartyIdKey, out var partyIdObj)) {
+                    if(partyIdObj != null) CurrentPartyId = partyIdObj.Value;
+                }
+            }
+
+            var expectedPlayers = new List<string>();
+            if(_ugsPartyLobby.Players != null && _ugsPartyLobby.Players.Count > 0) {
+                for(var i = 0; i < _ugsPartyLobby.Players.Count; i++) {
+                    var p = _ugsPartyLobby.Players[i];
+                    if(p == null) continue;
+                    if(string.IsNullOrEmpty(p.Id)) continue;
+                    expectedPlayers.Add(p.Id);
+                }
+            }
+            if(expectedPlayers.Count == 0) {
+                expectedPlayers.Add(localUgsId);
+            }
+            var expectedCsv = string.Join(",", expectedPlayers);
+
+            // Create relay allocation for host.
+            var alloc = await RelayService.Instance.CreateAllocationAsync(maxPlayers - 1);
+            var joinCode = await RelayService.Instance.GetJoinCodeAsync(alloc.AllocationId);
+
+            // Create match lobby.
+            var create = new CreateLobbyOptions();
+            create.IsPrivate = true;
+            create.Player = BuildUgsLobbyPlayer();
+            create.Data = new Dictionary<string, Unity.Services.Lobbies.Models.DataObject>();
+            create.Data[UgsPartyIdKey] = new Unity.Services.Lobbies.Models.DataObject(
+                Unity.Services.Lobbies.Models.DataObject.VisibilityOptions.Member, CurrentPartyId);
+            create.Data[UgsMatchTypeKey] = new Unity.Services.Lobbies.Models.DataObject(
+                Unity.Services.Lobbies.Models.DataObject.VisibilityOptions.Member, "Private");
+            create.Data[UgsTargetModeKey] = new Unity.Services.Lobbies.Models.DataObject(
+                Unity.Services.Lobbies.Models.DataObject.VisibilityOptions.Member, mode);
+            create.Data[UgsRelayJoinCodeKey] = new Unity.Services.Lobbies.Models.DataObject(
+                Unity.Services.Lobbies.Models.DataObject.VisibilityOptions.Member, joinCode);
+            create.Data[UgsLobbyStateKey] = new Unity.Services.Lobbies.Models.DataObject(
+                Unity.Services.Lobbies.Models.DataObject.VisibilityOptions.Member, "SynchronizingLoad");
+            create.Data[UgsExpectedPlayersKey] = new Unity.Services.Lobbies.Models.DataObject(
+                Unity.Services.Lobbies.Models.DataObject.VisibilityOptions.Member, expectedCsv);
+
+            _ugsMatchLobby = await LobbyService.Instance.CreateLobbyAsync("HOP Match", maxPlayers, create);
+
+            // Tell party members to follow into the match lobby.
+            var update = new UpdateLobbyOptions();
+            update.Data = new Dictionary<string, Unity.Services.Lobbies.Models.DataObject>();
+            update.Data[UgsFollowMatchLobbyIdKey] = new Unity.Services.Lobbies.Models.DataObject(
+                Unity.Services.Lobbies.Models.DataObject.VisibilityOptions.Member, _ugsMatchLobby.Id);
+            update.Data[UgsLobbyStateKey] = new Unity.Services.Lobbies.Models.DataObject(
+                Unity.Services.Lobbies.Models.DataObject.VisibilityOptions.Member, "InMatch");
+            _ugsPartyLobby = await LobbyService.Instance.UpdateLobbyAsync(_ugsPartyLobby.Id, update);
+            UpdateSteamRichPresenceForUgs();
+
+            _ugsSyncInProgress = false;
+            _ugsLocalReadySubmitted = false;
+            _ugsClientStartedForMatch = false;
+            // Keep _ugsHostPreFadedOut as-is so we can skip the second fade in HandleUgsMatchSynchronizationStartAsync.
+
+            // Fade out and mark ourselves ready.
+            await HandleUgsMatchSynchronizationStartAsync();
+
+            // Host waits until all expected party members are ready (or are not present).
+            while(true) {
+                var refreshed = await LobbyService.Instance.GetLobbyAsync(_ugsMatchLobby.Id);
+                if(refreshed != null) _ugsMatchLobby = refreshed;
+
+                if(AreAllExpectedPlayersReady(_ugsMatchLobby, expectedPlayers)) {
+                    break;
+                }
+
+                await UniTask.Delay(250);
+            }
+
+            // Signal clients to connect.
+            try {
+                var opts = new UpdateLobbyOptions();
+                opts.Data = new Dictionary<string, Unity.Services.Lobbies.Models.DataObject>();
+                opts.Data[UgsLobbyStateKey] = new Unity.Services.Lobbies.Models.DataObject(
+                    Unity.Services.Lobbies.Models.DataObject.VisibilityOptions.Member, "LoadingScene");
+                _ugsMatchLobby = await LobbyService.Instance.UpdateLobbyAsync(_ugsMatchLobby.Id, opts);
+            } catch {
+                // If this fails transiently, clients will still poll and we can retry next tick.
+            }
+
+            await CleanupNetworkAsync();
+
+            // Configure UTP Relay and start host.
+            if(_networkManager == null) _networkManager = NetworkManager.Singleton;
+            if(_networkManager == null) return;
+
+            var utp = _networkManager.GetComponent<UnityTransport>();
+            if(utp == null) {
+                Debug.LogError("[SessionManager] UnityTransport missing on NetworkManager. Cannot start UGS relay match.");
+                return;
+            }
+
+            if(TryApplyRelayToTransport(utp, alloc, null) == false) return;
+            _networkManager.NetworkConfig.NetworkTransport = utp;
+
+            ApplyLocalConnectionPayload(true);
+            _networkManager.StartHost();
+            Phase = SessionPhase.LoadingScene;
+            _networkManager.SceneManager.LoadScene(GameSceneName, LoadSceneMode.Single);
+        }
+
+        private async UniTask JoinUgsMatchLobbyByIdAsync(string lobbyId) {
+            await UgsAuthService.InitializeAndSignInAsync();
+            if(string.IsNullOrEmpty(lobbyId)) return;
+
+            var options = new JoinLobbyByIdOptions();
+            options.Player = BuildUgsLobbyPlayer();
+
+            var matchLobby = await LobbyService.Instance.JoinLobbyByIdAsync(lobbyId, options);
+            if(matchLobby == null) return;
+            _ugsMatchLobby = matchLobby;
+            UpdateSteamRichPresenceForUgs();
+
+            // Refresh selected mode immediately so the Game scene loads correctly.
+            TrySyncModeFromUgsMatchLobby(_ugsMatchLobby);
+
+            // If the lobby is already in sync/load state, begin local sync now.
+            if(_ugsMatchLobby != null && _ugsMatchLobby.Data != null) {
+                if(_ugsMatchLobby.Data.TryGetValue(UgsLobbyStateKey, out var stateObj)) {
+                    if(stateObj != null && stateObj.Value == "SynchronizingLoad") {
+                        HandleUgsMatchSynchronizationStartAsync().Forget();
+                    }
+                }
+            }
+        }
+
+        private void TrySyncModeFromUgsMatchLobby(Unity.Services.Lobbies.Models.Lobby lobby) {
+            if(lobby == null) return;
+            if(lobby.Data == null) return;
+            if(!lobby.Data.TryGetValue(UgsTargetModeKey, out var modeObj)) return;
+            if(modeObj == null) return;
+            if(string.IsNullOrEmpty(modeObj.Value)) return;
+            if(SelectedGameMode != modeObj.Value) {
+                SelectedGameMode = modeObj.Value;
+            }
+
+            var matchSettings = Game.Match.MatchSettingsManager.Instance;
+            if(matchSettings != null) {
+                matchSettings.selectedGameModeId = modeObj.Value;
+            }
+        }
+
+        private async UniTaskVoid PollUgsMatchLobbyAsync() {
+            if(_ugsMatchLobby == null) return;
+            if(Phase == SessionPhase.InGame) return;
+
+            try {
+                var refreshed = await LobbyService.Instance.GetLobbyAsync(_ugsMatchLobby.Id);
+                if(refreshed != null) _ugsMatchLobby = refreshed;
+            } catch {
+                return;
+            }
+
+            if(_ugsMatchLobby == null) return;
+            TrySyncModeFromUgsMatchLobby(_ugsMatchLobby);
+
+            if(_ugsMatchLobby.Data == null) return;
+            if(!_ugsMatchLobby.Data.TryGetValue(UgsLobbyStateKey, out var stateObj)) return;
+            if(stateObj == null) return;
+
+            if(stateObj.Value == "SynchronizingLoad") {
+                if(_ugsLocalReadySubmitted == false) {
+                    HandleUgsMatchSynchronizationStartAsync().Forget();
+                }
+                return;
+            }
+
+            if(stateObj.Value == "LoadingScene") {
+                // The lobby host will start the Netcode host; they should NOT also start as a relay client.
+                var localUgsId = AuthenticationService.Instance.PlayerId;
+                if(!string.IsNullOrEmpty(localUgsId) && _ugsMatchLobby.HostId == localUgsId) {
+                    return;
+                }
+
+                if(_ugsClientStartedForMatch == false) {
+                    StartUgsMatchClientAsync().Forget();
+                }
+            }
+        }
+
+        private async UniTask HandleUgsMatchSynchronizationStartAsync() {
+            if(_ugsMatchLobby == null) return;
+            if(_ugsLocalReadySubmitted) return;
+            if(_ugsSyncInProgress) return;
+
+            _ugsSyncInProgress = true;
+            Phase = SessionPhase.SynchronizingLoad;
+            SetFrontStatus(SessionPhase.SynchronizingLoad, "Waiting for party...");
+
+            // Fade out via SceneTransitionManager (matches Steam sync UX).
+            if(_ugsHostPreFadedOut) {
+                _ugsHostPreFadedOut = false;
+            } else if(SceneTransitionManager.Instance != null) {
+                await SceneTransitionManager.Instance.FadeOutAsync();
+            } else {
+                await UniTask.Delay(500);
+            }
+
+            var localUgsId = AuthenticationService.Instance.PlayerId;
+            if(string.IsNullOrEmpty(localUgsId)) {
+                _ugsSyncInProgress = false;
+                return;
+            }
+
+            try {
+                var opts = new UpdatePlayerOptions();
+                opts.Data = new Dictionary<string, Unity.Services.Lobbies.Models.PlayerDataObject>();
+                opts.Data[UgsMemberReadyKey] = new Unity.Services.Lobbies.Models.PlayerDataObject(
+                    Unity.Services.Lobbies.Models.PlayerDataObject.VisibilityOptions.Member, "1");
+
+                _ugsMatchLobby = await LobbyService.Instance.UpdatePlayerAsync(_ugsMatchLobby.Id, localUgsId, opts);
+                _ugsLocalReadySubmitted = true;
+            } catch {
+                // If the update fails transiently, we'll retry next poll tick.
+            } finally {
+                _ugsSyncInProgress = false;
+            }
+        }
+
+        private bool AreAllExpectedPlayersReady(Unity.Services.Lobbies.Models.Lobby lobby, List<string> expectedPlayerIds) {
+            if(lobby == null) return false;
+            if(expectedPlayerIds == null) return true;
+            if(expectedPlayerIds.Count == 0) return true;
+            if(lobby.Players == null) return false;
+
+            for(var i = 0; i < expectedPlayerIds.Count; i++) {
+                var id = expectedPlayerIds[i];
+                if(string.IsNullOrEmpty(id)) continue;
+
+                Unity.Services.Lobbies.Models.Player found = null;
+                for(var j = 0; j < lobby.Players.Count; j++) {
+                    var p = lobby.Players[j];
+                    if(p == null) continue;
+                    if(p.Id == id) {
+                        found = p;
+                        break;
+                    }
+                }
+
+                if(found == null) return false;
+                if(found.Data == null) return false;
+                if(!found.Data.TryGetValue(UgsMemberReadyKey, out var readyObj)) return false;
+                if(readyObj == null) return false;
+                if(readyObj.Value != "1") return false;
+            }
+
+            return true;
+        }
+
+        private async UniTaskVoid StartUgsMatchClientAsync() {
+            if(_ugsMatchLobby == null) return;
+            if(_ugsClientStartedForMatch) return;
+            if(_ugsLocalReadySubmitted == false) return;
+
+            if(_ugsMatchLobby.Data == null) return;
+            if(!_ugsMatchLobby.Data.TryGetValue(UgsRelayJoinCodeKey, out var joinCodeObj)) return;
+            if(joinCodeObj == null) return;
+            var joinCode = joinCodeObj.Value;
+            if(string.IsNullOrEmpty(joinCode)) return;
+
+            _ugsClientStartedForMatch = true;
+            Phase = SessionPhase.StartingClient;
+
+            await CleanupNetworkAsync();
+
+            if(_networkManager == null) _networkManager = NetworkManager.Singleton;
+            if(_networkManager == null) return;
+
+            var utp = _networkManager.GetComponent<UnityTransport>();
+            if(utp == null) {
+                Debug.LogError("[SessionManager] UnityTransport missing on NetworkManager. Cannot join UGS relay match.");
+                return;
+            }
+
+            var joinAlloc = await RelayService.Instance.JoinAllocationAsync(joinCode);
+            if(TryApplyRelayToTransport(utp, null, joinAlloc) == false) return;
+            _networkManager.NetworkConfig.NetworkTransport = utp;
+
+            ApplyLocalConnectionPayload(true);
+            _networkManager.StartClient();
+        }
+
+        private Unity.Services.Lobbies.Models.Player BuildUgsLobbyPlayer() {
+            var pid = AuthenticationService.Instance.PlayerId;
+            var data = new Dictionary<string, Unity.Services.Lobbies.Models.PlayerDataObject>();
+            data["displayName"] = new Unity.Services.Lobbies.Models.PlayerDataObject(
+                Unity.Services.Lobbies.Models.PlayerDataObject.VisibilityOptions.Member, LocalIdentity.GetDisplayName());
+            var steamId = LocalIdentity.GetSteamId();
+            if(steamId != 0) {
+                data["steamId"] = new Unity.Services.Lobbies.Models.PlayerDataObject(
+                    Unity.Services.Lobbies.Models.PlayerDataObject.VisibilityOptions.Member, steamId.ToString());
+            }
+            return new Unity.Services.Lobbies.Models.Player(pid, data: data);
+        }
+
+        private static bool TryPickRelayEndpoint(List<Unity.Services.Relay.Models.RelayServerEndpoint> endpoints, string connectionType, out string host, out ushort port, out bool isSecure) {
+            host = "";
+            port = 0;
+            isSecure = false;
+
+            if(endpoints == null) return false;
+            if(endpoints.Count == 0) return false;
+            if(string.IsNullOrEmpty(connectionType)) return false;
+
+            for(var i = 0; i < endpoints.Count; i++) {
+                var ep = endpoints[i];
+                if(ep.ConnectionType != connectionType) continue;
+                host = ep.Host;
+                port = (ushort)ep.Port;
+                isSecure = ep.Secure;
+                if(string.IsNullOrEmpty(host)) return false;
+                if(port == 0) return false;
+                return true;
+            }
+
+            return false;
+        }
+
+        private static bool TryApplyRelayToTransport(UnityTransport utp, Unity.Services.Relay.Models.Allocation hostAlloc, Unity.Services.Relay.Models.JoinAllocation clientAlloc) {
+            if(utp == null) return false;
+
+            const string connectionType = "dtls";
+
+            if(hostAlloc == null && clientAlloc == null) return false;
+            if(hostAlloc != null && clientAlloc != null) return false;
+
+            string host;
+            ushort port;
+            bool isSecure;
+
+            if(hostAlloc != null) {
+                if(TryPickRelayEndpoint(hostAlloc.ServerEndpoints, connectionType, out host, out port, out isSecure) == false) {
+                    Debug.LogError("[SessionManager] Relay allocation missing a DTLS endpoint.");
+                    return false;
+                }
+                utp.UseWebSockets = false;
+                utp.SetRelayServerData(host, port, hostAlloc.AllocationIdBytes, hostAlloc.Key, hostAlloc.ConnectionData, null, isSecure);
+                return true;
+            }
+
+            if(TryPickRelayEndpoint(clientAlloc.ServerEndpoints, connectionType, out host, out port, out isSecure) == false) {
+                Debug.LogError("[SessionManager] Relay join allocation missing a DTLS endpoint.");
+                return false;
+            }
+            utp.UseWebSockets = false;
+            utp.SetRelayServerData(host, port, clientAlloc.AllocationIdBytes, clientAlloc.Key, clientAlloc.ConnectionData, clientAlloc.HostConnectionData, isSecure);
+            return true;
+        }
+
+        private void UpdateSteamRichPresenceForUgs() {
+            if(!SteamClient.IsValid || !SteamClient.IsLoggedOn) return;
+
+            if(_ugsPartyLobby != null) {
+                var code = _ugsPartyLobby.LobbyCode;
+                if(!string.IsNullOrEmpty(code)) {
+                    SteamFriends.SetRichPresence("connect", "UGS_PARTY_CODE:" + code);
+                    SteamFriends.SetRichPresence("status", "In Party");
+                    return;
+                }
+            }
+
+            if(_ugsMatchLobby != null) {
+                var lobbyId = _ugsMatchLobby.Id;
+                if(!string.IsNullOrEmpty(lobbyId)) {
+                    SteamFriends.SetRichPresence("connect", "UGS_MATCH_ID:" + lobbyId);
+                    SteamFriends.SetRichPresence("status", "In Match");
+                    return;
+                }
+            }
+
+            SteamFriends.ClearRichPresence();
+        }
+
+        private async UniTaskVoid SendUgsHeartbeatsAsync() {
+            // Heartbeat only required for lobbies we host.
+            var localId = AuthenticationService.Instance.PlayerId;
+            if(string.IsNullOrEmpty(localId)) return;
+
+            try {
+                if(_ugsPartyLobby != null && _ugsPartyLobby.HostId == localId) {
+                    await LobbyService.Instance.SendHeartbeatPingAsync(_ugsPartyLobby.Id);
+                }
+                if(_ugsMatchLobby != null && _ugsMatchLobby.HostId == localId) {
+                    await LobbyService.Instance.SendHeartbeatPingAsync(_ugsMatchLobby.Id);
+                }
+            } catch {
+                // Ignore transient heartbeat failures.
+            }
+        }
+
+        private async UniTaskVoid PollUgsPartyLobbyAsync() {
+            if(_ugsPartyLobby == null) return;
+            if(Phase == SessionPhase.InGame) return;
+
+            try {
+                var refreshed = await LobbyService.Instance.GetLobbyAsync(_ugsPartyLobby.Id);
+                if(refreshed != null) _ugsPartyLobby = refreshed;
+            } catch {
+                return;
+            }
+
+            if(_ugsPartyLobby == null) return;
+            if(_ugsPartyLobby.Data == null) return;
+
+            if(_ugsPartyLobby.Data.TryGetValue(UgsFollowMatchLobbyIdKey, out var followObj)) {
+                if(followObj != null && !string.IsNullOrEmpty(followObj.Value)) {
+                    // Join match lobby if we are not already in it.
+                    if(_ugsMatchLobby == null || _ugsMatchLobby.Id != followObj.Value) {
+                        await JoinUgsMatchLobbyByIdAsync(followObj.Value);
+                    }
+                }
+            }
+        }
+
+        #endregion
+
+        #region UGS Matchmaker (Ticketing)
+
+        public void CancelUgsMatchmaking() {
+            if(_matchmakerCts != null) {
+                _matchmakerCts.Cancel();
+                _matchmakerCts.Dispose();
+                _matchmakerCts = null;
+            }
+
+            if(!string.IsNullOrEmpty(_matchmakerTicketId)) {
+                DeleteMatchmakerTicketAsync(_matchmakerTicketId).Forget();
+            }
+
+            _matchmakerTicketId = null;
+            _matchmakerQueueName = null;
+            if(Phase != SessionPhase.InGame) {
+                SetFrontStatus(SessionPhase.Menu, "");
+            }
+        }
+
+        private async UniTaskVoid DeleteMatchmakerTicketAsync(string ticketId) {
+            if(string.IsNullOrEmpty(ticketId)) return;
+            try {
+                await MatchmakerService.Instance.DeleteTicketAsync(ticketId);
+            } catch {
+                // Ignore transient failures; ticket will expire server-side.
+            }
+        }
+
+        public async UniTask StartMatchmakerQuickPlayAsync(string mode) {
+            await UgsAuthService.InitializeAndSignInAsync();
+            CancelUgsMatchmaking();
+
+            if(string.IsNullOrEmpty(mode)) {
+                mode = SelectedGameMode;
+            } else {
+                SelectedGameMode = mode;
+            }
+
+            var def = Game.Match.MatchSettingsManager.Instance != null
+                ? Game.Match.MatchSettingsManager.Instance.GetGamemodeDef(mode)
+                : default;
+
+            var maxPlayers = 10;
+            if(def.maxPlayers > 0) maxPlayers = def.maxPlayers;
+
+            _matchmakerQueueName = GetQueueNameForMode(mode);
+            if(string.IsNullOrEmpty(_matchmakerQueueName)) {
+                Debug.LogError("[SessionManager] Matchmaker queue name is empty.");
+                return;
+            }
+
+            SetFrontStatus(SessionPhase.Searching, $"Searching for {mode}...");
+            MatchmakingStartTime = Time.time;
+
+            var attrs = new Dictionary<string, object>();
+            attrs["modeId"] = mode;
+            attrs["partySize"] = 1;
+
+            var players = new List<Unity.Services.Matchmaker.Models.Player>();
+            var localPlayerId = AuthenticationService.Instance.PlayerId;
+            if(string.IsNullOrEmpty(localPlayerId)) return;
+            players.Add(new Unity.Services.Matchmaker.Models.Player(localPlayerId, attrs));
+
+            if(Debug.isDebugBuild) {
+                Debug.Log($"[UGS Matchmaker] Creating ticket. mode='{mode}' queue='{_matchmakerQueueName}' playerId='{localPlayerId}'");
+            }
+
+            CreateTicketResponse resp;
+            try {
+                var options = new CreateTicketOptions(_matchmakerQueueName, attrs);
+                resp = await MatchmakerService.Instance.CreateTicketAsync(players, options);
+            } catch(Exception e) {
+                Debug.LogError($"[UGS Matchmaker] CreateTicketAsync failed: {e.Message}");
+                CancelUgsMatchmaking();
+                return;
+            }
+
+            _matchmakerTicketId = resp != null ? resp.Id : null;
+            if(string.IsNullOrEmpty(_matchmakerTicketId)) {
+                Debug.LogError("[SessionManager] Matchmaker ticket id is empty.");
+                return;
+            }
+
+            _matchmakerCts = new CancellationTokenSource();
+            try {
+                if(Debug.isDebugBuild) {
+                    Debug.Log($"[UGS Matchmaker] Ticket created: '{_matchmakerTicketId}'");
+                }
+                await PollMatchmakerTicketAsync(mode, maxPlayers, _matchmakerCts.Token);
+            } catch(OperationCanceledException) {
+                // Expected when user cancels matchmaking.
+            }
+        }
+
+        private async UniTask PollMatchmakerTicketAsync(string mode, int maxPlayers, CancellationToken ct) {
+            while(ct.IsCancellationRequested == false) {
+                TicketStatusResponse status;
+                try {
+                    status = await MatchmakerService.Instance.GetTicketAsync(_matchmakerTicketId);
+                } catch(Exception e) {
+                    Debug.LogWarning($"[SessionManager] Matchmaker poll failed: {e.Message}");
+                    try {
+                        await UniTask.Delay(1000, cancellationToken: ct);
+                    } catch(OperationCanceledException) {
+                        return;
+                    }
+                    continue;
+                }
+
+                if(status == null) {
+                    try {
+                        await UniTask.Delay(1000, cancellationToken: ct);
+                    } catch(OperationCanceledException) {
+                        return;
+                    }
+                    continue;
+                }
+
+                if(status.Type == typeof(MatchIdAssignment)) {
+                    var assign = status.Value as MatchIdAssignment;
+                    if(assign == null) {
+                        Debug.LogError("[SessionManager] Matchmaker returned MatchIdAssignment but value was null.");
+                        CancelUgsMatchmaking();
+                        return;
+                    }
+
+                    if(assign.Status == MatchIdAssignment.StatusOptions.InProgress) {
+                        if(Debug.isDebugBuild) {
+                            Debug.Log($"[UGS Matchmaker] Ticket '{_matchmakerTicketId}' in progress...");
+                        }
+                        try {
+                            await UniTask.Delay(1000, cancellationToken: ct);
+                        } catch(OperationCanceledException) {
+                            return;
+                        }
+                        continue;
+                    }
+
+                    if(assign.Status == MatchIdAssignment.StatusOptions.Timeout) {
+                        Debug.LogWarning("[SessionManager] Matchmaking timed out.");
+                        CancelUgsMatchmaking();
+                        return;
+                    }
+
+                    if(assign.Status == MatchIdAssignment.StatusOptions.Failed) {
+                        Debug.LogWarning($"[SessionManager] Matchmaking failed. Message: {assign.Message}");
+                        CancelUgsMatchmaking();
+                        return;
+                    }
+
+                    if(assign.Status == MatchIdAssignment.StatusOptions.Found) {
+                        if(Debug.isDebugBuild) {
+                            Debug.Log($"[UGS Matchmaker] Ticket '{_matchmakerTicketId}' found matchId='{assign.MatchId}'");
+                        }
+                        if(string.IsNullOrEmpty(assign.MatchId)) {
+                            Debug.LogError("[SessionManager] Matchmaking found but matchId is empty.");
+                            CancelUgsMatchmaking();
+                            return;
+                        }
+
+                        StoredMatchmakingResults results;
+                        try {
+                            results = await MatchmakerService.Instance.GetMatchmakingResultsAsync(assign.MatchId);
+                        } catch(Exception e) {
+                            Debug.LogError($"[SessionManager] Failed to fetch matchmaking results. Exception: {e.Message}");
+                            CancelUgsMatchmaking();
+                            return;
+                        }
+
+                        await HandleStoredMatchmakerResultsAsync(mode, maxPlayers, assign.MatchId, results);
+                        return;
+                    }
+                }
+
+                // Unknown/unsupported ticket type. Keep polling.
+                if(Debug.isDebugBuild) {
+                    var typeName = status.Type != null ? status.Type.Name : "null";
+                    Debug.Log($"[UGS Matchmaker] Ticket '{_matchmakerTicketId}' status type='{typeName}'");
+                }
+                try {
+                    await UniTask.Delay(1000, cancellationToken: ct);
+                } catch(OperationCanceledException) {
+                    return;
+                }
+            }
+        }
+
+        private async UniTask HandleStoredMatchmakerResultsAsync(string mode, int maxPlayers, string matchId,
+            StoredMatchmakingResults results) {
+            if(results == null) return;
+            if(results.MatchProperties == null) return;
+            if(results.MatchProperties.Players == null) return;
+
+            var localPlayerId = AuthenticationService.Instance.PlayerId;
+            if(string.IsNullOrEmpty(localPlayerId)) return;
+
+            var hostId = DetermineDeterministicHostId(results.MatchProperties.Players);
+            if(string.IsNullOrEmpty(hostId)) return;
+
+            if(localPlayerId == hostId) {
+                await StartUgsPublicMatchAsHostAsync(mode, maxPlayers, matchId);
+            } else {
+                await JoinUgsPublicMatchByMatchIdAsync(matchId);
+            }
+        }
+
+        private static string DetermineDeterministicHostId(List<Unity.Services.Matchmaker.Models.Player> players) {
+            if(players == null) return "";
+            if(players.Count == 0) return "";
+
+            var best = "";
+            for(var i = 0; i < players.Count; i++) {
+                var id = players[i].Id;
+                if(string.IsNullOrEmpty(id)) continue;
+                if(string.IsNullOrEmpty(best) || string.CompareOrdinal(id, best) < 0) {
+                    best = id;
+                }
+            }
+            return best;
+        }
+
+        private string GetQueueNameForMode(string mode) {
+            if(string.IsNullOrEmpty(mode)) return "";
+
+            // Per-mode queues (hyphenated, no whitespace) to match Dashboard configuration.
+            return mode switch {
+                "Hopball" => "Hopball",
+                "Deathmatch" => "Deathmatch",
+                "KOTH" => "KOTH",
+                "Gun Tag" => "Gun-Tag",
+                "Team Deathmatch" => "Team-Deathmatch",
+                _ => ""
+            };
+        }
+
+        private async UniTask StartUgsPublicMatchAsHostAsync(string mode, int maxPlayers, string matchId) {
+            await UgsAuthService.InitializeAndSignInAsync();
+
+            // Relay allocation for host.
+            var alloc = await RelayService.Instance.CreateAllocationAsync(maxPlayers - 1);
+            var joinCode = await RelayService.Instance.GetJoinCodeAsync(alloc.AllocationId);
+
+            var create = new CreateLobbyOptions();
+            create.IsPrivate = false;
+            create.Player = BuildUgsLobbyPlayer();
+            create.Data = new Dictionary<string, Unity.Services.Lobbies.Models.DataObject>();
+            create.Data[UgsMatchTypeKey] = new Unity.Services.Lobbies.Models.DataObject(
+                Unity.Services.Lobbies.Models.DataObject.VisibilityOptions.Public, "Public");
+            create.Data[UgsTargetModeKey] = new Unity.Services.Lobbies.Models.DataObject(
+                Unity.Services.Lobbies.Models.DataObject.VisibilityOptions.Public, mode);
+            create.Data[UgsRelayJoinCodeKey] = new Unity.Services.Lobbies.Models.DataObject(
+                Unity.Services.Lobbies.Models.DataObject.VisibilityOptions.Member, joinCode);
+            create.Data[UgsMatchIdKey] = new Unity.Services.Lobbies.Models.DataObject(
+                Unity.Services.Lobbies.Models.DataObject.VisibilityOptions.Public, matchId,
+                Unity.Services.Lobbies.Models.DataObject.IndexOptions.S1);
+            create.Data[UgsLobbyStateKey] = new Unity.Services.Lobbies.Models.DataObject(
+                Unity.Services.Lobbies.Models.DataObject.VisibilityOptions.Public, "Starting");
+
+            _ugsMatchLobby = await LobbyService.Instance.CreateLobbyAsync("HOP Match", maxPlayers, create);
+            UpdateSteamRichPresenceForUgs();
+
+            await CleanupNetworkAsync();
+
+            if(_networkManager == null) _networkManager = NetworkManager.Singleton;
+            if(_networkManager == null) return;
+
+            var utp = _networkManager.GetComponent<UnityTransport>();
+            if(utp == null) {
+                Debug.LogError("[SessionManager] UnityTransport missing on NetworkManager. Cannot start matchmaker relay match.");
+                return;
+            }
+
+            if(TryApplyRelayToTransport(utp, alloc, null) == false) return;
+            _networkManager.NetworkConfig.NetworkTransport = utp;
+
+            ApplyLocalConnectionPayload(false);
+            _networkManager.StartHost();
+            Phase = SessionPhase.LoadingScene;
+            _networkManager.SceneManager.LoadScene(GameSceneName, LoadSceneMode.Single);
+        }
+
+        private async UniTask JoinUgsPublicMatchByMatchIdAsync(string matchId) {
+            await UgsAuthService.InitializeAndSignInAsync();
+            if(string.IsNullOrEmpty(matchId)) return;
+
+            // Poll lobby query until the host publishes the match lobby.
+            for(var i = 0; i < 30; i++) {
+                var lobby = await QueryMatchLobbyByMatchIdAsync(matchId);
+                if(lobby != null) {
+                    await JoinUgsMatchLobbyByIdAsync(lobby.Id);
+                    return;
+                }
+                await UniTask.Delay(1000);
+            }
+
+            Debug.LogError("[SessionManager] Timed out waiting for match lobby.");
+        }
+
+        private async UniTask<Unity.Services.Lobbies.Models.Lobby> QueryMatchLobbyByMatchIdAsync(string matchId) {
+            if(string.IsNullOrEmpty(matchId)) return null;
+
+            var opts = new QueryLobbiesOptions();
+            opts.Filters = new List<Unity.Services.Lobbies.Models.QueryFilter>();
+            opts.Filters.Add(new Unity.Services.Lobbies.Models.QueryFilter(
+                Unity.Services.Lobbies.Models.QueryFilter.FieldOptions.S1,
+                matchId,
+                Unity.Services.Lobbies.Models.QueryFilter.OpOptions.EQ));
+
+            Unity.Services.Lobbies.Models.QueryResponse resp;
+            try {
+                resp = await LobbyService.Instance.QueryLobbiesAsync(opts);
+            } catch {
+                return null;
+            }
+
+            if(resp == null) return null;
+            if(resp.Results == null) return null;
+            if(resp.Results.Count == 0) return null;
+            return resp.Results[0];
+        }
+
+        #endregion
 
         /// <summary>
         /// Kicked a member from the session.
