@@ -14,7 +14,7 @@ namespace Game.Settings {
         public PlayerSettings player = new();
         public KeybindSettings keybinds = new();
 
-        public const int CurrentVersion = 2;
+        public const int CurrentVersion = 3;
 
         [Serializable]
         public sealed class AudioSettings {

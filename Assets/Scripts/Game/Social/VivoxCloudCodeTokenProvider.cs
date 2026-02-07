@@ -50,6 +50,15 @@ namespace Game.Social {
                 args["realm"] = realm;
             }
 
+            if(Debug.isDebugBuild) {
+                var expSeconds = expiration.HasValue ? (int)expiration.Value.TotalSeconds : -1;
+                Debug.Log(
+                    "[VivoxToken] Requesting VAT via Cloud Code. " +
+                    $"action='{action}' fromUserUri='{fromUserUri}' channelUri='{channelUri}' targetUserUri='{targetUserUri}' " +
+                    $"issuerProvided={(string.IsNullOrEmpty(issuer) ? "0" : "1")} expSeconds={expSeconds} realm='{realm}'"
+                );
+            }
+
             try {
                 var token = await CloudCodeService.Instance.CallEndpointAsync<string>(EndpointName, args);
                 if(string.IsNullOrEmpty(token)) {

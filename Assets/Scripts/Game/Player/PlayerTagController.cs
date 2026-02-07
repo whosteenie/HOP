@@ -1,4 +1,3 @@
-using Game.Audio;
 using Game.Match;
 using Game.UI;
 using Network.Events;
@@ -99,8 +98,8 @@ namespace Game.Player {
         
         private void LateUpdate() {
             // Client-side progression tracking
-            if (IsOwner && isTagged.Value && Game.Progression.ProgressionManager.Instance != null) {
-                 Game.Progression.ProgressionManager.Instance.AddTimeTagged(Time.deltaTime);
+            if (IsOwner && isTagged.Value && Progression.ProgressionManager.Instance != null) {
+                 Progression.ProgressionManager.Instance.AddTimeTagged(Time.deltaTime);
             }
         }
 
@@ -175,15 +174,13 @@ namespace Game.Player {
             }
 
             // Update FP weapon glow (owner only)
-            if(IsOwner && playerController != null) {
-                var weaponManager = playerController.WeaponManager;
-                var visualController = playerController.VisualController;
-                if(weaponManager != null && visualController != null) {
-                    var currentWeapon = weaponManager.GetCurrentFpWeapon();
-                    if(currentWeapon != null) {
-                        visualController.UpdateFpArmTagGlow(newValue, currentWeapon);
-                    }
-                }
+            if(!IsOwner || playerController == null) return;
+            var weaponManager = playerController.WeaponManager;
+            var visualController = playerController.VisualController;
+            if(weaponManager == null || visualController == null) return;
+            var currentWeapon = weaponManager.GetCurrentFpWeapon();
+            if(currentWeapon != null) {
+                visualController.UpdateFpArmTagGlow(newValue, currentWeapon);
             }
         }
 
@@ -249,8 +246,8 @@ namespace Game.Player {
         /// </summary>
         [Rpc(SendTo.Owner)]
         public void PlayTaggedSoundClientRpc() {
-            if(Game.Audio2.AudioService.Instance != null) {
-                Game.Audio2.AudioService.Instance.Play("ui.tag.tagged", Vector3.zero);
+            if(Audio2.AudioService.Instance != null) {
+                Audio2.AudioService.Instance.Play("ui.tag.tagged", Vector3.zero);
             }
         }
 
@@ -259,11 +256,11 @@ namespace Game.Player {
         /// </summary>
         [Rpc(SendTo.Owner)]
         private void PlayTaggingSoundClientRpc() {
-            if(Game.Audio2.AudioService.Instance != null) {
-                Game.Audio2.AudioService.Instance.Play("ui.tag.tagger", Vector3.zero);
+            if(Audio2.AudioService.Instance != null) {
+                Audio2.AudioService.Instance.Play("ui.tag.tagger", Vector3.zero);
             }
-            if (Game.Progression.ProgressionManager.Instance != null) {
-                Game.Progression.ProgressionManager.Instance.RecordTag();
+            if (Progression.ProgressionManager.Instance != null) {
+                Progression.ProgressionManager.Instance.RecordTag();
             }
         }
 

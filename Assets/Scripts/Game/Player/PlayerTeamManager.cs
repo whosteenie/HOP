@@ -7,10 +7,9 @@ using UnityEngine;
 namespace Game.Player {
     [RequireComponent(typeof(PlayerController))]
     public class PlayerTeamManager : NetworkBehaviour {
-        private static readonly int outlineColor = Shader.PropertyToID("_OutlineColor");
-        public static int OutlineColorID => outlineColor;
+        public static int OutlineColorID { get; } = Shader.PropertyToID("_OutlineColor");
 
-        private static readonly int size = Shader.PropertyToID("_Size");
+        private static readonly int Size = Shader.PropertyToID("_Size");
         [SerializeField] private PlayerController playerController;
 
         // --------------------------------------------------------------------
@@ -190,8 +189,8 @@ namespace Game.Player {
                 if(_tagController.isTagged.Value) {
                     _skinned.GetPropertyBlock(_tagPropertyBlock, 0);
                     var outlineSize = CalculateOutlineSize();
-                    _tagPropertyBlock.SetColor(outlineColor, taggedGlow);
-                    _tagPropertyBlock.SetFloat(size, outlineSize);
+                    _tagPropertyBlock.SetColor(OutlineColorID, taggedGlow);
+                    _tagPropertyBlock.SetFloat(Size, outlineSize);
                     _skinned.SetPropertyBlock(_tagPropertyBlock, 0);
                     _lastOutlineSize = outlineSize;
                 } else {
@@ -240,23 +239,21 @@ namespace Game.Player {
                     return;
                 }
                 
-                var hasOutlineColor = sharedMaterial.HasProperty(outlineColor);
+                var hasOutlineColor = sharedMaterial.HasProperty(OutlineColorID);
                 
                 if(!hasOutlineColor) {
                     var materialInstance = _skinned.material;
-                    if(materialInstance != null && materialInstance.HasProperty(outlineColor)) {
-                        materialInstance.SetColor(outlineColor, target);
-                        materialInstance.SetFloat(size, outlineSize);
-                        _lastOutlineSize = outlineSize;
-                        return;
-                    }
+                    if(materialInstance == null || !materialInstance.HasProperty(OutlineColorID)) return;
+                    materialInstance.SetColor(OutlineColorID, target);
+                    materialInstance.SetFloat(Size, outlineSize);
+                    _lastOutlineSize = outlineSize;
                     return;
                 }
                 
                 _skinned.GetPropertyBlock(_propertyBlock, 0);
                 
-                _propertyBlock.SetColor(outlineColor, target);
-                _propertyBlock.SetFloat(size, outlineSize);
+                _propertyBlock.SetColor(OutlineColorID, target);
+                _propertyBlock.SetFloat(Size, outlineSize);
                 _skinned.SetPropertyBlock(_propertyBlock, 0);
                 _lastOutlineSize = outlineSize;
                 return;
@@ -307,19 +304,19 @@ namespace Game.Player {
 
             // Always check current game mode and invalidate cache if it changed
             var currentGameModeId = _cachedMatchSettings.selectedGameModeId;
-            if(_gameModeCacheValid && _cachedGameModeId != currentGameModeId) {
-                // Game mode changed - invalidate cache and update outline
-                _gameModeCacheValid = false;
-                UpdateOutlineColour(); // Force update when game mode changes
-                return;
-            }
-
-            // Cache game mode checks
-            if(!_gameModeCacheValid) {
-                _cachedGameModeId = currentGameModeId;
-                _cachedIsTeamBased = MatchSettingsManager.IsTeamBasedMode(_cachedGameModeId);
-                _cachedIsTagMode = _cachedGameModeId == "Gun Tag";
-                _gameModeCacheValid = true;
+            switch(_gameModeCacheValid) {
+                case true when _cachedGameModeId != currentGameModeId:
+                    // Game mode changed - invalidate cache and update outline
+                    _gameModeCacheValid = false;
+                    UpdateOutlineColour(); // Force update when game mode changes
+                    return;
+                // Cache game mode checks
+                case false:
+                    _cachedGameModeId = currentGameModeId;
+                    _cachedIsTeamBased = MatchSettingsManager.IsTeamBasedMode(_cachedGameModeId);
+                    _cachedIsTagMode = _cachedGameModeId == "Gun Tag";
+                    _gameModeCacheValid = true;
+                    break;
             }
 
             // Only update size for team-based or tag modes (where we're using custom colors)
@@ -338,11 +335,11 @@ namespace Game.Player {
             if(!(Mathf.Abs(_lastOutlineSize - outlineSize) > 0.001f)) return;
             // For tag mode, update the tag property block
             if(_cachedIsTagMode && _tagController != null && _tagController.isTagged.Value) {
-                _tagPropertyBlock.SetFloat(size, outlineSize);
+                _tagPropertyBlock.SetFloat(Size, outlineSize);
                 _skinned.SetPropertyBlock(_tagPropertyBlock, 0);
             } else {
                 // For team-based mode, update the regular property block
-                _propertyBlock.SetFloat(size, outlineSize);
+                _propertyBlock.SetFloat(Size, outlineSize);
                 _skinned.SetPropertyBlock(_propertyBlock, 0);
             }
 

@@ -174,14 +174,11 @@ namespace Game.Menu {
                 ShowPanel(uiManager.PlayGamemodePanel);
             };
             uiManager.OnGamemodeSelected = (mode) => {
-                var session = SessionManager.Instance;
-                bool isInPrivateLobby = false;
-                if(session != null && session.CurrentLobby.HasValue) {
-                    var lobbyMode = session.CurrentLobby.Value.GetData("GameMode");
-                    isInPrivateLobby = lobbyMode == "Private";
-                }
-
-                if(_isPrivateMatchIntent || isInPrivateLobby) {
+                // IMPORTANT:
+                // We often auto-host a "party lobby" in the background for invites/party UX.
+                // That lobby uses "Private" as its Steam lobby mode, but it should NOT force the
+                // Private Match flow. Only the explicit button intent should decide the path here.
+                if(_isPrivateMatchIntent) {
                     sessionManager.HandlePrivateMatchSelection(mode).Forget();
                 } else {
                     MainMenuSessionManager.HandleGamemodeSelected(mode);

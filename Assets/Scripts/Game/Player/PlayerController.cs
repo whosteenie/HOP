@@ -4,6 +4,7 @@ using Game.Weapons;
 using Game.UI;
 using Game.Menu;
 using Game.Match;
+using Network.Core;
 using Network.AntiCheat;
 using Network.Components;
 using Network.Events;
@@ -188,6 +189,10 @@ namespace Game.Player {
         public NetworkVariable<ulong> steamId = new(0,
             NetworkVariableReadPermission.Everyone,
             NetworkVariableWritePermission.Owner);
+        
+        public NetworkVariable<FixedString128Bytes> ugsId = new("",
+            NetworkVariableReadPermission.Everyone,
+            NetworkVariableWritePermission.Owner);
 
         public NetworkVariable<FixedString64Bytes> playerName = new("Player",
             NetworkVariableReadPermission.Everyone,
@@ -275,13 +280,18 @@ namespace Game.Player {
 
             if(IsOwner) {
                 string pName;
-                if(SteamClient.IsValid) {
+                if(SteamClient.IsValid && SteamClient.IsLoggedOn) {
                     pName = Game.Social.StreamerMode.GetLocalDisplayName();
                     steamId.Value = SteamClient.SteamId.Value;
                 } else {
                     pName = Game.Social.StreamerMode.LocalDisplayName;
                 }
                 playerName.Value = pName;
+
+                var ugsPlayerId = LocalIdentity.GetUgsPlayerId();
+                if(!string.IsNullOrEmpty(ugsPlayerId)) {
+                    ugsId.Value = ugsPlayerId;
+                }
                 
                 primaryWeaponIndex.Value = GameSettings.Data.player.primaryWeaponIndex;
                 secondaryWeaponIndex.Value = GameSettings.Data.player.secondaryWeaponIndex;

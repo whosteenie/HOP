@@ -3,6 +3,7 @@ using System.Linq;
 using Game.Match;
 using Game.Player;
 using Game.Spawning;
+using Network.Core;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -24,6 +25,11 @@ namespace Network {
 
         // Track pending team assignments during initial batch spawn
         private readonly System.Collections.Generic.Dictionary<ulong, SpawnPoint.Team> _pendingTeamAssignments = new();
+        
+        // Connection payload-derived metadata (transport agnostic)
+        private readonly System.Collections.Generic.Dictionary<ulong, string> _clientPartyIds = new();
+        private bool _hasSessionPrivateFlag;
+        private bool _sessionIsPrivateMatch;
 
         // Cached array for spawn point validation (non-allocating overlap check)
         private readonly Collider[] _spawnValidationHits = new Collider[10];
@@ -72,6 +78,9 @@ namespace Network {
         private void ResetSpawningState() {
             _allowPlayerSpawns = false;
             _pendingTeamAssignments.Clear();
+            _clientPartyIds.Clear();
+            _hasSessionPrivateFlag = false;
+            _sessionIsPrivateMatch = false;
         }
 
         private void OnServerStopped(bool _) => ResetSpawningState();
@@ -80,10 +89,22 @@ namespace Network {
         private static void OnClientDisconnected(ulong _) {
         }
 
-        private static void ApprovalCheck(NetworkManager.ConnectionApprovalRequest request,
+        private void ApprovalCheck(NetworkManager.ConnectionApprovalRequest request,
             NetworkManager.ConnectionApprovalResponse response) {
             response.Approved = true;
             response.CreatePlayerObject = false; // We spawn manually
+
+            var payload = ConnectionPayload.Decode(request.Payload);
+            if(payload == null) return;
+
+            if(!string.IsNullOrEmpty(payload.partyId)) {
+                _clientPartyIds[request.ClientNetworkId] = payload.partyId;
+            }
+
+            if(!_hasSessionPrivateFlag) {
+                _sessionIsPrivateMatch = payload.isPrivateMatch;
+                _hasSessionPrivateFlag = true;
+            }
         }
 
         private void OnClientConnected(ulong clientId) {
@@ -262,37 +283,15 @@ namespace Network {
         private void CalculateTeamsForBatch(System.Collections.Generic.List<ulong> clients) {
             _pendingTeamAssignments.Clear();
 
-            // 1. Get Party Data for all clients
-            // We assume ClientId == SteamId since we use FacepunchTransport.
-            // We query SessionManager.CurrentLobby for PartyID.
-            
-            var session = SessionManager.Instance;
-            var isInLobby = session != null && session.CurrentLobby.HasValue;
-            var gameModeType = "Public"; // Default
-            if (isInLobby) {
-                gameModeType = session.CurrentLobby.Value.GetData("GameMode"); 
-            }
-
-            // Group clients by PartyID
+            // 1. Group clients by PartyID (from connection payload).
             // Map: PartyId -> List<ClientId>
             var partyGroups = new System.Collections.Generic.Dictionary<string, System.Collections.Generic.List<ulong>>();
             var solos = new System.Collections.Generic.List<ulong>();
 
             foreach (var clientId in clients) {
                 var pId = "";
-                if (isInLobby) {
-                   // Find member with this SteamID
-                   // struct Lobby has Members -> IEnumerable<Friend>
-                   // Friend has ID (SteamId).
-                   // We need to match ClientId (ulong) to Friend.ID (SteamId).
-                   var member = session.CurrentLobby.Value.Members.FirstOrDefault(m => m.Id.Value == clientId);
-                   // Friend struct is value type, checking Id validity?
-                   if (member.Id.Value != 0) {
-                       // Get Party ID Key
-                       // Friend struct does not expose "GetMemberData" directly!
-                       // Use Lobby.GetMemberData(friend, key)
-                       pId = session.CurrentLobby.Value.GetMemberData(member, "PartyId");
-                   }
+                if(_clientPartyIds.TryGetValue(clientId, out var storedPartyId)) {
+                    pId = storedPartyId;
                 }
 
                 if (string.IsNullOrEmpty(pId)) {
@@ -309,7 +308,7 @@ namespace Network {
             // Public Match: Keep parties intact, balance total counts.
 
             // Check for single large party (Private Match scenario)
-            if (gameModeType == "Private" || (partyGroups.Count == 1 && solos.Count == 0 && partyGroups.First().Value.Count > 1)) {
+            if (_sessionIsPrivateMatch || (partyGroups.Count == 1 && solos.Count == 0 && partyGroups.First().Value.Count > 1)) {
                 // Split logic
                 var allClients = new System.Collections.Generic.List<ulong>(clients);
                 ShuffleList(allClients); // Randomize first

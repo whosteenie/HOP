@@ -307,7 +307,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 02bf81a05deae854784047cdf69e1b4e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Network.Steam.SteamManager
-  appId: 480
+  appId: 4391170
 --- !u!4 &937960726
 Transform:
   m_ObjectHideFlags: 0

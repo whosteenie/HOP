@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Cysharp.Threading.Tasks;
 using Unity.Services.Authentication;
 using Unity.Services.Core;
@@ -15,12 +15,7 @@ namespace Network.UGS {
 
         /// <inheritdoc />
         public async UniTask InitializeAsync() {
-            if(UnityServices.State != ServicesInitializationState.Initialized) {
-                await UnityServices.InitializeAsync();
-            }
-
-            if(!AuthenticationService.Instance.IsSignedIn)
-                await AuthenticationService.Instance.SignInAnonymouslyAsync();
+            await UgsAuthService.InitializeAndSignInAsync();
         }
 
         /// <inheritdoc />
