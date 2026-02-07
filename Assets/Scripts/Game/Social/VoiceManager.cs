@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using UnityEngine;
+using Unity.Services.Authentication;
 using Unity.Services.Core;
 using Unity.Services.Vivox;
 using Steamworks;
@@ -63,7 +64,17 @@ namespace Game.Social {
 
         private async Task InitializeVivoxAsync() {
             try {
-                await UnityServices.InitializeAsync();
+                if(UnityServices.State != ServicesInitializationState.Initialized) {
+                    await UnityServices.InitializeAsync();
+                }
+
+                // Vivox in production expects server-side token vending. We call Cloud Code, which requires UGS Auth.
+                if(!AuthenticationService.Instance.IsSignedIn) {
+                    await AuthenticationService.Instance.SignInAnonymouslyAsync();
+                }
+
+                // Must be registered before initializing Vivox when Test Mode is disabled and no client signing key is present.
+                VivoxService.Instance.SetTokenProvider(new VivoxCloudCodeTokenProvider());
                 await VivoxService.Instance.InitializeAsync();
                 
                 IsInitialized = true;
@@ -73,8 +84,13 @@ namespace Game.Social {
                 VivoxService.Instance.ParticipantRemovedFromChannel += OnParticipantRemovedFromChannel;
 
                 // Login automatically if we have a user
-                if(SteamClient.IsValid) {
-                    await LoginAsync(SteamClient.SteamId.ToString(), SteamClient.Name);
+                if(SteamClient.IsValid && SteamClient.IsLoggedOn) {
+                    await LoginAsync(SteamClient.SteamId.ToString(), StreamerMode.GetLocalDisplayName());
+                } else {
+                    var ugsId = AuthenticationService.Instance.PlayerId;
+                    if(!string.IsNullOrEmpty(ugsId)) {
+                        await LoginAsync(ugsId, StreamerMode.LocalDisplayName);
+                    }
                 }
 
             } catch (Exception e) {
@@ -104,7 +120,7 @@ namespace Game.Social {
                 }
 
             } catch (Exception e) {
-                Debug.LogError($"[VoiceManager] Login Failed! Check if Test Mode is enabled in Project Settings > Services > Vivox. Exception: {e.Message}");
+                Debug.LogError($"[VoiceManager] Login Failed! If Vivox Test Mode is disabled, ensure Cloud Code Vivox token minting is deployed and reachable. Exception: {e.Message}");
             }
         }
 
@@ -203,7 +219,9 @@ namespace Game.Social {
             
             // Fire event for local UI
             if (SocialSettings.InputMode == VoiceInputMode.PushToTalk) {
-                OnLocalPttStateChanged?.Invoke(_isMicOpen);
+                if(OnLocalPttStateChanged != null) {
+                    OnLocalPttStateChanged.Invoke(_isMicOpen);
+                }
                 
                 // Update NetworkVariable on local PlayerController so other clients see the indicator
                 var localPlayer = Game.Player.PlayerController.LocalPlayer;
@@ -309,7 +327,9 @@ namespace Game.Social {
             _participantSpeechActions[participant.PlayerId] = speechAction;
             
             participant.ParticipantSpeechDetected += speechAction;
-            OnParticipantAdded?.Invoke(participant);
+            if(OnParticipantAdded != null) {
+                OnParticipantAdded.Invoke(participant);
+            }
             
             // Apply mute if this player is in the muted list
             if (SocialSettings.IsMuted(participant.PlayerId)) {
@@ -322,11 +342,15 @@ namespace Game.Social {
                 participant.ParticipantSpeechDetected -= action;
                 _participantSpeechActions.Remove(participant.PlayerId);
             }
-            OnParticipantRemoved?.Invoke(participant);
+            if(OnParticipantRemoved != null) {
+                OnParticipantRemoved.Invoke(participant);
+            }
         }
 
         private void OnSpeechDetected(VivoxParticipant participant) {
-            OnParticipantSpeechDetected?.Invoke(participant);
+            if(OnParticipantSpeechDetected != null) {
+                OnParticipantSpeechDetected.Invoke(participant);
+            }
         }
     }
 }
