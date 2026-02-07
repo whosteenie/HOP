@@ -17,10 +17,11 @@
 }
 
 /* Positions by ID */
-#health-container { position: absolute; left: 30px; bottom: 30px; }
+/* Push to edges as requested - 0px margin/offset */
+#hud-panel #health-container { position: absolute; left: 0 !important; bottom: 0 !important; margin: 0 !important; }
 #grapple-indicator-bottom { position: absolute; left: 50%; bottom: 96px; translate: -50% 0; }
 #multiplier-container { position: absolute; left: 50%; bottom: 30px; translate: -50% 0; }
-#ammo-container { position: absolute; right: 30px; bottom: 30px; }
+#hud-panel #ammo-container { position: absolute; right: 0 !important; bottom: 0 !important; margin: 0 !important; }
 
 /* Stat containers */
 .multiplier-container {
@@ -37,7 +38,10 @@
     flex-direction: row; 
     align-items: center;
     min-height: 84px; 
-    padding: 4px 0;
+    padding: 8px 16px !important;
+    background-color: rgba(0, 0, 0, 0.4) !important;
+    border-radius: 0 !important;
+    border-width: 0 !important;
 }
 
 
