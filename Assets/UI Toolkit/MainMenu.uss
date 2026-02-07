@@ -28,10 +28,17 @@
     color: rgba(240,240,240,0.3);
 }
 
-.menu-entry { flex-direction: row; align-items: center; margin-bottom: 8px; }
-.menu-diamond {
-    width: 10px; height: 10px; min-width: 10px; min-height: 10px;
-    margin-right: 12px; background-color: rgb(200,60,60); rotate: 45deg;
+.menu-entry { flex-direction: row; align-items: center; margin-bottom: 10px; }
+
+/* Primary action buttons (Play, Private Match) - larger and more prominent */
+.primary-action {
+    font-size: 36px;
+    letter-spacing: 3px;
+    margin-bottom: 4px;
+}
+
+.primary-action:hover {
+    color: rgb(255, 120, 120);
 }
 
 /* ===== GAMEMODE ===== */

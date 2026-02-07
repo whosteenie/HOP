@@ -7,30 +7,24 @@
     <ui:VisualElement name="player-model-background" picking-mode="Ignore" class="player-model-background"/>
     <ui:VisualElement name="main-menu-panel" picking-mode="Ignore" class="panel full-abs">
         <ui:Label text="HOP" name="title-label" class="title title-xl main-title" style="font-size: 240px; top: 93px; left: 95px; -unity-font-definition: url(&quot;project://database/Assets/TextMesh%20Pro/Examples%20&amp;%20Extras/Fonts/Roboto-Bold%20SDF.asset?fileID=11400000&amp;guid=2b4e604fe6152104d97432c733e17021&amp;type=2#Roboto-Bold SDF&quot;); text-shadow: -1.2px 0 12px rgba(200, 60, 60, 0.4);"/>
-        <ui:VisualElement name="main-menu-container" class="menu-container main-actions">
+        <ui:VisualElement name="main-menu-container" class="menu-container main-actions" style="bottom: 110px; left: 109px;">
             <ui:VisualElement class="menu-entry">
-                <ui:VisualElement class="menu-diamond"/>
-                <ui:Button text="Play" name="play-button-matchmaking" class="text-button"/>
+                <ui:Button text="PLAY" name="play-button-matchmaking" class="text-button primary-action" style="font-size: 40px;"/>
             </ui:VisualElement>
             <ui:VisualElement class="menu-entry">
-                <ui:VisualElement class="menu-diamond"/>
-                <ui:Button text="Private Match" name="play-button-private" class="text-button"/>
+                <ui:Button text="PRIVATE MATCH" name="play-button-private" class="text-button primary-action" style="font-size: 40px;"/>
             </ui:VisualElement>
             <ui:VisualElement class="menu-entry">
-                <ui:VisualElement class="menu-diamond"/>
-                <ui:Button text="Loadout" name="loadout-button" class="text-button"/>
+                <ui:Button text="LOADOUT" name="loadout-button" class="text-button" style="font-size: 22px;"/>
             </ui:VisualElement>
             <ui:VisualElement class="menu-entry">
-                <ui:VisualElement class="menu-diamond"/>
-                <ui:Button text="Options" name="options-button" class="text-button"/>
+                <ui:Button text="OPTIONS" name="options-button" class="text-button" style="font-size: 22px;"/>
             </ui:VisualElement>
             <ui:VisualElement class="menu-entry">
-                <ui:VisualElement class="menu-diamond"/>
-                <ui:Button text="Credits" name="credits-button" class="text-button"/>
+                <ui:Button text="CREDITS" name="credits-button" class="text-button" style="font-size: 22px;"/>
             </ui:VisualElement>
             <ui:VisualElement class="menu-entry">
-                <ui:VisualElement class="menu-diamond"/>
-                <ui:Button text="Quit" name="quit-button" class="text-button back-button"/>
+                <ui:Button text="QUIT" name="quit-button" class="text-button back-button" style="font-size: 22px;"/>
             </ui:VisualElement>
         </ui:VisualElement>
     </ui:VisualElement>
@@ -467,11 +461,11 @@
     </ui:VisualElement>
     <ui:VisualElement name="party-container" picking-mode="Ignore" class="party-container">
         <ui:VisualElement name="party-members-list" picking-mode="Ignore" class="party-members-row"/>
-        <ui:Button name="invite-friends-button" class="invite-button menu-chip">
+        <ui:Button name="invite-friends-button" text="" class="invite-button menu-chip" style="margin-right: 0;">
             <ui:Image name="invite-icon" class="plus-icon"/>
         </ui:Button>
         <ui:VisualElement name="party-separator" class="party-separator"/>
-        <ui:VisualElement name="local-player-profile" picking-mode="Ignore" class="local-player-profile"/>
+        <ui:VisualElement name="local-player-profile" picking-mode="Ignore" class="local-player-profile" style="height: auto; width: auto; min-width: 150px; min-height: 42px;"/>
     </ui:VisualElement>
     <ui:VisualElement name="status-container" picking-mode="Ignore" class="status-container hidden">
         <ui:VisualElement name="status-info" picking-mode="Ignore" class="status-info-grouping">
