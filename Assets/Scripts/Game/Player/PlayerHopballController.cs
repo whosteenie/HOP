@@ -127,9 +127,21 @@ namespace Game.Player {
 
         public override void OnNetworkDespawn() {
             base.OnNetworkDespawn();
-            if(IsHoldingHopball) {
-                DropHopball(HopballDropReason.PlayerDeath);
-            }
+            // Network is shutting down / objects are despawning. Do not try to send ServerRpcs here.
+            // Just cleanup local holder visuals so we don't throw when the hopball NetworkObject is already despawned.
+            if(!IsOwner) return;
+            if(!IsHoldingHopball) return;
+
+            _currentHopballController = null;
+            HopballController.VisualStateChanged -= OnHopballVisualStateChanged;
+
+            HideFpHopballVisualImmediate();
+            DestroyWorldVisual();
+            DestroyFpVisual();
+            DestroyArmImmediate();
+
+            ShowWeapons();
+            TransitionToWeaponLayers();
         }
 
         /// <summary>
@@ -469,7 +481,24 @@ namespace Game.Player {
                 playerVelocity = playerController.GetFullVelocity;
             }
             
-            RequestDropHopballServerRpc(hopball.GetComponent<NetworkObject>(), dropPosition, dropRotation, playerVelocity);
+            var canSendDrop = true;
+            if(NetworkManager.Singleton == null) {
+                canSendDrop = false;
+            } else if(!NetworkManager.Singleton.IsListening) {
+                // Prevent errors during shutdown/despawn (e.g. exiting match, host migration teardown).
+                canSendDrop = false;
+            }
+
+            var hopballNetObj = hopball.GetComponent<NetworkObject>();
+            if(hopballNetObj == null) {
+                canSendDrop = false;
+            } else if(!hopballNetObj.IsSpawned) {
+                canSendDrop = false;
+            }
+
+            if(canSendDrop) {
+                RequestDropHopballServerRpc(hopballNetObj, dropPosition, dropRotation, playerVelocity);
+            }
 
             if(reason == HopballDropReason.Manual) {
                 ShowWeapons();
