@@ -531,8 +531,8 @@ namespace Game.Hopball {
     }
 
     private void NotifyVisualStateChanged(bool forceBroadcast) {
-        if(VisualStateChanged == null) return;
-
+        // Always refresh CurrentVisualState, even if no listeners are registered yet.
+        // Some visuals (e.g. HopballVisual.OnEnable) read CurrentVisualState immediately on enable.
         var state = new HopballVisualState(
             CurrentEffectScale,
             CurrentLightIntensity,
@@ -541,14 +541,12 @@ namespace Game.Hopball {
             target != null && target.enabled
         );
 
-        if(!forceBroadcast && ApproximatelyEquals(CurrentVisualState, state)) {
-            return;
-        }
-
+        var changed = forceBroadcast || !ApproximatelyEquals(CurrentVisualState, state);
         CurrentVisualState = state;
-        if(VisualStateChanged != null) {
-            VisualStateChanged.Invoke(state);
-        }
+
+        if(!changed) return;
+        if(VisualStateChanged == null) return;
+        VisualStateChanged.Invoke(state);
     }
 
     private static bool ApproximatelyEquals(HopballVisualState a, HopballVisualState b) {
