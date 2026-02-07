@@ -25,7 +25,7 @@ MonoBehaviour:
     pitch: 0
     randomPitch: 0.08
   - clip: {fileID: 8300000, guid: 71e07bce3e3307b409cb75a195e3a3f1, type: 3}
-    weight: 1
+    weight: 0.5
     volumeDb: 0
     pitch: 0
     randomPitch: 0.08
@@ -35,7 +35,7 @@ MonoBehaviour:
     pitch: 0
     randomPitch: 0.08
   - clip: {fileID: 8300000, guid: b4bc7b1ba2bf45142b07884c4f6de571, type: 3}
-    weight: 1
+    weight: 0.5
     volumeDb: 0
     pitch: 0
     randomPitch: 0.08
@@ -53,7 +53,7 @@ MonoBehaviour:
   rolloffMode: 0
   priority: 128
   maxInstances: 4
-  cooldownSeconds: 0
+  cooldownSeconds: 0.14
   stealPolicy: 1
   stopBehavior: 1
   preload: 0

@@ -15,43 +15,43 @@ MonoBehaviour:
   id: foley.tile.walk
   variants:
   - clip: {fileID: 8300000, guid: 708a1c8b8fdd5bc4ebd19f5560b54dfb, type: 3}
-    weight: 1
-    volumeDb: 0
+    weight: 0.1
+    volumeDb: -5
     pitch: 0
     randomPitch: 0.1
   - clip: {fileID: 8300000, guid: ca93f7b684afb844a9b8d76e721a4167, type: 3}
-    weight: 1
-    volumeDb: 0
+    weight: 0.1
+    volumeDb: -5
     pitch: 0
     randomPitch: 0.1
   - clip: {fileID: 8300000, guid: 07ca8bdb422efe94f8291751b06af82d, type: 3}
-    weight: 1
-    volumeDb: 0
+    weight: 0.25
+    volumeDb: -5
     pitch: 0
     randomPitch: 0.1
   - clip: {fileID: 8300000, guid: 18890a051f5d35b43a2b60282e9ca0c7, type: 3}
     weight: 1
-    volumeDb: 0
+    volumeDb: -5
     pitch: 0
     randomPitch: 0.1
   - clip: {fileID: 8300000, guid: 1aa9508396977dc41aaaae0719fec5db, type: 3}
     weight: 1
-    volumeDb: 0
+    volumeDb: -5
     pitch: 0
     randomPitch: 0.1
   - clip: {fileID: 8300000, guid: 66e7370e330ed214fb0f239aa8b6aa74, type: 3}
     weight: 1
-    volumeDb: 0
+    volumeDb: -5
     pitch: 0
     randomPitch: 0.1
   - clip: {fileID: 8300000, guid: 4508b6ad75a8d5843b4e3a112c4483e1, type: 3}
     weight: 1
-    volumeDb: 0
+    volumeDb: -5
     pitch: 0
     randomPitch: 0.1
   - clip: {fileID: 8300000, guid: c465a1a62471d6d498cb70dd91799d3a, type: 3}
-    weight: 1
-    volumeDb: 0
+    weight: 0.1
+    volumeDb: -5
     pitch: 0
     randomPitch: 0.1
   bus: 1
@@ -63,7 +63,7 @@ MonoBehaviour:
   rolloffMode: 0
   priority: 128
   maxInstances: 4
-  cooldownSeconds: 0
+  cooldownSeconds: 0.14
   stealPolicy: 1
   stopBehavior: 1
   preload: 0

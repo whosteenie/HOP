@@ -91,6 +91,7 @@ namespace Game.Weapons {
         private float _peakDamageMultiplier = 1f;
         private float _lastPeakTime;
         private Coroutine _reloadCoroutine;
+        private bool _autoReloadArmed;
 
         // Bullet trail pooling
         private readonly Queue<TrailRenderer> _trailPool = new();
@@ -189,6 +190,7 @@ namespace Game.Weapons {
             // Restore ammo
             currentAmmo = restoredAmmo;
             IsReloading = false;
+            _autoReloadArmed = false;
 
             // Get animator from FP weapon
             if(_currentFpWeaponInstance) {
@@ -237,9 +239,21 @@ namespace Game.Weapons {
             PlayFireSound();
         }
 
+        public bool TryAutoReloadFromEmptyClick() {
+            if(currentAmmo != 0) return false;
+            if(IsReloading) return false;
+            if(_autoReloadArmed == false) return false;
+            if(!CanReload()) return false;
+
+            _autoReloadArmed = false;
+            StartReload();
+            return true;
+        }
+
         public void StartReload() {
             if(!CanReload()) return;
 
+            _autoReloadArmed = false;
             IsReloading = true;
 
             if(_currentWeaponData.useMagReload) {
@@ -325,6 +339,7 @@ namespace Game.Weapons {
             currentAmmo = _currentWeaponData.magSize;
             IsReloading = false;
             _lastFireTime = Time.time;
+            _autoReloadArmed = false;
             if(IsOwner) {
                 netCurrentDamageMultiplier.Value = 1f;
             }
@@ -491,6 +506,7 @@ namespace Game.Weapons {
 
             _lastFireTime = Time.time;
             PlayDryFireSound();
+            _autoReloadArmed = true;
         }
 
         private ulong _shotSequence;
@@ -773,6 +789,7 @@ namespace Game.Weapons {
             currentAmmo = _currentWeaponData.magSize;
             IsReloading = false;
             _reloadCoroutine = null;
+            _autoReloadArmed = false;
 
             // Trigger reload complete animation (mag-style reloads)
             if(_weaponAnimator != null) {

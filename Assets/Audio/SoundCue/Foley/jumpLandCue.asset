@@ -15,7 +15,7 @@ MonoBehaviour:
   id: foley.tile.jump.land
   variants:
   - clip: {fileID: 8300000, guid: c90d18fa6281933489447e6d8d99f7fd, type: 3}
-    weight: 1
+    weight: 0.5
     volumeDb: 0
     pitch: 0
     randomPitch: 0.04
