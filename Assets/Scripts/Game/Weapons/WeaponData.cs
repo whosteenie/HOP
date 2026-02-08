@@ -81,6 +81,16 @@ namespace Game.Weapons {
         [Tooltip("SoundCatalog id used when reloading this weapon (e.g. 'weapons.pistol.reload').")]
         public string reloadSoundId = "";
 
+        [Header("Hit Registration")]
+        [Tooltip("If true, uses a hybrid ray+sphere cast for more forgiving hit detection.")]
+        public bool useSphereCast;
+        [Tooltip("Base radius of the hit sphere at muzzle (meters).")]
+        public float sphereCastRadius = 0.05f;
+        [Tooltip("Distance (meters) at which the sphere starts growing from base radius.")]
+        public float sphereCastGrowthStartDist = 0f;
+        [Tooltip("Maximum radius of the hit sphere at growth end distance.")]
+        public float sphereCastMaxRadius = 0.3f;
+
         [Header("Server Validation")]
         [Tooltip("Maximum range (meters) used when validating hits server-side.")]
         public float maxServerRange = 150f;

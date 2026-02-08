@@ -489,6 +489,17 @@ namespace Game.Menu {
                     _logoGithub.UnregisterCallback(hoverHandler);
                 });
             }
+
+            // Challenge Updates
+            if (ProgressionManager.Instance != null) {
+                System.Action updateChallengeHandler = UpdateMainMenuChallenges;
+                ProgressionManager.Instance.OnChallengesUpdated += updateChallengeHandler;
+                RegisterCleanup(() => {
+                    if (ProgressionManager.Instance != null) {
+                        ProgressionManager.Instance.OnChallengesUpdated -= updateChallengeHandler;
+                    }
+                });
+            }
         }
 
         private void SetupFirstTimeModal() {

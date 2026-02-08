@@ -87,6 +87,10 @@ namespace Game.Match {
             if (_xpDisplay == null) {
                 _xpDisplay = gameObject.AddComponent<PostMatchXpDisplay>();
             }
+            // Ensure XP display has access to the UIDocument
+            if (_xpDisplay.uiDocument == null && uiDocument != null) {
+                _xpDisplay.uiDocument = uiDocument;
+            }
             
             InitializeUI();
         }

@@ -17,6 +17,7 @@ namespace Game.Progression {
 
         public event Action<int> OnLevelUp;
         public event Action<int> OnXpAdded;
+        public event Action OnChallengesUpdated; // Notify UI of refresh
 
         private void Awake() {
             if (Instance != null && Instance != this) {
@@ -277,11 +278,22 @@ namespace Game.Progression {
                 }
              }
         }
+
+        private float _nextChallengeCheckTime;
+        private const float ChallengeCheckInterval = 1f; // Check frequently (1s) to be responsive when timer hits 0
+
         private void Update() {
             if (Data != null) {
                 // Only track playtime if in active match
                 if (IsMatchActive()) {
                     Data.stats.totalPlayTimeSeconds += Time.deltaTime;
+                }
+
+                // Check for challenge reset periodically
+                if (Time.time >= _nextChallengeCheckTime) {
+                    CheckDailyReset();
+                    CheckWeeklyReset(); // Also check weekly
+                    _nextChallengeCheckTime = Time.time + ChallengeCheckInterval;
                 }
             }
         }
@@ -521,6 +533,7 @@ namespace Game.Progression {
             
             SaveData();
             Debug.Log($"[Progression] Generated {addedCount} new Daily Challenges.");
+            OnChallengesUpdated?.Invoke();
         }
         
         private void GenerateWeeklyChallenges() {
@@ -569,6 +582,7 @@ namespace Game.Progression {
             
             SaveData();
             Debug.Log($"[Progression] Generated {addedCount} new Weekly Challenges.");
+            OnChallengesUpdated?.Invoke();
         }
         
         public ChallengeDefinition GetChallengeDefinition(string id) {

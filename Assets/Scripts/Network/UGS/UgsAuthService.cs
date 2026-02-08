@@ -19,7 +19,18 @@ namespace Network.UGS {
 
         public static async UniTask InitializeAndSignInAsync() {
             if(UnityServices.State != ServicesInitializationState.Initialized) {
-                await UnityServices.InitializeAsync();
+                var options = new InitializationOptions();
+                
+                // Check if we are running as a clone (ParrelSync / MPPM)
+                // MPPM usually adds arguments or we can check project path hash
+#if UNITY_EDITOR
+                if (IsClone()) {
+                    string cloneName = GetCloneName();
+                    options.SetProfile(cloneName);
+                    Debug.Log($"[UGS Auth] Initializing as clone profile: {cloneName}");
+                }
+#endif
+                await UnityServices.InitializeAsync(options);
             }
 
             if(AuthenticationService.Instance.IsSignedIn) return;
@@ -38,9 +49,10 @@ namespace Network.UGS {
                 var signedIn = AuthenticationService.Instance.IsSignedIn;
                 var authorized = AuthenticationService.Instance.IsAuthorized;
                 var pid = AuthenticationService.Instance.PlayerId;
+                var profile = AuthenticationService.Instance.Profile;
                 var steamLoggedOn = SteamClient.IsValid && SteamClient.IsLoggedOn;
                 Debug.Log(
-                    $"[UGS Auth] signedIn={signedIn} authorized={authorized} playerId='{pid}' " +
+                    $"[UGS Auth] signedIn={signedIn} authorized={authorized} playerId='{pid}' profile='{profile}' " +
                     $"steamLoggedOn={steamLoggedOn} steamAppId={SteamClient.AppId}"
                 );
             }
@@ -49,6 +61,21 @@ namespace Network.UGS {
         private static async Task InitializeAndSignInInternalAsync() {
             try {
                 if(AuthenticationService.Instance.IsSignedIn) return;
+
+                // For MPPM clones, skip Steam auth entirely to get unique PlayerIDs
+#if UNITY_EDITOR
+                if(IsClone()) {
+                    Debug.Log("[UgsAuthService] Clone detected - using anonymous auth for unique PlayerID");
+                    try {
+                        // Clear any cached session to force a fresh unique PlayerID
+                        AuthenticationService.Instance.ClearSessionToken();
+                        await AuthenticationService.Instance.SignInAnonymouslyAsync();
+                    } catch(System.Exception e) {
+                        Debug.LogWarning($"[UgsAuthService] Anonymous sign-in failed for clone. Exception: {e.Message}");
+                    }
+                    return;
+                }
+#endif
 
                 if(SteamClient.IsValid && SteamClient.IsLoggedOn) {
                     var ok = await TrySteamSignInAsync();
@@ -118,6 +145,17 @@ namespace Network.UGS {
                 sb.Append(bytes[i].ToString("X2"));
             }
             return sb.ToString();
+        }
+    private static bool IsClone() {
+            var clonePath = Application.dataPath;
+            // ParrelSync uses "clone", Unity MPPM uses "Library/VP/mppm..."
+            return clonePath.Contains("clone") || clonePath.Contains("ParrelSync") || clonePath.Contains("mppm"); 
+        }
+
+        private static string GetCloneName() {
+            var clonePath = Application.dataPath;
+            // Simple hash of the path to keep it short and unique per clone folder
+            return "Clone_" + clonePath.GetHashCode().ToString("X");
         }
     }
 }

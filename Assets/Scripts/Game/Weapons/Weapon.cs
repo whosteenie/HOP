@@ -584,40 +584,128 @@ namespace Game.Weapons {
         private void FirePellet(Vector3 origin, Vector3 direction, out Vector3 endPoint, out Vector3 hitNormal,
             out bool madeImpact, out bool hitPlayer, out NetworkObjectReference hitPlayerRef, int weaponIndex, ulong shotId) {
             var hitLayer = _enemyLayer | _worldLayer;
-            bool shotHit;
-            RaycastHit hit;
+            bool shotHit = false;
+            RaycastHit hit = default;
             
-            // Check if we should use spherecast for sniper weapons
-            var useSniperSpherecast = _currentWeaponData != null && _currentWeaponData.useSniperOverlay &&
-                                      playerController != null && playerController.PlayerInput != null &&
-                                      playerController.PlayerInput.IsSniperOverlayActive;
+            // Default max distance for raycast
+            var maxDist = 1000f;
             
-            if(useSniperSpherecast) {
-                // Use spherecast with distance-based radius scaling for sniper weapons
-                // Conservative values: 3cm base, 15cm max, scales with distance using exponential curve
-                const float baseRadius = 0.03f; // 3cm base radius
-                const float maxRadius = 0.15f;  // 15cm max radius
-                const float maxDistance = 300f; // 300m max distance for scaling
+            // Check if we should use the new hybrid sphere/cone cast system
+            var useHybridSystem = _currentWeaponData != null && _currentWeaponData.useSphereCast;
+            
+            // Legacy/Sniper Override check (maintain support for old sniper bool if needed, but prefer hybrid)
+            if(_currentWeaponData != null && _currentWeaponData.useSniperOverlay && 
+               playerController != null && playerController.PlayerInput != null && 
+               playerController.PlayerInput.IsSniperOverlayActive) {
+                useHybridSystem = true;
+            }
+
+            if(useHybridSystem) {
+                // HYBRID HIT REGISTRATION SYSTEM
+                // 1. Cast a strict Ray against World Geometry to find the "hard stop" distance.
+                // 2. Cast a Sphere against Players (and World) to find forgiving hits.
+                // 3. Validate that Sphere hits are:
+                //    a) BEFORE the World Ray hit (occlusion check)
+                //    b) Within the "Cone" variance at that distance (scoping down the sphere)
+
+                // Step 1: Geometry Check (Raycast against World Only)
+                // We use _worldLayer to find where the bullet would strictly stop on a wall.
+                if(Physics.Raycast(origin, direction, out var worldHit, maxDist, _worldLayer)) {
+                    maxDist = worldHit.distance; // This is our hard stop.
+                }
+
+                // Step 2: Forgiving Check (SphereCast against Everyone)
+                // We use the MAX radius for the sphere cast to catch anything that *might* be a hit.
+                // Then we validate if it falls within the *current* radius at that distance.
+                // Step 2: Forgiving Check (SphereCast against Everyone)
+                // We use the MAX radius for the sphere cast to catch anything that *might* be a hit.
+                // Then we validate if it falls within the *current* radius at that distance.
+                var maxRadius = _currentWeaponData.sphereCastMaxRadius;
+                var baseRadius = _currentWeaponData.sphereCastRadius;
+                var growthStart = _currentWeaponData.sphereCastGrowthStartDist;
+                // Use minDamageRange (where damage is lowest/furthest) as the growth end distance if falloff is used
+                // Otherwise use maxServerRange as a fallbackcap
+                var growthEnd = _currentWeaponData.useDamageFalloff 
+                    ? Mathf.Max(growthStart + 0.1f, _currentWeaponData.minDamageRange) 
+                    : _currentWeaponData.maxServerRange;
                 
-                // First do a raycast to get distance, then use that to calculate sphere radius
-                // This gives us distance-based scaling
-                var hasTempHit = Physics.Raycast(origin, direction, out var tempHit, Mathf.Infinity, hitLayer);
-                
-                if(hasTempHit) {
-                    // Calculate radius based on distance with exponential curve
-                    // t*t makes it scale more aggressively at longer distances
-                    var t = Mathf.Clamp01(tempHit.distance / maxDistance);
-                    var radius = Mathf.Lerp(baseRadius, maxRadius, t * t);
+                // Perform the SphereCast with the strict limit of maxDist (or slightly more to catch edge cases, filtering later)
+                // Note: SphereCastAll is better here to find the *first valid player* even if a closer player is missed by the cone but hit by the sphere.
+                // For simplicity/perf, we'll stick to SphereCast and assume the first hit is the intended one if valid.
+                if(Physics.SphereCast(origin, maxRadius, direction, out var sphereHit, maxDist, hitLayer)) {
+                    // Step 3: Validation
+                    // Calculate what the allowed radius is at this specific distance
+                    var dist = sphereHit.distance;
                     
-                    // Now do spherecast with calculated radius
-                    shotHit = Physics.SphereCast(origin, radius, direction, out hit, Mathf.Infinity, hitLayer);
+                    float allowedRadius;
+                    if(dist <= growthStart) {
+                        allowedRadius = baseRadius;
+                    } else if(dist >= growthEnd) {
+                        allowedRadius = maxRadius;
+                    } else {
+                        var t = Mathf.InverseLerp(growthStart, growthEnd, dist);
+                        allowedRadius = Mathf.Lerp(baseRadius, maxRadius, t);
+                    }
+                    
+                    // Check if the hit point is within this allowable radius from the central ray
+                    // Project hit point onto the ray axis to find the perpendicular distance
+                    var hitPoint = sphereHit.point; // Note: sphereHit.point is on the surface of the collider, not center of sphere
+                    // However, Physics.SphereCast returns the point on the collider surface.
+                    // Accurate perpendicular distance check:
+                    var projectedPoint = origin + direction * Vector3.Dot(hitPoint - origin, direction);
+                    var distFromRay = Vector3.Distance(hitPoint, projectedPoint);
+
+                    // If the actual contact point is within our "Cone" at this distance, it's a valid hit!
+                    // Also strictly enforce that it is NOT behind the wall (distance check)
+                    if(distFromRay <= allowedRadius && sphereHit.distance <= maxDist) {
+                        shotHit = true;
+                        hit = sphereHit;
+                        
+                        // DEBUG VISUALIZATION
+                        #if UNITY_EDITOR
+                        if(playerController.IsOwner) {
+                            DrawHitRegistrationDebug(origin, direction, maxDist, sphereHit.point, true, baseRadius, maxRadius, growthStart, growthEnd);
+                        }
+                        #endif
+                    } else {
+                        // We hit something with the sphere, but it was too far from center (outside cone) or behind a wall.
+                        // Fallback: Did we hit the wall with the Raycast earlier?
+                        // If so, that's our hit. If not, line trace failed.
+                        // Actually, if Sphere failed, we should fallback to a strict Raycast to ensure
+                        // completely center shots always hit even if Sphere math gets wonky.
+                        if(Physics.Raycast(origin, direction, out var strictHit, maxDist, hitLayer)) {
+                            shotHit = true;
+                            hit = strictHit;
+                             #if UNITY_EDITOR
+                            if(playerController.IsOwner) 
+                                DrawHitRegistrationDebug(origin, direction, maxDist, strictHit.point, true, baseRadius, maxRadius, growthStart, growthEnd);
+                            #endif
+                        } else {
+                             #if UNITY_EDITOR
+                            if(playerController.IsOwner) 
+                                DrawHitRegistrationDebug(origin, direction, maxDist, Vector3.zero, false, baseRadius, maxRadius, growthStart, growthEnd);
+                            #endif
+                        }
+                    }
                 } else {
-                    // No hit found, use base radius for spherecast
-                    shotHit = Physics.SphereCast(origin, baseRadius, direction, out hit, Mathf.Infinity, hitLayer);
+                    // Sphere hit nothing. Fallback to Raycast (e.g. shooting through a tiny gap the sphere couldn't fit?)
+                    if(Physics.Raycast(origin, direction, out var strictHit, maxDist, hitLayer)) {
+                         shotHit = true;
+                         hit = strictHit;
+                         #if UNITY_EDITOR
+                         if(playerController.IsOwner) 
+                             DrawHitRegistrationDebug(origin, direction, maxDist, strictHit.point, true, baseRadius, maxRadius, growthStart, growthEnd);
+                         #endif
+                    } else {
+                         #if UNITY_EDITOR
+                         if(playerController.IsOwner) 
+                             DrawHitRegistrationDebug(origin, direction, maxDist, Vector3.zero, false, baseRadius, maxRadius, growthStart, growthEnd);
+                         #endif
+                    }
                 }
             } else {
-                // Standard raycast for non-sniper weapons
-                shotHit = Physics.Raycast(origin, direction, out hit, Mathf.Infinity, hitLayer);
+                // Standard strict raycast (Legacy/Shotgun/Hipfire if configured)
+                shotHit = Physics.Raycast(origin, direction, out hit, maxDist, hitLayer);
             }
             
             hitPlayerRef = default;
@@ -774,6 +862,50 @@ namespace Game.Weapons {
 
             CurrentDamageMultiplier = Mathf.Clamp(CurrentDamageMultiplier, 1f, _currentWeaponData.maxDamageMultiplier);
         }
+
+        #if UNITY_EDITOR
+        private void DrawHitRegistrationDebug(Vector3 origin, Vector3 direction, float maxDist, Vector3 hitPoint, bool hitSomething, 
+            float baseRadius, float maxRadius, float startDist, float endDist) // Debug Visualization
+        {
+            float duration = 5.0f; // Persist for 5 seconds
+
+            // 1. Draw the Central Ray (Geometry Check)
+            Debug.DrawLine(origin, origin + direction * maxDist, Color.red, duration);
+
+            // 2. Draw "Cone" Rings at intervals
+            int steps = 50; // Increased frequency for better visibility
+            for(int i = 0; i <= steps; i++) {
+                float t = (float)i / steps;
+                float currentDist = Mathf.Lerp(0, maxDist, t); // Draw full length to wall hit
+                
+                if (currentDist > maxDist) break; // Redundant but safe
+
+                // Calculate radius at this distance
+                float currentRadius;
+                if(currentDist <= startDist) currentRadius = baseRadius;
+                else if(currentDist >= endDist) currentRadius = maxRadius;
+                else currentRadius = Mathf.Lerp(baseRadius, maxRadius, Mathf.InverseLerp(startDist, endDist, currentDist));
+
+                Vector3 center = origin + direction * currentDist;
+                // Draw a simple cross or diamond to represent the ring since DrawWireDisc isn't standard
+                Vector3 up = Vector3.up * currentRadius;
+                Vector3 right = Vector3.right * currentRadius;
+                
+                Debug.DrawLine(center - up, center + up, Color.yellow, duration);
+                Debug.DrawLine(center - right, center + right, Color.yellow, duration);
+            }
+            
+            // 3. Draw Hit Point
+            if(hitSomething) {
+                Debug.DrawLine(hitPoint, hitPoint + Vector3.up * 0.2f, Color.green, duration);
+                // Draw a small sphere at hit
+                // Since we can't do DrawSphere easily in standard Debug, we'll just use a distinctive cross marker
+                Debug.DrawLine(hitPoint - Vector3.up*0.1f, hitPoint + Vector3.up*0.1f, Color.green, duration);
+                Debug.DrawLine(hitPoint - Vector3.right*0.1f, hitPoint + Vector3.right*0.1f, Color.green, duration);
+                Debug.DrawLine(hitPoint - Vector3.forward*0.1f, hitPoint + Vector3.forward*0.1f, Color.green, duration);
+            }
+        }
+        #endif
 
         #endregion
 

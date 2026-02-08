@@ -46,4 +46,8 @@ MonoBehaviour:
   muzzleFlashPrefab: {fileID: 6299671218319471870, guid: d13b2bf13a0548a4aa9c2cd249a35a04, type: 3}
   shootSoundId: weapons.pistol.shoot
   reloadSoundId: weapons.pistol.reload
+  useSphereCast: 1
+  sphereCastRadius: 0.1
+  sphereCastGrowthStartDist: 0
+  sphereCastMaxRadius: 0.35
   maxServerRange: 0

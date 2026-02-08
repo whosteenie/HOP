@@ -80,10 +80,40 @@ namespace Game.Match {
         }
 
         /// <summary>
-        /// Pre-match countdown coroutine. Counts down from configured seconds, then starts the match timer.
+        /// Pre-match countdown coroutine. Waits for all players to load, then counts down from configured seconds, then starts the match timer.
         /// </summary>
         private IEnumerator PreMatchCountdownCoroutine() {
             var wait = new WaitForSeconds(1f);
+
+            // Wait for expected players to connect/load before starting countdown
+            // This ensures no one is still in a loading screen when match starts
+            var maxWaitSeconds = 30f;
+            var waitedSeconds = 0f;
+            while (IsServer && waitedSeconds < maxWaitSeconds) {
+                var connectedCount = NetworkManager.Singleton.ConnectedClients.Count;
+                
+                // Check if we have player objects spawned for all connected clients
+                var allPlayersReady = true;
+                foreach (var kvp in NetworkManager.Singleton.ConnectedClients) {
+                    if (kvp.Value.PlayerObject == null || !kvp.Value.PlayerObject.IsSpawned) {
+                        allPlayersReady = false;
+                        break;
+                    }
+                }
+
+                if (allPlayersReady && connectedCount > 0) {
+                    Debug.Log($"[MatchTimerManager] All {connectedCount} players ready. Starting countdown.");
+                    break;
+                }
+
+                Debug.Log($"[MatchTimerManager] Waiting for players... ({connectedCount} connected, ready={allPlayersReady})");
+                yield return wait;
+                waitedSeconds += 1f;
+            }
+
+            if (waitedSeconds >= maxWaitSeconds) {
+                Debug.LogWarning("[MatchTimerManager] Timed out waiting for all players. Starting countdown anyway.");
+            }
 
             // Pre-match countdown
             while(IsServer && _preMatchCountdownSeconds.Value > 0) {
