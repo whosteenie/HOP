@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Cysharp.Threading.Tasks;
+using Game.Progression;
 using Game.Settings;
 using Game.UI;
 using Network;
@@ -12,6 +13,7 @@ using Steamworks;
 using Steamworks.Data;
 using UnityEngine;
 using UnityEngine.UIElements;
+using Color = UnityEngine.Color;
 using Image = UnityEngine.UIElements.Image;
 
 namespace Game.Menu {
@@ -29,6 +31,9 @@ namespace Game.Menu {
         private Image _inviteIcon;
         private VisualElement _partySeparator;
         private VisualElement _localProfileContainer;
+        private ProgressBar _localXpBar;
+        private Label _localLevelLabel;
+        private VisualElement _localXpContainer;
         private ulong _lastLobbyId;
         private int _lastMemberCount;
         private bool _hasDrawnSolo;
@@ -214,6 +219,8 @@ namespace Game.Menu {
             } else {
                 _hasDrawnSolo = false;
             }
+
+            UpdateLocalProgressionDisplay();
         }
 
         private void RegisterUIEvents() {
@@ -679,12 +686,11 @@ namespace Game.Menu {
 
                 if(!isLocal) {
                     row.AddToClassList("party-member-entry");
-                    row.style.backgroundColor = new StyleColor(new UnityEngine.Color(0, 0, 0, 0.4f));
                     row.style.marginRight = 8;
                 } else {
-                    row.style.backgroundColor = new StyleColor(StyleKeyword.Null);
                     row.style.marginRight = 0;
                 }
+                row.style.backgroundColor = new StyleColor(new UnityEngine.Color(0, 0, 0, 0.4f));
 
                 var showHostIndicator = isHost;
                 if(isLocal && isHost) {
@@ -715,6 +721,17 @@ namespace Game.Menu {
                 avatarBox.style.borderRightColor = borderColor;
 
                 nameLabel.text = playerName;
+                row.RegisterCallback<PointerDownEvent>(evt => {
+                    if(evt.button != 1) return;
+                    ShowContextMenu(evt.position, id, isLocal, IsHost);
+                    evt.StopPropagation();
+                });
+                targetContainer.Add(row);
+
+                if(isLocal) {
+                    AddLocalProgressionDisplay(targetContainer, nameLabel);
+                    UpdateLocalProgressionDisplay();
+                }
 
                 void ApplyIconFallback() {
                     // Only use fallback icon when Steam isn't available or fetching failed.
@@ -761,17 +778,77 @@ namespace Game.Menu {
                         ApplyIconFallback();
                     }
                 }
-
-                row.RegisterCallback<PointerDownEvent>(evt => {
-                    if(evt.button != 1) return;
-                    ShowContextMenu(evt.position, id, isLocal, IsHost);
-                    evt.StopPropagation();
-                });
-
-                targetContainer.Add(row);
             } else {
                 Debug.LogError("[MainMenuSessionManager] PartyMemberTemplate is missing in UIManager!");
             }
+        }
+
+        private void AddLocalProgressionDisplay(VisualElement targetContainer, Label nameLabel) {
+            if(targetContainer == null || nameLabel == null) return;
+
+            // Build a stable local-only profile stack: Name + XP bar row.
+            nameLabel.style.unityTextAlign = TextAnchor.MiddleLeft;
+
+            _localXpContainer = new VisualElement {
+                name = "local-xp-container",
+                style = {
+                    flexDirection = FlexDirection.Row,
+                    alignItems = Align.Center,
+                    position = Position.Absolute,
+                    top = 45,
+                    right = 0,
+                    paddingLeft = 10,
+                    paddingRight = 10
+                }
+            };
+
+            _localXpBar = new ProgressBar {
+                name = "local-xp-bar",
+                lowValue = 0,
+                highValue = 100,
+                value = 0,
+                title = string.Empty
+            };
+            _localXpBar.AddToClassList("mainmenu-xp-bar");
+            _localXpBar.style.width = 175;
+            _localXpBar.style.marginRight = 8;
+            _localXpBar.style.unityTextAlign = TextAnchor.MiddleLeft;
+            _localXpBar.style.alignSelf = Align.Center;
+
+            _localLevelLabel = new Label {
+                name = "local-level-label",
+                text = "LVL 1"
+            };
+            _localLevelLabel.style.fontSize = 12;
+            _localLevelLabel.style.unityFontStyleAndWeight = FontStyle.Bold;
+            _localLevelLabel.style.color = new Color(0.95f, 0.95f, 0.95f, 1f);
+            _localLevelLabel.style.unityTextAlign = TextAnchor.MiddleLeft;
+            _localLevelLabel.style.alignSelf = Align.Center;
+
+            _localXpContainer.Add(_localXpBar);
+            _localXpContainer.Add(_localLevelLabel);
+
+            targetContainer.Add(_localXpContainer);
+        }
+
+        private void UpdateLocalProgressionDisplay() {
+            if(_localXpBar == null || _localLevelLabel == null) return;
+
+            var progression = ProgressionManager.Instance;
+            if(progression == null || progression.Data == null) {
+                if(_localXpContainer != null) _localXpContainer.style.display = DisplayStyle.None;
+                return;
+            }
+
+            var level = Mathf.Max(1, progression.Data.level);
+            var requiredXp = Mathf.Max(1, progression.GetXpRequiredForLevel(level));
+            var currentXp = Mathf.Clamp(progression.Data.currentXp, 0, requiredXp);
+
+            if(_localXpContainer != null) _localXpContainer.style.display = DisplayStyle.Flex;
+            _localXpBar.lowValue = 0;
+            _localXpBar.highValue = requiredXp;
+            _localXpBar.value = currentXp;
+            _localLevelLabel.text = $"LVL {level}";
         }
 
 

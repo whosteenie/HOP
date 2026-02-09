@@ -109,7 +109,7 @@ namespace Game.Menu {
         private Coroutine _backgroundFadeCoroutine;
         private Coroutine _slideInCoroutine;
         private Coroutine _slideOutCoroutine;
-        private const float SlideAnimationDuration = 0.4f;
+        private const float SlideAnimationDuration = 0.3f;
         private const float BackgroundFadeDuration = 0.2f;
         private bool _containersInitialized;
         private static readonly Vector2 WeaponOffscreenPercent = new(-200f, 0f);
@@ -141,6 +141,9 @@ namespace Game.Menu {
 
         // Preview active tracking for brute force rendering
         private bool _previewActive;
+        private const float PreviewResolutionScale = 0.75f;
+        private const int PreviewMsaa = 2;
+        private const int PreviewWarmupFrames = 2;
 
         protected override void Awake() {
             base.Awake();
@@ -306,7 +309,7 @@ namespace Game.Menu {
             FadeBackground(true);
             StartSlideIn();
 
-            // Start aggressive rendering coroutine for first few seconds
+            // Small warmup render pass for build stability.
             StartCoroutine(BruteForceInitialRendering());
         }
 
@@ -334,10 +337,8 @@ namespace Game.Menu {
             // Release old texture
             ReleasePreviewRenderTexture();
 
-            // BRUTE FORCE: Create render texture with explicit settings that work in builds
-            // Use ARGB32 format which is most compatible, and ensure it's created properly
             _previewRenderTexture = new RenderTexture(width, height, 24, RenderTextureFormat.ARGB32) {
-                antiAliasing = 8, // 8x MSAA for smooth rendering
+                antiAliasing = PreviewMsaa,
                 name = "PlayerPreviewRT",
                 useMipMap = false,
                 autoGenerateMips = false
@@ -365,8 +366,16 @@ namespace Game.Menu {
         private void OnResolutionChanged(int width, int height) {
             // Only recreate if preview is currently active
             if(_previewRenderTexture != null && previewCamera != null && previewCamera.enabled) {
-                RecreateRenderTexture(width, height);
+                RecreateRenderTexture(GetPreviewRenderWidth(width), GetPreviewRenderHeight(height));
             }
+        }
+
+        private static int GetPreviewRenderWidth(int sourceWidth) {
+            return Mathf.Max(256, Mathf.RoundToInt(sourceWidth * PreviewResolutionScale));
+        }
+
+        private static int GetPreviewRenderHeight(int sourceHeight) {
+            return Mathf.Max(256, Mathf.RoundToInt(sourceHeight * PreviewResolutionScale));
         }
 
         private void ResetPreviewCameraTarget() {
@@ -855,9 +864,9 @@ namespace Game.Menu {
                 mainCam.enabled = true;
             }
 
-            // Create or update render texture to match current screen resolution
-            var screenWidth = Screen.width;
-            var screenHeight = Screen.height;
+            // Create or update render texture at reduced resolution for significantly lower GPU cost.
+            var screenWidth = GetPreviewRenderWidth(Screen.width);
+            var screenHeight = GetPreviewRenderHeight(Screen.height);
 
             if(_previewRenderTexture == null ||
                _previewRenderTexture.width != screenWidth ||
@@ -865,18 +874,12 @@ namespace Game.Menu {
                 RecreateRenderTexture(screenWidth, screenHeight);
             }
 
-            // BRUTE FORCE: Ensure camera can see everything - set culling mask to Everything
-            // This ensures the model is visible regardless of layer
+            // Keep this broad for compatibility across existing project layer setups.
             previewCamera.cullingMask = -1; // Everything
 
             // Ensure preview camera is enabled and rendering to RenderTexture
             previewCamera.targetTexture = _previewRenderTexture;
             previewCamera.enabled = true;
-
-            // BRUTE FORCE: Force camera to render immediately
-            previewCamera.Render();
-
-            // Don't render here - model isn't set up yet! Render after setup completes.
 
             if(_previewPlayerModel == null) {
                 if(previewPlayerRoot != null) {
@@ -1008,20 +1011,9 @@ namespace Game.Menu {
             // Force another bounds update after material is applied (in case material changes affect bounds)
             StartCoroutine(DelayedPreviewBoundsUpdate());
 
-            // BRUTE FORCE: Multiple renders to ensure capture
-            // When a camera with targetTexture is enabled and objects are instantiated in the same frame,
-            // Unity's automatic rendering can occur before the objects exist, resulting in an empty frame.
-            // The preview only becomes visible after something triggers a refresh (e.g., moving scene view camera).
-            // By manually rendering multiple times after setup completes, we ensure the camera captures the model.
             if(previewCamera == null || !previewCamera.enabled) return;
-            // Force bounds update right before rendering to prevent culling
-            // Unity can recalculate bounds from the mesh, overriding our MaxBounds setting
             ForcePreviewModelBoundsUpdate();
-
-            // Render multiple times immediately
-            for(var i = 0; i < 3; i++) {
-                previewCamera.Render();
-            }
+            previewCamera.Render();
         }
 
 
@@ -1394,19 +1386,11 @@ namespace Game.Menu {
         }
 
         private void Update() {
-            // BRUTE FORCE: Always update bounds and force render when preview is active
-            // This ensures visibility in builds where cameras with RenderTexture targets don't always render automatically
-            if(_previewActive && previewCamera != null && previewCamera.enabled && _previewPlayerModel != null) {
-                // Always update bounds to prevent culling
-                // Unity can recalculate bounds from the mesh, overriding our MaxBounds setting
-                ForcePreviewModelBoundsUpdate();
-
-                // BRUTE FORCE: Force render every single frame when preview is active
-                // In builds, cameras with RenderTexture targets don't always render automatically
-                // This ensures the preview is always visible, even on game launch
-                if(_previewRenderTexture != null) {
-                    previewCamera.Render();
+            if(!_previewActive) {
+                if(previewCamera != null && previewCamera.enabled) {
+                    previewCamera.enabled = false;
                 }
+                return;
             }
 
             if(!_rotationEnabled) return;
@@ -1428,32 +1412,15 @@ namespace Game.Menu {
         }
 
         /// <summary>
-        /// BRUTE FORCE: Backup render in LateUpdate to ensure it happens after all updates.
-        /// This is especially important in builds where render timing can differ from editor.
-        /// </summary>
-        private void LateUpdate() {
-            // BRUTE FORCE: Force render again in LateUpdate as backup
-            // This ensures rendering happens even if Update() timing is off in builds
-            if(!_previewActive || previewCamera == null || !previewCamera.enabled ||
-               _previewPlayerModel == null || _previewRenderTexture == null) return;
-            ForcePreviewModelBoundsUpdate();
-            previewCamera.Render();
-        }
-
-        /// <summary>
-        /// BRUTE FORCE: Aggressively render the camera multiple times immediately after setup.
-        /// This helps fix visibility issues on game launch where a single render might not be enough.
+        /// Small warmup render pass to avoid first-frame empty captures in some builds.
         /// </summary>
         private IEnumerator BruteForceInitialRendering() {
-            // Render multiple times over the next few frames to ensure model is captured
-            // This is especially important in builds where timing can be different
-            for(var i = 0; i < 20; i++) {
-                yield return null; // Wait a frame
+            for(var i = 0; i < PreviewWarmupFrames; i++) {
+                yield return null;
 
                 if(!_previewActive || previewCamera == null || !previewCamera.enabled ||
                    _previewPlayerModel == null) break;
 
-                // Force bounds update before each render
                 ForcePreviewModelBoundsUpdate();
                 if(_previewRenderTexture != null) {
                     previewCamera.Render();
@@ -1474,6 +1441,9 @@ namespace Game.Menu {
         private IEnumerator HideLoadoutAndSwitchPanel() {
             // Mark preview as inactive to stop brute force rendering
             _previewActive = false;
+            if(previewCamera != null) {
+                previewCamera.enabled = false;
+            }
 
             // Start slide-out animation immediately
             StopSlideAnimations();

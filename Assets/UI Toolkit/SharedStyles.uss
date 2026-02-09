@@ -755,6 +755,51 @@ ScrollView .unity-scroll-view__horizontal-scrollbars,
     display: none !important;
     height: 0 !important;
 }
+
+.mainmenu-xp-bar {
+    height: 6px;
+    min-height: 6px;
+    max-height: 6px;
+    margin: 0;
+    padding: 0;
+    background-color: transparent;
+    border-width: 0;
+}
+
+.mainmenu-xp-bar .unity-progress-bar__container {
+    height: 6px;
+    min-height: 6px;
+    max-height: 6px;
+    margin: 0;
+    padding: 0;
+    background-color: transparent;
+}
+
+.mainmenu-xp-bar .unity-progress-bar__background {
+    height: 6px;
+    min-height: 6px;
+    max-height: 6px;
+    background-color: rgba(255, 255, 255, 0.2);
+    border-width: 0;
+    border-radius: 3px;
+    margin: 0;
+    padding: 0;
+}
+
+.mainmenu-xp-bar .unity-progress-bar__progress {
+    height: 6px;
+    min-height: 6px;
+    max-height: 6px;
+    background-color: rgb(255, 100, 100);
+    border-radius: 3px;
+    margin: 0;
+    padding: 0;
+}
+
+.mainmenu-xp-bar .unity-progress-bar__title-container {
+    display: none;
+    height: 0;
+}
 /* Remove inner borders from dropdown input */
 .unity-base-dropdown__input {
     background-color: transparent;
