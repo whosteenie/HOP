@@ -34,7 +34,6 @@ namespace Game.UI {
                 _levelLabel = _xpContainer.Q<Label>("level-label");
                 _xpBar = _xpContainer.Q<ProgressBar>("xp-bar");
                 _xpGainedLabel = _xpContainer.Q<Label>("xp-gained-label");
-                Root.Add(_xpContainer);
             } else {
                 // Fallback: create in code
                 _xpContainer = new VisualElement {

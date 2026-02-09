@@ -12,10 +12,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c9ed70c8fe86b6c4ba44e42c9ed95404, type: 3}
   m_Name: kill_rampage
   m_EditorClassIdentifier: Assembly-CSharp::Game.Progression.ChallengeDefinition
-  ID: kill_rampage
-  Type: 12
-  DescriptionTemplate: Get a Killstreak of {0}
-  MinTarget: 3
-  MaxTarget: 5
-  BaseXPReward: 1000
-  WeaponID: 
+  id: kill_rampage
+  type: 12
+  descriptionTemplate: Get a Killstreak of {0}
+  minTarget: 3
+  maxTarget: 5
+  baseXpReward: 1000
+  isWeekly: 0
+  weaponID: 

@@ -12,10 +12,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c9ed70c8fe86b6c4ba44e42c9ed95404, type: 3}
   m_Name: hop_dissolve
   m_EditorClassIdentifier: Assembly-CSharp::Game.Progression.ChallengeDefinition
-  ID: hop_dissolve
-  Type: 9
-  DescriptionTemplate: Hold Hopball until Dissolve {0} times
-  MinTarget: 1
-  MaxTarget: 3
-  BaseXPReward: 1000
-  WeaponID: 
+  id: hop_dissolve
+  type: 9
+  descriptionTemplate: Hold Hopball until Dissolve {0} times
+  minTarget: 1
+  maxTarget: 3
+  baseXpReward: 1000
+  isWeekly: 0
+  weaponID: 

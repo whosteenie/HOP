@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using Game.Spawning;
 using Game.UI;
+using Network.Diagnostics;
 using Unity.Netcode;
 using UnityEngine;
 using Random = UnityEngine.Random;
@@ -73,8 +74,25 @@ namespace Game.Match {
             if (IsServer && NetworkManager.Singleton != null && NetworkManager.Singleton.SceneManager != null) {
                 NetworkManager.SceneManager.OnLoadEventCompleted -= OnSceneLoaded;
             }
+            if (_spawnCoroutine != null) {
+                StopCoroutine(_spawnCoroutine);
+                _spawnCoroutine = null;
+            }
+            _isGameActive = false;
+            CleanupActiveHill();
             _teamAScore.OnValueChanged -= OnScoreChanged;
             _teamBScore.OnValueChanged -= OnScoreChanged;
+
+            if (Instance == this) {
+                Instance = null;
+            }
+        }
+
+        public override void OnDestroy() {
+            base.OnDestroy();
+            if (Instance == this) {
+                Instance = null;
+            }
         }
 
         private void OnSceneLoaded(string sceneName, UnityEngine.SceneManagement.LoadSceneMode loadSceneMode, List<ulong> clientsCompleted, List<ulong> clientsTimedOut) {
@@ -84,13 +102,25 @@ namespace Game.Match {
 
         private void CheckAndStartGame() {
             // Stop any existing routine to prevent double-starts
-            if (_spawnCoroutine != null) StopCoroutine(_spawnCoroutine);
+            if (_spawnCoroutine != null) {
+                StopCoroutine(_spawnCoroutine);
+                _spawnCoroutine = null;
+            }
             _isGameActive = false;
             
             // Only start logic if this is the selected gamemode
             var settings = MatchSettingsManager.Instance;
 
-            if(settings == null || settings.selectedGameModeId != "KOTH") return;
+            if(settings == null || settings.selectedGameModeId != "KOTH") {
+                if(_currentHill != null) {
+                    FlowLog.Emit(FlowEventIds.AnomalyModeMismatch,
+                        ("selected", settings != null ? settings.selectedGameModeId : "Unknown"),
+                        ("applied", settings != null ? settings.selectedGameModeId : "Unknown"),
+                        ("objective", "KOTH"));
+                }
+                CleanupActiveHill();
+                return;
+            }
             // Refresh spawn points for the new scene
             FindSpawnPoints();
             _spawnCoroutine = StartCoroutine(GameStartRoutine());
@@ -116,14 +146,25 @@ namespace Game.Match {
             
             // Post-countdown delay
             yield return new WaitForSeconds(postPrematchSpawnDelay);
+
+            settings = MatchSettingsManager.Instance;
+            if(settings == null || settings.selectedGameModeId != "KOTH") {
+                _spawnCoroutine = null;
+                yield break;
+            }
             
             SpawnHill();
             _isGameActive = true;
+            _spawnCoroutine = null;
         }
 
         private void SpawnHill() {
             Debug.Log($"[KOTH] Attempting to Spawn Hill. Prefab: {hillPrefab}, CurrentHill: {_currentHill}");
             if (!IsServer || hillPrefab == null) return;
+
+            var settings = MatchSettingsManager.Instance;
+            if(settings == null || settings.selectedGameModeId != "KOTH") return;
+
             // Clean up existing hill if any (e.g. from previous round, though usually scene reload handles this)
             if (_currentHill != null) return;
 
@@ -150,10 +191,27 @@ namespace Game.Match {
             var hillObj = Instantiate(hillPrefab, spawnPos, Quaternion.identity);
             var netObj = hillObj.GetComponent<NetworkObject>();
             if (netObj != null) {
-                netObj.Spawn();
+                netObj.Spawn(true);
             }
 
             _currentHill = hillObj.GetComponent<HillController>();
+            FlowLog.Emit(FlowEventIds.ObjectiveSpawned,
+                ("mode", "KOTH"),
+                ("objectType", "Hill"),
+                ("spawn", spawnPos));
+        }
+
+        private void CleanupActiveHill() {
+            if (_currentHill == null) return;
+
+            var hillNetworkObject = _currentHill.GetComponent<NetworkObject>();
+            if (IsServer && hillNetworkObject != null && hillNetworkObject.IsSpawned) {
+                hillNetworkObject.Despawn(true);
+            } else if ((hillNetworkObject == null || hillNetworkObject.IsSpawned == false) && _currentHill != null) {
+                Destroy(_currentHill.gameObject);
+            }
+
+            _currentHill = null;
         }
 
         private void Update() {

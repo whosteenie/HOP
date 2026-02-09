@@ -12,11 +12,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c9ed70c8fe86b6c4ba44e42c9ed95404, type: 3}
   m_Name: place_top3
   m_EditorClassIdentifier: Assembly-CSharp::Game.Progression.ChallengeDefinition
-  ID: place_top3
-  Type: 14
-  DescriptionTemplate: Place in the Top 3 {0} times (FFA Modes)
-  MinTarget: 1
-  MaxTarget: 3
-  BaseXPReward: 800
-  IsWeekly: 0
-  WeaponID: 
+  id: place_top3
+  type: 14
+  descriptionTemplate: Place in the Top 3 {0} times
+  minTarget: 1
+  maxTarget: 3
+  baseXpReward: 800
+  isWeekly: 0
+  weaponID: top3

@@ -115,6 +115,7 @@ namespace Game.Player {
         #region Private Fields
 
         private float _lastDeathTime; // Used for OOB check in Update()
+        private float _ignoreOutOfBoundsUntilTime;
         private Vector3 _lastServerMovementPosition;
         private float _lastServerMovementTime;
         private bool _hasServerMovementSample;
@@ -501,7 +502,7 @@ namespace Game.Player {
             if(IsServer) {
                 var authPos = clientNetworkTransform.transform.position;
                 ValidateServerMovement(authPos);
-                if(authPos.y <= 600f) {
+                if(authPos.y <= 600f && Time.time >= _ignoreOutOfBoundsUntilTime) {
                     if(!netIsDead.Value && Time.time - _lastDeathTime >= 4f) {
                         _lastDeathTime = Time.time;
                         if(healthController != null)
@@ -560,6 +561,14 @@ namespace Game.Player {
             if(config == null || clientNetworkTransform == null) return;
 
             var now = Time.time;
+            if(netIsDead != null && netIsDead.Value) {
+                _movementViolations.Clear();
+                _lastServerMovementPosition = position;
+                _lastServerMovementTime = now;
+                _hasServerMovementSample = true;
+                return;
+            }
+
             if(!_hasServerMovementSample) {
                 _lastServerMovementPosition = position;
                 _lastServerMovementTime = now;
@@ -586,7 +595,7 @@ namespace Game.Player {
                     if(delta.sqrMagnitude > 0.0001f) {
                         var clamped =
                             _lastServerMovementPosition + delta.normalized * config.maxTeleportDistance;
-                        clientNetworkTransform.Teleport(clamped, playerTransform.rotation, Vector3.one);
+                        ApplyServerMovementCorrectionOwnerRpc(clamped, playerTransform.rotation);
                         adjustedPosition = clamped;
                         delta = clamped - _lastServerMovementPosition;
                         distance = delta.magnitude;
@@ -609,7 +618,7 @@ namespace Game.Player {
                     var allowedDistance = config.maxSpeedMetersPerSecond * dt;
                     var clamped =
                         _lastServerMovementPosition + delta.normalized * allowedDistance;
-                    clientNetworkTransform.Teleport(clamped, playerTransform.rotation, Vector3.one);
+                    ApplyServerMovementCorrectionOwnerRpc(clamped, playerTransform.rotation);
                     adjustedPosition = clamped;
                 }
             } else {
@@ -621,6 +630,37 @@ namespace Game.Player {
             _lastServerMovementPosition = adjustedPosition;
             _lastServerMovementTime = now;
             _hasServerMovementSample = true;
+        }
+
+        [Rpc(SendTo.Owner)]
+        private void ApplyServerMovementCorrectionOwnerRpc(Vector3 correctedPosition, Quaternion correctedRotation) {
+            if(netIsDead != null && netIsDead.Value) return;
+
+            var shouldReEnableCharacterController = characterController != null && characterController.enabled;
+            if(characterController != null) {
+                characterController.enabled = false;
+            }
+
+            if(clientNetworkTransform != null) {
+                clientNetworkTransform.Teleport(correctedPosition, correctedRotation, Vector3.one);
+            } else if(playerTransform != null) {
+                playerTransform.SetPositionAndRotation(correctedPosition, correctedRotation);
+            }
+
+            if(movementController != null) {
+                movementController.ResetVelocity();
+            }
+
+            if(characterController != null && shouldReEnableCharacterController) {
+                characterController.enabled = true;
+            }
+        }
+
+        public void SetOutOfBoundsGraceWindow(float seconds) {
+            if(!IsServer) return;
+
+            var duration = Mathf.Max(0f, seconds);
+            _ignoreOutOfBoundsUntilTime = Mathf.Max(_ignoreOutOfBoundsUntilTime, Time.time + duration);
         }
 
         #endregion

@@ -6,6 +6,7 @@ using Cysharp.Threading.Tasks;
 using Game.Settings;
 using Game.Social;
 using Network.Core;
+using Network.Diagnostics;
 using Network.Singletons;
 using Network.Steam;
 using Steamworks;
@@ -54,14 +55,27 @@ namespace Network {
             get => _phase;
             set {
                 if (_phase != value) {
+                    var previous = _phase;
                     _phase = value;
                     _phaseStartTime = Time.time;
                     if (Debug.isDebugBuild) Debug.Log($"[SessionManager] Phase -> {value}");
+                    FlowLog.Emit(FlowEventIds.SyncStateTransition,
+                        ("from", previous),
+                        ("to", value));
                 }
             }
         }
         public bool IsInGameplay { get; private set; }
         public string SelectedGameMode { get; private set; } = "Deathmatch";
+        public string FlowSessionId {
+            get {
+                if(_ugsMatchLobby != null && string.IsNullOrEmpty(_ugsMatchLobby.Id) == false) return _ugsMatchLobby.Id;
+                if(CurrentLobby.HasValue && CurrentLobby.Value.Id != 0) return CurrentLobby.Value.Id.ToString();
+                if(_ugsPartyLobby != null && string.IsNullOrEmpty(_ugsPartyLobby.Id) == false) return _ugsPartyLobby.Id;
+                if(string.IsNullOrEmpty(CurrentPartyId) == false) return CurrentPartyId;
+                return "";
+            }
+        }
 
         private const string GameSceneName = "Game";
         public string CurrentPartyId { get; private set; }
@@ -264,10 +278,7 @@ namespace Network {
             // Handle GameMode display
             var mode = lobby.GetData(TargetModeKey);
             if(!string.IsNullOrEmpty(mode) && mode != SelectedGameMode) {
-                SelectedGameMode = mode;
-                if(FrontStatusChanged != null) {
-                    FrontStatusChanged.Invoke(null); // Force UI Refresh
-                }
+                ApplyRuntimeMode(mode, "SteamLobbyDataChanged");
             }
 
             // Handle Party Persistence
@@ -383,7 +394,9 @@ namespace Network {
             if(CurrentLobby != null) {
                 mode = CurrentLobby.Value.GetData(TargetModeKey);
             }
-            if(!string.IsNullOrEmpty(mode)) SelectedGameMode = mode;
+            if(!string.IsNullOrEmpty(mode)) {
+                ApplyRuntimeMode(mode, "SteamBeginSceneLoad", refreshUi: false);
+            }
 
             if(IsPartyLeader) {
                 _networkManager.SceneManager.LoadScene(GameSceneName, LoadSceneMode.Single);
@@ -451,7 +464,7 @@ namespace Network {
         public async UniTask StartPrivateMatchSync(string mode) {
             if(!IsPartyLeader || !CurrentLobby.HasValue) return;
 
-            SelectedGameMode = mode;
+            ApplyRuntimeMode(mode, "SteamPrivateMatchSyncHost");
             // Set targets for everyone
             CurrentLobby.Value.SetData(TargetModeKey, mode);
 
@@ -522,6 +535,11 @@ namespace Network {
                 }
 
                 SetFrontStatus(SessionPhase.LobbyReady, "Lobby Ready. Invite Friends!");
+                FlowLog.Emit(FlowEventIds.PartyLifecycle,
+                    ("action", "CreateSteamPrivate"),
+                    ("partyId", CurrentPartyId),
+                    ("steamLobbyId", CurrentLobby.Value.Id),
+                    ("role", "Host"));
 
                 // 3. Start Host (using FacepunchTransport)
                 StartHost();
@@ -542,7 +560,7 @@ namespace Network {
             CancelMatchmaking();
 
             if(!string.IsNullOrEmpty(mode)) {
-                SelectedGameMode = mode;
+                ApplyRuntimeMode(mode, "SteamFindGame");
             }
 
             _matchmakingCts = new CancellationTokenSource();
@@ -709,11 +727,7 @@ namespace Network {
             // Shut down NGO if it was previously listening.
             await CleanupNetworkAsync();
 
-            SelectedGameMode = mode;
-            var matchSettings = Game.Match.MatchSettingsManager.Instance;
-            if(matchSettings != null) {
-                matchSettings.selectedGameModeId = mode;
-            }
+            ApplyRuntimeMode(mode, "OfflinePrivateMatch");
 
             SetFrontStatus(SessionPhase.StartingHost, "Starting offline match...");
 
@@ -774,6 +788,11 @@ namespace Network {
             }
 
             CurrentLobby = lobby;
+            FlowLog.Emit(FlowEventIds.PartyLifecycle,
+                ("action", "JoinSteamLobby"),
+                ("steamLobbyId", lobby.Id),
+                ("owner", lobby.Owner.Id),
+                ("result", result.ToString()));
 
             // Join Voice Channel
             if (VoiceManager.Instance != null) {
@@ -862,7 +881,7 @@ namespace Network {
         /// </summary>
         /// <param name="mode">The gamemode ID.</param>
         public void SetGamemode(string mode) {
-            SelectedGameMode = mode;
+            ApplyRuntimeMode(mode, "MenuSelection", refreshUi: false);
             if(CurrentLobby.HasValue && CurrentLobby.Value.Owner.Id == SteamClient.SteamId) {
                 CurrentLobby.Value.SetData("TargetMode", mode);
             }
@@ -877,6 +896,11 @@ namespace Network {
         /// Leaves the current Steam lobby and resets networking state.
         /// </summary>
         public void LeaveLobby() {
+            FlowLog.Emit(FlowEventIds.PartyLifecycle,
+                ("action", "LeaveLobby"),
+                ("partyId", CurrentPartyId),
+                ("steamLobbyId", CurrentLobby.HasValue ? CurrentLobby.Value.Id.ToString() : "none"));
+
             _expectedDisconnect = true;
             if(CurrentLobby.HasValue) {
                 if(!_isShuttingDown && SteamClient.IsValid && IsPartyLeader && CurrentLobby.Value.MemberCount > 2) {
@@ -900,6 +924,11 @@ namespace Network {
         /// Transitions the local player back to the main menu and handles party reformation.
         /// </summary>
         public async UniTask LeaveToMainMenuAsync() {
+            FlowLog.Emit(FlowEventIds.SessionExit,
+                ("reason", "LeaveToMainMenu"),
+                ("phase", Phase),
+                ("gameplay", IsInGameplay));
+
             // Cancel any active matchmaking first
             ClearMatchmakingState();
 
@@ -1102,6 +1131,24 @@ namespace Network {
         }
 
         private void OnGameSceneLoaded() {
+            if(TryGetAuthoritativeRuntimeMode(out var mode, out var source)) {
+                if(string.Equals(SelectedGameMode, mode, StringComparison.OrdinalIgnoreCase) == false) {
+                    FlowLog.Emit(FlowEventIds.AnomalyModeMismatch,
+                        ("selected", SelectedGameMode),
+                        ("applied", mode),
+                        ("objective", "Unknown"));
+                }
+                ApplyRuntimeMode(mode, $"SceneLoaded/{source}", refreshUi: false);
+                FlowLog.Emit(FlowEventIds.SceneLoaded,
+                    ("mode", mode),
+                    ("source", source));
+            } else {
+                Debug.LogWarning("[SessionManager] Game scene loaded without an authoritative mode. Keeping current mode.");
+                FlowLog.Emit(FlowEventIds.SceneLoaded,
+                    ("mode", SelectedGameMode),
+                    ("source", "FallbackSelected"));
+            }
+
             if(_networkManager.IsServer) {
                 _clientsFinishedLoading.Clear();
                 // We are server, we are ready.
@@ -1147,6 +1194,10 @@ namespace Network {
         /// Handles cleanup and recovery after an unexpected network disconnect.
         /// </summary>
         private async UniTaskVoid HandleUnexpectedDisconnect() {
+            FlowLog.Emit(FlowEventIds.SessionExit,
+                ("reason", "UnexpectedDisconnect"),
+                ("phase", Phase),
+                ("gameplay", IsInGameplay));
             SetFrontStatus(SessionPhase.Error, "Disconnected from party.");
 
             var currentScene = SceneManager.GetActiveScene().name;
@@ -1170,6 +1221,9 @@ namespace Network {
             if (Phase == SessionPhase.SynchronizingLoad) {
                 if (Time.time - _phaseStartTime > 30f) {
                     Debug.LogError("[SessionManager] Stuck in SynchronizingLoad for >30s. Aborting to menu...");
+                    FlowLog.Emit(FlowEventIds.AnomalySessionStuck,
+                        ("phase", Phase),
+                        ("elapsed", Time.time - _phaseStartTime));
                     LeaveToMainMenuAsync().Forget();
                     return;
                 }
@@ -1210,6 +1264,12 @@ namespace Network {
             _nextUgsHeartbeatTime = Time.unscaledTime + 1f;
             _nextUgsPollTime = Time.unscaledTime + 1f;
             UpdateSteamRichPresenceForUgs();
+            FlowLog.Emit(FlowEventIds.PartyLifecycle,
+                ("action", "CreateUgsParty"),
+                ("partyId", CurrentPartyId),
+                ("lobbyId", _ugsPartyLobby != null ? _ugsPartyLobby.Id : "null"),
+                ("private", isPrivate),
+                ("maxPlayers", maxPlayers));
         }
 
         public async UniTask JoinUgsPartyLobbyByCodeAsync(string code) {
@@ -1233,6 +1293,11 @@ namespace Network {
             _nextUgsHeartbeatTime = Time.unscaledTime + 1f;
             _nextUgsPollTime = Time.unscaledTime + 1f;
             UpdateSteamRichPresenceForUgs();
+            FlowLog.Emit(FlowEventIds.PartyLifecycle,
+                ("action", "JoinUgsParty"),
+                ("code", code),
+                ("partyId", CurrentPartyId),
+                ("lobbyId", _ugsPartyLobby != null ? _ugsPartyLobby.Id : "null"));
         }
 
         public async UniTask StartUgsPrivateMatchAsync(string mode, int maxPlayers) {
@@ -1244,11 +1309,11 @@ namespace Network {
 
             if(string.IsNullOrEmpty(mode)) return;
 
-            SelectedGameMode = mode;
-            var matchSettings = Game.Match.MatchSettingsManager.Instance;
-            if(matchSettings != null) {
-                matchSettings.selectedGameModeId = mode;
-            }
+            ApplyRuntimeMode(mode, "UgsPrivateMatchHost");
+            FlowLog.Emit(FlowEventIds.QueueStarted,
+                ("mode", mode),
+                ("queue", "PrivateParty"),
+                ("maxPlayers", maxPlayers));
 
             // Immediate feedback for the host: start fading out right away.
             // We'll avoid double-fading later when we mark ourselves ready.
@@ -1399,6 +1464,11 @@ namespace Network {
             _ugsMatchLobby = matchLobby;
             UpdateSteamRichPresenceForUgs();
             Debug.Log($"[SessionManager] Successfully joined UGS lobby. hostId='{matchLobby.HostId}', playerCount={matchLobby.Players.Count}");
+            FlowLog.Emit(FlowEventIds.PartyLifecycle,
+                ("action", "JoinUgsMatchLobby"),
+                ("lobbyId", matchLobby.Id),
+                ("hostId", matchLobby.HostId),
+                ("players", matchLobby.Players != null ? matchLobby.Players.Count : 0));
 
             // Refresh selected mode immediately so the Game scene loads correctly.
             TrySyncModeFromUgsMatchLobby(_ugsMatchLobby);
@@ -1437,14 +1507,7 @@ namespace Network {
             if(!lobby.Data.TryGetValue(UgsTargetModeKey, out var modeObj)) return;
             if(modeObj == null) return;
             if(string.IsNullOrEmpty(modeObj.Value)) return;
-            if(SelectedGameMode != modeObj.Value) {
-                SelectedGameMode = modeObj.Value;
-            }
-
-            var matchSettings = Game.Match.MatchSettingsManager.Instance;
-            if(matchSettings != null) {
-                matchSettings.selectedGameModeId = modeObj.Value;
-            }
+            ApplyRuntimeMode(modeObj.Value, "UgsMatchLobbySync", refreshUi: false);
         }
 
         private async UniTaskVoid PollUgsMatchLobbyAsync() {
@@ -1567,6 +1630,8 @@ namespace Network {
             if(joinCodeObj == null) return;
             var joinCode = joinCodeObj.Value;
             if(string.IsNullOrEmpty(joinCode)) return;
+
+            TrySyncModeFromUgsMatchLobby(_ugsMatchLobby);
 
             _ugsClientStartedForMatch = true;
             Phase = SessionPhase.StartingClient;
@@ -1760,7 +1825,7 @@ namespace Network {
             if(string.IsNullOrEmpty(mode)) {
                 mode = SelectedGameMode;
             } else {
-                SelectedGameMode = mode;
+                ApplyRuntimeMode(mode, "UgsQuickPlayRequest");
             }
 
             var def = Game.Match.MatchSettingsManager.Instance != null
@@ -1775,6 +1840,11 @@ namespace Network {
                 Debug.LogError("[SessionManager] Matchmaker queue name is empty.");
                 return;
             }
+
+            FlowLog.Emit(FlowEventIds.QueueStarted,
+                ("mode", mode),
+                ("queue", _matchmakerQueueName),
+                ("maxPlayers", maxPlayers));
 
             SetFrontStatus(SessionPhase.Searching, $"Searching for {mode}...");
             MatchmakingStartTime = Time.time;
@@ -1882,6 +1952,11 @@ namespace Network {
                                 return;
                             }
 
+                            FlowLog.Emit(FlowEventIds.QueueAssigned,
+                                ("queue", _matchmakerQueueName),
+                                ("mode", mode),
+                                ("matchId", assign.MatchId));
+
                             StoredMatchmakingResults results;
                             try {
                                 results = await MatchmakerService.Instance.GetMatchmakingResultsAsync(assign.MatchId);
@@ -1963,6 +2038,7 @@ namespace Network {
         private async UniTask StartUgsPublicMatchAsHostAsync(string mode, int maxPlayers, string matchId, StoredMatchmakingResults results) {
             await UgsAuthService.InitializeAndSignInAsync();
             Debug.Log($"[SessionManager] StartUgsPublicMatchAsHostAsync: mode='{mode}' maxPlayers={maxPlayers} matchId='{matchId}'");
+            ApplyRuntimeMode(mode, "UgsPublicMatchHost");
 
             // Store the expected player IDs from the matchmaker results for sync checking
             List<string> expectedPlayerIds = null;
@@ -2000,6 +2076,12 @@ namespace Network {
             _ugsMatchLobby = await LobbyService.Instance.CreateLobbyAsync("HOP Match", maxPlayers, create);
             UpdateSteamRichPresenceForUgs();
             Debug.Log($"[SessionManager] Created UGS lobby in SynchronizingLoad state. lobbyId='{_ugsMatchLobby.Id}'");
+            FlowLog.Emit(FlowEventIds.PartyLifecycle,
+                ("action", "CreateUgsMatchHost"),
+                ("matchId", matchId),
+                ("lobbyId", _ugsMatchLobby.Id),
+                ("mode", mode),
+                ("maxPlayers", maxPlayers));
 
             // Host also fades out and marks self ready
             Phase = SessionPhase.SynchronizingLoad;
@@ -2091,6 +2173,61 @@ namespace Network {
             _networkManager.StartHost();
             Phase = SessionPhase.LoadingScene;
             _networkManager.SceneManager.LoadScene(GameSceneName, LoadSceneMode.Single);
+        }
+
+        private void ApplyRuntimeMode(string mode, string source, bool refreshUi = true) {
+            if(string.IsNullOrWhiteSpace(mode)) return;
+
+            var changed = SelectedGameMode != mode;
+            SelectedGameMode = mode;
+
+            var matchSettings = Game.Match.MatchSettingsManager.Instance;
+            if(matchSettings != null && matchSettings.selectedGameModeId != mode) {
+                matchSettings.selectedGameModeId = mode;
+                changed = true;
+            }
+
+            if(Debug.isDebugBuild) {
+                Debug.Log($"[SessionManager] Applied mode '{mode}' from {source}.");
+            }
+
+            FlowLog.Emit(FlowEventIds.ModeApply,
+                ("source", source),
+                ("mode", mode),
+                ("changed", changed));
+
+            if(changed && refreshUi && FrontStatusChanged != null) {
+                FrontStatusChanged.Invoke(null);
+            }
+        }
+
+        private bool TryGetAuthoritativeRuntimeMode(out string mode, out string source) {
+            if(_ugsMatchLobby != null && _ugsMatchLobby.Data != null &&
+               _ugsMatchLobby.Data.TryGetValue(UgsTargetModeKey, out var ugsModeObj) &&
+               ugsModeObj != null && !string.IsNullOrEmpty(ugsModeObj.Value)) {
+                mode = ugsModeObj.Value;
+                source = "UgsMatchLobby";
+                return true;
+            }
+
+            if(CurrentLobby.HasValue) {
+                var steamMode = CurrentLobby.Value.GetData(TargetModeKey);
+                if(!string.IsNullOrEmpty(steamMode)) {
+                    mode = steamMode;
+                    source = "SteamLobby";
+                    return true;
+                }
+            }
+
+            if(!string.IsNullOrEmpty(SelectedGameMode)) {
+                mode = SelectedGameMode;
+                source = "SelectedGameMode";
+                return true;
+            }
+
+            mode = null;
+            source = null;
+            return false;
         }
 
         private async UniTask JoinUgsPublicMatchByMatchIdAsync(string matchId) {

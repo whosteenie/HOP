@@ -932,14 +932,26 @@ namespace Game.Menu {
                 if(progress > target) progress = target;
                     
                 var descText = def.Description;
+                var filterToUse = !string.IsNullOrEmpty(activeChallenge.filterID) ? activeChallenge.filterID : def.weaponID;
+                var displayFilter = pm.GetFilterDisplayName(filterToUse);
+                if (string.IsNullOrEmpty(displayFilter)) {
+                    displayFilter = def.type switch {
+                        ChallengeType.MatchesPlayed => "Any Mode",
+                        ChallengeType.WeaponKill => "Any Weapon",
+                        _ => "Unknown"
+                    };
+                }
+
                 try {
-                    if(!string.IsNullOrEmpty(activeChallenge.filterID)) {
-                        var displayFilter = pm.GetFilterDisplayName(activeChallenge.filterID);
-                        descText = string.Format(def.Description, target, displayFilter);
-                    } else {
-                        descText = string.Format(def.Description, target);
+                    descText = string.Format(def.Description, target, displayFilter);
+                } catch {
+                    // Prevent raw placeholder text from leaking into UI when format args are mismatched.
+                    if (!string.IsNullOrEmpty(def.Description)) {
+                        descText = def.Description
+                            .Replace("{0}", target.ToString())
+                            .Replace("{1}", displayFilter);
                     }
-                } catch { }
+                }
 
                 if(descriptionLabel != null) {
                     descriptionLabel.text = $"{descText} ({progress}/{target})";

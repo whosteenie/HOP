@@ -1,4 +1,5 @@
 using System.Linq;
+using Network.Diagnostics;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -75,6 +76,10 @@ namespace Game.Player {
         public void EnableRagdoll(Vector3? hitPoint = null, Vector3? hitDirection = null, string bodyPartTag = null) {
             if(IsRagdoll) return;
             IsRagdoll = true;
+            FlowLog.Emit(FlowEventIds.PlayerRagdollState,
+                ("player", OwnerClientId),
+                ("state", "Enabled"),
+                ("reason", string.IsNullOrEmpty(bodyPartTag) ? "Damage" : bodyPartTag));
 
             _characterController.enabled = false;
             _playerAnimator.enabled = false;
@@ -128,14 +133,20 @@ namespace Game.Player {
         /// Disables the ragdoll effect and returns the player to the normal state.
         /// </summary>
         public void DisableRagdoll() {
-            if(!IsRagdoll) return;
             IsRagdoll = false;
+            FlowLog.Emit(FlowEventIds.PlayerRagdollState,
+                ("player", OwnerClientId),
+                ("state", "Disabled"),
+                ("reason", "RespawnOrReset"));
 
-            // CancelInvoke();
             DisableRagdollPhysics();
 
-            _characterController.enabled = true;
-            _playerAnimator.enabled = true;
+            if(_characterController != null) {
+                _characterController.enabled = true;
+            }
+            if(_playerAnimator != null) {
+                _playerAnimator.enabled = true;
+            }
             
             // Ensure colliders are enabled for hit detection after disabling ragdoll
             EnableCollidersForHitDetection();

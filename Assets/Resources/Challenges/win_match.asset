@@ -12,10 +12,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c9ed70c8fe86b6c4ba44e42c9ed95404, type: 3}
   m_Name: win_match
   m_EditorClassIdentifier: Assembly-CSharp::Game.Progression.ChallengeDefinition
-  ID: win_match
-  Type: 1
-  DescriptionTemplate: Win {0} Matches
-  MinTarget: 1
-  MaxTarget: 3
-  BaseXPReward: 1000
-  WeaponID: 
+  id: win_match
+  type: 1
+  descriptionTemplate: Win {0} Matches
+  minTarget: 1
+  maxTarget: 3
+  baseXpReward: 1000
+  isWeekly: 0
+  weaponID: 

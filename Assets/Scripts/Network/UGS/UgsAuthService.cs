@@ -1,6 +1,7 @@
 using System.Text;
 using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
+using Network.Diagnostics;
 using Steamworks;
 using Unity.Services.Authentication;
 using Unity.Services.Core;
@@ -16,6 +17,7 @@ namespace Network.UGS {
 
         private static readonly object SignInGate = new object();
         private static Task _inFlightSignInTask;
+        private static string _lastAuthProvider = "Unknown";
 
         public static async UniTask InitializeAndSignInAsync() {
             if(UnityServices.State != ServicesInitializationState.Initialized) {
@@ -44,6 +46,10 @@ namespace Network.UGS {
             }
 
             await inFlight;
+            FlowLog.Emit(FlowEventIds.AuthResult,
+                ("result", AuthenticationService.Instance.IsSignedIn ? "Success" : "Failed"),
+                ("authorized", AuthenticationService.Instance.IsAuthorized),
+                ("provider", _lastAuthProvider));
 
             if(Debug.isDebugBuild) {
                 var signedIn = AuthenticationService.Instance.IsSignedIn;
@@ -70,7 +76,9 @@ namespace Network.UGS {
                         // Clear any cached session to force a fresh unique PlayerID
                         AuthenticationService.Instance.ClearSessionToken();
                         await AuthenticationService.Instance.SignInAnonymouslyAsync();
+                        _lastAuthProvider = "AnonymousClone";
                     } catch(System.Exception e) {
+                        _lastAuthProvider = "AnonymousCloneFailed";
                         Debug.LogWarning($"[UgsAuthService] Anonymous sign-in failed for clone. Exception: {e.Message}");
                     }
                     return;
@@ -84,7 +92,9 @@ namespace Network.UGS {
 
                 try {
                     await AuthenticationService.Instance.SignInAnonymouslyAsync();
+                    _lastAuthProvider = "Anonymous";
                 } catch(System.Exception e) {
+                    _lastAuthProvider = "AnonymousFailed";
                     Debug.LogWarning($"[UgsAuthService] Anonymous sign-in failed. Exception: {e.Message}");
                 }
             } finally {
@@ -126,8 +136,10 @@ namespace Network.UGS {
                 }
 
                 await AuthenticationService.Instance.SignInWithSteamAsync(hex, SteamIdentity, appId, options);
+                _lastAuthProvider = "Steam";
                 return AuthenticationService.Instance.IsSignedIn;
             } catch(System.Exception e) {
+                _lastAuthProvider = "SteamFailed";
                 Debug.LogWarning(
                     $"[UgsAuthService] Steam sign-in failed (AppID: {SteamClient.AppId}). " +
                     $"Falling back to anonymous. Exception: {e.Message}"

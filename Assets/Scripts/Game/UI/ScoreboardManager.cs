@@ -80,6 +80,8 @@ namespace Game.UI {
 
         // Steam Avatar Cache
         private readonly Dictionary<ulong, Texture2D> _avatarCache = new();
+        private readonly HashSet<ulong> _avatarFetchFailed = new();
+        private bool _steamAvatarFetchDisabledForSession;
 
         // Speaking Indicators Cache
         private readonly Dictionary<ulong, VisualElement> _cachedSpeakingIndicators = new(); // clientId -> indicator element
@@ -924,15 +926,9 @@ namespace Game.UI {
 
             // Avatar (player icon based on color)
             if(avatar != null) {
+                ApplyFallbackAvatar(player, avatar);
                 if(player != null && player.steamId.Value != 0) {
                     LoadSteamAvatar(player.steamId.Value, avatar).Forget();
-                } else {
-                    // Fallback to simple colors if no Steam ID or Steam not active
-                    var baseColor = player != null ? player.CurrentBaseColor : Color.white;
-                    var playerIcon = GetPlayerIconSprite(baseColor);
-                    if(playerIcon != null) {
-                        avatar.style.backgroundImage = new StyleBackground(playerIcon);
-                    }
                 }
             }
             
@@ -1511,20 +1507,43 @@ namespace Game.UI {
         }
 
         private async UniTaskVoid LoadSteamAvatar(ulong steamId, VisualElement avatarElement) {
+            if(_steamAvatarFetchDisabledForSession) return;
+            if(!SteamClient.IsValid || !SteamClient.IsLoggedOn) return;
+            if(_avatarFetchFailed.Contains(steamId)) return;
+
             if (_avatarCache.TryGetValue(steamId, out var tex)) {
                  if (avatarElement != null) avatarElement.style.backgroundImage = new StyleBackground(tex);
                  return;
             }
 
-            // Fetch
-            var image = await SteamFriends.GetLargeAvatarAsync(steamId);
-            if (image.HasValue) {
-                var texture = GetTextureFromImage(image.Value);
-                if (texture != null) {
-                    _avatarCache[steamId] = texture;
-                    // Check if element is still valid (it might have been rebuilt)
-                    if (avatarElement != null) avatarElement.style.backgroundImage = new StyleBackground(texture);
+            try {
+                var image = await SteamFriends.GetLargeAvatarAsync(steamId);
+                if (image.HasValue) {
+                    var texture = GetTextureFromImage(image.Value);
+                    if (texture != null) {
+                        _avatarCache[steamId] = texture;
+                        // Check if element is still valid (it might have been rebuilt)
+                        if (avatarElement != null) avatarElement.style.backgroundImage = new StyleBackground(texture);
+                    } else {
+                        _avatarFetchFailed.Add(steamId);
+                    }
+                } else {
+                    _avatarFetchFailed.Add(steamId);
                 }
+            } catch(Exception ex) {
+                _avatarFetchFailed.Add(steamId);
+                _steamAvatarFetchDisabledForSession = true;
+                Debug.LogWarning($"[ScoreboardManager] Steam avatar fetch disabled for this session after error: {ex.Message}");
+            }
+        }
+
+        private void ApplyFallbackAvatar(PlayerController player, VisualElement avatarElement) {
+            if(avatarElement == null) return;
+
+            var baseColor = player != null ? player.CurrentBaseColor : Color.white;
+            var playerIcon = GetPlayerIconSprite(baseColor);
+            if(playerIcon != null) {
+                avatarElement.style.backgroundImage = new StyleBackground(playerIcon);
             }
         }
 

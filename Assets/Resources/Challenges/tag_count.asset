@@ -12,10 +12,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c9ed70c8fe86b6c4ba44e42c9ed95404, type: 3}
   m_Name: tag_count
   m_EditorClassIdentifier: Assembly-CSharp::Game.Progression.ChallengeDefinition
-  ID: tag_count
-  Type: 8
-  DescriptionTemplate: Tag {0} Players
-  MinTarget: 5
-  MaxTarget: 10
-  BaseXPReward: 500
-  WeaponID: 
+  id: tag_count
+  type: 8
+  descriptionTemplate: Tag {0} Players
+  minTarget: 5
+  maxTarget: 10
+  baseXpReward: 500
+  isWeekly: 0
+  weaponID: 

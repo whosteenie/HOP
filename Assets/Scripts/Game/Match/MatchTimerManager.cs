@@ -3,6 +3,7 @@ using System.Linq;
 using Game.Menu;
 using Game.Player;
 using Game.UI;
+using Network.Diagnostics;
 using Network.Events;
 using Unity.Netcode;
 using UnityEngine;
@@ -52,6 +53,10 @@ namespace Game.Match {
                 var preMatchSeconds = matchSettings != null ? matchSettings.GetPreMatchCountdownSeconds() : 5;
                 _preMatchCountdownSeconds.Value = Mathf.Max(0, preMatchSeconds);
                 _isPreMatch.Value = true;
+                FlowLog.Emit(FlowEventIds.MatchStateTransition,
+                    ("from", "None"),
+                    ("to", "PreMatch"),
+                    ("timeRemaining", _preMatchCountdownSeconds.Value));
 
                 // Ensure we don't double-start
                 if(_timerRoutine != null)
@@ -70,7 +75,8 @@ namespace Game.Match {
                 Instance = null;
         }
 
-        private new void OnDestroy() {
+        public override void OnDestroy() {
+            base.OnDestroy();
             _timeRemainingSeconds.OnValueChanged -= OnTimeRemainingChanged;
             _preMatchCountdownSeconds.OnValueChanged -= OnPreMatchCountdownChanged;
             _isPreMatch.OnValueChanged -= OnPreMatchStateChanged;
@@ -131,6 +137,10 @@ namespace Game.Match {
                 matchDurationSeconds = matchSettings.GetMatchDurationSeconds();
             }
             _timeRemainingSeconds.Value = Mathf.Max(0, matchDurationSeconds);
+            FlowLog.Emit(FlowEventIds.MatchStateTransition,
+                ("from", "PreMatch"),
+                ("to", "Active"),
+                ("timeRemaining", _timeRemainingSeconds.Value));
             
             // Publish match started event
             EventBus.Publish(new MatchStartedEvent());
@@ -160,6 +170,10 @@ namespace Game.Match {
             // Only trigger post-match if we're not in pre-match (safety check)
             if(!IsServer || _isPreMatch.Value || _hasTriggeredPostMatch) yield break;
             _hasTriggeredPostMatch = true;
+            FlowLog.Emit(FlowEventIds.MatchStateTransition,
+                ("from", "Active"),
+                ("to", "PostMatch"),
+                ("timeRemaining", _timeRemainingSeconds.Value));
             
             // Publish match ended event
             EventBus.Publish(new MatchEndedEvent());

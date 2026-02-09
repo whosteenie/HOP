@@ -4,6 +4,7 @@ using Game.Match;
 using Game.Player;
 using Game.Spawning;
 using Network.Core;
+using Network.Diagnostics;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -220,6 +221,11 @@ namespace Network {
 
                 // 6. Spawn as player object
                 instance.SpawnAsPlayerObject(clientId);
+                FlowLog.Emit(FlowEventIds.PlayerSpawned,
+                    ("clientId", clientId),
+                    ("team", isTeamBased ? assignedTeam.ToString() : "None"),
+                    ("mode", matchSettings != null ? matchSettings.selectedGameModeId : "Unknown"),
+                    ("spawn", spawnPoint.name));
 
                 // 7. TEAM SETUP (only for team modes)
                 if(isTeamBased && NetworkManager.Singleton.IsServer) {

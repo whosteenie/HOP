@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace Game.Progression {
     public enum ChallengeType {
@@ -21,18 +22,26 @@ namespace Game.Progression {
 
     [CreateAssetMenu(fileName = "NewChallenge", menuName = "HOP/Progression/Challenge Definition")]
     public class ChallengeDefinition : ScriptableObject {
-        public string ID; // Unique ID (e.g., "kill_50_enemies")
-        public ChallengeType Type;
-        public string DescriptionTemplate; // "Get {0} kills"
-        public string Description => DescriptionTemplate;
-        public int MinTarget = 10;
-        public int MaxTarget = 50;
-        public int BaseXPReward = 500;
+        [FormerlySerializedAs("ID")]
+        public string id; // Unique ID (e.g., "kill_50_enemies")
+        [FormerlySerializedAs("Type")]
+        public ChallengeType type;
+        [FormerlySerializedAs("DescriptionTemplate")]
+        public string descriptionTemplate; // "Get {0} kills"
+        public string Description => descriptionTemplate;
+        [FormerlySerializedAs("MinTarget")]
+        public int minTarget = 10;
+        [FormerlySerializedAs("MaxTarget")]
+        public int maxTarget = 50;
+        [FormerlySerializedAs("BaseXPReward")]
+        public int baseXpReward = 500;
         
-        public bool IsWeekly; // If true, this challenge appears in weekly pool
+        [FormerlySerializedAs("IsWeekly")]
+        public bool isWeekly; // If true, this challenge appears in weekly pool
         
         // Optional filters
         [Tooltip("If Type is WeaponKill, this must match the Weapon Name exactly.")]
-        public string WeaponID; 
+        [FormerlySerializedAs("WeaponID")]
+        public string weaponID; 
     }
 }

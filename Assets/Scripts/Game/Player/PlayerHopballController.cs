@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
 using Game.Hopball;
 using Game.Weapons;
+using Network.Diagnostics;
 using Network.Events;
 using OSI;
 using Unity.Cinemachine;
@@ -168,6 +169,11 @@ namespace Game.Player {
                 var hopball = _pickupHits[i].GetComponent<HopballController>();
                 if(hopball == null || hopball.IsEquipped || hopball.transform.parent != null ||
                    !hopball.gameObject.activeSelf) continue;
+                var netObj = hopball.GetComponent<NetworkObject>();
+                FlowLog.Emit(FlowEventIds.HopballPickupRequested,
+                    ("player", OwnerClientId),
+                    ("hopballNetId", netObj != null ? netObj.NetworkObjectId : 0UL),
+                    ("requestSource", "Proximity"));
                 EquipHopball(hopball);
                 break;
             }
@@ -202,7 +208,15 @@ namespace Game.Player {
             if(!hopballRef.TryGet(out var networkObject) || networkObject == null) return;
 
             var hopball = networkObject.GetComponent<HopballController>();
-            if(hopball == null || hopball.IsEquipped) return;
+            if(hopball == null) return;
+            if(hopball.IsEquipped) {
+                FlowLog.Emit(FlowEventIds.AnomalyHopballMismatch,
+                    ("serverHolder", hopball.HolderController != null ? hopball.HolderController.OwnerClientId.ToString() : "None"),
+                    ("localHolder", OwnerClientId),
+                    ("osiHolder", "Unknown"),
+                    ("reason", "PickupRejectedAlreadyEquipped"));
+                return;
+            }
 
             // Find the requesting player's controller
             var requestingPlayer = NetworkManager.Singleton.ConnectedClients[OwnerClientId].PlayerObject;
@@ -212,6 +226,10 @@ namespace Game.Player {
             if(requestingController == null) return;
             var controller = requestingController.PlayerHopballController;
             if(controller == null) return;
+            FlowLog.Emit(FlowEventIds.HopballPickupCommitted,
+                ("player", OwnerClientId),
+                ("hopballNetId", networkObject.NetworkObjectId),
+                ("serverHolder", OwnerClientId));
 
             // Server performs the equip (this will broadcast hopball state update to all clients)
             hopball.SetEquipped(true, controller);
@@ -497,7 +515,8 @@ namespace Game.Player {
             }
 
             if(canSendDrop) {
-                RequestDropHopballServerRpc(hopballNetObj, dropPosition, dropRotation, playerVelocity);
+                RequestDropHopballServerRpc(hopballNetObj, dropPosition, dropRotation, playerVelocity,
+                    reason.ToString());
             }
 
             if(reason == HopballDropReason.Manual) {
@@ -520,9 +539,17 @@ namespace Game.Player {
         /// Server-side method to drop the hopball at a specific position.
         /// Can be called directly from server or via ServerRpc from client.
         /// </summary>
-        private static async UniTaskVoid DropHopballAtPosition(HopballController hopball, Vector3 dropPosition, Quaternion dropRotation,
-            ulong requestingClientId, Vector3 playerVelocity) {
-            if(hopball == null || !hopball.IsEquipped) return;
+        private static async UniTaskVoid DropHopballAtPosition(HopballController hopball, Vector3 dropPosition,
+            Quaternion dropRotation, ulong requestingClientId, Vector3 playerVelocity, string dropReason) {
+            if(hopball == null) return;
+            if(!hopball.IsEquipped) {
+                FlowLog.Emit(FlowEventIds.AnomalyHopballMismatch,
+                    ("serverHolder", hopball.HolderController != null ? hopball.HolderController.OwnerClientId.ToString() : "None"),
+                    ("localHolder", requestingClientId),
+                    ("osiHolder", "Unknown"),
+                    ("reason", "DropRejectedNotEquipped"));
+                return;
+            }
 
             hopball.PrepareDropClientRpc();
             await UniTask.WaitForEndOfFrame();
@@ -535,6 +562,16 @@ namespace Game.Player {
                         requestingController = requestingPlayer.GetComponent<PlayerController>();
                     }
                 }
+            }
+            var serverHolderId = hopball.HolderController != null ? hopball.HolderController.OwnerClientId : ulong.MaxValue;
+            if(serverHolderId != requestingClientId) {
+                var serverPos = hopball.transform.position;
+                var deltaFromRequest = Vector3.Distance(serverPos, dropPosition);
+                FlowLog.Emit(FlowEventIds.AnomalyHopballDivergence,
+                    ("serverHolder", serverHolderId == ulong.MaxValue ? "None" : serverHolderId.ToString()),
+                    ("serverPos", serverPos),
+                    ("clientPos", dropPosition),
+                    ("delta", deltaFromRequest));
             }
 
             // Get hopball collider radius for accurate ground checking
@@ -633,6 +670,11 @@ namespace Game.Player {
             await UniTask.WaitForFixedUpdate();
 
             hopball.SetDropped();
+            FlowLog.Emit(FlowEventIds.HopballDropCommitted,
+                ("player", requestingClientId),
+                ("hopballNetId", hopball.NetworkObjectId),
+                ("dropReason", string.IsNullOrEmpty(dropReason) ? "Unknown" : dropReason),
+                ("position", finalDropPosition));
 
             hopball.Rigidbody.isKinematic = false;
             
@@ -663,11 +705,11 @@ namespace Game.Player {
         /// </summary>
         [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
         private void RequestDropHopballServerRpc(NetworkObjectReference hopballRef, Vector3 dropPosition,
-            Quaternion dropRotation, Vector3 playerVelocity) {
+            Quaternion dropRotation, Vector3 playerVelocity, string dropReason) {
             if(!hopballRef.TryGet(out var networkObject) || networkObject == null) return;
 
             var hopball = networkObject.GetComponent<HopballController>();
-            _ = DropHopballAtPosition(hopball, dropPosition, dropRotation, OwnerClientId, playerVelocity);
+            _ = DropHopballAtPosition(hopball, dropPosition, dropRotation, OwnerClientId, playerVelocity, dropReason);
         }
 
         /// <summary>
@@ -689,7 +731,8 @@ namespace Game.Player {
             // On death, use zero velocity (player is dead, no momentum transfer)
             var deathVelocity = Vector3.zero;
 
-            _ = DropHopballAtPosition(hopball, dropPosition, dropRotation, OwnerClientId, deathVelocity);
+            _ = DropHopballAtPosition(hopball, dropPosition, dropRotation, OwnerClientId, deathVelocity,
+                HopballDropReason.PlayerDeath.ToString());
             CleanupVisualsAndRestoreWeaponsClientRpc();
         }
 

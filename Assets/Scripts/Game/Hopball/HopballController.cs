@@ -3,6 +3,7 @@ using Game.Match;
 using Game.Player;
 using OSI;
 using Network.AntiCheat;
+using Network.Diagnostics;
 using Unity.Netcode;
 using Unity.Netcode.Components;
 using UnityEngine;
@@ -206,6 +207,10 @@ namespace Game.Hopball {
         // Handle dissolve effect when energy is 0
         if(_networkEnergy.Value <= 0 && !_isDissolving && !_awaitingRespawn) {
             _isDissolving = true;
+            FlowLog.Emit(FlowEventIds.HopballDissolveStarted,
+                ("hopballNetId", NetworkObjectId),
+                ("energy", _networkEnergy.Value),
+                ("holder", HolderController != null ? HolderController.OwnerClientId.ToString() : "None"));
             // Set effects scale to 0 immediately before starting dissolve
             // This ensures effects recede into the ball surface and aren't visible during dissolve
             // Only call ClientRpc from server (ClientRpcs can only be called from server)
@@ -278,6 +283,10 @@ namespace Game.Hopball {
             _equippedController = null;
             HolderController = null;
         }
+        FlowLog.Emit(FlowEventIds.HopballHoldStateChanged,
+            ("hopballNetId", NetworkObjectId),
+            ("isEquipped", IsEquipped),
+            ("holder", HolderController != null ? HolderController.OwnerClientId.ToString() : "None"));
     }
 
     /// <summary>
@@ -380,6 +389,11 @@ namespace Game.Hopball {
         IsEquipped = false;
         IsDropped = true;
         _equippedController = null; // Clear controller reference when dropped
+        HolderController = null;
+        FlowLog.Emit(FlowEventIds.HopballHoldStateChanged,
+            ("hopballNetId", NetworkObjectId),
+            ("isEquipped", false),
+            ("holder", "None"));
 
         // Get drop position from current transform (server has already set it in DropHopballAtPosition)
         var hopballTransform = transform;
@@ -609,6 +623,9 @@ namespace Game.Hopball {
     /// </summary>
     private void CompleteDissolve() {
         if(_isDissolving == false) return; // Prevent multiple calls
+        FlowLog.Emit(FlowEventIds.HopballDissolveCompleted,
+            ("hopballNetId", NetworkObjectId),
+            ("respawnDelay", "ConfiguredBySpawnManager"));
 
         // If equipped, notify the owner client to clean up visuals and restore weapons
         var controller = _equippedController; // Cache reference before clearing

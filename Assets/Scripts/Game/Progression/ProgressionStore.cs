@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using Game.Security;
 using UnityEngine;
 
 namespace Game.Progression {
@@ -8,9 +9,10 @@ namespace Game.Progression {
 
         public static void Save(PlayerProgressionData data) {
             try {
-                var json = JsonUtility.ToJson(data, true);
                 var path = Path.Combine(Application.persistentDataPath, FileName);
-                File.WriteAllText(path, json);
+                var json = JsonUtility.ToJson(data, false);
+                var protectedPayload = SecureJsonFile.Encode(path, json);
+                File.WriteAllText(path, protectedPayload);
                 // Debug.Log($"[ProgressionStore] Saved to {path}");
             } catch (Exception e) {
                 Debug.LogError($"[ProgressionStore] Failed to save: {e.Message}");
@@ -24,11 +26,43 @@ namespace Game.Progression {
             }
 
             try {
-                var json = File.ReadAllText(path);
-                return JsonUtility.FromJson<PlayerProgressionData>(json);
+                var raw = File.ReadAllText(path);
+                var decodeResult = SecureJsonFile.TryDecode(path, raw, out var json);
+                if (decodeResult == SecureJsonFile.DecodeResult.InvalidOrTampered) {
+                    Debug.LogWarning("[ProgressionStore] progression.json failed integrity checks. Resetting progression.");
+                    QuarantineCorruptFile(path);
+                    return new PlayerProgressionData();
+                }
+
+                var loaded = JsonUtility.FromJson<PlayerProgressionData>(json);
+                if (loaded == null) {
+                    Debug.LogWarning("[ProgressionStore] progression.json parsed as null. Resetting progression.");
+                    QuarantineCorruptFile(path);
+                    return new PlayerProgressionData();
+                }
+
+                if (decodeResult == SecureJsonFile.DecodeResult.LegacyPlaintext) {
+                    Save(loaded); // One-time migration from plaintext progression.
+                }
+
+                return loaded;
             } catch (Exception e) {
                 Debug.LogError($"[ProgressionStore] Failed to load, creating new: {e.Message}");
+                QuarantineCorruptFile(path);
                 return new PlayerProgressionData();
+            }
+        }
+
+        private static void QuarantineCorruptFile(string path) {
+            if (!File.Exists(path)) return;
+
+            try {
+                var stamp = DateTime.UtcNow.ToString("yyyyMMdd_HHmmss");
+                var dir = Path.GetDirectoryName(path);
+                var dstName = $"progression.corrupt.{stamp}.json";
+                var dst = string.IsNullOrEmpty(dir) ? dstName : Path.Combine(dir, dstName);
+                File.Move(path, dst);
+            } catch {
             }
         }
     }

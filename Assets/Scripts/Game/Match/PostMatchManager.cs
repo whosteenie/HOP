@@ -29,6 +29,7 @@ namespace Game.Match {
 
         [Header("UI")]
         [SerializeField] private UIDocument uiDocument;
+        [SerializeField] private PostMatchXpDisplay xpDisplay;
 
         [Header("Timing")]
         [Tooltip("How long to stay on podium view before returning to menu.")] [SerializeField]
@@ -37,6 +38,9 @@ namespace Game.Match {
         // Keep this roughly in sync with SceneTransitionManager.fadeDuration
         [SerializeField] private float fadeDuration = 0.5f;
         [SerializeField] private float fadeBuffer = 0.1f;
+        [SerializeField] private float worldSpaceCardOffsetScale = 0.18f;
+        [SerializeField] private float worldSpaceCardOffsetMinPx = 12f;
+        [SerializeField] private float worldSpaceCardOffsetMaxPx = 56f;
 
         // Podium UI
         private VisualElement _root;
@@ -58,6 +62,13 @@ namespace Game.Match {
         private VisualElement _matchTimerContainer;
 
         private PostMatchXpDisplay _xpDisplay;
+        private Coroutine _podiumWorldSpaceTrackingRoutine;
+
+        private ulong _firstPlacePlayerId = ulong.MaxValue;
+        private ulong _secondPlacePlayerId = ulong.MaxValue;
+        private ulong _thirdPlacePlayerId = ulong.MaxValue;
+
+        private const float AssumedCharacterHeight = 1.9f;
 
         public bool PostMatchFlowStarted { get; private set; }
         private SpawnPoint.Team _winningTeam = SpawnPoint.Team.None;
@@ -79,20 +90,27 @@ namespace Game.Match {
                 podiumCamera.gameObject.SetActive(false);
             }
 
-            // Initialize UI if available
-            if(uiDocument == null) return;
-            _root = uiDocument.rootVisualElement;
-            
-            _xpDisplay = GetComponent<PostMatchXpDisplay>();
-            if (_xpDisplay == null) {
-                _xpDisplay = gameObject.AddComponent<PostMatchXpDisplay>();
+            if(uiDocument == null) {
+                uiDocument = GetComponent<UIDocument>();
             }
-            // Ensure XP display has access to the UIDocument
-            if (_xpDisplay.uiDocument == null && uiDocument != null) {
+            if(uiDocument == null) {
+                Debug.LogError("[PostMatchManager] UIDocument is not assigned on PostMatchManager. " +
+                               "Assign UIDocument on Game scene object 'PostMatchManager'.");
+                return;
+            }
+
+            _root = uiDocument.rootVisualElement;
+
+            _xpDisplay = xpDisplay != null ? xpDisplay : GetComponent<PostMatchXpDisplay>();
+            if(_xpDisplay == null) {
+                Debug.LogError("[PostMatchManager] PostMatchXpDisplay is not assigned. " +
+                               "Add PostMatchXpDisplay to Game scene object 'PostMatchManager' and assign UIDocument.");
+            } else if(_xpDisplay.uiDocument == null) {
                 _xpDisplay.uiDocument = uiDocument;
             }
             
             InitializeUI();
+            ResetPostMatchUiState();
         }
 
         private void InitializeUI() {
@@ -118,6 +136,7 @@ namespace Game.Match {
         }
 
         public override void OnNetworkDespawn() {
+            ResetPostMatchUiState();
             base.OnNetworkDespawn();
             if(Instance == this)
                 Instance = null;
@@ -145,6 +164,7 @@ namespace Game.Match {
                 return;
             }
 
+            ResetPostMatchUiState();
             PostMatchFlowStarted = true;
             StartCoroutine(PostMatchSequence());
         }
@@ -166,6 +186,7 @@ namespace Game.Match {
                 return;
             }
 
+            ResetPostMatchUiState();
             _winningTeam = winningTeam;
             PostMatchFlowStarted = true;
             StartCoroutine(PostMatchSequence());
@@ -290,6 +311,7 @@ namespace Game.Match {
             }
 
             var firstName = topThree.Count > 0 ? topThree[0].playerName.Value.ToString() : string.Empty;
+            var firstId = topThree.Count > 0 ? topThree[0].OwnerClientId : ulong.MaxValue;
             var firstScore = 0;
             if(topThree.Count > 0) {
                 if(isTagMode) {
@@ -301,6 +323,7 @@ namespace Game.Match {
             }
 
             var secondName = topThree.Count > 1 ? topThree[1].playerName.Value.ToString() : string.Empty;
+            var secondId = topThree.Count > 1 ? topThree[1].OwnerClientId : ulong.MaxValue;
             var secondScore = 0;
             if(topThree.Count > 1) {
                 if(isTagMode) {
@@ -312,6 +335,7 @@ namespace Game.Match {
             }
 
             var thirdName = topThree.Count > 2 ? topThree[2].playerName.Value.ToString() : string.Empty;
+            var thirdId = topThree.Count > 2 ? topThree[2].OwnerClientId : ulong.MaxValue;
             var thirdScore = 0;
             if(topThree.Count > 2) {
                 if(isTagMode) {
@@ -322,7 +346,8 @@ namespace Game.Match {
                 }
             }
 
-            UpdatePodiumUiClientRpc(firstName, firstScore, secondName, secondScore, thirdName, thirdScore);
+            UpdatePodiumUiClientRpc(firstName, firstScore, firstId, secondName, secondScore, secondId, thirdName,
+                thirdScore, thirdId);
         }
 
         // --- CLIENT RPCs ---
@@ -330,6 +355,8 @@ namespace Game.Match {
         [Rpc(SendTo.Everyone)]
         private void RequestFadeToPodiumClientRpc() {
             try {
+                ResetPostMatchUiState();
+
                 // Fade to black using respawn fade overlay (appears above HUD but below pause menu)
                 if(SceneTransitionManager.Instance != null) {
                     // Only fade out, we'll manually fade back in later
@@ -465,10 +492,17 @@ namespace Game.Match {
         [Rpc(SendTo.Everyone)]
         private void UpdatePodiumUiClientRpc(
             string firstName, int firstScore,
+            ulong firstPlayerId,
             string secondName, int secondScore,
-            string thirdName, int thirdScore
+            ulong secondPlayerId,
+            string thirdName, int thirdScore,
+            ulong thirdPlayerId
         ) {
+            _firstPlacePlayerId = firstPlayerId;
+            _secondPlacePlayerId = secondPlayerId;
+            _thirdPlacePlayerId = thirdPlayerId;
             SetPodiumSlots(firstName, firstScore, secondName, secondScore, thirdName, thirdScore);
+            StartPodiumWorldSpaceTracking();
         }
 
         private void SetPodiumSlots(
@@ -548,6 +582,8 @@ namespace Game.Match {
         }
 
         public void ShowInGameHudAfterPostMatch() {
+            ResetPostMatchUiState();
+
             // If for any reason the whole HUD panel == null, bail gracefully.
             if(_hudPanel == null)
                 return;
@@ -566,9 +602,166 @@ namespace Game.Match {
             if(GrappleUIManager.Instance != null) {
                 GrappleUIManager.Instance.ShowGrappleUI();
             }
+        }
+
+        private void StartPodiumWorldSpaceTracking() {
+            StopPodiumWorldSpaceTracking();
+            if(_podiumContainer == null) return;
+
+            PrepareSlotForWorldSpacePositioning(_podiumFirstSlot);
+            PrepareSlotForWorldSpacePositioning(_podiumSecondSlot);
+            PrepareSlotForWorldSpacePositioning(_podiumThirdSlot);
+
+            _podiumWorldSpaceTrackingRoutine = StartCoroutine(PodiumWorldSpaceTrackingCoroutine());
+        }
+
+        private void StopPodiumWorldSpaceTracking() {
+            if(_podiumWorldSpaceTrackingRoutine == null) return;
+            StopCoroutine(_podiumWorldSpaceTrackingRoutine);
+            _podiumWorldSpaceTrackingRoutine = null;
+        }
+
+        private IEnumerator PodiumWorldSpaceTrackingCoroutine() {
+            while(_podiumContainer != null && _podiumContainer.resolvedStyle.display != DisplayStyle.None) {
+                UpdatePodiumWorldSpacePositions();
+                yield return null;
+            }
+
+            _podiumWorldSpaceTrackingRoutine = null;
+        }
+
+        private void UpdatePodiumWorldSpacePositions() {
+            if(_root == null || _root.panel == null) return;
+
+            var worldCamera = ResolveWorldCamera();
+            if(worldCamera == null) return;
+
+            UpdatePodiumSlotWorldPosition(_podiumFirstSlot, _firstPlacePlayerId, firstPlaceAnchor, worldCamera);
+            UpdatePodiumSlotWorldPosition(_podiumSecondSlot, _secondPlacePlayerId, secondPlaceAnchor, worldCamera);
+            UpdatePodiumSlotWorldPosition(_podiumThirdSlot, _thirdPlacePlayerId, thirdPlaceAnchor, worldCamera);
+        }
+
+        private void UpdatePodiumSlotWorldPosition(VisualElement slot, ulong playerId, Transform slotAnchor,
+            Camera worldCamera) {
+            if(slot == null) return;
+
+            if(TryGetPodiumPlayer(playerId, out var player) == false || player == null) {
+                slot.style.display = DisplayStyle.None;
+                return;
+            }
+
+            var feetWorld = GetPlayerFeetWorldPosition(player);
+            var feetScreen = worldCamera.WorldToScreenPoint(feetWorld);
+            if(feetScreen.z <= 0f) {
+                slot.style.display = DisplayStyle.None;
+                return;
+            }
+
+            var panelFeet = RuntimePanelUtils.CameraTransformWorldToPanel(_root.panel, feetWorld, worldCamera);
+            var slotWidth = GetResolvedLength(slot.resolvedStyle.width, 200f);
+            var slotHeight = GetResolvedLength(slot.resolvedStyle.height, 88f);
+            var downOffsetPx = ComputeBelowFeetOffsetPixels(slotAnchor, worldCamera);
+
+            slot.style.display = DisplayStyle.Flex;
+            slot.style.left = panelFeet.x - slotWidth * 0.5f;
+            slot.style.top = panelFeet.y + downOffsetPx;
+            slot.style.bottom = StyleKeyword.Null;
+            slot.style.right = StyleKeyword.Null;
+            slot.style.translate = new Translate(0f, 0f);
+            slot.style.minHeight = slotHeight;
+        }
+
+        private float ComputeBelowFeetOffsetPixels(Transform slotAnchor, Camera worldCamera) {
+            if(worldCamera == null) return worldSpaceCardOffsetMinPx;
+            if(slotAnchor == null) return worldSpaceCardOffsetMinPx;
+
+            var distance = Vector3.Distance(worldCamera.transform.position, slotAnchor.position);
+            if(distance <= 0.001f) return worldSpaceCardOffsetMinPx;
+
+            float pixelsPerMeter;
+            if(worldCamera.orthographic) {
+                var worldHeight = worldCamera.orthographicSize * 2f;
+                pixelsPerMeter = Screen.height / Mathf.Max(0.001f, worldHeight);
+            } else {
+                var fovRad = worldCamera.fieldOfView * Mathf.Deg2Rad;
+                var frustumHeightAtDistance = 2f * distance * Mathf.Tan(fovRad * 0.5f);
+                pixelsPerMeter = Screen.height / Mathf.Max(0.001f, frustumHeightAtDistance);
+            }
+
+            var characterHeightPx = AssumedCharacterHeight * pixelsPerMeter;
+            var desiredOffset = characterHeightPx * worldSpaceCardOffsetScale;
+            return Mathf.Clamp(desiredOffset, worldSpaceCardOffsetMinPx, worldSpaceCardOffsetMaxPx);
+        }
+
+        private static float GetResolvedLength(float value, float fallback) {
+            return float.IsNaN(value) || value <= 0f ? fallback : value;
+        }
+
+        private static void PrepareSlotForWorldSpacePositioning(VisualElement slot) {
+            if(slot == null) return;
+            slot.style.position = Position.Absolute;
+            slot.style.bottom = StyleKeyword.Null;
+            slot.style.right = StyleKeyword.Null;
+            slot.style.translate = new Translate(0f, 0f);
+        }
+
+        private static Camera ResolveWorldCamera() {
+            if(Camera.main != null) return Camera.main;
+
+            var cameras = Camera.allCameras;
+            for(var i = 0; i < cameras.Length; i++) {
+                var cam = cameras[i];
+                if(cam == null || cam.enabled == false || cam.gameObject.activeInHierarchy == false) continue;
+                return cam;
+            }
+
+            return null;
+        }
+
+        private static Vector3 GetPlayerFeetWorldPosition(PlayerController player) {
+            if(player == null) return Vector3.zero;
+
+            var cc = player.CharacterController;
+            if(cc != null) {
+                var bounds = cc.bounds;
+                if(bounds.size.y > 0.001f) {
+                    return new Vector3(bounds.center.x, bounds.min.y, bounds.center.z);
+                }
+            }
+
+            return player.transform.position;
+        }
+
+        private static bool TryGetPodiumPlayer(ulong playerId, out PlayerController player) {
+            player = null;
+            if(playerId == ulong.MaxValue) return false;
+            if(NetworkManager.Singleton == null) return false;
+
+            if(NetworkManager.Singleton.ConnectedClients.TryGetValue(playerId, out var client) == false) return false;
+            if(client == null || client.PlayerObject == null) return false;
+
+            player = client.PlayerObject.GetComponent<PlayerController>();
+            return player != null;
+        }
+
+        private void ResetPostMatchUiState() {
+            StopPodiumWorldSpaceTracking();
+
+            _firstPlacePlayerId = ulong.MaxValue;
+            _secondPlacePlayerId = ulong.MaxValue;
+            _thirdPlacePlayerId = ulong.MaxValue;
 
             if(_podiumContainer != null) {
                 _podiumContainer.style.display = DisplayStyle.None;
+                _podiumContainer.style.translate = new Translate(0f, 0f);
+            }
+
+            SetPodiumSlot(_podiumFirstSlot, _podiumFirstName, _podiumFirstKills, string.Empty, 0);
+            SetPodiumSlot(_podiumSecondSlot, _podiumSecondName, _podiumSecondKills, string.Empty, 0);
+            SetPodiumSlot(_podiumThirdSlot, _podiumThirdName, _podiumThirdKills, string.Empty, 0);
+
+            if(_xpDisplay != null) {
+                _xpDisplay.Hide();
             }
         }
         private static void DisableHopballTargets() {

@@ -81182,6 +81182,7 @@ MonoBehaviour:
   secondPlaceAnchor: {fileID: 44623097}
   thirdPlaceAnchor: {fileID: 972847555}
   uiDocument: {fileID: 1453059420887439359}
+  xpDisplay: {fileID: 1309230226}
   podiumDuration: 10
   fadeDuration: 0.5
   fadeBuffer: 0.1

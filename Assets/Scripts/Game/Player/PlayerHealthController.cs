@@ -7,6 +7,7 @@ using Game.Match;
 using Game.Spawning;
 using Game.UI;
 using Network.Components;
+using Network.Diagnostics;
 using Network.Events;
 using Network.Singletons;
 using Unity.Cinemachine;
@@ -47,6 +48,8 @@ namespace Game.Player {
         private const float RegenDelay = 10f;
         private const float RegenRate = 10f;
         private const float MaxHealth = 100f;
+        private const float OutOfBoundsKillY = 600f;
+        private const float OutOfBoundsRespawnYBuffer = 20f;
 
         // Health state
         private Vector3? _lastHitPoint;
@@ -55,6 +58,7 @@ namespace Game.Player {
         private string _lastBodyPartTag;
         private bool _isRegenerating;
         private Coroutine _respawnFadeCoroutine;
+        private Coroutine _respawnTimeoutProbeCoroutine;
 
         // Spawn reservation
         private SpawnPoint _reservedSpawnPoint;
@@ -152,10 +156,27 @@ namespace Game.Player {
         public bool ApplyDamageServer_Auth(float amount, Vector3 hitPoint, Vector3 hitDirection, ulong attackerId,
             string bodyPartTag = null, bool isHeadshot = false, string weaponId = null) {
             if(!IsServer || netIsDead == null || netIsDead.Value) return false;
+            var activeMode = MatchSettingsManager.Instance != null
+                ? MatchSettingsManager.Instance.selectedGameModeId
+                : "Unknown";
 
             if(attackerId == ulong.MaxValue) {
+                var healthBefore = netHealth.Value;
                 netHealth.Value = 0f;
                 netIsDead.Value = true;
+                StartRespawnTimeoutProbe();
+                FlowLog.Emit(FlowEventIds.PlayerLethal,
+                    ("victim", OwnerClientId),
+                    ("attacker", "Environment"),
+                    ("healthBefore", healthBefore),
+                    ("healthAfter", netHealth.Value),
+                    ("bodyPart", bodyPartTag ?? "None"));
+                FlowLog.Emit(FlowEventIds.PlayerDeathEntered,
+                    ("player", OwnerClientId),
+                    ("isServer", IsServer),
+                    ("isOwner", IsOwner),
+                    ("mode", activeMode),
+                    ("position", _playerTransform != null ? _playerTransform.position : transform.position));
                 
                 _lastHitPoint = hitPoint;
                 _lastHitDirection = hitDirection;
@@ -163,18 +184,7 @@ namespace Game.Player {
                 _isRegenerating = false;
                 _lastBodyPartTag = bodyPartTag;
 
-                if(HopballSpawnManager.Instance != null && HopballSpawnManager.Instance.CurrentHopballController != null) {
-                    var hopball = HopballSpawnManager.Instance.CurrentHopballController;
-                    if(hopball.IsEquipped && hopball.HolderController != null &&
-                       hopball.HolderController.OwnerClientId == OwnerClientId) {
-                        if(playerController != null) {
-                            var hopballController = playerController.PlayerHopballController;
-                            if(hopballController != null) {
-                                hopballController.DropHopballOnDeath();
-                            }
-                        }
-                    }
-                }
+                TryForceHopballDrop("OutOfBoundsDeath");
 
                 var victimName = "Player";
                 if(playerController != null && playerController.PlayerName != null) {
@@ -259,19 +269,21 @@ namespace Game.Player {
                 if(!(newHp <= 0f) || netIsDead.Value || isPostMatchFlowStarted)
                     return false;
                 netIsDead.Value = true;
+                StartRespawnTimeoutProbe();
+                FlowLog.Emit(FlowEventIds.PlayerLethal,
+                    ("victim", OwnerClientId),
+                    ("attacker", attackerId),
+                    ("healthBefore", pre),
+                    ("healthAfter", newHp),
+                    ("bodyPart", _lastBodyPartTag ?? "None"));
+                FlowLog.Emit(FlowEventIds.PlayerDeathEntered,
+                    ("player", OwnerClientId),
+                    ("isServer", IsServer),
+                    ("isOwner", IsOwner),
+                    ("mode", activeMode),
+                    ("position", _playerTransform != null ? _playerTransform.position : transform.position));
 
-                if(HopballSpawnManager.Instance != null && HopballSpawnManager.Instance.CurrentHopballController != null) {
-                    var hopball = HopballSpawnManager.Instance.CurrentHopballController;
-                    if(hopball.IsEquipped && hopball.HolderController != null &&
-                       hopball.HolderController.OwnerClientId == OwnerClientId) {
-                        if(playerController != null) {
-                            var hopballController = playerController.PlayerHopballController;
-                            if(hopballController != null) {
-                                hopballController.DropHopballOnDeath();
-                            }
-                        }
-                    }
-                }
+                TryForceHopballDrop("PlayerDeath");
 
                 if(NetworkManager.Singleton.ConnectedClients.TryGetValue(attackerId, out var killerClient)) {
                     if(killerClient.PlayerObject == null) return false;
@@ -365,6 +377,10 @@ namespace Game.Player {
             }
 
             if(IsOwner) {
+                FlowLog.Emit(FlowEventIds.PlayerControlState,
+                    ("player", OwnerClientId),
+                    ("enabled", false),
+                    ("reason", "DeathEntered"));
                 if(playerController != null && playerController.PlayerInput != null) {
                     playerController.PlayerInput.ForceDisableSniperOverlay(false);
                 }
@@ -457,26 +473,42 @@ namespace Game.Player {
 
             Vector3 position;
             Quaternion rotation;
+            var matchSettings = MatchSettingsManager.Instance;
+            var isTeamBased = matchSettings != null &&
+                              MatchSettingsManager.IsTeamBasedMode(matchSettings.selectedGameModeId);
+            var team = SpawnPoint.Team.TeamA;
+            if(isTeamBased && _teamManager != null && _teamManager.netTeam != null) {
+                team = _teamManager.netTeam.Value;
+            }
 
             if(_reservedSpawnPoint != null) {
                 var reservedSpawnTransform = _reservedSpawnPoint.transform;
                 position = reservedSpawnTransform.position;
                 rotation = reservedSpawnTransform.rotation;
             } else {
-                var matchSettings = MatchSettingsManager.Instance;
-                var isTeamBased = matchSettings != null &&
-                                  MatchSettingsManager.IsTeamBasedMode(matchSettings.selectedGameModeId);
-
                 if(isTeamBased) {
-                    var team = SpawnPoint.Team.TeamA;
-                    if(_teamManager != null && _teamManager.netTeam != null) {
-                        team = _teamManager.netTeam.Value;
-                    }
                     (position, rotation) = GetSpawnPointForTeam(team);
                 } else {
                     (position, rotation) = GetSpawnPointFfa();
                 }
             }
+
+            if(position.y <= OutOfBoundsKillY) {
+                if(isTeamBased) {
+                    (position, rotation) = GetSpawnPointForTeam(team);
+                } else {
+                    (position, rotation) = GetSpawnPointFfa();
+                }
+
+                if(position.y <= OutOfBoundsKillY) {
+                    position.y = OutOfBoundsKillY + OutOfBoundsRespawnYBuffer;
+                }
+            }
+            FlowLog.Emit(FlowEventIds.PlayerRespawnStarted,
+                ("player", OwnerClientId),
+                ("spawnPoint", position),
+                ("team", isTeamBased ? team.ToString() : "None"),
+                ("wasRagdolled", _playerRagdoll != null && _playerRagdoll.IsRagdoll));
 
             StartCoroutine(TeleportAfterPreparation(position, rotation));
         }
@@ -517,10 +549,9 @@ namespace Game.Player {
         private IEnumerator TeleportAfterPreparation(Vector3 position, Quaternion rotation) {
             const float fadeDuration = 0.5f;
             const float buffer = 0.15f;
+            const float outOfBoundsGraceAfterRespawnSeconds = 2f;
 
             yield return new WaitForSeconds(fadeDuration + buffer);
-
-            ResetHealthAndRegenerationState();
 
             if(IsServer && _reservedSpawnPoint != null) {
                 if(SpawnManager.Instance != null) {
@@ -533,6 +564,27 @@ namespace Game.Player {
 
             const float holdDuration = 0.5f;
             yield return new WaitForSeconds(holdDuration);
+
+            if(playerController != null) {
+                playerController.SetOutOfBoundsGraceWindow(outOfBoundsGraceAfterRespawnSeconds);
+            }
+            ResetHealthAndRegenerationState();
+            StopRespawnTimeoutProbe();
+            var isDeadNow = netIsDead != null && netIsDead.Value;
+            var isRagdolledNow = _playerRagdoll != null && _playerRagdoll.IsRagdoll;
+            FlowLog.Emit(FlowEventIds.PlayerRespawnCompleted,
+                ("player", OwnerClientId),
+                ("position", position),
+                ("controlEnabled", true),
+                ("isDead", isDeadNow),
+                ("isRagdolled", isRagdolledNow));
+            if(isDeadNow || isRagdolledNow || position.y <= OutOfBoundsKillY) {
+                FlowLog.Emit(FlowEventIds.AnomalyRespawnInvariant,
+                    ("player", OwnerClientId),
+                    ("isRagdoll", isRagdolledNow),
+                    ("isInBounds", position.y > OutOfBoundsKillY),
+                    ("position", position));
+            }
 
             SignalFadeInStartClientRpc();
             RestoreControlAfterFadeInClientRpc();
@@ -548,6 +600,10 @@ namespace Game.Player {
         [Rpc(SendTo.Owner)]
         private void RestoreControlAfterFadeInClientRpc() {
             if(_characterController != null) _characterController.enabled = true;
+            FlowLog.Emit(FlowEventIds.PlayerControlState,
+                ("player", OwnerClientId),
+                ("enabled", true),
+                ("reason", "RespawnComplete"));
 
             if(_lookController != null) {
                 _lookController.ResetPitch();
@@ -799,6 +855,52 @@ namespace Game.Player {
             }
 
             assists.Clear();
+        }
+
+        private void TryForceHopballDrop(string reason) {
+            if(HopballSpawnManager.Instance == null || HopballSpawnManager.Instance.CurrentHopballController == null) return;
+
+            var hopball = HopballSpawnManager.Instance.CurrentHopballController;
+            if(!hopball.IsEquipped || hopball.HolderController == null ||
+               hopball.HolderController.OwnerClientId != OwnerClientId) {
+                return;
+            }
+
+            if(playerController != null) {
+                var hopballController = playerController.PlayerHopballController;
+                if(hopballController != null) {
+                    FlowLog.Emit(FlowEventIds.HopballForcedDrop,
+                        ("player", OwnerClientId),
+                        ("hopballNetId", hopball.NetworkObjectId),
+                        ("reason", reason));
+                    hopballController.DropHopballOnDeath();
+                }
+            }
+        }
+
+        private void StartRespawnTimeoutProbe() {
+            if(!IsServer) return;
+            if(_respawnTimeoutProbeCoroutine != null) {
+                StopCoroutine(_respawnTimeoutProbeCoroutine);
+            }
+            _respawnTimeoutProbeCoroutine = StartCoroutine(RespawnTimeoutProbeCoroutine());
+        }
+
+        private void StopRespawnTimeoutProbe() {
+            if(_respawnTimeoutProbeCoroutine == null) return;
+            StopCoroutine(_respawnTimeoutProbeCoroutine);
+            _respawnTimeoutProbeCoroutine = null;
+        }
+
+        private IEnumerator RespawnTimeoutProbeCoroutine() {
+            const float timeoutSeconds = 10f;
+            yield return new WaitForSeconds(timeoutSeconds);
+            _respawnTimeoutProbeCoroutine = null;
+            if(!IsServer || netIsDead == null || netIsDead.Value == false) yield break;
+            FlowLog.Emit(FlowEventIds.AnomalyDeathRespawnTimeout,
+                ("player", OwnerClientId),
+                ("elapsed", timeoutSeconds),
+                ("phase", "DeadAwaitingRespawn"));
         }
     }
 }

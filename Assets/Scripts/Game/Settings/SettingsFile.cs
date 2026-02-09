@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using Game.Security;
 using UnityEngine;
 
 namespace Game.Settings {
@@ -24,8 +25,14 @@ namespace Game.Settings {
             }
 
             try {
-                var json = File.ReadAllText(path);
-                if(string.IsNullOrWhiteSpace(json)) {
+                var raw = File.ReadAllText(path);
+                if(string.IsNullOrWhiteSpace(raw)) {
+                    return false;
+                }
+
+                var decodeResult = SecureJsonFile.TryDecode(path, raw, out var json);
+                if(decodeResult == SecureJsonFile.DecodeResult.InvalidOrTampered) {
+                    Debug.LogWarning("[Settings] settings.json failed integrity checks or is unreadable.");
                     return false;
                 }
 
@@ -35,6 +42,9 @@ namespace Game.Settings {
                 }
 
                 data = loaded;
+                if(decodeResult == SecureJsonFile.DecodeResult.LegacyPlaintext) {
+                    Save(data); // One-time migration from plaintext settings.
+                }
                 return true;
             } catch(Exception e) {
                 Debug.LogWarning($"[Settings] Failed to read/parse settings.json: {e.Message}");
@@ -60,8 +70,9 @@ namespace Game.Settings {
                     File.Copy(path, backupPath, overwrite: true);
                 }
 
-                var json = JsonUtility.ToJson(data, prettyPrint: true);
-                File.WriteAllText(tmpPath, json);
+                var json = JsonUtility.ToJson(data, prettyPrint: false);
+                var protectedPayload = SecureJsonFile.Encode(path, json);
+                File.WriteAllText(tmpPath, protectedPayload);
 
                 if(File.Exists(path)) {
                     File.Delete(path);

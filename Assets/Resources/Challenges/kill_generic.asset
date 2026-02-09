@@ -12,10 +12,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c9ed70c8fe86b6c4ba44e42c9ed95404, type: 3}
   m_Name: kill_generic
   m_EditorClassIdentifier: Assembly-CSharp::Game.Progression.ChallengeDefinition
-  ID: kill_generic
-  Type: 0
-  DescriptionTemplate: Get {0} kills
-  MinTarget: 10
-  MaxTarget: 30
-  BaseXPReward: 500
-  WeaponID: 
+  id: kill_generic
+  type: 0
+  descriptionTemplate: Get {0} Kills
+  minTarget: 10
+  maxTarget: 50
+  baseXpReward: 500
+  isWeekly: 0
+  weaponID: 

@@ -44,13 +44,13 @@ public class ChallengeAssetGenerator {
 
     private static void CreateFilteredChallenge(string id, ChallengeType type, string filter, string desc, int min, int max, int xp) {
         ChallengeDefinition asset = ScriptableObject.CreateInstance<ChallengeDefinition>();
-        asset.ID = id;
-        asset.Type = type;
-        asset.WeaponID = filter; // Using WeaponID as generic Filter ID
-        asset.DescriptionTemplate = desc;
-        asset.MinTarget = min;
-        asset.MaxTarget = max;
-        asset.BaseXPReward = xp;
+        asset.id = id;
+        asset.type = type;
+        asset.weaponID = filter; // Using WeaponID as generic Filter ID
+        asset.descriptionTemplate = desc;
+        asset.minTarget = min;
+        asset.maxTarget = max;
+        asset.baseXpReward = xp;
 
         string assetPath = $"Assets/Resources/Challenges/{id}.asset";
         AssetDatabase.CreateAsset(asset, assetPath);

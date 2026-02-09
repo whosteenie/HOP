@@ -6,6 +6,7 @@ using Game.Audio;
 using Game.Match;
 using Game.Spawning;
 using Game.UI;
+using Network.Diagnostics;
 using Network.Events;
 using Unity.Netcode;
 using UnityEngine;
@@ -62,6 +63,14 @@ namespace Game.Hopball {
                 var matchSettings = MatchSettingsManager.Instance;
                 if(matchSettings != null && matchSettings.selectedGameModeId == "Hopball") {
                     StartCoroutine(InitialSpawnCoroutine());
+                } else {
+                    if(CurrentHopballController != null) {
+                        FlowLog.Emit(FlowEventIds.AnomalyModeMismatch,
+                            ("selected", matchSettings != null ? matchSettings.selectedGameModeId : "Unknown"),
+                            ("applied", matchSettings != null ? matchSettings.selectedGameModeId : "Unknown"),
+                            ("objective", "Hopball"));
+                    }
+                    CleanupActiveHopball();
                 }
             }
 
@@ -74,6 +83,7 @@ namespace Game.Hopball {
             base.OnNetworkDespawn();
             _teamAScore.OnValueChanged -= OnTeamAScoreChanged;
             _teamBScore.OnValueChanged -= OnTeamBScoreChanged;
+            CleanupActiveHopball();
         }
 
         private static void OnTeamAScoreChanged(int previous, int current) {
@@ -105,6 +115,10 @@ namespace Game.Hopball {
             yield return new WaitForSeconds(preMatchCountdown + postPrematchSpawnDelay);
 
             if(IsServer && !_hasSpawnedInitial) {
+                matchSettings = MatchSettingsManager.Instance;
+                if(matchSettings == null || matchSettings.selectedGameModeId != "Hopball") {
+                    yield break;
+                }
                 SpawnHopball();
             }
         }
@@ -119,6 +133,11 @@ namespace Game.Hopball {
 
             // Don't spawn if post-match has started
             if(PostMatchManager.Instance != null && PostMatchManager.Instance.PostMatchFlowStarted) {
+                return;
+            }
+
+            var matchSettings = MatchSettingsManager.Instance;
+            if(matchSettings == null || matchSettings.selectedGameModeId != "Hopball") {
                 return;
             }
 
@@ -153,7 +172,7 @@ namespace Game.Hopball {
             instance.SetActive(true);
 
             if(networkObject != null) {
-                networkObject.Spawn();
+                networkObject.Spawn(true);
             } else {
                 Debug.LogError("[HopballSpawnManager] Hopball prefab missing NetworkObject component!");
                 _isSpawning = false;
@@ -167,6 +186,12 @@ namespace Game.Hopball {
                 _isSpawning = false;
                 return;
             }
+            var objectiveSpawnType = _hasSpawnedInitial ? "Respawn" : "Initial";
+            FlowLog.Emit(FlowEventIds.ObjectiveSpawned,
+                ("mode", "Hopball"),
+                ("objectType", "Hopball"),
+                ("spawnType", objectiveSpawnType),
+                ("spawnPoint", spawnPoint.name));
 
             _hasSpawnedInitial = true;
             _isSpawning = false;
@@ -231,6 +256,10 @@ namespace Game.Hopball {
 
             var spawnPointTransform = spawnPoint.transform;
             CurrentHopballController.RespawnAtLocation(spawnPointTransform.position, spawnPointTransform.rotation);
+            FlowLog.Emit(FlowEventIds.HopballRespawnExecuted,
+                ("hopballNetId", CurrentHopballController.NetworkObjectId),
+                ("spawnPoint", spawnPoint.name),
+                ("reason", "DissolveRespawn"));
 
             _currentHolderId = 0;
 
@@ -244,6 +273,12 @@ namespace Game.Hopball {
         /// </summary>
         private void Update() {
             if(!IsServer) return;
+
+            var matchSettings = MatchSettingsManager.Instance;
+            if(matchSettings == null || matchSettings.selectedGameModeId != "Hopball") {
+                CleanupActiveHopball();
+                return;
+            }
 
             if(CurrentHopballController == null || !CurrentHopballController.IsSpawned || _mostRecentSpawnPoint == null) return;
             // Check if hopball is dropped (not equipped) and OOB
@@ -269,8 +304,13 @@ namespace Game.Hopball {
 
             // Reposition at most recent spawn point (retains energy)
             var recentSpawnTransform = _mostRecentSpawnPoint.transform;
+            var prior = CurrentHopballController.transform.position;
             CurrentHopballController.RepositionAtLocation(recentSpawnTransform.position,
                 recentSpawnTransform.rotation);
+            FlowLog.Emit(FlowEventIds.HopballOobRecovery,
+                ("hopballNetId", CurrentHopballController.NetworkObjectId),
+                ("from", prior),
+                ("to", recentSpawnTransform.position));
 
             // Play spawn sound at reposition location (directional, same falloff as gunshots)
             PlayHopballSpawnSoundClientRpc(_mostRecentSpawnPoint.transform.position);
@@ -384,6 +424,22 @@ namespace Game.Hopball {
         [ContextMenu("Find All Hopball Spawn Points in Scene")]
         private void FindAllSpawnPointsInScene() {
             hopballSpawnPoints = FindObjectsByType<HopballSpawnPoint>(FindObjectsSortMode.None).ToList();
+        }
+
+        private void CleanupActiveHopball() {
+            if(CurrentHopballController == null) return;
+
+            var hopballNetworkObject = CurrentHopballController.GetComponent<NetworkObject>();
+            if(IsServer && hopballNetworkObject != null && hopballNetworkObject.IsSpawned) {
+                hopballNetworkObject.Despawn(true);
+            } else if((hopballNetworkObject == null || hopballNetworkObject.IsSpawned == false) &&
+                      CurrentHopballController != null) {
+                Destroy(CurrentHopballController.gameObject);
+            }
+
+            CurrentHopballController = null;
+            _currentHolderId = 0;
+            _hasSpawnedInitial = false;
         }
     }
 }

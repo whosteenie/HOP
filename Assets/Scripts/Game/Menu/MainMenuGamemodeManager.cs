@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
 using Network;
+using Network.Diagnostics;
 using Network.Events;
 using Network.Steam;
 using Steamworks;
@@ -167,6 +168,9 @@ namespace Game.Menu {
 
         public void HandleGameModeSelected(string modeName) {
             _selectedGameMode = modeName;
+            FlowLog.Emit(FlowEventIds.ModeSelect,
+                ("selectedMode", modeName),
+                ("isHost", _isHost));
 
             if(MatchSettingsManager.Instance != null) {
                 MatchSettingsManager.Instance.selectedGameModeId = modeName;

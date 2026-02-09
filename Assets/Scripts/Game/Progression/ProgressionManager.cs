@@ -54,6 +54,46 @@ namespace Game.Progression {
             Data = ProgressionStore.Load();
             // validate
             if (Data.level < 1) Data.level = 1;
+
+            var normalizedDaily = NormalizeChallengeTargets(Data.dailyChallenges);
+            var normalizedWeekly = NormalizeChallengeTargets(Data.weeklyChallenges);
+            if (normalizedDaily || normalizedWeekly) {
+                SaveData();
+            }
+        }
+
+        private bool NormalizeChallengeTargets(List<ActiveChallengeData> challenges) {
+            if (challenges == null || challenges.Count == 0) return false;
+
+            var changed = false;
+            foreach (var challenge in challenges) {
+                var def = GetChallengeDefinition(challenge.challengeID);
+                if (def == null) continue;
+
+                var clampedTarget = Mathf.Clamp(challenge.targetProgress, def.minTarget, def.maxTarget);
+                if (challenge.targetProgress != clampedTarget) {
+                    challenge.targetProgress = clampedTarget;
+                    changed = true;
+                }
+
+                if (challenge.currentProgress < 0) {
+                    challenge.currentProgress = 0;
+                    changed = true;
+                }
+
+                if (challenge.currentProgress > challenge.targetProgress) {
+                    challenge.currentProgress = challenge.targetProgress;
+                    changed = true;
+                }
+
+                var shouldBeCompleted = challenge.currentProgress >= challenge.targetProgress;
+                if (challenge.isCompleted != shouldBeCompleted) {
+                    challenge.isCompleted = shouldBeCompleted;
+                    changed = true;
+                }
+            }
+
+            return changed;
         }
 
         public void SaveData() {
@@ -161,7 +201,7 @@ namespace Game.Progression {
             foreach(var challenge in Data.dailyChallenges) {
                 if (challenge.isCompleted) continue;
                 var def = GetChallengeDefinition(challenge.challengeID);
-                if (def == null || def.Type != ChallengeType.KillStreak) continue;
+                if (def == null || def.type != ChallengeType.KillStreak) continue;
 
                 // Update progress to highest streak achieved
                 if (currentStreak > challenge.currentProgress) {
@@ -249,10 +289,10 @@ namespace Game.Progression {
              foreach(var challenge in list) {
                 if (challenge.isCompleted) continue;
                 var def = GetChallengeDefinition(challenge.challengeID);
-                if (def == null || def.Type != type) continue;
+                if (def == null || def.type != type) continue;
 
                 // Get the filter from the active challenge (dynamic) or definition (static)
-                var filterToUse = !string.IsNullOrEmpty(challenge.filterID) ? challenge.filterID : def.WeaponID;
+                var filterToUse = !string.IsNullOrEmpty(challenge.filterID) ? challenge.filterID : def.weaponID;
 
                 // Validate Weapon Filter / Context
                 if (type == ChallengeType.WeaponKill && !string.IsNullOrEmpty(filterToUse)) {
@@ -354,6 +394,10 @@ namespace Game.Progression {
                 }
             }
 
+            if (!needsReset && HasInvalidChallenges(Data.dailyChallenges)) {
+                needsReset = true;
+            }
+
             if (needsReset) {
                 GenerateDailyChallenges();
             }
@@ -374,10 +418,26 @@ namespace Game.Progression {
                      needsReset = true;
                  }
              }
+
+             if (!needsReset && HasInvalidChallenges(Data.weeklyChallenges)) {
+                 needsReset = true;
+             }
  
              if (needsReset) {
                  GenerateWeeklyChallenges();
              }
+        }
+
+        private bool HasInvalidChallenges(List<ActiveChallengeData> challenges) {
+            if (challenges == null || challenges.Count == 0) return true;
+
+            foreach (var challenge in challenges) {
+                if (string.IsNullOrEmpty(challenge.challengeID)) return true;
+                if (GetChallengeDefinition(challenge.challengeID) == null) return true;
+                if (challenge.targetProgress <= 0) return true;
+            }
+
+            return false;
         }
 
         public TimeSpan GetTimeUntilDailyReset() {
@@ -434,7 +494,7 @@ namespace Game.Progression {
             Data.lastDailyReset = DateTime.Now.ToString(CultureInfo.InvariantCulture);
             
             // Filter pool for Daily (IsWeekly == false)
-            var dailyPool = challengePool.FindAll(c => !c.IsWeekly);
+            var dailyPool = challengePool.FindAll(c => !c.isWeekly);
             if (dailyPool.Count == 0) dailyPool = challengePool; // Fallback
 
             // Pick 3 random challenges
@@ -451,7 +511,7 @@ namespace Game.Progression {
                 var def = dailyPool[UnityEngine.Random.Range(0, dailyPool.Count)];
                 
                 // Special handling for play_matches_of (allow up to 2, but no duplicate gamemodes)
-                if (def.ID == "play_matches_of") {
+                if (def.id == "play_matches_of") {
                     if (playMatchesChallengeCount >= 2) continue; // Max 2 of this type
                     
                     // Pick a random unused gamemode
@@ -465,11 +525,11 @@ namespace Game.Progression {
                     usedGamemodes.Add(chosenGamemode);
                     playMatchesChallengeCount++;
                     
-                    var target = UnityEngine.Random.Range(def.MinTarget, def.MaxTarget + 1);
+                    var target = UnityEngine.Random.Range(def.minTarget, def.maxTarget + 1);
                     var reward = CalculateXpReward(def, target);
                     
                     var challenge = new ActiveChallengeData {
-                        challengeID = def.ID,
+                        challengeID = def.id,
                         filterID = chosenGamemode,
                         targetProgress = target,
                         currentProgress = 0,
@@ -482,7 +542,7 @@ namespace Game.Progression {
                 }
                 
                 // Special handling for weapon_kills (allow up to 2, but no duplicate weapons)
-                if (def.ID == "weapon_kills") {
+                if (def.id == "weapon_kills") {
                     if (weaponKillsChallengeCount >= 2) continue; // Max 2 of this type
                     
                     // Pick a random unused weapon
@@ -496,11 +556,11 @@ namespace Game.Progression {
                     usedWeapons.Add(chosenWeapon);
                     weaponKillsChallengeCount++;
                     
-                    var target = UnityEngine.Random.Range(def.MinTarget, def.MaxTarget + 1);
+                    var target = UnityEngine.Random.Range(def.minTarget, def.maxTarget + 1);
                     var reward = CalculateXpReward(def, target);
                     
                     var challenge = new ActiveChallengeData {
-                        challengeID = def.ID,
+                        challengeID = def.id,
                         filterID = chosenWeapon,
                         targetProgress = target,
                         currentProgress = 0,
@@ -513,21 +573,21 @@ namespace Game.Progression {
                 }
                 
                 // Standard duplicate check for other challenges
-                if (activeIds.Contains(def.ID)) continue;
+                if (activeIds.Contains(def.id)) continue;
 
-                var standardTarget = UnityEngine.Random.Range(def.MinTarget, def.MaxTarget + 1);
+                var standardTarget = UnityEngine.Random.Range(def.minTarget, def.maxTarget + 1);
                 var standardReward = CalculateXpReward(def, standardTarget);
                 
                 var standardChallenge = new ActiveChallengeData {
-                    challengeID = def.ID,
-                    filterID = def.WeaponID, // Use static filter if defined
+                    challengeID = def.id,
+                    filterID = def.weaponID, // Use static filter if defined
                     targetProgress = standardTarget,
                     currentProgress = 0,
                     xpReward = standardReward,
                     isCompleted = false
                 };
                 Data.dailyChallenges.Add(standardChallenge);
-                activeIds.Add(def.ID); // Mark as used for this session
+                activeIds.Add(def.id); // Mark as used for this session
                 addedCount++;
             }
             
@@ -543,40 +603,110 @@ namespace Game.Progression {
             Data.lastWeeklyReset = DateTime.Now.ToString(CultureInfo.InvariantCulture);
             
             // Filter pool for Weekly (IsWeekly == true)
-            var weeklyPool = challengePool.FindAll(c => c.IsWeekly);
-            // Fallback: If no weekly challenges defined, use daily ones but scale target? 
-            // For now, just use general pool if no strict weekly challenges found, or warn.
+            var weeklyPool = challengePool.FindAll(c => c.isWeekly);
+            // Fallback: If no weekly challenges are explicitly defined, use the general pool.
             if (weeklyPool.Count == 0) {
-                 // Option: fallback to general pool but mark as weekly in context? 
-                 // Effectively, if we haven't made any weekly-specific ones, we might just pick 5 random ones.
                  weeklyPool = challengePool;
             }
 
             // Pick 5 random challenges
             var activeIds = GetActiveChallengeIDs();
+            var usedGamemodes = new HashSet<string>(); // Track gamemodes for play_matches_of
+            var usedWeapons = new HashSet<string>();   // Track weapons for weapon_kills
+            int playMatchesChallengeCount = 0;
+            int weaponKillsChallengeCount = 0;
             int addedCount = 0;
             int maxAttempts = 100;
 
             while(addedCount < 5 && maxAttempts > 0) {
                 maxAttempts--;
                 var def = weeklyPool[UnityEngine.Random.Range(0, weeklyPool.Count)];
-                
-                // Prevent duplicate
-                if (activeIds.Contains(def.ID)) continue;
 
-                // Scale target for Weekly
-                var target = UnityEngine.Random.Range(def.MinTarget * 3, def.MaxTarget * 5);
-                var reward = CalculateXpReward(def, target);
-                
-                var challenge = new ActiveChallengeData {
-                    challengeID = def.ID,
-                    targetProgress = target,
+                // Special handling for play_matches_of (allow up to 2, but no duplicate gamemodes)
+                if (def.id == "play_matches_of") {
+                    if (playMatchesChallengeCount >= 2) continue;
+
+                    var availableForPicking = new List<string>();
+                    foreach (var gm in AvailableGamemodes) {
+                        if (!usedGamemodes.Contains(gm)) {
+                            availableForPicking.Add(gm);
+                        }
+                    }
+
+                    if (availableForPicking.Count == 0) continue;
+
+                    var chosenGamemode = availableForPicking[UnityEngine.Random.Range(0, availableForPicking.Count)];
+                    usedGamemodes.Add(chosenGamemode);
+                    playMatchesChallengeCount++;
+
+                    var gamemodeTarget = UnityEngine.Random.Range(def.minTarget, def.maxTarget + 1);
+                    var gamemodeReward = CalculateXpReward(def, gamemodeTarget);
+
+                    var challenge = new ActiveChallengeData {
+                        challengeID = def.id,
+                        filterID = chosenGamemode,
+                        targetProgress = gamemodeTarget,
+                        currentProgress = 0,
+                        xpReward = gamemodeReward,
+                        isCompleted = false
+                    };
+                    Data.weeklyChallenges.Add(challenge);
+                    activeIds.Add(def.id);
+                    addedCount++;
+                    continue;
+                }
+
+                // Special handling for weapon_kills (allow up to 2, but no duplicate weapons)
+                if (def.id == "weapon_kills") {
+                    if (weaponKillsChallengeCount >= 2) continue;
+
+                    var availableForPicking = new List<string>();
+                    foreach (var w in AvailableWeapons) {
+                        if (!usedWeapons.Contains(w)) {
+                            availableForPicking.Add(w);
+                        }
+                    }
+
+                    if (availableForPicking.Count == 0) continue;
+
+                    var chosenWeapon = availableForPicking[UnityEngine.Random.Range(0, availableForPicking.Count)];
+                    usedWeapons.Add(chosenWeapon);
+                    weaponKillsChallengeCount++;
+
+                    var weaponTarget = UnityEngine.Random.Range(def.minTarget, def.maxTarget + 1);
+                    var weaponReward = CalculateXpReward(def, weaponTarget);
+
+                    var challenge = new ActiveChallengeData {
+                        challengeID = def.id,
+                        filterID = chosenWeapon,
+                        targetProgress = weaponTarget,
+                        currentProgress = 0,
+                        xpReward = weaponReward,
+                        isCompleted = false
+                    };
+                    Data.weeklyChallenges.Add(challenge);
+                    activeIds.Add(def.id);
+                    addedCount++;
+                    continue;
+                }
+
+                // Prevent duplicate
+                if (activeIds.Contains(def.id)) continue;
+
+                // Weekly targets should still respect configured challenge bounds.
+                var standardTarget = UnityEngine.Random.Range(def.minTarget, def.maxTarget + 1);
+                var standardReward = CalculateXpReward(def, standardTarget);
+
+                var standardChallenge = new ActiveChallengeData {
+                    challengeID = def.id,
+                    filterID = def.weaponID,
+                    targetProgress = standardTarget,
                     currentProgress = 0,
-                    xpReward = reward,
+                    xpReward = standardReward,
                     isCompleted = false
                 };
-                Data.weeklyChallenges.Add(challenge);
-                activeIds.Add(def.ID);
+                Data.weeklyChallenges.Add(standardChallenge);
+                activeIds.Add(def.id);
                 addedCount++;
             }
             
@@ -586,7 +716,7 @@ namespace Game.Progression {
         }
         
         public ChallengeDefinition GetChallengeDefinition(string id) {
-            return challengePool.Find(c => c.ID == id);
+            return challengePool.Find(c => c.id == id);
         }
         
         public string GetGamemodeDisplayName(string gamemodeId) {
@@ -619,11 +749,11 @@ namespace Game.Progression {
         }
 
         private int CalculateXpReward(ChallengeDefinition def, int target) {
-            if (def.MinTarget <= 0) return def.BaseXPReward;
+            if (def.minTarget <= 0) return def.baseXpReward;
             // BaseXPReward is amount for MinTarget effort.
             // Scale linearly: if target is 2x MinTarget, reward is 2x Base.
-            float scale = (float)target / def.MinTarget;
-            return Mathf.RoundToInt(def.BaseXPReward * scale);
+            float scale = (float)target / def.minTarget;
+            return Mathf.RoundToInt(def.baseXpReward * scale);
         }
         
         // --- Debug / Testing ---

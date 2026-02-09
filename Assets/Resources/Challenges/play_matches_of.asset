@@ -12,11 +12,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c9ed70c8fe86b6c4ba44e42c9ed95404, type: 3}
   m_Name: play_matches_of
   m_EditorClassIdentifier: Assembly-CSharp::Game.Progression.ChallengeDefinition
-  ID: play_matches_of
-  Type: 13
-  DescriptionTemplate: Play {0} Matches of {1}
-  MinTarget: 2
-  MaxTarget: 5
-  BaseXPReward: 500
-  IsWeekly: 0
-  WeaponID: 
+  id: play_matches_of
+  type: 13
+  descriptionTemplate: Play {0} Matches of {1}
+  minTarget: 2
+  maxTarget: 5
+  baseXpReward: 500
+  isWeekly: 0
+  weaponID: 

@@ -12,11 +12,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c9ed70c8fe86b6c4ba44e42c9ed95404, type: 3}
   m_Name: weapon_kills
   m_EditorClassIdentifier: Assembly-CSharp::Game.Progression.ChallengeDefinition
-  ID: weapon_kills
-  Type: 11
-  DescriptionTemplate: Get {0} Kills with {1}
-  MinTarget: 5
-  MaxTarget: 15
-  BaseXPReward: 600
-  IsWeekly: 0
-  WeaponID: 
+  id: weapon_kills
+  type: 11
+  descriptionTemplate: Get {0} Kills with {1}
+  minTarget: 5
+  maxTarget: 15
+  baseXpReward: 600
+  isWeekly: 0
+  weaponID: 

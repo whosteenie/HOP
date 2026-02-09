@@ -4,6 +4,7 @@ using Game.UI;
 using Game.Weapons;
 using Game.Social;
 using JetBrains.Annotations;
+using Network.Diagnostics;
 using Network.Events;
 using Unity.Cinemachine;
 using Unity.Netcode;
@@ -165,10 +166,18 @@ namespace Game.Player {
                 if(_playerInputComponent != null) {
                     _playerInputComponent.enabled = false;
                 }
+                FlowLog.Emit(FlowEventIds.PlayerControlState,
+                    ("player", OwnerClientId),
+                    ("enabled", false),
+                    ("reason", "RemotePlayerInputDisabled"));
             } else {
                 if(_playerInputComponent != null) {
                     _playerInputComponent.enabled = true;
                 }
+                FlowLog.Emit(FlowEventIds.PlayerControlState,
+                    ("player", OwnerClientId),
+                    ("enabled", true),
+                    ("reason", "OwnerPlayerInputEnabled"));
 
                 RefreshSniperOverlayState();
             }
@@ -176,6 +185,10 @@ namespace Game.Player {
 
         private void OnDisable() {
             if(!IsOwner) return;
+            FlowLog.Emit(FlowEventIds.PlayerControlState,
+                ("player", OwnerClientId),
+                ("enabled", false),
+                ("reason", "PlayerInputComponentDisabled"));
             IsSniperOverlayActive = false;
             if(SniperOverlayManager.Instance == null) return;
             SniperOverlayManager.Instance.ToggleSniperOverlay(false);
