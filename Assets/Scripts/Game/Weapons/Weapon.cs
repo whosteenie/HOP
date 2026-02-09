@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using Audio.Networking;
 using Game.Match;
 using Game.Menu;
 using Game.Player;
@@ -153,10 +154,10 @@ namespace Game.Weapons {
         }
 
         private static void OnHitConfirm(bool wasKill) {
-            if(Game.Audio2.AudioService.Instance == null) return;
+            if(Audio2.AudioService.Instance == null) return;
 
             var soundId = wasKill ? "ui.hit.hitmarker.kill" : "ui.hit.hitmarker.hit";
-            Game.Audio2.AudioService.Instance.Play(soundId, Vector3.zero);
+            Audio2.AudioService.Instance.Play(soundId, Vector3.zero);
         }
 
         #endregion
@@ -591,14 +592,12 @@ namespace Game.Weapons {
             var maxDist = 1000f;
             
             // Check if we should use the new hybrid sphere/cone cast system
-            var useHybridSystem = _currentWeaponData != null && _currentWeaponData.useSphereCast;
+            var useHybridSystem = _currentWeaponData != null && _currentWeaponData.useSphereCast 
+                                  || _currentWeaponData != null && _currentWeaponData.useSniperOverlay && 
+                                  playerController != null && playerController.PlayerInput != null && 
+                                  playerController.PlayerInput.IsSniperOverlayActive;
             
             // Legacy/Sniper Override check (maintain support for old sniper bool if needed, but prefer hybrid)
-            if(_currentWeaponData != null && _currentWeaponData.useSniperOverlay && 
-               playerController != null && playerController.PlayerInput != null && 
-               playerController.PlayerInput.IsSniperOverlayActive) {
-                useHybridSystem = true;
-            }
 
             if(useHybridSystem) {
                 // HYBRID HIT REGISTRATION SYSTEM

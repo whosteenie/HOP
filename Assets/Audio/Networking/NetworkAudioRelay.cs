@@ -1,10 +1,9 @@
-using Game.Audio2;
 using Network.AntiCheat;
 using Network.Diagnostics;
 using Unity.Netcode;
 using UnityEngine;
 
-namespace Network.Rpc {
+namespace Audio.Networking {
     [DisallowMultipleComponent]
     public sealed class NetworkAudioRelay : NetworkBehaviour {
         /// <summary>

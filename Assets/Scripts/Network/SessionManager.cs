@@ -5,7 +5,6 @@ using System.Threading;
 using Cysharp.Threading.Tasks;
 using Game.Settings;
 using Game.Social;
-using Network.Events;
 using Network.Core;
 using Network.Singletons;
 using Network.Steam;
@@ -223,15 +222,15 @@ namespace Network {
             if(!SteamClient.IsValid || !SteamClient.IsLoggedOn) return;
 
             try {
-                var displayName = Game.Social.StreamerMode.GetLocalDisplayName();
+                var displayName = StreamerMode.GetLocalDisplayName();
                 if(string.IsNullOrEmpty(displayName)) return;
                 CurrentLobby.Value.SetMemberData(DisplayNameKey, displayName);
-                var hide = Game.Social.StreamerMode.Enabled;
+                var hide = StreamerMode.Enabled;
                 CurrentLobby.Value.SetMemberData(AvatarHiddenKey, hide ? "1" : "0");
 
                 var data = GameSettings.Data;
                 var baseColor = data.player.customization.baseColor;
-                var iconId = Game.Social.PlayerIconPicker.PickIconIdFromBaseColor(baseColor, hide);
+                var iconId = PlayerIconPicker.PickIconIdFromBaseColor(baseColor, hide);
                 CurrentLobby.Value.SetMemberData(PlayerIconKey, iconId);
             } catch {
                 // If Steam is transitioning offline, ignore.
@@ -261,57 +260,63 @@ namespace Network {
         #region Steam Callbacks
 
         private void OnLobbyDataChanged(Lobby lobby) {
-            if(lobby.Id == CurrentLobby?.Id) {
-                // Handle GameMode display
-                var mode = lobby.GetData(TargetModeKey);
-                if(!string.IsNullOrEmpty(mode) && mode != SelectedGameMode) {
-                    SelectedGameMode = mode;
+            if(lobby.Id != CurrentLobby?.Id) return;
+            // Handle GameMode display
+            var mode = lobby.GetData(TargetModeKey);
+            if(!string.IsNullOrEmpty(mode) && mode != SelectedGameMode) {
+                SelectedGameMode = mode;
+                if(FrontStatusChanged != null) {
+                    FrontStatusChanged.Invoke(null); // Force UI Refresh
+                }
+            }
+
+            // Handle Party Persistence
+            var partyId = lobby.GetData(PartyIdKey);
+            if(!string.IsNullOrEmpty(partyId) && partyId != CurrentPartyId) {
+                CurrentPartyId = partyId;
+            }
+
+            if(lobby.Owner.Id != 0) {
+                var amIHost = lobby.Owner.Id == SteamClient.SteamId;
+
+                if(IsPartyLeader != amIHost) {
+                    Debug.Log($"[SessionManager] Host changed to {lobby.Owner.Name}. Migrating Netcode...");
+                    IsPartyLeader = amIHost;
                     if(FrontStatusChanged != null) {
-                        FrontStatusChanged.Invoke(null); // Force UI Refresh
+                        FrontStatusChanged.Invoke(null);
                     }
+
+                    MigrateNetcodeToNewHost(lobby.Owner.Id).Forget();
                 }
+            }
 
-                // Handle Party Persistence
-                var partyId = lobby.GetData(PartyIdKey);
-                if(!string.IsNullOrEmpty(partyId) && partyId != CurrentPartyId) {
-                    CurrentPartyId = partyId;
+            // Handle "Follow Leader" Migration
+            var followIdStr = lobby.GetData(FollowLobbyIdKey);
+            if(!string.IsNullOrEmpty(followIdStr) && Phase != SessionPhase.InGame) {
+                var followId = ulong.Parse(followIdStr);
+                if(followId != lobby.Id) {
+                    Debug.Log($"[SessionManager] Leader moved to lobby {followId}. Following...");
+                    JoinSessionByLobbyIdAsync(followId).Forget();
                 }
+            }
 
-                if(lobby.Owner.Id != 0) {
-                    bool amIHost = lobby.Owner.Id == SteamClient.SteamId;
-
-                    if(IsPartyLeader != amIHost) {
-                        Debug.Log($"[SessionManager] Host changed to {lobby.Owner.Name}. Migrating Netcode...");
-                        IsPartyLeader = amIHost;
-                        if(FrontStatusChanged != null) {
-                            FrontStatusChanged.Invoke(null);
-                        }
-
-                        MigrateNetcodeToNewHost(lobby.Owner.Id).Forget();
-                    }
-                }
-
-                // Handle "Follow Leader" Migration
-                var followIdStr = lobby.GetData(FollowLobbyIdKey);
-                if(!string.IsNullOrEmpty(followIdStr) && Phase != SessionPhase.InGame) {
-                    ulong followId = ulong.Parse(followIdStr);
-                    if(followId != lobby.Id) {
-                        Debug.Log($"[SessionManager] Leader moved to lobby {followId}. Following...");
-                        JoinSessionByLobbyIdAsync(followId).Forget();
-                    }
-                }
-
-                // Handle Synchronization
-                var state = lobby.GetData(LobbyStateKey);
-                if(state == "SynchronizingLoad") {
+            // Handle Synchronization
+            var state = lobby.GetData(LobbyStateKey);
+            switch(state) {
+                case "SynchronizingLoad": {
                     if(Phase != SessionPhase.SynchronizingLoad && Phase != SessionPhase.LoadingScene) {
                         HandleSynchronizationStart().Forget();
                     }
-                } else if(state == "LoadingScene") {
+
+                    break;
+                }
+                case "LoadingScene": {
                     if(Phase != SessionPhase.LoadingScene) {
                         Phase = SessionPhase.LoadingScene;
                         BeginSceneLoad();
                     }
+
+                    break;
                 }
             }
         }
@@ -358,18 +363,16 @@ namespace Network {
             if(!CurrentLobby.HasValue) return;
 
             var members = CurrentLobby.Value.Members.ToList();
-            bool allReady = true;
+            var allReady = true;
             foreach(var member in members) {
-                if(CurrentLobby.Value.GetMemberData(member, MemberReadyKey) != "true") {
-                    allReady = false;
-                    break;
-                }
+                if(CurrentLobby.Value.GetMemberData(member, MemberReadyKey) == "true") continue;
+                allReady = false;
+                break;
             }
 
-            if(allReady) {
-                Debug.Log("[SessionManager] All members ready! Starting scene transition...");
-                CurrentLobby.Value.SetData(LobbyStateKey, "LoadingScene");
-            }
+            if(!allReady) return;
+            Debug.Log("[SessionManager] All members ready! Starting scene transition...");
+            CurrentLobby.Value.SetData(LobbyStateKey, "LoadingScene");
         }
 
         /// <summary>
@@ -415,14 +418,14 @@ namespace Network {
             const string matchPrefix = "UGS_MATCH_ID:";
 
             if(connect.StartsWith(partyPrefix)) {
-                var code = connect.Substring(partyPrefix.Length);
+                var code = connect[partyPrefix.Length..];
                 if(string.IsNullOrEmpty(code)) return;
                 await JoinUgsPartyLobbyByCodeAsync(code);
                 return;
             }
 
             if(connect.StartsWith(matchPrefix)) {
-                var lobbyId = connect.Substring(matchPrefix.Length);
+                var lobbyId = connect[matchPrefix.Length..];
                 if(string.IsNullOrEmpty(lobbyId)) return;
                 await JoinUgsMatchLobbyByIdAsync(lobbyId);
             }
@@ -432,11 +435,10 @@ namespace Network {
         /// Triggers the OnPartyStateChanged event to notify UI listeners.
         /// </summary>
         private static void NotifyPartyStateChanged() {
-            if(HasInstance) {
-                var instance = Instance;
-                if(instance.OnPartyStateChanged != null) {
-                    instance.OnPartyStateChanged.Invoke();
-                }
+            if(!HasInstance) return;
+            var instance = Instance;
+            if(instance.OnPartyStateChanged != null) {
+                instance.OnPartyStateChanged.Invoke();
             }
         }
 
@@ -1777,14 +1779,15 @@ namespace Network {
             SetFrontStatus(SessionPhase.Searching, $"Searching for {mode}...");
             MatchmakingStartTime = Time.time;
 
-            var attrs = new Dictionary<string, object>();
-            attrs["modeId"] = mode;
-            attrs["partySize"] = 1;
+            var attrs = new Dictionary<string, object> {
+                ["modeId"] = mode,
+                ["partySize"] = 1
+            };
 
-            var players = new List<Unity.Services.Matchmaker.Models.Player>();
+            var players = new List<Player>();
             var localPlayerId = AuthenticationService.Instance.PlayerId;
             if(string.IsNullOrEmpty(localPlayerId)) return;
-            players.Add(new Unity.Services.Matchmaker.Models.Player(localPlayerId, attrs));
+            players.Add(new Player(localPlayerId, attrs));
 
             if(Debug.isDebugBuild) {
                 Debug.Log($"[UGS Matchmaker] Creating ticket. mode='{mode}' queue='{_matchmakerQueueName}' playerId='{localPlayerId}'");
@@ -1849,51 +1852,50 @@ namespace Network {
                         return;
                     }
 
-                    if(assign.Status == MatchIdAssignment.StatusOptions.InProgress) {
-                        if(Debug.isDebugBuild) {
-                            Debug.Log($"[UGS Matchmaker] Ticket '{_matchmakerTicketId}' in progress...");
+                    switch(assign.Status) {
+                        case MatchIdAssignment.StatusOptions.InProgress: {
+                            if(Debug.isDebugBuild) {
+                                Debug.Log($"[UGS Matchmaker] Ticket '{_matchmakerTicketId}' in progress...");
+                            }
+                            try {
+                                await UniTask.Delay(6000, cancellationToken: ct); // 6s Poll Interval
+                            } catch(OperationCanceledException) {
+                                return;
+                            }
+                            continue;
                         }
-                        try {
-                            await UniTask.Delay(6000, cancellationToken: ct); // 6s Poll Interval
-                        } catch(OperationCanceledException) {
-                            return;
-                        }
-                        continue;
-                    }
-
-                    if(assign.Status == MatchIdAssignment.StatusOptions.Timeout) {
-                        Debug.LogWarning("[SessionManager] Matchmaking timed out.");
-                        CancelUgsMatchmaking();
-                        return;
-                    }
-
-                    if(assign.Status == MatchIdAssignment.StatusOptions.Failed) {
-                        Debug.LogWarning($"[SessionManager] Matchmaking failed. Message: {assign.Message}");
-                        CancelUgsMatchmaking();
-                        return;
-                    }
-
-                    if(assign.Status == MatchIdAssignment.StatusOptions.Found) {
-                        if(Debug.isDebugBuild) {
-                            Debug.Log($"[UGS Matchmaker] Ticket '{_matchmakerTicketId}' found matchId='{assign.MatchId}'");
-                        }
-                        if(string.IsNullOrEmpty(assign.MatchId)) {
-                            Debug.LogError("[SessionManager] Matchmaking found but matchId is empty.");
+                        case MatchIdAssignment.StatusOptions.Timeout:
+                            Debug.LogWarning("[SessionManager] Matchmaking timed out.");
                             CancelUgsMatchmaking();
                             return;
-                        }
-
-                        StoredMatchmakingResults results;
-                        try {
-                            results = await MatchmakerService.Instance.GetMatchmakingResultsAsync(assign.MatchId);
-                        } catch(Exception e) {
-                            Debug.LogError($"[SessionManager] Failed to fetch matchmaking results. Exception: {e.Message}");
+                        case MatchIdAssignment.StatusOptions.Failed:
+                            Debug.LogWarning($"[SessionManager] Matchmaking failed. Message: {assign.Message}");
                             CancelUgsMatchmaking();
                             return;
-                        }
+                        case MatchIdAssignment.StatusOptions.Found: {
+                            if(Debug.isDebugBuild) {
+                                Debug.Log($"[UGS Matchmaker] Ticket '{_matchmakerTicketId}' found matchId='{assign.MatchId}'");
+                            }
+                            if(string.IsNullOrEmpty(assign.MatchId)) {
+                                Debug.LogError("[SessionManager] Matchmaking found but matchId is empty.");
+                                CancelUgsMatchmaking();
+                                return;
+                            }
 
-                        await HandleStoredMatchmakerResultsAsync(mode, maxPlayers, assign.MatchId, results);
-                        return;
+                            StoredMatchmakingResults results;
+                            try {
+                                results = await MatchmakerService.Instance.GetMatchmakingResultsAsync(assign.MatchId);
+                            } catch(Exception e) {
+                                Debug.LogError($"[SessionManager] Failed to fetch matchmaking results. Exception: {e.Message}");
+                                CancelUgsMatchmaking();
+                                return;
+                            }
+
+                            await HandleStoredMatchmakerResultsAsync(mode, maxPlayers, assign.MatchId, results);
+                            return;
+                        }
+                        default:
+                            throw new ArgumentOutOfRangeException();
                     }
                 }
 
@@ -1929,13 +1931,13 @@ namespace Network {
             }
         }
 
-        private static string DetermineDeterministicHostId(List<Unity.Services.Matchmaker.Models.Player> players) {
+        private static string DetermineDeterministicHostId(List<Player> players) {
             if(players == null) return "";
             if(players.Count == 0) return "";
 
             var best = "";
-            for(var i = 0; i < players.Count; i++) {
-                var id = players[i].Id;
+            foreach(var t in players) {
+                var id = t.Id;
                 if(string.IsNullOrEmpty(id)) continue;
                 if(string.IsNullOrEmpty(best) || string.CompareOrdinal(id, best) < 0) {
                     best = id;
@@ -1944,7 +1946,7 @@ namespace Network {
             return best;
         }
 
-        private string GetQueueNameForMode(string mode) {
+        private static string GetQueueNameForMode(string mode) {
             if(string.IsNullOrEmpty(mode)) return "";
 
             // Per-mode queues (hyphenated, no whitespace) to match Dashboard configuration.
@@ -1976,22 +1978,24 @@ namespace Network {
             var alloc = await RelayService.Instance.CreateAllocationAsync(maxPlayers - 1);
             var joinCode = await RelayService.Instance.GetJoinCodeAsync(alloc.AllocationId);
 
-            var create = new CreateLobbyOptions();
-            create.IsPrivate = false;
-            create.Player = BuildUgsLobbyPlayer();
-            create.Data = new Dictionary<string, Unity.Services.Lobbies.Models.DataObject>();
-            create.Data[UgsMatchTypeKey] = new Unity.Services.Lobbies.Models.DataObject(
-                Unity.Services.Lobbies.Models.DataObject.VisibilityOptions.Public, "Public");
-            create.Data[UgsTargetModeKey] = new Unity.Services.Lobbies.Models.DataObject(
-                Unity.Services.Lobbies.Models.DataObject.VisibilityOptions.Public, mode);
-            create.Data[UgsRelayJoinCodeKey] = new Unity.Services.Lobbies.Models.DataObject(
-                Unity.Services.Lobbies.Models.DataObject.VisibilityOptions.Member, joinCode);
-            create.Data[UgsMatchIdKey] = new Unity.Services.Lobbies.Models.DataObject(
-                Unity.Services.Lobbies.Models.DataObject.VisibilityOptions.Public, matchId,
-                Unity.Services.Lobbies.Models.DataObject.IndexOptions.S1);
-            // Start in SynchronizingLoad state so clients know to fade out and report ready
-            create.Data[UgsLobbyStateKey] = new Unity.Services.Lobbies.Models.DataObject(
-                Unity.Services.Lobbies.Models.DataObject.VisibilityOptions.Public, "SynchronizingLoad");
+            var create = new CreateLobbyOptions {
+                IsPrivate = false,
+                Player = BuildUgsLobbyPlayer(),
+                Data = new Dictionary<string, Unity.Services.Lobbies.Models.DataObject> {
+                    [UgsMatchTypeKey] = new(
+                        Unity.Services.Lobbies.Models.DataObject.VisibilityOptions.Public, "Public"),
+                    [UgsTargetModeKey] = new(
+                        Unity.Services.Lobbies.Models.DataObject.VisibilityOptions.Public, mode),
+                    [UgsRelayJoinCodeKey] = new(
+                        Unity.Services.Lobbies.Models.DataObject.VisibilityOptions.Member, joinCode),
+                    [UgsMatchIdKey] = new(
+                        Unity.Services.Lobbies.Models.DataObject.VisibilityOptions.Public, matchId,
+                        Unity.Services.Lobbies.Models.DataObject.IndexOptions.S1),
+                    // Start in SynchronizingLoad state so clients know to fade out and report ready
+                    [UgsLobbyStateKey] = new(
+                        Unity.Services.Lobbies.Models.DataObject.VisibilityOptions.Public, "SynchronizingLoad")
+                }
+            };
 
             _ugsMatchLobby = await LobbyService.Instance.CreateLobbyAsync("HOP Match", maxPlayers, create);
             UpdateSteamRichPresenceForUgs();
@@ -2011,10 +2015,13 @@ namespace Network {
             // Mark host as ready
             var localUgsId = AuthenticationService.Instance.PlayerId;
             try {
-                var opts = new UpdatePlayerOptions();
-                opts.Data = new Dictionary<string, Unity.Services.Lobbies.Models.PlayerDataObject>();
-                opts.Data[UgsMemberReadyKey] = new Unity.Services.Lobbies.Models.PlayerDataObject(
-                    Unity.Services.Lobbies.Models.PlayerDataObject.VisibilityOptions.Member, "1");
+                var opts = new UpdatePlayerOptions {
+                    Data = new Dictionary<string, Unity.Services.Lobbies.Models.PlayerDataObject>
+                        {
+                            [UgsMemberReadyKey] = new(
+                                Unity.Services.Lobbies.Models.PlayerDataObject.VisibilityOptions.Member, "1")
+                        }
+                };
                 _ugsMatchLobby = await LobbyService.Instance.UpdatePlayerAsync(_ugsMatchLobby.Id, localUgsId, opts);
                 _ugsLocalReadySubmitted = true;
                 Debug.Log("[SessionManager] Host marked as ready");
@@ -2023,8 +2030,8 @@ namespace Network {
             }
 
             // Poll until all expected players have joined and are ready
-            bool allReady = false;
-            for(int i = 0; i < 60; i++) { // 60 seconds timeout
+            var allReady = false;
+            for(var i = 0; i < 60; i++) { // 60 seconds timeout
                 await UniTask.Delay(1000);
                 
                 try {
@@ -2053,10 +2060,12 @@ namespace Network {
 
             // Update lobby state to LoadingScene
             try {
-                var updateOpts = new UpdateLobbyOptions();
-                updateOpts.Data = new Dictionary<string, Unity.Services.Lobbies.Models.DataObject>();
-                updateOpts.Data[UgsLobbyStateKey] = new Unity.Services.Lobbies.Models.DataObject(
-                    Unity.Services.Lobbies.Models.DataObject.VisibilityOptions.Public, "LoadingScene");
+                var updateOpts = new UpdateLobbyOptions {
+                    Data = new Dictionary<string, Unity.Services.Lobbies.Models.DataObject> {
+                        [UgsLobbyStateKey] = new(
+                            Unity.Services.Lobbies.Models.DataObject.VisibilityOptions.Public, "LoadingScene")
+                    }
+                };
                 _ugsMatchLobby = await LobbyService.Instance.UpdateLobbyAsync(_ugsMatchLobby.Id, updateOpts);
                 Debug.Log("[SessionManager] Updated lobby state to 'LoadingScene'");
             } catch(Exception ex) {
@@ -2114,15 +2123,17 @@ namespace Network {
             LeaveToMainMenuAsync().Forget();
         }
 
-        private async UniTask<Unity.Services.Lobbies.Models.Lobby> QueryMatchLobbyByMatchIdAsync(string matchId) {
+        private static async UniTask<Unity.Services.Lobbies.Models.Lobby> QueryMatchLobbyByMatchIdAsync(string matchId) {
             if(string.IsNullOrEmpty(matchId)) return null;
 
-            var opts = new QueryLobbiesOptions();
-            opts.Filters = new List<Unity.Services.Lobbies.Models.QueryFilter>();
-            opts.Filters.Add(new Unity.Services.Lobbies.Models.QueryFilter(
-                Unity.Services.Lobbies.Models.QueryFilter.FieldOptions.S1,
-                matchId,
-                Unity.Services.Lobbies.Models.QueryFilter.OpOptions.EQ));
+            var opts = new QueryLobbiesOptions {
+                Filters = new List<Unity.Services.Lobbies.Models.QueryFilter> {
+                    new(
+                        Unity.Services.Lobbies.Models.QueryFilter.FieldOptions.S1,
+                        matchId,
+                        Unity.Services.Lobbies.Models.QueryFilter.OpOptions.EQ)
+                }
+            };
 
             Unity.Services.Lobbies.Models.QueryResponse resp;
             try {
@@ -2133,8 +2144,7 @@ namespace Network {
 
             if(resp == null) return null;
             if(resp.Results == null) return null;
-            if(resp.Results.Count == 0) return null;
-            return resp.Results[0];
+            return resp.Results.Count == 0 ? null : resp.Results[0];
         }
 
         #endregion

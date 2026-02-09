@@ -110,11 +110,10 @@ namespace Game.Player {
 
             // Find the arm object in the weapon instance (Tagged "Arm")
             Transform armTransform = null;
-            foreach(Transform child in weaponInstance.GetComponentsInChildren<Transform>(true)) {
-                if(child.CompareTag("Arm")) {
-                    armTransform = child;
-                    break;
-                }
+            foreach(var child in weaponInstance.GetComponentsInChildren<Transform>(true)) {
+                if(!child.CompareTag("Arm")) continue;
+                armTransform = child;
+                break;
             }
 
             if(armTransform == null) return;
