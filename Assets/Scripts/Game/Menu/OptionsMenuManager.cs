@@ -53,6 +53,7 @@ namespace Game.Menu {
         private Button _streamerModeButton;
         private Button _holdMantleButton;
         private Button _profanityFilterButton;
+        private Button _autoWallRunButton;
         private DropdownField _grappleIndicatorDropdown;
         private DropdownField _voiceModeDropdown;
         private DropdownField _windowModeDropdown;
@@ -106,6 +107,7 @@ namespace Game.Menu {
         private bool _originalStreamerMode;
         private bool _originalHoldMantle;
         private bool _originalProfanityFilter;
+        private bool _originalAutoWallRun;
         private int _originalGrappleIndicator;
         private int _originalVoiceMode;
         private int _originalWindowMode;
@@ -172,6 +174,7 @@ namespace Game.Menu {
             _streamerModeButton = QOptional<Button>("streamer-mode");
             _holdMantleButton = QOptional<Button>("hold-mantle");
             _profanityFilterButton = QOptional<Button>("profanity-filter");
+            _autoWallRunButton = QOptional<Button>("auto-wall-run");
             _grappleIndicatorDropdown = QOptional<DropdownField>("grapple-indicator");
             _voiceModeDropdown = QOptional<DropdownField>("voice-mode");
             _voiceDeviceDropdown = QOptional<DropdownField>("voice-device");
@@ -232,6 +235,11 @@ namespace Game.Menu {
                 EventCallback<ClickEvent> handler = _ => ToggleCheckbox(_profanityFilterButton);
                 _profanityFilterButton.RegisterCallback(handler);
                 RegisterCleanup(() => _profanityFilterButton.UnregisterCallback(handler));
+            }
+            if(_autoWallRunButton != null) {
+                EventCallback<ClickEvent> handler = _ => ToggleCheckbox(_autoWallRunButton);
+                _autoWallRunButton.RegisterCallback(handler);
+                RegisterCleanup(() => _autoWallRunButton.UnregisterCallback(handler));
             }
             if(_vsyncButton != null) {
                 EventCallback<ClickEvent> handler = _ => ToggleCheckbox(_vsyncButton);
@@ -1113,6 +1121,7 @@ namespace Game.Menu {
                 SetCheckboxValue(_streamerModeButton, data.social != null && data.social.streamerModeEnabled);
             if(_holdMantleButton != null) SetCheckboxValue(_holdMantleButton, data.controls == null || data.controls.holdMantle);
             if(_profanityFilterButton != null) SetCheckboxValue(_profanityFilterButton, SocialSettings.ProfanityFilterEnabled);
+            if(_autoWallRunButton != null) SetCheckboxValue(_autoWallRunButton, data.controls != null && data.controls.autoWallRun);
             
             // Load grapple indicator setting (0 = Crosshair (default), 1 = Bottom, 2 = None)
             if(_grappleIndicatorDropdown != null) {
@@ -1204,6 +1213,7 @@ namespace Game.Menu {
             _originalStreamerMode = GetCheckboxValue(_streamerModeButton);
             _originalHoldMantle = GetCheckboxValue(_holdMantleButton);
             _originalProfanityFilter = SocialSettings.ProfanityFilterEnabled;
+            _originalAutoWallRun = GetCheckboxValue(_autoWallRunButton);
             _originalGrappleIndicator = _grappleIndicatorDropdown?.index ?? 0;
             _originalVoiceMode = (int)SocialSettings.InputMode;
 
@@ -1261,6 +1271,7 @@ namespace Game.Menu {
             var streamerModeChanged = GetCheckboxValue(_streamerModeButton) != _originalStreamerMode;
             var holdMantleChanged = GetCheckboxValue(_holdMantleButton) != _originalHoldMantle;
             var profanityFilterChanged = GetCheckboxValue(_profanityFilterButton) != _originalProfanityFilter;
+            var autoWallRunChanged = GetCheckboxValue(_autoWallRunButton) != _originalAutoWallRun;
             
             var grappleIndicatorChanged = false;
             if(_grappleIndicatorDropdown != null) grappleIndicatorChanged = _grappleIndicatorDropdown.index != _originalGrappleIndicator;
@@ -1295,7 +1306,7 @@ namespace Game.Menu {
 
             return volumeChanged || sensitivityChanged || invertYChanged || playerTrailsChanged || streamerModeChanged ||
                    holdMantleChanged ||
-                   profanityFilterChanged || voiceModeChanged ||
+                   profanityFilterChanged || autoWallRunChanged || voiceModeChanged ||
                    grappleIndicatorChanged || windowModeChanged || aspectRatioChanged || resolutionChanged || msaaChanged ||
                    shadowDistanceChanged || shadowResolutionChanged || vsyncChanged || fpsChanged || hasKeybindChanges;
         }
@@ -1389,6 +1400,7 @@ namespace Game.Menu {
             if(data.controls != null) data.controls.playerTrails = GetCheckboxValue(_playerTrailsButton);
             if(data.social != null) data.social.streamerModeEnabled = GetCheckboxValue(_streamerModeButton);
             if(data.controls != null) data.controls.holdMantle = GetCheckboxValue(_holdMantleButton);
+            if(data.controls != null) data.controls.autoWallRun = GetCheckboxValue(_autoWallRunButton);
             SocialSettings.ProfanityFilterEnabled = GetCheckboxValue(_profanityFilterButton);
             
             // Save grapple indicator setting
@@ -1478,6 +1490,7 @@ namespace Game.Menu {
             _originalStreamerMode = GetCheckboxValue(_streamerModeButton);
             _originalHoldMantle = GetCheckboxValue(_holdMantleButton);
             _originalProfanityFilter = SocialSettings.ProfanityFilterEnabled;
+            _originalAutoWallRun = GetCheckboxValue(_autoWallRunButton);
             _originalGrappleIndicator = _grappleIndicatorDropdown != null ? _grappleIndicatorDropdown.index : 0;
             _originalVoiceMode = (int)SocialSettings.InputMode;
 

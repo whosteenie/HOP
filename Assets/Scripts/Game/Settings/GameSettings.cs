@@ -150,6 +150,7 @@ namespace Game.Settings {
             if(PlayerPrefs.HasKey("InvertY")) d.controls.invertY = PlayerPrefs.GetInt("InvertY", d.controls.invertY ? 1 : 0) == 1;
             if(PlayerPrefs.HasKey("PlayerTrails")) d.controls.playerTrails = PlayerPrefs.GetInt("PlayerTrails", d.controls.playerTrails ? 1 : 0) == 1;
             if(PlayerPrefs.HasKey("HoldMantle")) d.controls.holdMantle = PlayerPrefs.GetInt("HoldMantle", d.controls.holdMantle ? 1 : 0) == 1;
+            if(PlayerPrefs.HasKey("AutoWallRun")) d.controls.autoWallRun = PlayerPrefs.GetInt("AutoWallRun", d.controls.autoWallRun ? 1 : 0) == 1;
             if(PlayerPrefs.HasKey("GrappleIndicator")) d.controls.grappleIndicator = PlayerPrefs.GetInt("GrappleIndicator", d.controls.grappleIndicator);
 
             // Video (best effort)

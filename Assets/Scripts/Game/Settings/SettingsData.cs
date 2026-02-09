@@ -31,6 +31,7 @@ namespace Game.Settings {
             public bool playerTrails = true;
             public bool holdMantle = true;
             public int grappleIndicator = 0;
+            public bool autoWallRun = false;
         }
 
         [Serializable]

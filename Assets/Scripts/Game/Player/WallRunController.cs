@@ -1,3 +1,4 @@
+using Game.Settings;
 using Unity.Cinemachine;
 using Unity.Netcode;
 using UnityEngine;
@@ -104,7 +105,12 @@ namespace Game.Player {
 
             if (CanWallRun()) {
                 if (!IsWallRunning) {
-                     if (playerController.PlayerInput != null && !playerController.PlayerInput.IsJumpHeld) {
+                     bool canInitiate = GameSettings.Data.controls.autoWallRun;
+                     if (!canInitiate && playerController.PlayerInput != null && playerController.PlayerInput.IsJumpHeld) {
+                         canInitiate = true;
+                     }
+
+                     if (!canInitiate) {
                          return;
                      }
 

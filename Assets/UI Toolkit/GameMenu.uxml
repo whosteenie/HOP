@@ -180,9 +180,17 @@
                                 <ui:Label text="ENABLE PLAYER SPEED TRAILS" name="player-trails-label" class="setting-label" />
                                 <ui:Button name="player-trails" class="setting-toggle" />
                             </ui:VisualElement>
+                            <ui:VisualElement name="streamer-mode-container" class="setting-row">
+                                <ui:Label text="STREAMER MODE (HIDE YOUR NAME)" name="streamer-mode-label" class="setting-label" />
+                                <ui:Button name="streamer-mode" class="setting-toggle" />
+                            </ui:VisualElement>
                             <ui:VisualElement name="hold-mantle-container" class="setting-row">
                                 <ui:Label text="HOLD TO MANTLE" name="hold-mantle-label" class="setting-label" />
                                 <ui:Button name="hold-mantle" class="setting-toggle" />
+                            </ui:VisualElement>
+                            <ui:VisualElement name="auto-wall-run-container" class="setting-row">
+                                <ui:Label text="AUTO WALL RUN" name="auto-wall-run-label" class="setting-label" />
+                                <ui:Button name="auto-wall-run" class="setting-toggle" />
                             </ui:VisualElement>
                             <ui:VisualElement name="grapple-indicator-container" class="setting-row">
                                 <ui:Label text="GRAPPLE INDICATOR TYPE" name="grapple-indicator-label" class="setting-label" />
