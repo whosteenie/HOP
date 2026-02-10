@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
 using Unity.Services.Authentication;
@@ -24,6 +25,7 @@ namespace Game.Social {
         private string _joiningChannelName;
         private string _loggedInIdentity;
         private readonly Dictionary<string, Action> _participantSpeechActions = new();
+        private readonly SemaphoreSlim _channelOperationGate = new(1, 1);
         
         // Events
         public event Action<VivoxParticipant> OnParticipantSpeechDetected;
@@ -116,6 +118,11 @@ namespace Game.Social {
 
             if(VivoxService.Instance.IsLoggedIn) {
                 try {
+                    await LeaveCurrentChannelInternalAsync("EnsureLoggedInForCurrentIdentity");
+                } catch {
+                    // Continue with logout even if channel leave reports stale state.
+                }
+                try {
                     await VivoxService.Instance.LogoutAsync();
                 } catch {
                     // Continue to login attempt even if logout reports stale state.
@@ -127,6 +134,29 @@ namespace Game.Social {
 
             await LoginAsync(identity, ResolvePreferredDisplayName(), joinLobbyChannelIfPresent: false);
             return IsLoggedIn;
+        }
+
+        private async Task LeaveCurrentChannelInternalAsync(string reason) {
+            if(VivoxService.Instance == null) {
+                _currentChannelName = null;
+                return;
+            }
+
+            if(string.IsNullOrEmpty(_currentChannelName)) return;
+
+            var channelToLeave = _currentChannelName;
+            try {
+                if(VivoxService.Instance.ActiveChannels.ContainsKey(channelToLeave)) {
+                    Debug.Log($"[VoiceManager] Leaving channel '{channelToLeave}' ({reason})");
+                    await VivoxService.Instance.LeaveChannelAsync(channelToLeave);
+                }
+            } catch(Exception ex) {
+                Debug.LogWarning($"[VoiceManager] Leave channel '{channelToLeave}' failed ({reason}): {ex.Message}");
+            } finally {
+                if(_currentChannelName == channelToLeave) {
+                    _currentChannelName = null;
+                }
+            }
         }
 
         private async Task LoginAsync(string uniqueId, string displayName, bool joinLobbyChannelIfPresent = true) {
@@ -161,26 +191,15 @@ namespace Game.Social {
                 return;
             }
 
-            if(_isJoiningChannel) {
-                // Avoid concurrent join/leave races which can produce Vivox errors (e.g. ether channel limit).
-                if(_joiningChannelName == channelName) {
-                    return;
-                }
-                return;
-            }
-
-            if(!string.IsNullOrEmpty(_currentChannelName)) {
-                if(_currentChannelName == channelName) {
-                    if(VivoxService.Instance != null && VivoxService.Instance.ActiveChannels.ContainsKey(_currentChannelName)) {
-                        return;
-                    }
-                }
-            }
-
+            await _channelOperationGate.WaitAsync();
             _isJoiningChannel = true;
             _joiningChannelName = channelName;
-            
             try {
+                if(!string.IsNullOrEmpty(_currentChannelName) && _currentChannelName == channelName &&
+                   VivoxService.Instance != null && VivoxService.Instance.ActiveChannels.ContainsKey(_currentChannelName)) {
+                    return;
+                }
+
                 for(var attempt = 1; attempt <= 2; attempt++) {
                     if(await EnsureLoggedInForCurrentIdentityAsync() == false) {
                         Debug.LogWarning("[VoiceManager] JoinChannelAsync aborted because Vivox login is unavailable.");
@@ -188,15 +207,10 @@ namespace Game.Social {
                     }
 
                     try {
-                        // Leave old channel if needed (only if we are actually in it).
-                        if(!string.IsNullOrEmpty(_currentChannelName)) {
-                            if(VivoxService.Instance != null && VivoxService.Instance.ActiveChannels.ContainsKey(_currentChannelName)) {
-                                Debug.Log($"[VoiceManager] Leaving old channel '{_currentChannelName}' before joining '{channelName}'");
-                                await VivoxService.Instance.LeaveChannelAsync(_currentChannelName);
-                            }
-                            _currentChannelName = null;
+                        if(!string.IsNullOrEmpty(_currentChannelName) && _currentChannelName != channelName) {
+                            await LeaveCurrentChannelInternalAsync("SwitchChannel");
                         }
-                        
+
                         if (positional) {
                             // 3D Positional Channel
                             var channel3D = new Channel3DProperties(32, 1, 1.0f, AudioFadeModel.InverseByDistance);
@@ -226,20 +240,19 @@ namespace Game.Social {
             } finally {
                 _isJoiningChannel = false;
                 _joiningChannelName = null;
+                _channelOperationGate.Release();
             }
         }
         
         public async Task LeaveChannelAsync() {
-             if(!IsLoggedIn || string.IsNullOrEmpty(_currentChannelName)) return;
-             if(VivoxService.Instance == null) return;
-             if(!VivoxService.Instance.ActiveChannels.ContainsKey(_currentChannelName)) {
-                 _currentChannelName = null;
-                 return;
-             }
-             Debug.Log($"[VoiceManager] Leaving channel: {_currentChannelName}");
-             await VivoxService.Instance.LeaveChannelAsync(_currentChannelName);
-             _currentChannelName = null;
-             Debug.Log("[VoiceManager] Channel left.");
+            await _channelOperationGate.WaitAsync();
+            try {
+                if(!IsLoggedIn && string.IsNullOrEmpty(_currentChannelName)) return;
+                await LeaveCurrentChannelInternalAsync("LeaveChannelAsync");
+                Debug.Log("[VoiceManager] Channel left.");
+            } finally {
+                _channelOperationGate.Release();
+            }
         }
 
         private void Update() {

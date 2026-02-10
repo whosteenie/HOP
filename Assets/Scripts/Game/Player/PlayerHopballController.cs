@@ -43,6 +43,13 @@ namespace Game.Player {
         [Header("Hopball Settings")]
         [SerializeField] private GameObject hopballVisualPrefab; // Visual-only FP hopball prefab (no state tracking)
         [SerializeField] private GameObject hopballArmPrefab; // FP hopball arm prefab (for PutAway animation)
+        [SerializeField] private float hopballParticleWarmupSeconds = 1f;
+        
+        [Header("Hopball Float Motion")]
+        [SerializeField] private bool enableHopballFloatMotion = true;
+        [SerializeField] private float hopballFloatAmplitude = 0.008f;
+        [SerializeField] private float hopballFloatCyclesPerSecond = 0.06f;
+        [SerializeField, Range(0f, 1f)] private float hopballFloatApexDwell = 0.35f;
 
         [SerializeField] private Vector3 fpEquippedLocalPosition = Vector3.zero;
         [SerializeField] private Vector3 worldEquippedLocalPosition = Vector3.zero;
@@ -84,6 +91,9 @@ namespace Game.Player {
         private GameObject _fpHopballVisualInstance; // Visual-only FP model (no state tracking)
         private GameObject _worldHopballVisualInstance; // Visual-only world model (parented to world weapon socket)
         private GameObject _fpHopballArmInstance; // FP hopball arm instance (for PutAway animation)
+        private Vector3 _fpHopballBaseLocalPosition;
+        private Vector3 _worldHopballBaseLocalPosition;
+        private float _hopballFloatPhase;
         private Coroutine _restoreWeaponsCoroutine; // Track restore coroutine
         public Collider PlayerCollider { get; private set; }
 
@@ -92,6 +102,7 @@ namespace Game.Player {
         private void Awake() {
             InitializeComponentReferences();
             InitializePlayerCollider();
+            _hopballFloatPhase = Random.value * Mathf.PI * 2f;
         }
 
         private void InitializePlayerCollider() {
@@ -115,6 +126,7 @@ namespace Game.Player {
             if (IsOwner && IsHoldingHopball && Progression.ProgressionManager.Instance != null) {
                 Progression.ProgressionManager.Instance.AddTimeHoldingHopball(Time.deltaTime);
             }
+            UpdateHopballFloatMotion();
         }
 
         private void OnDisable() {
@@ -344,8 +356,10 @@ namespace Game.Player {
 
             // Instantiate hopball visual
             _fpHopballVisualInstance = Instantiate(hopballVisualPrefab, swayHolder, false);
-            _fpHopballVisualInstance.transform.localPosition = fpEquippedLocalPosition;
+            _fpHopballBaseLocalPosition = fpEquippedLocalPosition;
+            _fpHopballVisualInstance.transform.localPosition = _fpHopballBaseLocalPosition;
             _fpHopballVisualInstance.transform.localRotation = Quaternion.identity;
+            WarmupActiveHopballParticles(_fpHopballVisualInstance);
 
             // Set layer and shadows
             var layer = IsOwner ? LayerMask.NameToLayer("Weapon") : LayerMask.NameToLayer("Masked");
@@ -465,8 +479,10 @@ namespace Game.Player {
             // Create visual-only world model (not a NetworkObject, so regular parenting works)
             _worldHopballVisualInstance = Instantiate(hopballVisualPrefab, _worldWeaponSocket, false);
             _worldHopballVisualInstance.SetActive(true);
-            _worldHopballVisualInstance.transform.localPosition = worldEquippedLocalPosition;
+            _worldHopballBaseLocalPosition = worldEquippedLocalPosition;
+            _worldHopballVisualInstance.transform.localPosition = _worldHopballBaseLocalPosition;
             _worldHopballVisualInstance.transform.localRotation = Quaternion.identity;
+            WarmupActiveHopballParticles(_worldHopballVisualInstance);
 
             // Disable effects and light for the holder (they see FP visual instead)
             // For non-holders viewing the holder: ensure mesh renderer is enabled and visible
@@ -480,6 +496,61 @@ namespace Game.Player {
                 worldVisual.DisableEffectsForOwner();
             } else {
                 worldVisual.EnsureMeshRendererEnabled();
+            }
+        }
+
+        /// <summary>
+        /// Prewarms active auto-playing particle systems so pickup visuals appear already "fully on".
+        /// </summary>
+        private void WarmupActiveHopballParticles(GameObject visualRoot) {
+            if(visualRoot == null) return;
+            if(hopballParticleWarmupSeconds <= 0f) return;
+
+            var systems = visualRoot.GetComponentsInChildren<ParticleSystem>(true);
+            if(systems == null || systems.Length == 0) return;
+
+            var warmupTime = Mathf.Max(0f, hopballParticleWarmupSeconds);
+            for(var i = 0; i < systems.Length; i++) {
+                var ps = systems[i];
+                if(ps == null) continue;
+                if(!ps.isPlaying && !ps.main.playOnAwake) continue;
+
+                ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+                if(ps.main.loop) {
+                    ps.Simulate(warmupTime, false, true, true);
+                }
+                ps.Play(true);
+            }
+        }
+
+        /// <summary>
+        /// Applies a subtle vertical oscillation to held hopball visuals so the orb feels like floating energy.
+        /// </summary>
+        private void UpdateHopballFloatMotion() {
+            if(!enableHopballFloatMotion) return;
+            if(hopballFloatAmplitude <= 0f || hopballFloatCyclesPerSecond <= 0f) return;
+
+            // Keep this intentionally subtle/slower so the orb feels like hovering energy, not bobbing.
+            var amplitude = Mathf.Min(hopballFloatAmplitude, 0.015f);
+            var cyclesPerSecond = Mathf.Min(hopballFloatCyclesPerSecond, 0.20f);
+            var baseWave = Mathf.Sin((Time.time + _hopballFloatPhase) * cyclesPerSecond * Mathf.PI * 2f);
+
+            // Blend toward a smoothstep-shaped wave to dwell a bit longer at apexes.
+            var normalized = baseWave * 0.5f + 0.5f;
+            var apexWave = Mathf.SmoothStep(0f, 1f, normalized) * 2f - 1f;
+            var wave = Mathf.Lerp(baseWave, apexWave, hopballFloatApexDwell);
+            var yOffset = wave * amplitude;
+
+            if(_fpHopballVisualInstance != null && _fpHopballVisualInstance.activeInHierarchy) {
+                var fpPos = _fpHopballBaseLocalPosition;
+                fpPos.y += yOffset;
+                _fpHopballVisualInstance.transform.localPosition = fpPos;
+            }
+
+            if(_worldHopballVisualInstance != null && _worldHopballVisualInstance.activeInHierarchy) {
+                var worldPos = _worldHopballBaseLocalPosition;
+                worldPos.y += yOffset;
+                _worldHopballVisualInstance.transform.localPosition = worldPos;
             }
         }
 

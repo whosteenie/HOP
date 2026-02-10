@@ -1,8 +1,10 @@
 using System.Collections;
+using System.Collections.Generic;
 using System.Linq;
 using Game.Menu;
 using Game.Player;
 using Game.UI;
+using Network;
 using Network.Diagnostics;
 using Network.Events;
 using Unity.Netcode;
@@ -25,6 +27,7 @@ namespace Game.Match {
         private Coroutine _timerRoutine;
         private bool _hasTriggeredPostMatch;
         private bool _hasDesignatedInitialIt;
+        private readonly HashSet<ulong> _clientsScenePresented = new();
 
         private void Awake() {
             if(Instance != null && Instance != this) {
@@ -48,6 +51,14 @@ namespace Game.Match {
             _isPreMatch.OnValueChanged += OnPreMatchStateChanged;
 
             if(IsServer) {
+                _clientsScenePresented.Clear();
+                if(NetworkManager != null) {
+                    NetworkManager.OnClientDisconnectCallback -= OnClientDisconnectedDuringPreMatch;
+                    NetworkManager.OnClientDisconnectCallback += OnClientDisconnectedDuringPreMatch;
+                    // Host is always scene-present when this object is network-spawned.
+                    MarkClientScenePresented(NetworkManager.LocalClientId, "HostOnNetworkSpawn");
+                }
+
                 // Initialize pre-match countdown on server
                 var matchSettings = MatchSettingsManager.Instance;
                 var preMatchSeconds = matchSettings != null ? matchSettings.GetPreMatchCountdownSeconds() : 5;
@@ -71,6 +82,9 @@ namespace Game.Match {
 
         public override void OnNetworkDespawn() {
             base.OnNetworkDespawn();
+            if(NetworkManager != null) {
+                NetworkManager.OnClientDisconnectCallback -= OnClientDisconnectedDuringPreMatch;
+            }
             if(Instance == this)
                 Instance = null;
         }
@@ -80,9 +94,30 @@ namespace Game.Match {
             _timeRemainingSeconds.OnValueChanged -= OnTimeRemainingChanged;
             _preMatchCountdownSeconds.OnValueChanged -= OnPreMatchCountdownChanged;
             _isPreMatch.OnValueChanged -= OnPreMatchStateChanged;
+            if(NetworkManager != null) {
+                NetworkManager.OnClientDisconnectCallback -= OnClientDisconnectedDuringPreMatch;
+            }
 
             if(Instance == this)
                 Instance = null;
+        }
+
+        private void OnClientDisconnectedDuringPreMatch(ulong clientId) {
+            if(!IsServer) return;
+            _clientsScenePresented.Remove(clientId);
+        }
+
+        [ServerRpc(RequireOwnership = false)]
+        public void ReportClientScenePresentedServerRpc(ServerRpcParams rpcParams = default) {
+            if(!IsServer) return;
+            MarkClientScenePresented(rpcParams.Receive.SenderClientId, "ClientServerRpc");
+        }
+
+        public void MarkClientScenePresented(ulong clientId, string source = "ServerLocal") {
+            if(!IsServer) return;
+            if(_clientsScenePresented.Add(clientId) && Debug.isDebugBuild) {
+                Debug.Log($"[MatchTimerManager] Client {clientId} marked scene-presented ({source}).");
+            }
         }
 
         /// <summary>
@@ -91,28 +126,56 @@ namespace Game.Match {
         private IEnumerator PreMatchCountdownCoroutine() {
             var wait = new WaitForSeconds(1f);
 
-            // Wait for expected players to connect/load before starting countdown
-            // This ensures no one is still in a loading screen when match starts
-            var maxWaitSeconds = 30f;
+            // Wait for expected players to connect/load/present their scene before starting countdown.
+            // We allow an early-join grace window so stale expected players (alt+F4 during connect)
+            // do not block match start forever.
+            var expectedPlayers = 1;
+            if(SessionManager.Instance != null) {
+                expectedPlayers = Mathf.Max(1, SessionManager.Instance.ExpectedGamePlayerCount);
+            }
+
+            const float expectedJoinGraceSeconds = 30f;
+            var expectedCountLocked = false;
+            var maxWaitSeconds = 60f;
             var waitedSeconds = 0f;
+
             while (IsServer && waitedSeconds < maxWaitSeconds) {
-                var connectedCount = NetworkManager.Singleton.ConnectedClients.Count;
-                
-                // Check if we have player objects spawned for all connected clients
+                var connectedClients = NetworkManager.Singleton.ConnectedClients;
+                var connectedCount = connectedClients.Count;
+
+                if(!expectedCountLocked && waitedSeconds >= expectedJoinGraceSeconds && connectedCount < expectedPlayers) {
+                    expectedPlayers = Mathf.Max(connectedCount, 1);
+                    expectedCountLocked = true;
+                    Debug.LogWarning(
+                        $"[MatchTimerManager] Expected-player grace expired. Continuing with {expectedPlayers} expected connected players.");
+                }
+
+                var haveExpectedConnections = connectedCount >= expectedPlayers;
+
+                // Check if we have player objects spawned for all currently connected clients.
                 var allPlayersReady = true;
-                foreach (var kvp in NetworkManager.Singleton.ConnectedClients) {
+                foreach (var kvp in connectedClients) {
                     if (kvp.Value.PlayerObject == null || !kvp.Value.PlayerObject.IsSpawned) {
                         allPlayersReady = false;
                         break;
                     }
                 }
 
-                if (allPlayersReady && connectedCount > 0) {
-                    Debug.Log($"[MatchTimerManager] All {connectedCount} players ready. Starting countdown.");
+                var allConnectedPresented = true;
+                foreach(var kvp in connectedClients) {
+                    if(_clientsScenePresented.Contains(kvp.Key)) continue;
+                    allConnectedPresented = false;
                     break;
                 }
 
-                Debug.Log($"[MatchTimerManager] Waiting for players... ({connectedCount} connected, ready={allPlayersReady})");
+                if (haveExpectedConnections && allPlayersReady && allConnectedPresented && connectedCount > 0) {
+                    Debug.Log(
+                        $"[MatchTimerManager] All {connectedCount}/{expectedPlayers} expected players connected, spawned, and scene-presented. Starting countdown.");
+                    break;
+                }
+
+                Debug.Log(
+                    $"[MatchTimerManager] Waiting for players... expected={expectedPlayers} connected={connectedCount} spawnedReady={allPlayersReady} presented={_clientsScenePresented.Count}");
                 yield return wait;
                 waitedSeconds += 1f;
             }

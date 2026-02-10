@@ -135,6 +135,7 @@ namespace Game.Menu {
             var isSearching = SessionManager.Instance.IsSearching;
             var showStatus = SessionManager.Instance.ShowMatchmakingStatus;
             var isPartyMember = SessionManager.Instance.IsPartyMemberResolved;
+            var sessionBusy = SessionManager.Instance.IsSessionBusy;
 
             var steamOnline = SteamClient.IsValid && SteamClient.IsLoggedOn;
 
@@ -169,7 +170,7 @@ namespace Game.Menu {
                 }
             }
 
-            var canUseMenuButtons = (!isSearching && !isPartyMember) || _isSilentHosting;
+            var canUseMenuButtons = ((!isSearching && !isPartyMember) || _isSilentHosting) && !sessionBusy;
 
             if(uiManager != null) {
                 var playMatchmakingButton = uiManager.GetPlayButtonMatchmaking();
@@ -251,7 +252,7 @@ namespace Game.Menu {
             uiManager.OnCancelMatchmakingClicked = () => {
                 UISoundService.PlayButtonClick(isBack: true);
                 if(SessionManager.Instance != null) {
-                    if(SessionManager.Instance.UseUgsBackend) {
+                    if(SessionManager.UseUgsBackend) {
                         SessionManager.Instance.CancelUgsMatchmaking();
                     } else {
                         SessionManager.Instance.CancelMatchmaking();
@@ -503,7 +504,7 @@ namespace Game.Menu {
         public async UniTask HandlePrivateMatchSelection(string mode) {
             // Request SessionManager to start the synchronized load
             if(SessionManager.Instance != null) {
-                if(SessionManager.Instance.UseUgsBackend) {
+                if(SessionManager.UseUgsBackend) {
                     var matchSettings = Game.Match.MatchSettingsManager.Instance;
                     var maxPlayers = 10;
                     if(matchSettings != null) {
@@ -535,7 +536,7 @@ namespace Game.Menu {
         public async UniTask<bool> HandleHostClicked(bool silent = false) {
             _isSilentHosting = silent;
             try {
-                if(SessionManager.Instance.UseUgsBackend) {
+                if(SessionManager.UseUgsBackend) {
                     var matchSettings = Game.Match.MatchSettingsManager.Instance;
                     var maxPlayers = 10;
                     if(matchSettings != null) {
@@ -568,7 +569,7 @@ namespace Game.Menu {
         public async UniTaskVoid HandleFindGameClicked(string mode = null) {
             try {
                 if(uiManager != null) uiManager.SetMenuButtonsEnabled(false);
-                if(SessionManager.Instance != null && SessionManager.Instance.UseUgsBackend) {
+                if(SessionManager.Instance != null && SessionManager.UseUgsBackend) {
                     await SessionManager.Instance.StartMatchmakerQuickPlayAsync(mode);
                 } else {
                     await SessionManager.Instance.FindGameAsync(mode);
@@ -605,7 +606,7 @@ namespace Game.Menu {
 
             // Call session manager logic
             if(SessionManager.Instance != null) {
-                if(SessionManager.Instance.UseUgsBackend) {
+                if(SessionManager.UseUgsBackend) {
                     SessionManager.Instance.CancelUgsMatchmaking();
                 } else {
                     SessionManager.Instance.CancelMatchmaking();
