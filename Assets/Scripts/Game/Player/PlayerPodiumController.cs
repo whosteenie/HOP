@@ -111,6 +111,10 @@ namespace Game.Player {
                 }
 
                 if(playerController.WeaponManager != null) {
+                    // Resolve any pending pull-out state while the screen is black in post-match transition.
+                    // This prevents hidden world weapons if animation events were interrupted by podium flow.
+                    playerController.WeaponManager.ShowTpWeapon();
+                    playerController.WeaponManager.HandlePullOutCompleted();
                     playerController.WeaponManager.RefreshHolsterVisibility();
                     var currentWorldWeapon = playerController.WeaponManager.CurrentWorldWeaponInstance;
                     if(currentWorldWeapon != null && !currentWorldWeapon.activeSelf) {

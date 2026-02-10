@@ -188,10 +188,6 @@ namespace Game.Player {
         /// Sets the visibility of the world model (for other players to see).
         /// </summary>
         public void SetWorldModelVisible(bool visible) {
-            if(_weaponManager != null) {
-                _weaponManager.SwitchWeapon(0);
-            }
-
             if(_playerRenderer != null) {
                 _playerRenderer.InvalidateCache();
             }
@@ -206,6 +202,10 @@ namespace Game.Player {
                 var currentWorldWeapon = GetCurrentWorldWeapon();
                 if(currentWorldWeapon != null && !currentWorldWeapon.activeSelf) {
                     currentWorldWeapon.SetActive(true);
+                }
+
+                if(_weaponManager != null) {
+                    _weaponManager.RefreshHolsterVisibility();
                 }
 
                 // Enable all renderers and set proper shadow modes

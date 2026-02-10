@@ -780,14 +780,15 @@ namespace Game.Player {
                 // Non-owner: Just destroy world visual (FP visual doesn't exist for non-owners)
                 DestroyWorldVisual();
             }
-            
-            // Trigger pullout animation for all clients (so others see smooth weapon restoration)
+
+            // Keep normal dissolve behavior: put-away and pull-out animations should still play.
+            // Any corrective visual snapping for podium happens later during post-match black screen.
             TriggerPullOutAnimationClientRpc();
         }
 
         /// <summary>
         /// Client RPC to trigger pullout animation when hopball dissolves.
-        /// Ensures all clients see the weapon being pulled out smoothly.
+        /// Ensures all clients see smooth weapon restoration in normal gameplay.
         /// </summary>
         [ClientRpc]
         private void TriggerPullOutAnimationClientRpc() {
