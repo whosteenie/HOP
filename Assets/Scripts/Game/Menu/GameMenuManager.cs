@@ -64,12 +64,17 @@ namespace Game.Menu {
         private Button _pauseCopyCodeButton; // Will be "Invite" button
 
         private string _cachedSceneName;
+        private VisualElement _matchTimerContainer;
         private VisualElement _pauseChallengesContainer;
+        private VisualElement _pauseDailyCardSlot;
+        private VisualElement _pauseWeeklyCardSlot;
         private VisualElement _dailyChallengesCard;
         private Label _dailyTimerLabel;
         private VisualElement _weeklyChallengesCard;
         private Label _weeklyTimerLabel;
         private UIModalHost _modalHost;
+        private bool _challengeCardTemplateErrorLogged;
+        private bool _challengeRowTemplateErrorLogged;
 
         #endregion
 
@@ -110,8 +115,8 @@ namespace Game.Menu {
         protected override void OnEnable() {
             base.OnEnable();
             UpdateCachedSceneName();
+            SceneManager.sceneLoaded -= OnSceneLoaded;
             SceneManager.sceneLoaded += OnSceneLoaded;
-            RegisterCleanup(() => SceneManager.sceneLoaded -= OnSceneLoaded);
         }
 
         protected override void OnDisable() {
@@ -141,6 +146,9 @@ namespace Game.Menu {
         protected override Dictionary<string, Type> GetRequiredElements() {
             return new Dictionary<string, Type> {
                 { "pause-menu-panel", typeof(VisualElement) },
+                { "pause-challenges-container", typeof(VisualElement) },
+                { "pause-daily-card-slot", typeof(VisualElement) },
+                { "pause-weekly-card-slot", typeof(VisualElement) },
                 { "resume-button", typeof(Button) },
                 { "options-button", typeof(Button) },
                 { "quit-button", typeof(Button) }
@@ -176,6 +184,11 @@ namespace Game.Menu {
                 if(_optionsPanel != null) {
                     _optionsPanel.AddToClassList("hidden");
                 }
+
+                // Restore timer visibility for each fresh game scene load.
+                if(_matchTimerContainer != null) {
+                    _matchTimerContainer.style.display = DisplayStyle.Flex;
+                }
                 
                 // Reset cursor state
                 UnityEngine.Cursor.lockState = CursorLockMode.Locked;
@@ -191,6 +204,10 @@ namespace Game.Menu {
         private void FindUIElements() {
             _pauseMenuPanel = QRequired<VisualElement>("pause-menu-panel");
             _optionsPanel = QOptional<VisualElement>("options-panel");
+            _matchTimerContainer = QOptional<VisualElement>("match-timer-container");
+            _pauseChallengesContainer = QRequired<VisualElement>("pause-challenges-container");
+            _pauseDailyCardSlot = QRequired<VisualElement>("pause-daily-card-slot");
+            _pauseWeeklyCardSlot = QRequired<VisualElement>("pause-weekly-card-slot");
             _resumeButton = QRequired<Button>("resume-button");
             _optionsButton = QRequired<Button>("options-button");
             _quitButton = QRequired<Button>("quit-button");
@@ -208,140 +225,73 @@ namespace Game.Menu {
         }
 
         private void Update() {
-            if (IsPaused && _pauseChallengesContainer != null) {
+            if(IsPaused) {
                 UpdatePauseChallenges();
                 UpdateChallengeTimers();
             }
         }
 
         private void UpdateChallengeTimers() {
-             var pm = ProgressionManager.Instance;
-             if(pm == null) return;
+            var isOffline = IsOfflineMode();
+            ChallengeUiRenderer.SetOfflineState(_dailyChallengesCard, isOffline);
+            ChallengeUiRenderer.SetOfflineState(_weeklyChallengesCard, isOffline);
+
+            if(isOffline) {
+                ChallengeUiRenderer.SetOfflineTimer(_dailyTimerLabel);
+                ChallengeUiRenderer.SetOfflineTimer(_weeklyTimerLabel);
+                return;
+            }
+
+            var pm = ProgressionManager.Instance;
+            if(pm == null) return;
 
             if (_dailyTimerLabel != null) {
                 var time = pm.GetTimeUntilDailyReset();
-                _dailyTimerLabel.text = $"{time.Hours:D2}:{time.Minutes:D2}:{time.Seconds:D2}";
-                _dailyTimerLabel.RemoveFromClassList("challenge-card-timer--long");
+                ChallengeUiRenderer.SetDailyResetTimer(_dailyTimerLabel, time);
             }
 
             if (_weeklyTimerLabel != null) {
                 var time = pm.GetTimeUntilWeeklyReset();
-                if (time.TotalDays >= 1) {
-                    _weeklyTimerLabel.text = $"{(int)time.TotalDays} days remaining";
-                    _weeklyTimerLabel.AddToClassList("challenge-card-timer--long");
-                } else {
-                    _weeklyTimerLabel.text = $"{time.Hours:D2}:{time.Minutes:D2}:{time.Seconds:D2}";
-                    _weeklyTimerLabel.RemoveFromClassList("challenge-card-timer--long");
-                }
+                ChallengeUiRenderer.SetWeeklyResetTimer(_weeklyTimerLabel, time);
             }
         }
 
         private void BuildPauseChallengeCards() {
-            if (_pauseMenuPanel == null) return;
+            _pauseDailyCardSlot.Clear();
+            _pauseWeeklyCardSlot.Clear();
 
-            _pauseChallengesContainer = new VisualElement {
-                name = "pause-challenges-container",
-                style = {
-                    position = Position.Absolute,
-                    left = 0, right = 0, top = 0, bottom = 0,
-                    flexDirection = FlexDirection.Row,
-                    justifyContent = Justify.Center,
-                    alignItems = Align.Center
-                }
-            };
-            
-            _dailyChallengesCard = CreateChallengeCard("D A I L Y", out _dailyTimerLabel);
-            if(_dailyChallengesCard != null) {
-                _dailyChallengesCard.style.marginRight = 50;
-            }
-            
-            var spacer = new VisualElement { style = { width = 420, height = 10 } };
-            
-            _weeklyChallengesCard = CreateChallengeCard("W E E K L Y", out _weeklyTimerLabel);
-            if(_weeklyChallengesCard != null) {
-                _weeklyChallengesCard.style.marginLeft = 50;
-            }
+            _dailyChallengesCard = ChallengeUiRenderer.CreateChallengeCard(
+                challengeCardTemplate,
+                "D A I L Y",
+                ref _challengeCardTemplateErrorLogged,
+                this,
+                out _dailyTimerLabel
+            );
+            _weeklyChallengesCard = ChallengeUiRenderer.CreateChallengeCard(
+                challengeCardTemplate,
+                "W E E K L Y",
+                ref _challengeCardTemplateErrorLogged,
+                this,
+                out _weeklyTimerLabel
+            );
 
-            if(_dailyChallengesCard != null) _pauseChallengesContainer.Add(_dailyChallengesCard);
-            _pauseChallengesContainer.Add(spacer);
-            if(_weeklyChallengesCard != null) _pauseChallengesContainer.Add(_weeklyChallengesCard);
-            
-            _pauseMenuPanel.parent.Insert(0, _pauseChallengesContainer);
+            if(_dailyChallengesCard != null) _pauseDailyCardSlot.Add(_dailyChallengesCard);
+            if(_weeklyChallengesCard != null) _pauseWeeklyCardSlot.Add(_weeklyChallengesCard);
             _pauseChallengesContainer.AddToClassList("hidden");
         }
 
-        private VisualElement CreateChallengeCard(string title, out Label timerLabel) {
-            VisualElement card;
-            Label titleLabel;
-            VisualElement separatorContainer;
-            VisualElement listContainer;
-            timerLabel = null;
-
-            if(challengeCardTemplate != null) {
-                card = challengeCardTemplate.CloneTree();
-                titleLabel = card.Q<Label>("title-label");
-                // Attempt to find timer label
-                timerLabel = card.Q<Label>("timer-label");
-                
-                // If timer label is missing but we have a card, something is wrong with the template or clone
-                if (timerLabel == null) {
-                    Debug.LogWarning($"[GameMenuManager] Timer label not found in template for {title}. Check ChallengeCard.uxml.");
-                }
-
-                listContainer = card.Q<VisualElement>("challenge-list");
-
-                // Ensure list container exists
-                if(listContainer == null) {
-                    listContainer = new VisualElement { name = "challenge-list" };
-                    card.Add(listContainer);
-                }
-            } else {
-                card = new VisualElement();
-                card.AddToClassList("challenge-card");
-                
-                titleLabel = new Label();
-                titleLabel.AddToClassList("challenge-card-title");
-                card.Add(titleLabel);
-
-                // Recreate the separator container structure manually
-                separatorContainer = new VisualElement();
-                separatorContainer.AddToClassList("challenge-card-separator-container");
-                
-                var line1 = new VisualElement();
-                line1.AddToClassList("challenge-card-separator-line");
-                separatorContainer.Add(line1);
-
-                timerLabel = new Label();
-                timerLabel.AddToClassList("challenge-card-timer");
-                timerLabel.text = "--:--:--";
-                separatorContainer.Add(timerLabel);
-                
-                var line2 = new VisualElement();
-                line2.AddToClassList("challenge-card-separator-line");
-                separatorContainer.Add(line2);
-
-                card.Add(separatorContainer);
-                
-                listContainer = new VisualElement { name = "challenge-list" };
-                listContainer.AddToClassList("challenge-list");
-                card.Add(listContainer);
-            }
-
-            if(titleLabel != null) {
-                titleLabel.text = title;
-            }
-            
-            // Ensure timer label is visible
-            if (timerLabel != null) {
-                timerLabel.style.display = DisplayStyle.Flex;
-            }
-
-            return card;
-        }
-
         private void UpdatePauseChallenges() {
+            if(IsOfflineMode()) {
+                ChallengeUiRenderer.SetOfflineState(_dailyChallengesCard, true);
+                ChallengeUiRenderer.SetOfflineState(_weeklyChallengesCard, true);
+                return;
+            }
+
             var pm = ProgressionManager.Instance;
             if (pm == null || pm.Data == null) return;
+
+            ChallengeUiRenderer.SetOfflineState(_dailyChallengesCard, false);
+            ChallengeUiRenderer.SetOfflineState(_weeklyChallengesCard, false);
             RenderChallengeList(_dailyChallengesCard, pm.Data.dailyChallenges);
             RenderChallengeList(_weeklyChallengesCard, pm.Data.weeklyChallenges);
         }
@@ -350,80 +300,20 @@ namespace Game.Menu {
             if (card == null) return;
             var list = card.Q<VisualElement>("challenge-list");
             if (list == null) return;
-            
-            list.Clear();
-            if (challenges == null) return;
+
             var pm = ProgressionManager.Instance;
             if (pm == null) return;
 
-            foreach (var activeChallenge in challenges) {
-                var def = pm.GetChallengeDefinition(activeChallenge.challengeID);
-                if (def == null) continue;
-
-                VisualElement row;
-                Label descriptionLabel;
-                Label xpLabel;
-                ProgressBar progressBar;
-
-                if(challengeRowTemplate != null) {
-                    row = challengeRowTemplate.CloneTree();
-                    row.Q<VisualElement>("title-row");
-                    descriptionLabel = row.Q<Label>("description-label");
-                    xpLabel = row.Q<Label>("xp-label");
-                    progressBar = row.Q<ProgressBar>("progress-bar");
-                } else {
-                    row = new VisualElement();
-                    row.AddToClassList("challenge-row");
-                    
-                    var titleRow = new VisualElement();
-                    titleRow.AddToClassList("challenge-title-row");
-                    row.Add(titleRow);
-                    
-                    descriptionLabel = new Label();
-                    descriptionLabel.AddToClassList("challenge-description");
-                    titleRow.Add(descriptionLabel);
-                    
-                    xpLabel = new Label();
-                    xpLabel.AddToClassList("challenge-xp");
-                    titleRow.Add(xpLabel);
-                    
-                    progressBar = new ProgressBar { lowValue = 0, highValue = 100, value = 0 };
-                    progressBar.AddToClassList("challenge-progress-bar");
-                    row.Add(progressBar);
-                }
-
-                var progress = activeChallenge.currentProgress;
-                var target = activeChallenge.targetProgress;
-                if (progress > target) progress = target;
-                    
-                var descText = def.Description;
-                try {
-                    if (!string.IsNullOrEmpty(activeChallenge.filterID)) {
-                        var displayFilter = pm.GetFilterDisplayName(activeChallenge.filterID);
-                        descText = string.Format(def.Description, target, displayFilter);
-                    } else {
-                        descText = string.Format(def.Description, target);
-                    }
-                } catch {
-                    // ignored
-                }
-
-                if(descriptionLabel != null) {
-                    descriptionLabel.text = $"{descText} ({progress}/{target})";
-                }
-
-                if(xpLabel != null) {
-                    xpLabel.text = $"+{activeChallenge.xpReward}";
-                }
-
-                if(progressBar != null) {
-                    progressBar.lowValue = 0;
-                    progressBar.highValue = target;
-                    progressBar.value = progress;
-                }
-
-                list.Add(row);
-            }
+            ChallengeUiRenderer.RenderChallengeList(
+                list,
+                challenges,
+                challengeRowTemplate,
+                pm,
+                ref _challengeRowTemplateErrorLogged,
+                this,
+                showEmptyLabel: false,
+                includeXpSuffix: false
+            );
         }
 
         private void RegisterUIEvents() {
@@ -475,6 +365,10 @@ namespace Game.Menu {
             _quitConfirmationNo.clicked += noHandler;
             RegisterCleanup(() => _quitConfirmationNo.clicked -= noHandler);
             UISoundService.RegisterButtonHover(_quitConfirmationNo);
+        }
+
+        private static bool IsOfflineMode() {
+            return Application.internetReachability == NetworkReachability.NotReachable;
         }
 
         public void TogglePause() {

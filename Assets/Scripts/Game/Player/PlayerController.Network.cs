@@ -17,7 +17,7 @@ namespace Game.Player {
         [Rpc(SendTo.Everyone)]
         public void SetWorldModelVisibleRpc(bool visible) {
             if(visualController != null)
-                visualController.SetWorldModelVisibleRpc(visible);
+                visualController.SetWorldModelVisible(visible);
         }
 
         /// <summary>

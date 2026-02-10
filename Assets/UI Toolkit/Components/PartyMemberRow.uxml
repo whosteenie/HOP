@@ -5,5 +5,9 @@
             <ui:Label text="Player Name" name="player-name-label" class="player-name-label" picking-mode="Ignore" />
         </ui:VisualElement>
         <ui:VisualElement name="host-icon" class="host-icon hidden" picking-mode="Ignore" />
+        <ui:VisualElement name="local-xp-row" class="local-xp-row hidden" picking-mode="Ignore">
+            <ui:ProgressBar name="local-xp-bar" title="" low-value="0" high-value="100" value="0" class="mainmenu-xp-bar local-xp-bar" />
+            <ui:Label text="LVL 1" name="local-level-label" class="local-level-label" picking-mode="Ignore" />
+        </ui:VisualElement>
     </ui:VisualElement>
 </ui:UXML>

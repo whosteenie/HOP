@@ -24,8 +24,6 @@ namespace Game.Menu {
         private string _inspectTargetName;
         // --------------------------------
 
-        private readonly Color _progressBarColor = new(1f, 0.392f, 0.392f); // #ff6464
-
         [Header("Color/Material Options")]
         [SerializeField] private Material[] playerMaterials; // Must have 6 materials matching color-0 through color-5
 
@@ -40,7 +38,8 @@ namespace Game.Menu {
 
         [Header("UI Templates")]
         [SerializeField] private VisualTreeAsset weaponOptionTemplate;
-        [SerializeField] private VisualTreeAsset challengeRowTemplate;
+        private bool _missingWeaponOptionTemplateLogged;
+        private bool _invalidWeaponOptionTemplateLogged;
 
         [SerializeField]
         private Transform secondaryWeaponParent; // Optional explicit parent for secondary holster models
@@ -156,8 +155,8 @@ namespace Game.Menu {
         protected override void OnEnable() {
             base.OnEnable();
             // Subscribe to resolution changes
+            OptionsMenuManager.OnResolutionChanged -= OnResolutionChanged;
             OptionsMenuManager.OnResolutionChanged += OnResolutionChanged;
-            RegisterCleanup(() => OptionsMenuManager.OnResolutionChanged -= OnResolutionChanged);
         }
 
         protected override void OnDisable() {
@@ -204,7 +203,13 @@ namespace Game.Menu {
         protected override Dictionary<string, System.Type> GetRequiredElements() {
             return new Dictionary<string, System.Type> {
                 { "weapon-selection-container", typeof(VisualElement) },
-                { "apply-loadout-button", typeof(Button) }
+                { "apply-loadout-button", typeof(Button) },
+                { "career-toggle-button", typeof(Button) },
+                { "stats-container", typeof(VisualElement) },
+                { "challenges-container", typeof(VisualElement) },
+                { "stats-level-label", typeof(Label) },
+                { "stats-xp-bar", typeof(ProgressBar) },
+                { "stats-xp-text", typeof(Label) }
             };
         }
 
@@ -439,12 +444,7 @@ namespace Game.Menu {
                 RegisterCleanup(() => _loadoutUnsavedCancel.UnregisterCallback(cancelEnterHandler));
             }
 
-            // NEW: Stats Button
-            _statsButton = new Button { text = "CAREER" };
-            _statsButton.AddToClassList("menu-chip");
-            _statsButton.AddToClassList("menu-chip-enabled");
-            _statsButton.style.height = 50;
-            _statsButton.style.width = 120;
+            _statsButton = QRequired<Button>("career-toggle-button");
             System.Action statsClickHandler = () => {
                 // Play positive sound when going to career, negative when going back to loadout
                 UISoundService.PlayButtonClick(isBack: _showingStats);
@@ -456,25 +456,7 @@ namespace Game.Menu {
             _statsButton.RegisterCallback(statsEnterHandler);
             RegisterCleanup(() => _statsButton.UnregisterCallback(statsEnterHandler));
 
-            // Insert Stats button into Name Container (index 1, after Back button)
-            if(_nameContainer != null) {
-                // Ensure we don't duplicate if OnEnable runs multiple times without full reload
-                // Helper to check children? Standard approach is Clear or Check.
-                // Since this runs on OnEnable, and we might destroy/recreated UIs...
-                // But UXML is persistent in _root? OnDisable does not clear.
-                // Check if button exists.
-                // Simplest: Always remove our custom button on Disable?
-                // For now, let's just add if not present basically.
-                // BETTER: Don't rely on index.
-                bool hasStats = false;
-                foreach(var child in _nameContainer.Children()) {
-                    if(child == _statsButton) hasStats = true;
-                }
-
-                if(!hasStats) _nameContainer.Insert(1, _statsButton);
-            }
-
-            // Create Stats Container
+            // Cache career UI references from UXML
             BuildStatsUI();
 
             // Containers start off-screen via USS, no need to initialize positions here
@@ -654,9 +636,27 @@ namespace Game.Menu {
             }
         }
 
+        private bool EnsureWeaponOptionTemplateAssigned() {
+            if(weaponOptionTemplate != null) {
+                return true;
+            }
+
+            if(_missingWeaponOptionTemplateLogged) {
+                return false;
+            }
+
+            _missingWeaponOptionTemplateLogged = true;
+            Debug.LogError(
+                "[LoadoutManager] Missing `weaponOptionTemplate` assignment. " +
+                "Assign a weapon option VisualTreeAsset in the inspector.",
+                this);
+            return false;
+        }
+
         private void PopulateWeaponDropdown(ScrollView scroll, WeaponData[] weapons, int selectedIndex,
             Action<int> onSelect) {
             if(scroll == null) return;
+            if(!EnsureWeaponOptionTemplateAssigned()) return;
 
             var container = scroll.contentContainer;
             container.Clear();
@@ -672,18 +672,16 @@ namespace Game.Menu {
             for(var i = 0; i < weapons.Length; i++) {
                 if(i == selectedIndex) continue;
 
-                VisualElement weaponOption;
-                Image weaponImage;
-
-                if(weaponOptionTemplate != null) {
-                    weaponOption = weaponOptionTemplate.CloneTree();
-                    weaponImage = weaponOption.Q<Image>("weapon-image");
-                } else {
-                    weaponOption = new VisualElement();
-                    weaponOption.AddToClassList("weapon-option");
-                    weaponImage = new Image();
-                    weaponImage.AddToClassList("weapon-option-image");
-                    weaponOption.Add(weaponImage);
+                var weaponOption = weaponOptionTemplate.CloneTree();
+                var weaponImage = weaponOption.Q<Image>("weapon-image");
+                if(weaponImage == null) {
+                    if(!_invalidWeaponOptionTemplateLogged) {
+                        _invalidWeaponOptionTemplateLogged = true;
+                        Debug.LogError(
+                            "[LoadoutManager] `weaponOptionTemplate` is missing required child `weapon-image`.",
+                            this);
+                    }
+                    return;
                 }
 
                 if(weaponImage != null && weapons[i].icon != null) {
@@ -1847,156 +1845,16 @@ namespace Game.Menu {
         // --- Stats UI Methods ---
 
         private void BuildStatsUI() {
-            var loadoutPanel = QOptional<VisualElement>("loadout-panel");
-
-            // --- Left: Stats Container ---
-            var existingStats = QOptional<VisualElement>("stats-container");
-            if(existingStats != null) {
-                _statsContainer = existingStats;
-                _statsContainer.Clear();
-            } else {
-                _statsContainer = new VisualElement();
-                _statsContainer.name = "stats-container";
-                _statsContainer.AddToClassList("loadout-edge-container");
-                _statsContainer.AddToClassList("card");
-                _statsContainer.style.position = Position.Absolute;
-                _statsContainer.style.left = 20;
-                _statsContainer.style.top = 100;
-                _statsContainer.style.bottom = 20;
-                _statsContainer.style.width = 450;
-                _statsContainer.style.display = DisplayStyle.None;
-
-                if(loadoutPanel != null) loadoutPanel.Add(_statsContainer);
-                else Root.Add(_statsContainer);
-            }
-
-            // Content: Stats
-            var title = new Label("CAREER Stats");
-            title.AddToClassList("title");
-            _statsContainer.Add(title);
-
-            // Level
-            var levelRow = new VisualElement();
-            levelRow.style.flexDirection = FlexDirection.Row;
-            levelRow.style.marginBottom = 20;
-            _statsContainer.Add(levelRow);
-
-            var levelLabel = new Label("LEVEL 1");
-            levelLabel.name = "stats-level-label";
-            levelLabel.style.fontSize = 24;
-            levelLabel.style.marginBottom = 5;
-            levelRow.Add(levelLabel);
-
-            var xpBar = new ProgressBar();
-            xpBar.name = "stats-xp-bar";
-            xpBar.style.height = 20;
-            xpBar.style.marginTop = 5;
-            StyleProgressBar(xpBar, _progressBarColor);
-            _statsContainer.Add(xpBar);
-
-            var xpText = new Label("0 / 1000 XP");
-            xpText.name = "stats-xp-text";
-            xpText.style.alignSelf = Align.Center;
-            _statsContainer.Add(xpText);
-
-            // Stats Grid
-            var grid = new VisualElement();
-            grid.style.marginTop = 30;
-            _statsContainer.Add(grid);
-
-            CreateStatRow(grid, "Kills", "0", "stats-kills");
-            CreateStatRow(grid, "Deaths", "0", "stats-deaths");
-            CreateStatRow(grid, "KDR", "0.00", "stats-kdr");
-            CreateStatRow(grid, "Highest Killstreak", "0", "stats-streak");
-            CreateStatRow(grid, "Accuracy", "0%", "stats-accuracy");
-            CreateStatRow(grid, "Wins", "0", "stats-wins");
-            CreateStatRow(grid, "Losses", "0", "stats-losses");
-            CreateStatRow(grid, "OOB Deaths", "0", "stats-oob");
-
-            CreateStatRow(grid, "Grapples", "0", "stats-grapples");
-            CreateStatRow(grid, "Jump Pads", "0", "stats-jumppads");
-            CreateStatRow(grid, "Airtime", "00:00", "stats-airtime");
-
-            CreateStatRow(grid, "Playtime", "00:00:00", "stats-playtime");
-            CreateStatRow(grid, "Avg Speed", "0.0 m/s", "stats-speed");
-            CreateStatRow(grid, "Ball Time", "00:00", "stats-balltime");
-            CreateStatRow(grid, "Hill Time", "00:00", "stats-hilltime");
-            CreateStatRow(grid, "Time Tagged", "00:00", "stats-taggedtime");
-
-            // --- Right: Challenges Container ---
-            var existingChallenges = QOptional<VisualElement>("challenges-container");
-            if(existingChallenges != null) {
-                _challengesContainer = existingChallenges;
-                _challengesContainer.Clear();
-            } else {
-                _challengesContainer = new VisualElement();
-                _challengesContainer.name = "challenges-container";
-                _challengesContainer.AddToClassList("loadout-edge-container");
-                _challengesContainer.AddToClassList("card");
-                _challengesContainer.style.position = Position.Absolute;
-                _challengesContainer.style.right = 20; // Right side
-                _challengesContainer.style.top = 100;
-                _challengesContainer.style.bottom = 20;
-                _challengesContainer.style.width = 450;
-                _challengesContainer.style.display = DisplayStyle.None;
-
-                if(loadoutPanel != null) loadoutPanel.Add(_challengesContainer);
-                else Root.Add(_challengesContainer);
-            }
-
-            // Single big WIP text that fills the card
-            var wipContainer = new VisualElement {
-                style = {
-                    flexDirection = FlexDirection.Column,
-                    alignItems = Align.Center,
-                    justifyContent = Justify.Center,
-                    flexGrow = 1,
-                    width = Length.Percent(100)
-                }
-            };
-            var wipLabel = new Label("WIP") {
-                style = {
-                    fontSize = 120,
-                    unityFontStyleAndWeight = FontStyle.Bold,
-                    color = new Color(200f/255f, 60f/255f, 60f/255f),
-                    unityTextAlign = TextAnchor.MiddleCenter
-                }
-            };
-            wipContainer.Add(wipLabel);
-            _challengesContainer.Add(wipContainer);
-            
-            // Keep these for UpdateStatsUI compatibility (they won't be used)
-            var challengesList = new VisualElement();
-            challengesList.name = "stats-challenges-list";
-            challengesList.style.display = DisplayStyle.None;
-            _challengesContainer.Add(challengesList);
-
-            var weeklyList = new VisualElement();
-            weeklyList.name = "stats-weekly-challenges-list";
-            weeklyList.style.display = DisplayStyle.None;
-            _challengesContainer.Add(weeklyList);
-        }
-
-        private void CreateStatRow(VisualElement parent, string label, string value, string valueName) {
-            var row = new VisualElement();
-            row.style.flexDirection = FlexDirection.Row;
-            row.style.justifyContent = Justify.SpaceBetween;
-            row.style.marginBottom = 5;
-
-            var l = new Label(label);
-            l.style.unityFontStyleAndWeight = FontStyle.Bold;
-            row.Add(l);
-
-            if(!string.IsNullOrEmpty(valueName)) {
-                var v = new Label(value);
-                v.name = valueName;
-                row.Add(v);
-            }
-
-            parent.Add(row);
+            _statsContainer = QRequired<VisualElement>("stats-container");
+            _challengesContainer = QRequired<VisualElement>("challenges-container");
         }
 
         private void ToggleStats() {
+            if(_statsContainer == null || _challengesContainer == null || _statsButton == null) {
+                Debug.LogError("[LoadoutManager] Career UI is not initialized correctly. Check loadout UXML assignments.", this);
+                return;
+            }
+
             _showingStats = !_showingStats;
 
             if(_showingStats) {
@@ -2074,89 +1932,6 @@ namespace Game.Menu {
             // Weekly Challenges - WIP is shown, no need to update
         }
 
-        private void RenderChallengeList(VisualElement container, List<ActiveChallengeData> challenges) {
-            container.Clear();
-            if(challenges == null) return;
-
-            var pm = ProgressionManager.Instance;
-            if(pm == null) return;
-
-            foreach(var activeChallenge in challenges) {
-                var def = pm.GetChallengeDefinition(activeChallenge.challengeID);
-                if(def == null) continue;
-
-                VisualElement challengeRow;
-                VisualElement titleRow;
-                Label descriptionLabel;
-                Label xpLabel;
-                ProgressBar cBar;
-
-                if(challengeRowTemplate != null) {
-                    challengeRow = challengeRowTemplate.CloneTree();
-                    titleRow = challengeRow.Q<VisualElement>("title-row");
-                    descriptionLabel = challengeRow.Q<Label>("description-label");
-                    xpLabel = challengeRow.Q<Label>("xp-label");
-                    cBar = challengeRow.Q<ProgressBar>("progress-bar");
-                    challengeRow.style.marginBottom = 10;
-                } else {
-                    challengeRow = new VisualElement {
-                        style = { marginBottom = 10 }
-                    };
-                    titleRow = new VisualElement();
-                    challengeRow.Add(titleRow);
-                    descriptionLabel = new Label {
-                        style = { fontSize = 12 }
-                    };
-                    titleRow.Add(descriptionLabel);
-                    xpLabel = null;
-                    cBar = new ProgressBar {
-                        lowValue = 0,
-                        highValue = 100,
-                        value = 0,
-                        style = { height = 10 }
-                    };
-                    challengeRow.Add(cBar);
-                }
-
-                var progress = activeChallenge.currentProgress;
-                var target = activeChallenge.targetProgress;
-                if(progress > target) progress = target;
-
-                string descText = def.Description;
-                try {
-                    if(!string.IsNullOrEmpty(activeChallenge.filterID)) {
-                        var displayFilter = pm.GetFilterDisplayName(activeChallenge.filterID);
-                        descText = string.Format(def.Description, target, displayFilter);
-                    } else {
-                        descText = string.Format(def.Description, target);
-                    }
-                } catch {
-                    // Fallback
-                }
-
-                if(descriptionLabel != null) {
-                    if(xpLabel != null) {
-                        descriptionLabel.text = $"{descText} ({progress}/{target})";
-                    } else {
-                        descriptionLabel.text = $"{descText} ({progress}/{target}) [+{activeChallenge.xpReward} XP]";
-                    }
-                }
-
-                if(xpLabel != null) {
-                    xpLabel.text = $"+{activeChallenge.xpReward} XP";
-                }
-
-                if(cBar != null) {
-                    cBar.lowValue = 0;
-                    cBar.highValue = target;
-                    cBar.value = progress;
-                    StyleProgressBar(cBar, _progressBarColor);
-                }
-
-                container.Add(challengeRow);
-            }
-        }
-
         private void SetLabelText(string name, string text) {
             var l = _statsContainer.Q<Label>(name);
             if(l != null) l.text = text;
@@ -2168,18 +1943,6 @@ namespace Game.Menu {
                 ? $"{(int)ts.TotalHours}:{ts.Minutes:D2}:{ts.Seconds:D2}"
                 : $"{ts.Minutes}:{ts.Seconds:D2}";
         }
-
-        private void StyleProgressBar(ProgressBar bar, Color color) {
-            if(bar == null) return;
-            // Schedule styling to ensure shadow tree is built/accessible
-            bar.schedule.Execute(() => {
-                var fill = bar.Q(className: "unity-progress-bar__progress");
-                if(fill != null) {
-                    fill.style.backgroundColor = color;
-                }
-            });
-        }
-
 
         // Helper methods added for Profile View Refactor
         private void UpdateDropdownSelection(VisualElement dropdown, int selectedIndex, WeaponData[] data) {

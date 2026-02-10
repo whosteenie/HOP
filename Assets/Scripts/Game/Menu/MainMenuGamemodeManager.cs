@@ -57,8 +57,8 @@ namespace Game.Menu {
 
         protected override void OnEnable() {
             base.OnEnable();
+            SteamMatchmaking.OnLobbyDataChanged -= OnLobbyDataChanged;
             SteamMatchmaking.OnLobbyDataChanged += OnLobbyDataChanged;
-            RegisterCleanup(() => SteamMatchmaking.OnLobbyDataChanged -= OnLobbyDataChanged);
             // Initial Check
             UpdateGamemodeFromSession();
         }

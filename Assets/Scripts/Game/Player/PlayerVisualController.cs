@@ -187,8 +187,7 @@ namespace Game.Player {
         /// <summary>
         /// Sets the visibility of the world model (for other players to see).
         /// </summary>
-        [Rpc(SendTo.Everyone)]
-        public void SetWorldModelVisibleRpc(bool visible) {
+        public void SetWorldModelVisible(bool visible) {
             if(_weaponManager != null) {
                 _weaponManager.SwitchWeapon(0);
             }

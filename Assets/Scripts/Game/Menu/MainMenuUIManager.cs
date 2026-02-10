@@ -47,7 +47,9 @@ namespace Game.Menu {
         private Label _dailyTimerLabel;
         private VisualElement _weeklyChallengesCard;
         private Label _weeklyTimerLabel;
-        private readonly Color _progressBarColor = new(1f, 0.392f, 0.392f); // #ff6464
+        private bool _mainMenuChallengesContainerErrorLogged;
+        private bool _challengeCardTemplateErrorLogged;
+        private bool _challengeRowTemplateErrorLogged;
 
         // Buttons
         private Button _playButtonMatchmaking;
@@ -98,6 +100,7 @@ namespace Game.Menu {
         private Label _toastLabel;
         private Coroutine _toastRoutine;
         private string _toastMessage;
+        private bool _toastLabelErrorLogged;
 
         // Context Menu
         public VisualElement PartyContextMenu { get; private set; }
@@ -217,7 +220,7 @@ namespace Game.Menu {
             PartyContainer = QOptional<VisualElement>("party-container");
             StatusContainer = QOptional<VisualElement>("status-container");
             
-            // Challenges container (will be created if not exists)
+            // Challenges container
             _mainMenuChallengesContainer = QOptional<VisualElement>("main-menu-challenges-container");
             
             _gamemodeOptions = new List<Button>();
@@ -240,6 +243,7 @@ namespace Game.Menu {
             // Misc
             _logoGithub = QOptional<Image>("credits-logo");
             _toastContainer = QOptional<VisualElement>("toast-container");
+            _toastLabel = QOptional<Label>("toast");
             _versionLabel = QOptional<Label>("version-text");
             
             if (StatusContainer != null) {
@@ -612,6 +616,16 @@ namespace Game.Menu {
             if(_toastContainer == null) return;
             if(string.IsNullOrEmpty(message)) return;
 
+            if(_toastLabel == null) {
+                if(!_toastLabelErrorLogged) {
+                    Debug.LogError(
+                        "[MainMenuUIManager] Missing required `toast` label inside `toast-container` in MainMenu.uxml.",
+                        this);
+                    _toastLabelErrorLogged = true;
+                }
+                return;
+            }
+
             _toastMessage = message;
 
             if(_toastRoutine != null) {
@@ -619,17 +633,7 @@ namespace Game.Menu {
                 _toastRoutine = null;
             }
 
-            if(_toastLabel == null) {
-                _toastLabel = new Label {
-                    name = "toast"
-                };
-                _toastLabel.AddToClassList("toast");
-            }
-
             _toastLabel.text = message;
-
-            _toastContainer.Clear();
-            _toastContainer.Add(_toastLabel);
 
             if(anchor != null) {
                 // Position toast near the anchor so it's noticed at point-of-click.
@@ -717,38 +721,43 @@ namespace Game.Menu {
             if(_toastLabel == null) yield break;
             if(_toastLabel.text != _toastMessage) yield break;
 
-            if(_toastContainer != null) {
-                _toastContainer.Clear();
-            }
             _toastRoutine = null;
         }
 
         private void SetupMainMenuChallenges() {
-            // Create challenges container if it doesn't exist
             if(_mainMenuChallengesContainer == null) {
-                _mainMenuChallengesContainer = new VisualElement {
-                    name = "main-menu-challenges-container",
-                    style = {
-                        position = Position.Absolute,
-                        right = 20,
-                        bottom = 20,
-                        width = 300,
-                        flexDirection = FlexDirection.Column,
-                        alignItems = Align.FlexEnd
-                    }
-                };
-                MainMenuPanel.Add(_mainMenuChallengesContainer);
+                if(!_mainMenuChallengesContainerErrorLogged) {
+                    Debug.LogError(
+                        "[MainMenuUIManager] Missing required `main-menu-challenges-container` in MainMenu.uxml.",
+                        this);
+                    _mainMenuChallengesContainerErrorLogged = true;
+                }
+                return;
             }
 
+            _mainMenuChallengesContainer.Clear();
+
             // Create Daily Challenges Card
-            _dailyChallengesCard = CreateChallengeCard("D A I L Y", out _dailyTimerLabel);
+            _dailyChallengesCard = ChallengeUiRenderer.CreateChallengeCard(
+                challengeCardTemplate,
+                "D A I L Y",
+                ref _challengeCardTemplateErrorLogged,
+                this,
+                out _dailyTimerLabel
+            );
             if(_dailyChallengesCard != null) {
-                _dailyChallengesCard.style.marginBottom = 10;
+                _dailyChallengesCard.AddToClassList("main-menu-challenges-card--daily");
                 _mainMenuChallengesContainer.Add(_dailyChallengesCard);
             }
 
             // Create Weekly Challenges Card
-            _weeklyChallengesCard = CreateChallengeCard("W E E K L Y", out _weeklyTimerLabel);
+            _weeklyChallengesCard = ChallengeUiRenderer.CreateChallengeCard(
+                challengeCardTemplate,
+                "W E E K L Y",
+                ref _challengeCardTemplateErrorLogged,
+                this,
+                out _weeklyTimerLabel
+            );
             if(_weeklyChallengesCard != null) {
                 _mainMenuChallengesContainer.Add(_weeklyChallengesCard);
             }
@@ -757,104 +766,45 @@ namespace Game.Menu {
             UpdateMainMenuChallenges();
         }
 
-        private VisualElement CreateChallengeCard(string title, out Label timerLabel) {
-            VisualElement card;
-            Label titleLabel;
-            VisualElement separatorContainer;
-            VisualElement listContainer;
-            timerLabel = null;
-
-            if(challengeCardTemplate != null) {
-                card = challengeCardTemplate.CloneTree();
-                titleLabel = card.Q<Label>("title-label");
-                // Attempt to find timer label
-                timerLabel = card.Q<Label>("timer-label");
-                
-                if (timerLabel == null) {
-                    Debug.LogWarning($"[MainMenuUIManager] Timer label not found in template for {title}. Check ChallengeCard.uxml.");
-                } else {
-                    timerLabel.text = "--:--:--"; // Init
-                }
-
-                listContainer = card.Q<VisualElement>("challenge-list");
-
-                // Ensure list container exists
-                if(listContainer == null) {
-                    listContainer = new VisualElement { name = "challenge-list" };
-                    card.Add(listContainer);
-                }
-            } else {
-                card = new VisualElement();
-                card.AddToClassList("challenge-card");
-                
-                titleLabel = new Label();
-                titleLabel.AddToClassList("challenge-card-title");
-                card.Add(titleLabel);
-                
-                // Fallback for no template - Recreate structure manually
-                separatorContainer = new VisualElement();
-                separatorContainer.AddToClassList("challenge-card-separator-container");
-                
-                var line1 = new VisualElement();
-                line1.AddToClassList("challenge-card-separator-line");
-                separatorContainer.Add(line1);
-
-                timerLabel = new Label();
-                timerLabel.AddToClassList("challenge-card-timer");
-                timerLabel.text = "--:--:--";
-                separatorContainer.Add(timerLabel);
-                
-                var line2 = new VisualElement();
-                line2.AddToClassList("challenge-card-separator-line");
-                separatorContainer.Add(line2);
-
-                card.Add(separatorContainer);
-                
-                listContainer = new VisualElement { name = "challenge-list" };
-                listContainer.AddToClassList("challenge-list");
-                card.Add(listContainer);
-            }
-
-            if(titleLabel != null) {
-                titleLabel.text = title;
-            }
-            
-            // Ensure timer label is visible
-            if (timerLabel != null) {
-                timerLabel.style.display = DisplayStyle.Flex;
-            }
-
-            return card;
-        }
-
         private void Update() {
+            var isOffline = IsOfflineMode();
+            ChallengeUiRenderer.SetOfflineState(_dailyChallengesCard, isOffline);
+            ChallengeUiRenderer.SetOfflineState(_weeklyChallengesCard, isOffline);
+
+            if(isOffline) {
+                ChallengeUiRenderer.SetOfflineTimer(_dailyTimerLabel);
+                ChallengeUiRenderer.SetOfflineTimer(_weeklyTimerLabel);
+                return;
+            }
+
             if (ProgressionManager.Instance == null) return;
 
             if (_dailyTimerLabel != null) {
                 var time = ProgressionManager.Instance.GetTimeUntilDailyReset();
-                _dailyTimerLabel.text = $"{time.Hours:D2}:{time.Minutes:D2}:{time.Seconds:D2}";
-                // Daily is always short format
-                _dailyTimerLabel.RemoveFromClassList("challenge-card-timer--long");
+                ChallengeUiRenderer.SetDailyResetTimer(_dailyTimerLabel, time);
             }
 
             if (_weeklyTimerLabel != null) {
                 var time = ProgressionManager.Instance.GetTimeUntilWeeklyReset();
-                if (time.TotalDays >= 1) {
-                    _weeklyTimerLabel.text = $"{(int)time.TotalDays} days remaining";
-                    _weeklyTimerLabel.AddToClassList("challenge-card-timer--long");
-                } else {
-                    _weeklyTimerLabel.text = $"{((int)time.TotalHours):D2}:{time.Minutes:D2}:{time.Seconds:D2}";
-                    _weeklyTimerLabel.RemoveFromClassList("challenge-card-timer--long");
-                }
+                ChallengeUiRenderer.SetWeeklyResetTimer(_weeklyTimerLabel, time);
             }
         }
 
         private void UpdateMainMenuChallenges() {
+            if(IsOfflineMode()) {
+                ChallengeUiRenderer.SetOfflineState(_dailyChallengesCard, true);
+                ChallengeUiRenderer.SetOfflineState(_weeklyChallengesCard, true);
+                return;
+            }
+
             var pm = ProgressionManager.Instance;
             if(pm == null || pm.Data == null) {
                 Debug.LogWarning("[MainMenuUIManager] ProgressionManager or Data is null, cannot update challenges");
                 return;
             }
+
+            ChallengeUiRenderer.SetOfflineState(_dailyChallengesCard, false);
+            ChallengeUiRenderer.SetOfflineState(_weeklyChallengesCard, false);
             RenderChallengeList(_dailyChallengesCard, pm.Data.dailyChallenges);
             RenderChallengeList(_weeklyChallengesCard, pm.Data.weeklyChallenges);
         }
@@ -869,111 +819,23 @@ namespace Game.Menu {
                 Debug.LogWarning("[MainMenuUIManager] Challenge list container not found in card");
                 return;
             }
-            
-            list.Clear();
-            if(challenges == null || challenges.Count == 0) {
-                // Show empty state
-                var emptyLabel = new Label("No challenges available") {
-                    style = {
-                        fontSize = 12,
-                        color = new Color(0.7f, 0.7f, 0.7f),
-                        unityTextAlign = TextAnchor.MiddleCenter,
-                        marginTop = 20
-                    }
-                };
-                list.Add(emptyLabel);
-                return;
-            }
+
             var pm = ProgressionManager.Instance;
             if(pm == null) {
                 Debug.LogWarning("[MainMenuUIManager] ProgressionManager is null");
                 return;
             }
 
-            foreach(var activeChallenge in challenges) {
-                var def = pm.GetChallengeDefinition(activeChallenge.challengeID);
-                if(def == null) continue;
-
-                VisualElement row;
-                VisualElement titleRow;
-                Label descriptionLabel;
-                Label xpLabel;
-                ProgressBar progressBar;
-
-                if(challengeRowTemplate != null) {
-                    row = challengeRowTemplate.CloneTree();
-                    titleRow = row.Q<VisualElement>("title-row");
-                    descriptionLabel = row.Q<Label>("description-label");
-                    xpLabel = row.Q<Label>("xp-label");
-                    progressBar = row.Q<ProgressBar>("progress-bar");
-                } else {
-                    row = new VisualElement();
-                    row.AddToClassList("challenge-row");
-                    
-                    titleRow = new VisualElement();
-                    titleRow.AddToClassList("challenge-title-row");
-                    row.Add(titleRow);
-                    
-                    descriptionLabel = new Label();
-                    descriptionLabel.AddToClassList("challenge-description");
-                    titleRow.Add(descriptionLabel);
-                    
-                    xpLabel = new Label();
-                    xpLabel.AddToClassList("challenge-xp");
-                    titleRow.Add(xpLabel);
-                    
-                    progressBar = new ProgressBar { lowValue = 0, highValue = 100, value = 0 };
-                    progressBar.AddToClassList("challenge-progress-bar");
-                    row.Add(progressBar);
-                }
-
-                var progress = activeChallenge.currentProgress;
-                var target = activeChallenge.targetProgress;
-                if(progress > target) progress = target;
-                    
-                var descText = def.Description;
-                var filterToUse = !string.IsNullOrEmpty(activeChallenge.filterID) ? activeChallenge.filterID : def.weaponID;
-                var displayFilter = pm.GetFilterDisplayName(filterToUse);
-                if (string.IsNullOrEmpty(displayFilter)) {
-                    displayFilter = def.type switch {
-                        ChallengeType.MatchesPlayed => "Any Mode",
-                        ChallengeType.WeaponKill => "Any Weapon",
-                        _ => "Unknown"
-                    };
-                }
-
-                try {
-                    descText = string.Format(def.Description, target, displayFilter);
-                } catch {
-                    // Prevent raw placeholder text from leaking into UI when format args are mismatched.
-                    if (!string.IsNullOrEmpty(def.Description)) {
-                        descText = def.Description
-                            .Replace("{0}", target.ToString())
-                            .Replace("{1}", displayFilter);
-                    }
-                }
-
-                if(descriptionLabel != null) {
-                    descriptionLabel.text = $"{descText} ({progress}/{target})";
-                }
-
-                if(xpLabel != null) {
-                    xpLabel.text = $"+{activeChallenge.xpReward}";
-                }
-
-                if(progressBar != null) {
-                    progressBar.lowValue = 0;
-                    progressBar.highValue = target;
-                    progressBar.value = progress;
-                    StyleProgressBar(progressBar);
-                }
-
-                list.Add(row);
-            }
-        }
-
-        private void StyleProgressBar(ProgressBar bar) {
-            // Styling is handled in SharedStyles.uss
+            ChallengeUiRenderer.RenderChallengeList(
+                list,
+                challenges,
+                challengeRowTemplate,
+                pm,
+                ref _challengeRowTemplateErrorLogged,
+                this,
+                showEmptyLabel: true,
+                includeXpSuffix: false
+            );
         }
 
         /// <summary>
@@ -982,6 +844,10 @@ namespace Game.Menu {
         /// </summary>
         public void RefreshMainMenuChallenges() {
             UpdateMainMenuChallenges();
+        }
+
+        private static bool IsOfflineMode() {
+            return Application.internetReachability == NetworkReachability.NotReachable;
         }
 
         // Getters for external access

@@ -55,6 +55,7 @@ namespace Game.Menu {
 
         // Shared UI navigation helper for main menu panels
         private UINavigator _navigator;
+        private bool _navigatorMissingLogged;
 
         #endregion
 
@@ -285,19 +286,17 @@ namespace Game.Menu {
             if(panel == null) return;
 
             if(_navigator == null) {
-                // Fallback: show panel directly if navigator is not initialized.
-                panel.RemoveFromClassList("hidden");
-                panel.style.display = DisplayStyle.Flex;
-                panel.BringToFront();
-                UpdateDiscordStatusForPanel(panel);
-                
-                // Refresh challenges when main menu panel is shown
-                if(panel == MainMenuPanel && uiManager != null) {
-                    uiManager.RefreshMainMenuChallenges();
+                if(!_navigatorMissingLogged) {
+                    Debug.LogError(
+                        "[MainMenuManager] UI navigator is not initialized; cannot show panel. " +
+                        "Check OnInitialize/FindPanels/InitializeNavigator execution order.",
+                        this);
+                    _navigatorMissingLogged = true;
                 }
                 return;
             }
 
+            _navigatorMissingLogged = false;
             _navigator.Show(panel);
             UpdateDiscordStatusForPanel(panel);
             

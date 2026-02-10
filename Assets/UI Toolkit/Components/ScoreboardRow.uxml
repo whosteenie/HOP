@@ -1,7 +1,9 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" editor-extension-mode="False">
     <ui:VisualElement name="scoreboard-row-root" class="player-row">
         <ui:Label name="ping-label" class="player-ping" text="0ms" />
-        <ui:VisualElement name="avatar" class="player-avatar" />
+        <ui:VisualElement name="avatar" class="player-avatar">
+            <ui:VisualElement name="speaking-indicator" class="speaking-indicator" />
+        </ui:VisualElement>
         <ui:Label name="name-label" class="player-name" text="Player" />
         <!-- Stat cells follow existing layout order; text/content is filled from code -->
         <ui:Label name="stat-0" class="player-stat" text="0" />

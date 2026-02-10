@@ -31,9 +31,12 @@ namespace Game.Menu {
         private Image _inviteIcon;
         private VisualElement _partySeparator;
         private VisualElement _localProfileContainer;
+        private VisualElement _localXpRow;
         private ProgressBar _localXpBar;
         private Label _localLevelLabel;
-        private VisualElement _localXpContainer;
+        private bool _localXpElementsErrorLogged;
+        private bool _partyMemberTemplateMissingLogged;
+        private bool _partyMemberTemplateInvalidLogged;
         private ulong _lastLobbyId;
         private int _lastMemberCount;
         private bool _hasDrawnSolo;
@@ -73,14 +76,10 @@ namespace Game.Menu {
         protected override void OnEnable() {
             base.OnEnable();
             if(SessionManager.Instance != null) {
+                SessionManager.Instance.FrontStatusChanged -= UpdateStatusText;
+                SessionManager.Instance.OnPartyStateChanged -= HandlePartyStateChanged;
                 SessionManager.Instance.FrontStatusChanged += UpdateStatusText;
                 SessionManager.Instance.OnPartyStateChanged += HandlePartyStateChanged;
-                RegisterCleanup(() => {
-                    if(SessionManager.HasInstance) {
-                        SessionManager.Instance.FrontStatusChanged -= UpdateStatusText;
-                        SessionManager.Instance.OnPartyStateChanged -= HandlePartyStateChanged;
-                    }
-                });
             }
         }
 
@@ -140,6 +139,7 @@ namespace Game.Menu {
 
             var steamOnline = SteamClient.IsValid && SteamClient.IsLoggedOn;
 
+            var isNetworkOffline = Application.internetReachability == NetworkReachability.NotReachable;
             // Update UI constraints based on party state
             var currentPartySize = SessionManager.Instance.CurrentLobby.HasValue
                 ? SessionManager.Instance.CurrentLobby.Value.MemberCount
@@ -173,14 +173,32 @@ namespace Game.Menu {
                 }
             }
 
-            var canPlay = !isSearching && !isPartyMember || _isSilentHosting;
+            var canUseMenuButtons = (!isSearching && !isPartyMember) || _isSilentHosting;
 
             if(uiManager != null) {
-                if(currentPartySize > 5) {
+                var playMatchmakingButton = uiManager.GetPlayButtonMatchmaking();
+                if(playMatchmakingButton != null) {
+                    if(isNetworkOffline) {
+                        playMatchmakingButton.tooltip = "Offline. Matchmaking unavailable.";
+                    } else if(currentPartySize > 5) {
+                        playMatchmakingButton.tooltip = "Party too large for matchmaking (max 5).";
+                    } else {
+                        playMatchmakingButton.tooltip = "Play matchmaking.";
+                    }
+                }
+
+                if(isNetworkOffline) {
+                    uiManager.DisableButton(uiManager.GetPlayButtonMatchmaking());
+                    if(canUseMenuButtons) {
+                        uiManager.EnableButton(uiManager.GetPlayButtonPrivate());
+                    } else {
+                        uiManager.DisableButton(uiManager.GetPlayButtonPrivate());
+                    }
+                } else if(currentPartySize > 5) {
                     uiManager.DisableButton(uiManager.GetPlayButtonMatchmaking());
                     if(!isSearching) uiManager.EnableButton(uiManager.GetPlayButtonPrivate());
                 } else {
-                    uiManager.SetMenuButtonsEnabled((!isSearching && !isPartyMember) || _isSilentHosting);
+                    uiManager.SetMenuButtonsEnabled(canUseMenuButtons);
                 }
 
                 if(uiManager.StatusContainer != null) {
@@ -614,6 +632,7 @@ namespace Game.Menu {
 
             if(_partyMembersList != null) _partyMembersList.Clear();
             if(_localProfileContainer != null) _localProfileContainer.Clear();
+            ResetLocalProgressionReferences();
 
             // Draw just us in the local profile section
             var steamOnline = SteamClient.IsValid && SteamClient.IsLoggedOn;
@@ -637,6 +656,7 @@ namespace Game.Menu {
 
             if(_partyMembersList != null) _partyMembersList.Clear();
             if(_localProfileContainer != null) _localProfileContainer.Clear();
+            ResetLocalProgressionReferences();
 
             var hostId = lobby.Owner.Id;
             var myPartyId = "";
@@ -678,157 +698,145 @@ namespace Game.Menu {
             VisualElement targetContainer, bool isHost = false, bool isPartyMember = false, bool hideAvatar = false) {
             if(targetContainer == null) return;
 
-            if(uiManager != null && uiManager.PartyMemberTemplate != null) {
-                var instance = uiManager.PartyMemberTemplate.Instantiate();
-                var row = instance.Q("party-member-row");
-                var avatarBox = instance.Q("avatar-box");
-                var nameLabel = instance.Q<Label>("player-name-label");
-
-                if(!isLocal) {
-                    row.AddToClassList("party-member-entry");
-                    row.style.marginRight = 8;
-                } else {
-                    row.style.marginRight = 0;
+            if(uiManager == null || uiManager.PartyMemberTemplate == null) {
+                if(!_partyMemberTemplateMissingLogged) {
+                    _partyMemberTemplateMissingLogged = true;
+                    Debug.LogError(
+                        "[MainMenuSessionManager] PartyMemberTemplate is required on MainMenuUIManager.",
+                        this);
                 }
-                row.style.backgroundColor = new StyleColor(new UnityEngine.Color(0, 0, 0, 0.4f));
+                return;
+            }
 
-                var showHostIndicator = isHost;
-                if(isLocal && isHost) {
-                    var memberCount = 1;
-                    if(SessionManager.Instance != null && SessionManager.Instance.CurrentLobby.HasValue) {
-                        memberCount = SessionManager.Instance.CurrentLobby.Value.MemberCount;
+            var instance = uiManager.PartyMemberTemplate.Instantiate();
+            var row = instance.Q("party-member-row");
+            var avatarBox = instance.Q("avatar-box");
+            var nameLabel = instance.Q<Label>("player-name-label");
+            var localXpRow = instance.Q<VisualElement>("local-xp-row");
+            var localXpBar = instance.Q<ProgressBar>("local-xp-bar");
+            var localLevelLabel = instance.Q<Label>("local-level-label");
+
+            if(row == null || avatarBox == null || nameLabel == null) {
+                if(!_partyMemberTemplateInvalidLogged) {
+                    _partyMemberTemplateInvalidLogged = true;
+                    Debug.LogError(
+                        "[MainMenuSessionManager] PartyMemberTemplate is missing required elements: " +
+                        "`party-member-row`, `avatar-box`, `player-name-label`.",
+                        this);
+                }
+                return;
+            }
+
+            _partyMemberTemplateMissingLogged = false;
+            _partyMemberTemplateInvalidLogged = false;
+
+            if(!isLocal) {
+                row.AddToClassList("party-member-entry");
+                row.style.marginRight = 8;
+            } else {
+                row.style.marginRight = 0;
+            }
+            row.style.backgroundColor = new StyleColor(new UnityEngine.Color(0, 0, 0, 0.4f));
+
+            var showHostIndicator = isHost;
+            if(isLocal && isHost) {
+                var memberCount = 1;
+                if(SessionManager.Instance != null && SessionManager.Instance.CurrentLobby.HasValue) {
+                    memberCount = SessionManager.Instance.CurrentLobby.Value.MemberCount;
+                }
+
+                if(memberCount <= 1) showHostIndicator = false;
+            }
+
+            var hostColor = new UnityEngine.Color(1, 0.8f, 0, 0.6f);
+            var partyColor = new UnityEngine.Color(0.2f, 0.6f, 1f, 0.6f);
+
+            float borderSize = showHostIndicator ? 2 : (isPartyMember && !isLocal ? 1 : 0);
+            var borderColor = showHostIndicator
+                ? new StyleColor(hostColor)
+                : isPartyMember ? new StyleColor(partyColor) : new StyleColor(StyleKeyword.Null);
+
+            avatarBox.style.borderTopWidth = borderSize;
+            avatarBox.style.borderBottomWidth = borderSize;
+            avatarBox.style.borderLeftWidth = borderSize;
+            avatarBox.style.borderRightWidth = borderSize;
+
+            avatarBox.style.borderTopColor = borderColor;
+            avatarBox.style.borderBottomColor = borderColor;
+            avatarBox.style.borderLeftColor = borderColor;
+            avatarBox.style.borderRightColor = borderColor;
+
+            nameLabel.text = playerName;
+            row.RegisterCallback<PointerDownEvent>(evt => {
+                if(evt.button != 1) return;
+                ShowContextMenu(evt.position, id, isLocal, IsHost);
+                evt.StopPropagation();
+            });
+            targetContainer.Add(row);
+
+            if(isLocal) {
+                if(localXpRow == null || localXpBar == null || localLevelLabel == null) {
+                    if(!_localXpElementsErrorLogged) {
+                        Debug.LogError(
+                            "[MainMenuSessionManager] PartyMemberRow template is missing required local XP elements: local-xp-row, local-xp-bar, local-level-label.",
+                            this);
+                        _localXpElementsErrorLogged = true;
                     }
-
-                    if(memberCount <= 1) showHostIndicator = false;
-                }
-
-                var hostColor = new UnityEngine.Color(1, 0.8f, 0, 0.6f);
-                var partyColor = new UnityEngine.Color(0.2f, 0.6f, 1f, 0.6f);
-
-                float borderSize = showHostIndicator ? 2 : (isPartyMember && !isLocal ? 1 : 0);
-                var borderColor = showHostIndicator
-                    ? new StyleColor(hostColor)
-                    : isPartyMember ? new StyleColor(partyColor) : new StyleColor(StyleKeyword.Null);
-
-                avatarBox.style.borderTopWidth = borderSize;
-                avatarBox.style.borderBottomWidth = borderSize;
-                avatarBox.style.borderLeftWidth = borderSize;
-                avatarBox.style.borderRightWidth = borderSize;
-
-                avatarBox.style.borderTopColor = borderColor;
-                avatarBox.style.borderBottomColor = borderColor;
-                avatarBox.style.borderLeftColor = borderColor;
-                avatarBox.style.borderRightColor = borderColor;
-
-                nameLabel.text = playerName;
-                row.RegisterCallback<PointerDownEvent>(evt => {
-                    if(evt.button != 1) return;
-                    ShowContextMenu(evt.position, id, isLocal, IsHost);
-                    evt.StopPropagation();
-                });
-                targetContainer.Add(row);
-
-                if(isLocal) {
-                    AddLocalProgressionDisplay(targetContainer, nameLabel);
+                } else {
+                    _localXpRow = localXpRow;
+                    _localXpBar = localXpBar;
+                    _localLevelLabel = localLevelLabel;
+                    _localXpRow.RemoveFromClassList("hidden");
+                    _localXpElementsErrorLogged = false;
                     UpdateLocalProgressionDisplay();
                 }
-
-                void ApplyIconFallback() {
-                    // Only use fallback icon when Steam isn't available or fetching failed.
-                    avatarBox.style.backgroundImage = StyleKeyword.Null;
-                    avatarBox.RemoveFromClassList("steam-avatar-flip");
-
-                    avatarBox.RemoveFromClassList("default-avatar");
-                    avatarBox.RemoveFromClassList("player-icon-red");
-                    avatarBox.RemoveFromClassList("player-icon-orange");
-                    avatarBox.RemoveFromClassList("player-icon-yellow");
-                    avatarBox.RemoveFromClassList("player-icon-green");
-                    avatarBox.RemoveFromClassList("player-icon-blue");
-                    avatarBox.RemoveFromClassList("player-icon-purple");
-                    avatarBox.RemoveFromClassList("player-icon-white");
-
-                    var resolved = hideAvatar ? Game.Social.PlayerIconPicker.White : iconId;
-                    if(string.IsNullOrEmpty(resolved)) resolved = Game.Social.PlayerIconPicker.White;
-                    avatarBox.AddToClassList("player-icon-" + resolved);
-                }
-
-                // Prefer Steam avatar when online; fallback only when Steam can't be reached or avatar fetch fails.
-                var steamOnline = SteamClient.IsValid && SteamClient.IsLoggedOn;
-                if(!steamOnline || hideAvatar || id.Value == 0) {
-                    ApplyIconFallback();
-                } else {
-                    // Clear icon classes before setting background image.
-                    avatarBox.RemoveFromClassList("steam-avatar-flip");
-                    avatarBox.RemoveFromClassList("default-avatar");
-                    avatarBox.RemoveFromClassList("player-icon-red");
-                    avatarBox.RemoveFromClassList("player-icon-orange");
-                    avatarBox.RemoveFromClassList("player-icon-yellow");
-                    avatarBox.RemoveFromClassList("player-icon-green");
-                    avatarBox.RemoveFromClassList("player-icon-blue");
-                    avatarBox.RemoveFromClassList("player-icon-purple");
-                    avatarBox.RemoveFromClassList("player-icon-white");
-
-                    var avatarTex = await SteamManager.Instance.GetAvatarAsync(id);
-                    if(avatarTex != null) {
-                        avatarBox.style.backgroundImage = new StyleBackground(avatarTex);
-                        if(!avatarBox.ClassListContains("steam-avatar-flip")) {
-                            avatarBox.AddToClassList("steam-avatar-flip");
-                        }
-                    } else {
-                        ApplyIconFallback();
-                    }
-                }
-            } else {
-                Debug.LogError("[MainMenuSessionManager] PartyMemberTemplate is missing in UIManager!");
             }
-        }
 
-        private void AddLocalProgressionDisplay(VisualElement targetContainer, Label nameLabel) {
-            if(targetContainer == null || nameLabel == null) return;
+            void ApplyIconFallback() {
+                // Only use fallback icon when Steam isn't available or fetching failed.
+                avatarBox.style.backgroundImage = StyleKeyword.Null;
+                avatarBox.RemoveFromClassList("steam-avatar-flip");
 
-            // Build a stable local-only profile stack: Name + XP bar row.
-            nameLabel.style.unityTextAlign = TextAnchor.MiddleLeft;
+                avatarBox.RemoveFromClassList("default-avatar");
+                avatarBox.RemoveFromClassList("player-icon-red");
+                avatarBox.RemoveFromClassList("player-icon-orange");
+                avatarBox.RemoveFromClassList("player-icon-yellow");
+                avatarBox.RemoveFromClassList("player-icon-green");
+                avatarBox.RemoveFromClassList("player-icon-blue");
+                avatarBox.RemoveFromClassList("player-icon-purple");
+                avatarBox.RemoveFromClassList("player-icon-white");
 
-            _localXpContainer = new VisualElement {
-                name = "local-xp-container",
-                style = {
-                    flexDirection = FlexDirection.Row,
-                    alignItems = Align.Center,
-                    position = Position.Absolute,
-                    top = 45,
-                    right = 0,
-                    paddingLeft = 10,
-                    paddingRight = 10
+                var resolved = hideAvatar ? Game.Social.PlayerIconPicker.White : iconId;
+                if(string.IsNullOrEmpty(resolved)) resolved = Game.Social.PlayerIconPicker.White;
+                avatarBox.AddToClassList("player-icon-" + resolved);
+            }
+
+            // Prefer Steam avatar when online; fallback only when Steam can't be reached or avatar fetch fails.
+            var steamOnline = SteamClient.IsValid && SteamClient.IsLoggedOn;
+            if(!steamOnline || hideAvatar || id.Value == 0) {
+                ApplyIconFallback();
+            } else {
+                // Clear icon classes before setting background image.
+                avatarBox.RemoveFromClassList("steam-avatar-flip");
+                avatarBox.RemoveFromClassList("default-avatar");
+                avatarBox.RemoveFromClassList("player-icon-red");
+                avatarBox.RemoveFromClassList("player-icon-orange");
+                avatarBox.RemoveFromClassList("player-icon-yellow");
+                avatarBox.RemoveFromClassList("player-icon-green");
+                avatarBox.RemoveFromClassList("player-icon-blue");
+                avatarBox.RemoveFromClassList("player-icon-purple");
+                avatarBox.RemoveFromClassList("player-icon-white");
+
+                var avatarTex = await SteamManager.Instance.GetAvatarAsync(id);
+                if(avatarTex != null) {
+                    avatarBox.style.backgroundImage = new StyleBackground(avatarTex);
+                    if(!avatarBox.ClassListContains("steam-avatar-flip")) {
+                        avatarBox.AddToClassList("steam-avatar-flip");
+                    }
+                } else {
+                    ApplyIconFallback();
                 }
-            };
-
-            _localXpBar = new ProgressBar {
-                name = "local-xp-bar",
-                lowValue = 0,
-                highValue = 100,
-                value = 0,
-                title = string.Empty
-            };
-            _localXpBar.AddToClassList("mainmenu-xp-bar");
-            _localXpBar.style.width = 175;
-            _localXpBar.style.marginRight = 8;
-            _localXpBar.style.unityTextAlign = TextAnchor.MiddleLeft;
-            _localXpBar.style.alignSelf = Align.Center;
-
-            _localLevelLabel = new Label {
-                name = "local-level-label",
-                text = "LVL 1"
-            };
-            _localLevelLabel.style.fontSize = 12;
-            _localLevelLabel.style.unityFontStyleAndWeight = FontStyle.Bold;
-            _localLevelLabel.style.color = new Color(0.95f, 0.95f, 0.95f, 1f);
-            _localLevelLabel.style.unityTextAlign = TextAnchor.MiddleLeft;
-            _localLevelLabel.style.alignSelf = Align.Center;
-
-            _localXpContainer.Add(_localXpBar);
-            _localXpContainer.Add(_localLevelLabel);
-
-            targetContainer.Add(_localXpContainer);
+            }
         }
 
         private void UpdateLocalProgressionDisplay() {
@@ -836,7 +844,7 @@ namespace Game.Menu {
 
             var progression = ProgressionManager.Instance;
             if(progression == null || progression.Data == null) {
-                if(_localXpContainer != null) _localXpContainer.style.display = DisplayStyle.None;
+                if(_localXpRow != null) _localXpRow.AddToClassList("hidden");
                 return;
             }
 
@@ -844,11 +852,17 @@ namespace Game.Menu {
             var requiredXp = Mathf.Max(1, progression.GetXpRequiredForLevel(level));
             var currentXp = Mathf.Clamp(progression.Data.currentXp, 0, requiredXp);
 
-            if(_localXpContainer != null) _localXpContainer.style.display = DisplayStyle.Flex;
+            if(_localXpRow != null) _localXpRow.RemoveFromClassList("hidden");
             _localXpBar.lowValue = 0;
             _localXpBar.highValue = requiredXp;
             _localXpBar.value = currentXp;
             _localLevelLabel.text = $"LVL {level}";
+        }
+
+        private void ResetLocalProgressionReferences() {
+            _localXpRow = null;
+            _localXpBar = null;
+            _localLevelLabel = null;
         }
 
 

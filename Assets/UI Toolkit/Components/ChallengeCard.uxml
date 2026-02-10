@@ -7,6 +7,10 @@
             <ui:Label name="timer-label" class="challenge-card-timer" text="00:00:00" />
             <ui:VisualElement class="challenge-card-separator-line" />
         </ui:VisualElement>
+        <ui:VisualElement name="offline-placeholder" class="challenge-offline-placeholder hidden">
+            <ui:VisualElement name="offline-icon" class="challenge-offline-icon" />
+            <ui:Label name="offline-label" class="challenge-offline-label" text="Offline" />
+        </ui:VisualElement>
         <ui:VisualElement name="challenge-list" class="challenge-list" />
     </ui:VisualElement>
 </ui:UXML>

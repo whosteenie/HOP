@@ -95925,6 +95925,8 @@ MonoBehaviour:
   uiDocument: {fileID: 2437191754305144469}
   LoadoutManager: {fileID: 855784178}
   partyMemberTemplate: {fileID: 9197481963319205126, guid: 072eb18ca861f1743882f36b1ca4cfc0, type: 3}
+  challengeCardTemplate: {fileID: 9197481963319205126, guid: 8b1e935a25318314eb9e1b4d95256a01, type: 3}
+  challengeRowTemplate: {fileID: 9197481963319205126, guid: 15bba09b50799a343b3d3f8f84a61e10, type: 3}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0

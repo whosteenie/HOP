@@ -39,7 +39,9 @@ namespace Game.UI {
 
             if(_chatInput != null) {
                 // Register Submit event
-                _chatInput.RegisterCallback<KeyDownEvent>(OnChatInputKeyDown);
+                EventCallback<KeyDownEvent> keyDownHandler = OnChatInputKeyDown;
+                _chatInput.RegisterCallback(keyDownHandler);
+                RegisterCleanup(() => _chatInput.UnregisterCallback(keyDownHandler));
             }
             
             // Start with chat non-interactive (closed state)
@@ -48,7 +50,13 @@ namespace Game.UI {
             }
 
             if(ChatManager.Instance != null) {
+                ChatManager.Instance.OnMessageReceived -= HandleMessageReceived;
                 ChatManager.Instance.OnMessageReceived += HandleMessageReceived;
+                RegisterCleanup(() => {
+                    if(ChatManager.Instance != null) {
+                        ChatManager.Instance.OnMessageReceived -= HandleMessageReceived;
+                    }
+                });
             }
         }
 
@@ -65,6 +73,7 @@ namespace Game.UI {
             if(ChatManager.Instance != null) {
                 ChatManager.Instance.OnMessageReceived -= HandleMessageReceived;
             }
+            base.OnDestroy();
         }
 
         public void ClearChatHistory() {

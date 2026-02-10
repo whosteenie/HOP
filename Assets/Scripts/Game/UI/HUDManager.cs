@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Game.Match;
+using Game.Player;
 using Network.Events;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -49,20 +50,18 @@ namespace Game.UI {
             _cachedMatchSettings = MatchSettingsManager.Instance;
 
             // Subscribe to UI events
+            EventBus.Unsubscribe<UpdateHealthEvent>(OnUpdateHealth);
+            EventBus.Unsubscribe<UpdateAmmoEvent>(OnUpdateAmmo);
+            EventBus.Unsubscribe<UpdateTagStatusEvent>(OnUpdateTagStatus);
+            EventBus.Unsubscribe<UpdateMultiplierEvent>(OnUpdateMultiplier);
+            EventBus.Unsubscribe<ShowHUDEvent>(OnShowHUD);
+            EventBus.Unsubscribe<HideHUDEvent>(OnHideHUD);
             EventBus.Subscribe<UpdateHealthEvent>(OnUpdateHealth);
             EventBus.Subscribe<UpdateAmmoEvent>(OnUpdateAmmo);
             EventBus.Subscribe<UpdateTagStatusEvent>(OnUpdateTagStatus);
             EventBus.Subscribe<UpdateMultiplierEvent>(OnUpdateMultiplier);
             EventBus.Subscribe<ShowHUDEvent>(OnShowHUD);
             EventBus.Subscribe<HideHUDEvent>(OnHideHUD);
-            RegisterCleanup(() => {
-                EventBus.Unsubscribe<UpdateHealthEvent>(OnUpdateHealth);
-                EventBus.Unsubscribe<UpdateAmmoEvent>(OnUpdateAmmo);
-                EventBus.Unsubscribe<UpdateTagStatusEvent>(OnUpdateTagStatus);
-                EventBus.Unsubscribe<UpdateMultiplierEvent>(OnUpdateMultiplier);
-                EventBus.Unsubscribe<ShowHUDEvent>(OnShowHUD);
-                EventBus.Unsubscribe<HideHUDEvent>(OnHideHUD);
-            });
         }
 
         protected override void OnDisable() {
@@ -179,7 +178,8 @@ namespace Game.UI {
         private void UpdateTagStatus(bool isTagged) {
             // Check if we're in Tag mode (always check fresh)
             if(!IsTagMode()) {
-                // Not in Tag mode, don't update
+                // Ensure we restore numeric health if tag text was previously shown.
+                TryRestoreHealthDisplayFromLocalPlayer();
                 return;
             }
 
@@ -245,6 +245,11 @@ namespace Game.UI {
             
             // Reset healthbar display mode based on current game mode
             ResetHealthbarDisplayMode();
+
+            // If we're not in tag mode, immediately restore numeric health text/value.
+            if(!IsTagMode()) {
+                TryRestoreHealthDisplayFromLocalPlayer();
+            }
         }
 
         /// <summary>
@@ -259,6 +264,27 @@ namespace Game.UI {
             _healthBar.style.display = IsTagMode() ? DisplayStyle.None :
                 // Health-based mode: ensure healthbar is visible
                 DisplayStyle.Flex;
+        }
+
+        /// <summary>
+        /// Restores numeric health text/value using local player's current health when not in Gun Tag.
+        /// This prevents stale "You're it!" text persisting across mode transitions.
+        /// </summary>
+        private void TryRestoreHealthDisplayFromLocalPlayer() {
+            if(_healthBar == null || _healthValue == null) return;
+            if(IsTagMode()) return;
+
+            var localPlayer = PlayerController.LocalPlayer;
+            var current = localPlayer != null ? localPlayer.netHealth.Value : 100f;
+            var max = 100f;
+
+            _healthBar.style.display = DisplayStyle.Flex;
+            var percent = (current / max) * 100f;
+            _healthBar.value = percent;
+
+            var healthText = Mathf.CeilToInt(current).ToString();
+            _healthValue.text = healthText;
+            _cachedHealthText = healthText;
         }
     }
 }

@@ -7,6 +7,7 @@ using Game.Match;
 namespace Game.Progression {
     public class ProgressionManager : MonoBehaviour {
         public static ProgressionManager Instance { get; private set; }
+        private const DayOfWeek WeeklyResetDay = DayOfWeek.Monday;
 
         [Header("Settings")]
         [SerializeField] private List<ChallengeDefinition> challengePool;
@@ -382,11 +383,15 @@ namespace Game.Progression {
 
         private void CheckDailyReset() {
             var needsReset = false;
+            var now = DateTime.Now;
+            var todayMidnight = now.Date;
+
             if (string.IsNullOrEmpty(Data.lastDailyReset)) {
                 needsReset = true;
             } else {
                 if (DateTime.TryParse(Data.lastDailyReset, out DateTime lastReset)) {
-                    if ((DateTime.Now - lastReset).TotalHours >= 24) {
+                    // Calendar-based daily rollover: reset once local date crosses midnight.
+                    if (lastReset < todayMidnight) {
                         needsReset = true;
                     }
                 } else {
@@ -407,11 +412,15 @@ namespace Game.Progression {
         
         private void CheckWeeklyReset() {
              var needsReset = false;
+             var now = DateTime.Now;
+             var currentWeeklyBoundary = GetCurrentWeeklyBoundary(now);
+
              if (string.IsNullOrEmpty(Data.lastWeeklyReset)) {
                  needsReset = true;
              } else {
                  if (DateTime.TryParse(Data.lastWeeklyReset, out DateTime lastReset)) {
-                     if ((DateTime.Now - lastReset).TotalDays >= 7) {
+                     // Calendar-based weekly rollover: reset once we cross the configured weekly boundary at midnight.
+                     if (lastReset < currentWeeklyBoundary) {
                          needsReset = true;
                      }
                  } else {
@@ -441,23 +450,27 @@ namespace Game.Progression {
         }
 
         public TimeSpan GetTimeUntilDailyReset() {
-             if (Data == null || string.IsNullOrEmpty(Data.lastDailyReset)) return TimeSpan.Zero;
-             if (DateTime.TryParse(Data.lastDailyReset, out DateTime lastReset)) {
-                 var nextReset = lastReset.AddDays(1);
-                 var remaining = nextReset - DateTime.Now;
-                 return remaining > TimeSpan.Zero ? remaining : TimeSpan.Zero;
-             }
-             return TimeSpan.Zero;
+             if (Data == null) return TimeSpan.Zero;
+
+             var now = DateTime.Now;
+             var nextReset = now.Date.AddDays(1); // Next local midnight
+             var remaining = nextReset - now;
+             return remaining > TimeSpan.Zero ? remaining : TimeSpan.Zero;
         }
 
         public TimeSpan GetTimeUntilWeeklyReset() {
-             if (Data == null || string.IsNullOrEmpty(Data.lastWeeklyReset)) return TimeSpan.Zero;
-             if (DateTime.TryParse(Data.lastWeeklyReset, out DateTime lastReset)) {
-                 var nextReset = lastReset.AddDays(7);
-                 var remaining = nextReset - DateTime.Now;
-                 return remaining > TimeSpan.Zero ? remaining : TimeSpan.Zero;
-             }
-             return TimeSpan.Zero;
+             if (Data == null) return TimeSpan.Zero;
+
+             var now = DateTime.Now;
+             var nextReset = GetCurrentWeeklyBoundary(now).AddDays(7);
+             var remaining = nextReset - now;
+             return remaining > TimeSpan.Zero ? remaining : TimeSpan.Zero;
+        }
+
+        private static DateTime GetCurrentWeeklyBoundary(DateTime now) {
+            var midnightToday = now.Date;
+            var daysSinceResetDay = ((int)midnightToday.DayOfWeek - (int)WeeklyResetDay + 7) % 7;
+            return midnightToday.AddDays(-daysSinceResetDay);
         }
 
         // Available gamemodes for dynamic "play_matches_of" challenges

@@ -18,10 +18,10 @@
 
 /* Positions by ID */
 /* Push to edges as requested - 0px margin/offset */
-#hud-panel #health-container { position: absolute; left: 0 !important; bottom: 0 !important; margin: 0 !important; }
+#hud-panel #health-container { position: absolute; left: 0; bottom: 0; margin: 0; }
 #grapple-indicator-bottom { position: absolute; left: 50%; bottom: 96px; translate: -50% 0; }
-#multiplier-container { position: absolute; left: 50%; bottom: 0 !important; translate: -50% 0; margin: 0 !important; }
-#hud-panel #ammo-container { position: absolute; right: 0 !important; bottom: 0 !important; margin: 0 !important; }
+#multiplier-container { position: absolute; left: 50%; bottom: 0; translate: -50% 0; margin: 0; }
+#hud-panel #ammo-container { position: absolute; right: 0; bottom: 0; margin: 0; }
 
 /* Stat containers */
 .multiplier-container {
@@ -38,10 +38,10 @@
     flex-direction: row; 
     align-items: center;
     min-height: 84px; 
-    padding: 8px 16px !important;
-    background-color: rgba(0, 0, 0, 0.4) !important;
-    border-radius: 0 !important;
-    border-width: 0 !important;
+    padding: 8px 16px;
+    background-color: rgba(0, 0, 0, 0.4);
+    border-radius: 0;
+    border-width: 0;
 }
 
 
@@ -86,20 +86,20 @@
     border-color: rgba(200, 60, 60, 0.2);
 }
 .health-bar .unity-progress-bar__progress { 
-    background-color: rgb(200, 60, 60) !important;
-    background-image: none !important;
+    background-color: rgb(200, 60, 60);
+    background-image: none;
     border-width: 0;
     border-radius: 0;
     margin: 0;
     padding: 0;
-    height: 32px !important;
-    min-height: 32px !important;
+    height: 32px;
+    min-height: 32px;
     border-top-width: 1px;
     border-top-color: rgba(255, 255, 255, 0.2);
 }
 .multiplier-bar .unity-progress-bar__progress { 
-    background-color: rgb(60, 150, 200) !important;
-    background-image: none !important;
+    background-color: rgb(60, 150, 200);
+    background-image: none;
     border-radius: 4px;
 }
 
@@ -197,6 +197,34 @@
 .menu-container { width: 420px; padding: 28px; }
 .options-container { width: 760px; max-height: 85%; padding: 36px; }
 
+.pause-challenges-container {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    flex-direction: row;
+    justify-content: center;
+    align-items: center;
+}
+
+.pause-challenges-slot {
+    flex-direction: column;
+}
+
+.pause-challenges-slot-daily {
+    margin-right: 50px;
+}
+
+.pause-challenges-slot-weekly {
+    margin-left: 50px;
+}
+
+.pause-challenges-spacer {
+    width: 420px;
+    height: 10px;
+}
+
 .pause-header {
     flex-direction: row;
     align-items: center;
@@ -205,13 +233,7 @@
     margin-bottom: 18px;
 }
 
-/* Pause header inline styles merged */
-#pause-header {
-    align-items: flex-start;
-}
-
-/* Pause header inline styles merged */
-#pause-header {
+.pause-header-align-flex-start {
     align-items: flex-start;
 }
 
@@ -220,26 +242,12 @@
     align-items: center;
 }
 
-/* Pause join code display inline styles merged */
-#pause-join-code-display {
-    margin-top: 6px;
+.pause-join-code-display-margin-top-7px {
+    margin-top: 7px;
 }
 
-#pause-join-code-label {
-    margin-right: 11px;
-}
-
-/* Pause join code display inline styles merged */
-#pause-join-code-display {
-    margin-top: 6px;
-}
-
-#pause-join-code-label {
-    margin-right: 11px;
-}
-
-.pause-join-code-label {
-    margin-right: 8px;
+.pause-join-code-label-margin-right-5px {
+    margin-right: 5px;
 }
 
 .pause-join-code-label-inline {
@@ -1101,12 +1109,12 @@
 /* ===== POST-MATCH XP DISPLAY ===== */
 .xp-postmatch-container {
     position: absolute;
-    bottom: 100px;
-    width: 40%;
-    left: 30%;
-    background-color: rgba(0, 0, 0, 0.7);
-    padding: 10px 20px;
-    border-radius: 10px;
+    bottom: 20px;
+    width: 28%;
+    left: 36%;
+    background-color: rgba(0, 0, 0, 0.72);
+    padding: 6px 12px;
+    border-radius: 6px;
     display: none;
     flex-direction: column;
     align-items: center;
@@ -1114,27 +1122,57 @@
 
 .xp-level-label {
     color: rgb(255, 255, 255);
-    font-size: 24px;
+    font-size: 16px;
     -unity-font-style: bold;
     align-self: center;
-    margin-bottom: 5px;
+    margin-bottom: 2px;
 }
 
 .xp-progress-bar {
-    height: 30px;
+    height: 8px;
     width: 100%;
 }
 
-.xp-progress-bar > .unity-progress-bar__progress {
-    background-color: rgb(50, 200, 50);
+.xp-progress-bar .unity-progress-bar__container {
+    height: 8px;
+    min-height: 8px;
+    max-height: 8px;
+    margin: 0;
+    padding: 0;
+    background-color: transparent;
+}
+
+.xp-progress-bar .unity-progress-bar__background {
+    height: 8px;
+    min-height: 8px;
+    max-height: 8px;
+    background-color: rgba(255, 255, 255, 0.25);
+    border-width: 0;
     border-radius: 4px;
+    margin: 0;
+    padding: 0;
+}
+
+.xp-progress-bar .unity-progress-bar__progress {
+    height: 8px;
+    min-height: 8px;
+    max-height: 8px;
+    background-color: rgb(255, 80, 80);
+    border-radius: 4px;
+    margin: 0;
+    padding: 0;
+}
+
+.xp-progress-bar .unity-progress-bar__title-container {
+    display: none;
+    height: 0;
 }
 
 .xp-gained-label {
     color: rgba(51, 255, 51, 1);
-    font-size: 20px;
+    font-size: 14px;
     align-self: center;
-    margin-top: 5px;
+    margin-top: 3px;
 }
 
 /* ===== CHAT ===== */
@@ -1343,4 +1381,8 @@
     height: 1px;
     background-color: rgba(200, 60, 60, 0.2);
     margin: 4px 0;
+}
+
+#context-menu-backdrop {
+    background-color: rgba(0, 0, 0, 0.01);
 }

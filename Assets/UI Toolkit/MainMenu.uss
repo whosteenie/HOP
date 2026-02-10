@@ -3,12 +3,47 @@
 #main-menu-panel { /* already uses .panel .full-abs */ }
 
 .main-title {
-    position: absolute; top: 12%; left: 8%;
+    position: absolute;
+    top: 93px;
+    left: 95px;
+    font-size: 240px;
+    -unity-font-definition: url('project://database/Assets/TextMesh%20Pro/Examples%20&%20Extras/Fonts/Roboto-Bold%20SDF.asset?fileID=11400000&guid=2b4e604fe6152104d97432c733e17021&type=2#Roboto-Bold SDF');
+    text-shadow: -1.2px 0 12px rgba(200, 60, 60, 0.4);
 }
 
 .main-actions {
     position: absolute; left: 8%; bottom: 10%;
     flex-direction: column;
+}
+
+#main-menu-container {
+    bottom: 110px;
+    left: 109px;
+}
+
+.main-menu-challenges-container {
+    position: absolute;
+    right: 20px;
+    bottom: 20px;
+    width: 300px;
+    flex-direction: column;
+    align-items: flex-end;
+}
+
+.main-menu-challenges-card--daily {
+    margin-bottom: 10px;
+}
+
+#play-button-matchmaking,
+#play-button-private {
+    font-size: 40px;
+}
+
+#loadout-button,
+#options-button,
+#credits-button,
+#quit-button {
+    font-size: 22px;
 }
 
 /* Text-only buttons with red accent */
@@ -407,6 +442,120 @@
 
 .name-buttons-container.slide-out-to-bottom {
     translate: 0 100%;
+}
+
+.loadout-stats-toggle-button {
+    width: 120px;
+    height: 50px;
+    min-width: 120px;
+}
+
+.loadout-stats-container {
+    left: 20px;
+    top: 100px;
+    bottom: 20px;
+    width: 450px;
+    flex-direction: column;
+}
+
+.loadout-challenges-container {
+    right: 20px;
+    top: 100px;
+    bottom: 20px;
+    width: 450px;
+    flex-direction: column;
+}
+
+.loadout-stats-level-row {
+    flex-direction: row;
+    margin-bottom: 20px;
+}
+
+.loadout-stats-level-label {
+    font-size: 24px;
+    margin-bottom: 5px;
+}
+
+.loadout-stats-xp-bar {
+    height: 20px;
+    min-height: 20px;
+    max-height: 20px;
+    margin-top: 5px;
+    background-color: transparent;
+    border-width: 0;
+}
+
+.loadout-stats-xp-bar .unity-progress-bar__container {
+    height: 20px;
+    min-height: 20px;
+    max-height: 20px;
+    background-color: transparent;
+    margin: 0;
+    padding: 0;
+}
+
+.loadout-stats-xp-bar .unity-progress-bar__background {
+    height: 20px;
+    min-height: 20px;
+    max-height: 20px;
+    background-color: rgba(255, 255, 255, 0.15);
+    border-width: 0;
+    border-radius: 3px;
+    margin: 0;
+    padding: 0;
+}
+
+.loadout-stats-xp-bar .unity-progress-bar__progress {
+    height: 20px;
+    min-height: 20px;
+    max-height: 20px;
+    background-color: rgb(255, 100, 100);
+    border-radius: 3px;
+    margin: 0;
+    padding: 0;
+}
+
+.loadout-stats-xp-bar .unity-progress-bar__title-container {
+    display: none;
+    height: 0;
+}
+
+.loadout-stats-xp-text {
+    align-self: center;
+}
+
+.loadout-stats-grid {
+    margin-top: 30px;
+    flex-direction: column;
+}
+
+.loadout-stat-row {
+    flex-direction: row;
+    justify-content: space-between;
+    margin-bottom: 5px;
+}
+
+.loadout-stat-label {
+    -unity-font-style: bold;
+}
+
+.loadout-stat-value {
+    -unity-text-align: middle-right;
+}
+
+.loadout-challenges-wip-wrap {
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    flex-grow: 1;
+    width: 100%;
+}
+
+.loadout-challenges-wip {
+    font-size: 120px;
+    -unity-font-style: bold;
+    color: rgb(200, 60, 60);
+    -unity-text-align: middle-center;
 }
 
 /* Full-screen background for render texture - no distortion */
@@ -1076,7 +1225,7 @@
 }
 
 #color-b-input-container {
-    margin-bottom: 0;
+    margin-bottom: 12px;
 }
 
 .color-rgb-label {
@@ -1151,7 +1300,7 @@
     bottom: auto;
     max-height: none;
     justify-content: center;
-    height: 501px;
+    height: 911px;
     align-content: center;
 }
 
@@ -1199,6 +1348,7 @@
 /* Material section */
 #material-section {
     margin-bottom: 0;
+    height: 563px;
 }
 
 /* Material section label */
@@ -1208,9 +1358,51 @@
 
 /* Smoothness and Metallic labels */
 #smoothness-label,
-#metallic-label {
+#metallic-label,
+#height-label {
     align-items: stretch;
-    min-width: 93px;
+    min-width: 110px;
+}
+
+#smoothness-slider,
+#metallic-slider,
+#height-slider {
+    min-width: auto;
+    max-width: none;
+    width: 160px;
+}
+
+#emission-header {
+    justify-content: flex-start;
+}
+
+#emission-label {
+    width: 100%;
+}
+
+#emission-preview-box {
+    margin-bottom: 15px;
+}
+
+#emission-r-slider,
+#emission-g-slider,
+#emission-b-slider {
+    width: 235px;
+    min-width: auto;
+    max-width: none;
+}
+
+#player-model-viewport {
+    left: 18%;
+    right: 21%;
+    bottom: 15%;
+    top: 0%;
+}
+
+#options-content-scroll {
+    height: 100%;
+    min-height: auto;
+    max-height: none;
 }
 
 /* Weapons flex container */
@@ -1407,6 +1599,7 @@
     align-items: center;
     padding: 5px 10px;
     border-radius: 4px;
+    position: relative;
 }
 
 .party-member-name-container {
@@ -1578,6 +1771,48 @@
     background-color: transparent;
     border-radius: 0;
     position: relative;
+    overflow: visible;
+}
+
+.local-xp-row {
+    flex-direction: row;
+    align-items: center;
+    position: absolute;
+    top: 44px;
+    right: 0;
+    margin-top: 0;
+}
+
+.local-xp-bar {
+    width: 175px;
+    margin-right: 8px;
+    -unity-text-align: middle-left;
+    align-self: center;
+}
+
+.local-level-label {
+    font-size: 12px;
+    -unity-font-style: bold;
+    color: rgb(242, 242, 242);
+    -unity-text-align: middle-left;
+    align-self: center;
+}
+
+#local-player-profile {
+    height: auto;
+    width: auto;
+    min-width: 150px;
+    min-height: 70px;
+}
+
+#invite-friends-button {
+    margin-right: 0;
+}
+
+#version-text {
+    font-size: 14px;
+    opacity: 0.5;
+    margin-top: 5px;
 }
 
 .party-member-entry {
@@ -1625,4 +1860,8 @@
     height: 1px;
     background-color: rgba(200, 60, 60, 0.2);
     margin: 4px 0;
+}
+
+#context-menu-backdrop {
+    background-color: rgba(0, 0, 0, 0.01);
 }

@@ -26,6 +26,7 @@ namespace Game.UI {
         private VisualElement _killFeedContainer;
         private readonly List<VisualElement> _activeKillEntries = new();
         private readonly Dictionary<VisualElement, Coroutine> _fadeCoroutines = new();
+        private bool _killFeedTemplateErrorLogged;
 
         // Cached references for performance
         private MatchSettingsManager _cachedMatchSettings;
@@ -121,6 +122,7 @@ namespace Game.UI {
             }
 
             var entry = CreateFeedEntry(actorName, targetName, isLocalActor, actorClientId, targetClientId, iconSprite);
+            if(entry == null) return;
 
             // Add to top of feed
             _killFeedContainer.Add(entry);
@@ -159,33 +161,29 @@ namespace Game.UI {
 
         /// <summary>
         /// Creates a feed entry (kill or tag transfer) with the specified icon.
-        /// Uses a UXML template when available; falls back to code-only construction otherwise.
+        /// Uses the required UXML template and fails fast if the template is missing or invalid.
         /// </summary>
         private VisualElement CreateFeedEntry(string actorName, string targetName, bool isLocalActor,
             ulong actorClientId, ulong targetClientId, Sprite iconSprite) {
-            VisualElement entry;
-            Label killerLabel;
-            Label victimLabel;
-            VisualElement iconElement;
+            if(killFeedEntryTemplate == null) {
+                if(!_killFeedTemplateErrorLogged) {
+                    Debug.LogError("[KillFeedManager] killFeedEntryTemplate is required. Assign KillFeedEntry.uxml in the inspector.");
+                    _killFeedTemplateErrorLogged = true;
+                }
+                return null;
+            }
 
-            if(killFeedEntryTemplate != null) {
-                entry = killFeedEntryTemplate.CloneTree();
-                // Root of template is the kill-entry element
-                killerLabel = entry.Q<Label>("killer-label");
-                victimLabel = entry.Q<Label>("victim-label");
-                iconElement = entry.Q<VisualElement>("icon");
-            } else {
-                entry = new VisualElement();
-                entry.AddToClassList("kill-entry");
-                killerLabel = new Label();
-                killerLabel.AddToClassList("killer-name");
-                entry.Add(killerLabel);
-                iconElement = new VisualElement();
-                iconElement.AddToClassList("kill-icon");
-                entry.Add(iconElement);
-                victimLabel = new Label();
-                victimLabel.AddToClassList("victim-name");
-                entry.Add(victimLabel);
+            var entry = killFeedEntryTemplate.CloneTree();
+            var killerLabel = entry.Q<Label>("killer-label");
+            var victimLabel = entry.Q<Label>("victim-label");
+            var iconElement = entry.Q<VisualElement>("icon");
+
+            if(killerLabel == null || victimLabel == null || iconElement == null) {
+                if(!_killFeedTemplateErrorLogged) {
+                    Debug.LogError("[KillFeedManager] KillFeedEntry template is missing required elements: killer-label, victim-label, or icon.");
+                    _killFeedTemplateErrorLogged = true;
+                }
+                return null;
             }
 
             if(isLocalActor) {
@@ -197,24 +195,20 @@ namespace Game.UI {
             var targetColor = GetTeamColorForPlayer(targetClientId);
 
             // Actor name (killer/tagger)
-            if(killerLabel != null) {
-                killerLabel.text = actorName;
-                if(isLocalActor) {
-                    killerLabel.AddToClassList("killer-name-local");
-                }
-                killerLabel.style.color = new StyleColor(actorColor);
+            killerLabel.text = actorName;
+            if(isLocalActor) {
+                killerLabel.AddToClassList("killer-name-local");
             }
+            killerLabel.style.color = new StyleColor(actorColor);
 
             // Icon (kill or tag)
-            if(iconElement != null && iconSprite != null) {
+            if(iconSprite != null) {
                 iconElement.style.backgroundImage = new StyleBackground(iconSprite);
             }
 
             // Target name (victim/tagged)
-            if(victimLabel != null) {
-                victimLabel.text = targetName;
-                victimLabel.style.color = new StyleColor(targetColor);
-            }
+            victimLabel.text = targetName;
+            victimLabel.style.color = new StyleColor(targetColor);
 
             return entry;
         }

@@ -1,0 +1,209 @@
+/* ===== UNITY CONTROL OVERRIDES ===== */
+/* Hide scrollbar arrows (up/down buttons) */
+.unity-scroller__low-button,
+.unity-scroller__high-button {
+    display: none;
+    width: 0;
+    height: 0;
+    visibility: hidden;
+}
+
+/* Global Thin Vertical Scroller */
+.unity-scroller--vertical,
+.unity-scroll-view__vertical-scroller,
+.unity-scroll-view__vertical-scrollbars {
+    width: 6px;
+    margin: 0;
+    padding: 0;
+    height: 100%;
+}
+
+.unity-scroller--vertical .unity-scroller__slider {
+    margin: 0;
+    width: 6px;
+    min-width: 6px;
+}
+
+.unity-scroller--vertical .unity-base-slider__tracker {
+    background-color: rgba(255, 255, 255, 0.05);
+    border-width: 0;
+}
+
+.unity-scroller--vertical .unity-base-slider__dragger {
+    background-color: rgb(255, 100, 100);
+    border-radius: 3px;
+    width: 6px;
+    left: 0;
+    border-width: 0;
+    -unity-background-image-tint-color: rgba(0, 0, 0, 0);
+}
+
+ScrollView .unity-scroll-view__horizontal-scrollbars,
+.unity-scroll-view__horizontal-scrollbars {
+    margin-bottom: 12px;
+}
+
+/* Dropdown styling - simplified */
+.unity-base-popup-field__menu,
+.unity-popup-field__menu {
+    background-color: rgba(12, 12, 18, 1.0);
+    border-radius: 4px;
+    border-width: 1px;
+    border-color: rgba(200, 60, 60, 0.3);
+    padding: 6px 0;
+}
+
+.unity-base-dropdown__item {
+    background-color: rgba(20, 20, 25, 0.9);
+    border-radius: 4px;
+    border-width: 1px;
+    border-color: rgba(200, 60, 60, 0.2);
+    margin: 2px 6px;
+    padding: 6px 12px;
+    color: rgb(240, 240, 240);
+    min-height: 32px;
+}
+
+.unity-base-dropdown__item:hover {
+    background-color: rgba(30, 30, 35, 0.9);
+    border-color: rgba(255, 100, 100, 0.4);
+    color: rgb(255, 100, 100);
+}
+
+.unity-base-dropdown__item:active {
+    background-color: rgba(200, 60, 60, 0.3);
+}
+
+/* Remove default Unity slider styling */
+.unity-base-slider {
+    background-color: transparent;
+    -unity-background-image-tint-color: transparent;
+}
+
+.unity-base-slider__tracker {
+    background-color: rgba(20, 20, 25, 0.9);
+    border-width: 1px;
+    border-color: rgba(200, 60, 60, 0.3);
+    -unity-background-image-tint-color: rgba(20, 20, 25, 0.9);
+}
+
+.unity-base-slider__fill {
+    background-color: rgb(255, 100, 100);
+    -unity-background-image-tint-color: rgb(255, 100, 100);
+}
+
+.unity-base-slider__dragger {
+    background-color: rgb(255, 100, 100);
+    border-width: 2px;
+    border-color: rgba(255, 255, 255, 0.3);
+    -unity-background-image-tint-color: rgb(255, 100, 100);
+}
+
+/* Remove all default white backgrounds from Unity components */
+.unity-base-popup-field {
+    background-color: transparent;
+    -unity-background-image-tint-color: transparent;
+}
+
+.unity-base-popup-field__text {
+    color: rgb(240, 240, 240);
+    background-color: transparent;
+    -unity-background-image-tint-color: transparent;
+}
+
+/* Remove inner borders from dropdown input */
+.unity-base-dropdown__input {
+    background-color: transparent;
+    border-width: 0;
+    border-color: transparent;
+    -unity-background-image-tint-color: transparent;
+    -unity-slice-left: 0;
+    -unity-slice-right: 0;
+    -unity-slice-top: 0;
+    -unity-slice-bottom: 0;
+}
+
+/* Global checkbox overrides - remove all default white styling */
+.unity-toggle {
+    background-color: transparent;
+    -unity-background-image-tint-color: transparent;
+}
+
+.unity-toggle__input {
+    background-color: rgba(20, 20, 25, 0.9);
+    border-width: 1px;
+    border-color: rgba(200, 60, 60, 0.3);
+    border-radius: 4px;
+    -unity-background-image-tint-color: rgba(20, 20, 25, 0.9);
+    -unity-slice-left: 0;
+    -unity-slice-right: 0;
+    -unity-slice-top: 0;
+    -unity-slice-bottom: 0;
+}
+
+.unity-toggle__input:checked {
+    background-color: rgba(200, 60, 60, 0.4);
+    border-color: rgba(255, 100, 100, 0.6);
+    -unity-background-image-tint-color: rgba(200, 60, 60, 0.4);
+}
+
+/* Global checkmark styling - tint the icon red, not a background color */
+.unity-toggle__checkmark {
+    background-color: transparent;
+    -unity-background-image-tint-color: rgb(255, 100, 100);
+    -unity-slice-left: 0;
+    -unity-slice-right: 0;
+    -unity-slice-top: 0;
+    -unity-slice-bottom: 0;
+}
+
+/* Global dropdown item overrides - ensure all items are styled */
+/* This global override ensures Unity's default white styling is completely removed */
+.unity-base-dropdown__item,
+.unity-base-popup-field__menu-item,
+.unity-popup-field__menu-item,
+.unity-dropdown__menu-item {
+    background-color: rgba(20, 20, 25, 0.9);
+    border-width: 1px;
+    border-color: rgba(200, 60, 60, 0.2);
+    border-radius: 4px;
+    color: rgb(240, 240, 240);
+    margin: 2px 6px;
+    padding: 6px 12px;
+    font-size: 14px;
+    min-height: 32px;
+    -unity-background-image-tint-color: rgba(20, 20, 25, 0.9);
+    -unity-slice-left: 0;
+    -unity-slice-right: 0;
+    -unity-slice-top: 0;
+    -unity-slice-bottom: 0;
+}
+
+/* Ensure all dropdown menu items have proper hover states */
+.unity-base-dropdown__item:hover,
+.unity-base-popup-field__menu-item:hover,
+.unity-popup-field__menu-item:hover,
+.unity-dropdown__menu-item:hover {
+    background-color: rgba(30, 30, 35, 0.9);
+    border-color: rgba(255, 100, 100, 0.4);
+    color: rgb(255, 100, 100);
+    -unity-background-image-tint-color: rgba(30, 30, 35, 0.9);
+}
+
+/* Force remove white backgrounds from all Unity base components */
+.unity-base-field {
+    background-color: transparent;
+}
+
+.unity-base-field__input {
+    background-color: transparent;
+    border-width: 0;
+}
+
+.unity-base-text-field__input-placeholder {
+    color: rgba(150, 150, 150, 0.6);
+}
+
+.unity-text-element--inner-input-field-component {
+    color: rgb(240, 240, 240);
+}

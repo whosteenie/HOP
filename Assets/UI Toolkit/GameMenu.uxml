@@ -82,6 +82,11 @@
         </ui:VisualElement>
         <ui:VisualElement name="kill-feed-container" class="kill-feed-container" />
         <ui:VisualElement name="respawn-fade-overlay" class="transition-overlay hidden" />
+        <ui:VisualElement name="pause-challenges-container" class="pause-challenges-container hidden">
+            <ui:VisualElement name="pause-daily-card-slot" class="pause-challenges-slot pause-challenges-slot-daily" />
+            <ui:VisualElement name="pause-challenges-spacer" class="pause-challenges-spacer" />
+            <ui:VisualElement name="pause-weekly-card-slot" class="pause-challenges-slot pause-challenges-slot-weekly" />
+        </ui:VisualElement>
         <ui:VisualElement name="pause-menu-panel" class="panel full-abs center-xy hidden">
             <ui:VisualElement name="pause-container" class="menu-container card">
                 <ui:VisualElement name="pause-header" class="pause-header pause-header-align-flex-start">
@@ -322,6 +327,11 @@
                 </ui:VisualElement>
             </ui:VisualElement>
         </ui:VisualElement>
+        <ui:VisualElement name="xp-postmatch-container" class="xp-postmatch-container hidden">
+            <ui:Label name="level-label" class="xp-level-label" text="LEVEL 1" />
+            <ui:ProgressBar name="xp-bar" class="xp-progress-bar" low-value="0" high-value="1000" value="0" />
+            <ui:Label name="xp-gained-label" class="xp-gained-label" text="+0 XP" />
+        </ui:VisualElement>
         <ui:VisualElement name="scoreboard-panel" class="panel full-abs center-xy hidden">
             <ui:VisualElement name="scoreboard-container" class="scoreboard-container card">
                 <ui:Label text="SCOREBOARD" name="scoreboard-title" class="title" />
@@ -412,7 +422,7 @@
     </ui:VisualElement>
     
     <!-- In-Game Player Context Menu -->
-    <ui:VisualElement name="context-menu-backdrop" class="full-abs hidden" style="background-color: rgba(0,0,0,0.01);" picking-mode="Position" />
+    <ui:VisualElement name="context-menu-backdrop" class="full-abs hidden" picking-mode="Position" />
     <ui:VisualElement name="player-context-menu" class="context-menu hidden" picking-mode="Position">
         <ui:Button text="STEAM PROFILE" name="ctx-steam-profile" class="context-menu-item" />
         <ui:VisualElement class="context-menu-separator" />

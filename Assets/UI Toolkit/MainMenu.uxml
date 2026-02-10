@@ -6,27 +6,28 @@
     </ui:VisualElement>
     <ui:VisualElement name="player-model-background" picking-mode="Ignore" class="player-model-background"/>
     <ui:VisualElement name="main-menu-panel" picking-mode="Ignore" class="panel full-abs">
-        <ui:Label text="HOP" name="title-label" class="title title-xl main-title" style="font-size: 240px; top: 93px; left: 95px; -unity-font-definition: url(&quot;project://database/Assets/TextMesh%20Pro/Examples%20&amp;%20Extras/Fonts/Roboto-Bold%20SDF.asset?fileID=11400000&amp;guid=2b4e604fe6152104d97432c733e17021&amp;type=2#Roboto-Bold SDF&quot;); text-shadow: -1.2px 0 12px rgba(200, 60, 60, 0.4);"/>
-        <ui:VisualElement name="main-menu-container" class="menu-container main-actions" style="bottom: 110px; left: 109px;">
+        <ui:Label text="HOP" name="title-label" class="title title-xl main-title"/>
+        <ui:VisualElement name="main-menu-container" class="menu-container main-actions">
             <ui:VisualElement class="menu-entry">
-                <ui:Button text="PLAY" name="play-button-matchmaking" class="text-button primary-action" style="font-size: 40px;"/>
+                <ui:Button text="PLAY" name="play-button-matchmaking" class="text-button primary-action"/>
             </ui:VisualElement>
             <ui:VisualElement class="menu-entry">
-                <ui:Button text="PRIVATE MATCH" name="play-button-private" class="text-button primary-action" style="font-size: 40px;"/>
+                <ui:Button text="PRIVATE MATCH" name="play-button-private" class="text-button primary-action"/>
             </ui:VisualElement>
             <ui:VisualElement class="menu-entry">
-                <ui:Button text="LOADOUT" name="loadout-button" class="text-button" style="font-size: 22px;"/>
+                <ui:Button text="LOADOUT" name="loadout-button" class="text-button"/>
             </ui:VisualElement>
             <ui:VisualElement class="menu-entry">
-                <ui:Button text="OPTIONS" name="options-button" class="text-button" style="font-size: 22px;"/>
+                <ui:Button text="OPTIONS" name="options-button" class="text-button"/>
             </ui:VisualElement>
             <ui:VisualElement class="menu-entry">
-                <ui:Button text="CREDITS" name="credits-button" class="text-button" style="font-size: 22px;"/>
+                <ui:Button text="CREDITS" name="credits-button" class="text-button"/>
             </ui:VisualElement>
             <ui:VisualElement class="menu-entry">
-                <ui:Button text="QUIT" name="quit-button" class="text-button back-button" style="font-size: 22px;"/>
+                <ui:Button text="QUIT" name="quit-button" class="text-button back-button"/>
             </ui:VisualElement>
         </ui:VisualElement>
+        <ui:VisualElement name="main-menu-challenges-container" class="main-menu-challenges-container"/>
     </ui:VisualElement>
     <ui:VisualElement name="play-gamemode-panel" picking-mode="Ignore" class="panel full-abs hidden">
         <ui:Label text="SELECT GAMEMODE" name="gamemode-title" class="title title-l gamemode-selection-header"/>
@@ -63,6 +64,7 @@
         <ui:VisualElement name="name-flex">
             <ui:VisualElement name="name-buttons-container" class="loadout-edge-container name-buttons-container card">
                 <ui:Button text="BACK" name="back-to-main-from-loadout" class="menu-chip menu-chip-enabled back-button"/>
+                <ui:Button text="CAREER" name="career-toggle-button" class="menu-chip menu-chip-enabled loadout-stats-toggle-button"/>
                 <ui:VisualElement name="name-input-container" class="name-input-container">
                     <ui:Label text=" " name="player-name-label" class="player-name-input"/>
                 </ui:VisualElement>
@@ -70,7 +72,7 @@
             </ui:VisualElement>
         </ui:VisualElement>
         <ui:VisualElement name="customization-flex">
-            <ui:VisualElement name="customization-container" class="loadout-edge-container customization-container card" style="height: 911px;">
+            <ui:VisualElement name="customization-container" class="loadout-edge-container customization-container card">
                 <ui:VisualElement name="customization-content" class="customization-content">
                     <ui:VisualElement name="color-section" class="customization-section">
                         <ui:Label text="COLOR" name="color-section-label" class="section-title"/>
@@ -87,7 +89,7 @@
                                     <ui:Slider name="color-g-slider" low-value="0" high-value="255" fill="true" class="setting-slider"/>
                                     <ui:IntegerField name="color-g-input" value="255" max-length="3" class="value-input color-rgb-input"/>
                                 </ui:VisualElement>
-                                <ui:VisualElement name="color-b-input-container" class="setting-row" style="margin-bottom: 12px;">
+                                <ui:VisualElement name="color-b-input-container" class="setting-row">
                                     <ui:Label text="B" name="color-b-label" class="setting-label color-rgb-label"/>
                                     <ui:Slider name="color-b-slider" low-value="0" high-value="255" fill="true" class="setting-slider"/>
                                     <ui:IntegerField name="color-b-input" value="255" max-length="3" class="value-input color-rgb-input"/>
@@ -95,44 +97,44 @@
                             </ui:VisualElement>
                         </ui:VisualElement>
                     </ui:VisualElement>
-                    <ui:VisualElement name="material-section" class="customization-section" style="height: 563px;">
+                    <ui:VisualElement name="material-section" class="customization-section">
                         <ui:Label text="MATERIAL" name="material-section-label" class="section-title"/>
                         <ui:VisualElement name="smoothness-container" class="setting-row">
-                            <ui:Label text="SMOOTHNESS" name="smoothness-label" class="setting-label" style="min-width: 110px;"/>
-                            <ui:Slider name="smoothness-slider" low-value="0" high-value="1" fill="true" class="setting-slider" style="min-width: auto; max-width: none; width: 160px;"/>
+                            <ui:Label text="SMOOTHNESS" name="smoothness-label" class="setting-label"/>
+                            <ui:Slider name="smoothness-slider" low-value="0" high-value="1" fill="true" class="setting-slider"/>
                             <ui:TextField name="smoothness-value" value="0.50" max-length="4" class="value-input"/>
                         </ui:VisualElement>
                         <ui:VisualElement name="metallic-container" class="setting-row">
-                            <ui:Label text="METALLIC" name="metallic-label" class="setting-label" style="min-width: 110px;"/>
-                            <ui:Slider name="metallic-slider" low-value="0" high-value="1" fill="true" class="setting-slider" style="width: 160px; min-width: auto; max-width: none;"/>
+                            <ui:Label text="METALLIC" name="metallic-label" class="setting-label"/>
+                            <ui:Slider name="metallic-slider" low-value="0" high-value="1" fill="true" class="setting-slider"/>
                             <ui:TextField name="metallic-value" value="0.00" max-length="4" class="value-input"/>
                         </ui:VisualElement>
                         <ui:VisualElement name="height-container" class="setting-row">
-                            <ui:Label text="HEIGHT" name="height-label" class="setting-label" style="min-width: 110px;"/>
-                            <ui:Slider name="height-slider" low-value="0.005" high-value="0.08" fill="true" class="setting-slider" style="width: 160px; min-width: auto; max-width: none;"/>
+                            <ui:Label text="HEIGHT" name="height-label" class="setting-label"/>
+                            <ui:Slider name="height-slider" low-value="0.005" high-value="0.08" fill="true" class="setting-slider"/>
                             <ui:TextField name="height-value" value="0.02" max-length="5" class="value-input"/>
                         </ui:VisualElement>
                         <ui:VisualElement name="emission-container" class="customization-section emission-section">
-                            <ui:VisualElement name="emission-header" class="emission-header" style="justify-content: flex-start;">
-                                <ui:Label text="GLOW" name="emission-label" class="section-title emission-title" style="width: 100%;"/>
+                            <ui:VisualElement name="emission-header" class="emission-header">
+                                <ui:Label text="GLOW" name="emission-label" class="section-title emission-title"/>
                             </ui:VisualElement>
                             <ui:Toggle text="ENABLE" name="emission-toggle" class="emission-toggle"/>
                             <ui:VisualElement name="emission-picker-container" class="color-picker-full-container emission-picker">
-                                <ui:Button name="emission-preview-box" class="color-preview-box emission-preview-box" style="margin-bottom: 15px;"/>
+                                <ui:Button name="emission-preview-box" class="color-preview-box emission-preview-box"/>
                                 <ui:VisualElement name="emission-rgb-inputs" class="color-rgb-container emission-rgb-container">
                                     <ui:VisualElement name="emission-r-input-container" class="setting-row">
                                         <ui:Label text="R" name="emission-r-label" class="setting-label color-rgb-label"/>
-                                        <ui:Slider name="emission-r-slider" low-value="0" high-value="255" fill="true" class="setting-slider" style="width: 235px; min-width: auto; max-width: none;"/>
+                                        <ui:Slider name="emission-r-slider" low-value="0" high-value="255" fill="true" class="setting-slider"/>
                                         <ui:IntegerField name="emission-r-input" value="0" max-length="3" class="value-input color-rgb-input"/>
                                     </ui:VisualElement>
                                     <ui:VisualElement name="emission-g-input-container" class="setting-row">
                                         <ui:Label text="G" name="emission-g-label" class="setting-label color-rgb-label"/>
-                                        <ui:Slider name="emission-g-slider" low-value="0" high-value="255" fill="true" class="setting-slider" style="width: 235px; min-width: auto; max-width: none;"/>
+                                        <ui:Slider name="emission-g-slider" low-value="0" high-value="255" fill="true" class="setting-slider"/>
                                         <ui:IntegerField name="emission-g-input" value="0" max-length="3" class="value-input color-rgb-input"/>
                                     </ui:VisualElement>
                                     <ui:VisualElement name="emission-b-input-container" class="setting-row">
                                         <ui:Label text="B" name="emission-b-label" class="setting-label color-rgb-label"/>
-                                        <ui:Slider name="emission-b-slider" low-value="0" high-value="255" fill="true" class="setting-slider" style="width: 235px; min-width: auto; max-width: none;"/>
+                                        <ui:Slider name="emission-b-slider" low-value="0" high-value="255" fill="true" class="setting-slider"/>
                                         <ui:IntegerField name="emission-b-input" value="0" max-length="3" class="value-input color-rgb-input"/>
                                     </ui:VisualElement>
                                 </ui:VisualElement>
@@ -179,6 +181,87 @@
                 </ui:VisualElement>
             </ui:VisualElement>
         </ui:VisualElement>
+        <ui:VisualElement name="stats-container" class="loadout-edge-container loadout-stats-container card hidden">
+            <ui:Label text="CAREER Stats" class="title"/>
+            <ui:VisualElement class="loadout-stats-level-row">
+                <ui:Label text="LEVEL 1" name="stats-level-label" class="loadout-stats-level-label"/>
+            </ui:VisualElement>
+            <ui:ProgressBar name="stats-xp-bar" class="loadout-stats-xp-bar" low-value="0" high-value="100" value="0"/>
+            <ui:Label text="0 / 100 XP" name="stats-xp-text" class="loadout-stats-xp-text"/>
+            <ui:VisualElement class="loadout-stats-grid">
+                <ui:VisualElement class="loadout-stat-row">
+                    <ui:Label text="Kills" class="loadout-stat-label"/>
+                    <ui:Label text="0" name="stats-kills" class="loadout-stat-value"/>
+                </ui:VisualElement>
+                <ui:VisualElement class="loadout-stat-row">
+                    <ui:Label text="Deaths" class="loadout-stat-label"/>
+                    <ui:Label text="0" name="stats-deaths" class="loadout-stat-value"/>
+                </ui:VisualElement>
+                <ui:VisualElement class="loadout-stat-row">
+                    <ui:Label text="KDR" class="loadout-stat-label"/>
+                    <ui:Label text="0.00" name="stats-kdr" class="loadout-stat-value"/>
+                </ui:VisualElement>
+                <ui:VisualElement class="loadout-stat-row">
+                    <ui:Label text="Highest Killstreak" class="loadout-stat-label"/>
+                    <ui:Label text="0" name="stats-streak" class="loadout-stat-value"/>
+                </ui:VisualElement>
+                <ui:VisualElement class="loadout-stat-row">
+                    <ui:Label text="Accuracy" class="loadout-stat-label"/>
+                    <ui:Label text="0%" name="stats-accuracy" class="loadout-stat-value"/>
+                </ui:VisualElement>
+                <ui:VisualElement class="loadout-stat-row">
+                    <ui:Label text="Wins" class="loadout-stat-label"/>
+                    <ui:Label text="0" name="stats-wins" class="loadout-stat-value"/>
+                </ui:VisualElement>
+                <ui:VisualElement class="loadout-stat-row">
+                    <ui:Label text="Losses" class="loadout-stat-label"/>
+                    <ui:Label text="0" name="stats-losses" class="loadout-stat-value"/>
+                </ui:VisualElement>
+                <ui:VisualElement class="loadout-stat-row">
+                    <ui:Label text="OOB Deaths" class="loadout-stat-label"/>
+                    <ui:Label text="0" name="stats-oob" class="loadout-stat-value"/>
+                </ui:VisualElement>
+                <ui:VisualElement class="loadout-stat-row">
+                    <ui:Label text="Grapples" class="loadout-stat-label"/>
+                    <ui:Label text="0" name="stats-grapples" class="loadout-stat-value"/>
+                </ui:VisualElement>
+                <ui:VisualElement class="loadout-stat-row">
+                    <ui:Label text="Jump Pads" class="loadout-stat-label"/>
+                    <ui:Label text="0" name="stats-jumppads" class="loadout-stat-value"/>
+                </ui:VisualElement>
+                <ui:VisualElement class="loadout-stat-row">
+                    <ui:Label text="Airtime" class="loadout-stat-label"/>
+                    <ui:Label text="00:00" name="stats-airtime" class="loadout-stat-value"/>
+                </ui:VisualElement>
+                <ui:VisualElement class="loadout-stat-row">
+                    <ui:Label text="Playtime" class="loadout-stat-label"/>
+                    <ui:Label text="00:00:00" name="stats-playtime" class="loadout-stat-value"/>
+                </ui:VisualElement>
+                <ui:VisualElement class="loadout-stat-row">
+                    <ui:Label text="Avg Speed" class="loadout-stat-label"/>
+                    <ui:Label text="0.0 m/s" name="stats-speed" class="loadout-stat-value"/>
+                </ui:VisualElement>
+                <ui:VisualElement class="loadout-stat-row">
+                    <ui:Label text="Ball Time" class="loadout-stat-label"/>
+                    <ui:Label text="00:00" name="stats-balltime" class="loadout-stat-value"/>
+                </ui:VisualElement>
+                <ui:VisualElement class="loadout-stat-row">
+                    <ui:Label text="Hill Time" class="loadout-stat-label"/>
+                    <ui:Label text="00:00" name="stats-hilltime" class="loadout-stat-value"/>
+                </ui:VisualElement>
+                <ui:VisualElement class="loadout-stat-row">
+                    <ui:Label text="Time Tagged" class="loadout-stat-label"/>
+                    <ui:Label text="00:00" name="stats-taggedtime" class="loadout-stat-value"/>
+                </ui:VisualElement>
+            </ui:VisualElement>
+        </ui:VisualElement>
+        <ui:VisualElement name="challenges-container" class="loadout-edge-container loadout-challenges-container card hidden">
+            <ui:VisualElement class="loadout-challenges-wip-wrap">
+                <ui:Label text="WIP" class="loadout-challenges-wip"/>
+            </ui:VisualElement>
+            <ui:VisualElement name="stats-challenges-list" class="hidden"/>
+            <ui:VisualElement name="stats-weekly-challenges-list" class="hidden"/>
+        </ui:VisualElement>
     </ui:VisualElement>
     <ui:VisualElement name="material-packet-panel" class="panel full-abs hidden material-packet-panel">
         <ui:VisualElement name="material-packet-container" class="material-packet-container card">
@@ -191,7 +274,7 @@
             </ui:ScrollView>
         </ui:VisualElement>
     </ui:VisualElement>
-    <ui:VisualElement name="player-model-viewport" class="player-model-viewport" style="left: 18%; right: 21%; bottom: 15%; top: 0%;"/>
+    <ui:VisualElement name="player-model-viewport" class="player-model-viewport"/>
     <ui:VisualElement name="options-panel" class="panel full-abs center-xy hidden">
         <ui:VisualElement name="options-container" class="options-container card">
             <ui:Label text="OPTIONS" name="options-label" class="title"/>
@@ -201,7 +284,7 @@
                 <ui:Button text="GAME" name="tab-game" class="options-tab"/>
                 <ui:Button text="CONTROLS" name="tab-controls" class="options-tab"/>
             </ui:VisualElement>
-            <ui:ScrollView name="options-content-scroll" vertical-scroller-visibility="Auto" horizontal-scroller-visibility="Hidden" class="options-content-scroll" style="height: 100%; min-height: auto; max-height: none;">
+            <ui:ScrollView name="options-content-scroll" vertical-scroller-visibility="Auto" horizontal-scroller-visibility="Hidden" class="options-content-scroll">
                 <ui:VisualElement name="options-content" class="options-content">
                     <ui:VisualElement name="video-content" class="options-tab-content">
                         <ui:VisualElement name="window-mode-container" class="setting-row">
@@ -401,7 +484,7 @@
                     <ui:Image name="main-credits-logo" class="main-credits-logo"/>
                 </ui:VisualElement>
                 <ui:Label text="Made in Unity by whosteenie" name="credits-text" class="credits-text"/>
-                <ui:Label text="v0.0.0" name="version-text" class="credits-text" style="font-size: 14px; opacity: 0.5; margin-top: 5px;"/>
+                <ui:Label text="v0.0.0" name="version-text" class="credits-text"/>
                 <ui:VisualElement name="logo-container" class="logo-container">
                     <ui:Image name="credits-logo" class="credits-logo"/>
                 </ui:VisualElement>
@@ -411,7 +494,9 @@
             </ui:VisualElement>
         </ui:VisualElement>
     </ui:VisualElement>
-    <ui:VisualElement name="toast-container" enabled="false" class="toast-container"/>
+    <ui:VisualElement name="toast-container" enabled="false" class="toast-container">
+        <ui:Label text="" name="toast" class="toast hide"/>
+    </ui:VisualElement>
     <ui:VisualElement name="unsaved-changes-modal" class="unsaved-changes-modal full-abs hidden">
         <ui:VisualElement name="unsaved-changes-container" class="unsaved-changes-container card">
             <ui:Label text="UNSAVED CHANGES" name="unsaved-changes-title" class="title"/>
@@ -465,11 +550,11 @@
     </ui:VisualElement>
     <ui:VisualElement name="party-container" picking-mode="Ignore" class="party-container">
         <ui:VisualElement name="party-members-list" picking-mode="Ignore" class="party-members-row"/>
-        <ui:Button name="invite-friends-button" text="" class="invite-button menu-chip" style="margin-right: 0;">
+        <ui:Button name="invite-friends-button" text="" class="invite-button menu-chip">
             <ui:Image name="invite-icon" class="plus-icon"/>
         </ui:Button>
         <ui:VisualElement name="party-separator" class="party-separator"/>
-        <ui:VisualElement name="local-player-profile" picking-mode="Ignore" class="local-player-profile" style="height: auto; width: auto; min-width: 150px; min-height: 42px;"/>
+        <ui:VisualElement name="local-player-profile" picking-mode="Ignore" class="local-player-profile"/>
     </ui:VisualElement>
     <ui:VisualElement name="status-container" picking-mode="Ignore" class="status-container hidden">
         <ui:VisualElement name="status-info" picking-mode="Ignore" class="status-info-grouping">
@@ -482,7 +567,7 @@
         <ui:Button text="Cancel" name="cancel-matchmaking-button" picking-mode="Position" class="menu-chip cancel-button"/>
     </ui:VisualElement>
     <ui:VisualElement name="loading-overlay" picking-mode="Ignore" class="loading-overlay hidden"/>
-    <ui:VisualElement name="context-menu-backdrop" picking-mode="Position" class="full-abs hidden" style="background-color: rgba(0, 0, 0, 0.01);"/>
+    <ui:VisualElement name="context-menu-backdrop" picking-mode="Position" class="full-abs hidden"/>
     <ui:VisualElement name="party-context-menu" picking-mode="Position" class="context-menu hidden">
         <ui:Button text="View Profile" name="ctx-profile" class="context-menu-item"/>
         <ui:Button text="Steam Profile" name="ctx-steam-profile" class="context-menu-item"/>

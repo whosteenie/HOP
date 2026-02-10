@@ -53,8 +53,8 @@ namespace Game.UI {
         protected override void OnEnable() {
             base.OnEnable();
             // Subscribe to scene changes to update cache
+            SceneManager.sceneLoaded -= OnSceneLoaded;
             SceneManager.sceneLoaded += OnSceneLoaded;
-            RegisterCleanup(() => SceneManager.sceneLoaded -= OnSceneLoaded);
         }
         
         protected override void OnDisable() {

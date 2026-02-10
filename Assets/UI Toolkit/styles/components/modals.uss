@@ -1,0 +1,90 @@
+/* ===== UNSAVED CHANGES DIALOG ===== */
+.unsaved-changes-modal {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    top: 0;
+    left: 0;
+    align-items: center;
+    justify-content: center;
+    background-color: rgba(0, 0, 0, 0.95); /* More opaque background for modals */
+}
+
+.unsaved-changes-container {
+    width: 450px;
+    padding: 32px;
+    flex-direction: column;
+    align-items: center;
+}
+
+/* Hide the unsaved changes title */
+#unsaved-changes-title {
+    display: none;
+}
+
+.unsaved-changes-message {
+    font-size: 16px;
+    color: rgb(220, 220, 220);
+    margin-top: 12px;
+    margin-bottom: 24px;
+    -unity-text-align: middle-center;
+}
+
+.unsaved-changes-buttons {
+    flex-direction: row;
+    width: 100%;
+    justify-content: center;
+}
+
+.unsaved-changes-yes {
+    margin-right: 12px;
+}
+
+.unsaved-changes-no {
+    margin-left: 12px;
+    margin-right: 12px;
+}
+
+.unsaved-changes-cancel {
+    margin-left: 12px;
+}
+
+/* ===== QUIT CONFIRMATION DIALOG ===== */
+/* Reuses unsaved-changes-modal styles, but with different button layout */
+#quit-confirmation-title {
+    display: none;
+}
+
+.quit-confirmation-buttons {
+    flex-direction: row;
+    width: 100%;
+    justify-content: center;
+}
+
+.quit-confirmation-yes {
+    margin-right: 12px;
+}
+
+.quit-confirmation-no {
+    margin-left: 12px;
+}
+
+/* ===== LOBBY LEAVE DIALOG ===== */
+/* Reuses unsaved-changes-modal styles, but with different button layout */
+#lobby-leave-title {
+    display: none;
+}
+
+.lobby-leave-buttons {
+    flex-direction: row;
+    width: 100%;
+    justify-content: center;
+}
+
+.lobby-leave-yes {
+    margin-right: 12px;
+}
+
+.lobby-leave-no {
+    margin-left: 12px;
+}

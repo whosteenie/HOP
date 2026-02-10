@@ -58,11 +58,11 @@ namespace Game.Match {
         private Label _podiumThirdKills;
 
         // HUD elements for hiding/showing
-        private VisualElement _hudPanel;
         private VisualElement _matchTimerContainer;
 
         private PostMatchXpDisplay _xpDisplay;
         private Coroutine _podiumWorldSpaceTrackingRoutine;
+        private bool _missingUiReferenceLogged;
 
         private ulong _firstPlacePlayerId = ulong.MaxValue;
         private ulong _secondPlacePlayerId = ulong.MaxValue;
@@ -108,9 +108,12 @@ namespace Game.Match {
             } else if(_xpDisplay.uiDocument == null) {
                 _xpDisplay.uiDocument = uiDocument;
             }
-            
-            InitializeUI();
-            ResetPostMatchUiState();
+        }
+
+        private void Start() {
+            if(EnsureUiReferencesBound()) {
+                ResetPostMatchUiState();
+            }
         }
 
         private void InitializeUI() {
@@ -131,8 +134,68 @@ namespace Game.Match {
             _podiumThirdKills = _root.Q<Label>("podium-third-kills");
 
             // HUD elements
-            _hudPanel = _root.Q<VisualElement>("hud-panel");
             _matchTimerContainer = _root.Q<VisualElement>("match-timer-container");
+        }
+
+        private bool EnsureUiReferencesBound() {
+            if(uiDocument == null) {
+                uiDocument = GetComponent<UIDocument>();
+            }
+
+            if(uiDocument == null) {
+                if(!_missingUiReferenceLogged) {
+                    Debug.LogError("[PostMatchManager] UIDocument is missing; cannot bind post-match UI references.", this);
+                    _missingUiReferenceLogged = true;
+                }
+                return false;
+            }
+
+            if(_xpDisplay == null) {
+                _xpDisplay = xpDisplay != null ? xpDisplay : GetComponent<PostMatchXpDisplay>();
+            }
+            if(_xpDisplay != null && _xpDisplay.uiDocument == null) {
+                _xpDisplay.uiDocument = uiDocument;
+            }
+
+            var currentRoot = uiDocument.rootVisualElement;
+            if(currentRoot == null) {
+                if(!_missingUiReferenceLogged) {
+                    Debug.LogError("[PostMatchManager] UIDocument rootVisualElement is null; cannot bind post-match UI references.", this);
+                    _missingUiReferenceLogged = true;
+                }
+                return false;
+            }
+
+            if(!ReferenceEquals(_root, currentRoot) || _podiumContainer == null || _matchTimerContainer == null) {
+                _root = currentRoot;
+                InitializeUI();
+            }
+
+            var hasRequiredPodiumElements =
+                _podiumContainer != null &&
+                _podiumFirstSlot != null &&
+                _podiumSecondSlot != null &&
+                _podiumThirdSlot != null &&
+                _podiumFirstName != null &&
+                _podiumSecondName != null &&
+                _podiumThirdName != null &&
+                _podiumFirstKills != null &&
+                _podiumSecondKills != null &&
+                _podiumThirdKills != null;
+
+            if(!hasRequiredPodiumElements || _matchTimerContainer == null) {
+                if(!_missingUiReferenceLogged) {
+                    Debug.LogError(
+                        "[PostMatchManager] Required post-match UI elements are missing from GameMenu.uxml. " +
+                        "Expected podium slots/labels and match-timer-container.",
+                        this);
+                    _missingUiReferenceLogged = true;
+                }
+                return false;
+            }
+
+            _missingUiReferenceLogged = false;
+            return true;
         }
 
         public override void OnNetworkDespawn() {
@@ -355,6 +418,7 @@ namespace Game.Match {
         [Rpc(SendTo.Everyone)]
         private void RequestFadeToPodiumClientRpc() {
             try {
+                EnsureUiReferencesBound();
                 ResetPostMatchUiState();
 
                 // Fade to black using respawn fade overlay (appears above HUD but below pause menu)
@@ -509,6 +573,7 @@ namespace Game.Match {
             string firstName, int firstKills,
             string secondName, int secondKills,
             string thirdName, int thirdKills) {
+            if(!EnsureUiReferencesBound()) return;
             if(_podiumContainer == null)
                 return;
 
@@ -561,9 +626,7 @@ namespace Game.Match {
         /// Hides only the in-game HUD elements, but leaves pause/scoreboard usable.
         /// </summary>
         private void HideInGameHudForPostMatch() {
-            // If for any reason the whole HUD panel == null, bail gracefully.
-            if(_hudPanel == null)
-                return;
+            EnsureUiReferencesBound();
 
             // Hide individual HUD elements
             if(KillFeedManager.Instance != null)
@@ -582,11 +645,8 @@ namespace Game.Match {
         }
 
         public void ShowInGameHudAfterPostMatch() {
+            EnsureUiReferencesBound();
             ResetPostMatchUiState();
-
-            // If for any reason the whole HUD panel == null, bail gracefully.
-            if(_hudPanel == null)
-                return;
 
             // Show individual HUD elements
             if(KillFeedManager.Instance != null)
@@ -605,9 +665,11 @@ namespace Game.Match {
         }
 
         private void StartPodiumWorldSpaceTracking() {
+            if(!EnsureUiReferencesBound()) return;
             StopPodiumWorldSpaceTracking();
             if(_podiumContainer == null) return;
 
+            PrepareContainerForWorldSpacePositioning(_podiumContainer);
             PrepareSlotForWorldSpacePositioning(_podiumFirstSlot);
             PrepareSlotForWorldSpacePositioning(_podiumSecondSlot);
             PrepareSlotForWorldSpacePositioning(_podiumThirdSlot);
@@ -645,19 +707,23 @@ namespace Game.Match {
             Camera worldCamera) {
             if(slot == null) return;
 
-            if(TryGetPodiumPlayer(playerId, out var player) == false || player == null) {
+            Vector3 targetWorldPosition;
+            if(TryGetPodiumPlayer(playerId, out var player) && player != null) {
+                targetWorldPosition = GetPlayerFeetWorldPosition(player);
+            } else if(slotAnchor != null) {
+                targetWorldPosition = slotAnchor.position;
+            } else {
                 slot.style.display = DisplayStyle.None;
                 return;
             }
 
-            var feetWorld = GetPlayerFeetWorldPosition(player);
-            var feetScreen = worldCamera.WorldToScreenPoint(feetWorld);
+            var feetScreen = worldCamera.WorldToScreenPoint(targetWorldPosition);
             if(feetScreen.z <= 0f) {
                 slot.style.display = DisplayStyle.None;
                 return;
             }
 
-            var panelFeet = RuntimePanelUtils.CameraTransformWorldToPanel(_root.panel, feetWorld, worldCamera);
+            var panelFeet = RuntimePanelUtils.CameraTransformWorldToPanel(_root.panel, targetWorldPosition, worldCamera);
             var slotWidth = GetResolvedLength(slot.resolvedStyle.width, 200f);
             var slotHeight = GetResolvedLength(slot.resolvedStyle.height, 88f);
             var downOffsetPx = ComputeBelowFeetOffsetPixels(slotAnchor, worldCamera);
@@ -697,9 +763,24 @@ namespace Game.Match {
             return float.IsNaN(value) || value <= 0f ? fallback : value;
         }
 
+        private static void PrepareContainerForWorldSpacePositioning(VisualElement container) {
+            if(container == null) return;
+            container.style.position = Position.Absolute;
+            container.style.left = 0f;
+            container.style.top = 0f;
+            container.style.right = 0f;
+            container.style.bottom = 0f;
+            container.style.width = Length.Percent(100f);
+            container.style.height = Length.Percent(100f);
+            container.style.overflow = Overflow.Visible;
+            container.style.translate = new Translate(0f, 0f);
+        }
+
         private static void PrepareSlotForWorldSpacePositioning(VisualElement slot) {
             if(slot == null) return;
             slot.style.position = Position.Absolute;
+            slot.style.left = StyleKeyword.Null;
+            slot.style.top = StyleKeyword.Null;
             slot.style.bottom = StyleKeyword.Null;
             slot.style.right = StyleKeyword.Null;
             slot.style.translate = new Translate(0f, 0f);
@@ -745,6 +826,7 @@ namespace Game.Match {
         }
 
         private void ResetPostMatchUiState() {
+            EnsureUiReferencesBound();
             StopPodiumWorldSpaceTracking();
 
             _firstPlacePlayerId = ulong.MaxValue;

@@ -6,12 +6,11 @@ using Game.Progression;
 
 namespace Game.UI {
     public class PostMatchXpDisplay : UIElementBase {
-        [Header("UI Templates")]
-        [SerializeField] private VisualTreeAsset xpDisplayTemplate;
         private VisualElement _xpContainer;
         private ProgressBar _xpBar;
         private Label _levelLabel;
         private Label _xpGainedLabel;
+        private Coroutine _xpAnimationRoutine;
 
         protected override void Awake() {
             base.Awake();
@@ -19,97 +18,54 @@ namespace Game.UI {
         }
 
         protected override void OnInitialize() {
-            CreateXpBarUI();
+            _xpContainer = QRequired<VisualElement>("xp-postmatch-container");
+            _levelLabel = QRequired<Label>("level-label");
+            _xpBar = QRequired<ProgressBar>("xp-bar");
+            _xpGainedLabel = QRequired<Label>("xp-gained-label");
+            if(_xpContainer != null) {
+                _xpContainer.style.display = DisplayStyle.None;
+                _xpContainer.AddToClassList("hidden");
+            }
         }
 
         protected override Dictionary<string, System.Type> GetRequiredElements() {
-            return new Dictionary<string, System.Type>();
-        }
-
-        private void CreateXpBarUI() {
-            if(Root == null) return;
-
-            if(xpDisplayTemplate != null) {
-                _xpContainer = xpDisplayTemplate.CloneTree();
-                _levelLabel = _xpContainer.Q<Label>("level-label");
-                _xpBar = _xpContainer.Q<ProgressBar>("xp-bar");
-                _xpGainedLabel = _xpContainer.Q<Label>("xp-gained-label");
-            } else {
-                // Fallback: create in code
-                _xpContainer = new VisualElement {
-                    name = "xp-postmatch-container",
-                    style = {
-                        position = Position.Absolute,
-                        bottom = 100,
-                        width = Length.Percent(40),
-                        left = Length.Percent(30),
-                        backgroundColor = new StyleColor(new Color(0, 0, 0, 0.7f)),
-                        paddingTop = 10,
-                        paddingBottom = 10,
-                        paddingLeft = 20,
-                        paddingRight = 20,
-                        borderTopLeftRadius = 10,
-                        borderTopRightRadius = 10,
-                        borderBottomLeftRadius = 10,
-                        borderBottomRightRadius = 10,
-                        display = DisplayStyle.None
-                    }
-                };
-                _levelLabel = new Label("LEVEL 1") {
-                    style = {
-                        color = Color.white,
-                        fontSize = 24,
-                        unityFontStyleAndWeight = FontStyle.Bold,
-                        alignSelf = Align.Center,
-                        marginBottom = 5
-                    }
-                };
-                _xpContainer.Add(_levelLabel);
-                _xpBar = new ProgressBar {
-                    style = { height = 30 }
-                };
-                _xpContainer.Add(_xpBar);
-                _xpGainedLabel = new Label("+0 XP") {
-                    style = {
-                        color = new StyleColor(new Color(0.2f, 1f, 0.2f)),
-                        fontSize = 20,
-                        alignSelf = Align.Center,
-                        marginTop = 5
-                    }
-                };
-                _xpContainer.Add(_xpGainedLabel);
-            }
-
-            Root.Add(_xpContainer);
+            return new Dictionary<string, System.Type> {
+                { "xp-postmatch-container", typeof(VisualElement) },
+                { "level-label", typeof(Label) },
+                { "xp-bar", typeof(ProgressBar) },
+                { "xp-gained-label", typeof(Label) }
+            };
         }
 
         public void ShowXp(int oldLevel, int oldXp, int currentLevel, int currentXp, int xpGained, int nextLevelXp) {
-            if (_xpContainer == null) return;
+            if(!IsInitialized) {
+                Initialize();
+            }
+            if(_xpContainer == null || _xpBar == null || _levelLabel == null || _xpGainedLabel == null) return;
 
             _xpContainer.style.display = DisplayStyle.Flex;
-            
-            // Set Initial State (Old State)
-            // If we leveled up, handling the bar animation is tricky.
-            // Simplified: Show final state for now, optimize animation later.
-            // User requested "filling up".
+            _xpContainer.RemoveFromClassList("hidden");
 
-            StartCoroutine(AnimateXp(oldLevel, oldXp, currentLevel, currentXp, xpGained, nextLevelXp));
+            if(_xpAnimationRoutine != null) {
+                StopCoroutine(_xpAnimationRoutine);
+                _xpAnimationRoutine = null;
+            }
+
+            _xpAnimationRoutine = StartCoroutine(AnimateXp(oldLevel, oldXp, currentLevel, currentXp, xpGained, nextLevelXp));
         }
 
         private IEnumerator AnimateXp(int startLevel, int startXp, int endLevel, int endXp, int gained, int nextLevelXp) {
+            var progression = ProgressionManager.Instance;
+            if(progression == null) {
+                Debug.LogWarning("[PostMatchXpDisplay] ProgressionManager is null; cannot animate XP display.");
+                _xpAnimationRoutine = null;
+                yield break;
+            }
+
             _levelLabel.text = $"LEVEL {startLevel}";
             _xpGainedLabel.text = $"+{gained} XP";
-            
-            // Calculate progress 0-1
-            // Assumption: startXP and endXP are Total XP? Or generic?
-            // ProgressionManager stores CurrentXP (current level progress) and TotalXP.
-            // Let's assume passed values are CurrentXP relative to Level.
-            
-            // Note: If we leveled up, startXP would be high, endXP low.
-            // Need max XP for startLevel.
-            // We need ProgressionManager to tell us MaxXP for levels.
-            
-            var maxXp = ProgressionManager.Instance.GetXpRequiredForLevel(startLevel);
+
+            var maxXp = progression.GetXpRequiredForLevel(startLevel);
             
             _xpBar.lowValue = 0;
             _xpBar.highValue = maxXp;
@@ -146,7 +102,7 @@ namespace Game.UI {
                 // Boom/Flash effect here?
 
                 // 3. Fill Remainder
-                var maxXpNew = ProgressionManager.Instance.GetXpRequiredForLevel(endLevel);
+                var maxXpNew = progression.GetXpRequiredForLevel(endLevel);
                 _xpBar.highValue = maxXpNew;
                 _xpBar.value = 0;
                 
@@ -160,10 +116,19 @@ namespace Game.UI {
             }
 
             _xpBar.value = endXp;
+            _xpAnimationRoutine = null;
         }
 
         public void Hide() {
-             if (_xpContainer != null) _xpContainer.style.display = DisplayStyle.None;
+            if(_xpAnimationRoutine != null) {
+                StopCoroutine(_xpAnimationRoutine);
+                _xpAnimationRoutine = null;
+            }
+
+            if(_xpContainer != null) {
+                _xpContainer.style.display = DisplayStyle.None;
+                _xpContainer.AddToClassList("hidden");
+            }
         }
     }
 }
