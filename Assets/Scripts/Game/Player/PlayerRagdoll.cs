@@ -178,9 +178,11 @@ namespace Game.Player {
         private void DisableRagdollPhysics() {
             foreach(var rb in _ragdollRigidbodies) {
                 if(rb == null) continue;
-                // Set velocities BEFORE making kinematic (can't set velocity on kinematic bodies)
-                rb.linearVelocity = Vector3.zero;
-                rb.angularVelocity = Vector3.zero;
+                // Unity warns if velocity is written while already kinematic.
+                if(!rb.isKinematic) {
+                    rb.linearVelocity = Vector3.zero;
+                    rb.angularVelocity = Vector3.zero;
+                }
                 rb.isKinematic = true; // Make kinematic to prevent physics interactions
                 rb.detectCollisions = true; // Keep true for raycast hit detection
                 rb.useGravity = false;
