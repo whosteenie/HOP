@@ -134,20 +134,16 @@ namespace Game.Menu {
             // Handle Matchmaking Status & Locking
             var isSearching = SessionManager.Instance.IsSearching;
             var showStatus = SessionManager.Instance.ShowMatchmakingStatus;
-            var isPartyMember =
-                SessionManager.Instance.CurrentLobby.HasValue && !SessionManager.Instance.IsPartyLeader;
+            var isPartyMember = SessionManager.Instance.IsPartyMemberResolved;
 
             var steamOnline = SteamClient.IsValid && SteamClient.IsLoggedOn;
 
             var isNetworkOffline = Application.internetReachability == NetworkReachability.NotReachable;
             // Update UI constraints based on party state
-            var currentPartySize = SessionManager.Instance.CurrentLobby.HasValue
-                ? SessionManager.Instance.CurrentLobby.Value.MemberCount
-                : 1;
+            var currentPartySize = SessionManager.Instance.CurrentPartySize;
 
             if(_inviteButton != null) {
-                var canInvite = currentPartySize < 10 && (!SessionManager.Instance.CurrentLobby.HasValue 
-                                                          || SessionManager.Instance.IsPartyLeader);
+                var canInvite = currentPartySize < 10 && SessionManager.Instance.IsLocalPartyLeaderResolved;
                 if(isSearching) canInvite = false;
 
                 _inviteButton.style.display = canInvite ? DisplayStyle.Flex : DisplayStyle.None;
@@ -344,8 +340,7 @@ namespace Game.Menu {
             if(uiManager.CtxProfile != null) uiManager.CtxProfile.style.display = DisplayStyle.Flex;
             if(uiManager.CtxSteamProfile != null) uiManager.CtxSteamProfile.style.display = DisplayStyle.Flex;
 
-            var isSolo = SessionManager.Instance != null && SessionManager.Instance.CurrentLobby.HasValue &&
-                         SessionManager.Instance.CurrentLobby.Value.MemberCount <= 1;
+            var isSolo = SessionManager.Instance == null || SessionManager.Instance.HasRealPartyMembers == false;
             var showLeave = isMe && !isSolo;
             if(uiManager.CtxLeave != null)
                 uiManager.CtxLeave.style.display = showLeave ? DisplayStyle.Flex : DisplayStyle.None;
@@ -396,6 +391,12 @@ namespace Game.Menu {
 
             switch(action) {
                 case "Leave":
+                    if(SessionManager.Instance != null && SessionManager.Instance.HasRealPartyMembers == false) {
+                        if(uiManager != null) {
+                            uiManager.ShowToast("You're not in a party.");
+                        }
+                        break;
+                    }
                     // Trigger Leave Logic
                     SessionManager.Instance.LeaveLobby();
                     // TODO: This might need confirmation modal?

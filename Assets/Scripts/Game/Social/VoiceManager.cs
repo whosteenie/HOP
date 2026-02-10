@@ -22,6 +22,7 @@ namespace Game.Social {
         private string _currentChannelName;
         private bool _isJoiningChannel;
         private string _joiningChannelName;
+        private string _loggedInIdentity;
         private readonly Dictionary<string, Action> _participantSpeechActions = new();
         
         // Events
@@ -78,21 +79,57 @@ namespace Game.Social {
                 VivoxService.Instance.ParticipantRemovedFromChannel += OnParticipantRemovedFromChannel;
 
                 // Login automatically if we have a user
-                if(SteamClient.IsValid && SteamClient.IsLoggedOn) {
-                    await LoginAsync(SteamClient.SteamId.ToString(), StreamerMode.GetLocalDisplayName());
-                } else {
-                    var ugsId = AuthenticationService.Instance.PlayerId;
-                    if(!string.IsNullOrEmpty(ugsId)) {
-                        await LoginAsync(ugsId, StreamerMode.LocalDisplayName);
-                    }
-                }
+                await EnsureLoggedInForCurrentIdentityAsync();
 
             } catch (Exception e) {
                 Debug.LogError($"[VoiceManager] Initialization Failed: {e.Message}");
             }
         }
 
-        private async Task LoginAsync(string uniqueId, string displayName) {
+        private static bool IsVivoxClaimsMismatch(Exception ex) {
+            if(ex == null || string.IsNullOrEmpty(ex.Message)) return false;
+            return ex.Message.IndexOf("claims mismatch", StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
+        private static string ResolvePreferredIdentity() {
+            if(SteamClient.IsValid && SteamClient.IsLoggedOn) {
+                return SteamClient.SteamId.ToString();
+            }
+
+            var ugsId = AuthenticationService.Instance.PlayerId;
+            return string.IsNullOrEmpty(ugsId) ? null : ugsId;
+        }
+
+        private static string ResolvePreferredDisplayName() {
+            return StreamerMode.GetLocalDisplayName();
+        }
+
+        private async Task<bool> EnsureLoggedInForCurrentIdentityAsync(bool forceRelogin = false) {
+            if(!IsInitialized || VivoxService.Instance == null) return false;
+
+            var identity = ResolvePreferredIdentity();
+            if(string.IsNullOrEmpty(identity)) return false;
+
+            if(!forceRelogin && IsLoggedIn && string.Equals(_loggedInIdentity, identity, StringComparison.Ordinal)) {
+                return true;
+            }
+
+            if(VivoxService.Instance.IsLoggedIn) {
+                try {
+                    await VivoxService.Instance.LogoutAsync();
+                } catch {
+                    // Continue to login attempt even if logout reports stale state.
+                }
+            }
+
+            IsLoggedIn = false;
+            _currentChannelName = null;
+
+            await LoginAsync(identity, ResolvePreferredDisplayName(), joinLobbyChannelIfPresent: false);
+            return IsLoggedIn;
+        }
+
+        private async Task LoginAsync(string uniqueId, string displayName, bool joinLobbyChannelIfPresent = true) {
             if(!IsInitialized) return;
             
             try {
@@ -103,12 +140,13 @@ namespace Game.Social {
                 };
                 await VivoxService.Instance.LoginAsync(options);
                 IsLoggedIn = true;
+                _loggedInIdentity = uniqueId;
                 
                 ApplySettings(); // Apply initial volume/settings
                 await ApplySavedMicSettingsAsync();
                 
                 // Check if we're already in a lobby - join voice channel now
-                if (Network.SessionManager.Instance != null && Network.SessionManager.Instance.CurrentLobby.HasValue) {
+                if (joinLobbyChannelIfPresent && Network.SessionManager.Instance != null && Network.SessionManager.Instance.CurrentLobby.HasValue) {
                     var lobbyId = Network.SessionManager.Instance.CurrentLobby.Value.Id;
                     await JoinChannelAsync("match_" + lobbyId);
                 }
@@ -119,11 +157,6 @@ namespace Game.Social {
         }
 
         public async Task JoinChannelAsync(string channelName, bool positional = true) {
-            if(!IsLoggedIn) {
-                Debug.LogWarning("[VoiceManager] JoinChannelAsync called before login!");
-                return;
-            }
-
             if(string.IsNullOrEmpty(channelName)) {
                 return;
             }
@@ -148,30 +181,46 @@ namespace Game.Social {
             _joiningChannelName = channelName;
             
             try {
-                // Leave old channel if needed (only if we are actually in it).
-                if(!string.IsNullOrEmpty(_currentChannelName)) {
-                    if(VivoxService.Instance != null && VivoxService.Instance.ActiveChannels.ContainsKey(_currentChannelName)) {
-                        Debug.Log($"[VoiceManager] Leaving old channel '{_currentChannelName}' before joining '{channelName}'");
-                        await VivoxService.Instance.LeaveChannelAsync(_currentChannelName);
+                for(var attempt = 1; attempt <= 2; attempt++) {
+                    if(await EnsureLoggedInForCurrentIdentityAsync() == false) {
+                        Debug.LogWarning("[VoiceManager] JoinChannelAsync aborted because Vivox login is unavailable.");
+                        return;
                     }
-                    _currentChannelName = null;
-                }
-                
-                if (positional) {
-                    // 3D Positional Channel
-                    var channel3D = new Channel3DProperties(32, 1, 1.0f, AudioFadeModel.InverseByDistance);
-                    Debug.Log($"[VoiceManager] Joining positional channel: {channelName}");
-                    await VivoxService.Instance.JoinPositionalChannelAsync(channelName, ChatCapability.AudioOnly, channel3D);
-                } else {
-                    // 2D Team Channel
-                    Debug.Log($"[VoiceManager] Joining group channel: {channelName}");
-                    await VivoxService.Instance.JoinGroupChannelAsync(channelName, ChatCapability.AudioOnly);
-                }
 
-                _currentChannelName = channelName;
-                
-                Debug.Log($"[VoiceManager] Successfully joined channel: {channelName}. ActiveChannels Count: {VivoxService.Instance.ActiveChannels.Count}");
+                    try {
+                        // Leave old channel if needed (only if we are actually in it).
+                        if(!string.IsNullOrEmpty(_currentChannelName)) {
+                            if(VivoxService.Instance != null && VivoxService.Instance.ActiveChannels.ContainsKey(_currentChannelName)) {
+                                Debug.Log($"[VoiceManager] Leaving old channel '{_currentChannelName}' before joining '{channelName}'");
+                                await VivoxService.Instance.LeaveChannelAsync(_currentChannelName);
+                            }
+                            _currentChannelName = null;
+                        }
+                        
+                        if (positional) {
+                            // 3D Positional Channel
+                            var channel3D = new Channel3DProperties(32, 1, 1.0f, AudioFadeModel.InverseByDistance);
+                            Debug.Log($"[VoiceManager] Joining positional channel: {channelName}");
+                            await VivoxService.Instance.JoinPositionalChannelAsync(channelName, ChatCapability.AudioOnly, channel3D);
+                        } else {
+                            // 2D Team Channel
+                            Debug.Log($"[VoiceManager] Joining group channel: {channelName}");
+                            await VivoxService.Instance.JoinGroupChannelAsync(channelName, ChatCapability.AudioOnly);
+                        }
 
+                        _currentChannelName = channelName;
+                        Debug.Log($"[VoiceManager] Successfully joined channel: {channelName}. ActiveChannels Count: {VivoxService.Instance.ActiveChannels.Count}");
+                        return;
+                    } catch(Exception ex) {
+                        if(attempt == 1 && IsVivoxClaimsMismatch(ex)) {
+                            Debug.LogWarning("[VoiceManager] Vivox token claims mismatch detected. Re-authenticating Vivox identity and retrying once...");
+                            await EnsureLoggedInForCurrentIdentityAsync(forceRelogin: true);
+                            continue;
+                        }
+
+                        throw;
+                    }
+                }
             } catch (Exception e) {
                 Debug.LogError($"[VoiceManager] Join Channel Failed: {e.Message}");
             } finally {

@@ -80,6 +80,44 @@ namespace Network {
         private const string GameSceneName = "Game";
         public string CurrentPartyId { get; private set; }
         public bool IsPartyLeader { get; private set; }
+        public int CurrentPartySize {
+            get {
+                if(CurrentLobby.HasValue) {
+                    var memberCount = CurrentLobby.Value.MemberCount;
+                    return memberCount > 0 ? memberCount : 1;
+                }
+
+                if(_ugsPartyLobby != null && _ugsPartyLobby.Players != null && _ugsPartyLobby.Players.Count > 0) {
+                    return _ugsPartyLobby.Players.Count;
+                }
+
+                return 1;
+            }
+        }
+        public bool HasRealPartyMembers => CurrentPartySize > 1;
+        public bool IsLocalPartyLeaderResolved {
+            get {
+                // Solo users are always considered leaders of their own backend party context.
+                if(HasRealPartyMembers == false) return true;
+
+                if(CurrentLobby.HasValue && SteamClient.IsValid) {
+                    var localSteamId = SteamClient.SteamId;
+                    if(localSteamId != 0) {
+                        return CurrentLobby.Value.Owner.Id == localSteamId;
+                    }
+                }
+
+                if(_ugsPartyLobby != null) {
+                    var localUgsId = AuthenticationService.Instance.PlayerId;
+                    if(string.IsNullOrEmpty(localUgsId) == false) {
+                        return _ugsPartyLobby.HostId == localUgsId;
+                    }
+                }
+
+                return IsPartyLeader;
+            }
+        }
+        public bool IsPartyMemberResolved => HasRealPartyMembers && !IsLocalPartyLeaderResolved;
 
         private const string HostAddressKey = "HostAddress";
         private const string GameModeKey = "GameMode";
@@ -115,6 +153,7 @@ namespace Network {
         private bool _ugsLocalReadySubmitted;
         private bool _ugsClientStartedForMatch;
         private bool _ugsHostPreFadedOut;
+        private string _lastFailedFollowMatchLobbyId;
 
         // ===== Matchmaker state =====
         private string _matchmakerTicketId;
@@ -929,6 +968,10 @@ namespace Network {
                 ("phase", Phase),
                 ("gameplay", IsInGameplay));
 
+            var partyIdSnapshot = CurrentPartyId;
+            var wasPartyLeaderSnapshot = WasLocalPartyLeader();
+            var hadOtherPartyMembersSnapshot = HasOtherPartyMembers();
+
             // Cancel any active matchmaking first
             ClearMatchmakingState();
 
@@ -941,6 +984,8 @@ namespace Network {
 
             if(shouldFade && SceneTransitionManager.Instance != null)
                 await SceneTransitionManager.Instance.FadeOut().ToUniTask();
+
+            await ResetUgsPartyFollowStateIfHostAsync();
 
             LeaveLobby();
             ClearUgsMatchState(); // Clear UGS match lobby state
@@ -959,30 +1004,59 @@ namespace Network {
             }
 
             if(currentScene != "MainMenu") {
-                if(IsPartyLeader) {
+                if(wasPartyLeaderSnapshot) {
                     Debug.Log("[SessionManager] Returning to menu as Party Leader. Re-hosting party lobby...");
-                    CreatePrivateLobbyAsync().Forget();
-                } else if(!string.IsNullOrEmpty(CurrentPartyId)) {
+                    RehostPrivateLobbyAfterReturnAsync().Forget();
+                } else if(!string.IsNullOrEmpty(partyIdSnapshot) && hadOtherPartyMembersSnapshot) {
                     Debug.Log("[SessionManager] Returning to menu as Party Member. Searching for leader's lobby...");
-                    TryRejoinPartyLobby().Forget();
+                    TryRejoinPartyLobbyAsync(partyIdSnapshot).Forget();
                 }
             }
+        }
+
+        private bool WasLocalPartyLeader() {
+            return IsLocalPartyLeaderResolved;
+        }
+
+        private bool HasOtherPartyMembers() {
+            return HasRealPartyMembers;
         }
 
         /// <summary>
         /// Attempts to find and rejoin the party lobby after returning to the main menu.
         /// </summary>
-        private async UniTaskVoid TryRejoinPartyLobby() {
-            await UniTask.Delay(1000);
+        private async UniTask TryRejoinPartyLobbyAsync(string partyId) {
+            if(string.IsNullOrEmpty(partyId)) return;
+            if(!SteamClient.IsValid || !SteamClient.IsLoggedOn) {
+                Debug.LogWarning("[SessionManager] Skipping party rejoin because Steam is offline.");
+                return;
+            }
 
-            var lobbies = await SteamMatchmaking.LobbyList
-                .WithKeyValue(PartyIdKey, CurrentPartyId)
-                .RequestAsync();
+            try {
+                await UniTask.Delay(1000);
 
-            if(lobbies != null && lobbies.Length > 0) {
-                await JoinSessionByLobbyAsync(lobbies[0]);
-            } else {
-                Debug.LogWarning("[SessionManager] Failed to find party lobby to rejoin.");
+                var lobbies = await SteamMatchmaking.LobbyList
+                    .WithKeyValue(PartyIdKey, partyId)
+                    .RequestAsync();
+
+                if(lobbies != null && lobbies.Length > 0) {
+                    await JoinSessionByLobbyAsync(lobbies[0]);
+                } else {
+                    Debug.LogWarning($"[SessionManager] Failed to find party lobby to rejoin for partyId '{partyId}'.");
+                }
+            } catch(Exception ex) {
+                Debug.LogWarning($"[SessionManager] Party rejoin failed for partyId '{partyId}': {ex.Message}");
+            }
+        }
+
+        private async UniTask RehostPrivateLobbyAfterReturnAsync() {
+            try {
+                var created = await CreatePrivateLobbyAsync();
+                if(!created) {
+                    Debug.LogWarning("[SessionManager] Failed to re-host private lobby after returning to menu.");
+                }
+            } catch(Exception ex) {
+                Debug.LogWarning($"[SessionManager] Exception while re-hosting private lobby: {ex.Message}");
             }
         }
 
@@ -1072,26 +1146,64 @@ namespace Network {
             Debug.Log("[SessionManager] ClearUgsMatchState called");
             
             // Leave match lobby if we're in one
-            if(_ugsMatchLobby != null) {
-                LeaveUgsMatchLobbyAsync().Forget();
+            var matchLobbyId = _ugsMatchLobby != null ? _ugsMatchLobby.Id : null;
+            if(!string.IsNullOrEmpty(matchLobbyId)) {
+                LeaveUgsMatchLobbyAsync(matchLobbyId).Forget();
             }
             _ugsMatchLobby = null;
             _ugsSyncInProgress = false;
             _ugsLocalReadySubmitted = false;
             _ugsClientStartedForMatch = false;
             _ugsHostPreFadedOut = false;
+            _lastFailedFollowMatchLobbyId = null;
         }
 
-        private async UniTaskVoid LeaveUgsMatchLobbyAsync() {
-            if(_ugsMatchLobby == null) return;
+        private async UniTask LeaveUgsMatchLobbyAsync(string lobbyId) {
+            if(string.IsNullOrEmpty(lobbyId)) return;
             try {
                 var localId = AuthenticationService.Instance.PlayerId;
                 if(!string.IsNullOrEmpty(localId)) {
-                    await LobbyService.Instance.RemovePlayerAsync(_ugsMatchLobby.Id, localId);
-                    Debug.Log($"[SessionManager] Left UGS match lobby '{_ugsMatchLobby.Id}'");
+                    await LobbyService.Instance.RemovePlayerAsync(lobbyId, localId);
+                    Debug.Log($"[SessionManager] Left UGS match lobby '{lobbyId}'");
                 }
             } catch(Exception ex) {
-                Debug.LogWarning($"[SessionManager] Failed to leave UGS match lobby: {ex.Message}");
+                Debug.LogWarning($"[SessionManager] Failed to leave UGS match lobby '{lobbyId}': {ex.Message}");
+            }
+        }
+
+        private async UniTask ResetUgsPartyFollowStateIfHostAsync() {
+            if(_ugsPartyLobby == null) return;
+
+            try {
+                var localId = AuthenticationService.Instance.PlayerId;
+                if(string.IsNullOrEmpty(localId)) return;
+                if(_ugsPartyLobby.HostId != localId) return;
+
+                var followAlreadyCleared = false;
+                if(_ugsPartyLobby.Data != null &&
+                   _ugsPartyLobby.Data.TryGetValue(UgsFollowMatchLobbyIdKey, out var followObj) &&
+                   (followObj == null || string.IsNullOrEmpty(followObj.Value))) {
+                    followAlreadyCleared = true;
+                }
+
+                if(followAlreadyCleared) return;
+
+                var update = new UpdateLobbyOptions {
+                    Data = new Dictionary<string, Unity.Services.Lobbies.Models.DataObject> {
+                        [UgsFollowMatchLobbyIdKey] = new Unity.Services.Lobbies.Models.DataObject(
+                            Unity.Services.Lobbies.Models.DataObject.VisibilityOptions.Member, ""),
+                        [UgsLobbyStateKey] = new Unity.Services.Lobbies.Models.DataObject(
+                            Unity.Services.Lobbies.Models.DataObject.VisibilityOptions.Member, "Party")
+                    }
+                };
+
+                _ugsPartyLobby = await LobbyService.Instance.UpdateLobbyAsync(_ugsPartyLobby.Id, update);
+                _lastFailedFollowMatchLobbyId = null;
+                Debug.Log("[SessionManager] Cleared stale followMatchLobbyId on party lobby.");
+            } catch(LobbyServiceException ex) when (ex.Reason == LobbyExceptionReason.LobbyNotFound || ex.Reason == LobbyExceptionReason.EntityNotFound) {
+                _ugsPartyLobby = null;
+            } catch(Exception ex) {
+                Debug.LogWarning($"[SessionManager] Failed to clear followMatchLobbyId on party lobby: {ex.Message}");
             }
         }
 
@@ -1447,19 +1559,25 @@ namespace Network {
             _networkManager.SceneManager.LoadScene(GameSceneName, LoadSceneMode.Single);
         }
 
-        private async UniTask JoinUgsMatchLobbyByIdAsync(string lobbyId) {
+        private async UniTask<bool> JoinUgsMatchLobbyByIdAsync(string lobbyId) {
             await UgsAuthService.InitializeAndSignInAsync();
-            if(string.IsNullOrEmpty(lobbyId)) return;
+            if(string.IsNullOrEmpty(lobbyId)) return false;
 
             Debug.Log($"[SessionManager] JoinUgsMatchLobbyByIdAsync called with lobbyId='{lobbyId}'");
 
             var options = new JoinLobbyByIdOptions();
             options.Player = BuildUgsLobbyPlayer();
+            Unity.Services.Lobbies.Models.Lobby matchLobby;
+            try {
+                matchLobby = await LobbyService.Instance.JoinLobbyByIdAsync(lobbyId, options);
+            } catch(LobbyServiceException ex) when (ex.Reason == LobbyExceptionReason.LobbyNotFound || ex.Reason == LobbyExceptionReason.EntityNotFound) {
+                Debug.LogWarning($"[SessionManager] Match lobby '{lobbyId}' no longer exists.");
+                return false;
+            }
 
-            var matchLobby = await LobbyService.Instance.JoinLobbyByIdAsync(lobbyId, options);
             if(matchLobby == null) {
                 Debug.LogError("[SessionManager] Failed to join lobby - matchLobby is null");
-                return;
+                return false;
             }
             _ugsMatchLobby = matchLobby;
             UpdateSteamRichPresenceForUgs();
@@ -1479,7 +1597,7 @@ namespace Network {
                     Debug.Log($"[SessionManager] Lobby state on join: '{stateObj?.Value}'");
                     if(stateObj != null && stateObj.Value == "SynchronizingLoad") {
                         HandleUgsMatchSynchronizationStartAsync().Forget();
-                        return;
+                        return true;
                     }
                 }
             }
@@ -1487,6 +1605,7 @@ namespace Network {
             // Start polling for lobby state changes - host may update state after we join
             Debug.Log("[SessionManager] Starting lobby state polling for non-host client...");
             StartUgsMatchLobbyPollingAsync().Forget();
+            return true;
         }
 
         private async UniTaskVoid StartUgsMatchLobbyPollingAsync() {
@@ -1779,10 +1898,26 @@ namespace Network {
 
             if(_ugsPartyLobby.Data.TryGetValue(UgsFollowMatchLobbyIdKey, out var followObj)) {
                 if(followObj != null && !string.IsNullOrEmpty(followObj.Value)) {
+                    if(_lastFailedFollowMatchLobbyId == followObj.Value) {
+                        return;
+                    }
+
                     // Join match lobby if we are not already in it.
                     if(_ugsMatchLobby == null || _ugsMatchLobby.Id != followObj.Value) {
-                        await JoinUgsMatchLobbyByIdAsync(followObj.Value);
+                        try {
+                            var joined = await JoinUgsMatchLobbyByIdAsync(followObj.Value);
+                            if(!joined) {
+                                _lastFailedFollowMatchLobbyId = followObj.Value;
+                            } else {
+                                _lastFailedFollowMatchLobbyId = null;
+                            }
+                        } catch(Exception ex) {
+                            Debug.LogWarning($"[SessionManager] Failed to follow match lobby '{followObj.Value}': {ex.Message}");
+                            _lastFailedFollowMatchLobbyId = followObj.Value;
+                        }
                     }
+                } else {
+                    _lastFailedFollowMatchLobbyId = null;
                 }
             }
         }
@@ -2243,8 +2378,10 @@ namespace Network {
                     var lobby = await QueryMatchLobbyByMatchIdAsync(matchId);
                     if(lobby != null) {
                         Debug.Log($"[SessionManager] Found lobby! lobbyId='{lobby.Id}'. Joining...");
-                        await JoinUgsMatchLobbyByIdAsync(lobby.Id);
-                        return;
+                        var joined = await JoinUgsMatchLobbyByIdAsync(lobby.Id);
+                        if(joined) {
+                            return;
+                        }
                     }
                     Debug.Log("[SessionManager] Lobby not found yet, waiting...");
                 } catch(LobbyServiceException ex) when (ex.Reason == LobbyExceptionReason.RateLimited) {
