@@ -6,6 +6,7 @@ using Game.Social;
 using JetBrains.Annotations;
 using Network.Diagnostics;
 using Network.Events;
+using Network.Singletons;
 using Unity.Cinemachine;
 using Unity.Netcode;
 using UnityEngine;
@@ -97,6 +98,9 @@ namespace Game.Player {
         private bool _crouchBtnDown;
         private bool _voiceBtnDown;
         private bool _attackBtnDown;
+        private bool _lastHopballPromptVisible;
+        private string _lastHopballPromptText = "";
+        private HUDManager _lastHudManager;
         public bool IsSniperOverlayActive { get; private set; }
 
         [SerializeField] private float sniperZoomFov = 20f;
@@ -190,9 +194,12 @@ namespace Game.Player {
                 ("enabled", false),
                 ("reason", "PlayerInputComponentDisabled"));
             IsSniperOverlayActive = false;
-            if(SniperOverlayManager.Instance == null) return;
-            SniperOverlayManager.Instance.ToggleSniperOverlay(false);
-            ApplySniperOverlayEffects(false, playZoomSound: false);
+            if(SniperOverlayManager.Instance != null) {
+                SniperOverlayManager.Instance.ToggleSniperOverlay(false);
+                ApplySniperOverlayEffects(false, playZoomSound: false);
+            }
+
+            ApplyHopballInteractPrompt(false, "PRESS INTERACT");
         }
 
         private void Start() {
@@ -205,7 +212,10 @@ namespace Game.Player {
         // Direct Input System polling for certain actions
         private void LateUpdate() {
             if(IsBot) return;
-            if(!IsOwner || !CurrentWeapon || WeaponManager == null) return;
+            if(!IsOwner) return;
+
+            UpdateHopballInteractPrompt();
+            if(!CurrentWeapon || WeaponManager == null) return;
 
             var weaponData = WeaponManager.GetWeaponDataByIndex(WeaponManager.CurrentWeaponIndex);
             var fireMode = weaponData.fireMode;
@@ -336,6 +346,52 @@ namespace Game.Player {
                 }
             }
 
+        }
+
+        private void UpdateHopballInteractPrompt() {
+            var canShowPrompt = false;
+            var promptText = "PRESS INTERACT";
+
+            var canCheckPickup = !IsPausedOrDead && !IsPreMatch &&
+                                 playerController != null &&
+                                 playerController.PlayerHopballController != null &&
+                                 !playerController.IsHoldingHopball;
+            if(canCheckPickup) {
+                canShowPrompt = playerController.PlayerHopballController.CanPickupNearbyHopball();
+                if(canShowPrompt) {
+                    promptText = BuildInteractPromptText();
+                }
+            }
+
+            ApplyHopballInteractPrompt(canShowPrompt, promptText);
+        }
+
+        private void ApplyHopballInteractPrompt(bool visible, string text) {
+            var hud = HUDManager.Instance;
+            var shouldApply = hud != _lastHudManager || visible != _lastHopballPromptVisible ||
+                              !string.Equals(text, _lastHopballPromptText);
+            if(!shouldApply) return;
+
+            hud?.SetHopballInteractPrompt(visible, text);
+            _lastHudManager = hud;
+            _lastHopballPromptVisible = visible;
+            _lastHopballPromptText = text;
+        }
+
+        private static string BuildInteractPromptText() {
+            var binding = GetPrimaryInteractBindingName();
+            return $"PRESS {binding}";
+        }
+
+        private static string GetPrimaryInteractBindingName() {
+            var binding = KeybindManager.GetBindingDisplayString("interact", 0);
+            if(string.IsNullOrWhiteSpace(binding) || string.Equals(binding, "None", System.StringComparison.OrdinalIgnoreCase)) {
+                binding = KeybindManager.GetBindingDisplayString("interact", 1);
+            }
+
+            return string.IsNullOrWhiteSpace(binding) || string.Equals(binding, "None", System.StringComparison.OrdinalIgnoreCase)
+                ? "INTERACT"
+                : binding.ToUpperInvariant();
         }
 
         #endregion

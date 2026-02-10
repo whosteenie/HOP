@@ -21,6 +21,7 @@ namespace Game.UI {
         private Label _ammoTotal;
 
         private VisualElement _crosshairContainer;
+        private Label _hopballInteractPrompt;
 
         public static HUDManager Instance;
 
@@ -89,6 +90,7 @@ namespace Game.UI {
             _ammoTotal = QOptional<Label>("ammo-total");
 
             _crosshairContainer = QOptional<VisualElement>("crosshair-container");
+            _hopballInteractPrompt = QOptional<Label>("hopball-interact-prompt");
         }
 
         protected override Dictionary<string, System.Type> GetRequiredElements() {
@@ -226,6 +228,7 @@ namespace Game.UI {
             if(Root != null) {
                 Root.style.display = DisplayStyle.None;
             }
+            SetHopballInteractPrompt(false);
         }
 
         // Event handler - called via EventBus
@@ -234,6 +237,7 @@ namespace Game.UI {
             _multiplierContainer.style.visibility = Visibility.Hidden;
             _ammoContainer.style.visibility = Visibility.Hidden;
             _crosshairContainer.style.visibility = Visibility.Hidden;
+            SetHopballInteractPrompt(false);
         }
 
         // Event handler - called via EventBus
@@ -242,6 +246,7 @@ namespace Game.UI {
             _multiplierContainer.style.visibility = Visibility.Visible;
             _ammoContainer.style.visibility = Visibility.Visible;
             _crosshairContainer.style.visibility = Visibility.Visible;
+            SetHopballInteractPrompt(false);
             
             // Reset healthbar display mode based on current game mode
             ResetHealthbarDisplayMode();
@@ -285,6 +290,15 @@ namespace Game.UI {
             var healthText = Mathf.CeilToInt(current).ToString();
             _healthValue.text = healthText;
             _cachedHealthText = healthText;
+        }
+
+        public void SetHopballInteractPrompt(bool visible, string text = null) {
+            if(_hopballInteractPrompt == null) return;
+
+            _hopballInteractPrompt.style.display = visible ? DisplayStyle.Flex : DisplayStyle.None;
+            if(!string.IsNullOrWhiteSpace(text)) {
+                _hopballInteractPrompt.text = text;
+            }
         }
     }
 }

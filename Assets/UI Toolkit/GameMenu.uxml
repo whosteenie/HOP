@@ -66,6 +66,7 @@
             <ui:VisualElement name="crosshair-container" class="crosshair">
                 <ui:VisualElement name="crosshair-horizontal" class="crosshair-line horizontal" />
                 <ui:VisualElement name="crosshair-vertical" class="crosshair-line vertical" />
+                <ui:Label name="hopball-interact-prompt" text="PRESS INTERACT" class="hopball-interact-prompt" />
                 <ui:VisualElement name="grapple-indicator" class="grapple-indicator" />
             </ui:VisualElement>
             <ui:VisualElement name="chat-container" class="chat-container">

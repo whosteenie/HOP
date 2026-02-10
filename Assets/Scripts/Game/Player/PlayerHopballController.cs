@@ -149,34 +149,58 @@ namespace Game.Player {
         /// Tries to pick up a hopball within pickup range.
         /// </summary>
         public void TryPickupHopball() {
-            if(playerController == null) {
-                return;
+            if(!TryFindPickupCandidate(out var hopball)) return;
+
+            var netObj = hopball.GetComponent<NetworkObject>();
+            FlowLog.Emit(FlowEventIds.HopballPickupRequested,
+                ("player", OwnerClientId),
+                ("hopballNetId", netObj != null ? netObj.NetworkObjectId : 0UL),
+                ("requestSource", "Proximity"));
+            EquipHopball(hopball);
+        }
+
+        /// <summary>
+        /// Returns whether this player can pick up a nearby hopball right now.
+        /// Used by HUD prompt state.
+        /// </summary>
+        public bool CanPickupNearbyHopball() {
+            return TryFindPickupCandidate(out _);
+        }
+
+        private bool TryFindPickupCandidate(out HopballController hopball) {
+            hopball = null;
+
+            if(playerController == null || IsHoldingHopball) {
+                return false;
             }
-            
+
             if(_hopballLayer == 0) {
                 _hopballLayer = playerController.HopballLayer;
                 if(_hopballLayer == 0) {
-                    return;
+                    return false;
                 }
             }
-            
+
             var hitCount = Physics.OverlapSphereNonAlloc(playerController.Position, PickupRange, _pickupHits, _hopballLayer);
             if(hitCount == 0) {
-                return;
+                return false;
             }
-            
+
             for(var i = 0; i < hitCount; i++) {
-                var hopball = _pickupHits[i].GetComponent<HopballController>();
-                if(hopball == null || hopball.IsEquipped || hopball.transform.parent != null ||
-                   !hopball.gameObject.activeSelf) continue;
-                var netObj = hopball.GetComponent<NetworkObject>();
-                FlowLog.Emit(FlowEventIds.HopballPickupRequested,
-                    ("player", OwnerClientId),
-                    ("hopballNetId", netObj != null ? netObj.NetworkObjectId : 0UL),
-                    ("requestSource", "Proximity"));
-                EquipHopball(hopball);
-                break;
+                var collider = _pickupHits[i];
+                if(collider == null) continue;
+
+                var candidate = collider.GetComponent<HopballController>();
+                if(candidate == null || candidate.IsEquipped || candidate.transform.parent != null ||
+                   !candidate.gameObject.activeSelf) {
+                    continue;
+                }
+
+                hopball = candidate;
+                return true;
             }
+
+            return false;
         }
 
         /// <summary>

@@ -164,6 +164,18 @@
 .crosshair-line { position: absolute; background-color: rgb(200,60,60); }
 .crosshair-line.horizontal { width: 18px; height: 2px; }
 .crosshair-line.vertical   { width: 2px; height: 18px; }
+.hopball-interact-prompt {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    translate: -50% 28px;
+    display: none;
+    color: white;
+    font-size: 20px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+    text-shadow: 2px 2px 3px rgba(0, 0, 0, 1);
+}
 
 /* Bottom grapple indicator (horizontal bar) */
 .grapple-indicator-bottom {
