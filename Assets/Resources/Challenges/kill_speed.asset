@@ -17,6 +17,9 @@ MonoBehaviour:
   descriptionTemplate: Get {0} Kills while moving > 15m/s
   minTarget: 3
   maxTarget: 5
+  weeklyMinTarget: 5
+  weeklyMaxTarget: 10
   baseXpReward: 750
-  isWeekly: 0
+  includeInDaily: 1
+  includeInWeekly: 1
   weaponID: 

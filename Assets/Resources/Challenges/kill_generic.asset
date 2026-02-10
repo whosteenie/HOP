@@ -16,7 +16,10 @@ MonoBehaviour:
   type: 0
   descriptionTemplate: Get {0} Kills
   minTarget: 10
-  maxTarget: 50
+  maxTarget: 45
+  weeklyMinTarget: 30
+  weeklyMaxTarget: 60
   baseXpReward: 500
-  isWeekly: 0
+  includeInDaily: 1
+  includeInWeekly: 1
   weaponID: 

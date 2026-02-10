@@ -33,15 +33,26 @@ namespace Game.Progression {
         public int minTarget = 10;
         [FormerlySerializedAs("MaxTarget")]
         public int maxTarget = 50;
+        [Tooltip("Minimum target when this challenge is generated as a weekly challenge.")]
+        public int weeklyMinTarget = 10;
+        [Tooltip("Maximum target when this challenge is generated as a weekly challenge.")]
+        public int weeklyMaxTarget = 50;
         [FormerlySerializedAs("BaseXPReward")]
         public int baseXpReward = 500;
-        
+
+        [Tooltip("Allow this challenge type to appear in the daily challenge pool.")]
+        public bool includeInDaily = true;
+        [Tooltip("Allow this challenge type to appear in the weekly challenge pool.")]
+        [FormerlySerializedAs("isWeekly")]
         [FormerlySerializedAs("IsWeekly")]
-        public bool isWeekly; // If true, this challenge appears in weekly pool
+        public bool includeInWeekly;
         
         // Optional filters
         [Tooltip("If Type is WeaponKill, this must match the Weapon Name exactly.")]
         [FormerlySerializedAs("WeaponID")]
         public string weaponID; 
+
+        public int GetMinTarget(bool weeklyVariant) => weeklyVariant ? weeklyMinTarget : minTarget;
+        public int GetMaxTarget(bool weeklyVariant) => weeklyVariant ? weeklyMaxTarget : maxTarget;
     }
 }

@@ -56,14 +56,14 @@ namespace Game.Progression {
             // validate
             if (Data.level < 1) Data.level = 1;
 
-            var normalizedDaily = NormalizeChallengeTargets(Data.dailyChallenges);
-            var normalizedWeekly = NormalizeChallengeTargets(Data.weeklyChallenges);
+            var normalizedDaily = NormalizeChallengeTargets(Data.dailyChallenges, false);
+            var normalizedWeekly = NormalizeChallengeTargets(Data.weeklyChallenges, true);
             if (normalizedDaily || normalizedWeekly) {
                 SaveData();
             }
         }
 
-        private bool NormalizeChallengeTargets(List<ActiveChallengeData> challenges) {
+        private bool NormalizeChallengeTargets(List<ActiveChallengeData> challenges, bool weeklyVariant) {
             if (challenges == null || challenges.Count == 0) return false;
 
             var changed = false;
@@ -71,7 +71,9 @@ namespace Game.Progression {
                 var def = GetChallengeDefinition(challenge.challengeID);
                 if (def == null) continue;
 
-                var clampedTarget = Mathf.Clamp(challenge.targetProgress, def.minTarget, def.maxTarget);
+                var minTarget = Mathf.Max(1, def.GetMinTarget(weeklyVariant));
+                var maxTarget = Mathf.Max(minTarget, def.GetMaxTarget(weeklyVariant));
+                var clampedTarget = Mathf.Clamp(challenge.targetProgress, minTarget, maxTarget);
                 if (challenge.targetProgress != clampedTarget) {
                     challenge.targetProgress = clampedTarget;
                     changed = true;
@@ -399,7 +401,7 @@ namespace Game.Progression {
                 }
             }
 
-            if (!needsReset && HasInvalidChallenges(Data.dailyChallenges)) {
+            if (!needsReset && HasInvalidChallenges(Data.dailyChallenges, false)) {
                 needsReset = true;
             }
 
@@ -428,7 +430,7 @@ namespace Game.Progression {
                  }
              }
 
-             if (!needsReset && HasInvalidChallenges(Data.weeklyChallenges)) {
+             if (!needsReset && HasInvalidChallenges(Data.weeklyChallenges, true)) {
                  needsReset = true;
              }
  
@@ -437,13 +439,16 @@ namespace Game.Progression {
              }
         }
 
-        private bool HasInvalidChallenges(List<ActiveChallengeData> challenges) {
+        private bool HasInvalidChallenges(List<ActiveChallengeData> challenges, bool weeklyVariant) {
             if (challenges == null || challenges.Count == 0) return true;
 
             foreach (var challenge in challenges) {
                 if (string.IsNullOrEmpty(challenge.challengeID)) return true;
-                if (GetChallengeDefinition(challenge.challengeID) == null) return true;
-                if (challenge.targetProgress <= 0) return true;
+                var def = GetChallengeDefinition(challenge.challengeID);
+                if (def == null) return true;
+                var minTarget = Mathf.Max(1, def.GetMinTarget(weeklyVariant));
+                var maxTarget = Mathf.Max(minTarget, def.GetMaxTarget(weeklyVariant));
+                if (challenge.targetProgress < minTarget || challenge.targetProgress > maxTarget) return true;
             }
 
             return false;
@@ -506,9 +511,12 @@ namespace Game.Progression {
             Data.dailyChallenges.Clear();
             Data.lastDailyReset = DateTime.Now.ToString(CultureInfo.InvariantCulture);
             
-            // Filter pool for Daily (IsWeekly == false)
-            var dailyPool = challengePool.FindAll(c => !c.isWeekly);
-            if (dailyPool.Count == 0) dailyPool = challengePool; // Fallback
+            // Filter pool for Daily using explicit per-challenge inclusion flags.
+            var dailyPool = challengePool.FindAll(c => c.includeInDaily);
+            if (dailyPool.Count == 0) {
+                Debug.LogError("[Progression] Daily challenge pool is empty. Enable 'Include In Daily' on at least one challenge definition.");
+                return;
+            }
 
             // Pick 3 random challenges
             var activeIds = GetActiveChallengeIDs();
@@ -538,8 +546,10 @@ namespace Game.Progression {
                     usedGamemodes.Add(chosenGamemode);
                     playMatchesChallengeCount++;
                     
-                    var target = UnityEngine.Random.Range(def.minTarget, def.maxTarget + 1);
-                    var reward = CalculateXpReward(def, target);
+                    var minTarget = Mathf.Max(1, def.GetMinTarget(false));
+                    var maxTarget = Mathf.Max(minTarget, def.GetMaxTarget(false));
+                    var target = UnityEngine.Random.Range(minTarget, maxTarget + 1);
+                    var reward = CalculateXpReward(def, target, false);
                     
                     var challenge = new ActiveChallengeData {
                         challengeID = def.id,
@@ -569,8 +579,10 @@ namespace Game.Progression {
                     usedWeapons.Add(chosenWeapon);
                     weaponKillsChallengeCount++;
                     
-                    var target = UnityEngine.Random.Range(def.minTarget, def.maxTarget + 1);
-                    var reward = CalculateXpReward(def, target);
+                    var minTarget = Mathf.Max(1, def.GetMinTarget(false));
+                    var maxTarget = Mathf.Max(minTarget, def.GetMaxTarget(false));
+                    var target = UnityEngine.Random.Range(minTarget, maxTarget + 1);
+                    var reward = CalculateXpReward(def, target, false);
                     
                     var challenge = new ActiveChallengeData {
                         challengeID = def.id,
@@ -589,7 +601,7 @@ namespace Game.Progression {
                 if (activeIds.Contains(def.id)) continue;
 
                 var standardTarget = UnityEngine.Random.Range(def.minTarget, def.maxTarget + 1);
-                var standardReward = CalculateXpReward(def, standardTarget);
+                var standardReward = CalculateXpReward(def, standardTarget, false);
                 
                 var standardChallenge = new ActiveChallengeData {
                     challengeID = def.id,
@@ -615,11 +627,11 @@ namespace Game.Progression {
             Data.weeklyChallenges.Clear();
             Data.lastWeeklyReset = DateTime.Now.ToString(CultureInfo.InvariantCulture);
             
-            // Filter pool for Weekly (IsWeekly == true)
-            var weeklyPool = challengePool.FindAll(c => c.isWeekly);
-            // Fallback: If no weekly challenges are explicitly defined, use the general pool.
+            // Filter pool for Weekly using explicit per-challenge inclusion flags.
+            var weeklyPool = challengePool.FindAll(c => c.includeInWeekly);
             if (weeklyPool.Count == 0) {
-                 weeklyPool = challengePool;
+                Debug.LogError("[Progression] Weekly challenge pool is empty. Enable 'Include In Weekly' on at least one challenge definition.");
+                return;
             }
 
             // Pick 5 random challenges
@@ -652,8 +664,10 @@ namespace Game.Progression {
                     usedGamemodes.Add(chosenGamemode);
                     playMatchesChallengeCount++;
 
-                    var gamemodeTarget = UnityEngine.Random.Range(def.minTarget, def.maxTarget + 1);
-                    var gamemodeReward = CalculateXpReward(def, gamemodeTarget);
+                    var gamemodeMinTarget = Mathf.Max(1, def.GetMinTarget(true));
+                    var gamemodeMaxTarget = Mathf.Max(gamemodeMinTarget, def.GetMaxTarget(true));
+                    var gamemodeTarget = UnityEngine.Random.Range(gamemodeMinTarget, gamemodeMaxTarget + 1);
+                    var gamemodeReward = CalculateXpReward(def, gamemodeTarget, true);
 
                     var challenge = new ActiveChallengeData {
                         challengeID = def.id,
@@ -686,8 +700,10 @@ namespace Game.Progression {
                     usedWeapons.Add(chosenWeapon);
                     weaponKillsChallengeCount++;
 
-                    var weaponTarget = UnityEngine.Random.Range(def.minTarget, def.maxTarget + 1);
-                    var weaponReward = CalculateXpReward(def, weaponTarget);
+                    var weaponMinTarget = Mathf.Max(1, def.GetMinTarget(true));
+                    var weaponMaxTarget = Mathf.Max(weaponMinTarget, def.GetMaxTarget(true));
+                    var weaponTarget = UnityEngine.Random.Range(weaponMinTarget, weaponMaxTarget + 1);
+                    var weaponReward = CalculateXpReward(def, weaponTarget, true);
 
                     var challenge = new ActiveChallengeData {
                         challengeID = def.id,
@@ -706,9 +722,11 @@ namespace Game.Progression {
                 // Prevent duplicate
                 if (activeIds.Contains(def.id)) continue;
 
-                // Weekly targets should still respect configured challenge bounds.
-                var standardTarget = UnityEngine.Random.Range(def.minTarget, def.maxTarget + 1);
-                var standardReward = CalculateXpReward(def, standardTarget);
+                // Weekly targets use explicit weekly challenge bounds.
+                var standardMinTarget = Mathf.Max(1, def.GetMinTarget(true));
+                var standardMaxTarget = Mathf.Max(standardMinTarget, def.GetMaxTarget(true));
+                var standardTarget = UnityEngine.Random.Range(standardMinTarget, standardMaxTarget + 1);
+                var standardReward = CalculateXpReward(def, standardTarget, true);
 
                 var standardChallenge = new ActiveChallengeData {
                     challengeID = def.id,
@@ -761,11 +779,12 @@ namespace Game.Progression {
             return ids;
         }
 
-        private int CalculateXpReward(ChallengeDefinition def, int target) {
-            if (def.minTarget <= 0) return def.baseXpReward;
+        private int CalculateXpReward(ChallengeDefinition def, int target, bool weeklyVariant) {
+            var minTargetForVariant = Mathf.Max(1, def.GetMinTarget(weeklyVariant));
+            if (minTargetForVariant <= 0) return def.baseXpReward;
             // BaseXPReward is amount for MinTarget effort.
             // Scale linearly: if target is 2x MinTarget, reward is 2x Base.
-            float scale = (float)target / def.minTarget;
+            float scale = (float)target / minTargetForVariant;
             return Mathf.RoundToInt(def.baseXpReward * scale);
         }
         

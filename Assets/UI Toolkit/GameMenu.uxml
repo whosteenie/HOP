@@ -103,9 +103,9 @@
                 <ui:Button text="QUIT TO MENU" name="quit-button" class="menu-chip menu-chip-enabled" />
             </ui:VisualElement>
         </ui:VisualElement>
-        <ui:VisualElement name="options-panel" class="panel full-abs center-xy hidden options-panel-display-none">
+        <ui:VisualElement name="options-panel" class="panel full-abs center-xy hidden">
             <ui:VisualElement name="options-container" class="options-container card">
-                <ui:Label text="OPTIONS" name="options-title" class="title" />
+                <ui:Label text="OPTIONS" name="options-label" class="title" />
                 <ui:VisualElement name="options-tabs" class="options-tabs">
                     <ui:Button text="VIDEO" name="tab-video" class="options-tab options-tab-active" />
                     <ui:Button text="AUDIO" name="tab-audio" class="options-tab" />
@@ -299,7 +299,7 @@
                     </ui:VisualElement>
                 </ui:ScrollView>
                 <ui:VisualElement name="apply-container" class="button-row">
-                    <ui:Button text="BACK" name="back-button" class="menu-chip menu-chip-enabled" />
+                    <ui:Button text="BACK" name="back-button" class="menu-chip menu-chip-enabled back-button" />
                     <ui:Button text="APPLY" name="apply-button" class="menu-chip menu-chip-enabled" />
                 </ui:VisualElement>
             </ui:VisualElement>

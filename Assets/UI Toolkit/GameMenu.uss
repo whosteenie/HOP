@@ -881,14 +881,18 @@
 .match-timer-score-container {
     position: absolute;
     top: 24px;
-    left: 50%;
-    translate: -50% 0;
+    left: 0;
+    right: 0;
+    height: 50px;
     flex-direction: row;
     align-items: center;
     justify-content: center;
 }
 
 #match-timer-container {
+    position: absolute;
+    left: 50%;
+    translate: -50% 0;
     padding: 6px 16px;
     border-radius: 4px;
     border-width: 1px;
@@ -920,13 +924,25 @@
 .hud-score-your {
     border-color: rgba(100, 150, 255, 0.4);
     background-color: rgba(50, 100, 255, 0.35);
-    margin-right: 8px;
+    margin-right: 0;
 }
 
 .hud-score-enemy {
     border-color: rgba(255, 100, 100, 0.4);
     background-color: rgba(255, 50, 50, 0.35);
-    margin-left: 8px;
+    margin-left: 0;
+}
+
+#left-score-container {
+    position: absolute;
+    right: 50%;
+    margin-right: 64px;
+}
+
+#right-score-container {
+    position: absolute;
+    left: 50%;
+    margin-left: 64px;
 }
 
 .hud-score-value {

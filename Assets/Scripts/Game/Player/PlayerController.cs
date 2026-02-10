@@ -266,9 +266,6 @@ namespace Game.Player {
                 fpCamera.Lens.FieldOfView = lookController.BaseFov;
             }
 
-            GameMenuManager.Instance.IsPostMatch = false;
-            PostMatchManager.Instance.ShowInGameHudAfterPostMatch();
-
             if(animationController != null)
                 animationController.ResetSpawnTime();
 

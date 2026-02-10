@@ -141,6 +141,11 @@ namespace Game.Menu {
             if (chatUIManager != null) {
                 chatUIManager.ClearChatHistory();
             }
+
+            // Restore HUD/post-match visibility only after UI Toolkit root has been initialized.
+            if(_cachedSceneName != null && _cachedSceneName.Contains("Game")) {
+                RestoreHudForMatchStart();
+            }
         }
 
         protected override Dictionary<string, Type> GetRequiredElements() {
@@ -189,7 +194,7 @@ namespace Game.Menu {
                 if(_matchTimerContainer != null) {
                     _matchTimerContainer.style.display = DisplayStyle.Flex;
                 }
-                
+
                 // Reset cursor state
                 UnityEngine.Cursor.lockState = CursorLockMode.Locked;
                 UnityEngine.Cursor.visible = false;
@@ -369,6 +374,15 @@ namespace Game.Menu {
 
         private static bool IsOfflineMode() {
             return Application.internetReachability == NetworkReachability.NotReachable;
+        }
+
+        public void RestoreHudForMatchStart() {
+            if(_matchTimerContainer == null) return;
+            IsPostMatch = false;
+            _matchTimerContainer.style.display = DisplayStyle.Flex;
+            if(PostMatchManager.Instance != null) {
+                PostMatchManager.Instance.ShowInGameHudAfterPostMatch();
+            }
         }
 
         public void TogglePause() {

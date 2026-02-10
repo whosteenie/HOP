@@ -74,11 +74,6 @@ namespace Game.Match {
         private SpawnPoint.Team _winningTeam = SpawnPoint.Team.None;
 
         private void Awake() {
-            var pmm = FindFirstObjectByType<PostMatchManager>();
-            if(pmm != null && pmm != this) {
-                Destroy(this);
-            }
-
             if(Instance != null && Instance != this) {
                 Destroy(gameObject);
                 return;
@@ -111,9 +106,9 @@ namespace Game.Match {
         }
 
         private void Start() {
-            if(EnsureUiReferencesBound()) {
-                ResetPostMatchUiState();
-            }
+            // UI Toolkit document can be valid in inspector but still not bound to a live root in Start
+            // depending on scene/object initialization order. Defer hard binding until first real use.
+            TryResolveUiDocumentReference();
         }
 
         private void InitializeUI() {
@@ -137,7 +132,16 @@ namespace Game.Match {
             _matchTimerContainer = _root.Q<VisualElement>("match-timer-container");
         }
 
+        private void TryResolveUiDocumentReference() {
+            if(GameMenuManager.Instance != null && GameMenuManager.Instance.TryGetComponent(out UIDocument gameMenuDoc)) {
+                if(uiDocument == null || uiDocument != gameMenuDoc || uiDocument.rootVisualElement == null) {
+                    uiDocument = gameMenuDoc;
+                }
+            }
+        }
+
         private bool EnsureUiReferencesBound() {
+            TryResolveUiDocumentReference();
             if(uiDocument == null) {
                 uiDocument = GetComponent<UIDocument>();
             }
@@ -334,11 +338,8 @@ namespace Game.Match {
 
             foreach(var player in topThree) {
                 if(player == null) continue;
-
-                // If they died before timer ended, bring them back just for podium
-                if(player.IsDead || player.netHealth.Value <= 0f) {
-                    player.ForceRespawnForPodiumServer();
-                }
+                // Always normalize podium player visuals. This also fixes hopball-holder weapon visibility.
+                player.ForceRespawnForPodiumServer();
             }
 
             // Teleport & face podium
@@ -790,13 +791,16 @@ namespace Game.Match {
             if(Camera.main != null) return Camera.main;
 
             var cameras = Camera.allCameras;
+            Camera best = null;
             for(var i = 0; i < cameras.Length; i++) {
                 var cam = cameras[i];
                 if(cam == null || cam.enabled == false || cam.gameObject.activeInHierarchy == false) continue;
-                return cam;
+                if(best == null || cam.depth > best.depth) {
+                    best = cam;
+                }
             }
 
-            return null;
+            return best;
         }
 
         private static Vector3 GetPlayerFeetWorldPosition(PlayerController player) {
@@ -817,12 +821,19 @@ namespace Game.Match {
             player = null;
             if(playerId == ulong.MaxValue) return false;
             if(NetworkManager.Singleton == null) return false;
+            var spawnManager = NetworkManager.Singleton.SpawnManager;
+            if(spawnManager == null) return false;
 
-            if(NetworkManager.Singleton.ConnectedClients.TryGetValue(playerId, out var client) == false) return false;
-            if(client == null || client.PlayerObject == null) return false;
+            // Works for host and clients; ConnectedClients is not reliable on all peers.
+            foreach(var kvp in spawnManager.SpawnedObjects) {
+                var netObj = kvp.Value;
+                if(netObj == null || !netObj.IsSpawned) continue;
+                if(netObj.OwnerClientId != playerId) continue;
+                player = netObj.GetComponent<PlayerController>();
+                if(player != null) return true;
+            }
 
-            player = client.PlayerObject.GetComponent<PlayerController>();
-            return player != null;
+            return false;
         }
 
         private void ResetPostMatchUiState() {

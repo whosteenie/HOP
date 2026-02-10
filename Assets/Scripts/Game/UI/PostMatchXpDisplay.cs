@@ -17,6 +17,13 @@ namespace Game.UI {
             if(uiDocument == null) uiDocument = GetComponent<UIDocument>();
         }
 
+        protected override void Start() {
+            // The shared game UIDocument can still be wiring up on this component's Start.
+            // Skip eager base initialization and rely on lazy Initialize() from ShowXp().
+            if(uiDocument == null || uiDocument.rootVisualElement == null) return;
+            base.Start();
+        }
+
         protected override void OnInitialize() {
             _xpContainer = QRequired<VisualElement>("xp-postmatch-container");
             _levelLabel = QRequired<Label>("level-label");

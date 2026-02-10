@@ -145,6 +145,17 @@ namespace Game.Match {
             // Publish match started event
             EventBus.Publish(new MatchStartedEvent());
 
+            // Kick objective systems from the authoritative match-state transition point.
+            // This avoids missing round-init when scene object spawn order varies between matches.
+            if(matchSettings != null && matchSettings.selectedGameModeId == "KOTH") {
+                if(KingOfTheHillManager.Instance != null) {
+                    KingOfTheHillManager.Instance.HandleMatchStartedServer("MatchTimerManager");
+                } else {
+                    Debug.LogError(
+                        "[MatchTimerManager] KOTH match started but KingOfTheHillManager.Instance is null.");
+                }
+            }
+
             // Check if we're in Tag mode and designate initial "it" after 5 seconds
             if(matchSettings != null && matchSettings.selectedGameModeId == "Gun Tag") {
                 StartCoroutine(DesignateInitialItAfterDelay());
@@ -202,6 +213,9 @@ namespace Game.Match {
             EventBus.Publish(new PreMatchCountdownEvent(current));
             // Display pre-match countdown in UI
             if(!_isPreMatch.Value || GameMenuManager.Instance == null) return;
+            if(GameMenuManager.Instance.IsPostMatch) {
+                GameMenuManager.Instance.RestoreHudForMatchStart();
+            }
             // SetMatchTime will handle tick sound playback based on displayed time
             if(ScoreboardManager.Instance != null) {
                 EventBus.Publish(new SetMatchTimeEvent(current));
@@ -209,8 +223,12 @@ namespace Game.Match {
         }
 
         private void OnPreMatchStateChanged(bool previous, bool current) {
+            if(current && GameMenuManager.Instance != null) {
+                GameMenuManager.Instance.RestoreHudForMatchStart();
+            }
             // When pre-match ends, ensure UI shows match timer
             if(current || GameMenuManager.Instance == null) return;
+            GameMenuManager.Instance.RestoreHudForMatchStart();
             if(ScoreboardManager.Instance != null) {
                 EventBus.Publish(new SetMatchTimeEvent(_timeRemainingSeconds.Value));
             }

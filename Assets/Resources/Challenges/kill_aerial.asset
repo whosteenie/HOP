@@ -17,6 +17,9 @@ MonoBehaviour:
   descriptionTemplate: Get {0} Kills while Airborne
   minTarget: 5
   maxTarget: 10
+  weeklyMinTarget: 10
+  weeklyMaxTarget: 20
   baseXpReward: 750
-  isWeekly: 0
+  includeInDaily: 1
+  includeInWeekly: 1
   weaponID: 

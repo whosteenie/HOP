@@ -50,7 +50,11 @@ public class ChallengeAssetGenerator {
         asset.descriptionTemplate = desc;
         asset.minTarget = min;
         asset.maxTarget = max;
+        asset.weeklyMinTarget = min;
+        asset.weeklyMaxTarget = max;
         asset.baseXpReward = xp;
+        asset.includeInDaily = true;
+        asset.includeInWeekly = true;
 
         string assetPath = $"Assets/Resources/Challenges/{id}.asset";
         AssetDatabase.CreateAsset(asset, assetPath);

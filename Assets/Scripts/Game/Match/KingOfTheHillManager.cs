@@ -38,6 +38,7 @@ namespace Game.Match {
         private bool _isGameActive;
         private float _nextScoreTime;
         private Coroutine _spawnCoroutine;
+        private bool _queuedMatchStart;
 
         private void Awake() {
             if (Instance != null && Instance != this) {
@@ -45,6 +46,7 @@ namespace Game.Match {
                 return;
             }
             Instance = this;
+            // This manager is authored in Init.unity and must survive the transition into Game.
             DontDestroyOnLoad(gameObject);
         }
 
@@ -59,6 +61,9 @@ namespace Game.Match {
                 
                 // Also check immediately in case we are spawned IN the game scene
                 CheckAndStartGame();
+                if(_queuedMatchStart) {
+                    HandleMatchStartedServer("QueuedBeforeNetworkSpawn");
+                }
             }
 
             _teamAScore.OnValueChanged += OnScoreChanged;
@@ -79,6 +84,7 @@ namespace Game.Match {
                 _spawnCoroutine = null;
             }
             _isGameActive = false;
+            _queuedMatchStart = false;
             CleanupActiveHill();
             _teamAScore.OnValueChanged -= OnScoreChanged;
             _teamBScore.OnValueChanged -= OnScoreChanged;
@@ -98,6 +104,20 @@ namespace Game.Match {
         private void OnSceneLoaded(string sceneName, UnityEngine.SceneManagement.LoadSceneMode loadSceneMode, List<ulong> clientsCompleted, List<ulong> clientsTimedOut) {
             if (!IsServer) return;
             CheckAndStartGame();
+        }
+
+        public void HandleMatchStartedServer(string source = "Unknown") {
+            var isServerContext = IsServer || (NetworkManager.Singleton != null && NetworkManager.Singleton.IsServer);
+            if(!isServerContext) return;
+
+            if(!IsSpawned) {
+                _queuedMatchStart = true;
+                Debug.Log($"[KOTH] Deferring round start from '{source}' until OnNetworkSpawn completes.");
+                return;
+            }
+
+            _queuedMatchStart = false;
+            BeginKothRound();
         }
 
         private void CheckAndStartGame() {
@@ -123,6 +143,29 @@ namespace Game.Match {
             }
             // Refresh spawn points for the new scene
             FindSpawnPoints();
+            if(MatchTimerManager.Instance != null && !MatchTimerManager.Instance.IsPreMatch) {
+                BeginKothRound();
+            }
+        }
+
+        private void BeginKothRound() {
+            var settings = MatchSettingsManager.Instance;
+            if(settings == null || settings.selectedGameModeId != "KOTH") {
+                _isGameActive = false;
+                CleanupActiveHill();
+                return;
+            }
+
+            if(_spawnCoroutine != null) {
+                StopCoroutine(_spawnCoroutine);
+                _spawnCoroutine = null;
+            }
+
+            _isGameActive = false;
+            _teamAScore.Value = 0;
+            _teamBScore.Value = 0;
+            CleanupActiveHill();
+            FindSpawnPoints();
             _spawnCoroutine = StartCoroutine(GameStartRoutine());
         }
 
@@ -137,24 +180,21 @@ namespace Game.Match {
         public int GetTeamBScore() => _teamBScore.Value;
 
         private IEnumerator GameStartRoutine() {
-            Debug.Log("[KOTH] GameStartRoutine started.");
-            // Wait for pre-match countdown
-            var settings = MatchSettingsManager.Instance;
-            float countdown = settings != null ? settings.GetPreMatchCountdownSeconds() : 5f;
-            
-            yield return new WaitForSeconds(countdown);
-            
-            // Post-countdown delay
-            yield return new WaitForSeconds(postPrematchSpawnDelay);
+            if(postPrematchSpawnDelay > 0f) {
+                yield return new WaitForSeconds(postPrematchSpawnDelay);
+            }
 
-            settings = MatchSettingsManager.Instance;
+            var settings = MatchSettingsManager.Instance;
             if(settings == null || settings.selectedGameModeId != "KOTH") {
                 _spawnCoroutine = null;
                 yield break;
             }
-            
+             
             SpawnHill();
-            _isGameActive = true;
+            _isGameActive = _currentHill != null;
+            if(_isGameActive) {
+                _nextScoreTime = Time.time + scoreInterval;
+            }
             _spawnCoroutine = null;
         }
 

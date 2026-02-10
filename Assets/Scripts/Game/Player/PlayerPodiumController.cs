@@ -90,6 +90,12 @@ namespace Game.Player {
 
             // Ensure world model root and weapon are active for podium
             if(playerController != null) {
+                // Force-clear any lingering hopball visual state before podium snapshot.
+                if(playerController.PlayerHopballController != null) {
+                    playerController.PlayerHopballController.ClearHopballReference();
+                    playerController.PlayerHopballController.CleanupHopballVisuals();
+                }
+
                 var worldModelRoot = playerController.PlayerModelRoot;
                 GameObject worldWeapon = null;
                 if(_visualController != null) {
@@ -102,6 +108,14 @@ namespace Game.Player {
 
                 if(worldWeapon != null && !worldWeapon.activeSelf) {
                     worldWeapon.SetActive(true);
+                }
+
+                if(playerController.WeaponManager != null) {
+                    playerController.WeaponManager.RefreshHolsterVisibility();
+                    var currentWorldWeapon = playerController.WeaponManager.CurrentWorldWeaponInstance;
+                    if(currentWorldWeapon != null && !currentWorldWeapon.activeSelf) {
+                        currentWorldWeapon.SetActive(true);
+                    }
                 }
 
                 // Enable renderers

@@ -17,6 +17,9 @@ MonoBehaviour:
   descriptionTemplate: Tag {0} Players
   minTarget: 5
   maxTarget: 10
+  weeklyMinTarget: 15
+  weeklyMaxTarget: 25
   baseXpReward: 500
-  isWeekly: 0
+  includeInDaily: 1
+  includeInWeekly: 1
   weaponID: 

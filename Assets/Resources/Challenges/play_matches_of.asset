@@ -17,6 +17,9 @@ MonoBehaviour:
   descriptionTemplate: Play {0} Matches of {1}
   minTarget: 2
   maxTarget: 5
+  weeklyMinTarget: 10
+  weeklyMaxTarget: 20
   baseXpReward: 500
-  isWeekly: 0
+  includeInDaily: 1
+  includeInWeekly: 1
   weaponID: 

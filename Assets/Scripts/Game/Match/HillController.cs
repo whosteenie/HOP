@@ -81,9 +81,14 @@ namespace Game.Match {
 
         private void Update() {
              // Client-side Personal KOTH time tracking
-            if (_localPlayerInZone != null && 
-                _localPlayerInZone.netIsDead != null && 
-                !_localPlayerInZone.netIsDead.Value && 
+            if(_localPlayerInZone == null && PlayerController.LocalPlayer != null) {
+                _localPlayerInZone = PlayerController.LocalPlayer;
+            }
+
+            if (_localPlayerInZone != null &&
+                _localPlayerInZone.netIsDead != null &&
+                !_localPlayerInZone.netIsDead.Value &&
+                IsPointInsideZone(_localPlayerInZone.transform.position) &&
                 Progression.ProgressionManager.Instance != null) {
                  Progression.ProgressionManager.Instance.AddTimeAsKing(Time.deltaTime);
             }
@@ -125,13 +130,14 @@ namespace Game.Match {
         }
 
         private void UpdateControlState() {
-            // Clean up nulls
-            _playersInZone.RemoveWhere(p => p == null || !p.IsSpawned || p.netIsDead.Value);
-
             int teamACount = 0;
             int teamBCount = 0;
 
-            foreach (var player in _playersInZone) {
+            var players = FindObjectsByType<PlayerController>(FindObjectsSortMode.None);
+            foreach (var player in players) {
+                if(player == null || !player.IsSpawned || player.netIsDead.Value) continue;
+                if(!IsPointInsideZone(player.transform.position)) continue;
+
                 var teamMgr = player.TeamManager;
                 if (teamMgr == null) continue;
                 
@@ -150,6 +156,32 @@ namespace Game.Match {
 
             if (_currentState.Value != newState) {
                 _currentState.Value = newState;
+            }
+        }
+
+        private bool IsPointInsideZone(Vector3 worldPoint) {
+            if(zoneCollider == null) {
+                zoneCollider = GetComponent<Collider>();
+            }
+            if(zoneCollider == null) return false;
+
+            switch(zoneCollider) {
+                case SphereCollider sphere: {
+                    var center = sphere.transform.TransformPoint(sphere.center);
+                    var lossy = sphere.transform.lossyScale;
+                    var maxScale = Mathf.Max(Mathf.Abs(lossy.x), Mathf.Abs(lossy.y), Mathf.Abs(lossy.z));
+                    var radius = sphere.radius * maxScale;
+                    return (worldPoint - center).sqrMagnitude <= radius * radius;
+                }
+                case BoxCollider box: {
+                    var local = box.transform.InverseTransformPoint(worldPoint) - box.center;
+                    var half = box.size * 0.5f;
+                    return Mathf.Abs(local.x) <= half.x &&
+                           Mathf.Abs(local.y) <= half.y &&
+                           Mathf.Abs(local.z) <= half.z;
+                }
+                default:
+                    return zoneCollider.bounds.Contains(worldPoint);
             }
         }
 

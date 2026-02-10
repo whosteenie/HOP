@@ -17,6 +17,9 @@ MonoBehaviour:
   descriptionTemplate: Hold Hopball until Dissolve {0} times
   minTarget: 1
   maxTarget: 3
+  weeklyMinTarget: 5
+  weeklyMaxTarget: 8
   baseXpReward: 1000
-  isWeekly: 0
+  includeInDaily: 1
+  includeInWeekly: 1
   weaponID: 
