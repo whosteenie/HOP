@@ -90,7 +90,7 @@ namespace Network.Singletons {
         }
 
 
-        private void SetDefaultBindingsIfNeeded() {
+        private static void SetDefaultBindingsIfNeeded() {
             var defaults = new Dictionary<string, string[]> {
                 { "forward", new[] { "<Keyboard>/w", "" } },
                 { "back", new[] { "<Keyboard>/s", "" } },
@@ -127,10 +127,9 @@ namespace Network.Singletons {
                     changesMade = true;
                 }
 
-                if(string.IsNullOrEmpty(entry.binding1) && !string.IsNullOrEmpty(kvp.Value[1])) {
-                    entry.binding1 = kvp.Value[1];
-                    changesMade = true;
-                }
+                if(!string.IsNullOrEmpty(entry.binding1) || string.IsNullOrEmpty(kvp.Value[1])) continue;
+                entry.binding1 = kvp.Value[1];
+                changesMade = true;
             }
 
             if(changesMade) {
@@ -272,10 +271,13 @@ namespace Network.Singletons {
                     var entry = GetOrCreateKeybindEntry(settings.entries, keybindName);
                     if(entry == null) continue;
 
-                    if(bindingIndex == 0) {
-                        entry.binding0 = path ?? "";
-                    } else if(bindingIndex == 1) {
-                        entry.binding1 = path ?? "";
+                    switch(bindingIndex) {
+                        case 0:
+                            entry.binding0 = path ?? "";
+                            break;
+                        case 1:
+                            entry.binding1 = path ?? "";
+                            break;
                     }
                 }
             }
@@ -323,7 +325,7 @@ namespace Network.Singletons {
 
         public static string GetBindingDisplayString(string keybindName, int bindingIndex) {
             var settings = GameSettings.Data.keybinds;
-            if(settings == null || settings.entries == null) return "None";
+            if(settings?.entries == null) return "None";
 
             var entry = FindKeybindEntry(settings.entries, keybindName);
             if(entry == null) return "None";
@@ -331,21 +333,22 @@ namespace Network.Singletons {
             var savedPath = bindingIndex == 0 ? entry.binding0 : entry.binding1;
             if(string.IsNullOrEmpty(savedPath)) return "None";
 
-            if(savedPath == "SCROLL_UP") return "Scroll Up";
-            if(savedPath == "SCROLL_DOWN") return "Scroll Down";
-
-            return GetBindingDisplayString(new InputBinding { path = savedPath });
+            return savedPath switch {
+                "SCROLL_UP" => "Scroll Up",
+                "SCROLL_DOWN" => "Scroll Down",
+                _ => GetBindingDisplayString(new InputBinding { path = savedPath })
+            };
         }
 
-        public bool IsKeyPressed(string keybindName, int bindingIndex = 0) {
+        public bool IsKeyPressed(string keybindName) {
             return _actions.ContainsKey(keybindName) && _actions[keybindName].IsPressed();
         }
 
-        public bool WasKeyPressedThisFrame(string keybindName, int bindingIndex = 0) {
+        public bool WasKeyPressedThisFrame(string keybindName) {
             return _actions.ContainsKey(keybindName) && _actions[keybindName].WasPressedThisFrame();
         }
 
-        public bool WasKeyReleasedThisFrame(string keybindName, int bindingIndex = 0) {
+        public bool WasKeyReleasedThisFrame(string keybindName) {
             return _actions.ContainsKey(keybindName) && _actions[keybindName].WasReleasedThisFrame();
         }
 
@@ -357,8 +360,7 @@ namespace Network.Singletons {
             if(list == null) return null;
             if(string.IsNullOrEmpty(keybindName)) return null;
 
-            for(var i = 0; i < list.Count; i++) {
-                var e = list[i];
+            foreach(var e in list) {
                 if(e == null) continue;
                 if(e.name == keybindName) return e;
             }
@@ -372,8 +374,9 @@ namespace Network.Singletons {
             if(list == null) return null;
             if(string.IsNullOrEmpty(keybindName)) return null;
 
-            var created = new SettingsData.KeybindEntry();
-            created.name = keybindName;
+            var created = new SettingsData.KeybindEntry {
+                name = keybindName
+            };
             list.Add(created);
             return created;
         }

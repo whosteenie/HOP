@@ -14,8 +14,7 @@ namespace Network.Core {
         public static byte[] Encode(ConnectionPayload payload) {
             if(payload == null) return Array.Empty<byte>();
             var json = JsonUtility.ToJson(payload);
-            if(string.IsNullOrEmpty(json)) return Array.Empty<byte>();
-            return Encoding.UTF8.GetBytes(json);
+            return string.IsNullOrEmpty(json) ? Array.Empty<byte>() : Encoding.UTF8.GetBytes(json);
         }
 
         public static ConnectionPayload Decode(byte[] data) {
@@ -24,8 +23,7 @@ namespace Network.Core {
 
             try {
                 var json = Encoding.UTF8.GetString(data);
-                if(string.IsNullOrEmpty(json)) return null;
-                return JsonUtility.FromJson<ConnectionPayload>(json);
+                return string.IsNullOrEmpty(json) ? null : JsonUtility.FromJson<ConnectionPayload>(json);
             } catch {
                 return null;
             }

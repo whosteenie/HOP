@@ -38,12 +38,7 @@ namespace Game.Player {
         private float _targetFov;
 
         // Input (read from PlayerController)
-        private Vector2 LookInput {
-            get {
-                if(playerController == null) return Vector2.zero;
-                return playerController.lookInput;
-            }
-        }
+        private Vector2 LookInput => playerController == null ? Vector2.zero : playerController.lookInput;
 
         private void Awake() {
             ValidateComponents();
@@ -177,7 +172,7 @@ namespace Game.Player {
         // Public getters
         public float CurrentPitch {
             get => _currentPitch;
-            set => _currentPitch = Mathf.Clamp(value, -PitchLimit, PitchLimit);
+            private set => _currentPitch = Mathf.Clamp(value, -PitchLimit, PitchLimit);
         }
 
         public float BaseFov => baseFov;

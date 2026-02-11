@@ -1,12 +1,11 @@
 using System;
 using System.Collections.Generic;
 using Game.Social;
-using Game.UI;
 using Steamworks;
 using UnityEngine;
 using UnityEngine.UIElements;
 
-namespace Game.Menu {
+namespace Game.UI {
     /// <summary>
     /// Manages the in-game player context menu (right-click on scoreboard/chat).
     /// Handles showing/hiding, positioning, and action callbacks.
@@ -60,8 +59,9 @@ namespace Game.Menu {
                 _muteVoiceButton.RegisterCallback(handler);
                 RegisterCleanup(() => _muteVoiceButton.UnregisterCallback(handler));
             }
-            
-            if (_blockButton != null) {
+
+            if(_blockButton == null) return;
+            {
                 EventCallback<ClickEvent> handler = _ => OnBlock();
                 _blockButton.RegisterCallback(handler);
                 RegisterCleanup(() => _blockButton.UnregisterCallback(handler));
@@ -104,13 +104,13 @@ namespace Game.Menu {
         
         private void UpdateMuteButtonText() {
             if (_muteVoiceButton == null || string.IsNullOrEmpty(_targetPlayerId)) return;
-            bool isMuted = SocialSettings.IsMuted(_targetPlayerId);
+            var isMuted = SocialSettings.IsMuted(_targetPlayerId);
             _muteVoiceButton.text = isMuted ? "Unmute Voice" : "Mute Voice";
         }
         
         private void UpdateBlockButtonText() {
             if (_blockButton == null || string.IsNullOrEmpty(_targetPlayerId)) return;
-            bool isBlocked = SocialSettings.IsBlocked(_targetPlayerId);
+            var isBlocked = SocialSettings.IsBlocked(_targetPlayerId);
             _blockButton.text = isBlocked ? "Unblock Player" : "Block Player";
         }
         
@@ -125,7 +125,7 @@ namespace Game.Menu {
         private void OnMuteVoice() {
             if (string.IsNullOrEmpty(_targetPlayerId)) return;
             
-            bool currentlyMuted = SocialSettings.IsMuted(_targetPlayerId);
+            var currentlyMuted = SocialSettings.IsMuted(_targetPlayerId);
             SocialSettings.SetMuted(_targetPlayerId, !currentlyMuted);
             Hide();
         }
@@ -133,7 +133,7 @@ namespace Game.Menu {
         private void OnBlock() {
             if (string.IsNullOrEmpty(_targetPlayerId)) return;
             
-            bool currentlyBlocked = SocialSettings.IsBlocked(_targetPlayerId);
+            var currentlyBlocked = SocialSettings.IsBlocked(_targetPlayerId);
             SocialSettings.SetBlocked(_targetPlayerId, !currentlyBlocked);
             Hide();
         }

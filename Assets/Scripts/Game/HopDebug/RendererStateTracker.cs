@@ -26,8 +26,9 @@ namespace Game.HopDebug {
 
             if(targetRenderer != null) {
                 _lastEnabledState = targetRenderer.enabled;
-                _lastActiveState = targetRenderer.gameObject.activeSelf;
-                _lastActiveInHierarchyState = targetRenderer.gameObject.activeInHierarchy;
+                var o = targetRenderer.gameObject;
+                _lastActiveState = o.activeSelf;
+                _lastActiveInHierarchyState = o.activeInHierarchy;
 
                 if(autoStartTracking) {
                     _isTracking = true;
@@ -41,8 +42,9 @@ namespace Game.HopDebug {
             if(!_isTracking || targetRenderer == null) return;
 
             var currentEnabled = targetRenderer.enabled;
-            var currentActive = targetRenderer.gameObject.activeSelf;
-            var currentActiveInHierarchy = targetRenderer.gameObject.activeInHierarchy;
+            var o = targetRenderer.gameObject;
+            var currentActive = o.activeSelf;
+            var currentActiveInHierarchy = o.activeInHierarchy;
 
             // Check if enabled state changed
             if(currentEnabled != _lastEnabledState) {
@@ -55,24 +57,23 @@ namespace Game.HopDebug {
             }
 
             // Also track GameObject active state changes
-            if(currentActive != _lastActiveState || currentActiveInHierarchy != _lastActiveInHierarchyState) {
-                UnityEngine.Debug.LogWarning(
-                    $"[RendererStateTracker] GameObject active state changed on {gameObject.name}\n" +
-                    $"active: {_lastActiveState} -> {currentActive}\n" +
-                    $"activeInHierarchy: {_lastActiveInHierarchyState} -> {currentActiveInHierarchy}");
-                _lastActiveState = currentActive;
-                _lastActiveInHierarchyState = currentActiveInHierarchy;
-            }
+            if(currentActive == _lastActiveState && currentActiveInHierarchy == _lastActiveInHierarchyState) return;
+            UnityEngine.Debug.LogWarning(
+                $"[RendererStateTracker] GameObject active state changed on {gameObject.name}\n" +
+                $"active: {_lastActiveState} -> {currentActive}\n" +
+                $"activeInHierarchy: {_lastActiveInHierarchyState} -> {currentActiveInHierarchy}");
+            _lastActiveState = currentActive;
+            _lastActiveInHierarchyState = currentActiveInHierarchy;
         }
 
         public void StartTracking() {
-            if(targetRenderer != null) {
-                _lastEnabledState = targetRenderer.enabled;
-                _lastActiveState = targetRenderer.gameObject.activeSelf;
-                _lastActiveInHierarchyState = targetRenderer.gameObject.activeInHierarchy;
-                _isTracking = true;
-                UnityEngine.Debug.LogWarning($"[RendererStateTracker] Started tracking renderer on {gameObject.name}");
-            }
+            if(targetRenderer == null) return;
+            _lastEnabledState = targetRenderer.enabled;
+            var o = targetRenderer.gameObject;
+            _lastActiveState = o.activeSelf;
+            _lastActiveInHierarchyState = o.activeInHierarchy;
+            _isTracking = true;
+            UnityEngine.Debug.LogWarning($"[RendererStateTracker] Started tracking renderer on {gameObject.name}");
         }
 
         public void StopTracking() {

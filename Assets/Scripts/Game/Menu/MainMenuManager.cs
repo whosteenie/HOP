@@ -1,4 +1,3 @@
-using System.Collections;
 using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
 using Discord;
@@ -8,9 +7,7 @@ using UnityEngine;
 using UnityEngine.Audio;
 using UnityEngine.UIElements;
 using Game.UI;
-using Game.Settings;
 using Cursor = UnityEngine.Cursor;
-using Steamworks;
 
 namespace Game.Menu {
     /// <summary>
@@ -61,10 +58,6 @@ namespace Game.Menu {
 
         #region Unity Lifecycle
 
-        protected override void Awake() {
-            base.Awake();
-        }
-
         protected override void Start() {
             base.Start();
             Cursor.visible = true;
@@ -74,10 +67,9 @@ namespace Game.Menu {
             SetupOptionsMenuManager();
             LoadSettings();
 
-            if(uiManager != null) uiManager.InitializeGameMenuVisibility();
+            if(uiManager != null) MainMenuUIManager.InitializeGameMenuVisibility();
             if(sessionManager != null) sessionManager.Initialize();
             if(voiceOverlayManager != null) voiceOverlayManager.Initialize(Root);
-            CheckFirstTimeSetup();
 
             if(DiscordManager.Instance != null) {
                 DiscordManager.Instance.SetStatus("In Main Menu", "Browsing");
@@ -99,7 +91,6 @@ namespace Game.Menu {
         private void WireSubManagerCallbacks() {
             if(uiManager != null) WireUIManagerEvents();
             if(sessionManager != null) WireSessionManagerEvents();
-            if(gamemodeManager != null) WireGamemodeManagerEvents();
         }
 
         #endregion
@@ -174,7 +165,7 @@ namespace Game.Menu {
                 _isPrivateMatchIntent = true;
                 ShowPanel(uiManager.PlayGamemodePanel);
             };
-            uiManager.OnGamemodeSelected = (mode) => {
+            uiManager.OnGamemodeSelected = mode => {
                 // IMPORTANT:
                 // We often auto-host a "party lobby" in the background for invites/party UX.
                 // That lobby uses "Private" as its Steam lobby mode, but it should NOT force the
@@ -216,7 +207,6 @@ namespace Game.Menu {
                 ShowPanel(MainMenuPanel);
             };
             uiManager.OnLobbyLeaveCancelled = () => { };
-            uiManager.OnFirstTimeContinue = OnFirstTimeSetupContinue;
             uiManager.OnShowPanel = ShowPanel;
         }
 
@@ -226,56 +216,30 @@ namespace Game.Menu {
             sessionManager.OnHostClicked = () => { sessionManager.HandleHostClicked().Forget(); };
             sessionManager.OnJoinClicked = code => { _ = sessionManager.HandleFindGameClicked(); }; // Mapped to Find Game
             sessionManager.OnStartGameClicked = () => {
-                gamemodeManager?.CloseDropdown();
+                if(gamemodeManager != null) gamemodeManager.CloseDropdown();
             };
             sessionManager.OnBackFromLobbyClicked = () => {
                 // Check if we should show modal
                 // Logic: If Host or Has Members
-                bool shouldShowModal = IsInActiveLobby();
+                var shouldShowModal = IsInActiveLobby();
 
                 if(shouldShowModal && uiManager != null) {
                     uiManager.ShowLobbyLeaveConfirmation();
                 } else {
                     UISoundService.PlayButtonClick(isBack: true);
-                    SessionManager.Instance?.LeaveToMainMenuAsync().Forget();
+                    SessionManager.Instance.LeaveToMainMenuAsync().Forget();
                     ShowPanel(MainMenuPanel);
                 }
             };
             sessionManager.OnHostStatusChanged = (isHost, wasHost) => {
-                gamemodeManager?.SetHostStatus(isHost, wasHost);
+                if(gamemodeManager != null) gamemodeManager.SetHostStatus(isHost, wasHost);
             };
             sessionManager.ShouldShowLobbyLeaveModal = IsInActiveLobby;
         }
         
-        private bool IsInActiveLobby() {
+        private static bool IsInActiveLobby() {
             var sessionManagerInstance = SessionManager.Instance;
-            if (sessionManagerInstance == null || !sessionManagerInstance.CurrentLobby.HasValue) return false;
-            
-            // If we are owner, definitely warn.
-            if (sessionManagerInstance.CurrentLobby.Value.Owner.Id == SteamClient.SteamId) return true;
-            
-            // If connected to multiplayer, warn.
-            return true; 
-        }
-
-        private void WireGamemodeManagerEvents() {
-            // MainMenuGamemodeManager already applies selection locally and syncs to SessionManager.
-            // Do not re-invoke HandleGameModeSelected() here (would double-apply selection).
-        }
-
-        #endregion
-
-        #region First Time Setup
-
-        private void CheckFirstTimeSetup() {
-            uiManager?.CheckFirstTimeSetup();
-        }
-
-        private void OnFirstTimeSetupContinue() {
-            if(uiManager == null) return;
-
-            uiManager.HideFirstTimeSetup();
-            LoadSettings();
+            return sessionManagerInstance != null && sessionManagerInstance.CurrentLobby.HasValue;
         }
 
         #endregion
@@ -286,13 +250,12 @@ namespace Game.Menu {
             if(panel == null) return;
 
             if(_navigator == null) {
-                if(!_navigatorMissingLogged) {
-                    Debug.LogError(
-                        "[MainMenuManager] UI navigator is not initialized; cannot show panel. " +
-                        "Check OnInitialize/FindPanels/InitializeNavigator execution order.",
-                        this);
-                    _navigatorMissingLogged = true;
-                }
+                if(_navigatorMissingLogged) return;
+                Debug.LogError(
+                    "[MainMenuManager] UI navigator is not initialized; cannot show panel. " +
+                    "Check OnInitialize/FindPanels/InitializeNavigator execution order.",
+                    this);
+                _navigatorMissingLogged = true;
                 return;
             }
 
@@ -323,7 +286,7 @@ namespace Game.Menu {
                 characterCustomizationManager.OnBackFromCustomizationCallback = () => ShowPanel(_loadoutPanel);
             }
             ShowPanel(_loadoutPanel);
-            characterCustomizationManager?.ShowCustomization();
+            if(characterCustomizationManager != null) characterCustomizationManager.ShowCustomization();
         }
 
 
@@ -339,7 +302,8 @@ namespace Game.Menu {
             optionsMenuManager.OnBackFromOptionsCallback = () => ShowPanel(MainMenuPanel);
             optionsMenuManager.Initialize();
 
-            if(characterCustomizationManager != null) {
+            if(characterCustomizationManager == null) return;
+            {
                 characterCustomizationManager.OnButtonClickedCallback = OnButtonClicked;
                 characterCustomizationManager.MouseEnterCallback = _ => UISoundService.PlayButtonHover();
                 characterCustomizationManager.OnBackFromCustomizationCallback = () => ShowPanel(_loadoutPanel);
@@ -347,7 +311,7 @@ namespace Game.Menu {
         }
 
         private void LoadSettings() {
-            optionsMenuManager?.LoadSettings();
+            if(optionsMenuManager != null) optionsMenuManager.LoadSettings();
         }
 
         #endregion

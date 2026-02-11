@@ -2,12 +2,10 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using Game.Player;
-using Game.Audio;
 using Game.Match;
 using Game.Spawning;
 using Game.UI;
 using Network.Diagnostics;
-using Network.Events;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -305,12 +303,13 @@ namespace Game.Hopball {
             // Reposition at most recent spawn point (retains energy)
             var recentSpawnTransform = _mostRecentSpawnPoint.transform;
             var prior = CurrentHopballController.transform.position;
-            CurrentHopballController.RepositionAtLocation(recentSpawnTransform.position,
+            var position = recentSpawnTransform.position;
+            CurrentHopballController.RepositionAtLocation(position,
                 recentSpawnTransform.rotation);
             FlowLog.Emit(FlowEventIds.HopballOobRecovery,
                 ("hopballNetId", CurrentHopballController.NetworkObjectId),
                 ("from", prior),
-                ("to", recentSpawnTransform.position));
+                ("to", position));
 
             // Play spawn sound at reposition location (directional, same falloff as gunshots)
             PlayHopballSpawnSoundClientRpc(_mostRecentSpawnPoint.transform.position);
@@ -399,10 +398,7 @@ namespace Game.Hopball {
             if(!NetworkManager.Singleton.ConnectedClients.TryGetValue(playerId, out var client)) {
                 return null;
             }
-            if(client.PlayerObject == null) {
-                return null;
-            }
-            return client.PlayerObject.GetComponent<PlayerController>();
+            return client.PlayerObject == null ? null : client.PlayerObject.GetComponent<PlayerController>();
         }
 
         /// <summary>
@@ -411,11 +407,11 @@ namespace Game.Hopball {
         /// </summary>
         [Rpc(SendTo.Everyone)]
         private void PlayHopballSpawnSoundClientRpc(Vector3 position) {
-            if(Game.Audio2.AudioService.Instance == null) return;
+            if(Audio2.AudioService.Instance == null) return;
 
-            var soundId = "gameplay.hopball.spawn";
-            Game.Audio2.AudioService.Instance.Stop(soundId);
-            Game.Audio2.AudioService.Instance.Play(soundId, position);
+            const string soundId = "gameplay.hopball.spawn";
+            Audio2.AudioService.Instance.Stop(soundId);
+            Audio2.AudioService.Instance.Play(soundId, position);
         }
 
         /// <summary>
@@ -431,7 +427,7 @@ namespace Game.Hopball {
 
             var hopballNetworkObject = CurrentHopballController.GetComponent<NetworkObject>();
             if(IsServer && hopballNetworkObject != null && hopballNetworkObject.IsSpawned) {
-                hopballNetworkObject.Despawn(true);
+                hopballNetworkObject.Despawn();
             } else if((hopballNetworkObject == null || hopballNetworkObject.IsSpawned == false) &&
                       CurrentHopballController != null) {
                 Destroy(CurrentHopballController.gameObject);

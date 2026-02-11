@@ -41,7 +41,7 @@ namespace Game.UI {
                 container.Q<VisualElement>("hit-back"),
                 container.Q<VisualElement>("hit-backLeft"),
                 container.Q<VisualElement>("hit-left"),
-                container.Q<VisualElement>("hit-frontLeft"),
+                container.Q<VisualElement>("hit-frontLeft")
             };
 
             _runningCoroutines = new Coroutine[_indicators.Length];

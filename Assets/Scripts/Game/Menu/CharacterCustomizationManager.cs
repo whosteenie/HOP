@@ -130,8 +130,8 @@ namespace Game.Menu {
             UpdatePacketSelectionHighlight();
         }
 
-        protected override Dictionary<string, System.Type> GetRequiredElements() {
-            return new Dictionary<string, System.Type>();
+        protected override Dictionary<string, Type> GetRequiredElements() {
+            return new Dictionary<string, Type>();
         }
 
         private void SetupUIReferences() {

@@ -13,17 +13,16 @@ namespace Network.Diagnostics {
         /// <summary>
         /// Safely gets a component, publishing a debug event if not found.
         /// </summary>
-        public static T GetComponentSafe<T>(this GameObject gameObject, string context = null) where T : Component {
+        private static T GetComponentSafe<T>(this GameObject gameObject, string context = null) where T : Component {
             if(gameObject == null) {
                 EventBus.Publish(new GameObjectNotFoundEvent("null", context ?? "GetComponentSafe"));
                 return null;
             }
 
             var component = gameObject.GetComponent<T>();
-            if(component == null) {
-                var contextStr = context ?? $"{typeof(T).Name} lookup on {gameObject.name}";
-                EventBus.Publish(new ComponentNotFoundEvent(typeof(T).Name, gameObject.name, contextStr));
-            }
+            if(component != null) return component;
+            var contextStr = context ?? $"{typeof(T).Name} lookup on {gameObject.name}";
+            EventBus.Publish(new ComponentNotFoundEvent(typeof(T).Name, gameObject.name, contextStr));
             return component;
         }
 
@@ -31,27 +30,24 @@ namespace Network.Diagnostics {
         /// Safely gets a component, publishing a debug event if not found.
         /// </summary>
         public static T GetComponentSafe<T>(this Component component, string context = null) where T : Component {
-            if(component == null) {
-                EventBus.Publish(new GameObjectNotFoundEvent("null", context ?? "GetComponentSafe"));
-                return null;
-            }
-            return component.gameObject.GetComponentSafe<T>(context);
+            if(component != null) return component.gameObject.GetComponentSafe<T>(context);
+            EventBus.Publish(new GameObjectNotFoundEvent("null", context ?? "GetComponentSafe"));
+            return null;
         }
 
         /// <summary>
         /// Safely gets a component in children, publishing a debug event if not found.
         /// </summary>
-        public static T GetComponentInChildrenSafe<T>(this GameObject gameObject, bool includeInactive = false, string context = null) where T : Component {
+        private static T GetComponentInChildrenSafe<T>(this GameObject gameObject, bool includeInactive = false, string context = null) where T : Component {
             if(gameObject == null) {
                 EventBus.Publish(new GameObjectNotFoundEvent("null", context ?? "GetComponentInChildrenSafe"));
                 return null;
             }
 
             var component = gameObject.GetComponentInChildren<T>(includeInactive);
-            if(component == null) {
-                var contextStr = context ?? $"{typeof(T).Name} lookup in children of {gameObject.name}";
-                EventBus.Publish(new ComponentNotFoundEvent(typeof(T).Name, gameObject.name, contextStr));
-            }
+            if(component != null) return component;
+            var contextStr = context ?? $"{typeof(T).Name} lookup in children of {gameObject.name}";
+            EventBus.Publish(new ComponentNotFoundEvent(typeof(T).Name, gameObject.name, contextStr));
             return component;
         }
 
@@ -59,11 +55,9 @@ namespace Network.Diagnostics {
         /// Safely gets a component in children, publishing a debug event if not found.
         /// </summary>
         public static T GetComponentInChildrenSafe<T>(this Component component, bool includeInactive = false, string context = null) where T : Component {
-            if(component == null) {
-                EventBus.Publish(new GameObjectNotFoundEvent("null", context ?? "GetComponentInChildrenSafe"));
-                return null;
-            }
-            return component.gameObject.GetComponentInChildrenSafe<T>(includeInactive, context);
+            if(component != null) return component.gameObject.GetComponentInChildrenSafe<T>(includeInactive, context);
+            EventBus.Publish(new GameObjectNotFoundEvent("null", context ?? "GetComponentInChildrenSafe"));
+            return null;
         }
 
         /// <summary>
@@ -71,23 +65,20 @@ namespace Network.Diagnostics {
         /// </summary>
         public static bool TryGetNetworkObjectSafe(NetworkObjectReference reference, out NetworkObject networkObject, 
             ulong clientId, string context = null) {
-            if(!reference.TryGet(out networkObject) || networkObject == null || !networkObject.IsSpawned) {
-                var reason = networkObject == null ? "null" : (!networkObject.IsSpawned ? "not spawned" : "TryGet failed");
-                EventBus.Publish(new NetworkObjectReferenceFailedEvent(clientId, context ?? "NetworkObjectReference lookup", reason));
-                return false;
-            }
-            return true;
+            if(reference.TryGet(out networkObject) && networkObject != null && networkObject.IsSpawned) return true;
+            var reason = networkObject == null ? "null" : (!networkObject.IsSpawned ? "not spawned" : "TryGet failed");
+            EventBus.Publish(new NetworkObjectReferenceFailedEvent(clientId, context ?? "NetworkObjectReference lookup", reason));
+            return false;
         }
 
         /// <summary>
         /// Safely gets a singleton instance, publishing a debug event if not available.
         /// </summary>
         public static T GetSingletonSafe<T>(T instance, string singletonTypeName, string context = null) where T : class {
-            if(instance == null) {
-                var contextStr = context ?? $"Accessing {singletonTypeName}";
-                EventBus.Publish(new SingletonNotAvailableEvent(singletonTypeName, contextStr));
-            }
-            return instance;
+            if(instance != null) return instance;
+            var contextStr = context ?? $"Accessing {singletonTypeName}";
+            EventBus.Publish(new SingletonNotAvailableEvent(singletonTypeName, contextStr));
+            return null;
         }
 
         /// <summary>
@@ -95,10 +86,9 @@ namespace Network.Diagnostics {
         /// </summary>
         public static T FindFirstObjectByTypeSafe<T>(string context = null) where T : UnityEngine.Object {
             var obj = UnityEngine.Object.FindFirstObjectByType<T>();
-            if(obj == null) {
-                var contextStr = context ?? $"Finding first {typeof(T).Name}";
-                EventBus.Publish(new ComponentNotFoundEvent(typeof(T).Name, "Scene", contextStr));
-            }
+            if(obj != null) return obj;
+            var contextStr = context ?? $"Finding first {typeof(T).Name}";
+            EventBus.Publish(new ComponentNotFoundEvent(typeof(T).Name, "Scene", contextStr));
             return obj;
         }
 

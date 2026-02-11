@@ -43,10 +43,10 @@ namespace Game.Visuals {
 
             // 4. Color over Lifetime (Fade In / Fade Out)
             colorOverLifetime.enabled = true;
-            Gradient gradient = new Gradient();
+            var gradient = new Gradient();
             gradient.SetKeys(
-                new GradientColorKey[] { new GradientColorKey(zoneColor, 0f), new GradientColorKey(zoneColor, 1f) },
-                new GradientAlphaKey[] { new GradientAlphaKey(0f, 0f), new GradientAlphaKey(1f, 0.2f), new GradientAlphaKey(0f, 1f) }
+                new GradientColorKey[] { new(zoneColor, 0f), new(zoneColor, 1f) },
+                new GradientAlphaKey[] { new(0f, 0f), new(1f, 0.2f), new(0f, 1f) }
             );
             colorOverLifetime.color = gradient;
 

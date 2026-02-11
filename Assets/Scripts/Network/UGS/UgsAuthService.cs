@@ -16,18 +16,18 @@ namespace Network.UGS {
         private const string SteamIdentity = "unityauthenticationservice";
 
         private static readonly object SignInGate = new object();
-        private static Task _inFlightSignInTask;
-        private static string _lastAuthProvider = "Unknown";
+        private static Task inFlightSignInTask;
+        private static string lastAuthProvider = "Unknown";
 
         public static async UniTask InitializeAndSignInAsync() {
             if(UnityServices.State != ServicesInitializationState.Initialized) {
                 var options = new InitializationOptions();
-                
+
                 // Check if we are running as a clone (ParrelSync / MPPM)
-                // MPPM usually adds arguments or we can check project path hash
+                // MPPM usually adds arguments, or we can check project path hash
 #if UNITY_EDITOR
-                if (IsClone()) {
-                    string cloneName = GetCloneName();
+                if(IsClone()) {
+                    var cloneName = GetCloneName();
                     options.SetProfile(cloneName);
                     Debug.Log($"[UGS Auth] Initializing as clone profile: {cloneName}");
                 }
@@ -39,17 +39,18 @@ namespace Network.UGS {
 
             Task inFlight;
             lock(SignInGate) {
-                if(_inFlightSignInTask == null) {
-                    _inFlightSignInTask = InitializeAndSignInInternalAsync();
+                if(inFlightSignInTask == null) {
+                    inFlightSignInTask = InitializeAndSignInInternalAsync();
                 }
-                inFlight = _inFlightSignInTask;
+
+                inFlight = inFlightSignInTask;
             }
 
             await inFlight;
             FlowLog.Emit(FlowEventIds.AuthResult,
                 ("result", AuthenticationService.Instance.IsSignedIn ? "Success" : "Failed"),
                 ("authorized", AuthenticationService.Instance.IsAuthorized),
-                ("provider", _lastAuthProvider));
+                ("provider", lastAuthProvider));
 
             if(Debug.isDebugBuild) {
                 var signedIn = AuthenticationService.Instance.IsSignedIn;
@@ -76,11 +77,13 @@ namespace Network.UGS {
                         // Clear any cached session to force a fresh unique PlayerID
                         AuthenticationService.Instance.ClearSessionToken();
                         await AuthenticationService.Instance.SignInAnonymouslyAsync();
-                        _lastAuthProvider = "AnonymousClone";
+                        lastAuthProvider = "AnonymousClone";
                     } catch(System.Exception e) {
-                        _lastAuthProvider = "AnonymousCloneFailed";
-                        Debug.LogWarning($"[UgsAuthService] Anonymous sign-in failed for clone. Exception: {e.Message}");
+                        lastAuthProvider = "AnonymousCloneFailed";
+                        Debug.LogWarning(
+                            $"[UgsAuthService] Anonymous sign-in failed for clone. Exception: {e.Message}");
                     }
+
                     return;
                 }
 #endif
@@ -92,21 +95,21 @@ namespace Network.UGS {
 
                 try {
                     await AuthenticationService.Instance.SignInAnonymouslyAsync();
-                    _lastAuthProvider = "Anonymous";
+                    lastAuthProvider = "Anonymous";
                 } catch(System.Exception e) {
-                    _lastAuthProvider = "AnonymousFailed";
+                    lastAuthProvider = "AnonymousFailed";
                     Debug.LogWarning($"[UgsAuthService] Anonymous sign-in failed. Exception: {e.Message}");
                 }
             } finally {
                 lock(SignInGate) {
-                    _inFlightSignInTask = null;
+                    inFlightSignInTask = null;
                 }
             }
         }
 
         private static async Task<bool> TrySteamSignInAsync() {
             try {
-                var ticket = await SteamUser.GetAuthTicketForWebApiAsync(SteamIdentity, 10.0);
+                var ticket = await SteamUser.GetAuthTicketForWebApiAsync(SteamIdentity);
                 if(ticket == null) {
                     Debug.LogWarning("[UgsAuthService] Steam auth ticket request timed out or failed.");
                     return false;
@@ -126,8 +129,9 @@ namespace Network.UGS {
                     return false;
                 }
 
-                var options = new SignInOptions();
-                options.CreateAccount = true;
+                var options = new SignInOptions {
+                    CreateAccount = true
+                };
 
                 var appId = SteamClient.AppId.ToString();
                 if(string.IsNullOrEmpty(appId)) {
@@ -136,10 +140,10 @@ namespace Network.UGS {
                 }
 
                 await AuthenticationService.Instance.SignInWithSteamAsync(hex, SteamIdentity, appId, options);
-                _lastAuthProvider = "Steam";
+                lastAuthProvider = "Steam";
                 return AuthenticationService.Instance.IsSignedIn;
             } catch(System.Exception e) {
-                _lastAuthProvider = "SteamFailed";
+                lastAuthProvider = "SteamFailed";
                 Debug.LogWarning(
                     $"[UgsAuthService] Steam sign-in failed (AppID: {SteamClient.AppId}). " +
                     $"Falling back to anonymous. Exception: {e.Message}"
@@ -153,15 +157,17 @@ namespace Network.UGS {
             if(bytes.Length == 0) return "";
 
             var sb = new StringBuilder(bytes.Length * 2);
-            for(var i = 0; i < bytes.Length; i++) {
-                sb.Append(bytes[i].ToString("X2"));
+            foreach(var t in bytes) {
+                sb.Append(t.ToString("X2"));
             }
+
             return sb.ToString();
         }
-    private static bool IsClone() {
+
+        private static bool IsClone() {
             var clonePath = Application.dataPath;
             // ParrelSync uses "clone", Unity MPPM uses "Library/VP/mppm..."
-            return clonePath.Contains("clone") || clonePath.Contains("ParrelSync") || clonePath.Contains("mppm"); 
+            return clonePath.Contains("clone") || clonePath.Contains("ParrelSync") || clonePath.Contains("mppm");
         }
 
         private static string GetCloneName() {
@@ -171,4 +177,3 @@ namespace Network.UGS {
         }
     }
 }
-

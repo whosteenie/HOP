@@ -1,7 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
 using Game.Social;
-using Game.Menu;
 using Game.Player;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -15,9 +14,9 @@ namespace Game.UI {
         private VisualElement _chatMessageList;
         private TextField _chatInput;
 
-        private const int MAX_MESSAGES = 50; // Maximum messages to keep in history
-        private const float MESSAGE_LIFETIME = 8f; // Seconds before message fades when chat is closed
-        private const float FADE_DURATION = 1.5f; // Fade out duration
+        private const int MaxMessages = 50; // Maximum messages to keep in history
+        private const float MessageLifetime = 8f; // Seconds before message fades when chat is closed
+        private const float FadeDuration = 1.5f; // Fade out duration
 
         private class ChatMessageElement {
             public VisualElement Element;
@@ -25,7 +24,7 @@ namespace Game.UI {
             public bool IsVisible = true;
         }
 
-        private List<ChatMessageElement> _messageElements = new List<ChatMessageElement>();
+        private readonly List<ChatMessageElement> _messageElements = new List<ChatMessageElement>();
         private Coroutine _lifetimeCheckCoroutine;
 
         public bool IsChatOpen { get; private set; }
@@ -49,15 +48,14 @@ namespace Game.UI {
                 _chatScroll.pickingMode = PickingMode.Ignore;
             }
 
-            if(ChatManager.Instance != null) {
-                ChatManager.Instance.OnMessageReceived -= HandleMessageReceived;
-                ChatManager.Instance.OnMessageReceived += HandleMessageReceived;
-                RegisterCleanup(() => {
-                    if(ChatManager.Instance != null) {
-                        ChatManager.Instance.OnMessageReceived -= HandleMessageReceived;
-                    }
-                });
-            }
+            if(ChatManager.Instance == null) return;
+            ChatManager.Instance.OnMessageReceived -= HandleMessageReceived;
+            ChatManager.Instance.OnMessageReceived += HandleMessageReceived;
+            RegisterCleanup(() => {
+                if(ChatManager.Instance != null) {
+                    ChatManager.Instance.OnMessageReceived -= HandleMessageReceived;
+                }
+            });
         }
 
         protected override Dictionary<string, System.Type> GetRequiredElements() {
@@ -102,18 +100,17 @@ namespace Game.UI {
 
         private void Update() {
             // Toggle Chat (New Input System)
-            if(UnityEngine.InputSystem.Keyboard.current != null) {
-                if(UnityEngine.InputSystem.Keyboard.current.enterKey.wasPressedThisFrame) {
-                    if(IsChatOpen) {
-                        SubmitChat(); // Enter to submit if open
-                    } else {
-                        OpenChat();
-                    }
+            if(UnityEngine.InputSystem.Keyboard.current == null) return;
+            if(UnityEngine.InputSystem.Keyboard.current.enterKey.wasPressedThisFrame) {
+                if(IsChatOpen) {
+                    SubmitChat(); // Enter to submit if open
+                } else {
+                    OpenChat();
                 }
+            }
 
-                if(IsChatOpen && UnityEngine.InputSystem.Keyboard.current.escapeKey.wasPressedThisFrame) {
-                    CloseChat();
-                }
+            if(IsChatOpen && UnityEngine.InputSystem.Keyboard.current.escapeKey.wasPressedThisFrame) {
+                CloseChat();
             }
         }
 
@@ -148,11 +145,10 @@ namespace Game.UI {
             
             // Show all messages (remove fading class)
             foreach(var msgElement in _messageElements) {
-                if(msgElement.Element != null) {
-                    msgElement.Element.RemoveFromClassList("fading");
-                    msgElement.Element.style.display = DisplayStyle.Flex;
-                    msgElement.IsVisible = true;
-                }
+                if(msgElement.Element == null) continue;
+                msgElement.Element.RemoveFromClassList("fading");
+                msgElement.Element.style.display = DisplayStyle.Flex;
+                msgElement.IsVisible = true;
             }
             
             // Scroll to bottom
@@ -186,13 +182,12 @@ namespace Game.UI {
             _chatInput.AddToClassList("minimized");
             
             // Instantly hide any expired messages upon closing
-            float currentTime = Time.time;
+            var currentTime = Time.time;
             foreach(var msgElement in _messageElements) {
                 if(msgElement.Element == null) continue;
-                if(currentTime - msgElement.Timestamp >= MESSAGE_LIFETIME) {
-                    msgElement.Element.style.display = DisplayStyle.None;
-                    msgElement.IsVisible = false;
-                }
+                if(!(currentTime - msgElement.Timestamp >= MessageLifetime)) continue;
+                msgElement.Element.style.display = DisplayStyle.None;
+                msgElement.IsVisible = false;
             }
 
             
@@ -219,21 +214,20 @@ namespace Game.UI {
             
             // Only re-lock if scoreboard isn't also visible
             var scoreboardVisible = ScoreboardManager.Instance != null && ScoreboardManager.Instance.IsScoreboardVisible;
-            if (!scoreboardVisible) {
-                Cursor.lockState = CursorLockMode.Locked;
-                Cursor.visible = false;
+            if(scoreboardVisible) return;
+            Cursor.lockState = CursorLockMode.Locked;
+            Cursor.visible = false;
                 
-                // Unlock player camera
-                if (PlayerController.LocalPlayer != null) {
-                    PlayerController.LocalPlayer.LockLook = false;
-                }
+            // Unlock player camera
+            if (PlayerController.LocalPlayer != null) {
+                PlayerController.LocalPlayer.LockLook = false;
             }
         }
 
         private void SubmitChat() {
              if(_chatInput == null) return;
              
-             string message = _chatInput.value;
+             var message = _chatInput.value;
              if(!string.IsNullOrWhiteSpace(message)) {
                  // Send message and keep chat open
                  if(ChatManager.Instance != null) {
@@ -251,7 +245,7 @@ namespace Game.UI {
              }
         }
 
-        private void OnChatInputKeyDown(KeyDownEvent evt) {
+        private static void OnChatInputKeyDown(KeyDownEvent evt) {
             if(evt.keyCode == KeyCode.Return) {
                 // Handled in Update/SubmitChat, but prevent default newline
                 evt.StopPropagation();
@@ -276,7 +270,7 @@ namespace Game.UI {
             _chatMessageList.Add(row);
 
             // Limit message history
-            if(_messageElements.Count > MAX_MESSAGES) {
+            if(_messageElements.Count > MaxMessages) {
                 var oldest = _messageElements[0];
                 _messageElements.RemoveAt(0);
                 oldest.Element?.RemoveFromHierarchy();
@@ -291,10 +285,13 @@ namespace Game.UI {
             }
         }
 
-        private VisualElement CreateMessageRow(ChatMessage msg) {
-            var row = new VisualElement();
-            row.style.flexDirection = FlexDirection.Row;
-            row.style.flexWrap = Wrap.Wrap;
+        private static VisualElement CreateMessageRow(ChatMessage msg) {
+            var row = new VisualElement {
+                style = {
+                    flexDirection = FlexDirection.Row,
+                    flexWrap = Wrap.Wrap
+                }
+            };
 
             if(msg.IsSystemMessage) {
                 var label = new Label(msg.MessageContent);
@@ -338,25 +335,24 @@ namespace Game.UI {
 
         private IEnumerator LifetimeCheckRoutine() {
             while(!IsChatOpen) {
-                float currentTime = Time.time;
-                bool anyChanges = false;
+                var currentTime = Time.time;
+                var anyChanges = false;
 
                 foreach(var msgElement in _messageElements) {
                     if(msgElement.Element == null) continue;
 
-                    float age = currentTime - msgElement.Timestamp;
+                    var age = currentTime - msgElement.Timestamp;
                     
                     // Start fading when approaching lifetime
-                    if(age >= MESSAGE_LIFETIME && msgElement.IsVisible) {
-                        msgElement.Element.AddToClassList("fading");
-                        msgElement.IsVisible = false;
-                        anyChanges = true;
-                    }
+                    if(!(age >= MessageLifetime) || !msgElement.IsVisible) continue;
+                    msgElement.Element.AddToClassList("fading");
+                    msgElement.IsVisible = false;
+                    anyChanges = true;
                 }
 
                 // Wait for fade duration, then hide faded messages
                 if(anyChanges) {
-                    yield return new WaitForSeconds(FADE_DURATION);
+                    yield return new WaitForSeconds(FadeDuration);
                     
                     foreach(var msgElement in _messageElements) {
                         if(msgElement.Element != null && !msgElement.IsVisible) {
@@ -374,16 +370,15 @@ namespace Game.UI {
         private IEnumerator ScrollToBottom() {
             yield return null; // Wait for layout
             yield return null; // Wait another frame for layout to stabilize
-            if(_chatScroll != null && _chatMessageList != null) {
-                // Scroll to show the bottom (newest messages)
-                var contentHeight = _chatScroll.contentContainer.layout.height;
-                var viewportHeight = _chatScroll.contentViewport.layout.height;
-                if(contentHeight > viewportHeight) {
-                    var maxScroll = contentHeight - viewportHeight;
-                    _chatScroll.scrollOffset = new Vector2(0, maxScroll);
-                } else {
-                    _chatScroll.scrollOffset = Vector2.zero;
-                }
+            if(_chatScroll == null || _chatMessageList == null) yield break;
+            // Scroll to show the bottom (newest messages)
+            var contentHeight = _chatScroll.contentContainer.layout.height;
+            var viewportHeight = _chatScroll.contentViewport.layout.height;
+            if(contentHeight > viewportHeight) {
+                var maxScroll = contentHeight - viewportHeight;
+                _chatScroll.scrollOffset = new Vector2(0, maxScroll);
+            } else {
+                _chatScroll.scrollOffset = Vector2.zero;
             }
         }
     }

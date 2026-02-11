@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Game.Progression;
 using UnityEngine;
 using UnityEngine.UIElements;
+using Object = UnityEngine.Object;
 
 namespace Game.UI {
     public static class ChallengeUiRenderer {
@@ -10,17 +11,16 @@ namespace Game.UI {
             VisualTreeAsset cardTemplate,
             string title,
             ref bool templateErrorLogged,
-            UnityEngine.Object context,
+            Object context,
             out Label timerLabel) {
             timerLabel = null;
 
             if(cardTemplate == null) {
-                if(!templateErrorLogged) {
-                    Debug.LogError(
-                        "[ChallengeUiRenderer] challengeCardTemplate is required. Assign ChallengeCard.uxml in the inspector.",
-                        context);
-                    templateErrorLogged = true;
-                }
+                if(templateErrorLogged) return null;
+                Debug.LogError(
+                    "[ChallengeUiRenderer] challengeCardTemplate is required. Assign ChallengeCard.uxml in the inspector.",
+                    context);
+                templateErrorLogged = true;
                 return null;
             }
 
@@ -30,12 +30,11 @@ namespace Game.UI {
             var listContainer = card.Q<VisualElement>("challenge-list");
 
             if(titleLabel == null || timerLabel == null || listContainer == null) {
-                if(!templateErrorLogged) {
-                    Debug.LogError(
-                        "[ChallengeUiRenderer] ChallengeCard template is missing required elements: title-label, timer-label, or challenge-list.",
-                        context);
-                    templateErrorLogged = true;
-                }
+                if(templateErrorLogged) return null;
+                Debug.LogError(
+                    "[ChallengeUiRenderer] ChallengeCard template is missing required elements: title-label, timer-label, or challenge-list.",
+                    context);
+                templateErrorLogged = true;
                 return null;
             }
 
@@ -90,41 +89,40 @@ namespace Game.UI {
             }
         }
 
-        public static bool RenderChallengeList(
-            VisualElement listContainer,
+        public static void RenderChallengeList(VisualElement listContainer,
             List<ActiveChallengeData> challenges,
             VisualTreeAsset rowTemplate,
             ProgressionManager progressionManager,
             ref bool templateErrorLogged,
-            UnityEngine.Object context,
+            Object context,
             bool showEmptyLabel,
             bool includeXpSuffix,
             Action<ProgressBar> progressBarStyler = null) {
-            if(listContainer == null) return false;
+            if(listContainer == null) return;
 
             listContainer.Clear();
 
             if(challenges == null || challenges.Count == 0) {
-                if(showEmptyLabel) {
-                    var emptyLabel = new Label("No challenges available");
-                    emptyLabel.AddToClassList("challenge-empty-label");
-                    listContainer.Add(emptyLabel);
-                }
-                return true;
+                if(!showEmptyLabel) return;
+                var emptyLabel = new Label("No challenges available");
+                emptyLabel.AddToClassList("challenge-empty-label");
+                listContainer.Add(emptyLabel);
+
+                return;
             }
 
             if(rowTemplate == null) {
-                if(!templateErrorLogged) {
-                    Debug.LogError("[ChallengeUiRenderer] challengeRowTemplate is required. Assign ChallengeRow.uxml in the inspector.",
-                        context);
-                    templateErrorLogged = true;
-                }
-                return false;
+                if(templateErrorLogged) return;
+                Debug.LogError("[ChallengeUiRenderer] challengeRowTemplate is required. Assign ChallengeRow.uxml in the inspector.",
+                    context);
+                templateErrorLogged = true;
+
+                return;
             }
 
             if(progressionManager == null) {
                 Debug.LogWarning("[ChallengeUiRenderer] ProgressionManager is null.");
-                return false;
+                return;
             }
 
             foreach(var activeChallenge in challenges) {
@@ -137,13 +135,13 @@ namespace Game.UI {
                 var progressBar = row.Q<ProgressBar>("progress-bar");
 
                 if(descriptionLabel == null || xpLabel == null || progressBar == null) {
-                    if(!templateErrorLogged) {
-                        Debug.LogError(
-                            "[ChallengeUiRenderer] ChallengeRow template is missing required elements: description-label, xp-label, or progress-bar.",
-                            context);
-                        templateErrorLogged = true;
-                    }
-                    return false;
+                    if(templateErrorLogged) return;
+                    Debug.LogError(
+                        "[ChallengeUiRenderer] ChallengeRow template is missing required elements: description-label, xp-label, or progress-bar.",
+                        context);
+                    templateErrorLogged = true;
+
+                    return;
                 }
 
                 var progress = activeChallenge.currentProgress;
@@ -161,8 +159,6 @@ namespace Game.UI {
 
                 listContainer.Add(row);
             }
-
-            return true;
         }
 
         private static string BuildDescriptionText(
@@ -172,7 +168,7 @@ namespace Game.UI {
             ProgressionManager progressionManager) {
             var descText = def.Description;
             var filterToUse = !string.IsNullOrEmpty(activeChallenge.filterID) ? activeChallenge.filterID : def.weaponID;
-            var displayFilter = progressionManager.GetFilterDisplayName(filterToUse);
+            var displayFilter = ProgressionManager.GetFilterDisplayName(filterToUse);
             if(string.IsNullOrEmpty(displayFilter)) {
                 displayFilter = def.type switch {
                     ChallengeType.MatchesPlayed => "Any Mode",

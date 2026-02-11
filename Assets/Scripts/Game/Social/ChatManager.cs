@@ -1,9 +1,5 @@
 using System;
-using System.Collections.Generic;
 using Unity.Netcode;
-using UnityEngine;
-using Network.Core; // For PlayerIdentity/Connection logic if needed
-using Network.Steam; // For finding names via SteamID if needed
 using Game.Player;
 
 namespace Game.Social {
@@ -50,18 +46,14 @@ namespace Game.Social {
             var senderId = rpcParams.Receive.SenderClientId;
             
             // Get Sender Name (Assuming PlayerController or Identity exists)
-            string senderName = $"Player {senderId}";
+            var senderName = $"Player {senderId}";
             
             // Try to find actual name from NetworkManager or Player objects
             if (NetworkManager.Singleton.ConnectedClients.TryGetValue(senderId, out var client)) {
                 var playerObj = client.PlayerObject;
                 if(playerObj != null) {
                     // Try to get actual name from PlayerController NetworkVariable
-                    if (playerObj.TryGetComponent<PlayerController>(out var pc)) {
-                        senderName = pc.PlayerName.Value.ToString();
-                    } else {
-                        senderName = playerObj.name; 
-                    }
+                    senderName = playerObj.TryGetComponent<PlayerController>(out var pc) ? pc.PlayerName.Value.ToString() : playerObj.name;
                 }
             }
 
@@ -75,7 +67,7 @@ namespace Game.Social {
             if(SocialSettings.IsBlocked(senderSteamId.ToString())) return;
             
             // Profanity Filter
-            string displayMessage = message;
+            var displayMessage = message;
             if (SocialSettings.ProfanityFilterEnabled) {
                 displayMessage = ApplyProfanityFilter(message);
             }
@@ -102,10 +94,10 @@ namespace Game.Social {
             OnMessageReceived?.Invoke(chatMsg);
         }
 
-        private string ApplyProfanityFilter(string input) {
+        private static string ApplyProfanityFilter(string input) {
             // Very basic placeholder filter
             string[] badWords = { "badword", "swear" }; 
-            string filtered = input;
+            var filtered = input;
             foreach (var word in badWords) {
                 var replacement = new string('*', word.Length);
                 filtered = filtered.Replace(word, replacement, StringComparison.OrdinalIgnoreCase);

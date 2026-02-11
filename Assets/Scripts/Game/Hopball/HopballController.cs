@@ -31,8 +31,6 @@ namespace Game.Hopball {
     private readonly NetworkVariable<float> _networkEnergy = new(value: MaxEnergy);
 
     private int _lastDrainTime = -1; // Initialize to -1 to track first drain
-    private bool _isDissolving; // Track if dissolve is in progress
-    private bool _awaitingRespawn;
 
     [Header("World Model Components (on this prefab)")]
     [SerializeField] private MeshRenderer meshRenderer;
@@ -60,8 +58,9 @@ namespace Game.Hopball {
     private float _displayEnergy = MaxEnergy;
     public HopballVisualState CurrentVisualState { get; private set; }
 
-    public bool IsDissolving => _isDissolving;
-    public bool IsAwaitingRespawn => _awaitingRespawn;
+    public bool IsDissolving { get; private set; }
+
+    public bool IsAwaitingRespawn { get; private set; }
 
     /// <summary>
     /// Gets the current emission intensity from the world hopball material.
@@ -74,14 +73,14 @@ namespace Game.Hopball {
     /// Returns zero vector if effects are not available or if dissolving.
     /// During dissolve, returns zero to ensure FP visuals don't show effects.
     /// </summary>
-    private Vector3 CurrentEffectScale => _isDissolving ? Vector3.zero : effects.localScale;
+    private Vector3 CurrentEffectScale => IsDissolving ? Vector3.zero : effects.localScale;
 
     /// <summary>
     /// Gets the current light intensity from the world hopball light.
     /// Returns 0 if light is not available, disabled, or if dissolving.
     /// During dissolve, returns zero to ensure FP visuals don't show effects.
     /// </summary>
-    private float CurrentLightIntensity => _isDissolving ? 0f : effectLight.intensity;
+    private float CurrentLightIntensity => IsDissolving ? 0f : effectLight.intensity;
 
     [System.Flags]
     private enum HopballStateFlags : byte {
@@ -185,7 +184,7 @@ namespace Game.Hopball {
 
         // Server handles energy drain (only while equipped, unless dissolving)
         // If dissolving, continue draining even if dropped to complete the dissolve
-        if(IsServer && (IsEquipped || _isDissolving)) {
+        if(IsServer && (IsEquipped || IsDissolving)) {
             var currentTime = MatchTimerManager.Instance.TimeRemainingSeconds;
 
             // Initialize last drain time on first frame
@@ -205,8 +204,8 @@ namespace Game.Hopball {
         // Effects now only update when state actually changes; no per-frame visual polling required
 
         // Handle dissolve effect when energy is 0
-        if(_networkEnergy.Value <= 0 && !_isDissolving && !_awaitingRespawn) {
-            _isDissolving = true;
+        if(_networkEnergy.Value <= 0 && !IsDissolving && !IsAwaitingRespawn) {
+            IsDissolving = true;
             FlowLog.Emit(FlowEventIds.HopballDissolveStarted,
                 ("hopballNetId", NetworkObjectId),
                 ("energy", _networkEnergy.Value),
@@ -225,11 +224,11 @@ namespace Game.Hopball {
         // Smoothly interpolate display energy every frame for visual effects
         SmoothDisplayEnergy(Time.deltaTime);
 
-        if(_awaitingRespawn) {
+        if(IsAwaitingRespawn) {
             return;
         }
 
-        if(_isDissolving) {
+        if(IsDissolving) {
             HandleDissolve();
         } else if(DissolveAmount > 0f) {
             DissolveAmount = 0f;
@@ -275,7 +274,7 @@ namespace Game.Hopball {
             DissolveAmount = 0f;
             meshRenderer.material.SetFloat(DissolveAmountID, DissolveAmount);
 
-            _isDissolving = false;
+            IsDissolving = false;
             _equippedController = controller;
             HolderController = controller != null ? controller.PlayerController : null;
             _lastDrainTime = -1;
@@ -319,7 +318,7 @@ namespace Game.Hopball {
         // Ensure unparented
         transform.SetParent(null);
 
-        _awaitingRespawn = false;
+        IsAwaitingRespawn = false;
         ResetToInitialState();
 
         BroadcastStateUpdate(new HopballStateUpdate {
@@ -402,7 +401,7 @@ namespace Game.Hopball {
 
         // If dissolving, ensure real hopball is shown and continues dissolving
         // Don't enable target indicator during dissolve - wait until respawn
-        if(_isDissolving) {
+        if(IsDissolving) {
             BroadcastStateUpdate(new HopballStateUpdate {
                 Flags = HopballStateFlags.CleanupVisuals | HopballStateFlags.ShowRealDropped,
                 TargetStateSpecified = true,
@@ -479,7 +478,7 @@ namespace Game.Hopball {
             ShowRealHopball();
             SetupDroppedVisuals(isDrop: true); // Explicitly indicate this is a drop
             if(!update.TargetStateSpecified) {
-                target.enabled = !_isDissolving;
+                target.enabled = !IsDissolving;
             }
         }
 
@@ -622,7 +621,7 @@ namespace Game.Hopball {
     /// Handles the completion of the dissolve effect - removes from player and respawns.
     /// </summary>
     private void CompleteDissolve() {
-        if(_isDissolving == false) return; // Prevent multiple calls
+        if(IsDissolving == false) return; // Prevent multiple calls
         FlowLog.Emit(FlowEventIds.HopballDissolveCompleted,
             ("hopballNetId", NetworkObjectId),
             ("respawnDelay", "ConfiguredBySpawnManager"));
@@ -655,11 +654,11 @@ namespace Game.Hopball {
             TargetEnabled = false
         });
 
-        _isDissolving = false;
+        IsDissolving = false;
     }
 
     public void PrepareForRespawnDelay() {
-        _awaitingRespawn = true;
+        IsAwaitingRespawn = true;
         HideRealHopball();
         if(target != null) {
             target.enabled = false;

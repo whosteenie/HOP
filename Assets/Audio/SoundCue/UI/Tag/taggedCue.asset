@@ -18,7 +18,7 @@ MonoBehaviour:
     weight: 1
     volumeDb: 0
     pitch: 0
-    randomPitch: 0.02
+    randomPitch: 0.01
   bus: 1
   outputGroup: {fileID: -8711128661379289526, guid: 5b25e535414676d478e020121c230f08, type: 2}
   is3D: 0

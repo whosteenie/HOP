@@ -54,13 +54,9 @@ namespace OSI {
             // m is the slope
             // c is y intercept which will be 0, as line is passing through origin.
             // Final equation will be y = mx.
-            if(screenPosition.x > 0) {
-                // Keep the x screen position to the maximum x bounds and
-                // find the y screen position using y = mx.
-                screenPosition = new Vector3(screenBounds.x, screenBounds.x * slope, 0);
-            } else {
-                screenPosition = new Vector3(-screenBounds.x, -screenBounds.x * slope, 0);
-            }
+            // Keep the x screen position to the maximum x bounds and
+            // find the y screen position using y = mx.
+            screenPosition = screenPosition.x > 0 ? new Vector3(screenBounds.x, screenBounds.x * slope, 0) : new Vector3(-screenBounds.x, -screenBounds.x * slope, 0);
 
             // In case the y ScreenPosition exceeds the y screenBounds 
             if(screenPosition.y > screenBounds.y) {

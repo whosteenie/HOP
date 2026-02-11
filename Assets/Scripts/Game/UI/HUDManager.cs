@@ -156,7 +156,7 @@ namespace Game.UI {
             }
 
             // If cached text is still showing tag status, clear it to force update
-            if(_cachedHealthText == "You're it!" || _cachedHealthText == "Not it...") {
+            if(_cachedHealthText is "You're it!" or "Not it...") {
                 _cachedHealthText = "";
             }
 
@@ -281,7 +281,7 @@ namespace Game.UI {
 
             var localPlayer = PlayerController.LocalPlayer;
             var current = localPlayer != null ? localPlayer.netHealth.Value : 100f;
-            var max = 100f;
+            const float max = 100f;
 
             _healthBar.style.display = DisplayStyle.Flex;
             var percent = (current / max) * 100f;

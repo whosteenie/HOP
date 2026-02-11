@@ -26,12 +26,12 @@ namespace Discord {
                 _discord = new Client();
 
                 // Set Application ID (required for SDK usage without Connect)
-                _discord.SetApplicationId((ulong)AppId);
+                _discord.SetApplicationId(AppId);
                 
                 // Also register launch command to ensure Discord knows how to launch us?
                 // This links the current specific executable (or Unity Editor) to the App ID, 
                 // allowing it to appear in the "Game Activity" / "Go Live" section.
-                _discord.RegisterLaunchCommand((ulong)AppId, ""); 
+                _discord.RegisterLaunchCommand(AppId, ""); 
             
                 Debug.Log("[DiscordManager] Discord SDK initialized (Partner SDK).");
             } catch (Exception e) {
@@ -62,7 +62,7 @@ namespace Discord {
                     activity.SetTimestamps(timestamps);
                 }
 
-                _discord.UpdateRichPresence(activity, (res) => {
+                _discord.UpdateRichPresence(activity, res => {
                     if (!res.Successful()) {
                         Debug.LogWarning($"[DiscordManager] Failed to update activity: {res}");
                     }
@@ -78,7 +78,7 @@ namespace Discord {
                 // Updating with empty activity clears it? 
                 // Or use a method to clear? UpdateRichPresence with empty activity is standard.
                 var activity = new Activity();
-                _discord.UpdateRichPresence(activity, (res) => {
+                _discord.UpdateRichPresence(activity, res => {
                     if (!res.Successful()) {
                         Debug.LogWarning($"[DiscordManager] Failed to clear activity: {res}");
                     }

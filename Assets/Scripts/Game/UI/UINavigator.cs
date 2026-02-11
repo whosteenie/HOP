@@ -15,7 +15,6 @@ namespace Game.UI {
         private readonly float _fadeDuration;
         private readonly Func<VisualElement, bool> _skipFadePredicate;
 
-        private VisualElement _currentPanel;
         private Coroutine _fadeCoroutine;
 
         public UINavigator(
@@ -41,7 +40,7 @@ namespace Game.UI {
         /// <summary>
         /// The currently visible panel tracked by this navigator.
         /// </summary>
-        public VisualElement CurrentPanel => _currentPanel;
+        private VisualElement CurrentPanel { get; set; }
 
         /// <summary>
         /// Shows the given panel and hides all others managed by this navigator.
@@ -53,7 +52,7 @@ namespace Game.UI {
             if(targetPanel == null || _owner == null) return;
 
             // First-time init: hide everything except target and snap visible.
-            if(_currentPanel == null) {
+            if(CurrentPanel == null) {
                 foreach(var p in _panels) {
                     if(p != null && p != targetPanel) {
                         HideImmediate(p);
@@ -61,46 +60,45 @@ namespace Game.UI {
                 }
 
                 ShowImmediate(targetPanel);
-                _currentPanel = targetPanel;
+                CurrentPanel = targetPanel;
                 return;
             }
 
             // Already showing this panel.
-            if(targetPanel == _currentPanel) return;
+            if(targetPanel == CurrentPanel) return;
 
             if(_fadeCoroutine != null) {
                 _owner.StopCoroutine(_fadeCoroutine);
                 _fadeCoroutine = null;
             }
 
-            var needFadeOut = !ShouldSkipFade(_currentPanel);
+            var needFadeOut = !ShouldSkipFade(CurrentPanel);
             var needFadeIn = !ShouldSkipFade(targetPanel);
             var requiresFade = needFadeOut || needFadeIn;
 
             if(!requiresFade || _fadeDuration <= 0f) {
-                HideImmediate(_currentPanel);
+                HideImmediate(CurrentPanel);
                 ShowImmediate(targetPanel);
-                _currentPanel = targetPanel;
+                CurrentPanel = targetPanel;
                 return;
             }
 
-            _fadeCoroutine = _owner.StartCoroutine(FadeBetweenPanels(_currentPanel, targetPanel));
+            _fadeCoroutine = _owner.StartCoroutine(FadeBetweenPanels(CurrentPanel, targetPanel));
         }
 
         private bool ShouldSkipFade(VisualElement panel) {
             if(panel == null) return true;
-            if(_skipFadePredicate == null) return false;
-            return _skipFadePredicate(panel);
+            return _skipFadePredicate != null && _skipFadePredicate(panel);
         }
 
-        private void HideImmediate(VisualElement panel) {
+        private static void HideImmediate(VisualElement panel) {
             if(panel == null) return;
             panel.AddToClassList("hidden");
             panel.style.display = StyleKeyword.Null;
             panel.style.opacity = new StyleFloat(1f);
         }
 
-        private void ShowImmediate(VisualElement panel) {
+        private static void ShowImmediate(VisualElement panel) {
             if(panel == null) return;
             panel.RemoveFromClassList("hidden");
             panel.style.display = DisplayStyle.Flex;
@@ -153,7 +151,7 @@ namespace Game.UI {
                 fadeInPanel.BringToFront();
             }
 
-            _currentPanel = newPanel;
+            CurrentPanel = newPanel;
             _fadeCoroutine = null;
         }
     }

@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Game.Player;
-using Game.Audio;
+using Game.Menu;
 using Game.Settings;
 using Network.AntiCheat;
 using Network.Diagnostics;
@@ -53,13 +53,13 @@ namespace Game.Weapons {
         public bool IsPullingOut { get; private set; }
 
         private static readonly int PullOutHash = Animator.StringToHash("PullOut");
-        private static readonly int weaponIndexHash = Animator.StringToHash("WeaponIndex");
+        private static readonly int WeaponIndexHash = Animator.StringToHash("WeaponIndex");
         private readonly Dictionary<string, GameObject> _primaryHolsterLookup = new(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, GameObject> _secondaryHolsterLookup = new(StringComparer.OrdinalIgnoreCase);
-        private GameObject _selectedPrimaryHolster;
-        private GameObject _selectedSecondaryHolster;
-        public GameObject PrimaryHolster => _selectedPrimaryHolster;
-        public GameObject SecondaryHolster => _selectedSecondaryHolster;
+        public GameObject PrimaryHolster { get; private set; }
+
+        public GameObject SecondaryHolster { get; private set; }
+
         private int _pendingHolsterHideSlot = -1;
 
         private void Awake() {
@@ -112,7 +112,7 @@ namespace Game.Weapons {
                 
                 // If both are 0, and we have weapon options, might be unsynced - wait for sync
                 if(primaryIndex == 0 && secondaryIndex == 0 && 
-                   primaryWeaponOptions != null && primaryWeaponOptions.Count > 0) {
+                   primaryWeaponOptions is { Count: > 0 }) {
                     // Don't initialize yet - wait for NetworkVariables to sync
                     // OnWeaponIndexChanged will handle initialization when values arrive
                     return;
@@ -228,8 +228,8 @@ namespace Game.Weapons {
                 return;
 
             if(IsOwner) {
-                if(Game.Audio2.AudioService.Instance != null) {
-                    Game.Audio2.AudioService.Instance.Play("ui.weapon.switch", Vector3.zero);
+                if(Audio2.AudioService.Instance != null) {
+                    Audio2.AudioService.Instance.Play("ui.weapon.switch", Vector3.zero);
                 }
             }
 
@@ -323,7 +323,7 @@ namespace Game.Weapons {
 
             // Update player animator weapon index for 3P animations
             if(_playerAnimator == null) return;
-            _playerAnimator.SetInteger(weaponIndexHash, newIndex);
+            _playerAnimator.SetInteger(WeaponIndexHash, newIndex);
             // Trigger TP pull out animation
             _playerAnimator.SetTrigger(PullOutHash);
 
@@ -416,12 +416,55 @@ namespace Game.Weapons {
             }
             
             // Set weapon index for 3P animations
-            _playerAnimator.SetInteger(weaponIndexHash, CurrentWeaponIndex);
+            _playerAnimator.SetInteger(WeaponIndexHash, CurrentWeaponIndex);
             // Trigger TP pull out animation
             _playerAnimator.SetTrigger(PullOutHash);
             
             // Mark as pulling out
             IsPullingOut = true;
+        }
+
+        /// <summary>
+        /// Cancels any pending pull-out transition and forces a stable TP weapon state.
+        /// Used during post-match blackout to avoid visible switch artifacts on podium.
+        /// </summary>
+        public void CancelPendingPullOutForPostMatch() {
+            IsPullingOut = false;
+            _pendingHolsterHideSlot = -1;
+
+            if(_playerAnimator != null) {
+                _playerAnimator.ResetTrigger(PullOutHash);
+            }
+
+            if(CurrentWorldWeaponInstance == null && CurrentWeaponIndex >= 0 && CurrentWeaponIndex < weaponDataList.Count) {
+                var data = weaponDataList[CurrentWeaponIndex];
+                if(_worldWeaponSocket != null && data != null && string.IsNullOrEmpty(data.worldWeaponName) == false) {
+                    var worldObj = _worldWeaponSocket.Find(data.worldWeaponName);
+                    if(worldObj != null) {
+                        CurrentWorldWeaponInstance = worldObj.gameObject;
+                    }
+                }
+            }
+
+            _pendingTpWeapon = null;
+            if(CurrentWorldWeaponInstance != null && !CurrentWorldWeaponInstance.activeSelf) {
+                CurrentWorldWeaponInstance.SetActive(true);
+            }
+
+            EnsureWeaponHierarchyActive();
+
+            // Podium flow needs visible TP weapon even for owners.
+            if(playerController != null) {
+                if(playerController.PlayerRenderer != null) {
+                    playerController.PlayerRenderer.SetWorldWeaponRenderersEnabled(true);
+                }
+
+                if(playerController.PlayerShadow != null) {
+                    playerController.PlayerShadow.SetWorldWeaponRenderersShadowMode(ShadowCastingMode.On);
+                }
+            }
+
+            UpdateHolsterVisibility();
         }
 
         private void EnsureWorldWeaponShadowState() {
@@ -431,7 +474,9 @@ namespace Game.Weapons {
                 CurrentWorldWeaponInstance.SetActive(true);
             }
 
-            var targetMode = playerController != null && playerController.IsOwner
+            var isOwner = playerController != null && playerController.IsOwner;
+            var isPostMatch = GameMenuManager.Instance != null && GameMenuManager.Instance.IsPostMatch;
+            var targetMode = isOwner && !isPostMatch
                 ? ShadowCastingMode.ShadowsOnly
                 : ShadowCastingMode.On;
 
@@ -505,7 +550,7 @@ namespace Game.Weapons {
             }
 
             if(_playerAnimator == null) return;
-            _playerAnimator.SetInteger(weaponIndexHash, newIndex);
+            _playerAnimator.SetInteger(WeaponIndexHash, newIndex);
             _playerAnimator.SetTrigger(PullOutHash);
 
             UpdateHolsterVisibility();
@@ -524,7 +569,7 @@ namespace Game.Weapons {
         public void ApplyTpWeaponStateOnRespawn() {
             if(_playerAnimator == null) return;
             var slot = Mathf.Clamp(GetSlotForIndex(CurrentWeaponIndex), 0, 1);
-            _playerAnimator.SetInteger(weaponIndexHash, slot);
+            _playerAnimator.SetInteger(WeaponIndexHash, slot);
             _playerAnimator.Rebind();
             _playerAnimator.Update(0f);
             UpdateHolsterVisibility();
@@ -659,17 +704,15 @@ namespace Game.Weapons {
 
             // Apply player material customization (owner only, local rendering)
             // Use same approach as hopball arms - apply to all renderers
-            if(IsOwner) {
-                ApplyPlayerMaterialToFpWeapon(fpWeaponInstance);
+            if(!IsOwner) return;
+            ApplyPlayerMaterialToFpWeapon(fpWeaponInstance);
 
-                 // Add tag glow update
-                var tagController = playerController.GetComponent<PlayerTagController>();
-                if (tagController != null && tagController.isTagged.Value) {
-                     var visualController = playerController.GetComponent<PlayerVisualController>();
-                     if (visualController != null) {
-                         visualController.UpdateFpArmTagGlow(true, fpWeaponInstance);
-                     }
-                }
+            // Add tag glow update
+            var tagController = playerController.GetComponent<PlayerTagController>();
+            if(tagController == null || !tagController.isTagged.Value) return;
+            var visualController = playerController.GetComponent<PlayerVisualController>();
+            if (visualController != null) {
+                visualController.UpdateFpArmTagGlow(true, fpWeaponInstance);
             }
         }
 
@@ -697,14 +740,14 @@ namespace Game.Weapons {
             BuildHolsterLookup(primaryHolsteredWeapons, _primaryHolsterLookup);
             BuildHolsterLookup(secondaryHolsteredWeapons, _secondaryHolsterLookup);
 
-            _selectedPrimaryHolster = ResolveHolsterForSlot(0, _primaryHolsterLookup);
-            _selectedSecondaryHolster = ResolveHolsterForSlot(1, _secondaryHolsterLookup);
+            PrimaryHolster = ResolveHolsterForSlot(0, _primaryHolsterLookup);
+            SecondaryHolster = ResolveHolsterForSlot(1, _secondaryHolsterLookup);
 
-            DisableHolster(_selectedPrimaryHolster);
-            DisableHolster(_selectedSecondaryHolster);
+            DisableHolster(PrimaryHolster);
+            DisableHolster(SecondaryHolster);
         }
 
-        private void BuildHolsterLookup(IEnumerable<GameObject> overrides, Dictionary<string, GameObject> lookup) {
+        private static void BuildHolsterLookup(IEnumerable<GameObject> overrides, Dictionary<string, GameObject> lookup) {
             if(overrides == null) return;
 
             foreach(var go in overrides) {
@@ -740,9 +783,11 @@ namespace Game.Weapons {
                 }
             }
 
-            if(slot == 0 && weaponDataList.Count > 0) return weaponDataList[0];
-            if(slot == 1 && weaponDataList.Count > 1) return weaponDataList[1];
-            return null;
+            return slot switch {
+                0 when weaponDataList.Count > 0 => weaponDataList[0],
+                1 when weaponDataList.Count > 1 => weaponDataList[1],
+                _ => null
+            };
         }
 
         private static int ResolveWeaponSlot(WeaponData data, int fallback) {
@@ -750,7 +795,7 @@ namespace Game.Weapons {
             return data.weaponSlot >= 0 ? data.weaponSlot : fallback;
         }
 
-        private GameObject ResolveHolsterObject(WeaponData data, Dictionary<string, GameObject> lookup) {
+        private static GameObject ResolveHolsterObject(WeaponData data, Dictionary<string, GameObject> lookup) {
             if(data == null || lookup == null || lookup.Count == 0) return null;
 
             var names = new List<string>(3);
@@ -769,8 +814,7 @@ namespace Game.Weapons {
         }
 
         private static string NormalizeHolsterKey(string value) {
-            if(string.IsNullOrEmpty(value)) return null;
-            return value.Replace("(Clone)", "").Trim().ToLowerInvariant();
+            return string.IsNullOrEmpty(value) ? null : value.Replace("(Clone)", "").Trim().ToLowerInvariant();
         }
 
         private static void DisableHolster(GameObject holster) {
@@ -783,18 +827,17 @@ namespace Game.Weapons {
         private void UpdateHolsterVisibility() {
             var currentSlot = GetSlotForIndex(CurrentWeaponIndex);
 
-            if(_selectedPrimaryHolster != null) {
+            if(PrimaryHolster != null) {
                 var showPrimary = currentSlot != 0 || _pendingHolsterHideSlot == 0;
-                if(_selectedPrimaryHolster.activeSelf != showPrimary) {
-                    _selectedPrimaryHolster.SetActive(showPrimary);
+                if(PrimaryHolster.activeSelf != showPrimary) {
+                    PrimaryHolster.SetActive(showPrimary);
                 }
             }
 
-            if(_selectedSecondaryHolster != null) {
-                var showSecondary = currentSlot != 1 || _pendingHolsterHideSlot == 1;
-                if(_selectedSecondaryHolster.activeSelf != showSecondary) {
-                    _selectedSecondaryHolster.SetActive(showSecondary);
-                }
+            if(SecondaryHolster == null) return;
+            var showSecondary = currentSlot != 1 || _pendingHolsterHideSlot == 1;
+            if(SecondaryHolster.activeSelf != showSecondary) {
+                SecondaryHolster.SetActive(showSecondary);
             }
         }
         
@@ -871,12 +914,12 @@ namespace Game.Weapons {
                     SetupFpWeaponSkinnedMeshRenderers(fpWeaponInstance);
                     fpWeaponInstance.layer = LayerMask.NameToLayer("Masked");
                     fpWeaponInstance.SetActive(false);
-                    _fpWeaponInstances.Add(fpWeaponInstance);
+                    if(_fpWeaponInstances != null) _fpWeaponInstances.Add(fpWeaponInstance);
                     _weaponAmmo[i] = data.magSize;
                 }
                     
                 // Equip first weapon now that we have the correct list
-                if(_fpWeaponInstances.Count > 0) {
+                if(_fpWeaponInstances is { Count: > 0 }) {
                     EquipInitialWeapon(0);
                 }
                     
@@ -885,7 +928,7 @@ namespace Game.Weapons {
             }
                 
             // If weapon list changed (different count or different weapons), re-instantiate and re-equip
-            if(weaponDataList.Count != oldListCount) {
+            if(weaponDataList != null && weaponDataList.Count != oldListCount) {
                 // Destroy old FP weapon instances
                 foreach(var fpWeapon in _fpWeaponInstances) {
                     if(fpWeapon != null) Destroy(fpWeapon.transform.root.gameObject);
@@ -960,7 +1003,7 @@ namespace Game.Weapons {
             }
                 
             // Re-equip current weapon if it's still valid
-            if(CurrentWeaponIndex >= 0 && CurrentWeaponIndex < weaponDataList.Count) {
+            if(CurrentWeaponIndex >= 0 && weaponDataList != null && CurrentWeaponIndex < weaponDataList.Count) {
                 UpdateHolsterVisibility();
             }
         }
@@ -983,11 +1026,11 @@ namespace Game.Weapons {
             }
             
             // Also include holstered weapon names
-            if(_selectedPrimaryHolster != null) {
-                equippedWorldWeaponNames.Add(_selectedPrimaryHolster.name);
+            if(PrimaryHolster != null) {
+                equippedWorldWeaponNames.Add(PrimaryHolster.name);
             }
-            if(_selectedSecondaryHolster != null) {
-                equippedWorldWeaponNames.Add(_selectedSecondaryHolster.name);
+            if(SecondaryHolster != null) {
+                equippedWorldWeaponNames.Add(SecondaryHolster.name);
             }
             
             // Disable all world weapons that aren't in the equipped list
@@ -1054,12 +1097,15 @@ namespace Game.Weapons {
                 Debug.LogWarning(
                     $"[WeaponManager] {slotLabel} weapon index {storedIndex} out of range. Using {clampedIndex} instead.");
                 var p = GameSettings.Data.player;
-                if(slotLabel == "Primary") {
-                    p.primaryWeaponIndex = clampedIndex;
-                    GameSettings.Save();
-                } else if(slotLabel == "Secondary") {
-                    p.secondaryWeaponIndex = clampedIndex;
-                    GameSettings.Save();
+                switch(slotLabel) {
+                    case "Primary":
+                        p.primaryWeaponIndex = clampedIndex;
+                        GameSettings.Save();
+                        break;
+                    case "Secondary":
+                        p.secondaryWeaponIndex = clampedIndex;
+                        GameSettings.Save();
+                        break;
                 }
             }
 

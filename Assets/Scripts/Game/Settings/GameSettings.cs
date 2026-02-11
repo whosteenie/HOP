@@ -6,13 +6,13 @@ namespace Game.Settings {
     public static class GameSettings {
         public static event Action OnSettingsChanged;
 
-        private static SettingsData _data;
-        private static bool _loaded;
+        private static SettingsData data;
+        private static bool loaded;
 
         public static SettingsData Data {
             get {
                 EnsureLoaded();
-                return _data;
+                return data;
             }
         }
 
@@ -21,29 +21,29 @@ namespace Game.Settings {
             EnsureLoaded();
         }
 
-        public static void EnsureLoaded() {
-            if(_loaded) return;
-            _loaded = true;
+        private static void EnsureLoaded() {
+            if(GameSettings.loaded) return;
+            GameSettings.loaded = true;
 
             if(SettingsFile.TryLoad(out var loaded) && loaded != null) {
-                _data = loaded;
-                ValidateAndClamp(_data);
+                data = loaded;
+                ValidateAndClamp(data);
                 return;
             }
 
             // If load failed, quarantine any existing file and regenerate.
             SettingsFile.QuarantineCorruptFile();
 
-            _data = new SettingsData();
-            MigrateFromPlayerPrefsIfPresent(_data);
-            ValidateAndClamp(_data);
-            SettingsFile.Save(_data);
+            data = new SettingsData();
+            MigrateFromPlayerPrefsIfPresent(data);
+            ValidateAndClamp(data);
+            SettingsFile.Save(data);
         }
 
         public static void Save() {
             EnsureLoaded();
-            ValidateAndClamp(_data);
-            SettingsFile.Save(_data);
+            ValidateAndClamp(data);
+            SettingsFile.Save(data);
             OnSettingsChanged?.Invoke();
         }
 
@@ -121,12 +121,10 @@ namespace Game.Settings {
                     continue;
                 }
 
-                if(seen.Contains(e.name)) {
+                if(!seen.Add(e.name)) {
                     entries.RemoveAt(i);
                     continue;
                 }
-
-                seen.Add(e.name);
 
                 if(e.binding0 == null) e.binding0 = "";
                 if(e.binding1 == null) e.binding1 = "";
@@ -223,8 +221,8 @@ namespace Game.Settings {
                 var csv = PlayerPrefs.GetString("Social_MutedPlayers", "");
                 if(!string.IsNullOrWhiteSpace(csv)) {
                     var parts = csv.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
-                    for(var i = 0; i < parts.Length; i++) {
-                        var id = parts[i].Trim();
+                    foreach(var t in parts) {
+                        var id = t.Trim();
                         if(string.IsNullOrWhiteSpace(id)) continue;
                         d.social.mutedPlayers.Add(id);
                     }
@@ -235,8 +233,8 @@ namespace Game.Settings {
                 var csv = PlayerPrefs.GetString("Social_BlockedPlayers", "");
                 if(!string.IsNullOrWhiteSpace(csv)) {
                     var parts = csv.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
-                    for(var i = 0; i < parts.Length; i++) {
-                        var id = parts[i].Trim();
+                    foreach(var t in parts) {
+                        var id = t.Trim();
                         if(string.IsNullOrWhiteSpace(id)) continue;
                         d.social.blockedPlayers.Add(id);
                     }
@@ -252,17 +250,17 @@ namespace Game.Settings {
                 "nextweapon", "previousweapon", "ptt"
             };
 
-            for(var i = 0; i < keybindNames.Length; i++) {
-                var name = keybindNames[i];
+            foreach(var name in keybindNames) {
                 var key0 = $"Keybind_{name}_0";
                 var key1 = $"Keybind_{name}_1";
 
                 if(!PlayerPrefs.HasKey(key0) && !PlayerPrefs.HasKey(key1)) continue;
 
-                var e = new SettingsData.KeybindEntry();
-                e.name = name;
-                e.binding0 = PlayerPrefs.GetString(key0, "");
-                e.binding1 = PlayerPrefs.GetString(key1, "");
+                var e = new SettingsData.KeybindEntry {
+                    name = name,
+                    binding0 = PlayerPrefs.GetString(key0, ""),
+                    binding1 = PlayerPrefs.GetString(key1, "")
+                };
                 d.keybinds.entries.Add(e);
             }
         }

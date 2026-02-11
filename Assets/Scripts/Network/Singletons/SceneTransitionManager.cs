@@ -182,7 +182,7 @@ namespace Network.Singletons {
         /// </summary>
         /// <param name="customDuration">Optional custom duration. If null, uses default fadeDuration.</param>
         /// <param name="fadeColor">Optional custom fade color. If null, uses black. Format: "rgb(r, g, b)" or hex "#rrggbb"</param>
-        public IEnumerator FadeIn(float? customDuration = null, string fadeColor = null) {
+        private IEnumerator FadeIn(float? customDuration = null, string fadeColor = null) {
             if(_transitionOverlay == null) yield break;
 
             var duration = customDuration != null ? customDuration.Value : fadeDuration;
@@ -416,7 +416,7 @@ namespace Network.Singletons {
 
             if(_transitionOverlay == null) return;
 
-            var instantList = new StyleList<TimeValue>(new List<TimeValue> { new TimeValue(0) });
+            var instantList = new StyleList<TimeValue>(new List<TimeValue> { new(0) });
             _transitionOverlay.style.transitionDuration = instantList;
 
             _transitionOverlay.RemoveFromClassList("visible");

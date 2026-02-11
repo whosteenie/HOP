@@ -78,7 +78,7 @@ namespace Network.Steam {
                 if (!image.HasValue) return null;
 
                 var img = image.Value;
-                Texture2D texture = new Texture2D((int)img.Width, (int)img.Height, TextureFormat.RGBA32, false);
+                var texture = new Texture2D((int)img.Width, (int)img.Height, TextureFormat.RGBA32, false);
                 
                 // Copy data
                 texture.LoadRawTextureData(img.Data);

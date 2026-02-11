@@ -8,7 +8,7 @@ namespace Game.Settings {
         private const string FileName = "settings.json";
         private const string BackupFileName = "settings.bak.json";
 
-        public static string GetSettingsPath() {
+        private static string GetSettingsPath() {
             return Path.Combine(Application.persistentDataPath, FileName);
         }
 

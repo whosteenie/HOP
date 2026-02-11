@@ -992,7 +992,7 @@ namespace Game.Menu {
             button.text = "Press key...";
             button.SetEnabled(false);
 
-            KeybindManager.Instance.StartRebinding(keybindName, bindingIndex, (displayString) => {
+            KeybindManager.Instance.StartRebinding(keybindName, bindingIndex, displayString => {
                 button.SetEnabled(true);
                 if(!string.IsNullOrEmpty(displayString)) {
                     button.text = displayString;
@@ -1230,15 +1230,15 @@ namespace Game.Menu {
 
             // Update display text fields (with % for volumes)
             if(_masterVolumeValue != null && _masterVolumeSlider != null) {
-                _masterVolumeValue.value = Mathf.RoundToInt(_masterVolumeSlider.value * 100).ToString() + "%";
+                _masterVolumeValue.value = Mathf.RoundToInt(_masterVolumeSlider.value * 100) + "%";
             }
 
             if(_musicVolumeValue != null && _musicVolumeSlider != null) {
-                _musicVolumeValue.value = Mathf.RoundToInt(_musicVolumeSlider.value * 100).ToString() + "%";
+                _musicVolumeValue.value = Mathf.RoundToInt(_musicVolumeSlider.value * 100) + "%";
             }
 
             if(_sfxVolumeValue != null && _sfxVolumeSlider != null) {
-                _sfxVolumeValue.value = Mathf.RoundToInt(_sfxVolumeSlider.value * 100).ToString() + "%";
+                _sfxVolumeValue.value = Mathf.RoundToInt(_sfxVolumeSlider.value * 100) + "%";
             }
 
             if(_sensitivityValue != null && _sensitivitySlider != null) {

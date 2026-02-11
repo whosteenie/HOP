@@ -339,16 +339,15 @@ namespace Game.AI {
             // Keeping asymmetric penalty (punish bad, no reward for good) confused learning
             // Track state for potential future use only
 
-            switch(isGrappling) {
-                case true when !_wasGrapplingLastFrame:
-                    _speedBeforeGrapple = currentSpeed;
-                    break;
-            }
+            _speedBeforeGrapple = isGrappling switch {
+                true when !_wasGrapplingLastFrame => currentSpeed,
+                _ => _speedBeforeGrapple
+            };
 
             _wasGrapplingLastFrame = isGrappling;
         }
         
-        private void CalculateEdgeZonePenalty() {
+        private static void CalculateEdgeZonePenalty() {
             // REMOVED: Edge penalty was overwhelming survival bonus and punishing exploration
             // Agent needs to explore near edges to learn avoidance; GAIL demos show proper behavior
             // The _isInEdgeZone observation remains available for the agent to learn from

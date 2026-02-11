@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using Game.Audio;
 using Game.Hopball;
 using Game.Match;
 using Game.Player;
@@ -10,10 +9,8 @@ using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UIElements;
-using UnityEngine.InputSystem;
 using Steamworks;
 using Cysharp.Threading.Tasks;
-using Game.Menu;
 using Color = UnityEngine.Color;
 using Cursor = UnityEngine.Cursor;
 
@@ -296,10 +293,9 @@ namespace Game.UI {
 
             _matchTimerLabel.text = $"{minutes:00}:{seconds:00}";
 
-            if(minutes == 0 && seconds is <= 5 and >= 1) {
-                if(Game.Audio2.AudioService.Instance != null) {
-                    Game.Audio2.AudioService.Instance.Play("ui.timer", Vector3.zero);
-                }
+            if(minutes != 0 || seconds is > 5 or < 1) return;
+            if(Audio2.AudioService.Instance != null) {
+                Audio2.AudioService.Instance.Play("ui.timer", Vector3.zero);
             }
         }
 
@@ -1024,10 +1020,10 @@ namespace Game.UI {
             // Register click handler for context menu
             row.RegisterCallback<PointerDownEvent>(evt => {
                 // Handle right-click (button 1 is right mouse button)
-                if (evt.button == 1 && player != null && !player.IsOwner && InGameContextMenuManager.Instance != null) {
-                    Vector2 worldPos = evt.position; 
-                    InGameContextMenuManager.Instance.Show(player.steamId.Value, worldPos);
-                }
+                if(evt.button != 1 || player == null || player.IsOwner ||
+                   InGameContextMenuManager.Instance == null) return;
+                Vector2 worldPos = evt.position; 
+                InGameContextMenuManager.Instance.Show(player.steamId.Value, worldPos);
             });
 
             return row;
@@ -1041,8 +1037,8 @@ namespace Game.UI {
             if(statLabels == null) return;
 
             // Ensure all stat columns are visible in non-tag modes.
-            for(var i = 0; i < statLabels.Length; i++) {
-                statLabels[i].style.display = DisplayStyle.Flex;
+            foreach(var t in statLabels) {
+                t.style.display = DisplayStyle.Flex;
             }
 
             statLabels[0].text = player.Kills.Value.ToString();
@@ -1149,8 +1145,8 @@ namespace Game.UI {
             if(pingLabel != null) pingLabel.text = "-";
             if(nameLabel != null) nameLabel.text = "-";
 
-            for(var i = 0; i < statLabels.Length; i++) {
-                statLabels[i].text = "-";
+            foreach(var t in statLabels) {
+                t.text = "-";
             }
 
             if(isTagMode) {

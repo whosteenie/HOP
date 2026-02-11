@@ -467,11 +467,7 @@ namespace Game.Menu {
             var steamLoggedOn = SteamClient.IsValid && SteamClient.IsLoggedOn;
 
             // Update label text
-            if (hasLobby) {
-                 _pauseJoinCodeLabel.text = "Lobby Active";
-            } else {
-                 _pauseJoinCodeLabel.text = "Single Player";
-            }
+            _pauseJoinCodeLabel.text = hasLobby ? "Lobby Active" : "Single Player";
 
             // Show label and invite button only when in a lobby and Steam is online
             var showSocial = hasLobby && steamLoggedOn;
@@ -527,16 +523,15 @@ namespace Game.Menu {
                 return;
             }
 
-            if(_quitConfirmationModal != null) {
-                // Hide pause menu and challenges when showing quit confirmation modal
-                if(_pauseMenuPanel != null) {
-                    _pauseMenuPanel.AddToClassList("hidden");
-                }
-                if(_pauseChallengesContainer != null) {
-                    _pauseChallengesContainer.AddToClassList("hidden");
-                }
-                _modalHost.ShowExistingModal(_quitConfirmationModal, "quit-confirmation");
+            if(_quitConfirmationModal == null) return;
+            // Hide pause menu and challenges when showing quit confirmation modal
+            if(_pauseMenuPanel != null) {
+                _pauseMenuPanel.AddToClassList("hidden");
             }
+            if(_pauseChallengesContainer != null) {
+                _pauseChallengesContainer.AddToClassList("hidden");
+            }
+            _modalHost.ShowExistingModal(_quitConfirmationModal, "quit-confirmation");
         }
 
         private async void QuitToMenu() {

@@ -181,15 +181,61 @@ namespace Game.Player {
         /// Calculates the velocity vector for a wall run based on the wall normal.
         /// </summary>
         public Vector3 GetWallRunVelocity(Vector3 currentForward) {
-            // Calculate direction along the wall
+            // Calculate direction along the wall plane.
             var wallForward = Vector3.Cross(WallNormal, Vector3.up);
+            if(wallForward.sqrMagnitude < 0.0001f) {
+                return Vector3.zero;
+            }
+            wallForward.Normalize();
 
-            // Determine which way along the wall matches our current forward
-            if(Vector3.Dot(wallForward, transform.forward) < 0) {
+            // Choose wallrun direction from actual movement first, not look direction.
+            // This prevents backward wallrun attempts from flipping velocity the wrong way.
+            var planarVelocity = GetPlanarVelocity();
+            Vector3 referenceDirection;
+            if(planarVelocity.sqrMagnitude > 0.01f) {
+                referenceDirection = planarVelocity.normalized;
+            } else {
+                referenceDirection = GetPreferredDirection(currentForward);
+            }
+
+            if(Vector3.Dot(wallForward, referenceDirection) < 0f) {
                 wallForward = -wallForward;
             }
 
             return wallForward * _currentWallRunSpeed;
+        }
+
+        private Vector3 GetPlanarVelocity() {
+            if(_movementController == null) {
+                return Vector3.zero;
+            }
+
+            var v = _movementController.HorizontalVelocity;
+            v.y = 0f;
+            return v;
+        }
+
+        private Vector3 GetPreferredDirection(Vector3 fallbackForward) {
+            if(playerController != null) {
+                var moveInput = playerController.moveInput;
+                if(moveInput.sqrMagnitude > 0.01f) {
+                    var basis = playerController.PlayerTransform != null ? playerController.PlayerTransform : transform;
+                    var inputDirection = basis.forward * moveInput.y + basis.right * moveInput.x;
+                    inputDirection.y = 0f;
+                    if(inputDirection.sqrMagnitude > 0.0001f) {
+                        return inputDirection.normalized;
+                    }
+                }
+            }
+
+            fallbackForward.y = 0f;
+            if(fallbackForward.sqrMagnitude > 0.0001f) {
+                return fallbackForward.normalized;
+            }
+
+            var worldForward = transform.forward;
+            worldForward.y = 0f;
+            return worldForward.sqrMagnitude > 0.0001f ? worldForward.normalized : Vector3.forward;
         }
 
         /// <summary>

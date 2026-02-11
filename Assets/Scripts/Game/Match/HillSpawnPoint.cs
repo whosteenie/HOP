@@ -8,8 +8,9 @@ namespace Game.Match {
     public class HillSpawnPoint : MonoBehaviour {
         private void OnDrawGizmos() {
             Gizmos.color = new Color(0.5f, 0f, 1f, 0.7f); // Purple
-            Gizmos.DrawSphere(transform.position, 0.5f);
-            Gizmos.DrawWireSphere(transform.position, 1.0f);
+            var position = transform.position;
+            Gizmos.DrawSphere(position, 0.5f);
+            Gizmos.DrawWireSphere(position, 1.0f);
         }
 
         [ContextMenu("Snap to Ground")]

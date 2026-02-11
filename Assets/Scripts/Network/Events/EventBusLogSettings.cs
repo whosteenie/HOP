@@ -19,7 +19,7 @@ namespace Network.Events {
         
         // Dictionary for fast lookup (built from eventLogSettings)
         private Dictionary<Type, bool> _eventLogLookup;
-        private bool _lookupBuilt = false;
+        private bool _lookupBuilt;
         
         /// <summary>
         /// Checks if logging is enabled for a specific event type.

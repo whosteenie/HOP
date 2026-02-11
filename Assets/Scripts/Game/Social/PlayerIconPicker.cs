@@ -3,12 +3,12 @@ using UnityEngine;
 namespace Game.Social {
     public static class PlayerIconPicker {
         // These IDs map to USS classes: .player-icon-<id>
-        public const string Red = "red";
-        public const string Orange = "orange";
-        public const string Yellow = "yellow";
-        public const string Green = "green";
-        public const string Blue = "blue";
-        public const string Purple = "purple";
+        private const string Red = "red";
+        private const string Orange = "orange";
+        private const string Yellow = "yellow";
+        private const string Green = "green";
+        private const string Blue = "blue";
+        private const string Purple = "purple";
         public const string White = "white";
 
         private struct Candidate {
@@ -17,13 +17,13 @@ namespace Game.Social {
         }
 
         private static readonly Candidate[] Candidates = {
-            new Candidate { Id = Red, Color = new Color(1f, 0.25f, 0.25f, 1f) },
-            new Candidate { Id = Orange, Color = new Color(1f, 0.55f, 0.15f, 1f) },
-            new Candidate { Id = Yellow, Color = new Color(1f, 0.9f, 0.2f, 1f) },
-            new Candidate { Id = Green, Color = new Color(0.2f, 1f, 0.45f, 1f) },
-            new Candidate { Id = Blue, Color = new Color(0.25f, 0.6f, 1f, 1f) },
-            new Candidate { Id = Purple, Color = new Color(0.7f, 0.35f, 1f, 1f) },
-            new Candidate { Id = White, Color = new Color(0.92f, 0.92f, 0.92f, 1f) }
+            new() { Id = Red, Color = new Color(1f, 0.25f, 0.25f, 1f) },
+            new() { Id = Orange, Color = new Color(1f, 0.55f, 0.15f, 1f) },
+            new() { Id = Yellow, Color = new Color(1f, 0.9f, 0.2f, 1f) },
+            new() { Id = Green, Color = new Color(0.2f, 1f, 0.45f, 1f) },
+            new() { Id = Blue, Color = new Color(0.25f, 0.6f, 1f, 1f) },
+            new() { Id = Purple, Color = new Color(0.7f, 0.35f, 1f, 1f) },
+            new() { Id = White, Color = new Color(0.92f, 0.92f, 0.92f, 1f) }
         };
 
         public static string PickIconIdFromBaseColor(Vector4 baseColor, bool hide) {
@@ -34,13 +34,11 @@ namespace Game.Social {
             var bestId = White;
             var bestDist = float.MaxValue;
 
-            for(var i = 0; i < Candidates.Length; i++) {
-                var cand = Candidates[i];
+            foreach(var cand in Candidates) {
                 var d = ColorDistanceSqr(c, cand.Color);
-                if(d < bestDist) {
-                    bestDist = d;
-                    bestId = cand.Id;
-                }
+                if(!(d < bestDist)) continue;
+                bestDist = d;
+                bestId = cand.Id;
             }
 
             return bestId;

@@ -18,21 +18,23 @@ namespace Game.Match {
 
         [Header("Settings")]
         [SerializeField] private GameObject hillPrefab;
+
         [SerializeField] private float postPrematchSpawnDelay = 5f;
         [SerializeField] private float scoreInterval = 1f; // Points awarded every X seconds
         [SerializeField] private int pointsPerInterval = 1;
         [SerializeField] private int winScore = 200;
-        
+
         [Header("Spawn Points")]
-        [Tooltip("Additional Y offset when spawning to prevent floor clipping")]
-        [SerializeField] private float spawnVerticalOffset = 2.0f;
-        [Tooltip("If empty, will use Map Center or random NavMesh locations near center")]
-        [SerializeField] private List<Transform> hillSpawnPoints = new();
+        [Tooltip("Additional Y offset when spawning to prevent floor clipping")] [SerializeField]
+        private float spawnVerticalOffset = 2.0f;
+
+        [Tooltip("If empty, will use Map Center or random NavMesh locations near center")] [SerializeField]
+        private List<Transform> hillSpawnPoints = new();
 
         // Network Variables
         private readonly NetworkVariable<int> _teamAScore = new(value: 0);
         private readonly NetworkVariable<int> _teamBScore = new(value: 0);
-        
+
         // Runtime
         private HillController _currentHill;
         private bool _isGameActive;
@@ -41,10 +43,11 @@ namespace Game.Match {
         private bool _queuedMatchStart;
 
         private void Awake() {
-            if (Instance != null && Instance != this) {
+            if(Instance != null && Instance != this) {
                 Destroy(gameObject);
                 return;
             }
+
             Instance = this;
             // This manager is authored in Init.unity and must survive the transition into Game.
             DontDestroyOnLoad(gameObject);
@@ -53,12 +56,17 @@ namespace Game.Match {
         public override void OnNetworkSpawn() {
             base.OnNetworkSpawn();
 
-            if (IsServer) {
+            // Keep singleton reference valid across NGO despawn/respawn cycles.
+            if(Instance == null) {
+                Instance = this;
+            }
+
+            if(IsServer) {
                 _teamAScore.Value = 0;
                 _teamBScore.Value = 0;
-                
+
                 NetworkManager.SceneManager.OnLoadEventCompleted += OnSceneLoaded;
-                
+
                 // Also check immediately in case we are spawned IN the game scene
                 CheckAndStartGame();
                 if(_queuedMatchStart) {
@@ -69,40 +77,39 @@ namespace Game.Match {
             _teamAScore.OnValueChanged += OnScoreChanged;
             _teamBScore.OnValueChanged += OnScoreChanged;
 
-            if (Progression.ProgressionManager.Instance != null) {
+            if(Progression.ProgressionManager.Instance != null) {
                 Progression.ProgressionManager.Instance.StartMatch();
             }
         }
 
         public override void OnNetworkDespawn() {
             base.OnNetworkDespawn();
-            if (IsServer && NetworkManager.Singleton != null && NetworkManager.Singleton.SceneManager != null) {
+            if(IsServer && NetworkManager.Singleton != null && NetworkManager.Singleton.SceneManager != null) {
                 NetworkManager.SceneManager.OnLoadEventCompleted -= OnSceneLoaded;
             }
-            if (_spawnCoroutine != null) {
+
+            if(_spawnCoroutine != null) {
                 StopCoroutine(_spawnCoroutine);
                 _spawnCoroutine = null;
             }
+
             _isGameActive = false;
             _queuedMatchStart = false;
             CleanupActiveHill();
             _teamAScore.OnValueChanged -= OnScoreChanged;
             _teamBScore.OnValueChanged -= OnScoreChanged;
-
-            if (Instance == this) {
-                Instance = null;
-            }
         }
 
         public override void OnDestroy() {
             base.OnDestroy();
-            if (Instance == this) {
+            if(Instance == this) {
                 Instance = null;
             }
         }
 
-        private void OnSceneLoaded(string sceneName, UnityEngine.SceneManagement.LoadSceneMode loadSceneMode, List<ulong> clientsCompleted, List<ulong> clientsTimedOut) {
-            if (!IsServer) return;
+        private void OnSceneLoaded(string sceneName, UnityEngine.SceneManagement.LoadSceneMode loadSceneMode,
+            List<ulong> clientsCompleted, List<ulong> clientsTimedOut) {
+            if(!IsServer) return;
             CheckAndStartGame();
         }
 
@@ -122,12 +129,13 @@ namespace Game.Match {
 
         private void CheckAndStartGame() {
             // Stop any existing routine to prevent double-starts
-            if (_spawnCoroutine != null) {
+            if(_spawnCoroutine != null) {
                 StopCoroutine(_spawnCoroutine);
                 _spawnCoroutine = null;
             }
+
             _isGameActive = false;
-            
+
             // Only start logic if this is the selected gamemode
             var settings = MatchSettingsManager.Instance;
 
@@ -138,9 +146,11 @@ namespace Game.Match {
                         ("applied", settings != null ? settings.selectedGameModeId : "Unknown"),
                         ("objective", "KOTH"));
                 }
+
                 CleanupActiveHill();
                 return;
             }
+
             // Refresh spawn points for the new scene
             FindSpawnPoints();
             if(MatchTimerManager.Instance != null && !MatchTimerManager.Instance.IsPreMatch) {
@@ -171,11 +181,11 @@ namespace Game.Match {
 
         private void OnScoreChanged(int previous, int current) {
             // Update UI
-            if (ScoreboardManager.Instance != null) {
+            if(ScoreboardManager.Instance != null) {
                 ScoreboardManager.Instance.UpdateScoreboard();
             }
         }
-        
+
         public int GetTeamAScore() => _teamAScore.Value;
         public int GetTeamBScore() => _teamBScore.Value;
 
@@ -189,48 +199,50 @@ namespace Game.Match {
                 _spawnCoroutine = null;
                 yield break;
             }
-             
+
             SpawnHill();
             _isGameActive = _currentHill != null;
             if(_isGameActive) {
                 _nextScoreTime = Time.time + scoreInterval;
             }
+
             _spawnCoroutine = null;
         }
 
         private void SpawnHill() {
             Debug.Log($"[KOTH] Attempting to Spawn Hill. Prefab: {hillPrefab}, CurrentHill: {_currentHill}");
-            if (!IsServer || hillPrefab == null) return;
+            if(!IsServer || hillPrefab == null) return;
 
             var settings = MatchSettingsManager.Instance;
             if(settings == null || settings.selectedGameModeId != "KOTH") return;
 
             // Clean up existing hill if any (e.g. from previous round, though usually scene reload handles this)
-            if (_currentHill != null) return;
+            if(_currentHill != null) return;
 
             // Determine spawn position
             Vector3 spawnPos;
-            if (hillSpawnPoints != null && hillSpawnPoints.Count > 0) {
+            if(hillSpawnPoints != null && hillSpawnPoints.Count > 0) {
                 var randomPoint = hillSpawnPoints[Random.Range(0, hillSpawnPoints.Count)];
                 spawnPos = randomPoint.position;
             } else {
                 // Fallback: search for points again or use default
                 FindSpawnPoints();
-                if (hillSpawnPoints != null && hillSpawnPoints.Count > 0) {
-                     spawnPos = hillSpawnPoints[Random.Range(0, hillSpawnPoints.Count)].position;
+                if(hillSpawnPoints != null && hillSpawnPoints.Count > 0) {
+                    spawnPos = hillSpawnPoints[Random.Range(0, hillSpawnPoints.Count)].position;
                 } else {
-                    Debug.LogWarning("[KingOfTheHillManager] No spawn points found. Ensure HillSpawnPoint components are in the scene.");
-                    spawnPos = new Vector3(0, 10, 0); 
+                    Debug.LogWarning(
+                        "[KingOfTheHillManager] No spawn points found. Ensure HillSpawnPoint components are in the scene.");
+                    spawnPos = new Vector3(0, 10, 0);
                 }
             }
-            
+
             // Apply vertical offset
             spawnPos.y += spawnVerticalOffset;
-            
+
             Debug.Log($"[KOTH] Spawning Hill at {spawnPos}");
             var hillObj = Instantiate(hillPrefab, spawnPos, Quaternion.identity);
             var netObj = hillObj.GetComponent<NetworkObject>();
-            if (netObj != null) {
+            if(netObj != null) {
                 netObj.Spawn(true);
             }
 
@@ -242,12 +254,12 @@ namespace Game.Match {
         }
 
         private void CleanupActiveHill() {
-            if (_currentHill == null) return;
+            if(_currentHill == null) return;
 
             var hillNetworkObject = _currentHill.GetComponent<NetworkObject>();
-            if (IsServer && hillNetworkObject != null && hillNetworkObject.IsSpawned) {
-                hillNetworkObject.Despawn(true);
-            } else if ((hillNetworkObject == null || hillNetworkObject.IsSpawned == false) && _currentHill != null) {
+            if(IsServer && hillNetworkObject != null && hillNetworkObject.IsSpawned) {
+                hillNetworkObject.Despawn();
+            } else if((hillNetworkObject == null || hillNetworkObject.IsSpawned == false) && _currentHill != null) {
                 Destroy(_currentHill.gameObject);
             }
 
@@ -255,26 +267,26 @@ namespace Game.Match {
         }
 
         private void Update() {
-            if (!IsServer || !_isGameActive) return;
-            
+            if(!IsServer || !_isGameActive) return;
+
             // Scoring Logic
-            if (Time.time >= _nextScoreTime) {
-                _nextScoreTime = Time.time + scoreInterval;
-                ProcessScoring();
-            }
+            if(!(Time.time >= _nextScoreTime)) return;
+            _nextScoreTime = Time.time + scoreInterval;
+            ProcessScoring();
         }
-        
+
         private void FindSpawnPoints() {
             hillSpawnPoints.Clear();
             var points = FindObjectsByType<HillSpawnPoint>(FindObjectsSortMode.None);
-            foreach (var point in points) {
+            foreach(var point in points) {
                 hillSpawnPoints.Add(point.transform);
             }
+
             Debug.Log($"[KOTH] FindSpawnPoints found {hillSpawnPoints.Count} points.");
         }
 
         private void ProcessScoring() {
-            if (_currentHill == null) return;
+            if(_currentHill == null) return;
 
             var controllingTeam = _currentHill.ControllingTeam;
 
@@ -297,21 +309,19 @@ namespace Game.Match {
         }
 
         private void CheckWinCondition() {
-            if (_teamAScore.Value >= winScore) {
+            if(_teamAScore.Value >= winScore) {
                 EndGame(SpawnPoint.Team.TeamA);
-            } else if (_teamBScore.Value >= winScore) {
+            } else if(_teamBScore.Value >= winScore) {
                 EndGame(SpawnPoint.Team.TeamB);
             }
         }
 
         private void EndGame(SpawnPoint.Team winningTeam) {
             _isGameActive = false;
-            
-            if (PostMatchManager.Instance != null) {
+
+            if(PostMatchManager.Instance != null) {
                 PostMatchManager.Instance.BeginPostMatchFromScore(winningTeam);
             }
         }
-        
-
     }
 }
