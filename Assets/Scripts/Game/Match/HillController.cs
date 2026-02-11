@@ -130,8 +130,8 @@ namespace Game.Match {
         }
 
         private void UpdateControlState() {
-            int teamACount = 0;
-            int teamBCount = 0;
+            var teamACount = 0;
+            var teamBCount = 0;
 
             var players = FindObjectsByType<PlayerController>(FindObjectsSortMode.None);
             foreach (var player in players) {
@@ -145,13 +145,21 @@ namespace Game.Match {
                 else if (teamMgr.netTeam.Value == SpawnPoint.Team.TeamB) teamBCount++;
             }
 
-            HillState newState = HillState.Uncontested;
-            if (teamACount > 0 && teamBCount > 0) {
-                newState = HillState.Contested;
-            } else if (teamACount > 0) {
-                newState = HillState.ControlledTeamA;
-            } else if (teamBCount > 0) {
-                newState = HillState.ControlledTeamB;
+            var newState = HillState.Uncontested;
+            switch(teamACount) {
+                case > 0 when teamBCount > 0:
+                    newState = HillState.Contested;
+                    break;
+                case > 0:
+                    newState = HillState.ControlledTeamA;
+                    break;
+                default: {
+                    if (teamBCount > 0) {
+                        newState = HillState.ControlledTeamB;
+                    }
+
+                    break;
+                }
             }
 
             if (_currentState.Value != newState) {

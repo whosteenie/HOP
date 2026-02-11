@@ -162,17 +162,12 @@ namespace Game.Weapons {
                 // Apply curve to make correlation more natural (more responsive at low velocities, less extreme at high)
                 // Using power curve: lower exponent = more sensitive at start, less extreme at end
                 var curvedVelocity = Mathf.Pow(normalizedVelocity, velocityCurveExponent);
-                
-                if(verticalVelocity > 0.1f) {
-                    // Rising: weapon lowers proportionally to upward velocity (with curve)
-                    _targetJumpFallOffset = Mathf.Lerp(0f, maxJumpLowerAmount, curvedVelocity);
-                } else if(verticalVelocity < -0.1f) {
-                    // Falling: weapon raises proportionally to downward velocity (with curve)
-                    _targetJumpFallOffset = Mathf.Lerp(0f, maxFallRaiseAmount, curvedVelocity);
-                } else {
-                    // Near zero velocity (at apex): return to neutral
-                    _targetJumpFallOffset = 0f;
-                }
+
+                _targetJumpFallOffset = verticalVelocity switch {
+                    > 0.1f => Mathf.Lerp(0f, maxJumpLowerAmount, curvedVelocity),
+                    < -0.1f => Mathf.Lerp(0f, maxFallRaiseAmount, curvedVelocity),
+                    _ => 0f
+                };
             }
 
             // Smooth the offset transition

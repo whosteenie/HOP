@@ -164,7 +164,7 @@ namespace Game.Weapons {
             return obj;
         }
         
-        private void SetLayerRecursive(GameObject obj, int layer) {
+        private static void SetLayerRecursive(GameObject obj, int layer) {
             if(obj == null) return;
             
             obj.layer = layer;

@@ -14,14 +14,14 @@ namespace Game.UI {
         protected VisualElement Root { get; private set; }
         protected bool IsInitialized { get; private set; }
 
-        private readonly List<System.Action> _cleanupActions = new();
+        private List<System.Action> _cleanupActions = new();
+        private bool _cleanupInvoked;
 
         #region Unity Lifecycle
 
         protected virtual void Awake() {
             if(uiDocument == null) {
                 Debug.LogError($"[{GetType().Name}] UIDocument is not assigned!");
-                return;
             }
         }
 
@@ -51,7 +51,7 @@ namespace Game.UI {
         /// Initializes the UI element. Called automatically in Start().
         /// Override OnInitialize() to perform custom initialization logic.
         /// </summary>
-        public void Initialize() {
+        protected void Initialize() {
             if(IsInitialized) return;
             if(Root == null) {
                 TryBindRoot();
@@ -82,8 +82,7 @@ namespace Game.UI {
             if(uiDocument == null) return false;
 
             Root = uiDocument.rootVisualElement;
-            if(Root == null) return false;
-            return true;
+            return Root != null;
         }
 
         /// <summary>
@@ -119,9 +118,9 @@ namespace Game.UI {
         /// Useful for unregistering event handlers, stopping coroutines, etc.
         /// </summary>
         protected void RegisterCleanup(System.Action cleanupAction) {
-            if(cleanupAction != null) {
-                _cleanupActions.Add(cleanupAction);
-            }
+            if(cleanupAction == null) return;
+            _cleanupActions ??= new List<System.Action>();
+            _cleanupActions.Add(cleanupAction);
         }
 
         /// <summary>
@@ -129,13 +128,23 @@ namespace Game.UI {
         /// Override OnCleanup() to add custom cleanup logic.
         /// </summary>
         private void Cleanup() {
-            OnCleanup();
+            if(_cleanupInvoked) return;
+            _cleanupInvoked = true;
 
-            foreach(var action in _cleanupActions) {
+            try {
+                OnCleanup();
+            } catch(System.Exception ex) {
+                Debug.LogError($"[{GetType().Name}] Error during OnCleanup: {ex}");
+            }
+
+            if(_cleanupActions == null || _cleanupActions.Count == 0) return;
+
+            var cleanupSnapshot = _cleanupActions.ToArray();
+            foreach(var action in cleanupSnapshot) {
                 try {
                     action?.Invoke();
                 } catch(System.Exception ex) {
-                    Debug.LogError($"[{GetType().Name}] Error during cleanup: {ex.Message}");
+                    Debug.LogError($"[{GetType().Name}] Error during cleanup action: {ex}");
                 }
             }
 

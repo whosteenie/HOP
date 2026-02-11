@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using Game.Settings;
 using UnityEngine;
-using UnityEngine.InputSystem;
 
 namespace Game.Social {
     public enum VoiceInputMode {
@@ -15,7 +14,7 @@ namespace Game.Social {
     /// Saves to settings.json.
     /// </summary>
     public static class SocialSettings {
-        private const int MAX_MUTED_PLAYERS = 200; // Cap to prevent unbounded growth
+        private const int MaxMutedPlayers = 200; // Cap to prevent unbounded growth
 
         public static event Action OnSettingsChanged;
         public static event Action<string, bool> OnPlayerMuteChanged; // (playerId, isMuted)
@@ -38,8 +37,7 @@ namespace Game.Social {
         public static string InputDevice {
             get {
                 var s = GameSettings.Data.social;
-                if(s == null) return "Default";
-                return s.voiceInputDevice;
+                return s == null ? "Default" : s.voiceInputDevice;
             }
             set {
                 var s = GameSettings.Data.social;
@@ -55,8 +53,7 @@ namespace Game.Social {
         public static float VoiceVolume {
             get {
                 var s = GameSettings.Data.social;
-                if(s == null) return 1f;
-                return s.voiceVolume;
+                return s == null ? 1f : s.voiceVolume;
             }
             set {
                 var s = GameSettings.Data.social;
@@ -72,8 +69,7 @@ namespace Game.Social {
         public static float VoiceInputVolume {
             get {
                 var s = GameSettings.Data.social;
-                if(s == null) return 1f;
-                return s.voiceInputVolume;
+                return s == null ? 1f : s.voiceInputVolume;
             }
             set {
                 var s = GameSettings.Data.social;
@@ -87,8 +83,7 @@ namespace Game.Social {
         public static bool ProfanityFilterEnabled {
             get {
                 var s = GameSettings.Data.social;
-                if(s == null) return false;
-                return s.profanityFilterEnabled;
+                return s is { profanityFilterEnabled: true };
             }
             set {
                 var s = GameSettings.Data.social;
@@ -99,38 +94,38 @@ namespace Game.Social {
         }
 
         // --- Block/Mute ---
-        private static List<string> _mutedList; // Use List to maintain order for LRU-style cap
-        private static HashSet<string> _mutedCache;
-        private static HashSet<string> _blockedCache;
+        private static List<string> mutedList; // Use List to maintain order for LRU-style cap
+        private static HashSet<string> mutedCache;
+        private static HashSet<string> blockedCache;
 
         public static bool IsMuted(string playerId) {
-            if(_mutedCache == null) LoadLists();
-            return _mutedCache.Contains(playerId) || IsBlocked(playerId); // Block implies mute
+            if(mutedCache == null) LoadLists();
+            return mutedCache != null && (mutedCache.Contains(playerId) || IsBlocked(playerId)); // Block implies mute
         }
 
         public static bool IsBlocked(string playerId) {
-            if(_blockedCache == null) LoadLists();
-            return _blockedCache.Contains(playerId);
+            if(blockedCache == null) LoadLists();
+            return blockedCache != null && blockedCache.Contains(playerId);
         }
 
         public static void SetMuted(string playerId, bool muted) {
-            if(_mutedCache == null) LoadLists();
+            if(mutedCache == null) LoadLists();
             
             if(muted) {
-                if (!_mutedCache.Contains(playerId)) {
-                    _mutedList.Add(playerId);
-                    _mutedCache.Add(playerId);
+                if (mutedCache != null && !mutedCache.Contains(playerId)) {
+                    mutedList.Add(playerId);
+                    mutedCache.Add(playerId);
                     
                     // Cap the list to prevent unbounded growth
-                    while (_mutedList.Count > MAX_MUTED_PLAYERS) {
-                        var oldest = _mutedList[0];
-                        _mutedList.RemoveAt(0);
-                        _mutedCache.Remove(oldest);
+                    while (mutedList.Count > MaxMutedPlayers) {
+                        var oldest = mutedList[0];
+                        mutedList.RemoveAt(0);
+                        mutedCache.Remove(oldest);
                     }
                 }
             } else {
-                _mutedList.Remove(playerId);
-                _mutedCache.Remove(playerId);
+                mutedList.Remove(playerId);
+                if(mutedCache != null) mutedCache.Remove(playerId);
             }
             
             SaveLists();
@@ -138,12 +133,12 @@ namespace Game.Social {
         }
 
         public static void SetBlocked(string playerId, bool blocked) {
-            if(_blockedCache == null) LoadLists();
+            if(blockedCache == null) LoadLists();
             if(blocked) {
-                _blockedCache.Add(playerId);
+                if(blockedCache != null) blockedCache.Add(playerId);
                 SetMuted(playerId, true); // Also mute them
             } else {
-                _blockedCache.Remove(playerId);
+                if(blockedCache != null) blockedCache.Remove(playerId);
             }
             SaveLists();
         }
@@ -151,15 +146,15 @@ namespace Game.Social {
         private static void LoadLists() {
             var s = GameSettings.Data.social;
             if(s == null) {
-                _mutedList = new List<string>();
-                _mutedCache = new HashSet<string>();
-                _blockedCache = new HashSet<string>();
+                mutedList = new List<string>();
+                mutedCache = new HashSet<string>();
+                blockedCache = new HashSet<string>();
                 return;
             }
 
-            _mutedList = s.mutedPlayers != null ? new List<string>(s.mutedPlayers) : new List<string>();
-            _mutedCache = new HashSet<string>(_mutedList);
-            _blockedCache = s.blockedPlayers != null ? new HashSet<string>(s.blockedPlayers) : new HashSet<string>();
+            mutedList = s.mutedPlayers != null ? new List<string>(s.mutedPlayers) : new List<string>();
+            mutedCache = new HashSet<string>(mutedList);
+            blockedCache = s.blockedPlayers != null ? new HashSet<string>(s.blockedPlayers) : new HashSet<string>();
         }
 
         private static void SaveLists() {
@@ -169,12 +164,12 @@ namespace Game.Social {
             if(s.blockedPlayers == null) s.blockedPlayers = new List<string>();
 
             s.mutedPlayers.Clear();
-            for(var i = 0; i < _mutedList.Count; i++) {
-                s.mutedPlayers.Add(_mutedList[i]);
+            foreach(var t in mutedList) {
+                s.mutedPlayers.Add(t);
             }
 
             s.blockedPlayers.Clear();
-            foreach(var id in _blockedCache) {
+            foreach(var id in blockedCache) {
                 s.blockedPlayers.Add(id);
             }
             Save();

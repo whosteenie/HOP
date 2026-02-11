@@ -97,9 +97,7 @@ namespace Game.UI {
             if(modal == null) return;
 
             var modalIdFinal = modalId ?? Guid.NewGuid().ToString();
-            if(!_activeModals.ContainsKey(modalIdFinal)) {
-                _activeModals[modalIdFinal] = modal;
-            }
+            _activeModals.TryAdd(modalIdFinal, modal);
             _modalStack.Push(modal);
             ShowModal(modal);
         }
@@ -126,10 +124,9 @@ namespace Game.UI {
             HideModal(modal);
             
             foreach(var kvp in _activeModals) {
-                if(kvp.Value == modal) {
-                    _activeModals.Remove(kvp.Key);
-                    break;
-                }
+                if(kvp.Value != modal) continue;
+                _activeModals.Remove(kvp.Key);
+                break;
             }
         }
 
@@ -144,14 +141,14 @@ namespace Game.UI {
             _activeModals.Clear();
         }
 
-        private void ShowModal(VisualElement modal) {
+        private static void ShowModal(VisualElement modal) {
             if(modal == null) return;
             modal.RemoveFromClassList("hidden");
             modal.style.display = DisplayStyle.Flex;
             modal.BringToFront();
         }
 
-        private void HideModal(VisualElement modal) {
+        private static void HideModal(VisualElement modal) {
             if(modal == null) return;
             modal.AddToClassList("hidden");
             modal.style.display = StyleKeyword.Null;

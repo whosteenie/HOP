@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
 using Game.Hopball;
+using Game.Match;
 using Game.Weapons;
 using Network.Diagnostics;
 using Network.Events;
@@ -199,10 +200,10 @@ namespace Game.Player {
             }
 
             for(var i = 0; i < hitCount; i++) {
-                var collider = _pickupHits[i];
-                if(collider == null) continue;
+                var pickupHit = _pickupHits[i];
+                if(pickupHit == null) continue;
 
-                var candidate = collider.GetComponent<HopballController>();
+                var candidate = pickupHit.GetComponent<HopballController>();
                 if(candidate == null || candidate.IsEquipped || candidate.transform.parent != null ||
                    !candidate.gameObject.activeSelf) {
                     continue;
@@ -367,15 +368,14 @@ namespace Game.Player {
             SetFpVisualShadows(_fpHopballVisualInstance, false);
 
             // Instantiate hopball arm separately - parent to BobHolder (use first one found)
-            if(hopballArmPrefab != null) {
-                var bobHolder = FindBobHolder();
-                if(bobHolder != null) {
-                    _fpHopballArmInstance = Instantiate(hopballArmPrefab, bobHolder, false);
-                    SetGameObjectAndChildrenLayer(_fpHopballArmInstance, layer);
-                    ApplyPlayerMaterialToArm();
-                } else {
-                    Debug.LogError("[HopballController] BobHolder not found! Cannot instantiate hopball arm.");
-                }
+            if(hopballArmPrefab == null) return;
+            var bobHolder = FindBobHolder();
+            if(bobHolder != null) {
+                _fpHopballArmInstance = Instantiate(hopballArmPrefab, bobHolder, false);
+                SetGameObjectAndChildrenLayer(_fpHopballArmInstance, layer);
+                ApplyPlayerMaterialToArm();
+            } else {
+                Debug.LogError("[HopballController] BobHolder not found! Cannot instantiate hopball arm.");
             }
         }
 
@@ -510,8 +510,7 @@ namespace Game.Player {
             if(systems == null || systems.Length == 0) return;
 
             var warmupTime = Mathf.Max(0f, hopballParticleWarmupSeconds);
-            for(var i = 0; i < systems.Length; i++) {
-                var ps = systems[i];
+            foreach(var ps in systems) {
                 if(ps == null) continue;
                 if(!ps.isPlaying && !ps.main.playOnAwake) continue;
 
@@ -547,11 +546,10 @@ namespace Game.Player {
                 _fpHopballVisualInstance.transform.localPosition = fpPos;
             }
 
-            if(_worldHopballVisualInstance != null && _worldHopballVisualInstance.activeInHierarchy) {
-                var worldPos = _worldHopballBaseLocalPosition;
-                worldPos.y += yOffset;
-                _worldHopballVisualInstance.transform.localPosition = worldPos;
-            }
+            if(_worldHopballVisualInstance == null || !_worldHopballVisualInstance.activeInHierarchy) return;
+            var worldPos = _worldHopballBaseLocalPosition;
+            worldPos.y += yOffset;
+            _worldHopballVisualInstance.transform.localPosition = worldPos;
         }
 
         /// <summary>
@@ -623,11 +621,9 @@ namespace Game.Player {
                     playerController.PlayerShadow.ApplyHopballShadowState(false, playerController.IsOwner);
                     playerController.PlayerShadow.ApplyOwnerDefaultShadowState();
                 }
-                
-                TransitionToWeaponLayers();
-            } else {
-                TransitionToWeaponLayers();
             }
+
+            TransitionToWeaponLayers();
         }
 
         /// <summary>
@@ -671,13 +667,15 @@ namespace Game.Player {
 
             // Get hopball collider radius for accurate ground checking
             var hopballCollider = hopball.GetComponent<Collider>();
-            var hopballRadius = 0.5f; // Default fallback
-            if(hopballCollider is SphereCollider sphereCollider) {
-                hopballRadius = sphereCollider.radius * Mathf.Max(hopball.transform.lossyScale.x, hopball.transform.lossyScale.y, hopball.transform.lossyScale.z);
-            } else if(hopballCollider is CapsuleCollider capsuleCollider) {
-                hopballRadius = capsuleCollider.radius * Mathf.Max(hopball.transform.lossyScale.x, hopball.transform.lossyScale.z);
-            }
-            
+            var hopballRadius = hopballCollider switch {
+                SphereCollider sphereCollider => sphereCollider.radius * Mathf.Max(hopball.transform.lossyScale.x,
+                    hopball.transform.lossyScale.y, hopball.transform.lossyScale.z),
+                CapsuleCollider capsuleCollider => capsuleCollider.radius *
+                                                   Mathf.Max(hopball.transform.lossyScale.x,
+                                                       hopball.transform.lossyScale.z),
+                _ => 0.5f
+            };
+
             // Preserve original drop position for visual fidelity (player's hand position)
             // Clamp if the hand point is pushed through world geometry (e.g. against a wall).
             // We spherecast from the player toward the intended drop point and clamp to the first world hit.
@@ -690,7 +688,7 @@ namespace Game.Player {
                 var distToDrop = toDrop.magnitude;
                 if(distToDrop > 0.001f) {
                     var dirToDrop = toDrop / distToDrop;
-                    var wallMargin = 0.03f;
+                    const float wallMargin = 0.03f;
                     var castRadius = hopballRadius + wallMargin;
                     if(Physics.SphereCast(origin, castRadius, dirToDrop, out var wallHit, distToDrop, worldLayer)) {
                         // Place just before the wall along the player->hand line.
@@ -700,8 +698,8 @@ namespace Game.Player {
             }
 
             // Only adjust if it would fall through the floor
-            var raycastDistance = 15f;
-            var safetyMargin = 0.2f; // Safety margin above ground
+            const float raycastDistance = 15f;
+            const float safetyMargin = 0.2f; // Safety margin above ground
             
             // Use sphere cast to check if hopball would intersect with ground at drop position
             var sphereCastRadius = hopballRadius + safetyMargin;
@@ -774,7 +772,7 @@ namespace Game.Player {
             hopball.Rigidbody.isKinematic = false;
             
             // Apply fraction of player velocity to ball (0.3 = 30% of player velocity)
-            var velocityTransferFactor = 0.3f;
+            const float velocityTransferFactor = 0.3f;
             var ballVelocity = playerVelocity * velocityTransferFactor;
             // Ensure minimum downward velocity for natural drop
             if(ballVelocity.y > -1f) {
@@ -852,6 +850,8 @@ namespace Game.Player {
         /// </summary>
         [ClientRpc]
         public void CleanupVisualsAndRestoreWeaponsAfterDissolveClientRpc() {
+            var postMatchTransitionActive = IsPostMatchTransitionActive();
+
             // Clear hopball reference
             _currentHopballController = null;
 
@@ -867,6 +867,9 @@ namespace Game.Player {
                 // Owner: Destroy visuals and restore weapons
                 DestroyFpVisual();
                 DestroyWorldVisual();
+                if(postMatchTransitionActive) {
+                    DestroyArmImmediate();
+                }
                 ShowWeapons();
                 
                 // Transition animation layers back to weapon hold (revert from hopball hold)
@@ -876,8 +879,15 @@ namespace Game.Player {
                 DestroyWorldVisual();
             }
 
-            // Keep normal dissolve behavior: put-away and pull-out animations should still play.
-            // Any corrective visual snapping for podium happens later during post-match black screen.
+            if(postMatchTransitionActive) {
+                if(_weaponManager != null) {
+                    _weaponManager.CancelPendingPullOutForPostMatch();
+                }
+
+                return;
+            }
+
+            // Keep normal dissolve behavior outside post-match transition.
             TriggerPullOutAnimationClientRpc();
         }
 
@@ -888,6 +898,11 @@ namespace Game.Player {
         [ClientRpc]
         private void TriggerPullOutAnimationClientRpc() {
             if(_weaponManager == null) return;
+            if(IsPostMatchTransitionActive()) {
+                _weaponManager.CancelPendingPullOutForPostMatch();
+                return;
+            }
+
             _weaponManager.TriggerPullOutAnimation();
         }
 
@@ -909,7 +924,14 @@ namespace Game.Player {
         public void OnHopballReleasedClientRpc() {
             if(IsOwner) {
                 HideFpHopballVisualImmediate();
-                HandleArmPutAwayAnimation();
+                if(IsPostMatchTransitionActive()) {
+                    DestroyArmImmediate();
+                    if(_weaponManager != null) {
+                        _weaponManager.CancelPendingPullOutForPostMatch();
+                    }
+                } else {
+                    HandleArmPutAwayAnimation();
+                }
             } else {
                 if(_weaponManager != null) {
                     _weaponManager.RefreshHolsterVisibility();
@@ -953,6 +975,10 @@ namespace Game.Player {
         /// </summary>
         private void HandleArmPutAwayAnimation() {
             if(_fpHopballArmInstance == null) return;
+            if(IsPostMatchTransitionActive()) {
+                DestroyArmImmediate();
+                return;
+            }
 
             var animator = _fpHopballArmInstance.GetComponent<Animator>();
             if(animator == null) {
@@ -970,11 +996,36 @@ namespace Game.Player {
         private void OnHopballVisualStateChanged(HopballController.HopballVisualState state) {
             // Only handle on owner's client
             if(!IsOwner) return;
+            if(IsPostMatchTransitionActive()) {
+                _putAwayAnimationTriggered = true;
+                DestroyArmImmediate();
+                return;
+            }
 
             // Trigger PutAway animation when dissolve reaches threshold
             if(_putAwayAnimationTriggered || !(state.DissolveAmount >= putAwayDissolveThreshold)) return;
             _putAwayAnimationTriggered = true;
             HandleArmPutAwayAnimation();
+        }
+
+        /// <summary>
+        /// Cancels local hopball dissolve/weapon transition visuals for post-match podium flow.
+        /// This should be called while fade-to-black is active.
+        /// </summary>
+        public void CancelPostMatchHopballVisualTransitions() {
+            _putAwayAnimationTriggered = true;
+            HopballController.VisualStateChanged -= OnHopballVisualStateChanged;
+            HideFpHopballVisualImmediate();
+            DestroyWorldVisual();
+            DestroyArmImmediate();
+            if(_weaponManager != null) {
+                _weaponManager.CancelPendingPullOutForPostMatch();
+            }
+        }
+
+        private static bool IsPostMatchTransitionActive() {
+            // Only treat transition as "safe to hard-cancel visuals" once fade-to-black should be complete.
+            return PostMatchManager.IsPodiumBlackoutActiveLocal;
         }
 
         /// <summary>

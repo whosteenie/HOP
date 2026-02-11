@@ -1,4 +1,3 @@
-using Game.Audio;
 using Game.Menu;
 using Game.UI;
 using Game.Weapons;
@@ -42,14 +41,11 @@ namespace Game.Player {
 
         private bool IsPausedOrDead {
             get {
-                if(GameMenuManager.Instance != null) {
-                    if (GameMenuManager.Instance.IsChatOpen) return true;
-                    if (GameMenuManager.Instance.IsPaused) return true;
-                }
-                
-                if(playerController != null && playerController.IsDead) return true;
+                if(GameMenuManager.Instance == null) return playerController != null && playerController.IsDead;
+                if (GameMenuManager.Instance.IsChatOpen) return true;
+                if (GameMenuManager.Instance.IsPaused) return true;
 
-                return false;
+                return playerController != null && playerController.IsDead;
             }
         }
 
@@ -87,12 +83,7 @@ namespace Game.Player {
             }
         }
 
-        private Weapon CurrentWeapon {
-            get {
-                if(WeaponManager == null) return null;
-                return WeaponManager.CurrentWeapon;
-            }
-        }
+        private Weapon CurrentWeapon => WeaponManager == null ? null : WeaponManager.CurrentWeapon;
 
         private bool _sprintBtnDown;
         private bool _crouchBtnDown;
@@ -230,7 +221,7 @@ namespace Game.Player {
             var voiceAction = playerMap != null ? playerMap.FindAction("Voice") : null;
 
             if (VoiceManager.Instance != null && voiceAction != null) {
-                bool isPressed = voiceAction.IsPressed();
+                var isPressed = voiceAction.IsPressed();
                 VoiceManager.Instance.SetPttActive(isPressed);
 
                 _voiceBtnDown = isPressed;
@@ -258,9 +249,8 @@ namespace Game.Player {
             var jumpBinding0 = "";
             var jumpBinding1 = "";
             var binds = GameSettings.Data.keybinds;
-            if(binds != null && binds.entries != null) {
-                for(var i = 0; i < binds.entries.Count; i++) {
-                    var e = binds.entries[i];
+            if(binds is { entries: not null }) {
+                foreach(var e in binds.entries) {
                     if(e == null) continue;
                     if(e.name != "jump") continue;
                     jumpBinding0 = e.binding0;
@@ -372,7 +362,8 @@ namespace Game.Player {
                               !string.Equals(text, _lastHopballPromptText);
             if(!shouldApply) return;
 
-            hud?.SetHopballInteractPrompt(visible, text);
+            if(hud != null) hud.SetHopballInteractPrompt(visible, text);
+
             _lastHudManager = hud;
             _lastHopballPromptVisible = visible;
             _lastHopballPromptText = text;
@@ -855,8 +846,8 @@ namespace Game.Player {
                 }
             }
             if(playZoomSound) {
-                if(Game.Audio2.AudioService.Instance != null) {
-                    Game.Audio2.AudioService.Instance.Play("ui.sniper.zoom", Vector3.zero);
+                if(Audio2.AudioService.Instance != null) {
+                    Audio2.AudioService.Instance.Play("ui.sniper.zoom", Vector3.zero);
                 }
             }
             UpdateSniperSensitivityMultiplier();

@@ -35,8 +35,8 @@ namespace Game.Player {
         [Rpc(SendTo.Everyone)]
         public void PlayHitEffectsClientRpc(Vector3 hitPoint, float amount) {
             if(IsOwner) {
-                if(Game.Audio2.AudioService.Instance != null) {
-                    Game.Audio2.AudioService.Instance.Play("ui.hit.hurt", Vector3.zero);
+                if(Audio2.AudioService.Instance != null) {
+                    Audio2.AudioService.Instance.Play("ui.hit.hurt", Vector3.zero);
                 }
                 
                 impulseSource.GenerateImpulse();

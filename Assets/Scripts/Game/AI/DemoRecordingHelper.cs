@@ -71,7 +71,7 @@ namespace Game.AI {
             
             if(showDebugLogs) {
                 Debug.Log($"[DemoRecordingHelper] Recording {(_isRecordingEnabled ? "ENABLED" : "DISABLED")} " +
-                          $"(Press F9 to toggle)");
+                          "(Press F9 to toggle)");
             }
             
             UpdateRecordingState();
@@ -85,15 +85,17 @@ namespace Game.AI {
             
             // Final recording state: enabled by user AND in game scene
             var shouldRecord = _isRecordingEnabled && isInGameScene;
-            
-            if(_recorder.Record != shouldRecord) {
-                _recorder.Record = shouldRecord;
-                
-                if(showDebugLogs && shouldRecord) {
+
+            if(_recorder.Record == shouldRecord) return;
+            _recorder.Record = shouldRecord;
+
+            switch(showDebugLogs) {
+                case true when shouldRecord:
                     Debug.Log($"[DemoRecordingHelper] Recording STARTED in {_cachedSceneName} scene");
-                } else if(showDebugLogs && !shouldRecord && _isRecordingEnabled) {
+                    break;
+                case true when !shouldRecord && _isRecordingEnabled:
                     Debug.Log($"[DemoRecordingHelper] Recording PAUSED (not in Game scene: {_cachedSceneName})");
-                }
+                    break;
             }
         }
 
@@ -111,11 +113,10 @@ namespace Game.AI {
                     Directory.CreateDirectory(demoRoot);
                 }
                 _recorder.DemonstrationDirectory = demoRoot;
-                if(string.IsNullOrEmpty(_recorder.DemonstrationName)) {
-                    var behavior = GetComponent<Unity.MLAgents.Policies.BehaviorParameters>();
-                    var baseName = behavior != null ? behavior.BehaviorName : "HopMovement";
-                    _recorder.DemonstrationName = $"{baseName}_{System.DateTime.Now:yyyyMMdd_HHmmss}";
-                }
+                if(!string.IsNullOrEmpty(_recorder.DemonstrationName)) return;
+                var behavior = GetComponent<Unity.MLAgents.Policies.BehaviorParameters>();
+                var baseName = behavior != null ? behavior.BehaviorName : "HopMovement";
+                _recorder.DemonstrationName = $"{baseName}_{System.DateTime.Now:yyyyMMdd_HHmmss}";
             } catch(IOException ioEx) {
                 Debug.LogError($"[DemoRecordingHelper] Failed to configure demo directory at {demoRoot}: {ioEx.Message}");
             }
@@ -139,15 +140,14 @@ namespace Game.AI {
         
         private void OnGUI() {
             // Show recording indicator in top-right corner
-            if(_recorder != null && _recorder.Record) {
-                var style = new GUIStyle(GUI.skin.label) {
-                    fontSize = 20,
-                    fontStyle = FontStyle.Bold,
-                    normal = { textColor = Color.red }
-                };
+            if(_recorder == null || !_recorder.Record) return;
+            var style = new GUIStyle(GUI.skin.label) {
+                fontSize = 20,
+                fontStyle = FontStyle.Bold,
+                normal = { textColor = Color.red }
+            };
                 
-                GUI.Label(new Rect(Screen.width - 200, 10, 200, 30), "● RECORDING", style);
-            }
+            GUI.Label(new Rect(Screen.width - 200, 10, 200, 30), "● RECORDING", style);
         }
     }
 }

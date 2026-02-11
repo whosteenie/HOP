@@ -2,7 +2,6 @@ using System.Collections;
 using System.Collections.Generic;
 using Game.Progression;
 using Game.UI;
-using Game.Settings;
 using Network.Services;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -15,12 +14,11 @@ namespace Game.Menu {
     /// </summary>
     public class MainMenuUIManager : UIElementBase {
         [Header("References")]
-        public LoadoutManager LoadoutManager; // Added for Profile View access
+        public LoadoutManager loadoutManager; // Added for Profile View access
 
         private UIModalHost _modalHost;
         private VisualElement MainMenuPanel { get; set; }
         private VisualElement _gamemodePanel;
-        private VisualElement _playGamemodePanel;
         private VisualElement _lobbyPanel;
         private VisualElement _loadoutPanel;
         private VisualElement _optionsPanel;
@@ -77,11 +75,6 @@ namespace Game.Menu {
         private List<Button> _buttons;
         private List<Button> _backButtons;
 
-        // First-time setup modal
-        private VisualElement _firstTimeModal;
-        private TextField _firstTimeNameInput;
-        private Button _firstTimeContinueButton;
-
         // Quit confirmation modal
         private VisualElement _quitConfirmationModal;
         private Button _quitConfirmationYes;
@@ -128,14 +121,8 @@ namespace Game.Menu {
         public System.Action OnQuitCancelled;
         public System.Action OnLobbyLeaveConfirmed;
         public System.Action OnLobbyLeaveCancelled;
-        public System.Action OnFirstTimeContinue;
-        public System.Action<string> OnNameInputChanged;
         public System.Action<VisualElement> OnShowPanel;
         public System.Action OnGamemodeDropdownClicked;
-
-        protected override void Awake() {
-            base.Awake();
-        }
 
         protected override void Start() {
             base.Start();
@@ -148,7 +135,6 @@ namespace Game.Menu {
             if(_modalHost == null && Root != null) {
                 _modalHost = new UIModalHost(this, Root);
             }
-            SetupFirstTimeModal();
             RegisterUIEvents();
             SetupMainMenuChallenges();
         }
@@ -169,14 +155,13 @@ namespace Game.Menu {
         /// Initializes the UI manager and ensures proper visibility of global containers.
         /// Called externally to hide game menu UI when in main menu.
         /// </summary>
-        public void InitializeGameMenuVisibility() {
+        public static void InitializeGameMenuVisibility() {
             var gameMenu = GameMenuManager.Instance;
-            if(gameMenu != null && gameMenu.TryGetComponent(out UIDocument doc) && doc != null) {
-                var gameRoot = doc.rootVisualElement;
-                var rootContainer = gameRoot?.Q<VisualElement>("root-container");
-                if(rootContainer != null) {
-                    rootContainer.style.display = DisplayStyle.None;
-                }
+            if(gameMenu == null || !gameMenu.TryGetComponent(out UIDocument doc) || doc == null) return;
+            var gameRoot = doc.rootVisualElement;
+            var rootContainer = gameRoot?.Q<VisualElement>("root-container");
+            if(rootContainer != null) {
+                rootContainer.style.display = DisplayStyle.None;
             }
         }
 
@@ -186,7 +171,7 @@ namespace Game.Menu {
         private void FindUIElements() {
             // Panels (required)
             MainMenuPanel = QRequired<VisualElement>("main-menu-panel");
-            _playGamemodePanel = QOptional<VisualElement>("play-gamemode-panel");
+            PlayGamemodePanel = QOptional<VisualElement>("play-gamemode-panel");
             _lobbyPanel = QOptional<VisualElement>("lobby-panel");
             _loadoutPanel = QOptional<VisualElement>("loadout-panel");
             _playerNameLabel = QOptional<Label>("player-name-label");
@@ -224,11 +209,6 @@ namespace Game.Menu {
             _mainMenuChallengesContainer = QOptional<VisualElement>("main-menu-challenges-container");
             
             _gamemodeOptions = new List<Button>();
-
-            // First-time setup modal
-            _firstTimeModal = QOptional<VisualElement>("first-time-setup-modal");
-            _firstTimeNameInput = QOptional<TextField>("first-time-name-input");
-            _firstTimeContinueButton = QOptional<Button>("first-time-continue-button");
 
             // Quit confirmation modal
             _quitConfirmationModal = QOptional<VisualElement>("quit-confirmation-modal");
@@ -312,19 +292,32 @@ namespace Game.Menu {
         /// Registers click and hover events for UI buttons and interactive elements.
         /// </summary>
         private void RegisterUIEvents() {
+            if(_buttons == null || _backButtons == null) {
+                Debug.LogError("[MainMenuUIManager] Button collections were not initialized before event registration.", this);
+                return;
+            }
+
             // Generic button handlers
             foreach(var b in _buttons) {
                 if(b == null) continue;
-                UISoundService.RegisterButtonHover(b);
-                System.Action clickHandler = () => UISoundService.PlayButtonClick();
-                b.clicked += clickHandler;
-                RegisterCleanup(() => b.clicked -= clickHandler);
+                try {
+                    UISoundService.RegisterButtonHover(b);
+                    System.Action clickHandler = () => UISoundService.PlayButtonClick();
+                    b.clicked += clickHandler;
+                    RegisterCleanup(() => b.clicked -= clickHandler);
+                } catch(System.Exception ex) {
+                    Debug.LogError($"[MainMenuUIManager] Failed to bind click/hover for button `{b.name}`: {ex}", this);
+                }
             }
 
             foreach(var b in _backButtons) {
                 if(b == null) continue;
-                UISoundService.RegisterButtonHover(b);
-                // No generic click here, handled in specialized ones below
+                try {
+                    UISoundService.RegisterButtonHover(b);
+                    // No generic click here, handled in specialized ones below
+                } catch(System.Exception ex) {
+                    Debug.LogError($"[MainMenuUIManager] Failed to bind hover for back button `{b.name}`: {ex}", this);
+                }
             }
 
             // Cancel matchmaking button
@@ -347,7 +340,7 @@ namespace Game.Menu {
             }
 
             System.Action loadoutHandler = () => {
-                if(_playerNameLabel != null) _playerNameLabel.text = Game.Social.StreamerMode.GetLocalDisplayName();
+                if(_playerNameLabel != null) _playerNameLabel.text = Social.StreamerMode.GetLocalDisplayName();
                 OnLoadoutClicked?.Invoke();
             };
             _loadoutButton.clicked += loadoutHandler;
@@ -495,46 +488,14 @@ namespace Game.Menu {
             }
 
             // Challenge Updates
-            if (ProgressionManager.Instance != null) {
-                System.Action updateChallengeHandler = UpdateMainMenuChallenges;
-                ProgressionManager.Instance.OnChallengesUpdated += updateChallengeHandler;
-                RegisterCleanup(() => {
-                    if (ProgressionManager.Instance != null) {
-                        ProgressionManager.Instance.OnChallengesUpdated -= updateChallengeHandler;
-                    }
-                });
-            }
-        }
-
-        private void SetupFirstTimeModal() {
-            if(_firstTimeContinueButton == null) return;
-            System.Action continueHandler = () => {
-                UISoundService.PlayButtonClick();
-                OnFirstTimeContinue?.Invoke();
-            };
-            _firstTimeContinueButton.clicked += continueHandler;
-            RegisterCleanup(() => _firstTimeContinueButton.clicked -= continueHandler);
-            UISoundService.RegisterButtonHover(_firstTimeContinueButton);
-        }
-
-        /// <summary>
-        /// Logic for handling first-time setup or name entry (Deprecated/Unused).
-        /// </summary>
-        public void CheckFirstTimeSetup() {
-            HideFirstTimeSetup();
-        }
-
-        public void HideFirstTimeSetup() {
-            if(_firstTimeModal != null) {
-                _firstTimeModal.AddToClassList("hidden");
-            }
-        }
-
-        /// <summary>
-        /// Returns the text from the first-time name input field.
-        /// </summary>
-        public string GetFirstTimeNameInput() {
-            return _firstTimeNameInput != null ? _firstTimeNameInput.value : string.Empty;
+            if(ProgressionManager.Instance == null) return;
+            System.Action updateChallengeHandler = UpdateMainMenuChallenges;
+            ProgressionManager.Instance.OnChallengesUpdated += updateChallengeHandler;
+            RegisterCleanup(() => {
+                if (ProgressionManager.Instance != null) {
+                    ProgressionManager.Instance.OnChallengesUpdated -= updateChallengeHandler;
+                }
+            });
         }
 
         // Panel references (for external access - panel management stays in MainMenuManager for now)
@@ -542,14 +503,14 @@ namespace Game.Menu {
         /// <summary>
         /// Enables a specific button and registers its hover events.
         /// </summary>
-        public void EnableButton(Button button) {
+        public static void EnableButton(Button button) {
             SetButtonEnabled(button, true);
         }
 
         /// <summary>
         /// Disables a specific button and unregisters its hover events.
         /// </summary>
-        public void DisableButton(Button button) {
+        public static void DisableButton(Button button) {
             SetButtonEnabled(button, false);
         }
 
@@ -559,7 +520,7 @@ namespace Game.Menu {
             button.SetEnabled(enabled);
 
             // Handle different styles
-            bool isTextButton = button.ClassListContains("text-button");
+            var isTextButton = button.ClassListContains("text-button");
 
             if (enabled) {
                 if (!isTextButton) button.AddToClassList("menu-chip-enabled");
@@ -570,7 +531,8 @@ namespace Game.Menu {
             }
         }
 
-        public VisualElement PlayGamemodePanel => _playGamemodePanel;
+        public VisualElement PlayGamemodePanel { get; private set; }
+
         public Button GetPlayButtonMatchmaking() => _playButtonMatchmaking;
         public Button GetPlayButtonPrivate() => _playButtonPrivate;
 
@@ -617,12 +579,11 @@ namespace Game.Menu {
             if(string.IsNullOrEmpty(message)) return;
 
             if(_toastLabel == null) {
-                if(!_toastLabelErrorLogged) {
-                    Debug.LogError(
-                        "[MainMenuUIManager] Missing required `toast` label inside `toast-container` in MainMenu.uxml.",
-                        this);
-                    _toastLabelErrorLogged = true;
-                }
+                if(_toastLabelErrorLogged) return;
+                Debug.LogError(
+                    "[MainMenuUIManager] Missing required `toast` label inside `toast-container` in MainMenu.uxml.",
+                    this);
+                _toastLabelErrorLogged = true;
                 return;
             }
 
@@ -726,12 +687,11 @@ namespace Game.Menu {
 
         private void SetupMainMenuChallenges() {
             if(_mainMenuChallengesContainer == null) {
-                if(!_mainMenuChallengesContainerErrorLogged) {
-                    Debug.LogError(
-                        "[MainMenuUIManager] Missing required `main-menu-challenges-container` in MainMenu.uxml.",
-                        this);
-                    _mainMenuChallengesContainerErrorLogged = true;
-                }
+                if(_mainMenuChallengesContainerErrorLogged) return;
+                Debug.LogError(
+                    "[MainMenuUIManager] Missing required `main-menu-challenges-container` in MainMenu.uxml.",
+                    this);
+                _mainMenuChallengesContainerErrorLogged = true;
                 return;
             }
 
@@ -784,7 +744,8 @@ namespace Game.Menu {
                 ChallengeUiRenderer.SetDailyResetTimer(_dailyTimerLabel, time);
             }
 
-            if (_weeklyTimerLabel != null) {
+            if(_weeklyTimerLabel == null) return;
+            {
                 var time = ProgressionManager.Instance.GetTimeUntilWeeklyReset();
                 ChallengeUiRenderer.SetWeeklyResetTimer(_weeklyTimerLabel, time);
             }
@@ -809,7 +770,7 @@ namespace Game.Menu {
             RenderChallengeList(_weeklyChallengesCard, pm.Data.weeklyChallenges);
         }
 
-        private void RenderChallengeList(VisualElement card, System.Collections.Generic.List<ActiveChallengeData> challenges) {
+        private void RenderChallengeList(VisualElement card, List<ActiveChallengeData> challenges) {
             if(card == null) {
                 Debug.LogWarning("[MainMenuUIManager] Challenge card is null");
                 return;

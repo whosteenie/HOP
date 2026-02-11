@@ -22,7 +22,7 @@ namespace Game.Player {
 
         [Header("Mantle Movement")]
         private const float MantleDuration = 0.3f;
-        private const float RotationClampAngle = 60f;
+
         [SerializeField] private AnimationCurve mantleHeightCurve = AnimationCurve.EaseInOut(0, 0, 1, 1);
         [SerializeField] private AnimationCurve mantleForwardCurve = AnimationCurve.EaseInOut(0, 0, 1, 1);
 
@@ -42,7 +42,6 @@ namespace Game.Player {
 
         private Vector3 _mantleStartPosition;
         private Vector3 _mantleTargetPosition;
-        private Vector3 _mantleDirection;
         private float _mantleTimer;
         private float _postMantleJumpCooldown;
 
@@ -145,18 +144,17 @@ namespace Game.Player {
                 return false;
             }
 
-            StartMantle(targetPosition, mantleDirection);
+            StartMantle(targetPosition);
             return true;
         }
 
-        private void StartMantle(Vector3 targetPosition, Vector3 mantleDirection) {
+        private void StartMantle(Vector3 targetPosition) {
             IsMantling = true;
             _mantleTimer = 0f;
             _postMantleJumpCooldown = 0f;
 
             _mantleStartPosition = playerController.Position;
             _mantleTargetPosition = targetPosition;
-            _mantleDirection = mantleDirection;
 
             playerController.ResetVelocity();
 

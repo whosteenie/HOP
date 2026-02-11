@@ -25,7 +25,6 @@ namespace Network.Singletons {
         [SerializeField] private MatchSettingsManager matchSettingsManager;
 
         [SerializeField] private NetworkManager networkManager; // Unity's NetworkManager (not a singleton pattern)
-        [SerializeField] private SessionNetworkBridge sessionNetworkBridge;
 
         private static bool hasInitialized;
 
@@ -81,11 +80,6 @@ namespace Network.Singletons {
             if(NetworkManager.Singleton == null) {
                 Debug.LogWarning(
                     "[InitSceneManager] NetworkManager.Singleton == null (optional, but required for networking)");
-            }
-
-            if(SessionNetworkBridge.Instance == null) {
-                Debug.LogWarning(
-                    "[InitSceneManager] SessionNetworkBridge.Instance == null (optional, spawns at runtime)");
             }
 
             return allValid;

@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Text;
-using Network.Singletons;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -18,7 +17,7 @@ namespace Network.Diagnostics {
         private static readonly string RunId = Guid.NewGuid().ToString("N")[..8];
         private static readonly object Gate = new();
 
-        public static bool Enabled = true;
+        private static readonly bool Enabled = true;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         private static void LogBoot() {
@@ -83,15 +82,13 @@ namespace Network.Diagnostics {
             sb.Append(" role=").Append(Sanitize(GetRole()));
             sb.Append(" scene=").Append(Sanitize(GetSceneName()));
 
-            if(fields != null) {
-                for(var i = 0; i < fields.Length; i++) {
-                    var (key, value) = fields[i];
-                    if(string.IsNullOrWhiteSpace(key)) continue;
-                    sb.Append(' ');
-                    sb.Append(key);
-                    sb.Append('=');
-                    sb.Append(Sanitize(value));
-                }
+            if(fields == null) return sb.ToString();
+            foreach(var (key, value) in fields) {
+                if(string.IsNullOrWhiteSpace(key)) continue;
+                sb.Append(' ');
+                sb.Append(key);
+                sb.Append('=');
+                sb.Append(Sanitize(value));
             }
 
             return sb.ToString();
@@ -101,8 +98,7 @@ namespace Network.Diagnostics {
             var nm = NetworkManager.Singleton;
             if(nm == null) return "None";
             if(nm.IsServer) return "Host";
-            if(nm.IsClient) return "Client";
-            return "Offline";
+            return nm.IsClient ? "Client" : "Offline";
         }
 
         private static string GetSceneName() {
@@ -115,11 +111,7 @@ namespace Network.Diagnostics {
             var sessionManager = SessionManager.Instance;
             if(sessionManager == null) return "none";
 
-            if(string.IsNullOrEmpty(sessionManager.FlowSessionId) == false) {
-                return sessionManager.FlowSessionId;
-            }
-
-            return "none";
+            return string.IsNullOrEmpty(sessionManager.FlowSessionId) == false ? sessionManager.FlowSessionId : "none";
         }
 
         private static string Sanitize(object value) {
@@ -133,11 +125,10 @@ namespace Network.Diagnostics {
             if(string.IsNullOrEmpty(raw)) return "\"\"";
 
             var needsQuotes = false;
-            for(var i = 0; i < raw.Length; i++) {
-                if(char.IsWhiteSpace(raw[i]) || raw[i] == '=') {
-                    needsQuotes = true;
-                    break;
-                }
+            foreach(var t in raw) {
+                if(!char.IsWhiteSpace(t) && t != '=') continue;
+                needsQuotes = true;
+                break;
             }
 
             if(needsQuotes == false) return raw;

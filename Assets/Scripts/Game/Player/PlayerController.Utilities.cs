@@ -217,52 +217,33 @@ namespace Game.Player {
         /// Gets the current horizontal velocity vector.
         /// </summary>
         public Vector3 GetHorizontalVelocity() {
-            if(movementController != null) {
-                return movementController.HorizontalVelocity;
-            }
-            return Vector3.zero;
+            return movementController != null ? movementController.HorizontalVelocity : Vector3.zero;
         }
 
         /// <summary>
         /// Gets the current vertical velocity value.
         /// </summary>
         public float GetVerticalVelocity() {
-            if(movementController != null) {
-                return movementController.VerticalVelocity;
-            }
-            return 0f;
+            return movementController != null ? movementController.VerticalVelocity : 0f;
         }
 
         /// <summary>
         /// Gets the full velocity vector including horizontal and vertical components.
         /// </summary>
-        public Vector3 GetFullVelocity {
-            get {
-                if(movementController != null) {
-                    return movementController.FullVelocity;
-                }
-                return Vector3.zero;
-            }
-        }
+        public Vector3 GetFullVelocity => movementController != null ? movementController.FullVelocity : Vector3.zero;
 
         /// <summary>
         /// Gets the maximum movement speed currently allowed.
         /// </summary>
         public float GetMaxSpeed() {
-            if(movementController != null) {
-                return movementController.MaxSpeed;
-            }
-            return 5f;
+            return movementController != null ? movementController.MaxSpeed : 5f;
         }
 
         /// <summary>
         /// Gets the cached horizontal speed squared value.
         /// </summary>
         public float GetCachedHorizontalSpeedSqr() {
-            if(movementController != null) {
-                return movementController.CachedHorizontalSpeedSqr;
-            }
-            return 0f;
+            return movementController != null ? movementController.CachedHorizontalSpeedSqr : 0f;
         }
 
         public float AverageVelocity => statsController != null ? statsController.averageVelocity.Value : 0f;

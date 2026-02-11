@@ -13,12 +13,12 @@ namespace Network.Diagnostics {
     public static class MeshTriangleWarningDiagnostics {
         private static readonly HashSet<string> SeenWarnings = new();
         private static readonly Regex QuotedTokenRegex = new("\"([^\"]+)\"|'([^']+)'", RegexOptions.Compiled);
-        private static bool _registered;
+        private static bool registered;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         private static void Register() {
-            if(_registered) return;
-            _registered = true;
+            if(registered) return;
+            registered = true;
             Application.logMessageReceived += OnLogMessageReceived;
         }
 
@@ -71,11 +71,9 @@ namespace Network.Diagnostics {
             sb.AppendLine($"[MeshTriangleWarningDiagnostics] Scene: {SceneManager.GetActiveScene().name}");
             sb.AppendLine($"[MeshTriangleWarningDiagnostics] Warning: {warning}");
 
-            if(meshHints.Count > 0) {
-                sb.AppendLine($"[MeshTriangleWarningDiagnostics] Parsed mesh hints: {string.Join(", ", meshHints)}");
-            } else {
-                sb.AppendLine("[MeshTriangleWarningDiagnostics] Parsed mesh hints: <none>");
-            }
+            sb.AppendLine(meshHints.Count > 0
+                ? $"[MeshTriangleWarningDiagnostics] Parsed mesh hints: {string.Join(", ", meshHints)}"
+                : "[MeshTriangleWarningDiagnostics] Parsed mesh hints: <none>");
 
             var candidates = CollectCandidates(meshHints);
             if(candidates.Count == 0) {
@@ -85,8 +83,8 @@ namespace Network.Diagnostics {
             }
 
             sb.AppendLine($"[MeshTriangleWarningDiagnostics] Candidate objects ({candidates.Count}):");
-            for(var i = 0; i < candidates.Count; i++) {
-                sb.AppendLine(candidates[i]);
+            foreach(var t in candidates) {
+                sb.AppendLine(t);
             }
 
             return sb.ToString();
@@ -140,8 +138,7 @@ namespace Network.Diagnostics {
             if(string.IsNullOrEmpty(meshName)) return false;
             if(hints == null || hints.Count == 0) return meshName.IndexOf("pb_Mesh", StringComparison.OrdinalIgnoreCase) >= 0;
 
-            for(var i = 0; i < hints.Count; i++) {
-                var hint = hints[i];
+            foreach(var hint in hints) {
                 if(string.IsNullOrEmpty(hint)) continue;
                 if(meshName.IndexOf(hint, StringComparison.OrdinalIgnoreCase) >= 0) return true;
                 if(hint.IndexOf(meshName, StringComparison.OrdinalIgnoreCase) >= 0) return true;

@@ -58,10 +58,10 @@ namespace Game.UI {
                 _xpAnimationRoutine = null;
             }
 
-            _xpAnimationRoutine = StartCoroutine(AnimateXp(oldLevel, oldXp, currentLevel, currentXp, xpGained, nextLevelXp));
+            _xpAnimationRoutine = StartCoroutine(AnimateXp(oldLevel, oldXp, currentLevel, currentXp, xpGained));
         }
 
-        private IEnumerator AnimateXp(int startLevel, int startXp, int endLevel, int endXp, int gained, int nextLevelXp) {
+        private IEnumerator AnimateXp(int startLevel, int startXp, int endLevel, int endXp, int gained) {
             var progression = ProgressionManager.Instance;
             if(progression == null) {
                 Debug.LogWarning("[PostMatchXpDisplay] ProgressionManager is null; cannot animate XP display.");

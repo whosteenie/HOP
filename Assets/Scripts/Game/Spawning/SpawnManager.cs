@@ -29,7 +29,7 @@ namespace Game.Spawning {
         private readonly object _reservationLock = new();
 
         // Cached array for spawn point validation (non-allocating overlap check)
-        private static readonly Collider[] spawnClearanceHits = new Collider[10];
+        private static readonly Collider[] SpawnClearanceHits = new Collider[10];
 
         private void Awake() {
             if(Instance != null && Instance != this) {
@@ -330,7 +330,7 @@ namespace Game.Spawning {
         /// </summary>
         private static bool IsSpawnPointClear(Vector3 center) {
             var layerMask = LayerMask.GetMask("Player", "Enemy");
-            var hitCount = Physics.OverlapSphereNonAlloc(center, SpawnClearRadius, spawnClearanceHits, layerMask);
+            var hitCount = Physics.OverlapSphereNonAlloc(center, SpawnClearRadius, SpawnClearanceHits, layerMask);
             return hitCount == 0;
         }
 

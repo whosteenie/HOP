@@ -5,7 +5,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
 using Unity.Services.Authentication;
-using Unity.Services.Core;
 using Unity.Services.Vivox;
 using Steamworks;
 using Network.UGS;
@@ -21,8 +20,6 @@ namespace Game.Social {
         private bool _isMicOpen;
         private bool _isPttActive;
         private string _currentChannelName;
-        private bool _isJoiningChannel;
-        private string _joiningChannelName;
         private string _loggedInIdentity;
         private readonly Dictionary<string, Action> _participantSpeechActions = new();
         private readonly SemaphoreSlim _channelOperationGate = new(1, 1);
@@ -192,8 +189,6 @@ namespace Game.Social {
             }
 
             await _channelOperationGate.WaitAsync();
-            _isJoiningChannel = true;
-            _joiningChannelName = channelName;
             try {
                 if(!string.IsNullOrEmpty(_currentChannelName) && _currentChannelName == channelName &&
                    VivoxService.Instance != null && VivoxService.Instance.ActiveChannels.ContainsKey(_currentChannelName)) {
@@ -238,8 +233,6 @@ namespace Game.Social {
             } catch (Exception e) {
                 Debug.LogError($"[VoiceManager] Join Channel Failed: {e.Message}");
             } finally {
-                _isJoiningChannel = false;
-                _joiningChannelName = null;
                 _channelOperationGate.Release();
             }
         }
@@ -280,7 +273,7 @@ namespace Game.Social {
                 }
                 
                 // Update NetworkVariable on local PlayerController so other clients see the indicator
-                var localPlayer = Game.Player.PlayerController.LocalPlayer;
+                var localPlayer = Player.PlayerController.LocalPlayer;
                 if (localPlayer != null) {
                     localPlayer.isPttActive.Value = _isMicOpen;
                 }

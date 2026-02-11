@@ -1,6 +1,5 @@
 using System;
 using Game.Settings;
-using UnityEngine;
 using Steamworks;
 
 namespace Game.Social {
@@ -9,24 +8,23 @@ namespace Game.Social {
     /// Enable via command line: -streamerMode
     /// </summary>
     public static class StreamerMode {
-        private static bool _initialized;
-        private static bool _enabledFromArgs;
-        private static string _localDisplayName;
+        private static bool initialized;
+        private static bool enabledFromArgs;
+        private static string localDisplayName;
 
         public static bool Enabled {
             get {
                 EnsureInitialized();
-                if(_enabledFromArgs) return true;
+                if(enabledFromArgs) return true;
                 var data = GameSettings.Data;
-                if(data.social == null) return false;
-                return data.social.streamerModeEnabled;
+                return data.social is { streamerModeEnabled: true };
             }
         }
 
         public static string LocalDisplayName {
             get {
                 EnsureInitialized();
-                return _localDisplayName;
+                return localDisplayName;
             }
         }
 
@@ -34,24 +32,23 @@ namespace Game.Social {
             EnsureInitialized();
 
             var steamOnline = SteamClient.IsValid && SteamClient.IsLoggedOn;
-            if(!steamOnline) return _localDisplayName;
+            if(!steamOnline) return localDisplayName;
 
-            if(Enabled) return _localDisplayName;
-            return SteamClient.Name;
+            return Enabled ? localDisplayName : SteamClient.Name;
         }
 
         private static void EnsureInitialized() {
-            if(_initialized) return;
-            _initialized = true;
+            if(initialized) return;
+            initialized = true;
 
-            _enabledFromArgs = HasArg("-streamerMode") || HasArg("-streamer");
-            _localDisplayName = GenerateName();
+            enabledFromArgs = HasArg("-streamerMode") || HasArg("-streamer");
+            localDisplayName = GenerateName();
         }
 
         private static bool HasArg(string arg) {
             var args = Environment.GetCommandLineArgs();
-            for(var i = 0; i < args.Length; i++) {
-                if(args[i] == arg) return true;
+            foreach(var t in args) {
+                if(t == arg) return true;
             }
             return false;
         }
@@ -69,7 +66,7 @@ namespace Game.Social {
 
             // Deterministic per-launch.
             var seed = (int)(DateTime.UtcNow.Ticks & 0x7fffffff);
-            var rng = new System.Random(seed);
+            var rng = new Random(seed);
             var adj = adjectives[rng.Next(0, adjectives.Length)];
             var noun = nouns[rng.Next(0, nouns.Length)];
             var number = rng.Next(10, 100);

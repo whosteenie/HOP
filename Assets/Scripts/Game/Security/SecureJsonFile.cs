@@ -66,7 +66,7 @@ namespace Game.Security {
                 return DecodeResult.LegacyPlaintext;
             }
 
-            var envelopeJson = rawText.Substring(Header.Length + 1);
+            var envelopeJson = rawText[(Header.Length + 1)..];
             ProtectedEnvelope envelope;
             try {
                 envelope = JsonUtility.FromJson<ProtectedEnvelope>(envelopeJson);
@@ -107,8 +107,7 @@ namespace Game.Security {
             if (string.IsNullOrWhiteSpace(envelope.salt)) return false;
             if (string.IsNullOrWhiteSpace(envelope.iv)) return false;
             if (string.IsNullOrWhiteSpace(envelope.payload)) return false;
-            if (string.IsNullOrWhiteSpace(envelope.sig)) return false;
-            return true;
+            return !string.IsNullOrWhiteSpace(envelope.sig);
         }
 
         private static byte[] EncryptAes(byte[] plainBytes, byte[] key, byte[] iv) {
@@ -201,6 +200,7 @@ namespace Game.Security {
                 var attributes = File.GetAttributes(path);
                 File.SetAttributes(path, attributes | FileAttributes.Hidden);
             } catch {
+                // ignored
             }
         }
 
@@ -213,14 +213,13 @@ namespace Game.Security {
 
         private static byte[] Combine(params byte[][] arrays) {
             var totalLength = 0;
-            for (var i = 0; i < arrays.Length; i++) {
-                totalLength += arrays[i]?.Length ?? 0;
+            foreach(var t in arrays) {
+                totalLength += t?.Length ?? 0;
             }
 
             var output = new byte[totalLength];
             var offset = 0;
-            for (var i = 0; i < arrays.Length; i++) {
-                var source = arrays[i];
+            foreach(var source in arrays) {
                 if (source == null || source.Length == 0) {
                     continue;
                 }

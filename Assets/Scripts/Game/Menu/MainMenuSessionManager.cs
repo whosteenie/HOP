@@ -37,8 +37,6 @@ namespace Game.Menu {
         private bool _localXpElementsErrorLogged;
         private bool _partyMemberTemplateMissingLogged;
         private bool _partyMemberTemplateInvalidLogged;
-        private ulong _lastLobbyId;
-        private int _lastMemberCount;
         private bool _hasDrawnSolo;
         private bool _isSilentHosting;
 
@@ -75,12 +73,11 @@ namespace Game.Menu {
 
         protected override void OnEnable() {
             base.OnEnable();
-            if(SessionManager.Instance != null) {
-                SessionManager.Instance.FrontStatusChanged -= UpdateStatusText;
-                SessionManager.Instance.OnPartyStateChanged -= HandlePartyStateChanged;
-                SessionManager.Instance.FrontStatusChanged += UpdateStatusText;
-                SessionManager.Instance.OnPartyStateChanged += HandlePartyStateChanged;
-            }
+            if(SessionManager.Instance == null) return;
+            SessionManager.Instance.FrontStatusChanged -= UpdateStatusText;
+            SessionManager.Instance.OnPartyStateChanged -= HandlePartyStateChanged;
+            SessionManager.Instance.FrontStatusChanged += UpdateStatusText;
+            SessionManager.Instance.OnPartyStateChanged += HandlePartyStateChanged;
         }
 
         protected override void OnDisable() {
@@ -91,8 +88,8 @@ namespace Game.Menu {
             base.OnDisable();
         }
 
-        protected override Dictionary<string, System.Type> GetRequiredElements() {
-            return new Dictionary<string, System.Type> {
+        protected override Dictionary<string, Type> GetRequiredElements() {
+            return new Dictionary<string, Type> {
                 { "party-members-list", typeof(VisualElement) },
                 { "invite-friends-button", typeof(Button) },
                 { "local-player-profile", typeof(VisualElement) }
@@ -121,7 +118,7 @@ namespace Game.Menu {
             if(SessionManager.Instance != null && SessionManager.Instance.CurrentLobby.HasValue) {
                 SteamManager.Instance.OpenInviteOverlay(SessionManager.Instance.CurrentLobby.Value.Id);
             } else {
-                bool success = await HandleHostClicked(silent: false);
+                var success = await HandleHostClicked(silent: false);
                 if(success && SessionManager.Instance != null && SessionManager.Instance.CurrentLobby.HasValue) {
                     SteamManager.Instance.OpenInviteOverlay(SessionManager.Instance.CurrentLobby.Value.Id);
                 }
@@ -185,15 +182,15 @@ namespace Game.Menu {
                 }
 
                 if(isNetworkOffline) {
-                    uiManager.DisableButton(uiManager.GetPlayButtonMatchmaking());
+                    MainMenuUIManager.DisableButton(uiManager.GetPlayButtonMatchmaking());
                     if(canUseMenuButtons) {
-                        uiManager.EnableButton(uiManager.GetPlayButtonPrivate());
+                        MainMenuUIManager.EnableButton(uiManager.GetPlayButtonPrivate());
                     } else {
-                        uiManager.DisableButton(uiManager.GetPlayButtonPrivate());
+                        MainMenuUIManager.DisableButton(uiManager.GetPlayButtonPrivate());
                     }
                 } else if(currentPartySize > 5) {
-                    uiManager.DisableButton(uiManager.GetPlayButtonMatchmaking());
-                    if(!isSearching) uiManager.EnableButton(uiManager.GetPlayButtonPrivate());
+                    MainMenuUIManager.DisableButton(uiManager.GetPlayButtonMatchmaking());
+                    if(!isSearching) MainMenuUIManager.EnableButton(uiManager.GetPlayButtonPrivate());
                 } else {
                     uiManager.SetMenuButtonsEnabled(canUseMenuButtons);
                 }
@@ -228,8 +225,6 @@ namespace Game.Menu {
                 if(!_hasDrawnSolo) {
                     DrawSoloPlayer();
                     _hasDrawnSolo = true;
-                    _lastLobbyId = 0;
-                    _lastMemberCount = 0;
                 }
             } else {
                 _hasDrawnSolo = false;
@@ -240,7 +235,7 @@ namespace Game.Menu {
 
         private void RegisterUIEvents() {
             if(_inviteButton != null) {
-                System.Action inviteHandler = () => {
+                Action inviteHandler = () => {
                     UISoundService.PlayButtonClick();
                     OpenSteamInviteOverlay().Forget();
                 };
@@ -252,11 +247,7 @@ namespace Game.Menu {
             uiManager.OnCancelMatchmakingClicked = () => {
                 UISoundService.PlayButtonClick(isBack: true);
                 if(SessionManager.Instance != null) {
-                    if(SessionManager.UseUgsBackend) {
-                        SessionManager.Instance.CancelUgsMatchmaking();
-                    } else {
-                        SessionManager.Instance.CancelMatchmaking();
-                    }
+                    SessionManager.Instance.CancelMatchmaking();
                 }
             };
 
@@ -275,8 +266,7 @@ namespace Game.Menu {
                 return;
             }
 
-            var target = evt.target as VisualElement;
-            if(target == null) return;
+            if(evt.target is not VisualElement target) return;
 
             var tName = target.name;
 
@@ -434,7 +424,7 @@ namespace Game.Menu {
                 case "SteamProfile":
                     // Open Steam profile page in overlay browser
                     var profileUrl = $"https://steamcommunity.com/profiles/{_contextMenuTargetId.Value}";
-                    SteamFriends.OpenWebOverlay(profileUrl, false);
+                    SteamFriends.OpenWebOverlay(profileUrl);
                     break;
                 case "MuteChat":
                     // For now, blocking chat mutes voice too usually, or just chat
@@ -449,13 +439,13 @@ namespace Game.Menu {
                     Debug.LogWarning("Mute Chat standalone not fully implemented, separate lists needed.");
                     break;
                 case "MuteVoice":
-                    bool isMuted = SocialSettings.IsMuted(_contextMenuTargetId.ToString());
+                    var isMuted = SocialSettings.IsMuted(_contextMenuTargetId.ToString());
                     SocialSettings.SetMuted(_contextMenuTargetId.ToString(), !isMuted);
                     // Also update Vivox
                     VoiceManager.Instance.MuteUser(_contextMenuTargetId.ToString(), !isMuted);
                     break;
                 case "Block":
-                    bool isBlocked = SocialSettings.IsBlocked(_contextMenuTargetId.ToString());
+                    var isBlocked = SocialSettings.IsBlocked(_contextMenuTargetId.ToString());
                     SocialSettings.SetBlocked(_contextMenuTargetId.ToString(), !isBlocked);
                     // Update Vivox if blocked
                     VoiceManager.Instance.MuteUser(_contextMenuTargetId.ToString(), !isBlocked);
@@ -466,14 +456,10 @@ namespace Game.Menu {
         private void HandlePartyStateChanged() {
             if(SessionManager.Instance != null && SessionManager.Instance.CurrentLobby.HasValue) {
                 var lobby = SessionManager.Instance.CurrentLobby.Value;
-                _lastLobbyId = lobby.Id;
-                _lastMemberCount = lobby.MemberCount;
                 RefreshPlayerList(lobby);
             } else {
                 DrawSoloPlayer();
                 _hasDrawnSolo = true;
-                _lastLobbyId = 0;
-                _lastMemberCount = 0;
             }
         }
 
@@ -494,8 +480,6 @@ namespace Game.Menu {
         public void ResetLobbyUI() {
             if(_partyMembersList != null) _partyMembersList.Clear();
             if(_localProfileContainer != null) _localProfileContainer.Clear();
-            _lastLobbyId = 0;
-            _lastMemberCount = 0;
             _hasDrawnSolo = false;
 
             IsHost = false;
@@ -504,28 +488,23 @@ namespace Game.Menu {
         public async UniTask HandlePrivateMatchSelection(string mode) {
             // Request SessionManager to start the synchronized load
             if(SessionManager.Instance != null) {
-                if(SessionManager.UseUgsBackend) {
-                    var matchSettings = Game.Match.MatchSettingsManager.Instance;
-                    var maxPlayers = 10;
-                    if(matchSettings != null) {
-                        var def = matchSettings.GetGamemodeDef(mode);
-                        if(def.maxPlayers > 0) maxPlayers = def.maxPlayers;
-                    }
-
-                    await SessionManager.Instance.CreateUgsPartyLobbyAsync(maxPlayers, true);
-                    await SessionManager.Instance.StartUgsPrivateMatchAsync(mode, maxPlayers);
-                    return;
-                }
-
-                if(!SteamClient.IsValid || !SteamClient.IsLoggedOn) {
+                if(Application.internetReachability == NetworkReachability.NotReachable) {
                     if(uiManager != null) {
-                        uiManager.ShowToast("Steam is offline. Starting offline match.");
+                        uiManager.ShowToast("Offline. Starting offline private match.");
                     }
                     await SessionManager.Instance.StartOfflinePrivateMatchAsync(mode);
                     return;
                 }
 
-                await SessionManager.Instance.StartPrivateMatchSync(mode);
+                var matchSettings = Match.MatchSettingsManager.Instance;
+                var maxPlayers = 10;
+                if(matchSettings != null) {
+                    var def = matchSettings.GetGamemodeDef(mode);
+                    if(def.maxPlayers > 0) maxPlayers = def.maxPlayers;
+                }
+
+                await SessionManager.Instance.CreatePartyLobbyAsync(maxPlayers, true);
+                await SessionManager.Instance.StartPrivateMatchAsync(mode, maxPlayers);
             }
         }
 
@@ -536,25 +515,18 @@ namespace Game.Menu {
         public async UniTask<bool> HandleHostClicked(bool silent = false) {
             _isSilentHosting = silent;
             try {
-                if(SessionManager.UseUgsBackend) {
-                    var matchSettings = Game.Match.MatchSettingsManager.Instance;
-                    var maxPlayers = 10;
-                    if(matchSettings != null) {
-                        var def = matchSettings.GetGamemodeDef(SessionManager.Instance.SelectedGameMode);
-                        if(def.maxPlayers > 0) maxPlayers = def.maxPlayers;
-                    }
+                if(SessionManager.Instance == null) return false;
 
-                    await SessionManager.Instance.CreateUgsPartyLobbyAsync(maxPlayers, true);
-                    IsHost = true;
-                    return true;
+                var matchSettings = Match.MatchSettingsManager.Instance;
+                var maxPlayers = 10;
+                if(matchSettings != null) {
+                    var def = matchSettings.GetGamemodeDef(SessionManager.Instance.SelectedGameMode);
+                    if(def.maxPlayers > 0) maxPlayers = def.maxPlayers;
                 }
 
-                var success = await SessionManager.Instance.CreatePrivateLobbyAsync();
-                if(success) {
-                    IsHost = true;
-                }
-
-                return success;
+                await SessionManager.Instance.CreatePartyLobbyAsync(maxPlayers, true);
+                IsHost = true;
+                return true;
             } catch(Exception e) {
                 Debug.LogException(e);
                 return false;
@@ -569,10 +541,8 @@ namespace Game.Menu {
         public async UniTaskVoid HandleFindGameClicked(string mode = null) {
             try {
                 if(uiManager != null) uiManager.SetMenuButtonsEnabled(false);
-                if(SessionManager.Instance != null && SessionManager.UseUgsBackend) {
+                if(SessionManager.Instance != null) {
                     await SessionManager.Instance.StartMatchmakerQuickPlayAsync(mode);
-                } else {
-                    await SessionManager.Instance.FindGameAsync(mode);
                 }
             } catch(Exception e) {
                 Debug.LogException(e);
@@ -582,7 +552,7 @@ namespace Game.Menu {
 
         public static void HandleGamemodeSelected(string mode) {
             if(SessionManager.Instance == null) return;
-            SessionManager.Instance.SetGamemode(mode);
+            SessionManager.Instance.SetGameMode(mode);
         }
 
         public void ToggleGamemodeDropdown() {
@@ -606,11 +576,7 @@ namespace Game.Menu {
 
             // Call session manager logic
             if(SessionManager.Instance != null) {
-                if(SessionManager.UseUgsBackend) {
-                    SessionManager.Instance.CancelUgsMatchmaking();
-                } else {
-                    SessionManager.Instance.CancelMatchmaking();
-                }
+                SessionManager.Instance.CancelMatchmaking();
             }
 
             uiManager.SetMenuButtonsEnabled(true);
@@ -638,11 +604,11 @@ namespace Game.Menu {
 
             // Draw just us in the local profile section
             var steamOnline = SteamClient.IsValid && SteamClient.IsLoggedOn;
-            var displayName = Game.Social.StreamerMode.GetLocalDisplayName();
-            var displayId = steamOnline ? SteamClient.SteamId : default(SteamId);
+            var displayName = StreamerMode.GetLocalDisplayName();
+            var displayId = steamOnline ? SteamClient.SteamId : default;
 
-            var hide = !steamOnline || Game.Social.StreamerMode.Enabled;
-            var iconId = Game.Social.PlayerIconPicker.PickIconIdFromBaseColor(GameSettings.Data.player.customization.baseColor, hide);
+            var hide = !steamOnline || StreamerMode.Enabled;
+            var iconId = PlayerIconPicker.PickIconIdFromBaseColor(GameSettings.Data.player.customization.baseColor, hide);
             CreatePlayerRow(displayName, displayId, iconId, true, _localProfileContainer).Forget();
 
             // Show invite button and separator
@@ -677,7 +643,7 @@ namespace Game.Menu {
                 var avatarHidden = lobby.GetMemberData(member, "AvatarHidden") == "1";
                 var iconId = lobby.GetMemberData(member, "PlayerIcon");
                 if(string.IsNullOrEmpty(iconId)) {
-                    iconId = Game.Social.PlayerIconPicker.PickDeterministicIconId(member.Id.Value, avatarHidden);
+                    iconId = PlayerIconPicker.PickDeterministicIconId(member.Id.Value, avatarHidden);
                 }
 
                 if(member.Id == SteamClient.SteamId) {
@@ -701,12 +667,11 @@ namespace Game.Menu {
             if(targetContainer == null) return;
 
             if(uiManager == null || uiManager.PartyMemberTemplate == null) {
-                if(!_partyMemberTemplateMissingLogged) {
-                    _partyMemberTemplateMissingLogged = true;
-                    Debug.LogError(
-                        "[MainMenuSessionManager] PartyMemberTemplate is required on MainMenuUIManager.",
-                        this);
-                }
+                if(_partyMemberTemplateMissingLogged) return;
+                _partyMemberTemplateMissingLogged = true;
+                Debug.LogError(
+                    "[MainMenuSessionManager] PartyMemberTemplate is required on MainMenuUIManager.",
+                    this);
                 return;
             }
 
@@ -719,13 +684,12 @@ namespace Game.Menu {
             var localLevelLabel = instance.Q<Label>("local-level-label");
 
             if(row == null || avatarBox == null || nameLabel == null) {
-                if(!_partyMemberTemplateInvalidLogged) {
-                    _partyMemberTemplateInvalidLogged = true;
-                    Debug.LogError(
-                        "[MainMenuSessionManager] PartyMemberTemplate is missing required elements: " +
-                        "`party-member-row`, `avatar-box`, `player-name-label`.",
-                        this);
-                }
+                if(_partyMemberTemplateInvalidLogged) return;
+                _partyMemberTemplateInvalidLogged = true;
+                Debug.LogError(
+                    "[MainMenuSessionManager] PartyMemberTemplate is missing required elements: " +
+                    "`party-member-row`, `avatar-box`, `player-name-label`.",
+                    this);
                 return;
             }
 
@@ -738,7 +702,7 @@ namespace Game.Menu {
             } else {
                 row.style.marginRight = 0;
             }
-            row.style.backgroundColor = new StyleColor(new UnityEngine.Color(0, 0, 0, 0.4f));
+            row.style.backgroundColor = new StyleColor(new Color(0, 0, 0, 0.4f));
 
             var showHostIndicator = isHost;
             if(isLocal && isHost) {
@@ -750,8 +714,8 @@ namespace Game.Menu {
                 if(memberCount <= 1) showHostIndicator = false;
             }
 
-            var hostColor = new UnityEngine.Color(1, 0.8f, 0, 0.6f);
-            var partyColor = new UnityEngine.Color(0.2f, 0.6f, 1f, 0.6f);
+            var hostColor = new Color(1, 0.8f, 0, 0.6f);
+            var partyColor = new Color(0.2f, 0.6f, 1f, 0.6f);
 
             float borderSize = showHostIndicator ? 2 : (isPartyMember && !isLocal ? 1 : 0);
             var borderColor = showHostIndicator
@@ -794,25 +758,6 @@ namespace Game.Menu {
                 }
             }
 
-            void ApplyIconFallback() {
-                // Only use fallback icon when Steam isn't available or fetching failed.
-                avatarBox.style.backgroundImage = StyleKeyword.Null;
-                avatarBox.RemoveFromClassList("steam-avatar-flip");
-
-                avatarBox.RemoveFromClassList("default-avatar");
-                avatarBox.RemoveFromClassList("player-icon-red");
-                avatarBox.RemoveFromClassList("player-icon-orange");
-                avatarBox.RemoveFromClassList("player-icon-yellow");
-                avatarBox.RemoveFromClassList("player-icon-green");
-                avatarBox.RemoveFromClassList("player-icon-blue");
-                avatarBox.RemoveFromClassList("player-icon-purple");
-                avatarBox.RemoveFromClassList("player-icon-white");
-
-                var resolved = hideAvatar ? Game.Social.PlayerIconPicker.White : iconId;
-                if(string.IsNullOrEmpty(resolved)) resolved = Game.Social.PlayerIconPicker.White;
-                avatarBox.AddToClassList("player-icon-" + resolved);
-            }
-
             // Prefer Steam avatar when online; fallback only when Steam can't be reached or avatar fetch fails.
             var steamOnline = SteamClient.IsValid && SteamClient.IsLoggedOn;
             if(!steamOnline || hideAvatar || id.Value == 0) {
@@ -838,6 +783,27 @@ namespace Game.Menu {
                 } else {
                     ApplyIconFallback();
                 }
+            }
+
+            return;
+
+            void ApplyIconFallback() {
+                // Only use fallback icon when Steam isn't available or fetching failed.
+                avatarBox.style.backgroundImage = StyleKeyword.Null;
+                avatarBox.RemoveFromClassList("steam-avatar-flip");
+
+                avatarBox.RemoveFromClassList("default-avatar");
+                avatarBox.RemoveFromClassList("player-icon-red");
+                avatarBox.RemoveFromClassList("player-icon-orange");
+                avatarBox.RemoveFromClassList("player-icon-yellow");
+                avatarBox.RemoveFromClassList("player-icon-green");
+                avatarBox.RemoveFromClassList("player-icon-blue");
+                avatarBox.RemoveFromClassList("player-icon-purple");
+                avatarBox.RemoveFromClassList("player-icon-white");
+
+                var resolved = hideAvatar ? PlayerIconPicker.White : iconId;
+                if(string.IsNullOrEmpty(resolved)) resolved = PlayerIconPicker.White;
+                avatarBox.AddToClassList("player-icon-" + resolved);
             }
         }
 
@@ -877,3 +843,4 @@ namespace Game.Menu {
         private bool IsHost { get; set; }
     }
 }
+

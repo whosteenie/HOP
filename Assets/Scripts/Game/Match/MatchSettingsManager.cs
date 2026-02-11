@@ -33,11 +33,11 @@ namespace Game.Match {
         }
 
         public List<GamemodeDef> gamemodeDefinitions = new() {
-            new GamemodeDef() { id = "Deathmatch", minPlayers = 2, maxPlayers = 10, maxPartySize = 5, isTeamBased = false }, 
-            new GamemodeDef() { id = "Team Deathmatch", minPlayers = 2, maxPlayers = 10, maxPartySize = 5, isTeamBased = true },
-            new GamemodeDef() { id = "Hopball", minPlayers = 2, maxPlayers = 10, maxPartySize = 5, isTeamBased = true },
-            new GamemodeDef() { id = "KOTH", minPlayers = 2, maxPlayers = 10, maxPartySize = 5, isTeamBased = true }, 
-            new GamemodeDef() { id = "Gun Tag", minPlayers = 2, maxPlayers = 10, maxPartySize = 5, isTeamBased = false }
+            new GamemodeDef { id = "Deathmatch", minPlayers = 2, maxPlayers = 10, maxPartySize = 5, isTeamBased = false }, 
+            new GamemodeDef { id = "Team Deathmatch", minPlayers = 2, maxPlayers = 10, maxPartySize = 5, isTeamBased = true },
+            new GamemodeDef { id = "Hopball", minPlayers = 2, maxPlayers = 10, maxPartySize = 5, isTeamBased = true },
+            new GamemodeDef { id = "KOTH", minPlayers = 2, maxPlayers = 10, maxPartySize = 5, isTeamBased = true }, 
+            new GamemodeDef { id = "Gun Tag", minPlayers = 2, maxPlayers = 10, maxPartySize = 5, isTeamBased = false }
         };
 
         private void Awake() {

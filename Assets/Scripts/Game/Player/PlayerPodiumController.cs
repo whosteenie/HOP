@@ -1,5 +1,4 @@
 using System.Collections;
-using Network;
 using Network.Components;
 using Unity.Netcode;
 using UnityEngine;
@@ -92,6 +91,7 @@ namespace Game.Player {
             if(playerController != null) {
                 // Force-clear any lingering hopball visual state before podium snapshot.
                 if(playerController.PlayerHopballController != null) {
+                    playerController.PlayerHopballController.CancelPostMatchHopballVisualTransitions();
                     playerController.PlayerHopballController.ClearHopballReference();
                     playerController.PlayerHopballController.CleanupHopballVisuals();
                 }
@@ -113,6 +113,7 @@ namespace Game.Player {
                 if(playerController.WeaponManager != null) {
                     // Resolve any pending pull-out state while the screen is black in post-match transition.
                     // This prevents hidden world weapons if animation events were interrupted by podium flow.
+                    playerController.WeaponManager.CancelPendingPullOutForPostMatch();
                     playerController.WeaponManager.ShowTpWeapon();
                     playerController.WeaponManager.HandlePullOutCompleted();
                     playerController.WeaponManager.RefreshHolsterVisibility();

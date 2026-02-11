@@ -1,8 +1,6 @@
 using Audio.Networking;
-using Game.Audio;
 using Game.Menu;
 using Game.Weapons;
-using Network.Rpc;
 using Unity.Cinemachine;
 using Unity.Netcode;
 using UnityEngine;
@@ -33,7 +31,6 @@ namespace Game.Player {
         private const float WallMinSpeedThreshold = 5f; // Minimum speed to trigger wall detection
 
         // Slide state
-        private bool _isSliding;
         private Vector3 _slideDirection;
         private float _slideSpeed;
         private bool _wasStandingBeforeCrouch; // Track if player was standing before crouch input
@@ -174,7 +171,7 @@ namespace Game.Player {
             }
 
             if(_wallRunController != null && _wallRunController.IsWallRunning) {
-            } else if(_isSliding) {
+            } else if(IsSliding) {
                 ProcessSlide();
             } else if(CanInitiateSlide()) {
                 BeginSlide();
@@ -420,7 +417,7 @@ namespace Game.Player {
                     );
                     
                     // Also dampen slide speed if currently sliding
-                    if (_isSliding) {
+                    if (IsSliding) {
                         _slideSpeed = Mathf.Lerp(_slideSpeed, actualSpeed, WallDampenRate * Time.deltaTime);
                     }
                 }
@@ -459,7 +456,7 @@ namespace Game.Player {
                 return;
             }
 
-            if(_isSliding) {
+            if(IsSliding) {
                 CancelSlideForJump();
             }
 
@@ -511,7 +508,7 @@ namespace Game.Player {
                 return;
             }
 
-            if(_isSliding) {
+            if(IsSliding) {
                 CancelSlideForJump();
             }
 
@@ -605,7 +602,7 @@ namespace Game.Player {
 
         public float CachedHorizontalSpeedSqr { get; private set; }
 
-        public bool IsSliding => _isSliding;
+        public bool IsSliding { get; private set; }
 
         #region Slide Methods
 
@@ -624,9 +621,7 @@ namespace Game.Player {
             // Don't allow backward slides - check if velocity is roughly forward
             var velocityDir = _horizontalVelocity.normalized;
             var forwardDot = Vector3.Dot(velocityDir, _playerTransform.forward);
-            if(forwardDot < -0.3f) return false; // Backward movement
-
-            return true;
+            return !(forwardDot < -0.3f); // Backward movement
         }
 
         /// <summary>
@@ -639,16 +634,14 @@ namespace Game.Player {
             if(!CrouchInput) return false;
 
             var speed = _horizontalVelocity.magnitude;
-            if(speed < SlideMinSpeed) return false;
-
-            return true;
+            return !(speed < SlideMinSpeed);
         }
 
         /// <summary>
         /// Initiates a slide based on current player movement and direction.
         /// </summary>
         private void BeginSlide() {
-            _isSliding = true;
+            IsSliding = true;
             _wasStandingBeforeCrouch = false;
             _slideDirection = _horizontalVelocity.normalized;
             _slideSpeed = _horizontalVelocity.magnitude;
@@ -729,7 +722,7 @@ namespace Game.Player {
         /// End slide. Transition to crouch-walk with remaining velocity.
         /// </summary>
         private void EndSlide() {
-            _isSliding = false;
+            IsSliding = false;
 
             if(IsOwner && _audioRelay != null) {
                 _audioRelay.RequestStop("foley.slide");
@@ -756,7 +749,7 @@ namespace Game.Player {
         /// Preserves slide momentum into the jump.
         /// </summary>
         public void CancelSlideForJump() {
-            if(!_isSliding) return;
+            if(!IsSliding) return;
             
             if(IsOwner && _audioRelay != null) {
                 _audioRelay.RequestStop("foley.slide");
@@ -764,7 +757,7 @@ namespace Game.Player {
 
             // Preserve full slide velocity for jump
             _horizontalVelocity = _slideDirection * _slideSpeed;
-            _isSliding = false;
+            IsSliding = false;
 
             // Sync to network
             if(IsOwner && netIsSliding != null) {
@@ -784,7 +777,7 @@ namespace Game.Player {
         public void TryInitiateSlideFromGrapple() {
             if(!IsGrounded) return;
             if(!CrouchInput) return;
-            if(_isSliding) return;
+            if(IsSliding) return;
 
             var speed = _horizontalVelocity.magnitude;
             if(speed < SlideMinSpeed) return;

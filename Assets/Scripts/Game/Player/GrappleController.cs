@@ -1,9 +1,7 @@
 using System.Collections;
 using Audio.Networking;
-using Game.Audio;
 using Game.Match;
 using Network.Events;
-using Network.Rpc;
 using Unity.Cinemachine;
 using Unity.Netcode;
 using UnityEngine;
@@ -28,7 +26,6 @@ namespace Game.Player {
         private const float GrappleDuration = 0.5f;
         private const float GrappleCooldown = 1.3f;
         private const float TaggedPlayerCooldown = 1.0f; // Lower cooldown for tagged players in Gun Tag mode
-        private LayerMask _grappleableLayers;
 
         [Header("Momentum Settings")]
         private const bool PreserveMomentum = true;
@@ -90,8 +87,8 @@ namespace Game.Player {
         /// <summary>
         /// Gets the grappleable layers for external use (e.g., AI bots for raycasting).
         /// </summary>
-        public LayerMask GrappleableLayers => _grappleableLayers;
-        
+        private LayerMask GrappleableLayers { get; set; }
+
         /// <summary>
         /// Gets the max grapple distance for external use (e.g., AI bots).
         /// </summary>
@@ -134,7 +131,7 @@ namespace Game.Player {
             }
 
             _playerLayer = playerController.PlayerLayer;
-            _grappleableLayers = playerController.WorldLayer;
+            GrappleableLayers = playerController.WorldLayer;
         }
 
         public override void OnNetworkSpawn() {
@@ -338,7 +335,7 @@ namespace Game.Player {
 
             var ray = new Ray(playerController.FpCameraTransform.position, playerController.FpCameraTransform.forward);
 
-            if(Physics.Raycast(ray, out var hit, MaxGrappleDistance, _grappleableLayers)) {
+            if(Physics.Raycast(ray, out var hit, MaxGrappleDistance, GrappleableLayers)) {
                 StartGrapple(hit.point);
             }
         }
@@ -496,7 +493,7 @@ namespace Game.Player {
             if(_grappleMeshRenderer == null || !_grappleMeshRenderer.enabled) {
                 if(IsGrappling) {
                     Debug.LogWarning(
-                        $"[GrappleController] UpdateGrappleLine: mesh renderer is disabled but IsGrappling is true!");
+                        "[GrappleController] UpdateGrappleLine: mesh renderer is disabled but IsGrappling is true!");
                 }
 
                 return;

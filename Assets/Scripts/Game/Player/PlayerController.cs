@@ -280,10 +280,10 @@ namespace Game.Player {
             if(IsOwner) {
                 string pName;
                 if(SteamClient.IsValid && SteamClient.IsLoggedOn) {
-                    pName = Game.Social.StreamerMode.GetLocalDisplayName();
+                    pName = Social.StreamerMode.GetLocalDisplayName();
                     steamId.Value = SteamClient.SteamId.Value;
                 } else {
-                    pName = Game.Social.StreamerMode.LocalDisplayName;
+                    pName = Social.StreamerMode.LocalDisplayName;
                 }
                 playerName.Value = pName;
 
@@ -386,7 +386,7 @@ namespace Game.Player {
             netIsDead.OnValueChanged -= OnDeathStateChanged;
         }
 
-        private void OnMatChanged(int _, int newIdx) {
+        private static void OnMatChanged(int _, int newIdx) {
         }
 
         /// <summary>
@@ -494,7 +494,6 @@ namespace Game.Player {
         /// <summary>
         /// Main update loop for core player logic, movement synchronization, and server validation.
         /// </summary>
-
         private void Update() {
             if(IsServer) {
                 var authPos = clientNetworkTransform.transform.position;

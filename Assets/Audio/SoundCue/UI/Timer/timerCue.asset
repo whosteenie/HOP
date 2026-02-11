@@ -15,7 +15,7 @@ MonoBehaviour:
   id: ui.timer
   variants:
   - clip: {fileID: 8300000, guid: 710f6a9b2e099134aaa11024623700d8, type: 3}
-    weight: 1
+    weight: 0.5
     volumeDb: 0
     pitch: 0
     randomPitch: 0
@@ -30,7 +30,7 @@ MonoBehaviour:
     pitch: 0
     randomPitch: 0
   - clip: {fileID: 8300000, guid: 4affbeedda30c9d42a581302bc3074fe, type: 3}
-    weight: 1
+    weight: 0.5
     volumeDb: 0
     pitch: 0
     randomPitch: 0
@@ -51,4 +51,4 @@ MonoBehaviour:
   cooldownSeconds: 0
   stealPolicy: 1
   stopBehavior: 1
-  preload: 0
+  preload: 1

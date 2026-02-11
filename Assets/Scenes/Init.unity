@@ -198,7 +198,6 @@ MonoBehaviour:
   sceneTransitionManager: {fileID: 771809372539791604}
   matchSettingsManager: {fileID: 6980494200246059887}
   networkManager: {fileID: 1266242196255774367}
-  sessionNetworkBridge: {fileID: 5420075277361832014}
 --- !u!4 &665899838
 Transform:
   m_ObjectHideFlags: 0
@@ -689,49 +688,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &2161675229886005361
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2368671796307490974}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 1575786385
-  InScenePlacedSourceGlobalObjectIdHash: 3123148342
-  DeferredDespawnTick: 0
-  Ownership: 8
-  AlwaysReplicateAsRoot: 1
-  SynchronizeTransform: 0
-  ActiveSceneSynchronization: 1
-  SceneMigrationSynchronization: 0
-  SpawnWithObservers: 1
-  DontDestroyWithOwner: 1
-  AutoObjectParentSync: 1
-  SyncOwnerTransformWhenParented: 1
-  AllowOwnerToParent: 0
---- !u!1 &2368671796307490974
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 6620924763964963253}
-  - component: {fileID: 2161675229886005361}
-  - component: {fileID: 5420075277361832014}
-  m_Layer: 0
-  m_Name: SessionNetworkBridge
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
 --- !u!1 &2618260775865971482
 GameObject:
   m_ObjectHideFlags: 0
@@ -870,19 +826,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ccb3786eaf233f54aa2c9f257f186527, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SessionManager
---- !u!114 &5420075277361832014
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2368671796307490974}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: fa5841ada6ba7774ea098f432d4605e1, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::SessionNetworkBridge
-  ShowTopMostFoldoutHeaderGroup: 1
 --- !u!4 &5478824735433705132
 Transform:
   m_ObjectHideFlags: 0
@@ -942,21 +885,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a1a2ac54fdbe5094f8cdde1980bbaf70, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Game.Audio2.AudioServiceEventBusBridge
---- !u!4 &6620924763964963253
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2368671796307490974}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &6980494200246059887
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1106,7 +1034,6 @@ SceneRoots:
   - {fileID: 3740367660170908099}
   - {fileID: 5478824735433705132}
   - {fileID: 4286042793634890836}
-  - {fileID: 6620924763964963253}
   - {fileID: 3133605238879460290}
   - {fileID: 1814218812}
   - {fileID: 23424727}

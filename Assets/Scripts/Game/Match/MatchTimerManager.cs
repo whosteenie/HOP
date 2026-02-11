@@ -107,8 +107,8 @@ namespace Game.Match {
             _clientsScenePresented.Remove(clientId);
         }
 
-        [ServerRpc(RequireOwnership = false)]
-        public void ReportClientScenePresentedServerRpc(ServerRpcParams rpcParams = default) {
+        [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
+        public void ReportClientScenePresentedServerRpc(RpcParams rpcParams = default) {
             if(!IsServer) return;
             MarkClientScenePresented(rpcParams.Receive.SenderClientId, "ClientServerRpc");
         }
@@ -136,7 +136,7 @@ namespace Game.Match {
 
             const float expectedJoinGraceSeconds = 30f;
             var expectedCountLocked = false;
-            var maxWaitSeconds = 60f;
+            const float maxWaitSeconds = 60f;
             var waitedSeconds = 0f;
 
             while (IsServer && waitedSeconds < maxWaitSeconds) {
@@ -211,12 +211,7 @@ namespace Game.Match {
             // Kick objective systems from the authoritative match-state transition point.
             // This avoids missing round-init when scene object spawn order varies between matches.
             if(matchSettings != null && matchSettings.selectedGameModeId == "KOTH") {
-                if(KingOfTheHillManager.Instance != null) {
-                    KingOfTheHillManager.Instance.HandleMatchStartedServer("MatchTimerManager");
-                } else {
-                    Debug.LogError(
-                        "[MatchTimerManager] KOTH match started but KingOfTheHillManager.Instance is null.");
-                }
+                TriggerKothRoundStart();
             }
 
             // Check if we're in Tag mode and designate initial "it" after 5 seconds
@@ -343,6 +338,21 @@ namespace Game.Match {
 
                 _hasDesignatedInitialIt = true;
             }
+        }
+
+        private void TriggerKothRoundStart() {
+            var kothManager = KingOfTheHillManager.Instance;
+            if(kothManager == null) {
+                kothManager = FindFirstObjectByType<KingOfTheHillManager>();
+            }
+
+            if(kothManager == null) {
+                Debug.LogError(
+                    "[MatchTimerManager] KOTH match started but no KingOfTheHillManager was found in the scene.");
+                return;
+            }
+
+            kothManager.HandleMatchStartedServer("MatchTimerManager");
         }
     }
 }

@@ -87,7 +87,7 @@ namespace Game.Weapons {
         [Tooltip("Base radius of the hit sphere at muzzle (meters).")]
         public float sphereCastRadius = 0.05f;
         [Tooltip("Distance (meters) at which the sphere starts growing from base radius.")]
-        public float sphereCastGrowthStartDist = 0f;
+        public float sphereCastGrowthStartDist;
         [Tooltip("Maximum radius of the hit sphere at growth end distance.")]
         public float sphereCastMaxRadius = 0.3f;
 

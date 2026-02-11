@@ -19,7 +19,7 @@ namespace Game.Settings {
         [Serializable]
         public sealed class AudioSettings {
             // Stored as dB, matching AudioMixer exposed params.
-            public float masterVolumeDb = 0f;
+            public float masterVolumeDb;
             public float musicVolumeDb = -20f;
             public float sfxVolumeDb = -8f;
         }
@@ -27,34 +27,34 @@ namespace Game.Settings {
         [Serializable]
         public sealed class ControlsSettings {
             public float sensitivity = 0.1f;
-            public bool invertY = false;
+            public bool invertY;
             public bool playerTrails = true;
             public bool holdMantle = true;
-            public int grappleIndicator = 0;
-            public bool autoWallRun = false;
+            public int grappleIndicator;
+            public bool autoWallRun;
         }
 
         [Serializable]
         public sealed class VideoSettings {
-            public int windowMode = 0;
+            public int windowMode;
             public string aspectRatio = "";
-            public int resolutionWidth = 0;
-            public int resolutionHeight = 0;
-            public int msaa = 0;
-            public float shadowDistance = 0f;
-            public int shadowResolution = 0;
-            public bool vsync = false;
+            public int resolutionWidth;
+            public int resolutionHeight;
+            public int msaa;
+            public float shadowDistance;
+            public int shadowResolution;
+            public bool vsync;
             public int targetFpsIndex = 1;
         }
 
         [Serializable]
         public sealed class SocialSettings {
-            public int voiceInputMode = 0;
+            public int voiceInputMode;
             public float voiceVolume = 1f;
             public float voiceInputVolume = 1f;
             public string voiceInputDevice = "Default";
-            public bool profanityFilterEnabled = false;
-            public bool streamerModeEnabled = false;
+            public bool profanityFilterEnabled;
+            public bool streamerModeEnabled;
 
             public List<string> mutedPlayers = new();
             public List<string> blockedPlayers = new();
@@ -62,23 +62,23 @@ namespace Game.Settings {
 
         [Serializable]
         public sealed class PlayerSettings {
-            public int primaryWeaponIndex = 0;
-            public int secondaryWeaponIndex = 0;
-            public int tertiaryWeaponIndex = 0;
+            public int primaryWeaponIndex;
+            public int secondaryWeaponIndex;
+            public int tertiaryWeaponIndex;
 
             public CustomizationSettings customization = new();
         }
 
         [Serializable]
         public sealed class CustomizationSettings {
-            public int materialPacketIndex = 0;
+            public int materialPacketIndex;
             public Vector4 baseColor = new(1f, 1f, 1f, 1f);
             public float smoothness = 0.5f;
-            public float metallic = 0f;
+            public float metallic;
             public Vector4 specularColor = new(0.2f, 0.2f, 0.2f, 1f);
             public float heightStrength = 0.02f;
 
-            public bool emissionEnabled = false;
+            public bool emissionEnabled;
             public Vector4 emissionColor = new(0f, 0f, 0f, 1f);
         }
 

@@ -136,10 +136,9 @@ namespace Game.Weapons {
 
             _lastFireTime = Time.time;
 
-            if(_damageRelay != null) {
-                _damageRelay.OnHitConfirm -= OnHitConfirm;
-                _damageRelay.OnHitConfirm += OnHitConfirm;
-            }
+            if(_damageRelay == null) return;
+            _damageRelay.OnHitConfirm -= OnHitConfirm;
+            _damageRelay.OnHitConfirm += OnHitConfirm;
         }
 
         private void LateUpdate() {
@@ -370,14 +369,14 @@ namespace Game.Weapons {
                               !playerController.IsOwner ||
                               isPostMatch;
 
-            if(playerController != null && playerController.IsOwner &&
-               playerController.PlayerInput != null &&
-               playerController.PlayerInput.IsSniperOverlayActive) {
+            if(playerController == null || !playerController.IsOwner ||
+               playerController.PlayerInput == null ||
+               !playerController.PlayerInput.IsSniperOverlayActive) return ResolveMuzzlePosition(preferWorld);
+            {
                 var fpCameraTransform = playerController.FpCameraTransform;
                 return fpCameraTransform != null ? fpCameraTransform.position : transform.position;
             }
 
-            return ResolveMuzzlePosition(preferWorld);
         }
 
         /// <summary>
@@ -387,14 +386,13 @@ namespace Game.Weapons {
         /// </summary>
         private Vector3 GetMuzzlePositionFromCamera() {
             if(!playerController || !playerController.IsOwner || _currentWeaponData == null) return GetMuzzlePosition();
-            if(playerController.PlayerInput != null && playerController.PlayerInput.IsSniperOverlayActive) {
-                var fpCameraTransform = playerController.FpCameraTransform;
-                return fpCameraTransform != null
-                    ? fpCameraTransform.TransformPoint(playerController.PlayerInput.SniperMuzzleCameraOffset)
-                    : playerController.Position;
-            }
+            if(playerController.PlayerInput == null || !playerController.PlayerInput.IsSniperOverlayActive)
+                return ResolveMuzzlePosition(false);
+            var fpCameraTransform = playerController.FpCameraTransform;
+            return fpCameraTransform != null
+                ? fpCameraTransform.TransformPoint(playerController.PlayerInput.SniperMuzzleCameraOffset)
+                : playerController.Position;
 
-            return ResolveMuzzlePosition(false);
         }
 
         public Quaternion GetMuzzleRotation() {
@@ -415,25 +413,20 @@ namespace Game.Weapons {
         }
 
         public int GetWeaponSlot() {
-            if(_currentWeaponData == null) return 0;
-            return _currentWeaponData.weaponSlot;
+            return _currentWeaponData == null ? 0 : _currentWeaponData.weaponSlot;
         }
         public float GetFireRate() {
-            if(_currentWeaponData == null) return 0.1f;
-            return _currentWeaponData.fireRate;
+            return _currentWeaponData == null ? 0.1f : _currentWeaponData.fireRate;
         }
         public int GetMagSize() {
-            if(_currentWeaponData == null) return 30;
-            return _currentWeaponData.magSize;
+            return _currentWeaponData == null ? 30 : _currentWeaponData.magSize;
         }
         public GameObject GetWeaponPrefab() => _currentFpWeaponInstance;
         public Vector3 GetSpawnPosition() {
-            if(_currentWeaponData == null) return Vector3.zero;
-            return _currentWeaponData.spawnPosition;
+            return _currentWeaponData == null ? Vector3.zero : _currentWeaponData.spawnPosition;
         }
         public Vector3 GetSpawnRotation() {
-            if(_currentWeaponData == null) return Vector3.zero;
-            return _currentWeaponData.spawnRotation;
+            return _currentWeaponData == null ? Vector3.zero : _currentWeaponData.spawnRotation;
         }
 
         private Vector3 ResolveMuzzlePosition(bool preferWorldModel) {
@@ -585,7 +578,7 @@ namespace Game.Weapons {
         private void FirePellet(Vector3 origin, Vector3 direction, out Vector3 endPoint, out Vector3 hitNormal,
             out bool madeImpact, out bool hitPlayer, out NetworkObjectReference hitPlayerRef, int weaponIndex, ulong shotId) {
             var hitLayer = _enemyLayer | _worldLayer;
-            bool shotHit = false;
+            var shotHit = false;
             RaycastHit hit = default;
             
             // Default max distance for raycast
@@ -655,7 +648,7 @@ namespace Game.Weapons {
                     var distFromRay = Vector3.Distance(hitPoint, projectedPoint);
 
                     // If the actual contact point is within our "Cone" at this distance, it's a valid hit!
-                    // Also strictly enforce that it is NOT behind the wall (distance check)
+                    // Also, strictly enforce that it is NOT behind the wall (distance check)
                     if(distFromRay <= allowedRadius && sphereHit.distance <= maxDist) {
                         shotHit = true;
                         hit = sphereHit;
@@ -863,19 +856,19 @@ namespace Game.Weapons {
         }
 
         #if UNITY_EDITOR
-        private void DrawHitRegistrationDebug(Vector3 origin, Vector3 direction, float maxDist, Vector3 hitPoint, bool hitSomething, 
+        private static void DrawHitRegistrationDebug(Vector3 origin, Vector3 direction, float maxDist, Vector3 hitPoint, bool hitSomething, 
             float baseRadius, float maxRadius, float startDist, float endDist) // Debug Visualization
         {
-            float duration = 5.0f; // Persist for 5 seconds
+            const float duration = 5.0f; // Persist for 5 seconds
 
             // 1. Draw the Central Ray (Geometry Check)
             Debug.DrawLine(origin, origin + direction * maxDist, Color.red, duration);
 
             // 2. Draw "Cone" Rings at intervals
-            int steps = 50; // Increased frequency for better visibility
-            for(int i = 0; i <= steps; i++) {
-                float t = (float)i / steps;
-                float currentDist = Mathf.Lerp(0, maxDist, t); // Draw full length to wall hit
+            const int steps = 50; // Increased frequency for better visibility
+            for(var i = 0; i <= steps; i++) {
+                var t = (float)i / steps;
+                var currentDist = Mathf.Lerp(0, maxDist, t); // Draw full length to wall hit
                 
                 if (currentDist > maxDist) break; // Redundant but safe
 
@@ -885,24 +878,23 @@ namespace Game.Weapons {
                 else if(currentDist >= endDist) currentRadius = maxRadius;
                 else currentRadius = Mathf.Lerp(baseRadius, maxRadius, Mathf.InverseLerp(startDist, endDist, currentDist));
 
-                Vector3 center = origin + direction * currentDist;
+                var center = origin + direction * currentDist;
                 // Draw a simple cross or diamond to represent the ring since DrawWireDisc isn't standard
-                Vector3 up = Vector3.up * currentRadius;
-                Vector3 right = Vector3.right * currentRadius;
+                var up = Vector3.up * currentRadius;
+                var right = Vector3.right * currentRadius;
                 
                 Debug.DrawLine(center - up, center + up, Color.yellow, duration);
                 Debug.DrawLine(center - right, center + right, Color.yellow, duration);
             }
             
             // 3. Draw Hit Point
-            if(hitSomething) {
-                Debug.DrawLine(hitPoint, hitPoint + Vector3.up * 0.2f, Color.green, duration);
-                // Draw a small sphere at hit
-                // Since we can't do DrawSphere easily in standard Debug, we'll just use a distinctive cross marker
-                Debug.DrawLine(hitPoint - Vector3.up*0.1f, hitPoint + Vector3.up*0.1f, Color.green, duration);
-                Debug.DrawLine(hitPoint - Vector3.right*0.1f, hitPoint + Vector3.right*0.1f, Color.green, duration);
-                Debug.DrawLine(hitPoint - Vector3.forward*0.1f, hitPoint + Vector3.forward*0.1f, Color.green, duration);
-            }
+            if(!hitSomething) return;
+            Debug.DrawLine(hitPoint, hitPoint + Vector3.up * 0.2f, Color.green, duration);
+            // Draw a small sphere at hit
+            // Since we can't do DrawSphere easily in standard Debug, we'll just use a distinctive cross marker
+            Debug.DrawLine(hitPoint - Vector3.up*0.1f, hitPoint + Vector3.up*0.1f, Color.green, duration);
+            Debug.DrawLine(hitPoint - Vector3.right*0.1f, hitPoint + Vector3.right*0.1f, Color.green, duration);
+            Debug.DrawLine(hitPoint - Vector3.forward*0.1f, hitPoint + Vector3.forward*0.1f, Color.green, duration);
         }
         #endif
 
@@ -1103,16 +1095,19 @@ namespace Game.Weapons {
                 var spawnPos = hitPoint + hitNormal.normalized * 0.005f;
 
                 var impactInstance = Instantiate(_currentWeaponData.bulletImpact.gameObject, spawnPos, rotation);
-                if(hitPlayer) {
-                    var decal = impactInstance.transform.Find("Decal");
-                    if(decal != null) {
-                        decal.gameObject.SetActive(false);
-                    }
-                }
+                switch(hitPlayer) {
+                    case true: {
+                        var decal = impactInstance.transform.Find("Decal");
+                        if(decal != null) {
+                            decal.gameObject.SetActive(false);
+                        }
 
-                // Don't play bullet impact sound when hitting a player (hitmarker and hurt sounds handle this)
-                if(!hitPlayer && playerController.IsOwner && _audioRelay != null) {
-                    _audioRelay.RequestPlay("weapons.bullet.impact", hitPoint, allowOverlap: true);
+                        break;
+                    }
+                    // Don't play bullet impact sound when hitting a player (hitmarker and hurt sounds handle this)
+                    case false when playerController.IsOwner && _audioRelay != null:
+                        _audioRelay.RequestPlay("weapons.bullet.impact", hitPoint, allowOverlap: true);
+                        break;
                 }
             }
 

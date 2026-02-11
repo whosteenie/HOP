@@ -72,6 +72,9 @@ namespace Game.Match {
 
         public bool PostMatchFlowStarted { get; private set; }
         private SpawnPoint.Team _winningTeam = SpawnPoint.Team.None;
+        private Coroutine _blackoutReadyRoutine;
+        private bool IsPodiumBlackoutActive { get; set; }
+        public static bool IsPodiumBlackoutActiveLocal => Instance != null && Instance.IsPodiumBlackoutActive;
 
         private void Awake() {
             if(Instance != null && Instance != this) {
@@ -421,6 +424,11 @@ namespace Game.Match {
             try {
                 EnsureUiReferencesBound();
                 ResetPostMatchUiState();
+                IsPodiumBlackoutActive = false;
+                if(_blackoutReadyRoutine != null) {
+                    StopCoroutine(_blackoutReadyRoutine);
+                    _blackoutReadyRoutine = null;
+                }
 
                 // Fade to black using respawn fade overlay (appears above HUD but below pause menu)
                 if(SceneTransitionManager.Instance != null) {
@@ -429,6 +437,7 @@ namespace Game.Match {
                         SceneTransitionManager.Instance.FadeOutRespawnOverlay()
                     );
                 }
+                _blackoutReadyRoutine = StartCoroutine(MarkPodiumBlackoutReadyAfterFade());
 
                 // Enter post-match HUD mode (hide crosshair, timer, etc.)
                 if(GameMenuManager.Instance != null) {
@@ -477,11 +486,9 @@ namespace Game.Match {
                 }
             }
 
-            var matchSettings = Game.Match.MatchSettingsManager.Instance;
+            var matchSettings = MatchSettingsManager.Instance;
             var isTrackedGamemode = matchSettings != null && 
-                                    (matchSettings.selectedGameModeId == "Team Deathmatch" || 
-                                     matchSettings.selectedGameModeId == "Hopball" || 
-                                     matchSettings.selectedGameModeId == "KOTH");
+                                    matchSettings.selectedGameModeId is "Team Deathmatch" or "Hopball" or "KOTH";
 
             if (isTrackedGamemode && localTeam != SpawnPoint.Team.None) {
                 if (localTeam == winningTeam) {
@@ -497,8 +504,8 @@ namespace Game.Match {
 
             } else {
                 // FFA Mode (Gun Tag, Deathmatch)
-                if (Game.UI.ScoreboardManager.Instance != null && 
-                    Game.UI.ScoreboardManager.Instance.GetLocalPlayerPlacement(out int rank, out int total)) {
+                if (ScoreboardManager.Instance != null && 
+                    ScoreboardManager.Instance.GetLocalPlayerPlacement(out var rank, out var total)) {
                     
                     // Award Win if Rank 1?
                     if (rank == 1) {
@@ -530,6 +537,12 @@ namespace Game.Match {
 
         [Rpc(SendTo.Everyone)]
         private void RequestFadeInFromPodiumClientRpc() {
+            IsPodiumBlackoutActive = false;
+            if(_blackoutReadyRoutine != null) {
+                StopCoroutine(_blackoutReadyRoutine);
+                _blackoutReadyRoutine = null;
+            }
+
             if(SceneTransitionManager.Instance != null) {
                 SceneTransitionManager.Instance.StartCoroutine(
                     SceneTransitionManager.Instance.FadeInRespawnOverlay()
@@ -542,7 +555,7 @@ namespace Game.Match {
             if(podiumCamera == null) return;
 
             // Disable player-specific cameras (owner-local rigs, etc.)
-            var controllers = GameObject.FindObjectsByType<PlayerController>(FindObjectsSortMode.None);
+            var controllers = FindObjectsByType<PlayerController>(FindObjectsSortMode.None);
             foreach(var pc in controllers) {
                 pc.SetGameplayCameraActive(false); // you'll add this helper too
             }
@@ -694,7 +707,7 @@ namespace Game.Match {
         }
 
         private void UpdatePodiumWorldSpacePositions() {
-            if(_root == null || _root.panel == null) return;
+            if(_root?.panel == null) return;
 
             var worldCamera = ResolveWorldCamera();
             if(worldCamera == null) return;
@@ -792,8 +805,7 @@ namespace Game.Match {
 
             var cameras = Camera.allCameras;
             Camera best = null;
-            for(var i = 0; i < cameras.Length; i++) {
-                var cam = cameras[i];
+            foreach(var cam in cameras) {
                 if(cam == null || cam.enabled == false || cam.gameObject.activeInHierarchy == false) continue;
                 if(best == null || cam.depth > best.depth) {
                     best = cam;
@@ -807,14 +819,9 @@ namespace Game.Match {
             if(player == null) return Vector3.zero;
 
             var cc = player.CharacterController;
-            if(cc != null) {
-                var bounds = cc.bounds;
-                if(bounds.size.y > 0.001f) {
-                    return new Vector3(bounds.center.x, bounds.min.y, bounds.center.z);
-                }
-            }
-
-            return player.transform.position;
+            if(cc == null) return player.transform.position;
+            var bounds = cc.bounds;
+            return bounds.size.y > 0.001f ? new Vector3(bounds.center.x, bounds.min.y, bounds.center.z) : player.transform.position;
         }
 
         private static bool TryGetPodiumPlayer(ulong playerId, out PlayerController player) {
@@ -839,6 +846,11 @@ namespace Game.Match {
         private void ResetPostMatchUiState() {
             EnsureUiReferencesBound();
             StopPodiumWorldSpaceTracking();
+            IsPodiumBlackoutActive = false;
+            if(_blackoutReadyRoutine != null) {
+                StopCoroutine(_blackoutReadyRoutine);
+                _blackoutReadyRoutine = null;
+            }
 
             _firstPlacePlayerId = ulong.MaxValue;
             _secondPlacePlayerId = ulong.MaxValue;
@@ -868,11 +880,16 @@ namespace Game.Match {
 
             // Disable all player targets (whoever is holding it)
             foreach(var controller in PlayerHopballController.Instances) {
-                if(controller != null && controller.PlayerController != null) {
-                    var target = controller.PlayerController.PlayerTarget;
-                    if(target != null) target.enabled = false;
-                }
+                if(controller == null || controller.PlayerController == null) continue;
+                var target = controller.PlayerController.PlayerTarget;
+                if(target != null) target.enabled = false;
             }
+        }
+
+        private IEnumerator MarkPodiumBlackoutReadyAfterFade() {
+            yield return new WaitForSeconds(fadeDuration + fadeBuffer);
+            IsPodiumBlackoutActive = true;
+            _blackoutReadyRoutine = null;
         }
     }
 }

@@ -19,7 +19,7 @@ namespace Game.Menu {
         [SerializeField] private WeaponData[] tertiaryWeapons;
 
         // --- Profile Inspection State ---
-        private bool _isInspectMode = false;
+        private bool _isInspectMode;
         private ulong _inspectTargetSteamId;
         private string _inspectTargetName;
         // --------------------------------
@@ -200,8 +200,8 @@ namespace Game.Menu {
             LoadSavedLoadout();
         }
 
-        protected override Dictionary<string, System.Type> GetRequiredElements() {
-            return new Dictionary<string, System.Type> {
+        protected override Dictionary<string, Type> GetRequiredElements() {
+            return new Dictionary<string, Type> {
                 { "weapon-selection-container", typeof(VisualElement) },
                 { "apply-loadout-button", typeof(Button) },
                 { "career-toggle-button", typeof(Button) },
@@ -292,7 +292,7 @@ namespace Game.Menu {
             _selectedPrimaryIndex = p.primaryWeaponIndex;
             _selectedSecondaryIndex = p.secondaryWeaponIndex;
             _selectedTertiaryIndex = p.tertiaryWeaponIndex;
-            if(_playerNameLabel != null) _playerNameLabel.text = Game.Social.StreamerMode.GetLocalDisplayName();
+            if(_playerNameLabel != null) _playerNameLabel.text = Social.StreamerMode.GetLocalDisplayName();
 
             UpdateDropdownSelection(_primaryDropdown, _selectedPrimaryIndex, primaryWeapons);
             UpdateDropdownSelection(_secondaryDropdown, _selectedSecondaryIndex, secondaryWeapons);
@@ -445,7 +445,7 @@ namespace Game.Menu {
             }
 
             _statsButton = QRequired<Button>("career-toggle-button");
-            System.Action statsClickHandler = () => {
+            Action statsClickHandler = () => {
                 // Play positive sound when going to career, negative when going back to loadout
                 UISoundService.PlayButtonClick(isBack: _showingStats);
                 ToggleStats();
@@ -461,11 +461,11 @@ namespace Game.Menu {
 
             // Containers start off-screen via USS, no need to initialize positions here
 
-            if(_playerNameLabel != null) _playerNameLabel.text = Game.Social.StreamerMode.GetLocalDisplayName();
+            if(_playerNameLabel != null) _playerNameLabel.text = Social.StreamerMode.GetLocalDisplayName();
 
             _applyLoadoutButton = QRequired<Button>("apply-loadout-button");
 
-            System.Action applyClickHandler = () => {
+            Action applyClickHandler = () => {
                 if(mainMenuManager != null) {
                     MainMenuManager.OnButtonClicked();
                 }
@@ -551,7 +551,7 @@ namespace Game.Menu {
         }
 
         private void LoadSavedLoadout() {
-            if(_playerNameLabel != null) _playerNameLabel.text = Game.Social.StreamerMode.GetLocalDisplayName();
+            if(_playerNameLabel != null) _playerNameLabel.text = Social.StreamerMode.GetLocalDisplayName();
 
             // Load weapons (equipped weapon index saved per slot)
             var p = GameSettings.Data.player;
@@ -1604,7 +1604,7 @@ namespace Game.Menu {
         }
 
         private void RevertLoadoutChanges() {
-            if(_playerNameLabel != null) _playerNameLabel.text = Game.Social.StreamerMode.GetLocalDisplayName();
+            if(_playerNameLabel != null) _playerNameLabel.text = Social.StreamerMode.GetLocalDisplayName();
 
             _selectedPrimaryIndex = _savedPrimaryIndex;
             _selectedSecondaryIndex = _savedSecondaryIndex;

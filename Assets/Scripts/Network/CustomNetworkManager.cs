@@ -102,10 +102,9 @@ namespace Network {
                 _clientPartyIds[request.ClientNetworkId] = payload.partyId;
             }
 
-            if(!_hasSessionPrivateFlag) {
-                _sessionIsPrivateMatch = payload.isPrivateMatch;
-                _hasSessionPrivateFlag = true;
-            }
+            if(_hasSessionPrivateFlag) return;
+            _sessionIsPrivateMatch = payload.isPrivateMatch;
+            _hasSessionPrivateFlag = true;
         }
 
         private void OnClientConnected(ulong clientId) {
@@ -152,8 +151,6 @@ namespace Network {
             // Clear pending assignments after batch spawn
             _pendingTeamAssignments.Clear();
         }
-
-        public void DisableSpawning() => _allowPlayerSpawns = false;
 
         // ========================================================================
         // MAIN SPAWN LOGIC – Game Mode Aware
@@ -320,7 +317,7 @@ namespace Network {
                 ShuffleList(allClients); // Randomize first
                 
                 for (var i = 0; i < allClients.Count; i++) {
-                    var team = (i % 2 == 0) ? SpawnPoint.Team.TeamA : SpawnPoint.Team.TeamB;
+                    var team = i % 2 == 0 ? SpawnPoint.Team.TeamA : SpawnPoint.Team.TeamB;
                     _pendingTeamAssignments[allClients[i]] = team;
                 }
                 Debug.Log($"[CustomNetworkManager] Distributed Private Match/Single Party of {clients.Count} players.");

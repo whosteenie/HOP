@@ -1,14 +1,10 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using Cysharp.Threading.Tasks;
 using Network;
 using Network.Diagnostics;
-using Network.Events;
-using Network.Steam;
 using Steamworks;
 using Steamworks.Data;
-using UnityEngine;
 using UnityEngine.UIElements;
 using Game.Match;
 using Network.Services;
@@ -18,19 +14,14 @@ namespace Game.Menu {
     /// Manages gamemode selection for Steam Lobbies.
     /// Syncs "GameMode" key in Lobby Data.
     /// </summary>
-    public class MainMenuGamemodeManager : Game.UI.UIElementBase {
+    public class MainMenuGamemodeManager : UI.UIElementBase {
         private static MainMenuGamemodeManager Instance { get; set; }
-        private VisualElement _gamemodeDropdownContainer;
         private Label _gamemodeDisplayLabel;
         private VisualElement _gamemodeArrow;
         private VisualElement _gamemodeDropdownMenu;
         private bool _isGamemodeDropdownOpen;
 
-        private string _selectedGameMode;
         private bool _isHost;
-
-        // Events
-        public Action<string> OnGameModeSelected;
 
         protected override void Awake() {
             if(Instance != null && Instance != this) {
@@ -46,8 +37,8 @@ namespace Game.Menu {
             SetupGamemodeDropdown();
         }
 
-        protected override Dictionary<string, System.Type> GetRequiredElements() {
-            return new Dictionary<string, System.Type>();
+        protected override Dictionary<string, Type> GetRequiredElements() {
+            return new Dictionary<string, Type>();
         }
 
         protected override void OnDestroy() {
@@ -73,7 +64,7 @@ namespace Game.Menu {
         }
 
         private void FindUIElements() {
-            _gamemodeDropdownContainer = QOptional<VisualElement>("gamemode-dropdown-container");
+            QOptional<VisualElement>("gamemode-dropdown-container");
             _gamemodeDisplayLabel = QOptional<Label>("gamemode-display-label");
             _gamemodeArrow = QOptional<VisualElement>("gamemode-arrow");
             _gamemodeDropdownMenu = QOptional<VisualElement>("gamemode-dropdown-menu");
@@ -89,16 +80,14 @@ namespace Game.Menu {
         
         private void SetupOption(string uiName, string modeName) {
             var btn = QOptional<Button>(uiName);
-            if (btn != null) {
-                System.Action clickHandler = () => {
-                    if (!_isHost) return;
-                    UISoundService.PlayButtonClick();
-                    HandleGameModeSelected(modeName);
-                    OnGameModeSelected?.Invoke(modeName);
-                };
-                btn.clicked += clickHandler;
-                RegisterCleanup(() => btn.clicked -= clickHandler);
-            }
+            if(btn == null) return;
+            Action clickHandler = () => {
+                if (!_isHost) return;
+                UISoundService.PlayButtonClick();
+                HandleGameModeSelected(modeName);
+            };
+            btn.clicked += clickHandler;
+            RegisterCleanup(() => btn.clicked -= clickHandler);
         }
 
         public void SetHostStatus(bool isHost, bool wasHost) {
@@ -109,16 +98,15 @@ namespace Game.Menu {
                     SubscribeToGamemodeEvents();
                     StartCoroutine(ShowArrowWithAnimation());
                 
-                    if(string.IsNullOrEmpty(_selectedGameMode) || _selectedGameMode == "Lobby") {
-                        _selectedGameMode = "Deathmatch";
+                    if(string.IsNullOrEmpty(SelectedGameMode) || SelectedGameMode == "Lobby") {
+                        SelectedGameMode = "Deathmatch";
                     }
                     
                     // Sync initial
-                    SyncGamemodeToSession(_selectedGameMode);
+                    SyncGamemodeToSession(SelectedGameMode);
                     break;
                 }
                 case false when wasHost: {
-                    UnsubscribeFromGamemodeEvents();
                     if(_gamemodeArrow != null) _gamemodeArrow.AddToClassList("hidden");
                     if(_gamemodeDropdownMenu != null) _gamemodeDropdownMenu.AddToClassList("hidden");
                     _isGamemodeDropdownOpen = false;
@@ -136,11 +124,6 @@ namespace Game.Menu {
             EventCallback<ClickEvent> handler = OnGamemodeLabelClicked;
             _gamemodeDisplayLabel.RegisterCallback(handler);
             RegisterCleanup(() => _gamemodeDisplayLabel.UnregisterCallback(handler));
-        }
-
-        private void UnsubscribeFromGamemodeEvents() {
-            if(_gamemodeDisplayLabel == null) return;
-            // Cleanup is handled by RegisterCleanup
         }
 
         private void OnGamemodeLabelClicked(ClickEvent evt) {
@@ -166,8 +149,8 @@ namespace Game.Menu {
             }
         }
 
-        public void HandleGameModeSelected(string modeName) {
-            _selectedGameMode = modeName;
+        private void HandleGameModeSelected(string modeName) {
+            SelectedGameMode = modeName;
             FlowLog.Emit(FlowEventIds.ModeSelect,
                 ("selectedMode", modeName),
                 ("isHost", _isHost));
@@ -184,44 +167,42 @@ namespace Game.Menu {
         private void SyncGamemodeToSession(string gamemode) {
             if(!_isHost) return;
             if(SessionManager.Instance != null) {
-                SessionManager.Instance.SetGamemode(gamemode);
+                SessionManager.Instance.SetGameMode(gamemode);
             }
         }
 
         private void UpdateGamemodeDisplay() {
             if(_gamemodeDisplayLabel == null) return;
-            _gamemodeDisplayLabel.text = _selectedGameMode ?? "Lobby";
+            _gamemodeDisplayLabel.text = SelectedGameMode ?? "Lobby";
         }
 
-        public void UpdateGamemodeFromSession() {
+        private void UpdateGamemodeFromSession() {
             if(_isHost) return;
             
             if(SessionManager.Instance != null && SessionManager.Instance.CurrentLobby.HasValue) {
-                string mode = SessionManager.Instance.CurrentLobby.Value.GetData("TargetMode");
-                if (!string.IsNullOrEmpty(mode) && mode != _selectedGameMode) {
-                    _selectedGameMode = mode;
-                    UpdateGamemodeDisplay();
-                    if(MatchSettingsManager.Instance != null) {
-                         MatchSettingsManager.Instance.selectedGameModeId = mode;
-                    }
+                var mode = SessionManager.Instance.CurrentLobby.Value.GetData("TargetMode");
+                if(string.IsNullOrEmpty(mode) || mode == SelectedGameMode) return;
+                SelectedGameMode = mode;
+                UpdateGamemodeDisplay();
+                if(MatchSettingsManager.Instance != null) {
+                    MatchSettingsManager.Instance.selectedGameModeId = mode;
                 }
             } else {
-                 if (_selectedGameMode != "Lobby") {
-                     _selectedGameMode = "Lobby";
-                     UpdateGamemodeDisplay();
-                 }
+                if(SelectedGameMode == "Lobby") return;
+                SelectedGameMode = "Lobby";
+                UpdateGamemodeDisplay();
             }
         }
         
         public void ResetGamemodeUI() {
              _isHost = false;
              SetHostStatus(false, true);
-             _selectedGameMode = "Lobby";
+             SelectedGameMode = "Lobby";
              UpdateGamemodeDisplay();
         }
 
         public void SetDefaultGamemode(string gamemode) {
-            _selectedGameMode = gamemode;
+            SelectedGameMode = gamemode;
             UpdateGamemodeDisplay();
         }
 
@@ -229,7 +210,7 @@ namespace Game.Menu {
              if (_isGamemodeDropdownOpen) ToggleGamemodeDropdown();
         }
 
-        public string SelectedGameMode => _selectedGameMode;
+        private string SelectedGameMode { get; set; }
 
         private IEnumerator ShowArrowWithAnimation() {
             if(_gamemodeArrow == null) yield break;
