@@ -231,7 +231,13 @@ namespace Game.Social {
                     }
                 }
             } catch (Exception e) {
-                Debug.LogError($"[VoiceManager] Join Channel Failed: {e.Message}");
+                if(IsVivoxClaimsMismatch(e)) {
+                    Debug.LogWarning(
+                        "[VoiceManager] Join channel skipped after Vivox claims-mismatch retry. " +
+                        "Will retry on the next voice-join request.");
+                } else {
+                    Debug.LogError($"[VoiceManager] Join Channel Failed: {e.Message}");
+                }
             } finally {
                 _channelOperationGate.Release();
             }

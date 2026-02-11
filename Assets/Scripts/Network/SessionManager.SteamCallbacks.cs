@@ -53,9 +53,13 @@ namespace Network {
             NotifyPartyStateChanged();
         }
 
-        private static void OnLobbyMemberJoined(Lobby lobby, Friend friend) {
+        private void OnLobbyMemberJoined(Lobby lobby, Friend friend) {
             if(Debug.isDebugBuild) {
                 Debug.Log($"[SessionManager] Member Joined: {friend.Name}");
+            }
+
+            if(CurrentLobby.HasValue && CurrentLobby.Value.Id == lobby.Id && lobby.MemberCount > 1) {
+                TryJoinVoiceForSteamSocialLobby(lobby.Id, "OnLobbyMemberJoined");
             }
 
             NotifyPartyStateChanged();
@@ -160,9 +164,7 @@ namespace Network {
             lobby.SetMemberData(PartyIdKey, CurrentPartyId);
             UpdateLocalDisplayNameInLobby();
 
-            if(VoiceManager.Instance != null && VoiceManager.Instance.IsLoggedIn) {
-                VoiceManager.Instance.JoinChannelAsync("match_" + lobby.Id).Forget();
-            }
+            TryJoinVoiceForSteamSocialLobby(lobby.Id, "JoinSteamSocialLobbyAsync");
 
             FlowLog.Emit(FlowEventIds.PartyLifecycle,
                 ("action", "JoinSteamSocialLobby"),

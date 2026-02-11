@@ -17,6 +17,7 @@ using Unity.Services.Relay;
 using Unity.Services.Relay.Models;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using UnityUtils;
 
 namespace Network {
     public sealed partial class SessionManager {
@@ -255,6 +256,17 @@ namespace Network {
                 await VoiceManager.Instance.LeaveChannelAsync();
             } catch(Exception ex) {
                 Debug.LogWarning($"[SessionManager] Voice leave failed during session transition: {ex.Message}");
+            }
+        }
+
+        private void TryJoinVoiceForSteamSocialLobby(ulong lobbyId, string context) {
+            if(lobbyId == 0) return;
+            if(_isLeaving || _isShuttingDown) return;
+            if(VoiceManager.Instance == null || !VoiceManager.Instance.IsLoggedIn) return;
+
+            VoiceManager.Instance.JoinChannelAsync("match_" + lobbyId).Forget();
+            if(Debug.isDebugBuild) {
+                Debug.Log($"[SessionManager] Requested voice join for Steam social lobby '{lobbyId}' ({context}).");
             }
         }
 

@@ -358,8 +358,9 @@ namespace Network {
                 lobby.SetMemberData(PartyIdKey, CurrentPartyId);
                 UpdateLocalDisplayNameInLobby();
 
-                if(VoiceManager.Instance != null && VoiceManager.Instance.IsLoggedIn) {
-                    VoiceManager.Instance.JoinChannelAsync("match_" + lobby.Id).Forget();
+                // Solo social lobbies do not need voice yet; join when the party has at least 2 members.
+                if(lobby.MemberCount > 1) {
+                    TryJoinVoiceForSteamSocialLobby(lobby.Id, "CreateSteamSocialLobbyAsync");
                 }
 
                 FlowLog.Emit(FlowEventIds.PartyLifecycle,
