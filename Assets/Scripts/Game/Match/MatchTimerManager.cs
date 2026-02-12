@@ -76,8 +76,9 @@ namespace Game.Match {
                 _timerRoutine = StartCoroutine(PreMatchCountdownCoroutine());
             }
 
-            // Push current value to UI immediately when a client joins
-            OnPreMatchCountdownChanged(0, _preMatchCountdownSeconds.Value);
+            // Push a sensible initial value to UI immediately when a client joins.
+            // Clients can briefly see default NetworkVariable values before sync arrives.
+            OnPreMatchCountdownChanged(0, GetInitialPreMatchCountdownForUi());
         }
 
         public override void OnNetworkDespawn() {
@@ -278,6 +279,15 @@ namespace Game.Match {
             if(ScoreboardManager.Instance != null) {
                 EventBus.Publish(new SetMatchTimeEvent(current));
             }
+        }
+
+        private int GetInitialPreMatchCountdownForUi() {
+            var current = _preMatchCountdownSeconds.Value;
+            if(current > 0 || !_isPreMatch.Value) return current;
+
+            var settings = MatchSettingsManager.Instance;
+            var configured = settings != null ? settings.GetPreMatchCountdownSeconds() : 5;
+            return Mathf.Max(0, configured);
         }
 
         private void OnPreMatchStateChanged(bool previous, bool current) {

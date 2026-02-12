@@ -45,6 +45,7 @@ namespace Game.Player {
         [SerializeField] private GameObject hopballVisualPrefab; // Visual-only FP hopball prefab (no state tracking)
         [SerializeField] private GameObject hopballArmPrefab; // FP hopball arm prefab (for PutAway animation)
         [SerializeField] private float hopballParticleWarmupSeconds = 1f;
+        [SerializeField] private bool prewarmHopballVisualsOnSpawn = true;
         
         [Header("Hopball Float Motion")]
         [SerializeField] private bool enableHopballFloatMotion = true;
@@ -97,6 +98,12 @@ namespace Game.Player {
         private float _hopballFloatPhase;
         private Coroutine _restoreWeaponsCoroutine; // Track restore coroutine
         public Collider PlayerCollider { get; private set; }
+        private bool _fpParticlesPrewarmed;
+        private bool _worldParticlesPrewarmed;
+        private Material _cachedHopballArmCustomMaterial;
+        private int _cachedHopballArmCustomSourceId;
+        private readonly Dictionary<int, Material> _cachedHopballArmOutlineByRenderer = new();
+        private PlayerAnimationEvents _armAnimationEvents;
 
         private readonly Collider[] _pickupHits = new Collider[10];
 
@@ -112,6 +119,109 @@ namespace Game.Player {
             PlayerCollider = _characterController;
         }
 
+        private bool CacheHopballArmCustomMaterial() {
+            if(playerController == null) return false;
+
+            var playerMesh = playerController.PlayerMesh;
+            if(playerMesh == null || playerMesh.materials.Length <= 1 || playerMesh.materials[1] == null) {
+                return false;
+            }
+
+            var sourceMaterial = playerMesh.materials[1];
+            if(_cachedHopballArmCustomMaterial != null && sourceMaterial.GetInstanceID() == _cachedHopballArmCustomSourceId) {
+                return true;
+            }
+
+            if(_cachedHopballArmCustomMaterial != null) {
+                Destroy(_cachedHopballArmCustomMaterial);
+                _cachedHopballArmCustomMaterial = null;
+            }
+
+            _cachedHopballArmCustomMaterial = new Material(sourceMaterial);
+            _cachedHopballArmCustomSourceId = sourceMaterial.GetInstanceID();
+            return true;
+        }
+
+        private void CacheHopballArmOutlineMaterials() {
+            if(_fpHopballArmInstance == null) return;
+
+            var renderers = _fpHopballArmInstance.GetComponentsInChildren<Renderer>(true);
+            foreach(var renderer in renderers) {
+                if(renderer == null) continue;
+
+                var rendererId = renderer.GetInstanceID();
+                if(_cachedHopballArmOutlineByRenderer.TryGetValue(rendererId, out var cachedOutline) && cachedOutline != null) {
+                    continue;
+                }
+
+                var materials = renderer.materials;
+                Material sourceOutline = null;
+                if(materials != null && materials.Length > 0 && materials[0] != null) {
+                    sourceOutline = materials[0];
+                } else if(renderer.sharedMaterial != null) {
+                    sourceOutline = renderer.sharedMaterial;
+                }
+
+                if(sourceOutline == null) continue;
+                _cachedHopballArmOutlineByRenderer[rendererId] = new Material(sourceOutline);
+            }
+        }
+
+        private void PrewarmHopballVisualPool() {
+            if(!prewarmHopballVisualsOnSpawn) return;
+            if(!IsOwner) return;
+
+            var layer = LayerMask.NameToLayer("Weapon");
+            var swayHolder = FindSwayHolder();
+            if(swayHolder != null) {
+                if(_fpHopballVisualInstance == null && hopballVisualPrefab != null) {
+                    _fpHopballVisualInstance = Instantiate(hopballVisualPrefab, swayHolder, false);
+                    _fpHopballBaseLocalPosition = fpEquippedLocalPosition;
+                    _fpHopballVisualInstance.transform.localPosition = _fpHopballBaseLocalPosition;
+                    _fpHopballVisualInstance.transform.localRotation = Quaternion.identity;
+                    SetGameObjectAndChildrenLayer(_fpHopballVisualInstance, layer);
+                    SetFpVisualShadows(_fpHopballVisualInstance, false);
+                    WarmupActiveHopballParticles(_fpHopballVisualInstance);
+                    _fpParticlesPrewarmed = true;
+                    _fpHopballVisualInstance.SetActive(false);
+                }
+            }
+
+            var bobHolder = FindBobHolder();
+            if(bobHolder != null && _fpHopballArmInstance == null && hopballArmPrefab != null) {
+                _fpHopballArmInstance = Instantiate(hopballArmPrefab, bobHolder, false);
+                _fpHopballArmInstance.name = "PooledArmVisual";
+                SetGameObjectAndChildrenLayer(_fpHopballArmInstance, layer);
+                _armAnimationEvents = _fpHopballArmInstance.GetComponent<PlayerAnimationEvents>();
+                if(_armAnimationEvents != null) {
+                    _armAnimationEvents.OnPutAwayComplete -= OnArmPutAwayAnimationComplete;
+                    _armAnimationEvents.OnPutAwayComplete += OnArmPutAwayAnimationComplete;
+                }
+                ApplyPlayerMaterialToArm();
+                _fpHopballArmInstance.SetActive(false);
+            }
+
+            if(_worldWeaponSocket == null || hopballVisualPrefab == null) return;
+            if(_worldHopballVisualInstance != null) return;
+
+            _worldHopballVisualInstance = Instantiate(hopballVisualPrefab, _worldWeaponSocket, false);
+            _worldHopballBaseLocalPosition = worldEquippedLocalPosition;
+            _worldHopballVisualInstance.transform.localPosition = _worldHopballBaseLocalPosition;
+            _worldHopballVisualInstance.transform.localRotation = Quaternion.identity;
+            WarmupActiveHopballParticles(_worldHopballVisualInstance);
+            _worldParticlesPrewarmed = true;
+            _worldHopballVisualInstance.SetActive(false);
+        }
+
+        public void PrewarmHopballVisualsIfNeeded() {
+            PrewarmHopballVisualPool();
+        }
+
+        private void OnArmPutAwayAnimationComplete() {
+            if(_fpHopballArmInstance == null) return;
+            _fpHopballArmInstance.SetActive(false);
+        }
+
         private void OnEnable() {
             if(!InstancesInternal.Contains(this)) {
                 InstancesInternal.Add(this);
@@ -120,6 +230,16 @@ namespace Game.Player {
             if(HopballController.Instance != null) {
                 HopballController.Instance.OnControllerRegistered(this);
             }
+            if(_armAnimationEvents != null) {
+                _armAnimationEvents.OnPutAwayComplete -= OnArmPutAwayAnimationComplete;
+                _armAnimationEvents.OnPutAwayComplete += OnArmPutAwayAnimationComplete;
+            }
+        }
+
+        public override void OnNetworkSpawn() {
+            base.OnNetworkSpawn();
+            CacheHopballArmCustomMaterial();
+            PrewarmHopballVisualPool();
         }
         
         private void Update() {
@@ -137,6 +257,29 @@ namespace Game.Player {
             InstancesInternal.Remove(this);
             // Unsubscribe from visual state changes
             HopballController.VisualStateChanged -= OnHopballVisualStateChanged;
+            if(_armAnimationEvents != null) {
+                _armAnimationEvents.OnPutAwayComplete -= OnArmPutAwayAnimationComplete;
+            }
+        }
+
+        public override void OnDestroy() {
+            base.OnDestroy();
+            if(_armAnimationEvents != null) {
+                _armAnimationEvents.OnPutAwayComplete -= OnArmPutAwayAnimationComplete;
+            }
+
+            if(_cachedHopballArmCustomMaterial != null) {
+                Destroy(_cachedHopballArmCustomMaterial);
+                _cachedHopballArmCustomMaterial = null;
+            }
+            _cachedHopballArmCustomSourceId = 0;
+
+            foreach(var kvp in _cachedHopballArmOutlineByRenderer) {
+                if(kvp.Value != null) {
+                    Destroy(kvp.Value);
+                }
+            }
+            _cachedHopballArmOutlineByRenderer.Clear();
         }
 
         public override void OnNetworkDespawn() {
@@ -355,23 +498,47 @@ namespace Game.Player {
             var swayHolder = FindSwayHolder();
             if(swayHolder == null) return;
 
-            // Instantiate hopball visual
-            _fpHopballVisualInstance = Instantiate(hopballVisualPrefab, swayHolder, false);
+            // Reuse pooled visual if available; instantiate once otherwise.
+            if(_fpHopballVisualInstance == null) {
+                _fpHopballVisualInstance = Instantiate(hopballVisualPrefab, swayHolder, false);
+            } else if(_fpHopballVisualInstance.transform.parent != swayHolder) {
+                _fpHopballVisualInstance.transform.SetParent(swayHolder, false);
+            }
             _fpHopballBaseLocalPosition = fpEquippedLocalPosition;
             _fpHopballVisualInstance.transform.localPosition = _fpHopballBaseLocalPosition;
             _fpHopballVisualInstance.transform.localRotation = Quaternion.identity;
-            WarmupActiveHopballParticles(_fpHopballVisualInstance);
+            _fpHopballVisualInstance.SetActive(true);
+            if(!_fpParticlesPrewarmed) {
+                WarmupActiveHopballParticles(_fpHopballVisualInstance);
+                _fpParticlesPrewarmed = true;
+            }
 
             // Set layer and shadows
             var layer = IsOwner ? LayerMask.NameToLayer("Weapon") : LayerMask.NameToLayer("Masked");
             SetGameObjectAndChildrenLayer(_fpHopballVisualInstance, layer);
             SetFpVisualShadows(_fpHopballVisualInstance, false);
 
-            // Instantiate hopball arm separately - parent to BobHolder (use first one found)
+            // Reuse pooled hopball arm (parent to active BobHolder each equip).
             if(hopballArmPrefab == null) return;
             var bobHolder = FindBobHolder();
             if(bobHolder != null) {
-                _fpHopballArmInstance = Instantiate(hopballArmPrefab, bobHolder, false);
+                if(_fpHopballArmInstance == null) {
+                    _fpHopballArmInstance = Instantiate(hopballArmPrefab, bobHolder, false);
+                    _fpHopballArmInstance.name = "PooledArmVisual";
+                    _armAnimationEvents = _fpHopballArmInstance.GetComponent<PlayerAnimationEvents>();
+                    if(_armAnimationEvents != null) {
+                        _armAnimationEvents.OnPutAwayComplete -= OnArmPutAwayAnimationComplete;
+                        _armAnimationEvents.OnPutAwayComplete += OnArmPutAwayAnimationComplete;
+                    }
+                } else if(_fpHopballArmInstance.transform.parent != bobHolder) {
+                    _fpHopballArmInstance.transform.SetParent(bobHolder, false);
+                }
+                _fpHopballArmInstance.SetActive(true);
+                var armAnimator = _fpHopballArmInstance.GetComponent<Animator>();
+                if(armAnimator != null) {
+                    armAnimator.Rebind();
+                    armAnimator.Update(0f);
+                }
                 SetGameObjectAndChildrenLayer(_fpHopballArmInstance, layer);
                 ApplyPlayerMaterialToArm();
             } else {
@@ -422,15 +589,31 @@ namespace Game.Player {
         /// </summary>
         private void ApplyPlayerMaterialToArm() {
             if(_fpHopballArmInstance == null || playerController == null) return;
+            if(!CacheHopballArmCustomMaterial()) return;
+            CacheHopballArmOutlineMaterials();
 
-            var visualController = playerController.VisualController;
-            if(visualController == null) return;
+            var renderers = _fpHopballArmInstance.GetComponentsInChildren<Renderer>(true);
+            foreach(var renderer in renderers) {
+                if(renderer == null) continue;
+                var rendererId = renderer.GetInstanceID();
 
-            // Apply material to all renderers in the arm
-            var playerMesh = playerController.PlayerMesh;
-            if(playerMesh == null || playerMesh.materials.Length <= 1) return;
-            var material = new Material(playerMesh.materials[1]); // Index 1 is the player material (0 is outline)
-            PlayerRenderer.ApplyMaterialToRenderers(_fpHopballArmInstance, material, 1);
+                var materials = renderer.materials;
+                if(materials == null || materials.Length < 2) {
+                    var resizedMaterials = new Material[2];
+                    if(materials != null && materials.Length > 0) {
+                        resizedMaterials[0] = materials[0];
+                    }
+                    materials = resizedMaterials;
+                }
+
+                if(_cachedHopballArmOutlineByRenderer.TryGetValue(rendererId, out var cachedOutline) && cachedOutline != null) {
+                    materials[0] = cachedOutline;
+                } else if(materials[0] == null && renderer.sharedMaterial != null) {
+                    materials[0] = renderer.sharedMaterial;
+                }
+                materials[1] = _cachedHopballArmCustomMaterial;
+                renderer.materials = materials;
+            }
         }
 
         /// <summary>
@@ -476,13 +659,20 @@ namespace Game.Player {
                 return;
             }
 
-            // Create visual-only world model (not a NetworkObject, so regular parenting works)
-            _worldHopballVisualInstance = Instantiate(hopballVisualPrefab, _worldWeaponSocket, false);
+            // Reuse pooled world visual if available; instantiate once otherwise.
+            if(_worldHopballVisualInstance == null) {
+                _worldHopballVisualInstance = Instantiate(hopballVisualPrefab, _worldWeaponSocket, false);
+            } else if(_worldHopballVisualInstance.transform.parent != _worldWeaponSocket) {
+                _worldHopballVisualInstance.transform.SetParent(_worldWeaponSocket, false);
+            }
             _worldHopballVisualInstance.SetActive(true);
             _worldHopballBaseLocalPosition = worldEquippedLocalPosition;
             _worldHopballVisualInstance.transform.localPosition = _worldHopballBaseLocalPosition;
             _worldHopballVisualInstance.transform.localRotation = Quaternion.identity;
-            WarmupActiveHopballParticles(_worldHopballVisualInstance);
+            if(!_worldParticlesPrewarmed) {
+                WarmupActiveHopballParticles(_worldHopballVisualInstance);
+                _worldParticlesPrewarmed = true;
+            }
 
             // Disable effects and light for the holder (they see FP visual instead)
             // For non-holders viewing the holder: ensure mesh renderer is enabled and visible
@@ -952,26 +1142,11 @@ namespace Game.Player {
         /// </summary>
         private void HideFpHopballVisualImmediate() {
             if(_fpHopballVisualInstance == null) return;
-
-            PlayerRenderer.SetHopballVisualRenderersEnabled(false, _fpHopballVisualInstance);
-
-            var hopballVisual = _fpHopballVisualInstance.GetComponent<HopballVisual>();
-            if(hopballVisual != null) {
-                var visualTransform = hopballVisual.transform;
-                foreach(Transform child in visualTransform) {
-                    child.gameObject.SetActive(false);
-                }
-            }
-
             _fpHopballVisualInstance.SetActive(false);
-            _fpHopballVisualInstance.transform.SetParent(null);
-            Destroy(_fpHopballVisualInstance);
-            _fpHopballVisualInstance = null;
         }
 
         /// <summary>
-        /// Triggers PutAway animation on the arm. Arm will be destroyed automatically by PutAwayComplete animation event.
-        /// If arm doesn't exist or animation can't be triggered, does nothing.
+        /// Triggers PutAway animation on the arm. Pooled arm is disabled when PutAwayComplete animation event fires.
         /// </summary>
         private void HandleArmPutAwayAnimation() {
             if(_fpHopballArmInstance == null) return;
@@ -986,7 +1161,7 @@ namespace Game.Player {
                 return;
             }
 
-            // Trigger PutAway animation - PutAwayComplete animation event will destroy the arm automatically
+            _fpHopballArmInstance.SetActive(true);
             animator.SetTrigger(PutAwayHash);
         }
 
@@ -1034,11 +1209,7 @@ namespace Game.Player {
         /// </summary>
         private void DestroyArmImmediate() {
             if(_fpHopballArmInstance == null) return;
-
             _fpHopballArmInstance.SetActive(false);
-            _fpHopballArmInstance.transform.SetParent(null);
-            Destroy(_fpHopballArmInstance);
-            _fpHopballArmInstance = null;
         }
 
         /// <summary>
@@ -1144,6 +1315,8 @@ namespace Game.Player {
                 _playerAnimator = playerController.PlayerAnimator;
             }
 
+            CacheHopballArmCustomMaterial();
+
             if(_playerAnimator == null) return;
             // Use inspector values if set, otherwise auto-detect by name
             _weaponHoldLayerIndex = weaponHoldLayerIndex >= 0 
@@ -1248,11 +1421,7 @@ namespace Game.Player {
         /// </summary>
         private void DestroyFpVisual() {
             if(_fpHopballVisualInstance == null) return;
-
             _fpHopballVisualInstance.SetActive(false);
-            _fpHopballVisualInstance.transform.SetParent(null);
-            Destroy(_fpHopballVisualInstance);
-            _fpHopballVisualInstance = null;
         }
 
         /// <summary>
@@ -1260,13 +1429,12 @@ namespace Game.Player {
         /// </summary>
         private void DestroyWorldVisual() {
             if(_worldHopballVisualInstance == null) return;
-            Destroy(_worldHopballVisualInstance);
-            _worldHopballVisualInstance = null;
+            _worldHopballVisualInstance.SetActive(false);
         }
 
         /// <summary>
         /// Cleans up all hopball visuals. Called when ball respawns to ensure no visuals remain.
-        /// Note: Does NOT destroy the arm - arm is destroyed separately via animation event or explicit cleanup.
+        /// Note: visuals are pooled; cleanup just disables them.
         /// </summary>
         public void CleanupHopballVisuals() {
             // Only cleanup if we're not currently holding the ball

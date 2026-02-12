@@ -194,6 +194,8 @@ namespace Game.Hopball {
             _hasSpawnedInitial = true;
             _isSpawning = false;
 
+            PrewarmHopballVisualPoolsClientRpc();
+
             // Play spawn sound at spawn location (directional, same falloff as gunshots)
             PlayHopballSpawnSoundClientRpc(spawnPoint.transform.position);
         }
@@ -260,6 +262,8 @@ namespace Game.Hopball {
                 ("reason", "DissolveRespawn"));
 
             _currentHolderId = 0;
+
+            PrewarmHopballVisualPoolsClientRpc();
 
             PlayHopballSpawnSoundClientRpc(spawnPoint.transform.position);
 
@@ -412,6 +416,14 @@ namespace Game.Hopball {
             const string soundId = "gameplay.hopball.spawn";
             Audio2.AudioService.Instance.Stop(soundId);
             Audio2.AudioService.Instance.Play(soundId, position);
+        }
+
+        [Rpc(SendTo.Everyone)]
+        private void PrewarmHopballVisualPoolsClientRpc() {
+            foreach(var controller in PlayerHopballController.Instances) {
+                if(controller == null) continue;
+                controller.PrewarmHopballVisualsIfNeeded();
+            }
         }
 
         /// <summary>
