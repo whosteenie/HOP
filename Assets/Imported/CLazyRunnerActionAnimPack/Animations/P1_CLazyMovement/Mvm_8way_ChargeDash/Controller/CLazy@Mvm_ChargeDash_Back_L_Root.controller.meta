@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 536ee3cb6a02cc54e94a19974cf7f6e4
+timeCreated: 1570965870
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 9100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 153906
+  packageName: Runner Action Animation Pack
+  packageVersion: 1.7.2
+  assetPath: Assets/CLazyRunnerActionAnimPack/Animations/P1_CLazyMovement/Mvm_8way_ChargeDash/Controller/CLazy@Mvm_ChargeDash_Back_L_Root.controller
+  uploadId: 455158

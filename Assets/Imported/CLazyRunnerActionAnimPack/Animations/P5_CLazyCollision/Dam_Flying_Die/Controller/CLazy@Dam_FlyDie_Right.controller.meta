@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 1b13e08d4db413c4a9b6eb70d4ff76d5
+timeCreated: 1567614316
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 9100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 153906
+  packageName: Runner Action Animation Pack
+  packageVersion: 1.7.2
+  assetPath: Assets/CLazyRunnerActionAnimPack/Animations/P5_CLazyCollision/Dam_Flying_Die/Controller/CLazy@Dam_FlyDie_Right.controller
+  uploadId: 455158

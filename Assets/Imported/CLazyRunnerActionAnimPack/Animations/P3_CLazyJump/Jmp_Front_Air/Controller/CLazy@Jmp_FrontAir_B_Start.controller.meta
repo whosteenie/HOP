@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: c626f7ec03fd15d4c88a86f2a2f1eaf2
+timeCreated: 1567609279
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 9100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 153906
+  packageName: Runner Action Animation Pack
+  packageVersion: 1.7.2
+  assetPath: Assets/CLazyRunnerActionAnimPack/Animations/P3_CLazyJump/Jmp_Front_Air/Controller/CLazy@Jmp_FrontAir_B_Start.controller
+  uploadId: 455158

@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 7acee9fe7e35c234f9471ce51bb948b1
+timeCreated: 1567611848
+licenseType: Store
+DefaultImporter:
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 153906
+  packageName: Runner Action Animation Pack
+  packageVersion: 1.7.2
+  assetPath: Assets/CLazyRunnerActionAnimPack/Scenes/Scene5_ClazyCollision.unity
+  uploadId: 455158

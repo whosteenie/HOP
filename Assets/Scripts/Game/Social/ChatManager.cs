@@ -1,108 +1,451 @@
 using System;
-using Unity.Netcode;
-using Game.Player;
+using System.Collections.Generic;
+using System.Text;
+using System.Threading.Tasks;
+using Network;
+using Unity.Services.Vivox;
+using UnityEngine;
 
 namespace Game.Social {
-    public struct ChatMessage : INetworkSerializable {
-        public ulong SenderClientId;
+    public struct ChatMessage {
         public ulong SenderSteamId;
         public string SenderName;
         public string MessageContent;
         public bool IsSystemMessage;
-
-        public void NetworkSerialize<T>(BufferSerializer<T> serializer) where T : IReaderWriter {
-            serializer.SerializeValue(ref SenderClientId);
-            serializer.SerializeValue(ref SenderSteamId);
-            serializer.SerializeValue(ref SenderName);
-            serializer.SerializeValue(ref MessageContent);
-            serializer.SerializeValue(ref IsSystemMessage);
-        }
     }
 
-    public class ChatManager : NetworkBehaviour {
+    public class ChatManager : MonoBehaviour {
         public static ChatManager Instance { get; private set; }
 
+        public const int VivoxMaxMessageBytes = 320;
+        public const int MaxChatInputBytes = 960;
+
+        private const string ChunkMarker = "l";
+        private const string ChatLanguageTag = "en-US";
+        private const int ChunkAssemblyExpirySeconds = 30;
+        private const int PendingSelfEchoExpirySeconds = 15;
+        private const int SoftWrapLongTokenLength = 24;
+
         public event Action<ChatMessage> OnMessageReceived;
+        private bool _isVivoxBound;
+        private readonly Dictionary<string, ChunkAssemblyState> _chunkAssemblies = new Dictionary<string, ChunkAssemblyState>();
+        private readonly Queue<PendingSelfEchoState> _pendingSelfEchoes = new Queue<PendingSelfEchoState>();
+        private long _nextPendingSelfEchoId = 1;
+
+        [Serializable]
+        private sealed class ChunkEnvelope {
+            public string k;
+            public string id;
+            public int i;
+            public bool e;
+            public string b;
+        }
+
+        private sealed class ChunkAssemblyState {
+            public readonly SortedDictionary<int, string> Chunks = new SortedDictionary<int, string>();
+            public int EndIndex = -1;
+            public float LastUpdatedTime;
+        }
+
+        private sealed class PendingSelfEchoState {
+            public long Id;
+            public float LastUpdatedTime;
+        }
 
         private void Awake() {
-            if (Instance != null && Instance != this) {
+            if(Instance != null && Instance != this) {
                 Destroy(gameObject);
                 return;
             }
+
             Instance = this;
         }
 
-        public void SendChatMessage(string message) {
-            if (string.IsNullOrWhiteSpace(message)) return;
-            if (!IsSpawned) return;
-
-            ulong mySteamId = Steamworks.SteamClient.SteamId; 
-            // Send to server
-            SendChatMessageServerRpc(mySteamId, message);
+        private void OnEnable() {
+            TryBindVivoxEvents();
         }
 
-        [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
-        private void SendChatMessageServerRpc(ulong steamId, string message, RpcParams rpcParams = default) {
-            var senderId = rpcParams.Receive.SenderClientId;
-            
-            // Get Sender Name (Assuming PlayerController or Identity exists)
-            var senderName = $"Player {senderId}";
-            
-            // Try to find actual name from NetworkManager or Player objects
-            if (NetworkManager.Singleton.ConnectedClients.TryGetValue(senderId, out var client)) {
-                var playerObj = client.PlayerObject;
-                if(playerObj != null) {
-                    // Try to get actual name from PlayerController NetworkVariable
-                    senderName = playerObj.TryGetComponent<PlayerController>(out var pc) ? pc.PlayerName.Value.ToString() : playerObj.name;
+        private void Update() {
+            if(_isVivoxBound) return;
+            TryBindVivoxEvents();
+        }
+
+        private void OnDisable() {
+            UnbindVivoxEvents();
+        }
+
+        private void OnDestroy() {
+            if(Instance == this) {
+                Instance = null;
+            }
+
+            UnbindVivoxEvents();
+            _chunkAssemblies.Clear();
+            _pendingSelfEchoes.Clear();
+        }
+
+        private void TryBindVivoxEvents() {
+            if(_isVivoxBound) return;
+            if(VivoxService.Instance == null) return;
+            VivoxService.Instance.ChannelMessageReceived += HandleVivoxChannelMessage;
+            _isVivoxBound = true;
+        }
+
+        private void UnbindVivoxEvents() {
+            if(_isVivoxBound == false) return;
+            if(VivoxService.Instance != null) {
+                VivoxService.Instance.ChannelMessageReceived -= HandleVivoxChannelMessage;
+            }
+
+            _isVivoxBound = false;
+        }
+
+        public void SendChatMessage(string message) {
+            if(string.IsNullOrWhiteSpace(message)) return;
+            _ = SendChatMessageAsync(ClampToUtf8ByteLimit(message.Trim(), MaxChatInputBytes));
+        }
+
+        private async Task SendChatMessageAsync(string message) {
+            var trackedPendingEcho = false;
+            long pendingEchoId = 0;
+            try {
+                if(string.IsNullOrWhiteSpace(message)) return;
+                message = ClampToUtf8ByteLimit(message, MaxChatInputBytes);
+                if(string.IsNullOrWhiteSpace(message)) return;
+
+                if(VivoxService.Instance == null || VoiceManager.Instance == null || !VoiceManager.Instance.IsLoggedIn) {
+                    SendSystemMessage("Chat unavailable.");
+                    return;
+                }
+
+                if(VoiceManager.Instance.TryGetJoinedChannelName(out var channelName) == false) {
+                    var joined = await TryEnsureActiveChannelAsync();
+                    if(joined == false || VoiceManager.Instance.TryGetJoinedChannelName(out channelName) == false) {
+                        SendSystemMessage("Chat channel unavailable.");
+                        return;
+                    }
+                }
+
+                PublishLocalEcho(message);
+                pendingEchoId = TrackPendingSelfEcho();
+                trackedPendingEcho = true;
+
+                var messageOptions = new MessageOptions {
+                    Language = ChatLanguageTag
+                };
+
+                if(Encoding.UTF8.GetByteCount(message) <= VivoxMaxMessageBytes) {
+                    await VivoxService.Instance.SendChannelTextMessageAsync(channelName, message, messageOptions);
+                    return;
+                }
+
+                await SendChunkedMessageAsync(channelName, message, messageOptions);
+            } catch(Exception ex) {
+                if(trackedPendingEcho) {
+                    UntrackPendingSelfEcho(pendingEchoId);
+                }
+                Debug.LogWarning($"[ChatManager] Failed to send Vivox text message: {ex.Message}");
+            }
+        }
+
+        private static async Task SendChunkedMessageAsync(string channelName, string fullMessage, MessageOptions messageOptions) {
+            if(VivoxService.Instance == null) return;
+
+            var bytes = Encoding.UTF8.GetBytes(fullMessage);
+            var messageId = Guid.NewGuid().ToString("N").Substring(0, 12);
+            var offset = 0;
+            var chunkIndex = 0;
+
+            while(offset < bytes.Length) {
+                var remaining = bytes.Length - offset;
+                var chunkLength = remaining;
+                string payload;
+                bool isFinalChunk;
+
+                while(true) {
+                    isFinalChunk = chunkLength == remaining;
+                    payload = BuildChunkPayload(messageId, chunkIndex, isFinalChunk, bytes, offset, chunkLength);
+                    if(Encoding.UTF8.GetByteCount(payload) <= VivoxMaxMessageBytes) {
+                        break;
+                    }
+
+                    chunkLength--;
+                    if(chunkLength <= 0) {
+                        throw new InvalidOperationException("Could not split chat chunk within Vivox byte limit.");
+                    }
+                }
+
+                await VivoxService.Instance.SendChannelTextMessageAsync(channelName, payload, messageOptions);
+                offset += chunkLength;
+                chunkIndex++;
+            }
+        }
+
+        private static string BuildChunkPayload(string messageId, int chunkIndex, bool isFinalChunk, byte[] sourceBytes, int offset, int length) {
+            return JsonUtility.ToJson(new ChunkEnvelope {
+                k = ChunkMarker,
+                id = messageId,
+                i = chunkIndex,
+                e = isFinalChunk,
+                b = Convert.ToBase64String(sourceBytes, offset, length)
+            });
+        }
+
+        public static string ClampToUtf8ByteLimit(string message, int maxBytes) {
+            if(string.IsNullOrEmpty(message)) return string.Empty;
+            if(maxBytes <= 0) return string.Empty;
+            if(Encoding.UTF8.GetByteCount(message) <= maxBytes) return message;
+
+            var end = message.Length;
+            while(end > 0) {
+                end--;
+                var candidate = message.Substring(0, end);
+                if(Encoding.UTF8.GetByteCount(candidate) <= maxBytes) {
+                    return candidate;
                 }
             }
 
-            // Broadcast to all
-            ReceiveChatMessageClientRpc(senderId, steamId, senderName, message);
+            return string.Empty;
         }
 
-        [ClientRpc]
-        private void ReceiveChatMessageClientRpc(ulong senderClientId, ulong senderSteamId, string senderName, string message) {
-            // Check Blocked
-            if(SocialSettings.IsBlocked(senderSteamId.ToString())) return;
-            
-            // Profanity Filter
-            var displayMessage = message;
-            if (SocialSettings.ProfanityFilterEnabled) {
-                displayMessage = ApplyProfanityFilter(message);
+        private static async Task<bool> TryEnsureActiveChannelAsync() {
+            if(VoiceManager.Instance == null || SessionManager.Instance == null) return false;
+            if(SessionManager.Instance.TryGetActiveVoiceChannelName(out var channelName) == false) return false;
+            return await VoiceManager.Instance.EnsureChannelJoinedAsync(channelName);
+        }
+
+        private void HandleVivoxChannelMessage(VivoxMessage vivoxMessage) {
+            if(vivoxMessage == null || string.IsNullOrWhiteSpace(vivoxMessage.MessageText)) return;
+
+            if(VoiceManager.Instance != null && VoiceManager.Instance.TryGetJoinedChannelName(out var activeChannel)) {
+                if(string.Equals(vivoxMessage.ChannelName, activeChannel, StringComparison.Ordinal) == false) {
+                    return;
+                }
+            }
+
+            var senderId = vivoxMessage.SenderPlayerId;
+            if(vivoxMessage.FromSelf == false &&
+               string.IsNullOrEmpty(senderId) == false &&
+               SocialSettings.IsBlocked(senderId)) {
+                return;
+            }
+
+            var resolvedMessage = TryResolveChunkedMessage(vivoxMessage);
+            if(resolvedMessage == null) {
+                return;
+            }
+            if(vivoxMessage.FromSelf && TryConsumePendingSelfEcho()) {
+                return;
+            }
+
+            ulong senderSteamId = 0;
+            if(string.IsNullOrEmpty(senderId) == false) {
+                ulong.TryParse(senderId, out senderSteamId);
+            }
+
+            var senderName = string.IsNullOrWhiteSpace(vivoxMessage.SenderDisplayName)
+                ? "Player"
+                : vivoxMessage.SenderDisplayName;
+            var messageText = resolvedMessage;
+            if(SocialSettings.ProfanityFilterEnabled) {
+                messageText = ChatProfanityFilter.Censor(messageText);
             }
 
             var chatMsg = new ChatMessage {
-                SenderClientId = senderClientId,
                 SenderSteamId = senderSteamId,
                 SenderName = senderName,
-                MessageContent = displayMessage,
+                MessageContent = messageText,
                 IsSystemMessage = false
             };
 
             OnMessageReceived?.Invoke(chatMsg);
         }
 
+        private string TryResolveChunkedMessage(VivoxMessage vivoxMessage) {
+            CleanupExpiredChunkAssemblies();
+
+            ChunkEnvelope envelope;
+            try {
+                envelope = JsonUtility.FromJson<ChunkEnvelope>(vivoxMessage.MessageText);
+            } catch {
+                return vivoxMessage.MessageText;
+            }
+
+            if(envelope == null ||
+               string.Equals(envelope.k, ChunkMarker, StringComparison.Ordinal) == false ||
+               string.IsNullOrWhiteSpace(envelope.id) ||
+               envelope.i < 0 ||
+               string.IsNullOrWhiteSpace(envelope.b)) {
+                return vivoxMessage.MessageText;
+            }
+
+            string chunkText;
+            try {
+                chunkText = Encoding.UTF8.GetString(Convert.FromBase64String(envelope.b));
+            } catch {
+                return vivoxMessage.MessageText;
+            }
+
+            var senderKey = string.IsNullOrWhiteSpace(vivoxMessage.SenderPlayerId)
+                ? "unknown"
+                : vivoxMessage.SenderPlayerId;
+            var assemblyKey = $"{senderKey}:{envelope.id}";
+
+            if(_chunkAssemblies.TryGetValue(assemblyKey, out var state) == false) {
+                state = new ChunkAssemblyState();
+                _chunkAssemblies[assemblyKey] = state;
+            }
+
+            state.Chunks[envelope.i] = chunkText;
+            state.LastUpdatedTime = Time.unscaledTime;
+            if(envelope.e) {
+                state.EndIndex = envelope.i;
+            }
+
+            if(state.EndIndex < 0) {
+                return null;
+            }
+
+            for(var idx = 0; idx <= state.EndIndex; idx++) {
+                if(state.Chunks.ContainsKey(idx) == false) {
+                    return null;
+                }
+            }
+
+            var builder = new StringBuilder();
+            for(var idx = 0; idx <= state.EndIndex; idx++) {
+                builder.Append(state.Chunks[idx]);
+            }
+
+            _chunkAssemblies.Remove(assemblyKey);
+            return builder.ToString();
+        }
+
+        private void CleanupExpiredChunkAssemblies() {
+            if(_chunkAssemblies.Count == 0) return;
+
+            var now = Time.unscaledTime;
+            var staleKeys = new List<string>();
+            foreach(var kvp in _chunkAssemblies) {
+                if(now - kvp.Value.LastUpdatedTime > ChunkAssemblyExpirySeconds) {
+                    staleKeys.Add(kvp.Key);
+                }
+            }
+
+            for(var i = 0; i < staleKeys.Count; i++) {
+                _chunkAssemblies.Remove(staleKeys[i]);
+            }
+        }
+
+        private void PublishLocalEcho(string message) {
+            var displayMessage = message;
+            if(SocialSettings.ProfanityFilterEnabled) {
+                displayMessage = ChatProfanityFilter.Censor(displayMessage);
+            }
+
+            string senderName = "You";
+            ulong senderSteamId = 0;
+            try {
+                senderName = string.IsNullOrWhiteSpace(Steamworks.SteamClient.Name) ? "You" : Steamworks.SteamClient.Name;
+                senderSteamId = Steamworks.SteamClient.SteamId;
+            } catch {
+                // Steam can be unavailable in editor/offline contexts.
+            }
+
+            OnMessageReceived?.Invoke(new ChatMessage {
+                SenderSteamId = senderSteamId,
+                SenderName = senderName,
+                MessageContent = displayMessage,
+                IsSystemMessage = false
+            });
+        }
+
+        private long TrackPendingSelfEcho() {
+            CleanupExpiredPendingSelfEchoes();
+            var id = _nextPendingSelfEchoId++;
+            _pendingSelfEchoes.Enqueue(new PendingSelfEchoState {
+                Id = id,
+                LastUpdatedTime = Time.unscaledTime
+            });
+            return id;
+        }
+
+        private bool TryConsumePendingSelfEcho() {
+            CleanupExpiredPendingSelfEchoes();
+            if(_pendingSelfEchoes.Count == 0) return false;
+            _pendingSelfEchoes.Dequeue();
+            return true;
+        }
+
+        private void CleanupExpiredPendingSelfEchoes() {
+            if(_pendingSelfEchoes.Count == 0) return;
+
+            var now = Time.unscaledTime;
+            while(_pendingSelfEchoes.Count > 0) {
+                var peek = _pendingSelfEchoes.Peek();
+                if(now - peek.LastUpdatedTime <= PendingSelfEchoExpirySeconds) break;
+                _pendingSelfEchoes.Dequeue();
+            }
+        }
+
+        private void UntrackPendingSelfEcho(long pendingEchoId) {
+            if(pendingEchoId <= 0 || _pendingSelfEchoes.Count == 0) return;
+
+            var retained = new Queue<PendingSelfEchoState>(_pendingSelfEchoes.Count);
+            while(_pendingSelfEchoes.Count > 0) {
+                var entry = _pendingSelfEchoes.Dequeue();
+                if(entry.Id == pendingEchoId) continue;
+                retained.Enqueue(entry);
+            }
+
+            while(retained.Count > 0) {
+                _pendingSelfEchoes.Enqueue(retained.Dequeue());
+            }
+        }
+
+        public static string InsertSoftWrapBreaks(string message) {
+            if(string.IsNullOrEmpty(message)) return string.Empty;
+
+            var builder = new StringBuilder(message.Length + (message.Length / 4));
+            var runBuilder = new StringBuilder();
+
+            void FlushRun() {
+                if(runBuilder.Length == 0) return;
+
+                if(runBuilder.Length >= SoftWrapLongTokenLength) {
+                    for(var j = 0; j < runBuilder.Length; j++) {
+                        builder.Append(runBuilder[j]);
+                        builder.Append('\u200B');
+                    }
+                } else {
+                    builder.Append(runBuilder);
+                }
+
+                runBuilder.Length = 0;
+            }
+
+            for(var i = 0; i < message.Length; i++) {
+                var c = message[i];
+                if(char.IsWhiteSpace(c)) {
+                    FlushRun();
+                    builder.Append(c);
+                    continue;
+                }
+
+                runBuilder.Append(c);
+            }
+
+            FlushRun();
+            return builder.ToString();
+        }
+
         public void SendSystemMessage(string message) {
-            // Local only system message
             var chatMsg = new ChatMessage {
-                SenderClientId = 0,
                 SenderName = "SYSTEM",
                 MessageContent = message,
                 IsSystemMessage = true
             };
             OnMessageReceived?.Invoke(chatMsg);
-        }
-
-        private static string ApplyProfanityFilter(string input) {
-            // Very basic placeholder filter
-            string[] badWords = { "badword", "swear" }; 
-            var filtered = input;
-            foreach (var word in badWords) {
-                var replacement = new string('*', word.Length);
-                filtered = filtered.Replace(word, replacement, StringComparison.OrdinalIgnoreCase);
-            }
-            return filtered;
         }
     }
 }

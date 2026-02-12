@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: a7278d5c8b8f0c445871d0569e7c1d0b
+timeCreated: 1567609492
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 9100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 153906
+  packageName: Runner Action Animation Pack
+  packageVersion: 1.7.2
+  assetPath: Assets/CLazyRunnerActionAnimPack/Animations/P3_CLazyJump/Jmp_Turn_Air/Controller/CLazy@Jmp_TurnAir_Left_Keep.controller
+  uploadId: 455158

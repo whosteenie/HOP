@@ -15,6 +15,7 @@ namespace Game.Social {
 
         private bool IsInitialized { get; set; }
         public bool IsLoggedIn { get; private set; }
+        public string LoggedInIdentity => _loggedInIdentity;
         
         // State
         private bool _isMicOpen;
@@ -23,12 +24,28 @@ namespace Game.Social {
         private string _loggedInIdentity;
         private readonly Dictionary<string, Action> _participantSpeechActions = new();
         private readonly SemaphoreSlim _channelOperationGate = new(1, 1);
+        private float _nextClaimsMismatchLogTime;
+        private float _nextJoinFailureLogTime;
+        private float _claimsMismatchRetryCooldownUntil;
+        private const int MaxJoinAttempts = 3;
+        private const int ClaimsMismatchRetryDelayMs = 350;
+        private const int GenericJoinRetryDelayMs = 500;
+        private const float ClaimsMismatchRetryCooldownSeconds = 5f;
         
         // Events
         public event Action<VivoxParticipant> OnParticipantSpeechDetected;
         public event Action<VivoxParticipant> OnParticipantAdded;
         public event Action<VivoxParticipant> OnParticipantRemoved;
         public event Action<bool> OnLocalPttStateChanged; // Fires when local PTT state changes
+
+        public bool TryGetJoinedChannelName(out string channelName) {
+            channelName = null;
+            if(!IsLoggedIn || VivoxService.Instance == null) return false;
+            if(string.IsNullOrEmpty(_currentChannelName)) return false;
+            if(IsChannelActive(_currentChannelName) == false) return false;
+            channelName = _currentChannelName;
+            return true;
+        }
 
         public void SetPttActive(bool active) {
             _isPttActive = active;
@@ -90,6 +107,13 @@ namespace Game.Social {
             return ex.Message.IndexOf("claims mismatch", StringComparison.OrdinalIgnoreCase) >= 0;
         }
 
+        private static bool ShouldEmitThrottledLog(ref float nextLogTime, float intervalSeconds) {
+            var now = Time.unscaledTime;
+            if(now < nextLogTime) return false;
+            nextLogTime = now + intervalSeconds;
+            return true;
+        }
+
         private static string ResolvePreferredIdentity() {
             if(SteamClient.IsValid && SteamClient.IsLoggedOn) {
                 return SteamClient.SteamId.ToString();
@@ -128,6 +152,7 @@ namespace Game.Social {
 
             IsLoggedIn = false;
             _currentChannelName = null;
+            _loggedInIdentity = null;
 
             await LoginAsync(identity, ResolvePreferredDisplayName(), joinLobbyChannelIfPresent: false);
             return IsLoggedIn;
@@ -183,22 +208,61 @@ namespace Game.Social {
             }
         }
 
-        public async Task JoinChannelAsync(string channelName, bool positional = true) {
+        private bool IsChannelActive(string channelName) {
+            if(string.IsNullOrEmpty(channelName)) return false;
+            return VivoxService.Instance != null && VivoxService.Instance.ActiveChannels.ContainsKey(channelName);
+        }
+
+        private async Task<bool> RecoverFromClaimsMismatchAsync(string channelName, int attempt) {
+            if(ShouldEmitThrottledLog(ref _nextClaimsMismatchLogTime, 10f)) {
+                Debug.LogWarning(
+                    $"[VoiceManager] Vivox claims mismatch while joining '{channelName}' (attempt {attempt}/{MaxJoinAttempts}). Re-authenticating and retrying.");
+            }
+
+            try {
+                var reloggedIn = await EnsureLoggedInForCurrentIdentityAsync(forceRelogin: true);
+                if(reloggedIn == false && ShouldEmitThrottledLog(ref _nextJoinFailureLogTime, 5f)) {
+                    Debug.LogWarning("[VoiceManager] Vivox re-authentication failed after claims mismatch.");
+                }
+                return reloggedIn;
+            } catch(Exception ex) {
+                if(ShouldEmitThrottledLog(ref _nextJoinFailureLogTime, 5f)) {
+                    Debug.LogWarning($"[VoiceManager] Vivox re-authentication threw after claims mismatch: {ex.Message}");
+                }
+                return false;
+            }
+        }
+
+        public async Task<bool> EnsureChannelJoinedAsync(string channelName, bool positional = true) {
             if(string.IsNullOrEmpty(channelName)) {
-                return;
+                return false;
+            }
+
+            if(Time.unscaledTime < _claimsMismatchRetryCooldownUntil) {
+                if(ShouldEmitThrottledLog(ref _nextClaimsMismatchLogTime, 2f)) {
+                    var remaining = _claimsMismatchRetryCooldownUntil - Time.unscaledTime;
+                    Debug.LogWarning(
+                        $"[VoiceManager] Skipping Vivox rejoin for '{channelName}' during claims-mismatch cooldown ({remaining:0.0}s remaining).");
+                }
+
+                return false;
             }
 
             await _channelOperationGate.WaitAsync();
             try {
-                if(!string.IsNullOrEmpty(_currentChannelName) && _currentChannelName == channelName &&
-                   VivoxService.Instance != null && VivoxService.Instance.ActiveChannels.ContainsKey(_currentChannelName)) {
-                    return;
+                if(IsChannelActive(channelName)) {
+                    _currentChannelName = channelName;
+                    _claimsMismatchRetryCooldownUntil = 0f;
+                    return true;
                 }
 
-                for(var attempt = 1; attempt <= 2; attempt++) {
+                Exception lastException = null;
+                for(var attempt = 1; attempt <= MaxJoinAttempts; attempt++) {
                     if(await EnsureLoggedInForCurrentIdentityAsync() == false) {
-                        Debug.LogWarning("[VoiceManager] JoinChannelAsync aborted because Vivox login is unavailable.");
-                        return;
+                        if(ShouldEmitThrottledLog(ref _nextJoinFailureLogTime, 5f)) {
+                            Debug.LogWarning("[VoiceManager] JoinChannelAsync aborted because Vivox login is unavailable.");
+                        }
+                        return false;
                     }
 
                     try {
@@ -209,38 +273,61 @@ namespace Game.Social {
                         if (positional) {
                             // 3D Positional Channel
                             var channel3D = new Channel3DProperties(32, 1, 1.0f, AudioFadeModel.InverseByDistance);
-                            Debug.Log($"[VoiceManager] Joining positional channel: {channelName}");
-                            await VivoxService.Instance.JoinPositionalChannelAsync(channelName, ChatCapability.AudioOnly, channel3D);
+                            await VivoxService.Instance.JoinPositionalChannelAsync(channelName, ChatCapability.TextAndAudio, channel3D);
                         } else {
                             // 2D Team Channel
-                            Debug.Log($"[VoiceManager] Joining group channel: {channelName}");
-                            await VivoxService.Instance.JoinGroupChannelAsync(channelName, ChatCapability.AudioOnly);
+                            await VivoxService.Instance.JoinGroupChannelAsync(channelName, ChatCapability.TextAndAudio);
                         }
 
                         _currentChannelName = channelName;
-                        Debug.Log($"[VoiceManager] Successfully joined channel: {channelName}. ActiveChannels Count: {VivoxService.Instance.ActiveChannels.Count}");
-                        return;
+                        if(Debug.isDebugBuild) {
+                            Debug.Log(
+                                $"[VoiceManager] Joined channel '{channelName}'. ActiveChannels={VivoxService.Instance.ActiveChannels.Count}");
+                        }
+
+                        return true;
                     } catch(Exception ex) {
-                        if(attempt == 1 && IsVivoxClaimsMismatch(ex)) {
-                            Debug.LogWarning("[VoiceManager] Vivox token claims mismatch detected. Re-authenticating Vivox identity and retrying once...");
-                            await EnsureLoggedInForCurrentIdentityAsync(forceRelogin: true);
+                        lastException = ex;
+                        if(IsVivoxClaimsMismatch(ex)) {
+                            var recovered = await RecoverFromClaimsMismatchAsync(channelName, attempt);
+                            if(recovered == false) {
+                                break;
+                            }
+
+                            await Task.Delay(ClaimsMismatchRetryDelayMs);
                             continue;
                         }
 
-                        throw;
+                        if(attempt < MaxJoinAttempts) {
+                            await Task.Delay(GenericJoinRetryDelayMs);
+                            continue;
+                        }
                     }
                 }
-            } catch (Exception e) {
-                if(IsVivoxClaimsMismatch(e)) {
-                    Debug.LogWarning(
-                        "[VoiceManager] Join channel skipped after Vivox claims-mismatch retry. " +
-                        "Will retry on the next voice-join request.");
-                } else {
+
+                if(lastException != null && ShouldEmitThrottledLog(ref _nextJoinFailureLogTime, 5f)) {
+                    if(IsVivoxClaimsMismatch(lastException)) {
+                        _claimsMismatchRetryCooldownUntil = Time.unscaledTime + ClaimsMismatchRetryCooldownSeconds;
+                        Debug.LogWarning(
+                            $"[VoiceManager] Join channel '{channelName}' failed after claims-mismatch recovery attempts.");
+                    } else {
+                        Debug.LogError($"[VoiceManager] Join Channel Failed: {lastException.Message}");
+                    }
+                }
+                return false;
+            } catch(Exception e) {
+                if(ShouldEmitThrottledLog(ref _nextJoinFailureLogTime, 5f)) {
                     Debug.LogError($"[VoiceManager] Join Channel Failed: {e.Message}");
                 }
+
+                return false;
             } finally {
                 _channelOperationGate.Release();
             }
+        }
+
+        public async Task JoinChannelAsync(string channelName, bool positional = true) {
+            await EnsureChannelJoinedAsync(channelName, positional);
         }
         
         public async Task LeaveChannelAsync() {

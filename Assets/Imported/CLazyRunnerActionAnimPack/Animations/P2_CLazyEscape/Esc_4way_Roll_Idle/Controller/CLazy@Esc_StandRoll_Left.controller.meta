@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 6be13a307dc038046aed030f8416a6c0
+timeCreated: 1567442478
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 9100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 153906
+  packageName: Runner Action Animation Pack
+  packageVersion: 1.7.2
+  assetPath: Assets/CLazyRunnerActionAnimPack/Animations/P2_CLazyEscape/Esc_4way_Roll_Idle/Controller/CLazy@Esc_StandRoll_Left.controller
+  uploadId: 455158

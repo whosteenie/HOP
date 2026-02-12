@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 1b464b01c9e68fd4f8b683e80e3b4be7
+timeCreated: 1599151069
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 9100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 153906
+  packageName: Runner Action Animation Pack
+  packageVersion: 1.7.2
+  assetPath: Assets/CLazyRunnerActionAnimPack/Animations/P1_CLazyMovement/Mvm_Turn_Idle/Controller/CLazy@Mvm_Idle_C_TurnL_90_Root.controller
+  uploadId: 455158

@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 12d06c3a78fe1df428d19c2d0f34eaf6
+timeCreated: 1567609492
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 9100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 153906
+  packageName: Runner Action Animation Pack
+  packageVersion: 1.7.2
+  assetPath: Assets/CLazyRunnerActionAnimPack/Animations/P3_CLazyJump/Jmp_Side_Air/Controller/CLazy@Jmp_SideAir_B.controller
+  uploadId: 455158

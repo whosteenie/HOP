@@ -39,8 +39,11 @@ namespace Game.UI {
             if(_chatInput != null) {
                 // Register Submit event
                 EventCallback<KeyDownEvent> keyDownHandler = OnChatInputKeyDown;
+                EventCallback<ChangeEvent<string>> valueChangedHandler = OnChatInputValueChanged;
                 _chatInput.RegisterCallback(keyDownHandler);
+                _chatInput.RegisterCallback(valueChangedHandler);
                 RegisterCleanup(() => _chatInput.UnregisterCallback(keyDownHandler));
+                RegisterCleanup(() => _chatInput.UnregisterCallback(valueChangedHandler));
             }
             
             // Start with chat non-interactive (closed state)
@@ -227,7 +230,7 @@ namespace Game.UI {
         private void SubmitChat() {
              if(_chatInput == null) return;
              
-             var message = _chatInput.value;
+             var message = ChatManager.ClampToUtf8ByteLimit(_chatInput.value, ChatManager.MaxChatInputBytes);
              if(!string.IsNullOrWhiteSpace(message)) {
                  // Send message and keep chat open
                  if(ChatManager.Instance != null) {
@@ -250,6 +253,13 @@ namespace Game.UI {
                 // Handled in Update/SubmitChat, but prevent default newline
                 evt.StopPropagation();
             }
+        }
+
+        private void OnChatInputValueChanged(ChangeEvent<string> evt) {
+            if(_chatInput == null) return;
+            var clamped = ChatManager.ClampToUtf8ByteLimit(evt.newValue, ChatManager.MaxChatInputBytes);
+            if(string.Equals(clamped, evt.newValue, System.StringComparison.Ordinal)) return;
+            _chatInput.SetValueWithoutNotify(clamped);
         }
 
         private void HandleMessageReceived(ChatMessage msg) {
@@ -286,25 +296,17 @@ namespace Game.UI {
         }
 
         private static VisualElement CreateMessageRow(ChatMessage msg) {
-            var row = new VisualElement {
-                style = {
-                    flexDirection = FlexDirection.Row,
-                    flexWrap = Wrap.Wrap
-                }
-            };
+            var row = new VisualElement();
+            row.AddToClassList("chat-message-row");
 
             if(msg.IsSystemMessage) {
-                var label = new Label(msg.MessageContent);
+                var label = new Label(ChatManager.InsertSoftWrapBreaks(msg.MessageContent));
                 label.AddToClassList("chat-message");
                 label.AddToClassList("chat-message-system");
                 row.Add(label);
             } else {
-                var nameLabel = new Label(msg.SenderName);
-                nameLabel.AddToClassList("chat-message-name");
-                nameLabel.style.unityFontStyleAndWeight = FontStyle.Bold;
-                
                 // Click handler for context menu (Right-click)
-                nameLabel.RegisterCallback<PointerDownEvent>(evt => {
+                row.RegisterCallback<PointerDownEvent>(evt => {
                     if (evt.button != 1) return; // Right-click only
                     if (msg.SenderSteamId == 0) return;
                     
@@ -315,15 +317,24 @@ namespace Game.UI {
                         InGameContextMenuManager.Instance.Show(msg.SenderSteamId, evt.position);
                     }
                 });
-                
-                row.Add(nameLabel);
-                
-                var contentLabel = new Label($": {msg.MessageContent}");
-                contentLabel.AddToClassList("chat-message-content");
-                row.Add(contentLabel);
+
+                var safeName = EscapeRichText(msg.SenderName);
+                var safeContent = EscapeRichText(ChatManager.InsertSoftWrapBreaks(msg.MessageContent));
+                var textLabel = new Label {
+                    enableRichText = true,
+                    text = $"<b>{safeName}:</b> {safeContent}"
+                };
+                textLabel.AddToClassList("chat-message");
+                textLabel.AddToClassList("chat-message-content");
+                row.Add(textLabel);
             }
 
             return row;
+        }
+
+        private static string EscapeRichText(string value) {
+            if(string.IsNullOrEmpty(value)) return string.Empty;
+            return value.Replace("<", "&lt;").Replace(">", "&gt;");
         }
 
         private void StartLifetimeCheck() {

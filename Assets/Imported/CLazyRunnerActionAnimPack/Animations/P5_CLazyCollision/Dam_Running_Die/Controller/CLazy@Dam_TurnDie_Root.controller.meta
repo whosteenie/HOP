@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: ded932aef29146e4a89844a65d4785a4
+timeCreated: 1567614224
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 9100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 153906
+  packageName: Runner Action Animation Pack
+  packageVersion: 1.7.2
+  assetPath: Assets/CLazyRunnerActionAnimPack/Animations/P5_CLazyCollision/Dam_Running_Die/Controller/CLazy@Dam_TurnDie_Root.controller
+  uploadId: 455158

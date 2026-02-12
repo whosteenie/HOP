@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: c86f169268f37ea4da71f060e2e7bd2c
+timeCreated: 1585580844
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 9100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 153906
+  packageName: Runner Action Animation Pack
+  packageVersion: 1.7.2
+  assetPath: Assets/CLazyRunnerActionAnimPack/Animations/P6_CLazyWallRun/WallRun_Vertical/Controller/CLazy@Wall_Vertical_Exit_Stop_Root.controller
+  uploadId: 455158

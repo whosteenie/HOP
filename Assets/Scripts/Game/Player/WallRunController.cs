@@ -30,6 +30,7 @@ namespace Game.Player {
         [SerializeField] private float minWallRunSpeed = 9f; // Slightly below SprintSpeed (10f)
 
         public bool IsWallRunning { get; private set; }
+        public bool IsRightWallRun => IsWallRunning && !IsWallLeft;
         private Vector3 WallNormal { get; set; }
         private bool IsWallLeft { get; set; }
 

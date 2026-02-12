@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: d374f59f2c609314aa22e6409c7ef31d
+timeCreated: 1599151354
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 9100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 153906
+  packageName: Runner Action Animation Pack
+  packageVersion: 1.7.2
+  assetPath: Assets/CLazyRunnerActionAnimPack/Animations/P1_CLazyMovement/Mvm_Start_Jog/Controller/CLazy@Mvm_Jog_Start_R90_Root.controller
+  uploadId: 455158

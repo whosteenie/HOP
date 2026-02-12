@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 8c0e92e2763a6294c93403c34f464acf
+timeCreated: 1567612414
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 9100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 153906
+  packageName: Runner Action Animation Pack
+  packageVersion: 1.7.2
+  assetPath: Assets/CLazyRunnerActionAnimPack/Animations/P4_CLazyAttack/Attack_Kick_Run/Controller/CLazy@Attack_Kick_B.controller
+  uploadId: 455158

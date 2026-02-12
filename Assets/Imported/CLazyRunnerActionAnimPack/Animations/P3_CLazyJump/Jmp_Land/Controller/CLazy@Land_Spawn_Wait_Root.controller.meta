@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 718b759cf6b10f5409403d0a04d8c6ea
+timeCreated: 1567601819
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 9100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 153906
+  packageName: Runner Action Animation Pack
+  packageVersion: 1.7.2
+  assetPath: Assets/CLazyRunnerActionAnimPack/Animations/P3_CLazyJump/Jmp_Land/Controller/CLazy@Land_Spawn_Wait_Root.controller
+  uploadId: 455158

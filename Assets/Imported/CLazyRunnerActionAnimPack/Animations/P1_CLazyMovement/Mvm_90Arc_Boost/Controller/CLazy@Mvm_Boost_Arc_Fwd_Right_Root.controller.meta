@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 95701c69ca5352242863d350bc7ff7b5
+timeCreated: 1580137167
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 9100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 153906
+  packageName: Runner Action Animation Pack
+  packageVersion: 1.7.2
+  assetPath: Assets/CLazyRunnerActionAnimPack/Animations/P1_CLazyMovement/Mvm_90Arc_Boost/Controller/CLazy@Mvm_Boost_Arc_Fwd_Right_Root.controller
+  uploadId: 455158

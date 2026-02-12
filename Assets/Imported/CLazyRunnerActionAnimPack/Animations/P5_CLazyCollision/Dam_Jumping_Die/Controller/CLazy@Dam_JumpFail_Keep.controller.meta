@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 0330c918eb6a016448c78fc21a19cb9a
+timeCreated: 1567614316
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 9100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 153906
+  packageName: Runner Action Animation Pack
+  packageVersion: 1.7.2
+  assetPath: Assets/CLazyRunnerActionAnimPack/Animations/P5_CLazyCollision/Dam_Jumping_Die/Controller/CLazy@Dam_JumpFail_Keep.controller
+  uploadId: 455158

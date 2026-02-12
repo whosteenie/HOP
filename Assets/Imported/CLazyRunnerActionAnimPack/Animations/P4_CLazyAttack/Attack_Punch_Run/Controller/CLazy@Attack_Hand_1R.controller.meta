@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 6d121a61bfb837e43823e03fd894dc18
+timeCreated: 1567612414
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 9100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 153906
+  packageName: Runner Action Animation Pack
+  packageVersion: 1.7.2
+  assetPath: Assets/CLazyRunnerActionAnimPack/Animations/P4_CLazyAttack/Attack_Punch_Run/Controller/CLazy@Attack_Hand_1R.controller
+  uploadId: 455158

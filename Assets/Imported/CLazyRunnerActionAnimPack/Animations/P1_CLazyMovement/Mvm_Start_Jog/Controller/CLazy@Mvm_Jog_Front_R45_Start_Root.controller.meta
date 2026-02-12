@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 194e8c6d3861d6d4b87d9266faebae7d
+timeCreated: 1611245294
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 9100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 153906
+  packageName: Runner Action Animation Pack
+  packageVersion: 1.7.2
+  assetPath: Assets/CLazyRunnerActionAnimPack/Animations/P1_CLazyMovement/Mvm_Start_Jog/Controller/CLazy@Mvm_Jog_Front_R45_Start_Root.controller
+  uploadId: 455158

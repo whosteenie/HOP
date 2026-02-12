@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 83c2e6c90f5bdff4eab9d388a7770e3b
+timeCreated: 1628770691
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 9100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 153906
+  packageName: Runner Action Animation Pack
+  packageVersion: 1.7.2
+  assetPath: Assets/CLazyRunnerActionAnimPack/Animations/P1_CLazyMovement/Mvm_Dash_End/Controller/CLazy@Mvm_JogEnd_RH_Root.controller
+  uploadId: 455158

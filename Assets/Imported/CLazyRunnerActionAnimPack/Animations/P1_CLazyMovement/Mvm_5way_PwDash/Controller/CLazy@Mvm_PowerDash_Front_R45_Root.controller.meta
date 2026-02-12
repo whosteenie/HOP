@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 5d28d5f88fe99834a8b90ccc7bbc3e9e
+timeCreated: 1570965870
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 9100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 153906
+  packageName: Runner Action Animation Pack
+  packageVersion: 1.7.2
+  assetPath: Assets/CLazyRunnerActionAnimPack/Animations/P1_CLazyMovement/Mvm_5way_PwDash/Controller/CLazy@Mvm_PowerDash_Front_R45_Root.controller
+  uploadId: 455158

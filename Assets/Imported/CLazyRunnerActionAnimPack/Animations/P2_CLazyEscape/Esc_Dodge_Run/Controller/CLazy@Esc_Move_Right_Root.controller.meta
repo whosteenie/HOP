@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: db97aeac39ea550468e5936cf80b77cd
+timeCreated: 1567516940
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 9100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 153906
+  packageName: Runner Action Animation Pack
+  packageVersion: 1.7.2
+  assetPath: Assets/CLazyRunnerActionAnimPack/Animations/P2_CLazyEscape/Esc_Dodge_Run/Controller/CLazy@Esc_Move_Right_Root.controller
+  uploadId: 455158

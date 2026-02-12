@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: d849e58765eb5b3449a41347507bde57
+timeCreated: 1574170344
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 9100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 153906
+  packageName: Runner Action Animation Pack
+  packageVersion: 1.7.2
+  assetPath: Assets/CLazyRunnerActionAnimPack/Animations/P3_CLazyJump/Tum_Hand_Spring/Controller/CLazy@Tum_F_HandSpring_Start.controller
+  uploadId: 455158

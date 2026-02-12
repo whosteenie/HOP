@@ -29,6 +29,7 @@
     "com.unity.render-pipelines.universal": "17.3.0",
     "com.unity.render-pipelines.universal-config": "17.0.3",
     "com.unity.services.cloudcode": "2.10.2",
+    "com.unity.services.moderation": "1.0.2",
     "com.unity.services.multiplayer": "2.0.0",
     "com.unity.services.vivox": "16.9.0",
     "com.unity.shadergraph": "17.3.0",

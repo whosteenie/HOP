@@ -70,6 +70,10 @@ namespace Network {
                     ("source", "FallbackSelected"));
             }
 
+            // Always join a match-scoped Vivox channel when gameplay loads so solo private matches
+            // retain text chat parity with other match flows.
+            TryJoinVoiceForActiveMatch("OnGameSceneLoadedAsync");
+
             if(_networkManager == null) _networkManager = Unity.Netcode.NetworkManager.Singleton;
             if(_networkManager != null && _networkManager.IsServer) {
                 // We are server, we are ready.

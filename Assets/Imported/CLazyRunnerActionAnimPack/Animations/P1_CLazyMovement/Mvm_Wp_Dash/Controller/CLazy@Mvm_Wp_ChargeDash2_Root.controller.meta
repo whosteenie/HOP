@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 88fa8bb5fadb03d40bf1e7cd2e5ce5bf
+timeCreated: 1567433687
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 9100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 153906
+  packageName: Runner Action Animation Pack
+  packageVersion: 1.7.2
+  assetPath: Assets/CLazyRunnerActionAnimPack/Animations/P1_CLazyMovement/Mvm_Wp_Dash/Controller/CLazy@Mvm_Wp_ChargeDash2_Root.controller
+  uploadId: 455158

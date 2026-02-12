@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: e576539b3390c524f80928bdac64871c
+timeCreated: 1567442478
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 9100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 153906
+  packageName: Runner Action Animation Pack
+  packageVersion: 1.7.2
+  assetPath: Assets/CLazyRunnerActionAnimPack/Animations/P2_CLazyEscape/Esc_Slide_Side/Controller/CLazy@Esc_Slide_Left.controller
+  uploadId: 455158
