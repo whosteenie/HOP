@@ -8,7 +8,13 @@ namespace Game.Weapons {
         [SerializeField] private float bobFrequency = 4f; // Base frequency (lowered from 6f)
         [SerializeField] private float bobHorizontalAmount = 0.01f;
         [SerializeField] private float bobVerticalAmount = 0.03f;
+        [SerializeField] private float bobForwardAmount = 0.008f;
         [SerializeField] private float bobRollAmount = 0.3f;
+        [SerializeField] private float strafeOffsetInfluence = 0.5f;
+        [SerializeField] private float strafeRollInfluence = 0.4f;
+        [SerializeField] private float wallRunBobScale = 0.85f;
+        [SerializeField] private float directionSmoothing = 10f;
+        [SerializeField] private float directionMinSpeed = 1.5f;
 
         [Header("Speed Thresholds")]
         [SerializeField] private float walkSpeed = 5f;
@@ -27,6 +33,14 @@ namespace Game.Weapons {
         [Header("ADS")]
         [Range(0f, 1f)]
         [SerializeField] private float adsMultiplier = 0.2f;
+
+        [Header("Idle Breath")]
+        [SerializeField] private float idleBreathFrequency = 0.28f;
+        [SerializeField] private float idleBreathVerticalAmount = 0.0022f;
+        [SerializeField] private float idleBreathPitchAmount = 0.08f;
+        [SerializeField] private float idleBreathRollAmount = 0.05f;
+        [SerializeField] private float idleBreathBlendSpeed = 6f;
+        [SerializeField] private float idleBreathSpeedThreshold = 0.12f;
 
         [Header("Jump / Fall Animation")]
         [Tooltip("Maximum weapon offset when at max jump velocity (negative = lower on jump)")]
@@ -56,6 +70,9 @@ namespace Game.Weapons {
         private float _jumpFallOffset;
         private float _targetJumpFallOffset;
         private bool _jumpInitiated;
+        private Vector3 _smoothedLocalVelocity;
+        private float _idleBreathTimer;
+        private float _idleBreathIntensity;
 
         private void Awake() {
             var bobTransform = transform;
@@ -71,6 +88,9 @@ namespace Game.Weapons {
             _currentBobIntensity = 0f;
             _targetBobIntensity = 0f;
             _initialized = false;
+            _smoothedLocalVelocity = Vector3.zero;
+            _idleBreathTimer = 0f;
+            _idleBreathIntensity = 0f;
         }
 
         private void TryInitialize() {
@@ -222,10 +242,34 @@ namespace Game.Weapons {
                 _bobTimer = Mathf.Lerp(_bobTimer, 0f, smoothSpeed * deltaTime);
             }
 
-            // Calculate bob offsets using sine waves
-            var xBob = Mathf.Cos(_bobTimer) * bobHorizontalAmount * _currentBobIntensity;
-            var yBob = Mathf.Sin(_bobTimer * 2f) * bobVerticalAmount * _currentBobIntensity;
-            var rollBob = Mathf.Sin(_bobTimer) * bobRollAmount * _currentBobIntensity;
+            // Use local movement direction so bob reflects actual motion (e.g. wall slide -> strafe bias)
+            var localVelocity = velocity;
+            if(_playerController != null && _playerController.PlayerTransform != null) {
+                localVelocity = _playerController.PlayerTransform.InverseTransformDirection(velocity);
+            }
+            _smoothedLocalVelocity = Vector3.Lerp(_smoothedLocalVelocity, localVelocity, directionSmoothing * deltaTime);
+
+            var planarSpeed = Mathf.Max(speed, 0.001f);
+            var directionalSpeed = new Vector2(_smoothedLocalVelocity.x, _smoothedLocalVelocity.z).magnitude;
+            var useDirectional = directionalSpeed >= directionMinSpeed;
+            var strafeFactor = useDirectional ? Mathf.Clamp(_smoothedLocalVelocity.x / planarSpeed, -1f, 1f) : 0f;
+            var forwardFactor = useDirectional ? Mathf.Clamp(_smoothedLocalVelocity.z / planarSpeed, -1f, 1f) : 0f;
+
+            var bobScale = isWallRunning ? wallRunBobScale : 1f;
+            var cycle = _bobTimer;
+            var xWave = Mathf.Sin(cycle + Mathf.PI * 0.5f);
+            var yWave = Mathf.Sin(cycle * 2f);
+            var zWave = Mathf.Cos(cycle * 2f);
+            var rollWave = Mathf.Sin(cycle);
+
+            // Human-like grounded movement bob: lateral sway + step bounce + subtle depth pulse.
+            var xBob = (xWave * bobHorizontalAmount + strafeFactor * bobHorizontalAmount * strafeOffsetInfluence) *
+                       _currentBobIntensity * bobScale;
+            var yBob = yWave * bobVerticalAmount * _currentBobIntensity * bobScale;
+            var zBob = zWave * bobForwardAmount * _currentBobIntensity * Mathf.Abs(forwardFactor) * bobScale;
+            var rollBob =
+                (rollWave * bobRollAmount - strafeFactor * bobRollAmount * strafeRollInfluence) * _currentBobIntensity *
+                bobScale;
 
             // Apply jump/fall offset only when landing bob is not active to prevent jitter
             // When landing, the landing bob handles the animation, so we skip the jump/fall offset
@@ -247,12 +291,30 @@ namespace Game.Weapons {
 
             // Apply ADS multiplier
             var finalMultiplier = adsMultiplier;
-            var bobOffset = new Vector3(xBob, finalYBob, 0f) * finalMultiplier;
+            var bobOffset = new Vector3(xBob, finalYBob, zBob) * finalMultiplier;
             var bobRotation = new Vector3(0f, 0f, rollBob) * finalMultiplier;
 
+            // Subtle idle breathing when grounded and nearly stationary.
+            var idleEligible = isGrounded && !isWallRunning && !isSliding && speed <= idleBreathSpeedThreshold;
+            var targetIdleIntensity = idleEligible ? 1f : 0f;
+            _idleBreathIntensity = Mathf.Lerp(_idleBreathIntensity, targetIdleIntensity, idleBreathBlendSpeed * deltaTime);
+
+            if(_idleBreathIntensity > 0.001f) {
+                _idleBreathTimer += deltaTime * idleBreathFrequency * Mathf.PI * 2f;
+            } else {
+                _idleBreathTimer = Mathf.Lerp(_idleBreathTimer, 0f, idleBreathBlendSpeed * deltaTime);
+            }
+
+            var idleWave = Mathf.Sin(_idleBreathTimer);
+            var idleOffset = new Vector3(0f, idleWave * idleBreathVerticalAmount * _idleBreathIntensity, 0f) * finalMultiplier;
+            var idleRotation = new Vector3(
+                idleWave * idleBreathPitchAmount * _idleBreathIntensity,
+                0f,
+                Mathf.Cos(_idleBreathTimer) * idleBreathRollAmount * _idleBreathIntensity) * finalMultiplier;
+
             // Apply to transform
-            transform.localPosition = _baseLocalPos + bobOffset;
-            transform.localRotation = _baseLocalRot * Quaternion.Euler(bobRotation);
+            transform.localPosition = _baseLocalPos + bobOffset + idleOffset;
+            transform.localRotation = _baseLocalRot * Quaternion.Euler(bobRotation + idleRotation);
         }
 
         public void SetAdsMultiplier(float multiplier) {
@@ -280,6 +342,9 @@ namespace Game.Weapons {
             _baseLocalRot = bobTransform.localRotation;
             _bobTimer = 0f;
             _currentBobIntensity = 0f;
+            _smoothedLocalVelocity = Vector3.zero;
+            _idleBreathTimer = 0f;
+            _idleBreathIntensity = 0f;
         }
 
         private void OnDrawGizmosSelected() {
