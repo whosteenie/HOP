@@ -82,14 +82,15 @@ namespace Game.UI {
         private bool _steamAvatarFetchDisabledForSession;
 
         // Speaking Indicators Cache
-        private readonly Dictionary<ulong, VisualElement> _cachedSpeakingIndicators = new(); // clientId -> indicator element
+        private readonly Dictionary<ulong, VisualElement>
+            _cachedSpeakingIndicators = new(); // clientId -> indicator element
 
 
         // Cache scene name to avoid string allocations
         private string _cachedSceneName;
 
         public bool IsScoreboardVisible { get; private set; }
-        
+
         // Mouse unlock state for context menu interaction
 
         private void Awake() {
@@ -205,7 +206,7 @@ namespace Game.UI {
                 UpdateSpeakingIndicators();
             }
         }
-        
+
 
         private void UpdateSpeakingIndicators() {
             if(Social.VoiceManager.Instance == null) return;
@@ -213,8 +214,9 @@ namespace Game.UI {
 
             var controllers = GetAllPlayerControllers();
             foreach(var player in controllers) {
-                if(player == null || !_cachedSpeakingIndicators.TryGetValue(player.OwnerClientId, out var indicator)) continue;
-                
+                if(player == null ||
+                   !_cachedSpeakingIndicators.TryGetValue(player.OwnerClientId, out var indicator)) continue;
+
                 // Get SteamID
                 var steamId = player.steamId.Value;
                 if(steamId == 0) continue; // Invalid steam ID
@@ -260,7 +262,6 @@ namespace Game.UI {
             _cachedVelocityLabels.Clear();
             _previousVelocityValues.Clear();
             _cachedSpeakingIndicators.Clear();
-
         }
 
         /// <summary>
@@ -317,7 +318,6 @@ namespace Game.UI {
             _scoreboardPanel.RemoveFromClassList("hidden");
             UpdateScoreboardHeaders();
             UpdateScoreboard();
-            
         }
 
         /// <summary>
@@ -375,18 +375,23 @@ namespace Game.UI {
         private string ResolveScoreboardTitle() {
             if(_cachedMatchSettings == null) {
                 if(!_missingGamemodeTitleLogged) {
-                    Debug.LogError("[ScoreboardManager] MatchSettingsManager.Instance is null while updating scoreboard title.", this);
+                    Debug.LogError(
+                        "[ScoreboardManager] MatchSettingsManager.Instance is null while updating scoreboard title.",
+                        this);
                     _missingGamemodeTitleLogged = true;
                 }
+
                 return "UNKNOWN MODE";
             }
 
             var selectedGameModeId = _cachedMatchSettings.selectedGameModeId;
             if(string.IsNullOrEmpty(selectedGameModeId)) {
                 if(!_missingGamemodeTitleLogged) {
-                    Debug.LogError("[ScoreboardManager] selectedGameModeId is empty while updating scoreboard title.", this);
+                    Debug.LogError("[ScoreboardManager] selectedGameModeId is empty while updating scoreboard title.",
+                        this);
                     _missingGamemodeTitleLogged = true;
                 }
+
                 return "UNKNOWN MODE";
             }
 
@@ -462,18 +467,18 @@ namespace Game.UI {
             // Remove inline display style so the hidden class can take effect
             _scoreboardPanel.style.display = StyleKeyword.Null;
             _scoreboardPanel.AddToClassList("hidden");
-            
+
             // Re-lock mouse and unlock camera when hiding scoreboard
-            if (Cursor.lockState == CursorLockMode.None) {
+            if(Cursor.lockState == CursorLockMode.None) {
                 Cursor.lockState = CursorLockMode.Locked;
                 Cursor.visible = false;
-                if (PlayerController.LocalPlayer != null) {
+                if(PlayerController.LocalPlayer != null) {
                     PlayerController.LocalPlayer.LockLook = false;
                 }
             }
-            
+
             // Hide context menu if open
-            if (InGameContextMenuManager.Instance != null) {
+            if(InGameContextMenuManager.Instance != null) {
                 InGameContextMenuManager.Instance.Hide();
             }
         }
@@ -483,7 +488,7 @@ namespace Game.UI {
             if(_root == null) {
                 return;
             }
-            
+
             var allControllers = GetAllPlayerControllers();
 
             // Always check fresh - don't cache game mode
@@ -492,16 +497,15 @@ namespace Game.UI {
             } else {
                 UpdateFfaScoreboard(allControllers);
             }
-
         }
 
         public bool GetLocalPlayerPlacement(out int placement, out int totalPlayers) {
             placement = 0;
             totalPlayers = 0;
-            
+
             var allControllers = GetAllPlayerControllers();
             totalPlayers = allControllers.Count;
-            if (totalPlayers == 0) return false;
+            if(totalPlayers == 0) return false;
 
             // Sort players just like the scoreboard does
             var isTagMode = IsTagMode();
@@ -509,12 +513,13 @@ namespace Game.UI {
 
             // Find local player index
             var localClientId = NetworkManager.Singleton.LocalClientId;
-            for (var i = 0; i < sortedPlayers.Count; i++) {
-                if (sortedPlayers[i].OwnerClientId == localClientId) {
+            for(var i = 0; i < sortedPlayers.Count; i++) {
+                if(sortedPlayers[i].OwnerClientId == localClientId) {
                     placement = i + 1; // 1-based rank
                     return true;
                 }
             }
+
             return false;
         }
 
@@ -525,8 +530,10 @@ namespace Game.UI {
                 if(_root != null) {
                     Debug.LogWarning("[ScoreboardManager] FFA scoreboard UI elements not initialized");
                 }
+
                 return;
             }
+
             if(!EnsureScoreboardRowTemplateAssigned()) {
                 return;
             }
@@ -623,11 +630,14 @@ namespace Game.UI {
             if(_scoreboardContainer == null || _tdmScoreboardContainer == null ||
                _enemyTeamRows == null || _yourTeamRows == null) {
                 if(_root != null) {
-                    Debug.LogWarning("[ScoreboardManager] TDM scoreboard UI elements not initialized, falling back to FFA");
+                    Debug.LogWarning(
+                        "[ScoreboardManager] TDM scoreboard UI elements not initialized, falling back to FFA");
                 }
+
                 UpdateFfaScoreboard(allControllers);
                 return;
             }
+
             if(!EnsureScoreboardRowTemplateAssigned()) {
                 return;
             }
@@ -751,8 +761,8 @@ namespace Game.UI {
                         _enemyScoreValue.text = teamAScore.ToString();
                     }
                 }
-            } else if (matchSettings != null && matchSettings.selectedGameModeId == "KOTH" &&
-                       KingOfTheHillManager.Instance != null) {
+            } else if(matchSettings != null && matchSettings.selectedGameModeId == "KOTH" &&
+                      KingOfTheHillManager.Instance != null) {
                 var teamAScore = KingOfTheHillManager.Instance.GetTeamAScore();
                 var teamBScore = KingOfTheHillManager.Instance.GetTeamBScore();
 
@@ -835,11 +845,11 @@ namespace Game.UI {
         private readonly HashSet<PlayerController> _allPlayersRegistry = new();
 
         public void RegisterPlayer(PlayerController player) {
-            if (player != null && _allPlayersRegistry.Add(player)) {
+            if(player != null && _allPlayersRegistry.Add(player)) {
                 // Subscribe to changes
                 player.playerName.OnValueChanged += OnPlayerProfileChanged;
                 player.playerBaseColor.OnValueChanged += OnPlayerProfileChanged;
-                
+
                 // Force an update immediately so the scoreboard reflects the new player
                 UpdateScoreboard();
             }
@@ -847,23 +857,24 @@ namespace Game.UI {
 
         public void UnregisterPlayer(PlayerController player) {
             if(player == null || !_allPlayersRegistry.Contains(player)) return;
-            
+
             // Unsubscribe
             player.playerName.OnValueChanged -= OnPlayerProfileChanged;
             player.playerBaseColor.OnValueChanged -= OnPlayerProfileChanged;
-            
+
             _allPlayersRegistry.Remove(player);
             UpdateScoreboard();
         }
-        
+
         private void OnPlayerProfileChanged<T>(T oldValue, T newValue) {
             // Clear cache to force full rebuild
             _previousPlayerIds.Clear();
             _previousSortValues.Clear();
             UpdateScoreboard();
         }
-        
-        private void OnPlayerProfileChanged(Unity.Collections.FixedString64Bytes oldValue, Unity.Collections.FixedString64Bytes newValue) {
+
+        private void OnPlayerProfileChanged(Unity.Collections.FixedString64Bytes oldValue,
+            Unity.Collections.FixedString64Bytes newValue) {
             // Clear cache to force full rebuild
             _previousPlayerIds.Clear();
             _previousSortValues.Clear();
@@ -898,6 +909,7 @@ namespace Game.UI {
 
         [Header("UI Templates")]
         [SerializeField] private VisualTreeAsset scoreboardRowTemplate;
+
         private bool _missingScoreboardTemplateLogged;
         private bool _invalidScoreboardTemplateLogged;
 
@@ -939,19 +951,18 @@ namespace Game.UI {
                 return true;
             }
 
-            if(!_invalidScoreboardTemplateLogged) {
-                _invalidScoreboardTemplateLogged = true;
-                Debug.LogError(
-                    "[ScoreboardManager] `scoreboardRowTemplate` is missing required elements. " +
-                    "Expected: `ping-label`, `avatar`, `speaking-indicator`, `name-label`, and `stat-0` through `stat-6`.",
-                    this);
-            }
+            if(_invalidScoreboardTemplateLogged) return false;
+            _invalidScoreboardTemplateLogged = true;
+            Debug.LogError(
+                "[ScoreboardManager] `scoreboardRowTemplate` is missing required elements. " +
+                "Expected: `ping-label`, `avatar`, `speaking-indicator`, `name-label`, and `stat-0` through `stat-6`.",
+                this);
 
             return false;
         }
 
         private Label[] GetRowStatLabels(VisualElement row) {
-            if(row?.userData is Label[] cachedLabels && cachedLabels.Length == 7) {
+            if(row?.userData is Label[] { Length: 7 } cachedLabels) {
                 return cachedLabels;
             }
 
@@ -959,7 +970,7 @@ namespace Game.UI {
                 return null;
             }
 
-            row.userData = statLabels;
+            if(row != null) row.userData = statLabels;
             return statLabels;
         }
 
@@ -971,11 +982,14 @@ namespace Game.UI {
             if(!EnsureScoreboardRowTemplateAssigned()) {
                 return null;
             }
+
             var row = scoreboardRowTemplate.CloneTree();
-            if(!TryGetRequiredRowElements(row, out var pingLabel, out var avatar, out var speakingIndicator, out var nameLabel,
+            if(!TryGetRequiredRowElements(row, out var pingLabel, out var avatar, out var speakingIndicator,
+                   out var nameLabel,
                    out var statLabels)) {
                 return null;
             }
+
             row.userData = statLabels;
 
             // Highlight local player
@@ -1005,7 +1019,7 @@ namespace Game.UI {
                     LoadSteamAvatar(player.steamId.Value, avatar).Forget();
                 }
             }
-            
+
             // Speaking indicator is template-owned and cached per player for state updates.
             if(speakingIndicator != null && player != null) {
                 _cachedSpeakingIndicators[player.OwnerClientId] = speakingIndicator;
@@ -1022,7 +1036,7 @@ namespace Game.UI {
                 // Handle right-click (button 1 is right mouse button)
                 if(evt.button != 1 || player == null || player.IsOwner ||
                    InGameContextMenuManager.Instance == null) return;
-                Vector2 worldPos = evt.position; 
+                Vector2 worldPos = evt.position;
                 InGameContextMenuManager.Instance.Show(player.steamId.Value, worldPos);
             });
 
@@ -1064,6 +1078,7 @@ namespace Game.UI {
             if(row == null) {
                 return null;
             }
+
             var statLabels = GetRowStatLabels(row);
             if(statLabels == null) {
                 return row;
@@ -1109,7 +1124,8 @@ namespace Game.UI {
         }
 
         // Overload for TDM (includes K, D, A, KDR, DMG, HS%, AV)
-        private VisualElement CreatePlayerRow(PlayerController player, VisualElement parentContainer, bool simplifiedStats,
+        private VisualElement CreatePlayerRow(PlayerController player, VisualElement parentContainer,
+            bool simplifiedStats,
             bool isYourTeam) {
             if(!simplifiedStats) {
                 // Call the FFA version with isTagMode = false
@@ -1120,6 +1136,7 @@ namespace Game.UI {
             if(row == null) {
                 return null;
             }
+
             AddNormalModeStats(row, player);
             return row;
         }
@@ -1128,14 +1145,17 @@ namespace Game.UI {
             if(!EnsureScoreboardRowTemplateAssigned()) {
                 return null;
             }
+
             var row = scoreboardRowTemplate.CloneTree();
-            if(!TryGetRequiredRowElements(row, out var pingLabel, out _, out _, out var nameLabel, out var statLabels)) {
+            if(!TryGetRequiredRowElements(row, out var pingLabel, out _, out _, out var nameLabel,
+                   out var statLabels)) {
                 return null;
             }
+
             row.userData = statLabels;
 
             row.AddToClassList("player-row-empty");
-            
+
             if(isYourTeam) {
                 row.AddToClassList("player-row-local-your-team");
             }
@@ -1451,19 +1471,19 @@ namespace Game.UI {
             if(!SteamClient.IsValid || !SteamClient.IsLoggedOn) return;
             if(_avatarFetchFailed.Contains(steamId)) return;
 
-            if (_avatarCache.TryGetValue(steamId, out var tex)) {
-                 if (avatarElement != null) avatarElement.style.backgroundImage = new StyleBackground(tex);
-                 return;
+            if(_avatarCache.TryGetValue(steamId, out var tex)) {
+                if(avatarElement != null) avatarElement.style.backgroundImage = new StyleBackground(tex);
+                return;
             }
 
             try {
                 var image = await SteamFriends.GetLargeAvatarAsync(steamId);
-                if (image.HasValue) {
+                if(image.HasValue) {
                     var texture = GetTextureFromImage(image.Value);
-                    if (texture != null) {
+                    if(texture != null) {
                         _avatarCache[steamId] = texture;
                         // Check if element is still valid (it might have been rebuilt)
-                        if (avatarElement != null) avatarElement.style.backgroundImage = new StyleBackground(texture);
+                        if(avatarElement != null) avatarElement.style.backgroundImage = new StyleBackground(texture);
                     } else {
                         _avatarFetchFailed.Add(steamId);
                     }
@@ -1473,7 +1493,8 @@ namespace Game.UI {
             } catch(Exception ex) {
                 _avatarFetchFailed.Add(steamId);
                 _steamAvatarFetchDisabledForSession = true;
-                Debug.LogWarning($"[ScoreboardManager] Steam avatar fetch disabled for this session after error: {ex.Message}");
+                Debug.LogWarning(
+                    $"[ScoreboardManager] Steam avatar fetch disabled for this session after error: {ex.Message}");
             }
         }
 
@@ -1487,22 +1508,22 @@ namespace Game.UI {
             }
         }
 
-        private Texture2D GetTextureFromImage(Steamworks.Data.Image image) {
-             int width = (int)image.Width;
-             int height = (int)image.Height;
-             byte[] data = image.Data;
-             
-             // Flip the image data (Steam returns it top-down, Unity UI expects bottom-up for LoadRawTextureData)
-             byte[] flippedData = new byte[data.Length];
-             int stride = width * 4; // RGBA32
-             for (int y = 0; y < height; y++) {
-                 Array.Copy(data, y * stride, flippedData, (height - 1 - y) * stride, stride);
-             }
+        private static Texture2D GetTextureFromImage(Steamworks.Data.Image image) {
+            var width = (int)image.Width;
+            var height = (int)image.Height;
+            var data = image.Data;
 
-             var texture = new Texture2D(width, height, TextureFormat.RGBA32, false);
-             texture.LoadRawTextureData(flippedData);
-             texture.Apply();
-             return texture;
+            // Flip the image data (Steam returns it top-down, Unity UI expects bottom-up for LoadRawTextureData)
+            var flippedData = new byte[data.Length];
+            var stride = width * 4; // RGBA32
+            for(var y = 0; y < height; y++) {
+                Array.Copy(data, y * stride, flippedData, (height - 1 - y) * stride, stride);
+            }
+
+            var texture = new Texture2D(width, height, TextureFormat.RGBA32, false);
+            texture.LoadRawTextureData(flippedData);
+            texture.Apply();
+            return texture;
         }
     }
 }

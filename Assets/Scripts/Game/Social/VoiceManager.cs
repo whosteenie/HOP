@@ -300,19 +300,17 @@ namespace Game.Social {
 
                         if(attempt < MaxJoinAttempts) {
                             await Task.Delay(GenericJoinRetryDelayMs);
-                            continue;
                         }
                     }
                 }
 
-                if(lastException != null && ShouldEmitThrottledLog(ref _nextJoinFailureLogTime, 5f)) {
-                    if(IsVivoxClaimsMismatch(lastException)) {
-                        _claimsMismatchRetryCooldownUntil = Time.unscaledTime + ClaimsMismatchRetryCooldownSeconds;
-                        Debug.LogWarning(
-                            $"[VoiceManager] Join channel '{channelName}' failed after claims-mismatch recovery attempts.");
-                    } else {
-                        Debug.LogError($"[VoiceManager] Join Channel Failed: {lastException.Message}");
-                    }
+                if(lastException == null || !ShouldEmitThrottledLog(ref _nextJoinFailureLogTime, 5f)) return false;
+                if(IsVivoxClaimsMismatch(lastException)) {
+                    _claimsMismatchRetryCooldownUntil = Time.unscaledTime + ClaimsMismatchRetryCooldownSeconds;
+                    Debug.LogWarning(
+                        $"[VoiceManager] Join channel '{channelName}' failed after claims-mismatch recovery attempts.");
+                } else {
+                    Debug.LogError($"[VoiceManager] Join Channel Failed: {lastException.Message}");
                 }
                 return false;
             } catch(Exception e) {
@@ -326,7 +324,7 @@ namespace Game.Social {
             }
         }
 
-        public async Task JoinChannelAsync(string channelName, bool positional = true) {
+        private async Task JoinChannelAsync(string channelName, bool positional = true) {
             await EnsureChannelJoinedAsync(channelName, positional);
         }
         

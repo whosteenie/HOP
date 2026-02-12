@@ -17,7 +17,7 @@ namespace Game.Social {
     public class ChatManager : MonoBehaviour {
         public static ChatManager Instance { get; private set; }
 
-        public const int VivoxMaxMessageBytes = 320;
+        private const int VivoxMaxMessageBytes = 320;
         public const int MaxChatInputBytes = 960;
 
         private const string ChunkMarker = "l";
@@ -160,10 +160,9 @@ namespace Game.Social {
                 var remaining = bytes.Length - offset;
                 var chunkLength = remaining;
                 string payload;
-                bool isFinalChunk;
 
                 while(true) {
-                    isFinalChunk = chunkLength == remaining;
+                    var isFinalChunk = chunkLength == remaining;
                     payload = BuildChunkPayload(messageId, chunkIndex, isFinalChunk, bytes, offset, chunkLength);
                     if(Encoding.UTF8.GetByteCount(payload) <= VivoxMaxMessageBytes) {
                         break;
@@ -332,8 +331,8 @@ namespace Game.Social {
                 }
             }
 
-            for(var i = 0; i < staleKeys.Count; i++) {
-                _chunkAssemblies.Remove(staleKeys[i]);
+            foreach(var t in staleKeys) {
+                _chunkAssemblies.Remove(t);
             }
         }
 
@@ -343,7 +342,7 @@ namespace Game.Social {
                 displayMessage = ChatProfanityFilter.Censor(displayMessage);
             }
 
-            string senderName = "You";
+            var senderName = "You";
             ulong senderSteamId = 0;
             try {
                 senderName = string.IsNullOrWhiteSpace(Steamworks.SteamClient.Name) ? "You" : Steamworks.SteamClient.Name;
@@ -409,23 +408,7 @@ namespace Game.Social {
             var builder = new StringBuilder(message.Length + (message.Length / 4));
             var runBuilder = new StringBuilder();
 
-            void FlushRun() {
-                if(runBuilder.Length == 0) return;
-
-                if(runBuilder.Length >= SoftWrapLongTokenLength) {
-                    for(var j = 0; j < runBuilder.Length; j++) {
-                        builder.Append(runBuilder[j]);
-                        builder.Append('\u200B');
-                    }
-                } else {
-                    builder.Append(runBuilder);
-                }
-
-                runBuilder.Length = 0;
-            }
-
-            for(var i = 0; i < message.Length; i++) {
-                var c = message[i];
+            foreach(var c in message) {
                 if(char.IsWhiteSpace(c)) {
                     FlushRun();
                     builder.Append(c);
@@ -437,9 +420,29 @@ namespace Game.Social {
 
             FlushRun();
             return builder.ToString();
+
+            void FlushRun() {
+                switch(runBuilder.Length) {
+                    case 0:
+                        return;
+                    case >= SoftWrapLongTokenLength: {
+                        for(var j = 0; j < runBuilder.Length; j++) {
+                            builder.Append(runBuilder[j]);
+                            builder.Append('\u200B');
+                        }
+
+                        break;
+                    }
+                    default:
+                        builder.Append(runBuilder);
+                        break;
+                }
+
+                runBuilder.Length = 0;
+            }
         }
 
-        public void SendSystemMessage(string message) {
+        private void SendSystemMessage(string message) {
             var chatMsg = new ChatMessage {
                 SenderName = "SYSTEM",
                 MessageContent = message,

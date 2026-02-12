@@ -212,7 +212,7 @@ namespace Game.UI {
             // Start lifetime-based visibility check
             StartLifetimeCheck();
             
-            // Ensure we are scrolled to the bottom so newest messages are visible
+            // Ensure we are scrolled to the bottom so the newest messages are visible
             StartCoroutine(ScrollToBottom());
             
             // Only re-lock if scoreboard isn't also visible
@@ -286,7 +286,7 @@ namespace Game.UI {
                 oldest.Element?.RemoveFromHierarchy();
             }
 
-            // Always scroll to bottom to see newest message
+            // Always scroll to bottom to see the newest message
             StartCoroutine(ScrollToBottom());
 
             // If chat is closed, ensure lifetime check is running

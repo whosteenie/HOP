@@ -16,7 +16,7 @@ namespace Game.Visuals {
             var shape = ps.shape;
             var colorOverLifetime = ps.colorOverLifetime;
             var sizeOverLifetime = ps.sizeOverLifetime;
-            var renderer = GetComponent<ParticleSystemRenderer>();
+            var particleSystemRenderer = GetComponent<ParticleSystemRenderer>();
 
             // 1. Main Settings (Fog Mode)
             main.duration = 5f;
@@ -73,11 +73,11 @@ namespace Game.Visuals {
             // 8. Renderer (Horizontal Billboard)
             // This makes particles lie FLAT on the ground. 
             // They will never "stick out" towards the camera because they are flush with the floor.
-            renderer.renderMode = ParticleSystemRenderMode.HorizontalBillboard;
-            renderer.lengthScale = 1.0f; // Reset scale
+            particleSystemRenderer.renderMode = ParticleSystemRenderMode.HorizontalBillboard;
+            particleSystemRenderer.lengthScale = 1.0f; // Reset scale
             
             if (particleMaterial != null) {
-                renderer.material = particleMaterial;
+                particleSystemRenderer.material = particleMaterial;
             } else {
                  Debug.Log("Assign a Material to avoid pink squares.");
             }

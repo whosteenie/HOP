@@ -17,7 +17,6 @@ using Unity.Services.Relay;
 using Unity.Services.Relay.Models;
 using UnityEngine;
 using UnityEngine.SceneManagement;
-using UnityUtils;
 
 namespace Network {
     public sealed partial class SessionManager {

@@ -130,7 +130,7 @@ namespace Network.Steam {
                 }
             }
             // Send to server (Client -> Server)
-            else if(_connectionManager != null && _connectionManager.Connected) {
+            else if(_connectionManager is { Connected: true }) {
                 SendToConnection(_connectionManager.Connection, payload, delivery);
             }
         }

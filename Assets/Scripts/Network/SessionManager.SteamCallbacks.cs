@@ -1,10 +1,8 @@
 using System;
 using Cysharp.Threading.Tasks;
-using Game.Social;
 using Network.Diagnostics;
 using Steamworks;
 using UnityEngine;
-using UnityUtils;
 using Lobby = Steamworks.Data.Lobby;
 
 namespace Network {

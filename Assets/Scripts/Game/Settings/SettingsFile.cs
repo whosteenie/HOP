@@ -61,7 +61,7 @@ namespace Game.Settings {
 
             try {
                 var dir = Path.GetDirectoryName(path);
-                if(dir != null && dir.Length > 0 && !Directory.Exists(dir)) {
+                if(dir is { Length: > 0 } && !Directory.Exists(dir)) {
                     Directory.CreateDirectory(dir);
                 }
 
@@ -97,7 +97,7 @@ namespace Game.Settings {
                 var stamp = DateTime.UtcNow.ToString("yyyyMMdd_HHmmss");
                 var dir = Path.GetDirectoryName(path);
                 var name = $"settings.corrupt.{stamp}.json";
-                var dst = dir != null && dir.Length > 0
+                var dst = dir is { Length: > 0 }
                     ? Path.Combine(dir, name)
                     : name;
                 File.Move(path, dst);

@@ -163,8 +163,7 @@ namespace Game.Weapons {
 
         private bool IsBlockedRoot(GameObject candidate) {
             if(candidate == null) return true;
-            if(string.IsNullOrWhiteSpace(blockedRootName)) return false;
-            return candidate.name.Equals(blockedRootName, StringComparison.OrdinalIgnoreCase);
+            return !string.IsNullOrWhiteSpace(blockedRootName) && candidate.name.Equals(blockedRootName, StringComparison.OrdinalIgnoreCase);
         }
 
         private SourceAssessment AssessSource(GameObject source) {
@@ -266,8 +265,8 @@ namespace Game.Weapons {
             if(geometryRoot == null) return;
 
             var renderers = geometryRoot.GetComponentsInChildren<Renderer>(true);
-            foreach(var renderer in renderers) {
-                renderer.shadowCastingMode = ShadowCastingMode.ShadowsOnly;
+            foreach(var geometryRenderer in renderers) {
+                geometryRenderer.shadowCastingMode = ShadowCastingMode.ShadowsOnly;
             }
 
             if(weaponShadowLayer != -1) {
@@ -300,9 +299,8 @@ namespace Game.Weapons {
                     continue;
                 }
 
-                if(!_shadowGeometryCache.TryGetValue(oldestSource, out var oldGeometry)) continue;
+                if(!_shadowGeometryCache.Remove(oldestSource, out var oldGeometry)) continue;
 
-                _shadowGeometryCache.Remove(oldestSource);
                 if(oldGeometry != null) {
                     Destroy(oldGeometry);
                 }

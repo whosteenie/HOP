@@ -680,8 +680,8 @@ namespace Network.Singletons {
                     try {
                         var primaryButton = Mouse.current[primaryControl] as ButtonControl;
                         var fallbackButton = Mouse.current[fallbackControl] as ButtonControl;
-                        var isActuallyPressed = primaryButton != null && primaryButton.isPressed
-                                                || fallbackButton != null && fallbackButton.isPressed;
+                        var isActuallyPressed = primaryButton is { isPressed: true } 
+                                                || fallbackButton is { isPressed: true };
 
                         if(!isActuallyPressed) {
                             wasPressed = false;

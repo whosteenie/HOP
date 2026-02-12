@@ -164,15 +164,15 @@ namespace Game.UI {
         /// <summary>
         /// Queries a required UI element and logs an error if missing.
         /// </summary>
-        protected T QRequired<T>(string name) where T : VisualElement {
-            return UIBindingHelper.QRequired<T>(Root, name, GetType().Name);
+        protected T QRequired<T>(string elementName) where T : VisualElement {
+            return UIBindingHelper.QRequired<T>(Root, elementName, GetType().Name);
         }
 
         /// <summary>
         /// Queries an optional UI element (returns null if missing, no error logged).
         /// </summary>
-        protected T QOptional<T>(string name) where T : VisualElement {
-            return Root?.Q<T>(name);
+        protected T QOptional<T>(string elementName) where T : VisualElement {
+            return Root?.Q<T>(elementName);
         }
 
         #endregion

@@ -232,8 +232,7 @@ namespace Game.UI {
         }
 
         private static void HideAllRows(ChallengeListRenderState state) {
-            for(var i = 0; i < state.Rows.Count; i++) {
-                var row = state.Rows[i];
+            foreach(var row in state.Rows) {
                 if(row?.Root != null) {
                     row.Root.style.display = DisplayStyle.None;
                 }
@@ -255,9 +254,8 @@ namespace Game.UI {
                 return;
             }
 
-            if(state.EmptyLabel?.parent == listContainer) {
-                state.EmptyLabel.style.display = DisplayStyle.None;
-            }
+            if(state.EmptyLabel?.parent != listContainer) return;
+            if(state.EmptyLabel != null) state.EmptyLabel.style.display = DisplayStyle.None;
         }
 
         private static string BuildDescriptionText(ChallengeDefinition def, ActiveChallengeData activeChallenge, int target) {

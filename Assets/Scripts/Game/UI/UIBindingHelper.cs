@@ -15,11 +15,10 @@ namespace Game.UI {
         /// </summary>
         public static T QRequired<T>(VisualElement root, string name, string context = null) where T : VisualElement {
             var element = root.Q<T>(name);
-            if(element == null) {
-                var ctx = string.IsNullOrEmpty(context) ? "UI" : context;
-                Debug.LogError($"[{ctx}] Required UI element '{name}' (type: {typeof(T).Name}) not found in root '{root.name}'");
-            }
-            return element;
+            if(element != null) return element;
+            var ctx = string.IsNullOrEmpty(context) ? "UI" : context;
+            Debug.LogError($"[{ctx}] Required UI element '{name}' (type: {typeof(T).Name}) not found in root '{root.name}'");
+            return null;
         }
 
         /// <summary>
@@ -35,10 +34,9 @@ namespace Game.UI {
                 }
             }
 
-            if(missing.Count > 0) {
-                var ctx = string.IsNullOrEmpty(context) ? "UI" : context;
-                Debug.LogError($"[{ctx}] Missing required UI elements in '{root.name}': {string.Join(", ", missing)}");
-            }
+            if(missing.Count <= 0) return missing;
+            var ctx = string.IsNullOrEmpty(context) ? "UI" : context;
+            Debug.LogError($"[{ctx}] Missing required UI elements in '{root.name}': {string.Join(", ", missing)}");
 
             return missing;
         }

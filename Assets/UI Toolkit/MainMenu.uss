@@ -1396,7 +1396,7 @@
     left: 18%;
     right: 21%;
     bottom: 15%;
-    top: 0%;
+    top: 0;
 }
 
 #options-content-scroll {

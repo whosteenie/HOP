@@ -22,11 +22,11 @@ namespace Game.Settings {
         }
 
         private static void EnsureLoaded() {
-            if(GameSettings.loaded) return;
-            GameSettings.loaded = true;
+            if(loaded) return;
+            loaded = true;
 
-            if(SettingsFile.TryLoad(out var loaded) && loaded != null) {
-                data = loaded;
+            if(SettingsFile.TryLoad(out var settingsData) && settingsData != null) {
+                data = settingsData;
                 ValidateAndClamp(data);
                 return;
             }

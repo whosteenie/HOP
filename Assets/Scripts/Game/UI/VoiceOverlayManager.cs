@@ -102,9 +102,7 @@ namespace Game.UI {
 
             // Unsubscribe stale player entries (despawned or replaced).
             var staleClientIds = new List<ulong>();
-            foreach(var pair in _trackedPlayers) {
-                var clientId = pair.Key;
-                var trackedPlayer = pair.Value;
+            foreach(var (clientId, trackedPlayer) in _trackedPlayers) {
                 var isMissing = trackedPlayer == null || seenClientIds.Contains(clientId) == false;
                 if(isMissing) {
                     staleClientIds.Add(clientId);
@@ -255,18 +253,17 @@ namespace Game.UI {
         }
 
         private void OnParticipantRemoved(VivoxParticipant participant) {
-            if(participant != null) {
-                var participantId = participant.PlayerId;
-                if(string.IsNullOrEmpty(participantId)) return;
+            if(participant == null) return;
+            var participantId = participant.PlayerId;
+            if(string.IsNullOrEmpty(participantId)) return;
 
-                if(_participantToCanonicalId.TryGetValue(participantId, out var canonicalId)) {
-                    RemoveSpeakerEntry(canonicalId);
-                    _participantToCanonicalId.Remove(participantId);
-                    return;
-                }
-
-                RemoveSpeakerEntry(ResolveCanonicalIdentity(participantId, out _));
+            if(_participantToCanonicalId.TryGetValue(participantId, out var canonicalId)) {
+                RemoveSpeakerEntry(canonicalId);
+                _participantToCanonicalId.Remove(participantId);
+                return;
             }
+
+            RemoveSpeakerEntry(ResolveCanonicalIdentity(participantId, out _));
         }
 
         private void CreateSpeakerEntry(string displayName, ulong steamId, string id) {
@@ -351,18 +348,15 @@ namespace Game.UI {
                 }
             }
 
-            if(VoiceManager.Instance != null) {
-                var voiceIdentity = VoiceManager.Instance.LoggedInIdentity;
-                if(string.IsNullOrEmpty(voiceIdentity) == false) {
-                    _localIdentityAliases.Add(voiceIdentity);
-                    _localCanonicalId ??= voiceIdentity;
-                }
-            }
+            if(VoiceManager.Instance == null) return;
+            var voiceIdentity = VoiceManager.Instance.LoggedInIdentity;
+            if(string.IsNullOrEmpty(voiceIdentity)) return;
+            _localIdentityAliases.Add(voiceIdentity);
+            _localCanonicalId ??= voiceIdentity;
         }
 
         private bool IsLocalIdentity(string identity) {
-            if(string.IsNullOrEmpty(identity)) return false;
-            return _localIdentityAliases.Contains(identity);
+            return !string.IsNullOrEmpty(identity) && _localIdentityAliases.Contains(identity);
         }
 
         private string ResolveCanonicalIdentity(string rawIdentity, out Player.PlayerController resolvedPlayer) {
@@ -381,11 +375,12 @@ namespace Game.UI {
                 var steamIdString = steamId != 0 ? steamId.ToString() : null;
                 var ugsIdString = player.ugsId.Value.ToString();
 
-                if((string.IsNullOrEmpty(steamIdString) == false && string.Equals(steamIdString, rawIdentity, StringComparison.Ordinal)) ||
-                   (string.IsNullOrEmpty(ugsIdString) == false && string.Equals(ugsIdString, rawIdentity, StringComparison.Ordinal))) {
-                    resolvedPlayer = player;
-                    return GetCanonicalIdentityForPlayer(player);
-                }
+                if((string.IsNullOrEmpty(steamIdString) ||
+                    !string.Equals(steamIdString, rawIdentity, StringComparison.Ordinal)) &&
+                   (string.IsNullOrEmpty(ugsIdString) ||
+                    !string.Equals(ugsIdString, rawIdentity, StringComparison.Ordinal))) continue;
+                resolvedPlayer = player;
+                return GetCanonicalIdentityForPlayer(player);
             }
 
             // Opportunistically refresh cache if we failed to resolve.
