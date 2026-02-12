@@ -12,6 +12,7 @@ namespace Game.Weapons {
         [SerializeField] private float bobRollAmount = 0.3f;
         [SerializeField] private float strafeOffsetInfluence = 0.5f;
         [SerializeField] private float strafeRollInfluence = 0.4f;
+        [SerializeField] private float forwardLateralSwayAmount = 0.0035f;
         [SerializeField] private float wallRunBobScale = 0.85f;
         [SerializeField] private float directionSmoothing = 10f;
         [SerializeField] private float directionMinSpeed = 1.5f;
@@ -261,10 +262,13 @@ namespace Game.Weapons {
             var yWave = Mathf.Sin(cycle * 2f);
             var zWave = Mathf.Cos(cycle * 2f);
             var rollWave = Mathf.Sin(cycle);
+            var forwardLateralWave = Mathf.Sin(cycle * 2f + Mathf.PI * 0.5f);
 
             // Human-like grounded movement bob: lateral sway + step bounce + subtle depth pulse.
-            var xBob = (xWave * bobHorizontalAmount + strafeFactor * bobHorizontalAmount * strafeOffsetInfluence) *
-                       _currentBobIntensity * bobScale;
+            var forwardLateralBob = forwardLateralWave * forwardLateralSwayAmount * Mathf.Abs(forwardFactor);
+            var xBob = (xWave * bobHorizontalAmount +
+                        strafeFactor * bobHorizontalAmount * strafeOffsetInfluence +
+                        forwardLateralBob) * _currentBobIntensity * bobScale;
             var yBob = yWave * bobVerticalAmount * _currentBobIntensity * bobScale;
             var zBob = zWave * bobForwardAmount * _currentBobIntensity * Mathf.Abs(forwardFactor) * bobScale;
             var rollBob =

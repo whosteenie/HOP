@@ -1,0 +1,203 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
+    <ui:VisualElement name="options-panel" class="panel full-abs center-xy hidden">
+        <ui:VisualElement name="options-container" class="options-container card">
+            <ui:Label text="OPTIONS" name="options-label" class="title"/>
+            <ui:VisualElement name="options-tabs" class="options-tabs">
+                <ui:Button text="VIDEO" name="tab-video" class="options-tab options-tab-active"/>
+                <ui:Button text="AUDIO" name="tab-audio" class="options-tab"/>
+                <ui:Button text="GAME" name="tab-game" class="options-tab"/>
+                <ui:Button text="CONTROLS" name="tab-controls" class="options-tab"/>
+            </ui:VisualElement>
+            <ui:ScrollView name="options-content-scroll" vertical-scroller-visibility="Auto" horizontal-scroller-visibility="Hidden" class="options-content-scroll">
+                <ui:VisualElement name="options-content" class="options-content">
+                    <ui:VisualElement name="video-content" class="options-tab-content">
+                        <ui:VisualElement name="window-mode-container" class="setting-row">
+                            <ui:Label text="WINDOW MODE" name="window-mode-label" class="setting-label"/>
+                            <ui:DropdownField name="window-mode" class="setting-dropdown"/>
+                        </ui:VisualElement>
+                        <ui:VisualElement name="aspect-ratio-container" class="setting-row">
+                            <ui:Label text="ASPECT RATIO" name="aspect-ratio-label" class="setting-label"/>
+                            <ui:DropdownField name="aspect-ratio" class="setting-dropdown"/>
+                        </ui:VisualElement>
+                        <ui:VisualElement name="resolution-container" class="setting-row">
+                            <ui:Label text="RESOLUTION" name="resolution-label" class="setting-label"/>
+                            <ui:DropdownField name="resolution" class="setting-dropdown"/>
+                        </ui:VisualElement>
+                        <ui:VisualElement name="msaa-container" class="setting-row">
+                            <ui:Label text="ANTI-ALIASING (MSAA)" name="msaa-label" class="setting-label"/>
+                            <ui:DropdownField name="msaa" class="setting-dropdown"/>
+                        </ui:VisualElement>
+                        <ui:VisualElement name="shadow-distance-container" class="setting-row">
+                            <ui:Label text="SHADOW DISTANCE" name="shadow-distance-label" class="setting-label"/>
+                            <ui:Slider name="shadow-distance" low-value="0" high-value="500" fill="true" class="setting-slider"/>
+                            <ui:TextField name="shadow-distance-value" value="300" max-length="6" class="value-input"/>
+                        </ui:VisualElement>
+                        <ui:VisualElement name="shadow-resolution-container" class="setting-row">
+                            <ui:Label text="SHADOW RESOLUTION" name="shadow-resolution-label" class="setting-label"/>
+                            <ui:DropdownField name="shadow-resolution" class="setting-dropdown"/>
+                        </ui:VisualElement>
+                        <ui:VisualElement name="vsync-container" class="setting-row">
+                            <ui:Label text="VSYNC" name="vsync-label" class="setting-label"/>
+                            <ui:Button name="vsync" class="setting-toggle"/>
+                        </ui:VisualElement>
+                        <ui:VisualElement name="target-fps-container" class="setting-row">
+                            <ui:Label text="TARGET FPS" name="target-fps-label" class="setting-label"/>
+                            <ui:DropdownField name="target-fps" class="setting-dropdown"/>
+                        </ui:VisualElement>
+                    </ui:VisualElement>
+                    <ui:VisualElement name="audio-content" class="options-tab-content hidden">
+                        <ui:VisualElement name="master-container" class="setting-row">
+                            <ui:Label text="MASTER VOLUME" name="master-label" class="setting-label"/>
+                            <ui:Slider name="master-volume" low-value="0" high-value="1" fill="true" class="setting-slider"/>
+                            <ui:TextField name="master-volume-value" value="100%" max-length="4" class="value-input"/>
+                        </ui:VisualElement>
+                        <ui:VisualElement name="music-container" class="setting-row">
+                            <ui:Label text="MUSIC VOLUME" name="music-label" class="setting-label"/>
+                            <ui:Slider name="music-volume" low-value="0" high-value="1" fill="true" class="setting-slider"/>
+                            <ui:TextField name="music-volume-value" value="100%" max-length="4" class="value-input"/>
+                        </ui:VisualElement>
+                        <ui:VisualElement name="sfx-container" class="setting-row">
+                            <ui:Label text="SFX VOLUME" name="sfx-label" class="setting-label"/>
+                            <ui:Slider name="sfx-volume" low-value="0" high-value="1" fill="true" class="setting-slider"/>
+                            <ui:TextField name="sfx-volume-value" value="100%" max-length="4" class="value-input"/>
+                        </ui:VisualElement>
+                        <ui:VisualElement name="voice-volume-container" class="setting-row">
+                            <ui:Label text="VOICE CHAT VOLUME" name="voice-volume-label" class="setting-label"/>
+                            <ui:Slider name="voice-volume" low-value="0" high-value="1" fill="true" class="setting-slider"/>
+                            <ui:TextField name="voice-volume-value" value="100%" max-length="4" class="value-input"/>
+                        </ui:VisualElement>
+                        <ui:VisualElement name="voice-input-volume-container" class="setting-row">
+                            <ui:Label text="MICROPHONE VOLUME" name="voice-input-volume-label" class="setting-label"/>
+                            <ui:Slider name="voice-input-volume" low-value="0" high-value="1" fill="true" class="setting-slider"/>
+                            <ui:TextField name="voice-input-volume-value" value="100%" max-length="4" class="value-input"/>
+                        </ui:VisualElement>
+                        <ui:VisualElement name="voice-device-container" class="setting-row">
+                            <ui:Label text="MICROPHONE" name="voice-device-label" class="setting-label"/>
+                            <ui:DropdownField name="voice-device" class="setting-dropdown"/>
+                        </ui:VisualElement>
+                    </ui:VisualElement>
+                    <ui:VisualElement name="game-content" class="options-tab-content hidden">
+                        <ui:VisualElement name="player-trails-container" class="setting-row">
+                            <ui:Label text="ENABLE PLAYER SPEED TRAILS" name="player-trails-label" class="setting-label"/>
+                            <ui:Button name="player-trails" class="setting-toggle"/>
+                        </ui:VisualElement>
+                        <ui:VisualElement name="streamer-mode-container" class="setting-row">
+                            <ui:Label text="STREAMER MODE (HIDE YOUR NAME)" name="streamer-mode-label" class="setting-label"/>
+                            <ui:Button name="streamer-mode" class="setting-toggle"/>
+                        </ui:VisualElement>
+                        <ui:VisualElement name="hold-mantle-container" class="setting-row">
+                            <ui:Label text="HOLD TO MANTLE" name="hold-mantle-label" class="setting-label"/>
+                            <ui:Button name="hold-mantle" class="setting-toggle"/>
+                        </ui:VisualElement>
+                        <ui:VisualElement name="auto-wall-run-container" class="setting-row">
+                            <ui:Label text="AUTO WALL RUN" name="auto-wall-run-label" class="setting-label"/>
+                            <ui:Button name="auto-wall-run" class="setting-toggle"/>
+                        </ui:VisualElement>
+                        <ui:VisualElement name="grapple-indicator-container" class="setting-row">
+                            <ui:Label text="GRAPPLE INDICATOR TYPE" name="grapple-indicator-label" class="setting-label"/>
+                            <ui:DropdownField name="grapple-indicator" class="setting-dropdown"/>
+                        </ui:VisualElement>
+                        <ui:VisualElement name="profanity-filter-container" class="setting-row">
+                            <ui:Label text="CHAT PROFANITY FILTER" name="profanity-filter-label" class="setting-label"/>
+                            <ui:Button name="profanity-filter" class="setting-toggle"/>
+                        </ui:VisualElement>
+                        <ui:VisualElement name="voice-mode-container" class="setting-row">
+                            <ui:Label text="VOICE INPUT MODE" name="voice-mode-label" class="setting-label"/>
+                            <ui:DropdownField name="voice-mode" class="setting-dropdown"/>
+                        </ui:VisualElement>
+                    </ui:VisualElement>
+                    <ui:VisualElement name="controls-content" class="options-tab-content hidden">
+                        <ui:VisualElement name="sensitivity-container" class="setting-row">
+                            <ui:Label text="MOUSE SENSITIVITY" name="sensitivity-label" class="setting-label"/>
+                            <ui:Slider name="sensitivity" low-value="0.01" high-value="0.5" fill="true" class="setting-slider"/>
+                            <ui:TextField name="sensitivity-value" value="0.10" max-length="5" class="value-input"/>
+                        </ui:VisualElement>
+                        <ui:VisualElement name="invert-y-container" class="setting-row">
+                            <ui:Label text="INVERT Y AXIS" name="invert-y-label" class="setting-label"/>
+                            <ui:Button name="invert-y" class="setting-toggle"/>
+                        </ui:VisualElement>
+                        <ui:VisualElement name="keybind-forward-container" class="setting-row">
+                            <ui:Label text="FORWARD" name="keybind-forward-label" class="setting-label"/>
+                            <ui:Button name="keybind-forward-0" text="NONE" class="keybind-button"/>
+                            <ui:Button name="keybind-forward-1" text="NONE" class="keybind-button"/>
+                        </ui:VisualElement>
+                        <ui:VisualElement name="keybind-back-container" class="setting-row">
+                            <ui:Label text="BACK" name="keybind-back-label" class="setting-label"/>
+                            <ui:Button name="keybind-back-0" text="NONE" class="keybind-button"/>
+                            <ui:Button name="keybind-back-1" text="NONE" class="keybind-button"/>
+                        </ui:VisualElement>
+                        <ui:VisualElement name="keybind-left-container" class="setting-row">
+                            <ui:Label text="LEFT" name="keybind-left-label" class="setting-label"/>
+                            <ui:Button name="keybind-left-0" text="NONE" class="keybind-button"/>
+                            <ui:Button name="keybind-left-1" text="NONE" class="keybind-button"/>
+                        </ui:VisualElement>
+                        <ui:VisualElement name="keybind-right-container" class="setting-row">
+                            <ui:Label text="RIGHT" name="keybind-right-label" class="setting-label"/>
+                            <ui:Button name="keybind-right-0" text="NONE" class="keybind-button"/>
+                            <ui:Button name="keybind-right-1" text="NONE" class="keybind-button"/>
+                        </ui:VisualElement>
+                        <ui:VisualElement name="keybind-jump-container" class="setting-row">
+                            <ui:Label text="JUMP" name="keybind-jump-label" class="setting-label"/>
+                            <ui:Button name="keybind-jump-0" text="NONE" class="keybind-button"/>
+                            <ui:Button name="keybind-jump-1" text="NONE" class="keybind-button"/>
+                        </ui:VisualElement>
+                        <ui:VisualElement name="keybind-interact-container" class="setting-row">
+                            <ui:Label text="INTERACT" name="keybind-interact-label" class="setting-label"/>
+                            <ui:Button name="keybind-interact-0" text="NONE" class="keybind-button"/>
+                            <ui:Button name="keybind-interact-1" text="NONE" class="keybind-button"/>
+                        </ui:VisualElement>
+                        <ui:VisualElement name="keybind-shoot-container" class="setting-row">
+                            <ui:Label text="SHOOT" name="keybind-shoot-label" class="setting-label"/>
+                            <ui:Button name="keybind-shoot-0" text="NONE" class="keybind-button"/>
+                            <ui:Button name="keybind-shoot-1" text="NONE" class="keybind-button"/>
+                        </ui:VisualElement>
+                        <ui:VisualElement name="keybind-ads-container" class="setting-row">
+                            <ui:Label text="ADS" name="keybind-ads-label" class="setting-label"/>
+                            <ui:Button name="keybind-ads-0" text="NONE" class="keybind-button"/>
+                            <ui:Button name="keybind-ads-1" text="NONE" class="keybind-button"/>
+                        </ui:VisualElement>
+                        <ui:VisualElement name="keybind-reload-container" class="setting-row">
+                            <ui:Label text="RELOAD" name="keybind-reload-label" class="setting-label"/>
+                            <ui:Button name="keybind-reload-0" text="NONE" class="keybind-button"/>
+                            <ui:Button name="keybind-reload-1" text="NONE" class="keybind-button"/>
+                        </ui:VisualElement>
+                        <ui:VisualElement name="keybind-grapple-container" class="setting-row">
+                            <ui:Label text="GRAPPLE" name="keybind-grapple-label" class="setting-label"/>
+                            <ui:Button name="keybind-grapple-0" text="NONE" class="keybind-button"/>
+                            <ui:Button name="keybind-grapple-1" text="NONE" class="keybind-button"/>
+                        </ui:VisualElement>
+                        <ui:VisualElement name="keybind-primary-container" class="setting-row">
+                            <ui:Label text="PRIMARY WEAPON" name="keybind-primary-label" class="setting-label"/>
+                            <ui:Button name="keybind-primary-0" text="NONE" class="keybind-button"/>
+                            <ui:Button name="keybind-primary-1" text="NONE" class="keybind-button"/>
+                        </ui:VisualElement>
+                        <ui:VisualElement name="keybind-secondary-container" class="setting-row">
+                            <ui:Label text="SECONDARY WEAPON" name="keybind-secondary-label" class="setting-label"/>
+                            <ui:Button name="keybind-secondary-0" text="NONE" class="keybind-button"/>
+                            <ui:Button name="keybind-secondary-1" text="NONE" class="keybind-button"/>
+                        </ui:VisualElement>
+                        <ui:VisualElement name="keybind-nextweapon-container" class="setting-row">
+                            <ui:Label text="NEXT WEAPON" name="keybind-nextweapon-label" class="setting-label"/>
+                            <ui:Button name="keybind-nextweapon-0" text="NONE" class="keybind-button"/>
+                            <ui:Button name="keybind-nextweapon-1" text="NONE" class="keybind-button"/>
+                        </ui:VisualElement>
+                        <ui:VisualElement name="keybind-previousweapon-container" class="setting-row">
+                            <ui:Label text="PREVIOUS WEAPON" name="keybind-previousweapon-label" class="setting-label"/>
+                            <ui:Button name="keybind-previousweapon-0" text="NONE" class="keybind-button"/>
+                            <ui:Button name="keybind-previousweapon-1" text="NONE" class="keybind-button"/>
+                        </ui:VisualElement>
+                        <ui:VisualElement name="keybind-ptt-container" class="setting-row">
+                            <ui:Label text="PUSH TO TALK" name="keybind-ptt-label" class="setting-label"/>
+                            <ui:Button name="keybind-ptt-0" text="NONE" class="keybind-button"/>
+                            <ui:Button name="keybind-ptt-1" text="NONE" class="keybind-button"/>
+                        </ui:VisualElement>
+                    </ui:VisualElement>
+                </ui:VisualElement>
+            </ui:ScrollView>
+            <ui:VisualElement name="apply-container" class="button-row">
+                <ui:Button text="BACK" name="back-button" class="menu-chip menu-chip-enabled back-button"/>
+                <ui:Button text="APPLY" name="apply-button" class="menu-chip menu-chip-enabled"/>
+            </ui:VisualElement>
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>
