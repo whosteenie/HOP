@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 15b0ef9727ca4ea4eac9c448f4f5c111
+timeCreated: 1585577183
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 9100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 153906
+  packageName: Runner Action Animation Pack
+  packageVersion: 1.7.2
+  assetPath: Assets/CLazyRunnerActionAnimPack/Animations/P2_CLazyEscape/Esc_BoostDash_UpDown/Controller/CLazy@Esc_BoostDash_Up_Fwd.controller
+  uploadId: 455158

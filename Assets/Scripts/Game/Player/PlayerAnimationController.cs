@@ -29,6 +29,8 @@ namespace Game.Player {
         private static readonly int IsFallingHash = Animator.StringToHash("IsFalling");
         private static readonly int IsGroundedHash = Animator.StringToHash("IsGrounded");
         private static readonly int IsSlidingHash = Animator.StringToHash("IsSliding");
+        private static readonly int IsWallRunningHash = Animator.StringToHash("IsWallRunning");
+        private static readonly int RightWallRunHash = Animator.StringToHash("RightWallRun");
 
         // Animation state tracking
         private bool _wasGrounded;
@@ -80,6 +82,12 @@ namespace Game.Player {
             _playerAnimator.SetFloat(MoveYHash, localVelocity.z / maxSpeed, 0.1f, Time.deltaTime);
             _playerAnimator.SetBool(IsSprintingHash, isSprinting);
             _playerAnimator.SetBool(IsFallingHash, IsFalling);
+
+            var wallRunController = playerController != null ? playerController.WallRunController : null;
+            var isWallRunning = wallRunController != null && wallRunController.IsWallRunning;
+            var isRightWallRun = wallRunController != null && wallRunController.IsRightWallRun;
+            _playerAnimator.SetBool(IsWallRunningHash, isWallRunning);
+            _playerAnimator.SetBool(RightWallRunHash, isRightWallRun);
 
             var isGrounded = playerController != null && playerController.IsGrounded;
             if((isGrounded && !IsJumping) || IsFalling) {

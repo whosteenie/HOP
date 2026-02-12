@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: e04f7ad55b520d04da456e0687b88a3e
+timeCreated: 1628492492
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 9100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 153906
+  packageName: Runner Action Animation Pack
+  packageVersion: 1.7.2
+  assetPath: Assets/CLazyRunnerActionAnimPack/Animations/P1_CLazyMovement/Mvm_Turn_Walk/controller/CLazy@Mvm_Walk_TurnR_180_Left_Root.controller
+  uploadId: 455158

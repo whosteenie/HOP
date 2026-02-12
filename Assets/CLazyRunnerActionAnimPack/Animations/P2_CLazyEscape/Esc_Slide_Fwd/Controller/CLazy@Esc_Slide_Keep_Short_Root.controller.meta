@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: d77a50d0c5d4b304b9d2a861a8bc001e
+timeCreated: 1567516940
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 9100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 153906
+  packageName: Runner Action Animation Pack
+  packageVersion: 1.7.2
+  assetPath: Assets/CLazyRunnerActionAnimPack/Animations/P2_CLazyEscape/Esc_Slide_Fwd/Controller/CLazy@Esc_Slide_Keep_Short_Root.controller
+  uploadId: 455158

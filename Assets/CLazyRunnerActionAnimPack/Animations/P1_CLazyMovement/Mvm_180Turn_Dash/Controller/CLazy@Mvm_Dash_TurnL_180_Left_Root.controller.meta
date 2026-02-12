@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: b677f8aea7804344abd9710eda7143ef
+timeCreated: 1580138319
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 9100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 153906
+  packageName: Runner Action Animation Pack
+  packageVersion: 1.7.2
+  assetPath: Assets/CLazyRunnerActionAnimPack/Animations/P1_CLazyMovement/Mvm_180Turn_Dash/Controller/CLazy@Mvm_Dash_TurnL_180_Left_Root.controller
+  uploadId: 455158

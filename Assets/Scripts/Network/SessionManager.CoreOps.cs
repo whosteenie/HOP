@@ -264,10 +264,47 @@ namespace Network {
             if(_isLeaving || _isShuttingDown) return;
             if(VoiceManager.Instance == null || !VoiceManager.Instance.IsLoggedIn) return;
 
-            VoiceManager.Instance.JoinChannelAsync("match_" + lobbyId).Forget();
+            _ = VoiceManager.Instance.EnsureChannelJoinedAsync("match_" + lobbyId);
             if(Debug.isDebugBuild) {
                 Debug.Log($"[SessionManager] Requested voice join for Steam social lobby '{lobbyId}' ({context}).");
             }
+        }
+
+        private void TryJoinVoiceForActiveMatch(string context) {
+            if(_isLeaving || _isShuttingDown) return;
+            if(VoiceManager.Instance == null || !VoiceManager.Instance.IsLoggedIn) return;
+
+            if(!TryGetActiveMatchVoiceChannelName(out var channelName)) {
+                if(Debug.isDebugBuild) {
+                    Debug.Log($"[SessionManager] No active match channel available for voice join ({context}).");
+                }
+                return;
+            }
+
+            _ = VoiceManager.Instance.EnsureChannelJoinedAsync(channelName);
+            if(Debug.isDebugBuild) {
+                Debug.Log($"[SessionManager] Requested voice join for active match channel '{channelName}' ({context}).");
+            }
+        }
+
+        public bool TryGetActiveVoiceChannelName(out string channelName) {
+            return TryGetActiveMatchVoiceChannelName(out channelName);
+        }
+
+        private bool TryGetActiveMatchVoiceChannelName(out string channelName) {
+            channelName = null;
+
+            if(_ugsMatchLobby != null && string.IsNullOrEmpty(_ugsMatchLobby.Id) == false) {
+                channelName = "match_" + _ugsMatchLobby.Id;
+                return true;
+            }
+
+            if(CurrentLobby.HasValue && CurrentLobby.Value.Id != 0) {
+                channelName = "match_" + CurrentLobby.Value.Id;
+                return true;
+            }
+
+            return false;
         }
 
         private static async UniTask<bool> WaitForActiveSceneAsync(string expectedSceneName, float timeoutSeconds) {

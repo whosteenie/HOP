@@ -222,7 +222,8 @@ namespace Game.Player {
 
             if (VoiceManager.Instance != null && voiceAction != null) {
                 var isPressed = voiceAction.IsPressed();
-                VoiceManager.Instance.SetPttActive(isPressed);
+                var isChatOpen = GameMenuManager.Instance != null && GameMenuManager.Instance.IsChatOpen;
+                VoiceManager.Instance.SetPttActive(isPressed && !isChatOpen);
 
                 _voiceBtnDown = isPressed;
             }

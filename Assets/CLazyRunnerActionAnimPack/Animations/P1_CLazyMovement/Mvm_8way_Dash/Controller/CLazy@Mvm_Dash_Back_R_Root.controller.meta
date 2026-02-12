@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: e453aea954720194a8d61af6b1156ac7
+timeCreated: 1570965870
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 9100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 153906
+  packageName: Runner Action Animation Pack
+  packageVersion: 1.7.2
+  assetPath: Assets/CLazyRunnerActionAnimPack/Animations/P1_CLazyMovement/Mvm_8way_Dash/Controller/CLazy@Mvm_Dash_Back_R_Root.controller
+  uploadId: 455158

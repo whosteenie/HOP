@@ -7,6 +7,7 @@ namespace Game.Player {
         public event Action OnPutAwayComplete;
 
         [SerializeField] private PlayerController playerController;
+        [SerializeField] private bool debugAnimationEvents;
         private WeaponManager _weaponManager;
 
         private void Awake() {
@@ -30,6 +31,9 @@ namespace Game.Player {
         /// Animation event to play the walk sound.
         /// </summary>
         public void PlayWalkSound() {
+            if(debugAnimationEvents && Debug.isDebugBuild) {
+                Debug.Log($"[PlayerAnimationEvents] PlayWalkSound event on {name}");
+            }
             if(playerController == null) return;
             playerController.PlayWalkSound();
         }
@@ -38,6 +42,9 @@ namespace Game.Player {
         /// Animation event to play the run sound.
         /// </summary>
         public void PlayRunSound() {
+            if(debugAnimationEvents && Debug.isDebugBuild) {
+                Debug.Log($"[PlayerAnimationEvents] PlayRunSound event on {name}");
+            }
             if(playerController == null) return;
             playerController.PlayRunSound();
         }

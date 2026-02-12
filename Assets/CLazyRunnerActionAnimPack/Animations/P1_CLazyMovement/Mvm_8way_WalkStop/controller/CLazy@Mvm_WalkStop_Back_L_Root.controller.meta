@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 3979b6430a0ce2546bf4c11b5b0a0211
+timeCreated: 1628492290
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 9100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 153906
+  packageName: Runner Action Animation Pack
+  packageVersion: 1.7.2
+  assetPath: Assets/CLazyRunnerActionAnimPack/Animations/P1_CLazyMovement/Mvm_8way_WalkStop/controller/CLazy@Mvm_WalkStop_Back_L_Root.controller
+  uploadId: 455158

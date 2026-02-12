@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: a74700b3539154c44ab3c7c89bdd7f51
+timeCreated: 1567616332
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 9100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 153906
+  packageName: Runner Action Animation Pack
+  packageVersion: 1.7.2
+  assetPath: Assets/CLazyRunnerActionAnimPack/Animations/P6_CLazyWallRun/WallRun_Low_Dash/Controller/CLazy@LoWall_LDash_Loop_Root.controller
+  uploadId: 455158

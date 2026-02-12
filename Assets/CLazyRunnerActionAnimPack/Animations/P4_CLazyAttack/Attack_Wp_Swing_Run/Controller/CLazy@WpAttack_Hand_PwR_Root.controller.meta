@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 59f4a56ed81c1164787568d68df54c18
+timeCreated: 1567612272
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 9100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 153906
+  packageName: Runner Action Animation Pack
+  packageVersion: 1.7.2
+  assetPath: Assets/CLazyRunnerActionAnimPack/Animations/P4_CLazyAttack/Attack_Wp_Swing_Run/Controller/CLazy@WpAttack_Hand_PwR_Root.controller
+  uploadId: 455158

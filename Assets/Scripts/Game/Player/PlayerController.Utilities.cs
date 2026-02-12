@@ -70,7 +70,8 @@ namespace Game.Player {
         /// Plays the player's run sound if grounded and moving fast enough.
         /// </summary>
         public void PlayRunSound() {
-            if(!IsGrounded) return;
+            var isWallRunning = wallRunController != null && wallRunController.IsWallRunning;
+            if(!IsGrounded && !isWallRunning) return;
 
             if(movementController == null) return;
 

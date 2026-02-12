@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: a16a2532268563546865c80032a04dcb
+timeCreated: 1567612414
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 9100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 153906
+  packageName: Runner Action Animation Pack
+  packageVersion: 1.7.2
+  assetPath: Assets/CLazyRunnerActionAnimPack/Animations/P4_CLazyAttack/Attack_Wp_Jump_Air/Controller/CLazy@WpJAttack_AirDrop_Keep.controller
+  uploadId: 455158

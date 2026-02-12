@@ -1,18 +1,21 @@
 using System;
 using System.Collections.Generic;
+using System.Text;
 using System.Threading.Tasks;
 using Unity.Services.CloudCode;
 using Unity.Services.Vivox;
 using UnityEngine;
 
 namespace Game.Social {
-    /// <summary>
-    /// Vivox token provider that requests one-time-use VATs from UGS Cloud Code.
-    /// This allows running with Vivox Test Mode disabled and without shipping a Vivox signing key in the client.
-    /// </summary>
     public sealed class VivoxCloudCodeTokenProvider : IVivoxTokenProvider {
-        // Cloud Code Script endpoint name (must match the script name you deploy).
         private const string EndpointName = "VivoxToken";
+        private const string JoinActionPrefix = "join~";
+
+        private static string Base64UrlEncode(string value) {
+            if(string.IsNullOrEmpty(value)) return string.Empty;
+            var bytes = Encoding.UTF8.GetBytes(value);
+            return Convert.ToBase64String(bytes).TrimEnd('=').Replace('+', '-').Replace('/', '_');
+        }
 
         public async Task<string> GetTokenAsync(string issuer = null, TimeSpan? expiration = null, string targetUserUri = null,
             string action = null, string channelUri = null, string fromUserUri = null, string realm = null) {
@@ -24,29 +27,30 @@ namespace Game.Social {
                 throw new ArgumentException("Vivox token request missing fromUserUri.", nameof(fromUserUri));
             }
 
-            var args = new Dictionary<string, object>();
-            if(!string.IsNullOrEmpty(issuer)) {
-                args["issuer"] = issuer;
+            var actionForCloudCode = action;
+            if(string.Equals(action, "join", StringComparison.Ordinal) && string.IsNullOrEmpty(channelUri) == false) {
+                // Work around environments that strip channelUri before script receives params.
+                actionForCloudCode = JoinActionPrefix + Base64UrlEncode(channelUri);
             }
 
+            var args = new Dictionary<string, object> {
+                ["action"] = actionForCloudCode,
+                ["fromUserUri"] = fromUserUri
+            };
+
             if(expiration.HasValue) {
-                // Vivox passes expiration as "seconds since Unix epoch" in its token provider calls.
                 args["expiration"] = (int)expiration.Value.TotalSeconds;
             }
 
-            if(!string.IsNullOrEmpty(targetUserUri)) {
-                args["targetUserUri"] = targetUserUri;
-            }
-
-            args["action"] = action;
-
-            if(!string.IsNullOrEmpty(channelUri)) {
+            if(string.IsNullOrEmpty(channelUri) == false) {
                 args["channelUri"] = channelUri;
             }
 
-            args["fromUserUri"] = fromUserUri;
+            if(string.IsNullOrEmpty(targetUserUri) == false) {
+                args["targetUserUri"] = targetUserUri;
+            }
 
-            if(!string.IsNullOrEmpty(realm)) {
+            if(string.IsNullOrEmpty(realm) == false) {
                 args["realm"] = realm;
             }
 
@@ -55,7 +59,7 @@ namespace Game.Social {
                 Debug.Log(
                     "[VivoxToken] Requesting VAT via Cloud Code. " +
                     $"action='{action}' fromUserUri='{fromUserUri}' channelUri='{channelUri}' targetUserUri='{targetUserUri}' " +
-                    $"issuerProvided={(string.IsNullOrEmpty(issuer) ? "0" : "1")} expSeconds={expSeconds} realm='{realm}'"
+                    $"expSeconds={expSeconds} realm='{realm}'"
                 );
             }
 
@@ -64,6 +68,7 @@ namespace Game.Social {
                 if(string.IsNullOrEmpty(token)) {
                     throw new Exception("Cloud Code returned an empty Vivox access token.");
                 }
+
                 return token;
             } catch(Exception e) {
                 Debug.LogError($"[VivoxCloudCodeTokenProvider] Failed to fetch token (action='{action}'). Exception: {e.Message}");

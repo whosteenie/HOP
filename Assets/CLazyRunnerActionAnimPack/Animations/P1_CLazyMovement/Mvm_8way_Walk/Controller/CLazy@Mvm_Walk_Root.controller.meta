@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: f3db8abad07038449b84c48db1784536
+timeCreated: 1567433687
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 9100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 153906
+  packageName: Runner Action Animation Pack
+  packageVersion: 1.7.2
+  assetPath: Assets/CLazyRunnerActionAnimPack/Animations/P1_CLazyMovement/Mvm_8way_Walk/Controller/CLazy@Mvm_Walk_Root.controller
+  uploadId: 455158

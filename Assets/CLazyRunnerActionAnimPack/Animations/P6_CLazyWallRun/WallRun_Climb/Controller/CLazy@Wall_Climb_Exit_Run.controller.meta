@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 6f8a4d566def7ae41a52aac3b12b195e
+timeCreated: 1585581008
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 9100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 153906
+  packageName: Runner Action Animation Pack
+  packageVersion: 1.7.2
+  assetPath: Assets/CLazyRunnerActionAnimPack/Animations/P6_CLazyWallRun/WallRun_Climb/Controller/CLazy@Wall_Climb_Exit_Run.controller
+  uploadId: 455158
