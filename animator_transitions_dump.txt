@@ -1,0 +1,76 @@
+STATE|-8468254856772982432|Idle Turn Blend
+  TRANS|1814273234665550751|dst=Crouch Turn Blend|conds=IsCrouching If 0
+STATE|-6189860761214443838|Idle
+  TRANS|-7916310220984227296|dst=Damage|conds=DamageTrigger If 0
+STATE|-6094650611635348010|Jump Begin
+  TRANS|5850765134446649097|dst=Fall|conds=IsFalling If 0
+  TRANS|-5671558251830120074|dst=Land|conds=LandTrigger If 0; IsFalling IfNot 0
+  TRANS|-3913334395468856457|dst=WallRun Right|conds=IsWallRunning If 0; RightWallRun If 0
+  TRANS|-4431509825170781518|dst=WallRun Left|conds=IsWallRunning If 0; RightWallRun IfNot 0
+STATE|-5510204720137812398|PistolReload
+  TRANS|-265152483300824328|dst=PistolAim|conds=
+STATE|-5366041774608731794|Land
+  TRANS|-4970241785958628872|dst=Walk Blend|conds=IsJumping IfNot 0; IsFalling IfNot 0; IsCrouching IfNot 0; IsSprinting IfNot 0
+  TRANS|-2723481316913284742|dst=Jump Begin|conds=JumpTrigger If 0; IsJumping If 0
+  TRANS|-1732065646055301789|dst=Sprint Blend|conds=IsJumping IfNot 0; IsFalling IfNot 0; IsCrouching IfNot 0; IsSprinting If 0
+  TRANS|7732917987684135225|dst=Crouch Walk Blend|conds=IsJumping IfNot 0; IsFalling IfNot 0; IsCrouching If 0; IsSliding IfNot 0
+  TRANS|7033013089585116937|dst=Slide|conds=IsSliding If 0; IsFalling IfNot 0
+STATE|-4898779154332509684|Damage
+  TRANS|-7327029845310381011|dst=Idle|conds=
+  TRANS|1052732418152923665|dst=Damage|conds=DamageTrigger If 0
+STATE|-4400133178415417710|Sprint Blend
+  TRANS|3436979032847063683|dst=Walk Blend|conds=IsCrouching IfNot 0; IsSprinting IfNot 0; IsSliding IfNot 0
+  TRANS|-2720847698097416057|dst=Jump Begin|conds=JumpTrigger If 0
+  TRANS|-8730416113322202999|dst=Crouch Walk Blend|conds=IsCrouching If 0; IsSliding IfNot 0
+  TRANS|5139898026446395553|dst=Fall|conds=IsFalling If 0
+  TRANS|-3475025486832571713|dst=Slide|conds=IsSliding If 0
+STATE|-3408774711179769182|WallRun Right
+  TRANS|-4694879701133431369|dst=Fall|conds=IsWallRunning IfNot 0; IsJumping IfNot 0
+  TRANS|5898465448131820425|dst=Jump Begin|conds=IsWallRunning IfNot 0; IsJumping If 0
+STATE|-2703569177427875381|PistolUnsheathe
+  TRANS|-3761372293394700337|dst=PistolAim|conds=
+STATE|-1721630219947509637|Slide
+  TRANS|4728515878884990140|dst=Crouch Walk Blend|conds=IsSliding IfNot 0; IsCrouching If 0
+  TRANS|6277203475086423946|dst=Sprint Blend|conds=IsSliding IfNot 0; IsSprinting If 0
+  TRANS|5490967481604386417|dst=Walk Blend|conds=IsSliding IfNot 0; IsSprinting IfNot 0; IsCrouching IfNot 0
+  TRANS|5927442734668146162|dst=Jump Begin|conds=IsSliding IfNot 0; JumpTrigger If 0
+STATE|-513479082598506003|WallRun Left
+  TRANS|9151973936830781918|dst=Fall|conds=IsWallRunning IfNot 0; IsJumping IfNot 0
+  TRANS|4124068627301223054|dst=Jump Begin|conds=IsWallRunning IfNot 0; IsJumping If 0
+STATE|191850896593007223|Hold Item
+STATE|1437738254834868875|PistolRecoil
+  TRANS|-5862802015296939721|dst=PistolAim|conds=
+  TRANS|-6154574836936855910|dst=PistolReload|conds=Reload If 0
+STATE|2449332704818194561|AKAim
+  TRANS|-6713203168784257813|dst=AKRecoil|conds=Recoil If 0
+  TRANS|-6722738426414599636|dst=AKReload|conds=Reload If 0
+STATE|3192261807780956894|PistolAim
+  TRANS|6359690922834113623|dst=PistolReload|conds=Reload If 0
+  TRANS|4545059840001485607|dst=PistolRecoil|conds=Recoil If 0
+STATE|4088934901983378255|AKReload
+  TRANS|-3732079219600988707|dst=AKAim|conds=
+STATE|4853509897714334172|Crouch Walk Blend
+  TRANS|134180326264880659|dst=Walk Blend|conds=IsCrouching IfNot 0; IsSprinting IfNot 0
+  TRANS|-2756421426283490234|dst=Sprint Blend|conds=IsCrouching IfNot 0; IsSprinting If 0
+  TRANS|3727055219314958324|dst=Fall|conds=IsFalling If 0
+  TRANS|4278032211422542790|dst=Jump Begin|conds=JumpTrigger If 0
+  TRANS|8060253162508208307|dst=Slide|conds=IsSliding If 0
+STATE|5385658956474638652|AKUnsheathe
+  TRANS|-4064938769458886804|dst=AKAim|conds=
+STATE|6304494973006800510|Walk Blend
+  TRANS|3398431437510684291|dst=Jump Begin|conds=JumpTrigger If 0; IsJumping If 0
+  TRANS|-7343293617020433637|dst=Sprint Blend|conds=IsCrouching IfNot 0; IsSprinting If 0
+  TRANS|-5481176703319508361|dst=Crouch Walk Blend|conds=IsCrouching If 0
+  TRANS|6026188506982037295|dst=Fall|conds=IsFalling If 0
+  TRANS|-6731874595646122824|dst=Slide|conds=IsSliding If 0
+STATE|6476343604674862579|AKRecoil
+  TRANS|-1575093238436571012|dst=AKAim|conds=
+  TRANS|1022058799684455230|dst=AKReload|conds=Reload If 0
+STATE|6755582179339089643|Fall
+  TRANS|-2517457478494646559|dst=Land|conds=LandTrigger If 0; IsFalling IfNot 0; IsJumping IfNot 0
+  TRANS|-5755299553419437414|dst=Jump Begin|conds=JumpTrigger If 0; IsJumping If 0
+  TRANS|-6207101421120175589|dst=Slide|conds=IsSliding If 0; IsJumping IfNot 0; IsFalling IfNot 0
+  TRANS|5007500624477235075|dst=WallRun Right|conds=IsWallRunning If 0; RightWallRun If 0
+  TRANS|2747078428229382408|dst=WallRun Left|conds=IsWallRunning If 0; RightWallRun IfNot 0
+STATE|7393651296649375655|Crouch Turn Blend
+  TRANS|5654202251829412383|dst=Idle Turn Blend|conds=IsCrouching IfNot 0

@@ -1169,7 +1169,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 3921424009
+  GlobalObjectIdHash: 2644075980
   InScenePlacedSourceGlobalObjectIdHash: 0
   DeferredDespawnTick: 0
   Ownership: 1
@@ -1996,6 +1996,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Game.Player.PlayerAnimationEvents
   playerController: {fileID: 5088684734431513618}
+  debugAnimationEvents: 0
 --- !u!114 &1659687221336305720
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2085,6 +2086,11 @@ MonoBehaviour:
   playerController: {fileID: 5088684734431513618}
   hopballVisualPrefab: {fileID: 1479868513324915623, guid: dd8d94a60378cd549ad01773f07c9097, type: 3}
   hopballArmPrefab: {fileID: 7462113625676389339, guid: d85c018ba9010ef44b8e183bf91e074f, type: 3}
+  hopballParticleWarmupSeconds: 1
+  enableHopballFloatMotion: 1
+  hopballFloatAmplitude: 0.008
+  hopballFloatCyclesPerSecond: 0.06
+  hopballFloatApexDwell: 0.35
   fpEquippedLocalPosition: {x: 0.306, y: -0.09, z: 0.385}
   worldEquippedLocalPosition: {x: 0.007, y: 0.0027, z: 0.2}
   putAwayDissolveThreshold: 0.75
@@ -3232,7 +3238,7 @@ Animator:
   m_GameObject: {fileID: 3486887065898544216}
   m_Enabled: 1
   m_Avatar: {fileID: 9000000, guid: d9cd8eb4a074cd84ab2686c58bcf21d9, type: 3}
-  m_Controller: {fileID: 9100000, guid: f447f635fa6e3084cab20c4e0cfaa8c8, type: 2}
+  m_Controller: {fileID: 9100000, guid: 3f6bb114e7346b349a6e1e25f76fd793, type: 2}
   m_CullingMode: 0
   m_UpdateMode: 0
   m_ApplyRootMotion: 1
@@ -3257,6 +3263,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerAnimationEvents
   playerController: {fileID: 5088684734431513618}
+  debugAnimationEvents: 0
 --- !u!114 &5706515478969999216
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -3454,6 +3461,14 @@ MonoBehaviour:
       ParameterType: 9
     - name: IsSliding
       NameHash: -1809564513
+      Synchronize: 1
+      ParameterType: 4
+    - name: IsWallRunning
+      NameHash: 1241219557
+      Synchronize: 1
+      ParameterType: 4
+    - name: RightWallRun
+      NameHash: -486216803
       Synchronize: 1
       ParameterType: 4
   AnimatorParametersExpanded: 0
