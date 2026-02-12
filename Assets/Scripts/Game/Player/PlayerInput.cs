@@ -277,7 +277,7 @@ namespace Game.Player {
                 }
             }
 
-            if(!IsPreMatchOrPausedOrDead && (jumpPressed || scrollPressed) && (MantleController != null && MantleController.CanJump)) {
+            if(!IsPausedOrDead && (jumpPressed || scrollPressed) && (MantleController != null && MantleController.CanJump)) {
                 // Check if hold-to-mantle is enabled
                 var controls = GameSettings.Data.controls;
                 var holdMantleEnabled = controls == null || controls.holdMantle;
@@ -414,7 +414,7 @@ namespace Game.Player {
         /// Triggers jump action externally (for bots).
         /// </summary>
         public void TriggerJump() {
-            if(!IsOwner || IsPreMatchOrPausedOrDead) return;
+            if(!IsOwner || IsPausedOrDead) return;
             var isMantling = MantleController != null && MantleController.IsMantling;
             if(isMantling) return;
 

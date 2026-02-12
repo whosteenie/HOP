@@ -520,8 +520,31 @@ namespace Game.Player {
                     if(animationController != null) {
                         animationController.UpdateFallingState(movementController.IsGrounded,
                             movementController.VerticalVelocity, playerTransform.position);
-                        animationController.UpdateAnimator(movementController.HorizontalVelocity,
-                            movementController.MaxSpeed, movementController.CachedHorizontalSpeedSqr);
+
+                        var animHorizontal = movementController.HorizontalVelocity;
+                        var animSpeedSqr = movementController.CachedHorizontalSpeedSqr;
+                        if(characterController != null && movementController.IsGrounded) {
+                            var actual = characterController.velocity;
+                            actual.y = 0f;
+                            var actualSpeed = actual.magnitude;
+                            if(actualSpeed < 0.2f) {
+                                animHorizontal = actual;
+                                animSpeedSqr = actual.sqrMagnitude;
+                            } else {
+                                var intended = movementController.HorizontalVelocity;
+                                intended.y = 0f;
+                                var blendedSpeed = Mathf.Lerp(actualSpeed, intended.magnitude, 0.4f);
+                                if(actualSpeed > 0.0001f) {
+                                    animHorizontal = actual.normalized * blendedSpeed;
+                                } else {
+                                    animHorizontal = actual;
+                                }
+                                animSpeedSqr = animHorizontal.sqrMagnitude;
+                            }
+                        }
+
+                        animationController.UpdateAnimator(animHorizontal,
+                            movementController.MaxSpeed, animSpeedSqr);
                     }
                 }
 

@@ -56,7 +56,13 @@ namespace Game.Player {
 
             if(movementController == null) return;
 
-            if(movementController.CachedHorizontalSpeedSqr < 0.5f * 0.5f) {
+            if(characterController != null) {
+                var actual = characterController.velocity;
+                actual.y = 0f;
+                if(actual.sqrMagnitude < 0.3f * 0.3f) {
+                    return;
+                }
+            } else if(movementController.CachedHorizontalSpeedSqr < 0.5f * 0.5f) {
                 return;
             }
 
@@ -75,7 +81,13 @@ namespace Game.Player {
 
             if(movementController == null) return;
 
-            if(movementController.CachedHorizontalSpeedSqr < 0.5f * 0.5f) {
+            if(characterController != null && IsGrounded) {
+                var actual = characterController.velocity;
+                actual.y = 0f;
+                if(actual.sqrMagnitude < 0.5f * 0.5f) {
+                    return;
+                }
+            } else if(movementController.CachedHorizontalSpeedSqr < 0.5f * 0.5f) {
                 return;
             }
 
