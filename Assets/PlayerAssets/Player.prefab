@@ -3241,7 +3241,7 @@ Animator:
   m_Controller: {fileID: 9100000, guid: 3f6bb114e7346b349a6e1e25f76fd793, type: 2}
   m_CullingMode: 0
   m_UpdateMode: 0
-  m_ApplyRootMotion: 1
+  m_ApplyRootMotion: 0
   m_LinearVelocityBlending: 0
   m_StabilizeFeet: 0
   m_AnimatePhysics: 0
@@ -3306,7 +3306,7 @@ MonoBehaviour:
     Layer: 0
     OriginatingState: 137525990
     DestinationState: 225072382
-    TransitionDuration: 0.03
+    TransitionDuration: 0.10118792
     TriggerNameHash: 113680519
     TransitionIndex: 1
   - IsCrossFadeExit: 0
@@ -3471,6 +3471,14 @@ MonoBehaviour:
       NameHash: -486216803
       Synchronize: 1
       ParameterType: 4
+    - name: WallRunDirection
+      NameHash: -636038735
+      Synchronize: 1
+      ParameterType: 1
+    - name: MantleTrigger
+      NameHash: -775669188
+      Synchronize: 1
+      ParameterType: 9
   AnimatorParametersExpanded: 0
 --- !u!1 &3497374719588777612
 GameObject:

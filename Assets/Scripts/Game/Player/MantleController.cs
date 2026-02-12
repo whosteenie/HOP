@@ -156,6 +156,10 @@ namespace Game.Player {
             _mantleStartPosition = playerController.Position;
             _mantleTargetPosition = targetPosition;
 
+            if(playerController != null && playerController.AnimationController != null) {
+                playerController.AnimationController.PlayMantleAnimationServerRpc();
+            }
+
             playerController.ResetVelocity();
 
             _characterController.enabled = false;

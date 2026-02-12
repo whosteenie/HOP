@@ -32,6 +32,7 @@ namespace Game.Player {
         private static readonly int IsWallRunningHash = Animator.StringToHash("IsWallRunning");
         private static readonly int RightWallRunHash = Animator.StringToHash("RightWallRun");
         private static readonly int WallRunDirectionHash = Animator.StringToHash("WallRunDirection");
+        private static readonly int MantleTriggerHash = Animator.StringToHash("MantleTrigger");
 
         // Animation state tracking
         private bool _wasGrounded;
@@ -205,6 +206,15 @@ namespace Game.Player {
 
             var isGrounded = playerController != null && playerController.IsGrounded;
             _playerAnimator.SetBool(IsGroundedHash, isGrounded);
+        }
+
+        /// <summary>
+        /// Plays the mantle animation trigger on all clients.
+        /// </summary>
+        [Rpc(SendTo.Everyone)]
+        public void PlayMantleAnimationServerRpc() {
+            if(_playerAnimator == null) return;
+            _playerAnimator.SetTrigger(MantleTriggerHash);
         }
 
         /// <summary>
