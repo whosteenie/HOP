@@ -31,6 +31,7 @@ namespace Game.Player {
         private static readonly int IsSlidingHash = Animator.StringToHash("IsSliding");
         private static readonly int IsWallRunningHash = Animator.StringToHash("IsWallRunning");
         private static readonly int RightWallRunHash = Animator.StringToHash("RightWallRun");
+        private static readonly int WallRunDirectionHash = Animator.StringToHash("WallRunDirection");
 
         // Animation state tracking
         private bool _wasGrounded;
@@ -88,10 +89,31 @@ namespace Game.Player {
             var isRightWallRun = wallRunController != null && wallRunController.IsRightWallRun;
             _playerAnimator.SetBool(IsWallRunningHash, isWallRunning);
             _playerAnimator.SetBool(RightWallRunHash, isRightWallRun);
+            _playerAnimator.SetFloat(WallRunDirectionHash, GetWallRunDirection(horizontalVelocity, isWallRunning));
 
             var isGrounded = playerController != null && playerController.IsGrounded;
             if((isGrounded && !IsJumping) || IsFalling) {
             }
+        }
+
+        private float GetWallRunDirection(Vector3 horizontalVelocity, bool isWallRunning) {
+            if(!isWallRunning || _playerTransform == null) {
+                return 1f;
+            }
+
+            var planar = horizontalVelocity;
+            planar.y = 0f;
+            if(planar.sqrMagnitude < 0.01f) {
+                return 1f;
+            }
+
+            var forward = _playerTransform.forward;
+            forward.y = 0f;
+            if(forward.sqrMagnitude < 0.01f) {
+                return 1f;
+            }
+
+            return Vector3.Dot(planar.normalized, forward.normalized) >= 0f ? 1f : -1f;
         }
 
         /// <summary>
