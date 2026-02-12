@@ -505,7 +505,7 @@ namespace Game.Match {
             } else {
                 // FFA Mode (Gun Tag, Deathmatch)
                 if (ScoreboardManager.Instance != null && 
-                    ScoreboardManager.Instance.GetLocalPlayerPlacement(out var rank, out var total)) {
+                    ScoreboardManager.Instance.GetLocalPlayerPlacement(out var rank, out _)) {
                     
                     // Award Win if Rank 1?
                     if (rank == 1) {

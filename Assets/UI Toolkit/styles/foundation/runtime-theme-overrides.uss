@@ -1,0 +1,174 @@
+@import url("theme-tokens.uss");
+
+/* ===== Runtime Theme Overrides (Panel Settings inherited stylesheet) ===== */
+/* Use this sheet in Panel Settings -> Theme Style Sheet -> Style Sheets.
+   Keep Unity Default Runtime Theme inherited, and keep this file last. */
+
+/* Popup roots can be full-screen overlay hosts in runtime.
+   Keep them transparent so shell visuals render only around list content. */
+.unity-base-dropdown,
+.unity-base-popup-field__menu,
+.unity-popup-field__menu,
+.unity-generic-dropdown-menu {
+    background-color: transparent;
+    border-width: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+}
+
+/* Popup host shell (scoped to actual list container) */
+.unity-base-dropdown__container-outer,
+.unity-base-dropdown__container-inner,
+.unity-base-popup-field__menu .unity-base-dropdown__container-outer,
+.unity-base-popup-field__menu .unity-base-dropdown__container-inner,
+.unity-popup-field__menu .unity-base-dropdown__container-outer,
+.unity-popup-field__menu .unity-base-dropdown__container-inner,
+.unity-generic-dropdown-menu .unity-base-dropdown__container-outer,
+.unity-generic-dropdown-menu .unity-base-dropdown__container-inner {
+    background-color: var(--color-bg-popup-root);
+    border-width: 1px;
+    border-color: var(--color-accent-border-popup);
+    border-radius: var(--radius-md);
+    min-width: var(--options-dropdown-width);
+    width: var(--options-dropdown-width);
+    max-height: 420px;
+    max-width: var(--options-dropdown-width);
+    padding: 3px;
+    margin-left: var(--options-dropdown-open-x-offset);
+}
+
+/* Popup internals */
+.unity-base-dropdown__container-outer .unity-content-and-vertical-scroll-container,
+.unity-base-dropdown__container-inner .unity-content-and-vertical-scroll-container,
+.unity-base-dropdown .unity-content-and-vertical-scroll-container,
+.unity-base-dropdown .unity-content-viewport,
+.unity-base-dropdown .unity-content-container,
+.unity-base-dropdown .unity-scroll-view--scroll,
+.unity-base-dropdown .unity-scroll-view__content-viewport,
+.unity-base-dropdown .unity-scroll-view__content-container,
+.unity-base-popup-field__menu .unity-scroll-view,
+.unity-base-popup-field__menu .unity-content-viewport,
+.unity-base-popup-field__menu .unity-content-container,
+.unity-popup-field__menu .unity-scroll-view,
+.unity-popup-field__menu .unity-content-viewport,
+.unity-popup-field__menu .unity-content-container,
+.unity-generic-dropdown-menu .unity-scroll-view,
+.unity-generic-dropdown-menu .unity-content-viewport,
+.unity-generic-dropdown-menu .unity-content-container {
+    background-color: transparent;
+    border-width: 0;
+    margin-left: 0;
+    margin-right: 0;
+    padding-left: 0;
+    padding-right: 0;
+}
+
+/* Avoid horizontal bars in popup list */
+.unity-base-dropdown .unity-scroll-view__horizontal-scroller,
+.unity-base-popup-field__menu .unity-scroll-view__horizontal-scroller,
+.unity-popup-field__menu .unity-scroll-view__horizontal-scroller,
+.unity-generic-dropdown-menu .unity-scroll-view__horizontal-scroller,
+.unity-base-dropdown .unity-scroll-view__horizontal-scrollbars,
+.unity-base-popup-field__menu .unity-scroll-view__horizontal-scrollbars,
+.unity-popup-field__menu .unity-scroll-view__horizontal-scrollbars,
+.unity-generic-dropdown-menu .unity-scroll-view__horizontal-scrollbars,
+.unity-base-dropdown .unity-scroller--horizontal,
+.unity-base-popup-field__menu .unity-scroller--horizontal,
+.unity-popup-field__menu .unity-scroller--horizontal,
+.unity-generic-dropdown-menu .unity-scroller--horizontal {
+    display: none;
+    visibility: hidden;
+    height: 0;
+    min-height: 0;
+    max-height: 0;
+    width: 0;
+    min-width: 0;
+    max-width: 0;
+}
+
+/* Hide disabled vertical scroller for compact menus */
+.unity-base-dropdown .unity-scroll-view__vertical-scroller.unity-disabled,
+.unity-base-popup-field__menu .unity-scroll-view__vertical-scroller.unity-disabled,
+.unity-popup-field__menu .unity-scroll-view__vertical-scroller.unity-disabled,
+.unity-generic-dropdown-menu .unity-scroll-view__vertical-scroller.unity-disabled {
+    display: none;
+}
+
+/* Items */
+.unity-base-dropdown .unity-base-dropdown__item,
+.unity-base-popup-field__menu-item,
+.unity-popup-field__menu-item,
+.unity-generic-dropdown-menu .unity-base-dropdown__item,
+.unity-generic-dropdown-menu .unity-collection-view__item,
+.unity-generic-dropdown-menu .unity-list-view__item {
+    background-color: var(--color-bg-popup-item);
+    border-width: 1px;
+    border-color: var(--color-accent-border-subtle);
+    border-radius: var(--radius-md);
+    color: var(--color-text-primary);
+    margin-top: 2px;
+    margin-right: var(--options-dropdown-item-inset-right);
+    margin-bottom: 2px;
+    margin-left: var(--options-dropdown-item-inset);
+    padding: 6px 12px;
+    height: auto;
+    min-height: 30px;
+}
+
+.unity-base-dropdown .unity-base-dropdown__item:hover,
+.unity-base-popup-field__menu-item:hover,
+.unity-popup-field__menu-item:hover,
+.unity-generic-dropdown-menu .unity-base-dropdown__item:hover,
+.unity-generic-dropdown-menu .unity-collection-view__item:hover,
+.unity-generic-dropdown-menu .unity-list-view__item:hover {
+    background-color: var(--color-bg-popup-item-hover);
+    border-color: var(--color-accent-border-hover);
+    color: var(--color-accent-text-hover);
+}
+
+/* Selected item */
+.unity-base-dropdown .unity-collection-view__item--selected,
+.unity-base-dropdown .unity-list-view__item--selected,
+.unity-base-dropdown__item--selected,
+.unity-generic-dropdown-menu .unity-collection-view__item--selected,
+.unity-generic-dropdown-menu .unity-list-view__item--selected {
+    background-color: var(--color-accent-bg-selected);
+    border-color: var(--color-accent-border-selected);
+    color: var(--color-accent-text-selected);
+}
+
+/* Item content + label */
+.unity-base-dropdown .unity-base-dropdown__item-content {
+    flex-direction: row;
+    align-items: center;
+    background-color: transparent;
+}
+
+.unity-base-dropdown .unity-base-dropdown__label,
+.unity-base-dropdown .unity-base-dropdown__item-content > .unity-text-element,
+.unity-base-popup-field__menu-item > .unity-text-element,
+.unity-popup-field__menu-item > .unity-text-element,
+.unity-generic-dropdown-menu .unity-text-element {
+    color: var(--color-text-primary);
+    white-space: normal;
+    text-overflow: clip;
+    overflow: visible;
+}
+
+/* Checkmark */
+.unity-base-dropdown .unity-base-dropdown__checkmark,
+.unity-base-dropdown .unity-checkmark {
+    width: 12px;
+    height: 12px;
+    min-width: 12px;
+    min-height: 12px;
+    max-width: 12px;
+    max-height: 12px;
+    margin-right: 10px;
+    background-image: url('/Assets/UI Toolkit/Images/checkmark.png');
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: 12px 12px;
+    background-color: transparent;
+    -unity-background-image-tint-color: var(--color-white);
+}

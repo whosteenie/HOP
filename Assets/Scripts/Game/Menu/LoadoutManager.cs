@@ -681,16 +681,15 @@ namespace Game.Menu {
                 var weaponOption = weaponOptionTemplate.CloneTree();
                 var weaponImage = weaponOption.Q<Image>("weapon-image");
                 if(weaponImage == null) {
-                    if(!_invalidWeaponOptionTemplateLogged) {
-                        _invalidWeaponOptionTemplateLogged = true;
-                        Debug.LogError(
-                            "[LoadoutManager] `weaponOptionTemplate` is missing required child `weapon-image`.",
-                            this);
-                    }
+                    if(_invalidWeaponOptionTemplateLogged) return;
+                    _invalidWeaponOptionTemplateLogged = true;
+                    Debug.LogError(
+                        "[LoadoutManager] `weaponOptionTemplate` is missing required child `weapon-image`.",
+                        this);
                     return;
                 }
 
-                if(weaponImage != null && weapons[i].icon != null) {
+                if(weapons[i].icon != null) {
                     weaponImage.sprite = weapons[i].icon;
                 }
 
@@ -1116,8 +1115,7 @@ namespace Game.Menu {
             }
 
             foreach(Transform child in weaponSocket) {
-                GameObject o;
-                o = child.gameObject;
+                var o = child.gameObject;
                 _previewWeaponModels.Add(o);
                 CachePreviewWeaponRenderers(o);
             }
@@ -1151,8 +1149,7 @@ namespace Game.Menu {
             var secondaryLookup = new Dictionary<string, GameObject>(StringComparer.OrdinalIgnoreCase);
             foreach(Transform child in parent) {
                 if(child == null) continue;
-                GameObject o;
-                o = child.gameObject;
+                var o = child.gameObject;
                 secondaryLookup[child.name] = o;
                 CachePreviewWeaponRenderers(o);
             }
@@ -1275,9 +1272,9 @@ namespace Game.Menu {
 
                 CachePreviewWeaponRenderers(weapon);
                 if(_previewWeaponRenderers.TryGetValue(weapon, out var renderers)) {
-                    foreach(var renderer in renderers) {
-                        if(renderer != null) {
-                            renderer.enabled = false;
+                    foreach(var r in renderers) {
+                        if(r != null) {
+                            r.enabled = false;
                         }
                     }
                 }
@@ -2019,9 +2016,16 @@ namespace Game.Menu {
 
             SetLabelText("stats-playtime", FormatTime(data.stats.totalPlayTimeSeconds));
 
-            var avgSpeed = data.stats.totalPlayTimeSeconds > 0
-                ? data.stats.totalDistanceTraveled / data.stats.totalPlayTimeSeconds
-                : 0;
+            // Prefer rolling per-match average speed for accuracy, then fall back to lifetime average.
+            double avgSpeed = 0f;
+            if(ProgressionManager.Instance != null) {
+                avgSpeed = ProgressionManager.Instance.GetAverageMatchSpeed();
+            }
+            if(avgSpeed <= 0f) {
+                avgSpeed = data.stats.totalPlayTimeSeconds > 0f
+                    ? data.stats.totalDistanceTraveled / data.stats.totalPlayTimeSeconds
+                    : 0f;
+            }
             SetLabelText("stats-speed", $"{avgSpeed:F1} m/s");
 
             SetLabelText("stats-balltime", FormatTime(data.stats.timeHoldingHopball));
@@ -2032,8 +2036,8 @@ namespace Game.Menu {
             // Weekly Challenges - WIP is shown, no need to update
         }
 
-        private void SetLabelText(string name, string text) {
-            var l = _statsContainer.Q<Label>(name);
+        private void SetLabelText(string labelName, string text) {
+            var l = _statsContainer.Q<Label>(labelName);
             if(l != null) l.text = text;
         }
 
@@ -2045,7 +2049,7 @@ namespace Game.Menu {
         }
 
         // Helper methods added for Profile View Refactor
-        private void UpdateDropdownSelection(VisualElement dropdown, int selectedIndex, WeaponData[] data) {
+        private static void UpdateDropdownSelection(VisualElement dropdown, int selectedIndex, WeaponData[] data) {
             if(dropdown == null || data == null || selectedIndex < 0 || selectedIndex >= data.Length) return;
 
             var label = dropdown.Q<Label>("selected-label");

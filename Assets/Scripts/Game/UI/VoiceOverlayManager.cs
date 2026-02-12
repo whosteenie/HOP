@@ -19,6 +19,12 @@ namespace Game.UI {
         private readonly Dictionary<string, string> _participantToCanonicalId = new(StringComparer.Ordinal);
         private readonly HashSet<string> _localIdentityAliases = new(StringComparer.Ordinal);
         private string _localCanonicalId;
+        private bool _networkCallbacksRegistered;
+        private bool _pendingPlayerRefresh = true;
+        private float _nextPlayerRefreshTime;
+        private float _nextLocalIdentityRefreshTime;
+        private const float PlayerRefreshIntervalSeconds = 1f;
+        private const float LocalIdentityRefreshIntervalSeconds = 0.5f;
 
         protected override void OnInitialize() {
             _overlayContainer = QOptional<VisualElement>("voice-overlay-container");
@@ -36,24 +42,81 @@ namespace Game.UI {
             RefreshLocalIdentityContext();
 
             // Subscribe to existing players
-            SubscribeToAllPlayers();
+            RegisterNetworkCallbacks();
+            RefreshTrackedPlayers();
         }
 
         private void Update() {
-            RefreshLocalIdentityContext();
+            var now = Time.unscaledTime;
 
-            // Check for new players and subscribe to their isPttActive
-            var allPlayers = FindObjectsByType<Player.PlayerController>(FindObjectsSortMode.None);
-            foreach(var player in allPlayers) {
-                SubscribeToRemotePtt(player);
+            if(now >= _nextLocalIdentityRefreshTime) {
+                RefreshLocalIdentityContext();
+                _nextLocalIdentityRefreshTime = now + LocalIdentityRefreshIntervalSeconds;
+            }
+
+            if(_pendingPlayerRefresh || now >= _nextPlayerRefreshTime) {
+                RefreshTrackedPlayers();
             }
         }
 
-        private void SubscribeToAllPlayers() {
+        private void RegisterNetworkCallbacks() {
+            if(_networkCallbacksRegistered) return;
+
+            var networkManager = NetworkManager.Singleton;
+            if(networkManager == null) return;
+
+            networkManager.OnClientConnectedCallback += OnClientConnected;
+            networkManager.OnClientDisconnectCallback += OnClientDisconnected;
+            _networkCallbacksRegistered = true;
+        }
+
+        private void UnregisterNetworkCallbacks() {
+            if(_networkCallbacksRegistered == false) return;
+
+            var networkManager = NetworkManager.Singleton;
+            if(networkManager != null) {
+                networkManager.OnClientConnectedCallback -= OnClientConnected;
+                networkManager.OnClientDisconnectCallback -= OnClientDisconnected;
+            }
+
+            _networkCallbacksRegistered = false;
+        }
+
+        private void OnClientConnected(ulong _) {
+            _pendingPlayerRefresh = true;
+        }
+
+        private void OnClientDisconnected(ulong _) {
+            _pendingPlayerRefresh = true;
+        }
+
+        private void RefreshTrackedPlayers() {
             var allPlayers = FindObjectsByType<Player.PlayerController>(FindObjectsSortMode.None);
+            var seenClientIds = new HashSet<ulong>();
+
             foreach(var player in allPlayers) {
+                if(player == null || player.IsSpawned == false) continue;
+                seenClientIds.Add(player.OwnerClientId);
                 SubscribeToRemotePtt(player);
             }
+
+            // Unsubscribe stale player entries (despawned or replaced).
+            var staleClientIds = new List<ulong>();
+            foreach(var pair in _trackedPlayers) {
+                var clientId = pair.Key;
+                var trackedPlayer = pair.Value;
+                var isMissing = trackedPlayer == null || seenClientIds.Contains(clientId) == false;
+                if(isMissing) {
+                    staleClientIds.Add(clientId);
+                }
+            }
+
+            foreach(var clientId in staleClientIds) {
+                UnsubscribeClient(clientId);
+            }
+
+            _pendingPlayerRefresh = false;
+            _nextPlayerRefreshTime = Time.unscaledTime + PlayerRefreshIntervalSeconds;
         }
 
         protected override void OnCleanup() {
@@ -64,13 +127,9 @@ namespace Game.UI {
             }
 
             SocialSettings.OnPlayerMuteChanged -= OnPlayerMuteChanged;
-            foreach(var kvp in _trackedPlayers) {
-                var clientId = kvp.Key;
-                var player = kvp.Value;
-                if(player == null) continue;
-                if(_pttHandlers.TryGetValue(clientId, out var handler)) {
-                    player.isPttActive.OnValueChanged -= handler;
-                }
+            UnregisterNetworkCallbacks();
+            foreach(var clientId in new List<ulong>(_trackedPlayers.Keys)) {
+                UnsubscribeClient(clientId);
             }
 
             _trackedPlayers.Clear();
@@ -242,12 +301,26 @@ namespace Game.UI {
             if(player == null || !player.IsSpawned) return;
 
             var clientId = player.OwnerClientId;
-            if(_trackedPlayers.ContainsKey(clientId)) return;
+            if(_trackedPlayers.TryGetValue(clientId, out var existing)) {
+                if(existing == player) return;
+                UnsubscribeClient(clientId);
+            }
 
             NetworkVariable<bool>.OnValueChangedDelegate handler = (_, curr) => OnRemotePttChanged(player, curr);
             player.isPttActive.OnValueChanged += handler;
             _trackedPlayers[clientId] = player;
             _pttHandlers[clientId] = handler;
+        }
+
+        private void UnsubscribeClient(ulong clientId) {
+            if(_trackedPlayers.TryGetValue(clientId, out var player) &&
+               player != null &&
+               _pttHandlers.TryGetValue(clientId, out var handler)) {
+                player.isPttActive.OnValueChanged -= handler;
+            }
+
+            _trackedPlayers.Remove(clientId);
+            _pttHandlers.Remove(clientId);
         }
 
         private void RefreshLocalIdentityContext() {
@@ -300,9 +373,9 @@ namespace Game.UI {
                 return string.IsNullOrEmpty(_localCanonicalId) ? rawIdentity : _localCanonicalId;
             }
 
-            var players = FindObjectsByType<Player.PlayerController>(FindObjectsSortMode.None);
-            foreach(var player in players) {
+            foreach(var player in _trackedPlayers.Values) {
                 if(player == null) continue;
+                if(player.IsSpawned == false) continue;
 
                 var steamId = player.steamId.Value;
                 var steamIdString = steamId != 0 ? steamId.ToString() : null;
@@ -314,6 +387,9 @@ namespace Game.UI {
                     return GetCanonicalIdentityForPlayer(player);
                 }
             }
+
+            // Opportunistically refresh cache if we failed to resolve.
+            _pendingPlayerRefresh = true;
 
             return rawIdentity;
         }

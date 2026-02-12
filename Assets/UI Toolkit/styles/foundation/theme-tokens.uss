@@ -1,0 +1,53 @@
+:root {
+    /* Typography */
+    --color-text-primary: rgb(240, 240, 240);
+    --color-text-secondary: rgb(220, 220, 220);
+    --color-text-muted: rgb(180, 180, 180);
+    --color-text-disabled: rgba(240, 240, 240, 0.3);
+    --color-white: rgb(255, 255, 255);
+
+    /* Accent palette */
+    --color-accent: rgb(255, 100, 100);
+    --color-accent-strong: rgb(200, 60, 60);
+    --color-accent-hover: rgb(255, 120, 120);
+    --color-accent-text-hover: rgb(255, 145, 145);
+    --color-accent-text-selected: rgb(255, 165, 165);
+
+    /* Accent borders / fills */
+    --color-accent-border-subtle: rgba(200, 60, 60, 0.18);
+    --color-accent-border-soft: rgba(200, 60, 60, 0.2);
+    --color-accent-border: rgba(200, 60, 60, 0.3);
+    --color-accent-border-popup: rgba(200, 60, 60, 0.42);
+    --color-accent-border-hover: rgba(255, 100, 100, 0.45);
+    --color-accent-border-strong: rgba(255, 100, 100, 0.6);
+    --color-accent-border-selected: rgba(255, 100, 100, 0.65);
+    --color-accent-border-pressed: rgba(255, 100, 100, 0.8);
+    --color-accent-bg-soft: rgba(200, 60, 60, 0.2);
+    --color-accent-bg-mid: rgba(200, 60, 60, 0.4);
+    --color-accent-bg-selected: rgba(200, 60, 60, 0.2);
+
+    /* Surfaces */
+    --color-bg-overlay: rgba(5, 5, 8, 0.88);
+    --color-bg-card: rgba(12, 12, 18, 0.96);
+    --color-bg-popup-root: rgba(12, 12, 18, 0.98);
+    --color-bg-popup-item: rgba(18, 18, 24, 0.95);
+    --color-bg-popup-item-hover: rgba(26, 26, 34, 0.98);
+    --color-bg-surface: rgba(20, 20, 25, 0.9);
+    --color-bg-surface-hover: rgba(25, 25, 30, 0.9);
+    --color-bg-surface-pressed: rgba(30, 30, 35, 0.9);
+    --color-bg-input: rgba(10, 10, 15, 0.9);
+    --color-bg-transparent: rgba(0, 0, 0, 0);
+
+    /* Shape and motion */
+    --radius-sm: 3px;
+    --radius-md: 4px;
+    --dur-fast: 0.2s;
+    --dur-faster: 0.15s;
+
+    /* Common control tokens */
+    --cursor-color: var(--color-text-primary);
+    --options-dropdown-width: 320px;
+    --options-dropdown-open-x-offset: -13px;
+    --options-dropdown-item-inset: 3px;
+    --options-dropdown-item-inset-right: 10px;
+}

@@ -31,7 +31,7 @@ namespace Game.Progression {
             // Autoload challenges if not assigned
             if (challengePool == null || challengePool.Count == 0) {
                 var loaded = Resources.LoadAll<ChallengeDefinition>("Challenges");
-                if (loaded != null && loaded.Length > 0) {
+                if (loaded is { Length: > 0 }) {
                     challengePool = new List<ChallengeDefinition>(loaded);
                 } else {
                     Debug.LogWarning("[ProgressionManager] No challenges found in Resources/Challenges!");
@@ -206,18 +206,17 @@ namespace Game.Progression {
                 var def = GetChallengeDefinition(challenge.challengeID);
                 if (def == null || def.type != ChallengeType.KillStreak) continue;
 
-                // Update progress to highest streak achieved
+                // Update progress to the highest streak achieved
                 if (currentStreak > challenge.currentProgress) {
                     challenge.currentProgress = currentStreak;
                 }
 
-                if (challenge.currentProgress >= challenge.targetProgress) {
-                    challenge.currentProgress = challenge.targetProgress;
-                    challenge.isCompleted = true;
-                    challenge.isCompleted = true;
-                    AddXp(challenge.xpReward);
-                    // Notify user?
-                }
+                if(challenge.currentProgress < challenge.targetProgress) continue;
+                challenge.currentProgress = challenge.targetProgress;
+                challenge.isCompleted = true;
+                challenge.isCompleted = true;
+                AddXp(challenge.xpReward);
+                // Notify user?
             }
         }
 
@@ -264,7 +263,7 @@ namespace Game.Progression {
         public float GetAverageMatchSpeed() {
              if (Data.stats.recentMatchAverageSpeeds.Count == 0) return 0f;
              
-             float total = 0f;
+             var total = 0f;
              foreach(var s in Data.stats.recentMatchAverageSpeeds) {
                  total += s;
              }

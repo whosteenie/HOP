@@ -570,7 +570,7 @@ namespace Game.Player {
             }
             ResetHealthAndRegenerationState();
             StopRespawnTimeoutProbe();
-            var isDeadNow = netIsDead != null && netIsDead.Value;
+            var isDeadNow = netIsDead is { Value: true };
             var isRagdolledNow = _playerRagdoll != null && _playerRagdoll.IsRagdoll;
             FlowLog.Emit(FlowEventIds.PlayerRespawnCompleted,
                 ("player", OwnerClientId),

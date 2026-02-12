@@ -332,7 +332,7 @@ namespace Game.Player {
             UnsubscribeFromNetworkVariables();
             
             // Unregister from ScoreboardManager
-            if (ScoreboardManager.Instance != null && ScoreboardManager.Instance != this) {
+            if (ScoreboardManager.Instance != null) {
                 ScoreboardManager.Instance.UnregisterPlayer(this);
             }
         }
@@ -580,7 +580,7 @@ namespace Game.Player {
             if(config == null || clientNetworkTransform == null) return;
 
             var now = Time.time;
-            if(netIsDead != null && netIsDead.Value) {
+            if(netIsDead is { Value: true }) {
                 _movementViolations.Clear();
                 _lastServerMovementPosition = position;
                 _lastServerMovementTime = now;
@@ -653,7 +653,7 @@ namespace Game.Player {
 
         [Rpc(SendTo.Owner)]
         private void ApplyServerMovementCorrectionOwnerRpc(Vector3 correctedPosition, Quaternion correctedRotation) {
-            if(netIsDead != null && netIsDead.Value) return;
+            if(netIsDead is { Value: true }) return;
 
             var shouldReEnableCharacterController = characterController != null && characterController.enabled;
             if(characterController != null) {

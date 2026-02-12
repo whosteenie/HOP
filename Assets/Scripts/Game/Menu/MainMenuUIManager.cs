@@ -539,8 +539,8 @@ namespace Game.Menu {
         /// <summary>
         /// Enables or disables the primary matchmaking and private game buttons.
         /// </summary>
-        public void SetMenuButtonsEnabled(bool enabled) {
-            if (enabled) {
+        public void SetMenuButtonsEnabled(bool shouldEnable) {
+            if (shouldEnable) {
                 EnableButton(_playButtonMatchmaking);
                 EnableButton(_playButtonPrivate);
             } else {

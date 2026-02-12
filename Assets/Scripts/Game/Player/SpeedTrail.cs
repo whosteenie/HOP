@@ -153,7 +153,7 @@ namespace Game.Player {
         private void Update() {
             // Check if player trails are enabled in settings first
             var controls = GameSettings.Data.controls;
-            if(controls != null && !controls.playerTrails) {
+            if(controls is { playerTrails: false }) {
                 SetTrailActive(false);
                 return;
             }

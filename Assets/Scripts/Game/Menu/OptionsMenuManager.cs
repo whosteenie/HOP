@@ -1047,7 +1047,7 @@ namespace Game.Menu {
 
             // Load MSAA
             if(_msaaDropdown != null) {
-                var savedMsaa = data.video != null && data.video.msaa > 0 ? data.video.msaa : currentMsaa;
+                var savedMsaa = data.video is { msaa: > 0 } ? data.video.msaa : currentMsaa;
                 // Map MSAA value to dropdown index: 1=Off, 2=2x, 4=4x, 8=8x
                 var msaaIndex = savedMsaa switch {
                     1 => 0, // Off
@@ -1061,7 +1061,7 @@ namespace Game.Menu {
 
             // Load shadow distance
             if(_shadowDistanceSlider != null) {
-                var savedShadowDistance = data.video != null && data.video.shadowDistance > 0f
+                var savedShadowDistance = data.video is { shadowDistance: > 0f }
                     ? data.video.shadowDistance
                     : currentShadowDistance;
                 _shadowDistanceSlider.value = Mathf.Clamp(savedShadowDistance, 0f, 500f);
@@ -1072,7 +1072,7 @@ namespace Game.Menu {
 
             // Load shadow resolution
             if(_shadowResolutionDropdown == null) return;
-            var savedShadowResolution = data.video != null && data.video.shadowResolution > 0
+            var savedShadowResolution = data.video is { shadowResolution: > 0 }
                 ? data.video.shadowResolution
                 : currentShadowResolution;
             // Map resolution to preset index: Low=512, Medium=1024, High=2048, Ultra=4096
@@ -1114,14 +1114,14 @@ namespace Game.Menu {
             var sensitivityValue = data.controls != null ? data.controls.sensitivity : 0.1f;
 
             if(_sensitivitySlider != null) _sensitivitySlider.value = sensitivityValue;
-            if(_invertYButton != null) SetCheckboxValue(_invertYButton, data.controls != null && data.controls.invertY);
+            if(_invertYButton != null) SetCheckboxValue(_invertYButton, data.controls is { invertY: true });
             if(_playerTrailsButton != null)
                 SetCheckboxValue(_playerTrailsButton, data.controls == null || data.controls.playerTrails);
             if(_streamerModeButton != null)
-                SetCheckboxValue(_streamerModeButton, data.social != null && data.social.streamerModeEnabled);
+                SetCheckboxValue(_streamerModeButton, data.social is { streamerModeEnabled: true });
             if(_holdMantleButton != null) SetCheckboxValue(_holdMantleButton, data.controls == null || data.controls.holdMantle);
             if(_profanityFilterButton != null) SetCheckboxValue(_profanityFilterButton, SocialSettings.ProfanityFilterEnabled);
-            if(_autoWallRunButton != null) SetCheckboxValue(_autoWallRunButton, data.controls != null && data.controls.autoWallRun);
+            if(_autoWallRunButton != null) SetCheckboxValue(_autoWallRunButton, data.controls is { autoWallRun: true });
             
             // Load grapple indicator setting (0 = Crosshair (default), 1 = Bottom, 2 = None)
             if(_grappleIndicatorDropdown != null) {
@@ -1174,8 +1174,8 @@ namespace Game.Menu {
 
             // Load resolution
             if(_resolutionDropdown != null && _filteredResolutions.Count > 0) {
-                var savedWidth = data.video != null && data.video.resolutionWidth > 0 ? data.video.resolutionWidth : Screen.width;
-                var savedHeight = data.video != null && data.video.resolutionHeight > 0 ? data.video.resolutionHeight : Screen.height;
+                var savedWidth = data.video is { resolutionWidth: > 0 } ? data.video.resolutionWidth : Screen.width;
+                var savedHeight = data.video is { resolutionHeight: > 0 } ? data.video.resolutionHeight : Screen.height;
 
                 // Find matching resolution in filtered list
                 var resolutionIndex = -1;
@@ -1198,7 +1198,7 @@ namespace Game.Menu {
             // Load graphics settings
             LoadGraphicsSettings();
 
-            if(_vsyncButton != null) SetCheckboxValue(_vsyncButton, data.video != null && data.video.vsync);
+            if(_vsyncButton != null) SetCheckboxValue(_vsyncButton, data.video is { vsync: true });
             if(_fpsDropdown != null) _fpsDropdown.index = data.video != null ? data.video.targetFpsIndex : 1;
 
             // Store original values

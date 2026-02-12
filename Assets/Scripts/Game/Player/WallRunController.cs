@@ -192,12 +192,7 @@ namespace Game.Player {
             // Choose wallrun direction from actual movement first, not look direction.
             // This prevents backward wallrun attempts from flipping velocity the wrong way.
             var planarVelocity = GetPlanarVelocity();
-            Vector3 referenceDirection;
-            if(planarVelocity.sqrMagnitude > 0.01f) {
-                referenceDirection = planarVelocity.normalized;
-            } else {
-                referenceDirection = GetPreferredDirection(currentForward);
-            }
+            var referenceDirection = planarVelocity.sqrMagnitude > 0.01f ? planarVelocity.normalized : GetPreferredDirection(currentForward);
 
             if(Vector3.Dot(wallForward, referenceDirection) < 0f) {
                 wallForward = -wallForward;

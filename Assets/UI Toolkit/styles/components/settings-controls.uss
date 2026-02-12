@@ -10,32 +10,32 @@
     flex-grow: 1;
     font-size: 14px;
     min-width: 180px;
-    color: rgb(220, 220, 220);
+    color: var(--color-text-secondary);
 }
 
 .value-label {
     font-size: 14px;
-    color: rgb(180, 180, 180);
+    color: var(--color-text-muted);
     min-width: 60px;
     -unity-text-align: middle-right;
     margin-left: 10px;
 }
 
 .value-label.accent {
-    color: rgb(255, 100, 100);
+    color: var(--color-accent);
 }
 
 /* Value input fields (volume and sensitivity) */
 .value-input {
     font-size: 14px;
-    color: rgb(240, 240, 240);
+    color: var(--color-text-primary);
     min-width: 60px;
     max-width: 80px;
     -unity-text-align: middle-right;
     margin-left: 10px;
     background-color: transparent;
     border-width: 0;
-    --unity-cursor-color: rgb(240, 240, 240);
+    --unity-cursor-color: var(--cursor-color);
 }
 
 /* Sensitivity input - fixed width to prevent growing */
@@ -45,26 +45,26 @@
 }
 
 .value-input:focus {
-    --unity-cursor-color: rgb(240, 240, 240);
+    --unity-cursor-color: var(--cursor-color);
 }
 
 .value-input > .unity-base-text-field__input {
-    --unity-cursor-color: rgb(240, 240, 240);
+    --unity-cursor-color: var(--cursor-color);
     background-color: transparent;
     border-width: 0;
 }
 
 .value-input:focus > .unity-base-text-field__input {
-    --unity-cursor-color: rgb(240, 240, 240);
+    --unity-cursor-color: var(--cursor-color);
 }
 
 .value-input > .unity-text-element--inner-input-field-component {
-    --unity-cursor-color: rgb(240, 240, 240);
-    color: rgb(240, 240, 240);
+    --unity-cursor-color: var(--cursor-color);
+    color: var(--color-text-primary);
 }
 
 .value-input:focus > .unity-text-element--inner-input-field-component {
-    --unity-cursor-color: rgb(240, 240, 240);
+    --unity-cursor-color: var(--cursor-color);
 }
 
 .setting-toggle {
@@ -77,16 +77,16 @@
     max-height: 20px;
     padding: 0;
     margin: 0;
-    background-color: rgba(20, 20, 25, 0.9);
-    border-radius: 4px;
+    background-color: var(--color-bg-surface);
+    border-radius: var(--radius-md);
     border-width: 1px;
-    border-color: rgba(200, 60, 60, 0.3);
-    -unity-background-image-tint-color: rgba(20, 20, 25, 0.9);
+    border-color: var(--color-accent-border);
+    -unity-background-image-tint-color: var(--color-bg-surface);
     -unity-slice-left: 0;
     -unity-slice-right: 0;
     -unity-slice-top: 0;
     -unity-slice-bottom: 0;
-    transition-duration: 0.2s;
+    transition-duration: var(--dur-fast);
     /* Ensure no background image in unchecked state */
     background-image: none;
     background-size: 12px 12px;
@@ -95,9 +95,9 @@
 }
 
 .setting-toggle:hover {
-    border-color: rgba(255, 100, 100, 0.5);
-    background-color: rgba(25, 25, 30, 0.9);
-    -unity-background-image-tint-color: rgba(25, 25, 30, 0.9);
+    border-color: var(--color-accent-border-hover);
+    background-color: var(--color-bg-surface-hover);
+    -unity-background-image-tint-color: var(--color-bg-surface-hover);
     /* Ensure no background image in unchecked hover state */
     background-image: none;
     background-size: 12px 12px;
@@ -105,10 +105,10 @@
 
 /* Checked state - show red background and white checkmark */
 .setting-toggle.checked {
-    background-color: rgba(200, 60, 60, 0.4);
-    border-color: rgba(255, 100, 100, 0.6);
+    background-color: var(--color-accent-bg-mid);
+    border-color: var(--color-accent-border-strong);
     background-image: url('/Assets/UI Toolkit/Images/checkmark.png');
-    -unity-background-image-tint-color: rgb(255, 255, 255);
+    -unity-background-image-tint-color: var(--color-white);
     background-size: 12px 12px;
     background-repeat: no-repeat;
     background-position: center;
@@ -116,32 +116,32 @@
 
 .setting-toggle.checked:hover {
     background-color: rgba(200, 60, 60, 0.5);
-    border-color: rgba(255, 100, 100, 0.8);
-    -unity-background-image-tint-color: rgb(255, 255, 255);
+    border-color: var(--color-accent-border-pressed);
+    -unity-background-image-tint-color: var(--color-white);
     background-size: 12px 12px;
 }
 
 /* Completely remove default dropdown styling and apply custom */
 .setting-dropdown {
-    background-color: rgba(20, 20, 25, 0.9);
+    background-color: var(--color-bg-surface);
     border-width: 1px;
-    border-color: rgba(200, 60, 60, 0.3);
-    border-radius: 4px;
+    border-color: var(--color-accent-border);
+    border-radius: var(--radius-md);
     padding: 4px 8px;
-    width: 40%;
-    min-width: 40%;
-    max-width: 40%;
-    color: rgb(240, 240, 240);
+    width: var(--options-dropdown-width, 320px);
+    min-width: var(--options-dropdown-width, 320px);
+    max-width: var(--options-dropdown-width, 320px);
+    color: var(--color-text-primary);
     min-height: 24px;
-    -unity-background-image-tint-color: rgba(20, 20, 25, 0.9);
+    -unity-background-image-tint-color: var(--color-bg-surface);
     overflow: hidden;
     text-overflow: ellipsis;
 }
 
 .setting-dropdown:hover {
-    border-color: rgba(255, 100, 100, 0.5);
-    background-color: rgba(25, 25, 30, 0.9);
-    -unity-background-image-tint-color: rgba(25, 25, 30, 0.9);
+    border-color: var(--color-accent-border-hover);
+    background-color: var(--color-bg-surface-hover);
+    -unity-background-image-tint-color: var(--color-bg-surface-hover);
 }
 
 /* Dropdown input - remove inner white border and default styling */
@@ -150,7 +150,7 @@
     background-color: transparent;
     border-width: 0;
     border-color: transparent;
-    color: rgb(240, 240, 240);
+    color: var(--color-text-primary);
     padding: 0;
     margin: 0;
     -unity-background-image-tint-color: transparent;
@@ -171,7 +171,7 @@
     border-right-width: 7px;
     border-right-color: transparent;
     border-bottom-width: 12px;
-    border-bottom-color: rgb(255, 100, 100);
+    border-bottom-color: var(--color-accent);
     border-top-width: 0;
     margin-left: 8px;
     margin-right: 4px;
@@ -183,7 +183,7 @@
 .setting-dropdown .unity-base-popup-field__arrow.down {
     border-bottom-width: 0;
     border-top-width: 12px;
-    border-top-color: rgb(255, 100, 100);
+    border-top-color: var(--color-accent);
 }
 
 /* ===== KEYBIND BUTTONS ===== */
@@ -195,25 +195,25 @@
     height: 32px;
     min-height: 32px;
     padding: 6px 12px;
-    background-color: rgba(20, 20, 25, 0.9);
-    border-radius: 4px;
+    background-color: var(--color-bg-surface);
+    border-radius: var(--radius-md);
     border-width: 1px;
-    border-color: rgba(200, 60, 60, 0.3);
-    color: rgb(220, 220, 220);
+    border-color: var(--color-accent-border);
+    color: var(--color-text-secondary);
     font-size: 13px;
     -unity-text-align: middle-center;
-    transition-duration: 0.2s;
+    transition-duration: var(--dur-fast);
 }
 
 .keybind-button:hover {
-    border-color: rgba(255, 100, 100, 0.5);
-    background-color: rgba(25, 25, 30, 0.9);
-    color: rgb(240, 240, 240);
+    border-color: var(--color-accent-border-hover);
+    background-color: var(--color-bg-surface-hover);
+    color: var(--color-text-primary);
 }
 
 .keybind-button:active {
     border-color: rgba(255, 100, 100, 0.7);
-    background-color: rgba(30, 30, 35, 0.9);
+    background-color: var(--color-bg-surface-pressed);
 }
 
 .setting-slider {
@@ -225,12 +225,12 @@
 
 /* Slider track (background) */
 .setting-slider > .unity-base-slider__tracker {
-    background-color: rgba(20, 20, 25, 0.9);
+    background-color: var(--color-bg-surface);
     border-width: 1px;
-    border-color: rgba(200, 60, 60, 0.3);
-    border-radius: 4px;
+    border-color: var(--color-accent-border);
+    border-radius: var(--radius-md);
     height: 6px;
-    -unity-background-image-tint-color: rgba(20, 20, 25, 0.9);
+    -unity-background-image-tint-color: var(--color-bg-surface);
     -unity-slice-left: 0;
     -unity-slice-right: 0;
     -unity-slice-top: 0;
@@ -239,10 +239,10 @@
 
 /* Slider fill (filled portion) - red progress bar extending to dragger */
 .setting-slider > .unity-base-slider__fill {
-    background-color: rgb(255, 100, 100);
-    border-radius: 4px;
+    background-color: var(--color-accent);
+    border-radius: var(--radius-md);
     height: 6px;
-    -unity-background-image-tint-color: rgb(255, 100, 100);
+    -unity-background-image-tint-color: var(--color-accent);
     -unity-slice-left: 0;
     -unity-slice-right: 0;
     -unity-slice-top: 0;
@@ -251,7 +251,7 @@
 
 /* Slider dragger (handle) */
 .setting-slider > .unity-base-slider__dragger {
-    background-color: rgb(255, 100, 100);
+    background-color: var(--color-accent);
     border-radius: 50%;
     border-width: 2px;
     border-color: rgba(255, 255, 255, 0.3);
@@ -261,17 +261,17 @@
     min-height: 16px;
     max-width: 16px;
     max-height: 16px;
-    -unity-background-image-tint-color: rgb(255, 100, 100);
+    -unity-background-image-tint-color: var(--color-accent);
     -unity-slice-left: 0;
     -unity-slice-right: 0;
     -unity-slice-top: 0;
     -unity-slice-bottom: 0;
-    transition-duration: 0.15s;
+    transition-duration: var(--dur-faster);
 }
 
 /* Dragger hover state */
 .setting-slider > .unity-base-slider__dragger:hover {
-    background-color: rgb(255, 120, 120);
+    background-color: var(--color-accent-hover);
     border-color: rgba(255, 255, 255, 0.5);
     width: 18px;
     height: 18px;
@@ -283,6 +283,6 @@
 
 /* Dragger active/pressed state */
 .setting-slider > .unity-base-slider__dragger:active {
-    background-color: rgb(200, 60, 60);
+    background-color: var(--color-accent-strong);
     border-color: rgba(255, 255, 255, 0.4);
 }

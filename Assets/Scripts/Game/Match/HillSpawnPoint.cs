@@ -3,7 +3,7 @@ using UnityEngine;
 namespace Game.Match {
     /// <summary>
     /// Marker component for King of the Hill spawn points.
-    /// Helps finding them in the scene and visualizing in Editor.
+    /// Helps to find them in the scene and visualizing in Editor.
     /// </summary>
     public class HillSpawnPoint : MonoBehaviour {
         private void OnDrawGizmos() {

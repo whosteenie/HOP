@@ -1,4 +1,6 @@
 using Game.Player;
+using System;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Rendering;
 
@@ -13,6 +15,11 @@ namespace Game.Weapons {
         [Header("Settings")]
         [SerializeField] private float shadowRaycastDistance = 1000f; // Max distance to check for shadows
         [SerializeField] private int weaponShadowLayer = -1; // Will be set to Weapon layer
+        [SerializeField] private string blockedRootName = "WorldRoot";
+        [SerializeField] private int maxRenderersPerSource = 64;
+        [SerializeField] private float maxSourceBoundsDimension = 150f;
+        [SerializeField] private int maxCachedSources = 24;
+        [SerializeField] private bool logRejectedSources;
         
         private Camera _weaponCamera;
         private CharacterController _characterController;
@@ -23,6 +30,17 @@ namespace Game.Weapons {
         // Current shadow state
         private GameObject _currentShadowGeometry;
         private GameObject _currentShadowSource; // The original object we duplicated
+
+        // Cache shadow clones by source so we do not instantiate/destroy repeatedly.
+        private readonly Dictionary<GameObject, GameObject> _shadowGeometryCache = new();
+        private readonly LinkedList<GameObject> _cacheInsertionOrder = new();
+        private readonly Dictionary<GameObject, SourceAssessment> _sourceAssessmentCache = new();
+
+        private struct SourceAssessment {
+            public bool IsUsable;
+            public int RendererCount;
+            public float BoundsDimension;
+        }
         
         private void Awake() {
             ValidateComponents();
@@ -75,7 +93,7 @@ namespace Game.Weapons {
         }
         
         private void Update() {
-            // Check every frame when moving (no throttle - raycast is cheap)
+            // Check every frame for immediate visual response.
             CheckAndUpdateShadowGeometry();
         }
         
@@ -85,18 +103,20 @@ namespace Game.Weapons {
             var isInShadow = IsWeaponInShadow(out var shadowCaster);
             
             if(isInShadow && shadowCaster != null) {
-                // Get root object of shadow caster
-                var rootObject = GetRootObject(shadowCaster);
-                
-                // Check if we need to update shadow geometry
-                if(_currentShadowGeometry != null && _currentShadowSource == rootObject) return;
-                // Different shadow caster or no shadow geometry - update
-                CleanupCurrentShadow();
-                CreateShadowGeometry(rootObject);
-                // If same shadow caster, keep existing geometry
+                var source = GetShadowSource(shadowCaster);
+                if(source == null) {
+                    DeactivateCurrentShadow();
+                    return;
+                }
+
+                if(_currentShadowSource != source) {
+                    ActivateShadowForSource(source);
+                } else {
+                    SyncShadowTransform(source, _currentShadowGeometry);
+                }
             } else {
-                // Not in shadow - cleanup (only destroy when actually leaving shadow)
-                CleanupCurrentShadow();
+                // Not in shadow - keep cache but disable current geometry.
+                DeactivateCurrentShadow();
             }
         }
         
@@ -114,56 +134,201 @@ namespace Game.Weapons {
             // SphereCast from weapon position toward light direction using player radius
             // This accounts for the player's volume and detects shadows as soon as they should affect the weapon
             if(!Physics.SphereCast(weaponPos, _playerRadius, lightDir, out var hit, shadowRaycastDistance,
-                   _worldLayer)) return false;
+                   _worldLayer, QueryTriggerInteraction.Ignore)) return false;
             shadowCaster = hit.collider.gameObject;
             return true;
 
         }
-        
-        private void CreateShadowGeometry(GameObject source) {
-            if(source == null) return;
-            
-            // Duplicate the source object
-            _currentShadowGeometry = Instantiate(source);
-            _currentShadowGeometry.name = $"{source.name}_ShadowOnly";
-            
-            // Configure all renderers to be shadow-only and on Weapon layer
-            var renderers = _currentShadowGeometry.GetComponentsInChildren<Renderer>(true);
-            foreach(var r in renderers) {
-                r.shadowCastingMode = ShadowCastingMode.ShadowsOnly;
-                
-                // Set layer to Weapon so weapon camera can see it
-                if(weaponShadowLayer != -1) {
-                    SetLayerRecursive(r.gameObject, weaponShadowLayer);
+
+        private GameObject GetShadowSource(GameObject hitObject) {
+            if(hitObject == null) return null;
+
+            var cursor = hitObject.transform;
+            while(cursor != null) {
+                var candidate = cursor.gameObject;
+                if(IsBlockedRoot(candidate)) {
+                    return null;
+                }
+
+                var assessment = AssessSource(candidate);
+                if(assessment.IsUsable) {
+                    return candidate;
+                }
+
+                cursor = cursor.parent;
+            }
+
+            return null;
+        }
+
+        private bool IsBlockedRoot(GameObject candidate) {
+            if(candidate == null) return true;
+            if(string.IsNullOrWhiteSpace(blockedRootName)) return false;
+            return candidate.name.Equals(blockedRootName, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private SourceAssessment AssessSource(GameObject source) {
+            if(source == null) {
+                return default;
+            }
+
+            if(_sourceAssessmentCache.TryGetValue(source, out var cachedAssessment)) {
+                return cachedAssessment;
+            }
+
+            var assessment = new SourceAssessment {
+                IsUsable = false,
+                RendererCount = 0,
+                BoundsDimension = 0f
+            };
+
+            var renderers = source.GetComponentsInChildren<Renderer>(true);
+            assessment.RendererCount = renderers.Length;
+
+            if(assessment.RendererCount == 0) {
+                _sourceAssessmentCache[source] = assessment;
+                return assessment;
+            }
+
+            if(maxRenderersPerSource > 0 && assessment.RendererCount > maxRenderersPerSource) {
+                if(logRejectedSources) {
+                    Debug.LogWarning($"[WeaponShadowManager] Rejected shadow source '{source.name}' (renderer count {assessment.RendererCount} > {maxRenderersPerSource}).");
+                }
+
+                _sourceAssessmentCache[source] = assessment;
+                return assessment;
+            }
+
+            var combinedBounds = renderers[0].bounds;
+            for(var i = 1; i < renderers.Length; i++) {
+                combinedBounds.Encapsulate(renderers[i].bounds);
+            }
+
+            assessment.BoundsDimension = Mathf.Max(combinedBounds.size.x, Mathf.Max(combinedBounds.size.y, combinedBounds.size.z));
+            if(maxSourceBoundsDimension > 0f && assessment.BoundsDimension > maxSourceBoundsDimension) {
+                if(logRejectedSources) {
+                    Debug.LogWarning($"[WeaponShadowManager] Rejected shadow source '{source.name}' (bounds {assessment.BoundsDimension:F1} > {maxSourceBoundsDimension:F1}).");
+                }
+
+                _sourceAssessmentCache[source] = assessment;
+                return assessment;
+            }
+
+            assessment.IsUsable = true;
+            _sourceAssessmentCache[source] = assessment;
+            return assessment;
+        }
+
+        private void ActivateShadowForSource(GameObject source) {
+            if(source == null) {
+                DeactivateCurrentShadow();
+                return;
+            }
+
+            var geometry = GetOrCreateShadowGeometry(source);
+            if(geometry == null) {
+                DeactivateCurrentShadow();
+                return;
+            }
+
+            if(_currentShadowGeometry != null && _currentShadowGeometry != geometry) {
+                _currentShadowGeometry.SetActive(false);
+            }
+
+            _currentShadowSource = source;
+            _currentShadowGeometry = geometry;
+
+            SyncShadowTransform(source, geometry);
+            if(!geometry.activeSelf) {
+                geometry.SetActive(true);
+            }
+        }
+
+        private GameObject GetOrCreateShadowGeometry(GameObject source) {
+            if(source == null) return null;
+
+            if(_shadowGeometryCache.TryGetValue(source, out var cachedGeometry) && cachedGeometry != null) {
+                return cachedGeometry;
+            }
+
+            var clone = Instantiate(source);
+            clone.name = $"{source.name}_ShadowOnly";
+            ConfigureShadowGeometry(clone);
+            clone.SetActive(false);
+
+            _shadowGeometryCache[source] = clone;
+            _cacheInsertionOrder.AddLast(source);
+            TrimCache();
+            return clone;
+        }
+
+        private void ConfigureShadowGeometry(GameObject geometryRoot) {
+            if(geometryRoot == null) return;
+
+            var renderers = geometryRoot.GetComponentsInChildren<Renderer>(true);
+            foreach(var renderer in renderers) {
+                renderer.shadowCastingMode = ShadowCastingMode.ShadowsOnly;
+            }
+
+            if(weaponShadowLayer != -1) {
+                SetLayerRecursive(geometryRoot, weaponShadowLayer);
+            }
+
+            var colliders = geometryRoot.GetComponentsInChildren<Collider>(true);
+            foreach(var col in colliders) {
+                col.enabled = false;
+            }
+
+            var behaviours = geometryRoot.GetComponentsInChildren<Behaviour>(true);
+            foreach(var behaviour in behaviours) {
+                // Disable behaviour components on the clone so duplicated scene logic does not run.
+                behaviour.enabled = false;
+            }
+        }
+
+        private void TrimCache() {
+            if(maxCachedSources <= 0) return;
+
+            while(_shadowGeometryCache.Count > maxCachedSources && _cacheInsertionOrder.First != null) {
+                var oldestSource = _cacheInsertionOrder.First.Value;
+                _cacheInsertionOrder.RemoveFirst();
+
+                if(oldestSource == null) continue;
+                if(oldestSource == _currentShadowSource) {
+                    // Keep current source alive and place it at end of LRU order.
+                    _cacheInsertionOrder.AddLast(oldestSource);
+                    continue;
+                }
+
+                if(!_shadowGeometryCache.TryGetValue(oldestSource, out var oldGeometry)) continue;
+
+                _shadowGeometryCache.Remove(oldestSource);
+                if(oldGeometry != null) {
+                    Destroy(oldGeometry);
                 }
             }
-            
-            // Position at source (match transform)
-            _currentShadowGeometry.transform.position = source.transform.position;
-            _currentShadowGeometry.transform.rotation = source.transform.rotation;
-            _currentShadowGeometry.transform.localScale = source.transform.lossyScale;
-            
-            // Store reference to source for comparison
-            _currentShadowSource = source;
         }
-        
-        private void CleanupCurrentShadow() {
-            if(_currentShadowGeometry == null) return;
-            Destroy(_currentShadowGeometry);
+
+        private static void SyncShadowTransform(GameObject source, GameObject shadowGeometry) {
+            if(source == null || shadowGeometry == null) return;
+
+            var sourceTransform = source.transform;
+            var geometryTransform = shadowGeometry.transform;
+
+            geometryTransform.position = sourceTransform.position;
+            geometryTransform.rotation = sourceTransform.rotation;
+            geometryTransform.localScale = sourceTransform.lossyScale;
+        }
+
+        private void DeactivateCurrentShadow() {
+            if(_currentShadowGeometry != null) {
+                _currentShadowGeometry.SetActive(false);
+            }
+
             _currentShadowGeometry = null;
             _currentShadowSource = null;
         }
-        
-        private GameObject GetRootObject(GameObject obj) {
-            if(obj == null) return null;
-            
-            // Traverse up hierarchy to find root
-            while(obj.transform.parent != null) {
-                obj = obj.transform.parent.gameObject;
-            }
-            return obj;
-        }
-        
+
         private static void SetLayerRecursive(GameObject obj, int layer) {
             if(obj == null) return;
             
@@ -174,7 +339,17 @@ namespace Game.Weapons {
         }
         
         private void OnDestroy() {
-            CleanupCurrentShadow();
+            DeactivateCurrentShadow();
+
+            foreach(var pair in _shadowGeometryCache) {
+                if(pair.Value != null) {
+                    Destroy(pair.Value);
+                }
+            }
+
+            _shadowGeometryCache.Clear();
+            _cacheInsertionOrder.Clear();
+            _sourceAssessmentCache.Clear();
         }
     }
 }

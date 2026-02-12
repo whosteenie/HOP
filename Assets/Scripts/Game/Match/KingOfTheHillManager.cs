@@ -221,13 +221,13 @@ namespace Game.Match {
 
             // Determine spawn position
             Vector3 spawnPos;
-            if(hillSpawnPoints != null && hillSpawnPoints.Count > 0) {
+            if(hillSpawnPoints is { Count: > 0 }) {
                 var randomPoint = hillSpawnPoints[Random.Range(0, hillSpawnPoints.Count)];
                 spawnPos = randomPoint.position;
             } else {
                 // Fallback: search for points again or use default
                 FindSpawnPoints();
-                if(hillSpawnPoints != null && hillSpawnPoints.Count > 0) {
+                if(hillSpawnPoints is { Count: > 0 }) {
                     spawnPos = hillSpawnPoints[Random.Range(0, hillSpawnPoints.Count)].position;
                 } else {
                     Debug.LogWarning(

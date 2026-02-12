@@ -89,7 +89,7 @@ namespace Game.Player {
             var s = GameSettings.Data.controls;
             var sensitivityValue = s != null ? s.sensitivity : defaultLookSensitivity.x;
 
-            var invertY = s != null && s.invertY;
+            var invertY = s is { invertY: true };
             var yMultiplier = invertY ? -1f : 1f;
 
             return new Vector2(sensitivityValue, sensitivityValue * yMultiplier);

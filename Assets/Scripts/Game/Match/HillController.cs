@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using Unity.Netcode;
 using UnityEngine;
 using Game.Player;
@@ -37,7 +36,6 @@ namespace Game.Match {
         // Runtime State
         private readonly NetworkVariable<HillState> _currentState = new();
         
-        private readonly HashSet<PlayerController> _playersInZone = new();
         private float _timer;
         private bool _isMoving;
         private Vector3 _targetPosition;
@@ -86,8 +84,7 @@ namespace Game.Match {
             }
 
             if (_localPlayerInZone != null &&
-                _localPlayerInZone.netIsDead != null &&
-                !_localPlayerInZone.netIsDead.Value &&
+                _localPlayerInZone.netIsDead is { Value: false } &&
                 IsPointInsideZone(_localPlayerInZone.transform.position) &&
                 Progression.ProgressionManager.Instance != null) {
                  Progression.ProgressionManager.Instance.AddTimeAsKing(Time.deltaTime);
@@ -119,9 +116,10 @@ namespace Game.Match {
 
                 // Force Height (Safety net against physics drift or low spawn)
                 if (transform.position.y < 753f) {
-                     var pos = transform.position;
+                    var transformHill = transform;
+                    var pos = transformHill.position;
                      pos.y = 753f;
-                     transform.position = pos;
+                     transformHill.position = pos;
                 }
             }
 
@@ -173,24 +171,24 @@ namespace Game.Match {
             }
             if(zoneCollider == null) return false;
 
-            switch(zoneCollider) {
-                case SphereCollider sphere: {
-                    var center = sphere.transform.TransformPoint(sphere.center);
-                    var lossy = sphere.transform.lossyScale;
-                    var maxScale = Mathf.Max(Mathf.Abs(lossy.x), Mathf.Abs(lossy.y), Mathf.Abs(lossy.z));
-                    var radius = sphere.radius * maxScale;
-                    return (worldPoint - center).sqrMagnitude <= radius * radius;
-                }
-                case BoxCollider box: {
-                    var local = box.transform.InverseTransformPoint(worldPoint) - box.center;
-                    var half = box.size * 0.5f;
-                    return Mathf.Abs(local.x) <= half.x &&
-                           Mathf.Abs(local.y) <= half.y &&
-                           Mathf.Abs(local.z) <= half.z;
-                }
-                default:
-                    return zoneCollider.bounds.Contains(worldPoint);
+            var sphere = zoneCollider as SphereCollider;
+            if(sphere != null) {
+                Transform transformZone;
+                var center = (transformZone = sphere.transform).TransformPoint(sphere.center);
+                var lossy = transformZone.lossyScale;
+                var maxScale = Mathf.Max(Mathf.Abs(lossy.x), Mathf.Abs(lossy.y), Mathf.Abs(lossy.z));
+                var radius = sphere.radius * maxScale;
+                return (worldPoint - center).sqrMagnitude <= radius * radius;
             }
+
+            var box = zoneCollider as BoxCollider;
+            if(box == null) return zoneCollider.bounds.Contains(worldPoint);
+            var local = box.transform.InverseTransformPoint(worldPoint) - box.center;
+            var half = box.size * 0.5f;
+            return Mathf.Abs(local.x) <= half.x &&
+                   Mathf.Abs(local.y) <= half.y &&
+                   Mathf.Abs(local.z) <= half.z;
+
         }
 
         private void UpdateVisuals(HillState state) {
@@ -227,7 +225,6 @@ namespace Game.Match {
             // Server-side logic
             if(!IsServer) return;
             Debug.Log($"[HillController] Player {player.name} entered zone.");
-            _playersInZone.Add(player);
         }
 
         private void OnTriggerExit(Collider other) {
@@ -243,25 +240,26 @@ namespace Game.Match {
             // Server-side logic
             if(!IsServer) return;
             Debug.Log($"[HillController] Player {player.name} exited zone.");
-            _playersInZone.Remove(player);
         }
 
         private void OnDrawGizmos() {
             Gizmos.color = new Color(0, 1, 0, 0.3f);
             if(zoneCollider == null) return;
-            switch(zoneCollider) {
-                case BoxCollider box:
-                    Gizmos.matrix = transform.localToWorldMatrix;
-                    Gizmos.DrawCube(box.center, box.size);
-                    break;
-                case SphereCollider sphere:
-                    Gizmos.matrix = transform.localToWorldMatrix;
-                    Gizmos.DrawSphere(sphere.center, sphere.radius);
-                    break;
-                default:
-                    Gizmos.DrawWireSphere(transform.position, wanderRadius);
-                    break;
+            var box = zoneCollider as BoxCollider;
+            if(box != null) {
+                Gizmos.matrix = transform.localToWorldMatrix;
+                Gizmos.DrawCube(box.center, box.size);
+                return;
             }
+
+            var sphere = zoneCollider as SphereCollider;
+            if(sphere != null) {
+                Gizmos.matrix = transform.localToWorldMatrix;
+                Gizmos.DrawSphere(sphere.center, sphere.radius);
+                return;
+            }
+
+            Gizmos.DrawWireSphere(transform.position, wanderRadius);
         }
     }
 }
