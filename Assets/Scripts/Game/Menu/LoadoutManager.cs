@@ -67,8 +67,15 @@ namespace Game.Menu {
 
         private GameObject _previewPlayerModel;
         private SkinnedMeshRenderer[] _cachedPreviewRenderers;
+        private SkinnedMeshRenderer _previewSkinnedRenderer;
         private readonly List<GameObject> _previewWeaponModels = new();
         private readonly List<GameObject> _previewSecondaryWeaponModels = new();
+        private readonly Dictionary<GameObject, Renderer[]> _previewWeaponRenderers = new();
+        private readonly HashSet<GameObject> _prewarmedPreviewWeapons = new();
+        private GameObject _previewWeaponCacheModel;
+        private bool _previewWeaponsCached;
+        private bool _viewportRootHandlersRegistered;
+        private Coroutine _previewWeaponPrewarmCoroutine;
 
         // Rotation state
         private bool _isDragging;
@@ -164,12 +171,10 @@ namespace Game.Menu {
             _previewActive = false;
             _showingStats = false;
 
-            if(Root == null || !_outsideClickHandlerRegistered) {
-                base.OnDisable();
-                return;
+            if(Root != null && _outsideClickHandlerRegistered) {
+                Root.UnregisterCallback<PointerDownEvent>(OnRootPointerDown, TrickleDown.TrickleDown);
+                _outsideClickHandlerRegistered = false;
             }
-            Root.UnregisterCallback<PointerDownEvent>(OnRootPointerDown, TrickleDown.TrickleDown);
-            _outsideClickHandlerRegistered = false;
 
             // Clean up viewport handlers
             if(_viewport != null) {
@@ -180,10 +185,11 @@ namespace Game.Menu {
             }
 
             // Clean up root-level viewport handlers
-            if(Root != null) {
+            if(Root != null && _viewportRootHandlersRegistered) {
                 Root.UnregisterCallback<PointerDownEvent>(OnRootPointerDownForViewport, TrickleDown.TrickleDown);
                 Root.UnregisterCallback<PointerMoveEvent>(OnRootPointerMoveForViewport, TrickleDown.TrickleDown);
                 Root.UnregisterCallback<PointerUpEvent>(OnRootPointerUpForViewport, TrickleDown.TrickleDown);
+                _viewportRootHandlersRegistered = false;
             }
 
             // Unsubscribe from resolution changes
@@ -902,6 +908,13 @@ namespace Game.Menu {
                 }
             }
 
+            if(_previewWeaponCacheModel != _previewPlayerModel) {
+                _previewWeaponCacheModel = _previewPlayerModel;
+                _previewWeaponsCached = false;
+                _previewWeaponRenderers.Clear();
+                _prewarmedPreviewWeapons.Clear();
+            }
+
             // BRUTE FORCE: Ensure model is definitely active and visible
             if(_previewPlayerModel != null) {
                 _previewPlayerModel.SetActive(true);
@@ -915,6 +928,7 @@ namespace Game.Menu {
 
                 // Cache SkinnedMeshRenderers for update loop
                 _cachedPreviewRenderers = _previewPlayerModel.GetComponentsInChildren<SkinnedMeshRenderer>(true);
+                _previewSkinnedRenderer = _previewPlayerModel.GetComponentInChildren<SkinnedMeshRenderer>(true);
             }
 
             // Cache initial rotation from editor/prefab (only on first setup)
@@ -994,10 +1008,11 @@ namespace Game.Menu {
                 _viewport.RegisterCallback<PointerLeaveEvent>(OnViewportPointerLeave);
 
                 // Also try registering on root to catch events that might be blocked
-                if(Root != null) {
+                if(Root != null && !_viewportRootHandlersRegistered) {
                     Root.RegisterCallback<PointerDownEvent>(OnRootPointerDownForViewport, TrickleDown.TrickleDown);
                     Root.RegisterCallback<PointerMoveEvent>(OnRootPointerMoveForViewport, TrickleDown.TrickleDown);
                     Root.RegisterCallback<PointerUpEvent>(OnRootPointerUpForViewport, TrickleDown.TrickleDown);
+                    _viewportRootHandlersRegistered = true;
                 }
             } else {
                 Debug.LogWarning(
@@ -1018,7 +1033,11 @@ namespace Game.Menu {
         private void UpdatePlayerModel() {
             if(_previewPlayerModel == null) return;
 
-            var skinnedRenderer = _previewPlayerModel.GetComponentInChildren<SkinnedMeshRenderer>();
+            var skinnedRenderer = _previewSkinnedRenderer;
+            if(skinnedRenderer == null) {
+                skinnedRenderer = _previewPlayerModel.GetComponentInChildren<SkinnedMeshRenderer>(true);
+                _previewSkinnedRenderer = skinnedRenderer;
+            }
             if(skinnedRenderer == null) return;
 
             // Apply new material packet system to preview model
@@ -1053,10 +1072,10 @@ namespace Game.Menu {
                 emissionColor
             );
 
-            var materials = skinnedRenderer.materials;
+            var materials = skinnedRenderer.sharedMaterials;
             if(materials.Length > 1) {
                 materials[1] = generatedMaterial;
-                skinnedRenderer.materials = materials;
+                skinnedRenderer.sharedMaterials = materials;
             } else {
                 Debug.LogWarning(
                     "[LoadoutManager] Preview player model does not have enough material slots for customization.");
@@ -1064,8 +1083,15 @@ namespace Game.Menu {
         }
 
         private void CachePreviewWeaponModels() {
+            if(_previewWeaponsCached) return;
             CachePreviewPrimaryWeaponModels();
             CachePreviewSecondaryWeaponModels();
+            _previewWeaponsCached = true;
+
+            if(_previewWeaponPrewarmCoroutine != null) {
+                StopCoroutine(_previewWeaponPrewarmCoroutine);
+            }
+            _previewWeaponPrewarmCoroutine = StartCoroutine(PrewarmPreviewWeapons());
         }
 
         private void CachePreviewPrimaryWeaponModels() {
@@ -1073,8 +1099,8 @@ namespace Game.Menu {
             if(previewPrimaryWeapons is { Count: > 0 }) {
                 foreach(var weapon in previewPrimaryWeapons) {
                     if(weapon == null) continue;
-                    weapon.SetActive(false);
                     _previewWeaponModels.Add(weapon);
+                    CachePreviewWeaponRenderers(weapon);
                 }
 
                 return;
@@ -1091,8 +1117,9 @@ namespace Game.Menu {
 
             foreach(Transform child in weaponSocket) {
                 GameObject o;
-                (o = child.gameObject).SetActive(false);
+                o = child.gameObject;
                 _previewWeaponModels.Add(o);
+                CachePreviewWeaponRenderers(o);
             }
         }
 
@@ -1102,8 +1129,8 @@ namespace Game.Menu {
             if(previewSecondaryWeapons is { Count: > 0 }) {
                 foreach(var weapon in previewSecondaryWeapons) {
                     if(weapon == null) continue;
-                    weapon.SetActive(false);
                     _previewSecondaryWeaponModels.Add(weapon);
+                    CachePreviewWeaponRenderers(weapon);
                 }
 
                 return;
@@ -1125,8 +1152,9 @@ namespace Game.Menu {
             foreach(Transform child in parent) {
                 if(child == null) continue;
                 GameObject o;
-                (o = child.gameObject).SetActive(false);
+                o = child.gameObject;
                 secondaryLookup[child.name] = o;
+                CachePreviewWeaponRenderers(o);
             }
 
             if(secondaryWeapons == null || secondaryWeapons.Length == 0) return;
@@ -1171,7 +1199,7 @@ namespace Game.Menu {
             UpdateWeaponModelSet(_previewSecondaryWeaponModels, _selectedSecondaryIndex);
         }
 
-        private static void UpdateWeaponModelSet(List<GameObject> models, int selectedIndex) {
+        private void UpdateWeaponModelSet(List<GameObject> models, int selectedIndex) {
             if(models == null || models.Count == 0) return;
 
             var safeIndex = Mathf.Clamp(selectedIndex, 0, models.Count - 1);
@@ -1179,9 +1207,7 @@ namespace Game.Menu {
                 var weapon = models[i];
                 if(weapon == null) continue;
                 var shouldShow = i == safeIndex;
-                if(weapon.activeSelf != shouldShow) {
-                    weapon.SetActive(shouldShow);
-                }
+                SetPreviewWeaponVisible(weapon, shouldShow);
             }
         }
 
@@ -1192,7 +1218,11 @@ namespace Game.Menu {
             Color specularColor, float heightStrength, bool emissionEnabled, Color emissionColor) {
             if(_previewPlayerModel == null) return;
 
-            var skinnedRenderer = _previewPlayerModel.GetComponentInChildren<SkinnedMeshRenderer>();
+            var skinnedRenderer = _previewSkinnedRenderer;
+            if(skinnedRenderer == null) {
+                skinnedRenderer = _previewPlayerModel.GetComponentInChildren<SkinnedMeshRenderer>(true);
+                _previewSkinnedRenderer = skinnedRenderer;
+            }
             if(skinnedRenderer == null) return;
 
             PlayerMaterialPacket packet = null;
@@ -1216,13 +1246,83 @@ namespace Game.Menu {
                 emissionColor
             );
 
-            var materials = skinnedRenderer.materials;
+            var materials = skinnedRenderer.sharedMaterials;
             if(materials.Length > 1) {
                 materials[1] = generatedMaterial;
-                skinnedRenderer.materials = materials;
+                skinnedRenderer.sharedMaterials = materials;
             } else {
                 Debug.LogWarning(
                     "[LoadoutManager] Preview player model does not have enough material slots for customization.");
+            }
+        }
+
+        private void CachePreviewWeaponRenderers(GameObject weapon) {
+            if(weapon == null || _previewWeaponRenderers.ContainsKey(weapon)) return;
+            _previewWeaponRenderers[weapon] = weapon.GetComponentsInChildren<Renderer>(true);
+        }
+
+        private IEnumerator PrewarmPreviewWeapons() {
+            var warmupList = new List<GameObject>(_previewWeaponModels.Count + _previewSecondaryWeaponModels.Count);
+            warmupList.AddRange(_previewWeaponModels);
+            warmupList.AddRange(_previewSecondaryWeaponModels);
+
+            foreach(var weapon in warmupList) {
+                if(weapon == null || _prewarmedPreviewWeapons.Contains(weapon)) continue;
+
+                if(!weapon.activeSelf) {
+                    weapon.SetActive(true);
+                }
+
+                CachePreviewWeaponRenderers(weapon);
+                if(_previewWeaponRenderers.TryGetValue(weapon, out var renderers)) {
+                    foreach(var renderer in renderers) {
+                        if(renderer != null) {
+                            renderer.enabled = false;
+                        }
+                    }
+                }
+
+                _prewarmedPreviewWeapons.Add(weapon);
+                yield return null;
+            }
+
+            UpdatePreviewWeaponModel();
+            _previewWeaponPrewarmCoroutine = null;
+        }
+
+        private static void SetRendererVisibility(Renderer[] renderers, bool visible) {
+            if(renderers == null) return;
+            foreach(var renderer in renderers) {
+                if(renderer != null) {
+                    renderer.enabled = visible;
+                }
+            }
+        }
+
+        private void SetPreviewWeaponVisible(GameObject weapon, bool visible) {
+            if(weapon == null) return;
+            CachePreviewWeaponRenderers(weapon);
+
+            if(visible) {
+                if(!weapon.activeSelf) {
+                    weapon.SetActive(true);
+                }
+
+                _prewarmedPreviewWeapons.Add(weapon);
+                if(_previewWeaponRenderers.TryGetValue(weapon, out var showRenderers)) {
+                    SetRendererVisibility(showRenderers, true);
+                }
+                return;
+            }
+
+            if(_prewarmedPreviewWeapons.Contains(weapon) &&
+               _previewWeaponRenderers.TryGetValue(weapon, out var hideRenderers)) {
+                SetRendererVisibility(hideRenderers, false);
+                return;
+            }
+
+            if(weapon.activeSelf) {
+                weapon.SetActive(false);
             }
         }
 

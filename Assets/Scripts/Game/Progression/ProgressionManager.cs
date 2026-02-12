@@ -284,11 +284,17 @@ namespace Game.Progression {
         }
 
         private void UpdateChallengeProgress(ChallengeType type, int amount, string contextId = null) {
-            CheckChallengeList(Data.dailyChallenges, type, amount, contextId);
-            CheckChallengeList(Data.weeklyChallenges, type, amount, contextId);
+            var anyChange = false;
+            anyChange |= CheckChallengeList(Data.dailyChallenges, type, amount, contextId);
+            anyChange |= CheckChallengeList(Data.weeklyChallenges, type, amount, contextId);
+            if(anyChange) {
+                OnChallengesUpdated?.Invoke();
+            }
         }
 
-        private void CheckChallengeList(List<ActiveChallengeData> list, ChallengeType type, int amount, string contextId) {
+        private bool CheckChallengeList(List<ActiveChallengeData> list, ChallengeType type, int amount, string contextId) {
+             if(list == null || list.Count == 0 || amount == 0) return false;
+             var changed = false;
              foreach(var challenge in list) {
                 if (challenge.isCompleted) continue;
                 var def = GetChallengeDefinition(challenge.challengeID);
@@ -312,13 +318,24 @@ namespace Game.Progression {
                      if (contextId != filterToUse) continue;
                 }
 
+                var previousProgress = challenge.currentProgress;
                 challenge.currentProgress += amount;
+                if(challenge.currentProgress > challenge.targetProgress) {
+                    challenge.currentProgress = challenge.targetProgress;
+                }
+
+                if(challenge.currentProgress != previousProgress) {
+                    changed = true;
+                }
+
                 if(challenge.currentProgress < challenge.targetProgress) continue;
-                challenge.currentProgress = challenge.targetProgress;
+                if(challenge.isCompleted) continue;
                 challenge.isCompleted = true;
+                changed = true;
                 AddXp(challenge.xpReward);
                 // Notify user?
              }
+             return changed;
         }
 
         private float _nextChallengeCheckTime;

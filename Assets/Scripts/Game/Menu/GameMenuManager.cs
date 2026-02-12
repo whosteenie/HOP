@@ -69,12 +69,19 @@ namespace Game.Menu {
         private VisualElement _pauseDailyCardSlot;
         private VisualElement _pauseWeeklyCardSlot;
         private VisualElement _dailyChallengesCard;
+        private VisualElement _dailyChallengeList;
         private Label _dailyTimerLabel;
         private VisualElement _weeklyChallengesCard;
+        private VisualElement _weeklyChallengeList;
         private Label _weeklyTimerLabel;
         private UIModalHost _modalHost;
         private bool _challengeCardTemplateErrorLogged;
         private bool _challengeRowTemplateErrorLogged;
+        private bool _pauseChallengesDirty = true;
+        private bool? _cachedOfflineState;
+        private float _nextChallengeTimerUpdateAt;
+        private ProgressionManager _progressionManager;
+        private const float ChallengeTimerUpdateIntervalSeconds = 1f;
 
         #endregion
 
@@ -117,10 +124,12 @@ namespace Game.Menu {
             UpdateCachedSceneName();
             SceneManager.sceneLoaded -= OnSceneLoaded;
             SceneManager.sceneLoaded += OnSceneLoaded;
+            BindProgressionEvents();
         }
 
         protected override void OnDisable() {
             SceneManager.sceneLoaded -= OnSceneLoaded;
+            UnbindProgressionEvents();
             base.OnDisable();
         }
 
@@ -136,6 +145,7 @@ namespace Game.Menu {
             SetupScoreboardManager();
             SetupSniperOverlayManager();
             SetupSocialUI();
+            BindProgressionEvents();
             
             // Clear chat history when initializing (new match)
             if (chatUIManager != null) {
@@ -146,6 +156,10 @@ namespace Game.Menu {
             if(_cachedSceneName != null && _cachedSceneName.Contains("Game")) {
                 RestoreHudForMatchStart();
             }
+
+            SetPauseChallengesDirty();
+            UpdateChallengeTimers(force: true);
+            _nextChallengeTimerUpdateAt = Time.unscaledTime + ChallengeTimerUpdateIntervalSeconds;
         }
 
         protected override Dictionary<string, Type> GetRequiredElements() {
@@ -171,38 +185,37 @@ namespace Game.Menu {
             UpdateCachedSceneName();
             
             // When loading a game scene, ensure pause menu and challenges are hidden
-            if(_cachedSceneName != null && _cachedSceneName.Contains("Game")) {
-                // Reset pause state
-                IsPaused = false;
+            if(_cachedSceneName == null || !_cachedSceneName.Contains("Game")) return;
+            // Reset pause state
+            IsPaused = false;
                 
-                // Hide pause menu
-                if(_pauseMenuPanel != null) {
-                    _pauseMenuPanel.AddToClassList("hidden");
-                }
+            // Hide pause menu
+            if(_pauseMenuPanel != null) {
+                _pauseMenuPanel.AddToClassList("hidden");
+            }
                 
-                // Hide challenges container
-                if(_pauseChallengesContainer != null) {
-                    _pauseChallengesContainer.AddToClassList("hidden");
-                }
+            // Hide challenges container
+            if(_pauseChallengesContainer != null) {
+                _pauseChallengesContainer.AddToClassList("hidden");
+            }
                 
-                // Hide options panel
-                if(_optionsPanel != null) {
-                    _optionsPanel.AddToClassList("hidden");
-                }
+            // Hide options panel
+            if(_optionsPanel != null) {
+                _optionsPanel.AddToClassList("hidden");
+            }
 
-                // Restore timer visibility for each fresh game scene load.
-                if(_matchTimerContainer != null) {
-                    _matchTimerContainer.style.display = DisplayStyle.Flex;
-                }
+            // Restore timer visibility for each fresh game scene load.
+            if(_matchTimerContainer != null) {
+                _matchTimerContainer.style.display = DisplayStyle.Flex;
+            }
 
-                // Reset cursor state
-                UnityEngine.Cursor.lockState = CursorLockMode.Locked;
-                UnityEngine.Cursor.visible = false;
+            // Reset cursor state
+            UnityEngine.Cursor.lockState = CursorLockMode.Locked;
+            UnityEngine.Cursor.visible = false;
                 
-                // Clear chat history for new match
-                if(chatUIManager != null) {
-                    chatUIManager.ClearChatHistory();
-                }
+            // Clear chat history for new match
+            if(chatUIManager != null) {
+                chatUIManager.ClearChatHistory();
             }
         }
 
@@ -230,16 +243,21 @@ namespace Game.Menu {
         }
 
         private void Update() {
-            if(IsPaused) {
-                UpdatePauseChallenges();
-                UpdateChallengeTimers();
-            }
+            if(!IsPaused) return;
+            UpdatePauseChallengesIfDirty();
+
+            if(Time.unscaledTime < _nextChallengeTimerUpdateAt) return;
+            UpdateChallengeTimers();
+            _nextChallengeTimerUpdateAt = Time.unscaledTime + ChallengeTimerUpdateIntervalSeconds;
         }
 
-        private void UpdateChallengeTimers() {
+        private void UpdateChallengeTimers(bool force = false) {
             var isOffline = IsOfflineMode();
-            ChallengeUiRenderer.SetOfflineState(_dailyChallengesCard, isOffline);
-            ChallengeUiRenderer.SetOfflineState(_weeklyChallengesCard, isOffline);
+            if(force || _cachedOfflineState != isOffline) {
+                _cachedOfflineState = isOffline;
+                SetChallengeOfflineState(isOffline);
+                SetPauseChallengesDirty();
+            }
 
             if(isOffline) {
                 ChallengeUiRenderer.SetOfflineTimer(_dailyTimerLabel);
@@ -253,11 +271,16 @@ namespace Game.Menu {
             if (_dailyTimerLabel != null) {
                 var time = pm.GetTimeUntilDailyReset();
                 ChallengeUiRenderer.SetDailyResetTimer(_dailyTimerLabel, time);
+                if(time <= TimeSpan.Zero) {
+                    SetPauseChallengesDirty();
+                }
             }
 
-            if (_weeklyTimerLabel != null) {
-                var time = pm.GetTimeUntilWeeklyReset();
-                ChallengeUiRenderer.SetWeeklyResetTimer(_weeklyTimerLabel, time);
+            if(_weeklyTimerLabel == null) return;
+            var weeklyTime = pm.GetTimeUntilWeeklyReset();
+            ChallengeUiRenderer.SetWeeklyResetTimer(_weeklyTimerLabel, weeklyTime);
+            if(weeklyTime <= TimeSpan.Zero) {
+                SetPauseChallengesDirty();
             }
         }
 
@@ -282,35 +305,48 @@ namespace Game.Menu {
 
             if(_dailyChallengesCard != null) _pauseDailyCardSlot.Add(_dailyChallengesCard);
             if(_weeklyChallengesCard != null) _pauseWeeklyCardSlot.Add(_weeklyChallengesCard);
+            _dailyChallengeList = _dailyChallengesCard?.Q<VisualElement>("challenge-list");
+            _weeklyChallengeList = _weeklyChallengesCard?.Q<VisualElement>("challenge-list");
             _pauseChallengesContainer.AddToClassList("hidden");
         }
 
+        private void UpdatePauseChallengesIfDirty() {
+            if(!_pauseChallengesDirty) return;
+            _pauseChallengesDirty = false;
+            UpdatePauseChallenges();
+        }
+
+        private void SetPauseChallengesDirty() {
+            _pauseChallengesDirty = true;
+        }
+
+        private void SetChallengeOfflineState(bool isOffline) {
+            ChallengeUiRenderer.SetOfflineState(_dailyChallengesCard, isOffline);
+            ChallengeUiRenderer.SetOfflineState(_weeklyChallengesCard, isOffline);
+        }
+
         private void UpdatePauseChallenges() {
-            if(IsOfflineMode()) {
-                ChallengeUiRenderer.SetOfflineState(_dailyChallengesCard, true);
-                ChallengeUiRenderer.SetOfflineState(_weeklyChallengesCard, true);
+            if(_cachedOfflineState ?? IsOfflineMode()) {
+                SetChallengeOfflineState(true);
                 return;
             }
 
             var pm = ProgressionManager.Instance;
             if (pm == null || pm.Data == null) return;
 
-            ChallengeUiRenderer.SetOfflineState(_dailyChallengesCard, false);
-            ChallengeUiRenderer.SetOfflineState(_weeklyChallengesCard, false);
-            RenderChallengeList(_dailyChallengesCard, pm.Data.dailyChallenges);
-            RenderChallengeList(_weeklyChallengesCard, pm.Data.weeklyChallenges);
+            SetChallengeOfflineState(false);
+            RenderChallengeList(_dailyChallengeList, pm.Data.dailyChallenges);
+            RenderChallengeList(_weeklyChallengeList, pm.Data.weeklyChallenges);
         }
 
-        private void RenderChallengeList(VisualElement card, List<ActiveChallengeData> challenges) {
-            if (card == null) return;
-            var list = card.Q<VisualElement>("challenge-list");
-            if (list == null) return;
+        private void RenderChallengeList(VisualElement listContainer, List<ActiveChallengeData> challenges) {
+            if (listContainer == null) return;
 
             var pm = ProgressionManager.Instance;
             if (pm == null) return;
 
             ChallengeUiRenderer.RenderChallengeList(
-                list,
+                listContainer,
                 challenges,
                 challengeRowTemplate,
                 pm,
@@ -370,6 +406,27 @@ namespace Game.Menu {
             _quitConfirmationNo.clicked += noHandler;
             RegisterCleanup(() => _quitConfirmationNo.clicked -= noHandler);
             UISoundService.RegisterButtonHover(_quitConfirmationNo);
+        }
+
+        private void BindProgressionEvents() {
+            if(_progressionManager != null) return;
+            _progressionManager = ProgressionManager.Instance;
+            if(_progressionManager == null) return;
+
+            _progressionManager.OnChallengesUpdated -= OnChallengesUpdated;
+            _progressionManager.OnChallengesUpdated += OnChallengesUpdated;
+        }
+
+        private void UnbindProgressionEvents() {
+            if(_progressionManager == null) return;
+            _progressionManager.OnChallengesUpdated -= OnChallengesUpdated;
+            _progressionManager = null;
+        }
+
+        private void OnChallengesUpdated() {
+            SetPauseChallengesDirty();
+            if(!IsPaused) return;
+            UpdatePauseChallengesIfDirty();
         }
 
         private static bool IsOfflineMode() {
@@ -444,6 +501,10 @@ namespace Game.Menu {
             UnityEngine.Cursor.lockState = CursorLockMode.None;
             UnityEngine.Cursor.visible = true;
             UpdatePauseJoinCodeDisplay();
+            UpdateChallengeTimers(force: true);
+            SetPauseChallengesDirty();
+            UpdatePauseChallengesIfDirty();
+            _nextChallengeTimerUpdateAt = Time.unscaledTime + ChallengeTimerUpdateIntervalSeconds;
             
             if (_pauseChallengesContainer != null) _pauseChallengesContainer.RemoveFromClassList("hidden");
             if(_localController) _localController.moveInput = Vector2.zero;

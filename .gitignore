@@ -348,3 +348,6 @@ steam_appid.txt
 # Unity Multiplayer Center onboarding
 /Assets/UserChoices.choices
 /Assets/UserChoices.choices.meta
+
+/Assets/Profiler/*
+ProfilerCaptures/*

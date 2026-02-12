@@ -1089,7 +1089,7 @@ CharacterController:
   m_ProvidesContacts: 0
   m_Enabled: 0
   serializedVersion: 3
-  m_Height: 1.9
+  m_Height: 1.8
   m_Radius: 0.4
   m_SlopeLimit: 45
   m_StepOffset: 0.1
@@ -2087,6 +2087,7 @@ MonoBehaviour:
   hopballVisualPrefab: {fileID: 1479868513324915623, guid: dd8d94a60378cd549ad01773f07c9097, type: 3}
   hopballArmPrefab: {fileID: 7462113625676389339, guid: d85c018ba9010ef44b8e183bf91e074f, type: 3}
   hopballParticleWarmupSeconds: 1
+  prewarmHopballVisualsOnSpawn: 1
   enableHopballFloatMotion: 1
   hopballFloatAmplitude: 0.008
   hopballFloatCyclesPerSecond: 0.06
