@@ -27,10 +27,14 @@ namespace Game.Social {
         private float _nextClaimsMismatchLogTime;
         private float _nextJoinFailureLogTime;
         private float _claimsMismatchRetryCooldownUntil;
+        private float _nextChannelRouteSyncTime;
+        private float _nextRouteSyncLogTime;
+        private bool _isRouteSyncInProgress;
         private const int MaxJoinAttempts = 3;
         private const int ClaimsMismatchRetryDelayMs = 350;
         private const int GenericJoinRetryDelayMs = 500;
         private const float ClaimsMismatchRetryCooldownSeconds = 5f;
+        private const float ChannelRouteSyncIntervalSeconds = 1.5f;
         
         // Events
         public event Action<VivoxParticipant> OnParticipantSpeechDetected;
@@ -197,10 +201,12 @@ namespace Game.Social {
                 ApplySettings(); // Apply initial volume/settings
                 await ApplySavedMicSettingsAsync();
                 
-                // Check if we're already in a lobby - join voice channel now
-                if (joinLobbyChannelIfPresent && Network.SessionManager.Instance != null && Network.SessionManager.Instance.CurrentLobby.HasValue) {
-                    var lobbyId = Network.SessionManager.Instance.CurrentLobby.Value.Id;
-                    await JoinChannelAsync("match_" + lobbyId);
+                // Optional route sync when caller requests immediate channel join.
+                if(joinLobbyChannelIfPresent &&
+                   Network.SessionManager.Instance != null &&
+                   Network.SessionManager.Instance.TryGetActiveVoiceChannelName(out var canonicalChannelName) &&
+                   string.IsNullOrEmpty(canonicalChannelName) == false) {
+                    await EnsureChannelJoinedAsync(canonicalChannelName, context: "LoginRouteSync");
                 }
 
             } catch (Exception e) {
@@ -233,7 +239,7 @@ namespace Game.Social {
             }
         }
 
-        public async Task<bool> EnsureChannelJoinedAsync(string channelName, bool positional = true) {
+        public async Task<bool> EnsureChannelJoinedAsync(string channelName, bool positional = true, string context = "Unknown") {
             if(string.IsNullOrEmpty(channelName)) {
                 return false;
             }
@@ -270,6 +276,11 @@ namespace Game.Social {
                             await LeaveCurrentChannelInternalAsync("SwitchChannel");
                         }
 
+                        if(Debug.isDebugBuild && ShouldEmitThrottledLog(ref _nextRouteSyncLogTime, 1.5f)) {
+                            Debug.Log(
+                                $"[HOPFLOW][VIVOX] JOIN_BEGIN context={context} channel={channelName} editor={Application.isEditor} batch={Application.isBatchMode}");
+                        }
+
                         if (positional) {
                             // 3D Positional Channel
                             var channel3D = new Channel3DProperties(32, 1, 1.0f, AudioFadeModel.InverseByDistance);
@@ -283,6 +294,8 @@ namespace Game.Social {
                         if(Debug.isDebugBuild) {
                             Debug.Log(
                                 $"[VoiceManager] Joined channel '{channelName}'. ActiveChannels={VivoxService.Instance.ActiveChannels.Count}");
+                            Debug.Log(
+                                $"[HOPFLOW][VIVOX] JOIN_OK context={context} channel={channelName} editor={Application.isEditor} batch={Application.isBatchMode}");
                         }
 
                         return true;
@@ -312,10 +325,18 @@ namespace Game.Social {
                 } else {
                     Debug.LogError($"[VoiceManager] Join Channel Failed: {lastException.Message}");
                 }
+                if(Debug.isDebugBuild) {
+                    Debug.LogWarning(
+                        $"[HOPFLOW][VIVOX] JOIN_FAIL context={context} channel={channelName} editor={Application.isEditor} batch={Application.isBatchMode}");
+                }
                 return false;
             } catch(Exception e) {
                 if(ShouldEmitThrottledLog(ref _nextJoinFailureLogTime, 5f)) {
                     Debug.LogError($"[VoiceManager] Join Channel Failed: {e.Message}");
+                }
+                if(Debug.isDebugBuild) {
+                    Debug.LogWarning(
+                        $"[HOPFLOW][VIVOX] JOIN_FAIL context={context} channel={channelName} editor={Application.isEditor} batch={Application.isBatchMode}");
                 }
 
                 return false;
@@ -325,7 +346,7 @@ namespace Game.Social {
         }
 
         private async Task JoinChannelAsync(string channelName, bool positional = true) {
-            await EnsureChannelJoinedAsync(channelName, positional);
+            await EnsureChannelJoinedAsync(channelName, positional, "LegacyJoinChannelAsync");
         }
         
         public async Task LeaveChannelAsync() {
@@ -344,6 +365,38 @@ namespace Game.Social {
 
             HandleInput();
             UpdatePosition();
+            ReconcileSessionChannelRoute();
+        }
+
+        private void ReconcileSessionChannelRoute() {
+            if(Time.unscaledTime < _nextChannelRouteSyncTime) return;
+            _nextChannelRouteSyncTime = Time.unscaledTime + ChannelRouteSyncIntervalSeconds;
+            if(_isRouteSyncInProgress) return;
+
+            if(Network.SessionManager.Instance == null) return;
+            if(!Network.SessionManager.Instance.TryGetActiveVoiceChannelName(out var canonicalChannelName)) return;
+            if(string.IsNullOrEmpty(canonicalChannelName)) return;
+
+            if(IsChannelActive(canonicalChannelName)) {
+                _currentChannelName = canonicalChannelName;
+                return;
+            }
+
+            _isRouteSyncInProgress = true;
+            _ = EnsureCanonicalChannelAsync(canonicalChannelName);
+        }
+
+        private async Task EnsureCanonicalChannelAsync(string canonicalChannelName) {
+            try {
+                if(Debug.isDebugBuild && ShouldEmitThrottledLog(ref _nextRouteSyncLogTime, 1.5f)) {
+                    Debug.Log(
+                        $"[HOPFLOW][VIVOX] ROUTE_RESOLVED channel={canonicalChannelName} current={_currentChannelName} editor={Application.isEditor} batch={Application.isBatchMode}");
+                }
+
+                await EnsureChannelJoinedAsync(canonicalChannelName, positional: true, context: "SessionRouteSync");
+            } finally {
+                _isRouteSyncInProgress = false;
+            }
         }
 
         private void HandleInput() {

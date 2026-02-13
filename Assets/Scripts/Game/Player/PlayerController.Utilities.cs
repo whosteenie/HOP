@@ -31,6 +31,26 @@ namespace Game.Player {
         }
 
         /// <summary>
+        /// Locks or unlocks local gameplay control during transitions (for example podium).
+        /// Locking clears current movement/look inputs and velocity to avoid stale held-input motion.
+        /// </summary>
+        public void SetPostMatchControlLock(bool locked) {
+            if(!IsOwner) return;
+
+            if(locked) {
+                moveInput = Vector2.zero;
+                lookInput = Vector2.zero;
+                sprintInput = false;
+                crouchInput = false;
+                if(movementController != null) {
+                    movementController.ResetVelocity();
+                }
+            }
+
+            LockLook = locked;
+        }
+
+        /// <summary>
         /// Resets the player's current velocity.
         /// </summary>
         public void ResetVelocity() {

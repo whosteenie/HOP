@@ -638,6 +638,15 @@ namespace Game.Player {
             if(_weaponManager != null) {
                 _weaponManager.ApplyTpWeaponStateOnRespawn();
             }
+
+            if(playerController != null && playerController.PlayerInput != null) {
+                var sampledMove = playerController.PlayerInput.ResampleHeldMovementInput("RespawnControlRestore");
+                FlowLog.Emit(FlowEventIds.PlayerControlState,
+                    ("player", OwnerClientId),
+                    ("enabled", true),
+                    ("reason", "RespawnControlRestoreSampled"),
+                    ("sampledMove", sampledMove));
+            }
         }
 
         [Rpc(SendTo.Everyone)]

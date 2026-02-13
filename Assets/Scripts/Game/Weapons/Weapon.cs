@@ -93,6 +93,14 @@ namespace Game.Weapons {
         private float _lastPeakTime;
         private Coroutine _reloadCoroutine;
         private bool _autoReloadArmed;
+        private float _reloadExpectedCompleteTime;
+        private float _reloadAnimationExitDeadline;
+        private float _nextReloadRecoveryAllowedTime;
+        private readonly List<AnimatorClipInfo> _reloadClipInfoBuffer = new();
+
+        private const float ReloadTimeoutGraceSeconds = 0.35f;
+        private const float ReloadAnimationExitGraceSeconds = 0.5f;
+        private const float ReloadRecoveryCooldownSeconds = 0.5f;
 
         // Bullet trail pooling
         private readonly Queue<TrailRenderer> _trailPool = new();
@@ -142,6 +150,8 @@ namespace Game.Weapons {
         }
 
         private void LateUpdate() {
+            RunReloadWatchdog();
+
             if(_fpMuzzleLight != null && _fpMuzzleLight.activeSelf && Time.time >= _fpLightOffTime) {
                 _fpMuzzleLight.SetActive(false);
             }
@@ -191,6 +201,8 @@ namespace Game.Weapons {
             currentAmmo = restoredAmmo;
             IsReloading = false;
             _autoReloadArmed = false;
+            _reloadExpectedCompleteTime = float.PositiveInfinity;
+            _reloadAnimationExitDeadline = float.PositiveInfinity;
 
             // Get animator from FP weapon
             if(_currentFpWeaponInstance) {
@@ -255,6 +267,8 @@ namespace Game.Weapons {
 
             _autoReloadArmed = false;
             IsReloading = true;
+            _reloadExpectedCompleteTime = Time.time + GetExpectedReloadDuration() + ReloadTimeoutGraceSeconds;
+            _reloadAnimationExitDeadline = _reloadExpectedCompleteTime + ReloadAnimationExitGraceSeconds;
 
             if(_currentWeaponData.useMagReload) {
                 PlayReloadEffects();
@@ -274,6 +288,7 @@ namespace Game.Weapons {
 
             // Play reload animation only once at the start (FP weapon animator only)
             if(_weaponAnimator != null) {
+                _weaponAnimator.ResetTrigger(ReloadCompleteHash);
                 _weaponAnimator.SetTrigger(ReloadHash);
             }
 
@@ -326,6 +341,8 @@ namespace Game.Weapons {
 
             IsReloading = false;
             _reloadCoroutine = null;
+            _reloadAnimationExitDeadline = Time.time + ReloadAnimationExitGraceSeconds;
+            ExitReloadAnimation();
         }
 
         private void SyncServerAmmo() {
@@ -340,6 +357,8 @@ namespace Game.Weapons {
             IsReloading = false;
             _lastFireTime = Time.time;
             _autoReloadArmed = false;
+            _reloadExpectedCompleteTime = float.PositiveInfinity;
+            _reloadAnimationExitDeadline = float.PositiveInfinity;
             if(IsOwner) {
                 netCurrentDamageMultiplier.Value = 1f;
             }
@@ -913,11 +932,10 @@ namespace Game.Weapons {
             IsReloading = false;
             _reloadCoroutine = null;
             _autoReloadArmed = false;
+            _reloadAnimationExitDeadline = Time.time + ReloadAnimationExitGraceSeconds;
 
             // Trigger reload complete animation (mag-style reloads)
-            if(_weaponAnimator != null) {
-                _weaponAnimator.SetTrigger(ReloadCompleteHash);
-            }
+            ExitReloadAnimation();
 
             if(playerController.IsOwner && HUDManager.Instance != null) {
                 EventBus.Publish(new UpdateAmmoEvent(currentAmmo, _currentWeaponData.magSize));
@@ -1044,6 +1062,7 @@ namespace Game.Weapons {
 
         private void PlayReloadEffects() {
             if(_weaponAnimator != null) {
+                _weaponAnimator.ResetTrigger(ReloadCompleteHash);
                 _weaponAnimator.SetTrigger(ReloadHash);
             }
 
@@ -1060,6 +1079,78 @@ namespace Game.Weapons {
         [Rpc(SendTo.Everyone)]
         private void PlayReloadAnimationServerRpc() {
             _playerAnimator.SetTrigger(ReloadHash);
+        }
+
+        private float GetExpectedReloadDuration() {
+            if(_currentWeaponData == null) return 0.5f;
+            if(_currentWeaponData.useMagReload) {
+                return Mathf.Max(0.05f, _currentWeaponData.reloadTime);
+            }
+
+            var perRoundTime = Mathf.Max(0.05f, _currentWeaponData.perRoundReloadTime);
+            var roundsMissing = Mathf.Max(1, _currentWeaponData.magSize - currentAmmo);
+            return perRoundTime * roundsMissing;
+        }
+
+        private void ExitReloadAnimation() {
+            if(_weaponAnimator == null || !_weaponAnimator.isActiveAndEnabled) return;
+            _weaponAnimator.ResetTrigger(ReloadHash);
+            _weaponAnimator.SetTrigger(ReloadCompleteHash);
+        }
+
+        private void RunReloadWatchdog() {
+            if(_weaponAnimator == null || !_weaponAnimator.isActiveAndEnabled) return;
+            if(Time.time < _nextReloadRecoveryAllowedTime) return;
+
+            if(IsReloading && Time.time > _reloadExpectedCompleteTime) {
+                Debug.LogWarning(
+                    $"[Weapon] Reload timeout guard fired for '{name}'. isMagReload={_currentWeaponData != null && _currentWeaponData.useMagReload} ammo={currentAmmo}");
+
+                if(_currentWeaponData != null && _currentWeaponData.useMagReload) {
+                    CompleteReload();
+                } else {
+                    IsReloading = false;
+                    _reloadCoroutine = null;
+                    _autoReloadArmed = false;
+                    _reloadAnimationExitDeadline = Time.time + ReloadAnimationExitGraceSeconds;
+                    ExitReloadAnimation();
+                    SyncServerAmmo();
+
+                    if(playerController != null && playerController.IsOwner && _currentWeaponData != null &&
+                       HUDManager.Instance != null) {
+                        EventBus.Publish(new UpdateAmmoEvent(currentAmmo, _currentWeaponData.magSize));
+                    }
+                }
+
+                _nextReloadRecoveryAllowedTime = Time.time + ReloadRecoveryCooldownSeconds;
+                return;
+            }
+
+            if(IsReloading) return;
+            if(Time.time <= _reloadAnimationExitDeadline) return;
+            if(!IsPlayingReloadClip()) return;
+
+            Debug.LogWarning($"[Weapon] Reload clip recovery fired for '{name}'. Rebinding FP weapon animator.");
+            _weaponAnimator.Rebind();
+            _weaponAnimator.Update(0f);
+            _nextReloadRecoveryAllowedTime = Time.time + ReloadRecoveryCooldownSeconds;
+            _reloadAnimationExitDeadline = float.PositiveInfinity;
+        }
+
+        private bool IsPlayingReloadClip() {
+            _reloadClipInfoBuffer.Clear();
+            _weaponAnimator.GetCurrentAnimatorClipInfo(0, _reloadClipInfoBuffer);
+            if(_reloadClipInfoBuffer.Count == 0) return false;
+
+            for(var i = 0; i < _reloadClipInfoBuffer.Count; i++) {
+                var clip = _reloadClipInfoBuffer[i].clip;
+                if(clip == null || string.IsNullOrEmpty(clip.name)) continue;
+                if(clip.name.IndexOf("reload", System.StringComparison.OrdinalIgnoreCase) >= 0) {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private IEnumerator SpawnTrail(TrailRenderer trail, Vector3 hitPoint, Vector3 hitNormal, bool madeImpact,

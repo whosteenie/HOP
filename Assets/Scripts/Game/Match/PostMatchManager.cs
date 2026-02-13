@@ -41,6 +41,7 @@ namespace Game.Match {
         [SerializeField] private float worldSpaceCardOffsetScale = 0.18f;
         [SerializeField] private float worldSpaceCardOffsetMinPx = 12f;
         [SerializeField] private float worldSpaceCardOffsetMaxPx = 56f;
+        [SerializeField] private float podiumCardFixedHeight = 88f;
 
         // Podium UI
         private VisualElement _root;
@@ -451,6 +452,7 @@ namespace Game.Match {
                         var localController = localPlayer.GetComponent<PlayerController>();
                         if(localController != null && localController.PlayerInput != null) {
                             localController.PlayerInput.ForceDisableSniperOverlay(false);
+                            localController.SetPostMatchControlLock(true);
                         }
                     }
                 }
@@ -558,6 +560,7 @@ namespace Game.Match {
             var controllers = FindObjectsByType<PlayerController>(FindObjectsSortMode.None);
             foreach(var pc in controllers) {
                 pc.SetGameplayCameraActive(false); // you'll add this helper too
+                pc.SetPostMatchControlLock(true);
             }
 
             // Enable podium camera
@@ -661,6 +664,11 @@ namespace Game.Match {
         public void ShowInGameHudAfterPostMatch() {
             EnsureUiReferencesBound();
             ResetPostMatchUiState();
+            var controllers = FindObjectsByType<PlayerController>(FindObjectsSortMode.None);
+            foreach(var controller in controllers) {
+                if(controller == null) continue;
+                controller.SetPostMatchControlLock(false);
+            }
 
             // Show individual HUD elements
             if(KillFeedManager.Instance != null)
@@ -739,7 +747,7 @@ namespace Game.Match {
 
             var panelFeet = RuntimePanelUtils.CameraTransformWorldToPanel(_root.panel, targetWorldPosition, worldCamera);
             var slotWidth = GetResolvedLength(slot.resolvedStyle.width, 200f);
-            var slotHeight = GetResolvedLength(slot.resolvedStyle.height, 88f);
+            var slotHeight = Mathf.Max(1f, podiumCardFixedHeight);
             var downOffsetPx = ComputeBelowFeetOffsetPixels(slotAnchor, worldCamera);
 
             slot.style.display = DisplayStyle.Flex;
@@ -748,7 +756,9 @@ namespace Game.Match {
             slot.style.bottom = StyleKeyword.Null;
             slot.style.right = StyleKeyword.Null;
             slot.style.translate = new Translate(0f, 0f);
+            slot.style.height = slotHeight;
             slot.style.minHeight = slotHeight;
+            slot.style.maxHeight = slotHeight;
         }
 
         private float ComputeBelowFeetOffsetPixels(Transform slotAnchor, Camera worldCamera) {

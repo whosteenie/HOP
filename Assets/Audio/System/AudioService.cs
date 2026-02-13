@@ -25,6 +25,7 @@ namespace Game.Audio2 {
         private readonly Dictionary<string, List<Voice>> _activeById = new(StringComparer.Ordinal);
         private readonly Dictionary<string, float> _lastPlayTime = new(StringComparer.Ordinal);
         private readonly Dictionary<int, float> _nextSourceStateLogTime = new();
+        private readonly Dictionary<string, float> _nextDropReasonLogTime = new(StringComparer.Ordinal);
 
         private void Awake() {
             if(Instance != null && Instance != this) {
@@ -141,6 +142,8 @@ namespace Game.Audio2 {
             if(cue.cooldownSeconds > 0f) {
                 var now = Time.unscaledTime;
                 if(_lastPlayTime.TryGetValue(id, out var last) && now - last < cue.cooldownSeconds) {
+                    EmitDroppedPlayLog(id, "cooldown",
+                        $"remaining={(cue.cooldownSeconds - (now - last)):0.000}s");
                     return false;
                 }
                 _lastPlayTime[id] = now;
@@ -150,6 +153,8 @@ namespace Game.Audio2 {
             if(cue.maxInstances > 0) {
                 if(_activeById.TryGetValue(id, out var list) && list != null && list.Count >= cue.maxInstances) {
                     if(!TryStealVoice(id, cue, list)) {
+                        EmitDroppedPlayLog(id, "max_instances_cap",
+                            $"active={list.Count} cap={cue.maxInstances} policy={cue.stealPolicy}");
                         return false;
                     }
                 }
@@ -158,14 +163,20 @@ namespace Game.Audio2 {
             // Global cap
             if(config.globalMaxVoices > 0 && _active.Count >= config.globalMaxVoices) {
                 if(!TryStealGlobal(cue)) {
+                    EmitDroppedPlayLog(id, "global_voice_cap",
+                        $"active={_active.Count} cap={config.globalMaxVoices}");
                     return false;
                 }
             }
 
             var src = GetPooledSource(cue.bus);
-            if(src == null) return false;
+            if(src == null) {
+                EmitDroppedPlayLog(id, "pool_exhausted", $"bus={cue.bus}");
+                return false;
+            }
 
             if(!ApplyCueToSource(src, cue, id, p.Seed)) {
+                EmitDroppedPlayLog(id, "apply_cue_failed", $"bus={cue.bus}");
                 ReturnToPool(cue.bus, src);
                 return false;
             }
@@ -526,6 +537,18 @@ namespace Game.Audio2 {
                         $"[AudioService] Reactivated pooled source GameObject for id='{id}' bus='{bus}' src='{GetSourceDebugId(src)}'.");
                 }
             }
+        }
+
+        private void EmitDroppedPlayLog(string id, string reason, string details, float intervalSeconds = 5f) {
+            if(!Debug.isDebugBuild) return;
+            var key = $"{reason}:{id}";
+            var now = Time.unscaledTime;
+            if(_nextDropReasonLogTime.TryGetValue(key, out var next) && now < next) {
+                return;
+            }
+
+            _nextDropReasonLogTime[key] = now + intervalSeconds;
+            Debug.LogWarning($"[HOPFLOW][AUDIO] PLAY_DROP reason={reason} id={id} {details}");
         }
     }
 

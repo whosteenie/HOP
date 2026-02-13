@@ -263,7 +263,7 @@ namespace Network {
             if(_isLeaving || _isShuttingDown) return;
             if(VoiceManager.Instance == null || !VoiceManager.Instance.IsLoggedIn) return;
 
-            _ = VoiceManager.Instance.EnsureChannelJoinedAsync("match_" + lobbyId);
+            _ = VoiceManager.Instance.EnsureChannelJoinedAsync("match_" + lobbyId, context: context);
             if(Debug.isDebugBuild) {
                 Debug.Log($"[SessionManager] Requested voice join for Steam social lobby '{lobbyId}' ({context}).");
             }
@@ -280,7 +280,7 @@ namespace Network {
                 return;
             }
 
-            _ = VoiceManager.Instance.EnsureChannelJoinedAsync(channelName);
+            _ = VoiceManager.Instance.EnsureChannelJoinedAsync(channelName, context: context);
             if(Debug.isDebugBuild) {
                 Debug.Log($"[SessionManager] Requested voice join for active match channel '{channelName}' ({context}).");
             }

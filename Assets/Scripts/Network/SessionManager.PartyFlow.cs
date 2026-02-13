@@ -128,6 +128,7 @@ namespace Network {
             string expectedCsv) {
             var create = BuildPrivateMatchCreateOptions(mode, joinCode, expectedCsv);
             _ugsMatchLobby = await LobbyService.Instance.CreateLobbyAsync("HOP Match", maxPlayers, create);
+            TryJoinVoiceForActiveMatch("CreatePrivateMatchLobbyAsync");
 
             // Tell party members to follow into the match lobby.
             var update = BuildPartyFollowMatchOptions(_ugsMatchLobby.Id);
@@ -139,6 +140,7 @@ namespace Network {
             string joinCode) {
             var create = BuildPublicMatchCreateOptions(mode, joinCode, matchId);
             _ugsMatchLobby = await LobbyService.Instance.CreateLobbyAsync("HOP Match", maxPlayers, create);
+            TryJoinVoiceForActiveMatch("CreatePublicMatchLobbyAsHostAsync");
             UpdateSteamRichPresence();
             if(Debug.isDebugBuild) {
                 Debug.Log($"[SessionManager] Created UGS lobby in SynchronizingLoad state. lobbyId='{_ugsMatchLobby.Id}'");
@@ -250,6 +252,7 @@ namespace Network {
             }
 
             _ugsMatchLobby = matchLobby;
+            TryJoinVoiceForActiveMatch("JoinMatchLobbyByIdAsync");
             UpdateSteamRichPresence();
             if(Debug.isDebugBuild) {
                 Debug.Log(

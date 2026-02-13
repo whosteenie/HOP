@@ -482,6 +482,30 @@ namespace Game.Player {
             }
         }
 
+        /// <summary>
+        /// Reapplies current held movement action state directly from the input action map.
+        /// Used after control restore where no new OnMove callback may fire if the key was already held.
+        /// </summary>
+        public Vector2 ResampleHeldMovementInput(string reason = "Unknown") {
+            if(!IsOwner || playerController == null) return Vector2.zero;
+            if(_playerInputComponent == null) return Vector2.zero;
+            if(_playerInputComponent.actions == null) return Vector2.zero;
+
+            var playerMap = _playerInputComponent.actions.FindActionMap("Player");
+            var moveAction = playerMap?.FindAction("Move");
+            if(moveAction == null) return Vector2.zero;
+
+            var move = moveAction.ReadValue<Vector2>();
+            playerController.moveInput = move;
+
+            FlowLog.Emit(FlowEventIds.PlayerControlState,
+                ("player", OwnerClientId),
+                ("enabled", true),
+                ("reason", reason),
+                ("sampledMove", move));
+            return move;
+        }
+
         #endregion
 
         #region Movement

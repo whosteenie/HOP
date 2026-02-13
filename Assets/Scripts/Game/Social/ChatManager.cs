@@ -114,13 +114,36 @@ namespace Game.Social {
                 if(string.IsNullOrWhiteSpace(message)) return;
 
                 if(VivoxService.Instance == null || VoiceManager.Instance == null || !VoiceManager.Instance.IsLoggedIn) {
+                    if(Debug.isDebugBuild) {
+                        Debug.LogWarning("[HOPFLOW][VIVOX] VIVOX_TEXT_BLOCKED_NOT_READY reason=NotLoggedInOrServiceMissing");
+                    }
                     SendSystemMessage("Chat unavailable.");
                     return;
                 }
 
-                if(VoiceManager.Instance.TryGetJoinedChannelName(out var channelName) == false) {
+                string channelName = null;
+                if(SessionManager.Instance != null &&
+                   SessionManager.Instance.TryGetActiveVoiceChannelName(out var canonicalChannelName) &&
+                   !string.IsNullOrEmpty(canonicalChannelName)) {
+                    var canonicalJoined =
+                        await VoiceManager.Instance.EnsureChannelJoinedAsync(canonicalChannelName, context: "ChatSend");
+                    if(canonicalJoined == false) {
+                        if(Debug.isDebugBuild) {
+                            Debug.LogWarning(
+                                $"[HOPFLOW][VIVOX] VIVOX_TEXT_BLOCKED_NOT_READY reason=CanonicalJoinFailed channel={canonicalChannelName}");
+                        }
+                        SendSystemMessage("Chat channel unavailable.");
+                        return;
+                    }
+
+                    channelName = canonicalChannelName;
+                } else if(VoiceManager.Instance.TryGetJoinedChannelName(out channelName) == false) {
                     var joined = await TryEnsureActiveChannelAsync();
                     if(joined == false || VoiceManager.Instance.TryGetJoinedChannelName(out channelName) == false) {
+                        if(Debug.isDebugBuild) {
+                            Debug.LogWarning(
+                                "[HOPFLOW][VIVOX] VIVOX_TEXT_BLOCKED_NOT_READY reason=NoJoinedChannelAfterEnsure");
+                        }
                         SendSystemMessage("Chat channel unavailable.");
                         return;
                     }
@@ -210,7 +233,7 @@ namespace Game.Social {
         private static async Task<bool> TryEnsureActiveChannelAsync() {
             if(VoiceManager.Instance == null || SessionManager.Instance == null) return false;
             if(SessionManager.Instance.TryGetActiveVoiceChannelName(out var channelName) == false) return false;
-            return await VoiceManager.Instance.EnsureChannelJoinedAsync(channelName);
+            return await VoiceManager.Instance.EnsureChannelJoinedAsync(channelName, context: "ChatEnsureActive");
         }
 
         private void HandleVivoxChannelMessage(VivoxMessage vivoxMessage) {
