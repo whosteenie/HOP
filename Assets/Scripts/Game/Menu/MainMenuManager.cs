@@ -192,6 +192,7 @@ namespace Game.Menu {
             };
             uiManager.OnOptionsClicked = () => {
                 if(optionsMenuManager != null) {
+                    optionsMenuManager.OnBackFromOptionsCallback = ReturnToMainMenuFromOptions;
                     optionsMenuManager.LoadSettings();
                     optionsMenuManager.OnOptionsPanelShown();
                 }
@@ -261,11 +262,22 @@ namespace Game.Menu {
 
             _navigatorMissingLogged = false;
             _navigator.Show(panel);
+            SetOptionsOpenState(panel == _optionsPanel);
             UpdateDiscordStatusForPanel(panel);
             
             // Refresh challenges when main menu panel is shown
             if(panel == MainMenuPanel && uiManager != null) {
                 uiManager.RefreshMainMenuChallenges();
+            }
+        }
+
+        private void SetOptionsOpenState(bool isOptionsOpen) {
+            if(Root == null) return;
+
+            if(isOptionsOpen) {
+                Root.AddToClassList("options-open");
+            } else {
+                Root.RemoveFromClassList("options-open");
             }
         }
 
@@ -299,7 +311,7 @@ namespace Game.Menu {
 
             optionsMenuManager.OnButtonClickedCallback = OnButtonClicked;
             optionsMenuManager.MouseEnterCallback = _ => UISoundService.PlayButtonHover();
-            optionsMenuManager.OnBackFromOptionsCallback = () => ShowPanel(MainMenuPanel);
+            optionsMenuManager.OnBackFromOptionsCallback = ReturnToMainMenuFromOptions;
             optionsMenuManager.Initialize();
 
             if(characterCustomizationManager == null) return;
@@ -312,6 +324,10 @@ namespace Game.Menu {
 
         private void LoadSettings() {
             if(optionsMenuManager != null) optionsMenuManager.LoadSettings();
+        }
+
+        private void ReturnToMainMenuFromOptions() {
+            ShowPanel(MainMenuPanel);
         }
 
         #endregion

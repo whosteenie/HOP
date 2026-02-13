@@ -1,27 +1,103 @@
-/* ===== OPTIONS PANEL ===== */
-/* Add margin-right to content to create space between content and scrollbar */
-.options-content {
+/* ===== OPTIONS FULLSCREEN LAYOUT ===== */
+#options-panel {
+    align-items: stretch;
+    justify-content: flex-start;
+}
+
+.options-container {
+    width: 100%;
+    height: 100%;
+    min-height: 100%;
+    max-height: 100%;
+    padding: 34px 40px 22px 40px;
     flex-direction: column;
-    padding: 10px 0;
-    margin-right: 16px;
+    overflow: hidden;
+    background-color: rgba(6, 8, 12, 0.9);
+    border-width: 0;
+    border-radius: 0;
+}
+
+/* Keep fullscreen background, but enforce content insets even when screen-level sheets
+   also define .options-container. */
+#options-panel .options-container {
+    padding-top: 34px;
+    padding-right: 40px;
+    padding-bottom: 22px;
+    padding-left: 40px;
+}
+
+.options-header {
+    flex-direction: column;
+    align-items: flex-start;
+    margin-bottom: 12px;
+}
+
+#options-label {
+    margin-bottom: 8px;
+}
+
+.options-layout {
+    flex-direction: row;
+    flex-grow: 1;
+    min-height: 0;
+}
+
+.options-main-column {
+    flex-direction: column;
+    width: 66%;
+    min-width: 760px;
+    max-width: 1160px;
+    min-height: 0;
+    margin-right: 28px;
+}
+
+.options-description-panel {
+    flex-grow: 1;
+    min-width: 320px;
+    padding-left: 24px;
+    padding-top: 34px;
+    padding-bottom: 22px;
+    margin-top: -34px;
+    margin-bottom: -22px;
+    border-left-width: 1px;
+    border-left-color: var(--color-accent-border);
+    background-color: rgba(0, 0, 0, 0);
+}
+
+.options-description-title {
+    font-size: 20px;
+    -unity-font-style: bold;
+    letter-spacing: 2px;
+    color: var(--color-accent);
+    margin-top: var(--options-description-offset-y);
+    margin-bottom: 10px;
+}
+
+.options-description-body {
+    font-size: 14px;
+    color: var(--color-text-secondary);
+    white-space: normal;
+    -unity-text-align: upper-left;
 }
 
 /* ===== OPTIONS TABS ===== */
 .options-tabs {
     flex-direction: row;
-    margin-top: 20px;
-    margin-bottom: 20px;
+    margin-top: 8px;
+    margin-bottom: 18px;
     align-items: center;
-    justify-content: center;
+    justify-content: flex-start;
+    width: 100%;
 }
 
 /* Harden tab layout/styling for templated instances where class-based styling can be lost. */
 #options-panel #options-tabs {
     flex-direction: row;
-    margin-top: 20px;
-    margin-bottom: 20px;
+    margin-top: 8px;
+    margin-bottom: 18px;
     align-items: center;
-    justify-content: center;
+    justify-content: flex-start;
+    width: 100%;
 }
 
 .options-tab {
@@ -34,16 +110,16 @@
     border-top-color: transparent;
     border-left-color: transparent;
     border-right-color: transparent;
-    color: rgb(180, 180, 180);
-    font-size: 16px;
+    color: var(--color-text-muted);
+    font-size: 20px;
     -unity-font-style: normal;
-    padding: 10px 20px;
-    margin-right: 8px;
-    transition-duration: 0.2s;
-    min-height: 40px;
-    width: 120px;
-    min-width: 120px;
-    max-width: 120px;
+    padding: 10px 14px;
+    margin-right: 16px;
+    transition-duration: var(--dur-fast);
+    min-height: 48px;
+    width: 140px;
+    min-width: 140px;
+    max-width: 140px;
     -unity-text-align: middle-center;
     flex-shrink: 0;
 }
@@ -61,74 +137,82 @@
     border-top-color: transparent;
     border-left-color: transparent;
     border-right-color: transparent;
-    color: rgb(180, 180, 180);
-    font-size: 16px;
+    color: var(--color-text-muted);
+    font-size: 20px;
     -unity-font-style: normal;
-    padding: 10px 20px;
-    margin-right: 8px;
-    transition-duration: 0.2s;
-    min-height: 40px;
-    width: 120px;
-    min-width: 120px;
-    max-width: 120px;
+    padding: 10px 14px;
+    margin-right: 16px;
+    transition-duration: var(--dur-fast);
+    min-height: 48px;
+    width: 140px;
+    min-width: 140px;
+    max-width: 140px;
     -unity-text-align: middle-center;
     flex-shrink: 0;
 }
 
 .options-tab,
 .options-tab > .unity-text-element {
-    color: rgb(180, 180, 180);
+    color: var(--color-text-muted);
 }
 
 #options-panel #tab-video > .unity-text-element,
 #options-panel #tab-audio > .unity-text-element,
 #options-panel #tab-game > .unity-text-element,
 #options-panel #tab-controls > .unity-text-element {
-    color: rgb(180, 180, 180);
+    color: var(--color-text-muted);
 }
 
 .options-tab-hover,
 .options-tab-hover > .unity-text-element {
-    color: rgb(240, 240, 240);
+    color: var(--color-text-primary);
 }
 
 .options-tab-hover {
-    border-bottom-color: rgba(200, 60, 60, 0.5);
+    border-bottom-color: var(--color-accent-border-hover);
 }
 
 #options-panel #tab-video.options-tab-hover,
 #options-panel #tab-audio.options-tab-hover,
 #options-panel #tab-game.options-tab-hover,
 #options-panel #tab-controls.options-tab-hover {
-    border-bottom-color: rgba(200, 60, 60, 0.5);
+    border-bottom-color: var(--color-accent-border-hover);
 }
 
 .options-tab-active,
 .options-tab-active > .unity-text-element {
-    color: rgb(255, 100, 100);
+    color: var(--color-accent);
 }
 
 .options-tab-active {
-    border-bottom-color: rgb(255, 100, 100);
+    border-bottom-color: var(--color-accent);
 }
 
 #options-panel #tab-video.options-tab-active,
 #options-panel #tab-audio.options-tab-active,
 #options-panel #tab-game.options-tab-active,
 #options-panel #tab-controls.options-tab-active {
-    border-bottom-color: rgb(255, 100, 100);
+    color: var(--color-accent);
+    border-bottom-color: var(--color-accent);
 }
 
+#options-panel #tab-video.options-tab-active > .unity-text-element,
+#options-panel #tab-audio.options-tab-active > .unity-text-element,
+#options-panel #tab-game.options-tab-active > .unity-text-element,
+#options-panel #tab-controls.options-tab-active > .unity-text-element {
+    color: var(--color-accent);
+}
+
+/* ===== OPTIONS SCROLL AREA ===== */
 .options-content-scroll {
     flex-grow: 1;
-    min-height: 300px;
-    max-height: 550px;
-    height: 550px;
-    margin-bottom: 20px;
+    min-height: 0;
+    height: auto;
+    margin-bottom: 16px;
     border-top-width: 1px;
-    border-top-color: rgba(200, 60, 60, 0.3);
+    border-top-color: var(--color-accent-border);
     border-bottom-width: 1px;
-    border-bottom-color: rgba(200, 60, 60, 0.3);
+    border-bottom-color: var(--color-accent-border);
 }
 
 /* Hide scrollbar arrows specifically for options content scroll */
@@ -158,34 +242,51 @@
     -unity-background-image-tint-color: transparent;
 }
 
+.options-content {
+    flex-direction: column;
+    padding: 14px 4px 14px 0;
+    margin-right: 10px;
+}
+
 .options-tab-content {
     flex-direction: column;
     width: 100%;
 }
 
-/* ===== OPTIONS CONTAINER ===== */
-.options-container {
-    height: 85%;
-    min-height: 85%;
-    max-height: 85%;
-    overflow: hidden;
+#apply-container {
+    justify-content: flex-start;
+    margin-top: 2px;
+}
+
+#apply-container .menu-chip {
+    margin-left: 0;
+    margin-right: 12px;
+    min-width: 140px;
+    height: 50px;
 }
 
 /* ===== OPTIONS ROW ALIGNMENT ===== */
 #options-panel {
-    --options-control-column-width: 320px;
-    --options-slider-track-width: 250px; /* 250 + 10 gap + 60 value input = 320 */
-    --options-value-input-width: 60px;
-    --options-control-gap: 8px;
-    --options-keybind-button-width: 156px; /* 156 + 8 + 156 = 320 */
-    --options-row-height: 44px;
-    --options-control-height: 44px;
-    --options-toggle-size: 20px;
+    --options-control-column-width: 420px;
+    --options-slider-track-width: 314px;
+    --options-value-input-width: 92px;
+    --options-control-gap: 12px;
+    --options-keybind-button-width: 204px;
+    --options-row-height: 56px;
+    --options-control-height: 50px;
+    --options-toggle-size: 24px;
+    --options-dropdown-width: 420px;
+    --options-description-offset-y: 152px;
 }
 
 /* Keep all settings rows on a consistent vertical rhythm. */
 #options-panel .setting-row {
     min-height: var(--options-row-height);
+}
+
+#options-panel .setting-label {
+    font-size: 18px;
+    min-width: 280px;
 }
 
 /* Keep the control edge aligned for all single-control rows. */

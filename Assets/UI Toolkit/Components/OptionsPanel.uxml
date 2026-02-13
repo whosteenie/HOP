@@ -1,15 +1,19 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
     <ui:VisualElement name="options-panel" class="panel full-abs center-xy hidden">
-        <ui:VisualElement name="options-container" class="options-container card">
-            <ui:Label text="OPTIONS" name="options-label" class="title"/>
-            <ui:VisualElement name="options-tabs" class="options-tabs">
-                <ui:Button text="VIDEO" name="tab-video" class="options-tab options-tab-active"/>
-                <ui:Button text="AUDIO" name="tab-audio" class="options-tab"/>
-                <ui:Button text="GAME" name="tab-game" class="options-tab"/>
-                <ui:Button text="CONTROLS" name="tab-controls" class="options-tab"/>
-            </ui:VisualElement>
-            <ui:ScrollView name="options-content-scroll" vertical-scroller-visibility="AlwaysVisible" horizontal-scroller-visibility="Hidden" class="options-content-scroll">
-                <ui:VisualElement name="options-content" class="options-content">
+        <ui:VisualElement name="options-container" class="options-container">
+            <ui:VisualElement name="options-layout" class="options-layout">
+                <ui:VisualElement name="options-main-column" class="options-main-column">
+                    <ui:VisualElement name="options-header" class="options-header">
+                        <ui:Label text="OPTIONS" name="options-label" class="title"/>
+                        <ui:VisualElement name="options-tabs" class="options-tabs">
+                            <ui:Button text="VIDEO" name="tab-video" class="options-tab options-tab-active"/>
+                            <ui:Button text="AUDIO" name="tab-audio" class="options-tab"/>
+                            <ui:Button text="GAME" name="tab-game" class="options-tab"/>
+                            <ui:Button text="CONTROLS" name="tab-controls" class="options-tab"/>
+                        </ui:VisualElement>
+                    </ui:VisualElement>
+                    <ui:ScrollView name="options-content-scroll" vertical-scroller-visibility="AlwaysVisible" horizontal-scroller-visibility="Hidden" class="options-content-scroll">
+                        <ui:VisualElement name="options-content" class="options-content">
                     <ui:VisualElement name="video-content" class="options-tab-content">
                         <ui:VisualElement name="window-mode-container" class="setting-row">
                             <ui:Label text="WINDOW MODE" name="window-mode-label" class="setting-label"/>
@@ -192,11 +196,17 @@
                             <ui:Button name="keybind-ptt-1" text="NONE" class="keybind-button keybind-button-secondary"/>
                         </ui:VisualElement>
                     </ui:VisualElement>
+                        </ui:VisualElement>
+                    </ui:ScrollView>
+                    <ui:VisualElement name="apply-container" class="button-row">
+                        <ui:Button text="BACK" name="back-button" class="menu-chip menu-chip-enabled back-button"/>
+                        <ui:Button text="APPLY" name="apply-button" class="menu-chip menu-chip-enabled"/>
+                    </ui:VisualElement>
                 </ui:VisualElement>
-            </ui:ScrollView>
-            <ui:VisualElement name="apply-container" class="button-row">
-                <ui:Button text="BACK" name="back-button" class="menu-chip menu-chip-enabled back-button"/>
-                <ui:Button text="APPLY" name="apply-button" class="menu-chip menu-chip-enabled"/>
+                <ui:VisualElement name="options-description-panel" class="options-description-panel">
+                    <ui:Label text="SETTING DETAILS" name="options-description-title" class="options-description-title"/>
+                    <ui:Label text="Hover or select a setting to see what it changes." name="options-description-body" class="options-description-body"/>
+                </ui:VisualElement>
             </ui:VisualElement>
         </ui:VisualElement>
     </ui:VisualElement>

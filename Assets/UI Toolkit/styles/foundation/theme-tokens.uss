@@ -46,8 +46,10 @@
 
     /* Common control tokens */
     --cursor-color: var(--color-text-primary);
-    --options-dropdown-width: 320px;
-    --options-dropdown-open-x-offset: -13px;
-    --options-dropdown-item-inset: 3px;
-    --options-dropdown-item-inset-right: 10px;
+    --options-dropdown-width: 420.5px;
+    --options-dropdown-popup-padding: 1px;
+    --options-dropdown-popup-x-offset: -13px;
+    --options-dropdown-item-margin: 3px;
+    --options-dropdown-item-min-height: 50px;
+    --options-dropdown-item-padding-y: 8px;
 }

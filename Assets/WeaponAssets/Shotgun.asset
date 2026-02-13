@@ -24,7 +24,7 @@ MonoBehaviour:
   fpMuzzleLightChildName: MuzzleLight
   worldMuzzleLightChildName: MuzzleLight
   magSize: 6
-  baseDamage: 30
+  baseDamage: 45
   maxDamageMultiplier: 3
   damageCap: 75
   useDamageFalloff: 1

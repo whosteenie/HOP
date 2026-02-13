@@ -327,7 +327,9 @@
 /* ===== OPTIONS ===== */
 
 .options-container {
-    width: 760px; max-height: 85%; padding: 36px;
+    width: 100%;
+    max-height: 100%;
+    padding: 0;
     flex-direction: column;
 }
 
@@ -1807,6 +1809,11 @@
 
 #invite-friends-button {
     margin-right: 0;
+}
+
+/* Hide party/invite/profile strip while options are open (main menu). */
+.options-open #party-container {
+    display: none;
 }
 
 #version-text {

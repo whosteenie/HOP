@@ -76,9 +76,37 @@ namespace Game.Menu {
         private VisualElement _audioContent;
         private VisualElement _gameContent;
         private VisualElement _controlsContent;
+        private Label _optionsDescriptionTitle;
+        private Label _optionsDescriptionBody;
+        private VisualElement _optionsDescriptionPanel;
 
         private static readonly Color OptionsTabHoverTextColor = new(240f / 255f, 240f / 255f, 240f / 255f, 1f);
         private static readonly Color OptionsTabHoverBorderColor = new(200f / 255f, 60f / 255f, 60f / 255f, 0.5f);
+        private readonly Dictionary<string, (string Title, string Body)> _settingDescriptions = new() {
+            ["window-mode-container"] = ("WINDOW MODE", "Choose how the game window is presented: windowed, borderless, or fullscreen."),
+            ["aspect-ratio-container"] = ("ASPECT RATIO", "Sets the screen ratio. Match this to your monitor for the cleanest image framing."),
+            ["resolution-container"] = ("RESOLUTION", "Higher resolution improves clarity but increases GPU load."),
+            ["msaa-container"] = ("ANTI-ALIASING (MSAA)", "Smooths jagged edges. Higher values improve quality at a performance cost."),
+            ["shadow-distance-container"] = ("SHADOW DISTANCE", "Controls how far dynamic shadows are rendered from the camera."),
+            ["shadow-resolution-container"] = ("SHADOW RESOLUTION", "Increases shadow sharpness. Higher settings cost more GPU memory and performance."),
+            ["vsync-container"] = ("VSYNC", "Reduces tearing by syncing frame output with monitor refresh rate."),
+            ["target-fps-container"] = ("TARGET FPS", "Caps framerate to reduce power use and stabilize frame pacing."),
+            ["master-container"] = ("MASTER VOLUME", "Global volume level for all game audio."),
+            ["music-container"] = ("MUSIC VOLUME", "Controls soundtrack and ambient music loudness."),
+            ["sfx-container"] = ("SFX VOLUME", "Controls gameplay sound effects such as weapons, impacts, and movement."),
+            ["voice-volume-container"] = ("VOICE CHAT VOLUME", "Adjusts how loud incoming voice chat sounds."),
+            ["voice-input-volume-container"] = ("MICROPHONE VOLUME", "Adjusts outgoing microphone gain for voice chat."),
+            ["voice-device-container"] = ("MICROPHONE", "Select which input device is used for voice chat."),
+            ["player-trails-container"] = ("PLAYER SPEED TRAILS", "Toggles speed trail visual effects on players."),
+            ["streamer-mode-container"] = ("STREAMER MODE", "Hides your display name in supported UI surfaces."),
+            ["hold-mantle-container"] = ("HOLD TO MANTLE", "When enabled, mantling can trigger while jump is held."),
+            ["auto-wall-run-container"] = ("AUTO WALL RUN", "Automatically starts a wall run when valid wall-run conditions are met."),
+            ["grapple-indicator-container"] = ("GRAPPLE INDICATOR TYPE", "Choose where grapple readiness/aim feedback is shown."),
+            ["profanity-filter-container"] = ("CHAT PROFANITY FILTER", "Locally filters text chat according to your preference."),
+            ["voice-mode-container"] = ("VOICE INPUT MODE", "Select voice activation mode: push-to-talk or open mic."),
+            ["sensitivity-container"] = ("MOUSE SENSITIVITY", "Controls horizontal and vertical look sensitivity."),
+            ["invert-y-container"] = ("INVERT Y AXIS", "Inverts vertical look input for mouse movement.")
+        };
 
         // Keybind buttons
         private readonly Dictionary<string, Button[]> _keybindButtons = new();
@@ -138,9 +166,11 @@ namespace Game.Menu {
         protected override void OnInitialize() {
             FindUIElements();
             BindDropdownOpenStateClasses();
+            SetupDropdownTextFormatting();
             SetupCallbacks();
             SetupOptionsTabs();
             SetupKeybinds();
+            SetupSettingDescriptions();
         }
 
         protected override Dictionary<string, Type> GetRequiredElements() {
@@ -200,6 +230,9 @@ namespace Game.Menu {
             _audioContent = QOptional<VisualElement>("audio-content");
             _gameContent = QOptional<VisualElement>("game-content");
             _controlsContent = QOptional<VisualElement>("controls-content");
+            _optionsDescriptionPanel = QOptional<VisualElement>("options-description-panel");
+            _optionsDescriptionTitle = QOptional<Label>("options-description-title");
+            _optionsDescriptionBody = QOptional<Label>("options-description-body");
 
             // Unsaved changes dialog
             _unsavedChangesModal = QOptional<VisualElement>("unsaved-changes-modal");
@@ -262,6 +295,24 @@ namespace Game.Menu {
             }
         }
 
+        private void SetupDropdownTextFormatting() {
+            if(Root == null) {
+                return;
+            }
+
+            foreach(var dropdown in Root.Query<DropdownField>().ToList()) {
+                if(dropdown == null) {
+                    continue;
+                }
+
+                dropdown.formatSelectedValueCallback = value =>
+                    string.IsNullOrWhiteSpace(value) ? string.Empty : value.ToUpperInvariant();
+
+                dropdown.formatListItemCallback = value =>
+                    string.IsNullOrWhiteSpace(value) ? string.Empty : value.ToUpperInvariant();
+            }
+        }
+
         private void SetupCallbacks() {
             SetupAudioCallbacks();
             SetupControlsCallbacks();
@@ -291,7 +342,11 @@ namespace Game.Menu {
 
             // Setup unsaved changes dialog buttons
             if(_unsavedChangesYes != null) {
-                EventCallback<ClickEvent> yesHandler = _ => OnUnsavedChangesYes();
+                EventCallback<ClickEvent> yesHandler = evt => {
+                    evt.StopPropagation();
+                    evt.StopImmediatePropagation();
+                    OnUnsavedChangesYes();
+                };
                 _unsavedChangesYes.RegisterCallback(yesHandler);
                 RegisterCleanup(() => _unsavedChangesYes.UnregisterCallback(yesHandler));
                 if(useCallbacks) {
@@ -300,7 +355,11 @@ namespace Game.Menu {
             }
 
             if(_unsavedChangesNo != null) {
-                EventCallback<ClickEvent> noHandler = _ => OnUnsavedChangesNo();
+                EventCallback<ClickEvent> noHandler = evt => {
+                    evt.StopPropagation();
+                    evt.StopImmediatePropagation();
+                    OnUnsavedChangesNo();
+                };
                 _unsavedChangesNo.RegisterCallback(noHandler);
                 RegisterCleanup(() => _unsavedChangesNo.UnregisterCallback(noHandler));
                 if(useCallbacks) {
@@ -309,7 +368,11 @@ namespace Game.Menu {
             }
 
             if(_unsavedChangesCancel != null) {
-                EventCallback<ClickEvent> cancelHandler = _ => OnUnsavedChangesCancel();
+                EventCallback<ClickEvent> cancelHandler = evt => {
+                    evt.StopPropagation();
+                    evt.StopImmediatePropagation();
+                    OnUnsavedChangesCancel();
+                };
                 _unsavedChangesCancel.RegisterCallback(cancelHandler);
                 RegisterCleanup(() => _unsavedChangesCancel.UnregisterCallback(cancelHandler));
                 if(useCallbacks) {
@@ -380,9 +443,8 @@ namespace Game.Menu {
                 RegisterCleanup(() => _voiceInputVolumeSlider.UnregisterCallback(handler));
             }
             
-            if (_voiceDeviceDropdown != null) {
-                _voiceDeviceDropdown.choices = VoiceManager.Instance.GetAvailableInputDevices();
-            }
+            RefreshVoiceDeviceDropdownChoices();
+            RefreshVoiceDeviceDropdownChoicesDeferred();
 
             // Setup text field input validation and callbacks
             SetupVolumeInputField(_masterVolumeSlider, _masterVolumeValue, 0f, 1f, true);
@@ -406,6 +468,47 @@ namespace Game.Menu {
             _sensitivityValue?.AddToClassList("sensitivity-input");
 
             SetupVolumeInputField(_sensitivitySlider, _sensitivityValue, 0.01f, 0.5f, false);
+        }
+
+        private void RefreshVoiceDeviceDropdownChoices(string preferredDevice = null) {
+            if(_voiceDeviceDropdown == null) {
+                return;
+            }
+
+            var devices = VoiceManager.Instance != null
+                ? VoiceManager.Instance.GetAvailableInputDevices()
+                : new List<string>();
+
+            if(devices == null || devices.Count == 0) {
+                devices = new List<string> { "Default" };
+            }
+
+            _voiceDeviceDropdown.choices = devices;
+
+            var targetDevice = string.IsNullOrWhiteSpace(preferredDevice)
+                ? SocialSettings.InputDevice
+                : preferredDevice;
+
+            var selectedIndex = string.IsNullOrWhiteSpace(targetDevice)
+                ? -1
+                : devices.IndexOf(targetDevice);
+
+            if(selectedIndex < 0) {
+                selectedIndex = 0;
+            }
+
+            _voiceDeviceDropdown.index = selectedIndex;
+        }
+
+        private void RefreshVoiceDeviceDropdownChoicesDeferred() {
+            if(Root == null) {
+                return;
+            }
+
+            // Device enumeration can lag behind panel open by a frame or two.
+            Root.schedule.Execute(() => RefreshVoiceDeviceDropdownChoices()).StartingIn(200);
+            Root.schedule.Execute(() => RefreshVoiceDeviceDropdownChoices()).StartingIn(700);
+            Root.schedule.Execute(() => RefreshVoiceDeviceDropdownChoices()).StartingIn(1500);
         }
         
         private void SetupGameCallbacks() {
@@ -855,6 +958,84 @@ namespace Game.Menu {
             SwitchOptionsTab("video");
         }
 
+        private void SetupSettingDescriptions() {
+            if(Root == null || _optionsDescriptionPanel == null || _optionsDescriptionTitle == null || _optionsDescriptionBody == null) return;
+
+            var rows = Root.Query<VisualElement>(className: "setting-row").ToList();
+            foreach(var row in rows) {
+                if(row == null) continue;
+
+                EventCallback<PointerEnterEvent> pointerEnter = _ => SetDescriptionForRow(row);
+                row.RegisterCallback(pointerEnter);
+                RegisterCleanup(() => row.UnregisterCallback(pointerEnter));
+
+                var controls = row.Query<VisualElement>().ToList();
+                foreach(var control in controls) {
+                    EventCallback<FocusInEvent> focusIn = _ => SetDescriptionForRow(row);
+                    control.RegisterCallback(focusIn);
+                    RegisterCleanup(() => control.UnregisterCallback(focusIn));
+                }
+            }
+
+            SetDefaultDescriptionForTab("video");
+        }
+
+        private void SetDefaultDescriptionForTab(string tabName) {
+            var tabContent = tabName.ToLowerInvariant() switch {
+                "video" => _videoContent,
+                "audio" => _audioContent,
+                "game" => _gameContent,
+                "controls" => _controlsContent,
+                _ => null
+            };
+
+            if(tabContent == null) return;
+            var rows = tabContent.Query<VisualElement>(className: "setting-row").ToList();
+            var firstRow = rows.Count > 0 ? rows[0] : null;
+            if(firstRow == null) {
+                SetDescription("SETTING DETAILS", "Hover or select a setting to see what it changes.");
+                return;
+            }
+
+            SetDescriptionForRow(firstRow);
+        }
+
+        private void SetDescriptionForRow(VisualElement row) {
+            if(_optionsDescriptionTitle == null || _optionsDescriptionBody == null || row == null) return;
+            var key = row.name ?? string.Empty;
+
+            if(_settingDescriptions.TryGetValue(key, out var description)) {
+                SetDescription(description.Title, description.Body);
+                return;
+            }
+
+            var label = row.Q<Label>(className: "setting-label");
+            var labelText = label != null && string.IsNullOrWhiteSpace(label.text) == false
+                ? label.text
+                : "SETTING";
+
+            if(key.StartsWith("keybind-", StringComparison.OrdinalIgnoreCase)) {
+                SetDescription(
+                    $"KEYBIND: {labelText}",
+                    "Assign primary and secondary keys for this action. Secondary binds are useful for alternates like mouse wheel or extra keys.");
+                return;
+            }
+
+            SetDescription(labelText, "Adjust this setting to tune gameplay, visuals, audio, or controls.");
+        }
+
+        private void SetDescription(string title, string body) {
+            if(_optionsDescriptionTitle != null) {
+                _optionsDescriptionTitle.text = string.IsNullOrWhiteSpace(title) ? "SETTING DETAILS" : title;
+            }
+
+            if(_optionsDescriptionBody != null) {
+                _optionsDescriptionBody.text = string.IsNullOrWhiteSpace(body)
+                    ? "Hover or select a setting to see what it changes."
+                    : body;
+            }
+        }
+
         private void SetupTabHoverCallbacks(Button tab) {
             if(tab == null) return;
 
@@ -963,6 +1144,7 @@ namespace Game.Menu {
             _tabAudio?.MarkDirtyRepaint();
             _tabGame?.MarkDirtyRepaint();
             _tabControls?.MarkDirtyRepaint();
+            SetDefaultDescriptionForTab(tabName);
         }
 
         private void SetupKeybinds() {
@@ -1148,15 +1330,8 @@ namespace Game.Menu {
                 _voiceModeDropdown.index = (int)SocialSettings.InputMode;
             }
 
-            if (_voiceDeviceDropdown != null) {
-                var devices = VoiceManager.Instance.GetAvailableInputDevices();
-                _voiceDeviceDropdown.choices = devices;
-                var savedDevice = SocialSettings.InputDevice;
-                _voiceDeviceDropdown.index = devices.IndexOf(savedDevice);
-                if (_voiceDeviceDropdown.index == -1 && devices.Count > 0) {
-                    _voiceDeviceDropdown.index = 0;
-                }
-            }
+            RefreshVoiceDeviceDropdownChoices();
+            RefreshVoiceDeviceDropdownChoicesDeferred();
 
             // Load window mode and resolution settings
             if(_windowModeDropdown != null) {
@@ -1364,7 +1539,7 @@ namespace Game.Menu {
             OnButtonClicked();
             ApplySettings();
             HideUnsavedChangesDialog();
-            OnBackFromOptionsCallback?.Invoke();
+            NavigateBackFromOptions();
         }
 
         private void OnUnsavedChangesNo() {
@@ -1375,12 +1550,26 @@ namespace Game.Menu {
 
             LoadSettings();
             HideUnsavedChangesDialog();
-            OnBackFromOptionsCallback?.Invoke();
+            NavigateBackFromOptions();
         }
 
         private void OnUnsavedChangesCancel() {
             OnButtonClicked(true);
             HideUnsavedChangesDialog();
+        }
+
+        private void NavigateBackFromOptions() {
+            if(OnBackFromOptionsCallback == null) {
+                return;
+            }
+
+            if(Root == null) {
+                OnBackFromOptionsCallback.Invoke();
+                return;
+            }
+
+            // Defer by one UI tick so modal close and pointer events settle before panel navigation.
+            Root.schedule.Execute(() => OnBackFromOptionsCallback?.Invoke());
         }
 
         private void ApplySettings() {
@@ -1664,6 +1853,8 @@ namespace Game.Menu {
         /// </summary>
         public void OnOptionsPanelShown() {
             var optionsPanel = Root?.Q<VisualElement>("options-panel");
+            RefreshVoiceDeviceDropdownChoices();
+            RefreshVoiceDeviceDropdownChoicesDeferred();
 
             // Force style recalculation
             optionsPanel?.schedule.Execute(() => {
