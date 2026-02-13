@@ -76,6 +76,7 @@ namespace Game.Menu {
         private VisualElement _audioContent;
         private VisualElement _gameContent;
         private VisualElement _controlsContent;
+        private ScrollView _optionsContentScroll;
         private Label _optionsDescriptionTitle;
         private Label _optionsDescriptionBody;
         private VisualElement _optionsDescriptionPanel;
@@ -226,6 +227,7 @@ namespace Game.Menu {
             _tabAudio = QOptional<Button>("tab-audio");
             _tabGame = QOptional<Button>("tab-game");
             _tabControls = QOptional<Button>("tab-controls");
+            _optionsContentScroll = QOptional<ScrollView>("options-content-scroll");
             _videoContent = QOptional<VisualElement>("video-content");
             _audioContent = QOptional<VisualElement>("audio-content");
             _gameContent = QOptional<VisualElement>("game-content");
@@ -908,10 +910,9 @@ namespace Game.Menu {
 
         private void SetupOptionsTabs() {
             // Configure scrollbar visibility
-            var optionsScrollView = QOptional<ScrollView>("options-content-scroll");
-            if(optionsScrollView != null) {
-                optionsScrollView.verticalScrollerVisibility = ScrollerVisibility.Auto;
-                optionsScrollView.horizontalScrollerVisibility = ScrollerVisibility.Hidden;
+            if(_optionsContentScroll != null) {
+                _optionsContentScroll.verticalScrollerVisibility = ScrollerVisibility.AlwaysVisible;
+                _optionsContentScroll.horizontalScrollerVisibility = ScrollerVisibility.Hidden;
             }
 
             // Setup tab click handlers - sounds play here on actual user clicks

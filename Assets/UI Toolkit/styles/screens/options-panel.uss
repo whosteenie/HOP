@@ -230,11 +230,19 @@
 
 /* Options content specific scrollbar tweaks */
 .options-content-scroll .unity-scroll-view__vertical-scroller {
+    display: flex;
+    visibility: visible;
+    width: var(--options-scrollbar-width);
+    min-width: var(--options-scrollbar-width);
+    max-width: var(--options-scrollbar-width);
     margin-top: 0;
     margin-bottom: 0;
 }
 
-/* Keep gutter width reserved, but hide visuals when there is no overflow. */
+.options-content-scroll .unity-scroll-view__vertical-scroller.unity-disabled {
+    visibility: hidden;
+}
+
 .options-content-scroll .unity-scroll-view__vertical-scroller.unity-disabled .unity-base-slider__tracker,
 .options-content-scroll .unity-scroll-view__vertical-scroller.unity-disabled .unity-base-slider__dragger {
     background-color: transparent;
@@ -250,7 +258,7 @@
 
 .options-tab-content {
     flex-direction: column;
-    width: 100%;
+    width: auto;
 }
 
 #apply-container {
@@ -268,15 +276,17 @@
 /* ===== OPTIONS ROW ALIGNMENT ===== */
 #options-panel {
     --options-control-column-width: 420px;
-    --options-slider-track-width: 314px;
-    --options-value-input-width: 92px;
+    --options-slider-track-width: 365px;
+    --options-value-input-width: 54px;
     --options-control-gap: 12px;
+    --options-slider-value-gap: -15px;
     --options-keybind-button-width: 204px;
     --options-row-height: 56px;
     --options-control-height: 50px;
     --options-toggle-size: 24px;
     --options-dropdown-width: 420px;
     --options-description-offset-y: 152px;
+    --options-scrollbar-width: 7px;
 }
 
 /* Keep all settings rows on a consistent vertical rhythm. */
@@ -311,8 +321,31 @@
     min-width: var(--options-value-input-width);
     max-width: var(--options-value-input-width);
     min-height: var(--options-control-height);
-    margin-left: var(--options-control-gap);
+    margin-left: var(--options-slider-value-gap);
     margin-right: 0;
+    -unity-text-align: middle-right;
+    padding-right: 0;
+}
+
+/* Slider row value fields: explicit per-control sizing/spacing to keep
+   bar/value alignment consistent across all slider-based settings. */
+#options-panel #master-volume-value,
+#options-panel #music-volume-value,
+#options-panel #sfx-volume-value,
+#options-panel #voice-volume-value,
+#options-panel #voice-input-volume-value,
+#options-panel #shadow-distance-value,
+#options-panel #sensitivity-value {
+    width: 50px;
+    min-width: auto;
+    max-width: var(--options-value-input-width);
+    margin-left: 5px;
+}
+
+#options-panel .setting-row > .value-input > .unity-base-text-field__input,
+#options-panel .setting-row > .value-input > .unity-text-element--inner-input-field-component {
+    -unity-text-align: middle-right;
+    padding-right: 0;
 }
 
 /* Keybind rows: keep both buttons inside the same right-side control column. */
