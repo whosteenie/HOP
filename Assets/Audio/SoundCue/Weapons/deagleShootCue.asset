@@ -27,7 +27,7 @@ MonoBehaviour:
   maxDistance: 300
   rolloffMode: 0
   priority: 128
-  maxInstances: 4
+  maxInstances: 6
   cooldownSeconds: 0
   stealPolicy: 1
   stopBehavior: 1
