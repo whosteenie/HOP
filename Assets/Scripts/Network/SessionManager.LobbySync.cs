@@ -32,6 +32,10 @@ namespace Network {
         private float _partyPollBackoffUntil;
 
         private void Update() {
+            if(_isLeaving || _isShuttingDown) {
+                return;
+            }
+
             if(_ugsPartyLobby == null && _ugsMatchLobby == null) return;
 
             // Global Watchdog: If we are stuck in a black screen phase too long, abort.
@@ -142,6 +146,10 @@ namespace Network {
         }
 
         private void SyncModeFromMatchLobby(Lobby lobby) {
+            if(_isLeaving || _isShuttingDown) {
+                return;
+            }
+
             if(lobby == null) return;
             if(lobby.Data == null) return;
             if(!lobby.Data.TryGetValue(UgsTargetModeKey, out var modeObj)) return;
@@ -153,6 +161,7 @@ namespace Network {
         private async UniTaskVoid PollMatchLobbyAsync() {
             if(_ugsMatchLobby == null) return;
             if(Phase == SessionPhase.InGame) return;
+            if(_isLeaving || _isShuttingDown) return;
             if(_isPollingMatchLobby) return;
 
             _isPollingMatchLobby = true;
@@ -173,6 +182,16 @@ namespace Network {
                 return;
             } finally {
                 _isPollingMatchLobby = false;
+            }
+
+            if(_isLeaving || _isShuttingDown) {
+                if(Debug.isDebugBuild) {
+                    FlowLog.Emit(FlowEventIds.SessionExit,
+                        ("reason", "LeaveToMainMenu"),
+                        ("step", "EXIT_POLL_MATCH_SKIPPED_POST_AWAIT"));
+                }
+
+                return;
             }
 
             if(_ugsMatchLobby == null) return;
@@ -275,6 +294,7 @@ namespace Network {
             if(_ugsMatchLobby == null) return;
             if(_ugsClientStartedForMatch) return;
             if(_ugsLocalReadySubmitted == false) return;
+            if(_isLeaving || _isShuttingDown) return;
 
             if(_ugsMatchLobby.Data == null) {
                 if(ShouldEmitThrottledLog(ref _nextUgsClientStartFailureLogTime, 10f)) {
@@ -323,6 +343,16 @@ namespace Network {
                 return;
             }
 
+            if(_isLeaving || _isShuttingDown) {
+                if(Debug.isDebugBuild) {
+                    FlowLog.Emit(FlowEventIds.SessionExit,
+                        ("reason", "LeaveToMainMenu"),
+                        ("step", "EXIT_CLIENT_START_SKIPPED_POST_RELAY_JOIN"));
+                }
+
+                return;
+            }
+
             if(TryApplyRelayToTransport(utp, null, joinAlloc) == false) {
                 Debug.LogError("[SessionManager] Failed to apply relay client allocation to transport.");
                 LeaveToMainMenuAsync().Forget();
@@ -362,6 +392,7 @@ namespace Network {
         private async UniTaskVoid PollPartyLobbyAsync() {
             if(_ugsPartyLobby == null) return;
             if(Phase == SessionPhase.InGame) return;
+            if(_isLeaving || _isShuttingDown) return;
             if(_isPollingPartyLobby) return;
 
             _isPollingPartyLobby = true;
@@ -382,6 +413,16 @@ namespace Network {
                 return;
             } finally {
                 _isPollingPartyLobby = false;
+            }
+
+            if(_isLeaving || _isShuttingDown) {
+                if(Debug.isDebugBuild) {
+                    FlowLog.Emit(FlowEventIds.SessionExit,
+                        ("reason", "LeaveToMainMenu"),
+                        ("step", "EXIT_POLL_PARTY_SKIPPED_POST_AWAIT"));
+                }
+
+                return;
             }
 
             if(_ugsPartyLobby == null) return;

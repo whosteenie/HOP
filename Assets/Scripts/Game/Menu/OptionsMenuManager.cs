@@ -137,6 +137,7 @@ namespace Game.Menu {
 
         protected override void OnInitialize() {
             FindUIElements();
+            BindDropdownOpenStateClasses();
             SetupCallbacks();
             SetupOptionsTabs();
             SetupKeybinds();
@@ -245,6 +246,19 @@ namespace Game.Menu {
                 EventCallback<ClickEvent> handler = _ => ToggleCheckbox(_vsyncButton);
                 _vsyncButton.RegisterCallback(handler);
                 RegisterCleanup(() => _vsyncButton.UnregisterCallback(handler));
+            }
+        }
+
+        private void BindDropdownOpenStateClasses() {
+            if(Root == null) {
+                return;
+            }
+
+            foreach(var dropdown in Root.Query<DropdownField>().ToList()) {
+                var cleanup = DropdownOpenStateBinder.Bind(dropdown);
+                if(cleanup != null) {
+                    RegisterCleanup(cleanup);
+                }
             }
         }
 

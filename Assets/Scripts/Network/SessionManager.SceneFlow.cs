@@ -48,6 +48,16 @@ namespace Network {
         }
 
         private async UniTaskVoid OnGameSceneLoadedAsync() {
+            if(_isLeaving || _isShuttingDown) {
+                if(Debug.isDebugBuild) {
+                    FlowLog.Emit(FlowEventIds.SessionExit,
+                        ("reason", "LeaveToMainMenu"),
+                        ("step", "EXIT_SCENE_PRESENTATION_SKIPPED"));
+                }
+
+                return;
+            }
+
             var presentationSerial = ++_gameScenePresentationSerial;
 
             if(TryGetAuthoritativeRuntimeMode(out var mode, out var source)) {
@@ -92,7 +102,7 @@ namespace Network {
                         "[SessionManager] Gameplay readiness timed out before fade-in. Revealing scene to avoid indefinite black screen.");
                 }
 
-                if(presentationSerial == _gameScenePresentationSerial) {
+                if(presentationSerial == _gameScenePresentationSerial && !_isLeaving && !_isShuttingDown) {
                     await SceneTransitionManager.Instance.FadeInAsync();
                     if(MatchTimerManager.Instance != null && _networkManager != null && _networkManager.IsClient) {
                         if(_networkManager.IsServer) {

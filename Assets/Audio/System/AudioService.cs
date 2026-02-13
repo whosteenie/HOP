@@ -24,6 +24,7 @@ namespace Game.Audio2 {
         private readonly List<Voice> _active = new();
         private readonly Dictionary<string, List<Voice>> _activeById = new(StringComparer.Ordinal);
         private readonly Dictionary<string, float> _lastPlayTime = new(StringComparer.Ordinal);
+        private readonly Dictionary<int, float> _nextSourceStateLogTime = new();
 
         private void Awake() {
             if(Instance != null && Instance != this) {
@@ -169,6 +170,9 @@ namespace Game.Audio2 {
                 return false;
             }
 
+            // Recover from misconfigured pooled sources and emit diagnostics at low frequency.
+            EnsureSourcePlayable(src, id, cue.bus);
+
             // Parent vs world
             if(p.Parent != null && !p.UseWorldPosition) {
                 src.transform.SetParent(p.Parent, false);
@@ -178,7 +182,14 @@ namespace Game.Audio2 {
                 src.transform.position = p.WorldPosition;
             }
 
-            src.Play();
+            try {
+                src.Play();
+            } catch(Exception ex) {
+                Debug.LogWarning(
+                    $"[AudioService] Failed to play id='{id}' bus='{cue.bus}' src='{GetSourceDebugId(src)}': {ex.Message}");
+                ReturnToPool(cue.bus, src);
+                return false;
+            }
 
             var voice = new Voice {
                 Id = id,
@@ -304,6 +315,10 @@ namespace Game.Audio2 {
                 var src = q.Dequeue();
                 if(src != null) {
                     src.gameObject.SetActive(true);
+                    if(!src.enabled) {
+                        src.enabled = true;
+                    }
+
                     return src;
                 }
             }
@@ -324,6 +339,7 @@ namespace Game.Audio2 {
             if(!canGrow) return null;
             var created = Instantiate(config.audioSourcePrefab, transform);
             created.gameObject.SetActive(true);
+            created.enabled = true;
             return created;
         }
 
@@ -473,6 +489,43 @@ namespace Game.Audio2 {
         private static float DeterministicRange(uint seed, string salt, float min, float max) {
             var t = Deterministic01(seed, salt);
             return Mathf.Lerp(min, max, t);
+        }
+
+        private static string GetSourceDebugId(AudioSource src) {
+            if(src == null) return "null";
+            return $"{src.gameObject.name}#{src.GetInstanceID()}";
+        }
+
+        private bool ShouldEmitSourceStateLog(AudioSource src, float intervalSeconds = 10f) {
+            if(src == null) return false;
+            var key = src.GetInstanceID();
+            var now = Time.unscaledTime;
+            if(_nextSourceStateLogTime.TryGetValue(key, out var next) && now < next) {
+                return false;
+            }
+
+            _nextSourceStateLogTime[key] = now + intervalSeconds;
+            return true;
+        }
+
+        private void EnsureSourcePlayable(AudioSource src, string id, SoundBus bus) {
+            if(src == null) return;
+
+            if(!src.enabled) {
+                src.enabled = true;
+                if(ShouldEmitSourceStateLog(src)) {
+                    Debug.LogWarning(
+                        $"[AudioService] Re-enabled disabled pooled source for id='{id}' bus='{bus}' src='{GetSourceDebugId(src)}'.");
+                }
+            }
+
+            if(!src.gameObject.activeSelf) {
+                src.gameObject.SetActive(true);
+                if(ShouldEmitSourceStateLog(src)) {
+                    Debug.LogWarning(
+                        $"[AudioService] Reactivated pooled source GameObject for id='{id}' bus='{bus}' src='{GetSourceDebugId(src)}'.");
+                }
+            }
         }
     }
 

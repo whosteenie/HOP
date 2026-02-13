@@ -130,6 +130,7 @@ namespace Network {
         private NetworkManager _networkManager;
         private bool _isLeaving;
         private bool _isShuttingDown;
+        private int _leaveSequenceId;
         private int _activeSessionOperations;
         private int _expectedGamePlayerCount = 1;
         // Track if we expect a disconnect (e.g. intentionally leaving)
@@ -425,16 +426,22 @@ namespace Network {
                 return;
             }
 
+            _leaveSequenceId++;
+            var leaveId = _leaveSequenceId;
             _isLeaving = true;
 
             try {
                 FlowLog.Emit(FlowEventIds.SessionExit,
+                    ("leaveId", leaveId),
                     ("reason", "LeaveToMainMenu"),
+                    ("step", "EXIT_BEGIN"),
                     ("phase", Phase),
-                    ("gameplay", IsInGameplay));
+                    ("gameplay", IsInGameplay),
+                    ("scene", SceneManager.GetActiveScene().name));
 
                 // Cancel any active matchmaking first
                 ClearMatchmakingState();
+                FlowLog.Emit(FlowEventIds.SessionExit, ("leaveId", leaveId), ("step", "EXIT_MATCHMAKING_CLEARED"));
 
                 if(Game.Audio2.AudioService.Instance != null) {
                     Game.Audio2.AudioService.Instance.StopAll();
@@ -442,24 +449,51 @@ namespace Network {
 
                 var currentScene = SceneManager.GetActiveScene().name;
                 var shouldFade = currentScene != "MainMenu";
+                FlowLog.Emit(FlowEventIds.SessionExit,
+                    ("leaveId", leaveId),
+                    ("step", "EXIT_SCENE_SNAPSHOT"),
+                    ("currentScene", currentScene),
+                    ("shouldFade", shouldFade));
 
                 if(shouldFade && SceneTransitionManager.Instance != null) {
+                    FlowLog.Emit(FlowEventIds.SessionExit, ("leaveId", leaveId), ("step", "EXIT_FADE_OUT_BEGIN"));
                     await SceneTransitionManager.Instance.FadeOut().ToUniTask();
+                    FlowLog.Emit(FlowEventIds.SessionExit, ("leaveId", leaveId), ("step", "EXIT_FADE_OUT_DONE"));
                 }
 
+                FlowLog.Emit(FlowEventIds.SessionExit, ("leaveId", leaveId), ("step", "EXIT_VOICE_LEAVE_BEGIN"));
                 await TryLeaveVoiceChannelAsync();
+                FlowLog.Emit(FlowEventIds.SessionExit, ("leaveId", leaveId), ("step", "EXIT_VOICE_LEAVE_DONE"));
+
+                FlowLog.Emit(FlowEventIds.SessionExit,
+                    ("leaveId", leaveId),
+                    ("step", "EXIT_PARTY_FOLLOW_RESET_BEGIN"));
                 await ResetPartyFollowStateIfHostAsync();
+                FlowLog.Emit(FlowEventIds.SessionExit,
+                    ("leaveId", leaveId),
+                    ("step", "EXIT_PARTY_FOLLOW_RESET_DONE"));
 
                 LeaveLobby();
                 ClearMatchState();
-                await CleanupNetworkAsync();
+                FlowLog.Emit(FlowEventIds.SessionExit, ("leaveId", leaveId), ("step", "EXIT_MATCH_STATE_CLEARED"));
 
+                await CleanupNetworkAsync();
+                FlowLog.Emit(FlowEventIds.SessionExit, ("leaveId", leaveId), ("step", "EXIT_NETWORK_CLEANUP_DONE"));
+
+                FlowLog.Emit(FlowEventIds.SessionExit, ("leaveId", leaveId), ("step", "EXIT_SCENE_LOAD_BEGIN"));
                 await EnsureMainMenuLoadedAndReadyAsync(currentScene);
+                FlowLog.Emit(FlowEventIds.SessionExit, ("leaveId", leaveId), ("step", "EXIT_SCENE_LOAD_DONE"));
+
                 if(shouldFade && SceneTransitionManager.Instance != null) {
+                    FlowLog.Emit(FlowEventIds.SessionExit, ("leaveId", leaveId), ("step", "EXIT_FADE_IN_BEGIN"));
                     await SceneTransitionManager.Instance.FadeInAsync();
+                    FlowLog.Emit(FlowEventIds.SessionExit, ("leaveId", leaveId), ("step", "EXIT_FADE_IN_DONE"));
                 }
+
+                FlowLog.Emit(FlowEventIds.SessionExit, ("leaveId", leaveId), ("step", "EXIT_FINALIZED"));
             } finally {
                 _isLeaving = false;
+                FlowLog.Emit(FlowEventIds.SessionExit, ("leaveId", leaveId), ("step", "EXIT_LEAVE_FLAG_CLEARED"));
             }
         }
 

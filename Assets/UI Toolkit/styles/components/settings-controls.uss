@@ -170,20 +170,23 @@
     border-left-color: transparent;
     border-right-width: 7px;
     border-right-color: transparent;
-    border-bottom-width: 12px;
-    border-bottom-color: var(--color-accent);
-    border-top-width: 0;
+    border-bottom-width: 0;
+    border-top-width: 12px;
+    border-top-color: var(--color-accent);
     margin-left: 8px;
     margin-right: 4px;
     background-color: transparent;
     -unity-background-image-tint-color: transparent;
 }
 
+/* Opened dropdown: flip arrow up via C#-managed state class. */
+.setting-dropdown.dropdown-open > .unity-base-popup-field__arrow,
+.setting-dropdown.dropdown-open .unity-base-popup-field__arrow,
 .setting-dropdown > .unity-base-popup-field__arrow.down,
 .setting-dropdown .unity-base-popup-field__arrow.down {
-    border-bottom-width: 0;
-    border-top-width: 12px;
-    border-top-color: var(--color-accent);
+    border-bottom-width: 12px;
+    border-bottom-color: var(--color-accent);
+    border-top-width: 0;
 }
 
 /* ===== KEYBIND BUTTONS ===== */
