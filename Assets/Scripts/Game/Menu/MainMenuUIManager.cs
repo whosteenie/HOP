@@ -512,7 +512,7 @@ namespace Game.Menu {
         /// <summary>
         /// Enables a specific button and registers its hover events.
         /// </summary>
-        public static void EnableButton(Button button) {
+        private static void EnableButton(Button button) {
             SetButtonEnabled(button, true);
         }
 

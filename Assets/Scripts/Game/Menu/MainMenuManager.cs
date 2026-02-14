@@ -118,8 +118,8 @@ namespace Game.Menu {
             WireSubManagerCallbacks();
         }
 
-        protected override Dictionary<string, System.Type> GetRequiredElements() {
-            return new Dictionary<string, System.Type> {
+        protected override Dictionary<string, Type> GetRequiredElements() {
+            return new Dictionary<string, Type> {
                 { "main-menu-panel", typeof(VisualElement) }
             };
         }
@@ -149,7 +149,7 @@ namespace Game.Menu {
                 _privateMatchBackClickHandler = () => {
                     UISoundService.PlayButtonClick(isBack: true);
                     TransitionToState(MainMenuPanelState.GamemodeSelect);
-                    privateMatchSetupManager?.OnBackRequested?.Invoke();
+                    if(privateMatchSetupManager != null) privateMatchSetupManager.OnBackRequested?.Invoke();
                 };
                 _privateMatchBackButton.clicked += _privateMatchBackClickHandler;
             }
@@ -229,7 +229,9 @@ namespace Game.Menu {
                    string.IsNullOrWhiteSpace(MatchSettingsManager.Instance.selectedGameModeId) == false) {
                     mode = MatchSettingsManager.Instance.selectedGameModeId;
                 }
-                privateMatchSetupManager?.SetInitialGamemode(mode);
+
+                if(privateMatchSetupManager != null) privateMatchSetupManager.SetInitialGamemode(mode);
+
                 TransitionToState(MainMenuPanelState.PrivateMatchSetup);
             };
             uiManager.OnGamemodeWipClicked = () => {
@@ -326,7 +328,9 @@ namespace Game.Menu {
                 _currentPanelState == MainMenuPanelState.PrivateMatchSetup &&
                 privateMatchSetupManager != null &&
                 MatchSettingsManager.IsTeamBasedMode(privateMatchSetupManager.GetDraftSettings().GamemodeId);
-            sessionManager.OnSwitchTeamRequested = steamId => { privateMatchSetupManager?.SwitchPlayerTeam(steamId); };
+            sessionManager.OnSwitchTeamRequested = steamId => {
+                if(privateMatchSetupManager != null) privateMatchSetupManager.SwitchPlayerTeam(steamId);
+            };
         }
         
         private static bool IsInActiveLobby() {
@@ -351,28 +355,27 @@ namespace Game.Menu {
             _currentPanelState = state;
             ShowPanelInternal(panel);
 
-            if(state == MainMenuPanelState.PrivateMatchSetup) {
-                privateMatchSetupManager?.RefreshDropdowns();
-                privateMatchSetupManager?.RefreshTeamPreview();
-            }
+            if(state != MainMenuPanelState.PrivateMatchSetup) return;
+            if(privateMatchSetupManager != null) privateMatchSetupManager.RefreshDropdowns();
+
+            if(privateMatchSetupManager != null) privateMatchSetupManager.RefreshTeamPreview();
         }
 
         private VisualElement GetPanelForState(MainMenuPanelState state) {
-            if(state == MainMenuPanelState.GamemodeSelect) {
-                var panel = uiManager != null ? uiManager.PlayGamemodePanel : null;
-                if(panel == null && Root != null)
-                    panel = Root.Q<VisualElement>("play-gamemode-panel");
-                return panel;
-            }
-            return state switch {
-                MainMenuPanelState.MainMenu => MainMenuPanel,
-                MainMenuPanelState.PrivateMatchSetup => _privateMatchSetupPanel,
-                MainMenuPanelState.Lobby => _lobbyPanel,
-                MainMenuPanelState.Loadout => _loadoutPanel,
-                MainMenuPanelState.Options => _optionsPanel,
-                MainMenuPanelState.Credits => _creditsPanel,
-                _ => MainMenuPanel
-            };
+            if(state != MainMenuPanelState.GamemodeSelect)
+                return state switch {
+                    MainMenuPanelState.MainMenu => MainMenuPanel,
+                    MainMenuPanelState.PrivateMatchSetup => _privateMatchSetupPanel,
+                    MainMenuPanelState.Lobby => _lobbyPanel,
+                    MainMenuPanelState.Loadout => _loadoutPanel,
+                    MainMenuPanelState.Options => _optionsPanel,
+                    MainMenuPanelState.Credits => _creditsPanel,
+                    _ => MainMenuPanel
+                };
+            var panel = uiManager != null ? uiManager.PlayGamemodePanel : null;
+            if(panel == null && Root != null)
+                panel = Root.Q<VisualElement>("play-gamemode-panel");
+            return panel;
         }
 
         private MainMenuPanelState GetStateForPanel(VisualElement panel) {
@@ -383,8 +386,7 @@ namespace Game.Menu {
             if(panel == _lobbyPanel) return MainMenuPanelState.Lobby;
             if(panel == _loadoutPanel) return MainMenuPanelState.Loadout;
             if(panel == _optionsPanel) return MainMenuPanelState.Options;
-            if(panel == _creditsPanel) return MainMenuPanelState.Credits;
-            return _currentPanelState;
+            return panel == _creditsPanel ? MainMenuPanelState.Credits : _currentPanelState;
         }
 
         public void ShowPanel(VisualElement panel) {
