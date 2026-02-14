@@ -15,11 +15,11 @@ MonoBehaviour:
   id: wallrun_chain
   type: 7
   descriptionTemplate: Chain {0} Wall Runs without touching ground
-  minTarget: 10
-  maxTarget: 20
-  weeklyMinTarget: 15
-  weeklyMaxTarget: 25
+  minTarget: 2
+  maxTarget: 4
+  weeklyMinTarget: 3
+  weeklyMaxTarget: 6
   baseXpReward: 1000
   includeInDaily: 1
-  includeInWeekly: 1
+  includeInWeekly: 0
   weaponID: 
