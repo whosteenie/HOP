@@ -8,6 +8,7 @@ using Game.UI;
 using Network.Diagnostics;
 using Unity.Netcode;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 namespace Game.Hopball {
     /// <summary>
@@ -24,9 +25,12 @@ namespace Game.Hopball {
 
         [Header("Settings")]
         [SerializeField] private float postPrematchSpawnDelay = 5f; // Spawn this many seconds after pre-match countdown ends
-        [SerializeField] private float oobThreshold = 600f; // Y position threshold for OOB (map is high in the air)
+        [SerializeField] private float oobThreshold = 600f; // Fallback Y threshold if no OOB marker is found
         [SerializeField] private int winScore = 60; // Points needed to win
         [SerializeField] private float dissolveRespawnDelay = 5f; // Delay before respawning after dissolve
+        [Header("Out Of Bounds")]
+        [SerializeField] private string outOfBoundsMarkerName = "OOB";
+        [SerializeField] private string outOfBoundsMarkerTag = "OOB";
 
         // Team scores (server-authoritative)
         private readonly NetworkVariable<int> _teamAScore = new(value: 0);
@@ -37,6 +41,8 @@ namespace Game.Hopball {
         private bool _hasSpawnedInitial;
         private ulong _currentHolderId; // Track who is currently holding the ball
         private Coroutine _respawnCoroutine;
+        private int _cachedOobSceneHandle = -1;
+        private float _cachedOutOfBoundsY;
 
         public HopballController CurrentHopballController { get; private set; }
 
@@ -283,13 +289,50 @@ namespace Game.Hopball {
             }
 
             if(CurrentHopballController == null || !CurrentHopballController.IsSpawned || _mostRecentSpawnPoint == null) return;
+            var outOfBoundsY = GetOutOfBoundsKillY();
             // Check if hopball is dropped (not equipped) and OOB
             if(!CurrentHopballController.IsEquipped && 
                !CurrentHopballController.IsDissolving && 
                !CurrentHopballController.IsAwaitingRespawn && 
-               CurrentHopballController.transform.position.y <= oobThreshold) {
+               CurrentHopballController.transform.position.y <= outOfBoundsY) {
                 TeleportHopballToMostRecentSpawn();
             }
+        }
+
+        private float GetOutOfBoundsKillY() {
+            var activeScene = SceneManager.GetActiveScene();
+            if(_cachedOobSceneHandle == activeScene.handle) {
+                return _cachedOutOfBoundsY;
+            }
+
+            _cachedOobSceneHandle = activeScene.handle;
+            _cachedOutOfBoundsY = oobThreshold;
+
+            Transform marker = null;
+            if(!string.IsNullOrWhiteSpace(outOfBoundsMarkerTag)) {
+                try {
+                    var taggedObject = GameObject.FindGameObjectWithTag(outOfBoundsMarkerTag);
+                    if(taggedObject != null) {
+                        marker = taggedObject.transform;
+                    }
+                } catch(UnityException) {
+                    // Tag may be undefined in some scenes/projects; fallback to name lookup.
+                }
+            }
+
+            if(marker == null && !string.IsNullOrWhiteSpace(outOfBoundsMarkerName)) {
+                var namedObject = GameObject.Find(outOfBoundsMarkerName);
+                if(namedObject != null) {
+                    marker = namedObject.transform;
+                }
+            }
+
+            if(marker != null) {
+                // Use world-space Y in case marker is parented under WorldRoot.
+                _cachedOutOfBoundsY = marker.position.y;
+            }
+
+            return _cachedOutOfBoundsY;
         }
 
         /// <summary>

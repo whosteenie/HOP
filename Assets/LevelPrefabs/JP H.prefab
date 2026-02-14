@@ -14,6 +14,7 @@ GameObject:
   - component: {fileID: 8254384542772079248}
   - component: {fileID: 6752413282075290220}
   - component: {fileID: 4005509721084093078}
+  - component: {fileID: 3792647814516488969}
   m_Layer: 0
   m_Name: JP H
   m_TagString: JumpPad
@@ -1435,6 +1436,7 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!33 &6752413282075290220
 MeshFilter:
@@ -1466,3 +1468,22 @@ MeshCollider:
   m_Convex: 0
   m_CookingOptions: 30
   m_Mesh: {fileID: 0}
+--- !u!114 &3792647814516488969
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4436500743090151008}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 09692643f369de845a4b244e792d23c9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Game.Match.JumpPadPlacement
+  groundMask:
+    serializedVersion: 2
+    m_Bits: 512
+  rayStartHeight: 50
+  rayDistance: 200
+  buriedFraction: 0.5
+  surfaceOffset: 0

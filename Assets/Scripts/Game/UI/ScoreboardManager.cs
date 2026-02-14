@@ -1160,10 +1160,6 @@ namespace Game.UI {
 
             rowRoot.AddToClassList("player-row-empty");
 
-            if(isYourTeam) {
-                rowRoot.AddToClassList("player-row-local-your-team");
-            }
-
             parentContainer.Add(row);
 
             if(pingLabel != null) pingLabel.text = "-";
