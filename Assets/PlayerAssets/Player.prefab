@@ -2131,6 +2131,11 @@ MonoBehaviour:
   playerController: {fileID: 5088684734431513618}
   shadowRaycastDistance: 1000
   weaponShadowLayer: -1
+  blockedRootName: WorldRoot
+  maxRenderersPerSource: 64
+  maxSourceBoundsDimension: 150
+  maxCachedSources: 24
+  logRejectedSources: 0
 --- !u!114 &-4102731384895396433
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2603,10 +2608,10 @@ MonoBehaviour:
   m_RendererIndex: -1
   m_VolumeLayerMask:
     serializedVersion: 2
-    m_Bits: 0
+    m_Bits: 16384
   m_VolumeTrigger: {fileID: 0}
   m_VolumeFrameworkUpdateModeOption: 2
-  m_RenderPostProcessing: 0
+  m_RenderPostProcessing: 1
   m_Antialiasing: 0
   m_AntialiasingQuality: 2
   m_StopNaN: 0

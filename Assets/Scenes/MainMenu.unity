@@ -31000,6 +31000,55 @@ Mesh:
       - serializedVersion: 1
         m_IndexStart: 0
         m_IndexCount: 0
+--- !u!1 &667029308
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 667029309}
+  - component: {fileID: 667029310}
+  m_Layer: 14
+  m_Name: Blur Volume
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &667029309
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 667029308}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &667029310
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 667029308}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 172515602e62fb746b5d573b38a5fe58, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.RenderPipelines.Core.Runtime::UnityEngine.Rendering.Volume
+  m_IsGlobal: 1
+  priority: 100
+  blendDistance: 0
+  weight: 0
+  sharedProfile: {fileID: 11400000, guid: e4d32c5e9414a6f44a5344222941fc88, type: 2}
 --- !u!1 &667702165
 GameObject:
   m_ObjectHideFlags: 0
@@ -39474,7 +39523,6 @@ MonoBehaviour:
   - {fileID: 1082226785}
   - {fileID: 1082226784}
   weaponOptionTemplate: {fileID: 9197481963319205126, guid: 2ca87d11ab0a87e49870e8bb5cb23432, type: 3}
-  challengeRowTemplate: {fileID: 9197481963319205126, guid: 15bba09b50799a343b3d3f8f84a61e10, type: 3}
   secondaryWeaponParent: {fileID: 1082226783}
   mainMenuManager: {fileID: 7165998097423180928}
 --- !u!4 &855784179
@@ -67852,10 +67900,10 @@ MonoBehaviour:
   m_RendererIndex: -1
   m_VolumeLayerMask:
     serializedVersion: 2
-    m_Bits: 1
+    m_Bits: 16385
   m_VolumeTrigger: {fileID: 0}
   m_VolumeFrameworkUpdateModeOption: 2
-  m_RenderPostProcessing: 0
+  m_RenderPostProcessing: 1
   m_Antialiasing: 0
   m_AntialiasingQuality: 2
   m_StopNaN: 0
@@ -81918,7 +81966,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1857900484}
   m_Layer: 0
-  m_Name: GameObject
+  m_Name: MapMarker
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -95811,6 +95859,7 @@ GameObject:
   - component: {fileID: 7165998097423180933}
   - component: {fileID: 7165998097423180932}
   - component: {fileID: 7165998097423180931}
+  - component: {fileID: 7165998097423180934}
   m_Layer: 5
   m_Name: MainMenuManager
   m_TagString: Untagged
@@ -95852,7 +95901,10 @@ MonoBehaviour:
   uiManager: {fileID: 7165998097423180933}
   sessionManager: {fileID: 7165998097423180932}
   gamemodeManager: {fileID: 7165998097423180931}
+  voiceOverlayManager: {fileID: 0}
   mainCamera: {fileID: 1505931946}
+  menuBlurController: {fileID: 7165998097423180934}
+  optionsBlurVolume: {fileID: 667029310}
 --- !u!114 &7165998097423180929
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -95923,10 +95975,27 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Network.Singletons.MainMenuUIManager
   uiDocument: {fileID: 2437191754305144469}
-  LoadoutManager: {fileID: 855784178}
+  loadoutManager: {fileID: 855784178}
   partyMemberTemplate: {fileID: 9197481963319205126, guid: 072eb18ca861f1743882f36b1ca4cfc0, type: 3}
   challengeCardTemplate: {fileID: 9197481963319205126, guid: 8b1e935a25318314eb9e1b4d95256a01, type: 3}
   challengeRowTemplate: {fileID: 9197481963319205126, guid: 15bba09b50799a343b3d3f8f84a61e10, type: 3}
+--- !u!114 &7165998097423180934
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6277144686235587921}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 71b23fc847598194bac52e5ef8d548a1, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Game.Rendering.MenuBlurVolumeController
+  blurVolume: {fileID: 667029310}
+  openSpeed: 16
+  closeSpeed: 16
+  maxWeight: 1
+  instantClose: 0
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
@@ -95938,6 +96007,7 @@ SceneRoots:
   - {fileID: 1857900484}
   - {fileID: 1751054467}
   - {fileID: 1072639477}
-  - {fileID: 2142665957}
   - {fileID: 111566275}
+  - {fileID: 667029309}
+  - {fileID: 2142665957}
   - {fileID: 436350585}

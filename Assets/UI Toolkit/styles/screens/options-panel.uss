@@ -17,6 +17,11 @@
     border-radius: 0;
 }
 
+/* Extra readability when options are actively open. */
+.options-open #options-panel .options-container {
+    background-color: rgba(4, 6, 10, 0.94);
+}
+
 /* Keep fullscreen background, but enforce content insets even when screen-level sheets
    also define .options-container. */
 #options-panel .options-container {

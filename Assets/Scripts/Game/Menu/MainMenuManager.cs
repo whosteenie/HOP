@@ -7,6 +7,8 @@ using UnityEngine;
 using UnityEngine.Audio;
 using UnityEngine.UIElements;
 using Game.UI;
+using Game.Rendering;
+using UnityEngine.Rendering;
 using Cursor = UnityEngine.Cursor;
 
 namespace Game.Menu {
@@ -36,6 +38,8 @@ namespace Game.Menu {
 
         [Header("References")]
         [SerializeField] private Camera mainCamera;
+        [SerializeField] private MenuBlurVolumeController menuBlurController;
+        [SerializeField] private Volume optionsBlurVolume;
 
         #endregion
 
@@ -60,6 +64,7 @@ namespace Game.Menu {
 
         protected override void Start() {
             base.Start();
+            InitializeMenuBlurController();
             Cursor.visible = true;
             Cursor.lockState = CursorLockMode.None;
 
@@ -74,6 +79,11 @@ namespace Game.Menu {
             if(DiscordManager.Instance != null) {
                 DiscordManager.Instance.SetStatus("In Main Menu", "Browsing");
             }
+        }
+
+        protected override void OnDisable() {
+            SetOptionsOpenState(false);
+            base.OnDisable();
         }
 
         protected override void OnInitialize() {
@@ -279,6 +289,26 @@ namespace Game.Menu {
             } else {
                 Root.RemoveFromClassList("options-open");
             }
+
+            if(menuBlurController != null) {
+                menuBlurController.SetBlurActive(isOptionsOpen);
+            }
+        }
+
+        private void InitializeMenuBlurController() {
+            if(optionsBlurVolume == null) {
+                return;
+            }
+
+            if(menuBlurController == null) {
+                menuBlurController = GetComponent<MenuBlurVolumeController>();
+            }
+
+            if(menuBlurController == null) {
+                menuBlurController = gameObject.AddComponent<MenuBlurVolumeController>();
+            }
+
+            menuBlurController.SetBlurVolume(optionsBlurVolume);
         }
 
         private void UpdateDiscordStatusForPanel(VisualElement panel) {

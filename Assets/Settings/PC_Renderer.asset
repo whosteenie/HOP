@@ -1,5 +1,20 @@
 %YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
+--- !u!114 &-1933973476123360630
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 54786232140726b49a289f326c066aed, type: 3}
+  m_Name: MenuBlurRendererFeature
+  m_EditorClassIdentifier: Assembly-CSharp::Game.Rendering.MenuBlurRendererFeature
+  m_Active: 0
+  settings: {blurShader: {fileID: 4800000, guid: 6fe4eaed3bcf9ad4b8257ca85f80a490, type: 3}, passEvent: 550, downsample: 2, strengthScale: 1.35}
+  _material: {fileID: 0}
 --- !u!114 &11400000
 MonoBehaviour:
   m_ObjectHideFlags: 0

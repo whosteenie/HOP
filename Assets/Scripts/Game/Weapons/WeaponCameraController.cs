@@ -62,6 +62,7 @@ namespace Game.Weapons {
             // Add weapon camera to main scene camera's camera stack
             var mainCameraData = _mainSceneCamera.GetUniversalAdditionalCameraData();
             if(mainCameraData == null) return;
+
             // Remove from stack if already added (to avoid duplicates)
             if(mainCameraData.cameraStack.Contains(_weaponCamera)) {
                 mainCameraData.cameraStack.Remove(_weaponCamera);

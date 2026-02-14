@@ -5,11 +5,13 @@ using Game.Player;
 using Game.Progression;
 using Game.UI;
 using Game.Match;
+using Game.Rendering;
 using Network;
 using Network.Services;
 using Network.Steam;
 using Steamworks;
 using UnityEngine;
+using UnityEngine.Rendering;
 using UnityEngine.SceneManagement;
 using UnityEngine.UIElements;
 
@@ -25,6 +27,8 @@ namespace Game.Menu {
 
         [Header("Options")]
         [SerializeField] private OptionsMenuManager optionsMenuManager;
+        [SerializeField] private MenuBlurVolumeController menuBlurController;
+        [SerializeField] private Volume optionsBlurVolume;
 
         [Header("Sniper Overlay")]
         [SerializeField] private SniperOverlayManager sniperOverlayManager;
@@ -109,6 +113,7 @@ namespace Game.Menu {
 
         protected override void Start() {
             base.Start();
+            InitializeMenuBlurController();
             if(DiscordManager.Instance == null) return;
             var mode = "Deathmatch";
             if(MatchSettingsManager.Instance != null) {
@@ -130,6 +135,7 @@ namespace Game.Menu {
         protected override void OnDisable() {
             SceneManager.sceneLoaded -= OnSceneLoaded;
             UnbindProgressionEvents();
+            SetOptionsOpenState(false);
             base.OnDisable();
         }
 
@@ -203,6 +209,7 @@ namespace Game.Menu {
             if(_optionsPanel != null) {
                 _optionsPanel.AddToClassList("hidden");
             }
+            SetOptionsOpenState(false);
 
             // Restore timer visibility for each fresh game scene load.
             if(_matchTimerContainer != null) {
@@ -542,6 +549,7 @@ namespace Game.Menu {
             IsPaused = false;
             _pauseMenuPanel.AddToClassList("hidden");
             _optionsPanel.AddToClassList("hidden");
+            SetOptionsOpenState(false);
             _modalHost.HideModal("quit-confirmation");
             if (_pauseChallengesContainer != null) _pauseChallengesContainer.AddToClassList("hidden");
             UnityEngine.Cursor.lockState = CursorLockMode.Locked;
@@ -561,6 +569,7 @@ namespace Game.Menu {
                 _pauseChallengesContainer.AddToClassList("hidden");
             }
             _optionsPanel.RemoveFromClassList("hidden");
+            SetOptionsOpenState(true);
             
             // Call after panel is visible to ensure repaint works
             if (optionsMenuManager != null) {
@@ -571,6 +580,7 @@ namespace Game.Menu {
         private void HideOptions() {
             if(_cachedSceneName != "Game") return;
             _optionsPanel.AddToClassList("hidden");
+            SetOptionsOpenState(false);
             _pauseMenuPanel.RemoveFromClassList("hidden");
             // Show challenges again when returning to pause menu
             if(_pauseChallengesContainer != null) {
@@ -608,12 +618,43 @@ namespace Game.Menu {
                 
                 _pauseMenuPanel.AddToClassList("hidden");
                 _optionsPanel.AddToClassList("hidden");
+                SetOptionsOpenState(false);
                 IsPaused = false;
                 UnityEngine.Cursor.lockState = CursorLockMode.None;
                 UnityEngine.Cursor.visible = true;
             } catch(Exception e) {
                 Debug.LogException(e);
             }
+        }
+
+        private void SetOptionsOpenState(bool isOptionsOpen) {
+            if(Root == null) return;
+
+            if(isOptionsOpen) {
+                Root.AddToClassList("options-open");
+            } else {
+                Root.RemoveFromClassList("options-open");
+            }
+
+            if(menuBlurController != null) {
+                menuBlurController.SetBlurActive(isOptionsOpen);
+            }
+        }
+
+        private void InitializeMenuBlurController() {
+            if(optionsBlurVolume == null) {
+                return;
+            }
+
+            if(menuBlurController == null) {
+                menuBlurController = GetComponent<MenuBlurVolumeController>();
+            }
+
+            if(menuBlurController == null) {
+                menuBlurController = gameObject.AddComponent<MenuBlurVolumeController>();
+            }
+
+            menuBlurController.SetBlurVolume(optionsBlurVolume);
         }
         #endregion
     }
