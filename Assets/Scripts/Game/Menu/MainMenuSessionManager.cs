@@ -41,6 +41,7 @@ namespace Game.Menu {
         private bool _isSilentHosting;
         private bool _silentHostInFlight;
         private UniTask<bool> _silentHostTask;
+        private bool _privateMatchStartInFlight;
 
         // Events
         public Action OnHostClicked;
@@ -71,7 +72,7 @@ namespace Game.Menu {
             if(SessionManager.Instance == null) return;
 
             _silentHostInFlight = true;
-            _silentHostTask = HandleHostClicked(silent: true);
+            _silentHostTask = HandleHostClicked(silent: true).Preserve();
             TrackSilentHostTask(_silentHostTask).Forget();
         }
 
@@ -509,6 +510,11 @@ namespace Game.Menu {
         public async UniTask HandlePrivateMatchSelection(string mode) {
             // Request SessionManager to start the synchronized load
             if(SessionManager.Instance != null) {
+                if(_privateMatchStartInFlight) {
+                    return;
+                }
+
+                _privateMatchStartInFlight = true;
                 try {
                     if(Application.internetReachability == NetworkReachability.NotReachable) {
                         if(uiManager != null) {
@@ -519,7 +525,19 @@ namespace Game.Menu {
                     }
 
                     if(_silentHostInFlight) {
-                        await _silentHostTask;
+                        var waitStart = Time.realtimeSinceStartup;
+                        while(_silentHostInFlight && Time.realtimeSinceStartup - waitStart < 8f) {
+                            await UniTask.Yield();
+                        }
+
+                        if(_silentHostInFlight) {
+                            Debug.LogWarning(
+                                "[MainMenuSessionManager] Silent host setup timed out while starting private match.");
+                            if(uiManager != null) {
+                                uiManager.ShowToast("Preparing private match. Please try again.");
+                            }
+                            return;
+                        }
                     }
 
                     var matchSettings = Match.MatchSettingsManager.Instance;
@@ -538,6 +556,8 @@ namespace Game.Menu {
                     if(uiManager != null) {
                         uiManager.ShowToast("Failed to start private match. Please try again.");
                     }
+                } finally {
+                    _privateMatchStartInFlight = false;
                 }
             }
         }
