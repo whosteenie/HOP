@@ -14,8 +14,17 @@ namespace Network {
         private async UniTask<bool> WaitForGameplayReadyAsync(float timeoutSeconds) {
             var start = Time.realtimeSinceStartup;
             while(Time.realtimeSinceStartup - start < timeoutSeconds) {
+                if(_isLeaving || _isShuttingDown) {
+                    return false;
+                }
+
                 var activeScene = SceneManager.GetActiveScene();
-                if(activeScene.IsValid() == false || activeScene.name != GameSceneName) {
+                if(activeScene.IsValid() == false || IsGameplaySceneName(activeScene.name) == false) {
+                    // If we're back in menu, don't keep waiting and spamming a timeout warning.
+                    if(string.Equals(activeScene.name, "MainMenu", StringComparison.OrdinalIgnoreCase)) {
+                        return false;
+                    }
+
                     await UniTask.Yield();
                     continue;
                 }
@@ -42,84 +51,85 @@ namespace Network {
         }
 
         private void OnSceneLoaded(Scene scene, LoadSceneMode mode) {
-            if(scene.name == GameSceneName) {
+            if(IsGameplaySceneName(scene.name)) {
                 OnGameSceneLoadedAsync().Forget();
             }
         }
 
         private async UniTaskVoid OnGameSceneLoadedAsync() {
-            if(_isLeaving || _isShuttingDown) {
-                if(Debug.isDebugBuild) {
-                    FlowLog.Emit(FlowEventIds.SessionExit,
-                        ("reason", "LeaveToMainMenu"),
-                        ("step", "EXIT_SCENE_PRESENTATION_SKIPPED"));
+            try {
+                if(_isLeaving || _isShuttingDown) {
+                    if(Debug.isDebugBuild) {
+                        FlowLog.Emit(FlowEventIds.SessionExit,
+                            ("reason", "LeaveToMainMenu"),
+                            ("step", "EXIT_SCENE_PRESENTATION_SKIPPED"));
+                    }
+
+                    return;
                 }
 
-                return;
-            }
+                var presentationSerial = ++_gameScenePresentationSerial;
 
-            var presentationSerial = ++_gameScenePresentationSerial;
+                if(TryGetAuthoritativeRuntimeMode(out var mode, out var source)) {
+                    if(string.Equals(SelectedGameMode, mode, StringComparison.OrdinalIgnoreCase) == false) {
+                        FlowLog.Emit(FlowEventIds.AnomalyModeMismatch,
+                            ("selected", SelectedGameMode),
+                            ("applied", mode),
+                            ("objective", "Unknown"));
+                    }
 
-            if(TryGetAuthoritativeRuntimeMode(out var mode, out var source)) {
-                if(string.Equals(SelectedGameMode, mode, StringComparison.OrdinalIgnoreCase) == false) {
-                    FlowLog.Emit(FlowEventIds.AnomalyModeMismatch,
-                        ("selected", SelectedGameMode),
-                        ("applied", mode),
-                        ("objective", "Unknown"));
-                }
-
-                ApplyRuntimeMode(mode, $"SceneLoaded/{source}", refreshUi: false);
-                FlowLog.Emit(FlowEventIds.SceneLoaded,
-                    ("mode", mode),
-                    ("source", source));
-            } else {
-                Debug.LogWarning(
-                    "[SessionManager] Game scene loaded without an authoritative mode. Keeping current mode.");
-                FlowLog.Emit(FlowEventIds.SceneLoaded,
-                    ("mode", SelectedGameMode),
-                    ("source", "FallbackSelected"));
-            }
-
-            // Always join a match-scoped Vivox channel when gameplay loads so solo private matches
-            // retain text chat parity with other match flows.
-            TryJoinVoiceForActiveMatch("OnGameSceneLoadedAsync");
-
-            if(_networkManager == null) _networkManager = Unity.Netcode.NetworkManager.Singleton;
-            if(_networkManager != null && _networkManager.IsServer) {
-                // We are server, we are ready.
-                // Wait for clients?
-                // Logic passed to CustomNetworkManager spawning.
-                IsInGameplay = true;
-                if(_customNetworkManager != null) {
-                    _customNetworkManager.EnableGameplaySpawningAndSpawnAll();
-                }
-            }
-
-            if(SceneTransitionManager.Instance != null) {
-                var ready = await WaitForGameplayReadyAsync(20f);
-                if(!ready) {
+                    ApplyRuntimeMode(mode, $"SceneLoaded/{source}", refreshUi: false);
+                    FlowLog.Emit(FlowEventIds.SceneLoaded,
+                        ("mode", mode),
+                        ("source", source));
+                } else {
                     Debug.LogWarning(
-                        "[SessionManager] Gameplay readiness timed out before fade-in. Revealing scene to avoid indefinite black screen.");
+                        "[SessionManager] Game scene loaded without an authoritative mode. Keeping current mode.");
+                    FlowLog.Emit(FlowEventIds.SceneLoaded,
+                        ("mode", SelectedGameMode),
+                        ("source", "FallbackSelected"));
                 }
 
-                if(presentationSerial == _gameScenePresentationSerial && !_isLeaving && !_isShuttingDown) {
-                    await SceneTransitionManager.Instance.FadeInAsync();
-                    if(MatchTimerManager.Instance != null && _networkManager != null && _networkManager.IsClient) {
-                        if(_networkManager.IsServer) {
-                            MatchTimerManager.Instance.MarkClientScenePresented(_networkManager.LocalClientId,
-                                "HostLocalFadeIn");
-                        } else {
-                            MatchTimerManager.Instance.ReportClientScenePresentedServerRpc();
-                        }
+                // Always join a match-scoped Vivox channel when gameplay loads so solo private matches
+                // retain text chat parity with other match flows.
+                TryJoinVoiceForActiveMatch("OnGameSceneLoadedAsync");
+
+                if(_networkManager == null) _networkManager = Unity.Netcode.NetworkManager.Singleton;
+                if(_networkManager != null && _networkManager.IsServer) {
+                    IsInGameplay = true;
+                    if(_customNetworkManager != null) {
+                        _customNetworkManager.EnableGameplaySpawningAndSpawnAll();
                     }
                 }
-            } else if(MatchTimerManager.Instance != null && _networkManager != null && _networkManager.IsClient) {
-                if(_networkManager.IsServer) {
-                    MatchTimerManager.Instance.MarkClientScenePresented(_networkManager.LocalClientId,
-                        "HostNoTransitionManager");
-                } else {
-                    MatchTimerManager.Instance.ReportClientScenePresentedServerRpc();
+
+                if(SceneTransitionManager.Instance != null) {
+                    var ready = await WaitForGameplayReadyAsync(20f);
+                    if(!ready) {
+                        Debug.LogWarning(
+                            "[SessionManager] Gameplay readiness timed out before fade-in. Revealing scene to avoid indefinite black screen.");
+                    }
+
+                    if(presentationSerial == _gameScenePresentationSerial && !_isLeaving && !_isShuttingDown) {
+                        await SceneTransitionManager.Instance.FadeInAsync();
+                        if(MatchTimerManager.Instance != null && _networkManager != null && _networkManager.IsClient) {
+                            if(_networkManager.IsServer) {
+                                MatchTimerManager.Instance.MarkClientScenePresented(_networkManager.LocalClientId,
+                                    "HostLocalFadeIn");
+                            } else {
+                                MatchTimerManager.Instance.ReportClientScenePresentedServerRpc();
+                            }
+                        }
+                    }
+                } else if(MatchTimerManager.Instance != null && _networkManager != null && _networkManager.IsClient) {
+                    if(_networkManager.IsServer) {
+                        MatchTimerManager.Instance.MarkClientScenePresented(_networkManager.LocalClientId,
+                            "HostNoTransitionManager");
+                    } else {
+                        MatchTimerManager.Instance.ReportClientScenePresentedServerRpc();
+                    }
                 }
+            } catch(Exception ex) {
+                Debug.LogException(ex);
             }
         }
 

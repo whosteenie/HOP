@@ -3,6 +3,7 @@ using Unity.MLAgents.Demonstrations;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
+using Network;
 
 namespace Game.AI {
     /// <summary>
@@ -80,8 +81,8 @@ namespace Game.AI {
         private void UpdateRecordingState() {
             if(_recorder == null) return;
             
-            // Only record in Game scene
-            var isInGameScene = _cachedSceneName != null && _cachedSceneName.Contains("Game");
+            // Only record in gameplay scenes.
+            var isInGameScene = SessionManager.IsGameplaySceneName(_cachedSceneName);
             
             // Final recording state: enabled by user AND in game scene
             var shouldRecord = _isRecordingEnabled && isInGameScene;

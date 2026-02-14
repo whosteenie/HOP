@@ -652,6 +652,7 @@ namespace Game.Player {
             }
             
             if (IsOwner && _animationController != null) {
+                _animationController.TriggerSlideServerRpc();
                 _animationController.SetSlidingServerRpc(true);
             }
 

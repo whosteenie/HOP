@@ -9,6 +9,7 @@ TagManager:
   - MegaPad
   - Head
   - Arm
+  - OOB
   layers:
   - Default
   - TransparentFX

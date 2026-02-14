@@ -123,12 +123,26 @@ namespace Network {
                 return;
             }
 
-            // Check by scene name instead of build index (build index changes when Init scene is added)
             var activeScene = SceneManager.GetActiveScene();
-            // Allow "Game" scene or any scene that contains "Game" in the name
-            // This is more flexible than checking build index which changes when Init scene is added
-            if(!activeScene.name.Contains("Game")) {
-                Debug.LogWarning($"[CustomNetworkManager] Wrong scene: {activeScene.name} (expected Game scene)");
+            if(!SessionManager.IsGameplaySceneName(activeScene.name)) {
+                Debug.LogWarning($"[CustomNetworkManager] Wrong scene: {activeScene.name} (expected gameplay scene)");
+                return;
+            }
+
+            if(playerPrefab == null) {
+                Debug.LogError("[CustomNetworkManager] Player prefab is not assigned. Cannot spawn players.");
+                return;
+            }
+
+            if(SpawnManager.Instance == null) {
+                Debug.LogError(
+                    $"[CustomNetworkManager] SpawnManager is missing in scene '{activeScene.name}'. Cannot spawn players.");
+                return;
+            }
+
+            if(MatchSettingsManager.Instance == null) {
+                Debug.LogError(
+                    $"[CustomNetworkManager] MatchSettingsManager is missing in scene '{activeScene.name}'. Cannot spawn players.");
                 return;
             }
 
@@ -156,7 +170,8 @@ namespace Network {
         // MAIN SPAWN LOGIC – Game Mode Aware
         // ========================================================================
         private void SpawnPlayerFor(ulong clientId) {
-            while(true) {
+            const int maxSpawnAttempts = 8;
+            for(var attempt = 0; attempt < maxSpawnAttempts; attempt++) {
                 // Prevent double-spawn
                 if(NetworkManager.Singleton.ConnectedClients.TryGetValue(clientId, out var client) &&
                    client.PlayerObject != null) {
@@ -176,16 +191,22 @@ namespace Network {
                 }
 
                 // 3. Choose spawn point
+                var spawnManager = SpawnManager.Instance;
+                if(spawnManager == null) {
+                    Debug.LogError("[CustomNetworkManager] SpawnManager unavailable during player spawn.");
+                    return;
+                }
+
                 var spawnPoint =
                     // ---- TEAM-BASED SPAWN ----
-                    isTeamBased ? SpawnManager.Instance.GetNextSpawnPoint(assignedTeam) :
+                    isTeamBased ? spawnManager.GetNextSpawnPoint(assignedTeam) :
                     // ---- FREE-FOR-ALL SPAWN ----
-                    SpawnManager.Instance.GetNextSpawnPoint();
+                    spawnManager.GetNextSpawnPoint();
 
                 if(spawnPoint == null) {
-                    // Fallback to default position if no spawn points available
-                    Debug.LogWarning("[CustomNetworkManager] No spawn points available, using fallback position");
-                    continue;
+                    Debug.LogError(
+                        $"[CustomNetworkManager] No spawn points available in scene '{SceneManager.GetActiveScene().name}'.");
+                    return;
                 }
 
                 var spawnPointTransform = spawnPoint.transform;
@@ -240,9 +261,11 @@ namespace Network {
 
                 // 8. Re-enable CharacterController next frame
                 StartCoroutine(EnableCcNextFrame(cc));
-
-                break;
+                return;
             }
+
+            Debug.LogWarning(
+                $"[CustomNetworkManager] Could not find a free spawn point after {maxSpawnAttempts} attempts for client {clientId}.");
         }
 
 

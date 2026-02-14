@@ -1,5 +1,6 @@
 using System;
 using Cysharp.Threading.Tasks;
+using Game.Match;
 using Game.Settings;
 using Game.Social;
 using Network.Diagnostics;
@@ -69,7 +70,8 @@ namespace Network {
             }
         }
 
-        private const string GameSceneName = "Game";
+        public string SelectedMapId { get; private set; }
+        public string SelectedMapSceneName { get; private set; }
         public string CurrentPartyId { get; private set; }
         private bool IsPartyLeader { get; set; }
 
@@ -86,6 +88,7 @@ namespace Network {
         }
 
         public bool HasRealPartyMembers => CurrentPartySize > 1;
+        public bool HasPartyLobby => _ugsPartyLobby != null;
 
         public bool IsLocalPartyLeaderResolved {
             get {
@@ -198,6 +201,9 @@ namespace Network {
             if(_networkManager != null) {
                 _customNetworkManager = _networkManager.GetComponent<CustomNetworkManager>();
             }
+
+            SelectedMapSceneName = MatchMapService.DefaultGameplaySceneName;
+            SelectedMapId = MatchMapService.DefaultMapId;
         }
 
         private void OnEnable() {
@@ -511,6 +517,30 @@ namespace Network {
             if(!menuReady) {
                 Debug.LogWarning(
                     "[SessionManager] Timed out waiting for MainMenuManager initialization during leave flow.");
+            }
+        }
+
+        public static bool IsGameplaySceneName(string sceneName) {
+            return MatchMapService.IsGameplayScene(sceneName);
+        }
+
+        private void SelectMapForCurrentMode(string context) {
+            if(MatchMapService.TrySelectRandomSceneForGamemode(SelectedGameMode, out var sceneName, out var mapId)) {
+                SelectedMapSceneName = sceneName;
+                SelectedMapId = mapId;
+            } else {
+                SelectedMapSceneName = MatchMapService.DefaultGameplaySceneName;
+                SelectedMapId = MatchMapService.DefaultMapId;
+            }
+
+            if(Debug.isDebugBuild) {
+                Debug.Log(
+                    $"[SessionManager] Map selected ({context}) mode='{SelectedGameMode}' mapId='{SelectedMapId}' scene='{SelectedMapSceneName}'.");
+            }
+
+            if(CurrentLobby.HasValue && CurrentLobby.Value.Owner.Id == SteamClient.SteamId) {
+                CurrentLobby.Value.SetData("TargetMapId", SelectedMapId ?? string.Empty);
+                CurrentLobby.Value.SetData("TargetMapScene", SelectedMapSceneName ?? string.Empty);
             }
         }
 

@@ -12,6 +12,8 @@ using UnityEngine;
 
 namespace Network {
     public sealed partial class SessionManager {
+        private bool _isCreatingPartyLobby;
+
         #region Party + Match Flow
 
         /// <summary>
@@ -20,6 +22,23 @@ namespace Network {
         /// <param name="maxPlayers">Maximum members allowed in the party lobby.</param>
         /// <param name="isPrivate">Whether the UGS party lobby should be private.</param>
         public async UniTask CreatePartyLobbyAsync(int maxPlayers, bool isPrivate) {
+            if(_ugsPartyLobby != null) {
+                return;
+            }
+
+            if(_isCreatingPartyLobby) {
+                var waitStart = Time.realtimeSinceStartup;
+                while(_isCreatingPartyLobby && Time.realtimeSinceStartup - waitStart < 5f) {
+                    await UniTask.Yield();
+                }
+
+                if(_ugsPartyLobby != null) {
+                    return;
+                }
+            }
+
+            _isCreatingPartyLobby = true;
+            try {
             await EnsureSignedInAsync();
 
             if(string.IsNullOrEmpty(CurrentPartyId)) {
@@ -62,6 +81,9 @@ namespace Network {
                 ("lobbyId", _ugsPartyLobby != null ? _ugsPartyLobby.Id : "null"),
                 ("private", isPrivate),
                 ("maxPlayers", maxPlayers));
+            } finally {
+                _isCreatingPartyLobby = false;
+            }
         }
 
         private async UniTask JoinPartyLobbyByCodeAsync(string code) {

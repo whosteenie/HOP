@@ -25,6 +25,10 @@
 /* Keep fullscreen background, but enforce content insets even when screen-level sheets
    also define .options-container. */
 #options-panel .options-container {
+    height: 100%;
+    min-height: 100%;
+    max-height: 100%;
+    overflow: hidden;
     padding-top: 34px;
     padding-right: 40px;
     padding-bottom: 22px;
@@ -52,6 +56,7 @@
     width: 66%;
     min-width: 760px;
     max-width: 1160px;
+    height: 100%;
     min-height: 0;
     margin-right: 28px;
 }
@@ -211,8 +216,10 @@
 /* ===== OPTIONS SCROLL AREA ===== */
 .options-content-scroll {
     flex-grow: 1;
+    flex-basis: 0;
     min-height: 0;
-    height: auto;
+    height: 100%;
+    max-height: 100%;
     margin-bottom: 16px;
     border-top-width: 1px;
     border-top-color: var(--color-accent-border);

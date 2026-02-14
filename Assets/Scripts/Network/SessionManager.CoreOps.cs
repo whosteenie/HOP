@@ -131,8 +131,9 @@ namespace Network {
                 return false;
             }
 
+            SelectMapForCurrentMode(contextLabel);
             Phase = SessionPhase.LoadingScene;
-            networkManager.SceneManager.LoadScene(GameSceneName, LoadSceneMode.Single);
+            networkManager.SceneManager.LoadScene(SelectedMapSceneName, LoadSceneMode.Single);
             return true;
         }
 

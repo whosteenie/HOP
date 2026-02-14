@@ -4,6 +4,7 @@ using Game.Hopball;
 using Game.Match;
 using Game.Player;
 using Game.Spawning;
+using Network;
 using Network.Events;
 using Unity.Netcode;
 using UnityEngine;
@@ -192,12 +193,13 @@ namespace Game.UI {
         }
 
         private void Update() {
-            if(_localController == null && _cachedSceneName == "Game") {
+            if(_localController == null && SessionManager.IsGameplaySceneName(_cachedSceneName)) {
                 FindLocalController();
             }
 
             // Update score display periodically
-            if(_cachedSceneName != "Game" || !(Time.time - _lastScoreUpdateTime >= ScoreUpdateInterval)) return;
+            if(!SessionManager.IsGameplaySceneName(_cachedSceneName) ||
+               !(Time.time - _lastScoreUpdateTime >= ScoreUpdateInterval)) return;
             UpdateScoreDisplay();
             _lastScoreUpdateTime = Time.time;
 
@@ -301,7 +303,7 @@ namespace Game.UI {
         }
 
         private void ShowScoreboard() {
-            if(_cachedSceneName != "Game") return;
+            if(!SessionManager.IsGameplaySceneName(_cachedSceneName)) return;
 
             IsScoreboardVisible = true;
             // Ensure root-container is visible (in case it was hidden)
@@ -461,7 +463,7 @@ namespace Game.UI {
         }
 
         private void HideScoreboard() {
-            if(_cachedSceneName != "Game") return;
+            if(!SessionManager.IsGameplaySceneName(_cachedSceneName)) return;
 
             IsScoreboardVisible = false;
             // Remove inline display style so the hidden class can take effect
@@ -984,6 +986,7 @@ namespace Game.UI {
             }
 
             var row = scoreboardRowTemplate.CloneTree();
+            var rowRoot = row.Q<VisualElement>("scoreboard-row-root") ?? row;
             if(!TryGetRequiredRowElements(row, out var pingLabel, out var avatar, out var speakingIndicator,
                    out var nameLabel,
                    out var statLabels)) {
@@ -994,9 +997,9 @@ namespace Game.UI {
 
             // Highlight local player
             if(player.IsOwner) {
-                row.AddToClassList("player-row-local");
+                rowRoot.AddToClassList("player-row-local");
                 if(isYourTeam) {
-                    row.AddToClassList("player-row-local-your-team");
+                    rowRoot.AddToClassList("player-row-local-your-team");
                 }
             }
 
@@ -1032,7 +1035,7 @@ namespace Game.UI {
             }
 
             // Register click handler for context menu
-            row.RegisterCallback<PointerDownEvent>(evt => {
+            rowRoot.RegisterCallback<PointerDownEvent>(evt => {
                 // Handle right-click (button 1 is right mouse button)
                 if(evt.button != 1 || player == null || player.IsOwner ||
                    InGameContextMenuManager.Instance == null) return;
@@ -1147,6 +1150,7 @@ namespace Game.UI {
             }
 
             var row = scoreboardRowTemplate.CloneTree();
+            var rowRoot = row.Q<VisualElement>("scoreboard-row-root") ?? row;
             if(!TryGetRequiredRowElements(row, out var pingLabel, out _, out _, out var nameLabel,
                    out var statLabels)) {
                 return null;
@@ -1154,10 +1158,10 @@ namespace Game.UI {
 
             row.userData = statLabels;
 
-            row.AddToClassList("player-row-empty");
+            rowRoot.AddToClassList("player-row-empty");
 
             if(isYourTeam) {
-                row.AddToClassList("player-row-local-your-team");
+                rowRoot.AddToClassList("player-row-local-your-team");
             }
 
             parentContainer.Add(row);

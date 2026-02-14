@@ -48,7 +48,7 @@ namespace Game.Player {
         private const float RegenDelay = 10f;
         private const float RegenRate = 10f;
         private const float MaxHealth = 100f;
-        private const float OutOfBoundsKillY = 600f;
+        private const float OutOfBoundsKillYDefault = 600f;
         private const float OutOfBoundsRespawnYBuffer = 20f;
 
         // Health state
@@ -493,15 +493,16 @@ namespace Game.Player {
                 }
             }
 
-            if(position.y <= OutOfBoundsKillY) {
+            var outOfBoundsKillY = GetOutOfBoundsKillY();
+            if(position.y <= outOfBoundsKillY) {
                 if(isTeamBased) {
                     (position, rotation) = GetSpawnPointForTeam(team);
                 } else {
                     (position, rotation) = GetSpawnPointFfa();
                 }
 
-                if(position.y <= OutOfBoundsKillY) {
-                    position.y = OutOfBoundsKillY + OutOfBoundsRespawnYBuffer;
+                if(position.y <= outOfBoundsKillY) {
+                    position.y = outOfBoundsKillY + OutOfBoundsRespawnYBuffer;
                 }
             }
             FlowLog.Emit(FlowEventIds.PlayerRespawnStarted,
@@ -578,11 +579,12 @@ namespace Game.Player {
                 ("controlEnabled", true),
                 ("isDead", isDeadNow),
                 ("isRagdolled", isRagdolledNow));
-            if(isDeadNow || isRagdolledNow || position.y <= OutOfBoundsKillY) {
+            var outOfBoundsKillY = GetOutOfBoundsKillY();
+            if(isDeadNow || isRagdolledNow || position.y <= outOfBoundsKillY) {
                 FlowLog.Emit(FlowEventIds.AnomalyRespawnInvariant,
                     ("player", OwnerClientId),
                     ("isRagdoll", isRagdolledNow),
-                    ("isInBounds", position.y > OutOfBoundsKillY),
+                    ("isInBounds", position.y > outOfBoundsKillY),
                     ("position", position));
             }
 
@@ -910,6 +912,14 @@ namespace Game.Player {
                 ("player", OwnerClientId),
                 ("elapsed", timeoutSeconds),
                 ("phase", "DeadAwaitingRespawn"));
+        }
+
+        private float GetOutOfBoundsKillY() {
+            if(playerController != null) {
+                return playerController.GetOutOfBoundsKillY();
+            }
+
+            return OutOfBoundsKillYDefault;
         }
     }
 }

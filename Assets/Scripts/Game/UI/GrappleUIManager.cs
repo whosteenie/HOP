@@ -5,6 +5,7 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UIElements;
 using Game.Settings;
+using Network;
 
 namespace Game.UI {
     public class GrappleUIManager : UIElementBase {
@@ -112,7 +113,7 @@ namespace Game.UI {
         private void Update() {
             // Validate references are not null and not destroyed
             if(_grappleController == null || _fpCamera == null) return;
-            if(_cachedSceneName?.Contains("Game") != true) return;
+            if(SessionManager.IsGameplaySceneName(_cachedSceneName) == false) return;
             
             CheckGrapplePoint();
             

@@ -29,6 +29,7 @@ namespace Game.Player {
         private static readonly int IsFallingHash = Animator.StringToHash("IsFalling");
         private static readonly int IsGroundedHash = Animator.StringToHash("IsGrounded");
         private static readonly int IsSlidingHash = Animator.StringToHash("IsSliding");
+        private static readonly int SlideTriggerHash = Animator.StringToHash("SlideTrigger");
         private static readonly int IsWallRunningHash = Animator.StringToHash("IsWallRunning");
         private static readonly int RightWallRunHash = Animator.StringToHash("RightWallRun");
         private static readonly int WallRunDirectionHash = Animator.StringToHash("WallRunDirection");
@@ -223,6 +224,18 @@ namespace Game.Player {
         [Rpc(SendTo.Server)]
         public void SetSlidingServerRpc(bool isSliding) {
             SetSlidingClientRpc(isSliding);
+        }
+
+        [Rpc(SendTo.Server)]
+        public void TriggerSlideServerRpc() {
+            TriggerSlideClientRpc();
+        }
+
+        [Rpc(SendTo.Everyone)]
+        private void TriggerSlideClientRpc() {
+            if(_playerAnimator != null) {
+                _playerAnimator.SetTrigger(SlideTriggerHash);
+            }
         }
 
         [Rpc(SendTo.Everyone)]

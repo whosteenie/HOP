@@ -39,6 +39,8 @@ namespace Game.Menu {
         private bool _partyMemberTemplateInvalidLogged;
         private bool _hasDrawnSolo;
         private bool _isSilentHosting;
+        private bool _silentHostInFlight;
+        private UniTask<bool> _silentHostTask;
 
         // Events
         public Action OnHostClicked;
@@ -60,7 +62,26 @@ namespace Game.Menu {
             // When Steam is offline, we stay solo and allow "offline private match" when selecting a gamemode.
             if(SessionManager.Instance != null && !SessionManager.Instance.CurrentLobby.HasValue
                && SteamClient.IsValid && SteamClient.IsLoggedOn) {
-                HandleHostClicked(silent: true).Forget();
+                BeginSilentAutoHost();
+            }
+        }
+
+        private void BeginSilentAutoHost() {
+            if(_silentHostInFlight) return;
+            if(SessionManager.Instance == null) return;
+
+            _silentHostInFlight = true;
+            _silentHostTask = HandleHostClicked(silent: true);
+            TrackSilentHostTask(_silentHostTask).Forget();
+        }
+
+        private async UniTaskVoid TrackSilentHostTask(UniTask<bool> task) {
+            try {
+                await task;
+            } catch(Exception ex) {
+                Debug.LogWarning($"[MainMenuSessionManager] Silent auto-host failed: {ex.Message}");
+            } finally {
+                _silentHostInFlight = false;
             }
         }
 
@@ -488,23 +509,36 @@ namespace Game.Menu {
         public async UniTask HandlePrivateMatchSelection(string mode) {
             // Request SessionManager to start the synchronized load
             if(SessionManager.Instance != null) {
-                if(Application.internetReachability == NetworkReachability.NotReachable) {
-                    if(uiManager != null) {
-                        uiManager.ShowToast("Offline. Starting offline private match.");
+                try {
+                    if(Application.internetReachability == NetworkReachability.NotReachable) {
+                        if(uiManager != null) {
+                            uiManager.ShowToast("Offline. Starting offline private match.");
+                        }
+                        await SessionManager.Instance.StartOfflinePrivateMatchAsync(mode);
+                        return;
                     }
-                    await SessionManager.Instance.StartOfflinePrivateMatchAsync(mode);
-                    return;
-                }
 
-                var matchSettings = Match.MatchSettingsManager.Instance;
-                var maxPlayers = 10;
-                if(matchSettings != null) {
-                    var def = matchSettings.GetGamemodeDef(mode);
-                    if(def.maxPlayers > 0) maxPlayers = def.maxPlayers;
-                }
+                    if(_silentHostInFlight) {
+                        await _silentHostTask;
+                    }
 
-                await SessionManager.Instance.CreatePartyLobbyAsync(maxPlayers, true);
-                await SessionManager.Instance.StartPrivateMatchAsync(mode, maxPlayers);
+                    var matchSettings = Match.MatchSettingsManager.Instance;
+                    var maxPlayers = 10;
+                    if(matchSettings != null) {
+                        var def = matchSettings.GetGamemodeDef(mode);
+                        if(def.maxPlayers > 0) maxPlayers = def.maxPlayers;
+                    }
+
+                    if(!SessionManager.Instance.HasPartyLobby) {
+                        await SessionManager.Instance.CreatePartyLobbyAsync(maxPlayers, true);
+                    }
+                    await SessionManager.Instance.StartPrivateMatchAsync(mode, maxPlayers);
+                } catch(Exception ex) {
+                    Debug.LogError($"[MainMenuSessionManager] Failed to start private match for mode '{mode}': {ex}");
+                    if(uiManager != null) {
+                        uiManager.ShowToast("Failed to start private match. Please try again.");
+                    }
+                }
             }
         }
 

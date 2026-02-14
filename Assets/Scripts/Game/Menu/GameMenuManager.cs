@@ -159,7 +159,7 @@ namespace Game.Menu {
             }
 
             // Restore HUD/post-match visibility only after UI Toolkit root has been initialized.
-            if(_cachedSceneName != null && _cachedSceneName.Contains("Game")) {
+            if(IsGameplaySceneContext()) {
                 RestoreHudForMatchStart();
             }
 
@@ -191,7 +191,7 @@ namespace Game.Menu {
             UpdateCachedSceneName();
             
             // When loading a game scene, ensure pause menu and challenges are hidden
-            if(_cachedSceneName == null || !_cachedSceneName.Contains("Game")) return;
+            if(!IsGameplaySceneContext()) return;
             // Reset pause state
             IsPaused = false;
                 
@@ -450,7 +450,7 @@ namespace Game.Menu {
         }
 
         public void TogglePause() {
-            if(_cachedSceneName == null || !_cachedSceneName.Contains("Game")) return;
+            if(!IsGameplaySceneContext()) return;
 
             if(IsPaused) {
                 if(!_optionsPanel.ClassListContains("hidden")) HideOptions();
@@ -557,7 +557,7 @@ namespace Game.Menu {
         }
 
         private void ShowOptions() {
-            if(_cachedSceneName != "Game") return;
+            if(!IsGameplaySceneContext()) return;
             
             if (optionsMenuManager != null) {
                 optionsMenuManager.LoadSettings();
@@ -578,7 +578,7 @@ namespace Game.Menu {
         }
 
         private void HideOptions() {
-            if(_cachedSceneName != "Game") return;
+            if(!IsGameplaySceneContext()) return;
             _optionsPanel.AddToClassList("hidden");
             SetOptionsOpenState(false);
             _pauseMenuPanel.RemoveFromClassList("hidden");
@@ -655,6 +655,10 @@ namespace Game.Menu {
             }
 
             menuBlurController.SetBlurVolume(optionsBlurVolume);
+        }
+
+        private bool IsGameplaySceneContext() {
+            return SessionManager.IsGameplaySceneName(_cachedSceneName);
         }
         #endregion
     }

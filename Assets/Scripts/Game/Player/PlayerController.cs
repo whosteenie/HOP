@@ -116,6 +116,12 @@ namespace Game.Player {
 
         private float _lastDeathTime; // Used for OOB check in Update()
         private float _ignoreOutOfBoundsUntilTime;
+        [Header("Out Of Bounds")]
+        [SerializeField] private string outOfBoundsMarkerName = "OOB";
+        [SerializeField] private string outOfBoundsMarkerTag = "OOB";
+        [SerializeField] private float defaultOutOfBoundsY = 600f;
+        private int _cachedOobSceneHandle = -1;
+        private float _cachedOutOfBoundsY;
         private Vector3 _lastServerMovementPosition;
         private float _lastServerMovementTime;
         private bool _hasServerMovementSample;
@@ -498,7 +504,7 @@ namespace Game.Player {
             if(IsServer) {
                 var authPos = clientNetworkTransform.transform.position;
                 ValidateServerMovement(authPos);
-                if(authPos.y <= 600f && Time.time >= _ignoreOutOfBoundsUntilTime) {
+                if(authPos.y <= GetOutOfBoundsKillY() && Time.time >= _ignoreOutOfBoundsUntilTime) {
                     if(!netIsDead.Value && Time.time - _lastDeathTime >= 4f) {
                         _lastDeathTime = Time.time;
                         if(healthController != null)
@@ -680,6 +686,41 @@ namespace Game.Player {
 
             var duration = Mathf.Max(0f, seconds);
             _ignoreOutOfBoundsUntilTime = Mathf.Max(_ignoreOutOfBoundsUntilTime, Time.time + duration);
+        }
+
+        public float GetOutOfBoundsKillY() {
+            var activeScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
+            if(_cachedOobSceneHandle == activeScene.handle) {
+                return _cachedOutOfBoundsY;
+            }
+
+            _cachedOobSceneHandle = activeScene.handle;
+            _cachedOutOfBoundsY = defaultOutOfBoundsY;
+
+            Transform marker = null;
+            if(!string.IsNullOrWhiteSpace(outOfBoundsMarkerTag)) {
+                try {
+                    var taggedObject = GameObject.FindGameObjectWithTag(outOfBoundsMarkerTag);
+                    if(taggedObject != null) {
+                        marker = taggedObject.transform;
+                    }
+                } catch(UnityException) {
+                    // Tag may be undefined in some projects/scenes; fallback to name lookup.
+                }
+            }
+
+            if(marker == null && !string.IsNullOrWhiteSpace(outOfBoundsMarkerName)) {
+                var namedObject = GameObject.Find(outOfBoundsMarkerName);
+                if(namedObject != null) {
+                    marker = namedObject.transform;
+                }
+            }
+
+            if(marker != null) {
+                _cachedOutOfBoundsY = marker.position.y;
+            }
+
+            return _cachedOutOfBoundsY;
         }
 
         #endregion

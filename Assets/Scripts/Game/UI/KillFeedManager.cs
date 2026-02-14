@@ -174,6 +174,7 @@ namespace Game.UI {
             }
 
             var entry = killFeedEntryTemplate.CloneTree();
+            var entryRoot = entry.Q<VisualElement>("kill-entry-root") ?? entry;
             var killerLabel = entry.Q<Label>("killer-label");
             var victimLabel = entry.Q<Label>("victim-label");
             var iconElement = entry.Q<VisualElement>("icon");
@@ -187,7 +188,7 @@ namespace Game.UI {
             }
 
             if(isLocalActor) {
-                entry.AddToClassList("kill-entry-local");
+                entryRoot.AddToClassList("kill-entry-local");
             }
 
             // Get team colors for actor and target (tag mode is FFA, so GetTeamColorForPlayer will return white)
