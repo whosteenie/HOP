@@ -93,6 +93,7 @@ namespace Game.UI {
         public bool IsScoreboardVisible { get; private set; }
 
         // Mouse unlock state for context menu interaction
+        private bool _hoverDisabledForMouseLook;
 
         private void Awake() {
             if(Instance != null && Instance != this) {
@@ -205,6 +206,7 @@ namespace Game.UI {
 
             // Update speaking indicators if scoreboard is visible
             if(IsScoreboardVisible) {
+                RefreshHoverStateForCursorMode();
                 UpdateSpeakingIndicators();
             }
         }
@@ -318,6 +320,7 @@ namespace Game.UI {
             // Show scoreboard panel
             _scoreboardPanel.style.display = DisplayStyle.Flex;
             _scoreboardPanel.RemoveFromClassList("hidden");
+            RefreshHoverStateForCursorMode(force: true);
             UpdateScoreboardHeaders();
             UpdateScoreboard();
         }
@@ -469,6 +472,8 @@ namespace Game.UI {
             // Remove inline display style so the hidden class can take effect
             _scoreboardPanel.style.display = StyleKeyword.Null;
             _scoreboardPanel.AddToClassList("hidden");
+            _scoreboardPanel.EnableInClassList("scoreboard-hover-disabled", false);
+            _hoverDisabledForMouseLook = false;
 
             // Re-lock mouse and unlock camera when hiding scoreboard
             if(Cursor.lockState == CursorLockMode.None) {
@@ -483,6 +488,20 @@ namespace Game.UI {
             if(InGameContextMenuManager.Instance != null) {
                 InGameContextMenuManager.Instance.Hide();
             }
+        }
+
+        private void RefreshHoverStateForCursorMode(bool force = false) {
+            if(_scoreboardPanel == null) {
+                return;
+            }
+
+            var shouldDisableHover = Cursor.lockState == CursorLockMode.Locked || !Cursor.visible;
+            if(!force && shouldDisableHover == _hoverDisabledForMouseLook) {
+                return;
+            }
+
+            _hoverDisabledForMouseLook = shouldDisableHover;
+            _scoreboardPanel.EnableInClassList("scoreboard-hover-disabled", shouldDisableHover);
         }
 
         public void UpdateScoreboard() {

@@ -41,7 +41,6 @@ namespace Game.UI {
             }
 
             Instance = this;
-            DontDestroyOnLoad(gameObject);
             base.Awake();
         }
 

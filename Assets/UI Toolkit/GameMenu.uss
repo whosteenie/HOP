@@ -405,6 +405,21 @@
     border-color: rgba(100, 150, 255, 0.5);
 }
 
+.scoreboard-hover-disabled .player-row:hover {
+    background-color: rgba(15, 15, 20, 0.7);
+    border-color: rgba(200, 60, 60, 0.15);
+}
+
+.scoreboard-hover-disabled .player-row-local:hover {
+    background-color: rgba(200, 60, 60, 0.12);
+    border-color: rgba(255, 100, 100, 0.3);
+}
+
+.scoreboard-hover-disabled .player-row-local-your-team:hover {
+    background-color: rgba(50, 100, 255, 0.12);
+    border-color: rgba(100, 150, 255, 0.3);
+}
+
 .player-ping {
     width: 40px;
     min-width: 40px;
