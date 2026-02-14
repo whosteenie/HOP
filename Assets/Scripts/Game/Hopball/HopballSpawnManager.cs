@@ -46,6 +46,9 @@ namespace Game.Hopball {
 
         public HopballController CurrentHopballController { get; private set; }
 
+        private int EffectiveWinScore =>
+            MatchSettingsManager.Instance != null ? MatchSettingsManager.Instance.GetScoreToWin() : winScore;
+
         private void Awake() {
             if(Instance != null && Instance != this) {
                 Destroy(gameObject);
@@ -421,10 +424,10 @@ namespace Game.Hopball {
                 _teamBScore.Value++;
             }
 
-            // Check win condition (60 points)
-            if(_teamAScore.Value >= winScore) {
+            // Check win condition (from match settings or serialized default)
+            if(_teamAScore.Value >= EffectiveWinScore) {
                 TriggerWinCondition(SpawnPoint.Team.TeamA);
-            } else if(_teamBScore.Value >= winScore) {
+            } else if(_teamBScore.Value >= EffectiveWinScore) {
                 TriggerWinCondition(SpawnPoint.Team.TeamB);
             }
         }

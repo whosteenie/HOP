@@ -45,6 +45,25 @@ namespace Game.Match {
             }
         }
 
+        /// <summary>
+        /// Gets the gameplay scene name for a given map id (from private match draft).
+        /// </summary>
+        public static bool TryGetSceneByMapId(string mapId, out string sceneName) {
+            sceneName = null;
+            if(string.IsNullOrWhiteSpace(mapId)) return false;
+            EnsureLoaded();
+            if(_pool == null || _pool.Maps == null || _pool.Maps.Count == 0) return false;
+            for(var i = 0; i < _pool.Maps.Count; i++) {
+                var map = _pool.Maps[i];
+                if(map == null || string.IsNullOrWhiteSpace(map.SceneName)) continue;
+                var id = string.IsNullOrWhiteSpace(map.MapId) ? map.name : map.MapId;
+                if(!string.Equals(id, mapId, System.StringComparison.OrdinalIgnoreCase)) continue;
+                sceneName = map.SceneName;
+                return true;
+            }
+            return false;
+        }
+
         public static bool TrySelectRandomSceneForGamemode(string gamemodeId, out string sceneName, out string mapId) {
             EnsureLoaded();
 

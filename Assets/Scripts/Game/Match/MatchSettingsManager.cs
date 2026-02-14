@@ -22,6 +22,10 @@ namespace Game.Match {
         [Header("Runtime")]
         public int matchDurationSeconds;
         public string selectedGameModeId;
+        /// <summary> Score limit to win (e.g. Hopball, KOTH). Set from private match draft. </summary>
+        public int scoreToWin = 50;
+        /// <summary> Number of tagged players (Gun Tag only). Set from private match draft. </summary>
+        public int taggedPlayers = 1;
 
         [System.Serializable]
         public struct GamemodeDef {
@@ -87,6 +91,8 @@ namespace Game.Match {
 
         public int GetMatchDurationSeconds() => matchDurationSeconds > 0 ? matchDurationSeconds : defaultMatchDurationSeconds;
         public int GetPreMatchCountdownSeconds() => preMatchCountdownSeconds > 0 ? preMatchCountdownSeconds : 5;
+        public int GetScoreToWin() => scoreToWin > 0 ? scoreToWin : 50;
+        public int GetTaggedPlayers() => taggedPlayers > 0 ? taggedPlayers : 1;
 
         public static bool IsTeamBasedMode(string modeId) => modeId switch {
             "Team Deathmatch" => true,

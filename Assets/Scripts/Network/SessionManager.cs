@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
 using Game.Match;
 using Game.Settings;
@@ -138,6 +139,8 @@ namespace Network {
         private int _expectedGamePlayerCount = 1;
         // Track if we expect a disconnect (e.g. intentionally leaving)
         private bool _expectedDisconnect;
+        /// <summary> When true, SelectMapForCurrentMode uses existing SelectedMapId/SelectedMapSceneName (from private match draft). </summary>
+        private bool _privateMatchMapPreset;
 
         public bool IsSearching {
             get {
@@ -525,7 +528,14 @@ namespace Network {
         }
 
         private void SelectMapForCurrentMode(string context) {
-            if(MatchMapService.TrySelectRandomSceneForGamemode(SelectedGameMode, out var sceneName, out var mapId)) {
+            var usedPreset = _privateMatchMapPreset;
+            if(_privateMatchMapPreset) {
+                _privateMatchMapPreset = false;
+                if(Debug.isDebugBuild) {
+                    Debug.Log(
+                        $"[SessionManager] Using preset private match map ({context}) mapId='{SelectedMapId}' scene='{SelectedMapSceneName}'.");
+                }
+            } else if(MatchMapService.TrySelectRandomSceneForGamemode(SelectedGameMode, out var sceneName, out var mapId)) {
                 SelectedMapSceneName = sceneName;
                 SelectedMapId = mapId;
             } else {
@@ -533,7 +543,7 @@ namespace Network {
                 SelectedMapId = MatchMapService.DefaultMapId;
             }
 
-            if(Debug.isDebugBuild) {
+            if(Debug.isDebugBuild && !usedPreset) {
                 Debug.Log(
                     $"[SessionManager] Map selected ({context}) mode='{SelectedGameMode}' mapId='{SelectedMapId}' scene='{SelectedMapSceneName}'.");
             }
@@ -541,6 +551,55 @@ namespace Network {
             if(CurrentLobby.HasValue && CurrentLobby.Value.Owner.Id == SteamClient.SteamId) {
                 CurrentLobby.Value.SetData("TargetMapId", SelectedMapId ?? string.Empty);
                 CurrentLobby.Value.SetData("TargetMapScene", SelectedMapSceneName ?? string.Empty);
+            }
+        }
+
+        /// <summary>
+        /// Sets the map from a private match draft (map id). Skips random selection when loading the gameplay scene.
+        /// </summary>
+        public void SetSelectedMapFromId(string mapId) {
+            if(string.IsNullOrWhiteSpace(mapId)) return;
+            if(MatchMapService.TryGetSceneByMapId(mapId, out var sceneName)) {
+                SelectedMapId = mapId;
+                SelectedMapSceneName = sceneName;
+                _privateMatchMapPreset = true;
+                if(Debug.isDebugBuild) {
+                    Debug.Log($"[SessionManager] Private match map set: mapId='{mapId}' scene='{SelectedMapSceneName}'.");
+                }
+            }
+        }
+
+        /// <summary>
+        /// Applies all private match draft settings before starting the match (gamemode, map, timer, score, tagged, team assignments).
+        /// Call from the menu flow before StartPrivateMatchAsync / StartOfflinePrivateMatchAsync.
+        /// </summary>
+        public void ApplyPrivateMatchSettings(
+            string mode,
+            string mapId,
+            int matchTimerSeconds,
+            int scoreToWin,
+            int taggedPlayers,
+            IReadOnlyDictionary<ulong, int> teamAssignments) {
+            if(!string.IsNullOrWhiteSpace(mode)) {
+                ApplyRuntimeMode(mode, "PrivateMatchDraft", refreshUi: false);
+            }
+
+            if(!string.IsNullOrWhiteSpace(mapId)) {
+                SetSelectedMapFromId(mapId);
+            }
+
+            var matchSettings = MatchSettingsManager.Instance;
+            if(matchSettings != null) {
+                matchSettings.matchDurationSeconds = UnityEngine.Mathf.Max(60, matchTimerSeconds);
+                matchSettings.scoreToWin = UnityEngine.Mathf.Max(1, scoreToWin);
+                matchSettings.taggedPlayers = UnityEngine.Mathf.Max(1, taggedPlayers);
+            }
+
+            PrivateMatchTeamAssignments.Set(teamAssignments);
+
+            if(Debug.isDebugBuild) {
+                Debug.Log(
+                    $"[SessionManager] ApplyPrivateMatchSettings: mode='{mode}' mapId='{mapId}' timer={matchTimerSeconds} scoreToWin={scoreToWin} tagged={taggedPlayers} teams={teamAssignments?.Count ?? 0}");
             }
         }
 

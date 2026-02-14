@@ -24,6 +24,9 @@ namespace Game.Match {
         [SerializeField] private int pointsPerInterval = 1;
         [SerializeField] private int winScore = 200;
 
+        private int EffectiveWinScore =>
+            MatchSettingsManager.Instance != null ? MatchSettingsManager.Instance.GetScoreToWin() : winScore;
+
         [Header("Spawn Points")]
         [Tooltip("Additional Y offset when spawning to prevent floor clipping")] [SerializeField]
         private float spawnVerticalOffset = 2.0f;
@@ -309,9 +312,9 @@ namespace Game.Match {
         }
 
         private void CheckWinCondition() {
-            if(_teamAScore.Value >= winScore) {
+            if(_teamAScore.Value >= EffectiveWinScore) {
                 EndGame(SpawnPoint.Team.TeamA);
-            } else if(_teamBScore.Value >= winScore) {
+            } else if(_teamBScore.Value >= EffectiveWinScore) {
                 EndGame(SpawnPoint.Team.TeamB);
             }
         }

@@ -50,6 +50,10 @@ namespace Game.Menu {
         public Action OnBackFromLobbyClicked;
         public Action<bool, bool> OnHostStatusChanged; // isHost, wasHost
         public Func<bool> ShouldShowLobbyLeaveModal;
+        /// <summary> When set, returns whether to show "Switch Team" in the party context menu (e.g. when on Private Match Setup with a team gamemode). </summary>
+        public Func<bool> ShouldShowSwitchTeamInContextMenu;
+        /// <summary> Fired when the host chooses "Switch Team" for a player in the private match setup (team modes only). </summary>
+        public Action<SteamId> OnSwitchTeamRequested;
 
         protected override void OnInitialize() {
             FindUIElements();
@@ -204,15 +208,9 @@ namespace Game.Menu {
                 }
 
                 if(isNetworkOffline) {
-                    MainMenuUIManager.DisableButton(uiManager.GetPlayButtonMatchmaking());
-                    if(canUseMenuButtons) {
-                        MainMenuUIManager.EnableButton(uiManager.GetPlayButtonPrivate());
-                    } else {
-                        MainMenuUIManager.DisableButton(uiManager.GetPlayButtonPrivate());
-                    }
+                    uiManager.SetMenuButtonsEnabled(true); // Play opens gamemode select; user picks Private Match there.
                 } else if(currentPartySize > 5) {
                     MainMenuUIManager.DisableButton(uiManager.GetPlayButtonMatchmaking());
-                    if(!isSearching) MainMenuUIManager.EnableButton(uiManager.GetPlayButtonPrivate());
                 } else {
                     uiManager.SetMenuButtonsEnabled(canUseMenuButtons);
                 }
@@ -281,6 +279,7 @@ namespace Game.Menu {
 
         /// <summary>
         /// Global handler for context menu interactions (clicks on context buttons or backdrop).
+        /// Resolves the action by walking up from the click target so clicking a button's label still works.
         /// </summary>
         private void HandleContextMenuInteraction(PointerDownEvent evt) {
             if(uiManager == null || uiManager.PartyContextMenu == null ||
@@ -290,7 +289,7 @@ namespace Game.Menu {
 
             if(evt.target is not VisualElement target) return;
 
-            var tName = target.name;
+            var tName = GetContextMenuActionName(target);
 
             switch(tName) {
                 case "ctx-leave":
@@ -303,6 +302,10 @@ namespace Game.Menu {
                     return;
                 case "ctx-make-host":
                     HandleContextAction("Promote");
+                    evt.StopPropagation();
+                    return;
+                case "ctx-switch-team":
+                    HandleContextAction("SwitchTeam");
                     evt.StopPropagation();
                     return;
                 case "ctx-profile":
@@ -332,6 +335,15 @@ namespace Game.Menu {
             }
         }
 
+        private static string GetContextMenuActionName(VisualElement target) {
+            for(var el = target; el != null; el = el.parent) {
+                if(string.IsNullOrEmpty(el.name)) continue;
+                if(el.name.StartsWith("ctx-", StringComparison.Ordinal) || el.name == "context-menu-backdrop")
+                    return el.name;
+            }
+            return target.name;
+        }
+
         private SteamId _contextMenuTargetId;
 
         private void HideContextMenu() {
@@ -345,7 +357,8 @@ namespace Game.Menu {
         /// <summary>
         /// Displays the context menu for a specific party member at the given screen position.
         /// </summary>
-        private void ShowContextMenu(Vector2 position, SteamId targetId, bool isMe, bool amIHost) {
+        private void ShowContextMenu(Vector2 position, SteamId targetId, bool isMe, bool amIHost,
+            bool showSwitchTeam = false) {
             if(uiManager == null || uiManager.PartyContextMenu == null) return;
 
             _contextMenuTargetId = targetId;
@@ -359,7 +372,16 @@ namespace Game.Menu {
                 uiManager.CtxLeave.style.display = showLeave ? DisplayStyle.Flex : DisplayStyle.None;
 
             var canManage = amIHost && !isMe;
-            var showSeparator = showLeave || canManage;
+            if(uiManager.CtxSwitchTeam != null) {
+                uiManager.CtxSwitchTeam.style.display = showSwitchTeam ? DisplayStyle.Flex : DisplayStyle.None;
+                if(Debug.isDebugBuild) {
+                    Debug.Log($"[PrivateMatchSetup] ShowContextMenu: showSwitchTeam={showSwitchTeam} CtxSwitchTeam.display={uiManager.CtxSwitchTeam.style.display}");
+                }
+            } else if(Debug.isDebugBuild && showSwitchTeam) {
+                Debug.LogWarning("[PrivateMatchSetup] ShowContextMenu: showSwitchTeam=true but CtxSwitchTeam (ctx-switch-team) is null. Check UXML.");
+            }
+
+            var showSeparator = showLeave || canManage || showSwitchTeam;
             if(uiManager.CtxSeparatorManagement != null) {
                 uiManager.CtxSeparatorManagement.style.display = showSeparator ? DisplayStyle.Flex : DisplayStyle.None;
             }
@@ -472,7 +494,23 @@ namespace Game.Menu {
                     // Update Vivox if blocked
                     VoiceManager.Instance.MuteUser(_contextMenuTargetId.ToString(), !isBlocked);
                     break;
+                case "SwitchTeam":
+                    OnSwitchTeamRequested?.Invoke(_contextMenuTargetId);
+                    break;
             }
+        }
+
+        /// <summary>
+        /// Shows the party context menu for a player row (e.g. in private match setup).
+        /// Use showSwitchTeam when in team-based gamemode and current user is host.
+        /// </summary>
+        public void ShowContextMenuForPartyMember(Vector2 position, SteamId targetId, bool showSwitchTeam) {
+            var isMe = targetId == SteamClient.SteamId;
+            var amIHost = IsHost;
+            if(Debug.isDebugBuild) {
+                Debug.Log($"[PrivateMatchSetup] ShowContextMenuForPartyMember: position=({position.x},{position.y}) targetId={targetId.Value} showSwitchTeam={showSwitchTeam} isMe={isMe} amIHost={amIHost} CtxSwitchTeamElement={uiManager?.CtxSwitchTeam != null}");
+            }
+            ShowContextMenu(position, targetId, isMe, amIHost, showSwitchTeam);
         }
 
         private void HandlePartyStateChanged() {
@@ -507,58 +545,67 @@ namespace Game.Menu {
             IsHost = false;
         }
 
-        public async UniTask HandlePrivateMatchSelection(string mode) {
-            // Request SessionManager to start the synchronized load
-            if(SessionManager.Instance != null) {
-                if(_privateMatchStartInFlight) {
+        /// <summary>
+        /// Starts a private match with the given draft settings and optional team assignments.
+        /// Applies gamemode, map, timer, score-to-win, tagged players, and draft teams before starting.
+        /// </summary>
+        public async UniTask HandlePrivateMatchSelection(
+            string mode,
+            string mapId,
+            int matchTimerSeconds,
+            int scoreToWin,
+            int taggedPlayers,
+            IReadOnlyDictionary<ulong, int> teamAssignments) {
+            if(SessionManager.Instance == null) return;
+            if(_privateMatchStartInFlight) return;
+
+            _privateMatchStartInFlight = true;
+            try {
+                SessionManager.Instance.ApplyPrivateMatchSettings(
+                    mode, mapId, matchTimerSeconds, scoreToWin, taggedPlayers, teamAssignments);
+
+                if(Application.internetReachability == NetworkReachability.NotReachable) {
+                    if(uiManager != null) {
+                        uiManager.ShowToast("Offline. Starting offline private match.");
+                    }
+                    await SessionManager.Instance.StartOfflinePrivateMatchAsync(mode);
                     return;
                 }
 
-                _privateMatchStartInFlight = true;
-                try {
-                    if(Application.internetReachability == NetworkReachability.NotReachable) {
-                        if(uiManager != null) {
-                            uiManager.ShowToast("Offline. Starting offline private match.");
-                        }
-                        await SessionManager.Instance.StartOfflinePrivateMatchAsync(mode);
-                        return;
+                if(_silentHostInFlight) {
+                    var waitStart = Time.realtimeSinceStartup;
+                    while(_silentHostInFlight && Time.realtimeSinceStartup - waitStart < 8f) {
+                        await UniTask.Yield();
                     }
 
                     if(_silentHostInFlight) {
-                        var waitStart = Time.realtimeSinceStartup;
-                        while(_silentHostInFlight && Time.realtimeSinceStartup - waitStart < 8f) {
-                            await UniTask.Yield();
+                        Debug.LogWarning(
+                            "[MainMenuSessionManager] Silent host setup timed out while starting private match.");
+                        if(uiManager != null) {
+                            uiManager.ShowToast("Preparing private match. Please try again.");
                         }
-
-                        if(_silentHostInFlight) {
-                            Debug.LogWarning(
-                                "[MainMenuSessionManager] Silent host setup timed out while starting private match.");
-                            if(uiManager != null) {
-                                uiManager.ShowToast("Preparing private match. Please try again.");
-                            }
-                            return;
-                        }
+                        return;
                     }
-
-                    var matchSettings = Match.MatchSettingsManager.Instance;
-                    var maxPlayers = 10;
-                    if(matchSettings != null) {
-                        var def = matchSettings.GetGamemodeDef(mode);
-                        if(def.maxPlayers > 0) maxPlayers = def.maxPlayers;
-                    }
-
-                    if(!SessionManager.Instance.HasPartyLobby) {
-                        await SessionManager.Instance.CreatePartyLobbyAsync(maxPlayers, true);
-                    }
-                    await SessionManager.Instance.StartPrivateMatchAsync(mode, maxPlayers);
-                } catch(Exception ex) {
-                    Debug.LogError($"[MainMenuSessionManager] Failed to start private match for mode '{mode}': {ex}");
-                    if(uiManager != null) {
-                        uiManager.ShowToast("Failed to start private match. Please try again.");
-                    }
-                } finally {
-                    _privateMatchStartInFlight = false;
                 }
+
+                var matchSettings = Match.MatchSettingsManager.Instance;
+                var maxPlayers = 10;
+                if(matchSettings != null) {
+                    var def = matchSettings.GetGamemodeDef(mode);
+                    if(def.maxPlayers > 0) maxPlayers = def.maxPlayers;
+                }
+
+                if(!SessionManager.Instance.HasPartyLobby) {
+                    await SessionManager.Instance.CreatePartyLobbyAsync(maxPlayers, true);
+                }
+                await SessionManager.Instance.StartPrivateMatchAsync(mode, maxPlayers);
+            } catch(Exception ex) {
+                Debug.LogError($"[MainMenuSessionManager] Failed to start private match for mode '{mode}': {ex}");
+                if(uiManager != null) {
+                    uiManager.ShowToast("Failed to start private match. Please try again.");
+                }
+            } finally {
+                _privateMatchStartInFlight = false;
             }
         }
 
@@ -789,7 +836,8 @@ namespace Game.Menu {
             nameLabel.text = playerName;
             row.RegisterCallback<PointerDownEvent>(evt => {
                 if(evt.button != 1) return;
-                ShowContextMenu(evt.position, id, isLocal, IsHost);
+                var showSwitchTeam = ShouldShowSwitchTeamInContextMenu != null && ShouldShowSwitchTeamInContextMenu.Invoke();
+                ShowContextMenu(evt.position, id, isLocal, IsHost, showSwitchTeam);
                 evt.StopPropagation();
             });
             targetContainer.Add(row);
@@ -894,7 +942,7 @@ namespace Game.Menu {
             }
         }
 
-        private bool IsHost { get; set; }
+        public bool IsHost { get; private set; }
     }
 }
 

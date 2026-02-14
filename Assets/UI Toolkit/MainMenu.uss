@@ -34,8 +34,7 @@
     margin-bottom: 10px;
 }
 
-#play-button-matchmaking,
-#play-button-private {
+#play-button-matchmaking {
     font-size: 40px;
 }
 
@@ -1625,6 +1624,8 @@
     justify-content: center;
     padding-top: 20px;
     padding-bottom: 20px;
+    padding-left: 28px;
+    padding-right: 28px;
 }
 
 .gamemode-selection-header {
@@ -1636,18 +1637,32 @@
     text-shadow: 0 0 10px rgba(255, 60, 60, 0.5);
 }
 
+.gamemode-layout-row {
+    flex-direction: row;
+    align-items: stretch;
+    justify-content: center;
+    width: 100%;
+    max-width: 1860px;
+    flex-grow: 1;
+}
+
 .gamemode-cards-scroll {
     flex-direction: row;
+    flex-wrap: wrap;
+    align-content: center;
     justify-content: center;
     align-items: center;
-    width: 100%;
+    flex-grow: 1;
     height: 650px;
+    margin-right: 8px;
 }
 
 .gamemode-card {
-    width: 290px;
-    height: 460px;
-    margin: 0 12px;
+    flex-grow: 1;
+    min-width: 150px;
+    max-width: 220px;
+    height: 390px;
+    margin: 0 8px;
     background-color: rgba(20, 20, 25, 0.85);
     border-width: 2px;
     border-color: rgba(255, 255, 255, 0.1);
@@ -1673,13 +1688,13 @@
     border-bottom-width: 2px;
     border-color: rgba(255, 255, 255, 0.05);
     -unity-background-scale-mode: scale-to-fit;
-    padding: 24px;
+    padding: 20px;
 }
 
 .gamemode-card-title {
-    margin-top: 16px;
+    margin-top: 14px;
     padding: 0 16px;
-    font-size: 22px;
+    font-size: 18px;
     -unity-font-style: bold;
     color: white;
     -unity-text-align: middle-left;
@@ -1688,15 +1703,220 @@
 
 .gamemode-card-desc {
     padding: 8px 16px;
-    font-size: 13px;
+    font-size: 12px;
     color: rgba(240, 240, 240, 0.7);
     white-space: normal;
     -unity-text-align: middle-left;
 }
 
+/* Stack for Private Match + WIP inside the cards container; sits next to gamemode cards */
+.gamemode-side-actions-stack {
+    flex-direction: column;
+    justify-content: center;
+    align-items: stretch;
+    align-self: center;
+    min-width: 200px;
+    max-width: 220px;
+    height: 390px;
+    margin: 0 8px;
+}
+
+.gamemode-side-actions-stack .gamemode-side-action-card {
+    flex-grow: 1;
+    min-height: 0;
+    height: auto;
+}
+
+.gamemode-side-action-first {
+    margin-bottom: 10px;
+}
+
+.gamemode-side-action-card {
+    flex-grow: 0;
+    min-height: 0;
+    height: 190px;
+    background-color: rgba(20, 20, 25, 0.85);
+    border-width: 2px;
+    border-color: rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    padding: 16px;
+    transition-duration: 0.2s;
+    transition-property: all;
+    transition-timing-function: ease-out-back;
+    justify-content: center;
+}
+
+.gamemode-side-action-card:hover {
+    border-color: rgba(255, 60, 60, 0.8);
+    background-color: rgba(30, 30, 35, 0.95);
+    translate: 0 -6px;
+}
+
+.gamemode-side-action-title {
+    color: white;
+    font-size: 20px;
+    -unity-font-style: bold;
+    letter-spacing: 1px;
+    -unity-text-align: upper-left;
+    margin-bottom: 10px;
+}
+
+.gamemode-side-action-desc {
+    color: rgba(240, 240, 240, 0.75);
+    font-size: 12px;
+    -unity-text-align: upper-left;
+    white-space: normal;
+}
+
 .gamemode-back-btn {
     margin-top: 16px;
     align-self: center;
+}
+
+.private-match-setup-header {
+    margin-top: 40px;
+    margin-bottom: 20px;
+    -unity-text-align: upper-center;
+}
+
+.private-match-setup-container {
+    flex-direction: row;
+    width: 100%;
+    max-width: 1400px;
+    align-self: center;
+    justify-content: flex-start;
+    align-items: flex-start;
+    padding-left: 48px;
+    padding-right: 48px;
+}
+
+.private-match-settings-column {
+    width: 720px;
+    min-width: 720px;
+    padding-right: 40px;
+}
+
+.private-match-settings-column .setting-row {
+    min-height: 56px;
+    align-items: center;
+    border-bottom-width: 1px;
+    border-bottom-color: rgba(255, 60, 60, 0.2);
+    padding-top: 6px;
+    padding-bottom: 6px;
+}
+
+.private-match-settings-column .setting-label {
+    width: 320px;
+    min-width: 320px;
+    color: rgb(240, 240, 240);
+    font-size: 20px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-left;
+}
+
+.private-match-preview-column {
+    flex-grow: 1;
+    padding-left: 24px;
+}
+
+.private-match-preview-title {
+    color: rgb(255, 110, 110);
+    font-size: 24px;
+    -unity-font-style: bold;
+    margin-top: 4px;
+    margin-bottom: 20px;
+}
+
+.private-match-preview-card {
+    min-height: 320px;
+    border-width: 1px;
+    border-color: rgba(255, 60, 60, 0.35);
+    border-radius: 6px;
+    background-color: rgba(15, 15, 20, 0.65);
+    padding: 20px;
+}
+
+.private-match-preview-note {
+    color: rgba(240, 240, 240, 0.75);
+    font-size: 16px;
+}
+
+.private-match-roster-list {
+    flex-grow: 1;
+    min-height: 120px;
+    max-height: 280px;
+}
+
+.private-match-preview-teams {
+    flex-direction: column;
+    align-items: stretch;
+}
+
+.private-match-vs-label {
+    color: rgb(255, 110, 110);
+    font-size: 18px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+    margin-top: 8px;
+    margin-bottom: 8px;
+}
+
+.private-match-dropdown {
+    width: 280px;
+    max-width: 280px;
+    min-width: 200px;
+    height: 44px;
+    min-height: 44px;
+    border-width: 1px;
+    border-color: rgba(255, 60, 60, 0.45);
+    border-radius: 6px;
+    background-color: rgba(10, 10, 16, 0.9);
+    color: rgb(240, 240, 240);
+    -unity-font-style: bold;
+    -unity-text-align: middle-left;
+    padding-left: 14px;
+    padding-right: 14px;
+}
+
+.private-match-dropdown .unity-base-field__input {
+    background-color: rgba(0, 0, 0, 0);
+    border-width: 0;
+    color: rgb(240, 240, 240);
+}
+
+.private-match-input {
+    width: 180px;
+    min-width: 180px;
+    height: 44px;
+    min-height: 44px;
+    background-color: rgba(10, 10, 16, 0.9);
+    border-width: 1px;
+    border-color: rgba(255, 60, 60, 0.45);
+    border-radius: 6px;
+    color: rgb(240, 240, 240);
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+}
+
+.private-match-status-label {
+    margin-top: 18px;
+    color: rgba(240, 240, 240, 0.8);
+    font-size: 14px;
+}
+
+.private-match-setup-buttons {
+    flex-direction: row;
+    align-self: center;
+    justify-content: center;
+    margin-top: 26px;
+}
+
+#private-match-back-button {
+    margin-right: 12px;
+}
+
+#private-match-start-button {
+    min-width: 140px;
 }
 
 

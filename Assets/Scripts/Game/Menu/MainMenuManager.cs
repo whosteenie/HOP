@@ -1,6 +1,8 @@
+using System;
 using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
 using Discord;
+using Game.Match;
 using Network;
 using Network.Services;
 using UnityEngine;
@@ -18,6 +20,16 @@ namespace Game.Menu {
     /// Steamworks Integrated.
     /// </summary>
     public class MainMenuManager : UIElementBase {
+        private enum MainMenuPanelState {
+            MainMenu,
+            GamemodeSelect,
+            PrivateMatchSetup,
+            Lobby,
+            Loadout,
+            Options,
+            Credits
+        }
+
         #region Serialized Fields
 
         [Header("Audio")]
@@ -34,6 +46,7 @@ namespace Game.Menu {
 
         [SerializeField] private MainMenuSessionManager sessionManager;
         [SerializeField] private MainMenuGamemodeManager gamemodeManager;
+        [SerializeField] private MainMenuPrivateMatchSetupManager privateMatchSetupManager;
         [SerializeField] private VoiceOverlayManager voiceOverlayManager;
 
         [Header("References")]
@@ -50,13 +63,19 @@ namespace Game.Menu {
         private VisualElement _loadoutPanel;
         private VisualElement _optionsPanel;
         private VisualElement _creditsPanel;
+        private VisualElement _privateMatchSetupPanel;
         private List<VisualElement> _panels;
         private const float PanelFadeDuration = 0.08f;
-        private bool _isPrivateMatchIntent;
+        private MainMenuPanelState _currentPanelState = MainMenuPanelState.MainMenu;
+        private MainMenuPanelState _stateBeforeOptions = MainMenuPanelState.MainMenu;
 
         // Shared UI navigation helper for main menu panels
         private UINavigator _navigator;
         private bool _navigatorMissingLogged;
+
+        // Direct back-button wiring so private match Back always returns to Gamemode Select
+        private Button _privateMatchBackButton;
+        private Action _privateMatchBackClickHandler;
 
         #endregion
 
@@ -68,7 +87,6 @@ namespace Game.Menu {
             Cursor.visible = true;
             Cursor.lockState = CursorLockMode.None;
 
-            InitializeSubManagers();
             SetupOptionsMenuManager();
             LoadSettings();
 
@@ -86,7 +104,15 @@ namespace Game.Menu {
             base.OnDisable();
         }
 
+        protected override void OnDestroy() {
+            if(_privateMatchBackButton != null && _privateMatchBackClickHandler != null) {
+                _privateMatchBackButton.clicked -= _privateMatchBackClickHandler;
+            }
+            base.OnDestroy();
+        }
+
         protected override void OnInitialize() {
+            InitializeSubManagers();
             FindPanels();
             InitializeNavigator();
             WireSubManagerCallbacks();
@@ -101,6 +127,7 @@ namespace Game.Menu {
         private void WireSubManagerCallbacks() {
             if(uiManager != null) WireUIManagerEvents();
             if(sessionManager != null) WireSessionManagerEvents();
+            if(privateMatchSetupManager != null) WirePrivateSetupManagerEvents();
         }
 
         #endregion
@@ -114,6 +141,18 @@ namespace Game.Menu {
             _loadoutPanel = QOptional<VisualElement>("loadout-panel");
             _optionsPanel = QOptional<VisualElement>("options-panel");
             _creditsPanel = QOptional<VisualElement>("credits-panel");
+            _privateMatchSetupPanel = QOptional<VisualElement>("private-match-setup-panel");
+
+            // Wire private match Back directly so it always returns to Gamemode Select (WS-A back behavior)
+            _privateMatchBackButton = _privateMatchSetupPanel?.Q<Button>("private-match-back-button");
+            if(_privateMatchBackButton != null) {
+                _privateMatchBackClickHandler = () => {
+                    UISoundService.PlayButtonClick(isBack: true);
+                    TransitionToState(MainMenuPanelState.GamemodeSelect);
+                    privateMatchSetupManager?.OnBackRequested?.Invoke();
+                };
+                _privateMatchBackButton.clicked += _privateMatchBackClickHandler;
+            }
 
             _panels = new List<VisualElement> {
                 MainMenuPanel,
@@ -122,7 +161,8 @@ namespace Game.Menu {
                 _lobbyPanel,
                 _loadoutPanel,
                 _optionsPanel,
-                _creditsPanel
+                _creditsPanel,
+                _privateMatchSetupPanel
             };
         }
 
@@ -138,7 +178,7 @@ namespace Game.Menu {
 
         private void InitializeSubManagers() {
             if(voiceOverlayManager == null) voiceOverlayManager = GetComponentInChildren<VoiceOverlayManager>();
-            
+
             if(uiManager != null) {
                 if(uiManager.uiDocument == null) uiManager.uiDocument = uiDocument;
             }
@@ -148,12 +188,23 @@ namespace Game.Menu {
             if(gamemodeManager && gamemodeManager.uiDocument == null) {
                 gamemodeManager.uiDocument = uiDocument;
             }
+            if(privateMatchSetupManager != null) {
+                if(privateMatchSetupManager.uiDocument == null)
+                    privateMatchSetupManager.uiDocument = uiDocument;
+                // Force init so dropdowns are bound regardless of script execution order (setup panel may be hidden at Start).
+                if(Root != null)
+                    privateMatchSetupManager.Initialize(Root);
+                if(uiManager != null)
+                    privateMatchSetupManager.SetPartyMemberTemplate(uiManager.PartyMemberTemplate);
+                if(sessionManager != null)
+                    privateMatchSetupManager.SetSessionManager(sessionManager);
+            }
         }
 
         public void ShowLoadoutPanel() {
             var loadoutManager = FindFirstObjectByType<LoadoutManager>();
             if(loadoutManager != null) loadoutManager.ShowLoadout();
-            ShowPanel(_loadoutPanel);
+            TransitionToState(MainMenuPanelState.Loadout);
         }
 
         public void ShowProfileView(ulong steamId, string playerName, bool isEditable) {
@@ -161,44 +212,43 @@ namespace Game.Menu {
             if(loadoutManager != null) {
                 loadoutManager.ShowProfileView(steamId, playerName, isEditable);
             }
-            ShowPanel(_loadoutPanel);
+            TransitionToState(MainMenuPanelState.Loadout);
         }
 
         private void WireUIManagerEvents() {
             if(uiManager == null) return;
 
-            uiManager.OnPlayMatchmakingClicked = () => {
-                _isPrivateMatchIntent = false;
-                ShowPanel(uiManager.PlayGamemodePanel);
-            };
-            uiManager.OnPlayPrivateClicked = () => {
-                _isPrivateMatchIntent = true;
-                ShowPanel(uiManager.PlayGamemodePanel);
-            };
-            uiManager.OnGamemodeSelected = mode => {
-                // IMPORTANT:
-                // We often auto-host a "party lobby" in the background for invites/party UX.
-                // That lobby uses "Private" as its Steam lobby mode, but it should NOT force the
-                // Private Match flow. Only the explicit button intent should decide the path here.
-                if(_isPrivateMatchIntent) {
-                    sessionManager.HandlePrivateMatchSelection(mode).Forget();
-                } else {
-                    MainMenuSessionManager.HandleGamemodeSelected(mode);
-                    // Matchmaking intent: start search
-                    sessionManager.HandleFindGameClicked(mode).Forget();
-
-                    // Hide gamemode panel
-                    if (uiManager.PlayGamemodePanel.resolvedStyle.display == DisplayStyle.Flex) {
-                        ShowPanel(MainMenuPanel);
-                    }
+            uiManager.OnPlayMatchmakingClicked = () => TransitionToState(MainMenuPanelState.GamemodeSelect);
+            uiManager.OnGamemodePrivateMatchClicked = () => {
+                if(_privateMatchSetupPanel == null) {
+                    return;
                 }
+
+                var mode = "Deathmatch";
+                if(MatchSettingsManager.Instance != null &&
+                   string.IsNullOrWhiteSpace(MatchSettingsManager.Instance.selectedGameModeId) == false) {
+                    mode = MatchSettingsManager.Instance.selectedGameModeId;
+                }
+                privateMatchSetupManager?.SetInitialGamemode(mode);
+                TransitionToState(MainMenuPanelState.PrivateMatchSetup);
+            };
+            uiManager.OnGamemodeWipClicked = () => {
+                if(uiManager != null) {
+                    uiManager.ShowToast("WIP");
+                }
+            };
+            // Gamemode cards always mean public queue. Only the "Private Match" side action opens the private match panel.
+            uiManager.OnGamemodeSelected = mode => {
+                MainMenuSessionManager.HandleGamemodeSelected(mode);
+                sessionManager.HandleFindGameClicked(mode).Forget();
+                TransitionToState(MainMenuPanelState.MainMenu);
             };
             uiManager.OnGamemodeDropdownClicked = () => sessionManager.ToggleGamemodeDropdown();
             uiManager.OnCancelMatchmakingClicked = () => sessionManager.HandleCancelMatchmakingClicked();
             uiManager.OnLoadoutClicked = () => {
                 var loadoutManager = FindFirstObjectByType<LoadoutManager>();
                 if(loadoutManager != null) loadoutManager.ShowLoadout();
-                ShowPanel(_loadoutPanel);
+                TransitionToState(MainMenuPanelState.Loadout);
             };
             uiManager.OnOptionsClicked = () => {
                 if(optionsMenuManager != null) {
@@ -206,19 +256,45 @@ namespace Game.Menu {
                     optionsMenuManager.LoadSettings();
                     optionsMenuManager.OnOptionsPanelShown();
                 }
-                ShowPanel(_optionsPanel);
+                _stateBeforeOptions = _currentPanelState;
+                TransitionToState(MainMenuPanelState.Options);
             };
-            uiManager.OnCreditsClicked = () => ShowPanel(_creditsPanel);
+            uiManager.OnCreditsClicked = () => TransitionToState(MainMenuPanelState.Credits);
             uiManager.OnQuitConfirmed = OnQuitConfirmed;
             uiManager.OnQuitCancelled = OnQuitCancelled;
             uiManager.OnLobbyLeaveConfirmed = () => {
                 if(SessionManager.Instance != null) {
                     SessionManager.Instance.LeaveToMainMenuAsync().Forget(); // Removed skipFade param if not supported? Or keep if overload exists. Assuming default.
                 }
-                ShowPanel(MainMenuPanel);
+                TransitionToState(MainMenuPanelState.MainMenu);
             };
             uiManager.OnLobbyLeaveCancelled = () => { };
             uiManager.OnShowPanel = ShowPanel;
+        }
+
+        private void WirePrivateSetupManagerEvents() {
+            privateMatchSetupManager.OnBackRequested = () => TransitionToState(MainMenuPanelState.GamemodeSelect);
+            privateMatchSetupManager.OnStartRequested = draft => {
+                if(string.IsNullOrWhiteSpace(draft.GamemodeId)) {
+                    if(uiManager != null) {
+                        uiManager.ShowToast("Select a gamemode first.");
+                    }
+                    return;
+                }
+                if(sessionManager == null) {
+                    Debug.LogError("[MainMenuManager] MainMenuSessionManager is missing; cannot start private match.");
+                    return;
+                }
+
+                MainMenuSessionManager.HandleGamemodeSelected(draft.GamemodeId);
+                sessionManager.HandlePrivateMatchSelection(
+                    draft.GamemodeId,
+                    draft.MapId,
+                    draft.MatchTimerSeconds,
+                    draft.ScoreToWin,
+                    draft.TaggedPlayers,
+                    privateMatchSetupManager.GetDraftTeamAssignments()).Forget();
+            };
         }
 
         private void WireSessionManagerEvents() {
@@ -239,13 +315,18 @@ namespace Game.Menu {
                 } else {
                     UISoundService.PlayButtonClick(isBack: true);
                     SessionManager.Instance.LeaveToMainMenuAsync().Forget();
-                    ShowPanel(MainMenuPanel);
+                    TransitionToState(MainMenuPanelState.MainMenu);
                 }
             };
             sessionManager.OnHostStatusChanged = (isHost, wasHost) => {
                 if(gamemodeManager != null) gamemodeManager.SetHostStatus(isHost, wasHost);
             };
             sessionManager.ShouldShowLobbyLeaveModal = IsInActiveLobby;
+            sessionManager.ShouldShowSwitchTeamInContextMenu = () =>
+                _currentPanelState == MainMenuPanelState.PrivateMatchSetup &&
+                privateMatchSetupManager != null &&
+                MatchSettingsManager.IsTeamBasedMode(privateMatchSetupManager.GetDraftSettings().GamemodeId);
+            sessionManager.OnSwitchTeamRequested = steamId => { privateMatchSetupManager?.SwitchPlayerTeam(steamId); };
         }
         
         private static bool IsInActiveLobby() {
@@ -257,9 +338,62 @@ namespace Game.Menu {
 
         #region Navigation
 
+        private void TransitionToState(MainMenuPanelState state) {
+            var panel = GetPanelForState(state);
+            if(panel == null) {
+                if(state != MainMenuPanelState.MainMenu) {
+                    Debug.LogWarning($"[MainMenuManager] Panel for state '{state}' is missing. Falling back to MainMenu.");
+                    TransitionToState(MainMenuPanelState.MainMenu);
+                }
+                return;
+            }
+
+            _currentPanelState = state;
+            ShowPanelInternal(panel);
+
+            if(state == MainMenuPanelState.PrivateMatchSetup) {
+                privateMatchSetupManager?.RefreshDropdowns();
+                privateMatchSetupManager?.RefreshTeamPreview();
+            }
+        }
+
+        private VisualElement GetPanelForState(MainMenuPanelState state) {
+            if(state == MainMenuPanelState.GamemodeSelect) {
+                var panel = uiManager != null ? uiManager.PlayGamemodePanel : null;
+                if(panel == null && Root != null)
+                    panel = Root.Q<VisualElement>("play-gamemode-panel");
+                return panel;
+            }
+            return state switch {
+                MainMenuPanelState.MainMenu => MainMenuPanel,
+                MainMenuPanelState.PrivateMatchSetup => _privateMatchSetupPanel,
+                MainMenuPanelState.Lobby => _lobbyPanel,
+                MainMenuPanelState.Loadout => _loadoutPanel,
+                MainMenuPanelState.Options => _optionsPanel,
+                MainMenuPanelState.Credits => _creditsPanel,
+                _ => MainMenuPanel
+            };
+        }
+
+        private MainMenuPanelState GetStateForPanel(VisualElement panel) {
+            if(panel == null) return _currentPanelState;
+            if(panel == MainMenuPanel) return MainMenuPanelState.MainMenu;
+            if(uiManager != null && panel == uiManager.PlayGamemodePanel) return MainMenuPanelState.GamemodeSelect;
+            if(panel == _privateMatchSetupPanel) return MainMenuPanelState.PrivateMatchSetup;
+            if(panel == _lobbyPanel) return MainMenuPanelState.Lobby;
+            if(panel == _loadoutPanel) return MainMenuPanelState.Loadout;
+            if(panel == _optionsPanel) return MainMenuPanelState.Options;
+            if(panel == _creditsPanel) return MainMenuPanelState.Credits;
+            return _currentPanelState;
+        }
+
         public void ShowPanel(VisualElement panel) {
             if(panel == null) return;
+            _currentPanelState = GetStateForPanel(panel);
+            ShowPanelInternal(panel);
+        }
 
+        private void ShowPanelInternal(VisualElement panel) {
             if(_navigator == null) {
                 if(_navigatorMissingLogged) return;
                 Debug.LogError(
@@ -316,7 +450,9 @@ namespace Game.Menu {
 
             if(panel == MainMenuPanel) DiscordManager.Instance.SetStatus("In Main Menu", "Browsing");
             else if(panel == _lobbyPanel) DiscordManager.Instance.SetStatus("In Lobby", "Waiting for Match");
-            else if(panel == _gamemodePanel) DiscordManager.Instance.SetStatus("In Main Menu", "Selecting Gamemode");
+            else if(panel == _gamemodePanel || (uiManager != null && panel == uiManager.PlayGamemodePanel))
+                DiscordManager.Instance.SetStatus("In Main Menu", "Selecting Gamemode");
+            else if(panel == _privateMatchSetupPanel) DiscordManager.Instance.SetStatus("In Main Menu", "Configuring Private Match");
             else if(panel == _loadoutPanel) DiscordManager.Instance.SetStatus("In Main Menu", "Editing Loadout");
         }
 
@@ -325,9 +461,10 @@ namespace Game.Menu {
             if(characterCustomizationManager != null) {
                 characterCustomizationManager.OnButtonClickedCallback = OnButtonClicked;
                 characterCustomizationManager.MouseEnterCallback = MouseEnter;
-                characterCustomizationManager.OnBackFromCustomizationCallback = () => ShowPanel(_loadoutPanel);
+                characterCustomizationManager.OnBackFromCustomizationCallback =
+                    () => TransitionToState(MainMenuPanelState.Loadout);
             }
-            ShowPanel(_loadoutPanel);
+            TransitionToState(MainMenuPanelState.Loadout);
             if(characterCustomizationManager != null) characterCustomizationManager.ShowCustomization();
         }
 
@@ -348,7 +485,8 @@ namespace Game.Menu {
             {
                 characterCustomizationManager.OnButtonClickedCallback = OnButtonClicked;
                 characterCustomizationManager.MouseEnterCallback = _ => UISoundService.PlayButtonHover();
-                characterCustomizationManager.OnBackFromCustomizationCallback = () => ShowPanel(_loadoutPanel);
+                characterCustomizationManager.OnBackFromCustomizationCallback =
+                    () => TransitionToState(MainMenuPanelState.Loadout);
             }
         }
 
@@ -357,7 +495,10 @@ namespace Game.Menu {
         }
 
         private void ReturnToMainMenuFromOptions() {
-            ShowPanel(MainMenuPanel);
+            if(_stateBeforeOptions == MainMenuPanelState.Options) {
+                _stateBeforeOptions = MainMenuPanelState.MainMenu;
+            }
+            TransitionToState(_stateBeforeOptions);
         }
 
         #endregion
