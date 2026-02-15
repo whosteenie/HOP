@@ -29,8 +29,29 @@ namespace Game.Player {
         [SerializeField] private float wallJumpCooldown = 0.35f;
         [SerializeField] private float minWallRunSpeed = 9f; // Slightly below SprintSpeed (10f)
 
+        [Header("Curved Wall Continuation")]
+        [SerializeField] private bool enableCurvedWallContinuation = true;
+        [SerializeField] private bool continuationOnlyOnDetach = true;
+        [SerializeField] private float continuationProbeForwardOffset = 0.35f;
+        [SerializeField] private float continuationProbeRadius = 0.12f;
+        [SerializeField] private float continuationMaxNormalDelta = 55f;
+        [SerializeField] private float continuationGraceTime = 0.08f;
+        [SerializeField] private float wallNormalBlendSpeed = 16f;
+        [SerializeField] private float sideSwitchCooldown = 0.08f;
+        [SerializeField] private bool wallRunContinuationDebugLogs;
+
         public bool IsWallRunning { get; private set; }
-        public bool IsRightWallRun => IsWallRunning && !IsWallLeft;
+        public bool IsRightWallRun {
+            get {
+                if(!IsWallRunning) return false;
+                if(WallNormal.sqrMagnitude > 0.0001f) {
+                    // View-relative side detection for animation: flips when camera yaw crosses the wall side.
+                    return Vector3.Dot(transform.right, WallNormal.normalized) < 0f;
+                }
+
+                return !IsWallLeft;
+            }
+        }
         private Vector3 WallNormal { get; set; }
         private bool IsWallLeft { get; set; }
 
@@ -39,6 +60,10 @@ namespace Game.Player {
         private float _currentWallRunSpeed;
         private float _originalGravity;
         private float _jumpCooldownTimer;
+        private float _continuationGraceTimer;
+        private float _sideSwitchCooldownTimer;
+        private Vector3 _targetWallNormal;
+        private Vector3 _lastWallRunDirection;
 
         // Throttling for network
 
@@ -76,20 +101,17 @@ namespace Game.Player {
                 return;
             }
 
-            if(Physics.Raycast(transform.position, -transform.right, out var leftHit, wallDistanceCheck, wallLayer)) {
-                IsWallLeft = true;
-                _wallHit = leftHit;
-            } else if(Physics.Raycast(transform.position, transform.right, out var rightHit, wallDistanceCheck,
-                          wallLayer)) {
-                IsWallLeft = false;
-                _wallHit = rightHit;
-            } else {
-                IsWallLeft = false;
-                if(IsWallRunning) StopWallRun();
+            if(IsWallRunning) {
+                MaintainOrTransferWallRun();
                 return;
             }
 
-            if(IsWallRunning) {
+            if(TryFindInitialWallHit(out var initialHit, out var initialIsLeft)) {
+                IsWallLeft = initialIsLeft;
+                _wallHit = initialHit;
+            } else {
+                IsWallLeft = false;
+                if(IsWallRunning) StopWallRun();
                 return;
             }
 
@@ -129,10 +151,15 @@ namespace Game.Player {
         private void StartWallRun() {
             IsWallRunning = true;
             _wallRunTimer = maxWallRunTime;
+            _continuationGraceTimer = continuationGraceTime;
+            _sideSwitchCooldownTimer = 0f;
 
             // Capture entry speed, maintain momentum if faster than base speed
             var entrySpeed = _movementController.HorizontalVelocity.magnitude;
             _currentWallRunSpeed = Mathf.Max(wallRunSpeed, entrySpeed);
+            WallNormal = _wallHit.normal.normalized;
+            _targetWallNormal = WallNormal;
+            _lastWallRunDirection = Vector3.zero;
 
 
             // Apply Camera Tilt
@@ -143,6 +170,8 @@ namespace Game.Player {
 
         private void StopWallRun() {
             IsWallRunning = false;
+            _continuationGraceTimer = 0f;
+            _sideSwitchCooldownTimer = 0f;
 
 
             // Reset Camera Tilt
@@ -161,6 +190,10 @@ namespace Game.Player {
             if(_wallRunTimer <= 0) {
                 StopWallRun();
                 return;
+            }
+
+            if(_sideSwitchCooldownTimer > 0f) {
+                _sideSwitchCooldownTimer -= Time.deltaTime;
             }
 
             if(!(_wallRunTimer < maxWallRunTime - 0.1f)) return;
@@ -198,6 +231,7 @@ namespace Game.Player {
                 wallForward = -wallForward;
             }
 
+            _lastWallRunDirection = wallForward;
             return wallForward * _currentWallRunSpeed;
         }
 
@@ -259,6 +293,294 @@ namespace Game.Player {
             if(_movementController == null) return;
             _movementController.SetVelocity(new Vector3(jumpVelocity.x, 0, jumpVelocity.z));
             _movementController.VerticalVelocity = jumpVelocity.y;
+        }
+
+        private bool TryFindInitialWallHit(out RaycastHit hit, out bool isLeft) {
+            if(TryProbeSide(true, transform.position, out var leftHit)) {
+                hit = leftHit;
+                isLeft = true;
+                return true;
+            }
+
+            if(TryProbeSide(false, transform.position, out var rightHit)) {
+                hit = rightHit;
+                isLeft = false;
+                return true;
+            }
+
+            hit = default;
+            isLeft = false;
+            return false;
+        }
+
+        private void MaintainOrTransferWallRun() {
+            if(!enableCurvedWallContinuation) {
+                if(!TryProbeCurrentWall(out var directHit)) {
+                    StopWallRun();
+                    return;
+                }
+
+                _wallHit = directHit;
+                WallNormal = directHit.normal.normalized;
+                _targetWallNormal = WallNormal;
+                return;
+            }
+
+            // Step 1: Validate current wall side.
+            if(TryProbeCurrentWall(out var currentSideHit)) {
+                _wallHit = currentSideHit;
+                _continuationGraceTimer = continuationGraceTime;
+                if(!continuationOnlyOnDetach) {
+                    UpdateWallNormal(currentSideHit.normal);
+                }
+
+                return;
+            }
+
+            // Step 2: At detach boundary, try to acquire the next compatible segment.
+            if(TryAcquireContinuationHit(out var continuationHit, out var continuationIsLeft, out var rejectReason)) {
+                if(continuationIsLeft != IsWallLeft && _sideSwitchCooldownTimer > 0f) {
+                    LogContinuation($"Rejected side switch due to cooldown ({_sideSwitchCooldownTimer:F3}s).");
+                    _continuationGraceTimer -= Time.deltaTime;
+                    if(_continuationGraceTimer <= 0f) {
+                        StopWallRun();
+                    }
+                    return;
+                }
+
+                _wallHit = continuationHit;
+                _continuationGraceTimer = continuationGraceTime;
+
+                if(continuationIsLeft != IsWallLeft) {
+                    IsWallLeft = continuationIsLeft;
+                    _sideSwitchCooldownTimer = sideSwitchCooldown;
+                    UpdateCameraTiltForCurrentSide();
+                }
+
+                UpdateWallNormal(continuationHit.normal);
+                LogContinuation($"Accepted continuation. side={(IsWallLeft ? "left" : "right")}, normalDelta={Vector3.Angle(WallNormal, continuationHit.normal):F1}");
+                return;
+            }
+
+            if(!string.IsNullOrWhiteSpace(rejectReason)) {
+                LogContinuation($"Continuation rejected: {rejectReason}");
+            }
+
+            // Step 3: Allow a short grace period for segment seams.
+            _continuationGraceTimer -= Time.deltaTime;
+            if(_continuationGraceTimer > 0f) return;
+
+            StopWallRun();
+        }
+
+        private bool TryAcquireContinuationHit(out RaycastHit bestHit, out bool bestIsLeft, out string rejectReason) {
+            bestHit = default;
+            bestIsLeft = IsWallLeft;
+            rejectReason = "no candidate hit";
+
+            var found = false;
+            var bestScore = float.NegativeInfinity;
+            var forward = GetRunDirectionReference();
+            var forwardOrigin = transform.position + (forward * continuationProbeForwardOffset);
+            var currentWallNormal = WallNormal.sqrMagnitude > 0.0001f ? WallNormal.normalized : (IsWallLeft ? transform.right : -transform.right);
+            var expectedWallNormal = GetExpectedWallNormalFromRunDirection(forward);
+
+            EvaluateContinuationProbe(transform.position, -currentWallNormal, DetermineIsLeftFromNormal(currentWallNormal, forward), ref found, ref bestScore, ref bestHit, ref bestIsLeft, ref rejectReason);
+            EvaluateContinuationProbe(forwardOrigin, -currentWallNormal, DetermineIsLeftFromNormal(currentWallNormal, forward), ref found, ref bestScore, ref bestHit, ref bestIsLeft, ref rejectReason);
+            EvaluateContinuationProbe(transform.position, -expectedWallNormal, DetermineIsLeftFromNormal(expectedWallNormal, forward), ref found, ref bestScore, ref bestHit, ref bestIsLeft, ref rejectReason);
+            EvaluateContinuationProbe(forwardOrigin, -expectedWallNormal, DetermineIsLeftFromNormal(expectedWallNormal, forward), ref found, ref bestScore, ref bestHit, ref bestIsLeft, ref rejectReason);
+            EvaluateContinuationProbe(transform.position, expectedWallNormal, !DetermineIsLeftFromNormal(expectedWallNormal, forward), ref found, ref bestScore, ref bestHit, ref bestIsLeft, ref rejectReason);
+            EvaluateContinuationProbe(forwardOrigin, expectedWallNormal, !DetermineIsLeftFromNormal(expectedWallNormal, forward), ref found, ref bestScore, ref bestHit, ref bestIsLeft, ref rejectReason);
+
+            return found;
+        }
+
+        private void EvaluateContinuationProbe(
+            Vector3 origin,
+            Vector3 probeDirection,
+            bool inferredIsLeft,
+            ref bool found,
+            ref float bestScore,
+            ref RaycastHit bestHit,
+            ref bool bestIsLeft,
+            ref string rejectReason
+        ) {
+            if(inferredIsLeft != IsWallLeft && _sideSwitchCooldownTimer > 0f) {
+                return;
+            }
+
+            if(!TryProbeToward(probeDirection, origin, out var hit) &&
+               !TrySphereProbeToward(probeDirection, origin, out hit)) {
+                return;
+            }
+
+            if(!CanContinueOnHit(hit, out var reason)) {
+                rejectReason = reason;
+                return;
+            }
+
+            // Prefer continuity with current normal and previous run direction.
+            var normalDelta = Vector3.Angle(WallNormal, hit.normal);
+            var normalizedDistance = Mathf.Clamp01(hit.distance / Mathf.Max(0.01f, wallDistanceCheck + continuationProbeForwardOffset + continuationProbeRadius));
+            var candidateForward = Vector3.Cross(hit.normal, Vector3.up);
+            if(candidateForward.sqrMagnitude > 0.0001f) {
+                candidateForward.Normalize();
+            }
+
+            var reference = _lastWallRunDirection.sqrMagnitude > 0.0001f ? _lastWallRunDirection : GetPreferredDirection(transform.forward);
+            reference.y = 0f;
+            if(reference.sqrMagnitude > 0.0001f) reference.Normalize();
+            if(Vector3.Dot(candidateForward, reference) < 0f) {
+                candidateForward = -candidateForward;
+            }
+
+            var tangentScore = Mathf.Clamp01(Vector3.Dot(candidateForward, reference));
+            var score = (1f - (normalDelta / Mathf.Max(1f, continuationMaxNormalDelta))) * 0.55f +
+                        (1f - normalizedDistance) * 0.30f +
+                        tangentScore * 0.15f;
+
+            if(inferredIsLeft == IsWallLeft) {
+                score += 0.05f;
+            }
+
+            if(score <= bestScore) return;
+
+            found = true;
+            bestScore = score;
+            bestHit = hit;
+            bestIsLeft = inferredIsLeft;
+            rejectReason = string.Empty;
+        }
+
+        private bool CanContinueOnHit(RaycastHit hit, out string reason) {
+            reason = string.Empty;
+
+            if(Physics.Raycast(transform.position, Vector3.down, minWallRunHeight, wallLayer)) {
+                reason = "too close to ground";
+                return false;
+            }
+
+            var normalDelta = Vector3.Angle(WallNormal, hit.normal);
+            if(normalDelta > continuationMaxNormalDelta) {
+                reason = $"normal delta too high ({normalDelta:F1})";
+                return false;
+            }
+
+            return true;
+        }
+
+        private bool TryProbeSide(bool probeLeft, Vector3 origin, out RaycastHit hit) {
+            var dir = probeLeft ? -transform.right : transform.right;
+            return Physics.Raycast(origin, dir, out hit, wallDistanceCheck, wallLayer);
+        }
+
+        private bool TryProbeToward(Vector3 direction, Vector3 origin, out RaycastHit hit) {
+            if(direction.sqrMagnitude < 0.0001f) {
+                hit = default;
+                return false;
+            }
+
+            return Physics.Raycast(origin, direction.normalized, out hit, wallDistanceCheck, wallLayer);
+        }
+
+        private bool TrySphereProbeToward(Vector3 direction, Vector3 origin, out RaycastHit hit) {
+            if(direction.sqrMagnitude < 0.0001f) {
+                hit = default;
+                return false;
+            }
+
+            return Physics.SphereCast(origin, continuationProbeRadius, direction.normalized, out hit, wallDistanceCheck, wallLayer);
+        }
+
+        private bool TryProbeCurrentWall(out RaycastHit hit) {
+            var towardWall = WallNormal.sqrMagnitude > 0.0001f
+                ? -WallNormal.normalized
+                : (IsWallLeft ? -transform.right : transform.right);
+
+            if(TryProbeToward(towardWall, transform.position, out hit)) {
+                return true;
+            }
+
+            var forward = GetRunDirectionReference();
+            var forwardOrigin = transform.position + (forward * continuationProbeForwardOffset);
+            if(TryProbeToward(towardWall, forwardOrigin, out hit)) {
+                return true;
+            }
+
+            if(TrySphereProbeToward(towardWall, transform.position, out hit)) {
+                return true;
+            }
+
+            return TrySphereProbeToward(towardWall, forwardOrigin, out hit);
+        }
+
+        private Vector3 GetRunDirectionReference() {
+            var forward = _lastWallRunDirection;
+            forward.y = 0f;
+            if(forward.sqrMagnitude > 0.0001f) {
+                return forward.normalized;
+            }
+
+            var planarVelocity = GetPlanarVelocity();
+            if(planarVelocity.sqrMagnitude > 0.0001f) {
+                return planarVelocity.normalized;
+            }
+
+            return GetPreferredDirection(transform.forward);
+        }
+
+        private static bool DetermineIsLeftFromNormal(Vector3 wallNormal, Vector3 runDirection) {
+            var run = runDirection;
+            run.y = 0f;
+            if(run.sqrMagnitude < 0.0001f) {
+                return false;
+            }
+
+            run.Normalize();
+            var leftReference = Vector3.Cross(Vector3.up, run);
+            if(leftReference.sqrMagnitude < 0.0001f) {
+                return false;
+            }
+
+            return Vector3.Dot(wallNormal.normalized, leftReference.normalized) >= 0f;
+        }
+
+        private Vector3 GetExpectedWallNormalFromRunDirection(Vector3 runDirection) {
+            var run = runDirection;
+            run.y = 0f;
+            if(run.sqrMagnitude < 0.0001f) {
+                return WallNormal.sqrMagnitude > 0.0001f ? WallNormal.normalized : (IsWallLeft ? transform.right : -transform.right);
+            }
+
+            run.Normalize();
+            var expected = IsWallLeft ? Vector3.Cross(Vector3.up, run) : Vector3.Cross(run, Vector3.up);
+            if(expected.sqrMagnitude < 0.0001f) {
+                return WallNormal.sqrMagnitude > 0.0001f ? WallNormal.normalized : (IsWallLeft ? transform.right : -transform.right);
+            }
+
+            return expected.normalized;
+        }
+
+        private void UpdateWallNormal(Vector3 newNormal) {
+            _targetWallNormal = newNormal.normalized;
+            if(WallNormal.sqrMagnitude < 0.0001f) {
+                WallNormal = _targetWallNormal;
+                return;
+            }
+
+            var blendT = 1f - Mathf.Exp(-Mathf.Max(0.01f, wallNormalBlendSpeed) * Time.deltaTime);
+            WallNormal = Vector3.Slerp(WallNormal, _targetWallNormal, blendT).normalized;
+        }
+
+        private void UpdateCameraTiltForCurrentSide() {
+            if(_fpCamera == null || playerController.LookController == null) return;
+            var tilt = IsWallLeft ? -wallRunCameraTilt : wallRunCameraTilt;
+            playerController.LookController.SetTargetTilt(tilt);
+        }
+
+        private void LogContinuation(string message) {
+            if(!wallRunContinuationDebugLogs) return;
+            Debug.Log($"[WallRun] {message}");
         }
     }
 }
