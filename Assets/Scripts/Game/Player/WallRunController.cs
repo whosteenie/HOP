@@ -1,4 +1,3 @@
-using System;
 using Game.Settings;
 using Unity.Cinemachine;
 using Unity.Netcode;
@@ -33,11 +32,11 @@ namespace Game.Player {
         [Header("Curved Wall Continuation")]
         [SerializeField] private bool enableCurvedWallContinuation = true;
         [SerializeField] private bool continuationOnlyOnDetach = true;
-        [SerializeField] private float continuationProbeForwardOffset = 0.35f;
-        [SerializeField] private float continuationProbeRadius = 0.12f;
-        [SerializeField] private float continuationProbeForwardMaxDistance = 2.2f; // longer reach for forward probes on curves (logs showed hits ~1.79m)
-        [SerializeField] private float continuationMaxNormalDelta = 55f;
-        [SerializeField] private float continuationGraceTime = 0.12f; // more frames to re-acquire at occasional far segment
+        [SerializeField] private float continuationProbeForwardOffset = 0.45f;
+        [SerializeField] private float continuationProbeRadius = 0.16f;
+        [SerializeField] private float continuationProbeForwardMaxDistance = 2.8f;
+        [SerializeField] private float continuationMaxNormalDelta = 65f;
+        [SerializeField] private float continuationGraceTime = 0.16f;
         [SerializeField] private float wallNormalBlendSpeed = 16f;
         [SerializeField] private float sideSwitchCooldown = 0.08f;
         [SerializeField] private bool wallRunContinuationDebugLogs;
@@ -402,7 +401,7 @@ namespace Game.Player {
                 var forwardDir = forward.normalized;
                 var speedRatio = Mathf.Max(1f, _currentWallRunSpeed / Mathf.Max(0.01f, wallRunSpeed));
                 var forwardMaxDist = Mathf.Max(wallDistanceCheck, continuationProbeForwardMaxDistance) * speedRatio;
-                var ahead = Mathf.Clamp(0.5f + (_currentWallRunSpeed - wallRunSpeed) * 0.05f, 0.5f, 2f);
+                var ahead = Mathf.Clamp(0.6f + (_currentWallRunSpeed - wallRunSpeed) * 0.06f, 0.6f, 3f);
                 EvaluateContinuationProbe(transform.position, forwardDir, IsWallLeft, forwardMaxDist, ref found, ref bestScore, ref bestHit, ref bestIsLeft, ref rejectReason, "forward");
                 EvaluateContinuationProbe(forwardOrigin, forwardDir, IsWallLeft, forwardMaxDist, ref found, ref bestScore, ref bestHit, ref bestIsLeft, ref rejectReason, "forward");
                 // Forward + inward (toward wall) to catch next segment around the curve.
@@ -508,7 +507,7 @@ namespace Game.Player {
 
             var normalDelta = Vector3.Angle(WallNormal, hit.normal);
             if(normalDelta > continuationMaxNormalDelta) {
-                reason = $"normal delta too high ({normalDelta:F1})";
+                reason = $"normal delta too high ({normalDelta:F1} > {continuationMaxNormalDelta:F1})";
                 return false;
             }
 
