@@ -224,10 +224,21 @@ namespace Game.Player {
             }
             wallForward.Normalize();
 
-            // Choose wallrun direction from actual movement first, not look direction.
-            // This prevents backward wallrun attempts from flipping velocity the wrong way.
-            var planarVelocity = GetPlanarVelocity();
-            var referenceDirection = planarVelocity.sqrMagnitude > 0.01f ? planarVelocity.normalized : GetPreferredDirection(currentForward);
+            // Sustain phase: prefer previous wall-run direction to preserve continuity on curves.
+            // Entry phase: still allow velocity/input based direction selection.
+            Vector3 referenceDirection;
+            if(IsWallRunning && _lastWallRunDirection.sqrMagnitude > 0.01f) {
+                referenceDirection = _lastWallRunDirection.normalized;
+            } else {
+                var planarVelocity = GetPlanarVelocity();
+                referenceDirection = planarVelocity.sqrMagnitude > 0.01f
+                    ? planarVelocity.normalized
+                    : GetPreferredDirection(currentForward, allowLookFallback: !IsWallRunning);
+            }
+
+            if(referenceDirection.sqrMagnitude < 0.0001f) {
+                referenceDirection = wallForward;
+            }
 
             if(Vector3.Dot(wallForward, referenceDirection) < 0f) {
                 wallForward = -wallForward;
@@ -247,7 +258,7 @@ namespace Game.Player {
             return v;
         }
 
-        private Vector3 GetPreferredDirection(Vector3 fallbackForward) {
+        private Vector3 GetPreferredDirection(Vector3 fallbackForward, bool allowLookFallback = true) {
             if(playerController != null) {
                 var moveInput = playerController.moveInput;
                 if(moveInput.sqrMagnitude > 0.01f) {
@@ -258,6 +269,21 @@ namespace Game.Player {
                         return inputDirection.normalized;
                     }
                 }
+            }
+
+            if(!allowLookFallback) {
+                if(_lastWallRunDirection.sqrMagnitude > 0.0001f) {
+                    return _lastWallRunDirection.normalized;
+                }
+
+                if(WallNormal.sqrMagnitude > 0.0001f) {
+                    var tangent = Vector3.Cross(WallNormal, Vector3.up);
+                    if(tangent.sqrMagnitude > 0.0001f) {
+                        return tangent.normalized;
+                    }
+                }
+
+                return Vector3.zero;
             }
 
             fallbackForward.y = 0f;
@@ -472,7 +498,9 @@ namespace Game.Player {
                 candidateForward.Normalize();
             }
 
-            var reference = _lastWallRunDirection.sqrMagnitude > 0.0001f ? _lastWallRunDirection : GetPreferredDirection(transform.forward);
+            var reference = _lastWallRunDirection.sqrMagnitude > 0.0001f
+                ? _lastWallRunDirection
+                : GetPreferredDirection(transform.forward, allowLookFallback: false);
             reference.y = 0f;
             if(reference.sqrMagnitude > 0.0001f) reference.Normalize();
             if(Vector3.Dot(candidateForward, reference) < 0f) {
@@ -577,7 +605,7 @@ namespace Game.Player {
                 return planarVelocity.normalized;
             }
 
-            return GetPreferredDirection(transform.forward);
+            return GetPreferredDirection(transform.forward, allowLookFallback: false);
         }
 
         private static bool DetermineIsLeftFromNormal(Vector3 wallNormal, Vector3 runDirection) {
