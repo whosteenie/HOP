@@ -211,13 +211,11 @@
 
 .pause-challenges-container {
     position: absolute;
-    left: 0;
-    right: 0;
-    top: 0;
-    bottom: 0;
-    flex-direction: row;
-    justify-content: center;
-    align-items: center;
+    left: 24px;
+    top: 24px;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: flex-start;
 }
 
 .pause-challenges-slot {
@@ -225,16 +223,16 @@
 }
 
 .pause-challenges-slot-daily {
-    margin-right: 50px;
+    margin-right: 0;
+    margin-bottom: 14px;
 }
 
 .pause-challenges-slot-weekly {
-    margin-left: 50px;
+    margin-left: 0;
 }
 
 .pause-challenges-spacer {
-    width: 420px;
-    height: 10px;
+    display: none;
 }
 
 .pause-header {
