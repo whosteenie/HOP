@@ -901,6 +901,9 @@ MonoBehaviour:
   preMatchCountdownSeconds: 5
   matchDurationSeconds: 0
   selectedGameModeId: 
+  scoreToWin: 50
+  kothHillSpeed: 1
+  taggedPlayers: 1
   gamemodeDefinitions:
   - id: Deathmatch
     minPlayers: 2

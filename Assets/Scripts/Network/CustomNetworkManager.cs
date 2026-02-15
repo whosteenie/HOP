@@ -29,6 +29,7 @@ namespace Network {
         
         // Connection payload-derived metadata (transport agnostic)
         private readonly System.Collections.Generic.Dictionary<ulong, string> _clientPartyIds = new();
+        private readonly System.Collections.Generic.Dictionary<ulong, ulong> _clientSteamIds = new();
         private bool _hasSessionPrivateFlag;
         private bool _sessionIsPrivateMatch;
 
@@ -80,8 +81,10 @@ namespace Network {
             _allowPlayerSpawns = false;
             _pendingTeamAssignments.Clear();
             _clientPartyIds.Clear();
+            _clientSteamIds.Clear();
             _hasSessionPrivateFlag = false;
             _sessionIsPrivateMatch = false;
+            PrivateMatchTeamAssignments.Clear();
         }
 
         private void OnServerStopped(bool _) => ResetSpawningState();
@@ -100,6 +103,10 @@ namespace Network {
 
             if(!string.IsNullOrEmpty(payload.partyId)) {
                 _clientPartyIds[request.ClientNetworkId] = payload.partyId;
+            }
+
+            if(payload.steamId != 0) {
+                _clientSteamIds[request.ClientNetworkId] = payload.steamId;
             }
 
             if(_hasSessionPrivateFlag) return;
@@ -330,10 +337,24 @@ namespace Network {
 
             // 2. Distribute Teams
             // Strategy:
-            // Private Match (10 player single party OR explicit "Private"): Split largest party evenly.
+            // Private Match with draft team assignments (from setup panel): use them.
+            // Private Match without draft: split evenly (random order).
             // Public Match: Keep parties intact, balance total counts.
 
-            // Check for single large party (Private Match scenario)
+            if(_sessionIsPrivateMatch && PrivateMatchTeamAssignments.HasAssignments) {
+                foreach(var clientId in clients) {
+                    if(!_clientSteamIds.TryGetValue(clientId, out var steamId)) continue;
+                    var teamIndex = PrivateMatchTeamAssignments.GetTeamIndexForSteamId(steamId);
+                    if(teamIndex < 0) continue;
+                    var team = teamIndex == 0 ? SpawnPoint.Team.TeamA : SpawnPoint.Team.TeamB;
+                    _pendingTeamAssignments[clientId] = team;
+                }
+                PrivateMatchTeamAssignments.Clear();
+                Debug.Log($"[CustomNetworkManager] Applied private match draft team assignments for {_pendingTeamAssignments.Count} players.");
+                return;
+            }
+
+            // Check for single large party (Private Match scenario without draft)
             if (_sessionIsPrivateMatch || (partyGroups.Count == 1 && solos.Count == 0 && partyGroups.First().Value.Count > 1)) {
                 // Split logic
                 var allClients = new System.Collections.Generic.List<ulong>(clients);

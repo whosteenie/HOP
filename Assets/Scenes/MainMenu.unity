@@ -95860,6 +95860,7 @@ GameObject:
   - component: {fileID: 7165998097423180932}
   - component: {fileID: 7165998097423180931}
   - component: {fileID: 7165998097423180934}
+  - component: {fileID: 7165998097423180935}
   m_Layer: 5
   m_Name: MainMenuManager
   m_TagString: Untagged
@@ -95901,6 +95902,7 @@ MonoBehaviour:
   uiManager: {fileID: 7165998097423180933}
   sessionManager: {fileID: 7165998097423180932}
   gamemodeManager: {fileID: 7165998097423180931}
+  privateMatchSetupManager: {fileID: 7165998097423180935}
   voiceOverlayManager: {fileID: 0}
   mainCamera: {fileID: 1505931946}
   menuBlurController: {fileID: 7165998097423180934}
@@ -95996,6 +95998,20 @@ MonoBehaviour:
   closeSpeed: 16
   maxWeight: 1
   instantClose: 0
+--- !u!114 &7165998097423180935
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6277144686235587921}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 48f5cd97c21a03a4388935d42cea2d51, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Game.Menu.MainMenuPrivateMatchSetupManager
+  uiDocument: {fileID: 2437191754305144469}
+  defaultTaggedPlayers: 1
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0

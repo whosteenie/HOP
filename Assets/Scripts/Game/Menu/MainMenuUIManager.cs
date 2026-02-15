@@ -51,7 +51,6 @@ namespace Game.Menu {
 
         // Buttons
         private Button _playButtonMatchmaking;
-        private Button _playButtonPrivate;
         private Button _loadoutButton;
         private Button _optionsButton;
         private Button _creditsButton;
@@ -65,6 +64,8 @@ namespace Game.Menu {
         private Button _cardTeamDeathmatch;
         private Button _cardHopball;
         private Button _cardKoth;
+        private Button _gamemodePrivateMatchButton;
+        private Button _gamemodeWipButton;
 
         // Private Lobby Dropdown
         private VisualElement GamemodeDropdownContainer { get; set; }
@@ -106,12 +107,14 @@ namespace Game.Menu {
         public Button CtxMakeHost { get; private set; }
         public Button CtxKick { get; private set; }
         public Button CtxLeave { get; private set; }
+        public Button CtxSwitchTeam { get; private set; }
         public VisualElement CtxSeparatorManagement { get; private set; }
         public VisualElement CtxSeparatorMute { get; private set; }
 
         // Events
         public System.Action OnPlayMatchmakingClicked;
-        public System.Action OnPlayPrivateClicked;
+        public System.Action OnGamemodePrivateMatchClicked;
+        public System.Action OnGamemodeWipClicked;
         public System.Action<string> OnGamemodeSelected;
         public System.Action OnCancelMatchmakingClicked;
         public System.Action OnLoadoutClicked;
@@ -143,7 +146,6 @@ namespace Game.Menu {
             return new Dictionary<string, System.Type> {
                 { "main-menu-panel", typeof(VisualElement) },
                 { "play-button-matchmaking", typeof(Button) },
-                { "play-button-private", typeof(Button) },
                 { "loadout-button", typeof(Button) },
                 { "options-button", typeof(Button) },
                 { "credits-button", typeof(Button) },
@@ -180,7 +182,6 @@ namespace Game.Menu {
 
             // Buttons (required)
             _playButtonMatchmaking = QRequired<Button>("play-button-matchmaking");
-            _playButtonPrivate = QRequired<Button>("play-button-private");
             _loadoutButton = QRequired<Button>("loadout-button");
             _optionsButton = QRequired<Button>("options-button");
             _creditsButton = QRequired<Button>("credits-button");
@@ -195,6 +196,8 @@ namespace Game.Menu {
             _cardHopball = QOptional<Button>("card-hopball");
             _cardKoth = QOptional<Button>("card-koth");
             _cardGunTag = QOptional<Button>("card-gun-tag");
+            _gamemodePrivateMatchButton = QOptional<Button>("gamemode-private-match-button");
+            _gamemodeWipButton = QOptional<Button>("gamemode-wip-button");
 
             QOptional<VisualElement>("loading-overlay");
             GamemodeDropdownContainer = QOptional<VisualElement>("gamemode-dropdown-container");
@@ -247,7 +250,6 @@ namespace Game.Menu {
 
             _buttons = new List<Button> {
                 _playButtonMatchmaking,
-                _playButtonPrivate,
                 _loadoutButton,
                 _optionsButton,
                 _creditsButton,
@@ -255,7 +257,9 @@ namespace Game.Menu {
                 _cardTeamDeathmatch,
                 _cardHopball,
                 _cardKoth,
-                _cardGunTag
+                _cardGunTag,
+                _gamemodePrivateMatchButton,
+                _gamemodeWipButton
                 // CancelMatchmakingButton removed from generic list to prevent double sound registration
             };
 
@@ -278,11 +282,12 @@ namespace Game.Menu {
             CtxMakeHost = QOptional<Button>("ctx-make-host");
             CtxKick = QOptional<Button>("ctx-kick");
             CtxLeave = QOptional<Button>("ctx-leave");
+            CtxSwitchTeam = QOptional<Button>("ctx-switch-team");
             CtxSeparatorManagement = QOptional<VisualElement>("ctx-separator-management");
             CtxSeparatorMute = QOptional<VisualElement>("ctx-separator-mute");
             
             // Register hover for Context buttons
-            var ctxButtons = new[] { CtxProfile, CtxSteamProfile, CtxMuteChat, CtxMuteVoice, CtxBlock, CtxMakeHost, CtxKick, CtxLeave };
+            var ctxButtons = new[] { CtxProfile, CtxSteamProfile, CtxMuteChat, CtxMuteVoice, CtxBlock, CtxMakeHost, CtxKick, CtxLeave, CtxSwitchTeam };
             foreach(var b in ctxButtons) {
                 if(b != null) UISoundService.RegisterButtonHover(b);
             }
@@ -333,12 +338,6 @@ namespace Game.Menu {
                 _playButtonMatchmaking.clicked += playMatchHandler;
                 RegisterCleanup(() => _playButtonMatchmaking.clicked -= playMatchHandler);
             }
-            if (_playButtonPrivate != null) {
-                System.Action playPrivateHandler = () => OnPlayPrivateClicked?.Invoke();
-                _playButtonPrivate.clicked += playPrivateHandler;
-                RegisterCleanup(() => _playButtonPrivate.clicked -= playPrivateHandler);
-            }
-
             System.Action loadoutHandler = () => {
                 if(_playerNameLabel != null) _playerNameLabel.text = Social.StreamerMode.GetLocalDisplayName();
                 OnLoadoutClicked?.Invoke();
@@ -387,6 +386,16 @@ namespace Game.Menu {
                 System.Action cardHandler = () => OnGamemodeSelected?.Invoke("Gun Tag");
                 _cardGunTag.clicked += cardHandler;
                 RegisterCleanup(() => _cardGunTag.clicked -= cardHandler);
+            }
+            if(_gamemodePrivateMatchButton != null) {
+                System.Action privateHandler = () => OnGamemodePrivateMatchClicked?.Invoke();
+                _gamemodePrivateMatchButton.clicked += privateHandler;
+                RegisterCleanup(() => _gamemodePrivateMatchButton.clicked -= privateHandler);
+            }
+            if(_gamemodeWipButton != null) {
+                System.Action wipHandler = () => OnGamemodeWipClicked?.Invoke();
+                _gamemodeWipButton.clicked += wipHandler;
+                RegisterCleanup(() => _gamemodeWipButton.clicked -= wipHandler);
             }
 
             // Back buttons
@@ -503,7 +512,7 @@ namespace Game.Menu {
         /// <summary>
         /// Enables a specific button and registers its hover events.
         /// </summary>
-        public static void EnableButton(Button button) {
+        private static void EnableButton(Button button) {
             SetButtonEnabled(button, true);
         }
 
@@ -534,19 +543,15 @@ namespace Game.Menu {
         public VisualElement PlayGamemodePanel { get; private set; }
 
         public Button GetPlayButtonMatchmaking() => _playButtonMatchmaking;
-        public Button GetPlayButtonPrivate() => _playButtonPrivate;
 
         /// <summary>
-        /// Enables or disables the primary matchmaking and private game buttons.
+        /// Enables or disables the primary Play (matchmaking) button. Private match is reached via Play -> Gamemode Select -> Private Match.
         /// </summary>
         public void SetMenuButtonsEnabled(bool shouldEnable) {
-            if (shouldEnable) {
+            if(shouldEnable)
                 EnableButton(_playButtonMatchmaking);
-                EnableButton(_playButtonPrivate);
-            } else {
+            else
                 DisableButton(_playButtonMatchmaking);
-                DisableButton(_playButtonPrivate);
-            }
         }
 
         /// <summary>

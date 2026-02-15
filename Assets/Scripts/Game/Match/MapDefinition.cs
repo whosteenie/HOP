@@ -13,6 +13,7 @@ namespace Game.Match {
         [SerializeField] private string sceneName = "Game";
         [SerializeField] private bool enabledInRotation = true;
         [SerializeField, Min(1)] private int selectionWeight = 1;
+        [SerializeField] private Sprite previewImage;
 
         [Header("Supported Gamemodes")]
         [SerializeField] private List<string> supportedGamemodes = new();
@@ -21,6 +22,7 @@ namespace Game.Match {
         public string SceneName => sceneName;
         public bool EnabledInRotation => enabledInRotation;
         public int SelectionWeight => Mathf.Max(1, selectionWeight);
+        public Sprite PreviewImage => previewImage;
         public IReadOnlyList<string> SupportedGamemodes => supportedGamemodes;
 
         public bool SupportsGamemode(string gamemodeId) {

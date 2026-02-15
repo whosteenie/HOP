@@ -14,9 +14,6 @@
                 <ui:Button text="PLAY" name="play-button-matchmaking" class="text-button primary-action"/>
             </ui:VisualElement>
             <ui:VisualElement class="menu-entry">
-                <ui:Button text="PRIVATE MATCH" name="play-button-private" class="text-button primary-action"/>
-            </ui:VisualElement>
-            <ui:VisualElement class="menu-entry">
                 <ui:Button text="LOADOUT" name="loadout-button" class="text-button"/>
             </ui:VisualElement>
             <ui:VisualElement class="menu-entry">
@@ -33,34 +30,101 @@
     </ui:VisualElement>
     <ui:VisualElement name="play-gamemode-panel" picking-mode="Ignore" class="panel full-abs hidden">
         <ui:Label text="SELECT GAMEMODE" name="gamemode-title" class="title title-l gamemode-selection-header"/>
-        <ui:VisualElement name="gamemode-cards-container" class="gamemode-cards-scroll">
-            <ui:Button name="card-deathmatch" class="gamemode-card">
-                <ui:VisualElement class="gamemode-card-image dm-image"/>
-                <ui:Label text="DEATHMATCH" class="gamemode-card-title"/>
-                <ui:Label text="Free-for-all combat. First to reach the score limit wins." class="gamemode-card-desc"/>
-            </ui:Button>
-            <ui:Button name="card-team-deathmatch" class="gamemode-card">
-                <ui:VisualElement class="gamemode-card-image tdm-image"/>
-                <ui:Label text="TEAM DEATHMATCH" class="gamemode-card-title"/>
-                <ui:Label text="Two teams battle for supremacy. Work together to win." class="gamemode-card-desc"/>
-            </ui:Button>
-            <ui:Button name="card-hopball" class="gamemode-card">
-                <ui:VisualElement class="gamemode-card-image hopball-image"/>
-                <ui:Label text="HOPBALL" class="gamemode-card-title"/>
-                <ui:Label text="Race for the Hopball. Hold it to drain energy and score - then run for your life." class="gamemode-card-desc"/>
-            </ui:Button>
-            <ui:Button name="card-koth" class="gamemode-card">
-                <ui:VisualElement class="gamemode-card-image koth-image"/>
-                <ui:Label text="KING OF THE HILL" class="gamemode-card-title"/>
-                <ui:Label text="Capture and hold the objective to earn points." class="gamemode-card-desc"/>
-            </ui:Button>
-            <ui:Button name="card-gun-tag" class="gamemode-card">
-                <ui:VisualElement class="gamemode-card-image tag-image"/>
-                <ui:Label text="GUN TAG" class="gamemode-card-title"/>
-                <ui:Label text="High-stakes Tag. One hit and you&apos;re IT. Keep your eyes peeled!" class="gamemode-card-desc"/>
-            </ui:Button>
+        <ui:VisualElement name="gamemode-layout-row" class="gamemode-layout-row">
+            <ui:VisualElement name="gamemode-cards-container" class="gamemode-cards-scroll">
+                <ui:Button name="card-deathmatch" class="gamemode-card">
+                    <ui:VisualElement class="gamemode-card-image dm-image"/>
+                    <ui:Label text="DEATHMATCH" class="gamemode-card-title"/>
+                    <ui:Label text="Free-for-all combat. First to reach the score limit wins." class="gamemode-card-desc"/>
+                </ui:Button>
+                <ui:Button name="card-team-deathmatch" class="gamemode-card">
+                    <ui:VisualElement class="gamemode-card-image tdm-image"/>
+                    <ui:Label text="TEAM DEATHMATCH" class="gamemode-card-title"/>
+                    <ui:Label text="Two teams battle for supremacy. Work together to win." class="gamemode-card-desc"/>
+                </ui:Button>
+                <ui:Button name="card-hopball" class="gamemode-card">
+                    <ui:VisualElement class="gamemode-card-image hopball-image"/>
+                    <ui:Label text="HOPBALL" class="gamemode-card-title"/>
+                    <ui:Label text="Race for the Hopball. Hold it to drain energy and score - then run for your life." class="gamemode-card-desc"/>
+                </ui:Button>
+                <ui:Button name="card-koth" class="gamemode-card">
+                    <ui:VisualElement class="gamemode-card-image koth-image"/>
+                    <ui:Label text="KING OF THE HILL" class="gamemode-card-title"/>
+                    <ui:Label text="Capture and hold the objective to earn points." class="gamemode-card-desc"/>
+                </ui:Button>
+                <ui:Button name="card-gun-tag" class="gamemode-card">
+                    <ui:VisualElement class="gamemode-card-image tag-image"/>
+                    <ui:Label text="GUN TAG" class="gamemode-card-title"/>
+                    <ui:Label text="High-stakes Tag. One hit and you&apos;re IT. Keep your eyes peeled!" class="gamemode-card-desc"/>
+                </ui:Button>
+                <ui:VisualElement name="gamemode-side-actions-stack" class="gamemode-side-actions-stack">
+                    <ui:Button name="gamemode-private-match-button" class="gamemode-side-action-card gamemode-side-action-first">
+                        <ui:Label text="PRIVATE MATCH" class="gamemode-side-action-title"/>
+                        <ui:Label text="Start a custom private session." class="gamemode-side-action-desc"/>
+                    </ui:Button>
+                    <ui:Button name="gamemode-wip-button" class="gamemode-side-action-card">
+                        <ui:Label text="WIP" class="gamemode-side-action-title"/>
+                        <ui:Label text="Reserved for future mode flow." class="gamemode-side-action-desc"/>
+                    </ui:Button>
+                </ui:VisualElement>
+            </ui:VisualElement>
         </ui:VisualElement>
         <ui:Button text="BACK" name="back-gamemodes-to-main" class="menu-chip menu-chip-enabled back-button gamemode-back-btn"/>
+    </ui:VisualElement>
+    <ui:VisualElement name="private-match-setup-panel" picking-mode="Ignore" class="panel full-abs hidden">
+        <ui:Label text="PRIVATE MATCH SETUP" name="private-match-setup-title" class="title title-l private-match-setup-header"/>
+        <ui:VisualElement name="private-match-setup-container" class="private-match-setup-container">
+            <ui:VisualElement class="private-match-settings-column">
+                <ui:ScrollView name="private-match-settings-scroll" class="private-match-settings-scroll">
+                    <ui:VisualElement name="private-match-settings-content" class="private-match-settings-content">
+                        <ui:VisualElement class="setting-row">
+                            <ui:Label text="GAMEMODE" class="setting-label"/>
+                            <ui:DropdownField name="private-match-gamemode-dropdown" class="options-dropdown private-match-dropdown"/>
+                        </ui:VisualElement>
+                        <ui:VisualElement class="setting-row">
+                            <ui:Label text="MAP" class="setting-label"/>
+                            <ui:DropdownField name="private-match-map-dropdown" class="options-dropdown private-match-dropdown"/>
+                        </ui:VisualElement>
+                        <ui:VisualElement class="setting-row">
+                            <ui:Label text="MATCH TIMER (SECONDS)" class="setting-label"/>
+                            <ui:IntegerField name="private-match-timer-input" value="600" class="value-input private-match-input"/>
+                        </ui:VisualElement>
+                        <ui:VisualElement name="private-match-score-row" class="setting-row">
+                            <ui:Label text="SCORE TO WIN" class="setting-label"/>
+                            <ui:IntegerField name="private-match-score-input" value="50" class="value-input private-match-input"/>
+                        </ui:VisualElement>
+                        <ui:VisualElement name="private-match-koth-speed-row" class="setting-row hidden">
+                            <ui:Label text="HILL SPEED" class="setting-label"/>
+                            <ui:IntegerField name="private-match-koth-speed-input" value="1" class="value-input private-match-input"/>
+                        </ui:VisualElement>
+                        <ui:VisualElement name="private-match-tagged-row" class="setting-row">
+                            <ui:Label text="TAGGED PLAYERS" class="setting-label"/>
+                            <ui:IntegerField name="private-match-tagged-input" value="1" class="value-input private-match-input"/>
+                        </ui:VisualElement>
+                        <ui:Label text="" name="private-match-validation-label" class="private-match-status-label"/>
+                    </ui:VisualElement>
+                </ui:ScrollView>
+                <ui:VisualElement name="private-match-map-preview-container" class="private-match-map-preview-container">
+                    <ui:VisualElement name="private-match-map-preview-image" class="private-match-map-preview-image">
+                        <ui:Label text="WIP" name="private-match-map-preview-wip" class="private-match-map-preview-wip"/>
+                    </ui:VisualElement>
+                </ui:VisualElement>
+            </ui:VisualElement>
+            <ui:VisualElement class="private-match-preview-column">
+                <ui:VisualElement name="private-match-preview-ffa" class="private-match-preview-card">
+                    <ui:ScrollView name="private-match-ffa-list" class="private-match-roster-list"/>
+                </ui:VisualElement>
+                <ui:VisualElement name="private-match-preview-teams" class="private-match-preview-card hidden">
+                    <ui:ScrollView name="private-match-team-a-list" class="private-match-roster-list"/>
+                    <ui:Label text="VS" class="private-match-vs-label"/>
+                    <ui:ScrollView name="private-match-team-b-list" class="private-match-roster-list"/>
+                </ui:VisualElement>
+            </ui:VisualElement>
+        </ui:VisualElement>
+        <ui:VisualElement class="private-match-setup-buttons">
+            <ui:Button text="BACK" name="private-match-back-button" class="menu-chip menu-chip-enabled back-button"/>
+            <ui:Button text="START MATCH" name="private-match-start-button" class="menu-chip menu-chip-enabled"/>
+        </ui:VisualElement>
     </ui:VisualElement>
     <ui:VisualElement name="loadout-panel" class="panel full-abs center-xy hidden">
         <ui:VisualElement name="name-flex">
@@ -378,6 +442,7 @@
         <ui:Button text="Mute Voice" name="ctx-mute-voice" class="context-menu-item"/>
         <ui:Button text="Block Player" name="ctx-block" class="context-menu-item"/>
         <ui:VisualElement name="ctx-separator-management" class="context-menu-separator"/>
+        <ui:Button text="Switch Team" name="ctx-switch-team" class="context-menu-item"/>
         <ui:Button text="Make Host" name="ctx-make-host" class="context-menu-item"/>
         <ui:Button text="Kick Member" name="ctx-kick" class="context-menu-item"/>
         <ui:Button text="Leave Party" name="ctx-leave" class="context-menu-item"/>

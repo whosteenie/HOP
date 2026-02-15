@@ -290,6 +290,11 @@ namespace Game.UI {
         private void SetMatchTime(int secondsRemaining) {
             if(_matchTimerLabel == null) return;
 
+            if(secondsRemaining < 0) {
+                _matchTimerLabel.text = "INFINITE";
+                return;
+            }
+
             if(secondsRemaining < 0)
                 secondsRemaining = 0;
 
