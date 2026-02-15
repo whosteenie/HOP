@@ -408,7 +408,8 @@ namespace Game.Menu {
 
             _navigatorMissingLogged = false;
             _navigator.Show(panel);
-            SetOptionsOpenState(panel == _optionsPanel);
+            var useMenuOverlay = panel == _optionsPanel || panel == _privateMatchSetupPanel;
+            SetOptionsOpenState(useMenuOverlay);
             UpdateDiscordStatusForPanel(panel);
             
             // Refresh challenges when main menu panel is shown

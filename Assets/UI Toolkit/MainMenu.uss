@@ -1792,9 +1792,17 @@
 }
 
 .private-match-setup-header {
-    margin-top: 40px;
+    margin-top: 72px;
     margin-bottom: 20px;
     -unity-text-align: upper-center;
+}
+
+#private-match-setup-panel {
+    background-color: rgba(6, 8, 12, 0.9);
+}
+
+.options-open #private-match-setup-panel {
+    background-color: rgba(4, 6, 10, 0.94);
 }
 
 .private-match-setup-container {
@@ -1804,6 +1812,7 @@
     align-self: center;
     justify-content: flex-start;
     align-items: flex-start;
+    margin-top: 14px;
     padding-left: 48px;
     padding-right: 48px;
 }
@@ -1846,7 +1855,6 @@
 }
 
 .private-match-preview-card {
-    min-height: 320px;
     border-width: 1px;
     border-color: rgba(255, 60, 60, 0.35);
     border-radius: 6px;
@@ -1861,8 +1869,11 @@
 
 .private-match-roster-list {
     flex-grow: 1;
-    min-height: 120px;
-    max-height: 280px;
+    height: 100%;
+    min-height: 0;
+    max-height: none;
+    background-color: rgba(0, 0, 0, 0);
+    border-width: 0;
 }
 
 .private-match-preview-teams {
@@ -1870,13 +1881,22 @@
     align-items: stretch;
 }
 
-.private-match-vs-label {
-    color: rgb(255, 110, 110);
-    font-size: 18px;
-    -unity-font-style: bold;
-    -unity-text-align: middle-center;
-    margin-top: 8px;
-    margin-bottom: 8px;
+#private-match-preview-teams,
+#private-match-preview-ffa {
+    height: auto;
+}
+
+#private-match-ffa-list {
+    flex-grow: 1;
+    height: auto;
+    min-height: 0;
+    max-height: none;
+}
+
+#private-match-team-a-list,
+#private-match-team-b-list {
+    flex-grow: 0;
+    height: auto;
 }
 
 .private-match-dropdown {
@@ -1917,9 +1937,91 @@
 }
 
 .private-match-status-label {
-    margin-top: 18px;
+    margin-top: 10px;
     color: rgba(240, 240, 240, 0.8);
     font-size: 14px;
+}
+
+.private-match-roster-list .unity-scroll-view__content-container {
+    padding: 0;
+}
+
+.private-match-roster-list .unity-scroll-view__vertical-scroller {
+    display: none;
+    width: 0;
+    min-width: 0;
+    max-width: 0;
+}
+
+.private-match-vs-label {
+    font-size: 24px;
+    -unity-font-style: bold;
+    color: rgb(255, 110, 110);
+    -unity-text-align: middle-center;
+    margin-top: 8px;
+    margin-bottom: 8px;
+    align-self: center;
+}
+
+.private-match-preview-row {
+    min-height: 54px;
+    max-height: 54px;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    border-width: 1px;
+    border-color: rgba(255, 60, 60, 0.3);
+    border-radius: 6px;
+    background-color: rgba(14, 16, 22, 0.88);
+    padding-left: 14px;
+    padding-right: 14px;
+    margin-bottom: 8px;
+}
+
+.private-match-preview-left {
+    flex-direction: row;
+    align-items: center;
+}
+
+.private-match-preview-avatar {
+    width: 34px;
+    height: 34px;
+    min-width: 34px;
+    min-height: 34px;
+    border-radius: 4px;
+    border-width: 1px;
+    border-color: rgba(255, 120, 120, 0.45);
+    margin-right: 12px;
+    background-color: rgba(12, 12, 18, 0.9);
+    -unity-background-scale-mode: scale-and-crop;
+    scale: 1 1;
+}
+
+.private-match-preview-avatar.steam-avatar-flip {
+    scale: 1 -1;
+}
+
+.private-match-preview-row-empty {
+    border-color: rgba(255, 60, 60, 0.16);
+    background-color: rgba(10, 12, 18, 0.5);
+}
+
+.private-match-preview-row-local {
+    border-color: rgba(255, 130, 130, 0.6);
+    background-color: rgba(80, 30, 30, 0.35);
+}
+
+.private-match-preview-name {
+    color: rgb(240, 240, 240);
+    font-size: 16px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-left;
+}
+
+.private-match-preview-meta {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 13px;
+    -unity-text-align: middle-right;
 }
 
 .private-match-setup-buttons {

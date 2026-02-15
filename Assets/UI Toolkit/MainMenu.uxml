@@ -95,11 +95,9 @@
                     <ui:Label text="TAGGED PLAYERS" class="setting-label"/>
                     <ui:IntegerField name="private-match-tagged-input" value="1" class="value-input private-match-input"/>
                 </ui:VisualElement>
-                <ui:Label text="-" name="private-match-status-label" class="private-match-status-label"/>
                 <ui:Label text="" name="private-match-validation-label" class="private-match-status-label"/>
             </ui:VisualElement>
             <ui:VisualElement class="private-match-preview-column">
-                <ui:Label text="TEAM SETUP" class="private-match-preview-title"/>
                 <ui:VisualElement name="private-match-preview-ffa" class="private-match-preview-card">
                     <ui:ScrollView name="private-match-ffa-list" class="private-match-roster-list"/>
                 </ui:VisualElement>

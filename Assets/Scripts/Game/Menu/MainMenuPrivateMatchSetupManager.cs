@@ -58,6 +58,8 @@ namespace Game.Menu {
 
         /// <summary> Draft team index per SteamId (0 = team A, 1 = team B). Only used for team-based gamemodes. </summary>
         private readonly Dictionary<ulong, int> _draftTeamBySteamId = new();
+        private const int MaxLobbySlots = 10;
+        private const int TeamSlots = 5;
 
         private readonly List<MapDefinition> _filteredMaps = new();
         private PrivateMatchDraftSettings _draft;
@@ -219,7 +221,10 @@ namespace Game.Menu {
             _startButton.clicked += OnStartClicked;
             RegisterCleanup(() => _startButton.clicked -= OnStartClicked);
 
-            // Back button is wired by MainMenuManager so Back always returns to Gamemode Select
+            if(_backButton != null) {
+                _backButton.clicked += OnBackClicked;
+                RegisterCleanup(() => _backButton.clicked -= OnBackClicked);
+            }
         }
 
         private List<string> BuildGamemodeChoices() {
@@ -380,11 +385,27 @@ namespace Game.Menu {
                 var teamBContainer = _teamBList != null ? _teamBList.contentContainer : null;
                 if(teamAContainer != null) teamAContainer.Clear();
                 if(teamBContainer != null) teamBContainer.Clear();
+                var teamACount = 0;
+                var teamBCount = 0;
                 foreach(var m in members) {
                     var team = _draftTeamBySteamId.TryGetValue(m.Id.Value, out var t) ? t : 0;
                     var container = team == 0 ? teamAContainer : teamBContainer;
-                    if(container != null)
-                        CreatePreviewRow(m, container, isTeamBased);
+                    if(container != null) {
+                        CreatePreviewRow(m, container);
+                        if(team == 0) teamACount++;
+                        else teamBCount++;
+                    }
+                }
+
+                if(teamAContainer != null) {
+                    for(var i = teamACount; i < TeamSlots; i++) {
+                        CreateEmptyPreviewRow(teamAContainer, i + 1);
+                    }
+                }
+                if(teamBContainer != null) {
+                    for(var i = teamBCount; i < TeamSlots; i++) {
+                        CreateEmptyPreviewRow(teamBContainer, i + 1);
+                    }
                 }
             } else {
                 _previewTeams.AddToClassList("hidden");
@@ -393,9 +414,18 @@ namespace Game.Menu {
                 _previewFfa.style.display = DisplayStyle.Flex;
                 var ffaContainer = _ffaList != null ? _ffaList.contentContainer : null;
                 if(ffaContainer != null) ffaContainer.Clear();
-                foreach(var m in members)
-                    if(ffaContainer != null)
-                        CreatePreviewRow(m, ffaContainer, false);
+                var filled = 0;
+                foreach(var m in members) {
+                    if(ffaContainer != null) {
+                        CreatePreviewRow(m, ffaContainer);
+                        filled++;
+                    }
+                }
+                if(ffaContainer != null) {
+                    for(var i = filled; i < MaxLobbySlots; i++) {
+                        CreateEmptyPreviewRow(ffaContainer, i + 1);
+                    }
+                }
             }
         }
 
@@ -434,21 +464,18 @@ namespace Game.Menu {
             RefreshTeamPreview();
         }
 
-        private void CreatePreviewRow(Friend member, VisualElement container, bool isTeamBased) {
+        private void CreatePreviewRow(Friend member, VisualElement container) {
             if(container == null) return;
-            if(_partyMemberTemplate == null) {
-                Debug.LogWarning("[PrivateMatchSetup] CreatePreviewRow: _partyMemberTemplate is null, cannot create row.");
-                return;
-            }
-
-            var instance = _partyMemberTemplate.Instantiate();
-            var row = instance.Q("party-member-row");
-            var avatarBox = instance.Q("avatar-box");
-            var nameLabel = instance.Q<Label>("player-name-label");
-            var localXpRow = instance.Q<VisualElement>("local-xp-row");
-            if(row == null || nameLabel == null) return;
-            if(avatarBox == null && Debug.isDebugBuild)
-                Debug.LogWarning("[PrivateMatchSetup] CreatePreviewRow: template has no 'avatar-box', Steam pics will not show.");
+            var row = new VisualElement();
+            row.AddToClassList("private-match-preview-row");
+            var left = new VisualElement();
+            left.AddToClassList("private-match-preview-left");
+            var avatar = new VisualElement();
+            avatar.AddToClassList("private-match-preview-avatar");
+            var nameLabel = new Label();
+            nameLabel.AddToClassList("private-match-preview-name");
+            var metaLabel = new Label();
+            metaLabel.AddToClassList("private-match-preview-meta");
 
             var displayName = member.Name;
             var avatarHidden = false;
@@ -464,15 +491,19 @@ namespace Game.Menu {
                 iconId = PlayerIconPicker.PickDeterministicIconId(member.Id.Value, avatarHidden);
 
             nameLabel.text = displayName;
-            if(localXpRow != null) {
-                localXpRow.AddToClassList("hidden");
-                localXpRow.style.display = DisplayStyle.None;
+            ApplyPreviewRowAvatarFallback(avatar, iconId, avatarHidden);
+            LoadSteamAvatarIntoPreviewRow(avatar, member.Id, iconId, avatarHidden);
+            var isLocal = SteamClient.IsValid && member.Id == SteamClient.SteamId;
+            if(isLocal) {
+                row.AddToClassList("private-match-preview-row-local");
+                metaLabel.text = "YOU";
+            } else {
+                metaLabel.text = "READY";
             }
-
-            if(avatarBox != null) {
-                ApplyPreviewRowAvatarFallback(avatarBox, iconId, avatarHidden);
-                LoadSteamAvatarIntoPreviewRow(avatarBox, member.Id, iconId, avatarHidden);
-            }
+            left.Add(avatar);
+            left.Add(nameLabel);
+            row.Add(left);
+            row.Add(metaLabel);
 
             var steamId = member.Id;
             row.RegisterCallback<PointerDownEvent>(evt => {
@@ -489,7 +520,25 @@ namespace Game.Menu {
             container.Add(row);
         }
 
+        private static void CreateEmptyPreviewRow(VisualElement container, int slotNumber) {
+            if(container == null) return;
+            var row = new VisualElement();
+            row.AddToClassList("private-match-preview-row");
+            row.AddToClassList("private-match-preview-row-empty");
+
+            var name = new Label("-");
+            name.AddToClassList("private-match-preview-name");
+            var meta = new Label("-");
+            meta.AddToClassList("private-match-preview-meta");
+
+            row.Add(name);
+            row.Add(meta);
+            container.Add(row);
+        }
+
         private static void ApplyPreviewRowAvatarFallback(VisualElement avatarBox, string iconId, bool hideAvatar) {
+            if(avatarBox == null) return;
+
             avatarBox.style.backgroundImage = StyleKeyword.Null;
             avatarBox.RemoveFromClassList("steam-avatar-flip");
             avatarBox.RemoveFromClassList("default-avatar");
@@ -500,42 +549,28 @@ namespace Game.Menu {
             avatarBox.RemoveFromClassList("player-icon-blue");
             avatarBox.RemoveFromClassList("player-icon-purple");
             avatarBox.RemoveFromClassList("player-icon-white");
+
             var resolved = hideAvatar ? PlayerIconPicker.White : iconId;
             if(string.IsNullOrEmpty(resolved)) resolved = PlayerIconPicker.White;
             avatarBox.AddToClassList("player-icon-" + resolved);
         }
 
-        private static async void LoadSteamAvatarIntoPreviewRow(VisualElement avatarBox, SteamId id, string iconId, bool hideAvatar) {
-            if(Debug.isDebugBuild) {
-                Debug.Log($"[PrivateMatchSetup] LoadSteamAvatar: steamId={id.Value} avatarBox={avatarBox != null} hideAvatar={hideAvatar} SteamValid={SteamClient.IsValid} SteamLoggedOn={SteamClient.IsLoggedOn} SteamManager={SteamManager.Instance != null}");
-            }
+        private static async void LoadSteamAvatarIntoPreviewRow(VisualElement avatarBox, SteamId id, string iconId,
+                                                                bool hideAvatar) {
             if(avatarBox == null || hideAvatar || id.Value == 0) return;
             if(!SteamClient.IsValid || !SteamClient.IsLoggedOn) return;
             if(SteamManager.Instance == null) return;
 
-            avatarBox.RemoveFromClassList("steam-avatar-flip");
-            avatarBox.RemoveFromClassList("default-avatar");
-            avatarBox.RemoveFromClassList("player-icon-red");
-            avatarBox.RemoveFromClassList("player-icon-orange");
-            avatarBox.RemoveFromClassList("player-icon-yellow");
-            avatarBox.RemoveFromClassList("player-icon-green");
-            avatarBox.RemoveFromClassList("player-icon-blue");
-            avatarBox.RemoveFromClassList("player-icon-purple");
-            avatarBox.RemoveFromClassList("player-icon-white");
-
             try {
                 var avatarTex = await SteamManager.Instance.GetAvatarAsync(id);
-                if(Debug.isDebugBuild) {
-                    Debug.Log($"[PrivateMatchSetup] LoadSteamAvatar result: steamId={id.Value} avatarTex={avatarTex != null} avatarBox={avatarBox != null} panel={avatarBox?.panel != null}");
-                }
-                // Apply texture when we have it; avoid relying on panel (often false when async completes before layout).
                 if(avatarTex != null && avatarBox != null) {
                     avatarBox.style.backgroundImage = new StyleBackground(avatarTex);
                     if(!avatarBox.ClassListContains("steam-avatar-flip"))
                         avatarBox.AddToClassList("steam-avatar-flip");
                 }
-            } catch (Exception ex) {
-                if(Debug.isDebugBuild) Debug.LogWarning($"[PrivateMatchSetup] LoadSteamAvatar failed for {id.Value}: {ex.Message}");
+            } catch {
+                // Keep deterministic fallback icon when Steam avatar lookup fails.
+                ApplyPreviewRowAvatarFallback(avatarBox, iconId, hideAvatar);
             }
         }
 
@@ -623,6 +658,11 @@ namespace Game.Menu {
         private void OnStartClicked() {
             UISoundService.PlayButtonClick();
             OnStartRequested?.Invoke(_draft);
+        }
+
+        private void OnBackClicked() {
+            UISoundService.PlayButtonClick(isBack: true);
+            OnBackRequested?.Invoke();
         }
 
         private void RefreshStatusLabel() {
