@@ -554,6 +554,7 @@ namespace Game.Menu {
             string mapId,
             int matchTimerSeconds,
             int scoreToWin,
+            int kothHillSpeed,
             int taggedPlayers,
             IReadOnlyDictionary<ulong, int> teamAssignments) {
             if(SessionManager.Instance == null) return;
@@ -562,7 +563,7 @@ namespace Game.Menu {
             _privateMatchStartInFlight = true;
             try {
                 SessionManager.Instance.ApplyPrivateMatchSettings(
-                    mode, mapId, matchTimerSeconds, scoreToWin, taggedPlayers, teamAssignments);
+                    mode, mapId, matchTimerSeconds, scoreToWin, kothHillSpeed, taggedPlayers, teamAssignments);
 
                 if(Application.internetReachability == NetworkReachability.NotReachable) {
                     if(uiManager != null) {

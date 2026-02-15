@@ -26,6 +26,7 @@ namespace Game.Menu {
             public string MapId;
             public int MatchTimerSeconds;
             public int ScoreToWin;
+            public int KothHillSpeed;
             public int TaggedPlayers;
         }
 
@@ -42,11 +43,14 @@ namespace Game.Menu {
         private DropdownField _mapDropdown;
         private IntegerField _matchTimerField;
         private IntegerField _scoreToWinField;
+        private IntegerField _kothHillSpeedField;
         private IntegerField _taggedPlayersField;
         private Button _startButton;
         private Button _backButton;
         private Label _statusLabel;
         private Label _validationLabel;
+        private VisualElement _scoreToWinRow;
+        private VisualElement _kothHillSpeedRow;
         private VisualElement _taggedRow;
 
         // WS-E: Team preview (FFA list vs team A / VS / team B)
@@ -71,6 +75,7 @@ namespace Game.Menu {
                 { "private-match-map-dropdown", typeof(DropdownField) },
                 { "private-match-timer-input", typeof(IntegerField) },
                 { "private-match-score-input", typeof(IntegerField) },
+                { "private-match-koth-speed-input", typeof(IntegerField) },
                 { "private-match-tagged-input", typeof(IntegerField) },
                 { "private-match-start-button", typeof(Button) }
             };
@@ -81,11 +86,14 @@ namespace Game.Menu {
             _mapDropdown = QRequired<DropdownField>("private-match-map-dropdown");
             _matchTimerField = QRequired<IntegerField>("private-match-timer-input");
             _scoreToWinField = QRequired<IntegerField>("private-match-score-input");
+            _kothHillSpeedField = QRequired<IntegerField>("private-match-koth-speed-input");
             _taggedPlayersField = QRequired<IntegerField>("private-match-tagged-input");
             _startButton = QRequired<Button>("private-match-start-button");
             _backButton = QOptional<Button>("private-match-back-button");
             _statusLabel = QOptional<Label>("private-match-status-label");
             _validationLabel = QOptional<Label>("private-match-validation-label");
+            _scoreToWinRow = QOptional<VisualElement>("private-match-score-row");
+            _kothHillSpeedRow = QOptional<VisualElement>("private-match-koth-speed-row");
             _taggedRow = QOptional<VisualElement>("private-match-tagged-row");
             _previewFfa = Root?.Q("private-match-preview-ffa");
             _previewTeams = Root?.Q("private-match-preview-teams");
@@ -96,6 +104,8 @@ namespace Game.Menu {
             SetupDefaults();
             BindEvents();
             RefreshMapChoicesForGamemode(_draft.GamemodeId);
+            RefreshScoreToWinRowVisibility();
+            RefreshKothHillSpeedRowVisibility();
             RefreshTaggedRowVisibility();
             RefreshStatusLabel();
             RefreshValidationAndStartButton();
@@ -155,6 +165,8 @@ namespace Game.Menu {
                 _suppressEvents = false;
             }
             RefreshMapChoicesForGamemode(_draft.GamemodeId);
+            RefreshScoreToWinRowVisibility();
+            RefreshKothHillSpeedRowVisibility();
             RefreshTaggedRowVisibility();
             RefreshStatusLabel();
             RefreshValidationAndStartButton();
@@ -186,6 +198,7 @@ namespace Game.Menu {
                 GamemodeId = initialMode,
                 MatchTimerSeconds = Mathf.Max(60, GetDefaultMatchTimerForGamemode(initialMode)),
                 ScoreToWin = Mathf.Max(1, GetDefaultScoreToWinForGamemode(initialMode)),
+                KothHillSpeed = Mathf.Max(1, GetDefaultKothHillSpeed()),
                 TaggedPlayers = Mathf.Max(1, defaultTaggedPlayers),
                 MapId = string.Empty
             };
@@ -194,12 +207,22 @@ namespace Game.Menu {
             _gamemodeDropdown.value = _draft.GamemodeId;
             _matchTimerField.value = _draft.MatchTimerSeconds;
             _scoreToWinField.value = _draft.ScoreToWin;
+            _kothHillSpeedField.value = _draft.KothHillSpeed;
             _taggedPlayersField.value = _draft.TaggedPlayers;
             _suppressEvents = false;
+            ApplyInfiniteFieldDisplay(_matchTimerField, _draft.MatchTimerSeconds == 0);
+            ApplyInfiniteFieldDisplay(_scoreToWinField, _draft.ScoreToWin == 0);
+            RefreshScoreToWinRowVisibility();
+            RefreshKothHillSpeedRowVisibility();
             RefreshTaggedRowVisibility();
         }
 
         private void BindEvents() {
+            RegisterDigitsOnlyInput(_matchTimerField);
+            RegisterDigitsOnlyInput(_scoreToWinField);
+            RegisterDigitsOnlyInput(_kothHillSpeedField);
+            RegisterDigitsOnlyInput(_taggedPlayersField);
+
             _gamemodeDropdown.RegisterValueChangedCallback(OnGamemodeChanged);
             RegisterCleanup(() => _gamemodeDropdown.UnregisterValueChangedCallback(OnGamemodeChanged));
 
@@ -208,11 +231,17 @@ namespace Game.Menu {
 
             _matchTimerField.RegisterValueChangedCallback(OnTimerChanged);
             RegisterCleanup(() => _matchTimerField.UnregisterValueChangedCallback(OnTimerChanged));
-            RegisterSanitizeOnCommit(_matchTimerField, 60, int.MaxValue, v => _draft.MatchTimerSeconds = v);
+            RegisterSanitizeOnCommit(_matchTimerField, 0, int.MaxValue, v => _draft.MatchTimerSeconds = v);
+            RegisterInfiniteFieldDisplay(_matchTimerField);
 
             _scoreToWinField.RegisterValueChangedCallback(OnScoreChanged);
             RegisterCleanup(() => _scoreToWinField.UnregisterValueChangedCallback(OnScoreChanged));
-            RegisterSanitizeOnCommit(_scoreToWinField, 1, int.MaxValue, v => _draft.ScoreToWin = v);
+            RegisterSanitizeOnCommit(_scoreToWinField, 0, int.MaxValue, v => _draft.ScoreToWin = v);
+            RegisterInfiniteFieldDisplay(_scoreToWinField);
+
+            _kothHillSpeedField.RegisterValueChangedCallback(OnKothHillSpeedChanged);
+            RegisterCleanup(() => _kothHillSpeedField.UnregisterValueChangedCallback(OnKothHillSpeedChanged));
+            RegisterSanitizeOnCommit(_kothHillSpeedField, 1, int.MaxValue, v => _draft.KothHillSpeed = v);
 
             _taggedPlayersField.RegisterValueChangedCallback(OnTaggedPlayersChanged);
             RegisterCleanup(() => _taggedPlayersField.UnregisterValueChangedCallback(OnTaggedPlayersChanged));
@@ -225,6 +254,79 @@ namespace Game.Menu {
                 _backButton.clicked += OnBackClicked;
                 RegisterCleanup(() => _backButton.clicked -= OnBackClicked);
             }
+        }
+
+        /// <summary>
+        /// Blocks non-digit text entry at input time for integer fields used by private match settings.
+        /// Keeps navigation/edit keys and common shortcuts intact.
+        /// </summary>
+        private void RegisterDigitsOnlyInput(IntegerField field) {
+            if(field == null) return;
+
+            EventCallback<InputEvent> inputHandler = evt => {
+                if(string.IsNullOrEmpty(evt.newData)) return;
+                for(var i = 0; i < evt.newData.Length; i++) {
+                    if(char.IsDigit(evt.newData[i])) continue;
+                    evt.StopImmediatePropagation();
+                    evt.StopPropagation();
+                    return;
+                }
+            };
+
+            EventCallback<KeyDownEvent> keyHandler = evt => {
+                if(IsCommandShortcut(evt)) return;
+                if(IsAllowedEditKey(evt.keyCode)) return;
+                if(IsDigitKey(evt.keyCode)) return;
+                if(char.IsDigit(evt.character)) return;
+                if(evt.character == '\0') return;
+
+                evt.StopImmediatePropagation();
+                evt.StopPropagation();
+            };
+
+            // IntegerField internals vary by Unity version; register on both the field and resolved text input.
+            field.RegisterCallback(inputHandler, TrickleDown.TrickleDown);
+            field.RegisterCallback(keyHandler, TrickleDown.TrickleDown);
+            RegisterCleanup(() => field.UnregisterCallback(inputHandler, TrickleDown.TrickleDown));
+            RegisterCleanup(() => field.UnregisterCallback(keyHandler, TrickleDown.TrickleDown));
+
+            var textInput = field.Q(TextInputBaseField<int>.textInputUssName);
+            if(textInput == null) return;
+
+            textInput.RegisterCallback(inputHandler, TrickleDown.TrickleDown);
+            textInput.RegisterCallback(keyHandler, TrickleDown.TrickleDown);
+            RegisterCleanup(() => textInput.UnregisterCallback(inputHandler, TrickleDown.TrickleDown));
+            RegisterCleanup(() => textInput.UnregisterCallback(keyHandler, TrickleDown.TrickleDown));
+        }
+
+        private static bool IsCommandShortcut(KeyDownEvent evt) {
+            if(!(evt.ctrlKey || evt.commandKey)) return false;
+            return evt.keyCode == KeyCode.A
+                   || evt.keyCode == KeyCode.C
+                   || evt.keyCode == KeyCode.V
+                   || evt.keyCode == KeyCode.X
+                   || evt.keyCode == KeyCode.Z
+                   || evt.keyCode == KeyCode.Y;
+        }
+
+        private static bool IsAllowedEditKey(KeyCode keyCode) {
+            return keyCode == KeyCode.Backspace
+                   || keyCode == KeyCode.Delete
+                   || keyCode == KeyCode.LeftArrow
+                   || keyCode == KeyCode.RightArrow
+                   || keyCode == KeyCode.UpArrow
+                   || keyCode == KeyCode.DownArrow
+                   || keyCode == KeyCode.Home
+                   || keyCode == KeyCode.End
+                   || keyCode == KeyCode.Tab
+                   || keyCode == KeyCode.Return
+                   || keyCode == KeyCode.KeypadEnter
+                   || keyCode == KeyCode.Escape;
+        }
+
+        private static bool IsDigitKey(KeyCode keyCode) {
+            return keyCode >= KeyCode.Alpha0 && keyCode <= KeyCode.Alpha9
+                   || keyCode >= KeyCode.Keypad0 && keyCode <= KeyCode.Keypad9;
         }
 
         private List<string> BuildGamemodeChoices() {
@@ -259,9 +361,15 @@ namespace Game.Menu {
             return 50;
         }
 
+        private static int GetDefaultKothHillSpeed() {
+            var settings = MatchSettingsManager.Instance;
+            return settings != null ? Mathf.Max(1, settings.GetKothHillSpeed()) : 1;
+        }
+
         private void ApplyGamemodeDefaults(string gamemodeId) {
             _draft.MatchTimerSeconds = Mathf.Max(60, GetDefaultMatchTimerForGamemode(gamemodeId));
             _draft.ScoreToWin = Mathf.Max(1, GetDefaultScoreToWinForGamemode(gamemodeId));
+            _draft.KothHillSpeed = Mathf.Max(1, GetDefaultKothHillSpeed());
             if(_matchTimerField != null) {
                 _suppressEvents = true;
                 _matchTimerField.value = _draft.MatchTimerSeconds;
@@ -270,6 +378,11 @@ namespace Game.Menu {
             if(_scoreToWinField != null) {
                 _suppressEvents = true;
                 _scoreToWinField.value = _draft.ScoreToWin;
+                _suppressEvents = false;
+            }
+            if(_kothHillSpeedField != null) {
+                _suppressEvents = true;
+                _kothHillSpeedField.value = _draft.KothHillSpeed;
                 _suppressEvents = false;
             }
         }
@@ -321,6 +434,39 @@ namespace Game.Menu {
 
         private static bool IsGunTag(string gamemodeId) {
             return string.Equals(gamemodeId, "Gun Tag", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool IsKoth(string gamemodeId) {
+            return string.Equals(gamemodeId, "KOTH", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool UsesScoreWinCondition(string gamemodeId) {
+            return IsKoth(gamemodeId)
+                   || string.Equals(gamemodeId, "Hopball", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private void RefreshScoreToWinRowVisibility() {
+            if(_scoreToWinRow == null) return;
+            var show = UsesScoreWinCondition(_draft.GamemodeId);
+            if(show) {
+                _scoreToWinRow.RemoveFromClassList("hidden");
+                _scoreToWinRow.style.display = DisplayStyle.Flex;
+            } else {
+                _scoreToWinRow.AddToClassList("hidden");
+                _scoreToWinRow.style.display = DisplayStyle.None;
+            }
+        }
+
+        private void RefreshKothHillSpeedRowVisibility() {
+            if(_kothHillSpeedRow == null) return;
+            var show = IsKoth(_draft.GamemodeId);
+            if(show) {
+                _kothHillSpeedRow.RemoveFromClassList("hidden");
+                _kothHillSpeedRow.style.display = DisplayStyle.Flex;
+            } else {
+                _kothHillSpeedRow.AddToClassList("hidden");
+                _kothHillSpeedRow.style.display = DisplayStyle.None;
+            }
         }
 
         private void RefreshTaggedRowVisibility() {
@@ -587,6 +733,8 @@ namespace Game.Menu {
             _draft.GamemodeId = string.IsNullOrWhiteSpace(evt.newValue) ? "Deathmatch" : evt.newValue;
             ApplyGamemodeDefaults(_draft.GamemodeId);
             RefreshMapChoicesForGamemode(_draft.GamemodeId);
+            RefreshScoreToWinRowVisibility();
+            RefreshKothHillSpeedRowVisibility();
             RefreshTaggedRowVisibility();
             RefreshStatusLabel();
             RefreshValidationAndStartButton();
@@ -634,6 +782,7 @@ namespace Game.Menu {
                 } else {
                     setDraft(clamped);
                 }
+                ApplyInfiniteFieldDisplay(field, clamped == 0);
                 RefreshStatusLabel();
                 RefreshValidationAndStartButton();
             }
@@ -649,9 +798,39 @@ namespace Game.Menu {
             RegisterCleanup(() => field.UnregisterCallback(keyHandler));
         }
 
+        private void RegisterInfiniteFieldDisplay(IntegerField field) {
+            if(field == null) return;
+            EventCallback<FocusInEvent> focusInHandler = _ => {
+                // While editing, show numeric value so keyboard input works naturally.
+                ApplyInfiniteFieldDisplay(field, false);
+            };
+            EventCallback<BlurEvent> blurHandler = _ => {
+                ApplyInfiniteFieldDisplay(field, field.value == 0);
+            };
+            field.RegisterCallback(focusInHandler);
+            field.RegisterCallback(blurHandler);
+            RegisterCleanup(() => field.UnregisterCallback(focusInHandler));
+            RegisterCleanup(() => field.UnregisterCallback(blurHandler));
+        }
+
+        private static void ApplyInfiniteFieldDisplay(IntegerField field, bool showInfinite) {
+            if(field == null) return;
+            var textRoot = field.Q(TextInputBaseField<int>.textInputUssName);
+            if(textRoot == null) return;
+            var textElement = textRoot.Q<TextElement>();
+            if(textElement == null) return;
+            textElement.text = showInfinite ? "INFINITE" : field.value.ToString();
+        }
+
         private void OnTaggedPlayersChanged(ChangeEvent<int> evt) {
             if(_suppressEvents) return;
             _draft.TaggedPlayers = evt.newValue;
+            RefreshStatusLabel();
+        }
+
+        private void OnKothHillSpeedChanged(ChangeEvent<int> evt) {
+            if(_suppressEvents) return;
+            _draft.KothHillSpeed = evt.newValue;
             RefreshStatusLabel();
         }
 
@@ -669,8 +848,10 @@ namespace Game.Menu {
             if(_statusLabel == null) return;
             var mode = string.IsNullOrWhiteSpace(_draft.GamemodeId) ? "UNKNOWN" : _draft.GamemodeId.ToUpperInvariant();
             var map = string.IsNullOrWhiteSpace(_draft.MapId) ? "UNKNOWN" : _draft.MapId.ToUpperInvariant();
+            var timeText = _draft.MatchTimerSeconds <= 0 ? "INFINITE" : $"{_draft.MatchTimerSeconds}s";
+            var scoreText = _draft.ScoreToWin <= 0 ? "INFINITE" : _draft.ScoreToWin.ToString();
             _statusLabel.text =
-                $"MODE: {mode}  |  MAP: {map}  |  TIME: {_draft.MatchTimerSeconds}s  |  SCORE: {_draft.ScoreToWin}";
+                $"MODE: {mode}  |  MAP: {map}  |  TIME: {timeText}  |  SCORE: {scoreText}";
         }
     }
 }

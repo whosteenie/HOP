@@ -294,6 +294,7 @@ namespace Game.Menu {
                     draft.MapId,
                     draft.MatchTimerSeconds,
                     draft.ScoreToWin,
+                    draft.KothHillSpeed,
                     draft.TaggedPlayers,
                     privateMatchSetupManager.GetDraftTeamAssignments()).Forget();
             };

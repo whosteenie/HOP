@@ -26,6 +26,10 @@ namespace Game.Match {
 
         private int EffectiveWinScore =>
             MatchSettingsManager.Instance != null ? MatchSettingsManager.Instance.GetScoreToWin() : winScore;
+        private int EffectivePointsPerInterval =>
+            MatchSettingsManager.Instance != null
+                ? Mathf.Max(1, MatchSettingsManager.Instance.GetKothHillSpeed())
+                : Mathf.Max(1, pointsPerInterval);
 
         [Header("Spawn Points")]
         [Tooltip("Additional Y offset when spawning to prevent floor clipping")] [SerializeField]
@@ -299,10 +303,10 @@ namespace Game.Match {
                 case null:
                     return; // No points
                 case SpawnPoint.Team.TeamA:
-                    _teamAScore.Value += pointsPerInterval;
+                    _teamAScore.Value += EffectivePointsPerInterval;
                     break;
                 case SpawnPoint.Team.TeamB:
-                    _teamBScore.Value += pointsPerInterval;
+                    _teamBScore.Value += EffectivePointsPerInterval;
                     break;
                 default:
                     throw new ArgumentOutOfRangeException();
@@ -312,6 +316,7 @@ namespace Game.Match {
         }
 
         private void CheckWinCondition() {
+            if(EffectiveWinScore <= 0) return; // Infinite score limit.
             if(_teamAScore.Value >= EffectiveWinScore) {
                 EndGame(SpawnPoint.Team.TeamA);
             } else if(_teamBScore.Value >= EffectiveWinScore) {

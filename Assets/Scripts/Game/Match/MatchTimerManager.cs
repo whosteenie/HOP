@@ -225,8 +225,13 @@ namespace Game.Match {
                 // HopballSpawnManager will handle spawning
             }
 
-            // Start the actual match timer
-            _timerRoutine = StartCoroutine(TimerCoroutine());
+            // Start timer only for finite-duration matches. Infinite timer never triggers post-match by time.
+            var isInfiniteTimer = matchSettings != null && matchSettings.IsInfiniteMatchTimer();
+            if(!isInfiniteTimer) {
+                _timerRoutine = StartCoroutine(TimerCoroutine());
+            } else if(ScoreboardManager.Instance != null) {
+                EventBus.Publish(new SetMatchTimeEvent(-1));
+            }
         }
 
         private IEnumerator TimerCoroutine() {
@@ -298,7 +303,12 @@ namespace Game.Match {
             if(current || GameMenuManager.Instance == null) return;
             GameMenuManager.Instance.RestoreHudForMatchStart();
             if(ScoreboardManager.Instance != null) {
-                EventBus.Publish(new SetMatchTimeEvent(_timeRemainingSeconds.Value));
+                var matchSettings = MatchSettingsManager.Instance;
+                if(matchSettings != null && matchSettings.IsInfiniteMatchTimer()) {
+                    EventBus.Publish(new SetMatchTimeEvent(-1));
+                } else {
+                    EventBus.Publish(new SetMatchTimeEvent(_timeRemainingSeconds.Value));
+                }
             }
         }
 

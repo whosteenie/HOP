@@ -361,8 +361,10 @@ namespace Game.Progression {
             // 2. Must not be in pre-match
             if (MatchTimerManager.Instance.IsPreMatch) return false;
 
-            // 3. Timer must be running
-            if (MatchTimerManager.Instance.TimeRemainingSeconds <= 0) return false;
+            // 3. Timer must be running, unless this match is configured as infinite time.
+            var settings = MatchSettingsManager.Instance;
+            var isInfiniteTimer = settings != null && settings.IsInfiniteMatchTimer();
+            if (!isInfiniteTimer && MatchTimerManager.Instance.TimeRemainingSeconds <= 0) return false;
 
             // 4. Must not be in post-match flow
             return PostMatchManager.Instance == null || !PostMatchManager.Instance.PostMatchFlowStarted;

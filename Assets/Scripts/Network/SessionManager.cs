@@ -578,6 +578,7 @@ namespace Network {
             string mapId,
             int matchTimerSeconds,
             int scoreToWin,
+            int kothHillSpeed,
             int taggedPlayers,
             IReadOnlyDictionary<ulong, int> teamAssignments) {
             if(!string.IsNullOrWhiteSpace(mode)) {
@@ -590,8 +591,9 @@ namespace Network {
 
             var matchSettings = MatchSettingsManager.Instance;
             if(matchSettings != null) {
-                matchSettings.matchDurationSeconds = UnityEngine.Mathf.Max(60, matchTimerSeconds);
-                matchSettings.scoreToWin = UnityEngine.Mathf.Max(1, scoreToWin);
+                matchSettings.matchDurationSeconds = UnityEngine.Mathf.Max(0, matchTimerSeconds);
+                matchSettings.scoreToWin = UnityEngine.Mathf.Max(0, scoreToWin);
+                matchSettings.kothHillSpeed = UnityEngine.Mathf.Max(1, kothHillSpeed);
                 matchSettings.taggedPlayers = UnityEngine.Mathf.Max(1, taggedPlayers);
             }
 
@@ -599,7 +601,7 @@ namespace Network {
 
             if(Debug.isDebugBuild) {
                 Debug.Log(
-                    $"[SessionManager] ApplyPrivateMatchSettings: mode='{mode}' mapId='{mapId}' timer={matchTimerSeconds} scoreToWin={scoreToWin} tagged={taggedPlayers} teams={teamAssignments?.Count ?? 0}");
+                    $"[SessionManager] ApplyPrivateMatchSettings: mode='{mode}' mapId='{mapId}' timer={matchTimerSeconds} scoreToWin={scoreToWin} kothHillSpeed={kothHillSpeed} tagged={taggedPlayers} teams={teamAssignments?.Count ?? 0}");
             }
         }
 

@@ -424,7 +424,8 @@ namespace Game.Hopball {
                 _teamBScore.Value++;
             }
 
-            // Check win condition (from match settings or serialized default)
+            // Check win condition (0 means infinite score limit).
+            if(EffectiveWinScore <= 0) return;
             if(_teamAScore.Value >= EffectiveWinScore) {
                 TriggerWinCondition(SpawnPoint.Team.TeamA);
             } else if(_teamBScore.Value >= EffectiveWinScore) {

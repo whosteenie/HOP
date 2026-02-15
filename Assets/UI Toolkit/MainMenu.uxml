@@ -87,9 +87,13 @@
                     <ui:Label text="MATCH TIMER (SECONDS)" class="setting-label"/>
                     <ui:IntegerField name="private-match-timer-input" value="600" class="value-input private-match-input"/>
                 </ui:VisualElement>
-                <ui:VisualElement class="setting-row">
+                <ui:VisualElement name="private-match-score-row" class="setting-row">
                     <ui:Label text="SCORE TO WIN" class="setting-label"/>
                     <ui:IntegerField name="private-match-score-input" value="50" class="value-input private-match-input"/>
+                </ui:VisualElement>
+                <ui:VisualElement name="private-match-koth-speed-row" class="setting-row hidden">
+                    <ui:Label text="HILL SPEED" class="setting-label"/>
+                    <ui:IntegerField name="private-match-koth-speed-input" value="1" class="value-input private-match-input"/>
                 </ui:VisualElement>
                 <ui:VisualElement name="private-match-tagged-row" class="setting-row">
                     <ui:Label text="TAGGED PLAYERS" class="setting-label"/>

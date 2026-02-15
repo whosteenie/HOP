@@ -30,7 +30,7 @@ namespace Game.Hopball {
     // Network-synced energy (server-authoritative)
     private readonly NetworkVariable<float> _networkEnergy = new(value: MaxEnergy);
 
-    private int _lastDrainTime = -1; // Initialize to -1 to track first drain
+    private float _nextDrainAt = -1f;
 
     [Header("World Model Components (on this prefab)")]
     [SerializeField] private MeshRenderer meshRenderer;
@@ -150,6 +150,7 @@ namespace Game.Hopball {
 
         // Initialize energy display
         _displayEnergy = MaxEnergy;
+        _nextDrainAt = -1f;
         UpdateEffects(_displayEnergy);
         NotifyVisualStateChanged(true);
 
@@ -185,19 +186,17 @@ namespace Game.Hopball {
         // Server handles energy drain (only while equipped, unless dissolving)
         // If dissolving, continue draining even if dropped to complete the dissolve
         if(IsServer && (IsEquipped || IsDissolving)) {
-            var currentTime = MatchTimerManager.Instance.TimeRemainingSeconds;
-
-            // Initialize last drain time on first frame
-            if(_lastDrainTime < 0) {
-                _lastDrainTime = currentTime;
+            if(_nextDrainAt < 0f) {
+                _nextDrainAt = Time.time + 2f;
             }
 
-            // Drain energy every 2 seconds
-            if(_lastDrainTime - currentTime >= 2) {
+            while(Time.time >= _nextDrainAt) {
                 var newEnergy = Mathf.Max(0f, _networkEnergy.Value - 1f);
                 _networkEnergy.Value = newEnergy;
-                _lastDrainTime = currentTime;
+                _nextDrainAt += 2f;
             }
+        } else if(IsServer) {
+            _nextDrainAt = -1f;
         }
 
         // Update effects on all clients every frame (for visual syncing)
@@ -277,7 +276,7 @@ namespace Game.Hopball {
             IsDissolving = false;
             _equippedController = controller;
             HolderController = controller != null ? controller.PlayerController : null;
-            _lastDrainTime = -1;
+            _nextDrainAt = -1f;
         } else {
             _equippedController = null;
             HolderController = null;
@@ -704,7 +703,7 @@ namespace Game.Hopball {
         IsEquipped = false;
         IsDropped = false;
         _equippedController = null;
-        _lastDrainTime = -1;
+        _nextDrainAt = -1f;
 
         ShowRealHopball();
         SetupDroppedVisuals(isDrop: false); // Respawn - keep godray enabled
