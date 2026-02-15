@@ -1621,25 +1621,42 @@
 
 #play-gamemode-panel {
     /* Keep the whole block visually centered on varying resolutions */
-    justify-content: center;
-    padding-top: 20px;
+    justify-content: flex-start;
+    padding-top: 24px;
     padding-bottom: 20px;
     padding-left: 28px;
     padding-right: 28px;
 }
 
 .gamemode-selection-header {
-    margin-top: 0;
-    margin-bottom: 24px;
+    position: relative;
+    top: auto;
+    left: auto;
+    right: auto;
+    bottom: auto;
+    margin-top: 10px;
+    margin-bottom: 18px;
+    align-self: center;
     -unity-text-align: upper-center;
     letter-spacing: 4px;
     color: rgb(255, 255, 255);
     text-shadow: 0 0 10px rgba(255, 60, 60, 0.5);
 }
 
+#gamemode-title {
+    position: relative;
+    top: auto;
+    left: auto;
+    right: auto;
+    bottom: auto;
+    align-self: center;
+    margin-top: 68px;
+    margin-bottom: 20px;
+}
+
 .gamemode-layout-row {
     flex-direction: row;
-    align-items: stretch;
+    align-items: center;
     justify-content: center;
     width: 100%;
     max-width: 1860px;
@@ -1653,15 +1670,16 @@
     justify-content: center;
     align-items: center;
     flex-grow: 1;
-    height: 650px;
+    height: 770px;
     margin-right: 8px;
 }
 
 .gamemode-card {
-    flex-grow: 1;
-    min-width: 150px;
-    max-width: 220px;
-    height: 390px;
+    flex-grow: 0;
+    width: 280px;
+    min-width: 280px;
+    max-width: 280px;
+    height: 500px;
     margin: 0 8px;
     background-color: rgba(20, 20, 25, 0.85);
     border-width: 2px;
@@ -1683,7 +1701,7 @@
 
 .gamemode-card-image {
     width: 100%;
-    height: 65%;
+    height: 280px;
     background-color: rgb(15, 15, 18);
     border-bottom-width: 2px;
     border-color: rgba(255, 255, 255, 0.05);
@@ -1712,12 +1730,12 @@
 /* Stack for Private Match + WIP inside the cards container; sits next to gamemode cards */
 .gamemode-side-actions-stack {
     flex-direction: column;
-    justify-content: center;
+    justify-content: flex-start;
     align-items: stretch;
     align-self: center;
-    min-width: 200px;
-    max-width: 220px;
-    height: 390px;
+    min-width: 245px;
+    max-width: 255px;
+    height: 500px;
     margin: 0 8px;
 }
 
@@ -1734,7 +1752,7 @@
 .gamemode-side-action-card {
     flex-grow: 0;
     min-height: 0;
-    height: 190px;
+    height: 245px;
     background-color: rgba(20, 20, 25, 0.85);
     border-width: 2px;
     border-color: rgba(255, 255, 255, 0.1);
