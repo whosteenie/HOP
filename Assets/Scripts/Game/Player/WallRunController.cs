@@ -165,9 +165,7 @@ namespace Game.Player {
 
 
             // Apply Camera Tilt
-            if(_fpCamera == null || playerController.LookController == null) return;
-            var tilt = IsWallLeft ? -wallRunCameraTilt : wallRunCameraTilt;
-            playerController.LookController.SetTargetTilt(tilt);
+            UpdateCameraTiltForCurrentSide();
         }
 
         private void StopWallRun() {
@@ -193,6 +191,9 @@ namespace Game.Player {
                 StopWallRun();
                 return;
             }
+
+            // Keep FP lean synced with dynamic left/right wall-run side while preserving smooth blending.
+            UpdateCameraTiltForCurrentSide();
 
             if(_sideSwitchCooldownTimer > 0f) {
                 _sideSwitchCooldownTimer -= Time.deltaTime;
@@ -625,7 +626,7 @@ namespace Game.Player {
 
         private void UpdateCameraTiltForCurrentSide() {
             if(_fpCamera == null || playerController.LookController == null) return;
-            var tilt = IsWallLeft ? -wallRunCameraTilt : wallRunCameraTilt;
+            var tilt = IsRightWallRun ? wallRunCameraTilt : -wallRunCameraTilt;
             playerController.LookController.SetTargetTilt(tilt);
         }
 
