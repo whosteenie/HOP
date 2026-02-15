@@ -1821,6 +1821,9 @@
     width: 720px;
     min-width: 720px;
     padding-right: 40px;
+    height: 760px;
+    min-height: 760px;
+    flex-direction: column;
 }
 
 .private-match-settings-column .setting-row {
@@ -1830,6 +1833,25 @@
     border-bottom-color: rgba(255, 60, 60, 0.2);
     padding-top: 6px;
     padding-bottom: 6px;
+}
+
+.private-match-settings-scroll {
+    flex-grow: 1;
+    min-height: 0;
+    max-height: none;
+    margin-bottom: 16px;
+    background-color: rgba(0, 0, 0, 0);
+    border-width: 0;
+}
+
+.private-match-settings-scroll .unity-scroll-view__content-container,
+.private-match-settings-content {
+    flex-direction: column;
+    width: 100%;
+}
+
+.private-match-settings-scroll .unity-scroll-view__vertical-scroller {
+    width: 8px;
 }
 
 .private-match-settings-column .setting-label {
@@ -1940,6 +1962,37 @@
     margin-top: 10px;
     color: rgba(240, 240, 240, 0.8);
     font-size: 14px;
+}
+
+.private-match-map-preview-container {
+    width: 100%;
+    min-height: 384px;
+    max-height: 384px;
+    border-width: 1px;
+    border-color: rgba(255, 60, 60, 0.35);
+    border-radius: 6px;
+    background-color: rgba(15, 15, 20, 0.65);
+    padding: 10px;
+}
+
+.private-match-map-preview-image {
+    width: 100%;
+    height: 100%;
+    border-radius: 6px;
+    border-width: 1px;
+    border-color: rgba(255, 60, 60, 0.25);
+    background-color: rgba(10, 10, 16, 0.88);
+    -unity-background-scale-mode: scale-and-crop;
+    justify-content: center;
+    align-items: center;
+}
+
+.private-match-map-preview-wip {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 32px;
+    -unity-font-style: bold;
+    letter-spacing: 3px;
+    -unity-text-align: middle-center;
 }
 
 .private-match-roster-list .unity-scroll-view__content-container {

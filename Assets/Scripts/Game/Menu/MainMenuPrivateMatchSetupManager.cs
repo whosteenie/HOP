@@ -52,6 +52,8 @@ namespace Game.Menu {
         private VisualElement _scoreToWinRow;
         private VisualElement _kothHillSpeedRow;
         private VisualElement _taggedRow;
+        private VisualElement _mapPreviewImage;
+        private Label _mapPreviewWipLabel;
 
         // WS-E: Team preview (FFA list vs team A / VS / team B)
         private VisualElement _previewFfa;
@@ -95,6 +97,8 @@ namespace Game.Menu {
             _scoreToWinRow = QOptional<VisualElement>("private-match-score-row");
             _kothHillSpeedRow = QOptional<VisualElement>("private-match-koth-speed-row");
             _taggedRow = QOptional<VisualElement>("private-match-tagged-row");
+            _mapPreviewImage = QOptional<VisualElement>("private-match-map-preview-image");
+            _mapPreviewWipLabel = QOptional<Label>("private-match-map-preview-wip");
             _previewFfa = Root?.Q("private-match-preview-ffa");
             _previewTeams = Root?.Q("private-match-preview-teams");
             _ffaList = Root?.Q<ScrollView>("private-match-ffa-list");
@@ -104,6 +108,7 @@ namespace Game.Menu {
             SetupDefaults();
             BindEvents();
             RefreshMapChoicesForGamemode(_draft.GamemodeId);
+            RefreshMapPreview();
             RefreshScoreToWinRowVisibility();
             RefreshKothHillSpeedRowVisibility();
             RefreshTaggedRowVisibility();
@@ -165,6 +170,7 @@ namespace Game.Menu {
                 _suppressEvents = false;
             }
             RefreshMapChoicesForGamemode(_draft.GamemodeId);
+            RefreshMapPreview();
             RefreshScoreToWinRowVisibility();
             RefreshKothHillSpeedRowVisibility();
             RefreshTaggedRowVisibility();
@@ -736,6 +742,7 @@ namespace Game.Menu {
             RefreshScoreToWinRowVisibility();
             RefreshKothHillSpeedRowVisibility();
             RefreshTaggedRowVisibility();
+            RefreshMapPreview();
             RefreshStatusLabel();
             RefreshValidationAndStartButton();
             RefreshTeamPreview();
@@ -750,8 +757,49 @@ namespace Game.Menu {
                     break;
                 }
             }
+            RefreshMapPreview();
             RefreshStatusLabel();
             RefreshValidationAndStartButton();
+        }
+
+        private void RefreshMapPreview() {
+            if(_mapPreviewImage == null) return;
+
+            var selectedMap = GetSelectedMapDefinition();
+            var sprite = selectedMap != null ? selectedMap.PreviewImage : null;
+            var hasPreview = sprite != null;
+
+            if(hasPreview) {
+                _mapPreviewImage.style.backgroundImage = new StyleBackground(sprite);
+            } else {
+                _mapPreviewImage.style.backgroundImage = StyleKeyword.Null;
+            }
+
+            if(_mapPreviewWipLabel != null) {
+                _mapPreviewWipLabel.style.display = hasPreview ? DisplayStyle.None : DisplayStyle.Flex;
+            }
+        }
+
+        private MapDefinition GetSelectedMapDefinition() {
+            for(var i = 0; i < _filteredMaps.Count; i++) {
+                var candidate = _filteredMaps[i];
+                if(candidate == null) continue;
+                if(string.Equals(candidate.MapId, _draft.MapId, StringComparison.OrdinalIgnoreCase)) {
+                    return candidate;
+                }
+            }
+
+            var pool = Resources.Load<MapPoolDefinition>("MatchMapPoolDefinition");
+            if(pool?.Maps == null) return null;
+            for(var i = 0; i < pool.Maps.Count; i++) {
+                var candidate = pool.Maps[i];
+                if(candidate == null) continue;
+                if(string.Equals(candidate.MapId, _draft.MapId, StringComparison.OrdinalIgnoreCase)) {
+                    return candidate;
+                }
+            }
+
+            return null;
         }
 
         private void OnTimerChanged(ChangeEvent<int> evt) {

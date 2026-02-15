@@ -75,31 +75,40 @@
         <ui:Label text="PRIVATE MATCH SETUP" name="private-match-setup-title" class="title title-l private-match-setup-header"/>
         <ui:VisualElement name="private-match-setup-container" class="private-match-setup-container">
             <ui:VisualElement class="private-match-settings-column">
-                <ui:VisualElement class="setting-row">
-                    <ui:Label text="GAMEMODE" class="setting-label"/>
-                    <ui:DropdownField name="private-match-gamemode-dropdown" class="options-dropdown private-match-dropdown"/>
+                <ui:ScrollView name="private-match-settings-scroll" class="private-match-settings-scroll">
+                    <ui:VisualElement name="private-match-settings-content" class="private-match-settings-content">
+                        <ui:VisualElement class="setting-row">
+                            <ui:Label text="GAMEMODE" class="setting-label"/>
+                            <ui:DropdownField name="private-match-gamemode-dropdown" class="options-dropdown private-match-dropdown"/>
+                        </ui:VisualElement>
+                        <ui:VisualElement class="setting-row">
+                            <ui:Label text="MAP" class="setting-label"/>
+                            <ui:DropdownField name="private-match-map-dropdown" class="options-dropdown private-match-dropdown"/>
+                        </ui:VisualElement>
+                        <ui:VisualElement class="setting-row">
+                            <ui:Label text="MATCH TIMER (SECONDS)" class="setting-label"/>
+                            <ui:IntegerField name="private-match-timer-input" value="600" class="value-input private-match-input"/>
+                        </ui:VisualElement>
+                        <ui:VisualElement name="private-match-score-row" class="setting-row">
+                            <ui:Label text="SCORE TO WIN" class="setting-label"/>
+                            <ui:IntegerField name="private-match-score-input" value="50" class="value-input private-match-input"/>
+                        </ui:VisualElement>
+                        <ui:VisualElement name="private-match-koth-speed-row" class="setting-row hidden">
+                            <ui:Label text="HILL SPEED" class="setting-label"/>
+                            <ui:IntegerField name="private-match-koth-speed-input" value="1" class="value-input private-match-input"/>
+                        </ui:VisualElement>
+                        <ui:VisualElement name="private-match-tagged-row" class="setting-row">
+                            <ui:Label text="TAGGED PLAYERS" class="setting-label"/>
+                            <ui:IntegerField name="private-match-tagged-input" value="1" class="value-input private-match-input"/>
+                        </ui:VisualElement>
+                        <ui:Label text="" name="private-match-validation-label" class="private-match-status-label"/>
+                    </ui:VisualElement>
+                </ui:ScrollView>
+                <ui:VisualElement name="private-match-map-preview-container" class="private-match-map-preview-container">
+                    <ui:VisualElement name="private-match-map-preview-image" class="private-match-map-preview-image">
+                        <ui:Label text="WIP" name="private-match-map-preview-wip" class="private-match-map-preview-wip"/>
+                    </ui:VisualElement>
                 </ui:VisualElement>
-                <ui:VisualElement class="setting-row">
-                    <ui:Label text="MAP" class="setting-label"/>
-                    <ui:DropdownField name="private-match-map-dropdown" class="options-dropdown private-match-dropdown"/>
-                </ui:VisualElement>
-                <ui:VisualElement class="setting-row">
-                    <ui:Label text="MATCH TIMER (SECONDS)" class="setting-label"/>
-                    <ui:IntegerField name="private-match-timer-input" value="600" class="value-input private-match-input"/>
-                </ui:VisualElement>
-                <ui:VisualElement name="private-match-score-row" class="setting-row">
-                    <ui:Label text="SCORE TO WIN" class="setting-label"/>
-                    <ui:IntegerField name="private-match-score-input" value="50" class="value-input private-match-input"/>
-                </ui:VisualElement>
-                <ui:VisualElement name="private-match-koth-speed-row" class="setting-row hidden">
-                    <ui:Label text="HILL SPEED" class="setting-label"/>
-                    <ui:IntegerField name="private-match-koth-speed-input" value="1" class="value-input private-match-input"/>
-                </ui:VisualElement>
-                <ui:VisualElement name="private-match-tagged-row" class="setting-row">
-                    <ui:Label text="TAGGED PLAYERS" class="setting-label"/>
-                    <ui:IntegerField name="private-match-tagged-input" value="1" class="value-input private-match-input"/>
-                </ui:VisualElement>
-                <ui:Label text="" name="private-match-validation-label" class="private-match-status-label"/>
             </ui:VisualElement>
             <ui:VisualElement class="private-match-preview-column">
                 <ui:VisualElement name="private-match-preview-ffa" class="private-match-preview-card">
