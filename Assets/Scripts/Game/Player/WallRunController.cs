@@ -1,3 +1,4 @@
+using System;
 using Game.Settings;
 using Unity.Cinemachine;
 using Unity.Netcode;
@@ -34,8 +35,9 @@ namespace Game.Player {
         [SerializeField] private bool continuationOnlyOnDetach = true;
         [SerializeField] private float continuationProbeForwardOffset = 0.35f;
         [SerializeField] private float continuationProbeRadius = 0.12f;
+        [SerializeField] private float continuationProbeForwardMaxDistance = 2.2f; // longer reach for forward probes on curves (logs showed hits ~1.79m)
         [SerializeField] private float continuationMaxNormalDelta = 55f;
-        [SerializeField] private float continuationGraceTime = 0.08f;
+        [SerializeField] private float continuationGraceTime = 0.12f; // more frames to re-acquire at occasional far segment
         [SerializeField] private float wallNormalBlendSpeed = 16f;
         [SerializeField] private float sideSwitchCooldown = 0.08f;
         [SerializeField] private bool wallRunContinuationDebugLogs;
@@ -327,7 +329,8 @@ namespace Game.Player {
             }
 
             // Step 1: Validate current wall side.
-            if(TryProbeCurrentWall(out var currentSideHit)) {
+            var tryProbeOk = TryProbeCurrentWall(out var currentSideHit);
+            if(tryProbeOk) {
                 _wallHit = currentSideHit;
                 _continuationGraceTimer = continuationGraceTime;
                 if(!continuationOnlyOnDetach) {
@@ -338,7 +341,8 @@ namespace Game.Player {
             }
 
             // Step 2: At detach boundary, try to acquire the next compatible segment.
-            if(TryAcquireContinuationHit(out var continuationHit, out var continuationIsLeft, out var rejectReason)) {
+            var tryAcquireOk = TryAcquireContinuationHit(out var continuationHit, out var continuationIsLeft, out var rejectReason);
+            if(tryAcquireOk) {
                 if(continuationIsLeft != IsWallLeft && _sideSwitchCooldownTimer > 0f) {
                     LogContinuation($"Rejected side switch due to cooldown ({_sideSwitchCooldownTimer:F3}s).");
                     _continuationGraceTimer -= Time.deltaTime;
@@ -392,6 +396,32 @@ namespace Game.Player {
             EvaluateContinuationProbe(transform.position, expectedWallNormal, !DetermineIsLeftFromNormal(expectedWallNormal, forward), ref found, ref bestScore, ref bestHit, ref bestIsLeft, ref rejectReason);
             EvaluateContinuationProbe(forwardOrigin, expectedWallNormal, !DetermineIsLeftFromNormal(expectedWallNormal, forward), ref found, ref bestScore, ref bestHit, ref bestIsLeft, ref rejectReason);
 
+            // Curved/cylindrical walls: next segment is ahead. At high speed we travel further per frame — scale ahead and reach by speed.
+            if(forward.sqrMagnitude > 0.0001f) {
+                var forwardDir = forward.normalized;
+                var speedRatio = Mathf.Max(1f, _currentWallRunSpeed / Mathf.Max(0.01f, wallRunSpeed));
+                var forwardMaxDist = Mathf.Max(wallDistanceCheck, continuationProbeForwardMaxDistance) * speedRatio;
+                var ahead = Mathf.Clamp(0.5f + (_currentWallRunSpeed - wallRunSpeed) * 0.05f, 0.5f, 2f);
+                EvaluateContinuationProbe(transform.position, forwardDir, IsWallLeft, forwardMaxDist, ref found, ref bestScore, ref bestHit, ref bestIsLeft, ref rejectReason, "forward");
+                EvaluateContinuationProbe(forwardOrigin, forwardDir, IsWallLeft, forwardMaxDist, ref found, ref bestScore, ref bestHit, ref bestIsLeft, ref rejectReason, "forward");
+                // Forward + inward (toward wall) to catch next segment around the curve.
+                var forwardInward = (forwardDir - currentWallNormal * 0.4f);
+                if(forwardInward.sqrMagnitude > 0.0001f) {
+                    forwardInward.Normalize();
+                    EvaluateContinuationProbe(transform.position, forwardInward, IsWallLeft, forwardMaxDist, ref found, ref bestScore, ref bestHit, ref bestIsLeft, ref rejectReason, "forwardInward");
+                    EvaluateContinuationProbe(forwardOrigin, forwardInward, IsWallLeft, forwardMaxDist, ref found, ref bestScore, ref bestHit, ref bestIsLeft, ref rejectReason, "forwardInward");
+                }
+                // From a point ahead, probe toward expected wall (hits next segment on cylinder). Scale ahead with speed.
+                var originAhead = transform.position + forwardDir * ahead;
+                var originAheadFromForward = forwardOrigin + forwardDir * ahead;
+                var towardNextWall = -expectedWallNormal;
+                if(towardNextWall.sqrMagnitude > 0.0001f) {
+                    towardNextWall.Normalize();
+                    EvaluateContinuationProbe(originAhead, towardNextWall, IsWallLeft, forwardMaxDist, ref found, ref bestScore, ref bestHit, ref bestIsLeft, ref rejectReason, "aheadTowardWall");
+                    EvaluateContinuationProbe(originAheadFromForward, towardNextWall, IsWallLeft, forwardMaxDist, ref found, ref bestScore, ref bestHit, ref bestIsLeft, ref rejectReason, "aheadTowardWall");
+                }
+            }
+
             return found;
         }
 
@@ -405,12 +435,27 @@ namespace Game.Player {
             ref bool bestIsLeft,
             ref string rejectReason
         ) {
+            EvaluateContinuationProbe(origin, probeDirection, inferredIsLeft, wallDistanceCheck, ref found, ref bestScore, ref bestHit, ref bestIsLeft, ref rejectReason);
+        }
+
+        private void EvaluateContinuationProbe(
+            Vector3 origin,
+            Vector3 probeDirection,
+            bool inferredIsLeft,
+            float maxDistance,
+            ref bool found,
+            ref float bestScore,
+            ref RaycastHit bestHit,
+            ref bool bestIsLeft,
+            ref string rejectReason,
+            string probeLabel = null
+        ) {
             if(inferredIsLeft != IsWallLeft && _sideSwitchCooldownTimer > 0f) {
                 return;
             }
 
-            if(!TryProbeToward(probeDirection, origin, out var hit) &&
-               !TrySphereProbeToward(probeDirection, origin, out hit)) {
+            if(!TryProbeToward(probeDirection, origin, maxDistance, out var hit) &&
+               !TrySphereProbeToward(probeDirection, origin, maxDistance, out hit)) {
                 return;
             }
 
@@ -421,7 +466,7 @@ namespace Game.Player {
 
             // Prefer continuity with current normal and previous run direction.
             var normalDelta = Vector3.Angle(WallNormal, hit.normal);
-            var normalizedDistance = Mathf.Clamp01(hit.distance / Mathf.Max(0.01f, wallDistanceCheck + continuationProbeForwardOffset + continuationProbeRadius));
+            var normalizedDistance = Mathf.Clamp01(hit.distance / Mathf.Max(0.01f, maxDistance + continuationProbeForwardOffset + continuationProbeRadius));
             var candidateForward = Vector3.Cross(hit.normal, Vector3.up);
             if(candidateForward.sqrMagnitude > 0.0001f) {
                 candidateForward.Normalize();
@@ -475,21 +520,27 @@ namespace Game.Player {
         }
 
         private bool TryProbeToward(Vector3 direction, Vector3 origin, out RaycastHit hit) {
-            if(direction.sqrMagnitude < 0.0001f) {
+            return TryProbeToward(direction, origin, wallDistanceCheck, out hit);
+        }
+
+        private bool TryProbeToward(Vector3 direction, Vector3 origin, float maxDistance, out RaycastHit hit) {
+            if(direction.sqrMagnitude < 0.0001f || maxDistance <= 0f) {
                 hit = default;
                 return false;
             }
-
-            return Physics.Raycast(origin, direction.normalized, out hit, wallDistanceCheck, wallLayer);
+            return Physics.Raycast(origin, direction.normalized, out hit, maxDistance, wallLayer);
         }
 
         private bool TrySphereProbeToward(Vector3 direction, Vector3 origin, out RaycastHit hit) {
-            if(direction.sqrMagnitude < 0.0001f) {
+            return TrySphereProbeToward(direction, origin, wallDistanceCheck, out hit);
+        }
+
+        private bool TrySphereProbeToward(Vector3 direction, Vector3 origin, float maxDistance, out RaycastHit hit) {
+            if(direction.sqrMagnitude < 0.0001f || maxDistance <= 0f) {
                 hit = default;
                 return false;
             }
-
-            return Physics.SphereCast(origin, continuationProbeRadius, direction.normalized, out hit, wallDistanceCheck, wallLayer);
+            return Physics.SphereCast(origin, continuationProbeRadius, direction.normalized, out hit, maxDistance, wallLayer);
         }
 
         private bool TryProbeCurrentWall(out RaycastHit hit) {
