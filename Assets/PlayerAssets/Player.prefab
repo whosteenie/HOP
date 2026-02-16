@@ -1343,6 +1343,9 @@ MonoBehaviour:
   lookInput: {x: 0, y: 0}
   sprintInput: 0
   crouchInput: 0
+  outOfBoundsMarkerName: OOB
+  outOfBoundsMarkerTag: OOB
+  defaultOutOfBoundsY: 600
   netHealth:
     m_InternalValue: 100
   netIsDead:
@@ -2152,6 +2155,7 @@ MonoBehaviour:
   playerController: {fileID: 5088684734431513618}
   wallRunSpeed: 12
   maxWallRunTime: 3
+  quickReattachWindow: 0.4
   wallJumpUpForce: 12
   wallJumpSideForce: 10
   wallRunCameraTilt: 15
@@ -2161,8 +2165,14 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 512
   wallRunAngleThreshold: 20
+  flatWallRunAngleThreshold: 40
   wallJumpCooldown: 0.35
   minWallRunSpeed: 9
+  curvedSurfaceMaxDistance: 1.2
+  curvedStickStrength: 10
+  curvedStickTargetDistance: 0.4
+  curvedStickCentripetalScale: 1
+  wallNormalBlendSpeed: 16
 --- !u!114 &1488962690683598236
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -3344,6 +3354,13 @@ MonoBehaviour:
     TriggerNameHash: 113680519
     TransitionIndex: 3
   - IsCrossFadeExit: 0
+    Layer: 0
+    OriginatingState: -1288781466
+    DestinationState: -1288781466
+    TransitionDuration: 0.25
+    TriggerNameHash: -1775046114
+    TransitionIndex: 4
+  - IsCrossFadeExit: 0
     Layer: 2
     OriginatingState: 1286489141
     DestinationState: -758163879
@@ -3483,6 +3500,10 @@ MonoBehaviour:
       ParameterType: 1
     - name: MantleTrigger
       NameHash: -775669188
+      Synchronize: 1
+      ParameterType: 9
+    - name: SlideTrigger
+      NameHash: -1775046114
       Synchronize: 1
       ParameterType: 9
   AnimatorParametersExpanded: 0

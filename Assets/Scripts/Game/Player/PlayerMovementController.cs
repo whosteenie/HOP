@@ -64,6 +64,10 @@ namespace Game.Player {
         private const float StandCheckHeight = StandCollider - CrouchCollider;
         private const float GravityScale = 3f;
         private const float TerminalVelocity = -50f; // Maximum fall speed (m/s)
+        private const float GroundStickVelocity = -3f;          // Default grounded downward force
+        private const float DownhillStickVelocity = -8f;        // Stronger stick only when moving downhill on a slope
+        private const float DownhillStickMinSlopeAngle = 5f;    // Degrees; ignore nearly-flat surfaces
+        private const float DownhillStickMinDot = 0.15f;        // How aligned we must be with downhill direction
 
         // Movement state
         private Vector3 _horizontalVelocity;
@@ -354,7 +358,28 @@ namespace Game.Player {
             }
 
             if(IsGrounded && VerticalVelocity <= 0.01f) {
-                VerticalVelocity = -3f;
+                // Keep existing flat-ground feel, but add a simple downhill "stick" to prevent
+                // losing contact when sprinting down slopes.
+                var stickVelocity = GroundStickVelocity;
+
+                if(_horizontalVelocity.sqrMagnitude > 0.0001f &&
+                   Physics.Raycast(_playerTransform.position,
+                       Vector3.down,
+                       out var hit,
+                       _characterController.height * 0.6f + 0.2f,
+                       _obstacleMask)) {
+                    var slopeAngle = Vector3.Angle(hit.normal, Vector3.up);
+                    if(slopeAngle >= DownhillStickMinSlopeAngle) {
+                        var downhill = Vector3.ProjectOnPlane(Vector3.down, hit.normal).normalized;
+                        var moveDir = _horizontalVelocity.normalized;
+                        var downhillDot = Vector3.Dot(moveDir, downhill);
+                        if(downhillDot >= DownhillStickMinDot) {
+                            stickVelocity = DownhillStickVelocity;
+                        }
+                    }
+                }
+
+                VerticalVelocity = stickVelocity;
             } else {
                 VerticalVelocity += _gravityY * GravityScale * Time.deltaTime;
                 VerticalVelocity = Mathf.Max(VerticalVelocity, TerminalVelocity);
