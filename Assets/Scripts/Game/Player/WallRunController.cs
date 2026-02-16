@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using Game.Settings;
 using Unity.Cinemachine;
 using Unity.Netcode;
@@ -6,6 +7,20 @@ using UnityEngine;
 
 namespace Game.Player {
     public class WallRunController : NetworkBehaviour {
+        // #region agent log
+        private static void AgentLog(string hypothesisId, string message, string location, string dataJson) {
+            try {
+                var path = Path.GetFullPath(Path.Combine(Application.dataPath, "..", ".cursor", "debug.log"));
+                var dir = Path.GetDirectoryName(path);
+                if(string.IsNullOrEmpty(dir) || !Directory.Exists(dir)) return;
+                var dataStr = string.IsNullOrEmpty(dataJson) ? "{}" : dataJson;
+                var escaped = (dataStr ?? "").Replace("\\", "\\\\").Replace("\"", "\\\"");
+                var line = "{\"hypothesisId\":\"" + hypothesisId + "\",\"message\":\"" + (message ?? "").Replace("\\", "\\\\").Replace("\"", "\\\"") + "\",\"timestamp\":" + DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() + ",\"location\":\"" + (location ?? "").Replace("\\", "\\\\").Replace("\"", "\\\"") + "\",\"dataStr\":\"" + escaped + "\"}\n";
+                File.AppendAllText(path, line);
+            } catch { /* ignore */ }
+        }
+        // #endregion
+
         [Header("References")]
         [SerializeField] private PlayerController playerController;
 
@@ -17,6 +32,12 @@ namespace Game.Player {
         [SerializeField] private float wallRunSpeed = 12f;
 
         [SerializeField] private float maxWallRunTime = 3f;
+
+        [Tooltip(
+            "If a new wall run starts within this many seconds of the last stop, reuse remaining timer instead of full 3s (avoids instant reattach granting a fresh run).")]
+        [SerializeField]
+        private float quickReattachWindow = 0.4f;
+
         [SerializeField] private float wallJumpUpForce = 12f;
         [SerializeField] private float wallJumpSideForce = 10f;
         [SerializeField] private float wallRunCameraTilt = 10f;
@@ -25,11 +46,14 @@ namespace Game.Player {
         [SerializeField] private LayerMask wallLayer;
 
         [Header("Detection")]
-        [SerializeField] private float wallRunAngleThreshold = 20f; // Limit angle to prevent running straight into wall
+        [SerializeField] private float wallRunAngleThreshold = 20f; // Limit angle to prevent running straight into wall (curved surfaces)
+        [Tooltip("Stricter angle for flat walls only; prevents initiating when running head-on into corners (bounce).")]
+        [SerializeField] private float flatWallRunAngleThreshold = 40f;
 
         [SerializeField] private float wallJumpCooldown = 0.35f;
         [SerializeField] private float minWallRunSpeed = 9f; // Slightly below SprintSpeed (10f)
 
+        #region Stashed: Legacy continuation (not used by current MaintainWallRunNew path)
         [Header("Curved Wall Continuation")]
         [SerializeField] private bool enableCurvedWallContinuation = true;
         [SerializeField] private bool continuationOnlyOnDetach = true;
@@ -38,11 +62,12 @@ namespace Game.Player {
         [SerializeField] private float continuationProbeForwardMaxDistance = 2.8f;
         [SerializeField] private float continuationMaxNormalDelta = 65f;
         [SerializeField] private float continuationGraceTime = 0.16f;
-        [SerializeField] private float wallNormalBlendSpeed = 16f;
         [SerializeField] private float sideSwitchCooldown = 0.08f;
         [SerializeField] private bool wallRunContinuationDebugLogs;
+        #endregion
 
         public bool IsWallRunning { get; private set; }
+
         public bool IsRightWallRun {
             get {
                 if(!IsWallRunning) return false;
@@ -54,18 +79,56 @@ namespace Game.Player {
                 return !IsWallLeft;
             }
         }
+
         private Vector3 WallNormal { get; set; }
         private bool IsWallLeft { get; set; }
 
         private float _wallRunTimer;
         private RaycastHit _wallHit;
         private float _currentWallRunSpeed;
-        private float _originalGravity;
+
+        /// <summary>Stashed at wall-run start; used on exit to set velocity to exitDirection * this magnitude (cancels stick).</summary>
+        private float _wallRunEntrySpeedMagnitude;
+
+        /// <summary>When we stop, stash remaining time and stop time; quick reattach reuses remaining instead of full 3s.</summary>
+        private float _wallRunTimerRemainingAtStop;
+
+        private float _lastWallRunStopTime;
         private float _jumpCooldownTimer;
-        private float _continuationGraceTimer;
-        private float _sideSwitchCooldownTimer;
         private Vector3 _targetWallNormal;
         private Vector3 _lastWallRunDirection;
+
+        /// <summary>When non-null we use math-based curved path; when null we use single-probe flat path. Set at wall-run start, cleared on stop.</summary>
+        private CurvedWallRunSurface _curvedSurface;
+
+        private string _stopReason;
+
+        #region Stashed: Legacy continuation state (only referenced by stashed methods)
+        private float _originalGravity;
+        private float _continuationGraceTimer;
+        private float _sideSwitchCooldownTimer;
+        private int _consecutiveSyntheticContinuationFrames;
+        private const int MaxConsecutiveSyntheticContinuationFrames = 8;
+        #endregion
+
+        [Header("New wall run (curved / flat)")]
+        [SerializeField] private float curvedSurfaceMaxDistance = 1.2f;
+
+        [Tooltip(
+            "When on curved surface, pull toward wall so we don't drift off. Strength of inward velocity per unit distance over target.")]
+        [SerializeField]
+        private float curvedStickStrength = 10f;
+
+        [Tooltip("Target distance from cylinder surface; stick force applies when farther than this.")] [SerializeField]
+        private float curvedStickTargetDistance = 0.4f;
+
+        [Tooltip(
+            "Scale for centripetal term (v²/radius) so stick scales with speed and keeps high-speed runs on the curve. ~1 = physics-like.")]
+        [SerializeField]
+        private float curvedStickCentripetalScale = 1f;
+
+        [Tooltip("Blend speed for wall normal updates (used by both curved and flat).")]
+        [SerializeField] private float wallNormalBlendSpeed = 16f;
 
         // Throttling for network
 
@@ -87,6 +150,8 @@ namespace Game.Player {
             if(wallLayer == 0) wallLayer = playerController.WorldLayer;
         }
 
+        #region Active: Wall run entry, maintain, timer, velocity, jump
+
         /// <summary>
         /// Checks for surrounding walls and initiates or stops a wall run.
         /// </summary>
@@ -94,7 +159,7 @@ namespace Game.Player {
             if(!IsOwner) return;
 
             if(_characterController.isGrounded) {
-                if(IsWallRunning) StopWallRun();
+                if(IsWallRunning) { _stopReason = "grounded"; StopWallRun(); }
                 return;
             }
 
@@ -104,16 +169,19 @@ namespace Game.Player {
             }
 
             if(IsWallRunning) {
-                MaintainOrTransferWallRun();
+                MaintainWallRunNew();
                 return;
             }
 
             if(TryFindInitialWallHit(out var initialHit, out var initialIsLeft)) {
                 IsWallLeft = initialIsLeft;
                 _wallHit = initialHit;
+                _curvedSurface = initialHit.collider != null
+                    ? initialHit.collider.GetComponentInParent<CurvedWallRunSurface>()
+                    : null;
             } else {
                 IsWallLeft = false;
-                if(IsWallRunning) StopWallRun();
+                if(IsWallRunning) { _stopReason = "no_initial_hit"; StopWallRun(); }
                 return;
             }
 
@@ -131,6 +199,7 @@ namespace Game.Player {
                 return;
             }
 
+            _consecutiveSyntheticContinuationFrames = 0;
             StartWallRun();
         }
 
@@ -143,33 +212,61 @@ namespace Game.Player {
 
             WallNormal = _wallHit.normal;
 
-            // Angle check
-            // Prevent wall running if we are facing the wall too directly
+            // Angle check: prevent wall running if facing the wall too directly. Use stricter angle on flat walls to avoid corner bounce.
             var angle = Vector3.Angle(transform.forward, -WallNormal);
-            return !(angle < wallRunAngleThreshold) && !(angle > 180f - wallRunAngleThreshold);
+            var threshold = _curvedSurface != null ? wallRunAngleThreshold : flatWallRunAngleThreshold;
+            return !(angle < threshold) && !(angle > 180f - threshold);
         }
-
-
+        
         private void StartWallRun() {
             IsWallRunning = true;
-            _wallRunTimer = maxWallRunTime;
+            var timeSinceStop = Time.time - _lastWallRunStopTime;
+            if(timeSinceStop < quickReattachWindow && _wallRunTimerRemainingAtStop > 0f) {
+                _wallRunTimer = _wallRunTimerRemainingAtStop;
+            } else {
+                _wallRunTimer = maxWallRunTime;
+            }
+
             _continuationGraceTimer = continuationGraceTime;
             _sideSwitchCooldownTimer = 0f;
 
             // Capture entry speed, maintain momentum if faster than base speed
-            var entrySpeed = _movementController.HorizontalVelocity.magnitude;
+            var entrySpeed = _movementController != null ? _movementController.HorizontalVelocity.magnitude : 0f;
             _currentWallRunSpeed = Mathf.Max(wallRunSpeed, entrySpeed);
+            _wallRunEntrySpeedMagnitude = _currentWallRunSpeed;
             WallNormal = _wallHit.normal.normalized;
             _targetWallNormal = WallNormal;
             _lastWallRunDirection = Vector3.zero;
 
+
+            // #region agent log
+            AgentLog("H_start", "wall_run_start", "WallRunController.StartWallRun", "{\"curved\":" + (_curvedSurface != null ? "true" : "false") + ",\"entrySpeed\":" + _currentWallRunSpeed.ToString("F2") + ",\"timer\":" + _wallRunTimer.ToString("F2") + ",\"quickReattach\":" + (timeSinceStop < quickReattachWindow && _wallRunTimerRemainingAtStop > 0f ? "true" : "false") + "}");
+            // #endregion
 
             // Apply Camera Tilt
             UpdateCameraTiltForCurrentSide();
         }
 
         private void StopWallRun() {
+            // #region agent log
+            AgentLog("H_stop", "wall_run_stop", "WallRunController.StopWallRun", "{\"reason\":\"" + (_stopReason ?? "unknown") + "\",\"timerRemaining\":" + _wallRunTimer.ToString("F2") + ",\"curved\":" + (_curvedSurface != null ? "true" : "false") + "}");
+            // #endregion
+            _stopReason = null;
+
+            _wallRunTimerRemainingAtStop = _wallRunTimer;
+            _lastWallRunStopTime = Time.time;
+
+            // Cancel stick: set exit velocity to tangent direction × entry magnitude so we don't carry inward momentum.
+            // Skip for instant flat_no_hit (timer barely used): logs showed corner grapples starting then stopping in one frame and getting full-speed exit = bounce.
+            var veryShortFlatRun = _stopReason == "flat_no_hit" && _wallRunTimer > maxWallRunTime - 0.2f;
+            if(!veryShortFlatRun && _movementController != null && _lastWallRunDirection.sqrMagnitude > 0.01f &&
+               _wallRunEntrySpeedMagnitude > 0f) {
+                var exitDir = _lastWallRunDirection.normalized;
+                _movementController.SetVelocity(exitDir * _wallRunEntrySpeedMagnitude);
+            }
+
             IsWallRunning = false;
+            _curvedSurface = null;
             _continuationGraceTimer = 0f;
             _sideSwitchCooldownTimer = 0f;
 
@@ -181,6 +278,57 @@ namespace Game.Player {
         }
 
         /// <summary>
+        /// New minimal maintain: curved = math (surface tells us); flat = one probe. No grace, no continuation, no fallbacks.
+        /// </summary>
+        private void MaintainWallRunNew() {
+            if(_curvedSurface != null) {
+                MaintainWallRunCurved();
+            } else {
+                MaintainWallRunFlat();
+            }
+        }
+
+        private void MaintainWallRunCurved() {
+            if(_curvedSurface == null) {
+                _stopReason = "curved_null_surface";
+                StopWallRun();
+                return;
+            }
+
+            var position = transform.position;
+            var distToSurface = _curvedSurface.GetDistanceToSurface(position);
+            var maxDist = Mathf.Max(curvedSurfaceMaxDistance, 1.2f);
+            var onSurface = distToSurface <= maxDist;
+            var gotNormal = _curvedSurface.TryGetNormalAt(position, out var normal);
+            // #region agent log
+            if(Time.frameCount % 12 == 0) AgentLog("H_curved", "curved_maintain", "WallRunController.MaintainWallRunCurved", "{\"distToSurface\":" + distToSurface.ToString("F3") + ",\"maxDist\":" + maxDist.ToString("F3") + ",\"onSurface\":" + (onSurface ? "true" : "false") + ",\"timer\":" + _wallRunTimer.ToString("F2") + "}");
+            // #endregion
+            if(!onSurface) {
+                _stopReason = "off_surface";
+                StopWallRun();
+                return;
+            }
+
+            if(gotNormal) {
+                UpdateWallNormal(normal);
+            }
+        }
+
+        private void MaintainWallRunFlat() {
+            var towardWall = WallNormal.sqrMagnitude > 0.0001f
+                ? -WallNormal.normalized
+                : (IsWallLeft ? -transform.right : transform.right);
+            if(!Physics.Raycast(transform.position, towardWall, out var hit, wallDistanceCheck, wallLayer)) {
+                _stopReason = "flat_no_hit";
+                StopWallRun();
+                return;
+            }
+
+            _wallHit = hit;
+            UpdateWallNormal(hit.normal);
+        }
+
+        /// <summary>
         /// Updates the active wall run state, handling timers and speed checks.
         /// </summary>
         public void UpdateWallRun() {
@@ -188,6 +336,7 @@ namespace Game.Player {
 
             _wallRunTimer -= Time.deltaTime;
             if(_wallRunTimer <= 0) {
+                _stopReason = "timer";
                 StopWallRun();
                 return;
             }
@@ -199,7 +348,10 @@ namespace Game.Player {
                 _sideSwitchCooldownTimer -= Time.deltaTime;
             }
 
+            // Low-speed stop: try mantle or end run. Skip for curved runs so we only end on timer or off_surface (avoid dampening/velocity quirks kicking us off).
             if(!(_wallRunTimer < maxWallRunTime - 0.1f)) return;
+            if(_curvedSurface != null) return;
+
             var actualVelocity = _characterController.velocity;
             var actualSpeed = new Vector3(actualVelocity.x, 0, actualVelocity.z).magnitude;
 
@@ -208,8 +360,10 @@ namespace Game.Player {
 
             if(playerController.MantleController != null &&
                playerController.MantleController.TryMantle(desiredDir)) {
+                _stopReason = "low_speed_mantle";
                 StopWallRun();
             } else {
+                _stopReason = "low_speed";
                 StopWallRun();
             }
         }
@@ -223,6 +377,7 @@ namespace Game.Player {
             if(wallForward.sqrMagnitude < 0.0001f) {
                 return Vector3.zero;
             }
+
             wallForward.Normalize();
 
             // Sustain phase: prefer previous wall-run direction to preserve continuity on curves.
@@ -246,7 +401,31 @@ namespace Game.Player {
             }
 
             _lastWallRunDirection = wallForward;
-            return wallForward * _currentWallRunSpeed;
+            var velocity = wallForward * _currentWallRunSpeed;
+
+            // On curved surfaces we only apply tangent velocity above; character would drift off. Add inward stick.
+            // At high speed, centripetal requirement v²/r dominates; stick must scale with speed, or we bounce off.
+            if(_curvedSurface == null || !_curvedSurface.TryGetNormalAt(transform.position, out var outwardNormal))
+                return velocity;
+            var distToSurface = _curvedSurface.GetDistanceToSurface(transform.position);
+            var over = Mathf.Max(0f, distToSurface - curvedStickTargetDistance);
+            var speed = _currentWallRunSpeed;
+            var r = Mathf.Max(0.01f, _curvedSurface.WorldRadius);
+            var centripetal = (speed * speed / r) * Mathf.Max(0f, curvedStickCentripetalScale);
+            var stickMag = over * curvedStickStrength + centripetal;
+            // Logs showed stickMag 160–220 m/s with speed 31–36 → inward dominated and felt like stuck/jitter. Cap to fraction of tangent speed.
+            stickMag = Mathf.Min(stickMag, speed * 1.5f);
+            var inward = -outwardNormal;
+            inward.y = 0f;
+            if(!(inward.sqrMagnitude > 0.0001f)) return velocity;
+            inward.Normalize();
+            velocity += inward * stickMag;
+
+            // #region agent log
+            if(Time.frameCount % 12 == 0) AgentLog("H_stick", "curved_stick", "WallRunController.GetWallRunVelocity", "{\"distToSurface\":" + distToSurface.ToString("F3") + ",\"stickMag\":" + stickMag.ToString("F2") + ",\"centripetal\":" + centripetal.ToString("F2") + ",\"speed\":" + speed.ToString("F2") + "}");
+            // #endregion
+
+            return velocity;
         }
 
         private Vector3 GetPlanarVelocity() {
@@ -277,14 +456,9 @@ namespace Game.Player {
                     return _lastWallRunDirection.normalized;
                 }
 
-                if(WallNormal.sqrMagnitude > 0.0001f) {
-                    var tangent = Vector3.Cross(WallNormal, Vector3.up);
-                    if(tangent.sqrMagnitude > 0.0001f) {
-                        return tangent.normalized;
-                    }
-                }
-
-                return Vector3.zero;
+                if(!(WallNormal.sqrMagnitude > 0.0001f)) return Vector3.zero;
+                var tangent = Vector3.Cross(WallNormal, Vector3.up);
+                return tangent.sqrMagnitude > 0.0001f ? tangent.normalized : Vector3.zero;
             }
 
             fallbackForward.y = 0f;
@@ -303,6 +477,7 @@ namespace Game.Player {
         public void WallJump() {
             if(!IsWallRunning) return;
 
+            _stopReason = "wall_jump";
             StopWallRun(); // End state immediately
 
             // Apply cooldown to prevent immediate re-attachment
@@ -342,6 +517,10 @@ namespace Game.Player {
             return false;
         }
 
+        #endregion
+
+        #region Stashed: Legacy continuation (MaintainOrTransferWallRun not called)
+
         private void MaintainOrTransferWallRun() {
             if(!enableCurvedWallContinuation) {
                 if(!TryProbeCurrentWall(out var directHit)) {
@@ -360,6 +539,7 @@ namespace Game.Player {
             if(tryProbeOk) {
                 _wallHit = currentSideHit;
                 _continuationGraceTimer = continuationGraceTime;
+                _consecutiveSyntheticContinuationFrames = 0;
                 if(!continuationOnlyOnDetach) {
                     UpdateWallNormal(currentSideHit.normal);
                 }
@@ -367,15 +547,26 @@ namespace Game.Player {
                 return;
             }
 
-            // Step 2: At detach boundary, try to acquire the next compatible segment.
-            var tryAcquireOk = TryAcquireContinuationHit(out var continuationHit, out var continuationIsLeft, out var rejectReason);
+            // Only use continuation/grace on surfaces that explicitly support it (e.g. cylinders with CurvedWallRunSurface).
+            var curvedSurface = _wallHit.collider != null
+                ? _wallHit.collider.GetComponentInParent<CurvedWallRunSurface>()
+                : null;
+            if(curvedSurface == null) {
+                StopWallRun();
+                return;
+            }
+
+            // Step 2: At detach boundary, try to acquire the next compatible segment using cylinder geometry when available.
+            var tryAcquireOk = TryAcquireContinuationHit(curvedSurface, out var continuationHit,
+                out var continuationIsLeft, out var rejectReason);
             if(tryAcquireOk) {
+                _consecutiveSyntheticContinuationFrames = 0;
                 if(continuationIsLeft != IsWallLeft && _sideSwitchCooldownTimer > 0f) {
-                    LogContinuation($"Rejected side switch due to cooldown ({_sideSwitchCooldownTimer:F3}s).");
                     _continuationGraceTimer -= Time.deltaTime;
                     if(_continuationGraceTimer <= 0f) {
                         StopWallRun();
                     }
+
                     return;
                 }
 
@@ -389,15 +580,23 @@ namespace Game.Player {
                 }
 
                 UpdateWallNormal(continuationHit.normal);
-                LogContinuation($"Accepted continuation. side={(IsWallLeft ? "left" : "right")}, normalDelta={Vector3.Angle(WallNormal, continuationHit.normal):F1}");
                 return;
             }
 
-            if(!string.IsNullOrWhiteSpace(rejectReason)) {
-                LogContinuation($"Continuation rejected: {rejectReason}");
+            // Step 3: On curved surfaces, allow synthetic continuation when probes miss (e.g. high-speed entry) so we don't kick early. Only end from grace when we can't predict or after too many synthetic frames.
+            if(curvedSurface != null &&
+               _consecutiveSyntheticContinuationFrames < MaxConsecutiveSyntheticContinuationFrames) {
+                var forward = GetRunDirectionReference();
+                if(forward.sqrMagnitude > 0.0001f &&
+                   curvedSurface.TryGetPredictedNextNormal(WallNormal, forward, out var predictedNormal)) {
+                    _continuationGraceTimer = continuationGraceTime;
+                    _consecutiveSyntheticContinuationFrames++;
+                    UpdateWallNormal(predictedNormal);
+                    return;
+                }
             }
 
-            // Step 3: Allow a short grace period for segment seams (curved/cylinder). At a true 90° corner we got a hit rejected for normal delta — end cleanly with no grace.
+            // Sharp corner (normal delta reject): end immediately. No grace.
             if(rejectReason != null && rejectReason.IndexOf("normal delta", StringComparison.OrdinalIgnoreCase) >= 0) {
                 StopWallRun();
                 return;
@@ -409,7 +608,8 @@ namespace Game.Player {
             StopWallRun();
         }
 
-        private bool TryAcquireContinuationHit(out RaycastHit bestHit, out bool bestIsLeft, out string rejectReason) {
+        private bool TryAcquireContinuationHit(CurvedWallRunSurface curvedSurface, out RaycastHit bestHit,
+            out bool bestIsLeft, out string rejectReason) {
             bestHit = default;
             bestIsLeft = IsWallLeft;
             rejectReason = "no candidate hit";
@@ -418,41 +618,71 @@ namespace Game.Player {
             var bestScore = float.NegativeInfinity;
             var forward = GetRunDirectionReference();
             var forwardOrigin = transform.position + (forward * continuationProbeForwardOffset);
-            var currentWallNormal = WallNormal.sqrMagnitude > 0.0001f ? WallNormal.normalized : (IsWallLeft ? transform.right : -transform.right);
+            var currentWallNormal = WallNormal.sqrMagnitude > 0.0001f
+                ? WallNormal.normalized
+                : (IsWallLeft ? transform.right : -transform.right);
+
+            // Use cylinder geometry for exact expected normal when available.
             var expectedWallNormal = GetExpectedWallNormalFromRunDirection(forward);
-
-            EvaluateContinuationProbe(transform.position, -currentWallNormal, DetermineIsLeftFromNormal(currentWallNormal, forward), ref found, ref bestScore, ref bestHit, ref bestIsLeft, ref rejectReason);
-            EvaluateContinuationProbe(forwardOrigin, -currentWallNormal, DetermineIsLeftFromNormal(currentWallNormal, forward), ref found, ref bestScore, ref bestHit, ref bestIsLeft, ref rejectReason);
-            EvaluateContinuationProbe(transform.position, -expectedWallNormal, DetermineIsLeftFromNormal(expectedWallNormal, forward), ref found, ref bestScore, ref bestHit, ref bestIsLeft, ref rejectReason);
-            EvaluateContinuationProbe(forwardOrigin, -expectedWallNormal, DetermineIsLeftFromNormal(expectedWallNormal, forward), ref found, ref bestScore, ref bestHit, ref bestIsLeft, ref rejectReason);
-            EvaluateContinuationProbe(transform.position, expectedWallNormal, !DetermineIsLeftFromNormal(expectedWallNormal, forward), ref found, ref bestScore, ref bestHit, ref bestIsLeft, ref rejectReason);
-            EvaluateContinuationProbe(forwardOrigin, expectedWallNormal, !DetermineIsLeftFromNormal(expectedWallNormal, forward), ref found, ref bestScore, ref bestHit, ref bestIsLeft, ref rejectReason);
-
-            // Curved/cylindrical walls: next segment is ahead. At high speed we travel further per frame — scale ahead and reach by speed.
-            if(forward.sqrMagnitude > 0.0001f) {
-                var forwardDir = forward.normalized;
-                var speedRatio = Mathf.Max(1f, _currentWallRunSpeed / Mathf.Max(0.01f, wallRunSpeed));
-                var forwardMaxDist = Mathf.Max(wallDistanceCheck, continuationProbeForwardMaxDistance) * speedRatio;
-                var ahead = Mathf.Clamp(0.6f + (_currentWallRunSpeed - wallRunSpeed) * 0.06f, 0.6f, 3f);
-                EvaluateContinuationProbe(transform.position, forwardDir, IsWallLeft, forwardMaxDist, ref found, ref bestScore, ref bestHit, ref bestIsLeft, ref rejectReason, "forward");
-                EvaluateContinuationProbe(forwardOrigin, forwardDir, IsWallLeft, forwardMaxDist, ref found, ref bestScore, ref bestHit, ref bestIsLeft, ref rejectReason, "forward");
-                // Forward + inward (toward wall) to catch next segment around the curve.
-                var forwardInward = (forwardDir - currentWallNormal * 0.4f);
-                if(forwardInward.sqrMagnitude > 0.0001f) {
-                    forwardInward.Normalize();
-                    EvaluateContinuationProbe(transform.position, forwardInward, IsWallLeft, forwardMaxDist, ref found, ref bestScore, ref bestHit, ref bestIsLeft, ref rejectReason, "forwardInward");
-                    EvaluateContinuationProbe(forwardOrigin, forwardInward, IsWallLeft, forwardMaxDist, ref found, ref bestScore, ref bestHit, ref bestIsLeft, ref rejectReason, "forwardInward");
-                }
-                // From a point ahead, probe toward expected wall (hits next segment on cylinder). Scale ahead with speed.
-                var originAhead = transform.position + forwardDir * ahead;
-                var originAheadFromForward = forwardOrigin + forwardDir * ahead;
-                var towardNextWall = -expectedWallNormal;
-                if(towardNextWall.sqrMagnitude > 0.0001f) {
-                    towardNextWall.Normalize();
-                    EvaluateContinuationProbe(originAhead, towardNextWall, IsWallLeft, forwardMaxDist, ref found, ref bestScore, ref bestHit, ref bestIsLeft, ref rejectReason, "aheadTowardWall");
-                    EvaluateContinuationProbe(originAheadFromForward, towardNextWall, IsWallLeft, forwardMaxDist, ref found, ref bestScore, ref bestHit, ref bestIsLeft, ref rejectReason, "aheadTowardWall");
-                }
+            if(curvedSurface != null &&
+               curvedSurface.TryGetPredictedNextNormal(WallNormal, forward, out var predictedNext)) {
+                expectedWallNormal = predictedNext;
             }
+
+            var position = transform.position;
+            EvaluateContinuationProbe(position, -currentWallNormal,
+                DetermineIsLeftFromNormal(currentWallNormal, forward), ref found, ref bestScore, ref bestHit,
+                ref bestIsLeft, ref rejectReason);
+            EvaluateContinuationProbe(forwardOrigin, -currentWallNormal,
+                DetermineIsLeftFromNormal(currentWallNormal, forward), ref found, ref bestScore, ref bestHit,
+                ref bestIsLeft, ref rejectReason);
+            EvaluateContinuationProbe(position, -expectedWallNormal,
+                DetermineIsLeftFromNormal(expectedWallNormal, forward), ref found, ref bestScore, ref bestHit,
+                ref bestIsLeft, ref rejectReason);
+            EvaluateContinuationProbe(forwardOrigin, -expectedWallNormal,
+                DetermineIsLeftFromNormal(expectedWallNormal, forward), ref found, ref bestScore, ref bestHit,
+                ref bestIsLeft, ref rejectReason);
+            EvaluateContinuationProbe(position, expectedWallNormal,
+                !DetermineIsLeftFromNormal(expectedWallNormal, forward), ref found, ref bestScore, ref bestHit,
+                ref bestIsLeft, ref rejectReason);
+            EvaluateContinuationProbe(forwardOrigin, expectedWallNormal,
+                !DetermineIsLeftFromNormal(expectedWallNormal, forward), ref found, ref bestScore, ref bestHit,
+                ref bestIsLeft, ref rejectReason);
+
+            // Curved/cylindrical walls: next segment is ahead. Use segment-aware distance and speed scaling.
+            if(!(forward.sqrMagnitude > 0.0001f)) return found;
+            var forwardDir = forward.normalized;
+            var speedRatio = Mathf.Max(1f, _currentWallRunSpeed / Mathf.Max(0.01f, wallRunSpeed));
+            var baseMaxDist = Mathf.Max(wallDistanceCheck, continuationProbeForwardMaxDistance);
+            var segmentDist = curvedSurface != null ? curvedSurface.GetSegmentAwareProbeDistance() : 0f;
+            var forwardMaxDist = Mathf.Max(baseMaxDist * speedRatio, segmentDist);
+            var ahead = Mathf.Clamp(0.6f + (_currentWallRunSpeed - wallRunSpeed) * 0.06f, 0.6f, 3f);
+            if(curvedSurface != null && segmentDist > 0f) {
+                ahead = Mathf.Max(ahead, segmentDist * 0.5f);
+            }
+
+            EvaluateContinuationProbe(transform.position, forwardDir, IsWallLeft, forwardMaxDist, ref found,
+                ref bestScore, ref bestHit, ref bestIsLeft, ref rejectReason, "forward");
+            EvaluateContinuationProbe(forwardOrigin, forwardDir, IsWallLeft, forwardMaxDist, ref found, ref bestScore,
+                ref bestHit, ref bestIsLeft, ref rejectReason, "forward");
+            var forwardInward = (forwardDir - currentWallNormal * 0.4f);
+            if(forwardInward.sqrMagnitude > 0.0001f) {
+                forwardInward.Normalize();
+                EvaluateContinuationProbe(transform.position, forwardInward, IsWallLeft, forwardMaxDist, ref found,
+                    ref bestScore, ref bestHit, ref bestIsLeft, ref rejectReason, "forwardInward");
+                EvaluateContinuationProbe(forwardOrigin, forwardInward, IsWallLeft, forwardMaxDist, ref found,
+                    ref bestScore, ref bestHit, ref bestIsLeft, ref rejectReason, "forwardInward");
+            }
+
+            var originAhead = transform.position + forwardDir * ahead;
+            var originAheadFromForward = forwardOrigin + forwardDir * ahead;
+            var towardNextWall = -expectedWallNormal;
+            if(!(towardNextWall.sqrMagnitude > 0.0001f)) return found;
+            towardNextWall.Normalize();
+            EvaluateContinuationProbe(originAhead, towardNextWall, IsWallLeft, forwardMaxDist, ref found, ref bestScore,
+                ref bestHit, ref bestIsLeft, ref rejectReason, "aheadTowardWall");
+            EvaluateContinuationProbe(originAheadFromForward, towardNextWall, IsWallLeft, forwardMaxDist, ref found,
+                ref bestScore, ref bestHit, ref bestIsLeft, ref rejectReason, "aheadTowardWall");
 
             return found;
         }
@@ -467,7 +697,8 @@ namespace Game.Player {
             ref bool bestIsLeft,
             ref string rejectReason
         ) {
-            EvaluateContinuationProbe(origin, probeDirection, inferredIsLeft, wallDistanceCheck, ref found, ref bestScore, ref bestHit, ref bestIsLeft, ref rejectReason);
+            EvaluateContinuationProbe(origin, probeDirection, inferredIsLeft, wallDistanceCheck, ref found,
+                ref bestScore, ref bestHit, ref bestIsLeft, ref rejectReason);
         }
 
         private void EvaluateContinuationProbe(
@@ -498,7 +729,8 @@ namespace Game.Player {
 
             // Prefer continuity with current normal and previous run direction.
             var normalDelta = Vector3.Angle(WallNormal, hit.normal);
-            var normalizedDistance = Mathf.Clamp01(hit.distance / Mathf.Max(0.01f, maxDistance + continuationProbeForwardOffset + continuationProbeRadius));
+            var normalizedDistance = Mathf.Clamp01(hit.distance / Mathf.Max(0.01f,
+                maxDistance + continuationProbeForwardOffset + continuationProbeRadius));
             var candidateForward = Vector3.Cross(hit.normal, Vector3.up);
             if(candidateForward.sqrMagnitude > 0.0001f) {
                 candidateForward.Normalize();
@@ -540,17 +772,9 @@ namespace Game.Player {
             }
 
             var normalDelta = Vector3.Angle(WallNormal, hit.normal);
-            if(normalDelta > continuationMaxNormalDelta) {
-                reason = $"normal delta too high ({normalDelta:F1} > {continuationMaxNormalDelta:F1})";
-                return false;
-            }
-
-            return true;
-        }
-
-        private bool TryProbeSide(bool probeLeft, Vector3 origin, out RaycastHit hit) {
-            var dir = probeLeft ? -transform.right : transform.right;
-            return Physics.Raycast(origin, dir, out hit, wallDistanceCheck, wallLayer);
+            if(!(normalDelta > continuationMaxNormalDelta)) return true;
+            reason = $"normal delta too high ({normalDelta:F1} > {continuationMaxNormalDelta:F1})";
+            return false;
         }
 
         private bool TryProbeToward(Vector3 direction, Vector3 origin, out RaycastHit hit) {
@@ -558,11 +782,10 @@ namespace Game.Player {
         }
 
         private bool TryProbeToward(Vector3 direction, Vector3 origin, float maxDistance, out RaycastHit hit) {
-            if(direction.sqrMagnitude < 0.0001f || maxDistance <= 0f) {
-                hit = default;
-                return false;
-            }
-            return Physics.Raycast(origin, direction.normalized, out hit, maxDistance, wallLayer);
+            if(!(direction.sqrMagnitude < 0.0001f) && !(maxDistance <= 0f))
+                return Physics.Raycast(origin, direction.normalized, out hit, maxDistance, wallLayer);
+            hit = default;
+            return false;
         }
 
         private bool TrySphereProbeToward(Vector3 direction, Vector3 origin, out RaycastHit hit) {
@@ -570,17 +793,17 @@ namespace Game.Player {
         }
 
         private bool TrySphereProbeToward(Vector3 direction, Vector3 origin, float maxDistance, out RaycastHit hit) {
-            if(direction.sqrMagnitude < 0.0001f || maxDistance <= 0f) {
-                hit = default;
-                return false;
-            }
-            return Physics.SphereCast(origin, continuationProbeRadius, direction.normalized, out hit, maxDistance, wallLayer);
+            if(!(direction.sqrMagnitude < 0.0001f) && !(maxDistance <= 0f))
+                return Physics.SphereCast(origin, continuationProbeRadius, direction.normalized, out hit, maxDistance,
+                    wallLayer);
+            hit = default;
+            return false;
         }
 
         private bool TryProbeCurrentWall(out RaycastHit hit) {
             var towardWall = WallNormal.sqrMagnitude > 0.0001f
                 ? -WallNormal.normalized
-                : (IsWallLeft ? -transform.right : transform.right);
+                : IsWallLeft ? -transform.right : transform.right;
 
             if(TryProbeToward(towardWall, transform.position, out hit)) {
                 return true;
@@ -592,11 +815,8 @@ namespace Game.Player {
                 return true;
             }
 
-            if(TrySphereProbeToward(towardWall, transform.position, out hit)) {
-                return true;
-            }
-
-            return TrySphereProbeToward(towardWall, forwardOrigin, out hit);
+            return TrySphereProbeToward(towardWall, transform.position, out hit) ||
+                   TrySphereProbeToward(towardWall, forwardOrigin, out hit);
         }
 
         private Vector3 GetRunDirectionReference() {
@@ -607,11 +827,9 @@ namespace Game.Player {
             }
 
             var planarVelocity = GetPlanarVelocity();
-            if(planarVelocity.sqrMagnitude > 0.0001f) {
-                return planarVelocity.normalized;
-            }
-
-            return GetPreferredDirection(transform.forward, allowLookFallback: false);
+            return planarVelocity.sqrMagnitude > 0.0001f
+                ? planarVelocity.normalized
+                : GetPreferredDirection(transform.forward, allowLookFallback: false);
         }
 
         private static bool DetermineIsLeftFromNormal(Vector3 wallNormal, Vector3 runDirection) {
@@ -634,16 +852,29 @@ namespace Game.Player {
             var run = runDirection;
             run.y = 0f;
             if(run.sqrMagnitude < 0.0001f) {
-                return WallNormal.sqrMagnitude > 0.0001f ? WallNormal.normalized : (IsWallLeft ? transform.right : -transform.right);
+                return WallNormal.sqrMagnitude > 0.0001f
+                    ? WallNormal.normalized
+                    : IsWallLeft ? transform.right : -transform.right;
             }
 
             run.Normalize();
             var expected = IsWallLeft ? Vector3.Cross(Vector3.up, run) : Vector3.Cross(run, Vector3.up);
             if(expected.sqrMagnitude < 0.0001f) {
-                return WallNormal.sqrMagnitude > 0.0001f ? WallNormal.normalized : (IsWallLeft ? transform.right : -transform.right);
+                return WallNormal.sqrMagnitude > 0.0001f
+                    ? WallNormal.normalized
+                    : IsWallLeft ? transform.right : -transform.right;
             }
 
             return expected.normalized;
+        }
+
+        #endregion
+
+        #region Active: Helpers (normal blend, camera tilt, initial probe)
+
+        private bool TryProbeSide(bool probeLeft, Vector3 origin, out RaycastHit hit) {
+            var dir = probeLeft ? -transform.right : transform.right;
+            return Physics.Raycast(origin, dir, out hit, wallDistanceCheck, wallLayer);
         }
 
         private void UpdateWallNormal(Vector3 newNormal) {
@@ -663,9 +894,6 @@ namespace Game.Player {
             playerController.LookController.SetTargetTilt(tilt);
         }
 
-        private void LogContinuation(string message) {
-            if(!wallRunContinuationDebugLogs) return;
-            Debug.Log($"[WallRun] {message}");
-        }
+        #endregion
     }
 }
