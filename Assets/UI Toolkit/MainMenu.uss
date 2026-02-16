@@ -1829,6 +1829,7 @@
 .private-match-settings-column .setting-row {
     min-height: 56px;
     align-items: center;
+    margin-bottom: 0;
     border-bottom-width: 1px;
     border-bottom-color: rgba(255, 60, 60, 0.2);
     padding-top: 6px;
