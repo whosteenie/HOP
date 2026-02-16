@@ -1,5 +1,4 @@
 using System;
-using System.IO;
 using Game.Settings;
 using Unity.Cinemachine;
 using Unity.Netcode;
@@ -7,19 +6,6 @@ using UnityEngine;
 
 namespace Game.Player {
     public class WallRunController : NetworkBehaviour {
-        // #region agent log
-        private static void AgentLog(string hypothesisId, string message, string location, string dataJson) {
-            try {
-                var path = Path.GetFullPath(Path.Combine(Application.dataPath, "..", ".cursor", "debug.log"));
-                var dir = Path.GetDirectoryName(path);
-                if(string.IsNullOrEmpty(dir) || !Directory.Exists(dir)) return;
-                var dataStr = string.IsNullOrEmpty(dataJson) ? "{}" : dataJson;
-                var escaped = (dataStr ?? "").Replace("\\", "\\\\").Replace("\"", "\\\"");
-                var line = "{\"hypothesisId\":\"" + hypothesisId + "\",\"message\":\"" + (message ?? "").Replace("\\", "\\\\").Replace("\"", "\\\"") + "\",\"timestamp\":" + DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() + ",\"location\":\"" + (location ?? "").Replace("\\", "\\\\").Replace("\"", "\\\"") + "\",\"dataStr\":\"" + escaped + "\"}\n";
-                File.AppendAllText(path, line);
-            } catch { /* ignore */ }
-        }
-        // #endregion
 
         [Header("References")]
         [SerializeField] private PlayerController playerController;
@@ -223,6 +209,9 @@ namespace Game.Player {
             var timeSinceStop = Time.time - _lastWallRunStopTime;
             if(timeSinceStop < quickReattachWindow && _wallRunTimerRemainingAtStop > 0f) {
                 _wallRunTimer = _wallRunTimerRemainingAtStop;
+            } else if(timeSinceStop < quickReattachWindow && _wallRunTimerRemainingAtStop <= 0f) {
+                // Timer had just run out; don't grant a fresh 3s for immediate reattach (avoids feeling like one long run).
+                _wallRunTimer = 0f;
             } else {
                 _wallRunTimer = maxWallRunTime;
             }
@@ -238,19 +227,12 @@ namespace Game.Player {
             _targetWallNormal = WallNormal;
             _lastWallRunDirection = Vector3.zero;
 
-
-            // #region agent log
-            AgentLog("H_start", "wall_run_start", "WallRunController.StartWallRun", "{\"curved\":" + (_curvedSurface != null ? "true" : "false") + ",\"entrySpeed\":" + _currentWallRunSpeed.ToString("F2") + ",\"timer\":" + _wallRunTimer.ToString("F2") + ",\"quickReattach\":" + (timeSinceStop < quickReattachWindow && _wallRunTimerRemainingAtStop > 0f ? "true" : "false") + "}");
-            // #endregion
-
             // Apply Camera Tilt
             UpdateCameraTiltForCurrentSide();
         }
 
         private void StopWallRun() {
-            // #region agent log
-            AgentLog("H_stop", "wall_run_stop", "WallRunController.StopWallRun", "{\"reason\":\"" + (_stopReason ?? "unknown") + "\",\"timerRemaining\":" + _wallRunTimer.ToString("F2") + ",\"curved\":" + (_curvedSurface != null ? "true" : "false") + "}");
-            // #endregion
+            var stopReasonWas = _stopReason;
             _stopReason = null;
 
             _wallRunTimerRemainingAtStop = _wallRunTimer;
@@ -258,7 +240,7 @@ namespace Game.Player {
 
             // Cancel stick: set exit velocity to tangent direction × entry magnitude so we don't carry inward momentum.
             // Skip for instant flat_no_hit (timer barely used): logs showed corner grapples starting then stopping in one frame and getting full-speed exit = bounce.
-            var veryShortFlatRun = _stopReason == "flat_no_hit" && _wallRunTimer > maxWallRunTime - 0.2f;
+            var veryShortFlatRun = stopReasonWas == "flat_no_hit" && _wallRunTimer > maxWallRunTime - 0.2f;
             if(!veryShortFlatRun && _movementController != null && _lastWallRunDirection.sqrMagnitude > 0.01f &&
                _wallRunEntrySpeedMagnitude > 0f) {
                 var exitDir = _lastWallRunDirection.normalized;
@@ -275,6 +257,13 @@ namespace Game.Player {
             if(_fpCamera != null && playerController.LookController != null) {
                 playerController.LookController.SetTargetTilt(0f);
             }
+        }
+
+        /// <summary>Called when another system (e.g. grapple) takes over movement so wall run stick doesn't fight it.</summary>
+        public void ForceStopWallRun(string reason = "grapple") {
+            if(!IsWallRunning) return;
+            _stopReason = reason;
+            StopWallRun();
         }
 
         /// <summary>
@@ -300,9 +289,6 @@ namespace Game.Player {
             var maxDist = Mathf.Max(curvedSurfaceMaxDistance, 1.2f);
             var onSurface = distToSurface <= maxDist;
             var gotNormal = _curvedSurface.TryGetNormalAt(position, out var normal);
-            // #region agent log
-            if(Time.frameCount % 12 == 0) AgentLog("H_curved", "curved_maintain", "WallRunController.MaintainWallRunCurved", "{\"distToSurface\":" + distToSurface.ToString("F3") + ",\"maxDist\":" + maxDist.ToString("F3") + ",\"onSurface\":" + (onSurface ? "true" : "false") + ",\"timer\":" + _wallRunTimer.ToString("F2") + "}");
-            // #endregion
             if(!onSurface) {
                 _stopReason = "off_surface";
                 StopWallRun();
@@ -420,10 +406,6 @@ namespace Game.Player {
             if(!(inward.sqrMagnitude > 0.0001f)) return velocity;
             inward.Normalize();
             velocity += inward * stickMag;
-
-            // #region agent log
-            if(Time.frameCount % 12 == 0) AgentLog("H_stick", "curved_stick", "WallRunController.GetWallRunVelocity", "{\"distToSurface\":" + distToSurface.ToString("F3") + ",\"stickMag\":" + stickMag.ToString("F2") + ",\"centripetal\":" + centripetal.ToString("F2") + ",\"speed\":" + speed.ToString("F2") + "}");
-            // #endregion
 
             return velocity;
         }

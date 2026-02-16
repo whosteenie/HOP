@@ -144,11 +144,17 @@ namespace Game.Player {
                 return;
             }
 
+            // Grapple pull must control movement; stop wall run so stick velocity doesn't fight the pull (especially on curved).
+            if(_grappleController != null && _grappleController.IsGrappling) {
+                if(_wallRunController != null && _wallRunController.IsWallRunning)
+                    _wallRunController.ForceStopWallRun();
+            }
+
             if(!CrouchInput) {
                 _wasStandingBeforeCrouch = true;
             }
 
-            if(_wallRunController != null) {
+            if(_wallRunController != null && (_grappleController == null || !_grappleController.IsGrappling)) {
                 _wallRunController.CheckForWall();
                 if(_wallRunController.IsWallRunning) {
                     if (!_wasWallRunningLastFrame) {
@@ -170,7 +176,7 @@ namespace Game.Player {
                 _currentWallRunChain = 0;
             }
 
-            if(_wallRunController != null && _wallRunController.IsWallRunning) {
+            if(_wallRunController != null && _wallRunController.IsWallRunning && (_grappleController == null || !_grappleController.IsGrappling)) {
             } else if(IsSliding) {
                 ProcessSlide();
             } else if(CanInitiateSlide()) {
