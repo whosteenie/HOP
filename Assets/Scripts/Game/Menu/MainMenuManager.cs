@@ -100,7 +100,7 @@ namespace Game.Menu {
         }
 
         protected override void OnDisable() {
-            SetOptionsOpenState(false);
+            SetOptionsOpenState(false, false);
             base.OnDisable();
         }
 
@@ -411,7 +411,8 @@ namespace Game.Menu {
             _navigatorMissingLogged = false;
             _navigator.Show(panel);
             var useMenuOverlay = panel == _optionsPanel || panel == _privateMatchSetupPanel;
-            SetOptionsOpenState(useMenuOverlay);
+            var isPrivateSetupOpen = panel == _privateMatchSetupPanel;
+            SetOptionsOpenState(useMenuOverlay, isPrivateSetupOpen);
             UpdateDiscordStatusForPanel(panel);
             
             // Refresh challenges when main menu panel is shown
@@ -420,14 +421,26 @@ namespace Game.Menu {
             }
         }
 
-        private void SetOptionsOpenState(bool isOptionsOpen) {
+        private void SetOptionsOpenState(bool isOptionsOpen, bool isPrivateSetupOpen) {
             if(Root == null) return;
 
-            if(isOptionsOpen) {
-                Root.AddToClassList("options-open");
-            } else {
-                Root.RemoveFromClassList("options-open");
+            var panelRoot = Root.panel?.visualTree;
+
+            static void SetClassState(VisualElement element, string className, bool enabled) {
+                if(element == null) return;
+                if(enabled) {
+                    element.AddToClassList(className);
+                } else {
+                    element.RemoveFromClassList(className);
+                }
             }
+
+            // Apply to both document root and panel root.
+            // Dropdown popup menus are attached under panel root, not under this UIDocument root.
+            SetClassState(Root, "options-open", isOptionsOpen);
+            SetClassState(panelRoot, "options-open", isOptionsOpen);
+            SetClassState(Root, "private-match-open", isPrivateSetupOpen);
+            SetClassState(panelRoot, "private-match-open", isPrivateSetupOpen);
 
             if(menuBlurController != null) {
                 menuBlurController.SetBlurActive(isOptionsOpen);

@@ -33,6 +33,18 @@
     margin-left: var(--options-dropdown-popup-x-offset);
 }
 
+/* Private match dropdown popup override.
+   Class is attached at runtime to the generated popup root element. */
+.unity-base-dropdown.private-match-dropdown-popup .unity-base-dropdown__container-outer,
+.unity-base-popup-field__menu.private-match-dropdown-popup .unity-base-dropdown__container-outer,
+.unity-popup-field__menu.private-match-dropdown-popup .unity-base-dropdown__container-outer,
+.unity-generic-dropdown-menu.private-match-dropdown-popup .unity-base-dropdown__container-outer {
+    margin-left: -19px;
+    min-width: 280px;
+    width: 280px;
+    max-width: 280px;
+}
+
 .unity-base-dropdown__container-inner,
 .unity-base-popup-field__menu .unity-base-dropdown__container-inner,
 .unity-popup-field__menu .unity-base-dropdown__container-inner,

@@ -72,6 +72,7 @@ namespace Game.Menu {
         private readonly List<MapDefinition> _filteredMaps = new();
         private PrivateMatchDraftSettings _draft;
         private bool _suppressEvents;
+        private const string PrivateMatchDropdownPopupClass = "private-match-dropdown-popup";
 
         protected override Dictionary<string, Type> GetRequiredElements() {
             return new Dictionary<string, Type> {
@@ -109,6 +110,7 @@ namespace Game.Menu {
             _teamAList = Root?.Q<ScrollView>("private-match-team-a-list");
             _teamBList = Root?.Q<ScrollView>("private-match-team-b-list");
 
+            BindDropdownOpenStateClasses();
             SetupDefaults();
             BindEvents();
             RefreshMapChoicesForGamemode(_draft.GamemodeId);
@@ -119,6 +121,18 @@ namespace Game.Menu {
             RefreshStatusLabel();
             RefreshValidationAndStartButton();
             RefreshTeamPreview();
+        }
+
+        private void BindDropdownOpenStateClasses() {
+            var gamemodeCleanup = DropdownOpenStateBinder.Bind(_gamemodeDropdown, PrivateMatchDropdownPopupClass);
+            if(gamemodeCleanup != null) {
+                RegisterCleanup(gamemodeCleanup);
+            }
+
+            var mapCleanup = DropdownOpenStateBinder.Bind(_mapDropdown, PrivateMatchDropdownPopupClass);
+            if(mapCleanup != null) {
+                RegisterCleanup(mapCleanup);
+            }
         }
 
         protected override void OnEnable() {

@@ -10,20 +10,49 @@ namespace Game.UI {
         private const string OpenClass = "dropdown-open";
 
         public static Action Bind(DropdownField dropdown) {
+            return Bind(dropdown, null);
+        }
+
+        public static Action Bind(DropdownField dropdown, string popupOpenClass) {
             if(dropdown == null) {
                 return null;
             }
 
             VisualElement panelRoot = dropdown.panel?.visualTree;
             var popupWatchGeneration = 0;
+            VisualElement taggedPopupRoot = null;
+
+            void ClearTaggedPopupClass() {
+                if(string.IsNullOrWhiteSpace(popupOpenClass)) return;
+                if(taggedPopupRoot == null) return;
+                taggedPopupRoot.RemoveFromClassList(popupOpenClass);
+                taggedPopupRoot = null;
+            }
+
+            void TryTagCurrentPopupRoot(VisualElement currentPanelRoot) {
+                if(string.IsNullOrWhiteSpace(popupOpenClass)) return;
+                var popupRoot = FindAnyDropdownPopupRoot(currentPanelRoot);
+                if(popupRoot == null) return;
+
+                if(taggedPopupRoot != null && taggedPopupRoot != popupRoot) {
+                    taggedPopupRoot.RemoveFromClassList(popupOpenClass);
+                }
+
+                taggedPopupRoot = popupRoot;
+                if(!taggedPopupRoot.ClassListContains(popupOpenClass)) {
+                    taggedPopupRoot.AddToClassList(popupOpenClass);
+                }
+            }
 
             void CloseDropdown(string reason) {
                 popupWatchGeneration++;
                 if(!dropdown.ClassListContains(OpenClass)) {
+                    ClearTaggedPopupClass();
                     return;
                 }
 
                 dropdown.RemoveFromClassList(OpenClass);
+                ClearTaggedPopupClass();
             }
 
             void StartPopupWatchdog() {
@@ -45,6 +74,7 @@ namespace Game.UI {
                     var popupOpen = IsAnyDropdownPopupOpen(currentPanelRoot);
                     if(popupOpen) {
                         sawPopupOpen = true;
+                        TryTagCurrentPopupRoot(currentPanelRoot);
                     } else if(sawPopupOpen) {
                         CloseDropdown("Popup watchdog detected closed popup");
                         return;
@@ -188,6 +218,21 @@ namespace Game.UI {
                    panelRoot.Query<VisualElement>(className: "unity-base-popup-field__menu").First() != null ||
                    panelRoot.Query<VisualElement>(className: "unity-popup-field__menu").First() != null ||
                    panelRoot.Query<VisualElement>(className: "unity-generic-dropdown-menu").First() != null;
+        }
+
+        private static VisualElement FindAnyDropdownPopupRoot(VisualElement panelRoot) {
+            if(panelRoot == null) return null;
+
+            var popupRoot = panelRoot.Query<VisualElement>(className: "unity-base-dropdown").First();
+            if(popupRoot != null) return popupRoot;
+
+            popupRoot = panelRoot.Query<VisualElement>(className: "unity-base-popup-field__menu").First();
+            if(popupRoot != null) return popupRoot;
+
+            popupRoot = panelRoot.Query<VisualElement>(className: "unity-popup-field__menu").First();
+            if(popupRoot != null) return popupRoot;
+
+            return panelRoot.Query<VisualElement>(className: "unity-generic-dropdown-menu").First();
         }
 
         private static bool IsInsideElement(VisualElement target, VisualElement root) {
