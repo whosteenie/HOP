@@ -10,15 +10,13 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: c9323c10167208843a194570026f3ed8, type: 3}
-  m_Name: dev_kami
+  m_Name: gt_homage
   m_EditorClassIdentifier: Assembly-CSharp::Game.Match.MapDefinition
-  mapId: dev_kami
-  sceneName: dev_kami
+  mapId: gt_homage
+  sceneName: gt_homage
   enabledInRotation: 1
   selectionWeight: 1
-  previewImage: {fileID: 0}
+  previewImage: {fileID: 21300000, guid: 03cddcdb9f04b7e44817c19bb9d8797c, type: 3}
+  useYLevelOutOfBoundsKill: 0
   supportedGamemodes:
-  - Deathmatch
-  - Team Deathmatch
-  - Hopball
-  - KOTH
+  - Gun Tag

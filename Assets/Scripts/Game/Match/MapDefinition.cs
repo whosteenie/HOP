@@ -14,6 +14,7 @@ namespace Game.Match {
         [SerializeField] private bool enabledInRotation = true;
         [SerializeField, Min(1)] private int selectionWeight = 1;
         [SerializeField] private Sprite previewImage;
+        [SerializeField] private bool useYLevelOutOfBoundsKill = true;
 
         [Header("Supported Gamemodes")]
         [SerializeField] private List<string> supportedGamemodes = new();
@@ -23,6 +24,7 @@ namespace Game.Match {
         public bool EnabledInRotation => enabledInRotation;
         public int SelectionWeight => Mathf.Max(1, selectionWeight);
         public Sprite PreviewImage => previewImage;
+        public bool UseYLevelOutOfBoundsKill => useYLevelOutOfBoundsKill;
         public IReadOnlyList<string> SupportedGamemodes => supportedGamemodes;
 
         public bool SupportsGamemode(string gamemodeId) {

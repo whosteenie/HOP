@@ -16,3 +16,4 @@ MonoBehaviour:
   fallbackMapId: default_game
   maps:
   - {fileID: 11400000, guid: 91a6fecab7783a640b79a78ee165baa7, type: 2}
+  - {fileID: 11400000, guid: 5b9db2ac55cba2041875ad5d4b509edd, type: 2}

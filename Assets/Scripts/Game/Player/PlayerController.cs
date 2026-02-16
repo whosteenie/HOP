@@ -122,6 +122,7 @@ namespace Game.Player {
         [SerializeField] private float defaultOutOfBoundsY = 600f;
         private int _cachedOobSceneHandle = -1;
         private float _cachedOutOfBoundsY;
+        private bool _cachedUseYLevelOutOfBoundsKill = true;
         private Vector3 _lastServerMovementPosition;
         private float _lastServerMovementTime;
         private bool _hasServerMovementSample;
@@ -504,7 +505,9 @@ namespace Game.Player {
             if(IsServer) {
                 var authPos = clientNetworkTransform.transform.position;
                 ValidateServerMovement(authPos);
-                if(authPos.y <= GetOutOfBoundsKillY() && Time.time >= _ignoreOutOfBoundsUntilTime) {
+                if(IsYLevelOutOfBoundsKillEnabled() &&
+                   authPos.y <= GetOutOfBoundsKillY() &&
+                   Time.time >= _ignoreOutOfBoundsUntilTime) {
                     if(!netIsDead.Value && Time.time - _lastDeathTime >= 4f) {
                         _lastDeathTime = Time.time;
                         if(healthController != null)
@@ -689,13 +692,24 @@ namespace Game.Player {
         }
 
         public float GetOutOfBoundsKillY() {
+            RefreshOutOfBoundsCacheIfNeeded();
+            return _cachedOutOfBoundsY;
+        }
+
+        private bool IsYLevelOutOfBoundsKillEnabled() {
+            RefreshOutOfBoundsCacheIfNeeded();
+            return _cachedUseYLevelOutOfBoundsKill;
+        }
+
+        private void RefreshOutOfBoundsCacheIfNeeded() {
             var activeScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
             if(_cachedOobSceneHandle == activeScene.handle) {
-                return _cachedOutOfBoundsY;
+                return;
             }
 
             _cachedOobSceneHandle = activeScene.handle;
             _cachedOutOfBoundsY = defaultOutOfBoundsY;
+            _cachedUseYLevelOutOfBoundsKill = MatchMapService.IsYLevelOutOfBoundsKillEnabled(activeScene.name);
 
             Transform marker = null;
             if(!string.IsNullOrWhiteSpace(outOfBoundsMarkerTag)) {
@@ -719,8 +733,6 @@ namespace Game.Player {
             if(marker != null) {
                 _cachedOutOfBoundsY = marker.position.y;
             }
-
-            return _cachedOutOfBoundsY;
         }
 
         #endregion

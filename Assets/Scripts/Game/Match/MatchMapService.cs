@@ -144,6 +144,26 @@ namespace Game.Match {
             return false;
         }
 
+        public static bool IsYLevelOutOfBoundsKillEnabled(string sceneName) {
+            if(string.IsNullOrWhiteSpace(sceneName)) {
+                return true;
+            }
+
+            EnsureLoaded();
+            if(_pool == null || _pool.Maps == null || _pool.Maps.Count == 0) {
+                return true;
+            }
+
+            for(var i = 0; i < _pool.Maps.Count; i++) {
+                var map = _pool.Maps[i];
+                if(map == null || string.IsNullOrWhiteSpace(map.SceneName)) continue;
+                if(string.Equals(map.SceneName, sceneName, System.StringComparison.OrdinalIgnoreCase) == false) continue;
+                return map.UseYLevelOutOfBoundsKill;
+            }
+
+            return true;
+        }
+
         private static void EnsureLoaded() {
             if(_loaded) return;
             _loaded = true;
