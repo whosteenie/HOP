@@ -89,6 +89,10 @@
                             <ui:Label text="MATCH TIMER (SECONDS)" class="setting-label"/>
                             <ui:IntegerField name="private-match-timer-input" value="600" class="value-input private-match-input"/>
                         </ui:VisualElement>
+                        <ui:VisualElement name="private-match-prematch-countdown-row" class="setting-row">
+                            <ui:Label text="PRE-MATCH COUNTDOWN" class="setting-label"/>
+                            <ui:Button name="private-match-prematch-countdown-toggle" class="setting-toggle"/>
+                        </ui:VisualElement>
                         <ui:VisualElement name="private-match-score-row" class="setting-row">
                             <ui:Label text="SCORE TO WIN" class="setting-label"/>
                             <ui:IntegerField name="private-match-score-input" value="50" class="value-input private-match-input"/>

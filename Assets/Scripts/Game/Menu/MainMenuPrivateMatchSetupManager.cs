@@ -25,6 +25,7 @@ namespace Game.Menu {
             public string GamemodeId;
             public string MapId;
             public int MatchTimerSeconds;
+            public bool UsePreMatchCountdown;
             public int ScoreToWin;
             public int KothHillSpeed;
             public int TaggedPlayers;
@@ -42,6 +43,7 @@ namespace Game.Menu {
         private DropdownField _gamemodeDropdown;
         private DropdownField _mapDropdown;
         private IntegerField _matchTimerField;
+        private Button _preMatchCountdownToggle;
         private IntegerField _scoreToWinField;
         private IntegerField _kothHillSpeedField;
         private IntegerField _taggedPlayersField;
@@ -76,6 +78,7 @@ namespace Game.Menu {
                 { "private-match-gamemode-dropdown", typeof(DropdownField) },
                 { "private-match-map-dropdown", typeof(DropdownField) },
                 { "private-match-timer-input", typeof(IntegerField) },
+                { "private-match-prematch-countdown-toggle", typeof(Button) },
                 { "private-match-score-input", typeof(IntegerField) },
                 { "private-match-koth-speed-input", typeof(IntegerField) },
                 { "private-match-tagged-input", typeof(IntegerField) },
@@ -87,6 +90,7 @@ namespace Game.Menu {
             _gamemodeDropdown = QRequired<DropdownField>("private-match-gamemode-dropdown");
             _mapDropdown = QRequired<DropdownField>("private-match-map-dropdown");
             _matchTimerField = QRequired<IntegerField>("private-match-timer-input");
+            _preMatchCountdownToggle = QRequired<Button>("private-match-prematch-countdown-toggle");
             _scoreToWinField = QRequired<IntegerField>("private-match-score-input");
             _kothHillSpeedField = QRequired<IntegerField>("private-match-koth-speed-input");
             _taggedPlayersField = QRequired<IntegerField>("private-match-tagged-input");
@@ -203,6 +207,7 @@ namespace Game.Menu {
             _draft = new PrivateMatchDraftSettings {
                 GamemodeId = initialMode,
                 MatchTimerSeconds = Mathf.Max(60, GetDefaultMatchTimerForGamemode(initialMode)),
+                UsePreMatchCountdown = true,
                 ScoreToWin = Mathf.Max(1, GetDefaultScoreToWinForGamemode(initialMode)),
                 KothHillSpeed = Mathf.Max(1, GetDefaultKothHillSpeed()),
                 TaggedPlayers = Mathf.Max(1, defaultTaggedPlayers),
@@ -215,6 +220,7 @@ namespace Game.Menu {
             _scoreToWinField.value = _draft.ScoreToWin;
             _kothHillSpeedField.value = _draft.KothHillSpeed;
             _taggedPlayersField.value = _draft.TaggedPlayers;
+            SetCheckboxValue(_preMatchCountdownToggle, _draft.UsePreMatchCountdown);
             _suppressEvents = false;
             ApplyInfiniteFieldDisplay(_matchTimerField, _draft.MatchTimerSeconds == 0);
             ApplyInfiniteFieldDisplay(_scoreToWinField, _draft.ScoreToWin == 0);
@@ -239,6 +245,17 @@ namespace Game.Menu {
             RegisterCleanup(() => _matchTimerField.UnregisterValueChangedCallback(OnTimerChanged));
             RegisterSanitizeOnCommit(_matchTimerField, 0, int.MaxValue, v => _draft.MatchTimerSeconds = v);
             RegisterInfiniteFieldDisplay(_matchTimerField);
+
+            if(_preMatchCountdownToggle != null) {
+                void TogglePreMatchCountdown() {
+                    ToggleCheckbox(_preMatchCountdownToggle);
+                    _draft.UsePreMatchCountdown = GetCheckboxValue(_preMatchCountdownToggle);
+                    RefreshStatusLabel();
+                }
+
+                _preMatchCountdownToggle.clicked += TogglePreMatchCountdown;
+                RegisterCleanup(() => _preMatchCountdownToggle.clicked -= TogglePreMatchCountdown);
+            }
 
             _scoreToWinField.RegisterValueChangedCallback(OnScoreChanged);
             RegisterCleanup(() => _scoreToWinField.UnregisterValueChangedCallback(OnScoreChanged));
@@ -870,6 +887,24 @@ namespace Game.Menu {
             textElement.text = showInfinite ? "INFINITE" : field.value.ToString();
         }
 
+        private static bool GetCheckboxValue(Button button) {
+            return button != null && button.ClassListContains("checked");
+        }
+
+        private static void SetCheckboxValue(Button button, bool value) {
+            if(button == null) return;
+            if(value) {
+                button.AddToClassList("checked");
+            } else {
+                button.RemoveFromClassList("checked");
+            }
+        }
+
+        private static void ToggleCheckbox(Button button) {
+            if(button == null) return;
+            SetCheckboxValue(button, !GetCheckboxValue(button));
+        }
+
         private void OnTaggedPlayersChanged(ChangeEvent<int> evt) {
             if(_suppressEvents) return;
             _draft.TaggedPlayers = evt.newValue;
@@ -897,9 +932,10 @@ namespace Game.Menu {
             var mode = string.IsNullOrWhiteSpace(_draft.GamemodeId) ? "UNKNOWN" : _draft.GamemodeId.ToUpperInvariant();
             var map = string.IsNullOrWhiteSpace(_draft.MapId) ? "UNKNOWN" : _draft.MapId.ToUpperInvariant();
             var timeText = _draft.MatchTimerSeconds <= 0 ? "INFINITE" : $"{_draft.MatchTimerSeconds}s";
+            var countdownText = _draft.UsePreMatchCountdown ? "ON" : "OFF";
             var scoreText = _draft.ScoreToWin <= 0 ? "INFINITE" : _draft.ScoreToWin.ToString();
             _statusLabel.text =
-                $"MODE: {mode}  |  MAP: {map}  |  TIME: {timeText}  |  SCORE: {scoreText}";
+                $"MODE: {mode}  |  MAP: {map}  |  TIME: {timeText}  |  COUNTDOWN: {countdownText}  |  SCORE: {scoreText}";
         }
     }
 }

@@ -553,6 +553,7 @@ namespace Game.Menu {
             string mode,
             string mapId,
             int matchTimerSeconds,
+            bool usePreMatchCountdown,
             int scoreToWin,
             int kothHillSpeed,
             int taggedPlayers,
@@ -563,7 +564,8 @@ namespace Game.Menu {
             _privateMatchStartInFlight = true;
             try {
                 SessionManager.Instance.ApplyPrivateMatchSettings(
-                    mode, mapId, matchTimerSeconds, scoreToWin, kothHillSpeed, taggedPlayers, teamAssignments);
+                    mode, mapId, matchTimerSeconds, usePreMatchCountdown, scoreToWin, kothHillSpeed, taggedPlayers,
+                    teamAssignments);
 
                 if(Application.internetReachability == NetworkReachability.NotReachable) {
                     if(uiManager != null) {

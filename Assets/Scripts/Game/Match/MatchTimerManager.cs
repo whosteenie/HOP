@@ -61,19 +61,28 @@ namespace Game.Match {
 
                 // Initialize pre-match countdown on server
                 var matchSettings = MatchSettingsManager.Instance;
-                var preMatchSeconds = matchSettings != null ? matchSettings.GetPreMatchCountdownSeconds() : 5;
-                _preMatchCountdownSeconds.Value = Mathf.Max(0, preMatchSeconds);
-                _isPreMatch.Value = true;
-                FlowLog.Emit(FlowEventIds.MatchStateTransition,
-                    ("from", "None"),
-                    ("to", "PreMatch"),
-                    ("timeRemaining", _preMatchCountdownSeconds.Value));
+                var usePreMatchCountdown = matchSettings == null || matchSettings.IsPreMatchCountdownEnabled();
 
                 // Ensure we don't double-start
-                if(_timerRoutine != null)
+                if(_timerRoutine != null) {
                     StopCoroutine(_timerRoutine);
+                    _timerRoutine = null;
+                }
 
-                _timerRoutine = StartCoroutine(PreMatchCountdownCoroutine());
+                if(usePreMatchCountdown) {
+                    var preMatchSeconds = matchSettings != null ? matchSettings.GetPreMatchCountdownSeconds() : 5;
+                    _preMatchCountdownSeconds.Value = Mathf.Max(0, preMatchSeconds);
+                    _isPreMatch.Value = true;
+                    FlowLog.Emit(FlowEventIds.MatchStateTransition,
+                        ("from", "None"),
+                        ("to", "PreMatch"),
+                        ("timeRemaining", _preMatchCountdownSeconds.Value));
+
+                    _timerRoutine = StartCoroutine(PreMatchCountdownCoroutine());
+                } else {
+                    _preMatchCountdownSeconds.Value = 0;
+                    StartActiveMatchOnServer("None");
+                }
             }
 
             // Push a sensible initial value to UI immediately when a client joins.
@@ -193,45 +202,7 @@ namespace Game.Match {
 
             // Pre-match countdown finished - start the actual match
             if(!IsServer) yield break;
-            
-            _isPreMatch.Value = false;
-            var matchSettings = MatchSettingsManager.Instance;
-            matchDurationSeconds = 600;
-            if(matchSettings != null) {
-                matchDurationSeconds = matchSettings.GetMatchDurationSeconds();
-            }
-            _timeRemainingSeconds.Value = Mathf.Max(0, matchDurationSeconds);
-            FlowLog.Emit(FlowEventIds.MatchStateTransition,
-                ("from", "PreMatch"),
-                ("to", "Active"),
-                ("timeRemaining", _timeRemainingSeconds.Value));
-            
-            // Publish match started event
-            EventBus.Publish(new MatchStartedEvent());
-
-            // Kick objective systems from the authoritative match-state transition point.
-            // This avoids missing round-init when scene object spawn order varies between matches.
-            if(matchSettings != null && matchSettings.selectedGameModeId == "KOTH") {
-                TriggerKothRoundStart();
-            }
-
-            // Check if we're in Tag mode and designate initial "it" after 5 seconds
-            if(matchSettings != null && matchSettings.selectedGameModeId == "Gun Tag") {
-                StartCoroutine(DesignateInitialItAfterDelay());
-            }
-
-            // Check if we're in Hopball mode and spawn hopball after 5 seconds
-            if(matchSettings != null && matchSettings.selectedGameModeId == "Hopball") {
-                // HopballSpawnManager will handle spawning
-            }
-
-            // Start timer only for finite-duration matches. Infinite timer never triggers post-match by time.
-            var isInfiniteTimer = matchSettings != null && matchSettings.IsInfiniteMatchTimer();
-            if(!isInfiniteTimer) {
-                _timerRoutine = StartCoroutine(TimerCoroutine());
-            } else if(ScoreboardManager.Instance != null) {
-                EventBus.Publish(new SetMatchTimeEvent(-1));
-            }
+            StartActiveMatchOnServer("PreMatch");
         }
 
         private IEnumerator TimerCoroutine() {
@@ -309,6 +280,50 @@ namespace Game.Match {
                 } else {
                     EventBus.Publish(new SetMatchTimeEvent(_timeRemainingSeconds.Value));
                 }
+            }
+        }
+
+        private void StartActiveMatchOnServer(string fromState) {
+            if(!IsServer) return;
+
+            _isPreMatch.Value = false;
+            var matchSettings = MatchSettingsManager.Instance;
+            matchDurationSeconds = 600;
+            if(matchSettings != null) {
+                matchDurationSeconds = matchSettings.GetMatchDurationSeconds();
+            }
+
+            _timeRemainingSeconds.Value = Mathf.Max(0, matchDurationSeconds);
+            FlowLog.Emit(FlowEventIds.MatchStateTransition,
+                ("from", fromState),
+                ("to", "Active"),
+                ("timeRemaining", _timeRemainingSeconds.Value));
+
+            // Publish match started event
+            EventBus.Publish(new MatchStartedEvent());
+
+            // Kick objective systems from the authoritative match-state transition point.
+            // This avoids missing round-init when scene object spawn order varies between matches.
+            if(matchSettings != null && matchSettings.selectedGameModeId == "KOTH") {
+                TriggerKothRoundStart();
+            }
+
+            // Check if we're in Tag mode and designate initial "it" after 5 seconds
+            if(matchSettings != null && matchSettings.selectedGameModeId == "Gun Tag") {
+                StartCoroutine(DesignateInitialItAfterDelay());
+            }
+
+            // Check if we're in Hopball mode and spawn hopball after 5 seconds
+            if(matchSettings != null && matchSettings.selectedGameModeId == "Hopball") {
+                // HopballSpawnManager will handle spawning
+            }
+
+            // Start timer only for finite-duration matches. Infinite timer never triggers post-match by time.
+            var isInfiniteTimer = matchSettings != null && matchSettings.IsInfiniteMatchTimer();
+            if(!isInfiniteTimer) {
+                _timerRoutine = StartCoroutine(TimerCoroutine());
+            } else if(ScoreboardManager.Instance != null) {
+                EventBus.Publish(new SetMatchTimeEvent(-1));
             }
         }
 

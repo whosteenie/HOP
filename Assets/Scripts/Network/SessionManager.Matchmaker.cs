@@ -172,6 +172,11 @@ namespace Network {
             mode = ResolveRequestedQuickPlayMode(mode);
             var maxPlayers = ResolveMaxPlayersForMode(mode);
 
+            var matchSettings = MatchSettingsManager.Instance;
+            if(matchSettings != null) {
+                matchSettings.preMatchCountdownEnabled = true;
+            }
+
             _matchmakerQueueName = GetQueueNameForMode(mode);
             if(string.IsNullOrEmpty(_matchmakerQueueName)) {
                 Debug.LogError("[SessionManager] Matchmaker queue name is empty.");

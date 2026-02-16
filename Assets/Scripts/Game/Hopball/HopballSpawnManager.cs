@@ -118,7 +118,9 @@ namespace Game.Hopball {
             var matchSettings = MatchSettingsManager.Instance;
             var preMatchCountdown = 5f;
             if(matchSettings != null) {
-                preMatchCountdown = matchSettings.GetPreMatchCountdownSeconds();
+                preMatchCountdown = matchSettings.IsPreMatchCountdownEnabled()
+                    ? matchSettings.GetPreMatchCountdownSeconds()
+                    : 0f;
             }
             yield return new WaitForSeconds(preMatchCountdown + postPrematchSpawnDelay);
 

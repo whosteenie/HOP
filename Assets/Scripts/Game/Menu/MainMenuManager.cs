@@ -293,6 +293,7 @@ namespace Game.Menu {
                     draft.GamemodeId,
                     draft.MapId,
                     draft.MatchTimerSeconds,
+                    draft.UsePreMatchCountdown,
                     draft.ScoreToWin,
                     draft.KothHillSpeed,
                     draft.TaggedPlayers,

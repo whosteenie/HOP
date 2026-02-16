@@ -385,6 +385,13 @@ namespace Network {
             _ugsClientStartedForMatch = false;
             _ugsHostPreFadedOut = false;
             _lastFailedFollowMatchLobbyId = null;
+
+            var matchSettings = MatchSettingsManager.Instance;
+            if(matchSettings != null) {
+                // Private-match-only runtime override: public matches should keep the normal pre-match flow.
+                matchSettings.preMatchCountdownEnabled = true;
+            }
+
             UpdateSteamRichPresence();
         }
 

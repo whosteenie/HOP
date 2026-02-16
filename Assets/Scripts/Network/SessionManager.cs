@@ -577,6 +577,7 @@ namespace Network {
             string mode,
             string mapId,
             int matchTimerSeconds,
+            bool usePreMatchCountdown,
             int scoreToWin,
             int kothHillSpeed,
             int taggedPlayers,
@@ -592,6 +593,7 @@ namespace Network {
             var matchSettings = MatchSettingsManager.Instance;
             if(matchSettings != null) {
                 matchSettings.matchDurationSeconds = UnityEngine.Mathf.Max(0, matchTimerSeconds);
+                matchSettings.preMatchCountdownEnabled = usePreMatchCountdown;
                 matchSettings.scoreToWin = UnityEngine.Mathf.Max(0, scoreToWin);
                 matchSettings.kothHillSpeed = UnityEngine.Mathf.Max(1, kothHillSpeed);
                 matchSettings.taggedPlayers = UnityEngine.Mathf.Max(1, taggedPlayers);
@@ -601,7 +603,7 @@ namespace Network {
 
             if(Debug.isDebugBuild) {
                 Debug.Log(
-                    $"[SessionManager] ApplyPrivateMatchSettings: mode='{mode}' mapId='{mapId}' timer={matchTimerSeconds} scoreToWin={scoreToWin} kothHillSpeed={kothHillSpeed} tagged={taggedPlayers} teams={teamAssignments?.Count ?? 0}");
+                    $"[SessionManager] ApplyPrivateMatchSettings: mode='{mode}' mapId='{mapId}' timer={matchTimerSeconds} preMatchCountdown={usePreMatchCountdown} scoreToWin={scoreToWin} kothHillSpeed={kothHillSpeed} tagged={taggedPlayers} teams={teamAssignments?.Count ?? 0}");
             }
         }
 

@@ -1863,6 +1863,18 @@
     -unity-text-align: middle-left;
 }
 
+/* Reuse options checkbox visuals inside private-match setup. */
+.private-match-settings-column .setting-row > .setting-toggle {
+    margin-left: auto;
+    margin-right: 3.75px;
+    width: 24px;
+    min-width: 24px;
+    max-width: 24px;
+    height: 24px;
+    min-height: 24px;
+    max-height: 24px;
+}
+
 .private-match-preview-column {
     flex-grow: 1;
     padding-left: 24px;
