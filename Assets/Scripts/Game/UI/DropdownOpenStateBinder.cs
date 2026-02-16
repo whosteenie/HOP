@@ -22,6 +22,23 @@ namespace Game.UI {
             var popupWatchGeneration = 0;
             VisualElement taggedPopupRoot = null;
 
+            void SetPanelRootScopedClass(bool enabled) {
+                if(string.IsNullOrWhiteSpace(popupOpenClass)) return;
+
+                var currentPanelRoot = dropdown.panel?.visualTree ?? panelRoot;
+                if(currentPanelRoot != null) {
+                    panelRoot = currentPanelRoot;
+                }
+
+                if(panelRoot == null) return;
+
+                if(enabled) {
+                    panelRoot.AddToClassList(popupOpenClass);
+                } else {
+                    panelRoot.RemoveFromClassList(popupOpenClass);
+                }
+            }
+
             void ClearTaggedPopupClass() {
                 if(string.IsNullOrWhiteSpace(popupOpenClass)) return;
                 if(taggedPopupRoot == null) return;
@@ -47,11 +64,13 @@ namespace Game.UI {
             void CloseDropdown(string reason) {
                 popupWatchGeneration++;
                 if(!dropdown.ClassListContains(OpenClass)) {
+                    SetPanelRootScopedClass(false);
                     ClearTaggedPopupClass();
                     return;
                 }
 
                 dropdown.RemoveFromClassList(OpenClass);
+                SetPanelRootScopedClass(false);
                 ClearTaggedPopupClass();
             }
 
@@ -87,13 +106,14 @@ namespace Game.UI {
                     }
 
                     ticks++;
-                    dropdown.schedule.Execute(Tick).StartingIn(50);
+                    dropdown.schedule.Execute(Tick).StartingIn(16);
                 }
 
-                dropdown.schedule.Execute(Tick).StartingIn(50);
+                dropdown.schedule.Execute(Tick).StartingIn(16);
             }
 
             EventCallback<PointerDownEvent> onPointerDown = _ => {
+                SetPanelRootScopedClass(true);
                 dropdown.AddToClassList(OpenClass);
                 StartPopupWatchdog();
             };
