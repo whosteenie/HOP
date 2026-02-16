@@ -901,6 +901,7 @@ MonoBehaviour:
   preMatchCountdownSeconds: 5
   matchDurationSeconds: 0
   selectedGameModeId: 
+  preMatchCountdownEnabled: 1
   scoreToWin: 50
   kothHillSpeed: 1
   taggedPlayers: 1

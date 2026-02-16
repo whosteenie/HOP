@@ -12,7 +12,7 @@ EditorBuildSettings:
     path: Assets/Scenes/MainMenu.unity
     guid: 5deddcb82b481644ca3d9ef3f8f68e21
   - enabled: 1
-    path: Assets/Maps/dev_kami.unity
+    path: Assets/Maps/dev_kami/dev_kami.unity
     guid: 1a03dfbe4fc28c64ba5e3fa8f101a552
   - enabled: 1
     path: Assets/Maps/gt_homage/gt_homage.unity
