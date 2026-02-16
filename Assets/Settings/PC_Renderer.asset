@@ -131,13 +131,13 @@ MonoBehaviour:
   material: {fileID: 2100000, guid: 3748131af20412e478461c6445c73923, type: 2}
   renderingDebugger: 0
   reflectionProbe: 0
-  resolutionScale: 1
+  resolutionScale: 0.75
   upscaleMode: 1
   preferredRenderMode: 1
-  ambientProbe: 1
+  ambientProbe: 0
   sunAttenuation: 0
   resetOnStart: 1
-  outputDepth: 1
+  outputDepth: 0
   depthTexture: 0
 --- !u!114 &7140866659876458358
 MonoBehaviour:

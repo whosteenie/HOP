@@ -43,6 +43,7 @@ namespace Game.Hopball {
         private Coroutine _respawnCoroutine;
         private int _cachedOobSceneHandle = -1;
         private float _cachedOutOfBoundsY;
+        private bool _cachedUseYLevelOutOfBoundsKill = true;
 
         public HopballController CurrentHopballController { get; private set; }
 
@@ -292,6 +293,7 @@ namespace Game.Hopball {
             }
 
             if(CurrentHopballController == null || !CurrentHopballController.IsSpawned || _mostRecentSpawnPoint == null) return;
+            if(!IsYLevelOutOfBoundsKillEnabled()) return;
             var outOfBoundsY = GetOutOfBoundsKillY();
             // Check if hopball is dropped (not equipped) and OOB
             if(!CurrentHopballController.IsEquipped && 
@@ -303,13 +305,24 @@ namespace Game.Hopball {
         }
 
         private float GetOutOfBoundsKillY() {
+            RefreshOutOfBoundsCacheIfNeeded();
+            return _cachedOutOfBoundsY;
+        }
+
+        private bool IsYLevelOutOfBoundsKillEnabled() {
+            RefreshOutOfBoundsCacheIfNeeded();
+            return _cachedUseYLevelOutOfBoundsKill;
+        }
+
+        private void RefreshOutOfBoundsCacheIfNeeded() {
             var activeScene = SceneManager.GetActiveScene();
             if(_cachedOobSceneHandle == activeScene.handle) {
-                return _cachedOutOfBoundsY;
+                return;
             }
 
             _cachedOobSceneHandle = activeScene.handle;
             _cachedOutOfBoundsY = oobThreshold;
+            _cachedUseYLevelOutOfBoundsKill = MatchMapService.IsYLevelOutOfBoundsKillEnabled(activeScene.name);
 
             Transform marker = null;
             if(!string.IsNullOrWhiteSpace(outOfBoundsMarkerTag)) {
@@ -334,8 +347,6 @@ namespace Game.Hopball {
                 // Use world-space Y in case marker is parented under WorldRoot.
                 _cachedOutOfBoundsY = marker.position.y;
             }
-
-            return _cachedOutOfBoundsY;
         }
 
         /// <summary>

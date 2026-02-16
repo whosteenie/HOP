@@ -8,6 +8,9 @@ namespace Game.Spawning {
         None
     }
 
+    [Range(0.5f, 5f)]
+    [SerializeField] private float radius = 0.5f;
+
     [Header("Team")]
     [SerializeField] private Team team = Team.TeamA;
 
@@ -16,8 +19,8 @@ namespace Game.Spawning {
     private void OnDrawGizmos() {
         Gizmos.color = Color.green;
         var position = transform.position;
-        Gizmos.DrawWireSphere(position, 0.5f);
-        Gizmos.DrawLine(position, position + transform.forward * 2f);
+        Gizmos.DrawWireSphere(position, radius);
+        Gizmos.DrawLine(position, position + transform.forward * 2f * radius);
     }
     }
 }

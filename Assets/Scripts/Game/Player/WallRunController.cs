@@ -1,3 +1,4 @@
+using System;
 using Game.Settings;
 using Unity.Cinemachine;
 using Unity.Netcode;
@@ -396,7 +397,12 @@ namespace Game.Player {
                 LogContinuation($"Continuation rejected: {rejectReason}");
             }
 
-            // Step 3: Allow a short grace period for segment seams.
+            // Step 3: Allow a short grace period for segment seams (curved/cylinder). At a true 90° corner we got a hit rejected for normal delta — end cleanly with no grace.
+            if(rejectReason != null && rejectReason.IndexOf("normal delta", StringComparison.OrdinalIgnoreCase) >= 0) {
+                StopWallRun();
+                return;
+            }
+
             _continuationGraceTimer -= Time.deltaTime;
             if(_continuationGraceTimer > 0f) return;
 
