@@ -470,7 +470,7 @@ namespace Game.UI {
                 return "UNKNOWN MAP";
             }
 
-            return value.Trim().Replace('_', ' ').ToUpperInvariant();
+            return value.Trim().ToUpperInvariant();
         }
 
         private void UpdateScoreboardHeaders() {

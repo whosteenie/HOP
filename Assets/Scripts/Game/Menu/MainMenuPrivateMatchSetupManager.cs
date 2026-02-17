@@ -305,10 +305,14 @@ namespace Game.Menu {
 
             _startButton.clicked += OnStartClicked;
             RegisterCleanup(() => _startButton.clicked -= OnStartClicked);
+            UISoundService.RegisterButtonHover(_startButton);
+            RegisterCleanup(() => UISoundService.UnregisterButtonHover(_startButton));
 
             if(_backButton != null) {
                 _backButton.clicked += OnBackClicked;
                 RegisterCleanup(() => _backButton.clicked -= OnBackClicked);
+                UISoundService.RegisterButtonHover(_backButton);
+                RegisterCleanup(() => UISoundService.UnregisterButtonHover(_backButton));
             }
         }
 
