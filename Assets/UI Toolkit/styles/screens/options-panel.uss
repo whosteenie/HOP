@@ -304,6 +304,11 @@
 /* Keep all settings rows on a consistent vertical rhythm. */
 #options-panel .setting-row {
     min-height: var(--options-row-height);
+    margin-bottom: 0;
+    padding-top: 6px;
+    padding-bottom: 6px;
+    border-bottom-width: 1px;
+    border-bottom-color: rgba(255, 60, 60, 0.2);
 }
 
 #options-panel .setting-label {

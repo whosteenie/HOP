@@ -359,6 +359,7 @@
                     <ui:Image name="main-credits-logo" class="main-credits-logo"/>
                 </ui:VisualElement>
                 <ui:Label text="Made in Unity by whosteenie" name="credits-text" class="credits-text"/>
+                <ui:Label text="Playtested by LMC" name="credits-text" class="credits-text"/>
                 <ui:Label text="v0.0.0" name="version-text" class="credits-text"/>
                 <ui:VisualElement name="logo-container" class="logo-container">
                     <ui:Image name="credits-logo" class="credits-logo"/>

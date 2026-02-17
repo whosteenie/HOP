@@ -44,6 +44,18 @@
                             <ui:Label text="BLOOM" name="bloom-label" class="setting-label"/>
                             <ui:Button name="bloom" class="setting-toggle"/>
                         </ui:VisualElement>
+                        <ui:VisualElement name="motion-blur-container" class="setting-row">
+                            <ui:Label text="MOTION BLUR" name="motion-blur-label" class="setting-label"/>
+                            <ui:Button name="motion-blur" class="setting-toggle"/>
+                        </ui:VisualElement>
+                        <ui:VisualElement name="film-grain-container" class="setting-row">
+                            <ui:Label text="FILM GRAIN" name="film-grain-label" class="setting-label"/>
+                            <ui:Button name="film-grain" class="setting-toggle"/>
+                        </ui:VisualElement>
+                        <ui:VisualElement name="vignette-container" class="setting-row">
+                            <ui:Label text="VIGNETTE" name="vignette-label" class="setting-label"/>
+                            <ui:Button name="vignette" class="setting-toggle"/>
+                        </ui:VisualElement>
                         <ui:VisualElement name="vsync-container" class="setting-row">
                             <ui:Label text="VSYNC" name="vsync-label" class="setting-label"/>
                             <ui:Button name="vsync" class="setting-toggle"/>

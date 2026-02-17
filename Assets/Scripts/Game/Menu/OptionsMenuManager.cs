@@ -64,6 +64,9 @@ namespace Game.Menu {
         private TextField _shadowDistanceValue;
         private DropdownField _shadowResolutionDropdown;
         private Button _bloomButton;
+        private Button _motionBlurButton;
+        private Button _filmGrainButton;
+        private Button _vignetteButton;
         private Button _vsyncButton;
         private DropdownField _fpsDropdown;
         private DropdownField _voiceDeviceDropdown;
@@ -92,6 +95,9 @@ namespace Game.Menu {
             ["shadow-distance-container"] = ("SHADOW DISTANCE", "Controls how far dynamic shadows are rendered from the camera."),
             ["shadow-resolution-container"] = ("SHADOW RESOLUTION", "Increases shadow sharpness. Higher settings cost more GPU memory and performance."),
             ["bloom-container"] = ("BLOOM", "Adds glow around bright highlights. Disable for a cleaner image and lower post-processing cost."),
+            ["motion-blur-container"] = ("MOTION BLUR", "Simulates camera/object motion streaking. Disable for a sharper image and reduced post-processing cost."),
+            ["film-grain-container"] = ("FILM GRAIN", "Adds subtle film-like noise for texture. Disable for a cleaner image."),
+            ["vignette-container"] = ("VIGNETTE", "Darkens screen edges to focus attention toward the center."),
             ["vsync-container"] = ("VSYNC", "Reduces tearing by syncing frame output with monitor refresh rate."),
             ["target-fps-container"] = ("TARGET FPS", "Caps framerate to reduce power use and stabilize frame pacing."),
             ["master-container"] = ("MASTER VOLUME", "Global volume level for all game audio."),
@@ -148,6 +154,9 @@ namespace Game.Menu {
         private float _originalShadowDistance;
         private int _originalShadowResolution;
         private bool _originalBloom;
+        private bool _originalMotionBlur;
+        private bool _originalFilmGrain;
+        private bool _originalVignette;
         private bool _originalVsync;
         private int _originalTargetFPS;
         private string _originalVoiceDevice;
@@ -223,6 +232,9 @@ namespace Game.Menu {
             _shadowDistanceValue = QOptional<TextField>("shadow-distance-value");
             _shadowResolutionDropdown = QOptional<DropdownField>("shadow-resolution");
             _bloomButton = QOptional<Button>("bloom");
+            _motionBlurButton = QOptional<Button>("motion-blur");
+            _filmGrainButton = QOptional<Button>("film-grain");
+            _vignetteButton = QOptional<Button>("vignette");
             _vsyncButton = QOptional<Button>("vsync");
             _fpsDropdown = QOptional<DropdownField>("target-fps");
 
@@ -290,6 +302,21 @@ namespace Game.Menu {
                 EventCallback<ClickEvent> handler = _ => ToggleCheckbox(_bloomButton);
                 _bloomButton.RegisterCallback(handler);
                 RegisterCleanup(() => _bloomButton.UnregisterCallback(handler));
+            }
+            if(_motionBlurButton != null) {
+                EventCallback<ClickEvent> handler = _ => ToggleCheckbox(_motionBlurButton);
+                _motionBlurButton.RegisterCallback(handler);
+                RegisterCleanup(() => _motionBlurButton.UnregisterCallback(handler));
+            }
+            if(_filmGrainButton != null) {
+                EventCallback<ClickEvent> handler = _ => ToggleCheckbox(_filmGrainButton);
+                _filmGrainButton.RegisterCallback(handler);
+                RegisterCleanup(() => _filmGrainButton.UnregisterCallback(handler));
+            }
+            if(_vignetteButton != null) {
+                EventCallback<ClickEvent> handler = _ => ToggleCheckbox(_vignetteButton);
+                _vignetteButton.RegisterCallback(handler);
+                RegisterCleanup(() => _vignetteButton.UnregisterCallback(handler));
             }
         }
 
@@ -1398,6 +1425,9 @@ namespace Game.Menu {
             LoadGraphicsSettings();
 
             if(_bloomButton != null) SetCheckboxValue(_bloomButton, data.video == null || data.video.bloomEnabled);
+            if(_motionBlurButton != null) SetCheckboxValue(_motionBlurButton, data.video == null || data.video.motionBlurEnabled);
+            if(_filmGrainButton != null) SetCheckboxValue(_filmGrainButton, data.video == null || data.video.filmGrainEnabled);
+            if(_vignetteButton != null) SetCheckboxValue(_vignetteButton, data.video == null || data.video.vignetteEnabled);
             if(_vsyncButton != null) SetCheckboxValue(_vsyncButton, data.video is { vsync: true });
             if(_fpsDropdown != null) _fpsDropdown.index = data.video != null ? data.video.targetFpsIndex : 1;
 
@@ -1424,6 +1454,9 @@ namespace Game.Menu {
             _originalShadowDistance = _shadowDistanceSlider?.value ?? 50f;
             _originalShadowResolution = _shadowResolutionDropdown?.index ?? 2;
             _originalBloom = GetCheckboxValue(_bloomButton);
+            _originalMotionBlur = GetCheckboxValue(_motionBlurButton);
+            _originalFilmGrain = GetCheckboxValue(_filmGrainButton);
+            _originalVignette = GetCheckboxValue(_vignetteButton);
             _originalVsync = GetCheckboxValue(_vsyncButton);
             _originalTargetFPS = _fpsDropdown?.index ?? 1;
 
@@ -1501,6 +1534,9 @@ namespace Game.Menu {
                 shadowResolutionChanged = _shadowResolutionDropdown.index != _originalShadowResolution;
 
             var bloomChanged = GetCheckboxValue(_bloomButton) != _originalBloom;
+            var motionBlurChanged = GetCheckboxValue(_motionBlurButton) != _originalMotionBlur;
+            var filmGrainChanged = GetCheckboxValue(_filmGrainButton) != _originalFilmGrain;
+            var vignetteChanged = GetCheckboxValue(_vignetteButton) != _originalVignette;
             var vsyncChanged = GetCheckboxValue(_vsyncButton) != _originalVsync;
 
             var fpsChanged = false;
@@ -1510,7 +1546,8 @@ namespace Game.Menu {
                    holdMantleChanged ||
                    profanityFilterChanged || autoWallRunChanged || voiceModeChanged ||
                    grappleIndicatorChanged || windowModeChanged || aspectRatioChanged || resolutionChanged || msaaChanged ||
-                   shadowDistanceChanged || shadowResolutionChanged || bloomChanged || vsyncChanged || fpsChanged || hasKeybindChanges;
+                   shadowDistanceChanged || shadowResolutionChanged || bloomChanged || motionBlurChanged ||
+                   filmGrainChanged || vignetteChanged || vsyncChanged || fpsChanged || hasKeybindChanges;
         }
 
         private void OnBackFromOptions() {
@@ -1681,6 +1718,9 @@ namespace Game.Menu {
             }
 
             if(data.video != null && _bloomButton != null) data.video.bloomEnabled = GetCheckboxValue(_bloomButton);
+            if(data.video != null && _motionBlurButton != null) data.video.motionBlurEnabled = GetCheckboxValue(_motionBlurButton);
+            if(data.video != null && _filmGrainButton != null) data.video.filmGrainEnabled = GetCheckboxValue(_filmGrainButton);
+            if(data.video != null && _vignetteButton != null) data.video.vignetteEnabled = GetCheckboxValue(_vignetteButton);
             if(data.video != null) data.video.vsync = GetCheckboxValue(_vsyncButton);
             if(_fpsDropdown != null) {
                 if(data.video != null) data.video.targetFpsIndex = _fpsDropdown.index;
@@ -1718,6 +1758,9 @@ namespace Game.Menu {
             _originalShadowDistance = _shadowDistanceSlider != null ? _shadowDistanceSlider.value : 50f;
             _originalShadowResolution = _shadowResolutionDropdown != null ? _shadowResolutionDropdown.index : 2;
             _originalBloom = GetCheckboxValue(_bloomButton);
+            _originalMotionBlur = GetCheckboxValue(_motionBlurButton);
+            _originalFilmGrain = GetCheckboxValue(_filmGrainButton);
+            _originalVignette = GetCheckboxValue(_vignetteButton);
             _originalVsync = GetCheckboxValue(_vsyncButton);
             _originalTargetFPS = _fpsDropdown != null ? _fpsDropdown.index : 1;
 
@@ -1747,7 +1790,19 @@ namespace Game.Menu {
             var bloomEnabled = _bloomButton != null
                 ? GetCheckboxValue(_bloomButton)
                 : (GameSettings.Data.video == null || GameSettings.Data.video.bloomEnabled);
+            var motionBlurEnabled = _motionBlurButton != null
+                ? GetCheckboxValue(_motionBlurButton)
+                : (GameSettings.Data.video == null || GameSettings.Data.video.motionBlurEnabled);
+            var filmGrainEnabled = _filmGrainButton != null
+                ? GetCheckboxValue(_filmGrainButton)
+                : (GameSettings.Data.video == null || GameSettings.Data.video.filmGrainEnabled);
+            var vignetteEnabled = _vignetteButton != null
+                ? GetCheckboxValue(_vignetteButton)
+                : (GameSettings.Data.video == null || GameSettings.Data.video.vignetteEnabled);
             VideoSettingsRuntimeApplier.ApplyBloomEnabled(bloomEnabled);
+            VideoSettingsRuntimeApplier.ApplyMotionBlurEnabled(motionBlurEnabled);
+            VideoSettingsRuntimeApplier.ApplyFilmGrainEnabled(filmGrainEnabled);
+            VideoSettingsRuntimeApplier.ApplyVignetteEnabled(vignetteEnabled);
 
             QualitySettings.vSyncCount = GetCheckboxValue(_vsyncButton) ? 1 : 0;
 

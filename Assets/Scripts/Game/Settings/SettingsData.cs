@@ -44,6 +44,9 @@ namespace Game.Settings {
             public float shadowDistance;
             public int shadowResolution;
             public bool bloomEnabled = true;
+            public bool motionBlurEnabled = true;
+            public bool filmGrainEnabled = true;
+            public bool vignetteEnabled = true;
             public bool vsync;
             public int targetFpsIndex = 1;
         }
