@@ -43,6 +43,7 @@ namespace Game.Settings {
             public int msaa;
             public float shadowDistance;
             public int shadowResolution;
+            public bool bloomEnabled = true;
             public bool vsync;
             public int targetFpsIndex = 1;
         }

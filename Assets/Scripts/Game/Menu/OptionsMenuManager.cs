@@ -63,6 +63,7 @@ namespace Game.Menu {
         private Slider _shadowDistanceSlider;
         private TextField _shadowDistanceValue;
         private DropdownField _shadowResolutionDropdown;
+        private Button _bloomButton;
         private Button _vsyncButton;
         private DropdownField _fpsDropdown;
         private DropdownField _voiceDeviceDropdown;
@@ -90,6 +91,7 @@ namespace Game.Menu {
             ["msaa-container"] = ("ANTI-ALIASING (MSAA)", "Smooths jagged edges. Higher values improve quality at a performance cost."),
             ["shadow-distance-container"] = ("SHADOW DISTANCE", "Controls how far dynamic shadows are rendered from the camera."),
             ["shadow-resolution-container"] = ("SHADOW RESOLUTION", "Increases shadow sharpness. Higher settings cost more GPU memory and performance."),
+            ["bloom-container"] = ("BLOOM", "Adds glow around bright highlights. Disable for a cleaner image and lower post-processing cost."),
             ["vsync-container"] = ("VSYNC", "Reduces tearing by syncing frame output with monitor refresh rate."),
             ["target-fps-container"] = ("TARGET FPS", "Caps framerate to reduce power use and stabilize frame pacing."),
             ["master-container"] = ("MASTER VOLUME", "Global volume level for all game audio."),
@@ -145,6 +147,7 @@ namespace Game.Menu {
         private int _originalMsaa;
         private float _originalShadowDistance;
         private int _originalShadowResolution;
+        private bool _originalBloom;
         private bool _originalVsync;
         private int _originalTargetFPS;
         private string _originalVoiceDevice;
@@ -219,6 +222,7 @@ namespace Game.Menu {
             _shadowDistanceSlider = QOptional<Slider>("shadow-distance");
             _shadowDistanceValue = QOptional<TextField>("shadow-distance-value");
             _shadowResolutionDropdown = QOptional<DropdownField>("shadow-resolution");
+            _bloomButton = QOptional<Button>("bloom");
             _vsyncButton = QOptional<Button>("vsync");
             _fpsDropdown = QOptional<DropdownField>("target-fps");
 
@@ -281,6 +285,11 @@ namespace Game.Menu {
                 EventCallback<ClickEvent> handler = _ => ToggleCheckbox(_vsyncButton);
                 _vsyncButton.RegisterCallback(handler);
                 RegisterCleanup(() => _vsyncButton.UnregisterCallback(handler));
+            }
+            if(_bloomButton != null) {
+                EventCallback<ClickEvent> handler = _ => ToggleCheckbox(_bloomButton);
+                _bloomButton.RegisterCallback(handler);
+                RegisterCleanup(() => _bloomButton.UnregisterCallback(handler));
             }
         }
 
@@ -1388,6 +1397,7 @@ namespace Game.Menu {
             // Load graphics settings
             LoadGraphicsSettings();
 
+            if(_bloomButton != null) SetCheckboxValue(_bloomButton, data.video == null || data.video.bloomEnabled);
             if(_vsyncButton != null) SetCheckboxValue(_vsyncButton, data.video is { vsync: true });
             if(_fpsDropdown != null) _fpsDropdown.index = data.video != null ? data.video.targetFpsIndex : 1;
 
@@ -1413,6 +1423,7 @@ namespace Game.Menu {
             _originalMsaa = _msaaDropdown?.index ?? 0;
             _originalShadowDistance = _shadowDistanceSlider?.value ?? 50f;
             _originalShadowResolution = _shadowResolutionDropdown?.index ?? 2;
+            _originalBloom = GetCheckboxValue(_bloomButton);
             _originalVsync = GetCheckboxValue(_vsyncButton);
             _originalTargetFPS = _fpsDropdown?.index ?? 1;
 
@@ -1489,6 +1500,7 @@ namespace Game.Menu {
             if(_shadowResolutionDropdown != null)
                 shadowResolutionChanged = _shadowResolutionDropdown.index != _originalShadowResolution;
 
+            var bloomChanged = GetCheckboxValue(_bloomButton) != _originalBloom;
             var vsyncChanged = GetCheckboxValue(_vsyncButton) != _originalVsync;
 
             var fpsChanged = false;
@@ -1498,7 +1510,7 @@ namespace Game.Menu {
                    holdMantleChanged ||
                    profanityFilterChanged || autoWallRunChanged || voiceModeChanged ||
                    grappleIndicatorChanged || windowModeChanged || aspectRatioChanged || resolutionChanged || msaaChanged ||
-                   shadowDistanceChanged || shadowResolutionChanged || vsyncChanged || fpsChanged || hasKeybindChanges;
+                   shadowDistanceChanged || shadowResolutionChanged || bloomChanged || vsyncChanged || fpsChanged || hasKeybindChanges;
         }
 
         private void OnBackFromOptions() {
@@ -1668,6 +1680,7 @@ namespace Game.Menu {
                 if(data.video != null) data.video.shadowResolution = resolutionValue;
             }
 
+            if(data.video != null && _bloomButton != null) data.video.bloomEnabled = GetCheckboxValue(_bloomButton);
             if(data.video != null) data.video.vsync = GetCheckboxValue(_vsyncButton);
             if(_fpsDropdown != null) {
                 if(data.video != null) data.video.targetFpsIndex = _fpsDropdown.index;
@@ -1704,6 +1717,7 @@ namespace Game.Menu {
             _originalMsaa = _msaaDropdown != null ? _msaaDropdown.index : 0;
             _originalShadowDistance = _shadowDistanceSlider != null ? _shadowDistanceSlider.value : 50f;
             _originalShadowResolution = _shadowResolutionDropdown != null ? _shadowResolutionDropdown.index : 2;
+            _originalBloom = GetCheckboxValue(_bloomButton);
             _originalVsync = GetCheckboxValue(_vsyncButton);
             _originalTargetFPS = _fpsDropdown != null ? _fpsDropdown.index : 1;
 
@@ -1730,6 +1744,10 @@ namespace Game.Menu {
 
             // Apply URP graphics settings
             ApplyUrpGraphicsSettings();
+            var bloomEnabled = _bloomButton != null
+                ? GetCheckboxValue(_bloomButton)
+                : (GameSettings.Data.video == null || GameSettings.Data.video.bloomEnabled);
+            VideoSettingsRuntimeApplier.ApplyBloomEnabled(bloomEnabled);
 
             QualitySettings.vSyncCount = GetCheckboxValue(_vsyncButton) ? 1 : 0;
 

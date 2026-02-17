@@ -40,6 +40,10 @@
                             <ui:Label text="SHADOW RESOLUTION" name="shadow-resolution-label" class="setting-label"/>
                             <ui:DropdownField name="shadow-resolution" class="setting-dropdown setting-dropdown-align-right"/>
                         </ui:VisualElement>
+                        <ui:VisualElement name="bloom-container" class="setting-row">
+                            <ui:Label text="BLOOM" name="bloom-label" class="setting-label"/>
+                            <ui:Button name="bloom" class="setting-toggle"/>
+                        </ui:VisualElement>
                         <ui:VisualElement name="vsync-container" class="setting-row">
                             <ui:Label text="VSYNC" name="vsync-label" class="setting-label"/>
                             <ui:Button name="vsync" class="setting-toggle"/>

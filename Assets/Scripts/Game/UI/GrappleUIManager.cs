@@ -216,7 +216,7 @@ namespace Game.UI {
                 segment.style.top = y;
 
                 // Rotate segment to point toward center
-                segment.style.rotate = new Rotate(new Angle(angleDegrees));
+                segment.style.rotate = new StyleRotate(new Angle(angleDegrees));
 
                 _grappleIndicator.Add(segment);
                 _segments[i] = segment;

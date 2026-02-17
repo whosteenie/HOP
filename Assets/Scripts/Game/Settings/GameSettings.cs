@@ -159,6 +159,7 @@ namespace Game.Settings {
             if(PlayerPrefs.HasKey("MSAA")) d.video.msaa = PlayerPrefs.GetInt("MSAA", d.video.msaa);
             if(PlayerPrefs.HasKey("ShadowDistance")) d.video.shadowDistance = PlayerPrefs.GetFloat("ShadowDistance", d.video.shadowDistance);
             if(PlayerPrefs.HasKey("ShadowResolution")) d.video.shadowResolution = PlayerPrefs.GetInt("ShadowResolution", d.video.shadowResolution);
+            if(PlayerPrefs.HasKey("Bloom")) d.video.bloomEnabled = PlayerPrefs.GetInt("Bloom", d.video.bloomEnabled ? 1 : 0) == 1;
             if(PlayerPrefs.HasKey("VSync")) d.video.vsync = PlayerPrefs.GetInt("VSync", d.video.vsync ? 1 : 0) == 1;
             if(PlayerPrefs.HasKey("TargetFPS")) d.video.targetFpsIndex = PlayerPrefs.GetInt("TargetFPS", d.video.targetFpsIndex);
 

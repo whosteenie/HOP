@@ -16,7 +16,8 @@ MonoBehaviour:
   sceneName: dev_kami
   enabledInRotation: 1
   selectionWeight: 1
-  previewImage: {fileID: 0}
+  previewImage: {fileID: 21300000, guid: 2e52f12c10c87b341bf2757df4f7e10b, type: 3}
+  useYLevelOutOfBoundsKill: 1
   supportedGamemodes:
   - Deathmatch
   - Team Deathmatch
