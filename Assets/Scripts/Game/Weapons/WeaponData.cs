@@ -6,6 +6,7 @@ namespace Game.Weapons {
         [Header("Identity")]
         public string weaponName;
         public GameObject weaponPrefab; // FP weapon model
+        public Sprite loadoutIcon;
 
         public int weaponSlot;
 

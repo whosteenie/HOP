@@ -554,6 +554,7 @@ namespace Game.Menu {
             string mapId,
             int matchTimerSeconds,
             bool usePreMatchCountdown,
+            bool swapWeaponsOnDeath,
             int scoreToWin,
             int kothHillSpeed,
             int taggedPlayers,
@@ -564,7 +565,7 @@ namespace Game.Menu {
             _privateMatchStartInFlight = true;
             try {
                 SessionManager.Instance.ApplyPrivateMatchSettings(
-                    mode, mapId, matchTimerSeconds, usePreMatchCountdown, scoreToWin, kothHillSpeed, taggedPlayers,
+                    mode, mapId, matchTimerSeconds, usePreMatchCountdown, swapWeaponsOnDeath, scoreToWin, kothHillSpeed, taggedPlayers,
                     teamAssignments);
 
                 if(Application.internetReachability == NetworkReachability.NotReachable) {

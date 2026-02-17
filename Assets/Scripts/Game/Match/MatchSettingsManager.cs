@@ -23,6 +23,7 @@ namespace Game.Match {
         public int matchDurationSeconds;
         public string selectedGameModeId;
         [HideInInspector] public bool preMatchCountdownEnabled = true;
+        [HideInInspector] public bool swapWeaponsOnDeath = true;
         /// <summary> Score limit to win (e.g. Hopball, KOTH). Set from private match draft. </summary>
         public int scoreToWin = 50;
         /// <summary> KOTH hill score speed (points per interval). Set from private match draft. </summary>
@@ -95,6 +96,7 @@ namespace Game.Match {
         public int GetMatchDurationSeconds() => matchDurationSeconds >= 0 ? matchDurationSeconds : defaultMatchDurationSeconds;
         public int GetPreMatchCountdownSeconds() => preMatchCountdownSeconds > 0 ? preMatchCountdownSeconds : 5;
         public bool IsPreMatchCountdownEnabled() => preMatchCountdownEnabled;
+        public bool ShouldSwapWeaponsOnDeath() => swapWeaponsOnDeath;
         public int GetScoreToWin() => scoreToWin >= 0 ? scoreToWin : 50;
         public int GetKothHillSpeed() => kothHillSpeed > 0 ? kothHillSpeed : 1;
         public int GetTaggedPlayers() => taggedPlayers > 0 ? taggedPlayers : 1;

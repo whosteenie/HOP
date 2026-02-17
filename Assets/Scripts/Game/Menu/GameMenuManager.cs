@@ -3,10 +3,13 @@ using System.Collections.Generic;
 using Discord;
 using Game.Player;
 using Game.Progression;
+using Game.Settings;
 using Game.UI;
 using Game.Match;
 using Game.Rendering;
+using Game.Weapons;
 using Network;
+using Network.Events;
 using Network.Services;
 using Network.Steam;
 using Steamworks;
@@ -87,6 +90,31 @@ namespace Game.Menu {
         private ProgressionManager _progressionManager;
         private const float ChallengeTimerUpdateIntervalSeconds = 1f;
 
+        // Pause loadout UI
+        private VisualElement _pauseLoadoutContainer;
+        private VisualElement _pausePrimarySlot;
+        private VisualElement _pauseSecondarySlot;
+        private VisualElement _pauseTertiarySlot;
+        private VisualElement _pausePrimaryDropdown;
+        private VisualElement _pauseSecondaryDropdown;
+        private VisualElement _pauseTertiaryDropdown;
+        private ScrollView _pausePrimaryScroll;
+        private ScrollView _pauseSecondaryScroll;
+        private ScrollView _pauseTertiaryScroll;
+        private Image _pausePrimaryImage;
+        private Image _pauseSecondaryImage;
+        private Image _pauseTertiaryImage;
+        private Label _pausePrimaryName;
+        private Label _pauseSecondaryName;
+        private Label _pauseTertiaryName;
+        private VisualElement _pauseCurrentOpenDropdown;
+        private bool _pauseLoadoutOutsideClickRegistered;
+        private bool _pauseLoadoutPendingApply;
+        private bool _gameplayEventsBound;
+        private int _pauseSelectedPrimaryIndex;
+        private int _pauseSelectedSecondaryIndex;
+        private int _pauseSelectedTertiaryIndex;
+
         #endregion
 
         #region Properties
@@ -130,11 +158,14 @@ namespace Game.Menu {
             SceneManager.sceneLoaded -= OnSceneLoaded;
             SceneManager.sceneLoaded += OnSceneLoaded;
             BindProgressionEvents();
+            BindGameplayEvents();
         }
 
         protected override void OnDisable() {
             SceneManager.sceneLoaded -= OnSceneLoaded;
             UnbindProgressionEvents();
+            UnbindGameplayEvents();
+            ClosePauseLoadoutDropdowns();
             SetOptionsOpenState(false);
             base.OnDisable();
         }
@@ -166,6 +197,8 @@ namespace Game.Menu {
             SetPauseChallengesDirty();
             UpdateChallengeTimers(force: true);
             _nextChallengeTimerUpdateAt = Time.unscaledTime + ChallengeTimerUpdateIntervalSeconds;
+            SyncPauseLoadoutFromSettings();
+            RefreshPauseLoadoutVisuals();
         }
 
         protected override Dictionary<string, Type> GetRequiredElements() {
@@ -224,6 +257,10 @@ namespace Game.Menu {
             if(chatUIManager != null) {
                 chatUIManager.ClearChatHistory();
             }
+
+            _pauseLoadoutPendingApply = false;
+            SyncPauseLoadoutFromSettings();
+            ClosePauseLoadoutDropdowns();
         }
 
         private void FindUIElements() {
@@ -242,6 +279,22 @@ namespace Game.Menu {
             _quitConfirmationYes = QOptional<Button>("quit-confirmation-yes");
             _quitConfirmationNo = QOptional<Button>("quit-confirmation-no");
             _killFeedContainer = QOptional<VisualElement>("kill-feed-container");
+            _pauseLoadoutContainer = QOptional<VisualElement>("pause-loadout-container");
+            _pausePrimarySlot = QOptional<VisualElement>("pause-primary-weapon-slot");
+            _pauseSecondarySlot = QOptional<VisualElement>("pause-secondary-weapon-slot");
+            _pauseTertiarySlot = QOptional<VisualElement>("pause-tertiary-weapon-slot");
+            _pausePrimaryDropdown = QOptional<VisualElement>("pause-primary-dropdown");
+            _pauseSecondaryDropdown = QOptional<VisualElement>("pause-secondary-dropdown");
+            _pauseTertiaryDropdown = QOptional<VisualElement>("pause-tertiary-dropdown");
+            _pausePrimaryScroll = _pausePrimaryDropdown != null ? _pausePrimaryDropdown.Q<ScrollView>("pause-primary-scroll") : null;
+            _pauseSecondaryScroll = _pauseSecondaryDropdown != null ? _pauseSecondaryDropdown.Q<ScrollView>("pause-secondary-scroll") : null;
+            _pauseTertiaryScroll = _pauseTertiaryDropdown != null ? _pauseTertiaryDropdown.Q<ScrollView>("pause-tertiary-scroll") : null;
+            _pausePrimaryImage = QOptional<Image>("pause-primary-weapon-image");
+            _pauseSecondaryImage = QOptional<Image>("pause-secondary-weapon-image");
+            _pauseTertiaryImage = QOptional<Image>("pause-tertiary-weapon-image");
+            _pausePrimaryName = QOptional<Label>("pause-primary-weapon-name");
+            _pauseSecondaryName = QOptional<Label>("pause-secondary-weapon-name");
+            _pauseTertiaryName = QOptional<Label>("pause-tertiary-weapon-name");
             
             BuildPauseChallengeCards();
             
@@ -250,6 +303,10 @@ namespace Game.Menu {
         }
 
         private void Update() {
+            if(IsPaused) {
+                TryApplyPendingLoadoutWhileDead();
+            }
+
             if(!IsPaused) return;
             UpdatePauseChallengesIfDirty();
 
@@ -398,21 +455,25 @@ namespace Game.Menu {
                 UISoundService.RegisterButtonHover(_quitConfirmationYes);
             }
 
-            if(_quitConfirmationNo == null) return;
-            Action noHandler = () => { 
-                UISoundService.PlayButtonClick(); 
-                _modalHost.HideModal("quit-confirmation");
-                // Show pause menu and challenges again when canceling quit
-                if(_pauseMenuPanel != null) {
-                    _pauseMenuPanel.RemoveFromClassList("hidden");
-                }
-                if(_pauseChallengesContainer != null) {
-                    _pauseChallengesContainer.RemoveFromClassList("hidden");
-                }
-            };
-            _quitConfirmationNo.clicked += noHandler;
-            RegisterCleanup(() => _quitConfirmationNo.clicked -= noHandler);
-            UISoundService.RegisterButtonHover(_quitConfirmationNo);
+            if(_quitConfirmationNo != null) {
+                Action noHandler = () => {
+                    UISoundService.PlayButtonClick();
+                    _modalHost.HideModal("quit-confirmation");
+                    // Show pause menu and challenges again when canceling quit
+                    if(_pauseMenuPanel != null) {
+                        _pauseMenuPanel.RemoveFromClassList("hidden");
+                    }
+                    if(_pauseChallengesContainer != null) {
+                        _pauseChallengesContainer.RemoveFromClassList("hidden");
+                    }
+                    RefreshPauseLoadoutVisuals();
+                };
+                _quitConfirmationNo.clicked += noHandler;
+                RegisterCleanup(() => _quitConfirmationNo.clicked -= noHandler);
+                UISoundService.RegisterButtonHover(_quitConfirmationNo);
+            }
+
+            RegisterPauseLoadoutEvents();
         }
 
         private void BindProgressionEvents() {
@@ -428,6 +489,340 @@ namespace Game.Menu {
             if(_progressionManager == null) return;
             _progressionManager.OnChallengesUpdated -= OnChallengesUpdated;
             _progressionManager = null;
+        }
+
+        private void BindGameplayEvents() {
+            if(_gameplayEventsBound) return;
+            EventBus.Subscribe<PlayerDiedEvent>(OnPlayerDied);
+            _gameplayEventsBound = true;
+        }
+
+        private void UnbindGameplayEvents() {
+            if(!_gameplayEventsBound) return;
+            EventBus.Unsubscribe<PlayerDiedEvent>(OnPlayerDied);
+            _gameplayEventsBound = false;
+        }
+
+        private void OnPlayerDied(PlayerDiedEvent gameEvent) {
+            var controller = ResolveLocalController();
+            if(controller == null) return;
+            if(gameEvent.PlayerId != controller.OwnerClientId) return;
+            ApplyPendingLoadoutNow();
+        }
+
+        private void RegisterPauseLoadoutEvents() {
+            if(_pauseLoadoutContainer == null) return;
+
+            RegisterPauseLoadoutSlotEvents(_pausePrimarySlot, _pausePrimaryDropdown);
+            RegisterPauseLoadoutSlotEvents(_pauseSecondarySlot, _pauseSecondaryDropdown);
+            RegisterPauseLoadoutSlotEvents(_pauseTertiarySlot, _pauseTertiaryDropdown);
+
+            if(_pauseLoadoutOutsideClickRegistered || Root == null) return;
+            Root.RegisterCallback<PointerDownEvent>(OnPauseLoadoutRootPointerDown, TrickleDown.TrickleDown);
+            RegisterCleanup(() => {
+                if(Root != null) {
+                    Root.UnregisterCallback<PointerDownEvent>(OnPauseLoadoutRootPointerDown, TrickleDown.TrickleDown);
+                }
+            });
+            _pauseLoadoutOutsideClickRegistered = true;
+        }
+
+        private void RegisterPauseLoadoutSlotEvents(VisualElement slot, VisualElement dropdown) {
+            if(slot == null) return;
+
+            EventCallback<ClickEvent> clickHandler = evt => {
+                UISoundService.PlayButtonClick();
+                TogglePauseLoadoutDropdown(dropdown);
+                if(evt == null) return;
+                evt.StopPropagation();
+                evt.StopImmediatePropagation();
+            };
+            slot.RegisterCallback(clickHandler);
+            RegisterCleanup(() => slot.UnregisterCallback(clickHandler));
+
+            EventCallback<MouseEnterEvent> hoverHandler = _ => UISoundService.PlayButtonHover();
+            slot.RegisterCallback(hoverHandler);
+            RegisterCleanup(() => slot.UnregisterCallback(hoverHandler));
+        }
+
+        private void OnPauseLoadoutRootPointerDown(PointerDownEvent evt) {
+            if(_pauseCurrentOpenDropdown == null || evt == null) return;
+            if(IsPointerWithinPauseDropdownOrSlot(evt.position)) return;
+            ClosePauseLoadoutDropdowns();
+        }
+
+        private bool IsPointerWithinPauseDropdownOrSlot(Vector2 pointerPosition) {
+            if(_pauseCurrentOpenDropdown == null) return false;
+
+            if(_pauseCurrentOpenDropdown.worldBound.Contains(pointerPosition)) {
+                return true;
+            }
+
+            var slot = GetPauseSlotForDropdown(_pauseCurrentOpenDropdown);
+            return slot != null && slot.worldBound.Contains(pointerPosition);
+        }
+
+        private VisualElement GetPauseSlotForDropdown(VisualElement dropdown) {
+            if(dropdown == _pausePrimaryDropdown) return _pausePrimarySlot;
+            if(dropdown == _pauseSecondaryDropdown) return _pauseSecondarySlot;
+            return dropdown == _pauseTertiaryDropdown ? _pauseTertiarySlot : null;
+        }
+
+        private void TogglePauseLoadoutDropdown(VisualElement dropdown) {
+            if(dropdown == null || !IsPaused) {
+                ClosePauseLoadoutDropdowns();
+                return;
+            }
+
+            var isCurrentlyOpen = _pauseCurrentOpenDropdown == dropdown && !dropdown.ClassListContains("hidden");
+            ClosePauseLoadoutDropdowns();
+            if(isCurrentlyOpen) return;
+
+            RefreshPauseLoadoutDropdown(dropdown);
+            dropdown.RemoveFromClassList("hidden");
+            _pauseCurrentOpenDropdown = dropdown;
+        }
+
+        private void RefreshPauseLoadoutDropdown(VisualElement dropdown) {
+            if(!TryGetLocalWeaponManager(out var weaponManager)) return;
+
+            if(dropdown == _pausePrimaryDropdown) {
+                PopulatePauseWeaponDropdown(_pausePrimaryScroll, weaponManager.PrimaryWeaponOptions,
+                    _pauseSelectedPrimaryIndex, SelectPausePrimaryWeapon);
+            } else if(dropdown == _pauseSecondaryDropdown) {
+                PopulatePauseWeaponDropdown(_pauseSecondaryScroll, weaponManager.SecondaryWeaponOptions,
+                    _pauseSelectedSecondaryIndex, SelectPauseSecondaryWeapon);
+            } else if(dropdown == _pauseTertiaryDropdown) {
+                PopulatePauseWeaponDropdown(_pauseTertiaryScroll, GetPauseTertiaryOptions(weaponManager),
+                    _pauseSelectedTertiaryIndex, SelectPauseTertiaryWeapon);
+            }
+        }
+
+        private static IReadOnlyList<WeaponData> GetPauseTertiaryOptions(WeaponManager _) {
+            return Array.Empty<WeaponData>();
+        }
+
+        private void PopulatePauseWeaponDropdown(ScrollView scroll, IReadOnlyList<WeaponData> options, int selectedIndex,
+            Action<int> onSelect) {
+            if(scroll == null) return;
+
+            var container = scroll.contentContainer;
+            container.Clear();
+            container.style.flexDirection = FlexDirection.Row;
+
+            if(options == null || options.Count <= 1) {
+                return;
+            }
+
+            var clampedSelected = Mathf.Clamp(selectedIndex, 0, options.Count - 1);
+            for(var i = 0; i < options.Count; i++) {
+                if(i == clampedSelected) continue;
+
+                var index = i;
+                var option = CreatePauseLoadoutOption(options[i]);
+                option.RegisterCallback<MouseEnterEvent>(_ => UISoundService.PlayButtonHover());
+                option.RegisterCallback<ClickEvent>(evt => {
+                    UISoundService.PlayButtonClick();
+                    onSelect(index);
+                    ClosePauseLoadoutDropdowns();
+                    if(evt == null) return;
+                    evt.StopPropagation();
+                    evt.StopImmediatePropagation();
+                });
+
+                container.Add(option);
+            }
+        }
+
+        private static VisualElement CreatePauseLoadoutOption(WeaponData weaponData) {
+            var option = new VisualElement();
+            option.AddToClassList("pause-loadout-option");
+
+            var image = new Image();
+            image.AddToClassList("pause-loadout-option-image");
+            if(weaponData != null && weaponData.loadoutIcon != null) {
+                image.sprite = weaponData.loadoutIcon;
+                image.style.visibility = Visibility.Visible;
+            } else {
+                image.sprite = null;
+                image.style.visibility = Visibility.Hidden;
+            }
+            option.Add(image);
+
+            var label = new Label(GetSafeWeaponName(weaponData, "WIP"));
+            label.AddToClassList("pause-loadout-option-name");
+            option.Add(label);
+            return option;
+        }
+
+        private void ClosePauseLoadoutDropdowns() {
+            if(_pausePrimaryDropdown != null) _pausePrimaryDropdown.AddToClassList("hidden");
+            if(_pauseSecondaryDropdown != null) _pauseSecondaryDropdown.AddToClassList("hidden");
+            if(_pauseTertiaryDropdown != null) _pauseTertiaryDropdown.AddToClassList("hidden");
+            _pauseCurrentOpenDropdown = null;
+        }
+
+        private void SelectPausePrimaryWeapon(int index) {
+            _pauseSelectedPrimaryIndex = index;
+            SavePauseLoadoutSelections();
+            QueuePrimarySecondaryLoadoutApply();
+            RefreshPauseLoadoutVisuals();
+        }
+
+        private void SelectPauseSecondaryWeapon(int index) {
+            _pauseSelectedSecondaryIndex = index;
+            SavePauseLoadoutSelections();
+            QueuePrimarySecondaryLoadoutApply();
+            RefreshPauseLoadoutVisuals();
+        }
+
+        private void SelectPauseTertiaryWeapon(int index) {
+            _pauseSelectedTertiaryIndex = index;
+            SavePauseLoadoutSelections();
+            RefreshPauseLoadoutVisuals();
+        }
+
+        private void SavePauseLoadoutSelections() {
+            var player = GameSettings.Data.player;
+            player.primaryWeaponIndex = _pauseSelectedPrimaryIndex;
+            player.secondaryWeaponIndex = _pauseSelectedSecondaryIndex;
+            player.tertiaryWeaponIndex = _pauseSelectedTertiaryIndex;
+            GameSettings.Save();
+        }
+
+        private void QueuePrimarySecondaryLoadoutApply() {
+            if(!ShouldSwapWeaponsOnDeath()) {
+                ApplyLoadoutNow(deferTpRevealUntilRespawn: false);
+                return;
+            }
+
+            _pauseLoadoutPendingApply = true;
+            if(IsLocalPlayerDead()) {
+                ApplyPendingLoadoutNow();
+            }
+        }
+
+        private void TryApplyPendingLoadoutWhileDead() {
+            if(!_pauseLoadoutPendingApply) return;
+            if(!IsLocalPlayerDead()) return;
+            ApplyPendingLoadoutNow();
+        }
+
+        private void ApplyPendingLoadoutNow() {
+            ApplyLoadoutNow(deferTpRevealUntilRespawn: true);
+        }
+
+        private void ApplyLoadoutNow(bool deferTpRevealUntilRespawn) {
+            if(!TryGetLocalWeaponManager(out var weaponManager)) return;
+
+            _pauseLoadoutPendingApply = false;
+            _ = weaponManager.ApplyOwnerLoadoutSelection(_pauseSelectedPrimaryIndex, _pauseSelectedSecondaryIndex,
+                deferTpRevealUntilRespawn: deferTpRevealUntilRespawn);
+        }
+
+        private bool IsLocalPlayerDead() {
+            var controller = ResolveLocalController();
+            return controller != null && controller.IsDead;
+        }
+
+        private static bool ShouldSwapWeaponsOnDeath() {
+            var matchSettings = MatchSettingsManager.Instance;
+            return matchSettings == null || matchSettings.ShouldSwapWeaponsOnDeath();
+        }
+
+        private void SyncPauseLoadoutFromSettings() {
+            var player = GameSettings.Data.player;
+            _pauseSelectedPrimaryIndex = Mathf.Max(0, player.primaryWeaponIndex);
+            _pauseSelectedSecondaryIndex = Mathf.Max(0, player.secondaryWeaponIndex);
+            _pauseSelectedTertiaryIndex = Mathf.Max(0, player.tertiaryWeaponIndex);
+        }
+
+        private void RefreshPauseLoadoutVisuals() {
+            if(_pauseLoadoutContainer == null) return;
+            if(!TryGetLocalWeaponManager(out var weaponManager)) return;
+
+            var primaryOptions = weaponManager.PrimaryWeaponOptions;
+            var secondaryOptions = weaponManager.SecondaryWeaponOptions;
+            var tertiaryOptions = GetPauseTertiaryOptions(weaponManager);
+
+            _pauseSelectedPrimaryIndex = ClampPauseSelectionIndex(_pauseSelectedPrimaryIndex, primaryOptions);
+            _pauseSelectedSecondaryIndex = ClampPauseSelectionIndex(_pauseSelectedSecondaryIndex, secondaryOptions);
+            _pauseSelectedTertiaryIndex = ClampPauseSelectionIndex(_pauseSelectedTertiaryIndex, tertiaryOptions);
+
+            UpdatePauseSlotVisual(_pausePrimaryImage, _pausePrimaryName, primaryOptions, _pauseSelectedPrimaryIndex,
+                "PRIMARY");
+            UpdatePauseSlotVisual(_pauseSecondaryImage, _pauseSecondaryName, secondaryOptions,
+                _pauseSelectedSecondaryIndex, "SECONDARY");
+            UpdatePauseSlotVisual(_pauseTertiaryImage, _pauseTertiaryName, tertiaryOptions, _pauseSelectedTertiaryIndex,
+                string.Empty);
+
+            if(_pauseCurrentOpenDropdown != null && _pauseCurrentOpenDropdown.ClassListContains("hidden") == false) {
+                RefreshPauseLoadoutDropdown(_pauseCurrentOpenDropdown);
+            }
+        }
+
+        private static int ClampPauseSelectionIndex(int selectedIndex, IReadOnlyList<WeaponData> options) {
+            if(options == null || options.Count == 0) return 0;
+            return Mathf.Clamp(selectedIndex, 0, options.Count - 1);
+        }
+
+        private static void UpdatePauseSlotVisual(Image slotImage, Label slotName, IReadOnlyList<WeaponData> options,
+            int selectedIndex, string emptyLabel) {
+            if(options == null || options.Count == 0) {
+                if(slotImage != null) {
+                    slotImage.sprite = null;
+                    slotImage.style.visibility = Visibility.Hidden;
+                }
+
+                if(slotName != null) {
+                    slotName.text = emptyLabel;
+                }
+
+                return;
+            }
+
+            var clampedIndex = Mathf.Clamp(selectedIndex, 0, options.Count - 1);
+            var weaponData = options[clampedIndex];
+            var icon = weaponData != null ? weaponData.loadoutIcon : null;
+
+            if(slotImage != null) {
+                slotImage.sprite = icon;
+                slotImage.style.visibility = icon != null ? Visibility.Visible : Visibility.Hidden;
+            }
+
+            if(slotName != null) {
+                slotName.text = GetSafeWeaponName(weaponData, emptyLabel);
+            }
+        }
+
+        private static string GetSafeWeaponName(WeaponData weaponData, string fallback) {
+            if(weaponData == null) return fallback;
+            if(!string.IsNullOrEmpty(weaponData.weaponName)) {
+                return weaponData.weaponName.ToUpperInvariant();
+            }
+
+            if(weaponData.weaponPrefab != null) {
+                return weaponData.weaponPrefab.name.ToUpperInvariant();
+            }
+
+            return fallback;
+        }
+
+        private PlayerController ResolveLocalController() {
+            if(_localController != null && _localController.IsOwner) {
+                return _localController;
+            }
+
+            _localController = PlayerController.LocalPlayer;
+            return _localController;
+        }
+
+        private bool TryGetLocalWeaponManager(out WeaponManager weaponManager) {
+            weaponManager = null;
+            var controller = ResolveLocalController();
+            if(controller == null) return false;
+            weaponManager = controller.WeaponManager;
+            return weaponManager != null;
         }
 
         private void OnChallengesUpdated() {
@@ -507,6 +902,9 @@ namespace Game.Menu {
             _pauseMenuPanel.RemoveFromClassList("hidden");
             UnityEngine.Cursor.lockState = CursorLockMode.None;
             UnityEngine.Cursor.visible = true;
+            ClosePauseLoadoutDropdowns();
+            SyncPauseLoadoutFromSettings();
+            RefreshPauseLoadoutVisuals();
             UpdatePauseJoinCodeDisplay();
             UpdateChallengeTimers(force: true);
             SetPauseChallengesDirty();
@@ -547,6 +945,7 @@ namespace Game.Menu {
 
         private void ResumeGame() {
             IsPaused = false;
+            ClosePauseLoadoutDropdowns();
             _pauseMenuPanel.AddToClassList("hidden");
             _optionsPanel.AddToClassList("hidden");
             SetOptionsOpenState(false);
@@ -563,6 +962,7 @@ namespace Game.Menu {
                 optionsMenuManager.LoadSettings();
             }
             
+            ClosePauseLoadoutDropdowns();
             _pauseMenuPanel.AddToClassList("hidden");
             // Hide challenges when showing options
             if(_pauseChallengesContainer != null) {
@@ -582,6 +982,7 @@ namespace Game.Menu {
             _optionsPanel.AddToClassList("hidden");
             SetOptionsOpenState(false);
             _pauseMenuPanel.RemoveFromClassList("hidden");
+            RefreshPauseLoadoutVisuals();
             // Show challenges again when returning to pause menu
             if(_pauseChallengesContainer != null) {
                 _pauseChallengesContainer.RemoveFromClassList("hidden");
@@ -596,6 +997,7 @@ namespace Game.Menu {
 
             if(_quitConfirmationModal == null) return;
             // Hide pause menu and challenges when showing quit confirmation modal
+            ClosePauseLoadoutDropdowns();
             if(_pauseMenuPanel != null) {
                 _pauseMenuPanel.AddToClassList("hidden");
             }

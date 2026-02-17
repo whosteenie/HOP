@@ -105,6 +105,45 @@
                 <ui:Button text="OPTIONS" name="options-button" class="menu-chip menu-chip-enabled" />
                 <ui:Button text="QUIT TO MENU" name="quit-button" class="menu-chip menu-chip-enabled" />
             </ui:VisualElement>
+            <ui:VisualElement name="pause-loadout-container" class="pause-loadout-container card">
+                <ui:Label text="LOADOUT" name="pause-loadout-title" class="pause-loadout-title" />
+                <ui:VisualElement name="pause-primary-weapon-container" class="pause-weapon-slot-container">
+                    <ui:VisualElement name="pause-primary-weapon-row" class="pause-weapon-slot-row">
+                        <ui:VisualElement name="pause-primary-weapon-slot" class="pause-weapon-slot">
+                            <ui:Image name="pause-primary-weapon-image" class="pause-weapon-image" />
+                            <ui:Label text="" name="pause-primary-weapon-name" class="pause-weapon-name" />
+                        </ui:VisualElement>
+                        <ui:VisualElement name="pause-primary-dropdown" class="pause-weapon-dropdown hidden">
+                            <ui:ScrollView name="pause-primary-scroll" class="pause-weapon-dropdown-scroll" />
+                        </ui:VisualElement>
+                    </ui:VisualElement>
+                    <ui:Label text="PRIMARY" class="pause-weapon-slot-label" />
+                </ui:VisualElement>
+                <ui:VisualElement name="pause-secondary-weapon-container" class="pause-weapon-slot-container">
+                    <ui:VisualElement name="pause-secondary-weapon-row" class="pause-weapon-slot-row">
+                        <ui:VisualElement name="pause-secondary-weapon-slot" class="pause-weapon-slot">
+                            <ui:Image name="pause-secondary-weapon-image" class="pause-weapon-image" />
+                            <ui:Label text="" name="pause-secondary-weapon-name" class="pause-weapon-name" />
+                        </ui:VisualElement>
+                        <ui:VisualElement name="pause-secondary-dropdown" class="pause-weapon-dropdown hidden">
+                            <ui:ScrollView name="pause-secondary-scroll" class="pause-weapon-dropdown-scroll" />
+                        </ui:VisualElement>
+                    </ui:VisualElement>
+                    <ui:Label text="SECONDARY" class="pause-weapon-slot-label" />
+                </ui:VisualElement>
+                <ui:VisualElement name="pause-tertiary-weapon-container" class="pause-weapon-slot-container">
+                    <ui:VisualElement name="pause-tertiary-weapon-row" class="pause-weapon-slot-row">
+                        <ui:VisualElement name="pause-tertiary-weapon-slot" class="pause-weapon-slot">
+                            <ui:Image name="pause-tertiary-weapon-image" class="pause-weapon-image" />
+                            <ui:Label text="" name="pause-tertiary-weapon-name" class="pause-weapon-name" />
+                        </ui:VisualElement>
+                        <ui:VisualElement name="pause-tertiary-dropdown" class="pause-weapon-dropdown hidden">
+                            <ui:ScrollView name="pause-tertiary-scroll" class="pause-weapon-dropdown-scroll" />
+                        </ui:VisualElement>
+                    </ui:VisualElement>
+                    <ui:Label text="" class="pause-weapon-slot-label" />
+                </ui:VisualElement>
+            </ui:VisualElement>
         </ui:VisualElement>
         <ui:Instance template="SharedOptionsPanel" class="full-abs" picking-mode="Ignore"/>
         <ui:VisualElement name="podium-nameplates-container" class="podium-nameplates podium-nameplates-inline podium-nameplates-height-100-top-auto">
@@ -137,7 +176,10 @@
         </ui:VisualElement>
         <ui:VisualElement name="scoreboard-panel" class="panel full-abs center-xy hidden">
             <ui:VisualElement name="scoreboard-container" class="scoreboard-container card">
-                <ui:Label text="SCOREBOARD" name="scoreboard-title" class="title" />
+                <ui:VisualElement class="scoreboard-title-row">
+                    <ui:Label text="SCOREBOARD" name="scoreboard-title" class="title scoreboard-mode-title" />
+                    <ui:Label text="UNKNOWN MAP" name="scoreboard-map-title" class="title scoreboard-map-title" />
+                </ui:VisualElement>
                 <ui:VisualElement name="scoreboard-header" class="scoreboard-header scoreboard-header-height-38px">
                     <ui:Label text="PING" class="header-cell ping-cell" />
                     <ui:VisualElement class="header-cell avatar-cell" />
@@ -155,7 +197,10 @@
                 </ui:ScrollView>
             </ui:VisualElement>
             <ui:VisualElement name="tdm-scoreboard-container" class="tdm-scoreboard-container card hidden">
-                <ui:Label text="TEAM DEATHMATCH" name="tdm-scoreboard-title" class="title" />
+                <ui:VisualElement class="scoreboard-title-row">
+                    <ui:Label text="TEAM DEATHMATCH" name="tdm-scoreboard-title" class="title scoreboard-mode-title" />
+                    <ui:Label text="UNKNOWN MAP" name="tdm-scoreboard-map-title" class="title scoreboard-map-title" />
+                </ui:VisualElement>
                 <ui:VisualElement name="enemy-team-section" class="tdm-team-section tdm-team-section-enemy">
                     <ui:VisualElement name="enemy-team-header" class="tdm-team-header">
                         <ui:Label text="PING" class="header-cell ping-cell" />

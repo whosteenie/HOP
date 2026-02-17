@@ -93,6 +93,10 @@
                             <ui:Label text="PRE-MATCH COUNTDOWN" class="setting-label"/>
                             <ui:Button name="private-match-prematch-countdown-toggle" class="setting-toggle"/>
                         </ui:VisualElement>
+                        <ui:VisualElement name="private-match-swap-on-death-row" class="setting-row">
+                            <ui:Label text="SWAP LOADOUT ON DEATH" class="setting-label"/>
+                            <ui:Button name="private-match-swap-on-death-toggle" class="setting-toggle"/>
+                        </ui:VisualElement>
                         <ui:VisualElement name="private-match-score-row" class="setting-row">
                             <ui:Label text="SCORE TO WIN" class="setting-label"/>
                             <ui:IntegerField name="private-match-score-input" value="50" class="value-input private-match-input"/>
@@ -111,6 +115,7 @@
                 <ui:VisualElement name="private-match-map-preview-container" class="private-match-map-preview-container">
                     <ui:VisualElement name="private-match-map-preview-image" class="private-match-map-preview-image">
                         <ui:Label text="WIP" name="private-match-map-preview-wip" class="private-match-map-preview-wip"/>
+                        <ui:Label text="UNKNOWN MAP" name="private-match-map-preview-title" class="private-match-map-preview-title"/>
                     </ui:VisualElement>
                 </ui:VisualElement>
             </ui:VisualElement>

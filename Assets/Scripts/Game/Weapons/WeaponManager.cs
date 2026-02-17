@@ -50,6 +50,8 @@ namespace Game.Weapons {
         public int CurrentWeaponIndex { get; private set; } = -1;
 
         public int WeaponCount => weaponDataList.Count;
+        public IReadOnlyList<WeaponData> PrimaryWeaponOptions => primaryWeaponOptions;
+        public IReadOnlyList<WeaponData> SecondaryWeaponOptions => secondaryWeaponOptions;
         public bool IsPullingOut { get; private set; }
 
         private static readonly int PullOutHash = Animator.StringToHash("PullOut");
@@ -61,6 +63,9 @@ namespace Game.Weapons {
         public GameObject SecondaryHolster { get; private set; }
 
         private int _pendingHolsterHideSlot = -1;
+        private bool _suppressLoadoutRebuildCallbacks;
+        private bool _deferTpRevealUntilRespawn;
+        private GameObject _deferredRespawnWorldWeapon;
 
         private void Awake() {
             ValidateComponents();
@@ -566,12 +571,88 @@ namespace Game.Weapons {
             }
         }
 
+        public int GetPrimarySelectionIndex() {
+            if(playerController == null || primaryWeaponOptions == null || primaryWeaponOptions.Count == 0) {
+                return 0;
+            }
+
+            return Mathf.Clamp(playerController.primaryWeaponIndex.Value, 0, primaryWeaponOptions.Count - 1);
+        }
+
+        public int GetSecondarySelectionIndex() {
+            if(playerController == null || secondaryWeaponOptions == null || secondaryWeaponOptions.Count == 0) {
+                return 0;
+            }
+
+            return Mathf.Clamp(playerController.secondaryWeaponIndex.Value, 0, secondaryWeaponOptions.Count - 1);
+        }
+
+        public bool ApplyOwnerLoadoutSelection(int primaryIndex, int secondaryIndex,
+            bool deferTpRevealUntilRespawn = true) {
+            if(!IsOwner || playerController == null) return false;
+
+            var clampedPrimary = ClampOptionIndex(primaryWeaponOptions, primaryIndex);
+            var clampedSecondary = ClampOptionIndex(secondaryWeaponOptions, secondaryIndex);
+
+            var primaryChanged = playerController.primaryWeaponIndex.Value != clampedPrimary;
+            var secondaryChanged = playerController.secondaryWeaponIndex.Value != clampedSecondary;
+            if(!primaryChanged && !secondaryChanged) {
+                return false;
+            }
+
+            _suppressLoadoutRebuildCallbacks = true;
+            try {
+                if(primaryChanged) {
+                    playerController.primaryWeaponIndex.Value = clampedPrimary;
+                }
+
+                if(secondaryChanged) {
+                    playerController.secondaryWeaponIndex.Value = clampedSecondary;
+                }
+            } finally {
+                _suppressLoadoutRebuildCallbacks = false;
+            }
+
+            RebuildEquippedWeapons(
+                preserveCurrentSlot: false,
+                deferTpRevealUntilRespawn: deferTpRevealUntilRespawn
+            );
+            return true;
+        }
+
+        private static int ClampOptionIndex(List<WeaponData> options, int requestedIndex) {
+            if(options == null || options.Count == 0) return 0;
+            return Mathf.Clamp(requestedIndex, 0, options.Count - 1);
+        }
+
         public void ApplyTpWeaponStateOnRespawn() {
-            if(_playerAnimator == null) return;
-            var slot = Mathf.Clamp(GetSlotForIndex(CurrentWeaponIndex), 0, 1);
-            _playerAnimator.SetInteger(WeaponIndexHash, slot);
-            _playerAnimator.Rebind();
-            _playerAnimator.Update(0f);
+            if(_playerAnimator != null) {
+                var slot = Mathf.Clamp(GetSlotForIndex(CurrentWeaponIndex), 0, 1);
+                _playerAnimator.SetInteger(WeaponIndexHash, slot);
+                _playerAnimator.Rebind();
+                _playerAnimator.Update(0f);
+            }
+
+            if(_deferredRespawnWorldWeapon != null) {
+                if(CurrentWorldWeaponInstance != null && CurrentWorldWeaponInstance != _deferredRespawnWorldWeapon) {
+                    CurrentWorldWeaponInstance.SetActive(false);
+                }
+
+                CurrentWorldWeaponInstance = _deferredRespawnWorldWeapon;
+                _deferredRespawnWorldWeapon = null;
+            }
+
+            ResolveCurrentWorldWeaponReference();
+            if(CurrentWorldWeaponInstance != null && !CurrentWorldWeaponInstance.activeSelf) {
+                CurrentWorldWeaponInstance.SetActive(true);
+            }
+
+            if(CurrentWorldWeaponInstance != null) {
+                EnsureWeaponHierarchyActive();
+                EnsureWorldWeaponShadowState();
+            }
+
+            _deferTpRevealUntilRespawn = false;
             UpdateHolsterVisibility();
         }
 
@@ -852,160 +933,208 @@ namespace Game.Weapons {
         public void RefreshHolsterVisibility() => UpdateHolsterVisibility();
 
         /// <summary>
-        /// Called when weapon index NetworkVariables change. Rebuilds weapon list for non-owners when values sync.
+        /// Rebuilds equipped FP/TP weapons from current loadout indices.
         /// </summary>
-        private void OnWeaponIndexChanged(int oldValue, int newValue) {
-            // Only rebuild if we're not the owner (owner sets values, non-owners receive them)
-            if(IsOwner) return;
-            // Rebuild weapon list with synced values
-            var oldListCount = weaponDataList != null ? weaponDataList.Count : 0;
-            BuildEquippedWeaponList();
-                
-            // If weapons haven't been initialized yet (waited for NetworkVariable sync), do full initialization now
-            if(_fpWeaponInstances == null || _fpWeaponInstances.Count == 0) {
-                // Do full weapon instantiation (copy from InitializeWeapons)
-                SetupHolsteredWeaponModels();
-                DisableUnequippedWorldWeapons();
-                    
-                if(weaponDataList == null || weaponDataList.Count == 0) {
-                    Debug.LogError("[WeaponManager] weaponDataList is empty after sync!");
-                    return;
-                }
-                    
-                // Hide all 3P weapons initially
-                if(_worldWeaponSocket != null) {
-                    foreach(Transform child in _worldWeaponSocket) {
-                        child.gameObject.SetActive(false);
-                    }
-                }
-                    
-                // Instantiate FP weapon viewmodels
-                for(var i = 0; i < weaponDataList.Count; i++) {
-                    var data = weaponDataList[i];
-                    if(data == null || data.weaponPrefab == null) {
-                        Debug.LogError($"[WeaponManager] Invalid weapon data at index {i}");
-                        continue;
-                    }
-                        
-                    var swayHolder = new GameObject("SwayHolder");
-                    swayHolder.AddComponent<WeaponSway>();
-                    swayHolder.transform.SetParent(_fpCamera.transform, false);
-                    swayHolder.transform.localPosition = Vector3.zero;
-                    swayHolder.transform.localEulerAngles = Vector3.zero;
-                    var bobHolder = new GameObject("BobHolder");
-                    bobHolder.AddComponent<WeaponBob>();
-                    bobHolder.transform.SetParent(swayHolder.transform, false);
-                    bobHolder.transform.localPosition = Vector3.zero;
-                    bobHolder.transform.localEulerAngles = Vector3.zero;
-                        
-                    var fpWeaponInstance = Instantiate(data.weaponPrefab, bobHolder.transform, false);
-                    fpWeaponInstance.transform.localPosition = data.spawnPosition;
-                    fpWeaponInstance.transform.localEulerAngles = data.spawnRotation;
-                        
-                    if(fpWeaponInstance.GetComponent<WeaponAnimationEvents>() == null) {
-                        fpWeaponInstance.AddComponent<WeaponAnimationEvents>();
-                    }
-                        
-                    var meshRenderers = fpWeaponInstance.GetComponentsInChildren<MeshRenderer>();
-                    foreach(var meshRenderer in meshRenderers) {
-                        meshRenderer.shadowCastingMode = ShadowCastingMode.Off;
-                    }
-                        
-                    SetupFpWeaponSkinnedMeshRenderers(fpWeaponInstance);
-                    fpWeaponInstance.layer = LayerMask.NameToLayer("Masked");
-                    fpWeaponInstance.SetActive(false);
-                    if(_fpWeaponInstances != null) _fpWeaponInstances.Add(fpWeaponInstance);
-                    _weaponAmmo[i] = data.magSize;
-                }
-                    
-                // Equip first weapon now that we have the correct list
-                if(_fpWeaponInstances is { Count: > 0 }) {
-                    EquipInitialWeapon(0);
-                }
-                    
-                UpdateHolsterVisibility();
+        private void RebuildEquippedWeapons(bool preserveCurrentSlot, bool deferTpRevealUntilRespawn) {
+            if(CurrentWeapon == null || _fpCamera == null) {
+                ValidateComponents();
+            }
+
+            if(CurrentWeapon == null || _fpCamera == null) {
                 return;
             }
-                
-            // If weapon list changed (different count or different weapons), re-instantiate and re-equip
-            if(weaponDataList != null && weaponDataList.Count != oldListCount) {
-                // Destroy old FP weapon instances
-                foreach(var fpWeapon in _fpWeaponInstances) {
-                    if(fpWeapon != null) Destroy(fpWeapon.transform.root.gameObject);
+
+            var targetSlot = preserveCurrentSlot
+                ? Mathf.Clamp(GetSlotForIndex(CurrentWeaponIndex), 0, 1)
+                : 0;
+            var previousWorldWeapon = CurrentWorldWeaponInstance;
+            var keepPreviousWorldWeaponVisible =
+                deferTpRevealUntilRespawn && previousWorldWeapon != null && previousWorldWeapon.activeSelf;
+
+            BuildEquippedWeaponList();
+            SetupHolsteredWeaponModels();
+            DisableUnequippedWorldWeapons();
+
+            if(weaponDataList == null || weaponDataList.Count == 0) {
+                Debug.LogError("[WeaponManager] weaponDataList is empty after rebuild!");
+                return;
+            }
+
+            DestroyFpWeaponInstances();
+            HideAllWorldWeapons(keepPreviousWorldWeaponVisible ? previousWorldWeapon : null);
+            InstantiateFpWeaponInstances();
+
+            if(_fpWeaponInstances.Count == 0) {
+                Debug.LogError("[WeaponManager] No FP weapons available after rebuild!");
+                return;
+            }
+
+            var targetIndex = ResolveIndexForSlot(targetSlot);
+            EquipInitialWeapon(targetIndex);
+
+            _deferTpRevealUntilRespawn = deferTpRevealUntilRespawn;
+            if(_deferTpRevealUntilRespawn) {
+                var nextWorldWeapon = CurrentWorldWeaponInstance;
+                if(nextWorldWeapon != null) {
+                    nextWorldWeapon.SetActive(false);
+                    _deferredRespawnWorldWeapon = nextWorldWeapon != previousWorldWeapon || !keepPreviousWorldWeaponVisible
+                        ? nextWorldWeapon
+                        : null;
+                } else {
+                    _deferredRespawnWorldWeapon = null;
                 }
-                _fpWeaponInstances.Clear();
-                    
-                // Re-instantiate with new weapon list
-                SetupHolsteredWeaponModels();
-                DisableUnequippedWorldWeapons();
-                    
-                if(weaponDataList == null || weaponDataList.Count == 0) {
-                    Debug.LogError("[WeaponManager] weaponDataList is empty after rebuild!");
-                    return;
-                }
-                    
-                // Hide all 3P weapons initially
-                if(_worldWeaponSocket != null) {
-                    foreach(Transform child in _worldWeaponSocket) {
-                        child.gameObject.SetActive(false);
-                    }
-                }
-                    
-                // Instantiate FP weapon viewmodels
-                for(var i = 0; i < weaponDataList.Count; i++) {
-                    var data = weaponDataList[i];
-                    if(data == null || data.weaponPrefab == null) {
-                        Debug.LogError($"[WeaponManager] Invalid weapon data at index {i}");
-                        continue;
-                    }
-                        
-                    var swayHolder = new GameObject("SwayHolder");
-                    swayHolder.AddComponent<WeaponSway>();
-                    swayHolder.transform.SetParent(_fpCamera.transform, false);
-                    swayHolder.transform.localPosition = Vector3.zero;
-                    swayHolder.transform.localEulerAngles = Vector3.zero;
-                    var bobHolder = new GameObject("BobHolder");
-                    bobHolder.AddComponent<WeaponBob>();
-                    bobHolder.transform.SetParent(swayHolder.transform, false);
-                    bobHolder.transform.localPosition = Vector3.zero;
-                    bobHolder.transform.localEulerAngles = Vector3.zero;
-                        
-                    var fpWeaponInstance = Instantiate(data.weaponPrefab, bobHolder.transform, false);
-                    fpWeaponInstance.transform.localPosition = data.spawnPosition;
-                    fpWeaponInstance.transform.localEulerAngles = data.spawnRotation;
-                        
-                    if(fpWeaponInstance.GetComponent<WeaponAnimationEvents>() == null) {
-                        fpWeaponInstance.AddComponent<WeaponAnimationEvents>();
-                    }
-                        
-                    var meshRenderers = fpWeaponInstance.GetComponentsInChildren<MeshRenderer>();
-                    foreach(var meshRenderer in meshRenderers) {
-                        meshRenderer.shadowCastingMode = ShadowCastingMode.Off;
-                    }
-                        
-                    SetupFpWeaponSkinnedMeshRenderers(fpWeaponInstance);
-                    fpWeaponInstance.layer = LayerMask.NameToLayer("Masked");
-                    fpWeaponInstance.SetActive(false);
-                    _fpWeaponInstances.Add(fpWeaponInstance);
-                    _weaponAmmo[i] = data.magSize;
-                }
-                    
-                // Re-equip current weapon (or equip first if current is invalid)
-                if(CurrentWeaponIndex >= 0 && CurrentWeaponIndex < weaponDataList.Count) {
-                    EquipInitialWeapon(CurrentWeaponIndex);
-                } else if(weaponDataList.Count > 0) {
-                    EquipInitialWeapon(0);
+
+                if(keepPreviousWorldWeaponVisible && previousWorldWeapon != null) {
+                    previousWorldWeapon.SetActive(true);
+                    CurrentWorldWeaponInstance = previousWorldWeapon;
+                } else {
+                    CurrentWorldWeaponInstance = null;
                 }
             } else {
-                // Just update holsters if list didn't change
-                SetupHolsteredWeaponModels();
-                DisableUnequippedWorldWeapons();
+                _deferredRespawnWorldWeapon = null;
+                ResolveCurrentWorldWeaponReference();
+                if(CurrentWorldWeaponInstance != null && !CurrentWorldWeaponInstance.activeSelf) {
+                    CurrentWorldWeaponInstance.SetActive(true);
+                }
+
+                if(CurrentWorldWeaponInstance != null) {
+                    EnsureWorldWeaponShadowState();
+                }
             }
-                
-            // Re-equip current weapon if it's still valid
-            if(CurrentWeaponIndex >= 0 && weaponDataList != null && CurrentWeaponIndex < weaponDataList.Count) {
-                UpdateHolsterVisibility();
+
+            UpdateHolsterVisibility();
+        }
+
+        private void DestroyFpWeaponInstances() {
+            foreach(var fpWeapon in _fpWeaponInstances) {
+                if(fpWeapon == null) continue;
+                var holderRoot = ResolveFpHolderRoot(fpWeapon);
+                Destroy(holderRoot != null ? holderRoot : fpWeapon);
             }
+
+            _fpWeaponInstances.Clear();
+            _weaponAmmo.Clear();
+            _serverWeaponStates.Clear();
+        }
+
+        private GameObject ResolveFpHolderRoot(GameObject fpWeapon) {
+            if(fpWeapon == null || _fpCamera == null) return null;
+
+            var node = fpWeapon.transform;
+            while(node.parent != null && node.parent != _fpCamera.transform) {
+                node = node.parent;
+            }
+
+            if(node.parent == _fpCamera.transform) {
+                return node.gameObject;
+            }
+
+            return null;
+        }
+
+        private void HideAllWorldWeapons(GameObject keepVisible = null) {
+            if(_worldWeaponSocket == null) return;
+
+            foreach(Transform child in _worldWeaponSocket) {
+                if(child == null) continue;
+                if(keepVisible != null && child.gameObject == keepVisible) continue;
+                child.gameObject.SetActive(false);
+            }
+
+            CurrentWorldWeaponInstance = keepVisible;
+            _pendingTpWeapon = null;
+        }
+
+        private void InstantiateFpWeaponInstances() {
+            for(var i = 0; i < weaponDataList.Count; i++) {
+                var data = weaponDataList[i];
+                if(data == null || data.weaponPrefab == null) {
+                    Debug.LogError($"[WeaponManager] Invalid weapon data at index {i}");
+                    continue;
+                }
+
+                var swayHolder = new GameObject("SwayHolder");
+                swayHolder.AddComponent<WeaponSway>();
+                swayHolder.transform.SetParent(_fpCamera.transform, false);
+                swayHolder.transform.localPosition = Vector3.zero;
+                swayHolder.transform.localEulerAngles = Vector3.zero;
+
+                var bobHolder = new GameObject("BobHolder");
+                bobHolder.AddComponent<WeaponBob>();
+                bobHolder.transform.SetParent(swayHolder.transform, false);
+                bobHolder.transform.localPosition = Vector3.zero;
+                bobHolder.transform.localEulerAngles = Vector3.zero;
+
+                var fpWeaponInstance = Instantiate(data.weaponPrefab, bobHolder.transform, false);
+                fpWeaponInstance.transform.localPosition = data.spawnPosition;
+                fpWeaponInstance.transform.localEulerAngles = data.spawnRotation;
+
+                if(fpWeaponInstance.GetComponent<WeaponAnimationEvents>() == null) {
+                    fpWeaponInstance.AddComponent<WeaponAnimationEvents>();
+                }
+
+                var meshRenderers = fpWeaponInstance.GetComponentsInChildren<MeshRenderer>();
+                foreach(var meshRenderer in meshRenderers) {
+                    meshRenderer.shadowCastingMode = ShadowCastingMode.Off;
+                }
+
+                SetupFpWeaponSkinnedMeshRenderers(fpWeaponInstance);
+
+                if(IsOwner) {
+                    var weaponLayer = LayerMask.NameToLayer("Weapon");
+                    SetGameObjectAndChildrenLayer(fpWeaponInstance, weaponLayer);
+                } else {
+                    fpWeaponInstance.layer = LayerMask.NameToLayer("Masked");
+                }
+
+                fpWeaponInstance.SetActive(false);
+                _fpWeaponInstances.Add(fpWeaponInstance);
+                _weaponAmmo[i] = data.magSize;
+            }
+        }
+
+        private int ResolveIndexForSlot(int slot) {
+            if(weaponDataList == null || weaponDataList.Count == 0) return 0;
+
+            for(var i = 0; i < weaponDataList.Count; i++) {
+                var data = weaponDataList[i];
+                if(data == null) continue;
+                if(ResolveWeaponSlot(data, i) == slot) {
+                    return i;
+                }
+            }
+
+            return Mathf.Clamp(slot, 0, weaponDataList.Count - 1);
+        }
+
+        private void ResolveCurrentWorldWeaponReference() {
+            if(_worldWeaponSocket == null) return;
+            if(CurrentWeaponIndex < 0 || CurrentWeaponIndex >= weaponDataList.Count) return;
+
+            var data = weaponDataList[CurrentWeaponIndex];
+            if(data == null || string.IsNullOrEmpty(data.worldWeaponName)) return;
+
+            var worldObj = _worldWeaponSocket.Find(data.worldWeaponName);
+            if(worldObj != null) {
+                CurrentWorldWeaponInstance = worldObj.gameObject;
+            }
+        }
+
+        /// <summary>
+        /// Called when weapon index NetworkVariables change.
+        /// </summary>
+        private void OnWeaponIndexChanged(int oldValue, int newValue) {
+            if(_suppressLoadoutRebuildCallbacks) return;
+
+            var shouldDeferTpReveal = playerController != null &&
+                                      ((playerController.NetIsDead != null && playerController.NetIsDead.Value) ||
+                                       (playerController.PlayerRagdoll != null &&
+                                        playerController.PlayerRagdoll.IsRagdoll));
+
+            RebuildEquippedWeapons(
+                preserveCurrentSlot: !shouldDeferTpReveal,
+                deferTpRevealUntilRespawn: shouldDeferTpReveal
+            );
         }
 
         /// <summary>

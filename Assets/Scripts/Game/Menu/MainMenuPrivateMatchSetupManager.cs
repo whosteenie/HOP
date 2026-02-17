@@ -26,6 +26,7 @@ namespace Game.Menu {
             public string MapId;
             public int MatchTimerSeconds;
             public bool UsePreMatchCountdown;
+            public bool SwapWeaponsOnDeath;
             public int ScoreToWin;
             public int KothHillSpeed;
             public int TaggedPlayers;
@@ -44,6 +45,7 @@ namespace Game.Menu {
         private DropdownField _mapDropdown;
         private IntegerField _matchTimerField;
         private Button _preMatchCountdownToggle;
+        private Button _swapWeaponsOnDeathToggle;
         private IntegerField _scoreToWinField;
         private IntegerField _kothHillSpeedField;
         private IntegerField _taggedPlayersField;
@@ -56,6 +58,7 @@ namespace Game.Menu {
         private VisualElement _taggedRow;
         private VisualElement _mapPreviewImage;
         private Label _mapPreviewWipLabel;
+        private Label _mapPreviewTitleLabel;
 
         // WS-E: Team preview (FFA list vs team A / VS / team B)
         private VisualElement _previewFfa;
@@ -80,6 +83,7 @@ namespace Game.Menu {
                 { "private-match-map-dropdown", typeof(DropdownField) },
                 { "private-match-timer-input", typeof(IntegerField) },
                 { "private-match-prematch-countdown-toggle", typeof(Button) },
+                { "private-match-swap-on-death-toggle", typeof(Button) },
                 { "private-match-score-input", typeof(IntegerField) },
                 { "private-match-koth-speed-input", typeof(IntegerField) },
                 { "private-match-tagged-input", typeof(IntegerField) },
@@ -92,6 +96,7 @@ namespace Game.Menu {
             _mapDropdown = QRequired<DropdownField>("private-match-map-dropdown");
             _matchTimerField = QRequired<IntegerField>("private-match-timer-input");
             _preMatchCountdownToggle = QRequired<Button>("private-match-prematch-countdown-toggle");
+            _swapWeaponsOnDeathToggle = QRequired<Button>("private-match-swap-on-death-toggle");
             _scoreToWinField = QRequired<IntegerField>("private-match-score-input");
             _kothHillSpeedField = QRequired<IntegerField>("private-match-koth-speed-input");
             _taggedPlayersField = QRequired<IntegerField>("private-match-tagged-input");
@@ -104,6 +109,7 @@ namespace Game.Menu {
             _taggedRow = QOptional<VisualElement>("private-match-tagged-row");
             _mapPreviewImage = QOptional<VisualElement>("private-match-map-preview-image");
             _mapPreviewWipLabel = QOptional<Label>("private-match-map-preview-wip");
+            _mapPreviewTitleLabel = QOptional<Label>("private-match-map-preview-title");
             _previewFfa = Root?.Q("private-match-preview-ffa");
             _previewTeams = Root?.Q("private-match-preview-teams");
             _ffaList = Root?.Q<ScrollView>("private-match-ffa-list");
@@ -222,6 +228,7 @@ namespace Game.Menu {
                 GamemodeId = initialMode,
                 MatchTimerSeconds = Mathf.Max(60, GetDefaultMatchTimerForGamemode(initialMode)),
                 UsePreMatchCountdown = true,
+                SwapWeaponsOnDeath = true,
                 ScoreToWin = Mathf.Max(1, GetDefaultScoreToWinForGamemode(initialMode)),
                 KothHillSpeed = Mathf.Max(1, GetDefaultKothHillSpeed()),
                 TaggedPlayers = Mathf.Max(1, defaultTaggedPlayers),
@@ -235,6 +242,7 @@ namespace Game.Menu {
             _kothHillSpeedField.value = _draft.KothHillSpeed;
             _taggedPlayersField.value = _draft.TaggedPlayers;
             SetCheckboxValue(_preMatchCountdownToggle, _draft.UsePreMatchCountdown);
+            SetCheckboxValue(_swapWeaponsOnDeathToggle, _draft.SwapWeaponsOnDeath);
             _suppressEvents = false;
             ApplyInfiniteFieldDisplay(_matchTimerField, _draft.MatchTimerSeconds == 0);
             ApplyInfiniteFieldDisplay(_scoreToWinField, _draft.ScoreToWin == 0);
@@ -269,6 +277,17 @@ namespace Game.Menu {
 
                 _preMatchCountdownToggle.clicked += TogglePreMatchCountdown;
                 RegisterCleanup(() => _preMatchCountdownToggle.clicked -= TogglePreMatchCountdown);
+            }
+
+            if(_swapWeaponsOnDeathToggle != null) {
+                void ToggleSwapWeaponsOnDeath() {
+                    ToggleCheckbox(_swapWeaponsOnDeathToggle);
+                    _draft.SwapWeaponsOnDeath = GetCheckboxValue(_swapWeaponsOnDeathToggle);
+                    RefreshStatusLabel();
+                }
+
+                _swapWeaponsOnDeathToggle.clicked += ToggleSwapWeaponsOnDeath;
+                RegisterCleanup(() => _swapWeaponsOnDeathToggle.clicked -= ToggleSwapWeaponsOnDeath);
             }
 
             _scoreToWinField.RegisterValueChangedCallback(OnScoreChanged);
@@ -765,6 +784,18 @@ namespace Game.Menu {
             return map.MapId.Trim().ToUpperInvariant();
         }
 
+        private static string BuildMapPreviewTitle(MapDefinition map, string fallbackMapId) {
+            if(map != null) {
+                return BuildMapChoiceLabel(map);
+            }
+
+            if(string.IsNullOrWhiteSpace(fallbackMapId) == false) {
+                return fallbackMapId.Trim().ToUpperInvariant();
+            }
+
+            return "UNKNOWN MAP";
+        }
+
         private void OnGamemodeChanged(ChangeEvent<string> evt) {
             if(_suppressEvents) return;
             _draft.GamemodeId = string.IsNullOrWhiteSpace(evt.newValue) ? "Deathmatch" : evt.newValue;
@@ -808,6 +839,10 @@ namespace Game.Menu {
 
             if(_mapPreviewWipLabel != null) {
                 _mapPreviewWipLabel.style.display = hasPreview ? DisplayStyle.None : DisplayStyle.Flex;
+            }
+
+            if(_mapPreviewTitleLabel != null) {
+                _mapPreviewTitleLabel.text = BuildMapPreviewTitle(selectedMap, _draft.MapId);
             }
         }
 
@@ -947,9 +982,10 @@ namespace Game.Menu {
             var map = string.IsNullOrWhiteSpace(_draft.MapId) ? "UNKNOWN" : _draft.MapId.ToUpperInvariant();
             var timeText = _draft.MatchTimerSeconds <= 0 ? "INFINITE" : $"{_draft.MatchTimerSeconds}s";
             var countdownText = _draft.UsePreMatchCountdown ? "ON" : "OFF";
+            var loadoutSwapText = _draft.SwapWeaponsOnDeath ? "ON DEATH" : "INSTANT";
             var scoreText = _draft.ScoreToWin <= 0 ? "INFINITE" : _draft.ScoreToWin.ToString();
             _statusLabel.text =
-                $"MODE: {mode}  |  MAP: {map}  |  TIME: {timeText}  |  COUNTDOWN: {countdownText}  |  SCORE: {scoreText}";
+                $"MODE: {mode}  |  MAP: {map}  |  TIME: {timeText}  |  COUNTDOWN: {countdownText}  |  LOADOUT SWAP: {loadoutSwapText}  |  SCORE: {scoreText}";
         }
     }
 }

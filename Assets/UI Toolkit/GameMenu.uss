@@ -289,6 +289,160 @@
     --unity-image: url('/Assets/UI Toolkit/Images/copy.png');
 }
 
+.pause-loadout-container {
+    position: absolute;
+    top: 24px;
+    right: 24px;
+    width: 230px;
+    padding: 14px;
+    flex-direction: column;
+    align-items: flex-start;
+    overflow: visible;
+}
+
+.pause-loadout-title {
+    font-size: 16px;
+    -unity-font-style: bold;
+    letter-spacing: 2px;
+    margin-bottom: 10px;
+}
+
+.pause-weapon-slot-container {
+    width: 100%;
+    flex-direction: column;
+    align-items: flex-start;
+    margin-bottom: 12px;
+    overflow: visible;
+}
+
+.pause-weapon-slot-row {
+    width: 100%;
+    flex-direction: row;
+    align-items: center;
+    position: relative;
+    overflow: visible;
+}
+
+.pause-weapon-slot {
+    width: 200px;
+    height: 96px;
+    background-color: rgba(15, 15, 20, 0.95);
+    border-radius: 4px;
+    border-width: 1px;
+    border-color: rgba(200, 60, 60, 0.2);
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    transition-duration: 0.2s;
+}
+
+.pause-weapon-slot:hover {
+    border-color: rgba(255, 100, 100, 0.4);
+    background-color: rgba(20, 20, 25, 0.95);
+}
+
+.pause-weapon-image {
+    width: 146px;
+    height: 68px;
+    -unity-background-scale-mode: scale-to-fit;
+}
+
+.pause-weapon-name {
+    position: absolute;
+    left: 8px;
+    right: 8px;
+    bottom: 6px;
+    font-size: 11px;
+    color: rgba(235, 235, 235, 0.92);
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+}
+
+.pause-weapon-slot-label {
+    margin-top: 5px;
+    margin-left: 2px;
+    font-size: 11px;
+    color: rgba(185, 185, 185, 1);
+    letter-spacing: 1px;
+    -unity-font-style: bold;
+}
+
+.pause-weapon-dropdown {
+    position: absolute;
+    right: 208px;
+    top: 0;
+    width: auto;
+    max-width: 560px;
+    max-height: 96px;
+    background-color: rgba(12, 12, 18, 0.98);
+    border-radius: 4px;
+    border-width: 1px;
+    border-color: rgba(200, 60, 60, 0.3);
+    padding: 8px;
+    margin-right: 14px;
+    overflow: visible;
+}
+
+.pause-weapon-dropdown-scroll {
+    max-height: 80px;
+    overflow: visible;
+}
+
+.pause-weapon-dropdown-scroll .unity-scroll-view__content-container {
+    flex-direction: row;
+    flex-wrap: nowrap;
+}
+
+.pause-loadout-option {
+    width: 104px;
+    height: 74px;
+    min-width: 104px;
+    background-color: rgba(20, 20, 25, 0.9);
+    border-radius: 4px;
+    border-width: 1px;
+    border-color: rgba(200, 60, 60, 0.2);
+    margin-right: 6px;
+    padding: 4px;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    transition-duration: 0.2s;
+}
+
+.pause-loadout-option:hover {
+    background-color: rgba(30, 30, 35, 0.9);
+    border-color: rgba(255, 100, 100, 0.45);
+}
+
+.pause-loadout-option-image {
+    width: 90px;
+    height: 50px;
+    -unity-background-scale-mode: scale-to-fit;
+}
+
+.pause-loadout-option-name {
+    margin-top: 3px;
+    font-size: 9px;
+    color: rgba(220, 220, 220, 0.95);
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+}
+
+.pause-weapon-dropdown-scroll .unity-scroll-view__vertical-scrollbars,
+.pause-weapon-dropdown-scroll .unity-scroll-view__horizontal-scrollbars,
+.pause-weapon-dropdown-scroll .unity-scroller__low-button,
+.pause-weapon-dropdown-scroll .unity-scroller__high-button,
+.pause-weapon-dropdown-scroll .unity-scroller__slider,
+.pause-weapon-dropdown-scroll .unity-scroller__track {
+    display: none;
+    width: 0;
+    height: 0;
+    min-width: 0;
+    min-height: 0;
+    max-width: 0;
+    max-height: 0;
+}
+
 /* ===== SCOREBOARD ===== */
 
 .scoreboard-container {
@@ -296,6 +450,23 @@
     max-height: 85%;
     padding: 15px 30px; /* Reduced vertical padding */
     flex-direction: column;
+}
+
+.scoreboard-title-row {
+    width: 100%;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+}
+
+.scoreboard-mode-title {
+    margin-bottom: 0;
+}
+
+.scoreboard-map-title {
+    margin-bottom: 0;
+    -unity-text-align: middle-right;
 }
 
 .scoreboard-header {

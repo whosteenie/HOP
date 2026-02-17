@@ -681,6 +681,10 @@ namespace Game.Player {
             } else {
                 StartCoroutine(ShowVisualsAfterPositionSync(expectedSpawnPosition));
             }
+
+            if(_weaponManager != null) {
+                _weaponManager.ApplyTpWeaponStateOnRespawn();
+            }
         }
 
         [Rpc(SendTo.Everyone)]

@@ -175,6 +175,7 @@ namespace Network {
             var matchSettings = MatchSettingsManager.Instance;
             if(matchSettings != null) {
                 matchSettings.preMatchCountdownEnabled = true;
+                matchSettings.swapWeaponsOnDeath = true;
             }
 
             _matchmakerQueueName = GetQueueNameForMode(mode);

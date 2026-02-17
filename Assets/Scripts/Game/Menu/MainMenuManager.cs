@@ -294,6 +294,7 @@ namespace Game.Menu {
                     draft.MapId,
                     draft.MatchTimerSeconds,
                     draft.UsePreMatchCountdown,
+                    draft.SwapWeaponsOnDeath,
                     draft.ScoreToWin,
                     draft.KothHillSpeed,
                     draft.TaggedPlayers,

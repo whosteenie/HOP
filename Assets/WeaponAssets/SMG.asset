@@ -14,6 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Game.Weapons.WeaponData
   weaponName: Uzi
   weaponPrefab: {fileID: 1095254202041702, guid: 40eea7f915306ff488f912966c408ed9, type: 3}
+  loadoutIcon: {fileID: 21300000, guid: a4ebcc4900c5a194ba5db477eff0c7f7, type: 3}
   weaponSlot: 1
   spawnPosition: {x: 0.2541, y: -0.2, z: 0.254}
   spawnRotation: {x: 0, y: 180, z: 0}

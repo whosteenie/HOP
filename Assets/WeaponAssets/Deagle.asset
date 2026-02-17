@@ -14,6 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Game.Weapons.WeaponData
   weaponName: Deagle
   weaponPrefab: {fileID: 4920507860935382577, guid: 7aed133933a5be34483eb45c080378dd, type: 3}
+  loadoutIcon: {fileID: 21300000, guid: 05f63a3a326e0ad46847b566fb8d9038, type: 3}
   weaponSlot: 1
   spawnPosition: {x: 0.355, y: -0.134, z: 0.332}
   spawnRotation: {x: 0, y: 0, z: 0}

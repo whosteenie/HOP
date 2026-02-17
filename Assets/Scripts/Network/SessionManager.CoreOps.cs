@@ -390,6 +390,7 @@ namespace Network {
             if(matchSettings != null) {
                 // Private-match-only runtime override: public matches should keep the normal pre-match flow.
                 matchSettings.preMatchCountdownEnabled = true;
+                matchSettings.swapWeaponsOnDeath = true;
             }
 
             UpdateSteamRichPresence();

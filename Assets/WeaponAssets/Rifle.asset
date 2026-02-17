@@ -14,6 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::WeaponData
   weaponName: AK74
   weaponPrefab: {fileID: 2760174968010719185, guid: 59da40951c532134db003b7f03da6d7d, type: 3}
+  loadoutIcon: {fileID: 21300000, guid: 75ef8ab7fcce49342a2c7a64f750f651, type: 3}
   weaponSlot: 0
   spawnPosition: {x: 0.221, y: -0.141, z: 0.163}
   spawnRotation: {x: 0, y: -180, z: 0}

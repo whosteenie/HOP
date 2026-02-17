@@ -33,10 +33,12 @@ namespace Game.UI {
         // FFA Scoreboard
         private VisualElement _scoreboardContainer;
         private Label _scoreboardTitle;
+        private Label _scoreboardMapTitle;
 
         // TDM Scoreboard
         private VisualElement _tdmScoreboardContainer;
         private Label _tdmScoreboardTitle;
+        private Label _tdmScoreboardMapTitle;
         private VisualElement _enemyTeamRows;
         private VisualElement _yourTeamRows;
         private Label _enemyScoreValue;
@@ -164,10 +166,12 @@ namespace Game.UI {
             _playerRows = _root.Q<VisualElement>("player-rows");
             _scoreboardContainer = _root.Q<VisualElement>("scoreboard-container");
             _scoreboardTitle = _root.Q<Label>("scoreboard-title");
+            _scoreboardMapTitle = _root.Q<Label>("scoreboard-map-title");
 
             // TDM Scoreboard
             _tdmScoreboardContainer = _root.Q<VisualElement>("tdm-scoreboard-container");
             _tdmScoreboardTitle = _root.Q<Label>("tdm-scoreboard-title");
+            _tdmScoreboardMapTitle = _root.Q<Label>("tdm-scoreboard-map-title");
             _enemyTeamRows = _root.Q<VisualElement>("enemy-team-rows");
             _yourTeamRows = _root.Q<VisualElement>("your-team-rows");
             _enemyScoreValue = _root.Q<Label>("enemy-score-value");
@@ -370,15 +374,22 @@ namespace Game.UI {
             _cachedMatchSettings = MatchSettingsManager.Instance;
 
             var gamemodeName = ResolveScoreboardTitle();
+            var mapName = ResolveScoreboardMapTitle();
 
             // Update FFA scoreboard title
             if(_scoreboardTitle != null) {
                 _scoreboardTitle.text = gamemodeName;
             }
+            if(_scoreboardMapTitle != null) {
+                _scoreboardMapTitle.text = mapName;
+            }
 
             // Update TDM scoreboard title
             if(_tdmScoreboardTitle != null) {
                 _tdmScoreboardTitle.text = gamemodeName;
+            }
+            if(_tdmScoreboardMapTitle != null) {
+                _tdmScoreboardMapTitle.text = mapName;
             }
         }
 
@@ -407,6 +418,59 @@ namespace Game.UI {
 
             _missingGamemodeTitleLogged = false;
             return selectedGameModeId.ToUpperInvariant();
+        }
+
+        private string ResolveScoreboardMapTitle() {
+            var sessionManager = SessionManager.Instance;
+            if(sessionManager != null && string.IsNullOrWhiteSpace(sessionManager.SelectedMapId) == false) {
+                return FormatMapTitle(sessionManager.SelectedMapId);
+            }
+
+            if(TryResolveMapIdFromScene(_cachedSceneName, out var mapIdFromScene)) {
+                return FormatMapTitle(mapIdFromScene);
+            }
+
+            if(string.IsNullOrWhiteSpace(_cachedSceneName) == false) {
+                return FormatMapTitle(_cachedSceneName);
+            }
+
+            return "UNKNOWN MAP";
+        }
+
+        private static bool TryResolveMapIdFromScene(string sceneName, out string mapId) {
+            mapId = string.Empty;
+            if(string.IsNullOrWhiteSpace(sceneName)) {
+                return false;
+            }
+
+            var pool = Resources.Load<MapPoolDefinition>("MatchMapPoolDefinition");
+            if(pool?.Maps == null) {
+                return false;
+            }
+
+            for(var i = 0; i < pool.Maps.Count; i++) {
+                var map = pool.Maps[i];
+                if(map == null || string.IsNullOrWhiteSpace(map.SceneName)) {
+                    continue;
+                }
+
+                if(string.Equals(map.SceneName, sceneName, StringComparison.OrdinalIgnoreCase) == false) {
+                    continue;
+                }
+
+                mapId = string.IsNullOrWhiteSpace(map.MapId) ? map.name : map.MapId;
+                return string.IsNullOrWhiteSpace(mapId) == false;
+            }
+
+            return false;
+        }
+
+        private static string FormatMapTitle(string value) {
+            if(string.IsNullOrWhiteSpace(value)) {
+                return "UNKNOWN MAP";
+            }
+
+            return value.Trim().Replace('_', ' ').ToUpperInvariant();
         }
 
         private void UpdateScoreboardHeaders() {

@@ -20,3 +20,4 @@ MonoBehaviour:
   useYLevelOutOfBoundsKill: 0
   supportedGamemodes:
   - Gun Tag
+  - Deathmatch
