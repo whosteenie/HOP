@@ -100,6 +100,16 @@ namespace Network {
                     if(_customNetworkManager != null) {
                         _customNetworkManager.EnableGameplaySpawningAndSpawnAll();
                     }
+
+                    // Public lobbies must advertise InGame so queued players can backfill/join in progress.
+                    if(_ugsMatchLobby is { Data: not null } &&
+                       _ugsMatchLobby.Data.TryGetValue(UgsMatchTypeKey, out var matchTypeObj) &&
+                       matchTypeObj != null &&
+                       string.Equals(matchTypeObj.Value, "Public", StringComparison.OrdinalIgnoreCase)) {
+                        await TrySetMatchLobbyStateAsync("InGame",
+                            Unity.Services.Lobbies.Models.DataObject.VisibilityOptions.Public,
+                            "OnGameSceneLoadedAsync");
+                    }
                 }
 
                 if(SceneTransitionManager.Instance != null) {

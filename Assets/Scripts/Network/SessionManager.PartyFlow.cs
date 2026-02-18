@@ -266,6 +266,17 @@ namespace Network {
             } catch(LobbyServiceException ex) when(ex.Reason is LobbyExceptionReason.LobbyNotFound or LobbyExceptionReason.EntityNotFound) {
                 Debug.LogWarning($"[SessionManager] Match lobby '{lobbyId}' no longer exists.");
                 return false;
+            } catch(LobbyServiceException ex) {
+                if(Debug.isDebugBuild) {
+                    Debug.LogWarning(
+                        $"[SessionManager] Failed to join match lobby '{lobbyId}' (reason: {ex.Reason}): {ex.Message}");
+                }
+                return false;
+            } catch(Exception ex) {
+                if(Debug.isDebugBuild) {
+                    Debug.LogWarning($"[SessionManager] Failed to join match lobby '{lobbyId}': {ex.Message}");
+                }
+                return false;
             }
 
             if(matchLobby == null) {
@@ -298,6 +309,14 @@ namespace Network {
 
                     if(stateObj is { Value: "SynchronizingLoad" }) {
                         StartMatchSynchronizationAsync().Forget();
+                        return true;
+                    }
+
+                    if(stateObj != null &&
+                       (string.Equals(stateObj.Value, "LoadingScene", System.StringComparison.OrdinalIgnoreCase) ||
+                        string.Equals(stateObj.Value, "InGame", System.StringComparison.OrdinalIgnoreCase))) {
+                        _ugsLocalReadySubmitted = true;
+                        StartMatchClientAsync(useFadeOut: true).Forget();
                         return true;
                     }
                 }

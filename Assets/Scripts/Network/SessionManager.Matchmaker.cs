@@ -67,6 +67,28 @@ namespace Network {
             return maxPlayers;
         }
 
+        private static int ResolveDefaultPublicScoreToWin(string mode) {
+            if(string.Equals(mode, "Hopball", StringComparison.OrdinalIgnoreCase)) return 60;
+            if(string.Equals(mode, "KOTH", StringComparison.OrdinalIgnoreCase)) return 200;
+            return 50;
+        }
+
+        private static void ResetPublicRuntimeMatchSettings(string mode) {
+            var matchSettings = MatchSettingsManager.Instance;
+            if(matchSettings == null) return;
+
+            var defaultDuration = matchSettings.defaultMatchDurationSeconds > 0
+                ? matchSettings.defaultMatchDurationSeconds
+                : 600;
+
+            matchSettings.matchDurationSeconds = defaultDuration;
+            matchSettings.preMatchCountdownEnabled = true;
+            matchSettings.swapWeaponsOnDeath = true;
+            matchSettings.scoreToWin = ResolveDefaultPublicScoreToWin(mode);
+            matchSettings.kothHillSpeed = 1;
+            matchSettings.taggedPlayers = 1;
+        }
+
         private static Dictionary<string, object> BuildMatchmakerTicketAttributes(string mode) {
             return new Dictionary<string, object> {
                 ["modeId"] = mode,
@@ -82,6 +104,106 @@ namespace Network {
 
             players.Add(new Player(localPlayerId, attrs));
             return true;
+        }
+
+        private static bool IsJoinableInProgressLobbyState(string state) {
+            return string.Equals(state, "LoadingScene", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(state, "InGame", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private bool IsPublicLobbyCandidateForJoinInProgress(Lobby lobby, string mode, int queueMaxPlayers) {
+            if(lobby == null) return false;
+            if(string.IsNullOrWhiteSpace(lobby.Id)) return false;
+            if(lobby.Data == null) return false;
+
+            if(!lobby.Data.TryGetValue(UgsMatchTypeKey, out var matchTypeObj) || matchTypeObj == null) {
+                return false;
+            }
+
+            if(!string.Equals(matchTypeObj.Value, "Public", StringComparison.OrdinalIgnoreCase)) {
+                return false;
+            }
+
+            if(!lobby.Data.TryGetValue(UgsTargetModeKey, out var modeObj) || modeObj == null) {
+                return false;
+            }
+
+            if(!string.Equals(modeObj.Value, mode, StringComparison.OrdinalIgnoreCase)) {
+                return false;
+            }
+
+            if(!lobby.Data.TryGetValue(UgsLobbyStateKey, out var stateObj) || stateObj == null) {
+                return false;
+            }
+
+            if(!IsJoinableInProgressLobbyState(stateObj.Value)) {
+                return false;
+            }
+
+            var currentPlayers = lobby.Players != null ? lobby.Players.Count : 0;
+            var lobbyMaxPlayers = lobby.MaxPlayers > 0 ? lobby.MaxPlayers : queueMaxPlayers;
+            var effectiveMaxPlayers = Mathf.Max(1, Mathf.Min(queueMaxPlayers, lobbyMaxPlayers));
+            return currentPlayers < effectiveMaxPlayers;
+        }
+
+        private static int GetLobbyPlayerCount(Lobby lobby) {
+            if(lobby == null || lobby.Players == null) return 0;
+            return lobby.Players.Count;
+        }
+
+        private async UniTask<bool> TryJoinInProgressPublicMatchAsync(string mode, int maxPlayers) {
+            QueryResponse response;
+            try {
+                response = await LobbyService.Instance.QueryLobbiesAsync(new QueryLobbiesOptions());
+            } catch(LobbyServiceException ex) when(ex.Reason == LobbyExceptionReason.RateLimited) {
+                if(ShouldEmitThrottledLog(ref _nextMatchLobbyQueryFailureLogTime, 10f)) {
+                    Debug.LogWarning("[SessionManager] Rate limited while querying in-progress lobbies.");
+                }
+                return false;
+            } catch(Exception ex) {
+                if(ShouldEmitThrottledLog(ref _nextMatchLobbyQueryFailureLogTime, 10f)) {
+                    Debug.LogWarning($"[SessionManager] Failed querying in-progress lobbies: {ex.Message}");
+                }
+                return false;
+            }
+
+            if(response?.Results == null || response.Results.Count == 0) {
+                return false;
+            }
+
+            var candidates = new List<Lobby>();
+            for(var i = 0; i < response.Results.Count; i++) {
+                var lobby = response.Results[i];
+                if(!IsPublicLobbyCandidateForJoinInProgress(lobby, mode, maxPlayers)) continue;
+                candidates.Add(lobby);
+            }
+
+            if(candidates.Count == 0) {
+                return false;
+            }
+
+            // Prefer fuller lobbies first to reduce fragmentation.
+            candidates.Sort((a, b) => GetLobbyPlayerCount(b).CompareTo(GetLobbyPlayerCount(a)));
+
+            SetFrontStatus(SessionPhase.JoiningLobby, $"Joining in-progress {mode}...");
+            for(var i = 0; i < candidates.Count; i++) {
+                var lobby = candidates[i];
+                if(Debug.isDebugBuild) {
+                    Debug.Log(
+                        $"[SessionManager] Trying in-progress join: lobbyId='{lobby.Id}' players={GetLobbyPlayerCount(lobby)}/{lobby.MaxPlayers} mode='{mode}'.");
+                }
+
+                var joined = await JoinMatchLobbyByIdAsync(lobby.Id);
+                if(joined) {
+                    FlowLog.Emit(FlowEventIds.QueueAssigned,
+                        ("queue", "InProgressBackfill"),
+                        ("mode", mode),
+                        ("matchId", lobby.Id));
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private static async UniTask<bool> WaitMatchmakerPollIntervalAsync(CancellationToken ct) {
@@ -172,10 +294,15 @@ namespace Network {
             mode = ResolveRequestedQuickPlayMode(mode);
             var maxPlayers = ResolveMaxPlayersForMode(mode);
 
-            var matchSettings = MatchSettingsManager.Instance;
-            if(matchSettings != null) {
-                matchSettings.preMatchCountdownEnabled = true;
-                matchSettings.swapWeaponsOnDeath = true;
+            // Public queue must always use public defaults, never stale private match runtime overrides.
+            ResetPublicRuntimeMatchSettings(mode);
+            _privateMatchMapPreset = false;
+
+            MatchmakingStartTime = Time.time;
+            SetFrontStatus(SessionPhase.Searching, $"Searching for {mode}...");
+
+            if(await TryJoinInProgressPublicMatchAsync(mode, maxPlayers)) {
+                return;
             }
 
             _matchmakerQueueName = GetQueueNameForMode(mode);
@@ -188,9 +315,6 @@ namespace Network {
                 ("mode", mode),
                 ("queue", _matchmakerQueueName),
                 ("maxPlayers", maxPlayers));
-
-            SetFrontStatus(SessionPhase.Searching, $"Searching for {mode}...");
-            MatchmakingStartTime = Time.time;
 
             var attrs = BuildMatchmakerTicketAttributes(mode);
             if(TryBuildMatchmakerPlayers(attrs, out var localPlayerId, out var players) == false) {

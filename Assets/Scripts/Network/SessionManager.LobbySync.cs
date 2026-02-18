@@ -222,6 +222,20 @@ namespace Network {
 
                     break;
                 }
+                case "InGame": {
+                    // Join-in-progress path: treat InGame as client-start signal.
+                    var localUgsId = AuthenticationService.Instance.PlayerId;
+                    if(!string.IsNullOrEmpty(localUgsId) && _ugsMatchLobby.HostId == localUgsId) {
+                        return;
+                    }
+
+                    _ugsLocalReadySubmitted = true;
+                    if(_ugsClientStartedForMatch == false) {
+                        StartMatchClientAsync(useFadeOut: true).Forget();
+                    }
+
+                    break;
+                }
             }
         }
 
@@ -290,7 +304,7 @@ namespace Network {
             return true;
         }
 
-        private async UniTaskVoid StartMatchClientAsync() {
+        private async UniTaskVoid StartMatchClientAsync(bool useFadeOut = false) {
             if(_ugsMatchLobby == null) return;
             if(_ugsClientStartedForMatch) return;
             if(_ugsLocalReadySubmitted == false) return;
@@ -325,6 +339,13 @@ namespace Network {
 
             _ugsClientStartedForMatch = true;
             Phase = SessionPhase.StartingClient;
+
+            if(useFadeOut) {
+                await FadeOutWithFallbackAsync();
+                if(_isLeaving || _isShuttingDown) {
+                    return;
+                }
+            }
 
             await CleanupNetworkAsync();
 
