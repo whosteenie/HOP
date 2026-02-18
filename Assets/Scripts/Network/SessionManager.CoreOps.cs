@@ -89,18 +89,53 @@ namespace Network {
             }
 
             try {
+                var stateObject = visibility == DataObject.VisibilityOptions.Public
+                    ? new DataObject(visibility, lobbyState, DataObject.IndexOptions.S4)
+                    : new DataObject(visibility, lobbyState);
                 var update = new UpdateLobbyOptions {
                     Data = new Dictionary<string, DataObject> {
-                        [UgsLobbyStateKey] = new(visibility, lobbyState)
+                        [UgsLobbyStateKey] = stateObject
                     }
                 };
                 _ugsMatchLobby = await LobbyService.Instance.UpdateLobbyAsync(_ugsMatchLobby.Id, update);
+                if(visibility == DataObject.VisibilityOptions.Public) {
+                    LogPublicLobbySnapshot($"StateUpdate/{context}");
+                }
                 return true;
             } catch(Exception ex) {
                 Debug.LogWarning(
                     $"[SessionManager] Failed to set UGS match lobby state to '{lobbyState}' during {context}: {ex.Message}");
                 return false;
             }
+        }
+
+        private void LogPublicLobbySnapshot(string context) {
+            if(_ugsMatchLobby == null) {
+                Debug.LogWarning($"[SessionManager] PublicLobbySnapshot({context}): lobby is null.");
+                return;
+            }
+
+            var data = _ugsMatchLobby.Data;
+            var matchType = data != null && data.TryGetValue(UgsMatchTypeKey, out var matchTypeObj) && matchTypeObj != null
+                ? matchTypeObj.Value
+                : "";
+            if(!string.Equals(matchType, "Public", StringComparison.OrdinalIgnoreCase)) {
+                return;
+            }
+
+            var mode = data != null && data.TryGetValue(UgsTargetModeKey, out var modeObj) && modeObj != null
+                ? modeObj.Value
+                : "";
+            var state = data != null && data.TryGetValue(UgsLobbyStateKey, out var stateObj) && stateObj != null
+                ? stateObj.Value
+                : "";
+            var matchId = data != null && data.TryGetValue(UgsMatchIdKey, out var matchIdObj) && matchIdObj != null
+                ? matchIdObj.Value
+                : "";
+
+            var playerCount = _ugsMatchLobby.Players != null ? _ugsMatchLobby.Players.Count : 0;
+            Debug.Log(
+                $"[SessionManager] PublicLobbySnapshot({context}): lobbyId='{_ugsMatchLobby.Id}' hostId='{_ugsMatchLobby.HostId}' players={playerCount}/{_ugsMatchLobby.MaxPlayers} mode='{mode}' state='{state}' matchId='{matchId}'");
         }
 
         private async UniTask<bool> TryStartHostWithRelayAsync(Allocation hostAllocation, bool isPrivateMatch,
@@ -175,11 +210,12 @@ namespace Network {
                 IsPrivate = false,
                 Player = BuildLobbyPlayer(),
                 Data = new Dictionary<string, DataObject> {
-                    [UgsMatchTypeKey] = new(DataObject.VisibilityOptions.Public, "Public"),
-                    [UgsTargetModeKey] = new(DataObject.VisibilityOptions.Public, mode),
+                    [UgsMatchTypeKey] = new(DataObject.VisibilityOptions.Public, "Public", DataObject.IndexOptions.S3),
+                    [UgsTargetModeKey] = new(DataObject.VisibilityOptions.Public, mode, DataObject.IndexOptions.S2),
                     [UgsRelayJoinCodeKey] = new(DataObject.VisibilityOptions.Member, relayJoinCode),
                     [UgsMatchIdKey] = new(DataObject.VisibilityOptions.Public, matchId, DataObject.IndexOptions.S1),
-                    [UgsLobbyStateKey] = new(DataObject.VisibilityOptions.Public, "SynchronizingLoad")
+                    [UgsLobbyStateKey] =
+                        new(DataObject.VisibilityOptions.Public, "SynchronizingLoad", DataObject.IndexOptions.S4)
                 }
             };
         }

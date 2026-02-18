@@ -164,6 +164,7 @@ namespace Network {
             _ugsMatchLobby = await LobbyService.Instance.CreateLobbyAsync("HOP Match", maxPlayers, create);
             TryJoinVoiceForActiveMatch("CreatePublicMatchLobbyAsHostAsync");
             UpdateSteamRichPresence();
+            LogPublicLobbySnapshot("CreatePublicMatchLobbyAsHostAsync");
             if(Debug.isDebugBuild) {
                 Debug.Log($"[SessionManager] Created UGS lobby in SynchronizingLoad state. lobbyId='{_ugsMatchLobby.Id}'");
             }

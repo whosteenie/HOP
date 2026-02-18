@@ -190,20 +190,52 @@ namespace Network {
             return lobby.Players.Count;
         }
 
-        private async UniTask<bool> TryJoinInProgressPublicMatchAsync(string mode, int maxPlayers) {
-            QueryResponse response;
+        private async UniTask<QueryResponse> QueryLobbiesForBackfillAsync(QueryLobbiesOptions options,
+            string mode, string queryLabel) {
             try {
-                response = await LobbyService.Instance.QueryLobbiesAsync(new QueryLobbiesOptions());
+                return await LobbyService.Instance.QueryLobbiesAsync(options);
             } catch(LobbyServiceException ex) when(ex.Reason == LobbyExceptionReason.RateLimited) {
                 if(ShouldEmitThrottledLog(ref _nextMatchLobbyQueryFailureLogTime, 10f)) {
-                    Debug.LogWarning("[SessionManager] Rate limited while querying in-progress lobbies.");
+                    Debug.LogWarning(
+                        $"[SessionManager] Rate limited while querying in-progress lobbies ({queryLabel}) for mode='{mode}'.");
                 }
-                return false;
+                return null;
             } catch(Exception ex) {
                 if(ShouldEmitThrottledLog(ref _nextMatchLobbyQueryFailureLogTime, 10f)) {
-                    Debug.LogWarning($"[SessionManager] Failed querying in-progress lobbies: {ex.Message}");
+                    Debug.LogWarning(
+                        $"[SessionManager] Failed querying in-progress lobbies ({queryLabel}) for mode='{mode}': {ex.Message}");
                 }
+                return null;
+            }
+        }
+
+        private async UniTask<bool> TryJoinInProgressPublicMatchAsync(string mode, int maxPlayers) {
+            var indexedOptions = new QueryLobbiesOptions {
+                Count = 100,
+                Filters = new List<QueryFilter> {
+                    new(QueryFilter.FieldOptions.S2, mode, QueryFilter.OpOptions.EQ),
+                    new(QueryFilter.FieldOptions.S3, "Public", QueryFilter.OpOptions.EQ)
+                }
+            };
+
+            var response = await QueryLobbiesForBackfillAsync(indexedOptions, mode, "IndexedModePublic");
+            if(response == null) {
                 return false;
+            }
+
+            if(response?.Results == null || response.Results.Count == 0) {
+                if(Debug.isDebugBuild) {
+                    Debug.Log(
+                        $"[SessionManager] Backfill indexed query returned 0 lobbies for mode='{mode}'. Falling back to broad query.");
+                }
+
+                var fallbackOptions = new QueryLobbiesOptions {
+                    Count = 100
+                };
+                response = await QueryLobbiesForBackfillAsync(fallbackOptions, mode, "BroadFallback");
+                if(response == null) {
+                    return false;
+                }
             }
 
             if(response?.Results == null || response.Results.Count == 0) {
