@@ -21,7 +21,7 @@ namespace Game.Match {
 
         [Header("Movement Settings")]
         [SerializeField] private float wanderRadius = 5.0f; // Raycast distance for wall detection
-        [SerializeField] private float moveSpeed = 5.0f;
+        [SerializeField] private float moveSpeed = 5.0f; // Fallback when match settings are unavailable.
 
         [Header("Components")]
         [SerializeField] private Collider zoneCollider;
@@ -39,6 +39,10 @@ namespace Game.Match {
         private float _timer;
         private bool _isMoving;
         private Vector3 _targetPosition;
+        private float EffectiveMoveSpeed =>
+            MatchSettingsManager.Instance != null
+                ? Mathf.Max(0.1f, MatchSettingsManager.Instance.GetKothHillSpeed())
+                : Mathf.Max(0.1f, moveSpeed);
 
         public SpawnPoint.Team? ControllingTeam {
             get {
@@ -112,7 +116,7 @@ namespace Game.Match {
                 }
                 
                 // Move
-                transform.position += _targetPosition * (moveSpeed * Time.deltaTime);
+                transform.position += _targetPosition * (EffectiveMoveSpeed * Time.deltaTime);
 
                 // Force Height (Safety net against physics drift or low spawn)
                 if (transform.position.y < 753f) {
