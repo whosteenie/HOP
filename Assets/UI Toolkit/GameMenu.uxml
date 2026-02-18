@@ -49,6 +49,7 @@
                     <ui:Label name="right-score-value" text="0" class="hud-score-value" />
                 </ui:VisualElement>
             </ui:VisualElement>
+            <ui:Label name="out-of-bounds-countdown-label" text="RETURN TO BATTLEFIELD: 3.00" class="out-of-bounds-countdown-label" />
             <ui:VisualElement name="health-container" class="health-container">
                 <ui:ProgressBar name="health-bar" low-value="0" high-value="100" value="100" class="health-bar" />
                 <ui:Label name="health-value" text="100" class="health-value" />

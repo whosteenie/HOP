@@ -15,6 +15,7 @@ namespace Game.Match {
         [SerializeField, Min(1)] private int selectionWeight = 1;
         [SerializeField] private Sprite previewImage;
         [SerializeField] private bool useYLevelOutOfBoundsKill = true;
+        [SerializeField] private bool useTriggerOutOfBoundsKill;
 
         [Header("Supported Gamemodes")]
         [SerializeField] private List<string> supportedGamemodes = new();
@@ -25,6 +26,7 @@ namespace Game.Match {
         public int SelectionWeight => Mathf.Max(1, selectionWeight);
         public Sprite PreviewImage => previewImage;
         public bool UseYLevelOutOfBoundsKill => useYLevelOutOfBoundsKill;
+        public bool UseTriggerOutOfBoundsKill => useTriggerOutOfBoundsKill;
         public IReadOnlyList<string> SupportedGamemodes => supportedGamemodes;
 
         public bool SupportsGamemode(string gamemodeId) {

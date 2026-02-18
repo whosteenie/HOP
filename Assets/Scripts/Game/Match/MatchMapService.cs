@@ -164,6 +164,26 @@ namespace Game.Match {
             return true;
         }
 
+        public static bool IsTriggerOutOfBoundsKillEnabled(string sceneName) {
+            if(string.IsNullOrWhiteSpace(sceneName)) {
+                return false;
+            }
+
+            EnsureLoaded();
+            if(_pool == null || _pool.Maps == null || _pool.Maps.Count == 0) {
+                return false;
+            }
+
+            for(var i = 0; i < _pool.Maps.Count; i++) {
+                var map = _pool.Maps[i];
+                if(map == null || string.IsNullOrWhiteSpace(map.SceneName)) continue;
+                if(string.Equals(map.SceneName, sceneName, System.StringComparison.OrdinalIgnoreCase) == false) continue;
+                return map.UseTriggerOutOfBoundsKill;
+            }
+
+            return false;
+        }
+
         private static void EnsureLoaded() {
             if(_loaded) return;
             _loaded = true;

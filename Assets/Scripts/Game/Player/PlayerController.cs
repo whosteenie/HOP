@@ -123,6 +123,13 @@ namespace Game.Player {
         private int _cachedOobSceneHandle = -1;
         private float _cachedOutOfBoundsY;
         private bool _cachedUseYLevelOutOfBoundsKill = true;
+        private bool _cachedUseTriggerOutOfBoundsKill;
+        private Collider _cachedOutOfBoundsTriggerCollider;
+        private const float TriggerOutOfBoundsCountdownSeconds = 3f;
+        private bool _triggerOobCountdownActiveServer;
+        private float _triggerOobDeadlineServerTime;
+        private bool _triggerOobCountdownVisibleOwner;
+        private float _triggerOobDeadlineOwnerTime;
         private Vector3 _lastServerMovementPosition;
         private float _lastServerMovementTime;
         private bool _hasServerMovementSample;
@@ -496,6 +503,13 @@ namespace Game.Player {
             if(newValue && characterController != null) {
                 characterController.enabled = false;
             }
+
+            if(newValue) {
+                ClearTriggerOutOfBoundsCountdownServer();
+                if(IsOwner) {
+                    HideTriggerOutOfBoundsCountdownLocal();
+                }
+            }
         }
     
         /// <summary>
@@ -505,18 +519,14 @@ namespace Game.Player {
             if(IsServer) {
                 var authPos = clientNetworkTransform.transform.position;
                 ValidateServerMovement(authPos);
-                if(IsYLevelOutOfBoundsKillEnabled() &&
-                   authPos.y <= GetOutOfBoundsKillY() &&
-                   Time.time >= _ignoreOutOfBoundsUntilTime) {
-                    if(!netIsDead.Value && Time.time - _lastDeathTime >= 4f) {
-                        _lastDeathTime = Time.time;
-                        if(healthController != null)
-                            healthController.ApplyDamageServer_Auth(1000f, playerTransform.position, Vector3.up, ulong.MaxValue);
-                    }
-                }
+                HandleOutOfBoundsChecks(authPos);
 
                 if(healthController != null)
                     healthController.UpdateHealthRegeneration();
+            }
+
+            if(IsOwner) {
+                UpdateTriggerOutOfBoundsCountdownUiOwner();
             }
 
             if(netIsDead.Value || characterController.enabled == false) return;
@@ -696,9 +706,125 @@ namespace Game.Player {
             return _cachedOutOfBoundsY;
         }
 
-        private bool IsYLevelOutOfBoundsKillEnabled() {
+        public bool IsYLevelOutOfBoundsKillEnabled() {
             RefreshOutOfBoundsCacheIfNeeded();
             return _cachedUseYLevelOutOfBoundsKill;
+        }
+
+        private bool IsTriggerOutOfBoundsKillEnabled() {
+            RefreshOutOfBoundsCacheIfNeeded();
+            return _cachedUseTriggerOutOfBoundsKill;
+        }
+
+        private Collider GetOutOfBoundsTriggerCollider() {
+            RefreshOutOfBoundsCacheIfNeeded();
+            return _cachedOutOfBoundsTriggerCollider;
+        }
+
+        private void HandleOutOfBoundsChecks(Vector3 authPos) {
+            if(!IsServer) return;
+
+            var aliveAndControllable = !netIsDead.Value && characterController != null && characterController.enabled;
+            if(!aliveAndControllable) {
+                ClearTriggerOutOfBoundsCountdownServer();
+                return;
+            }
+
+            if(Time.time < _ignoreOutOfBoundsUntilTime) {
+                ClearTriggerOutOfBoundsCountdownServer();
+                return;
+            }
+
+            if(IsYLevelOutOfBoundsKillEnabled() && authPos.y <= GetOutOfBoundsKillY()) {
+                if(Time.time - _lastDeathTime >= 4f) {
+                    _lastDeathTime = Time.time;
+                    ClearTriggerOutOfBoundsCountdownServer();
+                    if(healthController != null) {
+                        healthController.ApplyDamageServer_Auth(1000f, playerTransform.position, Vector3.up, ulong.MaxValue);
+                    }
+                }
+                return;
+            }
+
+            if(!IsTriggerOutOfBoundsKillEnabled()) {
+                ClearTriggerOutOfBoundsCountdownServer();
+                return;
+            }
+
+            var triggerCollider = GetOutOfBoundsTriggerCollider();
+            if(triggerCollider == null || !triggerCollider.enabled || !triggerCollider.gameObject.activeInHierarchy) {
+                ClearTriggerOutOfBoundsCountdownServer();
+                return;
+            }
+
+            var insideTrigger = IsPositionInsideTrigger(triggerCollider, authPos);
+            if(insideTrigger) {
+                ClearTriggerOutOfBoundsCountdownServer();
+                return;
+            }
+
+            if(!_triggerOobCountdownActiveServer) {
+                _triggerOobCountdownActiveServer = true;
+                _triggerOobDeadlineServerTime = Time.time + TriggerOutOfBoundsCountdownSeconds;
+                ShowTriggerOutOfBoundsCountdownOwnerRpc(TriggerOutOfBoundsCountdownSeconds);
+                return;
+            }
+
+            if(Time.time < _triggerOobDeadlineServerTime) return;
+            if(Time.time - _lastDeathTime < 4f) return;
+
+            _lastDeathTime = Time.time;
+            ClearTriggerOutOfBoundsCountdownServer();
+            if(healthController != null) {
+                healthController.ApplyDamageServer_Auth(1000f, playerTransform.position, Vector3.up, ulong.MaxValue);
+            }
+        }
+
+        private static bool IsPositionInsideTrigger(Collider triggerCollider, Vector3 worldPosition) {
+            var closest = triggerCollider.ClosestPoint(worldPosition);
+            return (closest - worldPosition).sqrMagnitude <= 0.0001f;
+        }
+
+        private void ClearTriggerOutOfBoundsCountdownServer() {
+            if(!IsServer || !_triggerOobCountdownActiveServer) return;
+            _triggerOobCountdownActiveServer = false;
+            _triggerOobDeadlineServerTime = 0f;
+            HideTriggerOutOfBoundsCountdownOwnerRpc();
+        }
+
+        private void UpdateTriggerOutOfBoundsCountdownUiOwner() {
+            if(!IsOwner) return;
+            if(!_triggerOobCountdownVisibleOwner) return;
+
+            var aliveAndControllable = !netIsDead.Value && characterController != null && characterController.enabled;
+            if(!aliveAndControllable) {
+                HideTriggerOutOfBoundsCountdownLocal();
+                return;
+            }
+
+            var remaining = Mathf.Max(0f, _triggerOobDeadlineOwnerTime - Time.unscaledTime);
+            if(HUDManager.Instance != null) {
+                HUDManager.Instance.SetOutOfBoundsCountdown(true, remaining);
+            }
+        }
+
+        [Rpc(SendTo.Owner)]
+        private void ShowTriggerOutOfBoundsCountdownOwnerRpc(float countdownSeconds) {
+            _triggerOobCountdownVisibleOwner = true;
+            _triggerOobDeadlineOwnerTime = Time.unscaledTime + Mathf.Max(0f, countdownSeconds);
+        }
+
+        [Rpc(SendTo.Owner)]
+        private void HideTriggerOutOfBoundsCountdownOwnerRpc() {
+            HideTriggerOutOfBoundsCountdownLocal();
+        }
+
+        private void HideTriggerOutOfBoundsCountdownLocal() {
+            _triggerOobCountdownVisibleOwner = false;
+            _triggerOobDeadlineOwnerTime = 0f;
+            if(HUDManager.Instance != null) {
+                HUDManager.Instance.SetOutOfBoundsCountdown(false);
+            }
         }
 
         private void RefreshOutOfBoundsCacheIfNeeded() {
@@ -710,13 +836,31 @@ namespace Game.Player {
             _cachedOobSceneHandle = activeScene.handle;
             _cachedOutOfBoundsY = defaultOutOfBoundsY;
             _cachedUseYLevelOutOfBoundsKill = MatchMapService.IsYLevelOutOfBoundsKillEnabled(activeScene.name);
+            _cachedUseTriggerOutOfBoundsKill = MatchMapService.IsTriggerOutOfBoundsKillEnabled(activeScene.name);
+            _cachedOutOfBoundsTriggerCollider = null;
+            _triggerOobCountdownActiveServer = false;
+            _triggerOobDeadlineServerTime = 0f;
+            if(IsOwner) {
+                HideTriggerOutOfBoundsCountdownLocal();
+            }
 
             Transform marker = null;
             if(!string.IsNullOrWhiteSpace(outOfBoundsMarkerTag)) {
                 try {
-                    var taggedObject = GameObject.FindGameObjectWithTag(outOfBoundsMarkerTag);
-                    if(taggedObject != null) {
-                        marker = taggedObject.transform;
+                    var taggedObjects = GameObject.FindGameObjectsWithTag(outOfBoundsMarkerTag);
+                    for(var i = 0; i < taggedObjects.Length; i++) {
+                        var taggedObject = taggedObjects[i];
+                        if(taggedObject == null) continue;
+
+                        if(marker == null) {
+                            marker = taggedObject.transform;
+                        }
+
+                        if(!_cachedUseTriggerOutOfBoundsKill || _cachedOutOfBoundsTriggerCollider != null) continue;
+                        if(taggedObject.TryGetComponent<Collider>(out var taggedCollider) && taggedCollider != null &&
+                           taggedCollider.isTrigger) {
+                            _cachedOutOfBoundsTriggerCollider = taggedCollider;
+                        }
                     }
                 } catch(UnityException) {
                     // Tag may be undefined in some projects/scenes; fallback to name lookup.
@@ -727,6 +871,13 @@ namespace Game.Player {
                 var namedObject = GameObject.Find(outOfBoundsMarkerName);
                 if(namedObject != null) {
                     marker = namedObject.transform;
+                }
+            }
+
+            if(_cachedUseTriggerOutOfBoundsKill && _cachedOutOfBoundsTriggerCollider == null && marker != null) {
+                if(marker.TryGetComponent<Collider>(out var markerCollider) && markerCollider != null &&
+                   markerCollider.isTrigger) {
+                    _cachedOutOfBoundsTriggerCollider = markerCollider;
                 }
             }
 

@@ -22,6 +22,7 @@ namespace Game.UI {
 
         private VisualElement _crosshairContainer;
         private Label _hopballInteractPrompt;
+        private Label _outOfBoundsCountdownLabel;
 
         public static HUDManager Instance;
 
@@ -90,6 +91,7 @@ namespace Game.UI {
 
             _crosshairContainer = QOptional<VisualElement>("crosshair-container");
             _hopballInteractPrompt = QOptional<Label>("hopball-interact-prompt");
+            _outOfBoundsCountdownLabel = QOptional<Label>("out-of-bounds-countdown-label");
         }
 
         protected override Dictionary<string, System.Type> GetRequiredElements() {
@@ -237,6 +239,7 @@ namespace Game.UI {
             _ammoContainer.style.visibility = Visibility.Hidden;
             _crosshairContainer.style.visibility = Visibility.Hidden;
             SetHopballInteractPrompt(false);
+            SetOutOfBoundsCountdown(false);
         }
 
         // Event handler - called via EventBus
@@ -246,6 +249,7 @@ namespace Game.UI {
             _ammoContainer.style.visibility = Visibility.Visible;
             _crosshairContainer.style.visibility = Visibility.Visible;
             SetHopballInteractPrompt(false);
+            SetOutOfBoundsCountdown(false);
             
             // Reset healthbar display mode based on current game mode
             ResetHealthbarDisplayMode();
@@ -298,6 +302,19 @@ namespace Game.UI {
             if(!string.IsNullOrWhiteSpace(text)) {
                 _hopballInteractPrompt.text = text;
             }
+        }
+
+        public void SetOutOfBoundsCountdown(bool visible, float remainingSeconds = 0f) {
+            if(_outOfBoundsCountdownLabel == null) return;
+
+            if(!visible) {
+                _outOfBoundsCountdownLabel.style.display = DisplayStyle.None;
+                return;
+            }
+
+            _outOfBoundsCountdownLabel.style.display = DisplayStyle.Flex;
+            var seconds = Mathf.Max(0f, remainingSeconds);
+            _outOfBoundsCountdownLabel.text = $"RETURN TO BATTLEFIELD: {seconds:0.00}";
         }
     }
 }

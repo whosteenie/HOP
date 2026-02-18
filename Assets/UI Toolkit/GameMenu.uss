@@ -1159,6 +1159,24 @@
     -unity-text-align: middle-center;
 }
 
+.out-of-bounds-countdown-label {
+    position: absolute;
+    top: 86px;
+    left: 50%;
+    translate: -50% 0;
+    display: none;
+    padding: 4px 10px;
+    border-radius: 4px;
+    border-width: 1px;
+    border-color: rgba(200, 60, 60, 0.45);
+    background-color: rgba(12, 12, 18, 0.88);
+    color: rgb(255, 220, 220);
+    font-size: 20px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.75);
+}
+
 /* ===== PODIUM NAMEPLATES ===== */
 
 .podium-nameplates {

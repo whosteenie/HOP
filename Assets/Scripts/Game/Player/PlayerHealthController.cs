@@ -493,16 +493,18 @@ namespace Game.Player {
                 }
             }
 
-            var outOfBoundsKillY = GetOutOfBoundsKillY();
-            if(position.y <= outOfBoundsKillY) {
-                if(isTeamBased) {
-                    (position, rotation) = GetSpawnPointForTeam(team);
-                } else {
-                    (position, rotation) = GetSpawnPointFfa();
-                }
-
+            if(IsYLevelOutOfBoundsKillEnabled()) {
+                var outOfBoundsKillY = GetOutOfBoundsKillY();
                 if(position.y <= outOfBoundsKillY) {
-                    position.y = outOfBoundsKillY + OutOfBoundsRespawnYBuffer;
+                    if(isTeamBased) {
+                        (position, rotation) = GetSpawnPointForTeam(team);
+                    } else {
+                        (position, rotation) = GetSpawnPointFfa();
+                    }
+
+                    if(position.y <= outOfBoundsKillY) {
+                        position.y = outOfBoundsKillY + OutOfBoundsRespawnYBuffer;
+                    }
                 }
             }
             FlowLog.Emit(FlowEventIds.PlayerRespawnStarted,
@@ -580,11 +582,12 @@ namespace Game.Player {
                 ("isDead", isDeadNow),
                 ("isRagdolled", isRagdolledNow));
             var outOfBoundsKillY = GetOutOfBoundsKillY();
-            if(isDeadNow || isRagdolledNow || position.y <= outOfBoundsKillY) {
+            var isInBoundsForYLevel = !IsYLevelOutOfBoundsKillEnabled() || position.y > outOfBoundsKillY;
+            if(isDeadNow || isRagdolledNow || !isInBoundsForYLevel) {
                 FlowLog.Emit(FlowEventIds.AnomalyRespawnInvariant,
                     ("player", OwnerClientId),
                     ("isRagdoll", isRagdolledNow),
-                    ("isInBounds", position.y > outOfBoundsKillY),
+                    ("isInBounds", isInBoundsForYLevel),
                     ("position", position));
             }
 
@@ -924,6 +927,14 @@ namespace Game.Player {
             }
 
             return OutOfBoundsKillYDefault;
+        }
+
+        private bool IsYLevelOutOfBoundsKillEnabled() {
+            if(playerController != null) {
+                return playerController.IsYLevelOutOfBoundsKillEnabled();
+            }
+
+            return true;
         }
     }
 }

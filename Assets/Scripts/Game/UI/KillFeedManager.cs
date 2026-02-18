@@ -60,7 +60,7 @@ namespace Game.UI {
         #region Event Handlers
 
         private void OnAddKillFeedEntry(AddKillFeedEntryEvent evt) {
-            AddEntryToFeed(evt.Killer, evt.Victim, evt.IsLocalKiller, evt.KillerId, evt.VictimId);
+            AddEntryToFeed(evt.Killer, evt.Victim, evt.IsLocalKiller, evt.KillerId, evt.VictimId, evt.WasKill);
         }
 
         private void OnShowKillFeed(ShowKillFeedEvent evt) {
@@ -86,7 +86,7 @@ namespace Game.UI {
         /// Event handler - called via EventBus
         /// </summary>
         private void AddEntryToFeed(string actorName, string targetName, bool isLocalActor, ulong actorClientId,
-            ulong targetClientId) {
+            ulong targetClientId, bool wasKill) {
             // Refresh MatchSettingsManager cache if needed
             if(_cachedMatchSettings == null || !_gameModeCacheValid) {
                 _cachedMatchSettings = MatchSettingsManager.Instance;
@@ -101,8 +101,9 @@ namespace Game.UI {
                 _gameModeCacheValid = true;
             }
 
-            // Use tag icon in Gun Tag mode, otherwise use kill icon
-            var icon = _cachedIsTagMode && taggedIconSprite != null ? taggedIconSprite : killIconSprite;
+            // Gun Tag uses tag icon only for tag-transfer entries. Real kills (including OOB) always use kill icon.
+            var useTagIcon = !wasKill && _cachedIsTagMode && taggedIconSprite != null;
+            var icon = useTagIcon ? taggedIconSprite : killIconSprite;
 
             AddEntryToFeedInternal(actorName, targetName, isLocalActor, actorClientId, targetClientId, icon);
         }

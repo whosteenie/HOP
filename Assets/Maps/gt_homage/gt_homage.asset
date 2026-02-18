@@ -18,6 +18,7 @@ MonoBehaviour:
   selectionWeight: 1
   previewImage: {fileID: 21300000, guid: 03cddcdb9f04b7e44817c19bb9d8797c, type: 3}
   useYLevelOutOfBoundsKill: 0
+  useTriggerOutOfBoundsKill: 1
   supportedGamemodes:
   - Gun Tag
   - Deathmatch
