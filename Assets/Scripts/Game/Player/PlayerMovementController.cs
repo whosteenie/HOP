@@ -44,6 +44,7 @@ namespace Game.Player {
         private const float SlideSlopeMultiplier = 8f;  // How much slopes affect slide speed (higher = more gain downhill)
         private const float SlideDuration = 0.83f;      // ~50 frames at 60fps
         private float _slideTimer;
+        [SerializeField] private float maxSlideGroundGap = 0.25f; // Keep slide active over small ground gaps.
 
         [Header("Movement Parameters")]
         private const float Acceleration = 15f;
@@ -703,7 +704,7 @@ namespace Game.Player {
                 return;
             }
 
-            if(!IsGrounded) {
+            if(!IsGrounded && !IsGroundWithinSlideGap()) {
                 // Preserve full momentum when sliding off ledge
                 CancelSlideForJump();
                 return;
@@ -728,6 +729,25 @@ namespace Game.Player {
 
             // MaxSpeed is crouch speed during slide (for animation purposes)
             MaxSpeed = CrouchSpeed;
+        }
+
+        private bool IsGroundWithinSlideGap() {
+            if(_characterController == null || playerController == null) return false;
+
+            var feet = _characterController.bounds.center;
+            feet.y = _characterController.bounds.min.y;
+
+            const float probeStartOffset = 0.08f;
+            var probeDistance = probeStartOffset + Mathf.Max(0f, maxSlideGroundGap);
+            var probeOrigin = feet + Vector3.up * probeStartOffset;
+
+            return Physics.Raycast(
+                probeOrigin,
+                Vector3.down,
+                out _,
+                probeDistance,
+                playerController.WorldLayer,
+                QueryTriggerInteraction.Ignore);
         }
 
         /// <summary>

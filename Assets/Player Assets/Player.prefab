@@ -2014,6 +2014,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Game.Player.PlayerMovementController
   ShowTopMostFoldoutHeaderGroup: 1
   playerController: {fileID: 5088684734431513618}
+  maxSlideGroundGap: 0.5
   netIsCrouching:
     m_InternalValue: 0
   netIsSliding:
