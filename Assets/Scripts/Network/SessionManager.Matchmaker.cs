@@ -146,6 +146,45 @@ namespace Network {
             return currentPlayers < effectiveMaxPlayers;
         }
 
+        private string GetBackfillRejectReason(Lobby lobby, string mode, int queueMaxPlayers) {
+            if(lobby == null) return "NullLobby";
+            if(string.IsNullOrWhiteSpace(lobby.Id)) return "MissingLobbyId";
+            if(lobby.Data == null) return "MissingData";
+
+            if(!lobby.Data.TryGetValue(UgsMatchTypeKey, out var matchTypeObj) || matchTypeObj == null) {
+                return "MissingMatchType";
+            }
+
+            if(!string.Equals(matchTypeObj.Value, "Public", StringComparison.OrdinalIgnoreCase)) {
+                return "NotPublic";
+            }
+
+            if(!lobby.Data.TryGetValue(UgsTargetModeKey, out var modeObj) || modeObj == null) {
+                return "MissingMode";
+            }
+
+            if(!string.Equals(modeObj.Value, mode, StringComparison.OrdinalIgnoreCase)) {
+                return "ModeMismatch";
+            }
+
+            if(!lobby.Data.TryGetValue(UgsLobbyStateKey, out var stateObj) || stateObj == null) {
+                return "MissingState";
+            }
+
+            if(!IsJoinableInProgressLobbyState(stateObj.Value)) {
+                return "StateNotJoinable";
+            }
+
+            var currentPlayers = lobby.Players != null ? lobby.Players.Count : 0;
+            var lobbyMaxPlayers = lobby.MaxPlayers > 0 ? lobby.MaxPlayers : queueMaxPlayers;
+            var effectiveMaxPlayers = Mathf.Max(1, Mathf.Min(queueMaxPlayers, lobbyMaxPlayers));
+            if(currentPlayers >= effectiveMaxPlayers) {
+                return "Full";
+            }
+
+            return "";
+        }
+
         private static int GetLobbyPlayerCount(Lobby lobby) {
             if(lobby == null || lobby.Players == null) return 0;
             return lobby.Players.Count;
@@ -168,17 +207,39 @@ namespace Network {
             }
 
             if(response?.Results == null || response.Results.Count == 0) {
+                if(Debug.isDebugBuild) {
+                    Debug.Log($"[SessionManager] Backfill query returned 0 lobbies for mode='{mode}'.");
+                }
                 return false;
             }
 
             var candidates = new List<Lobby>();
+            var rejectCounts = new Dictionary<string, int>(StringComparer.Ordinal);
             for(var i = 0; i < response.Results.Count; i++) {
                 var lobby = response.Results[i];
-                if(!IsPublicLobbyCandidateForJoinInProgress(lobby, mode, maxPlayers)) continue;
-                candidates.Add(lobby);
+                if(IsPublicLobbyCandidateForJoinInProgress(lobby, mode, maxPlayers)) {
+                    candidates.Add(lobby);
+                    continue;
+                }
+
+                var reason = GetBackfillRejectReason(lobby, mode, maxPlayers);
+                if(string.IsNullOrEmpty(reason)) reason = "Unknown";
+                if(!rejectCounts.ContainsKey(reason)) {
+                    rejectCounts[reason] = 0;
+                }
+                rejectCounts[reason]++;
+            }
+
+            if(Debug.isDebugBuild) {
+                var rejectSummary = rejectCounts.Count == 0
+                    ? "none"
+                    : string.Join(", ", rejectCounts);
+                Debug.Log(
+                    $"[SessionManager] Backfill scan mode='{mode}' total={response.Results.Count} candidates={candidates.Count} rejects=({rejectSummary})");
             }
 
             if(candidates.Count == 0) {
+                Debug.LogWarning($"[SessionManager] Backfill: no joinable in-progress lobbies for mode='{mode}'.");
                 return false;
             }
 
@@ -201,8 +262,15 @@ namespace Network {
                         ("matchId", lobby.Id));
                     return true;
                 }
+
+                if(Debug.isDebugBuild) {
+                    Debug.LogWarning(
+                        $"[SessionManager] Backfill join attempt failed for lobbyId='{lobby.Id}' mode='{mode}'.");
+                }
             }
 
+            Debug.LogWarning(
+                $"[SessionManager] Backfill: exhausted {candidates.Count} candidate lobbies without joining for mode='{mode}'.");
             return false;
         }
 

@@ -50,6 +50,7 @@ namespace Game.Player {
         private const float MaxHealth = 100f;
         private const float OutOfBoundsKillYDefault = 600f;
         private const float OutOfBoundsRespawnYBuffer = 20f;
+        private const int GunTagOobNonTaggedPenaltySeconds = 25;
 
         // Health state
         private Vector3? _lastHitPoint;
@@ -161,6 +162,12 @@ namespace Game.Player {
                 : "Unknown";
 
             if(attackerId == ulong.MaxValue) {
+                var oobMatchSettings = MatchSettingsManager.Instance;
+                var isOobTagMode = oobMatchSettings != null && oobMatchSettings.selectedGameModeId == "Gun Tag";
+                if(isOobTagMode && _tagController != null && !_tagController.isTagged.Value) {
+                    _tagController.timeTagged.Value += GunTagOobNonTaggedPenaltySeconds;
+                }
+
                 var healthBefore = netHealth.Value;
                 netHealth.Value = 0f;
                 netIsDead.Value = true;

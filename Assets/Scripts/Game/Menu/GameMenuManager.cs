@@ -303,9 +303,7 @@ namespace Game.Menu {
         }
 
         private void Update() {
-            if(IsPaused) {
-                TryApplyPendingLoadoutWhileDead();
-            }
+            TryApplyPendingLoadoutWhileDead();
 
             if(!IsPaused) return;
             UpdatePauseChallengesIfDirty();
