@@ -105,6 +105,11 @@ namespace Game.Social {
             _ = SendChatMessageAsync(ClampToUtf8ByteLimit(message.Trim(), MaxChatInputBytes));
         }
 
+        public void SendLobbyPresenceMessage(string playerName, bool joined) {
+            var resolvedName = string.IsNullOrWhiteSpace(playerName) ? "Player" : playerName.Trim();
+            SendSystemMessage($"{resolvedName} {(joined ? "hopped on" : "hopped off")}");
+        }
+
         private async Task SendChatMessageAsync(string message) {
             var trackedPendingEcho = false;
             long pendingEchoId = 0;

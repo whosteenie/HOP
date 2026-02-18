@@ -1,5 +1,6 @@
 using System;
 using Cysharp.Threading.Tasks;
+using Game.Social;
 using Network.Diagnostics;
 using Steamworks;
 using UnityEngine;
@@ -56,6 +57,14 @@ namespace Network {
                 Debug.Log($"[SessionManager] Member Joined: {friend.Name}");
             }
 
+            if(!CurrentLobby.HasValue || CurrentLobby.Value.Id != lobby.Id) {
+                return;
+            }
+
+            if(friend.Id != SteamClient.SteamId && ChatManager.Instance != null) {
+                ChatManager.Instance.SendLobbyPresenceMessage(friend.Name, true);
+            }
+
             if(CurrentLobby.HasValue && CurrentLobby.Value.Id == lobby.Id && lobby.MemberCount > 1) {
                 TryJoinVoiceForSteamSocialLobby(lobby.Id, "OnLobbyMemberJoined");
             }
@@ -63,9 +72,14 @@ namespace Network {
             NotifyPartyStateChanged();
         }
 
-        private static void OnLobbyMemberLeave(Lobby lobby, Friend friend) {
+        private void OnLobbyMemberLeave(Lobby lobby, Friend friend) {
             if(Debug.isDebugBuild) {
                 Debug.Log($"[SessionManager] Member Left: {friend.Name}");
+            }
+
+            if(CurrentLobby.HasValue && CurrentLobby.Value.Id == lobby.Id &&
+               friend.Id != SteamClient.SteamId && ChatManager.Instance != null) {
+                ChatManager.Instance.SendLobbyPresenceMessage(friend.Name, false);
             }
 
             NotifyPartyStateChanged();
