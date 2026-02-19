@@ -53,6 +53,7 @@ namespace Game.Menu {
         [SerializeField] private Camera mainCamera;
         [SerializeField] private MenuBlurVolumeController menuBlurController;
         [SerializeField] private Volume optionsBlurVolume;
+        [SerializeField] private MainMenuBackgroundRandomizer backgroundRandomizer;
 
         #endregion
 
@@ -89,6 +90,13 @@ namespace Game.Menu {
 
             SetupOptionsMenuManager();
             LoadSettings();
+
+            if(backgroundRandomizer == null) {
+                backgroundRandomizer = GetComponent<MainMenuBackgroundRandomizer>();
+            }
+            if(backgroundRandomizer != null) {
+                backgroundRandomizer.RandomizeForMainMenuEntry();
+            }
 
             if(uiManager != null) MainMenuUIManager.InitializeGameMenuVisibility();
             if(sessionManager != null) sessionManager.Initialize();

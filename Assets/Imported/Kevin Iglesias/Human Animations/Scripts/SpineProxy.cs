@@ -13,6 +13,8 @@ using UnityEngine;
 
 namespace KevinIglesias
 {
+    [ExecuteAlways]
+    [DefaultExecutionOrder(6000)]
     public class SpineProxy : MonoBehaviour
     {
         //Assign 'B-spine' (or equivalent) here:
@@ -20,8 +22,13 @@ namespace KevinIglesias
 
         private Quaternion rotationOffset = Quaternion.identity;
 
+        //Match correct orientation on different character rigs
+        void Awake()
+        {
+            RecalculateOffsetFromCurrentPose();
+        }
+
 #if UNITY_EDITOR
-        //Attempting to find the original spine bone.
         void OnValidate()
         {
             if(originalSpine == null)
@@ -40,26 +47,57 @@ namespace KevinIglesias
                     }
                 }
             }
-        }  
-#endif
-        
-        //Match correct orientation on different character rigs
-        void Awake()
-        {
-            if(originalSpine != null)
-            {//originalSpine.rotation must be the default rotation in your character T-pose when this happens:
-                rotationOffset = Quaternion.Inverse(transform.rotation) * originalSpine.rotation;
-            }
         }
+#endif
 
         //Copy rotations from spine proxy bone to the original spine bone.
         void LateUpdate()
+        {
+            ApplyProxyToOriginalSpine();
+        }
+
+        public void ApplyProxyToOriginalSpine()
         {
             if(originalSpine == null)
             {
                 return;
             }
             originalSpine.rotation = transform.rotation * rotationOffset;
+        }
+
+        public void RecalculateOffsetFromCurrentPose()
+        {
+            if(originalSpine == null)
+            {
+                return;
+            }
+            // Sample the current relation between proxy and real spine so runtime/editor start from the same baseline.
+            rotationOffset = Quaternion.Inverse(transform.rotation) * originalSpine.rotation;
+        }
+
+        public void SetRotationOffset(Quaternion offset)
+        {
+            rotationOffset = offset;
+        }
+
+        public Quaternion GetRotationOffset()
+        {
+            return rotationOffset;
+        }
+
+        public bool TryGetDebugState(
+            out Transform spine,
+            out Quaternion proxyWorldRotation,
+            out Quaternion expectedSpineWorldRotation,
+            out Quaternion actualSpineWorldRotation,
+            out Quaternion offsetRotation)
+        {
+            spine = originalSpine;
+            proxyWorldRotation = transform.rotation;
+            offsetRotation = rotationOffset;
+            expectedSpineWorldRotation = transform.rotation * rotationOffset;
+            actualSpineWorldRotation = originalSpine != null ? originalSpine.rotation : Quaternion.identity;
+            return originalSpine != null;
         }
     }
 }

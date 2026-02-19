@@ -27,7 +27,7 @@
     --color-accent-bg-selected: rgba(200, 60, 60, 0.2);
 
     /* Surfaces */
-    --color-bg-overlay: rgba(5, 5, 8, 0.88);
+    --color-bg-overlay: rgba(5, 5, 8, 0);
     --color-bg-card: rgba(12, 12, 18, 0.96);
     --color-bg-popup-root: rgba(12, 12, 18, 0.98);
     --color-bg-popup-item: rgba(18, 18, 24, 0.95);

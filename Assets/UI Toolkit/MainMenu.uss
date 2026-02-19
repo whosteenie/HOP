@@ -14,11 +14,13 @@
 .main-actions {
     position: absolute; left: 8%; bottom: 10%;
     flex-direction: column;
+    overflow: visible;
 }
 
 #main-menu-container {
     bottom: 110px;
     left: 109px;
+    overflow: visible;
 }
 
 .main-menu-challenges-container {
@@ -35,22 +37,26 @@
 }
 
 #play-button-matchmaking {
-    font-size: 40px;
+    font-size: 56px;
 }
 
 #loadout-button,
 #options-button,
 #credits-button,
 #quit-button {
-    font-size: 22px;
+    font-size: 34px;
 }
 
 /* Text-only buttons with red accent */
 .text-button {
     background-color: rgba(0,0,0,0); border-width: 0;
     color: rgb(240,240,240);
-    font-size: 28px; -unity-font-style: bold; -unity-text-align: middle-left;
-    padding: 6px 0;
+    -unity-font-definition: url('project://database/Assets/Open%20Sans/static/OpenSans-SemiBold%20SDF.asset');
+    font-size: 36px; -unity-font-style: bold; -unity-text-align: middle-left;
+    text-shadow: -2px 0 4px rgba(0, 0, 0, 1);
+    padding: 3px 0;
+    min-height: 0;
+    overflow: visible;
     transition-duration: 0.2s;
 }
 .text-button:hover:enabled  { 
@@ -62,12 +68,13 @@
     color: rgba(240,240,240,0.3);
 }
 
-.menu-entry { flex-direction: row; align-items: center; margin-bottom: 10px; }
+.menu-entry { flex-direction: row; align-items: center; margin-bottom: 6px; overflow: visible; }
 
 /* Primary action buttons (Play, Private Match) - larger and more prominent */
 .primary-action {
-    font-size: 36px;
+    font-size: 48px;
     letter-spacing: 3px;
+    text-shadow: -3px 0 5px rgba(0, 0, 0, 1);
     margin-bottom: 4px;
 }
 
