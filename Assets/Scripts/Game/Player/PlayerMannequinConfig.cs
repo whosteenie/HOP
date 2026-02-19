@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Reflection;
 using UnityEngine;
 using UnityEngine.Serialization;
 using UnityEngine.VFX;
@@ -29,15 +30,11 @@ namespace Game.Player {
             public GameObject handObject;
             public GameObject backObject;
             [Header("Shot Simulation")]
-            public bool autoFindShotParticleSystems = true;
             public bool autoFindShotVisualEffects = true;
             public bool autoFindShotTrailRenderers = true;
             public Transform shotOrigin;
-            public float simulatedShotSpeed = 140f;
-            public ParticleSystem[] shotParticleSystems = Array.Empty<ParticleSystem>();
             public VisualEffect[] shotVisualEffects = Array.Empty<VisualEffect>();
             public TrailRenderer[] shotTrailRenderers = Array.Empty<TrailRenderer>();
-            public GameObject projectileVisual;
         }
 
         private enum HandWeaponSlot {
@@ -83,7 +80,10 @@ namespace Game.Player {
         
         [Header("Weapon Shot Preview")]
         [SerializeField] private bool simulateShot;
-        [SerializeField, Range(0f, 1.5f)] private float shotLifetime = 0.08f;
+        [SerializeField, Range(0f, 1f)] private float shotLifecycle;
+        [SerializeField, Min(0f)] private float simulatedShotSpeed = 140f;
+        [SerializeField] private bool logShotDebug;
+        [SerializeField] private bool logShotDebugEveryApply;
 
         [Header("Trail Preview")]
         [SerializeField] private bool previewTrail = true;
@@ -138,7 +138,7 @@ namespace Game.Player {
         private Quaternion _lastAppliedLookPitchOffset = Quaternion.identity;
         private bool _animationPoseUpdatedThisApply;
         private bool _lastSimulateShot;
-        private float _lastShotLifetime = -1f;
+        private float _lastShotLifecycle = -1f;
         private int _lastShotOptionId = int.MinValue;
         private readonly HashSet<int> _invalidShotWarningIds = new();
         private bool _deferredApplyQueued;
@@ -152,9 +152,18 @@ namespace Game.Player {
         private float _nextRuntimeLookProbeAt;
         private MaterialPropertyBlock _mannequinPropertyBlock;
         private MaterialPropertyBlock _trailMaterialPropertyBlock;
+#if UNITY_EDITOR
+        private readonly Dictionary<int, TrailRenderer> _shotTrailPreviewInstances = new();
+#endif
 
         private const float RuntimeLookProbeInterval = 0.25f;
         private const float RuntimeLookProbeErrorThresholdDeg = 0.1f;
+        private const float ShotPreviewCycleDurationSeconds = 0.24f;
+        private const float ShotPreviewMuzzleStartSeconds = 0f;
+        private const float ShotPreviewMuzzleDurationSeconds = 0.14f;
+        private const float ShotPreviewProjectileStartSeconds = 0.06f;
+        private const float ShotPreviewTrailLifetimeSeconds = 0.08f;
+        private const float ShotPreviewTrailDisplayLifetimeSeconds = 30f;
 
         private void Reset() {
             animator = GetComponentInChildren<Animator>(true);
@@ -191,6 +200,7 @@ namespace Game.Player {
             mannequinMetallic = Mathf.Clamp01(mannequinMetallic);
             mannequinSmoothness = Mathf.Clamp01(mannequinSmoothness);
             trailColorIntensity = Mathf.Max(0f, trailColorIntensity);
+            simulatedShotSpeed = Mathf.Max(0f, simulatedShotSpeed);
 
             fakeVelocityMagnitude = Mathf.Max(0f, fakeVelocityMagnitude);
             CacheLookPitchSpineProxy(forceRefresh: true);
@@ -200,9 +210,11 @@ namespace Game.Player {
 
         private void Update() {
             if(Application.isPlaying) {
-                if(!previewInPlayMode || !autoApplyEachFrame) return;
+                if(!previewInPlayMode) return;
+                if(!autoApplyEachFrame && !simulateShot) return;
             } else {
-                if(!previewInEditMode || !autoApplyEachFrame) return;
+                if(!previewInEditMode) return;
+                if(!autoApplyEachFrame && !simulateShot) return;
             }
             ApplyNow();
         }
@@ -234,6 +246,7 @@ namespace Game.Player {
                 _lookPitchBaseTarget.localRotation = _cachedLookPitchBaseLocalRotation;
             }
             _lastAppliedLookPitchOffset = Quaternion.identity;
+            ClearShotPreviewTrailInstances();
         }
 
         [ContextMenu("Apply Mannequin Preview")]
@@ -976,89 +989,311 @@ namespace Game.Player {
                 }
 
                 _lastSimulateShot = false;
-                _lastShotLifetime = shotLifetime;
+                _lastShotLifecycle = shotLifecycle;
                 _lastShotOptionId = activeOptionId;
+                if(logShotDebug && logShotDebugEveryApply) {
+                    Debug.Log("[PlayerMannequinConfig][ShotDebug] simulateShot=false; shot preview outputs reset.", this);
+                }
                 return;
             }
 
             if(activeOption == null) {
                 _lastSimulateShot = true;
-                _lastShotLifetime = shotLifetime;
+                _lastShotLifecycle = shotLifecycle;
                 _lastShotOptionId = 0;
+                if(logShotDebug) {
+                    Debug.Log(
+                        $"[PlayerMannequinConfig][ShotDebug] No active weapon option for hand slot '{handWeaponSlot}'.",
+                        this);
+                }
                 return;
             }
 
             EnsureShotReferences(activeOption);
+            var normalizedLifecycle = Mathf.Clamp01(shotLifecycle);
 
             var shouldResimulate = !_lastSimulateShot
-                                   || !Mathf.Approximately(_lastShotLifetime, shotLifetime)
+                                   || !Mathf.Approximately(_lastShotLifecycle, normalizedLifecycle)
                                    || _lastShotOptionId != activeOptionId;
-            if(!shouldResimulate) return;
+            if(!shouldResimulate) {
+                if(logShotDebug && logShotDebugEveryApply) {
+                    Debug.Log(
+                        $"[PlayerMannequinConfig][ShotDebug] Skipped resimulate for '{activeOption.displayName}' (no input change).",
+                        this);
+                }
+                return;
+            }
 
-            ApplyShotSimulationToOption(activeOption, Mathf.Max(0f, shotLifetime));
+            ApplyShotSimulationToOption(activeOption, ShotPreviewCycleDurationSeconds, normalizedLifecycle, shouldLog: logShotDebug);
 
             _lastSimulateShot = true;
-            _lastShotLifetime = shotLifetime;
+            _lastShotLifecycle = normalizedLifecycle;
             _lastShotOptionId = activeOptionId;
         }
 
-        private void ApplyShotSimulationToOption(WeaponVisualOption option, float lifetime) {
+        private void ApplyShotSimulationToOption(WeaponVisualOption option, float cycleDuration, float lifecycle01, bool shouldLog) {
             if(option == null) return;
 
             var origin = option.shotOrigin != null ? option.shotOrigin : option.handObject != null ? option.handObject.transform : transform;
-            var speed = Mathf.Max(0f, option.simulatedShotSpeed);
-            var distance = speed * lifetime;
-            var end = origin.position + origin.forward * distance;
+            var direction = GetShotPreviewDirection(origin, option, out var directionWasFlipped, out var directionSource);
+            var speed = Mathf.Max(0f, simulatedShotSpeed);
+            var normalizedLifecycle = Mathf.Clamp01(lifecycle01);
+            var cycleTime = normalizedLifecycle * Mathf.Max(0f, cycleDuration);
 
-            if(option.projectileVisual != null) {
-                EnsureGameObjectHierarchyActive(option.projectileVisual.transform);
-                option.projectileVisual.SetActive(true);
-                option.projectileVisual.transform.position = end;
-                option.projectileVisual.transform.rotation = origin.rotation;
-            }
+            var muzzleLocalTime = cycleTime - ShotPreviewMuzzleStartSeconds;
+            var muzzleActive = normalizedLifecycle > 0f
+                               && muzzleLocalTime >= 0f
+                               && muzzleLocalTime <= ShotPreviewMuzzleDurationSeconds;
+            var muzzleSampleTime = Mathf.Clamp(muzzleLocalTime, 0f, ShotPreviewMuzzleDurationSeconds);
 
-            if(option.shotParticleSystems != null) {
-                foreach(var ps in option.shotParticleSystems) {
-                    if(ps == null) continue;
-                    if(!CanSimulateTrailParticleSystem(ps)) continue;
-                    EnsureGameObjectHierarchyActive(ps.transform);
-                    ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
-                    ps.Simulate(lifetime, true, true, true);
-                    ps.Pause(true);
-                }
-            }
+            var projectileElapsed = cycleTime - ShotPreviewProjectileStartSeconds;
+            var projectileActive = normalizedLifecycle > 0f && projectileElapsed > 0f;
+            var projectileHeadDistance = projectileActive ? speed * projectileElapsed : 0f;
+            var projectileTailDistance = projectileActive
+                ? speed * Mathf.Max(0f, projectileElapsed - ShotPreviewTrailLifetimeSeconds)
+                : 0f;
+
+            var headPosition = origin.position + direction * projectileHeadDistance;
+            var tailPosition = origin.position + direction * projectileTailDistance;
+            var visualEffectCount = 0;
+            var trailCount = 0;
+            var skippedTrailCount = 0;
 
             if(option.shotVisualEffects != null) {
                 foreach(var vfx in option.shotVisualEffects) {
                     if(vfx == null) continue;
                     EnsureGameObjectHierarchyActive(vfx.transform);
-                    vfx.Reinit();
-                    vfx.Play();
+                    if(muzzleActive) {
+                        SampleShotVisualEffect(vfx, muzzleSampleTime);
+                        visualEffectCount++;
+                    } else {
+                        ResetShotVisualEffect(vfx);
+                    }
                 }
             }
 
             if(option.shotTrailRenderers != null) {
                 foreach(var trail in option.shotTrailRenderers) {
                     if(trail == null) continue;
-                    EnsureGameObjectHierarchyActive(trail.transform);
-                    trail.Clear();
-                    trail.time = Mathf.Max(0.01f, lifetime);
-                    trail.emitting = true;
-                    var position = origin.position;
-                    trail.transform.position = position;
-                    trail.AddPosition(position);
-                    trail.AddPosition(end);
+                    var previewTrail = ResolveShotTrailForPreview(trail);
+                    if(previewTrail == null) {
+                        skippedTrailCount++;
+                        continue;
+                    }
+                    EnsureGameObjectHierarchyActive(previewTrail.transform);
+                    previewTrail.Clear();
+                    previewTrail.time = Mathf.Max(0.01f, ShotPreviewTrailDisplayLifetimeSeconds);
+                    previewTrail.emitting = projectileActive;
+                    previewTrail.transform.position = headPosition;
+                    previewTrail.transform.rotation = Quaternion.LookRotation(direction, transform.up);
+                    if(projectileActive) {
+                        previewTrail.AddPosition(tailPosition);
+                        previewTrail.AddPosition(headPosition);
+                        trailCount++;
+                    }
                 }
             }
 
-            if(!HasAnyShotOutputConfigured(option)) {
-                WarnInvalidShotSetup(option, "no shot outputs configured (VFX, ParticleSystem, TrailRenderer, or projectileVisual)");
+            if(shouldLog && (logShotDebugEveryApply || visualEffectCount == 0 || (trailCount == 0 && skippedTrailCount > 0))) {
+                LogShotDebug(
+                    option,
+                    origin,
+                    direction,
+                    directionSource,
+                    directionWasFlipped,
+                    cycleDuration,
+                    normalizedLifecycle,
+                    cycleTime,
+                    muzzleActive,
+                    muzzleSampleTime,
+                    projectileActive,
+                    projectileElapsed,
+                    tailPosition,
+                    headPosition,
+                    visualEffectCount,
+                    trailCount,
+                    skippedTrailCount);
             }
+
+            if(!HasAnyShotOutputConfigured(option)) {
+                WarnInvalidShotSetup(
+                    option,
+                    "no shot outputs configured (VFX or TrailRenderer). " +
+                    "Assign shotOrigin and/or shot output references on this weapon option.");
+            }
+        }
+
+        private Vector3 GetShotPreviewDirection(
+            Transform origin,
+            WeaponVisualOption option,
+            out bool directionWasFlipped,
+            out string directionSource) {
+            directionWasFlipped = false;
+            directionSource = "fallback";
+            Vector3 direction;
+            if(origin != null && origin.forward.sqrMagnitude > 0.0001f) {
+                direction = origin.forward.normalized;
+                directionSource = "origin.forward";
+            } else if(transform.forward.sqrMagnitude > 0.0001f) {
+                direction = transform.forward.normalized;
+                directionSource = "transform.forward";
+            } else {
+                direction = Vector3.forward;
+                directionSource = "Vector3.forward";
+            }
+
+            if(option != null && option.handObject != null) {
+                var handToMuzzle = origin != null
+                    ? origin.position - option.handObject.transform.position
+                    : Vector3.zero;
+                if(handToMuzzle.sqrMagnitude > 0.0001f && origin != null) {
+                    direction = ResolveBestMuzzleAxisDirection(origin, handToMuzzle.normalized, out directionSource);
+                    directionWasFlipped = directionSource.StartsWith("-", StringComparison.Ordinal);
+                }
+            }
+
+            return direction.normalized;
+        }
+
+        private static Vector3 ResolveBestMuzzleAxisDirection(
+            Transform origin,
+            Vector3 targetDirection,
+            out string sourceLabel) {
+            if(origin == null) {
+                sourceLabel = "origin.null";
+                return targetDirection.sqrMagnitude > 0.0001f ? targetDirection.normalized : Vector3.forward;
+            }
+
+            var candidates = new[] {
+                (dir: origin.forward, label: "origin.forward"),
+                (dir: -origin.forward, label: "-origin.forward"),
+                (dir: origin.right, label: "origin.right"),
+                (dir: -origin.right, label: "-origin.right"),
+                (dir: origin.up, label: "origin.up"),
+                (dir: -origin.up, label: "-origin.up"),
+            };
+
+            var bestDot = float.NegativeInfinity;
+            var bestDirection = origin.forward;
+            sourceLabel = "origin.forward";
+            foreach(var candidate in candidates) {
+                if(candidate.dir.sqrMagnitude < 0.0001f) continue;
+                var dot = Vector3.Dot(candidate.dir.normalized, targetDirection);
+                if(dot <= bestDot) continue;
+                bestDot = dot;
+                bestDirection = candidate.dir.normalized;
+                sourceLabel = candidate.label;
+            }
+
+            return bestDirection.normalized;
+        }
+
+        private static void SampleShotVisualEffect(VisualEffect vfx, float sampleTime) {
+            if(vfx == null) return;
+
+            vfx.pause = false;
+            vfx.Reinit();
+            vfx.Play();
+
+            var clampedTime = Mathf.Max(0f, sampleTime);
+            var sampled = false;
+
+            try {
+                if(clampedTime > 0f && VisualEffectSimulateFloatUIntMethod != null) {
+                    VisualEffectSimulateFloatUIntMethod.Invoke(vfx, new object[] { clampedTime, 1u });
+                    sampled = true;
+                } else if(VisualEffectSimulateFloatMethod != null) {
+                    VisualEffectSimulateFloatMethod.Invoke(vfx, new object[] { clampedTime });
+                    sampled = true;
+                }
+            } catch {
+                // Best-effort editor preview; ignore if this Unity version lacks a compatible API.
+            }
+
+            if(!sampled) {
+                // Fallback for versions where reflection-based Simulate isn't available.
+                // Step enough frames to approximate requested time and then freeze.
+                var stepCount = Mathf.Clamp(Mathf.CeilToInt(clampedTime / 0.016f), 1, 120);
+                for(var i = 0; i < stepCount; i++) {
+                    vfx.AdvanceOneFrame();
+                }
+            }
+
+            // Ensure scene view updates VFX output even when not actively selected.
+            vfx.AdvanceOneFrame();
+            vfx.pause = true;
+        }
+
+        private static void ResetShotVisualEffect(VisualEffect vfx) {
+            if(vfx == null) return;
+            vfx.Stop();
+            vfx.Reinit();
+            vfx.pause = false;
+        }
+
+        private TrailRenderer ResolveShotTrailForPreview(TrailRenderer assignedTrail) {
+            if(assignedTrail == null) return null;
+            if(assignedTrail.gameObject == null) return null;
+#if UNITY_EDITOR
+            var persistentAssigned = EditorUtility.IsPersistent(assignedTrail) || EditorUtility.IsPersistent(assignedTrail.gameObject);
+            if(persistentAssigned) {
+                var sourceId = assignedTrail.GetInstanceID();
+                if(_shotTrailPreviewInstances.TryGetValue(sourceId, out var existing) && existing != null) {
+                    return existing;
+                }
+
+                var sourceObject = assignedTrail.gameObject;
+                var previewObject = Instantiate(sourceObject, transform);
+                previewObject.name = $"{sourceObject.name} (ShotPreview)";
+                if(!Application.isPlaying) {
+                    previewObject.hideFlags |= HideFlags.DontSaveInEditor;
+                }
+                previewObject.hideFlags |= HideFlags.DontSaveInBuild;
+
+                var previewTrail = previewObject.GetComponent<TrailRenderer>();
+                if(previewTrail == null) {
+                    previewTrail = previewObject.GetComponentInChildren<TrailRenderer>(true);
+                }
+
+                if(previewTrail == null) {
+                    if(Application.isPlaying) {
+                        Destroy(previewObject);
+                    } else {
+                        DestroyImmediate(previewObject);
+                    }
+                    return null;
+                }
+
+                _shotTrailPreviewInstances[sourceId] = previewTrail;
+                return previewTrail;
+            }
+#endif
+
+            return assignedTrail;
+        }
+
+        private void ClearShotPreviewTrailInstances() {
+#if UNITY_EDITOR
+            if(_shotTrailPreviewInstances.Count == 0) return;
+            foreach(var kvp in _shotTrailPreviewInstances) {
+                var previewTrail = kvp.Value;
+                if(previewTrail == null) continue;
+                var go = previewTrail.gameObject;
+                if(go == null) continue;
+                if(Application.isPlaying) {
+                    Destroy(go);
+                } else {
+                    DestroyImmediate(go);
+                }
+            }
+            _shotTrailPreviewInstances.Clear();
+#endif
         }
 
         private void ResetShotSimulationForAllOptions() {
             ResetShotOptionArray(primaryOptions);
             ResetShotOptionArray(secondaryOptions);
+            ClearShotPreviewTrailInstances();
         }
 
         private static void ResetShotOptionArray(WeaponVisualOption[] options) {
@@ -1066,31 +1301,32 @@ namespace Game.Player {
             foreach(var option in options) {
                 if(option == null) continue;
 
-                if(option.projectileVisual != null && option.projectileVisual.activeSelf) {
-                    option.projectileVisual.SetActive(false);
-                }
-
-                if(option.shotParticleSystems != null) {
-                    foreach(var ps in option.shotParticleSystems) {
-                        if(ps == null) continue;
-                        ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
-                    }
-                }
-
                 if(option.shotVisualEffects != null) {
                     foreach(var vfx in option.shotVisualEffects) {
                         if(vfx == null) continue;
                         vfx.Stop();
+                        vfx.pause = false;
                     }
                 }
 
                 if(option.shotTrailRenderers == null) continue;
                 foreach(var trail in option.shotTrailRenderers) {
                     if(trail == null) continue;
+                    if(!CanModifyAssignedShotTrailRenderer(trail)) continue;
                     trail.Clear();
                     trail.emitting = false;
                 }
             }
+        }
+
+        private static bool CanModifyAssignedShotTrailRenderer(TrailRenderer trail) {
+            if(trail == null || trail.gameObject == null) return false;
+#if UNITY_EDITOR
+            if(EditorUtility.IsPersistent(trail) || EditorUtility.IsPersistent(trail.gameObject)) {
+                return false;
+            }
+#endif
+            return true;
         }
 
         private WeaponVisualOption GetActiveHandWeaponOption() {
@@ -1102,20 +1338,57 @@ namespace Game.Player {
         private static void EnsureShotReferences(WeaponVisualOption option) {
             if(option == null || option.handObject == null) return;
 
-            if(option.autoFindShotParticleSystems &&
-               (option.shotParticleSystems == null || option.shotParticleSystems.Length == 0)) {
-                option.shotParticleSystems = option.handObject.GetComponentsInChildren<ParticleSystem>(true);
-            }
-
             if(option.autoFindShotVisualEffects &&
                (option.shotVisualEffects == null || option.shotVisualEffects.Length == 0)) {
-                option.shotVisualEffects = option.handObject.GetComponentsInChildren<VisualEffect>(true);
+                var fromHand = option.handObject.GetComponentsInChildren<VisualEffect>(true);
+                if(fromHand is { Length: > 0 }) {
+                    option.shotVisualEffects = fromHand;
+                } else if(option.shotOrigin != null) {
+                    option.shotVisualEffects = option.shotOrigin.GetComponentsInChildren<VisualEffect>(true);
+                }
             }
 
             if(option.autoFindShotTrailRenderers &&
                (option.shotTrailRenderers == null || option.shotTrailRenderers.Length == 0)) {
                 option.shotTrailRenderers = option.handObject.GetComponentsInChildren<TrailRenderer>(true);
             }
+        }
+
+        private void LogShotDebug(
+            WeaponVisualOption option,
+            Transform origin,
+            Vector3 direction,
+            string directionSource,
+            bool directionWasFlipped,
+            float cycleDuration,
+            float lifecycle01,
+            float cycleTime,
+            bool muzzleActive,
+            float muzzleSampleTime,
+            bool projectileActive,
+            float projectileElapsed,
+            Vector3 trailStart,
+            Vector3 trailEnd,
+            int visualEffectCount,
+            int trailCount,
+            int skippedTrailCount) {
+            if(option == null) return;
+            var originName = origin != null ? origin.name : "(null)";
+            var originPos = origin != null ? origin.position : Vector3.zero;
+            var vfxRefs = option.shotVisualEffects?.Length ?? 0;
+            var trailRefs = option.shotTrailRenderers?.Length ?? 0;
+
+            Debug.Log(
+                $"[PlayerMannequinConfig][ShotDebug] option='{option.displayName}', " +
+                $"origin='{originName}', originPos={originPos}, direction={direction}, " +
+                $"directionSource={directionSource}, " +
+                $"directionWasFlipped={directionWasFlipped}, " +
+                $"lifecycle01={lifecycle01:0.###}, cycleDuration={cycleDuration:0.###}, cycleTime={cycleTime:0.###}, " +
+                $"muzzleActive={muzzleActive}, muzzleSample={muzzleSampleTime:0.###}, " +
+                $"projectileActive={projectileActive}, projectileElapsed={projectileElapsed:0.###}, speed={simulatedShotSpeed:0.###}, " +
+                $"trailStart={trailStart}, trailEnd={trailEnd}, " +
+                $"vfxRefs={vfxRefs}, vfxSimulated={visualEffectCount}, trailRefs={trailRefs}, trailSimulated={trailCount}, trailSkipped={skippedTrailCount}",
+                this);
         }
 
         private int GetActiveShotOptionId() {
@@ -1127,9 +1400,7 @@ namespace Game.Player {
 
         private static bool HasAnyShotOutputConfigured(WeaponVisualOption option) {
             if(option == null) return false;
-            return option.projectileVisual != null
-                   || option.shotParticleSystems is { Length: > 0 }
-                   || option.shotVisualEffects is { Length: > 0 }
+            return option.shotVisualEffects is { Length: > 0 }
                    || option.shotTrailRenderers is { Length: > 0 };
         }
 
@@ -1534,5 +1805,17 @@ namespace Game.Player {
         private const string DefaultElectricMainMaterialPath = "Assets/Player Assets/Trail/Electric_Splat_Hit.mat";
         private const string DefaultTrailRibbonMaterialPath = "Assets/Player Assets/Trail/glow.mat";
         private const string DefaultLightningBlueMaterialPath = "Assets/Imported/Game VFX - Sword Trails/Materials/lightning_blue.mat";
+        private static readonly MethodInfo VisualEffectSimulateFloatUIntMethod = typeof(VisualEffect).GetMethod(
+            "Simulate",
+            BindingFlags.Instance | BindingFlags.Public,
+            null,
+            new[] { typeof(float), typeof(uint) },
+            null);
+        private static readonly MethodInfo VisualEffectSimulateFloatMethod = typeof(VisualEffect).GetMethod(
+            "Simulate",
+            BindingFlags.Instance | BindingFlags.Public,
+            null,
+            new[] { typeof(float) },
+            null);
     }
 }
