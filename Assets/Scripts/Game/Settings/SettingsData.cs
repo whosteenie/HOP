@@ -36,6 +36,7 @@ namespace Game.Settings {
 
         [Serializable]
         public sealed class VideoSettings {
+            public string mainMenuBackgroundSelection = "Random";
             public int windowMode;
             public string aspectRatio = "";
             public int resolutionWidth;

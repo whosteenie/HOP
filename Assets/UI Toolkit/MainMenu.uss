@@ -53,7 +53,7 @@
     color: rgb(240,240,240);
     -unity-font-definition: url('project://database/Assets/Open%20Sans/static/OpenSans-SemiBold%20SDF.asset');
     font-size: 36px; -unity-font-style: bold; -unity-text-align: middle-left;
-    text-shadow: -2px 0 4px rgba(0, 0, 0, 1);
+    text-shadow: 0 2px 5px rgba(0, 0, 0, 1);
     padding: 3px 0;
     min-height: 0;
     overflow: visible;
@@ -61,7 +61,7 @@
 }
 .text-button:hover:enabled  { 
     color: rgb(255,100,100); 
-    text-shadow: 0 0 8px rgba(255, 100, 100, 0.4);
+    text-shadow: 0 0 8px rgba(255, 100, 100, 0.6);
 }
 .text-button:active:enabled { color: rgb(200,60,60); }
 .text-button:disabled {
@@ -74,7 +74,7 @@
 .primary-action {
     font-size: 48px;
     letter-spacing: 3px;
-    text-shadow: -3px 0 5px rgba(0, 0, 0, 1);
+    text-shadow: 0 3px 6px rgba(0, 0, 0, 1);
     margin-bottom: 4px;
 }
 

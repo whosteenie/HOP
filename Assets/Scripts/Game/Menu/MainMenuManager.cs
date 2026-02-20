@@ -10,6 +10,7 @@ using UnityEngine.Audio;
 using UnityEngine.UIElements;
 using Game.UI;
 using Game.Rendering;
+using Game.Settings;
 using UnityEngine.Rendering;
 using Cursor = UnityEngine.Cursor;
 
@@ -95,7 +96,8 @@ namespace Game.Menu {
                 backgroundRandomizer = GetComponent<MainMenuBackgroundRandomizer>();
             }
             if(backgroundRandomizer != null) {
-                backgroundRandomizer.RandomizeForMainMenuEntry();
+                var backgroundSelection = GameSettings.Data.video?.mainMenuBackgroundSelection;
+                backgroundRandomizer.ApplySelectionForMainMenuEntry(backgroundSelection);
             }
 
             if(uiManager != null) MainMenuUIManager.InitializeGameMenuVisibility();

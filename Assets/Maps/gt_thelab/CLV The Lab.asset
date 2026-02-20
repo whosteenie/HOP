@@ -10,7 +10,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: d7fd9488000d3734a9e00ee676215985, type: 3}
-  m_Name: CloudProfile
+  m_Name: CLV The Lab
   m_EditorClassIdentifier: Unity.RenderPipelines.Core.Runtime::UnityEngine.Rendering.VolumeProfile
   components:
   - {fileID: 4368127666417469183}
@@ -38,9 +38,9 @@ MonoBehaviour:
     m_Value: 4
   densityMultiplier:
     m_OverrideState: 1
-    m_Value: 0.064
+    m_Value: 0.249
   densityCurve:
-    m_OverrideState: 0
+    m_OverrideState: 1
     m_Value:
       serializedVersion: 2
       m_Curve:
@@ -54,26 +54,8 @@ MonoBehaviour:
         inWeight: 0
         outWeight: 0
       - serializedVersion: 3
-        time: 0.07650861
-        value: 0.10763055
-        inSlope: 1.6680065
-        outSlope: 1.6680065
-        tangentMode: 0
-        weightedMode: 0
-        inWeight: 0.33333334
-        outWeight: 0.33333334
-      - serializedVersion: 3
-        time: 0.39058998
-        value: 0.71420485
-        inSlope: -0.10554129
-        outSlope: -0.10554129
-        tangentMode: 0
-        weightedMode: 0
-        inWeight: 0.33333334
-        outWeight: 0.33333334
-      - serializedVersion: 3
-        time: 0.73421323
-        value: 0.8283653
+        time: 0.15
+        value: 1
         inSlope: 0
         outSlope: 0
         tangentMode: 0
@@ -94,18 +76,18 @@ MonoBehaviour:
       m_RotationOrder: 4
   shapeFactor:
     m_OverrideState: 1
-    m_Value: 0.616
+    m_Value: 0.9
   shapeScale:
     m_OverrideState: 1
-    m_Value: 32
+    m_Value: 5
   erosionFactor:
     m_OverrideState: 1
-    m_Value: 0.028
+    m_Value: 0.8
   erosionScale:
     m_OverrideState: 1
-    m_Value: 67.04
+    m_Value: 107
   erosionCurve:
-    m_OverrideState: 0
+    m_OverrideState: 1
     m_Value:
       serializedVersion: 2
       m_Curve:
@@ -154,8 +136,8 @@ MonoBehaviour:
         inWeight: 0
         outWeight: 0
       - serializedVersion: 3
-        time: 0.263031
-        value: 0.40190354
+        time: 0.25
+        value: 0.4
         inSlope: 0
         outSlope: 0
         tangentMode: 0
@@ -179,16 +161,16 @@ MonoBehaviour:
     m_Value: 0
   microErosionFactor:
     m_OverrideState: 1
-    m_Value: 0.5
+    m_Value: 0.099
   microErosionScale:
     m_OverrideState: 1
     m_Value: 60
   bottomAltitude:
     m_OverrideState: 1
-    m_Value: 1
+    m_Value: 1500
   altitudeRange:
     m_OverrideState: 1
-    m_Value: 400
+    m_Value: 2200
   shapeOffset:
     m_OverrideState: 0
     m_Value: {x: 0, y: 0, z: 0}
@@ -218,16 +200,16 @@ MonoBehaviour:
     m_Value: 0
   ambientLightProbeDimmer:
     m_OverrideState: 1
-    m_Value: 1.054
+    m_Value: 0.845
   sunLightDimmer:
     m_OverrideState: 0
-    m_Value: 0.845
+    m_Value: 1
   erosionOcclusion:
     m_OverrideState: 0
     m_Value: 0.1
   scatteringTint:
-    m_OverrideState: 1
-    m_Value: {r: 0.556, g: 0.57518524, b: 1, a: 1}
+    m_OverrideState: 0
+    m_Value: {r: 0, g: 0, b: 0, a: 1}
   powderEffectIntensity:
     m_OverrideState: 0
     m_Value: 0.25
@@ -236,7 +218,7 @@ MonoBehaviour:
     m_Value: 0.5
   shadows:
     m_OverrideState: 0
-    m_Value: 0
+    m_Value: 1
   shadowResolution:
     m_OverrideState: 0
     m_Value: 512
@@ -251,13 +233,13 @@ MonoBehaviour:
     m_Value: 0
   temporalAccumulationFactor:
     m_OverrideState: 1
-    m_Value: 0.815
+    m_Value: 0.785
   perceptualBlending:
     m_OverrideState: 1
     m_Value: 1
   numPrimarySteps:
     m_OverrideState: 1
-    m_Value: 256
+    m_Value: 95
   numLightSteps:
     m_OverrideState: 1
     m_Value: 2
@@ -269,4 +251,4 @@ MonoBehaviour:
     m_Value: 0
   fadeInDistance:
     m_OverrideState: 1
-    m_Value: 0.01
+    m_Value: 144.24

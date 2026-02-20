@@ -54,6 +54,7 @@ namespace Game.Menu {
         private Button _holdMantleButton;
         private Button _profanityFilterButton;
         private Button _autoWallRunButton;
+        private DropdownField _mainMenuBackgroundDropdown;
         private DropdownField _grappleIndicatorDropdown;
         private DropdownField _voiceModeDropdown;
         private DropdownField _windowModeDropdown;
@@ -70,6 +71,7 @@ namespace Game.Menu {
         private Button _vsyncButton;
         private DropdownField _fpsDropdown;
         private DropdownField _voiceDeviceDropdown;
+        private MainMenuBackgroundRandomizer _mainMenuBackgroundRandomizer;
 
         // Options tabs
         private Button _tabVideo;
@@ -107,6 +109,7 @@ namespace Game.Menu {
             ["voice-input-volume-container"] = ("MICROPHONE VOLUME", "Adjusts outgoing microphone gain for voice chat."),
             ["voice-device-container"] = ("MICROPHONE", "Select which input device is used for voice chat."),
             ["player-trails-container"] = ("PLAYER SPEED TRAILS", "Toggles speed trail visual effects on players."),
+            ["main-menu-background-container"] = ("MAIN MENU BACKGROUND", "Select which mannequin background scene is shown in the main menu. Random picks one each menu entry."),
             ["streamer-mode-container"] = ("STREAMER MODE", "Hides your display name in supported UI surfaces."),
             ["hold-mantle-container"] = ("HOLD TO MANTLE", "When enabled, mantling can trigger while jump is held."),
             ["auto-wall-run-container"] = ("AUTO WALL RUN", "Automatically starts a wall run when valid wall-run conditions are met."),
@@ -147,6 +150,7 @@ namespace Game.Menu {
         private bool _originalAutoWallRun;
         private int _originalGrappleIndicator;
         private int _originalVoiceMode;
+        private string _originalMainMenuBackgroundSelection = MainMenuBackgroundRandomizer.RandomSelectionOption;
         private int _originalWindowMode;
         private string _originalAspectRatio;
         private int _originalResolutionIndex;
@@ -219,6 +223,7 @@ namespace Game.Menu {
             _holdMantleButton = QOptional<Button>("hold-mantle");
             _profanityFilterButton = QOptional<Button>("profanity-filter");
             _autoWallRunButton = QOptional<Button>("auto-wall-run");
+            _mainMenuBackgroundDropdown = QOptional<DropdownField>("main-menu-background");
             _grappleIndicatorDropdown = QOptional<DropdownField>("grapple-indicator");
             _voiceModeDropdown = QOptional<DropdownField>("voice-mode");
             _voiceDeviceDropdown = QOptional<DropdownField>("voice-device");
@@ -550,6 +555,8 @@ namespace Game.Menu {
         }
         
         private void SetupGameCallbacks() {
+            SetupMainMenuBackgroundDropdown();
+
             // Setup grapple indicator dropdown
             if(_grappleIndicatorDropdown != null) {
                 _grappleIndicatorDropdown.choices = new List<string> {
@@ -558,6 +565,107 @@ namespace Game.Menu {
                     "None"
                 };
             }
+        }
+
+        private void SetupMainMenuBackgroundDropdown() {
+            if(_mainMenuBackgroundDropdown == null) {
+                return;
+            }
+
+            RefreshMainMenuBackgroundDropdownChoices(preserveCurrentSelection: false);
+
+            EventCallback<ChangeEvent<string>> handler = evt => {
+                var normalizedSelection = NormalizeMainMenuBackgroundSelection(evt.newValue);
+                if(!string.Equals(_mainMenuBackgroundDropdown.value, normalizedSelection, StringComparison.Ordinal)) {
+                    _mainMenuBackgroundDropdown.SetValueWithoutNotify(normalizedSelection);
+                }
+
+                ApplyMainMenuBackgroundSelectionPreview(normalizedSelection);
+            };
+
+            _mainMenuBackgroundDropdown.RegisterValueChangedCallback(handler);
+            RegisterCleanup(() => _mainMenuBackgroundDropdown.UnregisterCallback(handler));
+        }
+
+        private void RefreshMainMenuBackgroundDropdownChoices(bool preserveCurrentSelection) {
+            if(_mainMenuBackgroundDropdown == null) {
+                return;
+            }
+
+            var previousSelection = preserveCurrentSelection
+                ? _mainMenuBackgroundDropdown.value
+                : null;
+
+            var choices = new List<string> {
+                MainMenuBackgroundRandomizer.RandomSelectionOption
+            };
+
+            var randomizer = ResolveMainMenuBackgroundRandomizer();
+            if(randomizer != null) {
+                var availableSelections = randomizer.GetAvailableSelectionNames();
+                for(var i = 0; i < availableSelections.Count; i++) {
+                    var name = availableSelections[i];
+                    if(string.IsNullOrWhiteSpace(name) || choices.Contains(name)) {
+                        continue;
+                    }
+
+                    choices.Add(name);
+                }
+            } else {
+                var persistedSelection = NormalizeMainMenuBackgroundSelection(GameSettings.Data.video?.mainMenuBackgroundSelection);
+                if(!MainMenuBackgroundRandomizer.IsRandomSelection(persistedSelection) && !choices.Contains(persistedSelection)) {
+                    choices.Add(persistedSelection);
+                }
+
+                if(!string.IsNullOrWhiteSpace(previousSelection) &&
+                   !MainMenuBackgroundRandomizer.IsRandomSelection(previousSelection) &&
+                   !choices.Contains(previousSelection)) {
+                    choices.Add(previousSelection);
+                }
+            }
+
+            _mainMenuBackgroundDropdown.choices = choices;
+
+            var selectionToSet = previousSelection;
+            if(string.IsNullOrWhiteSpace(selectionToSet)) {
+                selectionToSet = GameSettings.Data.video?.mainMenuBackgroundSelection;
+            }
+
+            selectionToSet = NormalizeMainMenuBackgroundSelection(selectionToSet);
+            if(!choices.Contains(selectionToSet)) {
+                selectionToSet = MainMenuBackgroundRandomizer.RandomSelectionOption;
+            }
+
+            _mainMenuBackgroundDropdown.SetValueWithoutNotify(selectionToSet);
+            _mainMenuBackgroundDropdown.SetEnabled(randomizer != null && choices.Count > 1);
+        }
+
+        private MainMenuBackgroundRandomizer ResolveMainMenuBackgroundRandomizer() {
+            if(_mainMenuBackgroundRandomizer != null) {
+                return _mainMenuBackgroundRandomizer;
+            }
+
+            _mainMenuBackgroundRandomizer = GetComponentInParent<MainMenuBackgroundRandomizer>();
+            if(_mainMenuBackgroundRandomizer == null) {
+                _mainMenuBackgroundRandomizer = FindFirstObjectByType<MainMenuBackgroundRandomizer>();
+            }
+
+            return _mainMenuBackgroundRandomizer;
+        }
+
+        private static string NormalizeMainMenuBackgroundSelection(string selection) {
+            return MainMenuBackgroundRandomizer.IsRandomSelection(selection)
+                ? MainMenuBackgroundRandomizer.RandomSelectionOption
+                : selection;
+        }
+
+        private void ApplyMainMenuBackgroundSelectionPreview(string selection) {
+            var randomizer = ResolveMainMenuBackgroundRandomizer();
+            if(randomizer == null) {
+                return;
+            }
+
+            randomizer.ApplySelectionForMainMenuEntry(selection);
         }
 
         private void SetupVolumeInputField(Slider slider, TextField textField, float minValue, float maxValue,
@@ -1355,6 +1463,16 @@ namespace Game.Menu {
             if(_holdMantleButton != null) SetCheckboxValue(_holdMantleButton, data.controls == null || data.controls.holdMantle);
             if(_profanityFilterButton != null) SetCheckboxValue(_profanityFilterButton, SocialSettings.ProfanityFilterEnabled);
             if(_autoWallRunButton != null) SetCheckboxValue(_autoWallRunButton, data.controls is { autoWallRun: true });
+            RefreshMainMenuBackgroundDropdownChoices(preserveCurrentSelection: false);
+            if(_mainMenuBackgroundDropdown != null) {
+                var savedBackgroundSelection = data.video?.mainMenuBackgroundSelection;
+                var normalizedSelection = NormalizeMainMenuBackgroundSelection(savedBackgroundSelection);
+                if(!_mainMenuBackgroundDropdown.choices.Contains(normalizedSelection)) {
+                    normalizedSelection = MainMenuBackgroundRandomizer.RandomSelectionOption;
+                }
+
+                _mainMenuBackgroundDropdown.SetValueWithoutNotify(normalizedSelection);
+            }
             
             // Load grapple indicator setting (0 = Crosshair (default), 1 = Bottom, 2 = None)
             if(_grappleIndicatorDropdown != null) {
@@ -1444,6 +1562,7 @@ namespace Game.Menu {
             _originalHoldMantle = GetCheckboxValue(_holdMantleButton);
             _originalProfanityFilter = SocialSettings.ProfanityFilterEnabled;
             _originalAutoWallRun = GetCheckboxValue(_autoWallRunButton);
+            _originalMainMenuBackgroundSelection = _mainMenuBackgroundDropdown?.value ?? MainMenuBackgroundRandomizer.RandomSelectionOption;
             _originalGrappleIndicator = _grappleIndicatorDropdown?.index ?? 0;
             _originalVoiceMode = (int)SocialSettings.InputMode;
 
@@ -1506,6 +1625,11 @@ namespace Game.Menu {
             var holdMantleChanged = GetCheckboxValue(_holdMantleButton) != _originalHoldMantle;
             var profanityFilterChanged = GetCheckboxValue(_profanityFilterButton) != _originalProfanityFilter;
             var autoWallRunChanged = GetCheckboxValue(_autoWallRunButton) != _originalAutoWallRun;
+            var mainMenuBackgroundChanged = false;
+            if(_mainMenuBackgroundDropdown != null) {
+                mainMenuBackgroundChanged =
+                    !string.Equals(_mainMenuBackgroundDropdown.value, _originalMainMenuBackgroundSelection, StringComparison.Ordinal);
+            }
             
             var grappleIndicatorChanged = false;
             if(_grappleIndicatorDropdown != null) grappleIndicatorChanged = _grappleIndicatorDropdown.index != _originalGrappleIndicator;
@@ -1544,7 +1668,7 @@ namespace Game.Menu {
 
             return volumeChanged || sensitivityChanged || invertYChanged || playerTrailsChanged || streamerModeChanged ||
                    holdMantleChanged ||
-                   profanityFilterChanged || autoWallRunChanged || voiceModeChanged ||
+                   profanityFilterChanged || autoWallRunChanged || mainMenuBackgroundChanged || voiceModeChanged ||
                    grappleIndicatorChanged || windowModeChanged || aspectRatioChanged || resolutionChanged || msaaChanged ||
                    shadowDistanceChanged || shadowResolutionChanged || bloomChanged || motionBlurChanged ||
                    filmGrainChanged || vignetteChanged || vsyncChanged || fpsChanged || hasKeybindChanges;
@@ -1599,6 +1723,9 @@ namespace Game.Menu {
             }
 
             LoadSettings();
+            if(_mainMenuBackgroundDropdown != null) {
+                ApplyMainMenuBackgroundSelectionPreview(_mainMenuBackgroundDropdown.value);
+            }
             HideUnsavedChangesDialog();
             NavigateBackFromOptions();
         }
@@ -1624,6 +1751,11 @@ namespace Game.Menu {
 
         private void ApplySettings() {
             var data = GameSettings.Data;
+            var mainMenuBackgroundSelectionChanged = _mainMenuBackgroundDropdown != null &&
+                                                     !string.Equals(
+                                                         NormalizeMainMenuBackgroundSelection(_mainMenuBackgroundDropdown.value),
+                                                         _originalMainMenuBackgroundSelection,
+                                                         StringComparison.Ordinal);
 
             // Save audio settings
             if(_masterVolumeSlider != null) {
@@ -1655,6 +1787,9 @@ namespace Game.Menu {
             if(data.controls != null) data.controls.holdMantle = GetCheckboxValue(_holdMantleButton);
             if(data.controls != null) data.controls.autoWallRun = GetCheckboxValue(_autoWallRunButton);
             SocialSettings.ProfanityFilterEnabled = GetCheckboxValue(_profanityFilterButton);
+            if(data.video != null && _mainMenuBackgroundDropdown != null) {
+                data.video.mainMenuBackgroundSelection = NormalizeMainMenuBackgroundSelection(_mainMenuBackgroundDropdown.value);
+            }
             
             // Save grapple indicator setting
             if(_grappleIndicatorDropdown != null) {
@@ -1734,6 +1869,9 @@ namespace Game.Menu {
             GameSettings.Save();
 
             ApplySettingsInternal();
+            if(mainMenuBackgroundSelectionChanged && _mainMenuBackgroundDropdown != null) {
+                ApplyMainMenuBackgroundSelectionPreview(_mainMenuBackgroundDropdown.value);
+            }
 
             // Update original values
             _originalMasterVolume = _masterVolumeSlider != null ? _masterVolumeSlider.value : 0f;
@@ -1748,6 +1886,9 @@ namespace Game.Menu {
             _originalHoldMantle = GetCheckboxValue(_holdMantleButton);
             _originalProfanityFilter = SocialSettings.ProfanityFilterEnabled;
             _originalAutoWallRun = GetCheckboxValue(_autoWallRunButton);
+            _originalMainMenuBackgroundSelection = _mainMenuBackgroundDropdown != null
+                ? NormalizeMainMenuBackgroundSelection(_mainMenuBackgroundDropdown.value)
+                : MainMenuBackgroundRandomizer.RandomSelectionOption;
             _originalGrappleIndicator = _grappleIndicatorDropdown != null ? _grappleIndicatorDropdown.index : 0;
             _originalVoiceMode = (int)SocialSettings.InputMode;
 
@@ -1929,6 +2070,7 @@ namespace Game.Menu {
             var optionsPanel = Root?.Q<VisualElement>("options-panel");
             RefreshVoiceDeviceDropdownChoices();
             RefreshVoiceDeviceDropdownChoicesDeferred();
+            RefreshMainMenuBackgroundDropdownChoices(preserveCurrentSelection: true);
 
             // Force style recalculation
             optionsPanel?.schedule.Execute(() => {

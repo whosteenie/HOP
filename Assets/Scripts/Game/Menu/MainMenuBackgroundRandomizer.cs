@@ -11,11 +11,19 @@ namespace Game.Menu {
     /// </summary>
     [DisallowMultipleComponent]
     public class MainMenuBackgroundRandomizer : MonoBehaviour {
+        public const string RandomSelectionOption = "Random";
+
         [Serializable]
         public class MapBackgroundEntry {
             public string mapId = "Map";
             public GameObject mapGeometryRoot;
             public List<GameObject> mannequinSetups = new();
+        }
+
+        private sealed class SetupSelection {
+            public string displayName;
+            public int mapIndex;
+            public int setupIndex;
         }
 
         [Header("Registered Backgrounds")]
@@ -29,6 +37,17 @@ namespace Game.Menu {
         [SerializeField] private string lastSelectedMap;
         [SerializeField] private string lastSelectedSetup;
         private Coroutine _finalizeSelectionCoroutine;
+        private readonly List<SetupSelection> _cachedSelections = new();
+        private readonly Dictionary<string, SetupSelection> _cachedSelectionLookup = new(StringComparer.OrdinalIgnoreCase);
+        private bool _selectionCacheDirty = true;
+
+        private void Awake() {
+            _selectionCacheDirty = true;
+        }
+
+        private void OnValidate() {
+            _selectionCacheDirty = true;
+        }
 
         public void RandomizeForMainMenuEntry() {
             if(!TryGetRandomSelection(out var mapIndex, out var mannequinIndex)) {
@@ -37,6 +56,35 @@ namespace Game.Menu {
             }
 
             ActivateSelection(mapIndex, mannequinIndex);
+        }
+
+        public void ApplySelectionForMainMenuEntry(string selectionName) {
+            if(IsRandomSelection(selectionName)) {
+                RandomizeForMainMenuEntry();
+                return;
+            }
+
+            if(TryGetSelection(selectionName, out var selection)) {
+                ActivateSelection(selection.mapIndex, selection.setupIndex);
+                return;
+            }
+
+            RandomizeForMainMenuEntry();
+        }
+
+        public IReadOnlyList<string> GetAvailableSelectionNames() {
+            RebuildSelectionCacheIfNeeded();
+            var names = new List<string>(_cachedSelections.Count);
+            for(var i = 0; i < _cachedSelections.Count; i++) {
+                names.Add(_cachedSelections[i].displayName);
+            }
+
+            return names;
+        }
+
+        public static bool IsRandomSelection(string selectionName) {
+            return string.IsNullOrWhiteSpace(selectionName) ||
+                   string.Equals(selectionName, RandomSelectionOption, StringComparison.OrdinalIgnoreCase);
         }
 
         [ContextMenu("Activate Random Background")]
@@ -60,11 +108,12 @@ namespace Game.Menu {
                 mapEntry.mapGeometryRoot.SetActive(true);
             }
 
-            if(mapEntry.mannequinSetups == null || mannequinIndex < 0 || mannequinIndex >= mapEntry.mannequinSetups.Count) {
+            var resolvedSetups = GetResolvedMannequinSetups(mapEntry);
+            if(mannequinIndex < 0 || mannequinIndex >= resolvedSetups.Count) {
                 return;
             }
 
-            var selectedSetup = mapEntry.mannequinSetups[mannequinIndex];
+            var selectedSetup = resolvedSetups[mannequinIndex];
             if(selectedSetup != null) {
                 selectedSetup.SetActive(true);
             }
@@ -88,41 +137,12 @@ namespace Game.Menu {
             selectedMapIndex = -1;
             selectedMannequinIndex = -1;
 
-            if(mapEntries == null || mapEntries.Count == 0) return false;
+            RebuildSelectionCacheIfNeeded();
+            if(_cachedSelections.Count == 0) return false;
 
-            var eligibleMapIndices = new List<int>(mapEntries.Count);
-            for(var i = 0; i < mapEntries.Count; i++) {
-                var entry = mapEntries[i];
-                if(entry == null || entry.mapGeometryRoot == null || entry.mannequinSetups == null) continue;
-
-                var validCount = 0;
-                for(var j = 0; j < entry.mannequinSetups.Count; j++) {
-                    if(entry.mannequinSetups[j] != null) validCount++;
-                }
-
-                if(validCount > 0) {
-                    eligibleMapIndices.Add(i);
-                }
-            }
-
-            if(eligibleMapIndices.Count == 0) return false;
-
-            selectedMapIndex = eligibleMapIndices[UnityEngine.Random.Range(0, eligibleMapIndices.Count)];
-            var selectedEntry = mapEntries[selectedMapIndex];
-
-            var eligibleMannequinIndices = new List<int>(selectedEntry.mannequinSetups.Count);
-            for(var i = 0; i < selectedEntry.mannequinSetups.Count; i++) {
-                if(selectedEntry.mannequinSetups[i] != null) {
-                    eligibleMannequinIndices.Add(i);
-                }
-            }
-
-            if(eligibleMannequinIndices.Count == 0) {
-                selectedMapIndex = -1;
-                return false;
-            }
-
-            selectedMannequinIndex = eligibleMannequinIndices[UnityEngine.Random.Range(0, eligibleMannequinIndices.Count)];
+            var selection = _cachedSelections[UnityEngine.Random.Range(0, _cachedSelections.Count)];
+            selectedMapIndex = selection.mapIndex;
+            selectedMannequinIndex = selection.setupIndex;
             return true;
         }
 
@@ -137,9 +157,9 @@ namespace Game.Menu {
                     entry.mapGeometryRoot.SetActive(false);
                 }
 
-                if(entry.mannequinSetups == null) continue;
-                for(var j = 0; j < entry.mannequinSetups.Count; j++) {
-                    var setup = entry.mannequinSetups[j];
+                var resolvedSetups = GetResolvedMannequinSetups(entry);
+                for(var j = 0; j < resolvedSetups.Count; j++) {
+                    var setup = resolvedSetups[j];
                     if(setup != null && setup.activeSelf) {
                         setup.SetActive(false);
                     }
@@ -151,10 +171,11 @@ namespace Game.Menu {
             if(mapEntries == null) return;
             for(var i = 0; i < mapEntries.Count; i++) {
                 var entry = mapEntries[i];
-                if(entry?.mannequinSetups == null) continue;
+                if(entry == null) continue;
 
-                for(var j = 0; j < entry.mannequinSetups.Count; j++) {
-                    SetSetupCamerasEnabled(entry.mannequinSetups[j], enabled);
+                var resolvedSetups = GetResolvedMannequinSetups(entry);
+                for(var j = 0; j < resolvedSetups.Count; j++) {
+                    SetSetupCamerasEnabled(resolvedSetups[j], enabled);
                 }
             }
         }
@@ -178,6 +199,152 @@ namespace Game.Menu {
 
             if(selectedSetup == null) return;
             _finalizeSelectionCoroutine = StartCoroutine(FinalizeSelectionCoroutine(selectedSetup));
+        }
+
+        private bool TryGetSelection(string selectionName, out SetupSelection selection) {
+            selection = null;
+            RebuildSelectionCacheIfNeeded();
+
+            if(string.IsNullOrWhiteSpace(selectionName)) {
+                return false;
+            }
+
+            return _cachedSelectionLookup.TryGetValue(selectionName, out selection);
+        }
+
+        private void RebuildSelectionCacheIfNeeded() {
+            if(!_selectionCacheDirty) {
+                return;
+            }
+
+            _selectionCacheDirty = false;
+            _cachedSelections.Clear();
+            _cachedSelectionLookup.Clear();
+
+            if(mapEntries == null || mapEntries.Count == 0) {
+                return;
+            }
+
+            for(var mapIndex = 0; mapIndex < mapEntries.Count; mapIndex++) {
+                var entry = mapEntries[mapIndex];
+                if(entry == null || entry.mapGeometryRoot == null) {
+                    continue;
+                }
+
+                var resolvedSetups = GetResolvedMannequinSetups(entry);
+                for(var setupIndex = 0; setupIndex < resolvedSetups.Count; setupIndex++) {
+                    var setup = resolvedSetups[setupIndex];
+                    if(setup == null) {
+                        continue;
+                    }
+
+                    var displayName = BuildUniqueSelectionName(setup.name, entry.mapId, _cachedSelectionLookup);
+                    var selection = new SetupSelection {
+                        displayName = displayName,
+                        mapIndex = mapIndex,
+                        setupIndex = setupIndex
+                    };
+
+                    _cachedSelections.Add(selection);
+                    _cachedSelectionLookup[displayName] = selection;
+                }
+            }
+        }
+
+        private static List<GameObject> GetResolvedMannequinSetups(MapBackgroundEntry entry) {
+            var resolved = new List<GameObject>();
+            if(entry == null) {
+                return resolved;
+            }
+
+            var seen = new HashSet<int>();
+            AddSetupsFromManualList(entry.mannequinSetups, resolved, seen);
+            AddSetupsFromMannequinsContainer(entry.mapGeometryRoot, resolved, seen);
+            return resolved;
+        }
+
+        private static void AddSetupsFromManualList(List<GameObject> manualSetups, ICollection<GameObject> resolved, ISet<int> seen) {
+            if(manualSetups == null) {
+                return;
+            }
+
+            for(var i = 0; i < manualSetups.Count; i++) {
+                TryAddSetup(manualSetups[i], resolved, seen);
+            }
+        }
+
+        private static void AddSetupsFromMannequinsContainer(GameObject mapGeometryRoot, ICollection<GameObject> resolved, ISet<int> seen) {
+            if(mapGeometryRoot == null) {
+                return;
+            }
+
+            var mannequinsRoot = FindNamedChildRecursive(mapGeometryRoot.transform, "MANNEQUINS");
+            if(mannequinsRoot == null) {
+                mannequinsRoot = FindNamedChildRecursive(mapGeometryRoot.transform, "MANNEQUIN");
+            }
+
+            if(mannequinsRoot == null) {
+                return;
+            }
+
+            for(var i = 0; i < mannequinsRoot.childCount; i++) {
+                TryAddSetup(mannequinsRoot.GetChild(i).gameObject, resolved, seen);
+            }
+        }
+
+        private static Transform FindNamedChildRecursive(Transform root, string targetName) {
+            if(root == null || string.IsNullOrWhiteSpace(targetName)) {
+                return null;
+            }
+
+            if(string.Equals(root.name, targetName, StringComparison.OrdinalIgnoreCase)) {
+                return root;
+            }
+
+            for(var i = 0; i < root.childCount; i++) {
+                var found = FindNamedChildRecursive(root.GetChild(i), targetName);
+                if(found != null) {
+                    return found;
+                }
+            }
+
+            return null;
+        }
+
+        private static void TryAddSetup(GameObject setup, ICollection<GameObject> resolved, ISet<int> seen) {
+            if(setup == null || resolved == null || seen == null) {
+                return;
+            }
+
+            var id = setup.GetInstanceID();
+            if(!seen.Add(id)) {
+                return;
+            }
+
+            resolved.Add(setup);
+        }
+
+        private static string BuildUniqueSelectionName(string setupName, string mapId, IDictionary<string, SetupSelection> existing) {
+            var baseName = string.IsNullOrWhiteSpace(setupName) ? "Setup" : setupName.Trim();
+            if(!existing.ContainsKey(baseName)) {
+                return baseName;
+            }
+
+            var mapName = string.IsNullOrWhiteSpace(mapId) ? "Map" : mapId.Trim();
+            var withMapName = $"{baseName} ({mapName})";
+            if(!existing.ContainsKey(withMapName)) {
+                return withMapName;
+            }
+
+            var suffix = 2;
+            while(true) {
+                var candidate = $"{baseName} ({mapName} {suffix})";
+                if(!existing.ContainsKey(candidate)) {
+                    return candidate;
+                }
+
+                suffix++;
+            }
         }
 
         private IEnumerator FinalizeSelectionCoroutine(GameObject selectedSetup) {
@@ -219,6 +386,9 @@ namespace Game.Menu {
                 var config = mannequinConfigs[i];
                 if(config == null || !config.enabled || !config.gameObject.activeInHierarchy) continue;
                 config.ApplyNow(forceAnimationPoseRefresh: true);
+                if(Application.isPlaying) {
+                    config.RecalibrateRuntimeLookOffset();
+                }
             }
         }
     }

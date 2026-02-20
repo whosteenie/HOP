@@ -86,6 +86,7 @@ namespace Game.Player {
         [SerializeField, Range(0f, 1f)] private float shotLifecycle;
         [SerializeField, Min(0f)] private float simulatedShotSpeed = 140f;
         [SerializeField] private bool previewShotMuzzleLights = true;
+        [SerializeField, Min(0f)] private float shotMuzzleLightIntensityMultiplier = 1f;
         [SerializeField] private bool useDeterministicShotVfxSeed = true;
         [SerializeField, Min(0)] private int shotVfxSeed = 1;
         [SerializeField] private bool logShotDebug;
@@ -151,6 +152,7 @@ namespace Game.Player {
         private int _lastShotConfigHash = int.MinValue;
         private Vector3 _lastShotOriginPos = Vector3.positiveInfinity;
         private Vector3 _lastShotDirection = Vector3.positiveInfinity;
+        private readonly Dictionary<int, float> _shotMuzzleLightBaseIntensity = new();
         private readonly HashSet<int> _invalidShotWarningIds = new();
         private bool _deferredApplyQueued;
         private bool _forceAnimationPoseRefreshThisApply;
@@ -188,6 +190,7 @@ namespace Game.Player {
 
         private void OnEnable() {
             _lastLiveTrailEditorSampleTime = -1d;
+            InvalidateShotSimulationCache();
             CacheLookPitchSpineProxy();
             DestroyOrphanedShotPreviewObjects();
             if(!Application.isPlaying) {
@@ -215,6 +218,7 @@ namespace Game.Player {
             mannequinSmoothness = Mathf.Clamp01(mannequinSmoothness);
             trailColorIntensity = Mathf.Max(0f, trailColorIntensity);
             simulatedShotSpeed = Mathf.Max(0f, simulatedShotSpeed);
+            shotMuzzleLightIntensityMultiplier = Mathf.Max(0f, shotMuzzleLightIntensityMultiplier);
             shotVfxSeed = Mathf.Max(0, shotVfxSeed);
 
             fakeVelocityMagnitude = Mathf.Max(0f, fakeVelocityMagnitude);
@@ -255,6 +259,7 @@ namespace Game.Player {
             _lastLiveTrailEditorSampleTime = -1d;
             _runtimeLookProbeQueued = false;
             _nextRuntimeLookProbeAt = 0f;
+            InvalidateShotSimulationCache();
             if(animator != null) {
                 animator.speed = 1f;
             }
@@ -263,6 +268,7 @@ namespace Game.Player {
                 _lookPitchBaseTarget.localRotation = _cachedLookPitchBaseLocalRotation;
             }
             _lastAppliedLookPitchOffset = Quaternion.identity;
+            RestoreShotMuzzleLightIntensities();
             ClearShotPreviewVfxInstances();
             ClearShotPreviewTrailInstances();
         }
@@ -270,6 +276,24 @@ namespace Game.Player {
         [ContextMenu("Apply Mannequin Preview")]
         public void ApplyNow() {
             ApplyNow(forceAnimationPoseRefresh: false);
+        }
+
+        [ContextMenu("Recalibrate Runtime Look Offset")]
+        public void RecalibrateRuntimeLookOffset() {
+            if(!Application.isPlaying) return;
+
+            CacheLookPitchSpineProxy(forceRefresh: true);
+            if(_cachedLookPitchSpineProxy == null) return;
+
+            _cachedLookPitchSpineProxy.RecalculateOffsetFromCurrentPose();
+            capturedLookPitchSpineProxyOffset = _cachedLookPitchSpineProxy.GetRotationOffset();
+            hasCapturedLookPitchSpineProxyOffset = true;
+
+            _pendingLookBaseRefresh = true;
+            ApplyCapturedLookPitchSpineProxyOffsetIfAvailable();
+            ApplyLookPitch(forceRefreshBaseFromCurrentPose: true);
+            ApplyLookPitchProxyToOriginalSpine();
+            _pendingLookBaseRefresh = false;
         }
 
         [ContextMenu("Capture Spine Proxy Offset")]
@@ -1277,6 +1301,7 @@ namespace Game.Player {
                 var hash = 17;
                 hash = hash * 31 + (option != null && option.flipShotVfxYaw180 ? 1 : 0);
                 hash = hash * 31 + (previewShotMuzzleLights ? 1 : 0);
+                hash = hash * 31 + Mathf.RoundToInt(shotMuzzleLightIntensityMultiplier * 1000f);
                 hash = hash * 31 + (useDeterministicShotVfxSeed ? 1 : 0);
                 hash = hash * 31 + Mathf.Max(0, shotVfxSeed);
                 return hash;
@@ -1431,9 +1456,20 @@ namespace Game.Player {
         private void ResetShotSimulationForAllOptions() {
             ResetShotOptionArray(primaryOptions);
             ResetShotOptionArray(secondaryOptions);
+            RestoreShotMuzzleLightIntensities();
             ClearShotPreviewVfxInstances();
             ClearShotPreviewTrailInstances();
             DestroyOrphanedShotPreviewObjects();
+            InvalidateShotSimulationCache();
+        }
+
+        private void InvalidateShotSimulationCache() {
+            _lastSimulateShot = false;
+            _lastShotLifecycle = -1f;
+            _lastShotOptionId = int.MinValue;
+            _lastShotConfigHash = int.MinValue;
+            _lastShotOriginPos = Vector3.positiveInfinity;
+            _lastShotDirection = Vector3.positiveInfinity;
         }
 
         private static void ResetShotOptionArray(WeaponVisualOption[] options) {
@@ -1546,8 +1582,42 @@ namespace Game.Player {
             var shouldEnable = previewShotMuzzleLights && muzzleActive;
             foreach(var light in option.shotMuzzleLights) {
                 if(light == null) continue;
+                var baseIntensity = GetOrCacheShotMuzzleLightBaseIntensity(light);
+                light.intensity = baseIntensity * Mathf.Max(0f, shotMuzzleLightIntensityMultiplier);
                 EnsureGameObjectHierarchyActive(light.transform);
                 light.enabled = shouldEnable;
+            }
+        }
+
+        private float GetOrCacheShotMuzzleLightBaseIntensity(Light light) {
+            if(light == null) return 0f;
+            var id = light.GetInstanceID();
+            if(_shotMuzzleLightBaseIntensity.TryGetValue(id, out var cached)) {
+                return cached;
+            }
+
+            cached = light.intensity;
+            _shotMuzzleLightBaseIntensity[id] = cached;
+            return cached;
+        }
+
+        private void RestoreShotMuzzleLightIntensities() {
+            RestoreShotMuzzleLightIntensityForOptions(primaryOptions);
+            RestoreShotMuzzleLightIntensityForOptions(secondaryOptions);
+        }
+
+        private void RestoreShotMuzzleLightIntensityForOptions(WeaponVisualOption[] options) {
+            if(options == null) return;
+            foreach(var option in options) {
+                if(option?.shotMuzzleLights == null) continue;
+                foreach(var light in option.shotMuzzleLights) {
+                    if(light == null) continue;
+                    var id = light.GetInstanceID();
+                    if(_shotMuzzleLightBaseIntensity.TryGetValue(id, out var baseIntensity)) {
+                        light.intensity = baseIntensity;
+                    }
+                    light.enabled = false;
+                }
             }
         }
 

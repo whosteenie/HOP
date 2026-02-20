@@ -97,6 +97,10 @@
                         </ui:VisualElement>
                     </ui:VisualElement>
                     <ui:VisualElement name="game-content" class="options-tab-content hidden">
+                        <ui:VisualElement name="main-menu-background-container" class="setting-row">
+                            <ui:Label text="MAIN MENU BACKGROUND" name="main-menu-background-label" class="setting-label"/>
+                            <ui:DropdownField name="main-menu-background" class="setting-dropdown setting-dropdown-align-right"/>
+                        </ui:VisualElement>
                         <ui:VisualElement name="player-trails-container" class="setting-row">
                             <ui:Label text="ENABLE PLAYER SPEED TRAILS" name="player-trails-label" class="setting-label"/>
                             <ui:Button name="player-trails" class="setting-toggle"/>

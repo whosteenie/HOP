@@ -20,5 +20,5 @@ MonoBehaviour:
   useYLevelOutOfBoundsKill: 0
   useTriggerOutOfBoundsKill: 1
   supportedGamemodes:
-  - Gun Tag
   - Deathmatch
+  - Gun Tag

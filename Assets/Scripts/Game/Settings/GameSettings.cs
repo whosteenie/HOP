@@ -72,6 +72,9 @@ namespace Game.Settings {
             // Controls
             d.controls.sensitivity = Mathf.Clamp(d.controls.sensitivity, 0.01f, 5f);
             d.controls.grappleIndicator = Mathf.Clamp(d.controls.grappleIndicator, 0, 2);
+            if(string.IsNullOrWhiteSpace(d.video.mainMenuBackgroundSelection)) {
+                d.video.mainMenuBackgroundSelection = "Random";
+            }
 
             // Social
             d.social.voiceInputMode = Mathf.Clamp(d.social.voiceInputMode, 0, 1);
