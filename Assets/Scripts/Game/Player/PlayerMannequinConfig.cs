@@ -32,9 +32,11 @@ namespace Game.Player {
             [Header("Shot Simulation")]
             public bool autoFindShotVisualEffects = true;
             public bool autoFindShotTrailRenderers = true;
+            public bool autoFindShotMuzzleLights = true;
             public Transform shotOrigin;
             public VisualEffect[] shotVisualEffects = Array.Empty<VisualEffect>();
             public TrailRenderer[] shotTrailRenderers = Array.Empty<TrailRenderer>();
+            public Light[] shotMuzzleLights = Array.Empty<Light>();
             public bool flipShotVfxYaw180;
         }
 
@@ -83,6 +85,7 @@ namespace Game.Player {
         [SerializeField] private bool simulateShot;
         [SerializeField, Range(0f, 1f)] private float shotLifecycle;
         [SerializeField, Min(0f)] private float simulatedShotSpeed = 140f;
+        [SerializeField] private bool previewShotMuzzleLights = true;
         [SerializeField] private bool useDeterministicShotVfxSeed = true;
         [SerializeField, Min(0)] private int shotVfxSeed = 1;
         [SerializeField] private bool logShotDebug;
@@ -145,6 +148,7 @@ namespace Game.Player {
         private bool _lastSimulateShot;
         private float _lastShotLifecycle = -1f;
         private int _lastShotOptionId = int.MinValue;
+        private int _lastShotConfigHash = int.MinValue;
         private Vector3 _lastShotOriginPos = Vector3.positiveInfinity;
         private Vector3 _lastShotDirection = Vector3.positiveInfinity;
         private readonly HashSet<int> _invalidShotWarningIds = new();
@@ -1029,6 +1033,7 @@ namespace Game.Player {
                 _lastSimulateShot = false;
                 _lastShotLifecycle = shotLifecycle;
                 _lastShotOptionId = activeOptionId;
+                _lastShotConfigHash = int.MinValue;
                 _lastShotOriginPos = Vector3.positiveInfinity;
                 _lastShotDirection = Vector3.positiveInfinity;
                 if(logShotDebug && logShotDebugEveryApply) {
@@ -1041,6 +1046,7 @@ namespace Game.Player {
                 _lastSimulateShot = true;
                 _lastShotLifecycle = shotLifecycle;
                 _lastShotOptionId = 0;
+                _lastShotConfigHash = int.MinValue;
                 _lastShotOriginPos = Vector3.positiveInfinity;
                 _lastShotDirection = Vector3.positiveInfinity;
                 if(logShotDebug) {
@@ -1055,6 +1061,22 @@ namespace Game.Player {
             var normalizedLifecycle = Mathf.Clamp01(shotLifecycle);
             var previewOrigin = GetShotPreviewOrigin(activeOption);
             var direction = GetShotPreviewDirection(activeOption, previewOrigin, out var directionSource);
+            var shotConfigHash = GetShotConfigHash(activeOption);
+
+            var shouldResimulate = !_lastSimulateShot
+                                   || !Mathf.Approximately(_lastShotLifecycle, normalizedLifecycle)
+                                   || _lastShotOptionId != activeOptionId
+                                   || _lastShotConfigHash != shotConfigHash
+                                   || _lastShotOriginPos != previewOrigin.position
+                                   || _lastShotDirection != direction;
+            if(!shouldResimulate) {
+                if(logShotDebug && logShotDebugEveryApply) {
+                    Debug.Log(
+                        $"[PlayerMannequinConfig][ShotDebug] Skipped resimulate for '{activeOption.displayName}' (no input change).",
+                        this);
+                }
+                return;
+            }
 
             ApplyShotSimulationToOption(
                 activeOption,
@@ -1068,6 +1090,7 @@ namespace Game.Player {
             _lastSimulateShot = true;
             _lastShotLifecycle = normalizedLifecycle;
             _lastShotOptionId = activeOptionId;
+            _lastShotConfigHash = shotConfigHash;
             _lastShotOriginPos = previewOrigin.position;
             _lastShotDirection = direction;
         }
@@ -1105,6 +1128,8 @@ namespace Game.Player {
             var visualEffectCount = 0;
             var trailCount = 0;
             var skippedTrailCount = 0;
+
+            ApplyShotMuzzleLights(option, muzzleActive);
 
             if(option.shotVisualEffects != null) {
                 foreach(var vfx in option.shotVisualEffects) {
@@ -1237,8 +1262,6 @@ namespace Game.Player {
                 }
             }
 
-            // Ensure scene view updates VFX output even when not actively selected.
-            vfx.AdvanceOneFrame();
             vfx.pause = true;
         }
 
@@ -1247,6 +1270,17 @@ namespace Game.Player {
             vfx.Stop();
             vfx.Reinit();
             vfx.pause = false;
+        }
+
+        private int GetShotConfigHash(WeaponVisualOption option) {
+            unchecked {
+                var hash = 17;
+                hash = hash * 31 + (option != null && option.flipShotVfxYaw180 ? 1 : 0);
+                hash = hash * 31 + (previewShotMuzzleLights ? 1 : 0);
+                hash = hash * 31 + (useDeterministicShotVfxSeed ? 1 : 0);
+                hash = hash * 31 + Mathf.Max(0, shotVfxSeed);
+                return hash;
+            }
         }
 
         private static void AlignShotVisualEffectToOrigin(VisualEffect vfx, Transform origin, bool flipYaw180) {
@@ -1407,6 +1441,13 @@ namespace Game.Player {
             foreach(var option in options) {
                 if(option == null) continue;
 
+                if(option.shotMuzzleLights != null) {
+                    foreach(var light in option.shotMuzzleLights) {
+                        if(light == null) continue;
+                        light.enabled = false;
+                    }
+                }
+
                 if(option.shotVisualEffects != null) {
                     foreach(var vfx in option.shotVisualEffects) {
                         if(vfx == null) continue;
@@ -1480,6 +1521,33 @@ namespace Game.Player {
             if(option.autoFindShotTrailRenderers &&
                (option.shotTrailRenderers == null || option.shotTrailRenderers.Length == 0)) {
                 option.shotTrailRenderers = option.handObject.GetComponentsInChildren<TrailRenderer>(true);
+            }
+
+            if(option.autoFindShotMuzzleLights &&
+               (option.shotMuzzleLights == null || option.shotMuzzleLights.Length == 0)) {
+                var lights = option.handObject.GetComponentsInChildren<Light>(true);
+                if(lights is { Length: > 0 }) {
+                    var muzzleLights = new List<Light>(lights.Length);
+                    foreach(var light in lights) {
+                        if(light == null) continue;
+                        if(!light.name.Contains("MuzzleLight", StringComparison.OrdinalIgnoreCase)) continue;
+                        muzzleLights.Add(light);
+                    }
+
+                    if(muzzleLights.Count > 0) {
+                        option.shotMuzzleLights = muzzleLights.ToArray();
+                    }
+                }
+            }
+        }
+
+        private void ApplyShotMuzzleLights(WeaponVisualOption option, bool muzzleActive) {
+            if(option == null || option.shotMuzzleLights == null) return;
+            var shouldEnable = previewShotMuzzleLights && muzzleActive;
+            foreach(var light in option.shotMuzzleLights) {
+                if(light == null) continue;
+                EnsureGameObjectHierarchyActive(light.transform);
+                light.enabled = shouldEnable;
             }
         }
 
