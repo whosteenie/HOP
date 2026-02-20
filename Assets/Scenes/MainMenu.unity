@@ -91851,7 +91851,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 1375371432901491670, guid: 34d0e8e9aa0eca94b904fe4df3c9f09a, type: 3}
       propertyPath: simulationSpeed
-      value: 0.42000002
+      value: 0.609375
       objectReference: {fileID: 0}
     - target: {fileID: 1375371432901491670, guid: 34d0e8e9aa0eca94b904fe4df3c9f09a, type: 3}
       propertyPath: ShapeModule.m_Scale.y
@@ -91859,15 +91859,15 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 1375371432901491670, guid: 34d0e8e9aa0eca94b904fe4df3c9f09a, type: 3}
       propertyPath: VelocityModule.x.scalar
-      value: -9.874138
+      value: -12.342672
       objectReference: {fileID: 0}
     - target: {fileID: 1375371432901491670, guid: 34d0e8e9aa0eca94b904fe4df3c9f09a, type: 3}
       propertyPath: VelocityModule.y.scalar
-      value: 1.5815808
+      value: 1.976976
       objectReference: {fileID: 0}
     - target: {fileID: 1375371432901491670, guid: 34d0e8e9aa0eca94b904fe4df3c9f09a, type: 3}
       propertyPath: VelocityModule.z.scalar
-      value: -0.0000014062973
+      value: -0.0000017578717
       objectReference: {fileID: 0}
     - target: {fileID: 1375371432901491670, guid: 34d0e8e9aa0eca94b904fe4df3c9f09a, type: 3}
       propertyPath: ShapeModule.m_Position.x
@@ -91883,7 +91883,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 1375371432901491670, guid: 34d0e8e9aa0eca94b904fe4df3c9f09a, type: 3}
       propertyPath: EmissionModule.rateOverTime.scalar
-      value: 20
+      value: 31.25
       objectReference: {fileID: 0}
     - target: {fileID: 1375371432901491670, guid: 34d0e8e9aa0eca94b904fe4df3c9f09a, type: 3}
       propertyPath: InitialModule.startColor.maxColor.b
@@ -91899,7 +91899,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 1375371432901491670, guid: 34d0e8e9aa0eca94b904fe4df3c9f09a, type: 3}
       propertyPath: EmissionModule.rateOverDistance.scalar
-      value: 20
+      value: 31.25
       objectReference: {fileID: 0}
     - target: {fileID: 1508734390304166297, guid: 34d0e8e9aa0eca94b904fe4df3c9f09a, type: 3}
       propertyPath: m_LocalRotation.w
@@ -92327,7 +92327,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6046470143210218697, guid: 34d0e8e9aa0eca94b904fe4df3c9f09a, type: 3}
       propertyPath: m_Intensity
-      value: 2.76
+      value: 1.21
       objectReference: {fileID: 0}
     - target: {fileID: 6108651412815591589, guid: 34d0e8e9aa0eca94b904fe4df3c9f09a, type: 3}
       propertyPath: m_LocalRotation.w
@@ -92386,6 +92386,10 @@ PrefabInstance:
       value: 0.060155462
       objectReference: {fileID: 0}
     - target: {fileID: 6299755813738252612, guid: 34d0e8e9aa0eca94b904fe4df3c9f09a, type: 3}
+      propertyPath: shotVfxSeed
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 6299755813738252612, guid: 34d0e8e9aa0eca94b904fe4df3c9f09a, type: 3}
       propertyPath: logLookDebug
       value: 0
       objectReference: {fileID: 0}
@@ -92403,7 +92407,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6299755813738252612, guid: 34d0e8e9aa0eca94b904fe4df3c9f09a, type: 3}
       propertyPath: shotLifecycle
-      value: 0.096
+      value: 0.094
       objectReference: {fileID: 0}
     - target: {fileID: 6299755813738252612, guid: 34d0e8e9aa0eca94b904fe4df3c9f09a, type: 3}
       propertyPath: handWeaponSlot
@@ -92460,6 +92464,10 @@ PrefabInstance:
     - target: {fileID: 6299755813738252612, guid: 34d0e8e9aa0eca94b904fe4df3c9f09a, type: 3}
       propertyPath: trailTailEmissionBoost
       value: 100
+      objectReference: {fileID: 0}
+    - target: {fileID: 6299755813738252612, guid: 34d0e8e9aa0eca94b904fe4df3c9f09a, type: 3}
+      propertyPath: trailVelocityMultiplier
+      value: 1.25
       objectReference: {fileID: 0}
     - target: {fileID: 6299755813738252612, guid: 34d0e8e9aa0eca94b904fe4df3c9f09a, type: 3}
       propertyPath: fakeVelocityPitchDegrees
