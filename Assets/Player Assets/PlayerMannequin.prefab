@@ -806,88 +806,66 @@ MonoBehaviour:
   - displayName: AK74
     handObject: {fileID: 3275018449593974115}
     backObject: {fileID: 1209378989091722977}
-    autoFindShotParticleSystems: 1
     autoFindShotVisualEffects: 1
     autoFindShotTrailRenderers: 1
     shotOrigin: {fileID: 1940704224748425911}
-    simulatedShotSpeed: 140
-    shotParticleSystems:
-    - {fileID: 0}
     shotVisualEffects:
     - {fileID: 5766632380084828370, guid: d13b2bf13a0548a4aa9c2cd249a35a04, type: 3}
     shotTrailRenderers: []
-    projectileVisual: {fileID: 3928528860053484037, guid: 4b92d630cd66e7a45a83060b816bdbbe, type: 3}
   - displayName: Bennelli_M4
     handObject: {fileID: 6066161862123573118}
     backObject: {fileID: 1732975997039103502}
-    autoFindShotParticleSystems: 1
     autoFindShotVisualEffects: 1
     autoFindShotTrailRenderers: 1
     shotOrigin: {fileID: 4691133669556379405}
-    simulatedShotSpeed: 140
-    shotParticleSystems: []
     shotVisualEffects:
     - {fileID: 5766632380084828370, guid: d13b2bf13a0548a4aa9c2cd249a35a04, type: 3}
     shotTrailRenderers: []
-    projectileVisual: {fileID: 3928528860053484037, guid: 4b92d630cd66e7a45a83060b816bdbbe, type: 3}
   - displayName: M107
     handObject: {fileID: 5487734679600676854}
     backObject: {fileID: 2291339240585076860}
-    autoFindShotParticleSystems: 1
     autoFindShotVisualEffects: 1
     autoFindShotTrailRenderers: 1
     shotOrigin: {fileID: 4810972752552328082}
-    simulatedShotSpeed: 140
-    shotParticleSystems: []
     shotVisualEffects:
     - {fileID: 5766632380084828370, guid: d13b2bf13a0548a4aa9c2cd249a35a04, type: 3}
     shotTrailRenderers: []
-    projectileVisual: {fileID: 3928528860053484037, guid: 4b92d630cd66e7a45a83060b816bdbbe, type: 3}
   secondaryOptions:
   - displayName: M1911
     handObject: {fileID: 364756482964129253}
     backObject: {fileID: 9013589837305803728}
-    autoFindShotParticleSystems: 1
     autoFindShotVisualEffects: 1
     autoFindShotTrailRenderers: 1
     shotOrigin: {fileID: 4907392590547879092}
-    simulatedShotSpeed: 140
-    shotParticleSystems: []
     shotVisualEffects:
     - {fileID: 5766632380084828370, guid: d13b2bf13a0548a4aa9c2cd249a35a04, type: 3}
     shotTrailRenderers: []
-    projectileVisual: {fileID: 3928528860053484037, guid: 4b92d630cd66e7a45a83060b816bdbbe, type: 3}
   - displayName: Deagle
     handObject: {fileID: 7867672845071089589}
     backObject: {fileID: 8601553109311469014}
-    autoFindShotParticleSystems: 1
     autoFindShotVisualEffects: 1
     autoFindShotTrailRenderers: 1
     shotOrigin: {fileID: 2784442266242808313}
-    simulatedShotSpeed: 140
-    shotParticleSystems: []
     shotVisualEffects:
     - {fileID: 5766632380084828370, guid: d13b2bf13a0548a4aa9c2cd249a35a04, type: 3}
     shotTrailRenderers: []
-    projectileVisual: {fileID: 3928528860053484037, guid: 4b92d630cd66e7a45a83060b816bdbbe, type: 3}
   - displayName: Uzi
     handObject: {fileID: 3271320880045919218}
     backObject: {fileID: 8672348921590810938}
-    autoFindShotParticleSystems: 1
     autoFindShotVisualEffects: 1
     autoFindShotTrailRenderers: 1
     shotOrigin: {fileID: 5198919758592622760}
-    simulatedShotSpeed: 140
-    shotParticleSystems: []
     shotVisualEffects:
     - {fileID: 5766632380084828370, guid: d13b2bf13a0548a4aa9c2cd249a35a04, type: 3}
     shotTrailRenderers: []
-    projectileVisual: {fileID: 3928528860053484037, guid: 4b92d630cd66e7a45a83060b816bdbbe, type: 3}
   selectedPrimaryIndex: 0
   selectedSecondaryIndex: 1
   handWeaponSlot: 0
   simulateShot: 0
-  shotLifetime: 0
+  shotLifecycle: 0
+  simulatedShotSpeed: 140
+  logShotDebug: 0
+  logShotDebugEveryApply: 0
   previewTrail: 1
   trailSystems:
   - {fileID: 296567415185931718}
@@ -4223,6 +4201,10 @@ PrefabInstance:
       value: 14
       objectReference: {fileID: 0}
     - target: {fileID: 4895435206201384678, guid: 7fe442e36a3186d41a831339382b770c, type: 3}
+      propertyPath: TrailModule.ratio
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 4895435206201384678, guid: 7fe442e36a3186d41a831339382b770c, type: 3}
       propertyPath: moveWithTransform
       value: 1
       objectReference: {fileID: 0}
@@ -4261,6 +4243,14 @@ PrefabInstance:
     - target: {fileID: 4895435206201384678, guid: 7fe442e36a3186d41a831339382b770c, type: 3}
       propertyPath: VelocityModule.inWorldSpace
       value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 4895435206201384678, guid: 7fe442e36a3186d41a831339382b770c, type: 3}
+      propertyPath: TrailModule.sizeAffectsWidth
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4895435206201384678, guid: 7fe442e36a3186d41a831339382b770c, type: 3}
+      propertyPath: TrailModule.sizeAffectsLifetime
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 4895435206201384678, guid: 7fe442e36a3186d41a831339382b770c, type: 3}
       propertyPath: ShapeModule.m_SkinnedMeshRenderer
@@ -4363,9 +4353,17 @@ PrefabInstance:
       value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 6361411546302137024, guid: 7fe442e36a3186d41a831339382b770c, type: 3}
+      propertyPath: m_MaxParticleSize
+      value: 0.48
+      objectReference: {fileID: 0}
+    - target: {fileID: 6361411546302137024, guid: 7fe442e36a3186d41a831339382b770c, type: 3}
+      propertyPath: m_MinParticleSize
+      value: 0.14
+      objectReference: {fileID: 0}
+    - target: {fileID: 6361411546302137024, guid: 7fe442e36a3186d41a831339382b770c, type: 3}
       propertyPath: 'm_Materials.Array.data[0]'
       value: 
-      objectReference: {fileID: 2100000, guid: 1c76f4645cf3d7a4a8ea6f29f557d6de, type: 2}
+      objectReference: {fileID: 2100000, guid: 1a8cedef56fc5b7438727361909f65f8, type: 2}
     - target: {fileID: 6361411546302137024, guid: 7fe442e36a3186d41a831339382b770c, type: 3}
       propertyPath: 'm_Materials.Array.data[1]'
       value: 
