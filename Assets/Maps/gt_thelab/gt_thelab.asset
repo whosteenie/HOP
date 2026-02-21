@@ -16,7 +16,7 @@ MonoBehaviour:
   sceneName: gt_thelab
   enabledInRotation: 1
   selectionWeight: 1
-  previewImage: {fileID: 0}
+  previewImage: {fileID: 21300000, guid: d5f358175c06562468fae6d997bad85e, type: 3}
   useYLevelOutOfBoundsKill: 1
   useTriggerOutOfBoundsKill: 0
   supportedGamemodes:
