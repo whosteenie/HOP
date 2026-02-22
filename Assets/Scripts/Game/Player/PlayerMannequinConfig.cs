@@ -401,6 +401,14 @@ namespace Game.Player {
 
                 var main = system.main;
                 main.startColor = new ParticleSystem.MinMaxGradient(tint);
+
+                var trails = system.trails;
+                if(trails.enabled) {
+                    // Keep ribbon/trail segments in sync with mannequin tint at runtime.
+                    var gradient = new ParticleSystem.MinMaxGradient(tint);
+                    trails.colorOverLifetime = gradient;
+                    trails.colorOverTrail = gradient;
+                }
             }
         }
 
@@ -425,6 +433,12 @@ namespace Game.Player {
                 for(var i = 0; i < sharedMaterials.Length; i++) {
                     ApplyTrailMaterialPropertyBlock(renderer, sharedMaterials[i], i, tint);
                 }
+
+                // TrailModule can render with trailMaterial, which is not always represented in sharedMaterials.
+                // Apply the same tint without an explicit material index as a fallback for that path.
+                if(renderer.trailMaterial != null) {
+                    ApplyTrailMaterialPropertyBlock(renderer, renderer.trailMaterial, -1, tint);
+                }
             }
         }
 
@@ -445,7 +459,11 @@ namespace Game.Player {
             wroteAny |= TrySetColorProperty(material, _trailMaterialPropertyBlock, EmissionColorId, tint);
             if(!wroteAny) return;
 
-            renderer.SetPropertyBlock(_trailMaterialPropertyBlock, materialIndex);
+            if(materialIndex >= 0) {
+                renderer.SetPropertyBlock(_trailMaterialPropertyBlock, materialIndex);
+            } else {
+                renderer.SetPropertyBlock(_trailMaterialPropertyBlock);
+            }
         }
 
 #if UNITY_EDITOR
