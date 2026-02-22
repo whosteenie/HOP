@@ -1870,7 +1870,10 @@ namespace Game.Menu {
 
             ApplySettingsInternal();
             if(mainMenuBackgroundSelectionChanged && _mainMenuBackgroundDropdown != null) {
-                ApplyMainMenuBackgroundSelectionPreview(_mainMenuBackgroundDropdown.value);
+                var selection = NormalizeMainMenuBackgroundSelection(_mainMenuBackgroundDropdown.value);
+                if(!MainMenuBackgroundRandomizer.IsRandomSelection(selection)) {
+                    ApplyMainMenuBackgroundSelectionPreview(selection);
+                }
             }
 
             // Update original values
