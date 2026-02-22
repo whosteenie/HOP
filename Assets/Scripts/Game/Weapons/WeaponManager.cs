@@ -571,6 +571,35 @@ namespace Game.Weapons {
             }
         }
 
+        /// <summary>
+        /// Drains ammo for the currently equipped weapon for this player.
+        /// Server-authoritative: updates server validation ammo and syncs owner's FP/HUD state.
+        /// </summary>
+        public void DrainCurrentWeaponAmmoForTag() {
+            if(!IsServer) return;
+            if(CurrentWeaponIndex < 0 || CurrentWeaponIndex >= weaponDataList.Count) return;
+
+            var data = weaponDataList[CurrentWeaponIndex];
+            if(data == null) return;
+
+            _weaponAmmo[CurrentWeaponIndex] = 0;
+            UpdateServerAmmo(CurrentWeaponIndex, 0);
+            ApplyDrainedAmmoOwnerClientRpc(CurrentWeaponIndex, 0, data.magSize);
+        }
+
+        [Rpc(SendTo.Owner)]
+        private void ApplyDrainedAmmoOwnerClientRpc(int weaponIndex, int ammo, int magSize) {
+            _weaponAmmo[weaponIndex] = Mathf.Max(0, ammo);
+
+            if(CurrentWeapon != null && CurrentWeaponIndex == weaponIndex) {
+                CurrentWeapon.currentAmmo = Mathf.Max(0, ammo);
+            }
+
+            if(IsOwner && HUDManager.Instance != null && CurrentWeaponIndex == weaponIndex) {
+                EventBus.Publish(new UpdateAmmoEvent(Mathf.Max(0, ammo), Mathf.Max(0, magSize)));
+            }
+        }
+
         public int GetPrimarySelectionIndex() {
             if(playerController == null || primaryWeaponOptions == null || primaryWeaponOptions.Count == 0) {
                 return 0;

@@ -133,6 +133,12 @@ namespace Game.Player {
             if(wasTagged) return;
             isTagged.Value = true;
 
+            // Gun Tag rule: tagged player loses ammo in their currently equipped weapon.
+            // This is applied only to the newly tagged player and syncs owner HUD via WeaponManager.
+            if(playerController != null && playerController.WeaponManager != null) {
+                playerController.WeaponManager.DrainCurrentWeaponAmmoForTag();
+            }
+
             if(Time.time - lastTagStatsUpdateTime >= TagStatsUpdateInterval) {
                 tagged.Value++;
                 lastTagStatsUpdateTime = Time.time;
