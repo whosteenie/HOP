@@ -17,9 +17,9 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Maps/gt_homage/gt_homage.unity
     guid: 6d9f71a96fa40a34bb1092ae399d13c5
-  - enabled: 0
-    path: Assets/Maps/tm_pnw/tm_pnw.unity
-    guid: d502ac1e3c9e76540bfdd99ecd38d1e0
+  - enabled: 1
+    path: Assets/Maps/gt_thelab/gt_thelab.unity
+    guid: 691387f92cf39b748b641ff584d9003e
   m_configObjects:
     com.unity.dt.app-ui: {fileID: 11400000, guid: 1b1c20d82303e4b5781c3ef50ac1449f, type: 2}
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
