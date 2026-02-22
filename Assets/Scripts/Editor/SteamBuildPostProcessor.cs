@@ -1,7 +1,5 @@
 using UnityEditor;
 using UnityEditor.Callbacks;
-using UnityEditor.Build;
-using UnityEditor.Build.Reporting;
 using System.IO;
 using System.Text.RegularExpressions;
 using UnityEngine;
@@ -12,10 +10,7 @@ namespace Game.Editor {
     /// </summary>
     public static class SteamBuildPostProcessor {
         [PostProcessBuild]
-        public static void OnPostProcessBuild(BuildReport report) {
-            var target = report.summary.platform;
-            var pathToBuiltProject = report.summary.outputPath;
-
+        public static void OnPostProcessBuild(BuildTarget target, string pathToBuiltProject) {
             // Only handle Windows builds for now as Steam integration is primary on Windows
             if (target != BuildTarget.StandaloneWindows && target != BuildTarget.StandaloneWindows64) {
                 return;
@@ -27,7 +22,7 @@ namespace Game.Editor {
 
             // For local/non-Steam launches, Steamworks requires steam_appid.txt to resolve an AppID.
             // We only generate this for Development builds (so we don't accidentally ship it).
-            TryCreateSteamAppIdFileForDevelopmentBuild(report, buildDir);
+            TryCreateSteamAppIdFileForDevelopmentBuild(buildDir);
 
             // Copy Steam runtime DLL(s).
             // Steam does NOT provide steam_api(64).dll for you at runtime; it must be shipped with your build content.
@@ -35,12 +30,9 @@ namespace Game.Editor {
             CopySteamRuntimeDlls(target, pathToBuiltProject, buildDir);
         }
 
-        private static void TryCreateSteamAppIdFileForDevelopmentBuild(BuildReport report, string buildDir) {
-            if(report == null) return;
-
-            // Note: This is the correct place to check dev-vs-release for an Editor-only script.
-            // Preprocessor defines like DEVELOPMENT_BUILD apply to the player, not the Editor assembly.
-            bool isDevelopmentBuild = (report.summary.options & BuildOptions.Development) == BuildOptions.Development;
+        private static void TryCreateSteamAppIdFileForDevelopmentBuild(string buildDir) {
+            // In legacy PostProcessBuild callbacks, BuildReport is unavailable; use editor build setting.
+            bool isDevelopmentBuild = EditorUserBuildSettings.development;
             if(!isDevelopmentBuild) return;
 
             const uint defaultTestingAppId = 480;

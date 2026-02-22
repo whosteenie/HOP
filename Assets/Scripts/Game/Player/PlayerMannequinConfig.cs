@@ -165,10 +165,8 @@ namespace Game.Player {
         private float _nextRuntimeLookProbeAt;
         private MaterialPropertyBlock _mannequinPropertyBlock;
         private MaterialPropertyBlock _trailMaterialPropertyBlock;
-#if UNITY_EDITOR
         private readonly Dictionary<int, VisualEffect> _shotVfxPreviewInstances = new();
         private readonly Dictionary<int, TrailRenderer> _shotTrailPreviewInstances = new();
-#endif
 
         private const float RuntimeLookProbeInterval = 0.25f;
         private const float RuntimeLookProbeErrorThresholdDeg = 0.1f;
@@ -1330,9 +1328,8 @@ namespace Game.Player {
         private VisualEffect ResolveShotVisualEffectForPreview(VisualEffect assignedVfx) {
             if(assignedVfx == null) return null;
             if(assignedVfx.gameObject == null) return null;
-#if UNITY_EDITOR
-            var persistentAssigned = EditorUtility.IsPersistent(assignedVfx) || EditorUtility.IsPersistent(assignedVfx.gameObject);
-            if(persistentAssigned) {
+            var shouldUsePreviewClone = ShouldUsePreviewClone(assignedVfx);
+            if(shouldUsePreviewClone) {
                 var sourceId = assignedVfx.GetInstanceID();
                 if(_shotVfxPreviewInstances.TryGetValue(sourceId, out var existing) && existing != null) {
                     return existing;
@@ -1360,7 +1357,6 @@ namespace Game.Player {
                 _shotVfxPreviewInstances[sourceId] = previewVfx;
                 return previewVfx;
             }
-#endif
 
             return assignedVfx;
         }
@@ -1368,9 +1364,8 @@ namespace Game.Player {
         private TrailRenderer ResolveShotTrailForPreview(TrailRenderer assignedTrail) {
             if(assignedTrail == null) return null;
             if(assignedTrail.gameObject == null) return null;
-#if UNITY_EDITOR
-            var persistentAssigned = EditorUtility.IsPersistent(assignedTrail) || EditorUtility.IsPersistent(assignedTrail.gameObject);
-            if(persistentAssigned) {
+            var shouldUsePreviewClone = ShouldUsePreviewClone(assignedTrail);
+            if(shouldUsePreviewClone) {
                 var sourceId = assignedTrail.GetInstanceID();
                 if(_shotTrailPreviewInstances.TryGetValue(sourceId, out var existing) && existing != null) {
                     return existing;
@@ -1398,9 +1393,21 @@ namespace Game.Player {
                 _shotTrailPreviewInstances[sourceId] = previewTrail;
                 return previewTrail;
             }
-#endif
 
             return assignedTrail;
+        }
+
+        private static bool ShouldUsePreviewClone(Component source) {
+            if(source == null || source.gameObject == null) return false;
+
+#if UNITY_EDITOR
+            if(EditorUtility.IsPersistent(source) || EditorUtility.IsPersistent(source.gameObject)) {
+                return true;
+            }
+#endif
+            // Runtime-safe fallback: prefab/asset references are not part of a loaded scene.
+            var scene = source.gameObject.scene;
+            return !scene.IsValid() || !scene.isLoaded;
         }
 
         private static void ApplyPreviewHideFlags(GameObject previewObject) {
@@ -1418,7 +1425,6 @@ namespace Game.Player {
         }
 
         private void ClearShotPreviewVfxInstances() {
-#if UNITY_EDITOR
             if(_shotVfxPreviewInstances.Count == 0) return;
             foreach(var kvp in _shotVfxPreviewInstances) {
                 var previewVfx = kvp.Value;
@@ -1432,11 +1438,9 @@ namespace Game.Player {
                 }
             }
             _shotVfxPreviewInstances.Clear();
-#endif
         }
 
         private void ClearShotPreviewTrailInstances() {
-#if UNITY_EDITOR
             if(_shotTrailPreviewInstances.Count == 0) return;
             foreach(var kvp in _shotTrailPreviewInstances) {
                 var previewTrail = kvp.Value;
@@ -1450,7 +1454,6 @@ namespace Game.Player {
                 }
             }
             _shotTrailPreviewInstances.Clear();
-#endif
         }
 
         private void ResetShotSimulationForAllOptions() {
@@ -1513,7 +1516,6 @@ namespace Game.Player {
         }
 
         private void DestroyOrphanedShotPreviewObjects() {
-#if UNITY_EDITOR
             var toDestroy = new List<GameObject>();
             var allTransforms = GetComponentsInChildren<Transform>(true);
             foreach(var t in allTransforms) {
@@ -1532,7 +1534,6 @@ namespace Game.Player {
                     DestroyImmediate(go);
                 }
             }
-#endif
         }
 
         private WeaponVisualOption GetActiveHandWeaponOption() {
