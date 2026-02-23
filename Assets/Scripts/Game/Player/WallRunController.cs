@@ -287,7 +287,7 @@ namespace Game.Player {
         private void MaintainWallRunFlat() {
             var towardWall = WallNormal.sqrMagnitude > 0.0001f 
                 ? -WallNormal.normalized 
-                : (IsWallLeft ? -transform.right : transform.right);
+                : IsWallLeft ? -transform.right : transform.right;
             
             if(!Physics.Raycast(transform.position, towardWall, out var hit, wallDistanceCheck, wallLayer)) {
                 _stopReason = "flat_no_hit";
@@ -387,7 +387,7 @@ namespace Game.Player {
             var over = Mathf.Max(0f, distToSurface - curvedStickTargetDistance);
             var speed = _currentWallRunSpeed;
             var r = Mathf.Max(0.01f, _curvedSurface.WorldRadius);
-            var centripetal = (speed * speed / r) * Mathf.Max(0f, curvedStickCentripetalScale);
+            var centripetal = speed * speed / r * Mathf.Max(0f, curvedStickCentripetalScale);
             var stickMag = over * curvedStickStrength + centripetal;
             // Logs showed stickMag 160–220 m/s with speed 31–36 → inward dominated and felt like stuck/jitter. Cap to fraction of tangent speed.
             stickMag = Mathf.Min(stickMag, speed * 1.5f);
@@ -461,7 +461,7 @@ namespace Game.Player {
 
             // Combined jump force: add forward momentum from wall run
             var forwardVelocity = GetWallRunVelocity(transform.forward);
-            var jumpVelocity = (WallNormal * wallJumpSideForce) + (Vector3.up * wallJumpUpForce) + forwardVelocity;
+            var jumpVelocity = WallNormal * wallJumpSideForce + Vector3.up * wallJumpUpForce + forwardVelocity;
 
             // Apply to movement controller
             if(_movementController == null) return;

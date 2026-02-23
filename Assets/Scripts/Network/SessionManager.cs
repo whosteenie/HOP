@@ -72,7 +72,7 @@ namespace Network {
         }
 
         public string SelectedMapId { get; private set; }
-        public string SelectedMapSceneName { get; private set; }
+        private string SelectedMapSceneName { get; set; }
         public string CurrentPartyId { get; private set; }
         private bool IsPartyLeader { get; set; }
 

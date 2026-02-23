@@ -38,8 +38,8 @@ namespace Game.Match {
                 return true;
             }
 
-            for(var i = 0; i < supportedGamemodes.Count; i++) {
-                if(string.Equals(supportedGamemodes[i], gamemodeId, System.StringComparison.OrdinalIgnoreCase)) {
+            foreach(var t in supportedGamemodes) {
+                if(string.Equals(t, gamemodeId, System.StringComparison.OrdinalIgnoreCase)) {
                     return true;
                 }
             }

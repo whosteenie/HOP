@@ -277,7 +277,7 @@ namespace Game.Player {
                 }
             }
 
-            if(!IsPausedOrDead && (jumpPressed || scrollPressed) && (MantleController != null && MantleController.CanJump)) {
+            if(!IsPausedOrDead && (jumpPressed || scrollPressed) && MantleController != null && MantleController.CanJump) {
                 // Check if hold-to-mantle is enabled
                 var controls = GameSettings.Data.controls;
                 var holdMantleEnabled = controls == null || controls.holdMantle;
@@ -327,14 +327,13 @@ namespace Game.Player {
             }
             
             // Handle right-click to unlock mouse when scoreboard is open
-            if(ScoreboardManager.Instance != null && ScoreboardManager.Instance.IsScoreboardVisible) {
-                if(Mouse.current != null && Mouse.current.rightButton.wasPressedThisFrame && Cursor.lockState == CursorLockMode.Locked) {
-                    Cursor.lockState = CursorLockMode.None;
-                    Cursor.visible = true;
-                    if(PlayerController.LocalPlayer != null) {
-                        PlayerController.LocalPlayer.LockLook = true;
-                    }
-                }
+            if(ScoreboardManager.Instance == null || !ScoreboardManager.Instance.IsScoreboardVisible) return;
+            if(Mouse.current == null || !Mouse.current.rightButton.wasPressedThisFrame ||
+               Cursor.lockState != CursorLockMode.Locked) return;
+            Cursor.lockState = CursorLockMode.None;
+            Cursor.visible = true;
+            if(PlayerController.LocalPlayer != null) {
+                PlayerController.LocalPlayer.LockLook = true;
             }
 
         }
@@ -438,12 +437,11 @@ namespace Game.Player {
             var isMantling = MantleController != null && MantleController.IsMantling;
             if(isMantling) return;
 
-            if(GrappleController != null) {
-                if(GrappleController.IsGrappling) {
-                    GrappleController.CancelGrapple();
-                } else {
-                    GrappleController.TryGrapple();
-                }
+            if(GrappleController == null) return;
+            if(GrappleController.IsGrappling) {
+                GrappleController.CancelGrapple();
+            } else {
+                GrappleController.TryGrapple();
             }
         }
 
@@ -456,10 +454,9 @@ namespace Game.Player {
             if(isMantling) return;
             if(playerController != null && playerController.IsHoldingHopball) return;
 
-            if(CurrentWeapon != null) {
-                if(CurrentWeapon.TryAutoReloadFromEmptyClick()) return;
-                CurrentWeapon.Shoot();
-            }
+            if(CurrentWeapon == null) return;
+            if(CurrentWeapon.TryAutoReloadFromEmptyClick()) return;
+            CurrentWeapon.Shoot();
         }
 
         /// <summary>
@@ -645,10 +642,9 @@ namespace Game.Player {
             if(WeaponManager == null) return;
             var weaponData = WeaponManager.GetWeaponDataByIndex(WeaponManager.CurrentWeaponIndex);
             var fireMode = weaponData != null ? weaponData.fireModeType : WeaponData.FireModeType.Semi;
-            if(CurrentWeapon != null && fireMode == WeaponData.FireModeType.Semi) {
-                if(CurrentWeapon.TryAutoReloadFromEmptyClick()) return;
-                CurrentWeapon.Shoot();
-            }
+            if(CurrentWeapon == null || fireMode != WeaponData.FireModeType.Semi) return;
+            if(CurrentWeapon.TryAutoReloadFromEmptyClick()) return;
+            CurrentWeapon.Shoot();
         }
 
         [UsedImplicitly]
@@ -832,9 +828,9 @@ namespace Game.Player {
 
         private Vector3? _cachedFpWeaponPosition;
         private Vector3? _cachedFpWeaponRotation;
-        [SerializeField] private Vector3 sniperScopedWeaponPosition = new Vector3(0f, -0.05f, 0.15f);
+        [SerializeField] private Vector3 sniperScopedWeaponPosition = new(0f, -0.05f, 0.15f);
         [SerializeField] private Vector3 sniperScopedWeaponRotation = Vector3.zero;
-        [SerializeField] private Vector3 sniperMuzzleCameraOffset = new Vector3(0f, -0.05f, 0.15f);
+        [SerializeField] private Vector3 sniperMuzzleCameraOffset = new(0f, -0.05f, 0.15f);
         private float _sniperSensitivityMultiplier = 1f;
 
         public Vector3 SniperMuzzleCameraOffset => sniperMuzzleCameraOffset;

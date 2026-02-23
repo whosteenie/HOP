@@ -8,11 +8,8 @@ using Network;
 using Network.Services;
 using Network.Steam;
 using Steamworks;
-using Steamworks.Data;
 using UnityEngine;
 using UnityEngine.UIElements;
-using Lobby = Steamworks.Data.Lobby;
-using Cysharp.Threading.Tasks;
 
 namespace Game.Menu {
     /// <summary>
@@ -308,12 +305,11 @@ namespace Game.Menu {
             UISoundService.RegisterButtonHover(_startButton);
             RegisterCleanup(() => UISoundService.UnregisterButtonHover(_startButton));
 
-            if(_backButton != null) {
-                _backButton.clicked += OnBackClicked;
-                RegisterCleanup(() => _backButton.clicked -= OnBackClicked);
-                UISoundService.RegisterButtonHover(_backButton);
-                RegisterCleanup(() => UISoundService.UnregisterButtonHover(_backButton));
-            }
+            if(_backButton == null) return;
+            _backButton.clicked += OnBackClicked;
+            RegisterCleanup(() => _backButton.clicked -= OnBackClicked);
+            UISoundService.RegisterButtonHover(_backButton);
+            RegisterCleanup(() => UISoundService.UnregisterButtonHover(_backButton));
         }
 
         /// <summary>
@@ -325,8 +321,8 @@ namespace Game.Menu {
 
             EventCallback<InputEvent> inputHandler = evt => {
                 if(string.IsNullOrEmpty(evt.newData)) return;
-                for(var i = 0; i < evt.newData.Length; i++) {
-                    if(char.IsDigit(evt.newData[i])) continue;
+                foreach(var t in evt.newData) {
+                    if(char.IsDigit(t)) continue;
                     evt.StopImmediatePropagation();
                     evt.StopPropagation();
                     return;
@@ -361,51 +357,36 @@ namespace Game.Menu {
 
         private static bool IsCommandShortcut(KeyDownEvent evt) {
             if(!(evt.ctrlKey || evt.commandKey)) return false;
-            return evt.keyCode == KeyCode.A
-                   || evt.keyCode == KeyCode.C
-                   || evt.keyCode == KeyCode.V
-                   || evt.keyCode == KeyCode.X
-                   || evt.keyCode == KeyCode.Z
-                   || evt.keyCode == KeyCode.Y;
+            return evt.keyCode is KeyCode.A or KeyCode.C or KeyCode.V or KeyCode.X or KeyCode.Z or KeyCode.Y;
         }
 
         private static bool IsAllowedEditKey(KeyCode keyCode) {
-            return keyCode == KeyCode.Backspace
-                   || keyCode == KeyCode.Delete
-                   || keyCode == KeyCode.LeftArrow
-                   || keyCode == KeyCode.RightArrow
-                   || keyCode == KeyCode.UpArrow
-                   || keyCode == KeyCode.DownArrow
-                   || keyCode == KeyCode.Home
-                   || keyCode == KeyCode.End
-                   || keyCode == KeyCode.Tab
-                   || keyCode == KeyCode.Return
-                   || keyCode == KeyCode.KeypadEnter
-                   || keyCode == KeyCode.Escape;
+            return keyCode is KeyCode.Backspace or KeyCode.Delete 
+                or KeyCode.LeftArrow or KeyCode.RightArrow or KeyCode.UpArrow or KeyCode.DownArrow or KeyCode.Home 
+                or KeyCode.End or KeyCode.Tab or KeyCode.Return or KeyCode.KeypadEnter or KeyCode.Escape;
         }
 
         private static bool IsDigitKey(KeyCode keyCode) {
-            return keyCode >= KeyCode.Alpha0 && keyCode <= KeyCode.Alpha9
-                   || keyCode >= KeyCode.Keypad0 && keyCode <= KeyCode.Keypad9;
+            return keyCode is >= KeyCode.Alpha0 and <= KeyCode.Alpha9 or >= KeyCode.Keypad0 and <= KeyCode.Keypad9;
         }
 
-        private List<string> BuildGamemodeChoices() {
+        private static List<string> BuildGamemodeChoices() {
             var choices = new List<string>();
             var settings = MatchSettingsManager.Instance;
-            if(settings != null && settings.gamemodeDefinitions != null && settings.gamemodeDefinitions.Count > 0) {
+            if(settings != null && settings.gamemodeDefinitions is { Count: > 0 }) {
                 for(var i = 0; i < settings.gamemodeDefinitions.Count; i++) {
                     var id = settings.gamemodeDefinitions[i].id;
                     if(string.IsNullOrWhiteSpace(id)) continue;
                     choices.Add(id);
                 }
             }
-            if(choices.Count == 0) {
-                choices.Add("Deathmatch");
-                choices.Add("Team Deathmatch");
-                choices.Add("Hopball");
-                choices.Add("KOTH");
-                choices.Add("Gun Tag");
-            }
+
+            if(choices.Count != 0) return choices;
+            choices.Add("Deathmatch");
+            choices.Add("Team Deathmatch");
+            choices.Add("Hopball");
+            choices.Add("KOTH");
+            choices.Add("Gun Tag");
             return choices;
         }
 
@@ -417,8 +398,7 @@ namespace Game.Menu {
         private static int GetDefaultScoreToWinForGamemode(string gamemodeId) {
             if(string.IsNullOrWhiteSpace(gamemodeId)) return 50;
             if(string.Equals(gamemodeId, "Hopball", StringComparison.OrdinalIgnoreCase)) return 60;
-            if(string.Equals(gamemodeId, "KOTH", StringComparison.OrdinalIgnoreCase)) return 200;
-            return 50;
+            return string.Equals(gamemodeId, "KOTH", StringComparison.OrdinalIgnoreCase) ? 200 : 50;
         }
 
         private static int GetDefaultKothHillSpeed() {
@@ -440,11 +420,11 @@ namespace Game.Menu {
                 _scoreToWinField.value = _draft.ScoreToWin;
                 _suppressEvents = false;
             }
-            if(_kothHillSpeedField != null) {
-                _suppressEvents = true;
-                _kothHillSpeedField.value = _draft.KothHillSpeed;
-                _suppressEvents = false;
-            }
+
+            if(_kothHillSpeedField == null) return;
+            _suppressEvents = true;
+            _kothHillSpeedField.value = _draft.KothHillSpeed;
+            _suppressEvents = false;
         }
 
         private void RefreshMapChoicesForGamemode(string gamemodeId) {

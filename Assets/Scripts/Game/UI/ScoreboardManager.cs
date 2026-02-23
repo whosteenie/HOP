@@ -191,10 +191,9 @@ namespace Game.UI {
             _headerLabelsCacheValid = false;
 
             // Subscribe to network callbacks for cleanup
-            if(NetworkManager.Singleton != null) {
-                NetworkManager.Singleton.OnClientDisconnectCallback -= OnClientDisconnected;
-                NetworkManager.Singleton.OnClientDisconnectCallback += OnClientDisconnected;
-            }
+            if(NetworkManager.Singleton == null) return;
+            NetworkManager.Singleton.OnClientDisconnectCallback -= OnClientDisconnected;
+            NetworkManager.Singleton.OnClientDisconnectCallback += OnClientDisconnected;
         }
 
         private void Update() {
@@ -209,10 +208,9 @@ namespace Game.UI {
             _lastScoreUpdateTime = Time.time;
 
             // Update speaking indicators if scoreboard is visible
-            if(IsScoreboardVisible) {
-                RefreshHoverStateForCursorMode();
-                UpdateSpeakingIndicators();
-            }
+            if(!IsScoreboardVisible) return;
+            RefreshHoverStateForCursorMode();
+            UpdateSpeakingIndicators();
         }
 
 
@@ -298,9 +296,6 @@ namespace Game.UI {
                 _matchTimerLabel.text = "INFINITE";
                 return;
             }
-
-            if(secondsRemaining < 0)
-                secondsRemaining = 0;
 
             var minutes = secondsRemaining / 60;
             var seconds = secondsRemaining % 60;
@@ -395,23 +390,21 @@ namespace Game.UI {
 
         private string ResolveScoreboardTitle() {
             if(_cachedMatchSettings == null) {
-                if(!_missingGamemodeTitleLogged) {
-                    Debug.LogError(
-                        "[ScoreboardManager] MatchSettingsManager.Instance is null while updating scoreboard title.",
-                        this);
-                    _missingGamemodeTitleLogged = true;
-                }
+                if(_missingGamemodeTitleLogged) return "UNKNOWN MODE";
+                Debug.LogError(
+                    "[ScoreboardManager] MatchSettingsManager.Instance is null while updating scoreboard title.",
+                    this);
+                _missingGamemodeTitleLogged = true;
 
                 return "UNKNOWN MODE";
             }
 
             var selectedGameModeId = _cachedMatchSettings.selectedGameModeId;
             if(string.IsNullOrEmpty(selectedGameModeId)) {
-                if(!_missingGamemodeTitleLogged) {
-                    Debug.LogError("[ScoreboardManager] selectedGameModeId is empty while updating scoreboard title.",
-                        this);
-                    _missingGamemodeTitleLogged = true;
-                }
+                if(_missingGamemodeTitleLogged) return "UNKNOWN MODE";
+                Debug.LogError("[ScoreboardManager] selectedGameModeId is empty while updating scoreboard title.",
+                    this);
+                _missingGamemodeTitleLogged = true;
 
                 return "UNKNOWN MODE";
             }
@@ -430,11 +423,7 @@ namespace Game.UI {
                 return FormatMapTitle(mapIdFromScene);
             }
 
-            if(string.IsNullOrWhiteSpace(_cachedSceneName) == false) {
-                return FormatMapTitle(_cachedSceneName);
-            }
-
-            return "UNKNOWN MAP";
+            return string.IsNullOrWhiteSpace(_cachedSceneName) == false ? FormatMapTitle(_cachedSceneName) : "UNKNOWN MAP";
         }
 
         private static bool TryResolveMapIdFromScene(string sceneName, out string mapId) {

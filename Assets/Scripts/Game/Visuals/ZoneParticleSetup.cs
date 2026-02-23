@@ -5,7 +5,7 @@ namespace Game.Visuals {
     public class ZoneParticleSetup : MonoBehaviour {
         [Header("Zone Settings")]
         [SerializeField] private float zoneRadius = 5f;
-        [SerializeField] private Color zoneColor = new Color(0, 0.5f, 1f, 0.05f); // Very low alpha for stacking
+        [SerializeField] private Color zoneColor = new(0, 0.5f, 1f, 0.05f); // Very low alpha for stacking
         [SerializeField] private Material particleMaterial; // User can assign "Default-Particle" or Smoke here
 
         [ContextMenu("Setup Particles")]

@@ -284,7 +284,7 @@ namespace Game.Player {
 
             // Generate vertices for start and end circles
             for(var i = 0; i < meshSegments; i++) {
-                var angle = (i / (float)meshSegments) * Mathf.PI * 2f;
+                var angle = i / (float)meshSegments * Mathf.PI * 2f;
                 var offset = right * (Mathf.Cos(angle) * meshRadius) + up * (Mathf.Sin(angle) * meshRadius);
 
                 // Start circle

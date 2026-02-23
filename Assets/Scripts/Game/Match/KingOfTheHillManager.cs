@@ -186,7 +186,7 @@ namespace Game.Match {
             _spawnCoroutine = StartCoroutine(GameStartRoutine());
         }
 
-        private void OnScoreChanged(int previous, int current) {
+        private static void OnScoreChanged(int previous, int current) {
             // Update UI
             if(ScoreboardManager.Instance != null) {
                 ScoreboardManager.Instance.UpdateScoreboard();

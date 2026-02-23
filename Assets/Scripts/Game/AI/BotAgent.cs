@@ -112,10 +112,9 @@ namespace Game.AI {
         }
         
         private void UpdatePlayerCache() {
-            if(Time.time - _lastPlayerCacheTime > PlayerCacheInterval) {
-                CachePlayers();
-                _lastPlayerCacheTime = Time.time;
-            }
+            if(!(Time.time - _lastPlayerCacheTime > PlayerCacheInterval)) return;
+            CachePlayers();
+            _lastPlayerCacheTime = Time.time;
         }
         
         private void HandleDeath() {
@@ -269,10 +268,9 @@ namespace Game.AI {
                 playerInput.TriggerGrapple();
             }
 
-            if(actions.DiscreteActions.Length > 2) {
-                var shouldSprint = actions.DiscreteActions[2] == 1;
-                playerInput.SetSprintInput(shouldSprint);
-            }
+            if(actions.DiscreteActions.Length <= 2) return;
+            var shouldSprint = actions.DiscreteActions[2] == 1;
+            playerInput.SetSprintInput(shouldSprint);
         }
         
         #endregion
@@ -364,18 +362,23 @@ namespace Game.AI {
             if(absPitch < 20f) {
                 AddReward(0.0002f * (1f - absPitch / 20f)); // Doubled - stronger incentive to look forward
             }
-            
-            // Penalty for extreme pitch angles - STRONGER to stop sky/floor staring
-            if(currentPitch > 55f) {
-                // Looking UP more than 55° - agent was staring at sky, penalize heavily
-                var excessAngle = absPitch - 55f;
-                var penalty = (excessAngle / 35f) * 0.02f; // Doubled from 0.005f
-                AddReward(-penalty);
-            } else if(currentPitch < -55f) {
-                // Looking DOWN more than 55° - floor staring
-                var excessAngle = absPitch - 55f;
-                var penalty = (excessAngle / 35f) * 0.02f; // Doubled from 0.01f
-                AddReward(-penalty);
+
+            switch(currentPitch) {
+                // Penalty for extreme pitch angles - STRONGER to stop sky/floor staring
+                case > 55f: {
+                    // Looking UP more than 55° - agent was staring at sky, penalize heavily
+                    var excessAngle = absPitch - 55f;
+                    var penalty = excessAngle / 35f * 0.02f; // Doubled from 0.005f
+                    AddReward(-penalty);
+                    break;
+                }
+                case < -55f: {
+                    // Looking DOWN more than 55° - floor staring
+                    var excessAngle = absPitch - 55f;
+                    var penalty = excessAngle / 35f * 0.02f; // Doubled from 0.01f
+                    AddReward(-penalty);
+                    break;
+                }
             }
         }
         
@@ -499,10 +502,9 @@ namespace Game.AI {
                 if(enemy.IsDead) continue; // Ignore dead players
                 
                 var dist = Vector3.Distance(_transform.position, enemy.transform.position);
-                if(dist < minDist) {
-                    minDist = dist;
-                    nearest = enemy;
-                }
+                if(!(dist < minDist)) continue;
+                minDist = dist;
+                nearest = enemy;
             }
             
             return nearest;

@@ -608,7 +608,7 @@ namespace Game.Menu {
             container.Clear();
             container.style.flexDirection = FlexDirection.Row;
 
-            if(options == null || options.Count <= 1) {
+            if(options is not { Count: > 1 }) {
                 return;
             }
 
@@ -799,11 +799,7 @@ namespace Game.Menu {
                 return weaponData.weaponName.ToUpperInvariant();
             }
 
-            if(weaponData.weaponPrefab != null) {
-                return weaponData.weaponPrefab.name.ToUpperInvariant();
-            }
-
-            return fallback;
+            return weaponData.weaponPrefab != null ? weaponData.weaponPrefab.name.ToUpperInvariant() : fallback;
         }
 
         private PlayerController ResolveLocalController() {
@@ -913,7 +909,7 @@ namespace Game.Menu {
             if(_localController) _localController.moveInput = Vector2.zero;
         }
         
-        private void InviteFriends() {
+        private static void InviteFriends() {
              UISoundService.PlayButtonClick();
              if(!SteamClient.IsValid || !SteamClient.IsLoggedOn) {
                  return;

@@ -190,11 +190,10 @@ namespace Game.Player {
                 material.EnableKeyword("_EMISSION");
                 
                 material.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive;
-                
-                if(material.HasProperty(EmissionIntensityId)) {
-                    var intensity = emissionColor.Value.maxColorComponent;
-                    material.SetFloat(EmissionIntensityId, intensity > 0.001f ? intensity : 1f);
-                }
+
+                if(!material.HasProperty(EmissionIntensityId)) return material;
+                var intensity = emissionColor.Value.maxColorComponent;
+                material.SetFloat(EmissionIntensityId, intensity > 0.001f ? intensity : 1f);
             } else {
                 material.DisableKeyword("_EMISSION");
                 material.SetColor(EmissionColorId, Color.black);

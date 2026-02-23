@@ -16,11 +16,11 @@ namespace Game.Player {
         [Tooltip("Local axis of the cylinder (e.g. Y for vertical).")]
         [SerializeField] private Vector3 axis = Vector3.up;
 
-        public int CylinderSides => Mathf.Max(3, cylinderSides);
-        public float Radius => Mathf.Max(0.01f, radius);
+        private int CylinderSides => Mathf.Max(3, cylinderSides);
+        private float Radius => Mathf.Max(0.01f, radius);
 
         /// <summary>World-space cylinder axis (normalized).</summary>
-        public Vector3 WorldAxis {
+        private Vector3 WorldAxis {
             get {
                 var a = transform.TransformDirection(axis);
                 return a.sqrMagnitude > 0.0001f ? a.normalized : Vector3.up;
@@ -62,12 +62,10 @@ namespace Game.Player {
             var rotation = Quaternion.AngleAxis(sign * angleDeg, worldAxis);
             var current = currentWallNormal.sqrMagnitude > 0.0001f ? currentWallNormal.normalized : n;
             predictedNextNormal = rotation * current;
-            if(predictedNextNormal.sqrMagnitude > 0.0001f) {
-                predictedNextNormal.Normalize();
-                return true;
-            }
+            if(!(predictedNextNormal.sqrMagnitude > 0.0001f)) return false;
+            predictedNextNormal.Normalize();
+            return true;
 
-            return false;
         }
 
         /// <summary>Chord length for one segment at world radius; use as minimum probe distance for the next face.</summary>
@@ -80,14 +78,14 @@ namespace Game.Player {
         }
 
         /// <summary>World-space point on the cylinder axis (e.g. transform center).</summary>
-        public Vector3 WorldAxisPoint => transform.position;
+        private Vector3 WorldAxisPoint => transform.position;
 
         /// <summary>Distance from worldPoint to the cylinder surface (0 = on surface).</summary>
         public float GetDistanceToSurface(Vector3 worldPoint) {
-            var axis = WorldAxis;
+            var worldAxis = WorldAxis;
             var toPoint = worldPoint - WorldAxisPoint;
-            var alongAxis = Vector3.Dot(toPoint, axis);
-            var nearestOnAxis = WorldAxisPoint + axis * alongAxis;
+            var alongAxis = Vector3.Dot(toPoint, worldAxis);
+            var nearestOnAxis = WorldAxisPoint + worldAxis * alongAxis;
             var distToAxis = (worldPoint - nearestOnAxis).magnitude;
             return Mathf.Abs(distToAxis - WorldRadius);
         }
@@ -100,10 +98,10 @@ namespace Game.Player {
         /// <summary>Outward wall normal at the nearest point on the cylinder to worldPoint. Returns false if degenerate.</summary>
         public bool TryGetNormalAt(Vector3 worldPoint, out Vector3 normal) {
             normal = Vector3.zero;
-            var axis = WorldAxis;
+            var worldAxis = WorldAxis;
             var toPoint = worldPoint - WorldAxisPoint;
-            var alongAxis = Vector3.Dot(toPoint, axis);
-            var nearestOnAxis = WorldAxisPoint + axis * alongAxis;
+            var alongAxis = Vector3.Dot(toPoint, worldAxis);
+            var nearestOnAxis = WorldAxisPoint + worldAxis * alongAxis;
             var outward = worldPoint - nearestOnAxis;
             if(outward.sqrMagnitude < 0.0001f) return false;
             normal = outward.normalized;

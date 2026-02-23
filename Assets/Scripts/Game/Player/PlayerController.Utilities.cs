@@ -86,10 +86,9 @@ namespace Game.Player {
                 return;
             }
 
-            if(IsOwner) {
-                if(audioRelay == null) return;
-                audioRelay.RequestPlayAttached("foley.tile.walk", new NetworkObjectReference(NetworkObject), allowOverlap: true);
-            }
+            if(!IsOwner) return;
+            if(audioRelay == null) return;
+            audioRelay.RequestPlayAttached("foley.tile.walk", new NetworkObjectReference(NetworkObject), allowOverlap: true);
         }
 
         /// <summary>
@@ -111,10 +110,9 @@ namespace Game.Player {
                 return;
             }
 
-            if(IsOwner) {
-                if(audioRelay == null) return;
-                audioRelay.RequestPlayAttached("foley.tile.run", new NetworkObjectReference(NetworkObject), allowOverlap: true);
-            }
+            if(!IsOwner) return;
+            if(audioRelay == null) return;
+            audioRelay.RequestPlayAttached("foley.tile.run", new NetworkObjectReference(NetworkObject), allowOverlap: true);
         }
 
         /// <summary>

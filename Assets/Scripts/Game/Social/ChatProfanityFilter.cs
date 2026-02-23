@@ -15,8 +15,8 @@ namespace Game.Social {
             "retard"
         };
 
-        private static readonly Regex NonLetterRegex = new Regex("[^a-z]", RegexOptions.Compiled | RegexOptions.CultureInvariant);
-        private static readonly Regex MultiRepeatRegex = new Regex("(.)\\1{2,}", RegexOptions.Compiled | RegexOptions.CultureInvariant);
+        private static readonly Regex NonLetterRegex = new("[^a-z]", RegexOptions.Compiled | RegexOptions.CultureInvariant);
+        private static readonly Regex MultiRepeatRegex = new("(.)\\1{2,}", RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
         public static string Censor(string message) {
             if(string.IsNullOrWhiteSpace(message)) return message;
@@ -38,7 +38,7 @@ namespace Game.Social {
                 if(normalized.Contains(root) == false) continue;
 
                 // If normalized text includes a root term, do a permissive raw pass for that root.
-                var permissivePattern = Regex.Escape(root[0].ToString()) + @"[\W_]*" + string.Join(@"[\W_]*", root.Substring(1).ToCharArray());
+                var permissivePattern = Regex.Escape(root[0].ToString()) + @"[\W_]*" + string.Join(@"[\W_]*", root[1..].ToCharArray());
                 filtered = Regex.Replace(
                     filtered,
                     permissivePattern,

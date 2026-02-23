@@ -282,13 +282,12 @@ namespace Game.Player {
         /// Only updates holster shadows, not player body or world weapon shadows.
         /// </summary>
         public void UpdateHolsterShadowStateForOwner() {
-            if(playerController != null && playerController.IsOwner) {
-                var isPostMatch = GameMenuManager.Instance != null && GameMenuManager.Instance.IsPostMatch;
-                if(isPostMatch) {
-                    TrySetHolsterShadowState(true, false, ShadowCastingMode.On);
-                } else {
-                    TrySetHolsterShadowState(true, false);
-                }
+            if(playerController == null || !playerController.IsOwner) return;
+            var isPostMatch = GameMenuManager.Instance != null && GameMenuManager.Instance.IsPostMatch;
+            if(isPostMatch) {
+                TrySetHolsterShadowState(true, false, ShadowCastingMode.On);
+            } else {
+                TrySetHolsterShadowState(true, false);
             }
         }
 
@@ -347,7 +346,7 @@ namespace Game.Player {
                     if(primary != null) primary.SetActive(true);
                     if(secondary != null) secondary.SetActive(true);
 
-                    var mode = ownerOverride.HasValue ? ownerOverride.Value : (owner ? ShadowCastingMode.ShadowsOnly : ShadowCastingMode.On);
+                    var mode = ownerOverride.HasValue ? ownerOverride.Value : owner ? ShadowCastingMode.ShadowsOnly : ShadowCastingMode.On;
                     SetShadowMode(primary, mode);
                     SetShadowMode(secondary, mode);
                     return;

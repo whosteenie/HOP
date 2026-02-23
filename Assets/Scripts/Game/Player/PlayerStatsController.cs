@@ -37,10 +37,9 @@ namespace Game.Player {
                 playerController = GetComponent<PlayerController>();
             }
 
-            if(playerController == null) {
-                Debug.LogError("[PlayerStatsController] PlayerController not found!");
-                enabled = false;
-            }
+            if(playerController != null) return;
+            Debug.LogError("[PlayerStatsController] PlayerController not found!");
+            enabled = false;
         }
 
         private void Update() {

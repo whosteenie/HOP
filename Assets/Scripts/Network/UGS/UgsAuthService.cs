@@ -15,7 +15,7 @@ namespace Network.UGS {
     public static class UgsAuthService {
         private const string SteamIdentity = "unityauthenticationservice";
 
-        private static readonly object SignInGate = new object();
+        private static readonly object SignInGate = new();
         private static Task inFlightSignInTask;
         private static string lastAuthProvider = "Unknown";
 

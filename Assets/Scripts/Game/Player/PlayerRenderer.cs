@@ -298,10 +298,9 @@ namespace Game.Player {
         public void ApplyPlayerBodyMaterial(Material material, int materialIndex = 1) {
             if(_playerMesh == null || material == null) return;
             var materials = _playerMesh.materials;
-            if(materialIndex >= 0 && materialIndex < materials.Length) {
-                materials[materialIndex] = material;
-                _playerMesh.materials = materials;
-            }
+            if(materialIndex < 0 || materialIndex >= materials.Length) return;
+            materials[materialIndex] = material;
+            _playerMesh.materials = materials;
         }
 
         /// <summary>

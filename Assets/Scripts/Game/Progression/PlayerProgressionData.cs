@@ -31,7 +31,7 @@ namespace Game.Progression {
         public int shotsHit;
         public int highestKillStreak;
         public int oobDeaths; // Out of Bounds deaths
-        public List<float> recentMatchAverageSpeeds = new List<float>(); // Rolling average buffer
+        public List<float> recentMatchAverageSpeeds = new(); // Rolling average buffer
         
         // Time / Objective
         public float totalPlayTimeSeconds; // Lifetime playtime

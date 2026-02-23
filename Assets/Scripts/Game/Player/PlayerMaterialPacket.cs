@@ -58,7 +58,7 @@ namespace Game.Player {
 
         [Tooltip("Suggested specular color. Only used if useMetallicWorkflow is false.\n" +
                  "Controls the color of specular highlights for non-metallic surfaces.")]
-        public Color defaultSpecularColor = new Color(0.2f, 0.2f, 0.2f, 1f);
+        public Color defaultSpecularColor = new(0.2f, 0.2f, 0.2f, 1f);
 
         [Header("Height Map Settings")]
         [Tooltip("Height map strength/scale (0-1). Controls parallax displacement intensity.\n" +
@@ -71,7 +71,7 @@ namespace Game.Player {
         public bool defaultEmissionEnabled;
 
         [Tooltip("Default emission color used when emission is enabled.")]
-        public Color defaultEmissionColor = new Color(0f, 0f, 0f, 1f);
+        public Color defaultEmissionColor = new(0f, 0f, 0f, 1f);
 
         /// <summary>
         /// Returns true if this is a valid packet (has at least an albedo texture, or is the "None" packet).

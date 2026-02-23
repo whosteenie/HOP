@@ -124,13 +124,12 @@ namespace Game.Hopball {
             }
             yield return new WaitForSeconds(preMatchCountdown + postPrematchSpawnDelay);
 
-            if(IsServer && !_hasSpawnedInitial) {
-                matchSettings = MatchSettingsManager.Instance;
-                if(matchSettings == null || matchSettings.selectedGameModeId != "Hopball") {
-                    yield break;
-                }
-                SpawnHopball();
+            if(!IsServer || _hasSpawnedInitial) yield break;
+            matchSettings = MatchSettingsManager.Instance;
+            if(matchSettings == null || matchSettings.selectedGameModeId != "Hopball") {
+                yield break;
             }
+            SpawnHopball();
         }
 
         /// <summary>

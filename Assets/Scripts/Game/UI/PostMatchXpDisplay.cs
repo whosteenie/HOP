@@ -29,10 +29,9 @@ namespace Game.UI {
             _levelLabel = QRequired<Label>("level-label");
             _xpBar = QRequired<ProgressBar>("xp-bar");
             _xpGainedLabel = QRequired<Label>("xp-gained-label");
-            if(_xpContainer != null) {
-                _xpContainer.style.display = DisplayStyle.None;
-                _xpContainer.AddToClassList("hidden");
-            }
+            if(_xpContainer == null) return;
+            _xpContainer.style.display = DisplayStyle.None;
+            _xpContainer.AddToClassList("hidden");
         }
 
         protected override Dictionary<string, System.Type> GetRequiredElements() {
@@ -132,10 +131,9 @@ namespace Game.UI {
                 _xpAnimationRoutine = null;
             }
 
-            if(_xpContainer != null) {
-                _xpContainer.style.display = DisplayStyle.None;
-                _xpContainer.AddToClassList("hidden");
-            }
+            if(_xpContainer == null) return;
+            _xpContainer.style.display = DisplayStyle.None;
+            _xpContainer.AddToClassList("hidden");
         }
     }
 }

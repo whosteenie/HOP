@@ -211,12 +211,11 @@ namespace Game.UI {
                 };
 
                 if(binding.DescriptionLabel == null || binding.XpLabel == null || binding.ProgressBar == null) {
-                    if(!templateErrorLogged) {
-                        Debug.LogError(
-                            "[ChallengeUiRenderer] ChallengeRow template is missing required elements: description-label, xp-label, or progress-bar.",
-                            context);
-                        templateErrorLogged = true;
-                    }
+                    if(templateErrorLogged) return null;
+                    Debug.LogError(
+                        "[ChallengeUiRenderer] ChallengeRow template is missing required elements: description-label, xp-label, or progress-bar.",
+                        context);
+                    templateErrorLogged = true;
                     return null;
                 }
 

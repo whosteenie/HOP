@@ -148,20 +148,21 @@ namespace Game.Weapons {
                              _playerController.MantleController != null &&
                              _playerController.MantleController.IsMantling;
 
-            if(isMantling && !_wasMantling) {
-                _pendingMantleLandingBob = false;
-                _mantleLandingBobPlayed = false;
-            }
-
-            if(!isMantling && _wasMantling) {
-                // Mantle settle can briefly bounce grounded state; suppress landing bob during that window.
-                _suppressLandingUntil = Time.time + MantleLandingBobSuppressSeconds;
-                _landingBobTimer = 0f;
-                _targetJumpFallOffset = 0f;
-                _jumpFallOffset = 0f;
-                _jumpInitiated = false;
-                _pendingMantleLandingBob = true;
-                _mantleLandingBobPlayed = false;
+            switch(isMantling) {
+                case true when !_wasMantling:
+                    _pendingMantleLandingBob = false;
+                    _mantleLandingBobPlayed = false;
+                    break;
+                case false when _wasMantling:
+                    // Mantle settle can briefly bounce grounded state; suppress landing bob during that window.
+                    _suppressLandingUntil = Time.time + MantleLandingBobSuppressSeconds;
+                    _landingBobTimer = 0f;
+                    _targetJumpFallOffset = 0f;
+                    _jumpFallOffset = 0f;
+                    _jumpInitiated = false;
+                    _pendingMantleLandingBob = true;
+                    _mantleLandingBobPlayed = false;
+                    break;
             }
 
             if(_pendingMantleLandingBob && !_mantleLandingBobPlayed && isGrounded) {

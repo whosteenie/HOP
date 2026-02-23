@@ -24,7 +24,7 @@ namespace Game.UI {
             public bool IsVisible = true;
         }
 
-        private readonly List<ChatMessageElement> _messageElements = new List<ChatMessageElement>();
+        private readonly List<ChatMessageElement> _messageElements = new();
         private Coroutine _lifetimeCheckCoroutine;
 
         public bool IsChatOpen { get; private set; }
@@ -333,8 +333,7 @@ namespace Game.UI {
         }
 
         private static string EscapeRichText(string value) {
-            if(string.IsNullOrEmpty(value)) return string.Empty;
-            return value.Replace("<", "&lt;").Replace(">", "&gt;");
+            return string.IsNullOrEmpty(value) ? string.Empty : value.Replace("<", "&lt;").Replace(">", "&gt;");
         }
 
         private void StartLifetimeCheck() {

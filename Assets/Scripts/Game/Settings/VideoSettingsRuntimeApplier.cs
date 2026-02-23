@@ -54,8 +54,7 @@ namespace Game.Settings {
 
         private static void ApplyVolumeComponentEnabled<T>(bool enabled) where T : VolumeComponent {
             var volumes = Object.FindObjectsByType<Volume>(FindObjectsInactive.Include, FindObjectsSortMode.None);
-            for(var i = 0; i < volumes.Length; i++) {
-                var volume = volumes[i];
+            foreach(var volume in volumes) {
                 if(volume == null) continue;
 
                 ApplyVolumeComponentEnabled<T>(volume.profile, enabled);

@@ -541,9 +541,11 @@ namespace Game.Player {
             if(SpawnManager.Instance != null) {
                 point = SpawnManager.Instance.GetNextSpawnPointForRespawn(team);
             }
+
+            var pointTransform = point.transform;
             return point == null
                 ? (Vector3.zero, Quaternion.identity)
-                : (point.transform.position, point.transform.rotation);
+                : (pointTransform.position, pointTransform.rotation);
         }
 
         private static (Vector3 pos, Quaternion rot) GetSpawnPointFfa() {
@@ -551,9 +553,11 @@ namespace Game.Player {
             if(SpawnManager.Instance != null) {
                 point = SpawnManager.Instance.GetNextSpawnPointForRespawn();
             }
+
+            var pointTransform = point.transform;
             return point == null
                 ? (Vector3.zero, Quaternion.identity)
-                : (point.transform.position, point.transform.rotation);
+                : (pointTransform.position, pointTransform.rotation);
         }
 
         private IEnumerator TeleportAfterPreparation(Vector3 position, Quaternion rotation) {
@@ -651,14 +655,13 @@ namespace Game.Player {
                 _weaponManager.ApplyTpWeaponStateOnRespawn();
             }
 
-            if(playerController != null && playerController.PlayerInput != null) {
-                var sampledMove = playerController.PlayerInput.ResampleHeldMovementInput("RespawnControlRestore");
-                FlowLog.Emit(FlowEventIds.PlayerControlState,
-                    ("player", OwnerClientId),
-                    ("enabled", true),
-                    ("reason", "RespawnControlRestoreSampled"),
-                    ("sampledMove", sampledMove));
-            }
+            if(playerController == null || playerController.PlayerInput == null) return;
+            var sampledMove = playerController.PlayerInput.ResampleHeldMovementInput("RespawnControlRestore");
+            FlowLog.Emit(FlowEventIds.PlayerControlState,
+                ("player", OwnerClientId),
+                ("enabled", true),
+                ("reason", "RespawnControlRestoreSampled"),
+                ("sampledMove", sampledMove));
         }
 
         [Rpc(SendTo.Everyone)]
@@ -891,16 +894,14 @@ namespace Game.Player {
                 return;
             }
 
-            if(playerController != null) {
-                var hopballController = playerController.PlayerHopballController;
-                if(hopballController != null) {
-                    FlowLog.Emit(FlowEventIds.HopballForcedDrop,
-                        ("player", OwnerClientId),
-                        ("hopballNetId", hopball.NetworkObjectId),
-                        ("reason", reason));
-                    hopballController.DropHopballOnDeath();
-                }
-            }
+            if(playerController == null) return;
+            var hopballController = playerController.PlayerHopballController;
+            if(hopballController == null) return;
+            FlowLog.Emit(FlowEventIds.HopballForcedDrop,
+                ("player", OwnerClientId),
+                ("hopballNetId", hopball.NetworkObjectId),
+                ("reason", reason));
+            hopballController.DropHopballOnDeath();
         }
 
         private void StartRespawnTimeoutProbe() {
@@ -929,19 +930,11 @@ namespace Game.Player {
         }
 
         private float GetOutOfBoundsKillY() {
-            if(playerController != null) {
-                return playerController.GetOutOfBoundsKillY();
-            }
-
-            return OutOfBoundsKillYDefault;
+            return playerController != null ? playerController.GetOutOfBoundsKillY() : OutOfBoundsKillYDefault;
         }
 
         private bool IsYLevelOutOfBoundsKillEnabled() {
-            if(playerController != null) {
-                return playerController.IsYLevelOutOfBoundsKillEnabled();
-            }
-
-            return true;
+            return playerController == null || playerController.IsYLevelOutOfBoundsKillEnabled();
         }
     }
 }

@@ -318,7 +318,9 @@ namespace Game.Menu {
                 _filmGrainButton.RegisterCallback(handler);
                 RegisterCleanup(() => _filmGrainButton.UnregisterCallback(handler));
             }
-            if(_vignetteButton != null) {
+
+            if(_vignetteButton == null) return;
+            {
                 EventCallback<ClickEvent> handler = _ => ToggleCheckbox(_vignetteButton);
                 _vignetteButton.RegisterCallback(handler);
                 RegisterCleanup(() => _vignetteButton.UnregisterCallback(handler));
@@ -410,7 +412,8 @@ namespace Game.Menu {
                 }
             }
 
-            if(_unsavedChangesCancel != null) {
+            if(_unsavedChangesCancel == null) return;
+            {
                 EventCallback<ClickEvent> cancelHandler = evt => {
                     evt.StopPropagation();
                     evt.StopImmediatePropagation();
@@ -431,7 +434,8 @@ namespace Game.Menu {
                 RegisterCleanup(() => button.UnregisterCallback(enterHandler));
             }
 
-            if(MouseHoverCallback != null) {
+            if(MouseHoverCallback == null) return;
+            {
                 EventCallback<MouseOverEvent> hoverHandler = evt => MouseHoverCallback(evt);
                 button.RegisterCallback(hoverHandler);
                 RegisterCleanup(() => button.UnregisterCallback(hoverHandler));
@@ -519,7 +523,7 @@ namespace Game.Menu {
             }
 
             var devices = VoiceManager.Instance != null
-                ? VoiceManager.Instance.GetAvailableInputDevices()
+                ? VoiceManager.GetAvailableInputDevices()
                 : new List<string>();
 
             if(devices == null || devices.Count == 0) {
@@ -603,8 +607,7 @@ namespace Game.Menu {
             var randomizer = ResolveMainMenuBackgroundRandomizer();
             if(randomizer != null) {
                 var availableSelections = randomizer.GetAvailableSelectionNames();
-                for(var i = 0; i < availableSelections.Count; i++) {
-                    var name = availableSelections[i];
+                foreach(var name in availableSelections) {
                     if(string.IsNullOrWhiteSpace(name) || choices.Contains(name)) {
                         continue;
                     }
@@ -897,7 +900,8 @@ namespace Game.Menu {
             RegisterCleanup(() => _shadowDistanceValue.UnregisterCallback(valueChangedHandler));
 
             // Handle value change on Enter or focus loss
-            if(_shadowDistanceValue != null) {
+            if(_shadowDistanceValue == null) return;
+            {
                 EventCallback<KeyDownEvent> keyDownHandler = evt => {
                     if(evt.keyCode is not (KeyCode.Return or KeyCode.KeypadEnter)) return;
                     ApplyShadowDistanceTextFieldValue();
@@ -1004,11 +1008,10 @@ namespace Game.Menu {
             FilterResolutionsByAspectRatio(defaultAspectRatio);
 
             // Setup aspect ratio change callback
-            if(_aspectRatioDropdown != null) {
-                EventCallback<ChangeEvent<string>> aspectRatioHandler = evt => { FilterResolutionsByAspectRatio(evt.newValue); };
-                _aspectRatioDropdown.RegisterValueChangedCallback(aspectRatioHandler);
-                RegisterCleanup(() => _aspectRatioDropdown.UnregisterCallback(aspectRatioHandler));
-            }
+            if(_aspectRatioDropdown == null) return;
+            EventCallback<ChangeEvent<string>> aspectRatioHandler = evt => { FilterResolutionsByAspectRatio(evt.newValue); };
+            _aspectRatioDropdown.RegisterValueChangedCallback(aspectRatioHandler);
+            RegisterCleanup(() => _aspectRatioDropdown.UnregisterCallback(aspectRatioHandler));
         }
 
         private void FilterResolutionsByAspectRatio(string aspectRatio) {
@@ -1933,16 +1936,16 @@ namespace Game.Menu {
             ApplyUrpGraphicsSettings();
             var bloomEnabled = _bloomButton != null
                 ? GetCheckboxValue(_bloomButton)
-                : (GameSettings.Data.video == null || GameSettings.Data.video.bloomEnabled);
+                : GameSettings.Data.video == null || GameSettings.Data.video.bloomEnabled;
             var motionBlurEnabled = _motionBlurButton != null
                 ? GetCheckboxValue(_motionBlurButton)
-                : (GameSettings.Data.video == null || GameSettings.Data.video.motionBlurEnabled);
+                : GameSettings.Data.video == null || GameSettings.Data.video.motionBlurEnabled;
             var filmGrainEnabled = _filmGrainButton != null
                 ? GetCheckboxValue(_filmGrainButton)
-                : (GameSettings.Data.video == null || GameSettings.Data.video.filmGrainEnabled);
+                : GameSettings.Data.video == null || GameSettings.Data.video.filmGrainEnabled;
             var vignetteEnabled = _vignetteButton != null
                 ? GetCheckboxValue(_vignetteButton)
-                : (GameSettings.Data.video == null || GameSettings.Data.video.vignetteEnabled);
+                : GameSettings.Data.video == null || GameSettings.Data.video.vignetteEnabled;
             VideoSettingsRuntimeApplier.ApplyBloomEnabled(bloomEnabled);
             VideoSettingsRuntimeApplier.ApplyMotionBlurEnabled(motionBlurEnabled);
             VideoSettingsRuntimeApplier.ApplyFilmGrainEnabled(filmGrainEnabled);

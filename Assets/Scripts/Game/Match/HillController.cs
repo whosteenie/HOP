@@ -1,7 +1,9 @@
+using System;
 using Unity.Netcode;
 using UnityEngine;
 using Game.Player;
 using Game.Spawning;
+using Random = UnityEngine.Random;
 
 namespace Game.Match {
     /// <summary>
@@ -143,8 +145,18 @@ namespace Game.Match {
                 var teamMgr = player.TeamManager;
                 if (teamMgr == null) continue;
                 
-                if (teamMgr.netTeam.Value == SpawnPoint.Team.TeamA) teamACount++;
-                else if (teamMgr.netTeam.Value == SpawnPoint.Team.TeamB) teamBCount++;
+                switch(teamMgr.netTeam.Value) {
+                    case SpawnPoint.Team.TeamA:
+                        teamACount++;
+                        break;
+                    case SpawnPoint.Team.TeamB:
+                        teamBCount++;
+                        break;
+                    case SpawnPoint.Team.None:
+                        break;
+                    default:
+                        throw new ArgumentOutOfRangeException();
+                }
             }
 
             var newState = HillState.Uncontested;
@@ -198,7 +210,7 @@ namespace Game.Match {
         private void UpdateVisuals(HillState state) {
             if (visualRenderer == null) return;
             
-            Color targetColor = state switch {
+            var targetColor = state switch {
                 HillState.Contested => colorContested,
                 HillState.ControlledTeamA => colorTeamA,
                 HillState.ControlledTeamB => colorTeamB,

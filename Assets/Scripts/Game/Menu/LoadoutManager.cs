@@ -254,16 +254,14 @@ namespace Game.Menu {
 
             if(_isInspectMode) {
                 // Disable editing UI
-                if(_applyLoadoutButton != null) {
-                    _applyLoadoutButton.SetEnabled(false);
-                    _applyLoadoutButton.text = $"VIEWING {playerName.ToUpper()}";
-                }
+                if(_applyLoadoutButton == null) return;
+                _applyLoadoutButton.SetEnabled(false);
+                _applyLoadoutButton.text = $"VIEWING {playerName.ToUpper()}";
             } else {
                 // Normal mode
-                if(_applyLoadoutButton != null) {
-                    _applyLoadoutButton.SetEnabled(true);
-                    _applyLoadoutButton.text = "APPLY LOADOUT";
-                }
+                if(_applyLoadoutButton == null) return;
+                _applyLoadoutButton.SetEnabled(true);
+                _applyLoadoutButton.text = "APPLY LOADOUT";
             }
         }
 
@@ -2002,7 +2000,7 @@ namespace Game.Menu {
             SetLabelText("stats-losses", data.stats.losses.ToString());
 
             var accuracy = data.stats.shotsFired > 0
-                ? ((float)data.stats.shotsHit / data.stats.shotsFired) * 100f
+                ? (float)data.stats.shotsHit / data.stats.shotsFired * 100f
                 : 0f;
             SetLabelText("stats-accuracy", $"{accuracy:F1}%");
 

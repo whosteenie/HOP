@@ -198,17 +198,17 @@ namespace Game.Menu {
             if(gamemodeManager && gamemodeManager.uiDocument == null) {
                 gamemodeManager.uiDocument = uiDocument;
             }
-            if(privateMatchSetupManager != null) {
-                if(privateMatchSetupManager.uiDocument == null)
-                    privateMatchSetupManager.uiDocument = uiDocument;
-                // Force init so dropdowns are bound regardless of script execution order (setup panel may be hidden at Start).
-                if(Root != null)
-                    privateMatchSetupManager.Initialize(Root);
-                if(uiManager != null)
-                    privateMatchSetupManager.SetPartyMemberTemplate(uiManager.PartyMemberTemplate);
-                if(sessionManager != null)
-                    privateMatchSetupManager.SetSessionManager(sessionManager);
-            }
+
+            if(privateMatchSetupManager == null) return;
+            if(privateMatchSetupManager.uiDocument == null)
+                privateMatchSetupManager.uiDocument = uiDocument;
+            // Force init so dropdowns are bound regardless of script execution order (setup panel may be hidden at Start).
+            if(Root != null)
+                privateMatchSetupManager.Initialize(Root);
+            if(uiManager != null)
+                privateMatchSetupManager.SetPartyMemberTemplate(uiManager.PartyMemberTemplate);
+            if(sessionManager != null)
+                privateMatchSetupManager.SetSessionManager(sessionManager);
         }
 
         public void ShowLoadoutPanel() {
@@ -356,22 +356,24 @@ namespace Game.Menu {
         #region Navigation
 
         private void TransitionToState(MainMenuPanelState state) {
-            var panel = GetPanelForState(state);
-            if(panel == null) {
-                if(state != MainMenuPanelState.MainMenu) {
+            while(true) {
+                var panel = GetPanelForState(state);
+                if(panel == null) {
+                    if(state == MainMenuPanelState.MainMenu) return;
                     Debug.LogWarning($"[MainMenuManager] Panel for state '{state}' is missing. Falling back to MainMenu.");
-                    TransitionToState(MainMenuPanelState.MainMenu);
+                    state = MainMenuPanelState.MainMenu;
+                    continue;
                 }
-                return;
+
+                _currentPanelState = state;
+                ShowPanelInternal(panel);
+
+                if(state != MainMenuPanelState.PrivateMatchSetup) return;
+                if(privateMatchSetupManager != null) privateMatchSetupManager.RefreshDropdowns();
+
+                if(privateMatchSetupManager != null) privateMatchSetupManager.RefreshTeamPreview();
+                break;
             }
-
-            _currentPanelState = state;
-            ShowPanelInternal(panel);
-
-            if(state != MainMenuPanelState.PrivateMatchSetup) return;
-            if(privateMatchSetupManager != null) privateMatchSetupManager.RefreshDropdowns();
-
-            if(privateMatchSetupManager != null) privateMatchSetupManager.RefreshTeamPreview();
         }
 
         private VisualElement GetPanelForState(MainMenuPanelState state) {
@@ -437,15 +439,6 @@ namespace Game.Menu {
 
             var panelRoot = Root.panel?.visualTree;
 
-            static void SetClassState(VisualElement element, string className, bool enabled) {
-                if(element == null) return;
-                if(enabled) {
-                    element.AddToClassList(className);
-                } else {
-                    element.RemoveFromClassList(className);
-                }
-            }
-
             // Apply to both document root and panel root.
             // Dropdown popup menus are attached under panel root, not under this UIDocument root.
             SetClassState(Root, "options-open", isOptionsOpen);
@@ -455,6 +448,17 @@ namespace Game.Menu {
 
             if(menuBlurController != null) {
                 menuBlurController.SetBlurActive(isOptionsOpen);
+            }
+
+            return;
+
+            static void SetClassState(VisualElement element, string className, bool enabled) {
+                if(element == null) return;
+                if(enabled) {
+                    element.AddToClassList(className);
+                } else {
+                    element.RemoveFromClassList(className);
+                }
             }
         }
 

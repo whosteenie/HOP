@@ -360,7 +360,7 @@ namespace Game.Player {
             if(mannequinBodyRenderer == null) return;
 
             var sharedMaterials = mannequinBodyRenderer.sharedMaterials;
-            if(sharedMaterials == null || sharedMaterials.Length <= MannequinSurfaceMaterialIndex) return;
+            if(sharedMaterials is not { Length: > MannequinSurfaceMaterialIndex }) return;
             var material = sharedMaterials[MannequinSurfaceMaterialIndex];
 
             _mannequinPropertyBlock ??= new MaterialPropertyBlock();
@@ -401,12 +401,11 @@ namespace Game.Player {
                 main.startColor = new ParticleSystem.MinMaxGradient(tint);
 
                 var trails = system.trails;
-                if(trails.enabled) {
-                    // Keep ribbon/trail segments in sync with mannequin tint at runtime.
-                    var gradient = new ParticleSystem.MinMaxGradient(tint);
-                    trails.colorOverLifetime = gradient;
-                    trails.colorOverTrail = gradient;
-                }
+                if(!trails.enabled) continue;
+                // Keep ribbon/trail segments in sync with mannequin tint at runtime.
+                var gradient = new ParticleSystem.MinMaxGradient(tint);
+                trails.colorOverLifetime = gradient;
+                trails.colorOverTrail = gradient;
             }
         }
 
@@ -524,7 +523,7 @@ namespace Game.Player {
                 return;
             }
 
-            var sourceRenderer = PrefabUtility.GetCorrespondingObjectFromSource(renderer) as ParticleSystemRenderer;
+            var sourceRenderer = PrefabUtility.GetCorrespondingObjectFromSource(renderer);
             if(sourceRenderer != null) {
                 var sourceSharedMaterials = sourceRenderer.sharedMaterials;
                 if(sourceSharedMaterials is { Length: > 0 }) {
@@ -556,32 +555,25 @@ namespace Game.Player {
                 var pz = AssetDatabase.LoadAssetAtPath<Material>(DefaultTrailMainMaterialPath);
                 if(glow != null && pz != null) return new[] { glow, pz };
                 if(glow != null) return new[] { glow };
-                if(pz != null) return new[] { pz };
-                return null;
+                return pz != null ? new[] { pz } : null;
             }
 
             if(objectName.StartsWith("electric", StringComparison.OrdinalIgnoreCase)) {
                 var electric = AssetDatabase.LoadAssetAtPath<Material>(DefaultElectricMainMaterialPath);
-                if(electric != null) return new[] { electric };
-                return null;
+                return electric != null ? new[] { electric } : null;
             }
 
-            if(string.Equals(objectName, "lightning_center", StringComparison.OrdinalIgnoreCase)) {
-                var lightningBlue = AssetDatabase.LoadAssetAtPath<Material>(DefaultLightningBlueMaterialPath);
-                if(lightningBlue != null) return new[] { lightningBlue };
-                return null;
-            }
+            if(!string.Equals(objectName, "lightning_center", StringComparison.OrdinalIgnoreCase)) return null;
+            var lightningBlue = AssetDatabase.LoadAssetAtPath<Material>(DefaultLightningBlueMaterialPath);
+            return lightningBlue != null ? new[] { lightningBlue } : null;
 
-            return null;
         }
 
         private static Material GetFallbackTrailRibbonMaterial(string objectName) {
             if(string.IsNullOrWhiteSpace(objectName)) return null;
-            if(string.Equals(objectName, "trail", StringComparison.OrdinalIgnoreCase)) {
+            return string.Equals(objectName, "trail", StringComparison.OrdinalIgnoreCase) ?
                 // Original prefab uses pz_27b2_lgt as trail material.
-                return AssetDatabase.LoadAssetAtPath<Material>(DefaultTrailMainMaterialPath);
-            }
-            return null;
+                AssetDatabase.LoadAssetAtPath<Material>(DefaultTrailMainMaterialPath) : null;
         }
 #endif
 
@@ -917,11 +909,7 @@ namespace Game.Player {
                 return fakeVelocity.normalized;
             }
 
-            if(transform.forward.sqrMagnitude > 0.0001f) {
-                return transform.forward.normalized;
-            }
-
-            return Vector3.forward;
+            return transform.forward.sqrMagnitude > 0.0001f ? transform.forward.normalized : Vector3.forward;
         }
 
         private void ApplyWeaponVisuals() {
@@ -1146,8 +1134,7 @@ namespace Game.Player {
 
             var muzzleLocalTime = cycleTime - ShotPreviewMuzzleStartSeconds;
             var muzzleActive = normalizedLifecycle > 0f
-                               && muzzleLocalTime >= 0f
-                               && muzzleLocalTime <= ShotPreviewMuzzleDurationSeconds;
+                               && muzzleLocalTime is >= 0f and <= ShotPreviewMuzzleDurationSeconds;
             var muzzleSampleTime = muzzleActive
                 ? Mathf.Clamp(Mathf.Max(muzzleLocalTime, 1f / 60f), 0f, ShotPreviewMuzzleDurationSeconds)
                 : 0f;
@@ -1197,11 +1184,10 @@ namespace Game.Player {
                     previewTrail.Clear();
                     previewTrail.time = Mathf.Max(0.01f, ShotPreviewTrailDisplayLifetimeSeconds);
                     previewTrail.emitting = false;
-                    if(projectileActive) {
-                        previewTrail.AddPosition(tailPosition);
-                        previewTrail.AddPosition(headPosition);
-                        trailCount++;
-                    }
+                    if(!projectileActive) continue;
+                    previewTrail.AddPosition(tailPosition);
+                    previewTrail.AddPosition(headPosition);
+                    trailCount++;
                 }
             }
 
@@ -1234,11 +1220,9 @@ namespace Game.Player {
         }
 
         private Transform GetShotPreviewOrigin(WeaponVisualOption option) {
-            if(option != null) {
-                if(option.shotOrigin != null) return option.shotOrigin;
-                if(option.handObject != null) return option.handObject.transform;
-            }
-            return transform;
+            if(option == null) return transform;
+            if(option.shotOrigin != null) return option.shotOrigin;
+            return option.handObject != null ? option.handObject.transform : transform;
         }
 
         private Vector3 GetShotPreviewDirection(
@@ -1312,7 +1296,7 @@ namespace Game.Player {
         private int GetShotConfigHash(WeaponVisualOption option) {
             unchecked {
                 var hash = 17;
-                hash = hash * 31 + (option != null && option.flipShotVfxYaw180 ? 1 : 0);
+                hash = hash * 31 + (option is { flipShotVfxYaw180: true } ? 1 : 0);
                 hash = hash * 31 + (previewShotMuzzleLights ? 1 : 0);
                 hash = hash * 31 + Mathf.RoundToInt(shotMuzzleLightIntensityMultiplier * 1000f);
                 hash = hash * 31 + (useDeterministicShotVfxSeed ? 1 : 0);
@@ -1344,72 +1328,68 @@ namespace Game.Player {
             if(assignedVfx == null) return null;
             if(assignedVfx.gameObject == null) return null;
             var shouldUsePreviewClone = ShouldUsePreviewClone(assignedVfx);
-            if(shouldUsePreviewClone) {
-                var sourceId = assignedVfx.GetInstanceID();
-                if(_shotVfxPreviewInstances.TryGetValue(sourceId, out var existing) && existing != null) {
-                    return existing;
-                }
-
-                var sourceObject = assignedVfx.gameObject;
-                var previewObject = Instantiate(sourceObject, transform);
-                previewObject.name = $"{sourceObject.name} (ShotPreview)";
-                ApplyPreviewHideFlags(previewObject);
-
-                var previewVfx = previewObject.GetComponent<VisualEffect>();
-                if(previewVfx == null) {
-                    previewVfx = previewObject.GetComponentInChildren<VisualEffect>(true);
-                }
-
-                if(previewVfx == null) {
-                    if(Application.isPlaying) {
-                        Destroy(previewObject);
-                    } else {
-                        DestroyImmediate(previewObject);
-                    }
-                    return null;
-                }
-
-                _shotVfxPreviewInstances[sourceId] = previewVfx;
-                return previewVfx;
+            if(!shouldUsePreviewClone) return assignedVfx;
+            var sourceId = assignedVfx.GetInstanceID();
+            if(_shotVfxPreviewInstances.TryGetValue(sourceId, out var existing) && existing != null) {
+                return existing;
             }
 
-            return assignedVfx;
+            var sourceObject = assignedVfx.gameObject;
+            var previewObject = Instantiate(sourceObject, transform);
+            previewObject.name = $"{sourceObject.name} (ShotPreview)";
+            ApplyPreviewHideFlags(previewObject);
+
+            var previewVfx = previewObject.GetComponent<VisualEffect>();
+            if(previewVfx == null) {
+                previewVfx = previewObject.GetComponentInChildren<VisualEffect>(true);
+            }
+
+            if(previewVfx == null) {
+                if(Application.isPlaying) {
+                    Destroy(previewObject);
+                } else {
+                    DestroyImmediate(previewObject);
+                }
+                return null;
+            }
+
+            _shotVfxPreviewInstances[sourceId] = previewVfx;
+            return previewVfx;
+
         }
 
         private TrailRenderer ResolveShotTrailForPreview(TrailRenderer assignedTrail) {
             if(assignedTrail == null) return null;
             if(assignedTrail.gameObject == null) return null;
             var shouldUsePreviewClone = ShouldUsePreviewClone(assignedTrail);
-            if(shouldUsePreviewClone) {
-                var sourceId = assignedTrail.GetInstanceID();
-                if(_shotTrailPreviewInstances.TryGetValue(sourceId, out var existing) && existing != null) {
-                    return existing;
-                }
-
-                var sourceObject = assignedTrail.gameObject;
-                var previewObject = Instantiate(sourceObject, transform);
-                previewObject.name = $"{sourceObject.name} (ShotPreview)";
-                ApplyPreviewHideFlags(previewObject);
-
-                var previewTrail = previewObject.GetComponent<TrailRenderer>();
-                if(previewTrail == null) {
-                    previewTrail = previewObject.GetComponentInChildren<TrailRenderer>(true);
-                }
-
-                if(previewTrail == null) {
-                    if(Application.isPlaying) {
-                        Destroy(previewObject);
-                    } else {
-                        DestroyImmediate(previewObject);
-                    }
-                    return null;
-                }
-
-                _shotTrailPreviewInstances[sourceId] = previewTrail;
-                return previewTrail;
+            if(!shouldUsePreviewClone) return assignedTrail;
+            var sourceId = assignedTrail.GetInstanceID();
+            if(_shotTrailPreviewInstances.TryGetValue(sourceId, out var existing) && existing != null) {
+                return existing;
             }
 
-            return assignedTrail;
+            var sourceObject = assignedTrail.gameObject;
+            var previewObject = Instantiate(sourceObject, transform);
+            previewObject.name = $"{sourceObject.name} (ShotPreview)";
+            ApplyPreviewHideFlags(previewObject);
+
+            var previewTrail = previewObject.GetComponent<TrailRenderer>();
+            if(previewTrail == null) {
+                previewTrail = previewObject.GetComponentInChildren<TrailRenderer>(true);
+            }
+
+            if(previewTrail == null) {
+                if(Application.isPlaying) {
+                    Destroy(previewObject);
+                } else {
+                    DestroyImmediate(previewObject);
+                }
+                return null;
+            }
+
+            _shotTrailPreviewInstances[sourceId] = previewTrail;
+            return previewTrail;
+
         }
 
         private static bool ShouldUsePreviewClone(Component source) {
@@ -1523,11 +1503,8 @@ namespace Game.Player {
         private static bool CanModifyAssignedShotTrailRenderer(TrailRenderer trail) {
             if(trail == null || trail.gameObject == null) return false;
 #if UNITY_EDITOR
-            if(EditorUtility.IsPersistent(trail) || EditorUtility.IsPersistent(trail.gameObject)) {
-                return false;
-            }
+            return !EditorUtility.IsPersistent(trail) && !EditorUtility.IsPersistent(trail.gameObject);
 #endif
-            return true;
         }
 
         private void DestroyOrphanedShotPreviewObjects() {
@@ -1575,26 +1552,24 @@ namespace Game.Player {
                 option.shotTrailRenderers = option.handObject.GetComponentsInChildren<TrailRenderer>(true);
             }
 
-            if(option.autoFindShotMuzzleLights &&
-               (option.shotMuzzleLights == null || option.shotMuzzleLights.Length == 0)) {
-                var lights = option.handObject.GetComponentsInChildren<Light>(true);
-                if(lights is { Length: > 0 }) {
-                    var muzzleLights = new List<Light>(lights.Length);
-                    foreach(var light in lights) {
-                        if(light == null) continue;
-                        if(!light.name.Contains("MuzzleLight", StringComparison.OrdinalIgnoreCase)) continue;
-                        muzzleLights.Add(light);
-                    }
+            if(!option.autoFindShotMuzzleLights ||
+               (option.shotMuzzleLights != null && option.shotMuzzleLights.Length != 0)) return;
+            var lights = option.handObject.GetComponentsInChildren<Light>(true);
+            if(lights is not { Length: > 0 }) return;
+            var muzzleLights = new List<Light>(lights.Length);
+            foreach(var light in lights) {
+                if(light == null) continue;
+                if(!light.name.Contains("MuzzleLight", StringComparison.OrdinalIgnoreCase)) continue;
+                muzzleLights.Add(light);
+            }
 
-                    if(muzzleLights.Count > 0) {
-                        option.shotMuzzleLights = muzzleLights.ToArray();
-                    }
-                }
+            if(muzzleLights.Count > 0) {
+                option.shotMuzzleLights = muzzleLights.ToArray();
             }
         }
 
         private void ApplyShotMuzzleLights(WeaponVisualOption option, bool muzzleActive) {
-            if(option == null || option.shotMuzzleLights == null) return;
+            if(option?.shotMuzzleLights == null) return;
             var shouldEnable = previewShotMuzzleLights && muzzleActive;
             foreach(var light in option.shotMuzzleLights) {
                 if(light == null) continue;
@@ -1681,7 +1656,7 @@ namespace Game.Player {
             var selectedIndex = handWeaponSlot == HandWeaponSlot.Primary
                 ? selectedPrimaryIndex
                 : selectedSecondaryIndex;
-            return ((int)handWeaponSlot * 1000) + Mathf.Max(0, selectedIndex) + 1;
+            return (int)handWeaponSlot * 1000 + Mathf.Max(0, selectedIndex) + 1;
         }
 
         private static bool HasAnyShotOutputConfigured(WeaponVisualOption option) {
@@ -1958,7 +1933,7 @@ namespace Game.Player {
                 $"targetLocalEuler={(lookPitchTarget != null ? lookPitchTarget.localRotation.eulerAngles.ToString() : "null")}, " +
                 $"originalLocalEuler={originalSpine.localRotation.eulerAngles}, " +
                 $"pitch={lookPitchDegrees:0.###}, yaw={lookYawDegrees:0.###}, " +
-                $"animInit={(animator != null && animator.isInitialized)}, animSpeed={(animator != null ? animator.speed : -1f):0.###}, " +
+                $"animInit={animator != null && animator.isInitialized}, animSpeed={(animator != null ? animator.speed : -1f):0.###}, " +
                 $"stateHash={stateHash}, stateNorm={stateNorm:0.###}, inTransition={transition}",
                 this);
         }

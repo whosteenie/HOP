@@ -460,7 +460,7 @@ namespace Game.Weapons {
             var fpCameraTransform = playerController != null ? playerController.FpCameraTransform : null;
             return _currentFpWeaponInstance
                 ? _currentFpWeaponInstance.transform.rotation
-                : (fpCameraTransform != null ? fpCameraTransform.rotation : transform.rotation);
+                : fpCameraTransform != null ? fpCameraTransform.rotation : transform.rotation;
         }
 
         public int GetWeaponSlot() {
@@ -487,22 +487,20 @@ namespace Game.Weapons {
                     muzzleTransform = _worldMuzzleTransform;
                     return true;
                 }
-                if(_fpMuzzleTransform != null) {
-                    muzzleTransform = _fpMuzzleTransform;
-                    return true;
-                }
+
+                if(_fpMuzzleTransform == null) return false;
+                muzzleTransform = _fpMuzzleTransform;
             } else {
                 if(_fpMuzzleTransform != null) {
                     muzzleTransform = _fpMuzzleTransform;
                     return true;
                 }
-                if(_worldMuzzleTransform != null) {
-                    muzzleTransform = _worldMuzzleTransform;
-                    return true;
-                }
+
+                if(_worldMuzzleTransform == null) return false;
+                muzzleTransform = _worldMuzzleTransform;
             }
 
-            return false;
+            return true;
         }
 
         #endregion
@@ -1130,31 +1128,34 @@ namespace Game.Weapons {
             if(_weaponAnimator == null || !_weaponAnimator.isActiveAndEnabled) return;
             if(Time.time < _nextReloadRecoveryAllowedTime) return;
 
-            if(IsReloading && Time.time > _reloadExpectedCompleteTime) {
-                Debug.LogWarning(
-                    $"[Weapon] Reload timeout guard fired for '{name}'. isMagReload={_currentWeaponData != null && _currentWeaponData.useMagReload} ammo={currentAmmo}");
+            switch(IsReloading) {
+                case true when Time.time > _reloadExpectedCompleteTime: {
+                    Debug.LogWarning(
+                        $"[Weapon] Reload timeout guard fired for '{name}'. isMagReload={_currentWeaponData != null && _currentWeaponData.useMagReload} ammo={currentAmmo}");
 
-                if(_currentWeaponData != null && _currentWeaponData.useMagReload) {
-                    CompleteReload();
-                } else {
-                    IsReloading = false;
-                    _reloadCoroutine = null;
-                    _autoReloadArmed = false;
-                    _reloadAnimationExitDeadline = Time.time + ReloadAnimationExitGraceSeconds;
-                    ExitReloadAnimation();
-                    SyncServerAmmo();
+                    if(_currentWeaponData != null && _currentWeaponData.useMagReload) {
+                        CompleteReload();
+                    } else {
+                        IsReloading = false;
+                        _reloadCoroutine = null;
+                        _autoReloadArmed = false;
+                        _reloadAnimationExitDeadline = Time.time + ReloadAnimationExitGraceSeconds;
+                        ExitReloadAnimation();
+                        SyncServerAmmo();
 
-                    if(playerController != null && playerController.IsOwner && _currentWeaponData != null &&
-                       HUDManager.Instance != null) {
-                        EventBus.Publish(new UpdateAmmoEvent(currentAmmo, _currentWeaponData.magSize));
+                        if(playerController != null && playerController.IsOwner && _currentWeaponData != null &&
+                           HUDManager.Instance != null) {
+                            EventBus.Publish(new UpdateAmmoEvent(currentAmmo, _currentWeaponData.magSize));
+                        }
                     }
-                }
 
-                _nextReloadRecoveryAllowedTime = Time.time + ReloadRecoveryCooldownSeconds;
-                return;
+                    _nextReloadRecoveryAllowedTime = Time.time + ReloadRecoveryCooldownSeconds;
+                    return;
+                }
+                case true:
+                    return;
             }
 
-            if(IsReloading) return;
             if(Time.time <= _reloadAnimationExitDeadline) return;
             if(!IsPlayingReloadClip()) return;
 
@@ -1189,7 +1190,7 @@ namespace Game.Weapons {
             var remainingDistance = distance;
 
             while(remainingDistance > 0) {
-                var t = 1f - (remainingDistance / distance);
+                var t = 1f - remainingDistance / distance;
                 trail.transform.position = Vector3.Lerp(position, hitPoint, t);
                 remainingDistance -= BulletSpeed * Time.deltaTime;
                 yield return null;

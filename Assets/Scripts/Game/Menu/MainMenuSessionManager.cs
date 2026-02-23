@@ -824,7 +824,7 @@ namespace Game.Menu {
             var hostColor = new Color(1, 0.8f, 0, 0.6f);
             var partyColor = new Color(0.2f, 0.6f, 1f, 0.6f);
 
-            float borderSize = showHostIndicator ? 2 : (isPartyMember && !isLocal ? 1 : 0);
+            float borderSize = showHostIndicator ? 2 : isPartyMember && !isLocal ? 1 : 0;
             var borderColor = showHostIndicator
                 ? new StyleColor(hostColor)
                 : isPartyMember ? new StyleColor(partyColor) : new StyleColor(StyleKeyword.Null);

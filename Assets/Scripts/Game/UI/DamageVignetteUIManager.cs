@@ -126,7 +126,7 @@ namespace Game.UI {
             t = 0f;
             while(t < fadeDuration) {
                 t += Time.deltaTime;
-                var f = 1f - (t / fadeDuration);
+                var f = 1f - t / fadeDuration;
                 ve.style.opacity = targetAlpha * f;
                 yield return null;
             }

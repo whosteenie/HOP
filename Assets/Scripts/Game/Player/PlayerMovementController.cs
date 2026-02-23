@@ -136,10 +136,9 @@ namespace Game.Player {
         public override void OnNetworkSpawn() {
             base.OnNetworkSpawn();
 
-            if(playerController != null) {
-                netIsCrouching = playerController.NetIsCrouching;
-                netIsSliding = playerController.netIsSliding;
-            }
+            if(playerController == null) return;
+            netIsCrouching = playerController.NetIsCrouching;
+            netIsSliding = playerController.netIsSliding;
         }
 
         /// <summary>
@@ -220,7 +219,7 @@ namespace Game.Player {
                 _obstacleMask
             );
 
-            var isCurrentlyCrouched = _crouchTransition > 0.5f || (netIsCrouching != null && netIsCrouching.Value);
+            var isCurrentlyCrouched = _crouchTransition > 0.5f || netIsCrouching is { Value: true };
 
             bool targetCrouchState;
             if(CrouchInput) {
@@ -441,19 +440,18 @@ namespace Game.Player {
             if (blockRatio < WallBlockRatio) {
                 // We're blocked - accumulate contact time
                 _wallContactTime += Time.deltaTime;
-                
-                if (_wallContactTime > WallContactThreshold) {
-                    // Grace period expired - dampen velocity toward actual movement
-                    _horizontalVelocity = Vector3.Lerp(
-                        _horizontalVelocity,
-                        actualHorizontal,
-                        WallDampenRate * Time.deltaTime
-                    );
+
+                if(!(_wallContactTime > WallContactThreshold)) return;
+                // Grace period expired - dampen velocity toward actual movement
+                _horizontalVelocity = Vector3.Lerp(
+                    _horizontalVelocity,
+                    actualHorizontal,
+                    WallDampenRate * Time.deltaTime
+                );
                     
-                    // Also dampen slide speed if currently sliding
-                    if (IsSliding) {
-                        _slideSpeed = Mathf.Lerp(_slideSpeed, actualSpeed, WallDampenRate * Time.deltaTime);
-                    }
+                // Also dampen slide speed if currently sliding
+                if (IsSliding) {
+                    _slideSpeed = Mathf.Lerp(_slideSpeed, actualSpeed, WallDampenRate * Time.deltaTime);
                 }
             } else {
                 // Not blocked - reset timer
@@ -486,11 +484,8 @@ namespace Game.Player {
             }
 
             if(!IsGrounded) {
-                if(_wallRunController != null && _wallRunController.IsWallRunning) {
-                    _wallRunController.WallJump();
-                    return;
-                }
-                
+                if(_wallRunController == null || !_wallRunController.IsWallRunning) return;
+                _wallRunController.WallJump();
                 return;
             }
 
@@ -541,6 +536,7 @@ namespace Game.Player {
         /// </summary>
         /// <param name="normal">The surface normal of the jump pad.</param>
         /// <param name="force">The force magnitude to apply.</param>
+        /// <param name="ignoreGroundedRequirement"></param>
         public void LaunchFromJumpPad(Vector3 normal, float force = 15f, bool ignoreGroundedRequirement = false) {
             if(!ignoreGroundedRequirement && !IsGrounded) {
                 return;
@@ -727,7 +723,7 @@ namespace Game.Player {
             }
 
             // Apply proportional friction (faster slides slow down faster)
-            var friction = SlideBaseFriction + (_slideSpeed * SlideSpeedFriction);
+            var friction = SlideBaseFriction + _slideSpeed * SlideSpeedFriction;
             _slideSpeed -= friction * Time.deltaTime;
 
             // Apply slope influence
@@ -750,8 +746,9 @@ namespace Game.Player {
         private bool IsGroundWithinSlideGap() {
             if(_characterController == null || playerController == null) return false;
 
-            var feet = _characterController.bounds.center;
-            feet.y = _characterController.bounds.min.y;
+            var bounds = _characterController.bounds;
+            var feet = bounds.center;
+            feet.y = bounds.min.y;
 
             const float probeStartOffset = 0.08f;
             var probeDistance = probeStartOffset + Mathf.Max(0f, maxSlideGroundGap);

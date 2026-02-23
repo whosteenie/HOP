@@ -157,7 +157,7 @@ namespace Game.Player {
             }
 
             playerController.ResetVelocity();
-            playerController.MovementController?.SetMantling(true);
+            if(playerController.MovementController != null) playerController.MovementController.SetMantling(true);
 
             if(_mantleRoutine != null) {
                 StopCoroutine(_mantleRoutine);
@@ -213,7 +213,7 @@ namespace Game.Player {
             IsMantling = false;
 
             playerController.ResetVelocity();
-            playerController.MovementController?.SetMantling(false);
+            if(playerController.MovementController != null) playerController.MovementController.SetMantling(false);
 
             _postMantleJumpCooldown = applyJumpCooldown ? PostMantleJumpDelay : 0f;
         }
@@ -247,7 +247,7 @@ namespace Game.Player {
         private bool IsCapsuleBlockedAtPosition(Vector3 position) {
             var up = transform.up;
             var height = Mathf.Max(_characterController.height, _characterController.radius * 2f);
-            var halfSegment = Mathf.Max(0f, (height * 0.5f) - _characterController.radius);
+            var halfSegment = Mathf.Max(0f, height * 0.5f - _characterController.radius);
             var center = position + _characterController.center;
             var p1 = center + up * halfSegment;
             var p2 = center - up * halfSegment;
@@ -306,7 +306,7 @@ namespace Game.Player {
         private int GetMantleOverlaps() {
             var up = transform.up;
             var height = Mathf.Max(_characterController.height, _characterController.radius * 2f);
-            var halfSegment = Mathf.Max(0f, (height * 0.5f) - _characterController.radius);
+            var halfSegment = Mathf.Max(0f, height * 0.5f - _characterController.radius);
             var center = transform.position + _characterController.center;
             var capsuleStart = center + up * halfSegment;
             var capsuleEnd = center - up * halfSegment;

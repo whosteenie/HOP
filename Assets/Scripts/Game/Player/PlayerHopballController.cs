@@ -156,7 +156,7 @@ namespace Game.Player {
 
                 var materials = renderer.materials;
                 Material sourceOutline = null;
-                if(materials != null && materials.Length > 0 && materials[0] != null) {
+                if(materials is { Length: > 0 } && materials[0] != null) {
                     sourceOutline = materials[0];
                 } else if(renderer.sharedMaterial != null) {
                     sourceOutline = renderer.sharedMaterial;
@@ -230,10 +230,10 @@ namespace Game.Player {
             if(HopballController.Instance != null) {
                 HopballController.Instance.OnControllerRegistered(this);
             }
-            if(_armAnimationEvents != null) {
-                _armAnimationEvents.OnPutAwayComplete -= OnArmPutAwayAnimationComplete;
-                _armAnimationEvents.OnPutAwayComplete += OnArmPutAwayAnimationComplete;
-            }
+
+            if(_armAnimationEvents == null) return;
+            _armAnimationEvents.OnPutAwayComplete -= OnArmPutAwayAnimationComplete;
+            _armAnimationEvents.OnPutAwayComplete += OnArmPutAwayAnimationComplete;
         }
 
         public override void OnNetworkSpawn() {
@@ -600,7 +600,7 @@ namespace Game.Player {
                 var materials = renderer.materials;
                 if(materials == null || materials.Length < 2) {
                     var resizedMaterials = new Material[2];
-                    if(materials != null && materials.Length > 0) {
+                    if(materials is { Length: > 0 }) {
                         resizedMaterials[0] = materials[0];
                     }
                     materials = resizedMaterials;
@@ -1130,10 +1130,10 @@ namespace Game.Player {
                         currentWeapon.SetActive(true);
                     }
                 }
-                if(playerController != null && playerController.PlayerShadow != null) {
-                    playerController.PlayerShadow.ApplyHopballShadowState(false, false);
-                    playerController.PlayerShadow.ApplyVisibleShadowState();
-                }
+
+                if(playerController == null || playerController.PlayerShadow == null) return;
+                playerController.PlayerShadow.ApplyHopballShadowState(false, false);
+                playerController.PlayerShadow.ApplyVisibleShadowState();
             }
         }
 

@@ -165,10 +165,9 @@ namespace Game.Match {
                 // Check if we have player objects spawned for all currently connected clients.
                 var allPlayersReady = true;
                 foreach (var kvp in connectedClients) {
-                    if (kvp.Value.PlayerObject == null || !kvp.Value.PlayerObject.IsSpawned) {
-                        allPlayersReady = false;
-                        break;
-                    }
+                    if(kvp.Value.PlayerObject != null && kvp.Value.PlayerObject.IsSpawned) continue;
+                    allPlayersReady = false;
+                    break;
                 }
 
                 var allConnectedPresented = true;
@@ -273,13 +272,12 @@ namespace Game.Match {
             // When pre-match ends, ensure UI shows match timer
             if(current || GameMenuManager.Instance == null) return;
             GameMenuManager.Instance.RestoreHudForMatchStart();
-            if(ScoreboardManager.Instance != null) {
-                var matchSettings = MatchSettingsManager.Instance;
-                if(matchSettings != null && matchSettings.IsInfiniteMatchTimer()) {
-                    EventBus.Publish(new SetMatchTimeEvent(-1));
-                } else {
-                    EventBus.Publish(new SetMatchTimeEvent(_timeRemainingSeconds.Value));
-                }
+            if(ScoreboardManager.Instance == null) return;
+            var matchSettings = MatchSettingsManager.Instance;
+            if(matchSettings != null && matchSettings.IsInfiniteMatchTimer()) {
+                EventBus.Publish(new SetMatchTimeEvent(-1));
+            } else {
+                EventBus.Publish(new SetMatchTimeEvent(_timeRemainingSeconds.Value));
             }
         }
 
@@ -375,7 +373,7 @@ namespace Game.Match {
             }
         }
 
-        private void TriggerKothRoundStart() {
+        private static void TriggerKothRoundStart() {
             var kothManager = KingOfTheHillManager.Instance;
             if(kothManager == null) {
                 kothManager = FindFirstObjectByType<KingOfTheHillManager>();

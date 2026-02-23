@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using Game.Match;
 using Game.Player;
 using OSI;
 using Network.AntiCheat;
@@ -183,20 +182,25 @@ namespace Game.Hopball {
     private void Update() {
         if(!IsSpawned) return;
 
-        // Server handles energy drain (only while equipped, unless dissolving)
-        // If dissolving, continue draining even if dropped to complete the dissolve
-        if(IsServer && (IsEquipped || IsDissolving)) {
-            if(_nextDrainAt < 0f) {
-                _nextDrainAt = Time.time + 2f;
-            }
+        switch(IsServer) {
+            // Server handles energy drain (only while equipped, unless dissolving)
+            // If dissolving, continue draining even if dropped to complete the dissolve
+            case true when IsEquipped || IsDissolving: {
+                if(_nextDrainAt < 0f) {
+                    _nextDrainAt = Time.time + 2f;
+                }
 
-            while(Time.time >= _nextDrainAt) {
-                var newEnergy = Mathf.Max(0f, _networkEnergy.Value - 1f);
-                _networkEnergy.Value = newEnergy;
-                _nextDrainAt += 2f;
+                while(Time.time >= _nextDrainAt) {
+                    var newEnergy = Mathf.Max(0f, _networkEnergy.Value - 1f);
+                    _networkEnergy.Value = newEnergy;
+                    _nextDrainAt += 2f;
+                }
+
+                break;
             }
-        } else if(IsServer) {
-            _nextDrainAt = -1f;
+            case true:
+                _nextDrainAt = -1f;
+                break;
         }
 
         // Update effects on all clients every frame (for visual syncing)

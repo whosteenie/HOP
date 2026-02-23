@@ -54,7 +54,8 @@ namespace Game.Player {
 
             if(moveInput.sqrMagnitude < 0.1f) return;
 
-            var dashDir = (transform.forward * moveInput.y + transform.right * moveInput.x).normalized;
+            var playerTransform = transform;
+            var dashDir = (playerTransform.forward * moveInput.y + playerTransform.right * moveInput.x).normalized;
             dashDir.y = 0f;
 
             StartDashRpc(dashDir);

@@ -167,10 +167,9 @@ namespace Game.UI {
         private VisualElement CreateFeedEntry(string actorName, string targetName, bool isLocalActor,
             ulong actorClientId, ulong targetClientId, Sprite iconSprite) {
             if(killFeedEntryTemplate == null) {
-                if(!_killFeedTemplateErrorLogged) {
-                    Debug.LogError("[KillFeedManager] killFeedEntryTemplate is required. Assign KillFeedEntry.uxml in the inspector.");
-                    _killFeedTemplateErrorLogged = true;
-                }
+                if(_killFeedTemplateErrorLogged) return null;
+                Debug.LogError("[KillFeedManager] killFeedEntryTemplate is required. Assign KillFeedEntry.uxml in the inspector.");
+                _killFeedTemplateErrorLogged = true;
                 return null;
             }
 
@@ -181,10 +180,9 @@ namespace Game.UI {
             var iconElement = entry.Q<VisualElement>("icon");
 
             if(killerLabel == null || victimLabel == null || iconElement == null) {
-                if(!_killFeedTemplateErrorLogged) {
-                    Debug.LogError("[KillFeedManager] KillFeedEntry template is missing required elements: killer-label, victim-label, or icon.");
-                    _killFeedTemplateErrorLogged = true;
-                }
+                if(_killFeedTemplateErrorLogged) return null;
+                Debug.LogError("[KillFeedManager] KillFeedEntry template is missing required elements: killer-label, victim-label, or icon.");
+                _killFeedTemplateErrorLogged = true;
                 return null;
             }
 

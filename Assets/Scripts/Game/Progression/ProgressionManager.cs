@@ -90,10 +90,9 @@ namespace Game.Progression {
                 }
 
                 var shouldBeCompleted = challenge.currentProgress >= challenge.targetProgress;
-                if (challenge.isCompleted != shouldBeCompleted) {
-                    challenge.isCompleted = shouldBeCompleted;
-                    changed = true;
-                }
+                if(challenge.isCompleted == shouldBeCompleted) continue;
+                challenge.isCompleted = shouldBeCompleted;
+                changed = true;
             }
 
             return changed;
@@ -404,7 +403,7 @@ namespace Game.Progression {
             if (string.IsNullOrEmpty(Data.lastDailyReset)) {
                 needsReset = true;
             } else {
-                if (DateTime.TryParse(Data.lastDailyReset, out DateTime lastReset)) {
+                if (DateTime.TryParse(Data.lastDailyReset, out var lastReset)) {
                     // Calendar-based daily rollover: reset once local date crosses midnight.
                     if (lastReset < todayMidnight) {
                         needsReset = true;
@@ -433,7 +432,7 @@ namespace Game.Progression {
              if (string.IsNullOrEmpty(Data.lastWeeklyReset)) {
                  needsReset = true;
              } else {
-                 if (DateTime.TryParse(Data.lastWeeklyReset, out DateTime lastReset)) {
+                 if (DateTime.TryParse(Data.lastWeeklyReset, out var lastReset)) {
                      // Calendar-based weekly rollover: reset once we cross the configured weekly boundary at midnight.
                      if (lastReset < currentWeeklyBoundary) {
                          needsReset = true;

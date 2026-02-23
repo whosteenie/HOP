@@ -28,8 +28,8 @@ namespace Game.Social {
 
         public event Action<ChatMessage> OnMessageReceived;
         private bool _isVivoxBound;
-        private readonly Dictionary<string, ChunkAssemblyState> _chunkAssemblies = new Dictionary<string, ChunkAssemblyState>();
-        private readonly Queue<PendingSelfEchoState> _pendingSelfEchoes = new Queue<PendingSelfEchoState>();
+        private readonly Dictionary<string, ChunkAssemblyState> _chunkAssemblies = new();
+        private readonly Queue<PendingSelfEchoState> _pendingSelfEchoes = new();
         private long _nextPendingSelfEchoId = 1;
 
         [Serializable]
@@ -126,7 +126,7 @@ namespace Game.Social {
                     return;
                 }
 
-                string channelName = null;
+                string channelName;
                 if(SessionManager.Instance != null &&
                    SessionManager.Instance.TryGetActiveVoiceChannelName(out var canonicalChannelName) &&
                    !string.IsNullOrEmpty(canonicalChannelName)) {
@@ -180,7 +180,7 @@ namespace Game.Social {
             if(VivoxService.Instance == null) return;
 
             var bytes = Encoding.UTF8.GetBytes(fullMessage);
-            var messageId = Guid.NewGuid().ToString("N").Substring(0, 12);
+            var messageId = Guid.NewGuid().ToString("N")[..12];
             var offset = 0;
             var chunkIndex = 0;
 
@@ -226,7 +226,7 @@ namespace Game.Social {
             var end = message.Length;
             while(end > 0) {
                 end--;
-                var candidate = message.Substring(0, end);
+                var candidate = message[..end];
                 if(Encoding.UTF8.GetByteCount(candidate) <= maxBytes) {
                     return candidate;
                 }

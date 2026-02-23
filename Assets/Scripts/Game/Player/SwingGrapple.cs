@@ -20,7 +20,7 @@ namespace Game.Player {
         [Header("Rope Visuals")]
         [SerializeField] private float lineWidth = 0.05f;
 
-        [SerializeField] private Color ropeColor = new Color(0.2f, 0.8f, 1f);
+        [SerializeField] private Color ropeColor = new(0.2f, 0.8f, 1f);
         [SerializeField] private Material ropeMaterial;
 
         [Header("Layers")]
@@ -143,7 +143,8 @@ namespace Game.Player {
         }
 
         private void SwingUpdate() {
-            var toAnchor = _swingPoint - transform.position;
+            var position = transform.position;
+            var toAnchor = _swingPoint - position;
             var currentDist = toAnchor.magnitude;
 
             // Direction along rope
@@ -156,14 +157,14 @@ namespace Game.Player {
             _currentVelocity += gravityTangent * Time.deltaTime;
 
             // Predict next position
-            var predicted = transform.position + _currentVelocity * Time.deltaTime;
+            var predicted = position + _currentVelocity * Time.deltaTime;
 
             // Enforce rope length (project back onto sphere)
             var fromAnchor = predicted - _swingPoint;
             predicted = _swingPoint + fromAnchor.normalized * _ropeLength;
 
             // Correct velocity: remove any radial component
-            var delta = predicted - transform.position;
+            var delta = predicted - position;
             var radialVel = Vector3.Project(_currentVelocity, ropeDir);
             _currentVelocity -= radialVel;
 
@@ -177,9 +178,10 @@ namespace Game.Player {
         private void DrawRopeVisuals() {
             if(!ropeRenderer || !ropeRenderer.enabled) return;
 
-            var handPos = fpCamera.transform.position
-                          - fpCamera.transform.right * 0.3f
-                          - fpCamera.transform.up * 0.2f;
+            var fpCameraTransform = fpCamera.transform;
+            var handPos = fpCameraTransform.position
+                          - fpCameraTransform.right * 0.3f
+                          - fpCameraTransform.up * 0.2f;
 
             var anchor = IsOwner ? _swingPoint : _netSwingPoint.Value;
 

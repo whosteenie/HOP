@@ -171,12 +171,11 @@ namespace Game.Weapons {
             SetupFpWeaponSkinnedMeshRenderers(fp);
 
             var anim = fp.GetComponent<Animator>();
-            if(anim != null && anim.enabled && anim.gameObject.activeInHierarchy) {
-                anim.Rebind();
-                anim.Update(0f);
-                if(triggerPullOutAnimation) {
-                    anim.SetTrigger(PullOutHash);
-                }
+            if(anim == null || !anim.enabled || !anim.gameObject.activeInHierarchy) return fp;
+            anim.Rebind();
+            anim.Update(0f);
+            if(triggerPullOutAnimation) {
+                anim.SetTrigger(PullOutHash);
             }
 
             return fp;
@@ -989,11 +988,7 @@ namespace Game.Weapons {
                 node = node.parent;
             }
 
-            if(node.parent == _fpCamera.transform) {
-                return node.gameObject;
-            }
-
-            return null;
+            return node.parent == _fpCamera.transform ? node.gameObject : null;
         }
 
         private void HideAllWorldWeapons(GameObject keepVisible = null) {

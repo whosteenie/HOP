@@ -162,7 +162,7 @@ namespace Game.UI {
             }
 
             // Only update if values have changed
-            var percent = (current / max) * 100f;
+            var percent = current / max * 100f;
             var healthText = Mathf.CeilToInt(current).ToString();
 
             if(_healthBar != null && Mathf.Abs(_healthBar.value - percent) > 0.01f) {
@@ -198,7 +198,7 @@ namespace Game.UI {
         // Event handler - called via EventBus
         private void UpdateMultiplier(float current, float max) {
             // Only update if values have changed
-            var percent = ((current - 1f) / (max - 1f)) * 100f;
+            var percent = (current - 1f) / (max - 1f) * 100f;
             var multiplierText = current.ToString("0.00") + "x";
 
             if(Mathf.Abs(_multiplierBar.value - percent) > 0.01f) {
@@ -287,7 +287,7 @@ namespace Game.UI {
             const float max = 100f;
 
             _healthBar.style.display = DisplayStyle.Flex;
-            var percent = (current / max) * 100f;
+            var percent = current / max * 100f;
             _healthBar.value = percent;
 
             var healthText = Mathf.CeilToInt(current).ToString();

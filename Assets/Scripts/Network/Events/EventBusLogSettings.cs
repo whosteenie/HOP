@@ -42,11 +42,10 @@ namespace Network.Events {
             _eventLogLookup = new Dictionary<Type, bool>();
             
             foreach(var entry in eventLogSettings) {
-                if(entry.eventTypeName != null && !string.IsNullOrEmpty(entry.eventTypeName)) {
-                    var type = Type.GetType(entry.eventTypeName);
-                    if(type != null) {
-                        _eventLogLookup[type] = entry.enabled;
-                    }
+                if(entry.eventTypeName == null || string.IsNullOrEmpty(entry.eventTypeName)) continue;
+                var type = Type.GetType(entry.eventTypeName);
+                if(type != null) {
+                    _eventLogLookup[type] = entry.enabled;
                 }
             }
             

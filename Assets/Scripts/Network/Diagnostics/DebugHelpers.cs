@@ -66,7 +66,7 @@ namespace Network.Diagnostics {
         public static bool TryGetNetworkObjectSafe(NetworkObjectReference reference, out NetworkObject networkObject, 
             ulong clientId, string context = null) {
             if(reference.TryGet(out networkObject) && networkObject != null && networkObject.IsSpawned) return true;
-            var reason = networkObject == null ? "null" : (!networkObject.IsSpawned ? "not spawned" : "TryGet failed");
+            var reason = networkObject == null ? "null" : !networkObject.IsSpawned ? "not spawned" : "TryGet failed";
             EventBus.Publish(new NetworkObjectReferenceFailedEvent(clientId, context ?? "NetworkObjectReference lookup", reason));
             return false;
         }

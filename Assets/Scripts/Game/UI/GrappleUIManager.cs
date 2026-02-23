@@ -189,13 +189,13 @@ namespace Game.UI {
 
             const float arcDegrees = 360f - gapDegrees;
 
-            const float startAngle = 360f + (gapDegrees / 2f);
+            const float startAngle = 360f + gapDegrees / 2f;
 
             for(var i = 0; i < segmentsToDraw; i++) {
                 // Calculate angle for this segment (start from bottom, go clockwise)
                 // Skip the bottom 20% (72 degrees) to create horseshoe gap
                 var progress = segmentsToDraw > 1 ? i / (float)(segmentsToDraw - 1) : 0f;
-                var angleDegrees = startAngle + (progress * arcDegrees);
+                var angleDegrees = startAngle + progress * arcDegrees;
                 var angle = angleDegrees * Mathf.Deg2Rad;
 
                 // Create segment

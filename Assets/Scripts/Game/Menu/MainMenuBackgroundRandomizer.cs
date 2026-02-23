@@ -21,9 +21,9 @@ namespace Game.Menu {
         }
 
         private sealed class SetupSelection {
-            public string displayName;
-            public int mapIndex;
-            public int setupIndex;
+            public string DisplayName;
+            public int MapIndex;
+            public int SetupIndex;
         }
 
         [Header("Registered Backgrounds")]
@@ -49,7 +49,7 @@ namespace Game.Menu {
             _selectionCacheDirty = true;
         }
 
-        public void RandomizeForMainMenuEntry() {
+        private void RandomizeForMainMenuEntry() {
             if(!TryGetRandomSelection(out var mapIndex, out var mannequinIndex)) {
                 DeactivateAllRegisteredObjects();
                 return;
@@ -65,7 +65,7 @@ namespace Game.Menu {
             }
 
             if(TryGetSelection(selectionName, out var selection)) {
-                ActivateSelection(selection.mapIndex, selection.setupIndex);
+                ActivateSelection(selection.MapIndex, selection.SetupIndex);
                 return;
             }
 
@@ -75,8 +75,8 @@ namespace Game.Menu {
         public IReadOnlyList<string> GetAvailableSelectionNames() {
             RebuildSelectionCacheIfNeeded();
             var names = new List<string>(_cachedSelections.Count);
-            for(var i = 0; i < _cachedSelections.Count; i++) {
-                names.Add(_cachedSelections[i].displayName);
+            foreach(var t in _cachedSelections) {
+                names.Add(t.DisplayName);
             }
 
             return names;
@@ -141,16 +141,15 @@ namespace Game.Menu {
             if(_cachedSelections.Count == 0) return false;
 
             var selection = _cachedSelections[UnityEngine.Random.Range(0, _cachedSelections.Count)];
-            selectedMapIndex = selection.mapIndex;
-            selectedMannequinIndex = selection.setupIndex;
+            selectedMapIndex = selection.MapIndex;
+            selectedMannequinIndex = selection.SetupIndex;
             return true;
         }
 
         private void DeactivateAllRegisteredObjects() {
             if(mapEntries == null) return;
 
-            for(var i = 0; i < mapEntries.Count; i++) {
-                var entry = mapEntries[i];
+            foreach(var entry in mapEntries) {
                 if(entry == null) continue;
 
                 if(entry.mapGeometryRoot != null && entry.mapGeometryRoot.activeSelf) {
@@ -158,8 +157,7 @@ namespace Game.Menu {
                 }
 
                 var resolvedSetups = GetResolvedMannequinSetups(entry);
-                for(var j = 0; j < resolvedSetups.Count; j++) {
-                    var setup = resolvedSetups[j];
+                foreach(var setup in resolvedSetups) {
                     if(setup != null && setup.activeSelf) {
                         setup.SetActive(false);
                     }
@@ -169,13 +167,12 @@ namespace Game.Menu {
 
         private void SetAllRegisteredMannequinCamerasEnabled(bool enabled) {
             if(mapEntries == null) return;
-            for(var i = 0; i < mapEntries.Count; i++) {
-                var entry = mapEntries[i];
+            foreach(var entry in mapEntries) {
                 if(entry == null) continue;
 
                 var resolvedSetups = GetResolvedMannequinSetups(entry);
-                for(var j = 0; j < resolvedSetups.Count; j++) {
-                    SetSetupCamerasEnabled(resolvedSetups[j], enabled);
+                foreach(var t in resolvedSetups) {
+                    SetSetupCamerasEnabled(t, enabled);
                 }
             }
         }
@@ -183,8 +180,7 @@ namespace Game.Menu {
         private static void SetSetupCamerasEnabled(GameObject setupRoot, bool enabled) {
             if(setupRoot == null) return;
             var cameras = setupRoot.GetComponentsInChildren<Camera>(true);
-            for(var i = 0; i < cameras.Length; i++) {
-                var cam = cameras[i];
+            foreach(var cam in cameras) {
                 if(cam != null) {
                     cam.enabled = enabled;
                 }
@@ -205,11 +201,7 @@ namespace Game.Menu {
             selection = null;
             RebuildSelectionCacheIfNeeded();
 
-            if(string.IsNullOrWhiteSpace(selectionName)) {
-                return false;
-            }
-
-            return _cachedSelectionLookup.TryGetValue(selectionName, out selection);
+            return !string.IsNullOrWhiteSpace(selectionName) && _cachedSelectionLookup.TryGetValue(selectionName, out selection);
         }
 
         private void RebuildSelectionCacheIfNeeded() {
@@ -240,9 +232,9 @@ namespace Game.Menu {
 
                     var displayName = BuildUniqueSelectionName(setup.name, entry.mapId, _cachedSelectionLookup);
                     var selection = new SetupSelection {
-                        displayName = displayName,
-                        mapIndex = mapIndex,
-                        setupIndex = setupIndex
+                        DisplayName = displayName,
+                        MapIndex = mapIndex,
+                        SetupIndex = setupIndex
                     };
 
                     _cachedSelections.Add(selection);
@@ -268,8 +260,8 @@ namespace Game.Menu {
                 return;
             }
 
-            for(var i = 0; i < manualSetups.Count; i++) {
-                TryAddSetup(manualSetups[i], resolved, seen);
+            foreach(var t in manualSetups) {
+                TryAddSetup(t, resolved, seen);
             }
         }
 
@@ -367,8 +359,7 @@ namespace Game.Menu {
 
             if(rebindAnimators) {
                 var animators = setupRoot.GetComponentsInChildren<Animator>(true);
-                for(var i = 0; i < animators.Length; i++) {
-                    var animator = animators[i];
+                foreach(var animator in animators) {
                     if(animator == null
                        || !animator.enabled
                        || !animator.gameObject.activeInHierarchy
@@ -382,8 +373,7 @@ namespace Game.Menu {
             }
 
             var mannequinConfigs = setupRoot.GetComponentsInChildren<PlayerMannequinConfig>(true);
-            for(var i = 0; i < mannequinConfigs.Length; i++) {
-                var config = mannequinConfigs[i];
+            foreach(var config in mannequinConfigs) {
                 if(config == null || !config.enabled || !config.gameObject.activeInHierarchy) continue;
                 config.ApplyNow(forceAnimationPoseRefresh: true);
                 if(Application.isPlaying) {

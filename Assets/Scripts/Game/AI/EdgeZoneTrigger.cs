@@ -42,11 +42,10 @@ namespace Game.AI {
         
         private void OnValidate() {
             // Ensure collider is set to trigger
-            var collider = GetComponent<Collider>();
-            if(collider != null && !collider.isTrigger) {
-                collider.isTrigger = true;
-                Debug.LogWarning($"[EdgeZoneTrigger] Collider on {gameObject.name} was not set to trigger. Auto-fixed.");
-            }
+            var component = GetComponent<Collider>();
+            if(component == null || component.isTrigger) return;
+            component.isTrigger = true;
+            Debug.LogWarning($"[EdgeZoneTrigger] Collider on {gameObject.name} was not set to trigger. Auto-fixed.");
         }
     }
 }

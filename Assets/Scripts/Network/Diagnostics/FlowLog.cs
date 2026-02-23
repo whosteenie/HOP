@@ -17,7 +17,7 @@ namespace Network.Diagnostics {
         private static readonly string RunId = Guid.NewGuid().ToString("N")[..8];
         private static readonly object Gate = new();
 
-        private static readonly bool Enabled = true;
+        private const bool Enabled = true;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         private static void LogBoot() {
@@ -28,13 +28,11 @@ namespace Network.Diagnostics {
         }
 
         public static void Emit(string eventId, params (string Key, object Value)[] fields) {
-            if(Enabled == false) return;
             if(string.IsNullOrWhiteSpace(eventId)) return;
             Debug.Log(BuildLine(eventId, fields));
         }
 
         public static void Once(string eventId, string dedupeKey, params (string Key, object Value)[] fields) {
-            if(Enabled == false) return;
             if(string.IsNullOrWhiteSpace(eventId)) return;
             if(string.IsNullOrWhiteSpace(dedupeKey)) {
                 Emit(eventId, fields);
@@ -51,7 +49,6 @@ namespace Network.Diagnostics {
 
         public static void RateLimited(string eventId, string rateKey, float intervalSeconds,
             params (string Key, object Value)[] fields) {
-            if(Enabled == false) return;
             if(string.IsNullOrWhiteSpace(eventId)) return;
             if(intervalSeconds <= 0f) {
                 Emit(eventId, fields);

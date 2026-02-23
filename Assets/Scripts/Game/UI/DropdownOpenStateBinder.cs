@@ -9,108 +9,14 @@ namespace Game.UI {
     public static class DropdownOpenStateBinder {
         private const string OpenClass = "dropdown-open";
 
-        public static Action Bind(DropdownField dropdown) {
-            return Bind(dropdown, null);
-        }
-
-        public static Action Bind(DropdownField dropdown, string popupOpenClass) {
+        public static Action Bind(DropdownField dropdown, string popupOpenClass = null) {
             if(dropdown == null) {
                 return null;
             }
 
-            VisualElement panelRoot = dropdown.panel?.visualTree;
+            var panelRoot = dropdown.panel?.visualTree;
             var popupWatchGeneration = 0;
             VisualElement taggedPopupRoot = null;
-
-            void SetPanelRootScopedClass(bool enabled) {
-                if(string.IsNullOrWhiteSpace(popupOpenClass)) return;
-
-                var currentPanelRoot = dropdown.panel?.visualTree ?? panelRoot;
-                if(currentPanelRoot != null) {
-                    panelRoot = currentPanelRoot;
-                }
-
-                if(panelRoot == null) return;
-
-                if(enabled) {
-                    panelRoot.AddToClassList(popupOpenClass);
-                } else {
-                    panelRoot.RemoveFromClassList(popupOpenClass);
-                }
-            }
-
-            void ClearTaggedPopupClass() {
-                if(string.IsNullOrWhiteSpace(popupOpenClass)) return;
-                if(taggedPopupRoot == null) return;
-                taggedPopupRoot.RemoveFromClassList(popupOpenClass);
-                taggedPopupRoot = null;
-            }
-
-            void TryTagCurrentPopupRoot(VisualElement currentPanelRoot) {
-                if(string.IsNullOrWhiteSpace(popupOpenClass)) return;
-                var popupRoot = FindAnyDropdownPopupRoot(currentPanelRoot);
-                if(popupRoot == null) return;
-
-                if(taggedPopupRoot != null && taggedPopupRoot != popupRoot) {
-                    taggedPopupRoot.RemoveFromClassList(popupOpenClass);
-                }
-
-                taggedPopupRoot = popupRoot;
-                if(!taggedPopupRoot.ClassListContains(popupOpenClass)) {
-                    taggedPopupRoot.AddToClassList(popupOpenClass);
-                }
-            }
-
-            void CloseDropdown(string reason) {
-                popupWatchGeneration++;
-                if(!dropdown.ClassListContains(OpenClass)) {
-                    SetPanelRootScopedClass(false);
-                    ClearTaggedPopupClass();
-                    return;
-                }
-
-                dropdown.RemoveFromClassList(OpenClass);
-                SetPanelRootScopedClass(false);
-                ClearTaggedPopupClass();
-            }
-
-            void StartPopupWatchdog() {
-                popupWatchGeneration++;
-                var generation = popupWatchGeneration;
-                var sawPopupOpen = false;
-                var ticks = 0;
-
-                void Tick() {
-                    if(dropdown == null || generation != popupWatchGeneration) {
-                        return;
-                    }
-
-                    if(!dropdown.ClassListContains(OpenClass)) {
-                        return;
-                    }
-
-                    var currentPanelRoot = dropdown.panel?.visualTree ?? panelRoot;
-                    var popupOpen = IsAnyDropdownPopupOpen(currentPanelRoot);
-                    if(popupOpen) {
-                        sawPopupOpen = true;
-                        TryTagCurrentPopupRoot(currentPanelRoot);
-                    } else if(sawPopupOpen) {
-                        CloseDropdown("Popup watchdog detected closed popup");
-                        return;
-                    }
-
-                    // Safety timeout: if popup never appears, clear the state.
-                    if(!sawPopupOpen && ticks >= 20) {
-                        CloseDropdown("Popup watchdog timeout");
-                        return;
-                    }
-
-                    ticks++;
-                    dropdown.schedule.Execute(Tick).StartingIn(16);
-                }
-
-                dropdown.schedule.Execute(Tick).StartingIn(16);
-            }
 
             EventCallback<PointerDownEvent> onPointerDown = _ => {
                 SetPanelRootScopedClass(true);
@@ -119,11 +25,11 @@ namespace Game.UI {
             };
 
             EventCallback<ChangeEvent<string>> onValueChanged = _ => {
-                CloseDropdown("ChangeEvent<string>");
+                CloseDropdown();
             };
 
             EventCallback<DetachFromPanelEvent> onDetach = _ => {
-                CloseDropdown("DetachFromPanelEvent");
+                CloseDropdown();
             };
 
             EventCallback<PointerDownEvent> onRootPointerDown = evt => {
@@ -135,14 +41,14 @@ namespace Game.UI {
 
                 // Clicking the dropdown field while open should toggle-close immediately.
                 if(IsInsideElement(target, dropdown)) {
-                    CloseDropdown("Root PointerDown inside field");
+                    CloseDropdown();
                     return;
                 }
 
                 // Clicking any popup option row should close immediately, even if the value
                 // doesn't change (re-selecting the currently selected option).
                 if(IsInsidePopupItem(target)) {
-                    CloseDropdown("Root PointerDown inside popup item");
+                    CloseDropdown();
                     return;
                 }
 
@@ -151,12 +57,12 @@ namespace Game.UI {
                 }
 
                 // Clicking anywhere else should close immediately on pointer-down.
-                CloseDropdown("Root PointerDown outside dropdown/popup");
+                CloseDropdown();
             };
 
             EventCallback<KeyDownEvent> onRootKeyDown = evt => {
                 if(evt.keyCode == UnityEngine.KeyCode.Escape) {
-                    CloseDropdown("Root KeyDown Escape");
+                    CloseDropdown();
                 }
             };
 
@@ -188,10 +94,6 @@ namespace Game.UI {
             panelRoot?.RegisterCallback(onRootPointerUp);
 
             return () => {
-                if(dropdown == null) {
-                    return;
-                }
-
                 dropdown.UnregisterCallback(onPointerDown);
                 dropdown.UnregisterCallback(onValueChanged);
                 dropdown.UnregisterCallback(onDetach);
@@ -199,8 +101,99 @@ namespace Game.UI {
                 panelRoot?.UnregisterCallback(onRootPointerDown);
                 panelRoot?.UnregisterCallback(onRootKeyDown);
                 panelRoot?.UnregisterCallback(onRootPointerUp);
-                CloseDropdown("Cleanup");
+                CloseDropdown();
             };
+
+            void ClearTaggedPopupClass() {
+                if(string.IsNullOrWhiteSpace(popupOpenClass)) return;
+                if(taggedPopupRoot == null) return;
+                taggedPopupRoot.RemoveFromClassList(popupOpenClass);
+                taggedPopupRoot = null;
+            }
+
+            void TryTagCurrentPopupRoot(VisualElement currentPanelRoot) {
+                if(string.IsNullOrWhiteSpace(popupOpenClass)) return;
+                var popupRoot = FindAnyDropdownPopupRoot(currentPanelRoot);
+                if(popupRoot == null) return;
+
+                if(taggedPopupRoot != null && taggedPopupRoot != popupRoot) {
+                    taggedPopupRoot.RemoveFromClassList(popupOpenClass);
+                }
+
+                taggedPopupRoot = popupRoot;
+                if(!taggedPopupRoot.ClassListContains(popupOpenClass)) {
+                    taggedPopupRoot.AddToClassList(popupOpenClass);
+                }
+            }
+
+            void CloseDropdown() {
+                popupWatchGeneration++;
+                if(!dropdown.ClassListContains(OpenClass)) {
+                    SetPanelRootScopedClass(false);
+                    ClearTaggedPopupClass();
+                    return;
+                }
+
+                dropdown.RemoveFromClassList(OpenClass);
+                SetPanelRootScopedClass(false);
+                ClearTaggedPopupClass();
+            }
+
+            void StartPopupWatchdog() {
+                popupWatchGeneration++;
+                var generation = popupWatchGeneration;
+                var sawPopupOpen = false;
+                var ticks = 0;
+
+                dropdown.schedule.Execute(Tick).StartingIn(16);
+                return;
+
+                void Tick() {
+                    if(dropdown == null || generation != popupWatchGeneration) {
+                        return;
+                    }
+
+                    if(!dropdown.ClassListContains(OpenClass)) {
+                        return;
+                    }
+
+                    var currentPanelRoot = dropdown.panel?.visualTree ?? panelRoot;
+                    var popupOpen = IsAnyDropdownPopupOpen(currentPanelRoot);
+                    if(popupOpen) {
+                        sawPopupOpen = true;
+                        TryTagCurrentPopupRoot(currentPanelRoot);
+                    } else if(sawPopupOpen) {
+                        CloseDropdown();
+                        return;
+                    }
+
+                    // Safety timeout: if popup never appears, clear the state.
+                    if(!sawPopupOpen && ticks >= 20) {
+                        CloseDropdown();
+                        return;
+                    }
+
+                    ticks++;
+                    dropdown.schedule.Execute(Tick).StartingIn(16);
+                }
+            }
+
+            void SetPanelRootScopedClass(bool enabled) {
+                if(string.IsNullOrWhiteSpace(popupOpenClass)) return;
+
+                var currentPanelRoot = dropdown.panel?.visualTree ?? panelRoot;
+                if(currentPanelRoot != null) {
+                    panelRoot = currentPanelRoot;
+                }
+
+                if(panelRoot == null) return;
+
+                if(enabled) {
+                    panelRoot.AddToClassList(popupOpenClass);
+                } else {
+                    panelRoot.RemoveFromClassList(popupOpenClass);
+                }
+            }
         }
 
         private static bool IsInsideDropdownOrPopup(VisualElement target, DropdownField dropdown) {
@@ -208,7 +201,7 @@ namespace Game.UI {
                 return false;
             }
 
-            for(VisualElement current = target; current != null; current = current.parent) {
+            for(var current = target; current != null; current = current.parent) {
                 if(current == dropdown) {
                     return true;
                 }
@@ -250,9 +243,7 @@ namespace Game.UI {
             if(popupRoot != null) return popupRoot;
 
             popupRoot = panelRoot.Query<VisualElement>(className: "unity-popup-field__menu").First();
-            if(popupRoot != null) return popupRoot;
-
-            return panelRoot.Query<VisualElement>(className: "unity-generic-dropdown-menu").First();
+            return popupRoot ?? panelRoot.Query<VisualElement>(className: "unity-generic-dropdown-menu").First();
         }
 
         private static bool IsInsideElement(VisualElement target, VisualElement root) {
@@ -291,8 +282,14 @@ namespace Game.UI {
                 return;
             }
 
+            // Handles cases where no ChangeEvent fires (re-selecting same value) and popup closes a frame later.
+            dropdown.schedule.Execute(TryClose);
+            dropdown.schedule.Execute(TryClose).StartingIn(16);
+            dropdown.schedule.Execute(TryClose).StartingIn(48);
+            return;
+
             void TryClose() {
-                if(dropdown == null || !dropdown.ClassListContains(OpenClass)) {
+                if(!dropdown.ClassListContains(OpenClass)) {
                     return;
                 }
 
@@ -300,11 +297,6 @@ namespace Game.UI {
                     dropdown.RemoveFromClassList(OpenClass);
                 }
             }
-
-            // Handles cases where no ChangeEvent fires (re-selecting same value) and popup closes a frame later.
-            dropdown.schedule.Execute(TryClose);
-            dropdown.schedule.Execute(TryClose).StartingIn(16);
-            dropdown.schedule.Execute(TryClose).StartingIn(48);
         }
     }
 }

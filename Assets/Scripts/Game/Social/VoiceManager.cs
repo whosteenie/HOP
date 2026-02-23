@@ -15,13 +15,12 @@ namespace Game.Social {
 
         private bool IsInitialized { get; set; }
         public bool IsLoggedIn { get; private set; }
-        public string LoggedInIdentity => _loggedInIdentity;
-        
+        public string LoggedInIdentity { get; private set; }
+
         // State
         private bool _isMicOpen;
         private bool _isPttActive;
         private string _currentChannelName;
-        private string _loggedInIdentity;
         private readonly Dictionary<string, Action> _participantSpeechActions = new();
         private readonly SemaphoreSlim _channelOperationGate = new(1, 1);
         private float _nextClaimsMismatchLogTime;
@@ -137,7 +136,7 @@ namespace Game.Social {
             var identity = ResolvePreferredIdentity();
             if(string.IsNullOrEmpty(identity)) return false;
 
-            if(!forceRelogin && IsLoggedIn && string.Equals(_loggedInIdentity, identity, StringComparison.Ordinal)) {
+            if(!forceRelogin && IsLoggedIn && string.Equals(LoggedInIdentity, identity, StringComparison.Ordinal)) {
                 return true;
             }
 
@@ -156,7 +155,7 @@ namespace Game.Social {
 
             IsLoggedIn = false;
             _currentChannelName = null;
-            _loggedInIdentity = null;
+            LoggedInIdentity = null;
 
             await LoginAsync(identity, ResolvePreferredDisplayName(), joinLobbyChannelIfPresent: false);
             return IsLoggedIn;
@@ -196,7 +195,7 @@ namespace Game.Social {
                 };
                 await VivoxService.Instance.LoginAsync(options);
                 IsLoggedIn = true;
-                _loggedInIdentity = uniqueId;
+                LoggedInIdentity = uniqueId;
                 
                 ApplySettings(); // Apply initial volume/settings
                 await ApplySavedMicSettingsAsync();
@@ -214,7 +213,7 @@ namespace Game.Social {
             }
         }
 
-        private bool IsChannelActive(string channelName) {
+        private static bool IsChannelActive(string channelName) {
             if(string.IsNullOrEmpty(channelName)) return false;
             return VivoxService.Instance != null && VivoxService.Instance.ActiveChannels.ContainsKey(channelName);
         }
@@ -245,11 +244,10 @@ namespace Game.Social {
             }
 
             if(Time.unscaledTime < _claimsMismatchRetryCooldownUntil) {
-                if(ShouldEmitThrottledLog(ref _nextClaimsMismatchLogTime, 2f)) {
-                    var remaining = _claimsMismatchRetryCooldownUntil - Time.unscaledTime;
-                    Debug.LogWarning(
-                        $"[VoiceManager] Skipping Vivox rejoin for '{channelName}' during claims-mismatch cooldown ({remaining:0.0}s remaining).");
-                }
+                if(!ShouldEmitThrottledLog(ref _nextClaimsMismatchLogTime, 2f)) return false;
+                var remaining = _claimsMismatchRetryCooldownUntil - Time.unscaledTime;
+                Debug.LogWarning(
+                    $"[VoiceManager] Skipping Vivox rejoin for '{channelName}' during claims-mismatch cooldown ({remaining:0.0}s remaining).");
 
                 return false;
             }
@@ -291,12 +289,11 @@ namespace Game.Social {
                         }
 
                         _currentChannelName = channelName;
-                        if(Debug.isDebugBuild) {
-                            Debug.Log(
-                                $"[VoiceManager] Joined channel '{channelName}'. ActiveChannels={VivoxService.Instance.ActiveChannels.Count}");
-                            Debug.Log(
-                                $"[HOPFLOW][VIVOX] JOIN_OK context={context} channel={channelName} editor={Application.isEditor} batch={Application.isBatchMode}");
-                        }
+                        if(!Debug.isDebugBuild) return true;
+                        Debug.Log(
+                            $"[VoiceManager] Joined channel '{channelName}'. ActiveChannels={VivoxService.Instance.ActiveChannels.Count}");
+                        Debug.Log(
+                            $"[HOPFLOW][VIVOX] JOIN_OK context={context} channel={channelName} editor={Application.isEditor} batch={Application.isBatchMode}");
 
                         return true;
                     } catch(Exception ex) {
@@ -481,7 +478,7 @@ namespace Game.Social {
             }
         }
 
-        public List<string> GetAvailableInputDevices() {
+        public static List<string> GetAvailableInputDevices() {
             return VivoxService.Instance == null ? new List<string> { "Default" } : 
                 VivoxService.Instance.AvailableInputDevices.Select(d => d.DeviceName).ToList();
         }

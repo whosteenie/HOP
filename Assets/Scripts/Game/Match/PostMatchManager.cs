@@ -137,10 +137,10 @@ namespace Game.Match {
         }
 
         private void TryResolveUiDocumentReference() {
-            if(GameMenuManager.Instance != null && GameMenuManager.Instance.TryGetComponent(out UIDocument gameMenuDoc)) {
-                if(uiDocument == null || uiDocument != gameMenuDoc || uiDocument.rootVisualElement == null) {
-                    uiDocument = gameMenuDoc;
-                }
+            if(GameMenuManager.Instance == null ||
+               !GameMenuManager.Instance.TryGetComponent(out UIDocument gameMenuDoc)) return;
+            if(uiDocument == null || uiDocument != gameMenuDoc || uiDocument.rootVisualElement == null) {
+                uiDocument = gameMenuDoc;
             }
         }
 
@@ -151,10 +151,9 @@ namespace Game.Match {
             }
 
             if(uiDocument == null) {
-                if(!_missingUiReferenceLogged) {
-                    Debug.LogError("[PostMatchManager] UIDocument is missing; cannot bind post-match UI references.", this);
-                    _missingUiReferenceLogged = true;
-                }
+                if(_missingUiReferenceLogged) return false;
+                Debug.LogError("[PostMatchManager] UIDocument is missing; cannot bind post-match UI references.", this);
+                _missingUiReferenceLogged = true;
                 return false;
             }
 
@@ -167,10 +166,9 @@ namespace Game.Match {
 
             var currentRoot = uiDocument.rootVisualElement;
             if(currentRoot == null) {
-                if(!_missingUiReferenceLogged) {
-                    Debug.LogError("[PostMatchManager] UIDocument rootVisualElement is null; cannot bind post-match UI references.", this);
-                    _missingUiReferenceLogged = true;
-                }
+                if(_missingUiReferenceLogged) return false;
+                Debug.LogError("[PostMatchManager] UIDocument rootVisualElement is null; cannot bind post-match UI references.", this);
+                _missingUiReferenceLogged = true;
                 return false;
             }
 
@@ -192,13 +190,12 @@ namespace Game.Match {
                 _podiumThirdKills != null;
 
             if(!hasRequiredPodiumElements || _matchTimerContainer == null) {
-                if(!_missingUiReferenceLogged) {
-                    Debug.LogError(
-                        "[PostMatchManager] Required post-match UI elements are missing from GameMenu.uxml. " +
-                        "Expected podium slots/labels and match-timer-container.",
-                        this);
-                    _missingUiReferenceLogged = true;
-                }
+                if(_missingUiReferenceLogged) return false;
+                Debug.LogError(
+                    "[PostMatchManager] Required post-match UI elements are missing from GameMenu.uxml. " +
+                    "Expected podium slots/labels and match-timer-container.",
+                    this);
+                _missingUiReferenceLogged = true;
                 return false;
             }
 

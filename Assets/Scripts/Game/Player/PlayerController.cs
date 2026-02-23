@@ -500,15 +500,17 @@ namespace Game.Player {
         }
 
         private void OnDeathStateChanged(bool oldValue, bool newValue) {
-            if(newValue && characterController != null) {
-                characterController.enabled = false;
+            switch(newValue) {
+                case true when characterController != null:
+                    characterController.enabled = false;
+                    break;
+                case false:
+                    return;
             }
 
-            if(newValue) {
-                ClearTriggerOutOfBoundsCountdownServer();
-                if(IsOwner) {
-                    HideTriggerOutOfBoundsCountdownLocal();
-                }
+            ClearTriggerOutOfBoundsCountdownServer();
+            if(IsOwner) {
+                HideTriggerOutOfBoundsCountdownLocal();
             }
         }
     
@@ -736,12 +738,11 @@ namespace Game.Player {
             }
 
             if(IsYLevelOutOfBoundsKillEnabled() && authPos.y <= GetOutOfBoundsKillY()) {
-                if(Time.time - _lastDeathTime >= 4f) {
-                    _lastDeathTime = Time.time;
-                    ClearTriggerOutOfBoundsCountdownServer();
-                    if(healthController != null) {
-                        healthController.ApplyDamageServer_Auth(1000f, playerTransform.position, Vector3.up, ulong.MaxValue);
-                    }
+                if(!(Time.time - _lastDeathTime >= 4f)) return;
+                _lastDeathTime = Time.time;
+                ClearTriggerOutOfBoundsCountdownServer();
+                if(healthController != null) {
+                    healthController.ApplyDamageServer_Auth(1000f, playerTransform.position, Vector3.up, ulong.MaxValue);
                 }
                 return;
             }
@@ -848,8 +849,7 @@ namespace Game.Player {
             if(!string.IsNullOrWhiteSpace(outOfBoundsMarkerTag)) {
                 try {
                     var taggedObjects = GameObject.FindGameObjectsWithTag(outOfBoundsMarkerTag);
-                    for(var i = 0; i < taggedObjects.Length; i++) {
-                        var taggedObject = taggedObjects[i];
+                    foreach(var taggedObject in taggedObjects) {
                         if(taggedObject == null) continue;
 
                         if(marker == null) {

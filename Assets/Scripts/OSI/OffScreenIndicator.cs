@@ -115,11 +115,10 @@ namespace OSI {
             if(active) {
                 _targets.Add(target);
             } else {
-                if(target.indicator != null) {
-                    target.indicator.Activate(false);
-                    target.indicator = null;
-                    _targets.Remove(target);
-                }
+                if(target.indicator == null) return;
+                target.indicator.Activate(false);
+                target.indicator = null;
+                _targets.Remove(target);
             }
         }
 

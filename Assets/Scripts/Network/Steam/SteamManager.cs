@@ -51,11 +51,10 @@ namespace Network.Steam {
         }
 
         private void OnApplicationQuit() {
-            if (IsInitialized) {
-                SteamClient.Shutdown();
-                IsInitialized = false;
-                Debug.Log("[SteamManager] Steamworks shutdown.");
-            }
+            if(!IsInitialized) return;
+            SteamClient.Shutdown();
+            IsInitialized = false;
+            Debug.Log("[SteamManager] Steamworks shutdown.");
         }
         
         /// <summary>

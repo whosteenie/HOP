@@ -112,13 +112,12 @@ namespace Game.Menu {
                     uiDocument = FindFirstObjectByType<UIDocument>();
                 }
             }
-            
-            if(Root == null && uiDocument != null) {
-                // Force initialization if Root is null
-                if(uiDocument.rootVisualElement != null) {
-                    // This will be set by base.Awake(), but if OnEnable is called before Awake,
-                    // we need to ensure Root is set
-                }
+
+            if(Root != null || uiDocument == null) return;
+            // Force initialization if Root is null
+            if(uiDocument.rootVisualElement != null) {
+                // This will be set by base.Awake(), but if OnEnable is called before Awake,
+                // we need to ensure Root is set
             }
         }
 
@@ -294,14 +293,13 @@ namespace Game.Menu {
             // Material value fields
             if(_smoothnessValue != null) {
                 EventCallback<ChangeEvent<string>> handler = evt => {
-                    if(float.TryParse(evt.newValue, out var val)) {
-                        val = Mathf.Clamp01(val);
-                        _smoothnessSlider.value = val;
-                        _currentSmoothness = val;
-                        UpdateSmoothnessDisplay();
-                        ApplyToLocalPlayer();
-                        NotifyLoadoutDirty();
-                    }
+                    if(!float.TryParse(evt.newValue, out var val)) return;
+                    val = Mathf.Clamp01(val);
+                    _smoothnessSlider.value = val;
+                    _currentSmoothness = val;
+                    UpdateSmoothnessDisplay();
+                    ApplyToLocalPlayer();
+                    NotifyLoadoutDirty();
                 };
                 _smoothnessValue.RegisterValueChangedCallback(handler);
                 RegisterCleanup(() => _smoothnessValue.UnregisterCallback(handler));
@@ -309,14 +307,13 @@ namespace Game.Menu {
 
             if(_metallicValue != null) {
                 EventCallback<ChangeEvent<string>> handler = evt => {
-                    if(float.TryParse(evt.newValue, out var val)) {
-                        val = Mathf.Clamp01(val);
-                        _metallicSlider.value = val;
-                        _currentMetallic = val;
-                        UpdateMetallicDisplay();
-                        ApplyToLocalPlayer();
-                        NotifyLoadoutDirty();
-                    }
+                    if(!float.TryParse(evt.newValue, out var val)) return;
+                    val = Mathf.Clamp01(val);
+                    _metallicSlider.value = val;
+                    _currentMetallic = val;
+                    UpdateMetallicDisplay();
+                    ApplyToLocalPlayer();
+                    NotifyLoadoutDirty();
                 };
                 _metallicValue.RegisterValueChangedCallback(handler);
                 RegisterCleanup(() => _metallicValue.UnregisterCallback(handler));
@@ -324,14 +321,13 @@ namespace Game.Menu {
 
             if(_heightValue != null) {
                 EventCallback<ChangeEvent<string>> handler = evt => {
-                    if(float.TryParse(evt.newValue, out var val)) {
-                        val = Mathf.Clamp(val, MinHeightStrength, MaxHeightStrength);
-                        _heightSlider.value = val;
-                        _currentHeightStrength = val;
-                        UpdateHeightDisplay();
-                        ApplyToLocalPlayer();
-                        NotifyLoadoutDirty();
-                    }
+                    if(!float.TryParse(evt.newValue, out var val)) return;
+                    val = Mathf.Clamp(val, MinHeightStrength, MaxHeightStrength);
+                    _heightSlider.value = val;
+                    _currentHeightStrength = val;
+                    UpdateHeightDisplay();
+                    ApplyToLocalPlayer();
+                    NotifyLoadoutDirty();
                 };
                 _heightValue.RegisterValueChangedCallback(handler);
                 RegisterCleanup(() => _heightValue.UnregisterCallback(handler));
@@ -391,7 +387,9 @@ namespace Game.Menu {
                 _unsavedChangesNo.RegisterCallback(handler);
                 RegisterCleanup(() => _unsavedChangesNo.UnregisterCallback(handler));
             }
-            if(_unsavedChangesCancel != null) {
+
+            if(_unsavedChangesCancel == null) return;
+            {
                 EventCallback<ClickEvent> handler = _ => OnUnsavedChangesCancel();
                 _unsavedChangesCancel.RegisterCallback(handler);
                 RegisterCleanup(() => _unsavedChangesCancel.UnregisterCallback(handler));

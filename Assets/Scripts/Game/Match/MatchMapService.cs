@@ -16,16 +16,16 @@ namespace Game.Match {
         private const string MainMenuScene = "MainMenu";
         private const string InitScene = "Init";
 
-        private static MapPoolDefinition _pool;
-        private static bool _loaded;
-        private static bool _missingPoolWarningLogged;
-        private static bool _noCandidatesWarningLogged;
+        private static MapPoolDefinition pool;
+        private static bool loaded;
+        private static bool missingPoolWarningLogged;
+        private static bool noCandidatesWarningLogged;
 
         public static string DefaultGameplaySceneName {
             get {
                 EnsureLoaded();
-                if(_pool != null && string.IsNullOrWhiteSpace(_pool.FallbackGameplaySceneName) == false) {
-                    return _pool.FallbackGameplaySceneName;
+                if(pool != null && string.IsNullOrWhiteSpace(pool.FallbackGameplaySceneName) == false) {
+                    return pool.FallbackGameplaySceneName;
                 }
 
                 var inferred = InferFallbackGameplaySceneFromBuildSettings();
@@ -36,8 +36,8 @@ namespace Game.Match {
         public static string DefaultMapId {
             get {
                 EnsureLoaded();
-                if(_pool != null && string.IsNullOrWhiteSpace(_pool.FallbackMapId) == false) {
-                    return _pool.FallbackMapId;
+                if(pool != null && string.IsNullOrWhiteSpace(pool.FallbackMapId) == false) {
+                    return pool.FallbackMapId;
                 }
 
                 var inferred = DefaultGameplaySceneName;
@@ -52,9 +52,8 @@ namespace Game.Match {
             sceneName = null;
             if(string.IsNullOrWhiteSpace(mapId)) return false;
             EnsureLoaded();
-            if(_pool == null || _pool.Maps == null || _pool.Maps.Count == 0) return false;
-            for(var i = 0; i < _pool.Maps.Count; i++) {
-                var map = _pool.Maps[i];
+            if(pool == null || pool.Maps == null || pool.Maps.Count == 0) return false;
+            foreach(var map in pool.Maps) {
                 if(map == null || string.IsNullOrWhiteSpace(map.SceneName)) continue;
                 var id = string.IsNullOrWhiteSpace(map.MapId) ? map.name : map.MapId;
                 if(!string.Equals(id, mapId, System.StringComparison.OrdinalIgnoreCase)) continue;
@@ -67,9 +66,9 @@ namespace Game.Match {
         public static bool TrySelectRandomSceneForGamemode(string gamemodeId, out string sceneName, out string mapId) {
             EnsureLoaded();
 
-            if(_pool == null || _pool.Maps == null || _pool.Maps.Count == 0) {
-                if(_missingPoolWarningLogged == false) {
-                    _missingPoolWarningLogged = true;
+            if(pool == null || pool.Maps == null || pool.Maps.Count == 0) {
+                if(missingPoolWarningLogged == false) {
+                    missingPoolWarningLogged = true;
                     Debug.LogWarning(
                         $"[MatchMapService] Map pool not found or empty at Resources/{ResourcePath}. Using fallback gameplay scene.");
                 }
@@ -80,8 +79,7 @@ namespace Game.Match {
 
             var candidates = ListPool<MapDefinition>.Get();
             var totalWeight = 0;
-            for(var i = 0; i < _pool.Maps.Count; i++) {
-                var map = _pool.Maps[i];
+            foreach(var map in pool.Maps) {
                 if(map == null) continue;
                 if(map.EnabledInRotation == false) continue;
                 if(string.IsNullOrWhiteSpace(map.SceneName)) continue;
@@ -92,8 +90,8 @@ namespace Game.Match {
             }
 
             if(candidates.Count == 0) {
-                if(_noCandidatesWarningLogged == false) {
-                    _noCandidatesWarningLogged = true;
+                if(noCandidatesWarningLogged == false) {
+                    noCandidatesWarningLogged = true;
                     Debug.LogWarning(
                         $"[MatchMapService] No enabled maps support gamemode '{gamemodeId}'. Using fallback gameplay scene.");
                 }
@@ -105,14 +103,13 @@ namespace Game.Match {
 
             var roll = Random.Range(0, Mathf.Max(1, totalWeight));
             var index = 0;
-            for(var i = 0; i < candidates.Count; i++) {
-                index += candidates[i].SelectionWeight;
-                if(roll < index) {
-                    sceneName = candidates[i].SceneName;
-                    mapId = string.IsNullOrWhiteSpace(candidates[i].MapId) ? candidates[i].name : candidates[i].MapId;
-                    ListPool<MapDefinition>.Release(candidates);
-                    return true;
-                }
+            foreach(var t in candidates) {
+                index += t.SelectionWeight;
+                if(roll >= index) continue;
+                sceneName = t.SceneName;
+                mapId = string.IsNullOrWhiteSpace(t.MapId) ? t.name : t.MapId;
+                ListPool<MapDefinition>.Release(candidates);
+                return true;
             }
 
             // Fallback safety.
@@ -128,12 +125,11 @@ namespace Game.Match {
             if(string.Equals(sceneName, InitScene, System.StringComparison.OrdinalIgnoreCase)) return false;
 
             EnsureLoaded();
-            if(_pool == null || _pool.Maps == null || _pool.Maps.Count == 0) {
+            if(pool == null || pool.Maps == null || pool.Maps.Count == 0) {
                 return string.Equals(sceneName, DefaultGameplaySceneName, System.StringComparison.OrdinalIgnoreCase);
             }
 
-            for(var i = 0; i < _pool.Maps.Count; i++) {
-                var map = _pool.Maps[i];
+            foreach(var map in pool.Maps) {
                 if(map == null) continue;
                 if(string.IsNullOrWhiteSpace(map.SceneName)) continue;
                 if(string.Equals(map.SceneName, sceneName, System.StringComparison.OrdinalIgnoreCase)) {
@@ -150,12 +146,11 @@ namespace Game.Match {
             }
 
             EnsureLoaded();
-            if(_pool == null || _pool.Maps == null || _pool.Maps.Count == 0) {
+            if(pool == null || pool.Maps == null || pool.Maps.Count == 0) {
                 return true;
             }
 
-            for(var i = 0; i < _pool.Maps.Count; i++) {
-                var map = _pool.Maps[i];
+            foreach(var map in pool.Maps) {
                 if(map == null || string.IsNullOrWhiteSpace(map.SceneName)) continue;
                 if(string.Equals(map.SceneName, sceneName, System.StringComparison.OrdinalIgnoreCase) == false) continue;
                 return map.UseYLevelOutOfBoundsKill;
@@ -170,12 +165,11 @@ namespace Game.Match {
             }
 
             EnsureLoaded();
-            if(_pool == null || _pool.Maps == null || _pool.Maps.Count == 0) {
+            if(pool == null || pool.Maps == null || pool.Maps.Count == 0) {
                 return false;
             }
 
-            for(var i = 0; i < _pool.Maps.Count; i++) {
-                var map = _pool.Maps[i];
+            foreach(var map in pool.Maps) {
                 if(map == null || string.IsNullOrWhiteSpace(map.SceneName)) continue;
                 if(string.Equals(map.SceneName, sceneName, System.StringComparison.OrdinalIgnoreCase) == false) continue;
                 return map.UseTriggerOutOfBoundsKill;
@@ -185,9 +179,9 @@ namespace Game.Match {
         }
 
         private static void EnsureLoaded() {
-            if(_loaded) return;
-            _loaded = true;
-            _pool = Resources.Load<MapPoolDefinition>(ResourcePath);
+            if(loaded) return;
+            loaded = true;
+            pool = Resources.Load<MapPoolDefinition>(ResourcePath);
         }
 
         private static string InferFallbackGameplaySceneFromBuildSettings() {
@@ -218,13 +212,11 @@ namespace Game.Match {
             private static readonly Stack<List<T>> Pool = new();
 
             public static List<T> Get() {
-                if(Pool.Count > 0) {
-                    var list = Pool.Pop();
-                    list.Clear();
-                    return list;
-                }
+                if(Pool.Count <= 0) return new List<T>(16);
+                var list = Pool.Pop();
+                list.Clear();
+                return list;
 
-                return new List<T>(16);
             }
 
             public static void Release(List<T> list) {

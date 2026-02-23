@@ -136,14 +136,14 @@ namespace Network.Events {
                 var stackTrace = new System.Diagnostics.StackTrace(1, true);
                 var frame = stackTrace.GetFrame(0);
                 var caller = frame != null ? frame.GetMethod() : null;
-                string callerInfo = "Unknown";
+                var callerInfo = "Unknown";
                 if(caller != null) {
                     var declaringType = caller.DeclaringType;
                     var typeName = declaringType != null ? declaringType.Name : "Unknown";
                     callerInfo = $"{typeName}.{caller.Name}()";
                 }
 
-                int subscriberCount = 0;
+                var subscriberCount = 0;
                 if(Subscribers.TryGetValue(eventType, out var subscriber)) {
                     if(subscriber != null) {
                         subscriberCount = subscriber.Count;
@@ -182,11 +182,11 @@ namespace Network.Events {
                     } catch(Exception ex) {
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
                         shouldLog = loggingEnabled && ShouldLogEvent(eventType);
+                        var callerInfo = "Unknown";
                         if(shouldLog) {
                             var stackTrace = new System.Diagnostics.StackTrace(1, true);
                             var frame = stackTrace.GetFrame(0);
                             var caller = frame != null ? frame.GetMethod() : null;
-                            string callerInfo = "Unknown";
                             if(caller != null) {
                                 var declaringType = caller.DeclaringType;
                                 var typeName = declaringType != null ? declaringType.Name : "Unknown";
@@ -250,8 +250,8 @@ namespace Network.Events {
                 Debug.Log($"{kvp.Key.Name}: {kvp.Value.Count} subscriber(s)");
                 foreach(var handler in kvp.Value) {
                     var method = handler.GetType().GetMethod("Invoke");
-                    string methodName = "Unknown";
-                    string typeName = "Unknown";
+                    var methodName = "Unknown";
+                    var typeName = "Unknown";
                     if(method != null) {
                         methodName = method.Name;
                         var declaringType = method.DeclaringType;
