@@ -69,8 +69,7 @@ namespace Network {
 
         private static int ResolveDefaultPublicScoreToWin(string mode) {
             if(string.Equals(mode, "Hopball", StringComparison.OrdinalIgnoreCase)) return 60;
-            if(string.Equals(mode, "KOTH", StringComparison.OrdinalIgnoreCase)) return 200;
-            return 50;
+            return string.Equals(mode, "KOTH", StringComparison.OrdinalIgnoreCase) ? 200 : 50;
         }
 
         private static void ResetPublicRuntimeMatchSettings(string mode) {
@@ -111,7 +110,7 @@ namespace Network {
                    string.Equals(state, "InGame", StringComparison.OrdinalIgnoreCase);
         }
 
-        private bool IsPublicLobbyCandidateForJoinInProgress(Lobby lobby, string mode, int queueMaxPlayers) {
+        private static bool IsPublicLobbyCandidateForJoinInProgress(Lobby lobby, string mode, int queueMaxPlayers) {
             if(lobby == null) return false;
             if(string.IsNullOrWhiteSpace(lobby.Id)) return false;
             if(lobby.Data == null) return false;
@@ -146,7 +145,7 @@ namespace Network {
             return currentPlayers < effectiveMaxPlayers;
         }
 
-        private string GetBackfillRejectReason(Lobby lobby, string mode, int queueMaxPlayers) {
+        private static string GetBackfillRejectReason(Lobby lobby, string mode, int queueMaxPlayers) {
             if(lobby == null) return "NullLobby";
             if(string.IsNullOrWhiteSpace(lobby.Id)) return "MissingLobbyId";
             if(lobby.Data == null) return "MissingData";
@@ -178,16 +177,11 @@ namespace Network {
             var currentPlayers = lobby.Players != null ? lobby.Players.Count : 0;
             var lobbyMaxPlayers = lobby.MaxPlayers > 0 ? lobby.MaxPlayers : queueMaxPlayers;
             var effectiveMaxPlayers = Mathf.Max(1, Mathf.Min(queueMaxPlayers, lobbyMaxPlayers));
-            if(currentPlayers >= effectiveMaxPlayers) {
-                return "Full";
-            }
-
-            return "";
+            return currentPlayers >= effectiveMaxPlayers ? "Full" : "";
         }
 
         private static int GetLobbyPlayerCount(Lobby lobby) {
-            if(lobby == null || lobby.Players == null) return 0;
-            return lobby.Players.Count;
+            return lobby?.Players == null ? 0 : lobby.Players.Count;
         }
 
         private async UniTask<QueryResponse> QueryLobbiesForBackfillAsync(QueryLobbiesOptions options,
@@ -247,8 +241,7 @@ namespace Network {
 
             var candidates = new List<Lobby>();
             var rejectCounts = new Dictionary<string, int>(StringComparer.Ordinal);
-            for(var i = 0; i < response.Results.Count; i++) {
-                var lobby = response.Results[i];
+            foreach(var lobby in response.Results) {
                 if(IsPublicLobbyCandidateForJoinInProgress(lobby, mode, maxPlayers)) {
                     candidates.Add(lobby);
                     continue;
@@ -256,9 +249,7 @@ namespace Network {
 
                 var reason = GetBackfillRejectReason(lobby, mode, maxPlayers);
                 if(string.IsNullOrEmpty(reason)) reason = "Unknown";
-                if(!rejectCounts.ContainsKey(reason)) {
-                    rejectCounts[reason] = 0;
-                }
+                rejectCounts.TryAdd(reason, 0);
                 rejectCounts[reason]++;
             }
 
@@ -279,8 +270,7 @@ namespace Network {
             candidates.Sort((a, b) => GetLobbyPlayerCount(b).CompareTo(GetLobbyPlayerCount(a)));
 
             SetFrontStatus(SessionPhase.JoiningLobby, $"Joining in-progress {mode}...");
-            for(var i = 0; i < candidates.Count; i++) {
-                var lobby = candidates[i];
+            foreach(var lobby in candidates) {
                 if(Debug.isDebugBuild) {
                     Debug.Log(
                         $"[SessionManager] Trying in-progress join: lobbyId='{lobby.Id}' players={GetLobbyPlayerCount(lobby)}/{lobby.MaxPlayers} mode='{mode}'.");

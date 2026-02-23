@@ -15,6 +15,8 @@ using UnityEngine.VFX;
 
 namespace Game.Weapons {
     public class Weapon : NetworkBehaviour {
+        public const float MaxDamageMultiplier = 3f;
+
         [Header("References")]
         [SerializeField] private PlayerController playerController;
 
@@ -32,6 +34,8 @@ namespace Game.Weapons {
 
         private GameObject _currentFpWeaponInstance;
         private GameObject _currentWorldWeaponInstance;
+        private Transform _fpMuzzleTransform;
+        private Transform _worldMuzzleTransform;
         private Animator _weaponAnimator;
         private GameObject _fpMuzzleLight;
         private GameObject _worldMuzzleLight;
@@ -196,6 +200,8 @@ namespace Game.Weapons {
             _currentWeaponData = newWeaponData;
             _currentFpWeaponInstance = fpWeaponInstance;
             _currentWorldWeaponInstance = worldWeaponInstance;
+            _fpMuzzleTransform = ResolveMuzzleTransform(_currentFpWeaponInstance);
+            _worldMuzzleTransform = ResolveMuzzleTransform(_currentWorldWeaponInstance);
 
             // Restore ammo
             currentAmmo = restoredAmmo;
@@ -205,10 +211,10 @@ namespace Game.Weapons {
             _reloadAnimationExitDeadline = float.PositiveInfinity;
 
             // Get animator from FP weapon
+            _weaponAnimator = null;
             if(_currentFpWeaponInstance) {
                 _weaponAnimator = _currentFpWeaponInstance.GetComponent<Animator>();
-                var lightTransform = _currentFpWeaponInstance.transform.Find(_currentWeaponData.fpMuzzleLightChildName);
-                _fpMuzzleLight = lightTransform != null ? lightTransform.gameObject : null;
+                _fpMuzzleLight = ResolveMuzzleLightObject(_currentFpWeaponInstance);
 
                 if(_fpMuzzleLight) {
                     _fpMuzzleLight.SetActive(false);
@@ -216,9 +222,7 @@ namespace Game.Weapons {
             }
 
             if(_currentWorldWeaponInstance != null) {
-                var lightTransform =
-                    _currentWorldWeaponInstance.transform.Find(_currentWeaponData.worldMuzzleLightChildName);
-                _worldMuzzleLight = lightTransform != null ? lightTransform.gameObject : null;
+                _worldMuzzleLight = ResolveMuzzleLightObject(_currentWorldWeaponInstance);
             }
 
             if(_worldMuzzleLight) {
@@ -235,6 +239,25 @@ namespace Game.Weapons {
             if(_currentWeaponData != null && HUDManager.Instance != null) {
                 EventBus.Publish(new UpdateAmmoEvent(currentAmmo, _currentWeaponData.magSize));
             }
+        }
+
+        private static GameObject ResolveMuzzleLightObject(GameObject weaponInstanceRoot) {
+            if(weaponInstanceRoot == null) return null;
+            var light = weaponInstanceRoot.GetComponentInChildren<Light>(true);
+            return light != null ? light.gameObject : null;
+        }
+
+        private static Transform ResolveMuzzleTransform(GameObject weaponInstanceRoot) {
+            if(weaponInstanceRoot == null) return null;
+
+            var allTransforms = weaponInstanceRoot.GetComponentsInChildren<Transform>(true);
+            foreach(var candidate in allTransforms) {
+                if(candidate != null && candidate.name == "Muzzle") {
+                    return candidate;
+                }
+            }
+
+            return null;
         }
 
         #endregion
@@ -369,33 +392,30 @@ namespace Game.Weapons {
 
         #region Getters
 
-        public Vector3 GetMuzzlePosition() {
-            if(_currentWeaponData == null) {
-                var fpCameraTransform = playerController != null ? playerController.FpCameraTransform : null;
-                if(fpCameraTransform != null && playerController.PlayerInput != null &&
-                   playerController.PlayerInput.IsSniperOverlayActive) {
-                    return fpCameraTransform.TransformPoint(playerController.PlayerInput.SniperMuzzleCameraOffset);
-                }
+        public bool TryGetMuzzlePosition(out Vector3 muzzlePosition) {
+            muzzlePosition = default;
+            if(_currentWeaponData == null) return false;
 
-                return fpCameraTransform != null ? fpCameraTransform.position : transform.position;
-            }
+            var isPostMatch = GameMenuManager.Instance != null && GameMenuManager.Instance.IsPostMatch;
+            var preferWorld = playerController == null || !playerController.IsOwner || isPostMatch;
 
-            var isPostMatch = false;
-            if(GameMenuManager.Instance != null) {
-                isPostMatch = GameMenuManager.Instance.IsPostMatch;
-            }
-            var preferWorld = playerController == null ||
-                              !playerController.IsOwner ||
-                              isPostMatch;
-
-            if(playerController == null || !playerController.IsOwner ||
-               playerController.PlayerInput == null ||
-               !playerController.PlayerInput.IsSniperOverlayActive) return ResolveMuzzlePosition(preferWorld);
-            {
+            if(playerController != null &&
+               playerController.IsOwner &&
+               playerController.PlayerInput != null &&
+               playerController.PlayerInput.IsSniperOverlayActive) {
                 var fpCameraTransform = playerController.FpCameraTransform;
-                return fpCameraTransform != null ? fpCameraTransform.position : transform.position;
+                if(fpCameraTransform == null) return false;
+
+                muzzlePosition = fpCameraTransform.TransformPoint(playerController.PlayerInput.SniperMuzzleCameraOffset);
+                return true;
             }
 
+            if(!TryGetPreferredMuzzleTransform(preferWorld, out var muzzleTransform) || muzzleTransform == null) {
+                return false;
+            }
+
+            muzzlePosition = muzzleTransform.position;
+            return true;
         }
 
         /// <summary>
@@ -403,14 +423,26 @@ namespace Game.Weapons {
         /// Called immediately in PerformShot() before LateUpdate, so weapon transform is accurate
         /// This avoids lag from queuing FX for LateUpdate
         /// </summary>
-        private Vector3 GetMuzzlePositionFromCamera() {
-            if(!playerController || !playerController.IsOwner || _currentWeaponData == null) return GetMuzzlePosition();
-            if(playerController.PlayerInput == null || !playerController.PlayerInput.IsSniperOverlayActive)
-                return ResolveMuzzlePosition(false);
+        private bool TryGetMuzzlePositionFromCamera(out Vector3 muzzlePosition) {
+            muzzlePosition = default;
+            if(!playerController || !playerController.IsOwner || _currentWeaponData == null) {
+                return TryGetMuzzlePosition(out muzzlePosition);
+            }
+
+            if(playerController.PlayerInput == null || !playerController.PlayerInput.IsSniperOverlayActive) {
+                if(!TryGetPreferredMuzzleTransform(false, out var muzzleTransform) || muzzleTransform == null) {
+                    return false;
+                }
+
+                muzzlePosition = muzzleTransform.position;
+                return true;
+            }
+
             var fpCameraTransform = playerController.FpCameraTransform;
-            return fpCameraTransform != null
-                ? fpCameraTransform.TransformPoint(playerController.PlayerInput.SniperMuzzleCameraOffset)
-                : playerController.Position;
+            if(fpCameraTransform == null) return false;
+
+            muzzlePosition = fpCameraTransform.TransformPoint(playerController.PlayerInput.SniperMuzzleCameraOffset);
+            return true;
 
         }
 
@@ -432,7 +464,7 @@ namespace Game.Weapons {
         }
 
         public int GetWeaponSlot() {
-            return _currentWeaponData == null ? 0 : _currentWeaponData.weaponSlot;
+            return _currentWeaponData == null ? 0 : _currentWeaponData.WeaponSlotIndex;
         }
         public float GetFireRate() {
             return _currentWeaponData == null ? 0.1f : _currentWeaponData.fireRate;
@@ -448,30 +480,29 @@ namespace Game.Weapons {
             return _currentWeaponData == null ? Vector3.zero : _currentWeaponData.spawnRotation;
         }
 
-        private Vector3 ResolveMuzzlePosition(bool preferWorldModel) {
-            var sourceTransform = GetPreferredWeaponTransform(preferWorldModel);
-            if(sourceTransform != null && _currentWeaponData != null) {
-                return sourceTransform.TransformPoint(_currentWeaponData.muzzleLocalOffset);
-            }
-
+        private bool TryGetPreferredMuzzleTransform(bool preferWorldModel, out Transform muzzleTransform) {
+            muzzleTransform = null;
             if(preferWorldModel) {
-                return playerController != null ? playerController.transform.position : transform.position;
-            }
-
-            var fpCameraTransform = playerController != null ? playerController.FpCameraTransform : null;
-            return fpCameraTransform != null ? fpCameraTransform.position : transform.position;
-        }
-
-        private Transform GetPreferredWeaponTransform(bool preferWorldModel) {
-            if(preferWorldModel) {
-                if(_currentWorldWeaponInstance != null) return _currentWorldWeaponInstance.transform;
-                if(_currentFpWeaponInstance != null) return _currentFpWeaponInstance.transform;
+                if(_worldMuzzleTransform != null) {
+                    muzzleTransform = _worldMuzzleTransform;
+                    return true;
+                }
+                if(_fpMuzzleTransform != null) {
+                    muzzleTransform = _fpMuzzleTransform;
+                    return true;
+                }
             } else {
-                if(_currentFpWeaponInstance != null) return _currentFpWeaponInstance.transform;
-                if(_currentWorldWeaponInstance != null) return _currentWorldWeaponInstance.transform;
+                if(_fpMuzzleTransform != null) {
+                    muzzleTransform = _fpMuzzleTransform;
+                    return true;
+                }
+                if(_worldMuzzleTransform != null) {
+                    muzzleTransform = _worldMuzzleTransform;
+                    return true;
+                }
             }
 
-            return null;
+            return false;
         }
 
         #endregion
@@ -560,7 +591,7 @@ namespace Game.Weapons {
             }
 
             // Calculate muzzle position directly from camera to bypass weapon transform lag
-            var capturedMuzzlePos = GetMuzzlePositionFromCamera();
+            var hasMuzzlePosition = TryGetMuzzlePositionFromCamera(out var capturedMuzzlePos);
 
             if (playerController != null && playerController.IsOwner) {
                 PlayLocalMuzzleFlash();
@@ -579,7 +610,7 @@ namespace Game.Weapons {
 
                 if (hitPlayer) anyPelletHitPlayer = true;
 
-                if(playerController != null && playerController.IsOwner) {
+                if(playerController != null && playerController.IsOwner && hasMuzzlePosition) {
                     SpawnTracerLocal(capturedMuzzlePos, endPoint, hitNormal, madeImpact, hitPlayer, hitPlayerRef);
                 }
 
@@ -634,11 +665,10 @@ namespace Game.Weapons {
                 var maxRadius = _currentWeaponData.sphereCastMaxRadius;
                 var baseRadius = _currentWeaponData.sphereCastRadius;
                 var growthStart = _currentWeaponData.sphereCastGrowthStartDist;
-                // Use minDamageRange (where damage is lowest/furthest) as the growth end distance if falloff is used
-                // Otherwise use maxServerRange as a fallbackcap
-                var growthEnd = _currentWeaponData.useDamageFalloff 
-                    ? Mathf.Max(growthStart + 0.1f, _currentWeaponData.minDamageRange) 
-                    : _currentWeaponData.maxServerRange;
+                // Use minDamageRange when falloff is enabled; otherwise scale over the shot's effective trace distance.
+                var growthEnd = _currentWeaponData.useDamageFalloff
+                    ? Mathf.Max(growthStart + 0.1f, _currentWeaponData.minDamageRange)
+                    : Mathf.Max(growthStart + 0.1f, maxDist);
                 
                 // Perform the SphereCast with the strict limit of maxDist (or slightly more to catch edge cases, filtering later)
                 // Note: SphereCastAll is better here to find the *first valid player* even if a closer player is missed by the cone but hit by the sphere.
@@ -836,7 +866,7 @@ namespace Game.Weapons {
                 // Reset grace period timer so it doesn't hold at peak
                 _lastPeakTime = 0f;
                 CurrentDamageMultiplier =
-                    Mathf.Clamp(CurrentDamageMultiplier, 1f, _currentWeaponData.maxDamageMultiplier);
+                    Mathf.Clamp(CurrentDamageMultiplier, 1f, MaxDamageMultiplier);
                 return;
             }
 
@@ -849,7 +879,7 @@ namespace Game.Weapons {
                     targetMultiplier = 1f;
                 } else {
                     var scaleFactor = Mathf.InverseLerp(MinSpeedThreshold, MaxSpeedThreshold, currentSpeed);
-                    targetMultiplier = Mathf.Lerp(1f, _currentWeaponData.maxDamageMultiplier, scaleFactor);
+                    targetMultiplier = Mathf.Lerp(1f, MaxDamageMultiplier, scaleFactor);
                 }
 
                 // If target is higher than current, jump to it immediately and start grace period
@@ -871,7 +901,7 @@ namespace Game.Weapons {
                 }
             }
 
-            CurrentDamageMultiplier = Mathf.Clamp(CurrentDamageMultiplier, 1f, _currentWeaponData.maxDamageMultiplier);
+            CurrentDamageMultiplier = Mathf.Clamp(CurrentDamageMultiplier, 1f, MaxDamageMultiplier);
         }
 
         #if UNITY_EDITOR
@@ -960,15 +990,10 @@ namespace Game.Weapons {
             PlayShootAnimationServerRpc();
 
             if(_currentWeaponData != null && _currentWeaponData.muzzleFlashPrefab != null) {
-                var useWorldParent = GameMenuManager.Instance.IsPostMatch;
-                var parentTransform = GetPreferredWeaponTransform(useWorldParent);
-                if(parentTransform == null) {
-                    parentTransform = GetPreferredWeaponTransform(!useWorldParent);
-                }
-
-                if(parentTransform != null) {
-                    var fxGo = Instantiate(_currentWeaponData.muzzleFlashPrefab, parentTransform);
-                    fxGo.transform.localPosition = _currentWeaponData.muzzleLocalOffset;
+                var useWorldParent = GameMenuManager.Instance != null && GameMenuManager.Instance.IsPostMatch;
+                if(TryGetPreferredMuzzleTransform(useWorldParent, out var muzzleTransform) && muzzleTransform != null) {
+                    var fxGo = Instantiate(_currentWeaponData.muzzleFlashPrefab, muzzleTransform);
+                    fxGo.transform.localPosition = Vector3.zero;
                     fxGo.transform.localRotation = Quaternion.identity;
 
                     var fx = fxGo.GetComponent<VisualEffect>();
@@ -998,9 +1023,12 @@ namespace Game.Weapons {
         /// </summary>
         public void PlayNetworkedMuzzleFlash() {
             // NON-OWNER ONLY: Play 3P world muzzle flash
-            if(_currentWeaponData != null && _currentWeaponData.muzzleFlashPrefab != null && _currentWorldWeaponInstance != null) {
-                var fxGo = Instantiate(_currentWeaponData.muzzleFlashPrefab, _currentWorldWeaponInstance.transform);
-                fxGo.transform.localPosition = _currentWeaponData.muzzleLocalOffset;
+            if(_currentWeaponData != null &&
+               _currentWeaponData.muzzleFlashPrefab != null &&
+               TryGetPreferredMuzzleTransform(true, out var muzzleTransform) &&
+               muzzleTransform != null) {
+                var fxGo = Instantiate(_currentWeaponData.muzzleFlashPrefab, muzzleTransform);
+                fxGo.transform.localPosition = Vector3.zero;
                 fxGo.transform.localRotation = Quaternion.identity;
 
                 var fx = fxGo.GetComponent<VisualEffect>();
@@ -1142,8 +1170,8 @@ namespace Game.Weapons {
             _weaponAnimator.GetCurrentAnimatorClipInfo(0, _reloadClipInfoBuffer);
             if(_reloadClipInfoBuffer.Count == 0) return false;
 
-            for(var i = 0; i < _reloadClipInfoBuffer.Count; i++) {
-                var clip = _reloadClipInfoBuffer[i].clip;
+            foreach(var t in _reloadClipInfoBuffer) {
+                var clip = t.clip;
                 if(clip == null || string.IsNullOrEmpty(clip.name)) continue;
                 if(clip.name.IndexOf("reload", System.StringComparison.OrdinalIgnoreCase) >= 0) {
                     return true;

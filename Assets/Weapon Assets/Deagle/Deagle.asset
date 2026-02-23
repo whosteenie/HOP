@@ -13,20 +13,14 @@ MonoBehaviour:
   m_Name: Deagle
   m_EditorClassIdentifier: Assembly-CSharp::Game.Weapons.WeaponData
   weaponName: Deagle
-  weaponPrefab: {fileID: 4920507860935382577, guid: 7aed133933a5be34483eb45c080378dd, type: 3}
-  loadoutIcon: {fileID: 21300000, guid: 05f63a3a326e0ad46847b566fb8d9038, type: 3}
   weaponSlot: 1
-  spawnPosition: {x: 0.355, y: -0.134, z: 0.332}
-  spawnRotation: {x: 0, y: 0, z: 0}
-  muzzleLocalOffset: {x: 0, y: 0.0333, z: 0.2005}
-  worldWeaponName: Deagle
-  holsteredPrimaryModel: {fileID: 0}
-  holsteredSecondaryModel: {fileID: 0}
-  fpMuzzleLightChildName: MuzzleLight
-  worldMuzzleLightChildName: MuzzleLight
-  magSize: 7
+  loadoutIcon: {fileID: 21300000, guid: 05f63a3a326e0ad46847b566fb8d9038, type: 3}
+  weaponPrefab: {fileID: 4920507860935382577, guid: 7aed133933a5be34483eb45c080378dd, type: 3}
+  fireModeType: 0
+  fireRate: 0.19
+  bulletSpread: 0
+  useSniperOverlay: 0
   baseDamage: 25
-  maxDamageMultiplier: 3
   damageCap: 100
   useDamageFalloff: 1
   maxDamageRange: 30
@@ -35,20 +29,19 @@ MonoBehaviour:
   usePelletSpread: 0
   pelletCount: 8
   pelletDamageMultiplier: 0.15
-  fireRate: 0.19
-  fireMode: Semi
-  bulletSpread: 0
-  useSniperOverlay: 0
+  magSize: 7
   reloadTime: 1.1
   useMagReload: 1
   perRoundReloadTime: 0.5
+  useSphereCast: 1
+  sphereCastRadius: 0.08
+  sphereCastGrowthStartDist: 0
+  sphereCastMaxRadius: 0.45
+  spawnPosition: {x: 0.355, y: -0.134, z: 0.332}
+  spawnRotation: {x: 0, y: 0, z: 0}
   bulletTrail: {fileID: 328621789431213768, guid: 4b92d630cd66e7a45a83060b816bdbbe, type: 3}
   bulletImpact: {fileID: 1727084212038952990, guid: 115606d0adf2ebc4cb54af213761100e, type: 3}
   muzzleFlashPrefab: {fileID: 6299671218319471870, guid: 6373b8829b762a344a5677cd3fd522a5, type: 3}
   shootSoundId: weapons.deagle.shoot
   reloadSoundId: weapons.deagle.reload
-  useSphereCast: 1
-  sphereCastRadius: 0.08
-  sphereCastGrowthStartDist: 0
-  sphereCastMaxRadius: 0.45
-  maxServerRange: 0
+  legacyFireMode: 

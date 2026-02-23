@@ -209,7 +209,7 @@ namespace Game.Player {
             if(!CurrentWeapon || WeaponManager == null) return;
 
             var weaponData = WeaponManager.GetWeaponDataByIndex(WeaponManager.CurrentWeaponIndex);
-            var fireMode = weaponData.fireMode;
+            var fireMode = weaponData.fireModeType;
 
             // Component reference should be assigned in the inspector
             if(_playerInputComponent == null) _playerInputComponent = GetComponent<UnityEngine.InputSystem.PlayerInput>();
@@ -232,7 +232,7 @@ namespace Game.Player {
             var attackPressedThisFrame = attackPressed && _attackBtnDown == false;
             _attackBtnDown = attackPressed;
 
-            if(!IsPreMatchOrPausedOrDead && fireMode == "Full" && attackPressed &&
+            if(!IsPreMatchOrPausedOrDead && fireMode == WeaponData.FireModeType.Full && attackPressed &&
                !(MantleController != null && MantleController.IsMantling) &&
                !(playerController != null && playerController.IsHoldingHopball)) {
                 if(attackPressedThisFrame) {
@@ -315,7 +315,7 @@ namespace Game.Player {
 
             if(weaponData) {
                 EventBus.Publish(new UpdateMultiplierEvent(CurrentWeapon.CurrentDamageMultiplier,
-                    weaponData.maxDamageMultiplier));
+                    Weapon.MaxDamageMultiplier));
             }
 
             if(!IsPaused && Keyboard.current.tabKey.isPressed) {
@@ -644,8 +644,8 @@ namespace Game.Player {
 
             if(WeaponManager == null) return;
             var weaponData = WeaponManager.GetWeaponDataByIndex(WeaponManager.CurrentWeaponIndex);
-            var fireMode = weaponData != null ? weaponData.fireMode : null;
-            if(CurrentWeapon != null && fireMode == "Semi") {
+            var fireMode = weaponData != null ? weaponData.fireModeType : WeaponData.FireModeType.Semi;
+            if(CurrentWeapon != null && fireMode == WeaponData.FireModeType.Semi) {
                 if(CurrentWeapon.TryAutoReloadFromEmptyClick()) return;
                 CurrentWeapon.Shoot();
             }

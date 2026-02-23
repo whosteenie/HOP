@@ -39,48 +39,48 @@ namespace Network {
 
             _isCreatingPartyLobby = true;
             try {
-            await EnsureSignedInAsync();
+                await EnsureSignedInAsync();
 
-            if(string.IsNullOrEmpty(CurrentPartyId)) {
-                CurrentPartyId = Guid.NewGuid().ToString();
-            }
-
-            var options = new CreateLobbyOptions {
-                IsPrivate = isPrivate,
-                Player = BuildLobbyPlayer(),
-                Data = new Dictionary<string, DataObject> {
-                    [UgsPartyIdKey] = new(DataObject.VisibilityOptions.Member, CurrentPartyId),
-                    [UgsFollowMatchLobbyIdKey] = new(DataObject.VisibilityOptions.Member, ""),
-                    [UgsLobbyStateKey] = new(DataObject.VisibilityOptions.Member, "Party")
+                if(string.IsNullOrEmpty(CurrentPartyId)) {
+                    CurrentPartyId = Guid.NewGuid().ToString();
                 }
-            };
 
-            _ugsPartyLobby = await LobbyService.Instance.CreateLobbyAsync("HOP Party", maxPlayers, options);
-            _ugsMatchLobby = null;
-            IsPartyLeader = _ugsPartyLobby != null && _ugsPartyLobby.HostId == AuthenticationService.Instance.PlayerId;
-
-            if(SteamClient.IsValid && SteamClient.IsLoggedOn) {
-                if(!CurrentLobby.HasValue) {
-                    var socialLobbyCreated = await CreateSteamSocialLobbyAsync(maxPlayers);
-                    if(!socialLobbyCreated && Debug.isDebugBuild) {
-                        Debug.LogWarning("[SessionManager] UGS party created, but Steam social lobby creation failed.");
+                var options = new CreateLobbyOptions {
+                    IsPrivate = isPrivate,
+                    Player = BuildLobbyPlayer(),
+                    Data = new Dictionary<string, DataObject> {
+                        [UgsPartyIdKey] = new(DataObject.VisibilityOptions.Member, CurrentPartyId),
+                        [UgsFollowMatchLobbyIdKey] = new(DataObject.VisibilityOptions.Member, ""),
+                        [UgsLobbyStateKey] = new(DataObject.VisibilityOptions.Member, "Party")
                     }
-                } else if(CurrentLobby.Value.Owner.Id == SteamClient.SteamId) {
-                    CurrentLobby.Value.SetData(PartyIdKey, CurrentPartyId);
-                    CurrentLobby.Value.SetData(TargetModeKey, SelectedGameMode);
-                    UpdateLocalDisplayNameInLobby();
-                }
-            }
+                };
 
-            _nextUgsHeartbeatTime = Time.unscaledTime + 1f;
-            _nextUgsPollTime = Time.unscaledTime + 1f;
-            UpdateSteamRichPresence();
-            FlowLog.Emit(FlowEventIds.PartyLifecycle,
-                ("action", "CreateUgsParty"),
-                ("partyId", CurrentPartyId),
-                ("lobbyId", _ugsPartyLobby != null ? _ugsPartyLobby.Id : "null"),
-                ("private", isPrivate),
-                ("maxPlayers", maxPlayers));
+                _ugsPartyLobby = await LobbyService.Instance.CreateLobbyAsync("HOP Party", maxPlayers, options);
+                _ugsMatchLobby = null;
+                IsPartyLeader = _ugsPartyLobby != null && _ugsPartyLobby.HostId == AuthenticationService.Instance.PlayerId;
+
+                if(SteamClient.IsValid && SteamClient.IsLoggedOn) {
+                    if(!CurrentLobby.HasValue) {
+                        var socialLobbyCreated = await CreateSteamSocialLobbyAsync(maxPlayers);
+                        if(!socialLobbyCreated && Debug.isDebugBuild) {
+                            Debug.LogWarning("[SessionManager] UGS party created, but Steam social lobby creation failed.");
+                        }
+                    } else if(CurrentLobby.Value.Owner.Id == SteamClient.SteamId) {
+                        CurrentLobby.Value.SetData(PartyIdKey, CurrentPartyId);
+                        CurrentLobby.Value.SetData(TargetModeKey, SelectedGameMode);
+                        UpdateLocalDisplayNameInLobby();
+                    }
+                }
+
+                _nextUgsHeartbeatTime = Time.unscaledTime + 1f;
+                _nextUgsPollTime = Time.unscaledTime + 1f;
+                UpdateSteamRichPresence();
+                FlowLog.Emit(FlowEventIds.PartyLifecycle,
+                    ("action", "CreateUgsParty"),
+                    ("partyId", CurrentPartyId),
+                    ("lobbyId", _ugsPartyLobby != null ? _ugsPartyLobby.Id : "null"),
+                    ("private", isPrivate),
+                    ("maxPlayers", maxPlayers));
             } finally {
                 _isCreatingPartyLobby = false;
             }
@@ -314,8 +314,8 @@ namespace Network {
                     }
 
                     if(stateObj != null &&
-                       (string.Equals(stateObj.Value, "LoadingScene", System.StringComparison.OrdinalIgnoreCase) ||
-                        string.Equals(stateObj.Value, "InGame", System.StringComparison.OrdinalIgnoreCase))) {
+                       (string.Equals(stateObj.Value, "LoadingScene", StringComparison.OrdinalIgnoreCase) ||
+                        string.Equals(stateObj.Value, "InGame", StringComparison.OrdinalIgnoreCase))) {
                         _ugsLocalReadySubmitted = true;
                         StartMatchClientAsync(useFadeOut: true).Forget();
                         return true;

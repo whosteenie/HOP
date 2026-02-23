@@ -508,7 +508,9 @@ namespace Game.Menu {
             var isMe = targetId == SteamClient.SteamId;
             var amIHost = IsHost;
             if(Debug.isDebugBuild) {
-                Debug.Log($"[PrivateMatchSetup] ShowContextMenuForPartyMember: position=({position.x},{position.y}) targetId={targetId.Value} showSwitchTeam={showSwitchTeam} isMe={isMe} amIHost={amIHost} CtxSwitchTeamElement={uiManager?.CtxSwitchTeam != null}");
+                Debug.Log($"[PrivateMatchSetup] ShowContextMenuForPartyMember: position=({position.x},{position.y}) " +
+                          $"targetId={targetId.Value} showSwitchTeam={showSwitchTeam} isMe={isMe} amIHost={amIHost} " +
+                          $"CtxSwitchTeamElement={uiManager != null && uiManager.CtxSwitchTeam != null}");
             }
             ShowContextMenu(position, targetId, isMe, amIHost, showSwitchTeam);
         }

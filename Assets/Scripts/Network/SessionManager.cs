@@ -548,24 +548,22 @@ namespace Network {
                     $"[SessionManager] Map selected ({context}) mode='{SelectedGameMode}' mapId='{SelectedMapId}' scene='{SelectedMapSceneName}'.");
             }
 
-            if(CurrentLobby.HasValue && CurrentLobby.Value.Owner.Id == SteamClient.SteamId) {
-                CurrentLobby.Value.SetData("TargetMapId", SelectedMapId ?? string.Empty);
-                CurrentLobby.Value.SetData("TargetMapScene", SelectedMapSceneName ?? string.Empty);
-            }
+            if(!CurrentLobby.HasValue || CurrentLobby.Value.Owner.Id != SteamClient.SteamId) return;
+            CurrentLobby.Value.SetData("TargetMapId", SelectedMapId ?? string.Empty);
+            CurrentLobby.Value.SetData("TargetMapScene", SelectedMapSceneName ?? string.Empty);
         }
 
         /// <summary>
         /// Sets the map from a private match draft (map id). Skips random selection when loading the gameplay scene.
         /// </summary>
-        public void SetSelectedMapFromId(string mapId) {
+        private void SetSelectedMapFromId(string mapId) {
             if(string.IsNullOrWhiteSpace(mapId)) return;
-            if(MatchMapService.TryGetSceneByMapId(mapId, out var sceneName)) {
-                SelectedMapId = mapId;
-                SelectedMapSceneName = sceneName;
-                _privateMatchMapPreset = true;
-                if(Debug.isDebugBuild) {
-                    Debug.Log($"[SessionManager] Private match map set: mapId='{mapId}' scene='{SelectedMapSceneName}'.");
-                }
+            if(!MatchMapService.TryGetSceneByMapId(mapId, out var sceneName)) return;
+            SelectedMapId = mapId;
+            SelectedMapSceneName = sceneName;
+            _privateMatchMapPreset = true;
+            if(Debug.isDebugBuild) {
+                Debug.Log($"[SessionManager] Private match map set: mapId='{mapId}' scene='{SelectedMapSceneName}'.");
             }
         }
 
@@ -593,12 +591,12 @@ namespace Network {
 
             var matchSettings = MatchSettingsManager.Instance;
             if(matchSettings != null) {
-                matchSettings.matchDurationSeconds = UnityEngine.Mathf.Max(0, matchTimerSeconds);
+                matchSettings.matchDurationSeconds = Mathf.Max(0, matchTimerSeconds);
                 matchSettings.preMatchCountdownEnabled = usePreMatchCountdown;
                 matchSettings.swapWeaponsOnDeath = swapWeaponsOnDeath;
-                matchSettings.scoreToWin = UnityEngine.Mathf.Max(0, scoreToWin);
-                matchSettings.kothHillSpeed = UnityEngine.Mathf.Max(1, kothHillSpeed);
-                matchSettings.taggedPlayers = UnityEngine.Mathf.Max(1, taggedPlayers);
+                matchSettings.scoreToWin = Mathf.Max(0, scoreToWin);
+                matchSettings.kothHillSpeed = Mathf.Max(1, kothHillSpeed);
+                matchSettings.taggedPlayers = Mathf.Max(1, taggedPlayers);
             }
 
             PrivateMatchTeamAssignments.Set(teamAssignments);

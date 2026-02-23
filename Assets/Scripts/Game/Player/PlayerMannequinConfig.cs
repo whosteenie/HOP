@@ -1159,8 +1159,9 @@ namespace Game.Player {
                 ? speed * Mathf.Max(0f, projectileElapsed - ShotPreviewTrailLifetimeSeconds)
                 : 0f;
 
-            var headPosition = origin.position + direction * projectileHeadDistance;
-            var tailPosition = origin.position + direction * projectileTailDistance;
+            var position = origin.position;
+            var headPosition = position + direction * projectileHeadDistance;
+            var tailPosition = position + direction * projectileTailDistance;
             var visualEffectCount = 0;
             var trailCount = 0;
             var skippedTrailCount = 0;
@@ -1897,12 +1898,12 @@ namespace Game.Player {
             if(!hasCapturedLookPitchSpineProxyOffset) return;
 
             CacheLookPitchSpineProxy();
-            _cachedLookPitchSpineProxy?.SetRotationOffset(capturedLookPitchSpineProxyOffset);
+            if(_cachedLookPitchSpineProxy != null) _cachedLookPitchSpineProxy.SetRotationOffset(capturedLookPitchSpineProxyOffset);
         }
 
         private void ApplyLookPitchProxyToOriginalSpine() {
             CacheLookPitchSpineProxy();
-            _cachedLookPitchSpineProxy?.ApplyProxyToOriginalSpine();
+            if(_cachedLookPitchSpineProxy != null) _cachedLookPitchSpineProxy.ApplyProxyToOriginalSpine();
         }
 
         private void QueueRuntimeLookProbe() {

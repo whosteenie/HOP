@@ -444,12 +444,11 @@ namespace Game.UI {
             }
 
             var pool = Resources.Load<MapPoolDefinition>("MatchMapPoolDefinition");
-            if(pool?.Maps == null) {
+            if(pool == null || pool.Maps == null) {
                 return false;
             }
 
-            for(var i = 0; i < pool.Maps.Count; i++) {
-                var map = pool.Maps[i];
+            foreach(var map in pool.Maps) {
                 if(map == null || string.IsNullOrWhiteSpace(map.SceneName)) {
                     continue;
                 }
@@ -466,11 +465,7 @@ namespace Game.UI {
         }
 
         private static string FormatMapTitle(string value) {
-            if(string.IsNullOrWhiteSpace(value)) {
-                return "UNKNOWN MAP";
-            }
-
-            return value.Trim().ToUpperInvariant();
+            return string.IsNullOrWhiteSpace(value) ? "UNKNOWN MAP" : value.Trim().ToUpperInvariant();
         }
 
         private void UpdateScoreboardHeaders() {
@@ -604,10 +599,9 @@ namespace Game.UI {
             // Find local player index
             var localClientId = NetworkManager.Singleton.LocalClientId;
             for(var i = 0; i < sortedPlayers.Count; i++) {
-                if(sortedPlayers[i].OwnerClientId == localClientId) {
-                    placement = i + 1; // 1-based rank
-                    return true;
-                }
+                if(sortedPlayers[i].OwnerClientId != localClientId) continue;
+                placement = i + 1; // 1-based rank
+                return true;
             }
 
             return false;
@@ -666,7 +660,7 @@ namespace Game.UI {
                 _previousVelocityValues.Clear();
 
                 var sortedPlayers = BuildSortedPlayerList(allControllers, isTagMode);
-                int rowCount = 0;
+                var rowCount = 0;
 
                 foreach(var player in sortedPlayers) {
                     if(player == null || !player.IsSpawned) continue;
@@ -792,7 +786,7 @@ namespace Game.UI {
             yourTeamPlayers.Sort((a, b) => b.Kills.Value.CompareTo(a.Kills.Value));
 
             // Create rows for each team (simplified stats for TDM)
-            int enemyCount = 0;
+            var enemyCount = 0;
             foreach(var player in enemyPlayers) {
                 var row = CreatePlayerRow(player, _enemyTeamRows, simplifiedStats: true, isYourTeam: false);
                 if(row == null) continue;
@@ -808,7 +802,7 @@ namespace Game.UI {
                 enemyCount++;
             }
 
-            int yourCount = 0;
+            var yourCount = 0;
             foreach(var player in yourTeamPlayers) {
                 var row = CreatePlayerRow(player, _yourTeamRows, simplifiedStats: true, isYourTeam: true);
                 if(row == null) continue;
@@ -935,14 +929,13 @@ namespace Game.UI {
         private readonly HashSet<PlayerController> _allPlayersRegistry = new();
 
         public void RegisterPlayer(PlayerController player) {
-            if(player != null && _allPlayersRegistry.Add(player)) {
-                // Subscribe to changes
-                player.playerName.OnValueChanged += OnPlayerProfileChanged;
-                player.playerBaseColor.OnValueChanged += OnPlayerProfileChanged;
+            if(player == null || !_allPlayersRegistry.Add(player)) return;
+            // Subscribe to changes
+            player.playerName.OnValueChanged += OnPlayerProfileChanged;
+            player.playerBaseColor.OnValueChanged += OnPlayerProfileChanged;
 
-                // Force an update immediately so the scoreboard reflects the new player
-                UpdateScoreboard();
-            }
+            // Force an update immediately so the scoreboard reflects the new player
+            UpdateScoreboard();
         }
 
         public void UnregisterPlayer(PlayerController player) {

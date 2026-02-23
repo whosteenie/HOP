@@ -74,11 +74,6 @@ namespace Network.Rpc {
                 return;
             }
 
-            if(!shooterWeaponManager.ValidateDamageRange(weaponIndex, hitPoint, out var rangeReason)) {
-                AntiCheatLogger.LogInvalidDamage(shooterId, rangeReason);
-                return;
-            }
-
             var weaponId = shooterWeaponManager.GetWeaponIdByIndex(weaponIndex);
 
             // Apply on server (authoritative). This function will update stats (kills/deaths/damageDealt) on server.

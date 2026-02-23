@@ -335,12 +335,10 @@ namespace Network {
                 return true;
             }
 
-            if(CurrentLobby.HasValue && CurrentLobby.Value.Id != 0) {
-                channelName = "match_" + CurrentLobby.Value.Id;
-                return true;
-            }
+            if(!CurrentLobby.HasValue || CurrentLobby.Value.Id == 0) return false;
+            channelName = "match_" + CurrentLobby.Value.Id;
+            return true;
 
-            return false;
         }
 
         private static async UniTask<bool> WaitForActiveSceneAsync(string expectedSceneName, float timeoutSeconds) {

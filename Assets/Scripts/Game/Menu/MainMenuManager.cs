@@ -9,8 +9,8 @@ using UnityEngine;
 using UnityEngine.Audio;
 using UnityEngine.UIElements;
 using Game.UI;
-using Game.Rendering;
 using Game.Settings;
+using Rendering;
 using UnityEngine.Rendering;
 using Cursor = UnityEngine.Cursor;
 

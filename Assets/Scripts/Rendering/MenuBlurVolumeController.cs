@@ -1,7 +1,7 @@
 using UnityEngine;
 using UnityEngine.Rendering;
 
-namespace Game.Rendering {
+namespace Rendering {
     /// <summary>
     /// Drives a dedicated global volume weight for menu/options blur.
     /// Assign the target Volume in the inspector.
@@ -12,17 +12,13 @@ namespace Game.Rendering {
         [SerializeField] private float openSpeed = 7f;
         [SerializeField] private float closeSpeed = 16f;
         [SerializeField] private float maxWeight = 1f;
-        [SerializeField] private bool instantClose = false;
+        [SerializeField] private bool instantClose;
 
         private float _targetWeight;
         private float _currentWeight;
 
         private void Awake() {
-            if(blurVolume != null) {
-                _currentWeight = Mathf.Clamp01(blurVolume.weight);
-            } else {
-                _currentWeight = 0f;
-            }
+            _currentWeight = blurVolume != null ? Mathf.Clamp01(blurVolume.weight) : 0f;
             _targetWeight = 0f;
             ApplyWeight(0f);
         }

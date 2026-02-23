@@ -452,10 +452,8 @@ namespace Game.Menu {
             var choices = new List<string>();
             var pool = Resources.Load<MapPoolDefinition>("MatchMapPoolDefinition");
             var poolOk = pool != null;
-            var mapsCount = pool?.Maps?.Count ?? 0;
             if(poolOk && pool.Maps != null) {
-                for(var i = 0; i < pool.Maps.Count; i++) {
-                    var map = pool.Maps[i];
+                foreach(var map in pool.Maps) {
                     if(map == null || map.EnabledInRotation == false) continue;
                     if(map.SupportsGamemode(gamemodeId) == false) continue;
                     _filteredMaps.Add(map);
@@ -476,13 +474,12 @@ namespace Game.Menu {
 
             _mapDropdown.choices = choices;
 
-            // Auto-correct: if current map not in filtered list, select first valid map (WS-D)
+            // Autocorrect: if current map not in filtered list, select first valid map (WS-D)
             var selectedIndex = 0;
             for(var i = 0; i < _filteredMaps.Count; i++) {
-                if(string.Equals(_filteredMaps[i].MapId, _draft.MapId, StringComparison.OrdinalIgnoreCase)) {
-                    selectedIndex = i;
-                    break;
-                }
+                if(!string.Equals(_filteredMaps[i].MapId, _draft.MapId, StringComparison.OrdinalIgnoreCase)) continue;
+                selectedIndex = i;
+                break;
             }
 
             _draft.MapId = _filteredMaps[selectedIndex].MapId;
@@ -541,7 +538,7 @@ namespace Game.Menu {
             }
         }
 
-        private int GetPartySize() {
+        private static int GetPartySize() {
             return SessionManager.Instance != null ? SessionManager.Instance.CurrentPartySize : 1;
         }
 
@@ -594,13 +591,12 @@ namespace Game.Menu {
                 var teamACount = 0;
                 var teamBCount = 0;
                 foreach(var m in members) {
-                    var team = _draftTeamBySteamId.TryGetValue(m.Id.Value, out var t) ? t : 0;
+                    var team = _draftTeamBySteamId.GetValueOrDefault(m.Id.Value, 0);
                     var container = team == 0 ? teamAContainer : teamBContainer;
-                    if(container != null) {
-                        CreatePreviewRow(m, container);
-                        if(team == 0) teamACount++;
-                        else teamBCount++;
-                    }
+                    if(container == null) continue;
+                    CreatePreviewRow(m, container);
+                    if(team == 0) teamACount++;
+                    else teamBCount++;
                 }
 
                 if(teamAContainer != null) {
@@ -608,7 +604,9 @@ namespace Game.Menu {
                         CreateEmptyPreviewRow(teamAContainer, i + 1);
                     }
                 }
-                if(teamBContainer != null) {
+
+                if(teamBContainer == null) return;
+                {
                     for(var i = teamBCount; i < TeamSlots; i++) {
                         CreateEmptyPreviewRow(teamBContainer, i + 1);
                     }
@@ -622,20 +620,19 @@ namespace Game.Menu {
                 if(ffaContainer != null) ffaContainer.Clear();
                 var filled = 0;
                 foreach(var m in members) {
-                    if(ffaContainer != null) {
-                        CreatePreviewRow(m, ffaContainer);
-                        filled++;
-                    }
+                    if(ffaContainer == null) continue;
+                    CreatePreviewRow(m, ffaContainer);
+                    filled++;
                 }
-                if(ffaContainer != null) {
-                    for(var i = filled; i < MaxLobbySlots; i++) {
-                        CreateEmptyPreviewRow(ffaContainer, i + 1);
-                    }
+
+                if(ffaContainer == null) return;
+                for(var i = filled; i < MaxLobbySlots; i++) {
+                    CreateEmptyPreviewRow(ffaContainer, i + 1);
                 }
             }
         }
 
-        private List<Friend> GetCurrentMembersOrdered() {
+        private static List<Friend> GetCurrentMembersOrdered() {
             var list = new List<Friend>();
             if(SessionManager.Instance == null || !SessionManager.Instance.CurrentLobby.HasValue) {
                 if(SteamClient.IsValid && SteamClient.IsLoggedOn)
@@ -720,7 +717,9 @@ namespace Game.Menu {
                 if(Debug.isDebugBuild) {
                     Debug.Log($"[PrivateMatchSetup] Row right-click: steamId={steamId.Value} gamemode={_draft.GamemodeId} showSwitchTeam={showSwitchTeam}");
                 }
-                _sessionManager?.ShowContextMenuForPartyMember(evt.position, steamId, showSwitchTeam);
+
+                if(_sessionManager != null) _sessionManager.ShowContextMenuForPartyMember(evt.position, steamId, showSwitchTeam);
+
                 evt.StopPropagation();
             });
             container.Add(row);
@@ -761,31 +760,30 @@ namespace Game.Menu {
             avatarBox.AddToClassList("player-icon-" + resolved);
         }
 
-        private static async void LoadSteamAvatarIntoPreviewRow(VisualElement avatarBox, SteamId id, string iconId,
-                                                                bool hideAvatar) {
-            if(avatarBox == null || hideAvatar || id.Value == 0) return;
-            if(!SteamClient.IsValid || !SteamClient.IsLoggedOn) return;
-            if(SteamManager.Instance == null) return;
-
+        private static async void LoadSteamAvatarIntoPreviewRow(VisualElement avatarBox, SteamId id, string iconId, bool hideAvatar) {
             try {
-                var avatarTex = await SteamManager.Instance.GetAvatarAsync(id);
-                if(avatarTex != null && avatarBox != null) {
+                if(avatarBox == null || hideAvatar || id.Value == 0) return;
+                if(!SteamClient.IsValid || !SteamClient.IsLoggedOn) return;
+                if(SteamManager.Instance == null) return;
+
+                try {
+                    var avatarTex = await SteamManager.Instance.GetAvatarAsync(id);
+                    if(avatarTex == null) return;
                     avatarBox.style.backgroundImage = new StyleBackground(avatarTex);
                     if(!avatarBox.ClassListContains("steam-avatar-flip"))
                         avatarBox.AddToClassList("steam-avatar-flip");
+                } catch {
+                    // Keep deterministic fallback icon when Steam avatar lookup fails.
+                    ApplyPreviewRowAvatarFallback(avatarBox, iconId, false);
                 }
-            } catch {
-                // Keep deterministic fallback icon when Steam avatar lookup fails.
-                ApplyPreviewRowAvatarFallback(avatarBox, iconId, hideAvatar);
+            } catch(Exception e) {
+                Debug.LogException(e); // TODO handle exception
             }
         }
 
         private static string BuildMapChoiceLabel(MapDefinition map) {
             if(map == null) return "UNKNOWN";
-            if(string.IsNullOrWhiteSpace(map.MapId)) {
-                return map.name.ToUpperInvariant();
-            }
-            return map.MapId.Trim().ToUpperInvariant();
+            return string.IsNullOrWhiteSpace(map.MapId) ? map.name.ToUpperInvariant() : map.MapId.Trim().ToUpperInvariant();
         }
 
         private static string BuildMapPreviewTitle(MapDefinition map, string fallbackMapId) {
@@ -793,11 +791,7 @@ namespace Game.Menu {
                 return BuildMapChoiceLabel(map);
             }
 
-            if(string.IsNullOrWhiteSpace(fallbackMapId) == false) {
-                return fallbackMapId.Trim().ToUpperInvariant();
-            }
-
-            return "UNKNOWN MAP";
+            return string.IsNullOrWhiteSpace(fallbackMapId) == false ? fallbackMapId.Trim().ToUpperInvariant() : "UNKNOWN MAP";
         }
 
         private void OnGamemodeChanged(ChangeEvent<string> evt) {
@@ -816,12 +810,11 @@ namespace Game.Menu {
 
         private void OnMapChanged(ChangeEvent<string> evt) {
             if(_suppressEvents) return;
-            for(var i = 0; i < _filteredMaps.Count; i++) {
-                var label = BuildMapChoiceLabel(_filteredMaps[i]);
-                if(string.Equals(label, evt.newValue, StringComparison.OrdinalIgnoreCase)) {
-                    _draft.MapId = _filteredMaps[i].MapId;
-                    break;
-                }
+            foreach(var t in _filteredMaps) {
+                var label = BuildMapChoiceLabel(t);
+                if(!string.Equals(label, evt.newValue, StringComparison.OrdinalIgnoreCase)) continue;
+                _draft.MapId = t.MapId;
+                break;
             }
             RefreshMapPreview();
             RefreshStatusLabel();
@@ -835,11 +828,7 @@ namespace Game.Menu {
             var sprite = selectedMap != null ? selectedMap.PreviewImage : null;
             var hasPreview = sprite != null;
 
-            if(hasPreview) {
-                _mapPreviewImage.style.backgroundImage = new StyleBackground(sprite);
-            } else {
-                _mapPreviewImage.style.backgroundImage = StyleKeyword.Null;
-            }
+            _mapPreviewImage.style.backgroundImage = hasPreview ? new StyleBackground(sprite) : StyleKeyword.Null;
 
             if(_mapPreviewWipLabel != null) {
                 _mapPreviewWipLabel.style.display = hasPreview ? DisplayStyle.None : DisplayStyle.Flex;
@@ -851,8 +840,7 @@ namespace Game.Menu {
         }
 
         private MapDefinition GetSelectedMapDefinition() {
-            for(var i = 0; i < _filteredMaps.Count; i++) {
-                var candidate = _filteredMaps[i];
+            foreach(var candidate in _filteredMaps) {
                 if(candidate == null) continue;
                 if(string.Equals(candidate.MapId, _draft.MapId, StringComparison.OrdinalIgnoreCase)) {
                     return candidate;
@@ -860,9 +848,8 @@ namespace Game.Menu {
             }
 
             var pool = Resources.Load<MapPoolDefinition>("MatchMapPoolDefinition");
-            if(pool?.Maps == null) return null;
-            for(var i = 0; i < pool.Maps.Count; i++) {
-                var candidate = pool.Maps[i];
+            if(pool == null || pool.Maps == null) return null;
+            foreach(var candidate in pool.Maps) {
                 if(candidate == null) continue;
                 if(string.Equals(candidate.MapId, _draft.MapId, StringComparison.OrdinalIgnoreCase)) {
                     return candidate;
@@ -889,21 +876,6 @@ namespace Game.Menu {
         /// </summary>
         private void RegisterSanitizeOnCommit(IntegerField field, int min, int max, Action<int> setDraft) {
             if(field == null) return;
-            void SanitizeAndApply() {
-                var raw = field.value;
-                var clamped = Mathf.Clamp(raw, min, max);
-                if(clamped != raw) {
-                    _suppressEvents = true;
-                    field.value = clamped;
-                    _suppressEvents = false;
-                    setDraft(clamped);
-                } else {
-                    setDraft(clamped);
-                }
-                ApplyInfiniteFieldDisplay(field, clamped == 0);
-                RefreshStatusLabel();
-                RefreshValidationAndStartButton();
-            }
 
             EventCallback<BlurEvent> blurHandler = _ => SanitizeAndApply();
             EventCallback<KeyDownEvent> keyHandler = evt => {
@@ -914,6 +886,22 @@ namespace Game.Menu {
             field.RegisterCallback(keyHandler);
             RegisterCleanup(() => field.UnregisterCallback(blurHandler));
             RegisterCleanup(() => field.UnregisterCallback(keyHandler));
+            return;
+
+            void SanitizeAndApply() {
+                var raw = field.value;
+                var clamped = Mathf.Clamp(raw, min, max);
+                if(clamped != raw) {
+                    _suppressEvents = true;
+                    field.value = clamped;
+                    _suppressEvents = false;
+                }
+
+                setDraft(clamped);
+                ApplyInfiniteFieldDisplay(field, clamped == 0);
+                RefreshStatusLabel();
+                RefreshValidationAndStartButton();
+            }
         }
 
         private void RegisterInfiniteFieldDisplay(IntegerField field) {

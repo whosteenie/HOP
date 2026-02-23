@@ -57,15 +57,15 @@ namespace Network.Rpc {
             var weapon = weaponManager.CurrentWeapon;
             if(weapon == null) return;
 
-            // For non-owners, use world muzzle position (not the owner's FP muzzle position)
-            // This ensures trails spawn from the visible world weapon muzzle
-            var startPoint = weapon.GetMuzzlePosition();
-
             // Play FX
             if(playMuzzleFlash) {
                 weapon.PlayNetworkedMuzzleFlash();
             }
-            weapon.SpawnTracerLocal(startPoint, endPoint, hitNormal, madeImpact, hitPlayer, hitPlayerRef);
+
+            // For non-owners, trails should start at the visible world muzzle.
+            if(weapon.TryGetMuzzlePosition(out var startPoint)) {
+                weapon.SpawnTracerLocal(startPoint, endPoint, hitNormal, madeImpact, hitPlayer, hitPlayerRef);
+            }
         }
     }
 }
