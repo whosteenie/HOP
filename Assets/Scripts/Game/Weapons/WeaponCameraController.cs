@@ -16,6 +16,14 @@ namespace Game.Weapons {
         private CinemachineCamera _fpCamera;
         private Camera _mainSceneCamera; // Main scene camera (not player's fpCamera)
 
+        [Header("Dynamic Near Clip (FOV-driven)")]
+        [SerializeField] private bool enableDynamicNearClip = true;
+        [SerializeField] private float nearClipBaseFov = 80f;
+        [SerializeField] private float nearClipMaxFov = 100f;
+        [SerializeField] private float nearClipAtBaseFov = 0.03f;
+        [SerializeField] private float nearClipAtMaxFov = 0.06f;
+        [SerializeField] private AnimationCurve nearClipByFovCurve = AnimationCurve.EaseInOut(0f, 0f, 1f, 1f);
+
         private void Awake() {
             ValidateComponents();
         }
@@ -45,6 +53,16 @@ namespace Game.Weapons {
             // Sync FOV with fpCamera
             if(_fpCamera != null) {
                 _weaponCamera.fieldOfView = _fpCamera.Lens.FieldOfView;
+                nearClipBaseFov = _fpCamera.Lens.FieldOfView;
+            }
+
+            // Keep existing behavior unchanged at base FOV unless explicitly tuned otherwise.
+            if(nearClipAtBaseFov <= 0f && _weaponCamera != null) {
+                nearClipAtBaseFov = _weaponCamera.nearClipPlane;
+            }
+
+            if(nearClipAtMaxFov < nearClipAtBaseFov) {
+                nearClipAtMaxFov = nearClipAtBaseFov;
             }
 
             // Parent to fpCamera transform (for position/rotation sync)
@@ -78,6 +96,22 @@ namespace Game.Weapons {
             var newFov = _fpCamera.Lens.FieldOfView;
             if(Mathf.Abs(_weaponCamera.fieldOfView - newFov) > 0.01f) {
                 _weaponCamera.fieldOfView = newFov;
+            }
+
+            UpdateDynamicNearClip(newFov);
+        }
+
+        private void UpdateDynamicNearClip(float currentFov) {
+            if(!enableDynamicNearClip || _weaponCamera == null) return;
+
+            var fovMax = Mathf.Max(nearClipBaseFov + 0.001f, nearClipMaxFov);
+            var t = Mathf.InverseLerp(nearClipBaseFov, fovMax, currentFov);
+            var curved = nearClipByFovCurve != null ? nearClipByFovCurve.Evaluate(t) : t;
+            var targetNear = Mathf.Lerp(nearClipAtBaseFov, nearClipAtMaxFov, curved);
+            targetNear = Mathf.Max(0.001f, targetNear);
+
+            if(Mathf.Abs(_weaponCamera.nearClipPlane - targetNear) > 0.0001f) {
+                _weaponCamera.nearClipPlane = targetNear;
             }
         }
 

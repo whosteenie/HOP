@@ -2074,6 +2074,35 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Game.Weapons.WeaponCameraController
   playerController: {fileID: 5088684734431513618}
+  enableDynamicNearClip: 1
+  nearClipBaseFov: 90
+  nearClipMaxFov: 100
+  nearClipAtBaseFov: 0.01
+  nearClipAtMaxFov: 0.055
+  nearClipByFovCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
 --- !u!114 &6778961089975042311
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -5399,7 +5428,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 7129668303251482571}
   serializedVersion: 2
-  m_LocalRotation: {x: -0.036127485, y: 0, z: -0, w: 0.9993472}
+  m_LocalRotation: {x: -0.03612748, y: -0, z: -0, w: 0.9993472}
   m_LocalPosition: {x: -0, y: 0.08378151, z: -0.000000380062}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0

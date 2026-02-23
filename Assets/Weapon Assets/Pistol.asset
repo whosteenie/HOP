@@ -11,7 +11,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 50d8dbcb146dde54895dd61c404ddb7e, type: 3}
   m_Name: Pistol
-  m_EditorClassIdentifier: Assembly-CSharp::WeaponData
+  m_EditorClassIdentifier: Assembly-CSharp::Game.Weapons.WeaponData
   weaponName: M1911
   weaponPrefab: {fileID: 1694449805434718, guid: 5dc9fad223416134db5eb5ef21362f5d, type: 3}
   loadoutIcon: {fileID: 21300000, guid: 2862a4083a80fc748af37075e15a88b4, type: 3}
