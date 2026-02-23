@@ -75,6 +75,8 @@ namespace Game.Player {
         private float _crouchTransition;
         private Vector3 _moveVelocity;
         private Vector3 _cachedFullVelocity;
+        private float _jumpInputSuppressedUntil;
+        private const float JumpPadInputSuppressDuration = 0.12f;
 
         // Physics
         private int _obstacleMask;
@@ -479,6 +481,10 @@ namespace Game.Player {
         /// Attempts to perform a jump or wall jump.
         /// </summary>
         public void TryJump(float height = JumpHeight) {
+            if(Time.time < _jumpInputSuppressedUntil) {
+                return;
+            }
+
             if(!IsGrounded) {
                 if(_wallRunController != null && _wallRunController.IsWallRunning) {
                     _wallRunController.WallJump();
@@ -535,10 +541,13 @@ namespace Game.Player {
         /// </summary>
         /// <param name="normal">The surface normal of the jump pad.</param>
         /// <param name="force">The force magnitude to apply.</param>
-        public void LaunchFromJumpPad(Vector3 normal, float force = 15f) {
-            if(!IsGrounded) {
+        public void LaunchFromJumpPad(Vector3 normal, float force = 15f, bool ignoreGroundedRequirement = false) {
+            if(!ignoreGroundedRequirement && !IsGrounded) {
                 return;
             }
+
+            // Prevent held jump input from immediately overwriting jump-pad launch velocity.
+            _jumpInputSuppressedUntil = Time.time + JumpPadInputSuppressDuration;
 
             if(IsSliding) {
                 CancelSlideForJump();
@@ -599,6 +608,13 @@ namespace Game.Player {
         public void ResetVelocity() {
             _horizontalVelocity = Vector3.zero;
             VerticalVelocity = 0f;
+        }
+
+        public void SetMantling(bool isMantling) {
+            _isMantling = isMantling;
+            if(_isMantling) {
+                ResetVelocity();
+            }
         }
 
         /// <summary>

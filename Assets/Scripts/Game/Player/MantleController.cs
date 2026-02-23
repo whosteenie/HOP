@@ -19,9 +19,13 @@ namespace Game.Player {
         private const float LedgeSearchHeight = 3f;
         private const float ForwardPushDistance = 0.8f;
         private const float HeightBoost = 0.1f;
+        private const float TargetBackoffStep = 0.2f;
+        private const int TargetBackoffAttempts = 6;
 
         [Header("Mantle Movement")]
         private const float MantleDuration = 0.3f;
+        private const int DepenetrationIterations = 3;
+        private const float CapsuleShrinkFactor = 0.95f;
 
         [SerializeField] private AnimationCurve mantleHeightCurve = AnimationCurve.EaseInOut(0, 0, 1, 1);
         [SerializeField] private AnimationCurve mantleForwardCurve = AnimationCurve.EaseInOut(0, 0, 1, 1);
@@ -44,6 +48,8 @@ namespace Game.Player {
         private Vector3 _mantleTargetPosition;
         private float _mantleTimer;
         private float _postMantleJumpCooldown;
+        private Coroutine _mantleRoutine;
+        private readonly Collider[] _overlapBuffer = new Collider[16];
 
         private void Awake() {
             ValidateComponents();
@@ -129,20 +135,10 @@ namespace Game.Player {
             var mantleDirection = -wallNormalHorizontal;
             var targetPosition = ledgeHit.point + mantleDirection * ForwardPushDistance;
             targetPosition.y = ledgeHit.point.y + HeightBoost;
+            targetPosition = FindBestReachableMantleTarget(targetPosition, wallNormalHorizontal);
 
             Debug.DrawRay(targetPosition, Vector3.up * _characterController.height, Color.cyan, 2f);
             Debug.DrawLine(ledgeHit.point, targetPosition, Color.yellow, 2f);
-
-            if(Physics.Raycast(targetPosition, Vector3.up, _characterController.height + 0.2f, _mantleableLayers)) {
-                return false;
-            }
-
-            if(Physics.CheckCapsule(
-                   targetPosition + Vector3.up * _characterController.radius,
-                   targetPosition + Vector3.up * (_characterController.height - _characterController.radius),
-                   _characterController.radius * 0.8f, _mantleableLayers)) {
-                return false;
-            }
 
             StartMantle(targetPosition);
             return true;
@@ -161,10 +157,23 @@ namespace Game.Player {
             }
 
             playerController.ResetVelocity();
+            playerController.MovementController?.SetMantling(true);
 
-            _characterController.enabled = false;
+            if(_mantleRoutine != null) {
+                StopCoroutine(_mantleRoutine);
+            }
+            _mantleRoutine = StartCoroutine(MantleCoroutine());
+        }
 
-            StartCoroutine(MantleCoroutine());
+        public void CancelMantleForJumpPad() {
+            if(!IsMantling) return;
+
+            if(_mantleRoutine != null) {
+                StopCoroutine(_mantleRoutine);
+                _mantleRoutine = null;
+            }
+
+            EndMantle(applyJumpCooldown: false);
         }
 
         private IEnumerator MantleCoroutine() {
@@ -188,23 +197,25 @@ namespace Game.Player {
                 // Interpolate vertical position based on height progress
                 currentPos.y = Mathf.Lerp(_mantleStartPosition.y, _mantleTargetPosition.y, heightProgress);
 
-                transform.position = currentPos;
+                MoveMantleTowards(currentPos);
 
                 yield return null;
             }
 
-            transform.position = _mantleTargetPosition;
-            EndMantle();
+            _mantleRoutine = null;
+            MoveMantleTowards(_mantleTargetPosition);
+            ResolveMantleOverlaps();
+            EndMantle(applyJumpCooldown: true);
         }
 
-        private void EndMantle() {
+        private void EndMantle(bool applyJumpCooldown) {
+            if(!IsMantling) return;
             IsMantling = false;
 
             playerController.ResetVelocity();
+            playerController.MovementController?.SetMantling(false);
 
-            _characterController.enabled = true;
-
-            _postMantleJumpCooldown = PostMantleJumpDelay;
+            _postMantleJumpCooldown = applyJumpCooldown ? PostMantleJumpDelay : 0f;
         }
 
         private void Update() {
@@ -214,6 +225,100 @@ namespace Game.Player {
             if(_postMantleJumpCooldown < 0f) {
                 _postMantleJumpCooldown = 0f;
             }
+        }
+
+        private Vector3 FindBestReachableMantleTarget(Vector3 initialTarget, Vector3 wallNormalHorizontal) {
+            if(!IsCapsuleBlockedAtPosition(initialTarget)) {
+                return initialTarget;
+            }
+
+            for(var i = 1; i <= TargetBackoffAttempts; i++) {
+                var offset = wallNormalHorizontal * (TargetBackoffStep * i);
+                var probe = initialTarget + offset;
+                if(!IsCapsuleBlockedAtPosition(probe)) {
+                    return probe;
+                }
+            }
+
+            // Still return original target; collision-aware mantle movement will slide/settle into the closest valid space.
+            return initialTarget;
+        }
+
+        private bool IsCapsuleBlockedAtPosition(Vector3 position) {
+            var up = transform.up;
+            var height = Mathf.Max(_characterController.height, _characterController.radius * 2f);
+            var halfSegment = Mathf.Max(0f, (height * 0.5f) - _characterController.radius);
+            var center = position + _characterController.center;
+            var p1 = center + up * halfSegment;
+            var p2 = center - up * halfSegment;
+            var radius = _characterController.radius * CapsuleShrinkFactor;
+
+            return Physics.CheckCapsule(p1, p2, radius, _mantleableLayers, QueryTriggerInteraction.Ignore);
+        }
+
+        private void MoveMantleTowards(Vector3 targetPosition) {
+            if(_characterController == null || !_characterController.enabled) {
+                transform.position = targetPosition;
+                return;
+            }
+
+            var delta = targetPosition - transform.position;
+            if(delta.sqrMagnitude <= 0.000001f) return;
+
+            _characterController.Move(delta);
+            ResolveMantleOverlaps();
+        }
+
+        private void ResolveMantleOverlaps() {
+            if(_characterController == null || !_characterController.enabled) return;
+
+            for(var iteration = 0; iteration < DepenetrationIterations; iteration++) {
+                var overlapCount = GetMantleOverlaps();
+                if(overlapCount == 0) return;
+
+                var totalPush = Vector3.zero;
+                for(var i = 0; i < overlapCount; i++) {
+                    var overlap = _overlapBuffer[i];
+                    if(overlap == null || overlap.isTrigger) continue;
+                    if(overlap == _characterController) continue;
+
+                    if(!Physics.ComputePenetration(
+                           _characterController,
+                           transform.position,
+                           transform.rotation,
+                           overlap,
+                           overlap.transform.position,
+                           overlap.transform.rotation,
+                           out var direction,
+                           out var distance)) {
+                        continue;
+                    }
+
+                    if(distance <= 0.0001f) continue;
+                    totalPush += direction * (distance + 0.002f);
+                }
+
+                if(totalPush.sqrMagnitude <= 0.000001f) return;
+                _characterController.Move(totalPush);
+            }
+        }
+
+        private int GetMantleOverlaps() {
+            var up = transform.up;
+            var height = Mathf.Max(_characterController.height, _characterController.radius * 2f);
+            var halfSegment = Mathf.Max(0f, (height * 0.5f) - _characterController.radius);
+            var center = transform.position + _characterController.center;
+            var capsuleStart = center + up * halfSegment;
+            var capsuleEnd = center - up * halfSegment;
+            var radius = _characterController.radius * CapsuleShrinkFactor;
+
+            return Physics.OverlapCapsuleNonAlloc(
+                capsuleStart,
+                capsuleEnd,
+                radius,
+                _overlapBuffer,
+                _mantleableLayers,
+                QueryTriggerInteraction.Ignore);
         }
 
     }

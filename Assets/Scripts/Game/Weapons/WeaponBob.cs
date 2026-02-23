@@ -74,6 +74,11 @@ namespace Game.Weapons {
         private Vector3 _smoothedLocalVelocity;
         private float _idleBreathTimer;
         private float _idleBreathIntensity;
+        private bool _wasMantling;
+        private float _suppressLandingUntil;
+        private const float MantleLandingBobSuppressSeconds = 0.2f;
+        private bool _pendingMantleLandingBob;
+        private bool _mantleLandingBobPlayed;
 
         private void Awake() {
             var bobTransform = transform;
@@ -92,6 +97,10 @@ namespace Game.Weapons {
             _smoothedLocalVelocity = Vector3.zero;
             _idleBreathTimer = 0f;
             _idleBreathIntensity = 0f;
+            _wasMantling = false;
+            _suppressLandingUntil = 0f;
+            _pendingMantleLandingBob = false;
+            _mantleLandingBobPlayed = false;
         }
 
         private void TryInitialize() {
@@ -135,11 +144,42 @@ namespace Game.Weapons {
             
             // Use PlayerController's IsGrounded if available (accounts for -3f constant), otherwise fallback to CharacterController
             var isGrounded = _playerController != null ? _playerController.IsGrounded : _characterController.isGrounded;
+            var isMantling = _playerController != null &&
+                             _playerController.MantleController != null &&
+                             _playerController.MantleController.IsMantling;
+
+            if(isMantling && !_wasMantling) {
+                _pendingMantleLandingBob = false;
+                _mantleLandingBobPlayed = false;
+            }
+
+            if(!isMantling && _wasMantling) {
+                // Mantle settle can briefly bounce grounded state; suppress landing bob during that window.
+                _suppressLandingUntil = Time.time + MantleLandingBobSuppressSeconds;
+                _landingBobTimer = 0f;
+                _targetJumpFallOffset = 0f;
+                _jumpFallOffset = 0f;
+                _jumpInitiated = false;
+                _pendingMantleLandingBob = true;
+                _mantleLandingBobPlayed = false;
+            }
+
+            if(_pendingMantleLandingBob && !_mantleLandingBobPlayed && isGrounded) {
+                _landingBobTimer = landingBobDuration;
+                _mantleLandingBobPlayed = true;
+                _pendingMantleLandingBob = false;
+            }
+
+            var suppressLandingFromMantle = isMantling || Time.time < _suppressLandingUntil;
+
+            if(!suppressLandingFromMantle) {
+                _pendingMantleLandingBob = false;
+            }
 
             // Detect landing
             var wasGrounded = _wasGrounded;
 
-            if(isGrounded && !wasGrounded) {
+            if(isGrounded && !wasGrounded && !suppressLandingFromMantle) {
                 // Only start landing bob if jump wasn't initiated (allows normal landing)
                 // If jump was initiated, skip landing bob and let velocity system handle it
                 if(!_jumpInitiated) {
@@ -196,6 +236,7 @@ namespace Game.Weapons {
             // Clamp to prevent extreme values
             _jumpFallOffset = Mathf.Clamp(_jumpFallOffset, maxJumpLowerAmount, maxFallRaiseAmount);
             _wasGrounded = isGrounded;
+            _wasMantling = isMantling;
 
             // Determine target bob intensity based on speed
             // Disable bob when not grounded OR when sliding

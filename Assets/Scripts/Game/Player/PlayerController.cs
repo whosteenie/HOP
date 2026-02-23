@@ -893,22 +893,30 @@ namespace Game.Player {
         private void OnControllerColliderHit(ControllerColliderHit hit) {
             if(hit.gameObject.CompareTag("JumpPad")) {
                 grappleController.CancelGrapple();
+                var mantleWasActive = mantleController != null && mantleController.IsMantling;
+                if(mantleWasActive) {
+                    mantleController.CancelMantleForJumpPad();
+                }
 
                 if(movementController == null) {
                     Debug.LogError("[PlayerController] MovementController not found!");
                     return;
                 }
                 var padNormal = hit.gameObject.transform.up;
-                movementController.LaunchFromJumpPad(padNormal);
+                movementController.LaunchFromJumpPad(padNormal, ignoreGroundedRequirement: mantleWasActive);
             } else if(hit.gameObject.CompareTag("MegaPad")) {
                 grappleController.CancelGrapple();
+                var mantleWasActive = mantleController != null && mantleController.IsMantling;
+                if(mantleWasActive) {
+                    mantleController.CancelMantleForJumpPad();
+                }
 
                 if(movementController == null) {
                     Debug.LogError("[PlayerController] MovementController not found!");
                     return;
                 }
                 var padNormal = hit.gameObject.transform.up;
-                movementController.LaunchFromJumpPad(padNormal, force: 30f);
+                movementController.LaunchFromJumpPad(padNormal, force: 30f, ignoreGroundedRequirement: mantleWasActive);
             } else {
                 grappleController.CancelGrapple();
             }
