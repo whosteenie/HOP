@@ -916,8 +916,6 @@ MonoBehaviour:
   baseLayerStateName: Sprint Blend
   baseLayerNormalizedTime: 0
   lookPitchTarget: {fileID: 7216231848221038707}
-  lookPitchWeight: 1
-  lookYawWeight: 1
   lookPitchDegrees: 0
   lookYawDegrees: 0
   logLookDebug: 0
@@ -1022,7 +1020,6 @@ MonoBehaviour:
   - {fileID: 1375371432901491670}
   - {fileID: 698906233502755136}
   - {fileID: 1617887322992972722}
-  trailLifecycle: 0.65
   fakeVelocityYawDegrees: 0
   fakeVelocityPitchDegrees: 0
   fakeVelocityMagnitude: 2.69

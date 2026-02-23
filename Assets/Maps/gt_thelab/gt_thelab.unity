@@ -93,7 +93,7 @@ LightmapSettings:
     m_ExportTrainingData: 0
     m_TrainingDataDestination: TrainingData
     m_LightProbeSampleCountMultiplier: 4
-  m_LightingDataAsset: {fileID: 0}
+  m_LightingDataAsset: {fileID: 112000002, guid: a6788beb5c9a9c84c8e187e8bfd9f196, type: 2}
   m_LightingSettings: {fileID: 4890085278179872738, guid: 80d1d9d8ce2dd154597c9e5b950daf59, type: 2}
 --- !u!196 &4
 NavMeshSettings:
@@ -7981,7 +7981,7 @@ MeshCollider:
   serializedVersion: 5
   m_Convex: 0
   m_CookingOptions: 30
-  m_Mesh: {fileID: 83690157}
+  m_Mesh: {fileID: 664576081}
 --- !u!33 &430639877
 MeshFilter:
   m_ObjectHideFlags: 10
@@ -12397,7 +12397,7 @@ MeshCollider:
   serializedVersion: 5
   m_Convex: 0
   m_CookingOptions: 30
-  m_Mesh: {fileID: 951755292}
+  m_Mesh: {fileID: 368370006}
 --- !u!33 &928797837
 MeshFilter:
   m_ObjectHideFlags: 10
@@ -24847,7 +24847,7 @@ MeshCollider:
   serializedVersion: 5
   m_Convex: 0
   m_CookingOptions: 30
-  m_Mesh: {fileID: 368370006}
+  m_Mesh: {fileID: 93601451}
 --- !u!33 &1248737781
 MeshFilter:
   m_ObjectHideFlags: 10
@@ -34708,7 +34708,7 @@ MeshCollider:
   serializedVersion: 5
   m_Convex: 0
   m_CookingOptions: 30
-  m_Mesh: {fileID: 1547709900}
+  m_Mesh: {fileID: 83690157}
 --- !u!33 &1693889405
 MeshFilter:
   m_ObjectHideFlags: 10
@@ -37579,7 +37579,7 @@ MeshCollider:
   serializedVersion: 5
   m_Convex: 0
   m_CookingOptions: 30
-  m_Mesh: {fileID: 664576081}
+  m_Mesh: {fileID: 951755292}
 --- !u!33 &1889840715
 MeshFilter:
   m_ObjectHideFlags: 10

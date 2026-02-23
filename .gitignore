@@ -351,3 +351,5 @@ steam_appid.txt
 
 /Assets/Profiler/*
 ProfilerCaptures/*
+
+Assets/Scenes/Init/LightingData.asset

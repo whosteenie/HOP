@@ -10,34 +10,18 @@ namespace Game.EditorTools {
         public override void OnInspectorGUI() {
             serializedObject.Update();
 
-            DrawOrderedPropertiesWithInlineBaseLayerPopup();
-
-            var mannequin = (PlayerMannequinConfig)target;
-
-            EditorGUILayout.Space(4f);
-            EditorGUILayout.LabelField("Weapon Selection", EditorStyles.boldLabel);
-
-            DrawWeaponPopup(
-                mannequin,
-                serializedObject.FindProperty("selectedPrimaryIndex"),
-                mannequin.GetPrimaryOptionNames(),
-                "Selected Primary");
-
-            DrawWeaponPopup(
-                mannequin,
-                serializedObject.FindProperty("selectedSecondaryIndex"),
-                mannequin.GetSecondaryOptionNames(),
-                "Selected Secondary");
+            DrawOrderedPropertiesWithInlineBaseLayerPopup((PlayerMannequinConfig)target);
 
             serializedObject.ApplyModifiedProperties();
 
             if(GUI.changed) {
+                var mannequin = (PlayerMannequinConfig)target;
                 mannequin.ApplyNow();
                 EditorUtility.SetDirty(mannequin);
             }
         }
 
-        private void DrawOrderedPropertiesWithInlineBaseLayerPopup() {
+        private void DrawOrderedPropertiesWithInlineBaseLayerPopup(PlayerMannequinConfig mannequin) {
             var iterator = serializedObject.GetIterator();
             var enterChildren = true;
 
@@ -56,7 +40,11 @@ namespace Game.EditorTools {
                    iterator.name == "baseLayerStateName" ||
                    iterator.name == "poseSourceMode" ||
                    iterator.name == "freezePose" ||
-                   iterator.name == "overrideBaseLayerState") {
+                   iterator.name == "overrideBaseLayerState" ||
+                   iterator.name == "logLookDebug" ||
+                   iterator.name == "logLookDebugEveryApply" ||
+                   iterator.name == "logShotDebug" ||
+                   iterator.name == "logShotDebugEveryApply") {
                     continue;
                 }
 
@@ -64,8 +52,27 @@ namespace Game.EditorTools {
 
                 if(iterator.name == "baseLayerNormalizedTime") {
                     DrawBaseLayerStatePopup();
+                } else if(iterator.name == "handWeaponSlot") {
+                    DrawWeaponSelectionPopups(mannequin);
+                } else if(iterator.name == "velocityGizmoScale") {
+                    DrawDebugControls();
                 }
             }
+        }
+
+        private void DrawWeaponSelectionPopups(PlayerMannequinConfig mannequin) {
+            EditorGUILayout.Space(4f);
+            EditorGUILayout.LabelField("Weapon Selection", EditorStyles.boldLabel);
+
+            DrawWeaponPopup(
+                serializedObject.FindProperty("selectedPrimaryIndex"),
+                mannequin.GetPrimaryOptionNames(),
+                "Selected Primary");
+
+            DrawWeaponPopup(
+                serializedObject.FindProperty("selectedSecondaryIndex"),
+                mannequin.GetSecondaryOptionNames(),
+                "Selected Secondary");
         }
 
         private void DrawBaseLayerStatePopup() {
@@ -108,12 +115,38 @@ namespace Game.EditorTools {
             }
         }
 
-        private static void DrawWeaponPopup(PlayerMannequinConfig mannequin, SerializedProperty indexProperty, string[] names, string label) {
+        private static void DrawWeaponPopup(SerializedProperty indexProperty, string[] names, string label) {
             if(indexProperty == null || names == null || names.Length == 0) return;
 
             var clamped = names.Length == 1 && names[0].StartsWith("No ") ? 0 : indexProperty.intValue;
             clamped = Mathf.Clamp(clamped, 0, names.Length - 1);
             indexProperty.intValue = EditorGUILayout.Popup(label, clamped, names);
+        }
+
+        private void DrawDebugControls() {
+            EditorGUILayout.Space(6f);
+            EditorGUILayout.LabelField("Debug", EditorStyles.boldLabel);
+
+            var lookDebug = serializedObject.FindProperty("logLookDebug");
+            var lookDebugEveryApply = serializedObject.FindProperty("logLookDebugEveryApply");
+            var shotDebug = serializedObject.FindProperty("logShotDebug");
+            var shotDebugEveryApply = serializedObject.FindProperty("logShotDebugEveryApply");
+
+            if(lookDebug != null) {
+                EditorGUILayout.PropertyField(lookDebug);
+            }
+
+            if(lookDebugEveryApply != null) {
+                EditorGUILayout.PropertyField(lookDebugEveryApply);
+            }
+
+            if(shotDebug != null) {
+                EditorGUILayout.PropertyField(shotDebug);
+            }
+
+            if(shotDebugEveryApply != null) {
+                EditorGUILayout.PropertyField(shotDebugEveryApply);
+            }
         }
     }
 }

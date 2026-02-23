@@ -58,8 +58,6 @@ namespace Game.Player {
 
         [Header("Animation - Aim")]
         [SerializeField] private Transform lookPitchTarget;
-        [SerializeField, Range(0f, 1f)] private float lookPitchWeight = 1f;
-        [SerializeField, Range(0f, 1f)] private float lookYawWeight = 1f;
         [SerializeField, Range(-90f, 90f)] private float lookPitchDegrees;
         [SerializeField, Range(-90f, 90f)] private float lookYawDegrees;
         [SerializeField] private bool logLookDebug;
@@ -95,10 +93,10 @@ namespace Game.Player {
         [Header("Trail Preview")]
         [SerializeField] private bool previewTrail = true;
         [SerializeField] private ParticleSystem[] trailSystems = Array.Empty<ParticleSystem>();
-        [SerializeField, Range(0f, 1f)] private float trailLifecycle;
         [SerializeField, Range(-180f, 180f)] private float fakeVelocityYawDegrees;
         [SerializeField, Range(-80f, 80f)] private float fakeVelocityPitchDegrees;
         [SerializeField, Range(0f, 50f)] private float fakeVelocityMagnitude = 8f;
+        [Header("Trail Preview - Velocity & Emission")]
         [SerializeField, Range(0f, 5f)] private float trailVelocityMultiplier = 1f;
         [FormerlySerializedAs("fakeVelocity")]
         [SerializeField, HideInInspector] private Vector3 legacyFakeVelocity = new(0f, 0f, 8f);
@@ -108,6 +106,7 @@ namespace Game.Player {
         [SerializeField, Min(1f)] private float trailTailEmissionBoost = 30f;
         [FormerlySerializedAs("frozenTailDistanceMultiplier")]
         [SerializeField, Min(0f)] private float tailSyntheticVelocityScale = 1f;
+        [Header("Trail Preview - Color")]
         [SerializeField] private bool useMannequinColorForTrail = true;
         [SerializeField] private Color trailColor = Color.white;
         [SerializeField, Min(0f)] private float trailColorIntensity = 1f;
@@ -122,7 +121,6 @@ namespace Game.Player {
         [SerializeField] private Color velocityGizmoColor = new(0.2f, 0.85f, 1f, 0.95f);
         [SerializeField, Min(0.1f)] private float velocityGizmoScale = 0.08f;
 
-        private float _lastAppliedTrailLifecycle = -1f;
         private Vector3 _lastAppliedVelocity = Vector3.positiveInfinity;
         private bool _lastAppliedPreviewTrail;
         private int _lastAppliedPrimaryIndex = -1;
@@ -690,8 +688,7 @@ namespace Game.Player {
             var trailIntensity01 = Mathf.Clamp01(trailIntensity / Mathf.Max(0.01f, TrailPreviewMultiplierRangeMax));
             var emissionScale = Mathf.Lerp(minEmissionMultiplier, maxEmissionMultiplier, trailIntensity01) * trailIntensity;
             var trailSignature = ComputeTrailSystemSignature();
-            var needsResample = !Mathf.Approximately(_lastAppliedTrailLifecycle, trailLifecycle)
-                                || _lastAppliedPreviewTrail != previewTrail
+            var needsResample = _lastAppliedPreviewTrail != previewTrail
                                 || _lastAppliedVelocity != trailPreviewVelocity
                                 || trailSignature != _lastTrailSystemSignature
                                 || !Mathf.Approximately(_lastAppliedTailSyntheticVelocityScale, tailSyntheticVelocityScale)
@@ -759,7 +756,6 @@ namespace Game.Player {
                 LogTrailDebug(validTrailSystems, needsResample, fakeVelocity, trailPreviewVelocity, trailDirection, trailIntensity, trailIntensity01, emissionScale);
             }
 
-            _lastAppliedTrailLifecycle = trailLifecycle;
             _lastAppliedPreviewTrail = previewTrail;
             _lastAppliedVelocity = trailPreviewVelocity;
             _lastTrailSystemSignature = trailSignature;
@@ -905,7 +901,7 @@ namespace Game.Player {
             }
 
             Debug.Log(
-                $"[PlayerMannequinConfig][TrailDebug] resample={needsResample}, lifecycle={trailLifecycle:0.###}, " +
+                $"[PlayerMannequinConfig][TrailDebug] resample={needsResample}, " +
                 $"fakeVelocity={fakeVelocity}, trailPreviewVelocity={trailPreviewVelocity}, " +
                 $"trailDirection={trailDirection}, " +
                 $"trailVelocityMultiplier={trailVelocityMultiplier:0.###}, " +
@@ -1835,10 +1831,8 @@ namespace Game.Player {
             var axis = Vector3.right;
             var yawAxis = Vector3.up;
 
-            var weightedPitch = lookPitchDegrees * Mathf.Clamp01(lookPitchWeight);
-            var weightedYaw = lookYawDegrees * Mathf.Clamp01(lookYawWeight);
-            var pitchOffset = Quaternion.AngleAxis(weightedPitch, axis);
-            var yawOffset = Quaternion.AngleAxis(weightedYaw, yawAxis);
+            var pitchOffset = Quaternion.AngleAxis(lookPitchDegrees, axis);
+            var yawOffset = Quaternion.AngleAxis(lookYawDegrees, yawAxis);
             var newOffset = yawOffset * pitchOffset;
             effectiveTarget.localRotation = _cachedLookPitchBaseLocalRotation * newOffset;
             _lastAppliedLookPitchOffset = newOffset;
@@ -1864,7 +1858,6 @@ namespace Game.Player {
                 $"baseEuler={_cachedLookPitchBaseLocalRotation.eulerAngles}, " +
                 $"offsetEuler={newOffset.eulerAngles}, finalEuler={effectiveTarget.localRotation.eulerAngles}, " +
                 $"pitch={lookPitchDegrees:0.###}, yaw={lookYawDegrees:0.###}, " +
-                $"pitchW={lookPitchWeight:0.###}, yawW={lookYawWeight:0.###}, " +
                 $"animUpdated={forceRefreshBaseFromCurrentPose}, forceRefresh={forceRefreshBaseFromCurrentPose}" +
                 proxyDebug,
                 this);
