@@ -69,7 +69,9 @@
                 </ui:VisualElement>
             </ui:VisualElement>
         </ui:VisualElement>
-        <ui:Button text="BACK" name="back-gamemodes-to-main" class="menu-chip menu-chip-enabled back-button gamemode-back-btn"/>
+        <ui:VisualElement name="gamemode-back-row" class="button-row">
+            <ui:Button text="BACK" name="back-gamemodes-to-main" class="menu-chip menu-chip-enabled back-button"/>
+        </ui:VisualElement>
     </ui:VisualElement>
     <ui:VisualElement name="private-match-setup-panel" picking-mode="Ignore" class="panel full-abs hidden">
         <ui:Label text="PRIVATE MATCH SETUP" name="private-match-setup-title" class="title title-l private-match-setup-header"/>

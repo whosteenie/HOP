@@ -1688,7 +1688,7 @@
     max-width: 280px;
     height: 500px;
     margin: 0 8px;
-    background-color: rgba(20, 20, 25, 0.85);
+    background-color: rgba(12, 12, 16, 0.93);
     border-width: 2px;
     border-color: rgba(255, 255, 255, 0.1);
     border-radius: 8px;
@@ -1702,7 +1702,7 @@
 .gamemode-card:hover {
     scale: 1.05;
     border-color: rgba(255, 60, 60, 0.8);
-    background-color: rgba(30, 30, 35, 0.95);
+    background-color: rgba(18, 18, 24, 0.98);
     translate: 0 -10px;
 }
 
@@ -1793,9 +1793,19 @@
     white-space: normal;
 }
 
-.gamemode-back-btn {
-    margin-top: 16px;
+#gamemode-back-row {
+    justify-content: flex-start;
+    margin-top: 2px;
+    width: 100%;
+    max-width: 1860px;
     align-self: center;
+}
+
+#gamemode-back-row .menu-chip {
+    margin-left: 0;
+    margin-right: 12px;
+    min-width: 140px;
+    height: 50px;
 }
 
 .private-match-setup-header {
