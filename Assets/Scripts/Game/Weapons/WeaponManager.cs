@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using Game.Player;
 using Game.Menu;
@@ -14,6 +15,12 @@ using UnityEngine.Rendering;
 
 namespace Game.Weapons {
     public class WeaponManager : NetworkBehaviour {
+        [Serializable]
+        private class KinemationWeaponBinding {
+            public WeaponData weaponData;
+            public GameObject kinemationWeaponPrefab;
+        }
+
         [SerializeField] private PlayerController playerController;
         private CinemachineCamera _fpCamera;
         private Transform _worldWeaponSocket;
@@ -33,8 +40,20 @@ namespace Game.Weapons {
         [Tooltip("Explicit holstered secondary weapon objects. Required for secondary holster display.")]
         [SerializeField] private List<GameObject> secondaryHolsteredWeapons = new();
 
+        [Header("KINEMATION FP Integration")]
+        [SerializeField] private bool useKinemationFpAnimations;
+        [SerializeField] private GameObject kinemationFpsPlayerPrefab;
+        [SerializeField] private List<KinemationWeaponBinding> kinemationWeaponBindings = new();
+        [SerializeField] private bool disableKinemationSounds = true;
+        [SerializeField] private bool tagKinemationArmsForLegacyHooks;
+        [SerializeField] private bool autoCompleteKinemationPullOut = true;
+        [SerializeField, Min(0f)] private float kinemationPullOutCompleteDelay = 0.12f;
+        [SerializeField] private Vector3 kinemationViewmodelLocalPosition = Vector3.zero;
+        [SerializeField] private Vector3 kinemationViewmodelLocalEulerAngles = Vector3.zero;
+
         private readonly List<GameObject> _fpWeaponInstances = new();
         private readonly Dictionary<int, int> _weaponAmmo = new();
+        private readonly Dictionary<WeaponData, GameObject> _kinemationWeaponLookup = new();
         private GameObject _pendingTpWeapon; // Track pending TP weapon to show via animation event
         private class ServerWeaponState {
             public float LastShotTime;
@@ -67,6 +86,7 @@ namespace Game.Weapons {
         private bool _suppressLoadoutRebuildCallbacks;
         private bool _deferTpRevealUntilRespawn;
         private GameObject _deferredRespawnWorldWeapon;
+        private Coroutine _kinemationPullOutCompletionCoroutine;
 
         private void Awake() {
             ValidateComponents();
@@ -92,6 +112,39 @@ namespace Game.Weapons {
             if(_playerRenderer != null) return;
             // PlayerRenderer not found - event already published by GetComponentSafe if used
             enabled = false;
+        }
+
+        private void BuildKinemationWeaponLookup() {
+            _kinemationWeaponLookup.Clear();
+            if(!useKinemationFpAnimations) return;
+            if(kinemationWeaponBindings == null || kinemationWeaponBindings.Count == 0) return;
+
+            foreach(var binding in kinemationWeaponBindings) {
+                if(binding == null || binding.weaponData == null || binding.kinemationWeaponPrefab == null) continue;
+                _kinemationWeaponLookup[binding.weaponData] = binding.kinemationWeaponPrefab;
+            }
+        }
+
+        private bool ShouldUseKinemationForWeapon(WeaponData data, out GameObject kinemationWeaponPrefab) {
+            kinemationWeaponPrefab = null;
+            if(!IsOwner || !useKinemationFpAnimations) return false;
+            if(kinemationFpsPlayerPrefab == null || data == null) return false;
+
+            if(_kinemationWeaponLookup.Count == 0) {
+                BuildKinemationWeaponLookup();
+            }
+
+            return _kinemationWeaponLookup.TryGetValue(data, out kinemationWeaponPrefab) &&
+                   kinemationWeaponPrefab != null;
+        }
+
+        private static bool TryGetKinemationDriver(GameObject fpWeaponRoot, out KinemationFpWeaponDriver driver) {
+            driver = fpWeaponRoot != null ? fpWeaponRoot.GetComponent<KinemationFpWeaponDriver>() : null;
+            return driver != null;
+        }
+
+        private int GetFpWeaponLayer() {
+            return IsOwner ? LayerMask.NameToLayer("Weapon") : LayerMask.NameToLayer("Masked");
         }
 
         private void BuildWorldWeaponLookup() {
@@ -165,6 +218,15 @@ namespace Game.Weapons {
             var fp = _fpWeaponInstances[weaponIndex];
             if(fp == null) return null;
 
+            if(TryGetKinemationDriver(fp, out var kinemationDriver)) {
+                fp.transform.localPosition = kinemationViewmodelLocalPosition;
+                fp.transform.localEulerAngles = kinemationViewmodelLocalEulerAngles;
+                fp.SetActive(true);
+                kinemationDriver.InitializeIfNeeded(GetFpWeaponLayer());
+                kinemationDriver.PlayEquipAnimation(immediate: !triggerPullOutAnimation);
+                return fp;
+            }
+
             fp.transform.localPosition = data.spawnPosition;
             fp.transform.localEulerAngles = data.spawnRotation;
             fp.SetActive(true);
@@ -214,6 +276,32 @@ namespace Game.Weapons {
             _playerAnimator.SetTrigger(PullOutHash);
         }
 
+        private void ScheduleKinemationPullOutCompletionIfNeeded(int weaponIndex) {
+            if(!autoCompleteKinemationPullOut) return;
+            if(weaponIndex < 0 || weaponIndex >= _fpWeaponInstances.Count) return;
+
+            var fpWeaponRoot = _fpWeaponInstances[weaponIndex];
+            if(!TryGetKinemationDriver(fpWeaponRoot, out _)) return;
+
+            if(_kinemationPullOutCompletionCoroutine != null) {
+                StopCoroutine(_kinemationPullOutCompletionCoroutine);
+            }
+
+            _kinemationPullOutCompletionCoroutine = StartCoroutine(KinemationPullOutCompletionRoutine());
+        }
+
+        private IEnumerator KinemationPullOutCompletionRoutine() {
+            var delay = Mathf.Max(0f, kinemationPullOutCompleteDelay);
+            if(delay > 0f) {
+                yield return new WaitForSeconds(delay);
+            } else {
+                yield return null;
+            }
+
+            _kinemationPullOutCompletionCoroutine = null;
+            HandlePullOutCompleted();
+        }
+
         public void InitializeWeapons() {
             if(CurrentWeapon == null) {
                 Debug.LogError("[WeaponManager] Weapon component not assigned!");
@@ -246,6 +334,7 @@ namespace Game.Weapons {
             
             SetupHolsteredWeaponModels();
             BuildWorldWeaponLookup();
+            BuildKinemationWeaponLookup();
             DisableUnequippedWorldWeapons();
 
             if(weaponDataList == null || weaponDataList.Count == 0) {
@@ -337,6 +426,7 @@ namespace Game.Weapons {
             // Set pulling out state
             // The pull-out animation will call HandlePullOutCompleted() when done
             IsPullingOut = true;
+            ScheduleKinemationPullOutCompletionIfNeeded(CurrentWeaponIndex);
 
             if(_playerAnimator == null) return;
             TriggerTpPullOutAnimation(newIndex);
@@ -393,6 +483,10 @@ namespace Game.Weapons {
         /// </summary>
         public void HandlePullOutCompleted() {
             IsPullingOut = false;
+            if(_kinemationPullOutCompletionCoroutine != null) {
+                StopCoroutine(_kinemationPullOutCompletionCoroutine);
+                _kinemationPullOutCompletionCoroutine = null;
+            }
         }
 
         /// <summary>
@@ -414,6 +508,7 @@ namespace Game.Weapons {
             
             // Mark as pulling out
             IsPullingOut = true;
+            ScheduleKinemationPullOutCompletionIfNeeded(CurrentWeaponIndex);
         }
 
         /// <summary>
@@ -423,6 +518,10 @@ namespace Game.Weapons {
         public void CancelPendingPullOutForPostMatch() {
             IsPullingOut = false;
             _pendingHolsterHideSlot = -1;
+            if(_kinemationPullOutCompletionCoroutine != null) {
+                StopCoroutine(_kinemationPullOutCompletionCoroutine);
+                _kinemationPullOutCompletionCoroutine = null;
+            }
 
             if(_playerAnimator != null) {
                 _playerAnimator.ResetTrigger(PullOutHash);
@@ -741,6 +840,11 @@ namespace Game.Weapons {
                 skinnedRenderer.shadowCastingMode = ShadowCastingMode.Off;
             }
 
+            if(TryGetKinemationDriver(fpWeaponInstance, out _)) {
+                // KINEMATION arms are intentionally left out of legacy material/tag customization.
+                return;
+            }
+
             // Apply player material customization (owner only, local rendering)
             // Use same approach as hopball arms - apply to all renderers
             if(!IsOwner) return;
@@ -916,6 +1020,7 @@ namespace Game.Weapons {
             BuildEquippedWeaponList();
             SetupHolsteredWeaponModels();
             BuildWorldWeaponLookup();
+            BuildKinemationWeaponLookup();
             DisableUnequippedWorldWeapons();
 
             if(weaponDataList == null || weaponDataList.Count == 0) {
@@ -969,6 +1074,11 @@ namespace Game.Weapons {
         }
 
         private void DestroyFpWeaponInstances() {
+            if(_kinemationPullOutCompletionCoroutine != null) {
+                StopCoroutine(_kinemationPullOutCompletionCoroutine);
+                _kinemationPullOutCompletionCoroutine = null;
+            }
+
             foreach(var fpWeapon in _fpWeaponInstances) {
                 if(fpWeapon == null) continue;
                 var holderRoot = ResolveFpHolderRoot(fpWeapon);
@@ -1007,8 +1117,49 @@ namespace Game.Weapons {
         private void InstantiateFpWeaponInstances() {
             for(var i = 0; i < weaponDataList.Count; i++) {
                 var data = weaponDataList[i];
-                if(data == null || data.weaponPrefab == null) {
+                if(data == null) {
                     Debug.LogError($"[WeaponManager] Invalid weapon data at index {i}");
+                    continue;
+                }
+
+                if(ShouldUseKinemationForWeapon(data, out var kinemationWeaponPrefab)) {
+                    var kinemationSwayHolder = new GameObject("SwayHolder");
+                    kinemationSwayHolder.transform.SetParent(_fpCamera.transform, false);
+                    kinemationSwayHolder.transform.localPosition = Vector3.zero;
+                    kinemationSwayHolder.transform.localEulerAngles = Vector3.zero;
+
+                    var kinemationBobHolder = new GameObject("BobHolder");
+                    kinemationBobHolder.transform.SetParent(kinemationSwayHolder.transform, false);
+                    kinemationBobHolder.transform.localPosition = Vector3.zero;
+                    kinemationBobHolder.transform.localEulerAngles = Vector3.zero;
+
+                    var kinemationHolder = new GameObject("KinemationHolder");
+                    kinemationHolder.transform.SetParent(kinemationBobHolder.transform, false);
+                    kinemationHolder.transform.localPosition = kinemationViewmodelLocalPosition;
+                    kinemationHolder.transform.localEulerAngles = kinemationViewmodelLocalEulerAngles;
+
+                    var kinemationDriver = kinemationHolder.AddComponent<KinemationFpWeaponDriver>();
+                    kinemationDriver.Configure(
+                        kinemationFpsPlayerPrefab,
+                        kinemationWeaponPrefab,
+                        disableKinemationSounds,
+                        tagKinemationArmsForLegacyHooks
+                    );
+
+                    var fpLayer = GetFpWeaponLayer();
+                    SetGameObjectAndChildrenLayer(kinemationHolder, fpLayer);
+                    kinemationDriver.InitializeIfNeeded(fpLayer);
+                    SetupFpWeaponSkinnedMeshRenderers(kinemationHolder);
+
+                    kinemationHolder.SetActive(false);
+                    _fpWeaponInstances.Add(kinemationHolder);
+                    _weaponAmmo[i] = data.magSize;
+                    continue;
+                }
+
+                if(data.weaponPrefab == null) {
+                    Debug.LogError(
+                        $"[WeaponManager] Weapon '{data.weaponName}' has no FP weapon prefab and no KINEMATION override.");
                     continue;
                 }
 

@@ -37,6 +37,7 @@ namespace Game.Weapons {
         private Transform _fpMuzzleTransform;
         private Transform _worldMuzzleTransform;
         private Animator _weaponAnimator;
+        private KinemationFpWeaponDriver _kinemationFpWeaponDriver;
         private GameObject _fpMuzzleLight;
         private GameObject _worldMuzzleLight;
         private Coroutine _fpMuzzleLightCoroutine;
@@ -200,7 +201,20 @@ namespace Game.Weapons {
             _currentWeaponData = newWeaponData;
             _currentFpWeaponInstance = fpWeaponInstance;
             _currentWorldWeaponInstance = worldWeaponInstance;
-            _fpMuzzleTransform = ResolveMuzzleTransform(_currentFpWeaponInstance);
+            _kinemationFpWeaponDriver = _currentFpWeaponInstance != null
+                ? _currentFpWeaponInstance.GetComponent<KinemationFpWeaponDriver>()
+                : null;
+
+            if(_kinemationFpWeaponDriver != null) {
+                var fpLayer = playerController != null && playerController.IsOwner
+                    ? LayerMask.NameToLayer("Weapon")
+                    : LayerMask.NameToLayer("Masked");
+                _kinemationFpWeaponDriver.InitializeIfNeeded(fpLayer);
+            }
+
+            _fpMuzzleTransform = _kinemationFpWeaponDriver != null
+                ? _kinemationFpWeaponDriver.GetMuzzleTransform()
+                : ResolveMuzzleTransform(_currentFpWeaponInstance);
             _worldMuzzleTransform = ResolveMuzzleTransform(_currentWorldWeaponInstance);
 
             // Restore ammo
@@ -212,8 +226,11 @@ namespace Game.Weapons {
 
             // Get animator from FP weapon
             _weaponAnimator = null;
+            _fpMuzzleLight = null;
             if(_currentFpWeaponInstance) {
-                _weaponAnimator = _currentFpWeaponInstance.GetComponent<Animator>();
+                if(_kinemationFpWeaponDriver == null) {
+                    _weaponAnimator = _currentFpWeaponInstance.GetComponent<Animator>();
+                }
                 _fpMuzzleLight = ResolveMuzzleLightObject(_currentFpWeaponInstance);
 
                 if(_fpMuzzleLight) {
@@ -221,6 +238,7 @@ namespace Game.Weapons {
                 }
             }
 
+            _worldMuzzleLight = null;
             if(_currentWorldWeaponInstance != null) {
                 _worldMuzzleLight = ResolveMuzzleLightObject(_currentWorldWeaponInstance);
             }
@@ -257,7 +275,13 @@ namespace Game.Weapons {
                 }
             }
 
-            return null;
+            foreach(var candidate in allTransforms) {
+                if(candidate != null && candidate.name == "AimPoint") {
+                    return candidate;
+                }
+            }
+
+            return weaponInstanceRoot.transform;
         }
 
         #endregion
@@ -310,10 +334,7 @@ namespace Game.Weapons {
             var perRoundTime = Mathf.Max(0.05f, _currentWeaponData.perRoundReloadTime);
 
             // Play reload animation only once at the start (FP weapon animator only)
-            if(_weaponAnimator != null) {
-                _weaponAnimator.ResetTrigger(ReloadCompleteHash);
-                _weaponAnimator.SetTrigger(ReloadHash);
-            }
+            PlayReloadAnimationForCurrentWeapon();
 
             while(IsReloading && currentAmmo < _currentWeaponData.magSize) {
                 // Play reload sound for each round (audio feedback)
@@ -338,9 +359,7 @@ namespace Game.Weapons {
 
                 if(currentAmmo < _currentWeaponData.magSize) continue;
                 // Trigger reload complete animation (shotgun-style reloads when mag is full)
-                if(_weaponAnimator != null) {
-                    _weaponAnimator.SetTrigger(ReloadCompleteHash);
-                }
+                PlayReloadCompleteAnimationForCurrentWeapon();
                 break;
             }
 
@@ -482,6 +501,10 @@ namespace Game.Weapons {
 
         private bool TryGetPreferredMuzzleTransform(bool preferWorldModel, out Transform muzzleTransform) {
             muzzleTransform = null;
+            if(_fpMuzzleTransform == null && _kinemationFpWeaponDriver != null) {
+                _fpMuzzleTransform = _kinemationFpWeaponDriver.GetMuzzleTransform();
+            }
+
             if(preferWorldModel) {
                 if(_worldMuzzleTransform != null) {
                     muzzleTransform = _worldMuzzleTransform;
@@ -976,14 +999,46 @@ namespace Game.Weapons {
 
         #region Private Methods - Effects
 
+        private void PlayFireAnimationForCurrentWeapon() {
+            if(_kinemationFpWeaponDriver != null) {
+                _kinemationFpWeaponDriver.PlayFireAnimation();
+                return;
+            }
+
+            if(_weaponAnimator != null) {
+                _weaponAnimator.SetTrigger(RecoilHash);
+            }
+        }
+
+        private void PlayReloadAnimationForCurrentWeapon() {
+            if(_kinemationFpWeaponDriver != null) {
+                _kinemationFpWeaponDriver.PlayReloadAnimation();
+                return;
+            }
+
+            if(_weaponAnimator != null) {
+                _weaponAnimator.ResetTrigger(ReloadCompleteHash);
+                _weaponAnimator.SetTrigger(ReloadHash);
+            }
+        }
+
+        private void PlayReloadCompleteAnimationForCurrentWeapon() {
+            if(_kinemationFpWeaponDriver != null) {
+                _kinemationFpWeaponDriver.PlayReloadCompleteAnimation();
+                return;
+            }
+
+            if(_weaponAnimator != null) {
+                _weaponAnimator.SetTrigger(ReloadCompleteHash);
+            }
+        }
+
         /// <summary>
         /// Play muzzle flash locally (owner only, FP)
         /// Muzzle flash is parented to weapon muzzle so it follows the player when moving fast.
         /// </summary>
         private void PlayLocalMuzzleFlash() {
-            if(_weaponAnimator != null) {
-                _weaponAnimator.SetTrigger(RecoilHash);
-            }
+            PlayFireAnimationForCurrentWeapon();
 
             PlayShootAnimationServerRpc();
 
@@ -1087,10 +1142,7 @@ namespace Game.Weapons {
         }
 
         private void PlayReloadEffects() {
-            if(_weaponAnimator != null) {
-                _weaponAnimator.ResetTrigger(ReloadCompleteHash);
-                _weaponAnimator.SetTrigger(ReloadHash);
-            }
+            PlayReloadAnimationForCurrentWeapon();
 
             PlayReloadAnimationServerRpc();
 
@@ -1119,6 +1171,11 @@ namespace Game.Weapons {
         }
 
         private void ExitReloadAnimation() {
+            if(_kinemationFpWeaponDriver != null) {
+                _kinemationFpWeaponDriver.PlayReloadCompleteAnimation();
+                return;
+            }
+
             if(_weaponAnimator == null || !_weaponAnimator.isActiveAndEnabled) return;
             _weaponAnimator.ResetTrigger(ReloadHash);
             _weaponAnimator.SetTrigger(ReloadCompleteHash);
