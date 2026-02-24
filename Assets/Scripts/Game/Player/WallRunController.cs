@@ -45,6 +45,25 @@ namespace Game.Player {
         [SerializeField] private float wallJumpCooldown = 0.35f;
         [SerializeField] private float minWallRunSpeed = 9f; // Slightly below SprintSpeed (10f)
 
+        [Header("Direction Intent")]
+        [Tooltip("Minimum movement input magnitude required before keyboard intent is considered.")]
+        [SerializeField] private float keyboardIntentInputDeadzone = 0.1f;
+
+        [Tooltip("Minimum absolute alignment to wall tangent before keyboard intent is considered directional.")]
+        [SerializeField] private float keyboardIntentDotDeadzone = 0.05f;
+
+        [Tooltip("Minimum absolute camera alignment to wall tangent before camera intent is considered directional.")]
+        [SerializeField] private float cameraIntentDotDeadzone = 0.15f;
+
+        [Tooltip("Minimum speed required before velocity direction is considered a valid intent source.")]
+        [SerializeField] private float velocityIntentMinSpeed = 0.25f;
+
+        [Tooltip("At/above this speed, prevent opposite-direction flips unless keyboard intent is strongly committed.")]
+        [SerializeField] private float highSpeedDirectionLockSpeed = 16f;
+
+        [Tooltip("Minimum keyboard intent strength required to override high-speed velocity direction lock.")]
+        [SerializeField] private float highSpeedFlipOverrideStrength = 0.85f;
+
         [Header("Curved Surface")]
         [SerializeField] private float curvedSurfaceMaxDistance = 1.2f;
 
@@ -349,23 +368,34 @@ namespace Game.Player {
 
             wallForward.Normalize();
 
-            // Sustain phase: prefer previous wall-run direction to preserve continuity on curves.
-            // Entry phase: still allow velocity/input based direction selection.
-            Vector3 referenceDirection;
-            if(IsWallRunning && _lastWallRunDirection.sqrMagnitude > 0.01f) {
-                referenceDirection = _lastWallRunDirection.normalized;
+            var hasKeyboardIntent = TryGetKeyboardIntentSign(wallForward, out var keyboardSign, out var keyboardStrength);
+            var hasCameraIntent = TryGetCameraIntentSign(wallForward, currentForward, out var cameraSign);
+            var hasVelocityIntent = TryGetVelocityIntentSign(wallForward, out var velocitySign, out var velocitySpeed);
+
+            int chosenSign;
+            if(hasKeyboardIntent) {
+                chosenSign = keyboardSign;
+            } else if(hasCameraIntent) {
+                chosenSign = cameraSign;
+            } else if(hasVelocityIntent) {
+                chosenSign = velocitySign;
+            } else if(_lastWallRunDirection.sqrMagnitude > 0.01f) {
+                chosenSign = Vector3.Dot(_lastWallRunDirection.normalized, wallForward) >= 0f ? 1 : -1;
             } else {
-                var planarVelocity = GetPlanarVelocity();
-                referenceDirection = planarVelocity.sqrMagnitude > 0.01f
-                    ? planarVelocity.normalized
-                    : GetPreferredDirection(currentForward, allowLookFallback: !IsWallRunning);
+                chosenSign = 1;
             }
 
-            if(referenceDirection.sqrMagnitude < 0.0001f) {
-                referenceDirection = wallForward;
+            // At high speeds, avoid large "direction snap" flips unless keyboard intent is strongly committed.
+            if(hasVelocityIntent &&
+               velocitySpeed >= highSpeedDirectionLockSpeed &&
+               chosenSign != velocitySign) {
+                var allowHighSpeedFlip = hasKeyboardIntent && keyboardStrength >= highSpeedFlipOverrideStrength;
+                if(!allowHighSpeedFlip) {
+                    chosenSign = velocitySign;
+                }
             }
 
-            if(Vector3.Dot(wallForward, referenceDirection) < 0f) {
+            if(chosenSign < 0) {
                 wallForward = -wallForward;
             }
 
@@ -410,37 +440,63 @@ namespace Game.Player {
             return v;
         }
 
-        private Vector3 GetPreferredDirection(Vector3 fallbackForward, bool allowLookFallback = true) {
-            if(playerController != null) {
-                var moveInput = playerController.moveInput;
-                if(moveInput.sqrMagnitude > 0.01f) {
-                    var basis = playerController.PlayerTransform != null ? playerController.PlayerTransform : transform;
-                    var inputDirection = basis.forward * moveInput.y + basis.right * moveInput.x;
-                    inputDirection.y = 0f;
-                    if(inputDirection.sqrMagnitude > 0.0001f) {
-                        return inputDirection.normalized;
-                    }
-                }
+        private bool TryGetKeyboardIntentSign(Vector3 wallForward, out int sign, out float strength) {
+            sign = 0;
+            strength = 0f;
+            if(playerController == null) return false;
+
+            var moveInput = playerController.moveInput;
+            var inputMagnitude = moveInput.magnitude;
+            if(inputMagnitude < keyboardIntentInputDeadzone) return false;
+
+            var basis = playerController.PlayerTransform != null ? playerController.PlayerTransform : transform;
+            var inputDirection = basis.forward * moveInput.y + basis.right * moveInput.x;
+            inputDirection.y = 0f;
+            if(inputDirection.sqrMagnitude <= 0.0001f) return false;
+
+            inputDirection.Normalize();
+            var alignment = Vector3.Dot(inputDirection, wallForward);
+            var absAlignment = Mathf.Abs(alignment);
+            if(absAlignment < keyboardIntentDotDeadzone) return false;
+
+            sign = alignment >= 0f ? 1 : -1;
+            strength = absAlignment * Mathf.Clamp01(inputMagnitude);
+            return true;
+        }
+
+        private bool TryGetCameraIntentSign(Vector3 wallForward, Vector3 currentForward, out int sign) {
+            sign = 0;
+
+            currentForward.y = 0f;
+            if(currentForward.sqrMagnitude <= 0.0001f) {
+                currentForward = transform.forward;
+                currentForward.y = 0f;
             }
 
-            if(!allowLookFallback) {
-                if(_lastWallRunDirection.sqrMagnitude > 0.0001f) {
-                    return _lastWallRunDirection.normalized;
-                }
+            if(currentForward.sqrMagnitude <= 0.0001f) return false;
+            currentForward.Normalize();
 
-                if(!(WallNormal.sqrMagnitude > 0.0001f)) return Vector3.zero;
-                var tangent = Vector3.Cross(WallNormal, Vector3.up);
-                return tangent.sqrMagnitude > 0.0001f ? tangent.normalized : Vector3.zero;
-            }
+            var alignment = Vector3.Dot(currentForward, wallForward);
+            if(Mathf.Abs(alignment) < cameraIntentDotDeadzone) return false;
 
-            fallbackForward.y = 0f;
-            if(fallbackForward.sqrMagnitude > 0.0001f) {
-                return fallbackForward.normalized;
-            }
+            sign = alignment >= 0f ? 1 : -1;
+            return true;
+        }
 
-            var worldForward = transform.forward;
-            worldForward.y = 0f;
-            return worldForward.sqrMagnitude > 0.0001f ? worldForward.normalized : Vector3.forward;
+        private bool TryGetVelocityIntentSign(Vector3 wallForward, out int sign, out float speed) {
+            sign = 0;
+            speed = 0f;
+
+            var planarVelocity = GetPlanarVelocity();
+            speed = planarVelocity.magnitude;
+            if(speed < velocityIntentMinSpeed) return false;
+
+            var velocityDirection = planarVelocity / speed;
+            var alignment = Vector3.Dot(velocityDirection, wallForward);
+            if(Mathf.Abs(alignment) <= 0.0001f) return false;
+
+            sign = alignment >= 0f ? 1 : -1;
+            return true;
         }
 
         #endregion
