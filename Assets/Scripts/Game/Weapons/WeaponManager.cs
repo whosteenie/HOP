@@ -68,6 +68,8 @@ namespace Game.Weapons {
         [SerializeField] private bool legacyKinemationJumpFallBob = true;
         [SerializeField] private bool legacyKinemationLandingBob = true;
         [SerializeField] private bool tagKinemationArmsForLegacyHooks;
+        [SerializeField] private bool requireKinemationEquipCompleteEvent = true;
+        [SerializeField, Range(0f, 1f)] private float kinemationEquipUnlockNormalizedTime = 0.82f;
         [SerializeField] private bool autoCompleteKinemationPullOut = true;
         [SerializeField, Min(0f)] private float kinemationPullOutCompleteDelay = 0.12f;
         [SerializeField] private Vector3 kinemationViewmodelLocalPosition = Vector3.zero;
@@ -116,6 +118,7 @@ namespace Game.Weapons {
         private GameObject _deferredRespawnWorldWeapon;
         private Coroutine _kinemationPullOutCompletionCoroutine;
         private bool _hasLoggedKinemationTuningHelp;
+        private bool _requiresKinemationEquipCompleteForCurrentPullOut;
 
         private void Awake() {
             ValidateComponents();
@@ -145,7 +148,20 @@ namespace Game.Weapons {
         }
 
         private void Update() {
+            UpdateKinemationEquipCompletionGate();
             HandleKinemationViewmodelTuningInput();
+        }
+
+        private void UpdateKinemationEquipCompletionGate() {
+            if(!IsPullingOut || !_requiresKinemationEquipCompleteForCurrentPullOut) return;
+            if(CurrentWeaponIndex < 0 || CurrentWeaponIndex >= _fpWeaponInstances.Count) return;
+
+            var currentFpWeapon = _fpWeaponInstances[CurrentWeaponIndex];
+            if(!TryGetKinemationDriver(currentFpWeapon, out var kinemationDriver) || kinemationDriver == null) return;
+            if(!kinemationDriver.HasActiveWeapon()) return;
+            if(kinemationDriver.IsEquipSequenceInProgress()) return;
+
+            HandlePullOutCompleted();
         }
 
         private void HandleKinemationViewmodelTuningInput() {
@@ -527,6 +543,7 @@ namespace Game.Weapons {
 
         private void ScheduleKinemationPullOutCompletionIfNeeded(int weaponIndex) {
             if(!autoCompleteKinemationPullOut) return;
+            if(_requiresKinemationEquipCompleteForCurrentPullOut) return;
             if(weaponIndex < 0 || weaponIndex >= _fpWeaponInstances.Count) return;
 
             var fpWeaponRoot = _fpWeaponInstances[weaponIndex];
@@ -660,6 +677,10 @@ namespace Game.Weapons {
 
             // Prepare and show new FP weapon
             var fp = ActivateFpWeapon(CurrentWeaponIndex, data, triggerPullOutAnimation: true);
+            _requiresKinemationEquipCompleteForCurrentPullOut =
+                requireKinemationEquipCompleteEvent &&
+                fp != null &&
+                TryGetKinemationDriver(fp, out _);
 
             // Prepare new 3P weapon but DON'T show it yet - wait for animation event
             QueuePendingTpWeapon(data);
@@ -735,10 +756,23 @@ namespace Game.Weapons {
         /// </summary>
         public void HandlePullOutCompleted() {
             IsPullingOut = false;
+            _requiresKinemationEquipCompleteForCurrentPullOut = false;
             if(_kinemationPullOutCompletionCoroutine != null) {
                 StopCoroutine(_kinemationPullOutCompletionCoroutine);
                 _kinemationPullOutCompletionCoroutine = null;
             }
+        }
+
+        public void HandleThirdPersonPullOutCompleted() {
+            if(_requiresKinemationEquipCompleteForCurrentPullOut) {
+                return;
+            }
+
+            HandlePullOutCompleted();
+        }
+
+        public void HandleKinemationEquipCompleted() {
+            HandlePullOutCompleted();
         }
 
         /// <summary>
@@ -760,6 +794,7 @@ namespace Game.Weapons {
             
             // Mark as pulling out
             IsPullingOut = true;
+            _requiresKinemationEquipCompleteForCurrentPullOut = false;
             ScheduleKinemationPullOutCompletionIfNeeded(CurrentWeaponIndex);
         }
 
@@ -769,6 +804,7 @@ namespace Game.Weapons {
         /// </summary>
         public void CancelPendingPullOutForPostMatch() {
             IsPullingOut = false;
+            _requiresKinemationEquipCompleteForCurrentPullOut = false;
             _pendingHolsterHideSlot = -1;
             if(_kinemationPullOutCompletionCoroutine != null) {
                 StopCoroutine(_kinemationPullOutCompletionCoroutine);
@@ -1065,6 +1101,7 @@ namespace Game.Weapons {
 
             CurrentWeaponIndex = index;
             IsPullingOut = false;
+            _requiresKinemationEquipCompleteForCurrentPullOut = false;
 
             var data = weaponDataList[index];
             var fp = ActivateFpWeapon(index, data, triggerPullOutAnimation: false);
@@ -1465,7 +1502,8 @@ namespace Game.Weapons {
                         freezeKinemationLocomotionInAir,
                         autoAlignKinemationMuzzleToBounds,
                         forceKinemationWalkAnimationWhileSprinting,
-                        kinemationSprintWalkGaitValue
+                        kinemationSprintWalkGaitValue,
+                        kinemationEquipUnlockNormalizedTime
                     );
 
                     var fpLayer = GetFpWeaponLayer();

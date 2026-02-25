@@ -30,6 +30,7 @@ namespace Game.Weapons {
         [SerializeField] private bool freezeLocomotionInAir = true;
         [SerializeField] private bool forceWalkAnimationWhileSprinting = true;
         [SerializeField, Range(0f, 1.99f)] private float sprintWalkGaitValue = 1.2f;
+        [SerializeField, Range(0f, 1f)] private float equipUnlockNormalizedTime = 0.82f;
 
         private GameObject _playerInstance;
         private FPSPlayerSettings _runtimePlayerSettings;
@@ -41,17 +42,27 @@ namespace Game.Weapons {
         private AudioSource _weaponAudioSource;
         private int _renderLayer = -1;
         private bool _hasWarnedFallbackMuzzle;
+        private WeaponManager _weaponManager;
         private bool _isTrackingReload;
         private bool _reloadHasBeenActive;
         private bool _reloadHasReceivedAnyEvent;
         private bool _reloadCompleteEventReceived;
+        private bool _isTrackingEquip;
+        private bool _equipHasBeenActive;
+        private bool _equipCompleteEventReceived;
         private int _pendingReloadSingleEvents;
         private float _reloadTrackStartTime;
         private float _lastReloadSignalTime;
+        private float _equipTrackStartTime;
+        private float _lastEquipSignalTime;
         private bool _hasLoggedMuzzleSelection;
         private readonly HashSet<int> _suppressedMuzzleFxWeaponIds = new();
         private const float ReloadEnterGraceSeconds = 0.2f;
         private const float ReloadSignalGraceSeconds = 0.25f;
+        private const float EquipEnterGraceSeconds = 0.2f;
+        private const float EquipSignalGraceSeconds = 0.05f;
+        private static readonly int EquipHash = Animator.StringToHash("Equip");
+        private static readonly int EquipOverrideHash = Animator.StringToHash("Equip_Override");
 
         private static readonly FieldInfo FpsPlayerMoveInputField =
             typeof(FPSPlayer).GetField("_moveInput", BindingFlags.Instance | BindingFlags.NonPublic);
@@ -72,7 +83,7 @@ namespace Game.Weapons {
         public void Configure(GameObject playerPrefab, GameObject fpWeaponPrefab, bool disableWeaponSounds,
             bool disablePlayerSounds, bool tagArms, Vector3 muzzleLocalPosition, Vector3 muzzleLocalEulerAngles,
             bool syncLookPitch, bool syncInAirState, bool freezeAirLocomotion, bool autoMuzzleFromBounds,
-            bool forceWalkWhileSprinting, float sprintGaitValue) {
+            bool forceWalkWhileSprinting, float sprintGaitValue, float equipUnlockNormalizedProgress) {
             fpsPlayerPrefab = playerPrefab;
             weaponPrefab = fpWeaponPrefab;
             disableKinemationWeaponSounds = disableWeaponSounds;
@@ -86,10 +97,12 @@ namespace Game.Weapons {
             autoComputeMuzzleFromWeaponBounds = autoMuzzleFromBounds;
             forceWalkAnimationWhileSprinting = forceWalkWhileSprinting;
             sprintWalkGaitValue = Mathf.Clamp(sprintGaitValue, 0f, 1.99f);
+            equipUnlockNormalizedTime = Mathf.Clamp01(equipUnlockNormalizedProgress);
         }
 
         public bool InitializeIfNeeded(int renderLayer) {
             _renderLayer = renderLayer;
+            _weaponManager ??= GetComponentInParent<WeaponManager>();
 
             if(_playerInstance != null) {
                 SetLayerRecursive(_playerInstance, _renderLayer);
@@ -138,8 +151,13 @@ namespace Game.Weapons {
         public void PlayEquipAnimation(bool immediate) {
             if(!TryCacheActiveWeapon()) return;
             if(immediate) {
+                ResetEquipTracking();
                 _activeWeapon.OnEquipped_Immediate();
             } else {
+                ResetEquipTracking();
+                _isTrackingEquip = true;
+                _equipTrackStartTime = Time.time;
+                _lastEquipSignalTime = Time.time;
                 _activeWeapon.OnEquipped();
             }
         }
@@ -206,6 +224,47 @@ namespace Game.Weapons {
             return true;
         }
 
+        public bool IsEquipSequenceInProgress() {
+            if(!_isTrackingEquip) {
+                return false;
+            }
+
+            if(_equipCompleteEventReceived) {
+                _isTrackingEquip = false;
+                return false;
+            }
+
+            var equipActiveNow = TryGetEquipStateProgress(out var equipProgress);
+            if(equipActiveNow) {
+                _equipHasBeenActive = true;
+                _lastEquipSignalTime = Time.time;
+                if(equipProgress >= equipUnlockNormalizedTime) {
+                    _isTrackingEquip = false;
+                    return false;
+                }
+                return true;
+            }
+
+            if(_equipHasBeenActive && Time.time - _lastEquipSignalTime <= EquipSignalGraceSeconds) {
+                return true;
+            }
+
+            if(!_equipHasBeenActive) {
+                return Time.time - _equipTrackStartTime < EquipEnterGraceSeconds;
+            }
+
+            _isTrackingEquip = false;
+            return false;
+        }
+
+        public void ResetEquipTracking() {
+            _isTrackingEquip = false;
+            _equipHasBeenActive = false;
+            _equipCompleteEventReceived = false;
+            _equipTrackStartTime = 0f;
+            _lastEquipSignalTime = 0f;
+        }
+
         public void ResetReloadTracking() {
             _isTrackingReload = false;
             _reloadHasBeenActive = false;
@@ -230,6 +289,17 @@ namespace Game.Weapons {
             _reloadHasBeenActive = true;
             _lastReloadSignalTime = Time.time;
             _reloadCompleteEventReceived = true;
+        }
+
+        public void NotifyEquipCompleteEvent() {
+            if(!_isTrackingEquip) return;
+            _equipHasBeenActive = true;
+            _equipCompleteEventReceived = true;
+            _lastEquipSignalTime = Time.time;
+
+            _weaponManager ??= GetComponentInParent<WeaponManager>();
+            if(_weaponManager == null) return;
+            _weaponManager.HandleKinemationEquipCompleted();
         }
 
         public Transform GetMuzzleTransform() {
@@ -709,6 +779,30 @@ namespace Game.Weapons {
             return false;
         }
 
+        private bool TryGetEquipStateProgress(out float normalizedProgress) {
+            normalizedProgress = 0f;
+
+            if(TryGetAnimatorEquipProgress(_fpsAnimator, out var characterProgress)) {
+                normalizedProgress = characterProgress;
+                return true;
+            }
+
+            if(_activeWeapon == null) {
+                return false;
+            }
+
+            var weaponAnimators = _activeWeapon.GetComponentsInChildren<Animator>(true);
+            foreach(var weaponAnimator in weaponAnimators) {
+                if(weaponAnimator == null || weaponAnimator == _fpsAnimator) continue;
+                if(TryGetAnimatorEquipProgress(weaponAnimator, out var weaponProgress)) {
+                    normalizedProgress = Mathf.Max(normalizedProgress, weaponProgress);
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         private static bool AnimatorHasReloadClip(Animator animator) {
             if(animator == null || !animator.isActiveAndEnabled) return false;
 
@@ -722,6 +816,28 @@ namespace Game.Weapons {
                     if(clip.name.IndexOf("reload", System.StringComparison.OrdinalIgnoreCase) >= 0) {
                         return true;
                     }
+                }
+            }
+
+            return false;
+        }
+
+        private static bool TryGetAnimatorEquipProgress(Animator animator, out float normalizedProgress) {
+            normalizedProgress = 0f;
+            if(animator == null || !animator.isActiveAndEnabled) return false;
+
+            for(var layer = 0; layer < animator.layerCount; layer++) {
+                var currentState = animator.GetCurrentAnimatorStateInfo(layer);
+                if(currentState.shortNameHash == EquipHash || currentState.shortNameHash == EquipOverrideHash) {
+                    normalizedProgress = Mathf.Max(normalizedProgress, Mathf.Clamp01(currentState.normalizedTime));
+                    return true;
+                }
+
+                if(!animator.IsInTransition(layer)) continue;
+                var nextState = animator.GetNextAnimatorStateInfo(layer);
+                if(nextState.shortNameHash == EquipHash || nextState.shortNameHash == EquipOverrideHash) {
+                    normalizedProgress = Mathf.Max(normalizedProgress, Mathf.Clamp01(nextState.normalizedTime));
+                    return true;
                 }
             }
 
