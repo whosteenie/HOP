@@ -171,6 +171,7 @@ namespace Game.Weapons {
 
         public void PlayFireAnimation() {
             if(!TryCacheActiveWeapon()) return;
+            SuppressInternalMuzzleFx(_activeWeapon);
             _activeWeapon.OnFirePressed();
             _activeWeapon.OnFireReleased();
         }
@@ -698,6 +699,7 @@ namespace Game.Weapons {
             if(_activeWeapon != null && _muzzleTransform != null) {
                 ApplyActiveWeaponSoundToggles(_activeWeapon);
                 RefreshActiveWeaponSoundMetadata(_activeWeapon);
+                SuppressInternalMuzzleFx(_activeWeapon);
                 return true;
             }
 
@@ -768,7 +770,7 @@ namespace Game.Weapons {
             if(!disableKinemationInternalMuzzleFx || activeWeapon == null) return;
 
             var weaponId = activeWeapon.gameObject.GetInstanceID();
-            if(_suppressedMuzzleFxWeaponIds.Contains(weaponId)) return;
+            var hasLoggedSuppression = _suppressedMuzzleFxWeaponIds.Contains(weaponId);
 
             var disabledParticles = 0;
             var disabledVfx = 0;
@@ -798,8 +800,11 @@ namespace Game.Weapons {
                 disabledLights++;
             }
 
-            _suppressedMuzzleFxWeaponIds.Add(weaponId);
             if(disabledParticles > 0 || disabledVfx > 0 || disabledLights > 0) {
+                _suppressedMuzzleFxWeaponIds.Add(weaponId);
+            }
+
+            if(!hasLoggedSuppression && (disabledParticles > 0 || disabledVfx > 0 || disabledLights > 0)) {
                 Debug.Log(
                     $"[KinemationFpWeaponDriver] Suppressed internal muzzle FX on '{activeWeapon.name}' " +
                     $"(ParticleSystems={disabledParticles}, VisualEffects={disabledVfx}, Lights={disabledLights}).");

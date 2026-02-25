@@ -1753,6 +1753,7 @@ MonoBehaviour:
   disableKinemationSounds: 0
   disableKinemationWeaponSounds: 0
   disableKinemationPlayerSounds: 1
+  routeKinemationWeaponSoundEventsToAudioService: 1
   syncKinemationLookPitchWithPlayer: 0
   syncKinemationAirborneState: 0
   freezeKinemationLocomotionInAir: 1
@@ -1793,7 +1794,8 @@ MonoBehaviour:
   currentAmmo: 0
   netCurrentDamageMultiplier:
     m_InternalValue: 1
-  debugMuzzleFlashLogging: 1
+  debugMuzzleFlashLogging: 0
+  debugKinemationFirstShotMuzzle: 1
   debugMuzzleFlashLogInterval: 0.1
 --- !u!114 &8382341124825033876
 MonoBehaviour:

@@ -17,23 +17,23 @@ MonoBehaviour:
   - clip: {fileID: 8300000, guid: b58e6e277789bb54191e03c4c3fd2ca9, type: 3}
     weight: 1
     volumeDb: -0.13127527
-    pitch: 0.99
-    randomPitch: 0.03999999
+    pitch: 1
+    randomPitch: 0.018
   - clip: {fileID: 8300000, guid: 6e4f1f5d90eef194fb48304c0a76ead4, type: 3}
     weight: 1
     volumeDb: -0.13127527
-    pitch: 0.99
-    randomPitch: 0.03999999
+    pitch: 1
+    randomPitch: 0.018
   - clip: {fileID: 8300000, guid: 8995b3135fdfe83499f4412a1105b2f9, type: 3}
     weight: 1
     volumeDb: -0.13127527
-    pitch: 0.99
-    randomPitch: 0.03999999
+    pitch: 1
+    randomPitch: 0.018
   - clip: {fileID: 8300000, guid: 9b8bde9c955e701499f29d27b7067aab, type: 3}
-    weight: 1
+    weight: 0
     volumeDb: -0.13127527
     pitch: 0.99
-    randomPitch: 0.03999999
+    randomPitch: 0
   bus: 3
   outputGroup: {fileID: 0}
   is3D: 1

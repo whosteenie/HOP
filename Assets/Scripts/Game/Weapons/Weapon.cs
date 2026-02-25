@@ -95,6 +95,7 @@ namespace Game.Weapons {
         private float _fpLightOffTime;
         private float _worldLightOffTime;
         [SerializeField] private bool debugMuzzleFlashLogging;
+        [SerializeField] private bool debugKinemationFirstShotMuzzle;
         [SerializeField, Min(0f)] private float debugMuzzleFlashLogInterval = 0.1f;
         private float _nextMuzzleFlashDebugTime;
 
@@ -120,6 +121,8 @@ namespace Game.Weapons {
         // Bullet trail pooling
         private readonly Queue<TrailRenderer> _trailPool = new();
         private const int TrailPoolSize = 30;
+        private bool _hasFiredKinemationMuzzleForCurrentWeapon;
+        private bool _hasPrewarmedKinemationMuzzleForCurrentWeapon;
 
         #endregion
 
@@ -180,7 +183,15 @@ namespace Game.Weapons {
         }
 
         private void Update() {
+            TryPrewarmKinemationMuzzleIfNeeded();
             SyncKinemationLocomotion();
+        }
+
+        private void TryPrewarmKinemationMuzzleIfNeeded() {
+            if(_hasPrewarmedKinemationMuzzleForCurrentWeapon) return;
+            if(_kinemationFpWeaponDriver == null) return;
+            if(playerController == null || !playerController.IsOwner) return;
+            PrewarmKinemationLocalMuzzleFxInstance();
         }
 
         private void OnDestroy() {
@@ -294,6 +305,12 @@ namespace Game.Weapons {
                 ? _kinemationFpWeaponDriver.GetMuzzleTransform()
                 : ResolveMuzzleTransform(_currentFpWeaponInstance);
             _worldMuzzleTransform = ResolveMuzzleTransform(_currentWorldWeaponInstance);
+            _hasFiredKinemationMuzzleForCurrentWeapon = false;
+            _hasPrewarmedKinemationMuzzleForCurrentWeapon = false;
+
+            if(_kinemationFpWeaponDriver != null) {
+                PrewarmKinemationLocalMuzzleFxInstance();
+            }
 
             // Restore ammo
             currentAmmo = Mathf.Clamp(restoredAmmo, 0, _currentMagCapacity);
@@ -1264,7 +1281,9 @@ namespace Game.Weapons {
             return prefabName.Contains("180");
         }
 
-        private GameObject EnsureKinemationLocalMuzzleFxInstance(Transform muzzleTransform, Quaternion spawnRotation) {
+        private GameObject EnsureKinemationLocalMuzzleFxInstance(Transform muzzleTransform, Quaternion spawnRotation,
+            out bool createdNewInstance) {
+            createdNewInstance = false;
             if(_currentWeaponData == null || _currentWeaponData.muzzleFlashPrefab == null || muzzleTransform == null) {
                 return null;
             }
@@ -1273,12 +1292,18 @@ namespace Game.Weapons {
             var needsRecreate = _kinemationLocalMuzzleFxInstance == null || _kinemationLocalMuzzleSourcePrefab != sourcePrefab;
             if(needsRecreate) {
                 if(_kinemationLocalMuzzleFxInstance != null) {
+                    QuiesceMuzzleFxInstance(_kinemationLocalMuzzleFxInstance, _kinemationLocalMuzzleVfx);
                     Destroy(_kinemationLocalMuzzleFxInstance);
                 }
 
                 _kinemationLocalMuzzleFxInstance = Instantiate(sourcePrefab, muzzleTransform.position, spawnRotation);
                 _kinemationLocalMuzzleSourcePrefab = sourcePrefab;
                 _kinemationLocalMuzzleVfx = _kinemationLocalMuzzleFxInstance.GetComponent<VisualEffect>();
+                if(_kinemationLocalMuzzleVfx != null) {
+                    _kinemationLocalMuzzleVfx.Stop();
+                    _kinemationLocalMuzzleVfx.Reinit();
+                }
+                createdNewInstance = true;
             } else {
                 _kinemationLocalMuzzleFxInstance.transform.SetPositionAndRotation(muzzleTransform.position, spawnRotation);
             }
@@ -1290,8 +1315,10 @@ namespace Game.Weapons {
 
         private void TriggerKinemationLocalMuzzleFx() {
             if(_kinemationLocalMuzzleFxInstance == null) return;
+            ReactivateMuzzleFxInstance(_kinemationLocalMuzzleFxInstance, _kinemationLocalMuzzleVfx);
 
             if(_kinemationLocalMuzzleVfx != null) {
+                _kinemationLocalMuzzleVfx.Stop();
                 _kinemationLocalMuzzleVfx.Reinit();
                 _kinemationLocalMuzzleVfx.Play();
                 return;
@@ -1307,12 +1334,73 @@ namespace Game.Weapons {
 
         private void ClearKinemationLocalMuzzleFxInstance() {
             if(_kinemationLocalMuzzleFxInstance != null) {
+                QuiesceMuzzleFxInstance(_kinemationLocalMuzzleFxInstance, _kinemationLocalMuzzleVfx);
                 Destroy(_kinemationLocalMuzzleFxInstance);
             }
 
             _kinemationLocalMuzzleFxInstance = null;
             _kinemationLocalMuzzleVfx = null;
             _kinemationLocalMuzzleSourcePrefab = null;
+        }
+
+        private static void QuiesceMuzzleFxInstance(GameObject fxInstance, VisualEffect cachedVisualEffect) {
+            if(fxInstance == null) return;
+
+            if(cachedVisualEffect != null) {
+                cachedVisualEffect.Stop();
+                cachedVisualEffect.Reinit();
+            }
+
+            var vfxComponents = fxInstance.GetComponentsInChildren<VisualEffect>(true);
+            foreach(var vfx in vfxComponents) {
+                if(vfx == null) continue;
+                vfx.Stop();
+                vfx.Reinit();
+            }
+
+            var particleSystems = fxInstance.GetComponentsInChildren<ParticleSystem>(true);
+            foreach(var particleSystem in particleSystems) {
+                if(particleSystem == null) continue;
+                particleSystem.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+            }
+        }
+
+        private static void ReactivateMuzzleFxInstance(GameObject fxInstance, VisualEffect cachedVisualEffect) {
+            if(fxInstance == null) return;
+            _ = cachedVisualEffect;
+            if(!fxInstance.activeSelf) {
+                fxInstance.SetActive(true);
+            }
+        }
+
+        private void PrewarmKinemationLocalMuzzleFxInstance() {
+            if(_hasPrewarmedKinemationMuzzleForCurrentWeapon) return;
+            if(_kinemationFpWeaponDriver == null) return;
+            if(_currentWeaponData == null || _currentWeaponData.muzzleFlashPrefab == null) return;
+
+            const bool useWorldParent = false;
+            if(!TryGetPreferredMuzzleTransform(useWorldParent, out var muzzleTransform) || muzzleTransform == null) {
+                return;
+            }
+
+            var preferredDirection = Vector3.zero;
+            var fpCameraTransform = playerController != null ? playerController.FpCameraTransform : null;
+            if(fpCameraTransform != null) {
+                preferredDirection = fpCameraTransform.forward;
+            }
+
+            var desiredWorldRotation = ResolveKinemationMuzzleFxRotation(muzzleTransform, preferredDirection);
+            var fxGo = EnsureKinemationLocalMuzzleFxInstance(muzzleTransform, desiredWorldRotation, out var createdNewFxInstance);
+            if(fxGo == null) return;
+
+            QuiesceMuzzleFxInstance(fxGo, _kinemationLocalMuzzleVfx);
+            _hasPrewarmedKinemationMuzzleForCurrentWeapon = true;
+
+            if(debugKinemationFirstShotMuzzle) {
+                Debug.Log(
+                    $"[Weapon][KinemationMuzzleFirstShot] Prewarmed weapon='{(_currentWeaponData != null ? _currentWeaponData.weaponName : "<null>")}' " +
+                    $"createdNewFx={createdNewFxInstance}");
+            }
         }
 
         /// <summary>
@@ -1337,11 +1425,22 @@ namespace Game.Weapons {
                         var desiredWorldRotation = ResolveKinemationMuzzleFxRotation(muzzleTransform, preferredDirection);
 
                         // Reuse a single local KIN muzzle FX instance to avoid overlap artifacts on full-auto fire.
-                        var fxGo = EnsureKinemationLocalMuzzleFxInstance(muzzleTransform, desiredWorldRotation);
+                        var fxGo = EnsureKinemationLocalMuzzleFxInstance(muzzleTransform, desiredWorldRotation,
+                            out var createdNewFxInstance);
                         if(fxGo != null) {
                             LogMuzzleFlashDebug("Local/KIN", muzzleTransform, fxGo.transform.position, desiredWorldRotation,
                                 _kinemationFpWeaponDriver.IsUsingGeneratedMuzzleFallback(), fxGo.layer);
+                            if(debugKinemationFirstShotMuzzle && !_hasFiredKinemationMuzzleForCurrentWeapon) {
+                                var localVfx = fxGo.GetComponent<VisualEffect>();
+                                var localParticleCount = fxGo.GetComponentsInChildren<ParticleSystem>(true).Length;
+                                Debug.Log(
+                                    $"[Weapon][KinemationMuzzleFirstShot] weapon='{(_currentWeaponData != null ? _currentWeaponData.weaponName : "<null>")}' " +
+                                    $"createdNewFx={createdNewFxInstance} prewarmed={_hasPrewarmedKinemationMuzzleForCurrentWeapon} " +
+                                    $"fxActiveSelf={fxGo.activeSelf} vfxPresent={(localVfx != null)} " +
+                                    $"vfxEnabled={(localVfx != null && localVfx.enabled)} particleSystems={localParticleCount}");
+                            }
                             TriggerKinemationLocalMuzzleFx();
+                            _hasFiredKinemationMuzzleForCurrentWeapon = true;
                         }
                     } else {
                         var fxGo = Instantiate(_currentWeaponData.muzzleFlashPrefab, muzzleTransform);
