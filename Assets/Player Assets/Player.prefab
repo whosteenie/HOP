@@ -1773,7 +1773,7 @@ MonoBehaviour:
   kinemationViewmodelLocalPosition: {x: 0.14, y: -1.654, z: -0.06}
   kinemationViewmodelLocalEulerAngles: {x: 0, y: 0, z: 0}
   enableKinemationViewmodelTuning: 0
-  logKinemationViewmodelTuning: 1
+  logKinemationViewmodelTuning: 0
   kinemationTunePositionStep: 0.0025
   kinemationTuneRotationStep: 0.5
   kinemationTuneModifierKey: 308
@@ -1795,8 +1795,9 @@ MonoBehaviour:
   netCurrentDamageMultiplier:
     m_InternalValue: 1
   debugMuzzleFlashLogging: 0
-  debugKinemationFirstShotMuzzle: 1
+  debugKinemationFirstShotMuzzle: 0
   debugMuzzleFlashLogInterval: 0.1
+  debugTracerVisibility: 1
 --- !u!114 &8382341124825033876
 MonoBehaviour:
   m_ObjectHideFlags: 0

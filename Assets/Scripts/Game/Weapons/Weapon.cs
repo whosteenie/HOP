@@ -97,6 +97,7 @@ namespace Game.Weapons {
         [SerializeField] private bool debugMuzzleFlashLogging;
         [SerializeField] private bool debugKinemationFirstShotMuzzle;
         [SerializeField, Min(0f)] private float debugMuzzleFlashLogInterval = 0.1f;
+        [SerializeField] private bool debugTracerVisibility;
         private float _nextMuzzleFlashDebugTime;
 
         #region Private Fields
@@ -123,6 +124,8 @@ namespace Game.Weapons {
         private const int TrailPoolSize = 30;
         private bool _hasFiredKinemationMuzzleForCurrentWeapon;
         private bool _hasPrewarmedKinemationMuzzleForCurrentWeapon;
+        private bool _hasLocalMuzzleFlashSpawnPositionForShot;
+        private Vector3 _localMuzzleFlashSpawnPositionForShot;
 
         #endregion
 
@@ -570,8 +573,9 @@ namespace Game.Weapons {
             }
 
             if(playerController.PlayerInput == null || !playerController.PlayerInput.IsSniperOverlayActive) {
-                if(!TryGetPreferredMuzzleTransform(false, out var muzzleTransform) || muzzleTransform == null) {
-                    return TryGetFallbackMuzzlePosition(out muzzlePosition, preferWorldTransform: false);
+                var useWorldParent = GameMenuManager.Instance != null && GameMenuManager.Instance.IsPostMatch;
+                if(!TryGetPreferredMuzzleTransform(useWorldParent, out var muzzleTransform) || muzzleTransform == null) {
+                    return TryGetFallbackMuzzlePosition(out muzzlePosition, preferWorldTransform: useWorldParent);
                 }
 
                 muzzlePosition = muzzleTransform.position;
@@ -586,6 +590,97 @@ namespace Game.Weapons {
             muzzlePosition = fpCameraTransform.TransformPoint(playerController.PlayerInput.SniperMuzzleCameraOffset);
             return true;
 
+        }
+
+        private bool TryGetOwnerTracerStartPosition(out Vector3 tracerStartPosition) {
+            tracerStartPosition = default;
+            if(!TryGetMuzzlePositionFromCamera(out var muzzlePosition)) {
+                return false;
+            }
+
+            tracerStartPosition = muzzlePosition;
+            TryRemapOwnerWeaponCameraPointToMainCamera(muzzlePosition, out tracerStartPosition);
+            return true;
+        }
+
+        private bool TryRemapOwnerWeaponCameraPointToMainCamera(Vector3 sourcePoint, out Vector3 remappedPoint) {
+            remappedPoint = sourcePoint;
+            if(playerController == null) {
+                if(debugTracerVisibility) {
+                    LogTracerOriginRemapSkipped(sourcePoint, remappedPoint, null, Camera.main, "no-player-controller");
+                }
+                return false;
+            }
+
+            if(!playerController.IsOwner) {
+                if(debugTracerVisibility) {
+                    LogTracerOriginRemapSkipped(sourcePoint, remappedPoint, playerController.WeaponCamera, Camera.main,
+                        "not-owner");
+                }
+                return false;
+            }
+
+            if(GameMenuManager.Instance != null && GameMenuManager.Instance.IsPostMatch) {
+                if(debugTracerVisibility) {
+                    LogTracerOriginRemapSkipped(sourcePoint, remappedPoint, playerController.WeaponCamera, Camera.main,
+                        "post-match");
+                }
+                return false;
+            }
+
+            if(playerController.PlayerInput != null && playerController.PlayerInput.IsSniperOverlayActive) {
+                if(debugTracerVisibility) {
+                    LogTracerOriginRemapSkipped(sourcePoint, remappedPoint, playerController.WeaponCamera, Camera.main,
+                        "sniper-overlay-active");
+                }
+                return false;
+            }
+
+            var weaponCamera = playerController.WeaponCamera;
+            var mainSceneCamera = Camera.main;
+            if(weaponCamera == null || mainSceneCamera == null) {
+                if(debugTracerVisibility) {
+                    LogTracerOriginRemapSkipped(sourcePoint, remappedPoint, weaponCamera, mainSceneCamera, "missing-camera");
+                }
+                return false;
+            }
+
+            if(weaponCamera == mainSceneCamera) {
+                if(debugTracerVisibility) {
+                    LogTracerOriginRemapSkipped(sourcePoint, remappedPoint, weaponCamera, mainSceneCamera,
+                        "shared-camera-instance");
+                }
+                return false;
+            }
+
+            // KIN viewmodel points are authored relative to WeaponCamera. Convert the same viewport location
+            // into main-camera world space so world-rendered tracers align with FP on-screen origin.
+            var viewportInWeaponCamera = weaponCamera.WorldToViewportPoint(sourcePoint);
+            if(viewportInWeaponCamera.z <= 0f) {
+                if(debugTracerVisibility) {
+                    LogTracerOriginRemapSkipped(
+                        sourcePoint,
+                        remappedPoint,
+                        weaponCamera,
+                        mainSceneCamera,
+                        $"weapon-viewport-behind-camera z={viewportInWeaponCamera.z:0.###} viewport={viewportInWeaponCamera}");
+                }
+                return false;
+            }
+
+            var preferredDepth = Vector3.Dot(sourcePoint - mainSceneCamera.transform.position, mainSceneCamera.transform.forward);
+            var remapDepth = Mathf.Max(mainSceneCamera.nearClipPlane + 0.02f, preferredDepth);
+            remappedPoint = mainSceneCamera.ViewportToWorldPoint(new Vector3(
+                viewportInWeaponCamera.x,
+                viewportInWeaponCamera.y,
+                remapDepth));
+
+            if(debugTracerVisibility) {
+                LogTracerOriginRemapDebug(sourcePoint, remappedPoint, weaponCamera, mainSceneCamera,
+                    viewportInWeaponCamera, remapDepth);
+            }
+
+            return true;
         }
 
         private bool TryGetFallbackMuzzlePosition(out Vector3 muzzlePosition, bool preferWorldTransform) {
@@ -778,8 +873,8 @@ namespace Game.Weapons {
                 spreadDegrees = 0f;
             }
 
-            // Calculate muzzle position directly from camera to bypass weapon transform lag
-            var hasMuzzlePosition = TryGetMuzzlePositionFromCamera(out var capturedMuzzlePos);
+            _hasLocalMuzzleFlashSpawnPositionForShot = false;
+            _localMuzzleFlashSpawnPositionForShot = Vector3.zero;
 
             if (playerController != null && playerController.IsOwner) {
                 PlayLocalMuzzleFlash();
@@ -787,6 +882,18 @@ namespace Game.Weapons {
                 if (ProgressionManager.Instance != null) {
                     ProgressionManager.Instance.RecordShotFired();
                 }
+            }
+
+            // Capture tracer start after local fire animation/muzzle flash so KIN pose updates
+            // are reflected in the same frame as the spawned tracer.
+            var hasMuzzlePosition = false;
+            var capturedMuzzlePos = Vector3.zero;
+            if(_hasLocalMuzzleFlashSpawnPositionForShot) {
+                capturedMuzzlePos = _localMuzzleFlashSpawnPositionForShot;
+                hasMuzzlePosition = true;
+                TryRemapOwnerWeaponCameraPointToMainCamera(capturedMuzzlePos, out capturedMuzzlePos);
+            } else {
+                hasMuzzlePosition = TryGetOwnerTracerStartPosition(out capturedMuzzlePos);
             }
 
             var anyPelletHitPlayer = false;
@@ -799,7 +906,12 @@ namespace Game.Weapons {
                 if (hitPlayer) anyPelletHitPlayer = true;
 
                 if(playerController != null && playerController.IsOwner && hasMuzzlePosition) {
-                    SpawnTracerLocal(capturedMuzzlePos, endPoint, hitNormal, madeImpact, hitPlayer, hitPlayerRef);
+                    if(_kinemationFpWeaponDriver != null) {
+                        StartCoroutine(SpawnOwnerTracerLocalAfterViewUpdate(capturedMuzzlePos, endPoint, hitNormal,
+                            madeImpact, hitPlayer, hitPlayerRef));
+                    } else {
+                        SpawnTracerLocal(capturedMuzzlePos, endPoint, hitNormal, madeImpact, hitPlayer, hitPlayerRef);
+                    }
                 }
 
                 var playMuzzleFlash = i == 0;
@@ -1436,6 +1548,8 @@ namespace Game.Weapons {
                         var fxGo = EnsureKinemationLocalMuzzleFxInstance(muzzleTransform, desiredWorldRotation,
                             out var createdNewFxInstance);
                         if(fxGo != null) {
+                            _localMuzzleFlashSpawnPositionForShot = fxGo.transform.position;
+                            _hasLocalMuzzleFlashSpawnPositionForShot = true;
                             LogMuzzleFlashDebug("Local/KIN", muzzleTransform, fxGo.transform.position, desiredWorldRotation,
                                 _kinemationFpWeaponDriver.IsUsingGeneratedMuzzleFallback(), fxGo.layer);
                             if(debugKinemationFirstShotMuzzle && !_hasFiredKinemationMuzzleForCurrentWeapon) {
@@ -1455,6 +1569,8 @@ namespace Game.Weapons {
                         fxGo.transform.localPosition = Vector3.zero;
                         fxGo.transform.localRotation = Quaternion.identity;
                         ApplyLayerRecursive(fxGo, muzzleTransform.gameObject.layer);
+                        _localMuzzleFlashSpawnPositionForShot = fxGo.transform.position;
+                        _hasLocalMuzzleFlashSpawnPositionForShot = true;
                         LogMuzzleFlashDebug("Local/Legacy", muzzleTransform, fxGo.transform.position,
                             fxGo.transform.rotation, false, fxGo.layer);
 
@@ -1623,7 +1739,13 @@ namespace Game.Weapons {
             trail.transform.position = start;
             trail.transform.rotation = Quaternion.LookRotation(end - start);
             trail.gameObject.SetActive(true);
+            trail.enabled = true;
+            trail.emitting = true;
             trail.Clear(); // Clear any previous trail data
+
+            if(debugTracerVisibility) {
+                LogTracerDebug(trail, start, end);
+            }
 
             // Disable AudioSource on trail if it exists (we'll play sound manually only on misses)
             var trailAudioSource = trail.GetComponent<AudioSource>();
@@ -1904,6 +2026,22 @@ namespace Game.Weapons {
             ReturnTrailToPool(trail);
         }
 
+        private IEnumerator SpawnOwnerTracerLocalAfterViewUpdate(Vector3 fallbackStart, Vector3 end, Vector3 hitNormal,
+            bool madeImpact, bool hitPlayer, NetworkObjectReference hitPlayerRef) {
+            // Wait until end-of-frame so camera/viewmodel transforms settle before we sample muzzle position.
+            // This keeps local tracer origin aligned with the rendered FP muzzle during fast look updates.
+            yield return new WaitForEndOfFrame();
+
+            var start = fallbackStart;
+            if(playerController != null && playerController.IsOwner) {
+                if(!TryGetOwnerTracerStartPosition(out start)) {
+                    start = fallbackStart;
+                }
+            }
+
+            SpawnTracerLocal(start, end, hitNormal, madeImpact, hitPlayer, hitPlayerRef);
+        }
+
         /// <summary>
         /// Initializes the trail pool with pre-allocated TrailRenderer objects.
         /// Only clears inactive trails from the pool - active trails are allowed to finish naturally.
@@ -1922,6 +2060,7 @@ namespace Game.Weapons {
             if(_currentWeaponData == null || _currentWeaponData.bulletTrail == null) return;
             for(var i = 0; i < TrailPoolSize; i++) {
                 var trailObj = Instantiate(_currentWeaponData.bulletTrail);
+                trailObj.emitting = false;
                 trailObj.gameObject.SetActive(false);
                 _trailPool.Enqueue(trailObj);
             }
@@ -1950,6 +2089,7 @@ namespace Game.Weapons {
             // If no available trail found, create a new one
             if(trail == null && _currentWeaponData != null && _currentWeaponData.bulletTrail != null) {
                 trail = Instantiate(_currentWeaponData.bulletTrail);
+                trail.emitting = false;
             }
 
             return trail;
@@ -1970,9 +2110,77 @@ namespace Game.Weapons {
             // Active trails from previous weapon will just be cleaned up by Unity
             if(_currentWeaponData == null || _currentWeaponData.bulletTrail == null) return;
 
+            trail.emitting = false;
             trail.gameObject.SetActive(false);
             trail.Clear(); // Clear the trail data
             _trailPool.Enqueue(trail);
+        }
+
+        private void LogTracerDebug(TrailRenderer trail, Vector3 start, Vector3 end) {
+            if(trail == null) return;
+            var trailLayer = trail.gameObject.layer;
+            var layerName = LayerMask.LayerToName(trailLayer);
+            if(string.IsNullOrWhiteSpace(layerName)) {
+                layerName = "<unnamed>";
+            }
+
+            var mainCamera = Camera.main;
+            var weaponCamera = playerController != null ? playerController.WeaponCamera : null;
+
+            var mainMaskHasLayer = mainCamera != null && ((mainCamera.cullingMask & (1 << trailLayer)) != 0);
+            var weaponMaskHasLayer = weaponCamera != null && ((weaponCamera.cullingMask & (1 << trailLayer)) != 0);
+            var distance = Vector3.Distance(start, end);
+            var muzzlePosition = Vector3.zero;
+            var hasMuzzle = TryGetMuzzlePositionFromCamera(out muzzlePosition);
+            var screenPos = mainCamera != null ? mainCamera.WorldToScreenPoint(start) : Vector3.zero;
+            var muzzleScreenPos = hasMuzzle && mainCamera != null ? mainCamera.WorldToScreenPoint(muzzlePosition) : Vector3.zero;
+            var localFlashScreenPos = _hasLocalMuzzleFlashSpawnPositionForShot && mainCamera != null
+                ? mainCamera.WorldToScreenPoint(_localMuzzleFlashSpawnPositionForShot)
+                : Vector3.zero;
+            var weaponScreenStart = weaponCamera != null ? weaponCamera.WorldToScreenPoint(start) : Vector3.zero;
+            var weaponScreenMuzzle = weaponCamera != null && hasMuzzle ? weaponCamera.WorldToScreenPoint(muzzlePosition) : Vector3.zero;
+            var mainCameraFov = mainCamera != null ? mainCamera.fieldOfView : 0f;
+            var weaponCameraFov = weaponCamera != null ? weaponCamera.fieldOfView : 0f;
+            var mainNearClip = mainCamera != null ? mainCamera.nearClipPlane : 0f;
+            var weaponNearClip = weaponCamera != null ? weaponCamera.nearClipPlane : 0f;
+
+            Debug.Log(
+                $"[Weapon][TracerDebug] weapon='{(_currentWeaponData != null ? _currentWeaponData.weaponName : "<null>")}' " +
+                $"trail='{trail.name}' active={trail.gameObject.activeInHierarchy} enabled={trail.enabled} " +
+                $"emitting={trail.emitting} time={trail.time:0.###} minVertexDistance={trail.minVertexDistance:0.###} " +
+                $"distance={distance:0.###} layer={trailLayer}('{layerName}') " +
+                $"mainCamHasLayer={mainMaskHasLayer} weaponCamHasLayer={weaponMaskHasLayer} " +
+                $"start={start} muzzle={muzzlePosition} hasMuzzle={hasMuzzle} " +
+                $"screenStart={screenPos} screenMuzzle={muzzleScreenPos} " +
+                $"hasLocalFlashPos={_hasLocalMuzzleFlashSpawnPositionForShot} localFlashPos={_localMuzzleFlashSpawnPositionForShot} " +
+                $"screenLocalFlash={localFlashScreenPos} " +
+                $"weaponScreenStart={weaponScreenStart} weaponScreenMuzzle={weaponScreenMuzzle} " +
+                $"mainFov={mainCameraFov:0.###} weaponFov={weaponCameraFov:0.###} " +
+                $"mainNear={mainNearClip:0.###} weaponNear={weaponNearClip:0.###} " +
+                $"weaponCam='{(weaponCamera != null ? weaponCamera.name : "<null>")}' " +
+                $"mainCam='{(mainCamera != null ? mainCamera.name : "<null>")}' end={end}");
+        }
+
+        private void LogTracerOriginRemapDebug(Vector3 rawMuzzlePosition, Vector3 remappedStartPosition, Camera weaponCamera,
+            Camera mainSceneCamera, Vector3 muzzleViewportInWeaponCamera, float remapDepth) {
+            var rawOnMain = mainSceneCamera != null ? mainSceneCamera.WorldToViewportPoint(rawMuzzlePosition) : Vector3.zero;
+            var remappedOnMain = mainSceneCamera != null ? mainSceneCamera.WorldToViewportPoint(remappedStartPosition) : Vector3.zero;
+
+            Debug.Log(
+                $"[Weapon][TracerOriginRemap] weapon='{(_currentWeaponData != null ? _currentWeaponData.weaponName : "<null>")}' " +
+                $"rawMuzzle={rawMuzzlePosition} remappedStart={remappedStartPosition} " +
+                $"weaponViewport={muzzleViewportInWeaponCamera} mainViewportRaw={rawOnMain} mainViewportRemapped={remappedOnMain} " +
+                $"remapDepth={remapDepth:0.###} weaponCam='{(weaponCamera != null ? weaponCamera.name : "<null>")}' " +
+                $"mainCam='{(mainSceneCamera != null ? mainSceneCamera.name : "<null>")}'");
+        }
+
+        private void LogTracerOriginRemapSkipped(Vector3 rawMuzzlePosition, Vector3 unchangedStartPosition, Camera weaponCamera,
+            Camera mainSceneCamera, string reason) {
+            Debug.Log(
+                $"[Weapon][TracerOriginRemapSkipped] weapon='{(_currentWeaponData != null ? _currentWeaponData.weaponName : "<null>")}' " +
+                $"rawMuzzle={rawMuzzlePosition} unchangedStart={unchangedStartPosition} reason='{reason}' " +
+                $"weaponCam='{(weaponCamera != null ? weaponCamera.name : "<null>")}' " +
+                $"mainCam='{(mainSceneCamera != null ? mainSceneCamera.name : "<null>")}'");
         }
 
         #endregion
