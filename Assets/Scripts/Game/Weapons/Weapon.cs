@@ -109,6 +109,7 @@ namespace Game.Weapons {
         private float _reloadAnimationExitDeadline;
         private float _nextReloadRecoveryAllowedTime;
         private readonly List<AnimatorClipInfo> _reloadClipInfoBuffer = new();
+        private readonly List<int> _kinemationWeaponSoundEventBuffer = new();
         private float _kinemationReloadFallbackDeadline;
 
         private const float ReloadTimeoutGraceSeconds = 0.35f;
@@ -165,6 +166,7 @@ namespace Game.Weapons {
 
         private void LateUpdate() {
             UpdateKinemationReloadState();
+            ProcessKinemationSoundEvents();
             RunReloadWatchdog();
 
             if(_fpMuzzleLight != null && _fpMuzzleLight.activeSelf && Time.time >= _fpLightOffTime) {
@@ -285,6 +287,7 @@ namespace Game.Weapons {
                     ? LayerMask.NameToLayer("Weapon")
                     : LayerMask.NameToLayer("Masked");
                 _kinemationFpWeaponDriver.InitializeIfNeeded(fpLayer);
+                _kinemationFpWeaponDriver.ClearPendingWeaponSoundEvents();
             }
 
             _fpMuzzleTransform = _kinemationFpWeaponDriver != null
@@ -424,7 +427,8 @@ namespace Game.Weapons {
             var magCapacity = GetCurrentMagCapacity();
             while(IsReloading && currentAmmo < magCapacity) {
                 // Play reload sound for each round (audio feedback)
-                if(!UseKinemationInternalSounds() && playerController.IsOwner && _audioRelay != null) {
+                if(!UseKinemationInternalSounds() && !ShouldSuppressLegacyReloadSound() &&
+                   playerController.IsOwner && _audioRelay != null) {
                     var soundId = _currentWeaponData != null ? _currentWeaponData.reloadSoundId : "";
                     if(!string.IsNullOrWhiteSpace(soundId)) {
                         _audioRelay.RequestPlayAttached(soundId, new NetworkObjectReference(playerController.NetworkObject),
@@ -460,7 +464,8 @@ namespace Game.Weapons {
             }
 
             // Cancel reload sound when switching weapons or canceling reload
-            if(!UseKinemationInternalSounds() && playerController.IsOwner && _audioRelay != null) {
+            if(!UseKinemationInternalSounds() && !ShouldSuppressLegacyReloadSound() &&
+               playerController.IsOwner && _audioRelay != null) {
                 var soundId = _currentWeaponData != null ? _currentWeaponData.reloadSoundId : "";
                 if(!string.IsNullOrWhiteSpace(soundId)) {
                     _audioRelay.RequestStop(soundId);
@@ -1209,6 +1214,16 @@ namespace Game.Weapons {
             return _kinemationFpWeaponDriver != null && _kinemationFpWeaponDriver.AreKinemationSoundsEnabled();
         }
 
+        private bool UseKinemationEventSoundRouting() {
+            return _kinemationFpWeaponDriver != null && _kinemationFpWeaponDriver.IsKinemationSoundEventRoutingEnabled();
+        }
+
+        private bool ShouldSuppressLegacyReloadSound() {
+            return UseKinemationEventSoundRouting() &&
+                   _kinemationFpWeaponDriver != null &&
+                   _kinemationFpWeaponDriver.HasAnyKinemationEventSound();
+        }
+
         private Quaternion ResolveKinemationMuzzleFxRotation(Transform muzzleTransform, Vector3 preferredDirection) {
             var direction = preferredDirection;
             if(direction.sqrMagnitude <= 0.0001f && muzzleTransform != null) {
@@ -1519,6 +1534,19 @@ namespace Game.Weapons {
         }
 
         private void PlayFireSound() {
+            if(UseKinemationEventSoundRouting() && _kinemationFpWeaponDriver != null &&
+               _kinemationFpWeaponDriver.HasKinemationFireSound()) {
+                if(playerController == null || !playerController.IsOwner) return;
+                if(_audioRelay == null || !playerController.NetworkObject) return;
+
+                var kinemationFireSoundId = _kinemationFpWeaponDriver.GetKinemationFireSoundId();
+                if(!string.IsNullOrWhiteSpace(kinemationFireSoundId)) {
+                    _audioRelay.RequestPlayAttached(kinemationFireSoundId, new NetworkObjectReference(playerController.NetworkObject),
+                        allowOverlap: true);
+                }
+                return;
+            }
+
             if(UseKinemationInternalSounds()) return;
             if(!playerController.IsOwner) return;
             if(_audioRelay == null) return;
@@ -1541,6 +1569,7 @@ namespace Game.Weapons {
 
             PlayReloadAnimationServerRpc();
 
+            if(ShouldSuppressLegacyReloadSound()) return;
             if(UseKinemationInternalSounds()) return;
             if(!playerController.IsOwner) return;
             if(_audioRelay == null) return;
@@ -1658,6 +1687,28 @@ namespace Game.Weapons {
                 CompleteReload();
             }
             _nextReloadRecoveryAllowedTime = Time.time + ReloadRecoveryCooldownSeconds;
+        }
+
+        private void ProcessKinemationSoundEvents() {
+            if(_kinemationFpWeaponDriver == null) return;
+
+            // Always drain queues to avoid stale events if ownership/state changed.
+            _kinemationFpWeaponDriver.ConsumeWeaponFireSoundEventCount();
+            _kinemationWeaponSoundEventBuffer.Clear();
+            _kinemationFpWeaponDriver.ConsumeWeaponEventSoundIndices(_kinemationWeaponSoundEventBuffer);
+
+            if(_kinemationWeaponSoundEventBuffer.Count == 0) return;
+            if(!UseKinemationEventSoundRouting()) return;
+            if(playerController == null || !playerController.IsOwner) return;
+            if(_audioRelay == null || !playerController.NetworkObject) return;
+
+            var attachRef = new NetworkObjectReference(playerController.NetworkObject);
+            for(var i = 0; i < _kinemationWeaponSoundEventBuffer.Count; i++) {
+                var clipIndex = _kinemationWeaponSoundEventBuffer[i];
+                if(!_kinemationFpWeaponDriver.TryGetKinemationEventSoundId(clipIndex, out var eventSoundId)) continue;
+                if(string.IsNullOrWhiteSpace(eventSoundId)) continue;
+                _audioRelay.RequestPlayAttached(eventSoundId, attachRef, allowOverlap: true);
+            }
         }
 
         private bool IsPlayingReloadClip() {

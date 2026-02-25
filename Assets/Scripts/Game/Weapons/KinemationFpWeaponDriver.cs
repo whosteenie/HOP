@@ -17,6 +17,7 @@ namespace Game.Weapons {
         [SerializeField] private GameObject weaponPrefab;
         [SerializeField] private bool disableKinemationWeaponSounds;
         [SerializeField] private bool disableKinemationPlayerSounds = true;
+        [SerializeField] private bool routeWeaponSoundEventsToAudioService = true;
         [SerializeField] private bool disableKinemationInternalMuzzleFx = true;
         [SerializeField] private bool tagArmsForLegacyHooks;
         [SerializeField] private string armRootName = "SK_Arms_Mono";
@@ -51,6 +52,10 @@ namespace Game.Weapons {
         private bool _equipHasBeenActive;
         private bool _equipCompleteEventReceived;
         private int _pendingReloadSingleEvents;
+        private int _pendingWeaponFireSoundEvents;
+        private readonly List<int> _pendingWeaponEventSoundIndices = new();
+        private string _activeWeaponSoundKey = "unknown";
+        private string _activeWeaponFireSoundId = "";
         private float _reloadTrackStartTime;
         private float _lastReloadSignalTime;
         private float _equipTrackStartTime;
@@ -81,13 +86,15 @@ namespace Game.Weapons {
             typeof(FPSWeaponSound).GetField("_audioSource", BindingFlags.Instance | BindingFlags.NonPublic);
 
         public void Configure(GameObject playerPrefab, GameObject fpWeaponPrefab, bool disableWeaponSounds,
-            bool disablePlayerSounds, bool tagArms, Vector3 muzzleLocalPosition, Vector3 muzzleLocalEulerAngles,
-            bool syncLookPitch, bool syncInAirState, bool freezeAirLocomotion, bool autoMuzzleFromBounds,
-            bool forceWalkWhileSprinting, float sprintGaitValue, float equipUnlockNormalizedProgress) {
+            bool disablePlayerSounds, bool routeWeaponSoundEvents, bool tagArms, Vector3 muzzleLocalPosition,
+            Vector3 muzzleLocalEulerAngles, bool syncLookPitch, bool syncInAirState, bool freezeAirLocomotion,
+            bool autoMuzzleFromBounds, bool forceWalkWhileSprinting, float sprintGaitValue,
+            float equipUnlockNormalizedProgress) {
             fpsPlayerPrefab = playerPrefab;
             weaponPrefab = fpWeaponPrefab;
             disableKinemationWeaponSounds = disableWeaponSounds;
             disableKinemationPlayerSounds = disablePlayerSounds;
+            routeWeaponSoundEventsToAudioService = routeWeaponSoundEvents;
             tagArmsForLegacyHooks = tagArms;
             fallbackMuzzleLocalPosition = muzzleLocalPosition;
             fallbackMuzzleLocalEulerAngles = muzzleLocalEulerAngles;
@@ -224,6 +231,68 @@ namespace Game.Weapons {
             return true;
         }
 
+        public bool IsKinemationSoundEventRoutingEnabled() {
+            if(!routeWeaponSoundEventsToAudioService) {
+                return false;
+            }
+
+            if(!TryCacheActiveWeapon() || _activeWeapon == null || _activeWeapon.weaponSettings == null) {
+                return false;
+            }
+
+            return true;
+        }
+
+        public string GetKinemationFireSoundId() {
+            if(!TryCacheActiveWeapon()) return string.Empty;
+            return _activeWeaponFireSoundId;
+        }
+
+        public bool HasKinemationFireSound() {
+            return !string.IsNullOrWhiteSpace(GetKinemationFireSoundId());
+        }
+
+        public bool HasAnyKinemationEventSound() {
+            if(!TryCacheActiveWeapon() || _activeWeapon == null || _activeWeapon.weaponSettings == null) {
+                return false;
+            }
+
+            return HasAnyValidAudioClip(_activeWeapon.weaponSettings.weaponEventSounds);
+        }
+
+        public int ConsumeWeaponFireSoundEventCount() {
+            if(_pendingWeaponFireSoundEvents <= 0) return 0;
+            var count = _pendingWeaponFireSoundEvents;
+            _pendingWeaponFireSoundEvents = 0;
+            return count;
+        }
+
+        public void ClearPendingWeaponSoundEvents() {
+            _pendingWeaponFireSoundEvents = 0;
+            _pendingWeaponEventSoundIndices.Clear();
+        }
+
+        public void ConsumeWeaponEventSoundIndices(List<int> destination) {
+            if(destination == null) return;
+            if(_pendingWeaponEventSoundIndices.Count == 0) return;
+
+            destination.AddRange(_pendingWeaponEventSoundIndices);
+            _pendingWeaponEventSoundIndices.Clear();
+        }
+
+        public bool TryGetKinemationEventSoundId(int clipIndex, out string soundId) {
+            soundId = string.Empty;
+            if(clipIndex < 0) return false;
+            if(!TryCacheActiveWeapon() || _activeWeapon == null || _activeWeapon.weaponSettings == null) return false;
+
+            var weaponEventSounds = _activeWeapon.weaponSettings.weaponEventSounds;
+            if(weaponEventSounds == null || clipIndex >= weaponEventSounds.Count) return false;
+            if(weaponEventSounds[clipIndex] == null) return false;
+
+            soundId = KinemationSoundIdUtility.BuildEventSoundId(_activeWeaponSoundKey, clipIndex);
+            return !string.IsNullOrWhiteSpace(soundId);
+        }
+
         public bool IsEquipSequenceInProgress() {
             if(!_isTrackingEquip) {
                 return false;
@@ -291,6 +360,25 @@ namespace Game.Weapons {
             _reloadCompleteEventReceived = true;
         }
 
+        public void NotifyWeaponFireSoundEvent() {
+            if(!IsKinemationSoundEventRoutingEnabled()) return;
+
+            var fireSounds = _activeWeapon.weaponSettings.fireSounds;
+            if(!HasAnyValidAudioClip(fireSounds)) return;
+            _pendingWeaponFireSoundEvents++;
+        }
+
+        public void NotifyWeaponEventSoundEvent(int clipIndex) {
+            if(!IsKinemationSoundEventRoutingEnabled()) return;
+            if(clipIndex < 0) return;
+
+            var weaponEventSounds = _activeWeapon.weaponSettings.weaponEventSounds;
+            if(weaponEventSounds == null || clipIndex >= weaponEventSounds.Count) return;
+            if(weaponEventSounds[clipIndex] == null) return;
+
+            _pendingWeaponEventSoundIndices.Add(clipIndex);
+        }
+
         public void NotifyEquipCompleteEvent() {
             if(!_isTrackingEquip) return;
             _equipHasBeenActive = true;
@@ -318,7 +406,7 @@ namespace Game.Weapons {
         }
 
         public bool AreKinemationSoundsEnabled() {
-            if(disableKinemationWeaponSounds) {
+            if(disableKinemationWeaponSounds || routeWeaponSoundEventsToAudioService) {
                 return false;
             }
 
@@ -394,6 +482,8 @@ namespace Game.Weapons {
         }
 
         private void DisableUnneededComponents() {
+            var weaponSoundPlaybackDisabled = disableKinemationWeaponSounds || routeWeaponSoundEventsToAudioService;
+
             var inputComponents = _playerInstance.GetComponentsInChildren<PlayerInput>(true);
             foreach(var inputComponent in inputComponents) {
                 if(inputComponent != null) {
@@ -426,22 +516,30 @@ namespace Game.Weapons {
             if(disableKinemationPlayerSounds) {
                 var playerSounds = _playerInstance.GetComponentsInChildren<FPSPlayerSound>(true);
                 foreach(var playerSound in playerSounds) {
-                    if(playerSound != null) {
-                        playerSound.enabled = false;
+                    if(playerSound == null) continue;
+                    if(playerSound.GetComponent<KinemationPlayerSoundEventRelay>() == null) {
+                        playerSound.gameObject.AddComponent<KinemationPlayerSoundEventRelay>();
                     }
+
+                    Destroy(playerSound);
                 }
             }
 
-            if(disableKinemationWeaponSounds) {
+            if(weaponSoundPlaybackDisabled) {
                 var weaponSounds = _playerInstance.GetComponentsInChildren<FPSWeaponSound>(true);
                 foreach(var weaponSound in weaponSounds) {
-                    if(weaponSound != null) {
-                        weaponSound.enabled = false;
+                    if(weaponSound == null) continue;
+                    var relay = weaponSound.GetComponent<KinemationReloadEventRelay>();
+                    if(relay == null) {
+                        relay = weaponSound.gameObject.AddComponent<KinemationReloadEventRelay>();
                     }
+
+                    relay.Bind(this);
+                    Destroy(weaponSound);
                 }
             }
 
-            if(!disableKinemationPlayerSounds || !disableKinemationWeaponSounds) return;
+            if(!disableKinemationPlayerSounds || !weaponSoundPlaybackDisabled) return;
 
             var audioSources = _playerInstance.GetComponentsInChildren<AudioSource>(true);
             foreach(var source in audioSources) {
@@ -599,6 +697,7 @@ namespace Game.Weapons {
         private bool TryCacheActiveWeapon() {
             if(_activeWeapon != null && _muzzleTransform != null) {
                 ApplyActiveWeaponSoundToggles(_activeWeapon);
+                RefreshActiveWeaponSoundMetadata(_activeWeapon);
                 return true;
             }
 
@@ -621,6 +720,7 @@ namespace Game.Weapons {
 
             _muzzleTransform ??= ResolveMuzzleTransform(_activeWeapon);
             ApplyActiveWeaponSoundToggles(_activeWeapon);
+            RefreshActiveWeaponSoundMetadata(_activeWeapon);
             SuppressInternalMuzzleFx(_activeWeapon);
             return _activeWeapon != null;
         }
@@ -631,7 +731,7 @@ namespace Game.Weapons {
             var weaponSounds = activeWeapon.GetComponentsInChildren<FPSWeaponSound>(true);
             if(weaponSounds == null || weaponSounds.Length == 0) return;
 
-            var shouldEnableSounds = !disableKinemationWeaponSounds;
+            var shouldEnableSounds = !disableKinemationWeaponSounds && !routeWeaponSoundEventsToAudioService;
             var sharedAudioSource = shouldEnableSounds ? EnsureDedicatedWeaponAudioSource() : null;
             foreach(var weaponSound in weaponSounds) {
                 if(weaponSound == null) continue;
@@ -648,6 +748,20 @@ namespace Game.Weapons {
                     }
                 }
             }
+        }
+
+        private void RefreshActiveWeaponSoundMetadata(FPSWeapon activeWeapon) {
+            if(activeWeapon == null) {
+                _activeWeaponSoundKey = "unknown";
+                _activeWeaponFireSoundId = string.Empty;
+                return;
+            }
+
+            var settings = activeWeapon.weaponSettings;
+            _activeWeaponSoundKey = KinemationSoundIdUtility.BuildWeaponSoundKey(settings, activeWeapon.name);
+            _activeWeaponFireSoundId = settings != null && HasAnyValidAudioClip(settings.fireSounds)
+                ? KinemationSoundIdUtility.BuildFireSoundId(_activeWeaponSoundKey)
+                : string.Empty;
         }
 
         private void SuppressInternalMuzzleFx(FPSWeapon activeWeapon) {
@@ -707,6 +821,17 @@ namespace Game.Weapons {
             return false;
         }
 
+        private static bool HasAnyValidAudioClip(List<AudioClip> clips) {
+            if(clips == null || clips.Count == 0) return false;
+            for(var i = 0; i < clips.Count; i++) {
+                if(clips[i] != null) {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         private AudioSource EnsureDedicatedWeaponAudioSource() {
             if(_playerInstance == null) {
                 return null;
@@ -722,7 +847,7 @@ namespace Game.Weapons {
             _weaponAudioSource.playOnAwake = false;
             _weaponAudioSource.loop = false;
             _weaponAudioSource.spatialBlend = 0f;
-            _weaponAudioSource.enabled = !disableKinemationWeaponSounds;
+            _weaponAudioSource.enabled = !disableKinemationWeaponSounds && !routeWeaponSoundEventsToAudioService;
             return _weaponAudioSource;
         }
 
@@ -747,6 +872,8 @@ namespace Game.Weapons {
 
         private void AttachReloadEventRelays() {
             if(_playerInstance == null) return;
+            var weaponSoundPlaybackDisabled = disableKinemationWeaponSounds || routeWeaponSoundEventsToAudioService;
+
             var animators = _playerInstance.GetComponentsInChildren<Animator>(true);
             foreach(var animator in animators) {
                 if(animator == null) continue;
@@ -756,6 +883,33 @@ namespace Game.Weapons {
                 }
 
                 relay.Bind(this);
+            }
+
+            var weaponSounds = _playerInstance.GetComponentsInChildren<FPSWeaponSound>(true);
+            foreach(var weaponSound in weaponSounds) {
+                if(weaponSound == null) continue;
+                var relay = weaponSound.GetComponent<KinemationReloadEventRelay>();
+                if(relay == null) {
+                    relay = weaponSound.gameObject.AddComponent<KinemationReloadEventRelay>();
+                }
+
+                relay.Bind(this);
+
+                if(weaponSoundPlaybackDisabled) {
+                    Destroy(weaponSound);
+                }
+            }
+
+            if(disableKinemationPlayerSounds) {
+                var playerSounds = _playerInstance.GetComponentsInChildren<FPSPlayerSound>(true);
+                foreach(var playerSound in playerSounds) {
+                    if(playerSound == null) continue;
+                    if(playerSound.GetComponent<KinemationPlayerSoundEventRelay>() == null) {
+                        playerSound.gameObject.AddComponent<KinemationPlayerSoundEventRelay>();
+                    }
+
+                    Destroy(playerSound);
+                }
             }
         }
 

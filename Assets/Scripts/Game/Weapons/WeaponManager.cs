@@ -56,6 +56,7 @@ namespace Game.Weapons {
         [SerializeField] private bool disableKinemationSounds = true; // Legacy fallback: disables both weapon and player sounds.
         [SerializeField] private bool disableKinemationWeaponSounds;
         [SerializeField] private bool disableKinemationPlayerSounds = true;
+        [SerializeField] private bool routeKinemationWeaponSoundEventsToAudioService = true;
         [SerializeField] private bool syncKinemationLookPitchWithPlayer;
         [SerializeField] private bool syncKinemationAirborneState;
         [SerializeField] private bool freezeKinemationLocomotionInAir = true;
@@ -1494,6 +1495,7 @@ namespace Game.Weapons {
                         kinemationBinding.kinemationWeaponPrefab,
                         disableWeaponSounds,
                         disablePlayerSounds,
+                        routeKinemationWeaponSoundEventsToAudioService,
                         tagKinemationArmsForLegacyHooks,
                         kinemationBinding.fallbackMuzzleLocalPosition,
                         kinemationBinding.fallbackMuzzleLocalEulerAngles,

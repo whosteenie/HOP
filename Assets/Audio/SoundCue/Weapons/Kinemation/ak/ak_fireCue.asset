@@ -1,0 +1,49 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: eefa7fc14ec118b44ad82cb18af67667, type: 3}
+  m_Name: ak_fireCue
+  m_EditorClassIdentifier: Assembly-CSharp::Game.Audio2.SoundCue
+  id: weapons.kin.ak.fire
+  variants:
+  - clip: {fileID: 8300000, guid: b58e6e277789bb54191e03c4c3fd2ca9, type: 3}
+    weight: 1
+    volumeDb: -0.13127527
+    pitch: 0.99
+    randomPitch: 0.03999999
+  - clip: {fileID: 8300000, guid: 6e4f1f5d90eef194fb48304c0a76ead4, type: 3}
+    weight: 1
+    volumeDb: -0.13127527
+    pitch: 0.99
+    randomPitch: 0.03999999
+  - clip: {fileID: 8300000, guid: 8995b3135fdfe83499f4412a1105b2f9, type: 3}
+    weight: 1
+    volumeDb: -0.13127527
+    pitch: 0.99
+    randomPitch: 0.03999999
+  - clip: {fileID: 8300000, guid: 9b8bde9c955e701499f29d27b7067aab, type: 3}
+    weight: 1
+    volumeDb: -0.13127527
+    pitch: 0.99
+    randomPitch: 0.03999999
+  bus: 3
+  outputGroup: {fileID: 0}
+  is3D: 1
+  spatialBlend: 1
+  minDistance: 1
+  maxDistance: 50
+  rolloffMode: 0
+  priority: 128
+  maxInstances: 10
+  cooldownSeconds: 0
+  stealPolicy: 1
+  stopBehavior: 1
+  preload: 0
