@@ -10,6 +10,8 @@ using Network.AntiCheat;
 using Network.Diagnostics;
 using Network.Events;
 using Unity.Cinemachine;
+using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.Controls;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.Rendering;
@@ -22,6 +24,9 @@ namespace Game.Weapons {
             public GameObject kinemationWeaponPrefab;
             public Vector3 fallbackMuzzleLocalPosition = Vector3.zero;
             public Vector3 fallbackMuzzleLocalEulerAngles = Vector3.zero;
+            public bool useCustomViewmodelPose;
+            public Vector3 viewmodelLocalPosition = Vector3.zero;
+            public Vector3 viewmodelLocalEulerAngles = Vector3.zero;
         }
 
         [SerializeField] private PlayerController playerController;
@@ -66,6 +71,12 @@ namespace Game.Weapons {
         [SerializeField, Min(0f)] private float kinemationPullOutCompleteDelay = 0.12f;
         [SerializeField] private Vector3 kinemationViewmodelLocalPosition = Vector3.zero;
         [SerializeField] private Vector3 kinemationViewmodelLocalEulerAngles = Vector3.zero;
+        [Header("KINEMATION Viewmodel Tuning (Play Mode)")]
+        [SerializeField] private bool enableKinemationViewmodelTuning;
+        [SerializeField] private bool logKinemationViewmodelTuning = true;
+        [SerializeField, Min(0.0001f)] private float kinemationTunePositionStep = 0.0025f;
+        [SerializeField, Min(0.01f)] private float kinemationTuneRotationStep = 0.5f;
+        [SerializeField] private KeyCode kinemationTuneModifierKey = KeyCode.LeftAlt;
 
         private readonly List<GameObject> _fpWeaponInstances = new();
         private readonly Dictionary<int, int> _weaponAmmo = new();
@@ -103,6 +114,7 @@ namespace Game.Weapons {
         private bool _deferTpRevealUntilRespawn;
         private GameObject _deferredRespawnWorldWeapon;
         private Coroutine _kinemationPullOutCompletionCoroutine;
+        private bool _hasLoggedKinemationTuningHelp;
 
         private void Awake() {
             ValidateComponents();
@@ -128,6 +140,169 @@ namespace Game.Weapons {
             if(_playerRenderer != null) return;
             // PlayerRenderer not found - event already published by GetComponentSafe if used
             enabled = false;
+        }
+
+        private void Update() {
+            HandleKinemationViewmodelTuningInput();
+        }
+
+        private void HandleKinemationViewmodelTuningInput() {
+            if(!enableKinemationViewmodelTuning || !Application.isPlaying) return;
+            if(!IsOwner || !useKinemationFpAnimations) return;
+            if(!IsTuningModifierHeld()) return;
+
+            if(!_hasLoggedKinemationTuningHelp && logKinemationViewmodelTuning) {
+                _hasLoggedKinemationTuningHelp = true;
+                Debug.Log(
+                    "[WeaponManager] KIN tune hotkeys: Alt+Arrows/PageUp/PageDown = position, " +
+                    "Alt+Shift+Arrows/PageUp/PageDown = rotation, Alt+C toggle per-weapon pose, " +
+                    "Alt+Backspace reset current weapon pose to defaults, Alt+Enter log current pose.");
+            }
+
+            if(!TryGetCurrentKinemationTuningTarget(out var fpWeaponRoot, out var binding, out var weaponData)) {
+                return;
+            }
+
+            if(IsKeyPressedThisFrame(KeyCode.C)) {
+                binding.useCustomViewmodelPose = !binding.useCustomViewmodelPose;
+                ApplyResolvedKinemationViewmodelPose(fpWeaponRoot, binding);
+                LogKinemationPose(weaponData, binding, "Toggled custom pose");
+                return;
+            }
+
+            if(IsKeyPressedThisFrame(KeyCode.Backspace)) {
+                binding.useCustomViewmodelPose = true;
+                binding.viewmodelLocalPosition = kinemationViewmodelLocalPosition;
+                binding.viewmodelLocalEulerAngles = kinemationViewmodelLocalEulerAngles;
+                ApplyResolvedKinemationViewmodelPose(fpWeaponRoot, binding);
+                LogKinemationPose(weaponData, binding, "Reset to defaults");
+                return;
+            }
+
+            if(IsKeyPressedThisFrame(KeyCode.Return) || IsKeyPressedThisFrame(KeyCode.KeypadEnter)) {
+                CaptureCurrentKinemationPose(fpWeaponRoot, binding);
+                LogKinemationPose(weaponData, binding, "Current pose");
+                return;
+            }
+
+            var isRotationMode = IsKeyHeld(KeyCode.LeftShift) || IsKeyHeld(KeyCode.RightShift);
+            if(isRotationMode) {
+                var rotationDelta = ReadTuneAxisDelta(kinemationTuneRotationStep);
+                if(rotationDelta.sqrMagnitude <= 0f) return;
+                CaptureCurrentKinemationPose(fpWeaponRoot, binding);
+                binding.viewmodelLocalEulerAngles += rotationDelta;
+                ApplyResolvedKinemationViewmodelPose(fpWeaponRoot, binding);
+                LogKinemationPose(weaponData, binding, "Adjusted rotation");
+                return;
+            }
+
+            var positionDelta = ReadTuneAxisDelta(kinemationTunePositionStep);
+            if(positionDelta.sqrMagnitude <= 0f) return;
+            CaptureCurrentKinemationPose(fpWeaponRoot, binding);
+            binding.viewmodelLocalPosition += positionDelta;
+            ApplyResolvedKinemationViewmodelPose(fpWeaponRoot, binding);
+            LogKinemationPose(weaponData, binding, "Adjusted position");
+        }
+
+        private bool IsTuningModifierHeld() {
+            if(kinemationTuneModifierKey == KeyCode.None) return true;
+
+            if(IsKeyHeld(kinemationTuneModifierKey)) {
+                return true;
+            }
+
+            return kinemationTuneModifierKey switch {
+                KeyCode.LeftAlt => IsKeyHeld(KeyCode.RightAlt),
+                KeyCode.RightAlt => IsKeyHeld(KeyCode.LeftAlt),
+                KeyCode.LeftControl => IsKeyHeld(KeyCode.RightControl),
+                KeyCode.RightControl => IsKeyHeld(KeyCode.LeftControl),
+                KeyCode.LeftShift => IsKeyHeld(KeyCode.RightShift),
+                KeyCode.RightShift => IsKeyHeld(KeyCode.LeftShift),
+                _ => false
+            };
+        }
+
+        private static Vector3 ReadTuneAxisDelta(float step) {
+            var delta = Vector3.zero;
+            if(IsKeyPressedThisFrame(KeyCode.LeftArrow)) delta.x -= step;
+            if(IsKeyPressedThisFrame(KeyCode.RightArrow)) delta.x += step;
+            if(IsKeyPressedThisFrame(KeyCode.UpArrow)) delta.y += step;
+            if(IsKeyPressedThisFrame(KeyCode.DownArrow)) delta.y -= step;
+            if(IsKeyPressedThisFrame(KeyCode.PageUp)) delta.z += step;
+            if(IsKeyPressedThisFrame(KeyCode.PageDown)) delta.z -= step;
+            return delta;
+        }
+
+        private static bool IsKeyHeld(KeyCode keyCode) {
+            var keyboard = Keyboard.current;
+            return keyboard != null &&
+                   TryGetInputSystemKeyControl(keyboard, keyCode, out var keyControl) &&
+                   keyControl.isPressed;
+        }
+
+        private static bool IsKeyPressedThisFrame(KeyCode keyCode) {
+            var keyboard = Keyboard.current;
+            return keyboard != null &&
+                   TryGetInputSystemKeyControl(keyboard, keyCode, out var keyControl) &&
+                   keyControl.wasPressedThisFrame;
+        }
+
+        private static bool TryGetInputSystemKeyControl(Keyboard keyboard, KeyCode keyCode, out KeyControl keyControl) {
+            keyControl = keyCode switch {
+                KeyCode.LeftShift => keyboard.leftShiftKey,
+                KeyCode.RightShift => keyboard.rightShiftKey,
+                KeyCode.LeftControl => keyboard.leftCtrlKey,
+                KeyCode.RightControl => keyboard.rightCtrlKey,
+                KeyCode.LeftAlt => keyboard.leftAltKey,
+                KeyCode.RightAlt => keyboard.rightAltKey,
+                KeyCode.C => keyboard.cKey,
+                KeyCode.Backspace => keyboard.backspaceKey,
+                KeyCode.Return => keyboard.enterKey,
+                KeyCode.KeypadEnter => keyboard.numpadEnterKey,
+                KeyCode.LeftArrow => keyboard.leftArrowKey,
+                KeyCode.RightArrow => keyboard.rightArrowKey,
+                KeyCode.UpArrow => keyboard.upArrowKey,
+                KeyCode.DownArrow => keyboard.downArrowKey,
+                KeyCode.PageUp => keyboard.pageUpKey,
+                KeyCode.PageDown => keyboard.pageDownKey,
+                _ => null
+            };
+
+            return keyControl != null;
+        }
+
+        private bool TryGetCurrentKinemationTuningTarget(out GameObject fpWeaponRoot, out KinemationWeaponBinding binding,
+            out WeaponData weaponData) {
+            fpWeaponRoot = null;
+            binding = null;
+            weaponData = null;
+
+            if(CurrentWeaponIndex < 0 || CurrentWeaponIndex >= weaponDataList.Count) return false;
+            if(CurrentWeaponIndex >= _fpWeaponInstances.Count) return false;
+
+            weaponData = weaponDataList[CurrentWeaponIndex];
+            if(weaponData == null) return false;
+            if(!TryGetKinemationBindingForData(weaponData, out binding)) return false;
+
+            fpWeaponRoot = _fpWeaponInstances[CurrentWeaponIndex];
+            return fpWeaponRoot != null && TryGetKinemationDriver(fpWeaponRoot, out _);
+        }
+
+        private void CaptureCurrentKinemationPose(GameObject fpWeaponRoot, KinemationWeaponBinding binding) {
+            if(fpWeaponRoot == null || binding == null) return;
+            binding.useCustomViewmodelPose = true;
+            binding.viewmodelLocalPosition = fpWeaponRoot.transform.localPosition;
+            binding.viewmodelLocalEulerAngles = fpWeaponRoot.transform.localEulerAngles;
+        }
+
+        private void LogKinemationPose(WeaponData weaponData, KinemationWeaponBinding binding, string reason) {
+            if(!logKinemationViewmodelTuning || binding == null) return;
+            var weaponName = weaponData != null ? weaponData.weaponName : "<unknown>";
+            var mode = binding.useCustomViewmodelPose ? "Custom" : "Global";
+            var pos = binding.useCustomViewmodelPose ? binding.viewmodelLocalPosition : kinemationViewmodelLocalPosition;
+            var rot = binding.useCustomViewmodelPose ? binding.viewmodelLocalEulerAngles : kinemationViewmodelLocalEulerAngles;
+            Debug.Log(
+                $"[WeaponManager] {reason} for '{weaponName}' | Mode={mode} | Position={pos} | Rotation={rot}");
         }
 
         private void BuildKinemationWeaponLookup() {
@@ -186,6 +361,25 @@ namespace Game.Weapons {
 
             var kinemationCapacity = ResolveKinemationWeaponCapacity(kinemationBinding.kinemationWeaponPrefab);
             return kinemationCapacity > 0 ? kinemationCapacity : legacyCapacity;
+        }
+
+        private void ResolveKinemationViewmodelPose(KinemationWeaponBinding binding, out Vector3 localPosition,
+            out Vector3 localEulerAngles) {
+            if(binding != null && binding.useCustomViewmodelPose) {
+                localPosition = binding.viewmodelLocalPosition;
+                localEulerAngles = binding.viewmodelLocalEulerAngles;
+                return;
+            }
+
+            localPosition = kinemationViewmodelLocalPosition;
+            localEulerAngles = kinemationViewmodelLocalEulerAngles;
+        }
+
+        private void ApplyResolvedKinemationViewmodelPose(GameObject fpWeaponRoot, KinemationWeaponBinding binding) {
+            if(fpWeaponRoot == null) return;
+            ResolveKinemationViewmodelPose(binding, out var localPosition, out var localEulerAngles);
+            fpWeaponRoot.transform.localPosition = localPosition;
+            fpWeaponRoot.transform.localEulerAngles = localEulerAngles;
         }
 
         private static bool TryGetKinemationDriver(GameObject fpWeaponRoot, out KinemationFpWeaponDriver driver) {
@@ -269,8 +463,8 @@ namespace Game.Weapons {
             if(fp == null) return null;
 
             if(TryGetKinemationDriver(fp, out var kinemationDriver)) {
-                fp.transform.localPosition = kinemationViewmodelLocalPosition;
-                fp.transform.localEulerAngles = kinemationViewmodelLocalEulerAngles;
+                TryGetKinemationBindingForData(data, out var kinemationBinding);
+                ApplyResolvedKinemationViewmodelPose(fp, kinemationBinding);
                 fp.SetActive(true);
                 kinemationDriver.InitializeIfNeeded(GetFpWeaponLayer());
                 kinemationDriver.PlayEquipAnimation(immediate: !triggerPullOutAnimation);
@@ -810,6 +1004,13 @@ namespace Game.Weapons {
             if(IsOwner) {
                 var currentFpWeapon = GetCurrentFpWeapon();
                 if(currentFpWeapon != null) {
+                    if(CurrentWeaponIndex >= 0 && CurrentWeaponIndex < weaponDataList.Count &&
+                       TryGetKinemationDriver(currentFpWeapon, out _)) {
+                        var data = weaponDataList[CurrentWeaponIndex];
+                        TryGetKinemationBindingForData(data, out var kinemationBinding);
+                        ApplyResolvedKinemationViewmodelPose(currentFpWeapon, kinemationBinding);
+                    }
+
                     EnsureHierarchyActive(currentFpWeapon);
                     currentFpWeapon.SetActive(true);
 
@@ -1227,8 +1428,9 @@ namespace Game.Weapons {
 
                     var kinemationHolder = new GameObject("KinemationHolder");
                     kinemationHolder.transform.SetParent(kinemationBobHolder.transform, false);
-                    kinemationHolder.transform.localPosition = kinemationViewmodelLocalPosition;
-                    kinemationHolder.transform.localEulerAngles = kinemationViewmodelLocalEulerAngles;
+                    ResolveKinemationViewmodelPose(kinemationBinding, out var localPosition, out var localEulerAngles);
+                    kinemationHolder.transform.localPosition = localPosition;
+                    kinemationHolder.transform.localEulerAngles = localEulerAngles;
 
                     var disableWeaponSounds = disableKinemationSounds || disableKinemationWeaponSounds;
                     var disablePlayerSounds = disableKinemationSounds || disableKinemationPlayerSounds;
