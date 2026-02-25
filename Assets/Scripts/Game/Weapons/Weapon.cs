@@ -1591,10 +1591,6 @@ namespace Game.Weapons {
 
         [Rpc(SendTo.Everyone)]
         private void PlayShootAnimationServerRpc() {
-            if(playerController != null && playerController.IsOwner) {
-                return;
-            }
-
             if(_playerAnimator != null) {
                 _playerAnimator.SetTrigger(RecoilHash);
             }

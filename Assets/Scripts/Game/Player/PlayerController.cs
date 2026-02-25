@@ -100,6 +100,12 @@ namespace Game.Player {
         [SerializeField] private LayerMask weaponLayer;
         [SerializeField] private LayerMask hopballLayer;
 
+        [Header("KINEMATION Safeguards")]
+        [SerializeField] private bool disableKinemationFrameworkComponents = true;
+        [SerializeField] private bool disableOnlyKinemationFrameworkCameraComponents;
+        [SerializeField] private bool logKinemationFrameworkDisables;
+        [SerializeField] private bool disableUnexpectedChildCameras = true;
+
         #endregion
 
         #region Public Input Fields
@@ -113,6 +119,33 @@ namespace Game.Player {
         #endregion
 
         #region Private Fields
+
+        private const string KinemationFpsCameraControllerTypeName =
+            "KINEMATION.FPSAnimationFramework.Runtime.Camera.FPSCameraController";
+
+        private const string KinemationFpsCameraAnimationTypeName =
+            "KINEMATION.FPSAnimationFramework.Runtime.Camera.FPSCameraAnimation";
+
+        private const string KinemationFpsCameraShakeTypeName =
+            "KINEMATION.FPSAnimationFramework.Runtime.Camera.FPSCameraShake";
+
+        private const string KinemationFpsAnimatorTypeName =
+            "KINEMATION.FPSAnimationFramework.Runtime.Core.FPSAnimator";
+
+        private const string KinemationFpsBoneControllerTypeName =
+            "KINEMATION.FPSAnimationFramework.Runtime.Core.FPSBoneController";
+
+        private const string KinemationFpsPlayablesControllerTypeName =
+            "KINEMATION.FPSAnimationFramework.Runtime.Playables.FPSPlayablesController";
+
+        private const string KinemationFpsAnimatorEntityTypeName =
+            "KINEMATION.FPSAnimationFramework.Runtime.Core.FPSAnimatorEntity";
+
+        private const string KinemationUserInputControllerTypeName =
+            "KINEMATION.Shared.KAnimationCore.Runtime.Input.UserInputController";
+
+        private const string KinemationProceduralRecoilTypeName =
+            "KINEMATION.ProceduralRecoilAnimationSystem.Runtime.RecoilAnimation";
 
         private float _lastDeathTime; // Used for OOB check in Update()
         private float _ignoreOutOfBoundsUntilTime;
@@ -248,6 +281,9 @@ namespace Game.Player {
         #region Unity Lifecycle
 
         private void Awake() {
+            DisableConflictingKinemationFrameworkComponents();
+            DisableUnexpectedChildCamerasAndListeners();
+
             if(audioRelay == null) {
                 audioRelay = GetComponent<NetworkAudioRelay>();
             }
@@ -255,6 +291,8 @@ namespace Game.Player {
 
         public override void OnNetworkSpawn() {
             base.OnNetworkSpawn();
+            DisableConflictingKinemationFrameworkComponents();
+            DisableUnexpectedChildCamerasAndListeners();
 
             if (IsOwner) {
                 LocalPlayer = this;
@@ -334,6 +372,91 @@ namespace Game.Player {
                 if(playerShadow != null)
                     playerShadow.ApplyVisibleShadowState();
             }
+        }
+
+        private void DisableConflictingKinemationFrameworkComponents() {
+            if(!disableKinemationFrameworkComponents) return;
+
+            var behaviours = GetComponentsInChildren<MonoBehaviour>(true);
+            foreach(var behaviour in behaviours) {
+                if(behaviour == null || !behaviour.enabled) continue;
+                if(IsRuntimeKinemationFpViewmodelComponent(behaviour)) continue;
+
+                var type = behaviour.GetType();
+                var fullName = type.FullName;
+                if(string.IsNullOrEmpty(fullName)) continue;
+                if(!ShouldDisableKinemationFrameworkComponent(fullName)) continue;
+
+                behaviour.enabled = false;
+                if(logKinemationFrameworkDisables) {
+                    Debug.Log($"[PlayerController] Disabled conflicting KINEMATION framework component: {fullName}",
+                        behaviour);
+                }
+            }
+        }
+
+        private bool ShouldDisableKinemationFrameworkComponent(string fullTypeName) {
+            var isCameraComponent = fullTypeName == KinemationFpsCameraControllerTypeName ||
+                                    fullTypeName == KinemationFpsCameraAnimationTypeName ||
+                                    fullTypeName == KinemationFpsCameraShakeTypeName;
+
+            if(disableOnlyKinemationFrameworkCameraComponents) {
+                return isCameraComponent;
+            }
+
+            if(isCameraComponent) return true;
+
+            return fullTypeName == KinemationFpsAnimatorTypeName ||
+                   fullTypeName == KinemationFpsBoneControllerTypeName ||
+                   fullTypeName == KinemationFpsPlayablesControllerTypeName ||
+                   fullTypeName == KinemationFpsAnimatorEntityTypeName ||
+                   fullTypeName == KinemationUserInputControllerTypeName ||
+                   fullTypeName == KinemationProceduralRecoilTypeName;
+        }
+
+        private void DisableUnexpectedChildCamerasAndListeners() {
+            if(!disableUnexpectedChildCameras) return;
+
+            var cameras = GetComponentsInChildren<Camera>(true);
+            var activeWeaponCamera = weaponCamera;
+            if(activeWeaponCamera == null) {
+                foreach(var candidate in cameras) {
+                    if(candidate != null && candidate.gameObject.name == "WeaponCamera") {
+                        activeWeaponCamera = candidate;
+                        weaponCamera = candidate;
+                        break;
+                    }
+                }
+            }
+
+            foreach(var cameraComponent in cameras) {
+                if(cameraComponent == null || !cameraComponent.enabled) continue;
+                if(IsRuntimeKinemationFpViewmodelComponent(cameraComponent)) continue;
+                if(activeWeaponCamera != null && cameraComponent == activeWeaponCamera) continue;
+
+                cameraComponent.enabled = false;
+                if(logKinemationFrameworkDisables) {
+                    Debug.Log($"[PlayerController] Disabled unexpected child camera: {cameraComponent.name}",
+                        cameraComponent);
+                }
+            }
+
+            var listeners = GetComponentsInChildren<AudioListener>(true);
+            foreach(var listener in listeners) {
+                if(listener == null || !listener.enabled) continue;
+                if(IsRuntimeKinemationFpViewmodelComponent(listener)) continue;
+                if(audioListener != null && listener == audioListener) continue;
+
+                listener.enabled = false;
+                if(logKinemationFrameworkDisables) {
+                    Debug.Log($"[PlayerController] Disabled unexpected child audio listener: {listener.name}", listener);
+                }
+            }
+        }
+
+        private static bool IsRuntimeKinemationFpViewmodelComponent(Component component) {
+            if(component == null) return false;
+            return component.GetComponentInParent<KinemationFpWeaponDriver>(true) != null;
         }
 
         public override void OnNetworkDespawn() {
@@ -518,6 +641,12 @@ namespace Game.Player {
         /// Main update loop for core player logic, movement synchronization, and server validation.
         /// </summary>
         private void Update() {
+            if((disableKinemationFrameworkComponents || disableUnexpectedChildCameras) &&
+               (Time.frameCount & 15) == 0) {
+                DisableConflictingKinemationFrameworkComponents();
+                DisableUnexpectedChildCamerasAndListeners();
+            }
+
             if(IsServer) {
                 var authPos = clientNetworkTransform.transform.position;
                 ValidateServerMovement(authPos);

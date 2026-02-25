@@ -430,6 +430,39 @@ namespace Game.Weapons {
 
                 _worldWeaponByData[binding.WeaponData] = child.gameObject;
             }
+
+            // Fallback: if KIN world objects don't have explicit WorldWeaponBinding,
+            // resolve by matching child names against current loadout weapon identifiers.
+            if(weaponDataList == null || weaponDataList.Count == 0) return;
+
+            foreach(var data in weaponDataList) {
+                if(data == null || _worldWeaponByData.ContainsKey(data)) continue;
+                if(TryResolveWorldWeaponByName(data, out var worldWeaponObject)) {
+                    _worldWeaponByData[data] = worldWeaponObject;
+                }
+            }
+        }
+
+        private bool TryResolveWorldWeaponByName(WeaponData data, out GameObject worldWeaponObject) {
+            worldWeaponObject = null;
+            if(data == null || _worldWeaponSocket == null) return false;
+
+            var candidateNames = BuildWeaponNameCandidates(data);
+            if(candidateNames.Count == 0) return false;
+
+            foreach(Transform child in _worldWeaponSocket) {
+                if(child == null) continue;
+                var childName = NormalizeHolsterKey(child.name);
+                if(string.IsNullOrEmpty(childName)) continue;
+
+                foreach(var candidateName in candidateNames) {
+                    if(childName != candidateName) continue;
+                    worldWeaponObject = child.gameObject;
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private GameObject ResolveWorldWeaponObject(WeaponData data) {
@@ -1210,6 +1243,16 @@ namespace Game.Weapons {
             PrimaryHolster = ResolveHolsterForSlot(0, _primaryHolsterLookup);
             SecondaryHolster = ResolveHolsterForSlot(1, _secondaryHolsterLookup);
 
+            if(PrimaryHolster == null) {
+                PrimaryHolster = ResolveHolsterForSlotFallback(0);
+                RegisterHolsterObject(_primaryHolsterLookup, PrimaryHolster);
+            }
+
+            if(SecondaryHolster == null) {
+                SecondaryHolster = ResolveHolsterForSlotFallback(1);
+                RegisterHolsterObject(_secondaryHolsterLookup, SecondaryHolster);
+            }
+
             DisableHolster(PrimaryHolster);
             DisableHolster(SecondaryHolster);
         }
@@ -1266,22 +1309,84 @@ namespace Game.Weapons {
         private GameObject ResolveHolsterObject(WeaponData data, Dictionary<string, GameObject> lookup) {
             if(data == null || lookup == null || lookup.Count == 0) return null;
 
-            var names = new List<string>(3);
-            var resolvedWorld = ResolveWorldWeaponObject(data);
-            if(resolvedWorld != null && !string.IsNullOrEmpty(resolvedWorld.name)) {
-                names.Add(resolvedWorld.name);
-            }
-            if(!string.IsNullOrEmpty(data.weaponName)) names.Add(data.weaponName);
+            var names = BuildWeaponNameCandidates(data);
+            if(names.Count == 0) return null;
 
             foreach(var candidate in names) {
-                var key = NormalizeHolsterKey(candidate);
-                if(string.IsNullOrEmpty(key)) continue;
-                if(lookup.TryGetValue(key, out var go)) {
+                if(lookup.TryGetValue(candidate, out var go)) {
                     return go;
                 }
             }
 
             return null;
+        }
+
+        private GameObject ResolveHolsterForSlotFallback(int slot) {
+            var weaponData = GetWeaponDataForSlot(slot);
+            if(weaponData == null || playerController == null) return null;
+
+            var candidateNames = BuildWeaponNameCandidates(weaponData);
+            if(candidateNames.Count == 0) return null;
+
+            var playerRoot = playerController.transform;
+            if(playerRoot == null) return null;
+
+            var currentWorldWeapon = ResolveWorldWeaponObject(weaponData);
+            var allTransforms = playerRoot.GetComponentsInChildren<Transform>(true);
+            foreach(var t in allTransforms) {
+                if(t == null) continue;
+                if(t == playerRoot) continue;
+                if(_worldWeaponSocket != null && t.IsChildOf(_worldWeaponSocket)) continue;
+                if(_fpCamera != null && t.IsChildOf(_fpCamera.transform)) continue;
+                if(_weaponCamera != null && t.IsChildOf(_weaponCamera.transform)) continue;
+
+                var go = t.gameObject;
+                if(go == null) continue;
+                if(currentWorldWeapon != null && go == currentWorldWeapon) continue;
+                if(go.GetComponentInChildren<Renderer>(true) == null) continue;
+
+                var normalizedName = NormalizeHolsterKey(go.name);
+                if(string.IsNullOrEmpty(normalizedName)) continue;
+
+                foreach(var candidateName in candidateNames) {
+                    if(normalizedName != candidateName) continue;
+                    return go;
+                }
+            }
+
+            return null;
+        }
+
+        private List<string> BuildWeaponNameCandidates(WeaponData data) {
+            var names = new List<string>(3);
+            if(data == null) return names;
+
+            var resolvedWorld = _worldWeaponByData.TryGetValue(data, out var worldWeapon) ? worldWeapon : null;
+            if(resolvedWorld != null && !string.IsNullOrEmpty(resolvedWorld.name)) {
+                var key = NormalizeHolsterKey(resolvedWorld.name);
+                if(!string.IsNullOrEmpty(key)) {
+                    names.Add(key);
+                }
+            }
+
+            if(TryGetKinemationBindingForData(data, out var kinemationBinding) &&
+               kinemationBinding != null &&
+               kinemationBinding.kinemationWeaponPrefab != null &&
+               !string.IsNullOrEmpty(kinemationBinding.kinemationWeaponPrefab.name)) {
+                var key = NormalizeHolsterKey(kinemationBinding.kinemationWeaponPrefab.name);
+                if(!string.IsNullOrEmpty(key) && !names.Contains(key)) {
+                    names.Add(key);
+                }
+            }
+
+            if(!string.IsNullOrEmpty(data.weaponName)) {
+                var key = NormalizeHolsterKey(data.weaponName);
+                if(!string.IsNullOrEmpty(key) && !names.Contains(key)) {
+                    names.Add(key);
+                }
+            }
+
+            return names;
         }
 
         private static string NormalizeHolsterKey(string value) {
