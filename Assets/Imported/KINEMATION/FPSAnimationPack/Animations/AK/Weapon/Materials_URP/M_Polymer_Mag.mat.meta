@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: c0df2f8ab9991564e929b5fe2ce12740
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 308611
+  packageName: FPS Animation Pro
+  packageVersion: 3.1.0
+  assetPath: Assets/Imported/KINEMATION/FPSAnimationPack/Animations/AK/Weapon/Materials_URP/M_Polymer_Mag.mat
+  uploadId: 797610

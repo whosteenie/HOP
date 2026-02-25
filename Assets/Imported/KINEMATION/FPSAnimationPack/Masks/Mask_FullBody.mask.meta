@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: e5df057202f860245814897a7ec8f51f
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 31900000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 308611
+  packageName: FPS Animation Pro
+  packageVersion: 3.1.0
+  assetPath: Assets/Imported/KINEMATION/FPSAnimationPack/Masks/Mask_FullBody.mask
+  uploadId: 797610

@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 353f85254dc7cc9459de8edec5be77d3
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 308611
+  packageName: FPS Animation Pro
+  packageVersion: 3.1.0
+  assetPath: Assets/Imported/KINEMATION/FPSAnimationPack/Animations/AK/Weapon/Materials_URP/M_Mag_Translucent.mat
+  uploadId: 797610

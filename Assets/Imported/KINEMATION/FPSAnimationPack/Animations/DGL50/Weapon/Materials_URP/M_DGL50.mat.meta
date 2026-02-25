@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: c43ce7bd9c642da4c838e010aa78b8a7
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 308611
+  packageName: FPS Animation Pro
+  packageVersion: 3.1.0
+  assetPath: Assets/Imported/KINEMATION/FPSAnimationPack/Animations/DGL50/Weapon/Materials_URP/M_DGL50.mat
+  uploadId: 797610

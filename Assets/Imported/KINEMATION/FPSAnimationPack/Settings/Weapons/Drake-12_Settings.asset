@@ -1,0 +1,43 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 067a66f68d8440b2b8854c722342a2b2, type: 3}
+  m_Name: Drake-12_Settings
+  m_EditorClassIdentifier: 
+  characterController: {fileID: 22100000, guid: 0a8ded73ee53fb040a4ff44ea141ad0d,
+    type: 2}
+  recoilAnimData: {fileID: 11400000, guid: ffdb152eda02565429ca3224afa8113c, type: 2}
+  cameraShake: {fileID: 11400000, guid: 1edc38bdec62dc244accf1909cbfe27e, type: 2}
+  ikOffset: {x: 0, y: 0, z: 0}
+  leftClavicleOffset: {x: 0, y: 0, z: 0}
+  rightClavicleOffset: {x: 0, y: 0, z: 0}
+  aimPointOffset: {x: 0, y: 0, z: -0.15}
+  adsBlend: 0.512
+  fireRate: 400
+  ammo: 2
+  aimFov: 60
+  fullAuto: 0
+  useFireClip: 0
+  hasEquipOverride: 0
+  hasFireOut: 0
+  useSprintTriggerDiscipline: 1
+  fireSounds:
+  - {fileID: 8300000, guid: 0f60fe0a069471c48b975d405f927458, type: 3}
+  - {fileID: 8300000, guid: f7de465dbb59cef4b8122f099ed1a2c5, type: 3}
+  - {fileID: 8300000, guid: 6ce40419b819d22429cb25aa978deaef, type: 3}
+  - {fileID: 8300000, guid: 798011d9271991544929220f213e411c, type: 3}
+  firePitchRange: {x: 1, y: 1}
+  fireVolumeRange: {x: 1, y: 1}
+  weaponEventSounds:
+  - {fileID: 8300000, guid: c29a6313c34460c42a4732716d9b4352, type: 3}
+  - {fileID: 8300000, guid: 33c81dec7c2ebc148b73492be329ed63, type: 3}
+  - {fileID: 8300000, guid: 50aec8b70431f8446a0f87f25afceb19, type: 3}
+  - {fileID: 8300000, guid: a7fd8aa1a729edd41bfe0ef7a46cc31d, type: 3}

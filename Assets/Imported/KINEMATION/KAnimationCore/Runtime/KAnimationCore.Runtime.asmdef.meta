@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: d8548a9d25a091541a1fcde53694c91a
+AssemblyDefinitionImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 308611
+  packageName: FPS Animation Pro
+  packageVersion: 3.1.0
+  assetPath: Assets/Imported/KINEMATION/KAnimationCore/Runtime/KAnimationCore.Runtime.asmdef
+  uploadId: 797610

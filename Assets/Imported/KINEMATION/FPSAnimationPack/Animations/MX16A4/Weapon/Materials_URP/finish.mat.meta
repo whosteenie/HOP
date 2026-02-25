@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 8b5252f930dcf694ebf0a432b79fa105
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 239796
+  packageName: FPS Animation Lite
+  packageVersion: 3.1.0
+  assetPath: Assets/KINEMATION/FPSAnimationPack/Animations/MX16A4/Weapon/Materials_URP/finish.mat
+  uploadId: 797642

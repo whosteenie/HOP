@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 717be81c82c891a4a95a062500c16822
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 308611
+  packageName: FPS Animation Pro
+  packageVersion: 3.1.0
+  assetPath: Assets/Imported/KINEMATION/FPSAnimationPack/Animations/MPS5/Weapon/Materials_URP/finish_bright.mat
+  uploadId: 797610

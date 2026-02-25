@@ -1,0 +1,43 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 067a66f68d8440b2b8854c722342a2b2, type: 3}
+  m_Name: PDW90_Settings
+  m_EditorClassIdentifier: 
+  characterController: {fileID: 22100000, guid: 6ad61b5a3e0968341a9eee28d0396e3d,
+    type: 2}
+  recoilAnimData: {fileID: 11400000, guid: fd1f40b74ab8a7a4eb65ec01ce2b7400, type: 2}
+  cameraShake: {fileID: 11400000, guid: 06527ce2104021f4aa2134ee18d98d59, type: 2}
+  ikOffset: {x: 0, y: 0, z: 0}
+  leftClavicleOffset: {x: 0, y: 0, z: 0}
+  rightClavicleOffset: {x: 0, y: 0, z: 0}
+  aimPointOffset: {x: 0, y: 0, z: -0.3}
+  rightHandSprintOffset: {x: 0, y: 0, z: 0, w: 1}
+  adsBlend: 0.41
+  fireRate: 900
+  ammo: 50
+  aimFov: 70
+  ammoResetTimeScale: 0.35
+  fullAuto: 1
+  useFireClip: 0
+  hasEquipOverride: 0
+  hasFireOut: 0
+  useSprintTriggerDiscipline: 1
+  fireSounds:
+  - {fileID: 8300000, guid: 22823f7b0cf282a41936f89d745635e7, type: 3}
+  - {fileID: 8300000, guid: c02e95077a1c3b046be94cefe380fc55, type: 3}
+  - {fileID: 8300000, guid: b0f1c866aeb92d44cbd5ae9fc3647e98, type: 3}
+  - {fileID: 8300000, guid: 333a9df711dcbe34f85350d4c45a8cac, type: 3}
+  firePitchRange: {x: 0.96, y: 1.03}
+  fireVolumeRange: {x: 0.98, y: 1.02}
+  weaponEventSounds:
+  - {fileID: 8300000, guid: f723598c87da1b14b9bbed0eb4d6eab3, type: 3}
+  - {fileID: 8300000, guid: 6891f561b5133d3479c33aab268e31ee, type: 3}

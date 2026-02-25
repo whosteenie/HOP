@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: c95f974b623b4974cac4e26c5d0946da
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 22100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 308611
+  packageName: FPS Animation Pro
+  packageVersion: 3.1.0
+  assetPath: Assets/Imported/KINEMATION/FPSAnimationPack/Animations/RPG/Weapon/OC_W_RPG.overrideController
+  uploadId: 797610
