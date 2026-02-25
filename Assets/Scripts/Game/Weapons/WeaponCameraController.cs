@@ -49,6 +49,15 @@ namespace Game.Weapons {
         }
 
         private void SetupWeaponCamera() {
+            if(_weaponCamera == null) {
+                Debug.LogError("[WeaponCameraController] WeaponCamera reference missing on PlayerController.");
+                return;
+            }
+
+            var weaponCameraData = _weaponCamera.GetUniversalAdditionalCameraData();
+            if(weaponCameraData != null) {
+                weaponCameraData.renderType = CameraRenderType.Overlay;
+            }
 
             // Sync FOV with fpCamera
             if(_fpCamera != null) {
@@ -78,8 +87,20 @@ namespace Game.Weapons {
             }
 
             // Add weapon camera to main scene camera's camera stack
+            if(_mainSceneCamera == null || _mainSceneCamera == _weaponCamera) {
+                _mainSceneCamera = Camera.main;
+            }
+
+            if(_mainSceneCamera == null) {
+                Debug.LogWarning("[WeaponCameraController] Main scene camera not found; weapon overlay stack setup skipped.");
+                return;
+            }
+
             var mainCameraData = _mainSceneCamera.GetUniversalAdditionalCameraData();
-            if(mainCameraData == null) return;
+            if(mainCameraData == null) {
+                Debug.LogWarning("[WeaponCameraController] Main scene camera is missing UniversalAdditionalCameraData.");
+                return;
+            }
 
             // Remove from stack if already added (to avoid duplicates)
             if(mainCameraData.cameraStack.Contains(_weaponCamera)) {
