@@ -1709,11 +1709,11 @@ MonoBehaviour:
   kinemationFpsPlayerPrefab: {fileID: 8570207119589931229, guid: 768c189b4003a2f4ca463742b391d931, type: 3}
   kinemationWeaponBindings:
   - weaponData: {fileID: 11400000, guid: 4eec3005a01e4f03aaf9cfac2a48a1e8, type: 2}
-    kinemationWeaponPrefab: {fileID: 4032086537580138804, guid: 30c4d5711db263c4d8aa54889bae18db, type: 3}
+    kinemationWeaponPrefab: {fileID: 1131289991105794758, guid: 9ebf1fe96606c5849baa95d75f2d5ae4, type: 3}
     fallbackMuzzleLocalPosition: {x: 0, y: 0, z: 0}
     fallbackMuzzleLocalEulerAngles: {x: 0, y: 0, z: 0}
     useCustomViewmodelPose: 1
-    viewmodelLocalPosition: {x: 0.1949999, y: -1.732504, z: 0}
+    viewmodelLocalPosition: {x: 0.2749998, y: -1.802506, z: 0}
     viewmodelLocalEulerAngles: {x: 0, y: 0, z: 0}
   - weaponData: {fileID: 11400000, guid: 58844770ab904e84a813862b2db7fd76, type: 2}
     kinemationWeaponPrefab: {fileID: 472434944859137347, guid: 2c4c2d8e2bdf83143a1815ce7344a8eb, type: 3}
@@ -1737,11 +1737,11 @@ MonoBehaviour:
     viewmodelLocalPosition: {x: 0.2149999, y: -1.750006, z: 0}
     viewmodelLocalEulerAngles: {x: 0, y: 0, z: 0}
   - weaponData: {fileID: 11400000, guid: 3f5f1b8e34eaeb246920ba52ae126bac, type: 2}
-    kinemationWeaponPrefab: {fileID: 2249710175363591869, guid: 8e489e7f96cc8a844a939320b2d379d1, type: 3}
+    kinemationWeaponPrefab: {fileID: 1405136511983599699, guid: e3dc7986e8951ce4e8b9cf5cb7e738e2, type: 3}
     fallbackMuzzleLocalPosition: {x: 0, y: 0, z: 0}
     fallbackMuzzleLocalEulerAngles: {x: 0, y: 0, z: 0}
     useCustomViewmodelPose: 1
-    viewmodelLocalPosition: {x: 0.2149999, y: -1.750006, z: 0}
+    viewmodelLocalPosition: {x: 0.2374999, y: -1.762506, z: 0}
     viewmodelLocalEulerAngles: {x: 0, y: 0, z: 0}
   - weaponData: {fileID: 11400000, guid: 2b7084a16b81bca4989a38f03eae71b5, type: 2}
     kinemationWeaponPrefab: {fileID: 727220435377141568, guid: a3fc2663bfbfab94596da70beea6b979, type: 3}
