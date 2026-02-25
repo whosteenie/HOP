@@ -91,6 +91,9 @@ namespace Game.Weapons {
         private const float MuzzleLightTime = 5f;
         private float _fpLightOffTime;
         private float _worldLightOffTime;
+        [SerializeField] private bool debugMuzzleFlashLogging;
+        [SerializeField, Min(0f)] private float debugMuzzleFlashLogInterval = 0.1f;
+        private float _nextMuzzleFlashDebugTime;
 
         #region Private Fields
 
@@ -570,34 +573,6 @@ namespace Game.Weapons {
             if(fpCameraTransform == null) return false;
             muzzlePosition = fpCameraTransform.TransformPoint(fallbackOffset);
             return true;
-        }
-
-        private Quaternion ResolveMuzzleFxWorldRotation(Transform muzzleTransform, Vector3 directionHint,
-            bool useOwnerCameraForward, bool alignEmitterUpAxisToDirection) {
-            if(muzzleTransform == null) {
-                return transform.rotation;
-            }
-
-            var worldDirection = directionHint;
-            if(worldDirection.sqrMagnitude <= 0.0001f && useOwnerCameraForward && playerController != null &&
-               playerController.IsOwner) {
-                var cameraTransform = playerController.FpCameraTransform;
-                if(cameraTransform != null) {
-                    worldDirection = cameraTransform.forward;
-                }
-            }
-
-            if(worldDirection.sqrMagnitude <= 0.0001f) {
-                worldDirection = muzzleTransform.forward;
-            }
-
-            worldDirection.Normalize();
-
-            if(alignEmitterUpAxisToDirection) {
-                return Quaternion.FromToRotation(Vector3.up, worldDirection);
-            }
-
-            return Quaternion.LookRotation(worldDirection, muzzleTransform.up);
         }
 
         public Quaternion GetMuzzleRotation() {
@@ -1223,7 +1198,7 @@ namespace Game.Weapons {
 
         /// <summary>
         /// Play muzzle flash locally (owner only, FP)
-        /// Muzzle flash is parented to weapon muzzle so it follows the player when moving fast.
+        /// Muzzle flash tracks the weapon muzzle each frame to avoid drift while moving fast.
         /// </summary>
         private void PlayLocalMuzzleFlash() {
             PlayFireAnimationForCurrentWeapon();
@@ -1233,25 +1208,37 @@ namespace Game.Weapons {
             if(_currentWeaponData != null && _currentWeaponData.muzzleFlashPrefab != null) {
                 var useWorldParent = GameMenuManager.Instance != null && GameMenuManager.Instance.IsPostMatch;
                 if(TryGetPreferredMuzzleTransform(useWorldParent, out var muzzleTransform) && muzzleTransform != null) {
-                    var fxGo = Instantiate(_currentWeaponData.muzzleFlashPrefab, muzzleTransform);
-                    fxGo.transform.localPosition = Vector3.zero;
                     if(_kinemationFpWeaponDriver != null) {
-                        var desiredWorldRotation = ResolveMuzzleFxWorldRotation(
-                            muzzleTransform,
-                            Vector3.zero,
-                            useOwnerCameraForward: !useWorldParent,
-                            alignEmitterUpAxisToDirection: true
-                        );
-                        fxGo.transform.localRotation = Quaternion.Inverse(muzzleTransform.rotation) * desiredWorldRotation;
-                    } else {
-                        fxGo.transform.localRotation = Quaternion.identity;
-                    }
+                        var desiredWorldRotation = muzzleTransform.rotation;
 
-                    var fx = fxGo.GetComponent<VisualEffect>();
-                    if(fx != null) {
-                        fx.Play();
+                        // Spawn KIN FX in world-space, then follow muzzle transform each frame.
+                        // This keeps legacy-like muzzle orientation without inheriting potentially problematic parent scale.
+                        var fxGo = Instantiate(_currentWeaponData.muzzleFlashPrefab, muzzleTransform.position,
+                            desiredWorldRotation);
+                        AttachMuzzleFollow(fxGo, muzzleTransform, followRotation: true);
+                        ApplyLayerRecursive(fxGo, muzzleTransform.gameObject.layer);
+                        LogMuzzleFlashDebug("Local/KIN", muzzleTransform, fxGo.transform.position, desiredWorldRotation,
+                            _kinemationFpWeaponDriver.IsUsingGeneratedMuzzleFallback(), fxGo.layer);
+
+                        var fx = fxGo.GetComponent<VisualEffect>();
+                        if(fx != null) {
+                            fx.Play();
+                        }
+                        Destroy(fxGo, 1f);
+                    } else {
+                        var fxGo = Instantiate(_currentWeaponData.muzzleFlashPrefab, muzzleTransform);
+                        fxGo.transform.localPosition = Vector3.zero;
+                        fxGo.transform.localRotation = Quaternion.identity;
+                        ApplyLayerRecursive(fxGo, muzzleTransform.gameObject.layer);
+                        LogMuzzleFlashDebug("Local/Legacy", muzzleTransform, fxGo.transform.position,
+                            fxGo.transform.rotation, false, fxGo.layer);
+
+                        var fx = fxGo.GetComponent<VisualEffect>();
+                        if(fx != null) {
+                            fx.Play();
+                        }
+                        Destroy(fxGo, 1f);
                     }
-                    Destroy(fxGo, 1f);
                 }
             }
 
@@ -1270,7 +1257,7 @@ namespace Game.Weapons {
         /// <summary>
         /// Play muzzle flash from network (non-owners only, 3P)
         /// Called via NetworkFxRelay RPC
-        /// Muzzle flash is parented to weapon muzzle so it follows the player when moving fast.
+        /// Muzzle flash tracks the weapon muzzle each frame to avoid drift while moving fast.
         /// </summary>
         public void PlayNetworkedMuzzleFlash(Vector3 endPoint) {
             // NON-OWNER ONLY: Play 3P world muzzle flash
@@ -1278,31 +1265,115 @@ namespace Game.Weapons {
                _currentWeaponData.muzzleFlashPrefab != null &&
                TryGetPreferredMuzzleTransform(true, out var muzzleTransform) &&
                muzzleTransform != null) {
-                var fxGo = Instantiate(_currentWeaponData.muzzleFlashPrefab, muzzleTransform);
-                fxGo.transform.localPosition = Vector3.zero;
                 if(_kinemationFpWeaponDriver != null) {
-                    var directionHint = endPoint - muzzleTransform.position;
-                    var desiredWorldRotation = ResolveMuzzleFxWorldRotation(
-                        muzzleTransform,
-                        directionHint,
-                        useOwnerCameraForward: false,
-                        alignEmitterUpAxisToDirection: true
-                    );
-                    fxGo.transform.localRotation = Quaternion.Inverse(muzzleTransform.rotation) * desiredWorldRotation;
-                } else {
-                    fxGo.transform.localRotation = Quaternion.identity;
-                }
+                    var desiredWorldRotation = muzzleTransform.rotation;
 
-                var fx = fxGo.GetComponent<VisualEffect>();
-                if(fx != null) {
-                    fx.Play();
+                    var fxGo = Instantiate(_currentWeaponData.muzzleFlashPrefab, muzzleTransform.position,
+                        desiredWorldRotation);
+                    AttachMuzzleFollow(fxGo, muzzleTransform, followRotation: true);
+                    ApplyLayerRecursive(fxGo, muzzleTransform.gameObject.layer);
+                    LogMuzzleFlashDebug("Networked/KIN", muzzleTransform, fxGo.transform.position, desiredWorldRotation,
+                        _kinemationFpWeaponDriver.IsUsingGeneratedMuzzleFallback(), fxGo.layer);
+
+                    var fx = fxGo.GetComponent<VisualEffect>();
+                    if(fx != null) {
+                        fx.Play();
+                    }
+                    Destroy(fxGo, 1f);
+                } else {
+                    var fxGo = Instantiate(_currentWeaponData.muzzleFlashPrefab, muzzleTransform);
+                    fxGo.transform.localPosition = Vector3.zero;
+                    fxGo.transform.localRotation = Quaternion.identity;
+                    ApplyLayerRecursive(fxGo, muzzleTransform.gameObject.layer);
+                    LogMuzzleFlashDebug("Networked/Legacy", muzzleTransform, fxGo.transform.position,
+                        fxGo.transform.rotation, false, fxGo.layer);
+
+                    var fx = fxGo.GetComponent<VisualEffect>();
+                    if(fx != null) {
+                        fx.Play();
+                    }
+                    Destroy(fxGo, 1f);
                 }
-                Destroy(fxGo, 1f);
             }
 
             if(!_worldMuzzleLight) return;
             _worldMuzzleLight.SetActive(true);
             _worldLightOffTime = Time.time + MuzzleLightTime;
+        }
+
+        private void LogMuzzleFlashDebug(string context, Transform muzzleTransform, Vector3 spawnPosition,
+            Quaternion spawnRotation, bool usingFallbackRotation, int fxLayer) {
+            if(!debugMuzzleFlashLogging) return;
+            if(Time.time < _nextMuzzleFlashDebugTime) return;
+            _nextMuzzleFlashDebugTime = Time.time + Mathf.Max(0f, debugMuzzleFlashLogInterval);
+
+            var cameraTransform = playerController != null ? playerController.FpCameraTransform : null;
+            var cameraForward = cameraTransform != null ? cameraTransform.forward : Vector3.forward;
+            var cameraPosition = cameraTransform != null ? cameraTransform.position : Vector3.zero;
+            var muzzleForward = muzzleTransform != null ? muzzleTransform.forward : Vector3.forward;
+            var muzzlePosition = muzzleTransform != null ? muzzleTransform.position : Vector3.zero;
+            var muzzleScale = muzzleTransform != null ? muzzleTransform.lossyScale : Vector3.one;
+            var muzzlePath = _kinemationFpWeaponDriver != null
+                ? _kinemationFpWeaponDriver.GetMuzzleTransformPath()
+                : BuildTransformPath(muzzleTransform);
+
+            Debug.Log(
+                $"[Weapon][MuzzleDebug] {context} weapon='{(_currentWeaponData != null ? _currentWeaponData.weaponName : "<null>")}' " +
+                $"muzzlePath='{muzzlePath}' muzzlePos={muzzlePosition} spawnPos={spawnPosition} " +
+                $"muzzleFwd={muzzleForward} camPos={cameraPosition} camFwd={cameraForward} " +
+                $"spawnEuler={spawnRotation.eulerAngles} fallbackRot={usingFallbackRotation} " +
+                $"muzzleScale={muzzleScale} muzzleLayer={muzzleTransform.gameObject.layer} fxLayer={fxLayer}");
+        }
+
+        private static string BuildTransformPath(Transform t) {
+            if(t == null) return "<null>";
+            var path = t.name;
+            var current = t.parent;
+            while(current != null) {
+                path = $"{current.name}/{path}";
+                current = current.parent;
+            }
+
+            return path;
+        }
+
+        private static void ApplyLayerRecursive(GameObject root, int layer) {
+            if(root == null) return;
+            root.layer = layer;
+            foreach(Transform child in root.transform) {
+                if(child != null) {
+                    ApplyLayerRecursive(child.gameObject, layer);
+                }
+            }
+        }
+
+        private static void AttachMuzzleFollow(GameObject fxGo, Transform muzzleTransform, bool followRotation) {
+            if(fxGo == null || muzzleTransform == null) return;
+
+            var follower = fxGo.GetComponent<MuzzleFlashFollow>();
+            if(follower == null) {
+                follower = fxGo.AddComponent<MuzzleFlashFollow>();
+            }
+
+            follower.Bind(muzzleTransform, followRotation);
+        }
+
+        private sealed class MuzzleFlashFollow : MonoBehaviour {
+            private Transform _muzzleTransform;
+            private bool _followRotation;
+
+            public void Bind(Transform muzzleTransform, bool followRotation) {
+                _muzzleTransform = muzzleTransform;
+                _followRotation = followRotation;
+            }
+
+            private void LateUpdate() {
+                if(_muzzleTransform == null) return;
+                transform.position = _muzzleTransform.position;
+                if(_followRotation) {
+                    transform.rotation = _muzzleTransform.rotation;
+                }
+            }
         }
 
         public void SpawnTracerLocal(Vector3 start, Vector3 end, Vector3 hitNormal, bool madeImpact, bool hitPlayer, NetworkObjectReference hitPlayerRef = default) {

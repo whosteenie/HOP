@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Reflection;
+using System.Text;
 using KINEMATION.FPSAnimationPack.Scripts.Camera;
 using KINEMATION.FPSAnimationPack.Scripts.Player;
 using KINEMATION.FPSAnimationPack.Scripts.Sounds;
@@ -17,6 +18,7 @@ namespace Game.Weapons {
         [SerializeField] private bool disableKinemationPlayerSounds = true;
         [SerializeField] private bool tagArmsForLegacyHooks;
         [SerializeField] private string armRootName = "SK_Arms_Mono";
+        [SerializeField] private bool requireExplicitMuzzleTransform = true;
         [SerializeField] private Vector3 fallbackMuzzleLocalPosition = Vector3.zero;
         [SerializeField] private Vector3 fallbackMuzzleLocalEulerAngles = Vector3.zero;
         [SerializeField] private bool autoComputeMuzzleFromWeaponBounds = true;
@@ -33,6 +35,7 @@ namespace Game.Weapons {
         private Animator _fpsAnimator;
         private FPSWeapon _activeWeapon;
         private Transform _muzzleTransform;
+        private bool _isUsingGeneratedMuzzleFallback;
         private AudioSource _weaponAudioSource;
         private int _renderLayer = -1;
         private bool _hasWarnedFallbackMuzzle;
@@ -43,6 +46,7 @@ namespace Game.Weapons {
         private int _pendingReloadSingleEvents;
         private float _reloadTrackStartTime;
         private float _lastReloadSignalTime;
+        private bool _hasLoggedMuzzleSelection;
         private const float ReloadEnterGraceSeconds = 0.2f;
         private const float ReloadSignalGraceSeconds = 0.25f;
 
@@ -230,6 +234,16 @@ namespace Game.Weapons {
             return _muzzleTransform;
         }
 
+        public bool IsUsingGeneratedMuzzleFallback() {
+            TryCacheActiveWeapon();
+            return _isUsingGeneratedMuzzleFallback;
+        }
+
+        public string GetMuzzleTransformPath() {
+            TryCacheActiveWeapon();
+            return BuildTransformPath(_muzzleTransform);
+        }
+
         public bool AreKinemationSoundsEnabled() {
             if(disableKinemationWeaponSounds) {
                 return false;
@@ -396,15 +410,35 @@ namespace Game.Weapons {
             if(activeWeapon == null) return null;
 
             var transforms = activeWeapon.GetComponentsInChildren<Transform>(true);
-            foreach(var t in transforms) {
-                if(t != null && t.name == "Muzzle") {
-                    return t;
+            var explicitMuzzle = ResolveBestExplicitMuzzleCandidate(activeWeapon, transforms, out var candidateCount);
+            if(explicitMuzzle != null) {
+                _isUsingGeneratedMuzzleFallback = false;
+                if(!_hasLoggedMuzzleSelection) {
+                    _hasLoggedMuzzleSelection = true;
+                    var candidateSuffix = candidateCount > 1 ? $" (selected among {candidateCount} candidates)" : string.Empty;
+                    Debug.Log(
+                        $"[KinemationFpWeaponDriver] Muzzle selected for '{activeWeapon.name}'{candidateSuffix}: {BuildTransformPath(explicitMuzzle)}");
                 }
+
+                return explicitMuzzle;
+            }
+
+            if(requireExplicitMuzzleTransform) {
+                if(!_hasWarnedFallbackMuzzle) {
+                    _hasWarnedFallbackMuzzle = true;
+                    Debug.LogWarning(
+                        $"[KinemationFpWeaponDriver] Weapon '{activeWeapon.name}' has no explicit 'Muzzle' transform. " +
+                        "Muzzle-dependent FX are disabled for this weapon until a Muzzle child transform is added.");
+                }
+
+                _isUsingGeneratedMuzzleFallback = true;
+                return null;
             }
 
             if(activeWeapon.aimPoint != null) {
                 var existingMuzzle = activeWeapon.aimPoint.Find("Muzzle");
                 if(existingMuzzle != null) {
+                    _isUsingGeneratedMuzzleFallback = false;
                     return existingMuzzle;
                 }
 
@@ -424,10 +458,69 @@ namespace Game.Weapons {
                         $"[KinemationFpWeaponDriver] Weapon '{activeWeapon.name}' has no explicit 'Muzzle' transform. " +
                         "Using AimPoint fallback; add a Muzzle child on the KIN weapon prefab for precise muzzle FX.");
                 }
+                _isUsingGeneratedMuzzleFallback = true;
                 return fallback;
             }
 
+            _isUsingGeneratedMuzzleFallback = true;
             return activeWeapon.transform;
+        }
+
+        private static Transform ResolveBestExplicitMuzzleCandidate(FPSWeapon activeWeapon, Transform[] transforms,
+            out int candidateCount) {
+            candidateCount = 0;
+            if(activeWeapon == null || transforms == null || transforms.Length == 0) return null;
+
+            var candidates = new List<Transform>();
+            foreach(var t in transforms) {
+                if(t != null && t.name == "Muzzle") {
+                    candidates.Add(t);
+                }
+            }
+
+            candidateCount = candidates.Count;
+            if(candidateCount == 0) return null;
+            if(candidateCount == 1) return candidates[0];
+
+            var aimPoint = activeWeapon.aimPoint;
+            if(aimPoint == null) {
+                return candidates[0];
+            }
+
+            Transform best = null;
+            var bestScore = float.NegativeInfinity;
+            for(var i = 0; i < candidates.Count; i++) {
+                var candidate = candidates[i];
+                if(candidate == null) continue;
+
+                var offset = candidate.position - aimPoint.position;
+                var forwardScore = Vector3.Dot(aimPoint.forward, offset);
+                var lateralDistance = Vector3.Cross(aimPoint.forward, offset).magnitude;
+                var score = forwardScore - (lateralDistance * 0.05f);
+
+                if(candidate.IsChildOf(aimPoint)) {
+                    score -= 0.25f;
+                }
+
+                if(score <= bestScore) continue;
+                bestScore = score;
+                best = candidate;
+            }
+
+            return best != null ? best : candidates[0];
+        }
+
+        private static string BuildTransformPath(Transform t) {
+            if(t == null) return "<null>";
+            var builder = new StringBuilder(t.name);
+            var cursor = t.parent;
+            while(cursor != null) {
+                builder.Insert(0, '/');
+                builder.Insert(0, cursor.name);
+                cursor = cursor.parent;
+            }
+
+            return builder.ToString();
         }
 
         private bool TryCacheActiveWeapon() {

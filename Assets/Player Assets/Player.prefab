@@ -1791,6 +1791,8 @@ MonoBehaviour:
   currentAmmo: 0
   netCurrentDamageMultiplier:
     m_InternalValue: 1
+  debugMuzzleFlashLogging: 1
+  debugMuzzleFlashLogInterval: 0.1
 --- !u!114 &8382341124825033876
 MonoBehaviour:
   m_ObjectHideFlags: 0
