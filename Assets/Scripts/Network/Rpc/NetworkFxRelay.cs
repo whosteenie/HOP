@@ -59,7 +59,7 @@ namespace Network.Rpc {
 
             // Play FX
             if(playMuzzleFlash) {
-                weapon.PlayNetworkedMuzzleFlash();
+                weapon.PlayNetworkedMuzzleFlash(endPoint);
             }
 
             // For non-owners, trails should start at the visible world muzzle.

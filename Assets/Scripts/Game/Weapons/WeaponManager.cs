@@ -5,6 +5,7 @@ using Game.Player;
 using Game.Menu;
 using Game.Settings;
 using Game.UI;
+using KINEMATION.FPSAnimationPack.Scripts.Weapon;
 using Network.AntiCheat;
 using Network.Diagnostics;
 using Network.Events;
@@ -19,6 +20,8 @@ namespace Game.Weapons {
         private class KinemationWeaponBinding {
             public WeaponData weaponData;
             public GameObject kinemationWeaponPrefab;
+            public Vector3 fallbackMuzzleLocalPosition = Vector3.zero;
+            public Vector3 fallbackMuzzleLocalEulerAngles = Vector3.zero;
         }
 
         [SerializeField] private PlayerController playerController;
@@ -44,7 +47,20 @@ namespace Game.Weapons {
         [SerializeField] private bool useKinemationFpAnimations;
         [SerializeField] private GameObject kinemationFpsPlayerPrefab;
         [SerializeField] private List<KinemationWeaponBinding> kinemationWeaponBindings = new();
-        [SerializeField] private bool disableKinemationSounds = true;
+        [SerializeField] private bool disableKinemationSounds = true; // Legacy fallback: disables both weapon and player sounds.
+        [SerializeField] private bool disableKinemationWeaponSounds;
+        [SerializeField] private bool disableKinemationPlayerSounds = true;
+        [SerializeField] private bool syncKinemationLookPitchWithPlayer;
+        [SerializeField] private bool syncKinemationAirborneState;
+        [SerializeField] private bool freezeKinemationLocomotionInAir = true;
+        [SerializeField] private bool forceKinemationWalkAnimationWhileSprinting = true;
+        [SerializeField, Range(0f, 1.99f)] private float kinemationSprintWalkGaitValue = 1.2f;
+        [SerializeField] private bool autoAlignKinemationMuzzleToBounds = true;
+        [SerializeField] private bool useLegacyBobOnKinemationViewmodel = true;
+        [SerializeField] private bool legacyKinemationMovementBob;
+        [SerializeField] private bool legacyKinemationIdleBreathBob;
+        [SerializeField] private bool legacyKinemationJumpFallBob = true;
+        [SerializeField] private bool legacyKinemationLandingBob = true;
         [SerializeField] private bool tagKinemationArmsForLegacyHooks;
         [SerializeField] private bool autoCompleteKinemationPullOut = true;
         [SerializeField, Min(0f)] private float kinemationPullOutCompleteDelay = 0.12f;
@@ -53,7 +69,7 @@ namespace Game.Weapons {
 
         private readonly List<GameObject> _fpWeaponInstances = new();
         private readonly Dictionary<int, int> _weaponAmmo = new();
-        private readonly Dictionary<WeaponData, GameObject> _kinemationWeaponLookup = new();
+        private readonly Dictionary<WeaponData, KinemationWeaponBinding> _kinemationWeaponLookup = new();
         private GameObject _pendingTpWeapon; // Track pending TP weapon to show via animation event
         private class ServerWeaponState {
             public float LastShotTime;
@@ -121,12 +137,12 @@ namespace Game.Weapons {
 
             foreach(var binding in kinemationWeaponBindings) {
                 if(binding == null || binding.weaponData == null || binding.kinemationWeaponPrefab == null) continue;
-                _kinemationWeaponLookup[binding.weaponData] = binding.kinemationWeaponPrefab;
+                _kinemationWeaponLookup[binding.weaponData] = binding;
             }
         }
 
-        private bool ShouldUseKinemationForWeapon(WeaponData data, out GameObject kinemationWeaponPrefab) {
-            kinemationWeaponPrefab = null;
+        private bool ShouldUseKinemationForWeapon(WeaponData data, out KinemationWeaponBinding kinemationBinding) {
+            kinemationBinding = null;
             if(!IsOwner || !useKinemationFpAnimations) return false;
             if(kinemationFpsPlayerPrefab == null || data == null) return false;
 
@@ -134,8 +150,42 @@ namespace Game.Weapons {
                 BuildKinemationWeaponLookup();
             }
 
-            return _kinemationWeaponLookup.TryGetValue(data, out kinemationWeaponPrefab) &&
-                   kinemationWeaponPrefab != null;
+            return _kinemationWeaponLookup.TryGetValue(data, out kinemationBinding) &&
+                   kinemationBinding != null &&
+                   kinemationBinding.kinemationWeaponPrefab != null;
+        }
+
+        private bool TryGetKinemationBindingForData(WeaponData data, out KinemationWeaponBinding kinemationBinding) {
+            kinemationBinding = null;
+            if(!useKinemationFpAnimations) return false;
+            if(kinemationFpsPlayerPrefab == null || data == null) return false;
+
+            if(_kinemationWeaponLookup.Count == 0) {
+                BuildKinemationWeaponLookup();
+            }
+
+            return _kinemationWeaponLookup.TryGetValue(data, out kinemationBinding) &&
+                   kinemationBinding != null &&
+                   kinemationBinding.kinemationWeaponPrefab != null;
+        }
+
+        private static int ResolveKinemationWeaponCapacity(GameObject kinemationWeaponPrefab) {
+            if(kinemationWeaponPrefab == null) return 0;
+            var fpsWeapon = kinemationWeaponPrefab.GetComponentInChildren<FPSWeapon>(true);
+            if(fpsWeapon == null || fpsWeapon.weaponSettings == null) return 0;
+            return Mathf.Max(1, fpsWeapon.weaponSettings.ammo);
+        }
+
+        private int ResolveWeaponCapacity(WeaponData data) {
+            if(data == null) return 1;
+
+            var legacyCapacity = Mathf.Max(1, data.magSize);
+            if(!TryGetKinemationBindingForData(data, out var kinemationBinding)) {
+                return legacyCapacity;
+            }
+
+            var kinemationCapacity = ResolveKinemationWeaponCapacity(kinemationBinding.kinemationWeaponPrefab);
+            return kinemationCapacity > 0 ? kinemationCapacity : legacyCapacity;
         }
 
         private static bool TryGetKinemationDriver(GameObject fpWeaponRoot, out KinemationFpWeaponDriver driver) {
@@ -252,16 +302,19 @@ namespace Game.Weapons {
             CurrentWorldWeaponInstance = null;
         }
 
-        private int ResolveRestoredAmmo(int weaponIndex, int magSize, bool seedWhenMissing) {
+        private int ResolveRestoredAmmo(int weaponIndex, int magCapacity, bool seedWhenMissing) {
+            var clampedCapacity = Mathf.Max(1, magCapacity);
             if(_weaponAmmo.TryGetValue(weaponIndex, out var storedAmmo)) {
-                return storedAmmo;
+                var clampedStored = Mathf.Clamp(storedAmmo, 0, clampedCapacity);
+                _weaponAmmo[weaponIndex] = clampedStored;
+                return clampedStored;
             }
 
             if(seedWhenMissing) {
-                _weaponAmmo[weaponIndex] = magSize;
+                _weaponAmmo[weaponIndex] = clampedCapacity;
             }
 
-            return magSize;
+            return clampedCapacity;
         }
 
         private void RefreshOwnerHolsterShadowState() {
@@ -416,11 +469,12 @@ namespace Game.Weapons {
             QueuePendingTpWeapon(data);
 
             // Restore ammo (fallback to mag size if somehow missing)
-            var restoredAmmo = ResolveRestoredAmmo(CurrentWeaponIndex, data.magSize, seedWhenMissing: false);
+            var magCapacity = ResolveWeaponCapacity(data);
+            var restoredAmmo = ResolveRestoredAmmo(CurrentWeaponIndex, magCapacity, seedWhenMissing: false);
 
             // Update weapon data immediately (no waiting for animations)
             // Pass null for worldWeaponInstance since it's not shown yet - will be set when TP weapon is shown
-            CurrentWeapon.SwitchToWeapon(data, fp, null, restoredAmmo);
+            CurrentWeapon.SwitchToWeapon(data, fp, null, restoredAmmo, magCapacity);
             ReportAmmoSync(CurrentWeaponIndex, restoredAmmo);
 
             // Set pulling out state
@@ -456,13 +510,15 @@ namespace Game.Weapons {
             if(CurrentWeapon != null && CurrentWeaponIndex >= 0) {
                 var data = weaponDataList[CurrentWeaponIndex];
                 var fpWeapon = _fpWeaponInstances[CurrentWeaponIndex];
-                var restoredAmmo = ResolveRestoredAmmo(CurrentWeaponIndex, data.magSize, seedWhenMissing: false);
+                var magCapacity = ResolveWeaponCapacity(data);
+                var restoredAmmo = ResolveRestoredAmmo(CurrentWeaponIndex, magCapacity, seedWhenMissing: false);
 
                 CurrentWeapon.SwitchToWeapon(
                     data,
                     fpWeapon,
                     _pendingTpWeapon,
-                    restoredAmmo
+                    restoredAmmo,
+                    magCapacity
                 );
             }
 
@@ -581,7 +637,12 @@ namespace Game.Weapons {
 
         private void EnsureWeaponHierarchyActive() {
             if(CurrentWorldWeaponInstance == null) return;
-            var parent = CurrentWorldWeaponInstance.transform;
+            EnsureHierarchyActive(CurrentWorldWeaponInstance);
+        }
+
+        private static void EnsureHierarchyActive(GameObject instanceRoot) {
+            if(instanceRoot == null) return;
+            var parent = instanceRoot.transform;
             while(parent != null) {
                 if(!parent.gameObject.activeSelf) {
                     parent.gameObject.SetActive(true);
@@ -625,7 +686,8 @@ namespace Game.Weapons {
             for(var i = 0; i < weaponDataList.Count; i++) {
                 var data = weaponDataList[i];
                 if(data != null) {
-                    _weaponAmmo[i] = Mathf.Clamp(data.magSize, 0, int.MaxValue);
+                    var magCapacity = ResolveWeaponCapacity(data);
+                    _weaponAmmo[i] = Mathf.Clamp(magCapacity, 0, int.MaxValue);
                 }
             }
         }
@@ -640,10 +702,11 @@ namespace Game.Weapons {
 
             var data = weaponDataList[CurrentWeaponIndex];
             if(data == null) return;
+            var magCapacity = ResolveWeaponCapacity(data);
 
             _weaponAmmo[CurrentWeaponIndex] = 0;
             UpdateServerAmmo(CurrentWeaponIndex, 0);
-            ApplyDrainedAmmoOwnerClientRpc(CurrentWeaponIndex, 0, data.magSize);
+            ApplyDrainedAmmoOwnerClientRpc(CurrentWeaponIndex, 0, magCapacity);
         }
 
         [Rpc(SendTo.Owner)]
@@ -738,6 +801,24 @@ namespace Game.Weapons {
             if(CurrentWorldWeaponInstance != null) {
                 EnsureWeaponHierarchyActive();
                 EnsureWorldWeaponShadowState();
+
+                if(IsOwner && _playerRenderer != null) {
+                    _playerRenderer.SetWorldWeaponRenderersEnabled(true);
+                }
+            }
+
+            if(IsOwner) {
+                var currentFpWeapon = GetCurrentFpWeapon();
+                if(currentFpWeapon != null) {
+                    EnsureHierarchyActive(currentFpWeapon);
+                    currentFpWeapon.SetActive(true);
+
+                    SetupFpWeaponSkinnedMeshRenderers(currentFpWeapon);
+                    if(_playerRenderer != null) {
+                        _playerRenderer.SetFpWeaponRenderersEnabled(true, currentFpWeapon);
+                        _playerRenderer.SetFpWeaponSkinnedRenderersEnabled(true, currentFpWeapon);
+                    }
+                }
             }
 
             _deferTpRevealUntilRespawn = false;
@@ -793,14 +874,16 @@ namespace Game.Weapons {
             }
 
             // ---- AMMO ----
-            var restoredAmmo = ResolveRestoredAmmo(index, data.magSize, seedWhenMissing: true);
+            var magCapacity = ResolveWeaponCapacity(data);
+            var restoredAmmo = ResolveRestoredAmmo(index, magCapacity, seedWhenMissing: true);
 
             // This sets weapon data, ammo, HUD, muzzle lights, etc.
             CurrentWeapon.SwitchToWeapon(
                 data,
                 fp,
                 worldWeaponInstance,
-                restoredAmmo
+                restoredAmmo,
+                magCapacity
             );
 
             ReportAmmoSync(CurrentWeaponIndex, restoredAmmo);
@@ -1122,7 +1205,7 @@ namespace Game.Weapons {
                     continue;
                 }
 
-                if(ShouldUseKinemationForWeapon(data, out var kinemationWeaponPrefab)) {
+                if(ShouldUseKinemationForWeapon(data, out var kinemationBinding)) {
                     var kinemationSwayHolder = new GameObject("SwayHolder");
                     kinemationSwayHolder.transform.SetParent(_fpCamera.transform, false);
                     kinemationSwayHolder.transform.localPosition = Vector3.zero;
@@ -1132,18 +1215,39 @@ namespace Game.Weapons {
                     kinemationBobHolder.transform.SetParent(kinemationSwayHolder.transform, false);
                     kinemationBobHolder.transform.localPosition = Vector3.zero;
                     kinemationBobHolder.transform.localEulerAngles = Vector3.zero;
+                    if(useLegacyBobOnKinemationViewmodel) {
+                        var legacyBob = kinemationBobHolder.AddComponent<WeaponBob>();
+                        legacyBob.ConfigureFeatures(
+                            legacyKinemationMovementBob,
+                            legacyKinemationIdleBreathBob,
+                            legacyKinemationJumpFallBob,
+                            legacyKinemationLandingBob
+                        );
+                    }
 
                     var kinemationHolder = new GameObject("KinemationHolder");
                     kinemationHolder.transform.SetParent(kinemationBobHolder.transform, false);
                     kinemationHolder.transform.localPosition = kinemationViewmodelLocalPosition;
                     kinemationHolder.transform.localEulerAngles = kinemationViewmodelLocalEulerAngles;
 
+                    var disableWeaponSounds = disableKinemationSounds || disableKinemationWeaponSounds;
+                    var disablePlayerSounds = disableKinemationSounds || disableKinemationPlayerSounds;
+
                     var kinemationDriver = kinemationHolder.AddComponent<KinemationFpWeaponDriver>();
                     kinemationDriver.Configure(
                         kinemationFpsPlayerPrefab,
-                        kinemationWeaponPrefab,
-                        disableKinemationSounds,
-                        tagKinemationArmsForLegacyHooks
+                        kinemationBinding.kinemationWeaponPrefab,
+                        disableWeaponSounds,
+                        disablePlayerSounds,
+                        tagKinemationArmsForLegacyHooks,
+                        kinemationBinding.fallbackMuzzleLocalPosition,
+                        kinemationBinding.fallbackMuzzleLocalEulerAngles,
+                        syncKinemationLookPitchWithPlayer,
+                        syncKinemationAirborneState,
+                        freezeKinemationLocomotionInAir,
+                        autoAlignKinemationMuzzleToBounds,
+                        forceKinemationWalkAnimationWhileSprinting,
+                        kinemationSprintWalkGaitValue
                     );
 
                     var fpLayer = GetFpWeaponLayer();
@@ -1153,7 +1257,7 @@ namespace Game.Weapons {
 
                     kinemationHolder.SetActive(false);
                     _fpWeaponInstances.Add(kinemationHolder);
-                    _weaponAmmo[i] = data.magSize;
+                    _weaponAmmo[i] = ResolveWeaponCapacity(data);
                     continue;
                 }
 
@@ -1199,7 +1303,7 @@ namespace Game.Weapons {
 
                 fpWeaponInstance.SetActive(false);
                 _fpWeaponInstances.Add(fpWeaponInstance);
-                _weaponAmmo[i] = data.magSize;
+                _weaponAmmo[i] = ResolveWeaponCapacity(data);
             }
         }
 
@@ -1375,7 +1479,7 @@ namespace Game.Weapons {
             if(_serverWeaponStates.TryGetValue(weaponIndex, out var state)) return state;
             state = new ServerWeaponState();
             var data = GetWeaponDataByIndex(weaponIndex);
-            state.ServerAmmo = data != null ? data.magSize : 0;
+            state.ServerAmmo = data != null ? ResolveWeaponCapacity(data) : 0;
             _serverWeaponStates[weaponIndex] = state;
             return state;
         }
@@ -1439,7 +1543,8 @@ namespace Game.Weapons {
             if(!IsServer) return;
             var data = GetWeaponDataByIndex(weaponIndex);
             if(data == null) return;
-            var clamped = Mathf.Clamp(ammo, 0, data.magSize);
+            var magCapacity = ResolveWeaponCapacity(data);
+            var clamped = Mathf.Clamp(ammo, 0, magCapacity);
             var state = GetOrCreateServerState(weaponIndex);
             state.ServerAmmo = clamped;
         }

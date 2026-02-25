@@ -30,6 +30,13 @@ namespace Game.Weapons {
         [SerializeField] private float smoothSpeed = 12f;
         [SerializeField] private float landingBobAmount = 0.04f;
         [SerializeField] private float landingBobDuration = 0.15f;
+        [SerializeField, Min(0f)] private float minimumLandingBobInterval = 0.12f;
+
+        [Header("Feature Toggles")]
+        [SerializeField] private bool enableMovementBob = true;
+        [SerializeField] private bool enableIdleBreath = true;
+        [SerializeField] private bool enableJumpFallOffset = true;
+        [SerializeField] private bool enableLandingBob = true;
 
         [Header("ADS")]
         [Range(0f, 1f)]
@@ -79,6 +86,7 @@ namespace Game.Weapons {
         private const float MantleLandingBobSuppressSeconds = 0.2f;
         private bool _pendingMantleLandingBob;
         private bool _mantleLandingBobPlayed;
+        private float _lastLandingBobTime = float.NegativeInfinity;
 
         private void Awake() {
             var bobTransform = transform;
@@ -101,6 +109,7 @@ namespace Game.Weapons {
             _suppressLandingUntil = 0f;
             _pendingMantleLandingBob = false;
             _mantleLandingBobPlayed = false;
+            _lastLandingBobTime = float.NegativeInfinity;
         }
 
         private void TryInitialize() {
@@ -166,7 +175,9 @@ namespace Game.Weapons {
             }
 
             if(_pendingMantleLandingBob && !_mantleLandingBobPlayed && isGrounded) {
-                _landingBobTimer = landingBobDuration;
+                if(CanStartLandingBob(ignoreJumpHeld: true)) {
+                    StartLandingBob();
+                }
                 _mantleLandingBobPlayed = true;
                 _pendingMantleLandingBob = false;
             }
@@ -183,8 +194,8 @@ namespace Game.Weapons {
             if(isGrounded && !wasGrounded && !suppressLandingFromMantle) {
                 // Only start landing bob if jump wasn't initiated (allows normal landing)
                 // If jump was initiated, skip landing bob and let velocity system handle it
-                if(!_jumpInitiated) {
-                    _landingBobTimer = landingBobDuration;
+                if(!_jumpInitiated && CanStartLandingBob(ignoreJumpHeld: false)) {
+                    StartLandingBob();
                 }
                 // Reset jump/fall state when landing
                 _targetJumpFallOffset = 0f;
@@ -193,8 +204,10 @@ namespace Game.Weapons {
             }
 
             // Update landing bob timer
-            if(_landingBobTimer > 0f) {
+            if(enableLandingBob && _landingBobTimer > 0f) {
                 _landingBobTimer -= deltaTime;
+            } else if(!enableLandingBob) {
+                _landingBobTimer = 0f;
             }
 
             // Calculate movement speed
@@ -214,7 +227,7 @@ namespace Game.Weapons {
             // Velocity-based jump/fall offset: inversely correlated with vertical velocity
             // Positive velocity (rising) = negative offset (weapon lower)
             // Negative velocity (falling) = positive offset (weapon higher)
-            if(isGrounded) {
+            if(!enableJumpFallOffset || isGrounded) {
                 // Grounded: reset to idle
                 _targetJumpFallOffset = 0f;
             } else {
@@ -246,7 +259,7 @@ namespace Game.Weapons {
             var isWallRunning = _playerController != null && _playerController.WallRunController != null && _playerController.WallRunController.IsWallRunning;
             var canBob = isGrounded || isWallRunning;
             
-            if(!canBob || isSliding) {
+            if(!enableMovementBob || !canBob || isSliding) {
                 _targetBobIntensity = 0f;
             } else if(speed < 0.1f) {
                 _targetBobIntensity = 0f;
@@ -262,7 +275,7 @@ namespace Game.Weapons {
 
             // Calculate dynamic frequency based on speed (only when grounded/wall running and moving)
             var currentFrequency = bobFrequency;
-            if(canBob && speed > 0.1f) {
+            if(enableMovementBob && canBob && speed > 0.1f) {
                 // Scale frequency from minFrequency (walking) to maxFrequency (sprinting)
                 if(speed < walkSpeed) {
                     // Walking: frequency scales from minFrequency to base frequency
@@ -320,7 +333,7 @@ namespace Game.Weapons {
             // Apply jump/fall offset only when landing bob is not active to prevent jitter
             // When landing, the landing bob handles the animation, so we skip the jump/fall offset
             var finalYBob = yBob;
-            if(_landingBobTimer <= 0f) {
+            if(enableJumpFallOffset && _landingBobTimer <= 0f) {
                 // Landing bob is not active, apply jump/fall offset
                 finalYBob += _jumpFallOffset;
             } else {
@@ -329,7 +342,7 @@ namespace Game.Weapons {
             }
 
             // Add landing bob (bouncy effect) - only if jump wasn't initiated
-            if(_landingBobTimer > 0f && !_jumpInitiated) {
+            if(enableLandingBob && _landingBobTimer > 0f && !_jumpInitiated) {
                 var landingT = _landingBobTimer / landingBobDuration;
                 var landingCurve = Mathf.Sin(landingT * Mathf.PI);
                 finalYBob -= landingCurve * landingBobAmount;
@@ -341,7 +354,8 @@ namespace Game.Weapons {
             var bobRotation = new Vector3(0f, 0f, rollBob) * finalMultiplier;
 
             // Subtle idle breathing when grounded and nearly stationary.
-            var idleEligible = isGrounded && !isWallRunning && !isSliding && speed <= idleBreathSpeedThreshold;
+            var idleEligible = enableIdleBreath && isGrounded && !isWallRunning && !isSliding &&
+                               speed <= idleBreathSpeedThreshold;
             var targetIdleIntensity = idleEligible ? 1f : 0f;
             _idleBreathIntensity = Mathf.Lerp(_idleBreathIntensity, targetIdleIntensity, idleBreathBlendSpeed * deltaTime);
 
@@ -379,7 +393,24 @@ namespace Game.Weapons {
         }
 
         public void TriggerLandingBob() {
-            _landingBobTimer = landingBobDuration;
+            if(!CanStartLandingBob(ignoreJumpHeld: true)) return;
+            StartLandingBob();
+        }
+
+        public void ConfigureFeatures(bool movementBob, bool idleBreath, bool jumpFallOffset, bool landingBob) {
+            enableMovementBob = movementBob;
+            enableIdleBreath = idleBreath;
+            enableJumpFallOffset = jumpFallOffset;
+            enableLandingBob = landingBob;
+
+            if(!enableJumpFallOffset) {
+                _targetJumpFallOffset = 0f;
+                _jumpFallOffset = 0f;
+            }
+
+            if(!enableLandingBob) {
+                _landingBobTimer = 0f;
+            }
         }
 
         public void RecalibrateRestPose() {
@@ -391,6 +422,22 @@ namespace Game.Weapons {
             _smoothedLocalVelocity = Vector3.zero;
             _idleBreathTimer = 0f;
             _idleBreathIntensity = 0f;
+        }
+
+        private bool CanStartLandingBob(bool ignoreJumpHeld) {
+            if(!enableLandingBob) return false;
+            if(Time.time - _lastLandingBobTime < minimumLandingBobInterval) return false;
+
+            if(ignoreJumpHeld || _playerController == null || _playerController.PlayerInput == null) {
+                return true;
+            }
+
+            return !_playerController.PlayerInput.IsJumpHeld;
+        }
+
+        private void StartLandingBob() {
+            _landingBobTimer = landingBobDuration;
+            _lastLandingBobTime = Time.time;
         }
 
         private void OnDrawGizmosSelected() {

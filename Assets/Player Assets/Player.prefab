@@ -1720,11 +1720,24 @@ MonoBehaviour:
     kinemationWeaponPrefab: {fileID: 2249710175363591869, guid: 8e489e7f96cc8a844a939320b2d379d1, type: 3}
   - weaponData: {fileID: 11400000, guid: 2b7084a16b81bca4989a38f03eae71b5, type: 2}
     kinemationWeaponPrefab: {fileID: 727220435377141568, guid: a3fc2663bfbfab94596da70beea6b979, type: 3}
-  disableKinemationSounds: 1
+  disableKinemationSounds: 0
+  disableKinemationWeaponSounds: 0
+  disableKinemationPlayerSounds: 1
+  syncKinemationLookPitchWithPlayer: 0
+  syncKinemationAirborneState: 0
+  freezeKinemationLocomotionInAir: 1
+  forceKinemationWalkAnimationWhileSprinting: 1
+  kinemationSprintWalkGaitValue: 1.2
+  autoAlignKinemationMuzzleToBounds: 1
+  useLegacyBobOnKinemationViewmodel: 1
+  legacyKinemationMovementBob: 0
+  legacyKinemationIdleBreathBob: 0
+  legacyKinemationJumpFallBob: 1
+  legacyKinemationLandingBob: 1
   tagKinemationArmsForLegacyHooks: 0
   autoCompleteKinemationPullOut: 1
   kinemationPullOutCompleteDelay: 0.12
-  kinemationViewmodelLocalPosition: {x: -0.012, y: -1.654, z: -0.06}
+  kinemationViewmodelLocalPosition: {x: 0.14, y: -1.654, z: -0.06}
   kinemationViewmodelLocalEulerAngles: {x: 0, y: 0, z: 0}
 --- !u!114 &8872513821370512775
 MonoBehaviour:

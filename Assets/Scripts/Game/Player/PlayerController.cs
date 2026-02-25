@@ -975,8 +975,11 @@ namespace Game.Player {
                     EnsureWeaponHierarchyActive(weaponInstance);
                     EnsureWeaponShadowVisibility(weaponInstance);
 
-                    weaponInstance.transform.localPosition = currentWeapon.GetSpawnPosition();
-                    weaponInstance.transform.localEulerAngles = currentWeapon.GetSpawnRotation();
+                    // KINEMATION viewmodels manage pose from their own holder offsets.
+                    if(weaponInstance.GetComponent<KinemationFpWeaponDriver>() == null) {
+                        weaponInstance.transform.localPosition = currentWeapon.GetSpawnPosition();
+                        weaponInstance.transform.localEulerAngles = currentWeapon.GetSpawnRotation();
+                    }
 
                     if(!_cachedWeaponRenderers.TryGetValue(weaponInstance, out var meshRenderers)) {
                         meshRenderers = weaponInstance.GetComponentsInChildren<MeshRenderer>(true);
