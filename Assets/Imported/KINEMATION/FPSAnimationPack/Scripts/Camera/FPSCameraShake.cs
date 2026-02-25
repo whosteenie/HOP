@@ -1,7 +1,7 @@
 ﻿// Designed by KINEMATION, 2025.
 
-using KINEMATION.KAnimationCore.Runtime.Attributes;
-using KINEMATION.KAnimationCore.Runtime.Core;
+using KINEMATION.Shared.KAnimationCore.Runtime.Attributes;
+using KINEMATION.Shared.KAnimationCore.Runtime.Core;
 using UnityEngine;
 
 namespace KINEMATION.FPSAnimationPack.Scripts.Camera

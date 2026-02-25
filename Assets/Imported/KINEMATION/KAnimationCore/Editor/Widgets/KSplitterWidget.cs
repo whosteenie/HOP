@@ -1,8 +1,11 @@
-﻿using System;
+﻿// Copyright (c) 2026 KINEMATION.
+// All rights reserved.
+
+using System;
 using UnityEditor;
 using UnityEngine;
 
-namespace KINEMATION.KAnimationCore.Editor.Widgets
+namespace KINEMATION.Shared.KAnimationCore.Editor.Widgets
 {
     public enum SplitOrientation
     {

@@ -1,6 +1,9 @@
-﻿using System;
+﻿// Copyright (c) 2026 KINEMATION.
+// All rights reserved.
 
-namespace KINEMATION.KAnimationCore.Runtime.Input
+using System;
+
+namespace KINEMATION.Shared.KAnimationCore.Runtime.Input
 {
     [Obsolete("use `UserInputController` instead.")]
     public interface IUserInputController

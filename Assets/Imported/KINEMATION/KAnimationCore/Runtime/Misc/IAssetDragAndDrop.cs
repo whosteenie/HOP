@@ -1,6 +1,9 @@
-﻿using UnityEngine;
+﻿// Copyright (c) 2026 KINEMATION.
+// All rights reserved.
 
-namespace KINEMATION.KAnimationCore.Runtime.Misc
+using UnityEngine;
+
+namespace KINEMATION.Shared.KAnimationCore.Runtime.Misc
 {
     public interface IAssetDragAndDrop
     {

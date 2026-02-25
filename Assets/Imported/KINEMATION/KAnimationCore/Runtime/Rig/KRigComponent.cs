@@ -1,11 +1,14 @@
-﻿// Designed by KINEMATION, 2024.
+﻿// Copyright (c) 2026 KINEMATION.
+// All rights reserved.
 
 using System.Collections.Generic;
-using KINEMATION.KAnimationCore.Runtime.Core;
+using KINEMATION.Shared.KAnimationCore.Runtime.Core;
 using UnityEngine;
+using UnityEngine.Scripting.APIUpdating;
 
-namespace KINEMATION.KAnimationCore.Runtime.Rig
+namespace KINEMATION.Shared.KAnimationCore.Runtime.Rig
 {
+    [MovedFrom("KINEMATION.KAnimationCore.Runtime.Rig")]
     public class KRigComponent : MonoBehaviour
     {
         [SerializeField] private List<Transform> hierarchy = new List<Transform>();

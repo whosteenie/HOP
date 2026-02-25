@@ -1,12 +1,13 @@
-﻿// Designed by KINEMATION, 2024.
+﻿// Copyright (c) 2026 KINEMATION.
+// All rights reserved.
 
 using System.Collections.Generic;
-using KINEMATION.KAnimationCore.Runtime.Rig;
-using KINEMATION.KAnimationCore.Editor.Rig;
+using KINEMATION.Shared.KAnimationCore.Editor.Rig;
+using KINEMATION.Shared.KAnimationCore.Runtime.Rig;
 using UnityEditor;
 using UnityEngine;
 
-namespace KINEMATION.KAnimationCore.Editor.Attributes
+namespace KINEMATION.Shared.KAnimationCore.Editor.Attributes
 {
     [CustomPropertyDrawer(typeof(KRigElement))]
     public class RigElementDrawer : PropertyDrawer
@@ -55,7 +56,7 @@ namespace KINEMATION.KAnimationCore.Editor.Attributes
                         element => element.name.Equals(name.stringValue));
                     if(foundIndex >= 0) selection = new List<int>() { foundIndex + 1 };
                 }
-                
+
                 RigWindow.ShowWindow(hierarchy, (selectedElement) =>
                     {
                         name.stringValue = selectedElement.name;

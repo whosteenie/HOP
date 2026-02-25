@@ -1,10 +1,13 @@
-// Designed by KINEMATION, 2024.
+﻿// Copyright (c) 2026 KINEMATION.
+// All rights reserved.
 
 using System;
 using UnityEngine;
+using UnityEngine.Scripting.APIUpdating;
 
-namespace KINEMATION.KAnimationCore.Runtime.Attributes
+namespace KINEMATION.Shared.KAnimationCore.Runtime.Attributes
 {
+    [MovedFrom("KINEMATION.KAnimationCore.Runtime.Attributes")]
     [AttributeUsage(AttributeTargets.Field, AllowMultiple = true)]
     public class CurveSelectorAttribute : PropertyAttribute
     {
@@ -20,9 +23,11 @@ namespace KINEMATION.KAnimationCore.Runtime.Attributes
         }
     }
 
+    [MovedFrom("KINEMATION.KAnimationCore.Runtime.Attributes")]
     [AttributeUsage(AttributeTargets.Field, AllowMultiple = true)]
     public class InputProperty : PropertyAttribute { }
     
+    [MovedFrom("KINEMATION.KAnimationCore.Runtime.Attributes")]
     [AttributeUsage(AttributeTargets.Field, AllowMultiple = true)]
     public class RigAssetSelectorAttribute : PropertyAttribute
     {
@@ -34,6 +39,7 @@ namespace KINEMATION.KAnimationCore.Runtime.Attributes
         }
     }
 
+    [MovedFrom("KINEMATION.KAnimationCore.Runtime.Attributes")]
     [AttributeUsage(AttributeTargets.Field, AllowMultiple = true)]
     public class ElementChainSelectorAttribute : RigAssetSelectorAttribute
     {
@@ -43,12 +49,15 @@ namespace KINEMATION.KAnimationCore.Runtime.Attributes
         }
     }
     
+    [MovedFrom("KINEMATION.KAnimationCore.Runtime.Attributes")]
     [AttributeUsage(AttributeTargets.Field, AllowMultiple = true)]
     public class ReadOnlyAttribute : PropertyAttribute { }
 
+    [MovedFrom("KINEMATION.KAnimationCore.Runtime.Attributes")]
     [AttributeUsage(AttributeTargets.Field, AllowMultiple = true)]
     public class UnfoldAttribute : PropertyAttribute { }
 
+    [MovedFrom("KINEMATION.KAnimationCore.Runtime.Attributes")]
     [AttributeUsage(AttributeTargets.Field, AllowMultiple = true)]
     public class TabAttribute : PropertyAttribute
     {
@@ -60,6 +69,7 @@ namespace KINEMATION.KAnimationCore.Runtime.Attributes
         }
     }
     
+    [MovedFrom("KINEMATION.KAnimationCore.Runtime.Attributes")]
     [AttributeUsage(AttributeTargets.Field, AllowMultiple = true)]
     public class CustomElementChainDrawerAttribute : PropertyAttribute
     {

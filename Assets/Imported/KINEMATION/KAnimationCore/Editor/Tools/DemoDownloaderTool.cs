@@ -1,3 +1,6 @@
+﻿// Copyright (c) 2026 KINEMATION.
+// All rights reserved.
+
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -6,10 +9,11 @@ using System.Net;
 using UnityEditor;
 using UnityEngine;
 
-namespace KINEMATION.KAnimationCore.Editor.Tools
+namespace KINEMATION.Shared.KAnimationCore.Editor.Tools
 {
     public struct ContentLicense
     {
+        public string contentAuthor;
         public string contentName;
         public List<Tag> tags;
     }
@@ -58,11 +62,13 @@ namespace KINEMATION.KAnimationCore.Editor.Tools
         {
             InitStyles();
 
-            // Begin padded horizontal row — respects the vertical group padding!
+            // Begin padded horizontal row вЂ” respects the vertical group padding!
             EditorGUILayout.BeginHorizontal();
 
+            string rowString = $"{contentLicense.contentAuthor} вЂў {contentLicense.contentName}";
+
             // Draw label (auto expands)
-            GUILayout.Label(new GUIContent(contentLicense.contentName, contentLicense.contentName), _labelStyle);
+            GUILayout.Label(new GUIContent(rowString, contentLicense.contentName), _labelStyle);
 
             // Draw chips (right side but attached to label, no snapping)
             if (contentLicense.tags != null)

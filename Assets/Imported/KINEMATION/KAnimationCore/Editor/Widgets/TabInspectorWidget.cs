@@ -1,13 +1,14 @@
-﻿// Designed by KINEMATION, 2024.
+﻿// Copyright (c) 2026 KINEMATION.
+// All rights reserved.
 
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using KINEMATION.KAnimationCore.Runtime.Attributes;
+using KINEMATION.Shared.KAnimationCore.Runtime.Attributes;
 using UnityEditor;
 using UnityEngine;
 
-namespace KINEMATION.KAnimationCore.Editor.Tools
+namespace KINEMATION.Shared.KAnimationCore.Editor.Widgets
 {
     public struct EditorTab
     {
@@ -86,7 +87,7 @@ namespace KINEMATION.KAnimationCore.Editor.Tools
             _tabNames = _editorTabs.Select(item => item.name).ToArray();
         }
         
-        public void Render()
+        public void OnGUI()
         {
             _serializedObject.Update();
             

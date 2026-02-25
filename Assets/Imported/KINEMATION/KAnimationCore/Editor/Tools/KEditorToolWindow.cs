@@ -1,11 +1,14 @@
-﻿using System;
+﻿// Copyright (c) 2026 KINEMATION.
+// All rights reserved.
+
+using System;
 using System.Collections.Generic;
 using System.Linq;
-using KINEMATION.KAnimationCore.Editor.Widgets;
+using KINEMATION.Shared.KAnimationCore.Editor.Widgets;
 using UnityEditor;
 using UnityEngine;
 
-namespace KINEMATION.KAnimationCore.Editor.Tools
+namespace KINEMATION.Shared.KAnimationCore.Editor.Tools
 {
     public class KEditorToolWindow : EditorWindow
     {
@@ -282,7 +285,8 @@ namespace KINEMATION.KAnimationCore.Editor.Tools
 
                 if (GUI.Button(rect, "Documentation", _docsLinkStyle))
                 {
-                    Application.OpenURL(_selectedTool.GetDocsURL());
+                    string url = _selectedTool.GetDocsURL();
+                    if(!string.IsNullOrEmpty(url)) Application.OpenURL(url);
                 }
 
                 EditorGUILayout.Space(2f);

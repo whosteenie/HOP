@@ -1,4 +1,4 @@
-using KINEMATION.KAnimationCore.Runtime.Core;
+using KINEMATION.Shared.KAnimationCore.Runtime.Core;
 using KINEMATION.ProceduralRecoilAnimationSystem.Runtime;
 using UnityEngine;
 

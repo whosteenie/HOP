@@ -1,4 +1,7 @@
-﻿namespace KINEMATION.KAnimationCore.Runtime.Rig
+﻿// Copyright (c) 2026 KINEMATION.
+// All rights reserved.
+
+namespace KINEMATION.Shared.KAnimationCore.Runtime.Rig
 {
     public interface IRigProvider
     {

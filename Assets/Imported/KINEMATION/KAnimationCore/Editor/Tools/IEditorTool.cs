@@ -1,4 +1,7 @@
-﻿namespace KINEMATION.KAnimationCore.Editor.Tools
+﻿// Copyright (c) 2026 KINEMATION.
+// All rights reserved.
+
+namespace KINEMATION.Shared.KAnimationCore.Editor.Tools
 {
     public interface IEditorTool
     {

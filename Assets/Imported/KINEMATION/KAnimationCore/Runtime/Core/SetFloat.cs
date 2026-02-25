@@ -1,13 +1,17 @@
-// Designed by KINEMATION, 2024.
+﻿// Copyright (c) 2026 KINEMATION.
+// All rights reserved.
 
 using UnityEngine;
+using UnityEngine.Scripting.APIUpdating;
 
-namespace KINEMATION.KAnimationCore.Runtime.Core
+namespace KINEMATION.Shared.KAnimationCore.Runtime.Core
 {
+    [MovedFrom("KINEMATION.KAnimationCore.Runtime.Core")]
     public class SetFloat : StateMachineBehaviour
     {
         [SerializeField] private string paramName;
         [SerializeField] private float paramTargetValue;
+        [SerializeField] private EaseMode easeMode = new EaseMode(EEaseFunc.Linear);
 
         private int _paramId;
         private float _paramStartValue;
@@ -42,7 +46,7 @@ namespace KINEMATION.KAnimationCore.Runtime.Core
                 alpha = 1f;
             }
         
-            animator.SetFloat(_paramId, Mathf.Lerp(_paramStartValue, paramTargetValue, alpha));
+            animator.SetFloat(_paramId, KCurves.Ease(_paramStartValue, paramTargetValue, alpha, easeMode));
         }
         
         public override void OnStateExit(Animator animator, AnimatorStateInfo stateInfo, int layerIndex)

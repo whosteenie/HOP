@@ -1,9 +1,10 @@
-// Designed by KINEMATION, 2024
+﻿// Copyright (c) 2026 KINEMATION.
+// All rights reserved.
 
 using UnityEditor;
 using UnityEngine;
 
-namespace KINEMATION.KAnimationCore.Editor.Attributes
+namespace KINEMATION.Shared.KAnimationCore.Editor.Attributes
 {
     public class KAttributesEditor
     {

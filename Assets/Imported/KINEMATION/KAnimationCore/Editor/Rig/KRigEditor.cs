@@ -1,11 +1,13 @@
-﻿using KINEMATION.KAnimationCore.Editor.Misc;
-using KINEMATION.KAnimationCore.Editor.Tools;
-using KINEMATION.KAnimationCore.Runtime.Input;
-using KINEMATION.KAnimationCore.Runtime.Rig;
+﻿// Copyright (c) 2026 KINEMATION.
+// All rights reserved.
+
+using KINEMATION.Shared.KAnimationCore.Editor.Widgets;
+using KINEMATION.Shared.KAnimationCore.Runtime.Input;
+using KINEMATION.Shared.KAnimationCore.Runtime.Rig;
 using UnityEditor;
 using UnityEngine;
 
-namespace KINEMATION.KAnimationCore.Editor.Rig
+namespace KINEMATION.Shared.KAnimationCore.Editor.Rig
 {
     [CustomEditor(typeof(KRig), true)]
     public class KRigEditor : UnityEditor.Editor

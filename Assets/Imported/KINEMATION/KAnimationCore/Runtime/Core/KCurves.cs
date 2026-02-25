@@ -1,10 +1,13 @@
-// Designed by KINEMATION, 2024.
+﻿// Copyright (c) 2026 KINEMATION.
+// All rights reserved.
 
 using System;
 using UnityEngine;
+using UnityEngine.Scripting.APIUpdating;
 
-namespace KINEMATION.KAnimationCore.Runtime.Core
+namespace KINEMATION.Shared.KAnimationCore.Runtime.Core
 {
+    [MovedFrom("KINEMATION.KAnimationCore.Runtime.Core")]
     [Serializable]
     public struct VectorCurve
     {
@@ -76,6 +79,7 @@ namespace KINEMATION.KAnimationCore.Runtime.Core
         }
     }
     
+    [MovedFrom("KINEMATION.KAnimationCore.Runtime.Core")]
     [Serializable]
     public enum EEaseFunc
     {
@@ -85,6 +89,7 @@ namespace KINEMATION.KAnimationCore.Runtime.Core
         Custom
     }
     
+    [MovedFrom("KINEMATION.KAnimationCore.Runtime.Core")]
     [Serializable]
     public struct EaseMode
     {

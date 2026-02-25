@@ -1,8 +1,11 @@
-﻿using KINEMATION.KAnimationCore.Runtime.Misc;
+﻿// Copyright (c) 2026 KINEMATION.
+// All rights reserved.
+
+using KINEMATION.Shared.KAnimationCore.Runtime.Misc;
 using UnityEditor;
 using UnityEngine;
 
-namespace KINEMATION.KAnimationCore.Editor.Misc
+namespace KINEMATION.Shared.KAnimationCore.Editor.Widgets
 {
     public abstract class AssetDragAndDrop<T1, T2> where T1 : MonoBehaviour where T2 : ScriptableObject
     {

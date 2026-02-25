@@ -1,8 +1,9 @@
-﻿// Designed by KINEMATION, 2024.
+﻿// Copyright (c) 2026 KINEMATION.
+// All rights reserved.
 
 using UnityEngine;
 
-namespace KINEMATION.KAnimationCore.Runtime.Core
+namespace KINEMATION.Shared.KAnimationCore.Runtime.Core
 {
     public class KMath
     {

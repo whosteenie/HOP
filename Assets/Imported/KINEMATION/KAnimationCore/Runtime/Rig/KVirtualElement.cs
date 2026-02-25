@@ -1,7 +1,12 @@
-﻿using UnityEngine;
+﻿// Copyright (c) 2026 KINEMATION.
+// All rights reserved.
 
-namespace KINEMATION.KAnimationCore.Runtime.Rig
+using UnityEngine;
+using UnityEngine.Scripting.APIUpdating;
+
+namespace KINEMATION.Shared.KAnimationCore.Runtime.Rig
 {
+    [MovedFrom("KINEMATION.KAnimationCore.Runtime.Rig")]
     public class KVirtualElement : MonoBehaviour
     {
         public Transform targetBone;

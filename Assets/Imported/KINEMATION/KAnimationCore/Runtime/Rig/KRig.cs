@@ -1,18 +1,23 @@
-﻿// Designed by KINEMATION, 2024.
-
-using KINEMATION.KAnimationCore.Runtime.Input;
+﻿// Copyright (c) 2026 KINEMATION.
+// All rights reserved.
 
 using System.Collections.Generic;
+using KINEMATION.Shared.KAnimationCore.Runtime.Attributes;
+using KINEMATION.Shared.KAnimationCore.Runtime.Input;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.Scripting.APIUpdating;
 using Object = UnityEngine.Object;
 
-namespace KINEMATION.KAnimationCore.Runtime.Rig
+namespace KINEMATION.Shared.KAnimationCore.Runtime.Rig
 {
+    [MovedFrom("KINEMATION.KAnimationCore.Runtime.Rig")]
     public abstract class KRigBase : ScriptableObject, IRigProvider
     {
         public RuntimeAnimatorController targetAnimator;
         public List<KRigElement> rigHierarchy = new List<KRigElement>();
+        
+        [CustomElementChainDrawer(false, true)]
         public List<KRigElementChain> rigElementChains = new List<KRigElementChain>();
         
         public KRigElement[] GetHierarchy()
@@ -22,6 +27,7 @@ namespace KINEMATION.KAnimationCore.Runtime.Rig
     }
     
     // Character skeleton asset.
+    [MovedFrom("KINEMATION.KAnimationCore.Runtime.Rig")]
     public class KRig : KRigBase
     {
         public UserInputConfig inputConfig;

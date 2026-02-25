@@ -1,12 +1,14 @@
-﻿// Designed by KINEMATION, 2024.
-
-using KINEMATION.KAnimationCore.Runtime.Core;
+﻿// Copyright (c) 2026 KINEMATION.
+// All rights reserved.
 
 using System.Collections.Generic;
+using KINEMATION.Shared.KAnimationCore.Runtime.Core;
 using UnityEngine;
+using UnityEngine.Scripting.APIUpdating;
 
-namespace KINEMATION.KAnimationCore.Runtime.Input
+namespace KINEMATION.Shared.KAnimationCore.Runtime.Input
 {
+    [MovedFrom("KINEMATION.KAnimationCore.Runtime.Input")]
     public class UserInputController : MonoBehaviour
     {
         [SerializeField] public UserInputConfig inputConfig;

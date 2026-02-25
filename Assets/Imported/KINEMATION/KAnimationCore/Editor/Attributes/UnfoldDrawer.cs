@@ -1,8 +1,11 @@
-﻿using KINEMATION.KAnimationCore.Runtime.Attributes;
+﻿// Copyright (c) 2026 KINEMATION.
+// All rights reserved.
+
+using KINEMATION.Shared.KAnimationCore.Runtime.Attributes;
 using UnityEditor;
 using UnityEngine;
 
-namespace KINEMATION.KAnimationCore.Editor.Attributes
+namespace KINEMATION.Shared.KAnimationCore.Editor.Attributes
 {
     [CustomPropertyDrawer(typeof(UnfoldAttribute))]
     public class UnfoldDrawer : PropertyDrawer

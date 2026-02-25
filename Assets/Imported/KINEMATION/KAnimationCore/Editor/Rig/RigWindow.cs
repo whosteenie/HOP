@@ -1,9 +1,12 @@
-﻿using System.Collections.Generic;
-using KINEMATION.KAnimationCore.Runtime.Rig;
+﻿// Copyright (c) 2026 KINEMATION.
+// All rights reserved.
+
+using System.Collections.Generic;
+using KINEMATION.Shared.KAnimationCore.Runtime.Rig;
 using UnityEditor;
 using UnityEngine;
 
-namespace KINEMATION.KAnimationCore.Editor.Rig
+namespace KINEMATION.Shared.KAnimationCore.Editor.Rig
 {
     public class RigWindow : EditorWindow
     {
@@ -41,6 +44,7 @@ namespace KINEMATION.KAnimationCore.Editor.Rig
             }
             
             window._rigTreeWidget.Refresh(hierarchy);
+            window.minSize = new Vector2(450f, 550f);
             window.ShowAuxWindow();
         }
 

@@ -197,12 +197,13 @@ namespace Game.Weapons {
             PrewarmKinemationLocalMuzzleFxInstance();
         }
 
-        private void OnDestroy() {
+        public override void OnDestroy() {
             if(_damageRelay != null) {
                 _damageRelay.OnHitConfirm -= OnHitConfirm;
             }
 
             ClearKinemationLocalMuzzleFxInstance();
+            base.OnDestroy();
         }
 
         private void SyncKinemationLocomotion() {

@@ -1,10 +1,11 @@
-// Designed by KINEMATION, 2023
+﻿// Copyright (c) 2026 KINEMATION.
+// All rights reserved.
 
-using KINEMATION.KAnimationCore.Runtime.Rig;
+using KINEMATION.Shared.KAnimationCore.Runtime.Rig;
 using UnityEngine;
 using UnityEngine.Animations;
 
-namespace KINEMATION.KAnimationCore.Runtime.Core
+namespace KINEMATION.Shared.KAnimationCore.Runtime.Core
 {
     public class KAnimationMath
     {
@@ -347,17 +348,19 @@ namespace KINEMATION.KAnimationCore.Runtime.Core
         }
 
         // Copies a bone pose in world space.
-        public static void CopyBone(AnimationStream stream, TransformStreamHandle from, TransformStreamHandle to)
+        public static void CopyBone(AnimationStream stream, TransformStreamHandle from, TransformStreamHandle to, 
+            float weight = 1f)
         {
-            to.SetPosition(stream, from.GetPosition(stream));
-            to.SetRotation(stream, from.GetRotation(stream));
+            to.SetPosition(stream, Vector3.Lerp(to.GetPosition(stream), from.GetPosition(stream), weight));
+            to.SetRotation(stream, Quaternion.Slerp(to.GetRotation(stream), from.GetRotation(stream), weight));
         }
 
         // Copies a bone pose in world space.
-        public static void CopyBone(AnimationStream stream, TransformSceneHandle from, TransformStreamHandle to)
+        public static void CopyBone(AnimationStream stream, TransformSceneHandle from, TransformStreamHandle to, 
+            float weight = 1f)
         {
-            to.SetPosition(stream, from.GetPosition(stream));
-            to.SetRotation(stream, from.GetRotation(stream));
+            to.SetPosition(stream, Vector3.Lerp(to.GetPosition(stream), from.GetPosition(stream), weight));
+            to.SetRotation(stream, Quaternion.Slerp(to.GetRotation(stream), from.GetRotation(stream), weight));
         }
 
         public static bool IsWeightFull(float weight)

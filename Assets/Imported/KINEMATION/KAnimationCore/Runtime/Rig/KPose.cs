@@ -1,9 +1,14 @@
-﻿using System;
-using KINEMATION.KAnimationCore.Runtime.Core;
+﻿// Copyright (c) 2026 KINEMATION.
+// All rights reserved.
 
-namespace KINEMATION.KAnimationCore.Runtime.Rig
+using System;
+using KINEMATION.Shared.KAnimationCore.Runtime.Core;
+using UnityEngine.Scripting.APIUpdating;
+
+namespace KINEMATION.Shared.KAnimationCore.Runtime.Rig
 {
     // Represents the space we will modify bone transform in.
+    [MovedFrom("KINEMATION.KAnimationCore.Runtime.Rig")]
     public enum ESpaceType
     {
         BoneSpace,
@@ -13,6 +18,7 @@ namespace KINEMATION.KAnimationCore.Runtime.Rig
     }
 
     // Whether the operation is additive or absolute.
+    [MovedFrom("KINEMATION.KAnimationCore.Runtime.Rig")]
     public enum EModifyMode
     {
         Add,
@@ -21,6 +27,7 @@ namespace KINEMATION.KAnimationCore.Runtime.Rig
     }
     
     // Represents the pose for the specific rig element.
+    [MovedFrom("KINEMATION.KAnimationCore.Runtime.Rig")]
     [Serializable]
     public struct KPose
     {

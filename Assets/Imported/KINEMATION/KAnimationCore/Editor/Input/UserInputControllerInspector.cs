@@ -1,11 +1,11 @@
-﻿// Designed by KINEMATION, 2024.
+﻿// Copyright (c) 2026 KINEMATION.
+// All rights reserved.
 
-using KINEMATION.KAnimationCore.Editor.Misc;
-using KINEMATION.KAnimationCore.Runtime.Input;
+using KINEMATION.Shared.KAnimationCore.Runtime.Input;
 using UnityEditor;
 using UnityEngine;
 
-namespace KINEMATION.KAnimationCore.Editor.Input
+namespace KINEMATION.Shared.KAnimationCore.Editor.Input
 {
     [CustomEditor(typeof(UserInputController), true)]
     public class UserInputControllerInspector : UnityEditor.Editor

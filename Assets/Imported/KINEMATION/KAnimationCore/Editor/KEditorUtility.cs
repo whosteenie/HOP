@@ -1,4 +1,5 @@
-﻿// Designed by KINEMATION, 2025.
+﻿// Copyright (c) 2026 KINEMATION.
+// All rights reserved.
 
 using System;
 using System.IO;
@@ -7,7 +8,7 @@ using UnityEditor;
 using UnityEngine;
 using Object = UnityEngine.Object;
 
-namespace KINEMATION.KAnimationCore.Editor
+namespace KINEMATION.Shared.KAnimationCore.Editor
 {
     public class KEditorUtility
     {
@@ -74,7 +75,7 @@ namespace KINEMATION.KAnimationCore.Editor
                 foreach (Object asset in assets)
                 {
                     clip = asset as AnimationClip;
-                    if (clip != null) break;
+                    if (clip != null && (clip.hideFlags & HideFlags.HideInHierarchy) == 0) break;
                 }
             }
 

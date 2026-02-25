@@ -3,7 +3,7 @@
 using KINEMATION.ProceduralRecoilAnimationSystem.Runtime;
 using KINEMATION.FPSAnimationPack.Scripts.Sounds;
 using KINEMATION.FPSAnimationPack.Scripts.Weapon;
-using KINEMATION.KAnimationCore.Runtime.Core;
+using KINEMATION.Shared.KAnimationCore.Runtime.Core;
 
 using System;
 using System.Collections.Generic;

@@ -1,17 +1,23 @@
-// Designed by KINEMATION, 2024
+﻿// Copyright (c) 2026 KINEMATION.
+// All rights reserved.
 
 using System;
 using UnityEngine;
+using UnityEngine.Scripting.APIUpdating;
 using Quaternion = UnityEngine.Quaternion;
 using Vector3 = UnityEngine.Vector3;
 
-namespace KINEMATION.KAnimationCore.Runtime.Core
+namespace KINEMATION.Shared.KAnimationCore.Runtime.Core
 {
     // Struct alternative for Transform.
+    [MovedFrom("KINEMATION.KAnimationCore.Runtime.Core")]
     [Serializable]
     public struct KTransform
     {
         public static KTransform Identity = new(Vector3.zero, Quaternion.identity, Vector3.one);
+        public Vector3 forward => rotation * Vector3.forward;
+        public Vector3 up => rotation * Vector3.up;
+        public Vector3 right => rotation * Vector3.right;
         
         public Vector3 position;
         public Quaternion rotation;
@@ -52,7 +58,7 @@ namespace KINEMATION.KAnimationCore.Runtime.Core
         {
             Vector3 outPos = Vector3.Lerp(a.position, b.position, alpha);
             Quaternion outRot = Quaternion.Slerp(a.rotation, b.rotation, alpha);
-            Vector3 outScale = Vector3.Lerp(a.scale, a.scale, alpha);
+            Vector3 outScale = Vector3.Lerp(a.scale, b.scale, alpha);
 
             return new KTransform(outPos, outRot, outScale);
         }

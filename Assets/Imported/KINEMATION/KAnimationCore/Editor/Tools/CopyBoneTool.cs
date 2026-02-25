@@ -1,39 +1,41 @@
-﻿using UnityEditor;
+﻿// Copyright (c) 2026 KINEMATION.
+// All rights reserved.
+
+using UnityEditor;
 using UnityEngine;
 
-namespace KINEMATION.KAnimationCore.Editor.Tools
+namespace KINEMATION.Shared.KAnimationCore.Editor.Tools
 {
     public class CopyBoneTool : IEditorTool
     {
         private Transform _root;
         private Transform _extractFrom;
         private Transform _extractTo;
-        
+
         private AnimationClip _clip;
         private AnimationClip _refClip;
 
         private Vector3 _rotationOffset;
         private bool _isAdditive;
-        
-        private static Vector3 GetVectorValue(AnimationClip clip, EditorCurveBinding[] bindings, float time)
-        {
-            float tX = AnimationUtility.GetEditorCurve(clip, bindings[0]).Evaluate(time);
-            float tY = AnimationUtility.GetEditorCurve(clip, bindings[1]).Evaluate(time);
-            float tZ = AnimationUtility.GetEditorCurve(clip, bindings[2]).Evaluate(time);
 
-            return new Vector3(tX, tY, tZ);
+        private struct TransformData
+        {
+            public Vector3 localPosition;
+            public Quaternion localRotation;
+
+            public TransformData(Transform t)
+            {
+                localPosition = t.localPosition;
+                localRotation = t.localRotation;
+            }
+
+            public void Restore(Transform t)
+            {
+                t.localPosition = localPosition;
+                t.localRotation = localRotation;
+            }
         }
 
-        private static Quaternion GetQuatValue(AnimationClip clip, EditorCurveBinding[] bindings, float time)
-        {
-            float tX = AnimationUtility.GetEditorCurve(clip, bindings[0]).Evaluate(time);
-            float tY = AnimationUtility.GetEditorCurve(clip, bindings[1]).Evaluate(time);
-            float tZ = AnimationUtility.GetEditorCurve(clip, bindings[2]).Evaluate(time);
-            float tW = AnimationUtility.GetEditorCurve(clip, bindings[3]).Evaluate(time);
-
-            return new Quaternion(tX, tY, tZ, tW);
-        }
-        
         private string GetBonePath(Transform targetBone, Transform root)
         {
             if (targetBone == null || root == null) return "";
@@ -49,72 +51,19 @@ namespace KINEMATION.KAnimationCore.Editor.Tools
 
             return (current == root) ? path : null;
         }
-        
+
         private void ExtractAndSetAnimationData()
         {
-            EditorCurveBinding[] bindings = AnimationUtility.GetCurveBindings(_clip);
+            // 0. Cache all bone transforms recursively
+            // GetComponentsInChildren(true) recursively fetches all transforms including inactive ones
+            Transform[] allBones = _root.GetComponentsInChildren<Transform>(true);
+            TransformData[] cache = new TransformData[allBones.Length];
 
-            EditorCurveBinding[] tBindings = new EditorCurveBinding[3];
-            EditorCurveBinding[] rBindings = new EditorCurveBinding[4];
-
-            foreach (var binding in bindings)
+            for (int i = 0; i < allBones.Length; i++)
             {
-                if (!binding.path.EndsWith(_extractFrom.name))
-                {
-                    continue;
-                }
-
-                if (binding.propertyName.ToLower().Contains("m_localposition.x"))
-                {
-                    tBindings[0] = binding;
-                    continue;
-                }
-
-                if (binding.propertyName.ToLower().Contains("m_localposition.y"))
-                {
-                    tBindings[1] = binding;
-                    continue;
-                }
-
-                if (binding.propertyName.ToLower().Contains("m_localposition.z"))
-                {
-                    tBindings[2] = binding;
-                    continue;
-                }
-
-                if (binding.propertyName.ToLower().Contains("m_localrotation.x"))
-                {
-                    rBindings[0] = binding;
-                    continue;
-                }
-
-                if (binding.propertyName.ToLower().Contains("m_localrotation.y"))
-                {
-                    rBindings[1] = binding;
-                    continue;
-                }
-
-                if (binding.propertyName.ToLower().Contains("m_localrotation.z"))
-                {
-                    rBindings[2] = binding;
-                    continue;
-                }
-
-                if (binding.propertyName.ToLower().Contains("m_localrotation.w"))
-                {
-                    rBindings[3] = binding;
-                }
+                cache[i] = new TransformData(allBones[i]);
             }
 
-            Vector3 refTranslation = Vector3.zero;
-            Quaternion refRotation = Quaternion.identity;
-
-            if (_refClip != null && _isAdditive)
-            {
-                refTranslation = GetVectorValue(_refClip, tBindings, 0f);
-                refRotation = GetQuatValue(_refClip, rBindings, 0f) * Quaternion.Euler(_rotationOffset);
-            }
-            
             AnimationCurve tX = new AnimationCurve();
             AnimationCurve tY = new AnimationCurve();
             AnimationCurve tZ = new AnimationCurve();
@@ -124,40 +73,82 @@ namespace KINEMATION.KAnimationCore.Editor.Tools
             AnimationCurve rZ = new AnimationCurve();
             AnimationCurve rW = new AnimationCurve();
 
-            float playLength = _clip.length;
-            float frameRate = 1f / _clip.frameRate;
-            float playBack = 0f;
-
-            while (playBack <= playLength)
+            try
             {
-                Vector3 translation = GetVectorValue(_clip, tBindings, playBack);
-                Quaternion rotation = GetQuatValue(_clip, rBindings, playBack) * Quaternion.Euler(_rotationOffset);
+                // 1. Sample Reference (if additive)
+                Vector3 refTranslation = Vector3.zero;
+                Quaternion refRotation = Quaternion.identity;
 
-                Vector3 deltaT = translation - refTranslation;
-                Quaternion deltaR = Quaternion.Inverse(refRotation) * rotation;
+                if (_isAdditive && _refClip != null)
+                {
+                    _refClip.SampleAnimation(_root.gameObject, 0f);
+                    refTranslation = _root.InverseTransformPoint(_extractFrom.position);
+                    refRotation = Quaternion.Inverse(_root.rotation) * _extractFrom.rotation *
+                                  Quaternion.Euler(_rotationOffset);
+                }
 
-                tX.AddKey(playBack, deltaT.x);
-                tY.AddKey(playBack, deltaT.y);
-                tZ.AddKey(playBack, deltaT.z);
+                // 2. Iterate frames and sample
+                float playLength = _clip.length;
+                float frameRate = _clip.frameRate > 0 ? 1f / _clip.frameRate : 1f / 30f;
+                float playBack = 0f;
 
-                rX.AddKey(playBack, deltaR.x);
-                rY.AddKey(playBack, deltaR.y);
-                rZ.AddKey(playBack, deltaR.z);
-                rW.AddKey(playBack, deltaR.w);
+                while (playBack <= playLength)
+                {
+                    _clip.SampleAnimation(_root.gameObject, playBack);
 
-                playBack += frameRate;
+                    Vector3 position = _extractFrom.position;
+                    Quaternion rotation = _extractFrom.rotation * Quaternion.Euler(_rotationOffset);
+
+                    if (_isAdditive)
+                    {
+                        position = _root.InverseTransformPoint(position);
+                        rotation = Quaternion.Inverse(_root.rotation) * rotation;
+                        
+                        position -= refTranslation;
+                        rotation = Quaternion.Inverse(refRotation) * rotation;
+                        
+                        position = _root.TransformPoint(position);
+                        rotation = _root.rotation * rotation;
+                    }
+
+                    position = _extractTo.parent.InverseTransformPoint(position);
+                    rotation = Quaternion.Inverse(_extractTo.parent.rotation) * rotation;
+
+                    // 4. Bake into curves
+                    tX.AddKey(playBack, position.x);
+                    tY.AddKey(playBack, position.y);
+                    tZ.AddKey(playBack, position.z);
+
+                    rX.AddKey(playBack, rotation.x);
+                    rY.AddKey(playBack, rotation.y);
+                    rZ.AddKey(playBack, rotation.z);
+                    rW.AddKey(playBack, rotation.w);
+
+                    playBack += frameRate;
+                }
+
+                // 5. Save Clip
+                string path = GetBonePath(_extractTo, _root);
+                if (!string.IsNullOrEmpty(path))
+                {
+                    _clip.SetCurve(path, typeof(Transform), "localPosition.x", tX);
+                    _clip.SetCurve(path, typeof(Transform), "localPosition.y", tY);
+                    _clip.SetCurve(path, typeof(Transform), "localPosition.z", tZ);
+
+                    _clip.SetCurve(path, typeof(Transform), "localRotation.x", rX);
+                    _clip.SetCurve(path, typeof(Transform), "localRotation.y", rY);
+                    _clip.SetCurve(path, typeof(Transform), "localRotation.z", rZ);
+                    _clip.SetCurve(path, typeof(Transform), "localRotation.w", rW);
+                }
             }
-
-            string path = GetBonePath(_extractTo, _root);
-
-            _clip.SetCurve(path, typeof(Transform), tBindings[0].propertyName, tX);
-            _clip.SetCurve(path, typeof(Transform), tBindings[1].propertyName, tY);
-            _clip.SetCurve(path, typeof(Transform), tBindings[2].propertyName, tZ);
-
-            _clip.SetCurve(path, typeof(Transform), rBindings[0].propertyName, rX);
-            _clip.SetCurve(path, typeof(Transform), rBindings[1].propertyName, rY);
-            _clip.SetCurve(path, typeof(Transform), rBindings[2].propertyName, rZ);
-            _clip.SetCurve(path, typeof(Transform), rBindings[3].propertyName, rW);
+            finally
+            {
+                // 6. Restore initial pose
+                for (int i = 0; i < allBones.Length; i++)
+                {
+                    if (allBones[i] != null) cache[i].Restore(allBones[i]);
+                }
+            }
         }
 
         public void Init()
@@ -166,75 +157,52 @@ namespace KINEMATION.KAnimationCore.Editor.Tools
 
         public void Render()
         {
-            if (!EditorGUIUtility.wideMode)
-            {
-                EditorGUIUtility.wideMode = true;
-            }
-        
+            if (!EditorGUIUtility.wideMode) EditorGUIUtility.wideMode = true;
+
             GUILayout.Label("Settings", EditorStyles.boldLabel);
 
-            _clip =
-                EditorGUILayout.ObjectField("Target Animation", _clip, typeof(AnimationClip), true)
-                    as AnimationClip;
-
-            _refClip =
-                EditorGUILayout.ObjectField("Reference Animation", _refClip, 
-                        typeof(AnimationClip), true) as AnimationClip;
+            GUIContent content = new GUIContent("Target Animation", "Animation to modify.");
+            _clip = EditorGUILayout.ObjectField(content, _clip, typeof(AnimationClip),
+                true) as AnimationClip;
             
-            _root = EditorGUILayout.ObjectField("Root", _root, typeof(Transform), true)
-                as Transform;
+            content = new GUIContent("Character Model", "Model Game Object.");
+            _root = EditorGUILayout.ObjectField(content, _root, typeof(Transform), true) as Transform;
             
-            _extractFrom = EditorGUILayout.ObjectField("From", _extractFrom, typeof(Transform), true)
-                as Transform;
+            content = new GUIContent("Copy From", "Bone to copy pose from.");
+            _extractFrom = EditorGUILayout.ObjectField(content, _extractFrom, typeof(Transform), true) as Transform;
             
-            _extractTo = EditorGUILayout.ObjectField("To", _extractTo, typeof(Transform), true)
-                as Transform;
-            
+            content = new GUIContent("Copy To", "Bone to copy pose to.");
+            _extractTo = EditorGUILayout.ObjectField(content, _extractTo, typeof(Transform), true) as Transform;
             _rotationOffset = EditorGUILayout.Vector3Field("Rotation Offset", _rotationOffset);
-            _isAdditive = EditorGUILayout.Toggle("Is Additive", _isAdditive);
             
-            if (_clip == null)
+            EditorGUILayout.Space();
+            
+            content = new GUIContent("Is Additive", "If true, pose will be copied relative to the reference animation.");
+            _isAdditive = EditorGUILayout.Toggle(content, _isAdditive);
+
+            GUI.enabled = _isAdditive;
+            _refClip = EditorGUILayout.ObjectField("Reference Animation", _refClip, typeof(AnimationClip), true) as
+                AnimationClip;
+            GUI.enabled = true;
+
+            bool valid = _clip != null && _root != null && _extractFrom != null && _extractTo != null;
+            if (_isAdditive && _refClip == null) valid = false;
+
+            if (!valid)
             {
-                EditorGUILayout.HelpBox("Please, specify the Target Animation!", MessageType.Warning);
+                EditorGUILayout.HelpBox("Assign all references!", MessageType.Warning);
                 return;
             }
 
-            if (_refClip == null)
-            {
-                EditorGUILayout.HelpBox("Please, specify the Reference Animation!", MessageType.Warning);
-                return;
-            }
-
-            if (_root == null || _extractFrom == null || _extractTo == null)
-            {
-                EditorGUILayout.HelpBox("Please, specify the bones!", MessageType.Warning);
-                return;
-            }
-
-            if (GUILayout.Button("Extract"))
+            if (GUILayout.Button("Apply"))
             {
                 ExtractAndSetAnimationData();
             }
         }
 
-        public string GetToolCategory()
-        {
-            return "Animation/";
-        }
-
-        public string GetToolName()
-        {
-            return "Copy Bone";
-        }
-
-        public string GetDocsURL()
-        {
-            return string.Empty;
-        }
-
-        public string GetToolDescription()
-        {
-            return "Copy curves from one bone to another with this tool.";
-        }
+        public string GetToolCategory() => "Animation";
+        public string GetToolName() => "Copy Bone";
+        public string GetDocsURL() => string.Empty;
+        public string GetToolDescription() => "Samples and bakes animation from one bone to another.";
     }
 }

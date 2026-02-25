@@ -1,17 +1,16 @@
-﻿// Designed by KINEMATION, 2024.
-
-using KINEMATION.KAnimationCore.Runtime.Attributes;
-using KINEMATION.KAnimationCore.Runtime.Rig;
-using KINEMATION.KAnimationCore.Runtime.Input;
+﻿// Copyright (c) 2026 KINEMATION.
+// All rights reserved.
 
 using System.Collections.Generic;
 using System.Linq;
-
+using KINEMATION.Shared.KAnimationCore.Runtime.Attributes;
+using KINEMATION.Shared.KAnimationCore.Runtime.Input;
+using KINEMATION.Shared.KAnimationCore.Runtime.Rig;
 using UnityEditor;
 using UnityEditor.Animations;
 using UnityEngine;
 
-namespace KINEMATION.KAnimationCore.Editor.Attributes
+namespace KINEMATION.Shared.KAnimationCore.Editor.Attributes
 {
     [CustomPropertyDrawer(typeof(CurveSelectorAttribute))]
     public class CurveSelectorDrawer : PropertyDrawer

@@ -1,14 +1,13 @@
-// Designed by KINEMATION, 2024.
-
-using KINEMATION.KAnimationCore.Runtime.Rig;
+﻿// Copyright (c) 2026 KINEMATION.
+// All rights reserved.
 
 using System.Collections.Generic;
-using KINEMATION.KAnimationCore.Editor.Misc;
+using KINEMATION.Shared.KAnimationCore.Runtime.Rig;
 using UnityEditor;
 using UnityEditorInternal;
 using UnityEngine;
 
-namespace KINEMATION.KAnimationCore.Editor.Rig
+namespace KINEMATION.Shared.KAnimationCore.Editor.Rig
 {
     public class StringListWidget
     {

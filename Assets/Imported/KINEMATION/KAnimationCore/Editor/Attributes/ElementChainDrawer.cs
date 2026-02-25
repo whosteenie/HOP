@@ -1,15 +1,15 @@
-﻿// Designed by KINEMATION, 2024.
+﻿// Copyright (c) 2026 KINEMATION.
+// All rights reserved.
 
 using System;
-using KINEMATION.KAnimationCore.Runtime.Rig;
-
 using System.Collections.Generic;
-using KINEMATION.KAnimationCore.Editor.Rig;
-using KINEMATION.KAnimationCore.Runtime.Attributes;
+using KINEMATION.Shared.KAnimationCore.Editor.Rig;
+using KINEMATION.Shared.KAnimationCore.Runtime.Attributes;
+using KINEMATION.Shared.KAnimationCore.Runtime.Rig;
 using UnityEditor;
 using UnityEngine;
 
-namespace KINEMATION.KAnimationCore.Editor.Attributes
+namespace KINEMATION.Shared.KAnimationCore.Editor.Attributes
 {
     [CustomPropertyDrawer(typeof(KRigElementChain))]
     public class ElementChainDrawer : PropertyDrawer
