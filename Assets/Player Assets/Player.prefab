@@ -1757,7 +1757,7 @@ MonoBehaviour:
   syncKinemationAirborneState: 0
   freezeKinemationLocomotionInAir: 1
   forceKinemationWalkAnimationWhileSprinting: 1
-  kinemationSprintWalkGaitValue: 1.2
+  kinemationSprintWalkGaitValue: 1.1
   autoAlignKinemationMuzzleToBounds: 1
   useLegacyBobOnKinemationViewmodel: 1
   legacyKinemationMovementBob: 0

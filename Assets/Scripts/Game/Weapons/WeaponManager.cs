@@ -31,6 +31,7 @@ namespace Game.Weapons {
 
         [SerializeField] private PlayerController playerController;
         private CinemachineCamera _fpCamera;
+        private Camera _weaponCamera;
         private Transform _worldWeaponSocket;
         private Animator _playerAnimator;
         private PlayerRenderer _playerRenderer;
@@ -132,6 +133,7 @@ namespace Game.Weapons {
 
             if(CurrentWeapon == null) CurrentWeapon = playerController.WeaponComponent;
             if(_fpCamera == null) _fpCamera = playerController.FpCamera;
+            if(_weaponCamera == null) _weaponCamera = playerController.WeaponCamera;
             if(_worldWeaponSocket == null) _worldWeaponSocket = playerController.WorldWeaponSocket;
             if(_playerAnimator == null) _playerAnimator = playerController.PlayerAnimator;
             
@@ -1375,14 +1377,20 @@ namespace Game.Weapons {
         }
 
         private GameObject ResolveFpHolderRoot(GameObject fpWeapon) {
-            if(fpWeapon == null || _fpCamera == null) return null;
+            if(fpWeapon == null) return null;
 
             var node = fpWeapon.transform;
-            while(node.parent != null && node.parent != _fpCamera.transform) {
+            while(node.parent != null && !IsFpHolderParent(node.parent)) {
                 node = node.parent;
             }
 
-            return node.parent == _fpCamera.transform ? node.gameObject : null;
+            return IsFpHolderParent(node.parent) ? node.gameObject : null;
+        }
+
+        private bool IsFpHolderParent(Transform parent) {
+            if(parent == null) return false;
+            if(_fpCamera != null && parent == _fpCamera.transform) return true;
+            return _weaponCamera != null && parent == _weaponCamera.transform;
         }
 
         private void HideAllWorldWeapons(GameObject keepVisible = null) {
@@ -1407,8 +1415,16 @@ namespace Game.Weapons {
                 }
 
                 if(ShouldUseKinemationForWeapon(data, out var kinemationBinding)) {
+                    var kinemationCameraParent = _weaponCamera != null
+                        ? _weaponCamera.transform
+                        : _fpCamera != null ? _fpCamera.transform : null;
+                    if(kinemationCameraParent == null) {
+                        Debug.LogError("[WeaponManager] Missing both WeaponCamera and FpCamera. Cannot spawn KINEMATION viewmodel.");
+                        continue;
+                    }
+
                     var kinemationSwayHolder = new GameObject("SwayHolder");
-                    kinemationSwayHolder.transform.SetParent(_fpCamera.transform, false);
+                    kinemationSwayHolder.transform.SetParent(kinemationCameraParent, false);
                     kinemationSwayHolder.transform.localPosition = Vector3.zero;
                     kinemationSwayHolder.transform.localEulerAngles = Vector3.zero;
 

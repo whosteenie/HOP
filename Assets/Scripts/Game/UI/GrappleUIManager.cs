@@ -26,6 +26,7 @@ namespace Game.UI {
         private Color _currentColor;
         private GrappleController _grappleController;
         private CinemachineCamera _fpCamera;
+        private PlayerController _localPlayer;
         
         // Bottom indicator (square)
         private VisualElement _grappleIndicatorBottom;
@@ -114,6 +115,12 @@ namespace Game.UI {
             // Validate references are not null and not destroyed
             if(_grappleController == null || _fpCamera == null) return;
             if(SessionManager.IsGameplaySceneName(_cachedSceneName) == false) return;
+
+            if(_localPlayer != null && _localPlayer.IsDead) {
+                HideCrosshairIndicator();
+                HideBottomIndicator();
+                return;
+            }
             
             CheckGrapplePoint();
             
@@ -166,6 +173,7 @@ namespace Game.UI {
 
         public void RegisterLocalPlayer(PlayerController player) {
             if(player == null) return;
+            _localPlayer = player;
             _grappleController = player.GetComponentInChildren<GrappleController>();
             _fpCamera = player.GetComponentInChildren<CinemachineCamera>();
         }

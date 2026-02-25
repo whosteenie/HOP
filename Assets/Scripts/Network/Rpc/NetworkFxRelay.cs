@@ -54,6 +54,7 @@ namespace Network.Rpc {
             var weaponManager = networkObject.GetComponent<WeaponManager>();
 
             if(weaponManager == null) return;
+            if(networkObject.IsOwner) return;
             var weapon = weaponManager.CurrentWeapon;
             if(weapon == null) return;
 

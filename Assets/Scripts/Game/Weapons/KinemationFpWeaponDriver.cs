@@ -7,6 +7,7 @@ using KINEMATION.FPSAnimationPack.Scripts.Sounds;
 using KINEMATION.FPSAnimationPack.Scripts.Weapon;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.VFX;
 
 namespace Game.Weapons {
     [DisallowMultipleComponent]
@@ -16,6 +17,7 @@ namespace Game.Weapons {
         [SerializeField] private GameObject weaponPrefab;
         [SerializeField] private bool disableKinemationWeaponSounds;
         [SerializeField] private bool disableKinemationPlayerSounds = true;
+        [SerializeField] private bool disableKinemationInternalMuzzleFx = true;
         [SerializeField] private bool tagArmsForLegacyHooks;
         [SerializeField] private string armRootName = "SK_Arms_Mono";
         [SerializeField] private bool requireExplicitMuzzleTransform = true;
@@ -47,6 +49,7 @@ namespace Game.Weapons {
         private float _reloadTrackStartTime;
         private float _lastReloadSignalTime;
         private bool _hasLoggedMuzzleSelection;
+        private readonly HashSet<int> _suppressedMuzzleFxWeaponIds = new();
         private const float ReloadEnterGraceSeconds = 0.2f;
         private const float ReloadSignalGraceSeconds = 0.25f;
 
@@ -548,6 +551,7 @@ namespace Game.Weapons {
 
             _muzzleTransform ??= ResolveMuzzleTransform(_activeWeapon);
             ApplyActiveWeaponSoundToggles(_activeWeapon);
+            SuppressInternalMuzzleFx(_activeWeapon);
             return _activeWeapon != null;
         }
 
@@ -574,6 +578,63 @@ namespace Game.Weapons {
                     }
                 }
             }
+        }
+
+        private void SuppressInternalMuzzleFx(FPSWeapon activeWeapon) {
+            if(!disableKinemationInternalMuzzleFx || activeWeapon == null) return;
+
+            var weaponId = activeWeapon.gameObject.GetInstanceID();
+            if(_suppressedMuzzleFxWeaponIds.Contains(weaponId)) return;
+
+            var disabledParticles = 0;
+            var disabledVfx = 0;
+            var disabledLights = 0;
+
+            var particleSystems = activeWeapon.GetComponentsInChildren<ParticleSystem>(true);
+            foreach(var ps in particleSystems) {
+                if(ps == null || !IsLikelyMuzzleFxNode(ps.transform)) continue;
+                ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+                var emission = ps.emission;
+                emission.enabled = false;
+                disabledParticles++;
+            }
+
+            var vfxComponents = activeWeapon.GetComponentsInChildren<VisualEffect>(true);
+            foreach(var vfx in vfxComponents) {
+                if(vfx == null || !IsLikelyMuzzleFxNode(vfx.transform)) continue;
+                vfx.Stop();
+                vfx.enabled = false;
+                disabledVfx++;
+            }
+
+            var lights = activeWeapon.GetComponentsInChildren<Light>(true);
+            foreach(var light in lights) {
+                if(light == null || !IsLikelyMuzzleFxNode(light.transform)) continue;
+                light.enabled = false;
+                disabledLights++;
+            }
+
+            _suppressedMuzzleFxWeaponIds.Add(weaponId);
+            if(disabledParticles > 0 || disabledVfx > 0 || disabledLights > 0) {
+                Debug.Log(
+                    $"[KinemationFpWeaponDriver] Suppressed internal muzzle FX on '{activeWeapon.name}' " +
+                    $"(ParticleSystems={disabledParticles}, VisualEffects={disabledVfx}, Lights={disabledLights}).");
+            }
+        }
+
+        private static bool IsLikelyMuzzleFxNode(Transform transform) {
+            var cursor = transform;
+            while(cursor != null) {
+                var name = cursor.name.ToLowerInvariant();
+                if(name.Contains("muzzle") || name.Contains("flash") || name.Contains("shotfx") ||
+                   name.Contains("firefx") || name.Contains("fire_fx") || name.Contains("vfx")) {
+                    return true;
+                }
+
+                cursor = cursor.parent;
+            }
+
+            return false;
         }
 
         private AudioSource EnsureDedicatedWeaponAudioSource() {

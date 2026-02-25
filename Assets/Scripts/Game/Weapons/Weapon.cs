@@ -43,6 +43,9 @@ namespace Game.Weapons {
         private GameObject _worldMuzzleLight;
         private Coroutine _fpMuzzleLightCoroutine;
         private Coroutine _worldMuzzleLightCoroutine;
+        private GameObject _kinemationLocalMuzzleFxInstance;
+        private VisualEffect _kinemationLocalMuzzleVfx;
+        private GameObject _kinemationLocalMuzzleSourcePrefab;
 
         [Header("Runtime State")]
         public int currentAmmo;
@@ -178,6 +181,14 @@ namespace Game.Weapons {
             SyncKinemationLocomotion();
         }
 
+        private void OnDestroy() {
+            if(_damageRelay != null) {
+                _damageRelay.OnHitConfirm -= OnHitConfirm;
+            }
+
+            ClearKinemationLocalMuzzleFxInstance();
+        }
+
         private void SyncKinemationLocomotion() {
             if(_kinemationFpWeaponDriver == null || playerController == null || !playerController.IsOwner) {
                 return;
@@ -258,6 +269,8 @@ namespace Game.Weapons {
                 CancelReload();
             }
 
+            ClearKinemationLocalMuzzleFxInstance();
+
             // Set new weapon data
             _currentWeaponData = newWeaponData;
             _currentFpWeaponInstance = fpWeaponInstance;
@@ -292,11 +305,11 @@ namespace Game.Weapons {
             if(_currentFpWeaponInstance) {
                 if(_kinemationFpWeaponDriver == null) {
                     _weaponAnimator = _currentFpWeaponInstance.GetComponent<Animator>();
-                }
-                _fpMuzzleLight = ResolveMuzzleLightObject(_currentFpWeaponInstance);
+                    _fpMuzzleLight = ResolveMuzzleLightObject(_currentFpWeaponInstance);
 
-                if(_fpMuzzleLight) {
-                    _fpMuzzleLight.SetActive(false);
+                    if(_fpMuzzleLight) {
+                        _fpMuzzleLight.SetActive(false);
+                    }
                 }
             }
 
@@ -1236,6 +1249,57 @@ namespace Game.Weapons {
             return prefabName.Contains("180");
         }
 
+        private GameObject EnsureKinemationLocalMuzzleFxInstance(Transform muzzleTransform, Quaternion spawnRotation) {
+            if(_currentWeaponData == null || _currentWeaponData.muzzleFlashPrefab == null || muzzleTransform == null) {
+                return null;
+            }
+
+            var sourcePrefab = _currentWeaponData.muzzleFlashPrefab;
+            var needsRecreate = _kinemationLocalMuzzleFxInstance == null || _kinemationLocalMuzzleSourcePrefab != sourcePrefab;
+            if(needsRecreate) {
+                if(_kinemationLocalMuzzleFxInstance != null) {
+                    Destroy(_kinemationLocalMuzzleFxInstance);
+                }
+
+                _kinemationLocalMuzzleFxInstance = Instantiate(sourcePrefab, muzzleTransform.position, spawnRotation);
+                _kinemationLocalMuzzleSourcePrefab = sourcePrefab;
+                _kinemationLocalMuzzleVfx = _kinemationLocalMuzzleFxInstance.GetComponent<VisualEffect>();
+            } else {
+                _kinemationLocalMuzzleFxInstance.transform.SetPositionAndRotation(muzzleTransform.position, spawnRotation);
+            }
+
+            AttachMuzzleFollow(_kinemationLocalMuzzleFxInstance, muzzleTransform, followRotation: false);
+            ApplyLayerRecursive(_kinemationLocalMuzzleFxInstance, muzzleTransform.gameObject.layer);
+            return _kinemationLocalMuzzleFxInstance;
+        }
+
+        private void TriggerKinemationLocalMuzzleFx() {
+            if(_kinemationLocalMuzzleFxInstance == null) return;
+
+            if(_kinemationLocalMuzzleVfx != null) {
+                _kinemationLocalMuzzleVfx.Reinit();
+                _kinemationLocalMuzzleVfx.Play();
+                return;
+            }
+
+            var particleSystems = _kinemationLocalMuzzleFxInstance.GetComponentsInChildren<ParticleSystem>(true);
+            foreach(var particleSystem in particleSystems) {
+                if(particleSystem == null) continue;
+                particleSystem.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+                particleSystem.Play(true);
+            }
+        }
+
+        private void ClearKinemationLocalMuzzleFxInstance() {
+            if(_kinemationLocalMuzzleFxInstance != null) {
+                Destroy(_kinemationLocalMuzzleFxInstance);
+            }
+
+            _kinemationLocalMuzzleFxInstance = null;
+            _kinemationLocalMuzzleVfx = null;
+            _kinemationLocalMuzzleSourcePrefab = null;
+        }
+
         /// <summary>
         /// Play muzzle flash locally (owner only, FP)
         /// Muzzle flash tracks the weapon muzzle each frame to avoid drift while moving fast.
@@ -1257,20 +1321,13 @@ namespace Game.Weapons {
 
                         var desiredWorldRotation = ResolveKinemationMuzzleFxRotation(muzzleTransform, preferredDirection);
 
-                        // Spawn KIN FX in world-space, then follow muzzle transform each frame.
-                        // This keeps muzzle position stable while using camera/shot direction for consistent orientation.
-                        var fxGo = Instantiate(_currentWeaponData.muzzleFlashPrefab, muzzleTransform.position,
-                            desiredWorldRotation);
-                        AttachMuzzleFollow(fxGo, muzzleTransform, followRotation: false);
-                        ApplyLayerRecursive(fxGo, muzzleTransform.gameObject.layer);
-                        LogMuzzleFlashDebug("Local/KIN", muzzleTransform, fxGo.transform.position, desiredWorldRotation,
-                            _kinemationFpWeaponDriver.IsUsingGeneratedMuzzleFallback(), fxGo.layer);
-
-                        var fx = fxGo.GetComponent<VisualEffect>();
-                        if(fx != null) {
-                            fx.Play();
+                        // Reuse a single local KIN muzzle FX instance to avoid overlap artifacts on full-auto fire.
+                        var fxGo = EnsureKinemationLocalMuzzleFxInstance(muzzleTransform, desiredWorldRotation);
+                        if(fxGo != null) {
+                            LogMuzzleFlashDebug("Local/KIN", muzzleTransform, fxGo.transform.position, desiredWorldRotation,
+                                _kinemationFpWeaponDriver.IsUsingGeneratedMuzzleFallback(), fxGo.layer);
+                            TriggerKinemationLocalMuzzleFx();
                         }
-                        Destroy(fxGo, 1f);
                     } else {
                         var fxGo = Instantiate(_currentWeaponData.muzzleFlashPrefab, muzzleTransform);
                         fxGo.transform.localPosition = Vector3.zero;
@@ -1295,6 +1352,10 @@ namespace Game.Weapons {
 
         [Rpc(SendTo.Everyone)]
         private void PlayShootAnimationServerRpc() {
+            if(playerController != null && playerController.IsOwner) {
+                return;
+            }
+
             if(_playerAnimator != null) {
                 _playerAnimator.SetTrigger(RecoilHash);
             }
@@ -1306,6 +1367,10 @@ namespace Game.Weapons {
         /// Muzzle flash tracks the weapon muzzle each frame to avoid drift while moving fast.
         /// </summary>
         public void PlayNetworkedMuzzleFlash(Vector3 endPoint) {
+            if(playerController != null && playerController.IsOwner) {
+                return;
+            }
+
             // NON-OWNER ONLY: Play 3P world muzzle flash
             if(_currentWeaponData != null &&
                _currentWeaponData.muzzleFlashPrefab != null &&
