@@ -314,6 +314,9 @@ namespace Game.Weapons {
 
             // Restore ammo
             currentAmmo = Mathf.Clamp(restoredAmmo, 0, _currentMagCapacity);
+            if(_kinemationFpWeaponDriver != null) {
+                _kinemationFpWeaponDriver.SyncActiveAmmo(currentAmmo);
+            }
             IsReloading = false;
             _autoReloadArmed = false;
             _reloadExpectedCompleteTime = float.PositiveInfinity;
@@ -487,6 +490,11 @@ namespace Game.Weapons {
                 if(!string.IsNullOrWhiteSpace(soundId)) {
                     _audioRelay.RequestStop(soundId);
                 }
+            }
+
+            if(_kinemationFpWeaponDriver != null) {
+                StopKinemationEventSoundsForCurrentWeapon();
+                _kinemationFpWeaponDriver.AbortReloadAndSyncAmmo(currentAmmo);
             }
 
             IsReloading = false;
@@ -1807,6 +1815,21 @@ namespace Game.Weapons {
                 if(!_kinemationFpWeaponDriver.TryGetKinemationEventSoundId(clipIndex, out var eventSoundId)) continue;
                 if(string.IsNullOrWhiteSpace(eventSoundId)) continue;
                 _audioRelay.RequestPlayAttached(eventSoundId, attachRef, allowOverlap: true);
+            }
+        }
+
+        private void StopKinemationEventSoundsForCurrentWeapon() {
+            if(_kinemationFpWeaponDriver == null) return;
+            if(!UseKinemationEventSoundRouting()) return;
+            if(playerController == null || !playerController.IsOwner) return;
+            if(_audioRelay == null) return;
+
+            var eventClipCount = _kinemationFpWeaponDriver.GetKinemationEventSoundClipCount();
+            for(var clipIndex = 0; clipIndex < eventClipCount; clipIndex++) {
+                if(!_kinemationFpWeaponDriver.IsLikelyReloadEventSoundClip(clipIndex)) continue;
+                if(!_kinemationFpWeaponDriver.TryGetKinemationEventSoundId(clipIndex, out var eventSoundId)) continue;
+                if(string.IsNullOrWhiteSpace(eventSoundId)) continue;
+                _audioRelay.RequestStop(eventSoundId);
             }
         }
 

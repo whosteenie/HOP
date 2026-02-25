@@ -84,6 +84,19 @@ namespace Game.Weapons {
             typeof(FPSPlayer).GetField("allowCharacterControllerMovement", BindingFlags.Instance | BindingFlags.NonPublic);
         private static readonly FieldInfo FpsWeaponSoundAudioSourceField =
             typeof(FPSWeaponSound).GetField("_audioSource", BindingFlags.Instance | BindingFlags.NonPublic);
+        private static readonly FieldInfo FpsWeaponActiveAmmoField =
+            typeof(FPSWeapon).GetField("_activeAmmo", BindingFlags.Instance | BindingFlags.NonPublic);
+        private static readonly FieldInfo FpsWeaponIsReloadingField =
+            typeof(FPSWeapon).GetField("_isReloading", BindingFlags.Instance | BindingFlags.NonPublic);
+        private static readonly FieldInfo FpsWeaponIsFiringField =
+            typeof(FPSWeapon).GetField("_isFiring", BindingFlags.Instance | BindingFlags.NonPublic);
+        private static readonly FieldInfo FpsWeaponCharacterAnimatorField =
+            typeof(FPSWeapon).GetField("characterAnimator", BindingFlags.Instance | BindingFlags.NonPublic);
+        private static readonly FieldInfo FpsWeaponAnimatorField =
+            typeof(FPSWeapon).GetField("weaponAnimator", BindingFlags.Instance | BindingFlags.NonPublic);
+        private static readonly FieldInfo Pdw90SmoothAmmoWeightField =
+            typeof(Pdw90Animation).GetField("_smoothAmmoWeight", BindingFlags.Instance | BindingFlags.NonPublic);
+        private static readonly int IdleHash = Animator.StringToHash("Idle");
 
         public void Configure(GameObject playerPrefab, GameObject fpWeaponPrefab, bool disableWeaponSounds,
             bool disablePlayerSounds, bool routeWeaponSoundEvents, bool tagArms, Vector3 muzzleLocalPosition,
@@ -157,6 +170,7 @@ namespace Game.Weapons {
 
         public void PlayEquipAnimation(bool immediate) {
             if(!TryCacheActiveWeapon()) return;
+            PrepareActiveWeaponForEquip();
             if(immediate) {
                 ResetEquipTracking();
                 _activeWeapon.OnEquipped_Immediate();
@@ -242,6 +256,58 @@ namespace Game.Weapons {
             }
 
             return true;
+        }
+
+        public int GetKinemationEventSoundClipCount() {
+            if(!TryCacheActiveWeapon() || _activeWeapon == null || _activeWeapon.weaponSettings == null) {
+                return 0;
+            }
+
+            return _activeWeapon.weaponSettings.weaponEventSounds != null
+                ? _activeWeapon.weaponSettings.weaponEventSounds.Count
+                : 0;
+        }
+
+        public bool IsLikelyReloadEventSoundClip(int clipIndex) {
+            if(!TryCacheActiveWeapon() || _activeWeapon == null || _activeWeapon.weaponSettings == null) {
+                return false;
+            }
+
+            var eventSounds = _activeWeapon.weaponSettings.weaponEventSounds;
+            if(eventSounds == null || clipIndex < 0 || clipIndex >= eventSounds.Count) {
+                return false;
+            }
+
+            var clip = eventSounds[clipIndex];
+            if(clip == null || string.IsNullOrWhiteSpace(clip.name)) {
+                return false;
+            }
+
+            var clipName = clip.name.ToLowerInvariant();
+            return clipName.Contains("reload") || clipName.Contains("insert") || clipName.Contains("shell") ||
+                   clipName.Contains("mag") || clipName.Contains("bolt");
+        }
+
+        public void SyncActiveAmmo(int authoritativeAmmo) {
+            if(!TryCacheActiveWeapon() || _activeWeapon == null) return;
+            ApplyAuthoritativeAmmoToActiveWeapon(authoritativeAmmo, cancelPendingInvokes: false, out var clampedAmmo,
+                out var maxAmmo);
+            SyncAmmoDrivenViewmodelVisuals(clampedAmmo, maxAmmo);
+        }
+
+        public void AbortReloadAndSyncAmmo(int authoritativeAmmo) {
+            if(!TryCacheActiveWeapon() || _activeWeapon == null) return;
+
+            _activeWeapon.CancelInvoke();
+            _activeWeapon.OnFireReleased();
+            ApplyAuthoritativeAmmoToActiveWeapon(authoritativeAmmo, cancelPendingInvokes: false, out var clampedAmmo,
+                out var maxAmmo);
+            SyncAmmoDrivenViewmodelVisuals(clampedAmmo, maxAmmo);
+            SnapAnimatorToIdle(FpsWeaponCharacterAnimatorField?.GetValue(_activeWeapon) as Animator);
+            SnapAnimatorToIdle(FpsWeaponAnimatorField?.GetValue(_activeWeapon) as Animator);
+            StopActiveWeaponAudioPlayback();
+            ResetReloadTracking();
+            ClearPendingWeaponSoundEvents();
         }
 
         public string GetKinemationFireSoundId() {
@@ -835,6 +901,77 @@ namespace Game.Weapons {
             }
 
             return false;
+        }
+
+        private void ApplyAuthoritativeAmmoToActiveWeapon(int authoritativeAmmo, bool cancelPendingInvokes,
+            out int clampedAmmo, out int maxAmmo) {
+            clampedAmmo = 0;
+            maxAmmo = 1;
+            if(_activeWeapon == null) return;
+            if(cancelPendingInvokes) {
+                _activeWeapon.CancelInvoke();
+            }
+
+            if(_activeWeapon.weaponSettings != null) {
+                maxAmmo = Mathf.Max(1, _activeWeapon.weaponSettings.ammo);
+            } else {
+                maxAmmo = Mathf.Max(1, authoritativeAmmo);
+            }
+
+            clampedAmmo = Mathf.Clamp(authoritativeAmmo, 0, maxAmmo);
+            FpsWeaponActiveAmmoField?.SetValue(_activeWeapon, clampedAmmo);
+            FpsWeaponIsReloadingField?.SetValue(_activeWeapon, false);
+            FpsWeaponIsFiringField?.SetValue(_activeWeapon, false);
+        }
+
+        private void PrepareActiveWeaponForEquip() {
+            if(_activeWeapon == null) return;
+
+            _activeWeapon.CancelInvoke();
+            FpsWeaponIsReloadingField?.SetValue(_activeWeapon, false);
+            FpsWeaponIsFiringField?.SetValue(_activeWeapon, false);
+
+            var weaponAnimator = FpsWeaponAnimatorField?.GetValue(_activeWeapon) as Animator;
+            SnapAnimatorToIdle(weaponAnimator);
+        }
+
+        private void SyncAmmoDrivenViewmodelVisuals(int clampedAmmo, int maxAmmo) {
+            if(_activeWeapon == null) return;
+            maxAmmo = Mathf.Max(1, maxAmmo);
+
+            // PDW90 viewmodel smooths ammo weight over time by default, which causes a visible one-frame
+            // lag after switch/reload-cancel. Push the smoothed value directly to authoritative ammo.
+            var targetWeight = 1f - (float)clampedAmmo / maxAmmo;
+            var pdwAnimations = _activeWeapon.GetComponentsInChildren<Pdw90Animation>(true);
+            foreach(var pdwAnimation in pdwAnimations) {
+                if(pdwAnimation == null) continue;
+                Pdw90SmoothAmmoWeightField?.SetValue(pdwAnimation, targetWeight);
+            }
+        }
+
+        private static void SnapAnimatorToIdle(Animator animator) {
+            if(animator == null || animator.runtimeAnimatorController == null) return;
+
+            if(animator.HasState(0, IdleHash)) {
+                animator.Play(IdleHash, 0, 0f);
+            } else {
+                animator.Rebind();
+            }
+
+            animator.Update(0f);
+        }
+
+        private void StopActiveWeaponAudioPlayback() {
+            if(_weaponAudioSource != null) {
+                _weaponAudioSource.Stop();
+            }
+
+            if(_activeWeapon == null) return;
+            var audioSources = _activeWeapon.GetComponentsInChildren<AudioSource>(true);
+            foreach(var source in audioSources) {
+                if(source == null) continue;
+                source.Stop();
+            }
         }
 
         private AudioSource EnsureDedicatedWeaponAudioSource() {
