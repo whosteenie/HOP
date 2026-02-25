@@ -1196,6 +1196,46 @@ namespace Game.Weapons {
             return _kinemationFpWeaponDriver != null && _kinemationFpWeaponDriver.AreKinemationSoundsEnabled();
         }
 
+        private Quaternion ResolveKinemationMuzzleFxRotation(Transform muzzleTransform, Vector3 preferredDirection) {
+            var direction = preferredDirection;
+            if(direction.sqrMagnitude <= 0.0001f && muzzleTransform != null) {
+                direction = muzzleTransform.forward;
+            }
+
+            if(direction.sqrMagnitude <= 0.0001f) {
+                direction = transform.forward;
+            }
+
+            direction.Normalize();
+            if(!DoesCurrentMuzzleFlashUseForwardAxis()) {
+                direction = -direction;
+            }
+
+            var up = Vector3.up;
+            var cameraTransform = playerController != null ? playerController.FpCameraTransform : null;
+            if(cameraTransform != null) {
+                up = cameraTransform.up;
+            } else if(muzzleTransform != null) {
+                up = muzzleTransform.up;
+            }
+
+            if(Mathf.Abs(Vector3.Dot(up, direction)) > 0.98f) {
+                up = Vector3.right;
+            }
+
+            return Quaternion.LookRotation(direction, up);
+        }
+
+        private bool DoesCurrentMuzzleFlashUseForwardAxis() {
+            var muzzleFlashPrefab = _currentWeaponData != null ? _currentWeaponData.muzzleFlashPrefab : null;
+            if(muzzleFlashPrefab == null) {
+                return false;
+            }
+
+            var prefabName = muzzleFlashPrefab.name.ToLowerInvariant();
+            return prefabName.Contains("180");
+        }
+
         /// <summary>
         /// Play muzzle flash locally (owner only, FP)
         /// Muzzle flash tracks the weapon muzzle each frame to avoid drift while moving fast.
@@ -1209,13 +1249,19 @@ namespace Game.Weapons {
                 var useWorldParent = GameMenuManager.Instance != null && GameMenuManager.Instance.IsPostMatch;
                 if(TryGetPreferredMuzzleTransform(useWorldParent, out var muzzleTransform) && muzzleTransform != null) {
                     if(_kinemationFpWeaponDriver != null) {
-                        var desiredWorldRotation = muzzleTransform.rotation;
+                        var preferredDirection = Vector3.zero;
+                        var fpCameraTransform = playerController != null ? playerController.FpCameraTransform : null;
+                        if(!useWorldParent && fpCameraTransform != null) {
+                            preferredDirection = fpCameraTransform.forward;
+                        }
+
+                        var desiredWorldRotation = ResolveKinemationMuzzleFxRotation(muzzleTransform, preferredDirection);
 
                         // Spawn KIN FX in world-space, then follow muzzle transform each frame.
-                        // This keeps legacy-like muzzle orientation without inheriting potentially problematic parent scale.
+                        // This keeps muzzle position stable while using camera/shot direction for consistent orientation.
                         var fxGo = Instantiate(_currentWeaponData.muzzleFlashPrefab, muzzleTransform.position,
                             desiredWorldRotation);
-                        AttachMuzzleFollow(fxGo, muzzleTransform, followRotation: true);
+                        AttachMuzzleFollow(fxGo, muzzleTransform, followRotation: false);
                         ApplyLayerRecursive(fxGo, muzzleTransform.gameObject.layer);
                         LogMuzzleFlashDebug("Local/KIN", muzzleTransform, fxGo.transform.position, desiredWorldRotation,
                             _kinemationFpWeaponDriver.IsUsingGeneratedMuzzleFallback(), fxGo.layer);
@@ -1266,11 +1312,12 @@ namespace Game.Weapons {
                TryGetPreferredMuzzleTransform(true, out var muzzleTransform) &&
                muzzleTransform != null) {
                 if(_kinemationFpWeaponDriver != null) {
-                    var desiredWorldRotation = muzzleTransform.rotation;
+                    var directionHint = endPoint - muzzleTransform.position;
+                    var desiredWorldRotation = ResolveKinemationMuzzleFxRotation(muzzleTransform, directionHint);
 
                     var fxGo = Instantiate(_currentWeaponData.muzzleFlashPrefab, muzzleTransform.position,
                         desiredWorldRotation);
-                    AttachMuzzleFollow(fxGo, muzzleTransform, followRotation: true);
+                    AttachMuzzleFollow(fxGo, muzzleTransform, followRotation: false);
                     ApplyLayerRecursive(fxGo, muzzleTransform.gameObject.layer);
                     LogMuzzleFlashDebug("Networked/KIN", muzzleTransform, fxGo.transform.position, desiredWorldRotation,
                         _kinemationFpWeaponDriver.IsUsingGeneratedMuzzleFallback(), fxGo.layer);
@@ -1313,6 +1360,7 @@ namespace Game.Weapons {
             var muzzleForward = muzzleTransform != null ? muzzleTransform.forward : Vector3.forward;
             var muzzlePosition = muzzleTransform != null ? muzzleTransform.position : Vector3.zero;
             var muzzleScale = muzzleTransform != null ? muzzleTransform.lossyScale : Vector3.one;
+            var fxUsesForwardAxis = DoesCurrentMuzzleFlashUseForwardAxis();
             var muzzlePath = _kinemationFpWeaponDriver != null
                 ? _kinemationFpWeaponDriver.GetMuzzleTransformPath()
                 : BuildTransformPath(muzzleTransform);
@@ -1322,7 +1370,8 @@ namespace Game.Weapons {
                 $"muzzlePath='{muzzlePath}' muzzlePos={muzzlePosition} spawnPos={spawnPosition} " +
                 $"muzzleFwd={muzzleForward} camPos={cameraPosition} camFwd={cameraForward} " +
                 $"spawnEuler={spawnRotation.eulerAngles} fallbackRot={usingFallbackRotation} " +
-                $"muzzleScale={muzzleScale} muzzleLayer={muzzleTransform.gameObject.layer} fxLayer={fxLayer}");
+                $"muzzleScale={muzzleScale} fxForwardAxis={fxUsesForwardAxis} " +
+                $"muzzleLayer={muzzleTransform.gameObject.layer} fxLayer={fxLayer}");
         }
 
         private static string BuildTransformPath(Transform t) {
