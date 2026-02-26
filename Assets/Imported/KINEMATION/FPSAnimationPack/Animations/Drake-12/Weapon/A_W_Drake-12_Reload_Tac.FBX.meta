@@ -69,6 +69,13 @@ ModelImporter:
         floatParameter: 0
         intParameter: 0
         messageOptions: 0
+      - time: 0.14651163
+        functionName: AmmoEject
+        data: 
+        objectReferenceParameter: {instanceID: 0}
+        floatParameter: 0
+        intParameter: 2
+        messageOptions: 0
       - time: 0.31366882
         functionName: PlayWeaponSound
         data: 
@@ -83,15 +90,8 @@ ModelImporter:
         floatParameter: 0
         intParameter: 2
         messageOptions: 0
-      - time: 1
+      - time: 0.91950464
         functionName: ReloadComplete
-        data: 
-        objectReferenceParameter: {instanceID: 0}
-        floatParameter: 0
-        intParameter: 2
-        messageOptions: 0
-      - time: 0.14651163
-        functionName: AmmoEject
         data: 
         objectReferenceParameter: {instanceID: 0}
         floatParameter: 0

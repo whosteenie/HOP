@@ -51,6 +51,7 @@ namespace Game.Weapons {
         private string _activeWeaponFireSoundId = "";
         private float _reloadTrackStartTime;
         private float _lastReloadSignalTime;
+        private int _lastReloadSingleEventFrame = -1;
         private float _equipTrackStartTime;
         private float _lastEquipSignalTime;
         private bool _hasCachedWristDebugBones;
@@ -742,6 +743,7 @@ namespace Game.Weapons {
             _pendingReloadSingleEvents = 0;
             _reloadTrackStartTime = 0f;
             _lastReloadSignalTime = 0f;
+            _lastReloadSingleEventFrame = -1;
             LogDrakeDebug(
                 $"ResetReloadTracking. frame={Time.frameCount} time={Time.time:F3} " +
                 $"ejectedSinceComplete={_drakeTopShellEjectedSinceReloadComplete} appliedNow={_isDrakeTopShellSuppressionApplied} " +
@@ -750,6 +752,9 @@ namespace Game.Weapons {
 
         public void NotifyReloadSingleEvent() {
             if(!_isTrackingReload) return;
+            if(Time.frameCount == _lastReloadSingleEventFrame) return;
+
+            _lastReloadSingleEventFrame = Time.frameCount;
             _reloadHasReceivedAnyEvent = true;
             _reloadHasBeenActive = true;
             _lastReloadSignalTime = Time.time;

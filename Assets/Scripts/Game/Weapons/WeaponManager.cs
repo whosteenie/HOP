@@ -202,6 +202,10 @@ namespace Game.Weapons {
             }
 
             UpdateHolsterVisibility();
+
+            if(IsOwner) {
+                RefreshOwnerAmmoHudFromCurrentWeapon();
+            }
         }
         public void ApplyTpWeaponStateOnRespawn() {
             if(_playerAnimator != null) {

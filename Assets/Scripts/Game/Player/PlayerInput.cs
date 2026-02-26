@@ -1,3 +1,4 @@
+using System.Collections;
 using Game.Menu;
 using Game.UI;
 using Game.Weapons;
@@ -92,6 +93,7 @@ namespace Game.Player {
         private bool _lastHopballPromptVisible;
         private string _lastHopballPromptText = "";
         private HUDManager _lastHudManager;
+        private Coroutine _deferredAmmoHudRefreshRoutine;
         public bool IsSniperOverlayActive { get; private set; }
 
         [SerializeField] private float sniperZoomFov = 20f;
@@ -156,6 +158,10 @@ namespace Game.Player {
 
             if(IsOwner && WeaponManager != null) {
                 WeaponManager.RefreshOwnerAmmoHudFromCurrentWeapon();
+                if(_deferredAmmoHudRefreshRoutine != null) {
+                    StopCoroutine(_deferredAmmoHudRefreshRoutine);
+                }
+                _deferredAmmoHudRefreshRoutine = StartCoroutine(RefreshOwnerAmmoHudDeferred());
             }
 
             if(!IsOwner) {
@@ -183,6 +189,11 @@ namespace Game.Player {
         }
 
         private void OnDisable() {
+            if(_deferredAmmoHudRefreshRoutine != null) {
+                StopCoroutine(_deferredAmmoHudRefreshRoutine);
+                _deferredAmmoHudRefreshRoutine = null;
+            }
+
             if(!IsOwner) return;
             FlowLog.Emit(FlowEventIds.PlayerControlState,
                 ("player", OwnerClientId),
@@ -195,6 +206,20 @@ namespace Game.Player {
             }
 
             ApplyHopballInteractPrompt(false, "PRESS INTERACT");
+        }
+
+        private IEnumerator RefreshOwnerAmmoHudDeferred() {
+            yield return null;
+            if(IsOwner && WeaponManager != null) {
+                WeaponManager.RefreshOwnerAmmoHudFromCurrentWeapon();
+            }
+
+            yield return new WaitForSeconds(0.05f);
+            if(IsOwner && WeaponManager != null) {
+                WeaponManager.RefreshOwnerAmmoHudFromCurrentWeapon();
+            }
+
+            _deferredAmmoHudRefreshRoutine = null;
         }
 
         private void Start() {
