@@ -10,8 +10,6 @@ using Network.AntiCheat;
 using Network.Diagnostics;
 using Network.Events;
 using Unity.Cinemachine;
-using UnityEngine.InputSystem;
-using UnityEngine.InputSystem.Controls;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.Rendering;
@@ -22,8 +20,6 @@ namespace Game.Weapons {
         private class KinemationWeaponBinding {
             public WeaponData weaponData;
             public GameObject kinemationWeaponPrefab;
-            public Vector3 fallbackMuzzleLocalPosition = Vector3.zero;
-            public Vector3 fallbackMuzzleLocalEulerAngles = Vector3.zero;
             public bool useCustomViewmodelPose;
             public Vector3 viewmodelLocalPosition = Vector3.zero;
             public Vector3 viewmodelLocalEulerAngles = Vector3.zero;
@@ -86,10 +82,9 @@ namespace Game.Weapons {
         [SerializeField] private List<GameObject> secondaryHolsteredWeapons = new();
 
         [Header("KINEMATION FP Integration")]
-        [SerializeField] private bool useKinemationFpAnimations;
         [SerializeField] private GameObject kinemationFpsPlayerPrefab;
         [SerializeField] private List<KinemationWeaponBinding> kinemationWeaponBindings = new();
-        [SerializeField] private bool disableKinemationSounds = true; // Legacy fallback: disables both weapon and player sounds.
+        [SerializeField] private bool disableKinemationSounds = true;
         [SerializeField] private bool disableKinemationWeaponSounds;
         [SerializeField] private bool disableKinemationPlayerSounds = true;
         [SerializeField] private bool routeKinemationWeaponSoundEventsToAudioService = true;
@@ -98,7 +93,6 @@ namespace Game.Weapons {
         [SerializeField] private bool freezeKinemationLocomotionInAir = true;
         [SerializeField] private bool forceKinemationWalkAnimationWhileSprinting = true;
         [SerializeField, Range(0f, 1.99f)] private float kinemationSprintWalkGaitValue = 1.2f;
-        [SerializeField] private bool autoAlignKinemationMuzzleToBounds = true;
         [SerializeField] private bool useLegacyBobOnKinemationViewmodel = true;
         [SerializeField] private bool legacyKinemationMovementBob;
         [SerializeField] private bool legacyKinemationIdleBreathBob;
@@ -152,15 +146,6 @@ namespace Game.Weapons {
         [SerializeField] private bool logMissingKinemationRuntimeWristBones = true;
         [SerializeField] private Vector3 kinemationViewmodelLocalPosition = Vector3.zero;
         [SerializeField] private Vector3 kinemationViewmodelLocalEulerAngles = Vector3.zero;
-        [Header("KINEMATION Viewmodel Tuning (Play Mode)")]
-        [SerializeField] private bool enableKinemationViewmodelTuning;
-        [SerializeField] private bool logKinemationViewmodelTuning = true;
-        [SerializeField, Min(0.0001f)] private float kinemationTunePositionStep = 0.0025f;
-        [SerializeField, Min(0.01f)] private float kinemationTuneRotationStep = 0.5f;
-        [SerializeField, Min(0.01f)] private float kinemationTuneRepeatInitialDelay = 0.2f;
-        [SerializeField, Min(0.01f)] private float kinemationTuneRepeatInterval = 0.04f;
-        [SerializeField] private KeyCode kinemationTuneModifierKey = KeyCode.LeftAlt;
-        [SerializeField] private KeyCode kinemationTuneApplyCurrentPoseKey = KeyCode.P;
 
         private readonly List<GameObject> _fpWeaponInstances = new();
         private readonly Dictionary<int, int> _weaponAmmo = new();
@@ -198,9 +183,7 @@ namespace Game.Weapons {
         private bool _deferTpRevealUntilRespawn;
         private GameObject _deferredRespawnWorldWeapon;
         private Coroutine _kinemationPullOutCompletionCoroutine;
-        private bool _hasLoggedKinemationTuningHelp;
         private bool _requiresKinemationEquipCompleteForCurrentPullOut;
-        private readonly Dictionary<KeyCode, float> _kinemationTuneNextRepeatAt = new();
 
         private void Awake() {
             ValidateComponents();
@@ -231,7 +214,6 @@ namespace Game.Weapons {
 
         private void Update() {
             UpdateKinemationEquipCompletionGate();
-            HandleKinemationViewmodelTuningInput();
             SyncKinemationRuntimeWristDebugSettings();
         }
 
@@ -299,218 +281,8 @@ namespace Game.Weapons {
             }
         }
 
-        private void HandleKinemationViewmodelTuningInput() {
-            if(!enableKinemationViewmodelTuning || !Application.isPlaying) {
-                _kinemationTuneNextRepeatAt.Clear();
-                return;
-            }
-            if(!IsOwner || !useKinemationFpAnimations) {
-                _kinemationTuneNextRepeatAt.Clear();
-                return;
-            }
-            if(!IsTuningModifierHeld()) {
-                _kinemationTuneNextRepeatAt.Clear();
-                return;
-            }
-
-            if(!_hasLoggedKinemationTuningHelp && logKinemationViewmodelTuning) {
-                _hasLoggedKinemationTuningHelp = true;
-                Debug.Log(
-                    "[WeaponManager] KIN tune hotkeys: Alt+Arrows/PageUp/PageDown = position, " +
-                    "Alt+Shift+Arrows/PageUp/PageDown = rotation, Alt+C toggle per-weapon pose, " +
-                    "Alt+Backspace reset current weapon pose to defaults, Alt+Enter log current pose, " +
-                    $"Alt+{kinemationTuneApplyCurrentPoseKey} apply current local transform to this weapon.");
-            }
-
-            if(!TryGetCurrentKinemationTuningTarget(out var fpWeaponRoot, out var binding, out var weaponData)) {
-                return;
-            }
-
-            if(IsKeyPressedThisFrame(KeyCode.C)) {
-                binding.useCustomViewmodelPose = !binding.useCustomViewmodelPose;
-                ApplyResolvedKinemationViewmodelPose(fpWeaponRoot, binding);
-                LogKinemationPose(weaponData, binding, "Toggled custom pose");
-                return;
-            }
-
-            if(IsKeyPressedThisFrame(KeyCode.Backspace)) {
-                binding.useCustomViewmodelPose = true;
-                binding.viewmodelLocalPosition = kinemationViewmodelLocalPosition;
-                binding.viewmodelLocalEulerAngles = kinemationViewmodelLocalEulerAngles;
-                ApplyResolvedKinemationViewmodelPose(fpWeaponRoot, binding);
-                LogKinemationPose(weaponData, binding, "Reset to defaults");
-                return;
-            }
-
-            if(IsKeyPressedThisFrame(KeyCode.Return) || IsKeyPressedThisFrame(KeyCode.KeypadEnter)) {
-                CaptureCurrentKinemationPose(fpWeaponRoot, binding);
-                LogKinemationPose(weaponData, binding, "Current pose");
-                return;
-            }
-
-            if(kinemationTuneApplyCurrentPoseKey != KeyCode.None &&
-               IsKeyPressedThisFrame(kinemationTuneApplyCurrentPoseKey)) {
-                CaptureCurrentKinemationPose(fpWeaponRoot, binding);
-                ApplyResolvedKinemationViewmodelPose(fpWeaponRoot, binding);
-                LogKinemationPose(weaponData, binding,
-                    $"Applied current transform ({kinemationTuneApplyCurrentPoseKey})");
-                return;
-            }
-
-            var isRotationMode = IsKeyHeld(KeyCode.LeftShift) || IsKeyHeld(KeyCode.RightShift);
-            if(isRotationMode) {
-                var rotationDelta = ReadTuneAxisDelta(kinemationTuneRotationStep);
-                if(rotationDelta.sqrMagnitude <= 0f) return;
-                CaptureCurrentKinemationPose(fpWeaponRoot, binding);
-                binding.viewmodelLocalEulerAngles += rotationDelta;
-                ApplyResolvedKinemationViewmodelPose(fpWeaponRoot, binding);
-                LogKinemationPose(weaponData, binding, "Adjusted rotation");
-                return;
-            }
-
-            var positionDelta = ReadTuneAxisDelta(kinemationTunePositionStep);
-            if(positionDelta.sqrMagnitude <= 0f) return;
-            CaptureCurrentKinemationPose(fpWeaponRoot, binding);
-            binding.viewmodelLocalPosition += positionDelta;
-            ApplyResolvedKinemationViewmodelPose(fpWeaponRoot, binding);
-            LogKinemationPose(weaponData, binding, "Adjusted position");
-        }
-
-        private bool IsTuningModifierHeld() {
-            if(kinemationTuneModifierKey == KeyCode.None) return true;
-
-            if(IsKeyHeld(kinemationTuneModifierKey)) {
-                return true;
-            }
-
-            return kinemationTuneModifierKey switch {
-                KeyCode.LeftAlt => IsKeyHeld(KeyCode.RightAlt),
-                KeyCode.RightAlt => IsKeyHeld(KeyCode.LeftAlt),
-                KeyCode.LeftControl => IsKeyHeld(KeyCode.RightControl),
-                KeyCode.RightControl => IsKeyHeld(KeyCode.LeftControl),
-                KeyCode.LeftShift => IsKeyHeld(KeyCode.RightShift),
-                KeyCode.RightShift => IsKeyHeld(KeyCode.LeftShift),
-                _ => false
-            };
-        }
-
-        private Vector3 ReadTuneAxisDelta(float step) {
-            var delta = Vector3.zero;
-            if(IsTuneAxisTriggered(KeyCode.LeftArrow)) delta.x -= step;
-            if(IsTuneAxisTriggered(KeyCode.RightArrow)) delta.x += step;
-            if(IsTuneAxisTriggered(KeyCode.UpArrow)) delta.y += step;
-            if(IsTuneAxisTriggered(KeyCode.DownArrow)) delta.y -= step;
-            if(IsTuneAxisTriggered(KeyCode.PageUp)) delta.z += step;
-            if(IsTuneAxisTriggered(KeyCode.PageDown)) delta.z -= step;
-            return delta;
-        }
-
-        private bool IsTuneAxisTriggered(KeyCode keyCode) {
-            var keyboard = Keyboard.current;
-            if(keyboard == null) return false;
-            if(!TryGetInputSystemKeyControl(keyboard, keyCode, out var keyControl) || keyControl == null) return false;
-
-            var now = Time.unscaledTime;
-            var initialDelay = Mathf.Max(0.01f, kinemationTuneRepeatInitialDelay);
-            var repeatInterval = Mathf.Max(0.01f, kinemationTuneRepeatInterval);
-
-            if(keyControl.wasPressedThisFrame) {
-                _kinemationTuneNextRepeatAt[keyCode] = now + initialDelay;
-                return true;
-            }
-
-            if(!keyControl.isPressed) {
-                _kinemationTuneNextRepeatAt.Remove(keyCode);
-                return false;
-            }
-
-            if(!_kinemationTuneNextRepeatAt.TryGetValue(keyCode, out var nextRepeatAt)) {
-                _kinemationTuneNextRepeatAt[keyCode] = now + initialDelay;
-                return false;
-            }
-
-            if(now < nextRepeatAt) return false;
-
-            _kinemationTuneNextRepeatAt[keyCode] = now + repeatInterval;
-            return true;
-        }
-
-        private static bool IsKeyHeld(KeyCode keyCode) {
-            var keyboard = Keyboard.current;
-            return keyboard != null &&
-                   TryGetInputSystemKeyControl(keyboard, keyCode, out var keyControl) &&
-                   keyControl.isPressed;
-        }
-
-        private static bool IsKeyPressedThisFrame(KeyCode keyCode) {
-            var keyboard = Keyboard.current;
-            return keyboard != null &&
-                   TryGetInputSystemKeyControl(keyboard, keyCode, out var keyControl) &&
-                   keyControl.wasPressedThisFrame;
-        }
-
-        private static bool TryGetInputSystemKeyControl(Keyboard keyboard, KeyCode keyCode, out KeyControl keyControl) {
-            keyControl = keyCode switch {
-                KeyCode.LeftShift => keyboard.leftShiftKey,
-                KeyCode.RightShift => keyboard.rightShiftKey,
-                KeyCode.LeftControl => keyboard.leftCtrlKey,
-                KeyCode.RightControl => keyboard.rightCtrlKey,
-                KeyCode.LeftAlt => keyboard.leftAltKey,
-                KeyCode.RightAlt => keyboard.rightAltKey,
-                KeyCode.C => keyboard.cKey,
-                KeyCode.P => keyboard.pKey,
-                KeyCode.Backspace => keyboard.backspaceKey,
-                KeyCode.Return => keyboard.enterKey,
-                KeyCode.KeypadEnter => keyboard.numpadEnterKey,
-                KeyCode.LeftArrow => keyboard.leftArrowKey,
-                KeyCode.RightArrow => keyboard.rightArrowKey,
-                KeyCode.UpArrow => keyboard.upArrowKey,
-                KeyCode.DownArrow => keyboard.downArrowKey,
-                KeyCode.PageUp => keyboard.pageUpKey,
-                KeyCode.PageDown => keyboard.pageDownKey,
-                _ => null
-            };
-
-            return keyControl != null;
-        }
-
-        private bool TryGetCurrentKinemationTuningTarget(out GameObject fpWeaponRoot, out KinemationWeaponBinding binding,
-            out WeaponData weaponData) {
-            fpWeaponRoot = null;
-            binding = null;
-            weaponData = null;
-
-            if(CurrentWeaponIndex < 0 || CurrentWeaponIndex >= weaponDataList.Count) return false;
-            if(CurrentWeaponIndex >= _fpWeaponInstances.Count) return false;
-
-            weaponData = weaponDataList[CurrentWeaponIndex];
-            if(weaponData == null) return false;
-            if(!TryGetKinemationBindingForData(weaponData, out binding)) return false;
-
-            fpWeaponRoot = _fpWeaponInstances[CurrentWeaponIndex];
-            return fpWeaponRoot != null && TryGetKinemationDriver(fpWeaponRoot, out _);
-        }
-
-        private void CaptureCurrentKinemationPose(GameObject fpWeaponRoot, KinemationWeaponBinding binding) {
-            if(fpWeaponRoot == null || binding == null) return;
-            binding.useCustomViewmodelPose = true;
-            binding.viewmodelLocalPosition = fpWeaponRoot.transform.localPosition;
-            binding.viewmodelLocalEulerAngles = fpWeaponRoot.transform.localEulerAngles;
-        }
-
-        private void LogKinemationPose(WeaponData weaponData, KinemationWeaponBinding binding, string reason) {
-            if(!logKinemationViewmodelTuning || binding == null) return;
-            var weaponName = weaponData != null ? weaponData.weaponName : "<unknown>";
-            var mode = binding.useCustomViewmodelPose ? "Custom" : "Global";
-            var pos = binding.useCustomViewmodelPose ? binding.viewmodelLocalPosition : kinemationViewmodelLocalPosition;
-            var rot = binding.useCustomViewmodelPose ? binding.viewmodelLocalEulerAngles : kinemationViewmodelLocalEulerAngles;
-            Debug.Log(
-                $"[WeaponManager] {reason} for '{weaponName}' | Mode={mode} | Position={pos} | Rotation={rot}");
-        }
-
         private void BuildKinemationWeaponLookup() {
             _kinemationWeaponLookup.Clear();
-            if(!useKinemationFpAnimations) return;
             if(kinemationWeaponBindings == null || kinemationWeaponBindings.Count == 0) return;
 
             foreach(var binding in kinemationWeaponBindings) {
@@ -519,23 +291,8 @@ namespace Game.Weapons {
             }
         }
 
-        private bool ShouldUseKinemationForWeapon(WeaponData data, out KinemationWeaponBinding kinemationBinding) {
-            kinemationBinding = null;
-            if(!IsOwner || !useKinemationFpAnimations) return false;
-            if(kinemationFpsPlayerPrefab == null || data == null) return false;
-
-            if(_kinemationWeaponLookup.Count == 0) {
-                BuildKinemationWeaponLookup();
-            }
-
-            return _kinemationWeaponLookup.TryGetValue(data, out kinemationBinding) &&
-                   kinemationBinding != null &&
-                   kinemationBinding.kinemationWeaponPrefab != null;
-        }
-
         private bool TryGetKinemationBindingForData(WeaponData data, out KinemationWeaponBinding kinemationBinding) {
             kinemationBinding = null;
-            if(!useKinemationFpAnimations) return false;
             if(kinemationFpsPlayerPrefab == null || data == null) return false;
 
             if(_kinemationWeaponLookup.Count == 0) {
@@ -698,28 +455,15 @@ namespace Game.Weapons {
             var fp = _fpWeaponInstances[weaponIndex];
             if(fp == null) return null;
 
-            if(TryGetKinemationDriver(fp, out var kinemationDriver)) {
-                TryGetKinemationBindingForData(data, out var kinemationBinding);
-                ApplyResolvedKinemationViewmodelPose(fp, kinemationBinding);
-                fp.SetActive(true);
-                kinemationDriver.InitializeIfNeeded(GetFpWeaponLayer());
-                kinemationDriver.PlayEquipAnimation(immediate: !triggerPullOutAnimation);
-                return fp;
+            if(!TryGetKinemationDriver(fp, out var kinemationDriver) || kinemationDriver == null) {
+                return null;
             }
 
-            fp.transform.localPosition = data.spawnPosition;
-            fp.transform.localEulerAngles = data.spawnRotation;
+            TryGetKinemationBindingForData(data, out var kinemationBinding);
+            ApplyResolvedKinemationViewmodelPose(fp, kinemationBinding);
             fp.SetActive(true);
-            SetupFpWeaponSkinnedMeshRenderers(fp);
-
-            var anim = fp.GetComponent<Animator>();
-            if(anim == null || !anim.enabled || !anim.gameObject.activeInHierarchy) return fp;
-            anim.Rebind();
-            anim.Update(0f);
-            if(triggerPullOutAnimation) {
-                anim.SetTrigger(PullOutHash);
-            }
-
+            kinemationDriver.InitializeIfNeeded(GetFpWeaponLayer());
+            kinemationDriver.PlayEquipAnimation(immediate: !triggerPullOutAnimation);
             return fp;
         }
 
@@ -1748,150 +1492,102 @@ namespace Game.Weapons {
                     continue;
                 }
 
-                if(ShouldUseKinemationForWeapon(data, out var kinemationBinding)) {
-                    var kinemationCameraParent = _weaponCamera != null
-                        ? _weaponCamera.transform
-                        : _fpCamera != null ? _fpCamera.transform : null;
-                    if(kinemationCameraParent == null) {
-                        Debug.LogError("[WeaponManager] Missing both WeaponCamera and FpCamera. Cannot spawn KINEMATION viewmodel.");
-                        continue;
-                    }
-
-                    var kinemationSwayHolder = new GameObject("SwayHolder");
-                    var kinemationSway = kinemationSwayHolder.AddComponent<WeaponSway>();
-                    kinemationSwayHolder.transform.SetParent(kinemationCameraParent, false);
-                    kinemationSwayHolder.transform.localPosition = Vector3.zero;
-                    kinemationSwayHolder.transform.localEulerAngles = Vector3.zero;
-                    if(_fpCamera != null) {
-                        kinemationSway.SetCameraTransform(_fpCamera.transform);
-                    }
-
-                    var kinemationBobHolder = new GameObject("BobHolder");
-                    kinemationBobHolder.transform.SetParent(kinemationSwayHolder.transform, false);
-                    kinemationBobHolder.transform.localPosition = Vector3.zero;
-                    kinemationBobHolder.transform.localEulerAngles = Vector3.zero;
-                    if(useLegacyBobOnKinemationViewmodel) {
-                        var legacyBob = kinemationBobHolder.AddComponent<WeaponBob>();
-                        legacyBob.ConfigureFeatures(
-                            legacyKinemationMovementBob,
-                            legacyKinemationIdleBreathBob,
-                            legacyKinemationJumpFallBob,
-                            legacyKinemationLandingBob
-                        );
-                    }
-
-                    var kinemationHolder = new GameObject("KinemationHolder");
-                    kinemationHolder.transform.SetParent(kinemationBobHolder.transform, false);
-                    ResolveKinemationViewmodelPose(kinemationBinding, out var localPosition, out var localEulerAngles);
-                    kinemationHolder.transform.localPosition = localPosition;
-                    kinemationHolder.transform.localEulerAngles = localEulerAngles;
-
-                    var disableWeaponSounds = disableKinemationSounds || disableKinemationWeaponSounds;
-                    var disablePlayerSounds = disableKinemationSounds || disableKinemationPlayerSounds;
-                    var wristCorrectionWeight = kinemationBinding.useCustomWristCorrectionWeight
-                        ? kinemationBinding.wristCorrectionWeight
-                        : kinemationWristCorrectionLayerWeight;
-
-                    var kinemationDriver = kinemationHolder.AddComponent<KinemationFpWeaponDriver>();
-                    kinemationDriver.Configure(
-                        kinemationFpsPlayerPrefab,
-                        kinemationBinding.kinemationWeaponPrefab,
-                        disableWeaponSounds,
-                        disablePlayerSounds,
-                        routeKinemationWeaponSoundEventsToAudioService,
-                        tagKinemationArmsForLegacyHooks,
-                        kinemationBinding.fallbackMuzzleLocalPosition,
-                        kinemationBinding.fallbackMuzzleLocalEulerAngles,
-                        syncKinemationLookPitchWithPlayer,
-                        syncKinemationAirborneState,
-                        freezeKinemationLocomotionInAir,
-                        autoAlignKinemationMuzzleToBounds,
-                        forceKinemationWalkAnimationWhileSprinting,
-                        kinemationSprintWalkGaitValue,
-                        kinemationEquipUnlockNormalizedTime,
-                        enableKinemationWristCorrectionLayer,
-                        kinemationWristCorrectionLayerName,
-                        wristCorrectionWeight,
-                        logMissingKinemationWristCorrectionLayer,
-                        enableKinemationRuntimeWristDebugOverride,
-                        kinemationRuntimeWristDebugWeight,
-                        kinemationRuntimeWristDebugUpperarmLeftEuler.ToVector3(),
-                        kinemationRuntimeWristDebugUpperarmRightEuler.ToVector3(),
-                        kinemationRuntimeWristDebugUpperarmLeftPosition.ToVector3(),
-                        kinemationRuntimeWristDebugUpperarmRightPosition.ToVector3(),
-                        kinemationRuntimeWristDebugLowerarmLeftEuler.ToVector3(),
-                        kinemationRuntimeWristDebugLowerarmRightEuler.ToVector3(),
-                        kinemationRuntimeWristDebugLowerarmLeftPosition.ToVector3(),
-                        kinemationRuntimeWristDebugLowerarmRightPosition.ToVector3(),
-                        kinemationRuntimeWristDebugTwistLeftEuler.ToVector3(),
-                        kinemationRuntimeWristDebugTwistRightEuler.ToVector3(),
-                        kinemationRuntimeWristDebugTwistLeftPosition.ToVector3(),
-                        kinemationRuntimeWristDebugTwistRightPosition.ToVector3(),
-                        kinemationRuntimeWristDebugHandLeftEuler.ToVector3(),
-                        kinemationRuntimeWristDebugHandRightEuler.ToVector3(),
-                        kinemationRuntimeWristDebugHandLeftPosition.ToVector3(),
-                        kinemationRuntimeWristDebugHandRightPosition.ToVector3(),
-                        kinemationRuntimeWristDebugPreserveHandGrip,
-                        kinemationRuntimeWristDebugApplyHandOffsetWhenPreservingGrip,
-                        logMissingKinemationRuntimeWristBones
-                    );
-
-                    var fpLayer = GetFpWeaponLayer();
-                    SetGameObjectAndChildrenLayer(kinemationHolder, fpLayer);
-                    kinemationDriver.InitializeIfNeeded(fpLayer);
-                    SetupFpWeaponSkinnedMeshRenderers(kinemationHolder);
-
-                    kinemationHolder.SetActive(false);
-                    _fpWeaponInstances.Add(kinemationHolder);
-                    _weaponAmmo[i] = ResolveWeaponCapacity(data);
+                if(!TryGetKinemationBindingForData(data, out var kinemationBinding)) {
+                    Debug.LogError($"[WeaponManager] Weapon '{data.weaponName}' is missing a KINEMATION binding.");
                     continue;
                 }
 
-                if(data.weaponPrefab == null) {
-                    Debug.LogError(
-                        $"[WeaponManager] Weapon '{data.weaponName}' has no FP weapon prefab and no KINEMATION override.");
+                var kinemationCameraParent = _weaponCamera != null
+                    ? _weaponCamera.transform
+                    : _fpCamera != null ? _fpCamera.transform : null;
+                if(kinemationCameraParent == null) {
+                    Debug.LogError("[WeaponManager] Missing both WeaponCamera and FpCamera. Cannot spawn KINEMATION viewmodel.");
                     continue;
                 }
 
-                var swayHolder = new GameObject("SwayHolder");
-                var legacySway = swayHolder.AddComponent<WeaponSway>();
-                swayHolder.transform.SetParent(_fpCamera.transform, false);
-                swayHolder.transform.localPosition = Vector3.zero;
-                swayHolder.transform.localEulerAngles = Vector3.zero;
+                var kinemationSwayHolder = new GameObject("SwayHolder");
+                var kinemationSway = kinemationSwayHolder.AddComponent<WeaponSway>();
+                kinemationSwayHolder.transform.SetParent(kinemationCameraParent, false);
+                kinemationSwayHolder.transform.localPosition = Vector3.zero;
+                kinemationSwayHolder.transform.localEulerAngles = Vector3.zero;
                 if(_fpCamera != null) {
-                    legacySway.SetCameraTransform(_fpCamera.transform);
+                    kinemationSway.SetCameraTransform(_fpCamera.transform);
                 }
 
-                var bobHolder = new GameObject("BobHolder");
-                bobHolder.AddComponent<WeaponBob>();
-                bobHolder.transform.SetParent(swayHolder.transform, false);
-                bobHolder.transform.localPosition = Vector3.zero;
-                bobHolder.transform.localEulerAngles = Vector3.zero;
-
-                var fpWeaponInstance = Instantiate(data.weaponPrefab, bobHolder.transform, false);
-                fpWeaponInstance.transform.localPosition = data.spawnPosition;
-                fpWeaponInstance.transform.localEulerAngles = data.spawnRotation;
-
-                if(fpWeaponInstance.GetComponent<WeaponAnimationEvents>() == null) {
-                    fpWeaponInstance.AddComponent<WeaponAnimationEvents>();
+                var kinemationBobHolder = new GameObject("BobHolder");
+                kinemationBobHolder.transform.SetParent(kinemationSwayHolder.transform, false);
+                kinemationBobHolder.transform.localPosition = Vector3.zero;
+                kinemationBobHolder.transform.localEulerAngles = Vector3.zero;
+                if(useLegacyBobOnKinemationViewmodel) {
+                    var legacyBob = kinemationBobHolder.AddComponent<WeaponBob>();
+                    legacyBob.ConfigureFeatures(
+                        legacyKinemationMovementBob,
+                        legacyKinemationIdleBreathBob,
+                        legacyKinemationJumpFallBob,
+                        legacyKinemationLandingBob
+                    );
                 }
 
-                var meshRenderers = fpWeaponInstance.GetComponentsInChildren<MeshRenderer>();
-                foreach(var meshRenderer in meshRenderers) {
-                    meshRenderer.shadowCastingMode = ShadowCastingMode.Off;
-                }
+                var kinemationHolder = new GameObject("KinemationHolder");
+                kinemationHolder.transform.SetParent(kinemationBobHolder.transform, false);
+                ResolveKinemationViewmodelPose(kinemationBinding, out var localPosition, out var localEulerAngles);
+                kinemationHolder.transform.localPosition = localPosition;
+                kinemationHolder.transform.localEulerAngles = localEulerAngles;
 
-                SetupFpWeaponSkinnedMeshRenderers(fpWeaponInstance);
+                var disableWeaponSounds = disableKinemationSounds || disableKinemationWeaponSounds;
+                var disablePlayerSounds = disableKinemationSounds || disableKinemationPlayerSounds;
+                var wristCorrectionWeight = kinemationBinding.useCustomWristCorrectionWeight
+                    ? kinemationBinding.wristCorrectionWeight
+                    : kinemationWristCorrectionLayerWeight;
 
-                if(IsOwner) {
-                    var weaponLayer = LayerMask.NameToLayer("Weapon");
-                    SetGameObjectAndChildrenLayer(fpWeaponInstance, weaponLayer);
-                } else {
-                    fpWeaponInstance.layer = LayerMask.NameToLayer("Masked");
-                }
+                var kinemationDriver = kinemationHolder.AddComponent<KinemationFpWeaponDriver>();
+                kinemationDriver.Configure(
+                    kinemationFpsPlayerPrefab,
+                    kinemationBinding.kinemationWeaponPrefab,
+                    disableWeaponSounds,
+                    disablePlayerSounds,
+                    routeKinemationWeaponSoundEventsToAudioService,
+                    tagKinemationArmsForLegacyHooks,
+                    syncKinemationLookPitchWithPlayer,
+                    syncKinemationAirborneState,
+                    freezeKinemationLocomotionInAir,
+                    forceKinemationWalkAnimationWhileSprinting,
+                    kinemationSprintWalkGaitValue,
+                    kinemationEquipUnlockNormalizedTime,
+                    enableKinemationWristCorrectionLayer,
+                    kinemationWristCorrectionLayerName,
+                    wristCorrectionWeight,
+                    logMissingKinemationWristCorrectionLayer,
+                    enableKinemationRuntimeWristDebugOverride,
+                    kinemationRuntimeWristDebugWeight,
+                    kinemationRuntimeWristDebugUpperarmLeftEuler.ToVector3(),
+                    kinemationRuntimeWristDebugUpperarmRightEuler.ToVector3(),
+                    kinemationRuntimeWristDebugUpperarmLeftPosition.ToVector3(),
+                    kinemationRuntimeWristDebugUpperarmRightPosition.ToVector3(),
+                    kinemationRuntimeWristDebugLowerarmLeftEuler.ToVector3(),
+                    kinemationRuntimeWristDebugLowerarmRightEuler.ToVector3(),
+                    kinemationRuntimeWristDebugLowerarmLeftPosition.ToVector3(),
+                    kinemationRuntimeWristDebugLowerarmRightPosition.ToVector3(),
+                    kinemationRuntimeWristDebugTwistLeftEuler.ToVector3(),
+                    kinemationRuntimeWristDebugTwistRightEuler.ToVector3(),
+                    kinemationRuntimeWristDebugTwistLeftPosition.ToVector3(),
+                    kinemationRuntimeWristDebugTwistRightPosition.ToVector3(),
+                    kinemationRuntimeWristDebugHandLeftEuler.ToVector3(),
+                    kinemationRuntimeWristDebugHandRightEuler.ToVector3(),
+                    kinemationRuntimeWristDebugHandLeftPosition.ToVector3(),
+                    kinemationRuntimeWristDebugHandRightPosition.ToVector3(),
+                    kinemationRuntimeWristDebugPreserveHandGrip,
+                    kinemationRuntimeWristDebugApplyHandOffsetWhenPreservingGrip,
+                    logMissingKinemationRuntimeWristBones
+                );
 
-                fpWeaponInstance.SetActive(false);
-                _fpWeaponInstances.Add(fpWeaponInstance);
+                var fpLayer = GetFpWeaponLayer();
+                SetGameObjectAndChildrenLayer(kinemationHolder, fpLayer);
+                kinemationDriver.InitializeIfNeeded(fpLayer);
+                SetupFpWeaponSkinnedMeshRenderers(kinemationHolder);
+
+                kinemationHolder.SetActive(false);
+                _fpWeaponInstances.Add(kinemationHolder);
                 _weaponAmmo[i] = ResolveWeaponCapacity(data);
             }
         }

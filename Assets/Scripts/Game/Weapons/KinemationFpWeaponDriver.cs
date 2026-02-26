@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using System.Reflection;
-using System.Text;
 using KINEMATION.FPSAnimationPack.Scripts.Camera;
 using KINEMATION.FPSAnimationPack.Scripts.Player;
 using KINEMATION.FPSAnimationPack.Scripts.Sounds;
@@ -21,11 +20,6 @@ namespace Game.Weapons {
         [SerializeField] private bool disableKinemationInternalMuzzleFx = true;
         [SerializeField] private bool tagArmsForLegacyHooks;
         [SerializeField] private string armRootName = "SK_Arms_Mono";
-        [SerializeField] private bool requireExplicitMuzzleTransform = true;
-        [SerializeField] private Vector3 fallbackMuzzleLocalPosition = Vector3.zero;
-        [SerializeField] private Vector3 fallbackMuzzleLocalEulerAngles = Vector3.zero;
-        [SerializeField] private bool autoComputeMuzzleFromWeaponBounds = true;
-        [SerializeField, Min(0f)] private float autoMuzzleForwardPadding = 0.01f;
         [SerializeField] private bool syncLookPitchWithPlayer;
         [SerializeField] private bool syncAirborneState;
         [SerializeField] private bool freezeLocomotionInAir = true;
@@ -64,10 +58,8 @@ namespace Game.Weapons {
         private Animator _fpsAnimator;
         private FPSWeapon _activeWeapon;
         private Transform _muzzleTransform;
-        private bool _isUsingGeneratedMuzzleFallback;
         private AudioSource _weaponAudioSource;
         private int _renderLayer = -1;
-        private bool _hasWarnedFallbackMuzzle;
         private WeaponManager _weaponManager;
         private bool _isTrackingReload;
         private bool _reloadHasBeenActive;
@@ -85,7 +77,6 @@ namespace Game.Weapons {
         private float _lastReloadSignalTime;
         private float _equipTrackStartTime;
         private float _lastEquipSignalTime;
-        private bool _hasLoggedMuzzleSelection;
         private RuntimeAnimatorController _cachedWristCorrectionController;
         private int _cachedWristCorrectionLayerIndex = -2;
         private bool _hasWarnedMissingWristCorrectionLayer;
@@ -137,9 +128,9 @@ namespace Game.Weapons {
         private static readonly int IdleHash = Animator.StringToHash("Idle");
 
         public void Configure(GameObject playerPrefab, GameObject fpWeaponPrefab, bool disableWeaponSounds,
-            bool disablePlayerSounds, bool routeWeaponSoundEvents, bool tagArms, Vector3 muzzleLocalPosition,
-            Vector3 muzzleLocalEulerAngles, bool syncLookPitch, bool syncInAirState, bool freezeAirLocomotion,
-            bool autoMuzzleFromBounds, bool forceWalkWhileSprinting, float sprintGaitValue,
+            bool disablePlayerSounds, bool routeWeaponSoundEvents, bool tagArms, bool syncLookPitch,
+            bool syncInAirState, bool freezeAirLocomotion, bool forceWalkWhileSprinting,
+            float sprintGaitValue,
             float equipUnlockNormalizedProgress, bool enableWristCorrectionLayer = false,
             string wristLayerName = "WristCorrection", float wristLayerWeight = 0.25f,
             bool logMissingWristLayer = true, bool enableRuntimeWristDebug = false,
@@ -159,12 +150,9 @@ namespace Game.Weapons {
             disableKinemationPlayerSounds = disablePlayerSounds;
             routeWeaponSoundEventsToAudioService = routeWeaponSoundEvents;
             tagArmsForLegacyHooks = tagArms;
-            fallbackMuzzleLocalPosition = muzzleLocalPosition;
-            fallbackMuzzleLocalEulerAngles = muzzleLocalEulerAngles;
             syncLookPitchWithPlayer = syncLookPitch;
             syncAirborneState = syncInAirState;
             freezeLocomotionInAir = freezeAirLocomotion;
-            autoComputeMuzzleFromWeaponBounds = autoMuzzleFromBounds;
             forceWalkAnimationWhileSprinting = forceWalkWhileSprinting;
             sprintWalkGaitValue = Mathf.Clamp(sprintGaitValue, 0f, 1.99f);
             equipUnlockNormalizedTime = Mathf.Clamp01(equipUnlockNormalizedProgress);
@@ -573,16 +561,6 @@ namespace Game.Weapons {
             return _muzzleTransform;
         }
 
-        public bool IsUsingGeneratedMuzzleFallback() {
-            TryCacheActiveWeapon();
-            return _isUsingGeneratedMuzzleFallback;
-        }
-
-        public string GetMuzzleTransformPath() {
-            TryCacheActiveWeapon();
-            return BuildTransformPath(_muzzleTransform);
-        }
-
         public bool AreKinemationSoundsEnabled() {
             if(disableKinemationWeaponSounds || routeWeaponSoundEventsToAudioService) {
                 return false;
@@ -759,60 +737,7 @@ namespace Game.Weapons {
             if(activeWeapon == null) return null;
 
             var transforms = activeWeapon.GetComponentsInChildren<Transform>(true);
-            var explicitMuzzle = ResolveBestExplicitMuzzleCandidate(activeWeapon, transforms, out var candidateCount);
-            if(explicitMuzzle != null) {
-                _isUsingGeneratedMuzzleFallback = false;
-                if(!_hasLoggedMuzzleSelection) {
-                    _hasLoggedMuzzleSelection = true;
-                    var candidateSuffix = candidateCount > 1 ? $" (selected among {candidateCount} candidates)" : string.Empty;
-                    Debug.Log(
-                        $"[KinemationFpWeaponDriver] Muzzle selected for '{activeWeapon.name}'{candidateSuffix}: {BuildTransformPath(explicitMuzzle)}");
-                }
-
-                return explicitMuzzle;
-            }
-
-            if(requireExplicitMuzzleTransform) {
-                if(!_hasWarnedFallbackMuzzle) {
-                    _hasWarnedFallbackMuzzle = true;
-                    Debug.LogWarning(
-                        $"[KinemationFpWeaponDriver] Weapon '{activeWeapon.name}' has no explicit 'Muzzle' transform. " +
-                        "Muzzle-dependent FX are disabled for this weapon until a Muzzle child transform is added.");
-                }
-
-                _isUsingGeneratedMuzzleFallback = true;
-                return null;
-            }
-
-            if(activeWeapon.aimPoint != null) {
-                var existingMuzzle = activeWeapon.aimPoint.Find("Muzzle");
-                if(existingMuzzle != null) {
-                    _isUsingGeneratedMuzzleFallback = false;
-                    return existingMuzzle;
-                }
-
-                var fallback = new GameObject("Muzzle").transform;
-                fallback.SetParent(activeWeapon.aimPoint, false);
-                var localPosition = fallbackMuzzleLocalPosition;
-                if(autoComputeMuzzleFromWeaponBounds) {
-                    localPosition += ComputeAutoMuzzleLocalPosition(activeWeapon);
-                }
-
-                fallback.localPosition = localPosition;
-                fallback.localEulerAngles = fallbackMuzzleLocalEulerAngles;
-
-                if(!_hasWarnedFallbackMuzzle) {
-                    _hasWarnedFallbackMuzzle = true;
-                    Debug.LogWarning(
-                        $"[KinemationFpWeaponDriver] Weapon '{activeWeapon.name}' has no explicit 'Muzzle' transform. " +
-                        "Using AimPoint fallback; add a Muzzle child on the KIN weapon prefab for precise muzzle FX.");
-                }
-                _isUsingGeneratedMuzzleFallback = true;
-                return fallback;
-            }
-
-            _isUsingGeneratedMuzzleFallback = true;
-            return activeWeapon.transform;
+            return ResolveBestExplicitMuzzleCandidate(activeWeapon, transforms, out _);
         }
 
         private static Transform ResolveBestExplicitMuzzleCandidate(FPSWeapon activeWeapon, Transform[] transforms,
@@ -857,19 +782,6 @@ namespace Game.Weapons {
             }
 
             return best != null ? best : candidates[0];
-        }
-
-        private static string BuildTransformPath(Transform t) {
-            if(t == null) return "<null>";
-            var builder = new StringBuilder(t.name);
-            var cursor = t.parent;
-            while(cursor != null) {
-                builder.Insert(0, '/');
-                builder.Insert(0, cursor.name);
-                cursor = cursor.parent;
-            }
-
-            return builder.ToString();
         }
 
         private bool TryCacheActiveWeapon() {
@@ -923,8 +835,6 @@ namespace Game.Weapons {
                 if(_cachedWristCorrectionLayerIndex < 0) {
                     if(logMissingWristCorrectionLayer && !_hasWarnedMissingWristCorrectionLayer) {
                         _hasWarnedMissingWristCorrectionLayer = true;
-                        Debug.LogWarning(
-                            $"[KinemationFpWeaponDriver] Wrist correction layer '{wristCorrectionLayerName}' was not found on animator controller '{controller.name}'.");
                     }
                     return;
                 }
@@ -988,7 +898,6 @@ namespace Game.Weapons {
             TryFindChildByName(root, "hand_r", out _wristDebugHandRight);
 
             _hasCachedWristDebugBones = true;
-
             if(!logMissingWristDebugBones || _hasWarnedMissingWristDebugBones) return;
             if(_wristDebugUpperarmLeft != null && _wristDebugUpperarmRight != null &&
                _wristDebugLowerarmLeft != null && _wristDebugLowerarmRight != null &&
@@ -998,9 +907,6 @@ namespace Game.Weapons {
             }
 
             _hasWarnedMissingWristDebugBones = true;
-            Debug.LogWarning(
-                "[KinemationFpWeaponDriver] Runtime wrist debug override could not find all wrist bones. " +
-                "Expected: upperarm_l/r, lowerarm_l/r, lowerarm_twist_01_l/r, hand_l/r.");
         }
 
         private void ApplyRuntimeWristSideOverride(Transform upperarm, Transform lowerarm, Transform twist, Transform hand,
@@ -1086,9 +992,6 @@ namespace Game.Weapons {
         private void SuppressInternalMuzzleFx(FPSWeapon activeWeapon) {
             if(!disableKinemationInternalMuzzleFx || activeWeapon == null) return;
 
-            var weaponId = activeWeapon.gameObject.GetInstanceID();
-            var hasLoggedSuppression = _suppressedMuzzleFxWeaponIds.Contains(weaponId);
-
             var disabledParticles = 0;
             var disabledVfx = 0;
             var disabledLights = 0;
@@ -1118,13 +1021,8 @@ namespace Game.Weapons {
             }
 
             if(disabledParticles > 0 || disabledVfx > 0 || disabledLights > 0) {
+                var weaponId = activeWeapon.gameObject.GetInstanceID();
                 _suppressedMuzzleFxWeaponIds.Add(weaponId);
-            }
-
-            if(!hasLoggedSuppression && (disabledParticles > 0 || disabledVfx > 0 || disabledLights > 0)) {
-                Debug.Log(
-                    $"[KinemationFpWeaponDriver] Suppressed internal muzzle FX on '{activeWeapon.name}' " +
-                    $"(ParticleSystems={disabledParticles}, VisualEffects={disabledVfx}, Lights={disabledLights}).");
             }
         }
 
@@ -1405,40 +1303,6 @@ namespace Game.Weapons {
             }
 
             return weapons[0];
-        }
-
-        private Vector3 ComputeAutoMuzzleLocalPosition(FPSWeapon activeWeapon) {
-            if(activeWeapon == null || activeWeapon.aimPoint == null) return Vector3.zero;
-
-            var renderers = activeWeapon.GetComponentsInChildren<Renderer>(true);
-            if(renderers == null || renderers.Length == 0) return Vector3.zero;
-
-            var origin = activeWeapon.aimPoint.position;
-            var forward = activeWeapon.aimPoint.forward;
-            var maxForwardDistance = 0f;
-
-            foreach(var renderer in renderers) {
-                if(renderer == null) continue;
-                var bounds = renderer.bounds;
-                var extents = bounds.extents;
-                var center = bounds.center;
-
-                for(var xi = -1; xi <= 1; xi += 2) {
-                    for(var yi = -1; yi <= 1; yi += 2) {
-                        for(var zi = -1; zi <= 1; zi += 2) {
-                            var cornerOffset = new Vector3(extents.x * xi, extents.y * yi, extents.z * zi);
-                            var worldCorner = center + cornerOffset;
-                            var forwardDistance = Vector3.Dot(worldCorner - origin, forward);
-                            if(forwardDistance > maxForwardDistance) {
-                                maxForwardDistance = forwardDistance;
-                            }
-                        }
-                    }
-                }
-            }
-
-            if(maxForwardDistance <= 0f) return Vector3.zero;
-            return Vector3.forward * (maxForwardDistance + autoMuzzleForwardPadding);
         }
 
         private static void SetLayerRecursive(GameObject root, int layer) {
