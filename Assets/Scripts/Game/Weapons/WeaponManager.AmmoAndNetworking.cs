@@ -7,6 +7,15 @@ using UnityEngine;
 
 namespace Game.Weapons {
     public partial class WeaponManager {
+        public void RefreshOwnerAmmoHudFromCurrentWeapon() {
+            if(!IsOwner) return;
+            if(CurrentWeapon == null) return;
+
+            var currentAmmo = Mathf.Max(0, CurrentWeapon.currentAmmo);
+            var magSize = Mathf.Max(1, CurrentWeapon.GetMagSize());
+            EventBus.Publish(new UpdateAmmoEvent(currentAmmo, magSize));
+        }
+
         public void ResetAllWeaponAmmo() {
             _ammoAuthority.ResetAllWeaponAmmo(weaponDataList, ResolveWeaponCapacity);
         }

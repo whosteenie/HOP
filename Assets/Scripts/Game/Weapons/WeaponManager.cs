@@ -16,6 +16,7 @@ namespace Game.Weapons {
             public bool useCustomViewmodelPose;
             public Vector3 viewmodelLocalPosition = Vector3.zero;
             public Vector3 viewmodelLocalEulerAngles = Vector3.zero;
+            public bool logDrakeAmmoEjectDebug;
         }
 
         [SerializeField] private PlayerController playerController;

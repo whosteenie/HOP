@@ -23,6 +23,20 @@ namespace Game.Weapons {
         }
 
         // Animation Event hook
+        public void AmmoEject() {
+            var resolved = ResolveDriver();
+            if(resolved == null) return;
+            resolved.NotifyAmmoEjectEvent();
+        }
+
+        // Animation Event hook
+        public void ShellShow() {
+            var resolved = ResolveDriver();
+            if(resolved == null) return;
+            resolved.NotifyShellShowEvent();
+        }
+
+        // Animation Event hook
         public void ReloadComplete() {
             var resolved = ResolveDriver();
             if(resolved == null) return;

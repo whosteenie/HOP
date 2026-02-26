@@ -234,7 +234,8 @@ namespace Game.Weapons {
                     true,
                     true,
                     kinemationSprintWalkGaitValue,
-                    kinemationEquipUnlockNormalizedTime
+                    kinemationEquipUnlockNormalizedTime,
+                    kinemationBinding.logDrakeAmmoEjectDebug
                 );
 
                 var fpLayer = GetFpWeaponLayer();

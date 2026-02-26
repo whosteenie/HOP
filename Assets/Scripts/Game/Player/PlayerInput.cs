@@ -154,6 +154,10 @@ namespace Game.Player {
             if(WeaponManager != null)
                 WeaponManager.InitializeWeapons();
 
+            if(IsOwner && WeaponManager != null) {
+                WeaponManager.RefreshOwnerAmmoHudFromCurrentWeapon();
+            }
+
             if(!IsOwner) {
                 _fpCamera.gameObject.SetActive(false);
                 _audioListener.enabled = false;
