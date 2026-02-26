@@ -182,12 +182,8 @@ namespace Game.Player {
             // Update FP weapon glow (owner only)
             if(!IsOwner || playerController == null) return;
             var weaponManager = playerController.WeaponManager;
-            var visualController = playerController.VisualController;
-            if(weaponManager == null || visualController == null) return;
-            var currentWeapon = weaponManager.GetCurrentFpWeapon();
-            if(currentWeapon != null) {
-                visualController.UpdateFpArmTagGlow(newValue, currentWeapon);
-            }
+            if(weaponManager == null) return;
+            weaponManager.UpdateAllFpArmTagGlow(newValue);
         }
 
         [Rpc(SendTo.Everyone)]

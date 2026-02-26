@@ -1287,6 +1287,18 @@ namespace Game.Weapons {
             return _fpWeaponInstances[CurrentWeaponIndex];
         }
 
+        public void UpdateAllFpArmTagGlow(bool isTagged) {
+            if(!IsOwner || playerController == null) return;
+            var visualController = playerController.VisualController;
+            if(visualController == null) return;
+
+            for(var i = 0; i < _fpWeaponInstances.Count; i++) {
+                var fpWeapon = _fpWeaponInstances[i];
+                if(fpWeapon == null) continue;
+                visualController.UpdateFpArmTagGlow(isTagged, fpWeapon);
+            }
+        }
+
         public void SetCurrentFpWeaponVisible(bool visible) {
             var fpWeapon = GetCurrentFpWeapon();
             if(fpWeapon == null) return;
@@ -1379,11 +1391,6 @@ namespace Game.Weapons {
                 if(skinnedRenderer == null) continue;
                 // Shadow mode is handled by PlayerShadow, but we set it here for initial setup
                 skinnedRenderer.shadowCastingMode = ShadowCastingMode.Off;
-            }
-
-            if(TryGetKinemationDriver(fpWeaponInstance, out _)) {
-                // KINEMATION arms are intentionally left out of legacy material/tag customization.
-                return;
             }
 
             // Apply player material customization (owner only, local rendering)
@@ -1751,9 +1758,13 @@ namespace Game.Weapons {
                     }
 
                     var kinemationSwayHolder = new GameObject("SwayHolder");
+                    var kinemationSway = kinemationSwayHolder.AddComponent<WeaponSway>();
                     kinemationSwayHolder.transform.SetParent(kinemationCameraParent, false);
                     kinemationSwayHolder.transform.localPosition = Vector3.zero;
                     kinemationSwayHolder.transform.localEulerAngles = Vector3.zero;
+                    if(_fpCamera != null) {
+                        kinemationSway.SetCameraTransform(_fpCamera.transform);
+                    }
 
                     var kinemationBobHolder = new GameObject("BobHolder");
                     kinemationBobHolder.transform.SetParent(kinemationSwayHolder.transform, false);
@@ -1843,10 +1854,13 @@ namespace Game.Weapons {
                 }
 
                 var swayHolder = new GameObject("SwayHolder");
-                swayHolder.AddComponent<WeaponSway>();
+                var legacySway = swayHolder.AddComponent<WeaponSway>();
                 swayHolder.transform.SetParent(_fpCamera.transform, false);
                 swayHolder.transform.localPosition = Vector3.zero;
                 swayHolder.transform.localEulerAngles = Vector3.zero;
+                if(_fpCamera != null) {
+                    legacySway.SetCameraTransform(_fpCamera.transform);
+                }
 
                 var bobHolder = new GameObject("BobHolder");
                 bobHolder.AddComponent<WeaponBob>();

@@ -86,17 +86,9 @@ namespace Game.Player {
             
             var generatedMaterial = _cachedMaterialsArray[1];
             if(generatedMaterial == null) return;
-            
-            Transform armTransform = null;
-            foreach(var child in fpWeaponInstance.GetComponentsInChildren<Transform>(true)) {
-                if(!child.CompareTag("Arm")) continue;
-                armTransform = child;
-                break;
-            }
 
-            if(armTransform != null) {
-                PlayerRenderer.ApplyMaterialToRenderers(armTransform.gameObject, generatedMaterial, 1);
-            }
+            var armRenderers = ResolveFpArmRenderers(fpWeaponInstance);
+            ApplyMaterialToRenderers(armRenderers, generatedMaterial, 1);
         }
 
         /// <summary>
@@ -108,17 +100,8 @@ namespace Game.Player {
             var teamManager = playerController.TeamManager;
             if(teamManager == null) return;
 
-            // Find the arm object in the weapon instance (Tagged "Arm")
-            Transform armTransform = null;
-            foreach(var child in weaponInstance.GetComponentsInChildren<Transform>(true)) {
-                if(!child.CompareTag("Arm")) continue;
-                armTransform = child;
-                break;
-            }
-
-            if(armTransform == null) return;
-
-            var renderers = armTransform.GetComponentsInChildren<Renderer>(true);
+            var renderers = ResolveFpArmRenderers(weaponInstance);
+            if(renderers.Length == 0) return;
 
             if(isTagged) {
                 if(_tagPropertyBlock == null) _tagPropertyBlock = new MaterialPropertyBlock();
@@ -182,6 +165,13 @@ namespace Game.Player {
             if(_cachedMaterialsArray[1] == generatedMaterial) return;
             _cachedMaterialsArray[1] = generatedMaterial;
             _playerMesh.materials = _cachedMaterialsArray;
+
+            if(IsOwner && _weaponManager != null) {
+                var currentFpWeapon = _weaponManager.GetCurrentFpWeapon();
+                if(currentFpWeapon != null) {
+                    ApplyMaterialToFpArms(currentFpWeapon);
+                }
+            }
         }
 
         /// <summary>
@@ -305,6 +295,57 @@ namespace Game.Player {
         public void InvalidateRendererCache() {
             if(_playerRenderer != null) {
                 _playerRenderer.InvalidateCache();
+            }
+        }
+
+        private Renderer[] ResolveFpArmRenderers(GameObject fpWeaponInstance) {
+            if(fpWeaponInstance == null) return System.Array.Empty<Renderer>();
+
+            var armRoot = FindTaggedArmRoot(fpWeaponInstance.transform);
+            if(armRoot == null) {
+                return System.Array.Empty<Renderer>();
+            }
+
+            return armRoot.GetComponentsInChildren<Renderer>(true);
+        }
+
+        private static Transform FindTaggedArmRoot(Transform root) {
+            foreach(var child in root.GetComponentsInChildren<Transform>(true)) {
+                if(IsArmTagged(child)) {
+                    return child;
+                }
+            }
+
+            return null;
+        }
+
+        private static bool IsArmTagged(Component component) {
+            if(component == null) return false;
+
+            try {
+                return component.CompareTag("Arm");
+            } catch(UnityException) {
+                // If the Arm tag is missing in TagManager, treat as not tagged.
+                return false;
+            }
+        }
+
+        private static void ApplyMaterialToRenderers(Renderer[] renderers, Material material, int materialIndex) {
+            if(renderers == null || material == null) return;
+
+            for(var i = 0; i < renderers.Length; i++) {
+                var renderer = renderers[i];
+                if(renderer == null) continue;
+
+                var materials = renderer.materials;
+                if(materials == null || materials.Length == 0) {
+                    renderer.material = material;
+                    continue;
+                }
+
+                if(materialIndex < 0 || materialIndex >= materials.Length) continue;
+                materials[materialIndex] = material;
+                renderer.materials = materials;
             }
         }
 
