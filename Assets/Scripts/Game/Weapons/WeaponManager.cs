@@ -3,7 +3,6 @@ using System.Collections;
 using System.Collections.Generic;
 using Game.Player;
 using Game.Menu;
-using Game.Settings;
 using Game.UI;
 using KINEMATION.FPSAnimationPack.Scripts.Weapon;
 using Network.AntiCheat;
@@ -156,7 +155,14 @@ namespace Game.Weapons {
                 if(binding == null || binding.weaponData == null || binding.kinemationWeaponPrefab == null) continue;
                 _kinemationWeaponLookup[binding.weaponData] = binding;
 
-                var slot = Mathf.Clamp(binding.weaponData.WeaponSlotIndex, 0, 1);
+                var slot = ResolveWeaponSlot(binding.weaponData);
+                if(slot < 0) {
+                    Debug.LogError(
+                        $"[WeaponManager] Invalid weapon slot on binding weapon '{binding.weaponData.name}'. " +
+                        "Expected Primary/Secondary slot assignment.");
+                    continue;
+                }
+
                 if(slot == 0) {
                     if(primarySeen.Add(binding.weaponData)) {
                         _primaryWeaponOptions.Add(binding.weaponData);
@@ -192,13 +198,22 @@ namespace Game.Weapons {
         private int ResolveWeaponCapacity(WeaponData data) {
             if(data == null) return 1;
 
-            var legacyCapacity = Mathf.Max(1, data.magSize);
             if(!TryGetKinemationBindingForData(data, out var kinemationBinding)) {
-                return legacyCapacity;
+                Debug.LogError(
+                    $"[WeaponManager] Missing KINEMATION binding for '{data.weaponName}'. " +
+                    "Strict mode requires a KIN binding for every equipped weapon.");
+                return 1;
             }
 
             var kinemationCapacity = ResolveKinemationWeaponCapacity(kinemationBinding.kinemationWeaponPrefab);
-            return kinemationCapacity > 0 ? kinemationCapacity : legacyCapacity;
+            if(kinemationCapacity <= 0) {
+                Debug.LogError(
+                    $"[WeaponManager] Invalid KINEMATION ammo capacity for '{data.weaponName}'. " +
+                    "Strict mode requires FPSWeaponSettings.ammo > 0.");
+                return 1;
+            }
+
+            return kinemationCapacity;
         }
 
         private void ResolveKinemationViewmodelPose(KinemationWeaponBinding binding, out Vector3 localPosition,
@@ -249,39 +264,6 @@ namespace Game.Weapons {
 
                 _worldWeaponByData[binding.WeaponData] = child.gameObject;
             }
-
-            // Fallback: if KIN world objects don't have explicit WorldWeaponBinding,
-            // resolve by matching child names against current loadout weapon identifiers.
-            if(weaponDataList == null || weaponDataList.Count == 0) return;
-
-            foreach(var data in weaponDataList) {
-                if(data == null || _worldWeaponByData.ContainsKey(data)) continue;
-                if(TryResolveWorldWeaponByName(data, out var worldWeaponObject)) {
-                    _worldWeaponByData[data] = worldWeaponObject;
-                }
-            }
-        }
-
-        private bool TryResolveWorldWeaponByName(WeaponData data, out GameObject worldWeaponObject) {
-            worldWeaponObject = null;
-            if(data == null || _worldWeaponSocket == null) return false;
-
-            var candidateNames = BuildWeaponNameCandidates(data);
-            if(candidateNames.Count == 0) return false;
-
-            foreach(Transform child in _worldWeaponSocket) {
-                if(child == null) continue;
-                var childName = NormalizeHolsterKey(child.name);
-                if(string.IsNullOrEmpty(childName)) continue;
-
-                foreach(var candidateName in candidateNames) {
-                    if(childName != candidateName) continue;
-                    worldWeaponObject = child.gameObject;
-                    return true;
-                }
-            }
-
-            return false;
         }
 
         private GameObject ResolveWorldWeaponObject(WeaponData data) {
@@ -423,24 +405,9 @@ namespace Game.Weapons {
             }
 
             BuildEquippedWeaponList();
-            
-            // For non-owners, check if NetworkVariables are still at default (might not be synced yet)
-            if(!IsOwner && playerController != null) {
-                var primaryIndex = playerController.primaryWeaponIndex.Value;
-                var secondaryIndex = playerController.secondaryWeaponIndex.Value;
-                
-                // If both are 0, and we have weapon options, might be unsynced - wait for sync
-                if(primaryIndex == 0 && secondaryIndex == 0 &&
-                   _primaryWeaponOptions is { Count: > 0 }) {
-                    // Don't initialize yet - wait for NetworkVariables to sync
-                    // OnWeaponIndexChanged will handle initialization when values arrive
-                    return;
-                }
-            }
-            
-            SetupHolsteredWeaponModels();
             BuildWorldWeaponLookup();
-            BuildKinemationWeaponLookup();
+            if(!ValidateStrictEquippedWeaponConfiguration()) return;
+            SetupHolsteredWeaponModels();
             DisableUnequippedWorldWeapons();
 
             if(weaponDataList == null || weaponDataList.Count == 0) {
@@ -525,7 +492,7 @@ namespace Game.Weapons {
             // Prepare new 3P weapon but DON'T show it yet - wait for animation event
             QueuePendingTpWeapon(data);
 
-            // Restore ammo (fallback to mag size if somehow missing)
+            // Restore ammo from authoritative KINEMATION capacity path.
             var magCapacity = ResolveWeaponCapacity(data);
             var restoredAmmo = ResolveRestoredAmmo(CurrentWeaponIndex, magCapacity, seedWhenMissing: false);
 
@@ -1056,8 +1023,16 @@ namespace Game.Weapons {
         #region Holstered Weapons
 
         private void SetupHolsteredWeaponModels() {
-            PrimaryHolster = ResolveHolsterForSlotFallback(0);
-            SecondaryHolster = ResolveHolsterForSlotFallback(1);
+            PrimaryHolster = ResolveWorldWeaponObject(GetWeaponDataForSlot(0));
+            SecondaryHolster = ResolveWorldWeaponObject(GetWeaponDataForSlot(1));
+
+            if(PrimaryHolster == null) {
+                Debug.LogError("[WeaponManager] Missing Primary holster world weapon binding.");
+            }
+
+            if(SecondaryHolster == null) {
+                Debug.LogError("[WeaponManager] Missing Secondary holster world weapon binding.");
+            }
 
             DisableHolster(PrimaryHolster);
             DisableHolster(SecondaryHolster);
@@ -1068,95 +1043,19 @@ namespace Game.Weapons {
             for(var i = 0; i < weaponDataList.Count; i++) {
                 var data = weaponDataList[i];
                 if(data == null) continue;
-                var weaponSlot = ResolveWeaponSlot(data, i);
+                var weaponSlot = ResolveWeaponSlot(data);
                 if(weaponSlot == slot) {
                     return data;
-                }
-            }
-
-            return slot switch {
-                0 when weaponDataList.Count > 0 => weaponDataList[0],
-                1 when weaponDataList.Count > 1 => weaponDataList[1],
-                _ => null
-            };
-        }
-
-        private static int ResolveWeaponSlot(WeaponData data, int fallback) {
-            if(data == null) return fallback;
-            var slot = data.WeaponSlotIndex;
-            return slot >= 0 ? slot : fallback;
-        }
-
-        private GameObject ResolveHolsterForSlotFallback(int slot) {
-            var weaponData = GetWeaponDataForSlot(slot);
-            if(weaponData == null || playerController == null) return null;
-
-            var candidateNames = BuildWeaponNameCandidates(weaponData);
-            if(candidateNames.Count == 0) return null;
-
-            var playerRoot = playerController.transform;
-            if(playerRoot == null) return null;
-
-            var currentWorldWeapon = ResolveWorldWeaponObject(weaponData);
-            var allTransforms = playerRoot.GetComponentsInChildren<Transform>(true);
-            foreach(var t in allTransforms) {
-                if(t == null) continue;
-                if(t == playerRoot) continue;
-                if(_worldWeaponSocket != null && t.IsChildOf(_worldWeaponSocket)) continue;
-                if(_fpCamera != null && t.IsChildOf(_fpCamera.transform)) continue;
-                if(_weaponCamera != null && t.IsChildOf(_weaponCamera.transform)) continue;
-
-                var go = t.gameObject;
-                if(go == null) continue;
-                if(currentWorldWeapon != null && go == currentWorldWeapon) continue;
-                if(go.GetComponentInChildren<Renderer>(true) == null) continue;
-
-                var normalizedName = NormalizeHolsterKey(go.name);
-                if(string.IsNullOrEmpty(normalizedName)) continue;
-
-                foreach(var candidateName in candidateNames) {
-                    if(normalizedName != candidateName) continue;
-                    return go;
                 }
             }
 
             return null;
         }
 
-        private List<string> BuildWeaponNameCandidates(WeaponData data) {
-            var names = new List<string>(3);
-            if(data == null) return names;
-
-            var resolvedWorld = _worldWeaponByData.TryGetValue(data, out var worldWeapon) ? worldWeapon : null;
-            if(resolvedWorld != null && !string.IsNullOrEmpty(resolvedWorld.name)) {
-                var key = NormalizeHolsterKey(resolvedWorld.name);
-                if(!string.IsNullOrEmpty(key)) {
-                    names.Add(key);
-                }
-            }
-
-            if(TryGetKinemationBindingForData(data, out var kinemationBinding) &&
-               kinemationBinding != null &&
-               kinemationBinding.kinemationWeaponPrefab != null &&
-               !string.IsNullOrEmpty(kinemationBinding.kinemationWeaponPrefab.name)) {
-                var key = NormalizeHolsterKey(kinemationBinding.kinemationWeaponPrefab.name);
-                if(!string.IsNullOrEmpty(key) && !names.Contains(key)) {
-                    names.Add(key);
-                }
-            }
-
-            if(!string.IsNullOrEmpty(data.weaponName)) {
-                var key = NormalizeHolsterKey(data.weaponName);
-                if(!string.IsNullOrEmpty(key) && !names.Contains(key)) {
-                    names.Add(key);
-                }
-            }
-
-            return names;
-        }
-
-        private static string NormalizeHolsterKey(string value) {
-            return string.IsNullOrEmpty(value) ? null : value.Replace("(Clone)", "").Trim().ToLowerInvariant();
+        private static int ResolveWeaponSlot(WeaponData data) {
+            if(data == null) return -1;
+            var slot = data.WeaponSlotIndex;
+            return slot is 0 or 1 ? slot : -1;
         }
 
         private static void DisableHolster(GameObject holster) {
@@ -1188,7 +1087,7 @@ namespace Game.Weapons {
         private int GetSlotForIndex(int index) {
             var data = GetWeaponDataByIndex(index);
             if(data == null) return -1;
-            return ResolveWeaponSlot(data, index);
+            return ResolveWeaponSlot(data);
         }
         public int GetCurrentHolsterSlot() => GetSlotForIndex(CurrentWeaponIndex);
         public void RefreshHolsterVisibility() => UpdateHolsterVisibility();
@@ -1213,9 +1112,9 @@ namespace Game.Weapons {
                 deferTpRevealUntilRespawn && previousWorldWeapon != null && previousWorldWeapon.activeSelf;
 
             BuildEquippedWeaponList();
-            SetupHolsteredWeaponModels();
             BuildWorldWeaponLookup();
-            BuildKinemationWeaponLookup();
+            if(!ValidateStrictEquippedWeaponConfiguration()) return;
+            SetupHolsteredWeaponModels();
             DisableUnequippedWorldWeapons();
 
             if(weaponDataList == null || weaponDataList.Count == 0) {
@@ -1400,7 +1299,7 @@ namespace Game.Weapons {
             for(var i = 0; i < weaponDataList.Count; i++) {
                 var data = weaponDataList[i];
                 if(data == null) continue;
-                if(ResolveWeaponSlot(data, i) == slot) {
+                if(ResolveWeaponSlot(data) == slot) {
                     return i;
                 }
             }
@@ -1457,26 +1356,12 @@ namespace Game.Weapons {
                 }
             }
 
-            // Also include holstered weapon names (for legacy holster objects living under socket).
-            var equippedWorldWeaponNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            if(PrimaryHolster != null) {
-                equippedWorldWeaponNames.Add(PrimaryHolster.name);
-            }
-            if(SecondaryHolster != null) {
-                equippedWorldWeaponNames.Add(SecondaryHolster.name);
-            }
-            
             // Disable all world weapons that aren't in the equipped list
             foreach(Transform child in _worldWeaponSocket) {
                 if(child == null) continue;
-                
-                var weaponName = child.name;
-                var normalizedName = NormalizeHolsterKey(weaponName);
-                
+
                 // Check if this weapon is in the equipped list
-                var isEquipped = equippedWorldWeapons.Contains(child.gameObject) ||
-                                 equippedWorldWeaponNames.Contains(weaponName) ||
-                                 (!string.IsNullOrEmpty(normalizedName) && equippedWorldWeaponNames.Contains(normalizedName));
+                var isEquipped = equippedWorldWeapons.Contains(child.gameObject);
                 
                 // Also check if it's the current world weapon (should be active)
                 var isCurrentWeapon = CurrentWorldWeaponInstance != null && 
@@ -1489,25 +1374,69 @@ namespace Game.Weapons {
             }
         }
 
+        private bool ValidateStrictEquippedWeaponConfiguration() {
+            if(kinemationFpsPlayerPrefab == null) {
+                Debug.LogError("[WeaponManager] Missing KINEMATION FPS player prefab.");
+                return false;
+            }
+
+            if(_worldWeaponSocket == null) {
+                Debug.LogError("[WeaponManager] Missing WorldWeaponSocket. Strict mode requires explicit WorldWeaponBinding objects.");
+                return false;
+            }
+
+            if(weaponDataList == null || weaponDataList.Count == 0) {
+                return false;
+            }
+
+            var isValid = true;
+            foreach(var data in weaponDataList) {
+                if(data == null) {
+                    Debug.LogError("[WeaponManager] Equipped weapon data is null.");
+                    isValid = false;
+                    continue;
+                }
+
+                if(ResolveWeaponSlot(data) < 0) {
+                    Debug.LogError($"[WeaponManager] Weapon '{data.weaponName}' has invalid slot assignment.");
+                    isValid = false;
+                }
+
+                if(!TryGetKinemationBindingForData(data, out var binding) || binding == null ||
+                   binding.kinemationWeaponPrefab == null) {
+                    Debug.LogError($"[WeaponManager] Weapon '{data.weaponName}' is missing a KINEMATION binding/prefab.");
+                    isValid = false;
+                    continue;
+                }
+
+                if(ResolveKinemationWeaponCapacity(binding.kinemationWeaponPrefab) <= 0) {
+                    Debug.LogError(
+                        $"[WeaponManager] Weapon '{data.weaponName}' has invalid KINEMATION ammo capacity. " +
+                        "Set FPSWeaponSettings.ammo > 0.");
+                    isValid = false;
+                }
+
+                if(ResolveWorldWeaponObject(data) == null) {
+                    Debug.LogError(
+                        $"[WeaponManager] Weapon '{data.weaponName}' missing WorldWeaponBinding under WorldWeaponSocket.");
+                    isValid = false;
+                }
+            }
+
+            return isValid;
+        }
+
         private void BuildEquippedWeaponList() {
             BuildKinemationWeaponLookup();
             weaponDataList = new List<WeaponData>();
 
-            // Get weapon indices from NetworkVariables (synced across all clients)
-            // For owner, these are set from PlayerPrefs in OnNetworkSpawn
-            // For non-owners, these come from the NetworkVariables
-            int primaryIndex;
-            int secondaryIndex;
-            
-            if(playerController != null) {
-                primaryIndex = playerController.primaryWeaponIndex.Value;
-                secondaryIndex = playerController.secondaryWeaponIndex.Value;
-            } else {
-                // Use local settings if PlayerController not available (shouldn't happen)
-                var p = GameSettings.Data.player;
-                primaryIndex = p.primaryWeaponIndex;
-                secondaryIndex = p.secondaryWeaponIndex;
+            if(playerController == null) {
+                Debug.LogError("[WeaponManager] Missing PlayerController while building equipped weapon list.");
+                return;
             }
+
+            var primaryIndex = playerController.primaryWeaponIndex.Value;
+            var secondaryIndex = playerController.secondaryWeaponIndex.Value;
 
             var primary = GetWeaponFromOptions(_primaryWeaponOptions, primaryIndex, "Primary");
             if(primary != null) {
@@ -1522,30 +1451,19 @@ namespace Game.Weapons {
 
         private static WeaponData GetWeaponFromOptions(List<WeaponData> options, int storedIndex, string slotLabel) {
             if(options == null || options.Count == 0) {
-                Debug.LogWarning($"[WeaponManager] No {slotLabel} weapon options assigned.");
+                Debug.LogError($"[WeaponManager] No {slotLabel} weapon options assigned.");
                 return null;
             }
 
-            var clampedIndex = Mathf.Clamp(storedIndex, 0, options.Count - 1);
-            if(clampedIndex != storedIndex) {
-                Debug.LogWarning(
-                    $"[WeaponManager] {slotLabel} weapon index {storedIndex} out of range. Using {clampedIndex} instead.");
-                var p = GameSettings.Data.player;
-                switch(slotLabel) {
-                    case "Primary":
-                        p.primaryWeaponIndex = clampedIndex;
-                        GameSettings.Save();
-                        break;
-                    case "Secondary":
-                        p.secondaryWeaponIndex = clampedIndex;
-                        GameSettings.Save();
-                        break;
-                }
+            if(storedIndex < 0 || storedIndex >= options.Count) {
+                Debug.LogError(
+                    $"[WeaponManager] {slotLabel} weapon index {storedIndex} out of range [0..{options.Count - 1}].");
+                return null;
             }
 
-            var weaponData = options[clampedIndex];
+            var weaponData = options[storedIndex];
             if(weaponData == null) {
-                Debug.LogWarning($"[WeaponManager] {slotLabel} weapon at index {clampedIndex} == null.");
+                Debug.LogError($"[WeaponManager] {slotLabel} weapon at index {storedIndex} is null.");
             }
 
             return weaponData;
