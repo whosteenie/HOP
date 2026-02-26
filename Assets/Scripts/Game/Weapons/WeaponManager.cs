@@ -23,42 +23,6 @@ namespace Game.Weapons {
             public bool useCustomViewmodelPose;
             public Vector3 viewmodelLocalPosition = Vector3.zero;
             public Vector3 viewmodelLocalEulerAngles = Vector3.zero;
-            public bool useCustomWristCorrectionWeight;
-            [Range(0f, 1f)] public float wristCorrectionWeight = 0.25f;
-        }
-
-        [Serializable]
-        private struct WristDebugEulerTuning {
-            [Range(-90f, 90f)] public float x;
-            [Range(-90f, 90f)] public float y;
-            [Range(-90f, 90f)] public float z;
-
-            public WristDebugEulerTuning(float x, float y, float z) {
-                this.x = x;
-                this.y = y;
-                this.z = z;
-            }
-
-            public Vector3 ToVector3() {
-                return new Vector3(x, y, z);
-            }
-        }
-
-        [Serializable]
-        private struct WristDebugPositionTuning {
-            [Range(-0.25f, 0.25f)] public float x;
-            [Range(-0.25f, 0.25f)] public float y;
-            [Range(-0.25f, 0.25f)] public float z;
-
-            public WristDebugPositionTuning(float x, float y, float z) {
-                this.x = x;
-                this.y = y;
-                this.z = z;
-            }
-
-            public Vector3 ToVector3() {
-                return new Vector3(x, y, z);
-            }
         }
 
         [SerializeField] private PlayerController playerController;
@@ -68,86 +32,22 @@ namespace Game.Weapons {
         private Animator _playerAnimator;
         private PlayerRenderer _playerRenderer;
 
-        [Header("Loadout Weapon Pools")]
-        [SerializeField] private List<WeaponData> primaryWeaponOptions = new();
-
-        [SerializeField] private List<WeaponData> secondaryWeaponOptions = new();
-
         [Header("Weapon System")]
         [SerializeField, HideInInspector] private List<WeaponData> weaponDataList = new();
-        [Header("Holstered Weapon Models")]
-        [Tooltip("Explicit holstered primary weapon objects. Required for primary holster display.")]
-        [SerializeField] private List<GameObject> primaryHolsteredWeapons = new();
-        [Tooltip("Explicit holstered secondary weapon objects. Required for secondary holster display.")]
-        [SerializeField] private List<GameObject> secondaryHolsteredWeapons = new();
 
         [Header("KINEMATION FP Integration")]
         [SerializeField] private GameObject kinemationFpsPlayerPrefab;
         [SerializeField] private List<KinemationWeaponBinding> kinemationWeaponBindings = new();
-        [SerializeField] private bool disableKinemationSounds = true;
-        [SerializeField] private bool disableKinemationWeaponSounds;
-        [SerializeField] private bool disableKinemationPlayerSounds = true;
-        [SerializeField] private bool routeKinemationWeaponSoundEventsToAudioService = true;
-        [SerializeField] private bool syncKinemationLookPitchWithPlayer;
-        [SerializeField] private bool syncKinemationAirborneState;
-        [SerializeField] private bool freezeKinemationLocomotionInAir = true;
-        [SerializeField] private bool forceKinemationWalkAnimationWhileSprinting = true;
         [SerializeField, Range(0f, 1.99f)] private float kinemationSprintWalkGaitValue = 1.2f;
-        [SerializeField] private bool useLegacyBobOnKinemationViewmodel = true;
-        [SerializeField] private bool legacyKinemationMovementBob;
-        [SerializeField] private bool legacyKinemationIdleBreathBob;
-        [SerializeField] private bool legacyKinemationJumpFallBob = true;
-        [SerializeField] private bool legacyKinemationLandingBob = true;
-        [SerializeField] private bool tagKinemationArmsForLegacyHooks;
-        [SerializeField] private bool requireKinemationEquipCompleteEvent = true;
         [SerializeField, Range(0f, 1f)] private float kinemationEquipUnlockNormalizedTime = 0.82f;
         [SerializeField] private bool autoCompleteKinemationPullOut = true;
         [SerializeField, Min(0f)] private float kinemationPullOutCompleteDelay = 0.12f;
-        [SerializeField] private bool enableKinemationWristCorrectionLayer;
-        [SerializeField] private string kinemationWristCorrectionLayerName = "WristCorrection";
-        [SerializeField, Range(0f, 1f)] private float kinemationWristCorrectionLayerWeight = 0.25f;
-        [SerializeField] private bool logMissingKinemationWristCorrectionLayer = true;
-        [SerializeField] private bool enableKinemationRuntimeWristDebugOverride;
-        [SerializeField, Range(0f, 1f)] private float kinemationRuntimeWristDebugWeight = 1f;
-        [SerializeField] private WristDebugEulerTuning kinemationRuntimeWristDebugUpperarmLeftEuler =
-            new WristDebugEulerTuning(0f, 0f, 0f);
-        [SerializeField] private WristDebugEulerTuning kinemationRuntimeWristDebugUpperarmRightEuler =
-            new WristDebugEulerTuning(0f, 0f, 0f);
-        [SerializeField] private WristDebugPositionTuning kinemationRuntimeWristDebugUpperarmLeftPosition =
-            new WristDebugPositionTuning(0f, 0f, 0f);
-        [SerializeField] private WristDebugPositionTuning kinemationRuntimeWristDebugUpperarmRightPosition =
-            new WristDebugPositionTuning(0f, 0f, 0f);
-        [SerializeField] private WristDebugEulerTuning kinemationRuntimeWristDebugLowerarmLeftEuler =
-            new WristDebugEulerTuning(-35f, 0f, 0f);
-        [SerializeField] private WristDebugEulerTuning kinemationRuntimeWristDebugLowerarmRightEuler =
-            new WristDebugEulerTuning(-35f, 0f, 0f);
-        [SerializeField] private WristDebugPositionTuning kinemationRuntimeWristDebugLowerarmLeftPosition =
-            new WristDebugPositionTuning(0f, 0f, 0f);
-        [SerializeField] private WristDebugPositionTuning kinemationRuntimeWristDebugLowerarmRightPosition =
-            new WristDebugPositionTuning(0f, 0f, 0f);
-        [SerializeField] private WristDebugEulerTuning kinemationRuntimeWristDebugTwistLeftEuler =
-            new WristDebugEulerTuning(-20f, 0f, 0f);
-        [SerializeField] private WristDebugEulerTuning kinemationRuntimeWristDebugTwistRightEuler =
-            new WristDebugEulerTuning(-20f, 0f, 0f);
-        [SerializeField] private WristDebugPositionTuning kinemationRuntimeWristDebugTwistLeftPosition =
-            new WristDebugPositionTuning(0f, 0f, 0f);
-        [SerializeField] private WristDebugPositionTuning kinemationRuntimeWristDebugTwistRightPosition =
-            new WristDebugPositionTuning(0f, 0f, 0f);
-        [SerializeField] private WristDebugEulerTuning kinemationRuntimeWristDebugHandLeftEuler =
-            new WristDebugEulerTuning(-10f, 0f, 0f);
-        [SerializeField] private WristDebugEulerTuning kinemationRuntimeWristDebugHandRightEuler =
-            new WristDebugEulerTuning(-10f, 0f, 0f);
-        [SerializeField] private WristDebugPositionTuning kinemationRuntimeWristDebugHandLeftPosition =
-            new WristDebugPositionTuning(0f, 0f, 0f);
-        [SerializeField] private WristDebugPositionTuning kinemationRuntimeWristDebugHandRightPosition =
-            new WristDebugPositionTuning(0f, 0f, 0f);
-        [SerializeField] private bool kinemationRuntimeWristDebugPreserveHandGrip = true;
-        [SerializeField] private bool kinemationRuntimeWristDebugApplyHandOffsetWhenPreservingGrip;
-        [SerializeField] private bool logMissingKinemationRuntimeWristBones = true;
         [SerializeField] private Vector3 kinemationViewmodelLocalPosition = Vector3.zero;
         [SerializeField] private Vector3 kinemationViewmodelLocalEulerAngles = Vector3.zero;
 
         private readonly List<GameObject> _fpWeaponInstances = new();
+        private readonly List<WeaponData> _primaryWeaponOptions = new();
+        private readonly List<WeaponData> _secondaryWeaponOptions = new();
         private readonly Dictionary<int, int> _weaponAmmo = new();
         private readonly Dictionary<WeaponData, KinemationWeaponBinding> _kinemationWeaponLookup = new();
         private GameObject _pendingTpWeapon; // Track pending TP weapon to show via animation event
@@ -165,14 +65,26 @@ namespace Game.Weapons {
         public int CurrentWeaponIndex { get; private set; } = -1;
 
         public int WeaponCount => weaponDataList.Count;
-        public IReadOnlyList<WeaponData> PrimaryWeaponOptions => primaryWeaponOptions;
-        public IReadOnlyList<WeaponData> SecondaryWeaponOptions => secondaryWeaponOptions;
+        public IReadOnlyList<WeaponData> PrimaryWeaponOptions => _primaryWeaponOptions;
+        public IReadOnlyList<WeaponData> SecondaryWeaponOptions => _secondaryWeaponOptions;
         public bool IsPullingOut { get; private set; }
 
         private static readonly int PullOutHash = Animator.StringToHash("PullOut");
         private static readonly int WeaponIndexHash = Animator.StringToHash("WeaponIndex");
-        private readonly Dictionary<string, GameObject> _primaryHolsterLookup = new(StringComparer.OrdinalIgnoreCase);
-        private readonly Dictionary<string, GameObject> _secondaryHolsterLookup = new(StringComparer.OrdinalIgnoreCase);
+        private const bool UseLegacyBobOnKinemationViewmodel = true;
+        private const bool LegacyKinemationMovementBob = false;
+        private const bool LegacyKinemationIdleBreathBob = false;
+        private const bool LegacyKinemationJumpFallBob = true;
+        private const bool LegacyKinemationLandingBob = true;
+        private const bool DisableKinemationGlobalSounds = false;
+        private const bool DisableKinemationWeaponSounds = false;
+        private const bool DisableKinemationPlayerSounds = true;
+        private const bool RouteKinemationWeaponSoundEventsToAudioService = true;
+        private const bool SyncKinemationLookPitchWithPlayer = false;
+        private const bool SyncKinemationAirborneState = false;
+        private const bool FreezeKinemationLocomotionInAir = true;
+        private const bool ForceKinemationWalkAnimationWhileSprinting = true;
+        private const bool RequireKinemationEquipCompleteEvent = true;
         private readonly Dictionary<WeaponData, GameObject> _worldWeaponByData = new();
         public GameObject PrimaryHolster { get; private set; }
 
@@ -207,14 +119,17 @@ namespace Game.Weapons {
             
             // Validate PlayerRenderer (required for renderer operations)
             if(_playerRenderer == null) _playerRenderer = playerController.PlayerRenderer;
-            if(_playerRenderer != null) return;
-            // PlayerRenderer not found - event already published by GetComponentSafe if used
-            enabled = false;
+            if(_playerRenderer == null) {
+                // PlayerRenderer not found - event already published by GetComponentSafe if used
+                enabled = false;
+                return;
+            }
+
+            BuildKinemationWeaponLookup();
         }
 
         private void Update() {
             UpdateKinemationEquipCompletionGate();
-            SyncKinemationRuntimeWristDebugSettings();
         }
 
         private void UpdateKinemationEquipCompletionGate() {
@@ -229,65 +144,28 @@ namespace Game.Weapons {
             HandlePullOutCompleted();
         }
 
-        private void SyncKinemationRuntimeWristDebugSettings() {
-            if(_fpWeaponInstances.Count == 0) return;
-
-            var upperarmLeft = kinemationRuntimeWristDebugUpperarmLeftEuler.ToVector3();
-            var upperarmRight = kinemationRuntimeWristDebugUpperarmRightEuler.ToVector3();
-            var upperarmLeftPosition = kinemationRuntimeWristDebugUpperarmLeftPosition.ToVector3();
-            var upperarmRightPosition = kinemationRuntimeWristDebugUpperarmRightPosition.ToVector3();
-            var lowerarmLeft = kinemationRuntimeWristDebugLowerarmLeftEuler.ToVector3();
-            var lowerarmRight = kinemationRuntimeWristDebugLowerarmRightEuler.ToVector3();
-            var lowerarmLeftPosition = kinemationRuntimeWristDebugLowerarmLeftPosition.ToVector3();
-            var lowerarmRightPosition = kinemationRuntimeWristDebugLowerarmRightPosition.ToVector3();
-            var twistLeft = kinemationRuntimeWristDebugTwistLeftEuler.ToVector3();
-            var twistRight = kinemationRuntimeWristDebugTwistRightEuler.ToVector3();
-            var twistLeftPosition = kinemationRuntimeWristDebugTwistLeftPosition.ToVector3();
-            var twistRightPosition = kinemationRuntimeWristDebugTwistRightPosition.ToVector3();
-            var handLeft = kinemationRuntimeWristDebugHandLeftEuler.ToVector3();
-            var handRight = kinemationRuntimeWristDebugHandRightEuler.ToVector3();
-            var handLeftPosition = kinemationRuntimeWristDebugHandLeftPosition.ToVector3();
-            var handRightPosition = kinemationRuntimeWristDebugHandRightPosition.ToVector3();
-
-            for(var i = 0; i < _fpWeaponInstances.Count; i++) {
-                var fpWeaponRoot = _fpWeaponInstances[i];
-                if(!TryGetKinemationDriver(fpWeaponRoot, out var kinemationDriver) || kinemationDriver == null) {
-                    continue;
-                }
-
-                kinemationDriver.ApplyRuntimeWristDebugSettings(
-                    enableKinemationRuntimeWristDebugOverride,
-                    kinemationRuntimeWristDebugWeight,
-                    upperarmLeft,
-                    upperarmRight,
-                    upperarmLeftPosition,
-                    upperarmRightPosition,
-                    lowerarmLeft,
-                    lowerarmRight,
-                    lowerarmLeftPosition,
-                    lowerarmRightPosition,
-                    twistLeft,
-                    twistRight,
-                    twistLeftPosition,
-                    twistRightPosition,
-                    handLeft,
-                    handRight,
-                    handLeftPosition,
-                    handRightPosition,
-                    kinemationRuntimeWristDebugPreserveHandGrip,
-                    kinemationRuntimeWristDebugApplyHandOffsetWhenPreservingGrip,
-                    logMissingKinemationRuntimeWristBones
-                );
-            }
-        }
-
         private void BuildKinemationWeaponLookup() {
             _kinemationWeaponLookup.Clear();
+            _primaryWeaponOptions.Clear();
+            _secondaryWeaponOptions.Clear();
             if(kinemationWeaponBindings == null || kinemationWeaponBindings.Count == 0) return;
 
+            var primarySeen = new HashSet<WeaponData>();
+            var secondarySeen = new HashSet<WeaponData>();
             foreach(var binding in kinemationWeaponBindings) {
                 if(binding == null || binding.weaponData == null || binding.kinemationWeaponPrefab == null) continue;
                 _kinemationWeaponLookup[binding.weaponData] = binding;
+
+                var slot = Mathf.Clamp(binding.weaponData.WeaponSlotIndex, 0, 1);
+                if(slot == 0) {
+                    if(primarySeen.Add(binding.weaponData)) {
+                        _primaryWeaponOptions.Add(binding.weaponData);
+                    }
+                } else {
+                    if(secondarySeen.Add(binding.weaponData)) {
+                        _secondaryWeaponOptions.Add(binding.weaponData);
+                    }
+                }
             }
         }
 
@@ -552,8 +430,8 @@ namespace Game.Weapons {
                 var secondaryIndex = playerController.secondaryWeaponIndex.Value;
                 
                 // If both are 0, and we have weapon options, might be unsynced - wait for sync
-                if(primaryIndex == 0 && secondaryIndex == 0 && 
-                   primaryWeaponOptions is { Count: > 0 }) {
+                if(primaryIndex == 0 && secondaryIndex == 0 &&
+                   _primaryWeaponOptions is { Count: > 0 }) {
                     // Don't initialize yet - wait for NetworkVariables to sync
                     // OnWeaponIndexChanged will handle initialization when values arrive
                     return;
@@ -640,7 +518,7 @@ namespace Game.Weapons {
             // Prepare and show new FP weapon
             var fp = ActivateFpWeapon(CurrentWeaponIndex, data, triggerPullOutAnimation: true);
             _requiresKinemationEquipCompleteForCurrentPullOut =
-                requireKinemationEquipCompleteEvent &&
+                RequireKinemationEquipCompleteEvent &&
                 fp != null &&
                 TryGetKinemationDriver(fp, out _);
 
@@ -917,27 +795,36 @@ namespace Game.Weapons {
         }
 
         public int GetPrimarySelectionIndex() {
-            if(playerController == null || primaryWeaponOptions == null || primaryWeaponOptions.Count == 0) {
+            if(_primaryWeaponOptions.Count == 0 && _secondaryWeaponOptions.Count == 0) {
+                BuildKinemationWeaponLookup();
+            }
+            if(playerController == null || _primaryWeaponOptions.Count == 0) {
                 return 0;
             }
 
-            return Mathf.Clamp(playerController.primaryWeaponIndex.Value, 0, primaryWeaponOptions.Count - 1);
+            return Mathf.Clamp(playerController.primaryWeaponIndex.Value, 0, _primaryWeaponOptions.Count - 1);
         }
 
         public int GetSecondarySelectionIndex() {
-            if(playerController == null || secondaryWeaponOptions == null || secondaryWeaponOptions.Count == 0) {
+            if(_primaryWeaponOptions.Count == 0 && _secondaryWeaponOptions.Count == 0) {
+                BuildKinemationWeaponLookup();
+            }
+            if(playerController == null || _secondaryWeaponOptions.Count == 0) {
                 return 0;
             }
 
-            return Mathf.Clamp(playerController.secondaryWeaponIndex.Value, 0, secondaryWeaponOptions.Count - 1);
+            return Mathf.Clamp(playerController.secondaryWeaponIndex.Value, 0, _secondaryWeaponOptions.Count - 1);
         }
 
         public bool ApplyOwnerLoadoutSelection(int primaryIndex, int secondaryIndex,
             bool deferTpRevealUntilRespawn = true) {
             if(!IsOwner || playerController == null) return false;
+            if(_primaryWeaponOptions.Count == 0 && _secondaryWeaponOptions.Count == 0) {
+                BuildKinemationWeaponLookup();
+            }
 
-            var clampedPrimary = ClampOptionIndex(primaryWeaponOptions, primaryIndex);
-            var clampedSecondary = ClampOptionIndex(secondaryWeaponOptions, secondaryIndex);
+            var clampedPrimary = ClampOptionIndex(_primaryWeaponOptions, primaryIndex);
+            var clampedSecondary = ClampOptionIndex(_secondaryWeaponOptions, secondaryIndex);
 
             var primaryChanged = playerController.primaryWeaponIndex.Value != clampedPrimary;
             var secondaryChanged = playerController.secondaryWeaponIndex.Value != clampedSecondary;
@@ -1169,52 +1056,11 @@ namespace Game.Weapons {
         #region Holstered Weapons
 
         private void SetupHolsteredWeaponModels() {
-            _primaryHolsterLookup.Clear();
-            _secondaryHolsterLookup.Clear();
-
-            BuildHolsterLookup(primaryHolsteredWeapons, _primaryHolsterLookup);
-            BuildHolsterLookup(secondaryHolsteredWeapons, _secondaryHolsterLookup);
-
-            PrimaryHolster = ResolveHolsterForSlot(0, _primaryHolsterLookup);
-            SecondaryHolster = ResolveHolsterForSlot(1, _secondaryHolsterLookup);
-
-            if(PrimaryHolster == null) {
-                PrimaryHolster = ResolveHolsterForSlotFallback(0);
-                RegisterHolsterObject(_primaryHolsterLookup, PrimaryHolster);
-            }
-
-            if(SecondaryHolster == null) {
-                SecondaryHolster = ResolveHolsterForSlotFallback(1);
-                RegisterHolsterObject(_secondaryHolsterLookup, SecondaryHolster);
-            }
+            PrimaryHolster = ResolveHolsterForSlotFallback(0);
+            SecondaryHolster = ResolveHolsterForSlotFallback(1);
 
             DisableHolster(PrimaryHolster);
             DisableHolster(SecondaryHolster);
-        }
-
-        private static void BuildHolsterLookup(IEnumerable<GameObject> overrides, Dictionary<string, GameObject> lookup) {
-            if(overrides == null) return;
-
-            foreach(var go in overrides) {
-                RegisterHolsterObject(lookup, go);
-            }
-        }
-
-        private static void RegisterHolsterObject(IDictionary<string, GameObject> lookup, GameObject go) {
-            if(go == null) return;
-            var key = NormalizeHolsterKey(go.name);
-            if(string.IsNullOrEmpty(key)) return;
-
-            if(go.activeSelf) {
-                go.SetActive(false);
-            }
-
-            lookup[key] = go;
-        }
-
-        private GameObject ResolveHolsterForSlot(int slot, Dictionary<string, GameObject> lookup) {
-            var weaponData = GetWeaponDataForSlot(slot);
-            return ResolveHolsterObject(weaponData, lookup);
         }
 
         private WeaponData GetWeaponDataForSlot(int slot) {
@@ -1239,21 +1085,6 @@ namespace Game.Weapons {
             if(data == null) return fallback;
             var slot = data.WeaponSlotIndex;
             return slot >= 0 ? slot : fallback;
-        }
-
-        private GameObject ResolveHolsterObject(WeaponData data, Dictionary<string, GameObject> lookup) {
-            if(data == null || lookup == null || lookup.Count == 0) return null;
-
-            var names = BuildWeaponNameCandidates(data);
-            if(names.Count == 0) return null;
-
-            foreach(var candidate in names) {
-                if(lookup.TryGetValue(candidate, out var go)) {
-                    return go;
-                }
-            }
-
-            return null;
         }
 
         private GameObject ResolveHolsterForSlotFallback(int slot) {
@@ -1518,13 +1349,13 @@ namespace Game.Weapons {
                 kinemationBobHolder.transform.SetParent(kinemationSwayHolder.transform, false);
                 kinemationBobHolder.transform.localPosition = Vector3.zero;
                 kinemationBobHolder.transform.localEulerAngles = Vector3.zero;
-                if(useLegacyBobOnKinemationViewmodel) {
+                if(UseLegacyBobOnKinemationViewmodel) {
                     var legacyBob = kinemationBobHolder.AddComponent<WeaponBob>();
                     legacyBob.ConfigureFeatures(
-                        legacyKinemationMovementBob,
-                        legacyKinemationIdleBreathBob,
-                        legacyKinemationJumpFallBob,
-                        legacyKinemationLandingBob
+                        LegacyKinemationMovementBob,
+                        LegacyKinemationIdleBreathBob,
+                        LegacyKinemationJumpFallBob,
+                        LegacyKinemationLandingBob
                     );
                 }
 
@@ -1534,11 +1365,8 @@ namespace Game.Weapons {
                 kinemationHolder.transform.localPosition = localPosition;
                 kinemationHolder.transform.localEulerAngles = localEulerAngles;
 
-                var disableWeaponSounds = disableKinemationSounds || disableKinemationWeaponSounds;
-                var disablePlayerSounds = disableKinemationSounds || disableKinemationPlayerSounds;
-                var wristCorrectionWeight = kinemationBinding.useCustomWristCorrectionWeight
-                    ? kinemationBinding.wristCorrectionWeight
-                    : kinemationWristCorrectionLayerWeight;
+                var disableWeaponSounds = DisableKinemationGlobalSounds || DisableKinemationWeaponSounds;
+                var disablePlayerSounds = DisableKinemationGlobalSounds || DisableKinemationPlayerSounds;
 
                 var kinemationDriver = kinemationHolder.AddComponent<KinemationFpWeaponDriver>();
                 kinemationDriver.Configure(
@@ -1546,39 +1374,13 @@ namespace Game.Weapons {
                     kinemationBinding.kinemationWeaponPrefab,
                     disableWeaponSounds,
                     disablePlayerSounds,
-                    routeKinemationWeaponSoundEventsToAudioService,
-                    tagKinemationArmsForLegacyHooks,
-                    syncKinemationLookPitchWithPlayer,
-                    syncKinemationAirborneState,
-                    freezeKinemationLocomotionInAir,
-                    forceKinemationWalkAnimationWhileSprinting,
+                    RouteKinemationWeaponSoundEventsToAudioService,
+                    SyncKinemationLookPitchWithPlayer,
+                    SyncKinemationAirborneState,
+                    FreezeKinemationLocomotionInAir,
+                    ForceKinemationWalkAnimationWhileSprinting,
                     kinemationSprintWalkGaitValue,
-                    kinemationEquipUnlockNormalizedTime,
-                    enableKinemationWristCorrectionLayer,
-                    kinemationWristCorrectionLayerName,
-                    wristCorrectionWeight,
-                    logMissingKinemationWristCorrectionLayer,
-                    enableKinemationRuntimeWristDebugOverride,
-                    kinemationRuntimeWristDebugWeight,
-                    kinemationRuntimeWristDebugUpperarmLeftEuler.ToVector3(),
-                    kinemationRuntimeWristDebugUpperarmRightEuler.ToVector3(),
-                    kinemationRuntimeWristDebugUpperarmLeftPosition.ToVector3(),
-                    kinemationRuntimeWristDebugUpperarmRightPosition.ToVector3(),
-                    kinemationRuntimeWristDebugLowerarmLeftEuler.ToVector3(),
-                    kinemationRuntimeWristDebugLowerarmRightEuler.ToVector3(),
-                    kinemationRuntimeWristDebugLowerarmLeftPosition.ToVector3(),
-                    kinemationRuntimeWristDebugLowerarmRightPosition.ToVector3(),
-                    kinemationRuntimeWristDebugTwistLeftEuler.ToVector3(),
-                    kinemationRuntimeWristDebugTwistRightEuler.ToVector3(),
-                    kinemationRuntimeWristDebugTwistLeftPosition.ToVector3(),
-                    kinemationRuntimeWristDebugTwistRightPosition.ToVector3(),
-                    kinemationRuntimeWristDebugHandLeftEuler.ToVector3(),
-                    kinemationRuntimeWristDebugHandRightEuler.ToVector3(),
-                    kinemationRuntimeWristDebugHandLeftPosition.ToVector3(),
-                    kinemationRuntimeWristDebugHandRightPosition.ToVector3(),
-                    kinemationRuntimeWristDebugPreserveHandGrip,
-                    kinemationRuntimeWristDebugApplyHandOffsetWhenPreservingGrip,
-                    logMissingKinemationRuntimeWristBones
+                    kinemationEquipUnlockNormalizedTime
                 );
 
                 var fpLayer = GetFpWeaponLayer();
@@ -1688,6 +1490,7 @@ namespace Game.Weapons {
         }
 
         private void BuildEquippedWeaponList() {
+            BuildKinemationWeaponLookup();
             weaponDataList = new List<WeaponData>();
 
             // Get weapon indices from NetworkVariables (synced across all clients)
@@ -1706,12 +1509,12 @@ namespace Game.Weapons {
                 secondaryIndex = p.secondaryWeaponIndex;
             }
 
-            var primary = GetWeaponFromOptions(primaryWeaponOptions, primaryIndex, "Primary");
+            var primary = GetWeaponFromOptions(_primaryWeaponOptions, primaryIndex, "Primary");
             if(primary != null) {
                 weaponDataList.Add(primary);
             }
 
-            var secondary = GetWeaponFromOptions(secondaryWeaponOptions, secondaryIndex, "Secondary");
+            var secondary = GetWeaponFromOptions(_secondaryWeaponOptions, secondaryIndex, "Secondary");
             if(secondary != null) {
                 weaponDataList.Add(secondary);
             }

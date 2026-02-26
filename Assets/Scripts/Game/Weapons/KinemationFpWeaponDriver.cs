@@ -18,39 +18,12 @@ namespace Game.Weapons {
         [SerializeField] private bool disableKinemationPlayerSounds = true;
         [SerializeField] private bool routeWeaponSoundEventsToAudioService = true;
         [SerializeField] private bool disableKinemationInternalMuzzleFx = true;
-        [SerializeField] private bool tagArmsForLegacyHooks;
-        [SerializeField] private string armRootName = "SK_Arms_Mono";
         [SerializeField] private bool syncLookPitchWithPlayer;
         [SerializeField] private bool syncAirborneState;
         [SerializeField] private bool freezeLocomotionInAir = true;
         [SerializeField] private bool forceWalkAnimationWhileSprinting = true;
         [SerializeField, Range(0f, 1.99f)] private float sprintWalkGaitValue = 1.2f;
         [SerializeField, Range(0f, 1f)] private float equipUnlockNormalizedTime = 0.82f;
-        [SerializeField] private bool applyWristCorrectionLayer;
-        [SerializeField] private string wristCorrectionLayerName = "WristCorrection";
-        [SerializeField, Range(0f, 1f)] private float wristCorrectionLayerWeight = 0.25f;
-        [SerializeField] private bool logMissingWristCorrectionLayer = true;
-        [SerializeField] private bool enableRuntimeWristDebugOverride;
-        [SerializeField, Range(0f, 1f)] private float runtimeWristDebugOverrideWeight = 1f;
-        [SerializeField] private Vector3 runtimeWristDebugUpperarmLeftEuler = Vector3.zero;
-        [SerializeField] private Vector3 runtimeWristDebugUpperarmRightEuler = Vector3.zero;
-        [SerializeField] private Vector3 runtimeWristDebugUpperarmLeftPosition = Vector3.zero;
-        [SerializeField] private Vector3 runtimeWristDebugUpperarmRightPosition = Vector3.zero;
-        [SerializeField] private Vector3 runtimeWristDebugLowerarmLeftEuler = new Vector3(-35f, 0f, 0f);
-        [SerializeField] private Vector3 runtimeWristDebugLowerarmRightEuler = new Vector3(-35f, 0f, 0f);
-        [SerializeField] private Vector3 runtimeWristDebugLowerarmLeftPosition = Vector3.zero;
-        [SerializeField] private Vector3 runtimeWristDebugLowerarmRightPosition = Vector3.zero;
-        [SerializeField] private Vector3 runtimeWristDebugTwistLeftEuler = new Vector3(-20f, 0f, 0f);
-        [SerializeField] private Vector3 runtimeWristDebugTwistRightEuler = new Vector3(-20f, 0f, 0f);
-        [SerializeField] private Vector3 runtimeWristDebugTwistLeftPosition = Vector3.zero;
-        [SerializeField] private Vector3 runtimeWristDebugTwistRightPosition = Vector3.zero;
-        [SerializeField] private Vector3 runtimeWristDebugHandLeftEuler = new Vector3(-10f, 0f, 0f);
-        [SerializeField] private Vector3 runtimeWristDebugHandRightEuler = new Vector3(-10f, 0f, 0f);
-        [SerializeField] private Vector3 runtimeWristDebugHandLeftPosition = Vector3.zero;
-        [SerializeField] private Vector3 runtimeWristDebugHandRightPosition = Vector3.zero;
-        [SerializeField] private bool preserveRuntimeWristDebugHandGrip = true;
-        [SerializeField] private bool applyRuntimeWristDebugHandOffsetWhenPreservingGrip;
-        [SerializeField] private bool logMissingWristDebugBones = true;
 
         private GameObject _playerInstance;
         private FPSPlayerSettings _runtimePlayerSettings;
@@ -77,19 +50,10 @@ namespace Game.Weapons {
         private float _lastReloadSignalTime;
         private float _equipTrackStartTime;
         private float _lastEquipSignalTime;
-        private RuntimeAnimatorController _cachedWristCorrectionController;
-        private int _cachedWristCorrectionLayerIndex = -2;
-        private bool _hasWarnedMissingWristCorrectionLayer;
         private bool _hasCachedWristDebugBones;
-        private bool _hasWarnedMissingWristDebugBones;
         private Transform _wristDebugUpperarmLeft;
-        private Transform _wristDebugUpperarmRight;
-        private Transform _wristDebugLowerarmLeft;
-        private Transform _wristDebugLowerarmRight;
         private Transform _wristDebugTwistLeft;
-        private Transform _wristDebugTwistRight;
         private Transform _wristDebugHandLeft;
-        private Transform _wristDebugHandRight;
         private readonly HashSet<int> _suppressedMuzzleFxWeaponIds = new();
         private const float ReloadEnterGraceSeconds = 0.2f;
         private const float ReloadSignalGraceSeconds = 0.25f;
@@ -126,96 +90,26 @@ namespace Game.Weapons {
         private static readonly FieldInfo Pdw90SmoothAmmoWeightField =
             typeof(Pdw90Animation).GetField("_smoothAmmoWeight", BindingFlags.Instance | BindingFlags.NonPublic);
         private static readonly int IdleHash = Animator.StringToHash("Idle");
+        private static readonly Vector3 FixedUpperarmLeftPositionOffset = new(0f, 0.027f, 0f);
+        private static readonly Vector3 FixedTwistLeftEulerOffset = new(0f, -7.5f, 0f);
 
         public void Configure(GameObject playerPrefab, GameObject fpWeaponPrefab, bool disableWeaponSounds,
-            bool disablePlayerSounds, bool routeWeaponSoundEvents, bool tagArms, bool syncLookPitch,
+            bool disablePlayerSounds, bool routeWeaponSoundEvents, bool syncLookPitch,
             bool syncInAirState, bool freezeAirLocomotion, bool forceWalkWhileSprinting,
             float sprintGaitValue,
-            float equipUnlockNormalizedProgress, bool enableWristCorrectionLayer = false,
-            string wristLayerName = "WristCorrection", float wristLayerWeight = 0.25f,
-            bool logMissingWristLayer = true, bool enableRuntimeWristDebug = false,
-            float runtimeWristDebugWeight = 1f, Vector3 runtimeUpperarmLeftEuler = default(Vector3),
-            Vector3 runtimeUpperarmRightEuler = default(Vector3), Vector3 runtimeUpperarmLeftPosition = default(Vector3),
-            Vector3 runtimeUpperarmRightPosition = default(Vector3), Vector3 runtimeLowerarmLeftEuler = default(Vector3),
-            Vector3 runtimeLowerarmRightEuler = default(Vector3), Vector3 runtimeLowerarmLeftPosition = default(Vector3),
-            Vector3 runtimeLowerarmRightPosition = default(Vector3), Vector3 runtimeTwistLeftEuler = default(Vector3),
-            Vector3 runtimeTwistRightEuler = default(Vector3), Vector3 runtimeTwistLeftPosition = default(Vector3),
-            Vector3 runtimeTwistRightPosition = default(Vector3), Vector3 runtimeHandLeftEuler = default(Vector3),
-            Vector3 runtimeHandRightEuler = default(Vector3), Vector3 runtimeHandLeftPosition = default(Vector3),
-            Vector3 runtimeHandRightPosition = default(Vector3), bool preserveHandGrip = true,
-            bool allowHandOffsetWhenPreservingGrip = false, bool logMissingRuntimeWristBones = true) {
+            float equipUnlockNormalizedProgress) {
             fpsPlayerPrefab = playerPrefab;
             weaponPrefab = fpWeaponPrefab;
             disableKinemationWeaponSounds = disableWeaponSounds;
             disableKinemationPlayerSounds = disablePlayerSounds;
             routeWeaponSoundEventsToAudioService = routeWeaponSoundEvents;
-            tagArmsForLegacyHooks = tagArms;
             syncLookPitchWithPlayer = syncLookPitch;
             syncAirborneState = syncInAirState;
             freezeLocomotionInAir = freezeAirLocomotion;
             forceWalkAnimationWhileSprinting = forceWalkWhileSprinting;
             sprintWalkGaitValue = Mathf.Clamp(sprintGaitValue, 0f, 1.99f);
             equipUnlockNormalizedTime = Mathf.Clamp01(equipUnlockNormalizedProgress);
-            applyWristCorrectionLayer = enableWristCorrectionLayer;
-            wristCorrectionLayerName = wristLayerName;
-            wristCorrectionLayerWeight = Mathf.Clamp01(wristLayerWeight);
-            logMissingWristCorrectionLayer = logMissingWristLayer;
-            enableRuntimeWristDebugOverride = enableRuntimeWristDebug;
-            runtimeWristDebugOverrideWeight = Mathf.Clamp01(runtimeWristDebugWeight);
-            runtimeWristDebugUpperarmLeftEuler = runtimeUpperarmLeftEuler;
-            runtimeWristDebugUpperarmRightEuler = runtimeUpperarmRightEuler;
-            runtimeWristDebugUpperarmLeftPosition = runtimeUpperarmLeftPosition;
-            runtimeWristDebugUpperarmRightPosition = runtimeUpperarmRightPosition;
-            runtimeWristDebugLowerarmLeftEuler = runtimeLowerarmLeftEuler;
-            runtimeWristDebugLowerarmRightEuler = runtimeLowerarmRightEuler;
-            runtimeWristDebugLowerarmLeftPosition = runtimeLowerarmLeftPosition;
-            runtimeWristDebugLowerarmRightPosition = runtimeLowerarmRightPosition;
-            runtimeWristDebugTwistLeftEuler = runtimeTwistLeftEuler;
-            runtimeWristDebugTwistRightEuler = runtimeTwistRightEuler;
-            runtimeWristDebugTwistLeftPosition = runtimeTwistLeftPosition;
-            runtimeWristDebugTwistRightPosition = runtimeTwistRightPosition;
-            runtimeWristDebugHandLeftEuler = runtimeHandLeftEuler;
-            runtimeWristDebugHandRightEuler = runtimeHandRightEuler;
-            runtimeWristDebugHandLeftPosition = runtimeHandLeftPosition;
-            runtimeWristDebugHandRightPosition = runtimeHandRightPosition;
-            preserveRuntimeWristDebugHandGrip = preserveHandGrip;
-            applyRuntimeWristDebugHandOffsetWhenPreservingGrip = allowHandOffsetWhenPreservingGrip;
-            logMissingWristDebugBones = logMissingRuntimeWristBones;
             _hasCachedWristDebugBones = false;
-            _hasWarnedMissingWristDebugBones = false;
-        }
-
-        public void ApplyRuntimeWristDebugSettings(bool enabled, float weight, Vector3 upperarmLeftEuler,
-            Vector3 upperarmRightEuler, Vector3 upperarmLeftPosition, Vector3 upperarmRightPosition,
-            Vector3 lowerarmLeftEuler, Vector3 lowerarmRightEuler, Vector3 lowerarmLeftPosition,
-            Vector3 lowerarmRightPosition, Vector3 twistLeftEuler, Vector3 twistRightEuler, Vector3 twistLeftPosition,
-            Vector3 twistRightPosition, Vector3 handLeftEuler, Vector3 handRightEuler, Vector3 handLeftPosition,
-            Vector3 handRightPosition, bool preserveHandGrip, bool allowHandOffsetWhenPreservingGrip,
-            bool logMissingBones) {
-            enableRuntimeWristDebugOverride = enabled;
-            runtimeWristDebugOverrideWeight = Mathf.Clamp01(weight);
-            runtimeWristDebugUpperarmLeftEuler = upperarmLeftEuler;
-            runtimeWristDebugUpperarmRightEuler = upperarmRightEuler;
-            runtimeWristDebugUpperarmLeftPosition = upperarmLeftPosition;
-            runtimeWristDebugUpperarmRightPosition = upperarmRightPosition;
-            runtimeWristDebugLowerarmLeftEuler = lowerarmLeftEuler;
-            runtimeWristDebugLowerarmRightEuler = lowerarmRightEuler;
-            runtimeWristDebugLowerarmLeftPosition = lowerarmLeftPosition;
-            runtimeWristDebugLowerarmRightPosition = lowerarmRightPosition;
-            runtimeWristDebugTwistLeftEuler = twistLeftEuler;
-            runtimeWristDebugTwistRightEuler = twistRightEuler;
-            runtimeWristDebugTwistLeftPosition = twistLeftPosition;
-            runtimeWristDebugTwistRightPosition = twistRightPosition;
-            runtimeWristDebugHandLeftEuler = handLeftEuler;
-            runtimeWristDebugHandRightEuler = handRightEuler;
-            runtimeWristDebugHandLeftPosition = handLeftPosition;
-            runtimeWristDebugHandRightPosition = handRightPosition;
-            preserveRuntimeWristDebugHandGrip = preserveHandGrip;
-            applyRuntimeWristDebugHandOffsetWhenPreservingGrip = allowHandOffsetWhenPreservingGrip;
-            logMissingWristDebugBones = logMissingBones;
-
-            if(enableRuntimeWristDebugOverride) return;
-            _hasWarnedMissingWristDebugBones = false;
         }
 
         public bool InitializeIfNeeded(int renderLayer) {
@@ -257,11 +151,6 @@ namespace Game.Weapons {
             _playerInstance.SetActive(true);
             AttachReloadEventRelays();
             TryCacheActiveWeapon();
-            ApplyWristCorrectionLayerWeight();
-
-            if(tagArmsForLegacyHooks) {
-                TryTagArmRoot();
-            }
 
             // FPSPlayer creates its weapon instances in Start(), so cache may complete on a later frame.
             return _playerInstance != null;
@@ -705,17 +594,6 @@ namespace Game.Weapons {
             }
         }
 
-        private void TryTagArmRoot() {
-            if(string.IsNullOrEmpty(armRootName)) return;
-            if(!TryFindChildByName(_playerInstance.transform, armRootName, out var armRoot)) return;
-
-            try {
-                armRoot.gameObject.tag = "Arm";
-            } catch(UnityException) {
-                // If the tag does not exist in TagManager, skip tagging.
-            }
-        }
-
         private static bool TryFindChildByName(Transform root, string targetName, out Transform found) {
             if(root.name == targetName) {
                 found = root;
@@ -813,75 +691,29 @@ namespace Game.Weapons {
             ApplyActiveWeaponSoundToggles(_activeWeapon);
             RefreshActiveWeaponSoundMetadata(_activeWeapon);
             SuppressInternalMuzzleFx(_activeWeapon);
-            ApplyWristCorrectionLayerWeight();
             return _activeWeapon != null;
         }
 
-        private void ApplyWristCorrectionLayerWeight() {
-            if(!applyWristCorrectionLayer || _fpsAnimator == null) return;
-            if(string.IsNullOrWhiteSpace(wristCorrectionLayerName)) return;
-
-            var controller = _fpsAnimator.runtimeAnimatorController;
-            if(controller == null) return;
-
-            if(_cachedWristCorrectionController != controller) {
-                _cachedWristCorrectionController = controller;
-                _cachedWristCorrectionLayerIndex = -2;
-                _hasWarnedMissingWristCorrectionLayer = false;
-            }
-
-            if(_cachedWristCorrectionLayerIndex == -2) {
-                _cachedWristCorrectionLayerIndex = _fpsAnimator.GetLayerIndex(wristCorrectionLayerName);
-                if(_cachedWristCorrectionLayerIndex < 0) {
-                    if(logMissingWristCorrectionLayer && !_hasWarnedMissingWristCorrectionLayer) {
-                        _hasWarnedMissingWristCorrectionLayer = true;
-                    }
-                    return;
-                }
-            }
-
-            if(_cachedWristCorrectionLayerIndex < 0 || _cachedWristCorrectionLayerIndex >= _fpsAnimator.layerCount) return;
-            _fpsAnimator.SetLayerWeight(_cachedWristCorrectionLayerIndex, Mathf.Clamp01(wristCorrectionLayerWeight));
-        }
-
-        private void ApplyRuntimeWristDebugOverride() {
-            if(!enableRuntimeWristDebugOverride || _playerInstance == null) return;
-
-            var weight = Mathf.Clamp01(runtimeWristDebugOverrideWeight);
-            if(weight <= 0f) return;
+        private void ApplyFixedWristOffsets() {
+            if(_playerInstance == null) return;
 
             CacheWristDebugBonesIfNeeded();
+            if(_wristDebugUpperarmLeft == null && _wristDebugTwistLeft == null) return;
 
-            ApplyRuntimeWristSideOverride(
-                _wristDebugUpperarmLeft,
-                _wristDebugLowerarmLeft,
-                _wristDebugTwistLeft,
-                _wristDebugHandLeft,
-                runtimeWristDebugUpperarmLeftEuler,
-                runtimeWristDebugUpperarmLeftPosition,
-                runtimeWristDebugLowerarmLeftEuler,
-                runtimeWristDebugLowerarmLeftPosition,
-                runtimeWristDebugTwistLeftEuler,
-                runtimeWristDebugTwistLeftPosition,
-                runtimeWristDebugHandLeftEuler,
-                runtimeWristDebugHandLeftPosition,
-                weight
-            );
-            ApplyRuntimeWristSideOverride(
-                _wristDebugUpperarmRight,
-                _wristDebugLowerarmRight,
-                _wristDebugTwistRight,
-                _wristDebugHandRight,
-                runtimeWristDebugUpperarmRightEuler,
-                runtimeWristDebugUpperarmRightPosition,
-                runtimeWristDebugLowerarmRightEuler,
-                runtimeWristDebugLowerarmRightPosition,
-                runtimeWristDebugTwistRightEuler,
-                runtimeWristDebugTwistRightPosition,
-                runtimeWristDebugHandRightEuler,
-                runtimeWristDebugHandRightPosition,
-                weight
-            );
+            var preserveHandGrip = _wristDebugHandLeft != null;
+            Vector3 cachedHandPosition = default;
+            Quaternion cachedHandRotation = default;
+            if(preserveHandGrip) {
+                cachedHandPosition = _wristDebugHandLeft.position;
+                cachedHandRotation = _wristDebugHandLeft.rotation;
+            }
+
+            ApplyLocalPositionOffset(_wristDebugUpperarmLeft, FixedUpperarmLeftPositionOffset);
+            ApplyLocalRotationOffset(_wristDebugTwistLeft, FixedTwistLeftEulerOffset);
+
+            if(preserveHandGrip) {
+                _wristDebugHandLeft.SetPositionAndRotation(cachedHandPosition, cachedHandRotation);
+            }
         }
 
         private void CacheWristDebugBonesIfNeeded() {
@@ -889,64 +721,19 @@ namespace Game.Weapons {
 
             var root = _playerInstance.transform;
             TryFindChildByName(root, "upperarm_l", out _wristDebugUpperarmLeft);
-            TryFindChildByName(root, "upperarm_r", out _wristDebugUpperarmRight);
-            TryFindChildByName(root, "lowerarm_l", out _wristDebugLowerarmLeft);
-            TryFindChildByName(root, "lowerarm_r", out _wristDebugLowerarmRight);
             TryFindChildByName(root, "lowerarm_twist_01_l", out _wristDebugTwistLeft);
-            TryFindChildByName(root, "lowerarm_twist_01_r", out _wristDebugTwistRight);
             TryFindChildByName(root, "hand_l", out _wristDebugHandLeft);
-            TryFindChildByName(root, "hand_r", out _wristDebugHandRight);
-
             _hasCachedWristDebugBones = true;
-            if(!logMissingWristDebugBones || _hasWarnedMissingWristDebugBones) return;
-            if(_wristDebugUpperarmLeft != null && _wristDebugUpperarmRight != null &&
-               _wristDebugLowerarmLeft != null && _wristDebugLowerarmRight != null &&
-               _wristDebugTwistLeft != null && _wristDebugTwistRight != null &&
-               _wristDebugHandLeft != null && _wristDebugHandRight != null) {
-                return;
-            }
-
-            _hasWarnedMissingWristDebugBones = true;
         }
 
-        private void ApplyRuntimeWristSideOverride(Transform upperarm, Transform lowerarm, Transform twist, Transform hand,
-            Vector3 upperarmEuler, Vector3 upperarmPosition, Vector3 lowerarmEuler, Vector3 lowerarmPosition,
-            Vector3 twistEuler, Vector3 twistPosition, Vector3 handEuler, Vector3 handPosition, float weight) {
-            var preserveHandGrip = preserveRuntimeWristDebugHandGrip && hand != null;
-            Vector3 cachedHandPosition = default;
-            Quaternion cachedHandRotation = default;
-
-            if(preserveHandGrip) {
-                cachedHandPosition = hand.position;
-                cachedHandRotation = hand.rotation;
-            }
-
-            ApplyLocalPositionOffset(upperarm, upperarmPosition, weight);
-            ApplyLocalRotationOffset(upperarm, upperarmEuler, weight);
-            ApplyLocalPositionOffset(lowerarm, lowerarmPosition, weight);
-            ApplyLocalRotationOffset(lowerarm, lowerarmEuler, weight);
-            ApplyLocalPositionOffset(twist, twistPosition, weight);
-            ApplyLocalRotationOffset(twist, twistEuler, weight);
-
-            if(preserveHandGrip) {
-                hand.SetPositionAndRotation(cachedHandPosition, cachedHandRotation);
-                if(!applyRuntimeWristDebugHandOffsetWhenPreservingGrip) {
-                    return;
-                }
-            }
-
-            ApplyLocalPositionOffset(hand, handPosition, weight);
-            ApplyLocalRotationOffset(hand, handEuler, weight);
+        private static void ApplyLocalPositionOffset(Transform bone, Vector3 positionOffset) {
+            if(bone == null || positionOffset.sqrMagnitude <= 0.00000001f) return;
+            bone.localPosition += positionOffset;
         }
 
-        private static void ApplyLocalPositionOffset(Transform bone, Vector3 positionOffset, float weight) {
-            if(bone == null || positionOffset.sqrMagnitude <= 0.00000001f || weight <= 0f) return;
-            bone.localPosition += positionOffset * weight;
-        }
-
-        private static void ApplyLocalRotationOffset(Transform bone, Vector3 eulerOffset, float weight) {
-            if(bone == null || eulerOffset.sqrMagnitude <= 0.000001f || weight <= 0f) return;
-            var delta = Quaternion.Euler(eulerOffset * weight);
+        private static void ApplyLocalRotationOffset(Transform bone, Vector3 eulerOffset) {
+            if(bone == null || eulerOffset.sqrMagnitude <= 0.000001f) return;
+            var delta = Quaternion.Euler(eulerOffset);
             bone.localRotation = bone.localRotation * delta;
         }
 
@@ -1341,11 +1128,10 @@ namespace Game.Weapons {
             if(_activeWeapon == null) {
                 TryCacheActiveWeapon();
             }
-            ApplyWristCorrectionLayerWeight();
         }
 
         private void LateUpdate() {
-            ApplyRuntimeWristDebugOverride();
+            ApplyFixedWristOffsets();
         }
 
         private void OnDestroy() {
