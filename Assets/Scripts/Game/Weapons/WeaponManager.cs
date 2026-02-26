@@ -70,20 +70,6 @@ namespace Game.Weapons {
 
         private static readonly int PullOutHash = Animator.StringToHash("PullOut");
         private static readonly int WeaponIndexHash = Animator.StringToHash("WeaponIndex");
-        private const bool UseLegacyBobOnKinemationViewmodel = true;
-        private const bool LegacyKinemationMovementBob = false;
-        private const bool LegacyKinemationIdleBreathBob = false;
-        private const bool LegacyKinemationJumpFallBob = true;
-        private const bool LegacyKinemationLandingBob = true;
-        private const bool DisableKinemationGlobalSounds = false;
-        private const bool DisableKinemationWeaponSounds = false;
-        private const bool DisableKinemationPlayerSounds = true;
-        private const bool RouteKinemationWeaponSoundEventsToAudioService = true;
-        private const bool SyncKinemationLookPitchWithPlayer = false;
-        private const bool SyncKinemationAirborneState = false;
-        private const bool FreezeKinemationLocomotionInAir = true;
-        private const bool ForceKinemationWalkAnimationWhileSprinting = true;
-        private const bool RequireKinemationEquipCompleteEvent = true;
         private readonly Dictionary<WeaponData, GameObject> _worldWeaponByData = new();
         public GameObject PrimaryHolster { get; private set; }
 
@@ -244,9 +230,11 @@ namespace Game.Weapons {
             return IsOwner ? LayerMask.NameToLayer("Weapon") : LayerMask.NameToLayer("Masked");
         }
 
-        private void BuildWorldWeaponLookup() {
+        private bool BuildWorldWeaponLookup() {
             _worldWeaponByData.Clear();
-            if(_worldWeaponSocket == null) return;
+            if(_worldWeaponSocket == null) return false;
+
+            var isValid = true;
 
             foreach(Transform child in _worldWeaponSocket) {
                 if(child == null) continue;
@@ -257,24 +245,21 @@ namespace Game.Weapons {
                 }
 
                 if(_worldWeaponByData.ContainsKey(binding.WeaponData)) {
-                    Debug.LogWarning(
+                    Debug.LogError(
                         $"[WeaponManager] Duplicate WorldWeaponBinding for '{binding.WeaponData.weaponName}' on '{child.name}'.");
-                    continue;
+                    isValid = false;
                 }
 
                 _worldWeaponByData[binding.WeaponData] = child.gameObject;
             }
+
+            return isValid;
         }
 
         private GameObject ResolveWorldWeaponObject(WeaponData data) {
             if(data == null) return null;
 
             if(_worldWeaponByData.TryGetValue(data, out var worldWeapon) && worldWeapon != null) {
-                return worldWeapon;
-            }
-
-            BuildWorldWeaponLookup();
-            if(_worldWeaponByData.TryGetValue(data, out worldWeapon) && worldWeapon != null) {
                 return worldWeapon;
             }
 
@@ -285,17 +270,7 @@ namespace Game.Weapons {
             if(CurrentWorldWeaponInstance != null) {
                 CurrentWorldWeaponInstance.SetActive(false);
                 CurrentWorldWeaponInstance = null;
-                return;
             }
-
-            if(weaponDataList == null || CurrentWeaponIndex < 0 || CurrentWeaponIndex >= weaponDataList.Count) return;
-
-            var oldData = weaponDataList[CurrentWeaponIndex];
-            var oldObj = ResolveWorldWeaponObject(oldData);
-            if(oldObj != null) {
-                oldObj.SetActive(false);
-            }
-            CurrentWorldWeaponInstance = null;
         }
 
         private void HideCurrentWeaponVisuals() {
@@ -405,7 +380,7 @@ namespace Game.Weapons {
             }
 
             BuildEquippedWeaponList();
-            BuildWorldWeaponLookup();
+            if(!BuildWorldWeaponLookup()) return;
             if(!ValidateStrictEquippedWeaponConfiguration()) return;
             SetupHolsteredWeaponModels();
             DisableUnequippedWorldWeapons();
@@ -485,7 +460,6 @@ namespace Game.Weapons {
             // Prepare and show new FP weapon
             var fp = ActivateFpWeapon(CurrentWeaponIndex, data, triggerPullOutAnimation: true);
             _requiresKinemationEquipCompleteForCurrentPullOut =
-                RequireKinemationEquipCompleteEvent &&
                 fp != null &&
                 TryGetKinemationDriver(fp, out _);
 
@@ -790,11 +764,11 @@ namespace Game.Weapons {
                 BuildKinemationWeaponLookup();
             }
 
-            var clampedPrimary = ClampOptionIndex(_primaryWeaponOptions, primaryIndex);
-            var clampedSecondary = ClampOptionIndex(_secondaryWeaponOptions, secondaryIndex);
+            if(!IsValidSelectionIndex(_primaryWeaponOptions, primaryIndex, "Primary")) return false;
+            if(!IsValidSelectionIndex(_secondaryWeaponOptions, secondaryIndex, "Secondary")) return false;
 
-            var primaryChanged = playerController.primaryWeaponIndex.Value != clampedPrimary;
-            var secondaryChanged = playerController.secondaryWeaponIndex.Value != clampedSecondary;
+            var primaryChanged = playerController.primaryWeaponIndex.Value != primaryIndex;
+            var secondaryChanged = playerController.secondaryWeaponIndex.Value != secondaryIndex;
             if(!primaryChanged && !secondaryChanged) {
                 return false;
             }
@@ -802,11 +776,11 @@ namespace Game.Weapons {
             _suppressLoadoutRebuildCallbacks = true;
             try {
                 if(primaryChanged) {
-                    playerController.primaryWeaponIndex.Value = clampedPrimary;
+                    playerController.primaryWeaponIndex.Value = primaryIndex;
                 }
 
                 if(secondaryChanged) {
-                    playerController.secondaryWeaponIndex.Value = clampedSecondary;
+                    playerController.secondaryWeaponIndex.Value = secondaryIndex;
                 }
             } finally {
                 _suppressLoadoutRebuildCallbacks = false;
@@ -819,9 +793,17 @@ namespace Game.Weapons {
             return true;
         }
 
-        private static int ClampOptionIndex(List<WeaponData> options, int requestedIndex) {
-            if(options == null || options.Count == 0) return 0;
-            return Mathf.Clamp(requestedIndex, 0, options.Count - 1);
+        private static bool IsValidSelectionIndex(List<WeaponData> options, int requestedIndex, string slotLabel) {
+            if(options == null || options.Count == 0) {
+                Debug.LogError($"[WeaponManager] Cannot apply {slotLabel} selection. No options configured.");
+                return false;
+            }
+
+            if(requestedIndex >= 0 && requestedIndex < options.Count) return true;
+
+            Debug.LogError(
+                $"[WeaponManager] Rejecting {slotLabel} selection index {requestedIndex}. Valid range is [0..{options.Count - 1}].");
+            return false;
         }
 
         public void ApplyTpWeaponStateOnRespawn() {
@@ -1112,7 +1094,7 @@ namespace Game.Weapons {
                 deferTpRevealUntilRespawn && previousWorldWeapon != null && previousWorldWeapon.activeSelf;
 
             BuildEquippedWeaponList();
-            BuildWorldWeaponLookup();
+            if(!BuildWorldWeaponLookup()) return;
             if(!ValidateStrictEquippedWeaponConfiguration()) return;
             SetupHolsteredWeaponModels();
             DisableUnequippedWorldWeapons();
@@ -1227,17 +1209,14 @@ namespace Game.Weapons {
                     continue;
                 }
 
-                var kinemationCameraParent = _weaponCamera != null
-                    ? _weaponCamera.transform
-                    : _fpCamera != null ? _fpCamera.transform : null;
-                if(kinemationCameraParent == null) {
-                    Debug.LogError("[WeaponManager] Missing both WeaponCamera and FpCamera. Cannot spawn KINEMATION viewmodel.");
+                if(_weaponCamera == null) {
+                    Debug.LogError("[WeaponManager] Missing WeaponCamera. Cannot spawn KINEMATION viewmodel.");
                     continue;
                 }
 
                 var kinemationSwayHolder = new GameObject("SwayHolder");
                 var kinemationSway = kinemationSwayHolder.AddComponent<WeaponSway>();
-                kinemationSwayHolder.transform.SetParent(kinemationCameraParent, false);
+                kinemationSwayHolder.transform.SetParent(_weaponCamera.transform, false);
                 kinemationSwayHolder.transform.localPosition = Vector3.zero;
                 kinemationSwayHolder.transform.localEulerAngles = Vector3.zero;
                 if(_fpCamera != null) {
@@ -1248,15 +1227,13 @@ namespace Game.Weapons {
                 kinemationBobHolder.transform.SetParent(kinemationSwayHolder.transform, false);
                 kinemationBobHolder.transform.localPosition = Vector3.zero;
                 kinemationBobHolder.transform.localEulerAngles = Vector3.zero;
-                if(UseLegacyBobOnKinemationViewmodel) {
-                    var legacyBob = kinemationBobHolder.AddComponent<WeaponBob>();
-                    legacyBob.ConfigureFeatures(
-                        LegacyKinemationMovementBob,
-                        LegacyKinemationIdleBreathBob,
-                        LegacyKinemationJumpFallBob,
-                        LegacyKinemationLandingBob
-                    );
-                }
+                var legacyBob = kinemationBobHolder.AddComponent<WeaponBob>();
+                legacyBob.ConfigureFeatures(
+                    false,
+                    false,
+                    true,
+                    true
+                );
 
                 var kinemationHolder = new GameObject("KinemationHolder");
                 kinemationHolder.transform.SetParent(kinemationBobHolder.transform, false);
@@ -1264,8 +1241,8 @@ namespace Game.Weapons {
                 kinemationHolder.transform.localPosition = localPosition;
                 kinemationHolder.transform.localEulerAngles = localEulerAngles;
 
-                var disableWeaponSounds = DisableKinemationGlobalSounds || DisableKinemationWeaponSounds;
-                var disablePlayerSounds = DisableKinemationGlobalSounds || DisableKinemationPlayerSounds;
+                const bool disableWeaponSounds = false;
+                const bool disablePlayerSounds = true;
 
                 var kinemationDriver = kinemationHolder.AddComponent<KinemationFpWeaponDriver>();
                 kinemationDriver.Configure(
@@ -1273,11 +1250,11 @@ namespace Game.Weapons {
                     kinemationBinding.kinemationWeaponPrefab,
                     disableWeaponSounds,
                     disablePlayerSounds,
-                    RouteKinemationWeaponSoundEventsToAudioService,
-                    SyncKinemationLookPitchWithPlayer,
-                    SyncKinemationAirborneState,
-                    FreezeKinemationLocomotionInAir,
-                    ForceKinemationWalkAnimationWhileSprinting,
+                    true,
+                    false,
+                    false,
+                    true,
+                    true,
                     kinemationSprintWalkGaitValue,
                     kinemationEquipUnlockNormalizedTime
                 );
@@ -1377,6 +1354,11 @@ namespace Game.Weapons {
         private bool ValidateStrictEquippedWeaponConfiguration() {
             if(kinemationFpsPlayerPrefab == null) {
                 Debug.LogError("[WeaponManager] Missing KINEMATION FPS player prefab.");
+                return false;
+            }
+
+            if(_weaponCamera == null) {
+                Debug.LogError("[WeaponManager] Missing WeaponCamera. Strict mode requires WeaponCamera for FP viewmodels.");
                 return false;
             }
 
