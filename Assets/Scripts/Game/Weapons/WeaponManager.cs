@@ -27,6 +27,42 @@ namespace Game.Weapons {
             public bool useCustomViewmodelPose;
             public Vector3 viewmodelLocalPosition = Vector3.zero;
             public Vector3 viewmodelLocalEulerAngles = Vector3.zero;
+            public bool useCustomWristCorrectionWeight;
+            [Range(0f, 1f)] public float wristCorrectionWeight = 0.25f;
+        }
+
+        [Serializable]
+        private struct WristDebugEulerTuning {
+            [Range(-90f, 90f)] public float x;
+            [Range(-90f, 90f)] public float y;
+            [Range(-90f, 90f)] public float z;
+
+            public WristDebugEulerTuning(float x, float y, float z) {
+                this.x = x;
+                this.y = y;
+                this.z = z;
+            }
+
+            public Vector3 ToVector3() {
+                return new Vector3(x, y, z);
+            }
+        }
+
+        [Serializable]
+        private struct WristDebugPositionTuning {
+            [Range(-0.25f, 0.25f)] public float x;
+            [Range(-0.25f, 0.25f)] public float y;
+            [Range(-0.25f, 0.25f)] public float z;
+
+            public WristDebugPositionTuning(float x, float y, float z) {
+                this.x = x;
+                this.y = y;
+                this.z = z;
+            }
+
+            public Vector3 ToVector3() {
+                return new Vector3(x, y, z);
+            }
         }
 
         [SerializeField] private PlayerController playerController;
@@ -73,6 +109,47 @@ namespace Game.Weapons {
         [SerializeField, Range(0f, 1f)] private float kinemationEquipUnlockNormalizedTime = 0.82f;
         [SerializeField] private bool autoCompleteKinemationPullOut = true;
         [SerializeField, Min(0f)] private float kinemationPullOutCompleteDelay = 0.12f;
+        [SerializeField] private bool enableKinemationWristCorrectionLayer;
+        [SerializeField] private string kinemationWristCorrectionLayerName = "WristCorrection";
+        [SerializeField, Range(0f, 1f)] private float kinemationWristCorrectionLayerWeight = 0.25f;
+        [SerializeField] private bool logMissingKinemationWristCorrectionLayer = true;
+        [SerializeField] private bool enableKinemationRuntimeWristDebugOverride;
+        [SerializeField, Range(0f, 1f)] private float kinemationRuntimeWristDebugWeight = 1f;
+        [SerializeField] private WristDebugEulerTuning kinemationRuntimeWristDebugUpperarmLeftEuler =
+            new WristDebugEulerTuning(0f, 0f, 0f);
+        [SerializeField] private WristDebugEulerTuning kinemationRuntimeWristDebugUpperarmRightEuler =
+            new WristDebugEulerTuning(0f, 0f, 0f);
+        [SerializeField] private WristDebugPositionTuning kinemationRuntimeWristDebugUpperarmLeftPosition =
+            new WristDebugPositionTuning(0f, 0f, 0f);
+        [SerializeField] private WristDebugPositionTuning kinemationRuntimeWristDebugUpperarmRightPosition =
+            new WristDebugPositionTuning(0f, 0f, 0f);
+        [SerializeField] private WristDebugEulerTuning kinemationRuntimeWristDebugLowerarmLeftEuler =
+            new WristDebugEulerTuning(-35f, 0f, 0f);
+        [SerializeField] private WristDebugEulerTuning kinemationRuntimeWristDebugLowerarmRightEuler =
+            new WristDebugEulerTuning(-35f, 0f, 0f);
+        [SerializeField] private WristDebugPositionTuning kinemationRuntimeWristDebugLowerarmLeftPosition =
+            new WristDebugPositionTuning(0f, 0f, 0f);
+        [SerializeField] private WristDebugPositionTuning kinemationRuntimeWristDebugLowerarmRightPosition =
+            new WristDebugPositionTuning(0f, 0f, 0f);
+        [SerializeField] private WristDebugEulerTuning kinemationRuntimeWristDebugTwistLeftEuler =
+            new WristDebugEulerTuning(-20f, 0f, 0f);
+        [SerializeField] private WristDebugEulerTuning kinemationRuntimeWristDebugTwistRightEuler =
+            new WristDebugEulerTuning(-20f, 0f, 0f);
+        [SerializeField] private WristDebugPositionTuning kinemationRuntimeWristDebugTwistLeftPosition =
+            new WristDebugPositionTuning(0f, 0f, 0f);
+        [SerializeField] private WristDebugPositionTuning kinemationRuntimeWristDebugTwistRightPosition =
+            new WristDebugPositionTuning(0f, 0f, 0f);
+        [SerializeField] private WristDebugEulerTuning kinemationRuntimeWristDebugHandLeftEuler =
+            new WristDebugEulerTuning(-10f, 0f, 0f);
+        [SerializeField] private WristDebugEulerTuning kinemationRuntimeWristDebugHandRightEuler =
+            new WristDebugEulerTuning(-10f, 0f, 0f);
+        [SerializeField] private WristDebugPositionTuning kinemationRuntimeWristDebugHandLeftPosition =
+            new WristDebugPositionTuning(0f, 0f, 0f);
+        [SerializeField] private WristDebugPositionTuning kinemationRuntimeWristDebugHandRightPosition =
+            new WristDebugPositionTuning(0f, 0f, 0f);
+        [SerializeField] private bool kinemationRuntimeWristDebugPreserveHandGrip = true;
+        [SerializeField] private bool kinemationRuntimeWristDebugApplyHandOffsetWhenPreservingGrip;
+        [SerializeField] private bool logMissingKinemationRuntimeWristBones = true;
         [SerializeField] private Vector3 kinemationViewmodelLocalPosition = Vector3.zero;
         [SerializeField] private Vector3 kinemationViewmodelLocalEulerAngles = Vector3.zero;
         [Header("KINEMATION Viewmodel Tuning (Play Mode)")]
@@ -80,7 +157,10 @@ namespace Game.Weapons {
         [SerializeField] private bool logKinemationViewmodelTuning = true;
         [SerializeField, Min(0.0001f)] private float kinemationTunePositionStep = 0.0025f;
         [SerializeField, Min(0.01f)] private float kinemationTuneRotationStep = 0.5f;
+        [SerializeField, Min(0.01f)] private float kinemationTuneRepeatInitialDelay = 0.2f;
+        [SerializeField, Min(0.01f)] private float kinemationTuneRepeatInterval = 0.04f;
         [SerializeField] private KeyCode kinemationTuneModifierKey = KeyCode.LeftAlt;
+        [SerializeField] private KeyCode kinemationTuneApplyCurrentPoseKey = KeyCode.P;
 
         private readonly List<GameObject> _fpWeaponInstances = new();
         private readonly Dictionary<int, int> _weaponAmmo = new();
@@ -120,6 +200,7 @@ namespace Game.Weapons {
         private Coroutine _kinemationPullOutCompletionCoroutine;
         private bool _hasLoggedKinemationTuningHelp;
         private bool _requiresKinemationEquipCompleteForCurrentPullOut;
+        private readonly Dictionary<KeyCode, float> _kinemationTuneNextRepeatAt = new();
 
         private void Awake() {
             ValidateComponents();
@@ -151,6 +232,7 @@ namespace Game.Weapons {
         private void Update() {
             UpdateKinemationEquipCompletionGate();
             HandleKinemationViewmodelTuningInput();
+            SyncKinemationRuntimeWristDebugSettings();
         }
 
         private void UpdateKinemationEquipCompletionGate() {
@@ -165,17 +247,79 @@ namespace Game.Weapons {
             HandlePullOutCompleted();
         }
 
+        private void SyncKinemationRuntimeWristDebugSettings() {
+            if(_fpWeaponInstances.Count == 0) return;
+
+            var upperarmLeft = kinemationRuntimeWristDebugUpperarmLeftEuler.ToVector3();
+            var upperarmRight = kinemationRuntimeWristDebugUpperarmRightEuler.ToVector3();
+            var upperarmLeftPosition = kinemationRuntimeWristDebugUpperarmLeftPosition.ToVector3();
+            var upperarmRightPosition = kinemationRuntimeWristDebugUpperarmRightPosition.ToVector3();
+            var lowerarmLeft = kinemationRuntimeWristDebugLowerarmLeftEuler.ToVector3();
+            var lowerarmRight = kinemationRuntimeWristDebugLowerarmRightEuler.ToVector3();
+            var lowerarmLeftPosition = kinemationRuntimeWristDebugLowerarmLeftPosition.ToVector3();
+            var lowerarmRightPosition = kinemationRuntimeWristDebugLowerarmRightPosition.ToVector3();
+            var twistLeft = kinemationRuntimeWristDebugTwistLeftEuler.ToVector3();
+            var twistRight = kinemationRuntimeWristDebugTwistRightEuler.ToVector3();
+            var twistLeftPosition = kinemationRuntimeWristDebugTwistLeftPosition.ToVector3();
+            var twistRightPosition = kinemationRuntimeWristDebugTwistRightPosition.ToVector3();
+            var handLeft = kinemationRuntimeWristDebugHandLeftEuler.ToVector3();
+            var handRight = kinemationRuntimeWristDebugHandRightEuler.ToVector3();
+            var handLeftPosition = kinemationRuntimeWristDebugHandLeftPosition.ToVector3();
+            var handRightPosition = kinemationRuntimeWristDebugHandRightPosition.ToVector3();
+
+            for(var i = 0; i < _fpWeaponInstances.Count; i++) {
+                var fpWeaponRoot = _fpWeaponInstances[i];
+                if(!TryGetKinemationDriver(fpWeaponRoot, out var kinemationDriver) || kinemationDriver == null) {
+                    continue;
+                }
+
+                kinemationDriver.ApplyRuntimeWristDebugSettings(
+                    enableKinemationRuntimeWristDebugOverride,
+                    kinemationRuntimeWristDebugWeight,
+                    upperarmLeft,
+                    upperarmRight,
+                    upperarmLeftPosition,
+                    upperarmRightPosition,
+                    lowerarmLeft,
+                    lowerarmRight,
+                    lowerarmLeftPosition,
+                    lowerarmRightPosition,
+                    twistLeft,
+                    twistRight,
+                    twistLeftPosition,
+                    twistRightPosition,
+                    handLeft,
+                    handRight,
+                    handLeftPosition,
+                    handRightPosition,
+                    kinemationRuntimeWristDebugPreserveHandGrip,
+                    kinemationRuntimeWristDebugApplyHandOffsetWhenPreservingGrip,
+                    logMissingKinemationRuntimeWristBones
+                );
+            }
+        }
+
         private void HandleKinemationViewmodelTuningInput() {
-            if(!enableKinemationViewmodelTuning || !Application.isPlaying) return;
-            if(!IsOwner || !useKinemationFpAnimations) return;
-            if(!IsTuningModifierHeld()) return;
+            if(!enableKinemationViewmodelTuning || !Application.isPlaying) {
+                _kinemationTuneNextRepeatAt.Clear();
+                return;
+            }
+            if(!IsOwner || !useKinemationFpAnimations) {
+                _kinemationTuneNextRepeatAt.Clear();
+                return;
+            }
+            if(!IsTuningModifierHeld()) {
+                _kinemationTuneNextRepeatAt.Clear();
+                return;
+            }
 
             if(!_hasLoggedKinemationTuningHelp && logKinemationViewmodelTuning) {
                 _hasLoggedKinemationTuningHelp = true;
                 Debug.Log(
                     "[WeaponManager] KIN tune hotkeys: Alt+Arrows/PageUp/PageDown = position, " +
                     "Alt+Shift+Arrows/PageUp/PageDown = rotation, Alt+C toggle per-weapon pose, " +
-                    "Alt+Backspace reset current weapon pose to defaults, Alt+Enter log current pose.");
+                    "Alt+Backspace reset current weapon pose to defaults, Alt+Enter log current pose, " +
+                    $"Alt+{kinemationTuneApplyCurrentPoseKey} apply current local transform to this weapon.");
             }
 
             if(!TryGetCurrentKinemationTuningTarget(out var fpWeaponRoot, out var binding, out var weaponData)) {
@@ -201,6 +345,15 @@ namespace Game.Weapons {
             if(IsKeyPressedThisFrame(KeyCode.Return) || IsKeyPressedThisFrame(KeyCode.KeypadEnter)) {
                 CaptureCurrentKinemationPose(fpWeaponRoot, binding);
                 LogKinemationPose(weaponData, binding, "Current pose");
+                return;
+            }
+
+            if(kinemationTuneApplyCurrentPoseKey != KeyCode.None &&
+               IsKeyPressedThisFrame(kinemationTuneApplyCurrentPoseKey)) {
+                CaptureCurrentKinemationPose(fpWeaponRoot, binding);
+                ApplyResolvedKinemationViewmodelPose(fpWeaponRoot, binding);
+                LogKinemationPose(weaponData, binding,
+                    $"Applied current transform ({kinemationTuneApplyCurrentPoseKey})");
                 return;
             }
 
@@ -241,15 +394,45 @@ namespace Game.Weapons {
             };
         }
 
-        private static Vector3 ReadTuneAxisDelta(float step) {
+        private Vector3 ReadTuneAxisDelta(float step) {
             var delta = Vector3.zero;
-            if(IsKeyPressedThisFrame(KeyCode.LeftArrow)) delta.x -= step;
-            if(IsKeyPressedThisFrame(KeyCode.RightArrow)) delta.x += step;
-            if(IsKeyPressedThisFrame(KeyCode.UpArrow)) delta.y += step;
-            if(IsKeyPressedThisFrame(KeyCode.DownArrow)) delta.y -= step;
-            if(IsKeyPressedThisFrame(KeyCode.PageUp)) delta.z += step;
-            if(IsKeyPressedThisFrame(KeyCode.PageDown)) delta.z -= step;
+            if(IsTuneAxisTriggered(KeyCode.LeftArrow)) delta.x -= step;
+            if(IsTuneAxisTriggered(KeyCode.RightArrow)) delta.x += step;
+            if(IsTuneAxisTriggered(KeyCode.UpArrow)) delta.y += step;
+            if(IsTuneAxisTriggered(KeyCode.DownArrow)) delta.y -= step;
+            if(IsTuneAxisTriggered(KeyCode.PageUp)) delta.z += step;
+            if(IsTuneAxisTriggered(KeyCode.PageDown)) delta.z -= step;
             return delta;
+        }
+
+        private bool IsTuneAxisTriggered(KeyCode keyCode) {
+            var keyboard = Keyboard.current;
+            if(keyboard == null) return false;
+            if(!TryGetInputSystemKeyControl(keyboard, keyCode, out var keyControl) || keyControl == null) return false;
+
+            var now = Time.unscaledTime;
+            var initialDelay = Mathf.Max(0.01f, kinemationTuneRepeatInitialDelay);
+            var repeatInterval = Mathf.Max(0.01f, kinemationTuneRepeatInterval);
+
+            if(keyControl.wasPressedThisFrame) {
+                _kinemationTuneNextRepeatAt[keyCode] = now + initialDelay;
+                return true;
+            }
+
+            if(!keyControl.isPressed) {
+                _kinemationTuneNextRepeatAt.Remove(keyCode);
+                return false;
+            }
+
+            if(!_kinemationTuneNextRepeatAt.TryGetValue(keyCode, out var nextRepeatAt)) {
+                _kinemationTuneNextRepeatAt[keyCode] = now + initialDelay;
+                return false;
+            }
+
+            if(now < nextRepeatAt) return false;
+
+            _kinemationTuneNextRepeatAt[keyCode] = now + repeatInterval;
+            return true;
         }
 
         private static bool IsKeyHeld(KeyCode keyCode) {
@@ -275,6 +458,7 @@ namespace Game.Weapons {
                 KeyCode.LeftAlt => keyboard.leftAltKey,
                 KeyCode.RightAlt => keyboard.rightAltKey,
                 KeyCode.C => keyboard.cKey,
+                KeyCode.P => keyboard.pKey,
                 KeyCode.Backspace => keyboard.backspaceKey,
                 KeyCode.Return => keyboard.enterKey,
                 KeyCode.KeypadEnter => keyboard.numpadEnterKey,
@@ -1593,6 +1777,9 @@ namespace Game.Weapons {
 
                     var disableWeaponSounds = disableKinemationSounds || disableKinemationWeaponSounds;
                     var disablePlayerSounds = disableKinemationSounds || disableKinemationPlayerSounds;
+                    var wristCorrectionWeight = kinemationBinding.useCustomWristCorrectionWeight
+                        ? kinemationBinding.wristCorrectionWeight
+                        : kinemationWristCorrectionLayerWeight;
 
                     var kinemationDriver = kinemationHolder.AddComponent<KinemationFpWeaponDriver>();
                     kinemationDriver.Configure(
@@ -1610,7 +1797,32 @@ namespace Game.Weapons {
                         autoAlignKinemationMuzzleToBounds,
                         forceKinemationWalkAnimationWhileSprinting,
                         kinemationSprintWalkGaitValue,
-                        kinemationEquipUnlockNormalizedTime
+                        kinemationEquipUnlockNormalizedTime,
+                        enableKinemationWristCorrectionLayer,
+                        kinemationWristCorrectionLayerName,
+                        wristCorrectionWeight,
+                        logMissingKinemationWristCorrectionLayer,
+                        enableKinemationRuntimeWristDebugOverride,
+                        kinemationRuntimeWristDebugWeight,
+                        kinemationRuntimeWristDebugUpperarmLeftEuler.ToVector3(),
+                        kinemationRuntimeWristDebugUpperarmRightEuler.ToVector3(),
+                        kinemationRuntimeWristDebugUpperarmLeftPosition.ToVector3(),
+                        kinemationRuntimeWristDebugUpperarmRightPosition.ToVector3(),
+                        kinemationRuntimeWristDebugLowerarmLeftEuler.ToVector3(),
+                        kinemationRuntimeWristDebugLowerarmRightEuler.ToVector3(),
+                        kinemationRuntimeWristDebugLowerarmLeftPosition.ToVector3(),
+                        kinemationRuntimeWristDebugLowerarmRightPosition.ToVector3(),
+                        kinemationRuntimeWristDebugTwistLeftEuler.ToVector3(),
+                        kinemationRuntimeWristDebugTwistRightEuler.ToVector3(),
+                        kinemationRuntimeWristDebugTwistLeftPosition.ToVector3(),
+                        kinemationRuntimeWristDebugTwistRightPosition.ToVector3(),
+                        kinemationRuntimeWristDebugHandLeftEuler.ToVector3(),
+                        kinemationRuntimeWristDebugHandRightEuler.ToVector3(),
+                        kinemationRuntimeWristDebugHandLeftPosition.ToVector3(),
+                        kinemationRuntimeWristDebugHandRightPosition.ToVector3(),
+                        kinemationRuntimeWristDebugPreserveHandGrip,
+                        kinemationRuntimeWristDebugApplyHandOffsetWhenPreservingGrip,
+                        logMissingKinemationRuntimeWristBones
                     );
 
                     var fpLayer = GetFpWeaponLayer();

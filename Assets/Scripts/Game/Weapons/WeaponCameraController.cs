@@ -15,6 +15,8 @@ namespace Game.Weapons {
         private Camera _weaponCamera;
         private CinemachineCamera _fpCamera;
         private Camera _mainSceneCamera; // Main scene camera (not player's fpCamera)
+        [SerializeField] private bool syncWeaponFovWithFpCamera;
+        [SerializeField, Range(1f, 179f)] private float fixedWeaponCameraFov = 70f;
 
         [Header("Dynamic Near Clip (FOV-driven)")]
         [SerializeField] private bool enableDynamicNearClip = true;
@@ -59,11 +61,9 @@ namespace Game.Weapons {
                 weaponCameraData.renderType = CameraRenderType.Overlay;
             }
 
-            // Sync FOV with fpCamera
-            if(_fpCamera != null) {
-                _weaponCamera.fieldOfView = _fpCamera.Lens.FieldOfView;
-                nearClipBaseFov = _fpCamera.Lens.FieldOfView;
-            }
+            var targetFov = ResolveTargetWeaponFov();
+            _weaponCamera.fieldOfView = targetFov;
+            nearClipBaseFov = targetFov;
 
             // Keep existing behavior unchanged at base FOV unless explicitly tuned otherwise.
             if(nearClipAtBaseFov <= 0f && _weaponCamera != null) {
@@ -112,14 +112,21 @@ namespace Game.Weapons {
         }
 
         private void LateUpdate() {
-            // Sync FOV with fpCamera
-            if(_weaponCamera == null || _fpCamera == null) return;
-            var newFov = _fpCamera.Lens.FieldOfView;
-            if(Mathf.Abs(_weaponCamera.fieldOfView - newFov) > 0.01f) {
-                _weaponCamera.fieldOfView = newFov;
+            if(_weaponCamera == null) return;
+            var targetFov = ResolveTargetWeaponFov();
+            if(Mathf.Abs(_weaponCamera.fieldOfView - targetFov) > 0.01f) {
+                _weaponCamera.fieldOfView = targetFov;
             }
 
-            UpdateDynamicNearClip(newFov);
+            UpdateDynamicNearClip(targetFov);
+        }
+
+        private float ResolveTargetWeaponFov() {
+            if(syncWeaponFovWithFpCamera && _fpCamera != null) {
+                return _fpCamera.Lens.FieldOfView;
+            }
+
+            return Mathf.Clamp(fixedWeaponCameraFov, 1f, 179f);
         }
 
         private void UpdateDynamicNearClip(float currentFov) {
