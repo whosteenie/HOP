@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using Game.Player;
 using UnityEngine;
+using UnityEngine.Rendering;
 
 namespace Game.Menu {
     /// <summary>
@@ -40,13 +41,35 @@ namespace Game.Menu {
         private readonly List<SetupSelection> _cachedSelections = new();
         private readonly Dictionary<string, SetupSelection> _cachedSelectionLookup = new(StringComparer.OrdinalIgnoreCase);
         private bool _selectionCacheDirty = true;
+        private readonly Dictionary<Volume, bool> _cachedDepthOfFieldDefaultStates = new();
+        private GameObject _activeMapRoot;
+        private GameObject _activeSetupRoot;
+        private bool _suppressDepthOfFieldForLoadout;
 
         private void Awake() {
             _selectionCacheDirty = true;
         }
 
+        private void OnDisable() {
+            RestoreCachedDepthOfFieldStates();
+        }
+
+        private void OnDestroy() {
+            RestoreCachedDepthOfFieldStates();
+        }
+
         private void OnValidate() {
             _selectionCacheDirty = true;
+        }
+
+        public void SetBackgroundDepthOfFieldSuppressed(bool suppressed) {
+            _suppressDepthOfFieldForLoadout = suppressed;
+            if(!_suppressDepthOfFieldForLoadout) {
+                RestoreCachedDepthOfFieldStates();
+                return;
+            }
+
+            ApplyDepthOfFieldSuppressionToActiveSelection();
         }
 
         private void RandomizeForMainMenuEntry() {
@@ -103,6 +126,7 @@ namespace Game.Menu {
             if(mapIndex < 0 || mapIndex >= mapEntries.Count) return;
             var mapEntry = mapEntries[mapIndex];
             if(mapEntry == null) return;
+            _activeMapRoot = mapEntry.mapGeometryRoot;
 
             if(mapEntry.mapGeometryRoot != null) {
                 mapEntry.mapGeometryRoot.SetActive(true);
@@ -117,11 +141,14 @@ namespace Game.Menu {
             if(selectedSetup != null) {
                 selectedSetup.SetActive(true);
             }
+            _activeSetupRoot = selectedSetup;
 
             if(enforceSingleActiveMannequinCamera) {
                 SetAllRegisteredMannequinCamerasEnabled(false);
                 SetSetupCamerasEnabled(selectedSetup, true);
             }
+
+            ApplyDepthOfFieldSuppressionToActiveSelection();
 
             lastSelectedMap = string.IsNullOrWhiteSpace(mapEntry.mapId) ? $"Map {mapIndex + 1}" : mapEntry.mapId;
             lastSelectedSetup = selectedSetup != null ? selectedSetup.name : "(none)";
@@ -148,6 +175,8 @@ namespace Game.Menu {
 
         private void DeactivateAllRegisteredObjects() {
             if(mapEntries == null) return;
+            _activeMapRoot = null;
+            _activeSetupRoot = null;
 
             foreach(var entry in mapEntries) {
                 if(entry == null) continue;
@@ -163,6 +192,145 @@ namespace Game.Menu {
                     }
                 }
             }
+        }
+
+        private void ApplyDepthOfFieldSuppressionToActiveSelection() {
+            if(!_suppressDepthOfFieldForLoadout) {
+                return;
+            }
+
+            // If the active background changes while loadout is open, restore prior volumes first.
+            RestoreCachedDepthOfFieldStates();
+            var activeMannequinSetup = ResolveActiveMannequinSetupForDepthOfField();
+            if(activeMannequinSetup == null) {
+                Debug.LogWarning("[MainMenuBackgroundRandomizer][DoF] Unable to resolve active mannequin setup for suppression.", this);
+                return;
+            }
+
+            ApplyDepthOfFieldSuppression(activeMannequinSetup);
+        }
+
+        private void ApplyDepthOfFieldSuppression(GameObject root) {
+            if(!_suppressDepthOfFieldForLoadout || root == null) return;
+
+            var volumes = root.GetComponentsInChildren<Volume>(true);
+            if(volumes == null || volumes.Length == 0) {
+                Debug.LogWarning($"[MainMenuBackgroundRandomizer][DoF] No Volume components found under '{GetHierarchyPath(root.transform)}'.", this);
+                return;
+            }
+
+            var suppressedCount = 0;
+            foreach(var volume in volumes) {
+                if(volume == null) continue;
+                if(!_cachedDepthOfFieldDefaultStates.ContainsKey(volume)) {
+                    _cachedDepthOfFieldDefaultStates[volume] = volume.enabled;
+                }
+
+                volume.enabled = false;
+                suppressedCount++;
+            }
+
+            Debug.Log(
+                $"[MainMenuBackgroundRandomizer][DoF] Suppressed {suppressedCount} Volume component(s) under '{GetHierarchyPath(root.transform)}'.",
+                this);
+        }
+
+        private GameObject ResolveActiveMannequinSetupForDepthOfField() {
+            if(_activeSetupRoot != null && _activeSetupRoot.activeInHierarchy) {
+                Debug.Log(
+                    $"[MainMenuBackgroundRandomizer][DoF] Using active setup root '{GetHierarchyPath(_activeSetupRoot.transform)}'.",
+                    this);
+                return _activeSetupRoot;
+            }
+
+            if(_activeMapRoot == null) {
+                return _activeSetupRoot;
+            }
+
+            var mannequinsRoot = FindNamedChildRecursive(_activeMapRoot.transform, "MANNEQUINS");
+            if(mannequinsRoot == null) {
+                mannequinsRoot = FindNamedChildRecursive(_activeMapRoot.transform, "MANNEQUIN");
+            }
+
+            if(mannequinsRoot == null) {
+                Debug.LogWarning(
+                    $"[MainMenuBackgroundRandomizer][DoF] Could not find MANNEQUINS root under '{GetHierarchyPath(_activeMapRoot.transform)}'.",
+                    this);
+                return _activeSetupRoot;
+            }
+
+            GameObject activeByHierarchy = null;
+            for(var i = 0; i < mannequinsRoot.childCount; i++) {
+                var child = mannequinsRoot.GetChild(i);
+                if(child == null) continue;
+
+                var childObject = child.gameObject;
+                var childCameras = childObject.GetComponentsInChildren<Camera>(true);
+                foreach(var cam in childCameras) {
+                    if(cam != null && cam.enabled && cam.gameObject.activeInHierarchy) {
+                        Debug.Log(
+                            $"[MainMenuBackgroundRandomizer][DoF] Resolved setup via enabled camera: '{GetHierarchyPath(child)}'.",
+                            this);
+                        return childObject;
+                    }
+                }
+
+                if(childObject.activeInHierarchy && activeByHierarchy == null) {
+                    activeByHierarchy = childObject;
+                }
+            }
+
+            if(activeByHierarchy != null) {
+                Debug.Log(
+                    $"[MainMenuBackgroundRandomizer][DoF] Resolved setup via active hierarchy: '{GetHierarchyPath(activeByHierarchy.transform)}'.",
+                    this);
+                return activeByHierarchy;
+            }
+
+            for(var i = 0; i < mannequinsRoot.childCount; i++) {
+                var child = mannequinsRoot.GetChild(i);
+                if(child == null) continue;
+                if(child.gameObject.activeSelf) {
+                    Debug.Log(
+                        $"[MainMenuBackgroundRandomizer][DoF] Resolved setup via activeSelf: '{GetHierarchyPath(child)}'.",
+                        this);
+                    return child.gameObject;
+                }
+            }
+
+            Debug.LogWarning(
+                $"[MainMenuBackgroundRandomizer][DoF] No active mannequin child found under '{GetHierarchyPath(mannequinsRoot)}'.",
+                this);
+
+            return _activeSetupRoot;
+        }
+
+        private void RestoreCachedDepthOfFieldStates() {
+            foreach(var kvp in _cachedDepthOfFieldDefaultStates) {
+                if(kvp.Key == null) continue;
+                kvp.Key.enabled = kvp.Value;
+            }
+
+            if(_cachedDepthOfFieldDefaultStates.Count > 0) {
+                Debug.Log(
+                    $"[MainMenuBackgroundRandomizer][DoF] Restored {_cachedDepthOfFieldDefaultStates.Count} cached Volume component state(s).",
+                    this);
+            }
+
+            _cachedDepthOfFieldDefaultStates.Clear();
+        }
+
+        private static string GetHierarchyPath(Transform target) {
+            if(target == null) return "(null)";
+
+            var stack = new Stack<string>();
+            var current = target;
+            while(current != null) {
+                stack.Push(current.name);
+                current = current.parent;
+            }
+
+            return string.Join("/", stack);
         }
 
         private void SetAllRegisteredMannequinCamerasEnabled(bool enabled) {

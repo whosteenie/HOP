@@ -423,6 +423,14 @@ namespace Game.Menu {
 
             _navigatorMissingLogged = false;
             _navigator.Show(panel);
+            if(backgroundRandomizer != null) {
+                var suppressBackgroundDepthOfField = panel == _loadoutPanel;
+                Debug.Log(
+                    $"[MainMenuManager][DoF] ShowPanelInternal panel='{panel?.name ?? "(null)"}' loadoutPanel='{_loadoutPanel?.name ?? "(null)"}' suppress={suppressBackgroundDepthOfField}.",
+                    this);
+                backgroundRandomizer.SetBackgroundDepthOfFieldSuppressed(suppressBackgroundDepthOfField);
+            }
+
             var useMenuOverlay = panel == _optionsPanel || panel == _privateMatchSetupPanel;
             var isPrivateSetupOpen = panel == _privateMatchSetupPanel;
             SetOptionsOpenState(useMenuOverlay, isPrivateSetupOpen);

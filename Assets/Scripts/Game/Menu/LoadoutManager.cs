@@ -87,6 +87,7 @@ namespace Game.Menu {
         private VisualElement _viewport;
         private const float MinMovementThreshold = 0.5f; // Minimum pixel movement to register as actual drag
         private bool _rotationEnabled = true;
+        private bool _previewRotationBlockedByUnsavedModal;
 
         // Bounds cache for preview model anti-culling fix
         private static readonly Bounds MaxBounds = new(Vector3.zero,
@@ -150,6 +151,9 @@ namespace Game.Menu {
         private const float PreviewResolutionScale = 0.75f;
         private const int PreviewMsaa = 2;
         private const int PreviewWarmupFrames = 2;
+        private Vector3 _cachedPreviewAnchorPosition;
+        private Quaternion _cachedPreviewAnchorRotation = Quaternion.identity;
+        private bool _hasCachedPreviewAnchorPose;
 
         protected override void Awake() {
             base.Awake();
@@ -170,6 +174,7 @@ namespace Game.Menu {
             // Stop brute force rendering
             _previewActive = false;
             _showingStats = false;
+            _previewRotationBlockedByUnsavedModal = false;
 
             if(Root != null && _outsideClickHandlerRegistered) {
                 Root.UnregisterCallback<PointerDownEvent>(OnRootPointerDown, TrickleDown.TrickleDown);
@@ -443,6 +448,9 @@ namespace Game.Menu {
                 RegisterCleanup(() => _loadoutUnsavedNo.UnregisterCallback(noEnterHandler));
             }
             if(_loadoutUnsavedCancel != null) {
+                EventCallback<ClickEvent> cancelHandler = _ => OnLoadoutUnsavedCancel();
+                _loadoutUnsavedCancel.RegisterCallback(cancelHandler);
+                RegisterCleanup(() => _loadoutUnsavedCancel.UnregisterCallback(cancelHandler));
                 EventCallback<MouseEnterEvent> cancelEnterHandler = MainMenuManager.MouseEnter;
                 _loadoutUnsavedCancel.RegisterCallback(cancelEnterHandler);
                 RegisterCleanup(() => _loadoutUnsavedCancel.UnregisterCallback(cancelEnterHandler));
@@ -882,8 +890,15 @@ namespace Game.Menu {
             previewCamera.targetTexture = _previewRenderTexture;
             previewCamera.enabled = true;
 
+            if(_previewPlayerModel == previewPlayerRoot &&
+               previewPlayerRoot != null &&
+               !previewPlayerRoot.activeInHierarchy &&
+               playerModelPrefab != null) {
+                _previewPlayerModel = null;
+            }
+
             if(_previewPlayerModel == null) {
-                if(previewPlayerRoot != null) {
+                if(previewPlayerRoot != null && previewPlayerRoot.activeInHierarchy) {
                     _previewPlayerModel = previewPlayerRoot;
                     _previewPlayerModel.SetActive(true);
                 } else if(playerModelPrefab != null) {
@@ -899,6 +914,9 @@ namespace Game.Menu {
                     }
 
                     _previewPlayerModel = Instantiate(playerModelPrefab, modelPosition, modelRotation);
+                } else if(previewPlayerRoot != null) {
+                    _previewPlayerModel = previewPlayerRoot;
+                    _previewPlayerModel.SetActive(true);
                 } else {
                     Debug.LogWarning("[LoadoutManager] No preview player root or prefab assigned.");
                     return;
@@ -911,6 +929,9 @@ namespace Game.Menu {
                 _previewWeaponRenderers.Clear();
                 _prewarmedPreviewWeapons.Clear();
             }
+
+            AlignPreviewModelToAnchor();
+            DisablePreviewModelRootMotion();
 
             // BRUTE FORCE: Ensure model is definitely active and visible
             if(_previewPlayerModel != null) {
@@ -1024,6 +1045,36 @@ namespace Game.Menu {
             if(previewCamera == null || !previewCamera.enabled) return;
             ForcePreviewModelBoundsUpdate();
             previewCamera.Render();
+        }
+
+        private void AlignPreviewModelToAnchor() {
+            if(_previewPlayerModel == null) return;
+
+            if(previewPositionTransform != null) {
+                _previewPlayerModel.transform.SetPositionAndRotation(
+                    previewPositionTransform.position,
+                    previewPositionTransform.rotation
+                );
+                return;
+            }
+
+            if(!_hasCachedPreviewAnchorPose) {
+                _cachedPreviewAnchorPosition = _previewPlayerModel.transform.position;
+                _cachedPreviewAnchorRotation = _previewPlayerModel.transform.rotation;
+                _hasCachedPreviewAnchorPose = true;
+            }
+
+            _previewPlayerModel.transform.SetPositionAndRotation(_cachedPreviewAnchorPosition, _cachedPreviewAnchorRotation);
+        }
+
+        private void DisablePreviewModelRootMotion() {
+            if(_previewPlayerModel == null) return;
+
+            var animators = _previewPlayerModel.GetComponentsInChildren<Animator>(true);
+            foreach(var animator in animators) {
+                if(animator == null) continue;
+                animator.applyRootMotion = false;
+            }
         }
 
 
@@ -1389,8 +1440,12 @@ namespace Game.Menu {
 
         // Helper methods that don't rely on event target
         private void HandleViewportPointerDown(Vector2 position) {
-            if(_previewPlayerModel == null || !_rotationEnabled) {
+            if(_previewPlayerModel == null) {
                 Debug.LogWarning("[LoadoutManager] HandleViewportPointerDown called but model is null!");
+                return;
+            }
+
+            if(!IsPreviewRotationInputEnabled()) {
                 return;
             }
 
@@ -1407,7 +1462,7 @@ namespace Game.Menu {
         }
 
         private void HandleViewportPointerMove(Vector2 position) {
-            if(!_isDragging || _previewPlayerModel == null || !_rotationEnabled) return;
+            if(!_isDragging || _previewPlayerModel == null || !IsPreviewRotationInputEnabled()) return;
 
             var deltaX = position.x - _lastMousePosition.x;
 
@@ -1433,7 +1488,7 @@ namespace Game.Menu {
         }
 
         private void HandleViewportPointerUp() {
-            if(!_rotationEnabled) {
+            if(!IsPreviewRotationInputEnabled()) {
                 _isDragging = false;
                 _currentRotationVelocity = 0f;
                 return;
@@ -1486,7 +1541,7 @@ namespace Game.Menu {
                 return;
             }
 
-            if(!_rotationEnabled) return;
+            if(!IsPreviewRotationInputEnabled()) return;
 
             // Handle deceleration when not dragging
             if(_isDragging || !(Mathf.Abs(_currentRotationVelocity) > 0.1f) || _previewPlayerModel == null) return;
@@ -1658,6 +1713,7 @@ namespace Game.Menu {
         }
 
         private void ShowLoadoutUnsavedModal() {
+            SetPreviewRotationBlockedByUnsavedModal(true);
             if(_loadoutUnsavedModal == null) return;
             _loadoutUnsavedModal.RemoveFromClassList("hidden");
             _loadoutUnsavedModal.style.display = DisplayStyle.Flex;
@@ -1665,6 +1721,7 @@ namespace Game.Menu {
         }
 
         private void HideLoadoutUnsavedModal() {
+            SetPreviewRotationBlockedByUnsavedModal(false);
             if(_loadoutUnsavedModal == null) return;
             _loadoutUnsavedModal.AddToClassList("hidden");
             _loadoutUnsavedModal.style.display = StyleKeyword.Null;
@@ -1692,7 +1749,7 @@ namespace Game.Menu {
 
         private void OnLoadoutUnsavedCancel() {
             if(mainMenuManager != null) {
-                MainMenuManager.OnButtonClicked();
+                MainMenuManager.OnButtonClicked(true);
             }
 
             HideLoadoutUnsavedModal();
@@ -1730,6 +1787,19 @@ namespace Game.Menu {
             if(isEnabled) return;
             _isDragging = false;
             _currentRotationVelocity = 0f;
+        }
+
+        private bool IsPreviewRotationInputEnabled() {
+            return _rotationEnabled && !_previewRotationBlockedByUnsavedModal;
+        }
+
+        private void SetPreviewRotationBlockedByUnsavedModal(bool blocked) {
+            _previewRotationBlockedByUnsavedModal = blocked;
+            if(!blocked) return;
+
+            _isDragging = false;
+            _currentRotationVelocity = 0f;
+            _movementSamples.Clear();
         }
 
         private IEnumerator AnimateContainersSlideIn() {
