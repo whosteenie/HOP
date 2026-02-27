@@ -573,7 +573,7 @@ namespace Game.Player {
                     weaponBob.OnJumpInitiated();
                 } else {
                     Debug.LogWarning(
-                        $"[PlayerMovementController] LaunchFromJumpPad: WeaponBob not found! " +
+                        "[PlayerMovementController] LaunchFromJumpPad: WeaponBob not found! " +
                         $"FpCamera={playerController.FpCamera != null} WeaponCamera={playerController.WeaponCamera != null}");
                 }
             }

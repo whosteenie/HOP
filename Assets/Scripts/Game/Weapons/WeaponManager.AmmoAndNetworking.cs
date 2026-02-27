@@ -1,6 +1,5 @@
 using Game.UI;
 using Network.AntiCheat;
-using Network.Diagnostics;
 using Network.Events;
 using Unity.Netcode;
 using UnityEngine;

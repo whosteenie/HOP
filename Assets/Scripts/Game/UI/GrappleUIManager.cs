@@ -403,9 +403,9 @@ namespace Game.UI {
 
             _currentColor = cooldownColor;
             if(_segments == null) return;
-            for(var i = 0; i < _segments.Length; i++) {
-                if(_segments[i] == null) continue;
-                _segments[i].style.backgroundColor = cooldownColor;
+            foreach(var s in _segments) {
+                if(s == null) continue;
+                s.style.backgroundColor = cooldownColor;
             }
         }
 

@@ -141,14 +141,12 @@ namespace Game.Weapons {
             }
 
             var kinemationCapacity = ResolveKinemationWeaponCapacity(kinemationBinding.kinemationWeaponPrefab);
-            if(kinemationCapacity <= 0) {
-                Debug.LogError(
-                    $"[WeaponManager] Invalid KINEMATION ammo capacity for '{data.weaponName}'. " +
-                    "Strict mode requires FPSWeaponSettings.ammo > 0.");
-                return 0;
-            }
+            if(kinemationCapacity > 0) return kinemationCapacity;
+            Debug.LogError(
+                $"[WeaponManager] Invalid KINEMATION ammo capacity for '{data.weaponName}'. " +
+                "Strict mode requires FPSWeaponSettings.ammo > 0.");
+            return 0;
 
-            return kinemationCapacity;
         }
 
         private static bool TryFindNamedTransform(GameObject root, string requiredName, out Transform result) {
@@ -156,8 +154,7 @@ namespace Game.Weapons {
             if(root == null || string.IsNullOrWhiteSpace(requiredName)) return false;
 
             var allTransforms = root.GetComponentsInChildren<Transform>(true);
-            for(var i = 0; i < allTransforms.Length; i++) {
-                var candidate = allTransforms[i];
+            foreach(var candidate in allTransforms) {
                 if(candidate == null || candidate.name != requiredName) continue;
                 result = candidate;
                 return true;
@@ -181,7 +178,7 @@ namespace Game.Weapons {
                 return false;
             }
 
-            if(index < 0 || index >= _fpWeaponInstances.Count) {
+            if(index >= _fpWeaponInstances.Count) {
                 Debug.LogError(
                     $"[WeaponManager][KIN-Strict] Missing FP instance for '{data.weaponName}' at index {index}. " +
                     "Blocking switch.");
@@ -212,14 +209,12 @@ namespace Game.Weapons {
                 return false;
             }
 
-            if(!TryFindNamedTransform(worldWeapon, "Muzzle", out _)) {
-                Debug.LogError(
-                    $"[WeaponManager][KIN-Strict] Missing required 'Muzzle' transform on world weapon '{worldWeapon.name}' " +
-                    $"for '{data.weaponName}'. Blocking switch.");
-                return false;
-            }
+            if(TryFindNamedTransform(worldWeapon, "Muzzle", out _)) return true;
+            Debug.LogError(
+                $"[WeaponManager][KIN-Strict] Missing required 'Muzzle' transform on world weapon '{worldWeapon.name}' " +
+                $"for '{data.weaponName}'. Blocking switch.");
+            return false;
 
-            return true;
         }
 
         private void LogStrictStartupValidationOnce() {
@@ -409,8 +404,7 @@ namespace Game.Weapons {
                 return;
             }
 
-            var data = weaponDataList[index];
-            if(!TryValidateSwitchTargetStrict(index, out data, out var magCapacity)) {
+            if(!TryValidateSwitchTargetStrict(index, out var data, out var magCapacity)) {
                 return;
             }
 

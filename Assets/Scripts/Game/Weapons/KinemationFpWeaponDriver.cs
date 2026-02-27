@@ -133,6 +133,7 @@ namespace Game.Weapons {
         private static readonly int IdleHash = Animator.StringToHash("Idle");
         private static readonly Vector3 FixedUpperarmLeftPositionOffset = new(0f, 0.027f, 0f);
         private static readonly Vector3 FixedTwistLeftEulerOffset = new(0f, -7.5f, 0f);
+        private static readonly int IsInAir = Animator.StringToHash("IsInAir");
 
         public void Configure(GameObject playerPrefab, GameObject fpWeaponPrefab, bool disableWeaponSounds,
             bool disablePlayerSounds, bool routeWeaponSoundEvents, bool syncLookPitch,
@@ -171,7 +172,7 @@ namespace Game.Weapons {
 
         public bool InitializeIfNeeded(int renderLayer) {
             _renderLayer = renderLayer;
-            _weaponManager ??= GetComponentInParent<WeaponManager>();
+            _weaponManager = _weaponManager ? _weaponManager : GetComponentInParent<WeaponManager>();
 
             if(_playerInstance != null) {
                 SetLayerRecursive(_playerInstance, _renderLayer);
@@ -382,11 +383,7 @@ namespace Game.Weapons {
                 return false;
             }
 
-            if(!TryCacheActiveWeapon() || _activeWeapon == null || _activeWeapon.weaponSettings == null) {
-                return false;
-            }
-
-            return true;
+            return TryCacheActiveWeapon() && _activeWeapon != null && _activeWeapon.weaponSettings != null;
         }
 
         public int GetKinemationEventSoundClipCount() {
@@ -453,8 +450,8 @@ namespace Game.Weapons {
                 AddUniqueAnimator(animators, weaponAnimator);
             }
 
-            for(var i = 0; i < animators.Count; i++) {
-                SnapAnimatorToIdle(animators[i], forceRebindIfReloadStillActive: true);
+            foreach(var t in animators) {
+                SnapAnimatorToIdle(t, forceRebindIfReloadStillActive: true);
             }
         }
 
@@ -507,14 +504,13 @@ namespace Game.Weapons {
             _isDrakeTopShellSuppressionApplied = false;
 
             var shellRenderers = topShellTransform.GetComponentsInChildren<Renderer>(true);
-            if(shellRenderers != null && shellRenderers.Length > 0) {
-                _suppressedDrakeTopShellRenderers = shellRenderers;
-                _suppressedDrakeTopShellRendererEnabledStates = new bool[shellRenderers.Length];
-                for(var i = 0; i < shellRenderers.Length; i++) {
-                    var renderer = shellRenderers[i];
-                    if(renderer == null) continue;
-                    _suppressedDrakeTopShellRendererEnabledStates[i] = renderer.enabled;
-                }
+            if(shellRenderers is not { Length: > 0 }) return true;
+            _suppressedDrakeTopShellRenderers = shellRenderers;
+            _suppressedDrakeTopShellRendererEnabledStates = new bool[shellRenderers.Length];
+            for(var i = 0; i < shellRenderers.Length; i++) {
+                var shellRenderer = shellRenderers[i];
+                if(shellRenderer == null) continue;
+                _suppressedDrakeTopShellRendererEnabledStates[i] = shellRenderer.enabled;
             }
 
             return true;
@@ -536,10 +532,9 @@ namespace Game.Weapons {
             }
 
             if(_suppressedDrakeTopShellRenderers != null) {
-                for(var i = 0; i < _suppressedDrakeTopShellRenderers.Length; i++) {
-                    var renderer = _suppressedDrakeTopShellRenderers[i];
-                    if(renderer == null) continue;
-                    renderer.enabled = false;
+                foreach(var shellRenderer in _suppressedDrakeTopShellRenderers) {
+                    if(shellRenderer == null) continue;
+                    shellRenderer.enabled = false;
                 }
             }
 
@@ -554,9 +549,9 @@ namespace Game.Weapons {
                 var limit = Mathf.Min(_suppressedDrakeTopShellRenderers.Length,
                     _suppressedDrakeTopShellRendererEnabledStates.Length);
                 for(var i = 0; i < limit; i++) {
-                    var renderer = _suppressedDrakeTopShellRenderers[i];
-                    if(renderer == null) continue;
-                    renderer.enabled = _suppressedDrakeTopShellRendererEnabledStates[i];
+                    var shellRenderer = _suppressedDrakeTopShellRenderers[i];
+                    if(shellRenderer == null) continue;
+                    shellRenderer.enabled = _suppressedDrakeTopShellRendererEnabledStates[i];
                 }
             }
 
@@ -613,14 +608,13 @@ namespace Game.Weapons {
             _isDrakeBottomShellSuppressionApplied = false;
 
             var shellRenderers = bottomShellTransform.GetComponentsInChildren<Renderer>(true);
-            if(shellRenderers != null && shellRenderers.Length > 0) {
-                _suppressedDrakeBottomShellRenderers = shellRenderers;
-                _suppressedDrakeBottomShellRendererEnabledStates = new bool[shellRenderers.Length];
-                for(var i = 0; i < shellRenderers.Length; i++) {
-                    var renderer = shellRenderers[i];
-                    if(renderer == null) continue;
-                    _suppressedDrakeBottomShellRendererEnabledStates[i] = renderer.enabled;
-                }
+            if(shellRenderers is not { Length: > 0 }) return true;
+            _suppressedDrakeBottomShellRenderers = shellRenderers;
+            _suppressedDrakeBottomShellRendererEnabledStates = new bool[shellRenderers.Length];
+            for(var i = 0; i < shellRenderers.Length; i++) {
+                var shellRenderer = shellRenderers[i];
+                if(shellRenderer == null) continue;
+                _suppressedDrakeBottomShellRendererEnabledStates[i] = shellRenderer.enabled;
             }
 
             return true;
@@ -642,10 +636,9 @@ namespace Game.Weapons {
             }
 
             if(_suppressedDrakeBottomShellRenderers != null) {
-                for(var i = 0; i < _suppressedDrakeBottomShellRenderers.Length; i++) {
-                    var renderer = _suppressedDrakeBottomShellRenderers[i];
-                    if(renderer == null) continue;
-                    renderer.enabled = false;
+                foreach(var shellRenderer in _suppressedDrakeBottomShellRenderers) {
+                    if(shellRenderer == null) continue;
+                    shellRenderer.enabled = false;
                 }
             }
 
@@ -660,9 +653,9 @@ namespace Game.Weapons {
                 var limit = Mathf.Min(_suppressedDrakeBottomShellRenderers.Length,
                     _suppressedDrakeBottomShellRendererEnabledStates.Length);
                 for(var i = 0; i < limit; i++) {
-                    var renderer = _suppressedDrakeBottomShellRenderers[i];
-                    if(renderer == null) continue;
-                    renderer.enabled = _suppressedDrakeBottomShellRendererEnabledStates[i];
+                    var shellRenderer = _suppressedDrakeBottomShellRenderers[i];
+                    if(shellRenderer == null) continue;
+                    shellRenderer.enabled = _suppressedDrakeBottomShellRendererEnabledStates[i];
                 }
             }
 
@@ -761,14 +754,13 @@ namespace Game.Weapons {
             _isKarLoopBulletHidden = false;
 
             var bulletRenderers = loopBulletTransform.GetComponentsInChildren<Renderer>(true);
-            if(bulletRenderers != null && bulletRenderers.Length > 0) {
-                _karLoopBulletRenderers = bulletRenderers;
-                _karLoopBulletRendererEnabledStates = new bool[bulletRenderers.Length];
-                for(var i = 0; i < bulletRenderers.Length; i++) {
-                    var renderer = bulletRenderers[i];
-                    if(renderer == null) continue;
-                    _karLoopBulletRendererEnabledStates[i] = renderer.enabled;
-                }
+            if(bulletRenderers is not { Length: > 0 }) return true;
+            _karLoopBulletRenderers = bulletRenderers;
+            _karLoopBulletRendererEnabledStates = new bool[bulletRenderers.Length];
+            for(var i = 0; i < bulletRenderers.Length; i++) {
+                var bulletRenderer = bulletRenderers[i];
+                if(bulletRenderer == null) continue;
+                _karLoopBulletRendererEnabledStates[i] = bulletRenderer.enabled;
             }
 
             return true;
@@ -787,10 +779,9 @@ namespace Game.Weapons {
             }
 
             if(_karLoopBulletRenderers != null) {
-                for(var i = 0; i < _karLoopBulletRenderers.Length; i++) {
-                    var renderer = _karLoopBulletRenderers[i];
-                    if(renderer == null) continue;
-                    renderer.enabled = false;
+                foreach(var bulletRenderer in _karLoopBulletRenderers) {
+                    if(bulletRenderer == null) continue;
+                    bulletRenderer.enabled = false;
                 }
             }
 
@@ -801,9 +792,9 @@ namespace Game.Weapons {
             if(_karLoopBulletRenderers != null && _karLoopBulletRendererEnabledStates != null) {
                 var limit = Mathf.Min(_karLoopBulletRenderers.Length, _karLoopBulletRendererEnabledStates.Length);
                 for(var i = 0; i < limit; i++) {
-                    var renderer = _karLoopBulletRenderers[i];
-                    if(renderer == null) continue;
-                    renderer.enabled = _karLoopBulletRendererEnabledStates[i];
+                    var bulletRenderer = _karLoopBulletRenderers[i];
+                    if(bulletRenderer == null) continue;
+                    bulletRenderer.enabled = _karLoopBulletRendererEnabledStates[i];
                 }
             }
 
@@ -946,13 +937,9 @@ namespace Game.Weapons {
                 return true;
             }
 
-            if(_activeWeapon.weaponSettings != null &&
-               !string.IsNullOrWhiteSpace(_activeWeapon.weaponSettings.name) &&
-               _activeWeapon.weaponSettings.name.IndexOf("drake", System.StringComparison.OrdinalIgnoreCase) >= 0) {
-                return true;
-            }
-
-            return false;
+            return _activeWeapon.weaponSettings != null &&
+                   !string.IsNullOrWhiteSpace(_activeWeapon.weaponSettings.name) &&
+                   _activeWeapon.weaponSettings.name.IndexOf("drake", System.StringComparison.OrdinalIgnoreCase) >= 0;
         }
 
         private bool IsActiveWeaponLikelyKar() {
@@ -972,14 +959,10 @@ namespace Game.Weapons {
                 }
             }
 
-            if(_activeWeapon.weaponSettings != null && !string.IsNullOrWhiteSpace(_activeWeapon.weaponSettings.name)) {
-                var settingsName = _activeWeapon.weaponSettings.name.ToLowerInvariant();
-                if(settingsName.Contains("kar") || settingsName.Contains("kar98")) {
-                    return true;
-                }
-            }
-
-            return false;
+            if(_activeWeapon.weaponSettings == null ||
+               string.IsNullOrWhiteSpace(_activeWeapon.weaponSettings.name)) return false;
+            var settingsName = _activeWeapon.weaponSettings.name.ToLowerInvariant();
+            return settingsName.Contains("kar") || settingsName.Contains("kar98");
         }
 
         private bool IsReloadStateBlockingFire() {
@@ -1007,16 +990,11 @@ namespace Game.Weapons {
                 return Mathf.Max(0, activeAmmo);
             }
 
-            if(_activeWeapon.weaponSettings != null) {
-                return Mathf.Max(0, _activeWeapon.weaponSettings.ammo);
-            }
-
-            return 0;
+            return _activeWeapon.weaponSettings != null ? Mathf.Max(0, _activeWeapon.weaponSettings.ammo) : 0;
         }
 
         public string GetKinemationFireSoundId() {
-            if(!TryCacheActiveWeapon()) return string.Empty;
-            return _activeWeaponFireSoundId;
+            return !TryCacheActiveWeapon() ? string.Empty : _activeWeaponFireSoundId;
         }
 
         public bool HasKinemationFireSound() {
@@ -1078,26 +1056,23 @@ namespace Game.Weapons {
             if(equipActiveNow) {
                 _equipHasBeenActive = true;
                 _lastEquipSignalTime = Time.time;
-                if(equipProgress >= equipUnlockNormalizedTime) {
+                if(!(equipProgress >= equipUnlockNormalizedTime)) return true;
+                _isTrackingEquip = false;
+                return false;
+            }
+
+            switch(_equipHasBeenActive) {
+                case true when Time.time - _lastEquipSignalTime <= EquipSignalGraceSeconds:
+                    return true;
+                case false:
+                    return Time.time - _equipTrackStartTime < EquipEnterGraceSeconds;
+                default:
                     _isTrackingEquip = false;
                     return false;
-                }
-                return true;
             }
-
-            if(_equipHasBeenActive && Time.time - _lastEquipSignalTime <= EquipSignalGraceSeconds) {
-                return true;
-            }
-
-            if(!_equipHasBeenActive) {
-                return Time.time - _equipTrackStartTime < EquipEnterGraceSeconds;
-            }
-
-            _isTrackingEquip = false;
-            return false;
         }
 
-        public void ResetEquipTracking() {
+        private void ResetEquipTracking() {
             _isTrackingEquip = false;
             _equipHasBeenActive = false;
             _equipCompleteEventReceived = false;
@@ -1184,29 +1159,30 @@ namespace Game.Weapons {
         public void NotifyShellShowEvent() {
             var isDrake = IsActiveWeaponLikelyDrake();
             var isKar = IsActiveWeaponLikelyKar();
-            if(!isDrake && !isKar) return;
+            switch(isDrake) {
+                case false when !isKar:
+                    return;
+                case true:
+                    LogDrakeDebug(
+                        $"NotifyShellShowEvent. frame={Time.frameCount} time={Time.time:F3} " +
+                        $"topAppliedBeforeShow={_isDrakeTopShellSuppressionApplied} " +
+                        $"bottomAppliedBeforeShow={_isDrakeBottomShellSuppressionApplied}");
 
-            if(isDrake) {
-                LogDrakeDebug(
-                    $"NotifyShellShowEvent. frame={Time.frameCount} time={Time.time:F3} " +
-                    $"topAppliedBeforeShow={_isDrakeTopShellSuppressionApplied} " +
-                    $"bottomAppliedBeforeShow={_isDrakeBottomShellSuppressionApplied}");
-
-                _drakeTopShellEjectedSinceReloadComplete = false;
-                _drakeShotCanceledReloadAfterAmmoEject = false;
-                _drakeShotCanceledEmptyReloadAfterAmmoEject = false;
-                _suppressDrakeTopShellEjectOnNextReload = false;
-                _suppressDrakeBottomShellOnNextReload = false;
-                RestoreDrakeTopShellImmediate();
-                RestoreDrakeBottomShellImmediate();
+                    _drakeTopShellEjectedSinceReloadComplete = false;
+                    _drakeShotCanceledReloadAfterAmmoEject = false;
+                    _drakeShotCanceledEmptyReloadAfterAmmoEject = false;
+                    _suppressDrakeTopShellEjectOnNextReload = false;
+                    _suppressDrakeBottomShellOnNextReload = false;
+                    RestoreDrakeTopShellImmediate();
+                    RestoreDrakeBottomShellImmediate();
+                    break;
             }
 
-            if(isKar) {
-                LogDrakeDebug(
-                    $"NotifyShellShowEvent restoring kar loop bullet. frame={Time.frameCount} time={Time.time:F3} " +
-                    $"hiddenBeforeShow={_isKarLoopBulletHidden}");
-                RestoreKarLoopBulletImmediate();
-            }
+            if(!isKar) return;
+            LogDrakeDebug(
+                $"NotifyShellShowEvent restoring kar loop bullet. frame={Time.frameCount} time={Time.time:F3} " +
+                $"hiddenBeforeShow={_isKarLoopBulletHidden}");
+            RestoreKarLoopBulletImmediate();
         }
 
         public void NotifyReloadCompleteEvent(string sourceTag = null) {
@@ -1272,7 +1248,7 @@ namespace Game.Weapons {
             _equipCompleteEventReceived = true;
             _lastEquipSignalTime = Time.time;
 
-            _weaponManager ??= GetComponentInParent<WeaponManager>();
+            _weaponManager = _weaponManager ? _weaponManager : GetComponentInParent<WeaponManager>();
             if(_weaponManager == null) return;
             _weaponManager.HandleKinemationEquipCompleted();
         }
@@ -1332,27 +1308,20 @@ namespace Game.Weapons {
 
             FpsPlayerMoveInputField?.SetValue(_fpsPlayer, moveInput);
 
-            if(syncLookPitchWithPlayer) {
-                FpsPlayerLookInputField?.SetValue(_fpsPlayer, new Vector2(0f, -lookPitchDegrees));
-            } else {
-                FpsPlayerLookInputField?.SetValue(_fpsPlayer, Vector2.zero);
-            }
+            FpsPlayerLookInputField?.SetValue(_fpsPlayer,
+                syncLookPitchWithPlayer ? new Vector2(0f, -lookPitchDegrees) : Vector2.zero);
 
             FpsPlayerSprintingField?.SetValue(_fpsPlayer, sprinting);
             FpsPlayerTacSprintingField?.SetValue(_fpsPlayer, tacticalSprinting);
 
             if(_fpsAnimator != null) {
-                _fpsAnimator.SetBool("IsInAir", syncAirborneState && !isGrounded);
+                _fpsAnimator.SetBool(IsInAir, syncAirborneState && !isGrounded);
             }
         }
 
         private void BuildRuntimeSettings() {
             var sourceSettings = _fpsPlayer.playerSettings;
-            if(sourceSettings != null) {
-                _runtimePlayerSettings = Instantiate(sourceSettings);
-            } else {
-                _runtimePlayerSettings = ScriptableObject.CreateInstance<FPSPlayerSettings>();
-            }
+            _runtimePlayerSettings = sourceSettings != null ? Instantiate(sourceSettings) : ScriptableObject.CreateInstance<FPSPlayerSettings>();
 
             _runtimePlayerSettings.weaponPrefabs = new List<GameObject> { weaponPrefab };
             _fpsPlayer.playerSettings = _runtimePlayerSettings;
@@ -1380,9 +1349,9 @@ namespace Game.Weapons {
                 cameraAnim.enabled = false;
             }
 
-            var camera = _playerInstance.GetComponentInChildren<Camera>(true);
-            if(camera != null) {
-                camera.enabled = false;
+            var playerCamera = _playerInstance.GetComponentInChildren<Camera>(true);
+            if(playerCamera != null) {
+                playerCamera.enabled = false;
             }
 
             var listener = _playerInstance.GetComponentInChildren<AudioListener>(true);
@@ -1463,8 +1432,12 @@ namespace Game.Weapons {
             }
 
             candidateCount = candidates.Count;
-            if(candidateCount == 0) return null;
-            if(candidateCount == 1) return candidates[0];
+            switch(candidateCount) {
+                case 0:
+                    return null;
+                case 1:
+                    return candidates[0];
+            }
 
             var aimPoint = activeWeapon.aimPoint;
             if(aimPoint == null) {
@@ -1473,14 +1446,14 @@ namespace Game.Weapons {
 
             Transform best = null;
             var bestScore = float.NegativeInfinity;
-            for(var i = 0; i < candidates.Count; i++) {
-                var candidate = candidates[i];
+            foreach(var candidate in candidates) {
                 if(candidate == null) continue;
 
                 var offset = candidate.position - aimPoint.position;
-                var forwardScore = Vector3.Dot(aimPoint.forward, offset);
-                var lateralDistance = Vector3.Cross(aimPoint.forward, offset).magnitude;
-                var score = forwardScore - (lateralDistance * 0.05f);
+                var forward = aimPoint.forward;
+                var forwardScore = Vector3.Dot(forward, offset);
+                var lateralDistance = Vector3.Cross(forward, offset).magnitude;
+                var score = forwardScore - lateralDistance * 0.05f;
 
                 if(candidate.IsChildOf(aimPoint)) {
                     score -= 0.25f;
@@ -1519,7 +1492,7 @@ namespace Game.Weapons {
                 AttachReloadEventRelays();
             }
 
-            _muzzleTransform ??= ResolveMuzzleTransform(_activeWeapon);
+            _muzzleTransform = _muzzleTransform ? _muzzleTransform : ResolveMuzzleTransform(_activeWeapon);
             ApplyActiveWeaponSoundToggles(_activeWeapon);
             RefreshActiveWeaponSoundMetadata(_activeWeapon);
             SuppressInternalMuzzleFx(_activeWeapon);
@@ -1639,10 +1612,9 @@ namespace Game.Weapons {
                 disabledLights++;
             }
 
-            if(disabledParticles > 0 || disabledVfx > 0 || disabledLights > 0) {
-                var weaponId = activeWeapon.gameObject.GetInstanceID();
-                _suppressedMuzzleFxWeaponIds.Add(weaponId);
-            }
+            if(disabledParticles <= 0 && disabledVfx <= 0 && disabledLights <= 0) return;
+            var weaponId = activeWeapon.gameObject.GetInstanceID();
+            _suppressedMuzzleFxWeaponIds.Add(weaponId);
         }
 
         private static bool IsLikelyMuzzleFxNode(Transform transform) {
@@ -1662,8 +1634,8 @@ namespace Game.Weapons {
 
         private static bool HasAnyValidAudioClip(List<AudioClip> clips) {
             if(clips == null || clips.Count == 0) return false;
-            for(var i = 0; i < clips.Count; i++) {
-                if(clips[i] != null) {
+            foreach(var c in clips) {
+                if(c != null) {
                     return true;
                 }
             }
@@ -1680,11 +1652,7 @@ namespace Game.Weapons {
                 _activeWeapon.CancelInvoke();
             }
 
-            if(_activeWeapon.weaponSettings != null) {
-                maxAmmo = Mathf.Max(1, _activeWeapon.weaponSettings.ammo);
-            } else {
-                maxAmmo = Mathf.Max(1, authoritativeAmmo);
-            }
+            maxAmmo = Mathf.Max(1, _activeWeapon.weaponSettings != null ? _activeWeapon.weaponSettings.ammo : authoritativeAmmo);
 
             clampedAmmo = Mathf.Clamp(authoritativeAmmo, 0, maxAmmo);
             FpsWeaponActiveAmmoField?.SetValue(_activeWeapon, clampedAmmo);
@@ -1791,8 +1759,8 @@ namespace Game.Weapons {
                 return assignedSource;
             }
 
-            var resolvedSource = preferredSource ?? EnsureDedicatedWeaponAudioSource();
-            resolvedSource ??= weaponSound.transform.root.GetComponentInChildren<AudioSource>(true);
+            var resolvedSource = preferredSource ? preferredSource : EnsureDedicatedWeaponAudioSource();
+            resolvedSource = resolvedSource ? resolvedSource : weaponSound.transform.root.GetComponentInChildren<AudioSource>(true);
             if(resolvedSource == null) {
                 return null;
             }
@@ -1831,16 +1799,15 @@ namespace Game.Weapons {
                 }
             }
 
-            if(disableKinemationPlayerSounds) {
-                var playerSounds = _playerInstance.GetComponentsInChildren<FPSPlayerSound>(true);
-                foreach(var playerSound in playerSounds) {
-                    if(playerSound == null) continue;
-                    if(playerSound.GetComponent<KinemationPlayerSoundEventRelay>() == null) {
-                        playerSound.gameObject.AddComponent<KinemationPlayerSoundEventRelay>();
-                    }
-
-                    Destroy(playerSound);
+            if(!disableKinemationPlayerSounds) return;
+            var playerSounds = _playerInstance.GetComponentsInChildren<FPSPlayerSound>(true);
+            foreach(var playerSound in playerSounds) {
+                if(playerSound == null) continue;
+                if(playerSound.GetComponent<KinemationPlayerSoundEventRelay>() == null) {
+                    playerSound.gameObject.AddComponent<KinemationPlayerSoundEventRelay>();
                 }
+
+                Destroy(playerSound);
             }
         }
 
@@ -1879,10 +1846,9 @@ namespace Game.Weapons {
             var weaponAnimators = _activeWeapon.GetComponentsInChildren<Animator>(true);
             foreach(var weaponAnimator in weaponAnimators) {
                 if(weaponAnimator == null || weaponAnimator == _fpsAnimator) continue;
-                if(TryGetAnimatorEquipProgress(weaponAnimator, out var weaponProgress)) {
-                    normalizedProgress = Mathf.Max(normalizedProgress, weaponProgress);
-                    return true;
-                }
+                if(!TryGetAnimatorEquipProgress(weaponAnimator, out var weaponProgress)) continue;
+                normalizedProgress = Mathf.Max(normalizedProgress, weaponProgress);
+                return true;
             }
 
             return false;
@@ -1920,10 +1886,9 @@ namespace Game.Weapons {
 
                 if(!animator.IsInTransition(layer)) continue;
                 var nextState = animator.GetNextAnimatorStateInfo(layer);
-                if(nextState.shortNameHash == EquipHash || nextState.shortNameHash == EquipOverrideHash) {
-                    normalizedProgress = Mathf.Max(normalizedProgress, Mathf.Clamp01(nextState.normalizedTime));
-                    return true;
-                }
+                if(nextState.shortNameHash != EquipHash && nextState.shortNameHash != EquipOverrideHash) continue;
+                normalizedProgress = Mathf.Max(normalizedProgress, Mathf.Clamp01(nextState.normalizedTime));
+                return true;
             }
 
             return false;
@@ -2004,11 +1969,10 @@ namespace Game.Weapons {
             }
 
             if(_suppressedDrakeTopShellRenderers == null) return;
-            for(var i = 0; i < _suppressedDrakeTopShellRenderers.Length; i++) {
-                var renderer = _suppressedDrakeTopShellRenderers[i];
-                if(renderer == null) continue;
-                if(renderer.enabled) {
-                    renderer.enabled = false;
+            foreach(var shellRenderer in _suppressedDrakeTopShellRenderers) {
+                if(shellRenderer == null) continue;
+                if(shellRenderer.enabled) {
+                    shellRenderer.enabled = false;
                 }
             }
         }
@@ -2027,11 +1991,10 @@ namespace Game.Weapons {
             }
 
             if(_suppressedDrakeBottomShellRenderers == null) return;
-            for(var i = 0; i < _suppressedDrakeBottomShellRenderers.Length; i++) {
-                var renderer = _suppressedDrakeBottomShellRenderers[i];
-                if(renderer == null) continue;
-                if(renderer.enabled) {
-                    renderer.enabled = false;
+            foreach(var shellRenderer in _suppressedDrakeBottomShellRenderers) {
+                if(shellRenderer == null) continue;
+                if(shellRenderer.enabled) {
+                    shellRenderer.enabled = false;
                 }
             }
         }
@@ -2050,11 +2013,10 @@ namespace Game.Weapons {
             }
 
             if(_karLoopBulletRenderers == null) return;
-            for(var i = 0; i < _karLoopBulletRenderers.Length; i++) {
-                var renderer = _karLoopBulletRenderers[i];
-                if(renderer == null) continue;
-                if(renderer.enabled) {
-                    renderer.enabled = false;
+            foreach(var bulletRenderer in _karLoopBulletRenderers) {
+                if(bulletRenderer == null) continue;
+                if(bulletRenderer.enabled) {
+                    bulletRenderer.enabled = false;
                 }
             }
         }
@@ -2063,10 +2025,9 @@ namespace Game.Weapons {
             RestoreDrakeTopShellImmediate();
             RestoreDrakeBottomShellImmediate();
             RestoreKarLoopBulletImmediate();
-            if(_runtimePlayerSettings != null) {
-                Destroy(_runtimePlayerSettings);
-                _runtimePlayerSettings = null;
-            }
+            if(_runtimePlayerSettings == null) return;
+            Destroy(_runtimePlayerSettings);
+            _runtimePlayerSettings = null;
         }
     }
 }

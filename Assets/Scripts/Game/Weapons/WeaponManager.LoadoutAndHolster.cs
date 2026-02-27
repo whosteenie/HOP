@@ -102,8 +102,7 @@ namespace Game.Weapons {
             if(SecondaryHolster != null) equippedHolsters.Add(SecondaryHolster);
 
             var bindings = _worldWeaponSocket.root.GetComponentsInChildren<WorldWeaponBinding>(true);
-            for(var i = 0; i < bindings.Length; i++) {
-                var binding = bindings[i];
+            foreach(var binding in bindings) {
                 if(binding == null || binding.WeaponData == null) continue;
                 if(binding.transform.IsChildOf(_worldWeaponSocket)) continue;
 
@@ -119,8 +118,7 @@ namespace Game.Weapons {
 
         private WeaponData GetWeaponDataForSlot(int slot) {
             if(weaponDataList == null || weaponDataList.Count == 0) return null;
-            for(var i = 0; i < weaponDataList.Count; i++) {
-                var data = weaponDataList[i];
+            foreach(var data in weaponDataList) {
                 if(data == null) continue;
                 var weaponSlot = ResolveWeaponSlot(data);
                 if(weaponSlot == slot) {
@@ -401,11 +399,10 @@ namespace Game.Weapons {
                     }
                 }
 
-                if(ResolveHolsterWeaponObject(data) == null) {
-                    Debug.LogError(
-                        $"[WeaponManager] Weapon '{data.weaponName}' missing holster WorldWeaponBinding outside WorldWeaponSocket.");
-                    isValid = false;
-                }
+                if(ResolveHolsterWeaponObject(data) != null) continue;
+                Debug.LogError(
+                    $"[WeaponManager] Weapon '{data.weaponName}' missing holster WorldWeaponBinding outside WorldWeaponSocket.");
+                isValid = false;
             }
 
             return isValid;

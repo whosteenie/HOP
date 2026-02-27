@@ -1581,7 +1581,7 @@ namespace Game.Weapons {
                     this);
             } else {
                 Debug.LogError(
-                    $"[Weapon][RemoteMuzzleStrict][PlayNetworkedMuzzleFlash] Missing muzzle flash prefab. " +
+                    "[Weapon][RemoteMuzzleStrict][PlayNetworkedMuzzleFlash] Missing muzzle flash prefab. " +
                     $"weapon={(_currentWeaponData != null ? _currentWeaponData.weaponName : "(none)")} " +
                     $"worldWeapon={(_currentWorldWeaponInstance != null ? _currentWorldWeaponInstance.name : "(none)")}",
                     this);

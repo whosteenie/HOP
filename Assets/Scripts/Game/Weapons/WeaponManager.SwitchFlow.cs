@@ -21,10 +21,9 @@ namespace Game.Weapons {
         }
 
         private void HideCurrentWorldWeapon() {
-            if(CurrentWorldWeaponInstance != null) {
-                CurrentWorldWeaponInstance.SetActive(false);
-                CurrentWorldWeaponInstance = null;
-            }
+            if(CurrentWorldWeaponInstance == null) return;
+            CurrentWorldWeaponInstance.SetActive(false);
+            CurrentWorldWeaponInstance = null;
         }
 
         private void HideCurrentWeaponVisuals() {
@@ -262,10 +261,9 @@ namespace Game.Weapons {
 
             IsPullingOut = false;
             _requiresKinemationEquipCompleteForCurrentPullOut = false;
-            if(_kinemationPullOutCompletionCoroutine != null) {
-                StopCoroutine(_kinemationPullOutCompletionCoroutine);
-                _kinemationPullOutCompletionCoroutine = null;
-            }
+            if(_kinemationPullOutCompletionCoroutine == null) return;
+            StopCoroutine(_kinemationPullOutCompletionCoroutine);
+            _kinemationPullOutCompletionCoroutine = null;
         }
 
         public void HandleThirdPersonPullOutCompleted() {

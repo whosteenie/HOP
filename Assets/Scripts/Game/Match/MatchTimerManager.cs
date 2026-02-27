@@ -266,7 +266,7 @@ namespace Game.Match {
             }
         }
 
-        private void OnPreMatchWaitingForPlayersChanged(bool previous, bool current) {
+        private static void OnPreMatchWaitingForPlayersChanged(bool previous, bool current) {
             EventBus.Publish(new PreMatchWaitingForPlayersEvent(current));
         }
 

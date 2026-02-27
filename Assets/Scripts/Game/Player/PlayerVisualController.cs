@@ -166,11 +166,10 @@ namespace Game.Player {
             _cachedMaterialsArray[1] = generatedMaterial;
             _playerMesh.materials = _cachedMaterialsArray;
 
-            if(IsOwner && _weaponManager != null) {
-                var currentFpWeapon = _weaponManager.GetCurrentFpWeapon();
-                if(currentFpWeapon != null) {
-                    ApplyMaterialToFpArms(currentFpWeapon);
-                }
+            if(!IsOwner || _weaponManager == null) return;
+            var currentFpWeapon = _weaponManager.GetCurrentFpWeapon();
+            if(currentFpWeapon != null) {
+                ApplyMaterialToFpArms(currentFpWeapon);
             }
         }
 
@@ -298,15 +297,11 @@ namespace Game.Player {
             }
         }
 
-        private Renderer[] ResolveFpArmRenderers(GameObject fpWeaponInstance) {
+        private static Renderer[] ResolveFpArmRenderers(GameObject fpWeaponInstance) {
             if(fpWeaponInstance == null) return System.Array.Empty<Renderer>();
 
             var armRoot = FindTaggedArmRoot(fpWeaponInstance.transform);
-            if(armRoot == null) {
-                return System.Array.Empty<Renderer>();
-            }
-
-            return armRoot.GetComponentsInChildren<Renderer>(true);
+            return armRoot == null ? System.Array.Empty<Renderer>() : armRoot.GetComponentsInChildren<Renderer>(true);
         }
 
         private static Transform FindTaggedArmRoot(Transform root) {
@@ -333,8 +328,7 @@ namespace Game.Player {
         private static void ApplyMaterialToRenderers(Renderer[] renderers, Material material, int materialIndex) {
             if(renderers == null || material == null) return;
 
-            for(var i = 0; i < renderers.Length; i++) {
-                var renderer = renderers[i];
+            foreach(var renderer in renderers) {
                 if(renderer == null) continue;
 
                 var materials = renderer.materials;

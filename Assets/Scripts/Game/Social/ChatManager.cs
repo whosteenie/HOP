@@ -42,7 +42,7 @@ namespace Game.Social {
         }
 
         private sealed class ChunkAssemblyState {
-            public readonly SortedDictionary<int, string> Chunks = new SortedDictionary<int, string>();
+            public readonly SortedDictionary<int, string> Chunks = new();
             public int EndIndex = -1;
             public float LastUpdatedTime;
         }
@@ -433,7 +433,7 @@ namespace Game.Social {
         public static string InsertSoftWrapBreaks(string message) {
             if(string.IsNullOrEmpty(message)) return string.Empty;
 
-            var builder = new StringBuilder(message.Length + (message.Length / 4));
+            var builder = new StringBuilder(message.Length + message.Length / 4);
             var runBuilder = new StringBuilder();
 
             foreach(var c in message) {

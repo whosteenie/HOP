@@ -356,7 +356,7 @@ namespace Game.UI {
             RefreshTopStatusToast();
         }
 
-        public void SetWaitingForPlayersToast(bool visible) {
+        private void SetWaitingForPlayersToast(bool visible) {
             if(_outOfBoundsCountdownLabel == null) return;
             _isWaitingForPlayersVisible = visible;
             RefreshTopStatusToast();
@@ -403,10 +403,9 @@ namespace Game.UI {
                 _crosshairVertical.style.backgroundColor = crosshairColor;
             }
 
-            if(_crosshairDot != null) {
-                _crosshairDot.style.display = useDotStyle ? DisplayStyle.Flex : DisplayStyle.None;
-                _crosshairDot.style.backgroundColor = crosshairColor;
-            }
+            if(_crosshairDot == null) return;
+            _crosshairDot.style.display = useDotStyle ? DisplayStyle.Flex : DisplayStyle.None;
+            _crosshairDot.style.backgroundColor = crosshairColor;
         }
 
         private static Color ResolveCrosshairColor(int colorIndex) {

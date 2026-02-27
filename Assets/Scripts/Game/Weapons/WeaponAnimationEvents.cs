@@ -30,9 +30,9 @@ namespace Game.Weapons {
         /// Called from FP weapon animation event when equip completes.
         /// Releases IsPullingOut so fire/reload can resume.
         /// </summary>
-        public void EquipComplete() {
+        private void EquipComplete() {
             var weaponManager = ResolveWeaponManager();
-            weaponManager?.HandlePullOutCompleted();
+            if(weaponManager != null) weaponManager.HandlePullOutCompleted();
         }
 
         // Backwards-compatible aliases for existing animation events.

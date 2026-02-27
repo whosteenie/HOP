@@ -15,8 +15,9 @@ namespace Game.Match {
 
         [ContextMenu("Snap to Ground (Half Buried)")]
         private void SnapToGroundHalfBuried() {
-            var axis = transform.up.normalized;
-            var rayOrigin = transform.position + Vector3.up * Mathf.Max(0.1f, rayStartHeight);
+            var tr = transform;
+            var axis = tr.up.normalized;
+            var rayOrigin = tr.position + Vector3.up * Mathf.Max(0.1f, rayStartHeight);
 
             if(!Physics.Raycast(rayOrigin, Vector3.down, out var hit, Mathf.Max(1f, rayDistance), groundMask,
                    QueryTriggerInteraction.Ignore)) {

@@ -1,5 +1,4 @@
 using Game.Player;
-using KINEMATION.FPSAnimationPack.Scripts.Weapon;
 using UnityEngine;
 using UnityEngine.Rendering;
 
@@ -7,7 +6,7 @@ namespace Game.Weapons {
     public partial class WeaponManager {
         private void ResolveKinemationViewmodelPose(KinemationWeaponBinding binding, out Vector3 localPosition,
             out Vector3 localEulerAngles) {
-            if(binding != null && binding.useCustomViewmodelPose) {
+            if(binding is { useCustomViewmodelPose: true }) {
                 localPosition = binding.viewmodelLocalPosition;
                 localEulerAngles = binding.viewmodelLocalEulerAngles;
                 return;
@@ -61,8 +60,7 @@ namespace Game.Weapons {
             var visualController = playerController.VisualController;
             if(visualController == null) return;
 
-            for(var i = 0; i < _fpWeaponInstances.Count; i++) {
-                var fpWeapon = _fpWeaponInstances[i];
+            foreach(var fpWeapon in _fpWeaponInstances) {
                 if(fpWeapon == null) continue;
                 visualController.UpdateFpArmTagGlow(isTagged, fpWeapon);
             }

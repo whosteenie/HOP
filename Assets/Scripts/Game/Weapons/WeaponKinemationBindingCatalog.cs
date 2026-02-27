@@ -29,20 +29,25 @@ namespace Game.Weapons {
                 _lookup[binding.weaponData] = binding;
 
                 var slot = resolveWeaponSlot(binding.weaponData);
-                if(slot < 0) {
-                    logError?.Invoke(
-                        $"[WeaponManager] Invalid weapon slot on binding weapon '{binding.weaponData.name}'. " +
-                        "Expected Primary/Secondary slot assignment.");
-                    continue;
-                }
+                switch(slot) {
+                    case < 0:
+                        logError?.Invoke(
+                            $"[WeaponManager] Invalid weapon slot on binding weapon '{binding.weaponData.name}'. " +
+                            "Expected Primary/Secondary slot assignment.");
+                        continue;
+                    case 0: {
+                        if(primarySeen.Add(binding.weaponData)) {
+                            _primaryWeaponOptions.Add(binding.weaponData);
+                        }
 
-                if(slot == 0) {
-                    if(primarySeen.Add(binding.weaponData)) {
-                        _primaryWeaponOptions.Add(binding.weaponData);
+                        break;
                     }
-                } else {
-                    if(secondarySeen.Add(binding.weaponData)) {
-                        _secondaryWeaponOptions.Add(binding.weaponData);
+                    default: {
+                        if(secondarySeen.Add(binding.weaponData)) {
+                            _secondaryWeaponOptions.Add(binding.weaponData);
+                        }
+
+                        break;
                     }
                 }
             }

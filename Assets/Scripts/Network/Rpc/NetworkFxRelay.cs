@@ -14,14 +14,14 @@ namespace Network.Rpc {
         private readonly List<PendingRemoteShotFx> _pendingRemoteShotFx = new();
 
         private struct PendingRemoteShotFx {
-            public Weapon weapon;
-            public Vector3 endPoint;
-            public Vector3 hitNormal;
-            public Vector3 shooterVelocity;
-            public bool madeImpact;
-            public bool hitPlayer;
-            public NetworkObjectReference hitPlayerRef;
-            public bool playMuzzleFlash;
+            public Weapon Weapon;
+            public Vector3 EndPoint;
+            public Vector3 HitNormal;
+            public Vector3 ShooterVelocity;
+            public bool MadeImpact;
+            public bool HitPlayer;
+            public NetworkObjectReference HitPlayerRef;
+            public bool PlayMuzzleFlash;
         }
 
         private void Awake() {
@@ -50,21 +50,20 @@ namespace Network.Rpc {
         private void LateUpdate() {
             if(_pendingRemoteShotFx.Count == 0) return;
 
-            for(var i = 0; i < _pendingRemoteShotFx.Count; i++) {
-                var pending = _pendingRemoteShotFx[i];
-                var weapon = pending.weapon;
+            foreach(var pending in _pendingRemoteShotFx) {
+                var weapon = pending.Weapon;
                 if(weapon == null) continue;
 
-                if(pending.playMuzzleFlash) {
-                    weapon.PlayNetworkedMuzzleFlash(pending.endPoint);
+                if(pending.PlayMuzzleFlash) {
+                    weapon.PlayNetworkedMuzzleFlash(pending.EndPoint);
                 }
 
                 var hasStartPoint = weapon.TryGetRemoteWorldMuzzlePosition(out var startPoint);
-                weapon.LogRemoteTracerDebug(pending.endPoint, hasStartPoint, startPoint);
+                weapon.LogRemoteTracerDebug(pending.EndPoint, hasStartPoint, startPoint);
 
                 if(hasStartPoint) {
-                    weapon.SpawnTracerLocal(startPoint, pending.endPoint, pending.hitNormal, pending.madeImpact,
-                        pending.hitPlayer, pending.hitPlayerRef, pending.shooterVelocity);
+                    weapon.SpawnTracerLocal(startPoint, pending.EndPoint, pending.HitNormal, pending.MadeImpact,
+                        pending.HitPlayer, pending.HitPlayerRef, pending.ShooterVelocity);
                 }
             }
 
@@ -102,14 +101,14 @@ namespace Network.Rpc {
             if(weapon == null) return;
 
             _pendingRemoteShotFx.Add(new PendingRemoteShotFx {
-                weapon = weapon,
-                endPoint = endPoint,
-                hitNormal = hitNormal,
-                shooterVelocity = shooterVelocity,
-                madeImpact = madeImpact,
-                hitPlayer = hitPlayer,
-                hitPlayerRef = hitPlayerRef,
-                playMuzzleFlash = playMuzzleFlash
+                Weapon = weapon,
+                EndPoint = endPoint,
+                HitNormal = hitNormal,
+                ShooterVelocity = shooterVelocity,
+                MadeImpact = madeImpact,
+                HitPlayer = hitPlayer,
+                HitPlayerRef = hitPlayerRef,
+                PlayMuzzleFlash = playMuzzleFlash
             });
         }
     }

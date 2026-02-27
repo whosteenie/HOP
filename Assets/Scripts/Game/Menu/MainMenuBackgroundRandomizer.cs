@@ -267,12 +267,11 @@ namespace Game.Menu {
                 var childObject = child.gameObject;
                 var childCameras = childObject.GetComponentsInChildren<Camera>(true);
                 foreach(var cam in childCameras) {
-                    if(cam != null && cam.enabled && cam.gameObject.activeInHierarchy) {
-                        Debug.Log(
-                            $"[MainMenuBackgroundRandomizer][DoF] Resolved setup via enabled camera: '{GetHierarchyPath(child)}'.",
-                            this);
-                        return childObject;
-                    }
+                    if(cam == null || !cam.enabled || !cam.gameObject.activeInHierarchy) continue;
+                    Debug.Log(
+                        $"[MainMenuBackgroundRandomizer][DoF] Resolved setup via enabled camera: '{GetHierarchyPath(child)}'.",
+                        this);
+                    return childObject;
                 }
 
                 if(childObject.activeInHierarchy && activeByHierarchy == null) {
@@ -290,12 +289,11 @@ namespace Game.Menu {
             for(var i = 0; i < mannequinsRoot.childCount; i++) {
                 var child = mannequinsRoot.GetChild(i);
                 if(child == null) continue;
-                if(child.gameObject.activeSelf) {
-                    Debug.Log(
-                        $"[MainMenuBackgroundRandomizer][DoF] Resolved setup via activeSelf: '{GetHierarchyPath(child)}'.",
-                        this);
-                    return child.gameObject;
-                }
+                if(!child.gameObject.activeSelf) continue;
+                Debug.Log(
+                    $"[MainMenuBackgroundRandomizer][DoF] Resolved setup via activeSelf: '{GetHierarchyPath(child)}'.",
+                    this);
+                return child.gameObject;
             }
 
             Debug.LogWarning(

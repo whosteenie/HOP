@@ -396,9 +396,7 @@ namespace Game.Player {
         }
 
         private bool ShouldDisableKinemationFrameworkComponent(string fullTypeName) {
-            var isCameraComponent = fullTypeName == KinemationFpsCameraControllerTypeName ||
-                                    fullTypeName == KinemationFpsCameraAnimationTypeName ||
-                                    fullTypeName == KinemationFpsCameraShakeTypeName;
+            var isCameraComponent = fullTypeName is KinemationFpsCameraControllerTypeName or KinemationFpsCameraAnimationTypeName or KinemationFpsCameraShakeTypeName;
 
             if(disableOnlyKinemationFrameworkCameraComponents) {
                 return isCameraComponent;
@@ -406,12 +404,7 @@ namespace Game.Player {
 
             if(isCameraComponent) return true;
 
-            return fullTypeName == KinemationFpsAnimatorTypeName ||
-                   fullTypeName == KinemationFpsBoneControllerTypeName ||
-                   fullTypeName == KinemationFpsPlayablesControllerTypeName ||
-                   fullTypeName == KinemationFpsAnimatorEntityTypeName ||
-                   fullTypeName == KinemationUserInputControllerTypeName ||
-                   fullTypeName == KinemationProceduralRecoilTypeName;
+            return fullTypeName is KinemationFpsAnimatorTypeName or KinemationFpsBoneControllerTypeName or KinemationFpsPlayablesControllerTypeName or KinemationFpsAnimatorEntityTypeName or KinemationUserInputControllerTypeName or KinemationProceduralRecoilTypeName;
         }
 
         private void DisableUnexpectedChildCamerasAndListeners() {
@@ -421,11 +414,10 @@ namespace Game.Player {
             var activeWeaponCamera = weaponCamera;
             if(activeWeaponCamera == null) {
                 foreach(var candidate in cameras) {
-                    if(candidate != null && candidate.gameObject.name == "WeaponCamera") {
-                        activeWeaponCamera = candidate;
-                        weaponCamera = candidate;
-                        break;
-                    }
+                    if(candidate == null || candidate.gameObject.name != "WeaponCamera") continue;
+                    activeWeaponCamera = candidate;
+                    weaponCamera = candidate;
+                    break;
                 }
             }
 

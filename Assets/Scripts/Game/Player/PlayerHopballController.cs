@@ -581,7 +581,9 @@ namespace Game.Player {
                 }
             }
 
-            if(weaponCamera != null && (swayCamera == null || weaponCamera.transform != swayCamera.transform)) {
+            if(weaponCamera == null || (swayCamera != null && weaponCamera.transform == swayCamera.transform))
+                return null;
+            {
                 foreach(Transform swayHolder in weaponCamera.transform) {
                     if(swayHolder.name != "SwayHolder") continue;
 
