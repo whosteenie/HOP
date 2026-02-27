@@ -149,20 +149,6 @@ namespace Game.Weapons {
 
         }
 
-        private static bool TryFindNamedTransform(GameObject root, string requiredName, out Transform result) {
-            result = null;
-            if(root == null || string.IsNullOrWhiteSpace(requiredName)) return false;
-
-            var allTransforms = root.GetComponentsInChildren<Transform>(true);
-            foreach(var candidate in allTransforms) {
-                if(candidate == null || candidate.name != requiredName) continue;
-                result = candidate;
-                return true;
-            }
-
-            return false;
-        }
-
         private bool TryValidateSwitchTargetStrict(int index, out WeaponData data, out int magCapacity) {
             data = null;
             magCapacity = 0;
@@ -209,9 +195,17 @@ namespace Game.Weapons {
                 return false;
             }
 
-            if(TryFindNamedTransform(worldWeapon, "Muzzle", out _)) return true;
+            var worldBinding = worldWeapon.GetComponent<WorldWeaponBinding>();
+            if(worldBinding == null) {
+                Debug.LogError(
+                    $"[WeaponManager][KIN-Strict] Missing WorldWeaponBinding component on '{worldWeapon.name}' " +
+                    $"for '{data.weaponName}'. Blocking switch.");
+                return false;
+            }
+
+            if(worldBinding.TryGetRuntimeReferences(out _, out _)) return true;
             Debug.LogError(
-                $"[WeaponManager][KIN-Strict] Missing required 'Muzzle' transform on world weapon '{worldWeapon.name}' " +
+                $"[WeaponManager][KIN-Strict] Missing assigned muzzle reference on world weapon '{worldWeapon.name}' " +
                 $"for '{data.weaponName}'. Blocking switch.");
             return false;
 
@@ -253,9 +247,17 @@ namespace Game.Weapons {
                     continue;
                 }
 
-                if(!TryFindNamedTransform(worldWeapon, "Muzzle", out _)) {
+                var worldBinding = worldWeapon.GetComponent<WorldWeaponBinding>();
+                if(worldBinding == null) {
                     Debug.LogError(
-                        $"[WeaponManager][KIN-Strict] Startup validation: missing 'Muzzle' on world weapon '{worldWeapon.name}' " +
+                        $"[WeaponManager][KIN-Strict] Startup validation: missing WorldWeaponBinding on '{worldWeapon.name}' " +
+                        $"for '{data.weaponName}'.");
+                    continue;
+                }
+
+                if(!worldBinding.TryGetRuntimeReferences(out _, out _)) {
+                    Debug.LogError(
+                        $"[WeaponManager][KIN-Strict] Startup validation: missing assigned muzzle reference on world weapon '{worldWeapon.name}' " +
                         $"for '{data.weaponName}'.");
                 }
             }

@@ -13,20 +13,14 @@ MonoBehaviour:
   m_Name: Sniper
   m_EditorClassIdentifier: Assembly-CSharp::Game.Weapons.WeaponData
   weaponName: M107
-  weaponPrefab: {fileID: 1829597508155286, guid: 87baeaaf4ebe08f41804127d013d1684, type: 3}
-  loadoutIcon: {fileID: 21300000, guid: 3eb509f485d96bc42add22f2402ace4f, type: 3}
   weaponSlot: 0
-  spawnPosition: {x: 0.299, y: -0.22, z: 0.258}
-  spawnRotation: {x: 0, y: 180, z: 0}
-  muzzleLocalOffset: {x: 0, y: 0.0218, z: -0.6965}
-  worldWeaponName: M107
-  holsteredPrimaryModel: {fileID: 0}
-  holsteredSecondaryModel: {fileID: 0}
-  fpMuzzleLightChildName: MuzzleLight
-  worldMuzzleLightChildName: MuzzleLight
-  magSize: 10
+  loadoutIcon: {fileID: 21300000, guid: 3eb509f485d96bc42add22f2402ace4f, type: 3}
+  weaponPrefab: {fileID: 1829597508155286, guid: 87baeaaf4ebe08f41804127d013d1684, type: 3}
+  fireModeType: 0
+  fireRate: 0.5
+  bulletSpread: 8
+  useSniperOverlay: 1
   baseDamage: 75
-  maxDamageMultiplier: 3
   damageCap: 100
   useDamageFalloff: 1
   maxDamageRange: 75
@@ -35,20 +29,14 @@ MonoBehaviour:
   usePelletSpread: 0
   pelletCount: 15
   pelletDamageMultiplier: 0.15
-  fireRate: 0.5
-  fireMode: Semi
-  bulletSpread: 8
-  useSniperOverlay: 1
-  reloadTime: 3
   useMagReload: 0
-  perRoundReloadTime: 0.5
-  bulletTrail: {fileID: 328621789431213768, guid: 4b92d630cd66e7a45a83060b816bdbbe, type: 3}
-  bulletImpact: {fileID: 1727084212038952990, guid: 115606d0adf2ebc4cb54af213761100e, type: 3}
-  muzzleFlashPrefab: {fileID: 6299671218319471870, guid: d13b2bf13a0548a4aa9c2cd249a35a04, type: 3}
-  shootSoundId: weapons.sniper.shoot
-  reloadSoundId: weapons.sniper.reload
   useSphereCast: 1
   sphereCastRadius: 0.02
   sphereCastGrowthStartDist: 20
   sphereCastMaxRadius: 0.5
-  maxServerRange: 0
+  bulletTrail: {fileID: 328621789431213768, guid: 4b92d630cd66e7a45a83060b816bdbbe, type: 3}
+  bulletImpact: {fileID: 1727084212038952990, guid: 115606d0adf2ebc4cb54af213761100e, type: 3}
+  muzzleFlashPrefab: {fileID: 6299671218319471870, guid: 6373b8829b762a344a5677cd3fd522a5, type: 3}
+  shootSoundId: weapons.sniper.shoot
+  reloadSoundId: weapons.sniper.reload
+  legacyFireMode: 

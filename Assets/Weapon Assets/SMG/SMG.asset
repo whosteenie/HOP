@@ -13,20 +13,14 @@ MonoBehaviour:
   m_Name: SMG
   m_EditorClassIdentifier: Assembly-CSharp::Game.Weapons.WeaponData
   weaponName: Uzi
-  weaponPrefab: {fileID: 1095254202041702, guid: 40eea7f915306ff488f912966c408ed9, type: 3}
-  loadoutIcon: {fileID: 21300000, guid: a4ebcc4900c5a194ba5db477eff0c7f7, type: 3}
   weaponSlot: 1
-  spawnPosition: {x: 0.2541, y: -0.2, z: 0.254}
-  spawnRotation: {x: 0, y: 180, z: 0}
-  muzzleLocalOffset: {x: 0, y: 0.0242, z: -0.2175}
-  worldWeaponName: Uzi
-  holsteredPrimaryModel: {fileID: 0}
-  holsteredSecondaryModel: {fileID: 0}
-  fpMuzzleLightChildName: MuzzleLight
-  worldMuzzleLightChildName: MuzzleLight
-  magSize: 32
+  loadoutIcon: {fileID: 21300000, guid: a4ebcc4900c5a194ba5db477eff0c7f7, type: 3}
+  weaponPrefab: {fileID: 1095254202041702, guid: 40eea7f915306ff488f912966c408ed9, type: 3}
+  fireModeType: 1
+  fireRate: 0.1
+  bulletSpread: 2
+  useSniperOverlay: 0
   baseDamage: 13
-  maxDamageMultiplier: 3
   damageCap: 35
   useDamageFalloff: 1
   maxDamageRange: 15
@@ -35,20 +29,14 @@ MonoBehaviour:
   usePelletSpread: 0
   pelletCount: 8
   pelletDamageMultiplier: 0.15
-  fireRate: 0.1
-  fireMode: Full
-  bulletSpread: 2
-  useSniperOverlay: 0
-  reloadTime: 2.5
   useMagReload: 1
-  perRoundReloadTime: 0.5
-  bulletTrail: {fileID: 328621789431213768, guid: 4b92d630cd66e7a45a83060b816bdbbe, type: 3}
-  bulletImpact: {fileID: 1727084212038952990, guid: 115606d0adf2ebc4cb54af213761100e, type: 3}
-  muzzleFlashPrefab: {fileID: 6299671218319471870, guid: d13b2bf13a0548a4aa9c2cd249a35a04, type: 3}
-  shootSoundId: weapons.smg.shoot
-  reloadSoundId: weapons.smg.reload
   useSphereCast: 1
   sphereCastRadius: 0.1
   sphereCastGrowthStartDist: 5
   sphereCastMaxRadius: 0.25
-  maxServerRange: 0
+  bulletTrail: {fileID: 328621789431213768, guid: 4b92d630cd66e7a45a83060b816bdbbe, type: 3}
+  bulletImpact: {fileID: 1727084212038952990, guid: 115606d0adf2ebc4cb54af213761100e, type: 3}
+  muzzleFlashPrefab: {fileID: 6299671218319471870, guid: 6373b8829b762a344a5677cd3fd522a5, type: 3}
+  shootSoundId: weapons.smg.shoot
+  reloadSoundId: weapons.smg.reload
+  legacyFireMode: 

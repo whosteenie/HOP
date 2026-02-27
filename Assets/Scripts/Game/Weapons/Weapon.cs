@@ -31,17 +31,17 @@ namespace Game.Weapons {
 
         [Header("Current Weapon State")]
         private WeaponData _currentWeaponData;
+
         private int _currentMagCapacity = 1;
 
         private GameObject _currentFpWeaponInstance;
         private GameObject _currentWorldWeaponInstance;
+        private WorldWeaponBinding _currentWorldWeaponBinding;
         private Transform _fpMuzzleTransform;
         private Transform _worldMuzzleTransform;
         private KinemationFpWeaponDriver _kinemationFpWeaponDriver;
         private GameObject _fpMuzzleLight;
         private GameObject _worldMuzzleLight;
-        private Coroutine _fpMuzzleLightCoroutine;
-        private Coroutine _worldMuzzleLightCoroutine;
         private GameObject _kinemationLocalMuzzleFxInstance;
         private VisualEffect _kinemationLocalMuzzleVfx;
         private GameObject _kinemationLocalMuzzleSourcePrefab;
@@ -91,6 +91,7 @@ namespace Game.Weapons {
         private const float BulletSpeed = 500f;
 
         private const float MuzzleLightTime = 5f;
+        [SerializeField] private bool logRemoteMuzzleDebug;
         private float _fpLightOffTime;
         private float _worldLightOffTime;
 
@@ -288,6 +289,9 @@ namespace Game.Weapons {
             _currentWeaponData = newWeaponData;
             _currentFpWeaponInstance = fpWeaponInstance;
             _currentWorldWeaponInstance = worldWeaponInstance;
+            _currentWorldWeaponBinding = _currentWorldWeaponInstance != null
+                ? _currentWorldWeaponInstance.GetComponent<WorldWeaponBinding>()
+                : null;
             _currentMagCapacity = Mathf.Max(1, magCapacity);
             _kinemationFpWeaponDriver = _currentFpWeaponInstance != null
                 ? _currentFpWeaponInstance.GetComponent<KinemationFpWeaponDriver>()
@@ -304,7 +308,16 @@ namespace Game.Weapons {
             _fpMuzzleTransform = _kinemationFpWeaponDriver != null
                 ? _kinemationFpWeaponDriver.GetMuzzleTransform()
                 : null;
-            _worldMuzzleTransform = ResolveMuzzleTransform(_currentWorldWeaponInstance);
+            _worldMuzzleTransform = null;
+            _worldMuzzleLight = null;
+            if(_currentWorldWeaponBinding != null &&
+               _currentWorldWeaponBinding.TryGetRuntimeReferences(
+                   out var boundWorldMuzzle,
+                   out var boundWorldMuzzleLight)) {
+                _worldMuzzleTransform = boundWorldMuzzle;
+                _worldMuzzleLight = boundWorldMuzzleLight;
+            }
+
             _hasPrewarmedKinemationMuzzleForCurrentWeapon = false;
 
             if(_kinemationFpWeaponDriver != null) {
@@ -316,6 +329,7 @@ namespace Game.Weapons {
             if(_kinemationFpWeaponDriver != null) {
                 _kinemationFpWeaponDriver.SyncActiveAmmo(currentAmmo);
             }
+
             IsReloading = false;
             _autoReloadArmed = false;
             _reloadExpectedCompleteTime = float.PositiveInfinity;
@@ -323,15 +337,9 @@ namespace Game.Weapons {
             // Get animator from FP weapon
             _fpMuzzleLight = null;
             if(_currentFpWeaponInstance && _kinemationFpWeaponDriver != null) {
-                _fpMuzzleLight = ResolveMuzzleLightObject(_currentFpWeaponInstance);
-                if(_fpMuzzleLight) {
-                    _fpMuzzleLight.SetActive(false);
-                }
-            }
-
-            _worldMuzzleLight = null;
-            if(_currentWorldWeaponInstance != null) {
-                _worldMuzzleLight = ResolveMuzzleLightObject(_currentWorldWeaponInstance);
+                var fpLight = _currentFpWeaponInstance.GetComponentInChildren<Light>(true);
+                _fpMuzzleLight = fpLight != null ? fpLight.gameObject : null;
+                if(_fpMuzzleLight) _fpMuzzleLight.SetActive(false);
             }
 
             if(_worldMuzzleLight) {
@@ -344,29 +352,9 @@ namespace Game.Weapons {
             }
 
             // Update HUD
-            if(playerController == null || !playerController.IsOwner) return;
-            if(_currentWeaponData != null && HUDManager.Instance != null) {
-                EventBus.Publish(new UpdateAmmoEvent(currentAmmo, GetCurrentMagCapacity()));
+            if(_currentWeaponData != null) {
+                PublishOwnerAmmoToHud();
             }
-        }
-
-        private static GameObject ResolveMuzzleLightObject(GameObject weaponInstanceRoot) {
-            if(weaponInstanceRoot == null) return null;
-            var light = weaponInstanceRoot.GetComponentInChildren<Light>(true);
-            return light != null ? light.gameObject : null;
-        }
-
-        private static Transform ResolveMuzzleTransform(GameObject weaponInstanceRoot) {
-            if(weaponInstanceRoot == null) return null;
-
-            var allTransforms = weaponInstanceRoot.GetComponentsInChildren<Transform>(true);
-            foreach(var candidate in allTransforms) {
-                if(candidate != null && candidate.name == "Muzzle") {
-                    return candidate;
-                }
-            }
-
-            return null;
         }
 
         private static string GetTransformPath(Transform transform) {
@@ -380,26 +368,6 @@ namespace Game.Weapons {
             }
 
             return path;
-        }
-
-        private static string DescribeMuzzleCandidates(GameObject weaponInstanceRoot) {
-            if(weaponInstanceRoot == null) return "count=0 []";
-
-            var transforms = weaponInstanceRoot.GetComponentsInChildren<Transform>(true);
-            var count = 0;
-            var entries = string.Empty;
-            const int maxEntries = 6;
-
-            foreach(var candidate in transforms) {
-                if(candidate == null || candidate.name != "Muzzle") continue;
-
-                count++;
-                if(count > maxEntries) continue;
-                var entry = $"'{GetTransformPath(candidate)}'@{candidate.position:F3}";
-                entries = string.IsNullOrEmpty(entries) ? entry : $"{entries}; {entry}";
-            }
-
-            return $"count={count} [{entries}]";
         }
 
         private bool TryGetStrictWorldMuzzleTransform(out Transform muzzleTransform, string context,
@@ -422,6 +390,20 @@ namespace Game.Weapons {
                 return false;
             }
 
+            if(_currentWorldWeaponBinding == null ||
+               _currentWorldWeaponBinding.gameObject != _currentWorldWeaponInstance) {
+                _currentWorldWeaponBinding = _currentWorldWeaponInstance.GetComponent<WorldWeaponBinding>();
+            }
+
+            if(_currentWorldWeaponBinding == null) {
+                Debug.LogError(
+                    $"[Weapon][RemoteMuzzleStrict][{context}] Missing WorldWeaponBinding on world weapon. " +
+                    $"weapon={(_currentWeaponData != null ? _currentWeaponData.weaponName : "(none)")} " +
+                    $"worldWeapon={_currentWorldWeaponInstance.name}",
+                    this);
+                return false;
+            }
+
             if(!_currentWorldWeaponInstance.activeInHierarchy) {
                 Debug.LogError(
                     $"[Weapon][RemoteMuzzleStrict][{context}] World weapon inactive. " +
@@ -431,16 +413,18 @@ namespace Game.Weapons {
                 return false;
             }
 
-            _worldMuzzleTransform = _worldMuzzleTransform ? _worldMuzzleTransform : ResolveMuzzleTransform(_currentWorldWeaponInstance);
-            if(_worldMuzzleTransform == null) {
+            if(!_currentWorldWeaponBinding.TryGetRuntimeReferences(
+                   out _worldMuzzleTransform,
+                   out var boundMuzzleLight)) {
                 Debug.LogError(
-                    $"[Weapon][RemoteMuzzleStrict][{context}] Muzzle transform not found. " +
+                    $"[Weapon][RemoteMuzzleStrict][{context}] Assigned muzzle reference is null. " +
                     $"weapon={(_currentWeaponData != null ? _currentWeaponData.weaponName : "(none)")} " +
-                    $"worldWeapon={_currentWorldWeaponInstance.name} " +
-                    $"muzzleCandidates={DescribeMuzzleCandidates(_currentWorldWeaponInstance)}",
+                    $"worldWeapon={_currentWorldWeaponInstance.name}",
                     this);
                 return false;
             }
+
+            if(boundMuzzleLight != null) _worldMuzzleLight = boundMuzzleLight;
 
             if(!_worldMuzzleTransform.gameObject.activeInHierarchy) {
                 Debug.LogError(
@@ -541,6 +525,13 @@ namespace Game.Weapons {
             }
         }
 
+        private void PublishOwnerAmmoToHud(int maxAmmoOverride = -1) {
+            if(playerController == null || !playerController.IsOwner) return;
+            if(HUDManager.Instance == null) return;
+            var maxAmmo = maxAmmoOverride > 0 ? maxAmmoOverride : GetCurrentMagCapacity();
+            EventBus.Publish(new UpdateAmmoEvent(currentAmmo, maxAmmo));
+        }
+
         public void ResetWeapon() {
             if(!_currentWeaponData) return;
             currentAmmo = GetCurrentMagCapacity();
@@ -554,6 +545,7 @@ namespace Game.Weapons {
             if(IsOwner) {
                 netCurrentDamageMultiplier.Value = 1f;
             }
+
             SyncServerAmmo();
         }
 
@@ -572,7 +564,8 @@ namespace Game.Weapons {
                 var fpCameraTransform = playerController.FpCameraTransform;
                 if(fpCameraTransform == null) return false;
 
-                muzzlePosition = fpCameraTransform.TransformPoint(playerController.PlayerInput.SniperMuzzleCameraOffset);
+                muzzlePosition =
+                    fpCameraTransform.TransformPoint(playerController.PlayerInput.SniperMuzzleCameraOffset);
                 return true;
             }
 
@@ -620,7 +613,6 @@ namespace Game.Weapons {
 
             muzzlePosition = fpCameraTransform.TransformPoint(playerController.PlayerInput.SniperMuzzleCameraOffset);
             return true;
-
         }
 
         private bool TryGetOwnerTracerStartPosition(out Vector3 tracerStartPosition) {
@@ -660,26 +652,10 @@ namespace Game.Weapons {
                 remapDepth));
         }
 
-        public Quaternion GetMuzzleRotation() {
-            if(!playerController || !playerController.IsOwner)
-                return _currentWorldWeaponInstance
-                    ? _currentWorldWeaponInstance.transform.rotation
-                    : transform.rotation;
-            if(GameMenuManager.Instance != null && GameMenuManager.Instance.IsPostMatch) {
-                return _currentWorldWeaponInstance
-                    ? _currentWorldWeaponInstance.transform.rotation
-                    : transform.rotation;
-            }
-
-            var fpCameraTransform = playerController != null ? playerController.FpCameraTransform : null;
-            return _currentFpWeaponInstance
-                ? _currentFpWeaponInstance.transform.rotation
-                : fpCameraTransform != null ? fpCameraTransform.rotation : transform.rotation;
-        }
-
         public int GetWeaponSlot() {
             return _currentWeaponData == null ? 0 : _currentWeaponData.WeaponSlotIndex;
         }
+
         public float GetFireRate() {
             return _currentWeaponData == null ? 0.1f : _currentWeaponData.fireRate;
         }
@@ -691,6 +667,7 @@ namespace Game.Weapons {
         public int GetMagSize() {
             return GetCurrentMagCapacity();
         }
+
         public GameObject GetWeaponPrefab() => _currentFpWeaponInstance;
 
         private bool TryGetStrictFpMuzzleTransform(out Transform muzzleTransform, string context) {
@@ -742,7 +719,9 @@ namespace Game.Weapons {
             }
 
             var isPostMatch = GameMenuManager.Instance != null && GameMenuManager.Instance.IsPostMatch;
-            return isPostMatch ? TryGetStrictWorldMuzzleTransform(out muzzleTransform, context, allowOwnerInstance: true) : TryGetStrictFpMuzzleTransform(out muzzleTransform, context);
+            return isPostMatch
+                ? TryGetStrictWorldMuzzleTransform(out muzzleTransform, context, allowOwnerInstance: true)
+                : TryGetStrictFpMuzzleTransform(out muzzleTransform, context);
         }
 
         #endregion
@@ -783,6 +762,7 @@ namespace Game.Weapons {
             if(_kinemationFpWeaponDriver != null) {
                 _kinemationFpWeaponDriver.NotifyDrakeReloadCanceledByShot();
             }
+
             // For shell-by-shell reloads, allow cancel only after at least one round was inserted.
             CancelReload();
 
@@ -803,7 +783,7 @@ namespace Game.Weapons {
         private void PerformShot() {
             var fpCameraTransform = playerController != null ? playerController.FpCameraTransform : null;
             if(fpCameraTransform == null) return;
-            
+
             var origin = fpCameraTransform.position;
             var forward = fpCameraTransform.forward;
             var authoritativeAmmoBeforeShot = Mathf.Max(0, currentAmmo);
@@ -812,9 +792,7 @@ namespace Game.Weapons {
             _lastFireTime = Time.time;
 
             if(playerController != null && playerController.IsOwner) {
-                if(HUDManager.Instance != null) {
-                    EventBus.Publish(new UpdateAmmoEvent(currentAmmo, GetCurrentMagCapacity()));
-                }
+                PublishOwnerAmmoToHud();
             }
 
             var weaponIndex = _weaponManager != null ? _weaponManager.CurrentWeaponIndex : -1;
@@ -829,10 +807,10 @@ namespace Game.Weapons {
             }
 
             var spreadDegrees = _currentWeaponData != null ? _currentWeaponData.bulletSpread : 0f;
-            
+
             // If sniper overlay is active and weapon uses sniper overlay, remove all spread for perfect accuracy
-            if(_currentWeaponData != null && _currentWeaponData.useSniperOverlay && 
-               playerController != null && playerController.PlayerInput != null && 
+            if(_currentWeaponData != null && _currentWeaponData.useSniperOverlay &&
+               playerController != null && playerController.PlayerInput != null &&
                playerController.PlayerInput.IsSniperOverlayActive) {
                 spreadDegrees = 0f;
             }
@@ -840,10 +818,10 @@ namespace Game.Weapons {
             _hasLocalMuzzleFlashSpawnPositionForShot = false;
             _localMuzzleFlashSpawnPositionForShot = Vector3.zero;
 
-            if (playerController != null && playerController.IsOwner) {
+            if(playerController != null && playerController.IsOwner) {
                 PlayLocalMuzzleFlash(authoritativeAmmoBeforeShot);
                 // Record Stats
-                if (ProgressionManager.Instance != null) {
+                if(ProgressionManager.Instance != null) {
                     ProgressionManager.Instance.RecordShotFired();
                 }
             }
@@ -867,7 +845,7 @@ namespace Game.Weapons {
                 FirePellet(origin, direction, out var endPoint, out var hitNormal, out var madeImpact,
                     out var hitPlayer, out var hitPlayerRef, weaponIndex, shotId);
 
-                if (hitPlayer) anyPelletHitPlayer = true;
+                if(hitPlayer) anyPelletHitPlayer = true;
 
                 if(playerController != null && playerController.IsOwner && hasMuzzlePosition) {
                     StartCoroutine(SpawnOwnerTracerLocalAfterViewUpdate(capturedMuzzlePos, endPoint, hitNormal,
@@ -881,26 +859,28 @@ namespace Game.Weapons {
 
             // If any pellet hit a player, count it as a "Shot Hit" (accuracy = Shots Hit / Shots Fired)
             // This prevents shotguns from giving > 100% accuracy
-            if (anyPelletHitPlayer && playerController != null && playerController.IsOwner && ProgressionManager.Instance != null) {
+            if(anyPelletHitPlayer && playerController != null && playerController.IsOwner &&
+               ProgressionManager.Instance != null) {
                 ProgressionManager.Instance.RecordShotHit();
             }
         }
 
         private void FirePellet(Vector3 origin, Vector3 direction, out Vector3 endPoint, out Vector3 hitNormal,
-            out bool madeImpact, out bool hitPlayer, out NetworkObjectReference hitPlayerRef, int weaponIndex, ulong shotId) {
+            out bool madeImpact, out bool hitPlayer, out NetworkObjectReference hitPlayerRef, int weaponIndex,
+            ulong shotId) {
             var hitLayer = _enemyLayer | _worldLayer;
             var shotHit = false;
             RaycastHit hit = default;
-            
+
             // Default max distance for raycast
             var maxDist = 1000f;
-            
+
             // Check if we should use the new hybrid sphere/cone cast system
-            var useHybridSystem = _currentWeaponData != null && _currentWeaponData.useSphereCast 
-                                  || _currentWeaponData != null && _currentWeaponData.useSniperOverlay && 
-                                  playerController != null && playerController.PlayerInput != null && 
+            var useHybridSystem = _currentWeaponData != null && _currentWeaponData.useSphereCast
+                                  || _currentWeaponData != null && _currentWeaponData.useSniperOverlay &&
+                                  playerController != null && playerController.PlayerInput != null &&
                                   playerController.PlayerInput.IsSniperOverlayActive;
-            
+
             // Legacy/Sniper Override check (maintain support for old sniper bool if needed, but prefer hybrid)
 
             if(useHybridSystem) {
@@ -930,7 +910,7 @@ namespace Game.Weapons {
                 var growthEnd = _currentWeaponData.useDamageFalloff
                     ? Mathf.Max(growthStart + 0.1f, _currentWeaponData.minDamageRange)
                     : Mathf.Max(growthStart + 0.1f, maxDist);
-                
+
                 // Perform the SphereCast with the strict limit of maxDist (or slightly more to catch edge cases, filtering later)
                 // Note: SphereCastAll is better here to find the *first valid player* even if a closer player is missed by the cone but hit by the sphere.
                 // For simplicity/perf, we'll stick to SphereCast and assume the first hit is the intended one if valid.
@@ -938,7 +918,7 @@ namespace Game.Weapons {
                     // Step 3: Validation
                     // Calculate what the allowed radius is at this specific distance
                     var dist = sphereHit.distance;
-                    
+
                     float allowedRadius;
                     if(dist <= growthStart) {
                         allowedRadius = baseRadius;
@@ -948,10 +928,12 @@ namespace Game.Weapons {
                         var t = Mathf.InverseLerp(growthStart, growthEnd, dist);
                         allowedRadius = Mathf.Lerp(baseRadius, maxRadius, t);
                     }
-                    
+
                     // Check if the hit point is within this allowable radius from the central ray
                     // Project hit point onto the ray axis to find the perpendicular distance
-                    var hitPoint = sphereHit.point; // Note: sphereHit.point is on the surface of the collider, not center of sphere
+                    var hitPoint =
+                        sphereHit
+                            .point; // Note: sphereHit.point is on the surface of the collider, not center of sphere
                     // However, Physics.SphereCast returns the point on the collider surface.
                     // Accurate perpendicular distance check:
                     var projectedPoint = origin + direction * Vector3.Dot(hitPoint - origin, direction);
@@ -962,13 +944,14 @@ namespace Game.Weapons {
                     if(distFromRay <= allowedRadius && sphereHit.distance <= maxDist) {
                         shotHit = true;
                         hit = sphereHit;
-                        
+
                         // DEBUG VISUALIZATION
-                        #if UNITY_EDITOR
+#if UNITY_EDITOR
                         if(playerController.IsOwner) {
-                            DrawHitRegistrationDebug(origin, direction, maxDist, sphereHit.point, true, baseRadius, maxRadius, growthStart, growthEnd);
+                            DrawHitRegistrationDebug(origin, direction, maxDist, sphereHit.point, true, baseRadius,
+                                maxRadius, growthStart, growthEnd);
                         }
-                        #endif
+#endif
                     } else {
                         // We hit something with the sphere, but it was too far from center (outside cone) or behind a wall.
                         // Fallback: Did we hit the wall with the Raycast earlier?
@@ -978,52 +961,56 @@ namespace Game.Weapons {
                         if(Physics.Raycast(origin, direction, out var strictHit, maxDist, hitLayer)) {
                             shotHit = true;
                             hit = strictHit;
-                             #if UNITY_EDITOR
-                            if(playerController.IsOwner) 
-                                DrawHitRegistrationDebug(origin, direction, maxDist, strictHit.point, true, baseRadius, maxRadius, growthStart, growthEnd);
-                            #endif
+#if UNITY_EDITOR
+                            if(playerController.IsOwner)
+                                DrawHitRegistrationDebug(origin, direction, maxDist, strictHit.point, true, baseRadius,
+                                    maxRadius, growthStart, growthEnd);
+#endif
                         } else {
-                             #if UNITY_EDITOR
-                            if(playerController.IsOwner) 
-                                DrawHitRegistrationDebug(origin, direction, maxDist, Vector3.zero, false, baseRadius, maxRadius, growthStart, growthEnd);
-                            #endif
+#if UNITY_EDITOR
+                            if(playerController.IsOwner)
+                                DrawHitRegistrationDebug(origin, direction, maxDist, Vector3.zero, false, baseRadius,
+                                    maxRadius, growthStart, growthEnd);
+#endif
                         }
                     }
                 } else {
                     // Sphere hit nothing. Fallback to Raycast (e.g. shooting through a tiny gap the sphere couldn't fit?)
                     if(Physics.Raycast(origin, direction, out var strictHit, maxDist, hitLayer)) {
-                         shotHit = true;
-                         hit = strictHit;
-                         #if UNITY_EDITOR
-                         if(playerController.IsOwner) 
-                             DrawHitRegistrationDebug(origin, direction, maxDist, strictHit.point, true, baseRadius, maxRadius, growthStart, growthEnd);
-                         #endif
+                        shotHit = true;
+                        hit = strictHit;
+#if UNITY_EDITOR
+                        if(playerController.IsOwner)
+                            DrawHitRegistrationDebug(origin, direction, maxDist, strictHit.point, true, baseRadius,
+                                maxRadius, growthStart, growthEnd);
+#endif
                     } else {
-                         #if UNITY_EDITOR
-                         if(playerController.IsOwner) 
-                             DrawHitRegistrationDebug(origin, direction, maxDist, Vector3.zero, false, baseRadius, maxRadius, growthStart, growthEnd);
-                         #endif
+#if UNITY_EDITOR
+                        if(playerController.IsOwner)
+                            DrawHitRegistrationDebug(origin, direction, maxDist, Vector3.zero, false, baseRadius,
+                                maxRadius, growthStart, growthEnd);
+#endif
                     }
                 }
             } else {
                 // Standard strict raycast (Legacy/Shotgun/Hipfire if configured)
                 shotHit = Physics.Raycast(origin, direction, out hit, maxDist, hitLayer);
             }
-            
+
             hitPlayerRef = default;
 
             if(shotHit) {
                 endPoint = hit.point;
                 hitNormal = hit.normal;
                 madeImpact = true;
-                
+
                 // Check if a player was hit and get their NetworkObjectReference
                 var hitPlayerController = hit.collider.GetComponentInParent<PlayerController>();
                 hitPlayer = hitPlayerController != null;
                 if(hitPlayer && hitPlayerController.NetworkObject != null) {
                     hitPlayerRef = new NetworkObjectReference(hitPlayerController.NetworkObject);
                 }
-                
+
                 var damage = CalculateDamage(hit.distance);
                 ApplyDamageToHit(hit, origin, damage, weaponIndex, shotId);
             } else {
@@ -1165,8 +1152,9 @@ namespace Game.Weapons {
             CurrentDamageMultiplier = Mathf.Clamp(CurrentDamageMultiplier, 1f, MaxDamageMultiplier);
         }
 
-        #if UNITY_EDITOR
-        private static void DrawHitRegistrationDebug(Vector3 origin, Vector3 direction, float maxDist, Vector3 hitPoint, bool hitSomething, 
+#if UNITY_EDITOR
+        private static void DrawHitRegistrationDebug(Vector3 origin, Vector3 direction, float maxDist, Vector3 hitPoint,
+            bool hitSomething,
             float baseRadius, float maxRadius, float startDist, float endDist) // Debug Visualization
         {
             const float duration = 5.0f; // Persist for 5 seconds
@@ -1179,34 +1167,36 @@ namespace Game.Weapons {
             for(var i = 0; i <= steps; i++) {
                 var t = (float)i / steps;
                 var currentDist = Mathf.Lerp(0, maxDist, t); // Draw full length to wall hit
-                
-                if (currentDist > maxDist) break; // Redundant but safe
+
+                if(currentDist > maxDist) break; // Redundant but safe
 
                 // Calculate radius at this distance
                 float currentRadius;
                 if(currentDist <= startDist) currentRadius = baseRadius;
                 else if(currentDist >= endDist) currentRadius = maxRadius;
-                else currentRadius = Mathf.Lerp(baseRadius, maxRadius, Mathf.InverseLerp(startDist, endDist, currentDist));
+                else
+                    currentRadius = Mathf.Lerp(baseRadius, maxRadius,
+                        Mathf.InverseLerp(startDist, endDist, currentDist));
 
                 var center = origin + direction * currentDist;
                 // Draw a simple cross or diamond to represent the ring since DrawWireDisc isn't standard
                 var up = Vector3.up * currentRadius;
                 var right = Vector3.right * currentRadius;
-                
+
                 Debug.DrawLine(center - up, center + up, Color.yellow, duration);
                 Debug.DrawLine(center - right, center + right, Color.yellow, duration);
             }
-            
+
             // 3. Draw Hit Point
             if(!hitSomething) return;
             Debug.DrawLine(hitPoint, hitPoint + Vector3.up * 0.2f, Color.green, duration);
             // Draw a small sphere at hit
             // Since we can't do DrawSphere easily in standard Debug, we'll just use a distinctive cross marker
-            Debug.DrawLine(hitPoint - Vector3.up*0.1f, hitPoint + Vector3.up*0.1f, Color.green, duration);
-            Debug.DrawLine(hitPoint - Vector3.right*0.1f, hitPoint + Vector3.right*0.1f, Color.green, duration);
-            Debug.DrawLine(hitPoint - Vector3.forward*0.1f, hitPoint + Vector3.forward*0.1f, Color.green, duration);
+            Debug.DrawLine(hitPoint - Vector3.up * 0.1f, hitPoint + Vector3.up * 0.1f, Color.green, duration);
+            Debug.DrawLine(hitPoint - Vector3.right * 0.1f, hitPoint + Vector3.right * 0.1f, Color.green, duration);
+            Debug.DrawLine(hitPoint - Vector3.forward * 0.1f, hitPoint + Vector3.forward * 0.1f, Color.green, duration);
         }
-        #endif
+#endif
 
         #endregion
 
@@ -1230,9 +1220,7 @@ namespace Game.Weapons {
             // Trigger reload complete animation (mag-style reloads)
             ExitReloadAnimation();
 
-            if(playerController.IsOwner && HUDManager.Instance != null) {
-                EventBus.Publish(new UpdateAmmoEvent(currentAmmo, GetCurrentMagCapacity()));
-            }
+            PublishOwnerAmmoToHud();
 
             SyncServerAmmo();
         }
@@ -1251,9 +1239,7 @@ namespace Game.Weapons {
                     $"weapon={_currentWeaponData.weaponName} ammo={ammoBefore}->{currentAmmo} cap={magCapacity}");
             }
 
-            if(playerController != null && playerController.IsOwner && HUDManager.Instance != null) {
-                EventBus.Publish(new UpdateAmmoEvent(currentAmmo, magCapacity));
-            }
+            PublishOwnerAmmoToHud(magCapacity);
 
             SyncServerAmmo();
         }
@@ -1268,8 +1254,8 @@ namespace Game.Weapons {
             ExitReloadAnimation();
             SyncServerAmmo();
 
-            if(playerController != null && playerController.IsOwner && _currentWeaponData != null && HUDManager.Instance != null) {
-                EventBus.Publish(new UpdateAmmoEvent(currentAmmo, GetCurrentMagCapacity()));
+            if(_currentWeaponData != null) {
+                PublishOwnerAmmoToHud();
             }
         }
 
@@ -1295,7 +1281,8 @@ namespace Game.Weapons {
         }
 
         private bool UseKinemationEventSoundRouting() {
-            return _kinemationFpWeaponDriver != null && _kinemationFpWeaponDriver.IsKinemationSoundEventRoutingEnabled();
+            return _kinemationFpWeaponDriver != null &&
+                   _kinemationFpWeaponDriver.IsKinemationSoundEventRoutingEnabled();
         }
 
         private bool ShouldSuppressLegacyReloadSound() {
@@ -1315,9 +1302,6 @@ namespace Game.Weapons {
             }
 
             direction.Normalize();
-            if(!DoesCurrentMuzzleFlashUseForwardAxis()) {
-                direction = -direction;
-            }
 
             var up = Vector3.up;
             var cameraTransform = playerController != null ? playerController.FpCameraTransform : null;
@@ -1334,23 +1318,14 @@ namespace Game.Weapons {
             return Quaternion.LookRotation(direction, up);
         }
 
-        private bool DoesCurrentMuzzleFlashUseForwardAxis() {
-            var muzzleFlashPrefab = _currentWeaponData != null ? _currentWeaponData.muzzleFlashPrefab : null;
-            if(muzzleFlashPrefab == null) {
-                return false;
-            }
-
-            var prefabName = muzzleFlashPrefab.name.ToLowerInvariant();
-            return prefabName.Contains("180");
-        }
-
         private GameObject EnsureKinemationLocalMuzzleFxInstance(Transform muzzleTransform, Quaternion spawnRotation) {
             if(_currentWeaponData == null || _currentWeaponData.muzzleFlashPrefab == null || muzzleTransform == null) {
                 return null;
             }
 
             var sourcePrefab = _currentWeaponData.muzzleFlashPrefab;
-            var needsRecreate = _kinemationLocalMuzzleFxInstance == null || _kinemationLocalMuzzleSourcePrefab != sourcePrefab;
+            var needsRecreate = _kinemationLocalMuzzleFxInstance == null ||
+                                _kinemationLocalMuzzleSourcePrefab != sourcePrefab;
             if(needsRecreate) {
                 if(_kinemationLocalMuzzleFxInstance != null) {
                     QuiesceMuzzleFxInstance(_kinemationLocalMuzzleFxInstance, _kinemationLocalMuzzleVfx);
@@ -1365,7 +1340,8 @@ namespace Game.Weapons {
                     _kinemationLocalMuzzleVfx.Reinit();
                 }
             } else {
-                _kinemationLocalMuzzleFxInstance.transform.SetPositionAndRotation(muzzleTransform.position, spawnRotation);
+                _kinemationLocalMuzzleFxInstance.transform.SetPositionAndRotation(muzzleTransform.position,
+                    spawnRotation);
             }
 
             AttachMuzzleFollow(_kinemationLocalMuzzleFxInstance, muzzleTransform, followRotation: false);
@@ -1474,7 +1450,8 @@ namespace Game.Weapons {
                             preferredDirection = fpCameraTransform.forward;
                         }
 
-                        var desiredWorldRotation = ResolveKinemationMuzzleFxRotation(muzzleTransform, preferredDirection);
+                        var desiredWorldRotation =
+                            ResolveKinemationMuzzleFxRotation(muzzleTransform, preferredDirection);
                         var fxGo = EnsureKinemationLocalMuzzleFxInstance(muzzleTransform, desiredWorldRotation);
                         if(fxGo != null) {
                             _localMuzzleFlashSpawnPositionForShot = fxGo.transform.position;
@@ -1501,14 +1478,10 @@ namespace Game.Weapons {
                     $"frame={Time.frameCount} time={Time.time:F3} " +
                     $"weapon={_currentWeaponData.weaponName} ammoBefore={currentAmmo}");
             }
+
             for(var i = 0; i < reloadSingleEvents; i++) {
                 HandleKinemationReloadSingleRound();
             }
-        }
-
-        private bool IsCurrentWeaponDrake() {
-            if(_currentWeaponData == null || string.IsNullOrWhiteSpace(_currentWeaponData.weaponName)) return false;
-            return _currentWeaponData.weaponName.IndexOf("drake", System.StringComparison.OrdinalIgnoreCase) >= 0;
         }
 
         [Rpc(SendTo.Everyone)]
@@ -1527,6 +1500,7 @@ namespace Game.Weapons {
             if(playerController != null && playerController.IsOwner) {
                 return;
             }
+
             if(!TryGetStrictWorldMuzzleTransform(out var muzzleTransform, "PlayNetworkedMuzzleFlash")) {
                 return;
             }
@@ -1559,6 +1533,7 @@ namespace Game.Weapons {
                 if(fx != null) {
                     fx.Play();
                 }
+
                 Destroy(fxGo, 1f);
 
                 _lastRemoteMuzzleFxSpawnPosition = position;
@@ -1568,17 +1543,18 @@ namespace Game.Weapons {
                 _lastRemoteMuzzleFxSpawnTime = Time.time;
                 _lastRemoteMuzzleTransformPath = GetTransformPath(muzzleTransform);
 
-                Debug.Log(
-                    $"[Weapon][RemoteMuzzleDebug][FX] frame={Time.frameCount} time={Time.time:F3} " +
-                    $"weapon={(_currentWeaponData != null ? _currentWeaponData.weaponName : "(none)")} " +
-                    $"worldWeapon={(_currentWorldWeaponInstance != null ? _currentWorldWeaponInstance.name : "(none)")} " +
-                    $"muzzlePath={_lastRemoteMuzzleTransformPath} " +
-                    $"muzzlePos={position:F4} muzzleFwd={muzzleForward:F4} " +
-                    $"fxRotEuler={desiredWorldRotation.eulerAngles:F3} fxFwd={_lastRemoteMuzzleFxForward:F4} " +
-                    $"endPoint={endPoint:F4} tracerDir={tracerDirectionNormalized:F4} tracerAngle={tracerAngle:F2} " +
-                    $"fxVsTracerAngle={fxVsTracerAngle:F2} " +
-                    $"muzzleCandidates={DescribeMuzzleCandidates(_currentWorldWeaponInstance)}",
-                    this);
+                if(logRemoteMuzzleDebug) {
+                    Debug.Log(
+                        $"[Weapon][RemoteMuzzleDebug][FX] frame={Time.frameCount} time={Time.time:F3} " +
+                        $"weapon={(_currentWeaponData != null ? _currentWeaponData.weaponName : "(none)")} " +
+                        $"worldWeapon={(_currentWorldWeaponInstance != null ? _currentWorldWeaponInstance.name : "(none)")} " +
+                        $"muzzlePath={_lastRemoteMuzzleTransformPath} " +
+                        $"muzzlePos={position:F4} muzzleFwd={muzzleForward:F4} " +
+                        $"fxRotEuler={desiredWorldRotation.eulerAngles:F3} fxFwd={_lastRemoteMuzzleFxForward:F4} " +
+                        $"endPoint={endPoint:F4} tracerDir={tracerDirectionNormalized:F4} tracerAngle={tracerAngle:F2} " +
+                        $"fxVsTracerAngle={fxVsTracerAngle:F2}",
+                        this);
+                }
             } else {
                 Debug.LogError(
                     "[Weapon][RemoteMuzzleStrict][PlayNetworkedMuzzleFlash] Missing muzzle flash prefab. " +
@@ -1620,39 +1596,39 @@ namespace Game.Weapons {
                 ? Quaternion.LookRotation(tracerDirectionNormalized, Vector3.up)
                 : Quaternion.identity;
 
-            Debug.Log(
-                $"[Weapon][RemoteMuzzleDebug][Tracer] frame={Time.frameCount} time={Time.time:F3} " +
-                $"weapon={(_currentWeaponData != null ? _currentWeaponData.weaponName : "(none)")} " +
-                $"worldWeapon={(_currentWorldWeaponInstance != null ? _currentWorldWeaponInstance.name : "(none)")} " +
-                $"hasStart={hasStartPoint} start={startPoint:F4} end={endPoint:F4} " +
-                $"tracerDir={tracerDirectionNormalized:F4} tracerRotEuler={tracerRotation.eulerAngles:F3} " +
-                $"worldMuzzlePath={(hasWorldMuzzle ? GetTransformPath(_worldMuzzleTransform) : "(none)")} " +
-                $"worldMuzzlePos={worldMuzzlePosition:F4} worldMuzzleFwd={worldMuzzleForward:F4} " +
-                $"worldVsTracerAngle={worldVsTracerAngle:F2} " +
-                $"startVsWorldMuzzleDelta={tracerStartDeltaFromWorldMuzzle:F4} " +
-                $"startVsLastFxSpawnDelta={tracerStartDeltaFromLastFxSpawn:F4} " +
-                $"lastFxSpawnFrame={_lastRemoteMuzzleFxSpawnFrame} lastFxSpawnTime={_lastRemoteMuzzleFxSpawnTime:F3} " +
-                $"lastFxSpawnPos={_lastRemoteMuzzleFxSpawnPosition:F4} " +
-                $"lastFxSpawnRotEuler={_lastRemoteMuzzleFxSpawnRotation.eulerAngles:F3} " +
-                $"lastFxTransformPath={_lastRemoteMuzzleTransformPath} " +
-                $"lastFxVsWorldMuzzleDelta={lastFxVsWorldMuzzleDelta:F4} " +
-                $"muzzleCandidates={DescribeMuzzleCandidates(_currentWorldWeaponInstance)}",
-                this);
+            if(logRemoteMuzzleDebug) {
+                Debug.Log(
+                    $"[Weapon][RemoteMuzzleDebug][Tracer] frame={Time.frameCount} time={Time.time:F3} " +
+                    $"weapon={(_currentWeaponData != null ? _currentWeaponData.weaponName : "(none)")} " +
+                    $"worldWeapon={(_currentWorldWeaponInstance != null ? _currentWorldWeaponInstance.name : "(none)")} " +
+                    $"hasStart={hasStartPoint} start={startPoint:F4} end={endPoint:F4} " +
+                    $"tracerDir={tracerDirectionNormalized:F4} tracerRotEuler={tracerRotation.eulerAngles:F3} " +
+                    $"worldMuzzlePath={(hasWorldMuzzle ? GetTransformPath(_worldMuzzleTransform) : "(none)")} " +
+                    $"worldMuzzlePos={worldMuzzlePosition:F4} worldMuzzleFwd={worldMuzzleForward:F4} " +
+                    $"worldVsTracerAngle={worldVsTracerAngle:F2} " +
+                    $"startVsWorldMuzzleDelta={tracerStartDeltaFromWorldMuzzle:F4} " +
+                    $"startVsLastFxSpawnDelta={tracerStartDeltaFromLastFxSpawn:F4} " +
+                    $"lastFxSpawnFrame={_lastRemoteMuzzleFxSpawnFrame} lastFxSpawnTime={_lastRemoteMuzzleFxSpawnTime:F3} " +
+                    $"lastFxSpawnPos={_lastRemoteMuzzleFxSpawnPosition:F4} " +
+                    $"lastFxSpawnRotEuler={_lastRemoteMuzzleFxSpawnRotation.eulerAngles:F3} " +
+                    $"lastFxTransformPath={_lastRemoteMuzzleTransformPath} " +
+                    $"lastFxVsWorldMuzzleDelta={lastFxVsWorldMuzzleDelta:F4}",
+                    this);
+            }
         }
 
         private Quaternion ResolveWorldMuzzleFxRotation(Transform muzzleTransform, Vector3 tracerDirectionNormalized,
             bool hasTracerDirection) {
             var direction = hasTracerDirection
                 ? tracerDirectionNormalized
-                : muzzleTransform != null ? muzzleTransform.forward : transform.forward;
+                : muzzleTransform != null
+                    ? muzzleTransform.forward
+                    : transform.forward;
             if(direction.sqrMagnitude <= 0.0001f) {
                 direction = muzzleTransform != null ? muzzleTransform.forward : transform.forward;
             }
 
             direction.Normalize();
-            if(!DoesCurrentMuzzleFlashUseForwardAxis()) {
-                direction = -direction;
-            }
 
             var up = muzzleTransform != null ? muzzleTransform.up : Vector3.up;
             if(Mathf.Abs(Vector3.Dot(up, direction)) > 0.98f) {
@@ -1755,9 +1731,11 @@ namespace Game.Weapons {
 
                 var kinemationFireSoundId = _kinemationFpWeaponDriver.GetKinemationFireSoundId();
                 if(!string.IsNullOrWhiteSpace(kinemationFireSoundId)) {
-                    _audioRelay.RequestPlayAttached(kinemationFireSoundId, new NetworkObjectReference(playerController.NetworkObject),
+                    _audioRelay.RequestPlayAttached(kinemationFireSoundId,
+                        new NetworkObjectReference(playerController.NetworkObject),
                         allowOverlap: true);
                 }
+
                 return;
             }
 
@@ -1767,7 +1745,8 @@ namespace Game.Weapons {
 
             var soundId = _currentWeaponData != null ? _currentWeaponData.shootSoundId : "";
             if(!string.IsNullOrWhiteSpace(soundId)) {
-                _audioRelay.RequestPlayAttached(soundId, new NetworkObjectReference(playerController.NetworkObject), allowOverlap: true);
+                _audioRelay.RequestPlayAttached(soundId, new NetworkObjectReference(playerController.NetworkObject),
+                    allowOverlap: true);
             }
         }
 
@@ -1789,7 +1768,8 @@ namespace Game.Weapons {
             if(_audioRelay == null) return;
             var soundId = _currentWeaponData != null ? _currentWeaponData.reloadSoundId : "";
             if(!string.IsNullOrWhiteSpace(soundId)) {
-                _audioRelay.RequestPlayAttached(soundId, new NetworkObjectReference(playerController.NetworkObject), allowOverlap: false);
+                _audioRelay.RequestPlayAttached(soundId, new NetworkObjectReference(playerController.NetworkObject),
+                    allowOverlap: false);
             }
         }
 
@@ -1826,6 +1806,7 @@ namespace Game.Weapons {
                     $"[Weapon][ReloadSingle] Dequeued events={reloadSingleEvents} frame={Time.frameCount} time={Time.time:F3} " +
                     $"weapon={(_currentWeaponData != null ? _currentWeaponData.weaponName : "(null)")} ammoBefore={currentAmmo}");
             }
+
             for(var i = 0; i < reloadSingleEvents; i++) {
                 HandleKinemationReloadSingleRound();
             }
@@ -1837,6 +1818,7 @@ namespace Game.Weapons {
                         $"weapon={(_currentWeaponData != null ? _currentWeaponData.weaponName : "(null)")} " +
                         $"ammoBeforeFill={currentAmmo} cap={GetCurrentMagCapacity()}");
                 }
+
                 CompleteReload();
                 return;
             }
@@ -1847,6 +1829,7 @@ namespace Game.Weapons {
                 } else {
                     CompleteReload();
                 }
+
                 return;
             }
 
@@ -1856,6 +1839,7 @@ namespace Game.Weapons {
             } else {
                 CompleteReload();
             }
+
             _nextReloadRecoveryAllowedTime = Time.time + ReloadRecoveryCooldownSeconds;
         }
 
@@ -1926,7 +1910,7 @@ namespace Game.Weapons {
             }
 
             trail.transform.position = hitPoint;
-            
+
             // Check if the local player is the one being hit - if so, don't spawn impact effect
             var isLocalPlayerHit = false;
             if(hitPlayer && hitPlayerRef.TryGet(out var hitNetworkObject) && hitNetworkObject != null) {
@@ -1935,7 +1919,7 @@ namespace Game.Weapons {
                     isLocalPlayerHit = true;
                 }
             }
-            
+
             if(madeImpact && _currentWeaponData && _currentWeaponData.bulletImpact && !isLocalPlayerHit) {
                 var rotation = hitNormal.sqrMagnitude > 0.0001f
                     ? Quaternion.LookRotation(hitNormal)
@@ -1982,7 +1966,8 @@ namespace Game.Weapons {
             SpawnTracerLocal(start, end, hitNormal, madeImpact, hitPlayer, hitPlayerRef, shooterVelocity);
         }
 
-        private static Vector3 ComputeTracerInheritedPerpendicularVelocity(Vector3 shooterVelocity, Vector3 shotDirection) {
+        private static Vector3 ComputeTracerInheritedPerpendicularVelocity(Vector3 shooterVelocity,
+            Vector3 shotDirection) {
             if(shooterVelocity.sqrMagnitude <= 0.0001f || shotDirection.sqrMagnitude <= 0.0001f) {
                 return Vector3.zero;
             }
@@ -1995,9 +1980,9 @@ namespace Game.Weapons {
             }
 
             var inherited = perpendicular * TracerPerpendicularVelocityInheritanceScale;
-            var maxSpeed = TracerPerpendicularVelocityInheritanceMax;
-            if(inherited.sqrMagnitude > maxSpeed * maxSpeed) {
-                inherited = inherited.normalized * maxSpeed;
+            if(inherited.sqrMagnitude >
+               TracerPerpendicularVelocityInheritanceMax * TracerPerpendicularVelocityInheritanceMax) {
+                inherited = inherited.normalized * TracerPerpendicularVelocityInheritanceMax;
             }
 
             return inherited;
@@ -2062,10 +2047,10 @@ namespace Game.Weapons {
         private void ReturnTrailToPool(TrailRenderer trail) {
             // Check if trail was destroyed (e.g., during weapon switch)
             if(trail == null) return;
-            
+
             // Check if trail's GameObject still exists
             if(trail.gameObject == null) return;
-            
+
             // Don't return trails to pool if weapon has changed (let them be destroyed naturally)
             // Active trails from previous weapon will just be cleaned up by Unity
             if(_currentWeaponData == null || _currentWeaponData.bulletTrail == null) return;
