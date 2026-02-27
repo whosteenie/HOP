@@ -200,6 +200,7 @@ namespace Game.Menu {
             // Unsubscribe from resolution changes
             OptionsMenuManager.OnResolutionChanged -= OnResolutionChanged;
 
+            ReleasePreviewRenderTexture(true);
             ResetPreviewCameraTarget();
             base.OnDisable();
         }
@@ -327,8 +328,10 @@ namespace Game.Menu {
             StartCoroutine(BruteForceInitialRendering());
         }
 
-        private void ReleasePreviewRenderTexture(bool destroyAsset = false) {
+        private void ReleasePreviewRenderTexture(bool destroyAsset = true) {
             if(_previewRenderTexture == null) return;
+
+            ClearPreviewBackgroundTextureReference();
 
             if(previewCamera != null && previewCamera.targetTexture == _previewRenderTexture) {
                 previewCamera.targetTexture = null;
@@ -337,10 +340,26 @@ namespace Game.Menu {
             _previewRenderTexture.Release();
 
             if(destroyAsset) {
-                DestroyImmediate(_previewRenderTexture, true);
+                if(Application.isPlaying) {
+                    Destroy(_previewRenderTexture);
+                } else {
+                    DestroyImmediate(_previewRenderTexture, true);
+                }
             }
 
             _previewRenderTexture = null;
+        }
+
+        private void ClearPreviewBackgroundTextureReference() {
+            if(_backgroundElement != null) {
+                _backgroundElement.style.backgroundImage = StyleKeyword.Null;
+            }
+
+            if(Root == null) return;
+            var background = Root.Q<VisualElement>("player-model-background");
+            if(background != null) {
+                background.style.backgroundImage = StyleKeyword.Null;
+            }
         }
 
         /// <summary>
@@ -1592,6 +1611,7 @@ namespace Game.Menu {
             if(previewCamera != null) {
                 previewCamera.enabled = false;
             }
+            ReleasePreviewRenderTexture(true);
 
             // Start slide-out animation immediately
             StopSlideAnimations();
