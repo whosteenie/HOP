@@ -353,3 +353,5 @@ steam_appid.txt
 ProfilerCaptures/*
 
 Assets/Scenes/Init/LightingData.asset
+
+.vscode
