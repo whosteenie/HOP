@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using Game.Match;
 using Game.Player;
+using Game.Settings;
 using Network.Events;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -21,6 +22,9 @@ namespace Game.UI {
         private Label _ammoTotal;
 
         private VisualElement _crosshairContainer;
+        private VisualElement _crosshairHorizontal;
+        private VisualElement _crosshairVertical;
+        private VisualElement _crosshairDot;
         private Label _hopballInteractPrompt;
         private Label _outOfBoundsCountdownLabel;
 
@@ -57,12 +61,14 @@ namespace Game.UI {
             EventBus.Unsubscribe<UpdateMultiplierEvent>(OnUpdateMultiplier);
             EventBus.Unsubscribe<ShowHUDEvent>(OnShowHUD);
             EventBus.Unsubscribe<HideHUDEvent>(OnHideHUD);
+            GameSettings.OnSettingsChanged -= OnSettingsChanged;
             EventBus.Subscribe<UpdateHealthEvent>(OnUpdateHealth);
             EventBus.Subscribe<UpdateAmmoEvent>(OnUpdateAmmo);
             EventBus.Subscribe<UpdateTagStatusEvent>(OnUpdateTagStatus);
             EventBus.Subscribe<UpdateMultiplierEvent>(OnUpdateMultiplier);
             EventBus.Subscribe<ShowHUDEvent>(OnShowHUD);
             EventBus.Subscribe<HideHUDEvent>(OnHideHUD);
+            GameSettings.OnSettingsChanged += OnSettingsChanged;
         }
 
         protected override void OnDisable() {
@@ -73,6 +79,7 @@ namespace Game.UI {
             EventBus.Unsubscribe<UpdateMultiplierEvent>(OnUpdateMultiplier);
             EventBus.Unsubscribe<ShowHUDEvent>(OnShowHUD);
             EventBus.Unsubscribe<HideHUDEvent>(OnHideHUD);
+            GameSettings.OnSettingsChanged -= OnSettingsChanged;
             base.OnDisable();
         }
 
@@ -90,8 +97,13 @@ namespace Game.UI {
             _ammoTotal = QOptional<Label>("ammo-total");
 
             _crosshairContainer = QOptional<VisualElement>("crosshair-container");
+            _crosshairHorizontal = QOptional<VisualElement>("crosshair-horizontal");
+            _crosshairVertical = QOptional<VisualElement>("crosshair-vertical");
+            _crosshairDot = QOptional<VisualElement>("crosshair-dot");
             _hopballInteractPrompt = QOptional<Label>("hopball-interact-prompt");
             _outOfBoundsCountdownLabel = QOptional<Label>("out-of-bounds-countdown-label");
+
+            ApplyCrosshairSettings();
         }
 
         protected override Dictionary<string, System.Type> GetRequiredElements() {
@@ -127,6 +139,10 @@ namespace Game.UI {
 
         private void OnHideHUD(HideHUDEvent evt) {
             HideHUD();
+        }
+
+        private void OnSettingsChanged() {
+            ApplyCrosshairSettings();
         }
 
         #endregion
@@ -248,6 +264,7 @@ namespace Game.UI {
             _multiplierContainer.style.visibility = Visibility.Visible;
             _ammoContainer.style.visibility = Visibility.Visible;
             _crosshairContainer.style.visibility = Visibility.Visible;
+            ApplyCrosshairSettings();
             SetHopballInteractPrompt(false);
             SetOutOfBoundsCountdown(false);
             
@@ -329,6 +346,38 @@ namespace Game.UI {
             _outOfBoundsCountdownLabel.style.display = DisplayStyle.Flex;
             var seconds = Mathf.Max(0f, remainingSeconds);
             _outOfBoundsCountdownLabel.text = $"RETURN TO BATTLEFIELD: {seconds:0.00}";
+        }
+
+        private void ApplyCrosshairSettings() {
+            var controls = GameSettings.Data.controls;
+            var styleIndex = controls != null ? Mathf.Clamp(controls.crosshairStyle, 0, 1) : 0;
+            var colorIndex = controls != null ? Mathf.Clamp(controls.crosshairColor, 0, 3) : 0;
+            var crosshairColor = ResolveCrosshairColor(colorIndex);
+            var useDotStyle = styleIndex == 1;
+
+            if(_crosshairHorizontal != null) {
+                _crosshairHorizontal.style.display = useDotStyle ? DisplayStyle.None : DisplayStyle.Flex;
+                _crosshairHorizontal.style.backgroundColor = crosshairColor;
+            }
+
+            if(_crosshairVertical != null) {
+                _crosshairVertical.style.display = useDotStyle ? DisplayStyle.None : DisplayStyle.Flex;
+                _crosshairVertical.style.backgroundColor = crosshairColor;
+            }
+
+            if(_crosshairDot != null) {
+                _crosshairDot.style.display = useDotStyle ? DisplayStyle.Flex : DisplayStyle.None;
+                _crosshairDot.style.backgroundColor = crosshairColor;
+            }
+        }
+
+        private static Color ResolveCrosshairColor(int colorIndex) {
+            return colorIndex switch {
+                1 => new Color(0.2f, 0.65f, 1f, 1f), // Blue
+                2 => new Color(0.22f, 1f, 0.35f, 1f), // Green
+                3 => new Color(1f, 0.9f, 0.2f, 1f), // Yellow
+                _ => new Color(1f, 0.24f, 0.24f, 1f) // Red
+            };
         }
     }
 }

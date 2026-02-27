@@ -56,6 +56,8 @@ namespace Game.Menu {
         private Button _autoWallRunButton;
         private DropdownField _mainMenuBackgroundDropdown;
         private DropdownField _grappleIndicatorDropdown;
+        private DropdownField _crosshairStyleDropdown;
+        private DropdownField _crosshairColorDropdown;
         private DropdownField _voiceModeDropdown;
         private DropdownField _windowModeDropdown;
         private DropdownField _aspectRatioDropdown;
@@ -114,6 +116,8 @@ namespace Game.Menu {
             ["hold-mantle-container"] = ("HOLD TO MANTLE", "When enabled, mantling can trigger while jump is held."),
             ["auto-wall-run-container"] = ("AUTO WALL RUN", "Automatically starts a wall run when valid wall-run conditions are met."),
             ["grapple-indicator-container"] = ("GRAPPLE INDICATOR TYPE", "Choose where grapple readiness/aim feedback is shown."),
+            ["crosshair-style-container"] = ("CROSSHAIR STYLE", "Switch between a classic cross and a center dot."),
+            ["crosshair-color-container"] = ("CROSSHAIR COLOR", "Sets the HUD crosshair color and grapple indicator accent color."),
             ["profanity-filter-container"] = ("CHAT PROFANITY FILTER", "Locally filters text chat according to your preference."),
             ["voice-mode-container"] = ("VOICE INPUT MODE", "Select voice activation mode: push-to-talk or open mic."),
             ["sensitivity-container"] = ("MOUSE SENSITIVITY", "Controls horizontal and vertical look sensitivity."),
@@ -149,6 +153,8 @@ namespace Game.Menu {
         private bool _originalProfanityFilter;
         private bool _originalAutoWallRun;
         private int _originalGrappleIndicator;
+        private int _originalCrosshairStyle;
+        private int _originalCrosshairColor;
         private int _originalVoiceMode;
         private string _originalMainMenuBackgroundSelection = MainMenuBackgroundRandomizer.RandomSelectionOption;
         private int _originalWindowMode;
@@ -225,6 +231,8 @@ namespace Game.Menu {
             _autoWallRunButton = QOptional<Button>("auto-wall-run");
             _mainMenuBackgroundDropdown = QOptional<DropdownField>("main-menu-background");
             _grappleIndicatorDropdown = QOptional<DropdownField>("grapple-indicator");
+            _crosshairStyleDropdown = QOptional<DropdownField>("crosshair-style");
+            _crosshairColorDropdown = QOptional<DropdownField>("crosshair-color");
             _voiceModeDropdown = QOptional<DropdownField>("voice-mode");
             _voiceDeviceDropdown = QOptional<DropdownField>("voice-device");
 
@@ -567,6 +575,22 @@ namespace Game.Menu {
                     "Crosshair",
                     "Bottom",
                     "None"
+                };
+            }
+
+            if(_crosshairStyleDropdown != null) {
+                _crosshairStyleDropdown.choices = new List<string> {
+                    "Cross",
+                    "Dot"
+                };
+            }
+
+            if(_crosshairColorDropdown != null) {
+                _crosshairColorDropdown.choices = new List<string> {
+                    "Red",
+                    "Blue",
+                    "Green",
+                    "Yellow"
                 };
             }
         }
@@ -1483,6 +1507,16 @@ namespace Game.Menu {
                 _grappleIndicatorDropdown.index = Mathf.Clamp(savedGrappleIndicator, 0, _grappleIndicatorDropdown.choices.Count - 1);
             }
 
+            if(_crosshairStyleDropdown != null) {
+                var savedCrosshairStyle = data.controls != null ? data.controls.crosshairStyle : 0;
+                _crosshairStyleDropdown.index = Mathf.Clamp(savedCrosshairStyle, 0, _crosshairStyleDropdown.choices.Count - 1);
+            }
+
+            if(_crosshairColorDropdown != null) {
+                var savedCrosshairColor = data.controls != null ? data.controls.crosshairColor : 0;
+                _crosshairColorDropdown.index = Mathf.Clamp(savedCrosshairColor, 0, _crosshairColorDropdown.choices.Count - 1);
+            }
+
             if(_voiceModeDropdown != null) {
                 _voiceModeDropdown.choices = Enum.GetNames(typeof(VoiceInputMode)).ToList();
                 _voiceModeDropdown.index = (int)SocialSettings.InputMode;
@@ -1567,6 +1601,8 @@ namespace Game.Menu {
             _originalAutoWallRun = GetCheckboxValue(_autoWallRunButton);
             _originalMainMenuBackgroundSelection = _mainMenuBackgroundDropdown?.value ?? MainMenuBackgroundRandomizer.RandomSelectionOption;
             _originalGrappleIndicator = _grappleIndicatorDropdown?.index ?? 0;
+            _originalCrosshairStyle = _crosshairStyleDropdown?.index ?? 0;
+            _originalCrosshairColor = _crosshairColorDropdown?.index ?? 0;
             _originalVoiceMode = (int)SocialSettings.InputMode;
 
             _originalWindowMode = _windowModeDropdown?.index ?? 0;
@@ -1636,6 +1672,10 @@ namespace Game.Menu {
             
             var grappleIndicatorChanged = false;
             if(_grappleIndicatorDropdown != null) grappleIndicatorChanged = _grappleIndicatorDropdown.index != _originalGrappleIndicator;
+            var crosshairStyleChanged = false;
+            if(_crosshairStyleDropdown != null) crosshairStyleChanged = _crosshairStyleDropdown.index != _originalCrosshairStyle;
+            var crosshairColorChanged = false;
+            if(_crosshairColorDropdown != null) crosshairColorChanged = _crosshairColorDropdown.index != _originalCrosshairColor;
 
             var voiceModeChanged = false;
             if(_voiceModeDropdown != null) voiceModeChanged = _voiceModeDropdown.index != _originalVoiceMode;
@@ -1672,7 +1712,8 @@ namespace Game.Menu {
             return volumeChanged || sensitivityChanged || invertYChanged || playerTrailsChanged || streamerModeChanged ||
                    holdMantleChanged ||
                    profanityFilterChanged || autoWallRunChanged || mainMenuBackgroundChanged || voiceModeChanged ||
-                   grappleIndicatorChanged || windowModeChanged || aspectRatioChanged || resolutionChanged || msaaChanged ||
+                   grappleIndicatorChanged || crosshairStyleChanged || crosshairColorChanged ||
+                   windowModeChanged || aspectRatioChanged || resolutionChanged || msaaChanged ||
                    shadowDistanceChanged || shadowResolutionChanged || bloomChanged || motionBlurChanged ||
                    filmGrainChanged || vignetteChanged || vsyncChanged || fpsChanged || hasKeybindChanges;
         }
@@ -1798,6 +1839,14 @@ namespace Game.Menu {
             if(_grappleIndicatorDropdown != null) {
                 if(data.controls != null) data.controls.grappleIndicator = _grappleIndicatorDropdown.index;
             }
+
+            if(_crosshairStyleDropdown != null) {
+                if(data.controls != null) data.controls.crosshairStyle = _crosshairStyleDropdown.index;
+            }
+
+            if(_crosshairColorDropdown != null) {
+                if(data.controls != null) data.controls.crosshairColor = _crosshairColorDropdown.index;
+            }
             
             if(_voiceModeDropdown != null) {
                 SocialSettings.InputMode = (VoiceInputMode)_voiceModeDropdown.index;
@@ -1896,6 +1945,8 @@ namespace Game.Menu {
                 ? NormalizeMainMenuBackgroundSelection(_mainMenuBackgroundDropdown.value)
                 : MainMenuBackgroundRandomizer.RandomSelectionOption;
             _originalGrappleIndicator = _grappleIndicatorDropdown != null ? _grappleIndicatorDropdown.index : 0;
+            _originalCrosshairStyle = _crosshairStyleDropdown != null ? _crosshairStyleDropdown.index : 0;
+            _originalCrosshairColor = _crosshairColorDropdown != null ? _crosshairColorDropdown.index : 0;
             _originalVoiceMode = (int)SocialSettings.InputMode;
 
             _originalWindowMode = _windowModeDropdown != null ? _windowModeDropdown.index : 0;

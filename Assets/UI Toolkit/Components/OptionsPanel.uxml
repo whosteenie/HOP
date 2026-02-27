@@ -121,6 +121,14 @@
                             <ui:Label text="GRAPPLE INDICATOR TYPE" name="grapple-indicator-label" class="setting-label"/>
                             <ui:DropdownField name="grapple-indicator" class="setting-dropdown setting-dropdown-align-right"/>
                         </ui:VisualElement>
+                        <ui:VisualElement name="crosshair-style-container" class="setting-row">
+                            <ui:Label text="CROSSHAIR STYLE" name="crosshair-style-label" class="setting-label"/>
+                            <ui:DropdownField name="crosshair-style" class="setting-dropdown setting-dropdown-align-right"/>
+                        </ui:VisualElement>
+                        <ui:VisualElement name="crosshair-color-container" class="setting-row">
+                            <ui:Label text="CROSSHAIR COLOR" name="crosshair-color-label" class="setting-label"/>
+                            <ui:DropdownField name="crosshair-color" class="setting-dropdown setting-dropdown-align-right"/>
+                        </ui:VisualElement>
                         <ui:VisualElement name="profanity-filter-container" class="setting-row">
                             <ui:Label text="CHAT PROFANITY FILTER" name="profanity-filter-label" class="setting-label"/>
                             <ui:Button name="profanity-filter" class="setting-toggle"/>

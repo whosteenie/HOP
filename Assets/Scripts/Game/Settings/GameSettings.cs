@@ -72,6 +72,8 @@ namespace Game.Settings {
             // Controls
             d.controls.sensitivity = Mathf.Clamp(d.controls.sensitivity, 0.01f, 5f);
             d.controls.grappleIndicator = Mathf.Clamp(d.controls.grappleIndicator, 0, 2);
+            d.controls.crosshairStyle = Mathf.Clamp(d.controls.crosshairStyle, 0, 1);
+            d.controls.crosshairColor = Mathf.Clamp(d.controls.crosshairColor, 0, 3);
             if(string.IsNullOrWhiteSpace(d.video.mainMenuBackgroundSelection)) {
                 d.video.mainMenuBackgroundSelection = "Random";
             }
@@ -153,6 +155,8 @@ namespace Game.Settings {
             if(PlayerPrefs.HasKey("HoldMantle")) d.controls.holdMantle = PlayerPrefs.GetInt("HoldMantle", d.controls.holdMantle ? 1 : 0) == 1;
             if(PlayerPrefs.HasKey("AutoWallRun")) d.controls.autoWallRun = PlayerPrefs.GetInt("AutoWallRun", d.controls.autoWallRun ? 1 : 0) == 1;
             if(PlayerPrefs.HasKey("GrappleIndicator")) d.controls.grappleIndicator = PlayerPrefs.GetInt("GrappleIndicator", d.controls.grappleIndicator);
+            if(PlayerPrefs.HasKey("CrosshairStyle")) d.controls.crosshairStyle = PlayerPrefs.GetInt("CrosshairStyle", d.controls.crosshairStyle);
+            if(PlayerPrefs.HasKey("CrosshairColor")) d.controls.crosshairColor = PlayerPrefs.GetInt("CrosshairColor", d.controls.crosshairColor);
 
             // Video (best effort)
             if(PlayerPrefs.HasKey("WindowMode")) d.video.windowMode = PlayerPrefs.GetInt("WindowMode", d.video.windowMode);

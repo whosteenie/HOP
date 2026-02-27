@@ -31,6 +31,8 @@ namespace Game.Settings {
             public bool playerTrails = true;
             public bool holdMantle = true;
             public int grappleIndicator;
+            public int crosshairStyle;
+            public int crosshairColor;
             public bool autoWallRun;
         }
 

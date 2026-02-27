@@ -164,6 +164,13 @@
 .crosshair-line { position: absolute; background-color: rgb(200,60,60); }
 .crosshair-line.horizontal { width: 18px; height: 2px; }
 .crosshair-line.vertical   { width: 2px; height: 18px; }
+.crosshair-dot {
+    position: absolute;
+    width: 6px;
+    height: 6px;
+    border-radius: 3px;
+    background-color: rgb(200, 60, 60);
+}
 .hopball-interact-prompt {
     position: absolute;
     left: 50%;

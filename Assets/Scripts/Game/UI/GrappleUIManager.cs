@@ -32,6 +32,7 @@ namespace Game.UI {
         private VisualElement _grappleIndicatorBottom;
         private VisualElement _grappleIndicatorFill;
         private float _currentFillOpacity = 1f;
+        private int _lastCrosshairColorIndex = -1;
         
         // Cache scene name to avoid string allocations
         private string _cachedSceneName;
@@ -57,11 +58,14 @@ namespace Game.UI {
             // Subscribe to scene changes to update cache
             SceneManager.sceneLoaded -= OnSceneLoaded;
             SceneManager.sceneLoaded += OnSceneLoaded;
+            GameSettings.OnSettingsChanged -= OnSettingsChanged;
+            GameSettings.OnSettingsChanged += OnSettingsChanged;
         }
         
         protected override void OnDisable() {
             // Unsubscribe from scene changes
             SceneManager.sceneLoaded -= OnSceneLoaded;
+            GameSettings.OnSettingsChanged -= OnSettingsChanged;
             base.OnDisable();
         }
 
@@ -72,6 +76,7 @@ namespace Game.UI {
             _grappleIndicatorBottom = QOptional<VisualElement>("grapple-indicator-bottom");
             _grappleIndicatorFill = QOptional<VisualElement>("grapple-indicator-fill");
 
+            ApplyCrosshairColorSettings(force: true);
             _currentColor = cooldownColor;
             CreateHorseshoeSegments();
             
@@ -109,6 +114,10 @@ namespace Game.UI {
         
         private void OnSceneLoaded(Scene scene, LoadSceneMode mode) {
             UpdateCachedSceneName();
+        }
+
+        private void OnSettingsChanged() {
+            ApplyCrosshairColorSettings(force: false);
         }
 
         private void Update() {
@@ -373,6 +382,40 @@ namespace Game.UI {
             // Update fill visuals
             _grappleIndicatorFill.style.width = Length.Percent(fillWidth * 100f);
             _grappleIndicatorFill.style.opacity = _currentFillOpacity;
+        }
+
+        private void ApplyCrosshairColorSettings(bool force) {
+            var controls = GameSettings.Data.controls;
+            var colorIndex = controls != null ? Mathf.Clamp(controls.crosshairColor, 0, 3) : 0;
+            if(!force && colorIndex == _lastCrosshairColorIndex) {
+                return;
+            }
+
+            _lastCrosshairColorIndex = colorIndex;
+            var accent = ResolveCrosshairColor(colorIndex);
+
+            readyColor = new Color(accent.r, accent.g, accent.b, 0.85f);
+            cooldownColor = new Color(accent.r * 0.12f, accent.g * 0.12f, accent.b * 0.12f, 0.3f);
+
+            if(_grappleIndicatorFill != null) {
+                _grappleIndicatorFill.style.backgroundColor = new Color(accent.r, accent.g, accent.b, 0.9f);
+            }
+
+            _currentColor = cooldownColor;
+            if(_segments == null) return;
+            for(var i = 0; i < _segments.Length; i++) {
+                if(_segments[i] == null) continue;
+                _segments[i].style.backgroundColor = cooldownColor;
+            }
+        }
+
+        private static Color ResolveCrosshairColor(int colorIndex) {
+            return colorIndex switch {
+                1 => new Color(0.2f, 0.65f, 1f, 1f), // Blue
+                2 => new Color(0.22f, 1f, 0.35f, 1f), // Green
+                3 => new Color(1f, 0.9f, 0.2f, 1f), // Yellow
+                _ => new Color(1f, 0.24f, 0.24f, 1f) // Red
+            };
         }
     }
 }
