@@ -24,7 +24,6 @@ namespace Game.Weapons {
         [SerializeField] private bool forceWalkAnimationWhileSprinting = true;
         [SerializeField, Range(0f, 1.99f)] private float sprintWalkGaitValue = 1.2f;
         [SerializeField, Range(0f, 1f)] private float equipUnlockNormalizedTime = 0.82f;
-        [SerializeField] private bool logDrakeAmmoEjectDebug;
 
         private GameObject _playerInstance;
         private FPSPlayerSettings _runtimePlayerSettings;
@@ -139,8 +138,7 @@ namespace Game.Weapons {
             bool disablePlayerSounds, bool routeWeaponSoundEvents, bool syncLookPitch,
             bool syncInAirState, bool freezeAirLocomotion, bool forceWalkWhileSprinting,
             float sprintGaitValue,
-            float equipUnlockNormalizedProgress,
-            bool enableDrakeAmmoEjectDebug = false) {
+            float equipUnlockNormalizedProgress) {
             fpsPlayerPrefab = playerPrefab;
             weaponPrefab = fpWeaponPrefab;
             disableKinemationWeaponSounds = disableWeaponSounds;
@@ -152,22 +150,15 @@ namespace Game.Weapons {
             forceWalkAnimationWhileSprinting = forceWalkWhileSprinting;
             sprintWalkGaitValue = Mathf.Clamp(sprintGaitValue, 0f, 1.99f);
             equipUnlockNormalizedTime = Mathf.Clamp01(equipUnlockNormalizedProgress);
-            logDrakeAmmoEjectDebug = enableDrakeAmmoEjectDebug;
             _hasCachedWristDebugBones = false;
         }
 
-        public bool IsReloadSingleDebugEnabled() {
-            return logDrakeAmmoEjectDebug;
-        }
-
         private void LogDrakeDebug(string message) {
-            if(!logDrakeAmmoEjectDebug) return;
-            Debug.Log($"[KinemationFpWeaponDriver] {message}", this);
+            _ = message;
         }
 
         private void LogReloadSingleDebug(string message) {
-            if(!logDrakeAmmoEjectDebug) return;
-            Debug.Log($"[KinemationFpWeaponDriver][ReloadSingle] {message}", this);
+            _ = message;
         }
 
         public bool InitializeIfNeeded(int renderLayer) {
@@ -180,7 +171,8 @@ namespace Game.Weapons {
             }
 
             if(fpsPlayerPrefab == null || weaponPrefab == null) {
-                Debug.LogWarning("[KinemationFpWeaponDriver] Missing prefabs. Cannot initialize KINEMATION viewmodel.");
+                Debug.LogError("[KinemationFpWeaponDriver] Missing prefabs. Cannot initialize KINEMATION viewmodel.",
+                    this);
                 return false;
             }
 
@@ -190,8 +182,9 @@ namespace Game.Weapons {
 
             _fpsPlayer = _playerInstance.GetComponentInChildren<FPSPlayer>(true);
             if(_fpsPlayer == null) {
-                Debug.LogWarning(
-                    "[KinemationFpWeaponDriver] FPSPlayer component missing on KINEMATION player prefab hierarchy.");
+                Debug.LogError(
+                    "[KinemationFpWeaponDriver] FPSPlayer component missing on KINEMATION player prefab hierarchy.",
+                    this);
                 Destroy(_playerInstance);
                 _playerInstance = null;
                 return false;

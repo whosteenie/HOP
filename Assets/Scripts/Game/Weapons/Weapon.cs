@@ -91,7 +91,6 @@ namespace Game.Weapons {
         private const float BulletSpeed = 500f;
 
         private const float MuzzleLightTime = 5f;
-        [SerializeField] private bool logRemoteMuzzleDebug;
         private float _fpLightOffTime;
         private float _worldLightOffTime;
 
@@ -118,12 +117,6 @@ namespace Game.Weapons {
         private bool _hasPrewarmedKinemationMuzzleForCurrentWeapon;
         private bool _hasLocalMuzzleFlashSpawnPositionForShot;
         private Vector3 _localMuzzleFlashSpawnPositionForShot;
-        private Vector3 _lastRemoteMuzzleFxSpawnPosition;
-        private Quaternion _lastRemoteMuzzleFxSpawnRotation = Quaternion.identity;
-        private Vector3 _lastRemoteMuzzleFxForward = Vector3.forward;
-        private int _lastRemoteMuzzleFxSpawnFrame = -1;
-        private float _lastRemoteMuzzleFxSpawnTime = -1f;
-        private string _lastRemoteMuzzleTransformPath = "(none)";
 
         #endregion
 
@@ -371,22 +364,26 @@ namespace Game.Weapons {
         }
 
         private bool TryGetStrictWorldMuzzleTransform(out Transform muzzleTransform, string context,
-            bool allowOwnerInstance = false) {
+            bool allowOwnerInstance = false, bool logErrors = true) {
             muzzleTransform = null;
 
             if(playerController != null && playerController.IsOwner && !allowOwnerInstance) {
-                Debug.LogError(
-                    $"[Weapon][RemoteMuzzleStrict][{context}] Called on owner instance. " +
-                    $"weapon={(_currentWeaponData != null ? _currentWeaponData.weaponName : "(none)")}",
-                    this);
+                if(logErrors) {
+                    Debug.LogError(
+                        $"[Weapon][RemoteMuzzleStrict][{context}] Called on owner instance. " +
+                        $"weapon={(_currentWeaponData != null ? _currentWeaponData.weaponName : "(none)")}",
+                        this);
+                }
                 return false;
             }
 
             if(_currentWorldWeaponInstance == null) {
-                Debug.LogError(
-                    $"[Weapon][RemoteMuzzleStrict][{context}] Missing current world weapon instance. " +
-                    $"weapon={(_currentWeaponData != null ? _currentWeaponData.weaponName : "(none)")}",
-                    this);
+                if(logErrors) {
+                    Debug.LogError(
+                        $"[Weapon][RemoteMuzzleStrict][{context}] Missing current world weapon instance. " +
+                        $"weapon={(_currentWeaponData != null ? _currentWeaponData.weaponName : "(none)")}",
+                        this);
+                }
                 return false;
             }
 
@@ -396,43 +393,51 @@ namespace Game.Weapons {
             }
 
             if(_currentWorldWeaponBinding == null) {
-                Debug.LogError(
-                    $"[Weapon][RemoteMuzzleStrict][{context}] Missing WorldWeaponBinding on world weapon. " +
-                    $"weapon={(_currentWeaponData != null ? _currentWeaponData.weaponName : "(none)")} " +
-                    $"worldWeapon={_currentWorldWeaponInstance.name}",
-                    this);
+                if(logErrors) {
+                    Debug.LogError(
+                        $"[Weapon][RemoteMuzzleStrict][{context}] Missing WorldWeaponBinding on world weapon. " +
+                        $"weapon={(_currentWeaponData != null ? _currentWeaponData.weaponName : "(none)")} " +
+                        $"worldWeapon={_currentWorldWeaponInstance.name}",
+                        this);
+                }
                 return false;
             }
 
             if(!_currentWorldWeaponInstance.activeInHierarchy) {
-                Debug.LogError(
-                    $"[Weapon][RemoteMuzzleStrict][{context}] World weapon inactive. " +
-                    $"weapon={(_currentWeaponData != null ? _currentWeaponData.weaponName : "(none)")} " +
-                    $"worldWeapon={_currentWorldWeaponInstance.name}",
-                    this);
+                if(logErrors) {
+                    Debug.LogError(
+                        $"[Weapon][RemoteMuzzleStrict][{context}] World weapon inactive. " +
+                        $"weapon={(_currentWeaponData != null ? _currentWeaponData.weaponName : "(none)")} " +
+                        $"worldWeapon={_currentWorldWeaponInstance.name}",
+                        this);
+                }
                 return false;
             }
 
             if(!_currentWorldWeaponBinding.TryGetRuntimeReferences(
                    out _worldMuzzleTransform,
                    out var boundMuzzleLight)) {
-                Debug.LogError(
-                    $"[Weapon][RemoteMuzzleStrict][{context}] Assigned muzzle reference is null. " +
-                    $"weapon={(_currentWeaponData != null ? _currentWeaponData.weaponName : "(none)")} " +
-                    $"worldWeapon={_currentWorldWeaponInstance.name}",
-                    this);
+                if(logErrors) {
+                    Debug.LogError(
+                        $"[Weapon][RemoteMuzzleStrict][{context}] Assigned muzzle reference is null. " +
+                        $"weapon={(_currentWeaponData != null ? _currentWeaponData.weaponName : "(none)")} " +
+                        $"worldWeapon={_currentWorldWeaponInstance.name}",
+                        this);
+                }
                 return false;
             }
 
             if(boundMuzzleLight != null) _worldMuzzleLight = boundMuzzleLight;
 
             if(!_worldMuzzleTransform.gameObject.activeInHierarchy) {
-                Debug.LogError(
-                    $"[Weapon][RemoteMuzzleStrict][{context}] Muzzle transform inactive. " +
-                    $"weapon={(_currentWeaponData != null ? _currentWeaponData.weaponName : "(none)")} " +
-                    $"worldWeapon={_currentWorldWeaponInstance.name} " +
-                    $"muzzlePath={GetTransformPath(_worldMuzzleTransform)}",
-                    this);
+                if(logErrors) {
+                    Debug.LogError(
+                        $"[Weapon][RemoteMuzzleStrict][{context}] Muzzle transform inactive. " +
+                        $"weapon={(_currentWeaponData != null ? _currentWeaponData.weaponName : "(none)")} " +
+                        $"worldWeapon={_currentWorldWeaponInstance.name} " +
+                        $"muzzlePath={GetTransformPath(_worldMuzzleTransform)}",
+                        this);
+                }
                 return false;
             }
 
@@ -670,37 +675,45 @@ namespace Game.Weapons {
 
         public GameObject GetWeaponPrefab() => _currentFpWeaponInstance;
 
-        private bool TryGetStrictFpMuzzleTransform(out Transform muzzleTransform, string context) {
+        private bool TryGetStrictFpMuzzleTransform(out Transform muzzleTransform, string context, bool logErrors = true) {
             muzzleTransform = null;
 
             if(playerController == null || !playerController.IsOwner) {
-                Debug.LogError($"[Weapon][MuzzleStrict][{context}] FP muzzle requested by non-owner.", this);
+                if(logErrors) {
+                    Debug.LogError($"[Weapon][MuzzleStrict][{context}] FP muzzle requested by non-owner.", this);
+                }
                 return false;
             }
 
             if(_kinemationFpWeaponDriver == null) {
-                Debug.LogError(
-                    $"[Weapon][MuzzleStrict][{context}] Missing KinemationFpWeaponDriver for owner weapon " +
-                    $"'{(_currentWeaponData != null ? _currentWeaponData.weaponName : "(none)")}'.",
-                    this);
+                if(logErrors) {
+                    Debug.LogError(
+                        $"[Weapon][MuzzleStrict][{context}] Missing KinemationFpWeaponDriver for owner weapon " +
+                        $"'{(_currentWeaponData != null ? _currentWeaponData.weaponName : "(none)")}'.",
+                        this);
+                }
                 return false;
             }
 
             _fpMuzzleTransform = _kinemationFpWeaponDriver.GetMuzzleTransform();
             if(_fpMuzzleTransform == null) {
-                Debug.LogError(
-                    $"[Weapon][MuzzleStrict][{context}] FP muzzle transform missing for weapon " +
-                    $"'{(_currentWeaponData != null ? _currentWeaponData.weaponName : "(none)")}'.",
-                    this);
+                if(logErrors) {
+                    Debug.LogError(
+                        $"[Weapon][MuzzleStrict][{context}] FP muzzle transform missing for weapon " +
+                        $"'{(_currentWeaponData != null ? _currentWeaponData.weaponName : "(none)")}'.",
+                        this);
+                }
                 return false;
             }
 
             if(!_fpMuzzleTransform.gameObject.activeInHierarchy) {
-                Debug.LogError(
-                    $"[Weapon][MuzzleStrict][{context}] FP muzzle transform inactive. " +
-                    $"weapon={(_currentWeaponData != null ? _currentWeaponData.weaponName : "(none)")} " +
-                    $"muzzlePath={GetTransformPath(_fpMuzzleTransform)}",
-                    this);
+                if(logErrors) {
+                    Debug.LogError(
+                        $"[Weapon][MuzzleStrict][{context}] FP muzzle transform inactive. " +
+                        $"weapon={(_currentWeaponData != null ? _currentWeaponData.weaponName : "(none)")} " +
+                        $"muzzlePath={GetTransformPath(_fpMuzzleTransform)}",
+                        this);
+                }
                 return false;
             }
 
@@ -708,20 +721,23 @@ namespace Game.Weapons {
             return true;
         }
 
-        private bool TryGetRequiredOwnerMuzzleTransform(out Transform muzzleTransform, string context) {
+        private bool TryGetRequiredOwnerMuzzleTransform(out Transform muzzleTransform, string context, bool logErrors = true) {
             muzzleTransform = null;
 
             if(playerController == null || !playerController.IsOwner) {
-                Debug.LogError(
-                    $"[Weapon][MuzzleStrict][{context}] Owner-only muzzle query called on non-owner.",
-                    this);
+                if(logErrors) {
+                    Debug.LogError(
+                        $"[Weapon][MuzzleStrict][{context}] Owner-only muzzle query called on non-owner.",
+                        this);
+                }
                 return false;
             }
 
             var isPostMatch = GameMenuManager.Instance != null && GameMenuManager.Instance.IsPostMatch;
             return isPostMatch
-                ? TryGetStrictWorldMuzzleTransform(out muzzleTransform, context, allowOwnerInstance: true)
-                : TryGetStrictFpMuzzleTransform(out muzzleTransform, context);
+                ? TryGetStrictWorldMuzzleTransform(out muzzleTransform, context, allowOwnerInstance: true,
+                    logErrors: logErrors)
+                : TryGetStrictFpMuzzleTransform(out muzzleTransform, context, logErrors: logErrors);
         }
 
         #endregion
@@ -1231,13 +1247,7 @@ namespace Game.Weapons {
             var magCapacity = GetCurrentMagCapacity();
             if(currentAmmo >= magCapacity) return;
 
-            var ammoBefore = currentAmmo;
             currentAmmo = Mathf.Min(currentAmmo + 1, magCapacity);
-            if(_kinemationFpWeaponDriver != null && _kinemationFpWeaponDriver.IsReloadSingleDebugEnabled()) {
-                Debug.Log(
-                    $"[Weapon][ReloadSingle] Applied +1 frame={Time.frameCount} time={Time.time:F3} " +
-                    $"weapon={_currentWeaponData.weaponName} ammo={ammoBefore}->{currentAmmo} cap={magCapacity}");
-            }
 
             PublishOwnerAmmoToHud(magCapacity);
 
@@ -1414,7 +1424,8 @@ namespace Game.Weapons {
             if(_kinemationFpWeaponDriver == null) return;
             if(_currentWeaponData == null || _currentWeaponData.muzzleFlashPrefab == null) return;
 
-            if(!TryGetRequiredOwnerMuzzleTransform(out var muzzleTransform, "PrewarmKinemationLocalMuzzleFxInstance")) {
+            if(!TryGetRequiredOwnerMuzzleTransform(out var muzzleTransform, "PrewarmKinemationLocalMuzzleFxInstance",
+                   logErrors: false)) {
                 return;
             }
 
@@ -1472,13 +1483,6 @@ namespace Game.Weapons {
             if(_currentWeaponData == null || _currentWeaponData.useMagReload) return;
 
             var reloadSingleEvents = _kinemationFpWeaponDriver.ConsumeReloadSingleEventCount();
-            if(reloadSingleEvents > 0 && _kinemationFpWeaponDriver.IsReloadSingleDebugEnabled()) {
-                Debug.Log(
-                    $"[Weapon][ReloadSingle] Dequeued during CanFire events={reloadSingleEvents} " +
-                    $"frame={Time.frameCount} time={Time.time:F3} " +
-                    $"weapon={_currentWeaponData.weaponName} ammoBefore={currentAmmo}");
-            }
-
             for(var i = 0; i < reloadSingleEvents; i++) {
                 HandleKinemationReloadSingleRound();
             }
@@ -1510,19 +1514,11 @@ namespace Game.Weapons {
                _currentWeaponData.muzzleFlashPrefab != null &&
                muzzleTransform != null) {
                 var position = muzzleTransform.position;
-                var muzzleForward = muzzleTransform.forward;
                 var tracerDirection = endPoint - position;
                 var tracerDirectionValid = tracerDirection.sqrMagnitude > 0.0001f;
                 var tracerDirectionNormalized = tracerDirectionValid ? tracerDirection.normalized : Vector3.zero;
-                var tracerAngle = tracerDirectionValid
-                    ? Vector3.Angle(muzzleForward, tracerDirectionNormalized)
-                    : -1f;
                 var desiredWorldRotation =
                     ResolveWorldMuzzleFxRotation(muzzleTransform, tracerDirectionNormalized, tracerDirectionValid);
-                var fxForward = desiredWorldRotation * Vector3.forward;
-                var fxVsTracerAngle = tracerDirectionValid
-                    ? Vector3.Angle(fxForward, tracerDirectionNormalized)
-                    : -1f;
 
                 var fxGo = Instantiate(_currentWeaponData.muzzleFlashPrefab, position,
                     desiredWorldRotation);
@@ -1535,26 +1531,6 @@ namespace Game.Weapons {
                 }
 
                 Destroy(fxGo, 1f);
-
-                _lastRemoteMuzzleFxSpawnPosition = position;
-                _lastRemoteMuzzleFxSpawnRotation = desiredWorldRotation;
-                _lastRemoteMuzzleFxForward = fxForward;
-                _lastRemoteMuzzleFxSpawnFrame = Time.frameCount;
-                _lastRemoteMuzzleFxSpawnTime = Time.time;
-                _lastRemoteMuzzleTransformPath = GetTransformPath(muzzleTransform);
-
-                if(logRemoteMuzzleDebug) {
-                    Debug.Log(
-                        $"[Weapon][RemoteMuzzleDebug][FX] frame={Time.frameCount} time={Time.time:F3} " +
-                        $"weapon={(_currentWeaponData != null ? _currentWeaponData.weaponName : "(none)")} " +
-                        $"worldWeapon={(_currentWorldWeaponInstance != null ? _currentWorldWeaponInstance.name : "(none)")} " +
-                        $"muzzlePath={_lastRemoteMuzzleTransformPath} " +
-                        $"muzzlePos={position:F4} muzzleFwd={muzzleForward:F4} " +
-                        $"fxRotEuler={desiredWorldRotation.eulerAngles:F3} fxFwd={_lastRemoteMuzzleFxForward:F4} " +
-                        $"endPoint={endPoint:F4} tracerDir={tracerDirectionNormalized:F4} tracerAngle={tracerAngle:F2} " +
-                        $"fxVsTracerAngle={fxVsTracerAngle:F2}",
-                        this);
-                }
             } else {
                 Debug.LogError(
                     "[Weapon][RemoteMuzzleStrict][PlayNetworkedMuzzleFlash] Missing muzzle flash prefab. " +
@@ -1567,54 +1543,6 @@ namespace Game.Weapons {
             if(!_worldMuzzleLight) return;
             _worldMuzzleLight.SetActive(true);
             _worldLightOffTime = Time.time + MuzzleLightTime;
-        }
-
-        public void LogRemoteTracerDebug(Vector3 endPoint, bool hasStartPoint, Vector3 startPoint) {
-            if(playerController != null && playerController.IsOwner) return;
-
-            _ = TryGetStrictWorldMuzzleTransform(out _, "LogRemoteTracerDebug");
-
-            var hasWorldMuzzle = _worldMuzzleTransform != null;
-            var worldMuzzlePosition = hasWorldMuzzle ? _worldMuzzleTransform.position : Vector3.zero;
-            var worldMuzzleForward = hasWorldMuzzle ? _worldMuzzleTransform.forward : Vector3.zero;
-            var tracerDirection = hasStartPoint ? endPoint - startPoint : Vector3.zero;
-            var tracerDirectionValid = hasStartPoint && tracerDirection.sqrMagnitude > 0.0001f;
-            var tracerDirectionNormalized = tracerDirectionValid ? tracerDirection.normalized : Vector3.zero;
-            var worldVsTracerAngle = tracerDirectionValid && hasWorldMuzzle
-                ? Vector3.Angle(worldMuzzleForward, tracerDirectionNormalized)
-                : -1f;
-            var tracerStartDeltaFromWorldMuzzle = hasStartPoint && hasWorldMuzzle
-                ? Vector3.Distance(startPoint, worldMuzzlePosition)
-                : -1f;
-            var tracerStartDeltaFromLastFxSpawn = hasStartPoint && _lastRemoteMuzzleFxSpawnFrame >= 0
-                ? Vector3.Distance(startPoint, _lastRemoteMuzzleFxSpawnPosition)
-                : -1f;
-            var lastFxVsWorldMuzzleDelta = hasWorldMuzzle && _lastRemoteMuzzleFxSpawnFrame >= 0
-                ? Vector3.Distance(_lastRemoteMuzzleFxSpawnPosition, worldMuzzlePosition)
-                : -1f;
-            var tracerRotation = tracerDirectionValid
-                ? Quaternion.LookRotation(tracerDirectionNormalized, Vector3.up)
-                : Quaternion.identity;
-
-            if(logRemoteMuzzleDebug) {
-                Debug.Log(
-                    $"[Weapon][RemoteMuzzleDebug][Tracer] frame={Time.frameCount} time={Time.time:F3} " +
-                    $"weapon={(_currentWeaponData != null ? _currentWeaponData.weaponName : "(none)")} " +
-                    $"worldWeapon={(_currentWorldWeaponInstance != null ? _currentWorldWeaponInstance.name : "(none)")} " +
-                    $"hasStart={hasStartPoint} start={startPoint:F4} end={endPoint:F4} " +
-                    $"tracerDir={tracerDirectionNormalized:F4} tracerRotEuler={tracerRotation.eulerAngles:F3} " +
-                    $"worldMuzzlePath={(hasWorldMuzzle ? GetTransformPath(_worldMuzzleTransform) : "(none)")} " +
-                    $"worldMuzzlePos={worldMuzzlePosition:F4} worldMuzzleFwd={worldMuzzleForward:F4} " +
-                    $"worldVsTracerAngle={worldVsTracerAngle:F2} " +
-                    $"startVsWorldMuzzleDelta={tracerStartDeltaFromWorldMuzzle:F4} " +
-                    $"startVsLastFxSpawnDelta={tracerStartDeltaFromLastFxSpawn:F4} " +
-                    $"lastFxSpawnFrame={_lastRemoteMuzzleFxSpawnFrame} lastFxSpawnTime={_lastRemoteMuzzleFxSpawnTime:F3} " +
-                    $"lastFxSpawnPos={_lastRemoteMuzzleFxSpawnPosition:F4} " +
-                    $"lastFxSpawnRotEuler={_lastRemoteMuzzleFxSpawnRotation.eulerAngles:F3} " +
-                    $"lastFxTransformPath={_lastRemoteMuzzleTransformPath} " +
-                    $"lastFxVsWorldMuzzleDelta={lastFxVsWorldMuzzleDelta:F4}",
-                    this);
-            }
         }
 
         private Quaternion ResolveWorldMuzzleFxRotation(Transform muzzleTransform, Vector3 tracerDirectionNormalized,
@@ -1801,24 +1729,11 @@ namespace Game.Weapons {
             if(!IsReloading || _kinemationFpWeaponDriver == null) return;
 
             var reloadSingleEvents = _kinemationFpWeaponDriver.ConsumeReloadSingleEventCount();
-            if(reloadSingleEvents > 0 && _kinemationFpWeaponDriver.IsReloadSingleDebugEnabled()) {
-                Debug.Log(
-                    $"[Weapon][ReloadSingle] Dequeued events={reloadSingleEvents} frame={Time.frameCount} time={Time.time:F3} " +
-                    $"weapon={(_currentWeaponData != null ? _currentWeaponData.weaponName : "(null)")} ammoBefore={currentAmmo}");
-            }
-
             for(var i = 0; i < reloadSingleEvents; i++) {
                 HandleKinemationReloadSingleRound();
             }
 
             if(_kinemationFpWeaponDriver.ConsumeReloadCompleteEvent()) {
-                if(_kinemationFpWeaponDriver.IsReloadSingleDebugEnabled()) {
-                    Debug.Log(
-                        $"[Weapon][ReloadSingle] ReloadComplete consumed -> full fill frame={Time.frameCount} time={Time.time:F3} " +
-                        $"weapon={(_currentWeaponData != null ? _currentWeaponData.weaponName : "(null)")} " +
-                        $"ammoBeforeFill={currentAmmo} cap={GetCurrentMagCapacity()}");
-                }
-
                 CompleteReload();
                 return;
             }

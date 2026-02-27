@@ -59,8 +59,6 @@ namespace Network.Rpc {
                 }
 
                 var hasStartPoint = weapon.TryGetRemoteWorldMuzzlePosition(out var startPoint);
-                weapon.LogRemoteTracerDebug(pending.EndPoint, hasStartPoint, startPoint);
-
                 if(hasStartPoint) {
                     weapon.SpawnTracerLocal(startPoint, pending.EndPoint, pending.HitNormal, pending.MadeImpact,
                         pending.HitPlayer, pending.HitPlayerRef, pending.ShooterVelocity);
