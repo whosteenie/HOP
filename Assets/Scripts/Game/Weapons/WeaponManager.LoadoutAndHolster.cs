@@ -77,8 +77,10 @@ namespace Game.Weapons {
         #region Holstered Weapons
 
         private void SetupHolsteredWeaponModels() {
-            PrimaryHolster = ResolveWorldWeaponObject(GetWeaponDataForSlot(0));
-            SecondaryHolster = ResolveWorldWeaponObject(GetWeaponDataForSlot(1));
+            PrimaryHolster = ResolveHolsterWeaponObject(GetWeaponDataForSlot(0));
+            SecondaryHolster = ResolveHolsterWeaponObject(GetWeaponDataForSlot(1));
+
+            DisableUnequippedHolsterModels();
 
             if(PrimaryHolster == null) {
                 Debug.LogError("[WeaponManager] Missing Primary holster world weapon binding.");
@@ -90,6 +92,29 @@ namespace Game.Weapons {
 
             DisableHolster(PrimaryHolster);
             DisableHolster(SecondaryHolster);
+        }
+
+        private void DisableUnequippedHolsterModels() {
+            if(_worldWeaponSocket == null || _worldWeaponSocket.root == null) return;
+
+            var equippedHolsters = new HashSet<GameObject>();
+            if(PrimaryHolster != null) equippedHolsters.Add(PrimaryHolster);
+            if(SecondaryHolster != null) equippedHolsters.Add(SecondaryHolster);
+
+            var bindings = _worldWeaponSocket.root.GetComponentsInChildren<WorldWeaponBinding>(true);
+            for(var i = 0; i < bindings.Length; i++) {
+                var binding = bindings[i];
+                if(binding == null || binding.WeaponData == null) continue;
+                if(binding.transform.IsChildOf(_worldWeaponSocket)) continue;
+
+                var holsterObject = binding.gameObject;
+                if(holsterObject == null) continue;
+
+                if(equippedHolsters.Contains(holsterObject)) continue;
+                if(holsterObject.activeSelf) {
+                    holsterObject.SetActive(false);
+                }
+            }
         }
 
         private WeaponData GetWeaponDataForSlot(int slot) {
@@ -366,6 +391,12 @@ namespace Game.Weapons {
                 if(ResolveWorldWeaponObject(data) == null) {
                     Debug.LogError(
                         $"[WeaponManager] Weapon '{data.weaponName}' missing WorldWeaponBinding under WorldWeaponSocket.");
+                    isValid = false;
+                }
+
+                if(ResolveHolsterWeaponObject(data) == null) {
+                    Debug.LogError(
+                        $"[WeaponManager] Weapon '{data.weaponName}' missing holster WorldWeaponBinding outside WorldWeaponSocket.");
                     isValid = false;
                 }
             }

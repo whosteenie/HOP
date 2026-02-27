@@ -49,7 +49,8 @@ namespace Game.Weapons {
 
         private void TriggerTpPullOutAnimation(int weaponIndex) {
             if(_playerAnimator == null) return;
-            _playerAnimator.SetInteger(WeaponIndexHash, weaponIndex);
+            var slot = Mathf.Clamp(GetSlotForIndex(weaponIndex), 0, 1);
+            _playerAnimator.SetInteger(WeaponIndexHash, slot);
             _playerAnimator.SetTrigger(PullOutHash);
         }
 

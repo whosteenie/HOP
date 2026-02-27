@@ -156,6 +156,10 @@ namespace Game.Weapons {
             return _worldWeaponRegistry.Resolve(data);
         }
 
+        private GameObject ResolveHolsterWeaponObject(WeaponData data) {
+            return _worldWeaponRegistry.ResolveHolster(data);
+        }
+
         private int ResolveRestoredAmmo(int weaponIndex, int magCapacity, bool seedWhenMissing) {
             return _ammoAuthority.ResolveRestoredAmmo(weaponIndex, magCapacity, seedWhenMissing);
         }

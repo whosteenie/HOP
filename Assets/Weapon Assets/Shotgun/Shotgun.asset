@@ -15,7 +15,7 @@ MonoBehaviour:
   weaponName: Bennelli_M4
   weaponPrefab: {fileID: 1236257789494122, guid: 7920461d3e8d4114e985716c6f98bf11, type: 3}
   loadoutIcon: {fileID: 21300000, guid: bdf81345affe7f24ea0b91d8f44c8eb2, type: 3}
-  weaponSlot: 3
+  weaponSlot: 0
   spawnPosition: {x: 0.384, y: -0.22, z: 0.31}
   spawnRotation: {x: 0, y: -180, z: 0}
   muzzleLocalOffset: {x: 0, y: 0, z: -0.4764}

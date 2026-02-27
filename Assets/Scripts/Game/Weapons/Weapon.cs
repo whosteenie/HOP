@@ -116,6 +116,12 @@ namespace Game.Weapons {
         private bool _hasPrewarmedKinemationMuzzleForCurrentWeapon;
         private bool _hasLocalMuzzleFlashSpawnPositionForShot;
         private Vector3 _localMuzzleFlashSpawnPositionForShot;
+        private Vector3 _lastRemoteMuzzleFxSpawnPosition;
+        private Quaternion _lastRemoteMuzzleFxSpawnRotation = Quaternion.identity;
+        private Vector3 _lastRemoteMuzzleFxForward = Vector3.forward;
+        private int _lastRemoteMuzzleFxSpawnFrame = -1;
+        private float _lastRemoteMuzzleFxSpawnTime = -1f;
+        private string _lastRemoteMuzzleTransformPath = "(none)";
 
         #endregion
 
@@ -360,6 +366,104 @@ namespace Game.Weapons {
             }
 
             return null;
+        }
+
+        private static string GetTransformPath(Transform transform) {
+            if(transform == null) return "(none)";
+
+            var path = transform.name;
+            var current = transform.parent;
+            while(current != null) {
+                path = current.name + "/" + path;
+                current = current.parent;
+            }
+
+            return path;
+        }
+
+        private static string DescribeMuzzleCandidates(GameObject weaponInstanceRoot) {
+            if(weaponInstanceRoot == null) return "count=0 []";
+
+            var transforms = weaponInstanceRoot.GetComponentsInChildren<Transform>(true);
+            var count = 0;
+            var entries = string.Empty;
+            const int maxEntries = 6;
+
+            for(var i = 0; i < transforms.Length; i++) {
+                var candidate = transforms[i];
+                if(candidate == null || candidate.name != "Muzzle") continue;
+
+                count++;
+                if(count <= maxEntries) {
+                    var entry = $"'{GetTransformPath(candidate)}'@{candidate.position:F3}";
+                    entries = string.IsNullOrEmpty(entries) ? entry : $"{entries}; {entry}";
+                }
+            }
+
+            return $"count={count} [{entries}]";
+        }
+
+        private bool TryGetStrictWorldMuzzleTransform(out Transform muzzleTransform, string context) {
+            muzzleTransform = null;
+
+            if(playerController != null && playerController.IsOwner) {
+                Debug.LogError(
+                    $"[Weapon][RemoteMuzzleStrict][{context}] Called on owner instance. " +
+                    $"weapon={(_currentWeaponData != null ? _currentWeaponData.weaponName : "(none)")}",
+                    this);
+                return false;
+            }
+
+            if(_currentWorldWeaponInstance == null) {
+                Debug.LogError(
+                    $"[Weapon][RemoteMuzzleStrict][{context}] Missing current world weapon instance. " +
+                    $"weapon={(_currentWeaponData != null ? _currentWeaponData.weaponName : "(none)")}",
+                    this);
+                return false;
+            }
+
+            if(!_currentWorldWeaponInstance.activeInHierarchy) {
+                Debug.LogError(
+                    $"[Weapon][RemoteMuzzleStrict][{context}] World weapon inactive. " +
+                    $"weapon={(_currentWeaponData != null ? _currentWeaponData.weaponName : "(none)")} " +
+                    $"worldWeapon={_currentWorldWeaponInstance.name}",
+                    this);
+                return false;
+            }
+
+            _worldMuzzleTransform ??= ResolveMuzzleTransform(_currentWorldWeaponInstance);
+            if(_worldMuzzleTransform == null) {
+                Debug.LogError(
+                    $"[Weapon][RemoteMuzzleStrict][{context}] Muzzle transform not found. " +
+                    $"weapon={(_currentWeaponData != null ? _currentWeaponData.weaponName : "(none)")} " +
+                    $"worldWeapon={_currentWorldWeaponInstance.name} " +
+                    $"muzzleCandidates={DescribeMuzzleCandidates(_currentWorldWeaponInstance)}",
+                    this);
+                return false;
+            }
+
+            if(!_worldMuzzleTransform.gameObject.activeInHierarchy) {
+                Debug.LogError(
+                    $"[Weapon][RemoteMuzzleStrict][{context}] Muzzle transform inactive. " +
+                    $"weapon={(_currentWeaponData != null ? _currentWeaponData.weaponName : "(none)")} " +
+                    $"worldWeapon={_currentWorldWeaponInstance.name} " +
+                    $"muzzlePath={GetTransformPath(_worldMuzzleTransform)}",
+                    this);
+                return false;
+            }
+
+            muzzleTransform = _worldMuzzleTransform;
+            return true;
+        }
+
+        public bool TryGetRemoteWorldMuzzlePosition(out Vector3 muzzlePosition) {
+            muzzlePosition = default;
+            if(!TryGetStrictWorldMuzzleTransform(out var muzzleTransform, "TryGetRemoteWorldMuzzlePosition")) {
+                return false;
+            }
+
+            muzzlePosition = muzzleTransform.position;
+            return true;
         }
 
         #endregion
@@ -1457,15 +1561,28 @@ namespace Game.Weapons {
             if(playerController != null && playerController.IsOwner) {
                 return;
             }
+            if(!TryGetStrictWorldMuzzleTransform(out var muzzleTransform, "PlayNetworkedMuzzleFlash")) {
+                return;
+            }
 
             // NON-OWNER ONLY: Play 3P world muzzle flash
             if(_currentWeaponData != null &&
                _currentWeaponData.muzzleFlashPrefab != null &&
-               TryGetPreferredMuzzleTransform(true, out var muzzleTransform) &&
                muzzleTransform != null) {
                 var position = muzzleTransform.position;
-                var directionHint = endPoint - position;
-                var desiredWorldRotation = ResolveKinemationMuzzleFxRotation(muzzleTransform, directionHint);
+                var muzzleForward = muzzleTransform.forward;
+                var tracerDirection = endPoint - position;
+                var tracerDirectionValid = tracerDirection.sqrMagnitude > 0.0001f;
+                var tracerDirectionNormalized = tracerDirectionValid ? tracerDirection.normalized : Vector3.zero;
+                var tracerAngle = tracerDirectionValid
+                    ? Vector3.Angle(muzzleForward, tracerDirectionNormalized)
+                    : -1f;
+                var desiredWorldRotation =
+                    ResolveWorldMuzzleFxRotation(muzzleTransform, tracerDirectionNormalized, tracerDirectionValid);
+                var fxForward = desiredWorldRotation * Vector3.forward;
+                var fxVsTracerAngle = tracerDirectionValid
+                    ? Vector3.Angle(fxForward, tracerDirectionNormalized)
+                    : -1f;
 
                 var fxGo = Instantiate(_currentWeaponData.muzzleFlashPrefab, position,
                     desiredWorldRotation);
@@ -1477,11 +1594,106 @@ namespace Game.Weapons {
                     fx.Play();
                 }
                 Destroy(fxGo, 1f);
+
+                _lastRemoteMuzzleFxSpawnPosition = position;
+                _lastRemoteMuzzleFxSpawnRotation = desiredWorldRotation;
+                _lastRemoteMuzzleFxForward = fxForward;
+                _lastRemoteMuzzleFxSpawnFrame = Time.frameCount;
+                _lastRemoteMuzzleFxSpawnTime = Time.time;
+                _lastRemoteMuzzleTransformPath = GetTransformPath(muzzleTransform);
+
+                Debug.Log(
+                    $"[Weapon][RemoteMuzzleDebug][FX] frame={Time.frameCount} time={Time.time:F3} " +
+                    $"weapon={(_currentWeaponData != null ? _currentWeaponData.weaponName : "(none)")} " +
+                    $"worldWeapon={(_currentWorldWeaponInstance != null ? _currentWorldWeaponInstance.name : "(none)")} " +
+                    $"muzzlePath={_lastRemoteMuzzleTransformPath} " +
+                    $"muzzlePos={position:F4} muzzleFwd={muzzleForward:F4} " +
+                    $"fxRotEuler={desiredWorldRotation.eulerAngles:F3} fxFwd={_lastRemoteMuzzleFxForward:F4} " +
+                    $"endPoint={endPoint:F4} tracerDir={tracerDirectionNormalized:F4} tracerAngle={tracerAngle:F2} " +
+                    $"fxVsTracerAngle={fxVsTracerAngle:F2} " +
+                    $"muzzleCandidates={DescribeMuzzleCandidates(_currentWorldWeaponInstance)}",
+                    this);
+            } else {
+                Debug.LogError(
+                    $"[Weapon][RemoteMuzzleStrict][PlayNetworkedMuzzleFlash] Missing muzzle flash prefab. " +
+                    $"weapon={(_currentWeaponData != null ? _currentWeaponData.weaponName : "(none)")} " +
+                    $"worldWeapon={(_currentWorldWeaponInstance != null ? _currentWorldWeaponInstance.name : "(none)")}",
+                    this);
+                return;
             }
 
             if(!_worldMuzzleLight) return;
             _worldMuzzleLight.SetActive(true);
             _worldLightOffTime = Time.time + MuzzleLightTime;
+        }
+
+        public void LogRemoteTracerDebug(Vector3 endPoint, bool hasStartPoint, Vector3 startPoint) {
+            if(playerController != null && playerController.IsOwner) return;
+
+            _ = TryGetStrictWorldMuzzleTransform(out _, "LogRemoteTracerDebug");
+
+            var hasWorldMuzzle = _worldMuzzleTransform != null;
+            var worldMuzzlePosition = hasWorldMuzzle ? _worldMuzzleTransform.position : Vector3.zero;
+            var worldMuzzleForward = hasWorldMuzzle ? _worldMuzzleTransform.forward : Vector3.zero;
+            var tracerDirection = hasStartPoint ? endPoint - startPoint : Vector3.zero;
+            var tracerDirectionValid = hasStartPoint && tracerDirection.sqrMagnitude > 0.0001f;
+            var tracerDirectionNormalized = tracerDirectionValid ? tracerDirection.normalized : Vector3.zero;
+            var worldVsTracerAngle = tracerDirectionValid && hasWorldMuzzle
+                ? Vector3.Angle(worldMuzzleForward, tracerDirectionNormalized)
+                : -1f;
+            var tracerStartDeltaFromWorldMuzzle = hasStartPoint && hasWorldMuzzle
+                ? Vector3.Distance(startPoint, worldMuzzlePosition)
+                : -1f;
+            var tracerStartDeltaFromLastFxSpawn = hasStartPoint && _lastRemoteMuzzleFxSpawnFrame >= 0
+                ? Vector3.Distance(startPoint, _lastRemoteMuzzleFxSpawnPosition)
+                : -1f;
+            var lastFxVsWorldMuzzleDelta = hasWorldMuzzle && _lastRemoteMuzzleFxSpawnFrame >= 0
+                ? Vector3.Distance(_lastRemoteMuzzleFxSpawnPosition, worldMuzzlePosition)
+                : -1f;
+            var tracerRotation = tracerDirectionValid
+                ? Quaternion.LookRotation(tracerDirectionNormalized, Vector3.up)
+                : Quaternion.identity;
+
+            Debug.Log(
+                $"[Weapon][RemoteMuzzleDebug][Tracer] frame={Time.frameCount} time={Time.time:F3} " +
+                $"weapon={(_currentWeaponData != null ? _currentWeaponData.weaponName : "(none)")} " +
+                $"worldWeapon={(_currentWorldWeaponInstance != null ? _currentWorldWeaponInstance.name : "(none)")} " +
+                $"hasStart={hasStartPoint} start={startPoint:F4} end={endPoint:F4} " +
+                $"tracerDir={tracerDirectionNormalized:F4} tracerRotEuler={tracerRotation.eulerAngles:F3} " +
+                $"worldMuzzlePath={(hasWorldMuzzle ? GetTransformPath(_worldMuzzleTransform) : "(none)")} " +
+                $"worldMuzzlePos={worldMuzzlePosition:F4} worldMuzzleFwd={worldMuzzleForward:F4} " +
+                $"worldVsTracerAngle={worldVsTracerAngle:F2} " +
+                $"startVsWorldMuzzleDelta={tracerStartDeltaFromWorldMuzzle:F4} " +
+                $"startVsLastFxSpawnDelta={tracerStartDeltaFromLastFxSpawn:F4} " +
+                $"lastFxSpawnFrame={_lastRemoteMuzzleFxSpawnFrame} lastFxSpawnTime={_lastRemoteMuzzleFxSpawnTime:F3} " +
+                $"lastFxSpawnPos={_lastRemoteMuzzleFxSpawnPosition:F4} " +
+                $"lastFxSpawnRotEuler={_lastRemoteMuzzleFxSpawnRotation.eulerAngles:F3} " +
+                $"lastFxTransformPath={_lastRemoteMuzzleTransformPath} " +
+                $"lastFxVsWorldMuzzleDelta={lastFxVsWorldMuzzleDelta:F4} " +
+                $"muzzleCandidates={DescribeMuzzleCandidates(_currentWorldWeaponInstance)}",
+                this);
+        }
+
+        private Quaternion ResolveWorldMuzzleFxRotation(Transform muzzleTransform, Vector3 tracerDirectionNormalized,
+            bool hasTracerDirection) {
+            var direction = hasTracerDirection
+                ? tracerDirectionNormalized
+                : muzzleTransform != null ? muzzleTransform.forward : transform.forward;
+            if(direction.sqrMagnitude <= 0.0001f) {
+                direction = muzzleTransform != null ? muzzleTransform.forward : transform.forward;
+            }
+
+            direction.Normalize();
+            if(!DoesCurrentMuzzleFlashUseForwardAxis()) {
+                direction = -direction;
+            }
+
+            var up = muzzleTransform != null ? muzzleTransform.up : Vector3.up;
+            if(Mathf.Abs(Vector3.Dot(up, direction)) > 0.98f) {
+                up = Vector3.right;
+            }
+
+            return Quaternion.LookRotation(direction, up);
         }
 
         private static void ApplyLayerRecursive(GameObject root, int layer) {
@@ -1505,21 +1717,36 @@ namespace Game.Weapons {
             follower.Bind(muzzleTransform, followRotation);
         }
 
+        [DefaultExecutionOrder(7100)] // Must run after upper-body/spine pose updates.
         private sealed class MuzzleFlashFollow : MonoBehaviour {
             private Transform _muzzleTransform;
             private bool _followRotation;
+            private int _lastSyncFrame = -1;
 
             public void Bind(Transform muzzleTransform, bool followRotation) {
                 _muzzleTransform = muzzleTransform;
                 _followRotation = followRotation;
+                SyncToMuzzle(force: true);
+            }
+
+            private void Update() {
+                SyncToMuzzle();
             }
 
             private void LateUpdate() {
+                SyncToMuzzle(force: true);
+            }
+
+            private void SyncToMuzzle(bool force = false) {
                 if(_muzzleTransform == null) return;
+                if(!force && _lastSyncFrame == Time.frameCount) return;
+
                 transform.position = _muzzleTransform.position;
                 if(_followRotation) {
                     transform.rotation = _muzzleTransform.rotation;
                 }
+
+                _lastSyncFrame = Time.frameCount;
             }
         }
 
