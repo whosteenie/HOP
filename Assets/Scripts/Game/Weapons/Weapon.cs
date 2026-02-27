@@ -2048,10 +2048,9 @@ namespace Game.Weapons {
             }
 
             // If no available trail found, create a new one
-            if(trail == null && _currentWeaponData != null && _currentWeaponData.bulletTrail != null) {
-                trail = Instantiate(_currentWeaponData.bulletTrail);
-                trail.emitting = false;
-            }
+            if(trail != null || _currentWeaponData == null || _currentWeaponData.bulletTrail == null) return trail;
+            trail = Instantiate(_currentWeaponData.bulletTrail);
+            trail.emitting = false;
 
             return trail;
         }
