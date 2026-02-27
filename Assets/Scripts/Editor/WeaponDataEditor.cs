@@ -9,6 +9,7 @@ namespace Game.EditorTools {
 
             var useMagReloadProp = serializedObject.FindProperty("useMagReload");
             var useDamageFalloffProp = serializedObject.FindProperty("useDamageFalloff");
+            var usePelletSpreadProp = serializedObject.FindProperty("usePelletSpread");
             var iterator = serializedObject.GetIterator();
             var enterChildren = true;
 
@@ -33,6 +34,13 @@ namespace Game.EditorTools {
                     iterator.name == "minDamage") &&
                    useDamageFalloffProp != null &&
                    !useDamageFalloffProp.boolValue) {
+                    continue;
+                }
+
+                if((iterator.name == "pelletCount" ||
+                    iterator.name == "pelletDamageMultiplier") &&
+                   usePelletSpreadProp != null &&
+                   !usePelletSpreadProp.boolValue) {
                     continue;
                 }
 
