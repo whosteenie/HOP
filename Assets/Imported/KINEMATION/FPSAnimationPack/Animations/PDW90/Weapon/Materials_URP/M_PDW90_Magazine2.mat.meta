@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: b4538a2436c3e814e8474d3ae9480b89
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 239796
+  packageName: FPS Animation Lite
+  packageVersion: 3.1.0
+  assetPath: Assets/KINEMATION/FPSAnimationPack/Animations/PDW90/Weapon/Materials_URP/M_PDW90_Magazine2.mat
+  uploadId: 797642

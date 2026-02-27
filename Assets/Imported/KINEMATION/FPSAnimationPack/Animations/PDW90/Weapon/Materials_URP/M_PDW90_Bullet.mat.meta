@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: da73d5e7b4ed6f84ab5914a8f6f38e6a
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 239796
+  packageName: FPS Animation Lite
+  packageVersion: 3.1.0
+  assetPath: Assets/KINEMATION/FPSAnimationPack/Animations/PDW90/Weapon/Materials_URP/M_PDW90_Bullet.mat
+  uploadId: 797642

@@ -258,6 +258,8 @@ namespace Game.UI {
             if(!IsTagMode()) {
                 TryRestoreHealthDisplayFromLocalPlayer();
             }
+
+            TryRestoreAmmoDisplayFromLocalPlayer();
         }
 
         /// <summary>
@@ -293,6 +295,18 @@ namespace Game.UI {
             var healthText = Mathf.CeilToInt(current).ToString();
             _healthValue.text = healthText;
             _cachedHealthText = healthText;
+        }
+
+        private void TryRestoreAmmoDisplayFromLocalPlayer() {
+            var localPlayer = PlayerController.LocalPlayer;
+            if(localPlayer == null) return;
+
+            var weaponManager = localPlayer.WeaponManager;
+            if(weaponManager == null || weaponManager.CurrentWeapon == null) return;
+
+            var current = Mathf.Max(0, weaponManager.CurrentWeapon.currentAmmo);
+            var max = Mathf.Max(1, weaponManager.CurrentWeapon.GetMagSize());
+            UpdateAmmo(current, max);
         }
 
         public void SetHopballInteractPrompt(bool visible, string text = null) {

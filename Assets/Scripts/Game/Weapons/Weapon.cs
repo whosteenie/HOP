@@ -31,16 +31,20 @@ namespace Game.Weapons {
 
         [Header("Current Weapon State")]
         private WeaponData _currentWeaponData;
+        private int _currentMagCapacity = 30;
 
         private GameObject _currentFpWeaponInstance;
         private GameObject _currentWorldWeaponInstance;
         private Transform _fpMuzzleTransform;
         private Transform _worldMuzzleTransform;
-        private Animator _weaponAnimator;
+        private KinemationFpWeaponDriver _kinemationFpWeaponDriver;
         private GameObject _fpMuzzleLight;
         private GameObject _worldMuzzleLight;
         private Coroutine _fpMuzzleLightCoroutine;
         private Coroutine _worldMuzzleLightCoroutine;
+        private GameObject _kinemationLocalMuzzleFxInstance;
+        private VisualEffect _kinemationLocalMuzzleVfx;
+        private GameObject _kinemationLocalMuzzleSourcePrefab;
 
         [Header("Runtime State")]
         public int currentAmmo;
@@ -98,17 +102,26 @@ namespace Game.Weapons {
         private Coroutine _reloadCoroutine;
         private bool _autoReloadArmed;
         private float _reloadExpectedCompleteTime;
-        private float _reloadAnimationExitDeadline;
         private float _nextReloadRecoveryAllowedTime;
-        private readonly List<AnimatorClipInfo> _reloadClipInfoBuffer = new();
+        private readonly List<int> _kinemationWeaponSoundEventBuffer = new();
+        private float _kinemationReloadFallbackDeadline;
 
         private const float ReloadTimeoutGraceSeconds = 0.35f;
-        private const float ReloadAnimationExitGraceSeconds = 0.5f;
         private const float ReloadRecoveryCooldownSeconds = 0.5f;
+        private const float KinemationReloadFallbackSeconds = 5f;
 
         // Bullet trail pooling
         private readonly Queue<TrailRenderer> _trailPool = new();
         private const int TrailPoolSize = 30;
+        private bool _hasPrewarmedKinemationMuzzleForCurrentWeapon;
+        private bool _hasLocalMuzzleFlashSpawnPositionForShot;
+        private Vector3 _localMuzzleFlashSpawnPositionForShot;
+        private Vector3 _lastRemoteMuzzleFxSpawnPosition;
+        private Quaternion _lastRemoteMuzzleFxSpawnRotation = Quaternion.identity;
+        private Vector3 _lastRemoteMuzzleFxForward = Vector3.forward;
+        private int _lastRemoteMuzzleFxSpawnFrame = -1;
+        private float _lastRemoteMuzzleFxSpawnTime = -1f;
+        private string _lastRemoteMuzzleTransformPath = "(none)";
 
         #endregion
 
@@ -116,7 +129,6 @@ namespace Game.Weapons {
 
         private static readonly int RecoilHash = Animator.StringToHash("Recoil");
         private static readonly int ReloadHash = Animator.StringToHash("Reload");
-        private static readonly int ReloadCompleteHash = Animator.StringToHash("ReloadComplete");
 
         #endregion
 
@@ -154,6 +166,8 @@ namespace Game.Weapons {
         }
 
         private void LateUpdate() {
+            UpdateKinemationReloadState();
+            ProcessKinemationSoundEvents();
             RunReloadWatchdog();
 
             if(_fpMuzzleLight != null && _fpMuzzleLight.activeSelf && Time.time >= _fpLightOffTime) {
@@ -164,6 +178,77 @@ namespace Game.Weapons {
             if(_worldMuzzleLight != null && _worldMuzzleLight.activeSelf && Time.time >= _worldLightOffTime) {
                 _worldMuzzleLight.SetActive(false);
             }
+        }
+
+        private void Update() {
+            TryPrewarmKinemationMuzzleIfNeeded();
+            SyncKinemationLocomotion();
+        }
+
+        private void TryPrewarmKinemationMuzzleIfNeeded() {
+            if(_hasPrewarmedKinemationMuzzleForCurrentWeapon) return;
+            if(_kinemationFpWeaponDriver == null) return;
+            if(playerController == null || !playerController.IsOwner) return;
+            PrewarmKinemationLocalMuzzleFxInstance();
+        }
+
+        public override void OnDestroy() {
+            if(_damageRelay != null) {
+                _damageRelay.OnHitConfirm -= OnHitConfirm;
+            }
+
+            ClearKinemationLocalMuzzleFxInstance();
+            base.OnDestroy();
+        }
+
+        private void SyncKinemationLocomotion() {
+            if(_kinemationFpWeaponDriver == null || playerController == null || !playerController.IsOwner) {
+                return;
+            }
+
+            var movementController = playerController.MovementController;
+            var wallRunController = playerController.WallRunController;
+            var isSliding = movementController != null && movementController.IsSliding;
+            var isWallRunning = wallRunController != null && wallRunController.IsWallRunning;
+            var isPreMatch = GameMenuManager.Instance != null && GameMenuManager.IsPreMatch;
+            var isPostMatch = GameMenuManager.Instance != null && GameMenuManager.Instance.IsPostMatch;
+
+            var moveInput = playerController.moveInput;
+            var sprintInput = playerController.sprintInput;
+            var treatedGrounded = playerController.IsGrounded || isWallRunning;
+
+            if(isWallRunning) {
+                var horizontalSpeed = playerController.GetHorizontalVelocity().magnitude;
+                var maxSpeed = Mathf.Max(playerController.GetMaxSpeed(), 0.01f);
+                var normalizedWallRunSpeed = Mathf.Clamp01(horizontalSpeed / maxSpeed);
+                moveInput = new Vector2(0f, Mathf.Max(0.35f, normalizedWallRunSpeed));
+                sprintInput = horizontalSpeed >= 8f;
+            }
+
+            if(isSliding) {
+                moveInput = Vector2.zero;
+                sprintInput = false;
+            }
+
+            if(isPreMatch || isPostMatch) {
+                moveInput = Vector2.zero;
+                sprintInput = false;
+                treatedGrounded = true;
+            }
+
+            var lookPitch = 0f;
+            var lookController = playerController.LookController;
+            if(lookController != null) {
+                lookPitch = lookController.CurrentPitch;
+            }
+
+            _kinemationFpWeaponDriver.SyncLocomotion(
+                moveInput,
+                sprintInput,
+                tacticalSprinting: false,
+                isGrounded: treatedGrounded,
+                lookPitchDegrees: lookPitch
+            );
         }
 
         private static void OnHitConfirm(bool wasKill) {
@@ -190,37 +275,60 @@ namespace Game.Weapons {
         /// Switch to a new weapon by loading its data
         /// </summary>
         public void SwitchToWeapon(WeaponData newWeaponData, GameObject fpWeaponInstance,
-            GameObject worldWeaponInstance, int restoredAmmo) {
+            GameObject worldWeaponInstance, int restoredAmmo, int magCapacity) {
             // Cancel any ongoing reload (this will also stop the reload sound)
             if(IsReloading) {
                 CancelReload();
             }
 
+            ClearKinemationLocalMuzzleFxInstance();
+
             // Set new weapon data
             _currentWeaponData = newWeaponData;
             _currentFpWeaponInstance = fpWeaponInstance;
             _currentWorldWeaponInstance = worldWeaponInstance;
-            _fpMuzzleTransform = ResolveMuzzleTransform(_currentFpWeaponInstance);
+            _currentMagCapacity = Mathf.Max(1, magCapacity);
+            _kinemationFpWeaponDriver = _currentFpWeaponInstance != null
+                ? _currentFpWeaponInstance.GetComponent<KinemationFpWeaponDriver>()
+                : null;
+
+            if(_kinemationFpWeaponDriver != null) {
+                var fpLayer = playerController != null && playerController.IsOwner
+                    ? LayerMask.NameToLayer("Weapon")
+                    : LayerMask.NameToLayer("Masked");
+                _kinemationFpWeaponDriver.InitializeIfNeeded(fpLayer);
+                _kinemationFpWeaponDriver.ClearPendingWeaponSoundEvents();
+            }
+
+            _fpMuzzleTransform = _kinemationFpWeaponDriver != null
+                ? _kinemationFpWeaponDriver.GetMuzzleTransform()
+                : null;
             _worldMuzzleTransform = ResolveMuzzleTransform(_currentWorldWeaponInstance);
+            _hasPrewarmedKinemationMuzzleForCurrentWeapon = false;
+
+            if(_kinemationFpWeaponDriver != null) {
+                PrewarmKinemationLocalMuzzleFxInstance();
+            }
 
             // Restore ammo
-            currentAmmo = restoredAmmo;
+            currentAmmo = Mathf.Clamp(restoredAmmo, 0, _currentMagCapacity);
+            if(_kinemationFpWeaponDriver != null) {
+                _kinemationFpWeaponDriver.SyncActiveAmmo(currentAmmo);
+            }
             IsReloading = false;
             _autoReloadArmed = false;
             _reloadExpectedCompleteTime = float.PositiveInfinity;
-            _reloadAnimationExitDeadline = float.PositiveInfinity;
 
             // Get animator from FP weapon
-            _weaponAnimator = null;
-            if(_currentFpWeaponInstance) {
-                _weaponAnimator = _currentFpWeaponInstance.GetComponent<Animator>();
+            _fpMuzzleLight = null;
+            if(_currentFpWeaponInstance && _kinemationFpWeaponDriver != null) {
                 _fpMuzzleLight = ResolveMuzzleLightObject(_currentFpWeaponInstance);
-
                 if(_fpMuzzleLight) {
                     _fpMuzzleLight.SetActive(false);
                 }
             }
 
+            _worldMuzzleLight = null;
             if(_currentWorldWeaponInstance != null) {
                 _worldMuzzleLight = ResolveMuzzleLightObject(_currentWorldWeaponInstance);
             }
@@ -237,7 +345,7 @@ namespace Game.Weapons {
             // Update HUD
             if(playerController == null || !playerController.IsOwner) return;
             if(_currentWeaponData != null && HUDManager.Instance != null) {
-                EventBus.Publish(new UpdateAmmoEvent(currentAmmo, _currentWeaponData.magSize));
+                EventBus.Publish(new UpdateAmmoEvent(currentAmmo, GetCurrentMagCapacity()));
             }
         }
 
@@ -258,6 +366,104 @@ namespace Game.Weapons {
             }
 
             return null;
+        }
+
+        private static string GetTransformPath(Transform transform) {
+            if(transform == null) return "(none)";
+
+            var path = transform.name;
+            var current = transform.parent;
+            while(current != null) {
+                path = current.name + "/" + path;
+                current = current.parent;
+            }
+
+            return path;
+        }
+
+        private static string DescribeMuzzleCandidates(GameObject weaponInstanceRoot) {
+            if(weaponInstanceRoot == null) return "count=0 []";
+
+            var transforms = weaponInstanceRoot.GetComponentsInChildren<Transform>(true);
+            var count = 0;
+            var entries = string.Empty;
+            const int maxEntries = 6;
+
+            for(var i = 0; i < transforms.Length; i++) {
+                var candidate = transforms[i];
+                if(candidate == null || candidate.name != "Muzzle") continue;
+
+                count++;
+                if(count <= maxEntries) {
+                    var entry = $"'{GetTransformPath(candidate)}'@{candidate.position:F3}";
+                    entries = string.IsNullOrEmpty(entries) ? entry : $"{entries}; {entry}";
+                }
+            }
+
+            return $"count={count} [{entries}]";
+        }
+
+        private bool TryGetStrictWorldMuzzleTransform(out Transform muzzleTransform, string context) {
+            muzzleTransform = null;
+
+            if(playerController != null && playerController.IsOwner) {
+                Debug.LogError(
+                    $"[Weapon][RemoteMuzzleStrict][{context}] Called on owner instance. " +
+                    $"weapon={(_currentWeaponData != null ? _currentWeaponData.weaponName : "(none)")}",
+                    this);
+                return false;
+            }
+
+            if(_currentWorldWeaponInstance == null) {
+                Debug.LogError(
+                    $"[Weapon][RemoteMuzzleStrict][{context}] Missing current world weapon instance. " +
+                    $"weapon={(_currentWeaponData != null ? _currentWeaponData.weaponName : "(none)")}",
+                    this);
+                return false;
+            }
+
+            if(!_currentWorldWeaponInstance.activeInHierarchy) {
+                Debug.LogError(
+                    $"[Weapon][RemoteMuzzleStrict][{context}] World weapon inactive. " +
+                    $"weapon={(_currentWeaponData != null ? _currentWeaponData.weaponName : "(none)")} " +
+                    $"worldWeapon={_currentWorldWeaponInstance.name}",
+                    this);
+                return false;
+            }
+
+            _worldMuzzleTransform ??= ResolveMuzzleTransform(_currentWorldWeaponInstance);
+            if(_worldMuzzleTransform == null) {
+                Debug.LogError(
+                    $"[Weapon][RemoteMuzzleStrict][{context}] Muzzle transform not found. " +
+                    $"weapon={(_currentWeaponData != null ? _currentWeaponData.weaponName : "(none)")} " +
+                    $"worldWeapon={_currentWorldWeaponInstance.name} " +
+                    $"muzzleCandidates={DescribeMuzzleCandidates(_currentWorldWeaponInstance)}",
+                    this);
+                return false;
+            }
+
+            if(!_worldMuzzleTransform.gameObject.activeInHierarchy) {
+                Debug.LogError(
+                    $"[Weapon][RemoteMuzzleStrict][{context}] Muzzle transform inactive. " +
+                    $"weapon={(_currentWeaponData != null ? _currentWeaponData.weaponName : "(none)")} " +
+                    $"worldWeapon={_currentWorldWeaponInstance.name} " +
+                    $"muzzlePath={GetTransformPath(_worldMuzzleTransform)}",
+                    this);
+                return false;
+            }
+
+            muzzleTransform = _worldMuzzleTransform;
+            return true;
+        }
+
+        public bool TryGetRemoteWorldMuzzlePosition(out Vector3 muzzlePosition) {
+            muzzlePosition = default;
+            if(!TryGetStrictWorldMuzzleTransform(out var muzzleTransform, "TryGetRemoteWorldMuzzlePosition")) {
+                return false;
+            }
+
+            muzzlePosition = muzzleTransform.position;
+            return true;
         }
 
         #endregion
@@ -290,8 +496,16 @@ namespace Game.Weapons {
 
             _autoReloadArmed = false;
             IsReloading = true;
+
+            if(_kinemationFpWeaponDriver != null) {
+                _reloadExpectedCompleteTime = Time.time + KinemationReloadFallbackSeconds;
+                _kinemationReloadFallbackDeadline = _reloadExpectedCompleteTime;
+                PlayReloadEffects();
+                return;
+            }
+
             _reloadExpectedCompleteTime = Time.time + GetExpectedReloadDuration() + ReloadTimeoutGraceSeconds;
-            _reloadAnimationExitDeadline = _reloadExpectedCompleteTime + ReloadAnimationExitGraceSeconds;
+            _kinemationReloadFallbackDeadline = float.PositiveInfinity;
 
             if(_currentWeaponData.useMagReload) {
                 PlayReloadEffects();
@@ -310,14 +524,13 @@ namespace Game.Weapons {
             var perRoundTime = Mathf.Max(0.05f, _currentWeaponData.perRoundReloadTime);
 
             // Play reload animation only once at the start (FP weapon animator only)
-            if(_weaponAnimator != null) {
-                _weaponAnimator.ResetTrigger(ReloadCompleteHash);
-                _weaponAnimator.SetTrigger(ReloadHash);
-            }
+            PlayReloadAnimationForCurrentWeapon();
 
-            while(IsReloading && currentAmmo < _currentWeaponData.magSize) {
+            var magCapacity = GetCurrentMagCapacity();
+            while(IsReloading && currentAmmo < magCapacity) {
                 // Play reload sound for each round (audio feedback)
-                if(playerController.IsOwner && _audioRelay != null) {
+                if(!UseKinemationInternalSounds() && !ShouldSuppressLegacyReloadSound() &&
+                   playerController.IsOwner && _audioRelay != null) {
                     var soundId = _currentWeaponData != null ? _currentWeaponData.reloadSoundId : "";
                     if(!string.IsNullOrWhiteSpace(soundId)) {
                         _audioRelay.RequestPlayAttached(soundId, new NetworkObjectReference(playerController.NetworkObject),
@@ -328,19 +541,17 @@ namespace Game.Weapons {
                 yield return new WaitForSeconds(perRoundTime);
                 if(!IsReloading) yield break;
 
-                currentAmmo = Mathf.Min(currentAmmo + 1, _currentWeaponData.magSize);
+                currentAmmo = Mathf.Min(currentAmmo + 1, magCapacity);
 
                 if(playerController.IsOwner && HUDManager.Instance != null) {
-                    EventBus.Publish(new UpdateAmmoEvent(currentAmmo, _currentWeaponData.magSize));
+                    EventBus.Publish(new UpdateAmmoEvent(currentAmmo, magCapacity));
                 }
 
                 SyncServerAmmo();
 
-                if(currentAmmo < _currentWeaponData.magSize) continue;
+                if(currentAmmo < magCapacity) continue;
                 // Trigger reload complete animation (shotgun-style reloads when mag is full)
-                if(_weaponAnimator != null) {
-                    _weaponAnimator.SetTrigger(ReloadCompleteHash);
-                }
+                PlayReloadCompleteAnimationForCurrentWeapon();
                 break;
             }
 
@@ -355,16 +566,25 @@ namespace Game.Weapons {
             }
 
             // Cancel reload sound when switching weapons or canceling reload
-            if(playerController.IsOwner && _audioRelay != null) {
+            if(!UseKinemationInternalSounds() && !ShouldSuppressLegacyReloadSound() &&
+               playerController.IsOwner && _audioRelay != null) {
                 var soundId = _currentWeaponData != null ? _currentWeaponData.reloadSoundId : "";
                 if(!string.IsNullOrWhiteSpace(soundId)) {
                     _audioRelay.RequestStop(soundId);
                 }
             }
 
+            if(_kinemationFpWeaponDriver != null) {
+                StopKinemationEventSoundsForCurrentWeapon();
+                _kinemationFpWeaponDriver.AbortReloadAndSyncAmmo(currentAmmo);
+            }
+
             IsReloading = false;
             _reloadCoroutine = null;
-            _reloadAnimationExitDeadline = Time.time + ReloadAnimationExitGraceSeconds;
+            _reloadExpectedCompleteTime = float.PositiveInfinity;
+            _kinemationReloadFallbackDeadline = float.PositiveInfinity;
+            if(_kinemationFpWeaponDriver != null) _kinemationFpWeaponDriver.ResetReloadTracking();
+
             ExitReloadAnimation();
         }
 
@@ -376,12 +596,14 @@ namespace Game.Weapons {
 
         public void ResetWeapon() {
             if(!_currentWeaponData) return;
-            currentAmmo = _currentWeaponData.magSize;
+            currentAmmo = GetCurrentMagCapacity();
             IsReloading = false;
             _lastFireTime = Time.time;
             _autoReloadArmed = false;
             _reloadExpectedCompleteTime = float.PositiveInfinity;
-            _reloadAnimationExitDeadline = float.PositiveInfinity;
+            _kinemationReloadFallbackDeadline = float.PositiveInfinity;
+            if(_kinemationFpWeaponDriver != null) _kinemationFpWeaponDriver.ResetReloadTracking();
+
             if(IsOwner) {
                 netCurrentDamageMultiplier.Value = 1f;
             }
@@ -430,7 +652,8 @@ namespace Game.Weapons {
             }
 
             if(playerController.PlayerInput == null || !playerController.PlayerInput.IsSniperOverlayActive) {
-                if(!TryGetPreferredMuzzleTransform(false, out var muzzleTransform) || muzzleTransform == null) {
+                var useWorldParent = GameMenuManager.Instance != null && GameMenuManager.Instance.IsPostMatch;
+                if(!TryGetPreferredMuzzleTransform(useWorldParent, out var muzzleTransform) || muzzleTransform == null) {
                     return false;
                 }
 
@@ -439,11 +662,50 @@ namespace Game.Weapons {
             }
 
             var fpCameraTransform = playerController.FpCameraTransform;
-            if(fpCameraTransform == null) return false;
+            if(fpCameraTransform == null) {
+                return false;
+            }
 
             muzzlePosition = fpCameraTransform.TransformPoint(playerController.PlayerInput.SniperMuzzleCameraOffset);
             return true;
 
+        }
+
+        private bool TryGetOwnerTracerStartPosition(out Vector3 tracerStartPosition) {
+            tracerStartPosition = default;
+            if(!TryGetMuzzlePositionFromCamera(out var muzzlePosition)) {
+                return false;
+            }
+
+            tracerStartPosition = muzzlePosition;
+            TryRemapOwnerWeaponCameraPointToMainCamera(muzzlePosition, out tracerStartPosition);
+            return true;
+        }
+
+        private void TryRemapOwnerWeaponCameraPointToMainCamera(Vector3 sourcePoint, out Vector3 remappedPoint) {
+            remappedPoint = sourcePoint;
+            if(playerController == null) return;
+            if(!playerController.IsOwner) return;
+            if(GameMenuManager.Instance != null && GameMenuManager.Instance.IsPostMatch) return;
+            if(playerController.PlayerInput != null && playerController.PlayerInput.IsSniperOverlayActive) return;
+
+            var weaponCamera = playerController.WeaponCamera;
+            var mainSceneCamera = Camera.main;
+            if(weaponCamera == null || mainSceneCamera == null) return;
+            if(weaponCamera == mainSceneCamera) return;
+
+            // KIN viewmodel points are authored relative to WeaponCamera. Convert the same viewport location
+            // into main-camera world space so world-rendered tracers align with FP on-screen origin.
+            var viewportInWeaponCamera = weaponCamera.WorldToViewportPoint(sourcePoint);
+            if(viewportInWeaponCamera.z <= 0f) return;
+
+            var transformCamera = mainSceneCamera.transform;
+            var preferredDepth = Vector3.Dot(sourcePoint - transformCamera.position, transformCamera.forward);
+            var remapDepth = Mathf.Max(mainSceneCamera.nearClipPlane + 0.02f, preferredDepth);
+            remappedPoint = mainSceneCamera.ViewportToWorldPoint(new Vector3(
+                viewportInWeaponCamera.x,
+                viewportInWeaponCamera.y,
+                remapDepth));
         }
 
         public Quaternion GetMuzzleRotation() {
@@ -469,8 +731,17 @@ namespace Game.Weapons {
         public float GetFireRate() {
             return _currentWeaponData == null ? 0.1f : _currentWeaponData.fireRate;
         }
+
+        private int GetCurrentMagCapacity() {
+            if(_currentMagCapacity > 0) {
+                return _currentMagCapacity;
+            }
+
+            return _currentWeaponData == null ? 30 : Mathf.Max(1, _currentWeaponData.magSize);
+        }
+
         public int GetMagSize() {
-            return _currentWeaponData == null ? 30 : _currentWeaponData.magSize;
+            return GetCurrentMagCapacity();
         }
         public GameObject GetWeaponPrefab() => _currentFpWeaponInstance;
         public Vector3 GetSpawnPosition() {
@@ -482,6 +753,10 @@ namespace Game.Weapons {
 
         private bool TryGetPreferredMuzzleTransform(bool preferWorldModel, out Transform muzzleTransform) {
             muzzleTransform = null;
+            if(_fpMuzzleTransform == null && _kinemationFpWeaponDriver != null) {
+                _fpMuzzleTransform = _kinemationFpWeaponDriver.GetMuzzleTransform();
+            }
+
             if(preferWorldModel) {
                 if(_worldMuzzleTransform != null) {
                     muzzleTransform = _worldMuzzleTransform;
@@ -535,9 +810,14 @@ namespace Game.Weapons {
         private bool CanFire() {
             if(!_currentWeaponData || _weaponManager.IsPullingOut) return false;
 
-            if(IsReloading && !_currentWeaponData.useMagReload) {
-                CancelReload();
+            if(!IsReloading || _currentWeaponData.useMagReload || currentAmmo <= 0)
+                return Time.time >= _lastFireTime + _currentWeaponData.fireRate && currentAmmo > 0 && !IsReloading;
+            ConsumePendingKinemationReloadSingleEvents();
+            if(_kinemationFpWeaponDriver != null) {
+                _kinemationFpWeaponDriver.NotifyDrakeReloadCanceledByShot();
             }
+            // For shell-by-shell reloads, allow cancel only after at least one round was inserted.
+            CancelReload();
 
             return Time.time >= _lastFireTime + _currentWeaponData.fireRate && currentAmmo > 0 && !IsReloading;
         }
@@ -559,13 +839,14 @@ namespace Game.Weapons {
             
             var origin = fpCameraTransform.position;
             var forward = fpCameraTransform.forward;
+            var authoritativeAmmoBeforeShot = Mathf.Max(0, currentAmmo);
 
             currentAmmo--;
             _lastFireTime = Time.time;
 
             if(playerController != null && playerController.IsOwner) {
                 if(HUDManager.Instance != null) {
-                    EventBus.Publish(new UpdateAmmoEvent(currentAmmo, _currentWeaponData.magSize));
+                    EventBus.Publish(new UpdateAmmoEvent(currentAmmo, GetCurrentMagCapacity()));
                 }
             }
 
@@ -588,15 +869,27 @@ namespace Game.Weapons {
                 spreadDegrees = 0f;
             }
 
-            // Calculate muzzle position directly from camera to bypass weapon transform lag
-            var hasMuzzlePosition = TryGetMuzzlePositionFromCamera(out var capturedMuzzlePos);
+            _hasLocalMuzzleFlashSpawnPositionForShot = false;
+            _localMuzzleFlashSpawnPositionForShot = Vector3.zero;
 
             if (playerController != null && playerController.IsOwner) {
-                PlayLocalMuzzleFlash();
+                PlayLocalMuzzleFlash(authoritativeAmmoBeforeShot);
                 // Record Stats
                 if (ProgressionManager.Instance != null) {
                     ProgressionManager.Instance.RecordShotFired();
                 }
+            }
+
+            // Capture tracer start after local fire animation/muzzle flash so KIN pose updates
+            // are reflected in the same frame as the spawned tracer.
+            bool hasMuzzlePosition;
+            Vector3 capturedMuzzlePos;
+            if(_hasLocalMuzzleFlashSpawnPositionForShot) {
+                capturedMuzzlePos = _localMuzzleFlashSpawnPositionForShot;
+                hasMuzzlePosition = true;
+                TryRemapOwnerWeaponCameraPointToMainCamera(capturedMuzzlePos, out capturedMuzzlePos);
+            } else {
+                hasMuzzlePosition = TryGetOwnerTracerStartPosition(out capturedMuzzlePos);
             }
 
             var anyPelletHitPlayer = false;
@@ -609,7 +902,8 @@ namespace Game.Weapons {
                 if (hitPlayer) anyPelletHitPlayer = true;
 
                 if(playerController != null && playerController.IsOwner && hasMuzzlePosition) {
-                    SpawnTracerLocal(capturedMuzzlePos, endPoint, hitNormal, madeImpact, hitPlayer, hitPlayerRef);
+                    StartCoroutine(SpawnOwnerTracerLocalAfterViewUpdate(capturedMuzzlePos, endPoint, hitNormal,
+                        madeImpact, hitPlayer, hitPlayerRef));
                 }
 
                 var playMuzzleFlash = i == 0;
@@ -951,60 +1245,304 @@ namespace Game.Weapons {
 
         private bool CanReload() {
             if(!_currentWeaponData || _weaponManager.IsPullingOut) return false;
-            return currentAmmo < _currentWeaponData.magSize && _reloadCoroutine == null;
+            return currentAmmo < GetCurrentMagCapacity() && _reloadCoroutine == null && !IsReloading;
         }
 
         private void CompleteReload() {
             if(!_currentWeaponData) return;
-            currentAmmo = _currentWeaponData.magSize;
+            currentAmmo = GetCurrentMagCapacity();
             IsReloading = false;
             _reloadCoroutine = null;
             _autoReloadArmed = false;
-            _reloadAnimationExitDeadline = Time.time + ReloadAnimationExitGraceSeconds;
+            _reloadExpectedCompleteTime = float.PositiveInfinity;
+            _kinemationReloadFallbackDeadline = float.PositiveInfinity;
+            if(_kinemationFpWeaponDriver != null) _kinemationFpWeaponDriver.ResetReloadTracking();
 
             // Trigger reload complete animation (mag-style reloads)
             ExitReloadAnimation();
 
             if(playerController.IsOwner && HUDManager.Instance != null) {
-                EventBus.Publish(new UpdateAmmoEvent(currentAmmo, _currentWeaponData.magSize));
+                EventBus.Publish(new UpdateAmmoEvent(currentAmmo, GetCurrentMagCapacity()));
             }
 
             SyncServerAmmo();
+        }
+
+        private void HandleKinemationReloadSingleRound() {
+            if(!IsReloading || _currentWeaponData == null) return;
+            if(_currentWeaponData.useMagReload) return;
+            var magCapacity = GetCurrentMagCapacity();
+            if(currentAmmo >= magCapacity) return;
+
+            var ammoBefore = currentAmmo;
+            currentAmmo = Mathf.Min(currentAmmo + 1, magCapacity);
+            if(_kinemationFpWeaponDriver != null && _kinemationFpWeaponDriver.IsReloadSingleDebugEnabled()) {
+                Debug.Log(
+                    $"[Weapon][ReloadSingle] Applied +1 frame={Time.frameCount} time={Time.time:F3} " +
+                    $"weapon={_currentWeaponData.weaponName} ammo={ammoBefore}->{currentAmmo} cap={magCapacity}");
+            }
+
+            if(playerController != null && playerController.IsOwner && HUDManager.Instance != null) {
+                EventBus.Publish(new UpdateAmmoEvent(currentAmmo, magCapacity));
+            }
+
+            SyncServerAmmo();
+        }
+
+        private void CompleteKinemationPartialReloadWithoutFilling() {
+            IsReloading = false;
+            _reloadCoroutine = null;
+            _autoReloadArmed = false;
+            _reloadExpectedCompleteTime = float.PositiveInfinity;
+            _kinemationReloadFallbackDeadline = float.PositiveInfinity;
+            if(_kinemationFpWeaponDriver != null) _kinemationFpWeaponDriver.ResetReloadTracking();
+
+            ExitReloadAnimation();
+            SyncServerAmmo();
+
+            if(playerController != null && playerController.IsOwner && _currentWeaponData != null && HUDManager.Instance != null) {
+                EventBus.Publish(new UpdateAmmoEvent(currentAmmo, GetCurrentMagCapacity()));
+            }
         }
 
         #endregion
 
         #region Private Methods - Effects
 
+        private void PlayFireAnimationForCurrentWeapon(int authoritativeAmmoBeforeShot) {
+            if(_kinemationFpWeaponDriver == null) return;
+            _kinemationFpWeaponDriver.PlayFireAnimation(authoritativeAmmoBeforeShot);
+        }
+
+        private void PlayReloadAnimationForCurrentWeapon() {
+            if(_kinemationFpWeaponDriver != null) _kinemationFpWeaponDriver.PlayReloadAnimation();
+        }
+
+        private void PlayReloadCompleteAnimationForCurrentWeapon() {
+            if(_kinemationFpWeaponDriver != null) _kinemationFpWeaponDriver.PlayReloadCompleteAnimation();
+        }
+
+        private bool UseKinemationInternalSounds() {
+            return _kinemationFpWeaponDriver != null && _kinemationFpWeaponDriver.AreKinemationSoundsEnabled();
+        }
+
+        private bool UseKinemationEventSoundRouting() {
+            return _kinemationFpWeaponDriver != null && _kinemationFpWeaponDriver.IsKinemationSoundEventRoutingEnabled();
+        }
+
+        private bool ShouldSuppressLegacyReloadSound() {
+            return UseKinemationEventSoundRouting() &&
+                   _kinemationFpWeaponDriver != null &&
+                   _kinemationFpWeaponDriver.HasAnyKinemationEventSound();
+        }
+
+        private Quaternion ResolveKinemationMuzzleFxRotation(Transform muzzleTransform, Vector3 preferredDirection) {
+            var direction = preferredDirection;
+            if(direction.sqrMagnitude <= 0.0001f && muzzleTransform != null) {
+                direction = muzzleTransform.forward;
+            }
+
+            if(direction.sqrMagnitude <= 0.0001f) {
+                direction = transform.forward;
+            }
+
+            direction.Normalize();
+            if(!DoesCurrentMuzzleFlashUseForwardAxis()) {
+                direction = -direction;
+            }
+
+            var up = Vector3.up;
+            var cameraTransform = playerController != null ? playerController.FpCameraTransform : null;
+            if(cameraTransform != null) {
+                up = cameraTransform.up;
+            } else if(muzzleTransform != null) {
+                up = muzzleTransform.up;
+            }
+
+            if(Mathf.Abs(Vector3.Dot(up, direction)) > 0.98f) {
+                up = Vector3.right;
+            }
+
+            return Quaternion.LookRotation(direction, up);
+        }
+
+        private bool DoesCurrentMuzzleFlashUseForwardAxis() {
+            var muzzleFlashPrefab = _currentWeaponData != null ? _currentWeaponData.muzzleFlashPrefab : null;
+            if(muzzleFlashPrefab == null) {
+                return false;
+            }
+
+            var prefabName = muzzleFlashPrefab.name.ToLowerInvariant();
+            return prefabName.Contains("180");
+        }
+
+        private GameObject EnsureKinemationLocalMuzzleFxInstance(Transform muzzleTransform, Quaternion spawnRotation) {
+            if(_currentWeaponData == null || _currentWeaponData.muzzleFlashPrefab == null || muzzleTransform == null) {
+                return null;
+            }
+
+            var sourcePrefab = _currentWeaponData.muzzleFlashPrefab;
+            var needsRecreate = _kinemationLocalMuzzleFxInstance == null || _kinemationLocalMuzzleSourcePrefab != sourcePrefab;
+            if(needsRecreate) {
+                if(_kinemationLocalMuzzleFxInstance != null) {
+                    QuiesceMuzzleFxInstance(_kinemationLocalMuzzleFxInstance, _kinemationLocalMuzzleVfx);
+                    Destroy(_kinemationLocalMuzzleFxInstance);
+                }
+
+                _kinemationLocalMuzzleFxInstance = Instantiate(sourcePrefab, muzzleTransform.position, spawnRotation);
+                _kinemationLocalMuzzleSourcePrefab = sourcePrefab;
+                _kinemationLocalMuzzleVfx = _kinemationLocalMuzzleFxInstance.GetComponent<VisualEffect>();
+                if(_kinemationLocalMuzzleVfx != null) {
+                    _kinemationLocalMuzzleVfx.Stop();
+                    _kinemationLocalMuzzleVfx.Reinit();
+                }
+            } else {
+                _kinemationLocalMuzzleFxInstance.transform.SetPositionAndRotation(muzzleTransform.position, spawnRotation);
+            }
+
+            AttachMuzzleFollow(_kinemationLocalMuzzleFxInstance, muzzleTransform, followRotation: false);
+            ApplyLayerRecursive(_kinemationLocalMuzzleFxInstance, muzzleTransform.gameObject.layer);
+            return _kinemationLocalMuzzleFxInstance;
+        }
+
+        private void TriggerKinemationLocalMuzzleFx() {
+            if(_kinemationLocalMuzzleFxInstance == null) return;
+            ReactivateMuzzleFxInstance(_kinemationLocalMuzzleFxInstance, _kinemationLocalMuzzleVfx);
+
+            if(_kinemationLocalMuzzleVfx != null) {
+                _kinemationLocalMuzzleVfx.Stop();
+                _kinemationLocalMuzzleVfx.Reinit();
+                _kinemationLocalMuzzleVfx.Play();
+                return;
+            }
+
+            var particleSystems = _kinemationLocalMuzzleFxInstance.GetComponentsInChildren<ParticleSystem>(true);
+            foreach(var system in particleSystems) {
+                if(system == null) continue;
+                system.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+                system.Play(true);
+            }
+        }
+
+        private void ClearKinemationLocalMuzzleFxInstance() {
+            if(_kinemationLocalMuzzleFxInstance != null) {
+                QuiesceMuzzleFxInstance(_kinemationLocalMuzzleFxInstance, _kinemationLocalMuzzleVfx);
+                Destroy(_kinemationLocalMuzzleFxInstance);
+            }
+
+            _kinemationLocalMuzzleFxInstance = null;
+            _kinemationLocalMuzzleVfx = null;
+            _kinemationLocalMuzzleSourcePrefab = null;
+        }
+
+        private static void QuiesceMuzzleFxInstance(GameObject fxInstance, VisualEffect cachedVisualEffect) {
+            if(fxInstance == null) return;
+
+            if(cachedVisualEffect != null) {
+                cachedVisualEffect.Stop();
+                cachedVisualEffect.Reinit();
+            }
+
+            var vfxComponents = fxInstance.GetComponentsInChildren<VisualEffect>(true);
+            foreach(var vfx in vfxComponents) {
+                if(vfx == null) continue;
+                vfx.Stop();
+                vfx.Reinit();
+            }
+
+            var particleSystems = fxInstance.GetComponentsInChildren<ParticleSystem>(true);
+            foreach(var particleSystem in particleSystems) {
+                if(particleSystem == null) continue;
+                particleSystem.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+            }
+        }
+
+        private static void ReactivateMuzzleFxInstance(GameObject fxInstance, VisualEffect cachedVisualEffect) {
+            if(fxInstance == null) return;
+            _ = cachedVisualEffect;
+            if(!fxInstance.activeSelf) {
+                fxInstance.SetActive(true);
+            }
+        }
+
+        private void PrewarmKinemationLocalMuzzleFxInstance() {
+            if(_hasPrewarmedKinemationMuzzleForCurrentWeapon) return;
+            if(_kinemationFpWeaponDriver == null) return;
+            if(_currentWeaponData == null || _currentWeaponData.muzzleFlashPrefab == null) return;
+
+            const bool useWorldParent = false;
+            if(!TryGetPreferredMuzzleTransform(useWorldParent, out var muzzleTransform) || muzzleTransform == null) {
+                return;
+            }
+
+            var preferredDirection = Vector3.zero;
+            var fpCameraTransform = playerController != null ? playerController.FpCameraTransform : null;
+            if(fpCameraTransform != null) {
+                preferredDirection = fpCameraTransform.forward;
+            }
+
+            var desiredWorldRotation = ResolveKinemationMuzzleFxRotation(muzzleTransform, preferredDirection);
+            var fxGo = EnsureKinemationLocalMuzzleFxInstance(muzzleTransform, desiredWorldRotation);
+            if(fxGo == null) return;
+
+            QuiesceMuzzleFxInstance(fxGo, _kinemationLocalMuzzleVfx);
+            _hasPrewarmedKinemationMuzzleForCurrentWeapon = true;
+        }
+
         /// <summary>
         /// Play muzzle flash locally (owner only, FP)
-        /// Muzzle flash is parented to weapon muzzle so it follows the player when moving fast.
+        /// Muzzle flash tracks the weapon muzzle each frame to avoid drift while moving fast.
         /// </summary>
-        private void PlayLocalMuzzleFlash() {
-            if(_weaponAnimator != null) {
-                _weaponAnimator.SetTrigger(RecoilHash);
-            }
+        private void PlayLocalMuzzleFlash(int authoritativeAmmoBeforeShot) {
+            PlayFireAnimationForCurrentWeapon(authoritativeAmmoBeforeShot);
 
             PlayShootAnimationServerRpc();
 
             if(_currentWeaponData != null && _currentWeaponData.muzzleFlashPrefab != null) {
                 var useWorldParent = GameMenuManager.Instance != null && GameMenuManager.Instance.IsPostMatch;
                 if(TryGetPreferredMuzzleTransform(useWorldParent, out var muzzleTransform) && muzzleTransform != null) {
-                    var fxGo = Instantiate(_currentWeaponData.muzzleFlashPrefab, muzzleTransform);
-                    fxGo.transform.localPosition = Vector3.zero;
-                    fxGo.transform.localRotation = Quaternion.identity;
+                    if(_kinemationFpWeaponDriver != null) {
+                        var preferredDirection = Vector3.zero;
+                        var fpCameraTransform = playerController != null ? playerController.FpCameraTransform : null;
+                        if(!useWorldParent && fpCameraTransform != null) {
+                            preferredDirection = fpCameraTransform.forward;
+                        }
 
-                    var fx = fxGo.GetComponent<VisualEffect>();
-                    if(fx != null) {
-                        fx.Play();
+                        var desiredWorldRotation = ResolveKinemationMuzzleFxRotation(muzzleTransform, preferredDirection);
+                        var fxGo = EnsureKinemationLocalMuzzleFxInstance(muzzleTransform, desiredWorldRotation);
+                        if(fxGo != null) {
+                            _localMuzzleFlashSpawnPositionForShot = fxGo.transform.position;
+                            _hasLocalMuzzleFlashSpawnPositionForShot = true;
+                            TriggerKinemationLocalMuzzleFx();
+                        }
                     }
-                    Destroy(fxGo, 1f);
                 }
             }
 
             if(!_fpMuzzleLight) return;
             _fpMuzzleLight.SetActive(true);
             _fpLightOffTime = Time.time + MuzzleLightTime;
+        }
+
+        private void ConsumePendingKinemationReloadSingleEvents() {
+            if(!IsReloading || _kinemationFpWeaponDriver == null) return;
+            if(_currentWeaponData == null || _currentWeaponData.useMagReload) return;
+
+            var reloadSingleEvents = _kinemationFpWeaponDriver.ConsumeReloadSingleEventCount();
+            if(reloadSingleEvents > 0 && _kinemationFpWeaponDriver.IsReloadSingleDebugEnabled()) {
+                Debug.Log(
+                    $"[Weapon][ReloadSingle] Dequeued during CanFire events={reloadSingleEvents} " +
+                    $"frame={Time.frameCount} time={Time.time:F3} " +
+                    $"weapon={_currentWeaponData.weaponName} ammoBefore={currentAmmo}");
+            }
+            for(var i = 0; i < reloadSingleEvents; i++) {
+                HandleKinemationReloadSingleRound();
+            }
+        }
+
+        private bool IsCurrentWeaponDrake() {
+            if(_currentWeaponData == null || string.IsNullOrWhiteSpace(_currentWeaponData.weaponName)) return false;
+            return _currentWeaponData.weaponName.IndexOf("drake", System.StringComparison.OrdinalIgnoreCase) >= 0;
         }
 
         [Rpc(SendTo.Everyone)]
@@ -1017,28 +1555,199 @@ namespace Game.Weapons {
         /// <summary>
         /// Play muzzle flash from network (non-owners only, 3P)
         /// Called via NetworkFxRelay RPC
-        /// Muzzle flash is parented to weapon muzzle so it follows the player when moving fast.
+        /// Muzzle flash tracks the weapon muzzle each frame to avoid drift while moving fast.
         /// </summary>
-        public void PlayNetworkedMuzzleFlash() {
+        public void PlayNetworkedMuzzleFlash(Vector3 endPoint) {
+            if(playerController != null && playerController.IsOwner) {
+                return;
+            }
+            if(!TryGetStrictWorldMuzzleTransform(out var muzzleTransform, "PlayNetworkedMuzzleFlash")) {
+                return;
+            }
+
             // NON-OWNER ONLY: Play 3P world muzzle flash
             if(_currentWeaponData != null &&
                _currentWeaponData.muzzleFlashPrefab != null &&
-               TryGetPreferredMuzzleTransform(true, out var muzzleTransform) &&
                muzzleTransform != null) {
-                var fxGo = Instantiate(_currentWeaponData.muzzleFlashPrefab, muzzleTransform);
-                fxGo.transform.localPosition = Vector3.zero;
-                fxGo.transform.localRotation = Quaternion.identity;
+                var position = muzzleTransform.position;
+                var muzzleForward = muzzleTransform.forward;
+                var tracerDirection = endPoint - position;
+                var tracerDirectionValid = tracerDirection.sqrMagnitude > 0.0001f;
+                var tracerDirectionNormalized = tracerDirectionValid ? tracerDirection.normalized : Vector3.zero;
+                var tracerAngle = tracerDirectionValid
+                    ? Vector3.Angle(muzzleForward, tracerDirectionNormalized)
+                    : -1f;
+                var desiredWorldRotation =
+                    ResolveWorldMuzzleFxRotation(muzzleTransform, tracerDirectionNormalized, tracerDirectionValid);
+                var fxForward = desiredWorldRotation * Vector3.forward;
+                var fxVsTracerAngle = tracerDirectionValid
+                    ? Vector3.Angle(fxForward, tracerDirectionNormalized)
+                    : -1f;
+
+                var fxGo = Instantiate(_currentWeaponData.muzzleFlashPrefab, position,
+                    desiredWorldRotation);
+                AttachMuzzleFollow(fxGo, muzzleTransform, followRotation: false);
+                ApplyLayerRecursive(fxGo, muzzleTransform.gameObject.layer);
 
                 var fx = fxGo.GetComponent<VisualEffect>();
                 if(fx != null) {
                     fx.Play();
                 }
                 Destroy(fxGo, 1f);
+
+                _lastRemoteMuzzleFxSpawnPosition = position;
+                _lastRemoteMuzzleFxSpawnRotation = desiredWorldRotation;
+                _lastRemoteMuzzleFxForward = fxForward;
+                _lastRemoteMuzzleFxSpawnFrame = Time.frameCount;
+                _lastRemoteMuzzleFxSpawnTime = Time.time;
+                _lastRemoteMuzzleTransformPath = GetTransformPath(muzzleTransform);
+
+                Debug.Log(
+                    $"[Weapon][RemoteMuzzleDebug][FX] frame={Time.frameCount} time={Time.time:F3} " +
+                    $"weapon={(_currentWeaponData != null ? _currentWeaponData.weaponName : "(none)")} " +
+                    $"worldWeapon={(_currentWorldWeaponInstance != null ? _currentWorldWeaponInstance.name : "(none)")} " +
+                    $"muzzlePath={_lastRemoteMuzzleTransformPath} " +
+                    $"muzzlePos={position:F4} muzzleFwd={muzzleForward:F4} " +
+                    $"fxRotEuler={desiredWorldRotation.eulerAngles:F3} fxFwd={_lastRemoteMuzzleFxForward:F4} " +
+                    $"endPoint={endPoint:F4} tracerDir={tracerDirectionNormalized:F4} tracerAngle={tracerAngle:F2} " +
+                    $"fxVsTracerAngle={fxVsTracerAngle:F2} " +
+                    $"muzzleCandidates={DescribeMuzzleCandidates(_currentWorldWeaponInstance)}",
+                    this);
+            } else {
+                Debug.LogError(
+                    $"[Weapon][RemoteMuzzleStrict][PlayNetworkedMuzzleFlash] Missing muzzle flash prefab. " +
+                    $"weapon={(_currentWeaponData != null ? _currentWeaponData.weaponName : "(none)")} " +
+                    $"worldWeapon={(_currentWorldWeaponInstance != null ? _currentWorldWeaponInstance.name : "(none)")}",
+                    this);
+                return;
             }
 
             if(!_worldMuzzleLight) return;
             _worldMuzzleLight.SetActive(true);
             _worldLightOffTime = Time.time + MuzzleLightTime;
+        }
+
+        public void LogRemoteTracerDebug(Vector3 endPoint, bool hasStartPoint, Vector3 startPoint) {
+            if(playerController != null && playerController.IsOwner) return;
+
+            _ = TryGetStrictWorldMuzzleTransform(out _, "LogRemoteTracerDebug");
+
+            var hasWorldMuzzle = _worldMuzzleTransform != null;
+            var worldMuzzlePosition = hasWorldMuzzle ? _worldMuzzleTransform.position : Vector3.zero;
+            var worldMuzzleForward = hasWorldMuzzle ? _worldMuzzleTransform.forward : Vector3.zero;
+            var tracerDirection = hasStartPoint ? endPoint - startPoint : Vector3.zero;
+            var tracerDirectionValid = hasStartPoint && tracerDirection.sqrMagnitude > 0.0001f;
+            var tracerDirectionNormalized = tracerDirectionValid ? tracerDirection.normalized : Vector3.zero;
+            var worldVsTracerAngle = tracerDirectionValid && hasWorldMuzzle
+                ? Vector3.Angle(worldMuzzleForward, tracerDirectionNormalized)
+                : -1f;
+            var tracerStartDeltaFromWorldMuzzle = hasStartPoint && hasWorldMuzzle
+                ? Vector3.Distance(startPoint, worldMuzzlePosition)
+                : -1f;
+            var tracerStartDeltaFromLastFxSpawn = hasStartPoint && _lastRemoteMuzzleFxSpawnFrame >= 0
+                ? Vector3.Distance(startPoint, _lastRemoteMuzzleFxSpawnPosition)
+                : -1f;
+            var lastFxVsWorldMuzzleDelta = hasWorldMuzzle && _lastRemoteMuzzleFxSpawnFrame >= 0
+                ? Vector3.Distance(_lastRemoteMuzzleFxSpawnPosition, worldMuzzlePosition)
+                : -1f;
+            var tracerRotation = tracerDirectionValid
+                ? Quaternion.LookRotation(tracerDirectionNormalized, Vector3.up)
+                : Quaternion.identity;
+
+            Debug.Log(
+                $"[Weapon][RemoteMuzzleDebug][Tracer] frame={Time.frameCount} time={Time.time:F3} " +
+                $"weapon={(_currentWeaponData != null ? _currentWeaponData.weaponName : "(none)")} " +
+                $"worldWeapon={(_currentWorldWeaponInstance != null ? _currentWorldWeaponInstance.name : "(none)")} " +
+                $"hasStart={hasStartPoint} start={startPoint:F4} end={endPoint:F4} " +
+                $"tracerDir={tracerDirectionNormalized:F4} tracerRotEuler={tracerRotation.eulerAngles:F3} " +
+                $"worldMuzzlePath={(hasWorldMuzzle ? GetTransformPath(_worldMuzzleTransform) : "(none)")} " +
+                $"worldMuzzlePos={worldMuzzlePosition:F4} worldMuzzleFwd={worldMuzzleForward:F4} " +
+                $"worldVsTracerAngle={worldVsTracerAngle:F2} " +
+                $"startVsWorldMuzzleDelta={tracerStartDeltaFromWorldMuzzle:F4} " +
+                $"startVsLastFxSpawnDelta={tracerStartDeltaFromLastFxSpawn:F4} " +
+                $"lastFxSpawnFrame={_lastRemoteMuzzleFxSpawnFrame} lastFxSpawnTime={_lastRemoteMuzzleFxSpawnTime:F3} " +
+                $"lastFxSpawnPos={_lastRemoteMuzzleFxSpawnPosition:F4} " +
+                $"lastFxSpawnRotEuler={_lastRemoteMuzzleFxSpawnRotation.eulerAngles:F3} " +
+                $"lastFxTransformPath={_lastRemoteMuzzleTransformPath} " +
+                $"lastFxVsWorldMuzzleDelta={lastFxVsWorldMuzzleDelta:F4} " +
+                $"muzzleCandidates={DescribeMuzzleCandidates(_currentWorldWeaponInstance)}",
+                this);
+        }
+
+        private Quaternion ResolveWorldMuzzleFxRotation(Transform muzzleTransform, Vector3 tracerDirectionNormalized,
+            bool hasTracerDirection) {
+            var direction = hasTracerDirection
+                ? tracerDirectionNormalized
+                : muzzleTransform != null ? muzzleTransform.forward : transform.forward;
+            if(direction.sqrMagnitude <= 0.0001f) {
+                direction = muzzleTransform != null ? muzzleTransform.forward : transform.forward;
+            }
+
+            direction.Normalize();
+            if(!DoesCurrentMuzzleFlashUseForwardAxis()) {
+                direction = -direction;
+            }
+
+            var up = muzzleTransform != null ? muzzleTransform.up : Vector3.up;
+            if(Mathf.Abs(Vector3.Dot(up, direction)) > 0.98f) {
+                up = Vector3.right;
+            }
+
+            return Quaternion.LookRotation(direction, up);
+        }
+
+        private static void ApplyLayerRecursive(GameObject root, int layer) {
+            if(root == null) return;
+            root.layer = layer;
+            foreach(Transform child in root.transform) {
+                if(child != null) {
+                    ApplyLayerRecursive(child.gameObject, layer);
+                }
+            }
+        }
+
+        private static void AttachMuzzleFollow(GameObject fxGo, Transform muzzleTransform, bool followRotation) {
+            if(fxGo == null || muzzleTransform == null) return;
+
+            var follower = fxGo.GetComponent<MuzzleFlashFollow>();
+            if(follower == null) {
+                follower = fxGo.AddComponent<MuzzleFlashFollow>();
+            }
+
+            follower.Bind(muzzleTransform, followRotation);
+        }
+
+        [DefaultExecutionOrder(7100)] // Must run after upper-body/spine pose updates.
+        private sealed class MuzzleFlashFollow : MonoBehaviour {
+            private Transform _muzzleTransform;
+            private bool _followRotation;
+            private int _lastSyncFrame = -1;
+
+            public void Bind(Transform muzzleTransform, bool followRotation) {
+                _muzzleTransform = muzzleTransform;
+                _followRotation = followRotation;
+                SyncToMuzzle(force: true);
+            }
+
+            private void Update() {
+                SyncToMuzzle();
+            }
+
+            private void LateUpdate() {
+                SyncToMuzzle(force: true);
+            }
+
+            private void SyncToMuzzle(bool force = false) {
+                if(_muzzleTransform == null) return;
+                if(!force && _lastSyncFrame == Time.frameCount) return;
+
+                transform.position = _muzzleTransform.position;
+                if(_followRotation) {
+                    transform.rotation = _muzzleTransform.rotation;
+                }
+
+                _lastSyncFrame = Time.frameCount;
+            }
         }
 
         public void SpawnTracerLocal(Vector3 start, Vector3 end, Vector3 hitNormal, bool madeImpact, bool hitPlayer, NetworkObjectReference hitPlayerRef = default) {
@@ -1052,6 +1761,8 @@ namespace Game.Weapons {
             trail.transform.position = start;
             trail.transform.rotation = Quaternion.LookRotation(end - start);
             trail.gameObject.SetActive(true);
+            trail.enabled = true;
+            trail.emitting = true;
             trail.Clear(); // Clear any previous trail data
 
             // Disable AudioSource on trail if it exists (we'll play sound manually only on misses)
@@ -1070,6 +1781,20 @@ namespace Game.Weapons {
         }
 
         private void PlayFireSound() {
+            if(UseKinemationEventSoundRouting() && _kinemationFpWeaponDriver != null &&
+               _kinemationFpWeaponDriver.HasKinemationFireSound()) {
+                if(playerController == null || !playerController.IsOwner) return;
+                if(_audioRelay == null || !playerController.NetworkObject) return;
+
+                var kinemationFireSoundId = _kinemationFpWeaponDriver.GetKinemationFireSoundId();
+                if(!string.IsNullOrWhiteSpace(kinemationFireSoundId)) {
+                    _audioRelay.RequestPlayAttached(kinemationFireSoundId, new NetworkObjectReference(playerController.NetworkObject),
+                        allowOverlap: true);
+                }
+                return;
+            }
+
+            if(UseKinemationInternalSounds()) return;
             if(!playerController.IsOwner) return;
             if(_audioRelay == null) return;
 
@@ -1087,13 +1812,12 @@ namespace Game.Weapons {
         }
 
         private void PlayReloadEffects() {
-            if(_weaponAnimator != null) {
-                _weaponAnimator.ResetTrigger(ReloadCompleteHash);
-                _weaponAnimator.SetTrigger(ReloadHash);
-            }
+            PlayReloadAnimationForCurrentWeapon();
 
             PlayReloadAnimationServerRpc();
 
+            if(ShouldSuppressLegacyReloadSound()) return;
+            if(UseKinemationInternalSounds()) return;
             if(!playerController.IsOwner) return;
             if(_audioRelay == null) return;
             var soundId = _currentWeaponData != null ? _currentWeaponData.reloadSoundId : "";
@@ -1109,77 +1833,113 @@ namespace Game.Weapons {
 
         private float GetExpectedReloadDuration() {
             if(_currentWeaponData == null) return 0.5f;
+            if(_kinemationFpWeaponDriver != null) {
+                return KinemationReloadFallbackSeconds;
+            }
             if(_currentWeaponData.useMagReload) {
                 return Mathf.Max(0.05f, _currentWeaponData.reloadTime);
             }
 
             var perRoundTime = Mathf.Max(0.05f, _currentWeaponData.perRoundReloadTime);
-            var roundsMissing = Mathf.Max(1, _currentWeaponData.magSize - currentAmmo);
+            var roundsMissing = Mathf.Max(1, GetCurrentMagCapacity() - currentAmmo);
             return perRoundTime * roundsMissing;
         }
 
         private void ExitReloadAnimation() {
-            if(_weaponAnimator == null || !_weaponAnimator.isActiveAndEnabled) return;
-            _weaponAnimator.ResetTrigger(ReloadHash);
-            _weaponAnimator.SetTrigger(ReloadCompleteHash);
+            if(_kinemationFpWeaponDriver != null) _kinemationFpWeaponDriver.PlayReloadCompleteAnimation();
         }
 
         private void RunReloadWatchdog() {
-            if(_weaponAnimator == null || !_weaponAnimator.isActiveAndEnabled) return;
             if(Time.time < _nextReloadRecoveryAllowedTime) return;
 
-            switch(IsReloading) {
-                case true when Time.time > _reloadExpectedCompleteTime: {
-                    Debug.LogWarning(
-                        $"[Weapon] Reload timeout guard fired for '{name}'. isMagReload={_currentWeaponData != null && _currentWeaponData.useMagReload} ammo={currentAmmo}");
+            if(!IsReloading) return;
+            if(Time.time <= _reloadExpectedCompleteTime) return;
 
-                    if(_currentWeaponData != null && _currentWeaponData.useMagReload) {
-                        CompleteReload();
-                    } else {
-                        IsReloading = false;
-                        _reloadCoroutine = null;
-                        _autoReloadArmed = false;
-                        _reloadAnimationExitDeadline = Time.time + ReloadAnimationExitGraceSeconds;
-                        ExitReloadAnimation();
-                        SyncServerAmmo();
-
-                        if(playerController != null && playerController.IsOwner && _currentWeaponData != null &&
-                           HUDManager.Instance != null) {
-                            EventBus.Publish(new UpdateAmmoEvent(currentAmmo, _currentWeaponData.magSize));
-                        }
-                    }
-
-                    _nextReloadRecoveryAllowedTime = Time.time + ReloadRecoveryCooldownSeconds;
-                    return;
-                }
-                case true:
-                    return;
+            if(_currentWeaponData != null && !_currentWeaponData.useMagReload) {
+                CompleteKinemationPartialReloadWithoutFilling();
+            } else {
+                CompleteReload();
             }
 
-            if(Time.time <= _reloadAnimationExitDeadline) return;
-            if(!IsPlayingReloadClip()) return;
-
-            Debug.LogWarning($"[Weapon] Reload clip recovery fired for '{name}'. Rebinding FP weapon animator.");
-            _weaponAnimator.Rebind();
-            _weaponAnimator.Update(0f);
             _nextReloadRecoveryAllowedTime = Time.time + ReloadRecoveryCooldownSeconds;
-            _reloadAnimationExitDeadline = float.PositiveInfinity;
         }
 
-        private bool IsPlayingReloadClip() {
-            _reloadClipInfoBuffer.Clear();
-            _weaponAnimator.GetCurrentAnimatorClipInfo(0, _reloadClipInfoBuffer);
-            if(_reloadClipInfoBuffer.Count == 0) return false;
+        private void UpdateKinemationReloadState() {
+            if(!IsReloading || _kinemationFpWeaponDriver == null) return;
 
-            foreach(var t in _reloadClipInfoBuffer) {
-                var clip = t.clip;
-                if(clip == null || string.IsNullOrEmpty(clip.name)) continue;
-                if(clip.name.IndexOf("reload", System.StringComparison.OrdinalIgnoreCase) >= 0) {
-                    return true;
-                }
+            var reloadSingleEvents = _kinemationFpWeaponDriver.ConsumeReloadSingleEventCount();
+            if(reloadSingleEvents > 0 && _kinemationFpWeaponDriver.IsReloadSingleDebugEnabled()) {
+                Debug.Log(
+                    $"[Weapon][ReloadSingle] Dequeued events={reloadSingleEvents} frame={Time.frameCount} time={Time.time:F3} " +
+                    $"weapon={(_currentWeaponData != null ? _currentWeaponData.weaponName : "(null)")} ammoBefore={currentAmmo}");
+            }
+            for(var i = 0; i < reloadSingleEvents; i++) {
+                HandleKinemationReloadSingleRound();
             }
 
-            return false;
+            if(_kinemationFpWeaponDriver.ConsumeReloadCompleteEvent()) {
+                if(_kinemationFpWeaponDriver.IsReloadSingleDebugEnabled()) {
+                    Debug.Log(
+                        $"[Weapon][ReloadSingle] ReloadComplete consumed -> full fill frame={Time.frameCount} time={Time.time:F3} " +
+                        $"weapon={(_currentWeaponData != null ? _currentWeaponData.weaponName : "(null)")} " +
+                        $"ammoBeforeFill={currentAmmo} cap={GetCurrentMagCapacity()}");
+                }
+                CompleteReload();
+                return;
+            }
+
+            if(!_kinemationFpWeaponDriver.IsReloadSequenceInProgress()) {
+                if(_currentWeaponData != null && !_currentWeaponData.useMagReload) {
+                    CompleteKinemationPartialReloadWithoutFilling();
+                } else {
+                    CompleteReload();
+                }
+                return;
+            }
+
+            if(Time.time <= _kinemationReloadFallbackDeadline) return;
+            if(_currentWeaponData != null && !_currentWeaponData.useMagReload) {
+                CompleteKinemationPartialReloadWithoutFilling();
+            } else {
+                CompleteReload();
+            }
+            _nextReloadRecoveryAllowedTime = Time.time + ReloadRecoveryCooldownSeconds;
+        }
+
+        private void ProcessKinemationSoundEvents() {
+            if(_kinemationFpWeaponDriver == null) return;
+
+            // Always drain queues to avoid stale events if ownership/state changed.
+            _kinemationFpWeaponDriver.ConsumeWeaponFireSoundEventCount();
+            _kinemationWeaponSoundEventBuffer.Clear();
+            _kinemationFpWeaponDriver.ConsumeWeaponEventSoundIndices(_kinemationWeaponSoundEventBuffer);
+
+            if(_kinemationWeaponSoundEventBuffer.Count == 0) return;
+            if(!UseKinemationEventSoundRouting()) return;
+            if(playerController == null || !playerController.IsOwner) return;
+            if(_audioRelay == null || !playerController.NetworkObject) return;
+
+            var attachRef = new NetworkObjectReference(playerController.NetworkObject);
+            foreach(var clipIndex in _kinemationWeaponSoundEventBuffer) {
+                if(!_kinemationFpWeaponDriver.TryGetKinemationEventSoundId(clipIndex, out var eventSoundId)) continue;
+                if(string.IsNullOrWhiteSpace(eventSoundId)) continue;
+                _audioRelay.RequestPlayAttached(eventSoundId, attachRef, allowOverlap: true);
+            }
+        }
+
+        private void StopKinemationEventSoundsForCurrentWeapon() {
+            if(_kinemationFpWeaponDriver == null) return;
+            if(!UseKinemationEventSoundRouting()) return;
+            if(playerController == null || !playerController.IsOwner) return;
+            if(_audioRelay == null) return;
+
+            var eventClipCount = _kinemationFpWeaponDriver.GetKinemationEventSoundClipCount();
+            for(var clipIndex = 0; clipIndex < eventClipCount; clipIndex++) {
+                if(!_kinemationFpWeaponDriver.IsLikelyReloadEventSoundClip(clipIndex)) continue;
+                if(!_kinemationFpWeaponDriver.TryGetKinemationEventSoundId(clipIndex, out var eventSoundId)) continue;
+                if(string.IsNullOrWhiteSpace(eventSoundId)) continue;
+                _audioRelay.RequestStop(eventSoundId);
+            }
         }
 
         private IEnumerator SpawnTrail(TrailRenderer trail, Vector3 hitPoint, Vector3 hitNormal, bool madeImpact,
@@ -1237,6 +1997,22 @@ namespace Game.Weapons {
             ReturnTrailToPool(trail);
         }
 
+        private IEnumerator SpawnOwnerTracerLocalAfterViewUpdate(Vector3 fallbackStart, Vector3 end, Vector3 hitNormal,
+            bool madeImpact, bool hitPlayer, NetworkObjectReference hitPlayerRef) {
+            // Wait until end-of-frame so camera/viewmodel transforms settle before we sample muzzle position.
+            // This keeps local tracer origin aligned with the rendered FP muzzle during fast look updates.
+            yield return new WaitForEndOfFrame();
+
+            var start = fallbackStart;
+            if(playerController != null && playerController.IsOwner) {
+                if(!TryGetOwnerTracerStartPosition(out start)) {
+                    start = fallbackStart;
+                }
+            }
+
+            SpawnTracerLocal(start, end, hitNormal, madeImpact, hitPlayer, hitPlayerRef);
+        }
+
         /// <summary>
         /// Initializes the trail pool with pre-allocated TrailRenderer objects.
         /// Only clears inactive trails from the pool - active trails are allowed to finish naturally.
@@ -1255,6 +2031,7 @@ namespace Game.Weapons {
             if(_currentWeaponData == null || _currentWeaponData.bulletTrail == null) return;
             for(var i = 0; i < TrailPoolSize; i++) {
                 var trailObj = Instantiate(_currentWeaponData.bulletTrail);
+                trailObj.emitting = false;
                 trailObj.gameObject.SetActive(false);
                 _trailPool.Enqueue(trailObj);
             }
@@ -1283,6 +2060,7 @@ namespace Game.Weapons {
             // If no available trail found, create a new one
             if(trail == null && _currentWeaponData != null && _currentWeaponData.bulletTrail != null) {
                 trail = Instantiate(_currentWeaponData.bulletTrail);
+                trail.emitting = false;
             }
 
             return trail;
@@ -1303,6 +2081,7 @@ namespace Game.Weapons {
             // Active trails from previous weapon will just be cleaned up by Unity
             if(_currentWeaponData == null || _currentWeaponData.bulletTrail == null) return;
 
+            trail.emitting = false;
             trail.gameObject.SetActive(false);
             trail.Clear(); // Clear the trail data
             _trailPool.Enqueue(trail);

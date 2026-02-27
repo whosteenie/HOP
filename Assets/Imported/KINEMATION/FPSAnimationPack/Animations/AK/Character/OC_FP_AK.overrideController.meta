@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 30455ef43c1629e408172e2a70eefaa5
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 22100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 308611
+  packageName: FPS Animation Pro
+  packageVersion: 3.1.0
+  assetPath: Assets/Imported/KINEMATION/FPSAnimationPack/Animations/AK/Character/OC_FP_AK.overrideController
+  uploadId: 797610

@@ -1,0 +1,49 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: eefa7fc14ec118b44ad82cb18af67667, type: 3}
+  m_Name: m1911_fireCue
+  m_EditorClassIdentifier: Assembly-CSharp::Game.Audio2.SoundCue
+  id: weapons.kin.m1911.fire
+  variants:
+  - clip: {fileID: 8300000, guid: f67306e91dffae74c881f640d986f4e4, type: 3}
+    weight: 1
+    volumeDb: -0.13127527
+    pitch: 0.99
+    randomPitch: 0.030000001
+  - clip: {fileID: 8300000, guid: 7c25801260a35b841b432d23e3672cb4, type: 3}
+    weight: 1
+    volumeDb: -0.13127527
+    pitch: 0.99
+    randomPitch: 0.030000001
+  - clip: {fileID: 8300000, guid: 1c3383d82745a074fa6dff76897d0480, type: 3}
+    weight: 1
+    volumeDb: -0.13127527
+    pitch: 0.99
+    randomPitch: 0.030000001
+  - clip: {fileID: 8300000, guid: 63a897c98ee14c345bf87986d5f6dda9, type: 3}
+    weight: 1
+    volumeDb: -0.13127527
+    pitch: 0.99
+    randomPitch: 0.030000001
+  bus: 3
+  outputGroup: {fileID: 0}
+  is3D: 1
+  spatialBlend: 1
+  minDistance: 1
+  maxDistance: 50
+  rolloffMode: 0
+  priority: 128
+  maxInstances: 10
+  cooldownSeconds: 0
+  stealPolicy: 1
+  stopBehavior: 1
+  preload: 0

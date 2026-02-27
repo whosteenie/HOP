@@ -554,9 +554,7 @@ namespace Game.Player {
             if(swayCamera == null && playerController != null) {
                 swayCamera = playerController.FpCamera;
             }
-            if(swayCamera == null) {
-                return null;
-            }
+            var weaponCamera = playerController != null ? playerController.WeaponCamera : null;
 
             if(_weaponManager != null) {
                 var currentFpWeapon = _weaponManager.GetCurrentFpWeapon();
@@ -571,12 +569,26 @@ namespace Game.Player {
                 }
             }
 
-            foreach(Transform swayHolder in swayCamera.transform) {
-                if(swayHolder.name != "SwayHolder") continue;
-                
-                foreach(Transform bobHolder in swayHolder) {
-                    if(bobHolder.name == "BobHolder" && bobHolder.gameObject.activeInHierarchy) {
-                        return bobHolder;
+            if(swayCamera != null) {
+                foreach(Transform swayHolder in swayCamera.transform) {
+                    if(swayHolder.name != "SwayHolder") continue;
+
+                    foreach(Transform bobHolder in swayHolder) {
+                        if(bobHolder.name == "BobHolder" && bobHolder.gameObject.activeInHierarchy) {
+                            return bobHolder;
+                        }
+                    }
+                }
+            }
+
+            if(weaponCamera != null && (swayCamera == null || weaponCamera.transform != swayCamera.transform)) {
+                foreach(Transform swayHolder in weaponCamera.transform) {
+                    if(swayHolder.name != "SwayHolder") continue;
+
+                    foreach(Transform bobHolder in swayHolder) {
+                        if(bobHolder.name == "BobHolder" && bobHolder.gameObject.activeInHierarchy) {
+                            return bobHolder;
+                        }
                     }
                 }
             }
@@ -624,11 +636,20 @@ namespace Game.Player {
             if(swayCamera == null && playerController != null) {
                 swayCamera = playerController.FpCamera;
             }
-            if(swayCamera == null) return null;
+            if(swayCamera != null) {
+                foreach(Transform child in swayCamera.transform) {
+                    if(child.name == "SwayHolder") {
+                        return child;
+                    }
+                }
+            }
 
-            foreach(Transform child in swayCamera.transform) {
-                if(child.name == "SwayHolder") {
-                    return child;
+            var weaponCamera = playerController != null ? playerController.WeaponCamera : null;
+            if(weaponCamera != null && (swayCamera == null || weaponCamera.transform != swayCamera.transform)) {
+                foreach(Transform child in weaponCamera.transform) {
+                    if(child.name == "SwayHolder") {
+                        return child;
+                    }
                 }
             }
 

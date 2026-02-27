@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 7a7c084238b98de4fbe677bcc5d85bfe
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 308611
+  packageName: FPS Animation Pro
+  packageVersion: 3.1.0
+  assetPath: Assets/Imported/KINEMATION/FPSAnimationPack/Animations/AK/Weapon/Materials_URP/M_Finish.mat
+  uploadId: 797610

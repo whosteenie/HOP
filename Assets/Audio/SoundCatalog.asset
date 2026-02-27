@@ -85,3 +85,71 @@ MonoBehaviour:
     cue: {fileID: 11400000, guid: 52a27065052f9ea4ab3ba6191343196f, type: 2}
   - id: weapons.sniper.shoot
     cue: {fileID: 11400000, guid: 62b2435aaee2ecf44bda8fa2b220ef78, type: 2}
+  - id: weapons.kin.ak.fire
+    cue: {fileID: 11400000, guid: 099770245a6e4074d935547c3a468e22, type: 2}
+  - id: weapons.kin.ak.event.0
+    cue: {fileID: 11400000, guid: 7f7cf17c781722640ae8368fbf1b8b19, type: 2}
+  - id: weapons.kin.ak.event.1
+    cue: {fileID: 11400000, guid: f41a24e158d747a4b91cd6a4f14867a7, type: 2}
+  - id: weapons.kin.dgl50.fire
+    cue: {fileID: 11400000, guid: 3784b29f2039b5f438fe627c3b12483e, type: 2}
+  - id: weapons.kin.dgl50.event.0
+    cue: {fileID: 11400000, guid: ec9cb90b90c4f95428f3803fec3d7e1f, type: 2}
+  - id: weapons.kin.dgl50.event.1
+    cue: {fileID: 11400000, guid: 6ee593a759b495647909a83733407265, type: 2}
+  - id: weapons.kin.drake.12.fire
+    cue: {fileID: 11400000, guid: b0caf9f941543154e9e40336a12c306c, type: 2}
+  - id: weapons.kin.drake.12.event.0
+    cue: {fileID: 11400000, guid: 912c345677e63e3408617cc61d47233f, type: 2}
+  - id: weapons.kin.drake.12.event.1
+    cue: {fileID: 11400000, guid: 837010ed80b1f8b4f90a38127495f181, type: 2}
+  - id: weapons.kin.drake.12.event.2
+    cue: {fileID: 11400000, guid: 08610f278057a5f4c84c78d98df6fc2f, type: 2}
+  - id: weapons.kin.drake.12.event.3
+    cue: {fileID: 11400000, guid: 4cb863e3bdb78d34ea67e589056c8098, type: 2}
+  - id: weapons.kin.kar98k.fire
+    cue: {fileID: 11400000, guid: 8e5ce9902584fe84a8c4e764f44dc932, type: 2}
+  - id: weapons.kin.kar98k.event.0
+    cue: {fileID: 11400000, guid: 5e20d4e9999f05342a5d90ed1d63b670, type: 2}
+  - id: weapons.kin.kar98k.event.1
+    cue: {fileID: 11400000, guid: 6953bf580f8a5cc40b807f61c41a0b0f, type: 2}
+  - id: weapons.kin.kar98k.event.2
+    cue: {fileID: 11400000, guid: 591184e743d57a5439df15dfdeb40d96, type: 2}
+  - id: weapons.kin.m1911.fire
+    cue: {fileID: 11400000, guid: 2c640dc0e16787f4a9fe10ae249a0a20, type: 2}
+  - id: weapons.kin.m1911.event.0
+    cue: {fileID: 11400000, guid: f3a125fc225462047afaf5f590285124, type: 2}
+  - id: weapons.kin.m1911.event.1
+    cue: {fileID: 11400000, guid: 164926cf100898d4c99860d3583a6a41, type: 2}
+  - id: weapons.kin.mk14ebr.fire
+    cue: {fileID: 11400000, guid: 713ab11e50f635a4c91f977db6519363, type: 2}
+  - id: weapons.kin.mk14ebr.event.0
+    cue: {fileID: 11400000, guid: 7af58453f05e29446842b7c8b71f9592, type: 2}
+  - id: weapons.kin.mk14ebr.event.1
+    cue: {fileID: 11400000, guid: addd9d1e83d1f034c8bd85c8a82deeeb, type: 2}
+  - id: weapons.kin.mk14ebr.event.2
+    cue: {fileID: 11400000, guid: 9d71f36aa9558dc4987b239be21f7ca2, type: 2}
+  - id: weapons.kin.mk14ebr.event.3
+    cue: {fileID: 11400000, guid: 752042a33931d6748beb277743eb4b5e, type: 2}
+  - id: weapons.kin.mps5.fire
+    cue: {fileID: 11400000, guid: 0e02348a17098f34a9556837fe76eef6, type: 2}
+  - id: weapons.kin.mps5.event.0
+    cue: {fileID: 11400000, guid: 74b22a17929d35a498f5a407d5b6f451, type: 2}
+  - id: weapons.kin.mps5.event.1
+    cue: {fileID: 11400000, guid: 075e8e32ce4e1c84baf0e60abfd99f2e, type: 2}
+  - id: weapons.kin.mx16a4.fire
+    cue: {fileID: 11400000, guid: 8dcd550e280597749a093345c782e23c, type: 2}
+  - id: weapons.kin.mx16a4.event.0
+    cue: {fileID: 11400000, guid: acc30b1d1082bde4f80a2c827adbd247, type: 2}
+  - id: weapons.kin.mx16a4.event.1
+    cue: {fileID: 11400000, guid: 1c3dcf31317050948a25c5c3bf7f86c4, type: 2}
+  - id: weapons.kin.pdw90.fire
+    cue: {fileID: 11400000, guid: dbf98c12048ade04fb19505c3b637d9e, type: 2}
+  - id: weapons.kin.pdw90.event.0
+    cue: {fileID: 11400000, guid: 7b98fcf9a60d82c4b8e498cb6d198a4c, type: 2}
+  - id: weapons.kin.pdw90.event.1
+    cue: {fileID: 11400000, guid: f673b0b32b66a5c4f8992777259e7502, type: 2}
+  - id: weapons.kin.rpg.fire
+    cue: {fileID: 11400000, guid: 42df751cc47aebc42b65e49b6686a21a, type: 2}
+  - id: weapons.kin.rpg.event.0
+    cue: {fileID: 11400000, guid: 5fe42a27fe2d1ff4eabd85d0734fa7c8, type: 2}

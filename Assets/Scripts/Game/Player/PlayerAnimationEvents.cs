@@ -55,9 +55,12 @@ namespace Game.Player {
         /// </summary>
         public void WeaponPullOutCompleted() {
             if(_weaponManager != null) {
-                _weaponManager.HandlePullOutCompleted();
+                _weaponManager.HandleThirdPersonPullOutCompleted();
             }
         }
+
+        // Animation Event hook for equip clips that use EquipComplete naming.
+        public void EquipComplete() => WeaponPullOutCompleted();
 
         /// <summary>
         /// Called from TP player animation event to show the weapon during pull out animation.

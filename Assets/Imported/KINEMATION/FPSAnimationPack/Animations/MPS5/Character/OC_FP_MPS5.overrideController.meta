@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: f9f7a274348619e4488d962b77fd0b5c
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 22100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 308611
+  packageName: FPS Animation Pro
+  packageVersion: 3.1.0
+  assetPath: Assets/Imported/KINEMATION/FPSAnimationPack/Animations/MPS5/Character/OC_FP_MPS5.overrideController
+  uploadId: 797610

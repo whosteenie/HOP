@@ -1,4 +1,5 @@
 using Unity.Cinemachine;
+using Unity.Cinemachine;
 using UnityEngine;
 
 namespace Game.Weapons {
@@ -53,21 +54,19 @@ namespace Game.Weapons {
         private float _crouchSwayOffset;
         private float _crouchSwayVel;
 
+        public void SetCameraTransform(Transform cameraTransform) {
+            cam = cameraTransform;
+            SyncCameraTrackingState();
+        }
+
         private void Awake() {
-            if(cam == null) {
-                var c = GetComponentInParent<CinemachineCamera>();
-                if(c) cam = c.transform;
-            }
+            TryResolveCameraTransform();
 
             var swayTransform = transform;
             _baseLocalPos = swayTransform.localPosition;
             _baseLocalRot = swayTransform.localRotation;
 
-            var e = cam ? cam.eulerAngles : Vector3.zero;
-            _lastAngles = new Vector2(e.x, e.y);
-            
-            // Initialize crouch sway tracking
-            _lastCameraY = cam ? cam.localPosition.y : 0f;
+            SyncCameraTrackingState();
             _crouchSwayOffset = 0f;
             _crouchSwayVel = 0f;
         }
@@ -81,13 +80,12 @@ namespace Game.Weapons {
             _curRotEuler = _velRot = Vector3.zero;
             _smoothedDelta = Vector2.zero;
 
-            var e = cam ? cam.eulerAngles : Vector3.zero;
-            _lastAngles = new Vector2(e.x, e.y);
+            TryResolveCameraTransform();
+            SyncCameraTrackingState();
         }
 
         private void LateUpdate() {
-            if(cam == null) {
-                cam = GetComponentInParent<CinemachineCamera>().transform;
+            if(!TryResolveCameraTransform()) {
                 return;
             }
 
@@ -148,6 +146,26 @@ namespace Game.Weapons {
             // 6) Apply
             transform.localPosition = _baseLocalPos + _curPos;
             transform.localRotation = _baseLocalRot * Quaternion.Euler(_curRotEuler);
+        }
+
+        private bool TryResolveCameraTransform() {
+            if(cam != null) {
+                return true;
+            }
+
+            var c = GetComponentInParent<CinemachineCamera>();
+            if(c == null) {
+                return false;
+            }
+
+            cam = c.transform;
+            return true;
+        }
+
+        private void SyncCameraTrackingState() {
+            var e = cam ? cam.eulerAngles : Vector3.zero;
+            _lastAngles = new Vector2(e.x, e.y);
+            _lastCameraY = cam ? cam.localPosition.y : 0f;
         }
 
         private static Vector3 SmoothDampEuler(Vector3 current, Vector3 target, ref Vector3 vel, float smoothTime, float dt) {

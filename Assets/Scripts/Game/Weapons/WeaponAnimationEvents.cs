@@ -7,27 +7,36 @@ namespace Game.Weapons {
     /// Allows animation events to communicate with the weapon system.
     /// </summary>
     public class WeaponAnimationEvents : MonoBehaviour {
-        /// <summary>
-        /// Called from FP weapon animation event when pull out animation completes.
-        /// Finds the WeaponManager and releases control by clearing IsPullingOut flag.
-        /// </summary>
-        public void OnPullOutCompleted() {
+        private WeaponManager ResolveWeaponManager() {
             // Find PlayerController via hierarchy (FP weapon is child of camera, camera is child of player)
             var playerController = GetComponentInParent<PlayerController>();
-            if(playerController == null) return;
-            if(playerController.WeaponManager != null) {
-                playerController.WeaponManager.HandlePullOutCompleted();
-            } else {
-                // Fallback: try to find via root
-                var root = transform.root;
-                playerController = root.GetComponent<PlayerController>();
-                if(playerController != null && playerController.WeaponManager != null) {
-                    playerController.WeaponManager.HandlePullOutCompleted();
-                } else {
-                    Debug.LogWarning(
-                        "[WeaponAnimationEvents] Could not find PlayerController or WeaponManager to handle pull out completion!");
-                }
+            if(playerController != null && playerController.WeaponManager != null) {
+                return playerController.WeaponManager;
             }
+
+            // Fallback: try to find via root
+            var root = transform.root;
+            playerController = root.GetComponent<PlayerController>();
+            if(playerController != null && playerController.WeaponManager != null) {
+                return playerController.WeaponManager;
+            }
+
+            Debug.LogWarning(
+                "[WeaponAnimationEvents] Could not find PlayerController or WeaponManager to handle equip completion!");
+            return null;
         }
+
+        /// <summary>
+        /// Called from FP weapon animation event when equip completes.
+        /// Releases IsPullingOut so fire/reload can resume.
+        /// </summary>
+        public void EquipComplete() {
+            var weaponManager = ResolveWeaponManager();
+            weaponManager?.HandlePullOutCompleted();
+        }
+
+        // Backwards-compatible aliases for existing animation events.
+        public void OnEquipComplete() => EquipComplete();
+        public void OnPullOutCompleted() => EquipComplete();
     }
 }

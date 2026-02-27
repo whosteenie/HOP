@@ -15,6 +15,8 @@ namespace Game.Weapons {
         private Camera _weaponCamera;
         private CinemachineCamera _fpCamera;
         private Camera _mainSceneCamera; // Main scene camera (not player's fpCamera)
+        [SerializeField] private bool syncWeaponFovWithFpCamera;
+        [SerializeField, Range(1f, 179f)] private float fixedWeaponCameraFov = 70f;
 
         [Header("Dynamic Near Clip (FOV-driven)")]
         [SerializeField] private bool enableDynamicNearClip = true;
@@ -49,12 +51,19 @@ namespace Game.Weapons {
         }
 
         private void SetupWeaponCamera() {
-
-            // Sync FOV with fpCamera
-            if(_fpCamera != null) {
-                _weaponCamera.fieldOfView = _fpCamera.Lens.FieldOfView;
-                nearClipBaseFov = _fpCamera.Lens.FieldOfView;
+            if(_weaponCamera == null) {
+                Debug.LogError("[WeaponCameraController] WeaponCamera reference missing on PlayerController.");
+                return;
             }
+
+            var weaponCameraData = _weaponCamera.GetUniversalAdditionalCameraData();
+            if(weaponCameraData != null) {
+                weaponCameraData.renderType = CameraRenderType.Overlay;
+            }
+
+            var targetFov = ResolveTargetWeaponFov();
+            _weaponCamera.fieldOfView = targetFov;
+            nearClipBaseFov = targetFov;
 
             // Keep existing behavior unchanged at base FOV unless explicitly tuned otherwise.
             if(nearClipAtBaseFov <= 0f && _weaponCamera != null) {
@@ -78,8 +87,20 @@ namespace Game.Weapons {
             }
 
             // Add weapon camera to main scene camera's camera stack
+            if(_mainSceneCamera == null || _mainSceneCamera == _weaponCamera) {
+                _mainSceneCamera = Camera.main;
+            }
+
+            if(_mainSceneCamera == null) {
+                Debug.LogWarning("[WeaponCameraController] Main scene camera not found; weapon overlay stack setup skipped.");
+                return;
+            }
+
             var mainCameraData = _mainSceneCamera.GetUniversalAdditionalCameraData();
-            if(mainCameraData == null) return;
+            if(mainCameraData == null) {
+                Debug.LogWarning("[WeaponCameraController] Main scene camera is missing UniversalAdditionalCameraData.");
+                return;
+            }
 
             // Remove from stack if already added (to avoid duplicates)
             if(mainCameraData.cameraStack.Contains(_weaponCamera)) {
@@ -91,14 +112,21 @@ namespace Game.Weapons {
         }
 
         private void LateUpdate() {
-            // Sync FOV with fpCamera
-            if(_weaponCamera == null || _fpCamera == null) return;
-            var newFov = _fpCamera.Lens.FieldOfView;
-            if(Mathf.Abs(_weaponCamera.fieldOfView - newFov) > 0.01f) {
-                _weaponCamera.fieldOfView = newFov;
+            if(_weaponCamera == null) return;
+            var targetFov = ResolveTargetWeaponFov();
+            if(Mathf.Abs(_weaponCamera.fieldOfView - targetFov) > 0.01f) {
+                _weaponCamera.fieldOfView = targetFov;
             }
 
-            UpdateDynamicNearClip(newFov);
+            UpdateDynamicNearClip(targetFov);
+        }
+
+        private float ResolveTargetWeaponFov() {
+            if(syncWeaponFovWithFpCamera && _fpCamera != null) {
+                return _fpCamera.Lens.FieldOfView;
+            }
+
+            return Mathf.Clamp(fixedWeaponCameraFov, 1f, 179f);
         }
 
         private void UpdateDynamicNearClip(float currentFov) {

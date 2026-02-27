@@ -516,10 +516,7 @@ namespace Game.Player {
             if(!(VerticalVelocity > 0f)) return;
 
             if(IsOwner && playerController != null) {
-                WeaponBob weaponBob = null;
-                if(playerController.FpCamera != null) {
-                    weaponBob = playerController.FpCamera.GetComponentInChildren<WeaponBob>();
-                }
+                var weaponBob = FindActiveWeaponBob();
 
                 if(weaponBob != null) {
                     weaponBob.OnJumpInitiated();
@@ -570,13 +567,14 @@ namespace Game.Player {
             if(!(VerticalVelocity > 0f)) return;
 
             // Notify WeaponBob that jump pad launch was initiated (owner only, local effect)
-            if(IsOwner && playerController != null && playerController.FpCamera != null) {
-                var weaponBob = playerController.FpCamera.GetComponentInChildren<WeaponBob>();
+            if(IsOwner && playerController != null) {
+                var weaponBob = FindActiveWeaponBob();
                 if(weaponBob != null) {
                     weaponBob.OnJumpInitiated();
                 } else {
                     Debug.LogWarning(
-                        $"[PlayerMovementController] LaunchFromJumpPad: WeaponBob not found! FpCamera={playerController.FpCamera != null}");
+                        $"[PlayerMovementController] LaunchFromJumpPad: WeaponBob not found! " +
+                        $"FpCamera={playerController.FpCamera != null} WeaponCamera={playerController.WeaponCamera != null}");
                 }
             }
 
@@ -596,6 +594,19 @@ namespace Game.Player {
                 ? 30f
                 : // Mega jump pad height
                 0f; // No jump pad found
+        }
+
+        private WeaponBob FindActiveWeaponBob() {
+            if(playerController == null) return null;
+
+            var fpCamera = playerController.FpCamera;
+            if(fpCamera != null) {
+                var fpBob = fpCamera.GetComponentInChildren<WeaponBob>();
+                if(fpBob != null) return fpBob;
+            }
+
+            var weaponCamera = playerController.WeaponCamera;
+            return weaponCamera != null ? weaponCamera.GetComponentInChildren<WeaponBob>() : null;
         }
 
         /// <summary>

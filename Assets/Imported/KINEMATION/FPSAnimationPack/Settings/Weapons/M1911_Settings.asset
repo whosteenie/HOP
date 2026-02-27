@@ -1,0 +1,42 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 067a66f68d8440b2b8854c722342a2b2, type: 3}
+  m_Name: M1911_Settings
+  m_EditorClassIdentifier: 
+  characterController: {fileID: 22100000, guid: 4b9d0b1b8b6cc3541862224040f3defe,
+    type: 2}
+  recoilAnimData: {fileID: 11400000, guid: 92673ffc2b52cbe49b5ca835e895cc09, type: 2}
+  cameraShake: {fileID: 11400000, guid: 51e31a48fd04bce48a71191e26e85118, type: 2}
+  ikOffset: {x: 0, y: 0, z: 0}
+  leftClavicleOffset: {x: 0, y: 0, z: 0}
+  rightClavicleOffset: {x: 0, y: 0, z: 0}
+  aimPointOffset: {x: 0, y: 0, z: -0.2}
+  rightHandSprintOffset: {x: 0, y: 0.08715574, z: 0, w: 0.9961947}
+  adsBlend: 0.496
+  fireRate: 450
+  ammo: 7
+  aimFov: 60
+  fullAuto: 0
+  useFireClip: 0
+  hasEquipOverride: 0
+  hasFireOut: 1
+  useSprintTriggerDiscipline: 1
+  fireSounds:
+  - {fileID: 8300000, guid: f67306e91dffae74c881f640d986f4e4, type: 3}
+  - {fileID: 8300000, guid: 7c25801260a35b841b432d23e3672cb4, type: 3}
+  - {fileID: 8300000, guid: 1c3383d82745a074fa6dff76897d0480, type: 3}
+  - {fileID: 8300000, guid: 63a897c98ee14c345bf87986d5f6dda9, type: 3}
+  firePitchRange: {x: 0.96, y: 1.02}
+  fireVolumeRange: {x: 0.94, y: 1.03}
+  weaponEventSounds:
+  - {fileID: 8300000, guid: bc82ba36c26d3a54ebf758dc4cd7fd1d, type: 3}
+  - {fileID: 8300000, guid: 10409535ce860be4fb2c327aa0e390c1, type: 3}
