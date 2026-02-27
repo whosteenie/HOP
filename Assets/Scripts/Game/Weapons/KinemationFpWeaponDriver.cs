@@ -39,8 +39,11 @@ namespace Game.Weapons {
         private bool _reloadHasBeenActive;
         private bool _reloadHasReceivedAnyEvent;
         private bool _reloadCompleteEventReceived;
+        private bool _drakeCurrentReloadStartedEmpty;
+        private bool _drakeCurrentEmptyReloadSawAmmoEject;
         private bool _drakeTopShellEjectedSinceReloadComplete;
         private bool _drakeShotCanceledReloadAfterAmmoEject;
+        private bool _drakeShotCanceledEmptyReloadAfterAmmoEject;
         private bool _isTrackingEquip;
         private bool _equipHasBeenActive;
         private bool _equipCompleteEventReceived;
@@ -52,6 +55,10 @@ namespace Game.Weapons {
         private float _reloadTrackStartTime;
         private float _lastReloadSignalTime;
         private int _lastReloadSingleEventFrame = -1;
+        private float _lastReloadSingleEventTime = -1f;
+        private string _lastReloadSingleEventSource = "";
+        private int _reloadSingleEventsReceivedDuringCurrentReload;
+        private int _reloadSingleEventsConsumedDuringCurrentReload;
         private float _equipTrackStartTime;
         private float _lastEquipSignalTime;
         private bool _hasCachedWristDebugBones;
@@ -60,6 +67,7 @@ namespace Game.Weapons {
         private Transform _wristDebugHandLeft;
         private readonly HashSet<int> _suppressedMuzzleFxWeaponIds = new();
         private bool _suppressDrakeTopShellEjectOnNextReload;
+        private bool _suppressDrakeBottomShellOnNextReload;
         private Transform _suppressedDrakeTopShellTransform;
         private Vector3 _suppressedDrakeTopShellOriginalLocalPosition;
         private bool _hasSuppressedDrakeTopShellOriginalLocalPosition;
@@ -68,12 +76,30 @@ namespace Game.Weapons {
         private Renderer[] _suppressedDrakeTopShellRenderers;
         private bool[] _suppressedDrakeTopShellRendererEnabledStates;
         private bool _isDrakeTopShellSuppressionApplied;
+        private Transform _suppressedDrakeBottomShellTransform;
+        private Vector3 _suppressedDrakeBottomShellOriginalLocalPosition;
+        private bool _hasSuppressedDrakeBottomShellOriginalLocalPosition;
+        private Vector3 _suppressedDrakeBottomShellOriginalLocalScale;
+        private bool _hasSuppressedDrakeBottomShellOriginalLocalScale;
+        private Renderer[] _suppressedDrakeBottomShellRenderers;
+        private bool[] _suppressedDrakeBottomShellRendererEnabledStates;
+        private bool _isDrakeBottomShellSuppressionApplied;
+        private Transform _karLoopBulletTransform;
+        private Vector3 _karLoopBulletOriginalLocalPosition;
+        private bool _hasKarLoopBulletOriginalLocalPosition;
+        private Vector3 _karLoopBulletOriginalLocalScale;
+        private bool _hasKarLoopBulletOriginalLocalScale;
+        private Renderer[] _karLoopBulletRenderers;
+        private bool[] _karLoopBulletRendererEnabledStates;
+        private bool _isKarLoopBulletHidden;
         private const float ReloadEnterGraceSeconds = 0.2f;
         private const float ReloadSignalGraceSeconds = 0.25f;
         private const float EquipEnterGraceSeconds = 0.2f;
         private const float EquipSignalGraceSeconds = 0.05f;
         private const float DrakeTopShellHideOffset = 0.75f;
+        private const float KarLoopBulletHideOffset = 0.55f;
         private const string DrakeTopShellName = "12Gauge1";
+        private const string DrakeBottomShellName = "12Gauge0";
         private static readonly int EquipHash = Animator.StringToHash("Equip");
         private static readonly int EquipOverrideHash = Animator.StringToHash("Equip_Override");
 
@@ -129,13 +155,18 @@ namespace Game.Weapons {
             _hasCachedWristDebugBones = false;
         }
 
-        public bool IsDrakeShellDebugEnabled() {
+        public bool IsReloadSingleDebugEnabled() {
             return logDrakeAmmoEjectDebug;
         }
 
         private void LogDrakeDebug(string message) {
             if(!logDrakeAmmoEjectDebug) return;
             Debug.Log($"[KinemationFpWeaponDriver] {message}", this);
+        }
+
+        private void LogReloadSingleDebug(string message) {
+            if(!logDrakeAmmoEjectDebug) return;
+            Debug.Log($"[KinemationFpWeaponDriver][ReloadSingle] {message}", this);
         }
 
         public bool InitializeIfNeeded(int renderLayer) {
@@ -228,11 +259,18 @@ namespace Game.Weapons {
             _isTrackingReload = true;
             _reloadTrackStartTime = Time.time;
             _lastReloadSignalTime = Time.time;
+            var activeAmmoAtReloadStart = GetActiveWeaponAmmoForInterrupt();
+            _drakeCurrentReloadStartedEmpty = IsActiveWeaponLikelyDrake() && activeAmmoAtReloadStart <= 0;
+            _drakeCurrentEmptyReloadSawAmmoEject = false;
             LogDrakeDebug(
                 $"PlayReloadAnimation start. frame={Time.frameCount} time={Time.time:F3} " +
                 $"suppressNextReload={_suppressDrakeTopShellEjectOnNextReload} " +
+                $"suppressBottomNextReload={_suppressDrakeBottomShellOnNextReload} " +
+                $"reloadStartedEmpty={_drakeCurrentReloadStartedEmpty} " +
                 $"ejectedSinceComplete={_drakeTopShellEjectedSinceReloadComplete} " +
-                $"shotCanceledAfterEject={_drakeShotCanceledReloadAfterAmmoEject} appliedNow={_isDrakeTopShellSuppressionApplied}");
+                $"shotCanceledAfterEject={_drakeShotCanceledReloadAfterAmmoEject} " +
+                $"shotCanceledEmptyAfterEject={_drakeShotCanceledEmptyReloadAfterAmmoEject} " +
+                $"topAppliedNow={_isDrakeTopShellSuppressionApplied} bottomAppliedNow={_isDrakeBottomShellSuppressionApplied}");
 
             var shouldHideTopShellForThisReload = IsActiveWeaponLikelyDrake() &&
                                                   _drakeTopShellEjectedSinceReloadComplete &&
@@ -243,9 +281,17 @@ namespace Game.Weapons {
                     $"PlayReloadAnimation applying suppressed top shell. frame={Time.frameCount} time={Time.time:F3} " +
                     $"appliedNow={_isDrakeTopShellSuppressionApplied}");
             }
+            if(_suppressDrakeBottomShellOnNextReload) {
+                SuppressDrakeBottomShellForReloadStart();
+                LogDrakeDebug(
+                    $"PlayReloadAnimation applying suppressed bottom shell. frame={Time.frameCount} time={Time.time:F3} " +
+                    $"appliedNow={_isDrakeBottomShellSuppressionApplied}");
+            }
 
             _suppressDrakeTopShellEjectOnNextReload = false;
+            _suppressDrakeBottomShellOnNextReload = false;
             _drakeShotCanceledReloadAfterAmmoEject = false;
+            _drakeShotCanceledEmptyReloadAfterAmmoEject = false;
 
             _activeWeapon.OnReload();
         }
@@ -266,9 +312,16 @@ namespace Game.Weapons {
             }
 
             _drakeShotCanceledReloadAfterAmmoEject = true;
+            if(_drakeCurrentReloadStartedEmpty && _drakeCurrentEmptyReloadSawAmmoEject) {
+                _drakeShotCanceledEmptyReloadAfterAmmoEject = true;
+                _suppressDrakeBottomShellOnNextReload = true;
+            }
             LogDrakeDebug(
                 $"MarkReloadCanceledByShot. frame={Time.frameCount} time={Time.time:F3} " +
-                $"ejectedSinceComplete={_drakeTopShellEjectedSinceReloadComplete}");
+                $"ejectedSinceComplete={_drakeTopShellEjectedSinceReloadComplete} " +
+                $"reloadStartedEmpty={_drakeCurrentReloadStartedEmpty} " +
+                $"emptySawAmmoEject={_drakeCurrentEmptyReloadSawAmmoEject} " +
+                $"suppressBottomNextReload={_suppressDrakeBottomShellOnNextReload}");
         }
 
         public void PlayReloadCompleteAnimation() {
@@ -308,6 +361,12 @@ namespace Game.Weapons {
             if(_pendingReloadSingleEvents <= 0) return 0;
             var count = _pendingReloadSingleEvents;
             _pendingReloadSingleEvents = 0;
+            _reloadSingleEventsConsumedDuringCurrentReload += count;
+            LogReloadSingleDebug(
+                $"Consume count={count} frame={Time.frameCount} time={Time.time:F3} " +
+                $"receivedTotal={_reloadSingleEventsReceivedDuringCurrentReload} " +
+                $"consumedTotal={_reloadSingleEventsConsumedDuringCurrentReload} " +
+                $"lastSource='{_lastReloadSingleEventSource}'");
             return count;
         }
 
@@ -412,26 +471,20 @@ namespace Game.Weapons {
             }
 
             if(!EnsureDrakeTopShellSuppressionTarget()) {
-                if(logDrakeAmmoEjectDebug) {
-                    Debug.LogWarning(
-                        $"[KinemationFpWeaponDriver] Drake suppression target not found. frame={Time.frameCount} time={Time.time:F3}",
-                        this);
-                }
+                LogDrakeDebug(
+                    $"Drake suppression target not found. frame={Time.frameCount} time={Time.time:F3}");
                 return;
             }
 
             // Keep top shell hidden for this reload start when consumed by the two-flag rule.
             ApplyDrakeTopShellSuppressionNow();
 
-            if(logDrakeAmmoEjectDebug) {
-                Debug.Log(
-                    $"[KinemationFpWeaponDriver] Drake reload start. topShellHidden={_isDrakeTopShellSuppressionApplied}. " +
-                    $"target={_suppressedDrakeTopShellTransform.name} frame={Time.frameCount} time={Time.time:F3} " +
-                    $"suppressNextReload={_suppressDrakeTopShellEjectOnNextReload} " +
-                    $"ejectedSinceComplete={_drakeTopShellEjectedSinceReloadComplete} " +
-                    $"shotCanceledAfterEject={_drakeShotCanceledReloadAfterAmmoEject}",
-                    this);
-            }
+            LogDrakeDebug(
+                $"Drake reload start. topShellHidden={_isDrakeTopShellSuppressionApplied} " +
+                $"target={_suppressedDrakeTopShellTransform.name} frame={Time.frameCount} time={Time.time:F3} " +
+                $"suppressNextReload={_suppressDrakeTopShellEjectOnNextReload} " +
+                $"ejectedSinceComplete={_drakeTopShellEjectedSinceReloadComplete} " +
+                $"shotCanceledAfterEject={_drakeShotCanceledReloadAfterAmmoEject}");
         }
 
         private bool EnsureDrakeTopShellSuppressionTarget() {
@@ -525,6 +578,296 @@ namespace Game.Weapons {
             LogDrakeDebug($"RestoreSuppression complete. frame={Time.frameCount} time={Time.time:F3}");
         }
 
+        private void SuppressDrakeBottomShellForReloadStart() {
+            if(_activeWeapon == null || !IsActiveWeaponLikelyDrake()) {
+                LogDrakeDebug("Bottom suppress skipped: active weapon not Drake.");
+                return;
+            }
+
+            if(!EnsureDrakeBottomShellSuppressionTarget()) {
+                LogDrakeDebug(
+                    $"Bottom suppression target not found. frame={Time.frameCount} time={Time.time:F3}");
+                return;
+            }
+
+            ApplyDrakeBottomShellSuppressionNow();
+            LogDrakeDebug(
+                $"Drake reload start. bottomShellHidden={_isDrakeBottomShellSuppressionApplied} " +
+                $"target={_suppressedDrakeBottomShellTransform.name} frame={Time.frameCount} time={Time.time:F3}");
+        }
+
+        private bool EnsureDrakeBottomShellSuppressionTarget() {
+            if(_suppressedDrakeBottomShellTransform != null) {
+                return true;
+            }
+
+            if(!TryResolveDrakeBottomShellTransform(out var bottomShellTransform) || bottomShellTransform == null) {
+                return false;
+            }
+
+            _suppressedDrakeBottomShellTransform = bottomShellTransform;
+            _suppressedDrakeBottomShellOriginalLocalPosition = bottomShellTransform.localPosition;
+            _hasSuppressedDrakeBottomShellOriginalLocalPosition = true;
+            _suppressedDrakeBottomShellOriginalLocalScale = bottomShellTransform.localScale;
+            _hasSuppressedDrakeBottomShellOriginalLocalScale = true;
+            _isDrakeBottomShellSuppressionApplied = false;
+
+            var shellRenderers = bottomShellTransform.GetComponentsInChildren<Renderer>(true);
+            if(shellRenderers != null && shellRenderers.Length > 0) {
+                _suppressedDrakeBottomShellRenderers = shellRenderers;
+                _suppressedDrakeBottomShellRendererEnabledStates = new bool[shellRenderers.Length];
+                for(var i = 0; i < shellRenderers.Length; i++) {
+                    var renderer = shellRenderers[i];
+                    if(renderer == null) continue;
+                    _suppressedDrakeBottomShellRendererEnabledStates[i] = renderer.enabled;
+                }
+            }
+
+            return true;
+        }
+
+        private void ApplyDrakeBottomShellSuppressionNow() {
+            if(_suppressedDrakeBottomShellTransform == null) {
+                LogDrakeDebug("ApplyBottomSuppression skipped: target null.");
+                return;
+            }
+
+            if(_hasSuppressedDrakeBottomShellOriginalLocalPosition) {
+                _suppressedDrakeBottomShellTransform.localPosition =
+                    _suppressedDrakeBottomShellOriginalLocalPosition + Vector3.down * DrakeTopShellHideOffset;
+            }
+
+            if(_hasSuppressedDrakeBottomShellOriginalLocalScale) {
+                _suppressedDrakeBottomShellTransform.localScale = Vector3.zero;
+            }
+
+            if(_suppressedDrakeBottomShellRenderers != null) {
+                for(var i = 0; i < _suppressedDrakeBottomShellRenderers.Length; i++) {
+                    var renderer = _suppressedDrakeBottomShellRenderers[i];
+                    if(renderer == null) continue;
+                    renderer.enabled = false;
+                }
+            }
+
+            _isDrakeBottomShellSuppressionApplied = true;
+            LogDrakeDebug(
+                $"ApplyBottomSuppression applied. target={_suppressedDrakeBottomShellTransform.name} " +
+                $"frame={Time.frameCount} time={Time.time:F3}");
+        }
+
+        private void RestoreDrakeBottomShellImmediate() {
+            if(_suppressedDrakeBottomShellRenderers != null && _suppressedDrakeBottomShellRendererEnabledStates != null) {
+                var limit = Mathf.Min(_suppressedDrakeBottomShellRenderers.Length,
+                    _suppressedDrakeBottomShellRendererEnabledStates.Length);
+                for(var i = 0; i < limit; i++) {
+                    var renderer = _suppressedDrakeBottomShellRenderers[i];
+                    if(renderer == null) continue;
+                    renderer.enabled = _suppressedDrakeBottomShellRendererEnabledStates[i];
+                }
+            }
+
+            if(_suppressedDrakeBottomShellTransform != null && _hasSuppressedDrakeBottomShellOriginalLocalPosition) {
+                _suppressedDrakeBottomShellTransform.localPosition = _suppressedDrakeBottomShellOriginalLocalPosition;
+            }
+            if(_suppressedDrakeBottomShellTransform != null && _hasSuppressedDrakeBottomShellOriginalLocalScale) {
+                _suppressedDrakeBottomShellTransform.localScale = _suppressedDrakeBottomShellOriginalLocalScale;
+            }
+
+            _suppressedDrakeBottomShellTransform = null;
+            _suppressedDrakeBottomShellRenderers = null;
+            _suppressedDrakeBottomShellRendererEnabledStates = null;
+            _suppressedDrakeBottomShellOriginalLocalPosition = Vector3.zero;
+            _hasSuppressedDrakeBottomShellOriginalLocalPosition = false;
+            _suppressedDrakeBottomShellOriginalLocalScale = Vector3.one;
+            _hasSuppressedDrakeBottomShellOriginalLocalScale = false;
+            _isDrakeBottomShellSuppressionApplied = false;
+            LogDrakeDebug($"RestoreBottomSuppression complete. frame={Time.frameCount} time={Time.time:F3}");
+        }
+
+        private bool TryResolveDrakeBottomShellTransform(out Transform bottomShellTransform) {
+            bottomShellTransform = null;
+            if(_activeWeapon == null) return false;
+
+            var transforms = _activeWeapon.GetComponentsInChildren<Transform>(true);
+            if(TryFindNamedTransform(transforms, DrakeBottomShellName, out bottomShellTransform)) {
+                return true;
+            }
+
+            Transform best = null;
+            var bestScore = int.MinValue;
+            var bestLocalY = float.PositiveInfinity;
+
+            foreach(var candidate in transforms) {
+                if(candidate == null || string.IsNullOrWhiteSpace(candidate.name)) continue;
+                if(string.Equals(candidate.name, DrakeTopShellName, System.StringComparison.OrdinalIgnoreCase)) continue;
+
+                var lowerName = candidate.name.ToLowerInvariant();
+                var isGaugeBone = lowerName.Contains("12gauge");
+                var looksLikeShell = lowerName.Contains("shell") || lowerName.Contains("cartridge") ||
+                                     lowerName.Contains("gauge");
+                if(!isGaugeBone && !looksLikeShell) continue;
+
+                var score = 0;
+                if(isGaugeBone) score += 4;
+                if(lowerName.Contains("shell")) score += 2;
+                if(lowerName.Contains("bottom") || lowerName.Contains("lower")) score += 2;
+                if(lowerName.EndsWith("1")) score += 1;
+
+                var candidateLocalY = candidate.localPosition.y;
+                if(score < bestScore) continue;
+                if(score == bestScore && candidateLocalY >= bestLocalY) continue;
+
+                best = candidate;
+                bestScore = score;
+                bestLocalY = candidateLocalY;
+            }
+
+            if(best == null) return false;
+            bottomShellTransform = best;
+            LogDrakeDebug(
+                $"TryResolveDrakeBottomShellTransform fallback picked '{bottomShellTransform.name}'. " +
+                $"frame={Time.frameCount} time={Time.time:F3}");
+            return true;
+        }
+
+        private void HideKarLoopBulletForReloadLoop() {
+            if(_activeWeapon == null || !IsActiveWeaponLikelyKar()) return;
+            if(!EnsureKarLoopBulletTarget()) {
+                LogDrakeDebug(
+                    $"Kar loop bullet target not found. frame={Time.frameCount} time={Time.time:F3}");
+                return;
+            }
+
+            ApplyKarLoopBulletHiddenNow();
+            LogDrakeDebug(
+                $"Kar loop bullet hidden. target={_karLoopBulletTransform.name} " +
+                $"frame={Time.frameCount} time={Time.time:F3}");
+        }
+
+        private bool EnsureKarLoopBulletTarget() {
+            if(_karLoopBulletTransform != null) {
+                return true;
+            }
+
+            if(!TryResolveKarLoopBulletTransform(out var loopBulletTransform) || loopBulletTransform == null) {
+                return false;
+            }
+
+            _karLoopBulletTransform = loopBulletTransform;
+            _karLoopBulletOriginalLocalPosition = loopBulletTransform.localPosition;
+            _hasKarLoopBulletOriginalLocalPosition = true;
+            _karLoopBulletOriginalLocalScale = loopBulletTransform.localScale;
+            _hasKarLoopBulletOriginalLocalScale = true;
+            _isKarLoopBulletHidden = false;
+
+            var bulletRenderers = loopBulletTransform.GetComponentsInChildren<Renderer>(true);
+            if(bulletRenderers != null && bulletRenderers.Length > 0) {
+                _karLoopBulletRenderers = bulletRenderers;
+                _karLoopBulletRendererEnabledStates = new bool[bulletRenderers.Length];
+                for(var i = 0; i < bulletRenderers.Length; i++) {
+                    var renderer = bulletRenderers[i];
+                    if(renderer == null) continue;
+                    _karLoopBulletRendererEnabledStates[i] = renderer.enabled;
+                }
+            }
+
+            return true;
+        }
+
+        private void ApplyKarLoopBulletHiddenNow() {
+            if(_karLoopBulletTransform == null) return;
+
+            if(_hasKarLoopBulletOriginalLocalPosition) {
+                _karLoopBulletTransform.localPosition =
+                    _karLoopBulletOriginalLocalPosition + Vector3.down * KarLoopBulletHideOffset;
+            }
+
+            if(_hasKarLoopBulletOriginalLocalScale) {
+                _karLoopBulletTransform.localScale = Vector3.zero;
+            }
+
+            if(_karLoopBulletRenderers != null) {
+                for(var i = 0; i < _karLoopBulletRenderers.Length; i++) {
+                    var renderer = _karLoopBulletRenderers[i];
+                    if(renderer == null) continue;
+                    renderer.enabled = false;
+                }
+            }
+
+            _isKarLoopBulletHidden = true;
+        }
+
+        private void RestoreKarLoopBulletImmediate() {
+            if(_karLoopBulletRenderers != null && _karLoopBulletRendererEnabledStates != null) {
+                var limit = Mathf.Min(_karLoopBulletRenderers.Length, _karLoopBulletRendererEnabledStates.Length);
+                for(var i = 0; i < limit; i++) {
+                    var renderer = _karLoopBulletRenderers[i];
+                    if(renderer == null) continue;
+                    renderer.enabled = _karLoopBulletRendererEnabledStates[i];
+                }
+            }
+
+            if(_karLoopBulletTransform != null && _hasKarLoopBulletOriginalLocalPosition) {
+                _karLoopBulletTransform.localPosition = _karLoopBulletOriginalLocalPosition;
+            }
+            if(_karLoopBulletTransform != null && _hasKarLoopBulletOriginalLocalScale) {
+                _karLoopBulletTransform.localScale = _karLoopBulletOriginalLocalScale;
+            }
+
+            _karLoopBulletTransform = null;
+            _karLoopBulletRenderers = null;
+            _karLoopBulletRendererEnabledStates = null;
+            _karLoopBulletOriginalLocalPosition = Vector3.zero;
+            _hasKarLoopBulletOriginalLocalPosition = false;
+            _karLoopBulletOriginalLocalScale = Vector3.one;
+            _hasKarLoopBulletOriginalLocalScale = false;
+            _isKarLoopBulletHidden = false;
+            LogDrakeDebug($"RestoreKarLoopBullet complete. frame={Time.frameCount} time={Time.time:F3}");
+        }
+
+        private bool TryResolveKarLoopBulletTransform(out Transform loopBulletTransform) {
+            loopBulletTransform = null;
+            if(_activeWeapon == null) return false;
+
+            var transforms = _activeWeapon.GetComponentsInChildren<Transform>(true);
+            if(TryFindNamedTransform(transforms, "Bullet", out loopBulletTransform)) {
+                return true;
+            }
+            if(TryFindNamedTransform(transforms, "Bullet1", out loopBulletTransform)) {
+                return true;
+            }
+            if(TryFindNamedTransform(transforms, "Round", out loopBulletTransform)) {
+                return true;
+            }
+
+            Transform best = null;
+            var bestScore = int.MinValue;
+            foreach(var candidate in transforms) {
+                if(candidate == null || string.IsNullOrWhiteSpace(candidate.name)) continue;
+
+                var lowerName = candidate.name.ToLowerInvariant();
+                if(lowerName.Contains("muzzle") || lowerName.Contains("aim") || lowerName.Contains("mag")) continue;
+
+                var score = 0;
+                if(lowerName.Contains("bullet")) score += 5;
+                if(lowerName.Contains("cartridge")) score += 4;
+                if(lowerName.Contains("round")) score += 3;
+                if(lowerName.Contains("792") || lowerName.Contains("7_92") || lowerName.Contains("7.92")) score += 2;
+                if(lowerName.Contains("shell")) score -= 2;
+
+                if(score <= bestScore) continue;
+                best = candidate;
+                bestScore = score;
+            }
+
+            if(best == null || bestScore <= 0) return false;
+            loopBulletTransform = best;
+            LogDrakeDebug(
+                $"TryResolveKarLoopBulletTransform fallback picked '{loopBulletTransform.name}'. " +
+                $"frame={Time.frameCount} time={Time.time:F3}");
+            return true;
+        }
+
         private bool TryResolveDrakeTopShellTransform(out Transform topShellTransform) {
             topShellTransform = null;
             if(_activeWeapon == null) return false;
@@ -607,6 +950,33 @@ namespace Game.Weapons {
                !string.IsNullOrWhiteSpace(_activeWeapon.weaponSettings.name) &&
                _activeWeapon.weaponSettings.name.IndexOf("drake", System.StringComparison.OrdinalIgnoreCase) >= 0) {
                 return true;
+            }
+
+            return false;
+        }
+
+        private bool IsActiveWeaponLikelyKar() {
+            if(_activeWeapon == null) return false;
+
+            if(!string.IsNullOrWhiteSpace(_activeWeaponSoundKey)) {
+                var soundKey = _activeWeaponSoundKey.ToLowerInvariant();
+                if(soundKey.Contains("kar") || soundKey.Contains("kar98")) {
+                    return true;
+                }
+            }
+
+            if(!string.IsNullOrWhiteSpace(_activeWeapon.name)) {
+                var weaponName = _activeWeapon.name.ToLowerInvariant();
+                if(weaponName.Contains("kar") || weaponName.Contains("kar98")) {
+                    return true;
+                }
+            }
+
+            if(_activeWeapon.weaponSettings != null && !string.IsNullOrWhiteSpace(_activeWeapon.weaponSettings.name)) {
+                var settingsName = _activeWeapon.weaponSettings.name.ToLowerInvariant();
+                if(settingsName.Contains("kar") || settingsName.Contains("kar98")) {
+                    return true;
+                }
             }
 
             return false;
@@ -740,57 +1110,69 @@ namespace Game.Weapons {
             _reloadHasBeenActive = false;
             _reloadHasReceivedAnyEvent = false;
             _reloadCompleteEventReceived = false;
+            _drakeCurrentReloadStartedEmpty = false;
+            _drakeCurrentEmptyReloadSawAmmoEject = false;
             _pendingReloadSingleEvents = 0;
             _reloadTrackStartTime = 0f;
             _lastReloadSignalTime = 0f;
             _lastReloadSingleEventFrame = -1;
+            _lastReloadSingleEventTime = -1f;
+            _lastReloadSingleEventSource = "";
+            _reloadSingleEventsReceivedDuringCurrentReload = 0;
+            _reloadSingleEventsConsumedDuringCurrentReload = 0;
             LogDrakeDebug(
                 $"ResetReloadTracking. frame={Time.frameCount} time={Time.time:F3} " +
-                $"ejectedSinceComplete={_drakeTopShellEjectedSinceReloadComplete} appliedNow={_isDrakeTopShellSuppressionApplied} " +
-                $"suppressNextReload={_suppressDrakeTopShellEjectOnNextReload}");
+                $"ejectedSinceComplete={_drakeTopShellEjectedSinceReloadComplete} " +
+                $"topAppliedNow={_isDrakeTopShellSuppressionApplied} bottomAppliedNow={_isDrakeBottomShellSuppressionApplied} " +
+                $"suppressTopNextReload={_suppressDrakeTopShellEjectOnNextReload} " +
+                $"suppressBottomNextReload={_suppressDrakeBottomShellOnNextReload}");
         }
 
-        public void NotifyReloadSingleEvent() {
-            if(!_isTrackingReload) return;
-            if(Time.frameCount == _lastReloadSingleEventFrame) return;
+        public void NotifyReloadSingleEvent(string sourceTag = null) {
+            var source = string.IsNullOrWhiteSpace(sourceTag) ? "(unknown)" : sourceTag;
+            if(!_isTrackingReload) {
+                LogReloadSingleDebug(
+                    $"Ignored (not tracking) source='{source}' frame={Time.frameCount} time={Time.time:F3}");
+                return;
+            }
 
+            if(Time.frameCount == _lastReloadSingleEventFrame) {
+                LogReloadSingleDebug(
+                    $"Ignored same-frame duplicate source='{source}' frame={Time.frameCount} time={Time.time:F3} " +
+                    $"lastSource='{_lastReloadSingleEventSource}'");
+                return;
+            }
+
+            var deltaSinceLast = _lastReloadSingleEventTime < 0f ? -1f : Time.time - _lastReloadSingleEventTime;
             _lastReloadSingleEventFrame = Time.frameCount;
+            _lastReloadSingleEventTime = Time.time;
+            _lastReloadSingleEventSource = source;
             _reloadHasReceivedAnyEvent = true;
             _reloadHasBeenActive = true;
             _lastReloadSignalTime = Time.time;
             _pendingReloadSingleEvents++;
+            _reloadSingleEventsReceivedDuringCurrentReload++;
+            if(IsActiveWeaponLikelyKar()) {
+                HideKarLoopBulletForReloadLoop();
+            }
+            LogReloadSingleDebug(
+                $"Queued +1 source='{source}' frame={Time.frameCount} time={Time.time:F3} " +
+                $"pending={_pendingReloadSingleEvents} receivedTotal={_reloadSingleEventsReceivedDuringCurrentReload} " +
+                $"deltaSinceLast={deltaSinceLast:F3}");
         }
 
         public void NotifyAmmoEjectEvent() {
             if(IsActiveWeaponLikelyDrake()) {
                 _drakeTopShellEjectedSinceReloadComplete = true;
                 _drakeShotCanceledReloadAfterAmmoEject = false;
-            }
-
-            if(logDrakeAmmoEjectDebug && IsActiveWeaponLikelyDrake()) {
-                var targetName = _suppressedDrakeTopShellTransform != null
-                    ? _suppressedDrakeTopShellTransform.name
-                    : "(none)";
-                Debug.Log(
-                    $"[KinemationFpWeaponDriver] AmmoEject(pre) frame={Time.frameCount} time={Time.time:F3} " +
-                    $"trackingReload={_isTrackingReload} " +
-                    $"applied={_isDrakeTopShellSuppressionApplied} target={targetName} " +
-                    $"ejectedSinceComplete={_drakeTopShellEjectedSinceReloadComplete} " +
-                    $"shotCanceledAfterEject={_drakeShotCanceledReloadAfterAmmoEject}",
-                    this);
-            }
-
-            if(logDrakeAmmoEjectDebug && IsActiveWeaponLikelyDrake()) {
-                var targetName = _suppressedDrakeTopShellTransform != null
-                    ? _suppressedDrakeTopShellTransform.name
-                    : "(none)";
-                Debug.Log(
-                    $"[KinemationFpWeaponDriver] AmmoEject(post) frame={Time.frameCount} time={Time.time:F3} " +
-                    $"trackingReload={_isTrackingReload} " +
-                    $"applied={_isDrakeTopShellSuppressionApplied} target={targetName} " +
-                    $"ejectedSinceComplete={_drakeTopShellEjectedSinceReloadComplete} " +
-                    $"shotCanceledAfterEject={_drakeShotCanceledReloadAfterAmmoEject}",
-                    this);
+                if(_drakeCurrentReloadStartedEmpty) {
+                    _drakeCurrentEmptyReloadSawAmmoEject = true;
+                }
+                if(_isDrakeBottomShellSuppressionApplied) {
+                    LogDrakeDebug(
+                        $"NotifyAmmoEjectEvent restoring bottom shell. frame={Time.frameCount} time={Time.time:F3}");
+                    RestoreDrakeBottomShellImmediate();
+                }
             }
 
             if(!_isTrackingReload) return;
@@ -800,27 +1182,56 @@ namespace Game.Weapons {
         }
 
         public void NotifyShellShowEvent() {
-            if(!IsActiveWeaponLikelyDrake()) return;
+            var isDrake = IsActiveWeaponLikelyDrake();
+            var isKar = IsActiveWeaponLikelyKar();
+            if(!isDrake && !isKar) return;
 
-            LogDrakeDebug(
-                $"NotifyShellShowEvent. frame={Time.frameCount} time={Time.time:F3} " +
-                $"appliedBeforeShow={_isDrakeTopShellSuppressionApplied}");
-
-            _drakeTopShellEjectedSinceReloadComplete = false;
-            _drakeShotCanceledReloadAfterAmmoEject = false;
-            _suppressDrakeTopShellEjectOnNextReload = false;
-            RestoreDrakeTopShellImmediate();
-        }
-
-        public void NotifyReloadCompleteEvent() {
-            if(IsActiveWeaponLikelyDrake()) {
+            if(isDrake) {
                 LogDrakeDebug(
-                    $"NotifyReloadCompleteEvent restoring shell. frame={Time.frameCount} time={Time.time:F3} " +
-                    $"appliedBeforeRestore={_isDrakeTopShellSuppressionApplied}");
+                    $"NotifyShellShowEvent. frame={Time.frameCount} time={Time.time:F3} " +
+                    $"topAppliedBeforeShow={_isDrakeTopShellSuppressionApplied} " +
+                    $"bottomAppliedBeforeShow={_isDrakeBottomShellSuppressionApplied}");
+
                 _drakeTopShellEjectedSinceReloadComplete = false;
                 _drakeShotCanceledReloadAfterAmmoEject = false;
+                _drakeShotCanceledEmptyReloadAfterAmmoEject = false;
                 _suppressDrakeTopShellEjectOnNextReload = false;
+                _suppressDrakeBottomShellOnNextReload = false;
                 RestoreDrakeTopShellImmediate();
+                RestoreDrakeBottomShellImmediate();
+            }
+
+            if(isKar) {
+                LogDrakeDebug(
+                    $"NotifyShellShowEvent restoring kar loop bullet. frame={Time.frameCount} time={Time.time:F3} " +
+                    $"hiddenBeforeShow={_isKarLoopBulletHidden}");
+                RestoreKarLoopBulletImmediate();
+            }
+        }
+
+        public void NotifyReloadCompleteEvent(string sourceTag = null) {
+            var isDrake = IsActiveWeaponLikelyDrake();
+            var isKar = IsActiveWeaponLikelyKar();
+
+            if(isDrake) {
+                LogDrakeDebug(
+                    $"NotifyReloadCompleteEvent restoring shell. frame={Time.frameCount} time={Time.time:F3} " +
+                    $"topAppliedBeforeRestore={_isDrakeTopShellSuppressionApplied} " +
+                    $"bottomAppliedBeforeRestore={_isDrakeBottomShellSuppressionApplied}");
+                _drakeTopShellEjectedSinceReloadComplete = false;
+                _drakeShotCanceledReloadAfterAmmoEject = false;
+                _drakeShotCanceledEmptyReloadAfterAmmoEject = false;
+                _suppressDrakeTopShellEjectOnNextReload = false;
+                _suppressDrakeBottomShellOnNextReload = false;
+                RestoreDrakeTopShellImmediate();
+                RestoreDrakeBottomShellImmediate();
+            }
+
+            if(isKar) {
+                LogDrakeDebug(
+                    $"NotifyReloadCompleteEvent restoring kar loop bullet. frame={Time.frameCount} time={Time.time:F3} " +
+                    $"hiddenBeforeRestore={_isKarLoopBulletHidden}");
+                RestoreKarLoopBulletImmediate();
             }
 
             if(!_isTrackingReload) return;
@@ -828,6 +1239,12 @@ namespace Game.Weapons {
             _reloadHasBeenActive = true;
             _lastReloadSignalTime = Time.time;
             _reloadCompleteEventReceived = true;
+            var source = string.IsNullOrWhiteSpace(sourceTag) ? "(unknown)" : sourceTag;
+            LogReloadSingleDebug(
+                $"ReloadComplete source='{source}' frame={Time.frameCount} time={Time.time:F3} " +
+                $"receivedSingles={_reloadSingleEventsReceivedDuringCurrentReload} " +
+                $"consumedSingles={_reloadSingleEventsConsumedDuringCurrentReload} " +
+                $"pendingSingles={_pendingReloadSingleEvents}");
         }
 
         public void NotifyWeaponFireSoundEvent() {
@@ -1569,6 +1986,8 @@ namespace Game.Weapons {
         private void LateUpdate() {
             ApplyFixedWristOffsets();
             ApplySuppressedDrakeTopShellPose();
+            ApplySuppressedDrakeBottomShellPose();
+            ApplyHiddenKarLoopBulletPose();
         }
 
         private void ApplySuppressedDrakeTopShellPose() {
@@ -1594,8 +2013,56 @@ namespace Game.Weapons {
             }
         }
 
+        private void ApplySuppressedDrakeBottomShellPose() {
+            if(!_isDrakeBottomShellSuppressionApplied) return;
+            if(_suppressedDrakeBottomShellTransform == null) return;
+
+            if(_hasSuppressedDrakeBottomShellOriginalLocalPosition) {
+                _suppressedDrakeBottomShellTransform.localPosition =
+                    _suppressedDrakeBottomShellOriginalLocalPosition + Vector3.down * DrakeTopShellHideOffset;
+            }
+
+            if(_hasSuppressedDrakeBottomShellOriginalLocalScale) {
+                _suppressedDrakeBottomShellTransform.localScale = Vector3.zero;
+            }
+
+            if(_suppressedDrakeBottomShellRenderers == null) return;
+            for(var i = 0; i < _suppressedDrakeBottomShellRenderers.Length; i++) {
+                var renderer = _suppressedDrakeBottomShellRenderers[i];
+                if(renderer == null) continue;
+                if(renderer.enabled) {
+                    renderer.enabled = false;
+                }
+            }
+        }
+
+        private void ApplyHiddenKarLoopBulletPose() {
+            if(!_isKarLoopBulletHidden) return;
+            if(_karLoopBulletTransform == null) return;
+
+            if(_hasKarLoopBulletOriginalLocalPosition) {
+                _karLoopBulletTransform.localPosition =
+                    _karLoopBulletOriginalLocalPosition + Vector3.down * KarLoopBulletHideOffset;
+            }
+
+            if(_hasKarLoopBulletOriginalLocalScale) {
+                _karLoopBulletTransform.localScale = Vector3.zero;
+            }
+
+            if(_karLoopBulletRenderers == null) return;
+            for(var i = 0; i < _karLoopBulletRenderers.Length; i++) {
+                var renderer = _karLoopBulletRenderers[i];
+                if(renderer == null) continue;
+                if(renderer.enabled) {
+                    renderer.enabled = false;
+                }
+            }
+        }
+
         private void OnDestroy() {
             RestoreDrakeTopShellImmediate();
+            RestoreDrakeBottomShellImmediate();
+            RestoreKarLoopBulletImmediate();
             if(_runtimePlayerSettings != null) {
                 Destroy(_runtimePlayerSettings);
                 _runtimePlayerSettings = null;

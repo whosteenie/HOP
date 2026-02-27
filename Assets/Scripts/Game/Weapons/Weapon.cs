@@ -710,11 +710,6 @@ namespace Game.Weapons {
                 return Time.time >= _lastFireTime + _currentWeaponData.fireRate && currentAmmo > 0 && !IsReloading;
             ConsumePendingKinemationReloadSingleEvents();
             if(_kinemationFpWeaponDriver != null) {
-                if(_kinemationFpWeaponDriver.IsDrakeShellDebugEnabled()) {
-                    Debug.Log(
-                        $"[Weapon] Reload-cancel fire branch. frame={Time.frameCount} time={Time.time:F3} " +
-                        $"isReloading={IsReloading} currentAmmo={currentAmmo}");
-                }
                 _kinemationFpWeaponDriver.NotifyDrakeReloadCanceledByShot();
             }
             // For shell-by-shell reloads, allow cancel only after at least one round was inserted.
@@ -1175,7 +1170,13 @@ namespace Game.Weapons {
             var magCapacity = GetCurrentMagCapacity();
             if(currentAmmo >= magCapacity) return;
 
+            var ammoBefore = currentAmmo;
             currentAmmo = Mathf.Min(currentAmmo + 1, magCapacity);
+            if(_kinemationFpWeaponDriver != null && _kinemationFpWeaponDriver.IsReloadSingleDebugEnabled()) {
+                Debug.Log(
+                    $"[Weapon][ReloadSingle] Applied +1 frame={Time.frameCount} time={Time.time:F3} " +
+                    $"weapon={_currentWeaponData.weaponName} ammo={ammoBefore}->{currentAmmo} cap={magCapacity}");
+            }
 
             if(playerController != null && playerController.IsOwner && HUDManager.Instance != null) {
                 EventBus.Publish(new UpdateAmmoEvent(currentAmmo, magCapacity));
@@ -1424,6 +1425,12 @@ namespace Game.Weapons {
             if(_currentWeaponData == null || _currentWeaponData.useMagReload) return;
 
             var reloadSingleEvents = _kinemationFpWeaponDriver.ConsumeReloadSingleEventCount();
+            if(reloadSingleEvents > 0 && _kinemationFpWeaponDriver.IsReloadSingleDebugEnabled()) {
+                Debug.Log(
+                    $"[Weapon][ReloadSingle] Dequeued during CanFire events={reloadSingleEvents} " +
+                    $"frame={Time.frameCount} time={Time.time:F3} " +
+                    $"weapon={_currentWeaponData.weaponName} ammoBefore={currentAmmo}");
+            }
             for(var i = 0; i < reloadSingleEvents; i++) {
                 HandleKinemationReloadSingleRound();
             }
@@ -1634,11 +1641,22 @@ namespace Game.Weapons {
             if(!IsReloading || _kinemationFpWeaponDriver == null) return;
 
             var reloadSingleEvents = _kinemationFpWeaponDriver.ConsumeReloadSingleEventCount();
+            if(reloadSingleEvents > 0 && _kinemationFpWeaponDriver.IsReloadSingleDebugEnabled()) {
+                Debug.Log(
+                    $"[Weapon][ReloadSingle] Dequeued events={reloadSingleEvents} frame={Time.frameCount} time={Time.time:F3} " +
+                    $"weapon={(_currentWeaponData != null ? _currentWeaponData.weaponName : "(null)")} ammoBefore={currentAmmo}");
+            }
             for(var i = 0; i < reloadSingleEvents; i++) {
                 HandleKinemationReloadSingleRound();
             }
 
             if(_kinemationFpWeaponDriver.ConsumeReloadCompleteEvent()) {
+                if(_kinemationFpWeaponDriver.IsReloadSingleDebugEnabled()) {
+                    Debug.Log(
+                        $"[Weapon][ReloadSingle] ReloadComplete consumed -> full fill frame={Time.frameCount} time={Time.time:F3} " +
+                        $"weapon={(_currentWeaponData != null ? _currentWeaponData.weaponName : "(null)")} " +
+                        $"ammoBeforeFill={currentAmmo} cap={GetCurrentMagCapacity()}");
+                }
                 CompleteReload();
                 return;
             }

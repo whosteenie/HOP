@@ -15,11 +15,15 @@ namespace Game.Weapons {
             return driver;
         }
 
+        private string BuildSourceTag(string eventName) {
+            return $"{eventName}@{name}#{GetInstanceID()}";
+        }
+
         // Animation Event hook
         public void ReloadSingle() {
             var resolved = ResolveDriver();
             if(resolved == null) return;
-            resolved.NotifyReloadSingleEvent();
+            resolved.NotifyReloadSingleEvent(BuildSourceTag(nameof(ReloadSingle)));
         }
 
         // Animation Event hook
@@ -40,7 +44,7 @@ namespace Game.Weapons {
         public void ReloadComplete() {
             var resolved = ResolveDriver();
             if(resolved == null) return;
-            resolved.NotifyReloadCompleteEvent();
+            resolved.NotifyReloadCompleteEvent(BuildSourceTag(nameof(ReloadComplete)));
         }
 
         // Animation Event hook

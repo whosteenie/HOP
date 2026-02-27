@@ -69,8 +69,8 @@ ModelImporter:
         floatParameter: 0
         intParameter: 3
         messageOptions: 0
-      - time: 1
-        functionName: ReloadComplete
+      - time: 0.17205323
+        functionName: AmmoEject
         data: 
         objectReferenceParameter: {instanceID: 0}
         floatParameter: 0
@@ -83,15 +83,15 @@ ModelImporter:
         floatParameter: 0
         intParameter: 3
         messageOptions: 0
-      - time: 0.3767442
-        functionName: ReloadSingle
+      - time: 0.3830228
+        functionName: ShellShow
         data: 
         objectReferenceParameter: {instanceID: 0}
         floatParameter: 0
         intParameter: 3
         messageOptions: 0
-      - time: 0.3830228
-        functionName: ShellShow
+      - time: 0.920442
+        functionName: ReloadComplete
         data: 
         objectReferenceParameter: {instanceID: 0}
         floatParameter: 0

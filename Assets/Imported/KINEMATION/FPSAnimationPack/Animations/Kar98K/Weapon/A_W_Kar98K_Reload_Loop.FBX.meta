@@ -69,8 +69,15 @@ ModelImporter:
         floatParameter: 0
         intParameter: 1
         messageOptions: 0
-      - time: 0.64945227
+      - time: 0.54558486
         functionName: ReloadSingle
+        data: 
+        objectReferenceParameter: {instanceID: 0}
+        floatParameter: 0
+        intParameter: 1
+        messageOptions: 0
+      - time: 0.7342569
+        functionName: ShowShell
         data: 
         objectReferenceParameter: {instanceID: 0}
         floatParameter: 0
