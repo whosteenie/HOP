@@ -191,9 +191,12 @@ namespace Game.UI {
             _headerLabelsCacheValid = false;
 
             // Subscribe to network callbacks for cleanup
-            if(NetworkManager.Singleton == null) return;
-            NetworkManager.Singleton.OnClientDisconnectCallback -= OnClientDisconnected;
-            NetworkManager.Singleton.OnClientDisconnectCallback += OnClientDisconnected;
+            if(NetworkManager.Singleton != null) {
+                NetworkManager.Singleton.OnClientDisconnectCallback -= OnClientDisconnected;
+                NetworkManager.Singleton.OnClientDisconnectCallback += OnClientDisconnected;
+            }
+
+            ApplyInitialMatchTimerState();
         }
 
         private void Update() {
@@ -289,7 +292,7 @@ namespace Game.UI {
             }
         }
 
-        private void SetMatchTime(int secondsRemaining) {
+        private void SetMatchTime(int secondsRemaining, bool playTickSfx = true) {
             if(_matchTimerLabel == null) return;
 
             if(secondsRemaining < 0) {
@@ -302,10 +305,68 @@ namespace Game.UI {
 
             _matchTimerLabel.text = $"{minutes:00}:{seconds:00}";
 
-            if(minutes != 0 || seconds is > 5 or < 1) return;
+            if(!playTickSfx || minutes != 0 || seconds is > 5 or < 1) return;
             if(Audio2.AudioService.Instance != null) {
                 Audio2.AudioService.Instance.Play("ui.timer", Vector3.zero);
             }
+        }
+
+        private void ApplyInitialMatchTimerState() {
+            if(_matchTimerLabel == null) return;
+
+            const int defaultPreMatchSeconds = 5;
+            const int defaultMatchSeconds = 600;
+
+            var matchTimer = MatchTimerManager.Instance;
+            var matchSettings = MatchSettingsManager.Instance;
+
+            if(matchTimer != null) {
+                if(matchTimer.IsPreMatch) {
+                    var preMatchSeconds = matchTimer.PreMatchCountdownSeconds;
+                    if(preMatchSeconds <= 0) {
+                        preMatchSeconds = matchSettings != null
+                            ? matchSettings.GetPreMatchCountdownSeconds()
+                            : defaultPreMatchSeconds;
+                    }
+
+                    SetMatchTime(Mathf.Max(0, preMatchSeconds), playTickSfx: false);
+                    return;
+                }
+
+                if(matchSettings != null && matchSettings.IsInfiniteMatchTimer()) {
+                    SetMatchTime(-1, playTickSfx: false);
+                    return;
+                }
+
+                var activeSeconds = matchTimer.TimeRemainingSeconds;
+                if(activeSeconds > 0) {
+                    SetMatchTime(activeSeconds, playTickSfx: false);
+                    return;
+                }
+
+                var fallbackSeconds = matchSettings != null
+                    ? matchSettings.GetMatchDurationSeconds()
+                    : defaultMatchSeconds;
+                SetMatchTime(Mathf.Max(0, fallbackSeconds), playTickSfx: false);
+                return;
+            }
+
+            if(matchSettings != null) {
+                if(matchSettings.IsPreMatchCountdownEnabled()) {
+                    SetMatchTime(Mathf.Max(0, matchSettings.GetPreMatchCountdownSeconds()), playTickSfx: false);
+                    return;
+                }
+
+                if(matchSettings.IsInfiniteMatchTimer()) {
+                    SetMatchTime(-1, playTickSfx: false);
+                    return;
+                }
+
+                SetMatchTime(Mathf.Max(0, matchSettings.GetMatchDurationSeconds()), playTickSfx: false);
+                return;
+            }
+
+            SetMatchTime(defaultMatchSeconds, playTickSfx: false);
         }
 
         private void ShowScoreboard() {

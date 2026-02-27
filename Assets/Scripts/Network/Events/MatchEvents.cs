@@ -23,6 +23,17 @@ namespace Network.Events {
     }
 
     /// <summary>
+    /// Event published while pre-match is waiting for all players before countdown starts.
+    /// </summary>
+    public class PreMatchWaitingForPlayersEvent : GameEvent {
+        public readonly bool IsWaiting;
+
+        public PreMatchWaitingForPlayersEvent(bool isWaiting) {
+            IsWaiting = isWaiting;
+        }
+    }
+
+    /// <summary>
     /// Event published when match time is updated.
     /// </summary>
     public class MatchTimeUpdatedEvent : GameEvent {

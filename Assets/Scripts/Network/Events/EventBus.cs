@@ -31,6 +31,7 @@ namespace Network.Events {
             typeof(MatchStartedEvent),
             typeof(MatchEndedEvent),
             typeof(PreMatchCountdownEvent),
+            typeof(PreMatchWaitingForPlayersEvent),
             typeof(MatchTimeUpdatedEvent),
             typeof(PostMatchStartedEvent)
         };

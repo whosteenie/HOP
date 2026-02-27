@@ -19,9 +19,12 @@ namespace Game.Match {
 
         private readonly NetworkVariable<int> _timeRemainingSeconds = new(value: 0);
         private readonly NetworkVariable<int> _preMatchCountdownSeconds = new(value: 0);
+        private readonly NetworkVariable<bool> _isWaitingForPlayers = new(value: false);
         private readonly NetworkVariable<bool> _isPreMatch = new(value: true);
 
         public int TimeRemainingSeconds => _timeRemainingSeconds.Value;
+        public int PreMatchCountdownSeconds => _preMatchCountdownSeconds.Value;
+        public bool IsWaitingForPlayers => _isWaitingForPlayers.Value;
         public bool IsPreMatch => _isPreMatch.Value;
 
         private Coroutine _timerRoutine;
@@ -48,6 +51,7 @@ namespace Game.Match {
             // Subscribe for UI updates on all clients
             _timeRemainingSeconds.OnValueChanged += OnTimeRemainingChanged;
             _preMatchCountdownSeconds.OnValueChanged += OnPreMatchCountdownChanged;
+            _isWaitingForPlayers.OnValueChanged += OnPreMatchWaitingForPlayersChanged;
             _isPreMatch.OnValueChanged += OnPreMatchStateChanged;
 
             if(IsServer) {
@@ -72,6 +76,7 @@ namespace Game.Match {
                 if(usePreMatchCountdown) {
                     var preMatchSeconds = matchSettings != null ? matchSettings.GetPreMatchCountdownSeconds() : 5;
                     _preMatchCountdownSeconds.Value = Mathf.Max(0, preMatchSeconds);
+                    _isWaitingForPlayers.Value = true;
                     _isPreMatch.Value = true;
                     FlowLog.Emit(FlowEventIds.MatchStateTransition,
                         ("from", "None"),
@@ -81,6 +86,7 @@ namespace Game.Match {
                     _timerRoutine = StartCoroutine(PreMatchCountdownCoroutine());
                 } else {
                     _preMatchCountdownSeconds.Value = 0;
+                    _isWaitingForPlayers.Value = false;
                     StartActiveMatchOnServer("None");
                 }
             }
@@ -88,6 +94,7 @@ namespace Game.Match {
             // Push a sensible initial value to UI immediately when a client joins.
             // Clients can briefly see default NetworkVariable values before sync arrives.
             OnPreMatchCountdownChanged(0, GetInitialPreMatchCountdownForUi());
+            OnPreMatchWaitingForPlayersChanged(false, GetInitialWaitingForPlayersForUi());
         }
 
         public override void OnNetworkDespawn() {
@@ -103,6 +110,7 @@ namespace Game.Match {
             base.OnDestroy();
             _timeRemainingSeconds.OnValueChanged -= OnTimeRemainingChanged;
             _preMatchCountdownSeconds.OnValueChanged -= OnPreMatchCountdownChanged;
+            _isWaitingForPlayers.OnValueChanged -= OnPreMatchWaitingForPlayersChanged;
             _isPreMatch.OnValueChanged -= OnPreMatchStateChanged;
             if(NetworkManager != null) {
                 NetworkManager.OnClientDisconnectCallback -= OnClientDisconnectedDuringPreMatch;
@@ -193,6 +201,8 @@ namespace Game.Match {
                 Debug.LogWarning("[MatchTimerManager] Timed out waiting for all players. Starting countdown anyway.");
             }
 
+            _isWaitingForPlayers.Value = false;
+
             // Pre-match countdown
             while(IsServer && _preMatchCountdownSeconds.Value > 0) {
                 yield return wait;
@@ -256,6 +266,10 @@ namespace Game.Match {
             }
         }
 
+        private void OnPreMatchWaitingForPlayersChanged(bool previous, bool current) {
+            EventBus.Publish(new PreMatchWaitingForPlayersEvent(current));
+        }
+
         private int GetInitialPreMatchCountdownForUi() {
             var current = _preMatchCountdownSeconds.Value;
             if(current > 0 || !_isPreMatch.Value) return current;
@@ -263,6 +277,14 @@ namespace Game.Match {
             var settings = MatchSettingsManager.Instance;
             var configured = settings != null ? settings.GetPreMatchCountdownSeconds() : 5;
             return Mathf.Max(0, configured);
+        }
+
+        private bool GetInitialWaitingForPlayersForUi() {
+            if(_isWaitingForPlayers.Value) return true;
+            if(!_isPreMatch.Value) return false;
+
+            var settings = MatchSettingsManager.Instance;
+            return settings == null || settings.IsPreMatchCountdownEnabled();
         }
 
         private void OnPreMatchStateChanged(bool previous, bool current) {
@@ -284,6 +306,7 @@ namespace Game.Match {
         private void StartActiveMatchOnServer(string fromState) {
             if(!IsServer) return;
 
+            _isWaitingForPlayers.Value = false;
             _isPreMatch.Value = false;
             var matchSettings = MatchSettingsManager.Instance;
             matchDurationSeconds = 600;

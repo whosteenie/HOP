@@ -27,6 +27,9 @@ namespace Game.UI {
         private VisualElement _crosshairDot;
         private Label _hopballInteractPrompt;
         private Label _outOfBoundsCountdownLabel;
+        private bool _isOutOfBoundsCountdownVisible;
+        private float _outOfBoundsRemainingSeconds;
+        private bool _isWaitingForPlayersVisible;
 
         public static HUDManager Instance;
 
@@ -61,6 +64,7 @@ namespace Game.UI {
             EventBus.Unsubscribe<UpdateMultiplierEvent>(OnUpdateMultiplier);
             EventBus.Unsubscribe<ShowHUDEvent>(OnShowHUD);
             EventBus.Unsubscribe<HideHUDEvent>(OnHideHUD);
+            EventBus.Unsubscribe<PreMatchWaitingForPlayersEvent>(OnPreMatchWaitingForPlayers);
             GameSettings.OnSettingsChanged -= OnSettingsChanged;
             EventBus.Subscribe<UpdateHealthEvent>(OnUpdateHealth);
             EventBus.Subscribe<UpdateAmmoEvent>(OnUpdateAmmo);
@@ -68,6 +72,7 @@ namespace Game.UI {
             EventBus.Subscribe<UpdateMultiplierEvent>(OnUpdateMultiplier);
             EventBus.Subscribe<ShowHUDEvent>(OnShowHUD);
             EventBus.Subscribe<HideHUDEvent>(OnHideHUD);
+            EventBus.Subscribe<PreMatchWaitingForPlayersEvent>(OnPreMatchWaitingForPlayers);
             GameSettings.OnSettingsChanged += OnSettingsChanged;
         }
 
@@ -79,6 +84,7 @@ namespace Game.UI {
             EventBus.Unsubscribe<UpdateMultiplierEvent>(OnUpdateMultiplier);
             EventBus.Unsubscribe<ShowHUDEvent>(OnShowHUD);
             EventBus.Unsubscribe<HideHUDEvent>(OnHideHUD);
+            EventBus.Unsubscribe<PreMatchWaitingForPlayersEvent>(OnPreMatchWaitingForPlayers);
             GameSettings.OnSettingsChanged -= OnSettingsChanged;
             base.OnDisable();
         }
@@ -104,6 +110,7 @@ namespace Game.UI {
             _outOfBoundsCountdownLabel = QOptional<Label>("out-of-bounds-countdown-label");
 
             ApplyCrosshairSettings();
+            SyncPreMatchWaitingToastState();
         }
 
         protected override Dictionary<string, System.Type> GetRequiredElements() {
@@ -139,6 +146,10 @@ namespace Game.UI {
 
         private void OnHideHUD(HideHUDEvent evt) {
             HideHUD();
+        }
+
+        private void OnPreMatchWaitingForPlayers(PreMatchWaitingForPlayersEvent evt) {
+            SetWaitingForPlayersToast(evt.IsWaiting);
         }
 
         private void OnSettingsChanged() {
@@ -256,6 +267,7 @@ namespace Game.UI {
             _crosshairContainer.style.visibility = Visibility.Hidden;
             SetHopballInteractPrompt(false);
             SetOutOfBoundsCountdown(false);
+            SetWaitingForPlayersToast(false);
         }
 
         // Event handler - called via EventBus
@@ -267,6 +279,7 @@ namespace Game.UI {
             ApplyCrosshairSettings();
             SetHopballInteractPrompt(false);
             SetOutOfBoundsCountdown(false);
+            SyncPreMatchWaitingToastState();
             
             // Reset healthbar display mode based on current game mode
             ResetHealthbarDisplayMode();
@@ -338,14 +351,39 @@ namespace Game.UI {
         public void SetOutOfBoundsCountdown(bool visible, float remainingSeconds = 0f) {
             if(_outOfBoundsCountdownLabel == null) return;
 
-            if(!visible) {
-                _outOfBoundsCountdownLabel.style.display = DisplayStyle.None;
+            _isOutOfBoundsCountdownVisible = visible;
+            _outOfBoundsRemainingSeconds = Mathf.Max(0f, remainingSeconds);
+            RefreshTopStatusToast();
+        }
+
+        public void SetWaitingForPlayersToast(bool visible) {
+            if(_outOfBoundsCountdownLabel == null) return;
+            _isWaitingForPlayersVisible = visible;
+            RefreshTopStatusToast();
+        }
+
+        private void SyncPreMatchWaitingToastState() {
+            var matchTimer = MatchTimerManager.Instance;
+            var shouldShowWaiting = matchTimer != null && matchTimer.IsPreMatch && matchTimer.IsWaitingForPlayers;
+            SetWaitingForPlayersToast(shouldShowWaiting);
+        }
+
+        private void RefreshTopStatusToast() {
+            if(_outOfBoundsCountdownLabel == null) return;
+
+            if(_isOutOfBoundsCountdownVisible) {
+                _outOfBoundsCountdownLabel.style.display = DisplayStyle.Flex;
+                _outOfBoundsCountdownLabel.text = $"RETURN TO BATTLEFIELD: {_outOfBoundsRemainingSeconds:0.00}";
                 return;
             }
 
-            _outOfBoundsCountdownLabel.style.display = DisplayStyle.Flex;
-            var seconds = Mathf.Max(0f, remainingSeconds);
-            _outOfBoundsCountdownLabel.text = $"RETURN TO BATTLEFIELD: {seconds:0.00}";
+            if(_isWaitingForPlayersVisible) {
+                _outOfBoundsCountdownLabel.style.display = DisplayStyle.Flex;
+                _outOfBoundsCountdownLabel.text = "Waiting for players...";
+                return;
+            }
+
+            _outOfBoundsCountdownLabel.style.display = DisplayStyle.None;
         }
 
         private void ApplyCrosshairSettings() {
