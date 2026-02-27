@@ -109,6 +109,9 @@ namespace Game.Weapons {
         private const float ReloadTimeoutGraceSeconds = 0.35f;
         private const float ReloadRecoveryCooldownSeconds = 0.5f;
         private const float KinemationReloadFallbackSeconds = 5f;
+        private const float TracerPerpendicularVelocityInheritanceScale = 1f;
+        private const float TracerPerpendicularVelocityInheritanceMax = 24f;
+        private const float TracerPerpendicularVelocityFadeExponent = 1f;
 
         // Bullet trail pooling
         private readonly Queue<TrailRenderer> _trailPool = new();
@@ -854,6 +857,7 @@ namespace Game.Weapons {
             if(weaponIndex < 0) return;
 
             var shotId = ++_shotSequence;
+            var shooterVelocityAtShot = playerController != null ? playerController.GetFullVelocity : Vector3.zero;
 
             var pelletCount = 1;
             if(_currentWeaponData != null && _currentWeaponData.usePelletSpread) {
@@ -903,11 +907,12 @@ namespace Game.Weapons {
 
                 if(playerController != null && playerController.IsOwner && hasMuzzlePosition) {
                     StartCoroutine(SpawnOwnerTracerLocalAfterViewUpdate(capturedMuzzlePos, endPoint, hitNormal,
-                        madeImpact, hitPlayer, hitPlayerRef));
+                        madeImpact, hitPlayer, hitPlayerRef, shooterVelocityAtShot));
                 }
 
                 var playMuzzleFlash = i == 0;
-                _networkFXRelay.RequestShotFx(endPoint, hitNormal, madeImpact, hitPlayer, hitPlayerRef, playMuzzleFlash);
+                _networkFXRelay.RequestShotFx(endPoint, hitNormal, madeImpact, hitPlayer, hitPlayerRef,
+                    playMuzzleFlash, shooterVelocityAtShot);
             }
 
             // If any pellet hit a player, count it as a "Shot Hit" (accuracy = Shots Hit / Shots Fired)
@@ -1750,7 +1755,8 @@ namespace Game.Weapons {
             }
         }
 
-        public void SpawnTracerLocal(Vector3 start, Vector3 end, Vector3 hitNormal, bool madeImpact, bool hitPlayer, NetworkObjectReference hitPlayerRef = default) {
+        public void SpawnTracerLocal(Vector3 start, Vector3 end, Vector3 hitNormal, bool madeImpact, bool hitPlayer,
+            NetworkObjectReference hitPlayerRef = default, Vector3 shooterVelocity = default) {
             if(!_currentWeaponData || !_currentWeaponData.bulletTrail) return;
 
             // Get trail from pool
@@ -1777,7 +1783,7 @@ namespace Game.Weapons {
                 _audioRelay.RequestPlay("weapons.bullet.trail", start, allowOverlap: true);
             }
 
-            StartCoroutine(SpawnTrail(trail, end, hitNormal, madeImpact, hitPlayer, hitPlayerRef));
+            StartCoroutine(SpawnTrail(trail, end, hitNormal, madeImpact, hitPlayer, hitPlayerRef, shooterVelocity));
         }
 
         private void PlayFireSound() {
@@ -1943,16 +1949,32 @@ namespace Game.Weapons {
         }
 
         private IEnumerator SpawnTrail(TrailRenderer trail, Vector3 hitPoint, Vector3 hitNormal, bool madeImpact,
-            bool hitPlayer, NetworkObjectReference hitPlayerRef = default) {
+            bool hitPlayer, NetworkObjectReference hitPlayerRef = default, Vector3 shooterVelocity = default) {
             var position = trail.transform.position;
             var distance = Vector3.Distance(position, hitPoint);
+            if(distance <= 0.0001f) {
+                trail.transform.position = hitPoint;
+                yield return new WaitForSeconds(trail.time);
+                ReturnTrailToPool(trail);
+                yield break;
+            }
+
+            var shotDirection = (hitPoint - position) / distance;
+            var inheritedPerpendicularVelocity =
+                ComputeTracerInheritedPerpendicularVelocity(shooterVelocity, shotDirection);
 
             var remainingDistance = distance;
+            var elapsed = 0f;
 
             while(remainingDistance > 0) {
                 var t = 1f - remainingDistance / distance;
-                trail.transform.position = Vector3.Lerp(position, hitPoint, t);
-                remainingDistance -= BulletSpeed * Time.deltaTime;
+                var basePosition = Vector3.Lerp(position, hitPoint, t);
+                var fade = Mathf.Pow(1f - Mathf.Clamp01(t), TracerPerpendicularVelocityFadeExponent);
+                var offset = inheritedPerpendicularVelocity * elapsed * fade;
+                trail.transform.position = basePosition + offset;
+                var dt = Time.deltaTime;
+                remainingDistance -= BulletSpeed * dt;
+                elapsed += dt;
                 yield return null;
             }
 
@@ -1998,7 +2020,7 @@ namespace Game.Weapons {
         }
 
         private IEnumerator SpawnOwnerTracerLocalAfterViewUpdate(Vector3 fallbackStart, Vector3 end, Vector3 hitNormal,
-            bool madeImpact, bool hitPlayer, NetworkObjectReference hitPlayerRef) {
+            bool madeImpact, bool hitPlayer, NetworkObjectReference hitPlayerRef, Vector3 shooterVelocity) {
             // Wait until end-of-frame so camera/viewmodel transforms settle before we sample muzzle position.
             // This keeps local tracer origin aligned with the rendered FP muzzle during fast look updates.
             yield return new WaitForEndOfFrame();
@@ -2010,7 +2032,28 @@ namespace Game.Weapons {
                 }
             }
 
-            SpawnTracerLocal(start, end, hitNormal, madeImpact, hitPlayer, hitPlayerRef);
+            SpawnTracerLocal(start, end, hitNormal, madeImpact, hitPlayer, hitPlayerRef, shooterVelocity);
+        }
+
+        private static Vector3 ComputeTracerInheritedPerpendicularVelocity(Vector3 shooterVelocity, Vector3 shotDirection) {
+            if(shooterVelocity.sqrMagnitude <= 0.0001f || shotDirection.sqrMagnitude <= 0.0001f) {
+                return Vector3.zero;
+            }
+
+            var direction = shotDirection.normalized;
+            var parallel = Vector3.Project(shooterVelocity, direction);
+            var perpendicular = shooterVelocity - parallel;
+            if(perpendicular.sqrMagnitude <= 0.0001f) {
+                return Vector3.zero;
+            }
+
+            var inherited = perpendicular * TracerPerpendicularVelocityInheritanceScale;
+            var maxSpeed = TracerPerpendicularVelocityInheritanceMax;
+            if(inherited.sqrMagnitude > maxSpeed * maxSpeed) {
+                inherited = inherited.normalized * maxSpeed;
+            }
+
+            return inherited;
         }
 
         /// <summary>

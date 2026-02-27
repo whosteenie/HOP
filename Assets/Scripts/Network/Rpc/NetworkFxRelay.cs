@@ -17,6 +17,7 @@ namespace Network.Rpc {
             public Weapon weapon;
             public Vector3 endPoint;
             public Vector3 hitNormal;
+            public Vector3 shooterVelocity;
             public bool madeImpact;
             public bool hitPlayer;
             public NetworkObjectReference hitPlayerRef;
@@ -63,7 +64,7 @@ namespace Network.Rpc {
 
                 if(hasStartPoint) {
                     weapon.SpawnTracerLocal(startPoint, pending.endPoint, pending.hitNormal, pending.madeImpact,
-                        pending.hitPlayer, pending.hitPlayerRef);
+                        pending.hitPlayer, pending.hitPlayerRef, pending.shooterVelocity);
                 }
             }
 
@@ -71,21 +72,26 @@ namespace Network.Rpc {
         }
 
         public void RequestShotFx(Vector3 endPoint, Vector3 hitNormal, bool madeImpact,
-            bool hitPlayer, NetworkObjectReference hitPlayerRef, bool playMuzzleFlash = true) {
+            bool hitPlayer, NetworkObjectReference hitPlayerRef, bool playMuzzleFlash = true,
+            Vector3 shooterVelocity = default) {
             if(!playerController.IsOwner || !_playerNetworkObject.IsSpawned) return;
 
-            RequestShotFxServerRpc(_playerNetworkObject, endPoint, hitNormal, madeImpact, hitPlayer, hitPlayerRef, playMuzzleFlash);
+            RequestShotFxServerRpc(_playerNetworkObject, endPoint, hitNormal, madeImpact, hitPlayer, hitPlayerRef,
+                playMuzzleFlash, shooterVelocity);
         }
 
         [Rpc(SendTo.Server)]
         private void RequestShotFxServerRpc(NetworkObjectReference shooterRef, Vector3 endPoint, Vector3 hitNormal,
-            bool madeImpact, bool hitPlayer, NetworkObjectReference hitPlayerRef, bool playMuzzleFlash) {
-            PlayShotFxClientRpc(shooterRef, endPoint, hitNormal, madeImpact, hitPlayer, hitPlayerRef, playMuzzleFlash);
+            bool madeImpact, bool hitPlayer, NetworkObjectReference hitPlayerRef, bool playMuzzleFlash,
+            Vector3 shooterVelocity) {
+            PlayShotFxClientRpc(shooterRef, endPoint, hitNormal, madeImpact, hitPlayer, hitPlayerRef, playMuzzleFlash,
+                shooterVelocity);
         }
 
         [Rpc(SendTo.NotOwner)]
         private void PlayShotFxClientRpc(NetworkObjectReference shooterRef, Vector3 endPoint, Vector3 hitNormal,
-            bool madeImpact, bool hitPlayer, NetworkObjectReference hitPlayerRef, bool playMuzzleFlash) {
+            bool madeImpact, bool hitPlayer, NetworkObjectReference hitPlayerRef, bool playMuzzleFlash,
+            Vector3 shooterVelocity) {
             if(!shooterRef.TryGet(out var networkObject) || networkObject == null) return;
 
             var weaponManager = networkObject.GetComponent<WeaponManager>();
@@ -99,6 +105,7 @@ namespace Network.Rpc {
                 weapon = weapon,
                 endPoint = endPoint,
                 hitNormal = hitNormal,
+                shooterVelocity = shooterVelocity,
                 madeImpact = madeImpact,
                 hitPlayer = hitPlayer,
                 hitPlayerRef = hitPlayerRef,
