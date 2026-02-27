@@ -78,8 +78,13 @@
     margin-bottom: 4px;
 }
 
-.primary-action:hover {
+.primary-action:hover:enabled {
     color: rgb(255, 120, 120);
+}
+
+#play-button-matchmaking:disabled:hover {
+    color: rgba(240, 240, 240, 0.3);
+    text-shadow: 0 2px 5px rgba(0, 0, 0, 1);
 }
 
 /* ===== GAMEMODE ===== */
@@ -431,14 +436,16 @@
 }
 
 .name-buttons-container {
-    bottom: 40px;
+    bottom: 0;
     left: 0;
     right: 0;
-    flex-direction: row;
-    align-items: center;
-    justify-content: center;
-    padding: 20px 30px;
-    min-width: 600px;
+    width: 100%;
+    height: 120px;
+    min-width: 0;
+    padding: 0;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-end;
     transition-duration: 0.4s;
     transition-property: translate;
     transition-timing-function: ease-out;
@@ -461,7 +468,7 @@
 .loadout-stats-container {
     left: 20px;
     top: 100px;
-    bottom: 20px;
+    bottom: 170px;
     width: 450px;
     flex-direction: column;
 }
@@ -469,7 +476,7 @@
 .loadout-challenges-container {
     right: 20px;
     top: 100px;
-    bottom: 20px;
+    bottom: 170px;
     width: 450px;
     flex-direction: column;
 }
@@ -674,7 +681,7 @@
     flex-direction: row;
     align-items: center;
     margin-left: 16px;
-    margin-right: 16px;
+    margin-right: 0;
 }
 
 .apply-loadout-button {
@@ -695,14 +702,29 @@
     transition-duration: 0.2s;
 }
 
-.player-name-input:hover {
-    border-color: rgba(255, 100, 100, 0.5);
-    background-color: rgba(25, 25, 30, 0.9);
+.loadout-bottom-left-buttons {
+    position: absolute;
+    left: 40px;
+    bottom: 20px;
+    justify-content: flex-start;
+    margin-top: 0;
 }
 
-.player-name-input:focus {
-    border-color: rgba(255, 100, 100, 0.6);
-    background-color: rgba(15, 15, 20, 0.95);
+.loadout-bottom-left-buttons .menu-chip {
+    margin-left: 0;
+    margin-right: 12px;
+    min-width: 140px;
+    height: 50px;
+}
+
+.loadout-bottom-center-controls {
+    position: absolute;
+    left: 50%;
+    bottom: 20px;
+    translate: -50% 0;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-start;
 }
 
 .apply-name-button {
@@ -1264,22 +1286,25 @@
 
 /* Name flex container */
 #name-flex {
-    flex-grow: 1;
-    align-items: center;
-    justify-content: flex-end;
     position: absolute;
     bottom: 0;
-    left: 50%;
+    left: 0;
+    right: 0;
+    height: 120px;
 }
 
 /* Name buttons container */
 #name-buttons-container {
-    min-width: 400px;
-    align-items: center;
-    left: auto;
-    right: auto;
-    bottom: 20px;
-    align-self: auto;
+    width: 100%;
+    min-width: 0;
+    height: 100%;
+    align-items: stretch;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    padding: 0;
+    background-color: transparent;
+    border-width: 0;
 }
 
 /* Customization flex container */
@@ -1422,7 +1447,8 @@
     align-items: auto;
     position: absolute;
     top: 0;
-    height: 1080px;
+    bottom: 170px;
+    height: auto;
     width: 230px;
     margin-left: 20px;
     left: 0;
@@ -1433,10 +1459,10 @@
     left: 2%;
     align-items: auto;
     align-content: auto;
-    height: 50%;
+    height: auto;
     top: auto;
     bottom: auto;
-    justify-content: space-evenly;
+    justify-content: center;
 }
 
 /* Weapon containers */

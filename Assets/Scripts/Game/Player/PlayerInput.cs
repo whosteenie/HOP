@@ -94,6 +94,7 @@ namespace Game.Player {
         private string _lastHopballPromptText = "";
         private HUDManager _lastHudManager;
         private Coroutine _deferredAmmoHudRefreshRoutine;
+        private int _queuedWeaponCycleOffset;
         public bool IsSniperOverlayActive { get; private set; }
 
         [SerializeField] private float sniperZoomFov = 20f;
@@ -189,6 +190,7 @@ namespace Game.Player {
         }
 
         private void OnDisable() {
+            _queuedWeaponCycleOffset = 0;
             if(_deferredAmmoHudRefreshRoutine != null) {
                 StopCoroutine(_deferredAmmoHudRefreshRoutine);
                 _deferredAmmoHudRefreshRoutine = null;
@@ -227,6 +229,15 @@ namespace Game.Player {
 
             Cursor.visible = false;
             Cursor.lockState = CursorLockMode.Locked;
+        }
+
+        private void Update() {
+            if(IsBot || !IsOwner) return;
+            if(_queuedWeaponCycleOffset == 0) return;
+
+            var offset = _queuedWeaponCycleOffset;
+            _queuedWeaponCycleOffset = 0;
+            TryCycleWeaponByOffset(offset);
         }
 
         // Direct Input System polling for certain actions
@@ -278,31 +289,46 @@ namespace Game.Player {
             // Check settings.json for scroll bindings
             var jumpBinding0 = "";
             var jumpBinding1 = "";
+            var nextWeaponBinding0 = "";
+            var nextWeaponBinding1 = "";
+            var previousWeaponBinding0 = "";
+            var previousWeaponBinding1 = "";
             var binds = GameSettings.Data.keybinds;
             if(binds is { entries: not null }) {
                 foreach(var e in binds.entries) {
                     if(e == null) continue;
-                    if(e.name != "jump") continue;
-                    jumpBinding0 = e.binding0;
-                    jumpBinding1 = e.binding1;
-                    break;
+                    switch(e.name) {
+                        case "jump":
+                            jumpBinding0 = e.binding0;
+                            jumpBinding1 = e.binding1;
+                            break;
+                        case "nextweapon":
+                            nextWeaponBinding0 = e.binding0;
+                            nextWeaponBinding1 = e.binding1;
+                            break;
+                        case "previousweapon":
+                            previousWeaponBinding0 = e.binding0;
+                            previousWeaponBinding1 = e.binding1;
+                            break;
+                    }
                 }
             }
 
             if(Mouse.current != null && Mouse.current.scroll.value.magnitude > 0f) {
-                var scrollDelta = Mouse.current.scroll.value;
+                var scrollY = Mouse.current.scroll.value.y;
+                var nextWeaponScrollPressed = IsScrollBindingTriggered(nextWeaponBinding0, nextWeaponBinding1, scrollY);
+                var previousWeaponScrollPressed =
+                    IsScrollBindingTriggered(previousWeaponBinding0, previousWeaponBinding1, scrollY);
 
-                // Check if scroll down is bound to jump
-                if(jumpBinding1 == "SCROLL_DOWN" && scrollDelta.y < 0) {
-                    scrollPressed = true;
-                } else if(jumpBinding0 == "SCROLL_DOWN" && scrollDelta.y < 0) {
-                    scrollPressed = true;
+                if(nextWeaponScrollPressed && !previousWeaponScrollPressed) {
+                    QueueWeaponCycleFromScroll(1);
+                } else if(previousWeaponScrollPressed && !nextWeaponScrollPressed) {
+                    QueueWeaponCycleFromScroll(-1);
                 }
-                // Check if scroll up is bound to jump
-                else if(jumpBinding1 == "SCROLL_UP" && scrollDelta.y > 0) {
-                    scrollPressed = true;
-                } else if(jumpBinding0 == "SCROLL_UP" && scrollDelta.y > 0) {
-                    scrollPressed = true;
+
+                // If scroll was consumed for weapon cycling, do not also treat it as jump input.
+                if(!nextWeaponScrollPressed && !previousWeaponScrollPressed) {
+                    scrollPressed = IsScrollBindingTriggered(jumpBinding0, jumpBinding1, scrollY);
                 }
             }
 
@@ -756,25 +782,57 @@ namespace Game.Player {
 
         [UsedImplicitly]
         private void OnNextWeapon(InputValue _) {
-            if(IsBot) return;
-            if(!IsOwner || IsPausedOrDead) return;
-            var isMantling = MantleController != null && MantleController.IsMantling;
-            if(isMantling) return;
-
-            if(WeaponManager == null) return;
-            SwitchWeapon((WeaponManager.CurrentWeaponIndex + 1) % WeaponManager.WeaponCount);
+            TryCycleWeaponByOffset(1);
         }
         
         [UsedImplicitly]
         private void OnPreviousWeapon(InputValue _) {
+            TryCycleWeaponByOffset(-1);
+        }
+
+        private void TryCycleWeaponByOffset(int offset) {
+            if(offset == 0) return;
             if(IsBot) return;
             if(!IsOwner || IsPausedOrDead) return;
+
             var isMantling = MantleController != null && MantleController.IsMantling;
             if(isMantling) return;
-
             if(WeaponManager == null) return;
-            SwitchWeapon((WeaponManager.CurrentWeaponIndex - 1 + WeaponManager.WeaponCount) %
-                         WeaponManager.WeaponCount);
+
+            var weaponCount = WeaponManager.WeaponCount;
+            if(weaponCount <= 1) return;
+
+            var targetIndex = (WeaponManager.CurrentWeaponIndex + offset) % weaponCount;
+            if(targetIndex < 0) {
+                targetIndex += weaponCount;
+            }
+
+            SwitchWeapon(targetIndex);
+        }
+
+        private void QueueWeaponCycleFromScroll(int offset) {
+            if(offset == 0) return;
+            _queuedWeaponCycleOffset = offset;
+        }
+
+        private static bool IsScrollBindingTriggered(string binding0, string binding1, float scrollY) {
+            return IsScrollBindingTriggered(binding0, scrollY) || IsScrollBindingTriggered(binding1, scrollY);
+        }
+
+        private static bool IsScrollBindingTriggered(string binding, float scrollY) {
+            if(string.IsNullOrWhiteSpace(binding) || Mathf.Abs(scrollY) <= Mathf.Epsilon) {
+                return false;
+            }
+
+            if(string.Equals(binding, "SCROLL_UP", System.StringComparison.OrdinalIgnoreCase)) {
+                return scrollY > 0f;
+            }
+
+            if(string.Equals(binding, "SCROLL_DOWN", System.StringComparison.OrdinalIgnoreCase)) {
+                return scrollY < 0f;
+            }
+
+            return false;
         }
 
         /// <summary>

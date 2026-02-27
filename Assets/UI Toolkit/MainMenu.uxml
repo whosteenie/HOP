@@ -139,13 +139,17 @@
     </ui:VisualElement>
     <ui:VisualElement name="loadout-panel" class="panel full-abs center-xy hidden">
         <ui:VisualElement name="name-flex">
-            <ui:VisualElement name="name-buttons-container" class="loadout-edge-container name-buttons-container card">
-                <ui:Button text="BACK" name="back-to-main-from-loadout" class="menu-chip menu-chip-enabled back-button"/>
-                <ui:Button text="CAREER" name="career-toggle-button" class="menu-chip menu-chip-enabled loadout-stats-toggle-button"/>
-                <ui:VisualElement name="name-input-container" class="name-input-container">
-                    <ui:Label text=" " name="player-name-label" class="player-name-input"/>
+            <ui:VisualElement name="name-buttons-container" class="loadout-edge-container name-buttons-container">
+                <ui:VisualElement name="loadout-bottom-center-controls" class="loadout-bottom-center-controls">
+                    <ui:Button text="CAREER" name="career-toggle-button" class="menu-chip menu-chip-enabled loadout-stats-toggle-button"/>
+                    <ui:VisualElement name="name-input-container" class="name-input-container">
+                        <ui:Label text=" " name="player-name-label" class="player-name-input" picking-mode="Ignore"/>
+                    </ui:VisualElement>
                 </ui:VisualElement>
-                <ui:Button text="APPLY" name="apply-loadout-button" class="menu-chip menu-chip-enabled apply-loadout-button"/>
+                <ui:VisualElement name="loadout-bottom-left-buttons" class="loadout-bottom-left-buttons button-row">
+                    <ui:Button text="BACK" name="back-to-main-from-loadout" class="menu-chip menu-chip-enabled back-button"/>
+                    <ui:Button text="APPLY" name="apply-loadout-button" class="menu-chip menu-chip-enabled apply-loadout-button"/>
+                </ui:VisualElement>
             </ui:VisualElement>
         </ui:VisualElement>
         <ui:VisualElement name="customization-flex">
