@@ -38,7 +38,7 @@ MonoBehaviour:
   rolloffMode: 0
   priority: 128
   maxInstances: 4
-  cooldownSeconds: 0
+  cooldownSeconds: 0.1
   stealPolicy: 1
   stopBehavior: 1
   preload: 0
