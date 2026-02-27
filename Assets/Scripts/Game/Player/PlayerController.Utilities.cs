@@ -18,23 +18,29 @@ namespace Game.Player {
         #region Public API
 
         /// <summary>
-        /// Sets the active state of both the gameplay (FP) and death cameras.
+        /// Enables/disables gameplay camera components without deactivating camera GameObjects.
+        /// This keeps FP hierarchy (including KIN viewmodel/sound relays) alive during post-match.
         /// </summary>
         public void SetGameplayCameraActive(bool active) {
             if(fpCamera != null) {
-                fpCamera.gameObject.SetActive(active);
+                fpCamera.enabled = active;
             }
 
             if(deathCamera != null) {
-                deathCamera.gameObject.SetActive(active);
+                deathCamera.enabled = active;
+            }
+
+            if(weaponCameraController != null) {
+                weaponCameraController.SetWeaponCameraEnabled(active);
+            } else if(weaponCamera != null) {
+                weaponCamera.enabled = active;
             }
         }
 
         /// <summary>
         /// Locks or unlocks local gameplay control during transitions (for example podium).
-        /// Locking clears current movement/look inputs and velocity to avoid stale held-input motion.
         /// </summary>
-        public void SetPostMatchControlLock(bool locked) {
+        public void SetPostMatchControlLock(bool locked, bool lockLook = true, bool resetVelocity = true) {
             if(!IsOwner) return;
 
             if(locked) {
@@ -42,12 +48,12 @@ namespace Game.Player {
                 lookInput = Vector2.zero;
                 sprintInput = false;
                 crouchInput = false;
-                if(movementController != null) {
+                if(resetVelocity && movementController != null) {
                     movementController.ResetVelocity();
                 }
             }
 
-            LockLook = locked;
+            LockLook = locked && lockLook;
         }
 
         /// <summary>

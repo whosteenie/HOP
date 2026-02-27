@@ -1509,7 +1509,7 @@ namespace Game.Weapons {
                     if(_kinemationFpWeaponDriver != null) {
                         var preferredDirection = Vector3.zero;
                         var fpCameraTransform = playerController != null ? playerController.FpCameraTransform : null;
-                        if(!useWorldParent && fpCameraTransform != null) {
+                        if(fpCameraTransform != null) {
                             preferredDirection = fpCameraTransform.forward;
                         }
 

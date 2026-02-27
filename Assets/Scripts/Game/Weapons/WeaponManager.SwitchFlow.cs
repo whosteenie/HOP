@@ -54,23 +54,24 @@ namespace Game.Weapons {
             _playerAnimator.SetTrigger(PullOutHash);
         }
 
-        private void ScheduleKinemationPullOutCompletionIfNeeded(int weaponIndex) {
-            if(!autoCompleteKinemationPullOut) return;
+        private void ScheduleKinemationPullOutCompletionIfNeeded(int weaponIndex, float? delayOverride = null,
+            bool forceSchedule = false) {
+            if(!forceSchedule && !autoCompleteKinemationPullOut) return;
             if(_requiresKinemationEquipCompleteForCurrentPullOut) return;
             if(weaponIndex < 0 || weaponIndex >= _fpWeaponInstances.Count) return;
 
             var fpWeaponRoot = _fpWeaponInstances[weaponIndex];
-            if(!TryGetKinemationDriver(fpWeaponRoot, out _)) return;
+            if(!forceSchedule && !TryGetKinemationDriver(fpWeaponRoot, out _)) return;
 
             if(_kinemationPullOutCompletionCoroutine != null) {
                 StopCoroutine(_kinemationPullOutCompletionCoroutine);
             }
 
-            _kinemationPullOutCompletionCoroutine = StartCoroutine(KinemationPullOutCompletionRoutine());
+            var delay = delayOverride ?? Mathf.Max(0f, kinemationPullOutCompleteDelay);
+            _kinemationPullOutCompletionCoroutine = StartCoroutine(KinemationPullOutCompletionRoutine(delay));
         }
 
-        private IEnumerator KinemationPullOutCompletionRoutine() {
-            var delay = Mathf.Max(0f, kinemationPullOutCompleteDelay);
+        private IEnumerator KinemationPullOutCompletionRoutine(float delay) {
             if(delay > 0f) {
                 yield return new WaitForSeconds(delay);
             } else {
@@ -84,6 +85,7 @@ namespace Game.Weapons {
         public void SwitchWeapon(int newIndex) {
             if(newIndex < 0 || newIndex >= weaponDataList.Count)
                 return;
+            var isPostMatch = GameMenuManager.Instance != null && GameMenuManager.Instance.IsPostMatch;
 
             // Check if holding hopball - if so, allow switching even to same weapon
             // Also check if restoring after dissolve to allow switch
@@ -136,9 +138,8 @@ namespace Game.Weapons {
 
             // Prepare and show new FP weapon
             var fp = ActivateFpWeapon(CurrentWeaponIndex, data, triggerPullOutAnimation: true);
-            _requiresKinemationEquipCompleteForCurrentPullOut =
-                fp != null &&
-                TryGetKinemationDriver(fp, out _);
+            var hasKinemationDriver = fp != null && TryGetKinemationDriver(fp, out _);
+            _requiresKinemationEquipCompleteForCurrentPullOut = hasKinemationDriver && !isPostMatch;
 
             // Prepare new 3P weapon but DON'T show it yet - wait for animation event
             QueuePendingTpWeapon(data);
@@ -152,10 +153,18 @@ namespace Game.Weapons {
             CurrentWeapon.SwitchToWeapon(data, fp, null, restoredAmmo, magCapacity);
             ReportAmmoSync(CurrentWeaponIndex, restoredAmmo);
 
-            // Set pulling out state
-            // The pull-out animation will call HandlePullOutCompleted() when done
+            // Set pulling out state. During post-match, rely on TP animation events (not FP/KIN),
+            // with a longer fail-safe timer in case an event is missing.
             IsPullingOut = true;
-            ScheduleKinemationPullOutCompletionIfNeeded(CurrentWeaponIndex);
+            if(isPostMatch) {
+                ScheduleKinemationPullOutCompletionIfNeeded(
+                    CurrentWeaponIndex,
+                    Mathf.Max(kinemationPullOutCompleteDelay, postMatchPullOutFailSafeDelay),
+                    forceSchedule: true
+                );
+            } else {
+                ScheduleKinemationPullOutCompletionIfNeeded(CurrentWeaponIndex);
+            }
 
             if(_playerAnimator == null) return;
             TriggerTpPullOutAnimation(newIndex);
@@ -213,6 +222,10 @@ namespace Game.Weapons {
         /// Allows shooting and reloading again.
         /// </summary>
         public void HandlePullOutCompleted() {
+            if(GameMenuManager.Instance != null && GameMenuManager.Instance.IsPostMatch && _pendingTpWeapon != null) {
+                ShowTpWeapon();
+            }
+
             IsPullingOut = false;
             _requiresKinemationEquipCompleteForCurrentPullOut = false;
             if(_kinemationPullOutCompletionCoroutine != null) {

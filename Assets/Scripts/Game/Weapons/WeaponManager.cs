@@ -36,6 +36,7 @@ namespace Game.Weapons {
         [SerializeField, Range(0f, 1f)] private float kinemationEquipUnlockNormalizedTime = 0.82f;
         [SerializeField] private bool autoCompleteKinemationPullOut = true;
         [SerializeField, Min(0f)] private float kinemationPullOutCompleteDelay = 0.12f;
+        [SerializeField, Min(0f)] private float postMatchPullOutFailSafeDelay = 0.65f;
         [SerializeField] private Vector3 kinemationViewmodelLocalPosition = Vector3.zero;
         [SerializeField] private Vector3 kinemationViewmodelLocalEulerAngles = Vector3.zero;
 

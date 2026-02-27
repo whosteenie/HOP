@@ -42,6 +42,7 @@ namespace Game.Match {
         [SerializeField] private float worldSpaceCardOffsetMinPx = 12f;
         [SerializeField] private float worldSpaceCardOffsetMaxPx = 56f;
         [SerializeField] private float podiumCardFixedHeight = 88f;
+        [SerializeField] private float podiumCardAnchorYOffset = 0f;
 
         // Podium UI
         private VisualElement _root;
@@ -343,6 +344,12 @@ namespace Game.Match {
                 player.ForceRespawnForPodiumServer();
             }
 
+            // Zero out momentum only after blackout is fully active.
+            foreach(var p in allPlayers) {
+                if(p == null) continue;
+                p.ResetVelocityRpc();
+            }
+
             // Teleport & face podium
             for(var i = 0; i < topThree.Count; i++) {
                 var player = topThree[i];
@@ -363,10 +370,6 @@ namespace Game.Match {
                 netObj.TrySetParent((Transform)null, false); // ensure no odd parents
                 player.TeleportToPodiumFromServer(anchor.position, anchor.rotation);
                 player.SnapPodiumVisualsClientRpc();
-
-                foreach(var p in allPlayers) {
-                    p.ResetVelocityRpc();
-                }
             }
 
             // Hide non-top3 player models (world models only, not cameras)
@@ -449,7 +452,7 @@ namespace Game.Match {
                         var localController = localPlayer.GetComponent<PlayerController>();
                         if(localController != null && localController.PlayerInput != null) {
                             localController.PlayerInput.ForceDisableSniperOverlay(false);
-                            localController.SetPostMatchControlLock(true);
+                            localController.SetPostMatchControlLock(true, lockLook: false, resetVelocity: false);
                         }
                     }
                 }
@@ -557,7 +560,7 @@ namespace Game.Match {
             var controllers = FindObjectsByType<PlayerController>(FindObjectsSortMode.None);
             foreach(var pc in controllers) {
                 pc.SetGameplayCameraActive(false); // you'll add this helper too
-                pc.SetPostMatchControlLock(true);
+                pc.SetPostMatchControlLock(true, lockLook: false, resetVelocity: false);
             }
 
             // Enable podium camera
@@ -727,10 +730,10 @@ namespace Game.Match {
             if(slot == null) return;
 
             Vector3 targetWorldPosition;
-            if(TryGetPodiumPlayer(playerId, out var player) && player != null) {
+            if(slotAnchor != null) {
+                targetWorldPosition = slotAnchor.position + Vector3.up * podiumCardAnchorYOffset;
+            } else if(TryGetPodiumPlayer(playerId, out var player) && player != null) {
                 targetWorldPosition = GetPlayerFeetWorldPosition(player);
-            } else if(slotAnchor != null) {
-                targetWorldPosition = slotAnchor.position;
             } else {
                 slot.style.display = DisplayStyle.None;
                 return;
