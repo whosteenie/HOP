@@ -390,15 +390,13 @@ namespace Game.Weapons {
             var entries = string.Empty;
             const int maxEntries = 6;
 
-            for(var i = 0; i < transforms.Length; i++) {
-                var candidate = transforms[i];
+            foreach(var candidate in transforms) {
                 if(candidate == null || candidate.name != "Muzzle") continue;
 
                 count++;
-                if(count <= maxEntries) {
-                    var entry = $"'{GetTransformPath(candidate)}'@{candidate.position:F3}";
-                    entries = string.IsNullOrEmpty(entries) ? entry : $"{entries}; {entry}";
-                }
+                if(count > maxEntries) continue;
+                var entry = $"'{GetTransformPath(candidate)}'@{candidate.position:F3}";
+                entries = string.IsNullOrEmpty(entries) ? entry : $"{entries}; {entry}";
             }
 
             return $"count={count} [{entries}]";
@@ -433,7 +431,7 @@ namespace Game.Weapons {
                 return false;
             }
 
-            _worldMuzzleTransform ??= ResolveMuzzleTransform(_currentWorldWeaponInstance);
+            _worldMuzzleTransform = _worldMuzzleTransform ? _worldMuzzleTransform : ResolveMuzzleTransform(_currentWorldWeaponInstance);
             if(_worldMuzzleTransform == null) {
                 Debug.LogError(
                     $"[Weapon][RemoteMuzzleStrict][{context}] Muzzle transform not found. " +
@@ -563,7 +561,7 @@ namespace Game.Weapons {
 
         #region Getters
 
-        public bool TryGetMuzzlePosition(out Vector3 muzzlePosition) {
+        private bool TryGetMuzzlePosition(out Vector3 muzzlePosition) {
             muzzlePosition = default;
             if(_currentWeaponData == null) return false;
 
@@ -744,11 +742,7 @@ namespace Game.Weapons {
             }
 
             var isPostMatch = GameMenuManager.Instance != null && GameMenuManager.Instance.IsPostMatch;
-            if(isPostMatch) {
-                return TryGetStrictWorldMuzzleTransform(out muzzleTransform, context, allowOwnerInstance: true);
-            }
-
-            return TryGetStrictFpMuzzleTransform(out muzzleTransform, context);
+            return isPostMatch ? TryGetStrictWorldMuzzleTransform(out muzzleTransform, context, allowOwnerInstance: true) : TryGetStrictFpMuzzleTransform(out muzzleTransform, context);
         }
 
         #endregion
@@ -1923,7 +1917,7 @@ namespace Game.Weapons {
                 var t = 1f - remainingDistance / distance;
                 var basePosition = Vector3.Lerp(position, hitPoint, t);
                 var fade = Mathf.Pow(1f - Mathf.Clamp01(t), TracerPerpendicularVelocityFadeExponent);
-                var offset = inheritedPerpendicularVelocity * elapsed * fade;
+                var offset = inheritedPerpendicularVelocity * (elapsed * fade);
                 trail.transform.position = basePosition + offset;
                 var dt = Time.deltaTime;
                 remainingDistance -= BulletSpeed * dt;
