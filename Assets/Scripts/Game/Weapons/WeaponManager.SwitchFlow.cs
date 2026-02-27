@@ -112,6 +112,10 @@ namespace Game.Weapons {
             if(newIndex == CurrentWeaponIndex && !isHoldingHopball && !isRestoringAfterDissolve)
                 return;
 
+            if(!TryValidateSwitchTargetStrict(newIndex, out var data, out var magCapacity)) {
+                return;
+            }
+
             if(IsOwner) {
                 if(Audio2.AudioService.Instance != null) {
                     Audio2.AudioService.Instance.Play("ui.weapon.switch", Vector3.zero);
@@ -126,6 +130,9 @@ namespace Game.Weapons {
                 _ammoAuthority.CacheCurrentAmmo(CurrentWeaponIndex, CurrentWeapon.currentAmmo);
             }
 
+            var previousWeaponIndex = CurrentWeaponIndex;
+            var previousWorldWeapon = CurrentWorldWeaponInstance;
+
             // Immediately hide current weapon (no sheath delay)
             if(CurrentWeaponIndex >= 0) {
                 HideCurrentWeaponVisuals();
@@ -133,11 +140,29 @@ namespace Game.Weapons {
 
             // Commit to new weapon index immediately
             CurrentWeaponIndex = newIndex;
-            var data = weaponDataList[CurrentWeaponIndex];
             _pendingHolsterHideSlot = GetSlotForIndex(CurrentWeaponIndex);
 
             // Prepare and show new FP weapon
             var fp = ActivateFpWeapon(CurrentWeaponIndex, data, triggerPullOutAnimation: true);
+            if(fp == null) {
+                Debug.LogError($"[WeaponManager][KIN-Strict] Failed to activate FP weapon for '{data.weaponName}'.");
+                CurrentWeaponIndex = previousWeaponIndex;
+                if(previousWeaponIndex >= 0 && previousWeaponIndex < _fpWeaponInstances.Count) {
+                    var previousFp = _fpWeaponInstances[previousWeaponIndex];
+                    if(previousFp != null) {
+                        previousFp.SetActive(true);
+                    }
+                }
+
+                if(previousWorldWeapon != null) {
+                    previousWorldWeapon.SetActive(true);
+                    CurrentWorldWeaponInstance = previousWorldWeapon;
+                }
+
+                _pendingHolsterHideSlot = -1;
+                UpdateHolsterVisibility();
+                return;
+            }
             var hasKinemationDriver = fp != null && TryGetKinemationDriver(fp, out _);
             _requiresKinemationEquipCompleteForCurrentPullOut = hasKinemationDriver && !isPostMatch;
 
@@ -145,7 +170,6 @@ namespace Game.Weapons {
             QueuePendingTpWeapon(data);
 
             // Restore ammo from authoritative KINEMATION capacity path.
-            var magCapacity = ResolveWeaponCapacity(data);
             var restoredAmmo = ResolveRestoredAmmo(CurrentWeaponIndex, magCapacity, seedWhenMissing: false);
 
             // Update weapon data immediately (no waiting for animations)
@@ -194,7 +218,17 @@ namespace Game.Weapons {
             if(CurrentWeapon != null && CurrentWeaponIndex >= 0) {
                 var data = weaponDataList[CurrentWeaponIndex];
                 var fpWeapon = _fpWeaponInstances[CurrentWeaponIndex];
+                if(fpWeapon == null || !TryGetKinemationDriver(fpWeapon, out var driver) || driver == null) {
+                    Debug.LogError(
+                        $"[WeaponManager][KIN-Strict] Missing KinemationFpWeaponDriver for '{data.weaponName}' in ShowTpWeapon.");
+                    return;
+                }
                 var magCapacity = ResolveWeaponCapacity(data);
+                if(magCapacity <= 0) {
+                    Debug.LogError(
+                        $"[WeaponManager][KIN-Strict] Invalid KIN ammo capacity for '{data.weaponName}' in ShowTpWeapon.");
+                    return;
+                }
                 var restoredAmmo = ResolveRestoredAmmo(CurrentWeaponIndex, magCapacity, seedWhenMissing: false);
 
                 CurrentWeapon.SwitchToWeapon(

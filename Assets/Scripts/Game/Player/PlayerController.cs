@@ -1104,12 +1104,6 @@ namespace Game.Player {
                     EnsureWeaponHierarchyActive(weaponInstance);
                     EnsureWeaponShadowVisibility(weaponInstance);
 
-                    // KINEMATION viewmodels manage pose from their own holder offsets.
-                    if(weaponInstance.GetComponent<KinemationFpWeaponDriver>() == null) {
-                        weaponInstance.transform.localPosition = currentWeapon.GetSpawnPosition();
-                        weaponInstance.transform.localEulerAngles = currentWeapon.GetSpawnRotation();
-                    }
-
                     if(!_cachedWeaponRenderers.TryGetValue(weaponInstance, out var meshRenderers)) {
                         meshRenderers = weaponInstance.GetComponentsInChildren<MeshRenderer>(true);
                         _cachedWeaponRenderers[weaponInstance] = meshRenderers;

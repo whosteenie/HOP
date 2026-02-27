@@ -245,7 +245,13 @@ namespace Game.Weapons {
 
                 kinemationHolder.SetActive(false);
                 _fpWeaponInstances.Add(kinemationHolder);
-                _ammoAuthority.SeedMagazine(i, ResolveWeaponCapacity(data));
+                var capacity = ResolveWeaponCapacity(data);
+                if(capacity <= 0) {
+                    Debug.LogError(
+                        $"[WeaponManager][KIN-Strict] Invalid KIN ammo capacity while instantiating '{data.weaponName}'.");
+                    return;
+                }
+                _ammoAuthority.SeedMagazine(i, capacity);
             }
         }
     }

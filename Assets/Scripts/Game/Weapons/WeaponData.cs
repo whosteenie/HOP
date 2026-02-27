@@ -44,12 +44,8 @@ namespace Game.Weapons {
         public float pelletDamageMultiplier = 0.15f;
 
         [Header("Reload")]
-        public int magSize;
-        public float reloadTime;
         [Tooltip("If true, reloading fills the entire magazine at once. If false, ammo is refilled one round at a time.")]
         public bool useMagReload = true;
-        [Tooltip("Time between loading individual rounds when not using a full-mag reload.")]
-        public float perRoundReloadTime = 0.5f;
 
         [Header("Hit Registration")]
         [Tooltip("If true, uses a hybrid ray+sphere cast for more forgiving hit detection.")]
@@ -62,8 +58,6 @@ namespace Game.Weapons {
         public float sphereCastMaxRadius = 0.3f;
 
         [Header("Presentation & FX")]
-        public Vector3 spawnPosition; // FP weapon position relative to camera
-        public Vector3 spawnRotation; // FP weapon rotation
         public TrailRenderer bulletTrail;
         public ParticleSystem bulletImpact;
         public GameObject muzzleFlashPrefab;
@@ -90,8 +84,6 @@ namespace Game.Weapons {
                 fireModeType = FireModeType.Semi;
             }
 
-            magSize = Mathf.Max(1, magSize);
-
             baseDamage = Mathf.Max(0f, baseDamage);
             damageCap = Mathf.Max(0f, damageCap);
 
@@ -104,9 +96,6 @@ namespace Game.Weapons {
 
             fireRate = Mathf.Max(0.01f, fireRate);
             bulletSpread = Mathf.Max(0f, bulletSpread);
-
-            reloadTime = Mathf.Max(0f, reloadTime);
-            perRoundReloadTime = Mathf.Max(0.05f, perRoundReloadTime);
 
             sphereCastRadius = Mathf.Max(0f, sphereCastRadius);
             sphereCastGrowthStartDist = Mathf.Max(0f, sphereCastGrowthStartDist);

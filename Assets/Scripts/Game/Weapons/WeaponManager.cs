@@ -68,6 +68,7 @@ namespace Game.Weapons {
         private GameObject _deferredRespawnWorldWeapon;
         private Coroutine _kinemationPullOutCompletionCoroutine;
         private bool _requiresKinemationEquipCompleteForCurrentPullOut;
+        private bool _hasLoggedStrictStartupValidation;
 
         private void Awake() {
             ValidateComponents();
@@ -130,13 +131,13 @@ namespace Game.Weapons {
         }
 
         private int ResolveWeaponCapacity(WeaponData data) {
-            if(data == null) return 1;
+            if(data == null) return 0;
 
             if(!TryGetKinemationBindingForData(data, out var kinemationBinding)) {
                 Debug.LogError(
                     $"[WeaponManager] Missing KINEMATION binding for '{data.weaponName}'. " +
                     "Strict mode requires a KIN binding for every equipped weapon.");
-                return 1;
+                return 0;
             }
 
             var kinemationCapacity = ResolveKinemationWeaponCapacity(kinemationBinding.kinemationWeaponPrefab);
@@ -144,10 +145,125 @@ namespace Game.Weapons {
                 Debug.LogError(
                     $"[WeaponManager] Invalid KINEMATION ammo capacity for '{data.weaponName}'. " +
                     "Strict mode requires FPSWeaponSettings.ammo > 0.");
-                return 1;
+                return 0;
             }
 
             return kinemationCapacity;
+        }
+
+        private static bool TryFindNamedTransform(GameObject root, string requiredName, out Transform result) {
+            result = null;
+            if(root == null || string.IsNullOrWhiteSpace(requiredName)) return false;
+
+            var allTransforms = root.GetComponentsInChildren<Transform>(true);
+            for(var i = 0; i < allTransforms.Length; i++) {
+                var candidate = allTransforms[i];
+                if(candidate == null || candidate.name != requiredName) continue;
+                result = candidate;
+                return true;
+            }
+
+            return false;
+        }
+
+        private bool TryValidateSwitchTargetStrict(int index, out WeaponData data, out int magCapacity) {
+            data = null;
+            magCapacity = 0;
+
+            if(index < 0 || index >= weaponDataList.Count) {
+                Debug.LogError($"[WeaponManager][KIN-Strict] Invalid weapon index {index}.");
+                return false;
+            }
+
+            data = weaponDataList[index];
+            if(data == null) {
+                Debug.LogError($"[WeaponManager][KIN-Strict] WeaponData is null at index {index}.");
+                return false;
+            }
+
+            if(index < 0 || index >= _fpWeaponInstances.Count) {
+                Debug.LogError(
+                    $"[WeaponManager][KIN-Strict] Missing FP instance for '{data.weaponName}' at index {index}. " +
+                    "Blocking switch.");
+                return false;
+            }
+
+            var fpRoot = _fpWeaponInstances[index];
+            if(fpRoot == null || !TryGetKinemationDriver(fpRoot, out var kinemationDriver) || kinemationDriver == null) {
+                Debug.LogError(
+                    $"[WeaponManager][KIN-Strict] Missing KinemationFpWeaponDriver for '{data.weaponName}'. " +
+                    "Blocking switch.");
+                return false;
+            }
+
+            magCapacity = ResolveWeaponCapacity(data);
+            if(magCapacity <= 0) {
+                Debug.LogError(
+                    $"[WeaponManager][KIN-Strict] Invalid KIN ammo capacity for '{data.weaponName}'. " +
+                    "Blocking switch.");
+                return false;
+            }
+
+            var worldWeapon = ResolveWorldWeaponObject(data);
+            if(worldWeapon == null) {
+                Debug.LogError(
+                    $"[WeaponManager][KIN-Strict] Missing world weapon binding for '{data.weaponName}'. " +
+                    "Blocking switch.");
+                return false;
+            }
+
+            if(!TryFindNamedTransform(worldWeapon, "Muzzle", out _)) {
+                Debug.LogError(
+                    $"[WeaponManager][KIN-Strict] Missing required 'Muzzle' transform on world weapon '{worldWeapon.name}' " +
+                    $"for '{data.weaponName}'. Blocking switch.");
+                return false;
+            }
+
+            return true;
+        }
+
+        private void LogStrictStartupValidationOnce() {
+            if(_hasLoggedStrictStartupValidation) return;
+            _hasLoggedStrictStartupValidation = true;
+
+            if(weaponDataList == null || weaponDataList.Count == 0) {
+                Debug.LogError("[WeaponManager][KIN-Strict] Startup validation: equipped weapon list is empty.");
+                return;
+            }
+
+            for(var i = 0; i < weaponDataList.Count; i++) {
+                var data = weaponDataList[i];
+                if(data == null) {
+                    Debug.LogError($"[WeaponManager][KIN-Strict] Startup validation: WeaponData is null at index {i}.");
+                    continue;
+                }
+
+                if(!TryGetKinemationBindingForData(data, out var binding) || binding == null ||
+                   binding.kinemationWeaponPrefab == null) {
+                    Debug.LogError(
+                        $"[WeaponManager][KIN-Strict] Startup validation: missing KIN binding/prefab for '{data.weaponName}'.");
+                    continue;
+                }
+
+                var capacity = ResolveKinemationWeaponCapacity(binding.kinemationWeaponPrefab);
+                if(capacity <= 0) {
+                    Debug.LogError(
+                        $"[WeaponManager][KIN-Strict] Startup validation: invalid KIN ammo capacity for '{data.weaponName}'.");
+                }
+
+                var worldWeapon = ResolveWorldWeaponObject(data);
+                if(worldWeapon == null) {
+                    Debug.LogError(
+                        $"[WeaponManager][KIN-Strict] Startup validation: missing world weapon binding for '{data.weaponName}'.");
+                    continue;
+                }
+
+                if(!TryFindNamedTransform(worldWeapon, "Muzzle", out _)) {
+                    Debug.LogError(
+                        $"[WeaponManager][KIN-Strict] Startup validation: missing 'Muzzle' on world weapon '{worldWeapon.name}' " +
+                        $"for '{data.weaponName}'.");
+                }
+            }
         }
 
         private bool BuildWorldWeaponLookup() {
@@ -188,6 +304,7 @@ namespace Game.Weapons {
 
             BuildEquippedWeaponList();
             if(!BuildWorldWeaponLookup()) return;
+            LogStrictStartupValidationOnce();
             if(!ValidateStrictEquippedWeaponConfiguration()) return;
             SetupHolsteredWeaponModels();
             DisableUnequippedWorldWeapons();
@@ -199,6 +316,11 @@ namespace Game.Weapons {
 
             HideAllWorldWeapons();
             InstantiateFpWeaponInstances();
+
+            if(_fpWeaponInstances.Count != weaponDataList.Count) {
+                Debug.LogError(
+                    $"[WeaponManager][KIN-Strict] FP instance count mismatch. expected={weaponDataList.Count} actual={_fpWeaponInstances.Count}");
+            }
 
             // Switch to first weapon
             if(_fpWeaponInstances.Count > 0) {
@@ -287,22 +409,34 @@ namespace Game.Weapons {
                 return;
             }
 
+            var data = weaponDataList[index];
+            if(!TryValidateSwitchTargetStrict(index, out data, out var magCapacity)) {
+                return;
+            }
+
             CurrentWeaponIndex = index;
             IsPullingOut = false;
             _requiresKinemationEquipCompleteForCurrentPullOut = false;
 
-            var data = weaponDataList[index];
             var fp = ActivateFpWeapon(index, data, triggerPullOutAnimation: false);
+            if(fp == null) {
+                Debug.LogError(
+                    $"[WeaponManager][KIN-Strict] Failed to activate FP KIN weapon for '{data.weaponName}'.");
+                return;
+            }
 
             // ---- 3P WORLD WEAPON ----
             var worldWeaponInstance = ResolveWorldWeaponObject(data);
             if(worldWeaponInstance != null) {
                 worldWeaponInstance.SetActive(true);
                 CurrentWorldWeaponInstance = worldWeaponInstance;
+            } else {
+                Debug.LogError(
+                    $"[WeaponManager][KIN-Strict] Missing world weapon for '{data.weaponName}'.");
+                return;
             }
 
             // ---- AMMO ----
-            var magCapacity = ResolveWeaponCapacity(data);
             var restoredAmmo = ResolveRestoredAmmo(index, magCapacity, seedWhenMissing: true);
 
             // This sets weapon data, ammo, HUD, muzzle lights, etc.

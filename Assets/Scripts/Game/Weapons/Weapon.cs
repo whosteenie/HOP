@@ -31,7 +31,7 @@ namespace Game.Weapons {
 
         [Header("Current Weapon State")]
         private WeaponData _currentWeaponData;
-        private int _currentMagCapacity = 30;
+        private int _currentMagCapacity = 1;
 
         private GameObject _currentFpWeaponInstance;
         private GameObject _currentWorldWeaponInstance;
@@ -99,14 +99,12 @@ namespace Game.Weapons {
         private float _lastFireTime;
         private float _peakDamageMultiplier = 1f;
         private float _lastPeakTime;
-        private Coroutine _reloadCoroutine;
         private bool _autoReloadArmed;
         private float _reloadExpectedCompleteTime;
         private float _nextReloadRecoveryAllowedTime;
         private readonly List<int> _kinemationWeaponSoundEventBuffer = new();
         private float _kinemationReloadFallbackDeadline;
 
-        private const float ReloadTimeoutGraceSeconds = 0.35f;
         private const float ReloadRecoveryCooldownSeconds = 0.5f;
         private const float KinemationReloadFallbackSeconds = 5f;
         private const float TracerPerpendicularVelocityInheritanceScale = 1f;
@@ -406,10 +404,11 @@ namespace Game.Weapons {
             return $"count={count} [{entries}]";
         }
 
-        private bool TryGetStrictWorldMuzzleTransform(out Transform muzzleTransform, string context) {
+        private bool TryGetStrictWorldMuzzleTransform(out Transform muzzleTransform, string context,
+            bool allowOwnerInstance = false) {
             muzzleTransform = null;
 
-            if(playerController != null && playerController.IsOwner) {
+            if(playerController != null && playerController.IsOwner && !allowOwnerInstance) {
                 Debug.LogError(
                     $"[Weapon][RemoteMuzzleStrict][{context}] Called on owner instance. " +
                     $"weapon={(_currentWeaponData != null ? _currentWeaponData.weaponName : "(none)")}",
@@ -500,73 +499,21 @@ namespace Game.Weapons {
             _autoReloadArmed = false;
             IsReloading = true;
 
-            if(_kinemationFpWeaponDriver != null) {
-                _reloadExpectedCompleteTime = Time.time + KinemationReloadFallbackSeconds;
-                _kinemationReloadFallbackDeadline = _reloadExpectedCompleteTime;
-                PlayReloadEffects();
+            if(_kinemationFpWeaponDriver == null) {
+                Debug.LogError(
+                    $"[Weapon][KIN-Strict] Reload blocked: missing KinemationFpWeaponDriver for '{(_currentWeaponData != null ? _currentWeaponData.weaponName : "(none)")}'.",
+                    this);
+                IsReloading = false;
                 return;
             }
 
-            _reloadExpectedCompleteTime = Time.time + GetExpectedReloadDuration() + ReloadTimeoutGraceSeconds;
-            _kinemationReloadFallbackDeadline = float.PositiveInfinity;
-
-            if(_currentWeaponData.useMagReload) {
-                PlayReloadEffects();
-                _reloadCoroutine = StartCoroutine(MagReloadCoroutine());
-            } else {
-                _reloadCoroutine = StartCoroutine(PerRoundReloadCoroutine());
-            }
-        }
-
-        private IEnumerator MagReloadCoroutine() {
-            yield return new WaitForSeconds(_currentWeaponData.reloadTime);
-            CompleteReload();
-        }
-
-        private IEnumerator PerRoundReloadCoroutine() {
-            var perRoundTime = Mathf.Max(0.05f, _currentWeaponData.perRoundReloadTime);
-
-            // Play reload animation only once at the start (FP weapon animator only)
-            PlayReloadAnimationForCurrentWeapon();
-
-            var magCapacity = GetCurrentMagCapacity();
-            while(IsReloading && currentAmmo < magCapacity) {
-                // Play reload sound for each round (audio feedback)
-                if(!UseKinemationInternalSounds() && !ShouldSuppressLegacyReloadSound() &&
-                   playerController.IsOwner && _audioRelay != null) {
-                    var soundId = _currentWeaponData != null ? _currentWeaponData.reloadSoundId : "";
-                    if(!string.IsNullOrWhiteSpace(soundId)) {
-                        _audioRelay.RequestPlayAttached(soundId, new NetworkObjectReference(playerController.NetworkObject),
-                            allowOverlap: false);
-                    }
-                }
-
-                yield return new WaitForSeconds(perRoundTime);
-                if(!IsReloading) yield break;
-
-                currentAmmo = Mathf.Min(currentAmmo + 1, magCapacity);
-
-                if(playerController.IsOwner && HUDManager.Instance != null) {
-                    EventBus.Publish(new UpdateAmmoEvent(currentAmmo, magCapacity));
-                }
-
-                SyncServerAmmo();
-
-                if(currentAmmo < magCapacity) continue;
-                // Trigger reload complete animation (shotgun-style reloads when mag is full)
-                PlayReloadCompleteAnimationForCurrentWeapon();
-                break;
-            }
-
-            IsReloading = false;
-            _reloadCoroutine = null;
+            _reloadExpectedCompleteTime = Time.time + KinemationReloadFallbackSeconds;
+            _kinemationReloadFallbackDeadline = _reloadExpectedCompleteTime;
+            PlayReloadEffects();
         }
 
         private void CancelReload() {
             if(!IsReloading) return;
-            if(_reloadCoroutine != null) {
-                StopCoroutine(_reloadCoroutine);
-            }
 
             // Cancel reload sound when switching weapons or canceling reload
             if(!UseKinemationInternalSounds() && !ShouldSuppressLegacyReloadSound() &&
@@ -583,7 +530,6 @@ namespace Game.Weapons {
             }
 
             IsReloading = false;
-            _reloadCoroutine = null;
             _reloadExpectedCompleteTime = float.PositiveInfinity;
             _kinemationReloadFallbackDeadline = float.PositiveInfinity;
             if(_kinemationFpWeaponDriver != null) _kinemationFpWeaponDriver.ResetReloadTracking();
@@ -621,9 +567,6 @@ namespace Game.Weapons {
             muzzlePosition = default;
             if(_currentWeaponData == null) return false;
 
-            var isPostMatch = GameMenuManager.Instance != null && GameMenuManager.Instance.IsPostMatch;
-            var preferWorld = playerController == null || !playerController.IsOwner || isPostMatch;
-
             if(playerController != null &&
                playerController.IsOwner &&
                playerController.PlayerInput != null &&
@@ -635,11 +578,20 @@ namespace Game.Weapons {
                 return true;
             }
 
-            if(!TryGetPreferredMuzzleTransform(preferWorld, out var muzzleTransform) || muzzleTransform == null) {
+            if(playerController != null && playerController.IsOwner) {
+                if(!TryGetRequiredOwnerMuzzleTransform(out var ownerMuzzleTransform, "TryGetMuzzlePosition")) {
+                    return false;
+                }
+
+                muzzlePosition = ownerMuzzleTransform.position;
+                return true;
+            }
+
+            if(!TryGetStrictWorldMuzzleTransform(out var remoteWorldMuzzleTransform, "TryGetMuzzlePosition")) {
                 return false;
             }
 
-            muzzlePosition = muzzleTransform.position;
+            muzzlePosition = remoteWorldMuzzleTransform.position;
             return true;
         }
 
@@ -655,8 +607,7 @@ namespace Game.Weapons {
             }
 
             if(playerController.PlayerInput == null || !playerController.PlayerInput.IsSniperOverlayActive) {
-                var useWorldParent = GameMenuManager.Instance != null && GameMenuManager.Instance.IsPostMatch;
-                if(!TryGetPreferredMuzzleTransform(useWorldParent, out var muzzleTransform) || muzzleTransform == null) {
+                if(!TryGetRequiredOwnerMuzzleTransform(out var muzzleTransform, "TryGetMuzzlePositionFromCamera")) {
                     return false;
                 }
 
@@ -736,49 +687,68 @@ namespace Game.Weapons {
         }
 
         private int GetCurrentMagCapacity() {
-            if(_currentMagCapacity > 0) {
-                return _currentMagCapacity;
-            }
-
-            return _currentWeaponData == null ? 30 : Mathf.Max(1, _currentWeaponData.magSize);
+            return Mathf.Max(1, _currentMagCapacity);
         }
 
         public int GetMagSize() {
             return GetCurrentMagCapacity();
         }
         public GameObject GetWeaponPrefab() => _currentFpWeaponInstance;
-        public Vector3 GetSpawnPosition() {
-            return _currentWeaponData == null ? Vector3.zero : _currentWeaponData.spawnPosition;
-        }
-        public Vector3 GetSpawnRotation() {
-            return _currentWeaponData == null ? Vector3.zero : _currentWeaponData.spawnRotation;
-        }
 
-        private bool TryGetPreferredMuzzleTransform(bool preferWorldModel, out Transform muzzleTransform) {
+        private bool TryGetStrictFpMuzzleTransform(out Transform muzzleTransform, string context) {
             muzzleTransform = null;
-            if(_fpMuzzleTransform == null && _kinemationFpWeaponDriver != null) {
-                _fpMuzzleTransform = _kinemationFpWeaponDriver.GetMuzzleTransform();
+
+            if(playerController == null || !playerController.IsOwner) {
+                Debug.LogError($"[Weapon][MuzzleStrict][{context}] FP muzzle requested by non-owner.", this);
+                return false;
             }
 
-            if(preferWorldModel) {
-                if(_worldMuzzleTransform != null) {
-                    muzzleTransform = _worldMuzzleTransform;
-                    return true;
-                }
-
-                if(_fpMuzzleTransform == null) return false;
-                muzzleTransform = _fpMuzzleTransform;
-            } else {
-                if(_fpMuzzleTransform != null) {
-                    muzzleTransform = _fpMuzzleTransform;
-                    return true;
-                }
-
-                if(_worldMuzzleTransform == null) return false;
-                muzzleTransform = _worldMuzzleTransform;
+            if(_kinemationFpWeaponDriver == null) {
+                Debug.LogError(
+                    $"[Weapon][MuzzleStrict][{context}] Missing KinemationFpWeaponDriver for owner weapon " +
+                    $"'{(_currentWeaponData != null ? _currentWeaponData.weaponName : "(none)")}'.",
+                    this);
+                return false;
             }
 
+            _fpMuzzleTransform = _kinemationFpWeaponDriver.GetMuzzleTransform();
+            if(_fpMuzzleTransform == null) {
+                Debug.LogError(
+                    $"[Weapon][MuzzleStrict][{context}] FP muzzle transform missing for weapon " +
+                    $"'{(_currentWeaponData != null ? _currentWeaponData.weaponName : "(none)")}'.",
+                    this);
+                return false;
+            }
+
+            if(!_fpMuzzleTransform.gameObject.activeInHierarchy) {
+                Debug.LogError(
+                    $"[Weapon][MuzzleStrict][{context}] FP muzzle transform inactive. " +
+                    $"weapon={(_currentWeaponData != null ? _currentWeaponData.weaponName : "(none)")} " +
+                    $"muzzlePath={GetTransformPath(_fpMuzzleTransform)}",
+                    this);
+                return false;
+            }
+
+            muzzleTransform = _fpMuzzleTransform;
             return true;
+        }
+
+        private bool TryGetRequiredOwnerMuzzleTransform(out Transform muzzleTransform, string context) {
+            muzzleTransform = null;
+
+            if(playerController == null || !playerController.IsOwner) {
+                Debug.LogError(
+                    $"[Weapon][MuzzleStrict][{context}] Owner-only muzzle query called on non-owner.",
+                    this);
+                return false;
+            }
+
+            var isPostMatch = GameMenuManager.Instance != null && GameMenuManager.Instance.IsPostMatch;
+            if(isPostMatch) {
+                return TryGetStrictWorldMuzzleTransform(out muzzleTransform, context, allowOwnerInstance: true);
+            }
+
+            return TryGetStrictFpMuzzleTransform(out muzzleTransform, context);
         }
 
         #endregion
@@ -1250,14 +1220,14 @@ namespace Game.Weapons {
 
         private bool CanReload() {
             if(!_currentWeaponData || _weaponManager.IsPullingOut) return false;
-            return currentAmmo < GetCurrentMagCapacity() && _reloadCoroutine == null && !IsReloading;
+            if(_kinemationFpWeaponDriver == null) return false;
+            return currentAmmo < GetCurrentMagCapacity() && !IsReloading;
         }
 
         private void CompleteReload() {
             if(!_currentWeaponData) return;
             currentAmmo = GetCurrentMagCapacity();
             IsReloading = false;
-            _reloadCoroutine = null;
             _autoReloadArmed = false;
             _reloadExpectedCompleteTime = float.PositiveInfinity;
             _kinemationReloadFallbackDeadline = float.PositiveInfinity;
@@ -1296,7 +1266,6 @@ namespace Game.Weapons {
 
         private void CompleteKinemationPartialReloadWithoutFilling() {
             IsReloading = false;
-            _reloadCoroutine = null;
             _autoReloadArmed = false;
             _reloadExpectedCompleteTime = float.PositiveInfinity;
             _kinemationReloadFallbackDeadline = float.PositiveInfinity;
@@ -1475,8 +1444,7 @@ namespace Game.Weapons {
             if(_kinemationFpWeaponDriver == null) return;
             if(_currentWeaponData == null || _currentWeaponData.muzzleFlashPrefab == null) return;
 
-            const bool useWorldParent = false;
-            if(!TryGetPreferredMuzzleTransform(useWorldParent, out var muzzleTransform) || muzzleTransform == null) {
+            if(!TryGetRequiredOwnerMuzzleTransform(out var muzzleTransform, "PrewarmKinemationLocalMuzzleFxInstance")) {
                 return;
             }
 
@@ -1504,8 +1472,7 @@ namespace Game.Weapons {
             PlayShootAnimationServerRpc();
 
             if(_currentWeaponData != null && _currentWeaponData.muzzleFlashPrefab != null) {
-                var useWorldParent = GameMenuManager.Instance != null && GameMenuManager.Instance.IsPostMatch;
-                if(TryGetPreferredMuzzleTransform(useWorldParent, out var muzzleTransform) && muzzleTransform != null) {
+                if(TryGetRequiredOwnerMuzzleTransform(out var muzzleTransform, "PlayLocalMuzzleFlash")) {
                     if(_kinemationFpWeaponDriver != null) {
                         var preferredDirection = Vector3.zero;
                         var fpCameraTransform = playerController != null ? playerController.FpCameraTransform : null;
@@ -1835,20 +1802,6 @@ namespace Game.Weapons {
         [Rpc(SendTo.Everyone)]
         private void PlayReloadAnimationServerRpc() {
             _playerAnimator.SetTrigger(ReloadHash);
-        }
-
-        private float GetExpectedReloadDuration() {
-            if(_currentWeaponData == null) return 0.5f;
-            if(_kinemationFpWeaponDriver != null) {
-                return KinemationReloadFallbackSeconds;
-            }
-            if(_currentWeaponData.useMagReload) {
-                return Mathf.Max(0.05f, _currentWeaponData.reloadTime);
-            }
-
-            var perRoundTime = Mathf.Max(0.05f, _currentWeaponData.perRoundReloadTime);
-            var roundsMissing = Mathf.Max(1, GetCurrentMagCapacity() - currentAmmo);
-            return perRoundTime * roundsMissing;
         }
 
         private void ExitReloadAnimation() {

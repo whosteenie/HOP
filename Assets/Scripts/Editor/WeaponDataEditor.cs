@@ -7,7 +7,6 @@ namespace Game.EditorTools {
         public override void OnInspectorGUI() {
             serializedObject.Update();
 
-            var useMagReloadProp = serializedObject.FindProperty("useMagReload");
             var useDamageFalloffProp = serializedObject.FindProperty("useDamageFalloff");
             var usePelletSpreadProp = serializedObject.FindProperty("usePelletSpread");
             var iterator = serializedObject.GetIterator();
@@ -20,12 +19,6 @@ namespace Game.EditorTools {
                     using(new EditorGUI.DisabledScope(true)) {
                         EditorGUILayout.PropertyField(iterator, true);
                     }
-                    continue;
-                }
-
-                if(iterator.name == "perRoundReloadTime" &&
-                   useMagReloadProp != null &&
-                   useMagReloadProp.boolValue) {
                     continue;
                 }
 

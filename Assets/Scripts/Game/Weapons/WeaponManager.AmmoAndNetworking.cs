@@ -31,6 +31,11 @@ namespace Game.Weapons {
             var data = weaponDataList[CurrentWeaponIndex];
             if(data == null) return;
             var magCapacity = ResolveWeaponCapacity(data);
+            if(magCapacity <= 0) {
+                Debug.LogError(
+                    $"[WeaponManager][KIN-Strict] Invalid KIN ammo capacity while draining ammo for '{data.weaponName}'.");
+                return;
+            }
 
             _ammoAuthority.SetLocalAmmo(CurrentWeaponIndex, 0);
             UpdateServerAmmo(CurrentWeaponIndex, 0);

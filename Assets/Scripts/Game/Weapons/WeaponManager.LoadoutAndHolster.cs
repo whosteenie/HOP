@@ -392,6 +392,13 @@ namespace Game.Weapons {
                     Debug.LogError(
                         $"[WeaponManager] Weapon '{data.weaponName}' missing WorldWeaponBinding under WorldWeaponSocket.");
                     isValid = false;
+                } else {
+                    var worldWeapon = ResolveWorldWeaponObject(data);
+                    if(!TryFindNamedTransform(worldWeapon, "Muzzle", out _)) {
+                        Debug.LogError(
+                            $"[WeaponManager] Weapon '{data.weaponName}' world weapon '{worldWeapon.name}' is missing required 'Muzzle' transform.");
+                        isValid = false;
+                    }
                 }
 
                 if(ResolveHolsterWeaponObject(data) == null) {
