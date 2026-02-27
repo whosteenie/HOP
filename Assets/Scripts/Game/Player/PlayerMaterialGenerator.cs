@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Rendering;
 
@@ -7,7 +8,9 @@ namespace Game.Player {
     /// Handles material caching to avoid creating duplicate materials.
     /// </summary>
     public static class PlayerMaterialGenerator {
-        private static readonly System.Collections.Generic.Dictionary<string, Material> MaterialCache = new();
+        private static readonly Dictionary<string, Material> MaterialCache = new();
+        private static readonly Queue<string> MaterialCacheOrder = new();
+        private const int MaxCachedMaterials = 256;
 
         // URP/Lit shader property IDs
         private static readonly int BaseMapId = Shader.PropertyToID("_BaseMap");
@@ -161,8 +164,21 @@ namespace Game.Player {
 
             // Cache the material
             MaterialCache[cacheKey] = material;
+            MaterialCacheOrder.Enqueue(cacheKey);
+            TrimMaterialCacheIfNeeded();
 
             return material;
+        }
+
+        private static void TrimMaterialCacheIfNeeded() {
+            while(MaterialCache.Count > MaxCachedMaterials && MaterialCacheOrder.Count > 0) {
+                var evictKey = MaterialCacheOrder.Dequeue();
+                if(!MaterialCache.TryGetValue(evictKey, out var evictMaterial)) continue;
+                MaterialCache.Remove(evictKey);
+                if(evictMaterial != null) {
+                    Destroy(evictMaterial);
+                }
+            }
         }
 
         /// <summary>
@@ -226,6 +242,7 @@ namespace Game.Player {
             }
 
             MaterialCache.Clear();
+            MaterialCacheOrder.Clear();
         }
 
         /// <summary>

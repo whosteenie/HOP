@@ -392,9 +392,14 @@ namespace Game.Weapons {
                     isValid = false;
                 } else {
                     var worldWeapon = ResolveWorldWeaponObject(data);
-                    if(!TryFindNamedTransform(worldWeapon, "Muzzle", out _)) {
+                    var worldBinding = worldWeapon != null ? worldWeapon.GetComponent<WorldWeaponBinding>() : null;
+                    if(worldBinding == null) {
                         Debug.LogError(
-                            $"[WeaponManager] Weapon '{data.weaponName}' world weapon '{worldWeapon.name}' is missing required 'Muzzle' transform.");
+                            $"[WeaponManager] Weapon '{data.weaponName}' world weapon '{worldWeapon.name}' is missing WorldWeaponBinding component.");
+                        isValid = false;
+                    } else if(!worldBinding.TryGetRuntimeReferences(out _, out _)) {
+                        Debug.LogError(
+                            $"[WeaponManager] Weapon '{data.weaponName}' world weapon '{worldWeapon.name}' is missing assigned muzzle reference.");
                         isValid = false;
                     }
                 }

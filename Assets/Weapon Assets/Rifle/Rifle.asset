@@ -13,20 +13,14 @@ MonoBehaviour:
   m_Name: Rifle
   m_EditorClassIdentifier: Assembly-CSharp::WeaponData
   weaponName: AK74
-  weaponPrefab: {fileID: 2760174968010719185, guid: 59da40951c532134db003b7f03da6d7d, type: 3}
-  loadoutIcon: {fileID: 21300000, guid: 75ef8ab7fcce49342a2c7a64f750f651, type: 3}
   weaponSlot: 0
-  spawnPosition: {x: 0.221, y: -0.141, z: 0.163}
-  spawnRotation: {x: 0, y: -180, z: 0}
-  muzzleLocalOffset: {x: 0, y: 0, z: -0.442}
-  worldWeaponName: AK74
-  holsteredPrimaryModel: {fileID: 0}
-  holsteredSecondaryModel: {fileID: 0}
-  fpMuzzleLightChildName: MuzzleLight
-  worldMuzzleLightChildName: MuzzleLight
-  magSize: 30
+  loadoutIcon: {fileID: 21300000, guid: 75ef8ab7fcce49342a2c7a64f750f651, type: 3}
+  weaponPrefab: {fileID: 2760174968010719185, guid: 59da40951c532134db003b7f03da6d7d, type: 3}
+  fireModeType: 1
+  fireRate: 0.15
+  bulletSpread: 0
+  useSniperOverlay: 0
   baseDamage: 35
-  maxDamageMultiplier: 3
   damageCap: 100
   useDamageFalloff: 1
   maxDamageRange: 35
@@ -35,20 +29,14 @@ MonoBehaviour:
   usePelletSpread: 0
   pelletCount: 8
   pelletDamageMultiplier: 0.15
-  fireRate: 0.15
-  fireMode: Full
-  bulletSpread: 0
-  useSniperOverlay: 0
-  reloadTime: 1
   useMagReload: 1
-  perRoundReloadTime: 0.5
-  bulletTrail: {fileID: 328621789431213768, guid: 4b92d630cd66e7a45a83060b816bdbbe, type: 3}
-  bulletImpact: {fileID: 1727084212038952990, guid: 115606d0adf2ebc4cb54af213761100e, type: 3}
-  muzzleFlashPrefab: {fileID: 6299671218319471870, guid: d13b2bf13a0548a4aa9c2cd249a35a04, type: 3}
-  shootSoundId: weapons.rifle.shoot
-  reloadSoundId: weapons.rifle.reload
   useSphereCast: 1
   sphereCastRadius: 0.1
   sphereCastGrowthStartDist: 0
   sphereCastMaxRadius: 0.4
-  maxServerRange: 0
+  bulletTrail: {fileID: 328621789431213768, guid: 4b92d630cd66e7a45a83060b816bdbbe, type: 3}
+  bulletImpact: {fileID: 1727084212038952990, guid: 115606d0adf2ebc4cb54af213761100e, type: 3}
+  muzzleFlashPrefab: {fileID: 6299671218319471870, guid: 6373b8829b762a344a5677cd3fd522a5, type: 3}
+  shootSoundId: weapons.rifle.shoot
+  reloadSoundId: weapons.rifle.reload
+  legacyFireMode: 

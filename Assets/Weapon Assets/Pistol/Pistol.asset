@@ -13,20 +13,14 @@ MonoBehaviour:
   m_Name: Pistol
   m_EditorClassIdentifier: Assembly-CSharp::Game.Weapons.WeaponData
   weaponName: M1911
-  weaponPrefab: {fileID: 1694449805434718, guid: 5dc9fad223416134db5eb5ef21362f5d, type: 3}
-  loadoutIcon: {fileID: 21300000, guid: 2862a4083a80fc748af37075e15a88b4, type: 3}
   weaponSlot: 1
-  spawnPosition: {x: 0.245, y: -0.125, z: 0.3}
-  spawnRotation: {x: 0, y: -180, z: 0}
-  muzzleLocalOffset: {x: 0.0006, y: 0.0256, z: -0.1461}
-  worldWeaponName: M1911
-  holsteredPrimaryModel: {fileID: 0}
-  holsteredSecondaryModel: {fileID: 0}
-  fpMuzzleLightChildName: MuzzleLight
-  worldMuzzleLightChildName: MuzzleLight
-  magSize: 8
+  loadoutIcon: {fileID: 21300000, guid: 2862a4083a80fc748af37075e15a88b4, type: 3}
+  weaponPrefab: {fileID: 1694449805434718, guid: 5dc9fad223416134db5eb5ef21362f5d, type: 3}
+  fireModeType: 0
+  fireRate: 0.12
+  bulletSpread: 0
+  useSniperOverlay: 0
   baseDamage: 15
-  maxDamageMultiplier: 3
   damageCap: 65
   useDamageFalloff: 1
   maxDamageRange: 20
@@ -35,20 +29,14 @@ MonoBehaviour:
   usePelletSpread: 0
   pelletCount: 8
   pelletDamageMultiplier: 0.15
-  fireRate: 0.12
-  fireMode: Semi
-  bulletSpread: 0
-  useSniperOverlay: 0
-  reloadTime: 0.7
   useMagReload: 1
-  perRoundReloadTime: 0.5
-  bulletTrail: {fileID: 328621789431213768, guid: 4b92d630cd66e7a45a83060b816bdbbe, type: 3}
-  bulletImpact: {fileID: 1727084212038952990, guid: 115606d0adf2ebc4cb54af213761100e, type: 3}
-  muzzleFlashPrefab: {fileID: 6299671218319471870, guid: d13b2bf13a0548a4aa9c2cd249a35a04, type: 3}
-  shootSoundId: weapons.pistol.shoot
-  reloadSoundId: weapons.pistol.reload
   useSphereCast: 1
   sphereCastRadius: 0.1
   sphereCastGrowthStartDist: 0
   sphereCastMaxRadius: 0.35
-  maxServerRange: 0
+  bulletTrail: {fileID: 328621789431213768, guid: 4b92d630cd66e7a45a83060b816bdbbe, type: 3}
+  bulletImpact: {fileID: 1727084212038952990, guid: 115606d0adf2ebc4cb54af213761100e, type: 3}
+  muzzleFlashPrefab: {fileID: 6299671218319471870, guid: 6373b8829b762a344a5677cd3fd522a5, type: 3}
+  shootSoundId: weapons.pistol.shoot
+  reloadSoundId: weapons.pistol.reload
+  legacyFireMode: 
