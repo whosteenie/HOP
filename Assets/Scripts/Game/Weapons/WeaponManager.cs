@@ -101,6 +101,7 @@ namespace Game.Weapons {
 
         private void Update() {
             UpdateKinemationEquipCompletionGate();
+            EnsureFpWeaponLightingRig();
         }
 
         private void BuildKinemationWeaponLookup() {
@@ -210,6 +211,8 @@ namespace Game.Weapons {
             if(IsOwner) {
                 RefreshOwnerAmmoHudFromCurrentWeapon();
             }
+
+            EnsureFpWeaponLightingRig();
         }
         public void ApplyTpWeaponStateOnRespawn() {
             if(_playerAnimator != null) {
