@@ -1,4 +1,5 @@
 using System.Collections;
+using Game.Match;
 using Game.Menu;
 using Game.UI;
 using Game.Weapons;
@@ -581,7 +582,7 @@ namespace Game.Player {
         private void OnMove(InputValue value) {
             if(IsBot) return;
             if(!IsOwner) return;
-            if(IsPausedOrDead || GameMenuManager.Instance.IsPostMatch) {
+            if(IsPausedOrDead || PostMatchManager.IsPostMatchMovementLockedLocal) {
                 playerController.moveInput = Vector2.zero;
                 return;
             }

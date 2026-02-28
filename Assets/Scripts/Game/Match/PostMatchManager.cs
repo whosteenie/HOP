@@ -78,6 +78,12 @@ namespace Game.Match {
         private bool IsPodiumBlackoutActive { get; set; }
         public static bool IsPodiumBlackoutActiveLocal => Instance != null && Instance.IsPodiumBlackoutActive;
 
+        /// <summary>
+        /// True once fade-to-black is fully black. Use this for movement lock so WASD stays active during the fade.
+        /// </summary>
+        private static bool _postMatchMovementLocked;
+        public static bool IsPostMatchMovementLockedLocal => _postMatchMovementLocked;
+
         private void Awake() {
             if(Instance != null && Instance != this) {
                 Destroy(gameObject);
@@ -426,6 +432,7 @@ namespace Game.Match {
                 EnsureUiReferencesBound();
                 ResetPostMatchUiState();
                 IsPodiumBlackoutActive = false;
+                _postMatchMovementLocked = false;
                 if(_blackoutReadyRoutine != null) {
                     StopCoroutine(_blackoutReadyRoutine);
                     _blackoutReadyRoutine = null;
@@ -445,14 +452,13 @@ namespace Game.Match {
                     GameMenuManager.Instance.IsPostMatch = true;
                 }
 
-                // Find local controller and disable sniper overlay
+                // Find local controller and disable sniper overlay (do NOT lock movement yet - wait for fade to complete)
                 if(NetworkManager.Singleton != null && NetworkManager.Singleton.LocalClient != null) {
                     var localPlayer = NetworkManager.Singleton.LocalClient.PlayerObject;
                     if(localPlayer != null) {
                         var localController = localPlayer.GetComponent<PlayerController>();
                         if(localController != null && localController.PlayerInput != null) {
                             localController.PlayerInput.ForceDisableSniperOverlay(false);
-                            localController.SetPostMatchControlLock(true, lockLook: false, resetVelocity: false);
                         }
                     }
                 }
@@ -857,6 +863,7 @@ namespace Game.Match {
             EnsureUiReferencesBound();
             StopPodiumWorldSpaceTracking();
             IsPodiumBlackoutActive = false;
+            _postMatchMovementLocked = false;
             if(_blackoutReadyRoutine != null) {
                 StopCoroutine(_blackoutReadyRoutine);
                 _blackoutReadyRoutine = null;
@@ -899,7 +906,19 @@ namespace Game.Match {
         private IEnumerator MarkPodiumBlackoutReadyAfterFade() {
             yield return new WaitForSeconds(fadeDuration + fadeBuffer);
             IsPodiumBlackoutActive = true;
+            _postMatchMovementLocked = true;
             _blackoutReadyRoutine = null;
+
+            // Lock movement now that fade is fully black (same pattern as momentum zero in SetupTopThreeOnServer)
+            if(NetworkManager.Singleton != null && NetworkManager.Singleton.LocalClient != null) {
+                var localPlayer = NetworkManager.Singleton.LocalClient.PlayerObject;
+                if(localPlayer != null) {
+                    var localController = localPlayer.GetComponent<PlayerController>();
+                    if(localController != null) {
+                        localController.SetPostMatchControlLock(true, lockLook: false, resetVelocity: false);
+                    }
+                }
+            }
         }
     }
 }
