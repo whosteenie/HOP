@@ -1,5 +1,6 @@
 using UnityEngine;
 using Network;
+using Network.Events;
 using Steamworks;
 using Steamworks.Data;
 using System.Collections.Generic;
@@ -86,11 +87,8 @@ namespace Game.Match {
             if(string.IsNullOrEmpty(newGamemode) || selectedGameModeId == newGamemode) return;
             selectedGameModeId = newGamemode;
             Debug.Log($"[MatchSettingsManager] Synced gamemode from Steam Lobby: {selectedGameModeId}");
-                
-            // Force refresh scoreboard
-            if(UI.ScoreboardManager.Instance != null) {
-                UI.ScoreboardManager.Instance.RefreshGamemode();
-            }
+
+            EventBus.Publish(new ScoreboardGamemodeChangedEvent());
         }
 
         public int GetMatchDurationSeconds() => matchDurationSeconds >= 0 ? matchDurationSeconds : defaultMatchDurationSeconds;

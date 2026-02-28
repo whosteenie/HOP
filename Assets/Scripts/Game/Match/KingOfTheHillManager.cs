@@ -2,8 +2,8 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using Game.Spawning;
-using Game.UI;
 using Network.Diagnostics;
+using Network.Events;
 using Unity.Netcode;
 using UnityEngine;
 using Random = UnityEngine.Random;
@@ -187,10 +187,7 @@ namespace Game.Match {
         }
 
         private static void OnScoreChanged(int previous, int current) {
-            // Update UI
-            if(ScoreboardManager.Instance != null) {
-                ScoreboardManager.Instance.UpdateScoreboard();
-            }
+            EventBus.Publish(new ScoreboardRefreshRequestedEvent());
         }
 
         public int GetTeamAScore() => _teamAScore.Value;

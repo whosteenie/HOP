@@ -111,6 +111,10 @@ namespace Game.UI {
             EventBus.Subscribe<SetMatchTimeEvent>(OnSetMatchTime);
             EventBus.Subscribe<ShowScoreboardEvent>(OnShowScoreboard);
             EventBus.Subscribe<HideScoreboardEvent>(OnHideScoreboard);
+            EventBus.Subscribe<ScoreboardRefreshRequestedEvent>(OnScoreboardRefreshRequested);
+            EventBus.Subscribe<ScoreboardGamemodeChangedEvent>(OnScoreboardGamemodeChanged);
+            EventBus.Subscribe<HideScoreDisplayEvent>(OnHideScoreDisplay);
+            EventBus.Subscribe<ShowScoreDisplayEvent>(OnShowScoreDisplay);
         }
 
         private void OnDisable() {
@@ -118,6 +122,10 @@ namespace Game.UI {
             EventBus.Unsubscribe<SetMatchTimeEvent>(OnSetMatchTime);
             EventBus.Unsubscribe<ShowScoreboardEvent>(OnShowScoreboard);
             EventBus.Unsubscribe<HideScoreboardEvent>(OnHideScoreboard);
+            EventBus.Unsubscribe<ScoreboardRefreshRequestedEvent>(OnScoreboardRefreshRequested);
+            EventBus.Unsubscribe<ScoreboardGamemodeChangedEvent>(OnScoreboardGamemodeChanged);
+            EventBus.Unsubscribe<HideScoreDisplayEvent>(OnHideScoreDisplay);
+            EventBus.Unsubscribe<ShowScoreDisplayEvent>(OnShowScoreDisplay);
 
             // Unsubscribe from network callbacks
             if(NetworkManager.Singleton != null) {
@@ -144,6 +152,22 @@ namespace Game.UI {
 
         private void OnHideScoreboard(HideScoreboardEvent evt) {
             HideScoreboard();
+        }
+
+        private void OnScoreboardRefreshRequested(ScoreboardRefreshRequestedEvent evt) {
+            UpdateScoreboard();
+        }
+
+        private void OnScoreboardGamemodeChanged(ScoreboardGamemodeChangedEvent evt) {
+            RefreshGamemode();
+        }
+
+        private void OnHideScoreDisplay(HideScoreDisplayEvent evt) {
+            HideScoreDisplay();
+        }
+
+        private void OnShowScoreDisplay(ShowScoreDisplayEvent evt) {
+            ShowScoreDisplay();
         }
 
         #endregion

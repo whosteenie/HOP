@@ -655,10 +655,7 @@ namespace Game.Match {
                 EventBus.Publish(new HideKillFeedEvent());
             if(_matchTimerContainer != null)
                 _matchTimerContainer.style.display = DisplayStyle.None;
-            // Hide score display (handled by ScoreboardManager)
-            if(ScoreboardManager.Instance != null) {
-                ScoreboardManager.Instance.HideScoreDisplay();
-            }
+            EventBus.Publish(new HideScoreDisplayEvent());
 
             // Hide grapple UI via GrappleUIManager
             if(GrappleUIManager.Instance != null) {
@@ -680,10 +677,7 @@ namespace Game.Match {
                 EventBus.Publish(new ShowKillFeedEvent());
             if(_matchTimerContainer != null)
                 _matchTimerContainer.style.display = DisplayStyle.Flex;
-            // Show score display (handled by ScoreboardManager)
-            if(ScoreboardManager.Instance != null) {
-                ScoreboardManager.Instance.ShowScoreDisplay();
-            }
+            EventBus.Publish(new ShowScoreDisplayEvent());
 
             // Show grapple UI via GrappleUIManager
             if(GrappleUIManager.Instance != null) {

@@ -4,8 +4,8 @@ using System.Linq;
 using Game.Player;
 using Game.Match;
 using Game.Spawning;
-using Game.UI;
 using Network.Diagnostics;
+using Network.Events;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -95,17 +95,11 @@ namespace Game.Hopball {
         }
 
         private static void OnTeamAScoreChanged(int previous, int current) {
-            // Update UI if needed
-            if(ScoreboardManager.Instance != null) {
-                ScoreboardManager.Instance.UpdateScoreboard();
-            }
+            EventBus.Publish(new ScoreboardRefreshRequestedEvent());
         }
 
         private static void OnTeamBScoreChanged(int previous, int current) {
-            // Update UI if needed
-            if(ScoreboardManager.Instance != null) {
-                ScoreboardManager.Instance.UpdateScoreboard();
-            }
+            EventBus.Publish(new ScoreboardRefreshRequestedEvent());
         }
 
         public int GetTeamAScore() => _teamAScore.Value;

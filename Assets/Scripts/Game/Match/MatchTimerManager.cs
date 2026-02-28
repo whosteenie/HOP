@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using Game.Menu;
 using Game.Player;
-using Game.UI;
 using Network;
 using Network.Diagnostics;
 using Network.Events;
@@ -246,10 +245,7 @@ namespace Game.Match {
             
             // Only update UI if we're not in pre-match
             if(_isPreMatch.Value || GameMenuManager.Instance == null) return;
-            // SetMatchTime will handle tick sound playback based on displayed time
-            if(ScoreboardManager.Instance != null) {
-                EventBus.Publish(new SetMatchTimeEvent(current));
-            }
+            EventBus.Publish(new SetMatchTimeEvent(current));
         }
 
         private void OnPreMatchCountdownChanged(int previous, int current) {
@@ -260,10 +256,7 @@ namespace Game.Match {
             if(GameMenuManager.Instance.IsPostMatch) {
                 GameMenuManager.Instance.RestoreHudForMatchStart();
             }
-            // SetMatchTime will handle tick sound playback based on displayed time
-            if(ScoreboardManager.Instance != null) {
-                EventBus.Publish(new SetMatchTimeEvent(current));
-            }
+            EventBus.Publish(new SetMatchTimeEvent(current));
         }
 
         private static void OnPreMatchWaitingForPlayersChanged(bool previous, bool current) {
@@ -294,7 +287,6 @@ namespace Game.Match {
             // When pre-match ends, ensure UI shows match timer
             if(current || GameMenuManager.Instance == null) return;
             GameMenuManager.Instance.RestoreHudForMatchStart();
-            if(ScoreboardManager.Instance == null) return;
             var matchSettings = MatchSettingsManager.Instance;
             if(matchSettings != null && matchSettings.IsInfiniteMatchTimer()) {
                 EventBus.Publish(new SetMatchTimeEvent(-1));
@@ -343,7 +335,7 @@ namespace Game.Match {
             var isInfiniteTimer = matchSettings != null && matchSettings.IsInfiniteMatchTimer();
             if(!isInfiniteTimer) {
                 _timerRoutine = StartCoroutine(TimerCoroutine());
-            } else if(ScoreboardManager.Instance != null) {
+            } else {
                 EventBus.Publish(new SetMatchTimeEvent(-1));
             }
         }

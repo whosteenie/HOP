@@ -116,5 +116,29 @@ namespace Network.Events {
     /// </summary>
     public class HideScoreboardEvent : GameEvent {
     }
+
+    /// <summary>
+    /// Event published when the scoreboard should refresh its content (e.g. after score changes).
+    /// </summary>
+    public class ScoreboardRefreshRequestedEvent : GameEvent {
+    }
+
+    /// <summary>
+    /// Event published when the gamemode has changed and the scoreboard title/headers should refresh.
+    /// </summary>
+    public class ScoreboardGamemodeChangedEvent : GameEvent {
+    }
+
+    /// <summary>
+    /// Event published when the small score display (next to timer) should be hidden.
+    /// </summary>
+    public class HideScoreDisplayEvent : GameEvent {
+    }
+
+    /// <summary>
+    /// Event published when the small score display (next to timer) should be shown.
+    /// </summary>
+    public class ShowScoreDisplayEvent : GameEvent {
+    }
 }
 
