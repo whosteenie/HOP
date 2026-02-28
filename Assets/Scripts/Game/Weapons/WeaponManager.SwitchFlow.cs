@@ -343,6 +343,20 @@ namespace Game.Weapons {
             UpdateHolsterVisibility();
         }
 
+        /// <summary>
+        /// Sets the TP animator to the correct weapon hold state for podium. Called after animator is ready (e.g. post SnapBonesToRoot).
+        /// </summary>
+        public void SetTpWeaponIndexForPodium() {
+            if(_playerAnimator == null) return;
+            var slot = Mathf.Clamp(GetSlotForIndex(CurrentWeaponIndex), 0, 1);
+            _playerAnimator.SetInteger(WeaponIndexHash, slot);
+            var layerIndex = _playerAnimator.GetLayerIndex("Weapon Hold Layer");
+            if(layerIndex >= 0) {
+                var stateName = slot == 0 ? "AKAim" : "PistolAim";
+                _playerAnimator.Play(stateName, layerIndex, 0f);
+            }
+        }
+
         private void EnsureWorldWeaponShadowState() {
             if(CurrentWorldWeaponInstance == null) return;
 

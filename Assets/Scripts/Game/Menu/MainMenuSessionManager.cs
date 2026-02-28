@@ -104,6 +104,7 @@ namespace Game.Menu {
             SessionManager.Instance.OnPartyStateChanged -= HandlePartyStateChanged;
             SessionManager.Instance.FrontStatusChanged += UpdateStatusText;
             SessionManager.Instance.OnPartyStateChanged += HandlePartyStateChanged;
+            RefreshSessionHeaderAfterLoad().Forget();
         }
 
         protected override void OnDisable() {
@@ -112,6 +113,22 @@ namespace Game.Menu {
                 SessionManager.Instance.OnPartyStateChanged -= HandlePartyStateChanged;
             }
             base.OnDisable();
+        }
+
+        /// <summary>
+        /// Delayed refresh so session header (steam name, invite) is restored when returning from game/post-match.
+        /// </summary>
+        private async UniTaskVoid RefreshSessionHeaderAfterLoad() {
+            await UniTask.DelayFrame(2);
+            if(this == null || !this) return;
+            if(SessionManager.Instance == null) return;
+            if(SessionManager.Instance.CurrentLobby.HasValue) return;
+            if(uiManager != null && uiManager.PartyContainer != null) {
+                uiManager.PartyContainer.style.display = DisplayStyle.Flex;
+            }
+            if(_inviteButton != null) _inviteButton.style.display = DisplayStyle.Flex;
+            if(_partySeparator != null) _partySeparator.style.display = DisplayStyle.Flex;
+            DrawSoloPlayer();
         }
 
         protected override Dictionary<string, Type> GetRequiredElements() {

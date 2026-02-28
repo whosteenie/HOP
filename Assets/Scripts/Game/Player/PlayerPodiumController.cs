@@ -116,6 +116,7 @@ namespace Game.Player {
                     playerController.WeaponManager.CancelPendingPullOutForPostMatch();
                     playerController.WeaponManager.ShowTpWeapon();
                     playerController.WeaponManager.HandlePullOutCompleted();
+                    playerController.WeaponManager.SetTpWeaponIndexForPodium();
                     playerController.WeaponManager.RefreshHolsterVisibility();
                     var currentWorldWeapon = playerController.WeaponManager.CurrentWorldWeaponInstance;
                     if(currentWorldWeapon != null && !currentWorldWeapon.activeSelf) {
@@ -197,6 +198,11 @@ namespace Game.Player {
             if(_podiumSkinned == null) return;
             _podiumSkinned.enabled = false;
             _podiumSkinned.enabled = true;
+
+            // Re-apply WeaponIndex after animator toggle (disable/enable resets parameters)
+            if(playerController?.WeaponManager != null) {
+                playerController.WeaponManager.SetTpWeaponIndexForPodium();
+            }
         }
 
         /// <summary>
