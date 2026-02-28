@@ -183,6 +183,10 @@ namespace Network {
                         break;
                 }
             }
+            // Destroy UniversalAdditionalLightData before Light (URP requires this order)
+            foreach(var c in toDestroy) {
+                if(c != null && c is UniversalAdditionalLightData) Destroy(c);
+            }
             foreach(var c in toDestroy) {
                 if(c != null) Destroy(c);
             }
