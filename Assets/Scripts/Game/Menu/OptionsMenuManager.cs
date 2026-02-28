@@ -276,63 +276,19 @@ namespace Game.Menu {
             _applyButton = QRequired<Button>("apply-button");
             _backButton = QRequired<Button>("back-button");
 
-            // Setup checkbox click handlers
-            if(_invertYButton != null) {
-                EventCallback<ClickEvent> handler = _ => ToggleCheckbox(_invertYButton);
-                _invertYButton.RegisterCallback(handler);
-                RegisterCleanup(() => _invertYButton.UnregisterCallback(handler));
-            }
-            if(_playerTrailsButton != null) {
-                EventCallback<ClickEvent> handler = _ => ToggleCheckbox(_playerTrailsButton);
-                _playerTrailsButton.RegisterCallback(handler);
-                RegisterCleanup(() => _playerTrailsButton.UnregisterCallback(handler));
-            }
-            if(_streamerModeButton != null) {
-                EventCallback<ClickEvent> handler = _ => ToggleCheckbox(_streamerModeButton);
-                _streamerModeButton.RegisterCallback(handler);
-                RegisterCleanup(() => _streamerModeButton.UnregisterCallback(handler));
-            }
-            if(_holdMantleButton != null) {
-                EventCallback<ClickEvent> handler = _ => ToggleCheckbox(_holdMantleButton);
-                _holdMantleButton.RegisterCallback(handler);
-                RegisterCleanup(() => _holdMantleButton.UnregisterCallback(handler));
-            }
-            if(_profanityFilterButton != null) {
-                EventCallback<ClickEvent> handler = _ => ToggleCheckbox(_profanityFilterButton);
-                _profanityFilterButton.RegisterCallback(handler);
-                RegisterCleanup(() => _profanityFilterButton.UnregisterCallback(handler));
-            }
-            if(_autoWallRunButton != null) {
-                EventCallback<ClickEvent> handler = _ => ToggleCheckbox(_autoWallRunButton);
-                _autoWallRunButton.RegisterCallback(handler);
-                RegisterCleanup(() => _autoWallRunButton.UnregisterCallback(handler));
-            }
-            if(_vsyncButton != null) {
-                EventCallback<ClickEvent> handler = _ => ToggleCheckbox(_vsyncButton);
-                _vsyncButton.RegisterCallback(handler);
-                RegisterCleanup(() => _vsyncButton.UnregisterCallback(handler));
-            }
-            if(_bloomButton != null) {
-                EventCallback<ClickEvent> handler = _ => ToggleCheckbox(_bloomButton);
-                _bloomButton.RegisterCallback(handler);
-                RegisterCleanup(() => _bloomButton.UnregisterCallback(handler));
-            }
-            if(_motionBlurButton != null) {
-                EventCallback<ClickEvent> handler = _ => ToggleCheckbox(_motionBlurButton);
-                _motionBlurButton.RegisterCallback(handler);
-                RegisterCleanup(() => _motionBlurButton.UnregisterCallback(handler));
-            }
-            if(_filmGrainButton != null) {
-                EventCallback<ClickEvent> handler = _ => ToggleCheckbox(_filmGrainButton);
-                _filmGrainButton.RegisterCallback(handler);
-                RegisterCleanup(() => _filmGrainButton.UnregisterCallback(handler));
-            }
+            RegisterCheckboxButtons(
+                _invertYButton, _playerTrailsButton, _streamerModeButton, _holdMantleButton,
+                _profanityFilterButton, _autoWallRunButton, _vsyncButton, _bloomButton,
+                _motionBlurButton, _filmGrainButton, _vignetteButton);
+        }
 
-            if(_vignetteButton == null) return;
-            {
-                EventCallback<ClickEvent> handler = _ => ToggleCheckbox(_vignetteButton);
-                _vignetteButton.RegisterCallback(handler);
-                RegisterCleanup(() => _vignetteButton.UnregisterCallback(handler));
+        private void RegisterCheckboxButtons(params Button[] buttons) {
+            foreach(var button in buttons) {
+                if(button == null) continue;
+                var b = button;
+                EventCallback<ClickEvent> handler = _ => ToggleCheckbox(b);
+                button.RegisterCallback(handler);
+                RegisterCleanup(() => button.UnregisterCallback(handler));
             }
         }
 
@@ -452,60 +408,25 @@ namespace Game.Menu {
         }
 
         private void SetupAudioCallbacks() {
-            // Update text fields when sliders change (with % sign for volumes)
-            if(_masterVolumeSlider != null) {
-                EventCallback<ChangeEvent<float>> handler = evt => {
-                    if(_masterVolumeValue != null) {
-                        _masterVolumeValue.value = Mathf.RoundToInt(evt.newValue * 100) + "%";
-                    }
-                };
-                _masterVolumeSlider.RegisterValueChangedCallback(handler);
-                RegisterCleanup(() => _masterVolumeSlider.UnregisterCallback(handler));
-            }
-            if(_musicVolumeSlider != null) {
-                EventCallback<ChangeEvent<float>> handler = evt => {
-                    if(_musicVolumeValue != null) {
-                        _musicVolumeValue.value = Mathf.RoundToInt(evt.newValue * 100) + "%";
-                    }
-                };
-                _musicVolumeSlider.RegisterValueChangedCallback(handler);
-                RegisterCleanup(() => _musicVolumeSlider.UnregisterCallback(handler));
-            }
-            if(_sfxVolumeSlider != null) {
-                EventCallback<ChangeEvent<float>> handler = evt => {
-                    if(_sfxVolumeValue != null) {
-                        _sfxVolumeValue.value = Mathf.RoundToInt(evt.newValue * 100) + "%";
-                    }
-                };
-                _sfxVolumeSlider.RegisterValueChangedCallback(handler);
-                RegisterCleanup(() => _sfxVolumeSlider.UnregisterCallback(handler));
-            }
-            if(_voiceVolumeSlider != null) {
-                EventCallback<ChangeEvent<float>> handler = evt => {
-                    if(_voiceVolumeValue != null) {
-                        _voiceVolumeValue.value = Mathf.RoundToInt(evt.newValue * 100) + "%";
-                    }
-                };
-                _voiceVolumeSlider.RegisterValueChangedCallback(handler);
-                RegisterCleanup(() => _voiceVolumeSlider.UnregisterCallback(handler));
-            }
-            if(_voiceInputVolumeSlider != null) {
-                EventCallback<ChangeEvent<float>> handler = evt => {
-                    if(_voiceInputVolumeValue != null) {
-                        _voiceInputVolumeValue.value = Mathf.RoundToInt(evt.newValue * 100) + "%";
-                    }
-                };
-                _voiceInputVolumeSlider.RegisterValueChangedCallback(handler);
-                RegisterCleanup(() => _voiceInputVolumeSlider.UnregisterCallback(handler));
-            }
-            
+            BindSliderToPercentTextField(_masterVolumeSlider, _masterVolumeValue);
+            BindSliderToPercentTextField(_musicVolumeSlider, _musicVolumeValue);
+            BindSliderToPercentTextField(_sfxVolumeSlider, _sfxVolumeValue);
+            BindSliderToPercentTextField(_voiceVolumeSlider, _voiceVolumeValue);
+            BindSliderToPercentTextField(_voiceInputVolumeSlider, _voiceInputVolumeValue);
+
             RefreshVoiceDeviceDropdownChoices();
             RefreshVoiceDeviceDropdownChoicesDeferred();
 
-            // Setup text field input validation and callbacks
             SetupVolumeInputField(_masterVolumeSlider, _masterVolumeValue, 0f, 1f, true);
             SetupVolumeInputField(_musicVolumeSlider, _musicVolumeValue, 0f, 1f, true);
             SetupVolumeInputField(_sfxVolumeSlider, _sfxVolumeValue, 0f, 1f, true);
+        }
+
+        private void BindSliderToPercentTextField(Slider slider, TextField textField) {
+            if(slider == null || textField == null) return;
+            EventCallback<ChangeEvent<float>> handler = evt => textField.value = Mathf.RoundToInt(evt.newValue * 100) + "%";
+            slider.RegisterValueChangedCallback(handler);
+            RegisterCleanup(() => slider.UnregisterCallback(handler));
         }
 
         private void SetupControlsCallbacks() {
@@ -880,82 +801,62 @@ namespace Game.Menu {
             };
         }
 
+        private const float ShadowDistanceMax = 500f;
+
         private void SetupShadowDistanceSlider() {
             if(_shadowDistanceSlider == null || _shadowDistanceValue == null) return;
 
-            // Update text field when slider changes
-            EventCallback<ChangeEvent<float>> sliderHandler = evt => {
-                if(_shadowDistanceValue != null) {
-                    _shadowDistanceValue.value = Mathf.RoundToInt(evt.newValue).ToString();
-                }
-            };
-            _shadowDistanceSlider.RegisterValueChangedCallback(sliderHandler);
-            RegisterCleanup(() => _shadowDistanceSlider.UnregisterCallback(sliderHandler));
-
-            // Setup input field validation
-            SetupShadowDistanceInputField();
+            BindSliderToIntegerTextField(_shadowDistanceSlider, _shadowDistanceValue);
+            SetupIntegerSliderInputField(_shadowDistanceSlider, _shadowDistanceValue, 0f, ShadowDistanceMax);
         }
 
-        private void SetupShadowDistanceInputField() {
-            if(_shadowDistanceSlider == null || _shadowDistanceValue == null) return;
+        private void BindSliderToIntegerTextField(Slider slider, TextField textField) {
+            if(slider == null || textField == null) return;
+            EventCallback<ChangeEvent<float>> handler = evt => textField.value = Mathf.RoundToInt(evt.newValue).ToString();
+            slider.RegisterValueChangedCallback(handler);
+            RegisterCleanup(() => slider.UnregisterCallback(handler));
+        }
 
-            _shadowDistanceValue.maxLength = 6;
-            _shadowDistanceValue.isDelayed = false;
+        private void SetupIntegerSliderInputField(Slider slider, TextField textField, float minValue, float maxValue) {
+            if(slider == null || textField == null) return;
 
-            // Filter input to only allow digits
+            textField.maxLength = 6;
+            textField.isDelayed = false;
+
             EventCallback<ChangeEvent<string>> valueChangedHandler = evt => {
-                var newValue = evt.newValue;
-                var filtered = "";
-
-                foreach(var c in newValue) {
-                    if(char.IsDigit(c)) {
-                        filtered += c;
-                    }
-                }
-
-                if(filtered.Length > 6) {
-                    filtered = filtered[..6];
-                }
-
-                if(filtered != newValue) {
-                    _shadowDistanceValue.value = filtered;
-                }
+                var filtered = new string(evt.newValue.Where(char.IsDigit).ToArray());
+                if(filtered.Length > 6) filtered = filtered[..6];
+                if(filtered != evt.newValue) textField.value = filtered;
             };
-            _shadowDistanceValue.RegisterValueChangedCallback(valueChangedHandler);
-            RegisterCleanup(() => _shadowDistanceValue.UnregisterCallback(valueChangedHandler));
+            textField.RegisterValueChangedCallback(valueChangedHandler);
+            RegisterCleanup(() => textField.UnregisterCallback(valueChangedHandler));
 
-            // Handle value change on Enter or focus loss
-            if(_shadowDistanceValue == null) return;
-            {
-                EventCallback<KeyDownEvent> keyDownHandler = evt => {
-                    if(evt.keyCode is not (KeyCode.Return or KeyCode.KeypadEnter)) return;
-                    ApplyShadowDistanceTextFieldValue();
-                    _shadowDistanceValue.Blur();
-                };
-                _shadowDistanceValue.RegisterCallback(keyDownHandler);
-                RegisterCleanup(() => _shadowDistanceValue.UnregisterCallback(keyDownHandler));
+            EventCallback<KeyDownEvent> keyDownHandler = evt => {
+                if(evt.keyCode is not (KeyCode.Return or KeyCode.KeypadEnter)) return;
+                ApplyIntegerTextFieldValue(slider, textField, minValue, maxValue);
+                textField.Blur();
+            };
+            textField.RegisterCallback(keyDownHandler);
+            RegisterCleanup(() => textField.UnregisterCallback(keyDownHandler));
 
-                EventCallback<BlurEvent> blurHandler = _ => { ApplyShadowDistanceTextFieldValue(); };
-                _shadowDistanceValue.RegisterCallback(blurHandler);
-                RegisterCleanup(() => _shadowDistanceValue.UnregisterCallback(blurHandler));
-            }
+            EventCallback<BlurEvent> blurHandler = _ => ApplyIntegerTextFieldValue(slider, textField, minValue, maxValue);
+            textField.RegisterCallback(blurHandler);
+            RegisterCleanup(() => textField.UnregisterCallback(blurHandler));
         }
 
-        private void ApplyShadowDistanceTextFieldValue() {
-            if(_shadowDistanceSlider == null || _shadowDistanceValue == null) return;
-
-            var input = _shadowDistanceValue.value.Trim();
+        private static void ApplyIntegerTextFieldValue(Slider slider, TextField textField, float minValue, float maxValue) {
+            if(slider == null || textField == null) return;
+            var input = textField.value.Trim();
             if(string.IsNullOrEmpty(input)) {
-                _shadowDistanceValue.value = Mathf.RoundToInt(_shadowDistanceSlider.value).ToString();
+                textField.value = Mathf.RoundToInt(slider.value).ToString();
                 return;
             }
-
             if(int.TryParse(input, out var parsedValue)) {
-                var clampedValue = Mathf.Clamp(parsedValue, 0f, 500f);
-                _shadowDistanceSlider.value = clampedValue;
-                _shadowDistanceValue.value = Mathf.RoundToInt(clampedValue).ToString();
+                var clampedValue = Mathf.Clamp(parsedValue, minValue, maxValue);
+                slider.value = clampedValue;
+                textField.value = Mathf.RoundToInt(clampedValue).ToString();
             } else {
-                _shadowDistanceValue.value = Mathf.RoundToInt(_shadowDistanceSlider.value).ToString();
+                textField.value = Mathf.RoundToInt(slider.value).ToString();
             }
         }
 
@@ -1087,48 +988,28 @@ namespace Game.Menu {
                 _optionsContentScroll.horizontalScrollerVisibility = ScrollerVisibility.Hidden;
             }
 
-            // Setup tab click handlers - sounds play here on actual user clicks
-            if(_tabVideo != null) {
-                EventCallback<ClickEvent> handler = _ => {
-                    OnButtonClicked();
-                    SwitchOptionsTab("video");
-                };
-                _tabVideo.RegisterCallback(handler);
-                RegisterCleanup(() => _tabVideo.UnregisterCallback(handler));
-            }
-            if(_tabAudio != null) {
-                EventCallback<ClickEvent> handler = _ => {
-                    OnButtonClicked();
-                    SwitchOptionsTab("audio");
-                };
-                _tabAudio.RegisterCallback(handler);
-                RegisterCleanup(() => _tabAudio.UnregisterCallback(handler));
-            }
-            if(_tabGame != null) {
-                EventCallback<ClickEvent> handler = _ => {
-                    OnButtonClicked();
-                    SwitchOptionsTab("game");
-                };
-                _tabGame.RegisterCallback(handler);
-                RegisterCleanup(() => _tabGame.UnregisterCallback(handler));
-            }
-            if(_tabControls != null) {
-                EventCallback<ClickEvent> handler = _ => {
-                    OnButtonClicked();
-                    SwitchOptionsTab("controls");
-                };
-                _tabControls.RegisterCallback(handler);
-                RegisterCleanup(() => _tabControls.UnregisterCallback(handler));
-            }
+            RegisterTabButton(_tabVideo, "video");
+            RegisterTabButton(_tabAudio, "audio");
+            RegisterTabButton(_tabGame, "game");
+            RegisterTabButton(_tabControls, "controls");
 
-            // Register hover callbacks for tabs
             SetupTabHoverCallbacks(_tabVideo);
             SetupTabHoverCallbacks(_tabAudio);
             SetupTabHoverCallbacks(_tabGame);
             SetupTabHoverCallbacks(_tabControls);
 
-            // Start with Video tab active
             SwitchOptionsTab("video");
+        }
+
+        private void RegisterTabButton(Button tab, string tabName) {
+            if(tab == null) return;
+            var t = tabName;
+            EventCallback<ClickEvent> handler = _ => {
+                OnButtonClicked();
+                SwitchOptionsTab(t);
+            };
+            tab.RegisterCallback(handler);
+            RegisterCleanup(() => tab.UnregisterCallback(handler));
         }
 
         private void SetupSettingDescriptions() {
@@ -1265,65 +1146,31 @@ namespace Game.Menu {
         }
 
         private void SwitchOptionsTab(string tabName) {
-            // Remove active and hover classes from all tabs
-            _tabVideo?.RemoveFromClassList("options-tab-active");
-            _tabVideo?.RemoveFromClassList("options-tab-hover");
-            _tabAudio?.RemoveFromClassList("options-tab-active");
-            _tabAudio?.RemoveFromClassList("options-tab-hover");
-            _tabGame?.RemoveFromClassList("options-tab-active");
-            _tabGame?.RemoveFromClassList("options-tab-hover");
-            _tabControls?.RemoveFromClassList("options-tab-active");
-            _tabControls?.RemoveFromClassList("options-tab-hover");
+            var tabs = new[] { _tabVideo, _tabAudio, _tabGame, _tabControls };
+            var contents = new[] { _videoContent, _audioContent, _gameContent, _controlsContent };
 
-            // Clear inline hover overrides (paint quirk workaround)
-            if(_tabVideo != null) {
-                _tabVideo.style.color = StyleKeyword.Null;
-                _tabVideo.style.borderBottomColor = StyleKeyword.Null;
-            }
-            if(_tabAudio != null) {
-                _tabAudio.style.color = StyleKeyword.Null;
-                _tabAudio.style.borderBottomColor = StyleKeyword.Null;
-            }
-            if(_tabGame != null) {
-                _tabGame.style.color = StyleKeyword.Null;
-                _tabGame.style.borderBottomColor = StyleKeyword.Null;
-            }
-            if(_tabControls != null) {
-                _tabControls.style.color = StyleKeyword.Null;
-                _tabControls.style.borderBottomColor = StyleKeyword.Null;
+            for(var i = 0; i < tabs.Length; i++) {
+                if(tabs[i] != null) {
+                    tabs[i].RemoveFromClassList("options-tab-active");
+                    tabs[i].RemoveFromClassList("options-tab-hover");
+                    tabs[i].style.color = StyleKeyword.Null;
+                    tabs[i].style.borderBottomColor = StyleKeyword.Null;
+                }
+                contents[i]?.AddToClassList("hidden");
             }
 
-            // Hide all content
-            _videoContent?.AddToClassList("hidden");
-            _audioContent?.AddToClassList("hidden");
-            _gameContent?.AddToClassList("hidden");
-            _controlsContent?.AddToClassList("hidden");
+            var index = tabName.ToLowerInvariant() switch {
+                "video" => 0,
+                "audio" => 1,
+                "game" => 2,
+                "controls" => 3,
+                _ => 0
+            };
 
-            // Show selected tab and content
-            switch(tabName.ToLower()) {
-                case "video":
-                    _tabVideo?.AddToClassList("options-tab-active");
-                    _videoContent?.RemoveFromClassList("hidden");
-                    break;
-                case "audio":
-                    _tabAudio?.AddToClassList("options-tab-active");
-                    _audioContent?.RemoveFromClassList("hidden");
-                    break;
-                case "game":
-                    _tabGame?.AddToClassList("options-tab-active");
-                    _gameContent?.RemoveFromClassList("hidden");
-                    break;
-                case "controls":
-                    _tabControls?.AddToClassList("options-tab-active");
-                    _controlsContent?.RemoveFromClassList("hidden");
-                    break;
-            }
+            tabs[index]?.AddToClassList("options-tab-active");
+            contents[index]?.RemoveFromClassList("hidden");
 
-            // Force style refresh
-            _tabVideo?.MarkDirtyRepaint();
-            _tabAudio?.MarkDirtyRepaint();
-            _tabGame?.MarkDirtyRepaint();
-            _tabControls?.MarkDirtyRepaint();
+            foreach(var tab in tabs) tab?.MarkDirtyRepaint();
             SetDefaultDescriptionForTab(tabName);
         }
 
@@ -1421,18 +1268,9 @@ namespace Game.Menu {
                 currentShadowResolution = urpAsset.mainLightShadowmapResolution;
             }
 
-            // Load MSAA
             if(_msaaDropdown != null) {
                 var savedMsaa = data.video is { msaa: > 0 } ? data.video.msaa : currentMsaa;
-                // Map MSAA value to dropdown index: 1=Off, 2=2x, 4=4x, 8=8x
-                var msaaIndex = savedMsaa switch {
-                    1 => 0, // Off
-                    2 => 1, // 2x
-                    4 => 2, // 4x
-                    8 => 3, // 8x
-                    _ => 0 // Default to Off
-                };
-                _msaaDropdown.index = Mathf.Clamp(msaaIndex, 0, _msaaDropdown.choices.Count - 1);
+                _msaaDropdown.index = Mathf.Clamp(MsaaValueToIndex(savedMsaa), 0, _msaaDropdown.choices.Count - 1);
             }
 
             // Load shadow distance
@@ -1440,31 +1278,18 @@ namespace Game.Menu {
                 var savedShadowDistance = data.video is { shadowDistance: > 0f }
                     ? data.video.shadowDistance
                     : currentShadowDistance;
-                _shadowDistanceSlider.value = Mathf.Clamp(savedShadowDistance, 0f, 500f);
+                _shadowDistanceSlider.value = Mathf.Clamp(savedShadowDistance, 0f, ShadowDistanceMax);
                 if(_shadowDistanceValue != null) {
                     _shadowDistanceValue.value = Mathf.RoundToInt(_shadowDistanceSlider.value).ToString();
                 }
             }
 
-            // Load shadow resolution
             if(_shadowResolutionDropdown == null) return;
             var savedShadowResolution = data.video is { shadowResolution: > 0 }
                 ? data.video.shadowResolution
                 : currentShadowResolution;
-            // Map resolution to preset index: Low=512, Medium=1024, High=2048, Ultra=4096
-            var resolutionIndex = savedShadowResolution switch {
-                512 => 0,
-                1024 => 1,
-                2048 => 2,
-                4096 => 3,
-                <= 512 => 0,
-                <= 1024 => 1,
-                <= 2048 => 2,
-                _ => 3
-            };
-
             _shadowResolutionDropdown.index =
-                Mathf.Clamp(resolutionIndex, 0, _shadowResolutionDropdown.choices.Count - 1);
+                Mathf.Clamp(ShadowResolutionValueToIndex(savedShadowResolution), 0, _shadowResolutionDropdown.choices.Count - 1);
         }
 
         private static UniversalRenderPipelineAsset GetUrpAsset() {
@@ -1594,12 +1419,17 @@ namespace Game.Menu {
             if(_vsyncButton != null) SetCheckboxValue(_vsyncButton, data.video is { vsync: true });
             if(_fpsDropdown != null) _fpsDropdown.index = data.video != null ? data.video.targetFpsIndex : 1;
 
-            // Store original values
+            StoreOriginalValues();
+            ApplySettingsInternal();
+            RefreshSliderDisplayTexts();
+            LoadKeybindDisplayStrings();
+        }
+
+        private void StoreOriginalValues() {
             _originalMasterVolume = _masterVolumeSlider?.value ?? 0f;
             _originalMusicVolume = _musicVolumeSlider?.value ?? 0f;
             _originalSfxVolume = _sfxVolumeSlider?.value ?? 0f;
             _originalVoiceVolume = SocialSettings.VoiceVolume;
-
             _originalSensitivity = _sensitivitySlider?.value ?? 0.1f;
             _originalInvertY = GetCheckboxValue(_invertYButton);
             _originalPlayerTrails = GetCheckboxValue(_playerTrailsButton);
@@ -1607,12 +1437,13 @@ namespace Game.Menu {
             _originalHoldMantle = GetCheckboxValue(_holdMantleButton);
             _originalProfanityFilter = SocialSettings.ProfanityFilterEnabled;
             _originalAutoWallRun = GetCheckboxValue(_autoWallRunButton);
-            _originalMainMenuBackgroundSelection = _mainMenuBackgroundDropdown?.value ?? MainMenuBackgroundRandomizer.RandomSelectionOption;
+            _originalMainMenuBackgroundSelection = _mainMenuBackgroundDropdown != null
+                ? NormalizeMainMenuBackgroundSelection(_mainMenuBackgroundDropdown.value)
+                : MainMenuBackgroundRandomizer.RandomSelectionOption;
             _originalGrappleIndicator = _grappleIndicatorDropdown?.index ?? 0;
             _originalCrosshairStyle = _crosshairStyleDropdown?.index ?? 0;
             _originalCrosshairColor = _crosshairColorDropdown?.index ?? 0;
             _originalVoiceMode = (int)SocialSettings.InputMode;
-
             _originalWindowMode = _windowModeDropdown?.index ?? 0;
             _originalAspectRatio = _aspectRatioDropdown?.value ?? "";
             _originalResolutionIndex = _resolutionDropdown?.index ?? 0;
@@ -1625,105 +1456,58 @@ namespace Game.Menu {
             _originalVignette = GetCheckboxValue(_vignetteButton);
             _originalVsync = GetCheckboxValue(_vsyncButton);
             _originalTargetFPS = _fpsDropdown?.index ?? 1;
+        }
 
-            ApplySettingsInternal();
-
-            // Update display text fields (with % for volumes)
-            if(_masterVolumeValue != null && _masterVolumeSlider != null) {
+        private void RefreshSliderDisplayTexts() {
+            if(_masterVolumeValue != null && _masterVolumeSlider != null)
                 _masterVolumeValue.value = Mathf.RoundToInt(_masterVolumeSlider.value * 100) + "%";
-            }
-
-            if(_musicVolumeValue != null && _musicVolumeSlider != null) {
+            if(_musicVolumeValue != null && _musicVolumeSlider != null)
                 _musicVolumeValue.value = Mathf.RoundToInt(_musicVolumeSlider.value * 100) + "%";
-            }
-
-            if(_sfxVolumeValue != null && _sfxVolumeSlider != null) {
+            if(_sfxVolumeValue != null && _sfxVolumeSlider != null)
                 _sfxVolumeValue.value = Mathf.RoundToInt(_sfxVolumeSlider.value * 100) + "%";
-            }
-
-            if(_sensitivityValue != null && _sensitivitySlider != null) {
+            if(_sensitivityValue != null && _sensitivitySlider != null)
                 _sensitivityValue.value = _sensitivitySlider.value.ToString("F2");
-            }
-
-            LoadKeybindDisplayStrings();
         }
 
         private bool HasUnsavedChanges() {
-            var hasKeybindChanges = KeybindManager.Instance != null && KeybindManager.Instance.HasPendingBindings();
+            static bool FloatChanged(float? a, float b) => a.HasValue && !Mathf.Approximately(a.Value, b);
+            static bool IndexChanged(DropdownField d, int orig) => d != null && d.index != orig;
+            static bool ValueChanged(DropdownField d, string orig) => d != null && !string.Equals(d.value, orig, StringComparison.Ordinal);
 
-            var volumeChanged = false;
-            if(_masterVolumeSlider != null)
-                volumeChanged |= !Mathf.Approximately(_masterVolumeSlider.value, _originalMasterVolume);
-            if(_musicVolumeSlider != null)
-                volumeChanged |= !Mathf.Approximately(_musicVolumeSlider.value, _originalMusicVolume);
-            if(_sfxVolumeSlider != null)
-                volumeChanged |= !Mathf.Approximately(_sfxVolumeSlider.value, _originalSfxVolume);
-            
-            if(_voiceVolumeSlider != null)
-                volumeChanged |= !Mathf.Approximately(_voiceVolumeSlider.value, _originalVoiceVolume);
+            var hasKeybind = KeybindManager.Instance != null && KeybindManager.Instance.HasPendingBindings();
+            var volChanged = FloatChanged(_masterVolumeSlider?.value, _originalMasterVolume) ||
+                            FloatChanged(_musicVolumeSlider?.value, _originalMusicVolume) ||
+                            FloatChanged(_sfxVolumeSlider?.value, _originalSfxVolume) ||
+                            FloatChanged(_voiceVolumeSlider?.value, _originalVoiceVolume);
 
-            var sensitivityChanged = false;
-            if(_sensitivitySlider != null)
-                sensitivityChanged = !Mathf.Approximately(_sensitivitySlider.value, _originalSensitivity);
+            var mainBgChanged = _mainMenuBackgroundDropdown != null &&
+                !string.Equals(_mainMenuBackgroundDropdown.value, _originalMainMenuBackgroundSelection, StringComparison.Ordinal);
 
-            var invertYChanged = GetCheckboxValue(_invertYButton) != _originalInvertY;
-            var playerTrailsChanged = GetCheckboxValue(_playerTrailsButton) != _originalPlayerTrails;
-            var streamerModeChanged = GetCheckboxValue(_streamerModeButton) != _originalStreamerMode;
-            var holdMantleChanged = GetCheckboxValue(_holdMantleButton) != _originalHoldMantle;
-            var profanityFilterChanged = GetCheckboxValue(_profanityFilterButton) != _originalProfanityFilter;
-            var autoWallRunChanged = GetCheckboxValue(_autoWallRunButton) != _originalAutoWallRun;
-            var mainMenuBackgroundChanged = false;
-            if(_mainMenuBackgroundDropdown != null) {
-                mainMenuBackgroundChanged =
-                    !string.Equals(_mainMenuBackgroundDropdown.value, _originalMainMenuBackgroundSelection, StringComparison.Ordinal);
-            }
-            
-            var grappleIndicatorChanged = false;
-            if(_grappleIndicatorDropdown != null) grappleIndicatorChanged = _grappleIndicatorDropdown.index != _originalGrappleIndicator;
-            var crosshairStyleChanged = false;
-            if(_crosshairStyleDropdown != null) crosshairStyleChanged = _crosshairStyleDropdown.index != _originalCrosshairStyle;
-            var crosshairColorChanged = false;
-            if(_crosshairColorDropdown != null) crosshairColorChanged = _crosshairColorDropdown.index != _originalCrosshairColor;
-
-            var voiceModeChanged = false;
-            if(_voiceModeDropdown != null) voiceModeChanged = _voiceModeDropdown.index != _originalVoiceMode;
-
-            var windowModeChanged = false;
-            if(_windowModeDropdown != null) windowModeChanged = _windowModeDropdown.index != _originalWindowMode;
-
-            var aspectRatioChanged = false;
-            if(_aspectRatioDropdown != null) aspectRatioChanged = _aspectRatioDropdown.value != _originalAspectRatio;
-
-            var resolutionChanged = false;
-            if(_resolutionDropdown != null) resolutionChanged = _resolutionDropdown.index != _originalResolutionIndex;
-
-            var msaaChanged = false;
-            if(_msaaDropdown != null) msaaChanged = _msaaDropdown.index != _originalMsaa;
-
-            var shadowDistanceChanged = false;
-            if(_shadowDistanceSlider != null)
-                shadowDistanceChanged = !Mathf.Approximately(_shadowDistanceSlider.value, _originalShadowDistance);
-
-            var shadowResolutionChanged = false;
-            if(_shadowResolutionDropdown != null)
-                shadowResolutionChanged = _shadowResolutionDropdown.index != _originalShadowResolution;
-
-            var bloomChanged = GetCheckboxValue(_bloomButton) != _originalBloom;
-            var motionBlurChanged = GetCheckboxValue(_motionBlurButton) != _originalMotionBlur;
-            var filmGrainChanged = GetCheckboxValue(_filmGrainButton) != _originalFilmGrain;
-            var vignetteChanged = GetCheckboxValue(_vignetteButton) != _originalVignette;
-            var vsyncChanged = GetCheckboxValue(_vsyncButton) != _originalVsync;
-
-            var fpsChanged = false;
-            if(_fpsDropdown != null) fpsChanged = _fpsDropdown.index != _originalTargetFPS;
-
-            return volumeChanged || sensitivityChanged || invertYChanged || playerTrailsChanged || streamerModeChanged ||
-                   holdMantleChanged ||
-                   profanityFilterChanged || autoWallRunChanged || mainMenuBackgroundChanged || voiceModeChanged ||
-                   grappleIndicatorChanged || crosshairStyleChanged || crosshairColorChanged ||
-                   windowModeChanged || aspectRatioChanged || resolutionChanged || msaaChanged ||
-                   shadowDistanceChanged || shadowResolutionChanged || bloomChanged || motionBlurChanged ||
-                   filmGrainChanged || vignetteChanged || vsyncChanged || fpsChanged || hasKeybindChanges;
+            return hasKeybind || volChanged ||
+                   FloatChanged(_sensitivitySlider?.value, _originalSensitivity) ||
+                   (GetCheckboxValue(_invertYButton) != _originalInvertY) ||
+                   (GetCheckboxValue(_playerTrailsButton) != _originalPlayerTrails) ||
+                   (GetCheckboxValue(_streamerModeButton) != _originalStreamerMode) ||
+                   (GetCheckboxValue(_holdMantleButton) != _originalHoldMantle) ||
+                   (GetCheckboxValue(_profanityFilterButton) != _originalProfanityFilter) ||
+                   (GetCheckboxValue(_autoWallRunButton) != _originalAutoWallRun) ||
+                   mainBgChanged ||
+                   IndexChanged(_grappleIndicatorDropdown, _originalGrappleIndicator) ||
+                   IndexChanged(_crosshairStyleDropdown, _originalCrosshairStyle) ||
+                   IndexChanged(_crosshairColorDropdown, _originalCrosshairColor) ||
+                   IndexChanged(_voiceModeDropdown, _originalVoiceMode) ||
+                   IndexChanged(_windowModeDropdown, _originalWindowMode) ||
+                   ValueChanged(_aspectRatioDropdown, _originalAspectRatio) ||
+                   IndexChanged(_resolutionDropdown, _originalResolutionIndex) ||
+                   IndexChanged(_msaaDropdown, _originalMsaa) ||
+                   FloatChanged(_shadowDistanceSlider?.value, _originalShadowDistance) ||
+                   IndexChanged(_shadowResolutionDropdown, _originalShadowResolution) ||
+                   (GetCheckboxValue(_bloomButton) != _originalBloom) ||
+                   (GetCheckboxValue(_motionBlurButton) != _originalMotionBlur) ||
+                   (GetCheckboxValue(_filmGrainButton) != _originalFilmGrain) ||
+                   (GetCheckboxValue(_vignetteButton) != _originalVignette) ||
+                   (GetCheckboxValue(_vsyncButton) != _originalVsync) ||
+                   IndexChanged(_fpsDropdown, _originalTargetFPS);
         }
 
         private void OnBackFromOptions() {
@@ -1883,33 +1667,14 @@ namespace Game.Menu {
                 if(data.video != null) data.video.resolutionHeight = selectedRes.Height;
             }
 
-            // Save graphics settings
-            if(_msaaDropdown != null) {
-                // Map dropdown index to MSAA value: 0=1(Off), 1=2, 2=4, 3=8
-                var msaaValue = _msaaDropdown.index switch {
-                    0 => 1, // Off
-                    1 => 2, // 2x
-                    2 => 4, // 4x
-                    3 => 8, // 8x
-                    _ => 1 // Default to Off
-                };
-                if(data.video != null) data.video.msaa = msaaValue;
+            if(_msaaDropdown != null && data.video != null) {
+                data.video.msaa = MsaaIndexToValue(_msaaDropdown.index);
             }
-
-            if(_shadowDistanceSlider != null) {
-                if(data.video != null) data.video.shadowDistance = _shadowDistanceSlider.value;
+            if(_shadowDistanceSlider != null && data.video != null) {
+                data.video.shadowDistance = _shadowDistanceSlider.value;
             }
-
-            if(_shadowResolutionDropdown != null) {
-                // Map preset index to resolution value: Low=512, Medium=1024, High=2048, Ultra=4096
-                var resolutionValue = _shadowResolutionDropdown.index switch {
-                    0 => 512, // Low
-                    1 => 1024, // Medium
-                    2 => 2048, // High
-                    3 => 4096, // Ultra
-                    _ => 2048 // Default to High (2048)
-                };
-                if(data.video != null) data.video.shadowResolution = resolutionValue;
+            if(_shadowResolutionDropdown != null && data.video != null) {
+                data.video.shadowResolution = ShadowResolutionIndexToValue(_shadowResolutionDropdown.index);
             }
 
             if(data.video != null && _bloomButton != null) data.video.bloomEnabled = GetCheckboxValue(_bloomButton);
@@ -1936,40 +1701,7 @@ namespace Game.Menu {
                 }
             }
 
-            // Update original values
-            _originalMasterVolume = _masterVolumeSlider != null ? _masterVolumeSlider.value : 0f;
-            _originalMusicVolume = _musicVolumeSlider != null ? _musicVolumeSlider.value : 0f;
-            _originalSfxVolume = _sfxVolumeSlider != null ? _sfxVolumeSlider.value : 0f;
-            _originalVoiceVolume = SocialSettings.VoiceVolume;
-
-            _originalSensitivity = _sensitivitySlider != null ? _sensitivitySlider.value : 0.1f;
-            _originalInvertY = GetCheckboxValue(_invertYButton);
-            _originalPlayerTrails = GetCheckboxValue(_playerTrailsButton);
-            _originalStreamerMode = GetCheckboxValue(_streamerModeButton);
-            _originalHoldMantle = GetCheckboxValue(_holdMantleButton);
-            _originalProfanityFilter = SocialSettings.ProfanityFilterEnabled;
-            _originalAutoWallRun = GetCheckboxValue(_autoWallRunButton);
-            _originalMainMenuBackgroundSelection = _mainMenuBackgroundDropdown != null
-                ? NormalizeMainMenuBackgroundSelection(_mainMenuBackgroundDropdown.value)
-                : MainMenuBackgroundRandomizer.RandomSelectionOption;
-            _originalGrappleIndicator = _grappleIndicatorDropdown != null ? _grappleIndicatorDropdown.index : 0;
-            _originalCrosshairStyle = _crosshairStyleDropdown != null ? _crosshairStyleDropdown.index : 0;
-            _originalCrosshairColor = _crosshairColorDropdown != null ? _crosshairColorDropdown.index : 0;
-            _originalVoiceMode = (int)SocialSettings.InputMode;
-
-            _originalWindowMode = _windowModeDropdown != null ? _windowModeDropdown.index : 0;
-            _originalAspectRatio = _aspectRatioDropdown != null ? _aspectRatioDropdown.value : "";
-            _originalResolutionIndex = _resolutionDropdown != null ? _resolutionDropdown.index : 0;
-            _originalMsaa = _msaaDropdown != null ? _msaaDropdown.index : 0;
-            _originalShadowDistance = _shadowDistanceSlider != null ? _shadowDistanceSlider.value : 50f;
-            _originalShadowResolution = _shadowResolutionDropdown != null ? _shadowResolutionDropdown.index : 2;
-            _originalBloom = GetCheckboxValue(_bloomButton);
-            _originalMotionBlur = GetCheckboxValue(_motionBlurButton);
-            _originalFilmGrain = GetCheckboxValue(_filmGrainButton);
-            _originalVignette = GetCheckboxValue(_vignetteButton);
-            _originalVsync = GetCheckboxValue(_vsyncButton);
-            _originalTargetFPS = _fpsDropdown != null ? _fpsDropdown.index : 1;
-
+            StoreOriginalValues();
             LoadKeybindDisplayStrings();
         }
 
@@ -2031,34 +1763,11 @@ namespace Game.Menu {
                 return;
             }
 
-            // Apply MSAA
-            if(_msaaDropdown != null) {
-                var msaaValue = _msaaDropdown.index switch {
-                    0 => 1, // Off
-                    1 => 2, // 2x
-                    2 => 4, // 4x
-                    3 => 8, // 8x
-                    _ => 1 // Default to Off
-                };
-                urpAsset.msaaSampleCount = msaaValue;
+            if(_msaaDropdown != null) urpAsset.msaaSampleCount = MsaaIndexToValue(_msaaDropdown.index);
+            if(_shadowDistanceSlider != null) urpAsset.shadowDistance = _shadowDistanceSlider.value;
+            if(_shadowResolutionDropdown != null) {
+                urpAsset.mainLightShadowmapResolution = ShadowResolutionIndexToValue(_shadowResolutionDropdown.index);
             }
-
-            // Apply shadow distance
-            if(_shadowDistanceSlider != null) {
-                urpAsset.shadowDistance = _shadowDistanceSlider.value;
-            }
-
-            // Apply shadow resolution
-            if(_shadowResolutionDropdown == null) return;
-            // Map preset index to resolution value: Low=512, Medium=1024, High=2048, Ultra=4096
-            var resolutionValue = _shadowResolutionDropdown.index switch {
-                0 => 512, // Low
-                1 => 1024, // Medium
-                2 => 2048, // High
-                3 => 4096, // Ultra
-                _ => 2048 // Default to High (2048)
-            };
-            urpAsset.mainLightShadowmapResolution = resolutionValue;
         }
 
         private void ApplyWindowModeAndResolution() {
@@ -2100,6 +1809,21 @@ namespace Game.Menu {
 
         private static float LinearToDb(float linear) => linear <= 0f ? -80f : 20f * Mathf.Log10(linear);
         private static float DbToLinear(float db) => db <= -80f ? 0f : Mathf.Pow(10f, db / 20f);
+
+        private static int MsaaValueToIndex(int value) =>
+            value switch { 1 => 0, 2 => 1, 4 => 2, 8 => 3, _ => 0 };
+
+        private static int MsaaIndexToValue(int index) =>
+            index switch { 0 => 1, 1 => 2, 2 => 4, 3 => 8, _ => 1 };
+
+        private static int ShadowResolutionValueToIndex(int value) =>
+            value switch {
+                512 => 0, 1024 => 1, 2048 => 2, 4096 => 3,
+                <= 512 => 0, <= 1024 => 1, <= 2048 => 2, _ => 3
+            };
+
+        private static int ShadowResolutionIndexToValue(int index) =>
+            index switch { 0 => 512, 1 => 1024, 2 => 2048, 3 => 4096, _ => 2048 };
 
         private static bool GetCheckboxValue(Button button) {
             return button != null && button.ClassListContains("checked");
