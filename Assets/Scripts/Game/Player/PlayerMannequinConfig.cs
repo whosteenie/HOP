@@ -420,9 +420,8 @@ namespace Game.Player {
                 if(renderer == null) continue;
 
 #if UNITY_EDITOR
-                if(!Application.isPlaying) {
-                    TryRepairBrokenTrailRendererMaterials(renderer);
-                }
+                // Repair broken/instanced materials in both edit and play mode so trail ribbon and electric colors render correctly.
+                TryRepairBrokenTrailRendererMaterials(renderer);
 #endif
 
                 var sharedMaterials = renderer.sharedMaterials;
@@ -465,7 +464,7 @@ namespace Game.Player {
 
 #if UNITY_EDITOR
         private static void TryRepairBrokenTrailRendererMaterials(ParticleSystemRenderer renderer) {
-            if(renderer == null || Application.isPlaying) return;
+            if(renderer == null) return;
             var hasBroken = false;
 
             var sharedMaterials = renderer.sharedMaterials;
