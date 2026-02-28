@@ -91,6 +91,7 @@ namespace Game.Menu {
 
         private static readonly Color OptionsTabHoverTextColor = new(240f / 255f, 240f / 255f, 240f / 255f, 1f);
         private static readonly Color OptionsTabHoverBorderColor = new(200f / 255f, 60f / 255f, 60f / 255f, 0.5f);
+
         private readonly Dictionary<string, (string Title, string Body)> _settingDescriptions = new() {
             ["window-mode-container"] = ("WINDOW MODE", "Choose how the game window is presented: windowed, borderless, or fullscreen."),
             ["aspect-ratio-container"] = ("ASPECT RATIO", "Sets the screen ratio. Match this to your monitor for the cleanest image framing."),
@@ -1242,6 +1243,13 @@ namespace Game.Menu {
                 tab.style.color = new StyleColor(OptionsTabHoverTextColor);
                 tab.style.borderBottomColor = new StyleColor(OptionsTabHoverBorderColor);
                 tab.MarkDirtyRepaint();
+                // Force deferred repaint when immediate MarkDirtyRepaint doesn't flush (in-game / post-match scenarios)
+                tab.schedule.Execute(() => {
+                    if(tab.ClassListContains("options-tab-hover") && !tab.ClassListContains("options-tab-active")) {
+                        tab.MarkDirtyRepaint();
+                        tab.parent?.MarkDirtyRepaint();
+                    }
+                }).StartingIn(0);
             };
             tab.RegisterCallback(pointerEnterHandler);
             RegisterCleanup(() => tab.UnregisterCallback(pointerEnterHandler));
