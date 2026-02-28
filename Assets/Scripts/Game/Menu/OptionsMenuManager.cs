@@ -146,6 +146,7 @@ namespace Game.Menu {
         private float _originalMusicVolume;
         private float _originalSfxVolume;
         private float _originalVoiceVolume;
+        private float _originalVoiceInputVolume;
         private float _originalSensitivity;
         private bool _originalInvertY;
         private bool _originalPlayerTrails;
@@ -209,7 +210,18 @@ namespace Game.Menu {
         #region Setup
 
         private void FindUIElements() {
-            // Audio controls
+            FindAudioElements();
+            FindVideoElements();
+            FindGameElements();
+            FindControlsElements();
+            FindSharedElements();
+            RegisterCheckboxButtons(
+                _invertYButton, _playerTrailsButton, _streamerModeButton, _holdMantleButton,
+                _profanityFilterButton, _autoWallRunButton, _vsyncButton, _bloomButton,
+                _motionBlurButton, _filmGrainButton, _vignetteButton);
+        }
+
+        private void FindAudioElements() {
             _masterVolumeSlider = QOptional<Slider>("master-volume");
             _musicVolumeSlider = QOptional<Slider>("music-volume");
             _sfxVolumeSlider = QOptional<Slider>("sfx-volume");
@@ -220,24 +232,10 @@ namespace Game.Menu {
             _voiceVolumeValue = QOptional<TextField>("voice-volume-value");
             _voiceInputVolumeSlider = QOptional<Slider>("voice-input-volume");
             _voiceInputVolumeValue = QOptional<TextField>("voice-input-volume-value");
-
-            // Sensitivity controls
-            _sensitivitySlider = QOptional<Slider>("sensitivity");
-            _sensitivityValue = QOptional<TextField>("sensitivity-value");
-            _invertYButton = QOptional<Button>("invert-y");
-            _playerTrailsButton = QOptional<Button>("player-trails");
-            _streamerModeButton = QOptional<Button>("streamer-mode");
-            _holdMantleButton = QOptional<Button>("hold-mantle");
-            _profanityFilterButton = QOptional<Button>("profanity-filter");
-            _autoWallRunButton = QOptional<Button>("auto-wall-run");
-            _mainMenuBackgroundDropdown = QOptional<DropdownField>("main-menu-background");
-            _grappleIndicatorDropdown = QOptional<DropdownField>("grapple-indicator");
-            _crosshairStyleDropdown = QOptional<DropdownField>("crosshair-style");
-            _crosshairColorDropdown = QOptional<DropdownField>("crosshair-color");
-            _voiceModeDropdown = QOptional<DropdownField>("voice-mode");
             _voiceDeviceDropdown = QOptional<DropdownField>("voice-device");
+        }
 
-            // Graphics controls
+        private void FindVideoElements() {
             _windowModeDropdown = QOptional<DropdownField>("window-mode");
             _aspectRatioDropdown = QOptional<DropdownField>("aspect-ratio");
             _resolutionDropdown = QOptional<DropdownField>("resolution");
@@ -251,8 +249,28 @@ namespace Game.Menu {
             _vignetteButton = QOptional<Button>("vignette");
             _vsyncButton = QOptional<Button>("vsync");
             _fpsDropdown = QOptional<DropdownField>("target-fps");
+        }
 
-            // Options tabs
+        private void FindGameElements() {
+            _mainMenuBackgroundDropdown = QOptional<DropdownField>("main-menu-background");
+            _grappleIndicatorDropdown = QOptional<DropdownField>("grapple-indicator");
+            _crosshairStyleDropdown = QOptional<DropdownField>("crosshair-style");
+            _crosshairColorDropdown = QOptional<DropdownField>("crosshair-color");
+            _voiceModeDropdown = QOptional<DropdownField>("voice-mode");
+        }
+
+        private void FindControlsElements() {
+            _sensitivitySlider = QOptional<Slider>("sensitivity");
+            _sensitivityValue = QOptional<TextField>("sensitivity-value");
+            _invertYButton = QOptional<Button>("invert-y");
+            _playerTrailsButton = QOptional<Button>("player-trails");
+            _streamerModeButton = QOptional<Button>("streamer-mode");
+            _holdMantleButton = QOptional<Button>("hold-mantle");
+            _profanityFilterButton = QOptional<Button>("profanity-filter");
+            _autoWallRunButton = QOptional<Button>("auto-wall-run");
+        }
+
+        private void FindSharedElements() {
             _tabVideo = QOptional<Button>("tab-video");
             _tabAudio = QOptional<Button>("tab-audio");
             _tabGame = QOptional<Button>("tab-game");
@@ -265,21 +283,12 @@ namespace Game.Menu {
             _optionsDescriptionPanel = QOptional<VisualElement>("options-description-panel");
             _optionsDescriptionTitle = QOptional<Label>("options-description-title");
             _optionsDescriptionBody = QOptional<Label>("options-description-body");
-
-            // Unsaved changes dialog
             _unsavedChangesModal = QOptional<VisualElement>("unsaved-changes-modal");
             _unsavedChangesYes = QOptional<Button>("unsaved-changes-yes");
             _unsavedChangesNo = QOptional<Button>("unsaved-changes-no");
             _unsavedChangesCancel = QOptional<Button>("unsaved-changes-cancel");
-
-            // Apply and back buttons
             _applyButton = QRequired<Button>("apply-button");
             _backButton = QRequired<Button>("back-button");
-
-            RegisterCheckboxButtons(
-                _invertYButton, _playerTrailsButton, _streamerModeButton, _holdMantleButton,
-                _profanityFilterButton, _autoWallRunButton, _vsyncButton, _bloomButton,
-                _motionBlurButton, _filmGrainButton, _vignetteButton);
         }
 
         private void RegisterCheckboxButtons(params Button[] buttons) {
@@ -351,45 +360,21 @@ namespace Game.Menu {
             }
 
             // Setup unsaved changes dialog buttons
-            if(_unsavedChangesYes != null) {
-                EventCallback<ClickEvent> yesHandler = evt => {
-                    evt.StopPropagation();
-                    evt.StopImmediatePropagation();
-                    OnUnsavedChangesYes();
-                };
-                _unsavedChangesYes.RegisterCallback(yesHandler);
-                RegisterCleanup(() => _unsavedChangesYes.UnregisterCallback(yesHandler));
-                if(useCallbacks) {
-                    RegisterHoverCallback(_unsavedChangesYes);
-                }
-            }
+            RegisterUnsavedChangesButton(_unsavedChangesYes, OnUnsavedChangesYes);
+            RegisterUnsavedChangesButton(_unsavedChangesNo, OnUnsavedChangesNo);
+            RegisterUnsavedChangesButton(_unsavedChangesCancel, OnUnsavedChangesCancel);
+        }
 
-            if(_unsavedChangesNo != null) {
-                EventCallback<ClickEvent> noHandler = evt => {
-                    evt.StopPropagation();
-                    evt.StopImmediatePropagation();
-                    OnUnsavedChangesNo();
-                };
-                _unsavedChangesNo.RegisterCallback(noHandler);
-                RegisterCleanup(() => _unsavedChangesNo.UnregisterCallback(noHandler));
-                if(useCallbacks) {
-                    RegisterHoverCallback(_unsavedChangesNo);
-                }
-            }
-
-            if(_unsavedChangesCancel == null) return;
-            {
-                EventCallback<ClickEvent> cancelHandler = evt => {
-                    evt.StopPropagation();
-                    evt.StopImmediatePropagation();
-                    OnUnsavedChangesCancel();
-                };
-                _unsavedChangesCancel.RegisterCallback(cancelHandler);
-                RegisterCleanup(() => _unsavedChangesCancel.UnregisterCallback(cancelHandler));
-                if(useCallbacks) {
-                    RegisterHoverCallback(_unsavedChangesCancel);
-                }
-            }
+        private void RegisterUnsavedChangesButton(Button button, Action onClick) {
+            if(button == null) return;
+            EventCallback<ClickEvent> handler = evt => {
+                evt.StopPropagation();
+                evt.StopImmediatePropagation();
+                onClick();
+            };
+            button.RegisterCallback(handler);
+            RegisterCleanup(() => button.UnregisterCallback(handler));
+            if(useCallbacks) RegisterHoverCallback(button);
         }
 
         private void RegisterHoverCallback(Button button) {
@@ -420,6 +405,8 @@ namespace Game.Menu {
             SetupVolumeInputField(_masterVolumeSlider, _masterVolumeValue, 0f, 1f, true);
             SetupVolumeInputField(_musicVolumeSlider, _musicVolumeValue, 0f, 1f, true);
             SetupVolumeInputField(_sfxVolumeSlider, _sfxVolumeValue, 0f, 1f, true);
+            SetupVolumeInputField(_voiceVolumeSlider, _voiceVolumeValue, 0f, 1f, true);
+            SetupVolumeInputField(_voiceInputVolumeSlider, _voiceInputVolumeValue, 0f, 1f, true);
         }
 
         private void BindSliderToPercentTextField(Slider slider, TextField textField) {
@@ -1298,8 +1285,17 @@ namespace Game.Menu {
 
         public void LoadSettings() {
             var data = GameSettings.Data;
+            LoadAudioSettings(data);
+            LoadControlsSettings(data);
+            LoadGameSettings(data);
+            LoadVideoSettings(data);
+            StoreOriginalValues();
+            ApplySettingsInternal();
+            RefreshSliderDisplayTexts();
+            LoadKeybindDisplayStrings();
+        }
 
-            // Load audio settings
+        private void LoadAudioSettings(SettingsData data) {
             var masterDb = data.audio != null ? data.audio.masterVolumeDb : 0f;
             var musicDb = data.audio != null ? data.audio.musicVolumeDb : -20f;
             var sfxDb = data.audio != null ? data.audio.sfxVolumeDb : -8f;
@@ -1310,10 +1306,12 @@ namespace Game.Menu {
             if(_voiceVolumeValue != null) _voiceVolumeValue.value = Mathf.RoundToInt(SocialSettings.VoiceVolume * 100) + "%";
             if(_voiceInputVolumeSlider != null) _voiceInputVolumeSlider.value = SocialSettings.VoiceInputVolume;
             if(_voiceInputVolumeValue != null) _voiceInputVolumeValue.value = Mathf.RoundToInt(SocialSettings.VoiceInputVolume * 100) + "%";
+            RefreshVoiceDeviceDropdownChoices();
+            RefreshVoiceDeviceDropdownChoicesDeferred();
+        }
 
-            // Load sensitivity
+        private void LoadControlsSettings(SettingsData data) {
             var sensitivityValue = data.controls != null ? data.controls.sensitivity : 0.1f;
-
             if(_sensitivitySlider != null) _sensitivitySlider.value = sensitivityValue;
             if(_invertYButton != null) SetCheckboxValue(_invertYButton, data.controls is { invertY: true });
             if(_playerTrailsButton != null)
@@ -1323,6 +1321,9 @@ namespace Game.Menu {
             if(_holdMantleButton != null) SetCheckboxValue(_holdMantleButton, data.controls == null || data.controls.holdMantle);
             if(_profanityFilterButton != null) SetCheckboxValue(_profanityFilterButton, SocialSettings.ProfanityFilterEnabled);
             if(_autoWallRunButton != null) SetCheckboxValue(_autoWallRunButton, data.controls is { autoWallRun: true });
+        }
+
+        private void LoadGameSettings(SettingsData data) {
             RefreshMainMenuBackgroundDropdownChoices(preserveCurrentSelection: false);
             if(_mainMenuBackgroundDropdown != null) {
                 var savedBackgroundSelection = data.video?.mainMenuBackgroundSelection;
@@ -1330,68 +1331,49 @@ namespace Game.Menu {
                 if(!_mainMenuBackgroundDropdown.choices.Contains(normalizedSelection)) {
                     normalizedSelection = MainMenuBackgroundRandomizer.RandomSelectionOption;
                 }
-
                 _mainMenuBackgroundDropdown.SetValueWithoutNotify(normalizedSelection);
             }
-            
-            // Load grapple indicator setting (0 = Crosshair (default), 1 = Bottom, 2 = None)
             if(_grappleIndicatorDropdown != null) {
                 var savedGrappleIndicator = data.controls != null ? data.controls.grappleIndicator : 0;
                 _grappleIndicatorDropdown.index = Mathf.Clamp(savedGrappleIndicator, 0, _grappleIndicatorDropdown.choices.Count - 1);
             }
-
             if(_crosshairStyleDropdown != null) {
                 var savedCrosshairStyle = data.controls != null ? data.controls.crosshairStyle : 0;
                 _crosshairStyleDropdown.index = Mathf.Clamp(savedCrosshairStyle, 0, _crosshairStyleDropdown.choices.Count - 1);
             }
-
             if(_crosshairColorDropdown != null) {
                 var savedCrosshairColor = data.controls != null ? data.controls.crosshairColor : 0;
                 _crosshairColorDropdown.index = Mathf.Clamp(savedCrosshairColor, 0, _crosshairColorDropdown.choices.Count - 1);
             }
 
-            if(_voiceModeDropdown != null) {
-                _voiceModeDropdown.choices = Enum.GetNames(typeof(VoiceInputMode)).ToList();
-                _voiceModeDropdown.index = (int)SocialSettings.InputMode;
-            }
+            if(_voiceModeDropdown == null) return;
+            _voiceModeDropdown.choices = Enum.GetNames(typeof(VoiceInputMode)).ToList();
+            _voiceModeDropdown.index = (int)SocialSettings.InputMode;
+        }
 
-            RefreshVoiceDeviceDropdownChoices();
-            RefreshVoiceDeviceDropdownChoicesDeferred();
-
-            // Load window mode and resolution settings
+        private void LoadVideoSettings(SettingsData data) {
             if(_windowModeDropdown != null) {
-                // Default to current fullscreen mode
                 var savedWindowMode = data.video != null ? data.video.windowMode : GetCurrentWindowModeIndex();
                 _windowModeDropdown.index = Mathf.Clamp(savedWindowMode, 0, _windowModeDropdown.choices.Count - 1);
             }
-
-            // Load aspect ratio (default to 16:9 or current resolution's aspect ratio)
             var savedAspectRatio = data.video != null ? data.video.aspectRatio : "";
             if(_aspectRatioDropdown != null && _aspectRatioDropdown.choices.Count > 0) {
                 if(string.IsNullOrEmpty(savedAspectRatio)) {
-                    // Try to detect current aspect ratio
                     var currentRes = new ResolutionData(Screen.width, Screen.height);
                     savedAspectRatio = currentRes.AspectRatio;
                 }
-
-                // Find index of saved aspect ratio
                 var aspectRatioIndex = _aspectRatioDropdown.choices.IndexOf(savedAspectRatio);
                 if(aspectRatioIndex >= 0) {
                     _aspectRatioDropdown.index = aspectRatioIndex;
                     FilterResolutionsByAspectRatio(savedAspectRatio);
-                } else if(_aspectRatioDropdown.choices.Count > 0) {
-                    // Fallback to first available aspect ratio
+                } else {
                     _aspectRatioDropdown.index = 0;
                     FilterResolutionsByAspectRatio(_aspectRatioDropdown.choices[0]);
                 }
             }
-
-            // Load resolution
             if(_resolutionDropdown != null && _filteredResolutions.Count > 0) {
                 var savedWidth = data.video is { resolutionWidth: > 0 } ? data.video.resolutionWidth : Screen.width;
                 var savedHeight = data.video is { resolutionHeight: > 0 } ? data.video.resolutionHeight : Screen.height;
-
-                // Find matching resolution in filtered list
                 var resolutionIndex = -1;
                 for(var i = 0; i < _filteredResolutions.Count; i++) {
                     if(_filteredResolutions[i].Width != savedWidth ||
@@ -1399,37 +1381,39 @@ namespace Game.Menu {
                     resolutionIndex = i;
                     break;
                 }
-
                 if(resolutionIndex >= 0) {
                     _resolutionDropdown.index = resolutionIndex;
                 } else {
-                    // Fallback to current resolution or first available
                     var currentIndex = FindCurrentResolutionIndex();
                     _resolutionDropdown.index = currentIndex >= 0 ? currentIndex : 0;
                 }
             }
-
-            // Load graphics settings
             LoadGraphicsSettings();
-
             if(_bloomButton != null) SetCheckboxValue(_bloomButton, data.video == null || data.video.bloomEnabled);
             if(_motionBlurButton != null) SetCheckboxValue(_motionBlurButton, data.video == null || data.video.motionBlurEnabled);
             if(_filmGrainButton != null) SetCheckboxValue(_filmGrainButton, data.video == null || data.video.filmGrainEnabled);
             if(_vignetteButton != null) SetCheckboxValue(_vignetteButton, data.video == null || data.video.vignetteEnabled);
             if(_vsyncButton != null) SetCheckboxValue(_vsyncButton, data.video is { vsync: true });
-            if(_fpsDropdown != null) _fpsDropdown.index = data.video != null ? data.video.targetFpsIndex : 1;
-
-            StoreOriginalValues();
-            ApplySettingsInternal();
-            RefreshSliderDisplayTexts();
-            LoadKeybindDisplayStrings();
+            if(_fpsDropdown != null) _fpsDropdown.index = data.video != null ? data.video.targetFpsIndex : TargetFpsDefaultIndex;
         }
 
         private void StoreOriginalValues() {
+            StoreOriginalAudioValues();
+            StoreOriginalControlsValues();
+            StoreOriginalGameValues();
+            StoreOriginalVideoValues();
+        }
+
+        private void StoreOriginalAudioValues() {
             _originalMasterVolume = _masterVolumeSlider?.value ?? 0f;
             _originalMusicVolume = _musicVolumeSlider?.value ?? 0f;
             _originalSfxVolume = _sfxVolumeSlider?.value ?? 0f;
             _originalVoiceVolume = SocialSettings.VoiceVolume;
+            _originalVoiceInputVolume = SocialSettings.VoiceInputVolume;
+            _originalVoiceDevice = _voiceDeviceDropdown?.value ?? "";
+        }
+
+        private void StoreOriginalControlsValues() {
             _originalSensitivity = _sensitivitySlider?.value ?? 0.1f;
             _originalInvertY = GetCheckboxValue(_invertYButton);
             _originalPlayerTrails = GetCheckboxValue(_playerTrailsButton);
@@ -1437,6 +1421,9 @@ namespace Game.Menu {
             _originalHoldMantle = GetCheckboxValue(_holdMantleButton);
             _originalProfanityFilter = SocialSettings.ProfanityFilterEnabled;
             _originalAutoWallRun = GetCheckboxValue(_autoWallRunButton);
+        }
+
+        private void StoreOriginalGameValues() {
             _originalMainMenuBackgroundSelection = _mainMenuBackgroundDropdown != null
                 ? NormalizeMainMenuBackgroundSelection(_mainMenuBackgroundDropdown.value)
                 : MainMenuBackgroundRandomizer.RandomSelectionOption;
@@ -1444,6 +1431,9 @@ namespace Game.Menu {
             _originalCrosshairStyle = _crosshairStyleDropdown?.index ?? 0;
             _originalCrosshairColor = _crosshairColorDropdown?.index ?? 0;
             _originalVoiceMode = (int)SocialSettings.InputMode;
+        }
+
+        private void StoreOriginalVideoValues() {
             _originalWindowMode = _windowModeDropdown?.index ?? 0;
             _originalAspectRatio = _aspectRatioDropdown?.value ?? "";
             _originalResolutionIndex = _resolutionDropdown?.index ?? 0;
@@ -1455,7 +1445,7 @@ namespace Game.Menu {
             _originalFilmGrain = GetCheckboxValue(_filmGrainButton);
             _originalVignette = GetCheckboxValue(_vignetteButton);
             _originalVsync = GetCheckboxValue(_vsyncButton);
-            _originalTargetFPS = _fpsDropdown?.index ?? 1;
+            _originalTargetFPS = _fpsDropdown?.index ?? TargetFpsDefaultIndex;
         }
 
         private void RefreshSliderDisplayTexts() {
@@ -1465,25 +1455,29 @@ namespace Game.Menu {
                 _musicVolumeValue.value = Mathf.RoundToInt(_musicVolumeSlider.value * 100) + "%";
             if(_sfxVolumeValue != null && _sfxVolumeSlider != null)
                 _sfxVolumeValue.value = Mathf.RoundToInt(_sfxVolumeSlider.value * 100) + "%";
+            if(_voiceVolumeValue != null && _voiceVolumeSlider != null)
+                _voiceVolumeValue.value = Mathf.RoundToInt(_voiceVolumeSlider.value * 100) + "%";
+            if(_voiceInputVolumeValue != null && _voiceInputVolumeSlider != null)
+                _voiceInputVolumeValue.value = Mathf.RoundToInt(_voiceInputVolumeSlider.value * 100) + "%";
             if(_sensitivityValue != null && _sensitivitySlider != null)
                 _sensitivityValue.value = _sensitivitySlider.value.ToString("F2");
         }
 
         private bool HasUnsavedChanges() {
-            static bool FloatChanged(float? a, float b) => a.HasValue && !Mathf.Approximately(a.Value, b);
-            static bool IndexChanged(DropdownField d, int orig) => d != null && d.index != orig;
-            static bool ValueChanged(DropdownField d, string orig) => d != null && !string.Equals(d.value, orig, StringComparison.Ordinal);
-
             var hasKeybind = KeybindManager.Instance != null && KeybindManager.Instance.HasPendingBindings();
             var volChanged = FloatChanged(_masterVolumeSlider?.value, _originalMasterVolume) ||
                             FloatChanged(_musicVolumeSlider?.value, _originalMusicVolume) ||
                             FloatChanged(_sfxVolumeSlider?.value, _originalSfxVolume) ||
-                            FloatChanged(_voiceVolumeSlider?.value, _originalVoiceVolume);
+                            FloatChanged(_voiceVolumeSlider?.value, _originalVoiceVolume) ||
+                            FloatChanged(_voiceInputVolumeSlider?.value, _originalVoiceInputVolume);
+
+            var voiceDeviceChanged = _voiceDeviceDropdown != null &&
+                !string.Equals(_voiceDeviceDropdown.value, _originalVoiceDevice ?? "", StringComparison.Ordinal);
 
             var mainBgChanged = _mainMenuBackgroundDropdown != null &&
                 !string.Equals(_mainMenuBackgroundDropdown.value, _originalMainMenuBackgroundSelection, StringComparison.Ordinal);
 
-            return hasKeybind || volChanged ||
+            return hasKeybind || volChanged || voiceDeviceChanged ||
                    FloatChanged(_sensitivitySlider?.value, _originalSensitivity) ||
                    (GetCheckboxValue(_invertYButton) != _originalInvertY) ||
                    (GetCheckboxValue(_playerTrailsButton) != _originalPlayerTrails) ||
@@ -1508,6 +1502,10 @@ namespace Game.Menu {
                    (GetCheckboxValue(_vignetteButton) != _originalVignette) ||
                    (GetCheckboxValue(_vsyncButton) != _originalVsync) ||
                    IndexChanged(_fpsDropdown, _originalTargetFPS);
+
+            static bool ValueChanged(DropdownField d, string orig) => d != null && !string.Equals(d.value, orig, StringComparison.Ordinal);
+            static bool IndexChanged(DropdownField d, int orig) => d != null && d.index != orig;
+            static bool FloatChanged(float? a, float b) => a.HasValue && !Mathf.Approximately(a.Value, b);
         }
 
         private void OnBackFromOptions() {
@@ -1588,109 +1586,16 @@ namespace Game.Menu {
         private void ApplySettings() {
             var data = GameSettings.Data;
             var mainMenuBackgroundSelectionChanged = _mainMenuBackgroundDropdown != null &&
-                                                     !string.Equals(
-                                                         NormalizeMainMenuBackgroundSelection(_mainMenuBackgroundDropdown.value),
-                                                         _originalMainMenuBackgroundSelection,
-                                                         StringComparison.Ordinal);
+                !string.Equals(
+                    NormalizeMainMenuBackgroundSelection(_mainMenuBackgroundDropdown.value),
+                    _originalMainMenuBackgroundSelection,
+                    StringComparison.Ordinal);
 
-            // Save audio settings
-            if(_masterVolumeSlider != null) {
-                var masterDb = LinearToDb(_masterVolumeSlider.value);
-                if(data.audio != null) data.audio.masterVolumeDb = masterDb;
-            }
-
-            if(_musicVolumeSlider != null) {
-                var musicDb = LinearToDb(_musicVolumeSlider.value);
-                if(data.audio != null) data.audio.musicVolumeDb = musicDb;
-            }
-
-            if(_sfxVolumeSlider != null) {
-                var sfxDb = LinearToDb(_sfxVolumeSlider.value);
-                if(data.audio != null) data.audio.sfxVolumeDb = sfxDb;
-            }
-
-            if(_voiceVolumeSlider != null) SocialSettings.VoiceVolume = _voiceVolumeSlider.value;
-            if(_voiceInputVolumeSlider != null) SocialSettings.VoiceInputVolume = _voiceInputVolumeSlider.value;
-
-            // Save control settings
-            if(_sensitivitySlider != null) {
-                if(data.controls != null) data.controls.sensitivity = _sensitivitySlider.value;
-            }
-
-            if(data.controls != null) data.controls.invertY = GetCheckboxValue(_invertYButton);
-            if(data.controls != null) data.controls.playerTrails = GetCheckboxValue(_playerTrailsButton);
-            if(data.social != null) data.social.streamerModeEnabled = GetCheckboxValue(_streamerModeButton);
-            if(data.controls != null) data.controls.holdMantle = GetCheckboxValue(_holdMantleButton);
-            if(data.controls != null) data.controls.autoWallRun = GetCheckboxValue(_autoWallRunButton);
-            SocialSettings.ProfanityFilterEnabled = GetCheckboxValue(_profanityFilterButton);
-            if(data.video != null && _mainMenuBackgroundDropdown != null) {
-                data.video.mainMenuBackgroundSelection = NormalizeMainMenuBackgroundSelection(_mainMenuBackgroundDropdown.value);
-            }
-            
-            // Save grapple indicator setting
-            if(_grappleIndicatorDropdown != null) {
-                if(data.controls != null) data.controls.grappleIndicator = _grappleIndicatorDropdown.index;
-            }
-
-            if(_crosshairStyleDropdown != null) {
-                if(data.controls != null) data.controls.crosshairStyle = _crosshairStyleDropdown.index;
-            }
-
-            if(_crosshairColorDropdown != null) {
-                if(data.controls != null) data.controls.crosshairColor = _crosshairColorDropdown.index;
-            }
-            
-            if(_voiceModeDropdown != null) {
-                SocialSettings.InputMode = (VoiceInputMode)_voiceModeDropdown.index;
-            }
-
-            if (_voiceDeviceDropdown != null) {
-                SocialSettings.InputDevice = _voiceDeviceDropdown.value;
-                if (VoiceManager.Instance != null) {
-                    VoiceManager.Instance.SetActiveMicAsync(_voiceDeviceDropdown.value).Forget();
-                }
-            }
-
-            // Save window mode and resolution settings
-            if(_windowModeDropdown != null) {
-                if(data.video != null) data.video.windowMode = _windowModeDropdown.index;
-            }
-
-            if(_aspectRatioDropdown != null) {
-                if(data.video != null) data.video.aspectRatio = _aspectRatioDropdown.value;
-            }
-
-            if(_resolutionDropdown is { index: >= 0 } &&
-               _resolutionDropdown.index < _filteredResolutions.Count) {
-                var selectedRes = _filteredResolutions[_resolutionDropdown.index];
-                if(data.video != null) data.video.resolutionWidth = selectedRes.Width;
-                if(data.video != null) data.video.resolutionHeight = selectedRes.Height;
-            }
-
-            if(_msaaDropdown != null && data.video != null) {
-                data.video.msaa = MsaaIndexToValue(_msaaDropdown.index);
-            }
-            if(_shadowDistanceSlider != null && data.video != null) {
-                data.video.shadowDistance = _shadowDistanceSlider.value;
-            }
-            if(_shadowResolutionDropdown != null && data.video != null) {
-                data.video.shadowResolution = ShadowResolutionIndexToValue(_shadowResolutionDropdown.index);
-            }
-
-            if(data.video != null && _bloomButton != null) data.video.bloomEnabled = GetCheckboxValue(_bloomButton);
-            if(data.video != null && _motionBlurButton != null) data.video.motionBlurEnabled = GetCheckboxValue(_motionBlurButton);
-            if(data.video != null && _filmGrainButton != null) data.video.filmGrainEnabled = GetCheckboxValue(_filmGrainButton);
-            if(data.video != null && _vignetteButton != null) data.video.vignetteEnabled = GetCheckboxValue(_vignetteButton);
-            if(data.video != null) data.video.vsync = GetCheckboxValue(_vsyncButton);
-            if(_fpsDropdown != null) {
-                if(data.video != null) data.video.targetFpsIndex = _fpsDropdown.index;
-            }
-
-            // Save keybinds
-            if(KeybindManager.Instance != null) {
-                KeybindManager.Instance.SaveBindings();
-            }
-
+            SaveAudioSettings(data);
+            SaveControlsSettings(data);
+            SaveGameSettings(data);
+            SaveVideoSettings(data);
+            if(KeybindManager.Instance != null) KeybindManager.Instance.SaveBindings();
             GameSettings.Save();
 
             ApplySettingsInternal();
@@ -1700,60 +1605,92 @@ namespace Game.Menu {
                     ApplyMainMenuBackgroundSelectionPreview(selection);
                 }
             }
-
             StoreOriginalValues();
             LoadKeybindDisplayStrings();
         }
 
-        private void ApplySettingsInternal() {
-            // Apply window mode and resolution
-            ApplyWindowModeAndResolution();
+        private void SaveAudioSettings(SettingsData data) {
+            if(_masterVolumeSlider != null && data.audio != null)
+                data.audio.masterVolumeDb = LinearToDb(_masterVolumeSlider.value);
+            if(_musicVolumeSlider != null && data.audio != null)
+                data.audio.musicVolumeDb = LinearToDb(_musicVolumeSlider.value);
+            if(_sfxVolumeSlider != null && data.audio != null)
+                data.audio.sfxVolumeDb = LinearToDb(_sfxVolumeSlider.value);
+            if(_voiceVolumeSlider != null) SocialSettings.VoiceVolume = _voiceVolumeSlider.value;
+            if(_voiceInputVolumeSlider != null) SocialSettings.VoiceInputVolume = _voiceInputVolumeSlider.value;
+            if(_voiceDeviceDropdown == null) return;
+            SocialSettings.InputDevice = _voiceDeviceDropdown.value;
+            VoiceManager.Instance.SetActiveMicAsync(_voiceDeviceDropdown.value).Forget();
+        }
 
-            if(audioMixer != null) {
-                if(_masterVolumeSlider != null) {
-                    audioMixer.SetFloat("masterVolume", LinearToDb(_masterVolumeSlider.value));
-                }
+        private void SaveControlsSettings(SettingsData data) {
+            if(_sensitivitySlider != null && data.controls != null) data.controls.sensitivity = _sensitivitySlider.value;
+            if(data.controls != null) data.controls.invertY = GetCheckboxValue(_invertYButton);
+            if(data.controls != null) data.controls.playerTrails = GetCheckboxValue(_playerTrailsButton);
+            if(data.social != null) data.social.streamerModeEnabled = GetCheckboxValue(_streamerModeButton);
+            if(data.controls != null) data.controls.holdMantle = GetCheckboxValue(_holdMantleButton);
+            if(data.controls != null) data.controls.autoWallRun = GetCheckboxValue(_autoWallRunButton);
+            SocialSettings.ProfanityFilterEnabled = GetCheckboxValue(_profanityFilterButton);
+            if(_grappleIndicatorDropdown != null && data.controls != null) data.controls.grappleIndicator = _grappleIndicatorDropdown.index;
+            if(_crosshairStyleDropdown != null && data.controls != null) data.controls.crosshairStyle = _crosshairStyleDropdown.index;
+            if(_crosshairColorDropdown != null && data.controls != null) data.controls.crosshairColor = _crosshairColorDropdown.index;
+            if(_voiceModeDropdown != null) SocialSettings.InputMode = (VoiceInputMode)_voiceModeDropdown.index;
+        }
 
-                if(_musicVolumeSlider != null) {
-                    audioMixer.SetFloat("musicVolume", LinearToDb(_musicVolumeSlider.value));
-                }
-
-                if(_sfxVolumeSlider != null) {
-                    audioMixer.SetFloat("soundFXVolume", LinearToDb(_sfxVolumeSlider.value));
-                }
+        private void SaveGameSettings(SettingsData data) {
+            if(data.video != null && _mainMenuBackgroundDropdown != null) {
+                data.video.mainMenuBackgroundSelection = NormalizeMainMenuBackgroundSelection(_mainMenuBackgroundDropdown.value);
             }
+        }
 
-            // Apply URP graphics settings
+        private void SaveVideoSettings(SettingsData data) {
+            if(_windowModeDropdown != null && data.video != null) data.video.windowMode = _windowModeDropdown.index;
+            if(_aspectRatioDropdown != null && data.video != null) data.video.aspectRatio = _aspectRatioDropdown.value;
+            if(_resolutionDropdown is { index: >= 0 } && _resolutionDropdown.index < _filteredResolutions.Count && data.video != null) {
+                var selectedRes = _filteredResolutions[_resolutionDropdown.index];
+                data.video.resolutionWidth = selectedRes.Width;
+                data.video.resolutionHeight = selectedRes.Height;
+            }
+            if(_msaaDropdown != null && data.video != null) data.video.msaa = MsaaIndexToValue(_msaaDropdown.index);
+            if(_shadowDistanceSlider != null && data.video != null) data.video.shadowDistance = _shadowDistanceSlider.value;
+            if(_shadowResolutionDropdown != null && data.video != null) data.video.shadowResolution = ShadowResolutionIndexToValue(_shadowResolutionDropdown.index);
+            if(data.video != null && _bloomButton != null) data.video.bloomEnabled = GetCheckboxValue(_bloomButton);
+            if(data.video != null && _motionBlurButton != null) data.video.motionBlurEnabled = GetCheckboxValue(_motionBlurButton);
+            if(data.video != null && _filmGrainButton != null) data.video.filmGrainEnabled = GetCheckboxValue(_filmGrainButton);
+            if(data.video != null && _vignetteButton != null) data.video.vignetteEnabled = GetCheckboxValue(_vignetteButton);
+            if(data.video != null) data.video.vsync = GetCheckboxValue(_vsyncButton);
+            if(_fpsDropdown != null && data.video != null) data.video.targetFpsIndex = _fpsDropdown.index;
+        }
+
+        private void ApplySettingsInternal() {
+            ApplyWindowModeAndResolution();
+            ApplyAudioSettings();
             ApplyUrpGraphicsSettings();
-            var bloomEnabled = _bloomButton != null
-                ? GetCheckboxValue(_bloomButton)
-                : GameSettings.Data.video == null || GameSettings.Data.video.bloomEnabled;
-            var motionBlurEnabled = _motionBlurButton != null
-                ? GetCheckboxValue(_motionBlurButton)
-                : GameSettings.Data.video == null || GameSettings.Data.video.motionBlurEnabled;
-            var filmGrainEnabled = _filmGrainButton != null
-                ? GetCheckboxValue(_filmGrainButton)
-                : GameSettings.Data.video == null || GameSettings.Data.video.filmGrainEnabled;
-            var vignetteEnabled = _vignetteButton != null
-                ? GetCheckboxValue(_vignetteButton)
-                : GameSettings.Data.video == null || GameSettings.Data.video.vignetteEnabled;
+            ApplyVideoRuntimeSettings();
+        }
+
+        private void ApplyAudioSettings() {
+            if(audioMixer == null) return;
+            if(_masterVolumeSlider != null)
+                audioMixer.SetFloat("masterVolume", LinearToDb(_masterVolumeSlider.value));
+            if(_musicVolumeSlider != null)
+                audioMixer.SetFloat("musicVolume", LinearToDb(_musicVolumeSlider.value));
+            if(_sfxVolumeSlider != null)
+                audioMixer.SetFloat("soundFXVolume", LinearToDb(_sfxVolumeSlider.value));
+        }
+
+        private void ApplyVideoRuntimeSettings() {
+            var video = GameSettings.Data.video;
+            var bloomEnabled = _bloomButton != null ? GetCheckboxValue(_bloomButton) : (video == null || video.bloomEnabled);
+            var motionBlurEnabled = _motionBlurButton != null ? GetCheckboxValue(_motionBlurButton) : (video == null || video.motionBlurEnabled);
+            var filmGrainEnabled = _filmGrainButton != null ? GetCheckboxValue(_filmGrainButton) : (video == null || video.filmGrainEnabled);
+            var vignetteEnabled = _vignetteButton != null ? GetCheckboxValue(_vignetteButton) : (video == null || video.vignetteEnabled);
             VideoSettingsRuntimeApplier.ApplyBloomEnabled(bloomEnabled);
             VideoSettingsRuntimeApplier.ApplyMotionBlurEnabled(motionBlurEnabled);
             VideoSettingsRuntimeApplier.ApplyFilmGrainEnabled(filmGrainEnabled);
             VideoSettingsRuntimeApplier.ApplyVignetteEnabled(vignetteEnabled);
-
             QualitySettings.vSyncCount = GetCheckboxValue(_vsyncButton) ? 1 : 0;
-
-            if(_fpsDropdown == null) return;
-            
-            Application.targetFrameRate = _fpsDropdown.index switch {
-                0 => 30,
-                1 => 60,
-                2 => 120,
-                3 => 144,
-                4 => -1,
-                _ => Application.targetFrameRate
-            };
+            if(_fpsDropdown != null) Application.targetFrameRate = TargetFpsIndexToValue(_fpsDropdown.index);
         }
 
         private void ApplyUrpGraphicsSettings() {
@@ -1824,6 +1761,23 @@ namespace Game.Menu {
 
         private static int ShadowResolutionIndexToValue(int index) =>
             index switch { 0 => 512, 1 => 1024, 2 => 2048, 3 => 4096, _ => 2048 };
+
+        private const int TargetFpsIndex30 = 0;
+        private const int TargetFpsIndex60 = 1;
+        private const int TargetFpsIndex120 = 2;
+        private const int TargetFpsIndex144 = 3;
+        private const int TargetFpsIndexUnlimited = 4;
+        private const int TargetFpsDefaultIndex = TargetFpsIndex60;
+
+        private static int TargetFpsIndexToValue(int index) =>
+            index switch {
+                TargetFpsIndex30 => 30,
+                TargetFpsIndex60 => 60,
+                TargetFpsIndex120 => 120,
+                TargetFpsIndex144 => 144,
+                TargetFpsIndexUnlimited => -1,
+                _ => Application.targetFrameRate
+            };
 
         private static bool GetCheckboxValue(Button button) {
             return button != null && button.ClassListContains("checked");
