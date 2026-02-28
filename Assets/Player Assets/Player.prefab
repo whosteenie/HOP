@@ -1912,37 +1912,31 @@ MonoBehaviour:
     useCustomViewmodelPose: 1
     viewmodelLocalPosition: {x: 0.1699999, y: -1.750005, z: 0}
     viewmodelLocalEulerAngles: {x: 0, y: 0, z: 0}
-    logDrakeAmmoEjectDebug: 0
   - weaponData: {fileID: 11400000, guid: 58844770ab904e84a813862b2db7fd76, type: 2}
     kinemationWeaponPrefab: {fileID: 472434944859137347, guid: 2c4c2d8e2bdf83143a1815ce7344a8eb, type: 3}
     useCustomViewmodelPose: 1
     viewmodelLocalPosition: {x: 0.1675, y: -1.719001, z: 0}
     viewmodelLocalEulerAngles: {x: 0, y: 0, z: 0}
-    logDrakeAmmoEjectDebug: 1
   - weaponData: {fileID: 11400000, guid: fd62a48ef1be6d44298086b93d1f0fdc, type: 2}
     kinemationWeaponPrefab: {fileID: 3148118508808845219, guid: 69e6a586f8d7ae542aaafdfd29dda057, type: 3}
     useCustomViewmodelPose: 1
     viewmodelLocalPosition: {x: 0.1649999, y: -1.735005, z: 0}
     viewmodelLocalEulerAngles: {x: 0, y: 0, z: 0}
-    logDrakeAmmoEjectDebug: 0
   - weaponData: {fileID: 11400000, guid: 2efa7e3911cb2d348b6d8f37e19ddf8e, type: 2}
     kinemationWeaponPrefab: {fileID: 2249710175363591869, guid: 8e489e7f96cc8a844a939320b2d379d1, type: 3}
     useCustomViewmodelPose: 1
     viewmodelLocalPosition: {x: 0.2099999, y: -1.705005, z: 0}
     viewmodelLocalEulerAngles: {x: 0, y: 0, z: 0}
-    logDrakeAmmoEjectDebug: 0
   - weaponData: {fileID: 11400000, guid: 3f5f1b8e34eaeb246920ba52ae126bac, type: 2}
     kinemationWeaponPrefab: {fileID: 1405136511983599699, guid: e3dc7986e8951ce4e8b9cf5cb7e738e2, type: 3}
     useCustomViewmodelPose: 1
     viewmodelLocalPosition: {x: 0.1974999, y: -1.715005, z: 0}
     viewmodelLocalEulerAngles: {x: 0, y: 0, z: 0}
-    logDrakeAmmoEjectDebug: 0
   - weaponData: {fileID: 11400000, guid: 2b7084a16b81bca4989a38f03eae71b5, type: 2}
     kinemationWeaponPrefab: {fileID: 727220435377141568, guid: a3fc2663bfbfab94596da70beea6b979, type: 3}
     useCustomViewmodelPose: 1
     viewmodelLocalPosition: {x: 0.2024998, y: -1.702505, z: 0}
     viewmodelLocalEulerAngles: {x: 0, y: 0, z: 0}
-    logDrakeAmmoEjectDebug: 0
   kinemationSprintWalkGaitValue: 1.1
   kinemationEquipUnlockNormalizedTime: 0.62
   autoCompleteKinemationPullOut: 1
@@ -1980,7 +1974,6 @@ MonoBehaviour:
   currentAmmo: 0
   netCurrentDamageMultiplier:
     m_InternalValue: 1
-  logRemoteMuzzleDebug: 0
 --- !u!114 &8382341124825033876
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -5793,7 +5786,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 7129668303251482571}
   serializedVersion: 2
-  m_LocalRotation: {x: 0.024829209, y: 0.16649558, z: 0.013368203, w: 0.9856389}
+  m_LocalRotation: {x: 0.024829209, y: 0.16649558, z: 0.013368205, w: 0.9856389}
   m_LocalPosition: {x: 0, y: 0.08378157, z: -0.0000003860332}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
@@ -7469,7 +7462,6 @@ MonoBehaviour:
   weaponData: {fileID: 11400000, guid: 4eec3005a01e4f03aaf9cfac2a48a1e8, type: 2}
   muzzleTransform: {fileID: 1054265873920658948}
   muzzleLightObject: {fileID: 0}
-  invertMuzzleFlashForward: 0
 --- !u!114 &2340070564577515107
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -7583,7 +7575,6 @@ MonoBehaviour:
   weaponData: {fileID: 11400000, guid: 4eec3005a01e4f03aaf9cfac2a48a1e8, type: 2}
   muzzleTransform: {fileID: 0}
   muzzleLightObject: {fileID: 0}
-  invertMuzzleFlashForward: 0
 --- !u!4 &8316187485572617307 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 6625856265364813867, guid: 9ebf1fe96606c5849baa95d75f2d5ae4, type: 3}
@@ -7678,7 +7669,6 @@ MonoBehaviour:
   weaponData: {fileID: 11400000, guid: 58844770ab904e84a813862b2db7fd76, type: 2}
   muzzleTransform: {fileID: 0}
   muzzleLightObject: {fileID: 0}
-  invertMuzzleFlashForward: 0
 --- !u!1001 &4216160654727652674
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -7768,7 +7758,6 @@ MonoBehaviour:
   weaponData: {fileID: 11400000, guid: 58844770ab904e84a813862b2db7fd76, type: 2}
   muzzleTransform: {fileID: 8457287341275160654}
   muzzleLightObject: {fileID: 0}
-  invertMuzzleFlashForward: 0
 --- !u!4 &8457287341275160654 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 5754647879366477068, guid: 2c4c2d8e2bdf83143a1815ce7344a8eb, type: 3}
@@ -7863,7 +7852,6 @@ MonoBehaviour:
   weaponData: {fileID: 11400000, guid: fd62a48ef1be6d44298086b93d1f0fdc, type: 2}
   muzzleTransform: {fileID: 2893795714315464062}
   muzzleLightObject: {fileID: 0}
-  invertMuzzleFlashForward: 0
 --- !u!4 &8600621186653403205 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 3898111870586956955, guid: 69e6a586f8d7ae542aaafdfd29dda057, type: 3}
@@ -7958,7 +7946,6 @@ MonoBehaviour:
   weaponData: {fileID: 11400000, guid: 2b7084a16b81bca4989a38f03eae71b5, type: 2}
   muzzleTransform: {fileID: 2331070176681720554}
   muzzleLightObject: {fileID: 0}
-  invertMuzzleFlashForward: 0
 --- !u!4 &6035730908310202918 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 1490167870187565628, guid: a3fc2663bfbfab94596da70beea6b979, type: 3}
@@ -8053,7 +8040,6 @@ MonoBehaviour:
   weaponData: {fileID: 11400000, guid: 2efa7e3911cb2d348b6d8f37e19ddf8e, type: 2}
   muzzleTransform: {fileID: 7519302351075389705}
   muzzleLightObject: {fileID: 0}
-  invertMuzzleFlashForward: 0
 --- !u!4 &7519302351075389705 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 2381573369118537443, guid: 8e489e7f96cc8a844a939320b2d379d1, type: 3}
@@ -8297,7 +8283,6 @@ MonoBehaviour:
   weaponData: {fileID: 11400000, guid: 2b7084a16b81bca4989a38f03eae71b5, type: 2}
   muzzleTransform: {fileID: 0}
   muzzleLightObject: {fileID: 0}
-  invertMuzzleFlashForward: 0
 --- !u!4 &8531380857971590322 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 1490167870187565628, guid: a3fc2663bfbfab94596da70beea6b979, type: 3}
@@ -8397,7 +8382,6 @@ MonoBehaviour:
   weaponData: {fileID: 11400000, guid: 3f5f1b8e34eaeb246920ba52ae126bac, type: 2}
   muzzleTransform: {fileID: 5595806179974074575}
   muzzleLightObject: {fileID: 0}
-  invertMuzzleFlashForward: 0
 --- !u!1001 &8465029600603748212
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -8487,7 +8471,6 @@ MonoBehaviour:
   weaponData: {fileID: 11400000, guid: 3f5f1b8e34eaeb246920ba52ae126bac, type: 2}
   muzzleTransform: {fileID: 0}
   muzzleLightObject: {fileID: 0}
-  invertMuzzleFlashForward: 0
 --- !u!1001 &8583872459516239101
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -8577,7 +8560,6 @@ MonoBehaviour:
   weaponData: {fileID: 11400000, guid: fd62a48ef1be6d44298086b93d1f0fdc, type: 2}
   muzzleTransform: {fileID: 0}
   muzzleLightObject: {fileID: 0}
-  invertMuzzleFlashForward: 0
 --- !u!1001 &9051475232979326314
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -8667,4 +8649,3 @@ MonoBehaviour:
   weaponData: {fileID: 11400000, guid: 2efa7e3911cb2d348b6d8f37e19ddf8e, type: 2}
   muzzleTransform: {fileID: 0}
   muzzleLightObject: {fileID: 0}
-  invertMuzzleFlashForward: 0
