@@ -73,7 +73,7 @@ namespace Game.Weapons {
         }
 
         private void PlayReloadCompleteAnimationForCurrentWeapon() {
-            if(_kinemationFpWeaponDriver != null) _kinemationFpWeaponDriver.PlayReloadCompleteAnimation();
+            if(_kinemationFpWeaponDriver != null) KinemationFpWeaponDriver.PlayReloadCompleteAnimation();
         }
 
         private bool UseKinemationInternalSounds() {
@@ -497,7 +497,7 @@ namespace Game.Weapons {
         }
 
         private void ExitReloadAnimation() {
-            if(_kinemationFpWeaponDriver != null) _kinemationFpWeaponDriver.PlayReloadCompleteAnimation();
+            if(_kinemationFpWeaponDriver != null) KinemationFpWeaponDriver.PlayReloadCompleteAnimation();
         }
 
         private void RunReloadWatchdog() {

@@ -81,8 +81,7 @@ namespace Game.Match {
         /// <summary>
         /// True once fade-to-black is fully black. Use this for movement lock so WASD stays active during the fade.
         /// </summary>
-        private static bool _postMatchMovementLocked;
-        public static bool IsPostMatchMovementLockedLocal => _postMatchMovementLocked;
+        public static bool IsPostMatchMovementLockedLocal { get; private set; }
 
         private void Awake() {
             if(Instance != null && Instance != this) {
@@ -432,7 +431,7 @@ namespace Game.Match {
                 EnsureUiReferencesBound();
                 ResetPostMatchUiState();
                 IsPodiumBlackoutActive = false;
-                _postMatchMovementLocked = false;
+                IsPostMatchMovementLockedLocal = false;
                 if(_blackoutReadyRoutine != null) {
                     StopCoroutine(_blackoutReadyRoutine);
                     _blackoutReadyRoutine = null;
@@ -863,7 +862,7 @@ namespace Game.Match {
             EnsureUiReferencesBound();
             StopPodiumWorldSpaceTracking();
             IsPodiumBlackoutActive = false;
-            _postMatchMovementLocked = false;
+            IsPostMatchMovementLockedLocal = false;
             if(_blackoutReadyRoutine != null) {
                 StopCoroutine(_blackoutReadyRoutine);
                 _blackoutReadyRoutine = null;
@@ -906,7 +905,7 @@ namespace Game.Match {
         private IEnumerator MarkPodiumBlackoutReadyAfterFade() {
             yield return new WaitForSeconds(fadeDuration + fadeBuffer);
             IsPodiumBlackoutActive = true;
-            _postMatchMovementLocked = true;
+            IsPostMatchMovementLockedLocal = true;
             _blackoutReadyRoutine = null;
 
             // Lock movement now that fade is fully black (same pattern as momentum zero in SetupTopThreeOnServer)

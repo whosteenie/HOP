@@ -200,7 +200,7 @@ namespace Game.Menu {
             // Unsubscribe from resolution changes
             OptionsMenuManager.OnResolutionChanged -= OnResolutionChanged;
 
-            ReleasePreviewRenderTexture(true);
+            ReleasePreviewRenderTexture();
             ResetPreviewCameraTarget();
             base.OnDisable();
         }
@@ -226,7 +226,7 @@ namespace Game.Menu {
         }
 
         protected override void OnDestroy() {
-            ReleasePreviewRenderTexture(true);
+            ReleasePreviewRenderTexture();
             base.OnDestroy();
         }
 
@@ -1611,7 +1611,7 @@ namespace Game.Menu {
             if(previewCamera != null) {
                 previewCamera.enabled = false;
             }
-            ReleasePreviewRenderTexture(true);
+            ReleasePreviewRenderTexture();
 
             // Start slide-out animation immediately
             StopSlideAnimations();

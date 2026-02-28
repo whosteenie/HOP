@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using Game.Player;
-using Game.Weapons;
 using UnityEngine;
 using UnityEngine.Rendering.Universal;
 
@@ -62,12 +61,11 @@ namespace Network {
 
             ApplyWeaponCameraSettingsToOverlay(weaponCam);
 
-            _duplicateFpVisualsRoot = Instantiate(holderRoot);
+            _duplicateFpVisualsRoot = Instantiate(holderRoot, _standbyOverlayCamera.transform, false);
             _duplicateFpVisualsRoot.name = "DisconnectFpVisualsDuplicate";
             StripToVisualsOnly(_duplicateFpVisualsRoot);
             SetLayerRecursive(_duplicateFpVisualsRoot.transform, _weaponLayer);
 
-            _duplicateFpVisualsRoot.transform.SetParent(_standbyOverlayCamera.transform, false);
             _duplicateFpVisualsRoot.transform.localPosition = holderRoot.transform.localPosition;
             _duplicateFpVisualsRoot.transform.localRotation = holderRoot.transform.localRotation;
             _duplicateFpVisualsRoot.transform.localScale = holderRoot.transform.localScale;
@@ -112,7 +110,7 @@ namespace Network {
                 return;
             }
             _standbyOverlayCamera = null;
-            if(Debug.isDebugBuild) Debug.Log($"[DisconnectTransition] EnsureOverlay: creating new (mainCam={mainCamera?.name})");
+            if(Debug.isDebugBuild) Debug.Log($"[DisconnectTransition] EnsureOverlay: creating new (mainCam={(mainCamera != null ? mainCamera.name : null)})");
 
             var go = new GameObject("DisconnectStandbyOverlay");
             go.transform.SetParent(mainCamera.transform, false);
@@ -167,7 +165,7 @@ namespace Network {
             var mainCamera = Camera.main;
             if(mainCamera != null) {
                 var data = mainCamera.GetUniversalAdditionalCameraData();
-                data?.cameraStack.Remove(_standbyOverlayCamera);
+                if(data != null) data.cameraStack.Remove(_standbyOverlayCamera);
             }
         }
 
@@ -175,10 +173,15 @@ namespace Network {
             var toDestroy = new List<Component>();
             foreach(var c in root.GetComponentsInChildren<Component>(true)) {
                 if(c == null) continue;
-                if(c is Transform) continue;
-                if(c is Renderer or MeshFilter or SkinnedMeshRenderer or MeshRenderer) continue;
-                if(c is ParticleSystem or ParticleSystemRenderer) continue;
-                toDestroy.Add(c);
+                switch(c) {
+                    case Transform:
+                    case Renderer or MeshFilter or SkinnedMeshRenderer or MeshRenderer:
+                    case ParticleSystem or ParticleSystemRenderer:
+                        continue;
+                    default:
+                        toDestroy.Add(c);
+                        break;
+                }
             }
             foreach(var c in toDestroy) {
                 if(c != null) Destroy(c);

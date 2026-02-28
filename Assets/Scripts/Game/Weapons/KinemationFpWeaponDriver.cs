@@ -318,7 +318,7 @@ namespace Game.Weapons {
                 $"suppressBottomNextReload={_suppressDrakeBottomShellOnNextReload}");
         }
 
-        public void PlayReloadCompleteAnimation() {
+        public static void PlayReloadCompleteAnimation() {
             // KINEMATION handles reload completion internally via its own state machine.
         }
 

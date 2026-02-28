@@ -151,7 +151,7 @@ namespace Network.Singletons {
         /// Fade to black only
         /// </summary>
         /// <param name="customDuration">Optional custom duration. If null, uses default fadeDuration.</param>
-        public IEnumerator FadeOut(float? customDuration = null) {
+        private IEnumerator FadeOut(float? customDuration = null) {
             // Refresh overlay reference in case GameMenuManager wasn't ready when OnEnable was called
             if(_transitionOverlay == null) {
                 RefreshOverlayReference();
