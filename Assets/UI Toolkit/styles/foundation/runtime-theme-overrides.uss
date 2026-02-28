@@ -4,6 +4,27 @@
 /* Use this sheet in Panel Settings -> Theme Style Sheet -> Style Sheets.
    Keep Unity Default Runtime Theme inherited, and keep this file last. */
 
+/* Dropdown trigger (closed state) - match keybind button unhover (--color-bg-surface) */
+#options-panel .setting-row > .unity-base-popup-field.setting-dropdown,
+#options-panel .setting-row > .unity-popup-field.setting-dropdown {
+    background-color: var(--color-bg-surface);
+    -unity-background-image-tint-color: var(--color-bg-surface);
+}
+
+#options-panel .setting-row > .unity-base-popup-field.setting-dropdown:hover,
+#options-panel .setting-row > .unity-popup-field.setting-dropdown:hover {
+    background-color: var(--color-bg-surface-hover);
+    -unity-background-image-tint-color: var(--color-bg-surface-hover);
+}
+
+/* Input matches parent background (--color-bg-surface to align with keybind buttons) */
+#options-panel .setting-row > .unity-base-popup-field .unity-base-popup-field__input,
+#options-panel .setting-row > .unity-base-popup-field .unity-base-dropdown__input,
+#options-panel .setting-row > .unity-popup-field .unity-base-field__input {
+    background-color: var(--color-bg-surface);
+    -unity-background-image-tint-color: var(--color-bg-surface);
+}
+
 /* Popup roots can be full-screen overlay hosts in runtime.
    Keep them transparent so shell visuals render only around list content. */
 .unity-base-dropdown,

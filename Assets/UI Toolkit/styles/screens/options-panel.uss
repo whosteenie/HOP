@@ -297,7 +297,7 @@
     --options-control-height: 50px;
     --options-toggle-size: 24px;
     --options-dropdown-width: 420px;
-    --options-description-offset-y: 152px;
+    --options-description-offset-y: 182px;
     --options-scrollbar-width: 7px;
 }
 
@@ -321,6 +321,12 @@
 #options-panel .setting-row > .setting-toggle {
     margin-left: auto;
     margin-right: 0;
+}
+
+/* Dropdown unhover background - match keybind button (--color-bg-surface). */
+#options-panel .setting-row > .setting-dropdown {
+    background-color: var(--color-bg-surface);
+    -unity-background-image-tint-color: var(--color-bg-surface);
 }
 
 /* Slider rows: align as one right-side control column (slider + value). */

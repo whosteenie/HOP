@@ -122,9 +122,9 @@
 }
 
 /* Completely remove default dropdown styling and apply custom */
-/* Mirror keybind-button unhover background: use --color-bg-card for opacity/readability */
+/* Match keybind-button unhover background (--color-bg-surface) */
 .setting-dropdown {
-    background-color: var(--color-bg-card);
+    background-color: var(--color-bg-surface);
     border-width: 1px;
     border-color: var(--color-accent-border);
     border-radius: var(--radius-md);
@@ -134,7 +134,7 @@
     max-width: var(--options-dropdown-width, 320px);
     color: var(--color-text-primary);
     min-height: 24px;
-    -unity-background-image-tint-color: var(--color-bg-card);
+    -unity-background-image-tint-color: var(--color-bg-surface);
     overflow: hidden;
     text-overflow: ellipsis;
 }
