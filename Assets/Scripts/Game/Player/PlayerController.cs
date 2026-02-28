@@ -5,6 +5,7 @@ using Game.Weapons;
 using Game.UI;
 using Game.Menu;
 using Game.Match;
+using Network;
 using Network.Core;
 using Network.AntiCheat;
 using Network.Components;
@@ -452,6 +453,13 @@ namespace Game.Player {
         }
 
         public override void OnNetworkDespawn() {
+            // Capture FP duplicate for unexpected disconnect *before* base/cleanup; player hierarchy still exists.
+            if(IsOwner && SessionManager.Instance != null && !SessionManager.Instance.IsExpectedDisconnect) {
+                if(DisconnectTransitionController.Instance != null) {
+                    DisconnectTransitionController.Instance.CaptureAndShowDuplicateFpVisuals(this);
+                }
+            }
+
             base.OnNetworkDespawn();
             
             if (LocalPlayer == this) {

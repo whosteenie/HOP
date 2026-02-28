@@ -18,6 +18,18 @@ namespace Game.Player {
         #region Public API
 
         /// <summary>
+        /// Hides all FP visuals (weapons, hopball) without destroying. Used to defer visible teardown
+        /// during unexpected disconnect—hide first so when NGO despawns the player, the teardown is invisible.
+        /// Call from SessionManager before starting the gradual fade.
+        /// </summary>
+        public void HideFpVisualsForDisconnectTransition() {
+            if(!IsOwner) return;
+            if(weaponManager != null) weaponManager.HideFpVisualsForDisconnectTransition();
+            var hopball = GetComponent<PlayerHopballController>();
+            if(hopball != null) hopball.HideFpVisualsForDisconnectTransition();
+        }
+
+        /// <summary>
         /// Enables/disables gameplay camera components without deactivating camera GameObjects.
         /// This keeps FP hierarchy (including KIN viewmodel/sound relays) alive during post-match.
         /// </summary>

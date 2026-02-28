@@ -139,6 +139,9 @@ namespace Network {
         private int _expectedGamePlayerCount = 1;
         // Track if we expect a disconnect (e.g. intentionally leaving)
         private bool _expectedDisconnect;
+
+        /// <summary>True when we intentionally left (LeaveLobby etc); used to skip disconnect capture in OnNetworkDespawn.</summary>
+        public bool IsExpectedDisconnect => _expectedDisconnect;
         /// <summary> When true, SelectMapForCurrentMode uses existing SelectedMapId/SelectedMapSceneName (from private match draft). </summary>
         private bool _privateMatchMapPreset;
 
@@ -199,6 +202,10 @@ namespace Network {
             }
 
             DontDestroyOnLoad(gameObject);
+
+            if(DisconnectTransitionController.Instance == null) {
+                gameObject.AddComponent<DisconnectTransitionController>();
+            }
 
             _networkManager = NetworkManager.Singleton;
             if(_networkManager != null) {
@@ -429,7 +436,8 @@ namespace Network {
         /// <summary>
         /// Transitions the local player back to the main menu and clears active match state.
         /// </summary>
-        public async UniTask LeaveToMainMenuAsync() {
+        /// <param name="skipFadeOut">When true, caller already faded to black (e.g. unexpected disconnect). Skips initial fade-out.</param>
+        public async UniTask LeaveToMainMenuAsync(bool skipFadeOut = false) {
             if(_isLeaving) {
                 Debug.LogWarning("[SessionManager] LeaveToMainMenuAsync ignored: leave already in progress.");
                 return;
@@ -464,9 +472,13 @@ namespace Network {
                     ("currentScene", currentScene),
                     ("shouldFade", shouldFade));
 
-                if(shouldFade && SceneTransitionManager.Instance != null) {
+                if(skipFadeOut && DisconnectTransitionController.Instance != null) {
+                    DisconnectTransitionController.Instance.CleanupDuplicate();
+                }
+
+                if(shouldFade && !skipFadeOut) {
                     FlowLog.Emit(FlowEventIds.SessionExit, ("leaveId", leaveId), ("step", "EXIT_FADE_OUT_BEGIN"));
-                    await SceneTransitionManager.Instance.FadeOut().ToUniTask();
+                    await FadeOutWithFallbackAsync();
                     FlowLog.Emit(FlowEventIds.SessionExit, ("leaveId", leaveId), ("step", "EXIT_FADE_OUT_DONE"));
                 }
 
@@ -493,9 +505,9 @@ namespace Network {
                 await EnsureMainMenuLoadedAndReadyAsync(currentScene);
                 FlowLog.Emit(FlowEventIds.SessionExit, ("leaveId", leaveId), ("step", "EXIT_SCENE_LOAD_DONE"));
 
-                if(shouldFade && SceneTransitionManager.Instance != null) {
+                if(shouldFade) {
                     FlowLog.Emit(FlowEventIds.SessionExit, ("leaveId", leaveId), ("step", "EXIT_FADE_IN_BEGIN"));
-                    await SceneTransitionManager.Instance.FadeInAsync();
+                    await FadeInWithFallbackAsync();
                     FlowLog.Emit(FlowEventIds.SessionExit, ("leaveId", leaveId), ("step", "EXIT_FADE_IN_DONE"));
                 }
 
@@ -611,9 +623,24 @@ namespace Network {
 
         #region Internal / Networking
 
+        private static void FadeOutImmediateWithFallback() {
+            if(SceneTransitionManager.Instance != null) {
+                SceneTransitionManager.Instance.FadeOutImmediate();
+            }
+        }
+
         private static async UniTask FadeOutWithFallbackAsync(int fallbackDelayMs = 500) {
             if(SceneTransitionManager.Instance != null) {
                 await SceneTransitionManager.Instance.FadeOutAsync();
+                return;
+            }
+
+            await UniTask.Delay(fallbackDelayMs);
+        }
+
+        private static async UniTask FadeInWithFallbackAsync(int fallbackDelayMs = 500) {
+            if(SceneTransitionManager.Instance != null) {
+                await SceneTransitionManager.Instance.FadeInAsync();
                 return;
             }
 

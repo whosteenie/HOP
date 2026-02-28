@@ -2,8 +2,10 @@ using System;
 using Cysharp.Threading.Tasks;
 using Game.Match;
 using Game.Menu;
+using Game.Player;
 using Network.Diagnostics;
 using Network.Singletons;
+using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
@@ -29,7 +31,7 @@ namespace Network {
                     continue;
                 }
 
-                if(_networkManager == null) _networkManager = Unity.Netcode.NetworkManager.Singleton;
+                if(_networkManager == null) _networkManager = NetworkManager.Singleton;
                 if(_networkManager == null || !_networkManager.IsListening || _networkManager.LocalClient == null) {
                     await UniTask.Yield();
                     continue;
@@ -94,7 +96,7 @@ namespace Network {
                 // retain text chat parity with other match flows.
                 TryJoinVoiceForActiveMatch("OnGameSceneLoadedAsync");
 
-                if(_networkManager == null) _networkManager = Unity.Netcode.NetworkManager.Singleton;
+                if(_networkManager == null) _networkManager = NetworkManager.Singleton;
                 if(_networkManager != null && _networkManager.IsServer) {
                     IsInGameplay = true;
                     if(_customNetworkManager != null) {
@@ -150,13 +152,17 @@ namespace Network {
         }
 
         private void OnClientDisconnected(ulong clientId) {
-            if(clientId == _networkManager.LocalClientId) {
-                // We disconnected
+            if(_networkManager == null) return;
+
+            // We disconnected ourselves (LocalClientId), OR server/host disconnected us (ServerClientId)
+            var isLocalDisconnect = clientId == _networkManager.LocalClientId;
+            var isServerDisconnect = !_networkManager.IsServer && clientId == NetworkManager.ServerClientId;
+
+            if(isLocalDisconnect || isServerDisconnect) {
                 if(!_expectedDisconnect) {
                     Debug.Log("[SessionManager] Unexpected Disconnect (Kick or Error).");
                     HandleUnexpectedDisconnect().Forget();
                 } else {
-                    // Reset flag
                     _expectedDisconnect = false;
                 }
             }
@@ -165,19 +171,70 @@ namespace Network {
         }
 
         /// <summary>
+        /// Backup: when client is fully stopped (e.g. host left, OnClientDisconnectCallback didn't fire).
+        /// Only triggers if we didn't expect the disconnect and aren't already leaving.
+        /// </summary>
+        private void OnClientStopped(bool _) {
+            if(_expectedDisconnect || _isLeaving) return;
+            if(_networkManager != null && _networkManager.IsServer) return; // Only care when we're a client
+
+            Debug.Log("[SessionManager] Client stopped unexpectedly (e.g. host left). Sending to main menu.");
+            HandleUnexpectedDisconnect().Forget();
+        }
+
+        /// <summary>
+        /// Captures duplicate FP visuals that survive NGO despawn. Player sees duplicate during fade,
+        /// then screen is black, then teardown/cleanup (invisible), then main menu.
+        /// Falls back to hiding FP visuals if duplicate cannot be created (e.g. holding hopball).
+        /// </summary>
+        private void CaptureDuplicateFpVisualsForDisconnect() {
+            if(Debug.isDebugBuild) Debug.Log("[SessionManager] CaptureDuplicateFpVisualsForDisconnect called");
+            if(_networkManager == null || _networkManager.LocalClient == null) {
+                if(Debug.isDebugBuild) Debug.Log("[SessionManager] CaptureFp: early out nm or LocalClient null");
+                return;
+            }
+            var playerObject = _networkManager.LocalClient.PlayerObject;
+            if(playerObject == null) {
+                if(Debug.isDebugBuild) Debug.Log("[SessionManager] CaptureFp: early out playerObject null (despawned?)");
+                return;
+            }
+            var playerController = playerObject.GetComponent<PlayerController>();
+            if(playerController == null) {
+                if(Debug.isDebugBuild) Debug.Log("[SessionManager] CaptureFp: early out playerController null");
+                return;
+            }
+            if(DisconnectTransitionController.Instance == null && Debug.isDebugBuild)
+                Debug.Log("[SessionManager] Disconnect: DisconnectTransitionController.Instance is null");
+            var duplicateShown = DisconnectTransitionController.Instance != null &&
+                                 DisconnectTransitionController.Instance.CaptureAndShowDuplicateFpVisuals(playerController);
+            if(!duplicateShown) {
+                if(Debug.isDebugBuild) Debug.Log("[SessionManager] Disconnect: duplicate failed, using HideFpVisuals fallback");
+                playerController.HideFpVisualsForDisconnectTransition();
+            }
+        }
+
+        /// <summary>
         /// Handles cleanup and recovery after an unexpected network disconnect.
+        /// Strict flow: fade to black -> screen black -> teardown/cleanup (hidden) -> main menu -> fade in.
         /// </summary>
         private async UniTaskVoid HandleUnexpectedDisconnect() {
+            var currentScene = SceneManager.GetActiveScene().name;
+            if(Debug.isDebugBuild) Debug.Log($"[SessionManager] HandleUnexpectedDisconnect scene={currentScene}");
             FlowLog.Emit(FlowEventIds.SessionExit,
                 ("reason", "UnexpectedDisconnect"),
                 ("phase", Phase),
                 ("gameplay", IsInGameplay));
             SetFrontStatus(SessionPhase.Error, "Disconnected from party.");
 
-            var currentScene = SceneManager.GetActiveScene().name;
             if(currentScene != "MainMenu") {
-                await LeaveToMainMenuAsync();
+                // 1. Capture duplicate FP visuals (synchronous, before any await) so player sees them during fade
+                CaptureDuplicateFpVisualsForDisconnect();
+                // 2. Client fades to black
+                await FadeOutWithFallbackAsync();
+                // 3. Screen is black -> teardown, cleanup, main menu transition (all while hidden)
+                await LeaveToMainMenuAsync(skipFadeOut: true);
             } else {
+                if(Debug.isDebugBuild) Debug.Log("[SessionManager] HandleUnexpectedDisconnect: already in MainMenu, skipping capture");
                 LeaveLobby();
                 await CleanupNetworkAsync();
                 SetFrontStatus(SessionPhase.Menu, "");

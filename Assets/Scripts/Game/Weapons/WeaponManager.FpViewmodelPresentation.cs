@@ -55,6 +55,17 @@ namespace Game.Weapons {
             return _fpWeaponInstances[CurrentWeaponIndex];
         }
 
+        /// <summary>
+        /// Returns the holder root of the current FP weapon for disconnect duplicate.
+        /// Used by DisconnectTransitionController to Instantiate a copy that survives player despawn.
+        /// </summary>
+        public GameObject GetCurrentFpWeaponHolderRootForDisconnectDuplicate() {
+            var fpWeapon = GetCurrentFpWeapon();
+            if(fpWeapon == null || !fpWeapon.activeSelf) return null;
+            var holderRoot = ResolveFpHolderRoot(fpWeapon);
+            return holderRoot != null ? holderRoot : fpWeapon;
+        }
+
         public void UpdateAllFpArmTagGlow(bool isTagged) {
             if(!IsOwner || playerController == null) return;
             var visualController = playerController.VisualController;
@@ -71,6 +82,20 @@ namespace Game.Weapons {
             if(fpWeapon == null) return;
 
             _playerRenderer.SetFpWeaponRenderersEnabled(visible, fpWeapon);
+        }
+
+        /// <summary>
+        /// Hides all FP weapon visuals without destroying. Used to defer visible teardown during
+        /// unexpected disconnect—hide first so when NGO despawns the player, the teardown is invisible.
+        /// Call from SessionManager before starting the gradual fade.
+        /// </summary>
+        public void HideFpVisualsForDisconnectTransition() {
+            if(!IsOwner) return;
+            foreach(var fpWeapon in _fpWeaponInstances) {
+                if(fpWeapon != null && fpWeapon.activeSelf) {
+                    fpWeapon.SetActive(false);
+                }
+            }
         }
 
         public void OffsetCurrentFpWeapon(Vector3 localPosition, Vector3 localEulerAngles) {

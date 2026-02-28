@@ -1236,6 +1236,16 @@ namespace Game.Player {
         }
 
         /// <summary>
+        /// Hides hopball FP visuals without destroying. Used to defer visible teardown during
+        /// unexpected disconnect—hide first so when NGO despawns the player, the teardown is invisible.
+        /// </summary>
+        public void HideFpVisualsForDisconnectTransition() {
+            if(!IsOwner) return;
+            HideFpHopballVisualImmediate();
+            DestroyArmImmediate();
+        }
+
+        /// <summary>
         /// Hides the FP weapon model (called locally by owner).
         /// </summary>
         private void HideFpWeapons() {

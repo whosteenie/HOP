@@ -496,12 +496,14 @@ namespace Network {
             if(TryGetNetworkManager("RegisterNetworkCallbacks", out var networkManager) == false) return;
             networkManager.OnClientConnectedCallback += OnClientConnected;
             networkManager.OnClientDisconnectCallback += OnClientDisconnected;
+            networkManager.OnClientStopped += OnClientStopped;
         }
 
         private void UnregisterNetworkCallbacks() {
             if(_networkManager == null) return;
             _networkManager.OnClientConnectedCallback -= OnClientConnected;
             _networkManager.OnClientDisconnectCallback -= OnClientDisconnected;
+            _networkManager.OnClientStopped -= OnClientStopped;
         }
 
         private void ApplyRuntimeMode(string mode, string source, bool refreshUi = true) {
