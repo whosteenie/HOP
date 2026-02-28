@@ -632,12 +632,12 @@ namespace Game.Menu {
             var randomizer = ResolveMainMenuBackgroundRandomizer();
             if(randomizer != null) {
                 var availableSelections = randomizer.GetAvailableSelectionNames();
-                foreach(var name in availableSelections) {
-                    if(string.IsNullOrWhiteSpace(name) || choices.Contains(name)) {
+                foreach(var backgroundName in availableSelections) {
+                    if(string.IsNullOrWhiteSpace(backgroundName) || choices.Contains(backgroundName)) {
                         continue;
                     }
 
-                    choices.Add(name);
+                    choices.Add(backgroundName);
                 }
             } else {
                 var persistedSelection = NormalizeMainMenuBackgroundSelection(GameSettings.Data.video?.mainMenuBackgroundSelection);
@@ -1245,10 +1245,10 @@ namespace Game.Menu {
                 tab.MarkDirtyRepaint();
                 // Force deferred repaint when immediate MarkDirtyRepaint doesn't flush (in-game / post-match scenarios)
                 tab.schedule.Execute(() => {
-                    if(tab.ClassListContains("options-tab-hover") && !tab.ClassListContains("options-tab-active")) {
-                        tab.MarkDirtyRepaint();
-                        tab.parent?.MarkDirtyRepaint();
-                    }
+                    if(!tab.ClassListContains("options-tab-hover") ||
+                       tab.ClassListContains("options-tab-active")) return;
+                    tab.MarkDirtyRepaint();
+                    tab.parent?.MarkDirtyRepaint();
                 }).StartingIn(0);
             };
             tab.RegisterCallback(pointerEnterHandler);
