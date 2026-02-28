@@ -26,6 +26,8 @@ namespace Network.Events {
             typeof(WeaponSwitchedEvent),
             typeof(GrappleStartedEvent),
             typeof(GrappleEndedEvent),
+            typeof(GrappleAnimFirstFrameEvent),
+            typeof(GrappleAnimHideEvent),
             typeof(HopballPickedUpEvent),
             typeof(HopballDroppedEvent),
             typeof(MatchStartedEvent),

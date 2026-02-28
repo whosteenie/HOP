@@ -5,6 +5,7 @@ using Game.Player;
 using Game.Progression;
 using Game.Settings;
 using Game.UI;
+using Game.Menu.Options;
 using Game.Match;
 using Game.Weapons;
 using Network;

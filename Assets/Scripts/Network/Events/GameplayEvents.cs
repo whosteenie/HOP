@@ -71,6 +71,20 @@ namespace Network.Events {
     }
 
     /// <summary>
+    /// Event published from grapple animation when the first frame is reached.
+    /// Used to defer grapple mesh display until the hand is in the correct pose.
+    /// </summary>
+    public class GrappleAnimFirstFrameEvent : GameEvent {
+    }
+
+    /// <summary>
+    /// Event published from grapple animation when the hand returns (HideGrapple event).
+    /// Hides the grapple line immediately if still visible.
+    /// </summary>
+    public class GrappleAnimHideEvent : GameEvent {
+    }
+
+    /// <summary>
     /// Event published when a player picks up the hopball.
     /// </summary>
     public class HopballPickedUpEvent : GameEvent {

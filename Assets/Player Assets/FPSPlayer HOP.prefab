@@ -300,6 +300,37 @@ SkinnedMeshRenderer:
     m_Center: {x: -0.1618852, y: 0.010940291, z: -0.00000011920929}
     m_Extent: {x: 0.07807256, y: 0.073386565, z: 0.61987853}
   m_DirtyAABB: 0
+--- !u!1 &8983478570685139054
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 6639075445229619129}
+  m_Layer: 0
+  m_Name: GrappleOrigin
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &6639075445229619129
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8983478570685139054}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0.049, y: 0.535, z: 0.343}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 2935020730405280567}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1001 &461220981795824657
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -1179,6 +1210,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 4436805663696350335, guid: 405129f43f2032e4bbed300529635549, type: 3}
       insertIndex: -1
       addedObject: {fileID: 6157787346571522363}
+    - targetCorrespondingSourceObject: {fileID: -5846270692196909274, guid: 405129f43f2032e4bbed300529635549, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 6639075445229619129}
     m_AddedComponents:
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 405129f43f2032e4bbed300529635549, type: 3}
       insertIndex: -1
@@ -1195,6 +1229,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 405129f43f2032e4bbed300529635549, type: 3}
       insertIndex: -1
       addedObject: {fileID: 3206634248933305399}
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 405129f43f2032e4bbed300529635549, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 7455091467061662984}
   m_SourcePrefab: {fileID: 100100000, guid: 405129f43f2032e4bbed300529635549, type: 3}
 --- !u!4 &113220806102069402 stripped
 Transform:
@@ -1429,6 +1466,18 @@ MonoBehaviour:
   aimInSound: {fileID: 8300000, guid: b7f063ad1558c924c9d335aa79dbc8cb, type: 3}
   aimOutSound: {fileID: 8300000, guid: a0aa5ddeec187eb4a8b26271ce7f9a68, type: 3}
   fireModeSwitchSound: {fileID: 8300000, guid: be15d71fe11656344b6c9027fb694dfb, type: 3}
+--- !u!114 &7455091467061662984
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 767863581493991744}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 249c8112dd85c4a4c9ed2635f5cc6f33, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Game.Weapons.GrappleAnimEventReceiver
 --- !u!4 &874524841634033072 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -8483521933420508767, guid: 405129f43f2032e4bbed300529635549, type: 3}

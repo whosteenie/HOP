@@ -9,6 +9,7 @@ using UnityEngine;
 using UnityEngine.Audio;
 using UnityEngine.UIElements;
 using Game.UI;
+using Game.Menu.Options;
 using Game.Settings;
 using Rendering;
 using UnityEngine.Rendering;

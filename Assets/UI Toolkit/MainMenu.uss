@@ -1598,31 +1598,31 @@
 }
 
 .steam-avatar.player-icon-red {
-    background-image: url('project://database/Assets/UI%20Toolkit/Images/player_icons/red_icon.png');
+    background-image: url('project://database/Assets/UI%20Toolkit/Images/PlayerIcons/red_icon.png');
     -unity-background-scale-mode: scale-to-fit;
 }
 .steam-avatar.player-icon-orange {
-    background-image: url('project://database/Assets/UI%20Toolkit/Images/player_icons/orange_icon.png');
+    background-image: url('project://database/Assets/UI%20Toolkit/Images/PlayerIcons/orange_icon.png');
     -unity-background-scale-mode: scale-to-fit;
 }
 .steam-avatar.player-icon-yellow {
-    background-image: url('project://database/Assets/UI%20Toolkit/Images/player_icons/yellow_icon.png');
+    background-image: url('project://database/Assets/UI%20Toolkit/Images/PlayerIcons/yellow_icon.png');
     -unity-background-scale-mode: scale-to-fit;
 }
 .steam-avatar.player-icon-green {
-    background-image: url('project://database/Assets/UI%20Toolkit/Images/player_icons/green_icon.png');
+    background-image: url('project://database/Assets/UI%20Toolkit/Images/PlayerIcons/green_icon.png');
     -unity-background-scale-mode: scale-to-fit;
 }
 .steam-avatar.player-icon-blue {
-    background-image: url('project://database/Assets/UI%20Toolkit/Images/player_icons/blue_icon.png');
+    background-image: url('project://database/Assets/UI%20Toolkit/Images/PlayerIcons/blue_icon.png');
     -unity-background-scale-mode: scale-to-fit;
 }
 .steam-avatar.player-icon-purple {
-    background-image: url('project://database/Assets/UI%20Toolkit/Images/player_icons/purple_icon.png');
+    background-image: url('project://database/Assets/UI%20Toolkit/Images/PlayerIcons/purple_icon.png');
     -unity-background-scale-mode: scale-to-fit;
 }
 .steam-avatar.player-icon-white {
-    background-image: url('project://database/Assets/UI%20Toolkit/Images/player_icons/white_icon.png');
+    background-image: url('project://database/Assets/UI%20Toolkit/Images/PlayerIcons/white_icon.png');
     -unity-background-scale-mode: scale-to-fit;
 }
 
@@ -1655,10 +1655,7 @@
 #play-gamemode-panel {
     /* Keep the whole block visually centered on varying resolutions */
     justify-content: flex-start;
-    padding-top: 24px;
-    padding-bottom: 20px;
-    padding-left: 28px;
-    padding-right: 28px;
+    padding: 24px 28px 20px;
 }
 
 .gamemode-selection-header {
