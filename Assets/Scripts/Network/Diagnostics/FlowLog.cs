@@ -76,8 +76,7 @@ namespace Network.Diagnostics {
 
         private static bool ShouldEmit() {
             if(Enabled == false) return false;
-            if(Application.isEditor && EmitInEditor == false) return false;
-            return true;
+            return !Application.isEditor || EmitInEditor;
         }
 
         private static string BuildLine(string eventId, (string Key, object Value)[] fields) {

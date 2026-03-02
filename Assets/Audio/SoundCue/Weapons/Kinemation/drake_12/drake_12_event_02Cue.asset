@@ -16,7 +16,7 @@ MonoBehaviour:
   variants:
   - clip: {fileID: 8300000, guid: 50aec8b70431f8446a0f87f25afceb19, type: 3}
     weight: 1
-    volumeDb: 0
+    volumeDb: -5
     pitch: 1
     randomPitch: 0
   bus: 3

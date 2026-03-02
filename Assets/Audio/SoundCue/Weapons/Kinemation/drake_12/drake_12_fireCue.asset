@@ -16,22 +16,22 @@ MonoBehaviour:
   variants:
   - clip: {fileID: 8300000, guid: 0f60fe0a069471c48b975d405f927458, type: 3}
     weight: 1
-    volumeDb: 0
+    volumeDb: -3
     pitch: 1
     randomPitch: 0
   - clip: {fileID: 8300000, guid: f7de465dbb59cef4b8122f099ed1a2c5, type: 3}
     weight: 1
-    volumeDb: 0
+    volumeDb: -3
     pitch: 1
     randomPitch: 0
   - clip: {fileID: 8300000, guid: 6ce40419b819d22429cb25aa978deaef, type: 3}
     weight: 1
-    volumeDb: 0
+    volumeDb: -3
     pitch: 1
     randomPitch: 0
   - clip: {fileID: 8300000, guid: 798011d9271991544929220f213e411c, type: 3}
     weight: 1
-    volumeDb: 0
+    volumeDb: -3
     pitch: 1
     randomPitch: 0
   bus: 3

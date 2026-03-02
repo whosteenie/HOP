@@ -30,6 +30,17 @@ namespace Network {
         private bool _isPollingPartyLobby;
         private float _matchPollBackoffUntil;
         private float _partyPollBackoffUntil;
+        private float _partyHeartbeatBackoffUntil;
+        private float _matchHeartbeatBackoffUntil;
+        private int _partyHeartbeatRateLimitStreak;
+        private int _matchHeartbeatRateLimitStreak;
+        private float _nextPartyHeartbeatRateLimitWarnTime;
+        private float _nextMatchHeartbeatRateLimitWarnTime;
+
+        private const int HeartbeatRateLimitWarnStreak = 3;
+        private const float HeartbeatRateLimitWarnIntervalSeconds = 30f;
+        private const float HeartbeatRateLimitBaseBackoffSeconds = 10f;
+        private const float HeartbeatRateLimitMaxBackoffSeconds = 90f;
 
         private void Update() {
             if(_isLeaving || _isShuttingDown) {
@@ -394,20 +405,69 @@ namespace Network {
             var localId = AuthenticationService.Instance.PlayerId;
             if(string.IsNullOrEmpty(localId)) return;
 
-            try {
-                if(_ugsPartyLobby != null && _ugsPartyLobby.HostId == localId) {
+            if(_ugsPartyLobby != null &&
+               _ugsPartyLobby.HostId == localId &&
+               Time.unscaledTime >= _partyHeartbeatBackoffUntil) {
+                try {
                     await LobbyService.Instance.SendHeartbeatPingAsync(_ugsPartyLobby.Id);
-                }
+                    _partyHeartbeatRateLimitStreak = 0;
+                    _partyHeartbeatBackoffUntil = 0f;
+                } catch(LobbyServiceException ex) when(ex.Reason == LobbyExceptionReason.RateLimited) {
+                    _partyHeartbeatRateLimitStreak++;
+                    var backoff = ComputeHeartbeatRateLimitBackoffSeconds(_partyHeartbeatRateLimitStreak);
+                    _partyHeartbeatBackoffUntil = Time.unscaledTime + backoff;
 
-                if(_ugsMatchLobby != null && _ugsMatchLobby.HostId == localId) {
-                    await LobbyService.Instance.SendHeartbeatPingAsync(_ugsMatchLobby.Id);
-                }
-            } catch(System.Exception ex) {
-                // Ignore transient heartbeat failures but keep a throttled diagnostic in debug builds.
-                if(Debug.isDebugBuild && ShouldEmitThrottledLog(ref _nextUgsHeartbeatFailureLogTime, 15f)) {
-                    Debug.LogWarning($"[SessionManager] UGS heartbeat ping failed: {ex.Message}");
+                    if(Debug.isDebugBuild &&
+                       _partyHeartbeatRateLimitStreak >= HeartbeatRateLimitWarnStreak &&
+                       ShouldEmitThrottledLog(ref _nextPartyHeartbeatRateLimitWarnTime,
+                           HeartbeatRateLimitWarnIntervalSeconds)) {
+                        Debug.LogWarning(
+                            $"[SessionManager] UGS party heartbeat is repeatedly rate-limited ({_partyHeartbeatRateLimitStreak}x). " +
+                            $"Backing off for {backoff:0.0}s.");
+                    }
+                } catch(System.Exception ex) {
+                    // Ignore transient heartbeat failures but keep a throttled diagnostic in debug builds.
+                    if(Debug.isDebugBuild && ShouldEmitThrottledLog(ref _nextUgsHeartbeatFailureLogTime, 15f)) {
+                        Debug.LogWarning($"[SessionManager] UGS party heartbeat ping failed: {ex.Message}");
+                    }
                 }
             }
+
+            if(_ugsMatchLobby != null &&
+               _ugsMatchLobby.HostId == localId &&
+               Time.unscaledTime >= _matchHeartbeatBackoffUntil) {
+                try {
+                    await LobbyService.Instance.SendHeartbeatPingAsync(_ugsMatchLobby.Id);
+                    _matchHeartbeatRateLimitStreak = 0;
+                    _matchHeartbeatBackoffUntil = 0f;
+                } catch(LobbyServiceException ex) when(ex.Reason == LobbyExceptionReason.RateLimited) {
+                    _matchHeartbeatRateLimitStreak++;
+                    var backoff = ComputeHeartbeatRateLimitBackoffSeconds(_matchHeartbeatRateLimitStreak);
+                    _matchHeartbeatBackoffUntil = Time.unscaledTime + backoff;
+
+                    if(Debug.isDebugBuild &&
+                       _matchHeartbeatRateLimitStreak >= HeartbeatRateLimitWarnStreak &&
+                       ShouldEmitThrottledLog(ref _nextMatchHeartbeatRateLimitWarnTime,
+                           HeartbeatRateLimitWarnIntervalSeconds)) {
+                        Debug.LogWarning(
+                            $"[SessionManager] UGS match heartbeat is repeatedly rate-limited ({_matchHeartbeatRateLimitStreak}x). " +
+                            $"Backing off for {backoff:0.0}s.");
+                    }
+                } catch(System.Exception ex) {
+                    // Ignore transient heartbeat failures but keep a throttled diagnostic in debug builds.
+                    if(Debug.isDebugBuild && ShouldEmitThrottledLog(ref _nextUgsHeartbeatFailureLogTime, 15f)) {
+                        Debug.LogWarning($"[SessionManager] UGS match heartbeat ping failed: {ex.Message}");
+                    }
+                }
+            }
+        }
+
+        private static float ComputeHeartbeatRateLimitBackoffSeconds(int streak) {
+            var clampedStreak = Mathf.Clamp(streak, 1, 8);
+            var exponent = clampedStreak - 1;
+            var rawBackoff = HeartbeatRateLimitBaseBackoffSeconds * Mathf.Pow(2f, exponent);
+            var jitter = Random.Range(0f, 2f);
+            return Mathf.Min(HeartbeatRateLimitMaxBackoffSeconds, rawBackoff + jitter);
         }
 
         private async UniTaskVoid PollPartyLobbyAsync() {
