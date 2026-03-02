@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Game.Social;
+using Network.Steam;
 using UnityEngine;
 using UnityEngine.UIElements;
 using Cysharp.Threading.Tasks;
@@ -401,23 +402,13 @@ namespace Game.UI {
         }
 
         private static async UniTaskVoid LoadAvatar(ulong steamId, VisualElement avatarElement) {
-            var image = await SteamFriends.GetLargeAvatarAsync(steamId);
-            if(image.HasValue) {
-                var width = (int)image.Value.Width;
-                var height = (int)image.Value.Height;
-                var data = image.Value.Data;
+            if(avatarElement == null || steamId == 0) return;
+            if(!SteamClient.IsValid || !SteamClient.IsLoggedOn) return;
+            if(SteamManager.Instance == null) return;
 
-                // Flip the image data (Steam returns it top-down, Unity UI expects bottom-up for LoadRawTextureData)
-                var flippedData = new byte[data.Length];
-                var stride = width * 4; // RGBA32
-                for(var y = 0; y < height; y++) {
-                    Array.Copy(data, y * stride, flippedData, (height - 1 - y) * stride, stride);
-                }
-
-                var texture = new Texture2D(width, height, TextureFormat.RGBA32, false);
-                texture.LoadRawTextureData(flippedData);
-                texture.Apply();
-                if(avatarElement != null) avatarElement.style.backgroundImage = new StyleBackground(texture);
+            var texture = await SteamManager.Instance.GetAvatarAsync((SteamId)steamId);
+            if(texture != null && avatarElement != null) {
+                avatarElement.style.backgroundImage = new StyleBackground(texture);
             }
         }
     }

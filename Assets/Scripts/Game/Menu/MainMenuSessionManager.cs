@@ -902,9 +902,6 @@ namespace Game.Menu {
                 var avatarTex = await SteamManager.Instance.GetAvatarAsync(id);
                 if(avatarTex != null) {
                     avatarBox.style.backgroundImage = new StyleBackground(avatarTex);
-                    if(!avatarBox.ClassListContains("steam-avatar-flip")) {
-                        avatarBox.AddToClassList("steam-avatar-flip");
-                    }
                 } else {
                     ApplyIconFallback();
                 }
@@ -968,4 +965,3 @@ namespace Game.Menu {
         public bool IsHost { get; private set; }
     }
 }
-

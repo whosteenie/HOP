@@ -496,6 +496,9 @@ namespace Network {
 
                 LeaveLobby();
                 ClearMatchState();
+                if(SteamManager.Instance != null) {
+                    SteamManager.Instance.ClearAvatarCache();
+                }
                 FlowLog.Emit(FlowEventIds.SessionExit, ("leaveId", leaveId), ("step", "EXIT_MATCH_STATE_CLEARED"));
 
                 await CleanupNetworkAsync();

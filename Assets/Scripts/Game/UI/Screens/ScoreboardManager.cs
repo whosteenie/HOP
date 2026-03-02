@@ -6,6 +6,7 @@ using Game.Player;
 using Game.Spawning;
 using Network;
 using Network.Events;
+using Network.Steam;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -78,11 +79,6 @@ namespace Game.UI {
 
         private readonly Dictionary<ulong, float>
             _previousVelocityValues = new(); // Track previous velocity to avoid unnecessary updates
-
-        // Steam Avatar Cache
-        private readonly Dictionary<ulong, Texture2D> _avatarCache = new();
-        private readonly HashSet<ulong> _avatarFetchFailed = new();
-        private bool _steamAvatarFetchDisabledForSession;
 
         // Speaking Indicators Cache
         private readonly Dictionary<ulong, VisualElement>
@@ -1622,34 +1618,21 @@ namespace Game.UI {
         }
 
         private async UniTaskVoid LoadSteamAvatar(ulong steamId, VisualElement avatarElement) {
-            if(_steamAvatarFetchDisabledForSession) return;
             if(!SteamClient.IsValid || !SteamClient.IsLoggedOn) return;
-            if(_avatarFetchFailed.Contains(steamId)) return;
-
-            if(_avatarCache.TryGetValue(steamId, out var tex)) {
-                if(avatarElement != null) avatarElement.style.backgroundImage = new StyleBackground(tex);
-                return;
-            }
+            if(SteamManager.Instance == null) return;
 
             try {
-                var image = await SteamFriends.GetLargeAvatarAsync(steamId);
-                if(image.HasValue) {
-                    var texture = GetTextureFromImage(image.Value);
-                    if(texture != null) {
-                        _avatarCache[steamId] = texture;
-                        // Check if element is still valid (it might have been rebuilt)
-                        if(avatarElement != null) avatarElement.style.backgroundImage = new StyleBackground(texture);
-                    } else {
-                        _avatarFetchFailed.Add(steamId);
-                    }
-                } else {
-                    _avatarFetchFailed.Add(steamId);
+                var texture = await SteamManager.Instance.GetAvatarAsync((SteamId)steamId);
+                if(texture == null) {
+                    return;
+                }
+
+                if(avatarElement != null) {
+                    avatarElement.style.backgroundImage = new StyleBackground(texture);
                 }
             } catch(Exception ex) {
-                _avatarFetchFailed.Add(steamId);
-                _steamAvatarFetchDisabledForSession = true;
-                Debug.LogWarning(
-                    $"[ScoreboardManager] Steam avatar fetch disabled for this session after error: {ex.Message}");
+                Debug.LogWarning($"[ScoreboardManager] Steam avatar fetch failed for {steamId}: {ex.Message}");
+                return;
             }
         }
 
@@ -1663,22 +1646,5 @@ namespace Game.UI {
             }
         }
 
-        private static Texture2D GetTextureFromImage(Steamworks.Data.Image image) {
-            var width = (int)image.Width;
-            var height = (int)image.Height;
-            var data = image.Data;
-
-            // Flip the image data (Steam returns it top-down, Unity UI expects bottom-up for LoadRawTextureData)
-            var flippedData = new byte[data.Length];
-            var stride = width * 4; // RGBA32
-            for(var y = 0; y < height; y++) {
-                Array.Copy(data, y * stride, flippedData, (height - 1 - y) * stride, stride);
-            }
-
-            var texture = new Texture2D(width, height, TextureFormat.RGBA32, false);
-            texture.LoadRawTextureData(flippedData);
-            texture.Apply();
-            return texture;
-        }
     }
 }
