@@ -11,7 +11,7 @@ using Unity.Cinemachine;
 using Unity.Netcode;
 using UnityEngine;
 
-namespace Game.Player {
+namespace Game.Player.Hopball {
     /// <summary>
     /// Handles hopball pickup, equipping, and dropping for the player.
     /// Manages weapon visibility and prevents shooting/reloading while holding the ball.
@@ -146,20 +146,20 @@ namespace Game.Player {
             if(_fpHopballArmInstance == null) return;
 
             var renderers = _fpHopballArmInstance.GetComponentsInChildren<Renderer>(true);
-            foreach(var renderer in renderers) {
-                if(renderer == null) continue;
+            foreach(var r in renderers) {
+                if(r == null) continue;
 
-                var rendererId = renderer.GetInstanceID();
+                var rendererId = r.GetInstanceID();
                 if(_cachedHopballArmOutlineByRenderer.TryGetValue(rendererId, out var cachedOutline) && cachedOutline != null) {
                     continue;
                 }
 
-                var materials = renderer.materials;
+                var materials = r.materials;
                 Material sourceOutline = null;
                 if(materials is { Length: > 0 } && materials[0] != null) {
                     sourceOutline = materials[0];
-                } else if(renderer.sharedMaterial != null) {
-                    sourceOutline = renderer.sharedMaterial;
+                } else if(r.sharedMaterial != null) {
+                    sourceOutline = r.sharedMaterial;
                 }
 
                 if(sourceOutline == null) continue;
@@ -607,11 +607,11 @@ namespace Game.Player {
             CacheHopballArmOutlineMaterials();
 
             var renderers = _fpHopballArmInstance.GetComponentsInChildren<Renderer>(true);
-            foreach(var renderer in renderers) {
-                if(renderer == null) continue;
-                var rendererId = renderer.GetInstanceID();
+            foreach(var r in renderers) {
+                if(r == null) continue;
+                var rendererId = r.GetInstanceID();
 
-                var materials = renderer.materials;
+                var materials = r.materials;
                 if(materials == null || materials.Length < 2) {
                     var resizedMaterials = new Material[2];
                     if(materials is { Length: > 0 }) {
@@ -622,11 +622,11 @@ namespace Game.Player {
 
                 if(_cachedHopballArmOutlineByRenderer.TryGetValue(rendererId, out var cachedOutline) && cachedOutline != null) {
                     materials[0] = cachedOutline;
-                } else if(materials[0] == null && renderer.sharedMaterial != null) {
-                    materials[0] = renderer.sharedMaterial;
+                } else if(materials[0] == null && r.sharedMaterial != null) {
+                    materials[0] = r.sharedMaterial;
                 }
                 materials[1] = _cachedHopballArmCustomMaterial;
-                renderer.materials = materials;
+                r.materials = materials;
             }
         }
 
@@ -713,7 +713,7 @@ namespace Game.Player {
         }
 
         /// <summary>
-        /// Prewarms active auto-playing particle systems so pickup visuals appear already "fully on".
+        /// Pre-warms active autoplaying particle systems so pickup visuals appear already "fully on".
         /// </summary>
         private void WarmupActiveHopballParticles(GameObject visualRoot) {
             if(visualRoot == null) return;
@@ -747,7 +747,7 @@ namespace Game.Player {
             var cyclesPerSecond = Mathf.Min(hopballFloatCyclesPerSecond, 0.20f);
             var baseWave = Mathf.Sin((Time.time + _hopballFloatPhase) * cyclesPerSecond * Mathf.PI * 2f);
 
-            // Blend toward a smoothstep-shaped wave to dwell a bit longer at apexes.
+            // Blend toward a smooth-step-shaped wave to dwell a bit longer at apexes.
             var normalized = baseWave * 0.5f + 0.5f;
             var apexWave = Mathf.SmoothStep(0f, 1f, normalized) * 2f - 1f;
             var wave = Mathf.Lerp(baseWave, apexWave, hopballFloatApexDwell);
@@ -880,14 +880,20 @@ namespace Game.Player {
 
             // Get hopball collider radius for accurate ground checking
             var hopballCollider = hopball.GetComponent<Collider>();
-            var hopballRadius = hopballCollider switch {
-                SphereCollider sphereCollider => sphereCollider.radius * Mathf.Max(hopball.transform.lossyScale.x,
-                    hopball.transform.lossyScale.y, hopball.transform.lossyScale.z),
-                CapsuleCollider capsuleCollider => capsuleCollider.radius *
-                                                   Mathf.Max(hopball.transform.lossyScale.x,
-                                                       hopball.transform.lossyScale.z),
-                _ => 0.5f
-            };
+            var hopballRadius = 0.5f;
+            if(hopballCollider != null) {
+                var sphereCollider = hopballCollider as SphereCollider;
+                if(sphereCollider != null) {
+                    var lossyScale = hopball.transform.lossyScale;
+                    hopballRadius = sphereCollider.radius * Mathf.Max(lossyScale.x, lossyScale.y, lossyScale.z);
+                } else {
+                    var capsuleCollider = hopballCollider as CapsuleCollider;
+                    if(capsuleCollider != null) {
+                        var lossyScale = hopball.transform.lossyScale;
+                        hopballRadius = capsuleCollider.radius * Mathf.Max(lossyScale.x, lossyScale.z);
+                    }
+                }
+            }
 
             // Preserve original drop position for visual fidelity (player's hand position)
             // Clamp if the hand point is pushed through world geometry (e.g. against a wall).

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Game.Player;
 using Game.Match;
+using Game.Player.Hopball;
 using Game.Spawning;
 using Network.Diagnostics;
 using Network.Events;

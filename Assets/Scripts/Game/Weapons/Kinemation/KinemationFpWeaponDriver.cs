@@ -1071,8 +1071,8 @@ namespace Game.Weapons {
         /// </summary>
         private static int GetGrappleWeaponIndex(string weaponSoundKey, FPSWeapon activeWeapon) {
             var key = (weaponSoundKey ?? "").ToLowerInvariant();
-            var name = activeWeapon?.name?.ToLowerInvariant() ?? "";
-            var settingsName = activeWeapon?.weaponSettings?.name?.ToLowerInvariant() ?? "";
+            var name = activeWeapon != null ? activeWeapon.name.ToLowerInvariant() ?? "" : "";
+            var settingsName = activeWeapon != null ? activeWeapon.weaponSettings != null ? activeWeapon.weaponSettings.name.ToLowerInvariant() : "" : "";
             foreach(var term in new[] { key, name, settingsName }) {
                 if(string.IsNullOrEmpty(term)) continue;
                 if(term.Contains("dgl") || term.Contains("deagle") || term.Contains("desert.eagle")) return 5;

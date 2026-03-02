@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Game.Player;
+using Game.Player.Hopball;
 using OSI;
 using Network.AntiCheat;
 using Network.Diagnostics;

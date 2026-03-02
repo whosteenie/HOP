@@ -8,6 +8,7 @@ using Game.Menu;
 using Game.Spawning;
 using Game.UI;
 using Game.Hopball;
+using Game.Player.Hopball;
 using Network;
 using Network.Diagnostics;
 using Network.Events;

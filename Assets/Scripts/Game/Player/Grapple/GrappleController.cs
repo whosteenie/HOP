@@ -536,9 +536,12 @@ namespace Game.Player {
         }
 
         private Vector3 GetFpGrappleOriginPosition() {
-            var fpWeapon = playerController.WeaponManager?.GetCurrentFpWeapon();
-            var driver = fpWeapon?.GetComponent<KinemationFpWeaponDriver>();
-            var handTransform = driver?.GetGrappleOriginFpTransform();
+            var fpWeapon = playerController.WeaponManager != null ? playerController.WeaponManager.GetCurrentFpWeapon() : null;
+
+            var driver = fpWeapon != null ? fpWeapon.GetComponent<KinemationFpWeaponDriver>() : null;
+
+            var handTransform = driver != null ? driver.GetGrappleOriginFpTransform() : null;
+
             if(handTransform != null)
                 return handTransform.position;
 

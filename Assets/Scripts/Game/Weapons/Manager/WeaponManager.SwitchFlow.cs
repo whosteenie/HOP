@@ -1,6 +1,7 @@
 using System.Collections;
 using Game.Menu;
 using Game.Player;
+using Game.Player.Hopball;
 using Network.Events;
 using Unity.Netcode;
 using UnityEngine;

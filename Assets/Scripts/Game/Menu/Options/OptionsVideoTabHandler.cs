@@ -343,10 +343,10 @@ namespace Game.Menu.Options {
 
         private void ApplyVideoRuntimeSettings() {
             var video = GameSettings.Data.video;
-            var bloomEnabled = _bloomButton != null ? OptionsSettingsHelpers.GetCheckboxValue(_bloomButton) : (video == null || video.bloomEnabled);
-            var motionBlurEnabled = _motionBlurButton != null ? OptionsSettingsHelpers.GetCheckboxValue(_motionBlurButton) : (video == null || video.motionBlurEnabled);
-            var filmGrainEnabled = _filmGrainButton != null ? OptionsSettingsHelpers.GetCheckboxValue(_filmGrainButton) : (video == null || video.filmGrainEnabled);
-            var vignetteEnabled = _vignetteButton != null ? OptionsSettingsHelpers.GetCheckboxValue(_vignetteButton) : (video == null || video.vignetteEnabled);
+            var bloomEnabled = _bloomButton != null ? OptionsSettingsHelpers.GetCheckboxValue(_bloomButton) : video == null || video.bloomEnabled;
+            var motionBlurEnabled = _motionBlurButton != null ? OptionsSettingsHelpers.GetCheckboxValue(_motionBlurButton) : video == null || video.motionBlurEnabled;
+            var filmGrainEnabled = _filmGrainButton != null ? OptionsSettingsHelpers.GetCheckboxValue(_filmGrainButton) : video == null || video.filmGrainEnabled;
+            var vignetteEnabled = _vignetteButton != null ? OptionsSettingsHelpers.GetCheckboxValue(_vignetteButton) : video == null || video.vignetteEnabled;
             VideoSettingsRuntimeApplier.ApplyBloomEnabled(bloomEnabled);
             VideoSettingsRuntimeApplier.ApplyMotionBlurEnabled(motionBlurEnabled);
             VideoSettingsRuntimeApplier.ApplyFilmGrainEnabled(filmGrainEnabled);

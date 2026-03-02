@@ -173,23 +173,29 @@ namespace Network {
             var toDestroy = new List<Component>();
             foreach(var c in root.GetComponentsInChildren<Component>(true)) {
                 if(c == null) continue;
-                switch(c) {
-                    case Transform:
-                    case Renderer or MeshFilter or SkinnedMeshRenderer or MeshRenderer:
-                    case ParticleSystem or ParticleSystemRenderer:
-                        continue;
-                    default:
-                        toDestroy.Add(c);
-                        break;
-                }
+                if(IsVisualComponent(c)) continue;
+                toDestroy.Add(c);
             }
             // Destroy UniversalAdditionalLightData before Light (URP requires this order)
             foreach(var c in toDestroy) {
-                if(c != null && c is UniversalAdditionalLightData) Destroy(c);
+                if(c == null) continue;
+                var additionalLightData = c as UniversalAdditionalLightData;
+                if(additionalLightData != null) Destroy(additionalLightData);
             }
             foreach(var c in toDestroy) {
                 if(c != null) Destroy(c);
             }
+        }
+
+        private static bool IsVisualComponent(Component component) {
+            if(component == null) return false;
+
+            var componentType = component.GetType();
+            return typeof(Transform).IsAssignableFrom(componentType) ||
+                   typeof(Renderer).IsAssignableFrom(componentType) ||
+                   typeof(MeshFilter).IsAssignableFrom(componentType) ||
+                   typeof(ParticleSystem).IsAssignableFrom(componentType) ||
+                   typeof(ParticleSystemRenderer).IsAssignableFrom(componentType);
         }
 
         private static void SetLayerRecursive(Transform t, int layer) {

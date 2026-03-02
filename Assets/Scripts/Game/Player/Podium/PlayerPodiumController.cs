@@ -200,7 +200,7 @@ namespace Game.Player {
             _podiumSkinned.enabled = true;
 
             // Re-apply WeaponIndex after animator toggle (disable/enable resets parameters)
-            if(playerController?.WeaponManager != null) {
+            if((playerController != null ? playerController.WeaponManager : null) != null) {
                 playerController.WeaponManager.SetTpWeaponIndexForPodium();
             }
         }

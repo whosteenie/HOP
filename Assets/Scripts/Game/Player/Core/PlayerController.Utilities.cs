@@ -1,4 +1,5 @@
 using Audio.Networking;
+using Game.Player.Hopball;
 using Game.Weapons;
 using Network.Components;
 using Network.Rpc;
