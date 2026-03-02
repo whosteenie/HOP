@@ -26,6 +26,7 @@ namespace Game.Spawning {
         private readonly Dictionary<SpawnPoint, ulong> _reservations = new();
         private readonly Dictionary<ulong, SpawnPoint> _playerReservations = new(); // Reverse lookup
         private readonly Dictionary<ulong, float> _reservationTimes = new(); // Track when reservation was made
+        private readonly List<ulong> _expiredReservationClients = new();
         private readonly object _reservationLock = new();
 
         // Cached array for spawn point validation (non-allocating overlap check)
@@ -70,17 +71,17 @@ namespace Game.Spawning {
 
         private void CleanupExpiredReservations() {
             lock(_reservationLock) {
-                var expiredClients = new List<ulong>();
+                _expiredReservationClients.Clear();
                 var currentTime = Time.time;
 
                 foreach(var kvp in _reservationTimes) {
                     if(currentTime - kvp.Value > ReservationTimeout) {
-                        expiredClients.Add(kvp.Key);
+                        _expiredReservationClients.Add(kvp.Key);
                     }
                 }
 
-                foreach(var clientId in expiredClients) {
-                    ReleaseReservation(clientId);
+                foreach(var clientId in _expiredReservationClients) {
+                    ReleaseReservationInternal(clientId);
                 }
             }
         }
@@ -189,10 +190,7 @@ namespace Game.Spawning {
             if(!IsServer) return;
 
             lock(_reservationLock) {
-                if(!_playerReservations.TryGetValue(clientId, out var point)) return;
-                _reservations.Remove(point);
-                _playerReservations.Remove(clientId);
-                _reservationTimes.Remove(clientId);
+                ReleaseReservationInternal(clientId);
             }
         }
 
@@ -310,8 +308,16 @@ namespace Game.Spawning {
         /// Releases any existing reservation for a player. Must be called within lock(_reservationLock).
         /// </summary>
         private void ReleaseExistingReservation(ulong clientId) {
-            if(!_playerReservations.TryGetValue(clientId, out var oldReservation)) return;
-            _reservations.Remove(oldReservation);
+            ReleaseReservationInternal(clientId);
+        }
+
+        /// <summary>
+        /// Releases a reservation without taking a lock.
+        /// Caller must already hold lock(_reservationLock).
+        /// </summary>
+        private void ReleaseReservationInternal(ulong clientId) {
+            if(!_playerReservations.TryGetValue(clientId, out var point)) return;
+            _reservations.Remove(point);
             _playerReservations.Remove(clientId);
             _reservationTimes.Remove(clientId);
         }
