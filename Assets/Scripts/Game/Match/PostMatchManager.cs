@@ -908,6 +908,10 @@ namespace Game.Match {
                 if(localPlayer != null) {
                     var localController = localPlayer.GetComponent<PlayerController>();
                     if(localController != null) {
+                        if(localController.WeaponManager != null) {
+                            localController.WeaponManager.PrepareCurrentWeaponForPostMatchPodium();
+                        }
+
                         localController.SetPostMatchControlLock(true, lockLook: false, resetVelocity: false);
                     }
                 }

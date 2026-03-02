@@ -551,6 +551,42 @@ namespace Game.Weapons {
             SyncServerAmmo();
         }
 
+        public void PrepareForPostMatchPodium() {
+            if(_currentWeaponData == null) return;
+
+            // Ensure no stale reload sounds/state leak into podium.
+            if(IsReloading) {
+                CancelReload();
+            } else {
+                if(!UseKinemationInternalSounds() && !ShouldSuppressLegacyReloadSound() &&
+                   playerController != null && playerController.IsOwner && _audioRelay != null) {
+                    var soundId = _currentWeaponData.reloadSoundId;
+                    if(!string.IsNullOrWhiteSpace(soundId)) {
+                        _audioRelay.RequestStop(soundId);
+                    }
+                }
+
+                if(_kinemationFpWeaponDriver != null) {
+                    StopKinemationEventSoundsForCurrentWeapon();
+                    _kinemationFpWeaponDriver.AbortReloadAndSyncAmmo(currentAmmo);
+                    _kinemationFpWeaponDriver.ResetReloadTracking();
+                }
+
+                IsReloading = false;
+                _reloadExpectedCompleteTime = float.PositiveInfinity;
+                _kinemationReloadFallbackDeadline = float.PositiveInfinity;
+                ExitReloadAnimation();
+            }
+
+            currentAmmo = GetCurrentMagCapacity();
+            if(_kinemationFpWeaponDriver != null) {
+                _kinemationFpWeaponDriver.SyncActiveAmmo(currentAmmo);
+            }
+
+            PublishOwnerAmmoToHud();
+            SyncServerAmmo();
+        }
+
         #endregion
 
         #region Getters

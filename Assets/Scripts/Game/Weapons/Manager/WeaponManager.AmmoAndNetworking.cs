@@ -19,6 +19,14 @@ namespace Game.Weapons {
             _ammoAuthority.ResetAllWeaponAmmo(weaponDataList, ResolveWeaponCapacity);
         }
 
+        public void PrepareCurrentWeaponForPostMatchPodium() {
+            if(CurrentWeapon == null) return;
+            if(CurrentWeaponIndex < 0) return;
+
+            CurrentWeapon.PrepareForPostMatchPodium();
+            _ammoAuthority.SetLocalAmmo(CurrentWeaponIndex, CurrentWeapon.currentAmmo);
+        }
+
         /// <summary>
         /// Drains ammo for the currently equipped weapon for this player.
         /// Server-authoritative: updates server validation ammo and syncs owner's FP/HUD state.
