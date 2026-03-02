@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using Cysharp.Threading.Tasks;
 using Game.Match;
 using Game.Menu;
@@ -268,6 +269,32 @@ namespace Network {
             await UniTask.Yield(PlayerLoopTiming.LastPostLateUpdate);
         }
 
+        private void CancelSessionLifetimeTasks() {
+            if(_sessionLifetimeCts == null) return;
+            if(_sessionLifetimeCts.IsCancellationRequested == false) {
+                _sessionLifetimeCts.Cancel();
+            }
+
+            _sessionLifetimeCts.Dispose();
+            _sessionLifetimeCts = null;
+        }
+
+        private void LaunchSessionTask(UniTask task, string context, bool logCancellation = false) {
+            LaunchSessionTaskInternal(task, context, logCancellation).Forget();
+        }
+
+        private async UniTaskVoid LaunchSessionTaskInternal(UniTask task, string context, bool logCancellation) {
+            try {
+                await task;
+            } catch(OperationCanceledException) {
+                if(logCancellation && Debug.isDebugBuild) {
+                    Debug.Log($"[SessionManager] Task canceled: {context}");
+                }
+            } catch(Exception ex) {
+                Debug.LogError($"[SessionManager] Task failed ({context}): {ex}");
+            }
+        }
+
         private bool TryBeginSessionOperation(string operationName) {
             if(IsSessionBusy) {
                 Debug.LogWarning($"[SessionManager] Ignoring '{operationName}' while session is busy.");
@@ -300,7 +327,9 @@ namespace Network {
             if(_isLeaving || _isShuttingDown) return;
             if(VoiceManager.Instance == null || !VoiceManager.Instance.IsLoggedIn) return;
 
-            _ = VoiceManager.Instance.EnsureChannelJoinedAsync("match_" + lobbyId, context: context);
+            LaunchSessionTask(
+                VoiceManager.Instance.EnsureChannelJoinedAsync("match_" + lobbyId, context: context).AsUniTask(),
+                $"VoiceJoinSteamSocialLobby/{context}");
             if(Debug.isDebugBuild) {
                 Debug.Log($"[SessionManager] Requested voice join for Steam social lobby '{lobbyId}' ({context}).");
             }
@@ -317,7 +346,9 @@ namespace Network {
                 return;
             }
 
-            _ = VoiceManager.Instance.EnsureChannelJoinedAsync(channelName, context: context);
+            LaunchSessionTask(
+                VoiceManager.Instance.EnsureChannelJoinedAsync(channelName, context: context).AsUniTask(),
+                $"VoiceJoinMatch/{context}");
             if(Debug.isDebugBuild) {
                 Debug.Log($"[SessionManager] Requested voice join for active match channel '{channelName}' ({context}).");
             }
@@ -341,28 +372,37 @@ namespace Network {
 
         }
 
-        private static async UniTask<bool> WaitForActiveSceneAsync(string expectedSceneName, float timeoutSeconds) {
+        private async UniTask<bool> WaitForActiveSceneAsync(string expectedSceneName, float timeoutSeconds,
+            CancellationToken cancellationToken) {
             var start = Time.realtimeSinceStartup;
             while(Time.realtimeSinceStartup - start < timeoutSeconds) {
+                if(cancellationToken.IsCancellationRequested) {
+                    return false;
+                }
+
                 var activeScene = SceneManager.GetActiveScene();
                 if(activeScene.IsValid() && activeScene.name == expectedSceneName) {
                     return true;
                 }
 
-                await UniTask.Yield();
+                await UniTask.DelayFrame(1, cancellationToken: cancellationToken);
             }
 
             return false;
         }
 
-        private static async UniTask<bool> WaitForMainMenuReadyAsync(float timeoutSeconds) {
+        private async UniTask<bool> WaitForMainMenuReadyAsync(float timeoutSeconds, CancellationToken cancellationToken) {
             var start = Time.realtimeSinceStartup;
             while(Time.realtimeSinceStartup - start < timeoutSeconds) {
+                if(cancellationToken.IsCancellationRequested) {
+                    return false;
+                }
+
                 if(FindFirstObjectByType<MainMenuManager>() != null) {
                     return true;
                 }
 
-                await UniTask.Yield();
+                await UniTask.DelayFrame(1, cancellationToken: cancellationToken);
             }
 
             return false;
@@ -378,7 +418,7 @@ namespace Network {
         /// <summary>
         /// Clears matchmaker state, cancelling any active ticket.
         /// </summary>
-        private void ClearMatchmakingState() {
+        private async UniTask ClearMatchmakingStateAsync() {
             if(Debug.isDebugBuild) {
                 Debug.Log("[SessionManager] ClearMatchmakingState called");
             }
@@ -392,7 +432,7 @@ namespace Network {
 
             // Delete ticket from server if we have one
             if(!string.IsNullOrEmpty(_matchmakerTicketId)) {
-                DeleteMatchmakerTicketAsync(_matchmakerTicketId).Forget();
+                await DeleteMatchmakerTicketAsync(_matchmakerTicketId);
                 _matchmakerTicketId = null;
             }
 
@@ -402,7 +442,7 @@ namespace Network {
         /// <summary>
         /// Clears UGS match lobby state to avoid stale data affecting future matches.
         /// </summary>
-        private void ClearMatchState() {
+        private async UniTask ClearMatchStateAsync() {
             if(Debug.isDebugBuild) {
                 Debug.Log("[SessionManager] ClearMatchState called");
             }
@@ -410,7 +450,7 @@ namespace Network {
             // Leave match lobby if we're in one
             var matchLobbyId = _ugsMatchLobby != null ? _ugsMatchLobby.Id : null;
             if(!string.IsNullOrEmpty(matchLobbyId)) {
-                LeaveMatchLobbyAsync(matchLobbyId).Forget();
+                await LeaveMatchLobbyAsync(matchLobbyId);
             }
 
             _ugsMatchLobby = null;

@@ -29,7 +29,11 @@ namespace Network {
             if(_isCreatingPartyLobby) {
                 var waitStart = Time.realtimeSinceStartup;
                 while(_isCreatingPartyLobby && Time.realtimeSinceStartup - waitStart < 5f) {
-                    await UniTask.Yield();
+                    try {
+                        await UniTask.DelayFrame(1, cancellationToken: SessionLifetimeToken);
+                    } catch(OperationCanceledException) {
+                        return;
+                    }
                 }
 
                 if(_ugsPartyLobby != null) {
@@ -222,7 +226,7 @@ namespace Network {
 
                 // Host waits until all expected party members are ready (or are not present).
                 if(await WaitForPrivateMatchSyncReadyAsync(expectedPlayers) == false) {
-                    LeaveToMainMenuAsync().Forget();
+                    await LeaveToMainMenuAsync();
                     return;
                 }
 
@@ -235,12 +239,12 @@ namespace Network {
                 }
 
                 if(await TryStartHostWithRelayAsync(alloc, true, "StartPrivateMatchAsync") == false) {
-                    LeaveToMainMenuAsync().Forget();
+                    await LeaveToMainMenuAsync();
                     return;
                 }
 
                 if(!TryLoadGameplaySceneAsHost("StartPrivateMatchAsync/LoadScene")) {
-                    LeaveToMainMenuAsync().Forget();
+                    await LeaveToMainMenuAsync();
                 }
             } finally {
                 EndSessionOperation();
@@ -309,7 +313,8 @@ namespace Network {
                     }
 
                     if(stateObj is { Value: "SynchronizingLoad" }) {
-                        StartMatchSynchronizationAsync().Forget();
+                        LaunchSessionTask(StartMatchSynchronizationAsync(),
+                            "JoinMatchLobbyById/SynchronizingLoad");
                         return true;
                     }
 
@@ -317,7 +322,8 @@ namespace Network {
                        (string.Equals(stateObj.Value, "LoadingScene", StringComparison.OrdinalIgnoreCase) ||
                         string.Equals(stateObj.Value, "InGame", StringComparison.OrdinalIgnoreCase))) {
                         _ugsLocalReadySubmitted = true;
-                        StartMatchClientAsync(useFadeOut: true).Forget();
+                        LaunchSessionTask(StartMatchClientAsync(useFadeOut: true),
+                            "JoinMatchLobbyById/LoadingOrInGame");
                         return true;
                     }
                 }
@@ -328,7 +334,8 @@ namespace Network {
                 Debug.Log("[SessionManager] Starting lobby state polling for non-host client...");
             }
 
-            StartMatchLobbyPollingAsync().Forget();
+            LaunchSessionTask(StartMatchLobbyPollingAsync(),
+                "JoinMatchLobbyById/StartMatchLobbyPolling");
             return true;
         }
 

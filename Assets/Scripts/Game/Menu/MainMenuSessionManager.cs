@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using Cysharp.Threading.Tasks;
 using Game.Progression;
 using Game.Settings;
@@ -42,6 +43,8 @@ namespace Game.Menu {
         private bool _silentHostInFlight;
         private UniTask<bool> _silentHostTask;
         private bool _privateMatchStartInFlight;
+        private CancellationTokenSource _uiTaskCts;
+        private int _partyUiRefreshSerial;
 
         // Events
         public Action OnHostClicked;
@@ -77,12 +80,15 @@ namespace Game.Menu {
 
             _silentHostInFlight = true;
             _silentHostTask = HandleHostClicked(silent: true).Preserve();
-            TrackSilentHostTask(_silentHostTask).Forget();
+            LaunchUiTask(TrackSilentHostTask(_silentHostTask),
+                "TrackSilentHostTask");
         }
 
-        private async UniTaskVoid TrackSilentHostTask(UniTask<bool> task) {
+        private async UniTask TrackSilentHostTask(UniTask<bool> task) {
             try {
                 await task;
+            } catch(OperationCanceledException) {
+                // UI scope canceled (menu disabled/destroyed).
             } catch(Exception ex) {
                 Debug.LogWarning($"[MainMenuSessionManager] Silent auto-host failed: {ex.Message}");
             } finally {
@@ -99,15 +105,19 @@ namespace Game.Menu {
 
         protected override void OnEnable() {
             base.OnEnable();
+            ResetUiTaskCancellationSource();
             if(SessionManager.Instance == null) return;
             SessionManager.Instance.FrontStatusChanged -= UpdateStatusText;
             SessionManager.Instance.OnPartyStateChanged -= HandlePartyStateChanged;
             SessionManager.Instance.FrontStatusChanged += UpdateStatusText;
             SessionManager.Instance.OnPartyStateChanged += HandlePartyStateChanged;
-            RefreshSessionHeaderAfterLoad().Forget();
+            LaunchUiTask(RefreshSessionHeaderAfterLoad(),
+                "RefreshSessionHeaderAfterLoad");
         }
 
         protected override void OnDisable() {
+            CancelUiTaskCancellationSource();
+            _partyUiRefreshSerial++;
             if(SessionManager.HasInstance) {
                 SessionManager.Instance.FrontStatusChanged -= UpdateStatusText;
                 SessionManager.Instance.OnPartyStateChanged -= HandlePartyStateChanged;
@@ -115,12 +125,51 @@ namespace Game.Menu {
             base.OnDisable();
         }
 
+        private CancellationToken UiTaskToken =>
+            _uiTaskCts != null ? _uiTaskCts.Token : CancellationToken.None;
+
+        private void ResetUiTaskCancellationSource() {
+            if(_uiTaskCts != null) {
+                _uiTaskCts.Cancel();
+                _uiTaskCts.Dispose();
+            }
+
+            _uiTaskCts = new CancellationTokenSource();
+        }
+
+        private void CancelUiTaskCancellationSource() {
+            if(_uiTaskCts == null) return;
+            if(_uiTaskCts.IsCancellationRequested == false) {
+                _uiTaskCts.Cancel();
+            }
+
+            _uiTaskCts.Dispose();
+            _uiTaskCts = null;
+        }
+
+        private void LaunchUiTask(UniTask task, string context, bool logCancellation = false) {
+            LaunchUiTaskInternal(task, context, logCancellation).Forget();
+        }
+
+        private async UniTaskVoid LaunchUiTaskInternal(UniTask task, string context, bool logCancellation) {
+            try {
+                await task;
+            } catch(OperationCanceledException) {
+                if(logCancellation && Debug.isDebugBuild) {
+                    Debug.Log($"[MainMenuSessionManager] UI task canceled: {context}");
+                }
+            } catch(Exception ex) {
+                Debug.LogError($"[MainMenuSessionManager] UI task failed ({context}): {ex}");
+            }
+        }
+
         /// <summary>
         /// Delayed refresh so session header (steam name, invite) is restored when returning from game/post-match.
         /// </summary>
-        private async UniTaskVoid RefreshSessionHeaderAfterLoad() {
-            await UniTask.DelayFrame(2);
+        private async UniTask RefreshSessionHeaderAfterLoad() {
+            await UniTask.DelayFrame(2, cancellationToken: UiTaskToken);
             if(this == null || !this) return;
+            if(UiTaskToken.IsCancellationRequested) return;
             if(SessionManager.Instance == null) return;
             if(SessionManager.Instance.CurrentLobby.HasValue) return;
             if(uiManager != null && uiManager.PartyContainer != null) {
@@ -150,7 +199,7 @@ namespace Game.Menu {
             _localProfileContainer = QRequired<VisualElement>("local-player-profile");
         }
 
-        private async UniTaskVoid OpenSteamInviteOverlay() {
+        private async UniTask OpenSteamInviteOverlay() {
             if(!SteamClient.IsValid || !SteamClient.IsLoggedOn) {
                 if(uiManager != null) {
                     uiManager.ShowToast("Steam is offline. Invites unavailable.", _inviteButton);
@@ -274,7 +323,8 @@ namespace Game.Menu {
             if(_inviteButton != null) {
                 Action inviteHandler = () => {
                     UISoundService.PlayButtonClick();
-                    OpenSteamInviteOverlay().Forget();
+                    LaunchUiTask(OpenSteamInviteOverlay(),
+                        "OpenSteamInviteOverlay");
                 };
                 _inviteButton.clicked += inviteHandler;
                 RegisterCleanup(() => _inviteButton.clicked -= inviteHandler);
@@ -598,7 +648,7 @@ namespace Game.Menu {
                 if(_silentHostInFlight) {
                     var waitStart = Time.realtimeSinceStartup;
                     while(_silentHostInFlight && Time.realtimeSinceStartup - waitStart < 8f) {
-                        await UniTask.Yield();
+                        await UniTask.DelayFrame(1, cancellationToken: UiTaskToken);
                     }
 
                     if(_silentHostInFlight) {
@@ -622,6 +672,8 @@ namespace Game.Menu {
                     await SessionManager.Instance.CreatePartyLobbyAsync(maxPlayers, true);
                 }
                 await SessionManager.Instance.StartPrivateMatchAsync(mode, maxPlayers);
+            } catch(OperationCanceledException) {
+                // Menu view no longer active.
             } catch(Exception ex) {
                 Debug.LogError($"[MainMenuSessionManager] Failed to start private match for mode '{mode}': {ex}");
                 if(uiManager != null) {
@@ -662,7 +714,7 @@ namespace Game.Menu {
         /// <summary>
         /// Starts searching for a public game in the selected or default mode.
         /// </summary>
-        public async UniTaskVoid HandleFindGameClicked(string mode = null) {
+        public async UniTask HandleFindGameClicked(string mode = null) {
             try {
                 if(uiManager != null) uiManager.SetMenuButtonsEnabled(false);
                 if(SessionManager.Instance != null) {
@@ -710,7 +762,9 @@ namespace Game.Menu {
             if(uiManager == null || uiManager.PartyContainer == null) return;
 
             // Update Global Party UI (Top Right)
-            UpdateGlobalPartyUI(lobby).Forget();
+            var refreshSerial = ++_partyUiRefreshSerial;
+            LaunchUiTask(UpdateGlobalPartyUI(lobby, refreshSerial),
+                "UpdateGlobalPartyUI");
 
             // Check host status (ownership transfer?)
             var amIHost = lobby.Owner.Id == SteamClient.SteamId;
@@ -733,7 +787,8 @@ namespace Game.Menu {
 
             var hide = !steamOnline || StreamerMode.Enabled;
             var iconId = PlayerIconPicker.PickIconIdFromBaseColor(GameSettings.Data.player.customization.baseColor, hide);
-            CreatePlayerRow(displayName, displayId, iconId, true, _localProfileContainer).Forget();
+            LaunchUiTask(CreatePlayerRow(displayName, displayId, iconId, true, _localProfileContainer),
+                "DrawSoloPlayer/CreatePlayerRow");
 
             // Show invite button and separator
             if(_inviteButton != null) _inviteButton.style.display = DisplayStyle.Flex;
@@ -743,8 +798,10 @@ namespace Game.Menu {
         /// <summary>
         /// Rebuilds the party UI containers (list of members and local profile) for a specific lobby.
         /// </summary>
-        private async UniTaskVoid UpdateGlobalPartyUI(Lobby lobby) {
+        private async UniTask UpdateGlobalPartyUI(Lobby lobby, int refreshSerial) {
             if(uiManager == null) return;
+            if(UiTaskToken.IsCancellationRequested) return;
+            if(refreshSerial != _partyUiRefreshSerial) return;
 
             if(_partyMembersList != null) _partyMembersList.Clear();
             if(_localProfileContainer != null) _localProfileContainer.Clear();
@@ -776,6 +833,10 @@ namespace Game.Menu {
                 } else {
                     await CreatePlayerRow(displayName, member.Id, iconId, false, _partyMembersList, member.Id == hostId,
                         inMyParty, avatarHidden);
+                }
+
+                if(UiTaskToken.IsCancellationRequested || refreshSerial != _partyUiRefreshSerial) {
+                    return;
                 }
             }
 
@@ -900,6 +961,10 @@ namespace Game.Menu {
                 avatarBox.RemoveFromClassList("player-icon-white");
 
                 var avatarTex = await SteamManager.Instance.GetAvatarAsync(id);
+                if(UiTaskToken.IsCancellationRequested) {
+                    return;
+                }
+
                 if(avatarTex != null) {
                     avatarBox.style.backgroundImage = new StyleBackground(avatarTex);
                 } else {
@@ -953,6 +1018,11 @@ namespace Game.Menu {
             _localXpRow = null;
             _localXpBar = null;
             _localLevelLabel = null;
+        }
+
+        protected override void OnCleanup() {
+            CancelUiTaskCancellationSource();
+            base.OnCleanup();
         }
 
 

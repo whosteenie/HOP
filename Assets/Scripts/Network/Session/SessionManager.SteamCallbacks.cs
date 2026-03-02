@@ -85,7 +85,12 @@ namespace Network {
             NotifyPartyStateChanged();
         }
 
-        private async void OnGameLobbyJoinRequested(Lobby lobby, SteamId id) {
+        private void OnGameLobbyJoinRequested(Lobby lobby, SteamId id) {
+            LaunchSessionTask(HandleGameLobbyJoinRequestedAsync(lobby, id),
+                "SteamGameLobbyJoinRequested");
+        }
+
+        private async UniTask HandleGameLobbyJoinRequestedAsync(Lobby lobby, SteamId id) {
             try {
                 if(Debug.isDebugBuild) {
                     Debug.Log($"[SessionManager] Accepted Invite to Lobby {lobby.Id}");
@@ -106,27 +111,32 @@ namespace Network {
 
         private void OnGameRichPresenceJoinRequested(Friend friend, string connect) {
             if(string.IsNullOrEmpty(connect)) return;
-            HandleSteamConnectStringAsync(connect).Forget();
+            LaunchSessionTask(HandleSteamConnectStringAsync(connect),
+                "SteamRichPresenceJoinRequested");
         }
 
-        private async UniTaskVoid HandleSteamConnectStringAsync(string connect) {
+        private async UniTask HandleSteamConnectStringAsync(string connect) {
             // Expected formats:
             // - "UGS_PARTY_CODE:<lobbyCode>"
             // - "UGS_MATCH_ID:<lobbyId>"
             const string partyPrefix = "UGS_PARTY_CODE:";
             const string matchPrefix = "UGS_MATCH_ID:";
 
-            if(connect.StartsWith(partyPrefix)) {
-                var code = connect[partyPrefix.Length..];
-                if(string.IsNullOrEmpty(code)) return;
-                await JoinPartyLobbyByCodeAsync(code);
-                return;
-            }
+            try {
+                if(connect.StartsWith(partyPrefix)) {
+                    var code = connect[partyPrefix.Length..];
+                    if(string.IsNullOrEmpty(code)) return;
+                    await JoinPartyLobbyByCodeAsync(code);
+                    return;
+                }
 
-            if(connect.StartsWith(matchPrefix)) {
-                var lobbyId = connect[matchPrefix.Length..];
-                if(string.IsNullOrEmpty(lobbyId)) return;
-                await JoinMatchLobbyByIdAsync(lobbyId);
+                if(connect.StartsWith(matchPrefix)) {
+                    var lobbyId = connect[matchPrefix.Length..];
+                    if(string.IsNullOrEmpty(lobbyId)) return;
+                    await JoinMatchLobbyByIdAsync(lobbyId);
+                }
+            } catch(Exception ex) {
+                Debug.LogWarning($"[SessionManager] Failed to handle Steam connect string '{connect}': {ex.Message}");
             }
         }
 

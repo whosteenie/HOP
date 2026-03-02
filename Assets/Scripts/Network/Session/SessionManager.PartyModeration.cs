@@ -37,7 +37,8 @@ namespace Network {
                 return;
             }
 
-            KickPartyMemberAsync(targetUgsId, targetId).Forget();
+            LaunchSessionTask(KickPartyMemberAsync(targetUgsId, targetId),
+                "KickPartyMember");
         }
 
         /// <summary>
@@ -64,7 +65,8 @@ namespace Network {
             }
 
             if(targetUgsId == localId) return;
-            PromotePartyHostAsync(targetUgsId, targetId).Forget();
+            LaunchSessionTask(PromotePartyHostAsync(targetUgsId, targetId),
+                "PromotePartyHost");
         }
 
         private bool TryResolvePartyPlayerIdFromSteamId(SteamId steamId, out string ugsPlayerId) {
@@ -86,7 +88,7 @@ namespace Network {
             return false;
         }
 
-        private async UniTaskVoid KickPartyMemberAsync(string targetUgsId, SteamId targetSteamId) {
+        private async UniTask KickPartyMemberAsync(string targetUgsId, SteamId targetSteamId) {
             if(_ugsPartyLobby == null || string.IsNullOrEmpty(_ugsPartyLobby.Id)) return;
 
             try {
@@ -99,7 +101,7 @@ namespace Network {
             }
         }
 
-        private async UniTaskVoid PromotePartyHostAsync(string targetUgsId, SteamId targetSteamId) {
+        private async UniTask PromotePartyHostAsync(string targetUgsId, SteamId targetSteamId) {
             if(_ugsPartyLobby == null || string.IsNullOrEmpty(_ugsPartyLobby.Id)) return;
 
             try {

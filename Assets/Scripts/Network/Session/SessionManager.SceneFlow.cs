@@ -54,11 +54,12 @@ namespace Network {
 
         private void OnSceneLoaded(Scene scene, LoadSceneMode mode) {
             if(IsGameplaySceneName(scene.name)) {
-                OnGameSceneLoadedAsync().Forget();
+                LaunchSessionTask(OnGameSceneLoadedAsync(),
+                    "OnGameSceneLoadedAsync");
             }
         }
 
-        private async UniTaskVoid OnGameSceneLoadedAsync() {
+        private async UniTask OnGameSceneLoadedAsync() {
             try {
                 if(_isLeaving || _isShuttingDown) {
                     if(Debug.isDebugBuild) {
@@ -165,7 +166,7 @@ namespace Network {
             if(isLocalDisconnect || isServerDisconnect) {
                 if(!_expectedDisconnect) {
                     Debug.Log("[SessionManager] Unexpected Disconnect (Kick or Error).");
-                    HandleUnexpectedDisconnect().Forget();
+                    TriggerUnexpectedDisconnectFlow("OnClientDisconnected");
                 } else {
                     _expectedDisconnect = false;
                 }
@@ -183,7 +184,17 @@ namespace Network {
             if(_networkManager != null && _networkManager.IsServer) return; // Only care when we're a client
 
             Debug.Log("[SessionManager] Client stopped unexpectedly (e.g. host left). Sending to main menu.");
-            HandleUnexpectedDisconnect().Forget();
+            TriggerUnexpectedDisconnectFlow("OnClientStopped");
+        }
+
+        private void TriggerUnexpectedDisconnectFlow(string source) {
+            if(_unexpectedDisconnectInFlight || _isLeaving || _isShuttingDown) {
+                return;
+            }
+
+            _unexpectedDisconnectInFlight = true;
+            LaunchSessionTask(HandleUnexpectedDisconnect(source),
+                $"UnexpectedDisconnect/{source}");
         }
 
         /// <summary>
@@ -221,27 +232,38 @@ namespace Network {
         /// Handles cleanup and recovery after an unexpected network disconnect.
         /// Strict flow: fade to black -> screen black -> teardown/cleanup (hidden) -> main menu -> fade in.
         /// </summary>
-        private async UniTaskVoid HandleUnexpectedDisconnect() {
+        private async UniTask HandleUnexpectedDisconnect(string source) {
             var currentScene = SceneManager.GetActiveScene().name;
-            if(Debug.isDebugBuild) Debug.Log($"[SessionManager] HandleUnexpectedDisconnect scene={currentScene}");
+            if(Debug.isDebugBuild) {
+                Debug.Log(
+                    $"[SessionManager] HandleUnexpectedDisconnect source={source} scene={currentScene}");
+            }
             FlowLog.Emit(FlowEventIds.SessionExit,
                 ("reason", "UnexpectedDisconnect"),
                 ("phase", Phase),
                 ("gameplay", IsInGameplay));
-            SetFrontStatus(SessionPhase.Error, "Disconnected from party.");
+            try {
+                SetFrontStatus(SessionPhase.Error, "Disconnected from party.");
 
-            if(currentScene != "MainMenu") {
-                // 1. Capture duplicate FP visuals (synchronous, before any await) so player sees them during fade
-                CaptureDuplicateFpVisualsForDisconnect();
-                // 2. Client fades to black
-                await FadeOutWithFallbackAsync();
-                // 3. Screen is black -> teardown, cleanup, main menu transition (all while hidden)
-                await LeaveToMainMenuAsync(skipFadeOut: true);
-            } else {
-                if(Debug.isDebugBuild) Debug.Log("[SessionManager] HandleUnexpectedDisconnect: already in MainMenu, skipping capture");
-                LeaveLobby();
-                await CleanupNetworkAsync();
-                SetFrontStatus(SessionPhase.Menu, "");
+                if(currentScene != "MainMenu") {
+                    // 1. Capture duplicate FP visuals (synchronous, before any await) so player sees them during fade
+                    CaptureDuplicateFpVisualsForDisconnect();
+                    // 2. Client fades to black
+                    await FadeOutWithFallbackAsync();
+                    // 3. Screen is black -> teardown, cleanup, main menu transition (all while hidden)
+                    await LeaveToMainMenuAsync(skipFadeOut: true);
+                } else {
+                    if(Debug.isDebugBuild) {
+                        Debug.Log(
+                            "[SessionManager] HandleUnexpectedDisconnect: already in MainMenu, skipping capture");
+                    }
+
+                    LeaveLobby();
+                    await CleanupNetworkAsync();
+                    SetFrontStatus(SessionPhase.Menu, "");
+                }
+            } finally {
+                _unexpectedDisconnectInFlight = false;
             }
         }
     }

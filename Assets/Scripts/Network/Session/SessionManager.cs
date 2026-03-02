@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using Cysharp.Threading.Tasks;
 using Game.Match;
 using Game.Settings;
@@ -132,11 +133,13 @@ namespace Network {
 
         private CustomNetworkManager _customNetworkManager;
         private NetworkManager _networkManager;
+        private CancellationTokenSource _sessionLifetimeCts;
         private bool _isLeaving;
         private bool _isShuttingDown;
         private int _leaveSequenceId;
         private int _activeSessionOperations;
         private int _expectedGamePlayerCount = 1;
+        private bool _unexpectedDisconnectInFlight;
         // Track if we expect a disconnect (e.g. intentionally leaving)
         private bool _expectedDisconnect;
 
@@ -189,6 +192,8 @@ namespace Network {
         }
 
         public int ExpectedGamePlayerCount => Mathf.Max(1, _expectedGamePlayerCount);
+        private CancellationToken SessionLifetimeToken =>
+            _sessionLifetimeCts != null ? _sessionLifetimeCts.Token : CancellationToken.None;
 
         // Events
         public event Action<string> FrontStatusChanged;
@@ -211,6 +216,7 @@ namespace Network {
             if(_networkManager != null) {
                 _customNetworkManager = _networkManager.GetComponent<CustomNetworkManager>();
             }
+            _sessionLifetimeCts = new CancellationTokenSource();
 
             SelectedMapSceneName = MatchMapService.DefaultGameplaySceneName;
             SelectedMapId = MatchMapService.DefaultMapId;
@@ -279,16 +285,19 @@ namespace Network {
             }
 
             // Bootstrap UGS identity early so Lobby/Matchmaker/Vivox can rely on it later.
-            UgsAuthService.InitializeAndSignInAsync().Forget();
+            LaunchSessionTask(UgsAuthService.InitializeAndSignInAsync(),
+                "BootstrapUGSAuth");
         }
 
         private void OnDestroy() {
+            CancelSessionLifetimeTasks();
             if(_isShuttingDown) return;
             LeaveLobby();
         }
 
         private void OnApplicationQuit() {
             _isShuttingDown = true;
+            CancelSessionLifetimeTasks();
         }
 
         #endregion
@@ -457,7 +466,7 @@ namespace Network {
                     ("scene", SceneManager.GetActiveScene().name));
 
                 // Cancel any active matchmaking first
-                ClearMatchmakingState();
+                await ClearMatchmakingStateAsync();
                 FlowLog.Emit(FlowEventIds.SessionExit, ("leaveId", leaveId), ("step", "EXIT_MATCHMAKING_CLEARED"));
 
                 if(Game.Audio2.AudioService.Instance != null) {
@@ -495,7 +504,7 @@ namespace Network {
                     ("step", "EXIT_PARTY_FOLLOW_RESET_DONE"));
 
                 LeaveLobby();
-                ClearMatchState();
+                await ClearMatchStateAsync();
                 if(SteamManager.Instance != null) {
                     SteamManager.Instance.ClearAvatarCache();
                 }
@@ -521,17 +530,17 @@ namespace Network {
             }
         }
 
-        private static async UniTask EnsureMainMenuLoadedAndReadyAsync(string currentScene) {
+        private async UniTask EnsureMainMenuLoadedAndReadyAsync(string currentScene) {
             if(currentScene == "MainMenu") return;
 
             SceneManager.LoadScene("MainMenu");
 
-            var sceneLoaded = await WaitForActiveSceneAsync("MainMenu", 15f);
+            var sceneLoaded = await WaitForActiveSceneAsync("MainMenu", 15f, SessionLifetimeToken);
             if(!sceneLoaded) {
                 Debug.LogWarning("[SessionManager] Timed out waiting for MainMenu scene activation during leave flow.");
             }
 
-            var menuReady = await WaitForMainMenuReadyAsync(15f);
+            var menuReady = await WaitForMainMenuReadyAsync(15f, SessionLifetimeToken);
             if(!menuReady) {
                 Debug.LogWarning(
                     "[SessionManager] Timed out waiting for MainMenuManager initialization during leave flow.");
