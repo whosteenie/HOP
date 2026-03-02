@@ -16,6 +16,8 @@ namespace Game.Weapons {
             public bool useCustomViewmodelPose;
             public Vector3 viewmodelLocalPosition = Vector3.zero;
             public Vector3 viewmodelLocalEulerAngles = Vector3.zero;
+            [Tooltip("Optional. Per-weapon grapple animation clip (e.g. A_FP_DGL_Grapple). If unset, controller default is used.")]
+            public AnimationClip grappleClip;
         }
 
         [SerializeField] private PlayerController playerController;

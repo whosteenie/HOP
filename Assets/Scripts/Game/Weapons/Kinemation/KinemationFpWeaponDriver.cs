@@ -26,6 +26,9 @@ namespace Game.Weapons {
         [SerializeField, Range(0f, 1.99f)] private float sprintWalkGaitValue = 1.2f;
         [SerializeField, Range(0f, 1f)] private float equipUnlockNormalizedTime = 0.82f;
 
+        [Header("Grapple")]
+        [SerializeField] private bool enableRuntimeGrappleClavicleOffset;
+
         private GameObject _playerInstance;
         private FPSPlayerSettings _runtimePlayerSettings;
         private FPSPlayer _fpsPlayer;
@@ -63,11 +66,15 @@ namespace Game.Weapons {
         private float _lastEquipSignalTime;
         private bool _hasCachedWristDebugBones;
         private Transform _wristDebugUpperarmLeft;
+        private Transform _wristDebugLowerarmLeft;
         private Transform _wristDebugTwistLeft;
         private Transform _wristDebugHandLeft;
+        private Transform _clavicleLeft;
         private Transform _ikHandLeft;
         private Transform _grappleOrigin; // Optional empty child placed at desired palm position
-        private bool _hasLoggedGrappleOriginChoice;
+        private bool _isRuntimeGrappleClavicleOffsetActive;
+        private Vector3 _runtimeGrappleClavicleOffset;
+        private int _runtimeGrappleOffsetWeaponIndex;
         private readonly HashSet<int> _suppressedMuzzleFxWeaponIds = new();
         private bool _suppressDrakeTopShellEjectOnNextReload;
         private bool _suppressDrakeBottomShellOnNextReload;
@@ -135,20 +142,102 @@ namespace Game.Weapons {
             typeof(Pdw90Animation).GetField("_smoothAmmoWeight", BindingFlags.Instance | BindingFlags.NonPublic);
         private static readonly int IdleHash = Animator.StringToHash("Idle");
         private static readonly int GrappleHash = Animator.StringToHash("Grapple");
+        private static readonly int GrappleWeaponIndexHash = Animator.StringToHash("GrappleWeaponIndex");
         private static readonly Vector3 FixedUpperarmLeftPositionOffset = new(0f, 0.027f, 0f);
+
+        private const float RuntimeGrappleClavicleOffsetScale = 1f;
+        private const float GrappleOffsetBlendInNormalized = 0.06f;
+        private const float GrappleOffsetBlendOutStartNormalized = 0.82f;
+        private const float GrappleOffsetBlendOutEndNormalized = 0.98f;
+
+        /// <summary>Animator layer index where the Grapple blend tree runs (left-hand/grapple layer).</summary>
+        private const int GrappleLayerIndex = 8;
         private static readonly Vector3 FixedTwistLeftEulerOffset = new(0f, -7.5f, 0f);
         private static readonly int IsInAir = Animator.StringToHash("IsInAir");
+        private static readonly Vector3 DefaultAkViewmodelLocalPosition = new(0.1699999f, -1.750005f, 0f);
+        private static bool s_hasAkViewmodelReference;
+        private static Vector3 s_akViewmodelLocalPosition = DefaultAkViewmodelLocalPosition;
+        private static bool s_hasAkAnchorFrame1CameraReference;
+        private static Vector3 s_akAnchorFrame1CameraLocal;
 
         private void OnEnable() {
             EventBus.Subscribe<GrappleStartedEvent>(OnGrappleStarted);
+            EventBus.Subscribe<GrappleAnimFirstFrameEvent>(OnGrappleAnimFirstFrame);
+            EventBus.Subscribe<GrappleAnimHideEvent>(OnGrappleAnimHide);
+            EventBus.Subscribe<GrappleEndedEvent>(OnGrappleEnded);
         }
 
         private void OnDisable() {
             EventBus.Unsubscribe<GrappleStartedEvent>(OnGrappleStarted);
+            EventBus.Unsubscribe<GrappleAnimFirstFrameEvent>(OnGrappleAnimFirstFrame);
+            EventBus.Unsubscribe<GrappleAnimHideEvent>(OnGrappleAnimHide);
+            EventBus.Unsubscribe<GrappleEndedEvent>(OnGrappleEnded);
+            ClearRuntimeGrappleClavicleOffset();
+        }
+
+        private void OnGrappleAnimHide(GrappleAnimHideEvent _) {
+            ClearRuntimeGrappleClavicleOffset();
+        }
+
+        private void OnGrappleEnded(GrappleEndedEvent _) {
+            ClearRuntimeGrappleClavicleOffset();
+        }
+
+        private void OnGrappleAnimFirstFrame(GrappleAnimFirstFrameEvent _) {
+            if(!enableRuntimeGrappleClavicleOffset) return;
+            if(_playerInstance == null || !_playerInstance.activeInHierarchy) return;
+            CacheWristDebugBonesIfNeeded();
+            if(_clavicleLeft == null && !TryFindChildByName(_playerInstance.transform, "clavicle_l", out _clavicleLeft)) {
+                return;
+            }
+            var anchor = GetGrappleCalibrationAnchor();
+            if(anchor == null) return;
+
+            var idx = GetGrappleWeaponIndex(_activeWeaponSoundKey, _activeWeapon);
+
+            if(idx == 0) {
+                if(TryGetWeaponCameraTransform(out var cameraTransform)) {
+                    s_akAnchorFrame1CameraLocal = cameraTransform.InverseTransformPoint(anchor.position);
+                    s_hasAkAnchorFrame1CameraReference = true;
+                }
+                return;
+            }
+
+            Vector3 resolvedLocalOffset;
+            if(s_hasAkAnchorFrame1CameraReference && TryGetWeaponCameraTransform(out var frameCameraTransform)) {
+                var currentCameraLocal = frameCameraTransform.InverseTransformPoint(anchor.position);
+                var cameraLocalOffset = s_akAnchorFrame1CameraLocal - currentCameraLocal;
+                var worldOffset = frameCameraTransform.TransformDirection(cameraLocalOffset);
+                resolvedLocalOffset = _clavicleLeft.parent != null
+                    ? _clavicleLeft.parent.InverseTransformDirection(worldOffset)
+                    : worldOffset;
+            } else {
+                // Fallback: convert root-delta estimate into clavicle-parent local once at frame1.
+                var worldOffset = transform.parent != null
+                    ? transform.parent.TransformDirection(_runtimeGrappleClavicleOffset)
+                    : _runtimeGrappleClavicleOffset;
+                resolvedLocalOffset = _clavicleLeft.parent != null
+                    ? _clavicleLeft.parent.InverseTransformDirection(worldOffset)
+                    : worldOffset;
+            }
+
+            _runtimeGrappleClavicleOffset = resolvedLocalOffset;
+            _isRuntimeGrappleClavicleOffsetActive = _runtimeGrappleClavicleOffset.sqrMagnitude > 0.00000001f;
         }
 
         private void OnGrappleStarted(GrappleStartedEvent _) {
-            if(_fpsAnimator != null) _fpsAnimator.SetTrigger(GrappleHash);
+            ApplyGrappleWeaponIndex();
+            if(enableRuntimeGrappleClavicleOffset) {
+                PrepareRuntimeGrappleClavicleOffset();
+                _isRuntimeGrappleClavicleOffsetActive = false;
+            } else {
+                _isRuntimeGrappleClavicleOffsetActive = false;
+                _runtimeGrappleClavicleOffset = Vector3.zero;
+                _runtimeGrappleOffsetWeaponIndex = 0;
+            }
+            if(_fpsAnimator != null) {
+                _fpsAnimator.SetTrigger(GrappleHash);
+            }
         }
 
         public void Configure(GameObject playerPrefab, GameObject fpWeaponPrefab, bool disableWeaponSounds,
@@ -237,6 +326,7 @@ namespace Game.Weapons {
                 _lastEquipSignalTime = Time.time;
                 _activeWeapon.OnEquipped();
             }
+            ApplyGrappleWeaponIndex();
         }
 
         public void PlayFireAnimation(int authoritativeAmmoBeforeShot = -1) {
@@ -975,6 +1065,64 @@ namespace Game.Weapons {
             return settingsName.Contains("kar") || settingsName.Contains("kar98");
         }
 
+        /// <summary>
+        /// Stable weapon bucket mapping used for runtime grapple clavicle offsets.
+        /// 0=AK, 1=M1911, 2=PDW, 3=Kar, 4=Drake, 5=DGL, -1=unknown.
+        /// </summary>
+        private static int GetGrappleWeaponIndex(string weaponSoundKey, FPSWeapon activeWeapon) {
+            var key = (weaponSoundKey ?? "").ToLowerInvariant();
+            var name = activeWeapon?.name?.ToLowerInvariant() ?? "";
+            var settingsName = activeWeapon?.weaponSettings?.name?.ToLowerInvariant() ?? "";
+            foreach(var term in new[] { key, name, settingsName }) {
+                if(string.IsNullOrEmpty(term)) continue;
+                if(term.Contains("dgl") || term.Contains("deagle") || term.Contains("desert.eagle")) return 5;
+                if(term.Contains("drake") || term.Contains("shotgun")) return 4;
+                if(term.Contains("ak") || term.Contains("akx")) return 0;
+                if(term.Contains("m1911") || term.Contains("1911") || term.Contains("pistol")) return 1;
+                if(term.Contains("pdw") || term.Contains("p90")) return 2;
+                if(term.Contains("kar") || term.Contains("kar98")) return 3;
+            }
+            return -1;
+        }
+
+        private void ApplyGrappleWeaponIndex() {
+            if(_fpsAnimator == null) return;
+            var weaponIndex = GetGrappleWeaponIndex(_activeWeaponSoundKey, _activeWeapon);
+            if(weaponIndex < 0) weaponIndex = 0;
+            _fpsAnimator.SetFloat(GrappleWeaponIndexHash, weaponIndex);
+        }
+
+        private void PrepareRuntimeGrappleClavicleOffset() {
+            if(!enableRuntimeGrappleClavicleOffset) {
+                _runtimeGrappleClavicleOffset = Vector3.zero;
+                _runtimeGrappleOffsetWeaponIndex = 0;
+                _isRuntimeGrappleClavicleOffsetActive = false;
+                return;
+            }
+            if(_activeWeapon == null) {
+                TryCacheActiveWeapon();
+            }
+
+            _runtimeGrappleOffsetWeaponIndex = GetGrappleWeaponIndex(_activeWeaponSoundKey, _activeWeapon);
+            if(_runtimeGrappleOffsetWeaponIndex == 0) {
+                s_akViewmodelLocalPosition = transform.localPosition;
+                s_hasAkViewmodelReference = true;
+                _runtimeGrappleClavicleOffset = Vector3.zero;
+                _isRuntimeGrappleClavicleOffsetActive = false;
+                return;
+            }
+
+            var akReference = s_hasAkViewmodelReference ? s_akViewmodelLocalPosition : DefaultAkViewmodelLocalPosition;
+            _runtimeGrappleClavicleOffset = akReference - transform.localPosition;
+            _isRuntimeGrappleClavicleOffsetActive = false;
+        }
+
+        private void ClearRuntimeGrappleClavicleOffset() {
+            _isRuntimeGrappleClavicleOffsetActive = false;
+            _runtimeGrappleClavicleOffset = Vector3.zero;
+            _runtimeGrappleOffsetWeaponIndex = 0;
+        }
+
         private bool IsReloadStateBlockingFire() {
             if(_activeWeapon == null) {
                 return false;
@@ -1274,37 +1422,31 @@ namespace Game.Weapons {
         /// </summary>
         public Transform GetGrappleOriginFpTransform() {
             CacheWristDebugBonesIfNeeded();
-            Transform chosen = null;
-            var source = "";
             if(_grappleOrigin != null) {
-                chosen = _grappleOrigin;
-                source = "GrappleOrigin";
-            } else if(_ikHandLeft != null) {
-                chosen = _ikHandLeft;
-                source = "ik_hand_l";
-            } else if(_wristDebugHandLeft != null) {
-                chosen = _wristDebugHandLeft;
-                source = "hand_l";
+                return _grappleOrigin;
             }
-
-            if(!_hasLoggedGrappleOriginChoice && chosen != null) {
-                _hasLoggedGrappleOriginChoice = true;
-                var path = chosen ? GetTransformPath(chosen) : "(null)";
-                Debug.Log($"[KinemationFpWeaponDriver] Grapple origin: {source} ({path})", chosen);
+            if(_ikHandLeft != null) {
+                return _ikHandLeft;
             }
-
-            return chosen;
+            if(_wristDebugHandLeft != null) {
+                return _wristDebugHandLeft;
+            }
+            return null;
         }
 
-        private static string GetTransformPath(Transform t) {
-            if(t == null) return "";
-            var parts = new System.Collections.Generic.List<string>();
-            while(t != null) {
-                parts.Add(t.name);
-                t = t.parent;
-            }
-            parts.Reverse();
-            return string.Join("/", parts);
+        private bool TryGetWeaponCameraTransform(out Transform cameraTransform) {
+            cameraTransform = null;
+            var cameraComponent = GetComponentInParent<Camera>();
+            if(cameraComponent == null) return false;
+            cameraTransform = cameraComponent.transform;
+            return cameraTransform != null;
+        }
+
+        private Transform GetGrappleCalibrationAnchor() {
+            if(_ikHandLeft != null) return _ikHandLeft;
+            if(_wristDebugHandLeft != null) return _wristDebugHandLeft;
+            if(_grappleOrigin != null) return _grappleOrigin;
+            return _clavicleLeft;
         }
 
         public bool AreKinemationSoundsEnabled() {
@@ -1574,7 +1716,9 @@ namespace Game.Weapons {
             if(_hasCachedWristDebugBones || _playerInstance == null) return;
 
             var root = _playerInstance.transform;
+            TryFindChildByName(root, "clavicle_l", out _clavicleLeft);
             TryFindChildByName(root, "upperarm_l", out _wristDebugUpperarmLeft);
+            TryFindChildByName(root, "lowerarm_l", out _wristDebugLowerarmLeft);
             TryFindChildByName(root, "lowerarm_twist_01_l", out _wristDebugTwistLeft);
             TryFindChildByName(root, "hand_l", out _wristDebugHandLeft);
             TryFindChildByName(root, "ik_hand_l", out _ikHandLeft);
@@ -1622,6 +1766,7 @@ namespace Game.Weapons {
             if(activeWeapon == null) {
                 _activeWeaponSoundKey = "unknown";
                 _activeWeaponFireSoundId = string.Empty;
+                ApplyGrappleWeaponIndex();
                 return;
             }
 
@@ -1630,6 +1775,7 @@ namespace Game.Weapons {
             _activeWeaponFireSoundId = settings != null && HasAnyValidAudioClip(settings.fireSounds)
                 ? KinemationSoundIdUtility.BuildFireSoundId(_activeWeaponSoundKey)
                 : string.Empty;
+            ApplyGrappleWeaponIndex();
         }
 
         private void SuppressInternalMuzzleFx(FPSWeapon activeWeapon) {
@@ -2000,10 +2146,55 @@ namespace Game.Weapons {
         }
 
         private void LateUpdate() {
+            ApplyRuntimeGrappleClavicleOffset();
             ApplyFixedWristOffsets();
             ApplySuppressedDrakeTopShellPose();
             ApplySuppressedDrakeBottomShellPose();
             ApplyHiddenKarLoopBulletPose();
+        }
+
+        private void ApplyRuntimeGrappleClavicleOffset() {
+            if(!enableRuntimeGrappleClavicleOffset) return;
+            if(!_isRuntimeGrappleClavicleOffsetActive || _runtimeGrappleClavicleOffset.sqrMagnitude <= 0.00000001f) return;
+            if(_playerInstance == null || !_playerInstance.activeInHierarchy) return;
+
+            CacheWristDebugBonesIfNeeded();
+            if(_clavicleLeft == null && !TryFindChildByName(_playerInstance.transform, "clavicle_l", out _clavicleLeft)) {
+                return;
+            }
+
+            var runtimeWeight = ComputeRuntimeGrappleOffsetWeight();
+            if(runtimeWeight <= 0.0001f) return;
+
+            var appliedOffset = _runtimeGrappleClavicleOffset * (RuntimeGrappleClavicleOffsetScale * runtimeWeight);
+            _clavicleLeft.localPosition += appliedOffset;
+        }
+
+        private float ComputeRuntimeGrappleOffsetWeight() {
+            if(_fpsAnimator == null || GrappleLayerIndex >= _fpsAnimator.layerCount) return 1f;
+
+            var clipInfos = _fpsAnimator.GetCurrentAnimatorClipInfo(GrappleLayerIndex);
+            if(clipInfos == null || clipInfos.Length == 0) return 0f;
+
+            var clipWeight = 0f;
+            for(var i = 0; i < clipInfos.Length; i++) {
+                var clip = clipInfos[i].clip;
+                if(clip == null) continue;
+                if(clip.name.IndexOf("Grapple", System.StringComparison.OrdinalIgnoreCase) < 0) continue;
+                clipWeight = Mathf.Max(clipWeight, clipInfos[i].weight);
+            }
+            if(clipWeight <= 0.0001f) return 0f;
+
+            var state = _fpsAnimator.GetCurrentAnimatorStateInfo(GrappleLayerIndex);
+            var normalized = Mathf.Repeat(state.normalizedTime, 1f);
+            var inWeight = GrappleOffsetBlendInNormalized > 0f
+                ? Mathf.Clamp01(normalized / GrappleOffsetBlendInNormalized)
+                : 1f;
+            var outWeight = normalized <= GrappleOffsetBlendOutStartNormalized
+                ? 1f
+                : 1f - Mathf.Clamp01((normalized - GrappleOffsetBlendOutStartNormalized) /
+                    Mathf.Max(0.0001f, GrappleOffsetBlendOutEndNormalized - GrappleOffsetBlendOutStartNormalized));
+            return clipWeight * inWeight * outWeight;
         }
 
         private void ApplySuppressedDrakeTopShellPose() {
