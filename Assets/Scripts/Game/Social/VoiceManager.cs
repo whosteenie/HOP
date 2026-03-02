@@ -274,7 +274,8 @@ namespace Game.Social {
                             await LeaveCurrentChannelInternalAsync("SwitchChannel");
                         }
 
-                        if(Debug.isDebugBuild && ShouldEmitThrottledLog(ref _nextRouteSyncLogTime, 1.5f)) {
+                        if(!Application.isEditor && Debug.isDebugBuild &&
+                           ShouldEmitThrottledLog(ref _nextRouteSyncLogTime, 1.5f)) {
                             Debug.Log(
                                 $"[HOPFLOW][VIVOX] JOIN_BEGIN context={context} channel={channelName} editor={Application.isEditor} batch={Application.isBatchMode}");
                         }
@@ -292,8 +293,10 @@ namespace Game.Social {
                         if(!Debug.isDebugBuild) return true;
                         Debug.Log(
                             $"[VoiceManager] Joined channel '{channelName}'. ActiveChannels={VivoxService.Instance.ActiveChannels.Count}");
-                        Debug.Log(
-                            $"[HOPFLOW][VIVOX] JOIN_OK context={context} channel={channelName} editor={Application.isEditor} batch={Application.isBatchMode}");
+                        if(!Application.isEditor) {
+                            Debug.Log(
+                                $"[HOPFLOW][VIVOX] JOIN_OK context={context} channel={channelName} editor={Application.isEditor} batch={Application.isBatchMode}");
+                        }
 
                         return true;
                     } catch(Exception ex) {
@@ -322,7 +325,7 @@ namespace Game.Social {
                 } else {
                     Debug.LogError($"[VoiceManager] Join Channel Failed: {lastException.Message}");
                 }
-                if(Debug.isDebugBuild) {
+                if(!Application.isEditor && Debug.isDebugBuild) {
                     Debug.LogWarning(
                         $"[HOPFLOW][VIVOX] JOIN_FAIL context={context} channel={channelName} editor={Application.isEditor} batch={Application.isBatchMode}");
                 }
@@ -331,7 +334,7 @@ namespace Game.Social {
                 if(ShouldEmitThrottledLog(ref _nextJoinFailureLogTime, 5f)) {
                     Debug.LogError($"[VoiceManager] Join Channel Failed: {e.Message}");
                 }
-                if(Debug.isDebugBuild) {
+                if(!Application.isEditor && Debug.isDebugBuild) {
                     Debug.LogWarning(
                         $"[HOPFLOW][VIVOX] JOIN_FAIL context={context} channel={channelName} editor={Application.isEditor} batch={Application.isBatchMode}");
                 }
@@ -385,7 +388,8 @@ namespace Game.Social {
 
         private async Task EnsureCanonicalChannelAsync(string canonicalChannelName) {
             try {
-                if(Debug.isDebugBuild && ShouldEmitThrottledLog(ref _nextRouteSyncLogTime, 1.5f)) {
+                if(!Application.isEditor && Debug.isDebugBuild &&
+                   ShouldEmitThrottledLog(ref _nextRouteSyncLogTime, 1.5f)) {
                     Debug.Log(
                         $"[HOPFLOW][VIVOX] ROUTE_RESOLVED channel={canonicalChannelName} current={_currentChannelName} editor={Application.isEditor} batch={Application.isBatchMode}");
                 }

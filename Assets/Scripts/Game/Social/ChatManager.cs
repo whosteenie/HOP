@@ -119,7 +119,7 @@ namespace Game.Social {
                 if(string.IsNullOrWhiteSpace(message)) return;
 
                 if(VivoxService.Instance == null || VoiceManager.Instance == null || !VoiceManager.Instance.IsLoggedIn) {
-                    if(Debug.isDebugBuild) {
+                    if(!Application.isEditor && Debug.isDebugBuild) {
                         Debug.LogWarning("[HOPFLOW][VIVOX] VIVOX_TEXT_BLOCKED_NOT_READY reason=NotLoggedInOrServiceMissing");
                     }
                     SendSystemMessage("Chat unavailable.");
@@ -133,7 +133,7 @@ namespace Game.Social {
                     var canonicalJoined =
                         await VoiceManager.Instance.EnsureChannelJoinedAsync(canonicalChannelName, context: "ChatSend");
                     if(canonicalJoined == false) {
-                        if(Debug.isDebugBuild) {
+                        if(!Application.isEditor && Debug.isDebugBuild) {
                             Debug.LogWarning(
                                 $"[HOPFLOW][VIVOX] VIVOX_TEXT_BLOCKED_NOT_READY reason=CanonicalJoinFailed channel={canonicalChannelName}");
                         }
@@ -145,7 +145,7 @@ namespace Game.Social {
                 } else if(VoiceManager.Instance.TryGetJoinedChannelName(out channelName) == false) {
                     var joined = await TryEnsureActiveChannelAsync();
                     if(joined == false || VoiceManager.Instance.TryGetJoinedChannelName(out channelName) == false) {
-                        if(Debug.isDebugBuild) {
+                        if(!Application.isEditor && Debug.isDebugBuild) {
                             Debug.LogWarning(
                                 "[HOPFLOW][VIVOX] VIVOX_TEXT_BLOCKED_NOT_READY reason=NoJoinedChannelAfterEnsure");
                         }

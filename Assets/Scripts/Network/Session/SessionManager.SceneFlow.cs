@@ -96,6 +96,10 @@ namespace Network {
                 // retain text chat parity with other match flows.
                 TryJoinVoiceForActiveMatch("OnGameSceneLoadedAsync");
 
+                // Mark runtime phase as in-game once gameplay scene is active.
+                // Lobby polling paths already respect this phase and will stop polling while playing.
+                SetFrontStatus(SessionPhase.InGame, "");
+
                 if(_networkManager == null) _networkManager = NetworkManager.Singleton;
                 if(_networkManager != null && _networkManager.IsServer) {
                     IsInGameplay = true;
