@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Unity.Netcode;
 using UnityEngine;
 using Game.Player;
@@ -37,10 +38,16 @@ namespace Game.Match {
 
         // Runtime State
         private readonly NetworkVariable<HillState> _currentState = new();
+        private readonly Dictionary<ulong, PlayerController> _trackedPlayers = new();
+        private readonly List<ulong> _staleTrackedPlayers = new();
         
         private float _timer;
         private bool _isMoving;
         private Vector3 _targetPosition;
+        private bool _networkCallbacksRegistered;
+        private bool _pendingTrackedPlayersRefresh;
+        private float _nextTrackedPlayersRefreshTime;
+        private const float TrackedPlayersRefreshIntervalSeconds = 1f;
         private float EffectiveMoveSpeed =>
             MatchSettingsManager.Instance != null
                 ? Mathf.Max(0.1f, MatchSettingsManager.Instance.GetKothHillSpeed())
@@ -66,6 +73,8 @@ namespace Game.Match {
                 _targetPosition.Normalize();
                 
                 _isMoving = true;
+                RegisterNetworkCallbacks();
+                RefreshTrackedPlayersFromNetwork();
             }
 
             _currentState.OnValueChanged += OnStateChanged;
@@ -75,6 +84,13 @@ namespace Game.Match {
         public override void OnNetworkDespawn() {
             base.OnNetworkDespawn();
             _currentState.OnValueChanged -= OnStateChanged;
+
+            if(IsServer) {
+                UnregisterNetworkCallbacks();
+            }
+
+            _trackedPlayers.Clear();
+            _staleTrackedPlayers.Clear();
         }
 
         private void OnStateChanged(HillState previous, HillState current) {
@@ -97,6 +113,9 @@ namespace Game.Match {
             }
 
             if (!IsServer) return;
+            if(_pendingTrackedPlayersRefresh || Time.unscaledTime >= _nextTrackedPlayersRefreshTime) {
+                RefreshTrackedPlayersFromNetwork();
+            }
 
             // Roomba Movement Logic
             // Move forward in current direction (_targetPosition is used as direction vector here)
@@ -137,9 +156,14 @@ namespace Game.Match {
             var teamACount = 0;
             var teamBCount = 0;
 
-            var players = FindObjectsByType<PlayerController>(FindObjectsSortMode.None);
-            foreach (var player in players) {
-                if(player == null || !player.IsSpawned || player.netIsDead.Value) continue;
+            _staleTrackedPlayers.Clear();
+            foreach(var (clientId, player) in _trackedPlayers) {
+                if(player == null || !player.IsSpawned) {
+                    _staleTrackedPlayers.Add(clientId);
+                    continue;
+                }
+
+                if(player.netIsDead.Value) continue;
                 if(!IsPointInsideZone(player.transform.position)) continue;
 
                 var teamMgr = player.TeamManager;
@@ -156,6 +180,12 @@ namespace Game.Match {
                         break;
                     default:
                         throw new ArgumentOutOfRangeException();
+                }
+            }
+
+            if(_staleTrackedPlayers.Count > 0) {
+                foreach(var clientId in _staleTrackedPlayers) {
+                    _trackedPlayers.Remove(clientId);
                 }
             }
 
@@ -179,6 +209,95 @@ namespace Game.Match {
             if (_currentState.Value != newState) {
                 _currentState.Value = newState;
             }
+        }
+
+        private void RegisterNetworkCallbacks() {
+            if(_networkCallbacksRegistered) return;
+
+            var networkManager = NetworkManager.Singleton;
+            if(networkManager == null) return;
+
+            networkManager.OnClientConnectedCallback += OnClientConnected;
+            networkManager.OnClientDisconnectCallback += OnClientDisconnected;
+            _networkCallbacksRegistered = true;
+        }
+
+        private void UnregisterNetworkCallbacks() {
+            if(!_networkCallbacksRegistered) return;
+
+            var networkManager = NetworkManager.Singleton;
+            if(networkManager != null) {
+                networkManager.OnClientConnectedCallback -= OnClientConnected;
+                networkManager.OnClientDisconnectCallback -= OnClientDisconnected;
+            }
+
+            _networkCallbacksRegistered = false;
+        }
+
+        private void OnClientConnected(ulong clientId) {
+            if(!IsServer) return;
+            TrackConnectedClient(clientId);
+        }
+
+        private void OnClientDisconnected(ulong clientId) {
+            if(!IsServer) return;
+            _trackedPlayers.Remove(clientId);
+        }
+
+        private void RefreshTrackedPlayersFromNetwork() {
+            var networkManager = NetworkManager.Singleton;
+            if(networkManager == null) {
+                _trackedPlayers.Clear();
+                _pendingTrackedPlayersRefresh = false;
+                _nextTrackedPlayersRefreshTime = Time.unscaledTime + TrackedPlayersRefreshIntervalSeconds;
+                return;
+            }
+
+            _staleTrackedPlayers.Clear();
+            foreach(var clientId in _trackedPlayers.Keys) {
+                if(!networkManager.ConnectedClients.ContainsKey(clientId)) {
+                    _staleTrackedPlayers.Add(clientId);
+                }
+            }
+
+            if(_staleTrackedPlayers.Count > 0) {
+                foreach(var clientId in _staleTrackedPlayers) {
+                    _trackedPlayers.Remove(clientId);
+                }
+
+                _staleTrackedPlayers.Clear();
+            }
+
+            foreach(var clientId in networkManager.ConnectedClientsIds) {
+                TrackConnectedClient(clientId);
+            }
+
+            _pendingTrackedPlayersRefresh = false;
+            _nextTrackedPlayersRefreshTime = Time.unscaledTime + TrackedPlayersRefreshIntervalSeconds;
+        }
+
+        private void TrackConnectedClient(ulong clientId) {
+            var networkManager = NetworkManager.Singleton;
+            if(networkManager == null) return;
+
+            if(!networkManager.ConnectedClients.TryGetValue(clientId, out var client)) {
+                _trackedPlayers.Remove(clientId);
+                return;
+            }
+
+            var playerObject = client.PlayerObject;
+            if(playerObject == null) {
+                _pendingTrackedPlayersRefresh = true;
+                return;
+            }
+
+            var player = playerObject.GetComponent<PlayerController>();
+            if(player == null) {
+                _trackedPlayers.Remove(clientId);
+                return;
+            }
+
+            _trackedPlayers[clientId] = player;
         }
 
         private bool IsPointInsideZone(Vector3 worldPoint) {
