@@ -142,7 +142,7 @@ namespace Game.Menu.Options {
                     if(char.IsDigit(c)) filtered += c;
                     else if(c == '.' && !isPercentage && !filtered.Contains(".")) filtered += c;
                 }
-                filtered = isPercentage ? (filtered.Length > 3 ? filtered[..3] : filtered) : (filtered.Length > 5 ? filtered[..5] : filtered);
+                filtered = isPercentage ? filtered.Length > 3 ? filtered[..3] : filtered : filtered.Length > 5 ? filtered[..5] : filtered;
                 if(isPercentage && !string.IsNullOrEmpty(filtered)) filtered += "%";
                 if(filtered != evt.newValue) textField.value = filtered;
             };

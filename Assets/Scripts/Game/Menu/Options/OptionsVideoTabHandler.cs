@@ -299,11 +299,11 @@ namespace Game.Menu.Options {
                    IndexChanged(_msaaDropdown, _originalMsaa) ||
                    FloatChanged(_shadowDistanceSlider?.value, _originalShadowDistance) ||
                    IndexChanged(_shadowResolutionDropdown, _originalShadowResolution) ||
-                   (OptionsSettingsHelpers.GetCheckboxValue(_bloomButton) != _originalBloom) ||
-                   (OptionsSettingsHelpers.GetCheckboxValue(_motionBlurButton) != _originalMotionBlur) ||
-                   (OptionsSettingsHelpers.GetCheckboxValue(_filmGrainButton) != _originalFilmGrain) ||
-                   (OptionsSettingsHelpers.GetCheckboxValue(_vignetteButton) != _originalVignette) ||
-                   (OptionsSettingsHelpers.GetCheckboxValue(_vsyncButton) != _originalVsync) ||
+                   OptionsSettingsHelpers.GetCheckboxValue(_bloomButton) != _originalBloom ||
+                   OptionsSettingsHelpers.GetCheckboxValue(_motionBlurButton) != _originalMotionBlur ||
+                   OptionsSettingsHelpers.GetCheckboxValue(_filmGrainButton) != _originalFilmGrain ||
+                   OptionsSettingsHelpers.GetCheckboxValue(_vignetteButton) != _originalVignette ||
+                   OptionsSettingsHelpers.GetCheckboxValue(_vsyncButton) != _originalVsync ||
                    IndexChanged(_fpsDropdown, _originalTargetFPS);
         }
 

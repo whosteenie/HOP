@@ -159,12 +159,12 @@ namespace Game.Menu.Options {
             var hasKeybind = KeybindManager.Instance != null && KeybindManager.Instance.HasPendingBindings();
             return hasKeybind ||
                    FloatChanged(_sensitivitySlider?.value, _originalSensitivity) ||
-                   (OptionsSettingsHelpers.GetCheckboxValue(_invertYButton) != _originalInvertY) ||
-                   (OptionsSettingsHelpers.GetCheckboxValue(_playerTrailsButton) != _originalPlayerTrails) ||
-                   (OptionsSettingsHelpers.GetCheckboxValue(_streamerModeButton) != _originalStreamerMode) ||
-                   (OptionsSettingsHelpers.GetCheckboxValue(_holdMantleButton) != _originalHoldMantle) ||
-                   (OptionsSettingsHelpers.GetCheckboxValue(_profanityFilterButton) != _originalProfanityFilter) ||
-                   (OptionsSettingsHelpers.GetCheckboxValue(_autoWallRunButton) != _originalAutoWallRun);
+                   OptionsSettingsHelpers.GetCheckboxValue(_invertYButton) != _originalInvertY ||
+                   OptionsSettingsHelpers.GetCheckboxValue(_playerTrailsButton) != _originalPlayerTrails ||
+                   OptionsSettingsHelpers.GetCheckboxValue(_streamerModeButton) != _originalStreamerMode ||
+                   OptionsSettingsHelpers.GetCheckboxValue(_holdMantleButton) != _originalHoldMantle ||
+                   OptionsSettingsHelpers.GetCheckboxValue(_profanityFilterButton) != _originalProfanityFilter ||
+                   OptionsSettingsHelpers.GetCheckboxValue(_autoWallRunButton) != _originalAutoWallRun;
         }
 
         public void RefreshDisplay() {

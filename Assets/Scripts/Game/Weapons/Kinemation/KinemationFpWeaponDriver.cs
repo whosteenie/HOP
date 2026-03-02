@@ -2177,19 +2177,17 @@ namespace Game.Weapons {
             if(clipInfos == null || clipInfos.Length == 0) return 0f;
 
             var clipWeight = 0f;
-            for(var i = 0; i < clipInfos.Length; i++) {
-                var clip = clipInfos[i].clip;
+            foreach(var c in clipInfos) {
+                var clip = c.clip;
                 if(clip == null) continue;
                 if(clip.name.IndexOf("Grapple", System.StringComparison.OrdinalIgnoreCase) < 0) continue;
-                clipWeight = Mathf.Max(clipWeight, clipInfos[i].weight);
+                clipWeight = Mathf.Max(clipWeight, c.weight);
             }
             if(clipWeight <= 0.0001f) return 0f;
 
             var state = _fpsAnimator.GetCurrentAnimatorStateInfo(GrappleLayerIndex);
             var normalized = Mathf.Repeat(state.normalizedTime, 1f);
-            var inWeight = GrappleOffsetBlendInNormalized > 0f
-                ? Mathf.Clamp01(normalized / GrappleOffsetBlendInNormalized)
-                : 1f;
+            var inWeight = Mathf.Clamp01(normalized / GrappleOffsetBlendInNormalized);
             var outWeight = normalized <= GrappleOffsetBlendOutStartNormalized
                 ? 1f
                 : 1f - Mathf.Clamp01((normalized - GrappleOffsetBlendOutStartNormalized) /
