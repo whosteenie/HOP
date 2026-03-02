@@ -235,14 +235,6 @@ namespace Game.Menu {
                     return;
                 }
 
-                var mode = "Deathmatch";
-                if(MatchSettingsManager.Instance != null &&
-                   string.IsNullOrWhiteSpace(MatchSettingsManager.Instance.selectedGameModeId) == false) {
-                    mode = MatchSettingsManager.Instance.selectedGameModeId;
-                }
-
-                if(privateMatchSetupManager != null) privateMatchSetupManager.SetInitialGamemode(mode);
-
                 TransitionToState(MainMenuPanelState.PrivateMatchSetup);
             };
             uiManager.OnGamemodeWipClicked = () => {
@@ -299,7 +291,6 @@ namespace Game.Menu {
                     return;
                 }
 
-                MainMenuSessionManager.HandleGamemodeSelected(draft.GamemodeId);
                 sessionManager.HandlePrivateMatchSelection(
                     draft.GamemodeId,
                     draft.MapId,
