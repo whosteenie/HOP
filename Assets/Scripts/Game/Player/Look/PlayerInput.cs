@@ -22,6 +22,12 @@ namespace Game.Player {
         [SerializeField] private PlayerController playerController;
 
         private UnityEngine.InputSystem.PlayerInput _playerInputComponent;
+        private InputActionMap _playerActionMap;
+        private InputAction _moveAction;
+        private InputAction _attackAction;
+        private InputAction _jumpAction;
+        private InputAction _voiceAction;
+        private InputAction _grappleAction;
 
         private CinemachineCamera _fpCamera;
         private AudioListener _audioListener;
@@ -96,6 +102,12 @@ namespace Game.Player {
         private HUDManager _lastHudManager;
         private Coroutine _deferredAmmoHudRefreshRoutine;
         private int _queuedWeaponCycleOffset;
+        private bool _jumpScrollUpBound;
+        private bool _jumpScrollDownBound;
+        private bool _nextWeaponScrollUpBound;
+        private bool _nextWeaponScrollDownBound;
+        private bool _previousWeaponScrollUpBound;
+        private bool _previousWeaponScrollDownBound;
         public bool IsSniperOverlayActive { get; private set; }
 
         [SerializeField] private float sniperZoomFov = 20f;
@@ -107,10 +119,11 @@ namespace Game.Player {
         /// </summary>
         public bool IsJumpHeld {
             get {
-                if(_playerInputComponent == null) return false;
-                var playerMap = _playerInputComponent.actions.FindActionMap("Player");
-                var jumpAction = playerMap?.FindAction("Jump");
-                return jumpAction != null && jumpAction.IsPressed();
+                if(_jumpAction == null) {
+                    RefreshCachedInputActions();
+                }
+
+                return _jumpAction != null && _jumpAction.IsPressed();
             }
         }
 
@@ -119,10 +132,11 @@ namespace Game.Player {
         /// </summary>
         public bool IsGrappleHeld {
             get {
-                if(_playerInputComponent == null) return false;
-                var playerMap = _playerInputComponent.actions.FindActionMap("Player");
-                var grappleAction = playerMap?.FindAction("Grapple");
-                return grappleAction != null && grappleAction.IsPressed();
+                if(_grappleAction == null) {
+                    RefreshCachedInputActions();
+                }
+
+                return _grappleAction != null && _grappleAction.IsPressed();
             }
         }
 
@@ -150,10 +164,20 @@ namespace Game.Player {
             if(_fpCamera != null) {
                 _defaultFpFov = _fpCamera.Lens.FieldOfView;
             }
+
+            RefreshCachedInputActions();
+            RefreshCachedScrollBindings();
+        }
+
+        private void OnEnable() {
+            KeybindManager.BindingsApplied += OnBindingsApplied;
+            RefreshCachedScrollBindings();
         }
 
         public override void OnNetworkSpawn() {
             base.OnNetworkSpawn();
+            RefreshCachedInputActions();
+            RefreshCachedScrollBindings();
 
             if(WeaponManager != null)
                 WeaponManager.InitializeWeapons();
@@ -191,6 +215,7 @@ namespace Game.Player {
         }
 
         private void OnDisable() {
+            KeybindManager.BindingsApplied -= OnBindingsApplied;
             _queuedWeaponCycleOffset = 0;
             if(_deferredAmmoHudRefreshRoutine != null) {
                 StopCoroutine(_deferredAmmoHudRefreshRoutine);
@@ -252,24 +277,20 @@ namespace Game.Player {
             var weaponData = WeaponManager.GetWeaponDataByIndex(WeaponManager.CurrentWeaponIndex);
             var fireMode = weaponData.fireModeType;
 
-            // Component reference should be assigned in the inspector
-            if(_playerInputComponent == null) _playerInputComponent = GetComponent<UnityEngine.InputSystem.PlayerInput>();
-            if(_playerInputComponent == null) return;
-            
-            var playerMap = _playerInputComponent.actions.FindActionMap("Player");
-            var attackAction = playerMap != null ? playerMap.FindAction("Attack") : null;
-            var jumpAction = playerMap != null ? playerMap.FindAction("Jump") : null;
-            var voiceAction = playerMap != null ? playerMap.FindAction("Voice") : null;
+            if(_attackAction == null || _jumpAction == null || _voiceAction == null) {
+                RefreshCachedInputActions();
+            }
+            if(_jumpAction == null) return;
 
-            if (VoiceManager.Instance != null && voiceAction != null) {
-                var isPressed = voiceAction.IsPressed();
+            if (VoiceManager.Instance != null && _voiceAction != null) {
+                var isPressed = _voiceAction.IsPressed();
                 var isChatOpen = GameMenuManager.Instance != null && GameMenuManager.Instance.IsChatOpen;
                 VoiceManager.Instance.SetPttActive(isPressed && !isChatOpen);
 
                 _voiceBtnDown = isPressed;
             }
 
-            var attackPressed = attackAction != null && attackAction.IsPressed();
+            var attackPressed = _attackAction != null && _attackAction.IsPressed();
             var attackPressedThisFrame = attackPressed && _attackBtnDown == false;
             _attackBtnDown = attackPressed;
 
@@ -284,42 +305,15 @@ namespace Game.Player {
                 CurrentWeapon.Shoot();
             }
 
-            var jumpPressed = jumpAction != null && jumpAction.IsPressed();
+            var jumpPressed = _jumpAction.IsPressed();
             var scrollPressed = false;
-
-            // Check settings.json for scroll bindings
-            var jumpBinding0 = "";
-            var jumpBinding1 = "";
-            var nextWeaponBinding0 = "";
-            var nextWeaponBinding1 = "";
-            var previousWeaponBinding0 = "";
-            var previousWeaponBinding1 = "";
-            var binds = GameSettings.Data.keybinds;
-            if(binds is { entries: not null }) {
-                foreach(var e in binds.entries) {
-                    if(e == null) continue;
-                    switch(e.name) {
-                        case "jump":
-                            jumpBinding0 = e.binding0;
-                            jumpBinding1 = e.binding1;
-                            break;
-                        case "nextweapon":
-                            nextWeaponBinding0 = e.binding0;
-                            nextWeaponBinding1 = e.binding1;
-                            break;
-                        case "previousweapon":
-                            previousWeaponBinding0 = e.binding0;
-                            previousWeaponBinding1 = e.binding1;
-                            break;
-                    }
-                }
-            }
 
             if(Mouse.current != null && Mouse.current.scroll.value.magnitude > 0f) {
                 var scrollY = Mouse.current.scroll.value.y;
-                var nextWeaponScrollPressed = IsScrollBindingTriggered(nextWeaponBinding0, nextWeaponBinding1, scrollY);
+                var nextWeaponScrollPressed =
+                    IsScrollBindingTriggered(_nextWeaponScrollUpBound, _nextWeaponScrollDownBound, scrollY);
                 var previousWeaponScrollPressed =
-                    IsScrollBindingTriggered(previousWeaponBinding0, previousWeaponBinding1, scrollY);
+                    IsScrollBindingTriggered(_previousWeaponScrollUpBound, _previousWeaponScrollDownBound, scrollY);
 
                 if(nextWeaponScrollPressed && !previousWeaponScrollPressed) {
                     QueueWeaponCycleFromScroll(1);
@@ -329,7 +323,7 @@ namespace Game.Player {
 
                 // If scroll was consumed for weapon cycling, do not also treat it as jump input.
                 if(!nextWeaponScrollPressed && !previousWeaponScrollPressed) {
-                    scrollPressed = IsScrollBindingTriggered(jumpBinding0, jumpBinding1, scrollY);
+                    scrollPressed = IsScrollBindingTriggered(_jumpScrollUpBound, _jumpScrollDownBound, scrollY);
                 }
             }
 
@@ -344,7 +338,7 @@ namespace Game.Player {
                 switch(isWallRunning) {
                     // Prevent "Auto-Hop" (holding jump) from unintentionally triggering wall jumps.
                     // If wall running, require a fresh jump press (triggered) or scroll wheel input.
-                    case true when !scrollPressed && !jumpAction.triggered && !jumpAction.triggered:
+                    case true when !scrollPressed && !_jumpAction.triggered:
                         // Jump is held, but not fresh press - ignore for wall jumping
                         return;
                     // Try mantle if enabled and not grounded (and not wall running)
@@ -541,14 +535,12 @@ namespace Game.Player {
         /// </summary>
         public Vector2 ResampleHeldMovementInput(string reason = "Unknown") {
             if(!IsOwner || playerController == null) return Vector2.zero;
-            if(_playerInputComponent == null) return Vector2.zero;
-            if(_playerInputComponent.actions == null) return Vector2.zero;
+            if(_moveAction == null) {
+                RefreshCachedInputActions();
+            }
+            if(_moveAction == null) return Vector2.zero;
 
-            var playerMap = _playerInputComponent.actions.FindActionMap("Player");
-            var moveAction = playerMap?.FindAction("Move");
-            if(moveAction == null) return Vector2.zero;
-
-            var move = moveAction.ReadValue<Vector2>();
+            var move = _moveAction.ReadValue<Vector2>();
             playerController.moveInput = move;
 
             FlowLog.Emit(FlowEventIds.PlayerControlState,
@@ -816,24 +808,84 @@ namespace Game.Player {
             _queuedWeaponCycleOffset = offset;
         }
 
-        private static bool IsScrollBindingTriggered(string binding0, string binding1, float scrollY) {
-            return IsScrollBindingTriggered(binding0, scrollY) || IsScrollBindingTriggered(binding1, scrollY);
-        }
-
-        private static bool IsScrollBindingTriggered(string binding, float scrollY) {
-            if(string.IsNullOrWhiteSpace(binding) || Mathf.Abs(scrollY) <= Mathf.Epsilon) {
+        private static bool IsScrollBindingTriggered(bool upBound, bool downBound, float scrollY) {
+            if(Mathf.Abs(scrollY) <= Mathf.Epsilon) {
                 return false;
             }
 
+            return (upBound && scrollY > 0f) || (downBound && scrollY < 0f);
+        }
+
+        private void RefreshCachedInputActions() {
+            if(_playerInputComponent == null) {
+                _playerInputComponent = playerController != null
+                    ? playerController.UnityPlayerInput
+                    : GetComponent<UnityEngine.InputSystem.PlayerInput>();
+            }
+
+            if(_playerInputComponent == null || _playerInputComponent.actions == null) {
+                _playerActionMap = null;
+                _moveAction = null;
+                _attackAction = null;
+                _jumpAction = null;
+                _voiceAction = null;
+                _grappleAction = null;
+                return;
+            }
+
+            _playerActionMap = _playerInputComponent.actions.FindActionMap("Player");
+            _moveAction = _playerActionMap?.FindAction("Move");
+            _attackAction = _playerActionMap?.FindAction("Attack");
+            _jumpAction = _playerActionMap?.FindAction("Jump");
+            _voiceAction = _playerActionMap?.FindAction("Voice");
+            _grappleAction = _playerActionMap?.FindAction("Grapple");
+        }
+
+        private void OnBindingsApplied() {
+            RefreshCachedScrollBindings();
+        }
+
+        private void RefreshCachedScrollBindings() {
+            _jumpScrollUpBound = false;
+            _jumpScrollDownBound = false;
+            _nextWeaponScrollUpBound = false;
+            _nextWeaponScrollDownBound = false;
+            _previousWeaponScrollUpBound = false;
+            _previousWeaponScrollDownBound = false;
+
+            var binds = GameSettings.Data.keybinds;
+            if(binds?.entries == null) {
+                return;
+            }
+
+            foreach(var entry in binds.entries) {
+                if(entry == null) continue;
+
+                switch(entry.name) {
+                    case "jump":
+                        ApplyScrollBinding(entry.binding0, ref _jumpScrollUpBound, ref _jumpScrollDownBound);
+                        ApplyScrollBinding(entry.binding1, ref _jumpScrollUpBound, ref _jumpScrollDownBound);
+                        break;
+                    case "nextweapon":
+                        ApplyScrollBinding(entry.binding0, ref _nextWeaponScrollUpBound, ref _nextWeaponScrollDownBound);
+                        ApplyScrollBinding(entry.binding1, ref _nextWeaponScrollUpBound, ref _nextWeaponScrollDownBound);
+                        break;
+                    case "previousweapon":
+                        ApplyScrollBinding(entry.binding0, ref _previousWeaponScrollUpBound, ref _previousWeaponScrollDownBound);
+                        ApplyScrollBinding(entry.binding1, ref _previousWeaponScrollUpBound, ref _previousWeaponScrollDownBound);
+                        break;
+                }
+            }
+        }
+
+        private static void ApplyScrollBinding(string binding, ref bool upBound, ref bool downBound) {
+            if(string.IsNullOrWhiteSpace(binding)) return;
+
             if(string.Equals(binding, "SCROLL_UP", System.StringComparison.OrdinalIgnoreCase)) {
-                return scrollY > 0f;
+                upBound = true;
+            } else if(string.Equals(binding, "SCROLL_DOWN", System.StringComparison.OrdinalIgnoreCase)) {
+                downBound = true;
             }
-
-            if(string.Equals(binding, "SCROLL_DOWN", System.StringComparison.OrdinalIgnoreCase)) {
-                return scrollY < 0f;
-            }
-
-            return false;
         }
 
         /// <summary>
