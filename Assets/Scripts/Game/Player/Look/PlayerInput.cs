@@ -1,9 +1,10 @@
 using System.Collections;
 using Game.Match;
 using Game.Menu;
+using Game.Settings;
+using Game.Social;
 using Game.UI;
 using Game.Weapons;
-using Game.Social;
 using JetBrains.Annotations;
 using Network.Diagnostics;
 using Network.Events;
@@ -11,10 +12,9 @@ using Network.Singletons;
 using Unity.Cinemachine;
 using Unity.Netcode;
 using UnityEngine;
-using Game.Settings;
 using UnityEngine.InputSystem;
 
-namespace Game.Player {
+namespace Game.Player.Look {
     public class PlayerInput : NetworkBehaviour {
         #region Serialized Fields
 

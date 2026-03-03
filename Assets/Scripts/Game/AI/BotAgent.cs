@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Game.Player;
+using Game.Player.Look;
 using Unity.MLAgents;
 using Unity.MLAgents.Actuators;
 using Unity.MLAgents.Policies;

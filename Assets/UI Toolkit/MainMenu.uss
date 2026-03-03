@@ -8,7 +8,7 @@
     left: 95px;
     font-size: 240px;
     -unity-font-definition: url('project://database/Assets/TextMesh%20Pro/Examples%20&%20Extras/Fonts/Roboto-Bold%20SDF.asset?fileID=11400000&guid=2b4e604fe6152104d97432c733e17021&type=2#Roboto-Bold SDF');
-    text-shadow: -1.2px 0 12px rgba(200, 60, 60, 0.4);
+    text-shadow: -1.2px 0 12px var(--color-accent-bg-mid);
 }
 
 .main-actions {
@@ -49,23 +49,23 @@
 
 /* Text-only buttons with red accent */
 .text-button {
-    background-color: rgba(0,0,0,0); border-width: 0;
+    background-color: var(--color-bg-transparent); border-width: 0;
     color: rgb(240,240,240);
     -unity-font-definition: url('project://database/Assets/Open%20Sans/static/OpenSans-SemiBold%20SDF.asset');
     font-size: 36px; -unity-font-style: bold; -unity-text-align: middle-left;
-    text-shadow: 0 2px 5px rgba(0, 0, 0, 1);
+    text-shadow: 0 2px 5px var(--color-shadow-solid);
     padding: 3px 0;
     min-height: 0;
     overflow: visible;
     transition-duration: 0.2s;
 }
 .text-button:hover:enabled  { 
-    color: rgb(255,100,100); 
-    text-shadow: 0 0 8px rgba(255, 100, 100, 0.6);
+    color: var(--color-accent); 
+    text-shadow: 0 0 8px var(--color-accent-border-strong);
 }
-.text-button:active:enabled { color: rgb(200,60,60); }
+.text-button:active:enabled { color: var(--color-accent-strong); }
 .text-button:disabled {
-    color: rgba(240,240,240,0.3);
+    color: var(--color-text-disabled);
 }
 
 .menu-entry { flex-direction: row; align-items: center; margin-bottom: 6px; overflow: visible; }
@@ -74,17 +74,17 @@
 .primary-action {
     font-size: 48px;
     letter-spacing: 3px;
-    text-shadow: 0 3px 6px rgba(0, 0, 0, 1);
+    text-shadow: 0 3px 6px var(--color-shadow-solid);
     margin-bottom: 4px;
 }
 
 .primary-action:hover:enabled {
-    color: rgb(255, 120, 120);
+    color: var(--color-accent-hover);
 }
 
 #play-button-matchmaking:disabled:hover {
-    color: rgba(240, 240, 240, 0.3);
-    text-shadow: 0 2px 5px rgba(0, 0, 0, 1);
+    color: var(--color-text-disabled);
+    text-shadow: 0 2px 5px var(--color-shadow-solid);
 }
 
 /* ===== GAMEMODE ===== */
@@ -104,16 +104,16 @@
 
 .gamemode-grid .gamemode-card {
     width: 310px; min-height: 360px; align-items: center;
-    background-color: rgba(15, 15, 20, 0.95);
-    border-radius: 4px; border-width: 1px; border-color: rgba(200, 60, 60, 0.2);
+    background-color: var(--color-bg-panel-strong);
+    border-radius: 4px; border-width: 1px; border-color: var(--color-accent-border-soft);
     padding: 14px;
     margin-bottom: 18px;
     transition-duration: 0.2s;
 }
 
 .gamemode-grid .gamemode-card:hover {
-    border-color: rgba(255, 100, 100, 0.4);
-    background-color: rgba(20, 20, 25, 0.95);
+    border-color: var(--color-accent-border-mid);
+    background-color: var(--color-bg-surface-strong);
 }
 
 .gamemode-image {
@@ -122,7 +122,7 @@
     border-radius: 4px; margin-bottom: 12px;
     margin-top: 8px;
     border-width: 1px;
-    border-color: rgba(200, 60, 60, 0.15);
+    border-color: var(--color-accent-border-faint);
 }
 
 .gamemode-title {
@@ -137,7 +137,7 @@
     height: 100%;
     top: 0;
     left: 0;
-    background-color: rgb(0, 0, 0);
+    background-color: var(--color-black);
 }
 
 /* ===== GAMEMODE DROPDOWN ===== */
@@ -155,11 +155,11 @@
 }
 
 .gamemode-display.gamemode-hover {
-    color: rgb(255, 100, 100);
+    color: var(--color-accent);
 }
 
 .gamemode-display.gamemode-clicked {
-    color: rgb(200, 60, 60);
+    color: var(--color-accent-strong);
 }
 
 .gamemode-arrow {
@@ -170,7 +170,7 @@
     border-right-width: 7px;
     border-right-color: transparent;
     border-bottom-width: 12px;
-    border-bottom-color: rgb(255, 100, 100);
+    border-bottom-color: var(--color-accent);
     border-top-width: 0;
     margin-left: 12px;
     margin-bottom: 0;
@@ -196,7 +196,7 @@
 .gamemode-arrow.arrow-down {
     border-bottom-width: 0;
     border-top-width: 12px;
-    border-top-color: rgb(255, 100, 100);
+    border-top-color: var(--color-accent);
     top: 2px;
 }
 
@@ -206,7 +206,7 @@
     background-color: rgba(12, 12, 18, 1.0);
     border-radius: 4px;
     border-width: 1px;
-    border-color: rgba(200, 60, 60, 0.3);
+    border-color: var(--color-accent-border);
     padding: 10px 16px;
     min-width: 280px;
 }
@@ -220,12 +220,12 @@
 .gamemode-option {
     width: 100%;
     height: 40px;
-    background-color: rgba(20, 20, 25, 0.9);
+    background-color: var(--color-bg-surface);
     border-radius: 4px;
     border-width: 1px;
-    border-color: rgba(200, 60, 60, 0.2);
+    border-color: var(--color-accent-border-soft);
     margin-bottom: 6px;
-    color: rgb(240, 240, 240);
+    color: var(--color-text-primary);
     font-size: 16px;
     -unity-font-style: normal;
     -unity-text-align: middle-center;
@@ -235,13 +235,13 @@
 }
 
 .gamemode-option:hover {
-    background-color: rgba(30, 30, 35, 0.9);
-    border-color: rgba(255, 100, 100, 0.4);
-    color: rgb(255, 100, 100);
+    background-color: var(--color-bg-surface-pressed);
+    border-color: var(--color-accent-border-mid);
+    color: var(--color-accent);
 }
 
 .gamemode-option:active {
-    background-color: rgba(200, 60, 60, 0.3);
+    background-color: var(--color-accent-border);
 }
 
 .gamemode-option-styled {
@@ -267,7 +267,7 @@
     margin-top: 8px; margin-bottom: 12px; padding: 12px;
     background-color: rgba(10, 10, 15, 0.6); border-radius: 4px;
     border-width: 1px;
-    border-color: rgba(200, 60, 60, 0.2);
+    border-color: var(--color-accent-border-soft);
 }
 
 .join-code-display {
@@ -299,15 +299,15 @@
 }
 
 .player-list-scroll {
-    height: 100%; background-color: rgba(15, 15, 20, 0.95); border-radius: 4px;
+    height: 100%; background-color: var(--color-bg-panel-strong); border-radius: 4px;
     border-width: 1px;
-    border-color: rgba(200, 60, 60, 0.2);
+    border-color: var(--color-accent-border-soft);
 }
 
 .player-list { flex-direction: column; }
 
 .player-entry {
-    color: rgb(220,220,220); font-size: 14px; padding: 6px 8px;
+    color: var(--color-text-secondary); font-size: 14px; padding: 6px 8px;
     border-bottom-width: 1px; border-bottom-color: rgba(200, 60, 60, 0.1);
 }
 .player-entry.host { color: rgb(255, 150, 150); -unity-font-style: bold; }
@@ -489,7 +489,7 @@
     height: 20px;
     min-height: 20px;
     max-height: 20px;
-    background-color: rgba(255, 255, 255, 0.15);
+    background-color: var(--color-white-15);
     border-width: 0;
     border-radius: 3px;
     margin: 0;
@@ -500,7 +500,7 @@
     height: 20px;
     min-height: 20px;
     max-height: 20px;
-    background-color: rgb(255, 100, 100);
+    background-color: var(--color-accent);
     border-radius: 3px;
     margin: 0;
     padding: 0;
@@ -545,7 +545,7 @@
 .loadout-challenges-wip {
     font-size: 120px;
     -unity-font-style: bold;
-    color: rgb(200, 60, 60);
+    color: var(--color-accent-strong);
     -unity-text-align: middle-center;
 }
 
@@ -606,14 +606,14 @@
     height: 32px;
     border-radius: 16px;
     border-width: 2px;
-    border-color: rgb(0, 0, 0);
+    border-color: var(--color-black);
     transition-duration: 0.2s;
     margin-bottom: 6px;
 }
 
 .color-circle:hover {
     scale: 1.15;
-    border-color: rgb(0, 0, 0);
+    border-color: var(--color-black);
 }
 
 .color-options {
@@ -626,7 +626,7 @@
     padding: 8px;
     border-radius: 4px;
     border-width: 1px;
-    border-color: rgba(200, 60, 60, 0.3);
+    border-color: var(--color-accent-border);
 }
 
 .color-options-inline {
@@ -671,9 +671,9 @@
     padding: 4px 14px;
     border-radius: 4px;
     border-width: 1px;
-    border-color: rgba(200, 60, 60, 0.3);
-    background-color: rgba(20, 20, 25, 0.9);
-    color: rgb(240, 240, 240);
+    border-color: var(--color-accent-border);
+    background-color: var(--color-bg-surface);
+    color: var(--color-text-primary);
     -unity-text-align: middle-left;
     --unity-cursor-color: var(--cursor-color);
     transition-duration: 0.2s;
@@ -751,7 +751,7 @@
 
 .weapon-slot-label {
     font-size: 12px;
-    color: rgb(180, 180, 180);
+    color: var(--color-text-muted);
     margin-bottom: 8px;
     -unity-font-style: bold;
     -unity-text-align: middle-center;
@@ -760,10 +760,10 @@
 .weapon-slot {
     width: 183px;
     height: 120px;
-    background-color: rgba(15, 15, 20, 0.95);
+    background-color: var(--color-bg-panel-strong);
     border-radius: 4px;
     border-width: 1px;
-    border-color: rgba(200, 60, 60, 0.2);
+    border-color: var(--color-accent-border-soft);
     align-items: center;
     justify-content: center;
     transition-duration: 0.2s;
@@ -771,8 +771,8 @@
 }
 
 .weapon-slot:hover {
-    border-color: rgba(255, 100, 100, 0.4);
-    background-color: rgba(20, 20, 25, 0.95);
+    border-color: var(--color-accent-border-mid);
+    background-color: var(--color-bg-surface-strong);
 }
 
 /* Weapon slot background images will be assigned via dynamic classes */
@@ -790,10 +790,10 @@
     width: auto;
     max-width: 600px;
     max-height: 120px;
-    background-color: rgba(12, 12, 18, 0.98);
+    background-color: var(--color-bg-popup-root);
     border-radius: 4px;
     border-width: 1px;
-    border-color: rgba(200, 60, 60, 0.3);
+    border-color: var(--color-accent-border);
     padding: 8px;
     margin-left: 20px;
 }
@@ -816,10 +816,10 @@
     width: 164px;
     height: 100px;
     min-width: 164px;
-    background-color: rgba(20, 20, 25, 0.9);
+    background-color: var(--color-bg-surface);
     border-radius: 4px;
     border-width: 1px;
-    border-color: rgba(200, 60, 60, 0.2);
+    border-color: var(--color-accent-border-soft);
     margin-right: 6px;
     margin-bottom: 0;
     align-items: center;
@@ -828,8 +828,8 @@
 }
 
 .weapon-option:hover {
-    background-color: rgba(30, 30, 35, 0.9);
-    border-color: rgba(255, 100, 100, 0.4);
+    background-color: var(--color-bg-surface-pressed);
+    border-color: var(--color-accent-border-mid);
 }
 
 .weapon-option-image {
@@ -915,24 +915,24 @@
     padding: 8px;
     border-radius: 4px;
     border-width: 1px;
-    border-color: rgba(200, 60, 60, 0.3);
+    border-color: var(--color-accent-border);
 }
 
 .first-time-color-options .color-circle {
     width: 32px;
     height: 32px;
     border-radius: 16px;
-    border-color: rgb(0, 0, 0);
+    border-color: var(--color-black);
 }
 
 .first-time-color-options .color-circle:hover {
-    border-color: rgb(0, 0, 0);
+    border-color: var(--color-black);
 }
 
 .first-time-color-circle-24px {
     width: 24px;
     height: 24px;
-    border-color: rgb(0, 0, 0);
+    border-color: var(--color-black);
 }
 
 .first-time-color-options-inline {
@@ -952,9 +952,9 @@
     padding: 10px 15px;
     border-radius: 4px;
     border-width: 1px;
-    border-color: rgba(200, 60, 60, 0.3);
-    background-color: rgba(20, 20, 25, 0.9);
-    color: rgb(240, 240, 240);
+    border-color: var(--color-accent-border);
+    background-color: var(--color-bg-surface);
+    color: var(--color-text-primary);
     -unity-text-align: middle-left;
     --unity-cursor-color: var(--cursor-color);
     transition-duration: 0.2s;
@@ -974,12 +974,12 @@
 
 .first-time-name-input:hover {
     border-color: rgba(255, 100, 100, 0.5);
-    background-color: rgba(25, 25, 30, 0.9);
+    background-color: var(--color-bg-surface-hover);
 }
 
 .first-time-name-input:focus {
-    border-color: rgba(255, 100, 100, 0.6);
-    background-color: rgba(15, 15, 20, 0.95);
+    border-color: var(--color-accent-border-strong);
+    background-color: var(--color-bg-panel-strong);
 }
 
 .continue-button {
@@ -987,7 +987,7 @@
     height: 50px;
 }
 
-.color-0 { background-color: rgb(255, 255, 255); }
+.color-0 { background-color: var(--color-white); }
 .color-1 { background-color: rgb(255, 0, 0); }
 .color-2 { background-color: rgb(255, 165, 0); }
 .color-3 { background-color: rgb(255, 255, 0); }
@@ -1074,13 +1074,13 @@
 }
 
 .toast {
-    background-color: rgba(15, 15, 20, 0.95);
+    background-color: var(--color-bg-panel-strong);
     color: #ffffff;
     font-size: 16px;
     padding: 12px 24px;
     border-radius: 4px;
     border-width: 1px;
-    border-color: rgba(200, 60, 60, 0.3);
+    border-color: var(--color-accent-border);
     opacity: 0;
     transition-duration: 0.3s;
     transition-property: opacity, translate;
@@ -1120,10 +1120,10 @@
     height: 80px;
     min-width: 80px;
     min-height: 80px;
-    background-color: rgba(20, 20, 25, 0.9);
+    background-color: var(--color-bg-surface);
     border-radius: 4px;
     border-width: 1px;
-    border-color: rgba(200, 60, 60, 0.3);
+    border-color: var(--color-accent-border);
     margin-bottom: 15px;
 }
 
@@ -1210,8 +1210,8 @@
     margin-bottom: 16px;
     border-radius: 6px;
     border-width: 1px;
-    border-color: rgba(255, 255, 255, 0.15);
-    background-color: rgba(20, 20, 25, 0.9);
+    border-color: var(--color-white-15);
+    background-color: var(--color-bg-surface);
     color: #ffffff;
     font-size: 16px;
     justify-content: center;
@@ -1486,10 +1486,10 @@
     flex-direction: column;
     align-items: center;
     padding: 12px 24px;
-    background-color: rgba(12, 12, 18, 0.98);
+    background-color: var(--color-bg-popup-root);
     border-radius: 4px;
     border-width: 1px;
-    border-color: rgba(200, 60, 60, 0.4);
+    border-color: var(--color-accent-bg-mid);
     width: 380px;
     justify-content: center;
     border-top-width: 1px;
@@ -1527,7 +1527,7 @@
 .queue-info-label {
     font-size: 18px;
     -unity-font-style: bold;
-    color: rgb(255, 255, 255);
+    color: var(--color-white);
     letter-spacing: 1px;
     width: 100px;
 }
@@ -1549,17 +1549,17 @@
 }
 
 .cancel-button {
-    background-color: rgba(200, 60, 60, 0.15);
+    background-color: var(--color-accent-border-faint);
     border-color: rgba(200, 60, 60, 0.6);
     padding: 6px 16px;
     font-size: 13px;
     height: 34px;
-    color: rgb(255, 100, 100);
+    color: var(--color-accent);
     align-self: center;
 }
 
 .cancel-button:hover {
-    background-color: rgba(200, 60, 60, 0.3);
+    background-color: var(--color-accent-border);
     border-color: rgba(255, 100, 100, 0.8);
     color: white;
 }
@@ -1653,7 +1653,7 @@
     align-self: center;
     -unity-text-align: upper-center;
     letter-spacing: 4px;
-    color: rgb(255, 255, 255);
+    color: var(--color-white);
     text-shadow: 0 0 10px rgba(255, 60, 60, 0.5);
 }
 
@@ -1697,7 +1697,7 @@
     margin: 0 8px;
     background-color: rgba(12, 12, 16, 0.93);
     border-width: 2px;
-    border-color: rgba(255, 255, 255, 0.1);
+    border-color: var(--color-white-10);
     border-radius: 8px;
     padding: 0;
     transition-duration: 0.2s;
@@ -1769,7 +1769,7 @@
     height: 245px;
     background-color: rgba(20, 20, 25, 0.85);
     border-width: 2px;
-    border-color: rgba(255, 255, 255, 0.1);
+    border-color: var(--color-white-10);
     border-radius: 8px;
     padding: 16px;
     transition-duration: 0.2s;
@@ -1865,7 +1865,7 @@
     min-height: 0;
     max-height: none;
     margin-bottom: 16px;
-    background-color: rgba(0, 0, 0, 0);
+    background-color: var(--color-bg-transparent);
     border-width: 0;
 }
 
@@ -1882,7 +1882,7 @@
 .private-match-settings-column .setting-label {
     width: 320px;
     min-width: 320px;
-    color: rgb(240, 240, 240);
+    color: var(--color-text-primary);
     font-size: 20px;
     -unity-font-style: bold;
     -unity-text-align: middle-left;
@@ -1931,7 +1931,7 @@
     height: 100%;
     min-height: 0;
     max-height: none;
-    background-color: rgba(0, 0, 0, 0);
+    background-color: var(--color-bg-transparent);
     border-width: 0;
 }
 
@@ -1968,7 +1968,7 @@
     border-color: rgba(255, 60, 60, 0.45);
     border-radius: 6px;
     background-color: rgba(10, 10, 16, 0.9);
-    color: rgb(240, 240, 240);
+    color: var(--color-text-primary);
     -unity-font-style: bold;
     -unity-text-align: middle-left;
     padding-left: 14px;
@@ -1976,9 +1976,9 @@
 }
 
 .private-match-dropdown .unity-base-field__input {
-    background-color: rgba(0, 0, 0, 0);
+    background-color: var(--color-bg-transparent);
     border-width: 0;
-    color: rgb(240, 240, 240);
+    color: var(--color-text-primary);
 }
 
 .private-match-input {
@@ -1990,7 +1990,7 @@
     border-width: 1px;
     border-color: rgba(255, 60, 60, 0.45);
     border-radius: 6px;
-    color: rgb(240, 240, 240);
+    color: var(--color-text-primary);
     -unity-font-style: bold;
     -unity-text-align: middle-center;
 }
@@ -2039,8 +2039,8 @@
     font-size: 36px;
     -unity-font-style: bold;
     letter-spacing: 2px;
-    color: rgb(255, 255, 255);
-    text-shadow: 2px 2px 3px rgba(0, 0, 0, 1);
+    color: var(--color-white);
+    text-shadow: 2px 2px 3px var(--color-shadow-solid);
     -unity-text-align: middle-left;
 }
 
@@ -2094,7 +2094,7 @@
     border-width: 1px;
     border-color: rgba(255, 120, 120, 0.45);
     margin-right: 12px;
-    background-color: rgba(12, 12, 18, 0.9);
+    background-color: var(--color-bg-card-soft);
     -unity-background-scale-mode: scale-and-crop;
     scale: 1 1;
 }
@@ -2114,7 +2114,7 @@
 }
 
 .private-match-preview-name {
-    color: rgb(240, 240, 240);
+    color: var(--color-text-primary);
     font-size: 16px;
     -unity-font-style: bold;
     -unity-text-align: middle-left;
@@ -2140,7 +2140,6 @@
 #private-match-start-button {
     min-width: 140px;
 }
-
 
 /* Specific Gamemode Card Icons */
 .dm-image { 
@@ -2172,7 +2171,7 @@
     justify-content: center;
     align-items: center;
     background-color: rgba(60, 60, 65, 0.4);
-    border-color: rgba(255, 255, 255, 0.1);
+    border-color: var(--color-white-10);
 }
 
 .invite-button:hover {
@@ -2202,7 +2201,7 @@
 .party-separator {
     width: 1px;
     height: 30px;
-    background-color: rgba(255, 255, 255, 0.15);
+    background-color: var(--color-white-15);
     margin: 0 15px;
 }
 
@@ -2277,4 +2276,3 @@
     top: 0;
     left: 0;
 }
-/* ===== CONTEXT MENU ===== */

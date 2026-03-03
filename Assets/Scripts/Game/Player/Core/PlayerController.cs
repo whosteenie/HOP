@@ -7,6 +7,7 @@ using Game.UI;
 using Game.Menu;
 using Game.Match;
 using Game.Player.Hopball;
+using Game.Player.Look;
 using Network;
 using Network.Core;
 using Network.AntiCheat;

@@ -5,6 +5,11 @@
     --color-text-muted: rgb(180, 180, 180);
     --color-text-disabled: rgba(240, 240, 240, 0.3);
     --color-white: rgb(255, 255, 255);
+    --color-black: rgb(0, 0, 0);
+    --color-white-10: rgba(255, 255, 255, 0.1);
+    --color-white-15: rgba(255, 255, 255, 0.15);
+    --color-shadow-solid: rgba(0, 0, 0, 1);
+    --color-shadow-strong: rgba(0, 0, 0, 0.8);
 
     /* Accent palette */
     --color-accent: rgb(255, 100, 100);
@@ -25,14 +30,20 @@
     --color-accent-bg-soft: rgba(200, 60, 60, 0.2);
     --color-accent-bg-mid: rgba(200, 60, 60, 0.4);
     --color-accent-bg-selected: rgba(200, 60, 60, 0.2);
+    --color-accent-border-faint: rgba(200, 60, 60, 0.15);
+    --color-accent-border-mid: rgba(255, 100, 100, 0.4);
+    --color-accent-fill-strong: rgba(200, 60, 60, 0.9);
 
     /* Surfaces */
     --color-bg-overlay: rgba(5, 5, 8, 0);
     --color-bg-card: rgba(12, 12, 18, 0.96);
+    --color-bg-card-soft: rgba(12, 12, 18, 0.9);
+    --color-bg-panel-strong: rgba(15, 15, 20, 0.95);
     --color-bg-popup-root: rgba(12, 12, 18, 0.98);
     --color-bg-popup-item: rgba(18, 18, 24, 0.95);
     --color-bg-popup-item-hover: rgba(26, 26, 34, 0.98);
     --color-bg-surface: rgba(20, 20, 25, 0.9);
+    --color-bg-surface-strong: rgba(20, 20, 25, 0.95);
     --color-bg-surface-hover: rgba(25, 25, 30, 0.9);
     --color-bg-surface-pressed: rgba(30, 30, 35, 0.9);
     --color-bg-input: rgba(10, 10, 15, 0.9);
