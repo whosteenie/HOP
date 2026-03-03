@@ -94,14 +94,8 @@
         </ui:VisualElement>
         <ui:VisualElement name="pause-menu-panel" class="panel full-abs center-xy hidden">
             <ui:VisualElement name="pause-container" class="menu-container card">
-                <ui:VisualElement name="pause-header" class="pause-header pause-header-align-flex-start">
+                <ui:VisualElement name="pause-header" class="pause-header">
                     <ui:Label text="PAUSED" name="pause-label" class="title" />
-                    <ui:VisualElement name="pause-join-code-display" class="pause-join-code-display pause-join-code-display-margin-top-7px">
-                        <ui:Label name="pause-join-code-label" text="Join Code: - - - - - -" class="value-label accent pause-join-code-label-inline pause-join-code-label-margin-right-5px" />
-                        <ui:Button name="pause-copy-code-button" class="copy-button menu-chip menu-chip-enabled width-36px">
-                            <ui:Image name="pause-copy-icon" class="copy-icon" />
-                        </ui:Button>
-                    </ui:VisualElement>
                 </ui:VisualElement>
                 <ui:Button text="RESUME" name="resume-button" class="menu-chip menu-chip-enabled" />
                 <ui:Button text="OPTIONS" name="options-button" class="menu-chip menu-chip-enabled" />

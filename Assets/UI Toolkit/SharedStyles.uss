@@ -1,6 +1,7 @@
 @import url("styles/foundation/theme-tokens.uss");
 @import url("styles/components/challenge-cards.uss");
 @import url("styles/components/modals.uss");
+@import url("styles/components/context-and-copy-controls.uss");
 @import url("styles/components/settings-controls.uss");
 @import url("styles/screens/options-panel.uss");
 @import url("styles/foundation/unity-overrides.uss");
@@ -201,32 +202,6 @@
     --unity-cursor-color: rgb(240, 240, 240);
 }
 
-/* Player name input cursor color (loadout screen) */
-.player-name-input {
-    --unity-cursor-color: var(--cursor-color);
-}
-
-.player-name-input > .unity-base-text-field__input {
-    --unity-cursor-color: var(--cursor-color);
-}
-
-.player-name-input > .unity-text-element--inner-input-field-component {
-    --unity-cursor-color: var(--cursor-color);
-}
-
-/* First time modal name input cursor color */
-.first-time-name-input {
-    --unity-cursor-color: var(--cursor-color);
-}
-
-.first-time-name-input > .unity-base-text-field__input {
-    --unity-cursor-color: var(--cursor-color);
-}
-
-.first-time-name-input > .unity-text-element--inner-input-field-component {
-    --unity-cursor-color: var(--cursor-color);
-}
-
 /* ===== INLINE STYLE MIGRATIONS ===== */
 .visibility-visible {
     visibility: visible;
@@ -342,8 +317,5 @@
     padding: 20px;
 }
 
-.copy-button {
-    width: 36px;
-}
 
 

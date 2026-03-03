@@ -2,9 +2,21 @@
 #options-panel {
     align-items: stretch;
     justify-content: flex-start;
+    --options-control-column-width: 420px;
+    --options-slider-track-width: 365px;
+    --options-value-input-width: 54px;
+    --options-control-gap: 12px;
+    --options-slider-value-gap: -15px;
+    --options-keybind-button-width: 204px;
+    --options-row-height: 56px;
+    --options-control-height: 50px;
+    --options-toggle-size: 24px;
+    --options-dropdown-width: 420px;
+    --options-description-offset-y: 182px;
+    --options-scrollbar-width: 7px;
 }
 
-.options-container {
+#options-panel .options-container {
     width: 100%;
     height: 100%;
     min-height: 100%;
@@ -20,16 +32,6 @@
 /* Extra readability when options are actively open. */
 .options-open #options-panel .options-container {
     background-color: rgba(4, 6, 10, 0.94);
-}
-
-/* Keep fullscreen background, but enforce content insets even when screen-level sheets
-   also define .options-container. */
-#options-panel .options-container {
-    height: 100%;
-    min-height: 100%;
-    max-height: 100%;
-    overflow: hidden;
-    padding: 34px 40px 22px;
 }
 
 .options-header {
@@ -283,21 +285,6 @@
 }
 
 /* ===== OPTIONS ROW ALIGNMENT ===== */
-#options-panel {
-    --options-control-column-width: 420px;
-    --options-slider-track-width: 365px;
-    --options-value-input-width: 54px;
-    --options-control-gap: 12px;
-    --options-slider-value-gap: -15px;
-    --options-keybind-button-width: 204px;
-    --options-row-height: 56px;
-    --options-control-height: 50px;
-    --options-toggle-size: 24px;
-    --options-dropdown-width: 420px;
-    --options-description-offset-y: 182px;
-    --options-scrollbar-width: 7px;
-}
-
 /* Keep all settings rows on a consistent vertical rhythm. */
 #options-panel .setting-row {
     min-height: var(--options-row-height);
@@ -314,10 +301,12 @@
 }
 
 /* Keep the control edge aligned for all single-control rows. */
-#options-panel .setting-row > .setting-dropdown-align-right,
-#options-panel .setting-row > .setting-toggle {
+#options-panel .setting-row > .setting-dropdown-align-right {
     margin-left: auto;
     margin-right: 0;
+    height: var(--options-control-height);
+    min-height: var(--options-control-height);
+    max-height: var(--options-control-height);
 }
 
 /* Dropdown unhover background - match keybind button (--color-bg-surface). */
@@ -333,6 +322,7 @@
     width: var(--options-slider-track-width);
     min-width: var(--options-slider-track-width);
     max-width: var(--options-slider-track-width);
+    min-height: var(--options-control-height);
     flex-grow: 0;
 }
 
@@ -380,19 +370,10 @@
     margin-right: 0;
 }
 
-/* Normalize control heights across row types. */
-#options-panel .setting-row > .setting-dropdown-align-right {
-    height: var(--options-control-height);
-    min-height: var(--options-control-height);
-    max-height: var(--options-control-height);
-}
-
-#options-panel .setting-row > .setting-slider {
-    min-height: var(--options-control-height);
-}
-
 /* Keep checkbox visual size compact while staying aligned to row rhythm. */
 #options-panel .setting-row > .setting-toggle {
+    margin-left: auto;
+    margin-right: 0;
     width: var(--options-toggle-size);
     min-width: var(--options-toggle-size);
     max-width: var(--options-toggle-size);

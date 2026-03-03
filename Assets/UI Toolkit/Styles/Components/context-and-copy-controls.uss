@@ -1,0 +1,37 @@
+/* ===== PLAYER CONTEXT MENU ===== */
+.context-menu {
+    position: absolute;
+    width: 160px;
+    background-color: var(--color-bg-popup-root);
+    border-radius: var(--radius-md);
+    border-width: 1px;
+    border-color: var(--color-accent-border);
+    padding: 6px 0;
+    flex-direction: column;
+}
+
+.context-menu-item {
+    font-size: 14px;
+    color: var(--color-text-secondary);
+    background-color: transparent;
+    border-width: 0;
+    -unity-text-align: middle-left;
+    padding: 8px 12px;
+    margin: 0;
+    border-radius: 0;
+}
+
+.context-menu-item:hover {
+    background-color: var(--color-accent-bg-soft);
+    color: var(--color-white);
+}
+
+.context-menu-separator {
+    height: 1px;
+    background-color: var(--color-accent-border-soft);
+    margin: 4px 0;
+}
+
+#context-menu-backdrop {
+    background-color: rgba(0, 0, 0, 0.01);
+}
