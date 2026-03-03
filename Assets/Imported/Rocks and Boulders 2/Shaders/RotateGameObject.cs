@@ -1,6 +1,7 @@
 using UnityEngine;
 using System.Collections;
 
+#pragma warning disable 0618
 public class RotateGameObject : MonoBehaviour {
 	public float rot_speed_x=0;
 	public float rot_speed_y=0;
@@ -21,3 +22,4 @@ public class RotateGameObject : MonoBehaviour {
 		}
 	}
 }
+#pragma warning restore 0618
