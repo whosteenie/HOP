@@ -16,9 +16,12 @@ namespace Game.Audio {
 
         private int _currentTrackIndex;
         private int _previousTrackIndex = -1; // Track the last played song
+        private Coroutine _musicFadeCoroutine;
+        private bool _allowAutoAdvance = true;
 
         private void Start() {
-            musicSource = gameObject.AddComponent<AudioSource>();
+            EnsureMusicSource();
+            if(musicSource == null) return;
 
             musicSource.loop = false;
             musicSource.playOnAwake = false;
@@ -32,6 +35,8 @@ namespace Game.Audio {
         }
 
         private void Update() {
+            if(!_allowAutoAdvance || musicSource == null) return;
+
             // Auto-advance to next track
             if(!musicSource.isPlaying && menuMusicTracks is { Length: > 0 }) {
                 PlayNextTrack();
@@ -39,14 +44,17 @@ namespace Game.Audio {
         }
 
         private void PlayMenuMusic() {
+            if(!_allowAutoAdvance) return;
             if(menuMusicTracks is not { Length: not 0 }) return;
 
             _currentTrackIndex = shuffleTracks ? Random.Range(0, menuMusicTracks.Length) : 0;
             _previousTrackIndex = _currentTrackIndex; // Set initial previous track
-            StartCoroutine(FadeIn(menuMusicTracks[_currentTrackIndex]));
+            StartFadeIn(menuMusicTracks[_currentTrackIndex]);
         }
 
         private void PlayNextTrack() {
+            if(!_allowAutoAdvance || musicSource == null) return;
+
             // Store the track that just finished as previous
             _previousTrackIndex = _currentTrackIndex;
 
@@ -71,7 +79,66 @@ namespace Game.Audio {
             musicSource.Play();
         }
 
+        public void FadeOutForTransition(float duration) {
+            _allowAutoAdvance = false;
+            if(musicSource == null) {
+                EnsureMusicSource();
+            }
+
+            if(musicSource == null) return;
+
+            if(_musicFadeCoroutine != null) {
+                StopCoroutine(_musicFadeCoroutine);
+                _musicFadeCoroutine = null;
+            }
+
+            var fadeDuration = Mathf.Max(0.01f, duration);
+            _musicFadeCoroutine = StartCoroutine(FadeOutAndStop(fadeDuration));
+        }
+
+        public void StopForTransitionImmediate() {
+            _allowAutoAdvance = false;
+
+            if(_musicFadeCoroutine != null) {
+                StopCoroutine(_musicFadeCoroutine);
+                _musicFadeCoroutine = null;
+            }
+
+            if(musicSource == null) {
+                EnsureMusicSource();
+            }
+
+            if(musicSource == null) return;
+
+            musicSource.volume = 0f;
+            musicSource.Stop();
+        }
+
+        private void EnsureMusicSource() {
+            if(musicSource == null) {
+                musicSource = GetComponent<AudioSource>();
+            }
+
+            if(musicSource == null) {
+                musicSource = gameObject.AddComponent<AudioSource>();
+            }
+        }
+
+        private void StartFadeIn(AudioClip clip) {
+            if(_musicFadeCoroutine != null) {
+                StopCoroutine(_musicFadeCoroutine);
+                _musicFadeCoroutine = null;
+            }
+
+            _musicFadeCoroutine = StartCoroutine(FadeIn(clip));
+        }
+
         private System.Collections.IEnumerator FadeIn(AudioClip clip) {
+            if(musicSource == null || clip == null) {
+                _musicFadeCoroutine = null;
+                yield break;
+            }
+
             musicSource.clip = clip;
             musicSource.volume = 0f;
             musicSource.Play();
@@ -84,6 +151,40 @@ namespace Game.Audio {
             }
 
             musicSource.volume = 1f;
+            _musicFadeCoroutine = null;
+        }
+
+        private System.Collections.IEnumerator FadeOutAndStop(float duration) {
+            if(musicSource == null) {
+                _musicFadeCoroutine = null;
+                yield break;
+            }
+
+            if(!musicSource.isPlaying) {
+                musicSource.volume = 0f;
+                _musicFadeCoroutine = null;
+                yield break;
+            }
+
+            var startVolume = musicSource.volume;
+            var elapsed = 0f;
+            while(elapsed < duration) {
+                if(musicSource == null) {
+                    _musicFadeCoroutine = null;
+                    yield break;
+                }
+
+                elapsed += Time.deltaTime;
+                musicSource.volume = Mathf.Lerp(startVolume, 0f, elapsed / duration);
+                yield return null;
+            }
+
+            if(musicSource != null) {
+                musicSource.volume = 0f;
+                musicSource.Stop();
+            }
+
+            _musicFadeCoroutine = null;
         }
     }
 }

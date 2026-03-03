@@ -20,7 +20,7 @@ namespace Network.Singletons {
 
         [SerializeField] private UIDocument transitionDocument;
         [SerializeField] private float fadeDuration = 0.5f;
-        [SerializeField] private float musicFadeDuration = 1.5f; // Slightly longer for smooth music fade
+        [SerializeField] private float musicFadeDuration = 2.25f; // Intentionally longer than visual fade to avoid abrupt cutoffs during load.
         [SerializeField] private float transitionCompletionGraceSeconds = 0.15f;
         [SerializeField] private float respawnFadeInSignalTimeoutSeconds = 8f;
 
@@ -143,9 +143,6 @@ namespace Network.Singletons {
 
             _isTransitioning = true;
 
-            // Fade out menu music if it exists
-            StartCoroutine(FadeOutMenuMusic());
-
             // Fade to black
             yield return StartCoroutine(FadeOut());
 
@@ -186,6 +183,7 @@ namespace Network.Singletons {
 
             var duration = customDuration != null ? customDuration.Value : fadeDuration;
             SetTransitionDuration(_transitionOverlay, duration);
+            StartMenuMusicFadeOut(duration);
 
             // Always use black for fade out
             _transitionOverlay.style.backgroundColor = new StyleColor(new Color(0, 0, 0, 1));
@@ -407,26 +405,16 @@ namespace Network.Singletons {
         }
 
         /// <summary>
-        /// Fade out menu music if MenuMusicPlayer exists
+        /// Starts a menu music fade-out if music is currently playing.
         /// </summary>
-        private IEnumerator FadeOutMenuMusic() {
+        private void StartMenuMusicFadeOut(float requestedDuration) {
+            var visualFadeDuration = Mathf.Max(0f, requestedDuration);
+            var fadeOutDuration = Mathf.Max(musicFadeDuration, visualFadeDuration);
             var menuMusicPlayer = FindFirstObjectByType<MenuMusicPlayer>();
-            if(menuMusicPlayer == null) yield break;
-
-            var musicSource = menuMusicPlayer.GetComponent<AudioSource>();
-            if(musicSource == null || !musicSource.isPlaying) yield break;
-
-            var startVolume = musicSource.volume;
-            var elapsed = 0f;
-
-            while(elapsed < musicFadeDuration) {
-                elapsed += Time.deltaTime;
-                musicSource.volume = Mathf.Lerp(startVolume, 0f, elapsed / musicFadeDuration);
-                yield return null;
+            if(menuMusicPlayer == null) {
+                return;
             }
-
-            musicSource.volume = 0f;
-            musicSource.Stop();
+            menuMusicPlayer.FadeOutForTransition(fadeOutDuration);
         }
 
         /// <summary>
@@ -452,11 +440,7 @@ namespace Network.Singletons {
             // Also fade out music instantly
             var menuMusicPlayer = FindFirstObjectByType<MenuMusicPlayer>();
             if(menuMusicPlayer != null) {
-                var musicSource = menuMusicPlayer.GetComponent<AudioSource>();
-                if(musicSource != null && musicSource.isPlaying) {
-                    musicSource.Stop();
-                    musicSource.volume = 0f;
-                }
+                menuMusicPlayer.StopForTransitionImmediate();
             }
 
             // Restore normal transition duration after one frame
