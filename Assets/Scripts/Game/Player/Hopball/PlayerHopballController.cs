@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.Reflection;
 using Cysharp.Threading.Tasks;
 using Game.Hopball;
 using Game.Match;
@@ -10,6 +11,7 @@ using OSI;
 using Unity.Cinemachine;
 using Unity.Netcode;
 using UnityEngine;
+using UnityEngine.VFX;
 
 namespace Game.Player.Hopball {
     /// <summary>
@@ -104,6 +106,18 @@ namespace Game.Player.Hopball {
         private int _cachedHopballArmCustomSourceId;
         private readonly Dictionary<int, Material> _cachedHopballArmOutlineByRenderer = new();
         private PlayerAnimationEvents _armAnimationEvents;
+        private static readonly MethodInfo VisualEffectSimulateFloatUIntMethod = typeof(VisualEffect).GetMethod(
+            "Simulate",
+            BindingFlags.Instance | BindingFlags.Public,
+            null,
+            new[] { typeof(float), typeof(uint) },
+            null);
+        private static readonly MethodInfo VisualEffectSimulateFloatMethod = typeof(VisualEffect).GetMethod(
+            "Simulate",
+            BindingFlags.Instance | BindingFlags.Public,
+            null,
+            new[] { typeof(float) },
+            null);
 
         private readonly Collider[] _pickupHits = new Collider[10];
 
@@ -182,7 +196,8 @@ namespace Game.Player.Hopball {
                     SetGameObjectAndChildrenLayer(_fpHopballVisualInstance, layer);
                     SetFpVisualShadows(_fpHopballVisualInstance, false);
                     WarmupActiveHopballParticles(_fpHopballVisualInstance);
-                    _fpParticlesPrewarmed = true;
+                    // Pool prewarm should prime allocations only; runtime equip still needs a fresh warmup pass.
+                    _fpParticlesPrewarmed = false;
                     _fpHopballVisualInstance.SetActive(false);
                 }
             }
@@ -209,7 +224,8 @@ namespace Game.Player.Hopball {
             _worldHopballVisualInstance.transform.localPosition = _worldHopballBaseLocalPosition;
             _worldHopballVisualInstance.transform.localRotation = Quaternion.identity;
             WarmupActiveHopballParticles(_worldHopballVisualInstance);
-            _worldParticlesPrewarmed = true;
+            // Pool prewarm should prime allocations only; runtime equip still needs a fresh warmup pass.
+            _worldParticlesPrewarmed = false;
             _worldHopballVisualInstance.SetActive(false);
         }
 
@@ -436,6 +452,7 @@ namespace Game.Player.Hopball {
 
             var hopball = networkObject.GetComponent<HopballController>();
             if(hopball == null) return;
+            var energyRatio = hopball.VisualEnergyRatio;
 
             var isHolder = OwnerClientId == holderClientId && IsOwner;
             var localClientId = ulong.MaxValue;
@@ -445,13 +462,13 @@ namespace Game.Player.Hopball {
 
             if(isHolder) {
                 HideWorldWeapon();
-                SetupWorldHopballVisual(true);
+                SetupWorldHopballVisual(true, energyRatio);
                 ShowBothHolsters();
                 if(playerController != null && playerController.PlayerShadow != null) {
                     playerController.PlayerShadow.ApplyHopballShadowState(true, true);
                 }
             } else {
-                SetupWorldHopballVisual();
+                SetupWorldHopballVisual(false, energyRatio);
                 if(OwnerClientId != holderClientId || localClientId == holderClientId) return;
                 EnablePlayerTarget();
                 ShowBothHolsters();
@@ -509,7 +526,7 @@ namespace Game.Player.Hopball {
             _fpHopballVisualInstance.transform.localRotation = Quaternion.identity;
             _fpHopballVisualInstance.SetActive(true);
             if(!_fpParticlesPrewarmed) {
-                WarmupActiveHopballParticles(_fpHopballVisualInstance);
+                WarmupActiveHopballParticles(_fpHopballVisualInstance, ResolveCurrentHopballVisualEnergyRatio());
                 _fpParticlesPrewarmed = true;
             }
 
@@ -676,7 +693,7 @@ namespace Game.Player.Hopball {
         /// Sets up the visual-only world hopball model (parented to world weapon socket).
         /// The real hopball stays unparented and hidden.
         /// </summary>
-        private void SetupWorldHopballVisual(bool isLocalClientHolder = false) {
+        private void SetupWorldHopballVisual(bool isLocalClientHolder = false, float energyRatio = 1f) {
             if(_worldWeaponSocket == null || hopballVisualPrefab == null) {
                 Debug.LogError("[HopballController] SetupWorldHopballVisual: Missing required references");
                 return;
@@ -693,7 +710,7 @@ namespace Game.Player.Hopball {
             _worldHopballVisualInstance.transform.localPosition = _worldHopballBaseLocalPosition;
             _worldHopballVisualInstance.transform.localRotation = Quaternion.identity;
             if(!_worldParticlesPrewarmed) {
-                WarmupActiveHopballParticles(_worldHopballVisualInstance);
+                WarmupActiveHopballParticles(_worldHopballVisualInstance, energyRatio);
                 _worldParticlesPrewarmed = true;
             }
 
@@ -713,26 +730,61 @@ namespace Game.Player.Hopball {
         }
 
         /// <summary>
-        /// Pre-warms active autoplaying particle systems so pickup visuals appear already "fully on".
+        /// Pre-warms active hopball visuals so pickup appears at the correct lifecycle immediately.
         /// </summary>
-        private void WarmupActiveHopballParticles(GameObject visualRoot) {
+        private void WarmupActiveHopballParticles(GameObject visualRoot, float energyRatio = 1f) {
             if(visualRoot == null) return;
             if(hopballParticleWarmupSeconds <= 0f) return;
 
-            var systems = visualRoot.GetComponentsInChildren<ParticleSystem>(true);
-            if(systems == null || systems.Length == 0) return;
+            var warmupScale = Mathf.Clamp01(energyRatio);
+            var configuredWarmupTime = Mathf.Max(0f, hopballParticleWarmupSeconds * warmupScale);
+            WarmupActiveHopballVisualEffects(visualRoot, configuredWarmupTime);
+        }
 
-            var warmupTime = Mathf.Max(0f, hopballParticleWarmupSeconds);
-            foreach(var ps in systems) {
-                if(ps == null) continue;
-                if(!ps.isPlaying && !ps.main.playOnAwake) continue;
+        private static void WarmupActiveHopballVisualEffects(GameObject visualRoot, float warmupTime) {
+            if(visualRoot == null) return;
 
-                ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
-                if(ps.main.loop) {
-                    ps.Simulate(warmupTime, false, true, true);
+            var vfxComponents = visualRoot.GetComponentsInChildren<VisualEffect>(true);
+            if(vfxComponents == null || vfxComponents.Length == 0) return;
+
+            var clampedTime = Mathf.Max(0f, warmupTime);
+            var stepCount = Mathf.Clamp(Mathf.CeilToInt(clampedTime / (1f / 60f)), 1, 240);
+            var stepDelta = stepCount > 0 ? clampedTime / stepCount : clampedTime;
+            foreach(var vfx in vfxComponents) {
+                if(vfx == null || vfx.visualEffectAsset == null) continue;
+
+                vfx.pause = false;
+                vfx.Stop();
+                vfx.Reinit();
+                vfx.Play();
+
+                var sampled = false;
+                try {
+                    if(clampedTime > 0f && VisualEffectSimulateFloatUIntMethod != null) {
+                        VisualEffectSimulateFloatUIntMethod.Invoke(vfx, new object[] { stepDelta, (uint)stepCount });
+                        sampled = true;
+                    } else if(VisualEffectSimulateFloatMethod != null) {
+                        for(var i = 0; i < stepCount; i++) {
+                            VisualEffectSimulateFloatMethod.Invoke(vfx, new object[] { stepDelta });
+                        }
+                        sampled = true;
+                    }
+                } catch {
+                    sampled = false;
                 }
-                ps.Play(true);
+
+                if(sampled || clampedTime <= 0f) continue;
+
+                for(var i = 0; i < stepCount; i++) {
+                    vfx.AdvanceOneFrame();
+                }
             }
+        }
+
+        private float ResolveCurrentHopballVisualEnergyRatio() {
+            var hopball = _currentHopballController != null ? _currentHopballController : HopballController.Instance;
+            if(hopball == null) return 1f;
+            return hopball.VisualEnergyRatio;
         }
 
         /// <summary>
@@ -1172,6 +1224,7 @@ namespace Game.Player.Hopball {
         private void HideFpHopballVisualImmediate() {
             if(_fpHopballVisualInstance == null) return;
             _fpHopballVisualInstance.SetActive(false);
+            _fpParticlesPrewarmed = false;
         }
 
         /// <summary>
@@ -1461,6 +1514,7 @@ namespace Game.Player.Hopball {
         private void DestroyFpVisual() {
             if(_fpHopballVisualInstance == null) return;
             _fpHopballVisualInstance.SetActive(false);
+            _fpParticlesPrewarmed = false;
         }
 
         /// <summary>
@@ -1469,6 +1523,7 @@ namespace Game.Player.Hopball {
         private void DestroyWorldVisual() {
             if(_worldHopballVisualInstance == null) return;
             _worldHopballVisualInstance.SetActive(false);
+            _worldParticlesPrewarmed = false;
         }
 
         /// <summary>

@@ -254,102 +254,6 @@ MonoBehaviour:
   m_UIInfos: {fileID: 114340500867371532}
   m_CustomAttributes: []
   m_ParameterInfo:
-  - name: Color
-    path: Color
-    tooltip: 
-    space: -1
-    spaceable: 0
-    sheetType: m_Vector4f
-    realType: Color
-    defaultValue:
-      m_Type:
-        m_SerializableType: UnityEngine.Color, UnityEngine.CoreModule, Version=0.0.0.0,
-          Culture=neutral, PublicKeyToken=null
-      m_SerializableObject: '{"r":0.0,"g":1.9965368509292603,"b":4.259278297424316,"a":1.0}'
-    min: -Infinity
-    max: Infinity
-    enumValues: []
-    descendantCount: 0
-  - name: Color02
-    path: Color02
-    tooltip: 
-    space: -1
-    spaceable: 0
-    sheetType: m_Vector4f
-    realType: Color
-    defaultValue:
-      m_Type:
-        m_SerializableType: UnityEngine.Color, UnityEngine.CoreModule, Version=0.0.0.0,
-          Culture=neutral, PublicKeyToken=null
-      m_SerializableObject: '{"r":4.594793796539307,"g":1.675748348236084,"b":0.7207520008087158,"a":0.0}'
-    min: -Infinity
-    max: Infinity
-    enumValues: []
-    descendantCount: 0
-  - name: Size
-    path: Size
-    tooltip: 
-    space: -1
-    spaceable: 0
-    sheetType: m_Float
-    realType: Single
-    defaultValue:
-      m_Type:
-        m_SerializableType: System.Single, mscorlib, Version=4.0.0.0, Culture=neutral,
-          PublicKeyToken=b77a5c561934e089
-      m_SerializableObject: 1
-    min: -Infinity
-    max: Infinity
-    enumValues: []
-    descendantCount: 0
-  - name: BeamTexture
-    path: BeamTexture
-    tooltip: 
-    space: -1
-    spaceable: 0
-    sheetType: m_NamedObject
-    realType: Texture2D
-    defaultValue:
-      m_Type:
-        m_SerializableType: UnityEngine.Texture2D, UnityEngine.CoreModule, Version=0.0.0.0,
-          Culture=neutral, PublicKeyToken=null
-      m_SerializableObject: '{"obj":{"fileID":10300,"guid":"0000000000000000f000000000000000","type":0}}'
-    min: -Infinity
-    max: Infinity
-    enumValues: []
-    descendantCount: 0
-  - name: BeamSize
-    path: BeamSize
-    tooltip: 
-    space: -1
-    spaceable: 0
-    sheetType: m_Float
-    realType: Single
-    defaultValue:
-      m_Type:
-        m_SerializableType: System.Single, mscorlib, Version=4.0.0.0, Culture=neutral,
-          PublicKeyToken=b77a5c561934e089
-      m_SerializableObject: 10
-    min: -Infinity
-    max: Infinity
-    enumValues: []
-    descendantCount: 0
-  - name: ParticlesTexture
-    path: ParticlesTexture
-    tooltip: 
-    space: -1
-    spaceable: 0
-    sheetType: m_NamedObject
-    realType: Texture2D
-    defaultValue:
-      m_Type:
-        m_SerializableType: UnityEngine.Texture2D, UnityEngine.CoreModule, Version=0.0.0.0,
-          Culture=neutral, PublicKeyToken=null
-      m_SerializableObject: '{"obj":{"fileID":10300,"guid":"0000000000000000f000000000000000","type":0}}'
-    min: -Infinity
-    max: Infinity
-    enumValues: []
-    descendantCount: 0
   - name: ParticlesSpawnRate
     path: ParticlesSpawnRate
     tooltip: 
@@ -398,24 +302,24 @@ MonoBehaviour:
     max: Infinity
     enumValues: []
     descendantCount: 0
-  - name: TrailsTexture
-    path: TrailsTexture
+  - name: Color
+    path: Color
     tooltip: 
     space: -1
     spaceable: 0
-    sheetType: m_NamedObject
-    realType: Texture2D
+    sheetType: m_Vector4f
+    realType: Color
     defaultValue:
       m_Type:
-        m_SerializableType: UnityEngine.Texture2D, UnityEngine.CoreModule, Version=0.0.0.0,
+        m_SerializableType: UnityEngine.Color, UnityEngine.CoreModule, Version=0.0.0.0,
           Culture=neutral, PublicKeyToken=null
-      m_SerializableObject: '{"obj":{"fileID":10300,"guid":"0000000000000000f000000000000000","type":0}}'
+      m_SerializableObject: '{"r":0.0,"g":1.9965368509292603,"b":4.259278297424316,"a":1.0}'
     min: -Infinity
     max: Infinity
     enumValues: []
     descendantCount: 0
-  - name: TrailsSpawnRate
-    path: TrailsSpawnRate
+  - name: Size
+    path: Size
     tooltip: 
     space: -1
     spaceable: 0
@@ -425,7 +329,7 @@ MonoBehaviour:
       m_Type:
         m_SerializableType: System.Single, mscorlib, Version=4.0.0.0, Culture=neutral,
           PublicKeyToken=b77a5c561934e089
-      m_SerializableObject: 80
+      m_SerializableObject: 1
     min: -Infinity
     max: Infinity
     enumValues: []
@@ -442,6 +346,22 @@ MonoBehaviour:
         m_SerializableType: System.Single, mscorlib, Version=4.0.0.0, Culture=neutral,
           PublicKeyToken=b77a5c561934e089
       m_SerializableObject: 1.5
+    min: -Infinity
+    max: Infinity
+    enumValues: []
+    descendantCount: 0
+  - name: TrailsSpawnRate
+    path: TrailsSpawnRate
+    tooltip: 
+    space: -1
+    spaceable: 0
+    sheetType: m_Float
+    realType: Single
+    defaultValue:
+      m_Type:
+        m_SerializableType: System.Single, mscorlib, Version=4.0.0.0, Culture=neutral,
+          PublicKeyToken=b77a5c561934e089
+      m_SerializableObject: 80
     min: -Infinity
     max: Infinity
     enumValues: []
@@ -480,8 +400,88 @@ MonoBehaviour:
     max: Infinity
     enumValues: []
     descendantCount: 0
+  - name: Color02
+    path: Color02
+    tooltip: 
+    space: -1
+    spaceable: 0
+    sheetType: m_Vector4f
+    realType: Color
+    defaultValue:
+      m_Type:
+        m_SerializableType: UnityEngine.Color, UnityEngine.CoreModule, Version=0.0.0.0,
+          Culture=neutral, PublicKeyToken=null
+      m_SerializableObject: '{"r":4.594793796539307,"g":1.675748348236084,"b":0.7207520008087158,"a":0.0}'
+    min: -Infinity
+    max: Infinity
+    enumValues: []
+    descendantCount: 0
+  - name: ParticlesTexture
+    path: ParticlesTexture
+    tooltip: 
+    space: -1
+    spaceable: 0
+    sheetType: m_NamedObject
+    realType: Texture2D
+    defaultValue:
+      m_Type:
+        m_SerializableType: UnityEngine.Texture2D, UnityEngine.CoreModule, Version=0.0.0.0,
+          Culture=neutral, PublicKeyToken=null
+      m_SerializableObject: '{"obj":{"fileID":10300,"guid":"0000000000000000f000000000000000","type":0}}'
+    min: -Infinity
+    max: Infinity
+    enumValues: []
+    descendantCount: 0
+  - name: BeamTexture
+    path: BeamTexture
+    tooltip: 
+    space: -1
+    spaceable: 0
+    sheetType: m_NamedObject
+    realType: Texture2D
+    defaultValue:
+      m_Type:
+        m_SerializableType: UnityEngine.Texture2D, UnityEngine.CoreModule, Version=0.0.0.0,
+          Culture=neutral, PublicKeyToken=null
+      m_SerializableObject: '{"obj":{"fileID":10300,"guid":"0000000000000000f000000000000000","type":0}}'
+    min: -Infinity
+    max: Infinity
+    enumValues: []
+    descendantCount: 0
+  - name: TrailsTexture
+    path: TrailsTexture
+    tooltip: 
+    space: -1
+    spaceable: 0
+    sheetType: m_NamedObject
+    realType: Texture2D
+    defaultValue:
+      m_Type:
+        m_SerializableType: UnityEngine.Texture2D, UnityEngine.CoreModule, Version=0.0.0.0,
+          Culture=neutral, PublicKeyToken=null
+      m_SerializableObject: '{"obj":{"fileID":10300,"guid":"0000000000000000f000000000000000","type":0}}'
+    min: -Infinity
+    max: Infinity
+    enumValues: []
+    descendantCount: 0
+  - name: BeamSize
+    path: BeamSize
+    tooltip: 
+    space: -1
+    spaceable: 0
+    sheetType: m_Float
+    realType: Single
+    defaultValue:
+      m_Type:
+        m_SerializableType: System.Single, mscorlib, Version=4.0.0.0, Culture=neutral,
+          PublicKeyToken=b77a5c561934e089
+      m_SerializableObject: 10
+    min: -Infinity
+    max: Infinity
+    enumValues: []
+    descendantCount: 0
   m_ImportDependencies: []
-  m_GraphVersion: 18
+  m_GraphVersion: 19
   m_ResourceVersion: 1
   m_SubgraphDependencies: []
   m_CategoryPath: 
@@ -497,10 +497,6 @@ VisualEffectResource:
     m_RendererSettings:
       motionVectorGenerationMode: 0
       shadowCastingMode: 0
-      rayTracingMode: 0
-      receiveShadows: 0
-      reflectionProbeUsage: 0
-      lightProbeUsage: 0
     m_CullingFlags: 3
     m_UpdateMode: 0
     m_PreWarmDeltaTime: 0.05
@@ -1516,6 +1512,7 @@ MonoBehaviour:
   sortingPriority: 0
   m_SubOutputs:
   - {fileID: 8926484042661615161}
+  useBaseColorMap: 3
   colorMapping: 0
   uvMode: 0
   flipbookLayout: 0
@@ -3858,7 +3855,7 @@ MonoBehaviour:
   - {fileID: 8926484042661614683}
   m_ExposedName: ParticlesSpawnRate
   m_Exposed: 1
-  m_Order: 6
+  m_Order: 0
   m_Category: 
   m_Min:
     m_Type:
@@ -3939,7 +3936,7 @@ MonoBehaviour:
   - {fileID: 8926484042661614685}
   m_ExposedName: ParticlesMinSize
   m_Exposed: 1
-  m_Order: 7
+  m_Order: 1
   m_Category: 
   m_Min:
     m_Type:
@@ -4020,7 +4017,7 @@ MonoBehaviour:
   - {fileID: 8926484042661614687}
   m_ExposedName: ParticlesMaxSize
   m_Exposed: 1
-  m_Order: 8
+  m_Order: 2
   m_Category: 
   m_Min:
     m_Type:
@@ -4194,7 +4191,7 @@ MonoBehaviour:
   - {fileID: 8926484042661614701}
   m_ExposedName: Color
   m_Exposed: 1
-  m_Order: 0
+  m_Order: 3
   m_Category: 
   m_Min:
     m_Type:
@@ -4878,6 +4875,7 @@ MonoBehaviour:
   sortingPriority: 0
   m_SubOutputs:
   - {fileID: 8926484042661615162}
+  useBaseColorMap: 3
   colorMapping: 0
   uvMode: 0
   flipbookLayout: 0
@@ -8557,6 +8555,7 @@ MonoBehaviour:
   sortingPriority: 0
   m_SubOutputs:
   - {fileID: 8926484042661615163}
+  useBaseColorMap: 3
   colorMapping: 0
   uvMode: 0
   flipbookLayout: 0
@@ -9615,7 +9614,7 @@ MonoBehaviour:
   - {fileID: 8926484042661615021}
   m_ExposedName: Size
   m_Exposed: 1
-  m_Order: 2
+  m_Order: 4
   m_Category: 
   m_Min:
     m_Type:
@@ -9726,7 +9725,7 @@ MonoBehaviour:
   - {fileID: 8926484042661615023}
   m_ExposedName: TrailsLifetime
   m_Exposed: 1
-  m_Order: 11
+  m_Order: 5
   m_Category: 
   m_Min:
     m_Type:
@@ -9810,7 +9809,7 @@ MonoBehaviour:
   - {fileID: 8926484042661615025}
   m_ExposedName: TrailsSpawnRate
   m_Exposed: 1
-  m_Order: 10
+  m_Order: 6
   m_Category: 
   m_Min:
     m_Type:
@@ -9891,7 +9890,7 @@ MonoBehaviour:
   - {fileID: 8926484042661615027}
   m_ExposedName: TrailsTurbulence
   m_Exposed: 1
-  m_Order: 12
+  m_Order: 7
   m_Category: 
   m_Min:
     m_Type:
@@ -9972,7 +9971,7 @@ MonoBehaviour:
   - {fileID: 8926484042661615029}
   m_ExposedName: TrailsFrequency
   m_Exposed: 1
-  m_Order: 13
+  m_Order: 8
   m_Category: 
   m_Min:
     m_Type:
@@ -10226,7 +10225,7 @@ MonoBehaviour:
   - {fileID: 8926484042661615062}
   m_ExposedName: Color02
   m_Exposed: 1
-  m_Order: 1
+  m_Order: 9
   m_Category: 
   m_Min:
     m_Type:
@@ -10511,7 +10510,7 @@ MonoBehaviour:
   - {fileID: 8926484042661615070}
   m_ExposedName: ParticlesTexture
   m_Exposed: 1
-  m_Order: 5
+  m_Order: 10
   m_Category: 
   m_Min:
     m_Type:
@@ -10592,7 +10591,7 @@ MonoBehaviour:
   - {fileID: 8926484042661615072}
   m_ExposedName: BeamTexture
   m_Exposed: 1
-  m_Order: 3
+  m_Order: 11
   m_Category: 
   m_Min:
     m_Type:
@@ -10673,7 +10672,7 @@ MonoBehaviour:
   - {fileID: 8926484042661615074}
   m_ExposedName: TrailsTexture
   m_Exposed: 1
-  m_Order: 9
+  m_Order: 12
   m_Category: 
   m_Min:
     m_Type:
@@ -10754,7 +10753,7 @@ MonoBehaviour:
   - {fileID: 8926484042661615076}
   m_ExposedName: BeamSize
   m_Exposed: 1
-  m_Order: 4
+  m_Order: 13
   m_Category: 
   m_Min:
     m_Type:

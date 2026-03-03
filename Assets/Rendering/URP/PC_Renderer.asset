@@ -128,7 +128,7 @@ MonoBehaviour:
   m_Name: VolumetricCloudsURP
   m_EditorClassIdentifier: VolumetricCloudsURP::VolumetricCloudsURP
   m_Active: 1
-  material: {fileID: 2100000, guid: 94df6185324b45c4db24523bd415a995, type: 2}
+  material: {fileID: 2100000, guid: 512acbb098660a341aa8843fad126efe, type: 2}
   renderingDebugger: 0
   reflectionProbe: 0
   resolutionScale: 0.75

@@ -48,6 +48,7 @@ namespace Game.Hopball {
     private bool _isIgnoringPlayerCollisions;
 
     public float Energy => _networkEnergy.Value;
+    public float VisualEnergyRatio => Mathf.Clamp01(_displayEnergy / MaxEnergy);
     public bool IsEquipped { get; private set; }
     public bool IsDropped { get; private set; }
 
