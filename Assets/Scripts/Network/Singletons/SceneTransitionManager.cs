@@ -22,6 +22,7 @@ namespace Network.Singletons {
         [SerializeField] private float fadeDuration = 0.5f;
         [SerializeField] private float musicFadeDuration = 1.5f; // Slightly longer for smooth music fade
         [SerializeField] private float transitionCompletionGraceSeconds = 0.15f;
+        [SerializeField] private float respawnFadeInSignalTimeoutSeconds = 8f;
 
         private VisualElement _transitionOverlay;
         private VisualElement _respawnFadeOverlay; // Separate overlay for respawn fades (from GameMenu)
@@ -371,8 +372,21 @@ namespace Network.Singletons {
 
                 // Hold on black screen - wait for server to signal fade in start (server-authoritative)
                 // This ensures all clients are synced regardless of network latency
+                var fadeInSignaled = _serverSignaledFadeIn;
                 if(!_serverSignaledFadeIn) {
-                    yield return WaitForRespawnFadeInSignalAsync(_respawnFadeInSignal).ToCoroutine();
+                    async UniTask WaitForSignalAsync() {
+                        fadeInSignaled = await WaitForRespawnFadeInSignalAsync(_respawnFadeInSignal);
+                    }
+
+                    yield return WaitForSignalAsync().ToCoroutine();
+                }
+
+                if(!fadeInSignaled) {
+                    Debug.LogWarning(
+                        "[SceneTransitionManager] Respawn fade-in signal timed out or was canceled. Forcing overlay recovery.");
+                    yield return FadeInRespawnOverlay();
+                    ForceHideRespawnOverlay();
+                    yield break;
                 }
 
                 // Signal that fade in is starting (for restoring control)
@@ -526,9 +540,38 @@ namespace Network.Singletons {
             }
         }
 
-        private static async UniTask WaitForRespawnFadeInSignalAsync(UniTaskCompletionSource<bool> signal) {
-            if(signal == null) return;
-            await signal.Task;
+        private async UniTask<bool> WaitForRespawnFadeInSignalAsync(UniTaskCompletionSource<bool> signal) {
+            if(signal == null) return true;
+
+            var signalReceived = false;
+            async UniTask WaitForSignalAsync() {
+                signalReceived = await signal.Task;
+            }
+
+            var timeoutSeconds = Mathf.Max(0.1f, respawnFadeInSignalTimeoutSeconds);
+            try {
+                var winner = await UniTask.WhenAny(
+                    WaitForSignalAsync(),
+                    UniTask.Delay(TimeSpan.FromSeconds(timeoutSeconds),
+                        cancellationToken: this.GetCancellationTokenOnDestroy()));
+                return winner == 0 && signalReceived;
+            } catch(OperationCanceledException) {
+                return false;
+            }
+        }
+
+        private void ForceHideRespawnOverlay() {
+            if(_respawnFadeOverlay == null) {
+                RefreshRespawnFadeOverlay();
+            }
+
+            if(_respawnFadeOverlay == null) return;
+
+            _respawnFadeOverlay.RemoveFromClassList("visible");
+            _respawnFadeOverlay.AddToClassList("hidden");
+            _respawnFadeOverlay.pickingMode = PickingMode.Ignore;
+            _respawnFadeOverlay.style.display = DisplayStyle.None;
+            _respawnOverlayState = OverlayVisualState.Hidden;
         }
     }
 }
