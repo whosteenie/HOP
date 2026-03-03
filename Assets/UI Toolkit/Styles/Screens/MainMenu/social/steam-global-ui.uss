@@ -1,0 +1,166 @@
+/* ===== STEAM GLOBAL UI ===== */
+
+.party-container {
+    position: absolute;
+    top: 20px;
+    right: 30px;
+    flex-direction: row;
+    align-items: center;
+}
+
+.status-container {
+    position: absolute;
+    top: 40px;
+    left: 50%;
+    translate: -50% 0;
+    flex-direction: column;
+    align-items: center;
+    padding: 12px 24px;
+    background-color: var(--color-bg-popup-root);
+    border-radius: 4px;
+    border-width: 1px;
+    border-color: var(--color-accent-bg-mid);
+    width: 380px;
+    justify-content: center;
+    border-top-width: 1px;
+    border-bottom-left-radius: 6px;
+    border-bottom-right-radius: 6px;
+    border-top-left-radius: 6px;
+    border-top-right-radius: 6px;
+}
+
+.status-info-grouping {
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    flex-grow: 1;
+}
+
+.status-label {
+    font-size: 14px;
+    -unity-font-style: normal;
+    color: rgba(200, 200, 200, 0.7);
+    margin-top: 6px;
+    margin-bottom: 8px;
+    letter-spacing: 1px;
+    -unity-text-align: middle-center;
+}
+
+.queue-details-row {
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    opacity: 1;
+    margin-bottom: 12px;
+}
+
+.queue-info-label {
+    font-size: 18px;
+    -unity-font-style: bold;
+    color: var(--color-white);
+    letter-spacing: 1px;
+    width: 100px;
+}
+
+.queue-gamemode {
+    -unity-text-align: middle-right;
+}
+
+.queue-timer {
+    -unity-text-align: middle-left;
+}
+
+.queue-info-separator {
+    margin: 0 8px;
+    color: rgba(200, 60, 60, 0.8);
+    font-size: 18px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+}
+
+.cancel-button {
+    background-color: var(--color-accent-border-faint);
+    border-color: rgba(200, 60, 60, 0.6);
+    padding: 6px 16px;
+    font-size: 13px;
+    height: 34px;
+    color: var(--color-accent);
+    align-self: center;
+}
+
+.cancel-button:hover {
+    background-color: var(--color-accent-border);
+    border-color: rgba(255, 100, 100, 0.8);
+    color: white;
+}
+
+.steam-avatar {
+    width: 40px;
+    height: 40px;
+    background-color: rgb(50, 50, 50);
+    scale: 1 1;
+    margin-right: 12px;
+}
+
+.steam-avatar.steam-avatar-flip {
+    scale: 1 -1;
+}
+
+.steam-avatar.default-avatar {
+    background-image: url('project://database/Assets/UI%20Toolkit/Images/default-avatar.jpg');
+    -unity-background-scale-mode: scale-to-fit;
+}
+
+.steam-avatar.player-icon-red {
+    background-image: url('project://database/Assets/UI%20Toolkit/Images/PlayerIcons/red_icon.png');
+    -unity-background-scale-mode: scale-to-fit;
+}
+.steam-avatar.player-icon-orange {
+    background-image: url('project://database/Assets/UI%20Toolkit/Images/PlayerIcons/orange_icon.png');
+    -unity-background-scale-mode: scale-to-fit;
+}
+.steam-avatar.player-icon-yellow {
+    background-image: url('project://database/Assets/UI%20Toolkit/Images/PlayerIcons/yellow_icon.png');
+    -unity-background-scale-mode: scale-to-fit;
+}
+.steam-avatar.player-icon-green {
+    background-image: url('project://database/Assets/UI%20Toolkit/Images/PlayerIcons/green_icon.png');
+    -unity-background-scale-mode: scale-to-fit;
+}
+.steam-avatar.player-icon-blue {
+    background-image: url('project://database/Assets/UI%20Toolkit/Images/PlayerIcons/blue_icon.png');
+    -unity-background-scale-mode: scale-to-fit;
+}
+.steam-avatar.player-icon-purple {
+    background-image: url('project://database/Assets/UI%20Toolkit/Images/PlayerIcons/purple_icon.png');
+    -unity-background-scale-mode: scale-to-fit;
+}
+.steam-avatar.player-icon-white {
+    background-image: url('project://database/Assets/UI%20Toolkit/Images/PlayerIcons/white_icon.png');
+    -unity-background-scale-mode: scale-to-fit;
+}
+
+
+
+.party-member-row {
+    flex-direction: row;
+    align-items: center;
+    padding: 5px 10px;
+    border-radius: 4px;
+    position: relative;
+}
+
+.party-member-name-container {
+    flex-direction: column;
+    justify-content: center;
+    min-width: 170px;
+}
+
+.player-name-label {
+    color: white;
+    font-size: 14px;
+    -unity-font-style: bold;
+    margin: 0;
+    padding: 0;
+}
+

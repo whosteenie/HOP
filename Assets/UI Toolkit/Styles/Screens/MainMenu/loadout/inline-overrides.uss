@@ -1,0 +1,202 @@
+/* ===== LOADOUT PANEL INLINE STYLES MERGED ===== */
+
+/* Name flex container */
+#name-flex {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 120px;
+}
+
+/* Name buttons container */
+#name-buttons-container {
+    width: 100%;
+    min-width: 0;
+    height: 100%;
+    align-items: stretch;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    padding: 0;
+    background-color: transparent;
+    border-width: 0;
+}
+
+/* Customization flex container */
+#customization-flex {
+    flex-grow: 1;
+    position: absolute;
+    top: 0;
+    align-items: center;
+    height: 1080px;
+    right: 0;
+    width: 526px;
+    align-self: center;
+    align-content: center;
+    justify-content: center;
+}
+
+/* Customization container */
+#customization-container {
+    align-items: center;
+    width: 408px;
+    min-width: auto;
+    max-width: none;
+    right: 20px;
+    align-self: center;
+    top: auto;
+    bottom: auto;
+    max-height: none;
+    justify-content: center;
+    height: 911px;
+    align-content: center;
+}
+
+/* Customization content */
+#customization-content {
+    width: 100%;
+}
+
+/* Color section */
+#color-section {
+    align-self: auto;
+    align-items: flex-start;
+    margin-bottom: 0;
+    height: 298px;
+}
+
+/* Color section label */
+#color-section-label {
+    width: 100%;
+}
+
+/* Color picker container */
+#color-picker-container {
+    align-items: center;
+    width: 100%;
+    height: 100%;
+    align-self: center;
+}
+
+/* Color RGB inputs */
+#color-rgb-inputs {
+    width: 100%;
+    height: 100%;
+}
+
+/* Color sliders */
+#color-r-slider,
+#color-g-slider,
+#color-b-slider {
+    max-width: none;
+    min-width: auto;
+    width: 235px;
+}
+
+/* Material section */
+#material-section {
+    margin-bottom: 0;
+    height: 563px;
+}
+
+/* Material section label */
+#material-section-label {
+    width: 100%;
+}
+
+/* Smoothness and Metallic labels */
+#smoothness-label,
+#metallic-label,
+#height-label {
+    align-items: stretch;
+    min-width: 110px;
+}
+
+#smoothness-slider,
+#metallic-slider,
+#height-slider {
+    min-width: auto;
+    max-width: none;
+    width: 160px;
+}
+
+#emission-header {
+    justify-content: flex-start;
+}
+
+#emission-label {
+    width: 100%;
+}
+
+#emission-preview-box {
+    margin-bottom: 15px;
+}
+
+#emission-r-slider,
+#emission-g-slider,
+#emission-b-slider {
+    width: 235px;
+    min-width: auto;
+    max-width: none;
+}
+
+#player-model-viewport {
+    left: 18%;
+    right: 21%;
+    bottom: 15%;
+    top: 0;
+}
+
+#options-content-scroll {
+    height: 100%;
+    min-height: auto;
+    max-height: none;
+}
+
+/* Weapons flex container */
+#weapons-flex {
+    flex-grow: 1;
+    justify-content: center;
+    align-self: auto;
+    align-content: auto;
+    align-items: auto;
+    position: absolute;
+    top: 0;
+    bottom: 170px;
+    height: auto;
+    width: 230px;
+    margin-left: 20px;
+    left: 0;
+}
+
+/* Weapon selection container */
+#weapon-selection-container {
+    left: 2%;
+    align-items: auto;
+    align-content: auto;
+    height: auto;
+    top: auto;
+    bottom: auto;
+    justify-content: center;
+}
+
+/* Weapon containers */
+#primary-weapon-container,
+#secondary-weapon-container,
+#tertiary-weapon-container {
+    margin-bottom: 0;
+}
+
+/* Lobby panel inline styles */
+#host-label {
+    -unity-text-align: middle-left;
+    margin-left: 20px;
+    margin-right: 0;
+}
+
+
+.flex-grow-1.align-items-flex-end {
+    align-items: center;
+}
+

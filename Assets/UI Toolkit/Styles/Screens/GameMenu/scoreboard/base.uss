@@ -1,0 +1,202 @@
+/* ===== SCOREBOARD ===== */
+
+.scoreboard-container {
+    width: 1100px;
+    max-height: 85%;
+    padding: 15px 30px; /* Reduced vertical padding */
+    flex-direction: column;
+}
+
+.scoreboard-title-row {
+    width: 100%;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+}
+
+.scoreboard-mode-title {
+    margin-bottom: 0;
+}
+
+.scoreboard-map-title {
+    margin-bottom: 0;
+    -unity-text-align: middle-right;
+}
+
+.scoreboard-header {
+    flex-direction: row;
+    align-items: center;
+    padding: 6px 16px; /* Reduced vertical padding */
+    background-color: var(--color-accent-border-faint);
+    border-radius: 4px;
+    margin-bottom: 6px;
+    border-width: 1px;
+    border-color: var(--color-accent-border);
+}
+
+.scoreboard-header-height-38px {
+    height: 38px;
+}
+
+.header-cell {
+    font-size: 12px;
+    -unity-font-style: bold;
+    color: var(--color-white);
+    -unity-text-align: middle-center;
+    letter-spacing: 1px;
+}
+
+.ping-cell {
+    width: 40px;
+    min-width: 40px;
+    flex-shrink: 0;
+}
+
+.avatar-cell {
+    width: 32px; /* Reduced from 40 */
+    height: 32px;
+    min-width: 32px;
+    margin-left: 8px;
+    margin-right: 8px;
+    flex-shrink: 0;
+}
+
+.name-cell {
+    flex-grow: 1;
+    min-width: 150px; /* Reduced min-width */
+    -unity-text-align: middle-left;
+    margin-left: 8px;
+}
+
+.stat-cell {
+    width: 60px;
+    min-width: 60px;
+    flex-shrink: 0;
+}
+
+.scoreboard-scroll {
+    flex-grow: 1;
+    max-height: 560px; /* Increased slightly */
+}
+
+.player-rows {
+    flex-direction: column;
+}
+
+.player-row {
+    flex-direction: row;
+    align-items: center;
+    padding: 4px 12px; /* Reduced further */
+    background-color: rgba(15, 15, 20, 0.7);
+    border-radius: 4px;
+    margin-bottom: 2px;
+    border-width: 1px;
+    border-color: var(--color-accent-border-faint);
+    transition-duration: 0.2s;
+}
+
+.player-row-alt {
+    background-color: rgba(10, 10, 15, 0.5);
+}
+
+.player-row-empty {
+    opacity: 0.3;
+}
+
+.player-row:hover {
+    background-color: rgba(25, 25, 30, 0.85);
+    border-color: rgba(255, 100, 100, 0.3);
+}
+
+.player-row-local {
+    background-color: rgba(200, 60, 60, 0.12);
+    border-color: rgba(255, 100, 100, 0.3);
+}
+
+.player-row-local:hover {
+    background-color: var(--color-accent-border-soft);
+    border-color: rgba(255, 100, 100, 0.5);
+}
+
+.player-row-local-your-team {
+    background-color: rgba(50, 100, 255, 0.12);
+    border-color: rgba(100, 150, 255, 0.3);
+}
+
+.player-row-local-your-team:hover {
+    background-color: rgba(50, 100, 255, 0.2);
+    border-color: rgba(100, 150, 255, 0.5);
+}
+
+.scoreboard-hover-disabled .player-row:hover {
+    background-color: rgba(15, 15, 20, 0.7);
+    border-color: var(--color-accent-border-faint);
+}
+
+.scoreboard-hover-disabled .player-row-local:hover {
+    background-color: rgba(200, 60, 60, 0.12);
+    border-color: rgba(255, 100, 100, 0.3);
+}
+
+.scoreboard-hover-disabled .player-row-local-your-team:hover {
+    background-color: rgba(50, 100, 255, 0.12);
+    border-color: rgba(100, 150, 255, 0.3);
+}
+
+.player-ping {
+    width: 40px;
+    min-width: 40px;
+    font-size: 13px;
+    -unity-text-align: middle-center;
+    color: rgb(100, 200, 100);
+    flex-shrink: 0;
+}
+
+.player-ping-high {
+    color: rgb(255, 200, 100);
+}
+
+.player-ping-critical {
+    color: var(--color-accent);
+}
+
+.player-avatar {
+    width: 32px; /* Reduced from 40 */
+    height: 32px;
+    min-width: 32px;
+    margin-left: 8px;
+    margin-right: 8px;
+    border-radius: 4px;
+    background-color: rgba(20, 20, 25, 0.6);
+    border-width: 1px;
+    border-color: var(--color-accent-border-soft);
+    -unity-background-scale-mode: scale-to-fit;
+    flex-shrink: 0;
+}
+
+.player-name {
+    flex-grow: 1;
+    min-width: 120px;
+    font-size: 14px;
+    color: var(--color-text-primary);
+    -unity-text-align: middle-left;
+    margin-left: 8px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.player-stat {
+    width: 60px;
+    min-width: 60px;
+    font-size: 14px;
+    -unity-text-align: middle-center;
+    color: rgb(200, 200, 200);
+    flex-shrink: 0;
+}
+
+.player-stat-highlight {
+    color: rgb(255, 200, 100);
+    -unity-font-style: bold;
+}
+

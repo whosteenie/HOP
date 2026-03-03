@@ -1,0 +1,55 @@
+/* ===== CREDITS ===== */
+
+.credits-container {
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 26px;
+    min-width: 500px;
+    min-height: 400px;
+}
+
+.credits-content {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 0;
+}
+
+.credits-text {
+    font-size: 20px;
+    color: white;
+    -unity-text-align: middle-center;
+}
+
+.main-logo-container {
+    width: 240px;
+    height: 240px;
+}
+
+.main-credits-logo {
+    width: 100%;
+    height: 100%;
+    --unity-image: url('/Assets/UI Toolkit/Images/whostudios-notext.png');
+    --unity-image-size: contain;
+}
+
+.logo-container {
+    width: 60px;
+    height: 60px;
+    margin-top: 16px;
+}
+
+.credits-logo {
+    width: 100%;
+    height: 100%;
+    --unity-image: url('/Assets/UI Toolkit/Images/github.png');
+    --unity-image-size: contain;
+    transition: opacity 0.2s ease;
+}
+
+.credits-logo:hover {
+    opacity: 0.8;
+}
+

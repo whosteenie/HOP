@@ -1,0 +1,405 @@
+/* ===== HUD ROOT ===== */
+.hud {
+    position: absolute;
+    width: 100%; height: 100%;
+    padding: 24px;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+.root-container-visibility {
+    visibility: visible;
+    display: none;
+}
+
+.hud-visibility-visible {
+    visibility: visible;
+}
+
+/* Positions by ID */
+/* Push to edges as requested - 0px margin/offset */
+#hud-panel #health-container { position: absolute; left: 0; bottom: 0; margin: 0; }
+#grapple-indicator-bottom { position: absolute; left: 50%; bottom: 96px; translate: -50% 0; }
+#multiplier-container { position: absolute; left: 50%; bottom: 0; translate: -50% 0; margin: 0; }
+#hud-panel #ammo-container { position: absolute; right: 0; bottom: 0; margin: 0; }
+
+/* Stat containers */
+.multiplier-container {
+    flex-direction: row; 
+    align-items: center;
+    min-height: 56px; 
+    padding: 8px 16px;
+    background-color: rgba(12, 12, 18, 0.4);
+    border-top-width: 2px;
+    border-top-color: rgba(60, 150, 200, 0.6);
+}
+
+.health-container, .ammo-container {
+    flex-direction: row; 
+    align-items: center;
+    min-height: 84px; 
+    padding: 8px 16px;
+    background-color: rgba(0, 0, 0, 0.4);
+    border-radius: 0;
+    border-width: 0;
+}
+
+
+
+/* Bars */
+.health-bar {
+    width: 260px; 
+    height: 32px;
+    min-height: 32px;
+    margin: 0;
+    margin-right: 20px;
+    padding: 0;
+    background-color: transparent;
+    border-width: 0;
+}
+
+.health-bar .unity-progress-bar__container {
+    background-color: transparent;
+    border-width: 0;
+    margin: 0;
+    padding: 0;
+    max-height: none;
+    min-height: 32px;
+    height: 32px;
+}
+
+.health-bar .unity-progress-bar__background {
+    background-color: rgba(0, 0, 0, 0.5);
+    border-width: 1px;
+    border-color: rgba(200, 60, 60, 0.8);
+    margin: 0;
+    padding: 0;
+    max-height: none;
+    min-height: 32px;
+    height: 32px;
+}
+
+.multiplier-bar {
+    width: 180px; height: 22px; margin-right: 12px;
+    border-radius: 4px; background-color: rgba(5, 5, 8, 0.8);
+    border-width: 1px;
+    border-color: var(--color-accent-border-soft);
+}
+.health-bar .unity-progress-bar__progress { 
+    background-color: var(--color-accent-strong);
+    background-image: none;
+    border-width: 0;
+    border-radius: 0;
+    margin: 0;
+    padding: 0;
+    height: 32px;
+    min-height: 32px;
+    border-top-width: 1px;
+    border-top-color: rgba(255, 255, 255, 0.2);
+}
+.multiplier-bar .unity-progress-bar__progress { 
+    background-color: rgb(60, 150, 200);
+    background-image: none;
+    border-radius: 4px;
+}
+
+.multiplier-bar .unity-progress-bar__background {
+    background-color: rgba(0, 0, 0, 0.5);
+    border-width: 1px;
+    border-color: rgba(60, 150, 200, 0.3);
+}
+
+.multiplier-bar .unity-progress-bar__container {
+    max-height: none;
+    min-height: 22px;
+    height: 22px;
+}
+
+/* Values */
+.health-value {
+    color: white; 
+    font-size: 44px; 
+    -unity-font-style: bold; 
+    min-width: 80px; 
+    margin: 0;
+    padding: 0;
+    -unity-text-align: middle-left;
+    text-shadow: 2px 2px 3px var(--color-shadow-solid);
+}
+
+.multiplier-value {
+    color: white; font-size: 22px; -unity-font-style: bold; min-width: 60px; -unity-text-align: middle-right;
+}
+.ammo-text {
+    color: white; 
+    font-size: 44px; 
+    -unity-font-style: bold; 
+    min-width: 60px; 
+    -unity-text-align: middle-center;
+    text-shadow: 2px 2px 3px var(--color-shadow-solid);
+}
+
+.ammo-total {
+    color: rgba(255, 255, 255, 0.4);
+    font-size: 30px;
+    margin-top: 6px; 
+}
+
+.ammo-separator {
+    width: 3px;
+    height: 48px;
+    background-color: var(--color-accent-strong);
+    margin: 0 18px;
+}
+
+/* Crosshair */
+.crosshair { 
+    position: absolute; 
+    width: 100%; 
+    height: 100%; 
+    align-items: center; 
+    justify-content: center;
+    top: 0; left: 0; bottom: 0; right: 0;
+}
+.crosshair-line { position: absolute; background-color: var(--color-accent-strong); }
+.crosshair-line.horizontal { width: 18px; height: 2px; }
+.crosshair-line.vertical   { width: 2px; height: 18px; }
+.crosshair-dot {
+    position: absolute;
+    width: 6px;
+    height: 6px;
+    border-radius: 3px;
+    background-color: var(--color-accent-strong);
+}
+.hopball-interact-prompt {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    translate: -50% 28px;
+    display: none;
+    color: white;
+    font-size: 20px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+    text-shadow: 2px 2px 3px var(--color-shadow-solid);
+}
+
+/* Bottom grapple indicator (horizontal bar) */
+.grapple-indicator-bottom {
+    width: 160px;
+    height: 6px;
+    border-radius: 4px;
+    border-width: 0;
+    background-color: rgba(20, 10, 10, 0.6);
+    overflow: hidden;
+    flex-direction: row;
+    justify-content: flex-start;
+}
+
+.grapple-indicator-fill {
+    width: 0;
+    height: 100%;
+    background-color: var(--color-accent-fill-strong);
+    transition-duration: 0.1s;
+    transition-property: background-color, opacity;
+    transition-timing-function: linear;
+}
+
+/* Center grapple indicator (horseshoe) */
+.grapple-indicator { 
+    position: absolute;
+    width: 50px;
+    height: 50px;
+}
+
+/* Pause / Options */
+.menu-container { width: 420px; padding: 28px; }
+
+.pause-challenges-container {
+    position: absolute;
+    left: 24px;
+    top: 24px;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: flex-start;
+}
+
+.pause-challenges-slot {
+    flex-direction: column;
+}
+
+.pause-challenges-slot-daily {
+    margin-right: 0;
+    margin-bottom: 14px;
+}
+
+.pause-challenges-slot-weekly {
+    margin-left: 0;
+}
+
+.pause-challenges-spacer {
+    display: none;
+}
+
+.pause-header {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    margin-bottom: 18px;
+}
+
+.pause-loadout-container {
+    position: absolute;
+    top: 24px;
+    right: 24px;
+    width: 230px;
+    padding: 14px;
+    flex-direction: column;
+    align-items: flex-start;
+    overflow: visible;
+}
+
+.pause-loadout-title {
+    font-size: 16px;
+    -unity-font-style: bold;
+    letter-spacing: 2px;
+    margin-bottom: 10px;
+}
+
+.pause-weapon-slot-container {
+    width: 100%;
+    flex-direction: column;
+    align-items: flex-start;
+    margin-bottom: 12px;
+    overflow: visible;
+}
+
+.pause-weapon-slot-row {
+    width: 100%;
+    flex-direction: row;
+    align-items: center;
+    position: relative;
+    overflow: visible;
+}
+
+.pause-weapon-slot {
+    width: 200px;
+    height: 96px;
+    background-color: var(--color-bg-panel-strong);
+    border-radius: 4px;
+    border-width: 1px;
+    border-color: var(--color-accent-border-soft);
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    transition-duration: 0.2s;
+}
+
+.pause-weapon-slot:hover {
+    border-color: var(--color-accent-border-mid);
+    background-color: var(--color-bg-surface-strong);
+}
+
+.pause-weapon-image {
+    width: 146px;
+    height: 68px;
+    -unity-background-scale-mode: scale-to-fit;
+}
+
+.pause-weapon-name {
+    position: absolute;
+    left: 8px;
+    right: 8px;
+    bottom: 6px;
+    font-size: 11px;
+    color: rgba(235, 235, 235, 0.92);
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+}
+
+.pause-weapon-slot-label {
+    margin-top: 5px;
+    margin-left: 2px;
+    font-size: 11px;
+    color: rgba(185, 185, 185, 1);
+    letter-spacing: 1px;
+    -unity-font-style: bold;
+}
+
+.pause-weapon-dropdown {
+    position: absolute;
+    right: 208px;
+    top: 0;
+    width: auto;
+    max-width: 560px;
+    max-height: 96px;
+    background-color: var(--color-bg-popup-root);
+    border-radius: 4px;
+    border-width: 1px;
+    border-color: var(--color-accent-border);
+    padding: 8px;
+    margin-right: 14px;
+    overflow: visible;
+}
+
+.pause-weapon-dropdown-scroll {
+    max-height: 80px;
+    overflow: visible;
+}
+
+.pause-weapon-dropdown-scroll .unity-scroll-view__content-container {
+    flex-direction: row;
+    flex-wrap: nowrap;
+}
+
+.pause-loadout-option {
+    width: 104px;
+    height: 74px;
+    min-width: 104px;
+    background-color: var(--color-bg-surface);
+    border-radius: 4px;
+    border-width: 1px;
+    border-color: var(--color-accent-border-soft);
+    margin-right: 6px;
+    padding: 4px;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    transition-duration: 0.2s;
+}
+
+.pause-loadout-option:hover {
+    background-color: var(--color-bg-surface-pressed);
+    border-color: var(--color-accent-border-hover);
+}
+
+.pause-loadout-option-image {
+    width: 90px;
+    height: 50px;
+    -unity-background-scale-mode: scale-to-fit;
+}
+
+.pause-loadout-option-name {
+    margin-top: 3px;
+    font-size: 9px;
+    color: rgba(220, 220, 220, 0.95);
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+}
+
+.pause-weapon-dropdown-scroll .unity-scroll-view__vertical-scrollbars,
+.pause-weapon-dropdown-scroll .unity-scroll-view__horizontal-scrollbars,
+.pause-weapon-dropdown-scroll .unity-scroller__low-button,
+.pause-weapon-dropdown-scroll .unity-scroller__high-button,
+.pause-weapon-dropdown-scroll .unity-scroller__slider,
+.pause-weapon-dropdown-scroll .unity-scroller__track {
+    display: none;
+    width: 0;
+    height: 0;
+    min-width: 0;
+    min-height: 0;
+    max-width: 0;
+    max-height: 0;
+}
+

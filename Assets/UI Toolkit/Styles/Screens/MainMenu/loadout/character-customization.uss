@@ -1,0 +1,165 @@
+/* ===== CHARACTER CUSTOMIZATION ===== */
+
+/* Old customization styles removed - using new vertical layout */
+
+.customization-section .section-title {
+    margin-bottom: 12px;
+}
+
+.color-picker-full-container {
+    flex-direction: column;
+    align-items: flex-start;
+    margin-top: 12px;
+}
+
+.color-preview-box {
+    width: 80px;
+    height: 80px;
+    min-width: 80px;
+    min-height: 80px;
+    background-color: var(--color-bg-surface);
+    border-radius: 4px;
+    border-width: 1px;
+    border-color: var(--color-accent-border);
+    margin-bottom: 15px;
+}
+
+.color-preview-button {
+    justify-content: center;
+    align-items: center;
+}
+
+.emission-section {
+    margin-top: 12px;
+}
+
+.emission-header {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.emission-title {
+    margin-bottom: 0;
+}
+
+.emission-toggle {
+    min-width: 120px;
+    justify-content: flex-end;
+}
+
+.emission-picker {
+    align-items: center;
+    margin-top: 12px;
+}
+
+.emission-preview-box {
+    margin-bottom: 0;
+    margin-right: 20px;
+}
+
+.emission-rgb-container .setting-row {
+    margin-bottom: 8px;
+}
+
+#emission-b-input-container {
+    margin-bottom: 0;
+}
+
+.material-packet-panel {
+    align-items: center;
+    justify-content: center;
+}
+
+.material-packet-container {
+    width: 840px;
+    max-width: 90%;
+    max-height: 720px;
+    padding: 24px 32px;
+    display: flex;
+    flex-direction: column;
+}
+
+.material-packet-header {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+}
+
+.material-packet-scroll {
+    flex-grow: 1;
+}
+
+.material-packet-grid {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    padding: 8px 0;
+}
+
+.material-packet-button {
+    width: 150px;
+    height: 150px;
+    margin-right: 16px;
+    margin-bottom: 16px;
+    border-radius: 6px;
+    border-width: 1px;
+    border-color: var(--color-white-15);
+    background-color: var(--color-bg-surface);
+    color: #ffffff;
+    font-size: 16px;
+    justify-content: center;
+    align-items: center;
+    -unity-text-align: middle-center;
+    padding: 8px;
+}
+
+.material-packet-button.packet-button-placeholder {
+    opacity: 0.6;
+}
+
+.material-packet-button.packet-button-selected {
+    border-color: rgba(200, 60, 60, 0.8);
+    background-color: rgba(200, 60, 60, 0.25);
+}
+
+.color-rgb-container {
+    flex-direction: column;
+    width: 100%;
+}
+
+.color-rgb-container .setting-row {
+    margin-bottom: 8px;
+}
+
+#color-b-input-container {
+    margin-bottom: 12px;
+}
+
+.color-rgb-label {
+    min-width: 30px;
+    width: 30px;
+}
+
+.color-rgb-input {
+    min-width: 50px;
+    max-width: 50px;
+    width: 50px;
+}
+
+/* Ensure sliders have proper width in customization panel */
+.customization-section .setting-row {
+    width: 100%;
+}
+
+.customization-section .setting-slider {
+    width: 200px;
+    min-width: 200px;
+    max-width: 200px;
+    flex-grow: 0;
+    flex-shrink: 0;
+}
+
