@@ -6,6 +6,7 @@ using UnityEngine.SceneManagement;
 using UnityEngine.UIElements;
 using Game.Settings;
 using Network;
+using SessionManager = Network.Session.SessionManager;
 
 namespace Game.UI {
     public class GrappleUIManager : UIElementBase {

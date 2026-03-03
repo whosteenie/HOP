@@ -1,0 +1,172 @@
+/* ===== GAMEMODE DROPDOWN ===== */
+
+.gamemode-dropdown-container {
+    position: relative;
+    flex-direction: row;
+    align-items: center;
+    margin-bottom: 18px;
+}
+
+.gamemode-display {
+    margin-bottom: 0;
+    transition-duration: 0.2s;
+}
+
+.gamemode-display.gamemode-hover {
+    color: var(--color-accent);
+}
+
+.gamemode-display.gamemode-clicked {
+    color: var(--color-accent-strong);
+}
+
+.gamemode-arrow {
+    width: 0;
+    height: 0;
+    border-left-width: 7px;
+    border-left-color: transparent;
+    border-right-width: 7px;
+    border-right-color: transparent;
+    border-bottom-width: 12px;
+    border-bottom-color: var(--color-accent);
+    border-top-width: 0;
+    margin-left: 12px;
+    margin-bottom: 0;
+    margin-top: 0;
+    opacity: 0;
+    translate: -20px 0;
+    transition-duration: 0.2s;
+    transition-property: opacity, translate, border-bottom-width, border-top-width, border-bottom-color, border-top-color;
+    transition-timing-function: ease-out;
+    align-self: center;
+    position: relative;
+    top: 0;
+}
+
+.gamemode-arrow.arrow-slide-in {
+    opacity: 1;
+    translate: 0 0;
+    transition-duration: 0.3s;
+    transition-property: opacity, translate;
+    transition-timing-function: ease-out;
+}
+
+.gamemode-arrow.arrow-down {
+    border-bottom-width: 0;
+    border-top-width: 12px;
+    border-top-color: var(--color-accent);
+    top: 2px;
+}
+
+.gamemode-dropdown-menu {
+    position: absolute;
+    flex-direction: column;
+    background-color: rgba(12, 12, 18, 1.0);
+    border-radius: 4px;
+    border-width: 1px;
+    border-color: var(--color-accent-border);
+    padding: 10px 16px;
+    min-width: 280px;
+}
+
+.gamemode-dropdown-menu-styled {
+    min-width: 270px;
+    padding-right: 10px;
+    padding-left: 10px;
+}
+
+.gamemode-option {
+    width: 100%;
+    height: 40px;
+    background-color: var(--color-bg-surface);
+    border-radius: 4px;
+    border-width: 1px;
+    border-color: var(--color-accent-border-soft);
+    margin-bottom: 6px;
+    color: var(--color-text-primary);
+    font-size: 16px;
+    -unity-font-style: normal;
+    -unity-text-align: middle-center;
+    padding-left: 12px;
+    padding-right: 12px;
+    transition-duration: 0.2s;
+}
+
+.gamemode-option:hover {
+    background-color: var(--color-bg-surface-pressed);
+    border-color: var(--color-accent-border-mid);
+    color: var(--color-accent);
+}
+
+.gamemode-option:active {
+    background-color: var(--color-accent-border);
+}
+
+.gamemode-option-styled {
+    width: auto;
+    height: auto;
+    -unity-text-align: middle-left;
+}
+
+.lobby-body { flex-direction: row; }
+.lobby-left { margin-right: 30px; width:203px; }
+.lobby-left-width-420px {
+    margin-right: 25px;
+    width: 420px;
+}
+.lobby-right { margin-right: 0; min-width: 500px; width: 539px; }
+
+/* Hide the "Join with Code:" label */
+#join-label {
+    display: none;
+}
+
+.join-code-container {
+    margin-top: 8px; margin-bottom: 12px; padding: 12px;
+    background-color: rgba(10, 10, 15, 0.6); border-radius: 4px;
+    border-width: 1px;
+    border-color: var(--color-accent-border-soft);
+}
+
+.join-code-display {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    flex-grow: 1;
+    justify-content: flex-end;
+}
+
+.join-code-display-flex-start {
+    justify-content: flex-start;
+}
+
+.host-label-inline {
+    min-width: 146px;
+    margin-right: 4px;
+    margin-left: 8px;
+    padding-right: 1px;
+    max-width: none;
+    width: 146px;
+    min-height: 146px;
+}
+
+.player-list-container {
+    height: 269px;
+    min-width: auto;
+    width: 100%;
+}
+
+.player-list-scroll {
+    height: 100%; background-color: var(--color-bg-panel-strong); border-radius: 4px;
+    border-width: 1px;
+    border-color: var(--color-accent-border-soft);
+}
+
+.player-list { flex-direction: column; }
+
+.player-entry {
+    color: var(--color-text-secondary); font-size: 14px; padding: 6px 8px;
+    border-bottom-width: 1px; border-bottom-color: rgba(200, 60, 60, 0.1);
+}
+.player-entry.host { color: rgb(255, 150, 150); -unity-font-style: bold; }
+

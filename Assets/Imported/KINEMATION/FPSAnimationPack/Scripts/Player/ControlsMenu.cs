@@ -3,6 +3,7 @@
 using TMPro;
 using UnityEngine;
 
+#pragma warning disable 0618
 namespace KINEMATION.FPSAnimationPack.Scripts.Player
 {
     public class ControlsMenu : MonoBehaviour
@@ -66,3 +67,4 @@ namespace KINEMATION.FPSAnimationPack.Scripts.Player
         }
     }
 }
+#pragma warning restore 0618

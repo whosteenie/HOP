@@ -98,7 +98,7 @@ namespace Network.Singletons {
         /// This overlay appears above HUD but below pause menu.
         /// </summary>
         private void RefreshRespawnFadeOverlay() {
-            if(!SessionManager.IsGameplaySceneName(_cachedSceneName)) return;
+            if(!Session.SessionManager.IsGameplaySceneName(_cachedSceneName)) return;
             
             var gameMenuManager = GameMenuManager.Instance;
             if(gameMenuManager == null) return;

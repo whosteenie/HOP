@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Audio.Networking;
@@ -6,6 +7,7 @@ using Game.UI;
 using Game.Menu;
 using Game.Match;
 using Game.Player.Hopball;
+using Game.Player.Look;
 using Network;
 using Network.Core;
 using Network.AntiCheat;
@@ -21,6 +23,7 @@ using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.UIElements;
 using Game.Settings;
+using SessionManager = Network.Session.SessionManager;
 
 namespace Game.Player {
     [DisallowMultipleComponent]
@@ -29,6 +32,10 @@ namespace Game.Player {
     [DefaultExecutionOrder(-100)] // Initialize before sub-controllers
     public partial class PlayerController : NetworkBehaviour {
         public static PlayerController LocalPlayer { get; private set; }
+        public static event Action<PlayerController> PlayerSpawned;
+        public static event Action<PlayerController> PlayerDespawned;
+        private static readonly HashSet<PlayerController> SpawnedPlayersRegistry = new();
+        public static IReadOnlyCollection<PlayerController> SpawnedPlayers => SpawnedPlayersRegistry;
         #region Serialized Fields
 
         [Header("Core Components")]
@@ -291,6 +298,24 @@ namespace Game.Player {
             }
         }
 
+        private static void RegisterSpawnedPlayer(PlayerController player) {
+            if(player == null || !SpawnedPlayersRegistry.Add(player)) return;
+            PlayerSpawned?.Invoke(player);
+        }
+
+        private static void UnregisterSpawnedPlayer(PlayerController player) {
+            if(player == null || !SpawnedPlayersRegistry.Remove(player)) return;
+            PlayerDespawned?.Invoke(player);
+        }
+
+        public override void OnDestroy() {
+            UnregisterSpawnedPlayer(this);
+            if(LocalPlayer == this) {
+                LocalPlayer = null;
+            }
+            base.OnDestroy();
+        }
+
         public override void OnNetworkSpawn() {
             base.OnNetworkSpawn();
             DisableConflictingKinemationFrameworkComponents();
@@ -299,6 +324,7 @@ namespace Game.Player {
             if (IsOwner) {
                 LocalPlayer = this;
             }
+            RegisterSpawnedPlayer(this);
 
             SubscribeToNetworkVariables();
             UpdatePlayerMaterialFromNetwork();
@@ -466,6 +492,7 @@ namespace Game.Player {
             if (LocalPlayer == this) {
                 LocalPlayer = null;
             }
+            UnregisterSpawnedPlayer(this);
 
             UnsubscribeFromNetworkVariables();
             

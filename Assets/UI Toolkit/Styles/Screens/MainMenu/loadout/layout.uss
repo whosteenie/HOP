@@ -1,0 +1,537 @@
+/* ===== LOADOUT ===== */
+
+.loadout-container {
+    width: 1400px;
+    height: 800px;
+    padding: 30px;
+    flex-direction: column;
+    align-items: center;
+}
+
+.loadout-container-inline {
+    height: auto;
+    top: 275px;
+    padding: 20px;
+}
+
+/* Edge containers for loadout panel - positioned absolutely to keep center clear */
+.loadout-edge-container {
+    position: absolute;
+    padding: 20px;
+}
+
+.weapon-selection-container {
+    left: 40px;
+    top: 0;
+    bottom: 0;
+    width: 220px;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    transition-duration: 0.4s;
+    transition-property: translate;
+    transition-timing-function: ease-out;
+}
+
+.weapon-selection-container.slide-in-from-left {
+    translate: 0 0;
+}
+
+.weapon-selection-container.slide-out-to-left {
+    translate: -100% 0;
+}
+
+.weapon-slot-container-vertical {
+    flex-direction: column;
+    align-items: flex-start;
+    margin-bottom: 30px;
+    width: 100%;
+}
+
+.weapon-slot-row {
+    flex-direction: row;
+    align-items: center;
+    width: 100%;
+    position: relative;
+}
+
+.customization-container {
+    right: 40px;
+    top: 0;
+    bottom: 0;
+    width: 1000px;
+    min-width: 1000px;
+    max-width: 1000px;
+    height: auto;
+    min-height: auto;
+    max-height: 450px;
+    padding: 20px 30px;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    transition-duration: 0.4s;
+    transition-property: translate;
+    transition-timing-function: ease-out;
+}
+
+.customization-container.slide-in-from-right {
+    translate: 0 0;
+}
+
+.customization-container.slide-out-to-right {
+    translate: 100% 0;
+}
+
+.customization-content {
+    flex-direction: column;
+    width: 100%;
+}
+
+.customization-section {
+    flex-direction: column;
+    margin-bottom: 30px;
+    width: 100%;
+}
+
+.name-buttons-container {
+    bottom: 0;
+    left: 0;
+    right: 0;
+    width: 100%;
+    height: 120px;
+    min-width: 0;
+    padding: 0;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-end;
+    transition-duration: 0.4s;
+    transition-property: translate;
+    transition-timing-function: ease-out;
+}
+
+.name-buttons-container.slide-in-from-bottom {
+    translate: 0 0;
+}
+
+.name-buttons-container.slide-out-to-bottom {
+    translate: 0 100%;
+}
+
+.loadout-stats-toggle-button {
+    width: 120px;
+    height: 50px;
+    min-width: 120px;
+}
+
+.loadout-stats-container {
+    left: 20px;
+    top: 100px;
+    bottom: 170px;
+    width: 450px;
+    flex-direction: column;
+}
+
+.loadout-challenges-container {
+    right: 20px;
+    top: 100px;
+    bottom: 170px;
+    width: 450px;
+    flex-direction: column;
+}
+
+.loadout-stats-level-row {
+    flex-direction: row;
+    margin-bottom: 20px;
+}
+
+.loadout-stats-level-label {
+    font-size: 24px;
+    margin-bottom: 5px;
+}
+
+.loadout-stats-xp-bar {
+    height: 20px;
+    min-height: 20px;
+    max-height: 20px;
+    margin-top: 5px;
+    background-color: transparent;
+    border-width: 0;
+}
+
+.loadout-stats-xp-bar .unity-progress-bar__container {
+    height: 20px;
+    min-height: 20px;
+    max-height: 20px;
+    background-color: transparent;
+    margin: 0;
+    padding: 0;
+}
+
+.loadout-stats-xp-bar .unity-progress-bar__background {
+    height: 20px;
+    min-height: 20px;
+    max-height: 20px;
+    background-color: var(--color-white-15);
+    border-width: 0;
+    border-radius: 3px;
+    margin: 0;
+    padding: 0;
+}
+
+.loadout-stats-xp-bar .unity-progress-bar__progress {
+    height: 20px;
+    min-height: 20px;
+    max-height: 20px;
+    background-color: var(--color-accent);
+    border-radius: 3px;
+    margin: 0;
+    padding: 0;
+}
+
+.loadout-stats-xp-bar .unity-progress-bar__title-container {
+    display: none;
+    height: 0;
+}
+
+.loadout-stats-xp-text {
+    align-self: center;
+}
+
+.loadout-stats-grid {
+    margin-top: 30px;
+    flex-direction: column;
+}
+
+.loadout-stat-row {
+    flex-direction: row;
+    justify-content: space-between;
+    margin-bottom: 5px;
+}
+
+.loadout-stat-label {
+    -unity-font-style: bold;
+}
+
+.loadout-stat-value {
+    -unity-text-align: middle-right;
+}
+
+.loadout-challenges-wip-wrap {
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    flex-grow: 1;
+    width: 100%;
+}
+
+.loadout-challenges-wip {
+    font-size: 120px;
+    -unity-font-style: bold;
+    color: var(--color-accent-strong);
+    -unity-text-align: middle-center;
+}
+
+/* Full-screen background for render texture - no distortion */
+.player-model-background {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    top: 0;
+    left: 0;
+    background-color: transparent;
+    /* Maintain aspect ratio of render texture */
+    -unity-background-scale-mode: scale-to-fit;
+}
+
+/* Viewport container - only for input detection, no background */
+.player-model-viewport {
+    position: absolute;
+    /* Position to avoid overlapping with UI containers */
+    /* Left: after weapon container (40px + 220px = 260px) + 20px margin = 280px */
+    left: 280px;
+    /* Right: before customization container (right: 40px, width: 320px) + 20px margin = 380px */
+    right: 380px;
+    /* Top: small margin from top */
+    top: 20px;
+    /* Bottom: above name container (bottom: 40px, ~120px tall) + 20px margin = 180px */
+    bottom: 180px;
+    background-color: transparent;
+}
+
+.customization-bar {
+    width: 100%;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    align-content: center;
+    padding: 0 20px;
+}
+
+.color-picker-container {
+    flex-direction: row;
+    align-items: center;
+    margin-right: 20px;
+    position: relative;
+}
+
+.color-picker-container-margin-5px {
+    margin-right: 5px;
+}
+
+.loadout-panel .color-options {
+    top: 0;
+    right: 42px;
+}
+
+.color-circle {
+    width: 32px;
+    height: 32px;
+    border-radius: 16px;
+    border-width: 2px;
+    border-color: var(--color-black);
+    transition-duration: 0.2s;
+    margin-bottom: 6px;
+}
+
+.color-circle:hover {
+    scale: 1.15;
+    border-color: var(--color-black);
+}
+
+.color-options {
+    position: absolute;
+    top: 50px;
+    left: -56px;
+    flex-direction: column;
+    align-items: center;
+    background-color: rgba(15, 15, 20, 0.98);
+    padding: 8px;
+    border-radius: 4px;
+    border-width: 1px;
+    border-color: var(--color-accent-border);
+}
+
+.color-options-inline {
+    left: auto;
+    flex-direction: row-reverse;
+    top: auto;
+    right: 36px;
+    bottom: -9px;
+    justify-content: space-evenly;
+    align-self: center;
+    width: 240px;
+}
+
+.color-option-margin-0 {
+    margin-bottom: 0;
+}
+
+.color-option-margin-0-right-0 {
+    margin-bottom: 0;
+    margin-right: 0;
+}
+
+.color-option {
+    margin-bottom: 6px;
+}
+
+.name-input-container {
+    flex-direction: row;
+    align-items: center;
+    margin-left: 16px;
+    margin-right: 0;
+}
+
+.apply-loadout-button {
+    margin-left: 0;
+}
+
+.player-name-input {
+    width: 300px;
+    height: 48px;
+    font-size: 18px;
+    padding: 4px 14px;
+    border-radius: 4px;
+    border-width: 1px;
+    border-color: var(--color-accent-border);
+    background-color: var(--color-bg-surface);
+    color: var(--color-text-primary);
+    -unity-text-align: middle-left;
+    --unity-cursor-color: var(--cursor-color);
+    transition-duration: 0.2s;
+}
+
+.player-name-input > .unity-base-text-field__input {
+    --unity-cursor-color: var(--cursor-color);
+}
+
+.player-name-input > .unity-text-element--inner-input-field-component {
+    --unity-cursor-color: var(--cursor-color);
+}
+
+.loadout-bottom-left-buttons {
+    position: absolute;
+    left: 40px;
+    bottom: 20px;
+    justify-content: flex-start;
+    margin-top: 0;
+}
+
+.loadout-bottom-left-buttons .menu-chip {
+    margin-left: 0;
+    margin-right: 12px;
+    min-width: 140px;
+    height: 50px;
+}
+
+.loadout-bottom-center-controls {
+    position: absolute;
+    left: 50%;
+    bottom: 20px;
+    translate: -50% 0;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-start;
+}
+
+.apply-name-button {
+    margin-left: 16px;
+    margin-right: 0;
+    height: 48px;
+    min-width: 90px;
+}
+
+.customize-character-button {
+    margin-left: 10px;
+}
+
+.weapon-bar {
+    width: 100%;
+    flex-direction: row;
+    justify-content: space-between;
+    padding: 0 30px;
+    margin-bottom: 20px;
+}
+
+.weapon-bar-inline {
+    margin-bottom: 0;
+    margin-top: 20px;
+}
+
+.weapon-slot-container {
+    flex-direction: column;
+    align-items: center;
+    width: 200px;
+}
+
+.weapon-slot-stack {
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
+    width: 183px;
+}
+
+.weapon-slot-label {
+    font-size: 12px;
+    color: var(--color-text-muted);
+    margin-bottom: 8px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+}
+
+.weapon-slot {
+    width: 183px;
+    height: 120px;
+    background-color: var(--color-bg-panel-strong);
+    border-radius: 4px;
+    border-width: 1px;
+    border-color: var(--color-accent-border-soft);
+    align-items: center;
+    justify-content: center;
+    transition-duration: 0.2s;
+    position: relative;
+}
+
+.weapon-slot:hover {
+    border-color: var(--color-accent-border-mid);
+    background-color: var(--color-bg-surface-strong);
+}
+
+/* Weapon slot background images will be assigned via dynamic classes */
+
+.weapon-image {
+    width: 160px;
+    height: 100px;
+    -unity-background-scale-mode: scale-to-fit;
+}
+
+.weapon-dropdown {
+    position: absolute;
+    left: 200px;
+    top: 0;
+    width: auto;
+    max-width: 600px;
+    max-height: 120px;
+    background-color: var(--color-bg-popup-root);
+    border-radius: 4px;
+    border-width: 1px;
+    border-color: var(--color-accent-border);
+    padding: 8px;
+    margin-left: 20px;
+}
+
+.weapon-dropdown-scroll {
+    max-height: 104px;
+    margin-right: 0;
+}
+
+.weapon-dropdown-scroll-horizontal {
+    flex-direction: row;
+}
+
+.weapon-dropdown-scroll-horizontal .unity-scroll-view__content-container {
+    flex-direction: row;
+    flex-wrap: nowrap;
+}
+
+.weapon-option {
+    width: 164px;
+    height: 100px;
+    min-width: 164px;
+    background-color: var(--color-bg-surface);
+    border-radius: 4px;
+    border-width: 1px;
+    border-color: var(--color-accent-border-soft);
+    margin-right: 6px;
+    margin-bottom: 0;
+    align-items: center;
+    justify-content: center;
+    transition-duration: 0.2s;
+}
+
+.weapon-option:hover {
+    background-color: var(--color-bg-surface-pressed);
+    border-color: var(--color-accent-border-mid);
+}
+
+.weapon-option-image {
+    width: 140px;
+    height: 80px;
+    -unity-background-scale-mode: scale-to-fit;
+}
+
+.weapon-dropdown-scroll .unity-scroll-view__vertical-scrollbars,
+.weapon-dropdown-scroll .unity-scroll-view__horizontal-scrollbars,
+.weapon-dropdown-scroll .unity-scroller__low-button,
+.weapon-dropdown-scroll .unity-scroller__high-button,
+.weapon-dropdown-scroll .unity-scroller__slider,
+.weapon-dropdown-scroll .unity-scroller__track {
+    display: none;
+    width: 0;
+    height: 0;
+    min-width: 0;
+    min-height: 0;
+    max-width: 0;
+    max-height: 0;
+}
+

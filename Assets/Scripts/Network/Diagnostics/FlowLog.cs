@@ -113,8 +113,8 @@ namespace Network.Diagnostics {
         }
 
         private static string GetSessionId() {
-            if(SessionManager.HasInstance == false) return "none";
-            var sessionManager = SessionManager.Instance;
+            if(Session.SessionManager.HasInstance == false) return "none";
+            var sessionManager = Session.SessionManager.Instance;
             if(sessionManager == null) return "none";
 
             return string.IsNullOrEmpty(sessionManager.FlowSessionId) == false ? sessionManager.FlowSessionId : "none";

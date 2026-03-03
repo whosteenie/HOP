@@ -12,7 +12,7 @@ using Unity.Services.Matchmaker.Models;
 using UnityEngine;
 using Player = Unity.Services.Matchmaker.Models.Player;
 
-namespace Network {
+namespace Network.Session {
     public sealed partial class SessionManager {
         // ===== Matchmaker state =====
         private string _matchmakerTicketId;
@@ -37,7 +37,8 @@ namespace Network {
             }
 
             if(!string.IsNullOrEmpty(_matchmakerTicketId)) {
-                DeleteMatchmakerTicketAsync(_matchmakerTicketId).Forget();
+                LaunchSessionTask(DeleteMatchmakerTicketAsync(_matchmakerTicketId),
+                    "CancelMatchmaking/DeleteTicket");
             }
 
             _matchmakerTicketId = null;
@@ -217,7 +218,7 @@ namespace Network {
                 return false;
             }
 
-            if(response?.Results == null || response.Results.Count == 0) {
+            if(response.Results == null || response.Results.Count == 0) {
                 if(Debug.isDebugBuild) {
                     Debug.Log(
                         $"[SessionManager] Backfill indexed query returned 0 lobbies for mode='{mode}'. Falling back to broad query.");
@@ -232,7 +233,7 @@ namespace Network {
                 }
             }
 
-            if(response?.Results == null || response.Results.Count == 0) {
+            if(response.Results == null || response.Results.Count == 0) {
                 if(Debug.isDebugBuild) {
                     Debug.Log($"[SessionManager] Backfill query returned 0 lobbies for mode='{mode}'.");
                 }
@@ -361,7 +362,7 @@ namespace Network {
             }
         }
 
-        private static async UniTaskVoid DeleteMatchmakerTicketAsync(string ticketId) {
+        private static async UniTask DeleteMatchmakerTicketAsync(string ticketId) {
             if(string.IsNullOrEmpty(ticketId)) return;
             try {
                 await MatchmakerService.Instance.DeleteTicketAsync(ticketId);
@@ -444,6 +445,11 @@ namespace Network {
                 await PollMatchmakerTicketAsync(mode, maxPlayers, _matchmakerCts.Token);
             } catch(OperationCanceledException) {
                 // Expected when user cancels matchmaking.
+            } finally {
+                if(_matchmakerCts != null) {
+                    _matchmakerCts.Dispose();
+                    _matchmakerCts = null;
+                }
             }
         }
 
@@ -497,21 +503,21 @@ namespace Network {
             if(results == null) {
                 Debug.LogError(
                     $"[SessionManager] Matchmaker returned null results for matchId '{matchId}'. Returning to menu.");
-                LeaveToMainMenuAsync().Forget();
+                await LeaveToMainMenuAsync();
                 return;
             }
 
             if(results.MatchProperties?.Players == null) {
                 Debug.LogError(
                     $"[SessionManager] Matchmaker results missing player data for matchId '{matchId}'. Returning to menu.");
-                LeaveToMainMenuAsync().Forget();
+                await LeaveToMainMenuAsync();
                 return;
             }
 
             var localPlayerId = AuthenticationService.Instance.PlayerId;
             if(string.IsNullOrEmpty(localPlayerId)) {
                 Debug.LogError("[SessionManager] Cannot process match assignment: local UGS player id is missing.");
-                LeaveToMainMenuAsync().Forget();
+                await LeaveToMainMenuAsync();
                 return;
             }
 
@@ -519,7 +525,7 @@ namespace Network {
             if(string.IsNullOrEmpty(hostId)) {
                 Debug.LogError(
                     $"[SessionManager] Could not determine deterministic host for matchId '{matchId}'. Returning to menu.");
-                LeaveToMainMenuAsync().Forget();
+                await LeaveToMainMenuAsync();
                 return;
             }
 
@@ -601,7 +607,7 @@ namespace Network {
             // Poll until all expected players have joined and are ready
             if(await WaitForPublicMatchPlayersReadyAsync(expectedPlayerIds) == false) {
                 Debug.LogError("[SessionManager] Timed out waiting for all players. Aborting to menu...");
-                LeaveToMainMenuAsync().Forget();
+                await LeaveToMainMenuAsync();
                 return;
             }
 
@@ -616,12 +622,12 @@ namespace Network {
 
             // Now start the host
             if(await TryStartHostWithRelayAsync(alloc, false, "StartPublicMatchAsHostAsync") == false) {
-                LeaveToMainMenuAsync().Forget();
+                await LeaveToMainMenuAsync();
                 return;
             }
 
             if(!TryLoadGameplaySceneAsHost("StartPublicMatchAsHostAsync/LoadScene")) {
-                LeaveToMainMenuAsync().Forget();
+                await LeaveToMainMenuAsync();
             }
         }
 
@@ -660,11 +666,15 @@ namespace Network {
                     break;
                 }
 
-                await UniTask.Delay(1000);
+                try {
+                    await UniTask.Delay(1000, cancellationToken: SessionLifetimeToken);
+                } catch(OperationCanceledException) {
+                    return;
+                }
             }
 
             Debug.LogError("[SessionManager] Timed out or failed waiting for match lobby. Returning to menu...");
-            LeaveToMainMenuAsync().Forget();
+            await LeaveToMainMenuAsync();
         }
 
         private static async UniTask<Lobby>

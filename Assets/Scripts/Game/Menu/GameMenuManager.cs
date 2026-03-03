@@ -11,13 +11,12 @@ using Game.Weapons;
 using Network;
 using Network.Events;
 using Network.Services;
-using Network.Steam;
 using Rendering;
-using Steamworks;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.SceneManagement;
 using UnityEngine.UIElements;
+using SessionManager = Network.Session.SessionManager;
 
 namespace Game.Menu {
     public class GameMenuManager : UIElementBase {
@@ -66,10 +65,6 @@ namespace Game.Menu {
         private VisualElement _quitConfirmationModal;
         private Button _quitConfirmationYes;
         private Button _quitConfirmationNo;
-
-        // Pause menu join code
-        private Label _pauseJoinCodeLabel;
-        private Button _pauseCopyCodeButton; // Will be "Invite" button
 
         private string _cachedSceneName;
         private VisualElement _matchTimerContainer;
@@ -274,8 +269,6 @@ namespace Game.Menu {
             _resumeButton = QRequired<Button>("resume-button");
             _optionsButton = QRequired<Button>("options-button");
             _quitButton = QRequired<Button>("quit-button");
-            _pauseJoinCodeLabel = QOptional<Label>("pause-join-code-label");
-            _pauseCopyCodeButton = QOptional<Button>("pause-copy-code-button");
             _quitConfirmationModal = QOptional<VisualElement>("quit-confirmation-modal");
             _quitConfirmationYes = QOptional<Button>("quit-confirmation-yes");
             _quitConfirmationNo = QOptional<Button>("quit-confirmation-no");
@@ -298,9 +291,6 @@ namespace Game.Menu {
             _pauseTertiaryName = QOptional<Label>("pause-tertiary-weapon-name");
             
             BuildPauseChallengeCards();
-            
-            // Initial join code display
-            UpdatePauseJoinCodeDisplay();
         }
 
         private void Update() {
@@ -435,13 +425,6 @@ namespace Game.Menu {
             _quitButton.clicked += quitHandler;
             RegisterCleanup(() => _quitButton.clicked -= quitHandler);
             UISoundService.RegisterButtonHover(_quitButton);
-
-            if (_pauseCopyCodeButton != null) {
-                Action inviteHandler = () => { UISoundService.PlayButtonClick(); InviteFriends(); };
-                _pauseCopyCodeButton.clicked += inviteHandler;
-                RegisterCleanup(() => _pauseCopyCodeButton.clicked -= inviteHandler);
-                UISoundService.RegisterButtonHover(_pauseCopyCodeButton);
-            }
 
             if(_quitConfirmationYes != null) {
                 Action yesHandler = () => { 
@@ -900,7 +883,6 @@ namespace Game.Menu {
             ClosePauseLoadoutDropdowns();
             SyncPauseLoadoutFromSettings();
             RefreshPauseLoadoutVisuals();
-            UpdatePauseJoinCodeDisplay();
             UpdateChallengeTimers(force: true);
             SetPauseChallengesDirty();
             UpdatePauseChallengesIfDirty();
@@ -910,34 +892,6 @@ namespace Game.Menu {
             if(_localController) _localController.moveInput = Vector2.zero;
         }
         
-        private static void InviteFriends() {
-             UISoundService.PlayButtonClick();
-             if(!SteamClient.IsValid || !SteamClient.IsLoggedOn) {
-                 return;
-             }
-
-             if(SessionManager.Instance != null && SessionManager.Instance.CurrentLobby.HasValue) {
-                 SteamManager.Instance.OpenInviteOverlay(SessionManager.Instance.CurrentLobby.Value.Id);
-             }
-        }
-
-        private void UpdatePauseJoinCodeDisplay() {
-            if(_pauseJoinCodeLabel == null) return;
-            
-            var hasLobby = SessionManager.Instance != null && SessionManager.Instance.CurrentLobby.HasValue;
-            var steamLoggedOn = SteamClient.IsValid && SteamClient.IsLoggedOn;
-
-            // Update label text
-            _pauseJoinCodeLabel.text = hasLobby ? "Lobby Active" : "Single Player";
-
-            // Show label and invite button only when in a lobby and Steam is online
-            var showSocial = hasLobby && steamLoggedOn;
-            _pauseJoinCodeLabel.style.display = showSocial ? DisplayStyle.Flex : DisplayStyle.None;
-            if (_pauseCopyCodeButton != null) {
-                _pauseCopyCodeButton.style.display = showSocial ? DisplayStyle.Flex : DisplayStyle.None;
-            }
-        }
-
         private void ResumeGame() {
             IsPaused = false;
             ClosePauseLoadoutDropdowns();

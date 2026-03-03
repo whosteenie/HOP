@@ -1,0 +1,146 @@
+/* ===== TDM SCOREBOARD ===== */
+
+.tdm-scoreboard-container {
+    width: 1100px;
+    max-height: 85%;
+    padding: 15px 24px;
+    flex-direction: column;
+}
+
+.tdm-scoreboard-title {
+    margin-bottom: 12px;
+}
+
+.tdm-team-section {
+    flex-direction: column;
+    flex-grow: 1;
+    min-height: 0;
+}
+
+.tdm-team-section-enemy {
+    margin-bottom: 6px;
+}
+
+.tdm-team-section-your {
+}
+
+.tdm-team-label {
+    font-size: 16px; /* Slightly smaller */
+    -unity-font-style: bold;
+    color: var(--color-white);
+    margin-bottom: 8px;
+    letter-spacing: 2px;
+}
+
+.tdm-team-header {
+    flex-direction: row;
+    align-items: center;
+    padding: 4px 12px; /* Reduced */
+    background-color: var(--color-accent-border-faint);
+    border-radius: 4px;
+    margin-bottom: 2px; /* Reduced */
+    border-width: 1px;
+    border-color: var(--color-accent-border);
+    height: 28px; /* Reduced from 32 */
+}
+
+.tdm-team-header-your {
+    background-color: rgba(50, 100, 255, 0.15);
+    border-color: rgba(100, 150, 255, 0.3);
+}
+
+.tdm-team-scroll {
+    flex-grow: 1;
+    max-height: 250px;
+    min-height: 80px;
+}
+
+.tdm-score-display {
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    margin-bottom: 6px;
+}
+
+.tdm-score-container {
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 50px;
+    height: 50px;
+    min-width: 50px;
+    min-height: 50px;
+    padding: 0;
+    border-radius: 4px;
+    background-color: rgba(15, 15, 20, 0.9);
+    border-width: 1px;
+}
+
+.tdm-score-enemy {
+    margin-right: 15px;
+    border-color: var(--color-accent-border-mid);
+    background-color: rgba(255, 50, 50, 0.1);
+}
+
+.tdm-score-your {
+    margin-left: 15px;
+    border-color: rgba(100, 150, 255, 0.4);
+    background-color: rgba(50, 100, 255, 0.1);
+}
+
+.tdm-score-value {
+    font-size: 24px;
+    -unity-font-style: bold;
+    color: var(--color-white);
+    -unity-text-align: middle-center;
+    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
+}
+
+.tdm-vs-label {
+    margin-left: 15px;
+    margin-right: 15px;
+    font-size: 14px;
+    -unity-font-style: bold;
+    color: rgba(255, 255, 255, 0.6);
+    letter-spacing: 1px;
+}
+
+.tdm-score-display-styled {
+    min-width: auto;
+    max-height: none;
+}
+
+.tdm-score-container-styled {
+    margin-left: 0;
+    margin-right: 15px;
+    width: 50px;
+    height: 50px;
+    min-width: 50px;
+    min-height: 50px;
+    max-width: 50px;
+    max-height: 50px;
+}
+
+.tdm-score-container-enemy-styled {
+    margin-left: 15px;
+    margin-right: 0;
+    width: 50px;
+    height: 50px;
+    min-width: 50px;
+    min-height: 50px;
+    max-width: 50px;
+    max-height: 50px;
+}
+
+.tdm-score-value-styled {
+    font-size: 24px;
+    padding: 0;
+    margin: 0;
+}
+
+.tdm-vs-label-styled {
+    padding-left: 2px;
+    font-size: 14px;
+}
+

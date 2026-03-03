@@ -17,6 +17,7 @@ using Unity.Cinemachine;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.UIElements;
+using SessionManager = Network.Session.SessionManager;
 
 namespace Game.Match {
     public class PostMatchManager : NetworkBehaviour {

@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Network;
 using Unity.Services.Vivox;
 using UnityEngine;
+using SessionManager = Network.Session.SessionManager;
 
 namespace Game.Social {
     public struct ChatMessage {

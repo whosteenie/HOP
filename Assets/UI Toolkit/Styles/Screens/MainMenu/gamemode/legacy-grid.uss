@@ -1,0 +1,43 @@
+/* ===== GAMEMODE ===== */
+
+.gamemode-container {
+    width: 1100px; height: 550px;
+    padding: 26px;
+}
+
+.gamemode-grid {
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    margin-left: 18px;
+    margin-right: 18px;
+}
+
+.gamemode-grid .gamemode-card {
+    width: 310px; min-height: 360px; align-items: center;
+    background-color: var(--color-bg-panel-strong);
+    border-radius: 4px; border-width: 1px; border-color: var(--color-accent-border-soft);
+    padding: 14px;
+    margin-bottom: 18px;
+    transition-duration: 0.2s;
+}
+
+.gamemode-grid .gamemode-card:hover {
+    border-color: var(--color-accent-border-mid);
+    background-color: var(--color-bg-surface-strong);
+}
+
+.gamemode-image {
+    width: 260px; height: 210px;
+    background-color: rgba(10, 10, 15, 0.8);
+    border-radius: 4px; margin-bottom: 12px;
+    margin-top: 8px;
+    border-width: 1px;
+    border-color: var(--color-accent-border-faint);
+}
+
+.gamemode-title {
+    color: white; font-size: 18px; -unity-font-style: bold; -unity-text-align: middle-center;
+    margin-top: 6px; margin-bottom: 12px;
+}
+

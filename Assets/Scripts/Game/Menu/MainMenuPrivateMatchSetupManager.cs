@@ -10,6 +10,7 @@ using Network.Steam;
 using Steamworks;
 using UnityEngine;
 using UnityEngine.UIElements;
+using SessionManager = Network.Session.SessionManager;
 
 namespace Game.Menu {
     /// <summary>
@@ -750,8 +751,6 @@ namespace Game.Menu {
                     var avatarTex = await SteamManager.Instance.GetAvatarAsync(id);
                     if(avatarTex == null) return;
                     avatarBox.style.backgroundImage = new StyleBackground(avatarTex);
-                    if(!avatarBox.ClassListContains("steam-avatar-flip"))
-                        avatarBox.AddToClassList("steam-avatar-flip");
                 } catch {
                     // Keep deterministic fallback icon when Steam avatar lookup fails.
                     ApplyPreviewRowAvatarFallback(avatarBox, iconId, false);

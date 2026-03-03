@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Network.Session;
 using UnityEngine;
 using Unity.Services.Authentication;
 using Unity.Services.Vivox;
@@ -202,8 +203,8 @@ namespace Game.Social {
                 
                 // Optional route sync when caller requests immediate channel join.
                 if(joinLobbyChannelIfPresent &&
-                   Network.SessionManager.Instance != null &&
-                   Network.SessionManager.Instance.TryGetActiveVoiceChannelName(out var canonicalChannelName) &&
+                   SessionManager.Instance != null &&
+                   SessionManager.Instance.TryGetActiveVoiceChannelName(out var canonicalChannelName) &&
                    string.IsNullOrEmpty(canonicalChannelName) == false) {
                     await EnsureChannelJoinedAsync(canonicalChannelName, context: "LoginRouteSync");
                 }
@@ -373,8 +374,8 @@ namespace Game.Social {
             _nextChannelRouteSyncTime = Time.unscaledTime + ChannelRouteSyncIntervalSeconds;
             if(_isRouteSyncInProgress) return;
 
-            if(Network.SessionManager.Instance == null) return;
-            if(!Network.SessionManager.Instance.TryGetActiveVoiceChannelName(out var canonicalChannelName)) return;
+            if(SessionManager.Instance == null) return;
+            if(!SessionManager.Instance.TryGetActiveVoiceChannelName(out var canonicalChannelName)) return;
             if(string.IsNullOrEmpty(canonicalChannelName)) return;
 
             if(IsChannelActive(canonicalChannelName)) {
@@ -470,7 +471,6 @@ namespace Game.Social {
             var target = devices.FirstOrDefault(d => d.DeviceName == deviceName);
             
             if (target != null) {
-                Debug.Log($"[VoiceManager] Setting active mic to: {deviceName}");
                 await VivoxService.Instance.SetActiveInputDeviceAsync(target);
             } else if (deviceName == "Default") {
                 Debug.Log("[VoiceManager] Setting active mic to system default.");

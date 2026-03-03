@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Game.Social;
+using Network.Steam;
 using UnityEngine;
 using UnityEngine.UIElements;
 using Cysharp.Threading.Tasks;
@@ -17,13 +18,12 @@ namespace Game.UI {
         private readonly Dictionary<ulong, Player.PlayerController> _trackedPlayers = new(); // clientId -> player
         private readonly Dictionary<ulong, NetworkVariable<bool>.OnValueChangedDelegate> _pttHandlers = new();
         private readonly Dictionary<string, string> _participantToCanonicalId = new(StringComparer.Ordinal);
+        private readonly List<string> _participantMappingsToRemove = new();
         private readonly HashSet<string> _localIdentityAliases = new(StringComparer.Ordinal);
         private string _localCanonicalId;
         private bool _networkCallbacksRegistered;
-        private bool _pendingPlayerRefresh = true;
-        private float _nextPlayerRefreshTime;
+        private bool _playerLifecycleCallbacksRegistered;
         private float _nextLocalIdentityRefreshTime;
-        private const float PlayerRefreshIntervalSeconds = 1f;
         private const float LocalIdentityRefreshIntervalSeconds = 0.5f;
 
         protected override void OnInitialize() {
@@ -41,9 +41,10 @@ namespace Game.UI {
             // Cache local player ID
             RefreshLocalIdentityContext();
 
-            // Subscribe to existing players
+            // Subscribe to lifecycle events and bootstrap existing players.
             RegisterNetworkCallbacks();
-            RefreshTrackedPlayers();
+            RegisterPlayerLifecycleCallbacks();
+            BootstrapTrackedPlayers();
         }
 
         private void Update() {
@@ -52,10 +53,6 @@ namespace Game.UI {
             if(now >= _nextLocalIdentityRefreshTime) {
                 RefreshLocalIdentityContext();
                 _nextLocalIdentityRefreshTime = now + LocalIdentityRefreshIntervalSeconds;
-            }
-
-            if(_pendingPlayerRefresh || now >= _nextPlayerRefreshTime) {
-                RefreshTrackedPlayers();
             }
         }
 
@@ -82,39 +79,67 @@ namespace Game.UI {
             _networkCallbacksRegistered = false;
         }
 
-        private void OnClientConnected(ulong _) {
-            _pendingPlayerRefresh = true;
+        private void RegisterPlayerLifecycleCallbacks() {
+            if(_playerLifecycleCallbacksRegistered) return;
+            Player.PlayerController.PlayerSpawned += OnPlayerSpawned;
+            Player.PlayerController.PlayerDespawned += OnPlayerDespawned;
+            _playerLifecycleCallbacksRegistered = true;
         }
 
-        private void OnClientDisconnected(ulong _) {
-            _pendingPlayerRefresh = true;
+        private void UnregisterPlayerLifecycleCallbacks() {
+            if(_playerLifecycleCallbacksRegistered == false) return;
+            Player.PlayerController.PlayerSpawned -= OnPlayerSpawned;
+            Player.PlayerController.PlayerDespawned -= OnPlayerDespawned;
+            _playerLifecycleCallbacksRegistered = false;
         }
 
-        private void RefreshTrackedPlayers() {
-            var allPlayers = FindObjectsByType<Player.PlayerController>(FindObjectsSortMode.None);
-            var seenClientIds = new HashSet<ulong>();
+        private void OnClientConnected(ulong clientId) {
+            TryTrackConnectedClient(clientId);
+        }
 
-            foreach(var player in allPlayers) {
-                if(player == null || player.IsSpawned == false) continue;
-                seenClientIds.Add(player.OwnerClientId);
+        private void OnClientDisconnected(ulong clientId) {
+            UnsubscribeClient(clientId);
+        }
+
+        private void OnPlayerSpawned(Player.PlayerController player) {
+            SubscribeToRemotePtt(player);
+        }
+
+        private void OnPlayerDespawned(Player.PlayerController player) {
+            if(player == null) return;
+            UnsubscribeClient(player.OwnerClientId);
+        }
+
+        private void BootstrapTrackedPlayers() {
+            foreach(var player in Player.PlayerController.SpawnedPlayers) {
                 SubscribeToRemotePtt(player);
             }
 
-            // Unsubscribe stale player entries (despawned or replaced).
-            var staleClientIds = new List<ulong>();
-            foreach(var (clientId, trackedPlayer) in _trackedPlayers) {
-                var isMissing = trackedPlayer == null || seenClientIds.Contains(clientId) == false;
-                if(isMissing) {
-                    staleClientIds.Add(clientId);
-                }
-            }
+            TrackConnectedClients();
+        }
 
-            foreach(var clientId in staleClientIds) {
+        private void TrackConnectedClients() {
+            var networkManager = NetworkManager.Singleton;
+            if(networkManager == null) return;
+
+            foreach(var clientId in networkManager.ConnectedClientsIds) {
+                TryTrackConnectedClient(clientId);
+            }
+        }
+
+        private void TryTrackConnectedClient(ulong clientId) {
+            var networkManager = NetworkManager.Singleton;
+            if(networkManager == null) return;
+
+            if(networkManager.ConnectedClients.TryGetValue(clientId, out var client) == false) {
                 UnsubscribeClient(clientId);
+                return;
             }
 
-            _pendingPlayerRefresh = false;
-            _nextPlayerRefreshTime = Time.unscaledTime + PlayerRefreshIntervalSeconds;
+            var playerObject = client.PlayerObject;
+            if(playerObject == null) return;
+            if(playerObject.TryGetComponent<Player.PlayerController>(out var player) == false) return;
+            SubscribeToRemotePtt(player);
         }
 
         protected override void OnCleanup() {
@@ -125,6 +150,7 @@ namespace Game.UI {
             }
 
             SocialSettings.OnPlayerMuteChanged -= OnPlayerMuteChanged;
+            UnregisterPlayerLifecycleCallbacks();
             UnregisterNetworkCallbacks();
             foreach(var clientId in new List<ulong>(_trackedPlayers.Keys)) {
                 UnsubscribeClient(clientId);
@@ -133,6 +159,7 @@ namespace Game.UI {
             _trackedPlayers.Clear();
             _pttHandlers.Clear();
             _participantToCanonicalId.Clear();
+            _participantMappingsToRemove.Clear();
             _localIdentityAliases.Clear();
             _localCanonicalId = null;
         }
@@ -307,17 +334,40 @@ namespace Game.UI {
             player.isPttActive.OnValueChanged += handler;
             _trackedPlayers[clientId] = player;
             _pttHandlers[clientId] = handler;
+            OnRemotePttChanged(player, player.isPttActive.Value);
         }
 
         private void UnsubscribeClient(ulong clientId) {
-            if(_trackedPlayers.TryGetValue(clientId, out var player) &&
-               player != null &&
-               _pttHandlers.TryGetValue(clientId, out var handler)) {
+            var canonicalId = _trackedPlayers.TryGetValue(clientId, out var player)
+                ? GetCanonicalIdentityForPlayer(player)
+                : null;
+
+            if(player != null && _pttHandlers.TryGetValue(clientId, out var handler)) {
                 player.isPttActive.OnValueChanged -= handler;
             }
 
             _trackedPlayers.Remove(clientId);
             _pttHandlers.Remove(clientId);
+
+            if(string.IsNullOrEmpty(canonicalId)) return;
+            RemoveSpeakerEntry(canonicalId);
+            RemoveParticipantMappingsForCanonicalId(canonicalId);
+        }
+
+        private void RemoveParticipantMappingsForCanonicalId(string canonicalId) {
+            _participantMappingsToRemove.Clear();
+
+            foreach(var (participantId, participantCanonicalId) in _participantToCanonicalId) {
+                if(string.Equals(participantCanonicalId, canonicalId, StringComparison.Ordinal)) {
+                    _participantMappingsToRemove.Add(participantId);
+                }
+            }
+
+            foreach(var participantId in _participantMappingsToRemove) {
+                _participantToCanonicalId.Remove(participantId);
+            }
+
+            _participantMappingsToRemove.Clear();
         }
 
         private void RefreshLocalIdentityContext() {
@@ -367,9 +417,26 @@ namespace Game.UI {
                 return string.IsNullOrEmpty(_localCanonicalId) ? rawIdentity : _localCanonicalId;
             }
 
+            if(TryResolveTrackedPlayer(rawIdentity, out resolvedPlayer, out var canonicalId)) {
+                return canonicalId;
+            }
+
+            // Opportunistically track from connected clients if the first pass misses.
+            TrackConnectedClients();
+            if(TryResolveTrackedPlayer(rawIdentity, out resolvedPlayer, out canonicalId)) {
+                return canonicalId;
+            }
+
+            return rawIdentity;
+        }
+
+        private bool TryResolveTrackedPlayer(string rawIdentity, out Player.PlayerController resolvedPlayer,
+            out string canonicalId) {
+            resolvedPlayer = null;
+            canonicalId = null;
+
             foreach(var player in _trackedPlayers.Values) {
-                if(player == null) continue;
-                if(player.IsSpawned == false) continue;
+                if(player == null || player.IsSpawned == false) continue;
 
                 var steamId = player.steamId.Value;
                 var steamIdString = steamId != 0 ? steamId.ToString() : null;
@@ -380,13 +447,11 @@ namespace Game.UI {
                    (string.IsNullOrEmpty(ugsIdString) ||
                     !string.Equals(ugsIdString, rawIdentity, StringComparison.Ordinal))) continue;
                 resolvedPlayer = player;
-                return GetCanonicalIdentityForPlayer(player);
+                canonicalId = GetCanonicalIdentityForPlayer(player);
+                return true;
             }
 
-            // Opportunistically refresh cache if we failed to resolve.
-            _pendingPlayerRefresh = true;
-
-            return rawIdentity;
+            return false;
         }
 
         private static string GetCanonicalIdentityForPlayer(Player.PlayerController player) {
@@ -401,23 +466,13 @@ namespace Game.UI {
         }
 
         private static async UniTaskVoid LoadAvatar(ulong steamId, VisualElement avatarElement) {
-            var image = await SteamFriends.GetLargeAvatarAsync(steamId);
-            if(image.HasValue) {
-                var width = (int)image.Value.Width;
-                var height = (int)image.Value.Height;
-                var data = image.Value.Data;
+            if(avatarElement == null || steamId == 0) return;
+            if(!SteamClient.IsValid || !SteamClient.IsLoggedOn) return;
+            if(SteamManager.Instance == null) return;
 
-                // Flip the image data (Steam returns it top-down, Unity UI expects bottom-up for LoadRawTextureData)
-                var flippedData = new byte[data.Length];
-                var stride = width * 4; // RGBA32
-                for(var y = 0; y < height; y++) {
-                    Array.Copy(data, y * stride, flippedData, (height - 1 - y) * stride, stride);
-                }
-
-                var texture = new Texture2D(width, height, TextureFormat.RGBA32, false);
-                texture.LoadRawTextureData(flippedData);
-                texture.Apply();
-                if(avatarElement != null) avatarElement.style.backgroundImage = new StyleBackground(texture);
+            var texture = await SteamManager.Instance.GetAvatarAsync((SteamId)steamId);
+            if(texture != null && avatarElement != null) {
+                avatarElement.style.backgroundImage = new StyleBackground(texture);
             }
         }
     }

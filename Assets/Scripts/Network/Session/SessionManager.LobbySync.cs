@@ -1,15 +1,15 @@
 using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
 using Network.Diagnostics;
+using Unity.Netcode.Transports.UTP;
 using Unity.Services.Authentication;
 using Unity.Services.Lobbies;
 using Unity.Services.Lobbies.Models;
 using Unity.Services.Relay;
 using Unity.Services.Relay.Models;
-using Unity.Netcode.Transports.UTP;
 using UnityEngine;
 
-namespace Network {
+namespace Network.Session {
     public sealed partial class SessionManager {
         private float _nextUgsHeartbeatTime;
         private float _nextUgsPollTime;
@@ -28,6 +28,7 @@ namespace Network {
         private float _nextUgsClientStartFailureLogTime;
         private bool _isPollingMatchLobby;
         private bool _isPollingPartyLobby;
+        private bool _isMatchLobbyPollingLoopRunning;
         private float _matchPollBackoffUntil;
         private float _partyPollBackoffUntil;
         private float _partyHeartbeatBackoffUntil;
@@ -56,24 +57,28 @@ namespace Network {
                     FlowLog.Emit(FlowEventIds.AnomalySessionStuck,
                         ("phase", Phase),
                         ("elapsed", Time.time - _phaseStartTime));
-                    LeaveToMainMenuAsync().Forget();
+                    LaunchSessionTask(LeaveToMainMenuAsync(),
+                        "SynchronizingLoadWatchdog/LeaveToMainMenu");
                     return;
                 }
             }
 
             if(Time.unscaledTime >= _nextUgsHeartbeatTime) {
                 _nextUgsHeartbeatTime = Time.unscaledTime + UgsHeartbeatIntervalSeconds;
-                SendPartyHeartbeatsAsync().Forget();
+                LaunchSessionTask(SendPartyHeartbeatsAsync(),
+                    "SendPartyHeartbeats");
             }
 
             if(!(Time.unscaledTime >= _nextUgsPollTime)) return;
             _nextUgsPollTime = Time.unscaledTime + UgsPollIntervalSeconds;
             if(_ugsPartyLobby != null && Time.unscaledTime >= _partyPollBackoffUntil) {
-                PollPartyLobbyAsync().Forget();
+                LaunchSessionTask(PollPartyLobbyAsync(),
+                    "PollPartyLobby");
             }
 
             if(_ugsMatchLobby != null && Time.unscaledTime >= _matchPollBackoffUntil) {
-                PollMatchLobbyAsync().Forget();
+                LaunchSessionTask(PollMatchLobbyAsync(),
+                    "PollMatchLobby");
             }
         }
 
@@ -81,6 +86,10 @@ namespace Network {
             var syncStartTime = Time.time;
             const float syncTimeout = 20f;
             while(true) {
+                if(_isLeaving || _isShuttingDown || _ugsMatchLobby == null) {
+                    return false;
+                }
+
                 if(Time.time - syncStartTime > syncTimeout) {
                     Debug.LogWarning("[SessionManager] Private match sync timed out! Aborting to menu...");
                     return false;
@@ -102,13 +111,25 @@ namespace Network {
                     return false;
                 }
 
-                await UniTask.Delay(1000);
+                try {
+                    await UniTask.Delay(1000, cancellationToken: SessionLifetimeToken);
+                } catch(System.OperationCanceledException) {
+                    return false;
+                }
             }
         }
 
         private async UniTask<bool> WaitForPublicMatchPlayersReadyAsync(List<string> expectedPlayerIds) {
             for(var i = 0; i < 60; i++) { // 60 seconds timeout
-                await UniTask.Delay(1000);
+                if(_isLeaving || _isShuttingDown || _ugsMatchLobby == null) {
+                    return false;
+                }
+
+                try {
+                    await UniTask.Delay(1000, cancellationToken: SessionLifetimeToken);
+                } catch(System.OperationCanceledException) {
+                    return false;
+                }
 
                 try {
                     _ugsMatchLobby = await LobbyService.Instance.GetLobbyAsync(_ugsMatchLobby.Id);
@@ -140,15 +161,25 @@ namespace Network {
             return false;
         }
 
-        private async UniTaskVoid StartMatchLobbyPollingAsync() {
-            // Poll until we either connect or timeout
-            for(var i = 0; i < 60; i++) {
-                await UniTask.Delay(1000);
-                if(_ugsMatchLobby == null) break;
-                if(Phase == SessionPhase.InGame) break;
-                if(_ugsClientStartedForMatch) break;
+        private async UniTask StartMatchLobbyPollingAsync() {
+            if(_isMatchLobbyPollingLoopRunning) return;
+            _isMatchLobbyPollingLoopRunning = true;
 
-                PollMatchLobbyAsync().Forget();
+            // Poll until we either connect or timeout
+            try {
+                for(var i = 0; i < 60; i++) {
+                    await UniTask.Delay(1000, cancellationToken: SessionLifetimeToken);
+                    if(_ugsMatchLobby == null) break;
+                    if(Phase == SessionPhase.InGame) break;
+                    if(_ugsClientStartedForMatch) break;
+
+                    LaunchSessionTask(PollMatchLobbyAsync(),
+                        "StartMatchLobbyPolling/PollMatchLobby");
+                }
+            } catch(System.OperationCanceledException) {
+                // Session lifetime was canceled (quit/destroy).
+            } finally {
+                _isMatchLobbyPollingLoopRunning = false;
             }
 
             if(_ugsMatchLobby != null && Phase != SessionPhase.InGame && !_ugsClientStartedForMatch) {
@@ -169,7 +200,7 @@ namespace Network {
             ApplyRuntimeMode(modeObj.Value, "UgsMatchLobbySync", refreshUi: false);
         }
 
-        private async UniTaskVoid PollMatchLobbyAsync() {
+        private async UniTask PollMatchLobbyAsync() {
             if(_ugsMatchLobby == null) return;
             if(Phase == SessionPhase.InGame) return;
             if(_isLeaving || _isShuttingDown) return;
@@ -215,7 +246,8 @@ namespace Network {
             switch(stateObj.Value) {
                 case "SynchronizingLoad": {
                     if(_ugsLocalReadySubmitted == false) {
-                        StartMatchSynchronizationAsync().Forget();
+                        LaunchSessionTask(StartMatchSynchronizationAsync(),
+                            "PollMatchLobby/SynchronizingLoad");
                     }
 
                     return;
@@ -228,7 +260,8 @@ namespace Network {
                     }
 
                     if(_ugsClientStartedForMatch == false) {
-                        StartMatchClientAsync().Forget();
+                        LaunchSessionTask(StartMatchClientAsync(),
+                            "PollMatchLobby/LoadingScene");
                     }
 
                     break;
@@ -242,7 +275,8 @@ namespace Network {
 
                     _ugsLocalReadySubmitted = true;
                     if(_ugsClientStartedForMatch == false) {
-                        StartMatchClientAsync(useFadeOut: true).Forget();
+                        LaunchSessionTask(StartMatchClientAsync(useFadeOut: true),
+                            "PollMatchLobby/InGame");
                     }
 
                     break;
@@ -281,7 +315,7 @@ namespace Network {
                 Debug.LogWarning("[SessionManager] Rate limited updating ready state. Polling will retry.");
             } catch(System.Exception ex) {
                 Debug.LogError($"[SessionManager] Failed to update ready state: {ex.Message}. Aborting to menu...");
-                LeaveToMainMenuAsync().Forget();
+                await LeaveToMainMenuAsync();
             } finally {
                 _ugsSyncInProgress = false;
             }
@@ -315,7 +349,7 @@ namespace Network {
             return true;
         }
 
-        private async UniTaskVoid StartMatchClientAsync(bool useFadeOut = false) {
+        private async UniTask StartMatchClientAsync(bool useFadeOut = false) {
             if(_ugsMatchLobby == null) return;
             if(_ugsClientStartedForMatch) return;
             if(_ugsLocalReadySubmitted == false) return;
@@ -349,58 +383,69 @@ namespace Network {
             SyncModeFromMatchLobby(_ugsMatchLobby);
 
             _ugsClientStartedForMatch = true;
-            Phase = SessionPhase.StartingClient;
+            var shouldResetClientStartFlag = true;
 
-            if(useFadeOut) {
-                await FadeOutWithFallbackAsync();
-                if(_isLeaving || _isShuttingDown) {
+            try {
+                Phase = SessionPhase.StartingClient;
+
+                if(useFadeOut) {
+                    await FadeOutWithFallbackAsync();
+                    if(_isLeaving || _isShuttingDown) {
+                        return;
+                    }
+                }
+
+                await CleanupNetworkAsync();
+
+                if(TryGetUnityTransport("StartMatchClientAsync", out var networkManager, out var utp) == false) {
+                    await LeaveToMainMenuAsync();
                     return;
                 }
-            }
 
-            await CleanupNetworkAsync();
-
-            if(TryGetUnityTransport("StartMatchClientAsync", out var networkManager, out var utp) == false) {
-                LeaveToMainMenuAsync().Forget();
-                return;
-            }
-
-            JoinAllocation joinAlloc;
-            try {
-                joinAlloc = await RelayService.Instance.JoinAllocationAsync(joinCode);
-            } catch(System.Exception ex) {
-                Debug.LogError(
-                    $"[SessionManager] Failed to join relay allocation for code '{joinCode}': {ex.Message}");
-                LeaveToMainMenuAsync().Forget();
-                return;
-            }
-
-            if(_isLeaving || _isShuttingDown) {
-                if(Debug.isDebugBuild) {
-                    FlowLog.Emit(FlowEventIds.SessionExit,
-                        ("reason", "LeaveToMainMenu"),
-                        ("step", "EXIT_CLIENT_START_SKIPPED_POST_RELAY_JOIN"));
+                JoinAllocation joinAlloc;
+                try {
+                    joinAlloc = await RelayService.Instance.JoinAllocationAsync(joinCode);
+                } catch(System.Exception ex) {
+                    Debug.LogError(
+                        $"[SessionManager] Failed to join relay allocation for code '{joinCode}': {ex.Message}");
+                    await LeaveToMainMenuAsync();
+                    return;
                 }
 
-                return;
-            }
+                if(_isLeaving || _isShuttingDown) {
+                    if(Debug.isDebugBuild) {
+                        FlowLog.Emit(FlowEventIds.SessionExit,
+                            ("reason", "LeaveToMainMenu"),
+                            ("step", "EXIT_CLIENT_START_SKIPPED_POST_RELAY_JOIN"));
+                    }
 
-            if(TryApplyRelayToTransport(utp, null, joinAlloc) == false) {
-                Debug.LogError("[SessionManager] Failed to apply relay client allocation to transport.");
-                LeaveToMainMenuAsync().Forget();
-                return;
-            }
+                    return;
+                }
 
-            networkManager.NetworkConfig.NetworkTransport = utp;
+                if(TryApplyRelayToTransport(utp, null, joinAlloc) == false) {
+                    Debug.LogError("[SessionManager] Failed to apply relay client allocation to transport.");
+                    await LeaveToMainMenuAsync();
+                    return;
+                }
 
-            ApplyLocalConnectionPayload(true);
-            if(!networkManager.StartClient()) {
-                Debug.LogError("[SessionManager] Failed to start UGS match client after cleanup.");
-                LeaveToMainMenuAsync().Forget();
+                networkManager.NetworkConfig.NetworkTransport = utp;
+
+                ApplyLocalConnectionPayload(true);
+                if(!networkManager.StartClient()) {
+                    Debug.LogError("[SessionManager] Failed to start UGS match client after cleanup.");
+                    await LeaveToMainMenuAsync();
+                    return;
+                }
+
+                shouldResetClientStartFlag = false;
+            } finally {
+                if(shouldResetClientStartFlag) {
+                    _ugsClientStartedForMatch = false;
+                }
             }
         }
 
-        private async UniTaskVoid SendPartyHeartbeatsAsync() {
+        private async UniTask SendPartyHeartbeatsAsync() {
             // Heartbeat only required for lobbies we host.
             var localId = AuthenticationService.Instance.PlayerId;
             if(string.IsNullOrEmpty(localId)) return;
@@ -470,7 +515,7 @@ namespace Network {
             return Mathf.Min(HeartbeatRateLimitMaxBackoffSeconds, rawBackoff + jitter);
         }
 
-        private async UniTaskVoid PollPartyLobbyAsync() {
+        private async UniTask PollPartyLobbyAsync() {
             if(_ugsPartyLobby == null) return;
             if(Phase == SessionPhase.InGame) return;
             if(_isLeaving || _isShuttingDown) return;
