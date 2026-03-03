@@ -138,7 +138,7 @@ namespace Network.Singletons {
         /// <summary>
         /// Fade to black, execute action, then fade back in
         /// </summary>
-        public IEnumerator FadeTransition(System.Action duringFade) {
+        public IEnumerator FadeTransition(Action duringFade) {
             if(_isTransitioning) yield break;
 
             _isTransitioning = true;
@@ -323,9 +323,9 @@ namespace Network.Singletons {
                 colorString = colorString[1..];
                 if(colorString.Length == 6) {
                     // RGB hex
-                    var r = System.Convert.ToInt32(colorString[..2], 16) / 255f;
-                    var g = System.Convert.ToInt32(colorString.Substring(2, 2), 16) / 255f;
-                    var b = System.Convert.ToInt32(colorString.Substring(4, 2), 16) / 255f;
+                    var r = Convert.ToInt32(colorString[..2], 16) / 255f;
+                    var g = Convert.ToInt32(colorString.Substring(2, 2), 16) / 255f;
+                    var b = Convert.ToInt32(colorString.Substring(4, 2), 16) / 255f;
                     return new Color(r, g, b, 1f);
                 }
             }
@@ -478,7 +478,7 @@ namespace Network.Singletons {
             }
         }
 
-        private void SetTransitionDuration(VisualElement overlay, float durationSeconds) {
+        private static void SetTransitionDuration(VisualElement overlay, float durationSeconds) {
             if(overlay == null) return;
 
             var clampedDuration = Mathf.Max(0f, durationSeconds);
@@ -487,18 +487,16 @@ namespace Network.Singletons {
         }
 
         private async UniTask WaitForOpacityTransitionAsync(VisualElement overlay, float expectedDurationSeconds) {
-            if(overlay == null || overlay.panel == null) return;
+            if(overlay?.panel == null) return;
 
             var transitionCompleted = new UniTaskCompletionSource<bool>();
-            EventCallback<TransitionEndEvent> onTransitionEnd = null;
-            EventCallback<TransitionCancelEvent> onTransitionCancel = null;
 
-            onTransitionEnd = evt => {
+            EventCallback<TransitionEndEvent> onTransitionEnd = evt => {
                 if(!ReferenceEquals(evt.target, overlay)) return;
                 transitionCompleted.TrySetResult(true);
             };
 
-            onTransitionCancel = evt => {
+            EventCallback<TransitionCancelEvent> onTransitionCancel = evt => {
                 if(!ReferenceEquals(evt.target, overlay)) return;
                 transitionCompleted.TrySetResult(true);
             };
@@ -507,9 +505,6 @@ namespace Network.Singletons {
             overlay.RegisterCallback(onTransitionCancel);
 
             var timeoutSeconds = Mathf.Max(0.05f, expectedDurationSeconds + transitionCompletionGraceSeconds);
-            async UniTask WaitForTransitionCompletedAsync() {
-                await transitionCompleted.Task;
-            }
 
             try {
                 await UniTask.WhenAny(
@@ -521,6 +516,12 @@ namespace Network.Singletons {
             } finally {
                 overlay.UnregisterCallback(onTransitionEnd);
                 overlay.UnregisterCallback(onTransitionCancel);
+            }
+
+            return;
+
+            async UniTask WaitForTransitionCompletedAsync() {
+                await transitionCompleted.Task;
             }
         }
 
