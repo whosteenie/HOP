@@ -13,43 +13,108 @@ namespace Network.Session {
     public sealed partial class SessionManager {
         private int _gameScenePresentationSerial;
 
-        private async UniTask<bool> WaitForGameplayReadyAsync(float timeoutSeconds) {
-            var start = Time.realtimeSinceStartup;
-            while(Time.realtimeSinceStartup - start < timeoutSeconds) {
-                if(_isLeaving || _isShuttingDown) {
-                    return false;
-                }
+        private sealed class GameplayReadinessLatch {
+            private readonly UniTaskCompletionSource<bool> _completion = new();
+            private bool _localPlayerReady;
+            private bool _gameMenuReady;
+            private bool _matchTimerReady;
 
-                var activeScene = SceneManager.GetActiveScene();
-                if(activeScene.IsValid() == false || IsGameplaySceneName(activeScene.name) == false) {
-                    // If we're back in menu, don't keep waiting and spamming a timeout warning.
-                    if(string.Equals(activeScene.name, "MainMenu", StringComparison.OrdinalIgnoreCase)) {
-                        return false;
-                    }
+            public UniTask<bool> Task => _completion.Task;
 
-                    await UniTask.Yield();
-                    continue;
-                }
-
-                if(_networkManager == null) _networkManager = NetworkManager.Singleton;
-                if(_networkManager == null || !_networkManager.IsListening || _networkManager.LocalClient == null) {
-                    await UniTask.Yield();
-                    continue;
-                }
-
-                var localPlayer = _networkManager.LocalClient.PlayerObject;
-                var localPlayerReady = localPlayer != null && localPlayer.IsSpawned;
-                var gameMenuReady = GameMenuManager.Instance != null;
-                var timerReady = MatchTimerManager.Instance != null;
-
-                if(localPlayerReady && gameMenuReady && timerReady) {
-                    return true;
-                }
-
-                await UniTask.Yield();
+            public void SignalLocalPlayerReady() {
+                _localPlayerReady = true;
+                TryComplete();
             }
 
-            return false;
+            public void SignalGameMenuReady() {
+                _gameMenuReady = true;
+                TryComplete();
+            }
+
+            public void SignalMatchTimerReady() {
+                _matchTimerReady = true;
+                TryComplete();
+            }
+
+            public void Cancel() {
+                _completion.TrySetResult(false);
+            }
+
+            private void TryComplete() {
+                if(!_localPlayerReady || !_gameMenuReady || !_matchTimerReady) return;
+                _completion.TrySetResult(true);
+            }
+        }
+
+        private async UniTask<bool> WaitForGameplayReadyAsync(float timeoutSeconds) {
+            if(_isLeaving || _isShuttingDown) {
+                return false;
+            }
+
+            var activeScene = SceneManager.GetActiveScene();
+            if(activeScene.IsValid() == false || IsGameplaySceneName(activeScene.name) == false) {
+                if(string.Equals(activeScene.name, "MainMenu", StringComparison.OrdinalIgnoreCase)) {
+                    return false;
+                }
+            }
+
+            var latch = new GameplayReadinessLatch();
+
+            void OnPlayerSpawned(PlayerController player) {
+                if(player != null && player.IsOwner && player.IsSpawned) {
+                    latch.SignalLocalPlayerReady();
+                }
+            }
+
+            void OnGameMenuReady(GameMenuManager _) {
+                latch.SignalGameMenuReady();
+            }
+
+            void OnMatchTimerReady(MatchTimerManager _) {
+                latch.SignalMatchTimerReady();
+            }
+
+            void OnActiveSceneChanged(Scene _, Scene nextScene) {
+                if(nextScene.IsValid() && IsGameplaySceneName(nextScene.name)) return;
+                latch.Cancel();
+            }
+
+            PlayerController.PlayerSpawned += OnPlayerSpawned;
+            GameMenuManager.InstanceReady += OnGameMenuReady;
+            MatchTimerManager.InstanceReady += OnMatchTimerReady;
+            SceneManager.activeSceneChanged += OnActiveSceneChanged;
+
+            if(PlayerController.LocalPlayer != null && PlayerController.LocalPlayer.IsSpawned) {
+                latch.SignalLocalPlayerReady();
+            }
+
+            if(GameMenuManager.Instance != null) {
+                latch.SignalGameMenuReady();
+            }
+
+            if(MatchTimerManager.Instance != null) {
+                latch.SignalMatchTimerReady();
+            }
+
+            var ready = false;
+            async UniTask WaitForLatchAsync() {
+                ready = await latch.Task;
+            }
+
+            try {
+                var winner = await UniTask.WhenAny(
+                    WaitForLatchAsync(),
+                    UniTask.Delay(TimeSpan.FromSeconds(timeoutSeconds), cancellationToken: SessionLifetimeToken));
+
+                return winner == 0 && ready;
+            } catch(OperationCanceledException) {
+                return false;
+            } finally {
+                PlayerController.PlayerSpawned -= OnPlayerSpawned;
+                GameMenuManager.InstanceReady -= OnGameMenuReady;
+                MatchTimerManager.InstanceReady -= OnMatchTimerReady;
+                SceneManager.activeSceneChanged -= OnActiveSceneChanged;
+            }
         }
 
         private void OnSceneLoaded(Scene scene, LoadSceneMode mode) {
