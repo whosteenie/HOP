@@ -540,6 +540,8 @@ namespace Network.Session {
                 await LeaveMatchLobbyAsync(matchLobbyId);
             }
 
+            CompleteAndClearPlayersReadyWaiter(false);
+            await UnsubscribeMatchLobbyEventsAsync("ClearMatchStateAsync");
             _ugsMatchLobby = null;
             _ugsSyncInProgress = false;
             _ugsLocalReadySubmitted = false;
@@ -602,6 +604,7 @@ namespace Network.Session {
             } catch(LobbyServiceException ex) when(ex.Reason is LobbyExceptionReason.LobbyNotFound
                                                        or LobbyExceptionReason.EntityNotFound) {
                 _ugsPartyLobby = null;
+                await UnsubscribePartyLobbyEventsAsync("ResetPartyFollowStateIfHostAsync/LobbyMissing");
             } catch(Exception ex) {
                 Debug.LogWarning($"[SessionManager] Failed to clear followMatchLobbyId on party lobby: {ex.Message}");
             }

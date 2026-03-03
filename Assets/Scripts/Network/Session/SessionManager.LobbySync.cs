@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
 using Network.Diagnostics;
@@ -12,31 +13,38 @@ using UnityEngine;
 namespace Network.Session {
     public sealed partial class SessionManager {
         private float _nextUgsHeartbeatTime;
-        private float _nextUgsPollTime;
         private const float UgsHeartbeatIntervalSeconds = 15f;
-        private const float UgsPollIntervalSeconds = 2f;
         private bool _ugsSyncInProgress;
         private bool _ugsLocalReadySubmitted;
         private bool _ugsClientStartedForMatch;
         private bool _ugsHostPreFadedOut;
+        private bool _isRetryingReadySubmission;
+        private bool _isFollowingMatchLobby;
         private string _lastFailedFollowMatchLobbyId;
-        private float _nextUgsMatchPollFailureLogTime;
-        private float _nextUgsPartyPollFailureLogTime;
         private float _nextUgsHeartbeatFailureLogTime;
         private float _nextUgsSyncRateLimitLogTime;
-        private float _nextUgsPublicReadyWaitFailureLogTime;
         private float _nextUgsClientStartFailureLogTime;
-        private bool _isPollingMatchLobby;
-        private bool _isPollingPartyLobby;
-        private bool _isMatchLobbyPollingLoopRunning;
-        private float _matchPollBackoffUntil;
-        private float _partyPollBackoffUntil;
+        private float _nextLobbyEventSubscriptionFailureLogTime;
+        private float _nextLobbyEventConnectionLogTime;
         private float _partyHeartbeatBackoffUntil;
         private float _matchHeartbeatBackoffUntil;
         private int _partyHeartbeatRateLimitStreak;
         private int _matchHeartbeatRateLimitStreak;
         private float _nextPartyHeartbeatRateLimitWarnTime;
         private float _nextMatchHeartbeatRateLimitWarnTime;
+        private bool _isSubscribingPartyLobbyEvents;
+        private bool _isSubscribingMatchLobbyEvents;
+        private bool _isResubscribingPartyLobbyEvents;
+        private bool _isResubscribingMatchLobbyEvents;
+        private ILobbyEvents _partyLobbyEvents;
+        private ILobbyEvents _matchLobbyEvents;
+        private LobbyEventCallbacks _partyLobbyEventCallbacks;
+        private LobbyEventCallbacks _matchLobbyEventCallbacks;
+        private string _partyLobbyEventsLobbyId;
+        private string _matchLobbyEventsLobbyId;
+        private UniTaskCompletionSource<bool> _playersReadyWaiter;
+        private List<string> _playersReadyExpectedPlayerIds;
+        private string _playersReadyLobbyId;
 
         private const int HeartbeatRateLimitWarnStreak = 3;
         private const float HeartbeatRateLimitWarnIntervalSeconds = 30f;
@@ -44,259 +52,174 @@ namespace Network.Session {
         private const float HeartbeatRateLimitMaxBackoffSeconds = 90f;
 
         private void Update() {
-            if(_isLeaving || _isShuttingDown) {
-                return;
-            }
-
+            if(_isLeaving || _isShuttingDown) return;
             if(_ugsPartyLobby == null && _ugsMatchLobby == null) return;
 
-            // Global Watchdog: If we are stuck in a black screen phase too long, abort.
-            if(Phase == SessionPhase.SynchronizingLoad) {
-                if(Time.time - _phaseStartTime > 30f) {
-                    Debug.LogError("[SessionManager] Stuck in SynchronizingLoad for >30s. Aborting to menu...");
-                    FlowLog.Emit(FlowEventIds.AnomalySessionStuck,
-                        ("phase", Phase),
-                        ("elapsed", Time.time - _phaseStartTime));
-                    LaunchSessionTask(LeaveToMainMenuAsync(),
-                        "SynchronizingLoadWatchdog/LeaveToMainMenu");
-                    return;
-                }
+            if(Phase == SessionPhase.SynchronizingLoad && Time.time - _phaseStartTime > 30f) {
+                Debug.LogError("[SessionManager] Stuck in SynchronizingLoad for >30s. Aborting to menu...");
+                FlowLog.Emit(FlowEventIds.AnomalySessionStuck, ("phase", Phase), ("elapsed", Time.time - _phaseStartTime));
+                LaunchSessionTask(LeaveToMainMenuAsync(), "SynchronizingLoadWatchdog/LeaveToMainMenu");
+                return;
             }
 
             if(Time.unscaledTime >= _nextUgsHeartbeatTime) {
                 _nextUgsHeartbeatTime = Time.unscaledTime + UgsHeartbeatIntervalSeconds;
-                LaunchSessionTask(SendPartyHeartbeatsAsync(),
-                    "SendPartyHeartbeats");
+                LaunchSessionTask(SendPartyHeartbeatsAsync(), "SendPartyHeartbeats");
+            }
+        }
+
+        private UniTaskCompletionSource<bool> ArmPlayersReadyWaiter(string lobbyId, List<string> expectedPlayerIds) {
+            CompleteAndClearPlayersReadyWaiter(false);
+            _playersReadyWaiter = new UniTaskCompletionSource<bool>();
+            _playersReadyLobbyId = lobbyId;
+            _playersReadyExpectedPlayerIds = expectedPlayerIds != null ? new List<string>(expectedPlayerIds) : null;
+            return _playersReadyWaiter;
+        }
+
+        private void ClearPlayersReadyWaiter(UniTaskCompletionSource<bool> waiter) {
+            if(waiter == null || _playersReadyWaiter != waiter) return;
+            _playersReadyWaiter = null;
+            _playersReadyExpectedPlayerIds = null;
+            _playersReadyLobbyId = null;
+        }
+
+        private void CompleteAndClearPlayersReadyWaiter(bool result) {
+            var waiter = _playersReadyWaiter;
+            if(waiter == null) return;
+            _playersReadyWaiter = null;
+            _playersReadyExpectedPlayerIds = null;
+            _playersReadyLobbyId = null;
+            waiter.TrySetResult(result);
+        }
+
+        private void TryCompletePlayersReadyWaiterFromLobby(Lobby lobby) {
+            if(_playersReadyWaiter == null || lobby == null) return;
+            if(string.IsNullOrEmpty(_playersReadyLobbyId) || string.IsNullOrEmpty(lobby.Id)) return;
+            if(!string.Equals(lobby.Id, _playersReadyLobbyId, StringComparison.Ordinal)) return;
+            if(!AreAllExpectedPlayersReady(lobby, _playersReadyExpectedPlayerIds)) return;
+            _playersReadyWaiter.TrySetResult(true);
+        }
+
+        private async UniTask<bool> WaitForMatchPlayersReadyAsync(List<string> expectedPlayerIds, float timeoutSeconds,
+            string contextLabel) {
+            if(_isLeaving || _isShuttingDown || _ugsMatchLobby == null) return false;
+            if(expectedPlayerIds == null || expectedPlayerIds.Count == 0) return true;
+            if(AreAllExpectedPlayersReady(_ugsMatchLobby, expectedPlayerIds)) return true;
+
+            var waiter = ArmPlayersReadyWaiter(_ugsMatchLobby.Id, expectedPlayerIds);
+            TryCompletePlayersReadyWaiterFromLobby(_ugsMatchLobby);
+
+            var ready = false;
+            async UniTask WaitForReadyAsync() {
+                ready = await waiter.Task;
             }
 
-            if(!(Time.unscaledTime >= _nextUgsPollTime)) return;
-            _nextUgsPollTime = Time.unscaledTime + UgsPollIntervalSeconds;
-            if(_ugsPartyLobby != null && Time.unscaledTime >= _partyPollBackoffUntil) {
-                LaunchSessionTask(PollPartyLobbyAsync(),
-                    "PollPartyLobby");
-            }
+            try {
+                var winner = await UniTask.WhenAny(
+                    WaitForReadyAsync(),
+                    UniTask.Delay(TimeSpan.FromSeconds(timeoutSeconds), cancellationToken: SessionLifetimeToken));
 
-            if(_ugsMatchLobby != null && Time.unscaledTime >= _matchPollBackoffUntil) {
-                LaunchSessionTask(PollMatchLobbyAsync(),
-                    "PollMatchLobby");
+                if(winner == 0 && ready) return true;
+                if(Debug.isDebugBuild) {
+                    Debug.LogWarning($"[SessionManager] Timed out waiting for players ready ({contextLabel}).");
+                }
+                return false;
+            } catch(OperationCanceledException) {
+                return false;
+            } finally {
+                ClearPlayersReadyWaiter(waiter);
             }
         }
 
         private async UniTask<bool> WaitForPrivateMatchSyncReadyAsync(List<string> expectedPlayers) {
-            var syncStartTime = Time.time;
-            const float syncTimeout = 20f;
-            while(true) {
-                if(_isLeaving || _isShuttingDown || _ugsMatchLobby == null) {
-                    return false;
-                }
-
-                if(Time.time - syncStartTime > syncTimeout) {
-                    Debug.LogWarning("[SessionManager] Private match sync timed out! Aborting to menu...");
-                    return false;
-                }
-
-                try {
-                    var refreshed = await LobbyService.Instance.GetLobbyAsync(_ugsMatchLobby.Id);
-                    if(refreshed != null) _ugsMatchLobby = refreshed;
-
-                    if(AreAllExpectedPlayersReady(_ugsMatchLobby, expectedPlayers)) {
-                        return true;
-                    }
-                } catch(LobbyServiceException ex) when(ex.Reason == LobbyExceptionReason.RateLimited) {
-                    if(ShouldEmitThrottledLog(ref _nextUgsSyncRateLimitLogTime, 5f)) {
-                        Debug.LogWarning("[SessionManager] Rate limited during sync. Retrying...");
-                    }
-                } catch(System.Exception ex) {
-                    Debug.LogError($"[SessionManager] Error during sync: {ex.Message}. Aborting...");
-                    return false;
-                }
-
-                try {
-                    await UniTask.Delay(1000, cancellationToken: SessionLifetimeToken);
-                } catch(System.OperationCanceledException) {
-                    return false;
-                }
-            }
+            return await WaitForMatchPlayersReadyAsync(expectedPlayers, 20f, "PrivateMatch");
         }
 
         private async UniTask<bool> WaitForPublicMatchPlayersReadyAsync(List<string> expectedPlayerIds) {
-            for(var i = 0; i < 60; i++) { // 60 seconds timeout
-                if(_isLeaving || _isShuttingDown || _ugsMatchLobby == null) {
-                    return false;
-                }
-
-                try {
-                    await UniTask.Delay(1000, cancellationToken: SessionLifetimeToken);
-                } catch(System.OperationCanceledException) {
-                    return false;
-                }
-
-                try {
-                    _ugsMatchLobby = await LobbyService.Instance.GetLobbyAsync(_ugsMatchLobby.Id);
-                } catch(System.Exception ex) {
-                    if(ShouldEmitThrottledLog(ref _nextUgsPublicReadyWaitFailureLogTime, 5f)) {
-                        Debug.LogWarning(
-                            $"[SessionManager] Failed to refresh public match lobby during ready wait: {ex.Message}");
-                    }
-
-                    continue;
-                }
-
-                if(_ugsMatchLobby == null) return false;
-
-                if(AreAllExpectedPlayersReady(_ugsMatchLobby, expectedPlayerIds)) {
-                    if(Debug.isDebugBuild) {
-                        Debug.Log("[SessionManager] All expected players ready! Starting match...");
-                    }
-
-                    return true;
-                }
-
-                if(Debug.isDebugBuild && ((i + 1) % 5 == 0 || i == 0 || i == 59)) {
-                    Debug.Log(
-                        $"[SessionManager] Waiting for players... lobby has {_ugsMatchLobby.Players?.Count ?? 0} players");
-                }
-            }
-
-            return false;
+            return await WaitForMatchPlayersReadyAsync(expectedPlayerIds, 60f, "PublicMatch");
         }
 
-        private async UniTask StartMatchLobbyPollingAsync() {
-            if(_isMatchLobbyPollingLoopRunning) return;
-            _isMatchLobbyPollingLoopRunning = true;
+        private static bool IsLocalPlayerLobbyHost(Lobby lobby) {
+            if(lobby == null) return false;
+            var localUgsId = AuthenticationService.Instance.PlayerId;
+            return !string.IsNullOrEmpty(localUgsId) && string.Equals(lobby.HostId, localUgsId, StringComparison.Ordinal);
+        }
 
-            // Poll until we either connect or timeout
-            try {
-                for(var i = 0; i < 60; i++) {
-                    await UniTask.Delay(1000, cancellationToken: SessionLifetimeToken);
-                    if(_ugsMatchLobby == null) break;
-                    if(Phase == SessionPhase.InGame) break;
-                    if(_ugsClientStartedForMatch) break;
-
-                    LaunchSessionTask(PollMatchLobbyAsync(),
-                        "StartMatchLobbyPolling/PollMatchLobby");
-                }
-            } catch(System.OperationCanceledException) {
-                // Session lifetime was canceled (quit/destroy).
-            } finally {
-                _isMatchLobbyPollingLoopRunning = false;
+        private async UniTask HandlePartyLobbyFollowStateAsync(string source) {
+            if(_isLeaving || _isShuttingDown || Phase == SessionPhase.InGame || _isFollowingMatchLobby) return;
+            if(_ugsPartyLobby == null || _ugsPartyLobby.Data == null) return;
+            if(!_ugsPartyLobby.Data.TryGetValue(UgsFollowMatchLobbyIdKey, out var followObj) || followObj == null ||
+               string.IsNullOrEmpty(followObj.Value)) {
+                _lastFailedFollowMatchLobbyId = null;
+                return;
             }
 
-            if(_ugsMatchLobby != null && Phase != SessionPhase.InGame && !_ugsClientStartedForMatch) {
-                Debug.LogWarning("[SessionManager] Match lobby polling timed out before client start.");
+            var followLobbyId = followObj.Value;
+            if(_lastFailedFollowMatchLobbyId == followLobbyId) return;
+            if(_ugsMatchLobby != null && string.Equals(_ugsMatchLobby.Id, followLobbyId, StringComparison.Ordinal)) return;
+
+            _isFollowingMatchLobby = true;
+            try {
+                var joined = await JoinMatchLobbyByIdAsync(followLobbyId);
+                _lastFailedFollowMatchLobbyId = joined ? null : followLobbyId;
+                if(!joined && Debug.isDebugBuild) {
+                    Debug.LogWarning($"[SessionManager] Failed to follow match lobby '{followLobbyId}' ({source}).");
+                }
+            } catch(Exception ex) {
+                _lastFailedFollowMatchLobbyId = followLobbyId;
+                Debug.LogWarning($"[SessionManager] Failed to follow match lobby '{followLobbyId}' ({source}): {ex.Message}");
+            } finally {
+                _isFollowingMatchLobby = false;
+            }
+        }
+
+        private void HandleMatchLobbySnapshot(string source) {
+            if(_isLeaving || _isShuttingDown || _ugsMatchLobby == null || Phase == SessionPhase.InGame) return;
+            SyncModeFromMatchLobby(_ugsMatchLobby);
+            TryCompletePlayersReadyWaiterFromLobby(_ugsMatchLobby);
+            if(_ugsMatchLobby.Data == null) return;
+            if(!_ugsMatchLobby.Data.TryGetValue(UgsLobbyStateKey, out var stateObj) || stateObj == null ||
+               string.IsNullOrEmpty(stateObj.Value)) return;
+
+            switch(stateObj.Value) {
+                case "SynchronizingLoad":
+                    if(!_ugsLocalReadySubmitted) {
+                        LaunchSessionTask(StartMatchSynchronizationAsync(), $"{source}/SynchronizingLoad");
+                    }
+                    return;
+                case "LoadingScene":
+                    if(IsLocalPlayerLobbyHost(_ugsMatchLobby)) return;
+                    if(!_ugsClientStartedForMatch) {
+                        LaunchSessionTask(StartMatchClientAsync(), $"{source}/LoadingScene");
+                    }
+                    return;
+                case "InGame":
+                    if(IsLocalPlayerLobbyHost(_ugsMatchLobby)) return;
+                    _ugsLocalReadySubmitted = true;
+                    if(!_ugsClientStartedForMatch) {
+                        LaunchSessionTask(StartMatchClientAsync(useFadeOut: true), $"{source}/InGame");
+                    }
+                    return;
             }
         }
 
         private void SyncModeFromMatchLobby(Lobby lobby) {
-            if(_isLeaving || _isShuttingDown) {
-                return;
-            }
-
-            if(lobby == null) return;
-            if(lobby.Data == null) return;
-            if(!lobby.Data.TryGetValue(UgsTargetModeKey, out var modeObj)) return;
-            if(modeObj == null) return;
-            if(string.IsNullOrEmpty(modeObj.Value)) return;
+            if(_isLeaving || _isShuttingDown || lobby == null || lobby.Data == null) return;
+            if(!lobby.Data.TryGetValue(UgsTargetModeKey, out var modeObj) || modeObj == null ||
+               string.IsNullOrEmpty(modeObj.Value)) return;
             ApplyRuntimeMode(modeObj.Value, "UgsMatchLobbySync", refreshUi: false);
         }
 
-        private async UniTask PollMatchLobbyAsync() {
-            if(_ugsMatchLobby == null) return;
-            if(Phase == SessionPhase.InGame) return;
-            if(_isLeaving || _isShuttingDown) return;
-            if(_isPollingMatchLobby) return;
-
-            _isPollingMatchLobby = true;
-
-            try {
-                var refreshed = await LobbyService.Instance.GetLobbyAsync(_ugsMatchLobby.Id);
-                if(refreshed != null) _ugsMatchLobby = refreshed;
-            } catch(LobbyServiceException ex) when(ex.Reason == LobbyExceptionReason.RateLimited) {
-                _matchPollBackoffUntil = Time.unscaledTime + 4f;
-                if(Debug.isDebugBuild && ShouldEmitThrottledLog(ref _nextUgsMatchPollFailureLogTime, 10f)) {
-                    Debug.Log("[SessionManager] Match lobby poll rate-limited; backing off for 4s.");
-                }
-            } catch(System.Exception ex) {
-                if(ShouldEmitThrottledLog(ref _nextUgsMatchPollFailureLogTime, 10f)) {
-                    Debug.LogWarning($"[SessionManager] Failed to poll UGS match lobby: {ex.Message}");
-                }
-
-                return;
-            } finally {
-                _isPollingMatchLobby = false;
-            }
-
-            if(_isLeaving || _isShuttingDown) {
-                if(Debug.isDebugBuild) {
-                    FlowLog.Emit(FlowEventIds.SessionExit,
-                        ("reason", "LeaveToMainMenu"),
-                        ("step", "EXIT_POLL_MATCH_SKIPPED_POST_AWAIT"));
-                }
-
-                return;
-            }
-
-            if(_ugsMatchLobby == null) return;
-            SyncModeFromMatchLobby(_ugsMatchLobby);
-
-            if(_ugsMatchLobby.Data == null) return;
-            if(!_ugsMatchLobby.Data.TryGetValue(UgsLobbyStateKey, out var stateObj)) return;
-            if(stateObj == null) return;
-
-            switch(stateObj.Value) {
-                case "SynchronizingLoad": {
-                    if(_ugsLocalReadySubmitted == false) {
-                        LaunchSessionTask(StartMatchSynchronizationAsync(),
-                            "PollMatchLobby/SynchronizingLoad");
-                    }
-
-                    return;
-                }
-                case "LoadingScene": {
-                    // The lobby host will start the Netcode host; they should NOT also start as a relay client.
-                    var localUgsId = AuthenticationService.Instance.PlayerId;
-                    if(!string.IsNullOrEmpty(localUgsId) && _ugsMatchLobby.HostId == localUgsId) {
-                        return;
-                    }
-
-                    if(_ugsClientStartedForMatch == false) {
-                        LaunchSessionTask(StartMatchClientAsync(),
-                            "PollMatchLobby/LoadingScene");
-                    }
-
-                    break;
-                }
-                case "InGame": {
-                    // Join-in-progress path: treat InGame as client-start signal.
-                    var localUgsId = AuthenticationService.Instance.PlayerId;
-                    if(!string.IsNullOrEmpty(localUgsId) && _ugsMatchLobby.HostId == localUgsId) {
-                        return;
-                    }
-
-                    _ugsLocalReadySubmitted = true;
-                    if(_ugsClientStartedForMatch == false) {
-                        LaunchSessionTask(StartMatchClientAsync(useFadeOut: true),
-                            "PollMatchLobby/InGame");
-                    }
-
-                    break;
-                }
-            }
-        }
-
-        private async UniTask StartMatchSynchronizationAsync() {
-            if(_ugsMatchLobby == null) return;
-            if(_ugsLocalReadySubmitted) return;
-            if(_ugsSyncInProgress) return;
+        private async UniTask StartMatchSynchronizationAsync(bool skipFadeOut = false) {
+            if(_ugsMatchLobby == null || _ugsLocalReadySubmitted || _ugsSyncInProgress) return;
 
             _ugsSyncInProgress = true;
             Phase = SessionPhase.SynchronizingLoad;
             SetFrontStatus(SessionPhase.SynchronizingLoad, "Waiting for party...");
 
-            // Fade out via SceneTransitionManager (matches Steam sync UX).
             if(_ugsHostPreFadedOut) {
                 _ugsHostPreFadedOut = false;
-            } else {
+            } else if(!skipFadeOut) {
                 await FadeOutWithFallbackAsync();
             }
 
@@ -311,9 +234,13 @@ namespace Network.Session {
                 var opts = BuildReadyToLoadUpdatePlayerOptions();
                 _ugsMatchLobby = await LobbyService.Instance.UpdatePlayerAsync(_ugsMatchLobby.Id, localUgsId, opts);
                 _ugsLocalReadySubmitted = true;
+                TryCompletePlayersReadyWaiterFromLobby(_ugsMatchLobby);
             } catch(LobbyServiceException ex) when(ex.Reason == LobbyExceptionReason.RateLimited) {
-                Debug.LogWarning("[SessionManager] Rate limited updating ready state. Polling will retry.");
-            } catch(System.Exception ex) {
+                if(ShouldEmitThrottledLog(ref _nextUgsSyncRateLimitLogTime, 5f)) {
+                    Debug.LogWarning("[SessionManager] Rate limited updating ready state. Retrying shortly...");
+                }
+                LaunchSessionTask(RetrySubmitReadyStateAsync(), "StartMatchSynchronization/RetryReady");
+            } catch(Exception ex) {
                 Debug.LogError($"[SessionManager] Failed to update ready state: {ex.Message}. Aborting to menu...");
                 await LeaveToMainMenuAsync();
             } finally {
@@ -321,11 +248,34 @@ namespace Network.Session {
             }
         }
 
-        private static bool AreAllExpectedPlayersReady(Lobby lobby,
-            List<string> expectedPlayerIds) {
+        private async UniTask RetrySubmitReadyStateAsync() {
+            if(_isRetryingReadySubmission) return;
+            _isRetryingReadySubmission = true;
+            try {
+                var retryDelayMs = 1000;
+                while(!_isLeaving && !_isShuttingDown && _ugsMatchLobby != null && !_ugsLocalReadySubmitted) {
+                    try {
+                        await UniTask.Delay(retryDelayMs, cancellationToken: SessionLifetimeToken);
+                    } catch(OperationCanceledException) {
+                        return;
+                    }
+
+                    if(_ugsSyncInProgress) {
+                        retryDelayMs = Mathf.Min(retryDelayMs + 500, 5000);
+                        continue;
+                    }
+
+                    await StartMatchSynchronizationAsync(skipFadeOut: true);
+                    retryDelayMs = Mathf.Min(retryDelayMs + 500, 5000);
+                }
+            } finally {
+                _isRetryingReadySubmission = false;
+            }
+        }
+
+        private static bool AreAllExpectedPlayersReady(Lobby lobby, List<string> expectedPlayerIds) {
             if(lobby == null) return false;
-            if(expectedPlayerIds == null) return true;
-            if(expectedPlayerIds.Count == 0) return true;
+            if(expectedPlayerIds == null || expectedPlayerIds.Count == 0) return true;
             if(lobby.Players == null) return false;
 
             foreach(var id in expectedPlayerIds) {
@@ -333,16 +283,13 @@ namespace Network.Session {
 
                 Player found = null;
                 foreach(var p in lobby.Players) {
-                    if(p == null) continue;
-                    if(p.Id != id) continue;
+                    if(p == null || p.Id != id) continue;
                     found = p;
                     break;
                 }
 
-                if(found == null) return false;
-                if(found.Data == null) return false;
-                if(!found.Data.TryGetValue(UgsMemberReadyKey, out var readyObj)) return false;
-                if(readyObj == null) return false;
+                if(found?.Data == null) return false;
+                if(!found.Data.TryGetValue(UgsMemberReadyKey, out var readyObj) || readyObj == null) return false;
                 if(readyObj.Value != "1") return false;
             }
 
@@ -350,16 +297,13 @@ namespace Network.Session {
         }
 
         private async UniTask StartMatchClientAsync(bool useFadeOut = false) {
-            if(_ugsMatchLobby == null) return;
-            if(_ugsClientStartedForMatch) return;
-            if(_ugsLocalReadySubmitted == false) return;
+            if(_ugsMatchLobby == null || _ugsClientStartedForMatch || !_ugsLocalReadySubmitted) return;
             if(_isLeaving || _isShuttingDown) return;
 
             if(_ugsMatchLobby.Data == null) {
                 if(ShouldEmitThrottledLog(ref _nextUgsClientStartFailureLogTime, 10f)) {
                     Debug.LogWarning("[SessionManager] Cannot start match client: match lobby data is unavailable.");
                 }
-
                 return;
             }
 
@@ -367,7 +311,6 @@ namespace Network.Session {
                 if(ShouldEmitThrottledLog(ref _nextUgsClientStartFailureLogTime, 10f)) {
                     Debug.LogWarning("[SessionManager] Cannot start match client: relay join code has not been published.");
                 }
-
                 return;
             }
 
@@ -376,7 +319,6 @@ namespace Network.Session {
                 if(ShouldEmitThrottledLog(ref _nextUgsClientStartFailureLogTime, 10f)) {
                     Debug.LogWarning("[SessionManager] Cannot start match client: relay join code is empty.");
                 }
-
                 return;
             }
 
@@ -405,9 +347,8 @@ namespace Network.Session {
                 JoinAllocation joinAlloc;
                 try {
                     joinAlloc = await RelayService.Instance.JoinAllocationAsync(joinCode);
-                } catch(System.Exception ex) {
-                    Debug.LogError(
-                        $"[SessionManager] Failed to join relay allocation for code '{joinCode}': {ex.Message}");
+                } catch(Exception ex) {
+                    Debug.LogError($"[SessionManager] Failed to join relay allocation for code '{joinCode}': {ex.Message}");
                     await LeaveToMainMenuAsync();
                     return;
                 }
@@ -418,7 +359,6 @@ namespace Network.Session {
                             ("reason", "LeaveToMainMenu"),
                             ("step", "EXIT_CLIENT_START_SKIPPED_POST_RELAY_JOIN"));
                     }
-
                     return;
                 }
 
@@ -445,8 +385,313 @@ namespace Network.Session {
             }
         }
 
+        private async UniTask EnsurePartyLobbyEventsSubscriptionAsync(string context) {
+            if(_ugsPartyLobby == null || string.IsNullOrEmpty(_ugsPartyLobby.Id)) {
+                await UnsubscribePartyLobbyEventsAsync($"{context}/NoPartyLobby");
+                return;
+            }
+
+            var targetLobbyId = _ugsPartyLobby.Id;
+            if(_partyLobbyEvents != null && string.Equals(_partyLobbyEventsLobbyId, targetLobbyId, StringComparison.Ordinal)) {
+                return;
+            }
+            if(_isSubscribingPartyLobbyEvents) return;
+
+            _isSubscribingPartyLobbyEvents = true;
+            try {
+                await UnsubscribePartyLobbyEventsAsync($"{context}/Replace");
+
+                var callbacks = new LobbyEventCallbacks();
+                callbacks.LobbyChanged += OnPartyLobbyChanged;
+                callbacks.LobbyDeleted += OnPartyLobbyDeleted;
+                callbacks.KickedFromLobby += OnPartyLobbyKicked;
+                callbacks.LobbyEventConnectionStateChanged += OnPartyLobbyEventConnectionStateChanged;
+
+                _partyLobbyEvents = await LobbyService.Instance.SubscribeToLobbyEventsAsync(targetLobbyId, callbacks);
+                _partyLobbyEventsLobbyId = targetLobbyId;
+                _partyLobbyEventCallbacks = callbacks;
+                await HandlePartyLobbyFollowStateAsync($"{context}/Initial");
+
+                if(Debug.isDebugBuild) {
+                    Debug.Log($"[SessionManager] Subscribed to party lobby events ({context}) lobbyId='{targetLobbyId}'.");
+                }
+            } catch(Exception ex) {
+                if(ShouldEmitThrottledLog(ref _nextLobbyEventSubscriptionFailureLogTime, 10f)) {
+                    Debug.LogWarning($"[SessionManager] Failed to subscribe to party lobby events ({context}): {ex.Message}");
+                }
+            } finally {
+                _isSubscribingPartyLobbyEvents = false;
+            }
+        }
+
+        private async UniTask EnsureMatchLobbyEventsSubscriptionAsync(string context) {
+            if(_ugsMatchLobby == null || string.IsNullOrEmpty(_ugsMatchLobby.Id)) {
+                await UnsubscribeMatchLobbyEventsAsync($"{context}/NoMatchLobby");
+                return;
+            }
+
+            var targetLobbyId = _ugsMatchLobby.Id;
+            if(_matchLobbyEvents != null && string.Equals(_matchLobbyEventsLobbyId, targetLobbyId, StringComparison.Ordinal)) {
+                return;
+            }
+            if(_isSubscribingMatchLobbyEvents) return;
+
+            _isSubscribingMatchLobbyEvents = true;
+            try {
+                await UnsubscribeMatchLobbyEventsAsync($"{context}/Replace");
+
+                var callbacks = new LobbyEventCallbacks();
+                callbacks.LobbyChanged += OnMatchLobbyChanged;
+                callbacks.LobbyDeleted += OnMatchLobbyDeleted;
+                callbacks.KickedFromLobby += OnMatchLobbyKicked;
+                callbacks.LobbyEventConnectionStateChanged += OnMatchLobbyEventConnectionStateChanged;
+
+                _matchLobbyEvents = await LobbyService.Instance.SubscribeToLobbyEventsAsync(targetLobbyId, callbacks);
+                _matchLobbyEventsLobbyId = targetLobbyId;
+                _matchLobbyEventCallbacks = callbacks;
+
+                if(Debug.isDebugBuild) {
+                    Debug.Log($"[SessionManager] Subscribed to match lobby events ({context}) lobbyId='{targetLobbyId}'.");
+                }
+            } catch(Exception ex) {
+                if(ShouldEmitThrottledLog(ref _nextLobbyEventSubscriptionFailureLogTime, 10f)) {
+                    Debug.LogWarning($"[SessionManager] Failed to subscribe to match lobby events ({context}): {ex.Message}");
+                }
+            } finally {
+                _isSubscribingMatchLobbyEvents = false;
+            }
+        }
+
+        private async UniTask UnsubscribePartyLobbyEventsAsync(string context) {
+            var callbacks = _partyLobbyEventCallbacks;
+            var eventsHandle = _partyLobbyEvents;
+
+            if(callbacks != null) {
+                callbacks.LobbyChanged -= OnPartyLobbyChanged;
+                callbacks.LobbyDeleted -= OnPartyLobbyDeleted;
+                callbacks.KickedFromLobby -= OnPartyLobbyKicked;
+                callbacks.LobbyEventConnectionStateChanged -= OnPartyLobbyEventConnectionStateChanged;
+            }
+
+            _partyLobbyEventCallbacks = null;
+            _partyLobbyEvents = null;
+            _partyLobbyEventsLobbyId = null;
+            _isResubscribingPartyLobbyEvents = false;
+
+            if(eventsHandle == null) return;
+
+            try {
+                await eventsHandle.UnsubscribeAsync();
+            } catch(Exception ex) {
+                if(Debug.isDebugBuild && ShouldEmitThrottledLog(ref _nextLobbyEventSubscriptionFailureLogTime, 10f)) {
+                    Debug.LogWarning($"[SessionManager] Failed to unsubscribe from party lobby events ({context}): {ex.Message}");
+                }
+            }
+        }
+
+        private async UniTask UnsubscribeMatchLobbyEventsAsync(string context) {
+            var callbacks = _matchLobbyEventCallbacks;
+            var eventsHandle = _matchLobbyEvents;
+
+            if(callbacks != null) {
+                callbacks.LobbyChanged -= OnMatchLobbyChanged;
+                callbacks.LobbyDeleted -= OnMatchLobbyDeleted;
+                callbacks.KickedFromLobby -= OnMatchLobbyKicked;
+                callbacks.LobbyEventConnectionStateChanged -= OnMatchLobbyEventConnectionStateChanged;
+            }
+
+            _matchLobbyEventCallbacks = null;
+            _matchLobbyEvents = null;
+            _matchLobbyEventsLobbyId = null;
+            _isResubscribingMatchLobbyEvents = false;
+            CompleteAndClearPlayersReadyWaiter(false);
+
+            if(eventsHandle == null) return;
+
+            try {
+                await eventsHandle.UnsubscribeAsync();
+            } catch(Exception ex) {
+                if(Debug.isDebugBuild && ShouldEmitThrottledLog(ref _nextLobbyEventSubscriptionFailureLogTime, 10f)) {
+                    Debug.LogWarning($"[SessionManager] Failed to unsubscribe from match lobby events ({context}): {ex.Message}");
+                }
+            }
+        }
+
+        private async UniTask ResubscribePartyLobbyEventsAsync(string context) {
+            if(_isResubscribingPartyLobbyEvents || _partyLobbyEvents == null || _ugsPartyLobby == null) return;
+            if(!string.Equals(_partyLobbyEventsLobbyId, _ugsPartyLobby.Id, StringComparison.Ordinal)) return;
+
+            _isResubscribingPartyLobbyEvents = true;
+            try {
+                await _partyLobbyEvents.SubscribeAsync();
+                if(Debug.isDebugBuild) {
+                    Debug.Log($"[SessionManager] Re-subscribed party lobby events ({context}) lobbyId='{_partyLobbyEventsLobbyId}'.");
+                }
+            } catch(Exception ex) {
+                if(ShouldEmitThrottledLog(ref _nextLobbyEventSubscriptionFailureLogTime, 10f)) {
+                    Debug.LogWarning($"[SessionManager] Failed to re-subscribe party lobby events ({context}): {ex.Message}");
+                }
+            } finally {
+                _isResubscribingPartyLobbyEvents = false;
+            }
+        }
+
+        private async UniTask ResubscribeMatchLobbyEventsAsync(string context) {
+            if(_isResubscribingMatchLobbyEvents || _matchLobbyEvents == null || _ugsMatchLobby == null) return;
+            if(!string.Equals(_matchLobbyEventsLobbyId, _ugsMatchLobby.Id, StringComparison.Ordinal)) return;
+
+            _isResubscribingMatchLobbyEvents = true;
+            try {
+                await _matchLobbyEvents.SubscribeAsync();
+                if(Debug.isDebugBuild) {
+                    Debug.Log($"[SessionManager] Re-subscribed match lobby events ({context}) lobbyId='{_matchLobbyEventsLobbyId}'.");
+                }
+            } catch(Exception ex) {
+                if(ShouldEmitThrottledLog(ref _nextLobbyEventSubscriptionFailureLogTime, 10f)) {
+                    Debug.LogWarning($"[SessionManager] Failed to re-subscribe match lobby events ({context}): {ex.Message}");
+                }
+            } finally {
+                _isResubscribingMatchLobbyEvents = false;
+            }
+        }
+
+        private void OnPartyLobbyChanged(ILobbyChanges changes) {
+            LaunchSessionTask(HandlePartyLobbyChangedAsync(changes), "PartyLobbyEvents/LobbyChanged");
+        }
+
+        private async UniTask HandlePartyLobbyChangedAsync(ILobbyChanges changes) {
+            await UniTask.SwitchToMainThread();
+
+            if(_isLeaving || _isShuttingDown || _ugsPartyLobby == null || changes == null) return;
+            if(!string.IsNullOrEmpty(_partyLobbyEventsLobbyId) &&
+               !string.Equals(_partyLobbyEventsLobbyId, _ugsPartyLobby.Id, StringComparison.Ordinal)) {
+                return;
+            }
+
+            try {
+                changes.ApplyToLobby(_ugsPartyLobby);
+            } catch(Exception ex) {
+                if(ShouldEmitThrottledLog(ref _nextLobbyEventSubscriptionFailureLogTime, 10f)) {
+                    Debug.LogWarning($"[SessionManager] Failed applying party lobby changes: {ex.Message}");
+                }
+                return;
+            }
+
+            SessionManager.NotifyPartyStateChanged();
+            await HandlePartyLobbyFollowStateAsync("PartyLobbyEvents/LobbyChanged");
+        }
+
+        private void OnPartyLobbyDeleted() {
+            LaunchSessionTask(HandlePartyLobbyDeletedOrKickedAsync("LobbyDeleted"), "PartyLobbyEvents/LobbyDeleted");
+        }
+
+        private void OnPartyLobbyKicked() {
+            LaunchSessionTask(HandlePartyLobbyDeletedOrKickedAsync("KickedFromLobby"), "PartyLobbyEvents/KickedFromLobby");
+        }
+
+        private async UniTask HandlePartyLobbyDeletedOrKickedAsync(string reason) {
+            await UniTask.SwitchToMainThread();
+
+            if(Debug.isDebugBuild) {
+                Debug.LogWarning($"[SessionManager] Party lobby event: {reason}. Clearing local party lobby cache.");
+            }
+
+            _ugsPartyLobby = null;
+            IsPartyLeader = false;
+            _lastFailedFollowMatchLobbyId = null;
+            await UnsubscribePartyLobbyEventsAsync($"PartyLobbyEvents/{reason}");
+            SessionManager.NotifyPartyStateChanged();
+        }
+
+        private void OnPartyLobbyEventConnectionStateChanged(LobbyEventConnectionState state) {
+            LaunchSessionTask(HandlePartyLobbyEventConnectionStateChangedAsync(state),
+                "PartyLobbyEvents/ConnectionStateChanged");
+        }
+
+        private async UniTask HandlePartyLobbyEventConnectionStateChangedAsync(LobbyEventConnectionState state) {
+            await UniTask.SwitchToMainThread();
+
+            if(Debug.isDebugBuild && ShouldEmitThrottledLog(ref _nextLobbyEventConnectionLogTime, 2f)) {
+                Debug.Log($"[SessionManager] Party lobby events connection state: {state} (lobbyId='{_partyLobbyEventsLobbyId}').");
+            }
+
+            if(state is LobbyEventConnectionState.Error or LobbyEventConnectionState.Unsynced) {
+                await ResubscribePartyLobbyEventsAsync($"ConnectionState/{state}");
+            }
+        }
+
+        private void OnMatchLobbyChanged(ILobbyChanges changes) {
+            LaunchSessionTask(HandleMatchLobbyChangedAsync(changes), "MatchLobbyEvents/LobbyChanged");
+        }
+
+        private async UniTask HandleMatchLobbyChangedAsync(ILobbyChanges changes) {
+            await UniTask.SwitchToMainThread();
+
+            if(_isLeaving || _isShuttingDown || _ugsMatchLobby == null || changes == null) return;
+            if(!string.IsNullOrEmpty(_matchLobbyEventsLobbyId) &&
+               !string.Equals(_matchLobbyEventsLobbyId, _ugsMatchLobby.Id, StringComparison.Ordinal)) {
+                return;
+            }
+
+            try {
+                changes.ApplyToLobby(_ugsMatchLobby);
+            } catch(Exception ex) {
+                if(ShouldEmitThrottledLog(ref _nextLobbyEventSubscriptionFailureLogTime, 10f)) {
+                    Debug.LogWarning($"[SessionManager] Failed applying match lobby changes: {ex.Message}");
+                }
+                return;
+            }
+
+            TryCompletePlayersReadyWaiterFromLobby(_ugsMatchLobby);
+            HandleMatchLobbySnapshot("MatchLobbyEvents/LobbyChanged");
+        }
+
+        private void OnMatchLobbyDeleted() {
+            LaunchSessionTask(HandleMatchLobbyDeletedOrKickedAsync("LobbyDeleted"), "MatchLobbyEvents/LobbyDeleted");
+        }
+
+        private void OnMatchLobbyKicked() {
+            LaunchSessionTask(HandleMatchLobbyDeletedOrKickedAsync("KickedFromLobby"), "MatchLobbyEvents/KickedFromLobby");
+        }
+
+        private async UniTask HandleMatchLobbyDeletedOrKickedAsync(string reason) {
+            await UniTask.SwitchToMainThread();
+
+            if(Debug.isDebugBuild) {
+                Debug.LogWarning($"[SessionManager] Match lobby event: {reason}. Clearing local match lobby cache.");
+            }
+
+            CompleteAndClearPlayersReadyWaiter(false);
+            _ugsSyncInProgress = false;
+            _ugsClientStartedForMatch = false;
+            _ugsHostPreFadedOut = false;
+            if(Phase != SessionPhase.InGame) {
+                _ugsLocalReadySubmitted = false;
+                _ugsMatchLobby = null;
+            }
+
+            await UnsubscribeMatchLobbyEventsAsync($"MatchLobbyEvents/{reason}");
+            UpdateSteamRichPresence();
+        }
+
+        private void OnMatchLobbyEventConnectionStateChanged(LobbyEventConnectionState state) {
+            LaunchSessionTask(HandleMatchLobbyEventConnectionStateChangedAsync(state),
+                "MatchLobbyEvents/ConnectionStateChanged");
+        }
+
+        private async UniTask HandleMatchLobbyEventConnectionStateChangedAsync(LobbyEventConnectionState state) {
+            await UniTask.SwitchToMainThread();
+
+            if(Debug.isDebugBuild && ShouldEmitThrottledLog(ref _nextLobbyEventConnectionLogTime, 2f)) {
+                Debug.Log($"[SessionManager] Match lobby events connection state: {state} (lobbyId='{_matchLobbyEventsLobbyId}').");
+            }
+
+            if(state is LobbyEventConnectionState.Error or LobbyEventConnectionState.Unsynced) {
+                await ResubscribeMatchLobbyEventsAsync($"ConnectionState/{state}");
+            }
+        }
+
         private async UniTask SendPartyHeartbeatsAsync() {
-            // Heartbeat only required for lobbies we host.
             var localId = AuthenticationService.Instance.PlayerId;
             if(string.IsNullOrEmpty(localId)) return;
 
@@ -461,17 +706,13 @@ namespace Network.Session {
                     _partyHeartbeatRateLimitStreak++;
                     var backoff = ComputeHeartbeatRateLimitBackoffSeconds(_partyHeartbeatRateLimitStreak);
                     _partyHeartbeatBackoffUntil = Time.unscaledTime + backoff;
-
                     if(Debug.isDebugBuild &&
                        _partyHeartbeatRateLimitStreak >= HeartbeatRateLimitWarnStreak &&
-                       ShouldEmitThrottledLog(ref _nextPartyHeartbeatRateLimitWarnTime,
-                           HeartbeatRateLimitWarnIntervalSeconds)) {
+                       ShouldEmitThrottledLog(ref _nextPartyHeartbeatRateLimitWarnTime, HeartbeatRateLimitWarnIntervalSeconds)) {
                         Debug.LogWarning(
-                            $"[SessionManager] UGS party heartbeat is repeatedly rate-limited ({_partyHeartbeatRateLimitStreak}x). " +
-                            $"Backing off for {backoff:0.0}s.");
+                            $"[SessionManager] UGS party heartbeat is repeatedly rate-limited ({_partyHeartbeatRateLimitStreak}x). Backing off for {backoff:0.0}s.");
                     }
-                } catch(System.Exception ex) {
-                    // Ignore transient heartbeat failures but keep a throttled diagnostic in debug builds.
+                } catch(Exception ex) {
                     if(Debug.isDebugBuild && ShouldEmitThrottledLog(ref _nextUgsHeartbeatFailureLogTime, 15f)) {
                         Debug.LogWarning($"[SessionManager] UGS party heartbeat ping failed: {ex.Message}");
                     }
@@ -489,17 +730,13 @@ namespace Network.Session {
                     _matchHeartbeatRateLimitStreak++;
                     var backoff = ComputeHeartbeatRateLimitBackoffSeconds(_matchHeartbeatRateLimitStreak);
                     _matchHeartbeatBackoffUntil = Time.unscaledTime + backoff;
-
                     if(Debug.isDebugBuild &&
                        _matchHeartbeatRateLimitStreak >= HeartbeatRateLimitWarnStreak &&
-                       ShouldEmitThrottledLog(ref _nextMatchHeartbeatRateLimitWarnTime,
-                           HeartbeatRateLimitWarnIntervalSeconds)) {
+                       ShouldEmitThrottledLog(ref _nextMatchHeartbeatRateLimitWarnTime, HeartbeatRateLimitWarnIntervalSeconds)) {
                         Debug.LogWarning(
-                            $"[SessionManager] UGS match heartbeat is repeatedly rate-limited ({_matchHeartbeatRateLimitStreak}x). " +
-                            $"Backing off for {backoff:0.0}s.");
+                            $"[SessionManager] UGS match heartbeat is repeatedly rate-limited ({_matchHeartbeatRateLimitStreak}x). Backing off for {backoff:0.0}s.");
                     }
-                } catch(System.Exception ex) {
-                    // Ignore transient heartbeat failures but keep a throttled diagnostic in debug builds.
+                } catch(Exception ex) {
                     if(Debug.isDebugBuild && ShouldEmitThrottledLog(ref _nextUgsHeartbeatFailureLogTime, 15f)) {
                         Debug.LogWarning($"[SessionManager] UGS match heartbeat ping failed: {ex.Message}");
                     }
@@ -511,70 +748,8 @@ namespace Network.Session {
             var clampedStreak = Mathf.Clamp(streak, 1, 8);
             var exponent = clampedStreak - 1;
             var rawBackoff = HeartbeatRateLimitBaseBackoffSeconds * Mathf.Pow(2f, exponent);
-            var jitter = Random.Range(0f, 2f);
+            var jitter = UnityEngine.Random.Range(0f, 2f);
             return Mathf.Min(HeartbeatRateLimitMaxBackoffSeconds, rawBackoff + jitter);
-        }
-
-        private async UniTask PollPartyLobbyAsync() {
-            if(_ugsPartyLobby == null) return;
-            if(Phase == SessionPhase.InGame) return;
-            if(_isLeaving || _isShuttingDown) return;
-            if(_isPollingPartyLobby) return;
-
-            _isPollingPartyLobby = true;
-
-            try {
-                var refreshed = await LobbyService.Instance.GetLobbyAsync(_ugsPartyLobby.Id);
-                if(refreshed != null) _ugsPartyLobby = refreshed;
-            } catch(LobbyServiceException ex) when(ex.Reason == LobbyExceptionReason.RateLimited) {
-                _partyPollBackoffUntil = Time.unscaledTime + 4f;
-                if(Debug.isDebugBuild && ShouldEmitThrottledLog(ref _nextUgsPartyPollFailureLogTime, 10f)) {
-                    Debug.Log("[SessionManager] Party lobby poll rate-limited; backing off for 4s.");
-                }
-            } catch(System.Exception ex) {
-                if(ShouldEmitThrottledLog(ref _nextUgsPartyPollFailureLogTime, 10f)) {
-                    Debug.LogWarning($"[SessionManager] Failed to poll UGS party lobby: {ex.Message}");
-                }
-
-                return;
-            } finally {
-                _isPollingPartyLobby = false;
-            }
-
-            if(_isLeaving || _isShuttingDown) {
-                if(Debug.isDebugBuild) {
-                    FlowLog.Emit(FlowEventIds.SessionExit,
-                        ("reason", "LeaveToMainMenu"),
-                        ("step", "EXIT_POLL_PARTY_SKIPPED_POST_AWAIT"));
-                }
-
-                return;
-            }
-
-            if(_ugsPartyLobby == null) return;
-            if(_ugsPartyLobby.Data == null) return;
-
-            if(_ugsPartyLobby.Data.TryGetValue(UgsFollowMatchLobbyIdKey, out var followObj)) {
-                if(followObj != null && !string.IsNullOrEmpty(followObj.Value)) {
-                    if(_lastFailedFollowMatchLobbyId == followObj.Value) {
-                        return;
-                    }
-
-                    // Join match lobby if we are not already in it.
-                    if(_ugsMatchLobby == null || _ugsMatchLobby.Id != followObj.Value) {
-                        try {
-                            var joined = await JoinMatchLobbyByIdAsync(followObj.Value);
-                            _lastFailedFollowMatchLobbyId = !joined ? followObj.Value : null;
-                        } catch(System.Exception ex) {
-                            Debug.LogWarning(
-                                $"[SessionManager] Failed to follow match lobby '{followObj.Value}': {ex.Message}");
-                            _lastFailedFollowMatchLobbyId = followObj.Value;
-                        }
-                    }
-                } else {
-                    _lastFailedFollowMatchLobbyId = null;
-                }
-            }
         }
 
         private static bool TryPickRelayEndpoint(List<RelayServerEndpoint> endpoints, string connectionType,
@@ -583,9 +758,7 @@ namespace Network.Session {
             port = 0;
             isSecure = false;
 
-            if(endpoints == null) return false;
-            if(endpoints.Count == 0) return false;
-            if(string.IsNullOrEmpty(connectionType)) return false;
+            if(endpoints == null || endpoints.Count == 0 || string.IsNullOrEmpty(connectionType)) return false;
 
             foreach(var ep in endpoints) {
                 if(ep.ConnectionType != connectionType) continue;
@@ -599,12 +772,9 @@ namespace Network.Session {
             return false;
         }
 
-        private static bool TryApplyRelayToTransport(UnityTransport utp, Allocation hostAlloc,
-            JoinAllocation clientAlloc) {
+        private static bool TryApplyRelayToTransport(UnityTransport utp, Allocation hostAlloc, JoinAllocation clientAlloc) {
             if(utp == null) return false;
-
             const string connectionType = "dtls";
-
             if(hostAlloc == null && clientAlloc == null) return false;
             if(hostAlloc != null && clientAlloc != null) return false;
 
@@ -613,27 +783,24 @@ namespace Network.Session {
             bool isSecure;
 
             if(hostAlloc != null) {
-                if(TryPickRelayEndpoint(hostAlloc.ServerEndpoints, connectionType, out host, out port, out isSecure) ==
-                   false) {
+                if(!TryPickRelayEndpoint(hostAlloc.ServerEndpoints, connectionType, out host, out port, out isSecure)) {
                     Debug.LogError("[SessionManager] Relay allocation missing a DTLS endpoint.");
                     return false;
                 }
 
                 utp.UseWebSockets = false;
-                utp.SetRelayServerData(host, port, hostAlloc.AllocationIdBytes, hostAlloc.Key, hostAlloc.ConnectionData,
-                    null, isSecure);
+                utp.SetRelayServerData(host, port, hostAlloc.AllocationIdBytes, hostAlloc.Key, hostAlloc.ConnectionData, null, isSecure);
                 return true;
             }
 
-            if(TryPickRelayEndpoint(clientAlloc.ServerEndpoints, connectionType, out host, out port, out isSecure) ==
-               false) {
+            if(!TryPickRelayEndpoint(clientAlloc.ServerEndpoints, connectionType, out host, out port, out isSecure)) {
                 Debug.LogError("[SessionManager] Relay join allocation missing a DTLS endpoint.");
                 return false;
             }
 
             utp.UseWebSockets = false;
-            utp.SetRelayServerData(host, port, clientAlloc.AllocationIdBytes, clientAlloc.Key,
-                clientAlloc.ConnectionData, clientAlloc.HostConnectionData, isSecure);
+            utp.SetRelayServerData(host, port, clientAlloc.AllocationIdBytes, clientAlloc.Key, clientAlloc.ConnectionData,
+                clientAlloc.HostConnectionData, isSecure);
             return true;
         }
     }

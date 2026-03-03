@@ -222,10 +222,9 @@ namespace Network.Session {
                 Debug.Log("[SessionManager] Disconnect: DisconnectTransitionController.Instance is null");
             var duplicateShown = DisconnectTransitionController.Instance != null &&
                                  DisconnectTransitionController.Instance.CaptureAndShowDuplicateFpVisuals(playerController);
-            if(!duplicateShown) {
-                if(Debug.isDebugBuild) Debug.Log("[SessionManager] Disconnect: duplicate failed, using HideFpVisuals fallback");
-                playerController.HideFpVisualsForDisconnectTransition();
-            }
+            if(duplicateShown) return;
+            if(Debug.isDebugBuild) Debug.Log("[SessionManager] Disconnect: duplicate failed, using HideFpVisuals fallback");
+            playerController.HideFpVisualsForDisconnectTransition();
         }
 
         /// <summary>
