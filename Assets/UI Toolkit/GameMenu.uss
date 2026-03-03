@@ -670,19 +670,6 @@
     margin-bottom: 6px;
 }
 
-.tdm-score-enemy {
-    margin-right: 15px;
-}
-
-.tdm-vs-label {
-    margin-left: 15px;
-    margin-right: 15px;
-}
-
-.tdm-score-your {
-    margin-left: 15px;
-}
-
 .tdm-score-container {
     flex-direction: column;
     align-items: center;
@@ -698,11 +685,13 @@
 }
 
 .tdm-score-enemy {
+    margin-right: 15px;
     border-color: rgba(255, 100, 100, 0.4);
     background-color: rgba(255, 50, 50, 0.1);
 }
 
 .tdm-score-your {
+    margin-left: 15px;
     border-color: rgba(100, 150, 255, 0.4);
     background-color: rgba(50, 100, 255, 0.1);
 }
@@ -716,6 +705,8 @@
 }
 
 .tdm-vs-label {
+    margin-left: 15px;
+    margin-right: 15px;
     font-size: 14px;
     -unity-font-style: bold;
     color: rgba(255, 255, 255, 0.6);
@@ -837,17 +828,6 @@
     position: absolute;
     background-color: rgba(200, 60, 60, 0.9);
     opacity: 0; /* Controlled by DamageVignetteUI script */
-}
-
-/* Damage vignette inline styles merged */
-#hit-front,
-#hit-back {
-    height: 35px;
-}
-
-#hit-left,
-#hit-right {
-    width: 35px;
 }
 
 .corner {
@@ -1010,26 +990,36 @@
     background-color: rgba(200, 60, 60, 0.9);
 }
 
-#hit-frontRight > .corner-h,
-#hit-backRight > .corner-h {
+#hit-frontRight > .corner-h {
     left: 40%;
     right: 0;
 }
 
-#hit-frontRight > .corner-v,
-#hit-backRight > .corner-v {
+#hit-frontRight > .corner-v {
     left: auto;
     right: 0;
 }
 
-#hit-backLeft > .corner-h,
-#hit-backRight > .corner-h {
+#hit-backLeft > .corner-h {
     top: auto;
     bottom: 0;
 }
 
-#hit-backLeft > .corner-v,
+#hit-backLeft > .corner-v {
+    top: 40%;
+    bottom: 0;
+}
+
+#hit-backRight > .corner-h {
+    left: 40%;
+    right: 0;
+    top: auto;
+    bottom: 0;
+}
+
 #hit-backRight > .corner-v {
+    left: auto;
+    right: 0;
     top: 40%;
     bottom: 0;
 }

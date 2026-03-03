@@ -102,7 +102,7 @@
     margin-right: 18px;
 }
 
-.gamemode-card {
+.gamemode-grid .gamemode-card {
     width: 310px; min-height: 360px; align-items: center;
     background-color: rgba(15, 15, 20, 0.95);
     border-radius: 4px; border-width: 1px; border-color: rgba(200, 60, 60, 0.2);
@@ -111,7 +111,7 @@
     transition-duration: 0.2s;
 }
 
-.gamemode-card:hover {
+.gamemode-grid .gamemode-card:hover {
     border-color: rgba(255, 100, 100, 0.4);
     background-color: rgba(20, 20, 25, 0.95);
 }
@@ -377,7 +377,13 @@
     right: 40px;
     top: 0;
     bottom: 0;
-    width: 320px;
+    width: 1000px;
+    min-width: 1000px;
+    max-width: 1000px;
+    height: auto;
+    min-height: auto;
+    max-height: 450px;
+    padding: 20px 30px;
     flex-direction: column;
     align-items: flex-start;
     justify-content: center;
@@ -1096,16 +1102,6 @@
 }
 
 /* ===== CHARACTER CUSTOMIZATION ===== */
-
-.customization-container {
-    height: auto;
-    max-height: 450px;
-    min-height: auto;
-    padding: 20px 30px;
-    width: 1000px;
-    min-width: 1000px;
-    max-width: 1000px;
-}
 
 /* Old customization styles removed - using new vertical layout */
 
