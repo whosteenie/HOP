@@ -387,8 +387,13 @@ namespace Game.Player {
                               playerController.WeaponManager != null &&
                               playerController.WeaponManager.CurrentWeapon != null &&
                               playerController.WeaponManager.CurrentWeapon.IsReloadInProgress;
-            _useAnimatedFirstPersonGrappleVisuals = !isReloading;
-            _forceCameraOffsetOriginForCurrentCable = isReloading;
+            var isHoldingHopball = IsOwner &&
+                                   playerController != null &&
+                                   playerController.IsHoldingHopball;
+            var useFallbackFirstPersonGrappleVisuals = isReloading || isHoldingHopball;
+
+            _useAnimatedFirstPersonGrappleVisuals = !useFallbackFirstPersonGrappleVisuals;
+            _forceCameraOffsetOriginForCurrentCable = useFallbackFirstPersonGrappleVisuals;
 
             // Cancel any active slide - grapple takes full control
             if(playerController != null && playerController.MovementController != null && playerController.MovementController.IsSliding) {

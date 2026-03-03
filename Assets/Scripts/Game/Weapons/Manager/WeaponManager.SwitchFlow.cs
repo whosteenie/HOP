@@ -283,7 +283,27 @@ namespace Game.Weapons {
         /// Triggers the pullout animation. Used when hopball dissolves to restore weapon visibility.
         /// </summary>
         public void TriggerPullOutAnimation() {
-            if(_playerAnimator == null) return;
+            var isPostMatch = GameMenuManager.Instance != null && GameMenuManager.Instance.IsPostMatch;
+
+            var requiresKinemationEquipCompletion = false;
+            if(IsOwner && CurrentWeaponIndex >= 0 && CurrentWeaponIndex < weaponDataList.Count &&
+               CurrentWeaponIndex < _fpWeaponInstances.Count) {
+                var data = weaponDataList[CurrentWeaponIndex];
+                var fpWeapon = _fpWeaponInstances[CurrentWeaponIndex];
+
+                if(data != null && fpWeapon != null) {
+                    if(!fpWeapon.activeSelf) {
+                        fpWeapon = ActivateFpWeapon(CurrentWeaponIndex, data, triggerPullOutAnimation: true);
+                    } else if(TryGetKinemationDriver(fpWeapon, out var kinemationDriver) && kinemationDriver != null) {
+                        TryGetKinemationBindingForData(data, out var kinemationBinding);
+                        ApplyResolvedKinemationViewmodelPose(fpWeapon, kinemationBinding);
+                        kinemationDriver.InitializeIfNeeded(GetFpWeaponLayer());
+                        kinemationDriver.PlayEquipAnimation(immediate: false);
+                    }
+                }
+
+                requiresKinemationEquipCompletion = fpWeapon != null && TryGetKinemationDriver(fpWeapon, out _);
+            }
             
             // If we're not switching weapons (e.g., after hopball dissolve), we need to set up _pendingTpWeapon
             // so the animation event can show it. The weapon might already be inactive from HideWorldWeapon().
@@ -294,12 +314,22 @@ namespace Game.Weapons {
                 UpdateHolsterVisibility();
             }
             
-            TriggerTpPullOutAnimation(CurrentWeaponIndex);
+            if(_playerAnimator != null) {
+                TriggerTpPullOutAnimation(CurrentWeaponIndex);
+            }
             
             // Mark as pulling out
             IsPullingOut = true;
-            _requiresKinemationEquipCompleteForCurrentPullOut = false;
-            ScheduleKinemationPullOutCompletionIfNeeded(CurrentWeaponIndex);
+            _requiresKinemationEquipCompleteForCurrentPullOut = requiresKinemationEquipCompletion && !isPostMatch;
+            if(isPostMatch) {
+                ScheduleKinemationPullOutCompletionIfNeeded(
+                    CurrentWeaponIndex,
+                    Mathf.Max(kinemationPullOutCompleteDelay, postMatchPullOutFailSafeDelay),
+                    forceSchedule: true
+                );
+            } else {
+                ScheduleKinemationPullOutCompletionIfNeeded(CurrentWeaponIndex);
+            }
         }
 
         /// <summary>
