@@ -36,6 +36,10 @@ namespace Network.Session {
         private bool _isSubscribingMatchLobbyEvents;
         private bool _isResubscribingPartyLobbyEvents;
         private bool _isResubscribingMatchLobbyEvents;
+        private bool _isRetryingPartyLobbyEventsSubscription;
+        private bool _isRetryingMatchLobbyEventsSubscription;
+        private int _partyLobbyEventsSubscriptionRetryAttempt;
+        private int _matchLobbyEventsSubscriptionRetryAttempt;
         private ILobbyEvents _partyLobbyEvents;
         private ILobbyEvents _matchLobbyEvents;
         private LobbyEventCallbacks _partyLobbyEventCallbacks;
@@ -50,6 +54,10 @@ namespace Network.Session {
         private const float HeartbeatRateLimitWarnIntervalSeconds = 30f;
         private const float HeartbeatRateLimitBaseBackoffSeconds = 10f;
         private const float HeartbeatRateLimitMaxBackoffSeconds = 90f;
+        private const int LobbyEventSubscriptionRetryBaseDelayMs = 500;
+        private const int LobbyEventSubscriptionRetryMaxDelayMs = 10000;
+        private const int LobbyEventSubscriptionRetryMaxExponent = 5;
+        private const int LobbyEventSubscriptionRetryJitterMs = 250;
 
         private void Update() {
             if(_isLeaving || _isShuttingDown) return;
@@ -410,6 +418,7 @@ namespace Network.Session {
                 _partyLobbyEvents = await LobbyService.Instance.SubscribeToLobbyEventsAsync(targetLobbyId, callbacks);
                 _partyLobbyEventsLobbyId = targetLobbyId;
                 _partyLobbyEventCallbacks = callbacks;
+                _partyLobbyEventsSubscriptionRetryAttempt = 0;
                 await HandlePartyLobbyFollowStateAsync($"{context}/Initial");
 
                 if(Debug.isDebugBuild) {
@@ -419,6 +428,7 @@ namespace Network.Session {
                 if(ShouldEmitThrottledLog(ref _nextLobbyEventSubscriptionFailureLogTime, 10f)) {
                     Debug.LogWarning($"[SessionManager] Failed to subscribe to party lobby events ({context}): {ex.Message}");
                 }
+                SchedulePartyLobbyEventsSubscriptionRetry(context);
             } finally {
                 _isSubscribingPartyLobbyEvents = false;
             }
@@ -449,6 +459,7 @@ namespace Network.Session {
                 _matchLobbyEvents = await LobbyService.Instance.SubscribeToLobbyEventsAsync(targetLobbyId, callbacks);
                 _matchLobbyEventsLobbyId = targetLobbyId;
                 _matchLobbyEventCallbacks = callbacks;
+                _matchLobbyEventsSubscriptionRetryAttempt = 0;
 
                 if(Debug.isDebugBuild) {
                     Debug.Log($"[SessionManager] Subscribed to match lobby events ({context}) lobbyId='{targetLobbyId}'.");
@@ -457,6 +468,7 @@ namespace Network.Session {
                 if(ShouldEmitThrottledLog(ref _nextLobbyEventSubscriptionFailureLogTime, 10f)) {
                     Debug.LogWarning($"[SessionManager] Failed to subscribe to match lobby events ({context}): {ex.Message}");
                 }
+                ScheduleMatchLobbyEventsSubscriptionRetry(context);
             } finally {
                 _isSubscribingMatchLobbyEvents = false;
             }
@@ -553,6 +565,88 @@ namespace Network.Session {
             } finally {
                 _isResubscribingMatchLobbyEvents = false;
             }
+        }
+
+        private void SchedulePartyLobbyEventsSubscriptionRetry(string context) {
+            if(_isLeaving || _isShuttingDown) return;
+            if(_isRetryingPartyLobbyEventsSubscription) return;
+            _partyLobbyEventsSubscriptionRetryAttempt = 0;
+            _isRetryingPartyLobbyEventsSubscription = true;
+            LaunchSessionTask(RetryEnsurePartyLobbyEventsSubscriptionAsync(context), "PartyLobbyEvents/RetryEnsure");
+        }
+
+        private void ScheduleMatchLobbyEventsSubscriptionRetry(string context) {
+            if(_isLeaving || _isShuttingDown) return;
+            if(_isRetryingMatchLobbyEventsSubscription) return;
+            _matchLobbyEventsSubscriptionRetryAttempt = 0;
+            _isRetryingMatchLobbyEventsSubscription = true;
+            LaunchSessionTask(RetryEnsureMatchLobbyEventsSubscriptionAsync(context), "MatchLobbyEvents/RetryEnsure");
+        }
+
+        private async UniTask RetryEnsurePartyLobbyEventsSubscriptionAsync(string context) {
+            try {
+                while(!_isLeaving && !_isShuttingDown) {
+                    if(_ugsPartyLobby == null || string.IsNullOrEmpty(_ugsPartyLobby.Id)) {
+                        return;
+                    }
+
+                    if(_partyLobbyEvents != null &&
+                       string.Equals(_partyLobbyEventsLobbyId, _ugsPartyLobby.Id, StringComparison.Ordinal)) {
+                        _partyLobbyEventsSubscriptionRetryAttempt = 0;
+                        return;
+                    }
+
+                    var retryDelayMs = ComputeLobbyEventSubscriptionRetryDelayMs(_partyLobbyEventsSubscriptionRetryAttempt);
+                    _partyLobbyEventsSubscriptionRetryAttempt++;
+                    try {
+                        await UniTask.Delay(retryDelayMs, cancellationToken: SessionLifetimeToken);
+                    } catch(OperationCanceledException) {
+                        return;
+                    }
+
+                    await EnsurePartyLobbyEventsSubscriptionAsync(
+                        $"{context}/Retry#{_partyLobbyEventsSubscriptionRetryAttempt}");
+                }
+            } finally {
+                _isRetryingPartyLobbyEventsSubscription = false;
+            }
+        }
+
+        private async UniTask RetryEnsureMatchLobbyEventsSubscriptionAsync(string context) {
+            try {
+                while(!_isLeaving && !_isShuttingDown) {
+                    if(_ugsMatchLobby == null || string.IsNullOrEmpty(_ugsMatchLobby.Id)) {
+                        return;
+                    }
+
+                    if(_matchLobbyEvents != null &&
+                       string.Equals(_matchLobbyEventsLobbyId, _ugsMatchLobby.Id, StringComparison.Ordinal)) {
+                        _matchLobbyEventsSubscriptionRetryAttempt = 0;
+                        return;
+                    }
+
+                    var retryDelayMs = ComputeLobbyEventSubscriptionRetryDelayMs(_matchLobbyEventsSubscriptionRetryAttempt);
+                    _matchLobbyEventsSubscriptionRetryAttempt++;
+                    try {
+                        await UniTask.Delay(retryDelayMs, cancellationToken: SessionLifetimeToken);
+                    } catch(OperationCanceledException) {
+                        return;
+                    }
+
+                    await EnsureMatchLobbyEventsSubscriptionAsync(
+                        $"{context}/Retry#{_matchLobbyEventsSubscriptionRetryAttempt}");
+                }
+            } finally {
+                _isRetryingMatchLobbyEventsSubscription = false;
+            }
+        }
+
+        private static int ComputeLobbyEventSubscriptionRetryDelayMs(int attempt) {
+            var exponent = Mathf.Clamp(attempt, 0, LobbyEventSubscriptionRetryMaxExponent);
+            var exponentialMs = LobbyEventSubscriptionRetryBaseDelayMs * (1 << exponent);
+            var cappedMs = Mathf.Min(exponentialMs, LobbyEventSubscriptionRetryMaxDelayMs);
+            var jitterMs = UnityEngine.Random.Range(0, LobbyEventSubscriptionRetryJitterMs + 1);
+            return cappedMs + jitterMs;
         }
 
         private void OnPartyLobbyChanged(ILobbyChanges changes) {

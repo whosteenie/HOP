@@ -355,3 +355,4 @@ ProfilerCaptures/*
 Assets/Scenes/Init/LightingData.asset
 
 .vscode
+Assets/VolumetricClouds.mat
