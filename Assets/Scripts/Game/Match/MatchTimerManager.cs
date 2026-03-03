@@ -13,6 +13,8 @@ using SessionManager = Network.Session.SessionManager;
 namespace Game.Match {
     public class MatchTimerManager : NetworkBehaviour {
         public static MatchTimerManager Instance { get; private set; }
+        public static event System.Action<MatchTimerManager> InstanceReady;
+        public static event System.Action InstanceCleared;
 
         [Header("Match Settings")]
         [SerializeField] private int matchDurationSeconds = 600; // 10 minutes by default
@@ -39,10 +41,17 @@ namespace Game.Match {
             }
 
             Instance = this;
+            InstanceReady?.Invoke(this);
 
             if(MatchSettingsManager.Instance != null) {
                 matchDurationSeconds = MatchSettingsManager.Instance.GetMatchDurationSeconds();
             }
+        }
+
+        private void ClearInstanceIfCurrent() {
+            if(Instance != this) return;
+            Instance = null;
+            InstanceCleared?.Invoke();
         }
 
         public override void OnNetworkSpawn() {
@@ -102,8 +111,7 @@ namespace Game.Match {
             if(NetworkManager != null) {
                 NetworkManager.OnClientDisconnectCallback -= OnClientDisconnectedDuringPreMatch;
             }
-            if(Instance == this)
-                Instance = null;
+            ClearInstanceIfCurrent();
         }
 
         public override void OnDestroy() {
@@ -116,8 +124,7 @@ namespace Game.Match {
                 NetworkManager.OnClientDisconnectCallback -= OnClientDisconnectedDuringPreMatch;
             }
 
-            if(Instance == this)
-                Instance = null;
+            ClearInstanceIfCurrent();
         }
 
         private void OnClientDisconnectedDuringPreMatch(ulong clientId) {

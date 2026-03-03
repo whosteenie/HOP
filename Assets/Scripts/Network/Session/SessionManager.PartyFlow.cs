@@ -62,6 +62,8 @@ namespace Network.Session {
                 _ugsPartyLobby = await LobbyService.Instance.CreateLobbyAsync("HOP Party", maxPlayers, options);
                 _ugsMatchLobby = null;
                 IsPartyLeader = _ugsPartyLobby != null && _ugsPartyLobby.HostId == AuthenticationService.Instance.PlayerId;
+                await UnsubscribeMatchLobbyEventsAsync("CreatePartyLobbyAsync/ResetMatch");
+                await EnsurePartyLobbyEventsSubscriptionAsync("CreatePartyLobbyAsync");
 
                 if(SteamClient.IsValid && SteamClient.IsLoggedOn) {
                     if(!CurrentLobby.HasValue) {
@@ -77,7 +79,6 @@ namespace Network.Session {
                 }
 
                 _nextUgsHeartbeatTime = Time.unscaledTime + 1f;
-                _nextUgsPollTime = Time.unscaledTime + 1f;
                 UpdateSteamRichPresence();
                 FlowLog.Emit(FlowEventIds.PartyLifecycle,
                     ("action", "CreateUgsParty"),
@@ -101,6 +102,8 @@ namespace Network.Session {
             _ugsPartyLobby = await LobbyService.Instance.JoinLobbyByCodeAsync(code, options);
             _ugsMatchLobby = null;
             IsPartyLeader = _ugsPartyLobby != null && _ugsPartyLobby.HostId == AuthenticationService.Instance.PlayerId;
+            await UnsubscribeMatchLobbyEventsAsync("JoinPartyLobbyByCodeAsync/ResetMatch");
+            await EnsurePartyLobbyEventsSubscriptionAsync("JoinPartyLobbyByCodeAsync");
 
             if(_ugsPartyLobby is { Data: not null }) {
                 if(_ugsPartyLobby.Data.TryGetValue(UgsPartyIdKey, out var partyIdObj)) {
@@ -111,7 +114,6 @@ namespace Network.Session {
             }
 
             _nextUgsHeartbeatTime = Time.unscaledTime + 1f;
-            _nextUgsPollTime = Time.unscaledTime + 1f;
             UpdateSteamRichPresence();
             FlowLog.Emit(FlowEventIds.PartyLifecycle,
                 ("action", "JoinUgsParty"),
@@ -154,11 +156,13 @@ namespace Network.Session {
             string expectedCsv) {
             var create = BuildPrivateMatchCreateOptions(mode, joinCode, expectedCsv);
             _ugsMatchLobby = await LobbyService.Instance.CreateLobbyAsync("HOP Match", maxPlayers, create);
+            await EnsureMatchLobbyEventsSubscriptionAsync("CreatePrivateMatchLobbyAsync");
             TryJoinVoiceForActiveMatch("CreatePrivateMatchLobbyAsync");
 
             // Tell party members to follow into the match lobby.
             var update = BuildPartyFollowMatchOptions(_ugsMatchLobby.Id);
             _ugsPartyLobby = await LobbyService.Instance.UpdateLobbyAsync(_ugsPartyLobby.Id, update);
+            await EnsurePartyLobbyEventsSubscriptionAsync("CreatePrivateMatchLobbyAsync/PartyUpdate");
             UpdateSteamRichPresence();
         }
 
@@ -166,6 +170,7 @@ namespace Network.Session {
             string joinCode) {
             var create = BuildPublicMatchCreateOptions(mode, joinCode, matchId);
             _ugsMatchLobby = await LobbyService.Instance.CreateLobbyAsync("HOP Match", maxPlayers, create);
+            await EnsureMatchLobbyEventsSubscriptionAsync("CreatePublicMatchLobbyAsHostAsync");
             TryJoinVoiceForActiveMatch("CreatePublicMatchLobbyAsHostAsync");
             UpdateSteamRichPresence();
             LogPublicLobbySnapshot("CreatePublicMatchLobbyAsHostAsync");
@@ -290,6 +295,7 @@ namespace Network.Session {
             }
 
             _ugsMatchLobby = matchLobby;
+            await EnsureMatchLobbyEventsSubscriptionAsync("JoinMatchLobbyByIdAsync");
             TryJoinVoiceForActiveMatch("JoinMatchLobbyByIdAsync");
             UpdateSteamRichPresence();
             if(Debug.isDebugBuild) {
@@ -302,40 +308,7 @@ namespace Network.Session {
                 ("hostId", matchLobby.HostId),
                 ("players", matchLobby.Players != null ? matchLobby.Players.Count : 0));
 
-            // Refresh selected mode immediately so the Game scene loads correctly.
-            SyncModeFromMatchLobby(_ugsMatchLobby);
-
-            // If the lobby is already in sync/load state, begin local sync now.
-            if(_ugsMatchLobby is { Data: not null }) {
-                if(_ugsMatchLobby.Data.TryGetValue(UgsLobbyStateKey, out var stateObj)) {
-                    if(Debug.isDebugBuild) {
-                        Debug.Log($"[SessionManager] Lobby state on join: '{stateObj?.Value}'");
-                    }
-
-                    if(stateObj is { Value: "SynchronizingLoad" }) {
-                        LaunchSessionTask(StartMatchSynchronizationAsync(),
-                            "JoinMatchLobbyById/SynchronizingLoad");
-                        return true;
-                    }
-
-                    if(stateObj != null &&
-                       (string.Equals(stateObj.Value, "LoadingScene", StringComparison.OrdinalIgnoreCase) ||
-                        string.Equals(stateObj.Value, "InGame", StringComparison.OrdinalIgnoreCase))) {
-                        _ugsLocalReadySubmitted = true;
-                        LaunchSessionTask(StartMatchClientAsync(useFadeOut: true),
-                            "JoinMatchLobbyById/LoadingOrInGame");
-                        return true;
-                    }
-                }
-            }
-
-            // Start polling for lobby state changes - host may update state after we join
-            if(Debug.isDebugBuild) {
-                Debug.Log("[SessionManager] Starting lobby state polling for non-host client...");
-            }
-
-            LaunchSessionTask(StartMatchLobbyPollingAsync(),
-                "JoinMatchLobbyById/StartMatchLobbyPolling");
+            HandleMatchLobbySnapshot("JoinMatchLobbyByIdAsync/Initial");
             return true;
         }
 

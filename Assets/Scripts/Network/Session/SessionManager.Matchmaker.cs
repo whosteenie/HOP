@@ -18,7 +18,6 @@ namespace Network.Session {
         private string _matchmakerTicketId;
         private string _matchmakerQueueName;
         private CancellationTokenSource _matchmakerCts;
-        private const int MatchmakerPollIntervalMs = 6000;
         private float _nextMatchLobbyQueryFailureLogTime;
         private float _nextMatchmakerPollFailureLogTime;
         private int _consecutiveMatchmakerPollFailures;
@@ -297,13 +296,23 @@ namespace Network.Session {
             return false;
         }
 
-        private static async UniTask<bool> WaitMatchmakerPollIntervalAsync(CancellationToken ct) {
+        private static async UniTask<bool> WaitForPollingDelayAsync(int delayMs, CancellationToken ct) {
             try {
-                await UniTask.Delay(MatchmakerPollIntervalMs, cancellationToken: ct);
+                await UniTask.Delay(delayMs, cancellationToken: ct);
                 return true;
             } catch(OperationCanceledException) {
                 return false;
             }
+        }
+
+        private static UniTask<bool> WaitMatchmakerPollIntervalAsync(int consecutiveFailures, CancellationToken ct) {
+            var delayMs = MatchmakerPollingPolicy.ResolveTicketPollDelayMs(consecutiveFailures);
+            return WaitForPollingDelayAsync(delayMs, ct);
+        }
+
+        private static UniTask<bool> WaitMatchLobbyDiscoveryPollIntervalAsync(int attemptIndex, CancellationToken ct) {
+            var delayMs = MatchmakerPollingPolicy.ResolveMatchLobbyDiscoveryDelayMs(attemptIndex);
+            return WaitForPollingDelayAsync(delayMs, ct);
         }
 
         private async UniTask<bool> TryHandleFoundMatchAssignmentAsync(string mode, int maxPlayers,
@@ -340,7 +349,7 @@ namespace Network.Session {
                         Debug.Log($"[UGS Matchmaker] Ticket '{_matchmakerTicketId}' in progress...");
                     }
 
-                    return await WaitMatchmakerPollIntervalAsync(ct);
+                    return await WaitMatchmakerPollIntervalAsync(0, ct);
                 }
                 case MatchIdAssignment.StatusOptions.Timeout:
                     Debug.LogWarning("[SessionManager] Matchmaking timed out.");
@@ -466,13 +475,13 @@ namespace Network.Session {
                             $"[SessionManager] Matchmaker poll failing repeatedly (count={_consecutiveMatchmakerPollFailures}): {e.Message}");
                     }
 
-                    if(await WaitMatchmakerPollIntervalAsync(ct) == false) return;
+                    if(await WaitMatchmakerPollIntervalAsync(_consecutiveMatchmakerPollFailures, ct) == false) return;
                     continue;
                 }
 
                 _consecutiveMatchmakerPollFailures = 0;
                 if(status == null) {
-                    if(await WaitMatchmakerPollIntervalAsync(ct) == false) return;
+                    if(await WaitMatchmakerPollIntervalAsync(0, ct) == false) return;
                     continue;
                 }
 
@@ -494,7 +503,7 @@ namespace Network.Session {
                     Debug.Log($"[UGS Matchmaker] Ticket '{_matchmakerTicketId}' status type='{typeName}'");
                 }
 
-                if(await WaitMatchmakerPollIntervalAsync(ct) == false) return;
+                if(await WaitMatchmakerPollIntervalAsync(0, ct) == false) return;
             }
         }
 
@@ -640,9 +649,11 @@ namespace Network.Session {
             }
 
             // Poll lobby query until the host publishes the match lobby.
-            for(var i = 0; i < 30; i++) {
-                if(Debug.isDebugBuild && (i == 0 || (i + 1) % 5 == 0 || i == 29)) {
-                    Debug.Log($"[SessionManager] Polling for lobby... attempt {i + 1}/30");
+            for(var i = 0; i < MatchmakerPollingPolicy.MatchLobbyDiscoveryMaxAttempts; i++) {
+                if(Debug.isDebugBuild &&
+                   (i == 0 || (i + 1) % 5 == 0 || i == MatchmakerPollingPolicy.MatchLobbyDiscoveryMaxAttempts - 1)) {
+                    Debug.Log(
+                        $"[SessionManager] Polling for lobby... attempt {i + 1}/{MatchmakerPollingPolicy.MatchLobbyDiscoveryMaxAttempts}");
                 }
 
                 try {
@@ -666,9 +677,7 @@ namespace Network.Session {
                     break;
                 }
 
-                try {
-                    await UniTask.Delay(1000, cancellationToken: SessionLifetimeToken);
-                } catch(OperationCanceledException) {
+                if(await WaitMatchLobbyDiscoveryPollIntervalAsync(i, SessionLifetimeToken) == false) {
                     return;
                 }
             }

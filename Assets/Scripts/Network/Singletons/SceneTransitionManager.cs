@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
@@ -10,9 +11,18 @@ using UnityEngine.UIElements;
 
 namespace Network.Singletons {
     public class SceneTransitionManager : MonoBehaviour {
+        private enum OverlayVisualState {
+            Hidden,
+            FadingOut,
+            Opaque,
+            FadingIn
+        }
+
         [SerializeField] private UIDocument transitionDocument;
         [SerializeField] private float fadeDuration = 0.5f;
         [SerializeField] private float musicFadeDuration = 1.5f; // Slightly longer for smooth music fade
+        [SerializeField] private float transitionCompletionGraceSeconds = 0.15f;
+        [SerializeField] private float respawnFadeInSignalTimeoutSeconds = 8f;
 
         private VisualElement _transitionOverlay;
         private VisualElement _respawnFadeOverlay; // Separate overlay for respawn fades (from GameMenu)
@@ -20,6 +30,9 @@ namespace Network.Singletons {
         private LoadingBallAnimation _loadingBallAnimation; // Animation controller
         private bool _isTransitioning;
         private bool _serverSignaledFadeIn; // Server-authoritative signal to start fade in
+        private UniTaskCompletionSource<bool> _respawnFadeInSignal;
+        private OverlayVisualState _transitionOverlayState = OverlayVisualState.Hidden;
+        private OverlayVisualState _respawnOverlayState = OverlayVisualState.Hidden;
 
         // Cache scene name to avoid string allocations
         private string _cachedSceneName;
@@ -89,6 +102,12 @@ namespace Network.Singletons {
                 }
             }
 
+            if(_transitionOverlay != null) {
+                _transitionOverlayState = _transitionOverlay.ClassListContains("visible")
+                    ? OverlayVisualState.Opaque
+                    : OverlayVisualState.Hidden;
+            }
+
             // Refresh respawn fade overlay from GameMenu (for respawn transitions)
             RefreshRespawnFadeOverlay();
         }
@@ -109,6 +128,11 @@ namespace Network.Singletons {
                     
             var gameRoot = gameMenuDoc.rootVisualElement;
             _respawnFadeOverlay = gameRoot.Q<VisualElement>("respawn-fade-overlay");
+            if(_respawnFadeOverlay != null) {
+                _respawnOverlayState = _respawnFadeOverlay.ClassListContains("visible")
+                    ? OverlayVisualState.Opaque
+                    : OverlayVisualState.Hidden;
+            }
         }
 
         /// <summary>
@@ -158,8 +182,10 @@ namespace Network.Singletons {
             }
 
             if(_transitionOverlay == null) yield break;
+            if(_transitionOverlayState is OverlayVisualState.FadingOut or OverlayVisualState.Opaque) yield break;
 
             var duration = customDuration != null ? customDuration.Value : fadeDuration;
+            SetTransitionDuration(_transitionOverlay, duration);
 
             // Always use black for fade out
             _transitionOverlay.style.backgroundColor = new StyleColor(new Color(0, 0, 0, 1));
@@ -168,13 +194,15 @@ namespace Network.Singletons {
             _transitionOverlay.pickingMode = PickingMode.Position;
             _transitionOverlay.RemoveFromClassList("hidden");
             _transitionOverlay.AddToClassList("visible");
+            _transitionOverlayState = OverlayVisualState.FadingOut;
 
             // Start loading ball animation when transition overlay becomes visible
             if(_loadingBall != null && _loadingBallAnimation != null) {
                 _loadingBallAnimation.StartAnimation(_loadingBall);
             }
 
-            yield return new WaitForSeconds(duration);
+            yield return WaitForOpacityTransitionAsync(_transitionOverlay, duration).ToCoroutine();
+            _transitionOverlayState = OverlayVisualState.Opaque;
         }
 
         /// <summary>
@@ -184,8 +212,19 @@ namespace Network.Singletons {
         /// <param name="fadeColor">Optional custom fade color. If null, uses black. Format: "rgb(r, g, b)" or hex "#rrggbb"</param>
         private IEnumerator FadeIn(float? customDuration = null, string fadeColor = null) {
             if(_transitionOverlay == null) yield break;
+            if(_transitionOverlayState is OverlayVisualState.FadingIn or OverlayVisualState.Hidden) {
+                _transitionOverlay.pickingMode = PickingMode.Ignore;
+                _transitionOverlay.style.display = DisplayStyle.None;
+                if(_loadingBallAnimation != null) {
+                    _loadingBallAnimation.StopAnimation();
+                }
+
+                _transitionOverlayState = OverlayVisualState.Hidden;
+                yield break;
+            }
 
             var duration = customDuration != null ? customDuration.Value : fadeDuration;
+            SetTransitionDuration(_transitionOverlay, duration);
 
             // Set fade color if provided (otherwise uses default black from CSS)
             _transitionOverlay.style.backgroundColor = !string.IsNullOrEmpty(fadeColor)
@@ -194,15 +233,15 @@ namespace Network.Singletons {
                 // Reset to black (default)
                 new StyleColor(new Color(0, 0, 0, 1));
 
-            yield return new WaitForSeconds(0.1f); // Small delay for scene to settle
-
             _transitionOverlay.RemoveFromClassList("visible");
             _transitionOverlay.AddToClassList("hidden");
+            _transitionOverlayState = OverlayVisualState.FadingIn;
 
-            yield return new WaitForSeconds(duration);
+            yield return WaitForOpacityTransitionAsync(_transitionOverlay, duration).ToCoroutine();
 
             _transitionOverlay.pickingMode = PickingMode.Ignore;
             _transitionOverlay.style.display = DisplayStyle.None;
+            _transitionOverlayState = OverlayVisualState.Hidden;
 
             // Stop loading ball animation when transition overlay is hidden
             if(_loadingBallAnimation != null) {
@@ -222,8 +261,10 @@ namespace Network.Singletons {
             }
 
             if(_respawnFadeOverlay == null) yield break;
+            if(_respawnOverlayState is OverlayVisualState.FadingOut or OverlayVisualState.Opaque) yield break;
 
             var duration = customDuration != null ? customDuration.Value : fadeDuration;
+            SetTransitionDuration(_respawnFadeOverlay, duration);
 
             // Always use black for respawn overlay
             _respawnFadeOverlay.style.backgroundColor = new StyleColor(new Color(0, 0, 0, 1));
@@ -232,8 +273,10 @@ namespace Network.Singletons {
             _respawnFadeOverlay.pickingMode = PickingMode.Position;
             _respawnFadeOverlay.RemoveFromClassList("hidden");
             _respawnFadeOverlay.AddToClassList("visible");
+            _respawnOverlayState = OverlayVisualState.FadingOut;
 
-            yield return new WaitForSeconds(duration);
+            yield return WaitForOpacityTransitionAsync(_respawnFadeOverlay, duration).ToCoroutine();
+            _respawnOverlayState = OverlayVisualState.Opaque;
         }
 
         /// <summary>
@@ -247,21 +290,28 @@ namespace Network.Singletons {
             }
 
             if(_respawnFadeOverlay == null) yield break;
+            if(_respawnOverlayState is OverlayVisualState.FadingIn or OverlayVisualState.Hidden) {
+                _respawnFadeOverlay.pickingMode = PickingMode.Ignore;
+                _respawnFadeOverlay.style.display = DisplayStyle.None;
+                _respawnOverlayState = OverlayVisualState.Hidden;
+                yield break;
+            }
 
             var duration = customDuration != null ? customDuration.Value : fadeDuration;
+            SetTransitionDuration(_respawnFadeOverlay, duration);
 
             // Always use black for respawn overlay
             _respawnFadeOverlay.style.backgroundColor = new StyleColor(new Color(0, 0, 0, 1));
 
-            yield return new WaitForSeconds(0.1f); // Small delay for scene to settle
-
             _respawnFadeOverlay.RemoveFromClassList("visible");
             _respawnFadeOverlay.AddToClassList("hidden");
+            _respawnOverlayState = OverlayVisualState.FadingIn;
 
-            yield return new WaitForSeconds(duration);
+            yield return WaitForOpacityTransitionAsync(_respawnFadeOverlay, duration).ToCoroutine();
 
             _respawnFadeOverlay.pickingMode = PickingMode.Ignore;
             _respawnFadeOverlay.style.display = DisplayStyle.None;
+            _respawnOverlayState = OverlayVisualState.Hidden;
         }
 
         /// <summary>
@@ -304,46 +354,48 @@ namespace Network.Singletons {
         /// </summary>
         public IEnumerator FadeRespawnTransition() {
             // Refresh overlay reference in case GameMenuManager wasn't ready when OnEnable was called
-            if(_transitionOverlay == null) {
-                RefreshOverlayReference();
+            if(_respawnFadeOverlay == null) {
+                RefreshRespawnFadeOverlay();
             }
 
-            if(_transitionOverlay == null) yield break;
+            if(_respawnFadeOverlay == null) yield break;
 
             _serverSignaledFadeIn = false;
+            _respawnFadeInSignal = new UniTaskCompletionSource<bool>();
 
-            // Fade to black (using default fade duration) - always use black for respawn
-            // Use respawn fade overlay (from GameMenu) instead of scene transition overlay
-            _respawnFadeOverlay.style.backgroundColor = new StyleColor(new Color(0, 0, 0, 1));
-            _respawnFadeOverlay.style.display = DisplayStyle.Flex;
-            _respawnFadeOverlay.pickingMode = PickingMode.Position;
-            _respawnFadeOverlay.RemoveFromClassList("hidden");
-            _respawnFadeOverlay.AddToClassList("visible");
+            try {
+                // Fade to black (using default fade duration) - always use black for respawn
+                // Use respawn fade overlay (from GameMenu) instead of scene transition overlay
+                yield return FadeOutRespawnOverlay();
 
-            yield return new WaitForSeconds(fadeDuration);
+                // Signal that fade to black has completed (for teleporting/ragdoll disable)
 
-            // Small buffer to ensure CSS transition is fully complete and overlay is fully opaque
-            yield return new WaitForSeconds(0.05f);
+                // Hold on black screen - wait for server to signal fade in start (server-authoritative)
+                // This ensures all clients are synced regardless of network latency
+                var fadeInSignaled = _serverSignaledFadeIn;
+                if(!_serverSignaledFadeIn) {
+                    async UniTask WaitForSignalAsync() {
+                        fadeInSignaled = await WaitForRespawnFadeInSignalAsync(_respawnFadeInSignal);
+                    }
 
-            // Signal that fade to black has completed (for teleporting/ragdoll disable)
+                    yield return WaitForSignalAsync().ToCoroutine();
+                }
 
-            // Hold on black screen - wait for server to signal fade in start (server-authoritative)
-            // This ensures all clients are synced regardless of network latency
-            while(!_serverSignaledFadeIn) {
-                yield return null;
+                if(!fadeInSignaled) {
+                    Debug.LogWarning(
+                        "[SceneTransitionManager] Respawn fade-in signal timed out or was canceled. Forcing overlay recovery.");
+                    yield return FadeInRespawnOverlay();
+                    ForceHideRespawnOverlay();
+                    yield break;
+                }
+
+                // Signal that fade in is starting (for restoring control)
+
+                // Fade back in (using default fade duration) - always use black for respawn
+                yield return FadeInRespawnOverlay();
+            } finally {
+                _respawnFadeInSignal = null;
             }
-
-            // Signal that fade in is starting (for restoring control)
-
-            // Fade back in (using default fade duration) - always use black for respawn
-            _respawnFadeOverlay.style.backgroundColor = new StyleColor(new Color(0, 0, 0, 1));
-            _respawnFadeOverlay.RemoveFromClassList("visible");
-            _respawnFadeOverlay.AddToClassList("hidden");
-
-            yield return new WaitForSeconds(fadeDuration);
-
-            _respawnFadeOverlay.pickingMode = PickingMode.Ignore;
-            _respawnFadeOverlay.style.display = DisplayStyle.None;
         }
 
         /// <summary>
@@ -351,6 +403,7 @@ namespace Network.Singletons {
         /// </summary>
         public void SignalFadeInStart() {
             _serverSignaledFadeIn = true;
+            _respawnFadeInSignal?.TrySetResult(true);
         }
 
         /// <summary>
@@ -394,6 +447,7 @@ namespace Network.Singletons {
 
             _transitionOverlay.RemoveFromClassList("hidden");
             _transitionOverlay.AddToClassList("visible");
+            _transitionOverlayState = OverlayVisualState.Opaque;
 
             // Also fade out music instantly
             var menuMusicPlayer = FindFirstObjectByType<MenuMusicPlayer>();
@@ -423,6 +477,7 @@ namespace Network.Singletons {
             _transitionOverlay.AddToClassList("hidden");
             _transitionOverlay.pickingMode = PickingMode.Ignore;
             _transitionOverlay.style.display = DisplayStyle.None;
+            _transitionOverlayState = OverlayVisualState.Hidden;
 
             // Stop loading ball animation when transition overlay is hidden
             if(_loadingBallAnimation != null) {
@@ -437,6 +492,86 @@ namespace Network.Singletons {
             if(_transitionOverlay != null) {
                 _transitionOverlay.style.transitionDuration = StyleKeyword.Null;
             }
+        }
+
+        private void SetTransitionDuration(VisualElement overlay, float durationSeconds) {
+            if(overlay == null) return;
+
+            var clampedDuration = Mathf.Max(0f, durationSeconds);
+            var durationList = new StyleList<TimeValue>(new List<TimeValue> { new(clampedDuration) });
+            overlay.style.transitionDuration = durationList;
+        }
+
+        private async UniTask WaitForOpacityTransitionAsync(VisualElement overlay, float expectedDurationSeconds) {
+            if(overlay == null || overlay.panel == null) return;
+
+            var transitionCompleted = new UniTaskCompletionSource<bool>();
+            EventCallback<TransitionEndEvent> onTransitionEnd = null;
+            EventCallback<TransitionCancelEvent> onTransitionCancel = null;
+
+            onTransitionEnd = evt => {
+                if(!ReferenceEquals(evt.target, overlay)) return;
+                transitionCompleted.TrySetResult(true);
+            };
+
+            onTransitionCancel = evt => {
+                if(!ReferenceEquals(evt.target, overlay)) return;
+                transitionCompleted.TrySetResult(true);
+            };
+
+            overlay.RegisterCallback(onTransitionEnd);
+            overlay.RegisterCallback(onTransitionCancel);
+
+            var timeoutSeconds = Mathf.Max(0.05f, expectedDurationSeconds + transitionCompletionGraceSeconds);
+            async UniTask WaitForTransitionCompletedAsync() {
+                await transitionCompleted.Task;
+            }
+
+            try {
+                await UniTask.WhenAny(
+                    WaitForTransitionCompletedAsync(),
+                    UniTask.Delay(TimeSpan.FromSeconds(timeoutSeconds),
+                        cancellationToken: this.GetCancellationTokenOnDestroy()));
+            } catch(OperationCanceledException) {
+                // Object destroyed during scene change.
+            } finally {
+                overlay.UnregisterCallback(onTransitionEnd);
+                overlay.UnregisterCallback(onTransitionCancel);
+            }
+        }
+
+        private async UniTask<bool> WaitForRespawnFadeInSignalAsync(UniTaskCompletionSource<bool> signal) {
+            if(signal == null) return true;
+
+            var signalReceived = false;
+            async UniTask WaitForSignalAsync() {
+                signalReceived = await signal.Task;
+            }
+
+            var timeoutSeconds = Mathf.Max(0.1f, respawnFadeInSignalTimeoutSeconds);
+            try {
+                var winner = await UniTask.WhenAny(
+                    WaitForSignalAsync(),
+                    UniTask.Delay(TimeSpan.FromSeconds(timeoutSeconds),
+                        cancellationToken: this.GetCancellationTokenOnDestroy()));
+                return winner == 0 && signalReceived;
+            } catch(OperationCanceledException) {
+                return false;
+            }
+        }
+
+        private void ForceHideRespawnOverlay() {
+            if(_respawnFadeOverlay == null) {
+                RefreshRespawnFadeOverlay();
+            }
+
+            if(_respawnFadeOverlay == null) return;
+
+            _respawnFadeOverlay.RemoveFromClassList("visible");
+            _respawnFadeOverlay.AddToClassList("hidden");
+            _respawnFadeOverlay.pickingMode = PickingMode.Ignore;
+            _respawnFadeOverlay.style.display = DisplayStyle.None;
+            _respawnOverlayState = OverlayVisualState.Hidden;
         }
     }
 }
