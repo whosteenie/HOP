@@ -16,6 +16,7 @@ using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.SceneManagement;
 using UnityEngine.UIElements;
+using SessionManager = Network.Session.SessionManager;
 
 namespace Game.Menu {
     public class GameMenuManager : UIElementBase {

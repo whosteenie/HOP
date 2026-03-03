@@ -8,6 +8,7 @@ using Steamworks.Data;
 using UnityEngine.UIElements;
 using Game.Match;
 using Network.Services;
+using SessionManager = Network.Session.SessionManager;
 
 namespace Game.Menu {
     /// <summary>

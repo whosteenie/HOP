@@ -10,6 +10,7 @@ using Network.Steam;
 using Steamworks;
 using UnityEngine;
 using UnityEngine.UIElements;
+using SessionManager = Network.Session.SessionManager;
 
 namespace Game.Menu {
     /// <summary>

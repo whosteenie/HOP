@@ -16,6 +16,7 @@ using UnityEngine;
 using UnityEngine.UIElements;
 using Color = UnityEngine.Color;
 using Image = UnityEngine.UIElements.Image;
+using SessionManager = Network.Session.SessionManager;
 
 namespace Game.Menu {
     /// <summary>

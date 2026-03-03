@@ -8,6 +8,7 @@ using Game.Menu;
 using Game.Social;
 using Network.Core;
 using Network.Diagnostics;
+using Steamworks;
 using Unity.Netcode;
 using Unity.Netcode.Transports.UTP;
 using Unity.Services.Authentication;
@@ -19,7 +20,7 @@ using Unity.Services.Relay.Models;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
-namespace Network {
+namespace Network.Session {
     public sealed partial class SessionManager {
         #region Core Session Operations
 
@@ -147,7 +148,7 @@ namespace Network {
                 return false;
             }
 
-            if(TryApplyRelayToTransport(utp, hostAllocation, null) == false) {
+            if(SessionManager.TryApplyRelayToTransport(utp, hostAllocation, null) == false) {
                 Debug.LogError($"[SessionManager] Failed to apply relay host allocation during {contextLabel}.");
                 return false;
             }
@@ -173,6 +174,92 @@ namespace Network {
             return true;
         }
 
+        public string SelectedMapId { get; private set; }
+        private string SelectedMapSceneName { get; set; }
+
+        /// <summary>When true, SelectMapForCurrentMode uses existing SelectedMapId/SelectedMapSceneName from private match draft data.</summary>
+        private bool _privateMatchMapPreset;
+
+        private void SelectMapForCurrentMode(string context) {
+            var usedPreset = _privateMatchMapPreset;
+            if(_privateMatchMapPreset) {
+                _privateMatchMapPreset = false;
+                if(Debug.isDebugBuild) {
+                    Debug.Log(
+                        $"[SessionManager] Using preset private match map ({context}) mapId='{SelectedMapId}' scene='{SelectedMapSceneName}'.");
+                }
+            } else if(MatchMapService.TrySelectRandomSceneForGamemode(SelectedGameMode, out var sceneName, out var mapId)) {
+                SelectedMapSceneName = sceneName;
+                SelectedMapId = mapId;
+            } else {
+                SelectedMapSceneName = MatchMapService.DefaultGameplaySceneName;
+                SelectedMapId = MatchMapService.DefaultMapId;
+            }
+
+            if(Debug.isDebugBuild && !usedPreset) {
+                Debug.Log(
+                    $"[SessionManager] Map selected ({context}) mode='{SelectedGameMode}' mapId='{SelectedMapId}' scene='{SelectedMapSceneName}'.");
+            }
+
+            if(!CurrentLobby.HasValue || CurrentLobby.Value.Owner.Id != SteamClient.SteamId) return;
+            CurrentLobby.Value.SetData("TargetMapId", SelectedMapId ?? string.Empty);
+            CurrentLobby.Value.SetData("TargetMapScene", SelectedMapSceneName ?? string.Empty);
+        }
+
+        /// <summary>
+        /// Sets the map from a private match draft (map id). Skips random selection when loading the gameplay scene.
+        /// </summary>
+        private void SetSelectedMapFromId(string mapId) {
+            if(string.IsNullOrWhiteSpace(mapId)) return;
+            if(!MatchMapService.TryGetSceneByMapId(mapId, out var sceneName)) return;
+            SelectedMapId = mapId;
+            SelectedMapSceneName = sceneName;
+            _privateMatchMapPreset = true;
+            if(Debug.isDebugBuild) {
+                Debug.Log($"[SessionManager] Private match map set: mapId='{mapId}' scene='{SelectedMapSceneName}'.");
+            }
+        }
+
+        /// <summary>
+        /// Applies all private match draft settings before starting the match (gamemode, map, timer, score, tagged, team assignments).
+        /// Call from the menu flow before StartPrivateMatchAsync / StartOfflinePrivateMatchAsync.
+        /// </summary>
+        public void ApplyPrivateMatchSettings(
+            string mode,
+            string mapId,
+            int matchTimerSeconds,
+            bool usePreMatchCountdown,
+            bool swapWeaponsOnDeath,
+            int scoreToWin,
+            int kothHillSpeed,
+            int taggedPlayers,
+            IReadOnlyDictionary<ulong, int> teamAssignments) {
+            if(!string.IsNullOrWhiteSpace(mode)) {
+                ApplyRuntimeMode(mode, "PrivateMatchDraft", refreshUi: false);
+            }
+
+            if(!string.IsNullOrWhiteSpace(mapId)) {
+                SetSelectedMapFromId(mapId);
+            }
+
+            var matchSettings = MatchSettingsManager.Instance;
+            if(matchSettings != null) {
+                matchSettings.matchDurationSeconds = Mathf.Max(0, matchTimerSeconds);
+                matchSettings.preMatchCountdownEnabled = usePreMatchCountdown;
+                matchSettings.swapWeaponsOnDeath = swapWeaponsOnDeath;
+                matchSettings.scoreToWin = Mathf.Max(0, scoreToWin);
+                matchSettings.kothHillSpeed = Mathf.Max(1, kothHillSpeed);
+                matchSettings.taggedPlayers = Mathf.Max(1, taggedPlayers);
+            }
+
+            PrivateMatchTeamAssignments.Set(teamAssignments);
+
+            if(Debug.isDebugBuild) {
+                Debug.Log(
+                    $"[SessionManager] ApplyPrivateMatchSettings: mode='{mode}' mapId='{mapId}' timer={matchTimerSeconds} preMatchCountdown={usePreMatchCountdown} swapWeaponsOnDeath={swapWeaponsOnDeath} scoreToWin={scoreToWin} kothHillSpeed={kothHillSpeed} tagged={taggedPlayers} teams={teamAssignments?.Count ?? 0}");
+            }
+        }
+
         private static UpdatePlayerOptions BuildReadyToLoadUpdatePlayerOptions() {
             return new UpdatePlayerOptions {
                 Data = new Dictionary<string, PlayerDataObject> {
@@ -185,7 +272,7 @@ namespace Network {
             string expectedCsv) {
             return new CreateLobbyOptions {
                 IsPrivate = true,
-                Player = BuildLobbyPlayer(),
+                Player = SessionManager.BuildLobbyPlayer(),
                 Data = new Dictionary<string, DataObject> {
                     [UgsPartyIdKey] = new(DataObject.VisibilityOptions.Member, CurrentPartyId),
                     [UgsMatchTypeKey] = new(DataObject.VisibilityOptions.Member, "Private"),
@@ -209,7 +296,7 @@ namespace Network {
         private static CreateLobbyOptions BuildPublicMatchCreateOptions(string mode, string relayJoinCode, string matchId) {
             return new CreateLobbyOptions {
                 IsPrivate = false,
-                Player = BuildLobbyPlayer(),
+                Player = SessionManager.BuildLobbyPlayer(),
                 Data = new Dictionary<string, DataObject> {
                     [UgsMatchTypeKey] = new(DataObject.VisibilityOptions.Public, "Public", DataObject.IndexOptions.S3),
                     [UgsTargetModeKey] = new(DataObject.VisibilityOptions.Public, mode, DataObject.IndexOptions.S2),
@@ -432,7 +519,7 @@ namespace Network {
 
             // Delete ticket from server if we have one
             if(!string.IsNullOrEmpty(_matchmakerTicketId)) {
-                await DeleteMatchmakerTicketAsync(_matchmakerTicketId);
+                await SessionManager.DeleteMatchmakerTicketAsync(_matchmakerTicketId);
                 _matchmakerTicketId = null;
             }
 

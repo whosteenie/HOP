@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using Game.Match;
@@ -8,16 +7,16 @@ using Game.Social;
 using Network.Diagnostics;
 using Network.Singletons;
 using Network.Steam;
+using Network.UGS;
 using Steamworks;
-using Unity.Services.Authentication;
 using Unity.Netcode;
+using Unity.Services.Authentication;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityUtils;
-using Network.UGS;
 using Lobby = Steamworks.Data.Lobby;
 
-namespace Network {
+namespace Network.Session {
     /// <summary>
     /// Session manager for UGS lobby/matchmaker/relay flows.
     /// Steam is used as a social layer (party metadata, invites, rich presence).
@@ -72,8 +71,6 @@ namespace Network {
             }
         }
 
-        public string SelectedMapId { get; private set; }
-        private string SelectedMapSceneName { get; set; }
         public string CurrentPartyId { get; private set; }
         private bool IsPartyLeader { get; set; }
 
@@ -143,11 +140,8 @@ namespace Network {
         // Track if we expect a disconnect (e.g. intentionally leaving)
         private bool _expectedDisconnect;
 
-        /// <summary>True when we intentionally left (LeaveLobby etc); used to skip disconnect capture in OnNetworkDespawn.</summary>
+        /// <summary>True when we intentionally left (LeaveLobby etc.); used to skip disconnect capture in OnNetworkDespawn.</summary>
         public bool IsExpectedDisconnect => _expectedDisconnect;
-        /// <summary> When true, SelectMapForCurrentMode uses existing SelectedMapId/SelectedMapSceneName (from private match draft). </summary>
-        private bool _privateMatchMapPreset;
-
         public bool IsSearching {
             get {
                 return Phase switch {
@@ -263,14 +257,14 @@ namespace Network {
             try {
                 var displayName = StreamerMode.GetLocalDisplayName();
                 if(string.IsNullOrEmpty(displayName)) return;
-                CurrentLobby.Value.SetMemberData(DisplayNameKey, displayName);
+                CurrentLobby.Value.SetMemberData(SessionManager.DisplayNameKey, displayName);
                 var hide = StreamerMode.Enabled;
-                CurrentLobby.Value.SetMemberData(AvatarHiddenKey, hide ? "1" : "0");
+                CurrentLobby.Value.SetMemberData(SessionManager.AvatarHiddenKey, hide ? "1" : "0");
 
                 var data = GameSettings.Data;
                 var baseColor = data.player.customization.baseColor;
                 var iconId = PlayerIconPicker.PickIconIdFromBaseColor(baseColor, hide);
-                CurrentLobby.Value.SetMemberData(PlayerIconKey, iconId);
+                CurrentLobby.Value.SetMemberData(SessionManager.PlayerIconKey, iconId);
             } catch(Exception ex) {
                 // If Steam is transitioning offline, this can fail transiently.
                 if(Debug.isDebugBuild) {
@@ -315,7 +309,7 @@ namespace Network {
 
                 // Leave any Steam lobby context (safe even if Steam is offline).
                 LeaveLobby();
-                await TryLeaveVoiceChannelAsync();
+                await SessionManager.TryLeaveVoiceChannelAsync();
 
                 // Shut down NGO if it was previously listening.
                 await CleanupNetworkAsync();
@@ -372,16 +366,16 @@ namespace Network {
                 var lobby = result.Value;
                 lobby.SetPrivate();
                 lobby.SetJoinable(true);
-                lobby.SetData(TargetModeKey, SelectedGameMode);
+                lobby.SetData(SessionManager.TargetModeKey, SelectedGameMode);
 
                 if(string.IsNullOrEmpty(CurrentPartyId)) {
                     CurrentPartyId = Guid.NewGuid().ToString();
                 }
 
-                lobby.SetData(PartyIdKey, CurrentPartyId);
+                lobby.SetData(SessionManager.PartyIdKey, CurrentPartyId);
                 CurrentLobby = lobby;
                 IsPartyLeader = true;
-                lobby.SetMemberData(PartyIdKey, CurrentPartyId);
+                lobby.SetMemberData(SessionManager.PartyIdKey, CurrentPartyId);
                 UpdateLocalDisplayNameInLobby();
 
                 // Solo social lobbies do not need voice yet; join when the party has at least 2 members.
@@ -397,7 +391,7 @@ namespace Network {
 
                 UpdateSteamRichPresence();
                 SetFrontStatus(SessionPhase.LobbyReady, "Lobby Ready. Invite Friends!");
-                NotifyPartyStateChanged();
+                SessionManager.NotifyPartyStateChanged();
                 return true;
             } catch(Exception ex) {
                 Debug.LogError($"[SessionManager] Failed to create Steam social lobby: {ex.Message}");
@@ -413,7 +407,7 @@ namespace Network {
         public void SetGameMode(string mode) {
             ApplyRuntimeMode(mode, "MenuSelection", refreshUi: false);
             if(CurrentLobby.HasValue && CurrentLobby.Value.Owner.Id == SteamClient.SteamId) {
-                CurrentLobby.Value.SetData(TargetModeKey, mode);
+                CurrentLobby.Value.SetData(SessionManager.TargetModeKey, mode);
             }
 
             if(FrontStatusChanged != null) {
@@ -492,7 +486,7 @@ namespace Network {
                 }
 
                 FlowLog.Emit(FlowEventIds.SessionExit, ("leaveId", leaveId), ("step", "EXIT_VOICE_LEAVE_BEGIN"));
-                await TryLeaveVoiceChannelAsync();
+                await SessionManager.TryLeaveVoiceChannelAsync();
                 FlowLog.Emit(FlowEventIds.SessionExit, ("leaveId", leaveId), ("step", "EXIT_VOICE_LEAVE_DONE"));
 
                 FlowLog.Emit(FlowEventIds.SessionExit,
@@ -549,86 +543,6 @@ namespace Network {
 
         public static bool IsGameplaySceneName(string sceneName) {
             return MatchMapService.IsGameplayScene(sceneName);
-        }
-
-        private void SelectMapForCurrentMode(string context) {
-            var usedPreset = _privateMatchMapPreset;
-            if(_privateMatchMapPreset) {
-                _privateMatchMapPreset = false;
-                if(Debug.isDebugBuild) {
-                    Debug.Log(
-                        $"[SessionManager] Using preset private match map ({context}) mapId='{SelectedMapId}' scene='{SelectedMapSceneName}'.");
-                }
-            } else if(MatchMapService.TrySelectRandomSceneForGamemode(SelectedGameMode, out var sceneName, out var mapId)) {
-                SelectedMapSceneName = sceneName;
-                SelectedMapId = mapId;
-            } else {
-                SelectedMapSceneName = MatchMapService.DefaultGameplaySceneName;
-                SelectedMapId = MatchMapService.DefaultMapId;
-            }
-
-            if(Debug.isDebugBuild && !usedPreset) {
-                Debug.Log(
-                    $"[SessionManager] Map selected ({context}) mode='{SelectedGameMode}' mapId='{SelectedMapId}' scene='{SelectedMapSceneName}'.");
-            }
-
-            if(!CurrentLobby.HasValue || CurrentLobby.Value.Owner.Id != SteamClient.SteamId) return;
-            CurrentLobby.Value.SetData("TargetMapId", SelectedMapId ?? string.Empty);
-            CurrentLobby.Value.SetData("TargetMapScene", SelectedMapSceneName ?? string.Empty);
-        }
-
-        /// <summary>
-        /// Sets the map from a private match draft (map id). Skips random selection when loading the gameplay scene.
-        /// </summary>
-        private void SetSelectedMapFromId(string mapId) {
-            if(string.IsNullOrWhiteSpace(mapId)) return;
-            if(!MatchMapService.TryGetSceneByMapId(mapId, out var sceneName)) return;
-            SelectedMapId = mapId;
-            SelectedMapSceneName = sceneName;
-            _privateMatchMapPreset = true;
-            if(Debug.isDebugBuild) {
-                Debug.Log($"[SessionManager] Private match map set: mapId='{mapId}' scene='{SelectedMapSceneName}'.");
-            }
-        }
-
-        /// <summary>
-        /// Applies all private match draft settings before starting the match (gamemode, map, timer, score, tagged, team assignments).
-        /// Call from the menu flow before StartPrivateMatchAsync / StartOfflinePrivateMatchAsync.
-        /// </summary>
-        public void ApplyPrivateMatchSettings(
-            string mode,
-            string mapId,
-            int matchTimerSeconds,
-            bool usePreMatchCountdown,
-            bool swapWeaponsOnDeath,
-            int scoreToWin,
-            int kothHillSpeed,
-            int taggedPlayers,
-            IReadOnlyDictionary<ulong, int> teamAssignments) {
-            if(!string.IsNullOrWhiteSpace(mode)) {
-                ApplyRuntimeMode(mode, "PrivateMatchDraft", refreshUi: false);
-            }
-
-            if(!string.IsNullOrWhiteSpace(mapId)) {
-                SetSelectedMapFromId(mapId);
-            }
-
-            var matchSettings = MatchSettingsManager.Instance;
-            if(matchSettings != null) {
-                matchSettings.matchDurationSeconds = Mathf.Max(0, matchTimerSeconds);
-                matchSettings.preMatchCountdownEnabled = usePreMatchCountdown;
-                matchSettings.swapWeaponsOnDeath = swapWeaponsOnDeath;
-                matchSettings.scoreToWin = Mathf.Max(0, scoreToWin);
-                matchSettings.kothHillSpeed = Mathf.Max(1, kothHillSpeed);
-                matchSettings.taggedPlayers = Mathf.Max(1, taggedPlayers);
-            }
-
-            PrivateMatchTeamAssignments.Set(teamAssignments);
-
-            if(Debug.isDebugBuild) {
-                Debug.Log(
-                    $"[SessionManager] ApplyPrivateMatchSettings: mode='{mode}' mapId='{mapId}' timer={matchTimerSeconds} preMatchCountdown={usePreMatchCountdown} swapWeaponsOnDeath={swapWeaponsOnDeath} scoreToWin={scoreToWin} kothHillSpeed={kothHillSpeed} tagged={taggedPlayers} teams={teamAssignments?.Count ?? 0}");
-            }
         }
 
         #endregion

@@ -10,7 +10,7 @@ using Unity.Services.Lobbies;
 using Unity.Services.Lobbies.Models;
 using UnityEngine;
 
-namespace Network {
+namespace Network.Session {
     public sealed partial class SessionManager {
         private bool _isCreatingPartyLobby;
 
@@ -70,8 +70,8 @@ namespace Network {
                             Debug.LogWarning("[SessionManager] UGS party created, but Steam social lobby creation failed.");
                         }
                     } else if(CurrentLobby.Value.Owner.Id == SteamClient.SteamId) {
-                        CurrentLobby.Value.SetData(PartyIdKey, CurrentPartyId);
-                        CurrentLobby.Value.SetData(TargetModeKey, SelectedGameMode);
+                        CurrentLobby.Value.SetData(SessionManager.PartyIdKey, CurrentPartyId);
+                        CurrentLobby.Value.SetData(SessionManager.TargetModeKey, SelectedGameMode);
                         UpdateLocalDisplayNameInLobby();
                     }
                 }

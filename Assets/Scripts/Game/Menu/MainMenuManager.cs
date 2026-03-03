@@ -14,6 +14,7 @@ using Game.Settings;
 using Rendering;
 using UnityEngine.Rendering;
 using Cursor = UnityEngine.Cursor;
+using SessionManager = Network.Session.SessionManager;
 
 namespace Game.Menu {
     /// <summary>

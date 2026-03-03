@@ -4,6 +4,7 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
 using Network;
+using SessionManager = Network.Session.SessionManager;
 
 namespace Game.AI {
     /// <summary>

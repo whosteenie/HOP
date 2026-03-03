@@ -23,6 +23,7 @@ using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.UIElements;
 using Game.Settings;
+using SessionManager = Network.Session.SessionManager;
 
 namespace Game.Player {
     [DisallowMultipleComponent]

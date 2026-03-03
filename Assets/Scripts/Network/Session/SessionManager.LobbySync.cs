@@ -1,15 +1,15 @@
 using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
 using Network.Diagnostics;
+using Unity.Netcode.Transports.UTP;
 using Unity.Services.Authentication;
 using Unity.Services.Lobbies;
 using Unity.Services.Lobbies.Models;
 using Unity.Services.Relay;
 using Unity.Services.Relay.Models;
-using Unity.Netcode.Transports.UTP;
 using UnityEngine;
 
-namespace Network {
+namespace Network.Session {
     public sealed partial class SessionManager {
         private float _nextUgsHeartbeatTime;
         private float _nextUgsPollTime;

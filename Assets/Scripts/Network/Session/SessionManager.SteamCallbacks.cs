@@ -6,7 +6,7 @@ using Steamworks;
 using UnityEngine;
 using Lobby = Steamworks.Data.Lobby;
 
-namespace Network {
+namespace Network.Session {
     public sealed partial class SessionManager {
         private const string PartyIdKey = "PartyId";
         private const string DisplayNameKey = "DisplayName";
@@ -86,11 +86,11 @@ namespace Network {
         }
 
         private void OnGameLobbyJoinRequested(Lobby lobby, SteamId id) {
-            LaunchSessionTask(HandleGameLobbyJoinRequestedAsync(lobby, id),
+            LaunchSessionTask(HandleGameLobbyJoinRequestedAsync(lobby),
                 "SteamGameLobbyJoinRequested");
         }
 
-        private async UniTask HandleGameLobbyJoinRequestedAsync(Lobby lobby, SteamId id) {
+        private async UniTask HandleGameLobbyJoinRequestedAsync(Lobby lobby) {
             try {
                 if(Debug.isDebugBuild) {
                     Debug.Log($"[SessionManager] Accepted Invite to Lobby {lobby.Id}");

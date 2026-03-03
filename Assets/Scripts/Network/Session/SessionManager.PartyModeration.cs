@@ -5,7 +5,7 @@ using Unity.Services.Authentication;
 using Unity.Services.Lobbies;
 using UnityEngine;
 
-namespace Network {
+namespace Network.Session {
     public sealed partial class SessionManager {
         #region Party Moderation
 
@@ -95,7 +95,7 @@ namespace Network {
                 await LobbyService.Instance.RemovePlayerAsync(_ugsPartyLobby.Id, targetUgsId);
                 _ugsPartyLobby = await LobbyService.Instance.GetLobbyAsync(_ugsPartyLobby.Id);
                 Debug.Log($"[SessionManager] Kicked party member SteamId '{targetSteamId.Value}' from UGS party.");
-                NotifyPartyStateChanged();
+                SessionManager.NotifyPartyStateChanged();
             } catch(Exception ex) {
                 Debug.LogWarning($"[SessionManager] Failed to kick party member '{targetSteamId.Value}': {ex.Message}");
             }
@@ -117,7 +117,7 @@ namespace Network {
                 }
 
                 Debug.Log($"[SessionManager] Promoted party member SteamId '{targetSteamId.Value}' to UGS party host.");
-                NotifyPartyStateChanged();
+                SessionManager.NotifyPartyStateChanged();
             } catch(Exception ex) {
                 Debug.LogWarning(
                     $"[SessionManager] Failed to promote party host to '{targetSteamId.Value}': {ex.Message}");

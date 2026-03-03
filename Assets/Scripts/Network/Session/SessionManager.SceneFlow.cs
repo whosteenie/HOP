@@ -9,7 +9,7 @@ using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
-namespace Network {
+namespace Network.Session {
     public sealed partial class SessionManager {
         private int _gameScenePresentationSerial;
 
@@ -153,7 +153,7 @@ namespace Network {
         private void OnClientConnected(ulong clientId) {
             // Handle connection
             if(!_networkManager.IsServer) return;
-            NotifyPartyStateChanged();
+            SessionManager.NotifyPartyStateChanged();
         }
 
         private void OnClientDisconnected(ulong clientId) {
@@ -172,7 +172,7 @@ namespace Network {
                 }
             }
 
-            NotifyPartyStateChanged();
+            SessionManager.NotifyPartyStateChanged();
         }
 
         /// <summary>

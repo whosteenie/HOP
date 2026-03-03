@@ -17,7 +17,7 @@ namespace Network.Singletons {
         [SerializeField] private float initializationDelay = 0.1f;
 
         [Header("Required Singletons (for validation)")]
-        [SerializeField] private SessionManager sessionManager;
+        [SerializeField] private Session.SessionManager sessionManager;
 
         [SerializeField] private SceneTransitionManager sceneTransitionManager;
 
@@ -61,7 +61,7 @@ namespace Network.Singletons {
             var allValid = true;
 
             // Critical singletons (required)
-            if(SessionManager.Instance == null) {
+            if(Session.SessionManager.Instance == null) {
                 Debug.LogError("[InitSceneManager] SessionManager.Instance == null!");
                 allValid = false;
             }

@@ -11,16 +11,15 @@ using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UIElements;
-using Steamworks;
-using Cysharp.Threading.Tasks;
 using Color = UnityEngine.Color;
 using Cursor = UnityEngine.Cursor;
+using SessionManager = Network.Session.SessionManager;
 
 namespace Game.UI {
     /// <summary>
     /// Manages the scoreboard UI, including FFA and TDM scoreboards, player rows, and match timer.
     /// </summary>
-    public class ScoreboardManager : MonoBehaviour {
+    public partial class ScoreboardManager : MonoBehaviour {
         public static ScoreboardManager Instance { get; private set; }
 
         [Header("Player Icons")]
@@ -1000,18 +999,17 @@ namespace Game.UI {
 
         public void RegisterPlayer(PlayerController player) {
             if(player == null || !_allPlayersRegistry.Add(player)) return;
-            // Subscribe to changes
+            // Subscribe to profile changes used by scoreboard row content.
             player.playerName.OnValueChanged += OnPlayerProfileChanged;
             player.playerBaseColor.OnValueChanged += OnPlayerProfileChanged;
 
-            // Force an update immediately so the scoreboard reflects the new player
+            // Force an update immediately so the scoreboard reflects the new player.
             UpdateScoreboard();
         }
 
         public void UnregisterPlayer(PlayerController player) {
             if(player == null || !_allPlayersRegistry.Contains(player)) return;
 
-            // Unsubscribe
             player.playerName.OnValueChanged -= OnPlayerProfileChanged;
             player.playerBaseColor.OnValueChanged -= OnPlayerProfileChanged;
 
@@ -1020,7 +1018,7 @@ namespace Game.UI {
         }
 
         private void OnPlayerProfileChanged<T>(T oldValue, T newValue) {
-            // Clear cache to force full rebuild
+            // Clear cache to force full rebuild.
             _previousPlayerIds.Clear();
             _previousSortValues.Clear();
             UpdateScoreboard();
@@ -1028,14 +1026,14 @@ namespace Game.UI {
 
         private void OnPlayerProfileChanged(Unity.Collections.FixedString64Bytes oldValue,
             Unity.Collections.FixedString64Bytes newValue) {
-            // Clear cache to force full rebuild
+            // Clear cache to force full rebuild.
             _previousPlayerIds.Clear();
             _previousSortValues.Clear();
             UpdateScoreboard();
         }
 
         private IReadOnlyCollection<PlayerController> GetAllPlayerControllers() {
-            // Clean up any nulls that might have slipped in (destroyed objects)
+            // Clean up any nulls that might have slipped in (destroyed objects).
             _allPlayersRegistry.RemoveWhere(p => p == null);
             return _allPlayersRegistry;
         }
@@ -1395,7 +1393,7 @@ namespace Game.UI {
 
         /// <summary>
         /// Gets the player icon sprite based on the player's material index.
-        /// Material index order: 0=white, 1=red, 2=orange, 3=yellow, 4=green, 5=blue, 6=purple
+        /// Material index order: 0=white, 1=red, 2=orange, 3=yellow, 4=green, 5=blue, 6=purple.
         /// </summary>
         private Sprite GetPlayerIconSprite(Color baseColor) {
             if(playerIconSprites == null || playerIconSprites.Length == 0) {
@@ -1410,7 +1408,7 @@ namespace Game.UI {
         private int GetClosestIconIndex(Color baseColor) {
             if(playerIconSprites == null || playerIconSprites.Length == 0) return 0;
 
-            // Use the legacy palette order: white, red, orange, yellow, green, blue, purple
+            // Use the legacy palette order: white, red, orange, yellow, green, blue, purple.
             var palette = new[] {
                 new Color(1f, 1f, 1f),
                 new Color(1f, 0f, 0f),
@@ -1617,12 +1615,12 @@ namespace Game.UI {
                 _rightScoreContainer.style.display = DisplayStyle.Flex;
         }
 
-        private async UniTaskVoid LoadSteamAvatar(ulong steamId, VisualElement avatarElement) {
-            if(!SteamClient.IsValid || !SteamClient.IsLoggedOn) return;
+        private async Cysharp.Threading.Tasks.UniTaskVoid LoadSteamAvatar(ulong steamId, VisualElement avatarElement) {
+            if(!Steamworks.SteamClient.IsValid || !Steamworks.SteamClient.IsLoggedOn) return;
             if(SteamManager.Instance == null) return;
 
             try {
-                var texture = await SteamManager.Instance.GetAvatarAsync((SteamId)steamId);
+                var texture = await SteamManager.Instance.GetAvatarAsync((Steamworks.SteamId)steamId);
                 if(texture == null) {
                     return;
                 }
@@ -1632,7 +1630,6 @@ namespace Game.UI {
                 }
             } catch(Exception ex) {
                 Debug.LogWarning($"[ScoreboardManager] Steam avatar fetch failed for {steamId}: {ex.Message}");
-                return;
             }
         }
 

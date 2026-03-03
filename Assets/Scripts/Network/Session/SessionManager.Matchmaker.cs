@@ -12,7 +12,7 @@ using Unity.Services.Matchmaker.Models;
 using UnityEngine;
 using Player = Unity.Services.Matchmaker.Models.Player;
 
-namespace Network {
+namespace Network.Session {
     public sealed partial class SessionManager {
         // ===== Matchmaker state =====
         private string _matchmakerTicketId;
@@ -218,7 +218,7 @@ namespace Network {
                 return false;
             }
 
-            if(response?.Results == null || response.Results.Count == 0) {
+            if(response.Results == null || response.Results.Count == 0) {
                 if(Debug.isDebugBuild) {
                     Debug.Log(
                         $"[SessionManager] Backfill indexed query returned 0 lobbies for mode='{mode}'. Falling back to broad query.");
@@ -233,7 +233,7 @@ namespace Network {
                 }
             }
 
-            if(response?.Results == null || response.Results.Count == 0) {
+            if(response.Results == null || response.Results.Count == 0) {
                 if(Debug.isDebugBuild) {
                     Debug.Log($"[SessionManager] Backfill query returned 0 lobbies for mode='{mode}'.");
                 }

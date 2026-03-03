@@ -131,7 +131,7 @@ namespace Network {
             }
 
             var activeScene = SceneManager.GetActiveScene();
-            if(!SessionManager.IsGameplaySceneName(activeScene.name)) {
+            if(!Session.SessionManager.IsGameplaySceneName(activeScene.name)) {
                 Debug.LogWarning($"[CustomNetworkManager] Wrong scene: {activeScene.name} (expected gameplay scene)");
                 return;
             }
