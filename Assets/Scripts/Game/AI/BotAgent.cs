@@ -483,7 +483,7 @@ namespace Game.AI {
         
         private void CachePlayers() {
             _allPlayers.Clear();
-            foreach(var p in PlayerController.Spawned) {
+            foreach(var p in PlayerController.SpawnedPlayers) {
                 if(p != null && p != playerController && p.gameObject.activeInHierarchy) {
                     _allPlayers.Add(p);
                 }

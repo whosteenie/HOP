@@ -121,7 +121,7 @@ namespace Game.Player {
 
         private void UpdateAllPlayerOutlines() {
             // Update all other spawned players' outline controllers.
-            foreach(var controller in PlayerController.Spawned) {
+            foreach(var controller in PlayerController.SpawnedPlayers) {
                 if(controller == null) continue;
                 var player = controller.TeamManager;
                 if(player == null || player == this) continue;

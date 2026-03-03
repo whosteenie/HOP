@@ -308,7 +308,7 @@ namespace Game.Match {
         /// and face them toward the podium camera. Also hide non-top3 visuals.
         /// </summary>
         private void SetupTopThreeOnServer() {
-            var allPlayers = PlayerController.Spawned
+            var allPlayers = PlayerController.SpawnedPlayers
                 .Where(p => p != null && p.NetworkObject != null && p.NetworkObject.IsSpawned)
                 .ToList();
 
@@ -564,7 +564,7 @@ namespace Game.Match {
             if(podiumCamera == null) return;
 
             // Disable player-specific cameras (owner-local rigs, etc.)
-            var controllers = PlayerController.Spawned;
+            var controllers = PlayerController.SpawnedPlayers;
             foreach(var pc in controllers) {
                 if(pc == null) continue;
                 pc.SetGameplayCameraActive(false); // you'll add this helper too
@@ -669,7 +669,7 @@ namespace Game.Match {
         public void ShowInGameHudAfterPostMatch() {
             EnsureUiReferencesBound();
             ResetPostMatchUiState();
-            var controllers = PlayerController.Spawned;
+            var controllers = PlayerController.SpawnedPlayers;
             foreach(var controller in controllers) {
                 if(controller == null) continue;
                 controller.SetPostMatchControlLock(false);

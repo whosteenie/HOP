@@ -297,7 +297,7 @@ namespace Network {
             var countB = 0;
 
             // Count existing players (TeamManager netvars)
-            foreach(var controller in PlayerController.Spawned) {
+            foreach(var controller in PlayerController.SpawnedPlayers) {
                 if(controller == null || controller.TeamManager == null) continue;
                 if(controller.TeamManager.netTeam.Value == SpawnPoint.Team.TeamA) countA++;
                 else countB++;

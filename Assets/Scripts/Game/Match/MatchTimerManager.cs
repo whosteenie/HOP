@@ -360,7 +360,7 @@ namespace Game.Match {
             if(matchSettings == null || matchSettings.selectedGameModeId != "Gun Tag") yield break;
 
             // Check if anyone is already tagged
-            var allPlayers = PlayerController.Spawned
+            var allPlayers = PlayerController.SpawnedPlayers
                 .Where(p => p != null && p.NetworkObject != null && p.NetworkObject.IsSpawned)
                 .ToList();
 
