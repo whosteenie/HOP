@@ -165,13 +165,6 @@ namespace Game.Weapons {
                 mainCam = Camera.main;
             }
 
-            if(mainCam == null) {
-                var mainCameraObj = GameObject.FindGameObjectWithTag("MainCamera");
-                if(mainCameraObj != null) {
-                    mainCam = mainCameraObj.GetComponent<Camera>();
-                }
-            }
-
             if(mainCam == null) return;
 
             var mainCameraData = mainCam.GetUniversalAdditionalCameraData();

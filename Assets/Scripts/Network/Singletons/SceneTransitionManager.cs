@@ -33,6 +33,7 @@ namespace Network.Singletons {
         private UniTaskCompletionSource<bool> _respawnFadeInSignal;
         private OverlayVisualState _transitionOverlayState = OverlayVisualState.Hidden;
         private OverlayVisualState _respawnOverlayState = OverlayVisualState.Hidden;
+        private MenuMusicPlayer _menuMusicPlayer;
 
         // Cache scene name to avoid string allocations
         private string _cachedSceneName;
@@ -410,7 +411,7 @@ namespace Network.Singletons {
         private void StartMenuMusicFadeOut(float requestedDuration) {
             var visualFadeDuration = Mathf.Max(0f, requestedDuration);
             var fadeOutDuration = Mathf.Max(musicFadeDuration, visualFadeDuration);
-            var menuMusicPlayer = FindFirstObjectByType<MenuMusicPlayer>();
+            var menuMusicPlayer = ResolveMenuMusicPlayer();
             if(menuMusicPlayer == null) {
                 return;
             }
@@ -438,7 +439,7 @@ namespace Network.Singletons {
             _transitionOverlayState = OverlayVisualState.Opaque;
 
             // Also fade out music instantly
-            var menuMusicPlayer = FindFirstObjectByType<MenuMusicPlayer>();
+            var menuMusicPlayer = ResolveMenuMusicPlayer();
             if(menuMusicPlayer != null) {
                 menuMusicPlayer.StopForTransitionImmediate();
             }
@@ -484,6 +485,15 @@ namespace Network.Singletons {
             var clampedDuration = Mathf.Max(0f, durationSeconds);
             var durationList = new StyleList<TimeValue>(new List<TimeValue> { new(clampedDuration) });
             overlay.style.transitionDuration = durationList;
+        }
+
+        private MenuMusicPlayer ResolveMenuMusicPlayer() {
+            if(_menuMusicPlayer != null) {
+                return _menuMusicPlayer;
+            }
+
+            _menuMusicPlayer = MenuMusicPlayer.Instance;
+            return _menuMusicPlayer;
         }
 
         private async UniTask WaitForOpacityTransitionAsync(VisualElement overlay, float expectedDurationSeconds) {

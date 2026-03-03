@@ -3,6 +3,8 @@ using UnityEngine.Audio;
 
 namespace Game.Audio {
     public class MenuMusicPlayer : MonoBehaviour {
+        public static MenuMusicPlayer Instance { get; private set; }
+
         [Header("Menu Music")]
         [SerializeField] private AudioClip[] menuMusicTracks;
 
@@ -18,6 +20,21 @@ namespace Game.Audio {
         private int _previousTrackIndex = -1; // Track the last played song
         private Coroutine _musicFadeCoroutine;
         private bool _allowAutoAdvance = true;
+
+        private void OnEnable() {
+            if(Instance == null || Instance == this) {
+                Instance = this;
+            } else {
+                Debug.LogWarning("[MenuMusicPlayer] Multiple instances detected. Using the most recently enabled instance.");
+                Instance = this;
+            }
+        }
+
+        private void OnDisable() {
+            if(Instance == this) {
+                Instance = null;
+            }
+        }
 
         private void Start() {
             EnsureMusicSource();
