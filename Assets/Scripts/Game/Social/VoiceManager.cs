@@ -471,7 +471,6 @@ namespace Game.Social {
             var target = devices.FirstOrDefault(d => d.DeviceName == deviceName);
             
             if (target != null) {
-                Debug.Log($"[VoiceManager] Setting active mic to: {deviceName}");
                 await VivoxService.Instance.SetActiveInputDeviceAsync(target);
             } else if (deviceName == "Default") {
                 Debug.Log("[VoiceManager] Setting active mic to system default.");

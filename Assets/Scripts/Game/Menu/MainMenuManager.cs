@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
 using Discord;
 using Game.Match;
-using Network;
 using Network.Services;
 using UnityEngine;
 using UnityEngine.Audio;
@@ -418,9 +417,6 @@ namespace Game.Menu {
             _navigator.Show(panel);
             if(backgroundRandomizer != null) {
                 var suppressBackgroundDepthOfField = panel == _loadoutPanel;
-                Debug.Log(
-                    $"[MainMenuManager][DoF] ShowPanelInternal panel='{panel?.name ?? "(null)"}' loadoutPanel='{_loadoutPanel?.name ?? "(null)"}' suppress={suppressBackgroundDepthOfField}.",
-                    this);
                 backgroundRandomizer.SetBackgroundDepthOfFieldSuppressed(suppressBackgroundDepthOfField);
             }
 
