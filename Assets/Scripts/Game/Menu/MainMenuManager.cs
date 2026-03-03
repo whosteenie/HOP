@@ -22,6 +22,8 @@ namespace Game.Menu {
     /// Steamworks Integrated.
     /// </summary>
     public class MainMenuManager : UIElementBase {
+        public static MainMenuManager Instance { get; private set; }
+
         private enum MainMenuPanelState {
             MainMenu,
             GamemodeSelect,
@@ -84,6 +86,16 @@ namespace Game.Menu {
 
         #region Unity Lifecycle
 
+        protected override void Awake() {
+            base.Awake();
+            if(Instance != null && Instance != this) {
+                Destroy(gameObject);
+                return;
+            }
+
+            Instance = this;
+        }
+
         protected override void Start() {
             base.Start();
             InitializeMenuBlurController();
@@ -116,6 +128,9 @@ namespace Game.Menu {
         }
 
         protected override void OnDestroy() {
+            if(Instance == this) {
+                Instance = null;
+            }
             if(_privateMatchBackButton != null && _privateMatchBackClickHandler != null) {
                 _privateMatchBackButton.clicked -= _privateMatchBackClickHandler;
             }

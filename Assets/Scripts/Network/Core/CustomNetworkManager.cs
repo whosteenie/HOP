@@ -297,9 +297,9 @@ namespace Network {
             var countB = 0;
 
             // Count existing players (TeamManager netvars)
-            var allPlayers = FindObjectsByType<PlayerTeamManager>(FindObjectsSortMode.None);
-            foreach(var p in allPlayers) {
-                if (p.netTeam.Value == SpawnPoint.Team.TeamA) countA++;
+            foreach(var controller in PlayerController.Spawned) {
+                if(controller == null || controller.TeamManager == null) continue;
+                if(controller.TeamManager.netTeam.Value == SpawnPoint.Team.TeamA) countA++;
                 else countB++;
             }
             

@@ -281,8 +281,8 @@ namespace Game.Match {
 
         private void FindSpawnPoints() {
             hillSpawnPoints.Clear();
-            var points = FindObjectsByType<HillSpawnPoint>(FindObjectsSortMode.None);
-            foreach(var point in points) {
+            foreach(var point in HillSpawnPoint.Instances) {
+                if(point == null) continue;
                 hillSpawnPoints.Add(point.transform);
             }
 

@@ -635,7 +635,7 @@ namespace Game.Weapons {
                 var impactInstance = Instantiate(_currentWeaponData.bulletImpact.gameObject, spawnPos, rotation);
                 switch(hitPlayer) {
                     case true: {
-                        var decal = impactInstance.transform.Find("Decal");
+                        var decal = FindChildByNameRecursive(impactInstance.transform, "Decal");
                         if(decal != null) {
                             decal.gameObject.SetActive(false);
                         }
@@ -653,6 +653,26 @@ namespace Game.Weapons {
             yield return new WaitForSeconds(trail.time);
 
             ReturnTrailToPool(trail);
+        }
+
+        private static Transform FindChildByNameRecursive(Transform root, string childName) {
+            if(root == null || string.IsNullOrEmpty(childName)) return null;
+
+            var childCount = root.childCount;
+            for(var i = 0; i < childCount; i++) {
+                var child = root.GetChild(i);
+                if(child == null) continue;
+                if(child.name == childName) {
+                    return child;
+                }
+
+                var nested = FindChildByNameRecursive(child, childName);
+                if(nested != null) {
+                    return nested;
+                }
+            }
+
+            return null;
         }
 
         private IEnumerator SpawnOwnerTracerLocalAfterViewUpdate(Vector3 fallbackStart, Vector3 end, Vector3 hitNormal,

@@ -1,4 +1,5 @@
 using UnityEngine;
+using System.Collections.Generic;
 
 namespace Game.Match {
     /// <summary>
@@ -6,6 +7,17 @@ namespace Game.Match {
     /// Helps to find them in the scene and visualizing in Editor.
     /// </summary>
     public class HillSpawnPoint : MonoBehaviour {
+        private static readonly HashSet<HillSpawnPoint> InstancesSet = new();
+        public static IReadOnlyCollection<HillSpawnPoint> Instances => InstancesSet;
+
+        private void OnEnable() {
+            InstancesSet.Add(this);
+        }
+
+        private void OnDisable() {
+            InstancesSet.Remove(this);
+        }
+
         private void OnDrawGizmos() {
             Gizmos.color = new Color(0.3f, 0.4f, 1f, 0.7f); // Purple
             var position = transform.position;

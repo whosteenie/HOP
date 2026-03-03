@@ -3,6 +3,7 @@ using System.Diagnostics;
 using Network.Events;
 using Unity.Netcode;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 namespace Network.Diagnostics {
     /// <summary>
@@ -85,11 +86,39 @@ namespace Network.Diagnostics {
         /// Safely finds the first object of type, publishing a debug event if not found.
         /// </summary>
         public static T FindFirstObjectByTypeSafe<T>(string context = null) where T : UnityEngine.Object {
-            var obj = UnityEngine.Object.FindFirstObjectByType<T>();
+            var obj = FindFirstObjectInLoadedScenes<T>();
             if(obj != null) return obj;
             var contextStr = context ?? $"Finding first {typeof(T).Name}";
             EventBus.Publish(new ComponentNotFoundEvent(typeof(T).Name, "Scene", contextStr));
             return obj;
+        }
+
+        private static T FindFirstObjectInLoadedScenes<T>() where T : UnityEngine.Object {
+            var targetType = typeof(T);
+            var isComponentType = typeof(Component).IsAssignableFrom(targetType);
+            var isGameObjectType = targetType == typeof(GameObject);
+
+            for(var i = 0; i < SceneManager.sceneCount; i++) {
+                var scene = SceneManager.GetSceneAt(i);
+                if(!scene.IsValid() || !scene.isLoaded) continue;
+
+                var roots = scene.GetRootGameObjects();
+                foreach(var root in roots) {
+                    if(root == null) continue;
+
+                    if(isGameObjectType) {
+                        return root as T;
+                    }
+
+                    if(!isComponentType) continue;
+                    var component = root.GetComponentInChildren(targetType, true);
+                    if(component != null) {
+                        return component as T;
+                    }
+                }
+            }
+
+            return null;
         }
 
         /// <summary>

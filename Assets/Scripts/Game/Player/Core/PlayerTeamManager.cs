@@ -120,12 +120,12 @@ namespace Game.Player {
         }
 
         private void UpdateAllPlayerOutlines() {
-            // Find all other players and update their outlines
-            var allPlayers = FindObjectsByType<PlayerTeamManager>(FindObjectsSortMode.None);
-            foreach(var player in allPlayers) {
-                if(player != this) {
-                    player.UpdateOutlineColour();
-                }
+            // Update all other spawned players' outline controllers.
+            foreach(var controller in PlayerController.Spawned) {
+                if(controller == null) continue;
+                var player = controller.TeamManager;
+                if(player == null || player == this) continue;
+                player.UpdateOutlineColour();
             }
         }
 

@@ -89,7 +89,7 @@ namespace Game.Weapons {
                 return;
             }
 
-            var existing = cameraTransform.Find(FpLightRigRootName);
+            var existing = FindDirectChildByName(cameraTransform, FpLightRigRootName);
             if(existing != null) {
                 _fpLightRigRoot = existing;
             } else {
@@ -106,7 +106,7 @@ namespace Game.Weapons {
         private static Light EnsureFpWeaponLight(Transform parent, string lightName, int targetLayer) {
             if(parent == null) return null;
 
-            var child = parent.Find(lightName);
+            var child = FindDirectChildByName(parent, lightName);
             Light lightComponent;
             if(child != null) {
                 lightComponent = child.GetComponent<Light>();
@@ -121,6 +121,19 @@ namespace Game.Weapons {
             }
 
             return lightComponent;
+        }
+
+        private static Transform FindDirectChildByName(Transform parent, string childName) {
+            if(parent == null || string.IsNullOrEmpty(childName)) return null;
+            var count = parent.childCount;
+            for(var i = 0; i < count; i++) {
+                var child = parent.GetChild(i);
+                if(child != null && child.name == childName) {
+                    return child;
+                }
+            }
+
+            return null;
         }
 
         private static void ConfigureFpWeaponLight(

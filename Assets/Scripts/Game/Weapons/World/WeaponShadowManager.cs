@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Rendering;
+using UnityEngine.SceneManagement;
 
 namespace Game.Weapons {
     /// <summary>
@@ -78,18 +79,30 @@ namespace Game.Weapons {
             // Find main directional light
             _mainLight = RenderSettings.sun;
             if(_mainLight == null) {
-                // Fallback: find first directional light in scene
-                var lights = FindObjectsByType<Light>(FindObjectsSortMode.None);
-                foreach(var sceneLight in lights) {
-                    if(sceneLight.type != LightType.Directional) continue;
-                    _mainLight = sceneLight;
-                    break;
-                }
+                _mainLight = TryResolveDirectionalLightFromSceneHierarchy();
             }
             
             if(_mainLight == null) {
                 Debug.LogWarning("[WeaponShadowManager] No directional light found! Shadow detection will not work.");
             }
+        }
+
+        private static Light TryResolveDirectionalLightFromSceneHierarchy() {
+            var activeScene = SceneManager.GetActiveScene();
+            if(!activeScene.IsValid()) return null;
+
+            var roots = activeScene.GetRootGameObjects();
+            foreach(var root in roots) {
+                if(root == null) continue;
+                var lights = root.GetComponentsInChildren<Light>(true);
+                foreach(var sceneLight in lights) {
+                    if(sceneLight != null && sceneLight.type == LightType.Directional) {
+                        return sceneLight;
+                    }
+                }
+            }
+
+            return null;
         }
         
         private void Update() {
@@ -351,4 +364,3 @@ namespace Game.Weapons {
         }
     }
 }
-

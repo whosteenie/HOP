@@ -102,7 +102,7 @@ namespace Network.Diagnostics {
         }
 
         private static void AddMeshColliderCandidates(List<string> meshHints, List<string> candidates, HashSet<string> seenPaths) {
-            var colliders = UnityEngine.Object.FindObjectsByType<MeshCollider>(FindObjectsSortMode.None);
+            var colliders = CollectComponentsInLoadedScenes<MeshCollider>();
             foreach(var c in colliders) {
                 if(c == null) continue;
                 var mesh = c.sharedMesh;
@@ -113,7 +113,7 @@ namespace Network.Diagnostics {
         }
 
         private static void AddMeshFilterCandidates(List<string> meshHints, List<string> candidates, HashSet<string> seenPaths) {
-            var filters = UnityEngine.Object.FindObjectsByType<MeshFilter>(FindObjectsSortMode.None);
+            var filters = CollectComponentsInLoadedScenes<MeshFilter>();
             foreach(var f in filters) {
                 if(f == null) continue;
                 var mesh = f.sharedMesh;
@@ -124,7 +124,7 @@ namespace Network.Diagnostics {
         }
 
         private static void AddSkinnedMeshCandidates(List<string> meshHints, List<string> candidates, HashSet<string> seenPaths) {
-            var skinned = UnityEngine.Object.FindObjectsByType<SkinnedMeshRenderer>(FindObjectsSortMode.None);
+            var skinned = CollectComponentsInLoadedScenes<SkinnedMeshRenderer>();
             foreach(var r in skinned) {
                 if(r == null) continue;
                 var mesh = r.sharedMesh;
@@ -162,6 +162,22 @@ namespace Network.Diagnostics {
                 path = t.name + "/" + path;
             }
             return path;
+        }
+
+        private static List<T> CollectComponentsInLoadedScenes<T>() where T : Component {
+            var result = new List<T>();
+            var sceneCount = SceneManager.sceneCount;
+            for(var i = 0; i < sceneCount; i++) {
+                var scene = SceneManager.GetSceneAt(i);
+                if(!scene.IsValid() || !scene.isLoaded) continue;
+                var roots = scene.GetRootGameObjects();
+                foreach(var root in roots) {
+                    if(root == null) continue;
+                    result.AddRange(root.GetComponentsInChildren<T>(true));
+                }
+            }
+
+            return result;
         }
     }
 }

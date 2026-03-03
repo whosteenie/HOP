@@ -485,7 +485,7 @@ namespace Game.Hopball {
         /// </summary>
         [ContextMenu("Find All Hopball Spawn Points in Scene")]
         private void FindAllSpawnPointsInScene() {
-            hopballSpawnPoints = FindObjectsByType<HopballSpawnPoint>(FindObjectsSortMode.None).ToList();
+            hopballSpawnPoints = HopballSpawnPoint.Instances.Where(p => p != null).ToList();
         }
 
         private void CleanupActiveHopball() {

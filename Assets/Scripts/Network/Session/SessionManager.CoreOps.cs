@@ -485,7 +485,7 @@ namespace Network.Session {
                     return false;
                 }
 
-                if(FindFirstObjectByType<MainMenuManager>() != null) {
+                if(MainMenuManager.Instance != null) {
                     return true;
                 }
 

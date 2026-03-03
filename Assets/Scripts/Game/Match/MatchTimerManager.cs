@@ -360,7 +360,7 @@ namespace Game.Match {
             if(matchSettings == null || matchSettings.selectedGameModeId != "Gun Tag") yield break;
 
             // Check if anyone is already tagged
-            var allPlayers = FindObjectsByType<PlayerController>(FindObjectsSortMode.None)
+            var allPlayers = PlayerController.Spawned
                 .Where(p => p != null && p.NetworkObject != null && p.NetworkObject.IsSpawned)
                 .ToList();
 
@@ -398,10 +398,6 @@ namespace Game.Match {
 
         private static void TriggerKothRoundStart() {
             var kothManager = KingOfTheHillManager.Instance;
-            if(kothManager == null) {
-                kothManager = FindFirstObjectByType<KingOfTheHillManager>();
-            }
-
             if(kothManager == null) {
                 Debug.LogError(
                     "[MatchTimerManager] KOTH match started but no KingOfTheHillManager was found in the scene.");

@@ -2,12 +2,16 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
+using System.Collections.Generic;
 
 namespace Game.Settings {
     /// <summary>
     /// Re-applies runtime video settings that are scene-local (for example per-scene post-processing volumes).
     /// </summary>
     public static class VideoSettingsRuntimeApplier {
+        private static readonly List<Volume> CachedVolumes = new();
+        private static int _cachedSceneHandle = -1;
+
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void Initialize() {
             SceneManager.sceneLoaded -= OnSceneLoaded;
@@ -53,7 +57,7 @@ namespace Game.Settings {
         }
 
         private static void ApplyVolumeComponentEnabled<T>(bool enabled) where T : VolumeComponent {
-            var volumes = Object.FindObjectsByType<Volume>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            var volumes = GetSceneVolumes();
             foreach(var volume in volumes) {
                 if(volume == null) continue;
 
@@ -66,6 +70,29 @@ namespace Game.Settings {
             if(profile == null) return;
             if(!profile.TryGet<T>(out var component) || component == null) return;
             component.active = enabled;
+        }
+
+        private static IReadOnlyList<Volume> GetSceneVolumes() {
+            var activeScene = SceneManager.GetActiveScene();
+            if(activeScene.IsValid() == false) {
+                CachedVolumes.Clear();
+                _cachedSceneHandle = -1;
+                return CachedVolumes;
+            }
+
+            if(_cachedSceneHandle == activeScene.handle) {
+                return CachedVolumes;
+            }
+
+            CachedVolumes.Clear();
+            _cachedSceneHandle = activeScene.handle;
+            var roots = activeScene.GetRootGameObjects();
+            foreach(var root in roots) {
+                if(root == null) continue;
+                CachedVolumes.AddRange(root.GetComponentsInChildren<Volume>(true));
+            }
+
+            return CachedVolumes;
         }
     }
 }

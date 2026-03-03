@@ -464,7 +464,7 @@ namespace Game.Editor {
                     rigInstance.hideFlags = HideFlags.HideAndDontSave;
                     rigInstance.SetActive(true);
 
-                    var clavicleParent = rigInstance.transform.Find(clavicleParentPath);
+                    var clavicleParent = ResolveHierarchyPath(rigInstance.transform, clavicleParentPath);
                     if(clavicleParent == null) continue;
 
                     var localOffsets = new Vector3[sampleTimes.Length];
@@ -486,6 +486,33 @@ namespace Game.Editor {
             }
 
             return false;
+        }
+
+        private static Transform ResolveHierarchyPath(Transform root, string relativePath) {
+            if(root == null || string.IsNullOrEmpty(relativePath)) return null;
+            var segments = relativePath.Split('/');
+            var current = root;
+            for(var i = 0; i < segments.Length; i++) {
+                var segment = segments[i];
+                if(string.IsNullOrEmpty(segment)) return null;
+
+                Transform next = null;
+                var childCount = current.childCount;
+                for(var c = 0; c < childCount; c++) {
+                    var child = current.GetChild(c);
+                    if(child == null || child.name != segment) continue;
+                    next = child;
+                    break;
+                }
+
+                if(next == null) {
+                    return null;
+                }
+
+                current = next;
+            }
+
+            return current;
         }
 
         private static Vector3[] BuildConstantOffsets(float[] sampleTimes, Vector3 constantOffset) {

@@ -1,4 +1,5 @@
 using UnityEngine;
+using System.Collections.Generic;
 
 namespace Game.Spawning {
     public class SpawnPoint : MonoBehaviour {
@@ -15,6 +16,17 @@ namespace Game.Spawning {
     [SerializeField] private Team team = Team.TeamA;
 
     public Team AssignedTeam => team;
+
+    private static readonly HashSet<SpawnPoint> InstancesSet = new();
+    public static IReadOnlyCollection<SpawnPoint> Instances => InstancesSet;
+
+    private void OnEnable() {
+        InstancesSet.Add(this);
+    }
+
+    private void OnDisable() {
+        InstancesSet.Remove(this);
+    }
 
     private void OnDrawGizmos() {
         Gizmos.color = Color.green;

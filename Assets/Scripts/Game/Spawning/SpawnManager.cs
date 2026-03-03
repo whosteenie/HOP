@@ -117,13 +117,13 @@ namespace Game.Spawning {
         // Optional: expose for editor population
         [ContextMenu("Find All TDM SpawnPoints in Scene")]
         private void FindAllTdmInScene() {
-            allTdmPoints = FindObjectsByType<SpawnPoint>(FindObjectsSortMode.None).ToList();
+            allTdmPoints = SpawnPoint.Instances.Where(p => p != null).ToList();
             CachePoints();
         }
 
         [ContextMenu("Find All FFA SpawnPoints in Scene")]
         private void FindAllFfaInScene() {
-            allFfaPoints = FindObjectsByType<SpawnPoint>(FindObjectsSortMode.None).ToList();
+            allFfaPoints = SpawnPoint.Instances.Where(p => p != null).ToList();
             CachePoints();
         }
 
