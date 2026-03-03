@@ -4,7 +4,6 @@ using Game.Hopball;
 using Game.Match;
 using Game.Player;
 using Game.Spawning;
-using Network;
 using Network.Events;
 using Network.Steam;
 using Unity.Netcode;
@@ -436,7 +435,7 @@ namespace Game.UI {
         /// Forces a refresh of the scoreboard title and cached match settings.
         /// Call this when gamemode changes.
         /// </summary>
-        public void RefreshGamemode() {
+        private void RefreshGamemode() {
             _cachedMatchSettings = null; // Clear cache to force refresh
             UpdateScoreboardTitle();
         }
@@ -637,7 +636,7 @@ namespace Game.UI {
             _scoreboardPanel.EnableInClassList("scoreboard-hover-disabled", shouldDisableHover);
         }
 
-        public void UpdateScoreboard() {
+        private void UpdateScoreboard() {
             // Skip if UI not initialized yet (happens during early player spawn)
             if(_root == null) {
                 return;
@@ -881,7 +880,7 @@ namespace Game.UI {
 
             // Pad your team
             while(yourCount < 5) {
-                var row = CreateEmptyRow(_yourTeamRows, isTagMode: false, isYourTeam: true);
+                var row = CreateEmptyRow(_yourTeamRows, isTagMode: false);
                 if(row == null) break;
                 if(yourCount % 2 == 1) row.AddToClassList("player-row-alt");
                 yourCount++;
@@ -1293,7 +1292,7 @@ namespace Game.UI {
             return row;
         }
 
-        private VisualElement CreateEmptyRow(VisualElement parentContainer, bool isTagMode, bool isYourTeam = false) {
+        private VisualElement CreateEmptyRow(VisualElement parentContainer, bool isTagMode) {
             if(!EnsureScoreboardRowTemplateAssigned()) {
                 return null;
             }
@@ -1601,26 +1600,26 @@ namespace Game.UI {
             _rightScoreValue.text = nextScore.ToString();
         }
 
-        public void HideScoreDisplay() {
+        private void HideScoreDisplay() {
             if(_leftScoreContainer != null)
                 _leftScoreContainer.style.display = DisplayStyle.None;
             if(_rightScoreContainer != null)
                 _rightScoreContainer.style.display = DisplayStyle.None;
         }
 
-        public void ShowScoreDisplay() {
+        private void ShowScoreDisplay() {
             if(_leftScoreContainer != null)
                 _leftScoreContainer.style.display = DisplayStyle.Flex;
             if(_rightScoreContainer != null)
                 _rightScoreContainer.style.display = DisplayStyle.Flex;
         }
 
-        private async Cysharp.Threading.Tasks.UniTaskVoid LoadSteamAvatar(ulong steamId, VisualElement avatarElement) {
+        private static async Cysharp.Threading.Tasks.UniTaskVoid LoadSteamAvatar(ulong steamId, VisualElement avatarElement) {
             if(!Steamworks.SteamClient.IsValid || !Steamworks.SteamClient.IsLoggedOn) return;
             if(SteamManager.Instance == null) return;
 
             try {
-                var texture = await SteamManager.Instance.GetAvatarAsync((Steamworks.SteamId)steamId);
+                var texture = await SteamManager.Instance.GetAvatarAsync(steamId);
                 if(texture == null) {
                     return;
                 }
