@@ -6,6 +6,7 @@ namespace Game.Weapons {
     public class WeaponSway : MonoBehaviour {
         [Header("References")]
         [SerializeField] private Transform cam; // FP camera transform
+        [SerializeField] private CinemachineCamera parentCinemachineCamera;
 
         [Header("Position Sway (local offset)")]
         [SerializeField] private float posPerDegYaw = 0.01f; // X per degree of yaw
@@ -52,6 +53,7 @@ namespace Game.Weapons {
         private float _lastCameraY;
         private float _crouchSwayOffset;
         private float _crouchSwayVel;
+        private bool _hierarchyCameraResolved;
 
         public void SetCameraTransform(Transform cameraTransform) {
             cam = cameraTransform;
@@ -59,6 +61,7 @@ namespace Game.Weapons {
         }
 
         private void Awake() {
+            ResolveCameraFromHierarchy();
             TryResolveCameraTransform();
 
             var swayTransform = transform;
@@ -79,6 +82,16 @@ namespace Game.Weapons {
             _curRotEuler = _velRot = Vector3.zero;
             _smoothedDelta = Vector2.zero;
 
+            _hierarchyCameraResolved = false;
+            ResolveCameraFromHierarchy();
+            TryResolveCameraTransform();
+            SyncCameraTrackingState();
+        }
+
+        private void OnTransformParentChanged() {
+            _hierarchyCameraResolved = false;
+            parentCinemachineCamera = null;
+            ResolveCameraFromHierarchy();
             TryResolveCameraTransform();
             SyncCameraTrackingState();
         }
@@ -152,13 +165,28 @@ namespace Game.Weapons {
                 return true;
             }
 
-            var c = GetComponentInParent<CinemachineCamera>();
-            if(c == null) {
-                return false;
+            if(parentCinemachineCamera != null) {
+                cam = parentCinemachineCamera.transform;
             }
 
-            cam = c.transform;
-            return true;
+            if(cam == null && Camera.main != null) {
+                cam = Camera.main.transform;
+            }
+
+            return cam != null;
+        }
+
+        private void ResolveCameraFromHierarchy() {
+            if(_hierarchyCameraResolved) return;
+            _hierarchyCameraResolved = true;
+
+            if(parentCinemachineCamera == null) {
+                parentCinemachineCamera = GetComponentInParent<CinemachineCamera>();
+            }
+
+            if(cam == null && parentCinemachineCamera != null) {
+                cam = parentCinemachineCamera.transform;
+            }
         }
 
         private void SyncCameraTrackingState() {

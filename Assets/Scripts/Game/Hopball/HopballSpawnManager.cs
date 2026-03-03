@@ -491,7 +491,7 @@ namespace Game.Hopball {
         private void CleanupActiveHopball() {
             if(CurrentHopballController == null) return;
 
-            var hopballNetworkObject = CurrentHopballController.GetComponent<NetworkObject>();
+            var hopballNetworkObject = CurrentHopballController.NetworkObject;
             if(IsServer && hopballNetworkObject != null && hopballNetworkObject.IsSpawned) {
                 hopballNetworkObject.Despawn();
             } else if((hopballNetworkObject == null || hopballNetworkObject.IsSpawned == false) &&

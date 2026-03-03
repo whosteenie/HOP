@@ -190,6 +190,10 @@ namespace Game.Player {
         // Cache MeshRenderers per weapon instance to avoid repeated GetComponentsInChildren calls
         private readonly Dictionary<GameObject, MeshRenderer[]> _cachedWeaponRenderers = new();
         private readonly Dictionary<GameObject, Collider[]> _cachedWeaponColliders = new();
+        private MonoBehaviour[] _cachedChildBehaviours = Array.Empty<MonoBehaviour>();
+        private Camera[] _cachedChildCameras = Array.Empty<Camera>();
+        private AudioListener[] _cachedChildAudioListeners = Array.Empty<AudioListener>();
+        private bool _childComponentCachesDirty = true;
 
         #endregion
 
@@ -290,12 +294,17 @@ namespace Game.Player {
         #region Unity Lifecycle
 
         private void Awake() {
+            MarkChildComponentCachesDirty();
             DisableConflictingKinemationFrameworkComponents();
             DisableUnexpectedChildCamerasAndListeners();
 
             if(audioRelay == null) {
                 audioRelay = GetComponent<NetworkAudioRelay>();
             }
+        }
+
+        private void OnTransformChildrenChanged() {
+            MarkChildComponentCachesDirty();
         }
 
         private static void RegisterSpawnedPlayer(PlayerController player) {
@@ -318,6 +327,7 @@ namespace Game.Player {
 
         public override void OnNetworkSpawn() {
             base.OnNetworkSpawn();
+            MarkChildComponentCachesDirty();
             DisableConflictingKinemationFrameworkComponents();
             DisableUnexpectedChildCamerasAndListeners();
 
@@ -405,7 +415,8 @@ namespace Game.Player {
         private void DisableConflictingKinemationFrameworkComponents() {
             if(!disableKinemationFrameworkComponents) return;
 
-            var behaviours = GetComponentsInChildren<MonoBehaviour>(true);
+            RefreshChildComponentCachesIfNeeded();
+            var behaviours = _cachedChildBehaviours;
             foreach(var behaviour in behaviours) {
                 if(behaviour == null || !behaviour.enabled) continue;
                 if(IsRuntimeKinemationFpViewmodelComponent(behaviour)) continue;
@@ -438,7 +449,8 @@ namespace Game.Player {
         private void DisableUnexpectedChildCamerasAndListeners() {
             if(!disableUnexpectedChildCameras) return;
 
-            var cameras = GetComponentsInChildren<Camera>(true);
+            RefreshChildComponentCachesIfNeeded();
+            var cameras = _cachedChildCameras;
             var activeWeaponCamera = weaponCamera;
             if(activeWeaponCamera == null) {
                 foreach(var candidate in cameras) {
@@ -461,7 +473,7 @@ namespace Game.Player {
                 }
             }
 
-            var listeners = GetComponentsInChildren<AudioListener>(true);
+            var listeners = _cachedChildAudioListeners;
             foreach(var listener in listeners) {
                 if(listener == null || !listener.enabled) continue;
                 if(IsRuntimeKinemationFpViewmodelComponent(listener)) continue;
@@ -472,6 +484,18 @@ namespace Game.Player {
                     Debug.Log($"[PlayerController] Disabled unexpected child audio listener: {listener.name}", listener);
                 }
             }
+        }
+
+        private void MarkChildComponentCachesDirty() {
+            _childComponentCachesDirty = true;
+        }
+
+        private void RefreshChildComponentCachesIfNeeded() {
+            if(!_childComponentCachesDirty) return;
+            _cachedChildBehaviours = GetComponentsInChildren<MonoBehaviour>(true);
+            _cachedChildCameras = GetComponentsInChildren<Camera>(true);
+            _cachedChildAudioListeners = GetComponentsInChildren<AudioListener>(true);
+            _childComponentCachesDirty = false;
         }
 
         private static bool IsRuntimeKinemationFpViewmodelComponent(Component component) {

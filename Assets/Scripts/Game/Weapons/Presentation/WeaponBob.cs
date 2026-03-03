@@ -75,6 +75,7 @@ namespace Game.Weapons {
         private CharacterController _characterController;
         private PlayerController _playerController;
         private bool _initialized;
+        private bool _hierarchyReferencesResolved;
         private float _jumpFallOffset;
         private float _targetJumpFallOffset;
         private bool _jumpInitiated;
@@ -89,12 +90,16 @@ namespace Game.Weapons {
         private float _lastLandingBobTime = float.NegativeInfinity;
 
         private void Awake() {
+            ResolveReferencesFromHierarchy();
+            TryInitialize();
             var bobTransform = transform;
             _baseLocalPos = bobTransform.localPosition;
             _baseLocalRot = bobTransform.localRotation;
         }
 
         private void OnEnable() {
+            _hierarchyReferencesResolved = false;
+            ResolveReferencesFromHierarchy();
             var bobTransform = transform;
             _baseLocalPos = bobTransform.localPosition;
             _baseLocalRot = bobTransform.localRotation;
@@ -112,34 +117,53 @@ namespace Game.Weapons {
             _lastLandingBobTime = float.NegativeInfinity;
         }
 
-        private void TryInitialize() {
-            if(_initialized) return;
-            
+        private void OnTransformParentChanged() {
+            _initialized = false;
+            _playerController = null;
+            _characterController = null;
+            _hierarchyReferencesResolved = false;
+            ResolveReferencesFromHierarchy();
+            TryInitialize();
+        }
+
+        private void ResolveReferencesFromHierarchy() {
+            if(_hierarchyReferencesResolved) return;
+            _hierarchyReferencesResolved = true;
+
             var current = transform.parent;
             var depth = 0;
             const int maxDepth = 6;
 
             while(current != null && depth < maxDepth) {
-                // Try to find PlayerController first (preferred for jump/fall detection)
-                var playerController = current.GetComponent<PlayerController>();
-                if(playerController != null) {
-                    _playerController = playerController;
-                    _characterController = playerController.CharacterController;
-                    _initialized = true;
-                    return;
+                if(_playerController == null) {
+                    _playerController = current.GetComponent<PlayerController>();
                 }
 
-                // Fallback to CharacterController if PlayerController not found
-                var controller = current.GetComponent<CharacterController>();
-                if(controller != null) {
-                    _characterController = controller;
-                    _initialized = true;
+                if(_characterController == null) {
+                    _characterController = current.GetComponent<CharacterController>();
+                }
+
+                if(_characterController == null && _playerController != null) {
+                    _characterController = _playerController.CharacterController;
+                }
+
+                if(_playerController != null || _characterController != null) {
                     return;
                 }
 
                 current = current.parent;
                 depth++;
             }
+        }
+
+        private void TryInitialize() {
+            if(_initialized) return;
+
+            if(_characterController == null && _playerController != null) {
+                _characterController = _playerController.CharacterController;
+            }
+
+            _initialized = _playerController != null || _characterController != null;
         }
 
         private void LateUpdate() {

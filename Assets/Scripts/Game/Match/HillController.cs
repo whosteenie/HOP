@@ -99,6 +99,18 @@ namespace Game.Match {
 
         private PlayerController _localPlayerInZone;
 
+        private void Awake() {
+            if(zoneCollider == null) {
+                zoneCollider = GetComponent<Collider>();
+            }
+        }
+
+        private void OnValidate() {
+            if(zoneCollider == null) {
+                zoneCollider = GetComponent<Collider>();
+            }
+        }
+
         private void Update() {
              // Client-side Personal KOTH time tracking
             if(_localPlayerInZone == null && PlayerController.LocalPlayer != null) {
@@ -301,9 +313,6 @@ namespace Game.Match {
         }
 
         private bool IsPointInsideZone(Vector3 worldPoint) {
-            if(zoneCollider == null) {
-                zoneCollider = GetComponent<Collider>();
-            }
             if(zoneCollider == null) return false;
 
             var sphere = zoneCollider as SphereCollider;

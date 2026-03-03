@@ -34,6 +34,7 @@ namespace Game.Hopball {
 
     private Camera _localCamera;
     private Transform _targetTransform; // Player head or hopball transform
+    private CharacterController _targetCharacterController;
     private Vector3 _targetWorldPosition;
     private bool _isDropped;
     private bool _isOffScreen;
@@ -67,27 +68,9 @@ namespace Game.Hopball {
     /// Finds the local player's camera for billboard behavior.
     /// </summary>
     private void FindLocalCamera() {
-        if(NetworkManager.Singleton == null) return;
-        if(NetworkManager.Singleton.LocalClient == null) return;
-        
-        var localPlayer = NetworkManager.Singleton.LocalClient.PlayerObject;
-
-        if(localPlayer == null) return;
-        var playerController = localPlayer.GetComponent<PlayerController>();
-        if(playerController == null) return;
-
-        // Get the CinemachineCamera and extract the actual Camera component
-        var fpCamera = playerController.FpCamera;
-        if(fpCamera != null) {
-            // Try to find camera in children
-            _localCamera = fpCamera.GetComponent<Camera>();
-            if(_localCamera == null) {
-                _localCamera = fpCamera.GetComponentInChildren<Camera>();
-            }
+        if(_localCamera == null) {
+            _localCamera = Camera.main;
         }
-
-        // Fallback to main camera
-        if(_localCamera == null) _localCamera = Camera.main;
     }
 
     /// <summary>
@@ -95,6 +78,7 @@ namespace Game.Hopball {
     /// </summary>
     public void SetTarget(Transform target, bool isDropped) {
         _targetTransform = target;
+        _targetCharacterController = target != null ? target.GetComponent<CharacterController>() : null;
         _isDropped = isDropped;
         SetDroppedState(isDropped);
     }
@@ -173,7 +157,7 @@ namespace Game.Hopball {
         var basePosition = _targetTransform.position;
 
         // For players, try to get head position (approximate with character controller height)
-        var characterController = _targetTransform.GetComponent<CharacterController>();
+        var characterController = _targetCharacterController;
         if(characterController != null) {
             basePosition.y += characterController.height * 0.5f + characterController.center.y;
         }

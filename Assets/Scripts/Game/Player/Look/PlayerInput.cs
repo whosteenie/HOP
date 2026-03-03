@@ -820,7 +820,7 @@ namespace Game.Player.Look {
             if(_playerInputComponent == null) {
                 _playerInputComponent = playerController != null
                     ? playerController.UnityPlayerInput
-                    : GetComponent<UnityEngine.InputSystem.PlayerInput>();
+                    : null;
             }
 
             if(_playerInputComponent == null || _playerInputComponent.actions == null) {

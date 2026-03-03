@@ -260,7 +260,7 @@ namespace Game.UI {
             var allControllers = GetAllPlayerControllers();
             foreach(var controller in allControllers) {
                 if(!controller.IsOwner) continue;
-                _localController = controller.GetComponent<PlayerController>();
+                _localController = controller;
                 break;
             }
         }

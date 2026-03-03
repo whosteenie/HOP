@@ -218,7 +218,7 @@ namespace Game.Player {
                     }
                 }
                 if(localPlayer != null) {
-                    var localController = localPlayer.GetComponent<PlayerController>();
+                    var localController = PlayerController.LocalPlayer;
                     PlayerTeamManager localTeamMgr = null;
                     if(localController != null) {
                         localTeamMgr = localController.TeamManager;
