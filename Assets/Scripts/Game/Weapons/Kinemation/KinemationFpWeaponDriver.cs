@@ -225,7 +225,12 @@ namespace Game.Weapons {
             _isRuntimeGrappleClavicleOffsetActive = _runtimeGrappleClavicleOffset.sqrMagnitude > 0.00000001f;
         }
 
-        private void OnGrappleStarted(GrappleStartedEvent _) {
+        private void OnGrappleStarted(GrappleStartedEvent grappleStartedEvent) {
+            if(grappleStartedEvent != null && !grappleStartedEvent.UseFirstPersonAnimation) {
+                ClearRuntimeGrappleClavicleOffset();
+                return;
+            }
+
             ApplyGrappleWeaponIndex();
             if(enableRuntimeGrappleClavicleOffset) {
                 PrepareRuntimeGrappleClavicleOffset();

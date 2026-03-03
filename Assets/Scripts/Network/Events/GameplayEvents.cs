@@ -58,9 +58,11 @@ namespace Network.Events {
     /// </summary>
     public class GrappleStartedEvent : GameEvent {
         public readonly Vector3 TargetPosition;
+        public readonly bool UseFirstPersonAnimation;
 
-        public GrappleStartedEvent(Vector3 targetPosition) {
+        public GrappleStartedEvent(Vector3 targetPosition, bool useFirstPersonAnimation = true) {
             TargetPosition = targetPosition;
+            UseFirstPersonAnimation = useFirstPersonAnimation;
         }
     }
 

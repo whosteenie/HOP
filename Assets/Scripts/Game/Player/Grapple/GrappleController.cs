@@ -28,6 +28,7 @@ namespace Game.Player {
         private const float GrappleCooldown = 1.3f;
         private const float TaggedPlayerCooldown = 1.0f; // Lower cooldown for tagged players in Gun Tag mode
         private const float GrappleEstablishGrace = 0.05f; // Ignore spherecast/collision cancel until mesh can show
+        private const float GrappleMeshMinimumVisibleSeconds = 0.08f;
 
         [Header("Momentum Settings")]
         private const bool PreserveMomentum = true;
@@ -54,6 +55,10 @@ namespace Game.Player {
         private MeshRenderer _grappleMeshRenderer;
         private Mesh _grappleMesh;
         private bool _pendingGrappleMeshEnable; // Defer mesh until grapple anim first frame
+        private bool _useAnimatedFirstPersonGrappleVisuals = true;
+        private bool _forceCameraOffsetOriginForCurrentCable;
+        private float _grappleMeshFirstShownTime = -1f;
+        private Coroutine _grappleMeshHideCoroutine;
 
         #endregion
 
@@ -162,6 +167,11 @@ namespace Game.Player {
             if(IsOwner) {
                 EventBus.Unsubscribe<GrappleAnimFirstFrameEvent>(OnGrappleAnimFirstFrame);
                 EventBus.Unsubscribe<GrappleAnimHideEvent>(OnGrappleAnimHide);
+            }
+
+            if(_grappleMeshHideCoroutine != null) {
+                StopCoroutine(_grappleMeshHideCoroutine);
+                _grappleMeshHideCoroutine = null;
             }
 
             base.OnDestroy();
@@ -372,7 +382,14 @@ namespace Game.Player {
         #region Private Methods - Grapple Logic
 
         private void StartGrapple(Vector3 targetPoint) {
-            
+            var isReloading = IsOwner &&
+                              playerController != null &&
+                              playerController.WeaponManager != null &&
+                              playerController.WeaponManager.CurrentWeapon != null &&
+                              playerController.WeaponManager.CurrentWeapon.IsReloadInProgress;
+            _useAnimatedFirstPersonGrappleVisuals = !isReloading;
+            _forceCameraOffsetOriginForCurrentCable = isReloading;
+
             // Cancel any active slide - grapple takes full control
             if(playerController != null && playerController.MovementController != null && playerController.MovementController.IsSliding) {
                 playerController.MovementController.CancelSlideForJump();
@@ -382,15 +399,24 @@ namespace Game.Player {
             IsGrappling = true;
             _grapplePoint = targetPoint;
             _grappleStartTime = Time.time;
+            _grappleMeshFirstShownTime = -1f;
+            if(_grappleMeshHideCoroutine != null) {
+                StopCoroutine(_grappleMeshHideCoroutine);
+                _grappleMeshHideCoroutine = null;
+            }
 
             if(_grappleMeshObject == null) {
                 SetupGrappleLine();
             }
 
-            // Defer mesh until animation event fires (avoids flash from hand still in idle pose)
+            // Use anim-timed cable show for normal grapples; instant show for reload-conflict fallback visuals.
             if(_grappleMeshRenderer != null) {
-                _pendingGrappleMeshEnable = true;
-                StartCoroutine(GrappleMeshEnableFailsafe());
+                _pendingGrappleMeshEnable = _useAnimatedFirstPersonGrappleVisuals;
+                if(_useAnimatedFirstPersonGrappleVisuals) {
+                    StartCoroutine(GrappleMeshEnableFailsafe());
+                } else {
+                    ShowGrappleMeshNow();
+                }
             } else {
                 Debug.LogError("[GrappleController] Grapple started but grapple mesh is null!");
             }
@@ -401,7 +427,7 @@ namespace Game.Player {
             }
 
             // Publish grapple started event
-            EventBus.Publish(new GrappleStartedEvent(targetPoint));
+            EventBus.Publish(new GrappleStartedEvent(targetPoint, _useAnimatedFirstPersonGrappleVisuals));
             
             if (IsOwner && ProgressionManager.Instance != null) {
                 ProgressionManager.Instance.RecordGrappleUsed();
@@ -453,8 +479,17 @@ namespace Game.Player {
             EventBus.Publish(new GrappleEndedEvent());
             IsGrappling = false;
 
-            // Mesh hide: only via HideGrapple anim event (anim authority for both show and hide)
+            // Guarantee cable visibility at least once for initiated grapples, even if cancellation is immediate.
+            if(_pendingGrappleMeshEnable) {
+                TryEnablePendingGrappleMesh();
+            }
+
+            // Mesh hide remains animation-authoritative for animated path, but fallback path hides after minimum visibility.
+            if(!_useAnimatedFirstPersonGrappleVisuals) {
+                RequestHideGrappleMesh();
+            }
             UpdateGrappleServerRpc(false, Vector3.zero);
+            _useAnimatedFirstPersonGrappleVisuals = true;
 
             if(applyMomentum && PreserveMomentum) {
                 // Calculate final momentum direction
@@ -496,9 +531,7 @@ namespace Game.Player {
         }
 
         private void OnGrappleAnimHide(GrappleAnimHideEvent _) {
-            if(_grappleMeshRenderer != null && _grappleMeshRenderer.enabled) {
-                _grappleMeshRenderer.enabled = false;
-            }
+            RequestHideGrappleMesh();
         }
 
         private void TryEnablePendingGrappleMesh() {
@@ -506,17 +539,66 @@ namespace Game.Player {
 
             // Show mesh when anim says to; don't require IsGrappling (cancelled grapples still play anim).
             _pendingGrappleMeshEnable = false;
-            if(_grappleMeshRenderer != null) {
-                _grappleMeshRenderer.enabled = true;
-                if(_fpCamera != null) {
-                    UpdateGrappleMesh(GetFpGrappleOriginPosition(), _grapplePoint);
-                }
-            }
+            ShowGrappleMeshNow();
         }
 
         private IEnumerator GrappleMeshEnableFailsafe() {
             yield return new WaitForSeconds(0.15f);
             TryEnablePendingGrappleMesh();
+        }
+
+        private void ShowGrappleMeshNow() {
+            if(_grappleMeshRenderer == null) return;
+
+            if(!_grappleMeshRenderer.enabled) {
+                _grappleMeshRenderer.enabled = true;
+            }
+
+            if(_grappleMeshFirstShownTime < 0f) {
+                _grappleMeshFirstShownTime = Time.time;
+            }
+
+            if(_fpCamera != null) {
+                UpdateGrappleMesh(GetFpGrappleOriginPosition(), _grapplePoint);
+            }
+        }
+
+        private void RequestHideGrappleMesh() {
+            if(_grappleMeshRenderer == null) return;
+
+            if(_pendingGrappleMeshEnable) {
+                TryEnablePendingGrappleMesh();
+            }
+
+            if(!_grappleMeshRenderer.enabled) return;
+
+            var elapsedVisible = _grappleMeshFirstShownTime >= 0f ? Time.time - _grappleMeshFirstShownTime : float.MaxValue;
+            var remainingVisible = GrappleMeshMinimumVisibleSeconds - elapsedVisible;
+            if(remainingVisible <= 0f) {
+                HideGrappleMeshImmediately();
+                return;
+            }
+
+            if(_grappleMeshHideCoroutine != null) {
+                StopCoroutine(_grappleMeshHideCoroutine);
+            }
+
+            _grappleMeshHideCoroutine = StartCoroutine(HideGrappleMeshAfterDelay(remainingVisible));
+        }
+
+        private IEnumerator HideGrappleMeshAfterDelay(float delay) {
+            yield return new WaitForSeconds(delay);
+            _grappleMeshHideCoroutine = null;
+            HideGrappleMeshImmediately();
+        }
+
+        private void HideGrappleMeshImmediately() {
+            if(_grappleMeshRenderer != null && _grappleMeshRenderer.enabled) {
+                _grappleMeshRenderer.enabled = false;
+            }
+            _pendingGrappleMeshEnable = false;
+            _forceCameraOffsetOriginForCurrentCable = false;
+            _grappleMeshFirstShownTime = -1f;
         }
 
         private void UpdateGrappleLine() {
@@ -536,6 +618,11 @@ namespace Game.Player {
         }
 
         private Vector3 GetFpGrappleOriginPosition() {
+            if(IsOwner && _forceCameraOffsetOriginForCurrentCable) {
+                var fallbackCam = playerController.FpCameraTransform;
+                return fallbackCam.position - fallbackCam.right * 0.3f - fallbackCam.up * 0.2f;
+            }
+
             var fpWeapon = playerController.WeaponManager != null ? playerController.WeaponManager.GetCurrentFpWeapon() : null;
 
             var driver = fpWeapon != null ? fpWeapon.GetComponent<KinemationFpWeaponDriver>() : null;

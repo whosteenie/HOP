@@ -47,6 +47,7 @@ namespace Game.Weapons {
         public int currentAmmo;
 
         private bool IsReloading { get; set; }
+        public bool IsReloadInProgress => IsReloading;
 
         public NetworkVariable<float> netCurrentDamageMultiplier = new(1f,
             NetworkVariableReadPermission.Everyone,
