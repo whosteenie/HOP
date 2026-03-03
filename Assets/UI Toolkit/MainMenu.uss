@@ -5,7 +5,6 @@
 @import url("Styles/Screens/MainMenu/core/loading-overlay.uss");
 @import url("Styles/Screens/MainMenu/gamemode/dropdown.uss");
 @import url("Styles/Screens/MainMenu/loadout/layout.uss");
-@import url("Styles/Screens/MainMenu/onboarding/first-time-setup-modal.uss");
 @import url("Styles/Screens/MainMenu/core/credits.uss");
 @import url("Styles/Screens/MainMenu/core/toast.uss");
 @import url("Styles/Screens/MainMenu/loadout/character-customization.uss");

@@ -422,15 +422,6 @@
             </ui:VisualElement>
         </ui:VisualElement>
     </ui:VisualElement>
-    <ui:VisualElement name="first-time-setup-modal" class="modal-overlay full-abs hidden modal-overlay-top-0-left-0">
-        <ui:VisualElement name="first-time-setup-container" class="first-time-setup-container card first-time-setup-container-min-height">
-            <ui:Label text="WHO ARE YOU?" name="first-time-label" class="title"/>
-            <ui:VisualElement name="first-time-inputs" class="first-time-inputs first-time-inputs-inline">
-                <ui:TextField name="first-time-name-input" placeholder-text="Enter your name..." class="first-time-name-input first-time-name-input-height-68px"/>
-            </ui:VisualElement>
-            <ui:Button text="Continue" name="first-time-continue-button" class="menu-chip menu-chip-enabled continue-button"/>
-        </ui:VisualElement>
-    </ui:VisualElement>
     <ui:VisualElement name="party-container" picking-mode="Ignore" class="party-container">
         <ui:VisualElement name="party-members-list" picking-mode="Ignore" class="party-members-row"/>
         <ui:Button name="invite-friends-button" text="" class="invite-button menu-chip">
