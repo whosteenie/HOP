@@ -12,6 +12,7 @@ namespace Game.Menu {
     /// </summary>
     [DisallowMultipleComponent]
     public class MainMenuBackgroundRandomizer : MonoBehaviour {
+        public static MainMenuBackgroundRandomizer Instance { get; private set; }
         public const string RandomSelectionOption = "Random";
 
         [Serializable]
@@ -47,6 +48,10 @@ namespace Game.Menu {
         private bool _suppressDepthOfFieldForLoadout;
 
         private void Awake() {
+            if(Instance != null && Instance != this) {
+                Debug.LogWarning("[MainMenuBackgroundRandomizer] Multiple instances detected. Using the most recently awakened instance.");
+            }
+            Instance = this;
             _selectionCacheDirty = true;
         }
 
@@ -55,6 +60,9 @@ namespace Game.Menu {
         }
 
         private void OnDestroy() {
+            if(Instance == this) {
+                Instance = null;
+            }
             RestoreCachedDepthOfFieldStates();
         }
 

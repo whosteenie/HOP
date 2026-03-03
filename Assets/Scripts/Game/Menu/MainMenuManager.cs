@@ -228,13 +228,13 @@ namespace Game.Menu {
         }
 
         public void ShowLoadoutPanel() {
-            var loadoutManager = FindFirstObjectByType<LoadoutManager>();
+            var loadoutManager = LoadoutManager.Instance;
             if(loadoutManager != null) loadoutManager.ShowLoadout();
             TransitionToState(MainMenuPanelState.Loadout);
         }
 
         public void ShowProfileView(ulong steamId, string playerName, bool isEditable) {
-            var loadoutManager = FindFirstObjectByType<LoadoutManager>();
+            var loadoutManager = LoadoutManager.Instance;
             if(loadoutManager != null) {
                 loadoutManager.ShowProfileView(steamId, playerName, isEditable);
             }
@@ -266,7 +266,7 @@ namespace Game.Menu {
             uiManager.OnGamemodeDropdownClicked = () => sessionManager.ToggleGamemodeDropdown();
             uiManager.OnCancelMatchmakingClicked = () => sessionManager.HandleCancelMatchmakingClicked();
             uiManager.OnLoadoutClicked = () => {
-                var loadoutManager = FindFirstObjectByType<LoadoutManager>();
+                var loadoutManager = LoadoutManager.Instance;
                 if(loadoutManager != null) loadoutManager.ShowLoadout();
                 TransitionToState(MainMenuPanelState.Loadout);
             };

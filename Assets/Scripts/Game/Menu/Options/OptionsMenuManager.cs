@@ -342,7 +342,7 @@ namespace Game.Menu.Options {
 
         private MainMenuBackgroundRandomizer ResolveMainMenuBackgroundRandomizer() {
             var r = GetComponentInParent<MainMenuBackgroundRandomizer>();
-            return r != null ? r : FindFirstObjectByType<MainMenuBackgroundRandomizer>();
+            return r != null ? r : MainMenuBackgroundRandomizer.Instance;
         }
 
         #endregion

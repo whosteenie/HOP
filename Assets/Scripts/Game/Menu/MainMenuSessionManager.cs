@@ -521,7 +521,7 @@ namespace Game.Menu {
                     }
 
                     var isMe = _contextMenuTargetId == SteamClient.SteamId;
-                    var mainMenuManager = FindFirstObjectByType<MainMenuManager>();
+                    var mainMenuManager = MainMenuManager.Instance;
 
                     if(isMe) {
                         if(mainMenuManager != null) mainMenuManager.ShowLoadoutPanel();

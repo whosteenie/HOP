@@ -13,6 +13,8 @@ using UnityEngine.UIElements;
 
 namespace Game.Menu {
     public class LoadoutManager : UIElementBase {
+        public static LoadoutManager Instance { get; private set; }
+
         [Header("Weapon Data")]
         [SerializeField] private WeaponData[] primaryWeapons;
 
@@ -158,6 +160,14 @@ namespace Game.Menu {
 
         protected override void Awake() {
             base.Awake();
+            if(Instance != null && Instance != this) {
+                Debug.LogWarning("[LoadoutManager] Multiple instances detected. Using the most recently awakened instance.");
+            }
+            Instance = this;
+
+            if(mainMenuManager == null) {
+                mainMenuManager = MainMenuManager.Instance;
+            }
             if(mainMenuManager != null && uiDocument == null) {
                 uiDocument = mainMenuManager.uiDocument;
             }
@@ -227,6 +237,9 @@ namespace Game.Menu {
         }
 
         protected override void OnDestroy() {
+            if(Instance == this) {
+                Instance = null;
+            }
             ReleasePreviewRenderTexture();
             base.OnDestroy();
         }
@@ -612,7 +625,7 @@ namespace Game.Menu {
             p.tertiaryWeaponIndex = _selectedTertiaryIndex;
 
             // Save customization (apply customization changes)
-            var customizationManager = FindFirstObjectByType<CharacterCustomizationManager>();
+            var customizationManager = CharacterCustomizationManager.Instance;
             if(customizationManager != null) {
                 customizationManager.ApplyCustomization();
             }
@@ -1176,7 +1189,7 @@ namespace Game.Menu {
 
             if(_previewPlayerModel == null) return;
 
-            var weaponSocket = _previewPlayerModel.transform.Find("WeaponSocket");
+            var weaponSocket = FindChildRecursive(_previewPlayerModel.transform, "weaponsocket");
             if(weaponSocket == null) {
                 Debug.LogWarning(
                     "[LoadoutManager] WeaponSocket not found on preview model, and no weapons assigned in inspector.");
@@ -1784,7 +1797,7 @@ namespace Game.Menu {
             _selectedTertiaryIndex = _savedTertiaryIndex;
             UpdateWeaponImages();
 
-            var customizationManager = FindFirstObjectByType<CharacterCustomizationManager>();
+            var customizationManager = CharacterCustomizationManager.Instance;
             if(customizationManager != null) {
                 customizationManager.ReloadSavedCustomization();
             }

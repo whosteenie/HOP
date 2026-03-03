@@ -12,6 +12,8 @@ namespace Game.Menu {
     /// Manages the character customization panel UI and material customization.
     /// </summary>
     public class CharacterCustomizationManager : UIElementBase {
+        public static CharacterCustomizationManager Instance { get; private set; }
+
         [Header("References")]
         [SerializeField] private MainMenuManager mainMenuManager;
         [SerializeField] private LoadoutManager loadoutManager;
@@ -89,27 +91,43 @@ namespace Game.Menu {
 
         protected override void Awake() {
             base.Awake();
+            if(Instance != null && Instance != this) {
+                Debug.LogWarning("[CharacterCustomizationManager] Multiple instances detected. Using the most recently awakened instance.");
+            }
+            Instance = this;
+
+            if(mainMenuManager == null) {
+                mainMenuManager = MainMenuManager.Instance;
+            }
             if(mainMenuManager != null && uiDocument == null) {
                 uiDocument = mainMenuManager.uiDocument;
             }
             if(uiDocument == null) {
-                uiDocument = FindFirstObjectByType<UIDocument>();
+                uiDocument = GetComponent<UIDocument>();
+            }
+            if(uiDocument == null) {
+                uiDocument = GetComponentInParent<UIDocument>();
             }
 
-            // Find LoadoutManager if not assigned
             if(loadoutManager == null) {
-                loadoutManager = FindFirstObjectByType<LoadoutManager>();
+                loadoutManager = LoadoutManager.Instance;
             }
         }
 
         protected override void OnEnable() {
             base.OnEnable();
             if(uiDocument == null) {
+                if(mainMenuManager == null) {
+                    mainMenuManager = MainMenuManager.Instance;
+                }
                 if(mainMenuManager != null) {
                     uiDocument = mainMenuManager.uiDocument;
                 }
                 if(uiDocument == null) {
-                    uiDocument = FindFirstObjectByType<UIDocument>();
+                    uiDocument = GetComponent<UIDocument>();
+                }
+                if(uiDocument == null) {
+                    uiDocument = GetComponentInParent<UIDocument>();
                 }
             }
 
@@ -119,6 +137,13 @@ namespace Game.Menu {
                 // This will be set by base.Awake(), but if OnEnable is called before Awake,
                 // we need to ensure Root is set
             }
+        }
+
+        protected override void OnDestroy() {
+            if(Instance == this) {
+                Instance = null;
+            }
+            base.OnDestroy();
         }
 
         protected override void OnInitialize() {
@@ -748,7 +773,7 @@ namespace Game.Menu {
             _originalEmissionColor = _currentEmissionColor;
 
             // Apply to local player if in game
-            var localPlayer = FindFirstObjectByType<PlayerController>();
+            var localPlayer = PlayerController.LocalPlayer;
             if(localPlayer != null && localPlayer.IsOwner) {
                 localPlayer.playerMaterialPacketIndex.Value = _currentPacketIndex;
                 localPlayer.playerBaseColor.Value = new Vector4(_currentBaseColor.r, _currentBaseColor.g, _currentBaseColor.b, _currentBaseColor.a);
@@ -999,7 +1024,7 @@ namespace Game.Menu {
         /// Applies the current customization values to the local player's visual controller and preview model.
         /// </summary>
         private void ApplyToLocalPlayer() {
-            var localPlayer = FindFirstObjectByType<PlayerController>();
+            var localPlayer = PlayerController.LocalPlayer;
             if(localPlayer != null && localPlayer.IsOwner) {
                 localPlayer.playerMaterialPacketIndex.Value = _currentPacketIndex;
                 localPlayer.playerBaseColor.Value = new Vector4(_currentBaseColor.r, _currentBaseColor.g, _currentBaseColor.b, _currentBaseColor.a);
