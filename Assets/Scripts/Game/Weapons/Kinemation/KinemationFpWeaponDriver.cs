@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Reflection;
 using KINEMATION.FPSAnimationPack.Scripts.Camera;
@@ -76,6 +77,15 @@ namespace Game.Weapons {
         private Vector3 _runtimeGrappleClavicleOffset;
         private int _runtimeGrappleOffsetWeaponIndex;
         private readonly HashSet<int> _suppressedMuzzleFxWeaponIds = new();
+        private int _cachedActiveWeaponInstanceId;
+        private Transform[] _cachedActiveWeaponTransforms;
+        private Animator[] _cachedActiveWeaponAnimators;
+        private FPSWeaponSound[] _cachedActiveWeaponSounds;
+        private ParticleSystem[] _cachedActiveWeaponParticleSystems;
+        private VisualEffect[] _cachedActiveWeaponVfxComponents;
+        private Light[] _cachedActiveWeaponLights;
+        private Pdw90Animation[] _cachedActiveWeaponPdwAnimations;
+        private AudioSource[] _cachedActiveWeaponAudioSources;
         private bool _suppressDrakeTopShellEjectOnNextReload;
         private bool _suppressDrakeBottomShellOnNextReload;
         private Transform _suppressedDrakeTopShellTransform;
@@ -550,7 +560,7 @@ namespace Game.Weapons {
             AddUniqueAnimator(animators, FpsWeaponAnimatorField?.GetValue(_activeWeapon) as Animator);
             AddUniqueAnimator(animators, _fpsAnimator);
 
-            var weaponAnimators = _activeWeapon.GetComponentsInChildren<Animator>(true);
+            var weaponAnimators = GetActiveWeaponAnimators();
             foreach(var weaponAnimator in weaponAnimators) {
                 AddUniqueAnimator(animators, weaponAnimator);
             }
@@ -786,7 +796,7 @@ namespace Game.Weapons {
             bottomShellTransform = null;
             if(_activeWeapon == null) return false;
 
-            var transforms = _activeWeapon.GetComponentsInChildren<Transform>(true);
+            var transforms = GetActiveWeaponTransforms();
             if(TryFindNamedTransform(transforms, DrakeBottomShellName, out bottomShellTransform)) {
                 return true;
             }
@@ -925,7 +935,7 @@ namespace Game.Weapons {
             loopBulletTransform = null;
             if(_activeWeapon == null) return false;
 
-            var transforms = _activeWeapon.GetComponentsInChildren<Transform>(true);
+            var transforms = GetActiveWeaponTransforms();
             if(TryFindNamedTransform(transforms, "Bullet", out loopBulletTransform)) {
                 return true;
             }
@@ -968,7 +978,7 @@ namespace Game.Weapons {
             topShellTransform = null;
             if(_activeWeapon == null) return false;
 
-            var transforms = _activeWeapon.GetComponentsInChildren<Transform>(true);
+            var transforms = GetActiveWeaponTransforms();
             if(TryFindNamedTransform(transforms, DrakeTopShellName, out topShellTransform)) {
                 return true;
             }
@@ -1463,7 +1473,7 @@ namespace Game.Weapons {
                 return false;
             }
 
-            var weaponSounds = _activeWeapon.GetComponentsInChildren<FPSWeaponSound>(true);
+            var weaponSounds = GetActiveWeaponSounds();
             foreach(var weaponSound in weaponSounds) {
                 if(weaponSound == null || !weaponSound.enabled) continue;
 
@@ -1608,10 +1618,94 @@ namespace Game.Weapons {
             return false;
         }
 
+        private void InvalidateActiveWeaponComponentCaches() {
+            _cachedActiveWeaponInstanceId = 0;
+            _cachedActiveWeaponTransforms = null;
+            _cachedActiveWeaponAnimators = null;
+            _cachedActiveWeaponSounds = null;
+            _cachedActiveWeaponParticleSystems = null;
+            _cachedActiveWeaponVfxComponents = null;
+            _cachedActiveWeaponLights = null;
+            _cachedActiveWeaponPdwAnimations = null;
+            _cachedActiveWeaponAudioSources = null;
+        }
+
+        private void EnsureActiveWeaponComponentCaches(FPSWeapon weapon) {
+            if(weapon == null) {
+                InvalidateActiveWeaponComponentCaches();
+                return;
+            }
+
+            var instanceId = weapon.gameObject.GetInstanceID();
+            if(_cachedActiveWeaponInstanceId == instanceId) return;
+            _cachedActiveWeaponInstanceId = instanceId;
+            _cachedActiveWeaponTransforms = null;
+            _cachedActiveWeaponAnimators = null;
+            _cachedActiveWeaponSounds = null;
+            _cachedActiveWeaponParticleSystems = null;
+            _cachedActiveWeaponVfxComponents = null;
+            _cachedActiveWeaponLights = null;
+            _cachedActiveWeaponPdwAnimations = null;
+            _cachedActiveWeaponAudioSources = null;
+        }
+
+        private T[] GetActiveWeaponComponents<T>(ref T[] cache) where T : Component {
+            if(_activeWeapon == null) return Array.Empty<T>();
+            EnsureActiveWeaponComponentCaches(_activeWeapon);
+            if(cache == null) {
+                cache = _activeWeapon.GetComponentsInChildren<T>(true);
+            }
+
+            return cache;
+        }
+
+        private T[] GetWeaponComponents<T>(FPSWeapon weapon, ref T[] activeWeaponCache) where T : Component {
+            if(weapon == null) return Array.Empty<T>();
+            return weapon == _activeWeapon
+                ? GetActiveWeaponComponents(ref activeWeaponCache)
+                : weapon.GetComponentsInChildren<T>(true);
+        }
+
+        private Transform[] GetActiveWeaponTransforms() {
+            return GetActiveWeaponComponents(ref _cachedActiveWeaponTransforms);
+        }
+
+        private Animator[] GetActiveWeaponAnimators() {
+            return GetActiveWeaponComponents(ref _cachedActiveWeaponAnimators);
+        }
+
+        private FPSWeaponSound[] GetActiveWeaponSounds() {
+            return GetActiveWeaponComponents(ref _cachedActiveWeaponSounds);
+        }
+
+        private FPSWeaponSound[] GetWeaponSounds(FPSWeapon weapon) {
+            return GetWeaponComponents(weapon, ref _cachedActiveWeaponSounds);
+        }
+
+        private ParticleSystem[] GetWeaponParticleSystems(FPSWeapon weapon) {
+            return GetWeaponComponents(weapon, ref _cachedActiveWeaponParticleSystems);
+        }
+
+        private VisualEffect[] GetWeaponVisualEffects(FPSWeapon weapon) {
+            return GetWeaponComponents(weapon, ref _cachedActiveWeaponVfxComponents);
+        }
+
+        private Light[] GetWeaponLights(FPSWeapon weapon) {
+            return GetWeaponComponents(weapon, ref _cachedActiveWeaponLights);
+        }
+
+        private Pdw90Animation[] GetActiveWeaponPdwAnimations() {
+            return GetActiveWeaponComponents(ref _cachedActiveWeaponPdwAnimations);
+        }
+
+        private AudioSource[] GetActiveWeaponAudioSources() {
+            return GetActiveWeaponComponents(ref _cachedActiveWeaponAudioSources);
+        }
+
         private Transform ResolveMuzzleTransform(FPSWeapon activeWeapon) {
             if(activeWeapon == null) return null;
 
-            var transforms = activeWeapon.GetComponentsInChildren<Transform>(true);
+            var transforms = GetWeaponComponents(activeWeapon, ref _cachedActiveWeaponTransforms);
             return ResolveBestExplicitMuzzleCandidate(activeWeapon, transforms, out _);
         }
 
@@ -1664,7 +1758,26 @@ namespace Game.Weapons {
         }
 
         private bool TryCacheActiveWeapon() {
-            if(_activeWeapon != null && _muzzleTransform != null) {
+            if(_activeWeapon != null && !_activeWeapon.gameObject.activeInHierarchy) {
+                var resolvedWeapon = FindActiveWeaponComponent();
+                if(resolvedWeapon != null && resolvedWeapon != _activeWeapon) {
+                    _activeWeapon = resolvedWeapon;
+                    _muzzleTransform = null;
+                    InvalidateActiveWeaponComponentCaches();
+                    if(_playerInstance != null && _renderLayer >= 0) {
+                        SetLayerRecursive(_playerInstance, _renderLayer);
+                    }
+
+                    DisableViewmodelShadows(_playerInstance);
+                    AttachReloadEventRelays();
+                }
+            }
+
+            if(_activeWeapon != null) {
+                EnsureActiveWeaponComponentCaches(_activeWeapon);
+            }
+
+            if(_activeWeapon != null && _muzzleTransform != null && _activeWeapon.gameObject.activeInHierarchy) {
                 ApplyActiveWeaponSoundToggles(_activeWeapon);
                 RefreshActiveWeaponSoundMetadata(_activeWeapon);
                 SuppressInternalMuzzleFx(_activeWeapon);
@@ -1680,6 +1793,7 @@ namespace Game.Weapons {
                 if(_activeWeapon == null) {
                     return false;
                 }
+                InvalidateActiveWeaponComponentCaches();
 
                 if(_renderLayer >= 0) {
                     SetLayerRecursive(_playerInstance, _renderLayer);
@@ -1688,6 +1802,7 @@ namespace Game.Weapons {
                 AttachReloadEventRelays();
             }
 
+            EnsureActiveWeaponComponentCaches(_activeWeapon);
             _muzzleTransform = _muzzleTransform ? _muzzleTransform : ResolveMuzzleTransform(_activeWeapon);
             ApplyActiveWeaponSoundToggles(_activeWeapon);
             RefreshActiveWeaponSoundMetadata(_activeWeapon);
@@ -1745,7 +1860,7 @@ namespace Game.Weapons {
         private void ApplyActiveWeaponSoundToggles(FPSWeapon activeWeapon) {
             if(activeWeapon == null) return;
 
-            var weaponSounds = activeWeapon.GetComponentsInChildren<FPSWeaponSound>(true);
+            var weaponSounds = GetWeaponSounds(activeWeapon);
             if(weaponSounds == null || weaponSounds.Length == 0) return;
 
             var shouldEnableSounds = !disableKinemationWeaponSounds && !routeWeaponSoundEventsToAudioService;
@@ -1790,7 +1905,7 @@ namespace Game.Weapons {
             var disabledVfx = 0;
             var disabledLights = 0;
 
-            var particleSystems = activeWeapon.GetComponentsInChildren<ParticleSystem>(true);
+            var particleSystems = GetWeaponParticleSystems(activeWeapon);
             foreach(var ps in particleSystems) {
                 if(ps == null || !IsLikelyMuzzleFxNode(ps.transform)) continue;
                 ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
@@ -1799,7 +1914,7 @@ namespace Game.Weapons {
                 disabledParticles++;
             }
 
-            var vfxComponents = activeWeapon.GetComponentsInChildren<VisualEffect>(true);
+            var vfxComponents = GetWeaponVisualEffects(activeWeapon);
             foreach(var vfx in vfxComponents) {
                 if(vfx == null || !IsLikelyMuzzleFxNode(vfx.transform)) continue;
                 vfx.Stop();
@@ -1807,7 +1922,7 @@ namespace Game.Weapons {
                 disabledVfx++;
             }
 
-            var lights = activeWeapon.GetComponentsInChildren<Light>(true);
+            var lights = GetWeaponLights(activeWeapon);
             foreach(var light in lights) {
                 if(light == null || !IsLikelyMuzzleFxNode(light.transform)) continue;
                 light.enabled = false;
@@ -1880,7 +1995,7 @@ namespace Game.Weapons {
             // PDW90 viewmodel smooths ammo weight over time by default, which causes a visible one-frame
             // lag after switch/reload-cancel. Push the smoothed value directly to authoritative ammo.
             var targetWeight = 1f - (float)clampedAmmo / maxAmmo;
-            var pdwAnimations = _activeWeapon.GetComponentsInChildren<Pdw90Animation>(true);
+            var pdwAnimations = GetActiveWeaponPdwAnimations();
             foreach(var pdwAnimation in pdwAnimations) {
                 if(pdwAnimation == null) continue;
                 Pdw90SmoothAmmoWeightField?.SetValue(pdwAnimation, targetWeight);
@@ -1926,7 +2041,7 @@ namespace Game.Weapons {
             }
 
             if(_activeWeapon == null) return;
-            var audioSources = _activeWeapon.GetComponentsInChildren<AudioSource>(true);
+            var audioSources = GetActiveWeaponAudioSources();
             foreach(var source in audioSources) {
                 if(source == null) continue;
                 source.Stop();
@@ -2022,7 +2137,7 @@ namespace Game.Weapons {
                 return false;
             }
 
-            var weaponAnimators = _activeWeapon.GetComponentsInChildren<Animator>(true);
+            var weaponAnimators = GetActiveWeaponAnimators();
             foreach(var weaponAnimator in weaponAnimators) {
                 if(weaponAnimator == null || weaponAnimator == _fpsAnimator) continue;
                 if(AnimatorHasReloadClip(weaponAnimator)) {
@@ -2045,7 +2160,7 @@ namespace Game.Weapons {
                 return false;
             }
 
-            var weaponAnimators = _activeWeapon.GetComponentsInChildren<Animator>(true);
+            var weaponAnimators = GetActiveWeaponAnimators();
             foreach(var weaponAnimator in weaponAnimators) {
                 if(weaponAnimator == null || weaponAnimator == _fpsAnimator) continue;
                 if(!TryGetAnimatorEquipProgress(weaponAnimator, out var weaponProgress)) continue;

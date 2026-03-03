@@ -46,6 +46,29 @@ namespace Game.Menu {
         private bool _privateMatchStartInFlight;
         private CancellationTokenSource _uiTaskCts;
         private int _partyUiRefreshSerial;
+        private const float ProgressionRefreshIntervalSeconds = 0.2f;
+        private float _nextProgressionRefreshAt;
+        private int _lastQueueTimerSeconds = -1;
+        private string _lastQueueGamemodeLabel;
+        private bool? _lastInviteVisible;
+        private bool? _lastInviteEnabled;
+        private string _lastInviteTooltip;
+        private bool? _lastSteamOnline;
+        private string _lastPlayMatchmakingTooltip;
+        private bool? _lastStatusVisible;
+        private MenuButtonMode _lastMenuButtonMode = MenuButtonMode.Unknown;
+        private bool _lastMenuButtonsEnabled;
+        private int _lastProgressionLevel = -1;
+        private int _lastProgressionRequiredXp = -1;
+        private int _lastProgressionCurrentXp = -1;
+        private bool? _lastProgressionRowVisible;
+
+        private enum MenuButtonMode : byte {
+            Unknown,
+            Offline,
+            PartyTooLarge,
+            Normal
+        }
 
         // Events
         public Action OnHostClicked;
@@ -107,6 +130,7 @@ namespace Game.Menu {
         protected override void OnEnable() {
             base.OnEnable();
             ResetUiTaskCancellationSource();
+            ResetUiUpdateCache();
             if(SessionManager.Instance == null) return;
             SessionManager.Instance.FrontStatusChanged -= UpdateStatusText;
             SessionManager.Instance.OnPartyStateChanged -= HandlePartyStateChanged;
@@ -119,6 +143,7 @@ namespace Game.Menu {
         protected override void OnDisable() {
             CancelUiTaskCancellationSource();
             _partyUiRefreshSerial++;
+            ResetUiUpdateCache();
             if(SessionManager.HasInstance) {
                 SessionManager.Instance.FrontStatusChanged -= UpdateStatusText;
                 SessionManager.Instance.OnPartyStateChanged -= HandlePartyStateChanged;
@@ -218,6 +243,24 @@ namespace Game.Menu {
             }
         }
 
+        private void ResetUiUpdateCache() {
+            _nextProgressionRefreshAt = 0f;
+            _lastQueueTimerSeconds = -1;
+            _lastQueueGamemodeLabel = null;
+            _lastInviteVisible = null;
+            _lastInviteEnabled = null;
+            _lastInviteTooltip = null;
+            _lastSteamOnline = null;
+            _lastPlayMatchmakingTooltip = null;
+            _lastStatusVisible = null;
+            _lastMenuButtonMode = MenuButtonMode.Unknown;
+            _lastMenuButtonsEnabled = false;
+            _lastProgressionLevel = -1;
+            _lastProgressionRequiredXp = -1;
+            _lastProgressionCurrentXp = -1;
+            _lastProgressionRowVisible = null;
+        }
+
         private void Update() {
             if(SessionManager.Instance == null) return;
             
@@ -237,26 +280,42 @@ namespace Game.Menu {
                 var canInvite = currentPartySize < 10 && SessionManager.Instance.IsLocalPartyLeaderResolved;
                 if(isSearching) canInvite = false;
 
-                _inviteButton.style.display = canInvite ? DisplayStyle.Flex : DisplayStyle.None;
-                _inviteButton.SetEnabled(canInvite);
-                _inviteButton.tooltip = steamOnline ? "Invite friends" : "Steam is offline. Invites unavailable.";
+                if(_lastInviteVisible != canInvite) {
+                    _inviteButton.style.display = canInvite ? DisplayStyle.Flex : DisplayStyle.None;
+                    _lastInviteVisible = canInvite;
+                }
 
-                if(steamOnline) {
-                    _inviteButton.RemoveFromClassList("steam-offline");
-                    if(_inviteIcon != null) {
-                        _inviteIcon.RemoveFromClassList("offline-icon");
-                        if(!_inviteIcon.ClassListContains("plus-icon")) {
-                            _inviteIcon.AddToClassList("plus-icon");
+                if(_lastInviteEnabled != canInvite) {
+                    _inviteButton.SetEnabled(canInvite);
+                    _lastInviteEnabled = canInvite;
+                }
+
+                var inviteTooltip = steamOnline ? "Invite friends" : "Steam is offline. Invites unavailable.";
+                if(!string.Equals(_lastInviteTooltip, inviteTooltip, StringComparison.Ordinal)) {
+                    _inviteButton.tooltip = inviteTooltip;
+                    _lastInviteTooltip = inviteTooltip;
+                }
+
+                if(_lastSteamOnline != steamOnline) {
+                    if(steamOnline) {
+                        _inviteButton.RemoveFromClassList("steam-offline");
+                        if(_inviteIcon != null) {
+                            _inviteIcon.RemoveFromClassList("offline-icon");
+                            if(!_inviteIcon.ClassListContains("plus-icon")) {
+                                _inviteIcon.AddToClassList("plus-icon");
+                            }
+                        }
+                    } else {
+                        _inviteButton.AddToClassList("steam-offline");
+                        if(_inviteIcon != null) {
+                            _inviteIcon.RemoveFromClassList("plus-icon");
+                            if(!_inviteIcon.ClassListContains("offline-icon")) {
+                                _inviteIcon.AddToClassList("offline-icon");
+                            }
                         }
                     }
-                } else {
-                    _inviteButton.AddToClassList("steam-offline");
-                    if(_inviteIcon != null) {
-                        _inviteIcon.RemoveFromClassList("plus-icon");
-                        if(!_inviteIcon.ClassListContains("offline-icon")) {
-                            _inviteIcon.AddToClassList("offline-icon");
-                        }
-                    }
+
+                    _lastSteamOnline = steamOnline;
                 }
             }
 
@@ -265,44 +324,82 @@ namespace Game.Menu {
             if(uiManager != null) {
                 var playMatchmakingButton = uiManager.GetPlayButtonMatchmaking();
                 if(playMatchmakingButton != null) {
+                    string tooltip;
                     if(isNetworkOffline) {
-                        playMatchmakingButton.tooltip = "Offline. Matchmaking unavailable.";
+                        tooltip = "Offline. Matchmaking unavailable.";
                     } else if(currentPartySize > 5) {
-                        playMatchmakingButton.tooltip = "Party too large for matchmaking (max 5).";
+                        tooltip = "Party too large for matchmaking (max 5).";
                     } else {
-                        playMatchmakingButton.tooltip = "Play matchmaking.";
+                        tooltip = "Play matchmaking.";
+                    }
+
+                    if(!string.Equals(_lastPlayMatchmakingTooltip, tooltip, StringComparison.Ordinal)) {
+                        playMatchmakingButton.tooltip = tooltip;
+                        _lastPlayMatchmakingTooltip = tooltip;
                     }
                 }
 
-                if(isNetworkOffline) {
-                    uiManager.SetMenuButtonsEnabled(true); // Play opens gamemode select; user picks Private Match there.
-                } else if(currentPartySize > 5) {
-                    MainMenuUIManager.DisableButton(uiManager.GetPlayButtonMatchmaking());
-                } else {
-                    uiManager.SetMenuButtonsEnabled(canUseMenuButtons);
+                var menuButtonMode = isNetworkOffline
+                    ? MenuButtonMode.Offline
+                    : currentPartySize > 5
+                        ? MenuButtonMode.PartyTooLarge
+                        : MenuButtonMode.Normal;
+                switch(menuButtonMode) {
+                    case MenuButtonMode.Offline:
+                        if(_lastMenuButtonMode != MenuButtonMode.Offline || !_lastMenuButtonsEnabled) {
+                            uiManager.SetMenuButtonsEnabled(true); // Play opens gamemode select; user picks Private Match there.
+                            _lastMenuButtonsEnabled = true;
+                        }
+                        break;
+                    case MenuButtonMode.PartyTooLarge:
+                        if(_lastMenuButtonMode != MenuButtonMode.PartyTooLarge && playMatchmakingButton != null) {
+                            MainMenuUIManager.DisableButton(playMatchmakingButton);
+                        }
+                        break;
+                    default:
+                        if(_lastMenuButtonMode != MenuButtonMode.Normal || _lastMenuButtonsEnabled != canUseMenuButtons) {
+                            uiManager.SetMenuButtonsEnabled(canUseMenuButtons);
+                            _lastMenuButtonsEnabled = canUseMenuButtons;
+                        }
+                        break;
                 }
+                _lastMenuButtonMode = menuButtonMode;
 
                 if(uiManager.StatusContainer != null) {
-                    if(showStatus) {
-                        uiManager.StatusContainer.RemoveFromClassList("hidden");
-                        uiManager.StatusContainer.style.display = DisplayStyle.Flex;
-                    } else {
-                        uiManager.StatusContainer.AddToClassList("hidden");
-                        uiManager.StatusContainer.style.display = DisplayStyle.None;
+                    if(_lastStatusVisible != showStatus) {
+                        if(showStatus) {
+                            uiManager.StatusContainer.RemoveFromClassList("hidden");
+                            uiManager.StatusContainer.style.display = DisplayStyle.Flex;
+                        } else {
+                            uiManager.StatusContainer.AddToClassList("hidden");
+                            uiManager.StatusContainer.style.display = DisplayStyle.None;
+                        }
+                        _lastStatusVisible = showStatus;
                     }
 
                     // Update Timer & Gamemode info
                     if(showStatus && isSearching) {
                         if(uiManager.QueueGamemodeLabel != null) {
-                            uiManager.QueueGamemodeLabel.text = SessionManager.Instance.SelectedGameMode;
+                            var selectedGameMode = SessionManager.Instance.SelectedGameMode ?? string.Empty;
+                            if(!string.Equals(_lastQueueGamemodeLabel, selectedGameMode, StringComparison.Ordinal)) {
+                                uiManager.QueueGamemodeLabel.text = selectedGameMode;
+                                _lastQueueGamemodeLabel = selectedGameMode;
+                            }
                         }
 
                         if(uiManager.QueueTimerLabel != null) {
                             var elapsed = Time.time - SessionManager.Instance.MatchmakingStartTime;
-                            var minutes = Mathf.FloorToInt(elapsed / 60f);
-                            var seconds = Mathf.FloorToInt(elapsed % 60f);
-                            uiManager.QueueTimerLabel.text = $"{minutes:00}:{seconds:00}";
+                            var elapsedSeconds = Mathf.Max(0, Mathf.FloorToInt(elapsed));
+                            if(_lastQueueTimerSeconds != elapsedSeconds) {
+                                var minutes = elapsedSeconds / 60;
+                                var seconds = elapsedSeconds % 60;
+                                uiManager.QueueTimerLabel.text = $"{minutes:00}:{seconds:00}";
+                                _lastQueueTimerSeconds = elapsedSeconds;
+                            }
                         }
+                    } else {
+                        _lastQueueTimerSeconds = -1;
+                        _lastQueueGamemodeLabel = null;
                     }
                 }
             }
@@ -317,7 +414,10 @@ namespace Game.Menu {
                 _hasDrawnSolo = false;
             }
 
-            UpdateLocalProgressionDisplay();
+            if(Time.unscaledTime >= _nextProgressionRefreshAt) {
+                UpdateLocalProgressionDisplay();
+                _nextProgressionRefreshAt = Time.unscaledTime + ProgressionRefreshIntervalSeconds;
+            }
         }
 
         private void RegisterUIEvents() {
@@ -1000,7 +1100,10 @@ namespace Game.Menu {
 
             var progression = ProgressionManager.Instance;
             if(progression == null || progression.Data == null) {
-                if(_localXpRow != null) _localXpRow.AddToClassList("hidden");
+                SetLocalProgressionRowVisible(false);
+                _lastProgressionLevel = -1;
+                _lastProgressionRequiredXp = -1;
+                _lastProgressionCurrentXp = -1;
                 return;
             }
 
@@ -1008,17 +1111,47 @@ namespace Game.Menu {
             var requiredXp = Mathf.Max(1, progression.GetXpRequiredForLevel(level));
             var currentXp = Mathf.Clamp(progression.Data.currentXp, 0, requiredXp);
 
-            if(_localXpRow != null) _localXpRow.RemoveFromClassList("hidden");
+            SetLocalProgressionRowVisible(true);
+            if(_lastProgressionLevel == level &&
+               _lastProgressionRequiredXp == requiredXp &&
+               _lastProgressionCurrentXp == currentXp) {
+                return;
+            }
+
             _localXpBar.lowValue = 0;
-            _localXpBar.highValue = requiredXp;
-            _localXpBar.value = currentXp;
-            _localLevelLabel.text = $"LVL {level}";
+            if(_lastProgressionRequiredXp != requiredXp) {
+                _localXpBar.highValue = requiredXp;
+            }
+            if(_lastProgressionCurrentXp != currentXp || _lastProgressionRequiredXp != requiredXp) {
+                _localXpBar.value = currentXp;
+            }
+
+            var levelText = $"LVL {level}";
+            if(!string.Equals(_localLevelLabel.text, levelText, StringComparison.Ordinal)) {
+                _localLevelLabel.text = levelText;
+            }
+
+            _lastProgressionLevel = level;
+            _lastProgressionRequiredXp = requiredXp;
+            _lastProgressionCurrentXp = currentXp;
+        }
+
+        private void SetLocalProgressionRowVisible(bool visible) {
+            if(_localXpRow == null || _lastProgressionRowVisible == visible) return;
+            if(visible) {
+                _localXpRow.RemoveFromClassList("hidden");
+            } else {
+                _localXpRow.AddToClassList("hidden");
+            }
+
+            _lastProgressionRowVisible = visible;
         }
 
         private void ResetLocalProgressionReferences() {
             _localXpRow = null;
             _localXpBar = null;
             _localLevelLabel = null;
+            _lastProgressionRowVisible = null;
         }
 
         protected override void OnCleanup() {

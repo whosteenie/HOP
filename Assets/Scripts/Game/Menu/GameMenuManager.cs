@@ -8,7 +8,6 @@ using Game.UI;
 using Game.Menu.Options;
 using Game.Match;
 using Game.Weapons;
-using Network;
 using Network.Events;
 using Network.Services;
 using Rendering;

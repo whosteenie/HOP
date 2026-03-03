@@ -24,6 +24,7 @@ namespace Game.Hopball {
     private const float EnergySmoothing = 3.5f;
     private const float DissolveSmoothing = 2f;
     private const float MaxEnergy = 20;
+    private const float VisualWriteEpsilon = 0.0001f;
     private readonly Vector3 _maxEffectScale = new(0.45f, 0.45f, 0.45f);
     private readonly Vector3 _minEffectScale = new(0.23f, 0.23f, 0.23f);
 
@@ -57,6 +58,10 @@ namespace Game.Hopball {
 
     private float DissolveAmount { get; set; }
     private float _displayEnergy = MaxEnergy;
+    private Vector3 _lastAppliedEffectScale = new(float.NaN, float.NaN, float.NaN);
+    private float _lastAppliedLightIntensity = float.NaN;
+    private float _lastAppliedEmissionIntensity = float.NaN;
+    private float _lastAppliedDissolveAmount = float.NaN;
     public HopballVisualState CurrentVisualState { get; private set; }
 
     public bool IsDissolving { get; private set; }
@@ -152,6 +157,7 @@ namespace Game.Hopball {
         // Initialize energy display
         _displayEnergy = MaxEnergy;
         _nextDrainAt = -1f;
+        InvalidateVisualWriteCache();
         UpdateEffects(_displayEnergy);
         NotifyVisualStateChanged(true);
 
@@ -237,8 +243,9 @@ namespace Game.Hopball {
             HandleDissolve();
         } else if(DissolveAmount > 0f) {
             DissolveAmount = 0f;
-            meshRenderer.material.SetFloat(DissolveAmountID, DissolveAmount);
-            NotifyVisualStateChanged(false);
+            if(ApplyDissolveAmount(DissolveAmount)) {
+                NotifyVisualStateChanged(false);
+            }
         }
     }
 
@@ -252,12 +259,29 @@ namespace Game.Hopball {
     private void UpdateEffects(float energy) {
         var energyRatio = energy > 0 ? energy / MaxEnergy : 0f;
         var targetScale = Vector3.Lerp(_minEffectScale, _maxEffectScale, energyRatio);
+        var changed = false;
 
-        effects.localScale = targetScale;
-        effectLight.intensity = energyRatio;
-        meshRenderer.material.SetFloat(IntensityID, energyRatio);
+        if(effects != null && HasSignificantDelta(_lastAppliedEffectScale, targetScale)) {
+            effects.localScale = targetScale;
+            _lastAppliedEffectScale = targetScale;
+            changed = true;
+        }
 
-        NotifyVisualStateChanged(false);
+        if(effectLight != null && HasSignificantDelta(_lastAppliedLightIntensity, energyRatio)) {
+            effectLight.intensity = energyRatio;
+            _lastAppliedLightIntensity = energyRatio;
+            changed = true;
+        }
+
+        if(meshRenderer != null && HasSignificantDelta(_lastAppliedEmissionIntensity, energyRatio)) {
+            meshRenderer.material.SetFloat(IntensityID, energyRatio);
+            _lastAppliedEmissionIntensity = energyRatio;
+            changed = true;
+        }
+
+        if(changed) {
+            NotifyVisualStateChanged(false);
+        }
     }
 
     /// <summary>
@@ -277,7 +301,7 @@ namespace Game.Hopball {
 
             // Reset dissolve amount and dissolve state when equipped
             DissolveAmount = 0f;
-            meshRenderer.material.SetFloat(DissolveAmountID, DissolveAmount);
+            ApplyDissolveAmount(DissolveAmount);
 
             IsDissolving = false;
             _equippedController = controller;
@@ -592,10 +616,12 @@ namespace Game.Hopball {
     private void SetEffectsScaleToZero() {
         if(effects != null) {
             effects.localScale = Vector3.zero;
+            _lastAppliedEffectScale = Vector3.zero;
         }
 
         if(effectLight != null) {
             effectLight.intensity = 0f;
+            _lastAppliedLightIntensity = 0f;
         }
 
         NotifyVisualStateChanged(false);
@@ -613,12 +639,14 @@ namespace Game.Hopball {
         // Once threshold is reached, clamp to 1.0 to ensure immediate completion detection
         if(DissolveAmount >= 0.9f) {
             DissolveAmount = 1f;
-            meshRenderer.material.SetFloat(DissolveAmountID, DissolveAmount);
-            NotifyVisualStateChanged(false);
+            if(ApplyDissolveAmount(DissolveAmount)) {
+                NotifyVisualStateChanged(false);
+            }
             CompleteDissolve();
         } else {
-            meshRenderer.material.SetFloat(DissolveAmountID, DissolveAmount);
-            NotifyVisualStateChanged(false);
+            if(ApplyDissolveAmount(DissolveAmount)) {
+                NotifyVisualStateChanged(false);
+            }
         }
     }
 
@@ -699,11 +727,12 @@ namespace Game.Hopball {
             _networkEnergy.Value = MaxEnergy;
         }
 
+        InvalidateVisualWriteCache();
         _displayEnergy = _networkEnergy.Value;
         UpdateEffects(_displayEnergy);
 
         DissolveAmount = 0f;
-        meshRenderer.material.SetFloat(DissolveAmountID, DissolveAmount);
+        ApplyDissolveAmount(DissolveAmount);
         godrayEffect.SetActive(true);
 
         IsEquipped = false;
@@ -724,6 +753,31 @@ namespace Game.Hopball {
         hopballRigidbody.angularVelocity = Vector3.zero;
         hopballRigidbody.isKinematic = true;
         SetPlayerCollisionIgnored(false);
+    }
+
+    private static bool HasSignificantDelta(float lastValue, float nextValue) {
+        return float.IsNaN(lastValue) || Mathf.Abs(lastValue - nextValue) > VisualWriteEpsilon;
+    }
+
+    private static bool HasSignificantDelta(Vector3 lastValue, Vector3 nextValue) {
+        return float.IsNaN(lastValue.x) || (lastValue - nextValue).sqrMagnitude > VisualWriteEpsilon * VisualWriteEpsilon;
+    }
+
+    private bool ApplyDissolveAmount(float dissolveAmount) {
+        if(meshRenderer == null || !HasSignificantDelta(_lastAppliedDissolveAmount, dissolveAmount)) {
+            return false;
+        }
+
+        meshRenderer.material.SetFloat(DissolveAmountID, dissolveAmount);
+        _lastAppliedDissolveAmount = dissolveAmount;
+        return true;
+    }
+
+    private void InvalidateVisualWriteCache() {
+        _lastAppliedEffectScale = new Vector3(float.NaN, float.NaN, float.NaN);
+        _lastAppliedLightIntensity = float.NaN;
+        _lastAppliedEmissionIntensity = float.NaN;
+        _lastAppliedDissolveAmount = float.NaN;
     }
     }
 }
