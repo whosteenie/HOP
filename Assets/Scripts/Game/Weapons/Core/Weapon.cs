@@ -699,6 +699,8 @@ namespace Game.Weapons {
             return _currentWeaponData == null ? 0.1f : _currentWeaponData.fireRate;
         }
 
+        public WeaponData CurrentWeaponData => _currentWeaponData;
+
         private int GetCurrentMagCapacity() {
             return Mathf.Max(1, _currentMagCapacity);
         }

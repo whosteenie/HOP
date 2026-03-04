@@ -14,6 +14,24 @@ namespace Game.Weapons {
             Full = 1
         }
 
+        public enum KinemationSpecialHandling {
+            Null = 0,
+            None = 1,
+            DrakeShell = 2,
+            KarLoopBullet = 3
+        }
+
+        // Matches KinemationFpWeaponDriver GrappleWeaponIndex animation mapping.
+        public enum KinemationGrappleWeaponIndex {
+            Null = -1,
+            AK = 0,
+            M1911 = 1,
+            PDW = 2,
+            Kar = 3,
+            Drake = 4,
+            DGL = 5
+        }
+
         [Header("Core")]
         public string weaponName;
         public WeaponSlotType weaponSlot = WeaponSlotType.Primary;
@@ -67,6 +85,12 @@ namespace Game.Weapons {
         public string shootSoundId = "";
         [Tooltip("SoundCatalog id used when reloading this weapon (e.g. 'weapons.pistol.reload').")]
         public string reloadSoundId = "";
+
+        [Header("KINEMATION")]
+        [Tooltip("Required for KINEMATION behavior routing. Use None when no special handling is needed.")]
+        public KinemationSpecialHandling kinemationSpecialHandling = KinemationSpecialHandling.Null;
+        [Tooltip("Required for grapple animation bucket mapping.")]
+        public KinemationGrappleWeaponIndex kinemationGrappleWeaponIndex = KinemationGrappleWeaponIndex.Null;
 
         [SerializeField, HideInInspector, FormerlySerializedAs("fireMode")]
         private string legacyFireMode = "";

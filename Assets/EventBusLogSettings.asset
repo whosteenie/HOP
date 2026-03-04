@@ -16,15 +16,33 @@ MonoBehaviour:
   eventLogSettings:
   - eventTypeName: Network.Events.AddKillFeedEntryEvent
     enabled: 0
+  - eventTypeName: Network.Events.BindingsAppliedEvent
+    enabled: 0
+  - eventTypeName: Network.Events.ChallengesUpdatedEvent
+    enabled: 0
+  - eventTypeName: Network.Events.ChatMessageReceivedEvent
+    enabled: 0
   - eventTypeName: Network.Events.ComponentNotFoundEvent
     enabled: 1
   - eventTypeName: Network.Events.CriticalErrorEvent
     enabled: 1
+  - eventTypeName: Network.Events.FrontStatusChangedEvent
+    enabled: 0
+  - eventTypeName: Network.Events.GameMenuReadyEvent
+    enabled: 0
   - eventTypeName: Network.Events.GameObjectNotFoundEvent
     enabled: 1
+  - eventTypeName: Network.Events.GameSettingsChangedEvent
+    enabled: 0
+  - eventTypeName: Network.Events.GrappleAnimFirstFrameEvent
+    enabled: 0
+  - eventTypeName: Network.Events.GrappleAnimHideEvent
+    enabled: 0
   - eventTypeName: Network.Events.GrappleEndedEvent
     enabled: 0
   - eventTypeName: Network.Events.GrappleStartedEvent
+    enabled: 0
+  - eventTypeName: Network.Events.HideGrappleUIEvent
     enabled: 0
   - eventTypeName: Network.Events.HideHUDEvent
     enabled: 0
@@ -32,18 +50,26 @@ MonoBehaviour:
     enabled: 0
   - eventTypeName: Network.Events.HideScoreboardEvent
     enabled: 0
+  - eventTypeName: Network.Events.HideScoreDisplayEvent
+    enabled: 0
   - eventTypeName: Network.Events.HopballDroppedEvent
     enabled: 0
   - eventTypeName: Network.Events.HopballPickedUpEvent
     enabled: 0
   - eventTypeName: Network.Events.HostDisconnectedEvent
     enabled: 1
+  - eventTypeName: Network.Events.IndicatorTargetStateChangedEvent
+    enabled: 0
   - eventTypeName: Network.Events.LobbyResetEvent
-    enabled: 1
+    enabled: 0
+  - eventTypeName: Network.Events.LocalPlayerReadyEvent
+    enabled: 0
   - eventTypeName: Network.Events.MatchEndedEvent
-    enabled: 1
+    enabled: 0
   - eventTypeName: Network.Events.MatchStartedEvent
-    enabled: 1
+    enabled: 0
+  - eventTypeName: Network.Events.MatchTimerReadyEvent
+    enabled: 0
   - eventTypeName: Network.Events.MatchTimeUpdatedEvent
     enabled: 0
   - eventTypeName: Network.Events.NetworkObjectReferenceFailedEvent
@@ -54,15 +80,39 @@ MonoBehaviour:
     enabled: 0
   - eventTypeName: Network.Events.PlayerDiedEvent
     enabled: 0
+  - eventTypeName: Network.Events.PlayerMuteChangedEvent
+    enabled: 0
+  - eventTypeName: Network.Events.PlayerNetworkDespawnedEvent
+    enabled: 0
+  - eventTypeName: Network.Events.PlayerNetworkSpawnedEvent
+    enabled: 0
   - eventTypeName: Network.Events.PlayerRespawnedEvent
     enabled: 0
   - eventTypeName: Network.Events.PlayersChangedEvent
+    enabled: 0
+  - eventTypeName: Network.Events.PlayLocalAttachedSoundIdEvent
+    enabled: 0
+  - eventTypeName: Network.Events.PlayLocalSoundIdEvent
+    enabled: 0
+  - eventTypeName: Network.Events.PlayLocalWorldSoundIdEvent
     enabled: 0
   - eventTypeName: Network.Events.PostMatchStartedEvent
     enabled: 0
   - eventTypeName: Network.Events.PreMatchCountdownEvent
     enabled: 0
+  - eventTypeName: Network.Events.PreMatchWaitingForPlayersEvent
+    enabled: 0
   - eventTypeName: Network.Events.RelayCodeAvailableEvent
+    enabled: 0
+  - eventTypeName: Network.Events.RequestNetworkAttachedSoundIdEvent
+    enabled: 0
+  - eventTypeName: Network.Events.RequestNetworkWorldSoundIdEvent
+    enabled: 0
+  - eventTypeName: Network.Events.ResolutionChangedEvent
+    enabled: 0
+  - eventTypeName: Network.Events.ScoreboardGamemodeChangedEvent
+    enabled: 0
+  - eventTypeName: Network.Events.ScoreboardRefreshRequestedEvent
     enabled: 0
   - eventTypeName: Network.Events.SessionJoinedEvent
     enabled: 0
@@ -70,27 +120,23 @@ MonoBehaviour:
     enabled: 0
   - eventTypeName: Network.Events.SetMatchTimeEvent
     enabled: 0
+  - eventTypeName: Network.Events.ShowGrappleUIEvent
+    enabled: 0
   - eventTypeName: Network.Events.ShowHUDEvent
     enabled: 0
   - eventTypeName: Network.Events.ShowKillFeedEvent
     enabled: 0
   - eventTypeName: Network.Events.ShowScoreboardEvent
     enabled: 0
+  - eventTypeName: Network.Events.ShowScoreDisplayEvent
+    enabled: 0
   - eventTypeName: Network.Events.SingletonNotAvailableEvent
-    enabled: 1
-  - eventTypeName: Network.Events.PlayLocalSoundIdEvent
     enabled: 0
-  - eventTypeName: Network.Events.PlayLocalWorldSoundIdEvent
-    enabled: 0
-  - eventTypeName: Network.Events.PlayLocalAttachedSoundIdEvent
-    enabled: 0
-  - eventTypeName: Network.Events.StopLocalSoundIdEvent
+  - eventTypeName: Network.Events.SocialSettingsChangedEvent
     enabled: 0
   - eventTypeName: Network.Events.StopAllLocalSoundsEvent
     enabled: 0
-  - eventTypeName: Network.Events.RequestNetworkWorldSoundIdEvent
-    enabled: 0
-  - eventTypeName: Network.Events.RequestNetworkAttachedSoundIdEvent
+  - eventTypeName: Network.Events.StopLocalSoundIdEvent
     enabled: 0
   - eventTypeName: Network.Events.UpdateAmmoEvent
     enabled: 0
@@ -99,6 +145,12 @@ MonoBehaviour:
   - eventTypeName: Network.Events.UpdateMultiplierEvent
     enabled: 0
   - eventTypeName: Network.Events.UpdateTagStatusEvent
+    enabled: 0
+  - eventTypeName: Network.Events.VoiceLocalPttStateChangedEvent
+    enabled: 0
+  - eventTypeName: Network.Events.VoiceParticipantRemovedEvent
+    enabled: 0
+  - eventTypeName: Network.Events.VoiceParticipantSpeechChangedEvent
     enabled: 0
   - eventTypeName: Network.Events.WeaponSwitchedEvent
     enabled: 0

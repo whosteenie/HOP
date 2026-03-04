@@ -169,6 +169,8 @@ namespace Game.Weapons {
         private static Vector3 s_akViewmodelLocalPosition = DefaultAkViewmodelLocalPosition;
         private static bool s_hasAkAnchorFrame1CameraReference;
         private static Vector3 s_akAnchorFrame1CameraLocal;
+        private static readonly HashSet<int> MissingKinemationSpecialHandlingWarnings = new();
+        private static readonly HashSet<int> MissingKinemationGrappleIndexWarnings = new();
 
         private void OnEnable() {
             EventBus.Subscribe<GrappleStartedEvent>(OnGrappleStarted);
@@ -203,7 +205,7 @@ namespace Game.Weapons {
             var anchor = GetGrappleCalibrationAnchor();
             if(anchor == null) return;
 
-            var idx = GetGrappleWeaponIndex(_activeWeaponSoundKey, _activeWeapon);
+            var idx = GetGrappleWeaponIndex();
 
             if(idx == 0) {
                 if(TryGetWeaponCameraTransform(out var cameraTransform)) {
@@ -1039,70 +1041,81 @@ namespace Game.Weapons {
             return false;
         }
 
+        private WeaponData GetActiveWeaponData() {
+            _weaponManager = _weaponManager ? _weaponManager : GetComponentInParent<WeaponManager>();
+            if(_weaponManager == null || _weaponManager.CurrentWeapon == null) return null;
+            return _weaponManager.CurrentWeapon.CurrentWeaponData;
+        }
+
+        private WeaponData.KinemationSpecialHandling GetActiveWeaponSpecialHandling() {
+            var data = GetActiveWeaponData();
+            if(data == null) {
+                return WeaponData.KinemationSpecialHandling.Null;
+            }
+
+            if(data.kinemationSpecialHandling == WeaponData.KinemationSpecialHandling.Null) {
+                ReportMissingKinemationAssignment(
+                    data,
+                    MissingKinemationSpecialHandlingWarnings,
+                    nameof(WeaponData.kinemationSpecialHandling),
+                    "Drake/Kar special handling is disabled until assigned.");
+            }
+
+            return data.kinemationSpecialHandling;
+        }
+
         private bool IsActiveWeaponLikelyDrake() {
             if(_activeWeapon == null) return false;
 
-            if(!string.IsNullOrWhiteSpace(_activeWeaponSoundKey) &&
-               _activeWeaponSoundKey.IndexOf("drake", StringComparison.OrdinalIgnoreCase) >= 0) {
-                return true;
-            }
-
-            if(!string.IsNullOrWhiteSpace(_activeWeapon.name) &&
-               _activeWeapon.name.IndexOf("drake", StringComparison.OrdinalIgnoreCase) >= 0) {
-                return true;
-            }
-
-            return _activeWeapon.weaponSettings != null &&
-                   !string.IsNullOrWhiteSpace(_activeWeapon.weaponSettings.name) &&
-                   _activeWeapon.weaponSettings.name.IndexOf("drake", StringComparison.OrdinalIgnoreCase) >= 0;
+            var handling = GetActiveWeaponSpecialHandling();
+            return handling == WeaponData.KinemationSpecialHandling.DrakeShell;
         }
 
         private bool IsActiveWeaponLikelyKar() {
             if(_activeWeapon == null) return false;
 
-            if(!string.IsNullOrWhiteSpace(_activeWeaponSoundKey)) {
-                var soundKey = _activeWeaponSoundKey.ToLowerInvariant();
-                if(soundKey.Contains("kar") || soundKey.Contains("kar98")) {
-                    return true;
-                }
-            }
-
-            if(!string.IsNullOrWhiteSpace(_activeWeapon.name)) {
-                var weaponName = _activeWeapon.name.ToLowerInvariant();
-                if(weaponName.Contains("kar") || weaponName.Contains("kar98")) {
-                    return true;
-                }
-            }
-
-            if(_activeWeapon.weaponSettings == null ||
-               string.IsNullOrWhiteSpace(_activeWeapon.weaponSettings.name)) return false;
-            var settingsName = _activeWeapon.weaponSettings.name.ToLowerInvariant();
-            return settingsName.Contains("kar") || settingsName.Contains("kar98");
+            var handling = GetActiveWeaponSpecialHandling();
+            return handling == WeaponData.KinemationSpecialHandling.KarLoopBullet;
         }
 
         /// <summary>
         /// Stable weapon bucket mapping used for runtime grapple clavicle offsets.
-        /// 0=AK, 1=M1911, 2=PDW, 3=Kar, 4=Drake, 5=DGL, -1=unknown.
+        /// Driven by WeaponData.KinemationGrappleWeaponIndex only.
         /// </summary>
-        private static int GetGrappleWeaponIndex(string weaponSoundKey, FPSWeapon activeWeapon) {
-            var key = (weaponSoundKey ?? "").ToLowerInvariant();
-            var name = activeWeapon != null ? activeWeapon.name.ToLowerInvariant() ?? "" : "";
-            var settingsName = activeWeapon != null ? activeWeapon.weaponSettings != null ? activeWeapon.weaponSettings.name.ToLowerInvariant() : "" : "";
-            foreach(var term in new[] { key, name, settingsName }) {
-                if(string.IsNullOrEmpty(term)) continue;
-                if(term.Contains("dgl") || term.Contains("deagle") || term.Contains("desert.eagle")) return 5;
-                if(term.Contains("drake") || term.Contains("shotgun")) return 4;
-                if(term.Contains("ak") || term.Contains("akx")) return 0;
-                if(term.Contains("m1911") || term.Contains("1911") || term.Contains("pistol")) return 1;
-                if(term.Contains("pdw") || term.Contains("p90")) return 2;
-                if(term.Contains("kar") || term.Contains("kar98")) return 3;
+        private int GetGrappleWeaponIndex() {
+            var data = GetActiveWeaponData();
+            if(data == null) {
+                return -1;
             }
-            return -1;
+
+            if(data.kinemationGrappleWeaponIndex == WeaponData.KinemationGrappleWeaponIndex.Null) {
+                ReportMissingKinemationAssignment(
+                    data,
+                    MissingKinemationGrappleIndexWarnings,
+                    nameof(WeaponData.kinemationGrappleWeaponIndex),
+                    "Grapple weapon index falls back to default bucket 0 until assigned.");
+                return -1;
+            }
+
+            return (int)data.kinemationGrappleWeaponIndex;
+        }
+
+        private void ReportMissingKinemationAssignment(WeaponData data, HashSet<int> warningCache, string fieldName,
+            string impactDescription) {
+            if(data == null || warningCache == null) return;
+            var id = data.GetInstanceID();
+            if(!warningCache.Add(id)) return;
+
+            var weaponLabel = string.IsNullOrWhiteSpace(data.weaponName) ? data.name : data.weaponName;
+            Debug.LogError(
+                $"[KinemationFpWeaponDriver] WeaponData '{weaponLabel}' has {fieldName}=NULL. " +
+                $"{impactDescription}",
+                data);
         }
 
         private void ApplyGrappleWeaponIndex() {
             if(_fpsAnimator == null) return;
-            var weaponIndex = GetGrappleWeaponIndex(_activeWeaponSoundKey, _activeWeapon);
+            var weaponIndex = GetGrappleWeaponIndex();
             if(weaponIndex < 0) weaponIndex = 0;
             _fpsAnimator.SetFloat(GrappleWeaponIndexHash, weaponIndex);
         }
@@ -1118,7 +1131,7 @@ namespace Game.Weapons {
                 TryCacheActiveWeapon();
             }
 
-            _runtimeGrappleOffsetWeaponIndex = GetGrappleWeaponIndex(_activeWeaponSoundKey, _activeWeapon);
+            _runtimeGrappleOffsetWeaponIndex = GetGrappleWeaponIndex();
             if(_runtimeGrappleOffsetWeaponIndex == 0) {
                 s_akViewmodelLocalPosition = transform.localPosition;
                 s_hasAkViewmodelReference = true;

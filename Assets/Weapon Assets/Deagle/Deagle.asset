@@ -39,4 +39,6 @@ MonoBehaviour:
   muzzleFlashPrefab: {fileID: 6299671218319471870, guid: 6373b8829b762a344a5677cd3fd522a5, type: 3}
   shootSoundId: weapons.deagle.shoot
   reloadSoundId: weapons.deagle.reload
+  kinemationSpecialHandling: 1
+  kinemationGrappleWeaponIndex: 5
   legacyFireMode: 

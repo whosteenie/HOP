@@ -39,4 +39,6 @@ MonoBehaviour:
   muzzleFlashPrefab: {fileID: 6299671218319471870, guid: 6373b8829b762a344a5677cd3fd522a5, type: 3}
   shootSoundId: weapons.shotgun.shoot
   reloadSoundId: weapons.shotgun.reload
+  kinemationSpecialHandling: 2
+  kinemationGrappleWeaponIndex: 4
   legacyFireMode: 

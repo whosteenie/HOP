@@ -40,6 +40,9 @@ namespace Game.Weapons {
             resolved.NotifyShellShowEvent();
         }
 
+        // Animation Event hook alias used by some KIN clips (e.g. Kar98K).
+        public void ShowShell() => ShellShow();
+
         // Animation Event hook
         public void ReloadComplete() {
             var resolved = ResolveDriver();
@@ -70,6 +73,8 @@ namespace Game.Weapons {
 
         // Aliases for common naming styles.
         public void OnReloadSingle() => ReloadSingle();
+        public void OnShellShow() => ShellShow();
+        public void OnShowShell() => ShowShell();
         public void OnReloadComplete() => ReloadComplete();
         public void OnEquipComplete() => EquipComplete();
         public void OnPlayFireSound() => PlayFireSound();
