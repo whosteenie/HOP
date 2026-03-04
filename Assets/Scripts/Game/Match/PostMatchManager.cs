@@ -224,6 +224,14 @@ namespace Game.Match {
                 Instance = null;
         }
 
+        public override void OnDestroy() {
+            base.OnDestroy();
+            UnbindMatchEndedEvent();
+            if(Instance == this) {
+                Instance = null;
+            }
+        }
+
         private void BindMatchEndedEvent() {
             if(!IsServer || _matchEndedEventsBound) return;
             EventBus.Subscribe<MatchEndedEvent>(OnMatchEnded);
