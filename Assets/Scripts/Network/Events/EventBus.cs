@@ -35,7 +35,11 @@ namespace Network.Events {
             typeof(PreMatchCountdownEvent),
             typeof(PreMatchWaitingForPlayersEvent),
             typeof(MatchTimeUpdatedEvent),
-            typeof(PostMatchStartedEvent)
+            typeof(PostMatchStartedEvent),
+            typeof(GameMenuReadyEvent),
+            typeof(MatchTimerReadyEvent),
+            typeof(SessionPropertiesRefreshedEvent),
+            typeof(FrontStatusChangedEvent)
         };
 
         // Editor window access

@@ -5,6 +5,7 @@ using Game.Match;
 using Game.Settings;
 using Game.Social;
 using Network.Diagnostics;
+using Network.Events;
 using Network.Singletons;
 using Network.Steam;
 using Network.UGS;
@@ -36,9 +37,6 @@ namespace Network.Session {
             InGame,
             Error
         }
-
-        // ===== Events =====
-        public event Action OnPartyStateChanged;
 
         // ===== State =====
         public Lobby? CurrentLobby { get; private set; }
@@ -188,9 +186,6 @@ namespace Network.Session {
         public int ExpectedGamePlayerCount => Mathf.Max(1, _expectedGamePlayerCount);
         private CancellationToken SessionLifetimeToken =>
             _sessionLifetimeCts != null ? _sessionLifetimeCts.Token : CancellationToken.None;
-
-        // Events
-        public event Action<string> FrontStatusChanged;
 
         #region Unity Lifecycle
 
@@ -410,9 +405,7 @@ namespace Network.Session {
                 CurrentLobby.Value.SetData(SessionManager.TargetModeKey, mode);
             }
 
-            if(FrontStatusChanged != null) {
-                FrontStatusChanged.Invoke(null);
-            }
+            EventBus.Publish(new FrontStatusChangedEvent(null));
         }
 
 

@@ -41,6 +41,7 @@ namespace Game.Match {
 
             Instance = this;
             InstanceReady?.Invoke(this);
+            EventBus.Publish(new MatchTimerReadyEvent());
 
             if(MatchSettingsManager.Instance != null) {
                 matchDurationSeconds = MatchSettingsManager.Instance.GetMatchDurationSeconds();

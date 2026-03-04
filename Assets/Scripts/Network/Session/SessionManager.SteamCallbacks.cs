@@ -2,6 +2,7 @@ using System;
 using Cysharp.Threading.Tasks;
 using Game.Social;
 using Network.Diagnostics;
+using Network.Events;
 using Steamworks;
 using UnityEngine;
 using Lobby = Steamworks.Data.Lobby;
@@ -36,9 +37,7 @@ namespace Network.Session {
             var amILeader = lobby.Owner.Id == SteamClient.SteamId;
             if(IsPartyLeader != amILeader) {
                 IsPartyLeader = amILeader;
-                if(FrontStatusChanged != null) {
-                    FrontStatusChanged.Invoke(null);
-                }
+                EventBus.Publish(new FrontStatusChangedEvent(null));
             }
 
             NotifyPartyStateChanged();
@@ -241,14 +240,10 @@ namespace Network.Session {
         }
 
         /// <summary>
-        /// Triggers the OnPartyStateChanged event to notify UI listeners.
+        /// Triggers session property refresh events to notify UI listeners.
         /// </summary>
         private static void NotifyPartyStateChanged() {
-            if(!HasInstance) return;
-            var sessionManager = Instance;
-            if(sessionManager.OnPartyStateChanged != null) {
-                sessionManager.OnPartyStateChanged.Invoke();
-            }
+            EventBus.Publish(new SessionPropertiesRefreshedEvent());
         }
 
         #endregion

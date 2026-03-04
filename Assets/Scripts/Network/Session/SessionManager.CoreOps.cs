@@ -8,6 +8,7 @@ using Game.Menu;
 using Game.Social;
 using Network.Core;
 using Network.Diagnostics;
+using Network.Events;
 using Steamworks;
 using Unity.Netcode;
 using Unity.Netcode.Transports.UTP;
@@ -617,9 +618,7 @@ namespace Network.Session {
         /// <param name="message">The status message to display.</param>
         private void SetFrontStatus(SessionPhase phase, string message) {
             Phase = phase;
-            if(FrontStatusChanged != null) {
-                FrontStatusChanged.Invoke(message);
-            }
+            EventBus.Publish(new FrontStatusChangedEvent(message));
         }
 
         private void RegisterNetworkCallbacks() {
@@ -657,8 +656,8 @@ namespace Network.Session {
                 ("mode", mode),
                 ("changed", changed));
 
-            if(changed && refreshUi && FrontStatusChanged != null) {
-                FrontStatusChanged.Invoke(null);
+            if(changed && refreshUi) {
+                EventBus.Publish(new FrontStatusChangedEvent(null));
             }
         }
 

@@ -141,5 +141,17 @@ namespace Network.Events {
             Player = player;
         }
     }
+
+    /// <summary>
+    /// Event published when the in-game HUD/menu manager instance is initialized.
+    /// </summary>
+    public class GameMenuReadyEvent : GameEvent {
+    }
+
+    /// <summary>
+    /// Event published when the match timer manager instance is initialized.
+    /// </summary>
+    public class MatchTimerReadyEvent : GameEvent {
+    }
 }
 

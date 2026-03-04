@@ -135,6 +135,7 @@ namespace Game.Menu {
             Instance = this;
             base.Awake();
             InstanceReady?.Invoke(this);
+            EventBus.Publish(new GameMenuReadyEvent());
         }
 
         protected override void Start() {

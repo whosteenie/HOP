@@ -4,6 +4,7 @@ using Game.Match;
 using Game.Menu;
 using Game.Player;
 using Network.Diagnostics;
+using Network.Events;
 using Network.Singletons;
 using Unity.Netcode;
 using UnityEngine;
@@ -60,17 +61,18 @@ namespace Network.Session {
 
             var latch = new GameplayReadinessLatch();
 
-            void OnPlayerSpawned(PlayerController player) {
+            void OnLocalPlayerReady(LocalPlayerReadyEvent evt) {
+                var player = evt.Player;
                 if(player != null && player.IsOwner && player.IsSpawned) {
                     latch.SignalLocalPlayerReady();
                 }
             }
 
-            void OnGameMenuReady(GameMenuManager _) {
+            void OnGameMenuReady(GameMenuReadyEvent _) {
                 latch.SignalGameMenuReady();
             }
 
-            void OnMatchTimerReady(MatchTimerManager _) {
+            void OnMatchTimerReady(MatchTimerReadyEvent _) {
                 latch.SignalMatchTimerReady();
             }
 
@@ -79,9 +81,12 @@ namespace Network.Session {
                 latch.Cancel();
             }
 
-            PlayerController.PlayerSpawned += OnPlayerSpawned;
-            GameMenuManager.InstanceReady += OnGameMenuReady;
-            MatchTimerManager.InstanceReady += OnMatchTimerReady;
+            EventBus.Unsubscribe<LocalPlayerReadyEvent>(OnLocalPlayerReady);
+            EventBus.Unsubscribe<GameMenuReadyEvent>(OnGameMenuReady);
+            EventBus.Unsubscribe<MatchTimerReadyEvent>(OnMatchTimerReady);
+            EventBus.Subscribe<LocalPlayerReadyEvent>(OnLocalPlayerReady);
+            EventBus.Subscribe<GameMenuReadyEvent>(OnGameMenuReady);
+            EventBus.Subscribe<MatchTimerReadyEvent>(OnMatchTimerReady);
             SceneManager.activeSceneChanged += OnActiveSceneChanged;
 
             if(PlayerController.LocalPlayer != null && PlayerController.LocalPlayer.IsSpawned) {
@@ -110,9 +115,9 @@ namespace Network.Session {
             } catch(OperationCanceledException) {
                 return false;
             } finally {
-                PlayerController.PlayerSpawned -= OnPlayerSpawned;
-                GameMenuManager.InstanceReady -= OnGameMenuReady;
-                MatchTimerManager.InstanceReady -= OnMatchTimerReady;
+                EventBus.Unsubscribe<LocalPlayerReadyEvent>(OnLocalPlayerReady);
+                EventBus.Unsubscribe<GameMenuReadyEvent>(OnGameMenuReady);
+                EventBus.Unsubscribe<MatchTimerReadyEvent>(OnMatchTimerReady);
                 SceneManager.activeSceneChanged -= OnActiveSceneChanged;
             }
         }
