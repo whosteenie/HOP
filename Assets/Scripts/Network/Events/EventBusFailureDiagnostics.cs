@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.IO;
 using System.Text;
 using Unity.Netcode;
@@ -67,14 +68,14 @@ namespace Network.Events {
 
                 if(target is Component componentTarget) {
                     subscriberObjectName = componentTarget.gameObject != null ? componentTarget.gameObject.name : subscriberObjectName;
-                    subscriberObjectPath = BuildHierarchyPath(componentTarget.transform);
+                    subscriberObjectPath = EventBusContextValues.BuildHierarchyPath(componentTarget.transform);
                 }
 
                 if(target is NetworkBehaviour networkTarget) {
                     subscriberNetworkObjectId = networkTarget.NetworkObject != null
-                        ? networkTarget.NetworkObjectId.ToString()
+                        ? networkTarget.NetworkObjectId.ToString(CultureInfo.InvariantCulture)
                         : string.Empty;
-                    subscriberOwnerClientId = networkTarget.OwnerClientId.ToString();
+                    subscriberOwnerClientId = networkTarget.OwnerClientId.ToString(CultureInfo.InvariantCulture);
                 }
 
                 var publisherFile = string.IsNullOrEmpty(callerFile) ? string.Empty : Path.GetFileName(callerFile);
@@ -85,7 +86,7 @@ namespace Network.Events {
                 var parentCorrelationId = gameEvent != null ? gameEvent.ParentCorrelationId : string.Empty;
                 var correlationDepth = gameEvent != null ? gameEvent.CorrelationDepth : 0;
                 var publisherEventContext = gameEvent != null ? gameEvent.BuildContextSummary() : string.Empty;
-                var subscriberContext = ResolveSubscriberContext(target);
+                var subscriberContext = ResolveSubscriberContext(target, settingsSnapshot.RedactIdentifiers);
 
                 var record = new EventBusFailureRecord {
                     recordType = "handler_exception",
@@ -104,15 +105,15 @@ namespace Network.Events {
                     correlationId = correlationId,
                     parentCorrelationId = parentCorrelationId,
                     correlationDepth = correlationDepth,
-                    publisherEventContext = publisherEventContext,
+                    publisherEventContext = MaybeRedactString(publisherEventContext, settingsSnapshot.RedactIdentifiers),
                     subscriberMethod = subscriberMethod,
                     subscriberDeclaringType = subscriberDeclaringType,
                     subscriberTargetType = subscriberTargetType,
-                    subscriberInstanceId = subscriberInstanceId,
-                    subscriberObjectName = subscriberObjectName,
-                    subscriberObjectPath = subscriberObjectPath,
-                    subscriberNetworkObjectId = subscriberNetworkObjectId,
-                    subscriberOwnerClientId = MaybeRedactIdentifier(subscriberOwnerClientId, settingsSnapshot.RedactIdentifiers),
+                    subscriberInstanceId = MaybeRedactInt(subscriberInstanceId, settingsSnapshot.RedactIdentifiers),
+                    subscriberObjectName = MaybeRedactString(subscriberObjectName, settingsSnapshot.RedactIdentifiers),
+                    subscriberObjectPath = MaybeRedactString(subscriberObjectPath, settingsSnapshot.RedactIdentifiers),
+                    subscriberNetworkObjectId = MaybeRedactString(subscriberNetworkObjectId, settingsSnapshot.RedactIdentifiers),
+                    subscriberOwnerClientId = MaybeRedactString(subscriberOwnerClientId, settingsSnapshot.RedactIdentifiers),
                     subscriberContext = subscriberContext,
                     exceptionType = exception != null ? exception.GetType().FullName : "UnknownException",
                     exceptionMessage = exception != null ? exception.Message : "Unknown exception",
@@ -215,17 +216,18 @@ namespace Network.Events {
         }
 
         internal static void Tick() {
-            if(_initialized == false || _writer == null) return;
-            if(Time.unscaledTime < _nextFlushAt) return;
-            var settingsSnapshot = GetSettingsSnapshot();
-            _nextFlushAt = Time.unscaledTime + settingsSnapshot.FlushIntervalSeconds;
+            lock(Gate) {
+                if(_initialized == false || _writer == null) return;
+                if(Time.unscaledTime < _nextFlushAt) return;
+                _nextFlushAt = Time.unscaledTime + _settings.FlushIntervalSeconds;
 
-            try {
-                _writer.Flush();
-            } catch(Exception flushException) {
-                if(_internalErrorLogged) return;
-                _internalErrorLogged = true;
-                Debug.LogError($"[EventBusFailure] Failed flushing diagnostics log: {flushException}");
+                try {
+                    _writer.Flush();
+                } catch(Exception flushException) {
+                    if(_internalErrorLogged) return;
+                    _internalErrorLogged = true;
+                    Debug.LogError($"[EventBusFailure] Failed flushing diagnostics log: {flushException}");
+                }
             }
         }
 
@@ -272,7 +274,6 @@ namespace Network.Events {
                     _settings.FileLoggingEnabled = false;
                 }
 
-                CreateDriverLocked();
                 ApplyWriterStateLocked();
 
                 if(_sessionStartWritten == false && _writer != null) {
@@ -326,6 +327,7 @@ namespace Network.Events {
                 _bytesWritten = 0;
                 _maxFileSizeReached = false;
                 _nextFlushAt = Time.unscaledTime + _settings.FlushIntervalSeconds;
+                CreateDriverLocked();
                 if(_sessionStartWritten == false) {
                     WriteSessionBoundaryLocked("session_start");
                     _sessionStartWritten = true;
@@ -420,26 +422,20 @@ namespace Network.Events {
             return networkManager.IsClient ? "Client" : "Offline";
         }
 
-        private static string MaybeRedactIdentifier(string input, bool redactIdentifiers) {
+        private static string MaybeRedactString(string input, bool redactIdentifiers) {
             if(redactIdentifiers == false) return input;
             if(string.IsNullOrEmpty(input)) return input;
             return "<redacted>";
         }
 
-        private static string BuildHierarchyPath(Transform transform) {
-            if(transform == null) return string.Empty;
-            var path = transform.name;
-            var current = transform.parent;
-            while(current != null) {
-                path = current.name + "/" + path;
-                current = current.parent;
-            }
-
-            return path;
+        private static int MaybeRedactInt(int input, bool redactIdentifiers) {
+            if(redactIdentifiers == false) return input;
+            return input == 0 ? 0 : -1;
         }
 
-        private static string ResolveSubscriberContext(object target) {
+        private static string ResolveSubscriberContext(object target, bool redactIdentifiers) {
             if(target is not IEventBusContextProvider provider) return string.Empty;
+            if(redactIdentifiers) return "<redacted>";
 
             try {
                 var values = new EventBusContextValues();

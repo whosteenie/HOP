@@ -156,7 +156,7 @@ namespace Network.Events {
             return sb.ToString();
         }
 
-        private static string BuildHierarchyPath(Transform transform) {
+        internal static string BuildHierarchyPath(Transform transform) {
             if(transform == null) return string.Empty;
             var path = transform.name;
             var current = transform.parent;
