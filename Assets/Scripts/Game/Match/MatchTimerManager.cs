@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using Game.Menu;
 using Game.Player;
-using Network;
 using Network.Diagnostics;
 using Network.Events;
 using Unity.Netcode;
@@ -239,12 +238,6 @@ namespace Game.Match {
             
             // Publish match ended event
             EventBus.Publish(new MatchEndedEvent());
-            
-            if(PostMatchManager.Instance == null) {
-                Debug.LogWarning("[MatchTimerManager] PostMatchManager.Instance == null on server!");
-            } else {
-                PostMatchManager.Instance.BeginPostMatchFromTimer();
-            }
         }
 
         private void OnTimeRemainingChanged(int previous, int current) {
@@ -323,12 +316,6 @@ namespace Game.Match {
             // Publish match started event
             EventBus.Publish(new MatchStartedEvent());
 
-            // Kick objective systems from the authoritative match-state transition point.
-            // This avoids missing round-init when scene object spawn order varies between matches.
-            if(matchSettings != null && matchSettings.selectedGameModeId == "KOTH") {
-                TriggerKothRoundStart();
-            }
-
             // Check if we're in Tag mode and designate initial "it" after 5 seconds
             if(matchSettings != null && matchSettings.selectedGameModeId == "Gun Tag") {
                 StartCoroutine(DesignateInitialItAfterDelay());
@@ -394,17 +381,6 @@ namespace Game.Match {
 
                 _hasDesignatedInitialIt = true;
             }
-        }
-
-        private static void TriggerKothRoundStart() {
-            var kothManager = KingOfTheHillManager.Instance;
-            if(kothManager == null) {
-                Debug.LogError(
-                    "[MatchTimerManager] KOTH match started but no KingOfTheHillManager was found in the scene.");
-                return;
-            }
-
-            kothManager.HandleMatchStartedServer("MatchTimerManager");
         }
     }
 }

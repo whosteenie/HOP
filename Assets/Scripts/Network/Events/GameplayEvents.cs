@@ -1,4 +1,5 @@
 using UnityEngine;
+using Game.Player;
 
 namespace Network.Events {
     /// <summary>
@@ -105,6 +106,39 @@ namespace Network.Events {
 
         public HopballDroppedEvent(ulong playerId) {
             PlayerId = playerId;
+        }
+    }
+
+    /// <summary>
+    /// Event published when a player network object is spawned and registered.
+    /// </summary>
+    public class PlayerNetworkSpawnedEvent : GameEvent {
+        public readonly PlayerController Player;
+
+        public PlayerNetworkSpawnedEvent(PlayerController player) {
+            Player = player;
+        }
+    }
+
+    /// <summary>
+    /// Event published when a player network object is despawned and unregistered.
+    /// </summary>
+    public class PlayerNetworkDespawnedEvent : GameEvent {
+        public readonly PlayerController Player;
+
+        public PlayerNetworkDespawnedEvent(PlayerController player) {
+            Player = player;
+        }
+    }
+
+    /// <summary>
+    /// Event published when the local owner player is fully network-spawned and ready.
+    /// </summary>
+    public class LocalPlayerReadyEvent : GameEvent {
+        public readonly PlayerController Player;
+
+        public LocalPlayerReadyEvent(PlayerController player) {
+            Player = player;
         }
     }
 }

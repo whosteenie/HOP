@@ -50,10 +50,9 @@ namespace Game.UI {
         private void Update() {
             var now = Time.unscaledTime;
 
-            if(now >= _nextLocalIdentityRefreshTime) {
-                RefreshLocalIdentityContext();
-                _nextLocalIdentityRefreshTime = now + LocalIdentityRefreshIntervalSeconds;
-            }
+            if(!(now >= _nextLocalIdentityRefreshTime)) return;
+            RefreshLocalIdentityContext();
+            _nextLocalIdentityRefreshTime = now + LocalIdentityRefreshIntervalSeconds;
         }
 
         private void RegisterNetworkCallbacks() {
@@ -423,11 +422,7 @@ namespace Game.UI {
 
             // Opportunistically track from connected clients if the first pass misses.
             TrackConnectedClients();
-            if(TryResolveTrackedPlayer(rawIdentity, out resolvedPlayer, out canonicalId)) {
-                return canonicalId;
-            }
-
-            return rawIdentity;
+            return TryResolveTrackedPlayer(rawIdentity, out resolvedPlayer, out canonicalId) ? canonicalId : rawIdentity;
         }
 
         private bool TryResolveTrackedPlayer(string rawIdentity, out Player.PlayerController resolvedPlayer,
@@ -470,8 +465,8 @@ namespace Game.UI {
             if(!SteamClient.IsValid || !SteamClient.IsLoggedOn) return;
             if(SteamManager.Instance == null) return;
 
-            var texture = await SteamManager.Instance.GetAvatarAsync((SteamId)steamId);
-            if(texture != null && avatarElement != null) {
+            var texture = await SteamManager.Instance.GetAvatarAsync(steamId);
+            if(texture != null) {
                 avatarElement.style.backgroundImage = new StyleBackground(texture);
             }
         }

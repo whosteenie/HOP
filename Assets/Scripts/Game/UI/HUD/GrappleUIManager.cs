@@ -5,7 +5,7 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UIElements;
 using Game.Settings;
-using Network;
+using Network.Events;
 using SessionManager = Network.Session.SessionManager;
 
 namespace Game.UI {
@@ -61,12 +61,15 @@ namespace Game.UI {
             SceneManager.sceneLoaded += OnSceneLoaded;
             GameSettings.OnSettingsChanged -= OnSettingsChanged;
             GameSettings.OnSettingsChanged += OnSettingsChanged;
+            EventBus.Unsubscribe<LocalPlayerReadyEvent>(OnLocalPlayerReady);
+            EventBus.Subscribe<LocalPlayerReadyEvent>(OnLocalPlayerReady);
         }
         
         protected override void OnDisable() {
             // Unsubscribe from scene changes
             SceneManager.sceneLoaded -= OnSceneLoaded;
             GameSettings.OnSettingsChanged -= OnSettingsChanged;
+            EventBus.Unsubscribe<LocalPlayerReadyEvent>(OnLocalPlayerReady);
             base.OnDisable();
         }
 
@@ -97,6 +100,10 @@ namespace Game.UI {
                     HideCrosshairIndicator();
                     HideBottomIndicator();
                     break;
+            }
+
+            if(PlayerController.LocalPlayer != null) {
+                RegisterLocalPlayer(PlayerController.LocalPlayer);
             }
         }
 
@@ -181,11 +188,16 @@ namespace Game.UI {
             }
         }
 
-        public void RegisterLocalPlayer(PlayerController player) {
+        private void RegisterLocalPlayer(PlayerController player) {
             if(player == null) return;
             _localPlayer = player;
             _grappleController = player.GetComponentInChildren<GrappleController>();
             _fpCamera = player.GetComponentInChildren<CinemachineCamera>();
+        }
+
+        private void OnLocalPlayerReady(LocalPlayerReadyEvent evt) {
+            if(evt == null || evt.Player == null) return;
+            RegisterLocalPlayer(evt.Player);
         }
 
         private void CreateHorseshoeSegments() {
