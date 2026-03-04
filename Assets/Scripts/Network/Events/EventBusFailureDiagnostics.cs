@@ -26,11 +26,6 @@ namespace Network.Events {
         private static float _nextFlushAt;
         private static EventBusFailureDiagnosticsDriver _driver;
 
-        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
-        private static void InitializeOnRuntimeLoad() {
-            EnsureInitialized();
-        }
-
         internal static bool RecordHandlerException(
             Type eventType,
             GameEvent gameEvent,
@@ -39,10 +34,14 @@ namespace Network.Events {
             string callerMember,
             string callerFile,
             int callerLine) {
+            if(IsFailureCaptureEnabled() == false) {
+                return GetFailFastEnabled();
+            }
+
             EnsureInitialized();
 
             if(_settings.FailureCaptureEnabled == false) {
-                return _settings.FailFastOnHandlerException;
+                return GetFailFastEnabled();
             }
 
             try {
@@ -130,18 +129,19 @@ namespace Network.Events {
                 }
             } catch(Exception internalException) {
                 if(_internalErrorLogged) {
-                    return _settings.FailFastOnHandlerException;
+                    return GetFailFastEnabled();
                 }
 
                 _internalErrorLogged = true;
                 Debug.LogError($"[EventBusFailure] Diagnostics pipeline failure: {internalException}");
             }
 
-            return _settings.FailFastOnHandlerException;
+            return GetFailFastEnabled();
         }
 
         internal static void ApplyLogSettings(EventBusLogSettings settings) {
             if(settings == null) return;
+            var shouldInitialize = false;
 
             lock(Gate) {
                 _settings = new FailureRuntimeSettings {
@@ -160,22 +160,42 @@ namespace Network.Events {
 
                 if(_initialized) {
                     ApplyWriterStateLocked();
+                } else {
+                    shouldInitialize = _settings.FailureCaptureEnabled && _settings.FileLoggingEnabled;
                 }
+            }
+
+            if(shouldInitialize) {
+                EnsureInitialized();
             }
         }
 
         internal static void SetFileLoggingEnabled(bool enabled) {
+            var shouldInitialize = false;
             lock(Gate) {
                 _settings.FileLoggingEnabled = enabled;
                 if(_initialized) {
                     ApplyWriterStateLocked();
+                    return;
                 }
+
+                shouldInitialize = enabled && _settings.FailureCaptureEnabled;
+            }
+
+            if(shouldInitialize) {
+                EnsureInitialized();
             }
         }
 
         internal static void SetFailureCaptureEnabled(bool enabled) {
+            var shouldInitialize = false;
             lock(Gate) {
                 _settings.FailureCaptureEnabled = enabled;
+                shouldInitialize = enabled && _settings.FileLoggingEnabled && _initialized == false;
+            }
+
+            if(shouldInitialize) {
+                EnsureInitialized();
             }
         }
 
@@ -223,6 +243,7 @@ namespace Network.Events {
                     }
                 } finally {
                     _writer = null;
+                    _activeLogPath = null;
                 }
             }
         }
@@ -245,7 +266,7 @@ namespace Network.Events {
                 CreateDriverLocked();
                 ApplyWriterStateLocked();
 
-                if(_sessionStartWritten == false) {
+                if(_sessionStartWritten == false && _writer != null) {
                     WriteSessionBoundaryLocked("session_start");
                     _sessionStartWritten = true;
                 }
@@ -262,15 +283,17 @@ namespace Network.Events {
 
         private static void ApplyWriterStateLocked() {
             if(_settings.FileLoggingEnabled == false) {
-                if(_writer == null) return;
-                try {
-                    _writer.Flush();
-                    _writer.Dispose();
-                } catch {
-                    // No-op: best effort close.
-                } finally {
-                    _writer = null;
+                if(_writer != null) {
+                    try {
+                        _writer.Flush();
+                        _writer.Dispose();
+                    } catch {
+                        // No-op: best effort close.
+                    } finally {
+                        _writer = null;
+                    }
                 }
+                _activeLogPath = null;
 
                 return;
             }
@@ -282,16 +305,21 @@ namespace Network.Events {
                 Directory.CreateDirectory(directory);
 
                 var timestamp = DateTime.UtcNow.ToString("yyyyMMdd_HHmmss");
-                _activeLogPath = Path.Combine(directory, $"eventbus_{timestamp}_{_sessionId}.ndjson");
+                var candidatePath = Path.Combine(directory, $"eventbus_{timestamp}_{_sessionId}.ndjson");
 
-                var stream = new FileStream(_activeLogPath, FileMode.Create, FileAccess.Write, FileShare.Read);
+                var stream = new FileStream(candidatePath, FileMode.Create, FileAccess.Write, FileShare.Read);
                 _writer = new StreamWriter(stream, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false)) {
                     AutoFlush = false
                 };
+                _activeLogPath = candidatePath;
                 _recordCount = 0;
                 _bytesWritten = 0;
                 _maxFileSizeReached = false;
                 _nextFlushAt = Time.unscaledTime + _settings.FlushIntervalSeconds;
+                if(_sessionStartWritten == false) {
+                    WriteSessionBoundaryLocked("session_start");
+                    _sessionStartWritten = true;
+                }
             } catch(Exception writerException) {
                 if(_internalErrorLogged == false) {
                     _internalErrorLogged = true;
@@ -299,6 +327,7 @@ namespace Network.Events {
                 }
 
                 _writer = null;
+                _activeLogPath = null;
             }
         }
 
@@ -338,14 +367,12 @@ namespace Network.Events {
 
         private static void WriteRecordLocked(EventBusFailureRecord record, bool flushImmediately) {
             if(record == null) return;
-            if(_recordCount >= _settings.MaxRecordsPerSession) return;
-
-            _recordCount++;
-
             if(_writer == null) return;
             if(_maxFileSizeReached) return;
+            if(_recordCount >= _settings.MaxRecordsPerSession) return;
 
             try {
+                record.sequence = _recordCount + 1;
                 var json = JsonUtility.ToJson(record);
                 var byteCount = Encoding.UTF8.GetByteCount(json) + 1;
                 if(_bytesWritten + byteCount > _settings.MaxFileSizeBytes) {
@@ -358,6 +385,7 @@ namespace Network.Events {
 
                 _writer.WriteLine(json);
                 _bytesWritten += byteCount;
+                _recordCount++;
 
                 if(flushImmediately) {
                     _writer.Flush();
@@ -409,6 +437,18 @@ namespace Network.Events {
                 return values.ToCompactString();
             } catch(Exception ex) {
                 return $"context_error={ex.GetType().Name}";
+            }
+        }
+
+        private static bool IsFailureCaptureEnabled() {
+            lock(Gate) {
+                return _settings.FailureCaptureEnabled;
+            }
+        }
+
+        private static bool GetFailFastEnabled() {
+            lock(Gate) {
+                return _settings.FailFastOnHandlerException;
             }
         }
 
