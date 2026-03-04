@@ -82,7 +82,7 @@ namespace Game.Menu {
         private bool _pauseChallengesDirty = true;
         private bool? _cachedOfflineState;
         private float _nextChallengeTimerUpdateAt;
-        private ProgressionManager _progressionManager;
+        private bool _progressionEventsBound;
         private const float ChallengeTimerUpdateIntervalSeconds = 1f;
 
         // Pause loadout UI
@@ -135,6 +135,7 @@ namespace Game.Menu {
             Instance = this;
             base.Awake();
             InstanceReady?.Invoke(this);
+            EventBus.Publish(new GameMenuReadyEvent());
         }
 
         protected override void Start() {
@@ -470,29 +471,33 @@ namespace Game.Menu {
         }
 
         private void BindProgressionEvents() {
-            if(_progressionManager != null) return;
-            _progressionManager = ProgressionManager.Instance;
-            if(_progressionManager == null) return;
-
-            _progressionManager.OnChallengesUpdated -= OnChallengesUpdated;
-            _progressionManager.OnChallengesUpdated += OnChallengesUpdated;
+            if(_progressionEventsBound) return;
+            EventBus.Unsubscribe<ChallengesUpdatedEvent>(OnChallengesUpdatedEvent);
+            EventBus.Subscribe<ChallengesUpdatedEvent>(OnChallengesUpdatedEvent);
+            _progressionEventsBound = true;
         }
 
         private void UnbindProgressionEvents() {
-            if(_progressionManager == null) return;
-            _progressionManager.OnChallengesUpdated -= OnChallengesUpdated;
-            _progressionManager = null;
+            if(!_progressionEventsBound) return;
+            EventBus.Unsubscribe<ChallengesUpdatedEvent>(OnChallengesUpdatedEvent);
+            _progressionEventsBound = false;
         }
 
         private void BindGameplayEvents() {
             if(_gameplayEventsBound) return;
             EventBus.Subscribe<PlayerDiedEvent>(OnPlayerDied);
+            EventBus.Subscribe<PreMatchWaitingForPlayersEvent>(OnPreMatchWaitingForPlayers);
+            EventBus.Subscribe<PreMatchCountdownEvent>(OnPreMatchCountdown);
+            EventBus.Subscribe<MatchStartedEvent>(OnMatchStartedEvent);
             _gameplayEventsBound = true;
         }
 
         private void UnbindGameplayEvents() {
             if(!_gameplayEventsBound) return;
             EventBus.Unsubscribe<PlayerDiedEvent>(OnPlayerDied);
+            EventBus.Unsubscribe<PreMatchWaitingForPlayersEvent>(OnPreMatchWaitingForPlayers);
+            EventBus.Unsubscribe<PreMatchCountdownEvent>(OnPreMatchCountdown);
+            EventBus.Unsubscribe<MatchStartedEvent>(OnMatchStartedEvent);
             _gameplayEventsBound = false;
         }
 
@@ -501,6 +506,21 @@ namespace Game.Menu {
             if(controller == null) return;
             if(gameEvent.PlayerId != controller.OwnerClientId) return;
             ApplyPendingLoadoutNow();
+        }
+
+        private void OnPreMatchWaitingForPlayers(PreMatchWaitingForPlayersEvent evt) {
+            if(evt == null || !evt.IsWaiting) return;
+            if(!IsPostMatch) return;
+            RestoreHudForMatchStart();
+        }
+
+        private void OnPreMatchCountdown(PreMatchCountdownEvent _) {
+            if(!IsPostMatch) return;
+            RestoreHudForMatchStart();
+        }
+
+        private void OnMatchStartedEvent(MatchStartedEvent _) {
+            RestoreHudForMatchStart();
         }
 
         private void RegisterPauseLoadoutEvents() {
@@ -818,6 +838,10 @@ namespace Game.Menu {
             SetPauseChallengesDirty();
             if(!IsPaused) return;
             UpdatePauseChallengesIfDirty();
+        }
+
+        private void OnChallengesUpdatedEvent(ChallengesUpdatedEvent _) {
+            OnChallengesUpdated();
         }
 
         private static bool IsOfflineMode() {

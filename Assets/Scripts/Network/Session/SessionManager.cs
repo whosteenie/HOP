@@ -5,6 +5,7 @@ using Game.Match;
 using Game.Settings;
 using Game.Social;
 using Network.Diagnostics;
+using Network.Events;
 using Network.Singletons;
 using Network.Steam;
 using Network.UGS;
@@ -36,9 +37,6 @@ namespace Network.Session {
             InGame,
             Error
         }
-
-        // ===== Events =====
-        public event Action OnPartyStateChanged;
 
         // ===== State =====
         public Lobby? CurrentLobby { get; private set; }
@@ -189,9 +187,6 @@ namespace Network.Session {
         private CancellationToken SessionLifetimeToken =>
             _sessionLifetimeCts != null ? _sessionLifetimeCts.Token : CancellationToken.None;
 
-        // Events
-        public event Action<string> FrontStatusChanged;
-
         #region Unity Lifecycle
 
         protected override void Awake() {
@@ -228,7 +223,8 @@ namespace Network.Session {
             SteamFriends.OnGameLobbyJoinRequested += OnGameLobbyJoinRequested;
             SteamFriends.OnGameRichPresenceJoinRequested += OnGameRichPresenceJoinRequested;
 
-            GameSettings.OnSettingsChanged += OnLocalSettingsChanged;
+            EventBus.Unsubscribe<GameSettingsChangedEvent>(OnGameSettingsChanged);
+            EventBus.Subscribe<GameSettingsChangedEvent>(OnGameSettingsChanged);
         }
 
         private void OnDisable() {
@@ -242,12 +238,16 @@ namespace Network.Session {
             SteamFriends.OnGameLobbyJoinRequested -= OnGameLobbyJoinRequested;
             SteamFriends.OnGameRichPresenceJoinRequested -= OnGameRichPresenceJoinRequested;
 
-            GameSettings.OnSettingsChanged -= OnLocalSettingsChanged;
+            EventBus.Unsubscribe<GameSettingsChangedEvent>(OnGameSettingsChanged);
         }
 
         private void OnLocalSettingsChanged() {
             // Streamer mode toggle can change the display name we want other players to see.
             UpdateLocalDisplayNameInLobby();
+        }
+
+        private void OnGameSettingsChanged(GameSettingsChangedEvent _) {
+            OnLocalSettingsChanged();
         }
 
         private void UpdateLocalDisplayNameInLobby() {
@@ -410,9 +410,7 @@ namespace Network.Session {
                 CurrentLobby.Value.SetData(SessionManager.TargetModeKey, mode);
             }
 
-            if(FrontStatusChanged != null) {
-                FrontStatusChanged.Invoke(null);
-            }
+            EventBus.Publish(new FrontStatusChangedEvent(null));
         }
 
 

@@ -1,5 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
+using Network.Events;
 using UnityEngine;
 
 namespace OSI {
@@ -22,15 +22,14 @@ namespace OSI {
 
         private readonly List<Target> _targets = new();
 
-        public static Action<Target, bool> TargetStateChanged;
-
         public void Awake() {
             _mainCamera = Camera.main;
             _screenCentre = new Vector3(Screen.width, Screen.height, 0) / 2;
             _screenBounds = _screenCentre * screenBoundOffset;
             _currentOrientation = Screen.orientation;
             _currentAspectRatio = (float)Screen.width / Screen.height;
-            TargetStateChanged += HandleTargetStateChanged;
+            EventBus.Unsubscribe<IndicatorTargetStateChangedEvent>(OnIndicatorTargetStateChanged);
+            EventBus.Subscribe<IndicatorTargetStateChangedEvent>(OnIndicatorTargetStateChanged);
         }
 
         private void LateUpdate() {
@@ -122,6 +121,11 @@ namespace OSI {
             }
         }
 
+        private void OnIndicatorTargetStateChanged(IndicatorTargetStateChangedEvent evt) {
+            if(evt == null || evt.Target == null) return;
+            HandleTargetStateChanged(evt.Target, evt.IsActive);
+        }
+
         /// <summary>
         /// Get the indicator for the target.
         /// 1. If it's not null and of the same required <paramref name="type"/> 
@@ -151,7 +155,9 @@ namespace OSI {
         }
 
         private void OnDestroy() {
-            TargetStateChanged -= HandleTargetStateChanged;
+            this.UnsubscribeFromEventBus();
         }
     }
 }
+
+

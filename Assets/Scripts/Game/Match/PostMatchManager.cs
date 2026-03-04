@@ -9,7 +9,6 @@ using Game.Spawning;
 using Game.UI;
 using Game.Hopball;
 using Game.Player.Hopball;
-using Network;
 using Network.Diagnostics;
 using Network.Events;
 using Network.Singletons;
@@ -44,7 +43,7 @@ namespace Game.Match {
         [SerializeField] private float worldSpaceCardOffsetMinPx = 12f;
         [SerializeField] private float worldSpaceCardOffsetMaxPx = 56f;
         [SerializeField] private float podiumCardFixedHeight = 88f;
-        [SerializeField] private float podiumCardAnchorYOffset = 0f;
+        [SerializeField] private float podiumCardAnchorYOffset;
 
         // Podium UI
         private VisualElement _root;
@@ -77,6 +76,7 @@ namespace Game.Match {
         public bool PostMatchFlowStarted { get; private set; }
         private SpawnPoint.Team _winningTeam = SpawnPoint.Team.None;
         private Coroutine _blackoutReadyRoutine;
+        private bool _matchEndedEventsBound;
         private bool IsPodiumBlackoutActive { get; set; }
         public static bool IsPodiumBlackoutActiveLocal => Instance != null && Instance.IsPodiumBlackoutActive;
 
@@ -121,6 +121,11 @@ namespace Game.Match {
             // UI Toolkit document can be valid in inspector but still not bound to a live root in Start
             // depending on scene/object initialization order. Defer hard binding until first real use.
             TryResolveUiDocumentReference();
+        }
+
+        public override void OnNetworkSpawn() {
+            base.OnNetworkSpawn();
+            BindMatchEndedEvent();
         }
 
         private void InitializeUI() {
@@ -212,18 +217,41 @@ namespace Game.Match {
         }
 
         public override void OnNetworkDespawn() {
+            UnbindMatchEndedEvent();
             ResetPostMatchUiState();
             base.OnNetworkDespawn();
             if(Instance == this)
                 Instance = null;
         }
 
+        public override void OnDestroy() {
+            base.OnDestroy();
+            UnbindMatchEndedEvent();
+            if(Instance == this) {
+                Instance = null;
+            }
+        }
+
+        private void BindMatchEndedEvent() {
+            if(!IsServer || _matchEndedEventsBound) return;
+            EventBus.Subscribe<MatchEndedEvent>(OnMatchEnded);
+            _matchEndedEventsBound = true;
+        }
+
+        private void UnbindMatchEndedEvent() {
+            if(!_matchEndedEventsBound) return;
+            EventBus.Unsubscribe<MatchEndedEvent>(OnMatchEnded);
+            _matchEndedEventsBound = false;
+        }
+
+        private void OnMatchEnded(MatchEndedEvent _) {
+            BeginPostMatchFromTimer();
+        }
+
         /// <summary>
         /// Called from MatchTimerManager on the server when the timer hits 0.
         /// </summary>
-        public void BeginPostMatchFromTimer() {
-            // Publish post-match started event
-            EventBus.Publish(new PostMatchStartedEvent());
+        private void BeginPostMatchFromTimer() {
             if(!IsServer) {
                 Debug.LogWarning("[MatchTimerManager] Is not server!");
                 return;
@@ -253,9 +281,6 @@ namespace Game.Match {
                 Debug.LogWarning("[PostMatchManager] BeginPostMatchFromScore called on non-server!");
                 return;
             }
-            
-            // Publish post-match started event
-            EventBus.Publish(new PostMatchStartedEvent());
 
             if(PostMatchFlowStarted) {
                 Debug.LogWarning("[PostMatchManager] Post match is already started!");
@@ -660,10 +685,7 @@ namespace Game.Match {
                 _matchTimerContainer.style.display = DisplayStyle.None;
             EventBus.Publish(new HideScoreDisplayEvent());
 
-            // Hide grapple UI via GrappleUIManager
-            if(GrappleUIManager.Instance != null) {
-                GrappleUIManager.Instance.HideGrappleUI();
-            }
+            EventBus.Publish(new HideGrappleUIEvent());
         }
 
         public void ShowInGameHudAfterPostMatch() {
@@ -682,10 +704,7 @@ namespace Game.Match {
                 _matchTimerContainer.style.display = DisplayStyle.Flex;
             EventBus.Publish(new ShowScoreDisplayEvent());
 
-            // Show grapple UI via GrappleUIManager
-            if(GrappleUIManager.Instance != null) {
-                GrappleUIManager.Instance.ShowGrappleUI();
-            }
+            EventBus.Publish(new ShowGrappleUIEvent());
         }
 
         private void StartPodiumWorldSpaceTracking() {

@@ -107,6 +107,8 @@ namespace Game.UI {
             EventBus.Subscribe<ScoreboardGamemodeChangedEvent>(OnScoreboardGamemodeChanged);
             EventBus.Subscribe<HideScoreDisplayEvent>(OnHideScoreDisplay);
             EventBus.Subscribe<ShowScoreDisplayEvent>(OnShowScoreDisplay);
+            EventBus.Subscribe<PlayerNetworkSpawnedEvent>(OnPlayerNetworkSpawned);
+            EventBus.Subscribe<PlayerNetworkDespawnedEvent>(OnPlayerNetworkDespawned);
         }
 
         private void OnDisable() {
@@ -118,6 +120,8 @@ namespace Game.UI {
             EventBus.Unsubscribe<ScoreboardGamemodeChangedEvent>(OnScoreboardGamemodeChanged);
             EventBus.Unsubscribe<HideScoreDisplayEvent>(OnHideScoreDisplay);
             EventBus.Unsubscribe<ShowScoreDisplayEvent>(OnShowScoreDisplay);
+            EventBus.Unsubscribe<PlayerNetworkSpawnedEvent>(OnPlayerNetworkSpawned);
+            EventBus.Unsubscribe<PlayerNetworkDespawnedEvent>(OnPlayerNetworkDespawned);
 
             // Unsubscribe from network callbacks
             if(NetworkManager.Singleton != null) {
@@ -160,6 +164,14 @@ namespace Game.UI {
 
         private void OnShowScoreDisplay(ShowScoreDisplayEvent evt) {
             ShowScoreDisplay();
+        }
+
+        private void OnPlayerNetworkSpawned(PlayerNetworkSpawnedEvent evt) {
+            RegisterPlayer(evt.Player);
+        }
+
+        private void OnPlayerNetworkDespawned(PlayerNetworkDespawnedEvent evt) {
+            UnregisterPlayer(evt.Player);
         }
 
         #endregion
@@ -212,7 +224,14 @@ namespace Game.UI {
                 NetworkManager.Singleton.OnClientDisconnectCallback += OnClientDisconnected;
             }
 
+            BootstrapPlayerRegistry();
             ApplyInitialMatchTimerState();
+        }
+
+        private void BootstrapPlayerRegistry() {
+            foreach(var player in PlayerController.SpawnedPlayers) {
+                RegisterPlayer(player);
+            }
         }
 
         private void Update() {

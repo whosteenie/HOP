@@ -24,11 +24,6 @@ namespace Game.Menu.Options {
         public Action<MouseOverEvent> MouseHoverCallback;
         public Action OnBackFromOptionsCallback;
 
-        /// <summary>
-        /// Static event for resolution changes. Forwarded from OptionsVideoTabHandler for backwards compatibility.
-        /// </summary>
-        public static event Action<int, int> OnResolutionChanged;
-
         #region Shared UI
 
         private Button _tabVideo;
@@ -122,8 +117,6 @@ namespace Game.Menu.Options {
             _gameHandler = new OptionsGameTabHandler(ResolveMainMenuBackgroundRandomizer);
             _controlsHandler = new OptionsControlsTabHandler();
 
-            OptionsVideoTabHandler.OnResolutionChanged += OnVideoResolutionChanged;
-
             FindSharedElements();
             _audioHandler.FindElements(this);
             _videoHandler.FindElements(this);
@@ -140,10 +133,6 @@ namespace Game.Menu.Options {
             _controlsHandler.SetupKeybinds(this);
             SetupManagerCallbacks();
             SetupSettingDescriptions();
-        }
-
-        protected override void OnCleanup() {
-            OptionsVideoTabHandler.OnResolutionChanged -= OnVideoResolutionChanged;
         }
 
         protected override Dictionary<string, Type> GetRequiredElements() {
@@ -501,7 +490,6 @@ namespace Game.Menu.Options {
         #region Helpers
 
         private void OnButtonClicked(bool isBack = false) => OnButtonClickedCallback?.Invoke(isBack);
-        private static void OnVideoResolutionChanged(int w, int h) => OnResolutionChanged?.Invoke(w, h);
 
         #endregion
 

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Network.Events;
 using UnityEngine;
 
 namespace Game.Settings {
@@ -45,6 +46,7 @@ namespace Game.Settings {
             ValidateAndClamp(data);
             SettingsFile.Save(data);
             OnSettingsChanged?.Invoke();
+            EventBus.Publish(new GameSettingsChangedEvent());
         }
 
         private static void ValidateAndClamp(SettingsData d) {

@@ -170,7 +170,8 @@ namespace Game.Player.Look {
         }
 
         private void OnEnable() {
-            KeybindManager.BindingsApplied += OnBindingsApplied;
+            EventBus.Unsubscribe<BindingsAppliedEvent>(OnBindingsApplied);
+            EventBus.Subscribe<BindingsAppliedEvent>(OnBindingsApplied);
             RefreshCachedScrollBindings();
         }
 
@@ -215,7 +216,7 @@ namespace Game.Player.Look {
         }
 
         private void OnDisable() {
-            KeybindManager.BindingsApplied -= OnBindingsApplied;
+            this.UnsubscribeFromEventBus();
             _queuedWeaponCycleOffset = 0;
             if(_deferredAmmoHudRefreshRoutine != null) {
                 StopCoroutine(_deferredAmmoHudRefreshRoutine);
@@ -841,7 +842,7 @@ namespace Game.Player.Look {
             _grappleAction = _playerActionMap?.FindAction("Grapple");
         }
 
-        private void OnBindingsApplied() {
+        private void OnBindingsApplied(BindingsAppliedEvent _) {
             RefreshCachedScrollBindings();
         }
 

@@ -35,7 +35,24 @@ namespace Network.Events {
             typeof(PreMatchCountdownEvent),
             typeof(PreMatchWaitingForPlayersEvent),
             typeof(MatchTimeUpdatedEvent),
-            typeof(PostMatchStartedEvent)
+            typeof(PostMatchStartedEvent),
+            typeof(GameMenuReadyEvent),
+            typeof(MatchTimerReadyEvent),
+            typeof(SessionPropertiesRefreshedEvent),
+            typeof(FrontStatusChangedEvent),
+            typeof(ResolutionChangedEvent),
+            typeof(GameSettingsChangedEvent),
+            typeof(SocialSettingsChangedEvent),
+            typeof(PlayerMuteChangedEvent),
+            typeof(BindingsAppliedEvent),
+            typeof(ChallengesUpdatedEvent),
+            typeof(HideGrappleUIEvent),
+            typeof(ShowGrappleUIEvent),
+            typeof(VoiceParticipantSpeechChangedEvent),
+            typeof(VoiceParticipantRemovedEvent),
+            typeof(VoiceLocalPttStateChangedEvent),
+            typeof(ChatMessageReceivedEvent),
+            typeof(IndicatorTargetStateChangedEvent)
         };
 
         // Editor window access

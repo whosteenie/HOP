@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Network.Events;
 using Network.Session;
 using UnityEngine;
 using Unity.Services.Authentication;
@@ -67,18 +68,20 @@ namespace Game.Social {
         private async void Start() {
             try {
                 await InitializeVivoxAsync();
-            
+             
                 // Listen for SocialSettings changes
-                SocialSettings.OnSettingsChanged += ApplySettings;
-                SocialSettings.OnPlayerMuteChanged += OnPlayerMuteChanged;
+                EventBus.Unsubscribe<SocialSettingsChangedEvent>(OnSocialSettingsChanged);
+                EventBus.Unsubscribe<PlayerMuteChangedEvent>(OnPlayerMuteChangedEvent);
+                EventBus.Subscribe<SocialSettingsChangedEvent>(OnSocialSettingsChanged);
+                EventBus.Subscribe<PlayerMuteChangedEvent>(OnPlayerMuteChangedEvent);
             } catch(Exception e) {
                 Debug.LogException(e);
             }
         }
 
         private void OnDestroy() {
-            SocialSettings.OnSettingsChanged -= ApplySettings;
-            SocialSettings.OnPlayerMuteChanged -= OnPlayerMuteChanged;
+            EventBus.Unsubscribe<SocialSettingsChangedEvent>(OnSocialSettingsChanged);
+            EventBus.Unsubscribe<PlayerMuteChangedEvent>(OnPlayerMuteChangedEvent);
             if(VivoxService.Instance == null) return;
             VivoxService.Instance.ParticipantAddedToChannel -= OnParticipantAddedToChannel;
             VivoxService.Instance.ParticipantRemovedFromChannel -= OnParticipantRemovedFromChannel;
@@ -417,6 +420,7 @@ namespace Game.Social {
                 if(OnLocalPttStateChanged != null) {
                     OnLocalPttStateChanged.Invoke(_isMicOpen);
                 }
+                EventBus.Publish(new VoiceLocalPttStateChangedEvent(_isMicOpen));
                 
                 // Update NetworkVariable on local PlayerController so other clients see the indicator
                 var localPlayer = Player.PlayerController.LocalPlayer;
@@ -457,6 +461,15 @@ namespace Game.Social {
         
         private void OnPlayerMuteChanged(string playerId, bool isMuted) {
             MuteUser(playerId, isMuted);
+        }
+
+        private void OnSocialSettingsChanged(SocialSettingsChangedEvent _) {
+            ApplySettings();
+        }
+
+        private void OnPlayerMuteChangedEvent(PlayerMuteChangedEvent evt) {
+            if(evt == null) return;
+            OnPlayerMuteChanged(evt.PlayerId, evt.IsMuted);
         }
 
         private async Task ApplySavedMicSettingsAsync() {
@@ -539,12 +552,19 @@ namespace Game.Social {
             if(OnParticipantRemoved != null) {
                 OnParticipantRemoved.Invoke(participant);
             }
+
+            EventBus.Publish(new VoiceParticipantRemovedEvent(participant.PlayerId));
         }
 
         private void OnSpeechDetected(VivoxParticipant participant) {
             if(OnParticipantSpeechDetected != null) {
                 OnParticipantSpeechDetected.Invoke(participant);
             }
+
+            EventBus.Publish(new VoiceParticipantSpeechChangedEvent(
+                participant.PlayerId,
+                participant.DisplayName,
+                participant.SpeechDetected));
         }
     }
 }

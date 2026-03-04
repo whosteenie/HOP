@@ -53,5 +53,16 @@ namespace Network.Events {
     /// </summary>
     public class SessionPropertiesRefreshedEvent : GameEvent {
     }
+
+    /// <summary>
+    /// Event published when front-end session status text changes (or when status UI should refresh).
+    /// </summary>
+    public class FrontStatusChangedEvent : GameEvent {
+        public readonly string Message;
+
+        public FrontStatusChangedEvent(string message) {
+            Message = message;
+        }
+    }
 }
 

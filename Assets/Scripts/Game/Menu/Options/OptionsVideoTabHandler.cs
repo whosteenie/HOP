@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Network.Events;
 using Game.Settings;
 using UnityEngine;
 using UnityEngine.Rendering;
@@ -8,11 +9,6 @@ using UnityEngine.UIElements;
 
 namespace Game.Menu.Options {
     public class OptionsVideoTabHandler : IOptionsTabHandler {
-        /// <summary>
-        /// Notifies when resolution is applied. (width, height)
-        /// </summary>
-        public static event Action<int, int> OnResolutionChanged;
-
         private struct ResolutionData {
             public readonly int Width;
             public readonly int Height;
@@ -329,7 +325,7 @@ namespace Game.Menu.Options {
                 _ => FullScreenMode.FullScreenWindow
             };
             Screen.SetResolution(selectedRes.Width, selectedRes.Height, fullScreenMode);
-            OnResolutionChanged?.Invoke(selectedRes.Width, selectedRes.Height);
+            EventBus.Publish(new ResolutionChangedEvent(selectedRes.Width, selectedRes.Height));
         }
 
         private void ApplyUrpGraphicsSettings() {

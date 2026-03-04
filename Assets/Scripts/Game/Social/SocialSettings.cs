@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Network.Events;
 using Game.Settings;
 using UnityEngine;
 
@@ -130,6 +131,7 @@ namespace Game.Social {
             
             SaveLists();
             OnPlayerMuteChanged?.Invoke(playerId, muted);
+            EventBus.Publish(new PlayerMuteChangedEvent(playerId, muted));
         }
 
         public static void SetBlocked(string playerId, bool blocked) {
@@ -178,6 +180,7 @@ namespace Game.Social {
         private static void Save() {
             GameSettings.Save();
             OnSettingsChanged?.Invoke();
+            EventBus.Publish(new SocialSettingsChangedEvent());
         }
     }
 }

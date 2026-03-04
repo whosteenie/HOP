@@ -1,12 +1,12 @@
 using System;
 using System.Collections.Generic;
 using Game.Social;
+using Network.Events;
 using Network.Steam;
 using UnityEngine;
 using UnityEngine.UIElements;
 using Cysharp.Threading.Tasks;
 using Steamworks;
-using Unity.Services.Vivox;
 using Unity.Netcode;
 
 namespace Game.UI {
@@ -29,14 +29,15 @@ namespace Game.UI {
         protected override void OnInitialize() {
             _overlayContainer = QOptional<VisualElement>("voice-overlay-container");
 
-            if(VoiceManager.Instance != null) {
-                VoiceManager.Instance.OnParticipantSpeechDetected += OnSpeechDetected;
-                VoiceManager.Instance.OnParticipantRemoved += OnParticipantRemoved;
-                VoiceManager.Instance.OnLocalPttStateChanged += OnLocalPttStateChanged;
-            }
-
-            // Listen for mute changes to update UI
-            SocialSettings.OnPlayerMuteChanged += OnPlayerMuteChanged;
+            // Listen for voice and mute changes through EventBus.
+            EventBus.Unsubscribe<VoiceParticipantSpeechChangedEvent>(OnVoiceParticipantSpeechChangedEvent);
+            EventBus.Subscribe<VoiceParticipantSpeechChangedEvent>(OnVoiceParticipantSpeechChangedEvent);
+            EventBus.Unsubscribe<VoiceParticipantRemovedEvent>(OnVoiceParticipantRemovedEvent);
+            EventBus.Subscribe<VoiceParticipantRemovedEvent>(OnVoiceParticipantRemovedEvent);
+            EventBus.Unsubscribe<VoiceLocalPttStateChangedEvent>(OnVoiceLocalPttStateChangedEvent);
+            EventBus.Subscribe<VoiceLocalPttStateChangedEvent>(OnVoiceLocalPttStateChangedEvent);
+            EventBus.Unsubscribe<PlayerMuteChangedEvent>(OnPlayerMuteChangedEvent);
+            EventBus.Subscribe<PlayerMuteChangedEvent>(OnPlayerMuteChangedEvent);
 
             // Cache local player ID
             RefreshLocalIdentityContext();
@@ -50,10 +51,9 @@ namespace Game.UI {
         private void Update() {
             var now = Time.unscaledTime;
 
-            if(now >= _nextLocalIdentityRefreshTime) {
-                RefreshLocalIdentityContext();
-                _nextLocalIdentityRefreshTime = now + LocalIdentityRefreshIntervalSeconds;
-            }
+            if(!(now >= _nextLocalIdentityRefreshTime)) return;
+            RefreshLocalIdentityContext();
+            _nextLocalIdentityRefreshTime = now + LocalIdentityRefreshIntervalSeconds;
         }
 
         private void RegisterNetworkCallbacks() {
@@ -143,13 +143,7 @@ namespace Game.UI {
         }
 
         protected override void OnCleanup() {
-            if(VoiceManager.Instance != null) {
-                VoiceManager.Instance.OnParticipantSpeechDetected -= OnSpeechDetected;
-                VoiceManager.Instance.OnParticipantRemoved -= OnParticipantRemoved;
-                VoiceManager.Instance.OnLocalPttStateChanged -= OnLocalPttStateChanged;
-            }
-
-            SocialSettings.OnPlayerMuteChanged -= OnPlayerMuteChanged;
+            this.UnsubscribeFromEventBus();
             UnregisterPlayerLifecycleCallbacks();
             UnregisterNetworkCallbacks();
             foreach(var clientId in new List<ulong>(_trackedPlayers.Keys)) {
@@ -171,6 +165,11 @@ namespace Game.UI {
             if(isMuted) {
                 RemoveSpeakerEntry(playerId);
             }
+        }
+
+        private void OnPlayerMuteChangedEvent(PlayerMuteChangedEvent evt) {
+            if(evt == null) return;
+            OnPlayerMuteChanged(evt.PlayerId, evt.IsMuted);
         }
 
         protected override Dictionary<string, Type> GetRequiredElements() {
@@ -221,22 +220,23 @@ namespace Game.UI {
             }
         }
 
+        private void OnVoiceLocalPttStateChangedEvent(VoiceLocalPttStateChangedEvent evt) {
+            if(evt == null) return;
+            OnLocalPttStateChanged(evt.IsActive);
+        }
+
         /// <summary>
         /// Called when any participant's speech detection changes.
         /// For Open Mic mode, this controls the local indicator.
         /// For remote players using Open Mic, this also shows their indicator.
         /// </summary>
-        private void OnSpeechDetected(VivoxParticipant participant) {
-            if(participant == null || _overlayContainer == null) return;
-
-            var rawParticipantId = participant.PlayerId;
+        private void OnSpeechDetected(string rawParticipantId, string displayName, bool isSpeaking) {
+            if(_overlayContainer == null) return;
             if(string.IsNullOrEmpty(rawParticipantId)) return;
 
             RefreshLocalIdentityContext();
             var canonicalId = ResolveCanonicalIdentity(rawParticipantId, out var resolvedPlayer);
             if(string.IsNullOrEmpty(canonicalId)) return;
-
-            var isSpeaking = participant.SpeechDetected;
 
             // For local player in PTT mode, ignore speech detection (handled by OnLocalPttStateChanged)
             var isLocalPlayer = IsLocalIdentity(rawParticipantId) || IsLocalIdentity(canonicalId);
@@ -267,7 +267,7 @@ namespace Game.UI {
                     CreateSpeakerEntry(resolvedPlayer.PlayerName.Value.ToString(), resolvedPlayer.steamId.Value, canonicalId);
                 } else {
                     ulong.TryParse(canonicalId, out var steamId);
-                    CreateSpeakerEntry(participant.DisplayName, steamId, canonicalId);
+                    CreateSpeakerEntry(displayName, steamId, canonicalId);
                 }
             } else {
                 if(_participantToCanonicalId.TryGetValue(rawParticipantId, out var mappedCanonicalId)) {
@@ -279,9 +279,12 @@ namespace Game.UI {
             }
         }
 
-        private void OnParticipantRemoved(VivoxParticipant participant) {
-            if(participant == null) return;
-            var participantId = participant.PlayerId;
+        private void OnVoiceParticipantSpeechChangedEvent(VoiceParticipantSpeechChangedEvent evt) {
+            if(evt == null) return;
+            OnSpeechDetected(evt.PlayerId, evt.DisplayName, evt.IsSpeaking);
+        }
+
+        private void OnParticipantRemoved(string participantId) {
             if(string.IsNullOrEmpty(participantId)) return;
 
             if(_participantToCanonicalId.TryGetValue(participantId, out var canonicalId)) {
@@ -291,6 +294,11 @@ namespace Game.UI {
             }
 
             RemoveSpeakerEntry(ResolveCanonicalIdentity(participantId, out _));
+        }
+
+        private void OnVoiceParticipantRemovedEvent(VoiceParticipantRemovedEvent evt) {
+            if(evt == null) return;
+            OnParticipantRemoved(evt.PlayerId);
         }
 
         private void CreateSpeakerEntry(string displayName, ulong steamId, string id) {
@@ -423,11 +431,7 @@ namespace Game.UI {
 
             // Opportunistically track from connected clients if the first pass misses.
             TrackConnectedClients();
-            if(TryResolveTrackedPlayer(rawIdentity, out resolvedPlayer, out canonicalId)) {
-                return canonicalId;
-            }
-
-            return rawIdentity;
+            return TryResolveTrackedPlayer(rawIdentity, out resolvedPlayer, out canonicalId) ? canonicalId : rawIdentity;
         }
 
         private bool TryResolveTrackedPlayer(string rawIdentity, out Player.PlayerController resolvedPlayer,
@@ -470,8 +474,8 @@ namespace Game.UI {
             if(!SteamClient.IsValid || !SteamClient.IsLoggedOn) return;
             if(SteamManager.Instance == null) return;
 
-            var texture = await SteamManager.Instance.GetAvatarAsync((SteamId)steamId);
-            if(texture != null && avatarElement != null) {
+            var texture = await SteamManager.Instance.GetAvatarAsync(steamId);
+            if(texture != null) {
                 avatarElement.style.backgroundImage = new StyleBackground(texture);
             }
         }

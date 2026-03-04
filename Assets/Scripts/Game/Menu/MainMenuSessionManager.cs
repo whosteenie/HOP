@@ -6,7 +6,7 @@ using Cysharp.Threading.Tasks;
 using Game.Progression;
 using Game.Settings;
 using Game.UI;
-using Network;
+using Network.Events;
 using Network.Services;
 using Network.Steam;
 using Game.Social; // Added
@@ -131,11 +131,12 @@ namespace Game.Menu {
             base.OnEnable();
             ResetUiTaskCancellationSource();
             ResetUiUpdateCache();
-            if(SessionManager.Instance == null) return;
-            SessionManager.Instance.FrontStatusChanged -= UpdateStatusText;
-            SessionManager.Instance.OnPartyStateChanged -= HandlePartyStateChanged;
-            SessionManager.Instance.FrontStatusChanged += UpdateStatusText;
-            SessionManager.Instance.OnPartyStateChanged += HandlePartyStateChanged;
+            EventBus.Unsubscribe<FrontStatusChangedEvent>(OnFrontStatusChanged);
+            EventBus.Unsubscribe<SessionPropertiesRefreshedEvent>(OnSessionPropertiesRefreshed);
+            EventBus.Subscribe<FrontStatusChangedEvent>(OnFrontStatusChanged);
+            EventBus.Subscribe<SessionPropertiesRefreshedEvent>(OnSessionPropertiesRefreshed);
+            UpdateStatusText(null);
+            HandlePartyStateChanged();
             LaunchUiTask(RefreshSessionHeaderAfterLoad(),
                 "RefreshSessionHeaderAfterLoad");
         }
@@ -144,10 +145,8 @@ namespace Game.Menu {
             CancelUiTaskCancellationSource();
             _partyUiRefreshSerial++;
             ResetUiUpdateCache();
-            if(SessionManager.HasInstance) {
-                SessionManager.Instance.FrontStatusChanged -= UpdateStatusText;
-                SessionManager.Instance.OnPartyStateChanged -= HandlePartyStateChanged;
-            }
+            EventBus.Unsubscribe<FrontStatusChangedEvent>(OnFrontStatusChanged);
+            EventBus.Unsubscribe<SessionPropertiesRefreshedEvent>(OnSessionPropertiesRefreshed);
             base.OnDisable();
         }
 
@@ -691,6 +690,14 @@ namespace Game.Menu {
                 DrawSoloPlayer();
                 _hasDrawnSolo = true;
             }
+        }
+
+        private void OnSessionPropertiesRefreshed(SessionPropertiesRefreshedEvent _) {
+            HandlePartyStateChanged();
+        }
+
+        private void OnFrontStatusChanged(FrontStatusChangedEvent evt) {
+            UpdateStatusText(evt.Message);
         }
 
         /// <summary>

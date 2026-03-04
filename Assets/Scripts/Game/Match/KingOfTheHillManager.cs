@@ -48,6 +48,7 @@ namespace Game.Match {
         private float _nextScoreTime;
         private Coroutine _spawnCoroutine;
         private bool _queuedMatchStart;
+        private bool _matchStartedEventsBound;
 
         private void Awake() {
             if(Instance != null && Instance != this) {
@@ -71,6 +72,7 @@ namespace Game.Match {
             if(IsServer) {
                 _teamAScore.Value = 0;
                 _teamBScore.Value = 0;
+                BindMatchStartedEvent();
 
                 NetworkManager.SceneManager.OnLoadEventCompleted += OnSceneLoaded;
 
@@ -90,6 +92,7 @@ namespace Game.Match {
         }
 
         public override void OnNetworkDespawn() {
+            UnbindMatchStartedEvent();
             base.OnNetworkDespawn();
             if(IsServer && NetworkManager.Singleton != null && NetworkManager.Singleton.SceneManager != null) {
                 NetworkManager.SceneManager.OnLoadEventCompleted -= OnSceneLoaded;
@@ -108,10 +111,27 @@ namespace Game.Match {
         }
 
         public override void OnDestroy() {
+            UnbindMatchStartedEvent();
             base.OnDestroy();
             if(Instance == this) {
                 Instance = null;
             }
+        }
+
+        private void BindMatchStartedEvent() {
+            if(!IsServer || _matchStartedEventsBound) return;
+            EventBus.Subscribe<MatchStartedEvent>(OnMatchStarted);
+            _matchStartedEventsBound = true;
+        }
+
+        private void UnbindMatchStartedEvent() {
+            if(!_matchStartedEventsBound) return;
+            EventBus.Unsubscribe<MatchStartedEvent>(OnMatchStarted);
+            _matchStartedEventsBound = false;
+        }
+
+        private void OnMatchStarted(MatchStartedEvent _) {
+            HandleMatchStartedServer("EventBusMatchStarted");
         }
 
         private void OnSceneLoaded(string sceneName, UnityEngine.SceneManagement.LoadSceneMode loadSceneMode,
@@ -120,7 +140,7 @@ namespace Game.Match {
             CheckAndStartGame();
         }
 
-        public void HandleMatchStartedServer(string source = "Unknown") {
+        private void HandleMatchStartedServer(string source = "Unknown") {
             var isServerContext = IsServer || (NetworkManager.Singleton != null && NetworkManager.Singleton.IsServer);
             if(!isServerContext) return;
 

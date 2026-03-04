@@ -1,9 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using Game.Menu;
 using Game.Player;
-using Network;
 using Network.Diagnostics;
 using Network.Events;
 using Unity.Netcode;
@@ -42,6 +40,7 @@ namespace Game.Match {
 
             Instance = this;
             InstanceReady?.Invoke(this);
+            EventBus.Publish(new MatchTimerReadyEvent());
 
             if(MatchSettingsManager.Instance != null) {
                 matchDurationSeconds = MatchSettingsManager.Instance.GetMatchDurationSeconds();
@@ -239,31 +238,19 @@ namespace Game.Match {
             
             // Publish match ended event
             EventBus.Publish(new MatchEndedEvent());
-            
-            if(PostMatchManager.Instance == null) {
-                Debug.LogWarning("[MatchTimerManager] PostMatchManager.Instance == null on server!");
-            } else {
-                PostMatchManager.Instance.BeginPostMatchFromTimer();
-            }
         }
 
         private void OnTimeRemainingChanged(int previous, int current) {
-            // Publish match time updated event
-            EventBus.Publish(new MatchTimeUpdatedEvent(current));
-            
             // Only update UI if we're not in pre-match
-            if(_isPreMatch.Value || GameMenuManager.Instance == null) return;
+            if(_isPreMatch.Value) return;
             EventBus.Publish(new SetMatchTimeEvent(current));
         }
 
         private void OnPreMatchCountdownChanged(int previous, int current) {
-            // Publish pre-match countdown event
             EventBus.Publish(new PreMatchCountdownEvent(current));
+
             // Display pre-match countdown in UI
-            if(!_isPreMatch.Value || GameMenuManager.Instance == null) return;
-            if(GameMenuManager.Instance.IsPostMatch) {
-                GameMenuManager.Instance.RestoreHudForMatchStart();
-            }
+            if(!_isPreMatch.Value) return;
             EventBus.Publish(new SetMatchTimeEvent(current));
         }
 
@@ -289,12 +276,8 @@ namespace Game.Match {
         }
 
         private void OnPreMatchStateChanged(bool previous, bool current) {
-            if(current && GameMenuManager.Instance != null) {
-                GameMenuManager.Instance.RestoreHudForMatchStart();
-            }
             // When pre-match ends, ensure UI shows match timer
-            if(current || GameMenuManager.Instance == null) return;
-            GameMenuManager.Instance.RestoreHudForMatchStart();
+            if(current) return;
             var matchSettings = MatchSettingsManager.Instance;
             if(matchSettings != null && matchSettings.IsInfiniteMatchTimer()) {
                 EventBus.Publish(new SetMatchTimeEvent(-1));
@@ -322,12 +305,6 @@ namespace Game.Match {
 
             // Publish match started event
             EventBus.Publish(new MatchStartedEvent());
-
-            // Kick objective systems from the authoritative match-state transition point.
-            // This avoids missing round-init when scene object spawn order varies between matches.
-            if(matchSettings != null && matchSettings.selectedGameModeId == "KOTH") {
-                TriggerKothRoundStart();
-            }
 
             // Check if we're in Tag mode and designate initial "it" after 5 seconds
             if(matchSettings != null && matchSettings.selectedGameModeId == "Gun Tag") {
@@ -394,17 +371,6 @@ namespace Game.Match {
 
                 _hasDesignatedInitialIt = true;
             }
-        }
-
-        private static void TriggerKothRoundStart() {
-            var kothManager = KingOfTheHillManager.Instance;
-            if(kothManager == null) {
-                Debug.LogError(
-                    "[MatchTimerManager] KOTH match started but no KingOfTheHillManager was found in the scene.");
-                return;
-            }
-
-            kothManager.HandleMatchStartedServer("MatchTimerManager");
         }
     }
 }

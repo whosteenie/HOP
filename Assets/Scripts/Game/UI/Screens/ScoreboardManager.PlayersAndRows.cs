@@ -59,7 +59,7 @@ namespace Game.UI {
         // Player Registry
         private readonly HashSet<PlayerController> _allPlayersRegistry = new();
 
-        public void RegisterPlayer(PlayerController player) {
+        private void RegisterPlayer(PlayerController player) {
             if(player == null || !_allPlayersRegistry.Add(player)) return;
             // Subscribe to profile changes used by scoreboard row content.
             player.playerName.OnValueChanged += OnPlayerProfileChanged;
@@ -69,7 +69,7 @@ namespace Game.UI {
             UpdateScoreboard();
         }
 
-        public void UnregisterPlayer(PlayerController player) {
+        private void UnregisterPlayer(PlayerController player) {
             if(player == null || !_allPlayersRegistry.Contains(player)) return;
 
             player.playerName.OnValueChanged -= OnPlayerProfileChanged;

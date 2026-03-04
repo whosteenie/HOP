@@ -252,9 +252,6 @@ namespace Game.Player {
 
                 netHealth.Value = newHp;
 
-                // Publish damage event
-                EventBus.Publish(new PlayerDamagedEvent(OwnerClientId, actualDealt, hitPoint));
-
                 if(playerController != null) {
                     playerController.PlayHitEffectsClientRpc(hitPoint, amount);
                 }
@@ -542,6 +539,7 @@ namespace Game.Player {
                 point = SpawnManager.Instance.GetNextSpawnPointForRespawn(team);
             }
 
+            // TODO: resolve possible null reference
             var pointTransform = point.transform;
             return point == null
                 ? (Vector3.zero, Quaternion.identity)
@@ -554,6 +552,7 @@ namespace Game.Player {
                 point = SpawnManager.Instance.GetNextSpawnPointForRespawn();
             }
 
+            // TODO: resolve possible null reference
             var pointTransform = point.transform;
             return point == null
                 ? (Vector3.zero, Quaternion.identity)
@@ -640,8 +639,6 @@ namespace Game.Player {
             if(HUDManager.Instance != null) {
                 EventBus.Publish(new ShowHUDEvent());
             }
-
-            EventBus.Publish(new PlayerRespawnedEvent(OwnerClientId));
 
             ShowRespawnVisualsClientRpc(_playerTransform.position);
 

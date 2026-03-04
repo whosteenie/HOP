@@ -5,7 +5,7 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UIElements;
 using Game.Settings;
-using Network;
+using Network.Events;
 using SessionManager = Network.Session.SessionManager;
 
 namespace Game.UI {
@@ -59,14 +59,23 @@ namespace Game.UI {
             // Subscribe to scene changes to update cache
             SceneManager.sceneLoaded -= OnSceneLoaded;
             SceneManager.sceneLoaded += OnSceneLoaded;
-            GameSettings.OnSettingsChanged -= OnSettingsChanged;
-            GameSettings.OnSettingsChanged += OnSettingsChanged;
+            EventBus.Unsubscribe<GameSettingsChangedEvent>(OnGameSettingsChanged);
+            EventBus.Subscribe<GameSettingsChangedEvent>(OnGameSettingsChanged);
+            EventBus.Unsubscribe<LocalPlayerReadyEvent>(OnLocalPlayerReady);
+            EventBus.Unsubscribe<HideGrappleUIEvent>(OnHideGrappleUIEvent);
+            EventBus.Unsubscribe<ShowGrappleUIEvent>(OnShowGrappleUIEvent);
+            EventBus.Subscribe<LocalPlayerReadyEvent>(OnLocalPlayerReady);
+            EventBus.Subscribe<HideGrappleUIEvent>(OnHideGrappleUIEvent);
+            EventBus.Subscribe<ShowGrappleUIEvent>(OnShowGrappleUIEvent);
         }
         
         protected override void OnDisable() {
             // Unsubscribe from scene changes
             SceneManager.sceneLoaded -= OnSceneLoaded;
-            GameSettings.OnSettingsChanged -= OnSettingsChanged;
+            EventBus.Unsubscribe<GameSettingsChangedEvent>(OnGameSettingsChanged);
+            EventBus.Unsubscribe<LocalPlayerReadyEvent>(OnLocalPlayerReady);
+            EventBus.Unsubscribe<HideGrappleUIEvent>(OnHideGrappleUIEvent);
+            EventBus.Unsubscribe<ShowGrappleUIEvent>(OnShowGrappleUIEvent);
             base.OnDisable();
         }
 
@@ -98,6 +107,10 @@ namespace Game.UI {
                     HideBottomIndicator();
                     break;
             }
+
+            if(PlayerController.LocalPlayer != null) {
+                RegisterLocalPlayer(PlayerController.LocalPlayer);
+            }
         }
 
         protected override Dictionary<string, System.Type> GetRequiredElements() {
@@ -119,6 +132,10 @@ namespace Game.UI {
 
         private void OnSettingsChanged() {
             ApplyCrosshairColorSettings(force: false);
+        }
+
+        private void OnGameSettingsChanged(GameSettingsChangedEvent _) {
+            OnSettingsChanged();
         }
 
         private void Update() {
@@ -181,11 +198,24 @@ namespace Game.UI {
             }
         }
 
-        public void RegisterLocalPlayer(PlayerController player) {
+        private void RegisterLocalPlayer(PlayerController player) {
             if(player == null) return;
             _localPlayer = player;
             _grappleController = player.GetComponentInChildren<GrappleController>();
             _fpCamera = player.GetComponentInChildren<CinemachineCamera>();
+        }
+
+        private void OnLocalPlayerReady(LocalPlayerReadyEvent evt) {
+            if(evt == null || evt.Player == null) return;
+            RegisterLocalPlayer(evt.Player);
+        }
+
+        private void OnHideGrappleUIEvent(HideGrappleUIEvent _) {
+            HideGrappleUI();
+        }
+
+        private void OnShowGrappleUIEvent(ShowGrappleUIEvent _) {
+            ShowGrappleUI();
         }
 
         private void CreateHorseshoeSegments() {
@@ -304,7 +334,7 @@ namespace Game.UI {
         /// <summary>
         /// Hides the grapple UI indicator (e.g., during post-match podium).
         /// </summary>
-        public void HideGrappleUI() {
+        private void HideGrappleUI() {
             if(_grappleIndicator != null) {
                 _grappleIndicator.style.display = DisplayStyle.None;
             }
@@ -316,7 +346,7 @@ namespace Game.UI {
         /// <summary>
         /// Shows the grapple UI indicator (e.g., when starting a new game).
         /// </summary>
-        public void ShowGrappleUI() {
+        private void ShowGrappleUI() {
             // Show appropriate indicator based on setting
             var controls = GameSettings.Data.controls;
             var grappleIndicatorType = controls != null ? controls.grappleIndicator : 0;

@@ -2,6 +2,7 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
+using Network.Events;
 using System.Collections.Generic;
 
 namespace Game.Settings {
@@ -17,13 +18,17 @@ namespace Game.Settings {
             SceneManager.sceneLoaded -= OnSceneLoaded;
             SceneManager.sceneLoaded += OnSceneLoaded;
 
-            GameSettings.OnSettingsChanged -= ApplyFromSavedSettings;
-            GameSettings.OnSettingsChanged += ApplyFromSavedSettings;
+            EventBus.Unsubscribe<GameSettingsChangedEvent>(OnGameSettingsChanged);
+            EventBus.Subscribe<GameSettingsChangedEvent>(OnGameSettingsChanged);
 
             ApplyFromSavedSettings();
         }
 
         private static void OnSceneLoaded(Scene scene, LoadSceneMode mode) {
+            ApplyFromSavedSettings();
+        }
+
+        private static void OnGameSettingsChanged(GameSettingsChangedEvent _) {
             ApplyFromSavedSettings();
         }
 

@@ -140,5 +140,78 @@ namespace Network.Events {
     /// </summary>
     public class ShowScoreDisplayEvent : GameEvent {
     }
+
+    /// <summary>
+    /// Event published when grapple UI should be hidden.
+    /// </summary>
+    public class HideGrappleUIEvent : GameEvent {
+    }
+
+    /// <summary>
+    /// Event published when grapple UI should be shown.
+    /// </summary>
+    public class ShowGrappleUIEvent : GameEvent {
+    }
+
+    /// <summary>
+    /// Event published when a voice participant speech state changes.
+    /// </summary>
+    public class VoiceParticipantSpeechChangedEvent : GameEvent {
+        public readonly string PlayerId;
+        public readonly string DisplayName;
+        public readonly bool IsSpeaking;
+
+        public VoiceParticipantSpeechChangedEvent(string playerId, string displayName, bool isSpeaking) {
+            PlayerId = playerId;
+            DisplayName = displayName;
+            IsSpeaking = isSpeaking;
+        }
+    }
+
+    /// <summary>
+    /// Event published when a voice participant leaves the active channel.
+    /// </summary>
+    public class VoiceParticipantRemovedEvent : GameEvent {
+        public readonly string PlayerId;
+
+        public VoiceParticipantRemovedEvent(string playerId) {
+            PlayerId = playerId;
+        }
+    }
+
+    /// <summary>
+    /// Event published when local push-to-talk active state changes.
+    /// </summary>
+    public class VoiceLocalPttStateChangedEvent : GameEvent {
+        public readonly bool IsActive;
+
+        public VoiceLocalPttStateChangedEvent(bool isActive) {
+            IsActive = isActive;
+        }
+    }
+
+    /// <summary>
+    /// Event published when a chat message should be rendered by chat UI.
+    /// </summary>
+    public class ChatMessageReceivedEvent : GameEvent {
+        public readonly Game.Social.ChatMessage Message;
+
+        public ChatMessageReceivedEvent(Game.Social.ChatMessage message) {
+            Message = message;
+        }
+    }
+
+    /// <summary>
+    /// Event published when an off-screen indicator target is enabled/disabled.
+    /// </summary>
+    public class IndicatorTargetStateChangedEvent : GameEvent {
+        public readonly OSI.Target Target;
+        public readonly bool IsActive;
+
+        public IndicatorTargetStateChangedEvent(OSI.Target target, bool isActive) {
+            Target = target;
+            IsActive = isActive;
+        }
+    }
 }
 

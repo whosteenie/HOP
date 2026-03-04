@@ -4,7 +4,7 @@ using System.Linq;
 using Game.Match;
 using Game.Social;
 using Game.UI;
-using Network;
+using Network.Events;
 using Network.Services;
 using Network.Steam;
 using Steamworks;
@@ -141,17 +141,16 @@ namespace Game.Menu {
 
         protected override void OnEnable() {
             base.OnEnable();
-            if(SessionManager.Instance != null)
-                SessionManager.Instance.OnPartyStateChanged += OnPartyStateChanged;
+            EventBus.Unsubscribe<SessionPropertiesRefreshedEvent>(OnSessionPropertiesRefreshed);
+            EventBus.Subscribe<SessionPropertiesRefreshedEvent>(OnSessionPropertiesRefreshed);
         }
 
         protected override void OnDisable() {
-            if(SessionManager.HasInstance && SessionManager.Instance != null)
-                SessionManager.Instance.OnPartyStateChanged -= OnPartyStateChanged;
+            EventBus.Unsubscribe<SessionPropertiesRefreshedEvent>(OnSessionPropertiesRefreshed);
             base.OnDisable();
         }
 
-        private void OnPartyStateChanged() {
+        private void OnSessionPropertiesRefreshed(SessionPropertiesRefreshedEvent _) {
             RefreshTeamPreview();
         }
 

@@ -310,11 +310,13 @@ namespace Game.Player {
         private static void RegisterSpawnedPlayer(PlayerController player) {
             if(player == null || !SpawnedPlayersRegistry.Add(player)) return;
             PlayerSpawned?.Invoke(player);
+            EventBus.Publish(new PlayerNetworkSpawnedEvent(player));
         }
 
         private static void UnregisterSpawnedPlayer(PlayerController player) {
             if(player == null || !SpawnedPlayersRegistry.Remove(player)) return;
             PlayerDespawned?.Invoke(player);
+            EventBus.Publish(new PlayerNetworkDespawnedEvent(player));
         }
 
         public override void OnDestroy() {
@@ -362,10 +364,6 @@ namespace Game.Player {
             if(GameMenuManager.Instance.IsPaused) {
                 GameMenuManager.Instance.TogglePause();
             }
-            
-            if (ScoreboardManager.Instance != null) {
-                ScoreboardManager.Instance.RegisterPlayer(this);
-            }
 
             if(IsOwner) {
                 string pName;
@@ -386,8 +384,8 @@ namespace Game.Player {
                 secondaryWeaponIndex.Value = GameSettings.Data.player.secondaryWeaponIndex;
                 
                 LoadMaterialCustomizationFromPrefs();
-                
-                GrappleUIManager.Instance.RegisterLocalPlayer(this);
+
+                EventBus.Publish(new LocalPlayerReadyEvent(this));
 
                 var matchSettings = MatchSettingsManager.Instance;
                 if(matchSettings != null && matchSettings.selectedGameModeId == "Gun Tag" && tagController != null) {
@@ -519,11 +517,6 @@ namespace Game.Player {
             UnregisterSpawnedPlayer(this);
 
             UnsubscribeFromNetworkVariables();
-            
-            // Unregister from ScoreboardManager
-            if (ScoreboardManager.Instance != null) {
-                ScoreboardManager.Instance.UnregisterPlayer(this);
-            }
         }
 
         /// <summary>
