@@ -29,6 +29,7 @@ namespace Game.Player {
         private const float TaggedPlayerCooldown = 1.0f; // Lower cooldown for tagged players in Gun Tag mode
         private const float GrappleEstablishGrace = 0.05f; // Ignore spherecast/collision cancel until mesh can show
         private const float GrappleMeshMinimumVisibleSeconds = 0.08f;
+        private const float GrappleAnimHideFailsafeDelay = 0.35f;
 
         [Header("Momentum Settings")]
         private const bool PreserveMomentum = true;
@@ -48,17 +49,26 @@ namespace Game.Player {
         private Vector3 _grapplePoint;
         private float _grappleStartTime;
         private float _cooldownStartTime;
+        private float _cooldownDuration = GrappleCooldown;
+        private float _cooldownEndTime;
 
         // Mesh system fields
         private GameObject _grappleMeshObject;
         private MeshFilter _grappleMeshFilter;
         private MeshRenderer _grappleMeshRenderer;
         private Mesh _grappleMesh;
+        private Vector3[] _meshVertices;
+        private Vector2[] _meshUvs;
+        private Vector3[] _meshNormals;
+        private int[] _meshTriangles;
+        private int _meshBufferSegments = -1;
         private bool _pendingGrappleMeshEnable; // Defer mesh until grapple anim first frame
         private bool _useAnimatedFirstPersonGrappleVisuals = true;
         private bool _forceCameraOffsetOriginForCurrentCable;
         private float _grappleMeshFirstShownTime = -1f;
         private Coroutine _grappleMeshHideCoroutine;
+        private Coroutine _grappleMeshEnableFailsafeCoroutine;
+        private Coroutine _grappleMeshAnimatedHideFailsafeCoroutine;
 
         #endregion
 
@@ -72,8 +82,7 @@ namespace Game.Player {
             get {
                 if(CanGrapple) return 1f;
                 var elapsed = Time.time - _cooldownStartTime;
-                var currentCooldown = GetCurrentCooldown();
-                return Mathf.Clamp01(elapsed / currentCooldown);
+                return Mathf.Clamp01(elapsed / Mathf.Max(_cooldownDuration, 0.0001f));
             }
         }
 
@@ -145,12 +154,19 @@ namespace Game.Player {
         public override void OnNetworkSpawn() {
             base.OnNetworkSpawn();
 
+            if(_grappleMeshObject == null) {
+                SetupGrappleLine();
+            }
+
             _netIsGrappling.OnValueChanged += OnGrappleStateChanged;
             _netGrapplePoint.OnValueChanged += OnGrapplePointChanged;
 
             if(IsOwner) {
                 EventBus.Subscribe<GrappleAnimFirstFrameEvent>(OnGrappleAnimFirstFrame);
                 EventBus.Subscribe<GrappleAnimHideEvent>(OnGrappleAnimHide);
+                if(_tagController != null) {
+                    _tagController.isTagged.OnValueChanged += OnTaggedStateChanged;
+                }
             }
 
             // Apply initial state
@@ -159,19 +175,63 @@ namespace Game.Player {
             }
         }
 
-        private void Start() {
-            SetupGrappleLine();
-        }
+        public override void OnNetworkDespawn() {
+            _netIsGrappling.OnValueChanged -= OnGrappleStateChanged;
+            _netGrapplePoint.OnValueChanged -= OnGrapplePointChanged;
 
-        public override void OnDestroy() {
             if(IsOwner) {
                 EventBus.Unsubscribe<GrappleAnimFirstFrameEvent>(OnGrappleAnimFirstFrame);
                 EventBus.Unsubscribe<GrappleAnimHideEvent>(OnGrappleAnimHide);
+                if(_tagController != null) {
+                    _tagController.isTagged.OnValueChanged -= OnTaggedStateChanged;
+                }
             }
 
             if(_grappleMeshHideCoroutine != null) {
                 StopCoroutine(_grappleMeshHideCoroutine);
                 _grappleMeshHideCoroutine = null;
+            }
+            if(_grappleMeshEnableFailsafeCoroutine != null) {
+                StopCoroutine(_grappleMeshEnableFailsafeCoroutine);
+                _grappleMeshEnableFailsafeCoroutine = null;
+            }
+            if(_grappleMeshAnimatedHideFailsafeCoroutine != null) {
+                StopCoroutine(_grappleMeshAnimatedHideFailsafeCoroutine);
+                _grappleMeshAnimatedHideFailsafeCoroutine = null;
+            }
+
+            base.OnNetworkDespawn();
+        }
+
+        private void Start() {
+            if(_grappleMeshObject == null) {
+                SetupGrappleLine();
+            }
+        }
+
+        public override void OnDestroy() {
+            _netIsGrappling.OnValueChanged -= OnGrappleStateChanged;
+            _netGrapplePoint.OnValueChanged -= OnGrapplePointChanged;
+
+            if(IsOwner) {
+                EventBus.Unsubscribe<GrappleAnimFirstFrameEvent>(OnGrappleAnimFirstFrame);
+                EventBus.Unsubscribe<GrappleAnimHideEvent>(OnGrappleAnimHide);
+                if(_tagController != null) {
+                    _tagController.isTagged.OnValueChanged -= OnTaggedStateChanged;
+                }
+            }
+
+            if(_grappleMeshHideCoroutine != null) {
+                StopCoroutine(_grappleMeshHideCoroutine);
+                _grappleMeshHideCoroutine = null;
+            }
+            if(_grappleMeshEnableFailsafeCoroutine != null) {
+                StopCoroutine(_grappleMeshEnableFailsafeCoroutine);
+                _grappleMeshEnableFailsafeCoroutine = null;
+            }
+            if(_grappleMeshAnimatedHideFailsafeCoroutine != null) {
+                StopCoroutine(_grappleMeshAnimatedHideFailsafeCoroutine);
+                _grappleMeshAnimatedHideFailsafeCoroutine = null;
             }
 
             base.OnDestroy();
@@ -185,6 +245,9 @@ namespace Game.Player {
             switch(IsOwner) {
                 case false when _netIsGrappling.Value: {
                     // Non-owners: update visual position every frame while grappling
+                    if(_grappleMeshRenderer == null) {
+                        SetupGrappleLine();
+                    }
                     if(_grappleMeshRenderer == null || grappleOriginTp == null) return;
                     UpdateGrappleMesh(grappleOriginTp.position, _netGrapplePoint.Value);
                     return;
@@ -192,6 +255,8 @@ namespace Game.Player {
                 case false:
                     return;
             }
+
+            UpdateCooldownState();
 
             if(IsGrappling) {
                 UpdateGrapple();
@@ -207,7 +272,7 @@ namespace Game.Player {
         /// </summary>
         public void TriggerCooldown() {
             if(!CanGrapple) return; // Already on cooldown
-            StartCoroutine(StartGrappleCooldown());
+            StartGrappleCooldown();
         }
 
         [Rpc(SendTo.Server)]
@@ -240,6 +305,9 @@ namespace Game.Player {
         }
 
         private void UpdateGrappleVisuals(bool isGrappling, Vector3 targetPoint) {
+            if(_grappleMeshRenderer == null) {
+                SetupGrappleLine();
+            }
             if(_grappleMeshRenderer == null) return;
             _grappleMeshRenderer.enabled = isGrappling;
             if(!isGrappling) return;
@@ -265,6 +333,7 @@ namespace Game.Player {
                 _grappleMesh = new Mesh {
                     name = "GrappleCableMesh"
                 };
+                _grappleMesh.MarkDynamic();
                 _grappleMeshFilter.mesh = _grappleMesh;
             } else {
                 if(_grappleMeshObject.transform.parent != null) {
@@ -284,17 +353,45 @@ namespace Game.Player {
             _grappleMeshRenderer.enabled = false;
         }
 
+        private void EnsureMeshBuffers(int segments) {
+            if(_meshBufferSegments == segments &&
+               _meshVertices != null &&
+               _meshUvs != null &&
+               _meshNormals != null &&
+               _meshTriangles != null) {
+                return;
+            }
+
+            _meshBufferSegments = segments;
+            _meshVertices = new Vector3[segments * 2];
+            _meshUvs = new Vector2[segments * 2];
+            _meshNormals = new Vector3[segments * 2];
+            _meshTriangles = new int[segments * 6];
+
+            var triIndex = 0;
+            for(var i = 0; i < segments; i++) {
+                var next = (i + 1) % segments;
+
+                // First triangle
+                _meshTriangles[triIndex++] = i;
+                _meshTriangles[triIndex++] = i + segments;
+                _meshTriangles[triIndex++] = next;
+
+                // Second triangle
+                _meshTriangles[triIndex++] = next;
+                _meshTriangles[triIndex++] = i + segments;
+                _meshTriangles[triIndex++] = next + segments;
+            }
+        }
+
         private void UpdateGrappleMesh(Vector3 startPos, Vector3 endPos) {
             if(_grappleMesh == null || _grappleMeshFilter == null) return;
 
+            var segments = Mathf.Max(3, meshSegments);
+            EnsureMeshBuffers(segments);
+
             var direction = (endPos - startPos).normalized;
             var distance = Vector3.Distance(startPos, endPos);
-
-            // Generate cylinder mesh between two points
-            var vertices = new Vector3[meshSegments * 2];
-            var triangles = new int[meshSegments * 6];
-            var uvs = new Vector2[vertices.Length];
-            var normals = new Vector3[vertices.Length];
 
             // Calculate perpendicular vectors for cylinder cross-section
             var right = Vector3.Cross(direction, Vector3.up);
@@ -306,43 +403,27 @@ namespace Game.Player {
             var up = Vector3.Cross(right, direction).normalized;
 
             // Generate vertices for start and end circles
-            for(var i = 0; i < meshSegments; i++) {
-                var angle = i / (float)meshSegments * Mathf.PI * 2f;
+            for(var i = 0; i < segments; i++) {
+                var angle = i / (float)segments * Mathf.PI * 2f;
                 var offset = right * (Mathf.Cos(angle) * meshRadius) + up * (Mathf.Sin(angle) * meshRadius);
 
                 // Start circle
-                vertices[i] = startPos + offset;
-                uvs[i] = new Vector2(i / (float)meshSegments, 0f);
-                normals[i] = offset.normalized;
+                _meshVertices[i] = startPos + offset;
+                _meshUvs[i] = new Vector2(i / (float)segments, 0f);
+                _meshNormals[i] = offset.normalized;
 
                 // End circle
-                vertices[i + meshSegments] = endPos + offset;
-                uvs[i + meshSegments] = new Vector2(i / (float)meshSegments, distance);
-                normals[i + meshSegments] = offset.normalized;
-            }
-
-            // Generate triangles (quads made of two triangles)
-            var triIndex = 0;
-            for(var i = 0; i < meshSegments; i++) {
-                var next = (i + 1) % meshSegments;
-
-                // First triangle
-                triangles[triIndex++] = i;
-                triangles[triIndex++] = i + meshSegments;
-                triangles[triIndex++] = next;
-
-                // Second triangle
-                triangles[triIndex++] = next;
-                triangles[triIndex++] = i + meshSegments;
-                triangles[triIndex++] = next + meshSegments;
+                _meshVertices[i + segments] = endPos + offset;
+                _meshUvs[i + segments] = new Vector2(i / (float)segments, distance);
+                _meshNormals[i + segments] = offset.normalized;
             }
 
             // Update mesh
             _grappleMesh.Clear();
-            _grappleMesh.vertices = vertices;
-            _grappleMesh.triangles = triangles;
-            _grappleMesh.uv = uvs;
-            _grappleMesh.normals = normals;
+            _grappleMesh.vertices = _meshVertices;
+            _grappleMesh.triangles = _meshTriangles;
+            _grappleMesh.uv = _meshUvs;
+            _grappleMesh.normals = _meshNormals;
             _grappleMesh.RecalculateBounds();
         }
 
@@ -354,6 +435,7 @@ namespace Game.Player {
         /// Attempts to start a grapple if looking at a grappleable surface.
         /// </summary>
         public void TryGrapple() {
+            if(!IsOwner) return;
             if(!CanGrapple || IsGrappling) return;
 
             var ray = new Ray(playerController.FpCameraTransform.position, playerController.FpCameraTransform.forward);
@@ -409,6 +491,14 @@ namespace Game.Player {
                 StopCoroutine(_grappleMeshHideCoroutine);
                 _grappleMeshHideCoroutine = null;
             }
+            if(_grappleMeshEnableFailsafeCoroutine != null) {
+                StopCoroutine(_grappleMeshEnableFailsafeCoroutine);
+                _grappleMeshEnableFailsafeCoroutine = null;
+            }
+            if(_grappleMeshAnimatedHideFailsafeCoroutine != null) {
+                StopCoroutine(_grappleMeshAnimatedHideFailsafeCoroutine);
+                _grappleMeshAnimatedHideFailsafeCoroutine = null;
+            }
 
             if(_grappleMeshObject == null) {
                 SetupGrappleLine();
@@ -418,7 +508,7 @@ namespace Game.Player {
             if(_grappleMeshRenderer != null) {
                 _pendingGrappleMeshEnable = _useAnimatedFirstPersonGrappleVisuals;
                 if(_useAnimatedFirstPersonGrappleVisuals) {
-                    StartCoroutine(GrappleMeshEnableFailsafe());
+                    _grappleMeshEnableFailsafeCoroutine = StartCoroutine(GrappleMeshEnableFailsafe());
                 } else {
                     ShowGrappleMeshNow();
                 }
@@ -490,7 +580,9 @@ namespace Game.Player {
             }
 
             // Mesh hide remains animation-authoritative for animated path, but fallback path hides after minimum visibility.
-            if(!_useAnimatedFirstPersonGrappleVisuals) {
+            if(_useAnimatedFirstPersonGrappleVisuals) {
+                ScheduleAnimatedHideFailsafe();
+            } else {
                 RequestHideGrappleMesh();
             }
             UpdateGrappleServerRpc(false, Vector3.zero);
@@ -520,15 +612,30 @@ namespace Game.Player {
             }
 
             // Start cooldown
-            StartCoroutine(StartGrappleCooldown());
+            StartGrappleCooldown();
         }
 
-        private IEnumerator StartGrappleCooldown() {
+        private void StartGrappleCooldown() {
             CanGrapple = false;
             _cooldownStartTime = Time.time;
-            var currentCooldown = GetCurrentCooldown();
-            yield return new WaitForSeconds(currentCooldown);
+            _cooldownDuration = GetCurrentCooldown();
+            _cooldownEndTime = _cooldownStartTime + _cooldownDuration;
+        }
+
+        private void UpdateCooldownState() {
+            if(CanGrapple) return;
+            if(Time.time < _cooldownEndTime) return;
             CanGrapple = true;
+        }
+
+        private void OnTaggedStateChanged(bool _, bool __) {
+            if(CanGrapple) return;
+            // Snap progress/remaining time to current rules when tagged state changes mid-cooldown.
+            _cooldownDuration = GetCurrentCooldown();
+            _cooldownEndTime = _cooldownStartTime + _cooldownDuration;
+            if(Time.time >= _cooldownEndTime) {
+                CanGrapple = true;
+            }
         }
 
         private void OnGrappleAnimFirstFrame(GrappleAnimFirstFrameEvent _) {
@@ -536,6 +643,10 @@ namespace Game.Player {
         }
 
         private void OnGrappleAnimHide(GrappleAnimHideEvent _) {
+            if(_grappleMeshAnimatedHideFailsafeCoroutine != null) {
+                StopCoroutine(_grappleMeshAnimatedHideFailsafeCoroutine);
+                _grappleMeshAnimatedHideFailsafeCoroutine = null;
+            }
             RequestHideGrappleMesh();
         }
 
@@ -549,7 +660,23 @@ namespace Game.Player {
 
         private IEnumerator GrappleMeshEnableFailsafe() {
             yield return new WaitForSeconds(0.15f);
+            _grappleMeshEnableFailsafeCoroutine = null;
             TryEnablePendingGrappleMesh();
+        }
+
+        private void ScheduleAnimatedHideFailsafe() {
+            if(_grappleMeshAnimatedHideFailsafeCoroutine != null) {
+                StopCoroutine(_grappleMeshAnimatedHideFailsafeCoroutine);
+            }
+
+            _grappleMeshAnimatedHideFailsafeCoroutine = StartCoroutine(AnimatedHideFailsafeCoroutine());
+        }
+
+        private IEnumerator AnimatedHideFailsafeCoroutine() {
+            yield return new WaitForSeconds(GrappleAnimHideFailsafeDelay);
+            _grappleMeshAnimatedHideFailsafeCoroutine = null;
+            if(IsGrappling) yield break;
+            RequestHideGrappleMesh();
         }
 
         private void ShowGrappleMeshNow() {
