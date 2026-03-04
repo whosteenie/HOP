@@ -35,6 +35,7 @@ namespace Game.Weapons {
         private FPSPlayer _fpsPlayer;
         private Animator _fpsAnimator;
         private FPSWeapon _activeWeapon;
+        private KinemationWeaponPartReferences _activeWeaponPartReferences;
         private Transform _muzzleTransform;
         private AudioSource _weaponAudioSource;
         private int _renderLayer = -1;
@@ -118,8 +119,6 @@ namespace Game.Weapons {
         private const float EquipSignalGraceSeconds = 0.05f;
         private const float DrakeTopShellHideOffset = 0.75f;
         private const float KarLoopBulletHideOffset = 0.55f;
-        private const string DrakeTopShellName = "12Gauge1";
-        private const string DrakeBottomShellName = "12Gauge0";
         private static readonly int EquipHash = Animator.StringToHash("Equip");
         private static readonly int EquipOverrideHash = Animator.StringToHash("Equip_Override");
 
@@ -171,6 +170,11 @@ namespace Game.Weapons {
         private static Vector3 s_akAnchorFrame1CameraLocal;
         private static readonly HashSet<int> MissingKinemationSpecialHandlingWarnings = new();
         private static readonly HashSet<int> MissingKinemationGrappleIndexWarnings = new();
+        private static readonly HashSet<int> MissingKinemationPartReferenceWarnings = new();
+        private static readonly HashSet<int> InvalidKinemationPartReferenceWarnings = new();
+        private const int DrakeTopShellReferenceKey = 11;
+        private const int DrakeBottomShellReferenceKey = 12;
+        private const int KarLoopBulletReferenceKey = 13;
 
         private void OnEnable() {
             EventBus.Subscribe<GrappleStartedEvent>(OnGrappleStarted);
@@ -798,46 +802,18 @@ namespace Game.Weapons {
             bottomShellTransform = null;
             if(_activeWeapon == null) return false;
 
-            var transforms = GetActiveWeaponTransforms();
-            if(TryFindNamedTransform(transforms, DrakeBottomShellName, out bottomShellTransform)) {
-                return true;
+            var partReferences = GetActiveWeaponPartReferences();
+            if(partReferences == null) {
+                ReportMissingKinemationPartReference(DrakeBottomShellReferenceKey,
+                    nameof(KinemationWeaponPartReferences.DrakeBottomShell), true);
+                return false;
             }
 
-            Transform best = null;
-            var bestScore = int.MinValue;
-            var bestLocalY = float.PositiveInfinity;
-
-            foreach(var candidate in transforms) {
-                if(candidate == null || string.IsNullOrWhiteSpace(candidate.name)) continue;
-                if(string.Equals(candidate.name, DrakeTopShellName, System.StringComparison.OrdinalIgnoreCase)) continue;
-
-                var lowerName = candidate.name.ToLowerInvariant();
-                var isGaugeBone = lowerName.Contains("12gauge");
-                var looksLikeShell = lowerName.Contains("shell") || lowerName.Contains("cartridge") ||
-                                     lowerName.Contains("gauge");
-                if(!isGaugeBone && !looksLikeShell) continue;
-
-                var score = 0;
-                if(isGaugeBone) score += 4;
-                if(lowerName.Contains("shell")) score += 2;
-                if(lowerName.Contains("bottom") || lowerName.Contains("lower")) score += 2;
-                if(lowerName.EndsWith("1")) score += 1;
-
-                var candidateLocalY = candidate.localPosition.y;
-                if(score < bestScore) continue;
-                if(score == bestScore && candidateLocalY >= bestLocalY) continue;
-
-                best = candidate;
-                bestScore = score;
-                bestLocalY = candidateLocalY;
-            }
-
-            if(best == null) return false;
-            bottomShellTransform = best;
-            LogDrakeDebug(
-                $"TryResolveDrakeBottomShellTransform fallback picked '{bottomShellTransform.name}'. " +
-                $"frame={Time.frameCount} time={Time.time:F3}");
-            return true;
+            return TryResolveConfiguredWeaponPartReference(
+                partReferences.DrakeBottomShell,
+                DrakeBottomShellReferenceKey,
+                nameof(KinemationWeaponPartReferences.DrakeBottomShell),
+                out bottomShellTransform);
         }
 
         private void HideKarLoopBulletForReloadLoop() {
@@ -937,108 +913,36 @@ namespace Game.Weapons {
             loopBulletTransform = null;
             if(_activeWeapon == null) return false;
 
-            var transforms = GetActiveWeaponTransforms();
-            if(TryFindNamedTransform(transforms, "Bullet", out loopBulletTransform)) {
-                return true;
-            }
-            if(TryFindNamedTransform(transforms, "Bullet1", out loopBulletTransform)) {
-                return true;
-            }
-            if(TryFindNamedTransform(transforms, "Round", out loopBulletTransform)) {
-                return true;
+            var partReferences = GetActiveWeaponPartReferences();
+            if(partReferences == null) {
+                ReportMissingKinemationPartReference(KarLoopBulletReferenceKey,
+                    nameof(KinemationWeaponPartReferences.KarLoopBullet), true);
+                return false;
             }
 
-            Transform best = null;
-            var bestScore = int.MinValue;
-            foreach(var candidate in transforms) {
-                if(candidate == null || string.IsNullOrWhiteSpace(candidate.name)) continue;
-
-                var lowerName = candidate.name.ToLowerInvariant();
-                if(lowerName.Contains("muzzle") || lowerName.Contains("aim") || lowerName.Contains("mag")) continue;
-
-                var score = 0;
-                if(lowerName.Contains("bullet")) score += 5;
-                if(lowerName.Contains("cartridge")) score += 4;
-                if(lowerName.Contains("round")) score += 3;
-                if(lowerName.Contains("792") || lowerName.Contains("7_92") || lowerName.Contains("7.92")) score += 2;
-                if(lowerName.Contains("shell")) score -= 2;
-
-                if(score <= bestScore) continue;
-                best = candidate;
-                bestScore = score;
-            }
-
-            if(best == null || bestScore <= 0) return false;
-            loopBulletTransform = best;
-            LogDrakeDebug(
-                $"TryResolveKarLoopBulletTransform fallback picked '{loopBulletTransform.name}'. " +
-                $"frame={Time.frameCount} time={Time.time:F3}");
-            return true;
+            return TryResolveConfiguredWeaponPartReference(
+                partReferences.KarLoopBullet,
+                KarLoopBulletReferenceKey,
+                nameof(KinemationWeaponPartReferences.KarLoopBullet),
+                out loopBulletTransform);
         }
 
         private bool TryResolveDrakeTopShellTransform(out Transform topShellTransform) {
             topShellTransform = null;
             if(_activeWeapon == null) return false;
 
-            var transforms = GetActiveWeaponTransforms();
-            if(TryFindNamedTransform(transforms, DrakeTopShellName, out topShellTransform)) {
-                return true;
-            }
-
-            if(TryFindNamedTransform(transforms, "12Gauge0", out topShellTransform)) {
-                return true;
-            }
-
-            Transform best = null;
-            var bestScore = int.MinValue;
-            var bestLocalY = float.NegativeInfinity;
-
-            foreach(var candidate in transforms) {
-                if(candidate == null || string.IsNullOrWhiteSpace(candidate.name)) continue;
-
-                var lowerName = candidate.name.ToLowerInvariant();
-                var isGaugeBone = lowerName.Contains("12gauge");
-                var looksLikeShell = lowerName.Contains("shell") || lowerName.Contains("cartridge") ||
-                                     lowerName.Contains("gauge");
-                if(!isGaugeBone && !looksLikeShell) continue;
-
-                var score = 0;
-                if(isGaugeBone) score += 4;
-                if(lowerName.Contains("shell")) score += 2;
-                if(lowerName.Contains("top") || lowerName.Contains("upper")) score += 2;
-                if(lowerName.EndsWith("0")) score += 1;
-
-                var candidateLocalY = candidate.localPosition.y;
-                if(score < bestScore) continue;
-                if(score == bestScore && candidateLocalY <= bestLocalY) continue;
-
-                best = candidate;
-                bestScore = score;
-                bestLocalY = candidateLocalY;
-            }
-
-            if(best == null) return false;
-            topShellTransform = best;
-            LogDrakeDebug(
-                $"TryResolveDrakeTopShellTransform fallback picked '{topShellTransform.name}'. " +
-                $"frame={Time.frameCount} time={Time.time:F3}");
-            return true;
-        }
-
-        private static bool TryFindNamedTransform(Transform[] candidates, string targetName, out Transform resolved) {
-            resolved = null;
-            if(candidates == null || candidates.Length == 0 || string.IsNullOrWhiteSpace(targetName)) {
+            var partReferences = GetActiveWeaponPartReferences();
+            if(partReferences == null) {
+                ReportMissingKinemationPartReference(DrakeTopShellReferenceKey,
+                    nameof(KinemationWeaponPartReferences.DrakeTopShell), true);
                 return false;
             }
 
-            foreach(var candidate in candidates) {
-                if(candidate == null || string.IsNullOrWhiteSpace(candidate.name)) continue;
-                if(!string.Equals(candidate.name, targetName, StringComparison.OrdinalIgnoreCase)) continue;
-                resolved = candidate;
-                return true;
-            }
-
-            return false;
+            return TryResolveConfiguredWeaponPartReference(
+                partReferences.DrakeTopShell,
+                DrakeTopShellReferenceKey,
+                nameof(KinemationWeaponPartReferences.DrakeTopShell),
+                out topShellTransform);
         }
 
         private WeaponData GetActiveWeaponData() {
@@ -1111,6 +1015,66 @@ namespace Game.Weapons {
                 $"[KinemationFpWeaponDriver] WeaponData '{weaponLabel}' has {fieldName}=NULL. " +
                 $"{impactDescription}",
                 data);
+        }
+
+        private bool TryResolveConfiguredWeaponPartReference(Transform configuredPart, int partReferenceKey,
+            string partFieldName, out Transform resolvedPart) {
+            resolvedPart = null;
+            if(_activeWeapon == null) return false;
+
+            if(configuredPart == null) {
+                ReportMissingKinemationPartReference(partReferenceKey, partFieldName, false);
+                return false;
+            }
+
+            if(!configuredPart.IsChildOf(_activeWeapon.transform)) {
+                ReportInvalidKinemationPartReference(partReferenceKey, partFieldName, configuredPart);
+                return false;
+            }
+
+            resolvedPart = configuredPart;
+            return true;
+        }
+
+        private int BuildPartReferenceWarningKey(int partReferenceKey) {
+            var weaponId = _activeWeapon != null ? _activeWeapon.GetInstanceID() : 0;
+            return unchecked(weaponId * 397 ^ partReferenceKey);
+        }
+
+        private void ReportMissingKinemationPartReference(int partReferenceKey, string partFieldName,
+            bool missingComponent) {
+            var warningKey = BuildPartReferenceWarningKey(partReferenceKey);
+            if(!MissingKinemationPartReferenceWarnings.Add(warningKey)) return;
+
+            var weaponLabel = GetActiveWeaponLabel();
+            var guidance = missingComponent
+                ? "Add KinemationWeaponPartReferences to the weapon prefab and assign required parts."
+                : "Assign this field on KinemationWeaponPartReferences.";
+            Debug.LogError(
+                $"[KinemationFpWeaponDriver] Weapon '{weaponLabel}' is missing explicit part reference '{partFieldName}'. " +
+                $"{guidance}",
+                _activeWeapon);
+        }
+
+        private void ReportInvalidKinemationPartReference(int partReferenceKey, string partFieldName,
+            Transform configuredPart) {
+            var warningKey = BuildPartReferenceWarningKey(partReferenceKey);
+            if(!InvalidKinemationPartReferenceWarnings.Add(warningKey)) return;
+
+            var weaponLabel = GetActiveWeaponLabel();
+            Debug.LogError(
+                $"[KinemationFpWeaponDriver] Weapon '{weaponLabel}' has invalid part reference '{partFieldName}' " +
+                $"(assigned '{configuredPart.name}', outside active weapon hierarchy).",
+                _activeWeapon);
+        }
+
+        private string GetActiveWeaponLabel() {
+            var data = GetActiveWeaponData();
+            if(data != null) {
+                return string.IsNullOrWhiteSpace(data.weaponName) ? data.name : data.weaponName;
+            }
+
+            return _activeWeapon != null ? _activeWeapon.name : "(unknown)";
         }
 
         private void ApplyGrappleWeaponIndex() {
@@ -1633,6 +1597,7 @@ namespace Game.Weapons {
 
         private void InvalidateActiveWeaponComponentCaches() {
             _cachedActiveWeaponInstanceId = 0;
+            _activeWeaponPartReferences = null;
             _cachedActiveWeaponTransforms = null;
             _cachedActiveWeaponAnimators = null;
             _cachedActiveWeaponSounds = null;
@@ -1652,6 +1617,7 @@ namespace Game.Weapons {
             var instanceId = weapon.gameObject.GetInstanceID();
             if(_cachedActiveWeaponInstanceId == instanceId) return;
             _cachedActiveWeaponInstanceId = instanceId;
+            _activeWeaponPartReferences = null;
             _cachedActiveWeaponTransforms = null;
             _cachedActiveWeaponAnimators = null;
             _cachedActiveWeaponSounds = null;
@@ -1713,6 +1679,18 @@ namespace Game.Weapons {
 
         private AudioSource[] GetActiveWeaponAudioSources() {
             return GetActiveWeaponComponents(ref _cachedActiveWeaponAudioSources);
+        }
+
+        private KinemationWeaponPartReferences GetActiveWeaponPartReferences() {
+            if(_activeWeapon == null) return null;
+            if(_activeWeaponPartReferences != null) return _activeWeaponPartReferences;
+
+            _activeWeaponPartReferences = _activeWeapon.GetComponent<KinemationWeaponPartReferences>();
+            if(_activeWeaponPartReferences == null) {
+                _activeWeaponPartReferences = _activeWeapon.GetComponentInChildren<KinemationWeaponPartReferences>(true);
+            }
+
+            return _activeWeaponPartReferences;
         }
 
         private Transform ResolveMuzzleTransform(FPSWeapon activeWeapon) {
