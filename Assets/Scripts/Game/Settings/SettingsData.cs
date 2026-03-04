@@ -14,7 +14,7 @@ namespace Game.Settings {
         public PlayerSettings player = new();
         public KeybindSettings keybinds = new();
 
-        public const int CurrentVersion = 3;
+        public const int CurrentVersion = 4;
 
         [Serializable]
         public sealed class AudioSettings {
@@ -62,6 +62,7 @@ namespace Game.Settings {
             public string voiceInputDevice = "Default";
             public bool profanityFilterEnabled;
             public bool streamerModeEnabled;
+            public bool analyticsEnabled = true;
 
             public List<string> mutedPlayers = new();
             public List<string> blockedPlayers = new();

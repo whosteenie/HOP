@@ -29,6 +29,7 @@ namespace Game.Settings {
             if(SettingsFile.TryLoad(out var settingsData) && settingsData != null) {
                 data = settingsData;
                 ValidateAndClamp(data);
+                ApplyEventBusAnalyticsSetting(data);
                 return;
             }
 
@@ -38,12 +39,14 @@ namespace Game.Settings {
             data = new SettingsData();
             MigrateFromPlayerPrefsIfPresent(data);
             ValidateAndClamp(data);
+            ApplyEventBusAnalyticsSetting(data);
             SettingsFile.Save(data);
         }
 
         public static void Save() {
             EnsureLoaded();
             ValidateAndClamp(data);
+            ApplyEventBusAnalyticsSetting(data);
             SettingsFile.Save(data);
             OnSettingsChanged?.Invoke();
             EventBus.Publish(new GameSettingsChangedEvent());
@@ -52,9 +55,7 @@ namespace Game.Settings {
         private static void ValidateAndClamp(SettingsData d) {
             if(d == null) return;
 
-            if(d.version < SettingsData.CurrentVersion) {
-                d.version = SettingsData.CurrentVersion;
-            }
+            var loadedVersion = d.version;
 
             if(d.audio == null) d.audio = new SettingsData.AudioSettings();
             if(d.controls == null) d.controls = new SettingsData.ControlsSettings();
@@ -92,6 +93,9 @@ namespace Game.Settings {
             if(d.social.blockedPlayers == null) d.social.blockedPlayers = new List<string>();
             TrimList(d.social.mutedPlayers, 200);
             TrimList(d.social.blockedPlayers, 200);
+            if(loadedVersion < 4) {
+                d.social.analyticsEnabled = true;
+            }
 
             // Player
             d.player.primaryWeaponIndex = Mathf.Max(0, d.player.primaryWeaponIndex);
@@ -103,6 +107,16 @@ namespace Game.Settings {
             d.player.customization.smoothness = Mathf.Clamp01(d.player.customization.smoothness);
             d.player.customization.metallic = Mathf.Clamp01(d.player.customization.metallic);
             d.player.customization.heightStrength = Mathf.Clamp(d.player.customization.heightStrength, 0.005f, 0.08f);
+
+            if(d.version < SettingsData.CurrentVersion) {
+                d.version = SettingsData.CurrentVersion;
+            }
+        }
+
+        private static void ApplyEventBusAnalyticsSetting(SettingsData d) {
+            var analyticsEnabled = d?.social == null || d.social.analyticsEnabled;
+            EventBus.SetFailureCaptureEnabled(analyticsEnabled);
+            EventBus.SetFailureFileLoggingEnabled(analyticsEnabled);
         }
 
         private static void TrimList(List<string> list, int max) {

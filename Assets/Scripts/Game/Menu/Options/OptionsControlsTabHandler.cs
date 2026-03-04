@@ -14,6 +14,7 @@ namespace Game.Menu.Options {
         private Button _holdMantleButton;
         private Button _profanityFilterButton;
         private Button _autoWallRunButton;
+        private Button _analyticsButton;
 
         private readonly System.Collections.Generic.Dictionary<string, Button[]> _keybindButtons = new();
 
@@ -24,6 +25,7 @@ namespace Game.Menu.Options {
         private bool _originalHoldMantle;
         private bool _originalProfanityFilter;
         private bool _originalAutoWallRun;
+        private bool _originalAnalytics;
 
         private static readonly string[] KeybindNames = {
             "forward", "back", "left", "right", "jump", "interact", "shoot", "ads", "reload", "grapple", "primary",
@@ -39,6 +41,7 @@ namespace Game.Menu.Options {
             _holdMantleButton = ctx.QOptional<Button>("hold-mantle");
             _profanityFilterButton = ctx.QOptional<Button>("profanity-filter");
             _autoWallRunButton = ctx.QOptional<Button>("auto-wall-run");
+            _analyticsButton = ctx.QOptional<Button>("analytics-enabled");
             foreach(var name in KeybindNames) {
                 var b0 = ctx.QOptional<Button>($"keybind-{name}-0");
                 var b1 = ctx.QOptional<Button>($"keybind-{name}-1");
@@ -58,7 +61,7 @@ namespace Game.Menu.Options {
             ctx.RegisterCleanup(OptionsSettingsHelpers.SetupVolumeInputField(_sensitivitySlider, _sensitivityValue, 0.01f, 0.5f, false));
 
             RegisterCheckboxButtons(ctx, _invertYButton, _playerTrailsButton, _streamerModeButton,
-                _holdMantleButton, _profanityFilterButton, _autoWallRunButton);
+                _holdMantleButton, _profanityFilterButton, _autoWallRunButton, _analyticsButton);
         }
 
         public void SetupKeybinds(IOptionsTabContext ctx) {
@@ -133,6 +136,8 @@ namespace Game.Menu.Options {
                 OptionsSettingsHelpers.SetCheckboxValue(_profanityFilterButton, SocialSettings.ProfanityFilterEnabled);
             if(_autoWallRunButton != null)
                 OptionsSettingsHelpers.SetCheckboxValue(_autoWallRunButton, data.controls is { autoWallRun: true });
+            if(_analyticsButton != null)
+                OptionsSettingsHelpers.SetCheckboxValue(_analyticsButton, data.social == null || data.social.analyticsEnabled);
         }
 
         public void Save(SettingsData data) {
@@ -142,6 +147,8 @@ namespace Game.Menu.Options {
             if(data.social != null) data.social.streamerModeEnabled = OptionsSettingsHelpers.GetCheckboxValue(_streamerModeButton);
             if(data.controls != null) data.controls.holdMantle = OptionsSettingsHelpers.GetCheckboxValue(_holdMantleButton);
             if(data.controls != null) data.controls.autoWallRun = OptionsSettingsHelpers.GetCheckboxValue(_autoWallRunButton);
+            if(data.social != null && _analyticsButton != null)
+                data.social.analyticsEnabled = OptionsSettingsHelpers.GetCheckboxValue(_analyticsButton);
             SocialSettings.ProfanityFilterEnabled = OptionsSettingsHelpers.GetCheckboxValue(_profanityFilterButton);
         }
 
@@ -153,6 +160,7 @@ namespace Game.Menu.Options {
             _originalHoldMantle = OptionsSettingsHelpers.GetCheckboxValue(_holdMantleButton);
             _originalProfanityFilter = SocialSettings.ProfanityFilterEnabled;
             _originalAutoWallRun = OptionsSettingsHelpers.GetCheckboxValue(_autoWallRunButton);
+            _originalAnalytics = OptionsSettingsHelpers.GetCheckboxValue(_analyticsButton);
         }
 
         public bool HasUnsavedChanges() {
@@ -164,7 +172,8 @@ namespace Game.Menu.Options {
                    OptionsSettingsHelpers.GetCheckboxValue(_streamerModeButton) != _originalStreamerMode ||
                    OptionsSettingsHelpers.GetCheckboxValue(_holdMantleButton) != _originalHoldMantle ||
                    OptionsSettingsHelpers.GetCheckboxValue(_profanityFilterButton) != _originalProfanityFilter ||
-                   OptionsSettingsHelpers.GetCheckboxValue(_autoWallRunButton) != _originalAutoWallRun;
+                   OptionsSettingsHelpers.GetCheckboxValue(_autoWallRunButton) != _originalAutoWallRun ||
+                   OptionsSettingsHelpers.GetCheckboxValue(_analyticsButton) != _originalAnalytics;
         }
 
         public void RefreshDisplay() {
