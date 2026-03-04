@@ -3,12 +3,12 @@ using UnityEngine;
 namespace Network.Session {
     internal static class MatchmakerPollingPolicy {
         // Matchmaker ticket status requests are rate-limited per player; keep a conservative baseline.
-        public const int TicketPollBaseIntervalMs = 1200;
-        public const int TicketPollFailureBackoffStepMs = 1000;
-        public const int TicketPollMaxIntervalMs = 6000;
+        private const int TicketPollBaseIntervalMs = 1200;
+        private const int TicketPollFailureBackoffStepMs = 1000;
+        private const int TicketPollMaxIntervalMs = 6000;
 
         public const int MatchLobbyDiscoveryMaxAttempts = 30;
-        public const int MatchLobbyDiscoveryIntervalMs = 1000;
+        private const int MatchLobbyDiscoveryIntervalMs = 1000;
 
         public static int ResolveTicketPollDelayMs(int consecutiveFailures) {
             var safeFailures = Mathf.Max(0, consecutiveFailures);

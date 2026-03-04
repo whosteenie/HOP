@@ -1,7 +1,6 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using Network;
 using Network.Diagnostics;
 using Steamworks;
 using Steamworks.Data;

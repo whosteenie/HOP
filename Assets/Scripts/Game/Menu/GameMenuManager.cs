@@ -848,7 +848,7 @@ namespace Game.Menu {
             return Application.internetReachability == NetworkReachability.NotReachable;
         }
 
-        public void RestoreHudForMatchStart() {
+        private void RestoreHudForMatchStart() {
             if(_matchTimerContainer == null) return;
             IsPostMatch = false;
             _matchTimerContainer.style.display = DisplayStyle.Flex;

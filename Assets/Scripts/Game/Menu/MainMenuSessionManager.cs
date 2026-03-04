@@ -172,11 +172,11 @@ namespace Game.Menu {
             _uiTaskCts = null;
         }
 
-        private void LaunchUiTask(UniTask task, string context, bool logCancellation = false) {
+        private static void LaunchUiTask(UniTask task, string context, bool logCancellation = false) {
             LaunchUiTaskInternal(task, context, logCancellation).Forget();
         }
 
-        private async UniTaskVoid LaunchUiTaskInternal(UniTask task, string context, bool logCancellation) {
+        private static async UniTaskVoid LaunchUiTaskInternal(UniTask task, string context, bool logCancellation) {
             try {
                 await task;
             } catch(OperationCanceledException) {
@@ -414,10 +414,9 @@ namespace Game.Menu {
                 _hasDrawnSolo = false;
             }
 
-            if(Time.unscaledTime >= _nextProgressionRefreshAt) {
-                UpdateLocalProgressionDisplay();
-                _nextProgressionRefreshAt = Time.unscaledTime + ProgressionRefreshIntervalSeconds;
-            }
+            if(!(Time.unscaledTime >= _nextProgressionRefreshAt)) return;
+            UpdateLocalProgressionDisplay();
+            _nextProgressionRefreshAt = Time.unscaledTime + ProgressionRefreshIntervalSeconds;
         }
 
         private void RegisterUIEvents() {

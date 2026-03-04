@@ -367,11 +367,11 @@ namespace Network.Session {
             _sessionLifetimeCts = null;
         }
 
-        private void LaunchSessionTask(UniTask task, string context, bool logCancellation = false) {
+        private static void LaunchSessionTask(UniTask task, string context, bool logCancellation = false) {
             LaunchSessionTaskInternal(task, context, logCancellation).Forget();
         }
 
-        private async UniTaskVoid LaunchSessionTaskInternal(UniTask task, string context, bool logCancellation) {
+        private static async UniTaskVoid LaunchSessionTaskInternal(UniTask task, string context, bool logCancellation) {
             try {
                 await task;
             } catch(OperationCanceledException) {
@@ -460,7 +460,7 @@ namespace Network.Session {
 
         }
 
-        private async UniTask<bool> WaitForActiveSceneAsync(string expectedSceneName, float timeoutSeconds,
+        private static async UniTask<bool> WaitForActiveSceneAsync(string expectedSceneName, float timeoutSeconds,
             CancellationToken cancellationToken) {
             var start = Time.realtimeSinceStartup;
             while(Time.realtimeSinceStartup - start < timeoutSeconds) {
@@ -479,7 +479,7 @@ namespace Network.Session {
             return false;
         }
 
-        private async UniTask<bool> WaitForMainMenuReadyAsync(float timeoutSeconds, CancellationToken cancellationToken) {
+        private static async UniTask<bool> WaitForMainMenuReadyAsync(float timeoutSeconds, CancellationToken cancellationToken) {
             var start = Time.realtimeSinceStartup;
             while(Time.realtimeSinceStartup - start < timeoutSeconds) {
                 if(cancellationToken.IsCancellationRequested) {

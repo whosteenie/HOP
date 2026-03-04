@@ -1,5 +1,4 @@
 using UnityEngine;
-using Network;
 using Network.Events;
 using Steamworks;
 using Steamworks.Data;

@@ -134,12 +134,11 @@ namespace Network.Events {
                 Add($"{baseKey}.path", BuildHierarchyPath(component.transform));
             }
 
-            if(source is NetworkBehaviour networkBehaviour) {
-                if(networkBehaviour.NetworkObject != null) {
-                    Add($"{baseKey}.networkObjectId", networkBehaviour.NetworkObjectId.ToString(CultureInfo.InvariantCulture));
-                }
-                Add($"{baseKey}.ownerClientId", networkBehaviour.OwnerClientId.ToString(CultureInfo.InvariantCulture));
+            if(source is not NetworkBehaviour networkBehaviour) return;
+            if(networkBehaviour.NetworkObject != null) {
+                Add($"{baseKey}.networkObjectId", networkBehaviour.NetworkObjectId.ToString(CultureInfo.InvariantCulture));
             }
+            Add($"{baseKey}.ownerClientId", networkBehaviour.OwnerClientId.ToString(CultureInfo.InvariantCulture));
         }
 
         internal string ToCompactString(int maxPairs = MaxEntries) {

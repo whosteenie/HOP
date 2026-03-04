@@ -1031,7 +1031,7 @@ namespace Game.Weapons {
 
             foreach(var candidate in candidates) {
                 if(candidate == null || string.IsNullOrWhiteSpace(candidate.name)) continue;
-                if(!string.Equals(candidate.name, targetName, System.StringComparison.OrdinalIgnoreCase)) continue;
+                if(!string.Equals(candidate.name, targetName, StringComparison.OrdinalIgnoreCase)) continue;
                 resolved = candidate;
                 return true;
             }
@@ -1043,18 +1043,18 @@ namespace Game.Weapons {
             if(_activeWeapon == null) return false;
 
             if(!string.IsNullOrWhiteSpace(_activeWeaponSoundKey) &&
-               _activeWeaponSoundKey.IndexOf("drake", System.StringComparison.OrdinalIgnoreCase) >= 0) {
+               _activeWeaponSoundKey.IndexOf("drake", StringComparison.OrdinalIgnoreCase) >= 0) {
                 return true;
             }
 
             if(!string.IsNullOrWhiteSpace(_activeWeapon.name) &&
-               _activeWeapon.name.IndexOf("drake", System.StringComparison.OrdinalIgnoreCase) >= 0) {
+               _activeWeapon.name.IndexOf("drake", StringComparison.OrdinalIgnoreCase) >= 0) {
                 return true;
             }
 
             return _activeWeapon.weaponSettings != null &&
                    !string.IsNullOrWhiteSpace(_activeWeapon.weaponSettings.name) &&
-                   _activeWeapon.weaponSettings.name.IndexOf("drake", System.StringComparison.OrdinalIgnoreCase) >= 0;
+                   _activeWeapon.weaponSettings.name.IndexOf("drake", StringComparison.OrdinalIgnoreCase) >= 0;
         }
 
         private bool IsActiveWeaponLikelyKar() {

@@ -194,7 +194,7 @@ namespace Network.Events {
         }
 
         internal static void SetFileLoggingEnabled(bool enabled) {
-            var shouldInitialize = false;
+            bool shouldInitialize;
             lock(Gate) {
                 _settings.FileLoggingEnabled = enabled;
                 _hasFileLoggingRuntimeOverride = true;
@@ -213,7 +213,7 @@ namespace Network.Events {
         }
 
         internal static void SetFailureCaptureEnabled(bool enabled) {
-            var shouldInitialize = false;
+            bool shouldInitialize;
             lock(Gate) {
                 _settings.FailureCaptureEnabled = enabled;
                 _hasFailureCaptureRuntimeOverride = true;
@@ -437,7 +437,7 @@ namespace Network.Events {
                     _maxFileSizeReached = true;
                     Debug.LogWarning(
                         $"[EventBusFailure] Log file size cap reached for session {_sessionId}. " +
-                        $"Further EventBus failure records will be dropped.");
+                        "Further EventBus failure records will be dropped.");
                     return;
                 }
 

@@ -173,8 +173,7 @@ namespace Game.Player {
         private static void TrimMaterialCacheIfNeeded() {
             while(MaterialCache.Count > MaxCachedMaterials && MaterialCacheOrder.Count > 0) {
                 var evictKey = MaterialCacheOrder.Dequeue();
-                if(!MaterialCache.TryGetValue(evictKey, out var evictMaterial)) continue;
-                MaterialCache.Remove(evictKey);
+                if(!MaterialCache.Remove(evictKey, out var evictMaterial)) continue;
                 if(evictMaterial != null) {
                     Destroy(evictMaterial);
                 }

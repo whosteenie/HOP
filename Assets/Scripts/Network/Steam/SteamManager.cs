@@ -216,16 +216,14 @@ namespace Network.Steam {
         }
 
         private void RemoveAvatarCacheEntry(ulong steamId, bool destroyTexture) {
-            if(_avatarCache.TryGetValue(steamId, out var texture)) {
-                _avatarCache.Remove(steamId);
+            if(_avatarCache.Remove(steamId, out var texture)) {
                 if(destroyTexture && texture != null) {
                     Destroy(texture);
                 }
             }
 
-            if(_avatarLruNodes.TryGetValue(steamId, out var node)) {
-                _avatarLruNodes.Remove(steamId);
-                if(node != null && node.List != null) {
+            if(_avatarLruNodes.Remove(steamId, out var node)) {
+                if(node is { List: not null }) {
                     node.List.Remove(node);
                 }
             }
@@ -238,12 +236,9 @@ namespace Network.Steam {
                 return false;
             }
 
-            if(Time.unscaledTime >= cooldownUntil) {
-                _avatarFailureCooldownUntil.Remove(steamId);
-                return false;
-            }
-
-            return true;
+            if(!(Time.unscaledTime >= cooldownUntil)) return true;
+            _avatarFailureCooldownUntil.Remove(steamId);
+            return false;
         }
 
         private void MarkAvatarFetchFailure(ulong steamId) {

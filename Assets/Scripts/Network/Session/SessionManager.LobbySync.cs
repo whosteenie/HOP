@@ -898,8 +898,8 @@ namespace Network.Session {
             _isHeartbeatDispatchInFlight = true;
 
             try {
-            var localId = AuthenticationService.Instance.PlayerId;
-            if(string.IsNullOrEmpty(localId)) return;
+                var localId = AuthenticationService.Instance.PlayerId;
+                if(string.IsNullOrEmpty(localId)) return;
                 var now = Time.unscaledTime;
                 RefreshHeartbeatSchedulesForCurrentLobbies(now);
 
