@@ -62,7 +62,13 @@ namespace Game.Settings {
             public string voiceInputDevice = "Default";
             public bool profanityFilterEnabled;
             public bool streamerModeEnabled;
+            // Legacy serialized field name kept for backward compatibility with existing settings files.
+            // This currently controls local EventBus failure diagnostics capture/file logging.
             public bool analyticsEnabled = true;
+            public bool eventBusDiagnosticsEnabled {
+                get => analyticsEnabled;
+                set => analyticsEnabled = value;
+            }
 
             public List<string> mutedPlayers = new();
             public List<string> blockedPlayers = new();

@@ -27,6 +27,10 @@ namespace Network.Events {
         private static long _bytesWritten;
         private static float _nextFlushAt;
         private static EventBusFailureDiagnosticsDriver _driver;
+        private static bool _hasFailureCaptureRuntimeOverride;
+        private static bool _failureCaptureRuntimeOverride;
+        private static bool _hasFileLoggingRuntimeOverride;
+        private static bool _fileLoggingRuntimeOverride;
 
         internal static bool RecordHandlerException(
             Type eventType,
@@ -40,11 +44,20 @@ namespace Network.Events {
             if(settingsSnapshot.FailureCaptureEnabled == false) {
                 return settingsSnapshot.FailFastOnHandlerException;
             }
+            if(HasAnyConfiguredSink(settingsSnapshot) == false) {
+                return settingsSnapshot.FailFastOnHandlerException;
+            }
 
             EnsureInitialized();
 
             settingsSnapshot = GetSettingsSnapshot();
             if(settingsSnapshot.FailureCaptureEnabled == false) {
+                return settingsSnapshot.FailFastOnHandlerException;
+            }
+            if(HasAnyConfiguredSink(settingsSnapshot) == false) {
+                return settingsSnapshot.FailFastOnHandlerException;
+            }
+            if(settingsSnapshot.EchoToUnityConsole == false && IsFileSinkActive() == false) {
                 return settingsSnapshot.FailFastOnHandlerException;
             }
 
@@ -161,6 +174,12 @@ namespace Network.Events {
                     ImmediateFlushOnError = settings.failureImmediateFlushOnError,
                     RedactIdentifiers = settings.failureRedactIdentifiers
                 };
+                if(_hasFailureCaptureRuntimeOverride) {
+                    _settings.FailureCaptureEnabled = _failureCaptureRuntimeOverride;
+                }
+                if(_hasFileLoggingRuntimeOverride) {
+                    _settings.FileLoggingEnabled = _fileLoggingRuntimeOverride;
+                }
 
                 if(_initialized) {
                     ApplyWriterStateLocked();
@@ -178,6 +197,8 @@ namespace Network.Events {
             var shouldInitialize = false;
             lock(Gate) {
                 _settings.FileLoggingEnabled = enabled;
+                _hasFileLoggingRuntimeOverride = true;
+                _fileLoggingRuntimeOverride = enabled;
                 if(_initialized) {
                     ApplyWriterStateLocked();
                     return;
@@ -195,6 +216,8 @@ namespace Network.Events {
             var shouldInitialize = false;
             lock(Gate) {
                 _settings.FailureCaptureEnabled = enabled;
+                _hasFailureCaptureRuntimeOverride = true;
+                _failureCaptureRuntimeOverride = enabled;
                 shouldInitialize = enabled && _settings.FileLoggingEnabled && _initialized == false;
             }
 
@@ -250,6 +273,7 @@ namespace Network.Events {
                 } finally {
                     _writer = null;
                     _activeLogPath = null;
+                    ResetSessionStateLocked();
                 }
             }
         }
@@ -305,6 +329,7 @@ namespace Network.Events {
                 }
                 _activeLogPath = null;
                 _sessionStartWritten = false;
+                DestroyDriverLocked();
 
                 return;
             }
@@ -341,6 +366,27 @@ namespace Network.Events {
                 _writer = null;
                 _activeLogPath = null;
             }
+        }
+
+        private static void DestroyDriverLocked() {
+            if(_driver == null) return;
+            var driver = _driver;
+            _driver = null;
+            if(driver != null) {
+                UnityEngine.Object.Destroy(driver.gameObject);
+            }
+        }
+
+        private static void ResetSessionStateLocked() {
+            _initialized = false;
+            _sessionId = null;
+            _sessionStartWritten = false;
+            _sessionEndWritten = false;
+            _maxFileSizeReached = false;
+            _recordCount = 0;
+            _bytesWritten = 0;
+            _nextFlushAt = 0f;
+            _internalErrorLogged = false;
         }
 
         private static void WriteSessionBoundaryLocked(string recordType) {
@@ -449,6 +495,16 @@ namespace Network.Events {
         private static FailureRuntimeSettings GetSettingsSnapshot() {
             lock(Gate) {
                 return _settings;
+            }
+        }
+
+        private static bool HasAnyConfiguredSink(FailureRuntimeSettings settings) {
+            return settings.FileLoggingEnabled || settings.EchoToUnityConsole;
+        }
+
+        private static bool IsFileSinkActive() {
+            lock(Gate) {
+                return _writer != null;
             }
         }
 

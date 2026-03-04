@@ -29,7 +29,7 @@ namespace Game.Settings {
             if(SettingsFile.TryLoad(out var settingsData) && settingsData != null) {
                 data = settingsData;
                 ValidateAndClamp(data);
-                ApplyEventBusAnalyticsSetting(data);
+                ApplyEventBusDiagnosticsSetting(data);
                 return;
             }
 
@@ -39,14 +39,14 @@ namespace Game.Settings {
             data = new SettingsData();
             MigrateFromPlayerPrefsIfPresent(data);
             ValidateAndClamp(data);
-            ApplyEventBusAnalyticsSetting(data);
+            ApplyEventBusDiagnosticsSetting(data);
             SettingsFile.Save(data);
         }
 
         public static void Save() {
             EnsureLoaded();
             ValidateAndClamp(data);
-            ApplyEventBusAnalyticsSetting(data);
+            ApplyEventBusDiagnosticsSetting(data);
             SettingsFile.Save(data);
             OnSettingsChanged?.Invoke();
             EventBus.Publish(new GameSettingsChangedEvent());
@@ -94,7 +94,7 @@ namespace Game.Settings {
             TrimList(d.social.mutedPlayers, 200);
             TrimList(d.social.blockedPlayers, 200);
             if(loadedVersion < 4) {
-                d.social.analyticsEnabled = true;
+                d.social.eventBusDiagnosticsEnabled = true;
             }
 
             // Player
@@ -113,10 +113,10 @@ namespace Game.Settings {
             }
         }
 
-        private static void ApplyEventBusAnalyticsSetting(SettingsData d) {
-            var analyticsEnabled = d?.social == null || d.social.analyticsEnabled;
-            EventBus.SetFailureCaptureEnabled(analyticsEnabled);
-            EventBus.SetFailureFileLoggingEnabled(analyticsEnabled);
+        private static void ApplyEventBusDiagnosticsSetting(SettingsData d) {
+            var diagnosticsEnabled = d?.social == null || d.social.eventBusDiagnosticsEnabled;
+            EventBus.SetFailureCaptureEnabled(diagnosticsEnabled);
+            EventBus.SetFailureFileLoggingEnabled(diagnosticsEnabled);
         }
 
         private static void TrimList(List<string> list, int max) {
