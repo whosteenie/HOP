@@ -79,7 +79,6 @@ namespace Game.Weapons {
         private int _runtimeGrappleOffsetWeaponIndex;
         private readonly HashSet<int> _suppressedMuzzleFxWeaponIds = new();
         private int _cachedActiveWeaponInstanceId;
-        private Transform[] _cachedActiveWeaponTransforms;
         private Animator[] _cachedActiveWeaponAnimators;
         private FPSWeaponSound[] _cachedActiveWeaponSounds;
         private ParticleSystem[] _cachedActiveWeaponParticleSystems;
@@ -164,18 +163,15 @@ namespace Game.Weapons {
         private static readonly Vector3 FixedTwistLeftEulerOffset = new(0f, -7.5f, 0f);
         private static readonly int IsInAir = Animator.StringToHash("IsInAir");
         private static readonly Vector3 DefaultAkViewmodelLocalPosition = new(0.1699999f, -1.750005f, 0f);
-        private static bool s_hasAkViewmodelReference;
-        private static Vector3 s_akViewmodelLocalPosition = DefaultAkViewmodelLocalPosition;
-        private static bool s_hasAkAnchorFrame1CameraReference;
-        private static Vector3 s_akAnchorFrame1CameraLocal;
+        private static bool sHasAkViewmodelReference;
+        private static Vector3 sAkViewmodelLocalPosition = DefaultAkViewmodelLocalPosition;
+        private static bool sHasAkAnchorFrame1CameraReference;
+        private static Vector3 sAkAnchorFrame1CameraLocal;
         private static readonly HashSet<int> MissingKinemationSpecialHandlingWarnings = new();
         private static readonly HashSet<int> MissingKinemationGrappleIndexWarnings = new();
         private static readonly HashSet<int> MissingKinemationPartReferenceWarnings = new();
         private static readonly HashSet<int> InvalidKinemationPartReferenceWarnings = new();
         private static readonly HashSet<int> MissingKinemationReloadSoundIndexWarnings = new();
-        private static readonly HashSet<int> MissingKinemationMuzzleFallbackWarnings = new();
-        private static readonly HashSet<int> InvalidKinemationMuzzleFallbackWarnings = new();
-        private static bool s_reflectionContractValidated;
         private const int DrakeTopShellReferenceKey = 11;
         private const int DrakeBottomShellReferenceKey = 12;
         private const int KarLoopBulletReferenceKey = 13;
@@ -217,23 +213,22 @@ namespace Game.Weapons {
             var idx = GetGrappleWeaponIndex();
 
             if(idx == 0) {
-                if(TryGetWeaponCameraTransform(out var cameraTransform)) {
-                    s_akAnchorFrame1CameraLocal = cameraTransform.InverseTransformPoint(anchor.position);
-                    s_hasAkAnchorFrame1CameraReference = true;
-                }
+                if(!TryGetWeaponCameraTransform(out var cameraTransform)) return;
+                sAkAnchorFrame1CameraLocal = cameraTransform.InverseTransformPoint(anchor.position);
+                sHasAkAnchorFrame1CameraReference = true;
                 return;
             }
 
             Vector3 resolvedLocalOffset;
-            if(s_hasAkAnchorFrame1CameraReference && TryGetWeaponCameraTransform(out var frameCameraTransform)) {
+            if(sHasAkAnchorFrame1CameraReference && TryGetWeaponCameraTransform(out var frameCameraTransform)) {
                 var currentCameraLocal = frameCameraTransform.InverseTransformPoint(anchor.position);
-                var cameraLocalOffset = s_akAnchorFrame1CameraLocal - currentCameraLocal;
+                var cameraLocalOffset = sAkAnchorFrame1CameraLocal - currentCameraLocal;
                 var worldOffset = frameCameraTransform.TransformDirection(cameraLocalOffset);
                 resolvedLocalOffset = _clavicleLeft.parent != null
                     ? _clavicleLeft.parent.InverseTransformDirection(worldOffset)
                     : worldOffset;
             } else {
-                // Fallback: convert root-delta estimate into clavicle-parent local once at frame1.
+                // Alternate path: convert root-delta estimate into clavicle-parent local once at frame1.
                 var worldOffset = transform.parent != null
                     ? transform.parent.TransformDirection(_runtimeGrappleClavicleOffset)
                     : _runtimeGrappleClavicleOffset;
@@ -247,7 +242,7 @@ namespace Game.Weapons {
         }
 
         private void OnGrappleStarted(GrappleStartedEvent grappleStartedEvent) {
-            if(grappleStartedEvent != null && !grappleStartedEvent.UseFirstPersonAnimation) {
+            if(grappleStartedEvent is { UseFirstPersonAnimation: false }) {
                 ClearRuntimeGrappleClavicleOffset();
                 return;
             }
@@ -294,7 +289,6 @@ namespace Game.Weapons {
         }
 
         public bool InitializeIfNeeded(int renderLayer) {
-            ValidateReflectionContractOnce();
             _renderLayer = renderLayer;
             _weaponManager = _weaponManager ? _weaponManager : GetComponentInParent<WeaponManager>();
 
@@ -340,76 +334,13 @@ namespace Game.Weapons {
             return _playerInstance != null;
         }
 
-        private void ValidateReflectionContractOnce() {
-            if(s_reflectionContractValidated) return;
-            s_reflectionContractValidated = true;
-
-            var missingRequired = new List<string>();
-            var missingOptional = new List<string>();
-
-            CollectMissingReflectionMember(FpsWeaponActiveAmmoField, "FPSWeapon._activeAmmo", true, missingRequired,
-                missingOptional);
-            CollectMissingReflectionMember(FpsWeaponIsReloadingField, "FPSWeapon._isReloading", true, missingRequired,
-                missingOptional);
-            CollectMissingReflectionMember(FpsWeaponIsFiringField, "FPSWeapon._isFiring", true, missingRequired,
-                missingOptional);
-            CollectMissingReflectionMember(FpsWeaponCharacterAnimatorField, "FPSWeapon.characterAnimator", true,
-                missingRequired, missingOptional);
-            CollectMissingReflectionMember(FpsWeaponAnimatorField, "FPSWeapon.weaponAnimator", true, missingRequired,
-                missingOptional);
-
-            CollectMissingReflectionMember(FpsPlayerMoveInputField, "FPSPlayer._moveInput", false, missingRequired,
-                missingOptional);
-            CollectMissingReflectionMember(FpsPlayerLookInputField, "FPSPlayer._lookInput", false, missingRequired,
-                missingOptional);
-            CollectMissingReflectionMember(FpsPlayerSprintingField, "FPSPlayer._bSprinting", false, missingRequired,
-                missingOptional);
-            CollectMissingReflectionMember(FpsPlayerTacSprintingField, "FPSPlayer._bTacSprinting", false,
-                missingRequired, missingOptional);
-            CollectMissingReflectionMember(FpsPlayerSetMovementEnabledMethod,
-                "FPSPlayer.SetCharacterControllerMovementEnabled", false, missingRequired, missingOptional);
-            CollectMissingReflectionMember(FpsPlayerAllowControllerMovementField,
-                "FPSPlayer.allowCharacterControllerMovement", false, missingRequired, missingOptional);
-            CollectMissingReflectionMember(FpsWeaponSoundAudioSourceField, "FPSWeaponSound._audioSource", false,
-                missingRequired, missingOptional);
-            CollectMissingReflectionMember(Pdw90SmoothAmmoWeightField, "Pdw90Animation._smoothAmmoWeight", false,
-                missingRequired, missingOptional);
-
-            if(missingRequired.Count > 0) {
-                Debug.LogError(
-                    "[KinemationFpWeaponDriver] Missing required reflection members after KINEMATION/API changes: " +
-                    string.Join(", ", missingRequired) +
-                    ". Reload, fire, and animation synchronization may fail.",
-                    this);
-            }
-
-            if(missingOptional.Count > 0) {
-                Debug.LogWarning(
-                    "[KinemationFpWeaponDriver] Missing optional reflection members: " +
-                    string.Join(", ", missingOptional) +
-                    ". Some polish features may be degraded.",
-                    this);
-            }
-        }
-
-        private static void CollectMissingReflectionMember(MemberInfo member, string label, bool isRequired,
-            List<string> missingRequired, List<string> missingOptional) {
-            if(member != null) return;
-            if(isRequired) {
-                missingRequired.Add(label);
-            } else {
-                missingOptional.Add(label);
-            }
-        }
-
         public void PlayEquipAnimation(bool immediate) {
             if(!TryCacheActiveWeapon()) return;
             PrepareActiveWeaponForEquip();
+            ResetEquipTracking();
             if(immediate) {
-                ResetEquipTracking();
                 _activeWeapon.OnEquipped_Immediate();
             } else {
-                ResetEquipTracking();
                 _isTrackingEquip = true;
                 _equipTrackStartTime = Time.time;
                 _lastEquipSignalTime = Time.time;
@@ -596,9 +527,7 @@ namespace Game.Weapons {
             }
 
             var data = GetActiveWeaponData();
-            if(data != null &&
-               data.kinemationReloadEventSoundIndices != null &&
-               data.kinemationReloadEventSoundIndices.Length > 0) {
+            if(data != null && data.kinemationReloadEventSoundIndices is { Length: > 0 }) {
                 foreach(var configuredIndex in data.kinemationReloadEventSoundIndices) {
                     if(configuredIndex == clipIndex) {
                         return true;
@@ -1067,19 +996,18 @@ namespace Game.Weapons {
                 return -1;
             }
 
-            if(data.kinemationGrappleWeaponIndex == WeaponData.KinemationGrappleWeaponIndex.Null) {
-                ReportMissingKinemationAssignment(
-                    data,
-                    MissingKinemationGrappleIndexWarnings,
-                    nameof(WeaponData.kinemationGrappleWeaponIndex),
-                    "Grapple weapon index falls back to default bucket 0 until assigned.");
-                return -1;
-            }
+            if(data.kinemationGrappleWeaponIndex != WeaponData.KinemationGrappleWeaponIndex.Null)
+                return (int)data.kinemationGrappleWeaponIndex;
+            ReportMissingKinemationAssignment(
+                data,
+                MissingKinemationGrappleIndexWarnings,
+                nameof(WeaponData.kinemationGrappleWeaponIndex),
+                "Grapple animation index is invalid until assigned.");
+            return -1;
 
-            return (int)data.kinemationGrappleWeaponIndex;
         }
 
-        private void ReportMissingKinemationAssignment(WeaponData data, HashSet<int> warningCache, string fieldName,
+        private static void ReportMissingKinemationAssignment(WeaponData data, HashSet<int> warningCache, string fieldName,
             string impactDescription) {
             if(data == null || warningCache == null) return;
             var id = data.GetInstanceID();
@@ -1104,26 +1032,6 @@ namespace Game.Weapons {
                 data);
         }
 
-        private bool TryResolveConfiguredWeaponMuzzleTransform(FPSWeapon weapon, Transform configuredTransform,
-            int partReferenceKey, string partFieldName, out Transform resolvedTransform) {
-            resolvedTransform = null;
-            if(weapon == null) return false;
-
-            if(configuredTransform == null) {
-                ReportMissingKinemationMuzzleFallbackReference(weapon, partReferenceKey, partFieldName, false);
-                return false;
-            }
-
-            if(configuredTransform != weapon.transform && !configuredTransform.IsChildOf(weapon.transform)) {
-                ReportInvalidKinemationMuzzleFallbackReference(weapon, partReferenceKey, partFieldName,
-                    configuredTransform);
-                return false;
-            }
-
-            resolvedTransform = configuredTransform;
-            return true;
-        }
-
         private bool TryResolveConfiguredWeaponPartReference(Transform configuredPart, int partReferenceKey,
             string partFieldName, out Transform resolvedPart) {
             resolvedPart = null;
@@ -1143,9 +1051,8 @@ namespace Game.Weapons {
             return true;
         }
 
-        private int BuildPartReferenceWarningKey(int partReferenceKey, FPSWeapon weapon = null) {
-            var sourceWeapon = weapon != null ? weapon : _activeWeapon;
-            var weaponId = sourceWeapon != null ? sourceWeapon.GetInstanceID() : 0;
+        private int BuildPartReferenceWarningKey(int partReferenceKey) {
+            var weaponId = _activeWeapon != null ? _activeWeapon.GetInstanceID() : 0;
             return unchecked(weaponId * 397 ^ partReferenceKey);
         }
 
@@ -1176,48 +1083,6 @@ namespace Game.Weapons {
                 _activeWeapon);
         }
 
-        private void ReportMissingKinemationMuzzleFallbackReference(FPSWeapon weapon, int partReferenceKey,
-            string partFieldName, bool missingComponent) {
-            var warningKey = BuildPartReferenceWarningKey(partReferenceKey, weapon);
-            if(!MissingKinemationMuzzleFallbackWarnings.Add(warningKey)) return;
-
-            var weaponLabel = GetWeaponLabel(weapon);
-            var guidance = missingComponent
-                ? "Add KinemationWeaponPartReferences to this weapon prefab."
-                : "Assign this field on KinemationWeaponPartReferences.";
-            Debug.LogWarning(
-                $"[KinemationFpWeaponDriver] Weapon '{weaponLabel}' is missing explicit muzzle config '{partFieldName}'. " +
-                $"{guidance} Falling back to legacy muzzle heuristics.",
-                weapon);
-        }
-
-        private void ReportInvalidKinemationMuzzleFallbackReference(FPSWeapon weapon, int partReferenceKey,
-            string partFieldName, Transform configuredPart) {
-            var warningKey = BuildPartReferenceWarningKey(partReferenceKey, weapon);
-            if(!InvalidKinemationMuzzleFallbackWarnings.Add(warningKey)) return;
-
-            var weaponLabel = GetWeaponLabel(weapon);
-            var assignedName = configuredPart != null ? configuredPart.name : "(null)";
-            Debug.LogWarning(
-                $"[KinemationFpWeaponDriver] Weapon '{weaponLabel}' has invalid explicit muzzle config '{partFieldName}' " +
-                $"(assigned '{assignedName}', outside weapon hierarchy). Falling back to legacy muzzle heuristics.",
-                weapon);
-        }
-
-        private string GetWeaponLabel(FPSWeapon weapon) {
-            if(weapon == null) return "(unknown)";
-            if(weapon == _activeWeapon) {
-                return GetActiveWeaponLabel();
-            }
-
-            var data = weapon.weaponSettings;
-            if(data != null && !string.IsNullOrWhiteSpace(data.name)) {
-                return data.name;
-            }
-
-            return weapon.name;
-        }
-
         private string GetActiveWeaponLabel() {
             var data = GetActiveWeaponData();
             if(data != null) {
@@ -1230,7 +1095,7 @@ namespace Game.Weapons {
         private void ApplyGrappleWeaponIndex() {
             if(_fpsAnimator == null) return;
             var weaponIndex = GetGrappleWeaponIndex();
-            if(weaponIndex < 0) weaponIndex = 0;
+            if(weaponIndex < 0) return;
             _fpsAnimator.SetFloat(GrappleWeaponIndexHash, weaponIndex);
         }
 
@@ -1246,15 +1111,20 @@ namespace Game.Weapons {
             }
 
             _runtimeGrappleOffsetWeaponIndex = GetGrappleWeaponIndex();
-            if(_runtimeGrappleOffsetWeaponIndex == 0) {
-                s_akViewmodelLocalPosition = transform.localPosition;
-                s_hasAkViewmodelReference = true;
-                _runtimeGrappleClavicleOffset = Vector3.zero;
-                _isRuntimeGrappleClavicleOffsetActive = false;
-                return;
+            switch(_runtimeGrappleOffsetWeaponIndex) {
+                case < 0:
+                    _runtimeGrappleClavicleOffset = Vector3.zero;
+                    _isRuntimeGrappleClavicleOffsetActive = false;
+                    return;
+                case 0:
+                    sAkViewmodelLocalPosition = transform.localPosition;
+                    sHasAkViewmodelReference = true;
+                    _runtimeGrappleClavicleOffset = Vector3.zero;
+                    _isRuntimeGrappleClavicleOffsetActive = false;
+                    return;
             }
 
-            var akReference = s_hasAkViewmodelReference ? s_akViewmodelLocalPosition : DefaultAkViewmodelLocalPosition;
+            var akReference = sHasAkViewmodelReference ? sAkViewmodelLocalPosition : DefaultAkViewmodelLocalPosition;
             _runtimeGrappleClavicleOffset = akReference - transform.localPosition;
             _isRuntimeGrappleClavicleOffsetActive = false;
         }
@@ -1274,11 +1144,7 @@ namespace Game.Weapons {
                 return true;
             }
 
-            if(FpsWeaponIsReloadingField?.GetValue(_activeWeapon) is bool isReloading && isReloading) {
-                return true;
-            }
-
-            return IsAnyReloadClipActive();
+            return FpsWeaponIsReloadingField?.GetValue(_activeWeapon) is true || IsAnyReloadClipActive();
         }
 
         private int GetActiveWeaponAmmoForInterrupt() {
@@ -1570,10 +1436,7 @@ namespace Game.Weapons {
             if(_ikHandLeft != null) {
                 return _ikHandLeft;
             }
-            if(_wristDebugHandLeft != null) {
-                return _wristDebugHandLeft;
-            }
-            return null;
+            return _wristDebugHandLeft != null ? _wristDebugHandLeft : null;
         }
 
         private bool TryGetWeaponCameraTransform(out Transform cameraTransform) {
@@ -1587,8 +1450,7 @@ namespace Game.Weapons {
         private Transform GetGrappleCalibrationAnchor() {
             if(_ikHandLeft != null) return _ikHandLeft;
             if(_wristDebugHandLeft != null) return _wristDebugHandLeft;
-            if(_grappleOrigin != null) return _grappleOrigin;
-            return _clavicleLeft;
+            return _grappleOrigin != null ? _grappleOrigin : _clavicleLeft;
         }
 
         public bool AreKinemationSoundsEnabled() {
@@ -1748,7 +1610,6 @@ namespace Game.Weapons {
         private void InvalidateActiveWeaponComponentCaches() {
             _cachedActiveWeaponInstanceId = 0;
             _activeWeaponPartReferences = null;
-            _cachedActiveWeaponTransforms = null;
             _cachedActiveWeaponAnimators = null;
             _cachedActiveWeaponSounds = null;
             _cachedActiveWeaponParticleSystems = null;
@@ -1768,7 +1629,6 @@ namespace Game.Weapons {
             if(_cachedActiveWeaponInstanceId == instanceId) return;
             _cachedActiveWeaponInstanceId = instanceId;
             _activeWeaponPartReferences = null;
-            _cachedActiveWeaponTransforms = null;
             _cachedActiveWeaponAnimators = null;
             _cachedActiveWeaponSounds = null;
             _cachedActiveWeaponParticleSystems = null;
@@ -1793,10 +1653,6 @@ namespace Game.Weapons {
             return weapon == _activeWeapon
                 ? GetActiveWeaponComponents(ref activeWeaponCache)
                 : weapon.GetComponentsInChildren<T>(true);
-        }
-
-        private Transform[] GetActiveWeaponTransforms() {
-            return GetActiveWeaponComponents(ref _cachedActiveWeaponTransforms);
         }
 
         private Animator[] GetActiveWeaponAnimators() {
@@ -1843,83 +1699,21 @@ namespace Game.Weapons {
             return _activeWeaponPartReferences;
         }
 
-        private KinemationWeaponPartReferences GetWeaponPartReferences(FPSWeapon weapon) {
-            if(weapon == null) return null;
-            if(weapon == _activeWeapon) {
-                return GetActiveWeaponPartReferences();
-            }
-
-            var references = weapon.GetComponent<KinemationWeaponPartReferences>();
-            if(references == null) {
-                references = weapon.GetComponentInChildren<KinemationWeaponPartReferences>(true);
-            }
-
-            return references;
-        }
-
         private Transform ResolveMuzzleTransform(FPSWeapon activeWeapon) {
             if(activeWeapon == null) return null;
+            var partReferences = GetActiveWeaponPartReferences();
+            if(partReferences != null)
+                return TryResolveConfiguredWeaponPartReference(
+                    partReferences.FpMuzzleTransform,
+                    FpMuzzleReferenceKey,
+                    nameof(KinemationWeaponPartReferences.FpMuzzleTransform),
+                    out var muzzleTransform)
+                    ? muzzleTransform
+                    : null;
+            ReportMissingKinemationPartReference(FpMuzzleReferenceKey,
+                nameof(KinemationWeaponPartReferences.FpMuzzleTransform), true);
+            return null;
 
-            var partReferences = GetWeaponPartReferences(activeWeapon);
-            if(partReferences == null) {
-                ReportMissingKinemationMuzzleFallbackReference(activeWeapon, FpMuzzleReferenceKey,
-                    nameof(KinemationWeaponPartReferences.FpMuzzleTransform), true);
-            } else if(TryResolveConfiguredWeaponMuzzleTransform(activeWeapon, partReferences.FpMuzzleTransform,
-                          FpMuzzleReferenceKey, nameof(KinemationWeaponPartReferences.FpMuzzleTransform),
-                          out var configuredMuzzleTransform)) {
-                return configuredMuzzleTransform;
-            }
-
-            var transforms = GetWeaponComponents(activeWeapon, ref _cachedActiveWeaponTransforms);
-            return ResolveBestExplicitMuzzleCandidate(activeWeapon, transforms, out _);
-        }
-
-        private static Transform ResolveBestExplicitMuzzleCandidate(FPSWeapon activeWeapon, Transform[] transforms,
-            out int candidateCount) {
-            candidateCount = 0;
-            if(activeWeapon == null || transforms == null || transforms.Length == 0) return null;
-
-            var candidates = new List<Transform>();
-            foreach(var t in transforms) {
-                if(t != null && t.name == "Muzzle") {
-                    candidates.Add(t);
-                }
-            }
-
-            candidateCount = candidates.Count;
-            switch(candidateCount) {
-                case 0:
-                    return null;
-                case 1:
-                    return candidates[0];
-            }
-
-            var aimPoint = activeWeapon.aimPoint;
-            if(aimPoint == null) {
-                return candidates[0];
-            }
-
-            Transform best = null;
-            var bestScore = float.NegativeInfinity;
-            foreach(var candidate in candidates) {
-                if(candidate == null) continue;
-
-                var offset = candidate.position - aimPoint.position;
-                var forward = aimPoint.forward;
-                var forwardScore = Vector3.Dot(forward, offset);
-                var lateralDistance = Vector3.Cross(forward, offset).magnitude;
-                var score = forwardScore - lateralDistance * 0.05f;
-
-                if(candidate.IsChildOf(aimPoint)) {
-                    score -= 0.25f;
-                }
-
-                if(score <= bestScore) continue;
-                bestScore = score;
-                best = candidate;
-            }
-
-            return best != null ? best : candidates[0];
         }
 
         private bool TryCacheActiveWeapon() {
@@ -2090,9 +1884,9 @@ namespace Game.Weapons {
             }
 
             var lights = GetWeaponLights(activeWeapon);
-            foreach(var light in lights) {
-                if(light == null || !IsLikelyMuzzleFxNode(light.transform)) continue;
-                light.enabled = false;
+            foreach(var l in lights) {
+                if(l == null || !IsLikelyMuzzleFxNode(l.transform)) continue;
+                l.enabled = false;
                 disabledLights++;
             }
 
@@ -2347,7 +2141,7 @@ namespace Game.Weapons {
                 foreach(var clipInfo in clips) {
                     var clip = clipInfo.clip;
                     if(clip == null || string.IsNullOrEmpty(clip.name)) continue;
-                    if(clip.name.IndexOf("reload", System.StringComparison.OrdinalIgnoreCase) >= 0) {
+                    if(clip.name.IndexOf("reload", StringComparison.OrdinalIgnoreCase) >= 0) {
                         return true;
                     }
                 }
@@ -2466,7 +2260,7 @@ namespace Game.Weapons {
             foreach(var c in clipInfos) {
                 var clip = c.clip;
                 if(clip == null) continue;
-                if(clip.name.IndexOf("Grapple", System.StringComparison.OrdinalIgnoreCase) < 0) continue;
+                if(clip.name.IndexOf("Grapple", StringComparison.OrdinalIgnoreCase) < 0) continue;
                 clipWeight = Mathf.Max(clipWeight, c.weight);
             }
             if(clipWeight <= 0.0001f) return 0f;
