@@ -134,7 +134,7 @@
                             <ui:Button name="profanity-filter" class="setting-toggle"/>
                         </ui:VisualElement>
                         <ui:VisualElement name="analytics-enabled-container" class="setting-row">
-                            <ui:Label text="ANALYTICS (LOCAL DIAGNOSTICS)" name="analytics-enabled-label" class="setting-label"/>
+                            <ui:Label text="ANALYTICS" name="analytics-enabled-label" class="setting-label"/>
                             <ui:Button name="analytics-enabled" class="setting-toggle"/>
                         </ui:VisualElement>
                         <ui:VisualElement name="voice-mode-container" class="setting-row">

@@ -76,7 +76,7 @@ namespace Game.Menu.Options {
             ["crosshair-style-container"] = ("CROSSHAIR STYLE", "Switch between a classic cross and a center dot."),
             ["crosshair-color-container"] = ("CROSSHAIR COLOR", "Sets the HUD crosshair color and grapple indicator accent color."),
             ["profanity-filter-container"] = ("CHAT PROFANITY FILTER", "Locally filters text chat according to your preference."),
-            ["analytics-enabled-container"] = ("ANALYTICS (LOCAL DIAGNOSTICS)", "Toggles local EventBus failure diagnostics capture and session log writing."),
+            ["analytics-enabled-container"] = ("ANALYTICS", "Turn off local diagnostics/analytics logging for the best performance, especially on lower-end machines."),
             ["voice-mode-container"] = ("VOICE INPUT MODE", "Select voice activation mode: push-to-talk or open mic."),
             ["sensitivity-container"] = ("MOUSE SENSITIVITY", "Controls horizontal and vertical look sensitivity."),
             ["invert-y-container"] = ("INVERT Y AXIS", "Inverts vertical look input for mouse movement.")

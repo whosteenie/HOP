@@ -380,9 +380,10 @@ namespace Game.Menu {
                     if(showStatus && isSearching) {
                         if(uiManager.QueueGamemodeLabel != null) {
                             var selectedGameMode = SessionManager.Instance.SelectedGameMode ?? string.Empty;
-                            if(!string.Equals(_lastQueueGamemodeLabel, selectedGameMode, StringComparison.Ordinal)) {
-                                uiManager.QueueGamemodeLabel.text = selectedGameMode;
-                                _lastQueueGamemodeLabel = selectedGameMode;
+                            var queueGamemodeLabel = GetQueueGamemodeLabel(selectedGameMode);
+                            if(!string.Equals(_lastQueueGamemodeLabel, queueGamemodeLabel, StringComparison.Ordinal)) {
+                                uiManager.QueueGamemodeLabel.text = queueGamemodeLabel;
+                                _lastQueueGamemodeLabel = queueGamemodeLabel;
                             }
                         }
 
@@ -712,6 +713,15 @@ namespace Game.Menu {
             if(uiManager != null && uiManager.GamemodeDisplayLabel != null && SessionManager.Instance != null) {
                 uiManager.GamemodeDisplayLabel.text = SessionManager.Instance.SelectedGameMode;
             }
+        }
+
+        private static string GetQueueGamemodeLabel(string mode) {
+            if(string.Equals(mode, "Team Deathmatch", StringComparison.Ordinal) ||
+               string.Equals(mode, "TeamDeathmatch", StringComparison.Ordinal)) {
+                return "TDM";
+            }
+
+            return mode;
         }
 
         public void ResetLobbyUI() {
