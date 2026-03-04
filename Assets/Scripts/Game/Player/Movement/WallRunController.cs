@@ -111,6 +111,8 @@ namespace Game.Player {
         private float _jumpCooldownTimer;
         private Vector3 _targetWallNormal;
         private Vector3 _lastWallRunDirection;
+        private int _lockedWallRunSign = 1;
+        private bool _hasLockedWallRunSign;
         private CurvedWallRunSurface _curvedSurface; // When non-null we use math-based curved path; when null we use single-probe flat path. Set at wall-run start, cleared on stop.
         private string _stopReason;
 
@@ -241,6 +243,8 @@ namespace Game.Player {
             WallNormal = _wallHit.normal.normalized;
             _targetWallNormal = WallNormal;
             _lastWallRunDirection = Vector3.zero;
+            _lockedWallRunSign = ResolveWallRunDirectionSignForStart(transform.forward);
+            _hasLockedWallRunSign = true;
 
             UpdateCameraTiltForCurrentSide();
         }
@@ -261,6 +265,8 @@ namespace Game.Player {
 
             IsWallRunning = false;
             _curvedSurface = null;
+            _lockedWallRunSign = 1;
+            _hasLockedWallRunSign = false;
 
             if(playerController.LookController != null) playerController.LookController.SetTargetTilt(0f);
         }
@@ -367,7 +373,31 @@ namespace Game.Player {
             }
 
             wallForward.Normalize();
+            var chosenSign = _hasLockedWallRunSign
+                ? _lockedWallRunSign
+                : ResolveWallRunDirectionSignFromIntent(wallForward, currentForward);
 
+            if(chosenSign < 0) {
+                wallForward = -wallForward;
+            }
+
+            _lastWallRunDirection = wallForward;
+            var velocity = wallForward * _currentWallRunSpeed;
+
+            return ApplyCurvedSurfaceStick(velocity);
+        }
+
+        private int ResolveWallRunDirectionSignForStart(Vector3 currentForward) {
+            var wallForward = Vector3.Cross(WallNormal, Vector3.up);
+            if(wallForward.sqrMagnitude < 0.0001f) {
+                return 1;
+            }
+
+            wallForward.Normalize();
+            return ResolveWallRunDirectionSignFromIntent(wallForward, currentForward);
+        }
+
+        private int ResolveWallRunDirectionSignFromIntent(Vector3 wallForward, Vector3 currentForward) {
             var hasKeyboardIntent = TryGetKeyboardIntentSign(wallForward, out var keyboardSign, out var keyboardStrength);
             var hasCameraIntent = TryGetCameraIntentSign(wallForward, currentForward, out var cameraSign);
             var hasVelocityIntent = TryGetVelocityIntentSign(wallForward, out var velocitySign, out var velocitySpeed);
@@ -395,14 +425,7 @@ namespace Game.Player {
                 }
             }
 
-            if(chosenSign < 0) {
-                wallForward = -wallForward;
-            }
-
-            _lastWallRunDirection = wallForward;
-            var velocity = wallForward * _currentWallRunSpeed;
-
-            return ApplyCurvedSurfaceStick(velocity);
+            return chosenSign;
         }
 
         /// <summary>

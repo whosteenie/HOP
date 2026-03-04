@@ -41,6 +41,7 @@ namespace Game.UI {
 
         // Cache MatchSettingsManager.Instance to avoid repeated lookups
         private MatchSettingsManager _cachedMatchSettings;
+        private bool _eventsBound;
 
         protected override void Awake() {
             if(Instance != null && Instance != this) {
@@ -56,36 +57,15 @@ namespace Game.UI {
             base.OnEnable();
             // Cache MatchSettingsManager.Instance (but don't cache game mode - check it fresh each time)
             _cachedMatchSettings = MatchSettingsManager.Instance;
+            if(!IsInitialized) {
+                Initialize();
+            }
 
-            // Subscribe to UI events
-            EventBus.Unsubscribe<UpdateHealthEvent>(OnUpdateHealth);
-            EventBus.Unsubscribe<UpdateAmmoEvent>(OnUpdateAmmo);
-            EventBus.Unsubscribe<UpdateTagStatusEvent>(OnUpdateTagStatus);
-            EventBus.Unsubscribe<UpdateMultiplierEvent>(OnUpdateMultiplier);
-            EventBus.Unsubscribe<ShowHUDEvent>(OnShowHUD);
-            EventBus.Unsubscribe<HideHUDEvent>(OnHideHUD);
-            EventBus.Unsubscribe<PreMatchWaitingForPlayersEvent>(OnPreMatchWaitingForPlayers);
-            EventBus.Unsubscribe<GameSettingsChangedEvent>(OnGameSettingsChanged);
-            EventBus.Subscribe<UpdateHealthEvent>(OnUpdateHealth);
-            EventBus.Subscribe<UpdateAmmoEvent>(OnUpdateAmmo);
-            EventBus.Subscribe<UpdateTagStatusEvent>(OnUpdateTagStatus);
-            EventBus.Subscribe<UpdateMultiplierEvent>(OnUpdateMultiplier);
-            EventBus.Subscribe<ShowHUDEvent>(OnShowHUD);
-            EventBus.Subscribe<HideHUDEvent>(OnHideHUD);
-            EventBus.Subscribe<PreMatchWaitingForPlayersEvent>(OnPreMatchWaitingForPlayers);
-            EventBus.Subscribe<GameSettingsChangedEvent>(OnGameSettingsChanged);
+            BindHudEvents();
         }
 
         protected override void OnDisable() {
-            // Unsubscribe from UI events
-            EventBus.Unsubscribe<UpdateHealthEvent>(OnUpdateHealth);
-            EventBus.Unsubscribe<UpdateAmmoEvent>(OnUpdateAmmo);
-            EventBus.Unsubscribe<UpdateTagStatusEvent>(OnUpdateTagStatus);
-            EventBus.Unsubscribe<UpdateMultiplierEvent>(OnUpdateMultiplier);
-            EventBus.Unsubscribe<ShowHUDEvent>(OnShowHUD);
-            EventBus.Unsubscribe<HideHUDEvent>(OnHideHUD);
-            EventBus.Unsubscribe<PreMatchWaitingForPlayersEvent>(OnPreMatchWaitingForPlayers);
-            EventBus.Unsubscribe<GameSettingsChangedEvent>(OnGameSettingsChanged);
+            UnbindHudEvents();
             base.OnDisable();
         }
 
@@ -111,6 +91,7 @@ namespace Game.UI {
 
             ApplyCrosshairSettings();
             SyncPreMatchWaitingToastState();
+            BindHudEvents();
         }
 
         protected override Dictionary<string, System.Type> GetRequiredElements() {
@@ -419,6 +400,45 @@ namespace Game.UI {
                 3 => new Color(1f, 0.9f, 0.2f, 1f), // Yellow
                 _ => new Color(1f, 0.24f, 0.24f, 1f) // Red
             };
+        }
+
+        private void BindHudEvents() {
+            if(_eventsBound || !IsInitialized) return;
+
+            EventBus.Unsubscribe<UpdateHealthEvent>(OnUpdateHealth);
+            EventBus.Unsubscribe<UpdateAmmoEvent>(OnUpdateAmmo);
+            EventBus.Unsubscribe<UpdateTagStatusEvent>(OnUpdateTagStatus);
+            EventBus.Unsubscribe<UpdateMultiplierEvent>(OnUpdateMultiplier);
+            EventBus.Unsubscribe<ShowHUDEvent>(OnShowHUD);
+            EventBus.Unsubscribe<HideHUDEvent>(OnHideHUD);
+            EventBus.Unsubscribe<PreMatchWaitingForPlayersEvent>(OnPreMatchWaitingForPlayers);
+            EventBus.Unsubscribe<GameSettingsChangedEvent>(OnGameSettingsChanged);
+
+            EventBus.Subscribe<UpdateHealthEvent>(OnUpdateHealth);
+            EventBus.Subscribe<UpdateAmmoEvent>(OnUpdateAmmo);
+            EventBus.Subscribe<UpdateTagStatusEvent>(OnUpdateTagStatus);
+            EventBus.Subscribe<UpdateMultiplierEvent>(OnUpdateMultiplier);
+            EventBus.Subscribe<ShowHUDEvent>(OnShowHUD);
+            EventBus.Subscribe<HideHUDEvent>(OnHideHUD);
+            EventBus.Subscribe<PreMatchWaitingForPlayersEvent>(OnPreMatchWaitingForPlayers);
+            EventBus.Subscribe<GameSettingsChangedEvent>(OnGameSettingsChanged);
+
+            _eventsBound = true;
+        }
+
+        private void UnbindHudEvents() {
+            if(!_eventsBound) return;
+
+            EventBus.Unsubscribe<UpdateHealthEvent>(OnUpdateHealth);
+            EventBus.Unsubscribe<UpdateAmmoEvent>(OnUpdateAmmo);
+            EventBus.Unsubscribe<UpdateTagStatusEvent>(OnUpdateTagStatus);
+            EventBus.Unsubscribe<UpdateMultiplierEvent>(OnUpdateMultiplier);
+            EventBus.Unsubscribe<ShowHUDEvent>(OnShowHUD);
+            EventBus.Unsubscribe<HideHUDEvent>(OnHideHUD);
+            EventBus.Unsubscribe<PreMatchWaitingForPlayersEvent>(OnPreMatchWaitingForPlayers);
+            EventBus.Unsubscribe<GameSettingsChangedEvent>(OnGameSettingsChanged);
+
+            _eventsBound = false;
         }
     }
 }
