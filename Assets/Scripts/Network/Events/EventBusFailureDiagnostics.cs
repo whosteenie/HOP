@@ -12,6 +12,7 @@ namespace Network.Events {
     /// </summary>
     internal static class EventBusFailureDiagnostics {
         private static readonly object Gate = new();
+        private static readonly int NewLineByteCount = Encoding.UTF8.GetByteCount(Environment.NewLine);
         private static FailureRuntimeSettings _settings = FailureRuntimeSettings.Default;
         private static StreamWriter _writer;
         private static string _activeLogPath;
@@ -34,14 +35,16 @@ namespace Network.Events {
             string callerMember,
             string callerFile,
             int callerLine) {
-            if(IsFailureCaptureEnabled() == false) {
-                return GetFailFastEnabled();
+            var settingsSnapshot = GetSettingsSnapshot();
+            if(settingsSnapshot.FailureCaptureEnabled == false) {
+                return settingsSnapshot.FailFastOnHandlerException;
             }
 
             EnsureInitialized();
 
-            if(_settings.FailureCaptureEnabled == false) {
-                return GetFailFastEnabled();
+            settingsSnapshot = GetSettingsSnapshot();
+            if(settingsSnapshot.FailureCaptureEnabled == false) {
+                return settingsSnapshot.FailFastOnHandlerException;
             }
 
             try {
@@ -109,18 +112,18 @@ namespace Network.Events {
                     subscriberObjectName = subscriberObjectName,
                     subscriberObjectPath = subscriberObjectPath,
                     subscriberNetworkObjectId = subscriberNetworkObjectId,
-                    subscriberOwnerClientId = MaybeRedactIdentifier(subscriberOwnerClientId),
+                    subscriberOwnerClientId = MaybeRedactIdentifier(subscriberOwnerClientId, settingsSnapshot.RedactIdentifiers),
                     subscriberContext = subscriberContext,
                     exceptionType = exception != null ? exception.GetType().FullName : "UnknownException",
                     exceptionMessage = exception != null ? exception.Message : "Unknown exception",
                     exceptionStackTrace = exception != null ? exception.StackTrace : string.Empty,
-                    eventPayload = _settings.IncludeEventPayload && gameEvent != null ? gameEvent.ToString() : string.Empty,
-                    publishStackTrace = _settings.IncludePublisherStackTrace ? new System.Diagnostics.StackTrace(2, true).ToString() : string.Empty
+                    eventPayload = settingsSnapshot.IncludeEventPayload && gameEvent != null ? gameEvent.ToString() : string.Empty,
+                    publishStackTrace = settingsSnapshot.IncludePublisherStackTrace ? new System.Diagnostics.StackTrace(2, true).ToString() : string.Empty
                 };
 
-                WriteRecord(record, flushImmediately: _settings.ImmediateFlushOnError);
+                WriteRecord(record, flushImmediately: settingsSnapshot.ImmediateFlushOnError);
 
-                if(_settings.EchoToUnityConsole) {
+                if(settingsSnapshot.EchoToUnityConsole) {
                     Debug.LogError(
                         $"[EventBusFailure] event={record.eventType} publisher={record.publisherContext} " +
                         $"subscriber={record.subscriberDeclaringType}.{record.subscriberMethod} " +
@@ -129,14 +132,14 @@ namespace Network.Events {
                 }
             } catch(Exception internalException) {
                 if(_internalErrorLogged) {
-                    return GetFailFastEnabled();
+                    return settingsSnapshot.FailFastOnHandlerException;
                 }
 
                 _internalErrorLogged = true;
                 Debug.LogError($"[EventBusFailure] Diagnostics pipeline failure: {internalException}");
             }
 
-            return GetFailFastEnabled();
+            return settingsSnapshot.FailFastOnHandlerException;
         }
 
         internal static void ApplyLogSettings(EventBusLogSettings settings) {
@@ -214,7 +217,8 @@ namespace Network.Events {
         internal static void Tick() {
             if(_initialized == false || _writer == null) return;
             if(Time.unscaledTime < _nextFlushAt) return;
-            _nextFlushAt = Time.unscaledTime + _settings.FlushIntervalSeconds;
+            var settingsSnapshot = GetSettingsSnapshot();
+            _nextFlushAt = Time.unscaledTime + settingsSnapshot.FlushIntervalSeconds;
 
             try {
                 _writer.Flush();
@@ -260,6 +264,11 @@ namespace Network.Events {
                 var isWindows = Application.platform == RuntimePlatform.WindowsEditor ||
                                 Application.platform == RuntimePlatform.WindowsPlayer;
                 if(isWindows == false) {
+                    // Current product scope is Windows-first for local file diagnostics.
+                    // Keep failure capture active, but disable file sink on other platforms.
+                    if(_settings.FileLoggingEnabled) {
+                        Debug.Log("[EventBusFailure] File logging is supported on Windows only; disabling file sink for this session.");
+                    }
                     _settings.FileLoggingEnabled = false;
                 }
 
@@ -294,6 +303,7 @@ namespace Network.Events {
                     }
                 }
                 _activeLogPath = null;
+                _sessionStartWritten = false;
 
                 return;
             }
@@ -374,7 +384,7 @@ namespace Network.Events {
             try {
                 record.sequence = _recordCount + 1;
                 var json = JsonUtility.ToJson(record);
-                var byteCount = Encoding.UTF8.GetByteCount(json) + 1;
+                var byteCount = Encoding.UTF8.GetByteCount(json) + NewLineByteCount;
                 if(_bytesWritten + byteCount > _settings.MaxFileSizeBytes) {
                     _maxFileSizeReached = true;
                     Debug.LogWarning(
@@ -410,8 +420,8 @@ namespace Network.Events {
             return networkManager.IsClient ? "Client" : "Offline";
         }
 
-        private static string MaybeRedactIdentifier(string input) {
-            if(_settings.RedactIdentifiers == false) return input;
+        private static string MaybeRedactIdentifier(string input, bool redactIdentifiers) {
+            if(redactIdentifiers == false) return input;
             if(string.IsNullOrEmpty(input)) return input;
             return "<redacted>";
         }
@@ -440,15 +450,9 @@ namespace Network.Events {
             }
         }
 
-        private static bool IsFailureCaptureEnabled() {
+        private static FailureRuntimeSettings GetSettingsSnapshot() {
             lock(Gate) {
-                return _settings.FailureCaptureEnabled;
-            }
-        }
-
-        private static bool GetFailFastEnabled() {
-            lock(Gate) {
-                return _settings.FailFastOnHandlerException;
+                return _settings;
             }
         }
 
