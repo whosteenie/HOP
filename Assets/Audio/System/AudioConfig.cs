@@ -35,6 +35,10 @@ namespace Game.Audio2 {
         [Header("Bus configs")]
         public List<BusConfig> buses = new();
 
+        [Header("Diagnostics")]
+        [Tooltip("Enable [HOPFLOW][AUDIO] PLAY_DROP logs for dropped/clipped audio play attempts.")]
+        public bool enableHopflowAudioDropReasonLogs = false;
+
         private Dictionary<SoundBus, BusConfig> _busLookup;
 
         public bool TryGetBusConfig(SoundBus bus, out BusConfig cfg) {

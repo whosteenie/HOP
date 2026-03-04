@@ -15,6 +15,7 @@ MonoBehaviour:
   mixer: {fileID: 24100000, guid: 5b25e535414676d478e020121c230f08, type: 2}
   audioSourcePrefab: {fileID: 1800925315529243152, guid: d86354394723ff3448922d8bfeb332b8, type: 3}
   globalMaxVoices: 64
+  enableHopflowAudioDropReasonLogs: 0
   buses:
   - bus: 0
     outputGroup: {fileID: 24300002, guid: 5b25e535414676d478e020121c230f08, type: 2}

@@ -14,7 +14,7 @@ namespace Network.Events {
         public bool loggingEnabled = true;
         
         [Header("Per-Event Logging")]
-        [Tooltip("Events that should be logged. Events not in this list will not be logged.")]
+        [Tooltip("Events that should be logged. Affects EventBus console logs and Event Bus Debug Window history/performance feeds. Events not in this list will not be logged.")]
         public List<EventLogEntry> eventLogSettings = new();
 
         [Header("Failure Diagnostics")]

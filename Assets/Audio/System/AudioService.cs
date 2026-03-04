@@ -541,6 +541,7 @@ namespace Game.Audio2 {
 
         private void EmitDroppedPlayLog(string id, string reason, string details, float intervalSeconds = 5f) {
             if(!Debug.isDebugBuild) return;
+            if(config == null || !config.enableHopflowAudioDropReasonLogs) return;
             var key = $"{reason}:{id}";
             var now = Time.unscaledTime;
             if(_nextDropReasonLogTime.TryGetValue(key, out var next) && now < next) {
