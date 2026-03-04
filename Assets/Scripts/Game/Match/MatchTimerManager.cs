@@ -268,11 +268,7 @@ namespace Game.Match {
         }
 
         private bool GetInitialWaitingForPlayersForUi() {
-            if(_isWaitingForPlayers.Value) return true;
-            if(!_isPreMatch.Value) return false;
-
-            var settings = MatchSettingsManager.Instance;
-            return settings == null || settings.IsPreMatchCountdownEnabled();
+            return _isWaitingForPlayers.Value;
         }
 
         private void OnPreMatchStateChanged(bool previous, bool current) {

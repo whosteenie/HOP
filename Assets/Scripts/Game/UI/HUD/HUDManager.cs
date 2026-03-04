@@ -140,6 +140,12 @@ namespace Game.UI {
             SetWaitingForPlayersToast(evt.IsWaiting);
         }
 
+        private void OnPreMatchCountdown(PreMatchCountdownEvent evt) {
+            if(evt == null) return;
+            if(evt.Seconds <= 0) return;
+            SetWaitingForPlayersToast(false);
+        }
+
         private void OnSettingsChanged() {
             ApplyCrosshairSettings();
         }
@@ -439,6 +445,7 @@ namespace Game.UI {
             EventBus.Unsubscribe<ShowHUDEvent>(OnShowHUD);
             EventBus.Unsubscribe<HideHUDEvent>(OnHideHUD);
             EventBus.Unsubscribe<PreMatchWaitingForPlayersEvent>(OnPreMatchWaitingForPlayers);
+            EventBus.Unsubscribe<PreMatchCountdownEvent>(OnPreMatchCountdown);
             EventBus.Unsubscribe<GameSettingsChangedEvent>(OnGameSettingsChanged);
 
             EventBus.Subscribe<UpdateHealthEvent>(OnUpdateHealth);
@@ -448,6 +455,7 @@ namespace Game.UI {
             EventBus.Subscribe<ShowHUDEvent>(OnShowHUD);
             EventBus.Subscribe<HideHUDEvent>(OnHideHUD);
             EventBus.Subscribe<PreMatchWaitingForPlayersEvent>(OnPreMatchWaitingForPlayers);
+            EventBus.Subscribe<PreMatchCountdownEvent>(OnPreMatchCountdown);
             EventBus.Subscribe<GameSettingsChangedEvent>(OnGameSettingsChanged);
 
             _eventsBound = true;
@@ -463,6 +471,7 @@ namespace Game.UI {
             EventBus.Unsubscribe<ShowHUDEvent>(OnShowHUD);
             EventBus.Unsubscribe<HideHUDEvent>(OnHideHUD);
             EventBus.Unsubscribe<PreMatchWaitingForPlayersEvent>(OnPreMatchWaitingForPlayers);
+            EventBus.Unsubscribe<PreMatchCountdownEvent>(OnPreMatchCountdown);
             EventBus.Unsubscribe<GameSettingsChangedEvent>(OnGameSettingsChanged);
 
             _eventsBound = false;
