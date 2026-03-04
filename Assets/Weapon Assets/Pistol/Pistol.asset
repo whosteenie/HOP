@@ -41,4 +41,5 @@ MonoBehaviour:
   reloadSoundId: weapons.pistol.reload
   kinemationSpecialHandling: 1
   kinemationGrappleWeaponIndex: 1
+  kinemationReloadEventSoundIndices: 0000000001000000
   legacyFireMode: 

@@ -69,6 +69,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 996c9d6310874190ae7d685604b5014d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Game.Weapons.KinemationWeaponPartReferences
+  fpMuzzleTransform: {fileID: 5754647879366477068}
+  internalMuzzleFxRoots: []
   drakeTopShell: {fileID: 4214600887779685686}
   drakeBottomShell: {fileID: 2809209920965205649}
   karLoopBullet: {fileID: 0}

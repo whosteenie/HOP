@@ -41,4 +41,5 @@ MonoBehaviour:
   reloadSoundId: weapons.smg.reload
   kinemationSpecialHandling: 1
   kinemationGrappleWeaponIndex: 2
+  kinemationReloadEventSoundIndices: 0000000001000000
   legacyFireMode: 

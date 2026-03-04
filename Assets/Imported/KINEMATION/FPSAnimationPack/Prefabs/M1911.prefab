@@ -41,6 +41,7 @@ GameObject:
   m_Component:
   - component: {fileID: 5782183964679997502}
   - component: {fileID: 7784558525833575978}
+  - component: {fileID: 6191697212885722187}
   m_Layer: 0
   m_Name: M1911
   m_TagString: Untagged
@@ -87,6 +88,23 @@ MonoBehaviour:
     position: {x: 0, y: 0, z: 0}
     rotation: {x: 0, y: 0, z: 0, w: 0}
     scale: {x: 0, y: 0, z: 0}
+--- !u!114 &6191697212885722187
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2249710175363591869}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 996c9d6310874190ae7d685604b5014d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Game.Weapons.KinemationWeaponPartReferences
+  fpMuzzleTransform: {fileID: 2381573369118537443}
+  internalMuzzleFxRoots: []
+  drakeTopShell: {fileID: 0}
+  drakeBottomShell: {fileID: 0}
+  karLoopBullet: {fileID: 0}
 --- !u!1 &8300672886068750509
 GameObject:
   m_ObjectHideFlags: 0

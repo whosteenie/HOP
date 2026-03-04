@@ -173,10 +173,13 @@ namespace Game.Weapons {
         private static readonly HashSet<int> MissingKinemationPartReferenceWarnings = new();
         private static readonly HashSet<int> InvalidKinemationPartReferenceWarnings = new();
         private static readonly HashSet<int> MissingKinemationReloadSoundIndexWarnings = new();
+        private static readonly HashSet<int> MissingKinemationMuzzleFallbackWarnings = new();
+        private static readonly HashSet<int> InvalidKinemationMuzzleFallbackWarnings = new();
         private static bool s_reflectionContractValidated;
         private const int DrakeTopShellReferenceKey = 11;
         private const int DrakeBottomShellReferenceKey = 12;
         private const int KarLoopBulletReferenceKey = 13;
+        private const int FpMuzzleReferenceKey = 21;
 
         private void OnEnable() {
             EventBus.Subscribe<GrappleStartedEvent>(OnGrappleStarted);
@@ -1101,6 +1104,26 @@ namespace Game.Weapons {
                 data);
         }
 
+        private bool TryResolveConfiguredWeaponMuzzleTransform(FPSWeapon weapon, Transform configuredTransform,
+            int partReferenceKey, string partFieldName, out Transform resolvedTransform) {
+            resolvedTransform = null;
+            if(weapon == null) return false;
+
+            if(configuredTransform == null) {
+                ReportMissingKinemationMuzzleFallbackReference(weapon, partReferenceKey, partFieldName, false);
+                return false;
+            }
+
+            if(configuredTransform != weapon.transform && !configuredTransform.IsChildOf(weapon.transform)) {
+                ReportInvalidKinemationMuzzleFallbackReference(weapon, partReferenceKey, partFieldName,
+                    configuredTransform);
+                return false;
+            }
+
+            resolvedTransform = configuredTransform;
+            return true;
+        }
+
         private bool TryResolveConfiguredWeaponPartReference(Transform configuredPart, int partReferenceKey,
             string partFieldName, out Transform resolvedPart) {
             resolvedPart = null;
@@ -1120,8 +1143,9 @@ namespace Game.Weapons {
             return true;
         }
 
-        private int BuildPartReferenceWarningKey(int partReferenceKey) {
-            var weaponId = _activeWeapon != null ? _activeWeapon.GetInstanceID() : 0;
+        private int BuildPartReferenceWarningKey(int partReferenceKey, FPSWeapon weapon = null) {
+            var sourceWeapon = weapon != null ? weapon : _activeWeapon;
+            var weaponId = sourceWeapon != null ? sourceWeapon.GetInstanceID() : 0;
             return unchecked(weaponId * 397 ^ partReferenceKey);
         }
 
@@ -1150,6 +1174,48 @@ namespace Game.Weapons {
                 $"[KinemationFpWeaponDriver] Weapon '{weaponLabel}' has invalid part reference '{partFieldName}' " +
                 $"(assigned '{configuredPart.name}', outside active weapon hierarchy).",
                 _activeWeapon);
+        }
+
+        private void ReportMissingKinemationMuzzleFallbackReference(FPSWeapon weapon, int partReferenceKey,
+            string partFieldName, bool missingComponent) {
+            var warningKey = BuildPartReferenceWarningKey(partReferenceKey, weapon);
+            if(!MissingKinemationMuzzleFallbackWarnings.Add(warningKey)) return;
+
+            var weaponLabel = GetWeaponLabel(weapon);
+            var guidance = missingComponent
+                ? "Add KinemationWeaponPartReferences to this weapon prefab."
+                : "Assign this field on KinemationWeaponPartReferences.";
+            Debug.LogWarning(
+                $"[KinemationFpWeaponDriver] Weapon '{weaponLabel}' is missing explicit muzzle config '{partFieldName}'. " +
+                $"{guidance} Falling back to legacy muzzle heuristics.",
+                weapon);
+        }
+
+        private void ReportInvalidKinemationMuzzleFallbackReference(FPSWeapon weapon, int partReferenceKey,
+            string partFieldName, Transform configuredPart) {
+            var warningKey = BuildPartReferenceWarningKey(partReferenceKey, weapon);
+            if(!InvalidKinemationMuzzleFallbackWarnings.Add(warningKey)) return;
+
+            var weaponLabel = GetWeaponLabel(weapon);
+            var assignedName = configuredPart != null ? configuredPart.name : "(null)";
+            Debug.LogWarning(
+                $"[KinemationFpWeaponDriver] Weapon '{weaponLabel}' has invalid explicit muzzle config '{partFieldName}' " +
+                $"(assigned '{assignedName}', outside weapon hierarchy). Falling back to legacy muzzle heuristics.",
+                weapon);
+        }
+
+        private string GetWeaponLabel(FPSWeapon weapon) {
+            if(weapon == null) return "(unknown)";
+            if(weapon == _activeWeapon) {
+                return GetActiveWeaponLabel();
+            }
+
+            var data = weapon.weaponSettings;
+            if(data != null && !string.IsNullOrWhiteSpace(data.name)) {
+                return data.name;
+            }
+
+            return weapon.name;
         }
 
         private string GetActiveWeaponLabel() {
@@ -1777,8 +1843,32 @@ namespace Game.Weapons {
             return _activeWeaponPartReferences;
         }
 
+        private KinemationWeaponPartReferences GetWeaponPartReferences(FPSWeapon weapon) {
+            if(weapon == null) return null;
+            if(weapon == _activeWeapon) {
+                return GetActiveWeaponPartReferences();
+            }
+
+            var references = weapon.GetComponent<KinemationWeaponPartReferences>();
+            if(references == null) {
+                references = weapon.GetComponentInChildren<KinemationWeaponPartReferences>(true);
+            }
+
+            return references;
+        }
+
         private Transform ResolveMuzzleTransform(FPSWeapon activeWeapon) {
             if(activeWeapon == null) return null;
+
+            var partReferences = GetWeaponPartReferences(activeWeapon);
+            if(partReferences == null) {
+                ReportMissingKinemationMuzzleFallbackReference(activeWeapon, FpMuzzleReferenceKey,
+                    nameof(KinemationWeaponPartReferences.FpMuzzleTransform), true);
+            } else if(TryResolveConfiguredWeaponMuzzleTransform(activeWeapon, partReferences.FpMuzzleTransform,
+                          FpMuzzleReferenceKey, nameof(KinemationWeaponPartReferences.FpMuzzleTransform),
+                          out var configuredMuzzleTransform)) {
+                return configuredMuzzleTransform;
+            }
 
             var transforms = GetWeaponComponents(activeWeapon, ref _cachedActiveWeaponTransforms);
             return ResolveBestExplicitMuzzleCandidate(activeWeapon, transforms, out _);
@@ -1975,6 +2065,8 @@ namespace Game.Weapons {
 
         private void SuppressInternalMuzzleFx(FPSWeapon activeWeapon) {
             if(!disableKinemationInternalMuzzleFx || activeWeapon == null) return;
+            var weaponId = activeWeapon.gameObject.GetInstanceID();
+            if(_suppressedMuzzleFxWeaponIds.Contains(weaponId)) return;
 
             var disabledParticles = 0;
             var disabledVfx = 0;
@@ -2005,7 +2097,6 @@ namespace Game.Weapons {
             }
 
             if(disabledParticles <= 0 && disabledVfx <= 0 && disabledLights <= 0) return;
-            var weaponId = activeWeapon.gameObject.GetInstanceID();
             _suppressedMuzzleFxWeaponIds.Add(weaponId);
         }
 

@@ -41,4 +41,5 @@ MonoBehaviour:
   reloadSoundId: weapons.sniper.reload
   kinemationSpecialHandling: 3
   kinemationGrappleWeaponIndex: 3
+  kinemationReloadEventSoundIndices: 000000000100000002000000
   legacyFireMode: 

@@ -41,4 +41,5 @@ MonoBehaviour:
   reloadSoundId: weapons.deagle.reload
   kinemationSpecialHandling: 1
   kinemationGrappleWeaponIndex: 5
+  kinemationReloadEventSoundIndices: 0000000001000000
   legacyFireMode: 
