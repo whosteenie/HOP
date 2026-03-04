@@ -172,6 +172,8 @@ namespace Game.Weapons {
         private static readonly HashSet<int> MissingKinemationGrappleIndexWarnings = new();
         private static readonly HashSet<int> MissingKinemationPartReferenceWarnings = new();
         private static readonly HashSet<int> InvalidKinemationPartReferenceWarnings = new();
+        private static readonly HashSet<int> MissingKinemationReloadSoundIndexWarnings = new();
+        private static bool s_reflectionContractValidated;
         private const int DrakeTopShellReferenceKey = 11;
         private const int DrakeBottomShellReferenceKey = 12;
         private const int KarLoopBulletReferenceKey = 13;
@@ -289,6 +291,7 @@ namespace Game.Weapons {
         }
 
         public bool InitializeIfNeeded(int renderLayer) {
+            ValidateReflectionContractOnce();
             _renderLayer = renderLayer;
             _weaponManager = _weaponManager ? _weaponManager : GetComponentInParent<WeaponManager>();
 
@@ -332,6 +335,68 @@ namespace Game.Weapons {
 
             // FPSPlayer creates its weapon instances in Start(), so cache may complete on a later frame.
             return _playerInstance != null;
+        }
+
+        private void ValidateReflectionContractOnce() {
+            if(s_reflectionContractValidated) return;
+            s_reflectionContractValidated = true;
+
+            var missingRequired = new List<string>();
+            var missingOptional = new List<string>();
+
+            CollectMissingReflectionMember(FpsWeaponActiveAmmoField, "FPSWeapon._activeAmmo", true, missingRequired,
+                missingOptional);
+            CollectMissingReflectionMember(FpsWeaponIsReloadingField, "FPSWeapon._isReloading", true, missingRequired,
+                missingOptional);
+            CollectMissingReflectionMember(FpsWeaponIsFiringField, "FPSWeapon._isFiring", true, missingRequired,
+                missingOptional);
+            CollectMissingReflectionMember(FpsWeaponCharacterAnimatorField, "FPSWeapon.characterAnimator", true,
+                missingRequired, missingOptional);
+            CollectMissingReflectionMember(FpsWeaponAnimatorField, "FPSWeapon.weaponAnimator", true, missingRequired,
+                missingOptional);
+
+            CollectMissingReflectionMember(FpsPlayerMoveInputField, "FPSPlayer._moveInput", false, missingRequired,
+                missingOptional);
+            CollectMissingReflectionMember(FpsPlayerLookInputField, "FPSPlayer._lookInput", false, missingRequired,
+                missingOptional);
+            CollectMissingReflectionMember(FpsPlayerSprintingField, "FPSPlayer._bSprinting", false, missingRequired,
+                missingOptional);
+            CollectMissingReflectionMember(FpsPlayerTacSprintingField, "FPSPlayer._bTacSprinting", false,
+                missingRequired, missingOptional);
+            CollectMissingReflectionMember(FpsPlayerSetMovementEnabledMethod,
+                "FPSPlayer.SetCharacterControllerMovementEnabled", false, missingRequired, missingOptional);
+            CollectMissingReflectionMember(FpsPlayerAllowControllerMovementField,
+                "FPSPlayer.allowCharacterControllerMovement", false, missingRequired, missingOptional);
+            CollectMissingReflectionMember(FpsWeaponSoundAudioSourceField, "FPSWeaponSound._audioSource", false,
+                missingRequired, missingOptional);
+            CollectMissingReflectionMember(Pdw90SmoothAmmoWeightField, "Pdw90Animation._smoothAmmoWeight", false,
+                missingRequired, missingOptional);
+
+            if(missingRequired.Count > 0) {
+                Debug.LogError(
+                    "[KinemationFpWeaponDriver] Missing required reflection members after KINEMATION/API changes: " +
+                    string.Join(", ", missingRequired) +
+                    ". Reload, fire, and animation synchronization may fail.",
+                    this);
+            }
+
+            if(missingOptional.Count > 0) {
+                Debug.LogWarning(
+                    "[KinemationFpWeaponDriver] Missing optional reflection members: " +
+                    string.Join(", ", missingOptional) +
+                    ". Some polish features may be degraded.",
+                    this);
+            }
+        }
+
+        private static void CollectMissingReflectionMember(MemberInfo member, string label, bool isRequired,
+            List<string> missingRequired, List<string> missingOptional) {
+            if(member != null) return;
+            if(isRequired) {
+                missingRequired.Add(label);
+            } else {
+                missingOptional.Add(label);
+            }
         }
 
         public void PlayEquipAnimation(bool immediate) {
@@ -527,14 +592,21 @@ namespace Game.Weapons {
                 return false;
             }
 
-            var clip = eventSounds[clipIndex];
-            if(clip == null || string.IsNullOrWhiteSpace(clip.name)) {
+            var data = GetActiveWeaponData();
+            if(data != null &&
+               data.kinemationReloadEventSoundIndices != null &&
+               data.kinemationReloadEventSoundIndices.Length > 0) {
+                foreach(var configuredIndex in data.kinemationReloadEventSoundIndices) {
+                    if(configuredIndex == clipIndex) {
+                        return true;
+                    }
+                }
+
                 return false;
             }
 
-            var clipName = clip.name.ToLowerInvariant();
-            return clipName.Contains("reload") || clipName.Contains("insert") || clipName.Contains("shell") ||
-                   clipName.Contains("mag") || clipName.Contains("bolt");
+            ReportMissingKinemationReloadSoundIndexConfig(data);
+            return false;
         }
 
         public void SyncActiveAmmo(int authoritativeAmmo) {
@@ -1014,6 +1086,18 @@ namespace Game.Weapons {
             Debug.LogError(
                 $"[KinemationFpWeaponDriver] WeaponData '{weaponLabel}' has {fieldName}=NULL. " +
                 $"{impactDescription}",
+                data);
+        }
+
+        private void ReportMissingKinemationReloadSoundIndexConfig(WeaponData data) {
+            if(data == null) return;
+            var id = data.GetInstanceID();
+            if(!MissingKinemationReloadSoundIndexWarnings.Add(id)) return;
+
+            var weaponLabel = string.IsNullOrWhiteSpace(data.weaponName) ? data.name : data.weaponName;
+            Debug.LogError(
+                $"[KinemationFpWeaponDriver] WeaponData '{weaponLabel}' has no kinemationReloadEventSoundIndices configured. " +
+                "Reload event SFX stopping is strict and requires explicit index assignment.",
                 data);
         }
 

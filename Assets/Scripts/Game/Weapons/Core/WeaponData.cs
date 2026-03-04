@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.Serialization;
+using System.Collections.Generic;
 
 namespace Game.Weapons {
     [CreateAssetMenu(fileName = "New Weapon", menuName = "Weapon Data")]
@@ -91,6 +92,8 @@ namespace Game.Weapons {
         public KinemationSpecialHandling kinemationSpecialHandling = KinemationSpecialHandling.Null;
         [Tooltip("Required for grapple animation bucket mapping.")]
         public KinemationGrappleWeaponIndex kinemationGrappleWeaponIndex = KinemationGrappleWeaponIndex.Null;
+        [Tooltip("WeaponEventSounds clip indices used by reload actions. Used to stop reload SFX when reload is canceled/interrupted.")]
+        public int[] kinemationReloadEventSoundIndices = System.Array.Empty<int>();
 
         [SerializeField, HideInInspector, FormerlySerializedAs("fireMode")]
         private string legacyFireMode = "";
@@ -124,6 +127,30 @@ namespace Game.Weapons {
             sphereCastRadius = Mathf.Max(0f, sphereCastRadius);
             sphereCastGrowthStartDist = Mathf.Max(0f, sphereCastGrowthStartDist);
             sphereCastMaxRadius = Mathf.Max(sphereCastRadius, sphereCastMaxRadius);
+            NormalizeKinemationReloadEventSoundIndices();
+        }
+
+        private void NormalizeKinemationReloadEventSoundIndices() {
+            if(kinemationReloadEventSoundIndices == null || kinemationReloadEventSoundIndices.Length == 0) {
+                kinemationReloadEventSoundIndices = System.Array.Empty<int>();
+                return;
+            }
+
+            var uniqueNonNegative = new HashSet<int>();
+            foreach(var clipIndex in kinemationReloadEventSoundIndices) {
+                if(clipIndex < 0) continue;
+                uniqueNonNegative.Add(clipIndex);
+            }
+
+            if(uniqueNonNegative.Count == 0) {
+                kinemationReloadEventSoundIndices = System.Array.Empty<int>();
+                return;
+            }
+
+            var normalized = new int[uniqueNonNegative.Count];
+            uniqueNonNegative.CopyTo(normalized);
+            System.Array.Sort(normalized);
+            kinemationReloadEventSoundIndices = normalized;
         }
 
         private void MigrateLegacyFireMode() {
