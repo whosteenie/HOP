@@ -49,7 +49,11 @@
                     <ui:Label name="right-score-value" text="0" class="hud-score-value" />
                 </ui:VisualElement>
             </ui:VisualElement>
-            <ui:Label name="out-of-bounds-countdown-label" text="RETURN TO BATTLEFIELD: 3.00" class="out-of-bounds-countdown-label" />
+            <ui:VisualElement name="out-of-bounds-status-container" class="out-of-bounds-status-container">
+                <ui:Label name="out-of-bounds-prefix-label" text="RETURN TO BATTLEFIELD:" class="out-of-bounds-prefix-label" />
+                <ui:Label name="out-of-bounds-time-label" text="3.00" class="out-of-bounds-time-label" />
+                <ui:Label name="waiting-for-players-label" text="Waiting for players..." class="out-of-bounds-waiting-label" />
+            </ui:VisualElement>
             <ui:VisualElement name="health-container" class="health-container">
                 <ui:ProgressBar name="health-bar" low-value="0" high-value="100" value="100" class="health-bar" />
                 <ui:Label name="health-value" text="100" class="health-value" />

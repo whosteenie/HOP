@@ -26,10 +26,14 @@ namespace Game.UI {
         private VisualElement _crosshairVertical;
         private VisualElement _crosshairDot;
         private Label _hopballInteractPrompt;
-        private Label _outOfBoundsCountdownLabel;
+        private VisualElement _outOfBoundsStatusContainer;
+        private Label _outOfBoundsPrefixLabel;
+        private Label _outOfBoundsTimeLabel;
+        private Label _waitingForPlayersLabel;
         private bool _isOutOfBoundsCountdownVisible;
         private float _outOfBoundsRemainingSeconds;
         private bool _isWaitingForPlayersVisible;
+        private const string OutOfBoundsStatusReturnClass = "out-of-bounds-status-return";
 
         public static HUDManager Instance;
 
@@ -87,7 +91,10 @@ namespace Game.UI {
             _crosshairVertical = QOptional<VisualElement>("crosshair-vertical");
             _crosshairDot = QOptional<VisualElement>("crosshair-dot");
             _hopballInteractPrompt = QOptional<Label>("hopball-interact-prompt");
-            _outOfBoundsCountdownLabel = QOptional<Label>("out-of-bounds-countdown-label");
+            _outOfBoundsStatusContainer = QOptional<VisualElement>("out-of-bounds-status-container");
+            _outOfBoundsPrefixLabel = QOptional<Label>("out-of-bounds-prefix-label");
+            _outOfBoundsTimeLabel = QOptional<Label>("out-of-bounds-time-label");
+            _waitingForPlayersLabel = QOptional<Label>("waiting-for-players-label");
 
             ApplyCrosshairSettings();
             SyncPreMatchWaitingToastState();
@@ -334,7 +341,7 @@ namespace Game.UI {
         }
 
         public void SetOutOfBoundsCountdown(bool visible, float remainingSeconds = 0f) {
-            if(_outOfBoundsCountdownLabel == null) return;
+            if(_outOfBoundsStatusContainer == null) return;
 
             _isOutOfBoundsCountdownVisible = visible;
             _outOfBoundsRemainingSeconds = Mathf.Max(0f, remainingSeconds);
@@ -342,7 +349,7 @@ namespace Game.UI {
         }
 
         private void SetWaitingForPlayersToast(bool visible) {
-            if(_outOfBoundsCountdownLabel == null) return;
+            if(_outOfBoundsStatusContainer == null) return;
             _isWaitingForPlayersVisible = visible;
             RefreshTopStatusToast();
         }
@@ -354,21 +361,41 @@ namespace Game.UI {
         }
 
         private void RefreshTopStatusToast() {
-            if(_outOfBoundsCountdownLabel == null) return;
+            if(_outOfBoundsStatusContainer == null) return;
 
             if(_isOutOfBoundsCountdownVisible) {
-                _outOfBoundsCountdownLabel.style.display = DisplayStyle.Flex;
-                _outOfBoundsCountdownLabel.text = $"RETURN TO BATTLEFIELD: {_outOfBoundsRemainingSeconds:0.00}";
+                _outOfBoundsStatusContainer.style.display = DisplayStyle.Flex;
+                _outOfBoundsStatusContainer.AddToClassList(OutOfBoundsStatusReturnClass);
+                if(_outOfBoundsPrefixLabel != null) {
+                    _outOfBoundsPrefixLabel.style.display = DisplayStyle.Flex;
+                }
+                if(_outOfBoundsTimeLabel != null) {
+                    _outOfBoundsTimeLabel.style.display = DisplayStyle.Flex;
+                    _outOfBoundsTimeLabel.text = $"{_outOfBoundsRemainingSeconds:0.00}";
+                }
+                if(_waitingForPlayersLabel != null) {
+                    _waitingForPlayersLabel.style.display = DisplayStyle.None;
+                }
                 return;
             }
 
             if(_isWaitingForPlayersVisible) {
-                _outOfBoundsCountdownLabel.style.display = DisplayStyle.Flex;
-                _outOfBoundsCountdownLabel.text = "Waiting for players...";
+                _outOfBoundsStatusContainer.style.display = DisplayStyle.Flex;
+                _outOfBoundsStatusContainer.RemoveFromClassList(OutOfBoundsStatusReturnClass);
+                if(_outOfBoundsPrefixLabel != null) {
+                    _outOfBoundsPrefixLabel.style.display = DisplayStyle.None;
+                }
+                if(_outOfBoundsTimeLabel != null) {
+                    _outOfBoundsTimeLabel.style.display = DisplayStyle.None;
+                }
+                if(_waitingForPlayersLabel != null) {
+                    _waitingForPlayersLabel.style.display = DisplayStyle.Flex;
+                }
                 return;
             }
 
-            _outOfBoundsCountdownLabel.style.display = DisplayStyle.None;
+            _outOfBoundsStatusContainer.style.display = DisplayStyle.None;
+            _outOfBoundsStatusContainer.RemoveFromClassList(OutOfBoundsStatusReturnClass);
         }
 
         private void ApplyCrosshairSettings() {

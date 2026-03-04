@@ -291,21 +291,46 @@
     -unity-text-align: middle-center;
 }
 
-.out-of-bounds-countdown-label {
+.out-of-bounds-status-container {
     position: absolute;
     top: 86px;
     left: 50%;
     translate: -50% 0;
     display: none;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
     padding: 4px 10px;
     border-radius: 4px;
     border-width: 1px;
     border-color: rgba(200, 60, 60, 0.45);
     background-color: rgba(12, 12, 18, 0.88);
+}
+
+.out-of-bounds-status-return {
+    min-width: 390px;
+}
+
+.out-of-bounds-prefix-label,
+.out-of-bounds-time-label,
+.out-of-bounds-waiting-label {
     color: rgb(255, 220, 220);
     font-size: 20px;
     -unity-font-style: bold;
-    -unity-text-align: middle-center;
     text-shadow: 0 1px 4px rgba(0, 0, 0, 0.75);
+}
+
+.out-of-bounds-prefix-label {
+    -unity-text-align: middle-right;
+}
+
+.out-of-bounds-time-label {
+    min-width: 60px;
+    -unity-text-align: middle-left;
+}
+
+.out-of-bounds-waiting-label {
+    display: none;
+    -unity-text-align: middle-center;
 }
 
