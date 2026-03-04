@@ -79,6 +79,11 @@ namespace Network.Events {
                 var publisherContext = string.IsNullOrEmpty(publisherFile)
                     ? callerMember
                     : $"{publisherFile}:{callerLine} ({callerMember})";
+                var correlationId = gameEvent != null ? gameEvent.CorrelationId : string.Empty;
+                var parentCorrelationId = gameEvent != null ? gameEvent.ParentCorrelationId : string.Empty;
+                var correlationDepth = gameEvent != null ? gameEvent.CorrelationDepth : 0;
+                var publisherEventContext = gameEvent != null ? gameEvent.BuildContextSummary() : string.Empty;
+                var subscriberContext = ResolveSubscriberContext(target);
 
                 var record = new EventBusFailureRecord {
                     recordType = "handler_exception",
@@ -94,6 +99,10 @@ namespace Network.Events {
                     publisherFile = publisherFile,
                     publisherLine = callerLine,
                     publisherContext = publisherContext,
+                    correlationId = correlationId,
+                    parentCorrelationId = parentCorrelationId,
+                    correlationDepth = correlationDepth,
+                    publisherEventContext = publisherEventContext,
                     subscriberMethod = subscriberMethod,
                     subscriberDeclaringType = subscriberDeclaringType,
                     subscriberTargetType = subscriberTargetType,
@@ -102,6 +111,7 @@ namespace Network.Events {
                     subscriberObjectPath = subscriberObjectPath,
                     subscriberNetworkObjectId = subscriberNetworkObjectId,
                     subscriberOwnerClientId = MaybeRedactIdentifier(subscriberOwnerClientId),
+                    subscriberContext = subscriberContext,
                     exceptionType = exception != null ? exception.GetType().FullName : "UnknownException",
                     exceptionMessage = exception != null ? exception.Message : "Unknown exception",
                     exceptionStackTrace = exception != null ? exception.StackTrace : string.Empty,
@@ -115,7 +125,8 @@ namespace Network.Events {
                     Debug.LogError(
                         $"[EventBusFailure] event={record.eventType} publisher={record.publisherContext} " +
                         $"subscriber={record.subscriberDeclaringType}.{record.subscriberMethod} " +
-                        $"exception={record.exceptionType}: {record.exceptionMessage} session={record.sessionId}");
+                        $"exception={record.exceptionType}: {record.exceptionMessage} session={record.sessionId} " +
+                        $"corr={record.correlationId}");
                 }
             } catch(Exception internalException) {
                 if(_internalErrorLogged) {
@@ -303,7 +314,12 @@ namespace Network.Events {
                 networkRole = ResolveNetworkRole(),
                 eventType = string.Empty,
                 publisherContext = string.Empty,
+                correlationId = string.Empty,
+                parentCorrelationId = string.Empty,
+                correlationDepth = 0,
+                publisherEventContext = string.Empty,
                 subscriberMethod = string.Empty,
+                subscriberContext = string.Empty,
                 exceptionType = string.Empty,
                 exceptionMessage = string.Empty,
                 exceptionStackTrace = string.Empty,
@@ -384,6 +400,18 @@ namespace Network.Events {
             return path;
         }
 
+        private static string ResolveSubscriberContext(object target) {
+            if(target is not IEventBusContextProvider provider) return string.Empty;
+
+            try {
+                var values = new EventBusContextValues();
+                provider.PopulateEventBusContext(values);
+                return values.ToCompactString();
+            } catch(Exception ex) {
+                return $"context_error={ex.GetType().Name}";
+            }
+        }
+
         [Serializable]
         private sealed class EventBusFailureRecord {
             public string recordType;
@@ -399,6 +427,10 @@ namespace Network.Events {
             public string publisherFile;
             public int publisherLine;
             public string publisherContext;
+            public string correlationId;
+            public string parentCorrelationId;
+            public int correlationDepth;
+            public string publisherEventContext;
             public string subscriberMethod;
             public string subscriberDeclaringType;
             public string subscriberTargetType;
@@ -407,6 +439,7 @@ namespace Network.Events {
             public string subscriberObjectPath;
             public string subscriberNetworkObjectId;
             public string subscriberOwnerClientId;
+            public string subscriberContext;
             public string exceptionType;
             public string exceptionMessage;
             public string exceptionStackTrace;

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
+using System.Threading;
 using UnityEngine;
 
 namespace Network.Events {
@@ -10,9 +11,18 @@ namespace Network.Events {
     /// </summary>
     public static class EventBus {
         private static readonly Dictionary<Type, List<Delegate>> Subscribers = new();
+        private static long correlationSequence;
+
+        [ThreadStatic] private static CorrelationContext currentCorrelationContext;
 
         // Log settings available in all builds (but only used in editor/dev)
         private static EventBusLogSettings logSettings;
+
+        private struct CorrelationContext {
+            public string CorrelationId;
+            public string ParentCorrelationId;
+            public int Depth;
+        }
 
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
         private static readonly List<string> EventHistory = new();
@@ -141,114 +151,121 @@ namespace Network.Events {
             [CallerFilePath] string callerFile = "",
             [CallerLineNumber] int callerLine = 0) where T : GameEvent {
             var eventType = typeof(T);
+            var previousCorrelationContext = BeginPublishContext(gameEvent);
 
+            try {
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
-            // Check if logging is enabled for this specific event type
-            var shouldLog = loggingEnabled && ShouldLogEvent(eventType);
+                // Check if logging is enabled for this specific event type
+                var shouldLog = loggingEnabled && ShouldLogEvent(eventType);
 
-            if(shouldLog) {
-                // Missing subscriber detection (only warn for non-optional events)
-                if(!Subscribers.ContainsKey(eventType) || Subscribers[eventType].Count == 0) {
-                    // Only warn if this event is not marked as optional
-                    if(!OptionalEvents.Contains(eventType)) {
-                        Debug.LogWarning($"[EventBus] {eventType.Name} published but NO SUBSCRIBERS! " +
-                                         $"Is {eventType.Name} handler missing?");
-                    }
-                }
-
-                // Caller information
-                var callerInfo = BuildCallerInfo(callerMember, callerFile, callerLine);
-
-                var subscriberCount = 0;
-                if(Subscribers.TryGetValue(eventType, out var subscriber)) {
-                    if(subscriber != null) {
-                        subscriberCount = subscriber.Count;
-                    }
-                }
-
-                // Event history (keep last 100)
-                var logEntry =
-                    $"[Frame {Time.frameCount}] {eventType.Name} from {callerInfo} → {subscriberCount} subscriber(s)";
-                EventHistory.Add(logEntry);
-                if(EventHistory.Count > 100) {
-                    EventHistory.RemoveAt(0);
-                }
-
-                Debug.Log($"[EventBus] Publishing {eventType.Name} from {callerInfo} " +
-                          $"to {subscriberCount} subscriber(s)");
-            }
-#endif
-
-            // Publish with exception handling
-            if(!Subscribers.ContainsKey(eventType)) return;
-            {
-                // Create a copy of the list to avoid modification during iteration
-                var handlers = Subscribers[eventType].ToArray();
-
-                foreach(var handler in handlers) {
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
-                    shouldLog = loggingEnabled && ShouldLogEvent(eventType);
-                    var startTime = shouldLog ? Time.realtimeSinceStartup : 0f;
-#endif
-
-                    try {
-                        if(handler is Action<T> typedHandler) {
-                            typedHandler(gameEvent);
+                if(shouldLog) {
+                    // Missing subscriber detection (only warn for non-optional events)
+                    if(!Subscribers.ContainsKey(eventType) || Subscribers[eventType].Count == 0) {
+                        // Only warn if this event is not marked as optional
+                        if(!OptionalEvents.Contains(eventType)) {
+                            Debug.LogWarning($"[EventBus] {eventType.Name} published but NO SUBSCRIBERS! " +
+                                             $"Is {eventType.Name} handler missing?");
                         }
-                    } catch(Exception ex) {
-                        var shouldRethrow = EventBusFailureDiagnostics.RecordHandlerException(
-                            eventType,
-                            gameEvent,
-                            handler,
-                            ex,
-                            callerMember,
-                            callerFile,
-                            callerLine);
+                    }
+
+                    // Caller information
+                    var callerInfo = BuildCallerInfo(callerMember, callerFile, callerLine);
+
+                    var subscriberCount = 0;
+                    if(Subscribers.TryGetValue(eventType, out var subscriber)) {
+                        if(subscriber != null) {
+                            subscriberCount = subscriber.Count;
+                        }
+                    }
+
+                    // Event history (keep last 100)
+                    var logEntry =
+                        $"[Frame {Time.frameCount}] {eventType.Name} from {callerInfo} -> {subscriberCount} subscriber(s) " +
+                        $"(corr={GetCurrentCorrelationId()})";
+                    EventHistory.Add(logEntry);
+                    if(EventHistory.Count > 100) {
+                        EventHistory.RemoveAt(0);
+                    }
+
+                    Debug.Log($"[EventBus] Publishing {eventType.Name} from {callerInfo} " +
+                              $"to {subscriberCount} subscriber(s) (corr={GetCurrentCorrelationId()})");
+                }
+#endif
+
+                // Publish with exception handling
+                if(!Subscribers.ContainsKey(eventType)) return;
+                {
+                    // Create a copy of the list to avoid modification during iteration
+                    var handlers = Subscribers[eventType].ToArray();
+
+                    foreach(var handler in handlers) {
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
                         shouldLog = loggingEnabled && ShouldLogEvent(eventType);
-                        var callerInfo = "Unknown";
-                        if(shouldLog) {
-                            callerInfo = BuildCallerInfo(callerMember, callerFile, callerLine);
-
-                            Debug.LogError($"[EventBus] Exception in {eventType.Name} handler:\n" +
-                                           $"Event: {gameEvent}\n" +
-                                           $"Handler: {handler.GetType().Name}\n" +
-                                           $"Publisher: {callerInfo}\n" +
-                                           $"Exception: {ex}");
-                        }
+                        var startTime = shouldLog ? Time.realtimeSinceStartup : 0f;
 #endif
-                        if(shouldRethrow) {
-                            throw;
-                        }
-                    } finally {
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
-                        shouldLog = loggingEnabled && ShouldLogEvent(eventType);
-                        if(shouldLog) {
-                            var duration = Time.realtimeSinceStartup - startTime;
-                            if(duration > 0.01f) { // Log slow handlers (>10ms)
-                                var handlerName = handler.GetType().Name;
-                                Debug.LogWarning($"[EventBus] Slow handler: {handlerName} took {duration * 1000:F2}ms");
+
+                        try {
+                            if(handler is Action<T> typedHandler) {
+                                typedHandler(gameEvent);
                             }
+                        } catch(Exception ex) {
+                            var shouldRethrow = EventBusFailureDiagnostics.RecordHandlerException(
+                                eventType,
+                                gameEvent,
+                                handler,
+                                ex,
+                                callerMember,
+                                callerFile,
+                                callerLine);
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+                            shouldLog = loggingEnabled && ShouldLogEvent(eventType);
+                            var callerInfo = "Unknown";
+                            if(shouldLog) {
+                                callerInfo = BuildCallerInfo(callerMember, callerFile, callerLine);
 
-                            // Track handler timings for editor window
-                            var declaringType = handler.Method.DeclaringType;
-                            var typeName = declaringType != null ? declaringType.Name : "Unknown";
-                            var handlerKey = $"{typeName}.{handler.Method.Name}";
-                            HandlerTimings.TryAdd(handlerKey, 0f);
-                            HandlerTimings[handlerKey] =
-                                Mathf.Max(HandlerTimings[handlerKey], duration * 1000f); // Store max in ms
-                        }
+                                Debug.LogError($"[EventBus] Exception in {eventType.Name} handler:\n" +
+                                               $"Event: {gameEvent}\n" +
+                                               $"Handler: {handler.GetType().Name}\n" +
+                                               $"Publisher: {callerInfo}\n" +
+                                               $"CorrelationId: {GetCurrentCorrelationId()}\n" +
+                                               $"Exception: {ex}");
+                            }
 #endif
+                            if(shouldRethrow) {
+                                throw;
+                            }
+                        } finally {
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+                            shouldLog = loggingEnabled && ShouldLogEvent(eventType);
+                            if(shouldLog) {
+                                var duration = Time.realtimeSinceStartup - startTime;
+                                if(duration > 0.01f) { // Log slow handlers (>10ms)
+                                    var handlerName = handler.GetType().Name;
+                                    Debug.LogWarning($"[EventBus] Slow handler: {handlerName} took {duration * 1000:F2}ms");
+                                }
+
+                                // Track handler timings for editor window
+                                var declaringType = handler.Method.DeclaringType;
+                                var typeName = declaringType != null ? declaringType.Name : "Unknown";
+                                var handlerKey = $"{typeName}.{handler.Method.Name}";
+                                HandlerTimings.TryAdd(handlerKey, 0f);
+                                HandlerTimings[handlerKey] =
+                                    Mathf.Max(HandlerTimings[handlerKey], duration * 1000f); // Store max in ms
+                            }
+#endif
+                        }
                     }
                 }
+            } finally {
+                currentCorrelationContext = previousCorrelationContext;
             }
         }
-
         /// <summary>
         /// Clear all subscriptions. Useful for testing or scene transitions.
         /// </summary>
         public static void Clear() {
             Subscribers.Clear();
+            currentCorrelationContext = default;
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
             EventHistory.Clear();
             HandlerTimings.Clear();
@@ -366,6 +383,135 @@ namespace Network.Events {
             return EventBusFailureDiagnostics.GetActiveLogPath();
         }
 
+        /// <summary>
+        /// Returns the correlation ID currently active on this thread, if any.
+        /// </summary>
+        public static string GetCurrentCorrelationId() {
+            return currentCorrelationContext.CorrelationId ?? string.Empty;
+        }
+
+        /// <summary>
+        /// Returns the parent correlation ID currently active on this thread, if any.
+        /// </summary>
+        public static string GetCurrentParentCorrelationId() {
+            return currentCorrelationContext.ParentCorrelationId ?? string.Empty;
+        }
+
+        /// <summary>
+        /// Returns the current correlation nesting depth for this thread.
+        /// </summary>
+        public static int GetCurrentCorrelationDepth() {
+            return currentCorrelationContext.Depth;
+        }
+
+        /// <summary>
+        /// Creates a new correlation ID using a low-allocation monotonic sequence.
+        /// </summary>
+        public static string GenerateCorrelationId() {
+            return CreateCorrelationId();
+        }
+
+        /// <summary>
+        /// Applies the current EventBus correlation chain to an event for forwarding scenarios (e.g., RPC boundaries).
+        /// </summary>
+        public static void AttachCurrentCorrelation(GameEvent gameEvent) {
+            if(gameEvent == null) return;
+
+            var parentCorrelationId = currentCorrelationContext.CorrelationId;
+            var correlationId = string.IsNullOrWhiteSpace(parentCorrelationId)
+                ? CreateCorrelationId()
+                : parentCorrelationId;
+            var depth = currentCorrelationContext.Depth > 0 ? currentCorrelationContext.Depth : 1;
+
+            gameEvent.CorrelationId = correlationId;
+            gameEvent.ParentCorrelationId = currentCorrelationContext.ParentCorrelationId ?? string.Empty;
+            gameEvent.CorrelationDepth = depth;
+        }
+
+        /// <summary>
+        /// Applies an externally supplied correlation context to an event.
+        /// </summary>
+        public static void AttachCorrelation(GameEvent gameEvent, string correlationId, string parentCorrelationId = "", int depth = 1) {
+            if(gameEvent == null) return;
+
+            gameEvent.CorrelationId = NormalizeCorrelationId(correlationId);
+            gameEvent.ParentCorrelationId = NormalizeOptionalCorrelationId(parentCorrelationId);
+            gameEvent.CorrelationDepth = Mathf.Max(1, depth);
+        }
+
+        /// <summary>
+        /// Begins a scoped correlation context for inbound boundaries (e.g., RPC/message handlers).
+        /// </summary>
+        public static IDisposable BeginCorrelationScope(string correlationId, string parentCorrelationId = "", int depth = 0) {
+            var previous = currentCorrelationContext;
+            currentCorrelationContext = new CorrelationContext {
+                CorrelationId = NormalizeCorrelationId(correlationId),
+                ParentCorrelationId = NormalizeOptionalCorrelationId(parentCorrelationId),
+                Depth = Mathf.Max(0, depth)
+            };
+            return new CorrelationScope(previous);
+        }
+
+        private static CorrelationContext BeginPublishContext(GameEvent gameEvent) {
+            var previous = currentCorrelationContext;
+            var hasParentScope = string.IsNullOrWhiteSpace(previous.CorrelationId) == false;
+
+            var correlationId = gameEvent != null && string.IsNullOrWhiteSpace(gameEvent.CorrelationId) == false
+                ? gameEvent.CorrelationId.Trim()
+                : CreateCorrelationId();
+
+            var parentCorrelationId = gameEvent != null && string.IsNullOrWhiteSpace(gameEvent.ParentCorrelationId) == false
+                ? gameEvent.ParentCorrelationId.Trim()
+                : hasParentScope
+                    ? previous.CorrelationId
+                    : string.Empty;
+
+            var depth = hasParentScope
+                ? previous.Depth + 1
+                : gameEvent != null && gameEvent.CorrelationDepth > 0
+                    ? gameEvent.CorrelationDepth
+                    : 1;
+
+            if(gameEvent != null) {
+                gameEvent.CorrelationId = correlationId;
+                gameEvent.ParentCorrelationId = parentCorrelationId;
+                gameEvent.CorrelationDepth = depth;
+            }
+
+            currentCorrelationContext = new CorrelationContext {
+                CorrelationId = correlationId,
+                ParentCorrelationId = parentCorrelationId,
+                Depth = depth
+            };
+
+            return previous;
+        }
+
+        private static string CreateCorrelationId() {
+            var next = Interlocked.Increment(ref correlationSequence);
+            return $"{Time.frameCount:x8}-{next:x8}";
+        }
+
+        private static string NormalizeCorrelationId(string correlationId) {
+            return string.IsNullOrWhiteSpace(correlationId) ? CreateCorrelationId() : correlationId.Trim();
+        }
+
+        private static string NormalizeOptionalCorrelationId(string correlationId) {
+            return string.IsNullOrWhiteSpace(correlationId) ? string.Empty : correlationId.Trim();
+        }
+
+        private readonly struct CorrelationScope : IDisposable {
+            private readonly CorrelationContext previous;
+
+            public CorrelationScope(CorrelationContext previous) {
+                this.previous = previous;
+            }
+
+            public void Dispose() {
+                currentCorrelationContext = previous;
+            }
+        }
+
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
         /// <summary>
         /// Checks if a specific event type should be logged based on the log settings.
@@ -388,3 +534,4 @@ namespace Network.Events {
         }
     }
 }
+
