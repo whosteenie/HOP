@@ -1,5 +1,7 @@
 ﻿using UnityEngine;
 
+using Network.Events;
+
 namespace OSI {
     /// <summary>
     /// Attach this script to all the target game objects in the scene.
@@ -52,14 +54,14 @@ namespace OSI {
         /// On enable add this target object to the targets list.
         /// </summary>
         private void OnEnable() {
-            OffScreenIndicator.TargetStateChanged?.Invoke(this, true);
+            EventBus.Publish(new IndicatorTargetStateChangedEvent(this, true));
         }
 
         /// <summary>
         /// On disable remove this target object from the targets list.
         /// </summary>
         private void OnDisable() {
-            OffScreenIndicator.TargetStateChanged?.Invoke(this, false);
+            EventBus.Publish(new IndicatorTargetStateChangedEvent(this, false));
         }
 
         /// <summary>

@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 using System.Threading.Tasks;
-using Network;
+using Network.Events;
 using Unity.Services.Vivox;
 using UnityEngine;
 using SessionManager = Network.Session.SessionManager;
@@ -286,7 +286,7 @@ namespace Game.Social {
                 IsSystemMessage = false
             };
 
-            OnMessageReceived?.Invoke(chatMsg);
+            NotifyMessageReceived(chatMsg);
         }
 
         private string TryResolveChunkedMessage(VivoxMessage vivoxMessage) {
@@ -380,7 +380,7 @@ namespace Game.Social {
                 // Steam can be unavailable in editor/offline contexts.
             }
 
-            OnMessageReceived?.Invoke(new ChatMessage {
+            NotifyMessageReceived(new ChatMessage {
                 SenderSteamId = senderSteamId,
                 SenderName = senderName,
                 MessageContent = displayMessage,
@@ -477,7 +477,12 @@ namespace Game.Social {
                 MessageContent = message,
                 IsSystemMessage = true
             };
-            OnMessageReceived?.Invoke(chatMsg);
+            NotifyMessageReceived(chatMsg);
+        }
+
+        private void NotifyMessageReceived(ChatMessage message) {
+            OnMessageReceived?.Invoke(message);
+            EventBus.Publish(new ChatMessageReceivedEvent(message));
         }
     }
 }

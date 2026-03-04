@@ -36,4 +36,10 @@ namespace Network.Events {
             IsMuted = isMuted;
         }
     }
+
+    /// <summary>
+    /// Event published when key bindings are saved and applied.
+    /// </summary>
+    public class BindingsAppliedEvent : GameEvent {
+    }
 }

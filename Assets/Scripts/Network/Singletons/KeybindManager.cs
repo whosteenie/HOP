@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using Network.Events;
 using Game.Settings;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -290,6 +291,7 @@ namespace Network.Singletons {
             if(BindingsApplied != null) {
                 BindingsApplied.Invoke();
             }
+            EventBus.Publish(new BindingsAppliedEvent());
         }
 
         public void CancelBindings() {

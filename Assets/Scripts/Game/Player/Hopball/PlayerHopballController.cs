@@ -6,7 +6,6 @@ using Game.Hopball;
 using Game.Match;
 using Game.Weapons;
 using Network.Diagnostics;
-using Network.Events;
 using OSI;
 using Unity.Cinemachine;
 using Unity.Netcode;
@@ -437,9 +436,6 @@ namespace Game.Player.Hopball {
 
             // Consolidated RPC: handles all client updates in one call
             controller.OnHopballEquippedClientRpc(hopballRef, OwnerClientId);
-            
-            // Publish hopball picked up event
-            EventBus.Publish(new HopballPickedUpEvent(OwnerClientId));
         }
 
         /// <summary>
@@ -1054,8 +1050,6 @@ namespace Game.Player.Hopball {
             if(HopballSpawnManager.Instance != null) {
                 HopballSpawnManager.Instance.OnHopballDropped();
             }
-
-            EventBus.Publish(new HopballDroppedEvent(requestingClientId));
 
             if(requestingController == null) return;
             var controller = requestingController.PlayerHopballController;

@@ -44,9 +44,15 @@ namespace Network.Events {
             typeof(GameSettingsChangedEvent),
             typeof(SocialSettingsChangedEvent),
             typeof(PlayerMuteChangedEvent),
+            typeof(BindingsAppliedEvent),
             typeof(ChallengesUpdatedEvent),
             typeof(HideGrappleUIEvent),
-            typeof(ShowGrappleUIEvent)
+            typeof(ShowGrappleUIEvent),
+            typeof(VoiceParticipantSpeechChangedEvent),
+            typeof(VoiceParticipantRemovedEvent),
+            typeof(VoiceLocalPttStateChangedEvent),
+            typeof(ChatMessageReceivedEvent),
+            typeof(IndicatorTargetStateChangedEvent)
         };
 
         // Editor window access

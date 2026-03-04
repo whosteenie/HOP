@@ -1,8 +1,6 @@
 using System.Collections;
 using Game.Menu;
-using Game.Player;
 using Game.Player.Hopball;
-using Network.Events;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.Rendering;
@@ -121,9 +119,6 @@ namespace Game.Weapons {
                     Audio2.AudioService.Instance.Play("ui.weapon.switch", Vector3.zero);
                 }
             }
-
-            // Publish weapon switch event
-            EventBus.Publish(new WeaponSwitchedEvent(newIndex));
 
             // Cache ammo from current weapon before switching away
             if(CurrentWeapon != null && CurrentWeaponIndex >= 0) {

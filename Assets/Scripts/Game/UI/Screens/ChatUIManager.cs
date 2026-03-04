@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using Game.Social;
 using Game.Player;
+using Network.Events;
 using UnityEngine;
 using UnityEngine.UIElements;
 using Cursor = UnityEngine.Cursor;
@@ -51,14 +52,8 @@ namespace Game.UI {
                 _chatScroll.pickingMode = PickingMode.Ignore;
             }
 
-            if(ChatManager.Instance == null) return;
-            ChatManager.Instance.OnMessageReceived -= HandleMessageReceived;
-            ChatManager.Instance.OnMessageReceived += HandleMessageReceived;
-            RegisterCleanup(() => {
-                if(ChatManager.Instance != null) {
-                    ChatManager.Instance.OnMessageReceived -= HandleMessageReceived;
-                }
-            });
+            EventBus.Unsubscribe<ChatMessageReceivedEvent>(OnChatMessageReceivedEvent);
+            EventBus.Subscribe<ChatMessageReceivedEvent>(OnChatMessageReceivedEvent);
         }
 
         protected override Dictionary<string, System.Type> GetRequiredElements() {
@@ -70,11 +65,9 @@ namespace Game.UI {
             };
         }
 
-        protected override void OnDestroy() {
-            if(ChatManager.Instance != null) {
-                ChatManager.Instance.OnMessageReceived -= HandleMessageReceived;
-            }
-            base.OnDestroy();
+        protected override void OnCleanup() {
+            this.UnsubscribeFromEventBus();
+            base.OnCleanup();
         }
 
         public void ClearChatHistory() {
@@ -262,8 +255,9 @@ namespace Game.UI {
             _chatInput.SetValueWithoutNotify(clamped);
         }
 
-        private void HandleMessageReceived(ChatMessage msg) {
-            AddMessage(msg);
+        private void OnChatMessageReceivedEvent(ChatMessageReceivedEvent evt) {
+            if(evt == null) return;
+            AddMessage(evt.Message);
         }
 
         private void AddMessage(ChatMessage msg) {

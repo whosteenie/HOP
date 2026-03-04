@@ -242,17 +242,12 @@ namespace Game.Match {
         }
 
         private void OnTimeRemainingChanged(int previous, int current) {
-            // Publish match time updated event
-            EventBus.Publish(new MatchTimeUpdatedEvent(current));
-            
             // Only update UI if we're not in pre-match
             if(_isPreMatch.Value || GameMenuManager.Instance == null) return;
             EventBus.Publish(new SetMatchTimeEvent(current));
         }
 
         private void OnPreMatchCountdownChanged(int previous, int current) {
-            // Publish pre-match countdown event
-            EventBus.Publish(new PreMatchCountdownEvent(current));
             // Display pre-match countdown in UI
             if(!_isPreMatch.Value || GameMenuManager.Instance == null) return;
             if(GameMenuManager.Instance.IsPostMatch) {

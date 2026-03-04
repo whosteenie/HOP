@@ -420,6 +420,7 @@ namespace Game.Social {
                 if(OnLocalPttStateChanged != null) {
                     OnLocalPttStateChanged.Invoke(_isMicOpen);
                 }
+                EventBus.Publish(new VoiceLocalPttStateChangedEvent(_isMicOpen));
                 
                 // Update NetworkVariable on local PlayerController so other clients see the indicator
                 var localPlayer = Player.PlayerController.LocalPlayer;
@@ -551,12 +552,19 @@ namespace Game.Social {
             if(OnParticipantRemoved != null) {
                 OnParticipantRemoved.Invoke(participant);
             }
+
+            EventBus.Publish(new VoiceParticipantRemovedEvent(participant.PlayerId));
         }
 
         private void OnSpeechDetected(VivoxParticipant participant) {
             if(OnParticipantSpeechDetected != null) {
                 OnParticipantSpeechDetected.Invoke(participant);
             }
+
+            EventBus.Publish(new VoiceParticipantSpeechChangedEvent(
+                participant.PlayerId,
+                participant.DisplayName,
+                participant.SpeechDetected));
         }
     }
 }

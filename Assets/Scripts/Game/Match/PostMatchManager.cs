@@ -244,8 +244,6 @@ namespace Game.Match {
         /// Called from MatchTimerManager on the server when the timer hits 0.
         /// </summary>
         private void BeginPostMatchFromTimer() {
-            // Publish post-match started event
-            EventBus.Publish(new PostMatchStartedEvent());
             if(!IsServer) {
                 Debug.LogWarning("[MatchTimerManager] Is not server!");
                 return;
@@ -275,9 +273,6 @@ namespace Game.Match {
                 Debug.LogWarning("[PostMatchManager] BeginPostMatchFromScore called on non-server!");
                 return;
             }
-            
-            // Publish post-match started event
-            EventBus.Publish(new PostMatchStartedEvent());
 
             if(PostMatchFlowStarted) {
                 Debug.LogWarning("[PostMatchManager] Post match is already started!");
