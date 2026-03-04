@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using Network.Events;
 using UnityEngine;
 using Game.Match;
 
@@ -286,7 +287,7 @@ namespace Game.Progression {
             anyChange |= CheckChallengeList(Data.dailyChallenges, type, amount, contextId);
             anyChange |= CheckChallengeList(Data.weeklyChallenges, type, amount, contextId);
             if(anyChange) {
-                OnChallengesUpdated?.Invoke();
+                NotifyChallengesUpdated();
             }
         }
 
@@ -631,7 +632,7 @@ namespace Game.Progression {
             
             SaveData();
             Debug.Log($"[Progression] Generated {addedCount} new Daily Challenges.");
-            OnChallengesUpdated?.Invoke();
+            NotifyChallengesUpdated();
         }
         
         private void GenerateWeeklyChallenges() {
@@ -757,7 +758,12 @@ namespace Game.Progression {
             
             SaveData();
             Debug.Log($"[Progression] Generated {addedCount} new Weekly Challenges.");
+            NotifyChallengesUpdated();
+        }
+
+        private void NotifyChallengesUpdated() {
             OnChallengesUpdated?.Invoke();
+            EventBus.Publish(new ChallengesUpdatedEvent());
         }
         
         public ChallengeDefinition GetChallengeDefinition(string id) {

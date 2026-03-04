@@ -65,7 +65,7 @@ namespace Game.UI {
             EventBus.Unsubscribe<ShowHUDEvent>(OnShowHUD);
             EventBus.Unsubscribe<HideHUDEvent>(OnHideHUD);
             EventBus.Unsubscribe<PreMatchWaitingForPlayersEvent>(OnPreMatchWaitingForPlayers);
-            GameSettings.OnSettingsChanged -= OnSettingsChanged;
+            EventBus.Unsubscribe<GameSettingsChangedEvent>(OnGameSettingsChanged);
             EventBus.Subscribe<UpdateHealthEvent>(OnUpdateHealth);
             EventBus.Subscribe<UpdateAmmoEvent>(OnUpdateAmmo);
             EventBus.Subscribe<UpdateTagStatusEvent>(OnUpdateTagStatus);
@@ -73,7 +73,7 @@ namespace Game.UI {
             EventBus.Subscribe<ShowHUDEvent>(OnShowHUD);
             EventBus.Subscribe<HideHUDEvent>(OnHideHUD);
             EventBus.Subscribe<PreMatchWaitingForPlayersEvent>(OnPreMatchWaitingForPlayers);
-            GameSettings.OnSettingsChanged += OnSettingsChanged;
+            EventBus.Subscribe<GameSettingsChangedEvent>(OnGameSettingsChanged);
         }
 
         protected override void OnDisable() {
@@ -85,7 +85,7 @@ namespace Game.UI {
             EventBus.Unsubscribe<ShowHUDEvent>(OnShowHUD);
             EventBus.Unsubscribe<HideHUDEvent>(OnHideHUD);
             EventBus.Unsubscribe<PreMatchWaitingForPlayersEvent>(OnPreMatchWaitingForPlayers);
-            GameSettings.OnSettingsChanged -= OnSettingsChanged;
+            EventBus.Unsubscribe<GameSettingsChangedEvent>(OnGameSettingsChanged);
             base.OnDisable();
         }
 
@@ -154,6 +154,10 @@ namespace Game.UI {
 
         private void OnSettingsChanged() {
             ApplyCrosshairSettings();
+        }
+
+        private void OnGameSettingsChanged(GameSettingsChangedEvent _) {
+            OnSettingsChanged();
         }
 
         #endregion

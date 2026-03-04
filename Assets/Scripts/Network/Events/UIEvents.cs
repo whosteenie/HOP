@@ -140,5 +140,17 @@ namespace Network.Events {
     /// </summary>
     public class ShowScoreDisplayEvent : GameEvent {
     }
+
+    /// <summary>
+    /// Event published when grapple UI should be hidden.
+    /// </summary>
+    public class HideGrappleUIEvent : GameEvent {
+    }
+
+    /// <summary>
+    /// Event published when grapple UI should be shown.
+    /// </summary>
+    public class ShowGrappleUIEvent : GameEvent {
+    }
 }
 

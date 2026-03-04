@@ -1,9 +1,9 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using Game.Menu.Options;
 using Game.Player;
 using Game.UI;
+using Network.Events;
 using Network.Services;
 using Network.Singletons;
 using Game.Progression;
@@ -177,8 +177,8 @@ namespace Game.Menu {
         protected override void OnEnable() {
             base.OnEnable();
             // Subscribe to resolution changes
-            OptionsMenuManager.OnResolutionChanged -= OnResolutionChanged;
-            OptionsMenuManager.OnResolutionChanged += OnResolutionChanged;
+            EventBus.Unsubscribe<ResolutionChangedEvent>(OnResolutionChanged);
+            EventBus.Subscribe<ResolutionChangedEvent>(OnResolutionChanged);
         }
 
         protected override void OnDisable() {
@@ -209,7 +209,7 @@ namespace Game.Menu {
             }
 
             // Unsubscribe from resolution changes
-            OptionsMenuManager.OnResolutionChanged -= OnResolutionChanged;
+            EventBus.Unsubscribe<ResolutionChangedEvent>(OnResolutionChanged);
 
             ReleasePreviewRenderTexture();
             ResetPreviewCameraTarget();
@@ -410,7 +410,10 @@ namespace Game.Menu {
         /// Called when resolution changes via OptionsMenuManager event.
         /// Recreates the render texture if the preview is currently active.
         /// </summary>
-        private void OnResolutionChanged(int width, int height) {
+        private void OnResolutionChanged(ResolutionChangedEvent evt) {
+            if(evt == null) return;
+            var width = evt.Width;
+            var height = evt.Height;
             // Only recreate if preview is currently active
             if(_previewRenderTexture != null && previewCamera != null && previewCamera.enabled) {
                 RecreateRenderTexture(GetPreviewRenderWidth(width), GetPreviewRenderHeight(height));

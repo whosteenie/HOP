@@ -223,7 +223,8 @@ namespace Network.Session {
             SteamFriends.OnGameLobbyJoinRequested += OnGameLobbyJoinRequested;
             SteamFriends.OnGameRichPresenceJoinRequested += OnGameRichPresenceJoinRequested;
 
-            GameSettings.OnSettingsChanged += OnLocalSettingsChanged;
+            EventBus.Unsubscribe<GameSettingsChangedEvent>(OnGameSettingsChanged);
+            EventBus.Subscribe<GameSettingsChangedEvent>(OnGameSettingsChanged);
         }
 
         private void OnDisable() {
@@ -237,12 +238,16 @@ namespace Network.Session {
             SteamFriends.OnGameLobbyJoinRequested -= OnGameLobbyJoinRequested;
             SteamFriends.OnGameRichPresenceJoinRequested -= OnGameRichPresenceJoinRequested;
 
-            GameSettings.OnSettingsChanged -= OnLocalSettingsChanged;
+            EventBus.Unsubscribe<GameSettingsChangedEvent>(OnGameSettingsChanged);
         }
 
         private void OnLocalSettingsChanged() {
             // Streamer mode toggle can change the display name we want other players to see.
             UpdateLocalDisplayNameInLobby();
+        }
+
+        private void OnGameSettingsChanged(GameSettingsChangedEvent _) {
+            OnLocalSettingsChanged();
         }
 
         private void UpdateLocalDisplayNameInLobby() {

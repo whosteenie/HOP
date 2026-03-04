@@ -39,7 +39,14 @@ namespace Network.Events {
             typeof(GameMenuReadyEvent),
             typeof(MatchTimerReadyEvent),
             typeof(SessionPropertiesRefreshedEvent),
-            typeof(FrontStatusChangedEvent)
+            typeof(FrontStatusChangedEvent),
+            typeof(ResolutionChangedEvent),
+            typeof(GameSettingsChangedEvent),
+            typeof(SocialSettingsChangedEvent),
+            typeof(PlayerMuteChangedEvent),
+            typeof(ChallengesUpdatedEvent),
+            typeof(HideGrappleUIEvent),
+            typeof(ShowGrappleUIEvent)
         };
 
         // Editor window access

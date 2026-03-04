@@ -682,10 +682,7 @@ namespace Game.Match {
                 _matchTimerContainer.style.display = DisplayStyle.None;
             EventBus.Publish(new HideScoreDisplayEvent());
 
-            // Hide grapple UI via GrappleUIManager
-            if(GrappleUIManager.Instance != null) {
-                GrappleUIManager.Instance.HideGrappleUI();
-            }
+            EventBus.Publish(new HideGrappleUIEvent());
         }
 
         public void ShowInGameHudAfterPostMatch() {
@@ -704,10 +701,7 @@ namespace Game.Match {
                 _matchTimerContainer.style.display = DisplayStyle.Flex;
             EventBus.Publish(new ShowScoreDisplayEvent());
 
-            // Show grapple UI via GrappleUIManager
-            if(GrappleUIManager.Instance != null) {
-                GrappleUIManager.Instance.ShowGrappleUI();
-            }
+            EventBus.Publish(new ShowGrappleUIEvent());
         }
 
         private void StartPodiumWorldSpaceTracking() {

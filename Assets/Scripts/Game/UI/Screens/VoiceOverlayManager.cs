@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Game.Social;
+using Network.Events;
 using Network.Steam;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -36,7 +37,8 @@ namespace Game.UI {
             }
 
             // Listen for mute changes to update UI
-            SocialSettings.OnPlayerMuteChanged += OnPlayerMuteChanged;
+            EventBus.Unsubscribe<PlayerMuteChangedEvent>(OnPlayerMuteChangedEvent);
+            EventBus.Subscribe<PlayerMuteChangedEvent>(OnPlayerMuteChangedEvent);
 
             // Cache local player ID
             RefreshLocalIdentityContext();
@@ -148,7 +150,7 @@ namespace Game.UI {
                 VoiceManager.Instance.OnLocalPttStateChanged -= OnLocalPttStateChanged;
             }
 
-            SocialSettings.OnPlayerMuteChanged -= OnPlayerMuteChanged;
+            EventBus.Unsubscribe<PlayerMuteChangedEvent>(OnPlayerMuteChangedEvent);
             UnregisterPlayerLifecycleCallbacks();
             UnregisterNetworkCallbacks();
             foreach(var clientId in new List<ulong>(_trackedPlayers.Keys)) {
@@ -170,6 +172,11 @@ namespace Game.UI {
             if(isMuted) {
                 RemoveSpeakerEntry(playerId);
             }
+        }
+
+        private void OnPlayerMuteChangedEvent(PlayerMuteChangedEvent evt) {
+            if(evt == null) return;
+            OnPlayerMuteChanged(evt.PlayerId, evt.IsMuted);
         }
 
         protected override Dictionary<string, Type> GetRequiredElements() {

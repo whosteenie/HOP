@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using Game.Progression;
 using Game.UI;
+using Network.Events;
 using Network.Services;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -496,15 +497,10 @@ namespace Game.Menu {
                 });
             }
 
-            // Challenge Updates
-            if(ProgressionManager.Instance == null) return;
-            System.Action updateChallengeHandler = UpdateMainMenuChallenges;
-            ProgressionManager.Instance.OnChallengesUpdated += updateChallengeHandler;
-            RegisterCleanup(() => {
-                if (ProgressionManager.Instance != null) {
-                    ProgressionManager.Instance.OnChallengesUpdated -= updateChallengeHandler;
-                }
-            });
+            // Challenge updates
+            EventBus.Unsubscribe<ChallengesUpdatedEvent>(OnChallengesUpdatedEvent);
+            EventBus.Subscribe<ChallengesUpdatedEvent>(OnChallengesUpdatedEvent);
+            RegisterCleanup(() => EventBus.Unsubscribe<ChallengesUpdatedEvent>(OnChallengesUpdatedEvent));
         }
 
         // Panel references (for external access - panel management stays in MainMenuManager for now)
@@ -773,6 +769,10 @@ namespace Game.Menu {
             ChallengeUiRenderer.SetOfflineState(_weeklyChallengesCard, false);
             RenderChallengeList(_dailyChallengesCard, pm.Data.dailyChallenges);
             RenderChallengeList(_weeklyChallengesCard, pm.Data.weeklyChallenges);
+        }
+
+        private void OnChallengesUpdatedEvent(ChallengesUpdatedEvent _) {
+            UpdateMainMenuChallenges();
         }
 
         private void RenderChallengeList(VisualElement card, List<ActiveChallengeData> challenges) {

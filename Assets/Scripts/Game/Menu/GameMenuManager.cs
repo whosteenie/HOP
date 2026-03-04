@@ -82,7 +82,7 @@ namespace Game.Menu {
         private bool _pauseChallengesDirty = true;
         private bool? _cachedOfflineState;
         private float _nextChallengeTimerUpdateAt;
-        private ProgressionManager _progressionManager;
+        private bool _progressionEventsBound;
         private const float ChallengeTimerUpdateIntervalSeconds = 1f;
 
         // Pause loadout UI
@@ -471,18 +471,16 @@ namespace Game.Menu {
         }
 
         private void BindProgressionEvents() {
-            if(_progressionManager != null) return;
-            _progressionManager = ProgressionManager.Instance;
-            if(_progressionManager == null) return;
-
-            _progressionManager.OnChallengesUpdated -= OnChallengesUpdated;
-            _progressionManager.OnChallengesUpdated += OnChallengesUpdated;
+            if(_progressionEventsBound) return;
+            EventBus.Unsubscribe<ChallengesUpdatedEvent>(OnChallengesUpdatedEvent);
+            EventBus.Subscribe<ChallengesUpdatedEvent>(OnChallengesUpdatedEvent);
+            _progressionEventsBound = true;
         }
 
         private void UnbindProgressionEvents() {
-            if(_progressionManager == null) return;
-            _progressionManager.OnChallengesUpdated -= OnChallengesUpdated;
-            _progressionManager = null;
+            if(!_progressionEventsBound) return;
+            EventBus.Unsubscribe<ChallengesUpdatedEvent>(OnChallengesUpdatedEvent);
+            _progressionEventsBound = false;
         }
 
         private void BindGameplayEvents() {
@@ -819,6 +817,10 @@ namespace Game.Menu {
             SetPauseChallengesDirty();
             if(!IsPaused) return;
             UpdatePauseChallengesIfDirty();
+        }
+
+        private void OnChallengesUpdatedEvent(ChallengesUpdatedEvent _) {
+            OnChallengesUpdated();
         }
 
         private static bool IsOfflineMode() {
