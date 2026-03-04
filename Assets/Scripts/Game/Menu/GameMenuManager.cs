@@ -486,12 +486,18 @@ namespace Game.Menu {
         private void BindGameplayEvents() {
             if(_gameplayEventsBound) return;
             EventBus.Subscribe<PlayerDiedEvent>(OnPlayerDied);
+            EventBus.Subscribe<PreMatchWaitingForPlayersEvent>(OnPreMatchWaitingForPlayers);
+            EventBus.Subscribe<PreMatchCountdownEvent>(OnPreMatchCountdown);
+            EventBus.Subscribe<MatchStartedEvent>(OnMatchStartedEvent);
             _gameplayEventsBound = true;
         }
 
         private void UnbindGameplayEvents() {
             if(!_gameplayEventsBound) return;
             EventBus.Unsubscribe<PlayerDiedEvent>(OnPlayerDied);
+            EventBus.Unsubscribe<PreMatchWaitingForPlayersEvent>(OnPreMatchWaitingForPlayers);
+            EventBus.Unsubscribe<PreMatchCountdownEvent>(OnPreMatchCountdown);
+            EventBus.Unsubscribe<MatchStartedEvent>(OnMatchStartedEvent);
             _gameplayEventsBound = false;
         }
 
@@ -500,6 +506,21 @@ namespace Game.Menu {
             if(controller == null) return;
             if(gameEvent.PlayerId != controller.OwnerClientId) return;
             ApplyPendingLoadoutNow();
+        }
+
+        private void OnPreMatchWaitingForPlayers(PreMatchWaitingForPlayersEvent evt) {
+            if(evt == null || !evt.IsWaiting) return;
+            if(!IsPostMatch) return;
+            RestoreHudForMatchStart();
+        }
+
+        private void OnPreMatchCountdown(PreMatchCountdownEvent _) {
+            if(!IsPostMatch) return;
+            RestoreHudForMatchStart();
+        }
+
+        private void OnMatchStartedEvent(MatchStartedEvent _) {
+            RestoreHudForMatchStart();
         }
 
         private void RegisterPauseLoadoutEvents() {

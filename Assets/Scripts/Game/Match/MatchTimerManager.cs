@@ -1,7 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using Game.Menu;
 using Game.Player;
 using Network.Diagnostics;
 using Network.Events;
@@ -243,16 +242,15 @@ namespace Game.Match {
 
         private void OnTimeRemainingChanged(int previous, int current) {
             // Only update UI if we're not in pre-match
-            if(_isPreMatch.Value || GameMenuManager.Instance == null) return;
+            if(_isPreMatch.Value) return;
             EventBus.Publish(new SetMatchTimeEvent(current));
         }
 
         private void OnPreMatchCountdownChanged(int previous, int current) {
+            EventBus.Publish(new PreMatchCountdownEvent(current));
+
             // Display pre-match countdown in UI
-            if(!_isPreMatch.Value || GameMenuManager.Instance == null) return;
-            if(GameMenuManager.Instance.IsPostMatch) {
-                GameMenuManager.Instance.RestoreHudForMatchStart();
-            }
+            if(!_isPreMatch.Value) return;
             EventBus.Publish(new SetMatchTimeEvent(current));
         }
 
@@ -278,12 +276,8 @@ namespace Game.Match {
         }
 
         private void OnPreMatchStateChanged(bool previous, bool current) {
-            if(current && GameMenuManager.Instance != null) {
-                GameMenuManager.Instance.RestoreHudForMatchStart();
-            }
             // When pre-match ends, ensure UI shows match timer
-            if(current || GameMenuManager.Instance == null) return;
-            GameMenuManager.Instance.RestoreHudForMatchStart();
+            if(current) return;
             var matchSettings = MatchSettingsManager.Instance;
             if(matchSettings != null && matchSettings.IsInfiniteMatchTimer()) {
                 EventBus.Publish(new SetMatchTimeEvent(-1));
