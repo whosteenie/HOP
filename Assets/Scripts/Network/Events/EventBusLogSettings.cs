@@ -16,6 +16,40 @@ namespace Network.Events {
         [Header("Per-Event Logging")]
         [Tooltip("Events that should be logged. Events not in this list will not be logged.")]
         public List<EventLogEntry> eventLogSettings = new();
+
+        [Header("Failure Diagnostics")]
+        [Tooltip("Capture EventBus handler exceptions and route them through the centralized diagnostics path.")]
+        public bool failureCaptureEnabled = true;
+
+        [Tooltip("Write EventBus failure records to a local per-session NDJSON log file.")]
+        public bool failureFileLoggingEnabled = true;
+
+        [Tooltip("Echo EventBus failure records to Unity console output.")]
+        public bool failureEchoToUnityConsole = true;
+
+        [Tooltip("Include publisher stack trace in failure records (higher overhead on failure path).")]
+        public bool failureIncludePublisherStackTrace;
+
+        [Tooltip("Include event payload (gameEvent.ToString()) in failure records.")]
+        public bool failureIncludeEventPayload;
+
+        [Tooltip("Throw after logging handler exceptions (fail-fast mode).")]
+        public bool failureFailFastOnHandlerException;
+
+        [Tooltip("Flush interval for the per-session failure log file.")]
+        public float failureFlushIntervalSeconds = 2f;
+
+        [Tooltip("Maximum failure log file size (MB) per session.")]
+        public int failureMaxFileSizeMb = 8;
+
+        [Tooltip("Maximum number of failure records to write per session.")]
+        public int failureMaxRecordsPerSession = 20000;
+
+        [Tooltip("Flush immediately on handler exception.")]
+        public bool failureImmediateFlushOnError = true;
+
+        [Tooltip("Redact identity fields in failure records (future privacy hardening).")]
+        public bool failureRedactIdentifiers;
         
         // Dictionary for fast lookup (built from eventLogSettings)
         private Dictionary<Type, bool> _eventLogLookup;

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using UnityEngine;
 
 namespace Network.Events {
@@ -135,7 +136,10 @@ namespace Network.Events {
         /// Publish an event to all subscribers.
         /// Includes comprehensive debugging: missing subscriber detection, caller information, exception handling.
         /// </summary>
-        public static void Publish<T>(T gameEvent) where T : GameEvent {
+        public static void Publish<T>(T gameEvent,
+            [CallerMemberName] string callerMember = "",
+            [CallerFilePath] string callerFile = "",
+            [CallerLineNumber] int callerLine = 0) where T : GameEvent {
             var eventType = typeof(T);
 
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
@@ -153,15 +157,7 @@ namespace Network.Events {
                 }
 
                 // Caller information
-                var stackTrace = new System.Diagnostics.StackTrace(1, true);
-                var frame = stackTrace.GetFrame(0);
-                var caller = frame != null ? frame.GetMethod() : null;
-                var callerInfo = "Unknown";
-                if(caller != null) {
-                    var declaringType = caller.DeclaringType;
-                    var typeName = declaringType != null ? declaringType.Name : "Unknown";
-                    callerInfo = $"{typeName}.{caller.Name}()";
-                }
+                var callerInfo = BuildCallerInfo(callerMember, callerFile, callerLine);
 
                 var subscriberCount = 0;
                 if(Subscribers.TryGetValue(eventType, out var subscriber)) {
@@ -200,18 +196,19 @@ namespace Network.Events {
                             typedHandler(gameEvent);
                         }
                     } catch(Exception ex) {
+                        var shouldRethrow = EventBusFailureDiagnostics.RecordHandlerException(
+                            eventType,
+                            gameEvent,
+                            handler,
+                            ex,
+                            callerMember,
+                            callerFile,
+                            callerLine);
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
                         shouldLog = loggingEnabled && ShouldLogEvent(eventType);
                         var callerInfo = "Unknown";
                         if(shouldLog) {
-                            var stackTrace = new System.Diagnostics.StackTrace(1, true);
-                            var frame = stackTrace.GetFrame(0);
-                            var caller = frame != null ? frame.GetMethod() : null;
-                            if(caller != null) {
-                                var declaringType = caller.DeclaringType;
-                                var typeName = declaringType != null ? declaringType.Name : "Unknown";
-                                callerInfo = $"{typeName}.{caller.Name}()";
-                            }
+                            callerInfo = BuildCallerInfo(callerMember, callerFile, callerLine);
 
                             Debug.LogError($"[EventBus] Exception in {eventType.Name} handler:\n" +
                                            $"Event: {gameEvent}\n" +
@@ -220,6 +217,9 @@ namespace Network.Events {
                                            $"Exception: {ex}");
                         }
 #endif
+                        if(shouldRethrow) {
+                            throw;
+                        }
                     } finally {
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
                         shouldLog = loggingEnabled && ShouldLogEvent(eventType);
@@ -330,11 +330,40 @@ namespace Network.Events {
         /// Available in all builds (settings are stored but only used in editor/dev builds).
         /// </summary>
         public static void SetLogSettings(EventBusLogSettings settings) {
+            EventBusFailureDiagnostics.ApplyLogSettings(settings);
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
             logSettings = settings;
 #else
             // In non-dev builds, settings are ignored but method exists to prevent compilation errors
 #endif
+        }
+
+        /// <summary>
+        /// Enables/disables file logging for EventBus failures at runtime.
+        /// </summary>
+        public static void SetFailureFileLoggingEnabled(bool enabled) {
+            EventBusFailureDiagnostics.SetFileLoggingEnabled(enabled);
+        }
+
+        /// <summary>
+        /// Enables/disables EventBus failure capture at runtime.
+        /// </summary>
+        public static void SetFailureCaptureEnabled(bool enabled) {
+            EventBusFailureDiagnostics.SetFailureCaptureEnabled(enabled);
+        }
+
+        /// <summary>
+        /// Enables/disables fail-fast behavior for EventBus handler exceptions.
+        /// </summary>
+        public static void SetFailureFailFastEnabled(bool enabled) {
+            EventBusFailureDiagnostics.SetFailFastEnabled(enabled);
+        }
+
+        /// <summary>
+        /// Returns the current session failure log path, if active.
+        /// </summary>
+        public static string GetFailureLogPath() {
+            return EventBusFailureDiagnostics.GetActiveLogPath();
         }
 
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
@@ -346,5 +375,16 @@ namespace Network.Events {
             return logSettings == null || logSettings.IsLoggingEnabledFor(eventType);
         }
 #endif
+
+        private static string BuildCallerInfo(string callerMember, string callerFile, int callerLine) {
+            if(string.IsNullOrEmpty(callerFile)) {
+                return string.IsNullOrEmpty(callerMember) ? "Unknown" : callerMember;
+            }
+
+            var file = System.IO.Path.GetFileName(callerFile);
+            if(string.IsNullOrEmpty(file)) file = callerFile;
+            var member = string.IsNullOrEmpty(callerMember) ? "UnknownMember" : callerMember;
+            return $"{file}:{callerLine} ({member})";
+        }
     }
 }

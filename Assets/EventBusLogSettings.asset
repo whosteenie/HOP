@@ -102,3 +102,14 @@ MonoBehaviour:
     enabled: 0
   - eventTypeName: Network.Events.WeaponSwitchedEvent
     enabled: 0
+  failureCaptureEnabled: 1
+  failureFileLoggingEnabled: 1
+  failureEchoToUnityConsole: 1
+  failureIncludePublisherStackTrace: 0
+  failureIncludeEventPayload: 0
+  failureFailFastOnHandlerException: 0
+  failureFlushIntervalSeconds: 2
+  failureMaxFileSizeMb: 8
+  failureMaxRecordsPerSession: 20000
+  failureImmediateFlushOnError: 1
+  failureRedactIdentifiers: 0
