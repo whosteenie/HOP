@@ -219,9 +219,8 @@ namespace Network.Events {
                                 callerLine);
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
                             shouldLog = loggingEnabled && ShouldLogEvent(eventType);
-                            var callerInfo = "Unknown";
                             if(shouldLog) {
-                                callerInfo = BuildCallerInfo(callerMember, callerFile, callerLine);
+                                var callerInfo = BuildCallerInfo(callerMember, callerFile, callerLine);
 
                                 Debug.LogError($"[EventBus] Exception in {eventType.Name} handler:\n" +
                                                $"Event: {gameEvent}\n" +
@@ -386,7 +385,7 @@ namespace Network.Events {
         /// <summary>
         /// Returns the correlation ID currently active on this thread, if any.
         /// </summary>
-        public static string GetCurrentCorrelationId() {
+        private static string GetCurrentCorrelationId() {
             return currentCorrelationContext.CorrelationId ?? string.Empty;
         }
 
@@ -468,7 +467,7 @@ namespace Network.Events {
 
             var depth = hasParentScope
                 ? previous.Depth + 1
-                : gameEvent != null && gameEvent.CorrelationDepth > 0
+                : gameEvent is { CorrelationDepth: > 0 }
                     ? gameEvent.CorrelationDepth
                     : 1;
 
@@ -501,14 +500,14 @@ namespace Network.Events {
         }
 
         private readonly struct CorrelationScope : IDisposable {
-            private readonly CorrelationContext previous;
+            private readonly CorrelationContext _previous;
 
             public CorrelationScope(CorrelationContext previous) {
-                this.previous = previous;
+                _previous = previous;
             }
 
             public void Dispose() {
-                currentCorrelationContext = previous;
+                currentCorrelationContext = _previous;
             }
         }
 

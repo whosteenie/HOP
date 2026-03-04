@@ -2,6 +2,11 @@ using Unity.Netcode;
 using UnityEngine;
 
 namespace Game.Player {
+    /// <summary>
+    /// Shelved movement prototype.
+    /// Not part of current production gameplay paths; retained for future experimentation.
+    /// </summary>
+    [AddComponentMenu("Shelved/Movement/Dash Controller (Unused Prototype)")]
     public class DashController : NetworkBehaviour {
         [Header("References")] [SerializeField]
         private PlayerController playerController;

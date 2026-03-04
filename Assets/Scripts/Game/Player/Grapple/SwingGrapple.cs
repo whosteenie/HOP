@@ -4,6 +4,11 @@ using Unity.Netcode;
 using UnityEngine;
 
 namespace Game.Player {
+    /// <summary>
+    /// Shelved movement prototype.
+    /// Not part of current production gameplay paths; retained for future experimentation.
+    /// </summary>
+    [AddComponentMenu("Shelved/Movement/Swing Grapple (Unused Prototype)")]
     public class SwingGrapple : NetworkBehaviour {
         [Header("References")]
         [SerializeField] private PlayerController playerController;
