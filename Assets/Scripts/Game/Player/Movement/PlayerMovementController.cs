@@ -79,19 +79,13 @@ namespace Game.Player {
         private const float JumpPadInputSuppressDuration = 0.12f;
 
         // Jump pad apex tracking (for debug analysis)
-        private bool _activeJumpPadLaunch;
-        private int _jumpPadLaunchId;
-        private float _jumpPadLaunchStartTime;
         private float _jumpPadLaunchStartY;
         private float _jumpPadLaunchPeakY;
-        private float _jumpPadExpectedApexDeltaY;
         private float _jumpPadExpectedTimeToApex;
         private bool _jumpPadMidSampleLogged;
 
         // "Non-launch" apex tracking after jump pad contact that did NOT trigger LaunchFromJumpPad
         private bool _activeJumpPadNonLaunch;
-        private int _jumpPadNonLaunchId;
-        private float _jumpPadNonLaunchStartTime;
         private float _jumpPadNonLaunchStartY;
         private float _jumpPadNonLaunchPeakY;
 
@@ -432,21 +426,21 @@ namespace Game.Player {
             }
 
             // Track jump pad apex (for debug analysis)
-            if(_activeJumpPadLaunch) {
+            if(IsInJumpPadLaunch) {
                 // Update peak height seen so far
                 if(positionAfter.y > _jumpPadLaunchPeakY) {
                     _jumpPadLaunchPeakY = positionAfter.y;
                 }
 
                 // Mid-flight sample to capture grounded/grapple state while still rising
-                var sinceLaunch = Time.time - _jumpPadLaunchStartTime;
+                var sinceLaunch = Time.time - LastJumpPadLaunchStartTime;
                 if(!_jumpPadMidSampleLogged && _jumpPadExpectedTimeToApex > 0f && sinceLaunch >= _jumpPadExpectedTimeToApex * 0.5f) {
                     _jumpPadMidSampleLogged = true;
                 }
 
                 // Detect apex when vertical velocity has turned non-positive
                 if(VerticalVelocity <= 0f) {
-                    _activeJumpPadLaunch = false;
+                    IsInJumpPadLaunch = false;
                 }
             }
 
@@ -588,8 +582,6 @@ namespace Game.Player {
             if(!ignoreGroundedRequirement && !IsGrounded) {
                 // Begin tracking a "non-launch" apex to capture perceived weak jumps after pad contact
                 _activeJumpPadNonLaunch = true;
-                _jumpPadNonLaunchId++;
-                _jumpPadNonLaunchStartTime = Time.time;
                 _jumpPadNonLaunchStartY = _playerTransform != null ? _playerTransform.position.y : 0f;
                 _jumpPadNonLaunchPeakY = _jumpPadNonLaunchStartY;
 
@@ -611,15 +603,11 @@ namespace Game.Player {
             _horizontalVelocity += new Vector3(launchVelocity.x, 0f, launchVelocity.z);
 
             // Start apex tracking for this jump pad launch
-            _activeJumpPadLaunch = true;
-            _jumpPadLaunchId++;
-            _jumpPadLaunchStartTime = Time.time;
+            IsInJumpPadLaunch = true;
+            LastJumpPadLaunchStartTime = Time.time;
             _jumpPadLaunchStartY = _playerTransform != null ? _playerTransform.position.y : 0f;
             _jumpPadLaunchPeakY = _jumpPadLaunchStartY;
             var effectiveGravity = _gravityY * GravityScale; // negative value
-            _jumpPadExpectedApexDeltaY = effectiveGravity < 0f
-                ? (VerticalVelocity * VerticalVelocity) / (2f * -effectiveGravity)
-                : 0f;
             _jumpPadExpectedTimeToApex = effectiveGravity < 0f
                 ? VerticalVelocity / -effectiveGravity
                 : 0f;
@@ -733,8 +721,9 @@ namespace Game.Player {
         public bool IsSliding { get; private set; }
 
         // Used by GrappleController for jumppad/grapple interaction (preserve launch vertical, compensate pull).
-        public bool IsInJumpPadLaunch => _activeJumpPadLaunch;
-        public float LastJumpPadLaunchStartTime => _jumpPadLaunchStartTime;
+        public bool IsInJumpPadLaunch { get; private set; }
+
+        private float LastJumpPadLaunchStartTime { get; set; }
 
         #region Slide Methods
 
