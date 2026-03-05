@@ -5,8 +5,6 @@ using UnityEngine;
 
 namespace Game.Settings {
     public static class GameSettings {
-        public static event Action OnSettingsChanged;
-
         private static SettingsData data;
         private static bool loaded;
 
@@ -48,7 +46,6 @@ namespace Game.Settings {
             ValidateAndClamp(data);
             ApplyEventBusDiagnosticsSetting(data);
             SettingsFile.Save(data);
-            OnSettingsChanged?.Invoke();
             EventBus.Publish(new GameSettingsChangedEvent());
         }
 

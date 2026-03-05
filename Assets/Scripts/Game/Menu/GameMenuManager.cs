@@ -122,8 +122,6 @@ namespace Game.Menu {
         #endregion
 
         public static GameMenuManager Instance { get; private set; }
-        public static event Action<GameMenuManager> InstanceReady;
-        public static event Action InstanceCleared;
 
         #region Unity Lifecycle
 
@@ -134,7 +132,6 @@ namespace Game.Menu {
             }
             Instance = this;
             base.Awake();
-            InstanceReady?.Invoke(this);
             EventBus.Publish(new GameMenuReadyEvent());
         }
 
@@ -172,7 +169,6 @@ namespace Game.Menu {
         protected override void OnDestroy() {
             if(Instance == this) {
                 Instance = null;
-                InstanceCleared?.Invoke();
             }
 
             base.OnDestroy();

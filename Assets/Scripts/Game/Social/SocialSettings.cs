@@ -17,9 +17,6 @@ namespace Game.Social {
     public static class SocialSettings {
         private const int MaxMutedPlayers = 200; // Cap to prevent unbounded growth
 
-        public static event Action OnSettingsChanged;
-        public static event Action<string, bool> OnPlayerMuteChanged; // (playerId, isMuted)
-
         // --- Voice Output ---
         public static VoiceInputMode InputMode {
             get {
@@ -130,7 +127,6 @@ namespace Game.Social {
             }
             
             SaveLists();
-            OnPlayerMuteChanged?.Invoke(playerId, muted);
             EventBus.Publish(new PlayerMuteChangedEvent(playerId, muted));
         }
 
@@ -179,7 +175,6 @@ namespace Game.Social {
 
         private static void Save() {
             GameSettings.Save();
-            OnSettingsChanged?.Invoke();
             EventBus.Publish(new SocialSettingsChangedEvent());
         }
     }

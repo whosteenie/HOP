@@ -37,12 +37,6 @@ namespace Game.Social {
         private const float ClaimsMismatchRetryCooldownSeconds = 5f;
         private const float ChannelRouteSyncIntervalSeconds = 1.5f;
         
-        // Events
-        public event Action<VivoxParticipant> OnParticipantSpeechDetected;
-        public event Action<VivoxParticipant> OnParticipantAdded;
-        public event Action<VivoxParticipant> OnParticipantRemoved;
-        public event Action<bool> OnLocalPttStateChanged; // Fires when local PTT state changes
-
         public bool TryGetJoinedChannelName(out string channelName) {
             channelName = null;
             if(!IsLoggedIn || VivoxService.Instance == null) return false;
@@ -413,9 +407,6 @@ namespace Game.Social {
             
             // Fire event for local UI
             if (SocialSettings.InputMode == VoiceInputMode.PushToTalk) {
-                if(OnLocalPttStateChanged != null) {
-                    OnLocalPttStateChanged.Invoke(_isMicOpen);
-                }
                 EventBus.Publish(new VoiceLocalPttStateChangedEvent(_isMicOpen));
                 
                 // Update NetworkVariable on local PlayerController so other clients see the indicator
@@ -530,9 +521,6 @@ namespace Game.Social {
             _participantSpeechActions[participant.PlayerId] = speechAction;
             
             participant.ParticipantSpeechDetected += speechAction;
-            if(OnParticipantAdded != null) {
-                OnParticipantAdded.Invoke(participant);
-            }
             
             // Apply mute if this player is in the muted list
             if (SocialSettings.IsMuted(participant.PlayerId)) {
@@ -545,18 +533,11 @@ namespace Game.Social {
                 participant.ParticipantSpeechDetected -= action;
                 _participantSpeechActions.Remove(participant.PlayerId);
             }
-            if(OnParticipantRemoved != null) {
-                OnParticipantRemoved.Invoke(participant);
-            }
 
             EventBus.Publish(new VoiceParticipantRemovedEvent(participant.PlayerId));
         }
 
-        private void OnSpeechDetected(VivoxParticipant participant) {
-            if(OnParticipantSpeechDetected != null) {
-                OnParticipantSpeechDetected.Invoke(participant);
-            }
-
+        private static void OnSpeechDetected(VivoxParticipant participant) {
             EventBus.Publish(new VoiceParticipantSpeechChangedEvent(
                 participant.PlayerId,
                 participant.DisplayName,

@@ -26,8 +26,6 @@ namespace Game.Social {
         private const int ChunkAssemblyExpirySeconds = 30;
         private const int PendingSelfEchoExpirySeconds = 15;
         private const int SoftWrapLongTokenLength = 24;
-
-        public event Action<ChatMessage> OnMessageReceived;
         private bool _isVivoxBound;
         private readonly Dictionary<string, ChunkAssemblyState> _chunkAssemblies = new();
         private readonly Queue<PendingSelfEchoState> _pendingSelfEchoes = new();
@@ -471,7 +469,7 @@ namespace Game.Social {
             }
         }
 
-        private void SendSystemMessage(string message) {
+        private static void SendSystemMessage(string message) {
             var chatMsg = new ChatMessage {
                 SenderName = "SYSTEM",
                 MessageContent = message,
@@ -480,8 +478,7 @@ namespace Game.Social {
             NotifyMessageReceived(chatMsg);
         }
 
-        private void NotifyMessageReceived(ChatMessage message) {
-            OnMessageReceived?.Invoke(message);
+        private static void NotifyMessageReceived(ChatMessage message) {
             EventBus.Publish(new ChatMessageReceivedEvent(message));
         }
     }

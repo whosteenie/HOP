@@ -17,10 +17,6 @@ namespace Game.Progression {
 
         public PlayerProgressionData Data { get; private set; }
 
-        public event Action<int> OnLevelUp;
-        public event Action<int> OnXpAdded;
-        public event Action OnChallengesUpdated; // Notify UI of refresh
-
         private void Awake() {
             if (Instance != null && Instance != this) {
                 Destroy(gameObject);
@@ -133,8 +129,6 @@ namespace Game.Progression {
             Data.currentXp += amount;
             Data.totalXp += amount;
             CurrentMatchXp += amount;
-            
-            OnXpAdded?.Invoke(amount);
 
             CheckLevelUp();
             // SaveData(); // Optimization: Only save on important events or EndMatch to avoid disk I/O spam
@@ -377,7 +371,6 @@ namespace Game.Progression {
             while (Data.currentXp >= xpRequired) {
                 Data.currentXp -= xpRequired;
                 Data.level++;
-                OnLevelUp?.Invoke(Data.level);
                 leveledUp = true;
                 
                 // Recalculate for next level
@@ -761,8 +754,7 @@ namespace Game.Progression {
             NotifyChallengesUpdated();
         }
 
-        private void NotifyChallengesUpdated() {
-            OnChallengesUpdated?.Invoke();
+        private static void NotifyChallengesUpdated() {
             EventBus.Publish(new ChallengesUpdatedEvent());
         }
         

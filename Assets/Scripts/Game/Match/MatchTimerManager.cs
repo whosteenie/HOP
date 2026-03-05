@@ -11,8 +11,6 @@ using SessionManager = Network.Session.SessionManager;
 namespace Game.Match {
     public class MatchTimerManager : NetworkBehaviour {
         public static MatchTimerManager Instance { get; private set; }
-        public static event System.Action<MatchTimerManager> InstanceReady;
-        public static event System.Action InstanceCleared;
 
         [Header("Match Settings")]
         [SerializeField] private int matchDurationSeconds = 600; // 10 minutes by default
@@ -39,7 +37,6 @@ namespace Game.Match {
             }
 
             Instance = this;
-            InstanceReady?.Invoke(this);
             EventBus.Publish(new MatchTimerReadyEvent());
 
             if(MatchSettingsManager.Instance != null) {
@@ -50,7 +47,6 @@ namespace Game.Match {
         private void ClearInstanceIfCurrent() {
             if(Instance != this) return;
             Instance = null;
-            InstanceCleared?.Invoke();
         }
 
         public override void OnNetworkSpawn() {

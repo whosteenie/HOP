@@ -13,7 +13,6 @@ namespace Network.Singletons {
     /// </summary>
     public class KeybindManager : MonoBehaviour {
         public static KeybindManager Instance { get; private set; }
-        public static event Action BindingsApplied;
 
         [SerializeField] private InputActionAsset inputActionAsset;
 
@@ -288,9 +287,6 @@ namespace Network.Singletons {
             ApplyPendingBindings();
             _pendingBindings.Clear();
             LoadAllBindings();
-            if(BindingsApplied != null) {
-                BindingsApplied.Invoke();
-            }
             EventBus.Publish(new BindingsAppliedEvent());
         }
 

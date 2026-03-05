@@ -30,9 +30,6 @@ namespace Network.Steam {
         private readonly Dictionary<ulong, float> _avatarFailureCooldownUntil = new();
         private uint _avatarCacheGeneration;
 
-        // Event for when Steam is ready
-        public event Action OnSteamInitialized;
-
         protected override void Awake() {
             base.Awake();
             if (Instance != this) return;
@@ -45,9 +42,6 @@ namespace Network.Steam {
                 IsInitialized = true;
                 Debug.Log($"[SteamManager] Initialized Steamworks (AppID: {appId}). Logged in as: {LocalPlayerName} ({LocalSteamId})");
                 
-                if(OnSteamInitialized != null) {
-                    OnSteamInitialized.Invoke();
-                }
             }
             catch (Exception e) {
                 IsInitialized = false;
