@@ -38,17 +38,7 @@ namespace Game.UI {
         // Cache scene name to avoid string allocations
         private string _cachedSceneName;
 
-        public static GrappleUIManager Instance;
-
         protected override void Awake() {
-            if(Instance != null && Instance != this) {
-                Destroy(gameObject);
-                return;
-            }
-
-            Instance = this;
-            // Removed DontDestroyOnLoad - GrappleUIManager should be in Game scene only
-            
             // Cache scene name to avoid allocations
             UpdateCachedSceneName();
             base.Awake();

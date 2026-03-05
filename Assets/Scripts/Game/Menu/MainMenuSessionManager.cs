@@ -800,7 +800,7 @@ namespace Game.Menu {
         /// Logic for hosting a private lobby. 
         /// </summary>
         /// <param name="silent">If true, does not show UI status changes.</param>
-        public async UniTask<bool> HandleHostClicked(bool silent = false) {
+        private async UniTask<bool> HandleHostClicked(bool silent = false) {
             _isSilentHosting = silent;
             try {
                 if(SessionManager.Instance == null) return false;
