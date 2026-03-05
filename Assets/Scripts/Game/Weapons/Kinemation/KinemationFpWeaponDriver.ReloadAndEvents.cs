@@ -607,17 +607,16 @@ namespace Game.Weapons {
             if(_activeWeapon == null) return false;
 
             var partReferences = GetActiveWeaponPartReferences();
-            if(partReferences == null) {
-                ReportMissingKinemationPartReference(DrakeTopShellReferenceKey,
-                    nameof(KinemationWeaponPartReferences.DrakeTopShell), true);
-                return false;
-            }
+            if(partReferences != null)
+                return TryResolveConfiguredWeaponPartReference(
+                    partReferences.DrakeTopShell,
+                    DrakeTopShellReferenceKey,
+                    nameof(KinemationWeaponPartReferences.DrakeTopShell),
+                    out topShellTransform);
+            ReportMissingKinemationPartReference(DrakeTopShellReferenceKey,
+                nameof(KinemationWeaponPartReferences.DrakeTopShell), true);
+            return false;
 
-            return TryResolveConfiguredWeaponPartReference(
-                partReferences.DrakeTopShell,
-                DrakeTopShellReferenceKey,
-                nameof(KinemationWeaponPartReferences.DrakeTopShell),
-                out topShellTransform);
         }
 
         private WeaponData GetActiveWeaponData() {

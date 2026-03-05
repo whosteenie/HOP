@@ -95,11 +95,10 @@ namespace Network {
             }
 
             // Explicitly destroy overlay and clear reference so a fresh one is created on the next disconnect.
-            if(_standbyOverlayCamera != null) {
-                if(Debug.isDebugBuild) Debug.Log("[DisconnectTransition] Cleanup: destroying overlay, clearing ref");
-                Destroy(_standbyOverlayCamera.gameObject);
-                _standbyOverlayCamera = null;
-            }
+            if(_standbyOverlayCamera == null) return;
+            if(Debug.isDebugBuild) Debug.Log("[DisconnectTransition] Cleanup: destroying overlay, clearing ref");
+            Destroy(_standbyOverlayCamera.gameObject);
+            _standbyOverlayCamera = null;
         }
 
         private void EnsureStandbyOverlayCamera(Camera mainCamera) {
@@ -139,10 +138,9 @@ namespace Network {
 
             var weaponData = weaponCamera.GetUniversalAdditionalCameraData();
             var overlayData = _standbyOverlayCamera.GetUniversalAdditionalCameraData();
-            if(weaponData != null && overlayData != null) {
-                overlayData.volumeLayerMask = weaponData.volumeLayerMask;
-                overlayData.renderPostProcessing = weaponData.renderPostProcessing;
-            }
+            if(weaponData == null || overlayData == null) return;
+            overlayData.volumeLayerMask = weaponData.volumeLayerMask;
+            overlayData.renderPostProcessing = weaponData.renderPostProcessing;
         }
 
         private void AddOverlayToStack(Camera mainCamera, Camera playerWeaponCamera) {
@@ -163,10 +161,9 @@ namespace Network {
             if(_standbyOverlayCamera == null) return;
             _standbyOverlayCamera.enabled = false;
             var mainCamera = Camera.main;
-            if(mainCamera != null) {
-                var data = mainCamera.GetUniversalAdditionalCameraData();
-                if(data != null) data.cameraStack.Remove(_standbyOverlayCamera);
-            }
+            if(mainCamera == null) return;
+            var data = mainCamera.GetUniversalAdditionalCameraData();
+            if(data != null) data.cameraStack.Remove(_standbyOverlayCamera);
         }
 
         private static void StripToVisualsOnly(GameObject root) {

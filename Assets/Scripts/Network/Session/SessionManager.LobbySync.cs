@@ -80,11 +80,10 @@ namespace Network.Session {
                 return;
             }
 
-            if(Time.unscaledTime >= _nextUgsHeartbeatTime) {
-                _nextUgsHeartbeatTime = Time.unscaledTime + UgsHeartbeatIntervalSeconds;
-                if(!_isHeartbeatDispatchInFlight) {
-                    LaunchSessionTask(SendPartyHeartbeatsAsync(), "SendPartyHeartbeats");
-                }
+            if(!(Time.unscaledTime >= _nextUgsHeartbeatTime)) return;
+            _nextUgsHeartbeatTime = Time.unscaledTime + UgsHeartbeatIntervalSeconds;
+            if(!_isHeartbeatDispatchInFlight) {
+                LaunchSessionTask(SendPartyHeartbeatsAsync(), "SendPartyHeartbeats");
             }
         }
 
@@ -167,7 +166,7 @@ namespace Network.Session {
 
         private async UniTask HandlePartyLobbyFollowStateAsync(string source) {
             if(_isLeaving || _isShuttingDown || Phase == SessionPhase.InGame || _isFollowingMatchLobby) return;
-            if(_ugsPartyLobby == null || _ugsPartyLobby.Data == null) return;
+            if(_ugsPartyLobby?.Data == null) return;
             if(!_ugsPartyLobby.Data.TryGetValue(UgsFollowMatchLobbyIdKey, out var followObj) || followObj == null ||
                string.IsNullOrEmpty(followObj.Value)) {
                 _lastFailedFollowMatchLobbyId = null;
@@ -224,7 +223,7 @@ namespace Network.Session {
         }
 
         private void SyncModeFromMatchLobby(Lobby lobby) {
-            if(_isLeaving || _isShuttingDown || lobby == null || lobby.Data == null) return;
+            if(_isLeaving || _isShuttingDown || lobby?.Data == null) return;
             if(!lobby.Data.TryGetValue(UgsTargetModeKey, out var modeObj) || modeObj == null ||
                string.IsNullOrEmpty(modeObj.Value)) return;
             ApplyRuntimeMode(modeObj.Value, "UgsMatchLobbySync", refreshUi: false);
@@ -683,7 +682,7 @@ namespace Network.Session {
                 return;
             }
 
-            SessionManager.NotifyPartyStateChanged();
+            NotifyPartyStateChanged();
             await HandlePartyLobbyFollowStateAsync("PartyLobbyEvents/LobbyChanged");
         }
 
@@ -706,7 +705,7 @@ namespace Network.Session {
             IsPartyLeader = false;
             _lastFailedFollowMatchLobbyId = null;
             await UnsubscribePartyLobbyEventsAsync($"PartyLobbyEvents/{reason}");
-            SessionManager.NotifyPartyStateChanged();
+            NotifyPartyStateChanged();
         }
 
         private void OnPartyLobbyEventConnectionStateChanged(LobbyEventConnectionState state) {

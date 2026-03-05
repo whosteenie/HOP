@@ -130,11 +130,13 @@ namespace Network.Events {
             Add($"{baseKey}.name", source.name);
             Add($"{baseKey}.instanceId", source.GetInstanceID());
 
-            if(source is Component component) {
+            var component = source as Component;
+            if(component != null) {
                 Add($"{baseKey}.path", BuildHierarchyPath(component.transform));
             }
 
-            if(source is not NetworkBehaviour networkBehaviour) return;
+            var networkBehaviour = source as NetworkBehaviour;
+            if(networkBehaviour == null) return;
             if(networkBehaviour.NetworkObject != null) {
                 Add($"{baseKey}.networkObjectId", networkBehaviour.NetworkObjectId.ToString(CultureInfo.InvariantCulture));
             }

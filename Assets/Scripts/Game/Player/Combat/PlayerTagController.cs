@@ -224,6 +224,7 @@ namespace Game.Player {
         /// Similar to OOB kills, uses ulong.MaxValue as the tagger client ID.
         /// </summary>
         [Rpc(SendTo.Everyone)]
+        // ReSharper disable once MemberCanBeMadeStatic.Global
         public void BroadcastTagTransferFromHopClientRpc(ulong taggedClientId) {
             var taggedName = "Unknown";
 
@@ -247,6 +248,7 @@ namespace Game.Player {
         /// Plays UI sound when this player gets tagged (called on the victim's client).
         /// </summary>
         [Rpc(SendTo.Owner)]
+        // ReSharper disable once MemberCanBeMadeStatic.Global
         public void PlayTaggedSoundClientRpc() {
             if(Audio2.AudioService.Instance != null) {
                 Audio2.AudioService.Instance.Play("ui.tag.tagged", Vector3.zero);
@@ -257,6 +259,7 @@ namespace Game.Player {
         /// Plays UI sound when this player tags someone (called on the attacker's client).
         /// </summary>
         [Rpc(SendTo.Owner)]
+        // ReSharper disable once MemberCanBeMadeStatic.Local
         private void PlayTaggingSoundClientRpc() {
             if(Audio2.AudioService.Instance != null) {
                 Audio2.AudioService.Instance.Play("ui.tag.tagger", Vector3.zero);

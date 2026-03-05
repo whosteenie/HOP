@@ -395,10 +395,11 @@ namespace Game.Player {
             _moveVelocity.x = _horizontalVelocity.x;
             _moveVelocity.y = VerticalVelocity;
             _moveVelocity.z = _horizontalVelocity.z;
-            
+
+            var tr = _playerTransform;
             var positionBefore = _playerTransform.position;
             _characterController.Move(_moveVelocity * Time.deltaTime);
-            var positionAfter = _playerTransform.position;
+            var positionAfter = tr.position;
             
             if (IsOwner && ProgressionManager.Instance != null) {
                 if (IsGrounded) {

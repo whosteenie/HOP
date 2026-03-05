@@ -136,10 +136,10 @@ namespace Network.Session {
         private int _expectedGamePlayerCount = 1;
         private bool _unexpectedDisconnectInFlight;
         // Track if we expect a disconnect (e.g. intentionally leaving)
-        private bool _expectedDisconnect;
 
         /// <summary>True when we intentionally left (LeaveLobby etc.); used to skip disconnect capture in OnNetworkDespawn.</summary>
-        public bool IsExpectedDisconnect => _expectedDisconnect;
+        public bool IsExpectedDisconnect { get; private set; }
+
         public bool IsSearching {
             get {
                 return Phase switch {
@@ -257,14 +257,14 @@ namespace Network.Session {
             try {
                 var displayName = StreamerMode.GetLocalDisplayName();
                 if(string.IsNullOrEmpty(displayName)) return;
-                CurrentLobby.Value.SetMemberData(SessionManager.DisplayNameKey, displayName);
+                CurrentLobby.Value.SetMemberData(DisplayNameKey, displayName);
                 var hide = StreamerMode.Enabled;
-                CurrentLobby.Value.SetMemberData(SessionManager.AvatarHiddenKey, hide ? "1" : "0");
+                CurrentLobby.Value.SetMemberData(AvatarHiddenKey, hide ? "1" : "0");
 
                 var data = GameSettings.Data;
                 var baseColor = data.player.customization.baseColor;
                 var iconId = PlayerIconPicker.PickIconIdFromBaseColor(baseColor, hide);
-                CurrentLobby.Value.SetMemberData(SessionManager.PlayerIconKey, iconId);
+                CurrentLobby.Value.SetMemberData(PlayerIconKey, iconId);
             } catch(Exception ex) {
                 // If Steam is transitioning offline, this can fail transiently.
                 if(Debug.isDebugBuild) {
@@ -309,7 +309,7 @@ namespace Network.Session {
 
                 // Leave any Steam lobby context (safe even if Steam is offline).
                 LeaveLobby();
-                await SessionManager.TryLeaveVoiceChannelAsync();
+                await TryLeaveVoiceChannelAsync();
 
                 // Shut down NGO if it was previously listening.
                 await CleanupNetworkAsync();
@@ -366,16 +366,16 @@ namespace Network.Session {
                 var lobby = result.Value;
                 lobby.SetPrivate();
                 lobby.SetJoinable(true);
-                lobby.SetData(SessionManager.TargetModeKey, SelectedGameMode);
+                lobby.SetData(TargetModeKey, SelectedGameMode);
 
                 if(string.IsNullOrEmpty(CurrentPartyId)) {
                     CurrentPartyId = Guid.NewGuid().ToString();
                 }
 
-                lobby.SetData(SessionManager.PartyIdKey, CurrentPartyId);
+                lobby.SetData(PartyIdKey, CurrentPartyId);
                 CurrentLobby = lobby;
                 IsPartyLeader = true;
-                lobby.SetMemberData(SessionManager.PartyIdKey, CurrentPartyId);
+                lobby.SetMemberData(PartyIdKey, CurrentPartyId);
                 UpdateLocalDisplayNameInLobby();
 
                 // Solo social lobbies do not need voice yet; join when the party has at least 2 members.
@@ -391,7 +391,7 @@ namespace Network.Session {
 
                 UpdateSteamRichPresence();
                 SetFrontStatus(SessionPhase.LobbyReady, "Lobby Ready. Invite Friends!");
-                SessionManager.NotifyPartyStateChanged();
+                NotifyPartyStateChanged();
                 return true;
             } catch(Exception ex) {
                 Debug.LogError($"[SessionManager] Failed to create Steam social lobby: {ex.Message}");
@@ -407,7 +407,7 @@ namespace Network.Session {
         public void SetGameMode(string mode) {
             ApplyRuntimeMode(mode, "MenuSelection", refreshUi: false);
             if(CurrentLobby.HasValue && CurrentLobby.Value.Owner.Id == SteamClient.SteamId) {
-                CurrentLobby.Value.SetData(SessionManager.TargetModeKey, mode);
+                CurrentLobby.Value.SetData(TargetModeKey, mode);
             }
 
             EventBus.Publish(new FrontStatusChangedEvent(null));
@@ -423,7 +423,7 @@ namespace Network.Session {
                 ("partyId", CurrentPartyId),
                 ("steamLobbyId", CurrentLobby.HasValue ? CurrentLobby.Value.Id.ToString() : "none"));
 
-            _expectedDisconnect = true;
+            IsExpectedDisconnect = true;
             if(CurrentLobby.HasValue) {
                 CurrentLobby.Value.Leave();
                 CurrentLobby = null;
@@ -484,7 +484,7 @@ namespace Network.Session {
                 }
 
                 FlowLog.Emit(FlowEventIds.SessionExit, ("leaveId", leaveId), ("step", "EXIT_VOICE_LEAVE_BEGIN"));
-                await SessionManager.TryLeaveVoiceChannelAsync();
+                await TryLeaveVoiceChannelAsync();
                 FlowLog.Emit(FlowEventIds.SessionExit, ("leaveId", leaveId), ("step", "EXIT_VOICE_LEAVE_DONE"));
 
                 FlowLog.Emit(FlowEventIds.SessionExit,

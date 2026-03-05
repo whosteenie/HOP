@@ -9,13 +9,13 @@ namespace Game.Weapons {
         #region Private Methods - Reloading
 
         private bool CanReload() {
-            if(!_currentWeaponData || _weaponManager.IsPullingOut) return false;
+            if(!CurrentWeaponData || _weaponManager.IsPullingOut) return false;
             if(_kinemationFpWeaponDriver == null) return false;
             return currentAmmo < GetCurrentMagCapacity() && !IsReloading;
         }
 
         private void CompleteReload() {
-            if(!_currentWeaponData) return;
+            if(!CurrentWeaponData) return;
             currentAmmo = GetCurrentMagCapacity();
             IsReloading = false;
             _autoReloadArmed = false;
@@ -32,8 +32,8 @@ namespace Game.Weapons {
         }
 
         private void HandleKinemationReloadSingleRound() {
-            if(!IsReloading || _currentWeaponData == null) return;
-            if(_currentWeaponData.useMagReload) return;
+            if(!IsReloading || CurrentWeaponData == null) return;
+            if(CurrentWeaponData.useMagReload) return;
             var magCapacity = GetCurrentMagCapacity();
             if(currentAmmo >= magCapacity) return;
 
@@ -54,7 +54,7 @@ namespace Game.Weapons {
             ExitReloadAnimation();
             SyncServerAmmo();
 
-            if(_currentWeaponData != null) {
+            if(CurrentWeaponData != null) {
                 PublishOwnerAmmoToHud();
             }
         }
@@ -119,11 +119,11 @@ namespace Game.Weapons {
         }
 
         private GameObject EnsureKinemationLocalMuzzleFxInstance(Transform muzzleTransform, Quaternion spawnRotation) {
-            if(_currentWeaponData == null || _currentWeaponData.muzzleFlashPrefab == null || muzzleTransform == null) {
+            if(CurrentWeaponData == null || CurrentWeaponData.muzzleFlashPrefab == null || muzzleTransform == null) {
                 return null;
             }
 
-            var sourcePrefab = _currentWeaponData.muzzleFlashPrefab;
+            var sourcePrefab = CurrentWeaponData.muzzleFlashPrefab;
             var needsRecreate = _kinemationLocalMuzzleFxInstance == null ||
                                 _kinemationLocalMuzzleSourcePrefab != sourcePrefab;
             if(needsRecreate) {
@@ -212,7 +212,7 @@ namespace Game.Weapons {
         private void PrewarmKinemationLocalMuzzleFxInstance() {
             if(_hasPrewarmedKinemationMuzzleForCurrentWeapon) return;
             if(_kinemationFpWeaponDriver == null) return;
-            if(_currentWeaponData == null || _currentWeaponData.muzzleFlashPrefab == null) return;
+            if(CurrentWeaponData == null || CurrentWeaponData.muzzleFlashPrefab == null) return;
 
             if(!TryGetRequiredOwnerMuzzleTransform(out var muzzleTransform, "PrewarmKinemationLocalMuzzleFxInstance",
                    logErrors: false)) {
@@ -242,7 +242,7 @@ namespace Game.Weapons {
 
             PlayShootAnimationServerRpc();
 
-            if(_currentWeaponData != null && _currentWeaponData.muzzleFlashPrefab != null) {
+            if(CurrentWeaponData != null && CurrentWeaponData.muzzleFlashPrefab != null) {
                 if(TryGetRequiredOwnerMuzzleTransform(out var muzzleTransform, "PlayLocalMuzzleFlash")) {
                     if(_kinemationFpWeaponDriver != null) {
                         var preferredDirection = Vector3.zero;
@@ -270,14 +270,13 @@ namespace Game.Weapons {
 
         private void ConsumePendingKinemationReloadSingleEvents() {
             if(!IsReloading || _kinemationFpWeaponDriver == null) return;
-            if(_currentWeaponData == null || _currentWeaponData.useMagReload) return;
+            if(CurrentWeaponData == null || CurrentWeaponData.useMagReload) return;
 
             var reloadSingleEvents = _kinemationFpWeaponDriver.ConsumeReloadSingleEventCount();
             for(var i = 0; i < reloadSingleEvents; i++) {
                 HandleKinemationReloadSingleRound();
             }
         }
-
         [Rpc(SendTo.Everyone)]
         private void PlayShootAnimationServerRpc() {
             if(_playerAnimator != null) {
@@ -300,8 +299,8 @@ namespace Game.Weapons {
             }
 
             // NON-OWNER ONLY: Play 3P world muzzle flash
-            if(_currentWeaponData != null &&
-               _currentWeaponData.muzzleFlashPrefab != null &&
+            if(CurrentWeaponData != null &&
+               CurrentWeaponData.muzzleFlashPrefab != null &&
                muzzleTransform != null) {
                 var position = muzzleTransform.position;
                 var tracerDirection = endPoint - position;
@@ -310,7 +309,7 @@ namespace Game.Weapons {
                 var desiredWorldRotation =
                     ResolveWorldMuzzleFxRotation(muzzleTransform, tracerDirectionNormalized, tracerDirectionValid);
 
-                var fxGo = Instantiate(_currentWeaponData.muzzleFlashPrefab, position,
+                var fxGo = Instantiate(CurrentWeaponData.muzzleFlashPrefab, position,
                     desiredWorldRotation);
                 AttachMuzzleFollow(fxGo, muzzleTransform, followRotation: false);
                 ApplyLayerRecursive(fxGo, muzzleTransform.gameObject.layer);
@@ -324,7 +323,7 @@ namespace Game.Weapons {
             } else {
                 Debug.LogError(
                     "[Weapon][RemoteMuzzleStrict][PlayNetworkedMuzzleFlash] Missing muzzle flash prefab. " +
-                    $"weapon={(_currentWeaponData != null ? _currentWeaponData.weaponName : "(none)")} " +
+                    $"weapon={(CurrentWeaponData != null ? CurrentWeaponData.weaponName : "(none)")} " +
                     $"worldWeapon={(_currentWorldWeaponInstance != null ? _currentWorldWeaponInstance.name : "(none)")}",
                     this);
                 return;
@@ -412,7 +411,7 @@ namespace Game.Weapons {
 
         public void SpawnTracerLocal(Vector3 start, Vector3 end, Vector3 hitNormal, bool madeImpact, bool hitPlayer,
             NetworkObjectReference hitPlayerRef = default, Vector3 shooterVelocity = default) {
-            if(!_currentWeaponData || !_currentWeaponData.bulletTrail) return;
+            if(!CurrentWeaponData || !CurrentWeaponData.bulletTrail) return;
 
             // Get trail from pool
             var trail = GetTrailFromPool();
@@ -461,7 +460,7 @@ namespace Game.Weapons {
             if(!playerController.IsOwner) return;
             if(_audioRelay == null) return;
 
-            var soundId = _currentWeaponData != null ? _currentWeaponData.shootSoundId : "";
+            var soundId = CurrentWeaponData != null ? CurrentWeaponData.shootSoundId : "";
             if(!string.IsNullOrWhiteSpace(soundId)) {
                 _audioRelay.RequestPlayAttached(soundId, new NetworkObjectReference(playerController.NetworkObject),
                     allowOverlap: true);
@@ -484,13 +483,12 @@ namespace Game.Weapons {
             if(UseKinemationInternalSounds()) return;
             if(!playerController.IsOwner) return;
             if(_audioRelay == null) return;
-            var soundId = _currentWeaponData != null ? _currentWeaponData.reloadSoundId : "";
+            var soundId = CurrentWeaponData != null ? CurrentWeaponData.reloadSoundId : "";
             if(!string.IsNullOrWhiteSpace(soundId)) {
                 _audioRelay.RequestPlayAttached(soundId, new NetworkObjectReference(playerController.NetworkObject),
                     allowOverlap: false);
             }
         }
-
         [Rpc(SendTo.Everyone)]
         private void PlayReloadAnimationServerRpc() {
             _playerAnimator.SetTrigger(ReloadHash);
@@ -506,7 +504,7 @@ namespace Game.Weapons {
             if(!IsReloading) return;
             if(Time.time <= _reloadExpectedCompleteTime) return;
 
-            if(_currentWeaponData != null && !_currentWeaponData.useMagReload) {
+            if(CurrentWeaponData != null && !CurrentWeaponData.useMagReload) {
                 CompleteKinemationPartialReloadWithoutFilling();
             } else {
                 CompleteReload();
@@ -529,7 +527,7 @@ namespace Game.Weapons {
             }
 
             if(!_kinemationFpWeaponDriver.IsReloadSequenceInProgress()) {
-                if(_currentWeaponData != null && !_currentWeaponData.useMagReload) {
+                if(CurrentWeaponData != null && !CurrentWeaponData.useMagReload) {
                     CompleteKinemationPartialReloadWithoutFilling();
                 } else {
                     CompleteReload();
@@ -539,7 +537,7 @@ namespace Game.Weapons {
             }
 
             if(Time.time <= _kinemationReloadFallbackDeadline) return;
-            if(_currentWeaponData != null && !_currentWeaponData.useMagReload) {
+            if(CurrentWeaponData != null && !CurrentWeaponData.useMagReload) {
                 CompleteKinemationPartialReloadWithoutFilling();
             } else {
                 CompleteReload();
@@ -625,14 +623,14 @@ namespace Game.Weapons {
                 }
             }
 
-            if(madeImpact && _currentWeaponData && _currentWeaponData.bulletImpact && !isLocalPlayerHit) {
+            if(madeImpact && CurrentWeaponData && CurrentWeaponData.bulletImpact && !isLocalPlayerHit) {
                 var rotation = hitNormal.sqrMagnitude > 0.0001f
                     ? Quaternion.LookRotation(hitNormal)
                     : Quaternion.identity;
 
                 var spawnPos = hitPoint + hitNormal.normalized * 0.005f;
 
-                var impactInstance = Instantiate(_currentWeaponData.bulletImpact.gameObject, spawnPos, rotation);
+                var impactInstance = Instantiate(CurrentWeaponData.bulletImpact.gameObject, spawnPos, rotation);
                 switch(hitPlayer) {
                     case true: {
                         var decal = FindChildByNameRecursive(impactInstance.transform, "Decal");
@@ -728,9 +726,9 @@ namespace Game.Weapons {
             }
 
             // Create new pool
-            if(_currentWeaponData == null || _currentWeaponData.bulletTrail == null) return;
+            if(CurrentWeaponData == null || CurrentWeaponData.bulletTrail == null) return;
             for(var i = 0; i < TrailPoolSize; i++) {
-                var trailObj = Instantiate(_currentWeaponData.bulletTrail);
+                var trailObj = Instantiate(CurrentWeaponData.bulletTrail);
                 trailObj.emitting = false;
                 trailObj.gameObject.SetActive(false);
                 _trailPool.Enqueue(trailObj);
@@ -758,8 +756,8 @@ namespace Game.Weapons {
             }
 
             // If no available trail found, create a new one
-            if(trail != null || _currentWeaponData == null || _currentWeaponData.bulletTrail == null) return trail;
-            trail = Instantiate(_currentWeaponData.bulletTrail);
+            if(trail != null || CurrentWeaponData == null || CurrentWeaponData.bulletTrail == null) return trail;
+            trail = Instantiate(CurrentWeaponData.bulletTrail);
             trail.emitting = false;
 
             return trail;
@@ -778,7 +776,7 @@ namespace Game.Weapons {
 
             // Don't return trails to pool if weapon has changed (let them be destroyed naturally)
             // Active trails from previous weapon will just be cleaned up by Unity
-            if(_currentWeaponData == null || _currentWeaponData.bulletTrail == null) return;
+            if(CurrentWeaponData == null || CurrentWeaponData.bulletTrail == null) return;
 
             trail.emitting = false;
             trail.gameObject.SetActive(false);

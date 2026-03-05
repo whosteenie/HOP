@@ -184,7 +184,7 @@ namespace Network.Events {
                 if(_initialized) {
                     ApplyWriterStateLocked();
                 } else {
-                    shouldInitialize = _settings.FailureCaptureEnabled && _settings.FileLoggingEnabled;
+                    shouldInitialize = _settings is { FailureCaptureEnabled: true, FileLoggingEnabled: true };
                 }
             }
 
@@ -300,17 +300,17 @@ namespace Network.Events {
 
                 ApplyWriterStateLocked();
 
-                if(_sessionStartWritten == false && _writer != null) {
-                    WriteSessionBoundaryLocked("session_start");
-                    _sessionStartWritten = true;
-                }
+                if(_sessionStartWritten || _writer == null) return;
+                WriteSessionBoundaryLocked("session_start");
+                _sessionStartWritten = true;
             }
         }
 
         private static void CreateDriverLocked() {
             if(_driver != null) return;
-            var go = new GameObject("EventBusFailureDiagnosticsDriver");
-            go.hideFlags = HideFlags.HideAndDontSave;
+            var go = new GameObject("EventBusFailureDiagnosticsDriver") {
+                hideFlags = HideFlags.HideAndDontSave
+            };
             UnityEngine.Object.DontDestroyOnLoad(go);
             _driver = go.AddComponent<EventBusFailureDiagnosticsDriver>();
         }
@@ -353,10 +353,9 @@ namespace Network.Events {
                 _maxFileSizeReached = false;
                 _nextFlushAt = Time.unscaledTime + _settings.FlushIntervalSeconds;
                 CreateDriverLocked();
-                if(_sessionStartWritten == false) {
-                    WriteSessionBoundaryLocked("session_start");
-                    _sessionStartWritten = true;
-                }
+                if(_sessionStartWritten) return;
+                WriteSessionBoundaryLocked("session_start");
+                _sessionStartWritten = true;
             } catch(Exception writerException) {
                 if(_internalErrorLogged == false) {
                     _internalErrorLogged = true;
@@ -463,15 +462,16 @@ namespace Network.Events {
         private static string ResolveNetworkRole() {
             var networkManager = NetworkManager.Singleton;
             if(networkManager == null) return "Offline";
-            if(networkManager.IsServer && networkManager.IsClient) return "Host";
-            if(networkManager.IsServer) return "Server";
-            return networkManager.IsClient ? "Client" : "Offline";
+            return networkManager.IsServer switch {
+                true when networkManager.IsClient => "Host",
+                true => "Server",
+                _ => networkManager.IsClient ? "Client" : "Offline"
+            };
         }
 
         private static string MaybeRedactString(string input, bool redactIdentifiers) {
             if(redactIdentifiers == false) return input;
-            if(string.IsNullOrEmpty(input)) return input;
-            return "<redacted>";
+            return string.IsNullOrEmpty(input) ? input : "<redacted>";
         }
 
         private static int MaybeRedactInt(int input, bool redactIdentifiers) {

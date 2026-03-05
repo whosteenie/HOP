@@ -416,13 +416,12 @@ namespace Game.Player {
             }
 
             // At high speeds, avoid large "direction snap" flips unless keyboard intent is strongly committed.
-            if(hasVelocityIntent &&
-               velocitySpeed >= highSpeedDirectionLockSpeed &&
-               chosenSign != velocitySign) {
-                var allowHighSpeedFlip = hasKeyboardIntent && keyboardStrength >= highSpeedFlipOverrideStrength;
-                if(!allowHighSpeedFlip) {
-                    chosenSign = velocitySign;
-                }
+            if(!hasVelocityIntent ||
+               !(velocitySpeed >= highSpeedDirectionLockSpeed) ||
+               chosenSign == velocitySign) return chosenSign;
+            var allowHighSpeedFlip = hasKeyboardIntent && keyboardStrength >= highSpeedFlipOverrideStrength;
+            if(!allowHighSpeedFlip) {
+                chosenSign = velocitySign;
             }
 
             return chosenSign;

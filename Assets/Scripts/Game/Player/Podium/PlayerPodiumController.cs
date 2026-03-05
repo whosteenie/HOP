@@ -187,21 +187,26 @@ namespace Game.Player {
         }
 
         private void SnapBonesToRoot() {
-            if(rootBone == null || _podiumAnimator == null) return;
+            var podiumAnimator = _podiumAnimator;
+            if(rootBone == null || podiumAnimator == null) return;
 
             rootBone.position = playerController.Position;
             rootBone.rotation = playerController.Rotation;
 
-            _podiumAnimator.enabled = false;
-            _podiumAnimator.enabled = true;
+            //noinspection Unity.InefficientPropertyAccess
+            podiumAnimator.enabled = false;
+            podiumAnimator.enabled = true;
 
-            if(_podiumSkinned == null) return;
-            _podiumSkinned.enabled = false;
-            _podiumSkinned.enabled = true;
+            var podiumSkinned = _podiumSkinned;
+            if(podiumSkinned == null) return;
+            //noinspection Unity.InefficientPropertyAccess
+            podiumSkinned.enabled = false;
+            podiumSkinned.enabled = true;
 
             // Re-apply WeaponIndex after animator toggle (disable/enable resets parameters)
-            if((playerController != null ? playerController.WeaponManager : null) != null) {
-                playerController.WeaponManager.SetTpWeaponIndexForPodium();
+            var weaponManager = playerController != null ? playerController.WeaponManager : null;
+            if(weaponManager != null) {
+                weaponManager.SetTpWeaponIndexForPodium();
             }
         }
 

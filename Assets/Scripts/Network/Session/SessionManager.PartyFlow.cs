@@ -72,8 +72,8 @@ namespace Network.Session {
                             Debug.LogWarning("[SessionManager] UGS party created, but Steam social lobby creation failed.");
                         }
                     } else if(CurrentLobby.Value.Owner.Id == SteamClient.SteamId) {
-                        CurrentLobby.Value.SetData(SessionManager.PartyIdKey, CurrentPartyId);
-                        CurrentLobby.Value.SetData(SessionManager.TargetModeKey, SelectedGameMode);
+                        CurrentLobby.Value.SetData(PartyIdKey, CurrentPartyId);
+                        CurrentLobby.Value.SetData(TargetModeKey, SelectedGameMode);
                         UpdateLocalDisplayNameInLobby();
                     }
                 }

@@ -509,7 +509,7 @@ namespace Game.Menu {
         }
 
         private void OnPreMatchWaitingForPlayers(PreMatchWaitingForPlayersEvent evt) {
-            if(evt == null || !evt.IsWaiting) return;
+            if(evt is not { IsWaiting: true }) return;
             if(!IsPostMatch) return;
             RestoreHudForMatchStart();
         }

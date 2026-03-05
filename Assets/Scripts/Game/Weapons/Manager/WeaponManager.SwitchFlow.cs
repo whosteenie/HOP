@@ -377,10 +377,9 @@ namespace Game.Weapons {
             var slot = Mathf.Clamp(GetSlotForIndex(CurrentWeaponIndex), 0, 1);
             _playerAnimator.SetInteger(WeaponIndexHash, slot);
             var layerIndex = _playerAnimator.GetLayerIndex("Weapon Hold Layer");
-            if(layerIndex >= 0) {
-                var stateName = slot == 0 ? "AKAim" : "PistolAim";
-                _playerAnimator.Play(stateName, layerIndex, 0f);
-            }
+            if(layerIndex < 0) return;
+            var stateName = slot == 0 ? "AKAim" : "PistolAim";
+            _playerAnimator.Play(stateName, layerIndex, 0f);
         }
 
         private void EnsureWorldWeaponShadowState() {
@@ -426,13 +425,11 @@ namespace Game.Weapons {
                 parent = parent.parent;
             }
         }
-
         [Rpc(SendTo.Server)]
         private void RequestWeaponSwitchBroadcastServerRpc(int newIndex) {
             if(!TryConsumeWeaponSwitchQuota()) return;
             BroadcastWeaponSwitchClientRpc(newIndex);
         }
-
         [Rpc(SendTo.Everyone, Delivery = RpcDelivery.Unreliable)]
         private void BroadcastWeaponSwitchClientRpc(int newIndex) {
             if(IsOwner) return;

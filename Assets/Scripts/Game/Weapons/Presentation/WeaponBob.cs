@@ -227,11 +227,14 @@ namespace Game.Weapons {
                 _jumpInitiated = false;
             }
 
-            // Update landing bob timer
-            if(enableLandingBob && _landingBobTimer > 0f) {
-                _landingBobTimer -= deltaTime;
-            } else if(!enableLandingBob) {
-                _landingBobTimer = 0f;
+            switch(enableLandingBob) {
+                // Update landing bob timer
+                case true when _landingBobTimer > 0f:
+                    _landingBobTimer -= deltaTime;
+                    break;
+                case false:
+                    _landingBobTimer = 0f;
+                    break;
             }
 
             // Calculate movement speed

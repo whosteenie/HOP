@@ -112,10 +112,10 @@ namespace Game.Menu.Options {
                 var savedCrosshairColor = data.controls != null ? data.controls.crosshairColor : 0;
                 _crosshairColorDropdown.index = Mathf.Clamp(savedCrosshairColor, 0, _crosshairColorDropdown.choices.Count - 1);
             }
-            if(_voiceModeDropdown != null) {
-                _voiceModeDropdown.choices = new List<string>(Enum.GetNames(typeof(VoiceInputMode)));
-                _voiceModeDropdown.index = (int)SocialSettings.InputMode;
-            }
+
+            if(_voiceModeDropdown == null) return;
+            _voiceModeDropdown.choices = new List<string>(Enum.GetNames(typeof(VoiceInputMode)));
+            _voiceModeDropdown.index = (int)SocialSettings.InputMode;
         }
 
         public void Save(SettingsData data) {

@@ -451,7 +451,6 @@ namespace Game.Match {
         }
 
         // --- CLIENT RPCs ---
-
         [Rpc(SendTo.Everyone)]
         private void RequestFadeToPodiumClientRpc() {
             try {
@@ -500,7 +499,6 @@ namespace Game.Match {
                 Debug.LogException(e);
             }
         }
-
         [Rpc(SendTo.Everyone)]
         private void AnnounceMatchResultClientRpc(SpawnPoint.Team winningTeam) {
             if (Progression.ProgressionManager.Instance == null) return;
@@ -568,7 +566,6 @@ namespace Game.Match {
 
             Progression.ProgressionManager.Instance.EndMatch();
         }
-
         [Rpc(SendTo.Everyone)]
         private void RequestFadeInFromPodiumClientRpc() {
             IsPodiumBlackoutActive = false;
@@ -583,7 +580,6 @@ namespace Game.Match {
                 );
             }
         }
-
         [Rpc(SendTo.Everyone)]
         private void ActivatePodiumCameraClientRpc() {
             if(podiumCamera == null) return;
@@ -602,7 +598,6 @@ namespace Game.Match {
             // Optionally, give it the highest priority if you're using multiple cams
             // podiumCamera.Priority = 100;
         }
-
         [Rpc(SendTo.Everyone)]
         private void UpdatePodiumUiClientRpc(
             string firstName, int firstScore,
@@ -925,19 +920,18 @@ namespace Game.Match {
             _blackoutReadyRoutine = null;
 
             // Lock movement now that fade is fully black (same pattern as momentum zero in SetupTopThreeOnServer)
-            if(NetworkManager.Singleton != null && NetworkManager.Singleton.LocalClient != null) {
-                var localPlayer = NetworkManager.Singleton.LocalClient.PlayerObject;
-                if(localPlayer != null) {
-                    var localController = localPlayer.GetComponent<PlayerController>();
-                    if(localController != null) {
-                        if(localController.WeaponManager != null) {
-                            localController.WeaponManager.PrepareCurrentWeaponForPostMatchPodium();
-                        }
-
-                        localController.SetPostMatchControlLock(true, lockLook: false, resetVelocity: false);
-                    }
-                }
+            if(NetworkManager.Singleton == null || NetworkManager.Singleton.LocalClient == null) yield break;
+            var localPlayer = NetworkManager.Singleton.LocalClient.PlayerObject;
+            
+            if(localPlayer == null) yield break;
+            var localController = localPlayer.GetComponent<PlayerController>();
+            
+            if(localController == null) yield break;
+            if(localController.WeaponManager != null) {
+                localController.WeaponManager.PrepareCurrentWeaponForPostMatchPodium();
             }
+
+            localController.SetPostMatchControlLock(true, lockLook: false, resetVelocity: false);
         }
     }
 }

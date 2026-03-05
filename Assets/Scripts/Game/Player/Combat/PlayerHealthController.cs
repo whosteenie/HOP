@@ -606,6 +606,7 @@ namespace Game.Player {
         }
 
         [Rpc(SendTo.Owner)]
+        // ReSharper disable once MemberCanBeMadeStatic.Local
         private void SignalFadeInStartClientRpc() {
             if(SceneTransitionManager.Instance != null) {
                 SceneTransitionManager.Instance.SignalFadeInStart();

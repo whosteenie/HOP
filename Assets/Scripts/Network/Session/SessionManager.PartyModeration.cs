@@ -95,7 +95,7 @@ namespace Network.Session {
                 await LobbyService.Instance.RemovePlayerAsync(_ugsPartyLobby.Id, targetUgsId);
                 _ugsPartyLobby = await LobbyService.Instance.GetLobbyAsync(_ugsPartyLobby.Id);
                 Debug.Log($"[SessionManager] Kicked party member SteamId '{targetSteamId.Value}' from UGS party.");
-                SessionManager.NotifyPartyStateChanged();
+                NotifyPartyStateChanged();
             } catch(Exception ex) {
                 Debug.LogWarning($"[SessionManager] Failed to kick party member '{targetSteamId.Value}': {ex.Message}");
             }
@@ -117,7 +117,7 @@ namespace Network.Session {
                 }
 
                 Debug.Log($"[SessionManager] Promoted party member SteamId '{targetSteamId.Value}' to UGS party host.");
-                SessionManager.NotifyPartyStateChanged();
+                NotifyPartyStateChanged();
             } catch(Exception ex) {
                 Debug.LogWarning(
                     $"[SessionManager] Failed to promote party host to '{targetSteamId.Value}': {ex.Message}");

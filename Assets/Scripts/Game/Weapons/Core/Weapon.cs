@@ -26,9 +26,6 @@ namespace Game.Weapons {
         private NetworkAudioRelay _audioRelay;
         private WeaponManager _weaponManager;
 
-        [Header("Current Weapon State")]
-        private WeaponData _currentWeaponData;
-
         private int _currentMagCapacity = 1;
 
         private GameObject _currentFpWeaponInstance;
@@ -277,7 +274,7 @@ namespace Game.Weapons {
             ClearKinemationLocalMuzzleFxInstance();
 
             // Set new weapon data
-            _currentWeaponData = newWeaponData;
+            CurrentWeaponData = newWeaponData;
             _currentFpWeaponInstance = fpWeaponInstance;
             _currentWorldWeaponInstance = worldWeaponInstance;
             _currentWorldWeaponBinding = _currentWorldWeaponInstance != null
@@ -338,12 +335,12 @@ namespace Game.Weapons {
             }
 
             // Initialize trail pool for new weapon
-            if(_currentWeaponData != null && _currentWeaponData.bulletTrail != null) {
+            if(CurrentWeaponData != null && CurrentWeaponData.bulletTrail != null) {
                 InitializeTrailPool();
             }
 
             // Update HUD
-            if(_currentWeaponData != null) {
+            if(CurrentWeaponData != null) {
                 PublishOwnerAmmoToHud();
             }
         }
@@ -369,7 +366,7 @@ namespace Game.Weapons {
                 if(logErrors) {
                     Debug.LogError(
                         $"[Weapon][RemoteMuzzleStrict][{context}] Called on owner instance. " +
-                        $"weapon={(_currentWeaponData != null ? _currentWeaponData.weaponName : "(none)")}",
+                        $"weapon={(CurrentWeaponData != null ? CurrentWeaponData.weaponName : "(none)")}",
                         this);
                 }
                 return false;
@@ -379,7 +376,7 @@ namespace Game.Weapons {
                 if(logErrors) {
                     Debug.LogError(
                         $"[Weapon][RemoteMuzzleStrict][{context}] Missing current world weapon instance. " +
-                        $"weapon={(_currentWeaponData != null ? _currentWeaponData.weaponName : "(none)")}",
+                        $"weapon={(CurrentWeaponData != null ? CurrentWeaponData.weaponName : "(none)")}",
                         this);
                 }
                 return false;
@@ -394,7 +391,7 @@ namespace Game.Weapons {
                 if(logErrors) {
                     Debug.LogError(
                         $"[Weapon][RemoteMuzzleStrict][{context}] Missing WorldWeaponBinding on world weapon. " +
-                        $"weapon={(_currentWeaponData != null ? _currentWeaponData.weaponName : "(none)")} " +
+                        $"weapon={(CurrentWeaponData != null ? CurrentWeaponData.weaponName : "(none)")} " +
                         $"worldWeapon={_currentWorldWeaponInstance.name}",
                         this);
                 }
@@ -405,7 +402,7 @@ namespace Game.Weapons {
                 if(logErrors) {
                     Debug.LogError(
                         $"[Weapon][RemoteMuzzleStrict][{context}] World weapon inactive. " +
-                        $"weapon={(_currentWeaponData != null ? _currentWeaponData.weaponName : "(none)")} " +
+                        $"weapon={(CurrentWeaponData != null ? CurrentWeaponData.weaponName : "(none)")} " +
                         $"worldWeapon={_currentWorldWeaponInstance.name}",
                         this);
                 }
@@ -418,7 +415,7 @@ namespace Game.Weapons {
                 if(logErrors) {
                     Debug.LogError(
                         $"[Weapon][RemoteMuzzleStrict][{context}] Assigned muzzle reference is null. " +
-                        $"weapon={(_currentWeaponData != null ? _currentWeaponData.weaponName : "(none)")} " +
+                        $"weapon={(CurrentWeaponData != null ? CurrentWeaponData.weaponName : "(none)")} " +
                         $"worldWeapon={_currentWorldWeaponInstance.name}",
                         this);
                 }
@@ -431,7 +428,7 @@ namespace Game.Weapons {
                 if(logErrors) {
                     Debug.LogError(
                         $"[Weapon][RemoteMuzzleStrict][{context}] Muzzle transform inactive. " +
-                        $"weapon={(_currentWeaponData != null ? _currentWeaponData.weaponName : "(none)")} " +
+                        $"weapon={(CurrentWeaponData != null ? CurrentWeaponData.weaponName : "(none)")} " +
                         $"worldWeapon={_currentWorldWeaponInstance.name} " +
                         $"muzzlePath={GetTransformPath(_worldMuzzleTransform)}",
                         this);
@@ -486,7 +483,7 @@ namespace Game.Weapons {
 
             if(_kinemationFpWeaponDriver == null) {
                 Debug.LogError(
-                    $"[Weapon][KIN-Strict] Reload blocked: missing KinemationFpWeaponDriver for '{(_currentWeaponData != null ? _currentWeaponData.weaponName : "(none)")}'.",
+                    $"[Weapon][KIN-Strict] Reload blocked: missing KinemationFpWeaponDriver for '{(CurrentWeaponData != null ? CurrentWeaponData.weaponName : "(none)")}'.",
                     this);
                 IsReloading = false;
                 return;
@@ -503,7 +500,7 @@ namespace Game.Weapons {
             // Cancel reload sound when switching weapons or canceling reload
             if(!UseKinemationInternalSounds() && !ShouldSuppressLegacyReloadSound() &&
                playerController.IsOwner && _audioRelay != null) {
-                var soundId = _currentWeaponData != null ? _currentWeaponData.reloadSoundId : "";
+                var soundId = CurrentWeaponData != null ? CurrentWeaponData.reloadSoundId : "";
                 if(!string.IsNullOrWhiteSpace(soundId)) {
                     _audioRelay.RequestStop(soundId);
                 }
@@ -536,7 +533,7 @@ namespace Game.Weapons {
         }
 
         public void ResetWeapon() {
-            if(!_currentWeaponData) return;
+            if(!CurrentWeaponData) return;
             currentAmmo = GetCurrentMagCapacity();
             IsReloading = false;
             _lastFireTime = Time.time;
@@ -553,7 +550,7 @@ namespace Game.Weapons {
         }
 
         public void PrepareForPostMatchPodium() {
-            if(_currentWeaponData == null) return;
+            if(CurrentWeaponData == null) return;
 
             // Ensure no stale reload sounds/state leak into podium.
             if(IsReloading) {
@@ -561,7 +558,7 @@ namespace Game.Weapons {
             } else {
                 if(!UseKinemationInternalSounds() && !ShouldSuppressLegacyReloadSound() &&
                    playerController != null && playerController.IsOwner && _audioRelay != null) {
-                    var soundId = _currentWeaponData.reloadSoundId;
+                    var soundId = CurrentWeaponData.reloadSoundId;
                     if(!string.IsNullOrWhiteSpace(soundId)) {
                         _audioRelay.RequestStop(soundId);
                     }
@@ -594,7 +591,7 @@ namespace Game.Weapons {
 
         private bool TryGetMuzzlePosition(out Vector3 muzzlePosition) {
             muzzlePosition = default;
-            if(_currentWeaponData == null) return false;
+            if(CurrentWeaponData == null) return false;
 
             if(playerController != null &&
                playerController.IsOwner &&
@@ -632,7 +629,7 @@ namespace Game.Weapons {
         /// </summary>
         private bool TryGetMuzzlePositionFromCamera(out Vector3 muzzlePosition) {
             muzzlePosition = default;
-            if(!playerController || !playerController.IsOwner || _currentWeaponData == null) {
+            if(!playerController || !playerController.IsOwner || CurrentWeaponData == null) {
                 return TryGetMuzzlePosition(out muzzlePosition);
             }
 
@@ -692,14 +689,15 @@ namespace Game.Weapons {
         }
 
         public int GetWeaponSlot() {
-            return _currentWeaponData == null ? 0 : _currentWeaponData.WeaponSlotIndex;
+            return CurrentWeaponData == null ? 0 : CurrentWeaponData.WeaponSlotIndex;
         }
 
         public float GetFireRate() {
-            return _currentWeaponData == null ? 0.1f : _currentWeaponData.fireRate;
+            return CurrentWeaponData == null ? 0.1f : CurrentWeaponData.fireRate;
         }
 
-        public WeaponData CurrentWeaponData => _currentWeaponData;
+        [field: Header("Current Weapon State")]
+        public WeaponData CurrentWeaponData { get; private set; }
 
         private int GetCurrentMagCapacity() {
             return Mathf.Max(1, _currentMagCapacity);
@@ -725,7 +723,7 @@ namespace Game.Weapons {
                 if(logErrors) {
                     Debug.LogError(
                         $"[Weapon][MuzzleStrict][{context}] Missing KinemationFpWeaponDriver for owner weapon " +
-                        $"'{(_currentWeaponData != null ? _currentWeaponData.weaponName : "(none)")}'.",
+                        $"'{(CurrentWeaponData != null ? CurrentWeaponData.weaponName : "(none)")}'.",
                         this);
                 }
                 return false;
@@ -736,7 +734,7 @@ namespace Game.Weapons {
                 if(logErrors) {
                     Debug.LogError(
                         $"[Weapon][MuzzleStrict][{context}] FP muzzle transform missing for weapon " +
-                        $"'{(_currentWeaponData != null ? _currentWeaponData.weaponName : "(none)")}'.",
+                        $"'{(CurrentWeaponData != null ? CurrentWeaponData.weaponName : "(none)")}'.",
                         this);
                 }
                 return false;
@@ -746,7 +744,7 @@ namespace Game.Weapons {
                 if(logErrors) {
                     Debug.LogError(
                         $"[Weapon][MuzzleStrict][{context}] FP muzzle transform inactive. " +
-                        $"weapon={(_currentWeaponData != null ? _currentWeaponData.weaponName : "(none)")} " +
+                        $"weapon={(CurrentWeaponData != null ? CurrentWeaponData.weaponName : "(none)")} " +
                         $"muzzlePath={GetTransformPath(_fpMuzzleTransform)}",
                         this);
                 }

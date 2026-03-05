@@ -34,10 +34,10 @@ namespace Game.Weapons {
 
 
         private bool CanFire() {
-            if(!_currentWeaponData || _weaponManager.IsPullingOut) return false;
+            if(!CurrentWeaponData || _weaponManager.IsPullingOut) return false;
 
-            if(!IsReloading || _currentWeaponData.useMagReload || currentAmmo <= 0)
-                return Time.time >= _lastFireTime + _currentWeaponData.fireRate && currentAmmo > 0 && !IsReloading;
+            if(!IsReloading || CurrentWeaponData.useMagReload || currentAmmo <= 0)
+                return Time.time >= _lastFireTime + CurrentWeaponData.fireRate && currentAmmo > 0 && !IsReloading;
             ConsumePendingKinemationReloadSingleEvents();
             if(_kinemationFpWeaponDriver != null) {
                 _kinemationFpWeaponDriver.NotifyDrakeReloadCanceledByShot();
@@ -46,12 +46,12 @@ namespace Game.Weapons {
             // For shell-by-shell reloads, allow cancel only after at least one round was inserted.
             CancelReload();
 
-            return Time.time >= _lastFireTime + _currentWeaponData.fireRate && currentAmmo > 0 && !IsReloading;
+            return Time.time >= _lastFireTime + CurrentWeaponData.fireRate && currentAmmo > 0 && !IsReloading;
         }
 
         private void HandleCannotFire() {
-            if(!_currentWeaponData) return;
-            if(Time.time < _lastFireTime + _currentWeaponData.fireRate || IsReloading || currentAmmo != 0) return;
+            if(!CurrentWeaponData) return;
+            if(Time.time < _lastFireTime + CurrentWeaponData.fireRate || IsReloading || currentAmmo != 0) return;
 
             _lastFireTime = Time.time;
             PlayDryFireSound();
@@ -82,14 +82,14 @@ namespace Game.Weapons {
             var shooterVelocityAtShot = playerController != null ? playerController.GetFullVelocity : Vector3.zero;
 
             var pelletCount = 1;
-            if(_currentWeaponData != null && _currentWeaponData.usePelletSpread) {
-                pelletCount = Mathf.Max(1, _currentWeaponData.pelletCount);
+            if(CurrentWeaponData != null && CurrentWeaponData.usePelletSpread) {
+                pelletCount = Mathf.Max(1, CurrentWeaponData.pelletCount);
             }
 
-            var spreadDegrees = _currentWeaponData != null ? _currentWeaponData.bulletSpread : 0f;
+            var spreadDegrees = CurrentWeaponData != null ? CurrentWeaponData.bulletSpread : 0f;
 
             // If sniper overlay is active and weapon uses sniper overlay, remove all spread for perfect accuracy
-            if(_currentWeaponData != null && _currentWeaponData.useSniperOverlay &&
+            if(CurrentWeaponData != null && CurrentWeaponData.useSniperOverlay &&
                playerController != null && playerController.PlayerInput != null &&
                playerController.PlayerInput.IsSniperOverlayActive) {
                 spreadDegrees = 0f;
@@ -156,8 +156,8 @@ namespace Game.Weapons {
             var maxDist = 1000f;
 
             // Check if we should use the new hybrid sphere/cone cast system
-            var useHybridSystem = _currentWeaponData != null && _currentWeaponData.useSphereCast
-                                  || _currentWeaponData != null && _currentWeaponData.useSniperOverlay &&
+            var useHybridSystem = CurrentWeaponData != null && CurrentWeaponData.useSphereCast
+                                  || CurrentWeaponData != null && CurrentWeaponData.useSniperOverlay &&
                                   playerController != null && playerController.PlayerInput != null &&
                                   playerController.PlayerInput.IsSniperOverlayActive;
 
@@ -168,17 +168,16 @@ namespace Game.Weapons {
                 // 1. Raycast world to establish hard stop distance.
                 // 2. SphereCast players up to that stop for forgiving hits.
                 // 3. Fallback to world ray hit if no valid player hit.
-                RaycastHit worldHit = default;
-                var hasWorldHit = Physics.Raycast(origin, direction, out worldHit, maxDist, _worldLayer);
+                var hasWorldHit = Physics.Raycast(origin, direction, out var worldHit, maxDist, _worldLayer);
                 if(hasWorldHit) {
                     maxDist = worldHit.distance;
                 }
 
-                var maxRadius = _currentWeaponData.sphereCastMaxRadius;
-                var baseRadius = _currentWeaponData.sphereCastRadius;
-                var growthStart = _currentWeaponData.sphereCastGrowthStartDist;
-                var growthEnd = _currentWeaponData.useDamageFalloff
-                    ? Mathf.Max(growthStart + 0.1f, _currentWeaponData.minDamageRange)
+                var maxRadius = CurrentWeaponData.sphereCastMaxRadius;
+                var baseRadius = CurrentWeaponData.sphereCastRadius;
+                var growthStart = CurrentWeaponData.sphereCastGrowthStartDist;
+                var growthEnd = CurrentWeaponData.useDamageFalloff
+                    ? Mathf.Max(growthStart + 0.1f, CurrentWeaponData.minDamageRange)
                     : Mathf.Max(growthStart + 0.1f, maxDist);
 
                 // Only sphere-check enemies; world uses strict ray so grazing surfaces always resolve.
@@ -301,14 +300,14 @@ namespace Game.Weapons {
         }
 
         private float CalculateDamage(float distance) {
-            if(!_currentWeaponData) return 0f;
+            if(!CurrentWeaponData) return 0f;
 
-            var baseDamage = _currentWeaponData.baseDamage;
+            var baseDamage = CurrentWeaponData.baseDamage;
 
-            if(_currentWeaponData.useDamageFalloff) {
-                var startRange = Mathf.Max(0f, _currentWeaponData.maxDamageRange);
-                var endRange = Mathf.Max(startRange, _currentWeaponData.minDamageRange);
-                var minDamage = Mathf.Clamp(_currentWeaponData.minDamage, 0f, baseDamage);
+            if(CurrentWeaponData.useDamageFalloff) {
+                var startRange = Mathf.Max(0f, CurrentWeaponData.maxDamageRange);
+                var endRange = Mathf.Max(startRange, CurrentWeaponData.minDamageRange);
+                var minDamage = Mathf.Clamp(CurrentWeaponData.minDamage, 0f, baseDamage);
 
                 if(distance <= startRange) {
                     // baseDamage = baseDamage;
@@ -320,16 +319,16 @@ namespace Game.Weapons {
                 }
             }
 
-            if(_currentWeaponData.usePelletSpread) {
-                baseDamage *= Mathf.Max(0f, _currentWeaponData.pelletDamageMultiplier);
+            if(CurrentWeaponData.usePelletSpread) {
+                baseDamage *= Mathf.Max(0f, CurrentWeaponData.pelletDamageMultiplier);
             }
 
             var scaledDamage = baseDamage * CurrentDamageMultiplier;
-            return Mathf.Min(scaledDamage, _currentWeaponData.damageCap);
+            return Mathf.Min(scaledDamage, CurrentWeaponData.damageCap);
         }
 
         public void UpdateDamageMultiplier() {
-            if(!_currentWeaponData) return;
+            if(!CurrentWeaponData) return;
 
             // Check if player is dead - if so, only allow decay, not gain
             var isDead = playerController != null && playerController.IsDead;

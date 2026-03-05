@@ -149,7 +149,7 @@ namespace Network.Session {
                 return false;
             }
 
-            if(SessionManager.TryApplyRelayToTransport(utp, hostAllocation, null) == false) {
+            if(TryApplyRelayToTransport(utp, hostAllocation, null) == false) {
                 Debug.LogError($"[SessionManager] Failed to apply relay host allocation during {contextLabel}.");
                 return false;
             }
@@ -273,7 +273,7 @@ namespace Network.Session {
             string expectedCsv) {
             return new CreateLobbyOptions {
                 IsPrivate = true,
-                Player = SessionManager.BuildLobbyPlayer(),
+                Player = BuildLobbyPlayer(),
                 Data = new Dictionary<string, DataObject> {
                     [UgsPartyIdKey] = new(DataObject.VisibilityOptions.Member, CurrentPartyId),
                     [UgsMatchTypeKey] = new(DataObject.VisibilityOptions.Member, "Private"),
@@ -297,7 +297,7 @@ namespace Network.Session {
         private static CreateLobbyOptions BuildPublicMatchCreateOptions(string mode, string relayJoinCode, string matchId) {
             return new CreateLobbyOptions {
                 IsPrivate = false,
-                Player = SessionManager.BuildLobbyPlayer(),
+                Player = BuildLobbyPlayer(),
                 Data = new Dictionary<string, DataObject> {
                     [UgsMatchTypeKey] = new(DataObject.VisibilityOptions.Public, "Public", DataObject.IndexOptions.S3),
                     [UgsTargetModeKey] = new(DataObject.VisibilityOptions.Public, mode, DataObject.IndexOptions.S2),
@@ -520,7 +520,7 @@ namespace Network.Session {
 
             // Delete ticket from server if we have one
             if(!string.IsNullOrEmpty(_matchmakerTicketId)) {
-                await SessionManager.DeleteMatchmakerTicketAsync(_matchmakerTicketId);
+                await DeleteMatchmakerTicketAsync(_matchmakerTicketId);
                 _matchmakerTicketId = null;
             }
 

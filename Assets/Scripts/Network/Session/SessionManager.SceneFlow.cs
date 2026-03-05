@@ -223,7 +223,7 @@ namespace Network.Session {
         private void OnClientConnected(ulong clientId) {
             // Handle connection
             if(!_networkManager.IsServer) return;
-            SessionManager.NotifyPartyStateChanged();
+            NotifyPartyStateChanged();
         }
 
         private void OnClientDisconnected(ulong clientId) {
@@ -234,15 +234,15 @@ namespace Network.Session {
             var isServerDisconnect = !_networkManager.IsServer && clientId == NetworkManager.ServerClientId;
 
             if(isLocalDisconnect || isServerDisconnect) {
-                if(!_expectedDisconnect) {
+                if(!IsExpectedDisconnect) {
                     Debug.Log("[SessionManager] Unexpected Disconnect (Kick or Error).");
                     TriggerUnexpectedDisconnectFlow("OnClientDisconnected");
                 } else {
-                    _expectedDisconnect = false;
+                    IsExpectedDisconnect = false;
                 }
             }
 
-            SessionManager.NotifyPartyStateChanged();
+            NotifyPartyStateChanged();
         }
 
         /// <summary>
@@ -250,7 +250,7 @@ namespace Network.Session {
         /// Only triggers if we didn't expect the disconnect and aren't already leaving.
         /// </summary>
         private void OnClientStopped(bool _) {
-            if(_expectedDisconnect || _isLeaving) return;
+            if(IsExpectedDisconnect || _isLeaving) return;
             if(_networkManager != null && _networkManager.IsServer) return; // Only care when we're a client
 
             Debug.Log("[SessionManager] Client stopped unexpectedly (e.g. host left). Sending to main menu.");

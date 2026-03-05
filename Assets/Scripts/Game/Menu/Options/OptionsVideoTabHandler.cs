@@ -248,10 +248,10 @@ namespace Game.Menu.Options {
                 _shadowDistanceSlider.value = Mathf.Clamp(savedShadowDistance, 0f, OptionsSettingsHelpers.ShadowDistanceMax);
                 if(_shadowDistanceValue != null) _shadowDistanceValue.value = Mathf.RoundToInt(_shadowDistanceSlider.value).ToString();
             }
-            if(_shadowResolutionDropdown != null) {
-                var savedShadowResolution = data.video is { shadowResolution: > 0 } ? data.video.shadowResolution : currentShadowResolution;
-                _shadowResolutionDropdown.index = Mathf.Clamp(OptionsSettingsHelpers.ShadowResolutionValueToIndex(savedShadowResolution), 0, _shadowResolutionDropdown.choices.Count - 1);
-            }
+
+            if(_shadowResolutionDropdown == null) return;
+            var savedShadowResolution = data.video is { shadowResolution: > 0 } ? data.video.shadowResolution : currentShadowResolution;
+            _shadowResolutionDropdown.index = Mathf.Clamp(OptionsSettingsHelpers.ShadowResolutionValueToIndex(savedShadowResolution), 0, _shadowResolutionDropdown.choices.Count - 1);
         }
 
         public void Save(SettingsData data) {

@@ -779,8 +779,7 @@ namespace Game.Player.Hopball {
 
         private float ResolveCurrentHopballVisualEnergyRatio() {
             var hopball = _currentHopballController != null ? _currentHopballController : HopballController.Instance;
-            if(hopball == null) return 1f;
-            return hopball.VisualEnergyRatio;
+            return hopball == null ? 1f : hopball.VisualEnergyRatio;
         }
 
         /// <summary>
@@ -1107,7 +1106,7 @@ namespace Game.Player.Hopball {
             DestroyWorldVisual();
             // Destroy arm immediately (death case, can't wait for animation)
             DestroyArmImmediate();
-            // Do not restore weapon visuals here—death flow handles showing weapons when appropriate
+            // Do not restore weapon visuals hereâ€”death flow handles showing weapons when appropriate
         }
 
         /// <summary>
@@ -1290,7 +1289,7 @@ namespace Game.Player.Hopball {
 
         /// <summary>
         /// Hides hopball FP visuals without destroying. Used to defer visible teardown during
-        /// unexpected disconnect—hide first so when NGO despawns the player, the teardown is invisible.
+        /// unexpected disconnectâ€”hide first so when NGO despawns the player, the teardown is invisible.
         /// </summary>
         public void HideFpVisualsForDisconnectTransition() {
             if(!IsOwner) return;
