@@ -1074,6 +1074,9 @@ namespace Game.Player {
                                                      movementController.IsInJumpPadLaunch;
 
                 grappleController.CancelGrapple(forJumpPadLaunch: applyJumpPadLaunchCompensation);
+                var jumpPadLaunchCompensationVy = applyJumpPadLaunchCompensation
+                    ? grappleController.ConsumePendingJumpPadLaunchCompensationVy()
+                    : 0f;
                 var mantleWasActive = mantleController != null && mantleController.IsMantling;
                 if(mantleWasActive) {
                     mantleController.CancelMantleForJumpPad();
@@ -1085,7 +1088,8 @@ namespace Game.Player {
                 }
                 var padNormal = hit.gameObject.transform.up;
                 var ignoreGrounded = mantleWasActive || wasGrappling;
-                movementController.LaunchFromJumpPad(padNormal, ignoreGroundedRequirement: ignoreGrounded);
+                movementController.LaunchFromJumpPad(padNormal, ignoreGroundedRequirement: ignoreGrounded,
+                    additionalVerticalVelocity: jumpPadLaunchCompensationVy);
             } else if(hit.gameObject.CompareTag("MegaPad")) {
                 var wasGrappling = grappleController != null && grappleController.IsGrappling;
                 var applyJumpPadLaunchCompensation = wasGrappling &&
@@ -1093,6 +1097,9 @@ namespace Game.Player {
                                                      movementController.IsInJumpPadLaunch;
 
                 grappleController.CancelGrapple(forJumpPadLaunch: applyJumpPadLaunchCompensation);
+                var jumpPadLaunchCompensationVy = applyJumpPadLaunchCompensation
+                    ? grappleController.ConsumePendingJumpPadLaunchCompensationVy()
+                    : 0f;
                 var mantleWasActive = mantleController != null && mantleController.IsMantling;
                 if(mantleWasActive) {
                     mantleController.CancelMantleForJumpPad();
@@ -1104,7 +1111,8 @@ namespace Game.Player {
                 }
                 var padNormal = hit.gameObject.transform.up;
                 var ignoreGrounded = mantleWasActive || wasGrappling;
-                movementController.LaunchFromJumpPad(padNormal, force: 30f, ignoreGroundedRequirement: ignoreGrounded);
+                movementController.LaunchFromJumpPad(padNormal, force: 30f, ignoreGroundedRequirement: ignoreGrounded,
+                    additionalVerticalVelocity: jumpPadLaunchCompensationVy);
             } else {
                 grappleController.CancelGrapple(fromCollision: true);
             }

@@ -578,7 +578,12 @@ namespace Game.Player {
         /// <param name="normal">The surface normal of the jump pad.</param>
         /// <param name="force">The force magnitude to apply.</param>
         /// <param name="ignoreGroundedRequirement"></param>
-        public void LaunchFromJumpPad(Vector3 normal, float force = 15f, bool ignoreGroundedRequirement = false) {
+        /// <param name="additionalVerticalVelocity">
+        /// Optional one-shot vertical boost applied after jump-pad base launch velocity.
+        /// Used for jp->grapple->jp compensation so downward grapple pull does not reduce chain apex.
+        /// </param>
+        public void LaunchFromJumpPad(Vector3 normal, float force = 15f, bool ignoreGroundedRequirement = false,
+            float additionalVerticalVelocity = 0f) {
             if(!ignoreGroundedRequirement && !IsGrounded) {
                 // Begin tracking a "non-launch" apex to capture perceived weak jumps after pad contact
                 _activeJumpPadNonLaunch = true;
@@ -600,6 +605,9 @@ namespace Game.Player {
             var launchVelocity = normal * velocityMagnitude;
 
             VerticalVelocity = launchVelocity.y;
+            if(additionalVerticalVelocity > 0f) {
+                VerticalVelocity += additionalVerticalVelocity;
+            }
             _horizontalVelocity += new Vector3(launchVelocity.x, 0f, launchVelocity.z);
 
             // Start apex tracking for this jump pad launch

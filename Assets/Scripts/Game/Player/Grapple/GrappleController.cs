@@ -72,6 +72,7 @@ namespace Game.Player {
 
         /// <summary>While grappling during a jumppad launch, accumulated vertical distance pulled downward (meters). Used to compensate at grapple end.</summary>
         private float _cumulativeDownwardPullDuringLaunch;
+        private float _pendingJumpPadLaunchCompensationVy;
 
         #endregion
 
@@ -276,6 +277,16 @@ namespace Game.Player {
         public void TriggerCooldown() {
             if(!CanGrapple) return; // Already on cooldown
             StartGrappleCooldown();
+        }
+
+        /// <summary>
+        /// Returns and clears pending vertical compensation to be injected into the next jump-pad launch.
+        /// Used for jp->grapple->jp chains where grapple pull lowered the contact point.
+        /// </summary>
+        public float ConsumePendingJumpPadLaunchCompensationVy() {
+            var compensation = _pendingJumpPadLaunchCompensationVy;
+            _pendingJumpPadLaunchCompensationVy = 0f;
+            return compensation;
         }
 
         [Rpc(SendTo.Server)]
@@ -494,6 +505,7 @@ namespace Game.Player {
             _grapplePoint = targetPoint;
             _grappleStartTime = Time.time;
             _cumulativeDownwardPullDuringLaunch = 0f;
+            _pendingJumpPadLaunchCompensationVy = 0f;
             _grappleMeshFirstShownTime = -1f;
             if(_grappleMeshHideCoroutine != null) {
                 StopCoroutine(_grappleMeshHideCoroutine);
@@ -625,12 +637,12 @@ namespace Game.Player {
                         playerController.AddVerticalVelocity(finalVelocity.y);
                     }
 
-                    // If we pulled downward during the jumppad launch, add upward velocity so the
-                    // player still reaches the same apex (compensate for the vertical displacement we applied).
+                    // If we pulled downward during the jumppad launch, queue upward velocity so the
+                    // next jump-pad launch can restore the lost world-space apex.
                     if(useJumpPadLaunchCompensation && _cumulativeDownwardPullDuringLaunch > 0f) {
                         var g = Mathf.Abs(Physics.gravity.y);
                         var compensationVy = Mathf.Sqrt(2f * g * _cumulativeDownwardPullDuringLaunch);
-                        playerController.AddVerticalVelocity(compensationVy);
+                        _pendingJumpPadLaunchCompensationVy = compensationVy;
                     }
 
                     // Try to initiate slide if grounded and crouching at speed
