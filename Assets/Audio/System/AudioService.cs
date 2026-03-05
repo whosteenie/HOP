@@ -27,6 +27,7 @@ namespace Game.Audio2 {
         private readonly Dictionary<int, float> _nextSourceStateLogTime = new();
         private readonly Dictionary<string, float> _nextDropReasonLogTime = new(StringComparer.Ordinal);
 
+
         private void Awake() {
             if(Instance != null && Instance != this) {
                 Destroy(gameObject);
@@ -119,8 +120,35 @@ namespace Game.Audio2 {
             return Play(id, new PlayParams { UseWorldPosition = true, WorldPosition = worldPosition, Seed = seed });
         }
 
+        /// <summary>Bypasses pool/voice system: PlayOneShot on a dedicated 2D source. Use for local owner jumppad so it always plays.</summary>
+        public bool PlayJumppadOneShot(uint seed = 0) {
+            const string id = "gameplay.jumppad";
+            if(catalog == null || !catalog.TryGetCue(id, out var cue) || cue == null || !cue.HasValidVariants()) return false;
+            if(PickVariantIndex(cue, seed != 0 ? seed : (uint)UnityEngine.Random.Range(1, int.MaxValue), out var variant) < 0 || variant.clip == null) return false;
+            var go = new GameObject("JumppadOneShot_" + Time.frameCount);
+            go.transform.SetParent(transform, false);
+            var src = go.AddComponent<AudioSource>();
+            src.spatialBlend = 0f;
+            src.playOnAwake = false;
+            src.outputAudioMixerGroup = null;
+            var vol = DbToLinear(variant.volumeDb);
+            src.PlayOneShot(variant.clip, vol);
+            Destroy(go, variant.clip.length + 0.5f);
+            return true;
+        }
+
+        /// <summary>Play at world position with optional 2D override (e.g. local owner jumppad, no parent).</summary>
+        public bool Play(string id, Vector3 worldPosition, uint seed, bool force2D) {
+            return Play(id, new PlayParams { UseWorldPosition = true, WorldPosition = worldPosition, Seed = seed, Force2D = force2D });
+        }
+
         public bool PlayAttached(string id, Transform parent, uint seed = 0) {
             return Play(id, new PlayParams { Parent = parent, UseWorldPosition = false, Seed = seed });
+        }
+
+        /// <summary>Play attached with optional 2D override so the sound is always heard (e.g. local jumppad).</summary>
+        public bool PlayAttached(string id, Transform parent, uint seed, bool force2D) {
+            return Play(id, new PlayParams { Parent = parent, UseWorldPosition = false, Seed = seed, Force2D = force2D });
         }
 
         public bool Play(string id, PlayParams p) {
@@ -179,6 +207,10 @@ namespace Game.Audio2 {
                 EmitDroppedPlayLog(id, "apply_cue_failed", $"bus={cue.bus}");
                 ReturnToPool(cue.bus, src);
                 return false;
+            }
+
+            if(p.Force2D && src != null) {
+                src.spatialBlend = 0f;
             }
 
             // Recover from misconfigured pooled sources and emit diagnostics at low frequency.
@@ -384,7 +416,12 @@ namespace Game.Audio2 {
             }
 
             if(returnToPool && v.Src != null && v.Cue != null) {
-                ReturnToPool(v.Cue.bus, v.Src);
+                // Jumppad: destroy source so next play gets a fresh one (reused source often fails to play).
+                if(v.Id == "gameplay.jumppad") {
+                    Destroy(v.Src.gameObject);
+                } else {
+                    ReturnToPool(v.Cue.bus, v.Src);
+                }
             }
         }
 
@@ -559,6 +596,8 @@ namespace Game.Audio2 {
         public bool UseWorldPosition;
         public Vector3 WorldPosition;
         public uint Seed;
+        /// <summary>When true, force spatialBlend to 0 so the sound plays as 2D (e.g. for local owner jumppad).</summary>
+        public bool Force2D;
     }
 }
 

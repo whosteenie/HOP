@@ -70,6 +70,9 @@ namespace Game.Player {
         private Coroutine _grappleMeshEnableFailsafeCoroutine;
         private Coroutine _grappleMeshAnimatedHideFailsafeCoroutine;
 
+        /// <summary>While grappling during a jumppad launch, accumulated vertical distance pulled downward (meters). Used to compensate at grapple end.</summary>
+        private float _cumulativeDownwardPullDuringLaunch;
+
         #endregion
 
         #region Properties
@@ -481,11 +484,12 @@ namespace Game.Player {
             if(playerController != null && playerController.MovementController != null && playerController.MovementController.IsSliding) {
                 playerController.MovementController.CancelSlideForJump();
             }
-            
+
             UpdateGrappleServerRpc(true, targetPoint);
             IsGrappling = true;
             _grapplePoint = targetPoint;
             _grappleStartTime = Time.time;
+            _cumulativeDownwardPullDuringLaunch = 0f;
             _grappleMeshFirstShownTime = -1f;
             if(_grappleMeshHideCoroutine != null) {
                 StopCoroutine(_grappleMeshHideCoroutine);
@@ -566,7 +570,14 @@ namespace Game.Player {
             }
 
             // Apply movement
-            _characterController.Move(pullVelocity * Time.deltaTime);
+            var moveDelta = pullVelocity * Time.deltaTime;
+            if(playerController != null) {
+                var movementController = playerController.MovementController;
+                if(movementController != null && movementController.IsInJumpPadLaunch && pullVelocity.y < 0f) {
+                    _cumulativeDownwardPullDuringLaunch += -pullVelocity.y * Time.deltaTime;
+                }
+            }
+            _characterController.Move(moveDelta);
         }
 
         private void EndGrapple(bool applyMomentum) {
@@ -595,15 +606,29 @@ namespace Game.Player {
 
                 // Apply momentum to FpController
                 if(playerController != null) {
+                    var movementController = playerController.MovementController;
+                    var inJumpPadLaunch = movementController != null && movementController.IsInJumpPadLaunch;
+
                     // Set horizontal velocity (preserve some existing momentum)
                     var horizontalVelocity = new Vector3(finalVelocity.x, 0f, finalVelocity.z);
                     playerController.SetVelocity(horizontalVelocity);
 
-                    // Add upward boost if grappling upward
-                    if(finalVelocity.y > 0) {
+                    // Add upward boost if grappling upward. During a jumppad launch, do not apply any
+                    // vertical velocity from the grapple (neither add nor subtract) so the launch's
+                    // upward velocity is preserved and not cancelled by grapple exit.
+                    
+                    if(finalVelocity.y > 0 && !inJumpPadLaunch) {
                         playerController.AddVerticalVelocity(finalVelocity.y);
                     }
-                    
+
+                    // If we pulled downward during the jumppad launch, add upward velocity so the
+                    // player still reaches the same apex (compensate for the vertical displacement we applied).
+                    if(inJumpPadLaunch && _cumulativeDownwardPullDuringLaunch > 0f) {
+                        var g = Mathf.Abs(Physics.gravity.y);
+                        var compensationVy = Mathf.Sqrt(2f * g * _cumulativeDownwardPullDuringLaunch);
+                        playerController.AddVerticalVelocity(compensationVy);
+                    }
+
                     // Try to initiate slide if grounded and crouching at speed
                     if(playerController.MovementController != null) {
                         playerController.MovementController.TryInitiateSlideFromGrapple();
@@ -613,6 +638,7 @@ namespace Game.Player {
 
             // Start cooldown
             StartGrappleCooldown();
+            _cumulativeDownwardPullDuringLaunch = 0f;
         }
 
         private void StartGrappleCooldown() {

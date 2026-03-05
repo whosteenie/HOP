@@ -107,9 +107,13 @@ namespace Game.Player {
             ropeRenderer.enabled = false;
             UpdateSwingRpc(false, Vector3.zero);
 
-            // Keep momentum when releasing
+            // Keep momentum when releasing. During a jumppad launch, do not apply vertical velocity
+            // from the swing so the launch's upward velocity is preserved.
             playerController.SetVelocity(new Vector3(_currentVelocity.x, 0f, _currentVelocity.z));
-            playerController.AddVerticalVelocity(_currentVelocity.y);
+            var inJumpPadLaunch = playerController.MovementController != null && playerController.MovementController.IsInJumpPadLaunch;
+            if(!inJumpPadLaunch) {
+                playerController.AddVerticalVelocity(_currentVelocity.y);
+            }
         }
 
         private void StartSwing(Vector3 point) {

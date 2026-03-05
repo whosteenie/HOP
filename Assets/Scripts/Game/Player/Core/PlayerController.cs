@@ -803,6 +803,7 @@ namespace Game.Player {
                 var teleportViolations = _movementViolations.Count(v => !v.WasSpeedViolation);
                 
                 if(teleportViolations >= config.teleportViolationThreshold) {
+
                     AntiCheatLogger.LogMovementEnforcement(OwnerClientId,
                         $"teleport {distance:F1}m (limit {config.maxTeleportDistance:F1}) - {teleportViolations} violations in window");
 
@@ -826,6 +827,7 @@ namespace Game.Player {
                 var speedViolations = _movementViolations.Count(v => v.WasSpeedViolation);
                 
                 if(speedViolations >= config.speedViolationThreshold) {
+
                     AntiCheatLogger.LogMovementEnforcement(OwnerClientId,
                         $"speed {speed:F1} m/s (limit {config.maxSpeedMetersPerSecond:F1}) - {speedViolations} violations in window");
 
@@ -1066,6 +1068,8 @@ namespace Game.Player {
 
         private void OnControllerColliderHit(ControllerColliderHit hit) {
             if(hit.gameObject.CompareTag("JumpPad")) {
+                var wasGrappling = grappleController != null && grappleController.IsGrappling;
+
                 grappleController.CancelGrapple();
                 var mantleWasActive = mantleController != null && mantleController.IsMantling;
                 if(mantleWasActive) {
@@ -1077,8 +1081,11 @@ namespace Game.Player {
                     return;
                 }
                 var padNormal = hit.gameObject.transform.up;
-                movementController.LaunchFromJumpPad(padNormal, ignoreGroundedRequirement: mantleWasActive);
+                var ignoreGrounded = mantleWasActive || wasGrappling;
+                movementController.LaunchFromJumpPad(padNormal, ignoreGroundedRequirement: ignoreGrounded);
             } else if(hit.gameObject.CompareTag("MegaPad")) {
+                var wasGrappling = grappleController != null && grappleController.IsGrappling;
+
                 grappleController.CancelGrapple();
                 var mantleWasActive = mantleController != null && mantleController.IsMantling;
                 if(mantleWasActive) {
@@ -1090,7 +1097,8 @@ namespace Game.Player {
                     return;
                 }
                 var padNormal = hit.gameObject.transform.up;
-                movementController.LaunchFromJumpPad(padNormal, force: 30f, ignoreGroundedRequirement: mantleWasActive);
+                var ignoreGrounded = mantleWasActive || wasGrappling;
+                movementController.LaunchFromJumpPad(padNormal, force: 30f, ignoreGroundedRequirement: ignoreGrounded);
             } else {
                 grappleController.CancelGrapple(fromCollision: true);
             }

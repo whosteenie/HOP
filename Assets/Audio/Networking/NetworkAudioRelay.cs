@@ -37,10 +37,12 @@ namespace Audio.Networking {
         [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
         private void RequestPlayServerRpc(string soundId, Vector3 worldPosition, NetworkObjectReference attachRef,
             bool attachTo, bool allowOverlap, uint seed) {
+
             var config = AntiCheatConfig.Instance;
             if(config != null) {
                 if(!RpcRateLimiter.TryConsume(OwnerClientId, RpcRateLimiter.Keys.WorldSfx, config.sfxRpcLimit,
                         config.rpcWindowSeconds)) {
+
                     AntiCheatLogger.LogRateLimit(OwnerClientId, RpcRateLimiter.Keys.WorldSfx);
                     return;
                 }
@@ -49,15 +51,33 @@ namespace Audio.Networking {
             // Minimal validation: avoid huge strings / spam.
             if(soundId.Length > 128) return;
 
-            // Keep the event minimal and let clients resolve their own catalog.
-            PlayClientRpc(soundId, worldPosition, attachRef, attachTo, allowOverlap, seed);
+            // Use reliable delivery for sounds that must not be dropped (e.g. jumppad launch after grapple).
+            if(soundId == "gameplay.jumppad") {
+                PlayCriticalClientRpc(soundId, worldPosition, attachRef, attachTo, allowOverlap, seed, OwnerClientId);
+            } else {
+                PlayClientRpc(soundId, worldPosition, attachRef, attachTo, allowOverlap, seed);
+            }
+        }
+
+        [Rpc(SendTo.Everyone, Delivery = RpcDelivery.Reliable)]
+        private void PlayCriticalClientRpc(string soundId, Vector3 worldPosition, NetworkObjectReference attachRef,
+            bool attachTo, bool allowOverlap, uint seed, ulong requestingClientId) {
+            PlayClientRpcImpl(soundId, worldPosition, attachRef, attachTo, allowOverlap, seed, requestingClientId);
         }
 
         [Rpc(SendTo.Everyone, Delivery = RpcDelivery.Unreliable)]
         private void PlayClientRpc(string soundId, Vector3 worldPosition, NetworkObjectReference attachRef,
             bool attachTo, bool allowOverlap, uint seed) {
+            PlayClientRpcImpl(soundId, worldPosition, attachRef, attachTo, allowOverlap, seed, ulong.MaxValue);
+        }
+
+        private void PlayClientRpcImpl(string soundId, Vector3 worldPosition, NetworkObjectReference attachRef,
+            bool attachTo, bool allowOverlap, uint seed, ulong requestingClientId = ulong.MaxValue) {
+
             var svc = Game.Audio2.AudioService.Instance;
-            if(svc == null) return;
+            if(svc == null) {
+                return;
+            }
 
             if(!allowOverlap) {
                 svc.Stop(soundId);
