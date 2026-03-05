@@ -859,11 +859,29 @@ namespace Game.Menu {
             EventCallback<KeyDownEvent> keyHandler = evt => {
                 if(evt.keyCode != KeyCode.Return && evt.keyCode != KeyCode.KeypadEnter) return;
                 SanitizeAndApply();
+                // IntegerField focus is usually on inner text input, not the field wrapper.
+                // Blur both immediately and on scheduled pass to ensure focus is released.
+                var textInput = field.Q(TextInputBaseField<int>.textInputUssName);
+                textInput?.Blur();
+                field.Blur();
+                field.schedule.Execute(() => {
+                    var delayedInput = field.Q(TextInputBaseField<int>.textInputUssName);
+                    delayedInput?.Blur();
+                    field.Blur();
+                });
+                evt.StopImmediatePropagation();
+                evt.StopPropagation();
             };
             field.RegisterCallback(blurHandler);
-            field.RegisterCallback(keyHandler);
+            field.RegisterCallback(keyHandler, TrickleDown.TrickleDown);
             RegisterCleanup(() => field.UnregisterCallback(blurHandler));
-            RegisterCleanup(() => field.UnregisterCallback(keyHandler));
+            RegisterCleanup(() => field.UnregisterCallback(keyHandler, TrickleDown.TrickleDown));
+
+            var fieldTextInput = field.Q(TextInputBaseField<int>.textInputUssName);
+            if(fieldTextInput != null) {
+                fieldTextInput.RegisterCallback(keyHandler, TrickleDown.TrickleDown);
+                RegisterCleanup(() => fieldTextInput.UnregisterCallback(keyHandler, TrickleDown.TrickleDown));
+            }
             return;
 
             void SanitizeAndApply() {
