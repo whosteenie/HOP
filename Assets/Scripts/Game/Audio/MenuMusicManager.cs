@@ -23,11 +23,11 @@ namespace Game.Audio {
 
         private void OnEnable() {
             if(Instance == null || Instance == this) {
-                Instance = this;
             } else {
                 Debug.LogWarning("[MenuMusicPlayer] Multiple instances detected. Using the most recently enabled instance.");
-                Instance = this;
             }
+
+            Instance = this;
         }
 
         private void OnDisable() {

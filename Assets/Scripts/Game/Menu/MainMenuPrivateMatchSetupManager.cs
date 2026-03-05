@@ -223,7 +223,7 @@ namespace Game.Menu {
 
             _draft = new PrivateMatchDraftSettings {
                 GamemodeId = initialMode,
-                MatchTimerSeconds = Mathf.Max(60, GetDefaultMatchTimerForGamemode(initialMode)),
+                MatchTimerSeconds = Mathf.Max(60, GetDefaultMatchTimerForGamemode()),
                 UsePreMatchCountdown = true,
                 SwapWeaponsOnDeath = true,
                 ScoreToWin = Mathf.Max(1, GetDefaultScoreToWinForGamemode(initialMode)),
@@ -390,7 +390,7 @@ namespace Game.Menu {
             return choices;
         }
 
-        private static int GetDefaultMatchTimerForGamemode(string gamemodeId) {
+        private static int GetDefaultMatchTimerForGamemode() {
             var settings = MatchSettingsManager.Instance;
             return settings != null ? Mathf.Max(60, settings.defaultMatchDurationSeconds) : 600;
         }
@@ -407,7 +407,7 @@ namespace Game.Menu {
         }
 
         private void ApplyGamemodeDefaults(string gamemodeId) {
-            _draft.MatchTimerSeconds = Mathf.Max(60, GetDefaultMatchTimerForGamemode(gamemodeId));
+            _draft.MatchTimerSeconds = Mathf.Max(60, GetDefaultMatchTimerForGamemode());
             _draft.ScoreToWin = Mathf.Max(1, GetDefaultScoreToWinForGamemode(gamemodeId));
             _draft.KothHillSpeed = Mathf.Max(1, GetDefaultKothHillSpeed());
             if(_matchTimerField != null) {
@@ -581,14 +581,14 @@ namespace Game.Menu {
 
                 if(teamAContainer != null) {
                     for(var i = teamACount; i < TeamSlots; i++) {
-                        CreateEmptyPreviewRow(teamAContainer, i + 1);
+                        CreateEmptyPreviewRow(teamAContainer);
                     }
                 }
 
                 if(teamBContainer == null) return;
                 {
                     for(var i = teamBCount; i < TeamSlots; i++) {
-                        CreateEmptyPreviewRow(teamBContainer, i + 1);
+                        CreateEmptyPreviewRow(teamBContainer);
                     }
                 }
             } else {
@@ -607,7 +607,7 @@ namespace Game.Menu {
 
                 if(ffaContainer == null) return;
                 for(var i = filled; i < MaxLobbySlots; i++) {
-                    CreateEmptyPreviewRow(ffaContainer, i + 1);
+                    CreateEmptyPreviewRow(ffaContainer);
                 }
             }
         }
@@ -705,7 +705,7 @@ namespace Game.Menu {
             container.Add(row);
         }
 
-        private static void CreateEmptyPreviewRow(VisualElement container, int slotNumber) {
+        private static void CreateEmptyPreviewRow(VisualElement container) {
             if(container == null) return;
             var row = new VisualElement();
             row.AddToClassList("private-match-preview-row");

@@ -128,6 +128,10 @@ namespace Game.Menu {
         public System.Action<VisualElement> OnShowPanel;
         public System.Action OnGamemodeDropdownClicked;
 
+        public MainMenuUIManager(List<Button> gamemodeOptions) {
+            _gamemodeOptions = gamemodeOptions;
+        }
+
         protected override void Start() {
             base.Start();
             Cursor.visible = true;

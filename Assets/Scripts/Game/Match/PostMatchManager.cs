@@ -646,8 +646,7 @@ namespace Game.Match {
                 pm.StartMatchCurrentXp,
                 pm.Data.level,
                 pm.Data.currentXp,
-                pm.CurrentMatchXp,
-                nextLevelXp
+                pm.CurrentMatchXp
             );
         }
 

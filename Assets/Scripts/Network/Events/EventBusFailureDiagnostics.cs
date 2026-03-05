@@ -14,23 +14,23 @@ namespace Network.Events {
     internal static class EventBusFailureDiagnostics {
         private static readonly object Gate = new();
         private static readonly int NewLineByteCount = Encoding.UTF8.GetByteCount(Environment.NewLine);
-        private static FailureRuntimeSettings _settings = FailureRuntimeSettings.Default;
-        private static StreamWriter _writer;
-        private static string _activeLogPath;
-        private static string _sessionId;
-        private static bool _initialized;
-        private static bool _internalErrorLogged;
-        private static bool _sessionStartWritten;
-        private static bool _sessionEndWritten;
-        private static bool _maxFileSizeReached;
-        private static int _recordCount;
-        private static long _bytesWritten;
-        private static float _nextFlushAt;
-        private static EventBusFailureDiagnosticsDriver _driver;
-        private static bool _hasFailureCaptureRuntimeOverride;
-        private static bool _failureCaptureRuntimeOverride;
-        private static bool _hasFileLoggingRuntimeOverride;
-        private static bool _fileLoggingRuntimeOverride;
+        private static FailureRuntimeSettings settings = FailureRuntimeSettings.Default;
+        private static StreamWriter writer;
+        private static string activeLogPath;
+        private static string sessionId;
+        private static bool initialized;
+        private static bool internalErrorLogged;
+        private static bool sessionStartWritten;
+        private static bool sessionEndWritten;
+        private static bool maxFileSizeReached;
+        private static int recordCount;
+        private static long bytesWritten;
+        private static float nextFlushAt;
+        private static EventBusFailureDiagnosticsDriver driver;
+        private static bool hasFailureCaptureRuntimeOverride;
+        private static bool failureCaptureRuntimeOverride;
+        private static bool hasFileLoggingRuntimeOverride;
+        private static bool fileLoggingRuntimeOverride;
 
         internal static bool RecordHandlerException(
             Type eventType,
@@ -103,8 +103,8 @@ namespace Network.Events {
 
                 var record = new EventBusFailureRecord {
                     recordType = "handler_exception",
-                    sessionId = _sessionId,
-                    sequence = _recordCount + 1,
+                    sessionId = sessionId,
+                    sequence = recordCount + 1,
                     timestampUtc = DateTime.UtcNow.ToString("o"),
                     severity = "Error",
                     scene = ResolveSceneName(),
@@ -145,11 +145,11 @@ namespace Network.Events {
                         $"corr={record.correlationId}");
                 }
             } catch(Exception internalException) {
-                if(_internalErrorLogged) {
+                if(internalErrorLogged) {
                     return settingsSnapshot.FailFastOnHandlerException;
                 }
 
-                _internalErrorLogged = true;
+                internalErrorLogged = true;
                 Debug.LogError($"[EventBusFailure] Diagnostics pipeline failure: {internalException}");
             }
 
@@ -161,7 +161,7 @@ namespace Network.Events {
             var shouldInitialize = false;
 
             lock(Gate) {
-                _settings = new FailureRuntimeSettings {
+                EventBusFailureDiagnostics.settings = new FailureRuntimeSettings {
                     FailureCaptureEnabled = settings.failureCaptureEnabled,
                     FileLoggingEnabled = settings.failureFileLoggingEnabled,
                     EchoToUnityConsole = settings.failureEchoToUnityConsole,
@@ -174,17 +174,17 @@ namespace Network.Events {
                     ImmediateFlushOnError = settings.failureImmediateFlushOnError,
                     RedactIdentifiers = settings.failureRedactIdentifiers
                 };
-                if(_hasFailureCaptureRuntimeOverride) {
-                    _settings.FailureCaptureEnabled = _failureCaptureRuntimeOverride;
+                if(hasFailureCaptureRuntimeOverride) {
+                    EventBusFailureDiagnostics.settings.FailureCaptureEnabled = failureCaptureRuntimeOverride;
                 }
-                if(_hasFileLoggingRuntimeOverride) {
-                    _settings.FileLoggingEnabled = _fileLoggingRuntimeOverride;
+                if(hasFileLoggingRuntimeOverride) {
+                    EventBusFailureDiagnostics.settings.FileLoggingEnabled = fileLoggingRuntimeOverride;
                 }
 
-                if(_initialized) {
+                if(initialized) {
                     ApplyWriterStateLocked();
                 } else {
-                    shouldInitialize = _settings is { FailureCaptureEnabled: true, FileLoggingEnabled: true };
+                    shouldInitialize = EventBusFailureDiagnostics.settings is { FailureCaptureEnabled: true, FileLoggingEnabled: true };
                 }
             }
 
@@ -196,15 +196,15 @@ namespace Network.Events {
         internal static void SetFileLoggingEnabled(bool enabled) {
             bool shouldInitialize;
             lock(Gate) {
-                _settings.FileLoggingEnabled = enabled;
-                _hasFileLoggingRuntimeOverride = true;
-                _fileLoggingRuntimeOverride = enabled;
-                if(_initialized) {
+                settings.FileLoggingEnabled = enabled;
+                hasFileLoggingRuntimeOverride = true;
+                fileLoggingRuntimeOverride = enabled;
+                if(initialized) {
                     ApplyWriterStateLocked();
                     return;
                 }
 
-                shouldInitialize = enabled && _settings.FailureCaptureEnabled;
+                shouldInitialize = enabled && settings.FailureCaptureEnabled;
             }
 
             if(shouldInitialize) {
@@ -215,10 +215,10 @@ namespace Network.Events {
         internal static void SetFailureCaptureEnabled(bool enabled) {
             bool shouldInitialize;
             lock(Gate) {
-                _settings.FailureCaptureEnabled = enabled;
-                _hasFailureCaptureRuntimeOverride = true;
-                _failureCaptureRuntimeOverride = enabled;
-                shouldInitialize = enabled && _settings.FileLoggingEnabled && _initialized == false;
+                settings.FailureCaptureEnabled = enabled;
+                hasFailureCaptureRuntimeOverride = true;
+                failureCaptureRuntimeOverride = enabled;
+                shouldInitialize = enabled && settings.FileLoggingEnabled && initialized == false;
             }
 
             if(shouldInitialize) {
@@ -228,27 +228,27 @@ namespace Network.Events {
 
         internal static void SetFailFastEnabled(bool enabled) {
             lock(Gate) {
-                _settings.FailFastOnHandlerException = enabled;
+                settings.FailFastOnHandlerException = enabled;
             }
         }
 
         internal static string GetActiveLogPath() {
             lock(Gate) {
-                return _activeLogPath;
+                return activeLogPath;
             }
         }
 
         internal static void Tick() {
             lock(Gate) {
-                if(_initialized == false || _writer == null) return;
-                if(Time.unscaledTime < _nextFlushAt) return;
-                _nextFlushAt = Time.unscaledTime + _settings.FlushIntervalSeconds;
+                if(initialized == false || writer == null) return;
+                if(Time.unscaledTime < nextFlushAt) return;
+                nextFlushAt = Time.unscaledTime + settings.FlushIntervalSeconds;
 
                 try {
-                    _writer.Flush();
+                    writer.Flush();
                 } catch(Exception flushException) {
-                    if(_internalErrorLogged) return;
-                    _internalErrorLogged = true;
+                    if(internalErrorLogged) return;
+                    internalErrorLogged = true;
                     Debug.LogError($"[EventBusFailure] Failed flushing diagnostics log: {flushException}");
                 }
             }
@@ -256,143 +256,143 @@ namespace Network.Events {
 
         internal static void Shutdown() {
             lock(Gate) {
-                if(_initialized == false) return;
-                if(_sessionEndWritten == false) {
+                if(initialized == false) return;
+                if(sessionEndWritten == false) {
                     WriteSessionBoundaryLocked("session_end");
-                    _sessionEndWritten = true;
+                    sessionEndWritten = true;
                 }
 
                 try {
-                    _writer?.Flush();
-                    _writer?.Dispose();
+                    writer?.Flush();
+                    writer?.Dispose();
                 } catch(Exception closeException) {
-                    if(_internalErrorLogged == false) {
-                        _internalErrorLogged = true;
+                    if(internalErrorLogged == false) {
+                        internalErrorLogged = true;
                         Debug.LogError($"[EventBusFailure] Failed closing diagnostics log: {closeException}");
                     }
                 } finally {
-                    _writer = null;
-                    _activeLogPath = null;
+                    writer = null;
+                    activeLogPath = null;
                     ResetSessionStateLocked();
                 }
             }
         }
 
         private static void EnsureInitialized() {
-            if(_initialized) return;
+            if(initialized) return;
 
             lock(Gate) {
-                if(_initialized) return;
+                if(initialized) return;
 
-                _initialized = true;
-                _sessionId = Guid.NewGuid().ToString("N")[..8];
+                initialized = true;
+                sessionId = Guid.NewGuid().ToString("N")[..8];
 
                 var isWindows = Application.platform == RuntimePlatform.WindowsEditor ||
                                 Application.platform == RuntimePlatform.WindowsPlayer;
                 if(isWindows == false) {
                     // Current product scope is Windows-first for local file diagnostics.
                     // Keep failure capture active, but disable file sink on other platforms.
-                    if(_settings.FileLoggingEnabled) {
+                    if(settings.FileLoggingEnabled) {
                         Debug.Log("[EventBusFailure] File logging is supported on Windows only; disabling file sink for this session.");
                     }
-                    _settings.FileLoggingEnabled = false;
+                    settings.FileLoggingEnabled = false;
                 }
 
                 ApplyWriterStateLocked();
 
-                if(_sessionStartWritten || _writer == null) return;
+                if(sessionStartWritten || writer == null) return;
                 WriteSessionBoundaryLocked("session_start");
-                _sessionStartWritten = true;
+                sessionStartWritten = true;
             }
         }
 
         private static void CreateDriverLocked() {
-            if(_driver != null) return;
+            if(driver != null) return;
             var go = new GameObject("EventBusFailureDiagnosticsDriver") {
                 hideFlags = HideFlags.HideAndDontSave
             };
             UnityEngine.Object.DontDestroyOnLoad(go);
-            _driver = go.AddComponent<EventBusFailureDiagnosticsDriver>();
+            driver = go.AddComponent<EventBusFailureDiagnosticsDriver>();
         }
 
         private static void ApplyWriterStateLocked() {
-            if(_settings.FileLoggingEnabled == false) {
-                if(_writer != null) {
+            if(settings.FileLoggingEnabled == false) {
+                if(writer != null) {
                     try {
-                        _writer.Flush();
-                        _writer.Dispose();
+                        writer.Flush();
+                        writer.Dispose();
                     } catch {
                         // No-op: best effort close.
                     } finally {
-                        _writer = null;
+                        writer = null;
                     }
                 }
-                _activeLogPath = null;
-                _sessionStartWritten = false;
+                activeLogPath = null;
+                sessionStartWritten = false;
                 DestroyDriverLocked();
 
                 return;
             }
 
-            if(_writer != null) return;
+            if(writer != null) return;
 
             try {
                 var directory = Path.Combine(Application.persistentDataPath, "Logs", "EventBus");
                 Directory.CreateDirectory(directory);
 
                 var timestamp = DateTime.UtcNow.ToString("yyyyMMdd_HHmmss");
-                var candidatePath = Path.Combine(directory, $"eventbus_{timestamp}_{_sessionId}.ndjson");
+                var candidatePath = Path.Combine(directory, $"eventbus_{timestamp}_{sessionId}.ndjson");
 
                 var stream = new FileStream(candidatePath, FileMode.Create, FileAccess.Write, FileShare.Read);
-                _writer = new StreamWriter(stream, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false)) {
+                writer = new StreamWriter(stream, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false)) {
                     AutoFlush = false
                 };
-                _activeLogPath = candidatePath;
-                _recordCount = 0;
-                _bytesWritten = 0;
-                _maxFileSizeReached = false;
-                _nextFlushAt = Time.unscaledTime + _settings.FlushIntervalSeconds;
+                activeLogPath = candidatePath;
+                recordCount = 0;
+                bytesWritten = 0;
+                maxFileSizeReached = false;
+                nextFlushAt = Time.unscaledTime + settings.FlushIntervalSeconds;
                 CreateDriverLocked();
-                if(_sessionStartWritten) return;
+                if(sessionStartWritten) return;
                 WriteSessionBoundaryLocked("session_start");
-                _sessionStartWritten = true;
+                sessionStartWritten = true;
             } catch(Exception writerException) {
-                if(_internalErrorLogged == false) {
-                    _internalErrorLogged = true;
+                if(internalErrorLogged == false) {
+                    internalErrorLogged = true;
                     Debug.LogError($"[EventBusFailure] Failed opening diagnostics log file: {writerException}");
                 }
 
-                _writer = null;
-                _activeLogPath = null;
+                writer = null;
+                activeLogPath = null;
             }
         }
 
         private static void DestroyDriverLocked() {
-            if(_driver == null) return;
-            var driver = _driver;
-            _driver = null;
+            if(EventBusFailureDiagnostics.driver == null) return;
+            var driver = EventBusFailureDiagnostics.driver;
+            EventBusFailureDiagnostics.driver = null;
             if(driver != null) {
                 UnityEngine.Object.Destroy(driver.gameObject);
             }
         }
 
         private static void ResetSessionStateLocked() {
-            _initialized = false;
-            _sessionId = null;
-            _sessionStartWritten = false;
-            _sessionEndWritten = false;
-            _maxFileSizeReached = false;
-            _recordCount = 0;
-            _bytesWritten = 0;
-            _nextFlushAt = 0f;
-            _internalErrorLogged = false;
+            initialized = false;
+            sessionId = null;
+            sessionStartWritten = false;
+            sessionEndWritten = false;
+            maxFileSizeReached = false;
+            recordCount = 0;
+            bytesWritten = 0;
+            nextFlushAt = 0f;
+            internalErrorLogged = false;
         }
 
         private static void WriteSessionBoundaryLocked(string recordType) {
             var boundary = new EventBusFailureRecord {
                 recordType = recordType,
-                sessionId = _sessionId,
-                sequence = _recordCount + 1,
+                sessionId = sessionId,
+                sequence = recordCount + 1,
                 timestampUtc = DateTime.UtcNow.ToString("o"),
                 severity = "Info",
                 scene = ResolveSceneName(),
@@ -424,32 +424,32 @@ namespace Network.Events {
 
         private static void WriteRecordLocked(EventBusFailureRecord record, bool flushImmediately) {
             if(record == null) return;
-            if(_writer == null) return;
-            if(_maxFileSizeReached) return;
-            if(_recordCount >= _settings.MaxRecordsPerSession) return;
+            if(writer == null) return;
+            if(maxFileSizeReached) return;
+            if(recordCount >= settings.MaxRecordsPerSession) return;
 
             try {
-                record.sequence = _recordCount + 1;
+                record.sequence = recordCount + 1;
                 var json = JsonUtility.ToJson(record);
                 var byteCount = Encoding.UTF8.GetByteCount(json) + NewLineByteCount;
-                if(_bytesWritten + byteCount > _settings.MaxFileSizeBytes) {
-                    _maxFileSizeReached = true;
+                if(bytesWritten + byteCount > settings.MaxFileSizeBytes) {
+                    maxFileSizeReached = true;
                     Debug.LogWarning(
-                        $"[EventBusFailure] Log file size cap reached for session {_sessionId}. " +
+                        $"[EventBusFailure] Log file size cap reached for session {sessionId}. " +
                         "Further EventBus failure records will be dropped.");
                     return;
                 }
 
-                _writer.WriteLine(json);
-                _bytesWritten += byteCount;
-                _recordCount++;
+                writer.WriteLine(json);
+                bytesWritten += byteCount;
+                recordCount++;
 
                 if(flushImmediately) {
-                    _writer.Flush();
+                    writer.Flush();
                 }
             } catch(Exception writeException) {
-                if(_internalErrorLogged) return;
-                _internalErrorLogged = true;
+                if(internalErrorLogged) return;
+                internalErrorLogged = true;
                 Debug.LogError($"[EventBusFailure] Failed writing diagnostics record: {writeException}");
             }
         }
@@ -494,7 +494,7 @@ namespace Network.Events {
 
         private static FailureRuntimeSettings GetSettingsSnapshot() {
             lock(Gate) {
-                return _settings;
+                return settings;
             }
         }
 
@@ -504,7 +504,7 @@ namespace Network.Events {
 
         private static bool IsFileSinkActive() {
             lock(Gate) {
-                return _writer != null;
+                return writer != null;
             }
         }
 

@@ -25,12 +25,12 @@ namespace Game.Weapons {
         // Matches KinemationFpWeaponDriver GrappleWeaponIndex animation mapping.
         public enum KinemationGrappleWeaponIndex {
             Null = -1,
-            AK = 0,
+            Ak = 0,
             M1911 = 1,
-            PDW = 2,
+            Pdw = 2,
             Kar = 3,
             Drake = 4,
-            DGL = 5
+            Dgl = 5
         }
 
         [Header("Core")]

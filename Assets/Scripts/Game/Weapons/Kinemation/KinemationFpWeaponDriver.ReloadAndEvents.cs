@@ -690,7 +690,7 @@ namespace Game.Weapons {
                 data);
         }
 
-        private void ReportMissingKinemationReloadSoundIndexConfig(WeaponData data) {
+        private static void ReportMissingKinemationReloadSoundIndexConfig(WeaponData data) {
             if(data == null) return;
             var id = data.GetInstanceID();
             if(!MissingKinemationReloadSoundIndexWarnings.Add(id)) return;

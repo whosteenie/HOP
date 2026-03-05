@@ -547,12 +547,6 @@ namespace Network.Session {
 
         #region Internal / Networking
 
-        private static void FadeOutImmediateWithFallback() {
-            if(SceneTransitionManager.Instance != null) {
-                SceneTransitionManager.Instance.FadeOutImmediate();
-            }
-        }
-
         private static async UniTask FadeOutWithFallbackAsync(int fallbackDelayMs = 500) {
             if(SceneTransitionManager.Instance != null) {
                 await SceneTransitionManager.Instance.FadeOutAsync();

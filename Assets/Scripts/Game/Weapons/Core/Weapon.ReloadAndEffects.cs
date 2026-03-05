@@ -72,10 +72,6 @@ namespace Game.Weapons {
             if(_kinemationFpWeaponDriver != null) _kinemationFpWeaponDriver.PlayReloadAnimation();
         }
 
-        private void PlayReloadCompleteAnimationForCurrentWeapon() {
-            if(_kinemationFpWeaponDriver != null) KinemationFpWeaponDriver.PlayReloadCompleteAnimation();
-        }
-
         private bool UseKinemationInternalSounds() {
             return _kinemationFpWeaponDriver != null && _kinemationFpWeaponDriver.AreKinemationSoundsEnabled();
         }

@@ -43,7 +43,7 @@ namespace Game.UI {
             };
         }
 
-        public void ShowXp(int oldLevel, int oldXp, int currentLevel, int currentXp, int xpGained, int nextLevelXp) {
+        public void ShowXp(int oldLevel, int oldXp, int currentLevel, int currentXp, int xpGained) {
             if(!IsInitialized) {
                 Initialize();
             }

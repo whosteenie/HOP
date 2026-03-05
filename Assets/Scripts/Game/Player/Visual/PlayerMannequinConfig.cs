@@ -227,11 +227,11 @@ namespace Game.Player {
         private void Update() {
             if(Application.isPlaying) {
                 if(!previewInPlayMode) return;
-                if(!autoApplyEachFrame && !simulateShot) return;
             } else {
                 if(!previewInEditMode) return;
-                if(!autoApplyEachFrame && !simulateShot) return;
             }
+
+            if(!autoApplyEachFrame && !simulateShot) return;
             ApplyNow();
         }
 
@@ -439,11 +439,11 @@ namespace Game.Player {
         }
 
         private void ApplyTrailMaterialPropertyBlock(
-            ParticleSystemRenderer renderer,
+            ParticleSystemRenderer psr,
             Material material,
             int materialIndex,
             Color tint) {
-            if(renderer == null || material == null) return;
+            if(psr == null || material == null) return;
 
             _trailMaterialPropertyBlock.Clear();
             var wroteAny = false;
@@ -456,9 +456,9 @@ namespace Game.Player {
             if(!wroteAny) return;
 
             if(materialIndex >= 0) {
-                renderer.SetPropertyBlock(_trailMaterialPropertyBlock, materialIndex);
+                psr.SetPropertyBlock(_trailMaterialPropertyBlock, materialIndex);
             } else {
-                renderer.SetPropertyBlock(_trailMaterialPropertyBlock);
+                psr.SetPropertyBlock(_trailMaterialPropertyBlock);
             }
         }
 
@@ -1579,14 +1579,14 @@ namespace Game.Player {
             }
         }
 
-        private float GetOrCacheShotMuzzleLightBaseIntensity(Light light) {
-            if(light == null) return 0f;
-            var id = light.GetInstanceID();
+        private float GetOrCacheShotMuzzleLightBaseIntensity(Light muzzleLight) {
+            if(muzzleLight == null) return 0f;
+            var id = muzzleLight.GetInstanceID();
             if(_shotMuzzleLightBaseIntensity.TryGetValue(id, out var cached)) {
                 return cached;
             }
 
-            cached = light.intensity;
+            cached = muzzleLight.intensity;
             _shotMuzzleLightBaseIntensity[id] = cached;
             return cached;
         }

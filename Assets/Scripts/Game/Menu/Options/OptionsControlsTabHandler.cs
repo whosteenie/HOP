@@ -137,7 +137,7 @@ namespace Game.Menu.Options {
             if(_autoWallRunButton != null)
                 OptionsSettingsHelpers.SetCheckboxValue(_autoWallRunButton, data.controls is { autoWallRun: true });
             if(_analyticsButton != null)
-                OptionsSettingsHelpers.SetCheckboxValue(_analyticsButton, data.social == null || data.social.eventBusDiagnosticsEnabled);
+                OptionsSettingsHelpers.SetCheckboxValue(_analyticsButton, data.social == null || data.social.EventBusDiagnosticsEnabled);
         }
 
         public void Save(SettingsData data) {
@@ -148,7 +148,7 @@ namespace Game.Menu.Options {
             if(data.controls != null) data.controls.holdMantle = OptionsSettingsHelpers.GetCheckboxValue(_holdMantleButton);
             if(data.controls != null) data.controls.autoWallRun = OptionsSettingsHelpers.GetCheckboxValue(_autoWallRunButton);
             if(data.social != null && _analyticsButton != null)
-                data.social.eventBusDiagnosticsEnabled = OptionsSettingsHelpers.GetCheckboxValue(_analyticsButton);
+                data.social.EventBusDiagnosticsEnabled = OptionsSettingsHelpers.GetCheckboxValue(_analyticsButton);
             SocialSettings.ProfanityFilterEnabled = OptionsSettingsHelpers.GetCheckboxValue(_profanityFilterButton);
         }
 

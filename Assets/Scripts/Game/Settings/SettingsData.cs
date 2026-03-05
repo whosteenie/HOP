@@ -65,7 +65,7 @@ namespace Game.Settings {
             // Legacy serialized field name kept for backward compatibility with existing settings files.
             // This currently controls local EventBus failure diagnostics capture/file logging.
             public bool analyticsEnabled = true;
-            public bool eventBusDiagnosticsEnabled {
+            public bool EventBusDiagnosticsEnabled {
                 get => analyticsEnabled;
                 set => analyticsEnabled = value;
             }

@@ -464,6 +464,7 @@ namespace Game.Hopball {
         /// Called via RPC to play on all clients.
         /// </summary>
         [Rpc(SendTo.Everyone)]
+        // ReSharper disable once MemberCanBeMadeStatic.Local
         private void PlayHopballSpawnSoundClientRpc(Vector3 position) {
             if(Audio2.AudioService.Instance == null) return;
 
@@ -473,6 +474,7 @@ namespace Game.Hopball {
         }
 
         [Rpc(SendTo.Everyone)]
+        // ReSharper disable once MemberCanBeMadeStatic.Local
         private void PrewarmHopballVisualPoolsClientRpc() {
             foreach(var controller in PlayerHopballController.Instances) {
                 if(controller == null) continue;

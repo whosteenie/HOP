@@ -187,6 +187,7 @@ namespace Game.Player {
         }
 
         [Rpc(SendTo.Everyone)]
+        // ReSharper disable once MemberCanBeMadeStatic.Local
         private void BroadcastTagTransferClientRpc(ulong taggerClientId, ulong taggedClientId) {
             // Get player names
             var taggerName = "Unknown";

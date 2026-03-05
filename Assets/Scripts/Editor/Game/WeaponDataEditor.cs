@@ -274,7 +274,7 @@ namespace Game.Editor {
             const string animationsRoot = "Assets/Imported/KINEMATION/FPSAnimationPack/Animations";
 
             switch(index) {
-                case WeaponData.KinemationGrappleWeaponIndex.AK:
+                case WeaponData.KinemationGrappleWeaponIndex.Ak:
                     profileLabel = "AK";
                     settingsAssetPath = $"{settingsRoot}/AK_Settings.asset";
                     reloadAnimationsFolder = $"{animationsRoot}/AK/Weapon";
@@ -284,7 +284,7 @@ namespace Game.Editor {
                     settingsAssetPath = $"{settingsRoot}/M1911_Settings.asset";
                     reloadAnimationsFolder = $"{animationsRoot}/M1911/Weapon";
                     return true;
-                case WeaponData.KinemationGrappleWeaponIndex.PDW:
+                case WeaponData.KinemationGrappleWeaponIndex.Pdw:
                     profileLabel = "PDW90";
                     settingsAssetPath = $"{settingsRoot}/PDW90_Settings.asset";
                     reloadAnimationsFolder = $"{animationsRoot}/PDW90/Weapon";
@@ -299,7 +299,7 @@ namespace Game.Editor {
                     settingsAssetPath = $"{settingsRoot}/Drake-12_Settings.asset";
                     reloadAnimationsFolder = $"{animationsRoot}/Drake-12/Weapon";
                     return true;
-                case WeaponData.KinemationGrappleWeaponIndex.DGL:
+                case WeaponData.KinemationGrappleWeaponIndex.Dgl:
                     profileLabel = "DGL50";
                     settingsAssetPath = $"{settingsRoot}/DGL50_Settings.asset";
                     reloadAnimationsFolder = $"{animationsRoot}/DGL50/Weapon";

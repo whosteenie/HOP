@@ -195,13 +195,13 @@ namespace Game.Player {
 
             //noinspection Unity.InefficientPropertyAccess
             podiumAnimator.enabled = false;
-            podiumAnimator.enabled = true;
+            _podiumAnimator.enabled = true;
 
             var podiumSkinned = _podiumSkinned;
             if(podiumSkinned == null) return;
             //noinspection Unity.InefficientPropertyAccess
             podiumSkinned.enabled = false;
-            podiumSkinned.enabled = true;
+            _podiumSkinned.enabled = true;
 
             // Re-apply WeaponIndex after animator toggle (disable/enable resets parameters)
             var weaponManager = playerController != null ? playerController.WeaponManager : null;

@@ -730,16 +730,6 @@ namespace Game.Menu {
             NotifyLoadoutDirty();
         }
 
-        private bool HasUnsavedChanges() {
-            return !ColorsEqual(_currentBaseColor, _originalBaseColor) ||
-                   Mathf.Abs(_currentSmoothness - _originalSmoothness) > 0.001f ||
-                   Mathf.Abs(_currentMetallic - _originalMetallic) > 0.001f ||
-                   Mathf.Abs(_currentHeightStrength - _originalHeightStrength) > 0.001f ||
-                   _currentPacketIndex != _originalPacketIndex ||
-                   _currentEmissionEnabled != _originalEmissionEnabled ||
-                   !ColorsEqual(_currentEmissionColor, _originalEmissionColor);
-        }
-
         private static bool ColorsEqual(Color a, Color b) {
             return Mathf.Abs(a.r - b.r) < 0.001f &&
                    Mathf.Abs(a.g - b.g) < 0.001f &&
@@ -799,12 +789,6 @@ namespace Game.Menu {
                 _currentEmissionEnabled,
                 _currentEmissionColor);
             loadoutManager.NotifyCustomizationApplied();
-        }
-
-        private void ShowUnsavedChangesDialog() {
-            if(_unsavedChangesModal == null) return;
-            _unsavedChangesModal.RemoveFromClassList("hidden");
-            _unsavedChangesModal.BringToFront();
         }
 
         private void HideUnsavedChangesDialog() {

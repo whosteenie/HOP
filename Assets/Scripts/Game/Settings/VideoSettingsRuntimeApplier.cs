@@ -11,7 +11,7 @@ namespace Game.Settings {
     /// </summary>
     public static class VideoSettingsRuntimeApplier {
         private static readonly List<Volume> CachedVolumes = new();
-        private static int _cachedSceneHandle = -1;
+        private static int cachedSceneHandle = -1;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void Initialize() {
@@ -81,16 +81,16 @@ namespace Game.Settings {
             var activeScene = SceneManager.GetActiveScene();
             if(activeScene.IsValid() == false) {
                 CachedVolumes.Clear();
-                _cachedSceneHandle = -1;
+                cachedSceneHandle = -1;
                 return CachedVolumes;
             }
 
-            if(_cachedSceneHandle == activeScene.handle) {
+            if(cachedSceneHandle == activeScene.handle) {
                 return CachedVolumes;
             }
 
             CachedVolumes.Clear();
-            _cachedSceneHandle = activeScene.handle;
+            cachedSceneHandle = activeScene.handle;
             var roots = activeScene.GetRootGameObjects();
             foreach(var root in roots) {
                 if(root == null) continue;

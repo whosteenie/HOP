@@ -339,14 +339,14 @@ namespace Game.Menu {
             return string.Join("/", stack);
         }
 
-        private void SetAllRegisteredMannequinCamerasEnabled(bool enabled) {
+        private void SetAllRegisteredMannequinCamerasEnabled(bool mannequinEnabled) {
             if(mapEntries == null) return;
             foreach(var entry in mapEntries) {
                 if(entry == null) continue;
 
                 var resolvedSetups = GetResolvedMannequinSetups(entry);
                 foreach(var t in resolvedSetups) {
-                    SetSetupCamerasEnabled(t, enabled);
+                    SetSetupCamerasEnabled(t, mannequinEnabled);
                 }
             }
         }

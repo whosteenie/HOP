@@ -11,7 +11,7 @@ namespace Game.Match {
         [SerializeField] private float rayStartHeight = 50f;
         [SerializeField] private float rayDistance = 200f;
         [SerializeField] [Range(0f, 1f)] private float buriedFraction = 0.5f;
-        [SerializeField] private float surfaceOffset = 0f;
+        [SerializeField] private float surfaceOffset;
 
         [ContextMenu("Snap to Ground (Half Buried)")]
         private void SnapToGroundHalfBuried() {

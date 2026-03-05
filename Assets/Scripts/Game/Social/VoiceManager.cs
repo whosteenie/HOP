@@ -349,10 +349,6 @@ namespace Game.Social {
             }
         }
 
-        private async Task JoinChannelAsync(string channelName, bool positional = true) {
-            await EnsureChannelJoinedAsync(channelName, positional, "LegacyJoinChannelAsync");
-        }
-        
         public async Task LeaveChannelAsync() {
             await _channelOperationGate.WaitAsync();
             try {

@@ -94,7 +94,7 @@ namespace Game.Settings {
             TrimList(d.social.mutedPlayers, 200);
             TrimList(d.social.blockedPlayers, 200);
             if(loadedVersion < 4) {
-                d.social.eventBusDiagnosticsEnabled = true;
+                d.social.EventBusDiagnosticsEnabled = true;
             }
 
             // Player
@@ -114,7 +114,7 @@ namespace Game.Settings {
         }
 
         private static void ApplyEventBusDiagnosticsSetting(SettingsData d) {
-            var diagnosticsEnabled = d?.social == null || d.social.eventBusDiagnosticsEnabled;
+            var diagnosticsEnabled = d?.social == null || d.social.EventBusDiagnosticsEnabled;
             EventBus.SetFailureCaptureEnabled(diagnosticsEnabled);
             EventBus.SetFailureFileLoggingEnabled(diagnosticsEnabled);
         }
