@@ -5,6 +5,7 @@ using System.Text;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+// ReSharper disable NotAccessedField.Local
 
 namespace Network.Events {
     /// <summary>
@@ -17,7 +18,7 @@ namespace Network.Events {
         private static FailureRuntimeSettings settings = FailureRuntimeSettings.Default;
         private static StreamWriter writer;
         private static string activeLogPath;
-        private static string sessionId;
+        private static string activeSessionId;
         private static bool initialized;
         private static bool internalErrorLogged;
         private static bool sessionStartWritten;
@@ -103,7 +104,7 @@ namespace Network.Events {
 
                 var record = new EventBusFailureRecord {
                     recordType = "handler_exception",
-                    sessionId = sessionId,
+                    sessionId = activeSessionId,
                     sequence = recordCount + 1,
                     timestampUtc = DateTime.UtcNow.ToString("o"),
                     severity = "Error",
@@ -156,35 +157,35 @@ namespace Network.Events {
             return settingsSnapshot.FailFastOnHandlerException;
         }
 
-        internal static void ApplyLogSettings(EventBusLogSettings settings) {
-            if(settings == null) return;
+        internal static void ApplyLogSettings(EventBusLogSettings eventBusLogSettings) {
+            if(eventBusLogSettings == null) return;
             var shouldInitialize = false;
 
             lock(Gate) {
-                EventBusFailureDiagnostics.settings = new FailureRuntimeSettings {
-                    FailureCaptureEnabled = settings.failureCaptureEnabled,
-                    FileLoggingEnabled = settings.failureFileLoggingEnabled,
-                    EchoToUnityConsole = settings.failureEchoToUnityConsole,
-                    IncludePublisherStackTrace = settings.failureIncludePublisherStackTrace,
-                    IncludeEventPayload = settings.failureIncludeEventPayload,
-                    FailFastOnHandlerException = settings.failureFailFastOnHandlerException,
-                    FlushIntervalSeconds = Mathf.Max(0.1f, settings.failureFlushIntervalSeconds),
-                    MaxFileSizeBytes = Mathf.Max(1, settings.failureMaxFileSizeMb) * 1024L * 1024L,
-                    MaxRecordsPerSession = Mathf.Max(1, settings.failureMaxRecordsPerSession),
-                    ImmediateFlushOnError = settings.failureImmediateFlushOnError,
-                    RedactIdentifiers = settings.failureRedactIdentifiers
+                settings = new FailureRuntimeSettings {
+                    FailureCaptureEnabled = eventBusLogSettings.failureCaptureEnabled,
+                    FileLoggingEnabled = eventBusLogSettings.failureFileLoggingEnabled,
+                    EchoToUnityConsole = eventBusLogSettings.failureEchoToUnityConsole,
+                    IncludePublisherStackTrace = eventBusLogSettings.failureIncludePublisherStackTrace,
+                    IncludeEventPayload = eventBusLogSettings.failureIncludeEventPayload,
+                    FailFastOnHandlerException = eventBusLogSettings.failureFailFastOnHandlerException,
+                    FlushIntervalSeconds = Mathf.Max(0.1f, eventBusLogSettings.failureFlushIntervalSeconds),
+                    MaxFileSizeBytes = Mathf.Max(1, eventBusLogSettings.failureMaxFileSizeMb) * 1024L * 1024L,
+                    MaxRecordsPerSession = Mathf.Max(1, eventBusLogSettings.failureMaxRecordsPerSession),
+                    ImmediateFlushOnError = eventBusLogSettings.failureImmediateFlushOnError,
+                    RedactIdentifiers = eventBusLogSettings.failureRedactIdentifiers
                 };
                 if(hasFailureCaptureRuntimeOverride) {
-                    EventBusFailureDiagnostics.settings.FailureCaptureEnabled = failureCaptureRuntimeOverride;
+                    settings.FailureCaptureEnabled = failureCaptureRuntimeOverride;
                 }
                 if(hasFileLoggingRuntimeOverride) {
-                    EventBusFailureDiagnostics.settings.FileLoggingEnabled = fileLoggingRuntimeOverride;
+                    settings.FileLoggingEnabled = fileLoggingRuntimeOverride;
                 }
 
                 if(initialized) {
                     ApplyWriterStateLocked();
                 } else {
-                    shouldInitialize = EventBusFailureDiagnostics.settings is { FailureCaptureEnabled: true, FileLoggingEnabled: true };
+                    shouldInitialize = settings is { FailureCaptureEnabled: true, FileLoggingEnabled: true };
                 }
             }
 
@@ -285,7 +286,7 @@ namespace Network.Events {
                 if(initialized) return;
 
                 initialized = true;
-                sessionId = Guid.NewGuid().ToString("N")[..8];
+                activeSessionId = Guid.NewGuid().ToString("N")[..8];
 
                 var isWindows = Application.platform == RuntimePlatform.WindowsEditor ||
                                 Application.platform == RuntimePlatform.WindowsPlayer;
@@ -341,7 +342,7 @@ namespace Network.Events {
                 Directory.CreateDirectory(directory);
 
                 var timestamp = DateTime.UtcNow.ToString("yyyyMMdd_HHmmss");
-                var candidatePath = Path.Combine(directory, $"eventbus_{timestamp}_{sessionId}.ndjson");
+                var candidatePath = Path.Combine(directory, $"eventbus_{timestamp}_{activeSessionId}.ndjson");
 
                 var stream = new FileStream(candidatePath, FileMode.Create, FileAccess.Write, FileShare.Read);
                 writer = new StreamWriter(stream, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false)) {
@@ -368,17 +369,17 @@ namespace Network.Events {
         }
 
         private static void DestroyDriverLocked() {
-            if(EventBusFailureDiagnostics.driver == null) return;
-            var driver = EventBusFailureDiagnostics.driver;
-            EventBusFailureDiagnostics.driver = null;
-            if(driver != null) {
-                UnityEngine.Object.Destroy(driver.gameObject);
+            if(driver == null) return;
+            var diagnosticsDriver = driver;
+            driver = null;
+            if(diagnosticsDriver != null) {
+                UnityEngine.Object.Destroy(diagnosticsDriver.gameObject);
             }
         }
 
         private static void ResetSessionStateLocked() {
             initialized = false;
-            sessionId = null;
+            activeSessionId = null;
             sessionStartWritten = false;
             sessionEndWritten = false;
             maxFileSizeReached = false;
@@ -391,7 +392,7 @@ namespace Network.Events {
         private static void WriteSessionBoundaryLocked(string recordType) {
             var boundary = new EventBusFailureRecord {
                 recordType = recordType,
-                sessionId = sessionId,
+                sessionId = activeSessionId,
                 sequence = recordCount + 1,
                 timestampUtc = DateTime.UtcNow.ToString("o"),
                 severity = "Info",
@@ -435,7 +436,7 @@ namespace Network.Events {
                 if(bytesWritten + byteCount > settings.MaxFileSizeBytes) {
                     maxFileSizeReached = true;
                     Debug.LogWarning(
-                        $"[EventBusFailure] Log file size cap reached for session {sessionId}. " +
+                        $"[EventBusFailure] Log file size cap reached for session {activeSessionId}. " +
                         "Further EventBus failure records will be dropped.");
                     return;
                 }
@@ -498,8 +499,8 @@ namespace Network.Events {
             }
         }
 
-        private static bool HasAnyConfiguredSink(FailureRuntimeSettings settings) {
-            return settings.FileLoggingEnabled || settings.EchoToUnityConsole;
+        private static bool HasAnyConfiguredSink(FailureRuntimeSettings failureRuntimeSettings) {
+            return failureRuntimeSettings.FileLoggingEnabled || failureRuntimeSettings.EchoToUnityConsole;
         }
 
         private static bool IsFileSinkActive() {

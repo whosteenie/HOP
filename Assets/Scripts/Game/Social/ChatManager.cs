@@ -104,7 +104,7 @@ namespace Game.Social {
             _ = SendChatMessageAsync(ClampToUtf8ByteLimit(message.Trim(), MaxChatInputBytes));
         }
 
-        public void SendLobbyPresenceMessage(string playerName, bool joined) {
+        public static void SendLobbyPresenceMessage(string playerName, bool joined) {
             var resolvedName = string.IsNullOrWhiteSpace(playerName) ? "Player" : playerName.Trim();
             SendSystemMessage($"{resolvedName} {(joined ? "hopped on" : "hopped off")}");
         }
@@ -363,7 +363,7 @@ namespace Game.Social {
             }
         }
 
-        private void PublishLocalEcho(string message) {
+        private static void PublishLocalEcho(string message) {
             var displayMessage = message;
             if(SocialSettings.ProfanityFilterEnabled) {
                 displayMessage = ChatProfanityFilter.Censor(displayMessage);

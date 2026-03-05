@@ -322,28 +322,9 @@ namespace Game.Menu {
         private void WireSessionManagerEvents() {
             if(sessionManager == null) return;
 
-            sessionManager.OnHostClicked = () => { sessionManager.HandleHostClicked().Forget(); };
-            sessionManager.OnJoinClicked = code => { _ = sessionManager.HandleFindGameClicked(); }; // Mapped to Find Game
-            sessionManager.OnStartGameClicked = () => {
-                if(gamemodeManager != null) gamemodeManager.CloseDropdown();
-            };
-            sessionManager.OnBackFromLobbyClicked = () => {
-                // Check if we should show modal
-                // Logic: If Host or Has Members
-                var shouldShowModal = IsInActiveLobby();
-
-                if(shouldShowModal && uiManager != null) {
-                    uiManager.ShowLobbyLeaveConfirmation();
-                } else {
-                    UISoundService.PlayButtonClick(isBack: true);
-                    SessionManager.Instance.LeaveToMainMenuAsync().Forget();
-                    TransitionToState(MainMenuPanelState.MainMenu);
-                }
-            };
             sessionManager.OnHostStatusChanged = (isHost, wasHost) => {
                 if(gamemodeManager != null) gamemodeManager.SetHostStatus(isHost, wasHost);
             };
-            sessionManager.ShouldShowLobbyLeaveModal = IsInActiveLobby;
             sessionManager.ShouldShowSwitchTeamInContextMenu = () =>
                 _currentPanelState == MainMenuPanelState.PrivateMatchSetup &&
                 privateMatchSetupManager != null &&

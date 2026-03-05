@@ -71,12 +71,7 @@ namespace Game.Menu {
         }
 
         // Events
-        public Action OnHostClicked;
-        public Action<string> OnJoinClicked;
-        public Action OnStartGameClicked;
-        public Action OnBackFromLobbyClicked;
         public Action<bool, bool> OnHostStatusChanged; // isHost, wasHost
-        public Func<bool> ShouldShowLobbyLeaveModal;
         /// <summary> When set, returns whether to show "Switch Team" in the party context menu (e.g. when on Private Match Setup with a team gamemode). </summary>
         public Func<bool> ShouldShowSwitchTeamInContextMenu;
         /// <summary> Fired when the host chooses "Switch Team" for a player in the private match setup (team modes only). </summary>

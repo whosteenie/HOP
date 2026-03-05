@@ -539,11 +539,12 @@ namespace Game.Player {
                 point = SpawnManager.Instance.GetNextSpawnPointForRespawn(team);
             }
 
-            // TODO: resolve possible null reference
+            if(point == null) {
+                return (Vector3.zero, Quaternion.identity);
+            }
+
             var pointTransform = point.transform;
-            return point == null
-                ? (Vector3.zero, Quaternion.identity)
-                : (pointTransform.position, pointTransform.rotation);
+            return (pointTransform.position, pointTransform.rotation);
         }
 
         private static (Vector3 pos, Quaternion rot) GetSpawnPointFfa() {
@@ -552,11 +553,12 @@ namespace Game.Player {
                 point = SpawnManager.Instance.GetNextSpawnPointForRespawn();
             }
 
-            // TODO: resolve possible null reference
+            if(point == null) {
+                return (Vector3.zero, Quaternion.identity);
+            }
+
             var pointTransform = point.transform;
-            return point == null
-                ? (Vector3.zero, Quaternion.identity)
-                : (pointTransform.position, pointTransform.rotation);
+            return (pointTransform.position, pointTransform.rotation);
         }
 
         private IEnumerator TeleportAfterPreparation(Vector3 position, Quaternion rotation) {

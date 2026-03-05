@@ -61,7 +61,7 @@ namespace Network.Session {
             }
 
             if(friend.Id != SteamClient.SteamId && ChatManager.Instance != null) {
-                ChatManager.Instance.SendLobbyPresenceMessage(friend.Name, true);
+                ChatManager.SendLobbyPresenceMessage(friend.Name, true);
             }
 
             if(CurrentLobby.HasValue && CurrentLobby.Value.Id == lobby.Id && lobby.MemberCount > 1) {
@@ -78,7 +78,7 @@ namespace Network.Session {
 
             if(CurrentLobby.HasValue && CurrentLobby.Value.Id == lobby.Id &&
                friend.Id != SteamClient.SteamId && ChatManager.Instance != null) {
-                ChatManager.Instance.SendLobbyPresenceMessage(friend.Name, false);
+                ChatManager.SendLobbyPresenceMessage(friend.Name, false);
             }
 
             NotifyPartyStateChanged();
