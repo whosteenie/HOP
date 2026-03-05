@@ -1069,8 +1069,11 @@ namespace Game.Player {
         private void OnControllerColliderHit(ControllerColliderHit hit) {
             if(hit.gameObject.CompareTag("JumpPad")) {
                 var wasGrappling = grappleController != null && grappleController.IsGrappling;
+                var applyJumpPadLaunchCompensation = wasGrappling &&
+                                                     movementController != null &&
+                                                     movementController.IsInJumpPadLaunch;
 
-                grappleController.CancelGrapple();
+                grappleController.CancelGrapple(forJumpPadLaunch: applyJumpPadLaunchCompensation);
                 var mantleWasActive = mantleController != null && mantleController.IsMantling;
                 if(mantleWasActive) {
                     mantleController.CancelMantleForJumpPad();
@@ -1085,8 +1088,11 @@ namespace Game.Player {
                 movementController.LaunchFromJumpPad(padNormal, ignoreGroundedRequirement: ignoreGrounded);
             } else if(hit.gameObject.CompareTag("MegaPad")) {
                 var wasGrappling = grappleController != null && grappleController.IsGrappling;
+                var applyJumpPadLaunchCompensation = wasGrappling &&
+                                                     movementController != null &&
+                                                     movementController.IsInJumpPadLaunch;
 
-                grappleController.CancelGrapple();
+                grappleController.CancelGrapple(forJumpPadLaunch: applyJumpPadLaunchCompensation);
                 var mantleWasActive = mantleController != null && mantleController.IsMantling;
                 if(mantleWasActive) {
                     mantleController.CancelMantleForJumpPad();

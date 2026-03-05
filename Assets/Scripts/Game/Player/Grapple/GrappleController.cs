@@ -452,14 +452,18 @@ namespace Game.Player {
         /// Cancels the active grapple.
         /// </summary>
         /// <param name="fromCollision">If true, ignored during grace period (avoids cancel on first-frame contact).</param>
-        public void CancelGrapple(bool fromCollision = false) {
+        /// <param name="forJumpPadLaunch">
+        /// True only when cancelling because the player hit a jump pad while grappling during an active jump-pad launch chain.
+        /// Enables launch compensation behavior on this grapple end.
+        /// </param>
+        public void CancelGrapple(bool fromCollision = false, bool forJumpPadLaunch = false) {
             if(!IsGrappling) return;
 
             var elapsed = Time.time - _grappleStartTime;
             if(fromCollision && elapsed < GrappleEstablishGrace)
                 return; // Defer collision cancel until mesh can show
 
-            EndGrapple(true);
+            EndGrapple(true, applyJumpPadLaunchCompensation: forJumpPadLaunch);
         }
 
         #endregion
@@ -580,7 +584,7 @@ namespace Game.Player {
             _characterController.Move(moveDelta);
         }
 
-        private void EndGrapple(bool applyMomentum) {
+        private void EndGrapple(bool applyMomentum, bool applyJumpPadLaunchCompensation = false) {
             // Publish grapple ended event
             EventBus.Publish(new GrappleEndedEvent());
             IsGrappling = false;
@@ -608,22 +612,22 @@ namespace Game.Player {
                 if(playerController != null) {
                     var movementController = playerController.MovementController;
                     var inJumpPadLaunch = movementController != null && movementController.IsInJumpPadLaunch;
+                    var useJumpPadLaunchCompensation = applyJumpPadLaunchCompensation && inJumpPadLaunch;
 
                     // Set horizontal velocity (preserve some existing momentum)
                     var horizontalVelocity = new Vector3(finalVelocity.x, 0f, finalVelocity.z);
                     playerController.SetVelocity(horizontalVelocity);
 
-                    // Add upward boost if grappling upward. During a jumppad launch, do not apply any
-                    // vertical velocity from the grapple (neither add nor subtract) so the launch's
-                    // upward velocity is preserved and not cancelled by grapple exit.
-                    
-                    if(finalVelocity.y > 0 && !inJumpPadLaunch) {
+                    // Default: grapple exit owns vertical boost when pulling upward.
+                    // Exception: if this exact cancel is for jump-pad chain compensation, do not apply
+                    // grapple vertical and use displacement-based compensation instead.
+                    if(finalVelocity.y > 0f && !useJumpPadLaunchCompensation) {
                         playerController.AddVerticalVelocity(finalVelocity.y);
                     }
 
                     // If we pulled downward during the jumppad launch, add upward velocity so the
                     // player still reaches the same apex (compensate for the vertical displacement we applied).
-                    if(inJumpPadLaunch && _cumulativeDownwardPullDuringLaunch > 0f) {
+                    if(useJumpPadLaunchCompensation && _cumulativeDownwardPullDuringLaunch > 0f) {
                         var g = Mathf.Abs(Physics.gravity.y);
                         var compensationVy = Mathf.Sqrt(2f * g * _cumulativeDownwardPullDuringLaunch);
                         playerController.AddVerticalVelocity(compensationVy);

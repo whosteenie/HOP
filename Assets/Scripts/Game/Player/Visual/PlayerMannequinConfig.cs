@@ -1503,6 +1503,8 @@ namespace Game.Player {
             if(trail == null || trail.gameObject == null) return false;
 #if UNITY_EDITOR
             return !EditorUtility.IsPersistent(trail) && !EditorUtility.IsPersistent(trail.gameObject);
+#else
+            return true;
 #endif
         }
 

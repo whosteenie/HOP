@@ -152,7 +152,6 @@ namespace Game.Weapons {
             transform.localEulerAngles = localEulerAngles;
 
             lightComponent.type = LightType.Spot;
-            lightComponent.lightmapBakeType = LightmapBakeType.Realtime;
             lightComponent.shadows = LightShadows.None;
             lightComponent.color = color;
             lightComponent.intensity = Mathf.Max(0f, intensity);
