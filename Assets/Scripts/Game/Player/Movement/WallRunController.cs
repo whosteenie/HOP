@@ -64,6 +64,12 @@ namespace Game.Player {
         [Tooltip("Minimum keyboard intent strength required to override high-speed velocity direction lock.")]
         [SerializeField] private float highSpeedFlipOverrideStrength = 0.85f;
 
+        [Tooltip("If wall-run starts below this speed, default to forward direction unless a clear backward request exists.")]
+        [SerializeField] private float lowSpeedForwardBiasThreshold = 14f;
+
+        [Tooltip("At low-speed starts, backward velocity must reach this signed speed along wall tangent to force backward direction.")]
+        [SerializeField] private float lowSpeedBackwardVelocityOverride = 11f;
+
         [Header("Curved Surface")]
         [SerializeField] private float curvedSurfaceMaxDistance = 1.2f;
 
@@ -243,7 +249,7 @@ namespace Game.Player {
             WallNormal = _wallHit.normal.normalized;
             _targetWallNormal = WallNormal;
             _lastWallRunDirection = Vector3.zero;
-            _lockedWallRunSign = ResolveWallRunDirectionSignForStart(transform.forward);
+            _lockedWallRunSign = ResolveWallRunDirectionSignForStart(transform.forward, entrySpeed);
             _hasLockedWallRunSign = true;
 
             UpdateCameraTiltForCurrentSide();
@@ -387,20 +393,32 @@ namespace Game.Player {
             return ApplyCurvedSurfaceStick(velocity);
         }
 
-        private int ResolveWallRunDirectionSignForStart(Vector3 currentForward) {
+        private int ResolveWallRunDirectionSignForStart(Vector3 currentForward, float entrySpeed) {
             var wallForward = Vector3.Cross(WallNormal, Vector3.up);
             if(wallForward.sqrMagnitude < 0.0001f) {
                 return 1;
             }
 
             wallForward.Normalize();
-            return ResolveWallRunDirectionSignFromIntent(wallForward, currentForward);
+            return ResolveWallRunDirectionSignFromIntent(wallForward, currentForward, true, entrySpeed);
         }
 
-        private int ResolveWallRunDirectionSignFromIntent(Vector3 wallForward, Vector3 currentForward) {
+        private int ResolveWallRunDirectionSignFromIntent(Vector3 wallForward, Vector3 currentForward, bool isWallRunStart = false, float entrySpeed = 0f) {
             var hasKeyboardIntent = TryGetKeyboardIntentSign(wallForward, out var keyboardSign, out var keyboardStrength);
             var hasCameraIntent = TryGetCameraIntentSign(wallForward, currentForward, out var cameraSign);
-            var hasVelocityIntent = TryGetVelocityIntentSign(wallForward, out var velocitySign, out var velocitySpeed);
+            var hasVelocityIntent = TryGetVelocityIntentSign(wallForward, out var velocitySign, out var velocitySpeed, out var velocitySpeedAlongWall);
+
+            if(isWallRunStart && entrySpeed < lowSpeedForwardBiasThreshold) {
+                var requestedBackwardByInput = hasKeyboardIntent && keyboardSign < 0;
+                if(requestedBackwardByInput) {
+                    return -1;
+                }
+
+                var hasSignificantBackwardVelocity = hasVelocityIntent &&
+                                                     velocitySign < 0 &&
+                                                     -velocitySpeedAlongWall >= lowSpeedBackwardVelocityOverride;
+                return hasSignificantBackwardVelocity ? -1 : 1;
+            }
 
             int chosenSign;
             if(hasKeyboardIntent) {
@@ -505,9 +523,10 @@ namespace Game.Player {
             return true;
         }
 
-        private bool TryGetVelocityIntentSign(Vector3 wallForward, out int sign, out float speed) {
+        private bool TryGetVelocityIntentSign(Vector3 wallForward, out int sign, out float speed, out float speedAlongWall) {
             sign = 0;
             speed = 0f;
+            speedAlongWall = 0f;
 
             var planarVelocity = GetPlanarVelocity();
             speed = planarVelocity.magnitude;
@@ -517,7 +536,8 @@ namespace Game.Player {
             var alignment = Vector3.Dot(velocityDirection, wallForward);
             if(Mathf.Abs(alignment) <= 0.0001f) return false;
 
-            sign = alignment >= 0f ? 1 : -1;
+            speedAlongWall = speed * alignment;
+            sign = speedAlongWall >= 0f ? 1 : -1;
             return true;
         }
 
