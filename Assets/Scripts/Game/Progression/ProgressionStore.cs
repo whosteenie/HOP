@@ -62,7 +62,8 @@ namespace Game.Progression {
                 var dstName = $"progression.corrupt.{stamp}.json";
                 var dst = string.IsNullOrEmpty(dir) ? dstName : Path.Combine(dir, dstName);
                 File.Move(path, dst);
-            } catch {
+            } catch(Exception e) {
+                Debug.LogWarning($"[ProgressionStore] Failed to quarantine corrupt progression file '{path}': {e.Message}");
             }
         }
     }

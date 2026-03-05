@@ -84,7 +84,9 @@ namespace Game.Settings {
                 // Best effort cleanup.
                 try {
                     if(File.Exists(tmpPath)) File.Delete(tmpPath);
-                } catch {
+                } catch(Exception cleanupError) {
+                    Debug.LogWarning(
+                        $"[Settings] Failed to cleanup temp settings file '{tmpPath}': {cleanupError.Message}");
                 }
             }
         }
@@ -101,7 +103,8 @@ namespace Game.Settings {
                     ? Path.Combine(dir, name)
                     : name;
                 File.Move(path, dst);
-            } catch {
+            } catch(Exception e) {
+                Debug.LogWarning($"[Settings] Failed to quarantine corrupt settings file '{path}': {e.Message}");
             }
         }
     }

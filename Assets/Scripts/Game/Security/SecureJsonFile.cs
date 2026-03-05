@@ -70,7 +70,9 @@ namespace Game.Security {
             ProtectedEnvelope envelope;
             try {
                 envelope = JsonUtility.FromJson<ProtectedEnvelope>(envelopeJson);
-            } catch {
+            } catch(Exception e) {
+                Debug.LogWarning(
+                    $"[SecureJsonFile] Failed to parse protected envelope for '{Path.GetFileName(logicalPath)}': {e.Message}");
                 return DecodeResult.InvalidOrTampered;
             }
 
@@ -96,7 +98,9 @@ namespace Game.Security {
                 var plainBytes = DecryptAes(cipherBytes, encryptionKey, iv);
                 plainJson = Encoding.UTF8.GetString(plainBytes);
                 return DecodeResult.Success;
-            } catch {
+            } catch(Exception e) {
+                Debug.LogWarning(
+                    $"[SecureJsonFile] Failed to decode protected payload for '{Path.GetFileName(logicalPath)}': {e.Message}");
                 return DecodeResult.InvalidOrTampered;
             }
         }
@@ -177,7 +181,8 @@ namespace Game.Security {
                         return key;
                     }
                 }
-            } catch {
+            } catch(Exception e) {
+                Debug.LogWarning($"[SecureJsonFile] Failed to read master secret at '{keyPath}': {e.Message}");
             }
 
             var generated = CreateRandomBytes(32);
@@ -189,7 +194,8 @@ namespace Game.Security {
 
                 File.WriteAllText(keyPath, Convert.ToBase64String(generated));
                 TryHideFile(keyPath);
-            } catch {
+            } catch(Exception e) {
+                Debug.LogWarning($"[SecureJsonFile] Failed to persist master secret at '{keyPath}': {e.Message}");
             }
 
             return generated;
@@ -199,8 +205,8 @@ namespace Game.Security {
             try {
                 var attributes = File.GetAttributes(path);
                 File.SetAttributes(path, attributes | FileAttributes.Hidden);
-            } catch {
-                // ignored
+            } catch(Exception e) {
+                Debug.LogWarning($"[SecureJsonFile] Failed to set hidden attribute for '{path}': {e.Message}");
             }
         }
 
