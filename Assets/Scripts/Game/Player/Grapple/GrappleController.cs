@@ -70,10 +70,6 @@ namespace Game.Player {
         private Coroutine _grappleMeshEnableFailsafeCoroutine;
         private Coroutine _grappleMeshAnimatedHideFailsafeCoroutine;
 
-        /// <summary>While grappling during a jumppad launch, accumulated vertical distance pulled downward (meters). Used to compensate at grapple end.</summary>
-        private float _cumulativeDownwardPullDuringLaunch;
-        private float _pendingJumpPadLaunchCompensationVy;
-
         #endregion
 
         #region Properties
@@ -123,6 +119,12 @@ namespace Game.Player {
         // Throttling for network updates (at 90Hz: 3 ticks = ~33ms)
         private float _lastGrappleUpdateTime;
         private const float GrappleUpdateInterval = 0.033f; // ~3 ticks at 90Hz
+        private const bool DebugJumpPadTrace = true;
+        private string _lastGrappleEndReason = "unknown";
+        private int _lastNearPadLogFrame = -99999;
+        private bool _wasNearJumpPadWhileGrappling;
+        private const float JumpPadAnchorProbeRadius = 0.75f;
+        private readonly Collider[] _jumpPadAnchorProbeResults = new Collider[8];
 
         #region Unity Lifecycle
 
@@ -277,16 +279,6 @@ namespace Game.Player {
         public void TriggerCooldown() {
             if(!CanGrapple) return; // Already on cooldown
             StartGrappleCooldown();
-        }
-
-        /// <summary>
-        /// Returns and clears pending vertical compensation to be injected into the next jump-pad launch.
-        /// Used for jp->grapple->jp chains where grapple pull lowered the contact point.
-        /// </summary>
-        public float ConsumePendingJumpPadLaunchCompensationVy() {
-            var compensation = _pendingJumpPadLaunchCompensationVy;
-            _pendingJumpPadLaunchCompensationVy = 0f;
-            return compensation;
         }
 
         [Rpc(SendTo.Server)]
@@ -474,6 +466,11 @@ namespace Game.Player {
             if(fromCollision && elapsed < GrappleEstablishGrace)
                 return; // Defer collision cancel until mesh can show
 
+            _lastGrappleEndReason = forJumpPadLaunch
+                ? "jp_cancel"
+                : fromCollision
+                    ? "collision_cancel"
+                    : "manual_cancel";
             EndGrapple(true, applyJumpPadLaunchCompensation: forJumpPadLaunch);
         }
 
@@ -494,6 +491,13 @@ namespace Game.Player {
 
             _useAnimatedFirstPersonGrappleVisuals = !useFallbackFirstPersonGrappleVisuals;
             _forceCameraOffsetOriginForCurrentCable = useFallbackFirstPersonGrappleVisuals;
+            _lastGrappleEndReason = "active";
+            _wasNearJumpPadWhileGrappling = false;
+            _lastNearPadLogFrame = -99999;
+
+            if(DebugJumpPadTrace) {
+                Debug.Log($"[JPDBG][GRP_START] f={Time.frameCount} t={Time.time:F3} targetY={targetPoint.y:F2}");
+            }
 
             // Cancel any active slide - grapple takes full control
             if(playerController != null && playerController.MovementController != null && playerController.MovementController.IsSliding) {
@@ -504,8 +508,6 @@ namespace Game.Player {
             IsGrappling = true;
             _grapplePoint = targetPoint;
             _grappleStartTime = Time.time;
-            _cumulativeDownwardPullDuringLaunch = 0f;
-            _pendingJumpPadLaunchCompensationVy = 0f;
             _grappleMeshFirstShownTime = -1f;
             if(_grappleMeshHideCoroutine != null) {
                 StopCoroutine(_grappleMeshHideCoroutine);
@@ -554,6 +556,7 @@ namespace Game.Player {
 
             // Check if grapple duration exceeded
             if(elapsed >= GrappleDuration) {
+                _lastGrappleEndReason = $"timer_{elapsed:F2}";
                 EndGrapple(true);
                 return;
             }
@@ -564,22 +567,37 @@ namespace Game.Player {
 
             // If we're very close, end the grapple
             if(distanceToPoint < 1f) {
+                if(TryHandleJumpPadAnchorProximity()) {
+                    return;
+                }
+
+                _lastGrappleEndReason = $"close_{distanceToPoint:F2}";
                 EndGrapple(true);
                 return;
             }
 
             // Check if character controller is active (prevents errors during mantling, respawn, etc.)
             if(_characterController == null || !_characterController.enabled) {
+                _lastGrappleEndReason = "cc_invalid";
                 EndGrapple(false);
                 return;
             }
 
             // Check for walls in the direction we're moving (defer until after grace - avoids hitting grapple target on frame 0)
             var pullVelocity = directionToPoint * GrappleSpeed;
+            MaybeLogNearJumpPadWhileGrappling(pullVelocity);
             if(elapsed >= GrappleEstablishGrace) {
                 var checkDistance = pullVelocity.magnitude * Time.deltaTime * 3f;
-                if(Physics.SphereCast(playerController.Position, _characterController.radius, directionToPoint, out _,
+                if(Physics.SphereCast(playerController.Position, _characterController.radius, directionToPoint, out var sphereHit,
                        checkDistance, ~_playerLayer)) {
+                    if(IsJumpPadCollider(sphereHit.collider, out var isMegaPad)) {
+                        HandleJumpPadSweepHit(sphereHit, isMegaPad);
+                        return;
+                    }
+
+                    _lastGrappleEndReason = sphereHit.collider != null
+                        ? $"sweep_{sphereHit.collider.tag}"
+                        : "sweep_hit";
                     EndGrapple(true);
                     return;
                 }
@@ -587,16 +605,20 @@ namespace Game.Player {
 
             // Apply movement
             var moveDelta = pullVelocity * Time.deltaTime;
-            if(playerController != null) {
-                var movementController = playerController.MovementController;
-                if(movementController != null && movementController.IsInJumpPadLaunch && pullVelocity.y < 0f) {
-                    _cumulativeDownwardPullDuringLaunch += -pullVelocity.y * Time.deltaTime;
-                }
-            }
             _characterController.Move(moveDelta);
         }
 
         private void EndGrapple(bool applyMomentum, bool applyJumpPadLaunchCompensation = false) {
+            if(DebugJumpPadTrace) {
+                var movementController = playerController != null ? playerController.MovementController : null;
+                var grounded = movementController != null && movementController.IsGrounded;
+                var verticalVelocity = movementController != null ? movementController.VerticalVelocity : 0f;
+                Debug.Log(
+                    $"[JPDBG][GRP_END] f={Time.frameCount} t={Time.time:F3} r={_lastGrappleEndReason} " +
+                    $"mom={(applyMomentum ? 1 : 0)} jpComp={(applyJumpPadLaunchCompensation ? 1 : 0)} " +
+                    $"g={(grounded ? 1 : 0)} vy={verticalVelocity:F2}");
+            }
+
             // Publish grapple ended event
             EventBus.Publish(new GrappleEndedEvent());
             IsGrappling = false;
@@ -623,26 +645,14 @@ namespace Game.Player {
                 // Apply momentum to FpController
                 if(playerController != null) {
                     var movementController = playerController.MovementController;
-                    var inJumpPadLaunch = movementController != null && movementController.IsInJumpPadLaunch;
-                    var useJumpPadLaunchCompensation = applyJumpPadLaunchCompensation && inJumpPadLaunch;
 
                     // Set horizontal velocity (preserve some existing momentum)
                     var horizontalVelocity = new Vector3(finalVelocity.x, 0f, finalVelocity.z);
                     playerController.SetVelocity(horizontalVelocity);
 
-                    // Default: grapple exit owns vertical boost when pulling upward.
-                    // Exception: if this exact cancel is for jump-pad chain compensation, do not apply
-                    // grapple vertical and use displacement-based compensation instead.
-                    if(finalVelocity.y > 0f && !useJumpPadLaunchCompensation) {
+                    // During JP handoff, suppress grapple upward boost so pad launch fully owns vertical.
+                    if(finalVelocity.y > 0f && !applyJumpPadLaunchCompensation) {
                         playerController.AddVerticalVelocity(finalVelocity.y);
-                    }
-
-                    // If we pulled downward during the jumppad launch, queue upward velocity so the
-                    // next jump-pad launch can restore the lost world-space apex.
-                    if(useJumpPadLaunchCompensation && _cumulativeDownwardPullDuringLaunch > 0f) {
-                        var g = Mathf.Abs(Physics.gravity.y);
-                        var compensationVy = Mathf.Sqrt(2f * g * _cumulativeDownwardPullDuringLaunch);
-                        _pendingJumpPadLaunchCompensationVy = compensationVy;
                     }
 
                     // Try to initiate slide if grounded and crouching at speed
@@ -654,7 +664,126 @@ namespace Game.Player {
 
             // Start cooldown
             StartGrappleCooldown();
-            _cumulativeDownwardPullDuringLaunch = 0f;
+            _lastGrappleEndReason = "unknown";
+            _wasNearJumpPadWhileGrappling = false;
+            _lastNearPadLogFrame = -99999;
+        }
+
+        private void MaybeLogNearJumpPadWhileGrappling(Vector3 pullVelocity) {
+            if(!DebugJumpPadTrace || playerController == null) return;
+
+            if(!Physics.Raycast(playerController.Position, Vector3.down, out var downHit, 2.5f, ~_playerLayer,
+                   QueryTriggerInteraction.Ignore)) {
+                _wasNearJumpPadWhileGrappling = false;
+                return;
+            }
+
+            if(downHit.collider == null ||
+               (!downHit.collider.CompareTag("JumpPad") && !downHit.collider.CompareTag("MegaPad"))) {
+                _wasNearJumpPadWhileGrappling = false;
+                return;
+            }
+
+            if(_wasNearJumpPadWhileGrappling && Time.frameCount - _lastNearPadLogFrame < 12) {
+                return;
+            }
+
+            _wasNearJumpPadWhileGrappling = true;
+            _lastNearPadLogFrame = Time.frameCount;
+            var movementController = playerController.MovementController;
+            var grounded = movementController != null && movementController.IsGrounded;
+            var verticalVelocity = movementController != null ? movementController.VerticalVelocity : 0f;
+            Debug.Log(
+                $"[JPDBG][GRP_NEAR] f={Time.frameCount} t={Time.time:F3} tag={downHit.collider.tag} d={downHit.distance:F2} " +
+                $"pullY={pullVelocity.y:F2} g={(grounded ? 1 : 0)} vy={verticalVelocity:F2}");
+        }
+
+        private static bool IsJumpPadCollider(Collider collider, out bool isMegaPad) {
+            isMegaPad = false;
+            if(collider == null) return false;
+
+            if(collider.CompareTag("JumpPad")) {
+                return true;
+            }
+
+            if(!collider.CompareTag("MegaPad")) return false;
+            isMegaPad = true;
+            return true;
+        }
+
+        private void HandleJumpPadSweepHit(RaycastHit sphereHit, bool isMegaPad) {
+            _lastGrappleEndReason = isMegaPad ? "sweep_MegaPad_handoff" : "sweep_JumpPad_handoff";
+            HandleJumpPadHandoffFromCollider(sphereHit.collider, isMegaPad);
+        }
+
+        private bool TryHandleJumpPadAnchorProximity() {
+            var hitCount = Physics.OverlapSphereNonAlloc(_grapplePoint,
+                JumpPadAnchorProbeRadius,
+                _jumpPadAnchorProbeResults,
+                ~_playerLayer,
+                QueryTriggerInteraction.Ignore);
+            if(hitCount <= 0) {
+                return false;
+            }
+
+            var bestCollider = default(Collider);
+            var bestIsMegaPad = false;
+            var bestDistanceSqr = float.MaxValue;
+            for(var i = 0; i < hitCount; i++) {
+                var candidate = _jumpPadAnchorProbeResults[i];
+                _jumpPadAnchorProbeResults[i] = null;
+                if(!IsJumpPadCollider(candidate, out var candidateIsMegaPad)) {
+                    continue;
+                }
+
+                var nearestPoint = candidate.ClosestPoint(_grapplePoint);
+                var distanceSqr = (nearestPoint - _grapplePoint).sqrMagnitude;
+                if(!(distanceSqr < bestDistanceSqr)) {
+                    continue;
+                }
+
+                bestDistanceSqr = distanceSqr;
+                bestCollider = candidate;
+                bestIsMegaPad = candidateIsMegaPad;
+            }
+
+            if(bestCollider == null) {
+                return false;
+            }
+
+            _lastGrappleEndReason = bestIsMegaPad ? "close_MegaPad_handoff" : "close_JumpPad_handoff";
+            HandleJumpPadHandoffFromCollider(bestCollider, bestIsMegaPad);
+            return true;
+        }
+
+        private void HandleJumpPadHandoffFromCollider(Collider padCollider, bool isMegaPad) {
+            if(playerController == null) {
+                _lastGrappleEndReason = "handoff_no_player";
+                EndGrapple(true);
+                return;
+            }
+
+            var movementController = playerController.MovementController;
+            if(movementController == null) {
+                _lastGrappleEndReason = "handoff_no_move";
+                EndGrapple(true);
+                return;
+            }
+
+            var applyJumpPadLaunchCompensation = movementController.IsInJumpPadLaunch;
+            EndGrapple(true, applyJumpPadLaunchCompensation: applyJumpPadLaunchCompensation);
+
+            var mantleController = playerController.MantleController;
+            var mantleWasActive = mantleController != null && mantleController.IsMantling;
+            if(mantleWasActive) {
+                mantleController.CancelMantleForJumpPad();
+            }
+
+            var padNormal = padCollider != null ? padCollider.transform.up : Vector3.up;
+            var launchForce = isMegaPad ? 30f : 15f;
+            movementController.LaunchFromJumpPad(padNormal,
+                force: launchForce,
+                ignoreGroundedRequirement: true);
         }
 
         private void StartGrappleCooldown() {

@@ -77,6 +77,7 @@ namespace Game.Player {
         private Vector3 _cachedFullVelocity;
         private float _jumpInputSuppressedUntil;
         private const float JumpPadInputSuppressDuration = 0.12f;
+        private const bool DebugJumpPadTrace = true;
 
         // Jump pad apex tracking (for debug analysis)
         private float _jumpPadLaunchStartY;
@@ -578,18 +579,26 @@ namespace Game.Player {
         /// <param name="normal">The surface normal of the jump pad.</param>
         /// <param name="force">The force magnitude to apply.</param>
         /// <param name="ignoreGroundedRequirement"></param>
-        /// <param name="additionalVerticalVelocity">
-        /// Optional one-shot vertical boost applied after jump-pad base launch velocity.
-        /// Used for jp->grapple->jp compensation so downward grapple pull does not reduce chain apex.
-        /// </param>
-        public void LaunchFromJumpPad(Vector3 normal, float force = 15f, bool ignoreGroundedRequirement = false,
-            float additionalVerticalVelocity = 0f) {
-            Debug.Log("LAUNCH!");
+        public void LaunchFromJumpPad(Vector3 normal, float force = 15f, bool ignoreGroundedRequirement = false) {
+            if(DebugJumpPadTrace) {
+                var isGrappling = playerController != null &&
+                                  playerController.GrappleController != null &&
+                                  playerController.GrappleController.IsGrappling;
+                Debug.Log(
+                    $"[JPDBG][JP_CALL] f={Time.frameCount} t={Time.time:F3} g={(IsGrounded ? 1 : 0)} " +
+                    $"ign={(ignoreGroundedRequirement ? 1 : 0)} gr={(isGrappling ? 1 : 0)} " +
+                    $"vy={VerticalVelocity:F2} force={force:F1}");
+            }
+
             if(!ignoreGroundedRequirement && !IsGrounded) {
                 // Begin tracking a "non-launch" apex to capture perceived weak jumps after pad contact
                 _activeJumpPadNonLaunch = true;
                 _jumpPadNonLaunchStartY = _playerTransform != null ? _playerTransform.position.y : 0f;
                 _jumpPadNonLaunchPeakY = _jumpPadNonLaunchStartY;
+
+                if(DebugJumpPadTrace) {
+                    Debug.Log($"[JPDBG][JP_SKIP] f={Time.frameCount} t={Time.time:F3} reason=airborne_guard");
+                }
 
                 return;
             }
@@ -606,9 +615,6 @@ namespace Game.Player {
             var launchVelocity = normal * velocityMagnitude;
 
             VerticalVelocity = launchVelocity.y;
-            if(additionalVerticalVelocity > 0f) {
-                VerticalVelocity += additionalVerticalVelocity;
-            }
             _horizontalVelocity += new Vector3(launchVelocity.x, 0f, launchVelocity.z);
 
             // Start apex tracking for this jump pad launch
@@ -626,7 +632,6 @@ namespace Game.Player {
                 // Networked jumppad + jump foley, as before.
                 _audioRelay.RequestPlayAttached("gameplay.jumppad", new NetworkObjectReference(playerController.NetworkObject),
                     allowOverlap: true);
-                Debug.Log("1. Requested jumppad sound");
                 _audioRelay.RequestPlayAttached("foley.tile.jump.start", new NetworkObjectReference(playerController.NetworkObject),
                     allowOverlap: true);
             }
@@ -636,6 +641,13 @@ namespace Game.Player {
             }
 
             if(!(VerticalVelocity > 0f)) return;
+
+            if(DebugJumpPadTrace) {
+                var horizontalSpeed = new Vector2(_horizontalVelocity.x, _horizontalVelocity.z).magnitude;
+                Debug.Log(
+                    $"[JPDBG][JP_APPLY] f={Time.frameCount} t={Time.time:F3} vy={VerticalVelocity:F2} " +
+                    $"hspd={horizontalSpeed:F2} snd={(IsOwner && _audioRelay != null ? 1 : 0)}");
+            }
 
             // Notify WeaponBob that jump pad launch was initiated (owner only, local effect)
             if(IsOwner && playerController != null) {
