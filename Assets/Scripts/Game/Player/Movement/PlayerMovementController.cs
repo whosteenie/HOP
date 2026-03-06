@@ -77,18 +77,6 @@ namespace Game.Player {
         private Vector3 _cachedFullVelocity;
         private float _jumpInputSuppressedUntil;
         private const float JumpPadInputSuppressDuration = 0.12f;
-        private const bool DebugJumpPadTrace = true;
-
-        // Jump pad apex tracking (for debug analysis)
-        private float _jumpPadLaunchStartY;
-        private float _jumpPadLaunchPeakY;
-        private float _jumpPadExpectedTimeToApex;
-        private bool _jumpPadMidSampleLogged;
-
-        // "Non-launch" apex tracking after jump pad contact that did NOT trigger LaunchFromJumpPad
-        private bool _activeJumpPadNonLaunch;
-        private float _jumpPadNonLaunchStartY;
-        private float _jumpPadNonLaunchPeakY;
 
         // Physics
         private int _obstacleMask;
@@ -426,34 +414,8 @@ namespace Game.Player {
                 }
             }
 
-            // Track jump pad apex (for debug analysis)
-            if(IsInJumpPadLaunch) {
-                // Update peak height seen so far
-                if(positionAfter.y > _jumpPadLaunchPeakY) {
-                    _jumpPadLaunchPeakY = positionAfter.y;
-                }
-
-                // Mid-flight sample to capture grounded/grapple state while still rising
-                var sinceLaunch = Time.time - LastJumpPadLaunchStartTime;
-                if(!_jumpPadMidSampleLogged && _jumpPadExpectedTimeToApex > 0f && sinceLaunch >= _jumpPadExpectedTimeToApex * 0.5f) {
-                    _jumpPadMidSampleLogged = true;
-                }
-
-                // Detect apex when vertical velocity has turned non-positive
-                if(VerticalVelocity <= 0f) {
-                    IsInJumpPadLaunch = false;
-                }
-            }
-
-            // Track apex after jump pad contact that did NOT trigger a LaunchFromJumpPad (perceived "weak launch")
-            if(_activeJumpPadNonLaunch) {
-                if(positionAfter.y > _jumpPadNonLaunchPeakY) {
-                    _jumpPadNonLaunchPeakY = positionAfter.y;
-                }
-
-                if(VerticalVelocity <= 0f) {
-                    _activeJumpPadNonLaunch = false;
-                }
+            if(IsInJumpPadLaunch && VerticalVelocity <= 0f) {
+                IsInJumpPadLaunch = false;
             }
 
             HandleWallContactDampening(positionBefore, positionAfter);
@@ -519,9 +481,6 @@ namespace Game.Player {
         /// Initiates a jump or wall jump.
         /// </summary>
         /// <param name="height">The desired jump height (m).</param>
-        /// <summary>
-        /// Attempts to perform a jump or wall jump.
-        /// </summary>
         public void TryJump(float height = JumpHeight) {
             if(Time.time < _jumpInputSuppressedUntil) {
                 return;
@@ -537,21 +496,7 @@ namespace Game.Player {
                 CancelSlideForJump();
             }
 
-            // Check for jump pads (regular or mega)
-            var jumpPadHeight = CheckForJumpPad();
-            var usedJumpPad = jumpPadHeight > 0f;
-            if(usedJumpPad) {
-                height = jumpPadHeight;
-            }
-
             if(IsOwner && _audioRelay != null) {
-                var key = Mathf.Approximately(height, 15f) || Mathf.Approximately(height, 30f) ? "jumpPad" : "jump";
-
-                if(key == "jumpPad") {
-                    _audioRelay.RequestPlayAttached("gameplay.jumppad", new NetworkObjectReference(playerController.NetworkObject),
-                        allowOverlap: true);
-                }
-
                 _audioRelay.RequestPlayAttached("foley.tile.jump.start", new NetworkObjectReference(playerController.NetworkObject),
                     allowOverlap: true);
             }
@@ -580,26 +525,7 @@ namespace Game.Player {
         /// <param name="force">The force magnitude to apply.</param>
         /// <param name="ignoreGroundedRequirement"></param>
         public void LaunchFromJumpPad(Vector3 normal, float force = 15f, bool ignoreGroundedRequirement = false) {
-            if(DebugJumpPadTrace) {
-                var isGrappling = playerController != null &&
-                                  playerController.GrappleController != null &&
-                                  playerController.GrappleController.IsGrappling;
-                Debug.Log(
-                    $"[JPDBG][JP_CALL] f={Time.frameCount} t={Time.time:F3} g={(IsGrounded ? 1 : 0)} " +
-                    $"ign={(ignoreGroundedRequirement ? 1 : 0)} gr={(isGrappling ? 1 : 0)} " +
-                    $"vy={VerticalVelocity:F2} force={force:F1}");
-            }
-
             if(!ignoreGroundedRequirement && !IsGrounded) {
-                // Begin tracking a "non-launch" apex to capture perceived weak jumps after pad contact
-                _activeJumpPadNonLaunch = true;
-                _jumpPadNonLaunchStartY = _playerTransform != null ? _playerTransform.position.y : 0f;
-                _jumpPadNonLaunchPeakY = _jumpPadNonLaunchStartY;
-
-                if(DebugJumpPadTrace) {
-                    Debug.Log($"[JPDBG][JP_SKIP] f={Time.frameCount} t={Time.time:F3} reason=airborne_guard");
-                }
-
                 return;
             }
 
@@ -617,16 +543,7 @@ namespace Game.Player {
             VerticalVelocity = launchVelocity.y;
             _horizontalVelocity += new Vector3(launchVelocity.x, 0f, launchVelocity.z);
 
-            // Start apex tracking for this jump pad launch
             IsInJumpPadLaunch = true;
-            LastJumpPadLaunchStartTime = Time.time;
-            _jumpPadLaunchStartY = _playerTransform != null ? _playerTransform.position.y : 0f;
-            _jumpPadLaunchPeakY = _jumpPadLaunchStartY;
-            var effectiveGravity = _gravityY * GravityScale; // negative value
-            _jumpPadExpectedTimeToApex = effectiveGravity < 0f
-                ? VerticalVelocity / -effectiveGravity
-                : 0f;
-            _jumpPadMidSampleLogged = false;
 
             if(IsOwner && _audioRelay != null) {
                 // Networked jumppad + jump foley, as before.
@@ -642,13 +559,6 @@ namespace Game.Player {
 
             if(!(VerticalVelocity > 0f)) return;
 
-            if(DebugJumpPadTrace) {
-                var horizontalSpeed = new Vector2(_horizontalVelocity.x, _horizontalVelocity.z).magnitude;
-                Debug.Log(
-                    $"[JPDBG][JP_APPLY] f={Time.frameCount} t={Time.time:F3} vy={VerticalVelocity:F2} " +
-                    $"hspd={horizontalSpeed:F2} snd={(IsOwner && _audioRelay != null ? 1 : 0)}");
-            }
-
             // Notify WeaponBob that jump pad launch was initiated (owner only, local effect)
             if(IsOwner && playerController != null) {
                 var weaponBob = FindActiveWeaponBob();
@@ -663,20 +573,6 @@ namespace Game.Player {
 
             if(_animationController)
                 _animationController.PlayJumpAnimationServerRpc();
-        }
-
-        private float CheckForJumpPad() {
-            if(!Physics.Raycast(playerController.Position, Vector3.down, out var hit,
-                   _characterController.height * 0.6f))
-                return 0f; // No jump pad found
-            if(hit.collider.CompareTag("JumpPad")) {
-                return 15f; // Regular jump pad height
-            }
-
-            return hit.collider.CompareTag("MegaPad")
-                ? 30f
-                : // Mega jump pad height
-                0f; // No jump pad found
         }
 
         private WeaponBob FindActiveWeaponBob() {
@@ -742,10 +638,8 @@ namespace Game.Player {
 
         public bool IsSliding { get; private set; }
 
-        // Used by GrappleController for jumppad/grapple interaction (preserve launch vertical, compensate pull).
+        // Used by grapple/jump-pad interactions to identify an active pad-launch phase.
         public bool IsInJumpPadLaunch { get; private set; }
-
-        private float LastJumpPadLaunchStartTime { get; set; }
 
         #region Slide Methods
 

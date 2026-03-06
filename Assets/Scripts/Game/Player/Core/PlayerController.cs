@@ -31,7 +31,6 @@ namespace Game.Player {
     [RequireComponent(typeof(NetworkAudioRelay))]
     [DefaultExecutionOrder(-100)] // Initialize before sub-controllers
     public partial class PlayerController : NetworkBehaviour {
-        private const bool DebugJumpPadTrace = true;
         public static PlayerController LocalPlayer { get; private set; }
         public static event Action<PlayerController> PlayerSpawned;
         public static event Action<PlayerController> PlayerDespawned;
@@ -1069,16 +1068,6 @@ namespace Game.Player {
 
         private void OnControllerColliderHit(ControllerColliderHit hit) {
             if(hit.gameObject.CompareTag("JumpPad")) {
-                if(DebugJumpPadTrace) {
-                    var grounded = movementController != null && movementController.IsGrounded;
-                    var verticalVelocity = movementController != null ? movementController.VerticalVelocity : 0f;
-                    var grappling = grappleController != null && grappleController.IsGrappling;
-                    Debug.Log(
-                        $"[JPDBG][JP_HIT] f={Time.frameCount} t={Time.time:F3} tag=JumpPad " +
-                        $"g={(grounded ? 1 : 0)} gr={(grappling ? 1 : 0)} vy={verticalVelocity:F2} " +
-                        $"nY={hit.normal.y:F2} moveY={hit.moveDirection.y:F2}");
-                }
-
                 var wasGrappling = grappleController != null && grappleController.IsGrappling;
                 var applyJumpPadLaunchCompensation = wasGrappling &&
                                                      movementController != null &&
@@ -1098,16 +1087,6 @@ namespace Game.Player {
                 var ignoreGrounded = mantleWasActive || wasGrappling;
                 movementController.LaunchFromJumpPad(padNormal, ignoreGroundedRequirement: ignoreGrounded);
             } else if(hit.gameObject.CompareTag("MegaPad")) {
-                if(DebugJumpPadTrace) {
-                    var grounded = movementController != null && movementController.IsGrounded;
-                    var verticalVelocity = movementController != null ? movementController.VerticalVelocity : 0f;
-                    var grappling = grappleController != null && grappleController.IsGrappling;
-                    Debug.Log(
-                        $"[JPDBG][JP_HIT] f={Time.frameCount} t={Time.time:F3} tag=MegaPad " +
-                        $"g={(grounded ? 1 : 0)} gr={(grappling ? 1 : 0)} vy={verticalVelocity:F2} " +
-                        $"nY={hit.normal.y:F2} moveY={hit.moveDirection.y:F2}");
-                }
-
                 var wasGrappling = grappleController != null && grappleController.IsGrappling;
                 var applyJumpPadLaunchCompensation = wasGrappling &&
                                                      movementController != null &&

@@ -35,6 +35,7 @@ namespace Game.Player {
         private const bool PreserveMomentum = true;
 
         private const float MomentumBoost = 1.2f; // Multiplier for final velocity
+        private const float UpwardReleaseDirectionThreshold = 0.05f;
 
         [Header("Visual Settings")]
         [SerializeField] private Material lineMaterial;
@@ -119,10 +120,6 @@ namespace Game.Player {
         // Throttling for network updates (at 90Hz: 3 ticks = ~33ms)
         private float _lastGrappleUpdateTime;
         private const float GrappleUpdateInterval = 0.033f; // ~3 ticks at 90Hz
-        private const bool DebugJumpPadTrace = true;
-        private string _lastGrappleEndReason = "unknown";
-        private int _lastNearPadLogFrame = -99999;
-        private bool _wasNearJumpPadWhileGrappling;
         private const float JumpPadAnchorProbeRadius = 0.75f;
         private readonly Collider[] _jumpPadAnchorProbeResults = new Collider[8];
 
@@ -466,11 +463,6 @@ namespace Game.Player {
             if(fromCollision && elapsed < GrappleEstablishGrace)
                 return; // Defer collision cancel until mesh can show
 
-            _lastGrappleEndReason = forJumpPadLaunch
-                ? "jp_cancel"
-                : fromCollision
-                    ? "collision_cancel"
-                    : "manual_cancel";
             EndGrapple(true, applyJumpPadLaunchCompensation: forJumpPadLaunch);
         }
 
@@ -491,13 +483,6 @@ namespace Game.Player {
 
             _useAnimatedFirstPersonGrappleVisuals = !useFallbackFirstPersonGrappleVisuals;
             _forceCameraOffsetOriginForCurrentCable = useFallbackFirstPersonGrappleVisuals;
-            _lastGrappleEndReason = "active";
-            _wasNearJumpPadWhileGrappling = false;
-            _lastNearPadLogFrame = -99999;
-
-            if(DebugJumpPadTrace) {
-                Debug.Log($"[JPDBG][GRP_START] f={Time.frameCount} t={Time.time:F3} targetY={targetPoint.y:F2}");
-            }
 
             // Cancel any active slide - grapple takes full control
             if(playerController != null && playerController.MovementController != null && playerController.MovementController.IsSliding) {
@@ -556,7 +541,6 @@ namespace Game.Player {
 
             // Check if grapple duration exceeded
             if(elapsed >= GrappleDuration) {
-                _lastGrappleEndReason = $"timer_{elapsed:F2}";
                 EndGrapple(true);
                 return;
             }
@@ -571,21 +555,18 @@ namespace Game.Player {
                     return;
                 }
 
-                _lastGrappleEndReason = $"close_{distanceToPoint:F2}";
                 EndGrapple(true);
                 return;
             }
 
             // Check if character controller is active (prevents errors during mantling, respawn, etc.)
             if(_characterController == null || !_characterController.enabled) {
-                _lastGrappleEndReason = "cc_invalid";
                 EndGrapple(false);
                 return;
             }
 
             // Check for walls in the direction we're moving (defer until after grace - avoids hitting grapple target on frame 0)
             var pullVelocity = directionToPoint * GrappleSpeed;
-            MaybeLogNearJumpPadWhileGrappling(pullVelocity);
             if(elapsed >= GrappleEstablishGrace) {
                 var checkDistance = pullVelocity.magnitude * Time.deltaTime * 3f;
                 if(Physics.SphereCast(playerController.Position, _characterController.radius, directionToPoint, out var sphereHit,
@@ -595,9 +576,6 @@ namespace Game.Player {
                         return;
                     }
 
-                    _lastGrappleEndReason = sphereHit.collider != null
-                        ? $"sweep_{sphereHit.collider.tag}"
-                        : "sweep_hit";
                     EndGrapple(true);
                     return;
                 }
@@ -609,14 +587,15 @@ namespace Game.Player {
         }
 
         private void EndGrapple(bool applyMomentum, bool applyJumpPadLaunchCompensation = false) {
-            if(DebugJumpPadTrace) {
-                var movementController = playerController != null ? playerController.MovementController : null;
-                var grounded = movementController != null && movementController.IsGrounded;
-                var verticalVelocity = movementController != null ? movementController.VerticalVelocity : 0f;
-                Debug.Log(
-                    $"[JPDBG][GRP_END] f={Time.frameCount} t={Time.time:F3} r={_lastGrappleEndReason} " +
-                    $"mom={(applyMomentum ? 1 : 0)} jpComp={(applyJumpPadLaunchCompensation ? 1 : 0)} " +
-                    $"g={(grounded ? 1 : 0)} vy={verticalVelocity:F2}");
+            var movementController = playerController != null ? playerController.MovementController : null;
+            var toAnchor = _grapplePoint - transform.position;
+            var distanceToAnchor = toAnchor.magnitude;
+            var directionToAnchor = distanceToAnchor > 0.0001f ? toAnchor / distanceToAnchor : Vector3.zero;
+            var allowUpwardReleaseMomentum = directionToAnchor.y > UpwardReleaseDirectionThreshold;
+
+            // Prevent stale upward velocity from resurfacing after downward/flat grapples.
+            if(movementController != null && !allowUpwardReleaseMomentum && movementController.VerticalVelocity > 0f) {
+                movementController.VerticalVelocity = 0f;
             }
 
             // Publish grapple ended event
@@ -639,19 +618,21 @@ namespace Game.Player {
 
             if(applyMomentum && PreserveMomentum) {
                 // Calculate final momentum direction
-                var directionToPoint = (_grapplePoint - transform.position).normalized;
+                var directionToPoint = directionToAnchor;
                 var finalVelocity = GrappleSpeed * MomentumBoost * directionToPoint;
 
                 // Apply momentum to FpController
                 if(playerController != null) {
-                    var movementController = playerController.MovementController;
-
                     // Set horizontal velocity (preserve some existing momentum)
                     var horizontalVelocity = new Vector3(finalVelocity.x, 0f, finalVelocity.z);
                     playerController.SetVelocity(horizontalVelocity);
 
                     // During JP handoff, suppress grapple upward boost so pad launch fully owns vertical.
-                    if(finalVelocity.y > 0f && !applyJumpPadLaunchCompensation) {
+                    // For downward/flat release directions, only horizontal carry is allowed.
+                    var addVerticalImpulse = finalVelocity.y > 0f &&
+                                             allowUpwardReleaseMomentum &&
+                                             !applyJumpPadLaunchCompensation;
+                    if(addVerticalImpulse) {
                         playerController.AddVerticalVelocity(finalVelocity.y);
                     }
 
@@ -664,38 +645,6 @@ namespace Game.Player {
 
             // Start cooldown
             StartGrappleCooldown();
-            _lastGrappleEndReason = "unknown";
-            _wasNearJumpPadWhileGrappling = false;
-            _lastNearPadLogFrame = -99999;
-        }
-
-        private void MaybeLogNearJumpPadWhileGrappling(Vector3 pullVelocity) {
-            if(!DebugJumpPadTrace || playerController == null) return;
-
-            if(!Physics.Raycast(playerController.Position, Vector3.down, out var downHit, 2.5f, ~_playerLayer,
-                   QueryTriggerInteraction.Ignore)) {
-                _wasNearJumpPadWhileGrappling = false;
-                return;
-            }
-
-            if(downHit.collider == null ||
-               (!downHit.collider.CompareTag("JumpPad") && !downHit.collider.CompareTag("MegaPad"))) {
-                _wasNearJumpPadWhileGrappling = false;
-                return;
-            }
-
-            if(_wasNearJumpPadWhileGrappling && Time.frameCount - _lastNearPadLogFrame < 12) {
-                return;
-            }
-
-            _wasNearJumpPadWhileGrappling = true;
-            _lastNearPadLogFrame = Time.frameCount;
-            var movementController = playerController.MovementController;
-            var grounded = movementController != null && movementController.IsGrounded;
-            var verticalVelocity = movementController != null ? movementController.VerticalVelocity : 0f;
-            Debug.Log(
-                $"[JPDBG][GRP_NEAR] f={Time.frameCount} t={Time.time:F3} tag={downHit.collider.tag} d={downHit.distance:F2} " +
-                $"pullY={pullVelocity.y:F2} g={(grounded ? 1 : 0)} vy={verticalVelocity:F2}");
         }
 
         private static bool IsJumpPadCollider(Collider collider, out bool isMegaPad) {
@@ -712,7 +661,6 @@ namespace Game.Player {
         }
 
         private void HandleJumpPadSweepHit(RaycastHit sphereHit, bool isMegaPad) {
-            _lastGrappleEndReason = isMegaPad ? "sweep_MegaPad_handoff" : "sweep_JumpPad_handoff";
             HandleJumpPadHandoffFromCollider(sphereHit.collider, isMegaPad);
         }
 
@@ -751,21 +699,18 @@ namespace Game.Player {
                 return false;
             }
 
-            _lastGrappleEndReason = bestIsMegaPad ? "close_MegaPad_handoff" : "close_JumpPad_handoff";
             HandleJumpPadHandoffFromCollider(bestCollider, bestIsMegaPad);
             return true;
         }
 
         private void HandleJumpPadHandoffFromCollider(Collider padCollider, bool isMegaPad) {
             if(playerController == null) {
-                _lastGrappleEndReason = "handoff_no_player";
                 EndGrapple(true);
                 return;
             }
 
             var movementController = playerController.MovementController;
             if(movementController == null) {
-                _lastGrappleEndReason = "handoff_no_move";
                 EndGrapple(true);
                 return;
             }
