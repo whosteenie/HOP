@@ -541,6 +541,24 @@ namespace Game.Player {
             return true;
         }
 
+        private Vector3 GetWallJumpForwardVelocityFromActiveRun() {
+            if(_lastWallRunDirection.sqrMagnitude > 0.0001f) {
+                return _lastWallRunDirection.normalized * _currentWallRunSpeed;
+            }
+
+            var wallForward = Vector3.Cross(WallNormal, Vector3.up);
+            if(wallForward.sqrMagnitude < 0.0001f) {
+                return Vector3.zero;
+            }
+
+            wallForward.Normalize();
+            if(_hasLockedWallRunSign && _lockedWallRunSign < 0) {
+                wallForward = -wallForward;
+            }
+
+            return wallForward * _currentWallRunSpeed;
+        }
+
         #endregion
 
         #region Wall Jump
@@ -551,6 +569,9 @@ namespace Game.Player {
         public void WallJump() {
             if(!IsWallRunning) return;
 
+            // Snapshot run-tangent momentum before StopWallRun clears locked sign state.
+            var forwardVelocity = GetWallJumpForwardVelocityFromActiveRun();
+
             _stopReason = "wall_jump";
             StopWallRun(); // End state immediately
 
@@ -558,7 +579,6 @@ namespace Game.Player {
             _jumpCooldownTimer = wallJumpCooldown;
 
             // Combined jump force: add forward momentum from wall run
-            var forwardVelocity = GetWallRunVelocity(transform.forward);
             var jumpVelocity = WallNormal * wallJumpSideForce + Vector3.up * wallJumpUpForce + forwardVelocity;
 
             // Apply to movement controller

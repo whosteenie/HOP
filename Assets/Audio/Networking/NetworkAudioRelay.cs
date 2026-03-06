@@ -51,18 +51,7 @@ namespace Audio.Networking {
             // Minimal validation: avoid huge strings / spam.
             if(soundId.Length > 128) return;
 
-            // Use reliable delivery for sounds that must not be dropped (e.g. jumppad launch after grapple).
-            if(soundId == "gameplay.jumppad") {
-                PlayCriticalClientRpc(soundId, worldPosition, attachRef, attachTo, allowOverlap, seed, OwnerClientId);
-            } else {
-                PlayClientRpc(soundId, worldPosition, attachRef, attachTo, allowOverlap, seed);
-            }
-        }
-
-        [Rpc(SendTo.Everyone, Delivery = RpcDelivery.Reliable)]
-        private void PlayCriticalClientRpc(string soundId, Vector3 worldPosition, NetworkObjectReference attachRef,
-            bool attachTo, bool allowOverlap, uint seed, ulong requestingClientId) {
-            PlayClientRpcImpl(soundId, worldPosition, attachRef, attachTo, allowOverlap, seed, requestingClientId);
+            PlayClientRpc(soundId, worldPosition, attachRef, attachTo, allowOverlap, seed);
         }
 
         [Rpc(SendTo.Everyone, Delivery = RpcDelivery.Unreliable)]

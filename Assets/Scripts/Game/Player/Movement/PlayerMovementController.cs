@@ -584,6 +584,7 @@ namespace Game.Player {
         /// </param>
         public void LaunchFromJumpPad(Vector3 normal, float force = 15f, bool ignoreGroundedRequirement = false,
             float additionalVerticalVelocity = 0f) {
+            Debug.Log("LAUNCH!");
             if(!ignoreGroundedRequirement && !IsGrounded) {
                 // Begin tracking a "non-launch" apex to capture perceived weak jumps after pad contact
                 _activeJumpPadNonLaunch = true;
@@ -625,6 +626,7 @@ namespace Game.Player {
                 // Networked jumppad + jump foley, as before.
                 _audioRelay.RequestPlayAttached("gameplay.jumppad", new NetworkObjectReference(playerController.NetworkObject),
                     allowOverlap: true);
+                Debug.Log("1. Requested jumppad sound");
                 _audioRelay.RequestPlayAttached("foley.tile.jump.start", new NetworkObjectReference(playerController.NetworkObject),
                     allowOverlap: true);
             }

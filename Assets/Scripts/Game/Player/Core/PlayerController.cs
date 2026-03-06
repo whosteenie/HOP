@@ -1068,6 +1068,7 @@ namespace Game.Player {
 
         private void OnControllerColliderHit(ControllerColliderHit hit) {
             if(hit.gameObject.CompareTag("JumpPad")) {
+                Debug.Log("0. ControllerCollider hit JP!");
                 var wasGrappling = grappleController != null && grappleController.IsGrappling;
                 var applyJumpPadLaunchCompensation = wasGrappling &&
                                                      movementController != null &&
