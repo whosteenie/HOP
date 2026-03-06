@@ -1,0 +1,82 @@
+name: Unity EditMode Tests
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+      - feature/**
+  pull_request:
+
+jobs:
+  editmode-tests:
+    name: Run EditMode Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Check Unity license secret
+        id: license
+        shell: bash
+        run: |
+          if [ -z "${{ secrets.UNITY_LICENSE }}" ]; then
+            echo "has_license=false" >> "$GITHUB_OUTPUT"
+            echo "UNITY_LICENSE is missing. Skipping Unity EditMode tests."
+          else
+            echo "has_license=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Check Unity auth secrets
+        id: auth
+        shell: bash
+        run: |
+          has_email="false"
+          has_password="false"
+          if [ -n "${{ secrets.UNITY_EMAIL }}" ]; then has_email="true"; fi
+          if [ -n "${{ secrets.UNITY_PASSWORD }}" ]; then has_password="true"; fi
+          echo "has_email=$has_email" >> "$GITHUB_OUTPUT"
+          echo "has_password=$has_password" >> "$GITHUB_OUTPUT"
+          echo "UNITY_EMAIL present: $has_email"
+          echo "UNITY_PASSWORD present: $has_password"
+
+      - name: Cache Unity Library
+        if: steps.license.outputs.has_license == 'true'
+        uses: actions/cache@v4
+        with:
+          path: Library
+          key: Library-${{ runner.os }}-${{ hashFiles('Packages/manifest.json', 'Packages/packages-lock.json', 'ProjectSettings/ProjectVersion.txt') }}
+          restore-keys: |
+            Library-${{ runner.os }}-
+
+      - name: Run EditMode tests
+        if: steps.license.outputs.has_license == 'true' && steps.auth.outputs.has_email == 'true' && steps.auth.outputs.has_password == 'true'
+        id: tests
+        uses: game-ci/unity-test-runner@v4
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        with:
+          projectPath: .
+          unityVersion: 6000.3.6f1
+          testMode: editmode
+          githubToken: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Explain missing Unity auth secrets
+        if: steps.license.outputs.has_license != 'true' || steps.auth.outputs.has_email != 'true' || steps.auth.outputs.has_password != 'true'
+        shell: bash
+        run: |
+          echo "Unity tests were skipped because required secrets are missing."
+          echo "Required: UNITY_LICENSE, UNITY_EMAIL, UNITY_PASSWORD"
+
+      - name: Upload test artifacts
+        if: always() && steps.license.outputs.has_license == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: editmode-test-results
+          path: ${{ steps.tests.outputs.artifactsPath }}
