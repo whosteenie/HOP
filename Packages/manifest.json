@@ -32,6 +32,7 @@
     "com.unity.services.vivox": "16.9.0",
     "com.unity.shadergraph": "17.3.0",
     "com.unity.test-framework": "1.6.0",
+    "com.unity.testtools.codecoverage": "1.2.6",
     "com.unity.timeline": "1.8.10",
     "com.unity.ugui": "2.0.0",
     "com.unity.visualeffectgraph": "17.3.0",

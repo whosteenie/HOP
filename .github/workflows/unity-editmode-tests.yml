@@ -66,6 +66,7 @@ jobs:
           projectPath: .
           unityVersion: 6000.3.6f1
           testMode: ${{ matrix.testMode }}
+          checkName: ${{ matrix.testMode == 'editmode' && 'Edit Mode Test Results' || 'Play Mode Test Results' }}
           githubToken: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload test artifacts
@@ -74,3 +75,31 @@ jobs:
         with:
           name: ${{ matrix.testMode }}-test-results
           path: ${{ steps.tests.outputs.artifactsPath }}
+
+      - name: Build diagnostics snapshot (failed runs only)
+        if: ${{ always() && steps.tests.outcome != 'success' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p diagnostics/${{ matrix.testMode }}
+          {
+            echo "testMode=${{ matrix.testMode }}"
+            echo "tests.outcome=${{ steps.tests.outcome }}"
+            echo "artifactsPath=${{ steps.tests.outputs.artifactsPath }}"
+            echo "--- artifacts tree ---"
+            find "${{ steps.tests.outputs.artifactsPath }}" -maxdepth 8 -print || true
+            echo "--- logs/results in workspace ---"
+            find . -type f \( -iname "*.log" -o -iname "*results*.xml" -o -iname "TestResults.xml" \) | sort || true
+          } > diagnostics/${{ matrix.testMode }}/test-diagnostics.txt
+
+      - name: Upload failure diagnostics
+        if: ${{ always() && steps.tests.outcome != 'success' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.testMode }}-failed-test-diagnostics
+          path: |
+            diagnostics/${{ matrix.testMode }}/**
+            ${{ steps.tests.outputs.artifactsPath }}/**/*.log
+            ${{ steps.tests.outputs.artifactsPath }}/**/*results*.xml
+            **/TestResults.xml
+          if-no-files-found: warn
