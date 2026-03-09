@@ -2,7 +2,6 @@ using System;
 using Game.Player;
 using Game.Weapons;
 using Network.AntiCheat;
-using Network.Diagnostics;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -15,13 +14,12 @@ namespace Network.Rpc {
         public event Action<bool> OnHitConfirm;
 
         /// <summary>
-        /// Called by the local owner (client) to ask the server to apply damage to a target player.
-        /// The target is passed as a NetworkObjectReference to avoid hash/index lookups.
+        /// Called by the local owner (client) to ask the server to verify and apply a shot result.
+        /// The client supplies only its claimed impact point; the host resolves the actual victim and impact data.
         /// </summary>
         [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Owner)]
-        public void RequestDamageServerRpc(NetworkObjectReference targetRef, Vector3 hitPoint,
-            Vector3 hitDirection, string bodyPartTag = null, bool isHeadshot = false, int weaponIndex = -1,
-            ulong shotId = 0, RpcParams rpcParams = default) {
+        public void RequestDamageServerRpc(Vector3 claimedHitPoint, int weaponIndex = -1, ulong shotId = 0,
+            RpcParams rpcParams = default) {
             var senderClientId = rpcParams.Receive.SenderClientId;
             if(senderClientId != OwnerClientId) {
                 AntiCheatLogger.LogAuthorityViolation("NetworkDamageRelay.RequestDamageServerRpc", senderClientId);
@@ -37,23 +35,10 @@ namespace Network.Rpc {
                 }
             }
 
-            if(!DebugHelpers.TryGetNetworkObjectSafe(targetRef, out var networkObject, senderClientId,
-                   "NetworkDamageRelay.RequestDamageServerRpc")) {
-                return;
-            }
-
-            var victim = networkObject.GetComponent<PlayerController>();
-            if(!victim || victim.IsDead) return;
-
             var shooterId = senderClientId;
 
             if(weaponIndex < 0) {
                 AntiCheatLogger.LogInvalidDamage(shooterId, "invalid weapon index");
-                return;
-            }
-
-            // Optional: prevent self-damage via this path
-            if(victim.OwnerClientId == shooterId) {
                 return;
             }
 
@@ -90,21 +75,46 @@ namespace Network.Rpc {
                 return;
             }
 
+            if(!shooterWeaponManager.TryVerifyServerHit(weaponIndex, claimedHitPoint, out var victim,
+                   out var verifiedHitPoint, out _, out var bodyPartTag, out var isHeadshot, out reason)) {
+                AntiCheatLogger.LogInvalidDamage(shooterId, reason ?? "server hit verification failed");
+                return;
+            }
+
+            if(victim == null || victim.IsDead) {
+                AntiCheatLogger.LogInvalidDamage(shooterId, "verified victim missing");
+                return;
+            }
+
+            if(victim.OwnerClientId == shooterId) {
+                AntiCheatLogger.LogInvalidDamage(shooterId, "self-hit rejected");
+                return;
+            }
+
             if(shooterWeaponManager.IsFriendlyFireServer(shooterController, victim)) {
                 AntiCheatLogger.LogInvalidDamage(shooterId, "friendly fire rejected");
                 return;
             }
 
-            if(!shooterWeaponManager.TryComputeServerDamage(weaponIndex, hitPoint, out var serverDamage,
+            if(!shooterWeaponManager.TryComputeServerDamage(weaponIndex, verifiedHitPoint, out var serverDamage,
                    out reason)) {
                 AntiCheatLogger.LogInvalidDamage(shooterId, reason ?? "server damage computation failed");
                 return;
             }
 
             var weaponId = shooterWeaponManager.GetWeaponIdByIndex(weaponIndex);
+            var shooterOrigin = shooterController.FpCameraTransform != null
+                ? shooterController.FpCameraTransform.position
+                : shooterController.transform.position;
+            var hitDirection = verifiedHitPoint - shooterOrigin;
+            if(hitDirection.sqrMagnitude > 0.0001f) {
+                hitDirection.Normalize();
+            } else {
+                hitDirection = shooterController.transform.forward;
+            }
 
-            // Apply on server (authoritative). Damage is derived on the host, not trusted from the client claim.
-            var wasKill = victim.ApplyDamageServer_Auth(serverDamage, hitPoint, hitDirection, shooterId, bodyPartTag,
+            // Apply on server (authoritative). The host verifies the hit and derives damage from host-side state.
+            var wasKill = victim.ApplyDamageServer_Auth(serverDamage, verifiedHitPoint, hitDirection, shooterId, bodyPartTag,
                 isHeadshot, weaponId);
 
             // Send a confirmation to EVERYONE, but only the shooter will act on it (self-filter).

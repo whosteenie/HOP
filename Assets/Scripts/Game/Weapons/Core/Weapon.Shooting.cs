@@ -240,7 +240,7 @@ namespace Game.Weapons {
                     hitPlayerRef = new NetworkObjectReference(hitPlayerController.NetworkObject);
                 }
 
-                ApplyDamageToHit(hit, origin, weaponIndex, shotId);
+                ApplyDamageToHit(hit, weaponIndex, shotId);
             } else {
                 endPoint = origin + direction * 600f;
                 hitNormal = direction;
@@ -249,18 +249,11 @@ namespace Game.Weapons {
             }
         }
 
-        private void ApplyDamageToHit(RaycastHit hit, Vector3 origin, int weaponIndex, ulong shotId) {
-            var shooterPosition = playerController != null ? playerController.transform.position : origin;
-            var hitDirection = (hit.point - shooterPosition).normalized;
-
+        private void ApplyDamageToHit(RaycastHit hit, int weaponIndex, ulong shotId) {
             var hitRigidbody = hit.collider.attachedRigidbody;
-            var bodyPartTag = string.Empty;
-            var isHeadshot = false;
             NetworkObject target;
 
             if(hitRigidbody != null) {
-                bodyPartTag = hitRigidbody.tag;
-                isHeadshot = !string.IsNullOrEmpty(bodyPartTag) && bodyPartTag == "Head";
                 target = hitRigidbody.GetComponent<NetworkObject>();
                 if(target == null) {
                     target = hitRigidbody.GetComponentInParent<NetworkObject>();
@@ -275,10 +268,7 @@ namespace Game.Weapons {
                 return;
             }
 
-            var targetRef = new NetworkObjectReference(target);
-            _damageRelay.RequestDamageServerRpc(targetRef, hit.point, hitDirection,
-                hitRigidbody != null ? bodyPartTag : null, hitRigidbody != null && isHeadshot, weaponIndex,
-                shotId);
+            _damageRelay.RequestDamageServerRpc(hit.point, weaponIndex, shotId);
         }
 
         private Vector3 ApplySpread(Vector3 forward, float spreadDegrees) {

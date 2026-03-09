@@ -1,3 +1,4 @@
+using System;
 using Game.Match;
 using Game.Player;
 using Game.UI;
@@ -154,6 +155,72 @@ namespace Game.Weapons {
             return damage > 0f;
         }
 
+        public bool TryVerifyServerHit(int weaponIndex, Vector3 claimedHitPoint, out PlayerController victim,
+            out Vector3 verifiedHitPoint, out Vector3 verifiedHitNormal, out string bodyPartTag, out bool isHeadshot,
+            out string reason) {
+            victim = null;
+            verifiedHitPoint = default;
+            verifiedHitNormal = default;
+            bodyPartTag = null;
+            isHeadshot = false;
+            reason = null;
+
+            var data = GetWeaponDataByIndex(weaponIndex);
+            if(data == null) {
+                reason = "unknown weapon";
+                return false;
+            }
+
+            if(playerController == null) {
+                reason = "shooter controller missing";
+                return false;
+            }
+
+            var origin = playerController.FpCameraTransform != null
+                ? playerController.FpCameraTransform.position
+                : playerController.transform.position;
+            var directionToClaim = claimedHitPoint - origin;
+            var claimDistance = directionToClaim.magnitude;
+            if(claimDistance <= 0.001f) {
+                reason = "invalid claim distance";
+                return false;
+            }
+
+            var direction = directionToClaim / claimDistance;
+            var verificationDistance = Mathf.Clamp(claimDistance + 0.5f, 0.05f, 1000f);
+            var worldMask = playerController.WorldLayer;
+            var playerMask = playerController.PlayerLayer | playerController.EnemyLayer;
+
+            var hasWorldHit = Physics.Raycast(origin, direction, out var worldHit, verificationDistance, worldMask,
+                QueryTriggerInteraction.Ignore);
+            var maxDist = hasWorldHit ? worldHit.distance : verificationDistance;
+            if(maxDist <= 0.001f) {
+                reason = "shot blocked by world";
+                return false;
+            }
+
+            if(data.useSphereCast || data.useSniperOverlay) {
+                if(!TryGetFirstVerifiedSphereHit(origin, direction, maxDist, playerMask, data, out var playerHit,
+                       out victim)) {
+                    reason = hasWorldHit ? "shot blocked by world" : "server sphere verification missed";
+                    return false;
+                }
+
+                PopulateVerifiedHit(playerHit, out verifiedHitPoint, out verifiedHitNormal, out bodyPartTag,
+                    out isHeadshot, ref victim);
+                return true;
+            }
+
+            if(!TryGetFirstVerifiedRayHit(origin, direction, maxDist, playerMask, out var strictHit, out victim)) {
+                reason = hasWorldHit ? "shot blocked by world" : "server ray verification missed";
+                return false;
+            }
+
+            PopulateVerifiedHit(strictHit, out verifiedHitPoint, out verifiedHitNormal, out bodyPartTag,
+                out isHeadshot, ref victim);
+            return true;
+        }
+
         public bool IsFriendlyFireServer(PlayerController shooter, PlayerController victim) {
             if(shooter == null || victim == null) return false;
 
@@ -231,6 +298,140 @@ namespace Game.Weapons {
                 GetWeaponDataByIndex,
                 ResolveWeaponCapacity
             );
+        }
+
+        private bool TryGetFirstVerifiedRayHit(Vector3 origin, Vector3 direction, float maxDist, LayerMask playerMask,
+            out RaycastHit verifiedHit, out PlayerController victim) {
+            verifiedHit = default;
+            victim = null;
+
+            var hits = Physics.RaycastAll(origin, direction, maxDist, playerMask, QueryTriggerInteraction.Ignore);
+            if(hits == null || hits.Length == 0) {
+                return false;
+            }
+
+            Array.Sort(hits, static (a, b) => a.distance.CompareTo(b.distance));
+            foreach(var hit in hits) {
+                var candidate = ResolveHitPlayer(hit);
+                if(candidate == null || candidate.OwnerClientId == OwnerClientId || candidate.IsDead) {
+                    continue;
+                }
+
+                verifiedHit = hit;
+                victim = candidate;
+                return true;
+            }
+
+            return false;
+        }
+
+        private bool TryGetFirstVerifiedSphereHit(Vector3 origin, Vector3 direction, float maxDist, LayerMask playerMask,
+            WeaponData data, out RaycastHit verifiedHit, out PlayerController victim) {
+            verifiedHit = default;
+            victim = null;
+
+            var maxRadius = Mathf.Max(0f, data.sphereCastMaxRadius);
+            var baseRadius = Mathf.Max(0f, data.sphereCastRadius);
+            var growthStart = Mathf.Max(0f, data.sphereCastGrowthStartDist);
+            var growthEnd = data.useDamageFalloff
+                ? Mathf.Max(growthStart + 0.1f, data.minDamageRange)
+                : Mathf.Max(growthStart + 0.1f, maxDist);
+
+            var hits = Physics.SphereCastAll(origin, maxRadius, direction, maxDist, playerMask,
+                QueryTriggerInteraction.Ignore);
+            if(hits == null || hits.Length == 0) {
+                return false;
+            }
+
+            Array.Sort(hits, static (a, b) => a.distance.CompareTo(b.distance));
+            foreach(var hit in hits) {
+                var candidate = ResolveHitPlayer(hit);
+                if(candidate == null || candidate.OwnerClientId == OwnerClientId || candidate.IsDead) {
+                    continue;
+                }
+
+                var dist = hit.distance;
+                float allowedRadius;
+                if(dist <= growthStart) {
+                    allowedRadius = baseRadius;
+                } else if(dist >= growthEnd) {
+                    allowedRadius = maxRadius;
+                } else {
+                    var t = Mathf.InverseLerp(growthStart, growthEnd, dist);
+                    allowedRadius = Mathf.Lerp(baseRadius, maxRadius, t);
+                }
+
+                var hitPoint = hit.point;
+                var projectedPoint = origin + direction * Vector3.Dot(hitPoint - origin, direction);
+                var distFromRay = Vector3.Distance(hitPoint, projectedPoint);
+                if(distFromRay > allowedRadius || dist > maxDist) {
+                    continue;
+                }
+
+                verifiedHit = hit;
+                victim = candidate;
+                return true;
+            }
+
+            return false;
+        }
+
+        private static PlayerController ResolveHitPlayer(RaycastHit hit) {
+            if(hit.collider == null) {
+                return null;
+            }
+
+            var hitRigidbody = hit.collider.attachedRigidbody;
+            if(hitRigidbody != null) {
+                var rbPlayer = hitRigidbody.GetComponent<PlayerController>();
+                if(rbPlayer != null) {
+                    return rbPlayer;
+                }
+
+                return hitRigidbody.GetComponentInParent<PlayerController>();
+            }
+
+            var colliderPlayer = hit.collider.GetComponent<PlayerController>();
+            return colliderPlayer != null ? colliderPlayer : hit.collider.GetComponentInParent<PlayerController>();
+        }
+
+        private static void PopulateVerifiedHit(RaycastHit hit, out Vector3 hitPoint, out Vector3 hitNormal,
+            out string bodyPartTag, out bool isHeadshot, ref PlayerController victim) {
+            hitPoint = hit.point;
+            hitNormal = hit.normal;
+            bodyPartTag = null;
+            isHeadshot = false;
+
+            var hitRigidbody = hit.collider != null ? hit.collider.attachedRigidbody : null;
+            if(hitRigidbody != null) {
+                if(!string.IsNullOrWhiteSpace(hitRigidbody.tag) && !string.Equals(hitRigidbody.tag, "Untagged",
+                       StringComparison.Ordinal)) {
+                    bodyPartTag = hitRigidbody.tag;
+                    isHeadshot = string.Equals(bodyPartTag, "Head", StringComparison.Ordinal);
+                }
+
+                var rbVictim = hitRigidbody.GetComponent<PlayerController>();
+                if(rbVictim != null) {
+                    victim = rbVictim;
+                    return;
+                }
+
+                var parentVictim = hitRigidbody.GetComponentInParent<PlayerController>();
+                if(parentVictim != null) {
+                    victim = parentVictim;
+                    return;
+                }
+            }
+
+            if(hit.collider != null && !string.IsNullOrWhiteSpace(hit.collider.tag) &&
+               !string.Equals(hit.collider.tag, "Untagged", StringComparison.Ordinal)) {
+                bodyPartTag = hit.collider.tag;
+                isHeadshot = string.Equals(bodyPartTag, "Head", StringComparison.Ordinal);
+            }
+
+            if(victim == null && hit.collider != null) {
+                victim = hit.collider.GetComponent<PlayerController>() ?? hit.collider.GetComponentInParent<PlayerController>();
+            }
         }
     }
 }
