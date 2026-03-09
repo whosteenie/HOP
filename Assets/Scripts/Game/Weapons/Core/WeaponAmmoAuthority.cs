@@ -8,6 +8,7 @@ namespace Game.Weapons {
             public float LastShotTime;
             public int ServerAmmo;
             public ulong LastShotId;
+            public int AcceptedClaimsForLastShot;
         }
 
         private readonly Dictionary<int, int> _weaponAmmo = new();
@@ -50,6 +51,7 @@ namespace Game.Weapons {
 
         public void ResetAllWeaponAmmo(IReadOnlyList<WeaponData> weaponDataList, Func<WeaponData, int> resolveWeaponCapacity) {
             _weaponAmmo.Clear();
+            _serverWeaponStates.Clear();
             if(weaponDataList == null) return;
 
             for(var i = 0; i < weaponDataList.Count; i++) {
@@ -57,7 +59,11 @@ namespace Game.Weapons {
                 if(data == null) continue;
 
                 var magCapacity = resolveWeaponCapacity(data);
-                _weaponAmmo[i] = Mathf.Clamp(magCapacity, 0, int.MaxValue);
+                var clampedCapacity = Mathf.Clamp(magCapacity, 0, int.MaxValue);
+                _weaponAmmo[i] = clampedCapacity;
+                _serverWeaponStates[i] = new ServerWeaponState {
+                    ServerAmmo = clampedCapacity
+                };
             }
         }
 
@@ -78,6 +84,13 @@ namespace Game.Weapons {
 
             var state = GetOrCreateServerState(weaponIndex, getWeaponDataByIndex, resolveWeaponCapacity);
             if(shotId == state.LastShotId) {
+                var maxClaimsForShot = data.usePelletSpread ? Mathf.Max(1, data.pelletCount) : 1;
+                if(state.AcceptedClaimsForLastShot >= maxClaimsForShot) {
+                    reason = "too many hit claims for shot";
+                    return false;
+                }
+
+                state.AcceptedClaimsForLastShot++;
                 return true;
             }
 
@@ -102,6 +115,7 @@ namespace Game.Weapons {
             state.ServerAmmo = Mathf.Max(0, state.ServerAmmo - 1);
             state.LastShotTime = now;
             state.LastShotId = shotId;
+            state.AcceptedClaimsForLastShot = 1;
             return true;
         }
 

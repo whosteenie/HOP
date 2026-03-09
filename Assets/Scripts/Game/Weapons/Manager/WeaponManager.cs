@@ -445,8 +445,6 @@ namespace Game.Weapons {
                 magCapacity
             );
 
-            ReportAmmoSync(CurrentWeaponIndex, restoredAmmo);
-
             _pendingHolsterHideSlot = -1;
             UpdateHolsterVisibility();
             RefreshOwnerHolsterShadowState();

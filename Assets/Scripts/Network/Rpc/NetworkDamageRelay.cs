@@ -18,20 +18,26 @@ namespace Network.Rpc {
         /// Called by the local owner (client) to ask the server to apply damage to a target player.
         /// The target is passed as a NetworkObjectReference to avoid hash/index lookups.
         /// </summary>
-        [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
-        public void RequestDamageServerRpc(NetworkObjectReference targetRef, float damage, Vector3 hitPoint,
+        [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Owner)]
+        public void RequestDamageServerRpc(NetworkObjectReference targetRef, Vector3 hitPoint,
             Vector3 hitDirection, string bodyPartTag = null, bool isHeadshot = false, int weaponIndex = -1,
-            ulong shotId = 0) {
+            ulong shotId = 0, RpcParams rpcParams = default) {
+            var senderClientId = rpcParams.Receive.SenderClientId;
+            if(senderClientId != OwnerClientId) {
+                AntiCheatLogger.LogAuthorityViolation("NetworkDamageRelay.RequestDamageServerRpc", senderClientId);
+                return;
+            }
+
             var config = AntiCheatConfig.Instance;
             if(config != null) {
-                if(!RpcRateLimiter.TryConsume(OwnerClientId, RpcRateLimiter.Keys.Damage, config.damageRpcLimit,
+                if(!RpcRateLimiter.TryConsume(senderClientId, RpcRateLimiter.Keys.Damage, config.damageRpcLimit,
                         config.rpcWindowSeconds)) {
-                    AntiCheatLogger.LogRateLimit(OwnerClientId, RpcRateLimiter.Keys.Damage);
+                    AntiCheatLogger.LogRateLimit(senderClientId, RpcRateLimiter.Keys.Damage);
                     return;
                 }
             }
 
-            if(!DebugHelpers.TryGetNetworkObjectSafe(targetRef, out var networkObject, OwnerClientId, 
+            if(!DebugHelpers.TryGetNetworkObjectSafe(targetRef, out var networkObject, senderClientId,
                    "NetworkDamageRelay.RequestDamageServerRpc")) {
                 return;
             }
@@ -39,7 +45,7 @@ namespace Network.Rpc {
             var victim = networkObject.GetComponent<PlayerController>();
             if(!victim || victim.IsDead) return;
 
-            var shooterId = OwnerClientId; // the caller of this RPC
+            var shooterId = senderClientId;
 
             if(weaponIndex < 0) {
                 AntiCheatLogger.LogInvalidDamage(shooterId, "invalid weapon index");
@@ -69,16 +75,37 @@ namespace Network.Rpc {
                 return;
             }
 
+            if(shooterController == null) {
+                AntiCheatLogger.LogInvalidDamage(shooterId, "shooter controller missing");
+                return;
+            }
+
+            if(shooterWeaponManager.CurrentWeaponIndex != weaponIndex) {
+                AntiCheatLogger.LogInvalidDamage(shooterId, "weapon index mismatch");
+                return;
+            }
+
             if(!shooterWeaponManager.ValidateServerShot(weaponIndex, shotId, out var reason)) {
                 AntiCheatLogger.LogInvalidDamage(shooterId, reason);
                 return;
             }
 
+            if(shooterWeaponManager.IsFriendlyFireServer(shooterController, victim)) {
+                AntiCheatLogger.LogInvalidDamage(shooterId, "friendly fire rejected");
+                return;
+            }
+
+            if(!shooterWeaponManager.TryComputeServerDamage(weaponIndex, hitPoint, out var serverDamage,
+                   out reason)) {
+                AntiCheatLogger.LogInvalidDamage(shooterId, reason ?? "server damage computation failed");
+                return;
+            }
+
             var weaponId = shooterWeaponManager.GetWeaponIdByIndex(weaponIndex);
 
-            // Apply on server (authoritative). This function will update stats (kills/deaths/damageDealt) on server.
-            // Body part tag and headshot flag are passed through for future headshot multiplier implementation
-            var wasKill = victim.ApplyDamageServer_Auth(damage, hitPoint, hitDirection, shooterId, bodyPartTag, isHeadshot, weaponId);
+            // Apply on server (authoritative). Damage is derived on the host, not trusted from the client claim.
+            var wasKill = victim.ApplyDamageServer_Auth(serverDamage, hitPoint, hitDirection, shooterId, bodyPartTag,
+                isHeadshot, weaponId);
 
             // Send a confirmation to EVERYONE, but only the shooter will act on it (self-filter).
             HitConfirmClientRpc(shooterId, wasKill);

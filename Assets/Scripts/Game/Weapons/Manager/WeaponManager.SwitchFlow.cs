@@ -170,8 +170,6 @@ namespace Game.Weapons {
             // Update weapon data immediately (no waiting for animations)
             // Pass null for worldWeaponInstance since it's not shown yet - will be set when TP weapon is shown
             CurrentWeapon.SwitchToWeapon(data, fp, null, restoredAmmo, magCapacity);
-            ReportAmmoSync(CurrentWeaponIndex, restoredAmmo);
-
             // Set pulling out state. During post-match, rely on TP animation events (not FP/KIN),
             // with a longer fail-safe timer in case an event is missing.
             IsPullingOut = true;

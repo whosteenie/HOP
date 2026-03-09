@@ -519,9 +519,9 @@ namespace Game.Weapons {
             ExitReloadAnimation();
         }
 
-        private void SyncServerAmmo() {
+        private void SyncServerAmmo(WeaponManager.AmmoSyncReason reason) {
             if(_weaponManager != null) {
-                _weaponManager.ReportAmmoSync(_weaponManager.CurrentWeaponIndex, currentAmmo);
+                _weaponManager.ReportAmmoSync(_weaponManager.CurrentWeaponIndex, currentAmmo, reason);
             }
         }
 
@@ -546,7 +546,7 @@ namespace Game.Weapons {
                 netCurrentDamageMultiplier.Value = 1f;
             }
 
-            SyncServerAmmo();
+            SyncServerAmmo(WeaponManager.AmmoSyncReason.RefillCurrentWeapon);
         }
 
         public void PrepareForPostMatchPodium() {
@@ -582,7 +582,7 @@ namespace Game.Weapons {
             }
 
             PublishOwnerAmmoToHud();
-            SyncServerAmmo();
+            SyncServerAmmo(WeaponManager.AmmoSyncReason.RefillCurrentWeapon);
         }
 
         #endregion

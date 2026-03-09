@@ -240,8 +240,7 @@ namespace Game.Weapons {
                     hitPlayerRef = new NetworkObjectReference(hitPlayerController.NetworkObject);
                 }
 
-                var damage = CalculateDamage(hit.distance);
-                ApplyDamageToHit(hit, origin, damage, weaponIndex, shotId);
+                ApplyDamageToHit(hit, origin, weaponIndex, shotId);
             } else {
                 endPoint = origin + direction * 600f;
                 hitNormal = direction;
@@ -250,9 +249,7 @@ namespace Game.Weapons {
             }
         }
 
-        private void ApplyDamageToHit(RaycastHit hit, Vector3 origin, float damage, int weaponIndex, ulong shotId) {
-            if(damage <= 0f) return;
-
+        private void ApplyDamageToHit(RaycastHit hit, Vector3 origin, int weaponIndex, ulong shotId) {
             var shooterPosition = playerController != null ? playerController.transform.position : origin;
             var hitDirection = (hit.point - shooterPosition).normalized;
 
@@ -279,7 +276,7 @@ namespace Game.Weapons {
             }
 
             var targetRef = new NetworkObjectReference(target);
-            _damageRelay.RequestDamageServerRpc(targetRef, damage, hit.point, hitDirection,
+            _damageRelay.RequestDamageServerRpc(targetRef, hit.point, hitDirection,
                 hitRigidbody != null ? bodyPartTag : null, hitRigidbody != null && isHeadshot, weaponIndex,
                 shotId);
         }
