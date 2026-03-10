@@ -66,6 +66,7 @@ namespace Game.Weapons {
 
             var origin = fpCameraTransform.position;
             var forward = fpCameraTransform.forward;
+            var clientShotTime = Time.time;
             var authoritativeAmmoBeforeShot = Mathf.Max(0, currentAmmo);
 
             currentAmmo--;
@@ -81,7 +82,7 @@ namespace Game.Weapons {
             var shotId = ++_shotSequence;
             var shooterVelocityAtShot = playerController != null ? playerController.GetFullVelocity : Vector3.zero;
 
-            _weaponManager.ReportShotFired(weaponIndex, shotId);
+            _weaponManager.ReportShotFired(weaponIndex, shotId, clientShotTime);
 
             var pelletCount = 1;
             if(CurrentWeaponData != null && CurrentWeaponData.usePelletSpread) {

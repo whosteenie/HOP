@@ -5,7 +5,8 @@ using UnityEngine;
 namespace Game.Weapons {
     internal sealed class WeaponAmmoAuthority {
         private sealed class ServerWeaponState {
-            public float LastShotTime;
+            public float LastShotReceiveTime;
+            public float LastClientShotTime;
             public int ServerAmmo;
             public ulong LastShotId;
             public int AcceptedClaimsForLastShot;
@@ -71,6 +72,7 @@ namespace Game.Weapons {
             int weaponIndex,
             ulong shotId,
             float now,
+            float clientShotTime,
             float fireRateGraceSeconds,
             Func<int, WeaponData> getWeaponDataByIndex,
             Func<WeaponData, int> resolveWeaponCapacity,
@@ -93,9 +95,14 @@ namespace Game.Weapons {
                 return false;
             }
 
-            if(state.LastShotTime > 0f) {
-                var minInterval = Mathf.Max(0.01f, data.fireRate - fireRateGraceSeconds);
-                if(now - state.LastShotTime < minInterval) {
+            var minInterval = Mathf.Max(0.01f, data.fireRate - fireRateGraceSeconds);
+            if(state.LastClientShotTime > 0f && clientShotTime > state.LastClientShotTime) {
+                if(clientShotTime - state.LastClientShotTime < minInterval) {
+                    reason = "firing too fast";
+                    return false;
+                }
+            } else if(state.LastShotReceiveTime > 0f) {
+                if(now - state.LastShotReceiveTime < minInterval) {
                     reason = "firing too fast";
                     return false;
                 }
@@ -107,7 +114,8 @@ namespace Game.Weapons {
             }
 
             state.ServerAmmo = Mathf.Max(0, state.ServerAmmo - 1);
-            state.LastShotTime = now;
+            state.LastShotReceiveTime = now;
+            state.LastClientShotTime = Mathf.Max(clientShotTime, state.LastClientShotTime);
             state.LastShotId = shotId;
             state.AcceptedClaimsForLastShot = 0;
             return true;

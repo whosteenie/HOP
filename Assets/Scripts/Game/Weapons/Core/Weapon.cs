@@ -527,7 +527,7 @@ namespace Game.Weapons {
 
         private void SyncServerWeaponState(WeaponManager.AmmoSyncReason reason) {
             if(_weaponManager != null) {
-                _weaponManager.ReportWeaponStateSync(_weaponManager.CurrentWeaponIndex, reason);
+                _weaponManager.ReportWeaponStateSync(_weaponManager.CurrentWeaponIndex, reason, currentAmmo);
             }
         }
 
