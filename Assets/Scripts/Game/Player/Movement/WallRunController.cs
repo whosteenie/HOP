@@ -94,6 +94,7 @@ namespace Game.Player {
         #region Fields: State
 
         public bool IsWallRunning { get; private set; }
+        public Vector3 CurrentWallNormal => IsWallRunning ? WallNormal : Vector3.zero;
 
         public bool IsRightWallRun {
             get {

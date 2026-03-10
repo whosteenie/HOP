@@ -325,11 +325,14 @@ namespace Game.Player {
             if(LocalPlayer == this) {
                 LocalPlayer = null;
             }
+
+            ResetMovementAuthorityFoundationState();
             base.OnDestroy();
         }
 
         public override void OnNetworkSpawn() {
             base.OnNetworkSpawn();
+            ResetMovementAuthorityFoundationState();
             MarkChildComponentCachesDirty();
             DisableConflictingKinemationFrameworkComponents();
             DisableUnexpectedChildCamerasAndListeners();
@@ -518,6 +521,7 @@ namespace Game.Player {
             UnregisterSpawnedPlayer(this);
 
             UnsubscribeFromNetworkVariables();
+            ResetMovementAuthorityFoundationState();
         }
 
         /// <summary>
@@ -756,9 +760,12 @@ namespace Game.Player {
                 if(animationController != null)
                     animationController.SetCrouching(netIsCrouching.Value);
 
-                if(visualController == null || Time.frameCount % 60 != 0) return;
-                visualController.VerifyAndFixVisibility();
+                if(visualController != null && Time.frameCount % 60 == 0) {
+                    visualController.VerifyAndFixVisibility();
+                }
             }
+
+            UpdateMovementAuthorityFoundation();
         }
 
         private void LateUpdate() {

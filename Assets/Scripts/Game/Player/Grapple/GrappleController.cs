@@ -76,6 +76,7 @@ namespace Game.Player {
         #region Properties
 
         public bool IsGrappling { get; private set; }
+        public Vector3 CurrentGrapplePoint => IsGrappling ? _grapplePoint : Vector3.zero;
 
         public bool CanGrapple { get; private set; } = true;
 

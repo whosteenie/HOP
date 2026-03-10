@@ -43,6 +43,8 @@ namespace Game.Player {
 
         public bool IsMantling { get; private set; }
         public bool CanJump => !IsMantling && _postMantleJumpCooldown <= 0f;
+        public Vector3 CurrentMantleTargetPosition => IsMantling ? _mantleTargetPosition : Vector3.zero;
+        public float CurrentMantleProgress01 => IsMantling ? Mathf.Clamp01(_mantleTimer / MantleDuration) : 0f;
 
         private Vector3 _mantleStartPosition;
         private Vector3 _mantleTargetPosition;
