@@ -6,12 +6,12 @@ using Game.Hopball;
 using Game.Match;
 using Game.Spawning;
 using Game.UI;
-using Network.Components;
 using Network.Diagnostics;
 using Network.Events;
 using Network.Singletons;
 using Unity.Cinemachine;
 using Unity.Netcode;
+using Unity.Netcode.Components;
 using UnityEngine;
 
 namespace Game.Player {
@@ -31,7 +31,7 @@ namespace Game.Player {
         private DeathCameraController _deathCameraController;
         private WeaponManager _weaponManager;
         private CharacterController _characterController;
-        private ClientNetworkTransform _clientNetworkTransform;
+        private AnticipatedNetworkTransform _clientNetworkTransform;
         private Transform _playerTransform;
         private PlayerLookController _lookController;
         private PlayerMovementController _movementController;

@@ -19,6 +19,7 @@ using Steamworks;
 using Unity.Cinemachine;
 using Unity.Collections;
 using Unity.Netcode;
+using Unity.Netcode.Components;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.UIElements;
@@ -44,7 +45,7 @@ namespace Game.Player {
         [SerializeField] private PlayerInput playerInput;
         [SerializeField] private UnityEngine.InputSystem.PlayerInput unityPlayerInput;
         [SerializeField] private Animator playerAnimator;
-        [SerializeField] private ClientNetworkTransform clientNetworkTransform;
+        [SerializeField] private AnticipatedNetworkTransform clientNetworkTransform;
         [SerializeField] private Target playerTarget;
 
         [Header("Cameras")]
@@ -298,6 +299,10 @@ namespace Game.Player {
             MarkChildComponentCachesDirty();
             DisableConflictingKinemationFrameworkComponents();
             DisableUnexpectedChildCamerasAndListeners();
+
+            if(clientNetworkTransform == null) {
+                clientNetworkTransform = GetComponent<AnticipatedNetworkTransform>();
+            }
 
             if(audioRelay == null) {
                 audioRelay = GetComponent<NetworkAudioRelay>();
@@ -669,7 +674,7 @@ namespace Game.Player {
 
         private void OnCrouchStateChanged(bool oldValue, bool newValue) {
             if(movementController != null)
-                movementController.UpdateCrouch(fpCamera);
+                movementController.ApplyReplicatedCrouchState(fpCamera);
         }
 
         private void OnDeathStateChanged(bool oldValue, bool newValue) {
@@ -714,8 +719,11 @@ namespace Game.Player {
 
             if(IsOwner) {
                 if(movementController != null) {
-                    movementController.UpdateMovement(fpCamera);
-                    movementController.UpdateCrouch(fpCamera);
+                    var useAuthoritySlicePrediction = ShouldUseBasicMovementAuthoritySliceLocally();
+                    if(!useAuthoritySlicePrediction) {
+                        movementController.UpdateMovement(fpCamera);
+                        movementController.UpdateCrouch(fpCamera);
+                    }
 
                     if(animationController != null) {
                         animationController.UpdateFallingState(movementController.IsGrounded,
@@ -754,8 +762,8 @@ namespace Game.Player {
                 if(statsController != null)
                     statsController.TrackVelocity();
             } else {
-                if(movementController != null)
-                    movementController.UpdateCrouch(fpCamera);
+                if(!IsServer && movementController != null)
+                    movementController.ApplyReplicatedCrouchState(fpCamera);
 
                 if(animationController != null)
                     animationController.SetCrouching(netIsCrouching.Value);
@@ -770,6 +778,13 @@ namespace Game.Player {
 
         private void LateUpdate() {
             if(!IsOwner || netIsDead.Value) return;
+            if(ShouldUseBasicMovementAuthoritySliceLocally()) {
+                UpdateOwnerRenderLookForMovementAuthoritySlice();
+                if(lookController != null) {
+                    lookController.UpdateMovementAuthorityViewSmoothing();
+                }
+                return;
+            }
 
             if(lookController != null)
                 lookController.UpdateLook();
@@ -781,6 +796,7 @@ namespace Game.Player {
         private void ValidateServerMovement(Vector3 position) {
             var config = AntiCheatConfig.Instance;
             if(config == null || clientNetworkTransform == null) return;
+            if(ShouldBypassLegacyMovementValidation()) return;
 
             var now = Time.time;
             if(netIsDead is { Value: true }) {

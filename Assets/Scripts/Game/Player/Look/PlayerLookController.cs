@@ -36,6 +36,7 @@ namespace Game.Player {
         private float _currentPitch;
         private float _fovVel;
         private float _targetFov;
+        private float _viewYawOffset;
 
         // Input (read from PlayerController)
         private Vector2 LookInput => playerController == null ? Vector2.zero : playerController.lookInput;
@@ -60,25 +61,83 @@ namespace Game.Player {
             if(_upperBodyPitch == null) _upperBodyPitch = playerController.UpperBodyPitch;
             if(_movementController == null) _movementController = playerController.MovementController;
             if(_fpCamera == null) _fpCamera = playerController.FpCamera;
+            if(_fpCamera != null && !_hasCameraBaseLocalPosition) {
+                _cameraBaseLocalPosition = _fpCamera.transform.localPosition;
+                _hasCameraBaseLocalPosition = true;
+            }
         }
 
         /// <summary>
         /// Updates the player's look orientation based on input.
         /// </summary>
         public void UpdateLook() {
-            var sensitivity = GetLookSensitivity();
-            var lookDelta = new Vector2(LookInput.x * sensitivity.x, LookInput.y * sensitivity.y);
-
-            UpdatePitch(lookDelta.y);
+            _viewYawOffset = 0f;
+            var lookDelta = GetScaledLookDelta();
+            ApplyPitchAndPresentation(lookDelta.y, lookDelta.x);
             UpdateYaw(lookDelta.x);
+        }
+
+        public Vector2 GetScaledLookDelta() {
+            return ScaleLookDelta(LookInput);
+        }
+
+        public Vector2 ScaleLookDelta(Vector2 rawLookDelta) {
+            var sensitivity = GetLookSensitivity();
+            return new Vector2(rawLookDelta.x * sensitivity.x, rawLookDelta.y * sensitivity.y);
+        }
+
+        public void ApplyPitchAndPresentation(float pitchDelta, float yawDeltaForPresentation = 0f) {
+            UpdatePitch(pitchDelta);
 
             if(_animationController != null) {
-                _animationController.UpdateTurnAnimation(lookDelta.x);
+                _animationController.UpdateTurnAnimation(yawDeltaForPresentation);
             }
 
             if(_upperBodyPitch != null) {
                 _upperBodyPitch.SetLocalPitchFromCamera(CurrentPitch);
             }
+        }
+
+        public void SetViewYawOffset(float yawOffsetDegrees) {
+            _viewYawOffset = yawOffsetDegrees;
+            ApplyCameraViewTransform();
+        }
+
+        public void SetCameraBaseLocalPosition(Vector3 localPosition) {
+            _cameraBaseLocalPosition = localPosition;
+            _hasCameraBaseLocalPosition = true;
+            ApplyCameraViewTransform();
+        }
+
+        public void CompensateForRootTranslation(Vector3 rootTranslationWorld) {
+            if(_fpCamera == null || _playerTransform == null) return;
+
+            EnsureCameraBaseLocalPosition();
+            var localCompensation = Quaternion.Inverse(_playerTransform.rotation) * -rootTranslationWorld;
+            _viewPositionOffset += localCompensation;
+            ApplyCameraViewTransform();
+        }
+
+        public void UpdateMovementAuthorityViewSmoothing() {
+            if(_fpCamera == null) return;
+            if(_viewPositionOffset.sqrMagnitude <= 0.000001f) return;
+
+            _viewPositionOffset = Vector3.SmoothDamp(_viewPositionOffset, Vector3.zero,
+                ref _viewPositionOffsetVelocity, movementAuthorityPositionSmoothTime);
+
+            if(_viewPositionOffset.sqrMagnitude <= 0.000001f) {
+                _viewPositionOffset = Vector3.zero;
+                _viewPositionOffsetVelocity = Vector3.zero;
+            }
+
+            ApplyCameraViewTransform();
+        }
+
+        public void ResetViewPresentationOffsets() {
+            _viewYawOffset = 0f;
+            _viewPositionOffset = Vector3.zero;
+            _viewPositionOffsetVelocity = Vector3.zero;
+            ApplyCameraViewTransform();
         }
 
         /// <summary>
@@ -125,10 +184,16 @@ namespace Game.Player {
 
         [Header("Tilt")]
         [SerializeField] private float tiltSmoothTime = 0.1f;
+        [Header("Movement Authority View Smoothing")]
+        [SerializeField] private float movementAuthorityPositionSmoothTime = 0.075f;
         
         private float _targetTilt;
         private float _currentTilt;
         private float _tiltVel;
+        private Vector3 _cameraBaseLocalPosition;
+        private Vector3 _viewPositionOffset;
+        private Vector3 _viewPositionOffsetVelocity;
+        private bool _hasCameraBaseLocalPosition;
 
         /// <summary>
         /// Sets the target tilt for the camera.
@@ -145,11 +210,8 @@ namespace Game.Player {
             
             // Update Tilt
             _currentTilt = Mathf.SmoothDamp(_currentTilt, _targetTilt, ref _tiltVel, tiltSmoothTime);
-            
-            if(_fpCamera != null) {
-                // Apply Pitch (X) and Tilt (Z)
-                _fpCamera.transform.localRotation = Quaternion.Euler(CurrentPitch, 0f, _currentTilt);
-            }
+
+            ApplyCameraViewTransform();
         }
 
         /// <summary>
@@ -164,8 +226,21 @@ namespace Game.Player {
         /// </summary>
         public void ResetPitch() {
             CurrentPitch = 0f;
+            ResetViewPresentationOffsets();
+        }
+
+        private void ApplyCameraViewTransform() {
             if(_fpCamera != null) {
-                _fpCamera.transform.localRotation = Quaternion.identity;
+                EnsureCameraBaseLocalPosition();
+                _fpCamera.transform.localPosition = _cameraBaseLocalPosition + _viewPositionOffset;
+                _fpCamera.transform.localRotation = Quaternion.Euler(CurrentPitch, _viewYawOffset, _currentTilt);
+            }
+        }
+
+        private void EnsureCameraBaseLocalPosition() {
+            if(_fpCamera != null && !_hasCameraBaseLocalPosition) {
+                _cameraBaseLocalPosition = _fpCamera.transform.localPosition;
+                _hasCameraBaseLocalPosition = true;
             }
         }
 

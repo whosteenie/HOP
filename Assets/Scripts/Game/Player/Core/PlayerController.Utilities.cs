@@ -2,12 +2,12 @@ using Audio.Networking;
 using Game.Player.Hopball;
 using Game.Player.Look;
 using Game.Weapons;
-using Network.Components;
 using Network.Rpc;
 using OSI;
 using Unity.Cinemachine;
 using Unity.Collections;
 using Unity.Netcode;
+using Unity.Netcode.Components;
 using UnityEngine;
 
 namespace Game.Player {
@@ -238,7 +238,7 @@ namespace Game.Player {
 
         #region Network Components
 
-        public ClientNetworkTransform ClientNetworkTransform => clientNetworkTransform;
+        public AnticipatedNetworkTransform ClientNetworkTransform => clientNetworkTransform;
         public NetworkVariable<float> NetHealth => netHealth;
         public NetworkVariable<bool> NetIsDead => netIsDead;
         public NetworkVariable<bool> NetIsCrouching => netIsCrouching;

@@ -1226,7 +1226,7 @@ GameObject:
   - component: {fileID: -935627131628127128}
   - component: {fileID: 7184346531640925950}
   - component: {fileID: 6677973669287716317}
-  - component: {fileID: 7186099421042391235}
+  - component: {fileID: 7906322676815125306}
   - component: {fileID: -2503030706147355686}
   - component: {fileID: 450411123697177773}
   - component: {fileID: 5088684734431513618}
@@ -1259,7 +1259,7 @@ GameObject:
   - component: {fileID: -4102731384895396433}
   - component: {fileID: 1488962690683598236}
   m_Layer: 0
-  m_Name: Player
+  m_Name: Player CNT BACKUP
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1394,7 +1394,7 @@ MonoBehaviour:
   AutoObjectParentSync: 1
   SyncOwnerTransformWhenParented: 1
   AllowOwnerToParent: 0
---- !u!114 &7186099421042391235
+--- !u!114 &7906322676815125306
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -1403,9 +1403,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 2394102009201851988}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5abfce83aadd948498d4990c645a017b, type: 3}
+  m_Script: {fileID: 11500000, guid: 9433c8abd2412c94ea44d9ebd283d723, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.Components.AnticipatedNetworkTransform
+  m_EditorClassIdentifier: Assembly-CSharp::ClientNetworkTransform
   ShowTopMostFoldoutHeaderGroup: 1
   NetworkTransformExpanded: 1
   AutoOwnerAuthorityTickOffset: 1
@@ -1413,12 +1413,12 @@ MonoBehaviour:
   RotationInterpolationType: 0
   ScaleInterpolationType: 0
   PositionLerpSmoothing: 1
-  PositionMaxInterpolationTime: 0.1
+  PositionMaxInterpolationTime: 0.03
   RotationLerpSmoothing: 1
-  RotationMaxInterpolationTime: 0.1
+  RotationMaxInterpolationTime: 0.02
   ScaleLerpSmoothing: 1
   ScaleMaxInterpolationTime: 0.1
-  AuthorityMode: 0
+  AuthorityMode: 1
   TickSyncChildren: 0
   UseUnreliableDeltas: 1
   SyncPositionX: 1
@@ -1438,9 +1438,8 @@ MonoBehaviour:
   UseHalfFloatPrecision: 0
   InLocalSpace: 0
   SwitchTransformSpaceWhenParented: 0
-  Interpolate: 0
+  Interpolate: 1
   SlerpPosition: 0
-  StaleDataHandling: 1
 --- !u!114 &-2503030706147355686
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1486,7 +1485,7 @@ MonoBehaviour:
   playerInput: {fileID: 1564543611840940099}
   unityPlayerInput: {fileID: 7417474499678138227}
   playerAnimator: {fileID: 7910596075621510296}
-  clientNetworkTransform: {fileID: 7186099421042391235}
+  clientNetworkTransform: {fileID: 7906322676815125306}
   playerTarget: {fileID: 194846676371062103}
   fpCamera: {fileID: 7545715250371650815}
   weaponCamera: {fileID: 5244027151410388770}
@@ -2465,8 +2464,6 @@ MonoBehaviour:
   velocityIntentMinSpeed: 0.25
   highSpeedDirectionLockSpeed: 16
   highSpeedFlipOverrideStrength: 0.85
-  lowSpeedForwardBiasThreshold: 14
-  lowSpeedBackwardVelocityOverride: 11
   curvedSurfaceMaxDistance: 1.2
   curvedStickStrength: 10
   curvedStickTargetDistance: 0.4

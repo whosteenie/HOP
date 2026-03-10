@@ -75,6 +75,11 @@ namespace Game.Player {
         private float _crouchTransition;
         private Vector3 _moveVelocity;
         private Vector3 _cachedFullVelocity;
+        private Vector3 _lastIntendedDisplacement;
+        private Vector3 _lastActualDisplacement;
+        private CollisionFlags _lastMoveCollisionFlags;
+        private bool _lastGroundedBeforeMove;
+        private bool _lastGroundedAfterMove;
         private float _jumpInputSuppressedUntil;
         private const float JumpPadInputSuppressDuration = 0.12f;
 
@@ -93,6 +98,7 @@ namespace Game.Player {
         private bool SprintInput => playerController != null && playerController.sprintInput;
 
         private bool CrouchInput => playerController != null && playerController.crouchInput;
+        private float DeltaTime => playerController != null ? playerController.MovementSimulationDeltaTime : Time.deltaTime;
 
         // Network state (from PlayerController)
         public NetworkVariable<bool> netIsCrouching;
@@ -146,6 +152,14 @@ namespace Game.Player {
         /// Handles wall running, sliding, and normal movement state transitions.
         /// </summary>
         public void UpdateMovement(CinemachineCamera fpCamera = null) {
+            SimulateMovementInternal(GetHeadProbeOrigin(fpCamera));
+        }
+
+        public void SimulateAuthoritativeMovement() {
+            SimulateMovementInternal(GetHeadProbeOrigin(null));
+        }
+
+        private void SimulateMovementInternal(Vector3 headProbeOrigin) {
             if(_isMantling || (_swingGrapple != null && _swingGrapple.IsSwinging)) {
                 return;
             }
@@ -196,7 +210,7 @@ namespace Game.Player {
 
             _wasAirborne = !IsGrounded;
 
-            CheckCeilingHit(fpCamera);
+            CheckCeilingHit(headProbeOrigin);
             ApplyGravity();
             MoveCharacter();
 
@@ -207,11 +221,21 @@ namespace Game.Player {
         /// Updates the player's crouch state, camera height, and collider height.
         /// </summary>
         public void UpdateCrouch(CinemachineCamera fpCamera) {
-            if(fpCamera == null) return;
+            SimulateCrouchFromInput(GetHeadProbeOrigin(fpCamera), fpCamera);
+        }
 
+        public void SimulateAuthoritativeCrouch(CinemachineCamera fpCamera = null) {
+            SimulateCrouchFromInput(GetHeadProbeOrigin(null), fpCamera);
+        }
+
+        public void ApplyReplicatedCrouchState(CinemachineCamera fpCamera = null) {
+            ApplyCrouchState(netIsCrouching != null && netIsCrouching.Value, fpCamera);
+        }
+
+        private void SimulateCrouchFromInput(Vector3 headProbeOrigin, CinemachineCamera fpCamera) {
             var sphereRadius = _characterController != null ? _characterController.radius : 0.3f;
             var headBlocked = Physics.SphereCast(
-                fpCamera.transform.position,
+                headProbeOrigin,
                 sphereRadius,
                 Vector3.up,
                 out _,
@@ -228,27 +252,39 @@ namespace Game.Player {
                 targetCrouchState = headBlocked && isCurrentlyCrouched;
             }
 
-            if(IsOwner && netIsCrouching != null && netIsCrouching.Value != targetCrouchState) {
+            var canWriteCrouchState =
+                playerController != null &&
+                (playerController.ShouldWriteMovementStateFromOwnerLocalPath() ||
+                 playerController.ShouldWriteMovementStateFromServerAuthoritySlice()) &&
+                netIsCrouching != null;
+            if(canWriteCrouchState && netIsCrouching.Value != targetCrouchState) {
                 if(Time.time - _lastCrouchUpdateTime >= CrouchUpdateInterval) {
                     netIsCrouching.Value = targetCrouchState;
                     _lastCrouchUpdateTime = Time.time;
                 }
             }
 
+            ApplyCrouchState(targetCrouchState, fpCamera);
+        }
+
+        private void ApplyCrouchState(bool isCrouching, CinemachineCamera fpCamera) {
             if(_animationController != null) {
-                _animationController.SetCrouching(targetCrouchState);
+                _animationController.SetCrouching(isCrouching);
             }
 
-            var targetTransition = targetCrouchState ? 1f : 0f;
-            _crouchTransition = Mathf.Lerp(_crouchTransition, targetTransition, 10f * Time.deltaTime);
+            var targetTransition = isCrouching ? 1f : 0f;
+            _crouchTransition = Mathf.Lerp(_crouchTransition, targetTransition, 10f * DeltaTime);
 
             var targetCameraHeight = Mathf.Lerp(StandHeight, CrouchHeight, _crouchTransition);
-
-            if(IsOwner) {
-                fpCamera.transform.localPosition = new Vector3(0f, targetCameraHeight, 0f);
+            if(IsOwner && fpCamera != null) {
+                if(playerController != null && playerController.LookController != null) {
+                    playerController.LookController.SetCameraBaseLocalPosition(new Vector3(0f, targetCameraHeight, 0f));
+                } else {
+                    fpCamera.transform.localPosition = new Vector3(0f, targetCameraHeight, 0f);
+                }
             }
 
-            UpdateCharacterControllerCrouch(targetCrouchState);
+            UpdateCharacterControllerCrouch(isCrouching);
         }
 
         /// <summary>
@@ -271,7 +307,7 @@ namespace Game.Player {
             if(GameMenuManager.Instance != null && GameMenuManager.IsPreMatch) {
                 ApplyFriction();
                 var targetVel = Vector3.zero;
-                _horizontalVelocity = Vector3.MoveTowards(_horizontalVelocity, targetVel, Acceleration * Time.deltaTime);
+                _horizontalVelocity = Vector3.MoveTowards(_horizontalVelocity, targetVel, Acceleration * DeltaTime);
                 return;
             }
 
@@ -284,7 +320,7 @@ namespace Game.Player {
 
                 var targetVelocity = motion.sqrMagnitude >= 0.1f ? motion * MaxSpeed : Vector3.zero;
                 _horizontalVelocity =
-                    Vector3.MoveTowards(_horizontalVelocity, targetVelocity, Acceleration * Time.deltaTime);
+                    Vector3.MoveTowards(_horizontalVelocity, targetVelocity, Acceleration * DeltaTime);
             } else {
                 if(_wallRunController != null && _wallRunController.IsWallRunning) return;
                 AirStrafe(motion);
@@ -300,7 +336,7 @@ namespace Game.Player {
             var speed = _horizontalVelocity.magnitude;
             if(speed < 0.001f) return;
 
-            var drop = speed * Friction * Time.deltaTime;
+            var drop = speed * Friction * DeltaTime;
             var newSpeed = Mathf.Max(speed - drop, 0f);
             _horizontalVelocity *= newSpeed / speed;
         }
@@ -331,7 +367,7 @@ namespace Game.Player {
 
             if(addSpeed <= 0) return;
 
-            var accelSpeed = AirAcceleration * Time.deltaTime;
+            var accelSpeed = AirAcceleration * DeltaTime;
             accelSpeed = Mathf.Min(accelSpeed, addSpeed);
 
             _horizontalVelocity += wishDir * accelSpeed;
@@ -340,10 +376,10 @@ namespace Game.Player {
         /// <summary>
         /// Checks for ceiling collisions and stops vertical velocity.
         /// </summary>
-        private void CheckCeilingHit(CinemachineCamera fpCamera) {
-            if(fpCamera == null || _grappleController == null) return;
+        private void CheckCeilingHit(Vector3 headProbeOrigin) {
+            if(_grappleController == null) return;
 
-            var rayHit = Physics.Raycast(fpCamera.transform.position, Vector3.up, out _, 0.75f, _obstacleMask);
+            var rayHit = Physics.Raycast(headProbeOrigin, Vector3.up, out _, 0.75f, _obstacleMask);
             if(!rayHit || !(VerticalVelocity > 0f)) return;
 
             _grappleController.CancelGrapple();
@@ -384,7 +420,7 @@ namespace Game.Player {
 
                 VerticalVelocity = stickVelocity;
             } else {
-                VerticalVelocity += _gravityY * GravityScale * Time.deltaTime;
+                VerticalVelocity += _gravityY * GravityScale * DeltaTime;
                 VerticalVelocity = Mathf.Max(VerticalVelocity, TerminalVelocity);
             }
         }
@@ -399,8 +435,12 @@ namespace Game.Player {
 
             var tr = _playerTransform;
             var positionBefore = _playerTransform.position;
-            _characterController.Move(_moveVelocity * Time.deltaTime);
+            _lastGroundedBeforeMove = IsGrounded;
+            _lastIntendedDisplacement = _moveVelocity * DeltaTime;
+            _lastMoveCollisionFlags = _characterController.Move(_lastIntendedDisplacement);
             var positionAfter = tr.position;
+            _lastActualDisplacement = positionAfter - positionBefore;
+            _lastGroundedAfterMove = IsGrounded;
             
             if (IsOwner && ProgressionManager.Instance != null) {
                 if (IsGrounded) {
@@ -410,7 +450,7 @@ namespace Game.Player {
                          ProgressionManager.Instance.AddDistanceTraveled(dist);
                     }
                 } else {
-                    ProgressionManager.Instance.RecordAirtime(Time.deltaTime);
+                    ProgressionManager.Instance.RecordAirtime(DeltaTime);
                 }
             }
 
@@ -428,7 +468,7 @@ namespace Game.Player {
         private void HandleWallContactDampening(Vector3 positionBefore, Vector3 positionAfter) {
             // Calculate actual vs intended horizontal movement
             var actualMove = positionAfter - positionBefore;
-            var actualHorizontal = new Vector3(actualMove.x, 0f, actualMove.z) / Time.deltaTime;
+            var actualHorizontal = new Vector3(actualMove.x, 0f, actualMove.z) / DeltaTime;
             var intendedHorizontal = new Vector3(_horizontalVelocity.x, 0f, _horizontalVelocity.z);
             
             var intendedSpeed = intendedHorizontal.magnitude;
@@ -445,19 +485,19 @@ namespace Game.Player {
             
             if (blockRatio < WallBlockRatio) {
                 // We're blocked - accumulate contact time
-                _wallContactTime += Time.deltaTime;
+                _wallContactTime += DeltaTime;
 
                 if(!(_wallContactTime > WallContactThreshold)) return;
                 // Grace period expired - dampen velocity toward actual movement
                 _horizontalVelocity = Vector3.Lerp(
                     _horizontalVelocity,
                     actualHorizontal,
-                    WallDampenRate * Time.deltaTime
+                    WallDampenRate * DeltaTime
                 );
                     
                 // Also dampen slide speed if currently sliding
                 if (IsSliding) {
-                    _slideSpeed = Mathf.Lerp(_slideSpeed, actualSpeed, WallDampenRate * Time.deltaTime);
+                    _slideSpeed = Mathf.Lerp(_slideSpeed, actualSpeed, WallDampenRate * DeltaTime);
                 }
             } else {
                 // Not blocked - reset timer
@@ -468,7 +508,7 @@ namespace Game.Player {
         private void UpdateCharacterControllerCrouch(bool isCrouching) {
             var targetTransition = isCrouching ? 1f : 0f;
             if(!IsOwner) {
-                _crouchTransition = Mathf.Lerp(_crouchTransition, targetTransition, 10f * Time.deltaTime);
+                _crouchTransition = Mathf.Lerp(_crouchTransition, targetTransition, 10f * DeltaTime);
             }
 
             var targetColliderHeight = Mathf.Lerp(StandCollider, CrouchCollider, _crouchTransition);
@@ -640,6 +680,11 @@ namespace Game.Player {
 
         // Used by grapple/jump-pad interactions to identify an active pad-launch phase.
         public bool IsInJumpPadLaunch { get; private set; }
+        public Vector3 LastIntendedDisplacement => _lastIntendedDisplacement;
+        public Vector3 LastActualDisplacement => _lastActualDisplacement;
+        public CollisionFlags LastMoveCollisionFlags => _lastMoveCollisionFlags;
+        public bool LastGroundedBeforeMove => _lastGroundedBeforeMove;
+        public bool LastGroundedAfterMove => _lastGroundedAfterMove;
 
         #region Slide Methods
 
@@ -684,7 +729,10 @@ namespace Game.Player {
             _slideSpeed = _horizontalVelocity.magnitude;
             _slideTimer = 0f;
 
-            if(IsOwner && netIsSliding != null) {
+            if(playerController != null &&
+               (playerController.ShouldWriteMovementStateFromOwnerLocalPath() ||
+                playerController.ShouldWriteMovementStateFromServerAuthoritySlice()) &&
+               netIsSliding != null) {
                 netIsSliding.Value = true;
             }
             
@@ -717,13 +765,13 @@ namespace Game.Player {
 
             // Apply proportional friction (faster slides slow down faster)
             var friction = SlideBaseFriction + _slideSpeed * SlideSpeedFriction;
-            _slideSpeed -= friction * Time.deltaTime;
+            _slideSpeed -= friction * DeltaTime;
 
             // Apply slope influence
             ApplySlopeToSlide();
 
             // Increment timer and check duration
-            _slideTimer += Time.deltaTime;
+            _slideTimer += DeltaTime;
             if (_slideTimer >= SlideDuration) {
                 EndSlide();
                 return;
@@ -772,7 +820,7 @@ namespace Game.Player {
             var slopeDirection = Vector3.ProjectOnPlane(Vector3.down, groundNormal).normalized;
             var slopeDot = Vector3.Dot(_slideDirection, slopeDirection);
 
-            _slideSpeed += slopeDot * SlideSlopeMultiplier * Time.deltaTime;
+            _slideSpeed += slopeDot * SlideSlopeMultiplier * DeltaTime;
             _slideSpeed = Mathf.Clamp(_slideSpeed, 0f, 50f);
         }
 
@@ -792,7 +840,10 @@ namespace Game.Player {
             }
 
             // Sync to network
-            if(IsOwner && netIsSliding != null) {
+            if(playerController != null &&
+               (playerController.ShouldWriteMovementStateFromOwnerLocalPath() ||
+                playerController.ShouldWriteMovementStateFromServerAuthoritySlice()) &&
+               netIsSliding != null) {
                 netIsSliding.Value = false;
             }
 
@@ -818,7 +869,10 @@ namespace Game.Player {
             IsSliding = false;
 
             // Sync to network
-            if(IsOwner && netIsSliding != null) {
+            if(playerController != null &&
+               (playerController.ShouldWriteMovementStateFromOwnerLocalPath() ||
+                playerController.ShouldWriteMovementStateFromServerAuthoritySlice()) &&
+               netIsSliding != null) {
                 netIsSliding.Value = false;
             }
 
@@ -842,6 +896,24 @@ namespace Game.Player {
 
             // Initiate slide in grapple direction
             BeginSlide();
+        }
+
+        private Vector3 GetHeadProbeOrigin(CinemachineCamera fpCamera) {
+            if(fpCamera != null) {
+                return fpCamera.transform.position;
+            }
+
+            var cameraHeight = Mathf.Lerp(StandHeight, CrouchHeight, _crouchTransition);
+            if(_characterController != null) {
+                var worldCenter = _characterController.transform.TransformPoint(_characterController.center);
+                return new Vector3(worldCenter.x, _characterController.transform.position.y + cameraHeight, worldCenter.z);
+            }
+
+            if(_playerTransform != null) {
+                return _playerTransform.position + Vector3.up * cameraHeight;
+            }
+
+            return transform.position + Vector3.up * cameraHeight;
         }
 
         #endregion

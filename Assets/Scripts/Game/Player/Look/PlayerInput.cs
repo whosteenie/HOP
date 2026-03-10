@@ -24,6 +24,7 @@ namespace Game.Player.Look {
         private UnityEngine.InputSystem.PlayerInput _playerInputComponent;
         private InputActionMap _playerActionMap;
         private InputAction _moveAction;
+        private InputAction _lookAction;
         private InputAction _attackAction;
         private InputAction _jumpAction;
         private InputAction _voiceAction;
@@ -108,6 +109,8 @@ namespace Game.Player.Look {
         private bool _nextWeaponScrollDownBound;
         private bool _previousWeaponScrollUpBound;
         private bool _previousWeaponScrollDownBound;
+        private Vector2 _pendingMovementAuthorityLookDelta;
+        private Vector2 _pendingMovementAuthorityRenderLookDelta;
         public bool IsSniperOverlayActive { get; private set; }
 
         [SerializeField] private float sniperZoomFov = 20f;
@@ -138,6 +141,49 @@ namespace Game.Player.Look {
 
                 return _grappleAction != null && _grappleAction.IsPressed();
             }
+        }
+
+        internal Vector2 SampleMovementAuthorityMoveInput() {
+            if(_moveAction == null) {
+                RefreshCachedInputActions();
+            }
+
+            if(_moveAction == null || IsPausedOrDead || PostMatchManager.IsPostMatchMovementLockedLocal) {
+                return Vector2.zero;
+            }
+
+            return _moveAction.ReadValue<Vector2>();
+        }
+
+        internal Vector2 ConsumeMovementAuthorityLookInput() {
+            if(IsPausedOrDead || playerController == null || playerController.LockLook) {
+                _pendingMovementAuthorityLookDelta = Vector2.zero;
+                _pendingMovementAuthorityRenderLookDelta = Vector2.zero;
+                return Vector2.zero;
+            }
+
+            var rawDelta = _pendingMovementAuthorityLookDelta;
+            _pendingMovementAuthorityLookDelta = Vector2.zero;
+
+            var zoomMultiplier = IsSniperOverlayActive ? _sniperSensitivityMultiplier : 1f;
+            var zoomAdjustedDelta = rawDelta * zoomMultiplier;
+            var lookController = playerController.LookController;
+            return lookController != null ? lookController.ScaleLookDelta(zoomAdjustedDelta) : zoomAdjustedDelta;
+        }
+
+        internal Vector2 ConsumeMovementAuthorityRenderLookInput() {
+            if(IsPausedOrDead || playerController == null || playerController.LockLook) {
+                _pendingMovementAuthorityRenderLookDelta = Vector2.zero;
+                return Vector2.zero;
+            }
+
+            var rawDelta = _pendingMovementAuthorityRenderLookDelta;
+            _pendingMovementAuthorityRenderLookDelta = Vector2.zero;
+
+            var zoomMultiplier = IsSniperOverlayActive ? _sniperSensitivityMultiplier : 1f;
+            var zoomAdjustedDelta = rawDelta * zoomMultiplier;
+            var lookController = playerController.LookController;
+            return lookController != null ? lookController.ScaleLookDelta(zoomAdjustedDelta) : zoomAdjustedDelta;
         }
 
         #region Unity Methods
@@ -218,6 +264,8 @@ namespace Game.Player.Look {
         private void OnDisable() {
             this.UnsubscribeFromEventBus();
             _queuedWeaponCycleOffset = 0;
+            _pendingMovementAuthorityLookDelta = Vector2.zero;
+            _pendingMovementAuthorityRenderLookDelta = Vector2.zero;
             if(_deferredAmmoHudRefreshRoutine != null) {
                 StopCoroutine(_deferredAmmoHudRefreshRoutine);
                 _deferredAmmoHudRefreshRoutine = null;
@@ -355,6 +403,10 @@ namespace Game.Player.Look {
                     }
                 }
 
+                if(TryQueueMovementAuthorityJump()) {
+                    return;
+                }
+
                 // Always allow hold-to-jump (for scroll wheel support)
                 playerController.TryJump();
                 
@@ -429,6 +481,15 @@ namespace Game.Player.Look {
                 : binding.ToUpperInvariant();
         }
 
+        private bool TryQueueMovementAuthorityJump() {
+            if(playerController == null || !playerController.ShouldUseBasicMovementAuthoritySliceLocally()) {
+                return false;
+            }
+
+            playerController.QueueMovementAuthorityJumpPress();
+            return true;
+        }
+
         #endregion
 
         #region Bot Control Interface
@@ -464,6 +525,10 @@ namespace Game.Player.Look {
             if(!playerController.IsGrounded && MantleController != null) {
                 MantleController.TryMantle();
                 if(MantleController.IsMantling) return;
+            }
+
+            if(TryQueueMovementAuthorityJump()) {
+                return;
             }
 
             playerController.TryJump();
@@ -554,11 +619,15 @@ namespace Game.Player.Look {
             if(IsBot) return;
             if(!IsOwner) return;
             if(IsPausedOrDead || playerController.LockLook) {
+                _pendingMovementAuthorityLookDelta = Vector2.zero;
+                _pendingMovementAuthorityRenderLookDelta = Vector2.zero;
                 playerController.lookInput = Vector2.zero;
                 return;
             }
 
             var rawDelta = value.Get<Vector2>();
+            _pendingMovementAuthorityLookDelta += rawDelta;
+            _pendingMovementAuthorityRenderLookDelta += rawDelta;
 
             var zoomMultiplier = IsSniperOverlayActive ? _sniperSensitivityMultiplier : 1f;
             playerController.lookInput = rawDelta * zoomMultiplier;
@@ -653,6 +722,10 @@ namespace Game.Player.Look {
                 }
             }
 
+            if(TryQueueMovementAuthorityJump()) {
+                return;
+            }
+
             playerController.TryJump();
 
             if(GrappleController != null && GrappleController.IsGrappling) {
@@ -664,6 +737,10 @@ namespace Game.Player.Look {
             if(!IsOwner || IsPreMatchOrPausedOrDead) return;
             var isMantling = MantleController != null && MantleController.IsMantling;
             if(isMantling) return;
+
+            if(TryQueueMovementAuthorityJump()) {
+                return;
+            }
 
             playerController.TryJump();
 
@@ -820,6 +897,7 @@ namespace Game.Player.Look {
             if(_playerInputComponent == null || _playerInputComponent.actions == null) {
                 _playerActionMap = null;
                 _moveAction = null;
+                _lookAction = null;
                 _attackAction = null;
                 _jumpAction = null;
                 _voiceAction = null;
@@ -829,6 +907,7 @@ namespace Game.Player.Look {
 
             _playerActionMap = _playerInputComponent.actions.FindActionMap("Player");
             _moveAction = _playerActionMap?.FindAction("Move");
+            _lookAction = _playerActionMap?.FindAction("Look");
             _attackAction = _playerActionMap?.FindAction("Attack");
             _jumpAction = _playerActionMap?.FindAction("Jump");
             _voiceAction = _playerActionMap?.FindAction("Voice");

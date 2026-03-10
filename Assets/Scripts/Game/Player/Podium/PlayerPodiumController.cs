@@ -1,6 +1,6 @@
 using System.Collections;
-using Network.Components;
 using Unity.Netcode;
+using Unity.Netcode.Components;
 using UnityEngine;
 
 namespace Game.Player {
@@ -15,7 +15,7 @@ namespace Game.Player {
         private PlayerVisualController _visualController;
         private PlayerRagdoll _playerRagdoll;
         private CharacterController _characterController;
-        private ClientNetworkTransform _clientNetworkTransform;
+        private AnticipatedNetworkTransform _clientNetworkTransform;
 
         [Header("Podium Settings")]
         [SerializeField] private Transform rootBone;
