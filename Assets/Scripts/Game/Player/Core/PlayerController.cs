@@ -696,6 +696,7 @@ namespace Game.Player {
                 var authPos = clientNetworkTransform.transform.position;
                 ValidateServerMovement(authPos);
                 HandleOutOfBoundsChecks(authPos);
+                CaptureShotBasisHistoryServer();
 
                 if(healthController != null)
                     healthController.UpdateHealthRegeneration();

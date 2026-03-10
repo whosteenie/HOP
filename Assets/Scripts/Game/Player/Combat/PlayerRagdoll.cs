@@ -1,4 +1,7 @@
+using System.Collections.Generic;
+using System;
 using System.Linq;
+using Network.AntiCheat;
 using Network.Diagnostics;
 using Unity.Netcode;
 using UnityEngine;
@@ -23,12 +26,27 @@ namespace Game.Player {
         #pragma warning disable CS0414 // Field is assigned but never used (reserved for future headshot feature)
         [SerializeField] private string headTag = "Head";
         #pragma warning restore CS0414
+        
+        [Header("Combat Rewind")]
+        [SerializeField] private float rewindHistoryDurationSeconds = 0.25f;
+        [SerializeField] private float rewindCaptureIntervalSeconds = 1f / 60f;
+        private const float DefaultRewindHistoryDurationSeconds = 0.25f;
+        private const float DefaultRewindCaptureIntervalSeconds = 1f / 60f;
 
         private Rigidbody[] _ragdollRigidbodies;
         private CharacterJoint[] _ragdollJoints;
         private Collider[] _ragdollColliders;
         private Vector3 _hitPoint;
         private Vector3 _hitDir;
+        private Transform[] _rewindHitboxTransforms;
+        private readonly List<HitboxPoseSnapshot> _hitboxHistory = new();
+        private float _lastHitboxSnapshotTime = float.NegativeInfinity;
+
+        public sealed class HitboxPoseSnapshot {
+            public float ServerTime;
+            public Vector3[] Positions;
+            public Quaternion[] Rotations;
+        }
 
         /// <summary>
         /// Returns whether the player is currently in ragdoll state.
@@ -68,6 +86,7 @@ namespace Game.Player {
             
             // Enable colliders for hit detection (even when ragdoll is disabled)
             EnableCollidersForHitDetection();
+            RefreshRewindHitboxTransforms();
         }
 
         /// <summary>
@@ -150,6 +169,10 @@ namespace Game.Player {
             
             // Ensure colliders are enabled for hit detection after disabling ragdoll
             EnableCollidersForHitDetection();
+        }
+
+        private void LateUpdate() {
+            CaptureHitboxHistoryServer();
         }
 
         private void EnableRagdollPhysics() {
@@ -245,6 +268,210 @@ namespace Game.Player {
                     col.gameObject.layer = enemyLayer;
                 }
             }
+        }
+
+        public HitboxPoseSnapshot CaptureCurrentHitboxPose() {
+            if(_rewindHitboxTransforms == null || _rewindHitboxTransforms.Length == 0) {
+                RefreshRewindHitboxTransforms();
+            }
+
+            if(_rewindHitboxTransforms == null || _rewindHitboxTransforms.Length == 0) {
+                return null;
+            }
+
+            var snapshot = new HitboxPoseSnapshot {
+                Positions = new Vector3[_rewindHitboxTransforms.Length],
+                Rotations = new Quaternion[_rewindHitboxTransforms.Length]
+            };
+
+            for(var i = 0; i < _rewindHitboxTransforms.Length; i++) {
+                var hitboxTransform = _rewindHitboxTransforms[i];
+                if(hitboxTransform == null) {
+                    snapshot.Positions[i] = Vector3.zero;
+                    snapshot.Rotations[i] = Quaternion.identity;
+                    continue;
+                }
+
+                snapshot.Positions[i] = hitboxTransform.position;
+                snapshot.Rotations[i] = hitboxTransform.rotation;
+            }
+
+            return snapshot;
+        }
+
+        public bool TryGetHistoricalHitboxPose(float serverTime, out HitboxPoseSnapshot snapshot) {
+            snapshot = null;
+            if(_hitboxHistory.Count == 0) {
+                return false;
+            }
+
+            if(serverTime <= _hitboxHistory[0].ServerTime) {
+                snapshot = CloneSnapshot(_hitboxHistory[0]);
+                return snapshot != null;
+            }
+
+            var lastIndex = _hitboxHistory.Count - 1;
+            if(serverTime >= _hitboxHistory[lastIndex].ServerTime) {
+                snapshot = CloneSnapshot(_hitboxHistory[lastIndex]);
+                return snapshot != null;
+            }
+
+            for(var i = 1; i < _hitboxHistory.Count; i++) {
+                var newer = _hitboxHistory[i];
+                if(serverTime > newer.ServerTime) {
+                    continue;
+                }
+
+                var older = _hitboxHistory[i - 1];
+                var delta = newer.ServerTime - older.ServerTime;
+                if(delta <= 0.0001f) {
+                    snapshot = CloneSnapshot(newer);
+                    return snapshot != null;
+                }
+
+                var t = Mathf.Clamp01((serverTime - older.ServerTime) / delta);
+                snapshot = InterpolateSnapshot(older, newer, t, serverTime);
+                return snapshot != null;
+            }
+
+            return false;
+        }
+
+        public void ApplyHitboxPose(HitboxPoseSnapshot snapshot) {
+            if(snapshot == null || snapshot.Positions == null || snapshot.Rotations == null) return;
+            if(_rewindHitboxTransforms == null || _rewindHitboxTransforms.Length == 0) {
+                RefreshRewindHitboxTransforms();
+            }
+
+            if(_rewindHitboxTransforms == null || snapshot.Positions.Length != _rewindHitboxTransforms.Length ||
+               snapshot.Rotations.Length != _rewindHitboxTransforms.Length) {
+                return;
+            }
+
+            for(var i = 0; i < _rewindHitboxTransforms.Length; i++) {
+                var hitboxTransform = _rewindHitboxTransforms[i];
+                if(hitboxTransform == null) {
+                    continue;
+                }
+
+                hitboxTransform.SetPositionAndRotation(snapshot.Positions[i], snapshot.Rotations[i]);
+            }
+        }
+
+        private void CaptureHitboxHistoryServer() {
+            if(!IsServer || !IsSpawned || IsRagdoll) return;
+            if(playerController != null && playerController.IsDead) return;
+
+            var serverTime = NetworkManager != null ? NetworkManager.ServerTime.TimeAsFloat : Time.time;
+            var captureInterval = GetRewindCaptureIntervalSeconds();
+            if(serverTime - _lastHitboxSnapshotTime < captureInterval) {
+                return;
+            }
+
+            var snapshot = CaptureCurrentHitboxPose();
+            if(snapshot == null) {
+                return;
+            }
+
+            snapshot.ServerTime = serverTime;
+            _hitboxHistory.Add(snapshot);
+            _lastHitboxSnapshotTime = serverTime;
+            TrimHitboxHistory(snapshot.ServerTime);
+        }
+
+        private void RefreshRewindHitboxTransforms() {
+            if(_ragdollRigidbodies == null || _ragdollRigidbodies.Length == 0) {
+                _rewindHitboxTransforms = null;
+                _hitboxHistory.Clear();
+                return;
+            }
+
+            var baseGameObject = _characterController != null ? _characterController.gameObject : gameObject;
+            var hitboxTransforms = new List<Transform>(_ragdollRigidbodies.Length);
+            foreach(var rb in _ragdollRigidbodies) {
+                if(rb == null || rb.gameObject == baseGameObject) {
+                    continue;
+                }
+
+                hitboxTransforms.Add(rb.transform);
+            }
+
+            if(_rewindHitboxTransforms != null && _rewindHitboxTransforms.Length != hitboxTransforms.Count) {
+                _hitboxHistory.Clear();
+            }
+
+            _rewindHitboxTransforms = hitboxTransforms.ToArray();
+        }
+
+        private void TrimHitboxHistory(float now) {
+            var maxAge = Mathf.Max(DefaultRewindHistoryDurationSeconds, GetRewindHistoryDurationSeconds());
+            while(_hitboxHistory.Count > 0 && now - _hitboxHistory[0].ServerTime > maxAge) {
+                _hitboxHistory.RemoveAt(0);
+            }
+        }
+
+        private float GetRewindHistoryDurationSeconds() {
+            var config = AntiCheatConfig.Instance;
+            if(config != null && config.combatRewindHistorySeconds > 0f) {
+                return config.combatRewindHistorySeconds;
+            }
+
+            return rewindHistoryDurationSeconds > 0f
+                ? rewindHistoryDurationSeconds
+                : DefaultRewindHistoryDurationSeconds;
+        }
+
+        private float GetRewindCaptureIntervalSeconds() {
+            var config = AntiCheatConfig.Instance;
+            if(config != null && config.combatRewindCaptureIntervalSeconds > 0f) {
+                return config.combatRewindCaptureIntervalSeconds;
+            }
+
+            return rewindCaptureIntervalSeconds > 0f
+                ? rewindCaptureIntervalSeconds
+                : DefaultRewindCaptureIntervalSeconds;
+        }
+
+        private static HitboxPoseSnapshot CloneSnapshot(HitboxPoseSnapshot source) {
+            if(source == null || source.Positions == null || source.Rotations == null) {
+                return null;
+            }
+
+            var positions = new Vector3[source.Positions.Length];
+            var rotations = new Quaternion[source.Rotations.Length];
+            Array.Copy(source.Positions, positions, source.Positions.Length);
+            Array.Copy(source.Rotations, rotations, source.Rotations.Length);
+            return new HitboxPoseSnapshot {
+                ServerTime = source.ServerTime,
+                Positions = positions,
+                Rotations = rotations
+            };
+        }
+
+        private static HitboxPoseSnapshot InterpolateSnapshot(HitboxPoseSnapshot older, HitboxPoseSnapshot newer,
+            float t, float serverTime) {
+            if(older == null || newer == null || older.Positions == null || newer.Positions == null ||
+               older.Rotations == null || newer.Rotations == null) {
+                return null;
+            }
+
+            if(older.Positions.Length != newer.Positions.Length || older.Rotations.Length != newer.Rotations.Length ||
+               older.Positions.Length != older.Rotations.Length) {
+                return null;
+            }
+
+            var positions = new Vector3[older.Positions.Length];
+            var rotations = new Quaternion[older.Rotations.Length];
+            for(var i = 0; i < positions.Length; i++) {
+                positions[i] = Vector3.Lerp(older.Positions[i], newer.Positions[i], t);
+                rotations[i] = Quaternion.Slerp(older.Rotations[i], newer.Rotations[i], t);
+            }
+
+            return new HitboxPoseSnapshot {
+                ServerTime = serverTime,
+                Positions = positions,
+                Rotations = rotations
+            };
         }
     }
 }

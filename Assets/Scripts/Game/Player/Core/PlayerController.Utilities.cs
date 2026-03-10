@@ -2,9 +2,11 @@ using Audio.Networking;
 using Game.Player.Hopball;
 using Game.Player.Look;
 using Game.Weapons;
+using Network.AntiCheat;
 using Network.Components;
 using Network.Rpc;
 using OSI;
+using System.Collections.Generic;
 using Unity.Cinemachine;
 using Unity.Collections;
 using Unity.Netcode;
@@ -16,6 +18,16 @@ namespace Game.Player {
     /// Separated into partial class for better organization.
     /// </summary>
     public partial class PlayerController {
+        private const float DefaultCombatRewindHistorySeconds = 0.25f;
+        private const float DefaultCombatRewindCaptureIntervalSeconds = 1f / 60f;
+        private readonly List<ShotBasisSnapshot> _shotBasisHistory = new();
+        private float _lastShotBasisSnapshotTime = float.NegativeInfinity;
+
+        public sealed class ShotBasisSnapshot {
+            public float ServerTime;
+            public Vector3 Origin;
+            public Quaternion AimRotation;
+        }
 
         #region Public API
 
@@ -339,6 +351,132 @@ namespace Game.Player {
             }
         }
 
+        public bool TryCaptureCurrentShotBasis(out ShotBasisSnapshot snapshot) {
+            snapshot = null;
+
+            var aimRotation = GetCurrentAimRotation();
+            if(!aimRotation.HasValue) {
+                return false;
+            }
+
+            snapshot = new ShotBasisSnapshot {
+                Origin = GetCurrentShotOrigin(),
+                AimRotation = aimRotation.Value
+            };
+            return true;
+        }
+
+        public bool TryGetHistoricalShotBasis(float serverTime, out ShotBasisSnapshot snapshot) {
+            snapshot = null;
+            if(_shotBasisHistory.Count == 0) {
+                return TryCaptureCurrentShotBasis(out snapshot);
+            }
+
+            if(serverTime <= _shotBasisHistory[0].ServerTime) {
+                snapshot = CloneShotBasis(_shotBasisHistory[0]);
+                return snapshot != null;
+            }
+
+            var lastIndex = _shotBasisHistory.Count - 1;
+            if(serverTime >= _shotBasisHistory[lastIndex].ServerTime) {
+                snapshot = CloneShotBasis(_shotBasisHistory[lastIndex]);
+                return snapshot != null;
+            }
+
+            for(var i = 1; i < _shotBasisHistory.Count; i++) {
+                var newer = _shotBasisHistory[i];
+                if(serverTime > newer.ServerTime) {
+                    continue;
+                }
+
+                var older = _shotBasisHistory[i - 1];
+                var delta = newer.ServerTime - older.ServerTime;
+                if(delta <= 0.0001f) {
+                    snapshot = CloneShotBasis(newer);
+                    return snapshot != null;
+                }
+
+                var t = Mathf.Clamp01((serverTime - older.ServerTime) / delta);
+                snapshot = new ShotBasisSnapshot {
+                    ServerTime = serverTime,
+                    Origin = Vector3.Lerp(older.Origin, newer.Origin, t),
+                    AimRotation = Quaternion.Slerp(older.AimRotation, newer.AimRotation, t)
+                };
+                return true;
+            }
+
+            return TryCaptureCurrentShotBasis(out snapshot);
+        }
+
+        internal void CaptureShotBasisHistoryServer() {
+            if(!IsServer || !IsSpawned || IsDead) return;
+
+            var serverTime = NetworkManager != null ? NetworkManager.ServerTime.TimeAsFloat : Time.time;
+            var captureInterval = GetCombatRewindCaptureIntervalSeconds();
+            if(serverTime - _lastShotBasisSnapshotTime < captureInterval) {
+                return;
+            }
+
+            if(!TryCaptureCurrentShotBasis(out var snapshot) || snapshot == null) {
+                return;
+            }
+
+            snapshot.ServerTime = serverTime;
+            _shotBasisHistory.Add(snapshot);
+            _lastShotBasisSnapshotTime = serverTime;
+            TrimShotBasisHistory(snapshot.ServerTime);
+        }
+
         #endregion
+
+        private Vector3 GetCurrentShotOrigin() {
+            return FpCameraTransform != null ? FpCameraTransform.position : PlayerTransform.position;
+        }
+
+        private Quaternion? GetCurrentAimRotation() {
+            if(PlayerTransform == null) {
+                return null;
+            }
+
+            var pitchDegrees = upperBodyPitch != null ? upperBodyPitch.netPitchDeg.Value : 0f;
+            return PlayerTransform.rotation * Quaternion.Euler(pitchDegrees, 0f, 0f);
+        }
+
+        private void TrimShotBasisHistory(float now) {
+            var maxAge = GetCombatRewindHistorySeconds();
+            while(_shotBasisHistory.Count > 0 && now - _shotBasisHistory[0].ServerTime > maxAge) {
+                _shotBasisHistory.RemoveAt(0);
+            }
+        }
+
+        private static ShotBasisSnapshot CloneShotBasis(ShotBasisSnapshot source) {
+            if(source == null) {
+                return null;
+            }
+
+            return new ShotBasisSnapshot {
+                ServerTime = source.ServerTime,
+                Origin = source.Origin,
+                AimRotation = source.AimRotation
+            };
+        }
+
+        private static float GetCombatRewindHistorySeconds() {
+            var config = AntiCheatConfig.Instance;
+            if(config != null && config.combatRewindHistorySeconds > 0f) {
+                return config.combatRewindHistorySeconds;
+            }
+
+            return DefaultCombatRewindHistorySeconds;
+        }
+
+        private static float GetCombatRewindCaptureIntervalSeconds() {
+            var config = AntiCheatConfig.Instance;
+            if(config != null && config.combatRewindCaptureIntervalSeconds > 0f) {
+                return config.combatRewindCaptureIntervalSeconds;
+            }
+
+            return DefaultCombatRewindCaptureIntervalSeconds;
+        }
     }
 }

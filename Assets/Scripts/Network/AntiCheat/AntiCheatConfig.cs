@@ -48,5 +48,18 @@ namespace Network.AntiCheat {
         [Header("Fire Rate Validation")]
         [Tooltip("Extra seconds allowed when comparing fire rate (to account for jitter).")]
         public float fireRateGraceSeconds = 0.02f;
+
+        [Header("Combat Rewind")]
+        [Tooltip("Maximum amount of time (seconds) the host will rewind player hitboxes for combat verification.")]
+        public float combatRewindWindowSeconds = 0.2f;
+
+        [Tooltip("Small future-time tolerance (seconds) allowed on client-reported shot timestamps before clamping to host time.")]
+        public float combatRewindFutureToleranceSeconds = 0.03f;
+
+        [Tooltip("Total duration (seconds) of host-side hitbox history to retain for combat rewind.")]
+        public float combatRewindHistorySeconds = 0.25f;
+
+        [Tooltip("Capture interval (seconds) for host-side hitbox history snapshots.")]
+        public float combatRewindCaptureIntervalSeconds = 0.0167f;
     }
 }

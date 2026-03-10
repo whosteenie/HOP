@@ -9,6 +9,7 @@ namespace Game.Weapons {
             public int ServerAmmo;
             public ulong LastShotId;
             public int AcceptedClaimsForLastShot;
+            public HashSet<int> AcceptedPelletIndicesForLastShot = new();
         }
 
         private readonly Dictionary<int, int> _weaponAmmo = new();
@@ -70,6 +71,7 @@ namespace Game.Weapons {
         public bool ValidateServerShot(
             int weaponIndex,
             ulong shotId,
+            int pelletIndex,
             float now,
             float fireRateGraceSeconds,
             Func<int, WeaponData> getWeaponDataByIndex,
@@ -83,10 +85,20 @@ namespace Game.Weapons {
             }
 
             var state = GetOrCreateServerState(weaponIndex, getWeaponDataByIndex, resolveWeaponCapacity);
+            var maxClaimsForShot = data.usePelletSpread ? Mathf.Max(1, data.pelletCount) : 1;
+            if(pelletIndex < 0 || pelletIndex >= maxClaimsForShot) {
+                reason = "invalid pellet index";
+                return false;
+            }
+
             if(shotId == state.LastShotId) {
-                var maxClaimsForShot = data.usePelletSpread ? Mathf.Max(1, data.pelletCount) : 1;
                 if(state.AcceptedClaimsForLastShot >= maxClaimsForShot) {
                     reason = "too many hit claims for shot";
+                    return false;
+                }
+
+                if(!state.AcceptedPelletIndicesForLastShot.Add(pelletIndex)) {
+                    reason = "duplicate pellet claim";
                     return false;
                 }
 
@@ -116,6 +128,8 @@ namespace Game.Weapons {
             state.LastShotTime = now;
             state.LastShotId = shotId;
             state.AcceptedClaimsForLastShot = 1;
+            state.AcceptedPelletIndicesForLastShot.Clear();
+            state.AcceptedPelletIndicesForLastShot.Add(pelletIndex);
             return true;
         }
 

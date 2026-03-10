@@ -86,12 +86,13 @@ namespace Game.Weapons {
                 pelletCount = Mathf.Max(1, CurrentWeaponData.pelletCount);
             }
 
+            var precisionAim = CurrentWeaponData != null && CurrentWeaponData.useSniperOverlay &&
+                               playerController != null && playerController.PlayerInput != null &&
+                               playerController.PlayerInput.IsSniperOverlayActive;
             var spreadDegrees = CurrentWeaponData != null ? CurrentWeaponData.bulletSpread : 0f;
 
             // If sniper overlay is active and weapon uses sniper overlay, remove all spread for perfect accuracy
-            if(CurrentWeaponData != null && CurrentWeaponData.useSniperOverlay &&
-               playerController != null && playerController.PlayerInput != null &&
-               playerController.PlayerInput.IsSniperOverlayActive) {
+            if(precisionAim) {
                 spreadDegrees = 0f;
             }
 
@@ -119,11 +120,15 @@ namespace Game.Weapons {
             }
 
             var anyPelletHitPlayer = false;
+            var claimedShotServerTime = NetworkManager.Singleton != null
+                ? NetworkManager.Singleton.ServerTime.TimeAsFloat
+                : Time.time;
 
             for(var i = 0; i < pelletCount; i++) {
-                var direction = ApplySpread(forward, spreadDegrees);
+                var direction = WeaponManager.ComputeDeterministicShotDirection(fpCameraTransform.rotation, spreadDegrees,
+                    shotId, i);
                 FirePellet(origin, direction, out var endPoint, out var hitNormal, out var madeImpact,
-                    out var hitPlayer, out var hitPlayerRef, weaponIndex, shotId);
+                    out var hitPlayer, out var hitPlayerRef, weaponIndex, shotId, i, claimedShotServerTime, precisionAim);
 
                 if(hitPlayer) anyPelletHitPlayer = true;
 
@@ -147,7 +152,7 @@ namespace Game.Weapons {
 
         private void FirePellet(Vector3 origin, Vector3 direction, out Vector3 endPoint, out Vector3 hitNormal,
             out bool madeImpact, out bool hitPlayer, out NetworkObjectReference hitPlayerRef, int weaponIndex,
-            ulong shotId) {
+            ulong shotId, int pelletIndex, float claimedShotServerTime, bool precisionAim) {
             var hitLayer = _enemyLayer | _worldLayer;
             var shotHit = false;
             RaycastHit hit = default;
@@ -240,7 +245,7 @@ namespace Game.Weapons {
                     hitPlayerRef = new NetworkObjectReference(hitPlayerController.NetworkObject);
                 }
 
-                ApplyDamageToHit(hit, weaponIndex, shotId);
+                ApplyDamageToHit(hit, weaponIndex, shotId, pelletIndex, claimedShotServerTime, precisionAim);
             } else {
                 endPoint = origin + direction * 600f;
                 hitNormal = direction;
@@ -249,7 +254,8 @@ namespace Game.Weapons {
             }
         }
 
-        private void ApplyDamageToHit(RaycastHit hit, int weaponIndex, ulong shotId) {
+        private void ApplyDamageToHit(RaycastHit hit, int weaponIndex, ulong shotId, int pelletIndex,
+            float claimedShotServerTime, bool precisionAim) {
             var hitRigidbody = hit.collider.attachedRigidbody;
             NetworkObject target;
 
@@ -268,22 +274,7 @@ namespace Game.Weapons {
                 return;
             }
 
-            _damageRelay.RequestDamageServerRpc(hit.point, weaponIndex, shotId);
-        }
-
-        private Vector3 ApplySpread(Vector3 forward, float spreadDegrees) {
-            var fpCameraTransform = playerController != null ? playerController.FpCameraTransform : null;
-            if(fpCameraTransform == null || spreadDegrees <= 0f) {
-                return forward;
-            }
-
-            var spreadRad = spreadDegrees * Mathf.Deg2Rad;
-            var randomOffset = Random.insideUnitCircle;
-            var spreadAmount = Mathf.Tan(spreadRad * 0.5f);
-            var offset = (fpCameraTransform.right * randomOffset.x + fpCameraTransform.up * randomOffset.y) *
-                         spreadAmount;
-            var direction = (forward + offset).normalized;
-            return direction;
+            _damageRelay.RequestDamageServerRpc(claimedShotServerTime, weaponIndex, shotId, pelletIndex, precisionAim);
         }
 
         private float CalculateDamage(float distance) {

@@ -15,11 +15,11 @@ namespace Network.Rpc {
 
         /// <summary>
         /// Called by the local owner (client) to ask the server to verify and apply a shot result.
-        /// The client supplies only its claimed impact point; the host resolves the actual victim and impact data.
+        /// The client supplies shot timing and shot identity; the host reconstructs the ray and resolves impact data.
         /// </summary>
         [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Owner)]
-        public void RequestDamageServerRpc(Vector3 claimedHitPoint, int weaponIndex = -1, ulong shotId = 0,
-            RpcParams rpcParams = default) {
+        public void RequestDamageServerRpc(float claimedShotServerTime, int weaponIndex = -1, ulong shotId = 0,
+            int pelletIndex = 0, bool precisionAim = false, RpcParams rpcParams = default) {
             var senderClientId = rpcParams.Receive.SenderClientId;
             if(senderClientId != OwnerClientId) {
                 AntiCheatLogger.LogAuthorityViolation("NetworkDamageRelay.RequestDamageServerRpc", senderClientId);
@@ -70,13 +70,14 @@ namespace Network.Rpc {
                 return;
             }
 
-            if(!shooterWeaponManager.ValidateServerShot(weaponIndex, shotId, out var reason)) {
+            if(!shooterWeaponManager.ValidateServerShot(weaponIndex, shotId, pelletIndex, out var reason)) {
                 AntiCheatLogger.LogInvalidDamage(shooterId, reason);
                 return;
             }
 
-            if(!shooterWeaponManager.TryVerifyServerHit(weaponIndex, claimedHitPoint, out var victim,
-                   out var verifiedHitPoint, out _, out var bodyPartTag, out var isHeadshot, out reason)) {
+            if(!shooterWeaponManager.TryVerifyServerHit(weaponIndex, shotId, pelletIndex, precisionAim,
+                   claimedShotServerTime, out var victim, out var verifiedHitPoint, out _, out var bodyPartTag,
+                   out var isHeadshot, out var verifiedShotOrigin, out reason)) {
                 AntiCheatLogger.LogInvalidDamage(shooterId, reason ?? "server hit verification failed");
                 return;
             }
@@ -96,17 +97,14 @@ namespace Network.Rpc {
                 return;
             }
 
-            if(!shooterWeaponManager.TryComputeServerDamage(weaponIndex, verifiedHitPoint, out var serverDamage,
+            if(!shooterWeaponManager.TryComputeServerDamage(weaponIndex, verifiedShotOrigin, verifiedHitPoint, out var serverDamage,
                    out reason)) {
                 AntiCheatLogger.LogInvalidDamage(shooterId, reason ?? "server damage computation failed");
                 return;
             }
 
             var weaponId = shooterWeaponManager.GetWeaponIdByIndex(weaponIndex);
-            var shooterOrigin = shooterController.FpCameraTransform != null
-                ? shooterController.FpCameraTransform.position
-                : shooterController.transform.position;
-            var hitDirection = verifiedHitPoint - shooterOrigin;
+            var hitDirection = verifiedHitPoint - verifiedShotOrigin;
             if(hitDirection.sqrMagnitude > 0.0001f) {
                 hitDirection.Normalize();
             } else {

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Game.Match;
 using Game.Player;
 using Game.UI;
@@ -9,6 +10,9 @@ using UnityEngine;
 
 namespace Game.Weapons {
     public partial class WeaponManager {
+        private const float DefaultCombatRewindWindowSeconds = 0.2f;
+        private const float DefaultCombatRewindFutureToleranceSeconds = 0.03f;
+
         public enum AmmoSyncReason : byte {
             Reload = 0,
             RefillCurrentWeapon = 1
@@ -86,7 +90,7 @@ namespace Game.Weapons {
             return false;
         }
 
-        public bool ValidateServerShot(int weaponIndex, ulong shotId, out string reason) {
+        public bool ValidateServerShot(int weaponIndex, ulong shotId, int pelletIndex, out string reason) {
             reason = null;
             if(!IsServer) return true;
 
@@ -94,6 +98,7 @@ namespace Game.Weapons {
             return _ammoAuthority.ValidateServerShot(
                 weaponIndex,
                 shotId,
+                pelletIndex,
                 Time.time,
                 config != null ? config.fireRateGraceSeconds : 0f,
                 GetWeaponDataByIndex,
@@ -102,7 +107,8 @@ namespace Game.Weapons {
             );
         }
 
-        public bool TryComputeServerDamage(int weaponIndex, Vector3 hitPoint, out float damage, out string reason) {
+        public bool TryComputeServerDamage(int weaponIndex, Vector3 shotOrigin, Vector3 hitPoint, out float damage,
+            out string reason) {
             damage = 0f;
             reason = null;
 
@@ -117,16 +123,12 @@ namespace Game.Weapons {
                 return false;
             }
 
-            var shooter = playerController;
-            if(shooter == null) {
+            if(playerController == null) {
                 reason = "shooter controller missing";
                 return false;
             }
 
-            var origin = shooter.FpCameraTransform != null
-                ? shooter.FpCameraTransform.position
-                : shooter.transform.position;
-            var distance = Vector3.Distance(origin, hitPoint);
+            var distance = Vector3.Distance(shotOrigin, hitPoint);
 
             var baseDamage = data.baseDamage;
             if(data.useDamageFalloff) {
@@ -155,14 +157,16 @@ namespace Game.Weapons {
             return damage > 0f;
         }
 
-        public bool TryVerifyServerHit(int weaponIndex, Vector3 claimedHitPoint, out PlayerController victim,
-            out Vector3 verifiedHitPoint, out Vector3 verifiedHitNormal, out string bodyPartTag, out bool isHeadshot,
+        public bool TryVerifyServerHit(int weaponIndex, ulong shotId, int pelletIndex, bool precisionAim,
+            float claimedShotServerTime, out PlayerController victim, out Vector3 verifiedHitPoint,
+            out Vector3 verifiedHitNormal, out string bodyPartTag, out bool isHeadshot, out Vector3 verifiedShotOrigin,
             out string reason) {
             victim = null;
             verifiedHitPoint = default;
             verifiedHitNormal = default;
             bodyPartTag = null;
             isHeadshot = false;
+            verifiedShotOrigin = default;
             reason = null;
 
             var data = GetWeaponDataByIndex(weaponIndex);
@@ -176,49 +180,55 @@ namespace Game.Weapons {
                 return false;
             }
 
-            var origin = playerController.FpCameraTransform != null
-                ? playerController.FpCameraTransform.position
-                : playerController.transform.position;
-            var directionToClaim = claimedHitPoint - origin;
-            var claimDistance = directionToClaim.magnitude;
-            if(claimDistance <= 0.001f) {
-                reason = "invalid claim distance";
+            var rewindServerTime = ResolveCombatRewindServerTime(claimedShotServerTime);
+            if(!playerController.TryGetHistoricalShotBasis(rewindServerTime, out var shotBasis) || shotBasis == null) {
+                reason = "missing shot basis";
                 return false;
             }
 
-            var direction = directionToClaim / claimDistance;
-            var verificationDistance = Mathf.Clamp(claimDistance + 0.5f, 0.05f, 1000f);
+            verifiedShotOrigin = shotBasis.Origin;
+            var usePrecisionAim = precisionAim && data.useSniperOverlay;
+            var spreadDegrees = usePrecisionAim ? 0f : data.bulletSpread;
+            var direction = ComputeDeterministicShotDirection(shotBasis.AimRotation, spreadDegrees, shotId, pelletIndex);
+            if(direction.sqrMagnitude <= 0.0001f) {
+                reason = "invalid reconstructed direction";
+                return false;
+            }
+
+            const float maxVerificationDistance = 1000f;
             var worldMask = playerController.WorldLayer;
             var playerMask = playerController.PlayerLayer | playerController.EnemyLayer;
 
-            var hasWorldHit = Physics.Raycast(origin, direction, out var worldHit, verificationDistance, worldMask,
+            var hasWorldHit = Physics.Raycast(verifiedShotOrigin, direction, out var worldHit, maxVerificationDistance, worldMask,
                 QueryTriggerInteraction.Ignore);
-            var maxDist = hasWorldHit ? worldHit.distance : verificationDistance;
-            if(maxDist <= 0.001f) {
-                reason = "shot blocked by world";
-                return false;
-            }
+            var maxDist = hasWorldHit ? worldHit.distance : maxVerificationDistance;
+            var useHybridSystem = data.useSphereCast || usePrecisionAim;
 
-            if(data.useSphereCast || data.useSniperOverlay) {
-                if(!TryGetFirstVerifiedSphereHit(origin, direction, maxDist, playerMask, data, out var playerHit,
-                       out victim)) {
-                    reason = hasWorldHit ? "shot blocked by world" : "server sphere verification missed";
+            var rewoundPlayers = BeginCombatRewind(rewindServerTime);
+            try {
+                if(useHybridSystem) {
+                    if(!TryGetFirstVerifiedSphereHit(verifiedShotOrigin, direction, maxDist, playerMask, data, out var playerHit,
+                           out victim)) {
+                        reason = hasWorldHit ? "shot blocked by world" : "server sphere verification missed";
+                        return false;
+                    }
+
+                    PopulateVerifiedHit(playerHit, out verifiedHitPoint, out verifiedHitNormal, out bodyPartTag,
+                        out isHeadshot, ref victim);
+                    return true;
+                }
+
+                if(!TryGetFirstVerifiedRayHit(verifiedShotOrigin, direction, maxDist, playerMask, out var strictHit, out victim)) {
+                    reason = hasWorldHit ? "shot blocked by world" : "server ray verification missed";
                     return false;
                 }
 
-                PopulateVerifiedHit(playerHit, out verifiedHitPoint, out verifiedHitNormal, out bodyPartTag,
+                PopulateVerifiedHit(strictHit, out verifiedHitPoint, out verifiedHitNormal, out bodyPartTag,
                     out isHeadshot, ref victim);
                 return true;
+            } finally {
+                EndCombatRewind(rewoundPlayers);
             }
-
-            if(!TryGetFirstVerifiedRayHit(origin, direction, maxDist, playerMask, out var strictHit, out victim)) {
-                reason = hasWorldHit ? "shot blocked by world" : "server ray verification missed";
-                return false;
-            }
-
-            PopulateVerifiedHit(strictHit, out verifiedHitPoint, out verifiedHitNormal, out bodyPartTag,
-                out isHeadshot, ref victim);
-            return true;
         }
 
         public bool IsFriendlyFireServer(PlayerController shooter, PlayerController victim) {
@@ -432,6 +442,147 @@ namespace Game.Weapons {
             if(victim == null && hit.collider != null) {
                 victim = hit.collider.GetComponent<PlayerController>() ?? hit.collider.GetComponentInParent<PlayerController>();
             }
+        }
+
+        private float ResolveCombatRewindServerTime(float claimedShotServerTime) {
+            var currentServerTime = GetCurrentServerTime();
+            if(claimedShotServerTime <= 0f) {
+                return currentServerTime;
+            }
+
+            var futureTolerance = GetCombatRewindFutureToleranceSeconds();
+            if(claimedShotServerTime > currentServerTime + futureTolerance) {
+                claimedShotServerTime = currentServerTime;
+            }
+
+            var earliestAllowedTime = currentServerTime - GetCombatRewindWindowSeconds();
+            return Mathf.Clamp(claimedShotServerTime, earliestAllowedTime, currentServerTime);
+        }
+
+        private List<RewoundHitboxState> BeginCombatRewind(float rewindServerTime) {
+            var rewoundPlayers = new List<RewoundHitboxState>();
+            if(!IsServer || NetworkManager == null) {
+                return rewoundPlayers;
+            }
+
+            foreach(var connectedClient in NetworkManager.ConnectedClientsList) {
+                var playerObject = connectedClient.PlayerObject;
+                if(playerObject == null) {
+                    continue;
+                }
+
+                var targetController = playerObject.GetComponent<PlayerController>();
+                if(targetController == null || targetController == playerController || targetController.IsDead) {
+                    continue;
+                }
+
+                var targetRagdoll = targetController.PlayerRagdoll;
+                if(targetRagdoll == null || targetRagdoll.IsRagdoll) {
+                    continue;
+                }
+
+                var restorePose = targetRagdoll.CaptureCurrentHitboxPose();
+                if(restorePose == null) {
+                    continue;
+                }
+
+                if(!targetRagdoll.TryGetHistoricalHitboxPose(rewindServerTime, out var rewindPose) || rewindPose == null) {
+                    continue;
+                }
+
+                targetRagdoll.ApplyHitboxPose(rewindPose);
+                rewoundPlayers.Add(new RewoundHitboxState(targetRagdoll, restorePose));
+            }
+
+            if(rewoundPlayers.Count > 0) {
+                Physics.SyncTransforms();
+            }
+
+            return rewoundPlayers;
+        }
+
+        private static void EndCombatRewind(List<RewoundHitboxState> rewoundPlayers) {
+            if(rewoundPlayers == null || rewoundPlayers.Count == 0) {
+                return;
+            }
+
+            foreach(var rewoundPlayer in rewoundPlayers) {
+                if(rewoundPlayer.Ragdoll == null || rewoundPlayer.RestorePose == null) {
+                    continue;
+                }
+
+                rewoundPlayer.Ragdoll.ApplyHitboxPose(rewoundPlayer.RestorePose);
+            }
+
+            Physics.SyncTransforms();
+        }
+
+        private float GetCurrentServerTime() {
+            return NetworkManager != null ? NetworkManager.ServerTime.TimeAsFloat : Time.time;
+        }
+
+        private static float GetCombatRewindWindowSeconds() {
+            var config = AntiCheatConfig.Instance;
+            if(config != null && config.combatRewindWindowSeconds > 0f) {
+                return config.combatRewindWindowSeconds;
+            }
+
+            return DefaultCombatRewindWindowSeconds;
+        }
+
+        private static float GetCombatRewindFutureToleranceSeconds() {
+            var config = AntiCheatConfig.Instance;
+            if(config != null && config.combatRewindFutureToleranceSeconds > 0f) {
+                return config.combatRewindFutureToleranceSeconds;
+            }
+
+            return DefaultCombatRewindFutureToleranceSeconds;
+        }
+
+        private readonly struct RewoundHitboxState {
+            public RewoundHitboxState(PlayerRagdoll ragdoll, PlayerRagdoll.HitboxPoseSnapshot restorePose) {
+                Ragdoll = ragdoll;
+                RestorePose = restorePose;
+            }
+
+            public PlayerRagdoll Ragdoll { get; }
+            public PlayerRagdoll.HitboxPoseSnapshot RestorePose { get; }
+        }
+
+        public static Vector3 ComputeDeterministicShotDirection(Quaternion aimRotation, float spreadDegrees,
+            ulong shotId, int pelletIndex) {
+            var forward = aimRotation * Vector3.forward;
+            if(spreadDegrees <= 0f) {
+                return forward.normalized;
+            }
+
+            var spreadRad = spreadDegrees * Mathf.Deg2Rad;
+            var spreadAmount = Mathf.Tan(spreadRad * 0.5f);
+            var randomOffset = GetDeterministicSpreadOffset(shotId, pelletIndex);
+            var right = aimRotation * Vector3.right;
+            var up = aimRotation * Vector3.up;
+            var offset = (right * randomOffset.x + up * randomOffset.y) * spreadAmount;
+            return (forward + offset).normalized;
+        }
+
+        private static Vector2 GetDeterministicSpreadOffset(ulong shotId, int pelletIndex) {
+            const float maxRadius = 0.999f;
+            var baseHash = (uint)(shotId ^ ((ulong)(pelletIndex + 1) * 0x9E3779B97F4A7C15UL));
+            var angleHash = HashSpread(baseHash ^ 0xA511E9B3u);
+            var radiusHash = HashSpread(baseHash ^ 0x63D83595u);
+            var angle = angleHash * Mathf.PI * 2f;
+            var radius = Mathf.Sqrt(radiusHash) * maxRadius;
+            return new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * radius;
+        }
+
+        private static float HashSpread(uint value) {
+            value ^= 2747636419u;
+            value *= 2654435769u;
+            value ^= value >> 16;
+            value *= 2654435769u;
+            value ^= value >> 16;
+            value *= 2654435769u;
+            return (value & 0x00FFFFFFu) / 16777215f;
         }
     }
 }
