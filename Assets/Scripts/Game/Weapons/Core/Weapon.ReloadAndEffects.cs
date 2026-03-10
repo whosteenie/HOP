@@ -28,7 +28,7 @@ namespace Game.Weapons {
 
             PublishOwnerAmmoToHud();
 
-            SyncServerAmmo(WeaponManager.AmmoSyncReason.Reload);
+            SyncServerWeaponState(WeaponManager.AmmoSyncReason.ReloadCompleted);
         }
 
         private void HandleKinemationReloadSingleRound() {
@@ -41,7 +41,7 @@ namespace Game.Weapons {
 
             PublishOwnerAmmoToHud(magCapacity);
 
-            SyncServerAmmo(WeaponManager.AmmoSyncReason.Reload);
+            SyncServerWeaponState(WeaponManager.AmmoSyncReason.ReloadSingleRound);
         }
 
         private void CompleteKinemationPartialReloadWithoutFilling() {
@@ -52,7 +52,7 @@ namespace Game.Weapons {
             if(_kinemationFpWeaponDriver != null) _kinemationFpWeaponDriver.ResetReloadTracking();
 
             ExitReloadAnimation();
-            SyncServerAmmo(WeaponManager.AmmoSyncReason.Reload);
+            SyncServerWeaponState(WeaponManager.AmmoSyncReason.ReloadCanceled);
 
             if(CurrentWeaponData != null) {
                 PublishOwnerAmmoToHud();

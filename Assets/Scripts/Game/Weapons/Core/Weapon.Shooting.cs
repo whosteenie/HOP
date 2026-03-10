@@ -81,6 +81,8 @@ namespace Game.Weapons {
             var shotId = ++_shotSequence;
             var shooterVelocityAtShot = playerController != null ? playerController.GetFullVelocity : Vector3.zero;
 
+            _weaponManager.ReportShotFired(weaponIndex, shotId);
+
             var pelletCount = 1;
             if(CurrentWeaponData != null && CurrentWeaponData.usePelletSpread) {
                 pelletCount = Mathf.Max(1, CurrentWeaponData.pelletCount);

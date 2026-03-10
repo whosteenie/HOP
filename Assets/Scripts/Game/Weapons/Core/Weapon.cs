@@ -491,7 +491,12 @@ namespace Game.Weapons {
 
             _reloadExpectedCompleteTime = Time.time + KinemationReloadFallbackSeconds;
             _kinemationReloadFallbackDeadline = _reloadExpectedCompleteTime;
+            SyncServerWeaponState(WeaponManager.AmmoSyncReason.ReloadStarted);
             PlayReloadEffects();
+        }
+
+        public void CancelReloadForWeaponSwitch() {
+            CancelReload();
         }
 
         private void CancelReload() {
@@ -517,11 +522,12 @@ namespace Game.Weapons {
             if(_kinemationFpWeaponDriver != null) _kinemationFpWeaponDriver.ResetReloadTracking();
 
             ExitReloadAnimation();
+            SyncServerWeaponState(WeaponManager.AmmoSyncReason.ReloadCanceled);
         }
 
-        private void SyncServerAmmo(WeaponManager.AmmoSyncReason reason) {
+        private void SyncServerWeaponState(WeaponManager.AmmoSyncReason reason) {
             if(_weaponManager != null) {
-                _weaponManager.ReportAmmoSync(_weaponManager.CurrentWeaponIndex, currentAmmo, reason);
+                _weaponManager.ReportWeaponStateSync(_weaponManager.CurrentWeaponIndex, reason);
             }
         }
 
@@ -546,7 +552,7 @@ namespace Game.Weapons {
                 netCurrentDamageMultiplier.Value = 1f;
             }
 
-            SyncServerAmmo(WeaponManager.AmmoSyncReason.RefillCurrentWeapon);
+            SyncServerWeaponState(WeaponManager.AmmoSyncReason.RefillCurrentWeapon);
         }
 
         public void PrepareForPostMatchPodium() {
@@ -582,7 +588,7 @@ namespace Game.Weapons {
             }
 
             PublishOwnerAmmoToHud();
-            SyncServerAmmo(WeaponManager.AmmoSyncReason.RefillCurrentWeapon);
+            SyncServerWeaponState(WeaponManager.AmmoSyncReason.RefillCurrentWeapon);
         }
 
         #endregion

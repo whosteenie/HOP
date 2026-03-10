@@ -46,6 +46,9 @@ namespace Game.Weapons {
         private readonly WeaponAmmoAuthority _ammoAuthority = new();
         private readonly WeaponWorldWeaponRegistry _worldWeaponRegistry = new();
         private GameObject _pendingTpWeapon; // Track pending TP weapon to show via animation event
+        private int _serverAuthoritativeWeaponIndex = -1;
+        private bool _serverReloadInProgress;
+        private float _serverPullOutBlockedUntilTime;
 
         public Weapon CurrentWeapon { get; private set; }
         public GameObject CurrentWorldWeaponInstance { get; private set; }
@@ -444,6 +447,12 @@ namespace Game.Weapons {
                 restoredAmmo,
                 magCapacity
             );
+
+            if(IsServer) {
+                _serverAuthoritativeWeaponIndex = index;
+                _serverReloadInProgress = false;
+                _serverPullOutBlockedUntilTime = 0f;
+            }
 
             _pendingHolsterHideSlot = -1;
             UpdateHolsterVisibility();

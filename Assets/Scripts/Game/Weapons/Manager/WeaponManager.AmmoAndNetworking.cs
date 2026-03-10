@@ -9,8 +9,11 @@ using UnityEngine;
 namespace Game.Weapons {
     public partial class WeaponManager {
         public enum AmmoSyncReason : byte {
-            Reload = 0,
-            RefillCurrentWeapon = 1
+            ReloadStarted = 0,
+            ReloadSingleRound = 1,
+            ReloadCompleted = 2,
+            ReloadCanceled = 3,
+            RefillCurrentWeapon = 4
         }
 
         public void RefreshOwnerAmmoHudFromCurrentWeapon() {
@@ -28,6 +31,9 @@ namespace Game.Weapons {
             }
 
             _ammoAuthority.ResetAllWeaponAmmo(weaponDataList, ResolveWeaponCapacity);
+            if(IsServer) {
+                _serverReloadInProgress = false;
+            }
         }
 
         public void PrepareCurrentWeaponForPostMatchPodium() {
@@ -85,16 +91,49 @@ namespace Game.Weapons {
             return false;
         }
 
-        public bool ValidateServerShot(int weaponIndex, ulong shotId, out string reason) {
+        public bool RegisterServerShot(int weaponIndex, ulong shotId, out string reason) {
             reason = null;
             if(!IsServer) return true;
 
+            if(weaponIndex != GetServerAuthoritativeWeaponIndex()) {
+                reason = "weapon index mismatch";
+                return false;
+            }
+
+            if(_serverReloadInProgress) {
+                reason = "reloading";
+                return false;
+            }
+
+            if(Time.time < _serverPullOutBlockedUntilTime) {
+                reason = "pulling out";
+                return false;
+            }
+
             var config = AntiCheatConfig.Instance;
-            return _ammoAuthority.ValidateServerShot(
+            return _ammoAuthority.RegisterServerShot(
                 weaponIndex,
                 shotId,
                 Time.time,
                 config != null ? config.fireRateGraceSeconds : 0f,
+                GetWeaponDataByIndex,
+                ResolveWeaponCapacity,
+                out reason
+            );
+        }
+
+        public bool ValidateServerHitClaim(int weaponIndex, ulong shotId, out string reason) {
+            reason = null;
+            if(!IsServer) return true;
+
+            if(weaponIndex != GetServerAuthoritativeWeaponIndex()) {
+                reason = "weapon index mismatch";
+                return false;
+            }
+
+            return _ammoAuthority.ValidateServerHitClaim(
+                weaponIndex,
+                shotId,
                 GetWeaponDataByIndex,
                 ResolveWeaponCapacity,
                 out reason
@@ -111,7 +150,7 @@ namespace Game.Weapons {
                 return false;
             }
 
-            if(CurrentWeaponIndex != weaponIndex) {
+            if(weaponIndex != GetServerAuthoritativeWeaponIndex()) {
                 reason = "weapon index mismatch";
                 return false;
             }
@@ -171,25 +210,34 @@ namespace Game.Weapons {
             return shooterTeamManager.netTeam.Value == victimTeamManager.netTeam.Value;
         }
 
-        public void ReportAmmoSync(int weaponIndex, int newAmmo, AmmoSyncReason reason) {
+        public void ReportWeaponStateSync(int weaponIndex, AmmoSyncReason reason) {
             if(!IsServer) {
-                ReportAmmoSyncServerRpc(weaponIndex, newAmmo, reason);
+                ReportWeaponStateSyncServerRpc(weaponIndex, reason);
                 return;
             }
 
-            UpdateServerAmmo(weaponIndex, newAmmo, reason);
+            UpdateServerWeaponState(weaponIndex, reason);
+        }
+
+        public void ReportShotFired(int weaponIndex, ulong shotId) {
+            if(!IsServer) {
+                ReportShotFiredServerRpc(weaponIndex, shotId);
+                return;
+            }
+
+            RegisterServerShotAndLog(weaponIndex, shotId);
         }
 
         [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Owner)]
-        private void ReportAmmoSyncServerRpc(int weaponIndex, int newAmmo, AmmoSyncReason reason,
+        private void ReportWeaponStateSyncServerRpc(int weaponIndex, AmmoSyncReason reason,
             RpcParams rpcParams = default) {
             if(rpcParams.Receive.SenderClientId != OwnerClientId) {
-                AntiCheatLogger.LogAuthorityViolation("WeaponManager.ReportAmmoSyncServerRpc",
+                AntiCheatLogger.LogAuthorityViolation("WeaponManager.ReportWeaponStateSyncServerRpc",
                     rpcParams.Receive.SenderClientId);
                 return;
             }
 
-            UpdateServerAmmo(weaponIndex, newAmmo, reason);
+            UpdateServerWeaponState(weaponIndex, reason);
         }
 
         [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Owner)]
@@ -201,26 +249,18 @@ namespace Game.Weapons {
             }
 
             _ammoAuthority.ResetAllWeaponAmmo(weaponDataList, ResolveWeaponCapacity);
+            _serverReloadInProgress = false;
         }
 
-        private void UpdateServerAmmo(int weaponIndex, int ammo, AmmoSyncReason reason) {
-            if(!IsServer) return;
-
-            switch(reason) {
-                case AmmoSyncReason.Reload:
-                case AmmoSyncReason.RefillCurrentWeapon:
-                    break;
-                default:
-                    AntiCheatLogger.LogInvalidDamage(OwnerClientId, $"invalid ammo sync reason {reason}");
-                    return;
+        [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Owner)]
+        private void ReportShotFiredServerRpc(int weaponIndex, ulong shotId, RpcParams rpcParams = default) {
+            if(rpcParams.Receive.SenderClientId != OwnerClientId) {
+                AntiCheatLogger.LogAuthorityViolation("WeaponManager.ReportShotFiredServerRpc",
+                    rpcParams.Receive.SenderClientId);
+                return;
             }
 
-            _ammoAuthority.UpdateServerAmmo(
-                weaponIndex,
-                ammo,
-                GetWeaponDataByIndex,
-                ResolveWeaponCapacity
-            );
+            RegisterServerShotAndLog(weaponIndex, shotId);
         }
 
         private void UpdateServerAmmo(int weaponIndex, int ammo) {
@@ -231,6 +271,129 @@ namespace Game.Weapons {
                 GetWeaponDataByIndex,
                 ResolveWeaponCapacity
             );
+        }
+
+        private int GetServerAuthoritativeWeaponIndex() {
+            return _serverAuthoritativeWeaponIndex >= 0 ? _serverAuthoritativeWeaponIndex : CurrentWeaponIndex;
+        }
+
+        private float GetServerPullOutBlockDurationSeconds() {
+            return Mathf.Max(0f, kinemationPullOutCompleteDelay);
+        }
+
+        private void ApplyServerAuthoritativeWeaponSwitch(int weaponIndex) {
+            if(!IsServer) return;
+            _serverAuthoritativeWeaponIndex = weaponIndex;
+            _serverReloadInProgress = false;
+            _serverPullOutBlockedUntilTime = Time.time + GetServerPullOutBlockDurationSeconds();
+        }
+
+        private bool TryValidateServerWeaponStateRequest(int weaponIndex, out WeaponData data, out int magCapacity,
+            out string reason) {
+            data = null;
+            magCapacity = 0;
+            reason = null;
+
+            if(!IsServer) return true;
+
+            data = GetWeaponDataByIndex(weaponIndex);
+            if(data == null) {
+                reason = "unknown weapon";
+                return false;
+            }
+
+            magCapacity = ResolveWeaponCapacity(data);
+            if(magCapacity <= 0) {
+                reason = "invalid mag capacity";
+                return false;
+            }
+
+            if(weaponIndex != GetServerAuthoritativeWeaponIndex()) {
+                reason = "weapon index mismatch";
+                return false;
+            }
+
+            return true;
+        }
+
+        private void UpdateServerWeaponState(int weaponIndex, AmmoSyncReason reason) {
+            if(!IsServer) return;
+
+            if(!TryValidateServerWeaponStateRequest(weaponIndex, out var data, out var magCapacity,
+                   out var validationReason)) {
+                AntiCheatLogger.LogInvalidDamage(OwnerClientId, validationReason);
+                return;
+            }
+
+            switch(reason) {
+                case AmmoSyncReason.ReloadStarted: {
+                    var currentAmmo = _ammoAuthority.GetServerAmmo(weaponIndex, GetWeaponDataByIndex, ResolveWeaponCapacity);
+                    if(currentAmmo >= magCapacity) {
+                        AntiCheatLogger.LogInvalidDamage(OwnerClientId, "reload start while full");
+                        return;
+                    }
+
+                    _serverReloadInProgress = true;
+                    return;
+                }
+                case AmmoSyncReason.ReloadSingleRound: {
+                    if(!_serverReloadInProgress) {
+                        AntiCheatLogger.LogInvalidDamage(OwnerClientId, "reload single without reload");
+                        return;
+                    }
+
+                    if(data.useMagReload) {
+                        AntiCheatLogger.LogInvalidDamage(OwnerClientId, "reload single on mag weapon");
+                        return;
+                    }
+
+                    if(!_ammoAuthority.TryIncrementServerAmmo(weaponIndex, GetWeaponDataByIndex, ResolveWeaponCapacity,
+                           out var currentAmmo, out var incrementReason)) {
+                        if(incrementReason != "mag full") {
+                            AntiCheatLogger.LogInvalidDamage(OwnerClientId, incrementReason ?? "reload increment failed");
+                        }
+
+                        if(currentAmmo >= magCapacity) {
+                            _serverReloadInProgress = false;
+                        }
+
+                        return;
+                    }
+
+                    if(currentAmmo >= magCapacity) {
+                        _serverReloadInProgress = false;
+                    }
+
+                    return;
+                }
+                case AmmoSyncReason.ReloadCompleted:
+                    if(!_serverReloadInProgress) {
+                        AntiCheatLogger.LogInvalidDamage(OwnerClientId, "reload complete without reload");
+                        return;
+                    }
+
+                    if(data.useMagReload) {
+                        _ammoAuthority.FillServerAmmoToCapacity(weaponIndex, GetWeaponDataByIndex, ResolveWeaponCapacity);
+                    }
+
+                    _serverReloadInProgress = false;
+                    return;
+                case AmmoSyncReason.ReloadCanceled:
+                    _serverReloadInProgress = false;
+                    return;
+                case AmmoSyncReason.RefillCurrentWeapon:
+                    _ammoAuthority.FillServerAmmoToCapacity(weaponIndex, GetWeaponDataByIndex, ResolveWeaponCapacity);
+                    _serverReloadInProgress = false;
+                    return;
+                default:
+                    AntiCheatLogger.LogInvalidDamage(OwnerClientId, $"invalid ammo sync reason {reason}");
+                    return;
+            }
+        }
+
+        private void RegisterServerShotAndLog(int weaponIndex, ulong shotId) {
+            if(RegisterServerShot(weaponIndex, shotId, out var reason)) return;
+            AntiCheatLogger.LogInvalidDamage(OwnerClientId, reason);
         }
     }
 }

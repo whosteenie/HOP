@@ -67,7 +67,7 @@ namespace Game.Weapons {
             }
         }
 
-        public bool ValidateServerShot(
+        public bool RegisterServerShot(
             int weaponIndex,
             ulong shotId,
             float now,
@@ -84,14 +84,8 @@ namespace Game.Weapons {
 
             var state = GetOrCreateServerState(weaponIndex, getWeaponDataByIndex, resolveWeaponCapacity);
             if(shotId == state.LastShotId) {
-                var maxClaimsForShot = data.usePelletSpread ? Mathf.Max(1, data.pelletCount) : 1;
-                if(state.AcceptedClaimsForLastShot >= maxClaimsForShot) {
-                    reason = "too many hit claims for shot";
-                    return false;
-                }
-
-                state.AcceptedClaimsForLastShot++;
-                return true;
+                reason = "duplicate shot";
+                return false;
             }
 
             if(shotId < state.LastShotId) {
@@ -115,7 +109,41 @@ namespace Game.Weapons {
             state.ServerAmmo = Mathf.Max(0, state.ServerAmmo - 1);
             state.LastShotTime = now;
             state.LastShotId = shotId;
-            state.AcceptedClaimsForLastShot = 1;
+            state.AcceptedClaimsForLastShot = 0;
+            return true;
+        }
+
+        public bool ValidateServerHitClaim(
+            int weaponIndex,
+            ulong shotId,
+            Func<int, WeaponData> getWeaponDataByIndex,
+            Func<WeaponData, int> resolveWeaponCapacity,
+            out string reason) {
+            reason = null;
+            var data = getWeaponDataByIndex(weaponIndex);
+            if(data == null) {
+                reason = "unknown weapon";
+                return false;
+            }
+
+            var state = GetOrCreateServerState(weaponIndex, getWeaponDataByIndex, resolveWeaponCapacity);
+            if(shotId < state.LastShotId) {
+                reason = "stale hit claim";
+                return false;
+            }
+
+            if(shotId > state.LastShotId) {
+                reason = "unregistered shot";
+                return false;
+            }
+
+            var maxClaimsForShot = data.usePelletSpread ? Mathf.Max(1, data.pelletCount) : 1;
+            if(state.AcceptedClaimsForLastShot >= maxClaimsForShot) {
+                reason = "too many hit claims for shot";
+                return false;
+            }
+
+            state.AcceptedClaimsForLastShot++;
             return true;
         }
 
@@ -131,6 +159,59 @@ namespace Game.Weapons {
             var clamped = Mathf.Clamp(ammo, 0, magCapacity);
             var state = GetOrCreateServerState(weaponIndex, getWeaponDataByIndex, resolveWeaponCapacity);
             state.ServerAmmo = clamped;
+        }
+
+        public int GetServerAmmo(
+            int weaponIndex,
+            Func<int, WeaponData> getWeaponDataByIndex,
+            Func<WeaponData, int> resolveWeaponCapacity) {
+            var data = getWeaponDataByIndex(weaponIndex);
+            if(data == null) return 0;
+
+            var magCapacity = resolveWeaponCapacity(data);
+            var state = GetOrCreateServerState(weaponIndex, getWeaponDataByIndex, resolveWeaponCapacity);
+            state.ServerAmmo = Mathf.Clamp(state.ServerAmmo, 0, Mathf.Max(0, magCapacity));
+            return state.ServerAmmo;
+        }
+
+        public void FillServerAmmoToCapacity(
+            int weaponIndex,
+            Func<int, WeaponData> getWeaponDataByIndex,
+            Func<WeaponData, int> resolveWeaponCapacity) {
+            var data = getWeaponDataByIndex(weaponIndex);
+            if(data == null) return;
+
+            var magCapacity = Mathf.Max(0, resolveWeaponCapacity(data));
+            var state = GetOrCreateServerState(weaponIndex, getWeaponDataByIndex, resolveWeaponCapacity);
+            state.ServerAmmo = magCapacity;
+        }
+
+        public bool TryIncrementServerAmmo(
+            int weaponIndex,
+            Func<int, WeaponData> getWeaponDataByIndex,
+            Func<WeaponData, int> resolveWeaponCapacity,
+            out int ammo,
+            out string reason) {
+            ammo = 0;
+            reason = null;
+
+            var data = getWeaponDataByIndex(weaponIndex);
+            if(data == null) {
+                reason = "unknown weapon";
+                return false;
+            }
+
+            var magCapacity = Mathf.Max(0, resolveWeaponCapacity(data));
+            var state = GetOrCreateServerState(weaponIndex, getWeaponDataByIndex, resolveWeaponCapacity);
+            if(state.ServerAmmo >= magCapacity) {
+                reason = "mag full";
+                ammo = state.ServerAmmo;
+                return false;
+            }
+
+            state.ServerAmmo = Mathf.Min(state.ServerAmmo + 1, magCapacity);
+            ammo = state.ServerAmmo;
+            return true;
         }
 
         private ServerWeaponState GetOrCreateServerState(

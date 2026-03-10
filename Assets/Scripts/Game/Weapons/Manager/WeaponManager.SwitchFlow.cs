@@ -1,6 +1,7 @@
 using System.Collections;
 using Game.Menu;
 using Game.Player.Hopball;
+using Network.AntiCheat;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.Rendering;
@@ -118,6 +119,14 @@ namespace Game.Weapons {
                 if(Audio2.AudioService.Instance != null) {
                     Audio2.AudioService.Instance.Play("ui.weapon.switch", Vector3.zero);
                 }
+            }
+
+            if(CurrentWeapon != null && CurrentWeapon.IsReloadInProgress) {
+                CurrentWeapon.CancelReloadForWeaponSwitch();
+            }
+
+            if(IsServer) {
+                ApplyServerAuthoritativeWeaponSwitch(newIndex);
             }
 
             // Cache ammo from current weapon before switching away
@@ -423,12 +432,21 @@ namespace Game.Weapons {
                 parent = parent.parent;
             }
         }
-        [Rpc(SendTo.Server)]
-        private void RequestWeaponSwitchBroadcastServerRpc(int newIndex) {
+        [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Owner)]
+        private void RequestWeaponSwitchBroadcastServerRpc(int newIndex, RpcParams rpcParams = default) {
+            if(rpcParams.Receive.SenderClientId != OwnerClientId) {
+                AntiCheatLogger.LogAuthorityViolation("WeaponManager.RequestWeaponSwitchBroadcastServerRpc",
+                    rpcParams.Receive.SenderClientId);
+                return;
+            }
+
             if(!TryConsumeWeaponSwitchQuota()) return;
+            if(!TryValidateSwitchTargetStrict(newIndex, out _, out _)) return;
+
+            ApplyServerAuthoritativeWeaponSwitch(newIndex);
             BroadcastWeaponSwitchClientRpc(newIndex);
         }
-        [Rpc(SendTo.Everyone, Delivery = RpcDelivery.Unreliable)]
+        [Rpc(SendTo.Everyone, Delivery = RpcDelivery.Reliable)]
         private void BroadcastWeaponSwitchClientRpc(int newIndex) {
             if(IsOwner) return;
             ApplyRemoteWeaponSwitch(newIndex);

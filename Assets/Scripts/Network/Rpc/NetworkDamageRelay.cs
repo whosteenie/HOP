@@ -85,7 +85,7 @@ namespace Network.Rpc {
                 return;
             }
 
-            if(!shooterWeaponManager.ValidateServerShot(weaponIndex, shotId, out var reason)) {
+            if(!shooterWeaponManager.ValidateServerHitClaim(weaponIndex, shotId, out var reason)) {
                 AntiCheatLogger.LogInvalidDamage(shooterId, reason);
                 return;
             }
