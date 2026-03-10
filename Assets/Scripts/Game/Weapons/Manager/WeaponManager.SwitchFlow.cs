@@ -197,9 +197,7 @@ namespace Game.Weapons {
 
             if(IsOwner) {
                 if(IsServer) {
-                    if(TryConsumeWeaponSwitchQuota()) {
-                        BroadcastWeaponSwitchClientRpc(newIndex);
-                    }
+                    TryConsumeWeaponSwitchQuota();
                 } else {
                     RequestWeaponSwitchBroadcastServerRpc(newIndex);
                 }
@@ -444,12 +442,6 @@ namespace Game.Weapons {
             if(!TryValidateSwitchTargetStrict(newIndex, out _, out _)) return;
 
             ApplyServerAuthoritativeWeaponSwitch(newIndex);
-            BroadcastWeaponSwitchClientRpc(newIndex);
-        }
-        [Rpc(SendTo.Everyone, Delivery = RpcDelivery.Reliable)]
-        private void BroadcastWeaponSwitchClientRpc(int newIndex) {
-            if(IsOwner) return;
-            ApplyRemoteWeaponSwitch(newIndex);
         }
 
         private void ApplyRemoteWeaponSwitch(int newIndex) {

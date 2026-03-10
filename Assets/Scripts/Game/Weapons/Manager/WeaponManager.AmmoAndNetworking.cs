@@ -286,6 +286,7 @@ namespace Game.Weapons {
         private void ApplyServerAuthoritativeWeaponSwitch(int weaponIndex) {
             if(!IsServer) return;
             _serverAuthoritativeWeaponIndex = weaponIndex;
+            _netEquippedWeaponIndex.Value = weaponIndex;
             _serverReloadInProgress = false;
             _serverPullOutBlockedUntilTime = Time.time + GetServerPullOutBlockDurationSeconds();
         }

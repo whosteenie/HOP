@@ -45,6 +45,9 @@ namespace Game.Weapons {
         private readonly WeaponKinemationBindingCatalog _kinemationCatalog = new();
         private readonly WeaponAmmoAuthority _ammoAuthority = new();
         private readonly WeaponWorldWeaponRegistry _worldWeaponRegistry = new();
+        private readonly NetworkVariable<int> _netEquippedWeaponIndex = new(-1,
+            NetworkVariableReadPermission.Everyone,
+            NetworkVariableWritePermission.Server);
         private GameObject _pendingTpWeapon; // Track pending TP weapon to show via animation event
         private int _serverAuthoritativeWeaponIndex = -1;
         private bool _serverReloadInProgress;
@@ -73,9 +76,21 @@ namespace Game.Weapons {
         private Coroutine _kinemationPullOutCompletionCoroutine;
         private bool _requiresKinemationEquipCompleteForCurrentPullOut;
         private bool _hasLoggedStrictStartupValidation;
+        private bool _weaponsInitialized;
 
         private void Awake() {
             ValidateComponents();
+        }
+
+        public override void OnNetworkSpawn() {
+            base.OnNetworkSpawn();
+            _netEquippedWeaponIndex.OnValueChanged += OnReplicatedEquippedWeaponIndexChanged;
+        }
+
+        public override void OnNetworkDespawn() {
+            _netEquippedWeaponIndex.OnValueChanged -= OnReplicatedEquippedWeaponIndexChanged;
+            _weaponsInitialized = false;
+            base.OnNetworkDespawn();
         }
 
         private void ValidateComponents() {
@@ -323,9 +338,11 @@ namespace Game.Weapons {
                     $"[WeaponManager][KIN-Strict] FP instance count mismatch. expected={weaponDataList.Count} actual={_fpWeaponInstances.Count}");
             }
 
-            // Switch to first weapon
+            // Switch to the replicated equipped weapon if available. This is required for
+            // late join/backfill so remote players don't reconstruct everyone at slot 0.
             if(_fpWeaponInstances.Count > 0) {
-                EquipInitialWeapon(0);
+                EquipInitialWeapon(ResolveInitialEquippedWeaponIndex());
+                _weaponsInitialized = true;
             } else {
                 Debug.LogError("[WeaponManager] No weapons instantiated!");
             }
@@ -452,11 +469,30 @@ namespace Game.Weapons {
                 _serverAuthoritativeWeaponIndex = index;
                 _serverReloadInProgress = false;
                 _serverPullOutBlockedUntilTime = 0f;
+                _netEquippedWeaponIndex.Value = index;
             }
 
             _pendingHolsterHideSlot = -1;
             UpdateHolsterVisibility();
             RefreshOwnerHolsterShadowState();
+        }
+
+        private int ResolveInitialEquippedWeaponIndex() {
+            var replicatedIndex = _netEquippedWeaponIndex.Value;
+            if(replicatedIndex >= 0 && replicatedIndex < weaponDataList.Count) {
+                return replicatedIndex;
+            }
+
+            return 0;
+        }
+
+        private void OnReplicatedEquippedWeaponIndexChanged(int previousValue, int newValue) {
+            if(!_weaponsInitialized) return;
+            if(IsOwner) return;
+            if(newValue < 0 || newValue >= weaponDataList.Count) return;
+            if(newValue == CurrentWeaponIndex) return;
+
+            ApplyRemoteWeaponSwitch(newValue);
         }
 
     }
