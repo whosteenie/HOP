@@ -32,7 +32,8 @@ namespace Game.Weapons {
 
             _ammoAuthority.ResetAllWeaponAmmo(weaponDataList, ResolveWeaponCapacity);
             if(IsServer) {
-                _serverReloadInProgress = false;
+                ClearServerReloadState();
+                ResetServerDamageMultiplierForCurrentWeapon();
             }
         }
 
@@ -100,7 +101,7 @@ namespace Game.Weapons {
                 return false;
             }
 
-            if(_serverReloadInProgress) {
+            if(IsServerReloadInProgressForWeapon(weaponIndex)) {
                 reason = "reloading";
                 return false;
             }
@@ -187,7 +188,7 @@ namespace Game.Weapons {
 
             var multiplier = 1f;
             if(CurrentWeapon != null && CurrentWeaponIndex == weaponIndex) {
-                multiplier = Mathf.Clamp(CurrentWeapon.netCurrentDamageMultiplier.Value, 1f, Weapon.MaxDamageMultiplier);
+                multiplier = Mathf.Clamp(CurrentWeapon.CurrentDamageMultiplier, 1f, Weapon.MaxDamageMultiplier);
             }
 
             damage = Mathf.Min(baseDamage * multiplier, data.damageCap);
@@ -250,7 +251,8 @@ namespace Game.Weapons {
             }
 
             _ammoAuthority.ResetAllWeaponAmmo(weaponDataList, ResolveWeaponCapacity);
-            _serverReloadInProgress = false;
+            ClearServerReloadState();
+            ResetServerDamageMultiplierForCurrentWeapon();
         }
 
         [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Owner)]
@@ -287,8 +289,22 @@ namespace Game.Weapons {
             if(!IsServer) return;
             _serverAuthoritativeWeaponIndex = weaponIndex;
             _netEquippedWeaponIndex.Value = weaponIndex;
-            _serverReloadInProgress = false;
+            ClearServerReloadState();
             _serverPullOutBlockedUntilTime = Time.time + GetServerPullOutBlockDurationSeconds();
+        }
+
+        private bool IsServerReloadInProgressForWeapon(int weaponIndex) {
+            return _serverReloadWeaponIndex == weaponIndex;
+        }
+
+        private void ClearServerReloadState() {
+            _serverReloadWeaponIndex = -1;
+        }
+
+        private void ResetServerDamageMultiplierForCurrentWeapon() {
+            if(!IsServer) return;
+            if(CurrentWeapon == null) return;
+            CurrentWeapon.ResetAuthoritativeDamageMultiplierImmediate();
         }
 
         private bool TryValidateServerWeaponStateRequest(int weaponIndex, out WeaponData data, out int magCapacity,
@@ -343,11 +359,11 @@ namespace Game.Weapons {
                         UpdateServerAmmo(weaponIndex, clampedLocalAmmo);
                     }
 
-                    _serverReloadInProgress = true;
+                    _serverReloadWeaponIndex = weaponIndex;
                     return;
                 }
                 case AmmoSyncReason.ReloadSingleRound: {
-                    if(!_serverReloadInProgress) {
+                    if(!IsServerReloadInProgressForWeapon(weaponIndex)) {
                         AntiCheatLogger.LogInvalidDamage(OwnerClientId, "reload single without reload");
                         return;
                     }
@@ -372,7 +388,7 @@ namespace Game.Weapons {
                         }
 
                         if(currentAmmo >= magCapacity) {
-                            _serverReloadInProgress = false;
+                            ClearServerReloadState();
                         }
 
                         return;
@@ -384,13 +400,13 @@ namespace Game.Weapons {
                     }
 
                     if(currentAmmo >= magCapacity) {
-                        _serverReloadInProgress = false;
+                        ClearServerReloadState();
                     }
 
                     return;
                 }
                 case AmmoSyncReason.ReloadCompleted:
-                    if(!_serverReloadInProgress) {
+                    if(!IsServerReloadInProgressForWeapon(weaponIndex)) {
                         AntiCheatLogger.LogInvalidDamage(OwnerClientId, "reload complete without reload");
                         return;
                     }
@@ -402,9 +418,14 @@ namespace Game.Weapons {
 
                     UpdateServerAmmo(weaponIndex, clampedLocalAmmo);
 
-                    _serverReloadInProgress = false;
+                    ClearServerReloadState();
                     return;
                 case AmmoSyncReason.ReloadCanceled: {
+                    if(_serverReloadWeaponIndex >= 0 && !IsServerReloadInProgressForWeapon(weaponIndex)) {
+                        AntiCheatLogger.LogInvalidDamage(OwnerClientId, "reload cancel weapon mismatch");
+                        return;
+                    }
+
                     var currentAmmo =
                         _ammoAuthority.GetServerAmmo(weaponIndex, GetWeaponDataByIndex, ResolveWeaponCapacity);
                     if(data.useMagReload) {
@@ -418,7 +439,7 @@ namespace Game.Weapons {
                     }
 
                     UpdateServerAmmo(weaponIndex, clampedLocalAmmo);
-                    _serverReloadInProgress = false;
+                    ClearServerReloadState();
                     return;
                 }
                 case AmmoSyncReason.RefillCurrentWeapon:
@@ -428,7 +449,8 @@ namespace Game.Weapons {
                     }
 
                     UpdateServerAmmo(weaponIndex, clampedLocalAmmo);
-                    _serverReloadInProgress = false;
+                    ClearServerReloadState();
+                    ResetServerDamageMultiplierForCurrentWeapon();
                     return;
                 default:
                     AntiCheatLogger.LogInvalidDamage(OwnerClientId, $"invalid ammo sync reason {reason}");

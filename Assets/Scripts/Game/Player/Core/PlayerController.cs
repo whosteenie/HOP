@@ -1156,7 +1156,6 @@ namespace Game.Player {
             var currentWeapon = weaponManager.CurrentWeapon;
             if(currentWeapon != null) {
                 currentWeapon.ResetWeapon();
-                currentWeapon.CurrentDamageMultiplier = 1f;
 
                 var weaponInstance = currentWeapon.GetWeaponPrefab();
                 if(weaponInstance != null) {
@@ -1178,6 +1177,7 @@ namespace Game.Player {
                 if(updateHUD) {
                     EventBus.Publish(new UpdateAmmoEvent(currentWeapon.currentAmmo, currentWeapon.GetMagSize()));
                     EventBus.Publish(new UpdateHealthEvent(netHealth.Value, 100f));
+                    EventBus.Publish(new UpdateMultiplierEvent(1f, Weapon.MaxDamageMultiplier));
                 }
             }
 

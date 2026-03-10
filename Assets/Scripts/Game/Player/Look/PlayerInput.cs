@@ -362,8 +362,6 @@ namespace Game.Player.Look {
                     GrappleController.CancelGrapple();
             }
 
-            CurrentWeapon.UpdateDamageMultiplier();
-
             if(weaponData) {
                 EventBus.Publish(new UpdateMultiplierEvent(CurrentWeapon.CurrentDamageMultiplier,
                     Weapon.MaxDamageMultiplier));

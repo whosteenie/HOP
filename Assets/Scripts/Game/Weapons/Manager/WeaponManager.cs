@@ -50,7 +50,7 @@ namespace Game.Weapons {
             NetworkVariableWritePermission.Server);
         private GameObject _pendingTpWeapon; // Track pending TP weapon to show via animation event
         private int _serverAuthoritativeWeaponIndex = -1;
-        private bool _serverReloadInProgress;
+        private int _serverReloadWeaponIndex = -1;
         private float _serverPullOutBlockedUntilTime;
 
         public Weapon CurrentWeapon { get; private set; }
@@ -467,7 +467,7 @@ namespace Game.Weapons {
 
             if(IsServer) {
                 _serverAuthoritativeWeaponIndex = index;
-                _serverReloadInProgress = false;
+                _serverReloadWeaponIndex = -1;
                 _serverPullOutBlockedUntilTime = 0f;
                 _netEquippedWeaponIndex.Value = index;
             }

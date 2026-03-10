@@ -48,12 +48,12 @@ namespace Game.Weapons {
 
         public NetworkVariable<float> netCurrentDamageMultiplier = new(1f,
             NetworkVariableReadPermission.Everyone,
-            NetworkVariableWritePermission.Owner);
+            NetworkVariableWritePermission.Server);
 
         public float CurrentDamageMultiplier {
             get => netCurrentDamageMultiplier.Value;
             set {
-                if(!IsOwner) return;
+                if(!IsServer) return;
                 // Throttle network updates - only send if enough time has passed or value changed significantly
                 // At 90Hz: 5 ticks = ~55ms
                 const float damageMultiplierUpdateInterval = 0.055f;
@@ -156,6 +156,7 @@ namespace Game.Weapons {
         }
 
         private void LateUpdate() {
+            UpdateDamageMultiplier();
             UpdateKinemationReloadState();
             ProcessKinemationSoundEvents();
             RunReloadWatchdog();
@@ -548,11 +549,15 @@ namespace Game.Weapons {
             _kinemationReloadFallbackDeadline = float.PositiveInfinity;
             if(_kinemationFpWeaponDriver != null) _kinemationFpWeaponDriver.ResetReloadTracking();
 
-            if(IsOwner) {
-                netCurrentDamageMultiplier.Value = 1f;
-            }
-
             SyncServerWeaponState(WeaponManager.AmmoSyncReason.RefillCurrentWeapon);
+        }
+
+        public void ResetAuthoritativeDamageMultiplierImmediate() {
+            if(!IsServer) return;
+            netCurrentDamageMultiplier.Value = 1f;
+            _lastDamageMultiplierUpdateTime = Time.time;
+            _peakDamageMultiplier = 1f;
+            _lastPeakTime = 0f;
         }
 
         public void PrepareForPostMatchPodium() {

@@ -328,6 +328,7 @@ namespace Game.Weapons {
         }
 
         public void UpdateDamageMultiplier() {
+            if(!IsServer) return;
             if(!CurrentWeaponData) return;
 
             // Check if player is dead - if so, only allow decay, not gain
