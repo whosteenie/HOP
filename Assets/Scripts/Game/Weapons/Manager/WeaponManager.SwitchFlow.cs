@@ -7,6 +7,68 @@ using UnityEngine.Rendering;
 
 namespace Game.Weapons {
     public partial class WeaponManager {
+        private uint GetNextWeaponSwitchSequence() {
+            unchecked {
+                _localWeaponSwitchSequence++;
+                if(_localWeaponSwitchSequence == 0) {
+                    _localWeaponSwitchSequence = 1;
+                }
+            }
+
+            return _localWeaponSwitchSequence;
+        }
+
+        private bool TryCommitTpWeaponState(GameObject preferredWorldWeapon = null, bool logErrors = true) {
+            if(CurrentWeaponIndex < 0 || CurrentWeaponIndex >= weaponDataList.Count) {
+                return false;
+            }
+
+            var data = weaponDataList[CurrentWeaponIndex];
+            if(data == null) {
+                return false;
+            }
+
+            var worldWeapon = preferredWorldWeapon != null ? preferredWorldWeapon : ResolveWorldWeaponObject(data);
+            if(worldWeapon == null) {
+                if(logErrors) {
+                    Debug.LogError(
+                        $"[WeaponManager][KIN-Strict] Missing world weapon binding for '{data.weaponName}' while committing TP state.");
+                }
+                return false;
+            }
+
+            var magCapacity = ResolveWeaponCapacity(data);
+            if(magCapacity <= 0) {
+                if(logErrors) {
+                    Debug.LogError(
+                        $"[WeaponManager][KIN-Strict] Invalid KIN ammo capacity for '{data.weaponName}' while committing TP state.");
+                }
+                return false;
+            }
+
+            GameObject fpWeapon = null;
+            if(CurrentWeaponIndex >= 0 && CurrentWeaponIndex < _fpWeaponInstances.Count) {
+                fpWeapon = _fpWeaponInstances[CurrentWeaponIndex];
+            }
+
+            if(CurrentWeapon != null) {
+                var restoredAmmo = ResolveRestoredAmmo(CurrentWeaponIndex, magCapacity, seedWhenMissing: false);
+                CurrentWeapon.SwitchToWeapon(data, fpWeapon, worldWeapon, restoredAmmo, magCapacity);
+            }
+
+            worldWeapon.SetActive(true);
+            CurrentWorldWeaponInstance = worldWeapon;
+            _pendingTpWeapon = null;
+
+            EnsureWorldWeaponShadowState();
+            EnsureWeaponHierarchyActive();
+
+            _pendingHolsterHideSlot = -1;
+            UpdateHolsterVisibility();
+            RefreshOwnerHolsterShadowState();
+            return true;
+        }
+
         private void UpdateKinemationEquipCompletionGate() {
             if(!IsPullingOut || !_requiresKinemationEquipCompleteForCurrentPullOut) return;
             if(CurrentWeaponIndex < 0 || CurrentWeaponIndex >= _fpWeaponInstances.Count) return;
@@ -84,6 +146,7 @@ namespace Game.Weapons {
             if(newIndex < 0 || newIndex >= weaponDataList.Count)
                 return;
             var isPostMatch = GameMenuManager.Instance != null && GameMenuManager.Instance.IsPostMatch;
+            var switchSequence = GetNextWeaponSwitchSequence();
 
             // Check if holding hopball - if so, allow switching even to same weapon
             // Also check if restoring after dissolve to allow switch
@@ -189,10 +252,10 @@ namespace Game.Weapons {
             if(IsOwner) {
                 if(IsServer) {
                     if(TryConsumeWeaponSwitchQuota()) {
-                        BroadcastWeaponSwitchClientRpc(newIndex);
+                        BroadcastWeaponSwitchClientRpc(newIndex, switchSequence);
                     }
                 } else {
-                    RequestWeaponSwitchBroadcastServerRpc(newIndex);
+                    RequestWeaponSwitchBroadcastServerRpc(newIndex, switchSequence);
                 }
             }
 
@@ -204,44 +267,14 @@ namespace Game.Weapons {
         /// Called from player animation event to show the TP weapon during pull out animation.
         /// </summary>
         public void ShowTpWeapon() {
-            if(_pendingTpWeapon == null) return;
-            _pendingTpWeapon.SetActive(true);
-
-            // Update weapon data with the now-active TP weapon
-            if(CurrentWeapon != null && CurrentWeaponIndex >= 0) {
-                var data = weaponDataList[CurrentWeaponIndex];
-                var fpWeapon = _fpWeaponInstances[CurrentWeaponIndex];
-                if(fpWeapon == null || !TryGetKinemationDriver(fpWeapon, out var driver) || driver == null) {
-                    Debug.LogError(
-                        $"[WeaponManager][KIN-Strict] Missing KinemationFpWeaponDriver for '{data.weaponName}' in ShowTpWeapon.");
-                    return;
+            if(_pendingTpWeapon == null) {
+                if(CurrentWorldWeaponInstance == null || !CurrentWorldWeaponInstance.activeSelf) {
+                    TryCommitTpWeaponState(logErrors: false);
                 }
-                var magCapacity = ResolveWeaponCapacity(data);
-                if(magCapacity <= 0) {
-                    Debug.LogError(
-                        $"[WeaponManager][KIN-Strict] Invalid KIN ammo capacity for '{data.weaponName}' in ShowTpWeapon.");
-                    return;
-                }
-                var restoredAmmo = ResolveRestoredAmmo(CurrentWeaponIndex, magCapacity, seedWhenMissing: false);
-
-                CurrentWeapon.SwitchToWeapon(
-                    data,
-                    fpWeapon,
-                    _pendingTpWeapon,
-                    restoredAmmo,
-                    magCapacity
-                );
+                return;
             }
 
-            CurrentWorldWeaponInstance = _pendingTpWeapon;
-            _pendingTpWeapon = null;
-
-            EnsureWorldWeaponShadowState();
-            EnsureWeaponHierarchyActive();
-
-            _pendingHolsterHideSlot = -1;
-            UpdateHolsterVisibility();
-            RefreshOwnerHolsterShadowState();
+            TryCommitTpWeaponState(_pendingTpWeapon);
         }
 
         /// <summary>
@@ -249,8 +282,8 @@ namespace Game.Weapons {
         /// Allows shooting and reloading again.
         /// </summary>
         public void HandlePullOutCompleted() {
-            if(GameMenuManager.Instance != null && GameMenuManager.Instance.IsPostMatch && _pendingTpWeapon != null) {
-                ShowTpWeapon();
+            if(_pendingTpWeapon != null || CurrentWorldWeaponInstance == null || !CurrentWorldWeaponInstance.activeSelf) {
+                TryCommitTpWeaponState(_pendingTpWeapon, logErrors: false);
             }
 
             IsPullingOut = false;
@@ -424,29 +457,37 @@ namespace Game.Weapons {
             }
         }
         [Rpc(SendTo.Server)]
-        private void RequestWeaponSwitchBroadcastServerRpc(int newIndex) {
+        private void RequestWeaponSwitchBroadcastServerRpc(int newIndex, uint switchSequence) {
             if(!TryConsumeWeaponSwitchQuota()) return;
-            BroadcastWeaponSwitchClientRpc(newIndex);
+            BroadcastWeaponSwitchClientRpc(newIndex, switchSequence);
         }
-        [Rpc(SendTo.Everyone, Delivery = RpcDelivery.Unreliable)]
-        private void BroadcastWeaponSwitchClientRpc(int newIndex) {
+        [Rpc(SendTo.Everyone)]
+        private void BroadcastWeaponSwitchClientRpc(int newIndex, uint switchSequence) {
             if(IsOwner) return;
-            ApplyRemoteWeaponSwitch(newIndex);
+            ApplyRemoteWeaponSwitch(newIndex, switchSequence);
         }
 
-        private void ApplyRemoteWeaponSwitch(int newIndex) {
+        private void ApplyRemoteWeaponSwitch(int newIndex, uint switchSequence) {
             if(newIndex < 0 || newIndex >= weaponDataList.Count) return;
+            if(switchSequence != 0 && switchSequence < _lastAppliedRemoteWeaponSwitchSequence) return;
+
+            _lastAppliedRemoteWeaponSwitchSequence = switchSequence;
 
             HideCurrentWorldWeapon();
 
             CurrentWeaponIndex = newIndex;
             var data = weaponDataList[newIndex];
             _pendingHolsterHideSlot = GetSlotForIndex(CurrentWeaponIndex);
+            IsPullingOut = true;
+            _requiresKinemationEquipCompleteForCurrentPullOut = false;
 
             QueuePendingTpWeapon(data);
 
-            if(_playerAnimator == null) return;
-            TriggerTpPullOutAnimation(newIndex);
+            if(_playerAnimator != null) {
+                TriggerTpPullOutAnimation(newIndex);
+            } else {
+                TryCommitTpWeaponState(_pendingTpWeapon, logErrors: false);
+            }
 
             UpdateHolsterVisibility();
         }

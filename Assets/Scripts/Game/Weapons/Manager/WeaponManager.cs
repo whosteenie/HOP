@@ -46,6 +46,8 @@ namespace Game.Weapons {
         private readonly WeaponAmmoAuthority _ammoAuthority = new();
         private readonly WeaponWorldWeaponRegistry _worldWeaponRegistry = new();
         private GameObject _pendingTpWeapon; // Track pending TP weapon to show via animation event
+        private uint _localWeaponSwitchSequence;
+        private uint _lastAppliedRemoteWeaponSwitchSequence;
 
         public Weapon CurrentWeapon { get; private set; }
         public GameObject CurrentWorldWeaponInstance { get; private set; }
