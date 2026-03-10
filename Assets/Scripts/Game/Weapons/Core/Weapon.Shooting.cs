@@ -205,12 +205,12 @@ namespace Game.Weapons {
                 }
 
                 if(!shotHit) {
-                    if(hasWorldHit) {
-                        shotHit = true;
-                        hit = worldHit;
-                    } else if(Physics.Raycast(origin, direction, out var strictHit, maxDist, hitLayer)) {
+                    if(Physics.Raycast(origin, direction, out var strictHit, maxDist, hitLayer)) {
                         shotHit = true;
                         hit = strictHit;
+                    } else if(hasWorldHit) {
+                        shotHit = true;
+                        hit = worldHit;
                     }
                 }
 
