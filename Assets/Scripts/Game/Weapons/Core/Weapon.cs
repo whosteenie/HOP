@@ -128,6 +128,16 @@ namespace Game.Weapons {
             ValidateComponents();
         }
 
+        public override void OnNetworkSpawn() {
+            base.OnNetworkSpawn();
+            netCurrentDamageMultiplier.OnValueChanged += OnDamageMultiplierChanged;
+        }
+
+        public override void OnNetworkDespawn() {
+            netCurrentDamageMultiplier.OnValueChanged -= OnDamageMultiplierChanged;
+            base.OnNetworkDespawn();
+        }
+
         private void ValidateComponents() {
             if(playerController == null) {
                 playerController = GetComponent<PlayerController>();
@@ -153,6 +163,11 @@ namespace Game.Weapons {
             if(_damageRelay == null) return;
             _damageRelay.OnHitConfirm -= OnHitConfirm;
             _damageRelay.OnHitConfirm += OnHitConfirm;
+        }
+
+        private void OnDamageMultiplierChanged(float previousValue, float newValue) {
+            if(!IsOwner) return;
+            EventBus.Publish(new UpdateMultiplierEvent(newValue, MaxDamageMultiplier));
         }
 
         private void LateUpdate() {

@@ -349,7 +349,9 @@ namespace Game.Weapons {
             }
 
             if(playerController != null) {
-                var currentSpeed = playerController.GetFullVelocity.magnitude;
+                var currentSpeed = playerController.IsOwner
+                    ? playerController.GetFullVelocity.magnitude
+                    : playerController.ObservedServerMovementSpeed;
                 float targetMultiplier;
 
                 // Calculate target multiplier based on current velocity

@@ -298,6 +298,7 @@ namespace Game.Player {
         }
 
         public float AverageVelocity => statsController != null ? statsController.averageVelocity.Value : 0f;
+        public float ObservedServerMovementSpeed => _lastObservedServerMovementSpeed;
 
         public void SetVelocity(Vector3 horizontalVelocity) {
             if(movementController != null) {

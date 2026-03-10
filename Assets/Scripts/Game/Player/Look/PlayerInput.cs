@@ -362,11 +362,6 @@ namespace Game.Player.Look {
                     GrappleController.CancelGrapple();
             }
 
-            if(weaponData) {
-                EventBus.Publish(new UpdateMultiplierEvent(CurrentWeapon.CurrentDamageMultiplier,
-                    Weapon.MaxDamageMultiplier));
-            }
-
             if(!IsPaused && Keyboard.current.tabKey.isPressed) {
                 if(ScoreboardManager.Instance != null) {
                     EventBus.Publish(new ShowScoreboardEvent());

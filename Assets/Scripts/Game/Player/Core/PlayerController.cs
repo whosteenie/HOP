@@ -175,6 +175,7 @@ namespace Game.Player {
         private Vector3 _lastServerMovementPosition;
         private float _lastServerMovementTime;
         private bool _hasServerMovementSample;
+        private float _lastObservedServerMovementSpeed;
 
         // Movement violation tracking
         private class MovementViolation {
@@ -780,6 +781,7 @@ namespace Game.Player {
                 _lastServerMovementPosition = position;
                 _lastServerMovementTime = now;
                 _hasServerMovementSample = true;
+                _lastObservedServerMovementSpeed = 0f;
                 return;
             }
 
@@ -787,6 +789,7 @@ namespace Game.Player {
                 _lastServerMovementPosition = position;
                 _lastServerMovementTime = now;
                 _hasServerMovementSample = true;
+                _lastObservedServerMovementSpeed = 0f;
                 return;
             }
 
@@ -821,6 +824,7 @@ namespace Game.Player {
             }
 
             var speed = distance / dt;
+            _lastObservedServerMovementSpeed = speed;
             if(speed > config.maxSpeedMetersPerSecond && delta.sqrMagnitude > 0.0001f) {
                 _movementViolations.Add(new MovementViolation { Time = now, WasSpeedViolation = true });
                 
