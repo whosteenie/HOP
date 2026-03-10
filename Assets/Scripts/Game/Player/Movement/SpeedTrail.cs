@@ -188,11 +188,6 @@ namespace Game.Player {
             // Defensive check: Ensure NetworkVariable is initialized
             if(weapon.netCurrentDamageMultiplier == null) {
                 SetTrailActive(false);
-                #if UNITY_EDITOR || DEVELOPMENT_BUILD
-                if(Time.frameCount % 120 == 0) {
-                    Debug.LogWarning($"[SpeedTrail] netCurrentDamageMultiplier is null for weapon {weapon.name}");
-                }
-                #endif
                 return;
             }
             
@@ -203,7 +198,6 @@ namespace Game.Player {
             // Owners: only when dead (already checked above) AND multiplier >= threshold
             // Non-owners: when multiplier >= threshold (regardless of dead state)
             var shouldBeActive = currentMultiplier >= minMultiplierForTrail;
-            
             SetTrailActive(shouldBeActive);
         }
 
@@ -212,11 +206,6 @@ namespace Game.Player {
         /// </summary>
         private void SetTrailActive(bool active) {
             if(speedTrailEffect == null) {
-                #if UNITY_EDITOR || DEVELOPMENT_BUILD
-                if(Time.frameCount % 120 == 0) {
-                    Debug.LogWarning("[SpeedTrail] SetTrailActive called but speedTrailEffect is null!");
-                }
-                #endif
                 return;
             }
             
@@ -314,6 +303,8 @@ namespace Game.Player {
         /// Electric objects only have Material field.
         /// </summary>
         private void ApplyPlayerColorToMaterials() {
+            var derivedTrailColor = DeriveReadableTrailColor(_currentPlayerColor);
+
             // Common color property names to try
             string[] colorPropertyNames = { "_Color", "_TintColor", "_BaseColor", "_MainColor", "Color" };
 
@@ -323,12 +314,12 @@ namespace Game.Player {
                 if(psr != null) {
                     // Apply to main Material
                     if(psr.material != null) {
-                        ApplyColorToMaterial(psr.material, colorPropertyNames);
+                        ApplyColorToMaterial(psr.material, colorPropertyNames, derivedTrailColor);
                     }
                     
                     // Apply to Trail Material (only trail object has this)
                     if(psr.trailMaterial != null) {
-                        ApplyColorToMaterial(psr.trailMaterial, colorPropertyNames);
+                        ApplyColorToMaterial(psr.trailMaterial, colorPropertyNames, derivedTrailColor);
                     }
                 }
                 
@@ -340,7 +331,7 @@ namespace Game.Player {
             if(_electricParticleSystem != null) {
                 var psr = _electricParticleSystem.GetComponent<ParticleSystemRenderer>();
                 if(psr != null && psr.material != null) {
-                    ApplyColorToMaterial(psr.material, colorPropertyNames);
+                    ApplyColorToMaterial(psr.material, colorPropertyNames, derivedTrailColor);
                 }
                 
                 // Clear existing particles so new ones use updated material colors
@@ -352,7 +343,7 @@ namespace Game.Player {
             {
                 var psr = _electricParticleSystem1.GetComponent<ParticleSystemRenderer>();
                 if(psr != null && psr.material != null) {
-                    ApplyColorToMaterial(psr.material, colorPropertyNames);
+                    ApplyColorToMaterial(psr.material, colorPropertyNames, derivedTrailColor);
                 }
                 
                 // Clear existing particles so new ones use updated material colors
@@ -363,7 +354,7 @@ namespace Game.Player {
         /// <summary>
         /// Helper method to apply color to a material by trying common color property names.
         /// </summary>
-        private void ApplyColorToMaterial(Material material, string[] colorPropertyNames) {
+        private void ApplyColorToMaterial(Material material, string[] colorPropertyNames, Color trailColor) {
             if(material == null) return;
 
             foreach(var propName in colorPropertyNames) {
@@ -371,14 +362,36 @@ namespace Game.Player {
                 // Preserve alpha if the property supports it
                 var currentColor = material.GetColor(propName);
                 var newColor = new Color(
-                    _currentPlayerColor.r,
-                    _currentPlayerColor.g,
-                    _currentPlayerColor.b,
+                    trailColor.r,
+                    trailColor.g,
+                    trailColor.b,
                     currentColor.a // Preserve original alpha
                 );
                 material.SetColor(propName, newColor);
                 break; // Found and set the property
             }
+        }
+
+        private static Color DeriveReadableTrailColor(Color sourceColor) {
+            var clamped = new Color(
+                Mathf.Clamp01(sourceColor.r),
+                Mathf.Clamp01(sourceColor.g),
+                Mathf.Clamp01(sourceColor.b),
+                1f
+            );
+
+            Color.RGBToHSV(clamped, out var hue, out var saturation, out var value);
+
+            // Keep a visible, readable trail even for very dark player colors.
+            value = Mathf.Max(value, 0.62f);
+            saturation = Mathf.Max(saturation, 0.55f);
+
+            var brightened = Color.HSVToRGB(hue, saturation, value);
+            var luminance = 0.2126f * clamped.r + 0.7152f * clamped.g + 0.0722f * clamped.b;
+            var darkBlend = Mathf.Clamp01((0.18f - luminance) / 0.18f);
+            var readable = Color.Lerp(brightened, Color.white, darkBlend * 0.85f);
+            readable.a = 1f;
+            return readable;
         }
 
         /// <summary>
@@ -485,5 +498,6 @@ namespace Game.Player {
                 }
             }
         }
+
     }
 }
