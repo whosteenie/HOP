@@ -65,6 +65,7 @@ namespace Network {
             _networkManager.OnClientDisconnectCallback += OnClientDisconnected;
             _networkManager.OnServerStopped += OnServerStopped;
             _networkManager.OnClientStopped += OnClientStopped;
+            _networkManager.OnSessionOwnerPromoted += OnSessionOwnerPromoted;
         }
 
         private void OnDisable() {
@@ -74,6 +75,7 @@ namespace Network {
             _networkManager.OnClientDisconnectCallback -= OnClientDisconnected;
             _networkManager.OnServerStopped -= OnServerStopped;
             _networkManager.OnClientStopped -= OnClientStopped;
+            _networkManager.OnSessionOwnerPromoted -= OnSessionOwnerPromoted;
         }
 
         // --- Public utility: call when leaving to menu/lobby ---
@@ -115,8 +117,23 @@ namespace Network {
         }
 
         private void OnClientConnected(ulong clientId) {
-            if(_allowPlayerSpawns && NetworkManager.Singleton.IsServer)
+            if(_allowPlayerSpawns && NetworkAuthority.HasGlobalAuthority(NetworkManager.Singleton))
                 SpawnPlayerFor(clientId);
+        }
+
+        private void OnSessionOwnerPromoted(ulong _) {
+            if(!_allowPlayerSpawns || !NetworkAuthority.HasGlobalAuthority(_networkManager) || _networkManager == null) {
+                return;
+            }
+
+            foreach(var clientId in _networkManager.ConnectedClientsIds) {
+                SpawnPlayerFor(clientId);
+            }
+        }
+
+        public void ConfigureSessionMetadata(bool isPrivateMatch) {
+            _sessionIsPrivateMatch = isPrivateMatch;
+            _hasSessionPrivateFlag = true;
         }
 
         /// <summary>
@@ -125,7 +142,7 @@ namespace Network {
         public void EnableGameplaySpawningAndSpawnAll() {
             _allowPlayerSpawns = true;
 
-            if(!NetworkManager.Singleton.IsServer) {
+            if(!NetworkAuthority.HasGlobalAuthority(NetworkManager.Singleton)) {
                 Debug.LogWarning("[CustomNetworkManager] Not server, skipping spawn");
                 return;
             }
@@ -253,7 +270,7 @@ namespace Network {
                     ("spawn", spawnPoint.name));
 
                 // 7. TEAM SETUP (only for team modes)
-                if(isTeamBased && NetworkManager.Singleton.IsServer) {
+                if(isTeamBased && NetworkAuthority.HasGlobalAuthority(NetworkManager.Singleton)) {
                     var controller = instance.GetComponent<PlayerController>();
                     PlayerTeamManager teamMgr = null;
                     if(controller != null) {

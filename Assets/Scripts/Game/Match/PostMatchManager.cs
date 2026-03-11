@@ -9,6 +9,7 @@ using Game.Spawning;
 using Game.UI;
 using Game.Hopball;
 using Game.Player.Hopball;
+using Network.Core;
 using Network.Diagnostics;
 using Network.Events;
 using Network.Singletons;
@@ -77,6 +78,8 @@ namespace Game.Match {
         private SpawnPoint.Team _winningTeam = SpawnPoint.Team.None;
         private Coroutine _blackoutReadyRoutine;
         private bool _matchEndedEventsBound;
+        private bool _sessionOwnerCallbacksRegistered;
+        private bool HasPostMatchAuthority => NetworkAuthority.HasGlobalAuthority(this);
         private bool IsPodiumBlackoutActive { get; set; }
         public static bool IsPodiumBlackoutActiveLocal => Instance != null && Instance.IsPodiumBlackoutActive;
 
@@ -125,6 +128,8 @@ namespace Game.Match {
 
         public override void OnNetworkSpawn() {
             base.OnNetworkSpawn();
+            NetworkAuthority.TryConfigureSessionOwnerObject(this);
+            RegisterSessionOwnerCallbacks();
             BindMatchEndedEvent();
         }
 
@@ -218,6 +223,7 @@ namespace Game.Match {
 
         public override void OnNetworkDespawn() {
             UnbindMatchEndedEvent();
+            UnregisterSessionOwnerCallbacks();
             ResetPostMatchUiState();
             base.OnNetworkDespawn();
             if(Instance == this)
@@ -227,13 +233,36 @@ namespace Game.Match {
         public override void OnDestroy() {
             base.OnDestroy();
             UnbindMatchEndedEvent();
+            UnregisterSessionOwnerCallbacks();
             if(Instance == this) {
                 Instance = null;
             }
         }
 
+        private void RegisterSessionOwnerCallbacks() {
+            if(_sessionOwnerCallbacksRegistered || NetworkManager == null) return;
+            NetworkManager.OnSessionOwnerPromoted += OnSessionOwnerPromoted;
+            _sessionOwnerCallbacksRegistered = true;
+        }
+
+        private void UnregisterSessionOwnerCallbacks() {
+            if(!_sessionOwnerCallbacksRegistered || NetworkManager == null) return;
+            NetworkManager.OnSessionOwnerPromoted -= OnSessionOwnerPromoted;
+            _sessionOwnerCallbacksRegistered = false;
+        }
+
+        private void OnSessionOwnerPromoted(ulong _) {
+            if(!HasPostMatchAuthority) {
+                UnbindMatchEndedEvent();
+                return;
+            }
+
+            NetworkAuthority.TryConfigureSessionOwnerObject(this);
+            BindMatchEndedEvent();
+        }
+
         private void BindMatchEndedEvent() {
-            if(!IsServer || _matchEndedEventsBound) return;
+            if(!HasPostMatchAuthority || _matchEndedEventsBound) return;
             EventBus.Subscribe<MatchEndedEvent>(OnMatchEnded);
             _matchEndedEventsBound = true;
         }
@@ -252,8 +281,8 @@ namespace Game.Match {
         /// Called from MatchTimerManager on the server when the timer hits 0.
         /// </summary>
         private void BeginPostMatchFromTimer() {
-            if(!IsServer) {
-                Debug.LogWarning("[MatchTimerManager] Is not server!");
+            if(!HasPostMatchAuthority) {
+                Debug.LogWarning("[PostMatchManager] BeginPostMatchFromTimer called without match authority.");
                 return;
             }
 
@@ -277,8 +306,8 @@ namespace Game.Match {
         /// Called from HopballSpawnManager when a team reaches the win score.
         /// </summary>
         public void BeginPostMatchFromScore(SpawnPoint.Team winningTeam) {
-            if(!IsServer) {
-                Debug.LogWarning("[PostMatchManager] BeginPostMatchFromScore called on non-server!");
+            if(!HasPostMatchAuthority) {
+                Debug.LogWarning("[PostMatchManager] BeginPostMatchFromScore called without match authority.");
                 return;
             }
 

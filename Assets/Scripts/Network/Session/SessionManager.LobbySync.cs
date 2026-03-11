@@ -2,12 +2,9 @@ using System;
 using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
 using Network.Diagnostics;
-using Unity.Netcode.Transports.UTP;
 using Unity.Services.Authentication;
 using Unity.Services.Lobbies;
 using Unity.Services.Lobbies.Models;
-using Unity.Services.Relay;
-using Unity.Services.Relay.Models;
 using UnityEngine;
 
 namespace Network.Session {
@@ -162,6 +159,16 @@ namespace Network.Session {
             if(lobby == null) return false;
             var localUgsId = AuthenticationService.Instance.PlayerId;
             return !string.IsNullOrEmpty(localUgsId) && string.Equals(lobby.HostId, localUgsId, StringComparison.Ordinal);
+        }
+
+        private static bool IsPrivateMatchLobby(Lobby lobby) {
+            if(lobby?.Data == null) {
+                return false;
+            }
+
+            return lobby.Data.TryGetValue(UgsMatchTypeKey, out var matchTypeObj) &&
+                   matchTypeObj != null &&
+                   string.Equals(matchTypeObj.Value, "Private", StringComparison.OrdinalIgnoreCase);
         }
 
         private async UniTask HandlePartyLobbyFollowStateAsync(string source) {
@@ -328,15 +335,15 @@ namespace Network.Session {
 
             if(!_ugsMatchLobby.Data.TryGetValue(UgsRelayJoinCodeKey, out var joinCodeObj) || joinCodeObj == null) {
                 if(ShouldEmitThrottledLog(ref _nextUgsClientStartFailureLogTime, 10f)) {
-                    Debug.LogWarning("[SessionManager] Cannot start match client: relay join code has not been published.");
+                    Debug.LogWarning("[SessionManager] Cannot start match client: DA session code has not been published.");
                 }
                 return;
             }
 
-            var joinCode = joinCodeObj.Value;
-            if(string.IsNullOrEmpty(joinCode)) {
+            var sessionCode = joinCodeObj.Value;
+            if(string.IsNullOrEmpty(sessionCode)) {
                 if(ShouldEmitThrottledLog(ref _nextUgsClientStartFailureLogTime, 10f)) {
-                    Debug.LogWarning("[SessionManager] Cannot start match client: relay join code is empty.");
+                    Debug.LogWarning("[SessionManager] Cannot start match client: DA session code is empty.");
                 }
                 return;
             }
@@ -356,42 +363,9 @@ namespace Network.Session {
                     }
                 }
 
-                await CleanupNetworkAsync();
-
-                if(TryGetUnityTransport("StartMatchClientAsync", out var networkManager, out var utp) == false) {
-                    await LeaveToMainMenuAsync();
-                    return;
-                }
-
-                JoinAllocation joinAlloc;
-                try {
-                    joinAlloc = await RelayService.Instance.JoinAllocationAsync(joinCode);
-                } catch(Exception ex) {
-                    Debug.LogError($"[SessionManager] Failed to join relay allocation for code '{joinCode}': {ex.Message}");
-                    await LeaveToMainMenuAsync();
-                    return;
-                }
-
-                if(_isLeaving || _isShuttingDown) {
-                    if(Debug.isDebugBuild) {
-                        FlowLog.Emit(FlowEventIds.SessionExit,
-                            ("reason", "LeaveToMainMenu"),
-                            ("step", "EXIT_CLIENT_START_SKIPPED_POST_RELAY_JOIN"));
-                    }
-                    return;
-                }
-
-                if(TryApplyRelayToTransport(utp, null, joinAlloc) == false) {
-                    Debug.LogError("[SessionManager] Failed to apply relay client allocation to transport.");
-                    await LeaveToMainMenuAsync();
-                    return;
-                }
-
-                networkManager.NetworkConfig.NetworkTransport = utp;
-
-                ApplyLocalConnectionPayload(true);
-                if(!networkManager.StartClient()) {
-                    Debug.LogError("[SessionManager] Failed to start UGS match client after cleanup.");
+                if(await JoinDistributedAuthoritySessionAsync(sessionCode, IsPrivateMatchLobby(_ugsMatchLobby),
+                       "StartMatchClientAsync") == false) {
+                    Debug.LogError("[SessionManager] Failed to start DA match client after cleanup.");
                     await LeaveToMainMenuAsync();
                     return;
                 }
@@ -930,56 +904,5 @@ namespace Network.Session {
             return Mathf.Min(HeartbeatRateLimitMaxBackoffSeconds, rawBackoff + jitter);
         }
 
-        private static bool TryPickRelayEndpoint(List<RelayServerEndpoint> endpoints, string connectionType,
-            out string host, out ushort port, out bool isSecure) {
-            host = "";
-            port = 0;
-            isSecure = false;
-
-            if(endpoints == null || endpoints.Count == 0 || string.IsNullOrEmpty(connectionType)) return false;
-
-            foreach(var ep in endpoints) {
-                if(ep.ConnectionType != connectionType) continue;
-                host = ep.Host;
-                port = (ushort)ep.Port;
-                isSecure = ep.Secure;
-                if(string.IsNullOrEmpty(host)) return false;
-                return port != 0;
-            }
-
-            return false;
-        }
-
-        private static bool TryApplyRelayToTransport(UnityTransport utp, Allocation hostAlloc, JoinAllocation clientAlloc) {
-            if(utp == null) return false;
-            const string connectionType = "dtls";
-            if(hostAlloc == null && clientAlloc == null) return false;
-            if(hostAlloc != null && clientAlloc != null) return false;
-
-            string host;
-            ushort port;
-            bool isSecure;
-
-            if(hostAlloc != null) {
-                if(!TryPickRelayEndpoint(hostAlloc.ServerEndpoints, connectionType, out host, out port, out isSecure)) {
-                    Debug.LogError("[SessionManager] Relay allocation missing a DTLS endpoint.");
-                    return false;
-                }
-
-                utp.UseWebSockets = false;
-                utp.SetRelayServerData(host, port, hostAlloc.AllocationIdBytes, hostAlloc.Key, hostAlloc.ConnectionData, null, isSecure);
-                return true;
-            }
-
-            if(!TryPickRelayEndpoint(clientAlloc.ServerEndpoints, connectionType, out host, out port, out isSecure)) {
-                Debug.LogError("[SessionManager] Relay join allocation missing a DTLS endpoint.");
-                return false;
-            }
-
-            utp.UseWebSockets = false;
-            utp.SetRelayServerData(host, port, clientAlloc.AllocationIdBytes, clientAlloc.Key, clientAlloc.ConnectionData,
-                clientAlloc.HostConnectionData, isSecure);
-            return true;
-        }
     }
 }

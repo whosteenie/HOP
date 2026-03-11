@@ -3,6 +3,7 @@ using Cysharp.Threading.Tasks;
 using Game.Match;
 using Game.Menu;
 using Game.Player;
+using Network.Core;
 using Network.Diagnostics;
 using Network.Events;
 using Network.Singletons;
@@ -172,7 +173,7 @@ namespace Network.Session {
                 SetFrontStatus(SessionPhase.InGame, "");
 
                 if(_networkManager == null) _networkManager = NetworkManager.Singleton;
-                if(_networkManager != null && _networkManager.IsServer) {
+                if(NetworkAuthority.HasGlobalAuthority(_networkManager)) {
                     IsInGameplay = true;
                     if(_customNetworkManager != null) {
                         _customNetworkManager.EnableGameplaySpawningAndSpawnAll();
@@ -199,7 +200,7 @@ namespace Network.Session {
                     if(presentationSerial == _gameScenePresentationSerial && !_isLeaving && !_isShuttingDown) {
                         await SceneTransitionManager.Instance.FadeInAsync();
                         if(MatchTimerManager.Instance != null && _networkManager != null && _networkManager.IsClient) {
-                            if(_networkManager.IsServer) {
+                            if(NetworkAuthority.HasGlobalAuthority(_networkManager)) {
                                 MatchTimerManager.Instance.MarkClientScenePresented(_networkManager.LocalClientId,
                                     "HostLocalFadeIn");
                             } else {
@@ -208,7 +209,7 @@ namespace Network.Session {
                         }
                     }
                 } else if(MatchTimerManager.Instance != null && _networkManager != null && _networkManager.IsClient) {
-                    if(_networkManager.IsServer) {
+                    if(NetworkAuthority.HasGlobalAuthority(_networkManager)) {
                         MatchTimerManager.Instance.MarkClientScenePresented(_networkManager.LocalClientId,
                             "HostNoTransitionManager");
                     } else {
@@ -222,12 +223,17 @@ namespace Network.Session {
 
         private void OnClientConnected(ulong clientId) {
             // Handle connection
-            if(!_networkManager.IsServer) return;
+            if(!NetworkAuthority.HasGlobalAuthority(_networkManager)) return;
             NotifyPartyStateChanged();
         }
 
         private void OnClientDisconnected(ulong clientId) {
             if(_networkManager == null) return;
+
+            if(_networkManager.DistributedAuthorityMode && clientId != _networkManager.LocalClientId) {
+                NotifyPartyStateChanged();
+                return;
+            }
 
             // We disconnected ourselves (LocalClientId), OR server/host disconnected us (ServerClientId)
             var isLocalDisconnect = clientId == _networkManager.LocalClientId;
@@ -251,10 +257,51 @@ namespace Network.Session {
         /// </summary>
         private void OnClientStopped(bool _) {
             if(IsExpectedDisconnect || _isLeaving) return;
+            if(_networkManager != null && _networkManager.DistributedAuthorityMode && _networkManager.IsListening) return;
             if(_networkManager != null && _networkManager.IsServer) return; // Only care when we're a client
+
+            if(_networkManager != null && _networkManager.DistributedAuthorityMode && _activeMultiplayerSession != null) {
+                LaunchSessionTask(VerifyDistributedAuthorityStopAsync(), "DistributedAuthority/VerifyClientStopped");
+                return;
+            }
 
             Debug.Log("[SessionManager] Client stopped unexpectedly (e.g. host left). Sending to main menu.");
             TriggerUnexpectedDisconnectFlow("OnClientStopped");
+        }
+
+        private async UniTask VerifyDistributedAuthorityStopAsync() {
+            await UniTask.Delay(TimeSpan.FromSeconds(3));
+
+            if(IsExpectedDisconnect || _isLeaving || _isShuttingDown) {
+                return;
+            }
+
+            if(_networkManager != null && _networkManager.IsListening) {
+                if(Debug.isDebugBuild) {
+                    Debug.Log("[SessionManager] DA client stop recovered during grace period.");
+                }
+                return;
+            }
+
+            Debug.Log("[SessionManager] DA client remained stopped after migration grace period. Sending to main menu.");
+            TriggerUnexpectedDisconnectFlow("OnClientStopped/DistributedAuthority");
+        }
+
+        private void OnSessionOwnerPromoted(ulong sessionOwnerPromoted) {
+            if(_networkManager == null || !_networkManager.DistributedAuthorityMode) {
+                return;
+            }
+
+            if(Debug.isDebugBuild) {
+                Debug.Log(
+                    $"[SessionManager] Session owner promoted to client {sessionOwnerPromoted}. LocalSessionOwner={_networkManager.LocalClient != null && _networkManager.LocalClient.IsSessionOwner}");
+            }
+
+            if(_networkManager.IsListening && !_isLeaving && !_isShuttingDown && IsGameplaySceneName(SceneManager.GetActiveScene().name)) {
+                SetFrontStatus(SessionPhase.InGame, "");
+            }
+
+            NotifyPartyStateChanged();
         }
 
         private void TriggerUnexpectedDisconnectFlow(string source) {

@@ -595,9 +595,14 @@ namespace Network.Session {
                 expectedPlayerIds is { Count: > 0 } ? expectedPlayerIds.Count : 1,
                 "UgsPublicMatchHost");
 
-            // Relay allocation for host.
-            var (alloc, joinCode) = await CreateRelayAllocationWithJoinCodeAsync(maxPlayers);
-            await CreatePublicMatchLobbyAsHostAsync(mode, maxPlayers, matchId, joinCode);
+            var sessionCode =
+                await CreateDistributedAuthoritySessionAsync(maxPlayers, false, "StartPublicMatchAsHostAsync");
+            if(string.IsNullOrEmpty(sessionCode)) {
+                await LeaveToMainMenuAsync();
+                return;
+            }
+
+            await CreatePublicMatchLobbyAsHostAsync(mode, maxPlayers, matchId, sessionCode);
             await PreFadePublicHostAsync();
 
             // Mark host as ready
@@ -627,12 +632,6 @@ namespace Network.Session {
                 if(Debug.isDebugBuild) {
                     Debug.Log("[SessionManager] Updated lobby state to 'LoadingScene'");
                 }
-            }
-
-            // Now start the host
-            if(await TryStartHostWithRelayAsync(alloc, false, "StartPublicMatchAsHostAsync") == false) {
-                await LeaveToMainMenuAsync();
-                return;
             }
 
             if(!TryLoadGameplaySceneAsHost("StartPublicMatchAsHostAsync/LoadScene")) {
