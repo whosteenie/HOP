@@ -2,12 +2,15 @@ using Game.Match;
 using Game.Player;
 using Game.UI;
 using Network.AntiCheat;
+using Network.Core;
 using Network.Events;
 using Unity.Netcode;
 using UnityEngine;
 
 namespace Game.Weapons {
     public partial class WeaponManager {
+        private bool HasWeaponAuthority => NetworkAuthority.HasGlobalAuthority(this);
+
         public enum AmmoSyncReason : byte {
             ReloadStarted = 0,
             ReloadSingleRound = 1,
@@ -26,12 +29,12 @@ namespace Game.Weapons {
         }
 
         public void ResetAllWeaponAmmo() {
-            if(!IsServer) {
+            if(!HasWeaponAuthority) {
                 ResetAllWeaponAmmoServerRpc();
             }
 
             _ammoAuthority.ResetAllWeaponAmmo(weaponDataList, ResolveWeaponCapacity);
-            if(IsServer) {
+            if(HasWeaponAuthority) {
                 ClearServerReloadState();
                 ResetServerDamageMultiplierForCurrentWeapon();
             }
@@ -50,7 +53,7 @@ namespace Game.Weapons {
         /// Server-authoritative: updates server validation ammo and syncs owner's FP/HUD state.
         /// </summary>
         public void DrainCurrentWeaponAmmoForTag() {
-            if(!IsServer) return;
+            if(!HasWeaponAuthority) return;
             if(CurrentWeaponIndex < 0 || CurrentWeaponIndex >= weaponDataList.Count) return;
 
             var data = weaponDataList[CurrentWeaponIndex];
@@ -94,7 +97,7 @@ namespace Game.Weapons {
 
         public bool RegisterServerShot(int weaponIndex, ulong shotId, float clientShotTime, out string reason) {
             reason = null;
-            if(!IsServer) return true;
+            if(!HasWeaponAuthority) return true;
 
             if(weaponIndex != GetServerAuthoritativeWeaponIndex()) {
                 reason = "weapon index mismatch";
@@ -126,7 +129,7 @@ namespace Game.Weapons {
 
         public bool ValidateServerHitClaim(int weaponIndex, ulong shotId, out string reason) {
             reason = null;
-            if(!IsServer) return true;
+            if(!HasWeaponAuthority) return true;
 
             if(weaponIndex != GetServerAuthoritativeWeaponIndex()) {
                 reason = "weapon index mismatch";
@@ -213,7 +216,7 @@ namespace Game.Weapons {
         }
 
         public void ReportWeaponStateSync(int weaponIndex, AmmoSyncReason reason, int localAmmoAfterEvent) {
-            if(!IsServer) {
+            if(!HasWeaponAuthority) {
                 ReportWeaponStateSyncServerRpc(weaponIndex, reason, localAmmoAfterEvent);
                 return;
             }
@@ -222,7 +225,7 @@ namespace Game.Weapons {
         }
 
         public void ReportShotFired(int weaponIndex, ulong shotId, float clientShotTime) {
-            if(!IsServer) {
+            if(!HasWeaponAuthority) {
                 ReportShotFiredServerRpc(weaponIndex, shotId, clientShotTime);
                 return;
             }
@@ -268,7 +271,7 @@ namespace Game.Weapons {
         }
 
         private void UpdateServerAmmo(int weaponIndex, int ammo) {
-            if(!IsServer) return;
+            if(!HasWeaponAuthority) return;
             _ammoAuthority.UpdateServerAmmo(
                 weaponIndex,
                 ammo,
@@ -286,9 +289,8 @@ namespace Game.Weapons {
         }
 
         private void ApplyServerAuthoritativeWeaponSwitch(int weaponIndex) {
-            if(!IsServer) return;
+            if(!HasWeaponAuthority) return;
             _serverAuthoritativeWeaponIndex = weaponIndex;
-            _netEquippedWeaponIndex.Value = weaponIndex;
             ClearServerReloadState();
             _serverPullOutBlockedUntilTime = Time.time + GetServerPullOutBlockDurationSeconds();
         }
@@ -302,7 +304,7 @@ namespace Game.Weapons {
         }
 
         private void ResetServerDamageMultiplierForCurrentWeapon() {
-            if(!IsServer) return;
+            if(!HasWeaponAuthority) return;
             if(CurrentWeapon == null) return;
             CurrentWeapon.ResetAuthoritativeDamageMultiplierImmediate();
         }
@@ -313,7 +315,7 @@ namespace Game.Weapons {
             magCapacity = 0;
             reason = null;
 
-            if(!IsServer) return true;
+            if(!HasWeaponAuthority) return true;
 
             data = GetWeaponDataByIndex(weaponIndex);
             if(data == null) {
@@ -336,7 +338,7 @@ namespace Game.Weapons {
         }
 
         private void UpdateServerWeaponState(int weaponIndex, AmmoSyncReason reason, int localAmmoAfterEvent) {
-            if(!IsServer) return;
+            if(!HasWeaponAuthority) return;
 
             if(!TryValidateServerWeaponStateRequest(weaponIndex, out var data, out var magCapacity,
                    out var validationReason)) {

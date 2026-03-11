@@ -117,8 +117,10 @@ namespace Network {
         }
 
         private void OnClientConnected(ulong clientId) {
-            if(_allowPlayerSpawns && NetworkAuthority.HasGlobalAuthority(NetworkManager.Singleton))
+            if(_allowPlayerSpawns && NetworkAuthority.HasGlobalAuthority(NetworkManager.Singleton)) {
                 SpawnPlayerFor(clientId);
+                SchedulePlayerVisibilityReconciliation("OnClientConnected");
+            }
         }
 
         private void OnSessionOwnerPromoted(ulong _) {
@@ -129,6 +131,8 @@ namespace Network {
             foreach(var clientId in _networkManager.ConnectedClientsIds) {
                 SpawnPlayerFor(clientId);
             }
+
+            SchedulePlayerVisibilityReconciliation("OnSessionOwnerPromoted");
         }
 
         public void ConfigureSessionMetadata(bool isPrivateMatch) {
@@ -188,6 +192,65 @@ namespace Network {
 
             // Clear pending assignments after batch spawn
             _pendingTeamAssignments.Clear();
+            SchedulePlayerVisibilityReconciliation("EnableGameplaySpawningAndSpawnAll");
+        }
+
+        private void SchedulePlayerVisibilityReconciliation(string context) {
+            if(!isActiveAndEnabled) {
+                return;
+            }
+
+            StartCoroutine(ReconcilePlayerVisibilityAfterSpawn(context));
+        }
+
+        private IEnumerator ReconcilePlayerVisibilityAfterSpawn(string context) {
+            yield return null;
+            yield return null;
+
+            if(_networkManager == null) {
+                _networkManager = NetworkManager.Singleton;
+            }
+
+            if(_networkManager == null || !_allowPlayerSpawns || !NetworkAuthority.HasGlobalAuthority(_networkManager)) {
+                yield break;
+            }
+
+            EnsureAllSpawnedPlayerObjectsVisible(context);
+        }
+
+        private void EnsureAllSpawnedPlayerObjectsVisible(string context) {
+            if(_networkManager == null || !NetworkAuthority.HasGlobalAuthority(_networkManager)) {
+                return;
+            }
+
+            foreach(var client in _networkManager.ConnectedClients.Values) {
+                if(client?.PlayerObject == null || !client.PlayerObject.IsSpawned) {
+                    continue;
+                }
+
+                EnsureNetworkObjectVisibleToAllConnectedClients(client.PlayerObject, context);
+            }
+        }
+
+        private void EnsureNetworkObjectVisibleToAllConnectedClients(NetworkObject networkObject, string context) {
+            if(networkObject == null || !networkObject.IsSpawned || _networkManager == null) {
+                return;
+            }
+
+            var newlyShownCount = 0;
+            foreach(var observerClientId in _networkManager.ConnectedClientsIds) {
+                if(networkObject.IsNetworkVisibleTo(observerClientId)) {
+                    continue;
+                }
+
+                networkObject.NetworkShow(observerClientId);
+                newlyShownCount++;
+            }
+
+            if(Debug.isDebugBuild && newlyShownCount > 0) {
+                Debug.Log(
+                    $"[CustomNetworkManager] Reconciled visibility for '{networkObject.name}' to {newlyShownCount} client(s) ({context}).");
+            }
         }
 
         // ========================================================================
@@ -263,6 +326,7 @@ namespace Network {
 
                 // 6. Spawn as player object
                 instance.SpawnAsPlayerObject(clientId);
+                EnsureNetworkObjectVisibleToAllConnectedClients(instance, $"SpawnPlayerFor/{clientId}");
                 FlowLog.Emit(FlowEventIds.PlayerSpawned,
                     ("clientId", clientId),
                     ("team", isTeamBased ? assignedTeam.ToString() : "None"),

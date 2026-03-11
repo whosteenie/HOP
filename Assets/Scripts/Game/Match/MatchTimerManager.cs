@@ -75,6 +75,10 @@ namespace Game.Match {
         }
 
         public override void OnNetworkDespawn() {
+            if(NetworkManager != null && NetworkManager.DistributedAuthorityMode && !NetworkManager.ShutdownInProgress) {
+                Debug.LogWarning("[MatchTimerManager] Unexpected network despawn while DA session is still active.");
+            }
+
             base.OnNetworkDespawn();
             if(NetworkManager != null) {
                 NetworkManager.OnClientDisconnectCallback -= OnClientDisconnectedDuringPreMatch;

@@ -1,6 +1,7 @@
 using Unity.Netcode;
 using Unity.Netcode.Transports.UTP;
 using UnityEngine;
+using Network.Core;
 
 namespace Game.Player {
     /// <summary>
@@ -15,8 +16,12 @@ namespace Game.Player {
         [SerializeField] private float velocitySampleInterval = 0.1f;
 
         // Network variables (moved from PlayerController)
-        public NetworkVariable<float> averageVelocity = new();
-        public NetworkVariable<int> pingMs = new();
+        public NetworkVariable<float> averageVelocity = new(0f,
+            NetworkVariableReadPermission.Everyone,
+            NetworkVariableWritePermission.Owner);
+        public NetworkVariable<int> pingMs = new(0,
+            NetworkVariableReadPermission.Everyone,
+            NetworkVariableWritePermission.Owner);
 
         // Private fields for velocity tracking
         private float _totalVelocitySampled;
@@ -43,7 +48,7 @@ namespace Game.Player {
         }
 
         private void Update() {
-            if(!IsServer) return;
+            if(!IsOwner) return;
 
             // Update ping every second
             _timer += Time.deltaTime;
@@ -72,27 +77,19 @@ namespace Game.Player {
             _velSampleTimer += Time.deltaTime;
             if(!(_velSampleTimer >= velocitySampleInterval) || _velSampleCount <= 0) return;
             var avg = _velSampleAccum / _velSampleCount;
-            SubmitVelocitySampleServerRpc(avg);
+            _totalVelocitySampled += avg;
+            _velocitySampleCount++;
+            averageVelocity.Value = _totalVelocitySampled / _velocitySampleCount;
             _velSampleTimer = 0f;
             _velSampleAccum = 0f;
             _velSampleCount = 0;
         }
 
         /// <summary>
-        /// Submits a velocity sample to the server to update the average velocity.
-        /// </summary>
-        [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Owner)]
-        private void SubmitVelocitySampleServerRpc(float speed) {
-            _totalVelocitySampled += speed;
-            _velocitySampleCount++;
-            averageVelocity.Value = _totalVelocitySampled / _velocitySampleCount;
-        }
-
-        /// <summary>
         /// Updates the player's ping based on the network transport.
         /// </summary>
         private void UpdatePing() {
-            if(!IsServer) return;
+            if(!IsOwner) return;
 
             var transport = NetworkManager.Singleton.NetworkConfig.NetworkTransport as UnityTransport;
             if(!transport) return;

@@ -1,5 +1,6 @@
 using Game.Match;
 using Game.UI;
+using Network.Core;
 using Network.Events;
 using Unity.Netcode;
 using UnityEngine;
@@ -10,15 +11,21 @@ namespace Game.Player {
     /// </summary>
     [DefaultExecutionOrder(-90)] // Initialize after PlayerController
     public class PlayerTagController : NetworkBehaviour {
+        private bool HasTagAuthority => NetworkAuthority.HasGlobalAuthority(this);
+
         [Header("References")]
         [SerializeField] private PlayerController playerController;
         private PlayerTeamManager _teamManager;
 
         // Tag mode network variables
-        public NetworkVariable<int> tags = new();
-        public NetworkVariable<int> tagged = new();
-        public NetworkVariable<int> timeTagged = new(); // Time tagged in seconds
-        public NetworkVariable<bool> isTagged = new();
+        public NetworkVariable<int> tags = new(0, NetworkVariableReadPermission.Everyone,
+            NetworkVariableWritePermission.Owner);
+        public NetworkVariable<int> tagged = new(0, NetworkVariableReadPermission.Everyone,
+            NetworkVariableWritePermission.Owner);
+        public NetworkVariable<int> timeTagged = new(0, NetworkVariableReadPermission.Everyone,
+            NetworkVariableWritePermission.Owner); // Time tagged in seconds
+        public NetworkVariable<bool> isTagged = new(false, NetworkVariableReadPermission.Everyone,
+            NetworkVariableWritePermission.Owner);
 
         // Throttling for network updates (at 90Hz: 5 ticks = ~55ms, 2 ticks = ~22ms)
         public float lastTagStatsUpdateTime; // Public for cross-reference in HandleTagTransfer
@@ -75,7 +82,7 @@ namespace Game.Player {
         }
 
         private void Update() {
-            if(!IsServer) return;
+            if(!IsOwner) return;
 
             var matchSettings = MatchSettingsManager.Instance;
             var isTagMode = matchSettings != null && matchSettings.selectedGameModeId == "Gun Tag";
@@ -108,7 +115,7 @@ namespace Game.Player {
         /// Called from PlayerController.ApplyDamageServer_Auth when in tag mode.
         /// </summary>
         public void HandleTagTransfer(ulong attackerId, Vector3 hitPoint, float amount) {
-            if(!IsServer) return;
+            if(!HasTagAuthority) return;
 
             if(!NetworkManager.Singleton.ConnectedClients.TryGetValue(attackerId, out var attackerClient)) return;
 
@@ -131,31 +138,11 @@ namespace Game.Player {
 
             var wasTagged = isTagged.Value;
             if(wasTagged) return;
-            isTagged.Value = true;
-
-            // Gun Tag rule: tagged player loses ammo in their currently equipped weapon.
-            // This is applied only to the newly tagged player and syncs owner HUD via WeaponManager.
-            if(playerController != null && playerController.WeaponManager != null) {
-                playerController.WeaponManager.DrainCurrentWeaponAmmoForTag();
-            }
-
-            if(Time.time - lastTagStatsUpdateTime >= TagStatsUpdateInterval) {
-                tagged.Value++;
-                lastTagStatsUpdateTime = Time.time;
-            } else {
-                tagged.Value++;
-            }
+            ApplyTagVictimOwnerRpc();
 
             PlayTaggedSoundClientRpc();
 
-            attackerTagController.isTagged.Value = false;
-
-            if(Time.time - attackerTagController.lastTagStatsUpdateTime >= TagStatsUpdateInterval) {
-                attackerTagController.tags.Value++;
-                attackerTagController.lastTagStatsUpdateTime = Time.time;
-            } else {
-                attackerTagController.tags.Value++;
-            }
+            attackerTagController.ApplyTagAttackerOwnerRpc();
 
             attackerTagController.PlayTaggingSoundClientRpc();
 
@@ -274,13 +261,37 @@ namespace Game.Player {
         /// Resets tag state (called on respawn).
         /// </summary>
         public void ResetTagState() {
-            if(!IsServer) return;
+            if(!IsOwner) return;
 
             var matchSettings = MatchSettingsManager.Instance;
             if(matchSettings != null && matchSettings.selectedGameModeId == "Gun Tag") {
                 // Do NOT reset tag state on respawn - keep "It" status if they died/fell off map
                 // isTagged.Value = false; 
             }
+        }
+
+        [Rpc(SendTo.Owner)]
+        public void ApplyTimeTaggedDeltaOwnerRpc(int delta) {
+            timeTagged.Value = Mathf.Max(0, timeTagged.Value + delta);
+        }
+
+        [Rpc(SendTo.Owner)]
+        private void ApplyTagVictimOwnerRpc() {
+            isTagged.Value = true;
+
+            if(playerController != null && playerController.WeaponManager != null) {
+                playerController.WeaponManager.DrainCurrentWeaponAmmoForTag();
+            }
+
+            tagged.Value++;
+            lastTagStatsUpdateTime = Time.time;
+        }
+
+        [Rpc(SendTo.Owner)]
+        private void ApplyTagAttackerOwnerRpc() {
+            isTagged.Value = false;
+            tags.Value++;
+            lastTagStatsUpdateTime = Time.time;
         }
     }
 }

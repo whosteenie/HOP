@@ -47,7 +47,7 @@ namespace Game.Weapons {
         private readonly WeaponWorldWeaponRegistry _worldWeaponRegistry = new();
         private readonly NetworkVariable<int> _netEquippedWeaponIndex = new(-1,
             NetworkVariableReadPermission.Everyone,
-            NetworkVariableWritePermission.Server);
+            NetworkVariableWritePermission.Owner);
         private GameObject _pendingTpWeapon; // Track pending TP weapon to show via animation event
         private int _serverAuthoritativeWeaponIndex = -1;
         private int _serverReloadWeaponIndex = -1;
@@ -465,7 +465,7 @@ namespace Game.Weapons {
                 magCapacity
             );
 
-            if(IsServer) {
+            if(IsOwner) {
                 _serverAuthoritativeWeaponIndex = index;
                 _serverReloadWeaponIndex = -1;
                 _serverPullOutBlockedUntilTime = 0f;

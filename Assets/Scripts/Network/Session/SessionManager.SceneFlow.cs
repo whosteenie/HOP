@@ -190,6 +190,8 @@ namespace Network.Session {
                     }
                 }
 
+                await UnsubscribeMatchLobbyEventsAsync("OnGameSceneLoadedAsync/InGame");
+
                 if(SceneTransitionManager.Instance != null) {
                     var ready = await WaitForGameplayReadyAsync(20f);
                     if(!ready) {

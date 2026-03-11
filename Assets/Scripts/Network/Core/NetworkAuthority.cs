@@ -39,9 +39,11 @@ namespace Network.Core {
             }
 
             var networkObject = behaviour.NetworkObject;
-            if(networkObject == null || !networkObject.HasAuthority || !IsSessionOwner(networkManager)) {
+            if(networkObject == null || !IsSessionOwner(networkManager)) {
                 return;
             }
+
+            networkObject.DontDestroyWithOwner = true;
 
             if(networkObject.OwnerClientId != networkManager.LocalClientId) {
                 networkObject.ChangeOwnership(networkManager.LocalClientId);

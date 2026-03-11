@@ -6,6 +6,7 @@ using Game.Hopball;
 using Game.Match;
 using Game.Spawning;
 using Game.UI;
+using Network.Core;
 using Network.Components;
 using Network.Diagnostics;
 using Network.Events;
@@ -20,6 +21,8 @@ namespace Game.Player {
     /// </summary>
     [DefaultExecutionOrder(-90)] // Initialize after PlayerController
     public class PlayerHealthController : NetworkBehaviour {
+        private bool HasCombatAuthority => NetworkAuthority.HasGlobalAuthority(this);
+
         [Header("References")]
         [SerializeField] private PlayerController playerController;
 
@@ -58,6 +61,7 @@ namespace Game.Player {
         private float _lastDamageTime;
         private string _lastBodyPartTag;
         private bool _isRegenerating;
+        private bool _deathStatePending;
         private Coroutine _respawnFadeCoroutine;
         private Coroutine _respawnTimeoutProbeCoroutine;
 
@@ -131,6 +135,7 @@ namespace Game.Player {
         /// Updates the player's health regeneration state based on time since last damage.
         /// </summary>
         public void UpdateHealthRegeneration() {
+            if(!IsOwner) return;
             if(netIsDead == null || netHealth == null) return;
 
             if(netIsDead.Value || netHealth.Value >= MaxHealth) {
@@ -156,7 +161,7 @@ namespace Game.Player {
         /// </summary>
         public bool ApplyDamageServer_Auth(float amount, Vector3 hitPoint, Vector3 hitDirection, ulong attackerId,
             string bodyPartTag = null, bool isHeadshot = false, string weaponId = null) {
-            if(!IsServer || netIsDead == null || netIsDead.Value) return false;
+            if(!HasCombatAuthority || netIsDead == null || netIsDead.Value || _deathStatePending) return false;
             var activeMode = MatchSettingsManager.Instance != null
                 ? MatchSettingsManager.Instance.selectedGameModeId
                 : "Unknown";
@@ -165,22 +170,22 @@ namespace Game.Player {
                 var oobMatchSettings = MatchSettingsManager.Instance;
                 var isOobTagMode = oobMatchSettings != null && oobMatchSettings.selectedGameModeId == "Gun Tag";
                 if(isOobTagMode && _tagController != null && !_tagController.isTagged.Value) {
-                    _tagController.timeTagged.Value += GunTagOobNonTaggedPenaltySeconds;
+                    _tagController.ApplyTimeTaggedDeltaOwnerRpc(GunTagOobNonTaggedPenaltySeconds);
                 }
 
                 var healthBefore = netHealth.Value;
-                netHealth.Value = 0f;
-                netIsDead.Value = true;
+                ApplyHealthStateOwnerRpc(0f, true, incrementDeaths: true, hitPoint, hitDirection, bodyPartTag);
+                _deathStatePending = true;
                 StartRespawnTimeoutProbe();
                 FlowLog.Emit(FlowEventIds.PlayerLethal,
                     ("victim", OwnerClientId),
                     ("attacker", "Environment"),
                     ("healthBefore", healthBefore),
-                    ("healthAfter", netHealth.Value),
+                    ("healthAfter", 0f),
                     ("bodyPart", bodyPartTag ?? "None"));
                 FlowLog.Emit(FlowEventIds.PlayerDeathEntered,
                     ("player", OwnerClientId),
-                    ("isServer", IsServer),
+                    ("hasAuthority", HasCombatAuthority),
                     ("isOwner", IsOwner),
                     ("mode", activeMode),
                     ("position", _playerTransform != null ? _playerTransform.position : transform.position));
@@ -199,7 +204,6 @@ namespace Game.Player {
                 }
                 BroadcastKillClientRpc("HOP", victimName, attackerId, OwnerClientId, null);
                 
-                deaths.Value++;
                 ReserveSpawnPointForDeath();
                 DieClientRpc(_lastBodyPartTag);
                 
@@ -230,7 +234,7 @@ namespace Game.Player {
                        _tagController != null && _tagController.isTagged.Value) {
                         nonTaggedShootingTagged = true;
                         if(attackerTagController.timeTagged.Value > 0) {
-                            attackerTagController.timeTagged.Value--;
+                            attackerTagController.ApplyTimeTaggedDeltaOwnerRpc(-1);
                         }
 
                         if(playerController != null) {
@@ -250,7 +254,8 @@ namespace Game.Player {
                 var newHp = Mathf.Max(0f, pre - amount);
                 var actualDealt = pre - newHp;
 
-                netHealth.Value = newHp;
+                ApplyHealthStateOwnerRpc(newHp, newHp <= 0f, incrementDeaths: newHp <= 0f, hitPoint, hitDirection,
+                    bodyPartTag);
 
                 if(playerController != null) {
                     playerController.PlayHitEffectsClientRpc(hitPoint, amount);
@@ -259,8 +264,9 @@ namespace Game.Player {
                 if(NetworkManager.Singleton.ConnectedClients.TryGetValue(attackerId, out var attackerClient)) {
                     if(attackerClient.PlayerObject == null) return false;
                     var attacker = attackerClient.PlayerObject.GetComponent<PlayerController>();
-                    if(attacker != null && attacker.damageDealt != null) {
-                        attacker.damageDealt.Value += actualDealt;
+                    if(attacker != null && attacker.damageDealt != null &&
+                       attacker.TryGetComponent<PlayerHealthController>(out var attackerHealthController)) {
+                        attackerHealthController.AddDamageDealtOwnerRpc(actualDealt);
                     }
                 }
 
@@ -272,7 +278,7 @@ namespace Game.Player {
                 }
                 if(!(newHp <= 0f) || netIsDead.Value || isPostMatchFlowStarted)
                     return false;
-                netIsDead.Value = true;
+                _deathStatePending = true;
                 StartRespawnTimeoutProbe();
                 FlowLog.Emit(FlowEventIds.PlayerLethal,
                     ("victim", OwnerClientId),
@@ -282,7 +288,7 @@ namespace Game.Player {
                     ("bodyPart", _lastBodyPartTag ?? "None"));
                 FlowLog.Emit(FlowEventIds.PlayerDeathEntered,
                     ("player", OwnerClientId),
-                    ("isServer", IsServer),
+                    ("hasAuthority", HasCombatAuthority),
                     ("isOwner", IsOwner),
                     ("mode", activeMode),
                     ("position", _playerTransform != null ? _playerTransform.position : transform.position));
@@ -293,7 +299,9 @@ namespace Game.Player {
                     if(killerClient.PlayerObject == null) return false;
                     var killer = killerClient.PlayerObject.GetComponent<PlayerController>();
                     if(killer != null) {
-                        killer.Kills.Value++;
+                        if(killer.TryGetComponent<PlayerHealthController>(out var killerHealthController)) {
+                            killerHealthController.AddKillOwnerRpc();
+                        }
                         AwardAssists(attackerId);
                         var killerName = killer.playerName != null ? killer.playerName.Value.ToString() : "Player";
                         var victimName = "Player";
@@ -303,8 +311,6 @@ namespace Game.Player {
                         BroadcastKillClientRpc(killerName, victimName, attackerId, OwnerClientId, weaponId);
                     }
                 }
-
-                deaths.Value++;
 
                 // Reserve spawn point immediately when player dies (server-side)
                 ReserveSpawnPointForDeath();
@@ -432,7 +438,7 @@ namespace Game.Player {
         /// Called on server side to prevent race conditions.
         /// </summary>
         private void ReserveSpawnPointForDeath() {
-            if(!IsServer) return;
+            if(!HasCombatAuthority) return;
 
             var matchSettings = MatchSettingsManager.Instance;
             var isTeamBased = matchSettings != null &&
@@ -459,7 +465,11 @@ namespace Game.Player {
         private IEnumerator RespawnTimer() {
             yield return new WaitForSeconds(3f);
 
-            RequestRespawnServerRpc();
+            if(HasCombatAuthority) {
+                DoRespawnServer();
+            } else {
+                RequestRespawnServerRpc();
+            }
         }
 
         [Rpc(SendTo.Server)]
@@ -568,7 +578,7 @@ namespace Game.Player {
 
             yield return new WaitForSeconds(fadeDuration + buffer);
 
-            if(IsServer && _reservedSpawnPoint != null) {
+            if(HasCombatAuthority && _reservedSpawnPoint != null) {
                 if(SpawnManager.Instance != null) {
                     SpawnManager.Instance.ReleaseReservation(OwnerClientId);
                 }
@@ -583,7 +593,8 @@ namespace Game.Player {
             if(playerController != null) {
                 playerController.SetOutOfBoundsGraceWindow(outOfBoundsGraceAfterRespawnSeconds);
             }
-            ResetHealthAndRegenerationState();
+            _deathStatePending = false;
+            ResetHealthAndRegenerationStateOwnerRpc();
             StopRespawnTimeoutProbe();
             var isDeadNow = netIsDead is { Value: true };
             var isRagdolledNow = _playerRagdoll != null && _playerRagdoll.IsRagdoll;
@@ -802,6 +813,8 @@ namespace Game.Player {
         /// Resets the player's health and regeneration state.
         /// </summary>
         public void ResetHealthAndRegenerationState() {
+            if(!IsOwner) return;
+
             if(netIsDead != null) {
                 netIsDead.Value = false;
             }
@@ -812,11 +825,58 @@ namespace Game.Player {
 
             _lastDamageTime = Time.time - RegenDelay;
             _isRegenerating = false;
+            _deathStatePending = false;
 
             // Tag mode: reset tagged state on respawn
             if(_tagController != null) {
                 _tagController.ResetTagState();
             }
+        }
+
+        [Rpc(SendTo.Owner)]
+        private void ApplyHealthStateOwnerRpc(float healthValue, bool isDead, bool incrementDeaths, Vector3 hitPoint,
+            Vector3 hitDirection, string bodyPartTag) {
+            if(netHealth != null) {
+                netHealth.Value = Mathf.Clamp(healthValue, 0f, MaxHealth);
+            }
+
+            if(netIsDead != null) {
+                netIsDead.Value = isDead;
+            }
+
+            if(incrementDeaths && deaths != null) {
+                deaths.Value++;
+            }
+
+            _lastHitPoint = hitPoint;
+            _lastHitDirection = hitDirection;
+            _lastDamageTime = Time.time;
+            _isRegenerating = false;
+            _lastBodyPartTag = string.IsNullOrEmpty(bodyPartTag) ? null : bodyPartTag;
+            _deathStatePending = isDead;
+        }
+
+        [Rpc(SendTo.Owner)]
+        private void ResetHealthAndRegenerationStateOwnerRpc() {
+            ResetHealthAndRegenerationState();
+        }
+
+        [Rpc(SendTo.Owner)]
+        private void AddDamageDealtOwnerRpc(float delta) {
+            if(delta <= 0f || playerController == null || playerController.DamageDealt == null) return;
+            playerController.DamageDealt.Value += delta;
+        }
+
+        [Rpc(SendTo.Owner)]
+        private void AddKillOwnerRpc() {
+            if(playerController == null || playerController.Kills == null) return;
+            playerController.Kills.Value++;
+        }
+
+        [Rpc(SendTo.Owner)]
+        private void AddAssistOwnerRpc() {
+            if(playerController == null || playerController.Assists == null) return;
+            playerController.Assists.Value++;
         }
 
         private static void ResetAnimatorState(Animator animator) {
@@ -879,7 +939,9 @@ namespace Game.Player {
                 if(client.PlayerObject == null) continue;
                 var controller = client.PlayerObject.GetComponent<PlayerController>();
                 if(controller == null || controller.Assists == null) continue;
-                controller.Assists.Value++;
+                if(controller.TryGetComponent<PlayerHealthController>(out var assistHealthController)) {
+                    assistHealthController.AddAssistOwnerRpc();
+                }
             }
 
             assists.Clear();
@@ -905,7 +967,7 @@ namespace Game.Player {
         }
 
         private void StartRespawnTimeoutProbe() {
-            if(!IsServer) return;
+            if(!HasCombatAuthority) return;
             if(_respawnTimeoutProbeCoroutine != null) {
                 StopCoroutine(_respawnTimeoutProbeCoroutine);
             }
@@ -922,7 +984,7 @@ namespace Game.Player {
             const float timeoutSeconds = 10f;
             yield return new WaitForSeconds(timeoutSeconds);
             _respawnTimeoutProbeCoroutine = null;
-            if(!IsServer || netIsDead == null || netIsDead.Value == false) yield break;
+            if(!HasCombatAuthority || netIsDead == null || netIsDead.Value == false) yield break;
             FlowLog.Emit(FlowEventIds.AnomalyDeathRespawnTimeout,
                 ("player", OwnerClientId),
                 ("elapsed", timeoutSeconds),

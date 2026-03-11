@@ -28,6 +28,12 @@ namespace Network.Session {
         private const string MultiplayerSessionModeKey = "mode";
         private const string MultiplayerSessionMatchTypeKey = "matchType";
 
+        private enum DistributedAuthoritySessionJoinResult {
+            Success,
+            RateLimited,
+            Failed
+        }
+
         private bool TryGetNetworkManager(string operationName, out NetworkManager networkManager) {
             if(_networkManager == null) {
                 _networkManager = NetworkManager.Singleton;
@@ -214,6 +220,7 @@ namespace Network.Session {
                 Debug.Log($"[SessionManager] DA session host changed to '{newHostId}'.");
             }
 
+            LaunchSessionTask(RefreshActiveMultiplayerSessionAsync("HostChanged"), "DistributedAuthority/RefreshHostChanged");
             NotifyPartyStateChanged();
         }
 
@@ -222,6 +229,7 @@ namespace Network.Session {
                 Debug.Log("[SessionManager] DA session migration completed.");
             }
 
+            LaunchSessionTask(RefreshActiveMultiplayerSessionAsync("Migrated"), "DistributedAuthority/RefreshMigrated");
             if(_networkManager != null && _networkManager.IsListening && IsGameplaySceneName(SceneManager.GetActiveScene().name)) {
                 SetFrontStatus(SessionPhase.InGame, "");
             }
@@ -262,11 +270,12 @@ namespace Network.Session {
             }
         }
 
-        private async UniTask<bool> JoinDistributedAuthoritySessionAsync(string sessionCode, bool isPrivateMatch,
+        private async UniTask<DistributedAuthoritySessionJoinResult> JoinDistributedAuthoritySessionAsync(
+            string sessionCode, bool isPrivateMatch,
             string contextLabel) {
             if(string.IsNullOrWhiteSpace(sessionCode)) {
                 Debug.LogError($"[SessionManager] Cannot join DA session during {contextLabel}: session code is empty.");
-                return false;
+                return DistributedAuthoritySessionJoinResult.Failed;
             }
 
             await CleanupNetworkAsync();
@@ -285,12 +294,17 @@ namespace Network.Session {
 
                 var session = await MultiplayerService.Instance.JoinSessionByCodeAsync(sessionCode, joinOptions);
                 BindActiveMultiplayerSession(session, contextLabel);
-                return true;
+                return DistributedAuthoritySessionJoinResult.Success;
+            } catch(SessionException ex) when(ex.Error == SessionError.RateLimitExceeded) {
+                Debug.LogWarning(
+                    $"[SessionManager] Rate limited joining DA session '{sessionCode}' during {contextLabel}. Retrying...");
+                UnbindActiveMultiplayerSession();
+                return DistributedAuthoritySessionJoinResult.RateLimited;
             } catch(Exception ex) {
                 Debug.LogError(
                     $"[SessionManager] Failed to join DA session '{sessionCode}' during {contextLabel}: {ex}");
                 UnbindActiveMultiplayerSession();
-                return false;
+                return DistributedAuthoritySessionJoinResult.Failed;
             }
         }
 
@@ -309,6 +323,25 @@ namespace Network.Session {
                 }
             } catch(Exception ex) {
                 Debug.LogWarning($"[SessionManager] Failed to leave DA session during {contextLabel}: {ex.Message}");
+            }
+        }
+
+        private async UniTask RefreshActiveMultiplayerSessionAsync(string reason) {
+            if(_activeMultiplayerSession == null || _isLeaving || _isShuttingDown) {
+                return;
+            }
+
+            try {
+                await UniTask.Delay(250);
+                if(_activeMultiplayerSession == null || _isLeaving || _isShuttingDown) {
+                    return;
+                }
+
+                await _activeMultiplayerSession.RefreshAsync();
+            } catch(Exception ex) {
+                if(Debug.isDebugBuild) {
+                    Debug.LogWarning($"[SessionManager] Failed to refresh active DA session after {reason}: {ex.Message}");
+                }
             }
         }
 
@@ -696,6 +729,7 @@ namespace Network.Session {
             _ugsLocalReadySubmitted = false;
             _ugsClientStartedForMatch = false;
             _ugsHostPreFadedOut = false;
+            ResetDistributedAuthorityJoinRetryState();
             _lastFailedFollowMatchLobbyId = null;
 
             var matchSettings = MatchSettingsManager.Instance;

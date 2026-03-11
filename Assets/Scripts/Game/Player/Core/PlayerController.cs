@@ -200,14 +200,25 @@ namespace Game.Player {
 
         #region Network Variables
 
-        public NetworkVariable<float> netHealth = new(100f);
-        public NetworkVariable<bool> netIsDead = new();
-        public NetworkVariable<int> kills = new();
-        public NetworkVariable<int> deaths = new();
-        public NetworkVariable<int> assists = new();
+        public NetworkVariable<float> netHealth = new(100f,
+            NetworkVariableReadPermission.Everyone,
+            NetworkVariableWritePermission.Owner);
+        public NetworkVariable<bool> netIsDead = new(false,
+            NetworkVariableReadPermission.Everyone,
+            NetworkVariableWritePermission.Owner);
+        public NetworkVariable<int> kills = new(0,
+            NetworkVariableReadPermission.Everyone,
+            NetworkVariableWritePermission.Owner);
+        public NetworkVariable<int> deaths = new(0,
+            NetworkVariableReadPermission.Everyone,
+            NetworkVariableWritePermission.Owner);
+        public NetworkVariable<int> assists = new(0,
+            NetworkVariableReadPermission.Everyone,
+            NetworkVariableWritePermission.Owner);
 
         public NetworkVariable<float> damageDealt = new(0f,
-            NetworkVariableReadPermission.Owner);
+            NetworkVariableReadPermission.Everyone,
+            NetworkVariableWritePermission.Owner);
 
         public NetworkVariable<int> playerMaterialIndex = new(0,
             NetworkVariableReadPermission.Everyone,
@@ -693,16 +704,16 @@ namespace Game.Player {
                 DisableUnexpectedChildCamerasAndListeners();
             }
 
-            if(IsServer) {
+            if(NetworkAuthority.HasGlobalAuthority(this)) {
                 var authPos = clientNetworkTransform.transform.position;
                 ValidateServerMovement(authPos);
                 HandleOutOfBoundsChecks(authPos);
-
-                if(healthController != null)
-                    healthController.UpdateHealthRegeneration();
             }
 
             if(IsOwner) {
+                if(healthController != null) {
+                    healthController.UpdateHealthRegeneration();
+                }
                 UpdateTriggerOutOfBoundsCountdownUiOwner();
             }
 
@@ -877,7 +888,7 @@ namespace Game.Player {
         }
 
         public void SetOutOfBoundsGraceWindow(float seconds) {
-            if(!IsServer) return;
+            if(!NetworkAuthority.HasGlobalAuthority(this)) return;
 
             var duration = Mathf.Max(0f, seconds);
             _ignoreOutOfBoundsUntilTime = Mathf.Max(_ignoreOutOfBoundsUntilTime, Time.time + duration);
@@ -904,7 +915,7 @@ namespace Game.Player {
         }
 
         private void HandleOutOfBoundsChecks(Vector3 authPos) {
-            if(!IsServer) return;
+            if(!NetworkAuthority.HasGlobalAuthority(this)) return;
 
             var aliveAndControllable = !netIsDead.Value && characterController != null && characterController.enabled;
             if(!aliveAndControllable) {
@@ -967,7 +978,7 @@ namespace Game.Player {
         }
 
         private void ClearTriggerOutOfBoundsCountdownServer() {
-            if(!IsServer || !_triggerOobCountdownActiveServer) return;
+            if(!NetworkAuthority.HasGlobalAuthority(this) || !_triggerOobCountdownActiveServer) return;
             _triggerOobCountdownActiveServer = false;
             _triggerOobDeadlineServerTime = 0f;
             HideTriggerOutOfBoundsCountdownOwnerRpc();

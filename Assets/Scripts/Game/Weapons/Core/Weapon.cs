@@ -3,6 +3,7 @@ using Audio.Networking;
 using Game.Menu;
 using Game.Player;
 using Game.UI;
+using Network.Core;
 using Network.Events;
 using Network.Rpc;
 using Unity.Cinemachine;
@@ -48,12 +49,12 @@ namespace Game.Weapons {
 
         public NetworkVariable<float> netCurrentDamageMultiplier = new(1f,
             NetworkVariableReadPermission.Everyone,
-            NetworkVariableWritePermission.Server);
+            NetworkVariableWritePermission.Owner);
 
         public float CurrentDamageMultiplier {
             get => netCurrentDamageMultiplier.Value;
             set {
-                if(!IsServer) return;
+                if(!IsOwner) return;
                 // Throttle network updates - only send if enough time has passed or value changed significantly
                 // At 90Hz: 5 ticks = ~55ms
                 const float damageMultiplierUpdateInterval = 0.055f;
@@ -568,7 +569,19 @@ namespace Game.Weapons {
         }
 
         public void ResetAuthoritativeDamageMultiplierImmediate() {
-            if(!IsServer) return;
+            if(!IsOwner) {
+                ResetDamageMultiplierOwnerRpc();
+                return;
+            }
+
+            netCurrentDamageMultiplier.Value = 1f;
+            _lastDamageMultiplierUpdateTime = Time.time;
+            _peakDamageMultiplier = 1f;
+            _lastPeakTime = 0f;
+        }
+
+        [Rpc(SendTo.Owner)]
+        private void ResetDamageMultiplierOwnerRpc() {
             netCurrentDamageMultiplier.Value = 1f;
             _lastDamageMultiplierUpdateTime = Time.time;
             _peakDamageMultiplier = 1f;

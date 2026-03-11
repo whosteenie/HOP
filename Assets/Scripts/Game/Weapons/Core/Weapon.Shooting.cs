@@ -1,6 +1,7 @@
 using Game.Match;
 using Game.Player;
 using Game.Progression;
+using Network.Core;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -328,7 +329,7 @@ namespace Game.Weapons {
         }
 
         public void UpdateDamageMultiplier() {
-            if(!IsServer) return;
+            if(!IsOwner) return;
             if(!CurrentWeaponData) return;
 
             // Check if player is dead - if so, only allow decay, not gain
@@ -349,9 +350,7 @@ namespace Game.Weapons {
             }
 
             if(playerController != null) {
-                var currentSpeed = playerController.IsOwner
-                    ? playerController.GetFullVelocity.magnitude
-                    : playerController.ObservedServerMovementSpeed;
+                var currentSpeed = playerController.GetFullVelocity.magnitude;
                 float targetMultiplier;
 
                 // Calculate target multiplier based on current velocity

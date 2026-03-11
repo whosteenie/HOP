@@ -125,7 +125,7 @@ namespace Game.Weapons {
                 CurrentWeapon.CancelReloadForWeaponSwitch();
             }
 
-            if(IsServer) {
+            if(HasWeaponAuthority) {
                 ApplyServerAuthoritativeWeaponSwitch(newIndex);
             }
 
@@ -144,6 +144,9 @@ namespace Game.Weapons {
 
             // Commit to new weapon index immediately
             CurrentWeaponIndex = newIndex;
+            if(IsOwner) {
+                _netEquippedWeaponIndex.Value = newIndex;
+            }
             _pendingHolsterHideSlot = GetSlotForIndex(CurrentWeaponIndex);
 
             // Prepare and show new FP weapon
@@ -196,7 +199,7 @@ namespace Game.Weapons {
             TriggerTpPullOutAnimation(newIndex);
 
             if(IsOwner) {
-                if(IsServer) {
+                if(HasWeaponAuthority) {
                     TryConsumeWeaponSwitchQuota();
                 } else {
                     RequestWeaponSwitchBroadcastServerRpc(newIndex);
