@@ -280,6 +280,38 @@ namespace Game.Player {
             NetworkVariableReadPermission.Everyone,
             NetworkVariableWritePermission.Owner);
 
+        public NetworkVariable<bool> netIsJumping = new(false,
+            NetworkVariableReadPermission.Everyone,
+            NetworkVariableWritePermission.Owner);
+
+        public NetworkVariable<bool> netIsFalling = new(false,
+            NetworkVariableReadPermission.Everyone,
+            NetworkVariableWritePermission.Owner);
+
+        public NetworkVariable<int> jumpAnimationSequence = new(0,
+            NetworkVariableReadPermission.Everyone,
+            NetworkVariableWritePermission.Owner);
+
+        public NetworkVariable<int> landAnimationSequence = new(0,
+            NetworkVariableReadPermission.Everyone,
+            NetworkVariableWritePermission.Owner);
+
+        public NetworkVariable<int> mantleAnimationSequence = new(0,
+            NetworkVariableReadPermission.Everyone,
+            NetworkVariableWritePermission.Owner);
+
+        public NetworkVariable<bool> netIsWallRunning = new(false,
+            NetworkVariableReadPermission.Everyone,
+            NetworkVariableWritePermission.Owner);
+
+        public NetworkVariable<bool> netIsRightWallRun = new(false,
+            NetworkVariableReadPermission.Everyone,
+            NetworkVariableWritePermission.Owner);
+
+        public NetworkVariable<float> netWallRunDirection = new(1f,
+            NetworkVariableReadPermission.Everyone,
+            NetworkVariableWritePermission.Owner);
+
         // Weapon selection NetworkVariables (synced across all clients)
         public NetworkVariable<int> primaryWeaponIndex = new(0,
             NetworkVariableReadPermission.Everyone,
@@ -372,6 +404,12 @@ namespace Game.Player {
 
             if(animationController != null)
                 animationController.ResetSpawnTime();
+
+            if(!IsOwner && animationController != null) {
+                animationController.ApplyRemoteStateSnapshot(netIsJumping.Value, netIsFalling.Value, netIsSliding.Value);
+                animationController.ApplyRemoteWallRunState(netIsWallRunning.Value, netIsRightWallRun.Value,
+                    netWallRunDirection.Value);
+            }
 
             if(GameMenuManager.Instance.IsPaused) {
                 GameMenuManager.Instance.TogglePause();
@@ -558,6 +596,24 @@ namespace Game.Player {
             netHealth.OnValueChanged += OnHealthChanged;
             netIsCrouching.OnValueChanged -= OnCrouchStateChanged;
             netIsCrouching.OnValueChanged += OnCrouchStateChanged;
+            netIsSliding.OnValueChanged -= OnSlidingStateChanged;
+            netIsSliding.OnValueChanged += OnSlidingStateChanged;
+            netIsJumping.OnValueChanged -= OnJumpingStateChanged;
+            netIsJumping.OnValueChanged += OnJumpingStateChanged;
+            netIsFalling.OnValueChanged -= OnFallingStateChanged;
+            netIsFalling.OnValueChanged += OnFallingStateChanged;
+            jumpAnimationSequence.OnValueChanged -= OnJumpAnimationSequenceChanged;
+            jumpAnimationSequence.OnValueChanged += OnJumpAnimationSequenceChanged;
+            landAnimationSequence.OnValueChanged -= OnLandAnimationSequenceChanged;
+            landAnimationSequence.OnValueChanged += OnLandAnimationSequenceChanged;
+            mantleAnimationSequence.OnValueChanged -= OnMantleAnimationSequenceChanged;
+            mantleAnimationSequence.OnValueChanged += OnMantleAnimationSequenceChanged;
+            netIsWallRunning.OnValueChanged -= OnWallRunStateChanged;
+            netIsWallRunning.OnValueChanged += OnWallRunStateChanged;
+            netIsRightWallRun.OnValueChanged -= OnWallRunOrientationChanged;
+            netIsRightWallRun.OnValueChanged += OnWallRunOrientationChanged;
+            netWallRunDirection.OnValueChanged -= OnWallRunDirectionChanged;
+            netWallRunDirection.OnValueChanged += OnWallRunDirectionChanged;
             netIsDead.OnValueChanged -= OnDeathStateChanged;
             netIsDead.OnValueChanged += OnDeathStateChanged;
         }
@@ -577,6 +633,15 @@ namespace Game.Player {
             playerEmissionColor.OnValueChanged -= OnMaterialCustomizationChanged;
             netHealth.OnValueChanged -= OnHealthChanged;
             netIsCrouching.OnValueChanged -= OnCrouchStateChanged;
+            netIsSliding.OnValueChanged -= OnSlidingStateChanged;
+            netIsJumping.OnValueChanged -= OnJumpingStateChanged;
+            netIsFalling.OnValueChanged -= OnFallingStateChanged;
+            jumpAnimationSequence.OnValueChanged -= OnJumpAnimationSequenceChanged;
+            landAnimationSequence.OnValueChanged -= OnLandAnimationSequenceChanged;
+            mantleAnimationSequence.OnValueChanged -= OnMantleAnimationSequenceChanged;
+            netIsWallRunning.OnValueChanged -= OnWallRunStateChanged;
+            netIsRightWallRun.OnValueChanged -= OnWallRunOrientationChanged;
+            netWallRunDirection.OnValueChanged -= OnWallRunDirectionChanged;
             netIsDead.OnValueChanged -= OnDeathStateChanged;
         }
 
@@ -677,6 +742,54 @@ namespace Game.Player {
         private void OnCrouchStateChanged(bool oldValue, bool newValue) {
             if(movementController != null)
                 movementController.UpdateCrouch(fpCamera);
+        }
+
+        private void OnSlidingStateChanged(bool oldValue, bool newValue) {
+            if(IsOwner || animationController == null) return;
+            animationController.ApplyRemoteSlidingState(newValue, playTrigger: newValue && !oldValue);
+        }
+
+        private void OnJumpingStateChanged(bool oldValue, bool newValue) {
+            if(IsOwner || animationController == null) return;
+            animationController.ApplyRemoteJumpingState(newValue);
+        }
+
+        private void OnFallingStateChanged(bool oldValue, bool newValue) {
+            if(IsOwner || animationController == null) return;
+            animationController.ApplyRemoteFallingState(newValue);
+        }
+
+        private void OnJumpAnimationSequenceChanged(int oldValue, int newValue) {
+            if(IsOwner || animationController == null || newValue == oldValue) return;
+            animationController.PlayRemoteJumpAnimation();
+        }
+
+        private void OnLandAnimationSequenceChanged(int oldValue, int newValue) {
+            if(IsOwner || animationController == null || newValue == oldValue) return;
+            animationController.PlayRemoteLandingAnimation();
+        }
+
+        private void OnMantleAnimationSequenceChanged(int oldValue, int newValue) {
+            if(IsOwner || animationController == null || newValue == oldValue) return;
+            animationController.PlayRemoteMantleAnimation();
+        }
+
+        private void OnWallRunStateChanged(bool oldValue, bool newValue) {
+            RefreshRemoteWallRunState();
+        }
+
+        private void OnWallRunOrientationChanged(bool oldValue, bool newValue) {
+            RefreshRemoteWallRunState();
+        }
+
+        private void OnWallRunDirectionChanged(float oldValue, float newValue) {
+            RefreshRemoteWallRunState();
+        }
+
+        private void RefreshRemoteWallRunState() {
+            if(IsOwner || animationController == null) return;
+            animationController.ApplyRemoteWallRunState(netIsWallRunning.Value, netIsRightWallRun.Value,
+                netWallRunDirection.Value);
         }
 
         private void OnDeathStateChanged(bool oldValue, bool newValue) {

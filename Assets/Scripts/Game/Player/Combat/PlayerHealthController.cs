@@ -468,14 +468,20 @@ namespace Game.Player {
             if(HasCombatAuthority) {
                 DoRespawnServer();
             } else {
-                RequestRespawnServerRpc();
+                RequestRespawnAuthority();
             }
         }
 
-        [Rpc(SendTo.Server)]
-        private void RequestRespawnServerRpc() {
+        private void RequestRespawnAuthority() {
             if(netIsDead is not { Value: true }) return;
+            if(MatchCombatAuthority.Instance == null || NetworkObject == null || !NetworkObject.IsSpawned) return;
 
+            MatchCombatAuthority.Instance.RequestRespawnAuthorityServerRpc(new NetworkObjectReference(NetworkObject));
+        }
+
+        public void ProcessRespawnAuthorityRequest() {
+            if(!HasCombatAuthority) return;
+            if(netIsDead is not { Value: true }) return;
             DoRespawnServer();
         }
 

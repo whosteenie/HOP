@@ -514,7 +514,7 @@ namespace Game.Player {
             }
 
             if(_animationController != null) {
-                _animationController.PlayJumpAnimationServerRpc();
+                _animationController.TriggerJumpAnimation();
             }
         }
 
@@ -572,7 +572,7 @@ namespace Game.Player {
             }
 
             if(_animationController)
-                _animationController.PlayJumpAnimationServerRpc();
+                _animationController.TriggerJumpAnimation();
         }
 
         private WeaponBob FindActiveWeaponBob() {
@@ -689,8 +689,7 @@ namespace Game.Player {
             }
             
             if (IsOwner && _animationController != null) {
-                _animationController.TriggerSlideServerRpc();
-                _animationController.SetSlidingServerRpc(true);
+                _animationController.SetSlidingState(true, playTrigger: true);
             }
 
             if(IsOwner && _audioRelay != null) {
@@ -798,7 +797,7 @@ namespace Game.Player {
 
             // Sync animation state
             if (IsOwner && _animationController != null) {
-                _animationController.SetSlidingServerRpc(false);
+                _animationController.SetSlidingState(false);
             }
         }
 
@@ -824,7 +823,7 @@ namespace Game.Player {
 
             // Sync animation state
             if (IsOwner && _animationController != null) {
-                _animationController.SetSlidingServerRpc(false);
+                _animationController.SetSlidingState(false);
             }
         }
 

@@ -392,50 +392,10 @@ namespace Game.Player.Hopball {
             HopballController.VisualStateChanged += OnHopballVisualStateChanged;
             TransitionToHopballLayers();
 
-            RequestEquipHopballServerRpc(hopballController.GetComponent<NetworkObject>());
-        }
-
-        /// <summary>
-        /// Server RPC to request equipping the hopball (since hopball is server-authoritative).
-        /// </summary>
-        [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
-        private void RequestEquipHopballServerRpc(NetworkObjectReference hopballRef) {
-            if(!hopballRef.TryGet(out var networkObject) || networkObject == null) return;
-
-            var hopball = networkObject.GetComponent<HopballController>();
-            if(hopball == null) return;
-            if(hopball.IsEquipped) {
-                FlowLog.Emit(FlowEventIds.AnomalyHopballMismatch,
-                    ("serverHolder", hopball.HolderController != null ? hopball.HolderController.OwnerClientId.ToString() : "None"),
-                    ("localHolder", OwnerClientId),
-                    ("osiHolder", "Unknown"),
-                    ("reason", "PickupRejectedAlreadyEquipped"));
-                return;
-            }
-
-            // Find the requesting player's controller
-            var requestingPlayer = NetworkManager.Singleton.ConnectedClients[OwnerClientId].PlayerObject;
-            if(requestingPlayer == null) return;
-
-            var requestingController = requestingPlayer.GetComponent<PlayerController>();
-            if(requestingController == null) return;
-            var controller = requestingController.PlayerHopballController;
-            if(controller == null) return;
-            FlowLog.Emit(FlowEventIds.HopballPickupCommitted,
-                ("player", OwnerClientId),
-                ("hopballNetId", networkObject.NetworkObjectId),
-                ("serverHolder", OwnerClientId));
-
-            // Server performs the equip (this will broadcast hopball state update to all clients)
-            hopball.SetEquipped(true, controller);
-
-            // Notify HopballSpawnManager that player picked up ball (for scoring)
             if(HopballSpawnManager.Instance != null) {
-                HopballSpawnManager.Instance.OnPlayerPickedUpHopball(OwnerClientId);
+                HopballSpawnManager.Instance.RequestEquipHopballAuthority(
+                    hopballController.GetComponent<NetworkObject>());
             }
-
-            // Consolidated RPC: handles all client updates in one call
-            controller.OnHopballEquippedClientRpc(hopballRef, OwnerClientId);
         }
 
         /// <summary>
@@ -443,7 +403,7 @@ namespace Game.Player.Hopball {
         /// Replaces multiple separate RPCs to reduce network overhead.
         /// </summary>
         [ClientRpc]
-        private void OnHopballEquippedClientRpc(NetworkObjectReference hopballRef, ulong holderClientId) {
+        internal void OnHopballEquippedClientRpc(NetworkObjectReference hopballRef, ulong holderClientId) {
             if(!hopballRef.TryGet(out var networkObject) || networkObject == null) return;
 
             var hopball = networkObject.GetComponent<HopballController>();
@@ -868,8 +828,10 @@ namespace Game.Player.Hopball {
             }
 
             if(canSendDrop) {
-                RequestDropHopballServerRpc(hopballNetObj, dropPosition, dropRotation, playerVelocity,
-                    reason.ToString());
+                if(HopballSpawnManager.Instance != null) {
+                    HopballSpawnManager.Instance.RequestDropHopballAuthority(hopballNetObj, dropPosition, dropRotation,
+                        playerVelocity, reason.ToString());
+                }
             }
 
             if(reason == HopballDropReason.Manual) {
@@ -890,7 +852,7 @@ namespace Game.Player.Hopball {
         /// Server-side method to drop the hopball at a specific position.
         /// Can be called directly from server or via ServerRpc from client.
         /// </summary>
-        private static async UniTaskVoid DropHopballAtPosition(HopballController hopball, Vector3 dropPosition,
+        internal static async UniTaskVoid DropHopballAtPositionAuthority(HopballController hopball, Vector3 dropPosition,
             Quaternion dropRotation, ulong requestingClientId, Vector3 playerVelocity, string dropReason) {
             if(hopball == null) return;
             if(!hopball.IsEquipped) {
@@ -1057,19 +1019,6 @@ namespace Game.Player.Hopball {
         }
 
         /// <summary>
-        /// Server RPC to request dropping the hopball at a specific position.
-        /// Called from client when they drop the ball.
-        /// </summary>
-        [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
-        private void RequestDropHopballServerRpc(NetworkObjectReference hopballRef, Vector3 dropPosition,
-            Quaternion dropRotation, Vector3 playerVelocity, string dropReason) {
-            if(!hopballRef.TryGet(out var networkObject) || networkObject == null) return;
-
-            var hopball = networkObject.GetComponent<HopballController>();
-            _ = DropHopballAtPosition(hopball, dropPosition, dropRotation, OwnerClientId, playerVelocity, dropReason);
-        }
-
-        /// <summary>
         /// Drops the hopball when the player dies.
         /// </summary>
         public void DropHopballOnDeath() {
@@ -1088,8 +1037,10 @@ namespace Game.Player.Hopball {
             // On death, use zero velocity (player is dead, no momentum transfer)
             var deathVelocity = Vector3.zero;
 
-            _ = DropHopballAtPosition(hopball, dropPosition, dropRotation, OwnerClientId, deathVelocity,
-                HopballDropReason.PlayerDeath.ToString());
+            if(HopballSpawnManager.Instance != null) {
+                HopballSpawnManager.Instance.RequestDropHopballAuthority(hopball.NetworkObject, dropPosition,
+                    dropRotation, deathVelocity, HopballDropReason.PlayerDeath.ToString());
+            }
             CleanupVisualsAndRestoreWeaponsClientRpc();
         }
 

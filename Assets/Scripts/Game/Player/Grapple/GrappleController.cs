@@ -114,8 +114,12 @@ namespace Game.Player {
 
         #endregion
 
-        private readonly NetworkVariable<bool> _netIsGrappling = new();
-        private readonly NetworkVariable<Vector3> _netGrapplePoint = new();
+        private readonly NetworkVariable<bool> _netIsGrappling = new(false,
+            NetworkVariableReadPermission.Everyone,
+            NetworkVariableWritePermission.Owner);
+        private readonly NetworkVariable<Vector3> _netGrapplePoint = new(Vector3.zero,
+            NetworkVariableReadPermission.Everyone,
+            NetworkVariableWritePermission.Owner);
 
         // Throttling for network updates (at 90Hz: 3 ticks = ~33ms)
         private float _lastGrappleUpdateTime;
@@ -278,8 +282,9 @@ namespace Game.Player {
             StartGrappleCooldown();
         }
 
-        [Rpc(SendTo.Server)]
-        private void UpdateGrappleServerRpc(bool isGrappling, Vector3 grapplePoint) {
+        private void PublishGrappleState(bool isGrappling, Vector3 grapplePoint) {
+            if(!IsOwner) return;
+
             // Throttle network updates - only send if enough time has passed or state changed
             var shouldUpdate = Time.time - _lastGrappleUpdateTime >= GrappleUpdateInterval ||
                                _netIsGrappling.Value != isGrappling ||
@@ -489,7 +494,7 @@ namespace Game.Player {
                 playerController.MovementController.CancelSlideForJump();
             }
 
-            UpdateGrappleServerRpc(true, targetPoint);
+            PublishGrappleState(true, targetPoint);
             IsGrappling = true;
             _grapplePoint = targetPoint;
             _grappleStartTime = Time.time;
@@ -613,7 +618,7 @@ namespace Game.Player {
             } else {
                 RequestHideGrappleMesh();
             }
-            UpdateGrappleServerRpc(false, Vector3.zero);
+            PublishGrappleState(false, Vector3.zero);
             _useAnimatedFirstPersonGrappleVisuals = true;
 
             if(applyMomentum && PreserveMomentum) {

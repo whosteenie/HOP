@@ -280,9 +280,20 @@ namespace Game.Weapons {
             }
 
             var targetRef = new NetworkObjectReference(target);
-            _damageRelay.RequestDamageServerRpc(targetRef, hit.point, hitDirection,
-                hitRigidbody != null ? bodyPartTag : null, hitRigidbody != null && isHeadshot, weaponIndex,
-                shotId);
+            if(MatchCombatAuthority.Instance != null) {
+                MatchCombatAuthority.Instance.RequestDamageAuthorityServerRpc(
+                    targetRef,
+                    hit.point,
+                    hitDirection,
+                    hitRigidbody != null ? bodyPartTag : null,
+                    hitRigidbody != null && isHeadshot,
+                    weaponIndex,
+                    Time.time,
+                    shotId
+                );
+            } else {
+                Debug.LogError("[Weapon] MatchCombatAuthority is missing in the active gameplay scene. Damage requests cannot be processed.");
+            }
         }
 
         private Vector3 ApplySpread(Vector3 forward, float spreadDegrees) {

@@ -204,18 +204,24 @@ namespace Network {
         }
 
         private IEnumerator ReconcilePlayerVisibilityAfterSpawn(string context) {
+            const int passes = 8;
+            const float retryDelaySeconds = 0.25f;
+
             yield return null;
             yield return null;
 
-            if(_networkManager == null) {
-                _networkManager = NetworkManager.Singleton;
-            }
+            for(var pass = 0; pass < passes; pass++) {
+                if(_networkManager == null) {
+                    _networkManager = NetworkManager.Singleton;
+                }
 
-            if(_networkManager == null || !_allowPlayerSpawns || !NetworkAuthority.HasGlobalAuthority(_networkManager)) {
-                yield break;
-            }
+                if(_networkManager == null || !_allowPlayerSpawns || !NetworkAuthority.HasGlobalAuthority(_networkManager)) {
+                    yield break;
+                }
 
-            EnsureAllSpawnedPlayerObjectsVisible(context);
+                EnsureAllSpawnedPlayerObjectsVisible($"{context}/pass{pass + 1}");
+                yield return new WaitForSeconds(retryDelaySeconds);
+            }
         }
 
         private void EnsureAllSpawnedPlayerObjectsVisible(string context) {

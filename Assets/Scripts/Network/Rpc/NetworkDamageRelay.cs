@@ -21,7 +21,7 @@ namespace Network.Rpc {
         [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Owner)]
         public void RequestDamageServerRpc(NetworkObjectReference targetRef, Vector3 hitPoint,
             Vector3 hitDirection, string bodyPartTag = null, bool isHeadshot = false, int weaponIndex = -1,
-            ulong shotId = 0, RpcParams rpcParams = default) {
+            float clientShotTime = 0f, ulong shotId = 0, RpcParams rpcParams = default) {
             var senderClientId = rpcParams.Receive.SenderClientId;
             if(senderClientId != OwnerClientId) {
                 AntiCheatLogger.LogAuthorityViolation("NetworkDamageRelay.RequestDamageServerRpc", senderClientId);
@@ -38,12 +38,18 @@ namespace Network.Rpc {
             }
 
             if(!DebugHelpers.TryGetNetworkObjectSafe(targetRef, out var networkObject, senderClientId,
-                   "NetworkDamageRelay.RequestDamageServerRpc")) {
+                    "NetworkDamageRelay.RequestDamageServerRpc")) {
                 return;
             }
 
             var victim = networkObject.GetComponent<PlayerController>();
-            if(!victim || victim.IsDead) return;
+            if(!victim) {
+                return;
+            }
+
+            if(victim.IsDead) {
+                return;
+            }
 
             var shooterId = senderClientId;
 
@@ -86,8 +92,21 @@ namespace Network.Rpc {
             }
 
             if(!shooterWeaponManager.ValidateServerHitClaim(weaponIndex, shotId, out var reason)) {
-                AntiCheatLogger.LogInvalidDamage(shooterId, reason);
-                return;
+                if(reason == "unregistered shot") {
+                    if(!shooterWeaponManager.RegisterServerShot(weaponIndex, shotId, clientShotTime, out var registerReason) &&
+                       registerReason != "duplicate shot") {
+                        AntiCheatLogger.LogInvalidDamage(shooterId, registerReason ?? reason);
+                        return;
+                    }
+
+                    if(!shooterWeaponManager.ValidateServerHitClaim(weaponIndex, shotId, out reason)) {
+                        AntiCheatLogger.LogInvalidDamage(shooterId, reason);
+                        return;
+                    }
+                } else {
+                    AntiCheatLogger.LogInvalidDamage(shooterId, reason);
+                    return;
+                }
             }
 
             if(shooterWeaponManager.IsFriendlyFireServer(shooterController, victim)) {
@@ -96,7 +115,7 @@ namespace Network.Rpc {
             }
 
             if(!shooterWeaponManager.TryComputeServerDamage(weaponIndex, hitPoint, out var serverDamage,
-                   out reason)) {
+                    out reason)) {
                 AntiCheatLogger.LogInvalidDamage(shooterId, reason ?? "server damage computation failed");
                 return;
             }
@@ -107,17 +126,18 @@ namespace Network.Rpc {
             var wasKill = victim.ApplyDamageServer_Auth(serverDamage, hitPoint, hitDirection, shooterId, bodyPartTag,
                 isHeadshot, weaponId);
 
-            // Send a confirmation to EVERYONE, but only the shooter will act on it (self-filter).
-            HitConfirmClientRpc(shooterId, wasKill);
+            SendHitConfirmToOwner(wasKill);
         }
 
         /// <summary>
         /// Server -> Clients: notify a specific shooter they hit/fragged (self-filter on client).
         /// </summary>
-        [Rpc(SendTo.Everyone)]
-        private void HitConfirmClientRpc(ulong shooterClientId, bool wasKill) {
-            if(NetworkManager == null) return;
-            if(NetworkManager.LocalClientId != shooterClientId) return; // only the shooter reacts
+        public void SendHitConfirmToOwner(bool wasKill) {
+            HitConfirmOwnerRpc(wasKill);
+        }
+
+        [Rpc(SendTo.Owner)]
+        private void HitConfirmOwnerRpc(bool wasKill) {
             if(OnHitConfirm != null) {
                 OnHitConfirm.Invoke(wasKill);
             }

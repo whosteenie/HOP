@@ -16,7 +16,7 @@ namespace Game.Hopball {
     /// <summary>
     /// Manages hopball spawning, respawning, OOB handling, and scoring for Hopball gamemode.
     /// </summary>
-    public class HopballSpawnManager : NetworkBehaviour {
+    public partial class HopballSpawnManager : NetworkBehaviour {
         public static HopballSpawnManager Instance { get; private set; }
 
         [Header("Hopball Spawn Points")]
@@ -124,6 +124,9 @@ namespace Game.Hopball {
 
             NetworkAuthority.TryConfigureSessionOwnerObject(this);
             CurrentHopballController ??= FindAnyObjectByType<HopballController>();
+            if(CurrentHopballController != null) {
+                NetworkAuthority.TryConfigureSessionOwnerObject(CurrentHopballController);
+            }
             var matchSettings = MatchSettingsManager.Instance;
             if(matchSettings == null || matchSettings.selectedGameModeId != "Hopball") {
                 return;

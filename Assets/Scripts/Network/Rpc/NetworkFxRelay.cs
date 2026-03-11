@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Game.Match;
 using Game.Player;
 using Game.Weapons;
 using Network.Diagnostics;
@@ -72,30 +73,18 @@ namespace Network.Rpc {
             bool hitPlayer, NetworkObjectReference hitPlayerRef, bool playMuzzleFlash = true,
             Vector3 shooterVelocity = default) {
             if(!playerController.IsOwner || !_playerNetworkObject.IsSpawned) return;
+            if(MatchCombatAuthority.Instance == null) return;
 
-            RequestShotFxServerRpc(_playerNetworkObject, endPoint, hitNormal, madeImpact, hitPlayer, hitPlayerRef,
-                playMuzzleFlash, shooterVelocity);
+            MatchCombatAuthority.Instance.RequestShotFxAuthorityServerRpc(_playerNetworkObject, endPoint, hitNormal,
+                madeImpact, hitPlayer, hitPlayerRef, playMuzzleFlash, shooterVelocity);
         }
 
-        [Rpc(SendTo.Server)]
-        private void RequestShotFxServerRpc(NetworkObjectReference shooterRef, Vector3 endPoint, Vector3 hitNormal,
-            bool madeImpact, bool hitPlayer, NetworkObjectReference hitPlayerRef, bool playMuzzleFlash,
-            Vector3 shooterVelocity) {
-            PlayShotFxClientRpc(shooterRef, endPoint, hitNormal, madeImpact, hitPlayer, hitPlayerRef, playMuzzleFlash,
-                shooterVelocity);
-        }
-
-        [Rpc(SendTo.NotOwner)]
-        private void PlayShotFxClientRpc(NetworkObjectReference shooterRef, Vector3 endPoint, Vector3 hitNormal,
-            bool madeImpact, bool hitPlayer, NetworkObjectReference hitPlayerRef, bool playMuzzleFlash,
-            Vector3 shooterVelocity) {
-            if(!shooterRef.TryGet(out var networkObject) || networkObject == null) return;
-
-            var weaponManager = networkObject.GetComponent<WeaponManager>();
-
-            if(weaponManager == null) return;
-            if(networkObject.IsOwner) return;
-            var weapon = weaponManager.CurrentWeapon;
+        internal void QueueRemoteShotFx(Vector3 endPoint, Vector3 hitNormal, bool madeImpact, bool hitPlayer,
+            NetworkObjectReference hitPlayerRef, bool playMuzzleFlash, Vector3 shooterVelocity) {
+            ValidateComponents();
+            if(_playerNetworkObject == null || _playerWeaponManager == null) return;
+            if(_playerNetworkObject.IsOwner) return;
+            var weapon = _playerWeaponManager.CurrentWeapon;
             if(weapon == null) return;
 
             _pendingRemoteShotFx.Add(new PendingRemoteShotFx {

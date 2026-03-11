@@ -145,6 +145,16 @@ namespace Game.Weapons {
             );
         }
 
+        public string GetCombatAuthorityDebugSummary(int requestedWeaponIndex = -1) {
+            var authoritativeWeaponIndex = GetServerAuthoritativeWeaponIndex();
+            var equippedNetIndex = _netEquippedWeaponIndex.Value;
+            var serverAmmo = requestedWeaponIndex >= 0
+                ? _ammoAuthority.GetServerAmmo(requestedWeaponIndex, GetWeaponDataByIndex, ResolveWeaponCapacity)
+                : -1;
+            return
+                $"owner={OwnerClientId} requested={requestedWeaponIndex} current={CurrentWeaponIndex} authoritative={authoritativeWeaponIndex} equippedNet={equippedNetIndex} reloadWeapon={_serverReloadWeaponIndex} pullOutBlocked={(Time.time < _serverPullOutBlockedUntilTime)} serverAmmo={serverAmmo}";
+        }
+
         public bool TryComputeServerDamage(int weaponIndex, Vector3 hitPoint, out float damage, out string reason) {
             damage = 0f;
             reason = null;

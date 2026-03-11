@@ -151,9 +151,18 @@ namespace Game.Match {
 
             FindSpawnPoints();
             _currentHill ??= FindAnyObjectByType<HillController>();
+            if(_currentHill != null) {
+                NetworkAuthority.TryConfigureSessionOwnerObject(_currentHill);
+            }
             _isGameActive = _currentHill != null && MatchTimerManager.Instance != null && !MatchTimerManager.Instance.IsPreMatch;
             if(_isGameActive) {
                 _nextScoreTime = Time.time + scoreInterval;
+            } else if(_currentHill == null && MatchTimerManager.Instance != null && !MatchTimerManager.Instance.IsPreMatch) {
+                SpawnHill();
+                _isGameActive = _currentHill != null;
+                if(_isGameActive) {
+                    _nextScoreTime = Time.time + scoreInterval;
+                }
             }
         }
 

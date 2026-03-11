@@ -465,10 +465,13 @@ namespace Game.Weapons {
                 magCapacity
             );
 
-            if(IsOwner) {
+            if(HasWeaponAuthority) {
                 _serverAuthoritativeWeaponIndex = index;
                 _serverReloadWeaponIndex = -1;
                 _serverPullOutBlockedUntilTime = 0f;
+            }
+
+            if(IsOwner) {
                 _netEquippedWeaponIndex.Value = index;
             }
 
@@ -491,6 +494,10 @@ namespace Game.Weapons {
             if(IsOwner) return;
             if(newValue < 0 || newValue >= weaponDataList.Count) return;
             if(newValue == CurrentWeaponIndex) return;
+
+            if(HasWeaponAuthority) {
+                ApplyServerAuthoritativeWeaponSwitch(newValue);
+            }
 
             ApplyRemoteWeaponSwitch(newValue);
         }
