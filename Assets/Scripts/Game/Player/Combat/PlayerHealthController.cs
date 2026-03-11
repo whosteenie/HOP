@@ -253,8 +253,9 @@ namespace Game.Player {
                 var pre = netHealth.Value;
                 var newHp = Mathf.Max(0f, pre - amount);
                 var actualDealt = pre - newHp;
+                var isLethalHit = newHp <= 0f;
 
-                ApplyHealthStateOwnerRpc(newHp, newHp <= 0f, incrementDeaths: newHp <= 0f, hitPoint, hitDirection,
+                ApplyHealthStateOwnerRpc(newHp, isLethalHit, incrementDeaths: isLethalHit, hitPoint, hitDirection,
                     bodyPartTag);
 
                 if(playerController != null) {
@@ -276,7 +277,7 @@ namespace Game.Player {
                 if(PostMatchManager.Instance != null) {
                     isPostMatchFlowStarted = PostMatchManager.Instance.PostMatchFlowStarted;
                 }
-                if(!(newHp <= 0f) || netIsDead.Value || isPostMatchFlowStarted)
+                if(!isLethalHit || isPostMatchFlowStarted)
                     return false;
                 _deathStatePending = true;
                 StartRespawnTimeoutProbe();

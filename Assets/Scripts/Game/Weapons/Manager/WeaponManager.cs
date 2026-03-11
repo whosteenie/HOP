@@ -123,6 +123,10 @@ namespace Game.Weapons {
         private void Update() {
             UpdateKinemationEquipCompletionGate();
             EnsureFpWeaponLightingRig();
+
+            if((Time.frameCount & 7) == 0) {
+                ReconcileStableTpWeaponState();
+            }
         }
 
         private void BuildKinemationWeaponLookup() {

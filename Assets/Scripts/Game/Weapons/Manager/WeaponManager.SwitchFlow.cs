@@ -259,7 +259,10 @@ namespace Game.Weapons {
         /// Allows shooting and reloading again.
         /// </summary>
         public void HandlePullOutCompleted() {
-            if(GameMenuManager.Instance != null && GameMenuManager.Instance.IsPostMatch && _pendingTpWeapon != null) {
+            if(_pendingTpWeapon != null &&
+               (GameMenuManager.Instance != null && GameMenuManager.Instance.IsPostMatch ||
+                CurrentWorldWeaponInstance == null ||
+                !CurrentWorldWeaponInstance.activeSelf)) {
                 ShowTpWeapon();
             }
 
@@ -268,6 +271,7 @@ namespace Game.Weapons {
             if(_kinemationPullOutCompletionCoroutine == null) return;
             StopCoroutine(_kinemationPullOutCompletionCoroutine);
             _kinemationPullOutCompletionCoroutine = null;
+            ReconcileStableTpWeaponState();
         }
 
         public void HandleThirdPersonPullOutCompleted() {
@@ -420,6 +424,32 @@ namespace Game.Weapons {
         private void EnsureWeaponHierarchyActive() {
             if(CurrentWorldWeaponInstance == null) return;
             EnsureHierarchyActive(CurrentWorldWeaponInstance);
+        }
+
+        private void ReconcileStableTpWeaponState() {
+            if(_deferTpRevealUntilRespawn || IsPullingOut) return;
+            if(playerController == null) return;
+            if(playerController.NetIsDead is { Value: true }) return;
+            if(playerController.PlayerRagdoll != null && playerController.PlayerRagdoll.IsRagdoll) return;
+            if(playerController.IsHoldingHopball) return;
+            if(CurrentWeaponIndex < 0 || CurrentWeaponIndex >= weaponDataList.Count) return;
+
+            var expectedWeapon = ResolveWorldWeaponObject(weaponDataList[CurrentWeaponIndex]);
+            if(expectedWeapon == null) return;
+
+            if(CurrentWorldWeaponInstance != null && CurrentWorldWeaponInstance != expectedWeapon) {
+                CurrentWorldWeaponInstance.SetActive(false);
+            }
+
+            CurrentWorldWeaponInstance = expectedWeapon;
+            if(!CurrentWorldWeaponInstance.activeSelf) {
+                CurrentWorldWeaponInstance.SetActive(true);
+            }
+
+            EnsureWeaponHierarchyActive();
+            EnsureWorldWeaponShadowState();
+            UpdateHolsterVisibility();
+            RefreshOwnerHolsterShadowState();
         }
 
         private static void EnsureHierarchyActive(GameObject instanceRoot) {
