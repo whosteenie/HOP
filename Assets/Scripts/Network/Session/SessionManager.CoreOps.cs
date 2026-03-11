@@ -221,6 +221,8 @@ namespace Network.Session {
             }
 
             LaunchSessionTask(RefreshActiveMultiplayerSessionAsync("HostChanged"), "DistributedAuthority/RefreshHostChanged");
+            LaunchSessionTask(RefreshMatchLobbyAfterDistributedAuthorityHostChangeAsync("HostChanged", newHostId),
+                "DistributedAuthority/RefreshMatchLobbyHostChanged");
             NotifyPartyStateChanged();
         }
 
@@ -230,6 +232,8 @@ namespace Network.Session {
             }
 
             LaunchSessionTask(RefreshActiveMultiplayerSessionAsync("Migrated"), "DistributedAuthority/RefreshMigrated");
+            LaunchSessionTask(RefreshMatchLobbyAfterDistributedAuthorityHostChangeAsync("Migrated", null),
+                "DistributedAuthority/RefreshMatchLobbyMigrated");
             if(_networkManager != null && _networkManager.IsListening && IsGameplaySceneName(SceneManager.GetActiveScene().name)) {
                 SetFrontStatus(SessionPhase.InGame, "");
             }
@@ -341,6 +345,78 @@ namespace Network.Session {
             } catch(Exception ex) {
                 if(Debug.isDebugBuild) {
                     Debug.LogWarning($"[SessionManager] Failed to refresh active DA session after {reason}: {ex.Message}");
+                }
+            }
+        }
+
+        private async UniTask RefreshMatchLobbyAfterDistributedAuthorityHostChangeAsync(string reason,
+            string expectedHostId) {
+            if(_isLeaving || _isShuttingDown || _ugsMatchLobby == null || string.IsNullOrEmpty(_ugsMatchLobby.Id)) {
+                return;
+            }
+
+            var targetLobbyId = _ugsMatchLobby.Id;
+            var previousHostId = _ugsMatchLobby.HostId;
+            const int maxAttempts = 3;
+
+            for(var attempt = 1; attempt <= maxAttempts; attempt++) {
+                try {
+                    var delayMs = attempt == 1 ? 250 : 500;
+                    await UniTask.Delay(delayMs, cancellationToken: SessionLifetimeToken);
+                } catch(OperationCanceledException) {
+                    return;
+                }
+
+                if(_isLeaving || _isShuttingDown || _ugsMatchLobby == null ||
+                   !string.Equals(_ugsMatchLobby.Id, targetLobbyId, StringComparison.Ordinal)) {
+                    return;
+                }
+
+                try {
+                    var refreshedLobby = await LobbyService.Instance.GetLobbyAsync(targetLobbyId);
+                    if(refreshedLobby == null) {
+                        continue;
+                    }
+
+                    _ugsMatchLobby = refreshedLobby;
+
+                    if(Debug.isDebugBuild) {
+                        Debug.Log(
+                            $"[SessionManager] Refreshed match lobby after DA {reason}. lobbyId='{targetLobbyId}' hostId='{refreshedLobby.HostId}' prevHostId='{previousHostId}' attempt={attempt}/{maxAttempts}");
+                    }
+
+                    var hostMatchesExpectation = string.IsNullOrEmpty(expectedHostId) ||
+                                                string.Equals(refreshedLobby.HostId, expectedHostId,
+                                                    StringComparison.Ordinal);
+                    if(IsLocalPlayerLobbyHost(refreshedLobby)) {
+                        // Force the promoted host to resume keepalive immediately so in-progress backfill stays discoverable.
+                        _nextMatchHeartbeatTime = 0f;
+                        _matchHeartbeatBackoffUntil = 0f;
+                        _matchHeartbeatRateLimitStreak = 0;
+
+                        if(Debug.isDebugBuild) {
+                            Debug.Log(
+                                $"[SessionManager] Local player now owns match lobby heartbeats after DA {reason}. lobbyId='{targetLobbyId}'.");
+                        }
+                    }
+
+                    if(hostMatchesExpectation || IsLocalPlayerLobbyHost(refreshedLobby)) {
+                        return;
+                    }
+
+                    previousHostId = refreshedLobby.HostId;
+                } catch(LobbyServiceException ex) when(ex.Reason is LobbyExceptionReason.LobbyNotFound
+                                                        or LobbyExceptionReason.EntityNotFound) {
+                    if(Debug.isDebugBuild) {
+                        Debug.LogWarning(
+                            $"[SessionManager] Match lobby '{targetLobbyId}' no longer exists while refreshing after DA {reason}.");
+                    }
+                    return;
+                } catch(Exception ex) {
+                    if(Debug.isDebugBuild) {
+                        Debug.LogWarning(
+                            $"[SessionManager] Failed to refresh match lobby after DA {reason} (attempt {attempt}/{maxAttempts}): {ex.Message}");
+                    }
                 }
             }
         }

@@ -90,7 +90,20 @@ namespace Network {
         }
 
         private void OnServerStopped(bool _) => ResetSpawningState();
-        private void OnClientStopped(bool _) => _allowPlayerSpawns = false;
+        private void OnClientStopped(bool _) {
+            if(_networkManager == null) {
+                _networkManager = NetworkManager.Singleton;
+            }
+
+            if(_networkManager != null &&
+               _networkManager.DistributedAuthorityMode &&
+               Session.SessionManager.IsGameplaySceneName(SceneManager.GetActiveScene().name)) {
+                StartCoroutine(HandleDistributedAuthorityClientStopped());
+                return;
+            }
+
+            _allowPlayerSpawns = false;
+        }
 
         private static void OnClientDisconnected(ulong _) {
         }
@@ -124,6 +137,16 @@ namespace Network {
         }
 
         private void OnSessionOwnerPromoted(ulong _) {
+            if(_networkManager == null) {
+                _networkManager = NetworkManager.Singleton;
+            }
+
+            if(_networkManager != null &&
+               NetworkAuthority.HasGlobalAuthority(_networkManager) &&
+               Session.SessionManager.IsGameplaySceneName(SceneManager.GetActiveScene().name)) {
+                _allowPlayerSpawns = true;
+            }
+
             if(!_allowPlayerSpawns || !NetworkAuthority.HasGlobalAuthority(_networkManager) || _networkManager == null) {
                 return;
             }
@@ -133,6 +156,26 @@ namespace Network {
             }
 
             SchedulePlayerVisibilityReconciliation("OnSessionOwnerPromoted");
+        }
+
+        private IEnumerator HandleDistributedAuthorityClientStopped() {
+            const float graceSeconds = 2f;
+            yield return new WaitForSeconds(graceSeconds);
+
+            if(_networkManager == null) {
+                _networkManager = NetworkManager.Singleton;
+            }
+
+            if(_networkManager != null &&
+               _networkManager.IsListening &&
+               Session.SessionManager.IsGameplaySceneName(SceneManager.GetActiveScene().name)) {
+                if(NetworkAuthority.HasGlobalAuthority(_networkManager)) {
+                    _allowPlayerSpawns = true;
+                }
+                yield break;
+            }
+
+            _allowPlayerSpawns = false;
         }
 
         public void ConfigureSessionMetadata(bool isPrivateMatch) {
