@@ -27,6 +27,8 @@ namespace Network.Session {
         private const string MultiplayerSessionType = "HOP.Match";
         private const string MultiplayerSessionModeKey = "mode";
         private const string MultiplayerSessionMatchTypeKey = "matchType";
+        private const string MultiplayerSessionPartyIdKey = "partyId";
+        private const string MultiplayerSessionSteamIdKey = "steamId";
 
         private enum DistributedAuthoritySessionJoinResult {
             Success,
@@ -173,7 +175,14 @@ namespace Network.Session {
             };
 
             if(string.IsNullOrEmpty(CurrentPartyId) == false) {
-                options.PlayerProperties["partyId"] = new(CurrentPartyId, VisibilityPropertyOptions.Member);
+                options.PlayerProperties[MultiplayerSessionPartyIdKey] =
+                    new(CurrentPartyId, VisibilityPropertyOptions.Member);
+            }
+
+            var steamId = LocalIdentity.GetSteamId();
+            if(steamId != 0) {
+                options.PlayerProperties[MultiplayerSessionSteamIdKey] =
+                    new(steamId.ToString(), VisibilityPropertyOptions.Member);
             }
 
             return options.WithDistributedAuthorityNetwork();
@@ -293,7 +302,14 @@ namespace Network.Session {
                     }
                 };
                 if(string.IsNullOrEmpty(CurrentPartyId) == false) {
-                    joinOptions.PlayerProperties["partyId"] = new(CurrentPartyId, VisibilityPropertyOptions.Member);
+                    joinOptions.PlayerProperties[MultiplayerSessionPartyIdKey] =
+                        new(CurrentPartyId, VisibilityPropertyOptions.Member);
+                }
+
+                var steamId = LocalIdentity.GetSteamId();
+                if(steamId != 0) {
+                    joinOptions.PlayerProperties[MultiplayerSessionSteamIdKey] =
+                        new(steamId.ToString(), VisibilityPropertyOptions.Member);
                 }
 
                 var session = await MultiplayerService.Instance.JoinSessionByCodeAsync(sessionCode, joinOptions);
@@ -347,6 +363,96 @@ namespace Network.Session {
                     Debug.LogWarning($"[SessionManager] Failed to refresh active DA session after {reason}: {ex.Message}");
                 }
             }
+        }
+
+        internal bool TryResolveDistributedAuthorityPlayerMetadata(string ugsPlayerId, out string partyId,
+            out ulong steamId) {
+            partyId = null;
+            steamId = 0;
+
+            if(string.IsNullOrWhiteSpace(ugsPlayerId)) {
+                return false;
+            }
+
+            if(TryResolveDistributedAuthorityPlayerMetadataFromSessionPlayers(_activeMultiplayerSession?.Players,
+                    ugsPlayerId, out partyId, out steamId)) {
+                return true;
+            }
+
+            if(TryResolveDistributedAuthorityPlayerMetadataFromLobbyPlayers(_ugsMatchLobby?.Players, ugsPlayerId,
+                    out partyId, out steamId)) {
+                return true;
+            }
+
+            return TryResolveDistributedAuthorityPlayerMetadataFromLobbyPlayers(_ugsPartyLobby?.Players, ugsPlayerId,
+                out partyId, out steamId);
+        }
+
+        private static bool TryResolveDistributedAuthorityPlayerMetadataFromSessionPlayers(
+            IReadOnlyList<IReadOnlyPlayer> players, string ugsPlayerId, out string partyId, out ulong steamId) {
+            partyId = null;
+            steamId = 0;
+
+            if(players == null) {
+                return false;
+            }
+
+            foreach(var player in players) {
+                if(player == null || !string.Equals(player.Id, ugsPlayerId, StringComparison.Ordinal)) {
+                    continue;
+                }
+
+                if(player.Properties != null) {
+                    if(player.Properties.TryGetValue(MultiplayerSessionPartyIdKey, out var partyProperty) &&
+                       partyProperty != null &&
+                       !string.IsNullOrWhiteSpace(partyProperty.Value)) {
+                        partyId = partyProperty.Value;
+                    }
+
+                    if(player.Properties.TryGetValue(MultiplayerSessionSteamIdKey, out var steamProperty) &&
+                       steamProperty != null) {
+                        ulong.TryParse(steamProperty.Value, out steamId);
+                    }
+                }
+
+                return true;
+            }
+
+            return false;
+        }
+
+        private static bool TryResolveDistributedAuthorityPlayerMetadataFromLobbyPlayers(
+            IReadOnlyList<Unity.Services.Lobbies.Models.Player> players, string ugsPlayerId, out string partyId,
+            out ulong steamId) {
+            partyId = null;
+            steamId = 0;
+
+            if(players == null) {
+                return false;
+            }
+
+            foreach(var player in players) {
+                if(player == null || !string.Equals(player.Id, ugsPlayerId, StringComparison.Ordinal)) {
+                    continue;
+                }
+
+                if(player.Data != null) {
+                    if(player.Data.TryGetValue(MultiplayerSessionPartyIdKey, out var partyProperty) &&
+                       partyProperty != null &&
+                       !string.IsNullOrWhiteSpace(partyProperty.Value)) {
+                        partyId = partyProperty.Value;
+                    }
+
+                    if(player.Data.TryGetValue(MultiplayerSessionSteamIdKey, out var steamProperty) &&
+                       steamProperty != null) {
+                        ulong.TryParse(steamProperty.Value, out steamId);
+                    }
+                }
+
+                return true;
+            }
+
+            return false;
         }
 
         private async UniTask RefreshMatchLobbyAfterDistributedAuthorityHostChangeAsync(string reason,

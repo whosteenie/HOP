@@ -91,7 +91,12 @@ namespace Game.Player {
         private void UpdatePing() {
             if(!IsOwner) return;
 
-            var transport = NetworkManager.Singleton.NetworkConfig.NetworkTransport as UnityTransport;
+            var networkManager = NetworkManager;
+            if(networkManager == null || !networkManager.IsListening) {
+                return;
+            }
+
+            var transport = networkManager.NetworkConfig.NetworkTransport as UnityTransport;
             if(!transport) return;
 
             var rtt = transport.GetCurrentRtt(OwnerClientId);

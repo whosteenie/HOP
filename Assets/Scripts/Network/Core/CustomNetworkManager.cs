@@ -30,6 +30,7 @@ namespace Network {
         // Connection payload-derived metadata (transport agnostic)
         private readonly System.Collections.Generic.Dictionary<ulong, string> _clientPartyIds = new();
         private readonly System.Collections.Generic.Dictionary<ulong, ulong> _clientSteamIds = new();
+        private readonly System.Collections.Generic.Dictionary<ulong, string> _clientUgsPlayerIds = new();
         private bool _hasSessionPrivateFlag;
         private bool _sessionIsPrivateMatch;
 
@@ -84,6 +85,7 @@ namespace Network {
             _pendingTeamAssignments.Clear();
             _clientPartyIds.Clear();
             _clientSteamIds.Clear();
+            _clientUgsPlayerIds.Clear();
             _hasSessionPrivateFlag = false;
             _sessionIsPrivateMatch = false;
             PrivateMatchTeamAssignments.Clear();
@@ -122,6 +124,11 @@ namespace Network {
 
             if(payload.steamId != 0) {
                 _clientSteamIds[request.ClientNetworkId] = payload.steamId;
+            }
+
+            if(!string.IsNullOrWhiteSpace(payload.ugsPlayerId)) {
+                _clientUgsPlayerIds[request.ClientNetworkId] = payload.ugsPlayerId;
+                TryRefreshClientMetadataFromDistributedAuthoritySession(request.ClientNetworkId);
             }
 
             if(_hasSessionPrivateFlag) return;
@@ -398,6 +405,12 @@ namespace Network {
 
                 // 8. Re-enable CharacterController next frame
                 StartCoroutine(EnableCcNextFrame(cc));
+
+                var controller = instance.GetComponent<PlayerController>();
+                if(controller != null) {
+                    StartCoroutine(CaptureSpawnedPlayerMetadata(clientId, controller));
+                }
+
                 return;
             }
 
@@ -445,6 +458,10 @@ namespace Network {
 
         private void CalculateTeamsForBatch(System.Collections.Generic.List<ulong> clients) {
             _pendingTeamAssignments.Clear();
+
+            foreach(var clientId in clients) {
+                TryRefreshClientMetadataFromDistributedAuthoritySession(clientId);
+            }
 
             // 1. Group clients by PartyID (from connection payload).
             // Map: PartyId -> List<ClientId>
@@ -529,6 +546,65 @@ namespace Network {
             }
              
             Debug.Log($"[CustomNetworkManager] Distributed Teams (Public): TeamA={teamAMembers.Count}, TeamB={teamBMembers.Count}");
+        }
+
+        private bool TryRefreshClientMetadataFromDistributedAuthoritySession(ulong clientId) {
+            if(!_clientUgsPlayerIds.TryGetValue(clientId, out var ugsPlayerId) || string.IsNullOrWhiteSpace(ugsPlayerId)) {
+                return false;
+            }
+
+            var sessionManager = Session.SessionManager.Instance;
+            if(sessionManager == null ||
+               !sessionManager.TryResolveDistributedAuthorityPlayerMetadata(ugsPlayerId, out var partyId, out var steamId)) {
+                return false;
+            }
+
+            if(!string.IsNullOrWhiteSpace(partyId)) {
+                _clientPartyIds[clientId] = partyId;
+            }
+
+            if(steamId != 0) {
+                _clientSteamIds[clientId] = steamId;
+            }
+
+            return !string.IsNullOrWhiteSpace(partyId) || steamId != 0;
+        }
+
+        private IEnumerator CaptureSpawnedPlayerMetadata(ulong clientId, PlayerController controller) {
+            const int maxAttempts = 120;
+
+            for(var attempt = 0; attempt < maxAttempts; attempt++) {
+                if(controller == null) {
+                    yield break;
+                }
+
+                var updated = false;
+                var ugsPlayerId = controller.ugsId.Value.ToString();
+                if(!string.IsNullOrWhiteSpace(ugsPlayerId) &&
+                   (!_clientUgsPlayerIds.TryGetValue(clientId, out var cachedUgsId) ||
+                    !string.Equals(cachedUgsId, ugsPlayerId, System.StringComparison.Ordinal))) {
+                    _clientUgsPlayerIds[clientId] = ugsPlayerId;
+                    updated = true;
+                }
+
+                var steamId = controller.steamId.Value;
+                if(steamId != 0 && !_clientSteamIds.ContainsKey(clientId)) {
+                    _clientSteamIds[clientId] = steamId;
+                    updated = true;
+                }
+
+                if(updated) {
+                    TryRefreshClientMetadataFromDistributedAuthoritySession(clientId);
+                }
+
+                var hasResolvedUgs = _clientUgsPlayerIds.ContainsKey(clientId);
+                var hasResolvedSteam = _clientSteamIds.ContainsKey(clientId);
+                if(hasResolvedUgs && hasResolvedSteam) {
+                    yield break;
+                }
+
+                yield return null;
+            }
         }
         
         /// <summary>
