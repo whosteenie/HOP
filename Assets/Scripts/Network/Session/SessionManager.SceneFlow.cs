@@ -369,9 +369,7 @@ namespace Network.Session {
                             "[SessionManager] HandleUnexpectedDisconnect: already in MainMenu, skipping capture");
                     }
 
-                    LeaveLobby();
-                    await CleanupNetworkAsync();
-                    SetFrontStatus(SessionPhase.Menu, "");
+                    await LeaveToMainMenuAsync();
                 }
             } finally {
                 _unexpectedDisconnectInFlight = false;

@@ -469,11 +469,13 @@ namespace Network.Session {
 
                 var currentScene = SceneManager.GetActiveScene().name;
                 var shouldFade = currentScene != "MainMenu";
+                var shouldRevealMenu = shouldFade || string.Equals(currentScene, "MainMenu", StringComparison.OrdinalIgnoreCase);
                 FlowLog.Emit(FlowEventIds.SessionExit,
                     ("leaveId", leaveId),
                     ("step", "EXIT_SCENE_SNAPSHOT"),
                     ("currentScene", currentScene),
-                    ("shouldFade", shouldFade));
+                    ("shouldFade", shouldFade),
+                    ("shouldRevealMenu", shouldRevealMenu));
 
                 if(skipFadeOut && DisconnectTransitionController.Instance != null) {
                     DisconnectTransitionController.Instance.CleanupDuplicate();
@@ -511,7 +513,7 @@ namespace Network.Session {
                 await EnsureMainMenuLoadedAndReadyAsync(currentScene);
                 FlowLog.Emit(FlowEventIds.SessionExit, ("leaveId", leaveId), ("step", "EXIT_SCENE_LOAD_DONE"));
 
-                if(shouldFade) {
+                if(shouldRevealMenu) {
                     FlowLog.Emit(FlowEventIds.SessionExit, ("leaveId", leaveId), ("step", "EXIT_FADE_IN_BEGIN"));
                     await FadeInWithFallbackAsync();
                     FlowLog.Emit(FlowEventIds.SessionExit, ("leaveId", leaveId), ("step", "EXIT_FADE_IN_DONE"));
