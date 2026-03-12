@@ -79,6 +79,29 @@ namespace Game.Player {
 
         public bool CanGrapple { get; private set; } = true;
 
+        public Vector3 CurrentPullVelocity {
+            get {
+                if(!IsGrappling || playerController == null) {
+                    return Vector3.zero;
+                }
+
+                var toPoint = _grapplePoint - playerController.Position;
+                if(toPoint.sqrMagnitude <= 0.0001f) {
+                    return Vector3.zero;
+                }
+
+                return toPoint.normalized * GrappleSpeed;
+            }
+        }
+
+        public Vector3 CurrentHorizontalPullVelocity {
+            get {
+                var pullVelocity = CurrentPullVelocity;
+                pullVelocity.y = 0f;
+                return pullVelocity;
+            }
+        }
+
         public float CooldownProgress {
             get {
                 if(CanGrapple) return 1f;
