@@ -1,5 +1,7 @@
 using System;
+using Cysharp.Threading.Tasks;
 using Discord.Sdk;
+using Steamworks;
 using UnityEngine;
 
 namespace Discord {
@@ -8,11 +10,14 @@ namespace Discord {
 
         private Client _discord;
         private const long AppId = 1467433546963619916;
+        private const double SteamTicketTimeoutSeconds = 10.0;
+        private const string DiscordSteamWebIdentity = "discord";
         private bool _isReady;
         private bool _hasPendingPresence;
         private string _pendingDetails = string.Empty;
         private string _pendingState = string.Empty;
         private long _pendingStartTimestamp;
+        private bool _isConnecting;
 
         private void Awake() {
             if (Instance != null) {
@@ -33,19 +38,21 @@ namespace Discord {
                 _discord.SetApplicationId(AppId);
 
                 bool registeredLaunchCommand = _discord.RegisterLaunchCommand(AppId, string.Empty);
-                _discord.Connect();
+                bool registeredSteamLaunch = false;
+                if (SteamClient.IsValid && SteamClient.IsLoggedOn) {
+                    registeredSteamLaunch = _discord.RegisterLaunchSteamApplication((ulong)AppId, (uint)SteamClient.AppId);
+                }
 
                 var initialStatus = _discord.GetStatus();
-                _isReady = initialStatus == Client.Status.Ready;
+                _isReady = false;
 
                 Debug.Log(
                     $"[DiscordManager] Discord SDK initialized. " +
                     $"Status={Client.StatusToString(initialStatus)} " +
-                    $"LaunchRegistered={registeredLaunchCommand}");
+                    $"LaunchRegistered={registeredLaunchCommand} " +
+                    $"SteamLaunchRegistered={registeredSteamLaunch}");
 
-                if (_isReady) {
-                    FlushPendingPresence();
-                }
+                BeginAuthenticationAndConnect().Forget();
             } catch (Exception e) {
                 Debug.LogWarning($"[DiscordManager] Failed to initialize Discord SDK: {e.Message}");
                 _discord = null;
@@ -115,13 +122,96 @@ namespace Discord {
             }
         }
 
+        private async UniTaskVoid BeginAuthenticationAndConnect() {
+            if (_discord == null || _isConnecting) {
+                return;
+            }
+
+            _isConnecting = true;
+
+            try {
+                if (!SteamClient.IsValid || !SteamClient.IsLoggedOn) {
+                    Debug.LogWarning("[DiscordManager] Steam is not available; Discord Social SDK auth requires a token before Connect().");
+                    return;
+                }
+
+                var steamTicket = await SteamUser.GetAuthTicketForWebApiAsync(DiscordSteamWebIdentity, SteamTicketTimeoutSeconds);
+                if (steamTicket == null || steamTicket.Data == null || steamTicket.Data.Length == 0) {
+                    Debug.LogWarning("[DiscordManager] Failed to get Steam web auth ticket for Discord auth.");
+                    return;
+                }
+
+                string externalAuthToken = ToHexString(steamTicket.Data);
+                steamTicket.Cancel();
+
+                if (string.IsNullOrEmpty(externalAuthToken)) {
+                    Debug.LogWarning("[DiscordManager] Steam web auth ticket for Discord auth was empty.");
+                    return;
+                }
+
+                _discord.GetProvisionalToken(
+                    (ulong)AppId,
+                    AuthenticationExternalAuthType.SteamSessionTicket,
+                    externalAuthToken,
+                    OnProvisionalTokenReceived);
+            } catch (Exception e) {
+                Debug.LogWarning($"[DiscordManager] Failed to begin Discord authentication: {e.Message}");
+                _isConnecting = false;
+            }
+        }
+
+        private void OnProvisionalTokenReceived(
+            ClientResult result,
+            string accessToken,
+            string refreshToken,
+            AuthorizationTokenType tokenType,
+            int expiresIn,
+            string scopes) {
+            if (!result.Successful()) {
+                _isConnecting = false;
+                Debug.LogWarning(
+                    $"[DiscordManager] Failed to acquire Discord token: " +
+                    $"Type={result.Type()} Error={result.Error()} Retryable={result.Retryable()} " +
+                    $"RetryAfter={result.RetryAfter()} Response={result.ResponseBody()}");
+                return;
+            }
+
+            _discord.UpdateToken(tokenType, accessToken, OnDiscordTokenUpdated);
+        }
+
+        private void OnDiscordTokenUpdated(ClientResult result) {
+            if (!result.Successful()) {
+                _isConnecting = false;
+                Debug.LogWarning(
+                    $"[DiscordManager] Failed to update Discord token: " +
+                    $"Type={result.Type()} Error={result.Error()} Retryable={result.Retryable()} " +
+                    $"RetryAfter={result.RetryAfter()} Response={result.ResponseBody()}");
+                return;
+            }
+
+            try {
+                _discord.Connect();
+            } catch (Exception e) {
+                _isConnecting = false;
+                Debug.LogWarning($"[DiscordManager] Failed to connect Discord SDK after token update: {e.Message}");
+            }
+        }
+
         private void OnDiscordStatusChanged(Client.Status status, Client.Error error, int errorDetail) {
             _isReady = status == Client.Status.Ready;
 
             if (status == Client.Status.Ready) {
+                _isConnecting = false;
                 Debug.Log("[DiscordManager] Discord client is ready.");
+                if (SteamClient.IsValid && SteamClient.IsLoggedOn && !string.IsNullOrWhiteSpace(SteamClient.Name)) {
+                    _discord.UpdateProvisionalAccountDisplayName(SteamClient.Name, OnProvisionalDisplayNameUpdated);
+                }
                 FlushPendingPresence();
                 return;
+            }
+
+            if (status == Client.Status.Disconnected) {
+                _isConnecting = false;
             }
 
             if (error != Client.Error.None) {
@@ -142,6 +232,34 @@ namespace Discord {
                 $"[DiscordManager] Failed to update activity: " +
                 $"Type={res.Type()} Error={res.Error()} Retryable={res.Retryable()} " +
                 $"RetryAfter={res.RetryAfter()} Response={res.ResponseBody()}");
+        }
+
+        private void OnProvisionalDisplayNameUpdated(ClientResult result) {
+            if (result.Successful()) {
+                return;
+            }
+
+            Debug.LogWarning(
+                $"[DiscordManager] Failed to update provisional display name: " +
+                $"Type={result.Type()} Error={result.Error()} Retryable={result.Retryable()} " +
+                $"RetryAfter={result.RetryAfter()} Response={result.ResponseBody()}");
+        }
+
+        private static string ToHexString(byte[] bytes) {
+            if (bytes == null || bytes.Length == 0) {
+                return string.Empty;
+            }
+
+            var chars = new char[bytes.Length * 2];
+            const string hex = "0123456789ABCDEF";
+
+            for (int i = 0; i < bytes.Length; i++) {
+                byte value = bytes[i];
+                chars[i * 2] = hex[value >> 4];
+                chars[i * 2 + 1] = hex[value & 0x0F];
+            }
+
+            return new string(chars);
         }
 
         private void OnApplicationQuit() {
