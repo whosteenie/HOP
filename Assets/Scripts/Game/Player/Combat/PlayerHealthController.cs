@@ -129,12 +129,18 @@ namespace Game.Player {
 
         public override void OnNetworkSpawn() {
             base.OnNetworkSpawn();
-            // Get network variables from PlayerController (network-dependent)
-            if(playerController == null) return;
+            RefreshStateBindings();
+            SyncAuthoritativeHealthShadowFromReplicated();
+        }
+
+        private void RefreshStateBindings() {
+            if(playerController == null) {
+                return;
+            }
+
             netHealth = playerController.NetHealth;
             netIsDead = playerController.NetIsDead;
             deaths = playerController.Deaths;
-            SyncAuthoritativeHealthShadowFromReplicated();
         }
 
         private void SyncAuthoritativeHealthShadowFromReplicated() {
@@ -177,6 +183,7 @@ namespace Game.Player {
         /// Updates the player's health regeneration state based on time since last damage.
         /// </summary>
         public void UpdateHealthRegeneration() {
+            RefreshStateBindings();
             if(!HasCombatAuthority) return;
             if(netIsDead == null || netHealth == null) return;
 
@@ -193,7 +200,6 @@ namespace Game.Player {
                 }
 
                 netHealth.Value = Mathf.Min(MaxHealth, netHealth.Value + RegenRate * Time.deltaTime);
-                CommitAuthoritativeHealthShadow(netHealth.Value, false);
             } else {
                 _isRegenerating = false;
             }
@@ -204,6 +210,7 @@ namespace Game.Player {
         /// </summary>
         public bool ApplyDamageServer_Auth(float amount, Vector3 hitPoint, Vector3 hitDirection, ulong attackerId,
             string bodyPartTag = null, bool isHeadshot = false, string weaponId = null) {
+            RefreshStateBindings();
             if(!HasCombatAuthority || netIsDead == null || _deathStatePending) return false;
             if(ResolveAuthoritativeIsDead()) return false;
             var activeMode = MatchSettingsManager.Instance != null
@@ -218,8 +225,7 @@ namespace Game.Player {
                 }
 
                 var healthBefore = ResolveAuthoritativeCurrentHealth();
-                ApplyHealthStateAuthority(0f, true, incrementDeaths: true);
-                UpdateTransientHealthState(hitPoint, hitDirection, bodyPartTag, true);
+                ApplyHealthStateAuthority(0f, true, incrementDeaths: true, hitPoint, hitDirection, bodyPartTag);
                 CommitAuthoritativeHealthShadow(0f, true);
                 _deathStatePending = true;
                 StartRespawnTimeoutProbe();
@@ -295,8 +301,8 @@ namespace Game.Player {
                 var actualDealt = pre - newHp;
                 var isLethalHit = newHp <= 0f;
 
-                ApplyHealthStateAuthority(newHp, isLethalHit, incrementDeaths: isLethalHit);
-                UpdateTransientHealthState(hitPoint, hitDirection, bodyPartTag, isLethalHit);
+                ApplyHealthStateAuthority(newHp, isLethalHit, incrementDeaths: isLethalHit, hitPoint, hitDirection,
+                    bodyPartTag);
                 CommitAuthoritativeHealthShadow(newHp, isLethalHit);
 
                 if(playerController != null) {
@@ -862,10 +868,16 @@ namespace Game.Player {
         /// Resets the player's health and regeneration state.
         /// </summary>
         public void ResetHealthAndRegenerationState() {
+            RefreshStateBindings();
             if(!HasCombatAuthority) return;
 
-            ApplyHealthStateAuthority(MaxHealth, isDead: false, incrementDeaths: false);
-            CommitAuthoritativeHealthShadow(MaxHealth, false);
+            if(netIsDead != null) {
+                netIsDead.Value = false;
+            }
+
+            if(netHealth != null) {
+                netHealth.Value = 100f;
+            }
 
             _lastDamageTime = Time.time - RegenDelay;
             _isRegenerating = false;
@@ -877,7 +889,8 @@ namespace Game.Player {
             }
         }
 
-        private void ApplyHealthStateAuthority(float healthValue, bool isDead, bool incrementDeaths) {
+        private void ApplyHealthStateAuthority(float healthValue, bool isDead, bool incrementDeaths, Vector3 hitPoint,
+            Vector3 hitDirection, string bodyPartTag) {
             if(netHealth != null) {
                 netHealth.Value = Mathf.Clamp(healthValue, 0f, MaxHealth);
             }
@@ -889,10 +902,7 @@ namespace Game.Player {
             if(incrementDeaths && deaths != null) {
                 deaths.Value++;
             }
-        }
 
-        private void UpdateTransientHealthState(Vector3 hitPoint, Vector3 hitDirection, string bodyPartTag,
-            bool isDead) {
             _lastHitPoint = hitPoint;
             _lastHitDirection = hitDirection;
             _lastDamageTime = Time.time;
@@ -902,19 +912,16 @@ namespace Game.Player {
         }
 
         private void AddDamageDealtAuthority(float delta) {
-            if(!HasCombatAuthority) return;
             if(delta <= 0f || playerController == null || playerController.DamageDealt == null) return;
             playerController.DamageDealt.Value += delta;
         }
 
         private void AddKillAuthority() {
-            if(!HasCombatAuthority) return;
             if(playerController == null || playerController.Kills == null) return;
             playerController.Kills.Value++;
         }
 
         private void AddAssistAuthority() {
-            if(!HasCombatAuthority) return;
             if(playerController == null || playerController.Assists == null) return;
             playerController.Assists.Value++;
         }

@@ -109348,6 +109348,7 @@ GameObject:
   - component: {fileID: 1888016153}
   - component: {fileID: 1888016152}
   - component: {fileID: 1888016151}
+  - component: {fileID: 1888016154}
   m_Layer: 0
   m_Name: MatchCombatAuthority
   m_TagString: Untagged
@@ -109408,6 +109409,20 @@ Transform:
   m_Children: []
   m_Father: {fileID: 1559895690}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1888016154
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1888016150}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8bd8684bd88e7ba4aa8652a865ebcf88, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Game.Match.MatchPlayerStateAuthority
+  ShowTopMostFoldoutHeaderGroup: 1
+  playerStatePrefab: {fileID: 7268486133246497569, guid: bc6bb32d168e92646a54529638bf27ba, type: 3}
 --- !u!43 &1896370885
 Mesh:
   m_ObjectHideFlags: 0

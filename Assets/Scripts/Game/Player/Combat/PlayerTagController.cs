@@ -16,16 +16,16 @@ namespace Game.Player {
         [Header("References")]
         [SerializeField] private PlayerController playerController;
         private PlayerTeamManager _teamManager;
+        private MatchPlayerStateProxy _cachedPlayerState;
+        private MatchPlayerStateProxy _boundPlayerState;
+        private static readonly NetworkVariable<int> MissingIntState = new(0);
+        private static readonly NetworkVariable<bool> MissingBoolState = new(false);
 
         // Tag mode network variables
-        public NetworkVariable<int> tags = new(0, NetworkVariableReadPermission.Everyone,
-            NetworkVariableWritePermission.Server);
-        public NetworkVariable<int> tagged = new(0, NetworkVariableReadPermission.Everyone,
-            NetworkVariableWritePermission.Server);
-        public NetworkVariable<int> timeTagged = new(0, NetworkVariableReadPermission.Everyone,
-            NetworkVariableWritePermission.Server); // Time tagged in seconds
-        public NetworkVariable<bool> isTagged = new(false, NetworkVariableReadPermission.Everyone,
-            NetworkVariableWritePermission.Server);
+        public NetworkVariable<int> tags => ResolvePlayerState()?.tags ?? MissingIntState;
+        public NetworkVariable<int> tagged => ResolvePlayerState()?.tagged ?? MissingIntState;
+        public NetworkVariable<int> timeTagged => ResolvePlayerState()?.timeTagged ?? MissingIntState; // Time tagged in seconds
+        public NetworkVariable<bool> isTagged => ResolvePlayerState()?.isTagged ?? MissingBoolState;
 
         // Throttling for network updates (at 90Hz: 5 ticks = ~55ms, 2 ticks = ~22ms)
         public float lastTagStatsUpdateTime; // Public for cross-reference in HandleTagTransfer
@@ -67,8 +67,11 @@ namespace Game.Player {
 
             // Network-dependent initialization
             // Subscribe to tag state changes
-            isTagged.OnValueChanged -= OnTaggedStateChanged;
-            isTagged.OnValueChanged += OnTaggedStateChanged;
+            MatchPlayerStateProxy.StateRegistered -= OnPlayerStateRegistered;
+            MatchPlayerStateProxy.StateRegistered += OnPlayerStateRegistered;
+            MatchPlayerStateProxy.StateUnregistered -= OnPlayerStateUnregistered;
+            MatchPlayerStateProxy.StateUnregistered += OnPlayerStateUnregistered;
+            TryBindTagState();
 
             // Update outline on spawn if already tagged
             if(_teamManager != null) {
@@ -78,7 +81,9 @@ namespace Game.Player {
 
         public override void OnNetworkDespawn() {
             base.OnNetworkDespawn();
-            isTagged.OnValueChanged -= OnTaggedStateChanged;
+            MatchPlayerStateProxy.StateRegistered -= OnPlayerStateRegistered;
+            MatchPlayerStateProxy.StateUnregistered -= OnPlayerStateUnregistered;
+            UnbindTagState();
         }
 
         private void Update() {
@@ -271,12 +276,10 @@ namespace Game.Player {
         }
 
         public void ApplyTimeTaggedDeltaAuthority(int delta) {
-            if(!HasTagAuthority) return;
             timeTagged.Value = Mathf.Max(0, timeTagged.Value + delta);
         }
 
-        private void ApplyTagVictimAuthority() {
-            if(!HasTagAuthority) return;
+        public void ApplyTagVictimAuthority() {
             isTagged.Value = true;
 
             if(playerController != null && playerController.WeaponManager != null) {
@@ -287,11 +290,70 @@ namespace Game.Player {
             lastTagStatsUpdateTime = Time.time;
         }
 
-        private void ApplyTagAttackerAuthority() {
-            if(!HasTagAuthority) return;
+        public void ApplyTagAttackerAuthority() {
             isTagged.Value = false;
             tags.Value++;
             lastTagStatsUpdateTime = Time.time;
+        }
+
+        private MatchPlayerStateProxy ResolvePlayerState() {
+            if(playerController == null) {
+                return null;
+            }
+
+            if(_cachedPlayerState != null &&
+               _cachedPlayerState.RepresentedClientId == playerController.OwnerClientId &&
+               _cachedPlayerState.NetworkObject != null &&
+               _cachedPlayerState.NetworkObject.IsSpawned) {
+                return _cachedPlayerState;
+            }
+
+            _cachedPlayerState = MatchPlayerStateProxy.GetForPlayer(playerController.OwnerClientId);
+            return _cachedPlayerState;
+        }
+
+        private void OnPlayerStateRegistered(ulong playerClientId, MatchPlayerStateProxy proxy) {
+            if(playerController == null || playerClientId != playerController.OwnerClientId) {
+                return;
+            }
+
+            _cachedPlayerState = proxy;
+            TryBindTagState();
+        }
+
+        private void OnPlayerStateUnregistered(ulong playerClientId, MatchPlayerStateProxy proxy) {
+            if(playerController == null || playerClientId != playerController.OwnerClientId) {
+                return;
+            }
+
+            if(_boundPlayerState == proxy) {
+                UnbindTagState();
+            }
+
+            if(_cachedPlayerState == proxy) {
+                _cachedPlayerState = null;
+            }
+        }
+
+        private void TryBindTagState() {
+            var playerState = ResolvePlayerState();
+            if(playerState == null || _boundPlayerState == playerState) {
+                return;
+            }
+
+            UnbindTagState();
+            playerState.isTagged.OnValueChanged -= OnTaggedStateChanged;
+            playerState.isTagged.OnValueChanged += OnTaggedStateChanged;
+            _boundPlayerState = playerState;
+        }
+
+        private void UnbindTagState() {
+            if(_boundPlayerState == null) {
+                return;
+            }
+
+            _boundPlayerState.isTagged.OnValueChanged -= OnTaggedStateChanged;
+            _boundPlayerState = null;
         }
     }
 }

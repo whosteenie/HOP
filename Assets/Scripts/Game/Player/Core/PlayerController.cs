@@ -176,6 +176,13 @@ namespace Game.Player {
         private float _lastServerMovementTime;
         private bool _hasServerMovementSample;
         private float _lastObservedServerMovementSpeed;
+        private MatchPlayerStateProxy _cachedPlayerState;
+        private MatchPlayerStateProxy _boundPlayerState;
+
+        private static readonly NetworkVariable<float> MissingHealthState = new(100f);
+        private static readonly NetworkVariable<bool> MissingDeathState = new(false);
+        private static readonly NetworkVariable<int> MissingIntState = new(0);
+        private static readonly NetworkVariable<float> MissingFloatState = new(0f);
 
         // Movement violation tracking
         private class MovementViolation {
@@ -200,25 +207,13 @@ namespace Game.Player {
 
         #region Network Variables
 
-        public NetworkVariable<float> netHealth = new(100f,
-            NetworkVariableReadPermission.Everyone,
-            NetworkVariableWritePermission.Server);
-        public NetworkVariable<bool> netIsDead = new(false,
-            NetworkVariableReadPermission.Everyone,
-            NetworkVariableWritePermission.Server);
-        public NetworkVariable<int> kills = new(0,
-            NetworkVariableReadPermission.Everyone,
-            NetworkVariableWritePermission.Server);
-        public NetworkVariable<int> deaths = new(0,
-            NetworkVariableReadPermission.Everyone,
-            NetworkVariableWritePermission.Server);
-        public NetworkVariable<int> assists = new(0,
-            NetworkVariableReadPermission.Everyone,
-            NetworkVariableWritePermission.Server);
+        public NetworkVariable<float> netHealth => ResolvePlayerState()?.netHealth ?? MissingHealthState;
+        public NetworkVariable<bool> netIsDead => ResolvePlayerState()?.netIsDead ?? MissingDeathState;
+        public NetworkVariable<int> kills => ResolvePlayerState()?.kills ?? MissingIntState;
+        public NetworkVariable<int> deaths => ResolvePlayerState()?.deaths ?? MissingIntState;
+        public NetworkVariable<int> assists => ResolvePlayerState()?.assists ?? MissingIntState;
 
-        public NetworkVariable<float> damageDealt = new(0f,
-            NetworkVariableReadPermission.Everyone,
-            NetworkVariableWritePermission.Server);
+        public NetworkVariable<float> damageDealt => ResolvePlayerState()?.damageDealt ?? MissingFloatState;
 
         public NetworkVariable<int> playerMaterialIndex = new(0,
             NetworkVariableReadPermission.Everyone,
@@ -364,6 +359,9 @@ namespace Game.Player {
         }
 
         public override void OnDestroy() {
+            UnbindPlayerStateSubscriptions();
+            MatchPlayerStateProxy.StateRegistered -= OnPlayerStateRegistered;
+            MatchPlayerStateProxy.StateUnregistered -= OnPlayerStateUnregistered;
             UnregisterSpawnedPlayer(this);
             if(LocalPlayer == this) {
                 LocalPlayer = null;
@@ -383,6 +381,7 @@ namespace Game.Player {
             RegisterSpawnedPlayer(this);
 
             SubscribeToNetworkVariables();
+            TryBindPlayerStateSubscriptions();
             UpdatePlayerMaterialFromNetwork();
 
             if(characterController.enabled == false && !netIsDead.Value) {
@@ -573,6 +572,11 @@ namespace Game.Player {
         /// Subscribes to all NetworkVariable value change callbacks.
         /// </summary>
         private void SubscribeToNetworkVariables() {
+            MatchPlayerStateProxy.StateRegistered -= OnPlayerStateRegistered;
+            MatchPlayerStateProxy.StateRegistered += OnPlayerStateRegistered;
+            MatchPlayerStateProxy.StateUnregistered -= OnPlayerStateUnregistered;
+            MatchPlayerStateProxy.StateUnregistered += OnPlayerStateUnregistered;
+
             playerMaterialIndex.OnValueChanged -= OnMatChanged;
             playerMaterialIndex.OnValueChanged += OnMatChanged;
             
@@ -592,8 +596,6 @@ namespace Game.Player {
             playerEmissionEnabled.OnValueChanged += OnMaterialCustomizationChanged;
             playerEmissionColor.OnValueChanged -= OnMaterialCustomizationChanged;
             playerEmissionColor.OnValueChanged += OnMaterialCustomizationChanged;
-            netHealth.OnValueChanged -= OnHealthChanged;
-            netHealth.OnValueChanged += OnHealthChanged;
             netIsCrouching.OnValueChanged -= OnCrouchStateChanged;
             netIsCrouching.OnValueChanged += OnCrouchStateChanged;
             netIsSliding.OnValueChanged -= OnSlidingStateChanged;
@@ -614,14 +616,17 @@ namespace Game.Player {
             netIsRightWallRun.OnValueChanged += OnWallRunOrientationChanged;
             netWallRunDirection.OnValueChanged -= OnWallRunDirectionChanged;
             netWallRunDirection.OnValueChanged += OnWallRunDirectionChanged;
-            netIsDead.OnValueChanged -= OnDeathStateChanged;
-            netIsDead.OnValueChanged += OnDeathStateChanged;
+            TryBindPlayerStateSubscriptions();
         }
 
         /// <summary>
         /// Unsubscribes from all NetworkVariable value change callbacks.
         /// </summary>
         private void UnsubscribeFromNetworkVariables() {
+            MatchPlayerStateProxy.StateRegistered -= OnPlayerStateRegistered;
+            MatchPlayerStateProxy.StateUnregistered -= OnPlayerStateUnregistered;
+            UnbindPlayerStateSubscriptions();
+
             playerMaterialIndex.OnValueChanged -= OnMatChanged;
             playerMaterialPacketIndex.OnValueChanged -= OnMaterialPacketChanged;
             playerBaseColor.OnValueChanged -= OnMaterialCustomizationChanged;
@@ -631,7 +636,6 @@ namespace Game.Player {
             playerHeightStrength.OnValueChanged -= OnMaterialCustomizationChanged;
             playerEmissionEnabled.OnValueChanged -= OnMaterialCustomizationChanged;
             playerEmissionColor.OnValueChanged -= OnMaterialCustomizationChanged;
-            netHealth.OnValueChanged -= OnHealthChanged;
             netIsCrouching.OnValueChanged -= OnCrouchStateChanged;
             netIsSliding.OnValueChanged -= OnSlidingStateChanged;
             netIsJumping.OnValueChanged -= OnJumpingStateChanged;
@@ -642,7 +646,66 @@ namespace Game.Player {
             netIsWallRunning.OnValueChanged -= OnWallRunStateChanged;
             netIsRightWallRun.OnValueChanged -= OnWallRunOrientationChanged;
             netWallRunDirection.OnValueChanged -= OnWallRunDirectionChanged;
-            netIsDead.OnValueChanged -= OnDeathStateChanged;
+        }
+
+        private MatchPlayerStateProxy ResolvePlayerState() {
+            if(_cachedPlayerState != null &&
+               _cachedPlayerState.RepresentedClientId == OwnerClientId &&
+               _cachedPlayerState.NetworkObject != null &&
+               _cachedPlayerState.NetworkObject.IsSpawned) {
+                return _cachedPlayerState;
+            }
+
+            _cachedPlayerState = MatchPlayerStateProxy.GetForPlayer(OwnerClientId);
+            return _cachedPlayerState;
+        }
+
+        private void OnPlayerStateRegistered(ulong playerClientId, MatchPlayerStateProxy proxy) {
+            if(playerClientId != OwnerClientId) {
+                return;
+            }
+
+            _cachedPlayerState = proxy;
+            TryBindPlayerStateSubscriptions();
+        }
+
+        private void OnPlayerStateUnregistered(ulong playerClientId, MatchPlayerStateProxy proxy) {
+            if(playerClientId != OwnerClientId) {
+                return;
+            }
+
+            if(_boundPlayerState == proxy) {
+                UnbindPlayerStateSubscriptions();
+            }
+
+            if(_cachedPlayerState == proxy) {
+                _cachedPlayerState = null;
+            }
+        }
+
+        private void TryBindPlayerStateSubscriptions() {
+            var playerState = ResolvePlayerState();
+            if(playerState == null || _boundPlayerState == playerState) {
+                return;
+            }
+
+            UnbindPlayerStateSubscriptions();
+
+            playerState.netHealth.OnValueChanged -= OnHealthChanged;
+            playerState.netHealth.OnValueChanged += OnHealthChanged;
+            playerState.netIsDead.OnValueChanged -= OnDeathStateChanged;
+            playerState.netIsDead.OnValueChanged += OnDeathStateChanged;
+            _boundPlayerState = playerState;
+        }
+
+        private void UnbindPlayerStateSubscriptions() {
+            if(_boundPlayerState == null) {
+                return;
+            }
+
+            _boundPlayerState.netHealth.OnValueChanged -= OnHealthChanged;
+            _boundPlayerState.netIsDead.OnValueChanged -= OnDeathStateChanged;
+            _boundPlayerState = null;
         }
 
         private static void OnMatChanged(int _, int newIdx) {
@@ -823,7 +886,7 @@ namespace Game.Player {
                 HandleOutOfBoundsChecks(authPos);
             }
 
-            if(NetworkAuthority.HasGlobalAuthority(this)) {
+            if(IsOwner) {
                 if(healthController != null) {
                     healthController.UpdateHealthRegeneration();
                 }
