@@ -16,14 +16,25 @@ using Unity.Services.Authentication;
 using Unity.Services.Lobbies;
 using Unity.Services.Lobbies.Models;
 using Unity.Services.Matchmaker.Models;
-using Unity.Services.Relay;
-using Unity.Services.Relay.Models;
+using Unity.Services.Multiplayer;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
 namespace Network.Session {
     public sealed partial class SessionManager {
         #region Core Session Operations
+
+        private const string MultiplayerSessionType = "HOP.Match";
+        private const string MultiplayerSessionModeKey = "mode";
+        private const string MultiplayerSessionMatchTypeKey = "matchType";
+        private const string MultiplayerSessionPartyIdKey = "partyId";
+        private const string MultiplayerSessionSteamIdKey = "steamId";
+
+        private enum DistributedAuthoritySessionJoinResult {
+            Success,
+            RateLimited,
+            Failed
+        }
 
         private bool TryGetNetworkManager(string operationName, out NetworkManager networkManager) {
             if(_networkManager == null) {
@@ -46,12 +57,18 @@ namespace Network.Session {
                 return false;
             }
 
+            transport = networkManager.NetworkConfig.NetworkTransport as UnityTransport;
+            if(transport != null) {
+                return true;
+            }
+
             transport = networkManager.GetComponent<UnityTransport>();
             if(transport != null) {
                 return true;
             }
 
-            Debug.LogError($"[SessionManager] UnityTransport missing on NetworkManager during {operationName}.");
+            Debug.LogError(
+                $"[SessionManager] No UnityTransport-compatible transport is configured on NetworkManager during {operationName}.");
             return false;
         }
 
@@ -141,27 +158,380 @@ namespace Network.Session {
                 $"[SessionManager] PublicLobbySnapshot({context}): lobbyId='{_ugsMatchLobby.Id}' hostId='{_ugsMatchLobby.HostId}' players={playerCount}/{_ugsMatchLobby.MaxPlayers} mode='{mode}' state='{state}' matchId='{matchId}'");
         }
 
-        private async UniTask<bool> TryStartHostWithRelayAsync(Allocation hostAllocation, bool isPrivateMatch,
+        private SessionOptions BuildDistributedAuthoritySessionOptions(int maxPlayers, bool isPrivateMatch) {
+            var options = new SessionOptions {
+                Name = $"HOP {SelectedGameMode}",
+                MaxPlayers = Mathf.Max(1, maxPlayers),
+                IsPrivate = isPrivateMatch,
+                Type = MultiplayerSessionType,
+                SessionProperties = new Dictionary<string, SessionProperty> {
+                    [MultiplayerSessionModeKey] = new(SelectedGameMode ?? string.Empty, VisibilityPropertyOptions.Public),
+                    [MultiplayerSessionMatchTypeKey] = new(isPrivateMatch ? "Private" : "Public",
+                        VisibilityPropertyOptions.Public)
+                },
+                PlayerProperties = new Dictionary<string, PlayerProperty> {
+                    ["displayName"] = new(LocalIdentity.GetDisplayName(), VisibilityPropertyOptions.Member)
+                }
+            };
+
+            if(string.IsNullOrEmpty(CurrentPartyId) == false) {
+                options.PlayerProperties[MultiplayerSessionPartyIdKey] =
+                    new(CurrentPartyId, VisibilityPropertyOptions.Member);
+            }
+
+            var steamId = LocalIdentity.GetSteamId();
+            if(steamId != 0) {
+                options.PlayerProperties[MultiplayerSessionSteamIdKey] =
+                    new(steamId.ToString(), VisibilityPropertyOptions.Member);
+            }
+
+            return options.WithDistributedAuthorityNetwork();
+        }
+
+        private void BindActiveMultiplayerSession(ISession session, string contextLabel) {
+            if(ReferenceEquals(_activeMultiplayerSession, session)) {
+                return;
+            }
+
+            UnbindActiveMultiplayerSession();
+            _activeMultiplayerSession = session;
+            if(_activeMultiplayerSession == null) {
+                return;
+            }
+
+            _activeMultiplayerSession.SessionHostChanged += OnActiveSessionHostChanged;
+            _activeMultiplayerSession.SessionMigrated += OnActiveSessionMigrated;
+            _activeMultiplayerSession.RemovedFromSession += OnActiveSessionRemovedFromSession;
+            _activeMultiplayerSession.Deleted += OnActiveSessionDeleted;
+
+            if(Debug.isDebugBuild) {
+                Debug.Log(
+                    $"[SessionManager] Bound DA session ({contextLabel}) id='{_activeMultiplayerSession.Id}' code='{_activeMultiplayerSession.Code}' host='{_activeMultiplayerSession.Host}'.");
+            }
+
+            EventBus.Publish(new SessionJoinedEvent(_activeMultiplayerSession.Code));
+        }
+
+        private void UnbindActiveMultiplayerSession() {
+            if(_activeMultiplayerSession == null) {
+                return;
+            }
+
+            _activeMultiplayerSession.SessionHostChanged -= OnActiveSessionHostChanged;
+            _activeMultiplayerSession.SessionMigrated -= OnActiveSessionMigrated;
+            _activeMultiplayerSession.RemovedFromSession -= OnActiveSessionRemovedFromSession;
+            _activeMultiplayerSession.Deleted -= OnActiveSessionDeleted;
+            _activeMultiplayerSession = null;
+        }
+
+        private void OnActiveSessionHostChanged(string newHostId) {
+            if(Debug.isDebugBuild) {
+                Debug.Log($"[SessionManager] DA session host changed to '{newHostId}'.");
+            }
+
+            LaunchSessionTask(RefreshActiveMultiplayerSessionAsync("HostChanged"), "DistributedAuthority/RefreshHostChanged");
+            LaunchSessionTask(RefreshMatchLobbyAfterDistributedAuthorityHostChangeAsync("HostChanged", newHostId),
+                "DistributedAuthority/RefreshMatchLobbyHostChanged");
+            NotifyPartyStateChanged();
+        }
+
+        private void OnActiveSessionMigrated() {
+            if(Debug.isDebugBuild) {
+                Debug.Log("[SessionManager] DA session migration completed.");
+            }
+
+            LaunchSessionTask(RefreshActiveMultiplayerSessionAsync("Migrated"), "DistributedAuthority/RefreshMigrated");
+            LaunchSessionTask(RefreshMatchLobbyAfterDistributedAuthorityHostChangeAsync("Migrated", null),
+                "DistributedAuthority/RefreshMatchLobbyMigrated");
+            if(_networkManager != null && _networkManager.IsListening && IsGameplaySceneName(SceneManager.GetActiveScene().name)) {
+                SetFrontStatus(SessionPhase.InGame, "");
+            }
+
+            NotifyPartyStateChanged();
+        }
+
+        private void OnActiveSessionRemovedFromSession() {
+            if(Debug.isDebugBuild) {
+                Debug.LogWarning("[SessionManager] Removed from active DA session.");
+            }
+
+            UnbindActiveMultiplayerSession();
+        }
+
+        private void OnActiveSessionDeleted() {
+            if(Debug.isDebugBuild) {
+                Debug.LogWarning("[SessionManager] Active DA session was deleted.");
+            }
+
+            UnbindActiveMultiplayerSession();
+        }
+
+        private async UniTask<string> CreateDistributedAuthoritySessionAsync(int maxPlayers, bool isPrivateMatch,
             string contextLabel) {
             await CleanupNetworkAsync();
-
-            if(TryGetUnityTransport(contextLabel, out var networkManager, out var utp) == false) {
-                return false;
-            }
-
-            if(TryApplyRelayToTransport(utp, hostAllocation, null) == false) {
-                Debug.LogError($"[SessionManager] Failed to apply relay host allocation during {contextLabel}.");
-                return false;
-            }
-
-            networkManager.NetworkConfig.NetworkTransport = utp;
             ApplyLocalConnectionPayload(isPrivateMatch);
-            if(networkManager.StartHost()) {
+
+            try {
+                var hostSession = await MultiplayerService.Instance.CreateSessionAsync(
+                    BuildDistributedAuthoritySessionOptions(maxPlayers, isPrivateMatch));
+                BindActiveMultiplayerSession(hostSession, contextLabel);
+                return hostSession.Code;
+            } catch(Exception ex) {
+                Debug.LogError($"[SessionManager] Failed to create DA session during {contextLabel}: {ex}");
+                UnbindActiveMultiplayerSession();
+                return null;
+            }
+        }
+
+        private async UniTask<DistributedAuthoritySessionJoinResult> JoinDistributedAuthoritySessionAsync(
+            string sessionCode, bool isPrivateMatch,
+            string contextLabel) {
+            if(string.IsNullOrWhiteSpace(sessionCode)) {
+                Debug.LogError($"[SessionManager] Cannot join DA session during {contextLabel}: session code is empty.");
+                return DistributedAuthoritySessionJoinResult.Failed;
+            }
+
+            await CleanupNetworkAsync();
+            ApplyLocalConnectionPayload(isPrivateMatch);
+
+            try {
+                var joinOptions = new JoinSessionOptions {
+                    Type = MultiplayerSessionType,
+                    PlayerProperties = new Dictionary<string, PlayerProperty> {
+                        ["displayName"] = new(LocalIdentity.GetDisplayName(), VisibilityPropertyOptions.Member)
+                    }
+                };
+                if(string.IsNullOrEmpty(CurrentPartyId) == false) {
+                    joinOptions.PlayerProperties[MultiplayerSessionPartyIdKey] =
+                        new(CurrentPartyId, VisibilityPropertyOptions.Member);
+                }
+
+                var steamId = LocalIdentity.GetSteamId();
+                if(steamId != 0) {
+                    joinOptions.PlayerProperties[MultiplayerSessionSteamIdKey] =
+                        new(steamId.ToString(), VisibilityPropertyOptions.Member);
+                }
+
+                var session = await MultiplayerService.Instance.JoinSessionByCodeAsync(sessionCode, joinOptions);
+                BindActiveMultiplayerSession(session, contextLabel);
+                return DistributedAuthoritySessionJoinResult.Success;
+            } catch(SessionException ex) when(ex.Error == SessionError.RateLimitExceeded) {
+                Debug.LogWarning(
+                    $"[SessionManager] Rate limited joining DA session '{sessionCode}' during {contextLabel}. Retrying...");
+                UnbindActiveMultiplayerSession();
+                return DistributedAuthoritySessionJoinResult.RateLimited;
+            } catch(Exception ex) {
+                Debug.LogError(
+                    $"[SessionManager] Failed to join DA session '{sessionCode}' during {contextLabel}: {ex}");
+                UnbindActiveMultiplayerSession();
+                return DistributedAuthoritySessionJoinResult.Failed;
+            }
+        }
+
+        private async UniTask LeaveActiveMultiplayerSessionAsync(string contextLabel) {
+            if(_activeMultiplayerSession == null) {
+                return;
+            }
+
+            var activeSession = _activeMultiplayerSession;
+            UnbindActiveMultiplayerSession();
+
+            try {
+                await activeSession.LeaveAsync();
+                if(Debug.isDebugBuild) {
+                    Debug.Log($"[SessionManager] Left DA session during {contextLabel}.");
+                }
+            } catch(Exception ex) {
+                Debug.LogWarning($"[SessionManager] Failed to leave DA session during {contextLabel}: {ex.Message}");
+            }
+        }
+
+        private async UniTask RefreshActiveMultiplayerSessionAsync(string reason) {
+            if(_activeMultiplayerSession == null || _isLeaving || _isShuttingDown) {
+                return;
+            }
+
+            try {
+                await UniTask.Delay(250);
+                if(_activeMultiplayerSession == null || _isLeaving || _isShuttingDown) {
+                    return;
+                }
+
+                await _activeMultiplayerSession.RefreshAsync();
+            } catch(Exception ex) {
+                if(Debug.isDebugBuild) {
+                    Debug.LogWarning($"[SessionManager] Failed to refresh active DA session after {reason}: {ex.Message}");
+                }
+            }
+        }
+
+        internal bool TryResolveDistributedAuthorityPlayerMetadata(string ugsPlayerId, out string partyId,
+            out ulong steamId) {
+            partyId = null;
+            steamId = 0;
+
+            if(string.IsNullOrWhiteSpace(ugsPlayerId)) {
+                return false;
+            }
+
+            if(TryResolveDistributedAuthorityPlayerMetadataFromSessionPlayers(_activeMultiplayerSession?.Players,
+                    ugsPlayerId, out partyId, out steamId)) {
                 return true;
             }
 
-            Debug.LogError($"[SessionManager] Failed to start host during {contextLabel}.");
+            if(TryResolveDistributedAuthorityPlayerMetadataFromLobbyPlayers(_ugsMatchLobby?.Players, ugsPlayerId,
+                    out partyId, out steamId)) {
+                return true;
+            }
+
+            return TryResolveDistributedAuthorityPlayerMetadataFromLobbyPlayers(_ugsPartyLobby?.Players, ugsPlayerId,
+                out partyId, out steamId);
+        }
+
+        private static bool TryResolveDistributedAuthorityPlayerMetadataFromSessionPlayers(
+            IReadOnlyList<IReadOnlyPlayer> players, string ugsPlayerId, out string partyId, out ulong steamId) {
+            partyId = null;
+            steamId = 0;
+
+            if(players == null) {
+                return false;
+            }
+
+            foreach(var player in players) {
+                if(player == null || !string.Equals(player.Id, ugsPlayerId, StringComparison.Ordinal)) {
+                    continue;
+                }
+
+                if(player.Properties != null) {
+                    if(player.Properties.TryGetValue(MultiplayerSessionPartyIdKey, out var partyProperty) &&
+                       partyProperty != null &&
+                       !string.IsNullOrWhiteSpace(partyProperty.Value)) {
+                        partyId = partyProperty.Value;
+                    }
+
+                    if(player.Properties.TryGetValue(MultiplayerSessionSteamIdKey, out var steamProperty) &&
+                       steamProperty != null) {
+                        ulong.TryParse(steamProperty.Value, out steamId);
+                    }
+                }
+
+                return true;
+            }
+
             return false;
+        }
+
+        private static bool TryResolveDistributedAuthorityPlayerMetadataFromLobbyPlayers(
+            IReadOnlyList<Unity.Services.Lobbies.Models.Player> players, string ugsPlayerId, out string partyId,
+            out ulong steamId) {
+            partyId = null;
+            steamId = 0;
+
+            if(players == null) {
+                return false;
+            }
+
+            foreach(var player in players) {
+                if(player == null || !string.Equals(player.Id, ugsPlayerId, StringComparison.Ordinal)) {
+                    continue;
+                }
+
+                if(player.Data != null) {
+                    if(player.Data.TryGetValue(MultiplayerSessionPartyIdKey, out var partyProperty) &&
+                       partyProperty != null &&
+                       !string.IsNullOrWhiteSpace(partyProperty.Value)) {
+                        partyId = partyProperty.Value;
+                    }
+
+                    if(player.Data.TryGetValue(MultiplayerSessionSteamIdKey, out var steamProperty) &&
+                       steamProperty != null) {
+                        ulong.TryParse(steamProperty.Value, out steamId);
+                    }
+                }
+
+                return true;
+            }
+
+            return false;
+        }
+
+        private async UniTask RefreshMatchLobbyAfterDistributedAuthorityHostChangeAsync(string reason,
+            string expectedHostId) {
+            if(_isLeaving || _isShuttingDown || _ugsMatchLobby == null || string.IsNullOrEmpty(_ugsMatchLobby.Id)) {
+                return;
+            }
+
+            var targetLobbyId = _ugsMatchLobby.Id;
+            var previousHostId = _ugsMatchLobby.HostId;
+            const int maxAttempts = 3;
+            var nextDelayMs = 250;
+
+            for(var attempt = 1; attempt <= maxAttempts; attempt++) {
+                try {
+                    await UniTask.Delay(nextDelayMs, cancellationToken: SessionLifetimeToken);
+                } catch(OperationCanceledException) {
+                    return;
+                }
+
+                if(_isLeaving || _isShuttingDown || _ugsMatchLobby == null ||
+                   !string.Equals(_ugsMatchLobby.Id, targetLobbyId, StringComparison.Ordinal)) {
+                    return;
+                }
+
+                try {
+                    var refreshedLobby = await LobbyService.Instance.GetLobbyAsync(targetLobbyId);
+                    if(refreshedLobby == null) {
+                        continue;
+                    }
+
+                    _ugsMatchLobby = refreshedLobby;
+
+                    if(Debug.isDebugBuild) {
+                        Debug.Log(
+                            $"[SessionManager] Refreshed match lobby after DA {reason}. lobbyId='{targetLobbyId}' hostId='{refreshedLobby.HostId}' prevHostId='{previousHostId}' attempt={attempt}/{maxAttempts}");
+                    }
+
+                    var hostMatchesExpectation = string.IsNullOrEmpty(expectedHostId) ||
+                                                string.Equals(refreshedLobby.HostId, expectedHostId,
+                                                    StringComparison.Ordinal);
+                    if(IsLocalPlayerLobbyHost(refreshedLobby)) {
+                        // Force the promoted host to resume keepalive immediately so in-progress backfill stays discoverable.
+                        _nextMatchHeartbeatTime = 0f;
+                        _matchHeartbeatBackoffUntil = 0f;
+                        _matchHeartbeatRateLimitStreak = 0;
+
+                        if(Debug.isDebugBuild) {
+                            Debug.Log(
+                                $"[SessionManager] Local player now owns match lobby heartbeats after DA {reason}. lobbyId='{targetLobbyId}'.");
+                        }
+                    }
+
+                    if(hostMatchesExpectation || IsLocalPlayerLobbyHost(refreshedLobby)) {
+                        return;
+                    }
+
+                    previousHostId = refreshedLobby.HostId;
+                } catch(LobbyServiceException ex) when(ex.Reason is LobbyExceptionReason.LobbyNotFound
+                                                        or LobbyExceptionReason.EntityNotFound) {
+                    if(Debug.isDebugBuild) {
+                        Debug.LogWarning(
+                            $"[SessionManager] Match lobby '{targetLobbyId}' no longer exists while refreshing after DA {reason}.");
+                    }
+                    return;
+                } catch(LobbyServiceException ex) when(ex.Reason == LobbyExceptionReason.RateLimited) {
+                    nextDelayMs = Mathf.Min(4000, nextDelayMs * 2);
+                    if(Debug.isDebugBuild) {
+                        Debug.Log(
+                            $"[SessionManager] Match lobby refresh after DA {reason} was rate-limited (attempt {attempt}/{maxAttempts}). Backing off for {nextDelayMs}ms.");
+                    }
+                } catch(Exception ex) {
+                    nextDelayMs = Mathf.Max(nextDelayMs, 500);
+                    if(Debug.isDebugBuild) {
+                        Debug.LogWarning(
+                            $"[SessionManager] Failed to refresh match lobby after DA {reason} (attempt {attempt}/{maxAttempts}): {ex.Message}");
+                    }
+                }
+            }
         }
 
         private bool TryLoadGameplaySceneAsHost(string contextLabel) {
@@ -269,7 +639,7 @@ namespace Network.Session {
             };
         }
 
-        private CreateLobbyOptions BuildPrivateMatchCreateOptions(string mode, string relayJoinCode,
+        private CreateLobbyOptions BuildPrivateMatchCreateOptions(string mode, string networkJoinCode,
             string expectedCsv) {
             return new CreateLobbyOptions {
                 IsPrivate = true,
@@ -278,7 +648,7 @@ namespace Network.Session {
                     [UgsPartyIdKey] = new(DataObject.VisibilityOptions.Member, CurrentPartyId),
                     [UgsMatchTypeKey] = new(DataObject.VisibilityOptions.Member, "Private"),
                     [UgsTargetModeKey] = new(DataObject.VisibilityOptions.Member, mode),
-                    [UgsRelayJoinCodeKey] = new(DataObject.VisibilityOptions.Member, relayJoinCode),
+                    [UgsRelayJoinCodeKey] = new(DataObject.VisibilityOptions.Member, networkJoinCode),
                     [UgsLobbyStateKey] = new(DataObject.VisibilityOptions.Member, "SynchronizingLoad"),
                     [UgsExpectedPlayersKey] = new(DataObject.VisibilityOptions.Member, expectedCsv)
                 }
@@ -294,14 +664,14 @@ namespace Network.Session {
             };
         }
 
-        private static CreateLobbyOptions BuildPublicMatchCreateOptions(string mode, string relayJoinCode, string matchId) {
+        private static CreateLobbyOptions BuildPublicMatchCreateOptions(string mode, string networkJoinCode, string matchId) {
             return new CreateLobbyOptions {
                 IsPrivate = false,
                 Player = BuildLobbyPlayer(),
                 Data = new Dictionary<string, DataObject> {
                     [UgsMatchTypeKey] = new(DataObject.VisibilityOptions.Public, "Public", DataObject.IndexOptions.S3),
                     [UgsTargetModeKey] = new(DataObject.VisibilityOptions.Public, mode, DataObject.IndexOptions.S2),
-                    [UgsRelayJoinCodeKey] = new(DataObject.VisibilityOptions.Member, relayJoinCode),
+                    [UgsRelayJoinCodeKey] = new(DataObject.VisibilityOptions.Member, networkJoinCode),
                     [UgsMatchIdKey] = new(DataObject.VisibilityOptions.Public, matchId, DataObject.IndexOptions.S1),
                     [UgsLobbyStateKey] =
                         new(DataObject.VisibilityOptions.Public, "SynchronizingLoad", DataObject.IndexOptions.S4)
@@ -309,15 +679,13 @@ namespace Network.Session {
             };
         }
 
-        private static async UniTask<(Allocation allocation, string joinCode)> CreateRelayAllocationWithJoinCodeAsync(
-            int maxPlayers) {
-            var allocation = await RelayService.Instance.CreateAllocationAsync(maxPlayers - 1);
-            var joinCode = await RelayService.Instance.GetJoinCodeAsync(allocation.AllocationId);
-            return (allocation, joinCode);
-        }
-
         private void ApplyLocalConnectionPayload(bool isPrivateMatch) {
             if(TryGetNetworkManager("ApplyLocalConnectionPayload", out var networkManager) == false) return;
+
+            if(_customNetworkManager == null) {
+                _customNetworkManager = networkManager.GetComponent<CustomNetworkManager>();
+            }
+            _customNetworkManager?.ConfigureSessionMetadata(isPrivateMatch);
 
             var payload = new ConnectionPayload {
                 partyId = CurrentPartyId,
@@ -334,6 +702,8 @@ namespace Network.Session {
         /// Shuts down the Netcode network manager.
         /// </summary>
         private async UniTask CleanupNetworkAsync() {
+            await LeaveActiveMultiplayerSessionAsync("CleanupNetworkAsync");
+
             if(TryGetNetworkManager("CleanupNetworkAsync", out var networkManager) == false) return;
 
             if(networkManager.IsListening || networkManager.ShutdownInProgress) {
@@ -548,6 +918,7 @@ namespace Network.Session {
             _ugsLocalReadySubmitted = false;
             _ugsClientStartedForMatch = false;
             _ugsHostPreFadedOut = false;
+            ResetDistributedAuthorityJoinRetryState();
             _lastFailedFollowMatchLobbyId = null;
 
             var matchSettings = MatchSettingsManager.Instance;
@@ -626,6 +997,7 @@ namespace Network.Session {
             networkManager.OnClientConnectedCallback += OnClientConnected;
             networkManager.OnClientDisconnectCallback += OnClientDisconnected;
             networkManager.OnClientStopped += OnClientStopped;
+            networkManager.OnSessionOwnerPromoted += OnSessionOwnerPromoted;
         }
 
         private void UnregisterNetworkCallbacks() {
@@ -633,6 +1005,7 @@ namespace Network.Session {
             _networkManager.OnClientConnectedCallback -= OnClientConnected;
             _networkManager.OnClientDisconnectCallback -= OnClientDisconnected;
             _networkManager.OnClientStopped -= OnClientStopped;
+            _networkManager.OnSessionOwnerPromoted -= OnSessionOwnerPromoted;
         }
 
         private void ApplyRuntimeMode(string mode, string source, bool refreshUi = true) {

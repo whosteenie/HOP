@@ -2,12 +2,15 @@ using Game.Match;
 using Game.Player;
 using Game.UI;
 using Network.AntiCheat;
+using Network.Core;
 using Network.Events;
 using Unity.Netcode;
 using UnityEngine;
 
 namespace Game.Weapons {
     public partial class WeaponManager {
+        private bool HasWeaponAuthority => NetworkAuthority.HasGlobalAuthority(this);
+
         public enum AmmoSyncReason : byte {
             ReloadStarted = 0,
             ReloadSingleRound = 1,
@@ -26,15 +29,17 @@ namespace Game.Weapons {
         }
 
         public void ResetAllWeaponAmmo() {
-            if(!IsServer) {
-                ResetAllWeaponAmmoServerRpc();
+            if(!HasWeaponAuthority) {
+                if(MatchCombatAuthority.Instance != null && NetworkObject != null && NetworkObject.IsSpawned) {
+                    MatchCombatAuthority.Instance.RequestResetWeaponAmmoAuthorityServerRpc(
+                        new NetworkObjectReference(NetworkObject));
+                } else {
+                    ResetAllWeaponAmmoServerRpc();
+                }
+                return;
             }
 
-            _ammoAuthority.ResetAllWeaponAmmo(weaponDataList, ResolveWeaponCapacity);
-            if(IsServer) {
-                ClearServerReloadState();
-                ResetServerDamageMultiplierForCurrentWeapon();
-            }
+            ResetAllWeaponAmmoOnAuthority();
         }
 
         public void PrepareCurrentWeaponForPostMatchPodium() {
@@ -50,7 +55,7 @@ namespace Game.Weapons {
         /// Server-authoritative: updates server validation ammo and syncs owner's FP/HUD state.
         /// </summary>
         public void DrainCurrentWeaponAmmoForTag() {
-            if(!IsServer) return;
+            if(!HasWeaponAuthority) return;
             if(CurrentWeaponIndex < 0 || CurrentWeaponIndex >= weaponDataList.Count) return;
 
             var data = weaponDataList[CurrentWeaponIndex];
@@ -94,7 +99,7 @@ namespace Game.Weapons {
 
         public bool RegisterServerShot(int weaponIndex, ulong shotId, float clientShotTime, out string reason) {
             reason = null;
-            if(!IsServer) return true;
+            if(!HasWeaponAuthority) return true;
 
             if(weaponIndex != GetServerAuthoritativeWeaponIndex()) {
                 reason = "weapon index mismatch";
@@ -126,7 +131,7 @@ namespace Game.Weapons {
 
         public bool ValidateServerHitClaim(int weaponIndex, ulong shotId, out string reason) {
             reason = null;
-            if(!IsServer) return true;
+            if(!HasWeaponAuthority) return true;
 
             if(weaponIndex != GetServerAuthoritativeWeaponIndex()) {
                 reason = "weapon index mismatch";
@@ -140,6 +145,16 @@ namespace Game.Weapons {
                 ResolveWeaponCapacity,
                 out reason
             );
+        }
+
+        public string GetCombatAuthorityDebugSummary(int requestedWeaponIndex = -1) {
+            var authoritativeWeaponIndex = GetServerAuthoritativeWeaponIndex();
+            var equippedNetIndex = ReplicatedEquippedWeaponIndex.Value;
+            var serverAmmo = requestedWeaponIndex >= 0
+                ? _ammoAuthority.GetServerAmmo(requestedWeaponIndex, GetWeaponDataByIndex, ResolveWeaponCapacity)
+                : -1;
+            return
+                $"owner={OwnerClientId} requested={requestedWeaponIndex} current={CurrentWeaponIndex} authoritative={authoritativeWeaponIndex} equippedNet={equippedNetIndex} reloadWeapon={_serverReloadWeaponIndex} pullOutBlocked={(Time.time < _serverPullOutBlockedUntilTime)} serverAmmo={serverAmmo}";
         }
 
         public bool TryComputeServerDamage(int weaponIndex, Vector3 hitPoint, out float damage, out string reason) {
@@ -188,7 +203,7 @@ namespace Game.Weapons {
 
             var multiplier = 1f;
             if(CurrentWeapon != null && CurrentWeaponIndex == weaponIndex) {
-                multiplier = Mathf.Clamp(CurrentWeapon.CurrentDamageMultiplier, 1f, Weapon.MaxDamageMultiplier);
+                multiplier = CurrentWeapon.GetAuthoritativeDamageMultiplier();
             }
 
             damage = Mathf.Min(baseDamage * multiplier, data.damageCap);
@@ -213,21 +228,31 @@ namespace Game.Weapons {
         }
 
         public void ReportWeaponStateSync(int weaponIndex, AmmoSyncReason reason, int localAmmoAfterEvent) {
-            if(!IsServer) {
-                ReportWeaponStateSyncServerRpc(weaponIndex, reason, localAmmoAfterEvent);
+            if(!HasWeaponAuthority) {
+                if(MatchCombatAuthority.Instance != null && NetworkObject != null && NetworkObject.IsSpawned) {
+                    MatchCombatAuthority.Instance.RequestWeaponStateSyncAuthorityServerRpc(
+                        new NetworkObjectReference(NetworkObject), weaponIndex, reason, localAmmoAfterEvent);
+                } else {
+                    ReportWeaponStateSyncServerRpc(weaponIndex, reason, localAmmoAfterEvent);
+                }
                 return;
             }
 
-            UpdateServerWeaponState(weaponIndex, reason, localAmmoAfterEvent);
+            UpdateServerWeaponStateOnAuthority(weaponIndex, reason, localAmmoAfterEvent);
         }
 
         public void ReportShotFired(int weaponIndex, ulong shotId, float clientShotTime) {
-            if(!IsServer) {
-                ReportShotFiredServerRpc(weaponIndex, shotId, clientShotTime);
+            if(!HasWeaponAuthority) {
+                if(MatchCombatAuthority.Instance != null && NetworkObject != null && NetworkObject.IsSpawned) {
+                    MatchCombatAuthority.Instance.RequestShotReportAuthorityServerRpc(
+                        new NetworkObjectReference(NetworkObject), weaponIndex, shotId, clientShotTime);
+                } else {
+                    ReportShotFiredServerRpc(weaponIndex, shotId, clientShotTime);
+                }
                 return;
             }
 
-            RegisterServerShotAndLog(weaponIndex, shotId, clientShotTime);
+            RegisterServerShotAndLogOnAuthority(weaponIndex, shotId, clientShotTime);
         }
 
         [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Owner)]
@@ -250,9 +275,7 @@ namespace Game.Weapons {
                 return;
             }
 
-            _ammoAuthority.ResetAllWeaponAmmo(weaponDataList, ResolveWeaponCapacity);
-            ClearServerReloadState();
-            ResetServerDamageMultiplierForCurrentWeapon();
+            ResetAllWeaponAmmoOnAuthority();
         }
 
         [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Owner)]
@@ -264,11 +287,11 @@ namespace Game.Weapons {
                 return;
             }
 
-            RegisterServerShotAndLog(weaponIndex, shotId, clientShotTime);
+            RegisterServerShotAndLogOnAuthority(weaponIndex, shotId, clientShotTime);
         }
 
         private void UpdateServerAmmo(int weaponIndex, int ammo) {
-            if(!IsServer) return;
+            if(!HasWeaponAuthority) return;
             _ammoAuthority.UpdateServerAmmo(
                 weaponIndex,
                 ammo,
@@ -286,9 +309,8 @@ namespace Game.Weapons {
         }
 
         private void ApplyServerAuthoritativeWeaponSwitch(int weaponIndex) {
-            if(!IsServer) return;
+            if(!HasWeaponAuthority) return;
             _serverAuthoritativeWeaponIndex = weaponIndex;
-            _netEquippedWeaponIndex.Value = weaponIndex;
             ClearServerReloadState();
             _serverPullOutBlockedUntilTime = Time.time + GetServerPullOutBlockDurationSeconds();
         }
@@ -302,7 +324,7 @@ namespace Game.Weapons {
         }
 
         private void ResetServerDamageMultiplierForCurrentWeapon() {
-            if(!IsServer) return;
+            if(!HasWeaponAuthority) return;
             if(CurrentWeapon == null) return;
             CurrentWeapon.ResetAuthoritativeDamageMultiplierImmediate();
         }
@@ -313,7 +335,7 @@ namespace Game.Weapons {
             magCapacity = 0;
             reason = null;
 
-            if(!IsServer) return true;
+            if(!HasWeaponAuthority) return true;
 
             data = GetWeaponDataByIndex(weaponIndex);
             if(data == null) {
@@ -336,8 +358,12 @@ namespace Game.Weapons {
         }
 
         private void UpdateServerWeaponState(int weaponIndex, AmmoSyncReason reason, int localAmmoAfterEvent) {
-            if(!IsServer) return;
+            if(!HasWeaponAuthority) return;
+            UpdateServerWeaponStateOnAuthority(weaponIndex, reason, localAmmoAfterEvent);
+        }
 
+        public void UpdateServerWeaponStateOnAuthority(int weaponIndex, AmmoSyncReason reason, int localAmmoAfterEvent) {
+            if(!HasWeaponAuthority) return;
             if(!TryValidateServerWeaponStateRequest(weaponIndex, out var data, out var magCapacity,
                    out var validationReason)) {
                 AntiCheatLogger.LogInvalidDamage(OwnerClientId, validationReason);
@@ -461,6 +487,19 @@ namespace Game.Weapons {
         private void RegisterServerShotAndLog(int weaponIndex, ulong shotId, float clientShotTime) {
             if(RegisterServerShot(weaponIndex, shotId, clientShotTime, out var reason)) return;
             AntiCheatLogger.LogInvalidDamage(OwnerClientId, reason);
+        }
+
+        public void RegisterServerShotAndLogOnAuthority(int weaponIndex, ulong shotId, float clientShotTime) {
+            if(!HasWeaponAuthority) return;
+            RegisterServerShotAndLog(weaponIndex, shotId, clientShotTime);
+        }
+
+        public void ResetAllWeaponAmmoOnAuthority() {
+            _ammoAuthority.ResetAllWeaponAmmo(weaponDataList, ResolveWeaponCapacity);
+            if(HasWeaponAuthority) {
+                ClearServerReloadState();
+                ResetServerDamageMultiplierForCurrentWeapon();
+            }
         }
     }
 }

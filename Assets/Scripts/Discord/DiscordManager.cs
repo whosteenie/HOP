@@ -8,6 +8,11 @@ namespace Discord {
 
         private Client _discord;
         private const long AppId = 1467433546963619916;
+        private bool _isReady;
+        private bool _hasPendingPresence;
+        private string _pendingDetails = string.Empty;
+        private string _pendingState = string.Empty;
+        private long _pendingStartTimestamp;
 
         private void Awake() {
             if (Instance != null) {
@@ -22,21 +27,29 @@ namespace Discord {
 
         private void InitializeDiscord() {
             try {
-                // Partner SDK uses a parameterless constructor for Client
                 _discord = new Client();
-
-                // Set Application ID (required for SDK usage without Connect)
+                _discord.AddLogCallback(OnDiscordLog, LoggingSeverity.Warning);
+                _discord.SetStatusChangedCallback(OnDiscordStatusChanged);
                 _discord.SetApplicationId(AppId);
-                
-                // Also register launch command to ensure Discord knows how to launch us?
-                // This links the current specific executable (or Unity Editor) to the App ID, 
-                // allowing it to appear in the "Game Activity" / "Go Live" section.
-                _discord.RegisterLaunchCommand(AppId, ""); 
-            
-                Debug.Log("[DiscordManager] Discord SDK initialized (Partner SDK).");
+
+                bool registeredLaunchCommand = _discord.RegisterLaunchCommand(AppId, string.Empty);
+                _discord.Connect();
+
+                var initialStatus = _discord.GetStatus();
+                _isReady = initialStatus == Client.Status.Ready;
+
+                Debug.Log(
+                    $"[DiscordManager] Discord SDK initialized. " +
+                    $"Status={Client.StatusToString(initialStatus)} " +
+                    $"LaunchRegistered={registeredLaunchCommand}");
+
+                if (_isReady) {
+                    FlushPendingPresence();
+                }
             } catch (Exception e) {
                 Debug.LogWarning($"[DiscordManager] Failed to initialize Discord SDK: {e.Message}");
                 _discord = null;
+                _isReady = false;
             }
         }
 
@@ -44,29 +57,11 @@ namespace Discord {
             if (_discord == null) return;
 
             try {
-                var activity = new Activity();
-                activity.SetDetails(details);
-                activity.SetState(state);
-                activity.SetApplicationId(AppId);
-
-                // Assets
-                var assets = new ActivityAssets();
-                assets.SetLargeImage("hop_logo");
-                assets.SetLargeText("HOP");
-                activity.SetAssets(assets);
-
-                // Timestamps
-                if (startTimestamp > 0) {
-                    var timestamps = new ActivityTimestamps();
-                    timestamps.SetStart((ulong)startTimestamp);
-                    activity.SetTimestamps(timestamps);
-                }
-
-                _discord.UpdateRichPresence(activity, res => {
-                    if (!res.Successful()) {
-                        Debug.LogWarning($"[DiscordManager] Failed to update activity: {res}");
-                    }
-                });
+                _pendingDetails = details ?? string.Empty;
+                _pendingState = state ?? string.Empty;
+                _pendingStartTimestamp = startTimestamp;
+                _hasPendingPresence = true;
+                FlushPendingPresence();
             } catch (Exception e) {
                 Debug.LogError($"[DiscordManager] Error updating status: {e.Message}");
             }
@@ -75,23 +70,85 @@ namespace Discord {
         public void ClearStatus() {
             if (_discord == null) return;
             try {
-                // Updating with empty activity clears it? 
-                // Or use a method to clear? UpdateRichPresence with empty activity is standard.
-                var activity = new Activity();
-                _discord.UpdateRichPresence(activity, res => {
-                    if (!res.Successful()) {
-                        Debug.LogWarning($"[DiscordManager] Failed to clear activity: {res}");
-                    }
-                });
+                _hasPendingPresence = false;
+                _pendingDetails = string.Empty;
+                _pendingState = string.Empty;
+                _pendingStartTimestamp = 0;
+
+                if (!_isReady) {
+                    return;
+                }
+
+                _discord.ClearRichPresence();
             } catch (Exception e) {
                 Debug.LogError($"[DiscordManager] Error clearing status: {e.Message}");
             }
+        }
+
+        private void FlushPendingPresence() {
+            if (_discord == null || !_isReady || !_hasPendingPresence) {
+                return;
+            }
+
+            var activity = new Activity();
+            activity.SetDetails(_pendingDetails);
+            activity.SetState(_pendingState);
+            activity.SetApplicationId(AppId);
+
+            var assets = new ActivityAssets();
+            assets.SetLargeImage("hop_logo");
+            assets.SetLargeText("HOP");
+            activity.SetAssets(assets);
+
+            if (_pendingStartTimestamp > 0) {
+                var timestamps = new ActivityTimestamps();
+                timestamps.SetStart((ulong)_pendingStartTimestamp);
+                activity.SetTimestamps(timestamps);
+            }
+
+            _discord.UpdateRichPresence(activity, OnRichPresenceUpdated);
+        }
+
+        private void OnDiscordLog(string message, LoggingSeverity severity) {
+            if (severity >= LoggingSeverity.Error) {
+                Debug.LogWarning($"[DiscordManager] SDK {severity}: {message}");
+            }
+        }
+
+        private void OnDiscordStatusChanged(Client.Status status, Client.Error error, int errorDetail) {
+            _isReady = status == Client.Status.Ready;
+
+            if (status == Client.Status.Ready) {
+                Debug.Log("[DiscordManager] Discord client is ready.");
+                FlushPendingPresence();
+                return;
+            }
+
+            if (error != Client.Error.None) {
+                Debug.LogWarning(
+                    $"[DiscordManager] Discord status changed: " +
+                    $"Status={Client.StatusToString(status)} " +
+                    $"Error={Client.ErrorToString(error)} " +
+                    $"Detail={errorDetail}");
+            }
+        }
+
+        private void OnRichPresenceUpdated(ClientResult res) {
+            if (res.Successful()) {
+                return;
+            }
+
+            Debug.LogWarning(
+                $"[DiscordManager] Failed to update activity: " +
+                $"Type={res.Type()} Error={res.Error()} Retryable={res.Retryable()} " +
+                $"RetryAfter={res.RetryAfter()} Response={res.ResponseBody()}");
         }
 
         private void OnApplicationQuit() {
             if(_discord == null) return;
             _discord.Dispose();
             _discord = null;
+            _isReady = false;
         }
     }
 }

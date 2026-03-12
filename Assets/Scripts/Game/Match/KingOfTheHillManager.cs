@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using Game.Spawning;
+using Network.Core;
 using Network.Diagnostics;
 using Network.Events;
 using Unity.Netcode;
@@ -49,6 +50,8 @@ namespace Game.Match {
         private Coroutine _spawnCoroutine;
         private bool _queuedMatchStart;
         private bool _matchStartedEventsBound;
+        private bool _sessionOwnerCallbacksRegistered;
+        private bool HasKothAuthority => NetworkAuthority.HasGlobalAuthority(this);
 
         private void Awake() {
             if(Instance != null && Instance != this) {
@@ -63,13 +66,15 @@ namespace Game.Match {
 
         public override void OnNetworkSpawn() {
             base.OnNetworkSpawn();
+            NetworkAuthority.TryConfigureSessionOwnerObject(this);
+            RegisterSessionOwnerCallbacks();
 
             // Keep singleton reference valid across NGO despawn/respawn cycles.
             if(Instance == null) {
                 Instance = this;
             }
 
-            if(IsServer) {
+            if(HasKothAuthority) {
                 _teamAScore.Value = 0;
                 _teamBScore.Value = 0;
                 BindMatchStartedEvent();
@@ -94,9 +99,10 @@ namespace Game.Match {
         public override void OnNetworkDespawn() {
             UnbindMatchStartedEvent();
             base.OnNetworkDespawn();
-            if(IsServer && NetworkManager.Singleton != null && NetworkManager.Singleton.SceneManager != null) {
+            if(NetworkManager.Singleton != null && NetworkManager.Singleton.SceneManager != null) {
                 NetworkManager.SceneManager.OnLoadEventCompleted -= OnSceneLoaded;
             }
+            UnregisterSessionOwnerCallbacks();
 
             if(_spawnCoroutine != null) {
                 StopCoroutine(_spawnCoroutine);
@@ -118,8 +124,64 @@ namespace Game.Match {
             }
         }
 
+        private void RegisterSessionOwnerCallbacks() {
+            if(_sessionOwnerCallbacksRegistered || NetworkManager == null) return;
+            NetworkManager.OnSessionOwnerPromoted += OnSessionOwnerPromoted;
+            _sessionOwnerCallbacksRegistered = true;
+        }
+
+        private void UnregisterSessionOwnerCallbacks() {
+            if(!_sessionOwnerCallbacksRegistered || NetworkManager == null) return;
+            NetworkManager.OnSessionOwnerPromoted -= OnSessionOwnerPromoted;
+            _sessionOwnerCallbacksRegistered = false;
+        }
+
+        private void OnSessionOwnerPromoted(ulong _) {
+            if(!HasKothAuthority) {
+                ExitAuthoritativeMode();
+                return;
+            }
+
+            NetworkAuthority.TryConfigureSessionOwnerObject(this);
+            BindMatchStartedEvent();
+            if(NetworkManager != null && NetworkManager.SceneManager != null) {
+                NetworkManager.SceneManager.OnLoadEventCompleted -= OnSceneLoaded;
+                NetworkManager.SceneManager.OnLoadEventCompleted += OnSceneLoaded;
+            }
+
+            FindSpawnPoints();
+            _currentHill ??= FindAnyObjectByType<HillController>();
+            if(_currentHill != null) {
+                NetworkAuthority.TryConfigureSessionOwnerObject(_currentHill);
+            }
+            _isGameActive = _currentHill != null && MatchTimerManager.Instance != null && !MatchTimerManager.Instance.IsPreMatch;
+            if(_isGameActive) {
+                _nextScoreTime = Time.time + scoreInterval;
+            } else if(_currentHill == null && MatchTimerManager.Instance != null && !MatchTimerManager.Instance.IsPreMatch) {
+                SpawnHill();
+                _isGameActive = _currentHill != null;
+                if(_isGameActive) {
+                    _nextScoreTime = Time.time + scoreInterval;
+                }
+            }
+        }
+
+        private void ExitAuthoritativeMode() {
+            UnbindMatchStartedEvent();
+            if(NetworkManager != null && NetworkManager.SceneManager != null) {
+                NetworkManager.SceneManager.OnLoadEventCompleted -= OnSceneLoaded;
+            }
+
+            if(_spawnCoroutine != null) {
+                StopCoroutine(_spawnCoroutine);
+                _spawnCoroutine = null;
+            }
+
+            _isGameActive = false;
+        }
+
         private void BindMatchStartedEvent() {
-            if(!IsServer || _matchStartedEventsBound) return;
+            if(!HasKothAuthority || _matchStartedEventsBound) return;
             EventBus.Subscribe<MatchStartedEvent>(OnMatchStarted);
             _matchStartedEventsBound = true;
         }
@@ -136,12 +198,12 @@ namespace Game.Match {
 
         private void OnSceneLoaded(string sceneName, UnityEngine.SceneManagement.LoadSceneMode loadSceneMode,
             List<ulong> clientsCompleted, List<ulong> clientsTimedOut) {
-            if(!IsServer) return;
+            if(!HasKothAuthority) return;
             CheckAndStartGame();
         }
 
         private void HandleMatchStartedServer(string source = "Unknown") {
-            var isServerContext = IsServer || (NetworkManager.Singleton != null && NetworkManager.Singleton.IsServer);
+            var isServerContext = HasKothAuthority || NetworkAuthority.HasGlobalAuthority(NetworkManager.Singleton);
             if(!isServerContext) return;
 
             if(!IsSpawned) {
@@ -235,7 +297,7 @@ namespace Game.Match {
 
         private void SpawnHill() {
             Debug.Log($"[KOTH] Attempting to Spawn Hill. Prefab: {hillPrefab}, CurrentHill: {_currentHill}");
-            if(!IsServer || hillPrefab == null) return;
+            if(!HasKothAuthority || hillPrefab == null) return;
 
             var settings = MatchSettingsManager.Instance;
             if(settings == null || settings.selectedGameModeId != "KOTH") return;
@@ -271,6 +333,9 @@ namespace Game.Match {
             }
 
             _currentHill = hillObj.GetComponent<HillController>();
+            if(_currentHill != null) {
+                NetworkAuthority.TryConfigureSessionOwnerObject(_currentHill);
+            }
             FlowLog.Emit(FlowEventIds.ObjectiveSpawned,
                 ("mode", "KOTH"),
                 ("objectType", "Hill"),
@@ -281,7 +346,7 @@ namespace Game.Match {
             if(_currentHill == null) return;
 
             var hillNetworkObject = _currentHill.GetComponent<NetworkObject>();
-            if(IsServer && hillNetworkObject != null && hillNetworkObject.IsSpawned) {
+            if(HasKothAuthority && hillNetworkObject != null && hillNetworkObject.IsSpawned) {
                 hillNetworkObject.Despawn();
             } else if((hillNetworkObject == null || hillNetworkObject.IsSpawned == false) && _currentHill != null) {
                 Destroy(_currentHill.gameObject);
@@ -291,7 +356,7 @@ namespace Game.Match {
         }
 
         private void Update() {
-            if(!IsServer || !_isGameActive) return;
+            if(!HasKothAuthority || !_isGameActive) return;
 
             // Scoring Logic
             if(!(Time.time >= _nextScoreTime)) return;

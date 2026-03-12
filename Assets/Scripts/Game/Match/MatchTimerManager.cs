@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using Game.Player;
+using Network.Core;
 using Network.Diagnostics;
 using Network.Events;
 using Unity.Netcode;
@@ -29,6 +30,9 @@ namespace Game.Match {
         private bool _hasTriggeredPostMatch;
         private bool _hasDesignatedInitialIt;
         private readonly HashSet<ulong> _clientsScenePresented = new();
+        private bool _sessionOwnerCallbacksRegistered;
+
+        private bool HasMatchAuthority => NetworkAuthority.HasGlobalAuthority(this);
 
         private void Awake() {
             if(Instance != null && Instance != this) {
@@ -51,6 +55,8 @@ namespace Game.Match {
 
         public override void OnNetworkSpawn() {
             base.OnNetworkSpawn();
+            NetworkAuthority.TryConfigureSessionOwnerObject(this);
+            RegisterSessionOwnerCallbacks();
 
             // Subscribe for UI updates on all clients
             _timeRemainingSeconds.OnValueChanged += OnTimeRemainingChanged;
@@ -58,41 +64,8 @@ namespace Game.Match {
             _isWaitingForPlayers.OnValueChanged += OnPreMatchWaitingForPlayersChanged;
             _isPreMatch.OnValueChanged += OnPreMatchStateChanged;
 
-            if(IsServer) {
-                _clientsScenePresented.Clear();
-                if(NetworkManager != null) {
-                    NetworkManager.OnClientDisconnectCallback -= OnClientDisconnectedDuringPreMatch;
-                    NetworkManager.OnClientDisconnectCallback += OnClientDisconnectedDuringPreMatch;
-                    // Host is always scene-present when this object is network-spawned.
-                    MarkClientScenePresented(NetworkManager.LocalClientId, "HostOnNetworkSpawn");
-                }
-
-                // Initialize pre-match countdown on server
-                var matchSettings = MatchSettingsManager.Instance;
-                var usePreMatchCountdown = matchSettings == null || matchSettings.IsPreMatchCountdownEnabled();
-
-                // Ensure we don't double-start
-                if(_timerRoutine != null) {
-                    StopCoroutine(_timerRoutine);
-                    _timerRoutine = null;
-                }
-
-                if(usePreMatchCountdown) {
-                    var preMatchSeconds = matchSettings != null ? matchSettings.GetPreMatchCountdownSeconds() : 5;
-                    _preMatchCountdownSeconds.Value = Mathf.Max(0, preMatchSeconds);
-                    _isWaitingForPlayers.Value = true;
-                    _isPreMatch.Value = true;
-                    FlowLog.Emit(FlowEventIds.MatchStateTransition,
-                        ("from", "None"),
-                        ("to", "PreMatch"),
-                        ("timeRemaining", _preMatchCountdownSeconds.Value));
-
-                    _timerRoutine = StartCoroutine(PreMatchCountdownCoroutine());
-                } else {
-                    _preMatchCountdownSeconds.Value = 0;
-                    _isWaitingForPlayers.Value = false;
-                    StartActiveMatchOnServer("None");
-                }
+            if(HasMatchAuthority) {
+                EnterAuthoritativeMode(resetState: true, "OnNetworkSpawn");
             }
 
             // Push a sensible initial value to UI immediately when a client joins.
@@ -102,10 +75,15 @@ namespace Game.Match {
         }
 
         public override void OnNetworkDespawn() {
+            if(NetworkManager != null && NetworkManager.DistributedAuthorityMode && !NetworkManager.ShutdownInProgress) {
+                Debug.LogWarning("[MatchTimerManager] Unexpected network despawn while DA session is still active.");
+            }
+
             base.OnNetworkDespawn();
             if(NetworkManager != null) {
                 NetworkManager.OnClientDisconnectCallback -= OnClientDisconnectedDuringPreMatch;
             }
+            UnregisterSessionOwnerCallbacks();
             ClearInstanceIfCurrent();
         }
 
@@ -118,23 +96,123 @@ namespace Game.Match {
             if(NetworkManager != null) {
                 NetworkManager.OnClientDisconnectCallback -= OnClientDisconnectedDuringPreMatch;
             }
+            UnregisterSessionOwnerCallbacks();
 
             ClearInstanceIfCurrent();
         }
 
+        private void RegisterSessionOwnerCallbacks() {
+            if(_sessionOwnerCallbacksRegistered || NetworkManager == null) return;
+            NetworkManager.OnSessionOwnerPromoted += OnSessionOwnerPromoted;
+            _sessionOwnerCallbacksRegistered = true;
+        }
+
+        private void UnregisterSessionOwnerCallbacks() {
+            if(!_sessionOwnerCallbacksRegistered || NetworkManager == null) return;
+            NetworkManager.OnSessionOwnerPromoted -= OnSessionOwnerPromoted;
+            _sessionOwnerCallbacksRegistered = false;
+        }
+
+        private void OnSessionOwnerPromoted(ulong _) {
+            if(HasMatchAuthority) {
+                EnterAuthoritativeMode(resetState: false, "SessionOwnerPromoted");
+            } else {
+                ExitAuthoritativeMode();
+            }
+        }
+
+        private void EnterAuthoritativeMode(bool resetState, string source) {
+            NetworkAuthority.TryConfigureSessionOwnerObject(this);
+            _clientsScenePresented.Clear();
+
+            if(NetworkManager != null) {
+                NetworkManager.OnClientDisconnectCallback -= OnClientDisconnectedDuringPreMatch;
+                NetworkManager.OnClientDisconnectCallback += OnClientDisconnectedDuringPreMatch;
+
+                if(!resetState) {
+                    foreach(var clientId in NetworkManager.ConnectedClientsIds) {
+                        _clientsScenePresented.Add(clientId);
+                    }
+                }
+
+                MarkClientScenePresented(NetworkManager.LocalClientId, source);
+            }
+
+            if(_timerRoutine != null) {
+                StopCoroutine(_timerRoutine);
+                _timerRoutine = null;
+            }
+
+            if(resetState) {
+                var matchSettings = MatchSettingsManager.Instance;
+                var usePreMatchCountdown = matchSettings == null || matchSettings.IsPreMatchCountdownEnabled();
+                _hasTriggeredPostMatch = false;
+                _hasDesignatedInitialIt = false;
+
+                if(usePreMatchCountdown) {
+                    var preMatchSeconds = matchSettings != null ? matchSettings.GetPreMatchCountdownSeconds() : 5;
+                    _preMatchCountdownSeconds.Value = Mathf.Max(0, preMatchSeconds);
+                    _isWaitingForPlayers.Value = true;
+                    _isPreMatch.Value = true;
+                    FlowLog.Emit(FlowEventIds.MatchStateTransition,
+                        ("from", "None"),
+                        ("to", "PreMatch"),
+                        ("timeRemaining", _preMatchCountdownSeconds.Value));
+
+                    _timerRoutine = StartCoroutine(PreMatchCountdownCoroutine());
+                    return;
+                }
+
+                _preMatchCountdownSeconds.Value = 0;
+                _isWaitingForPlayers.Value = false;
+                StartActiveMatchOnServer("None");
+                return;
+            }
+
+            ResumeAuthoritativeMode();
+        }
+
+        private void ExitAuthoritativeMode() {
+            if(_timerRoutine != null) {
+                StopCoroutine(_timerRoutine);
+                _timerRoutine = null;
+            }
+
+            if(NetworkManager != null) {
+                NetworkManager.OnClientDisconnectCallback -= OnClientDisconnectedDuringPreMatch;
+            }
+        }
+
+        private void ResumeAuthoritativeMode() {
+            if(_hasTriggeredPostMatch) {
+                return;
+            }
+
+            if(_isPreMatch.Value) {
+                _timerRoutine = StartCoroutine(PreMatchCountdownCoroutine());
+                return;
+            }
+
+            var matchSettings = MatchSettingsManager.Instance;
+            var isInfiniteTimer = matchSettings != null && matchSettings.IsInfiniteMatchTimer();
+            if(!isInfiniteTimer && _timeRemainingSeconds.Value > 0) {
+                _timerRoutine = StartCoroutine(TimerCoroutine());
+            }
+        }
+
         private void OnClientDisconnectedDuringPreMatch(ulong clientId) {
-            if(!IsServer) return;
+            if(!HasMatchAuthority) return;
             _clientsScenePresented.Remove(clientId);
         }
 
         [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
         public void ReportClientScenePresentedServerRpc(RpcParams rpcParams = default) {
-            if(!IsServer) return;
+            if(!HasMatchAuthority) return;
             MarkClientScenePresented(rpcParams.Receive.SenderClientId, "ClientServerRpc");
         }
 
         public void MarkClientScenePresented(ulong clientId, string source = "ServerLocal") {
-            if(!IsServer) return;
+            if(!HasMatchAuthority) return;
             if(_clientsScenePresented.Add(clientId) && Debug.isDebugBuild) {
                 Debug.Log($"[MatchTimerManager] Client {clientId} marked scene-presented ({source}).");
             }
@@ -159,7 +237,7 @@ namespace Game.Match {
             const float maxWaitSeconds = 60f;
             var waitedSeconds = 0f;
 
-            while (IsServer && waitedSeconds < maxWaitSeconds) {
+            while (HasMatchAuthority && waitedSeconds < maxWaitSeconds) {
                 var connectedClients = NetworkManager.Singleton.ConnectedClients;
                 var connectedCount = connectedClients.Count;
 
@@ -206,26 +284,26 @@ namespace Game.Match {
             _isWaitingForPlayers.Value = false;
 
             // Pre-match countdown
-            while(IsServer && _preMatchCountdownSeconds.Value > 0) {
+            while(HasMatchAuthority && _preMatchCountdownSeconds.Value > 0) {
                 yield return wait;
                 _preMatchCountdownSeconds.Value--;
             }
 
             // Pre-match countdown finished - start the actual match
-            if(!IsServer) yield break;
+            if(!HasMatchAuthority) yield break;
             StartActiveMatchOnServer("PreMatch");
         }
 
         private IEnumerator TimerCoroutine() {
             var wait = new WaitForSeconds(1f);
 
-            while(IsServer && !_isPreMatch.Value && _timeRemainingSeconds.Value > 0) {
+            while(HasMatchAuthority && !_isPreMatch.Value && _timeRemainingSeconds.Value > 0) {
                 yield return wait;
                 _timeRemainingSeconds.Value--;
             }
 
             // Only trigger post-match if we're not in pre-match (safety check)
-            if(!IsServer || _isPreMatch.Value || _hasTriggeredPostMatch) yield break;
+            if(!HasMatchAuthority || _isPreMatch.Value || _hasTriggeredPostMatch) yield break;
             _hasTriggeredPostMatch = true;
             FlowLog.Emit(FlowEventIds.MatchStateTransition,
                 ("from", "Active"),
@@ -279,7 +357,7 @@ namespace Game.Match {
         }
 
         private void StartActiveMatchOnServer(string fromState) {
-            if(!IsServer) return;
+            if(!HasMatchAuthority) return;
 
             _isWaitingForPlayers.Value = false;
             _isPreMatch.Value = false;
@@ -323,7 +401,7 @@ namespace Game.Match {
         private IEnumerator DesignateInitialItAfterDelay() {
             yield return new WaitForSeconds(5f);
 
-            if(_hasDesignatedInitialIt || !IsServer) yield break;
+            if(_hasDesignatedInitialIt || !HasMatchAuthority) yield break;
 
             var matchSettings = MatchSettingsManager.Instance;
             if(matchSettings == null || matchSettings.selectedGameModeId != "Gun Tag") yield break;

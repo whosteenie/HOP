@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Network.Core;
 using Unity.Netcode;
 using UnityEngine;
 using Game.Player;
@@ -48,10 +49,12 @@ namespace Game.Match {
         private bool _pendingTrackedPlayersRefresh;
         private float _nextTrackedPlayersRefreshTime;
         private const float TrackedPlayersRefreshIntervalSeconds = 1f;
+        private bool _sessionOwnerCallbacksRegistered;
         private float EffectiveMoveSpeed =>
             MatchSettingsManager.Instance != null
                 ? Mathf.Max(0.1f, MatchSettingsManager.Instance.GetKothHillSpeed())
                 : Mathf.Max(0.1f, moveSpeed);
+        private bool HasHillAuthority => NetworkAuthority.HasGlobalAuthority(this);
 
         public SpawnPoint.Team? ControllingTeam {
             get {
@@ -65,8 +68,10 @@ namespace Game.Match {
 
         public override void OnNetworkSpawn() {
             base.OnNetworkSpawn();
+            NetworkAuthority.TryConfigureSessionOwnerObject(this);
+            RegisterSessionOwnerCallbacks();
             
-            if (IsServer) {
+            if (HasHillAuthority) {
                 // Set initial random direction
                 _targetPosition = Random.onUnitSphere;
                 _targetPosition.y = 0; // Flatten direction
@@ -85,12 +90,39 @@ namespace Game.Match {
             base.OnNetworkDespawn();
             _currentState.OnValueChanged -= OnStateChanged;
 
-            if(IsServer) {
-                UnregisterNetworkCallbacks();
-            }
+            UnregisterNetworkCallbacks();
+            UnregisterSessionOwnerCallbacks();
 
             _trackedPlayers.Clear();
             _staleTrackedPlayers.Clear();
+        }
+
+        private void RegisterSessionOwnerCallbacks() {
+            if(_sessionOwnerCallbacksRegistered || NetworkManager == null) return;
+            NetworkManager.OnSessionOwnerPromoted += OnSessionOwnerPromoted;
+            _sessionOwnerCallbacksRegistered = true;
+        }
+
+        private void UnregisterSessionOwnerCallbacks() {
+            if(!_sessionOwnerCallbacksRegistered || NetworkManager == null) return;
+            NetworkManager.OnSessionOwnerPromoted -= OnSessionOwnerPromoted;
+            _sessionOwnerCallbacksRegistered = false;
+        }
+
+        private void OnSessionOwnerPromoted(ulong _) {
+            if(!HasHillAuthority) {
+                UnregisterNetworkCallbacks();
+                _isMoving = false;
+                return;
+            }
+
+            NetworkAuthority.TryConfigureSessionOwnerObject(this);
+            _targetPosition = Random.onUnitSphere;
+            _targetPosition.y = 0f;
+            _targetPosition.Normalize();
+            _isMoving = true;
+            RegisterNetworkCallbacks();
+            RefreshTrackedPlayersFromNetwork();
         }
 
         private void OnStateChanged(HillState previous, HillState current) {
@@ -124,7 +156,7 @@ namespace Game.Match {
                  Progression.ProgressionManager.Instance.AddTimeAsKing(Time.deltaTime);
             }
 
-            if (!IsServer) return;
+            if (!HasHillAuthority) return;
             if(_pendingTrackedPlayersRefresh || Time.unscaledTime >= _nextTrackedPlayersRefreshTime) {
                 RefreshTrackedPlayersFromNetwork();
             }
@@ -247,12 +279,12 @@ namespace Game.Match {
         }
 
         private void OnClientConnected(ulong clientId) {
-            if(!IsServer) return;
+            if(!HasHillAuthority) return;
             TrackConnectedClient(clientId);
         }
 
         private void OnClientDisconnected(ulong clientId) {
-            if(!IsServer) return;
+            if(!HasHillAuthority) return;
             _trackedPlayers.Remove(clientId);
         }
 
@@ -367,7 +399,7 @@ namespace Game.Match {
             }
 
             // Server-side logic
-            if(!IsServer) return;
+            if(!HasHillAuthority) return;
             Debug.Log($"[HillController] Player {player.name} entered zone.");
         }
 
@@ -382,7 +414,7 @@ namespace Game.Match {
             }
 
             // Server-side logic
-            if(!IsServer) return;
+            if(!HasHillAuthority) return;
             Debug.Log($"[HillController] Player {player.name} exited zone.");
         }
 

@@ -182,6 +182,22 @@ namespace Game.Weapons {
             return state.ServerAmmo;
         }
 
+        public ulong GetLastShotId(
+            int weaponIndex,
+            Func<int, WeaponData> getWeaponDataByIndex,
+            Func<WeaponData, int> resolveWeaponCapacity) {
+            var state = GetOrCreateServerState(weaponIndex, getWeaponDataByIndex, resolveWeaponCapacity);
+            return state.LastShotId;
+        }
+
+        public int GetAcceptedClaimsForLastShot(
+            int weaponIndex,
+            Func<int, WeaponData> getWeaponDataByIndex,
+            Func<WeaponData, int> resolveWeaponCapacity) {
+            var state = GetOrCreateServerState(weaponIndex, getWeaponDataByIndex, resolveWeaponCapacity);
+            return state.AcceptedClaimsForLastShot;
+        }
+
         public void FillServerAmmoToCapacity(
             int weaponIndex,
             Func<int, WeaponData> getWeaponDataByIndex,

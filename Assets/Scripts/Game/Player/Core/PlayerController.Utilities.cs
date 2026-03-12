@@ -242,6 +242,12 @@ namespace Game.Player {
         public NetworkVariable<float> NetHealth => netHealth;
         public NetworkVariable<bool> NetIsDead => netIsDead;
         public NetworkVariable<bool> NetIsCrouching => netIsCrouching;
+        public NetworkVariable<bool> NetIsSliding => netIsSliding;
+        public NetworkVariable<bool> NetIsJumping => netIsJumping;
+        public NetworkVariable<bool> NetIsFalling => netIsFalling;
+        public NetworkVariable<bool> NetIsWallRunning => netIsWallRunning;
+        public NetworkVariable<bool> NetIsRightWallRun => netIsRightWallRun;
+        public NetworkVariable<float> NetWallRunDirection => netWallRunDirection;
         public NetworkVariable<int> Kills => kills;
         public NetworkVariable<int> Deaths => deaths;
         public NetworkVariable<int> Assists => assists;

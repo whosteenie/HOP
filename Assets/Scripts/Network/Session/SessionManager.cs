@@ -12,6 +12,7 @@ using Network.UGS;
 using Steamworks;
 using Unity.Netcode;
 using Unity.Services.Authentication;
+using Unity.Services.Multiplayer;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityUtils;
@@ -125,6 +126,7 @@ namespace Network.Session {
         // ===== UGS Lobby state =====
         private Unity.Services.Lobbies.Models.Lobby _ugsPartyLobby;
         private Unity.Services.Lobbies.Models.Lobby _ugsMatchLobby;
+        private ISession _activeMultiplayerSession;
 
         private CustomNetworkManager _customNetworkManager;
         private NetworkManager _networkManager;

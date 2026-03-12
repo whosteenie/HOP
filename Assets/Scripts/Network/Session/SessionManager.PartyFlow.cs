@@ -215,11 +215,14 @@ namespace Network.Session {
                 SetExpectedGamePlayerCount(expectedPlayers.Count, "UgsPrivateMatchHost");
                 var expectedCsv = string.Join(",", expectedPlayers);
 
-                // Create relay allocation for host.
-                var (alloc, joinCode) = await CreateRelayAllocationWithJoinCodeAsync(maxPlayers);
+                var sessionCode = await CreateDistributedAuthoritySessionAsync(maxPlayers, true, "StartPrivateMatchAsync");
+                if(string.IsNullOrEmpty(sessionCode)) {
+                    await LeaveToMainMenuAsync();
+                    return;
+                }
 
                 // Create match lobby and publish follow target for party members.
-                await CreatePrivateMatchLobbyAsync(mode, maxPlayers, joinCode, expectedCsv);
+                await CreatePrivateMatchLobbyAsync(mode, maxPlayers, sessionCode, expectedCsv);
 
                 _ugsSyncInProgress = false;
                 _ugsLocalReadySubmitted = false;
@@ -241,11 +244,6 @@ namespace Network.Session {
                 if(!loadingSceneSet) {
                     Debug.LogWarning(
                         "[SessionManager] Failed to set private match lobby state to LoadingScene. Clients may remain in sync state.");
-                }
-
-                if(await TryStartHostWithRelayAsync(alloc, true, "StartPrivateMatchAsync") == false) {
-                    await LeaveToMainMenuAsync();
-                    return;
                 }
 
                 if(!TryLoadGameplaySceneAsHost("StartPrivateMatchAsync/LoadScene")) {

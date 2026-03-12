@@ -79,6 +79,7 @@ namespace Game.UI {
         // Speaking Indicators Cache
         private readonly Dictionary<ulong, VisualElement>
             _cachedSpeakingIndicators = new(); // clientId -> indicator element
+        private readonly Dictionary<ulong, MatchPlayerStateProxy> _boundProfileStates = new();
 
 
         // Cache scene name to avoid string allocations
@@ -109,6 +110,8 @@ namespace Game.UI {
             EventBus.Subscribe<ShowScoreDisplayEvent>(OnShowScoreDisplay);
             EventBus.Subscribe<PlayerNetworkSpawnedEvent>(OnPlayerNetworkSpawned);
             EventBus.Subscribe<PlayerNetworkDespawnedEvent>(OnPlayerNetworkDespawned);
+            MatchPlayerStateProxy.StateRegistered += OnPlayerStateRegistered;
+            MatchPlayerStateProxy.StateUnregistered += OnPlayerStateUnregistered;
         }
 
         private void OnDisable() {
@@ -122,6 +125,8 @@ namespace Game.UI {
             EventBus.Unsubscribe<ShowScoreDisplayEvent>(OnShowScoreDisplay);
             EventBus.Unsubscribe<PlayerNetworkSpawnedEvent>(OnPlayerNetworkSpawned);
             EventBus.Unsubscribe<PlayerNetworkDespawnedEvent>(OnPlayerNetworkDespawned);
+            MatchPlayerStateProxy.StateRegistered -= OnPlayerStateRegistered;
+            MatchPlayerStateProxy.StateUnregistered -= OnPlayerStateUnregistered;
 
             // Unsubscribe from network callbacks
             if(NetworkManager.Singleton != null) {
@@ -133,6 +138,7 @@ namespace Game.UI {
 
             // Clear cached dictionaries when match ends
             ClearCachedPlayerData();
+            ClearProfileStateSubscriptions();
         }
 
 

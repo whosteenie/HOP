@@ -514,7 +514,7 @@ namespace Game.Player {
             }
 
             if(_animationController != null) {
-                _animationController.PlayJumpAnimationServerRpc();
+                _animationController.TriggerJumpAnimation();
             }
         }
 
@@ -572,7 +572,7 @@ namespace Game.Player {
             }
 
             if(_animationController)
-                _animationController.PlayJumpAnimationServerRpc();
+                _animationController.TriggerJumpAnimation();
         }
 
         private WeaponBob FindActiveWeaponBob() {
@@ -652,11 +652,12 @@ namespace Game.Player {
             if(!CrouchInput) return false;
             if(!_wasStandingBeforeCrouch) return false;
 
-            var speed = _horizontalVelocity.magnitude;
+            var slideSeedVelocity = GetSlideSeedVelocity();
+            var speed = slideSeedVelocity.magnitude;
             if(speed < SlideMinSpeed) return false;
 
             // Don't allow backward slides - check if velocity is roughly forward
-            var velocityDir = _horizontalVelocity.normalized;
+            var velocityDir = slideSeedVelocity.normalized;
             var forwardDot = Vector3.Dot(velocityDir, _playerTransform.forward);
             return !(forwardDot < -0.3f); // Backward movement
         }
@@ -678,10 +679,13 @@ namespace Game.Player {
         /// Initiates a slide based on current player movement and direction.
         /// </summary>
         private void BeginSlide() {
+            var slideSeedVelocity = GetSlideSeedVelocity();
             IsSliding = true;
             _wasStandingBeforeCrouch = false;
-            _slideDirection = _horizontalVelocity.normalized;
-            _slideSpeed = _horizontalVelocity.magnitude;
+            _slideDirection = slideSeedVelocity.sqrMagnitude > 0.0001f
+                ? slideSeedVelocity.normalized
+                : _playerTransform.forward;
+            _slideSpeed = slideSeedVelocity.magnitude;
             _slideTimer = 0f;
 
             if(IsOwner && netIsSliding != null) {
@@ -689,8 +693,7 @@ namespace Game.Player {
             }
             
             if (IsOwner && _animationController != null) {
-                _animationController.TriggerSlideServerRpc();
-                _animationController.SetSlidingServerRpc(true);
+                _animationController.SetSlidingState(true, playTrigger: true);
             }
 
             if(IsOwner && _audioRelay != null) {
@@ -713,6 +716,10 @@ namespace Game.Player {
                 // Preserve full momentum when sliding off ledge
                 CancelSlideForJump();
                 return;
+            }
+
+            if(_grappleController != null && _grappleController.IsGrappling) {
+                SyncSlideToGrapple();
             }
 
             // Apply proportional friction (faster slides slow down faster)
@@ -798,7 +805,7 @@ namespace Game.Player {
 
             // Sync animation state
             if (IsOwner && _animationController != null) {
-                _animationController.SetSlidingServerRpc(false);
+                _animationController.SetSlidingState(false);
             }
         }
 
@@ -824,7 +831,7 @@ namespace Game.Player {
 
             // Sync animation state
             if (IsOwner && _animationController != null) {
-                _animationController.SetSlidingServerRpc(false);
+                _animationController.SetSlidingState(false);
             }
         }
 
@@ -842,6 +849,31 @@ namespace Game.Player {
 
             // Initiate slide in grapple direction
             BeginSlide();
+        }
+
+        private Vector3 GetSlideSeedVelocity() {
+            if(_grappleController != null && _grappleController.IsGrappling) {
+                var grappleVelocity = _grappleController.CurrentHorizontalPullVelocity;
+                if(grappleVelocity.sqrMagnitude > 0.0001f) {
+                    return grappleVelocity;
+                }
+            }
+
+            return _horizontalVelocity;
+        }
+
+        private void SyncSlideToGrapple() {
+            if(_grappleController == null || !_grappleController.IsGrappling) {
+                return;
+            }
+
+            var grappleVelocity = _grappleController.CurrentHorizontalPullVelocity;
+            if(grappleVelocity.sqrMagnitude <= 0.0001f) {
+                return;
+            }
+
+            _slideDirection = grappleVelocity.normalized;
+            _slideSpeed = Mathf.Max(_slideSpeed, grappleVelocity.magnitude);
         }
 
         #endregion

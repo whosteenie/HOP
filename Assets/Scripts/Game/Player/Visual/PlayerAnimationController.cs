@@ -39,6 +39,9 @@ namespace Game.Player {
         private bool _wasGrounded;
         private float _fallStartHeight;
         private float _lastSpawnTime;
+        private bool _remoteIsWallRunning;
+        private bool _remoteIsRightWallRun;
+        private float _remoteWallRunDirection = 1f;
         private const float LandingSoundCooldown = 0.5f; // Block landing sounds for 0.5s after spawn/respawn
 
         // Constants
@@ -84,14 +87,21 @@ namespace Game.Player {
             _playerAnimator.SetFloat(MoveXHash, localVelocity.x / maxSpeed, 0.1f, Time.deltaTime);
             _playerAnimator.SetFloat(MoveYHash, localVelocity.z / maxSpeed, 0.1f, Time.deltaTime);
             _playerAnimator.SetBool(IsSprintingHash, isSprinting);
+            _playerAnimator.SetBool(IsJumpingHash, IsJumping);
             _playerAnimator.SetBool(IsFallingHash, IsFalling);
+            _playerAnimator.SetBool(IsGroundedHash, !IsFalling);
 
             var wallRunController = playerController != null ? playerController.WallRunController : null;
-            var isWallRunning = wallRunController != null && wallRunController.IsWallRunning;
-            var isRightWallRun = wallRunController != null && wallRunController.IsRightWallRun;
+            var isWallRunning = IsOwner
+                ? wallRunController != null && wallRunController.IsWallRunning
+                : _remoteIsWallRunning;
+            var isRightWallRun = IsOwner
+                ? wallRunController != null && wallRunController.IsRightWallRun
+                : _remoteIsRightWallRun;
             _playerAnimator.SetBool(IsWallRunningHash, isWallRunning);
             _playerAnimator.SetBool(RightWallRunHash, isRightWallRun);
-            _playerAnimator.SetFloat(WallRunDirectionHash, GetWallRunDirection(horizontalVelocity, isWallRunning));
+            _playerAnimator.SetFloat(WallRunDirectionHash,
+                IsOwner ? GetWallRunDirection(horizontalVelocity, isWallRunning) : _remoteWallRunDirection);
 
             var isGrounded = playerController != null && playerController.IsGrounded;
             if((isGrounded && !IsJumping) || IsFalling) {
@@ -123,6 +133,8 @@ namespace Game.Player {
         /// Should be called every frame from PlayerController.Update().
         /// </summary>
         public void UpdateFallingState(bool isGrounded, float verticalVelocity, Vector3 position) {
+            if(!IsOwner) return;
+
             // Track when we leave the ground
             if(_wasGrounded && !isGrounded) {
                 _fallStartHeight = position.y;
@@ -137,6 +149,9 @@ namespace Game.Player {
             // This allows jump->fall transitions to work in the animator
             if(!isGrounded) {
                 IsFalling = true;
+                if(playerController != null && playerController.NetIsFalling != null) {
+                    playerController.NetIsFalling.Value = true;
+                }
 
                 // Track peak height while rising (for distance calculations)
                 if(verticalVelocity > 0f) {
@@ -148,12 +163,15 @@ namespace Game.Player {
                 // Reset when grounded
                 _fallStartHeight = 0f;
                 IsFalling = false;
+                if(playerController != null && playerController.NetIsFalling != null) {
+                    playerController.NetIsFalling.Value = false;
+                }
             }
 
             // Landing: always trigger land animation when we hit the ground from air
             if(!_wasGrounded && isGrounded) {
                 if(IsOwner) {
-                    PlayLandingAnimationServerRpc();
+                    TriggerLandingAnimation();
                     // Only play landing sound if enough time has passed since spawn/respawn
                     if(_audioRelay != null && Time.time - _lastSpawnTime >= LandingSoundCooldown) {
                         _audioRelay.RequestPlayAttached("foley.tile.jump.land", new NetworkObjectReference(playerController.NetworkObject),
@@ -164,6 +182,10 @@ namespace Game.Player {
                 IsJumping = false;
                 IsFalling = false;
                 _fallStartHeight = 0f;
+                if(playerController != null) {
+                    playerController.NetIsJumping.Value = false;
+                    playerController.NetIsFalling.Value = false;
+                }
             }
 
             _wasGrounded = isGrounded;
@@ -182,21 +204,26 @@ namespace Game.Player {
         /// <summary>
         /// Plays the jump animation on all clients.
         /// </summary>
-        [Rpc(SendTo.Everyone)]
-        public void PlayJumpAnimationServerRpc() {
+        public void TriggerJumpAnimation() {
             if(_playerAnimator == null) return;
+            if(!IsOwner) return;
 
             _playerAnimator.SetTrigger(JumpTriggerHash);
             _playerAnimator.SetBool(IsJumpingHash, true);
             IsJumping = true;
+
+            if(playerController != null) {
+                playerController.NetIsJumping.Value = true;
+                playerController.jumpAnimationSequence.Value++;
+            }
         }
 
         /// <summary>
         /// Plays the landing animation on all clients.
         /// </summary>
-        [Rpc(SendTo.Everyone)]
-        private void PlayLandingAnimationServerRpc() {
+        public void TriggerLandingAnimation() {
             if(_playerAnimator == null) return;
+            if(!IsOwner) return;
 
             _playerAnimator.SetTrigger(LandTriggerHash);
             _playerAnimator.SetBool(IsJumpingHash, false);
@@ -207,42 +234,90 @@ namespace Game.Player {
 
             var isGrounded = playerController != null && playerController.IsGrounded;
             _playerAnimator.SetBool(IsGroundedHash, isGrounded);
+
+            if(playerController != null) {
+                playerController.NetIsJumping.Value = false;
+                playerController.NetIsFalling.Value = false;
+                playerController.landAnimationSequence.Value++;
+            }
         }
 
         /// <summary>
         /// Plays the mantle animation trigger on all clients.
         /// </summary>
-        [Rpc(SendTo.Everyone)]
-        public void PlayMantleAnimationServerRpc() {
+        public void TriggerMantleAnimation() {
             if(_playerAnimator == null) return;
+            if(!IsOwner) return;
             _playerAnimator.SetTrigger(MantleTriggerHash);
+            if(playerController != null) {
+                playerController.mantleAnimationSequence.Value++;
+            }
         }
 
-        /// <summary>
-        /// Sets the sliding state on all clients.
-        /// </summary>
-        [Rpc(SendTo.Server)]
-        public void SetSlidingServerRpc(bool isSliding) {
-            SetSlidingClientRpc(isSliding);
-        }
-
-        [Rpc(SendTo.Server)]
-        public void TriggerSlideServerRpc() {
-            TriggerSlideClientRpc();
-        }
-
-        [Rpc(SendTo.Everyone)]
-        private void TriggerSlideClientRpc() {
-            if(_playerAnimator != null) {
+        public void SetSlidingState(bool isSliding, bool playTrigger = false) {
+            if(_playerAnimator == null) return;
+            _playerAnimator.SetBool(IsSlidingHash, isSliding);
+            if(playTrigger && isSliding) {
                 _playerAnimator.SetTrigger(SlideTriggerHash);
             }
         }
 
-        [Rpc(SendTo.Everyone)]
-        private void SetSlidingClientRpc(bool isSliding) {
-            if (_playerAnimator != null) {
-                _playerAnimator.SetBool(IsSlidingHash, isSliding);
-            }
+        public void ApplyRemoteJumpingState(bool isJumping) {
+            if(IsOwner || _playerAnimator == null) return;
+            IsJumping = isJumping;
+            _playerAnimator.SetBool(IsJumpingHash, isJumping);
+        }
+
+        public void ApplyRemoteFallingState(bool isFalling) {
+            if(IsOwner || _playerAnimator == null) return;
+            IsFalling = isFalling;
+            _playerAnimator.SetBool(IsFallingHash, isFalling);
+            _playerAnimator.SetBool(IsGroundedHash, !isFalling);
+        }
+
+        public void ApplyRemoteSlidingState(bool isSliding, bool playTrigger) {
+            if(IsOwner) return;
+            SetSlidingState(isSliding, playTrigger);
+        }
+
+        public void PlayRemoteJumpAnimation() {
+            if(IsOwner || _playerAnimator == null) return;
+            _playerAnimator.SetTrigger(JumpTriggerHash);
+        }
+
+        public void PlayRemoteLandingAnimation() {
+            if(IsOwner || _playerAnimator == null) return;
+            _playerAnimator.SetTrigger(LandTriggerHash);
+            IsJumping = false;
+            IsFalling = false;
+            _playerAnimator.SetBool(IsJumpingHash, false);
+            _playerAnimator.SetBool(IsFallingHash, false);
+            _playerAnimator.SetBool(IsGroundedHash, true);
+        }
+
+        public void PlayRemoteMantleAnimation() {
+            if(IsOwner || _playerAnimator == null) return;
+            _playerAnimator.SetTrigger(MantleTriggerHash);
+        }
+
+        public void ApplyRemoteStateSnapshot(bool isJumping, bool isFalling, bool isSliding) {
+            if(IsOwner || _playerAnimator == null) return;
+            IsJumping = isJumping;
+            IsFalling = isFalling;
+            _playerAnimator.SetBool(IsJumpingHash, isJumping);
+            _playerAnimator.SetBool(IsFallingHash, isFalling);
+            _playerAnimator.SetBool(IsGroundedHash, !isFalling);
+            _playerAnimator.SetBool(IsSlidingHash, isSliding);
+        }
+
+        public void ApplyRemoteWallRunState(bool isWallRunning, bool isRightWallRun, float wallRunDirection) {
+            if(IsOwner || _playerAnimator == null) return;
+            _remoteIsWallRunning = isWallRunning;
+            _remoteIsRightWallRun = isRightWallRun;
+            _remoteWallRunDirection = Mathf.Approximately(wallRunDirection, 0f) ? 1f : Mathf.Sign(wallRunDirection);
+            _playerAnimator.SetBool(IsWallRunningHash, isWallRunning);
+            _playerAnimator.SetBool(RightWallRunHash, isRightWallRun);
+            _playerAnimator.SetFloat(WallRunDirectionHash, _remoteWallRunDirection);
         }
 
         /// <summary>
@@ -268,6 +343,32 @@ namespace Game.Player {
         /// </summary>
         public void ResetSpawnTime() {
             _lastSpawnTime = Time.time;
+            _wasGrounded = false;
+            IsJumping = false;
+            IsFalling = false;
+
+            if(_playerAnimator != null) {
+                _playerAnimator.SetBool(IsJumpingHash, false);
+                _playerAnimator.SetBool(IsFallingHash, false);
+                _playerAnimator.SetBool(IsGroundedHash, true);
+                _playerAnimator.SetBool(IsSlidingHash, false);
+                _playerAnimator.SetBool(IsWallRunningHash, false);
+                _playerAnimator.SetBool(RightWallRunHash, false);
+                _playerAnimator.SetFloat(WallRunDirectionHash, 1f);
+            }
+
+            if(IsOwner && playerController != null) {
+                playerController.NetIsJumping.Value = false;
+                playerController.NetIsFalling.Value = false;
+                playerController.NetIsSliding.Value = false;
+                playerController.NetIsWallRunning.Value = false;
+                playerController.NetIsRightWallRun.Value = false;
+                playerController.NetWallRunDirection.Value = 1f;
+            }
+
+            _remoteIsWallRunning = false;
+            _remoteIsRightWallRun = false;
+            _remoteWallRunDirection = 1f;
         }
 
         // Public getters for state

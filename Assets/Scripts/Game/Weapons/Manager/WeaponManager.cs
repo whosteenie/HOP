@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Game.Match;
 using Game.Player;
 using KINEMATION.FPSAnimationPack.Scripts.Weapon;
 using Network.Diagnostics;
@@ -45,13 +46,14 @@ namespace Game.Weapons {
         private readonly WeaponKinemationBindingCatalog _kinemationCatalog = new();
         private readonly WeaponAmmoAuthority _ammoAuthority = new();
         private readonly WeaponWorldWeaponRegistry _worldWeaponRegistry = new();
-        private readonly NetworkVariable<int> _netEquippedWeaponIndex = new(-1,
-            NetworkVariableReadPermission.Everyone,
-            NetworkVariableWritePermission.Server);
         private GameObject _pendingTpWeapon; // Track pending TP weapon to show via animation event
         private int _serverAuthoritativeWeaponIndex = -1;
         private int _serverReloadWeaponIndex = -1;
         private float _serverPullOutBlockedUntilTime;
+        private MatchPlayerStateProxy _cachedPlayerState;
+        private MatchPlayerStateProxy _boundPlayerState;
+        private int _lastApprovedWeaponIndex = -1;
+        private int _pendingPredictedWeaponIndex = -1;
 
         public Weapon CurrentWeapon { get; private set; }
         public GameObject CurrentWorldWeaponInstance { get; private set; }
@@ -77,6 +79,7 @@ namespace Game.Weapons {
         private bool _requiresKinemationEquipCompleteForCurrentPullOut;
         private bool _hasLoggedStrictStartupValidation;
         private bool _weaponsInitialized;
+        private static readonly NetworkVariable<int> MissingEquippedWeaponIndexState = new(-1);
 
         private void Awake() {
             ValidateComponents();
@@ -84,11 +87,17 @@ namespace Game.Weapons {
 
         public override void OnNetworkSpawn() {
             base.OnNetworkSpawn();
-            _netEquippedWeaponIndex.OnValueChanged += OnReplicatedEquippedWeaponIndexChanged;
+            MatchPlayerStateProxy.StateRegistered -= OnPlayerStateRegistered;
+            MatchPlayerStateProxy.StateRegistered += OnPlayerStateRegistered;
+            MatchPlayerStateProxy.StateUnregistered -= OnPlayerStateUnregistered;
+            MatchPlayerStateProxy.StateUnregistered += OnPlayerStateUnregistered;
+            TryBindPlayerStateSubscriptions();
         }
 
         public override void OnNetworkDespawn() {
-            _netEquippedWeaponIndex.OnValueChanged -= OnReplicatedEquippedWeaponIndexChanged;
+            UnbindPlayerStateSubscriptions();
+            MatchPlayerStateProxy.StateRegistered -= OnPlayerStateRegistered;
+            MatchPlayerStateProxy.StateUnregistered -= OnPlayerStateUnregistered;
             _weaponsInitialized = false;
             base.OnNetworkDespawn();
         }
@@ -123,6 +132,10 @@ namespace Game.Weapons {
         private void Update() {
             UpdateKinemationEquipCompletionGate();
             EnsureFpWeaponLightingRig();
+
+            if((Time.frameCount & 7) == 0) {
+                ReconcileStableTpWeaponState();
+            }
         }
 
         private void BuildKinemationWeaponLookup() {
@@ -304,6 +317,9 @@ namespace Game.Weapons {
             }
         }
 
+        private NetworkVariable<int> ReplicatedEquippedWeaponIndex =>
+            ResolvePlayerState()?.equippedWeaponIndex ?? MissingEquippedWeaponIndexState;
+
         public void InitializeWeapons() {
             if(CurrentWeapon == null) {
                 Debug.LogError("[WeaponManager] Weapon component not assigned!");
@@ -465,20 +481,25 @@ namespace Game.Weapons {
                 magCapacity
             );
 
-            if(IsServer) {
+            if(HasWeaponAuthority) {
                 _serverAuthoritativeWeaponIndex = index;
                 _serverReloadWeaponIndex = -1;
                 _serverPullOutBlockedUntilTime = 0f;
-                _netEquippedWeaponIndex.Value = index;
+            }
+
+            if(HasWeaponAuthority && ResolvePlayerState() != null) {
+                ReplicatedEquippedWeaponIndex.Value = index;
             }
 
             _pendingHolsterHideSlot = -1;
             UpdateHolsterVisibility();
             RefreshOwnerHolsterShadowState();
+            _lastApprovedWeaponIndex = index;
+            _pendingPredictedWeaponIndex = -1;
         }
 
         private int ResolveInitialEquippedWeaponIndex() {
-            var replicatedIndex = _netEquippedWeaponIndex.Value;
+            var replicatedIndex = ReplicatedEquippedWeaponIndex.Value;
             if(replicatedIndex >= 0 && replicatedIndex < weaponDataList.Count) {
                 return replicatedIndex;
             }
@@ -486,10 +507,91 @@ namespace Game.Weapons {
             return 0;
         }
 
+        private MatchPlayerStateProxy ResolvePlayerState() {
+            if(playerController == null || playerController.OwnerClientId == ulong.MaxValue) {
+                return null;
+            }
+
+            if(_cachedPlayerState != null &&
+               _cachedPlayerState.NetworkObject != null &&
+               _cachedPlayerState.NetworkObject.IsSpawned &&
+               _cachedPlayerState.RepresentedClientId == playerController.OwnerClientId) {
+                return _cachedPlayerState;
+            }
+
+            _cachedPlayerState = MatchPlayerStateProxy.GetForPlayer(playerController.OwnerClientId);
+            return _cachedPlayerState;
+        }
+
+        private void OnPlayerStateRegistered(ulong playerClientId, MatchPlayerStateProxy proxy) {
+            if(playerController == null || playerController.OwnerClientId != playerClientId) {
+                return;
+            }
+
+            _cachedPlayerState = proxy;
+            TryBindPlayerStateSubscriptions();
+        }
+
+        private void OnPlayerStateUnregistered(ulong playerClientId, MatchPlayerStateProxy proxy) {
+            if(playerController == null || playerController.OwnerClientId != playerClientId) {
+                return;
+            }
+
+            if(_boundPlayerState == proxy) {
+                UnbindPlayerStateSubscriptions();
+            }
+
+            if(_cachedPlayerState == proxy) {
+                _cachedPlayerState = null;
+            }
+        }
+
+        private void TryBindPlayerStateSubscriptions() {
+            var playerState = ResolvePlayerState();
+            if(playerState == null || _boundPlayerState == playerState) {
+                return;
+            }
+
+            UnbindPlayerStateSubscriptions();
+            playerState.equippedWeaponIndex.OnValueChanged += OnReplicatedEquippedWeaponIndexChanged;
+            _boundPlayerState = playerState;
+
+            if(HasWeaponAuthority && CurrentWeaponIndex >= 0 && playerState.equippedWeaponIndex.Value != CurrentWeaponIndex) {
+                playerState.equippedWeaponIndex.Value = CurrentWeaponIndex;
+            }
+        }
+
+        private void UnbindPlayerStateSubscriptions() {
+            if(_boundPlayerState == null) {
+                return;
+            }
+
+            _boundPlayerState.equippedWeaponIndex.OnValueChanged -= OnReplicatedEquippedWeaponIndexChanged;
+            _boundPlayerState = null;
+        }
+
         private void OnReplicatedEquippedWeaponIndexChanged(int previousValue, int newValue) {
             if(!_weaponsInitialized) return;
-            if(IsOwner) return;
             if(newValue < 0 || newValue >= weaponDataList.Count) return;
+
+            if(HasWeaponAuthority) {
+                ApplyServerAuthoritativeWeaponSwitch(newValue);
+            }
+
+            if(IsOwner) {
+                _lastApprovedWeaponIndex = newValue;
+                if(_pendingPredictedWeaponIndex == newValue) {
+                    _pendingPredictedWeaponIndex = -1;
+                }
+
+                if(newValue == CurrentWeaponIndex) {
+                    return;
+                }
+
+                ApplyApprovedLocalWeaponSwitch(newValue);
+                return;
+            }
+
             if(newValue == CurrentWeaponIndex) return;
 
             ApplyRemoteWeaponSwitch(newValue);

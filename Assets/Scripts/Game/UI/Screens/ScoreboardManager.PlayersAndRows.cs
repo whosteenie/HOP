@@ -61,9 +61,8 @@ namespace Game.UI {
 
         private void RegisterPlayer(PlayerController player) {
             if(player == null || !_allPlayersRegistry.Add(player)) return;
-            // Subscribe to profile changes used by scoreboard row content.
-            player.playerName.OnValueChanged += OnPlayerProfileChanged;
             player.playerBaseColor.OnValueChanged += OnPlayerProfileChanged;
+            RebindProfileStateSubscriptions(player);
 
             // Force an update immediately so the scoreboard reflects the new player.
             UpdateScoreboard();
@@ -72,10 +71,86 @@ namespace Game.UI {
         private void UnregisterPlayer(PlayerController player) {
             if(player == null || !_allPlayersRegistry.Contains(player)) return;
 
-            player.playerName.OnValueChanged -= OnPlayerProfileChanged;
             player.playerBaseColor.OnValueChanged -= OnPlayerProfileChanged;
+            UnbindProfileStateSubscriptions(player.OwnerClientId);
 
             _allPlayersRegistry.Remove(player);
+            UpdateScoreboard();
+        }
+
+        private void OnPlayerStateRegistered(ulong playerClientId, MatchPlayerStateProxy proxy) {
+            var player = FindRegisteredPlayer(playerClientId);
+            if(player == null) {
+                return;
+            }
+
+            RebindProfileStateSubscriptions(player);
+            ForceScoreboardProfileRefresh();
+        }
+
+        private void OnPlayerStateUnregistered(ulong playerClientId, MatchPlayerStateProxy proxy) {
+            UnbindProfileStateSubscriptions(playerClientId, proxy);
+            ForceScoreboardProfileRefresh();
+        }
+
+        private PlayerController FindRegisteredPlayer(ulong playerClientId) {
+            foreach(var player in _allPlayersRegistry) {
+                if(player != null && player.OwnerClientId == playerClientId) {
+                    return player;
+                }
+            }
+
+            return null;
+        }
+
+        private void RebindProfileStateSubscriptions(PlayerController player) {
+            if(player == null) {
+                return;
+            }
+
+            UnbindProfileStateSubscriptions(player.OwnerClientId);
+            var playerState = player.PlayerState;
+            if(playerState == null) {
+                return;
+            }
+
+            playerState.playerName.OnValueChanged -= OnPlayerProfileChanged;
+            playerState.playerName.OnValueChanged += OnPlayerProfileChanged;
+            playerState.steamId.OnValueChanged -= OnPlayerProfileChanged;
+            playerState.steamId.OnValueChanged += OnPlayerProfileChanged;
+            _boundProfileStates[player.OwnerClientId] = playerState;
+        }
+
+        private void UnbindProfileStateSubscriptions(ulong playerClientId, MatchPlayerStateProxy expectedState = null) {
+            if(!_boundProfileStates.TryGetValue(playerClientId, out var boundState) || boundState == null) {
+                return;
+            }
+
+            if(expectedState != null && boundState != expectedState) {
+                return;
+            }
+
+            boundState.playerName.OnValueChanged -= OnPlayerProfileChanged;
+            boundState.steamId.OnValueChanged -= OnPlayerProfileChanged;
+            _boundProfileStates.Remove(playerClientId);
+        }
+
+        private void ClearProfileStateSubscriptions() {
+            foreach(var entry in _boundProfileStates) {
+                if(entry.Value == null) {
+                    continue;
+                }
+
+                entry.Value.playerName.OnValueChanged -= OnPlayerProfileChanged;
+                entry.Value.steamId.OnValueChanged -= OnPlayerProfileChanged;
+            }
+
+            _boundProfileStates.Clear();
+        }
+
+        private void ForceScoreboardProfileRefresh() {
+            _previousPlayerIds.Clear();
+            _previousSortValues.Clear();
             UpdateScoreboard();
         }
 
@@ -88,10 +163,11 @@ namespace Game.UI {
 
         private void OnPlayerProfileChanged(Unity.Collections.FixedString64Bytes oldValue,
             Unity.Collections.FixedString64Bytes newValue) {
-            // Clear cache to force full rebuild.
-            _previousPlayerIds.Clear();
-            _previousSortValues.Clear();
-            UpdateScoreboard();
+            ForceScoreboardProfileRefresh();
+        }
+
+        private void OnPlayerProfileChanged(ulong oldValue, ulong newValue) {
+            ForceScoreboardProfileRefresh();
         }
 
         private IReadOnlyCollection<PlayerController> GetAllPlayerControllers() {

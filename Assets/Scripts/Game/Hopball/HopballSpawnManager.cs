@@ -5,6 +5,7 @@ using Game.Player;
 using Game.Match;
 using Game.Player.Hopball;
 using Game.Spawning;
+using Network.Core;
 using Network.Diagnostics;
 using Network.Events;
 using Unity.Netcode;
@@ -15,7 +16,7 @@ namespace Game.Hopball {
     /// <summary>
     /// Manages hopball spawning, respawning, OOB handling, and scoring for Hopball gamemode.
     /// </summary>
-    public class HopballSpawnManager : NetworkBehaviour {
+    public partial class HopballSpawnManager : NetworkBehaviour {
         public static HopballSpawnManager Instance { get; private set; }
 
         [Header("Hopball Spawn Points")]
@@ -45,8 +46,10 @@ namespace Game.Hopball {
         private int _cachedOobSceneHandle = -1;
         private float _cachedOutOfBoundsY;
         private bool _cachedUseYLevelOutOfBoundsKill = true;
+        private bool _sessionOwnerCallbacksRegistered;
 
         public HopballController CurrentHopballController { get; private set; }
+        private bool HasHopballAuthority => NetworkAuthority.HasGlobalAuthority(this);
 
         private int EffectiveWinScore =>
             MatchSettingsManager.Instance != null ? MatchSettingsManager.Instance.GetScoreToWin() : winScore;
@@ -62,8 +65,10 @@ namespace Game.Hopball {
 
         public override void OnNetworkSpawn() {
             base.OnNetworkSpawn();
+            NetworkAuthority.TryConfigureSessionOwnerObject(this);
+            RegisterSessionOwnerCallbacks();
 
-            if(IsServer) {
+            if(HasHopballAuthority) {
                 // Reset scores
                 _teamAScore.Value = 0;
                 _teamBScore.Value = 0;
@@ -93,6 +98,47 @@ namespace Game.Hopball {
             _teamAScore.OnValueChanged -= OnTeamAScoreChanged;
             _teamBScore.OnValueChanged -= OnTeamBScoreChanged;
             CleanupActiveHopball();
+            UnregisterSessionOwnerCallbacks();
+        }
+
+        private void RegisterSessionOwnerCallbacks() {
+            if(_sessionOwnerCallbacksRegistered || NetworkManager == null) return;
+            NetworkManager.OnSessionOwnerPromoted += OnSessionOwnerPromoted;
+            _sessionOwnerCallbacksRegistered = true;
+        }
+
+        private void UnregisterSessionOwnerCallbacks() {
+            if(!_sessionOwnerCallbacksRegistered || NetworkManager == null) return;
+            NetworkManager.OnSessionOwnerPromoted -= OnSessionOwnerPromoted;
+            _sessionOwnerCallbacksRegistered = false;
+        }
+
+        private void OnSessionOwnerPromoted(ulong _) {
+            if(!HasHopballAuthority) {
+                if(_respawnCoroutine != null) {
+                    StopCoroutine(_respawnCoroutine);
+                    _respawnCoroutine = null;
+                }
+                return;
+            }
+
+            NetworkAuthority.TryConfigureSessionOwnerObject(this);
+            CurrentHopballController ??= FindAnyObjectByType<HopballController>();
+            if(CurrentHopballController != null) {
+                NetworkAuthority.TryConfigureSessionOwnerObject(CurrentHopballController);
+            }
+            var matchSettings = MatchSettingsManager.Instance;
+            if(matchSettings == null || matchSettings.selectedGameModeId != "Hopball") {
+                return;
+            }
+
+            if(CurrentHopballController == null && !_isSpawning) {
+                if(MatchTimerManager.Instance != null && !MatchTimerManager.Instance.IsPreMatch) {
+                    SpawnHopball();
+                } else {
+                    StartCoroutine(InitialSpawnCoroutine());
+                }
+            }
         }
 
         private static void OnTeamAScoreChanged(int previous, int current) {
@@ -119,7 +165,7 @@ namespace Game.Hopball {
             }
             yield return new WaitForSeconds(preMatchCountdown + postPrematchSpawnDelay);
 
-            if(!IsServer || _hasSpawnedInitial) yield break;
+            if(!HasHopballAuthority || _hasSpawnedInitial) yield break;
             matchSettings = MatchSettingsManager.Instance;
             if(matchSettings == null || matchSettings.selectedGameModeId != "Hopball") {
                 yield break;
@@ -131,7 +177,7 @@ namespace Game.Hopball {
         /// Spawns a hopball at a random spawn point.
         /// </summary>
         private void SpawnHopball() {
-            if(!IsServer || _isSpawning || hopballPrefab == null) {
+            if(!HasHopballAuthority || _isSpawning || hopballPrefab == null) {
                 return;
             }
 
@@ -191,6 +237,7 @@ namespace Game.Hopball {
                 return;
             }
             var objectiveSpawnType = _hasSpawnedInitial ? "Respawn" : "Initial";
+            NetworkAuthority.TryConfigureSessionOwnerObject(CurrentHopballController);
             FlowLog.Emit(FlowEventIds.ObjectiveSpawned,
                 ("mode", "Hopball"),
                 ("objectType", "Hopball"),
@@ -211,7 +258,7 @@ namespace Game.Hopball {
         /// Called by Hopball when dissolve completes.
         /// </summary>
         public void RespawnHopballAtNewLocation() {
-            if(!IsServer || CurrentHopballController == null) {
+            if(!HasHopballAuthority || CurrentHopballController == null) {
                 Debug.LogWarning(
                     "[HopballSpawnManager] RespawnHopballAtNewLocation: Cannot respawn (not server or no hopball)");
                 return;
@@ -233,7 +280,7 @@ namespace Game.Hopball {
         private IEnumerator RespawnAfterDelay() {
             yield return new WaitForSeconds(Mathf.Max(0f, dissolveRespawnDelay));
 
-            if(!IsServer || CurrentHopballController == null) {
+            if(!HasHopballAuthority || CurrentHopballController == null) {
                 _respawnCoroutine = null;
                 yield break;
             }
@@ -280,7 +327,7 @@ namespace Game.Hopball {
         /// Checks if hopball is OOB and teleports it back if needed.
         /// </summary>
         private void Update() {
-            if(!IsServer) return;
+            if(!HasHopballAuthority) return;
 
             var matchSettings = MatchSettingsManager.Instance;
             if(matchSettings == null || matchSettings.selectedGameModeId != "Hopball") {
@@ -376,7 +423,7 @@ namespace Game.Hopball {
         /// Called by HopballController when player picks up ball. Tracks energy for scoring.
         /// </summary>
         public void OnPlayerPickedUpHopball(ulong playerId) {
-            if(!IsServer || CurrentHopballController == null) return;
+            if(!HasHopballAuthority || CurrentHopballController == null) return;
 
             // Track who picked it up and at what energy
             _currentHolderId = playerId;
@@ -386,7 +433,7 @@ namespace Game.Hopball {
         /// Called when hopball is dropped. Clears holder tracking.
         /// </summary>
         public void OnHopballDropped() {
-            if(!IsServer) return;
+            if(!HasHopballAuthority) return;
 
             _currentHolderId = 0;
         }
@@ -395,7 +442,7 @@ namespace Game.Hopball {
         /// Called by Hopball when energy depletes. Awards 1 point per 1 energy depleted.
         /// </summary>
         public void OnEnergyDepleted(ulong playerId, float energyDepleted) {
-            if(!IsServer) return;
+            if(!HasHopballAuthority) return;
 
             // Only award points if this player is still holding the ball
             if(_currentHolderId != playerId || CurrentHopballController == null || !CurrentHopballController.IsEquipped) {
@@ -422,7 +469,7 @@ namespace Game.Hopball {
         /// Awards a point to the specified team and checks for win condition.
         /// </summary>
         private void AwardPointToTeam(SpawnPoint.Team team) {
-            if(!IsServer) return;
+            if(!HasHopballAuthority) return;
 
             // Award point to team
             if(team == SpawnPoint.Team.TeamA) {
@@ -444,7 +491,7 @@ namespace Game.Hopball {
         /// Triggers the win condition and ends the match.
         /// </summary>
         private void TriggerWinCondition(SpawnPoint.Team winningTeam) {
-            if(!IsServer) return;
+            if(!HasHopballAuthority) return;
 
             // Trigger post-match flow
             if(PostMatchManager.Instance != null) {
@@ -494,7 +541,7 @@ namespace Game.Hopball {
             if(CurrentHopballController == null) return;
 
             var hopballNetworkObject = CurrentHopballController.NetworkObject;
-            if(IsServer && hopballNetworkObject != null && hopballNetworkObject.IsSpawned) {
+            if(HasHopballAuthority && hopballNetworkObject != null && hopballNetworkObject.IsSpawned) {
                 hopballNetworkObject.Despawn();
             } else if((hopballNetworkObject == null || hopballNetworkObject.IsSpawned == false) &&
                       CurrentHopballController != null) {

@@ -1,5 +1,6 @@
 using Game.Match;
 using Game.UI;
+using Network.Core;
 using Network.Events;
 using Unity.Netcode;
 using UnityEngine;
@@ -10,15 +11,21 @@ namespace Game.Player {
     /// </summary>
     [DefaultExecutionOrder(-90)] // Initialize after PlayerController
     public class PlayerTagController : NetworkBehaviour {
+        private bool HasTagAuthority => NetworkAuthority.HasGlobalAuthority(this);
+
         [Header("References")]
         [SerializeField] private PlayerController playerController;
         private PlayerTeamManager _teamManager;
+        private MatchPlayerStateProxy _cachedPlayerState;
+        private MatchPlayerStateProxy _boundPlayerState;
+        private static readonly NetworkVariable<int> MissingIntState = new(0);
+        private static readonly NetworkVariable<bool> MissingBoolState = new(false);
 
         // Tag mode network variables
-        public NetworkVariable<int> tags = new();
-        public NetworkVariable<int> tagged = new();
-        public NetworkVariable<int> timeTagged = new(); // Time tagged in seconds
-        public NetworkVariable<bool> isTagged = new();
+        public NetworkVariable<int> tags => ResolvePlayerState()?.tags ?? MissingIntState;
+        public NetworkVariable<int> tagged => ResolvePlayerState()?.tagged ?? MissingIntState;
+        public NetworkVariable<int> timeTagged => ResolvePlayerState()?.timeTagged ?? MissingIntState; // Time tagged in seconds
+        public NetworkVariable<bool> isTagged => ResolvePlayerState()?.isTagged ?? MissingBoolState;
 
         // Throttling for network updates (at 90Hz: 5 ticks = ~55ms, 2 ticks = ~22ms)
         public float lastTagStatsUpdateTime; // Public for cross-reference in HandleTagTransfer
@@ -60,8 +67,11 @@ namespace Game.Player {
 
             // Network-dependent initialization
             // Subscribe to tag state changes
-            isTagged.OnValueChanged -= OnTaggedStateChanged;
-            isTagged.OnValueChanged += OnTaggedStateChanged;
+            MatchPlayerStateProxy.StateRegistered -= OnPlayerStateRegistered;
+            MatchPlayerStateProxy.StateRegistered += OnPlayerStateRegistered;
+            MatchPlayerStateProxy.StateUnregistered -= OnPlayerStateUnregistered;
+            MatchPlayerStateProxy.StateUnregistered += OnPlayerStateUnregistered;
+            TryBindTagState();
 
             // Update outline on spawn if already tagged
             if(_teamManager != null) {
@@ -71,11 +81,13 @@ namespace Game.Player {
 
         public override void OnNetworkDespawn() {
             base.OnNetworkDespawn();
-            isTagged.OnValueChanged -= OnTaggedStateChanged;
+            MatchPlayerStateProxy.StateRegistered -= OnPlayerStateRegistered;
+            MatchPlayerStateProxy.StateUnregistered -= OnPlayerStateUnregistered;
+            UnbindTagState();
         }
 
         private void Update() {
-            if(!IsServer) return;
+            if(!HasTagAuthority) return;
 
             var matchSettings = MatchSettingsManager.Instance;
             var isTagMode = matchSettings != null && matchSettings.selectedGameModeId == "Gun Tag";
@@ -108,7 +120,7 @@ namespace Game.Player {
         /// Called from PlayerController.ApplyDamageServer_Auth when in tag mode.
         /// </summary>
         public void HandleTagTransfer(ulong attackerId, Vector3 hitPoint, float amount) {
-            if(!IsServer) return;
+            if(!HasTagAuthority) return;
 
             if(!NetworkManager.Singleton.ConnectedClients.TryGetValue(attackerId, out var attackerClient)) return;
 
@@ -131,31 +143,11 @@ namespace Game.Player {
 
             var wasTagged = isTagged.Value;
             if(wasTagged) return;
-            isTagged.Value = true;
-
-            // Gun Tag rule: tagged player loses ammo in their currently equipped weapon.
-            // This is applied only to the newly tagged player and syncs owner HUD via WeaponManager.
-            if(playerController != null && playerController.WeaponManager != null) {
-                playerController.WeaponManager.DrainCurrentWeaponAmmoForTag();
-            }
-
-            if(Time.time - lastTagStatsUpdateTime >= TagStatsUpdateInterval) {
-                tagged.Value++;
-                lastTagStatsUpdateTime = Time.time;
-            } else {
-                tagged.Value++;
-            }
+            ApplyTagVictimAuthority();
 
             PlayTaggedSoundClientRpc();
 
-            attackerTagController.isTagged.Value = false;
-
-            if(Time.time - attackerTagController.lastTagStatsUpdateTime >= TagStatsUpdateInterval) {
-                attackerTagController.tags.Value++;
-                attackerTagController.lastTagStatsUpdateTime = Time.time;
-            } else {
-                attackerTagController.tags.Value++;
-            }
+            attackerTagController.ApplyTagAttackerAuthority();
 
             attackerTagController.PlayTaggingSoundClientRpc();
 
@@ -274,13 +266,94 @@ namespace Game.Player {
         /// Resets tag state (called on respawn).
         /// </summary>
         public void ResetTagState() {
-            if(!IsServer) return;
+            if(!HasTagAuthority) return;
 
             var matchSettings = MatchSettingsManager.Instance;
             if(matchSettings != null && matchSettings.selectedGameModeId == "Gun Tag") {
                 // Do NOT reset tag state on respawn - keep "It" status if they died/fell off map
                 // isTagged.Value = false; 
             }
+        }
+
+        public void ApplyTimeTaggedDeltaAuthority(int delta) {
+            timeTagged.Value = Mathf.Max(0, timeTagged.Value + delta);
+        }
+
+        public void ApplyTagVictimAuthority() {
+            isTagged.Value = true;
+
+            if(playerController != null && playerController.WeaponManager != null) {
+                playerController.WeaponManager.DrainCurrentWeaponAmmoForTag();
+            }
+
+            tagged.Value++;
+            lastTagStatsUpdateTime = Time.time;
+        }
+
+        public void ApplyTagAttackerAuthority() {
+            isTagged.Value = false;
+            tags.Value++;
+            lastTagStatsUpdateTime = Time.time;
+        }
+
+        private MatchPlayerStateProxy ResolvePlayerState() {
+            if(playerController == null) {
+                return null;
+            }
+
+            if(_cachedPlayerState != null &&
+               _cachedPlayerState.RepresentedClientId == playerController.OwnerClientId &&
+               _cachedPlayerState.NetworkObject != null &&
+               _cachedPlayerState.NetworkObject.IsSpawned) {
+                return _cachedPlayerState;
+            }
+
+            _cachedPlayerState = MatchPlayerStateProxy.GetForPlayer(playerController.OwnerClientId);
+            return _cachedPlayerState;
+        }
+
+        private void OnPlayerStateRegistered(ulong playerClientId, MatchPlayerStateProxy proxy) {
+            if(playerController == null || playerClientId != playerController.OwnerClientId) {
+                return;
+            }
+
+            _cachedPlayerState = proxy;
+            TryBindTagState();
+        }
+
+        private void OnPlayerStateUnregistered(ulong playerClientId, MatchPlayerStateProxy proxy) {
+            if(playerController == null || playerClientId != playerController.OwnerClientId) {
+                return;
+            }
+
+            if(_boundPlayerState == proxy) {
+                UnbindTagState();
+            }
+
+            if(_cachedPlayerState == proxy) {
+                _cachedPlayerState = null;
+            }
+        }
+
+        private void TryBindTagState() {
+            var playerState = ResolvePlayerState();
+            if(playerState == null || _boundPlayerState == playerState) {
+                return;
+            }
+
+            UnbindTagState();
+            playerState.isTagged.OnValueChanged -= OnTaggedStateChanged;
+            playerState.isTagged.OnValueChanged += OnTaggedStateChanged;
+            _boundPlayerState = playerState;
+        }
+
+        private void UnbindTagState() {
+            if(_boundPlayerState == null) {
+                return;
+            }
+
+            _boundPlayerState.isTagged.OnValueChanged -= OnTaggedStateChanged;
+            _boundPlayerState = null;
         }
     }
 }

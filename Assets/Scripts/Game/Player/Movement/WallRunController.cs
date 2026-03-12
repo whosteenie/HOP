@@ -253,6 +253,7 @@ namespace Game.Player {
             _hasLockedWallRunSign = true;
 
             UpdateCameraTiltForCurrentSide();
+            PublishWallRunNetworkState();
         }
 
         private void StopWallRun() {
@@ -275,6 +276,7 @@ namespace Game.Player {
             _hasLockedWallRunSign = false;
 
             if(playerController.LookController != null) playerController.LookController.SetTargetTilt(0f);
+            PublishWallRunNetworkState();
         }
 
         /// <summary>Called when another system (e.g. grapple) takes over movement so wall run stick doesn't fight it.</summary>
@@ -344,6 +346,7 @@ namespace Game.Player {
             }
 
             UpdateCameraTiltForCurrentSide();
+            PublishWallRunNetworkState();
 
             // Low-speed stop: try mantle or end run. Skip for curved runs so we only end on timer or off_surface (avoid dampening/velocity quirks kicking us off).
             if(_wallRunTimer >= maxWallRunTime - 0.1f || _curvedSurface != null) return;
@@ -362,6 +365,16 @@ namespace Game.Player {
                 _stopReason = "low_speed";
                 StopWallRun();
             }
+        }
+
+        private void PublishWallRunNetworkState() {
+            if(!IsOwner || playerController == null) return;
+
+            playerController.NetIsWallRunning.Value = IsWallRunning;
+            playerController.NetIsRightWallRun.Value = IsWallRunning && IsRightWallRun;
+            playerController.NetWallRunDirection.Value = IsWallRunning
+                ? Mathf.Sign(Vector3.Dot(GetWallRunVelocity(transform.forward), transform.forward))
+                : 1f;
         }
 
         #endregion

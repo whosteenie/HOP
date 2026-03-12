@@ -8,7 +8,6 @@ namespace Game.Player {
     /// Separated into partial class for better organization.
     /// </summary>
     public partial class PlayerController {
-
         #region Network RPCs
 
         /// <summary>

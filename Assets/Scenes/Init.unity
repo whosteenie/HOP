@@ -307,6 +307,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Network.Steam.SteamManager
   appId: 480
+  avatarCacheMaxEntries: 128
+  avatarFetchFailureCooldownSeconds: 15
 --- !u!4 &937960726
 Transform:
   m_ObjectHideFlags: 0
@@ -630,6 +632,8 @@ MonoBehaviour:
   transitionDocument: {fileID: 7683252449321787176}
   fadeDuration: 0.5
   musicFadeDuration: 1.5
+  transitionCompletionGraceSeconds: 0.15
+  respawnFadeInSignalTimeoutSeconds: 8
 --- !u!114 &1266242196255774367
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -645,7 +649,7 @@ MonoBehaviour:
   NetworkManagerExpanded: 0
   NetworkConfig:
     ProtocolVersion: 0
-    NetworkTransport: {fileID: 4195910031624726150}
+    NetworkTransport: {fileID: 9150462079322075935}
     PlayerPrefab: {fileID: 0}
     Prefabs:
       NetworkPrefabsLists:
@@ -665,9 +669,9 @@ MonoBehaviour:
     LoadSceneTimeOut: 120
     SpawnTimeout: 10
     EnableNetworkLogs: 1
-    NetworkTopology: 0
+    NetworkTopology: 1
     UseCMBService: 0
-    AutoSpawnPlayerPrefabClientSide: 1
+    AutoSpawnPlayerPrefabClientSide: 0
     NetworkMessageMetrics: 1
     NetworkProfilingMetrics: 1
     OldPrefabList: []
@@ -1008,6 +1012,7 @@ GameObject:
   - component: {fileID: 3740367660170908099}
   - component: {fileID: 1266242196255774367}
   - component: {fileID: 4195910031624726150}
+  - component: {fileID: 9150462079322075935}
   - component: {fileID: 4343657407977030757}
   - component: {fileID: 9150462079322075934}
   m_Layer: 0
@@ -1030,6 +1035,36 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Network.Steam.FacepunchTransport
   targetSteamId: 480
+--- !u!114 &9150462079322075935
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9150462079322075933}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 637a7c36dc874286a7ac74b1aeabc1ad, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.Services.Multiplayer::Unity.Services.DistributedAuthority.DistributedAuthorityTransport
+  m_ProtocolType: 0
+  m_UseWebSockets: 0
+  m_UseEncryption: 0
+  m_MaxPacketQueueSize: 128
+  m_MaxPayloadSize: 6144
+  m_HeartbeatTimeoutMS: 500
+  m_ConnectTimeoutMS: 1000
+  m_MaxConnectAttempts: 60
+  m_DisconnectTimeoutMS: 30000
+  ConnectionData:
+    Address: 127.0.0.1
+    Port: 7777
+    ServerListenAddress: 127.0.0.1
+    ClientBindPort: 0
+  DebugSimulator:
+    PacketDelayMS: 0
+    PacketJitterMS: 0
+    PacketDropRate: 0
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0

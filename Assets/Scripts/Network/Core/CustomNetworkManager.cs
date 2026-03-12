@@ -30,6 +30,7 @@ namespace Network {
         // Connection payload-derived metadata (transport agnostic)
         private readonly System.Collections.Generic.Dictionary<ulong, string> _clientPartyIds = new();
         private readonly System.Collections.Generic.Dictionary<ulong, ulong> _clientSteamIds = new();
+        private readonly System.Collections.Generic.Dictionary<ulong, string> _clientUgsPlayerIds = new();
         private bool _hasSessionPrivateFlag;
         private bool _sessionIsPrivateMatch;
 
@@ -65,6 +66,7 @@ namespace Network {
             _networkManager.OnClientDisconnectCallback += OnClientDisconnected;
             _networkManager.OnServerStopped += OnServerStopped;
             _networkManager.OnClientStopped += OnClientStopped;
+            _networkManager.OnSessionOwnerPromoted += OnSessionOwnerPromoted;
         }
 
         private void OnDisable() {
@@ -74,6 +76,7 @@ namespace Network {
             _networkManager.OnClientDisconnectCallback -= OnClientDisconnected;
             _networkManager.OnServerStopped -= OnServerStopped;
             _networkManager.OnClientStopped -= OnClientStopped;
+            _networkManager.OnSessionOwnerPromoted -= OnSessionOwnerPromoted;
         }
 
         // --- Public utility: call when leaving to menu/lobby ---
@@ -82,13 +85,27 @@ namespace Network {
             _pendingTeamAssignments.Clear();
             _clientPartyIds.Clear();
             _clientSteamIds.Clear();
+            _clientUgsPlayerIds.Clear();
             _hasSessionPrivateFlag = false;
             _sessionIsPrivateMatch = false;
             PrivateMatchTeamAssignments.Clear();
         }
 
         private void OnServerStopped(bool _) => ResetSpawningState();
-        private void OnClientStopped(bool _) => _allowPlayerSpawns = false;
+        private void OnClientStopped(bool _) {
+            if(_networkManager == null) {
+                _networkManager = NetworkManager.Singleton;
+            }
+
+            if(_networkManager != null &&
+               _networkManager.DistributedAuthorityMode &&
+               Session.SessionManager.IsGameplaySceneName(SceneManager.GetActiveScene().name)) {
+                StartCoroutine(HandleDistributedAuthorityClientStopped());
+                return;
+            }
+
+            _allowPlayerSpawns = false;
+        }
 
         private static void OnClientDisconnected(ulong _) {
         }
@@ -109,14 +126,68 @@ namespace Network {
                 _clientSteamIds[request.ClientNetworkId] = payload.steamId;
             }
 
+            if(!string.IsNullOrWhiteSpace(payload.ugsPlayerId)) {
+                _clientUgsPlayerIds[request.ClientNetworkId] = payload.ugsPlayerId;
+                TryRefreshClientMetadataFromDistributedAuthoritySession(request.ClientNetworkId);
+            }
+
             if(_hasSessionPrivateFlag) return;
             _sessionIsPrivateMatch = payload.isPrivateMatch;
             _hasSessionPrivateFlag = true;
         }
 
         private void OnClientConnected(ulong clientId) {
-            if(_allowPlayerSpawns && NetworkManager.Singleton.IsServer)
+            if(_allowPlayerSpawns && NetworkAuthority.HasGlobalAuthority(NetworkManager.Singleton)) {
                 SpawnPlayerFor(clientId);
+                SchedulePlayerVisibilityReconciliation("OnClientConnected");
+            }
+        }
+
+        private void OnSessionOwnerPromoted(ulong _) {
+            if(_networkManager == null) {
+                _networkManager = NetworkManager.Singleton;
+            }
+
+            if(_networkManager != null &&
+               NetworkAuthority.HasGlobalAuthority(_networkManager) &&
+               Session.SessionManager.IsGameplaySceneName(SceneManager.GetActiveScene().name)) {
+                _allowPlayerSpawns = true;
+            }
+
+            if(!_allowPlayerSpawns || !NetworkAuthority.HasGlobalAuthority(_networkManager) || _networkManager == null) {
+                return;
+            }
+
+            foreach(var clientId in _networkManager.ConnectedClientsIds) {
+                SpawnPlayerFor(clientId);
+            }
+
+            SchedulePlayerVisibilityReconciliation("OnSessionOwnerPromoted");
+        }
+
+        private IEnumerator HandleDistributedAuthorityClientStopped() {
+            const float graceSeconds = 2f;
+            yield return new WaitForSeconds(graceSeconds);
+
+            if(_networkManager == null) {
+                _networkManager = NetworkManager.Singleton;
+            }
+
+            if(_networkManager != null &&
+               _networkManager.IsListening &&
+               Session.SessionManager.IsGameplaySceneName(SceneManager.GetActiveScene().name)) {
+                if(NetworkAuthority.HasGlobalAuthority(_networkManager)) {
+                    _allowPlayerSpawns = true;
+                }
+                yield break;
+            }
+
+            _allowPlayerSpawns = false;
+        }
+
+        public void ConfigureSessionMetadata(bool isPrivateMatch) {
+            _sessionIsPrivateMatch = isPrivateMatch;
+            _hasSessionPrivateFlag = true;
         }
 
         /// <summary>
@@ -125,7 +196,7 @@ namespace Network {
         public void EnableGameplaySpawningAndSpawnAll() {
             _allowPlayerSpawns = true;
 
-            if(!NetworkManager.Singleton.IsServer) {
+            if(!NetworkAuthority.HasGlobalAuthority(NetworkManager.Singleton)) {
                 Debug.LogWarning("[CustomNetworkManager] Not server, skipping spawn");
                 return;
             }
@@ -171,6 +242,71 @@ namespace Network {
 
             // Clear pending assignments after batch spawn
             _pendingTeamAssignments.Clear();
+            SchedulePlayerVisibilityReconciliation("EnableGameplaySpawningAndSpawnAll");
+        }
+
+        private void SchedulePlayerVisibilityReconciliation(string context) {
+            if(!isActiveAndEnabled) {
+                return;
+            }
+
+            StartCoroutine(ReconcilePlayerVisibilityAfterSpawn(context));
+        }
+
+        private IEnumerator ReconcilePlayerVisibilityAfterSpawn(string context) {
+            const int passes = 8;
+            const float retryDelaySeconds = 0.25f;
+
+            yield return null;
+            yield return null;
+
+            for(var pass = 0; pass < passes; pass++) {
+                if(_networkManager == null) {
+                    _networkManager = NetworkManager.Singleton;
+                }
+
+                if(_networkManager == null || !_allowPlayerSpawns || !NetworkAuthority.HasGlobalAuthority(_networkManager)) {
+                    yield break;
+                }
+
+                EnsureAllSpawnedPlayerObjectsVisible($"{context}/pass{pass + 1}");
+                yield return new WaitForSeconds(retryDelaySeconds);
+            }
+        }
+
+        private void EnsureAllSpawnedPlayerObjectsVisible(string context) {
+            if(_networkManager == null || !NetworkAuthority.HasGlobalAuthority(_networkManager)) {
+                return;
+            }
+
+            foreach(var client in _networkManager.ConnectedClients.Values) {
+                if(client?.PlayerObject == null || !client.PlayerObject.IsSpawned) {
+                    continue;
+                }
+
+                EnsureNetworkObjectVisibleToAllConnectedClients(client.PlayerObject, context);
+            }
+        }
+
+        private void EnsureNetworkObjectVisibleToAllConnectedClients(NetworkObject networkObject, string context) {
+            if(networkObject == null || !networkObject.IsSpawned || _networkManager == null) {
+                return;
+            }
+
+            var newlyShownCount = 0;
+            foreach(var observerClientId in _networkManager.ConnectedClientsIds) {
+                if(networkObject.IsNetworkVisibleTo(observerClientId)) {
+                    continue;
+                }
+
+                networkObject.NetworkShow(observerClientId);
+                newlyShownCount++;
+            }
+
+            if(Debug.isDebugBuild && newlyShownCount > 0) {
+                Debug.Log(
+                    $"[CustomNetworkManager] Reconciled visibility for '{networkObject.name}' to {newlyShownCount} client(s) ({context}).");
+            }
         }
 
         // ========================================================================
@@ -246,6 +382,7 @@ namespace Network {
 
                 // 6. Spawn as player object
                 instance.SpawnAsPlayerObject(clientId);
+                EnsureNetworkObjectVisibleToAllConnectedClients(instance, $"SpawnPlayerFor/{clientId}");
                 FlowLog.Emit(FlowEventIds.PlayerSpawned,
                     ("clientId", clientId),
                     ("team", isTeamBased ? assignedTeam.ToString() : "None"),
@@ -253,7 +390,7 @@ namespace Network {
                     ("spawn", spawnPoint.name));
 
                 // 7. TEAM SETUP (only for team modes)
-                if(isTeamBased && NetworkManager.Singleton.IsServer) {
+                if(isTeamBased && NetworkAuthority.HasGlobalAuthority(NetworkManager.Singleton)) {
                     var controller = instance.GetComponent<PlayerController>();
                     PlayerTeamManager teamMgr = null;
                     if(controller != null) {
@@ -268,6 +405,12 @@ namespace Network {
 
                 // 8. Re-enable CharacterController next frame
                 StartCoroutine(EnableCcNextFrame(cc));
+
+                var spawnedController = instance.GetComponent<PlayerController>();
+                if(spawnedController != null) {
+                    StartCoroutine(CaptureSpawnedPlayerMetadata(clientId, spawnedController));
+                }
+
                 return;
             }
 
@@ -315,6 +458,10 @@ namespace Network {
 
         private void CalculateTeamsForBatch(System.Collections.Generic.List<ulong> clients) {
             _pendingTeamAssignments.Clear();
+
+            foreach(var clientId in clients) {
+                TryRefreshClientMetadataFromDistributedAuthoritySession(clientId);
+            }
 
             // 1. Group clients by PartyID (from connection payload).
             // Map: PartyId -> List<ClientId>
@@ -399,6 +546,65 @@ namespace Network {
             }
              
             Debug.Log($"[CustomNetworkManager] Distributed Teams (Public): TeamA={teamAMembers.Count}, TeamB={teamBMembers.Count}");
+        }
+
+        private bool TryRefreshClientMetadataFromDistributedAuthoritySession(ulong clientId) {
+            if(!_clientUgsPlayerIds.TryGetValue(clientId, out var ugsPlayerId) || string.IsNullOrWhiteSpace(ugsPlayerId)) {
+                return false;
+            }
+
+            var sessionManager = Session.SessionManager.Instance;
+            if(sessionManager == null ||
+               !sessionManager.TryResolveDistributedAuthorityPlayerMetadata(ugsPlayerId, out var partyId, out var steamId)) {
+                return false;
+            }
+
+            if(!string.IsNullOrWhiteSpace(partyId)) {
+                _clientPartyIds[clientId] = partyId;
+            }
+
+            if(steamId != 0) {
+                _clientSteamIds[clientId] = steamId;
+            }
+
+            return !string.IsNullOrWhiteSpace(partyId) || steamId != 0;
+        }
+
+        private IEnumerator CaptureSpawnedPlayerMetadata(ulong clientId, PlayerController controller) {
+            const int maxAttempts = 120;
+
+            for(var attempt = 0; attempt < maxAttempts; attempt++) {
+                if(controller == null) {
+                    yield break;
+                }
+
+                var updated = false;
+                var ugsPlayerId = controller.ugsId.Value.ToString();
+                if(!string.IsNullOrWhiteSpace(ugsPlayerId) &&
+                   (!_clientUgsPlayerIds.TryGetValue(clientId, out var cachedUgsId) ||
+                    !string.Equals(cachedUgsId, ugsPlayerId, System.StringComparison.Ordinal))) {
+                    _clientUgsPlayerIds[clientId] = ugsPlayerId;
+                    updated = true;
+                }
+
+                var steamId = controller.steamId.Value;
+                if(steamId != 0 && !_clientSteamIds.ContainsKey(clientId)) {
+                    _clientSteamIds[clientId] = steamId;
+                    updated = true;
+                }
+
+                if(updated) {
+                    TryRefreshClientMetadataFromDistributedAuthoritySession(clientId);
+                }
+
+                var hasResolvedUgs = _clientUgsPlayerIds.ContainsKey(clientId);
+                var hasResolvedSteam = _clientSteamIds.ContainsKey(clientId);
+                if(hasResolvedUgs && hasResolvedSteam) {
+                    yield break;
+                }
+
+                yield return null;
+            }
         }
         
         /// <summary>

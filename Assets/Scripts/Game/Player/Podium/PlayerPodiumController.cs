@@ -1,5 +1,6 @@
 using System.Collections;
 using Network.Components;
+using Network.Core;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -69,7 +70,7 @@ namespace Game.Player {
         /// Resets the player state on the server to prepare for the podium display.
         /// </summary>
         public void ForceRespawnForPodiumServer() {
-            if(!IsServer) return;
+            if(!NetworkAuthority.HasGlobalAuthority(this)) return;
 
             // Reset health via PlayerController
             if(playerController != null) {
@@ -147,7 +148,7 @@ namespace Game.Player {
         /// Teleports the player to the podium position from the server.
         /// </summary>
         public void TeleportToPodiumFromServer(Vector3 position, Quaternion rotation) {
-            if(!IsServer) return;
+            if(!NetworkAuthority.HasGlobalAuthority(this)) return;
             TeleportToPodiumOwnerClientRpc(position, rotation);
         }
 

@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using Network.Core;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -31,6 +32,7 @@ namespace Game.Spawning {
 
         // Cached array for spawn point validation (non-allocating overlap check)
         private static readonly Collider[] SpawnClearanceHits = new Collider[10];
+        private bool _sessionOwnerCallbacksRegistered;
 
         private void Awake() {
             if(Instance != null && Instance != this) {
@@ -46,9 +48,11 @@ namespace Game.Spawning {
 
         public override void OnNetworkSpawn() {
             base.OnNetworkSpawn();
+            NetworkAuthority.TryConfigureSessionOwnerObject(this);
+            RegisterSessionOwnerCallbacks();
 
             // Hook into client disconnect callback to release reservations
-            if(IsServer) {
+            if(NetworkAuthority.HasGlobalAuthority(this)) {
                 NetworkManager.Singleton.OnClientDisconnectCallback += OnClientDisconnect;
             }
         }
@@ -56,17 +60,41 @@ namespace Game.Spawning {
         public override void OnNetworkDespawn() {
             base.OnNetworkDespawn();
 
-            if(IsServer && NetworkManager.Singleton != null) {
+            if(NetworkManager.Singleton != null) {
                 NetworkManager.Singleton.OnClientDisconnectCallback -= OnClientDisconnect;
             }
+
+            UnregisterSessionOwnerCallbacks();
         }
 
         private void Update() {
             // Only run on server
-            if(!IsServer) return;
+            if(!NetworkAuthority.HasGlobalAuthority(this)) return;
 
             // Clean up expired reservations
             CleanupExpiredReservations();
+        }
+
+        private void RegisterSessionOwnerCallbacks() {
+            if(_sessionOwnerCallbacksRegistered || NetworkManager == null) return;
+            NetworkManager.OnSessionOwnerPromoted += OnSessionOwnerPromoted;
+            _sessionOwnerCallbacksRegistered = true;
+        }
+
+        private void UnregisterSessionOwnerCallbacks() {
+            if(!_sessionOwnerCallbacksRegistered || NetworkManager == null) return;
+            NetworkManager.OnSessionOwnerPromoted -= OnSessionOwnerPromoted;
+            _sessionOwnerCallbacksRegistered = false;
+        }
+
+        private void OnSessionOwnerPromoted(ulong _) {
+            if(NetworkManager == null) return;
+
+            NetworkManager.OnClientDisconnectCallback -= OnClientDisconnect;
+            if(NetworkAuthority.HasGlobalAuthority(this)) {
+                NetworkAuthority.TryConfigureSessionOwnerObject(this);
+                NetworkManager.OnClientDisconnectCallback += OnClientDisconnect;
+            }
         }
 
         private void CleanupExpiredReservations() {
@@ -140,7 +168,7 @@ namespace Game.Spawning {
         /// Returns the reserved spawn point, or null if no spawn point is available.
         /// </summary>
         public SpawnPoint ReserveSpawnPoint(ulong clientId, SpawnPoint.Team team) {
-            if(!IsServer) return null;
+            if(!NetworkAuthority.HasGlobalAuthority(this)) return null;
 
             var list = GetSpawnPointList(team);
             return ReserveSpawnPointFromList(clientId, list, $"Team {team}");
@@ -150,7 +178,7 @@ namespace Game.Spawning {
         /// Reserves a spawn point for a player in FFA mode.
         /// </summary>
         public SpawnPoint ReserveSpawnPoint(ulong clientId) {
-            return !IsServer ? null : ReserveSpawnPointFromList(clientId, _ffaPoints, "FFA");
+            return !NetworkAuthority.HasGlobalAuthority(this) ? null : ReserveSpawnPointFromList(clientId, _ffaPoints, "FFA");
         }
 
         /// <summary>
@@ -187,7 +215,7 @@ namespace Game.Spawning {
         /// Should be called when the player actually spawns or disconnects.
         /// </summary>
         public void ReleaseReservation(ulong clientId) {
-            if(!IsServer) return;
+            if(!NetworkAuthority.HasGlobalAuthority(this)) return;
 
             lock(_reservationLock) {
                 ReleaseReservationInternal(clientId);

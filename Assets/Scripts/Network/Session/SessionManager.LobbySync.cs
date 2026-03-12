@@ -2,12 +2,9 @@ using System;
 using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
 using Network.Diagnostics;
-using Unity.Netcode.Transports.UTP;
 using Unity.Services.Authentication;
 using Unity.Services.Lobbies;
 using Unity.Services.Lobbies.Models;
-using Unity.Services.Relay;
-using Unity.Services.Relay.Models;
 using UnityEngine;
 
 namespace Network.Session {
@@ -48,14 +45,17 @@ namespace Network.Session {
         private bool _isResubscribingMatchLobbyEvents;
         private bool _isRetryingPartyLobbyEventsSubscription;
         private bool _isRetryingMatchLobbyEventsSubscription;
+        private bool _isRetryingDistributedAuthorityJoin;
         private int _partyLobbyEventsSubscriptionRetryAttempt;
         private int _matchLobbyEventsSubscriptionRetryAttempt;
+        private int _distributedAuthorityJoinRetryAttempt;
         private ILobbyEvents _partyLobbyEvents;
         private ILobbyEvents _matchLobbyEvents;
         private LobbyEventCallbacks _partyLobbyEventCallbacks;
         private LobbyEventCallbacks _matchLobbyEventCallbacks;
         private string _partyLobbyEventsLobbyId;
         private string _matchLobbyEventsLobbyId;
+        private string _distributedAuthorityRetrySessionCode;
         private UniTaskCompletionSource<bool> _playersReadyWaiter;
         private List<string> _playersReadyExpectedPlayerIds;
         private string _playersReadyLobbyId;
@@ -68,6 +68,12 @@ namespace Network.Session {
         private const int LobbyEventSubscriptionRetryMaxDelayMs = 10000;
         private const int LobbyEventSubscriptionRetryMaxExponent = 5;
         private const int LobbyEventSubscriptionRetryJitterMs = 250;
+        private const float DistributedAuthorityJoinRetryBaseDelaySeconds = 2f;
+        private const float DistributedAuthorityJoinRetryMaxDelaySeconds = 20f;
+        private const int DistributedAuthorityJoinRetryMaxExponent = 4;
+
+        private float _nextDistributedAuthorityJoinRetryTime;
+        private float _nextDistributedAuthorityJoinRateLimitLogTime;
 
         private void Update() {
             if(_isLeaving || _isShuttingDown) return;
@@ -164,6 +170,126 @@ namespace Network.Session {
             return !string.IsNullOrEmpty(localUgsId) && string.Equals(lobby.HostId, localUgsId, StringComparison.Ordinal);
         }
 
+        private static bool IsPrivateMatchLobby(Lobby lobby) {
+            if(lobby?.Data == null) {
+                return false;
+            }
+
+            return lobby.Data.TryGetValue(UgsMatchTypeKey, out var matchTypeObj) &&
+                   matchTypeObj != null &&
+                   string.Equals(matchTypeObj.Value, "Private", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool TryGetDistributedAuthoritySessionCode(Lobby lobby, out string sessionCode) {
+            sessionCode = null;
+            if(lobby?.Data == null) {
+                return false;
+            }
+
+            if(lobby.Data.TryGetValue(UgsRelayJoinCodeKey, out var joinCodeObj) == false || joinCodeObj == null) {
+                return false;
+            }
+
+            sessionCode = joinCodeObj.Value;
+            return string.IsNullOrWhiteSpace(sessionCode) == false;
+        }
+
+        private void ResetDistributedAuthorityJoinRetryState() {
+            _isRetryingDistributedAuthorityJoin = false;
+            _distributedAuthorityJoinRetryAttempt = 0;
+            _distributedAuthorityRetrySessionCode = null;
+            _nextDistributedAuthorityJoinRetryTime = 0f;
+        }
+
+        private void RefreshDistributedAuthorityJoinRetrySessionCode(string sessionCode) {
+            if(string.IsNullOrWhiteSpace(sessionCode)) {
+                return;
+            }
+
+            if(string.Equals(_distributedAuthorityRetrySessionCode, sessionCode, StringComparison.Ordinal)) {
+                return;
+            }
+
+            ResetDistributedAuthorityJoinRetryState();
+            _distributedAuthorityRetrySessionCode = sessionCode;
+        }
+
+        private bool IsDistributedAuthorityJoinRetryBackoffActive(string sessionCode) {
+            if(string.IsNullOrWhiteSpace(sessionCode)) {
+                return false;
+            }
+
+            RefreshDistributedAuthorityJoinRetrySessionCode(sessionCode);
+            return Time.unscaledTime < _nextDistributedAuthorityJoinRetryTime;
+        }
+
+        private void ScheduleDistributedAuthorityJoinRetry(string sessionCode, bool isPrivateMatch) {
+            if(_isLeaving || _isShuttingDown || string.IsNullOrWhiteSpace(sessionCode)) {
+                return;
+            }
+
+            RefreshDistributedAuthorityJoinRetrySessionCode(sessionCode);
+
+            var delaySeconds = ComputeDistributedAuthorityJoinRetryDelaySeconds(_distributedAuthorityJoinRetryAttempt);
+            _distributedAuthorityJoinRetryAttempt++;
+            _nextDistributedAuthorityJoinRetryTime = Time.unscaledTime + delaySeconds;
+
+            if(ShouldEmitThrottledLog(ref _nextDistributedAuthorityJoinRateLimitLogTime, 3f)) {
+                Debug.LogWarning(
+                    $"[SessionManager] Backing off DA join for {delaySeconds:0.0}s before retrying session '{sessionCode}'.");
+            }
+
+            if(_isRetryingDistributedAuthorityJoin) {
+                return;
+            }
+
+            _isRetryingDistributedAuthorityJoin = true;
+            LaunchSessionTask(RetryStartMatchClientAsync(sessionCode, isPrivateMatch), "DistributedAuthority/RetryJoin");
+        }
+
+        private async UniTask RetryStartMatchClientAsync(string sessionCode, bool isPrivateMatch) {
+            try {
+                while(!_isLeaving && !_isShuttingDown) {
+                    if(_ugsMatchLobby == null) {
+                        return;
+                    }
+
+                    if(string.Equals(_distributedAuthorityRetrySessionCode, sessionCode, StringComparison.Ordinal) ==
+                       false) {
+                        return;
+                    }
+
+                    if(TryGetDistributedAuthoritySessionCode(_ugsMatchLobby, out var currentSessionCode) == false ||
+                       string.Equals(currentSessionCode, sessionCode, StringComparison.Ordinal) == false) {
+                        return;
+                    }
+
+                    var remainingDelay = _nextDistributedAuthorityJoinRetryTime - Time.unscaledTime;
+                    if(remainingDelay > 0f) {
+                        try {
+                            await UniTask.Delay(TimeSpan.FromSeconds(remainingDelay), cancellationToken: SessionLifetimeToken);
+                        } catch(OperationCanceledException) {
+                            return;
+                        }
+                    }
+
+                    _isRetryingDistributedAuthorityJoin = false;
+                    await StartMatchClientAsync(useFadeOut: false, expectedSessionCode: sessionCode,
+                        expectedIsPrivateMatch: isPrivateMatch);
+                    return;
+                }
+            } finally {
+                _isRetryingDistributedAuthorityJoin = false;
+            }
+        }
+
+        private static float ComputeDistributedAuthorityJoinRetryDelaySeconds(int attempt) {
+            var exponent = Mathf.Clamp(attempt, 0, DistributedAuthorityJoinRetryMaxExponent);
+            var rawBackoff = DistributedAuthorityJoinRetryBaseDelaySeconds * Mathf.Pow(2f, exponent);
+            var jitter = UnityEngine.Random.Range(0f, 1.25f);
+            return Mathf.Min(DistributedAuthorityJoinRetryMaxDelaySeconds, rawBackoff + jitter);
+        }
+
         private async UniTask HandlePartyLobbyFollowStateAsync(string source) {
             if(_isLeaving || _isShuttingDown || Phase == SessionPhase.InGame || _isFollowingMatchLobby) return;
             if(_ugsPartyLobby?.Data == null) return;
@@ -197,6 +323,10 @@ namespace Network.Session {
             SyncModeFromMatchLobby(_ugsMatchLobby);
             TryCompletePlayersReadyWaiterFromLobby(_ugsMatchLobby);
             if(_ugsMatchLobby.Data == null) return;
+
+            TryGetDistributedAuthoritySessionCode(_ugsMatchLobby, out var sessionCode);
+            RefreshDistributedAuthorityJoinRetrySessionCode(sessionCode);
+
             if(!_ugsMatchLobby.Data.TryGetValue(UgsLobbyStateKey, out var stateObj) || stateObj == null ||
                string.IsNullOrEmpty(stateObj.Value)) return;
 
@@ -208,15 +338,19 @@ namespace Network.Session {
                     return;
                 case "LoadingScene":
                     if(IsLocalPlayerLobbyHost(_ugsMatchLobby)) return;
+                    if(IsDistributedAuthorityJoinRetryBackoffActive(sessionCode)) return;
                     if(!_ugsClientStartedForMatch) {
-                        LaunchSessionTask(StartMatchClientAsync(), $"{source}/LoadingScene");
+                        LaunchSessionTask(StartMatchClientAsync(expectedSessionCode: sessionCode),
+                            $"{source}/LoadingScene");
                     }
                     return;
                 case "InGame":
                     if(IsLocalPlayerLobbyHost(_ugsMatchLobby)) return;
                     _ugsLocalReadySubmitted = true;
+                    if(IsDistributedAuthorityJoinRetryBackoffActive(sessionCode)) return;
                     if(!_ugsClientStartedForMatch) {
-                        LaunchSessionTask(StartMatchClientAsync(useFadeOut: true), $"{source}/InGame");
+                        LaunchSessionTask(StartMatchClientAsync(useFadeOut: true, expectedSessionCode: sessionCode),
+                            $"{source}/InGame");
                     }
                     return;
             }
@@ -315,7 +449,8 @@ namespace Network.Session {
             return true;
         }
 
-        private async UniTask StartMatchClientAsync(bool useFadeOut = false) {
+        private async UniTask StartMatchClientAsync(bool useFadeOut = false, string expectedSessionCode = null,
+            bool? expectedIsPrivateMatch = null) {
             if(_ugsMatchLobby == null || _ugsClientStartedForMatch || !_ugsLocalReadySubmitted) return;
             if(_isLeaving || _isShuttingDown) return;
 
@@ -326,18 +461,19 @@ namespace Network.Session {
                 return;
             }
 
-            if(!_ugsMatchLobby.Data.TryGetValue(UgsRelayJoinCodeKey, out var joinCodeObj) || joinCodeObj == null) {
+            if(TryGetDistributedAuthoritySessionCode(_ugsMatchLobby, out var sessionCode) == false) {
                 if(ShouldEmitThrottledLog(ref _nextUgsClientStartFailureLogTime, 10f)) {
-                    Debug.LogWarning("[SessionManager] Cannot start match client: relay join code has not been published.");
+                    Debug.LogWarning("[SessionManager] Cannot start match client: DA session code has not been published.");
                 }
                 return;
             }
 
-            var joinCode = joinCodeObj.Value;
-            if(string.IsNullOrEmpty(joinCode)) {
-                if(ShouldEmitThrottledLog(ref _nextUgsClientStartFailureLogTime, 10f)) {
-                    Debug.LogWarning("[SessionManager] Cannot start match client: relay join code is empty.");
-                }
+            RefreshDistributedAuthorityJoinRetrySessionCode(sessionCode);
+            if(IsDistributedAuthorityJoinRetryBackoffActive(sessionCode)) {
+                return;
+            }
+            if(string.IsNullOrWhiteSpace(expectedSessionCode) == false &&
+               string.Equals(expectedSessionCode, sessionCode, StringComparison.Ordinal) == false) {
                 return;
             }
 
@@ -356,47 +492,23 @@ namespace Network.Session {
                     }
                 }
 
-                await CleanupNetworkAsync();
-
-                if(TryGetUnityTransport("StartMatchClientAsync", out var networkManager, out var utp) == false) {
-                    await LeaveToMainMenuAsync();
-                    return;
+                var isPrivateMatch = expectedIsPrivateMatch ?? IsPrivateMatchLobby(_ugsMatchLobby);
+                var joinResult =
+                    await JoinDistributedAuthoritySessionAsync(sessionCode, isPrivateMatch, "StartMatchClientAsync");
+                switch(joinResult) {
+                    case DistributedAuthoritySessionJoinResult.Success:
+                        ResetDistributedAuthorityJoinRetryState();
+                        shouldResetClientStartFlag = false;
+                        return;
+                    case DistributedAuthoritySessionJoinResult.RateLimited:
+                        ScheduleDistributedAuthorityJoinRetry(sessionCode, isPrivateMatch);
+                        return;
+                    default:
+                        Debug.LogError("[SessionManager] Failed to start DA match client after cleanup.");
+                        ResetDistributedAuthorityJoinRetryState();
+                        await LeaveToMainMenuAsync();
+                        return;
                 }
-
-                JoinAllocation joinAlloc;
-                try {
-                    joinAlloc = await RelayService.Instance.JoinAllocationAsync(joinCode);
-                } catch(Exception ex) {
-                    Debug.LogError($"[SessionManager] Failed to join relay allocation for code '{joinCode}': {ex.Message}");
-                    await LeaveToMainMenuAsync();
-                    return;
-                }
-
-                if(_isLeaving || _isShuttingDown) {
-                    if(Debug.isDebugBuild) {
-                        FlowLog.Emit(FlowEventIds.SessionExit,
-                            ("reason", "LeaveToMainMenu"),
-                            ("step", "EXIT_CLIENT_START_SKIPPED_POST_RELAY_JOIN"));
-                    }
-                    return;
-                }
-
-                if(TryApplyRelayToTransport(utp, null, joinAlloc) == false) {
-                    Debug.LogError("[SessionManager] Failed to apply relay client allocation to transport.");
-                    await LeaveToMainMenuAsync();
-                    return;
-                }
-
-                networkManager.NetworkConfig.NetworkTransport = utp;
-
-                ApplyLocalConnectionPayload(true);
-                if(!networkManager.StartClient()) {
-                    Debug.LogError("[SessionManager] Failed to start UGS match client after cleanup.");
-                    await LeaveToMainMenuAsync();
-                    return;
-                }
-
-                shouldResetClientStartFlag = false;
             } finally {
                 if(shouldResetClientStartFlag) {
                     _ugsClientStartedForMatch = false;
@@ -770,6 +882,7 @@ namespace Network.Session {
             _ugsSyncInProgress = false;
             _ugsClientStartedForMatch = false;
             _ugsHostPreFadedOut = false;
+            ResetDistributedAuthorityJoinRetryState();
             if(Phase != SessionPhase.InGame) {
                 _ugsLocalReadySubmitted = false;
                 _ugsMatchLobby = null;
@@ -930,56 +1043,5 @@ namespace Network.Session {
             return Mathf.Min(HeartbeatRateLimitMaxBackoffSeconds, rawBackoff + jitter);
         }
 
-        private static bool TryPickRelayEndpoint(List<RelayServerEndpoint> endpoints, string connectionType,
-            out string host, out ushort port, out bool isSecure) {
-            host = "";
-            port = 0;
-            isSecure = false;
-
-            if(endpoints == null || endpoints.Count == 0 || string.IsNullOrEmpty(connectionType)) return false;
-
-            foreach(var ep in endpoints) {
-                if(ep.ConnectionType != connectionType) continue;
-                host = ep.Host;
-                port = (ushort)ep.Port;
-                isSecure = ep.Secure;
-                if(string.IsNullOrEmpty(host)) return false;
-                return port != 0;
-            }
-
-            return false;
-        }
-
-        private static bool TryApplyRelayToTransport(UnityTransport utp, Allocation hostAlloc, JoinAllocation clientAlloc) {
-            if(utp == null) return false;
-            const string connectionType = "dtls";
-            if(hostAlloc == null && clientAlloc == null) return false;
-            if(hostAlloc != null && clientAlloc != null) return false;
-
-            string host;
-            ushort port;
-            bool isSecure;
-
-            if(hostAlloc != null) {
-                if(!TryPickRelayEndpoint(hostAlloc.ServerEndpoints, connectionType, out host, out port, out isSecure)) {
-                    Debug.LogError("[SessionManager] Relay allocation missing a DTLS endpoint.");
-                    return false;
-                }
-
-                utp.UseWebSockets = false;
-                utp.SetRelayServerData(host, port, hostAlloc.AllocationIdBytes, hostAlloc.Key, hostAlloc.ConnectionData, null, isSecure);
-                return true;
-            }
-
-            if(!TryPickRelayEndpoint(clientAlloc.ServerEndpoints, connectionType, out host, out port, out isSecure)) {
-                Debug.LogError("[SessionManager] Relay join allocation missing a DTLS endpoint.");
-                return false;
-            }
-
-            utp.UseWebSockets = false;
-            utp.SetRelayServerData(host, port, clientAlloc.AllocationIdBytes, clientAlloc.Key, clientAlloc.ConnectionData,
-                clientAlloc.HostConnectionData, isSecure);
-            return true;
-        }
     }
 }

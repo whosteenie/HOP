@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using Game.Player;
 using Game.Player.Hopball;
+using Network.Core;
 using OSI;
 using Network.AntiCheat;
 using Network.Diagnostics;
@@ -12,7 +13,7 @@ using UnityEngine.Rendering;
 namespace Game.Hopball {
     public class HopballController : NetworkBehaviour {
     private bool EnsureServerAuthority(string action) {
-        if(IsServer) return true;
+        if(HasHopballAuthority) return true;
         AntiCheatLogger.LogAuthorityViolation($"Hopball.{action}", OwnerClientId);
         return false;
     }
@@ -67,6 +68,8 @@ namespace Game.Hopball {
     public bool IsDissolving { get; private set; }
 
     public bool IsAwaitingRespawn { get; private set; }
+    private bool HasHopballAuthority => NetworkAuthority.HasGlobalAuthority(this);
+    private bool _sessionOwnerCallbacksRegistered;
 
     /// <summary>
     /// Gets the current emission intensity from the world hopball material.
@@ -137,6 +140,8 @@ namespace Game.Hopball {
 
     public override void OnNetworkSpawn() {
         base.OnNetworkSpawn();
+        NetworkAuthority.TryConfigureSessionOwnerObject(this);
+        RegisterSessionOwnerCallbacks();
         
         // Cache NetworkTransform reference
         if(_networkTransform == null) {
@@ -178,11 +183,38 @@ namespace Game.Hopball {
         }
 
         _networkEnergy.OnValueChanged -= OnEnergyChanged;
+        UnregisterSessionOwnerCallbacks();
+    }
+
+    private void RegisterSessionOwnerCallbacks() {
+        if(_sessionOwnerCallbacksRegistered || NetworkManager == null) return;
+        NetworkManager.OnSessionOwnerPromoted += OnSessionOwnerPromoted;
+        _sessionOwnerCallbacksRegistered = true;
+    }
+
+    private void UnregisterSessionOwnerCallbacks() {
+        if(!_sessionOwnerCallbacksRegistered || NetworkManager == null) return;
+        NetworkManager.OnSessionOwnerPromoted -= OnSessionOwnerPromoted;
+        _sessionOwnerCallbacksRegistered = false;
+    }
+
+    private void OnSessionOwnerPromoted(ulong _) {
+        if(!HasHopballAuthority) {
+            return;
+        }
+
+        NetworkAuthority.TryConfigureSessionOwnerObject(this);
+        _nextDrainAt = -1f;
+
+        // Holder/controller references are local-only state. After migration, treat the ball as needing a clean respawn.
+        if(!IsAwaitingRespawn && HopballSpawnManager.Instance != null && (IsEquipped || HolderController == null && !IsDropped)) {
+            HopballSpawnManager.Instance.RespawnHopballAtNewLocation();
+        }
     }
 
     private void OnEnergyChanged(float previous, float current) {
         // Award scoring points as energy depletes (server only, while equipped)
-        if(!IsServer || !IsEquipped || !(previous > current)) return;
+        if(!HasHopballAuthority || !IsEquipped || !(previous > current)) return;
         var energyDepleted = previous - current;
         HopballSpawnManager.Instance.OnEnergyDepleted(_equippedController.OwnerClientId, energyDepleted);
     }
@@ -190,7 +222,7 @@ namespace Game.Hopball {
     private void Update() {
         if(!IsSpawned) return;
 
-        switch(IsServer) {
+        switch(HasHopballAuthority) {
             // Server handles energy drain (only while equipped, unless dissolving)
             // If dissolving, continue draining even if dropped to complete the dissolve
             case true when IsEquipped || IsDissolving: {
@@ -224,7 +256,7 @@ namespace Game.Hopball {
             // Set effects scale to 0 immediately before starting dissolve
             // This ensures effects recede into the ball surface and aren't visible during dissolve
             // Only call ClientRpc from server (ClientRpcs can only be called from server)
-            if(IsServer) {
+            if(HasHopballAuthority) {
                 SetEffectsScaleToZeroClientRpc();
             } else {
                 // On clients, set effects scale to 0 locally
@@ -473,14 +505,14 @@ namespace Game.Hopball {
 
     private void BroadcastStateUpdate(HopballStateUpdate update) {
         ApplyHopballState(update);
-        if(IsServer) {
+        if(HasHopballAuthority) {
             ApplyHopballStateClientRpc(update);
         }
     }
 
     [ClientRpc]
     private void ApplyHopballStateClientRpc(HopballStateUpdate update) {
-        if(IsServer) return; // already applied on server
+        if(HasHopballAuthority) return; // already applied on authority
         ApplyHopballState(update);
     }
 
@@ -678,7 +710,7 @@ namespace Game.Hopball {
         }
 
         // Respawn at new location (server only)
-        if(IsServer && HopballSpawnManager.Instance != null) {
+        if(HasHopballAuthority && HopballSpawnManager.Instance != null) {
             HopballSpawnManager.Instance.RespawnHopballAtNewLocation();
         }
 
@@ -723,7 +755,7 @@ namespace Game.Hopball {
     /// Called on spawn and when respawning.
     /// </summary>
     private void ResetToInitialState() {
-        if(IsServer) {
+        if(HasHopballAuthority) {
             _networkEnergy.Value = MaxEnergy;
         }
 
