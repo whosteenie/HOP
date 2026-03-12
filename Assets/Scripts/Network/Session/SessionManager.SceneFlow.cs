@@ -232,22 +232,16 @@ namespace Network.Session {
         private void OnClientDisconnected(ulong clientId) {
             if(_networkManager == null) return;
 
-            if(_networkManager.DistributedAuthorityMode && clientId != _networkManager.LocalClientId) {
+            if(clientId != _networkManager.LocalClientId) {
                 NotifyPartyStateChanged();
                 return;
             }
 
-            // We disconnected ourselves (LocalClientId), OR server/host disconnected us (ServerClientId)
-            var isLocalDisconnect = clientId == _networkManager.LocalClientId;
-            var isServerDisconnect = !_networkManager.IsServer && clientId == NetworkManager.ServerClientId;
-
-            if(isLocalDisconnect || isServerDisconnect) {
-                if(!IsExpectedDisconnect) {
-                    Debug.Log("[SessionManager] Unexpected Disconnect (Kick or Error).");
-                    TriggerUnexpectedDisconnectFlow("OnClientDisconnected");
-                } else {
-                    IsExpectedDisconnect = false;
-                }
+            if(!IsExpectedDisconnect) {
+                Debug.Log("[SessionManager] Unexpected local disconnect.");
+                TriggerUnexpectedDisconnectFlow("OnClientDisconnected");
+            } else {
+                IsExpectedDisconnect = false;
             }
 
             NotifyPartyStateChanged();
@@ -259,15 +253,14 @@ namespace Network.Session {
         /// </summary>
         private void OnClientStopped(bool _) {
             if(IsExpectedDisconnect || _isLeaving) return;
-            if(_networkManager != null && _networkManager.DistributedAuthorityMode && _networkManager.IsListening) return;
-            if(_networkManager != null && _networkManager.IsServer) return; // Only care when we're a client
+            if(_networkManager != null && _networkManager.IsListening) return;
 
-            if(_networkManager != null && _networkManager.DistributedAuthorityMode && _activeMultiplayerSession != null) {
+            if(_networkManager != null && _activeMultiplayerSession != null) {
                 LaunchSessionTask(VerifyDistributedAuthorityStopAsync(), "DistributedAuthority/VerifyClientStopped");
                 return;
             }
 
-            Debug.Log("[SessionManager] Client stopped unexpectedly (e.g. host left). Sending to main menu.");
+            Debug.Log("[SessionManager] Client stopped unexpectedly. Sending to main menu.");
             TriggerUnexpectedDisconnectFlow("OnClientStopped");
         }
 
