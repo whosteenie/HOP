@@ -203,7 +203,7 @@ namespace Game.Weapons {
 
             var multiplier = 1f;
             if(CurrentWeapon != null && CurrentWeaponIndex == weaponIndex) {
-                multiplier = Mathf.Clamp(CurrentWeapon.CurrentDamageMultiplier, 1f, Weapon.MaxDamageMultiplier);
+                multiplier = CurrentWeapon.GetAuthoritativeDamageMultiplier();
             }
 
             damage = Mathf.Min(baseDamage * multiplier, data.damageCap);

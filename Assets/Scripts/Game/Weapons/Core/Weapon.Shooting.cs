@@ -343,55 +343,45 @@ namespace Game.Weapons {
             if(!IsOwner) return;
             if(!CurrentWeaponData) return;
 
-            // Check if player is dead - if so, only allow decay, not gain
             var isDead = playerController != null && playerController.IsDead;
+            var currentSpeed = playerController != null ? playerController.GetFullVelocity.magnitude : 0f;
+            CurrentDamageMultiplier = AdvanceDamageMultiplier(CurrentDamageMultiplier, ref _peakDamageMultiplier,
+                ref _lastPeakTime, currentSpeed, isDead);
+        }
 
-            // If player is dead, force decay as if they stopped moving (target = 1f)
+        private float AdvanceDamageMultiplier(float currentMultiplier, ref float peakMultiplier, ref float lastPeakTime,
+            float currentSpeed, bool isDead) {
             if(isDead) {
-                // Decay towards 1f (as if player stopped moving), ignoring current speed
-                CurrentDamageMultiplier = Mathf.MoveTowards(CurrentDamageMultiplier, 1f,
-                    MultiplierDecayRate * Time.deltaTime);
-                // Reset peak to current so grace period doesn't hold it
-                _peakDamageMultiplier = CurrentDamageMultiplier;
-                // Reset grace period timer so it doesn't hold at peak
-                _lastPeakTime = 0f;
-                CurrentDamageMultiplier =
-                    Mathf.Clamp(CurrentDamageMultiplier, 1f, MaxDamageMultiplier);
-                return;
+                currentMultiplier = Mathf.MoveTowards(currentMultiplier, 1f, MultiplierDecayRate * Time.deltaTime);
+                peakMultiplier = currentMultiplier;
+                lastPeakTime = 0f;
+                return Mathf.Clamp(currentMultiplier, 1f, MaxDamageMultiplier);
             }
 
-            if(playerController != null) {
-                var currentSpeed = playerController.GetFullVelocity.magnitude;
-                float targetMultiplier;
+            var targetMultiplier = CalculateTargetDamageMultiplier(currentSpeed);
 
-                // Calculate target multiplier based on current velocity
-                if(currentSpeed < MinSpeedThreshold) {
-                    targetMultiplier = 1f;
-                } else {
-                    var scaleFactor = Mathf.InverseLerp(MinSpeedThreshold, MaxSpeedThreshold, currentSpeed);
-                    targetMultiplier = Mathf.Lerp(1f, MaxDamageMultiplier, scaleFactor);
-                }
-
-                // If target is higher than current, jump to it immediately and start grace period
-                if(targetMultiplier >= CurrentDamageMultiplier) {
-                    CurrentDamageMultiplier = Mathf.Lerp(CurrentDamageMultiplier, targetMultiplier,
-                        MultiplierGainRate * Time.deltaTime);
-                    _peakDamageMultiplier = CurrentDamageMultiplier;
-                    _lastPeakTime = Time.time;
-                }
-                // During grace period, hold at peak
-                else if(Time.time - _lastPeakTime < MultiplierGracePeriod) {
-                    CurrentDamageMultiplier = _peakDamageMultiplier;
-                }
-                // After grace period, decay
-                else {
-                    CurrentDamageMultiplier = Mathf.MoveTowards(CurrentDamageMultiplier, targetMultiplier,
-                        MultiplierDecayRate * Time.deltaTime);
-                    _peakDamageMultiplier = CurrentDamageMultiplier;
-                }
+            if(targetMultiplier >= currentMultiplier) {
+                currentMultiplier = Mathf.Lerp(currentMultiplier, targetMultiplier, MultiplierGainRate * Time.deltaTime);
+                peakMultiplier = currentMultiplier;
+                lastPeakTime = Time.time;
+            } else if(Time.time - lastPeakTime < MultiplierGracePeriod) {
+                currentMultiplier = peakMultiplier;
+            } else {
+                currentMultiplier =
+                    Mathf.MoveTowards(currentMultiplier, targetMultiplier, MultiplierDecayRate * Time.deltaTime);
+                peakMultiplier = currentMultiplier;
             }
 
-            CurrentDamageMultiplier = Mathf.Clamp(CurrentDamageMultiplier, 1f, MaxDamageMultiplier);
+            return Mathf.Clamp(currentMultiplier, 1f, MaxDamageMultiplier);
+        }
+
+        private static float CalculateTargetDamageMultiplier(float currentSpeed) {
+            if(currentSpeed < MinSpeedThreshold) {
+                return 1f;
+            }
+
+            var scaleFactor = Mathf.InverseLerp(MinSpeedThreshold, MaxSpeedThreshold, currentSpeed);
+            return Mathf.Lerp(1f, MaxDamageMultiplier, scaleFactor);
         }
 
 #if UNITY_EDITOR
