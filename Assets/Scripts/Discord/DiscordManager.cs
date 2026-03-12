@@ -10,7 +10,6 @@ namespace Discord {
 
         private Client _discord;
         private const long AppId = 1467433546963619916;
-        private const double SteamTicketTimeoutSeconds = 10.0;
         private const string DiscordSteamWebIdentity = "discord";
         private bool _isReady;
         private bool _hasPendingPresence;
@@ -37,10 +36,10 @@ namespace Discord {
                 _discord.SetStatusChangedCallback(OnDiscordStatusChanged);
                 _discord.SetApplicationId(AppId);
 
-                bool registeredLaunchCommand = _discord.RegisterLaunchCommand(AppId, string.Empty);
-                bool registeredSteamLaunch = false;
+                var registeredLaunchCommand = _discord.RegisterLaunchCommand(AppId, string.Empty);
+                var registeredSteamLaunch = false;
                 if (SteamClient.IsValid && SteamClient.IsLoggedOn) {
-                    registeredSteamLaunch = _discord.RegisterLaunchSteamApplication((ulong)AppId, (uint)SteamClient.AppId);
+                    registeredSteamLaunch = _discord.RegisterLaunchSteamApplication(AppId, SteamClient.AppId);
                 }
 
                 var initialStatus = _discord.GetStatus();
@@ -116,7 +115,7 @@ namespace Discord {
             _discord.UpdateRichPresence(activity, OnRichPresenceUpdated);
         }
 
-        private void OnDiscordLog(string message, LoggingSeverity severity) {
+        private static void OnDiscordLog(string message, LoggingSeverity severity) {
             if (severity >= LoggingSeverity.Error) {
                 Debug.LogWarning($"[DiscordManager] SDK {severity}: {message}");
             }
@@ -135,13 +134,13 @@ namespace Discord {
                     return;
                 }
 
-                var steamTicket = await SteamUser.GetAuthTicketForWebApiAsync(DiscordSteamWebIdentity, SteamTicketTimeoutSeconds);
-                if (steamTicket == null || steamTicket.Data == null || steamTicket.Data.Length == 0) {
+                var steamTicket = await SteamUser.GetAuthTicketForWebApiAsync(DiscordSteamWebIdentity);
+                if (steamTicket?.Data == null || steamTicket.Data.Length == 0) {
                     Debug.LogWarning("[DiscordManager] Failed to get Steam web auth ticket for Discord auth.");
                     return;
                 }
 
-                string externalAuthToken = ToHexString(steamTicket.Data);
+                var externalAuthToken = ToHexString(steamTicket.Data);
                 steamTicket.Cancel();
 
                 if (string.IsNullOrEmpty(externalAuthToken)) {
@@ -150,7 +149,7 @@ namespace Discord {
                 }
 
                 _discord.GetProvisionalToken(
-                    (ulong)AppId,
+                    AppId,
                     AuthenticationExternalAuthType.SteamSessionTicket,
                     externalAuthToken,
                     OnProvisionalTokenReceived);
@@ -223,7 +222,7 @@ namespace Discord {
             }
         }
 
-        private void OnRichPresenceUpdated(ClientResult res) {
+        private static void OnRichPresenceUpdated(ClientResult res) {
             if (res.Successful()) {
                 return;
             }
@@ -234,7 +233,7 @@ namespace Discord {
                 $"RetryAfter={res.RetryAfter()} Response={res.ResponseBody()}");
         }
 
-        private void OnProvisionalDisplayNameUpdated(ClientResult result) {
+        private static void OnProvisionalDisplayNameUpdated(ClientResult result) {
             if (result.Successful()) {
                 return;
             }
@@ -253,8 +252,8 @@ namespace Discord {
             var chars = new char[bytes.Length * 2];
             const string hex = "0123456789ABCDEF";
 
-            for (int i = 0; i < bytes.Length; i++) {
-                byte value = bytes[i];
+            for (var i = 0; i < bytes.Length; i++) {
+                var value = bytes[i];
                 chars[i * 2] = hex[value >> 4];
                 chars[i * 2 + 1] = hex[value & 0x0F];
             }
