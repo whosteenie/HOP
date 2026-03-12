@@ -177,7 +177,7 @@ namespace Game.Player {
         /// Updates the player's health regeneration state based on time since last damage.
         /// </summary>
         public void UpdateHealthRegeneration() {
-            if(!IsOwner) return;
+            if(!HasCombatAuthority) return;
             if(netIsDead == null || netHealth == null) return;
 
             if(netIsDead.Value || netHealth.Value >= MaxHealth) {
@@ -192,8 +192,8 @@ namespace Game.Player {
                     _isRegenerating = true;
                 }
 
-                var preRegen = netHealth.Value;
                 netHealth.Value = Mathf.Min(MaxHealth, netHealth.Value + RegenRate * Time.deltaTime);
+                CommitAuthoritativeHealthShadow(netHealth.Value, false);
             } else {
                 _isRegenerating = false;
             }
@@ -218,8 +218,8 @@ namespace Game.Player {
                 }
 
                 var healthBefore = ResolveAuthoritativeCurrentHealth();
-                ApplyHealthStateOwnerRpc(0f, true, incrementDeaths: true, hitPoint, hitDirection, bodyPartTag,
-                    attackerId, null);
+                ApplyHealthStateAuthority(0f, true, incrementDeaths: true);
+                UpdateTransientHealthState(hitPoint, hitDirection, bodyPartTag, true);
                 CommitAuthoritativeHealthShadow(0f, true);
                 _deathStatePending = true;
                 StartRespawnTimeoutProbe();
@@ -236,12 +236,6 @@ namespace Game.Player {
                     ("mode", activeMode),
                     ("position", _playerTransform != null ? _playerTransform.position : transform.position));
                 
-                _lastHitPoint = hitPoint;
-                _lastHitDirection = hitDirection;
-                _lastDamageTime = Time.time;
-                _isRegenerating = false;
-                _lastBodyPartTag = bodyPartTag;
-
                 TryForceHopballDrop("OutOfBoundsDeath");
 
                 var victimName = "Player";
@@ -301,8 +295,8 @@ namespace Game.Player {
                 var actualDealt = pre - newHp;
                 var isLethalHit = newHp <= 0f;
 
-                ApplyHealthStateOwnerRpc(newHp, isLethalHit, incrementDeaths: isLethalHit, hitPoint, hitDirection,
-                    bodyPartTag, attackerId, weaponId);
+                ApplyHealthStateAuthority(newHp, isLethalHit, incrementDeaths: isLethalHit);
+                UpdateTransientHealthState(hitPoint, hitDirection, bodyPartTag, isLethalHit);
                 CommitAuthoritativeHealthShadow(newHp, isLethalHit);
 
                 if(playerController != null) {
@@ -314,7 +308,7 @@ namespace Game.Player {
                     var attacker = attackerClient.PlayerObject.GetComponent<PlayerController>();
                     if(attacker != null && attacker.damageDealt != null &&
                        attacker.TryGetComponent<PlayerHealthController>(out var attackerHealthController)) {
-                        attackerHealthController.AddDamageDealtOwnerRpc(actualDealt);
+                        attackerHealthController.AddDamageDealtAuthority(actualDealt);
                     }
                 }
 
@@ -348,7 +342,7 @@ namespace Game.Player {
                     var killer = killerClient.PlayerObject.GetComponent<PlayerController>();
                     if(killer != null) {
                         if(killer.TryGetComponent<PlayerHealthController>(out var killerHealthController)) {
-                            killerHealthController.AddKillOwnerRpc();
+                            killerHealthController.AddKillAuthority();
                         }
                         AwardAssists(attackerId);
                         var killerName = killer.playerName != null ? killer.playerName.Value.ToString() : "Player";
@@ -649,7 +643,7 @@ namespace Game.Player {
             }
             _deathStatePending = false;
             CommitAuthoritativeHealthShadow(MaxHealth, false);
-            ResetHealthAndRegenerationStateOwnerRpc();
+            ResetHealthAndRegenerationState();
             StopRespawnTimeoutProbe();
             var isDeadNow = netIsDead is { Value: true };
             var isRagdolledNow = _playerRagdoll != null && _playerRagdoll.IsRagdoll;
@@ -868,15 +862,10 @@ namespace Game.Player {
         /// Resets the player's health and regeneration state.
         /// </summary>
         public void ResetHealthAndRegenerationState() {
-            if(!IsOwner) return;
+            if(!HasCombatAuthority) return;
 
-            if(netIsDead != null) {
-                netIsDead.Value = false;
-            }
-
-            if(netHealth != null) {
-                netHealth.Value = 100f;
-            }
+            ApplyHealthStateAuthority(MaxHealth, isDead: false, incrementDeaths: false);
+            CommitAuthoritativeHealthShadow(MaxHealth, false);
 
             _lastDamageTime = Time.time - RegenDelay;
             _isRegenerating = false;
@@ -888,9 +877,7 @@ namespace Game.Player {
             }
         }
 
-        [Rpc(SendTo.Owner)]
-        private void ApplyHealthStateOwnerRpc(float healthValue, bool isDead, bool incrementDeaths, Vector3 hitPoint,
-            Vector3 hitDirection, string bodyPartTag, ulong attackerId, string weaponId) {
+        private void ApplyHealthStateAuthority(float healthValue, bool isDead, bool incrementDeaths) {
             if(netHealth != null) {
                 netHealth.Value = Mathf.Clamp(healthValue, 0f, MaxHealth);
             }
@@ -902,7 +889,10 @@ namespace Game.Player {
             if(incrementDeaths && deaths != null) {
                 deaths.Value++;
             }
+        }
 
+        private void UpdateTransientHealthState(Vector3 hitPoint, Vector3 hitDirection, string bodyPartTag,
+            bool isDead) {
             _lastHitPoint = hitPoint;
             _lastHitDirection = hitDirection;
             _lastDamageTime = Time.time;
@@ -911,25 +901,20 @@ namespace Game.Player {
             _deathStatePending = isDead;
         }
 
-        [Rpc(SendTo.Owner)]
-        private void ResetHealthAndRegenerationStateOwnerRpc() {
-            ResetHealthAndRegenerationState();
-        }
-
-        [Rpc(SendTo.Owner)]
-        private void AddDamageDealtOwnerRpc(float delta) {
+        private void AddDamageDealtAuthority(float delta) {
+            if(!HasCombatAuthority) return;
             if(delta <= 0f || playerController == null || playerController.DamageDealt == null) return;
             playerController.DamageDealt.Value += delta;
         }
 
-        [Rpc(SendTo.Owner)]
-        private void AddKillOwnerRpc() {
+        private void AddKillAuthority() {
+            if(!HasCombatAuthority) return;
             if(playerController == null || playerController.Kills == null) return;
             playerController.Kills.Value++;
         }
 
-        [Rpc(SendTo.Owner)]
-        private void AddAssistOwnerRpc() {
+        private void AddAssistAuthority() {
+            if(!HasCombatAuthority) return;
             if(playerController == null || playerController.Assists == null) return;
             playerController.Assists.Value++;
         }
@@ -995,7 +980,7 @@ namespace Game.Player {
                 var controller = client.PlayerObject.GetComponent<PlayerController>();
                 if(controller == null || controller.Assists == null) continue;
                 if(controller.TryGetComponent<PlayerHealthController>(out var assistHealthController)) {
-                    assistHealthController.AddAssistOwnerRpc();
+                    assistHealthController.AddAssistAuthority();
                 }
             }
 

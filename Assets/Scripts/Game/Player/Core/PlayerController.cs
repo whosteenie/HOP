@@ -202,23 +202,23 @@ namespace Game.Player {
 
         public NetworkVariable<float> netHealth = new(100f,
             NetworkVariableReadPermission.Everyone,
-            NetworkVariableWritePermission.Owner);
+            NetworkVariableWritePermission.Server);
         public NetworkVariable<bool> netIsDead = new(false,
             NetworkVariableReadPermission.Everyone,
-            NetworkVariableWritePermission.Owner);
+            NetworkVariableWritePermission.Server);
         public NetworkVariable<int> kills = new(0,
             NetworkVariableReadPermission.Everyone,
-            NetworkVariableWritePermission.Owner);
+            NetworkVariableWritePermission.Server);
         public NetworkVariable<int> deaths = new(0,
             NetworkVariableReadPermission.Everyone,
-            NetworkVariableWritePermission.Owner);
+            NetworkVariableWritePermission.Server);
         public NetworkVariable<int> assists = new(0,
             NetworkVariableReadPermission.Everyone,
-            NetworkVariableWritePermission.Owner);
+            NetworkVariableWritePermission.Server);
 
         public NetworkVariable<float> damageDealt = new(0f,
             NetworkVariableReadPermission.Everyone,
-            NetworkVariableWritePermission.Owner);
+            NetworkVariableWritePermission.Server);
 
         public NetworkVariable<int> playerMaterialIndex = new(0,
             NetworkVariableReadPermission.Everyone,
@@ -823,10 +823,13 @@ namespace Game.Player {
                 HandleOutOfBoundsChecks(authPos);
             }
 
-            if(IsOwner) {
+            if(NetworkAuthority.HasGlobalAuthority(this)) {
                 if(healthController != null) {
                     healthController.UpdateHealthRegeneration();
                 }
+            }
+
+            if(IsOwner) {
                 UpdateTriggerOutOfBoundsCountdownUiOwner();
             }
 
