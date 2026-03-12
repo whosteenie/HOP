@@ -51,6 +51,7 @@ namespace Game.Player {
         private const float RegenDelay = 10f;
         private const float RegenRate = 10f;
         private const float MaxHealth = 100f;
+        private const float AuthoritativeHealthShadowWindowSeconds = 0.25f;
         private const float OutOfBoundsKillYDefault = 600f;
         private const float OutOfBoundsRespawnYBuffer = 20f;
         private const int GunTagOobNonTaggedPenaltySeconds = 25;
@@ -62,6 +63,10 @@ namespace Game.Player {
         private string _lastBodyPartTag;
         private bool _isRegenerating;
         private bool _deathStatePending;
+        private bool _hasAuthoritativeHealthShadow;
+        private float _authoritativeHealthShadow;
+        private bool _authoritativeDeadShadow;
+        private float _authoritativeHealthShadowValidUntil;
         private Coroutine _respawnFadeCoroutine;
         private Coroutine _respawnTimeoutProbeCoroutine;
 
@@ -129,6 +134,43 @@ namespace Game.Player {
             netHealth = playerController.NetHealth;
             netIsDead = playerController.NetIsDead;
             deaths = playerController.Deaths;
+            SyncAuthoritativeHealthShadowFromReplicated();
+        }
+
+        private void SyncAuthoritativeHealthShadowFromReplicated() {
+            if(netHealth == null || netIsDead == null) {
+                return;
+            }
+
+            _authoritativeHealthShadow = Mathf.Clamp(netHealth.Value, 0f, MaxHealth);
+            _authoritativeDeadShadow = netIsDead.Value;
+            _hasAuthoritativeHealthShadow = true;
+            _authoritativeHealthShadowValidUntil = Time.time;
+        }
+
+        private void CommitAuthoritativeHealthShadow(float healthValue, bool isDead) {
+            _authoritativeHealthShadow = Mathf.Clamp(healthValue, 0f, MaxHealth);
+            _authoritativeDeadShadow = isDead;
+            _hasAuthoritativeHealthShadow = true;
+            _authoritativeHealthShadowValidUntil = Time.time + AuthoritativeHealthShadowWindowSeconds;
+        }
+
+        private float ResolveAuthoritativeCurrentHealth() {
+            if(!_hasAuthoritativeHealthShadow || Time.time > _authoritativeHealthShadowValidUntil) {
+                SyncAuthoritativeHealthShadowFromReplicated();
+            }
+
+            return _hasAuthoritativeHealthShadow
+                ? _authoritativeHealthShadow
+                : Mathf.Clamp(netHealth != null ? netHealth.Value : MaxHealth, 0f, MaxHealth);
+        }
+
+        private bool ResolveAuthoritativeIsDead() {
+            if(_hasAuthoritativeHealthShadow && _authoritativeDeadShadow) {
+                return true;
+            }
+
+            return netIsDead is { Value: true };
         }
 
         /// <summary>
@@ -150,6 +192,7 @@ namespace Game.Player {
                     _isRegenerating = true;
                 }
 
+                var preRegen = netHealth.Value;
                 netHealth.Value = Mathf.Min(MaxHealth, netHealth.Value + RegenRate * Time.deltaTime);
             } else {
                 _isRegenerating = false;
@@ -161,7 +204,8 @@ namespace Game.Player {
         /// </summary>
         public bool ApplyDamageServer_Auth(float amount, Vector3 hitPoint, Vector3 hitDirection, ulong attackerId,
             string bodyPartTag = null, bool isHeadshot = false, string weaponId = null) {
-            if(!HasCombatAuthority || netIsDead == null || netIsDead.Value || _deathStatePending) return false;
+            if(!HasCombatAuthority || netIsDead == null || _deathStatePending) return false;
+            if(ResolveAuthoritativeIsDead()) return false;
             var activeMode = MatchSettingsManager.Instance != null
                 ? MatchSettingsManager.Instance.selectedGameModeId
                 : "Unknown";
@@ -173,8 +217,10 @@ namespace Game.Player {
                     _tagController.ApplyTimeTaggedDeltaOwnerRpc(GunTagOobNonTaggedPenaltySeconds);
                 }
 
-                var healthBefore = netHealth.Value;
-                ApplyHealthStateOwnerRpc(0f, true, incrementDeaths: true, hitPoint, hitDirection, bodyPartTag);
+                var healthBefore = ResolveAuthoritativeCurrentHealth();
+                ApplyHealthStateOwnerRpc(0f, true, incrementDeaths: true, hitPoint, hitDirection, bodyPartTag,
+                    attackerId, null);
+                CommitAuthoritativeHealthShadow(0f, true);
                 _deathStatePending = true;
                 StartRespawnTimeoutProbe();
                 FlowLog.Emit(FlowEventIds.PlayerLethal,
@@ -250,13 +296,14 @@ namespace Game.Player {
                 // No kill in tag mode (except OOB)
             } else {
                 // Normal damage mode
-                var pre = netHealth.Value;
+                var pre = ResolveAuthoritativeCurrentHealth();
                 var newHp = Mathf.Max(0f, pre - amount);
                 var actualDealt = pre - newHp;
                 var isLethalHit = newHp <= 0f;
 
                 ApplyHealthStateOwnerRpc(newHp, isLethalHit, incrementDeaths: isLethalHit, hitPoint, hitDirection,
-                    bodyPartTag);
+                    bodyPartTag, attackerId, weaponId);
+                CommitAuthoritativeHealthShadow(newHp, isLethalHit);
 
                 if(playerController != null) {
                     playerController.PlayHitEffectsClientRpc(hitPoint, amount);
@@ -601,6 +648,7 @@ namespace Game.Player {
                 playerController.SetOutOfBoundsGraceWindow(outOfBoundsGraceAfterRespawnSeconds);
             }
             _deathStatePending = false;
+            CommitAuthoritativeHealthShadow(MaxHealth, false);
             ResetHealthAndRegenerationStateOwnerRpc();
             StopRespawnTimeoutProbe();
             var isDeadNow = netIsDead is { Value: true };
@@ -842,7 +890,7 @@ namespace Game.Player {
 
         [Rpc(SendTo.Owner)]
         private void ApplyHealthStateOwnerRpc(float healthValue, bool isDead, bool incrementDeaths, Vector3 hitPoint,
-            Vector3 hitDirection, string bodyPartTag) {
+            Vector3 hitDirection, string bodyPartTag, ulong attackerId, string weaponId) {
             if(netHealth != null) {
                 netHealth.Value = Mathf.Clamp(healthValue, 0f, MaxHealth);
             }

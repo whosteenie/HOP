@@ -1,9 +1,9 @@
 using Game.Match;
 using Game.Player;
 using Game.Progression;
-using Network.Core;
 using Unity.Netcode;
 using UnityEngine;
+using Random = UnityEngine.Random;
 
 namespace Game.Weapons {
     public partial class Weapon {

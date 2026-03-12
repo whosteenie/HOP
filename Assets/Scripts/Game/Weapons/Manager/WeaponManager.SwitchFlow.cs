@@ -426,6 +426,29 @@ namespace Game.Weapons {
             EnsureHierarchyActive(CurrentWorldWeaponInstance);
         }
 
+        private void SyncCurrentWeaponPresentationToResolvedWorldWeapon(GameObject worldWeaponInstance) {
+            if(CurrentWeapon == null) return;
+            if(CurrentWeaponIndex < 0 || CurrentWeaponIndex >= weaponDataList.Count) return;
+
+            var data = weaponDataList[CurrentWeaponIndex];
+            if(data == null) return;
+
+            GameObject fpWeapon = null;
+            if(CurrentWeaponIndex >= 0 && CurrentWeaponIndex < _fpWeaponInstances.Count) {
+                fpWeapon = _fpWeaponInstances[CurrentWeaponIndex];
+            }
+
+            var magCapacity = ResolveWeaponCapacity(data);
+            if(magCapacity <= 0) return;
+
+            var restoredAmmo = Mathf.Clamp(CurrentWeapon.currentAmmo, 0, magCapacity);
+            if(restoredAmmo == 0 && CurrentWeapon.CurrentWeaponData != data) {
+                restoredAmmo = ResolveRestoredAmmo(CurrentWeaponIndex, magCapacity, seedWhenMissing: false);
+            }
+
+            CurrentWeapon.SwitchToWeapon(data, fpWeapon, worldWeaponInstance, restoredAmmo, magCapacity);
+        }
+
         private void ReconcileStableTpWeaponState() {
             if(_deferTpRevealUntilRespawn || IsPullingOut) return;
             if(playerController == null) return;
@@ -437,6 +460,7 @@ namespace Game.Weapons {
             var expectedWeapon = ResolveWorldWeaponObject(weaponDataList[CurrentWeaponIndex]);
             if(expectedWeapon == null) return;
 
+            var repairedPresentationState = CurrentWorldWeaponInstance != expectedWeapon;
             if(CurrentWorldWeaponInstance != null && CurrentWorldWeaponInstance != expectedWeapon) {
                 CurrentWorldWeaponInstance.SetActive(false);
             }
@@ -444,6 +468,22 @@ namespace Game.Weapons {
             CurrentWorldWeaponInstance = expectedWeapon;
             if(!CurrentWorldWeaponInstance.activeSelf) {
                 CurrentWorldWeaponInstance.SetActive(true);
+                repairedPresentationState = true;
+            }
+
+            if(_pendingTpWeapon != null || _pendingHolsterHideSlot != -1) {
+                repairedPresentationState = true;
+            }
+
+            if(CurrentWeapon != null && CurrentWeapon.CurrentWeaponData != weaponDataList[CurrentWeaponIndex]) {
+                repairedPresentationState = true;
+            }
+
+            _pendingTpWeapon = null;
+            _pendingHolsterHideSlot = -1;
+
+            if(repairedPresentationState) {
+                SyncCurrentWeaponPresentationToResolvedWorldWeapon(CurrentWorldWeaponInstance);
             }
 
             EnsureWeaponHierarchyActive();

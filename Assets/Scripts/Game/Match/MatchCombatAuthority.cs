@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Game.Player;
 using Game.Weapons;
 using Network.AntiCheat;
@@ -11,6 +12,7 @@ namespace Game.Match {
         public static MatchCombatAuthority Instance { get; private set; }
 
         private bool _sessionOwnerCallbacksRegistered;
+        private readonly Dictionary<ulong, ulong> _lastDamageQuotaShotIdByShooter = new();
 
         private void Awake() {
             if(Instance != null && Instance != this) {
@@ -69,7 +71,16 @@ namespace Game.Match {
             }
 
             var config = AntiCheatConfig.Instance;
-            if(config != null) {
+            var shouldConsumeDamageQuota = shotId == 0;
+            if(shotId != 0) {
+                if(!_lastDamageQuotaShotIdByShooter.TryGetValue(shooterId, out var lastQuotaShotId) ||
+                   lastQuotaShotId != shotId) {
+                    _lastDamageQuotaShotIdByShooter[shooterId] = shotId;
+                    shouldConsumeDamageQuota = true;
+                }
+            }
+
+            if(config != null && shouldConsumeDamageQuota) {
                 if(!RpcRateLimiter.TryConsume(shooterId, RpcRateLimiter.Keys.Damage, config.damageRpcLimit,
                         config.rpcWindowSeconds)) {
                     AntiCheatLogger.LogRateLimit(shooterId, RpcRateLimiter.Keys.Damage);
@@ -190,6 +201,87 @@ namespace Game.Match {
 
             fxRelay.QueueRemoteShotFx(endPoint, hitNormal, madeImpact, hitPlayer, hitPlayerRef, playMuzzleFlash,
                 shooterVelocity);
+        }
+
+        [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
+        public void RequestShotReportAuthorityServerRpc(NetworkObjectReference playerRef, int weaponIndex, ulong shotId,
+            float clientShotTime, RpcParams rpcParams = default) {
+            if(!NetworkAuthority.HasGlobalAuthority(this)) {
+                return;
+            }
+
+            var senderClientId = rpcParams.Receive.SenderClientId;
+            if(!playerRef.TryGet(out var playerObject) || playerObject == null) {
+                return;
+            }
+
+            var player = playerObject.GetComponent<PlayerController>();
+            var weaponManager = player != null ? player.WeaponManager : null;
+            if(player == null || weaponManager == null) {
+                return;
+            }
+
+            if(player.OwnerClientId != senderClientId) {
+                AntiCheatLogger.LogAuthorityViolation("MatchCombatAuthority.RequestShotReportAuthorityServerRpc",
+                    senderClientId);
+                return;
+            }
+
+            weaponManager.RegisterServerShotAndLogOnAuthority(weaponIndex, shotId, clientShotTime);
+        }
+
+        [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
+        public void RequestWeaponStateSyncAuthorityServerRpc(NetworkObjectReference playerRef, int weaponIndex,
+            WeaponManager.AmmoSyncReason reason, int localAmmoAfterEvent, RpcParams rpcParams = default) {
+            if(!NetworkAuthority.HasGlobalAuthority(this)) {
+                return;
+            }
+
+            var senderClientId = rpcParams.Receive.SenderClientId;
+            if(!playerRef.TryGet(out var playerObject) || playerObject == null) {
+                return;
+            }
+
+            var player = playerObject.GetComponent<PlayerController>();
+            var weaponManager = player != null ? player.WeaponManager : null;
+            if(player == null || weaponManager == null) {
+                return;
+            }
+
+            if(player.OwnerClientId != senderClientId) {
+                AntiCheatLogger.LogAuthorityViolation("MatchCombatAuthority.RequestWeaponStateSyncAuthorityServerRpc",
+                    senderClientId);
+                return;
+            }
+
+            weaponManager.UpdateServerWeaponStateOnAuthority(weaponIndex, reason, localAmmoAfterEvent);
+        }
+
+        [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
+        public void RequestResetWeaponAmmoAuthorityServerRpc(NetworkObjectReference playerRef,
+            RpcParams rpcParams = default) {
+            if(!NetworkAuthority.HasGlobalAuthority(this)) {
+                return;
+            }
+
+            var senderClientId = rpcParams.Receive.SenderClientId;
+            if(!playerRef.TryGet(out var playerObject) || playerObject == null) {
+                return;
+            }
+
+            var player = playerObject.GetComponent<PlayerController>();
+            var weaponManager = player != null ? player.WeaponManager : null;
+            if(player == null || weaponManager == null) {
+                return;
+            }
+
+            if(player.OwnerClientId != senderClientId) {
+                AntiCheatLogger.LogAuthorityViolation("MatchCombatAuthority.RequestResetWeaponAmmoAuthorityServerRpc",
+                    senderClientId);
+                return;
+            }
+
+            weaponManager.ResetAllWeaponAmmoOnAuthority();
         }
 
         [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
