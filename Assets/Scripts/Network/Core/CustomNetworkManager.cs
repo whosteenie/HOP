@@ -406,9 +406,9 @@ namespace Network {
                 // 8. Re-enable CharacterController next frame
                 StartCoroutine(EnableCcNextFrame(cc));
 
-                var controller = instance.GetComponent<PlayerController>();
-                if(controller != null) {
-                    StartCoroutine(CaptureSpawnedPlayerMetadata(clientId, controller));
+                var spawnedController = instance.GetComponent<PlayerController>();
+                if(spawnedController != null) {
+                    StartCoroutine(CaptureSpawnedPlayerMetadata(clientId, spawnedController));
                 }
 
                 return;
