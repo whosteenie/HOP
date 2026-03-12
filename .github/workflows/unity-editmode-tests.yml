@@ -14,7 +14,7 @@ permissions:
 
 jobs:
   detect-open-pr:
-    name: Detect Open PR For Feature Branch Push
+    name: Check Open PR For Feature Push
     if: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/heads/feature/') }}
     runs-on: ubuntu-latest
     outputs:
@@ -41,9 +41,9 @@ jobs:
             core.info(`Branch ${branch} has open PR: ${hasOpenPr}`);
 
   unity-tests:
-    name: Run ${{ matrix.testMode }} Tests
+    name: Unity Tests (${{ matrix.testMode }})
     needs: detect-open-pr
-    if: ${{ github.event_name != 'push' || !startsWith(github.ref, 'refs/heads/feature/') || needs.detect-open-pr.outputs.has_open_pr != 'true' }}
+    if: ${{ always() && (github.event_name == 'pull_request' || github.event_name != 'push' || !startsWith(github.ref, 'refs/heads/feature/') || needs.detect-open-pr.outputs.has_open_pr != 'true') }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
