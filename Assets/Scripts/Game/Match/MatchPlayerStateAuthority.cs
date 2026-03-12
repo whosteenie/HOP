@@ -65,9 +65,9 @@ namespace Game.Match {
 
             var instance = Instantiate(playerStatePrefab);
             instance.name = $"PlayerState_{playerClientId}";
-            instance.InitializeForPlayer(playerClientId);
             instance.NetworkObject.Spawn();
             NetworkAuthority.TryConfigureSessionOwnerObject(instance);
+            instance.InitializeForPlayer(playerClientId);
             EnsureVisibleToAllClients(instance.NetworkObject);
             return instance;
         }

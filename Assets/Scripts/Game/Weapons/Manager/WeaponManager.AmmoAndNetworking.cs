@@ -149,7 +149,7 @@ namespace Game.Weapons {
 
         public string GetCombatAuthorityDebugSummary(int requestedWeaponIndex = -1) {
             var authoritativeWeaponIndex = GetServerAuthoritativeWeaponIndex();
-            var equippedNetIndex = _netEquippedWeaponIndex.Value;
+            var equippedNetIndex = ReplicatedEquippedWeaponIndex.Value;
             var serverAmmo = requestedWeaponIndex >= 0
                 ? _ammoAuthority.GetServerAmmo(requestedWeaponIndex, GetWeaponDataByIndex, ResolveWeaponCapacity)
                 : -1;

@@ -49,6 +49,10 @@ namespace Game.Match {
             NetworkVariableReadPermission.Everyone,
             NetworkVariableWritePermission.Server);
 
+        public NetworkVariable<int> equippedWeaponIndex = new(-1,
+            NetworkVariableReadPermission.Everyone,
+            NetworkVariableWritePermission.Server);
+
         public NetworkVariable<int> tags = new(0,
             NetworkVariableReadPermission.Everyone,
             NetworkVariableWritePermission.Server);
@@ -78,6 +82,7 @@ namespace Game.Match {
             deaths.Value = 0;
             assists.Value = 0;
             damageDealt.Value = 0f;
+            equippedWeaponIndex.Value = -1;
             tags.Value = 0;
             tagged.Value = 0;
             timeTagged.Value = 0;

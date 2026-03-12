@@ -884,9 +884,6 @@ namespace Game.Player {
                 var authPos = clientNetworkTransform.transform.position;
                 ValidateServerMovement(authPos);
                 HandleOutOfBoundsChecks(authPos);
-            }
-
-            if(IsOwner) {
                 if(healthController != null) {
                     healthController.UpdateHealthRegeneration();
                 }

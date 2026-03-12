@@ -85,7 +85,10 @@ namespace Game.Weapons {
         public void SwitchWeapon(int newIndex) {
             if(newIndex < 0 || newIndex >= weaponDataList.Count)
                 return;
-            var isPostMatch = GameMenuManager.Instance != null && GameMenuManager.Instance.IsPostMatch;
+
+            if(IsOwner && _pendingPredictedWeaponIndex >= 0 && _pendingPredictedWeaponIndex != newIndex) {
+                return;
+            }
 
             // Check if holding hopball - if so, allow switching even to same weapon
             // Also check if restoring after dissolve to allow switch
@@ -112,109 +115,28 @@ namespace Game.Weapons {
             if(newIndex == CurrentWeaponIndex && !isHoldingHopball && !isRestoringAfterDissolve)
                 return;
 
-            if(!TryValidateSwitchTargetStrict(newIndex, out var data, out var magCapacity)) {
+            if(!TryValidateSwitchTargetStrict(newIndex, out _, out _)) {
                 return;
-            }
-
-            if(IsOwner) {
-                if(Audio2.AudioService.Instance != null) {
-                    Audio2.AudioService.Instance.Play("ui.weapon.switch", Vector3.zero);
-                }
-            }
-
-            if(CurrentWeapon != null && CurrentWeapon.IsReloadInProgress) {
-                CurrentWeapon.CancelReloadForWeaponSwitch();
             }
 
             if(HasWeaponAuthority) {
-                ApplyServerAuthoritativeWeaponSwitch(newIndex);
-            }
-
-            // Cache ammo from current weapon before switching away
-            if(CurrentWeapon != null && CurrentWeaponIndex >= 0) {
-                _ammoAuthority.CacheCurrentAmmo(CurrentWeaponIndex, CurrentWeapon.currentAmmo);
-            }
-
-            var previousWeaponIndex = CurrentWeaponIndex;
-            var previousWorldWeapon = CurrentWorldWeaponInstance;
-
-            // Immediately hide current weapon (no sheath delay)
-            if(CurrentWeaponIndex >= 0) {
-                HideCurrentWeaponVisuals();
-            }
-
-            // Commit to new weapon index immediately
-            CurrentWeaponIndex = newIndex;
-            if(IsOwner) {
-                _netEquippedWeaponIndex.Value = newIndex;
-            }
-            _pendingHolsterHideSlot = GetSlotForIndex(CurrentWeaponIndex);
-
-            // Prepare and show new FP weapon
-            var fp = ActivateFpWeapon(CurrentWeaponIndex, data, triggerPullOutAnimation: true);
-            if(fp == null) {
-                Debug.LogError($"[WeaponManager][KIN-Strict] Failed to activate FP weapon for '{data.weaponName}'.");
-                CurrentWeaponIndex = previousWeaponIndex;
-                if(previousWeaponIndex >= 0 && previousWeaponIndex < _fpWeaponInstances.Count) {
-                    var previousFp = _fpWeaponInstances[previousWeaponIndex];
-                    if(previousFp != null) {
-                        previousFp.SetActive(true);
-                    }
-                }
-
-                if(previousWorldWeapon != null) {
-                    previousWorldWeapon.SetActive(true);
-                    CurrentWorldWeaponInstance = previousWorldWeapon;
-                }
-
-                _pendingHolsterHideSlot = -1;
-                UpdateHolsterVisibility();
+                ProcessWeaponSwitchAuthorityRequest(newIndex);
                 return;
             }
-            var hasKinemationDriver = fp != null && TryGetKinemationDriver(fp, out _);
-            _requiresKinemationEquipCompleteForCurrentPullOut = hasKinemationDriver && !isPostMatch;
 
-            // Prepare new 3P weapon but DON'T show it yet - wait for animation event
-            QueuePendingTpWeapon(data);
+            if(!IsOwner) {
+                return;
+            }
 
-            // Restore ammo from authoritative KINEMATION capacity path.
-            var restoredAmmo = ResolveRestoredAmmo(CurrentWeaponIndex, magCapacity, seedWhenMissing: false);
-
-            // Update weapon data immediately (no waiting for animations)
-            // Pass null for worldWeaponInstance since it's not shown yet - will be set when TP weapon is shown
-            CurrentWeapon.SwitchToWeapon(data, fp, null, restoredAmmo, magCapacity);
-            // Set pulling out state. During post-match, rely on TP animation events (not FP/KIN),
-            // with a longer fail-safe timer in case an event is missing.
-            IsPullingOut = true;
-            if(isPostMatch) {
-                ScheduleKinemationPullOutCompletionIfNeeded(
-                    CurrentWeaponIndex,
-                    Mathf.Max(kinemationPullOutCompleteDelay, postMatchPullOutFailSafeDelay),
-                    forceSchedule: true
-                );
+            if(MatchCombatAuthority.Instance != null && NetworkObject != null && NetworkObject.IsSpawned) {
+                ApplyApprovedLocalWeaponSwitch(newIndex);
+                _pendingPredictedWeaponIndex = newIndex;
+                MatchCombatAuthority.Instance.RequestWeaponSwitchAuthorityServerRpc(
+                    new NetworkObjectReference(NetworkObject), newIndex);
             } else {
-                ScheduleKinemationPullOutCompletionIfNeeded(CurrentWeaponIndex);
+                Debug.LogError(
+                    "[WeaponManager] MatchCombatAuthority is missing in the active gameplay scene. Weapon switches cannot be authority-validated.");
             }
-
-            if(_playerAnimator == null) return;
-            TriggerTpPullOutAnimation(newIndex);
-
-            if(IsOwner) {
-                if(HasWeaponAuthority) {
-                    TryConsumeWeaponSwitchQuota();
-                } else {
-                    if(MatchCombatAuthority.Instance != null && NetworkObject != null && NetworkObject.IsSpawned) {
-                        MatchCombatAuthority.Instance.RequestWeaponSwitchAuthorityServerRpc(
-                            new NetworkObjectReference(NetworkObject), newIndex);
-                    } else {
-                        Debug.LogError(
-                            "[WeaponManager] MatchCombatAuthority is missing in the active gameplay scene. Weapon switches cannot be authority-validated.");
-                    }
-                }
-            }
-
-            UpdateHolsterVisibility();
-            RefreshOwnerHolsterShadowState();
         }
 
         /// <summary>
@@ -512,10 +434,131 @@ namespace Game.Weapons {
         }
         public void ProcessWeaponSwitchAuthorityRequest(int newIndex) {
             if(!HasWeaponAuthority) return;
-            if(!TryConsumeWeaponSwitchQuota()) return;
-            if(!TryValidateSwitchTargetStrict(newIndex, out _, out _)) return;
+            var approvedWeaponIndex = GetServerAuthoritativeWeaponIndex();
+            if(!TryConsumeWeaponSwitchQuota()) {
+                RejectPredictedWeaponSwitchOwnerRpc(approvedWeaponIndex);
+                return;
+            }
+
+            if(!TryValidateSwitchTargetStrict(newIndex, out _, out _)) {
+                RejectPredictedWeaponSwitchOwnerRpc(approvedWeaponIndex);
+                return;
+            }
 
             ApplyServerAuthoritativeWeaponSwitch(newIndex);
+            if(ResolvePlayerState() == null) {
+                RejectPredictedWeaponSwitchOwnerRpc(approvedWeaponIndex);
+                return;
+            }
+
+            if(ReplicatedEquippedWeaponIndex.Value != newIndex) {
+                ReplicatedEquippedWeaponIndex.Value = newIndex;
+            }
+        }
+
+        [Rpc(SendTo.Owner)]
+        private void RejectPredictedWeaponSwitchOwnerRpc(int approvedWeaponIndex) {
+            if(!IsOwner) {
+                return;
+            }
+
+            if(approvedWeaponIndex < 0 || approvedWeaponIndex >= weaponDataList.Count) {
+                approvedWeaponIndex = _lastApprovedWeaponIndex;
+            }
+
+            _pendingPredictedWeaponIndex = -1;
+
+            if(approvedWeaponIndex < 0 || approvedWeaponIndex >= weaponDataList.Count) {
+                return;
+            }
+
+            if(CurrentWeaponIndex == approvedWeaponIndex) {
+                _lastApprovedWeaponIndex = approvedWeaponIndex;
+                return;
+            }
+
+            ApplyApprovedLocalWeaponSwitch(approvedWeaponIndex, playSwitchAudio: false);
+            _lastApprovedWeaponIndex = approvedWeaponIndex;
+        }
+
+        private void ApplyApprovedLocalWeaponSwitch(int newIndex, bool playSwitchAudio = true) {
+            if(newIndex < 0 || newIndex >= weaponDataList.Count) {
+                return;
+            }
+
+            var isPostMatch = GameMenuManager.Instance != null && GameMenuManager.Instance.IsPostMatch;
+            if(!TryValidateSwitchTargetStrict(newIndex, out var data, out var magCapacity)) {
+                return;
+            }
+
+            if(playSwitchAudio && IsOwner && Audio2.AudioService.Instance != null) {
+                Audio2.AudioService.Instance.Play("ui.weapon.switch", Vector3.zero);
+            }
+
+            if(CurrentWeapon != null && CurrentWeapon.IsReloadInProgress) {
+                CurrentWeapon.CancelReloadForWeaponSwitch();
+            }
+
+            if(CurrentWeapon != null && CurrentWeaponIndex >= 0) {
+                _ammoAuthority.CacheCurrentAmmo(CurrentWeaponIndex, CurrentWeapon.currentAmmo);
+            }
+
+            var previousWeaponIndex = CurrentWeaponIndex;
+            var previousWorldWeapon = CurrentWorldWeaponInstance;
+
+            if(CurrentWeaponIndex >= 0) {
+                HideCurrentWeaponVisuals();
+            }
+
+            CurrentWeaponIndex = newIndex;
+            _pendingHolsterHideSlot = GetSlotForIndex(CurrentWeaponIndex);
+
+            var fp = ActivateFpWeapon(CurrentWeaponIndex, data, triggerPullOutAnimation: true);
+            if(fp == null) {
+                Debug.LogError($"[WeaponManager][KIN-Strict] Failed to activate FP weapon for '{data.weaponName}'.");
+                CurrentWeaponIndex = previousWeaponIndex;
+                if(previousWeaponIndex >= 0 && previousWeaponIndex < _fpWeaponInstances.Count) {
+                    var previousFp = _fpWeaponInstances[previousWeaponIndex];
+                    if(previousFp != null) {
+                        previousFp.SetActive(true);
+                    }
+                }
+
+                if(previousWorldWeapon != null) {
+                    previousWorldWeapon.SetActive(true);
+                    CurrentWorldWeaponInstance = previousWorldWeapon;
+                }
+
+                _pendingHolsterHideSlot = -1;
+                UpdateHolsterVisibility();
+                return;
+            }
+
+            var hasKinemationDriver = fp != null && TryGetKinemationDriver(fp, out _);
+            _requiresKinemationEquipCompleteForCurrentPullOut = hasKinemationDriver && !isPostMatch;
+
+            QueuePendingTpWeapon(data);
+
+            var restoredAmmo = ResolveRestoredAmmo(CurrentWeaponIndex, magCapacity, seedWhenMissing: false);
+
+            CurrentWeapon.SwitchToWeapon(data, fp, null, restoredAmmo, magCapacity);
+            IsPullingOut = true;
+            if(isPostMatch) {
+                ScheduleKinemationPullOutCompletionIfNeeded(
+                    CurrentWeaponIndex,
+                    Mathf.Max(kinemationPullOutCompleteDelay, postMatchPullOutFailSafeDelay),
+                    forceSchedule: true
+                );
+            } else {
+                ScheduleKinemationPullOutCompletionIfNeeded(CurrentWeaponIndex);
+            }
+
+            if(_playerAnimator != null) {
+                TriggerTpPullOutAnimation(newIndex);
+            }
+
+            UpdateHolsterVisibility();
+            RefreshOwnerHolsterShadowState();
         }
 
         private void ApplyRemoteWeaponSwitch(int newIndex) {
