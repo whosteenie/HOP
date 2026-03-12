@@ -1,4 +1,7 @@
+using Game.Player;
 using Network.Core;
+using Network.Session;
+using Unity.Collections;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -47,7 +50,7 @@ namespace Game.Match {
             return MatchPlayerStateProxy.GetForPlayer(playerClientId);
         }
 
-        public MatchPlayerStateProxy EnsurePlayerState(ulong playerClientId) {
+        private MatchPlayerStateProxy EnsurePlayerState(ulong playerClientId) {
             if(MatchPlayerStateProxy.TryGetForPlayer(playerClientId, out var existing)) {
                 if(existing != null && existing.NetworkObject != null && existing.NetworkObject.IsSpawned) {
                     return existing;
@@ -70,6 +73,39 @@ namespace Game.Match {
             instance.InitializeForPlayer(playerClientId);
             EnsureVisibleToAllClients(instance.NetworkObject);
             return instance;
+        }
+
+        private void ApplyIdentityForPlayerOnAuthority(ulong playerClientId, ulong submittedSteamId,
+            FixedString128Bytes submittedUgsId, FixedString64Bytes submittedPlayerName) {
+            if(!NetworkAuthority.HasGlobalAuthority(this)) {
+                return;
+            }
+
+            var state = EnsurePlayerState(playerClientId);
+            if(state == null) {
+                return;
+            }
+
+            var resolvedSteamId = submittedSteamId;
+            var resolvedUgsId = submittedUgsId.ToString();
+            var sessionManager = SessionManager.Instance;
+            if(sessionManager != null &&
+               !string.IsNullOrWhiteSpace(resolvedUgsId) &&
+               sessionManager.TryResolveDistributedAuthorityPlayerMetadata(resolvedUgsId, out _,
+                   out var authoritativeSteamId) &&
+               authoritativeSteamId != 0) {
+                resolvedSteamId = authoritativeSteamId;
+            }
+
+            state.steamId.Value = resolvedSteamId;
+            state.ugsId.Value = submittedUgsId;
+
+            var displayName = submittedPlayerName.ToString().Trim();
+            if(string.IsNullOrWhiteSpace(displayName)) {
+                displayName = "Player";
+            }
+
+            state.playerName.Value = new FixedString64Bytes(displayName);
         }
 
         private void RegisterCallbacks() {
@@ -112,14 +148,13 @@ namespace Game.Match {
                 return;
             }
 
-            state.NetworkObject.Despawn(true);
+            state.NetworkObject.Despawn();
         }
 
         private void OnSessionOwnerPromoted(ulong _) {
-            if(NetworkAuthority.HasGlobalAuthority(this)) {
-                NetworkAuthority.TryConfigureSessionOwnerObject(this);
-                EnsureAllConnectedPlayerStates();
-            }
+            if(!NetworkAuthority.HasGlobalAuthority(this)) return;
+            NetworkAuthority.TryConfigureSessionOwnerObject(this);
+            EnsureAllConnectedPlayerStates();
         }
 
         private void EnsureAllConnectedPlayerStates() {
@@ -144,6 +179,27 @@ namespace Game.Match {
 
                 networkObject.NetworkShow(clientId);
             }
+        }
+
+        [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
+        public void RequestIdentitySyncAuthorityServerRpc(NetworkObjectReference playerRef, ulong submittedSteamId,
+            FixedString128Bytes submittedUgsId, FixedString64Bytes submittedPlayerName, RpcParams rpcParams = default) {
+            if(!NetworkAuthority.HasGlobalAuthority(this)) {
+                return;
+            }
+
+            var senderClientId = rpcParams.Receive.SenderClientId;
+            if(!playerRef.TryGet(out var playerObject) || playerObject == null) {
+                return;
+            }
+
+            var player = playerObject.GetComponent<PlayerController>();
+            if(player == null || player.OwnerClientId != senderClientId) {
+                return;
+            }
+
+            ApplyIdentityForPlayerOnAuthority(player.OwnerClientId, submittedSteamId, submittedUgsId,
+                submittedPlayerName);
         }
     }
 }

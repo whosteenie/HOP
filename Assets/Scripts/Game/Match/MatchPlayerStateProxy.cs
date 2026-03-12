@@ -1,5 +1,6 @@
 using System;
 using Network.Core;
+using Unity.Collections;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -53,6 +54,30 @@ namespace Game.Match {
             NetworkVariableReadPermission.Everyone,
             NetworkVariableWritePermission.Server);
 
+        public NetworkVariable<ulong> steamId = new(0,
+            NetworkVariableReadPermission.Everyone,
+            NetworkVariableWritePermission.Server);
+
+        public NetworkVariable<FixedString128Bytes> ugsId = new("",
+            NetworkVariableReadPermission.Everyone,
+            NetworkVariableWritePermission.Server);
+
+        public NetworkVariable<FixedString64Bytes> playerName = new("Player",
+            NetworkVariableReadPermission.Everyone,
+            NetworkVariableWritePermission.Server);
+
+        public NetworkVariable<float> averageVelocity = new(0f,
+            NetworkVariableReadPermission.Everyone,
+            NetworkVariableWritePermission.Server);
+
+        public NetworkVariable<int> pingMs = new(0,
+            NetworkVariableReadPermission.Everyone,
+            NetworkVariableWritePermission.Server);
+
+        public NetworkVariable<float> replicatedDamageMultiplier = new(1f,
+            NetworkVariableReadPermission.Everyone,
+            NetworkVariableWritePermission.Server);
+
         public NetworkVariable<int> tags = new(0,
             NetworkVariableReadPermission.Everyone,
             NetworkVariableWritePermission.Server);
@@ -83,6 +108,12 @@ namespace Game.Match {
             assists.Value = 0;
             damageDealt.Value = 0f;
             equippedWeaponIndex.Value = -1;
+            steamId.Value = 0;
+            ugsId.Value = default;
+            playerName.Value = "Player";
+            averageVelocity.Value = 0f;
+            pingMs.Value = 0;
+            replicatedDamageMultiplier.Value = 1f;
             tags.Value = 0;
             tagged.Value = 0;
             timeTagged.Value = 0;

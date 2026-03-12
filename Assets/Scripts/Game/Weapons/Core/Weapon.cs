@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Audio.Networking;
+using Game.Match;
 using Game.Menu;
 using Game.Player;
 using Game.UI;
@@ -47,12 +48,13 @@ namespace Game.Weapons {
         private bool IsReloading { get; set; }
         public bool IsReloadInProgress => IsReloading;
 
-        public NetworkVariable<float> netCurrentDamageMultiplier = new(1f,
-            NetworkVariableReadPermission.Everyone,
-            NetworkVariableWritePermission.Owner);
+        private static readonly NetworkVariable<float> MissingDamageMultiplierState = new(1f);
+
+        public NetworkVariable<float> netCurrentDamageMultiplier =>
+            playerController != null ? playerController.PlayerState?.replicatedDamageMultiplier ?? MissingDamageMultiplierState : MissingDamageMultiplierState;
 
         public float CurrentDamageMultiplier {
-            get => netCurrentDamageMultiplier.Value;
+            get => IsOwner ? _localDamageMultiplier : netCurrentDamageMultiplier.Value;
             set {
                 if(!IsOwner) return;
                 // Throttle network updates - only send if enough time has passed or value changed significantly
@@ -62,11 +64,12 @@ namespace Game.Weapons {
 
                 var shouldUpdate = _lastDamageMultiplierUpdateTime == 0f ||
                                    Time.time - _lastDamageMultiplierUpdateTime >= damageMultiplierUpdateInterval ||
-                                   Mathf.Abs(netCurrentDamageMultiplier.Value - value) > changeThreshold;
+                                   Mathf.Abs(_localDamageMultiplier - value) > changeThreshold;
 
                 if(!shouldUpdate) return;
-                netCurrentDamageMultiplier.Value = value;
+                _localDamageMultiplier = value;
                 _lastDamageMultiplierUpdateTime = Time.time;
+                EventBus.Publish(new UpdateMultiplierEvent(_localDamageMultiplier, MaxDamageMultiplier));
             }
         }
 
@@ -99,6 +102,7 @@ namespace Game.Weapons {
         #region Private Fields
 
         private float _lastFireTime;
+        private float _localDamageMultiplier = 1f;
         private float _peakDamageMultiplier = 1f;
         private float _lastPeakTime;
         private bool _autoReloadArmed;
@@ -137,12 +141,10 @@ namespace Game.Weapons {
 
         public override void OnNetworkSpawn() {
             base.OnNetworkSpawn();
-            netCurrentDamageMultiplier.OnValueChanged += OnDamageMultiplierChanged;
             ResetAuthorityObservedMotionBaseline();
         }
 
         public override void OnNetworkDespawn() {
-            netCurrentDamageMultiplier.OnValueChanged -= OnDamageMultiplierChanged;
             base.OnNetworkDespawn();
         }
 
@@ -171,11 +173,6 @@ namespace Game.Weapons {
             if(_damageRelay == null) return;
             _damageRelay.OnHitConfirm -= OnHitConfirm;
             _damageRelay.OnHitConfirm += OnHitConfirm;
-        }
-
-        private void OnDamageMultiplierChanged(float previousValue, float newValue) {
-            if(!IsOwner) return;
-            EventBus.Publish(new UpdateMultiplierEvent(newValue, MaxDamageMultiplier));
         }
 
         private void LateUpdate() {
@@ -582,13 +579,17 @@ namespace Game.Weapons {
                 _authoritativePeakDamageMultiplier = 1f;
                 _authoritativeLastPeakTime = 0f;
                 ResetAuthorityObservedMotionBaseline();
+                if(playerController != null && playerController.PlayerState != null) {
+                    playerController.PlayerState.replicatedDamageMultiplier.Value = 1f;
+                }
             }
 
             if(IsOwner) {
-                netCurrentDamageMultiplier.Value = 1f;
+                _localDamageMultiplier = 1f;
                 _lastDamageMultiplierUpdateTime = Time.time;
                 _peakDamageMultiplier = 1f;
                 _lastPeakTime = 0f;
+                EventBus.Publish(new UpdateMultiplierEvent(_localDamageMultiplier, MaxDamageMultiplier));
             }
         }
 
@@ -604,6 +605,9 @@ namespace Game.Weapons {
             var observedSpeed = SampleAuthorityObservedSpeed();
             _authoritativeDamageMultiplier = AdvanceDamageMultiplier(_authoritativeDamageMultiplier,
                 ref _authoritativePeakDamageMultiplier, ref _authoritativeLastPeakTime, observedSpeed, isDead);
+            if(playerController != null && playerController.PlayerState != null) {
+                playerController.PlayerState.replicatedDamageMultiplier.Value = GetAuthoritativeDamageMultiplier();
+            }
         }
 
         private float SampleAuthorityObservedSpeed() {

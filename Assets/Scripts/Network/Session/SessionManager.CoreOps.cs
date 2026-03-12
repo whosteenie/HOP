@@ -464,11 +464,11 @@ namespace Network.Session {
             var targetLobbyId = _ugsMatchLobby.Id;
             var previousHostId = _ugsMatchLobby.HostId;
             const int maxAttempts = 3;
+            var nextDelayMs = 250;
 
             for(var attempt = 1; attempt <= maxAttempts; attempt++) {
                 try {
-                    var delayMs = attempt == 1 ? 250 : 500;
-                    await UniTask.Delay(delayMs, cancellationToken: SessionLifetimeToken);
+                    await UniTask.Delay(nextDelayMs, cancellationToken: SessionLifetimeToken);
                 } catch(OperationCanceledException) {
                     return;
                 }
@@ -518,7 +518,14 @@ namespace Network.Session {
                             $"[SessionManager] Match lobby '{targetLobbyId}' no longer exists while refreshing after DA {reason}.");
                     }
                     return;
+                } catch(LobbyServiceException ex) when(ex.Reason == LobbyExceptionReason.RateLimited) {
+                    nextDelayMs = Mathf.Min(4000, nextDelayMs * 2);
+                    if(Debug.isDebugBuild) {
+                        Debug.Log(
+                            $"[SessionManager] Match lobby refresh after DA {reason} was rate-limited (attempt {attempt}/{maxAttempts}). Backing off for {nextDelayMs}ms.");
+                    }
                 } catch(Exception ex) {
+                    nextDelayMs = Mathf.Max(nextDelayMs, 500);
                     if(Debug.isDebugBuild) {
                         Debug.LogWarning(
                             $"[SessionManager] Failed to refresh match lobby after DA {reason} (attempt {attempt}/{maxAttempts}): {ex.Message}");

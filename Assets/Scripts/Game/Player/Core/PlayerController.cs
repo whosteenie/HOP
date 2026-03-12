@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using Audio.Networking;
@@ -183,6 +184,9 @@ namespace Game.Player {
         private static readonly NetworkVariable<bool> MissingDeathState = new(false);
         private static readonly NetworkVariable<int> MissingIntState = new(0);
         private static readonly NetworkVariable<float> MissingFloatState = new(0f);
+        private static readonly NetworkVariable<ulong> MissingSteamIdState = new(0);
+        private static readonly NetworkVariable<FixedString128Bytes> MissingUgsIdState = new("");
+        private static readonly NetworkVariable<FixedString64Bytes> MissingPlayerNameState = new("Player");
 
         // Movement violation tracking
         private class MovementViolation {
@@ -202,6 +206,8 @@ namespace Game.Player {
         private Camera[] _cachedChildCameras = Array.Empty<Camera>();
         private AudioListener[] _cachedChildAudioListeners = Array.Empty<AudioListener>();
         private bool _childComponentCachesDirty = true;
+        private Coroutine _identitySyncRoutine;
+        private bool _identitySyncCompleted;
 
         #endregion
 
@@ -255,17 +261,11 @@ namespace Game.Player {
             NetworkVariableReadPermission.Everyone,
             NetworkVariableWritePermission.Owner);
 
-        public NetworkVariable<ulong> steamId = new(0,
-            NetworkVariableReadPermission.Everyone,
-            NetworkVariableWritePermission.Owner);
+        public NetworkVariable<ulong> steamId => ResolvePlayerState()?.steamId ?? MissingSteamIdState;
         
-        public NetworkVariable<FixedString128Bytes> ugsId = new("",
-            NetworkVariableReadPermission.Everyone,
-            NetworkVariableWritePermission.Owner);
+        public NetworkVariable<FixedString128Bytes> ugsId => ResolvePlayerState()?.ugsId ?? MissingUgsIdState;
 
-        public NetworkVariable<FixedString64Bytes> playerName = new("Player",
-            NetworkVariableReadPermission.Everyone,
-            NetworkVariableWritePermission.Owner);
+        public NetworkVariable<FixedString64Bytes> playerName => ResolvePlayerState()?.playerName ?? MissingPlayerNameState;
 
         public NetworkVariable<bool> netIsCrouching = new(false,
             NetworkVariableReadPermission.Everyone,
@@ -359,6 +359,7 @@ namespace Game.Player {
         }
 
         public override void OnDestroy() {
+            CancelPendingIdentitySync();
             UnbindPlayerStateSubscriptions();
             MatchPlayerStateProxy.StateRegistered -= OnPlayerStateRegistered;
             MatchPlayerStateProxy.StateUnregistered -= OnPlayerStateUnregistered;
@@ -416,18 +417,16 @@ namespace Game.Player {
 
             if(IsOwner) {
                 string pName;
+                ulong localSteamId = 0;
                 if(SteamClient.IsValid && SteamClient.IsLoggedOn) {
                     pName = Social.StreamerMode.GetLocalDisplayName();
-                    steamId.Value = SteamClient.SteamId.Value;
+                    localSteamId = SteamClient.SteamId.Value;
                 } else {
                     pName = Social.StreamerMode.LocalDisplayName;
                 }
-                playerName.Value = pName;
 
                 var ugsPlayerId = LocalIdentity.GetUgsPlayerId();
-                if(!string.IsNullOrEmpty(ugsPlayerId)) {
-                    ugsId.Value = ugsPlayerId;
-                }
+                BeginIdentitySync(localSteamId, ugsPlayerId, pName);
                 
                 primaryWeaponIndex.Value = GameSettings.Data.player.primaryWeaponIndex;
                 secondaryWeaponIndex.Value = GameSettings.Data.player.secondaryWeaponIndex;
@@ -564,8 +563,51 @@ namespace Game.Player {
                 LocalPlayer = null;
             }
             UnregisterSpawnedPlayer(this);
+            CancelPendingIdentitySync();
 
             UnsubscribeFromNetworkVariables();
+        }
+
+        private void BeginIdentitySync(ulong localSteamId, string ugsPlayerId, string playerDisplayName) {
+            CancelPendingIdentitySync();
+            _identitySyncCompleted = false;
+            _identitySyncRoutine = StartCoroutine(SendIdentityWhenAuthorityReady(localSteamId,
+                string.IsNullOrEmpty(ugsPlayerId) ? string.Empty : ugsPlayerId,
+                string.IsNullOrWhiteSpace(playerDisplayName) ? "Player" : playerDisplayName));
+        }
+
+        private void CancelPendingIdentitySync() {
+            if(_identitySyncRoutine == null) {
+                return;
+            }
+
+            StopCoroutine(_identitySyncRoutine);
+            _identitySyncRoutine = null;
+        }
+
+        private IEnumerator SendIdentityWhenAuthorityReady(ulong localSteamId, string ugsPlayerId,
+            string playerDisplayName) {
+            while(this != null && IsSpawned && !_identitySyncCompleted) {
+                var authority = MatchPlayerStateAuthority.Instance;
+                if(authority != null &&
+                   authority.NetworkObject != null &&
+                   authority.NetworkObject.IsSpawned &&
+                   NetworkObject != null &&
+                   NetworkObject.IsSpawned) {
+                    authority.RequestIdentitySyncAuthorityServerRpc(
+                        new NetworkObjectReference(NetworkObject),
+                        localSteamId,
+                        new FixedString128Bytes(ugsPlayerId),
+                        new FixedString64Bytes(playerDisplayName));
+                    _identitySyncCompleted = true;
+                    _identitySyncRoutine = null;
+                    yield break;
+                }
+
+                yield return null;
+            }
+
+            _identitySyncRoutine = null;
         }
 
         /// <summary>
@@ -647,6 +689,8 @@ namespace Game.Player {
             netIsRightWallRun.OnValueChanged -= OnWallRunOrientationChanged;
             netWallRunDirection.OnValueChanged -= OnWallRunDirectionChanged;
         }
+
+        public MatchPlayerStateProxy PlayerState => ResolvePlayerState();
 
         private MatchPlayerStateProxy ResolvePlayerState() {
             if(_cachedPlayerState != null &&
@@ -887,6 +931,9 @@ namespace Game.Player {
                 if(healthController != null) {
                     healthController.UpdateHealthRegeneration();
                 }
+                if(statsController != null) {
+                    statsController.UpdateAuthorityStats();
+                }
             }
 
             if(IsOwner) {
@@ -934,8 +981,6 @@ namespace Game.Player {
                 if(lookController != null)
                     lookController.UpdateSpeedFov();
 
-                if(statsController != null)
-                    statsController.TrackVelocity();
             } else {
                 if(movementController != null)
                     movementController.UpdateCrouch(fpCamera);

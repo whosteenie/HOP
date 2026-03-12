@@ -15,13 +15,13 @@ namespace Game.Player {
         [Header("Velocity Tracking")]
         [SerializeField] private float velocitySampleInterval = 0.1f;
 
-        // Network variables (moved from PlayerController)
-        public NetworkVariable<float> averageVelocity = new(0f,
-            NetworkVariableReadPermission.Everyone,
-            NetworkVariableWritePermission.Owner);
-        public NetworkVariable<int> pingMs = new(0,
-            NetworkVariableReadPermission.Everyone,
-            NetworkVariableWritePermission.Owner);
+        private static readonly NetworkVariable<float> MissingAverageVelocityState = new(0f);
+        private static readonly NetworkVariable<int> MissingPingState = new(0);
+
+        public NetworkVariable<float> averageVelocity =>
+            playerController != null ? playerController.PlayerState?.averageVelocity ?? MissingAverageVelocityState : MissingAverageVelocityState;
+        public NetworkVariable<int> pingMs =>
+            playerController != null ? playerController.PlayerState?.pingMs ?? MissingPingState : MissingPingState;
 
         // Private fields for velocity tracking
         private float _totalVelocitySampled;
@@ -48,7 +48,7 @@ namespace Game.Player {
         }
 
         private void Update() {
-            if(!IsOwner) return;
+            if(!NetworkAuthority.HasGlobalAuthority(this)) return;
 
             // Update ping every second
             _timer += Time.deltaTime;
@@ -61,16 +61,13 @@ namespace Game.Player {
         /// Called by PlayerController to track velocity.
         /// Should be called every frame when the player is moving.
         /// </summary>
-        public void TrackVelocity() {
-            if(!IsOwner || playerController == null) return;
+        public void UpdateAuthorityStats() {
+            if(!NetworkAuthority.HasGlobalAuthority(this) || playerController == null || averageVelocity == null) return;
 
-            // Get velocity from PlayerController
-            var velocity = playerController.GetFullVelocity;
-            var speed = velocity.sqrMagnitude;
-            // Only track if moving at walk speed or faster
+            var speed = playerController.ObservedServerMovementSpeed;
             const float walkSpeed = 5f;
-            if(speed >= walkSpeed * walkSpeed) {
-                _velSampleAccum += Mathf.Sqrt(speed);
+            if(speed >= walkSpeed) {
+                _velSampleAccum += speed;
                 _velSampleCount++;
             }
 
@@ -89,7 +86,7 @@ namespace Game.Player {
         /// Updates the player's ping based on the network transport.
         /// </summary>
         private void UpdatePing() {
-            if(!IsOwner) return;
+            if(!NetworkAuthority.HasGlobalAuthority(this) || playerController == null || pingMs == null) return;
 
             var networkManager = NetworkManager;
             if(networkManager == null || !networkManager.IsListening) {
@@ -99,7 +96,7 @@ namespace Game.Player {
             var transport = networkManager.NetworkConfig.NetworkTransport as UnityTransport;
             if(!transport) return;
 
-            var rtt = transport.GetCurrentRtt(OwnerClientId);
+            var rtt = transport.GetCurrentRtt(playerController.OwnerClientId);
             pingMs.Value = (int)rtt;
         }
     }
