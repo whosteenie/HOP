@@ -25,12 +25,14 @@ namespace Game.Match {
 
         public override void OnNetworkSpawn() {
             base.OnNetworkSpawn();
+            _lastDamageQuotaShotIdByShooter.Clear();
             NetworkAuthority.TryConfigureSessionOwnerObject(this);
             RegisterSessionOwnerCallbacks();
         }
 
         public override void OnNetworkDespawn() {
             base.OnNetworkDespawn();
+            _lastDamageQuotaShotIdByShooter.Clear();
             UnregisterSessionOwnerCallbacks();
         }
 
