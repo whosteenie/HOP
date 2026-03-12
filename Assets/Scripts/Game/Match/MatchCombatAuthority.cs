@@ -182,6 +182,18 @@ namespace Game.Match {
                 return;
             }
 
+            var senderClientId = rpcParams.Receive.SenderClientId;
+            if(!shooterRef.TryGet(out var shooterObject) || shooterObject == null) {
+                return;
+            }
+
+            var shooter = shooterObject.GetComponent<PlayerController>();
+            if(shooter == null || shooter.OwnerClientId != senderClientId) {
+                AntiCheatLogger.LogAuthorityViolation("MatchCombatAuthority.RequestShotFxAuthorityServerRpc",
+                    senderClientId);
+                return;
+            }
+
             BroadcastShotFxClientRpc(shooterRef, endPoint, hitNormal, madeImpact, hitPlayer, hitPlayerRef,
                 playMuzzleFlash, shooterVelocity);
         }
@@ -317,6 +329,8 @@ namespace Game.Match {
                 return;
             }
 
+            var senderClientId = rpcParams.Receive.SenderClientId;
+
             if(!playerRef.TryGet(out var playerObject) || playerObject == null) {
                 return;
             }
@@ -324,6 +338,12 @@ namespace Game.Match {
             var player = playerObject.GetComponent<PlayerController>();
             var healthController = player != null ? player.HealthController : null;
             if(healthController == null) {
+                return;
+            }
+
+            if(player.OwnerClientId != senderClientId) {
+                AntiCheatLogger.LogAuthorityViolation("MatchCombatAuthority.RequestRespawnAuthorityServerRpc",
+                    senderClientId);
                 return;
             }
 
