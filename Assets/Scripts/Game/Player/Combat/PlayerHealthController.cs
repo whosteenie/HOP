@@ -214,7 +214,7 @@ namespace Game.Player {
                 var oobMatchSettings = MatchSettingsManager.Instance;
                 var isOobTagMode = oobMatchSettings != null && oobMatchSettings.selectedGameModeId == "Gun Tag";
                 if(isOobTagMode && _tagController != null && !_tagController.isTagged.Value) {
-                    _tagController.ApplyTimeTaggedDeltaOwnerRpc(GunTagOobNonTaggedPenaltySeconds);
+                    _tagController.ApplyTimeTaggedDeltaAuthority(GunTagOobNonTaggedPenaltySeconds);
                 }
 
                 var healthBefore = ResolveAuthoritativeCurrentHealth();
@@ -274,7 +274,7 @@ namespace Game.Player {
                        _tagController != null && _tagController.isTagged.Value) {
                         nonTaggedShootingTagged = true;
                         if(attackerTagController.timeTagged.Value > 0) {
-                            attackerTagController.ApplyTimeTaggedDeltaOwnerRpc(-1);
+                            attackerTagController.ApplyTimeTaggedDeltaAuthority(-1);
                         }
 
                         if(playerController != null) {

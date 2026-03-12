@@ -45,12 +45,14 @@ namespace Game.Match {
         private void RegisterSessionOwnerCallbacks() {
             if(_sessionOwnerCallbacksRegistered || NetworkManager == null) return;
             NetworkManager.OnSessionOwnerPromoted += OnSessionOwnerPromoted;
+            NetworkManager.OnClientDisconnectCallback += OnClientDisconnected;
             _sessionOwnerCallbacksRegistered = true;
         }
 
         private void UnregisterSessionOwnerCallbacks() {
             if(!_sessionOwnerCallbacksRegistered || NetworkManager == null) return;
             NetworkManager.OnSessionOwnerPromoted -= OnSessionOwnerPromoted;
+            NetworkManager.OnClientDisconnectCallback -= OnClientDisconnected;
             _sessionOwnerCallbacksRegistered = false;
         }
 
@@ -58,6 +60,10 @@ namespace Game.Match {
             if(NetworkAuthority.HasGlobalAuthority(this)) {
                 NetworkAuthority.TryConfigureSessionOwnerObject(this);
             }
+        }
+
+        private void OnClientDisconnected(ulong clientId) {
+            _lastDamageQuotaShotIdByShooter.Remove(clientId);
         }
 
         [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]

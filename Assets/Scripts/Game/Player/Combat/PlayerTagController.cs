@@ -19,13 +19,13 @@ namespace Game.Player {
 
         // Tag mode network variables
         public NetworkVariable<int> tags = new(0, NetworkVariableReadPermission.Everyone,
-            NetworkVariableWritePermission.Owner);
+            NetworkVariableWritePermission.Server);
         public NetworkVariable<int> tagged = new(0, NetworkVariableReadPermission.Everyone,
-            NetworkVariableWritePermission.Owner);
+            NetworkVariableWritePermission.Server);
         public NetworkVariable<int> timeTagged = new(0, NetworkVariableReadPermission.Everyone,
-            NetworkVariableWritePermission.Owner); // Time tagged in seconds
+            NetworkVariableWritePermission.Server); // Time tagged in seconds
         public NetworkVariable<bool> isTagged = new(false, NetworkVariableReadPermission.Everyone,
-            NetworkVariableWritePermission.Owner);
+            NetworkVariableWritePermission.Server);
 
         // Throttling for network updates (at 90Hz: 5 ticks = ~55ms, 2 ticks = ~22ms)
         public float lastTagStatsUpdateTime; // Public for cross-reference in HandleTagTransfer
@@ -82,7 +82,7 @@ namespace Game.Player {
         }
 
         private void Update() {
-            if(!IsOwner) return;
+            if(!HasTagAuthority) return;
 
             var matchSettings = MatchSettingsManager.Instance;
             var isTagMode = matchSettings != null && matchSettings.selectedGameModeId == "Gun Tag";
@@ -138,11 +138,11 @@ namespace Game.Player {
 
             var wasTagged = isTagged.Value;
             if(wasTagged) return;
-            ApplyTagVictimOwnerRpc();
+            ApplyTagVictimAuthority();
 
             PlayTaggedSoundClientRpc();
 
-            attackerTagController.ApplyTagAttackerOwnerRpc();
+            attackerTagController.ApplyTagAttackerAuthority();
 
             attackerTagController.PlayTaggingSoundClientRpc();
 
@@ -261,7 +261,7 @@ namespace Game.Player {
         /// Resets tag state (called on respawn).
         /// </summary>
         public void ResetTagState() {
-            if(!IsOwner) return;
+            if(!HasTagAuthority) return;
 
             var matchSettings = MatchSettingsManager.Instance;
             if(matchSettings != null && matchSettings.selectedGameModeId == "Gun Tag") {
@@ -270,13 +270,13 @@ namespace Game.Player {
             }
         }
 
-        [Rpc(SendTo.Owner)]
-        public void ApplyTimeTaggedDeltaOwnerRpc(int delta) {
+        public void ApplyTimeTaggedDeltaAuthority(int delta) {
+            if(!HasTagAuthority) return;
             timeTagged.Value = Mathf.Max(0, timeTagged.Value + delta);
         }
 
-        [Rpc(SendTo.Owner)]
-        private void ApplyTagVictimOwnerRpc() {
+        private void ApplyTagVictimAuthority() {
+            if(!HasTagAuthority) return;
             isTagged.Value = true;
 
             if(playerController != null && playerController.WeaponManager != null) {
@@ -287,8 +287,8 @@ namespace Game.Player {
             lastTagStatsUpdateTime = Time.time;
         }
 
-        [Rpc(SendTo.Owner)]
-        private void ApplyTagAttackerOwnerRpc() {
+        private void ApplyTagAttackerAuthority() {
+            if(!HasTagAuthority) return;
             isTagged.Value = false;
             tags.Value++;
             lastTagStatsUpdateTime = Time.time;
