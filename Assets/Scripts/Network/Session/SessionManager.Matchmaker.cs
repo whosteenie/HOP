@@ -328,17 +328,64 @@ namespace Network.Session {
                 ("mode", mode),
                 ("matchId", assign.MatchId));
 
-            StoredMatchmakingResults results;
-            try {
-                results = await MatchmakerService.Instance.GetMatchmakingResultsAsync(assign.MatchId);
-            } catch(Exception e) {
-                Debug.LogError($"[SessionManager] Failed to fetch matchmaking results. Exception: {e.Message}");
+            var results = await TryFetchMatchmakingResultsWithRetryAsync(assign.MatchId);
+            if(results == null) {
                 CancelMatchmaking();
                 return false;
             }
 
             await HandleStoredMatchmakerResultsAsync(mode, maxPlayers, assign.MatchId, results);
             return false;
+        }
+
+        private async UniTask<StoredMatchmakingResults> TryFetchMatchmakingResultsWithRetryAsync(string matchId) {
+            const int maxAttempts = 4;
+            var delayMs = 250;
+
+            for(var attempt = 1; attempt <= maxAttempts; attempt++) {
+                try {
+                    return await MatchmakerService.Instance.GetMatchmakingResultsAsync(matchId);
+                } catch(Exception e) when(IsTransientMatchmakingResultsNotFound(e) && attempt < maxAttempts) {
+                    if(Debug.isDebugBuild) {
+                        Debug.LogWarning(
+                            $"[SessionManager] Matchmaking results for matchId '{matchId}' were not yet available (attempt {attempt}/{maxAttempts}). Retrying in {delayMs}ms.");
+                    }
+
+                    try {
+                        await UniTask.Delay(delayMs, cancellationToken: _matchmakerCts != null
+                            ? _matchmakerCts.Token
+                            : SessionLifetimeToken);
+                    } catch(OperationCanceledException) {
+                        return null;
+                    }
+
+                    delayMs = Mathf.Min(delayMs * 2, 2000);
+                } catch(Exception e) {
+                    Debug.LogError($"[SessionManager] Failed to fetch matchmaking results. Exception: {e.Message}");
+                    return null;
+                }
+            }
+
+            Debug.LogError(
+                $"[SessionManager] Matchmaking results for matchId '{matchId}' remained unavailable after retrying.");
+            return null;
+        }
+
+        private static bool IsTransientMatchmakingResultsNotFound(Exception exception) {
+            if(exception == null) {
+                return false;
+            }
+
+            if(exception is MatchmakerServiceException matchmakerServiceException) {
+                return matchmakerServiceException.Reason.ToString().IndexOf("NotFound", StringComparison.OrdinalIgnoreCase) >=
+                       0 ||
+                       matchmakerServiceException.Reason.ToString().IndexOf("EntityNotFound",
+                           StringComparison.OrdinalIgnoreCase) >= 0;
+            }
+
+            return exception.Message.IndexOf("404", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                   exception.Message.IndexOf("Not Found", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                   exception.Message.IndexOf("EntityNotFound", StringComparison.OrdinalIgnoreCase) >= 0;
         }
 
         private async UniTask<bool> HandleMatchIdAssignmentStatusAsync(MatchIdAssignment assign, string mode,
