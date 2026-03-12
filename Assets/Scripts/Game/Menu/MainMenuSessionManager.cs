@@ -195,8 +195,7 @@ namespace Game.Menu {
             if(uiManager != null && uiManager.PartyContainer != null) {
                 uiManager.PartyContainer.style.display = DisplayStyle.Flex;
             }
-            if(_inviteButton != null) _inviteButton.style.display = DisplayStyle.Flex;
-            if(_partySeparator != null) _partySeparator.style.display = DisplayStyle.Flex;
+            ApplyInviteVisibilityForCurrentState();
             DrawSoloPlayer();
         }
 
@@ -255,6 +254,29 @@ namespace Game.Menu {
             _lastProgressionRowVisible = null;
         }
 
+        private void ApplyInviteVisibilityForCurrentState() {
+            var session = SessionManager.Instance;
+            if(session == null) {
+                return;
+            }
+
+            var canInvite = session.CurrentPartySize < 10 &&
+                            session.IsLocalPartyLeaderResolved &&
+                            !session.IsSearching;
+            var shouldShowSeparator = canInvite || session.HasRealPartyMembers;
+
+            if(_inviteButton != null) {
+                _inviteButton.style.display = canInvite ? DisplayStyle.Flex : DisplayStyle.None;
+                _inviteButton.SetEnabled(canInvite);
+                _lastInviteVisible = canInvite;
+                _lastInviteEnabled = canInvite;
+            }
+
+            if(_partySeparator != null) {
+                _partySeparator.style.display = shouldShowSeparator ? DisplayStyle.Flex : DisplayStyle.None;
+            }
+        }
+
         private void Update() {
             if(SessionManager.Instance == null) return;
             
@@ -271,19 +293,7 @@ namespace Game.Menu {
             var currentPartySize = SessionManager.Instance.CurrentPartySize;
 
             if(_inviteButton != null) {
-                var canInvite = currentPartySize < 10 && SessionManager.Instance.IsLocalPartyLeaderResolved;
-                if(isSearching) canInvite = false;
-
-                if(_lastInviteVisible != canInvite) {
-                    _inviteButton.style.display = canInvite ? DisplayStyle.Flex : DisplayStyle.None;
-                    _lastInviteVisible = canInvite;
-                }
-
-                if(_lastInviteEnabled != canInvite) {
-                    _inviteButton.SetEnabled(canInvite);
-                    _lastInviteEnabled = canInvite;
-                }
-
+                ApplyInviteVisibilityForCurrentState();
                 var inviteTooltip = steamOnline ? "Invite friends" : "Steam is offline. Invites unavailable.";
                 if(!string.Equals(_lastInviteTooltip, inviteTooltip, StringComparison.Ordinal)) {
                     _inviteButton.tooltip = inviteTooltip;
@@ -902,9 +912,7 @@ namespace Game.Menu {
             LaunchUiTask(CreatePlayerRow(displayName, displayId, iconId, true, _localProfileContainer),
                 "DrawSoloPlayer/CreatePlayerRow");
 
-            // Show invite button and separator
-            if(_inviteButton != null) _inviteButton.style.display = DisplayStyle.Flex;
-            if(_partySeparator != null) _partySeparator.style.display = DisplayStyle.Flex;
+            ApplyInviteVisibilityForCurrentState();
         }
 
         /// <summary>
@@ -952,8 +960,7 @@ namespace Game.Menu {
                 }
             }
 
-            if(_inviteButton != null) _inviteButton.style.display = DisplayStyle.Flex;
-            if(_partySeparator != null) _partySeparator.style.display = DisplayStyle.Flex;
+            ApplyInviteVisibilityForCurrentState();
         }
 
         /// <summary>
