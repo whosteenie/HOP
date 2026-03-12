@@ -202,7 +202,13 @@ namespace Game.Weapons {
                 if(HasWeaponAuthority) {
                     TryConsumeWeaponSwitchQuota();
                 } else {
-                    RequestWeaponSwitchBroadcastServerRpc(newIndex);
+                    if(MatchCombatAuthority.Instance != null && NetworkObject != null && NetworkObject.IsSpawned) {
+                        MatchCombatAuthority.Instance.RequestWeaponSwitchAuthorityServerRpc(
+                            new NetworkObjectReference(NetworkObject), newIndex);
+                    } else {
+                        Debug.LogError(
+                            "[WeaponManager] MatchCombatAuthority is missing in the active gameplay scene. Weapon switches cannot be authority-validated.");
+                    }
                 }
             }
 
@@ -503,14 +509,8 @@ namespace Game.Weapons {
                 parent = parent.parent;
             }
         }
-        [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Owner)]
-        private void RequestWeaponSwitchBroadcastServerRpc(int newIndex, RpcParams rpcParams = default) {
-            if(rpcParams.Receive.SenderClientId != OwnerClientId) {
-                AntiCheatLogger.LogAuthorityViolation("WeaponManager.RequestWeaponSwitchBroadcastServerRpc",
-                    rpcParams.Receive.SenderClientId);
-                return;
-            }
-
+        public void ProcessWeaponSwitchAuthorityRequest(int newIndex) {
+            if(!HasWeaponAuthority) return;
             if(!TryConsumeWeaponSwitchQuota()) return;
             if(!TryValidateSwitchTargetStrict(newIndex, out _, out _)) return;
 

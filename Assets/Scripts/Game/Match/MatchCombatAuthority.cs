@@ -231,6 +231,33 @@ namespace Game.Match {
         }
 
         [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
+        public void RequestWeaponSwitchAuthorityServerRpc(NetworkObjectReference playerRef, int newIndex,
+            RpcParams rpcParams = default) {
+            if(!NetworkAuthority.HasGlobalAuthority(this)) {
+                return;
+            }
+
+            var senderClientId = rpcParams.Receive.SenderClientId;
+            if(!playerRef.TryGet(out var playerObject) || playerObject == null) {
+                return;
+            }
+
+            var player = playerObject.GetComponent<PlayerController>();
+            var weaponManager = player != null ? player.WeaponManager : null;
+            if(player == null || weaponManager == null) {
+                return;
+            }
+
+            if(player.OwnerClientId != senderClientId) {
+                AntiCheatLogger.LogAuthorityViolation("MatchCombatAuthority.RequestWeaponSwitchAuthorityServerRpc",
+                    senderClientId);
+                return;
+            }
+
+            weaponManager.ProcessWeaponSwitchAuthorityRequest(newIndex);
+        }
+
+        [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
         public void RequestWeaponStateSyncAuthorityServerRpc(NetworkObjectReference playerRef, int weaponIndex,
             WeaponManager.AmmoSyncReason reason, int localAmmoAfterEvent, RpcParams rpcParams = default) {
             if(!NetworkAuthority.HasGlobalAuthority(this)) {
