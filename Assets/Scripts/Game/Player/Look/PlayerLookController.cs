@@ -1,5 +1,6 @@
 using Game.Player.Core;
 using Game.Player.Movement;
+using Game.Player.Visual;
 using Game.Settings;
 using Unity.Cinemachine;
 using Unity.Netcode;

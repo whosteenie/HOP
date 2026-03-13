@@ -5,6 +5,7 @@ using Game.Match;
 using Game.Player.Combat;
 using Game.Player.Core;
 using Game.Spawning;
+using Game.UI.Screens;
 using Network.Steam;
 using Unity.Netcode;
 using UnityEngine;

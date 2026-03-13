@@ -6,7 +6,7 @@ using UnityEngine;
 using UnityEngine.UIElements;
 using Object = UnityEngine.Object;
 
-namespace Game.UI {
+namespace Game.UI.Misc {
     public static class ChallengeUiRenderer {
         private sealed class ChallengeRowBinding {
             public VisualElement Root;

@@ -1,14 +1,13 @@
 using System.Collections;
 using System.Collections.Generic;
 using Game.Match;
-using Game.Player;
 using Game.Player.Core;
 using Network.Events;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.UIElements;
 
-namespace Game.UI {
+namespace Game.UI.HUD {
     /// <summary>
     /// Manages the kill feed UI, including kill entries and tag transfer entries.
     /// </summary>

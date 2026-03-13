@@ -56,9 +56,9 @@ namespace Game.Match {
             var hasAny = false;
 
             var renderers = GetComponentsInChildren<Renderer>(true);
-            foreach(var renderer in renderers) {
-                if(!renderer.enabled) continue;
-                ExpandProjectedBounds(renderer.bounds, axis, ref min, ref max);
+            foreach(var r in renderers) {
+                if(!r.enabled) continue;
+                ExpandProjectedBounds(r.bounds, axis, ref min, ref max);
                 hasAny = true;
             }
 
@@ -67,8 +67,8 @@ namespace Game.Match {
             }
 
             var colliders = GetComponentsInChildren<Collider>(true);
-            foreach(var collider in colliders) {
-                ExpandProjectedBounds(collider.bounds, axis, ref min, ref max);
+            foreach(var col in colliders) {
+                ExpandProjectedBounds(col.bounds, axis, ref min, ref max);
                 hasAny = true;
             }
 

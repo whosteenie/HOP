@@ -6,6 +6,7 @@ using Steamworks;
 using Steamworks.Data;
 using UnityEngine.UIElements;
 using Game.Match;
+using Game.UI.Core;
 using Network.Services;
 using SessionManager = Network.Session.SessionManager;
 
@@ -14,7 +15,7 @@ namespace Game.Menu {
     /// Manages gamemode selection for Steam Lobbies.
     /// Syncs "GameMode" key in Lobby Data.
     /// </summary>
-    public class MainMenuGamemodeManager : UI.UIElementBase {
+    public class MainMenuGamemodeManager : UIElementBase {
         private static MainMenuGamemodeManager Instance { get; set; }
         private Label _gamemodeDisplayLabel;
         private VisualElement _gamemodeArrow;

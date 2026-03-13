@@ -1,7 +1,8 @@
 using System.Collections;
 using System.Collections.Generic;
 using Game.Progression;
-using Game.UI;
+using Game.UI.Core;
+using Game.UI.Misc;
 using Network.Events;
 using Network.Services;
 using UnityEngine;

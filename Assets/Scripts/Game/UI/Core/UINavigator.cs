@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UIElements;
 
-namespace Game.UI {
+namespace Game.UI.Core {
     /// <summary>
     /// Lightweight screen navigator that centralizes showing/hiding VisualElement panels,
     /// with optional cross-fade transitions. Designed to wrap existing panel logic in

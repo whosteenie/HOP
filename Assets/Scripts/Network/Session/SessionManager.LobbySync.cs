@@ -126,8 +126,7 @@ namespace Network.Session {
 
             var (allowed, reason) = EvaluatePublicMatchBackfillEligibility();
             if(!force &&
-               _lastPublishedBackfillAllowed.HasValue &&
-               _lastPublishedBackfillAllowed.Value == allowed &&
+               _lastPublishedBackfillAllowed == allowed &&
                string.Equals(_lastPublishedBackfillReason, reason, StringComparison.Ordinal)) {
                 _nextBackfillEligibilityRefreshTime = Time.unscaledTime + BackfillEligibilityRefreshIntervalSeconds;
                 return;

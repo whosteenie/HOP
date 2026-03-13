@@ -1,7 +1,6 @@
 using System.Collections;
 using Game.Player.Core;
 using Game.Settings;
-using Game.Weapons;
 using Game.Weapons.Manager;
 using Unity.Netcode;
 using UnityEngine;
@@ -356,7 +355,7 @@ namespace Game.Player.Movement {
         /// <summary>
         /// Helper method to apply color to a material by trying common color property names.
         /// </summary>
-        private void ApplyColorToMaterial(Material material, string[] colorPropertyNames, Color trailColor) {
+        private static void ApplyColorToMaterial(Material material, string[] colorPropertyNames, Color trailColor) {
             if(material == null) return;
 
             foreach(var propName in colorPropertyNames) {

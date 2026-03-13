@@ -2,16 +2,13 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
+using UnityEditor;
+using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.Serialization;
 using UnityEngine.VFX;
 
-#if UNITY_EDITOR
-using UnityEditor;
-using UnityEditor.SceneManagement;
-#endif
-
-namespace Game.Player {
+namespace Game.Player.Visual {
     /// <summary>
     /// Authoring helper for menu mannequins. Supports frozen animation poses and trail snapshots in edit mode.
     /// Place this on the mannequin root.
@@ -309,9 +306,9 @@ namespace Game.Player {
             var systems = CollectTrailParticleSystems();
             foreach(var system in systems) {
                 if(system == null) continue;
-                var renderer = system.GetComponent<ParticleSystemRenderer>();
-                if(renderer == null) continue;
-                ForceRepairTrailRendererMaterials(renderer);
+                var psr = system.GetComponent<ParticleSystemRenderer>();
+                if(psr == null) continue;
+                ForceRepairTrailRendererMaterials(psr);
             }
 #endif
             ApplyNow(forceAnimationPoseRefresh: false);
@@ -416,24 +413,24 @@ namespace Game.Player {
             foreach(var system in systems) {
                 if(system == null) continue;
                 if(!CanSimulateTrailParticleSystem(system, logWarnings: false)) continue;
-                var renderer = system.GetComponent<ParticleSystemRenderer>();
-                if(renderer == null) continue;
+                var psr = system.GetComponent<ParticleSystemRenderer>();
+                if(psr == null) continue;
 
 #if UNITY_EDITOR
                 // Repair broken/instanced materials in both edit and play mode so trail ribbon and electric colors render correctly.
-                TryRepairBrokenTrailRendererMaterials(renderer);
+                TryRepairBrokenTrailRendererMaterials(psr);
 #endif
 
-                var sharedMaterials = renderer.sharedMaterials;
+                var sharedMaterials = psr.sharedMaterials;
                 if(sharedMaterials == null) continue;
                 for(var i = 0; i < sharedMaterials.Length; i++) {
-                    ApplyTrailMaterialPropertyBlock(renderer, sharedMaterials[i], i, tint);
+                    ApplyTrailMaterialPropertyBlock(psr, sharedMaterials[i], i, tint);
                 }
 
                 // TrailModule can render with trailMaterial, which is not always represented in sharedMaterials.
                 // Apply the same tint without an explicit material index as a fallback for that path.
-                if(renderer.trailMaterial != null) {
-                    ApplyTrailMaterialPropertyBlock(renderer, renderer.trailMaterial, -1, tint);
+                if(psr.trailMaterial != null) {
+                    ApplyTrailMaterialPropertyBlock(psr, psr.trailMaterial, -1, tint);
                 }
             }
         }
@@ -1174,18 +1171,18 @@ namespace Game.Player {
             if(option.shotTrailRenderers != null) {
                 foreach(var trail in option.shotTrailRenderers) {
                     if(trail == null) continue;
-                    var previewTrail = ResolveShotTrailForPreview(trail);
-                    if(previewTrail == null) {
+                    var shotTrailForPreview = ResolveShotTrailForPreview(trail);
+                    if(shotTrailForPreview == null) {
                         skippedTrailCount++;
                         continue;
                     }
-                    EnsureGameObjectHierarchyActive(previewTrail.transform);
-                    previewTrail.Clear();
-                    previewTrail.time = Mathf.Max(0.01f, ShotPreviewTrailDisplayLifetimeSeconds);
-                    previewTrail.emitting = false;
+                    EnsureGameObjectHierarchyActive(shotTrailForPreview.transform);
+                    shotTrailForPreview.Clear();
+                    shotTrailForPreview.time = Mathf.Max(0.01f, ShotPreviewTrailDisplayLifetimeSeconds);
+                    shotTrailForPreview.emitting = false;
                     if(!projectileActive) continue;
-                    previewTrail.AddPosition(tailPosition);
-                    previewTrail.AddPosition(headPosition);
+                    shotTrailForPreview.AddPosition(tailPosition);
+                    shotTrailForPreview.AddPosition(headPosition);
                     trailCount++;
                 }
             }
@@ -1372,12 +1369,12 @@ namespace Game.Player {
             previewObject.name = $"{sourceObject.name} (ShotPreview)";
             ApplyPreviewHideFlags(previewObject);
 
-            var previewTrail = previewObject.GetComponent<TrailRenderer>();
-            if(previewTrail == null) {
-                previewTrail = previewObject.GetComponentInChildren<TrailRenderer>(true);
+            var trail = previewObject.GetComponent<TrailRenderer>();
+            if(trail == null) {
+                trail = previewObject.GetComponentInChildren<TrailRenderer>(true);
             }
 
-            if(previewTrail == null) {
+            if(trail == null) {
                 if(Application.isPlaying) {
                     Destroy(previewObject);
                 } else {
@@ -1386,8 +1383,8 @@ namespace Game.Player {
                 return null;
             }
 
-            _shotTrailPreviewInstances[sourceId] = previewTrail;
-            return previewTrail;
+            _shotTrailPreviewInstances[sourceId] = trail;
+            return trail;
 
         }
 
@@ -1437,9 +1434,9 @@ namespace Game.Player {
         private void ClearShotPreviewTrailInstances() {
             if(_shotTrailPreviewInstances.Count == 0) return;
             foreach(var kvp in _shotTrailPreviewInstances) {
-                var previewTrail = kvp.Value;
-                if(previewTrail == null) continue;
-                var go = previewTrail.gameObject;
+                var trail = kvp.Value;
+                if(trail == null) continue;
+                var go = trail.gameObject;
                 if(go == null) continue;
                 if(Application.isPlaying) {
                     Destroy(go);
@@ -1572,12 +1569,12 @@ namespace Game.Player {
         private void ApplyShotMuzzleLights(WeaponVisualOption option, bool muzzleActive) {
             if(option?.shotMuzzleLights == null) return;
             var shouldEnable = previewShotMuzzleLights && muzzleActive;
-            foreach(var light in option.shotMuzzleLights) {
-                if(light == null) continue;
-                var baseIntensity = GetOrCacheShotMuzzleLightBaseIntensity(light);
-                light.intensity = baseIntensity * Mathf.Max(0f, shotMuzzleLightIntensityMultiplier);
-                EnsureGameObjectHierarchyActive(light.transform);
-                light.enabled = shouldEnable;
+            foreach(var muzzleLight in option.shotMuzzleLights) {
+                if(muzzleLight == null) continue;
+                var baseIntensity = GetOrCacheShotMuzzleLightBaseIntensity(muzzleLight);
+                muzzleLight.intensity = baseIntensity * Mathf.Max(0f, shotMuzzleLightIntensityMultiplier);
+                EnsureGameObjectHierarchyActive(muzzleLight.transform);
+                muzzleLight.enabled = shouldEnable;
             }
         }
 
@@ -1602,13 +1599,13 @@ namespace Game.Player {
             if(options == null) return;
             foreach(var option in options) {
                 if(option?.shotMuzzleLights == null) continue;
-                foreach(var light in option.shotMuzzleLights) {
-                    if(light == null) continue;
-                    var id = light.GetInstanceID();
+                foreach(var muzzleLight in option.shotMuzzleLights) {
+                    if(muzzleLight == null) continue;
+                    var id = muzzleLight.GetInstanceID();
                     if(_shotMuzzleLightBaseIntensity.TryGetValue(id, out var baseIntensity)) {
-                        light.intensity = baseIntensity;
+                        muzzleLight.intensity = baseIntensity;
                     }
-                    light.enabled = false;
+                    muzzleLight.enabled = false;
                 }
             }
         }

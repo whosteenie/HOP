@@ -1,9 +1,10 @@
 using System.Collections;
 using System.Collections.Generic;
+using Game.UI.Core;
 using UnityEngine;
 using UnityEngine.UIElements;
 
-namespace Game.UI {
+namespace Game.UI.HUD {
     public class DamageVignetteUIManager : UIElementBase {
         public static DamageVignetteUIManager Instance { get; private set; }
 

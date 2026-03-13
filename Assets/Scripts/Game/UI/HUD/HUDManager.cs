@@ -1,13 +1,13 @@
 using System.Collections.Generic;
 using Game.Match;
-using Game.Player;
 using Game.Player.Core;
 using Game.Settings;
+using Game.UI.Core;
 using Network.Events;
 using UnityEngine;
 using UnityEngine.UIElements;
 
-namespace Game.UI {
+namespace Game.UI.HUD {
     public class HUDManager : UIElementBase {
 
         private VisualElement _healthContainer;

@@ -373,8 +373,9 @@ namespace Game.Player.Movement {
 
             playerController.NetIsWallRunning.Value = IsWallRunning;
             playerController.NetIsRightWallRun.Value = IsWallRunning && IsRightWallRun;
+            var forward = transform.forward;
             playerController.NetWallRunDirection.Value = IsWallRunning
-                ? Mathf.Sign(Vector3.Dot(GetWallRunVelocity(transform.forward), transform.forward))
+                ? Mathf.Sign(Vector3.Dot(GetWallRunVelocity(forward), forward))
                 : 1f;
         }
 

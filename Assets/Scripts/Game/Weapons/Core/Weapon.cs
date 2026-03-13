@@ -2,7 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using Audio.Networking;
 using Game.Player.Core;
-using Game.UI;
+using Game.UI.HUD;
 using Game.Weapons.Manager;
 using Game.Weapons.World;
 using Network.Core;

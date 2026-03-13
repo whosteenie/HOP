@@ -1,10 +1,11 @@
 using System.Collections;
 using System.Collections.Generic;
+using Game.Progression;
+using Game.UI.Core;
 using UnityEngine;
 using UnityEngine.UIElements;
-using Game.Progression;
 
-namespace Game.UI {
+namespace Game.UI.Misc {
     public class PostMatchXpDisplay : UIElementBase {
         private VisualElement _xpContainer;
         private ProgressBar _xpBar;

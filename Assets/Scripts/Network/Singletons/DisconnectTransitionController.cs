@@ -1,10 +1,9 @@
 using System.Collections.Generic;
-using Game.Player;
 using Game.Player.Core;
 using UnityEngine;
 using UnityEngine.Rendering.Universal;
 
-namespace Network {
+namespace Network.Singletons {
     /// <summary>
     /// Maintains duplicate FP visuals during unexpected disconnect so the player sees a seamless
     /// transition: host disconnects -> fade to black (with duplicate visible) -> screen black ->

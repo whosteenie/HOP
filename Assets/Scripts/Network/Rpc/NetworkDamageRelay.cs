@@ -1,7 +1,5 @@
 using System;
-using Game.Player;
 using Game.Player.Core;
-using Game.Weapons;
 using Game.Weapons.Manager;
 using Network.AntiCheat;
 using Network.Diagnostics;
@@ -53,20 +51,18 @@ namespace Network.Rpc {
                 return;
             }
 
-            var shooterId = senderClientId;
-
             if(weaponIndex < 0) {
-                AntiCheatLogger.LogInvalidDamage(shooterId, "invalid weapon index");
+                AntiCheatLogger.LogInvalidDamage(senderClientId, "invalid weapon index");
                 return;
             }
 
             // Optional: prevent self-damage via this path
-            if(victim.OwnerClientId == shooterId) {
+            if(victim.OwnerClientId == senderClientId) {
                 return;
             }
 
-            if(!NetworkManager.Singleton.ConnectedClients.TryGetValue(shooterId, out var attackerClient)) {
-                AntiCheatLogger.LogInvalidDamage(shooterId, "shooter not found");
+            if(!NetworkManager.Singleton.ConnectedClients.TryGetValue(senderClientId, out var attackerClient)) {
+                AntiCheatLogger.LogInvalidDamage(senderClientId, "shooter not found");
                 return;
             }
 
@@ -79,17 +75,17 @@ namespace Network.Rpc {
                 shooterWeaponManager = shooterController.WeaponManager;
             }
             if(shooterWeaponManager == null) {
-                AntiCheatLogger.LogInvalidDamage(shooterId, "weapon manager missing");
+                AntiCheatLogger.LogInvalidDamage(senderClientId, "weapon manager missing");
                 return;
             }
 
             if(shooterController == null) {
-                AntiCheatLogger.LogInvalidDamage(shooterId, "shooter controller missing");
+                AntiCheatLogger.LogInvalidDamage(senderClientId, "shooter controller missing");
                 return;
             }
 
             if(shooterWeaponManager.CurrentWeaponIndex != weaponIndex) {
-                AntiCheatLogger.LogInvalidDamage(shooterId, "weapon index mismatch");
+                AntiCheatLogger.LogInvalidDamage(senderClientId, "weapon index mismatch");
                 return;
             }
 
@@ -97,35 +93,35 @@ namespace Network.Rpc {
                 if(reason == "unregistered shot") {
                     if(!shooterWeaponManager.RegisterServerShot(weaponIndex, shotId, clientShotTime, out var registerReason) &&
                        registerReason != "duplicate shot") {
-                        AntiCheatLogger.LogInvalidDamage(shooterId, registerReason ?? reason);
+                        AntiCheatLogger.LogInvalidDamage(senderClientId, registerReason ?? reason);
                         return;
                     }
 
                     if(!shooterWeaponManager.ValidateServerHitClaim(weaponIndex, shotId, out reason)) {
-                        AntiCheatLogger.LogInvalidDamage(shooterId, reason);
+                        AntiCheatLogger.LogInvalidDamage(senderClientId, reason);
                         return;
                     }
                 } else {
-                    AntiCheatLogger.LogInvalidDamage(shooterId, reason);
+                    AntiCheatLogger.LogInvalidDamage(senderClientId, reason);
                     return;
                 }
             }
 
             if(WeaponManager.IsFriendlyFireServer(shooterController, victim)) {
-                AntiCheatLogger.LogInvalidDamage(shooterId, "friendly fire rejected");
+                AntiCheatLogger.LogInvalidDamage(senderClientId, "friendly fire rejected");
                 return;
             }
 
             if(!shooterWeaponManager.TryComputeServerDamage(weaponIndex, hitPoint, out var serverDamage,
                     out reason)) {
-                AntiCheatLogger.LogInvalidDamage(shooterId, reason ?? "server damage computation failed");
+                AntiCheatLogger.LogInvalidDamage(senderClientId, reason ?? "server damage computation failed");
                 return;
             }
 
             var weaponId = shooterWeaponManager.GetWeaponIdByIndex(weaponIndex);
 
             // Apply on server (authoritative). Damage is derived on the host, not trusted from the client claim.
-            var wasKill = victim.ApplyDamageServer_Auth(serverDamage, hitPoint, hitDirection, shooterId, bodyPartTag,
+            var wasKill = victim.ApplyDamageServer_Auth(serverDamage, hitPoint, hitDirection, senderClientId, bodyPartTag,
                 isHeadshot, weaponId);
 
             SendHitConfirmToOwner(wasKill);

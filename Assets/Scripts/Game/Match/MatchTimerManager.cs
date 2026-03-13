@@ -1,7 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using Game.Player;
 using Game.Player.Combat;
 using Game.Player.Core;
 using Network.Core;

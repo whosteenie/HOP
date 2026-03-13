@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Game.Match;
 using Game.Social;
-using Game.UI;
+using Game.UI.Core;
 using Network.Events;
 using Network.Services;
 using Network.Steam;
@@ -878,10 +878,9 @@ namespace Game.Menu {
             RegisterCleanup(() => field.UnregisterCallback(keyHandler, TrickleDown.TrickleDown));
 
             var fieldTextInput = field.Q(TextInputBaseField<int>.textInputUssName);
-            if(fieldTextInput != null) {
-                fieldTextInput.RegisterCallback(keyHandler, TrickleDown.TrickleDown);
-                RegisterCleanup(() => fieldTextInput.UnregisterCallback(keyHandler, TrickleDown.TrickleDown));
-            }
+            if(fieldTextInput == null) return;
+            fieldTextInput.RegisterCallback(keyHandler, TrickleDown.TrickleDown);
+            RegisterCleanup(() => fieldTextInput.UnregisterCallback(keyHandler, TrickleDown.TrickleDown));
             return;
 
             void SanitizeAndApply() {

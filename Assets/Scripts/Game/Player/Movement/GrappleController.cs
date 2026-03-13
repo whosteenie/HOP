@@ -648,8 +648,7 @@ namespace Game.Player.Movement {
 
             if(applyMomentum && PreserveMomentum) {
                 // Calculate final momentum direction
-                var directionToPoint = directionToAnchor;
-                var finalVelocity = GrappleSpeed * MomentumBoost * directionToPoint;
+                var finalVelocity = GrappleSpeed * MomentumBoost * directionToAnchor;
 
                 // Apply momentum to FpController
                 if(playerController != null) {

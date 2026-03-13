@@ -46,7 +46,7 @@ namespace Discord {
                 _isReady = false;
 
                 Debug.Log(
-                    $"[DiscordManager] Discord SDK initialized. " +
+                    "[DiscordManager] Discord SDK initialized. " +
                     $"Status={Client.StatusToString(initialStatus)} " +
                     $"LaunchRegistered={registeredLaunchCommand} " +
                     $"SteamLaunchRegistered={registeredSteamLaunch}");
@@ -169,7 +169,7 @@ namespace Discord {
             if (!result.Successful()) {
                 _isConnecting = false;
                 Debug.LogWarning(
-                    $"[DiscordManager] Failed to acquire Discord token: " +
+                    "[DiscordManager] Failed to acquire Discord token: " +
                     $"Type={result.Type()} Error={result.Error()} Retryable={result.Retryable()} " +
                     $"RetryAfter={result.RetryAfter()} Response={result.ResponseBody()}");
                 return;
@@ -182,7 +182,7 @@ namespace Discord {
             if (!result.Successful()) {
                 _isConnecting = false;
                 Debug.LogWarning(
-                    $"[DiscordManager] Failed to update Discord token: " +
+                    "[DiscordManager] Failed to update Discord token: " +
                     $"Type={result.Type()} Error={result.Error()} Retryable={result.Retryable()} " +
                     $"RetryAfter={result.RetryAfter()} Response={result.ResponseBody()}");
                 return;
@@ -215,7 +215,7 @@ namespace Discord {
 
             if (error != Client.Error.None) {
                 Debug.LogWarning(
-                    $"[DiscordManager] Discord status changed: " +
+                    "[DiscordManager] Discord status changed: " +
                     $"Status={Client.StatusToString(status)} " +
                     $"Error={Client.ErrorToString(error)} " +
                     $"Detail={errorDetail}");
@@ -228,7 +228,7 @@ namespace Discord {
             }
 
             Debug.LogWarning(
-                $"[DiscordManager] Failed to update activity: " +
+                "[DiscordManager] Failed to update activity: " +
                 $"Type={res.Type()} Error={res.Error()} Retryable={res.Retryable()} " +
                 $"RetryAfter={res.RetryAfter()} Response={res.ResponseBody()}");
         }
@@ -239,7 +239,7 @@ namespace Discord {
             }
 
             Debug.LogWarning(
-                $"[DiscordManager] Failed to update provisional display name: " +
+                "[DiscordManager] Failed to update provisional display name: " +
                 $"Type={result.Type()} Error={result.Error()} Retryable={result.Retryable()} " +
                 $"RetryAfter={result.RetryAfter()} Response={result.ResponseBody()}");
         }

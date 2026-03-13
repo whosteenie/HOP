@@ -1,5 +1,6 @@
 using Game.Player;
 using System.Collections.Generic;
+using Game.Player.Visual;
 using UnityEditor.Animations;
 using UnityEditor;
 using UnityEngine;

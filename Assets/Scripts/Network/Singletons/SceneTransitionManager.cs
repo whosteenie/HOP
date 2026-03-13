@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
 using Game.Audio;
 using Game.Menu;
-using Game.UI;
+using Game.UI.Misc;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UIElements;

@@ -22,77 +22,41 @@ namespace Game.Match {
             return proxy;
         }
 
-        public NetworkVariable<ulong> representedClientId = new(ulong.MaxValue,
-            NetworkVariableReadPermission.Everyone,
-            NetworkVariableWritePermission.Server);
+        public NetworkVariable<ulong> representedClientId = new(ulong.MaxValue);
 
-        public NetworkVariable<float> netHealth = new(100f,
-            NetworkVariableReadPermission.Everyone,
-            NetworkVariableWritePermission.Server);
+        public NetworkVariable<float> netHealth = new(100f);
 
-        public NetworkVariable<bool> netIsDead = new(false,
-            NetworkVariableReadPermission.Everyone,
-            NetworkVariableWritePermission.Server);
+        public NetworkVariable<bool> netIsDead = new();
 
-        public NetworkVariable<int> kills = new(0,
-            NetworkVariableReadPermission.Everyone,
-            NetworkVariableWritePermission.Server);
+        public NetworkVariable<int> kills = new();
 
-        public NetworkVariable<int> deaths = new(0,
-            NetworkVariableReadPermission.Everyone,
-            NetworkVariableWritePermission.Server);
+        public NetworkVariable<int> deaths = new();
 
-        public NetworkVariable<int> assists = new(0,
-            NetworkVariableReadPermission.Everyone,
-            NetworkVariableWritePermission.Server);
+        public NetworkVariable<int> assists = new();
 
-        public NetworkVariable<float> damageDealt = new(0f,
-            NetworkVariableReadPermission.Everyone,
-            NetworkVariableWritePermission.Server);
+        public NetworkVariable<float> damageDealt = new();
 
-        public NetworkVariable<int> equippedWeaponIndex = new(-1,
-            NetworkVariableReadPermission.Everyone,
-            NetworkVariableWritePermission.Server);
+        public NetworkVariable<int> equippedWeaponIndex = new(-1);
 
-        public NetworkVariable<ulong> steamId = new(0,
-            NetworkVariableReadPermission.Everyone,
-            NetworkVariableWritePermission.Server);
+        public NetworkVariable<ulong> steamId = new();
 
-        public NetworkVariable<FixedString128Bytes> ugsId = new("",
-            NetworkVariableReadPermission.Everyone,
-            NetworkVariableWritePermission.Server);
+        public NetworkVariable<FixedString128Bytes> ugsId = new("");
 
-        public NetworkVariable<FixedString64Bytes> playerName = new("Player",
-            NetworkVariableReadPermission.Everyone,
-            NetworkVariableWritePermission.Server);
+        public NetworkVariable<FixedString64Bytes> playerName = new("Player");
 
-        public NetworkVariable<float> averageVelocity = new(0f,
-            NetworkVariableReadPermission.Everyone,
-            NetworkVariableWritePermission.Server);
+        public NetworkVariable<float> averageVelocity = new();
 
-        public NetworkVariable<int> pingMs = new(0,
-            NetworkVariableReadPermission.Everyone,
-            NetworkVariableWritePermission.Server);
+        public NetworkVariable<int> pingMs = new();
 
-        public NetworkVariable<float> replicatedDamageMultiplier = new(1f,
-            NetworkVariableReadPermission.Everyone,
-            NetworkVariableWritePermission.Server);
+        public NetworkVariable<float> replicatedDamageMultiplier = new(1f);
 
-        public NetworkVariable<int> tags = new(0,
-            NetworkVariableReadPermission.Everyone,
-            NetworkVariableWritePermission.Server);
+        public NetworkVariable<int> tags = new();
 
-        public NetworkVariable<int> tagged = new(0,
-            NetworkVariableReadPermission.Everyone,
-            NetworkVariableWritePermission.Server);
+        public NetworkVariable<int> tagged = new();
 
-        public NetworkVariable<int> timeTagged = new(0,
-            NetworkVariableReadPermission.Everyone,
-            NetworkVariableWritePermission.Server);
+        public NetworkVariable<int> timeTagged = new();
 
-        public NetworkVariable<bool> isTagged = new(false,
-            NetworkVariableReadPermission.Everyone,
-            NetworkVariableWritePermission.Server);
+        public NetworkVariable<bool> isTagged = new();
 
         private bool _sessionOwnerCallbacksRegistered;
         private ulong _registeredClientId = ulong.MaxValue;

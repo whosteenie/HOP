@@ -4,7 +4,7 @@ using Game.Weapons.Manager;
 using Unity.Netcode;
 using UnityEngine;
 
-namespace Game.Player {
+namespace Game.Player.Visual {
     /// <summary>
     /// Handles all visual, material, and renderer management for the player.
     /// </summary>

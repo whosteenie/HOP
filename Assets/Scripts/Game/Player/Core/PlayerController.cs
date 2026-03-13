@@ -7,16 +7,16 @@ using Game.Player.Hopball;
 using Game.Player.Look;
 using Game.Player.Movement;
 using Game.Player.Podium;
-using Game.UI;
-using Game.Weapons;
+using Game.Player.Visual;
+using Game.UI.HUD;
 using Game.Weapons.Core;
 using Game.Weapons.Manager;
 using Game.Weapons.Presentation;
-using Network;
 using Network.Components;
 using Network.Core;
 using Network.Events;
 using Network.Rpc;
+using Network.Singletons;
 using OSI;
 using Unity.Cinemachine;
 using Unity.Collections;
@@ -483,11 +483,10 @@ namespace Game.Player.Core {
         }
 
         private void UpdateRuntimeSafetyMaintenance() {
-            if((disableKinemationFrameworkComponents || disableUnexpectedChildCameras) &&
-               (Time.frameCount & 15) == 0) {
-                DisableConflictingKinemationFrameworkComponents();
-                DisableUnexpectedChildCamerasAndListeners();
-            }
+            if((!disableKinemationFrameworkComponents && !disableUnexpectedChildCameras) ||
+               (Time.frameCount & 15) != 0) return;
+            DisableConflictingKinemationFrameworkComponents();
+            DisableUnexpectedChildCamerasAndListeners();
         }
 
         private void UpdateAuthorityFrameState() {

@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Rendering;
 
-namespace Game.Player {
+namespace Game.Player.Visual {
     /// <summary>
     /// Static utility for generating URP/Lit materials from material packets and customization values.
     /// Handles material caching to avoid creating duplicate materials.

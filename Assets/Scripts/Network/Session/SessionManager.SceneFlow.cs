@@ -2,7 +2,6 @@ using System;
 using Cysharp.Threading.Tasks;
 using Game.Match;
 using Game.Menu;
-using Game.Player;
 using Game.Player.Core;
 using Network.Core;
 using Network.Diagnostics;
@@ -267,7 +266,7 @@ namespace Network.Session {
         }
 
         private async UniTask VerifyDistributedAuthorityStopAsync() {
-            await UniTask.Delay(TimeSpan.FromSeconds(3));
+            await UniTask.Delay(TimeSpan.FromSeconds(3), cancellationToken: SessionLifetimeToken);
 
             if(IsExpectedDisconnect || _isLeaving || _isShuttingDown) {
                 return;
@@ -291,7 +290,7 @@ namespace Network.Session {
 
             if(Debug.isDebugBuild) {
                 Debug.Log(
-                    $"[SessionManager] Session owner promoted to client {sessionOwnerPromoted}. LocalSessionOwner={_networkManager.LocalClient != null && _networkManager.LocalClient.IsSessionOwner}");
+                    $"[SessionManager] Session owner promoted to client {sessionOwnerPromoted}. LocalSessionOwner={_networkManager.LocalClient is { IsSessionOwner: true }}");
             }
 
             if(_networkManager.IsListening && !_isLeaving && !_isShuttingDown && IsGameplaySceneName(SceneManager.GetActiveScene().name)) {

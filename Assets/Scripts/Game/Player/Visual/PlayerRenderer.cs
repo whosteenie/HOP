@@ -6,7 +6,7 @@ using Game.Weapons.Manager;
 using Unity.Netcode;
 using UnityEngine;
 
-namespace Game.Player {
+namespace Game.Player.Visual {
     /// <summary>
     /// Centralized renderer management for all player-related renderers.
     /// Handles enabled state, materials, bounds, and caching.

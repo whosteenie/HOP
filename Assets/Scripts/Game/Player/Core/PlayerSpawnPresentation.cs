@@ -3,7 +3,6 @@ using Game.Menu;
 using Game.Settings;
 using Network.Core;
 using Steamworks;
-using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace Game.Player.Core {

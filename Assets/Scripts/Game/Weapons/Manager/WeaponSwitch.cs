@@ -38,7 +38,7 @@ namespace Game.Weapons.Manager {
             if(_root.CurrentWeaponIndexInternal < 0 || _root.CurrentWeaponIndexInternal >= _root.FpWeaponInstancesRef.Count) return;
 
             var currentFpWeapon = _root.FpWeaponInstancesRef[_root.CurrentWeaponIndexInternal];
-            if(!_root.TryGetKinemationDriverInternal(currentFpWeapon, out var kinemationDriver) || kinemationDriver == null) return;
+            if(!WeaponManager.TryGetKinemationDriverInternal(currentFpWeapon, out var kinemationDriver) || kinemationDriver == null) return;
             if(!kinemationDriver.HasActiveWeapon()) return;
             if(kinemationDriver.IsEquipSequenceInProgress()) return;
 
@@ -214,7 +214,7 @@ namespace Game.Weapons.Manager {
                 return;
             }
 
-            var hasKinemationDriver = fp != null && _root.TryGetKinemationDriverInternal(fp, out _);
+            var hasKinemationDriver = fp != null && WeaponManager.TryGetKinemationDriverInternal(fp, out _);
             _root.RequiresKinemationEquipCompleteForCurrentPullOut = hasKinemationDriver && !isPostMatch;
 
             QueuePendingTpWeapon(data);
@@ -269,7 +269,7 @@ namespace Game.Weapons.Manager {
             if(_root.CurrentWeaponInternal != null && _root.CurrentWeaponIndexInternal >= 0) {
                 var data = _root.WeaponDataListRef[_root.CurrentWeaponIndexInternal];
                 var fpWeapon = _root.FpWeaponInstancesRef[_root.CurrentWeaponIndexInternal];
-                if(fpWeapon == null || !_root.TryGetKinemationDriverInternal(fpWeapon, out var driver) || driver == null) {
+                if(fpWeapon == null || !WeaponManager.TryGetKinemationDriverInternal(fpWeapon, out var driver) || driver == null) {
                     Debug.LogError(
                         $"[WeaponManager][KIN-Strict] Missing KinemationFpWeaponDriver for '{data.weaponName}' in ShowTpWeapon.");
                     return;
@@ -344,7 +344,7 @@ namespace Game.Weapons.Manager {
                 if(data != null && fpWeapon != null) {
                     if(!fpWeapon.activeSelf) {
                         fpWeapon = _root.ActivateFpWeaponInternal(_root.CurrentWeaponIndexInternal, data, true);
-                    } else if(_root.TryGetKinemationDriverInternal(fpWeapon, out var kinemationDriver) && kinemationDriver != null) {
+                    } else if(WeaponManager.TryGetKinemationDriverInternal(fpWeapon, out var kinemationDriver) && kinemationDriver != null) {
                         _root.TryGetKinemationBindingForData(data, out var kinemationBinding);
                         _root.ApplyResolvedKinemationViewmodelPoseInternal(fpWeapon, kinemationBinding);
                         kinemationDriver.InitializeIfNeeded(_root.GetFpWeaponLayerInternal());
@@ -352,7 +352,7 @@ namespace Game.Weapons.Manager {
                     }
                 }
 
-                requiresKinemationEquipCompletion = fpWeapon != null && _root.TryGetKinemationDriverInternal(fpWeapon, out _);
+                requiresKinemationEquipCompletion = fpWeapon != null && WeaponManager.TryGetKinemationDriverInternal(fpWeapon, out _);
             }
 
             if(_root.PendingTpWeapon == null && _root.CurrentWeaponIndexInternal >= 0 && _root.CurrentWeaponIndexInternal < _root.WeaponDataListRef.Count) {
@@ -388,7 +388,7 @@ namespace Game.Weapons.Manager {
             }
 
             if(_root.PlayerAnimatorRef != null) {
-                _root.PlayerAnimatorRef.ResetTrigger(_root.PullOutHashInternal);
+                _root.PlayerAnimatorRef.ResetTrigger(WeaponManager.PullOutHashInternal);
             }
 
             if(_root.CurrentWorldWeaponInstanceInternal == null) {
@@ -422,7 +422,7 @@ namespace Game.Weapons.Manager {
         public void SetTpWeaponIndexForPodium() {
             if(_root.PlayerAnimatorRef == null) return;
             var slot = Mathf.Clamp(_root.GetSlotForIndexInternal(_root.CurrentWeaponIndexInternal), 0, 1);
-            _root.PlayerAnimatorRef.SetInteger(_root.WeaponIndexHashInternal, slot);
+            _root.PlayerAnimatorRef.SetInteger(WeaponManager.WeaponIndexHashInternal, slot);
             var layerIndex = _root.PlayerAnimatorRef.GetLayerIndex("Weapon Hold Layer");
             if(layerIndex < 0) return;
             var stateName = slot == 0 ? "AKAim" : "PistolAim";
@@ -470,8 +470,8 @@ namespace Game.Weapons.Manager {
         private void TriggerTpPullOutAnimation(int weaponIndex) {
             if(_root.PlayerAnimatorRef == null) return;
             var slot = Mathf.Clamp(_root.GetSlotForIndexInternal(weaponIndex), 0, 1);
-            _root.PlayerAnimatorRef.SetInteger(_root.WeaponIndexHashInternal, slot);
-            _root.PlayerAnimatorRef.SetTrigger(_root.PullOutHashInternal);
+            _root.PlayerAnimatorRef.SetInteger(WeaponManager.WeaponIndexHashInternal, slot);
+            _root.PlayerAnimatorRef.SetTrigger(WeaponManager.PullOutHashInternal);
         }
 
         private void ReconcileStableTpWeaponState() {
@@ -528,7 +528,7 @@ namespace Game.Weapons.Manager {
             if(weaponIndex < 0 || weaponIndex >= _root.FpWeaponInstancesRef.Count) return;
 
             var fpWeaponRoot = _root.FpWeaponInstancesRef[weaponIndex];
-            if(!forceSchedule && !_root.TryGetKinemationDriverInternal(fpWeaponRoot, out _)) return;
+            if(!forceSchedule && !WeaponManager.TryGetKinemationDriverInternal(fpWeaponRoot, out _)) return;
 
             if(_root.KinemationPullOutCompletionCoroutine != null) {
                 _root.StopCoroutine(_root.KinemationPullOutCompletionCoroutine);

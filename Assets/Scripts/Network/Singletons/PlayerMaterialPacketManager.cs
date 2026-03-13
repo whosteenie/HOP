@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
-using Game.Player;
+using Game.Player.Visual;
 using UnityEngine;
 
 namespace Network.Singletons {

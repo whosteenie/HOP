@@ -132,7 +132,7 @@ namespace Game.Weapons.Manager {
         public void ApplyTpWeaponStateOnRespawn() {
             if(_root.PlayerAnimatorRef != null) {
                 var slot = Mathf.Clamp(GetSlotForIndex(_root.CurrentWeaponIndexInternal), 0, 1);
-                _root.PlayerAnimatorRef.SetInteger(_root.WeaponIndexHashInternal, slot);
+                _root.PlayerAnimatorRef.SetInteger(WeaponManager.WeaponIndexHashInternal, slot);
                 _root.PlayerAnimatorRef.Rebind();
                 _root.PlayerAnimatorRef.Update(0f);
             }
@@ -165,13 +165,13 @@ namespace Game.Weapons.Manager {
                 var currentFpWeapon = _root.GetCurrentFpWeapon();
                 if(currentFpWeapon != null) {
                     if(_root.CurrentWeaponIndexInternal >= 0 && _root.CurrentWeaponIndexInternal < _root.WeaponDataListRef.Count &&
-                       _root.TryGetKinemationDriverInternal(currentFpWeapon, out _)) {
+                       WeaponManager.TryGetKinemationDriverInternal(currentFpWeapon, out _)) {
                         var data = _root.WeaponDataListRef[_root.CurrentWeaponIndexInternal];
                         _root.TryGetKinemationBindingForData(data, out var kinemationBinding);
                         _root.ApplyResolvedKinemationViewmodelPoseInternal(currentFpWeapon, kinemationBinding);
                     }
 
-                    _root.EnsureHierarchyActiveInternal(currentFpWeapon);
+                    WeaponManager.EnsureHierarchyActiveInternal(currentFpWeapon);
                     currentFpWeapon.SetActive(true);
 
                     _root.SetupFpWeaponSkinnedMeshRenderersInternal(currentFpWeapon);

@@ -1,7 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using Game.Player;
 using Game.Match;
 using Game.Player.Core;
 using Game.Player.Hopball;
@@ -116,15 +115,14 @@ namespace Game.Hopball {
 
         private void OnSessionOwnerPromoted(ulong _) {
             if(!HasHopballAuthority) {
-                if(_respawnCoroutine != null) {
-                    StopCoroutine(_respawnCoroutine);
-                    _respawnCoroutine = null;
-                }
+                if(_respawnCoroutine == null) return;
+                StopCoroutine(_respawnCoroutine);
+                _respawnCoroutine = null;
                 return;
             }
 
             NetworkAuthority.TryConfigureSessionOwnerObject(this);
-            CurrentHopballController ??= FindAnyObjectByType<HopballController>();
+            CurrentHopballController = CurrentHopballController ? CurrentHopballController : FindAnyObjectByType<HopballController>();
             if(CurrentHopballController != null) {
                 NetworkAuthority.TryConfigureSessionOwnerObject(CurrentHopballController);
             }
@@ -133,12 +131,11 @@ namespace Game.Hopball {
                 return;
             }
 
-            if(CurrentHopballController == null && !_isSpawning) {
-                if(MatchTimerManager.Instance != null && !MatchTimerManager.Instance.IsPreMatch) {
-                    SpawnHopball();
-                } else {
-                    StartCoroutine(InitialSpawnCoroutine());
-                }
+            if(CurrentHopballController != null || _isSpawning) return;
+            if(MatchTimerManager.Instance != null && !MatchTimerManager.Instance.IsPreMatch) {
+                SpawnHopball();
+            } else {
+                StartCoroutine(InitialSpawnCoroutine());
             }
         }
 
@@ -423,7 +420,7 @@ namespace Game.Hopball {
         /// <summary>
         /// Called by HopballController when player picks up ball. Tracks energy for scoring.
         /// </summary>
-        public void OnPlayerPickedUpHopball(ulong playerId) {
+        private void OnPlayerPickedUpHopball(ulong playerId) {
             if(!HasHopballAuthority || CurrentHopballController == null) return;
 
             // Track who picked it up and at what energy

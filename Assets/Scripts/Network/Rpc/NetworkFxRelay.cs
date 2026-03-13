@@ -1,8 +1,6 @@
 using System.Collections.Generic;
 using Game.Match;
-using Game.Player;
 using Game.Player.Core;
-using Game.Weapons;
 using Game.Weapons.Core;
 using Game.Weapons.Manager;
 using Network.Diagnostics;

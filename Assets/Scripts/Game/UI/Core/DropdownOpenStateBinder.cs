@@ -1,7 +1,7 @@
 using System;
 using UnityEngine.UIElements;
 
-namespace Game.UI {
+namespace Game.UI.Core {
     /// <summary>
     /// Reusable UITK helper that mirrors dropdown open/close into a USS class.
     /// This avoids unsupported pseudo-classes such as :focus-within in Unity USS.

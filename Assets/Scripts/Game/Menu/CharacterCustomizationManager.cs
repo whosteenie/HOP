@@ -1,9 +1,9 @@
 using System;
 using System.Collections.Generic;
-using Game.Player;
 using Game.Player.Core;
-using Game.UI;
+using Game.Player.Visual;
 using Game.Settings;
+using Game.UI.Core;
 using Network.Singletons;
 using UnityEngine;
 using UnityEngine.UIElements;

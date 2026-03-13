@@ -1,16 +1,16 @@
 using System.Collections.Generic;
-using Game.Player;
 using Game.Player.Core;
 using Game.Player.Movement;
+using Game.Settings;
+using Game.UI.Core;
+using Network.Events;
 using Unity.Cinemachine;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UIElements;
-using Game.Settings;
-using Network.Events;
 using SessionManager = Network.Session.SessionManager;
 
-namespace Game.UI {
+namespace Game.UI.HUD {
     public class GrappleUIManager : UIElementBase {
 
         [Header("Settings")]

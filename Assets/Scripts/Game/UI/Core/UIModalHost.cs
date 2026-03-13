@@ -4,7 +4,7 @@ using Network.Services;
 using UnityEngine;
 using UnityEngine.UIElements;
 
-namespace Game.UI {
+namespace Game.UI.Core {
     /// <summary>
     /// Centralized host for managing modal dialogs. Supports dynamic instantiation
     /// from UXML templates and provides a consistent API for showing/hiding modals.

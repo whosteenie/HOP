@@ -1,16 +1,14 @@
 using System.Collections;
 using System.Linq;
 using Game.Match;
-using Game.Player;
 using Game.Player.Core;
 using Game.Spawning;
-using Network.Core;
 using Network.Diagnostics;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
-namespace Network {
+namespace Network.Core {
     public class CustomNetworkManager : MonoBehaviour {
         [Header("Manual Player Prefab (do NOT rely on NetworkConfig.PlayerPrefab)")]
         [SerializeField] private NetworkObject playerPrefab;
@@ -138,10 +136,9 @@ namespace Network {
         }
 
         private void OnClientConnected(ulong clientId) {
-            if(_allowPlayerSpawns && NetworkAuthority.HasGlobalAuthority(NetworkManager.Singleton)) {
-                SpawnPlayerFor(clientId);
-                SchedulePlayerVisibilityReconciliation("OnClientConnected");
-            }
+            if(!_allowPlayerSpawns || !NetworkAuthority.HasGlobalAuthority(NetworkManager.Singleton)) return;
+            SpawnPlayerFor(clientId);
+            SchedulePlayerVisibilityReconciliation("OnClientConnected");
         }
 
         private void OnSessionOwnerPromoted(ulong _) {
@@ -549,15 +546,15 @@ namespace Network {
             Debug.Log($"[CustomNetworkManager] Distributed Teams (Public): TeamA={teamAMembers.Count}, TeamB={teamBMembers.Count}");
         }
 
-        private bool TryRefreshClientMetadataFromDistributedAuthoritySession(ulong clientId) {
+        private void TryRefreshClientMetadataFromDistributedAuthoritySession(ulong clientId) {
             if(!_clientUgsPlayerIds.TryGetValue(clientId, out var ugsPlayerId) || string.IsNullOrWhiteSpace(ugsPlayerId)) {
-                return false;
+                return;
             }
 
             var sessionManager = Session.SessionManager.Instance;
             if(sessionManager == null ||
                !sessionManager.TryResolveDistributedAuthorityPlayerMetadata(ugsPlayerId, out var partyId, out var steamId)) {
-                return false;
+                return;
             }
 
             if(!string.IsNullOrWhiteSpace(partyId)) {
@@ -567,8 +564,6 @@ namespace Network {
             if(steamId != 0) {
                 _clientSteamIds[clientId] = steamId;
             }
-
-            return !string.IsNullOrWhiteSpace(partyId) || steamId != 0;
         }
 
         private IEnumerator CaptureSpawnedPlayerMetadata(ulong clientId, PlayerController controller) {
@@ -589,8 +584,7 @@ namespace Network {
                 }
 
                 var steamId = controller.SteamId.Value;
-                if(steamId != 0 && !_clientSteamIds.ContainsKey(clientId)) {
-                    _clientSteamIds[clientId] = steamId;
+                if(steamId != 0 && _clientSteamIds.TryAdd(clientId, steamId)) {
                     updated = true;
                 }
 

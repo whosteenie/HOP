@@ -3,7 +3,7 @@ using Game.Player.Core;
 using Unity.Netcode;
 using UnityEngine;
 
-namespace Game.Player {
+namespace Game.Player.Visual {
     /// <summary>
     /// Handles all animation state management for the player.
     /// </summary>
@@ -213,10 +213,9 @@ namespace Game.Player {
             _playerAnimator.SetBool(IsJumpingHash, true);
             IsJumping = true;
 
-            if(playerController != null) {
-                playerController.NetIsJumping.Value = true;
-                playerController.jumpAnimationSequence.Value++;
-            }
+            if(playerController == null) return;
+            playerController.NetIsJumping.Value = true;
+            playerController.jumpAnimationSequence.Value++;
         }
 
         /// <summary>
@@ -236,11 +235,10 @@ namespace Game.Player {
             var isGrounded = playerController != null && playerController.IsGrounded;
             _playerAnimator.SetBool(IsGroundedHash, isGrounded);
 
-            if(playerController != null) {
-                playerController.NetIsJumping.Value = false;
-                playerController.NetIsFalling.Value = false;
-                playerController.landAnimationSequence.Value++;
-            }
+            if(playerController == null) return;
+            playerController.NetIsJumping.Value = false;
+            playerController.NetIsFalling.Value = false;
+            playerController.landAnimationSequence.Value++;
         }
 
         /// <summary>

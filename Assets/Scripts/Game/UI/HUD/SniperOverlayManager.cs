@@ -1,7 +1,7 @@
 using UnityEngine;
 using UnityEngine.UIElements;
 
-namespace Game.UI {
+namespace Game.UI.HUD {
     public class SniperOverlayManager : MonoBehaviour {
         public static SniperOverlayManager Instance { get; private set; }
 

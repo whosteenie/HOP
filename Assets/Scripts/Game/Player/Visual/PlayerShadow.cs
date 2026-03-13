@@ -6,7 +6,7 @@ using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.Rendering;
 
-namespace Game.Player {
+namespace Game.Player.Visual {
     /// <summary>
     /// Handles shadow casting mode management for player renderers.
     /// Enhanced to centralize all shadow mode logic from PlayerController.

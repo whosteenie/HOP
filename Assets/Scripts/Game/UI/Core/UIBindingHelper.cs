@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UIElements;
 
-namespace Game.UI {
+namespace Game.UI.Core {
     /// <summary>
     /// Helper for validating required UI elements and managing bind/unbind lifecycle
     /// to prevent missing-element crashes and duplicate event handler registration.

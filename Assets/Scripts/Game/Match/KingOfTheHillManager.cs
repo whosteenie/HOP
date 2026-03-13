@@ -150,7 +150,7 @@ namespace Game.Match {
             }
 
             FindSpawnPoints();
-            _currentHill ??= FindAnyObjectByType<HillController>();
+            _currentHill = _currentHill ? _currentHill : FindAnyObjectByType<HillController>();
             if(_currentHill != null) {
                 NetworkAuthority.TryConfigureSessionOwnerObject(_currentHill);
             }

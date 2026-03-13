@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using Game.Player;
 using Game.Player.Combat;
 using Game.Player.Core;
 using Game.Player.Look;

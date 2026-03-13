@@ -207,6 +207,7 @@ namespace Game.Match {
         }
 
         [Rpc(SendTo.Everyone)]
+        // ReSharper disable once MemberCanBeMadeStatic.Local
         private void BroadcastShotFxClientRpc(NetworkObjectReference shooterRef, Vector3 endPoint, Vector3 hitNormal,
             bool madeImpact, bool hitPlayer, NetworkObjectReference hitPlayerRef, bool playMuzzleFlash,
             Vector3 shooterVelocity) {

@@ -1,8 +1,8 @@
 using System;
 using System.Collections.Generic;
 using Game.Match;
-using Game.Player;
 using Game.Player.Core;
+using Game.Player.Visual;
 using Game.Weapons.Core;
 using Game.Weapons.World;
 using KINEMATION.FPSAnimationPack.Scripts.Weapon;
@@ -73,8 +73,6 @@ namespace Game.Weapons.Manager {
 
         #region Static State
 
-        private static readonly int PullOutHash = Animator.StringToHash("PullOut");
-        private static readonly int WeaponIndexHash = Animator.StringToHash("WeaponIndex");
         private static readonly NetworkVariable<int> MissingEquippedWeaponIndexState = new(-1);
 
         private const string FpLightRigRootName = "FpWeaponLightRig";
@@ -180,8 +178,10 @@ namespace Game.Weapons.Manager {
         internal float FpFillLightRange => fpFillLightRange;
         internal float FpFillLightSpotAngle => fpFillLightSpotAngle;
         internal Color FpFillLightColor => fpFillLightColor;
-        internal int PullOutHashInternal => PullOutHash;
-        internal int WeaponIndexHashInternal => WeaponIndexHash;
+        internal static int PullOutHashInternal { get; } = Animator.StringToHash("PullOut");
+
+        internal static int WeaponIndexHashInternal { get; } = Animator.StringToHash("WeaponIndex");
+
         internal NetworkVariable<int> ReplicatedEquippedWeaponIndex =>
             ResolvePlayerState() != null ? ResolvePlayerState().equippedWeaponIndex : MissingEquippedWeaponIndexState;
 
@@ -232,8 +232,6 @@ namespace Game.Weapons.Manager {
             _authority.RegisterServerShot(weaponIndex, shotId, clientShotTime, out reason);
         public bool ValidateServerHitClaim(int weaponIndex, ulong shotId, out string reason) =>
             _authority.ValidateServerHitClaim(weaponIndex, shotId, out reason);
-        public string GetCombatAuthorityDebugSummary(int requestedWeaponIndex = -1) =>
-            _authority.GetCombatAuthorityDebugSummary(requestedWeaponIndex);
         public bool TryComputeServerDamage(int weaponIndex, Vector3 hitPoint, out float damage, out string reason) =>
             _authority.TryComputeServerDamage(weaponIndex, hitPoint, out damage, out reason);
         public void ReportWeaponStateSync(int weaponIndex, AmmoSyncReason reason, int localAmmoAfterEvent) =>
@@ -292,14 +290,14 @@ namespace Game.Weapons.Manager {
             _fpPresentation.ActivateFpWeapon(weaponIndex, data, triggerPullOutAnimation);
         internal void InstantiateFpWeaponInstancesInternal() => _fpPresentation.InstantiateFpWeaponInstances();
         internal void DestroyFpWeaponInstancesInternal() => _fpPresentation.DestroyFpWeaponInstances();
-        internal bool TryGetKinemationDriverInternal(GameObject fpWeaponRoot, out KinemationFpWeaponDriver driver) =>
+        internal static bool TryGetKinemationDriverInternal(GameObject fpWeaponRoot, out KinemationFpWeaponDriver driver) =>
             WeaponFpPresentation.TryGetKinemationDriver(fpWeaponRoot, out driver);
         internal void ApplyResolvedKinemationViewmodelPoseInternal(GameObject fpWeaponRoot, KinemationWeaponBinding binding) =>
             _fpPresentation.ApplyResolvedKinemationViewmodelPose(fpWeaponRoot, binding);
         internal int GetFpWeaponLayerInternal() => _fpPresentation.GetFpWeaponLayer();
         internal void SetupFpWeaponSkinnedMeshRenderersInternal(GameObject fpWeaponInstance) =>
             _fpPresentation.SetupFpWeaponSkinnedMeshRenderers(fpWeaponInstance);
-        internal void EnsureHierarchyActiveInternal(GameObject instanceRoot) => WeaponFpPresentation.EnsureHierarchyActive(instanceRoot);
+        internal static void EnsureHierarchyActiveInternal(GameObject instanceRoot) => WeaponFpPresentation.EnsureHierarchyActive(instanceRoot);
         internal void EnsureFpWeaponLightingRigInternal() => _fpLighting.EnsureFpWeaponLightingRig();
         internal int GetSlotForIndexInternal(int index) => _loadout.GetSlotForIndexInternal(index);
         internal void ResolveCurrentWorldWeaponReferenceInternal() => _loadout.ResolveCurrentWorldWeaponReferenceInternal();

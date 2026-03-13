@@ -1,5 +1,5 @@
 using Game.Match;
-using Game.UI;
+using Game.UI.HUD;
 using Network.Core;
 using UnityEngine;
 using UnityEngine.SceneManagement;

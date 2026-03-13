@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace Network {
+namespace Network.Core {
     /// <summary>
     /// Holds draft team assignments (SteamId -> team index 0 or 1) from the private match setup panel.
     /// Set by SessionManager when starting a private match; read and cleared by CustomNetworkManager when assigning teams.

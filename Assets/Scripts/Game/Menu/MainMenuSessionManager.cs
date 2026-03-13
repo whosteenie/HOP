@@ -5,11 +5,11 @@ using System.Threading;
 using Cysharp.Threading.Tasks;
 using Game.Progression;
 using Game.Settings;
-using Game.UI;
 using Network.Events;
 using Network.Services;
 using Network.Steam;
-using Game.Social; // Added
+using Game.Social;
+using Game.UI.Core; // Added
 using Steamworks;
 using Steamworks.Data;
 using UnityEngine;

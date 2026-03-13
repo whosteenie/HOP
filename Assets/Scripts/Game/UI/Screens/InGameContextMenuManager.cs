@@ -1,11 +1,12 @@
 using System;
 using System.Collections.Generic;
 using Game.Social;
+using Game.UI.Core;
 using Steamworks;
 using UnityEngine;
 using UnityEngine.UIElements;
 
-namespace Game.UI {
+namespace Game.UI.Screens {
     /// <summary>
     /// Manages the in-game player context menu (right-click on scoreboard/chat).
     /// Handles showing/hiding, positioning, and action callbacks.

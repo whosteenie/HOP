@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UIElements;
 
-namespace Game.UI {
+namespace Game.UI.Core {
     /// <summary>
     /// Base class for UI modules that standardizes initialization, binding, lifecycle, and cleanup.
     /// Provides automatic validation of required UI elements and safe event handler management.

@@ -1,5 +1,5 @@
 using Game.Match;
-using Game.UI;
+using Game.UI.HUD;
 using Game.Weapons.Core;
 using Network.AntiCheat;
 using Network.Core;
@@ -126,16 +126,6 @@ namespace Game.Weapons.Manager {
 
             reason = "weapon index mismatch";
             return false;
-        }
-
-        public string GetCombatAuthorityDebugSummary(int requestedWeaponIndex = -1) {
-            var authoritativeWeaponIndex = GetServerAuthoritativeWeaponIndex();
-            var equippedNetIndex = _root.ReplicatedEquippedWeaponIndex.Value;
-            var serverAmmo = requestedWeaponIndex >= 0
-                ? _root.AmmoAuthorityRef.GetServerAmmo(requestedWeaponIndex, _root.GetWeaponDataByIndex, _root.ResolveWeaponCapacity)
-                : -1;
-            return
-                $"owner={_root.OwnerClientId} requested={requestedWeaponIndex} current={_root.CurrentWeaponIndexInternal} authoritative={authoritativeWeaponIndex} equippedNet={equippedNetIndex} reloadWeapon={_root.ServerReloadWeaponIndex} pullOutBlocked={(Time.time < _root.ServerPullOutBlockedUntilTime)} serverAmmo={serverAmmo}";
         }
 
         public bool TryComputeServerDamage(int weaponIndex, Vector3 hitPoint, out float damage, out string reason) {

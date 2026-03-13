@@ -91,10 +91,9 @@ namespace Game.Spawning {
             if(NetworkManager == null) return;
 
             NetworkManager.OnClientDisconnectCallback -= OnClientDisconnect;
-            if(NetworkAuthority.HasGlobalAuthority(this)) {
-                NetworkAuthority.TryConfigureSessionOwnerObject(this);
-                NetworkManager.OnClientDisconnectCallback += OnClientDisconnect;
-            }
+            if(!NetworkAuthority.HasGlobalAuthority(this)) return;
+            NetworkAuthority.TryConfigureSessionOwnerObject(this);
+            NetworkManager.OnClientDisconnectCallback += OnClientDisconnect;
         }
 
         private void CleanupExpiredReservations() {

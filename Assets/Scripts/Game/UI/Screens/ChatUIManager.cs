@@ -1,13 +1,14 @@
 using System.Collections;
 using System.Collections.Generic;
-using Game.Social;
 using Game.Player.Core;
+using Game.Social;
+using Game.UI.Core;
 using Network.Events;
 using UnityEngine;
 using UnityEngine.UIElements;
 using Cursor = UnityEngine.Cursor;
 
-namespace Game.UI {
+namespace Game.UI.Screens {
     public class ChatUIManager : UIElementBase {
         private VisualElement _chatContainer;
         private VisualElement _chatBackground;

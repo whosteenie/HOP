@@ -1,6 +1,7 @@
 using System.Collections;
 using Game.Player.Combat;
 using Game.Player.Core;
+using Game.Player.Visual;
 using Network.Components;
 using Network.Core;
 using Unity.Netcode;
@@ -206,14 +207,14 @@ namespace Game.Player.Podium {
         }
 
         private void SnapBonesToRoot() {
-            var podiumAnimator = _podiumAnimator;
-            if(rootBone == null || podiumAnimator == null) return;
+            var podAnimator = _podiumAnimator;
+            if(rootBone == null || podAnimator == null) return;
 
             rootBone.position = playerController.Position;
             rootBone.rotation = playerController.Rotation;
 
             //noinspection Unity.InefficientPropertyAccess
-            podiumAnimator.enabled = false;
+            podAnimator.enabled = false;
             _podiumAnimator.enabled = true;
 
             var podiumSkinned = _podiumSkinned;

@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace Game.Player {
+namespace Game.Player.Visual {
     /// <summary>
     /// ScriptableObject that defines a material packet containing texture maps and settings.
     /// Players can select a packet and then customize base color, smoothness, and metallic values.

@@ -2,15 +2,10 @@ using Unity.Netcode;
 
 namespace Network.Core {
     public static class NetworkAuthority {
-        public static bool IsDistributedAuthority(NetworkManager networkManager) {
-            return networkManager != null && networkManager.DistributedAuthorityMode;
-        }
-
-        public static bool IsSessionOwner(NetworkManager networkManager) {
+        private static bool IsSessionOwner(NetworkManager networkManager) {
             return networkManager != null &&
                    networkManager.IsListening &&
-                   networkManager.LocalClient != null &&
-                   networkManager.LocalClient.IsSessionOwner;
+                   networkManager.LocalClient is { IsSessionOwner: true };
         }
 
         public static bool HasGlobalAuthority(NetworkManager networkManager) {

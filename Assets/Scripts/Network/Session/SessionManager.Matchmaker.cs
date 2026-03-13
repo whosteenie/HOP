@@ -392,20 +392,16 @@ namespace Network.Session {
         }
 
         private static bool IsTransientMatchmakingResultsNotFound(Exception exception) {
-            if(exception == null) {
-                return false;
-            }
-
-            if(exception is MatchmakerServiceException matchmakerServiceException) {
-                return matchmakerServiceException.Reason.ToString().IndexOf("NotFound", StringComparison.OrdinalIgnoreCase) >=
-                       0 ||
-                       matchmakerServiceException.Reason.ToString().IndexOf("EntityNotFound",
-                           StringComparison.OrdinalIgnoreCase) >= 0;
-            }
-
-            return exception.Message.IndexOf("404", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                   exception.Message.IndexOf("Not Found", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                   exception.Message.IndexOf("EntityNotFound", StringComparison.OrdinalIgnoreCase) >= 0;
+            return exception switch {
+                null => false,
+                MatchmakerServiceException matchmakerServiceException => matchmakerServiceException.Reason.ToString()
+                    .IndexOf("NotFound", StringComparison.OrdinalIgnoreCase) >= 0 || matchmakerServiceException.Reason
+                    .ToString()
+                    .IndexOf("EntityNotFound", StringComparison.OrdinalIgnoreCase) >= 0,
+                _ => exception.Message.IndexOf("404", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                     exception.Message.IndexOf("Not Found", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                     exception.Message.IndexOf("EntityNotFound", StringComparison.OrdinalIgnoreCase) >= 0
+            };
         }
 
         private async UniTask<bool> HandleMatchIdAssignmentStatusAsync(MatchIdAssignment assign, string mode,

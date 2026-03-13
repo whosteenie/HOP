@@ -4,6 +4,7 @@ using Cysharp.Threading.Tasks;
 using Game.Match;
 using Game.Settings;
 using Game.Social;
+using Network.Core;
 using Network.Diagnostics;
 using Network.Events;
 using Network.Singletons;

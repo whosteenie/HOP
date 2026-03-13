@@ -1,16 +1,17 @@
 using System;
 using System.Collections.Generic;
-using Game.Social;
-using Network.Events;
-using Network.Steam;
-using UnityEngine;
-using UnityEngine.UIElements;
 using Cysharp.Threading.Tasks;
 using Game.Player.Core;
+using Game.Social;
+using Game.UI.Core;
+using Network.Events;
+using Network.Steam;
 using Steamworks;
 using Unity.Netcode;
+using UnityEngine;
+using UnityEngine.UIElements;
 
-namespace Game.UI {
+namespace Game.UI.Screens {
     public class VoiceOverlayManager : UIElementBase {
         private VisualElement _overlayContainer;
 
@@ -252,10 +253,10 @@ namespace Game.UI {
             // Avoid creating fallback "ghost" rows from raw Vivox participant identities before
             // that participant has been mapped to a tracked network player.
             if(!isLocalPlayer && !isResolvedRemotePlayer) {
-                if(!isSpeaking && _participantToCanonicalId.TryGetValue(rawParticipantId, out var mappedCanonicalId)) {
-                    RemoveSpeakerEntry(mappedCanonicalId);
-                    _participantToCanonicalId.Remove(rawParticipantId);
-                }
+                if(isSpeaking ||
+                   !_participantToCanonicalId.TryGetValue(rawParticipantId, out var mappedCanonicalId)) return;
+                RemoveSpeakerEntry(mappedCanonicalId);
+                _participantToCanonicalId.Remove(rawParticipantId);
                 return;
             }
 

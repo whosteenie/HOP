@@ -1,5 +1,5 @@
-using Game.Player;
 using Game.Player.Combat;
+using Game.Player.Visual;
 using Game.Weapons.Core;
 using Game.Weapons.Presentation;
 using UnityEngine;

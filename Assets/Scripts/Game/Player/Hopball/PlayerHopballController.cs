@@ -6,7 +6,7 @@ using Game.Hopball;
 using Game.Match;
 using Game.Player.Combat;
 using Game.Player.Core;
-using Game.Weapons;
+using Game.Player.Visual;
 using Game.Weapons.Manager;
 using Network.Diagnostics;
 using OSI;

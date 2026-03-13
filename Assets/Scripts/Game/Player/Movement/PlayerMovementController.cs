@@ -1,8 +1,8 @@
 using Audio.Networking;
 using Game.Menu;
 using Game.Player.Core;
+using Game.Player.Visual;
 using Game.Progression;
-using Game.Weapons;
 using Game.Weapons.Presentation;
 using Unity.Cinemachine;
 using Unity.Netcode;
@@ -925,14 +925,9 @@ namespace Game.Player.Movement {
         }
 
         private Vector3 GetSlideSeedVelocity() {
-            if(_grappleController != null && _grappleController.IsGrappling) {
-                var grappleVelocity = _grappleController.CurrentHorizontalPullVelocity;
-                if(grappleVelocity.sqrMagnitude > 0.0001f) {
-                    return grappleVelocity;
-                }
-            }
-
-            return _horizontalVelocity;
+            if(_grappleController == null || !_grappleController.IsGrappling) return _horizontalVelocity;
+            var grappleVelocity = _grappleController.CurrentHorizontalPullVelocity;
+            return grappleVelocity.sqrMagnitude > 0.0001f ? grappleVelocity : _horizontalVelocity;
         }
 
         private void SyncSlideToGrapple() {
