@@ -36,7 +36,6 @@ namespace Game.Menu {
         public Action OnBackRequested;
         public Action<PrivateMatchDraftSettings> OnStartRequested;
 
-        private VisualTreeAsset _partyMemberTemplate;
         private MainMenuSessionManager _sessionManager;
 
         private DropdownField _gamemodeDropdown;
@@ -155,7 +154,6 @@ namespace Game.Menu {
         }
 
         public void SetPartyMemberTemplate(VisualTreeAsset template) {
-            _partyMemberTemplate = template;
         }
 
         public void SetSessionManager(MainMenuSessionManager sessionManager) {

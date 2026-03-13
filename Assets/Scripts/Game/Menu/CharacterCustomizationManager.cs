@@ -731,13 +731,6 @@ namespace Game.Menu {
             NotifyLoadoutDirty();
         }
 
-        private static bool ColorsEqual(Color a, Color b) {
-            return Mathf.Abs(a.r - b.r) < 0.001f &&
-                   Mathf.Abs(a.g - b.g) < 0.001f &&
-                   Mathf.Abs(a.b - b.b) < 0.001f &&
-                   Mathf.Abs(a.a - b.a) < 0.001f;
-        }
-
         /// <summary>
         /// Applies the current customization values. Called automatically when leaving loadout.
         /// </summary>

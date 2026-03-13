@@ -50,8 +50,6 @@ namespace Game.Menu {
         private float _nextProgressionRefreshAt;
         private int _lastQueueTimerSeconds = -1;
         private string _lastQueueGamemodeLabel;
-        private bool? _lastInviteVisible;
-        private bool? _lastInviteEnabled;
         private string _lastInviteTooltip;
         private bool? _lastSteamOnline;
         private string _lastPlayMatchmakingTooltip;
@@ -240,8 +238,6 @@ namespace Game.Menu {
             _nextProgressionRefreshAt = 0f;
             _lastQueueTimerSeconds = -1;
             _lastQueueGamemodeLabel = null;
-            _lastInviteVisible = null;
-            _lastInviteEnabled = null;
             _lastInviteTooltip = null;
             _lastSteamOnline = null;
             _lastPlayMatchmakingTooltip = null;
@@ -268,8 +264,6 @@ namespace Game.Menu {
             if(_inviteButton != null) {
                 _inviteButton.style.display = canInvite ? DisplayStyle.Flex : DisplayStyle.None;
                 _inviteButton.SetEnabled(canInvite);
-                _lastInviteVisible = canInvite;
-                _lastInviteEnabled = canInvite;
             }
 
             if(_partySeparator != null) {

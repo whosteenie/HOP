@@ -334,11 +334,6 @@ namespace Game.Menu {
                 if(privateMatchSetupManager != null) privateMatchSetupManager.SwitchPlayerTeam(steamId);
             };
         }
-        
-        private static bool IsInActiveLobby() {
-            var sessionManagerInstance = SessionManager.Instance;
-            return sessionManagerInstance != null && sessionManagerInstance.CurrentLobby.HasValue;
-        }
 
         #endregion
 

@@ -10,13 +10,11 @@ namespace Game.UI.Core {
     /// from UXML templates and provides a consistent API for showing/hiding modals.
     /// </summary>
     public class UIModalHost {
-        private readonly MonoBehaviour _owner;
         private readonly VisualElement _root;
         private readonly Dictionary<string, VisualElement> _activeModals;
         private readonly Stack<VisualElement> _modalStack;
 
-        public UIModalHost(MonoBehaviour owner, VisualElement root) {
-            _owner = owner;
+        public UIModalHost(VisualElement root) {
             _root = root;
             _activeModals = new Dictionary<string, VisualElement>();
             _modalStack = new Stack<VisualElement>();

@@ -29,9 +29,7 @@ namespace Game.AI {
         [Header("Look Input Testing")]
         [Tooltip("TESTING ONLY: Set to absurd value (e.g., 500f) to verify look input is working. Normal value is 200f.")]
         private const float LookInputScaling = 250f;
-        private const float TrainingTimeScale = 20f;
-        private const float ReferenceFixedDelta = 0.02f;
-        
+
         #endregion
 
         #region Private Fields
@@ -384,15 +382,7 @@ namespace Game.AI {
                 }
             }
         }
-        
-        private void CalculateGeneralMovementRewards(float currentSpeed) {
-            // Small reward for speed (encourages active movement)
-            AddReward(currentSpeed / 10000f);
-            
-            // Small reward for height (encourages using vertical space)
-            AddReward(_transform.position.y / 100000f);
-        }
-        
+
         #endregion
 
         #region ML-Agents: Heuristic (Recording)
@@ -491,27 +481,7 @@ namespace Game.AI {
                 }
             }
         }
-        
-        /// <summary>
-        /// Finds the nearest enemy player.
-        /// </summary>
-        private PlayerController FindNearestEnemy() {
-            PlayerController nearest = null;
-            var minDist = float.MaxValue;
-            
-            foreach(var enemy in _allPlayers) {
-                if(enemy == null || enemy == playerController) continue;
-                if(enemy.IsDead) continue; // Ignore dead players
-                
-                var dist = Vector3.Distance(_transform.position, enemy.transform.position);
-                if(!(dist < minDist)) continue;
-                minDist = dist;
-                nearest = enemy;
-            }
-            
-            return nearest;
-        }
-        
+
         /// <summary>
         /// Called by EdgeZoneTrigger to notify bot when it enters/exits edge zone.
         /// </summary>

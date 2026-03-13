@@ -182,7 +182,7 @@ namespace Game.Menu {
         protected override void OnInitialize() {
             FindUIElements();
             if(_modalHost == null && Root != null) {
-                _modalHost = new UIModalHost(this, Root);
+                _modalHost = new UIModalHost(Root);
             }
             RegisterUIEvents();
             
