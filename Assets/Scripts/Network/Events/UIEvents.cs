@@ -191,6 +191,12 @@ namespace Network.Events {
     }
 
     /// <summary>
+    /// Event published when the voice overlay should flush stale participant UI and rebuild from current state.
+    /// </summary>
+    public class VoiceOverlayResetEvent : GameEvent {
+    }
+
+    /// <summary>
     /// Event published when a chat message should be rendered by chat UI.
     /// </summary>
     public class ChatMessageReceivedEvent : GameEvent {

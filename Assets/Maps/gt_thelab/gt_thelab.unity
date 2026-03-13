@@ -93,7 +93,7 @@ LightmapSettings:
     m_ExportTrainingData: 0
     m_TrainingDataDestination: TrainingData
     m_LightProbeSampleCountMultiplier: 4
-  m_LightingDataAsset: {fileID: 112000002, guid: a6788beb5c9a9c84c8e187e8bfd9f196, type: 2}
+  m_LightingDataAsset: {fileID: 112000000, guid: bd85c1f807ae5b749af2302a2a1a842a, type: 2}
   m_LightingSettings: {fileID: 4890085278179872738, guid: 80d1d9d8ce2dd154597c9e5b950daf59, type: 2}
 --- !u!196 &4
 NavMeshSettings:
@@ -26181,8 +26181,8 @@ ReflectionProbe:
   m_TimeSlicingMode: 0
   m_Resolution: 128
   m_UpdateFrequency: 0
-  m_BoxSize: {x: 200, y: 332.96, z: 200}
-  m_BoxOffset: {x: 0, y: -51.5, z: 0}
+  m_BoxSize: {x: 200, y: 3000, z: 200}
+  m_BoxOffset: {x: 0, y: -1313, z: 0}
   m_NearClip: 0.3
   m_FarClip: 1000
   m_ShadowDistance: 100
@@ -27330,8 +27330,8 @@ ReflectionProbe:
   m_TimeSlicingMode: 0
   m_Resolution: 128
   m_UpdateFrequency: 0
-  m_BoxSize: {x: 200, y: 332.96, z: 200}
-  m_BoxOffset: {x: 0, y: -51.5, z: 0}
+  m_BoxSize: {x: 200, y: 3000, z: 200}
+  m_BoxOffset: {x: 0, y: -1313, z: 0}
   m_NearClip: 0.3
   m_FarClip: 1000
   m_ShadowDistance: 100

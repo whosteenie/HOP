@@ -161,11 +161,15 @@ namespace Game.Social {
 
         private async Task LeaveCurrentChannelInternalAsync(string reason) {
             if(VivoxService.Instance == null) {
+                PublishVoiceOverlayReset();
                 _currentChannelName = null;
                 return;
             }
 
-            if(string.IsNullOrEmpty(_currentChannelName)) return;
+            if(string.IsNullOrEmpty(_currentChannelName)) {
+                PublishVoiceOverlayReset();
+                return;
+            }
 
             var channelToLeave = _currentChannelName;
             try {
@@ -176,6 +180,7 @@ namespace Game.Social {
             } catch(Exception ex) {
                 Debug.LogWarning($"[VoiceManager] Leave channel '{channelToLeave}' failed ({reason}): {ex.Message}");
             } finally {
+                PublishVoiceOverlayReset();
                 if(_currentChannelName == channelToLeave) {
                     _currentChannelName = null;
                 }
@@ -542,6 +547,10 @@ namespace Game.Social {
                 participant.PlayerId,
                 participant.DisplayName,
                 participant.SpeechDetected));
+        }
+
+        private static void PublishVoiceOverlayReset() {
+            EventBus.Publish(new VoiceOverlayResetEvent());
         }
     }
 }

@@ -36,6 +36,8 @@ namespace Game.UI {
             EventBus.Subscribe<VoiceParticipantRemovedEvent>(OnVoiceParticipantRemovedEvent);
             EventBus.Unsubscribe<VoiceLocalPttStateChangedEvent>(OnVoiceLocalPttStateChangedEvent);
             EventBus.Subscribe<VoiceLocalPttStateChangedEvent>(OnVoiceLocalPttStateChangedEvent);
+            EventBus.Unsubscribe<VoiceOverlayResetEvent>(OnVoiceOverlayResetEvent);
+            EventBus.Subscribe<VoiceOverlayResetEvent>(OnVoiceOverlayResetEvent);
             EventBus.Unsubscribe<PlayerMuteChangedEvent>(OnPlayerMuteChangedEvent);
             EventBus.Subscribe<PlayerMuteChangedEvent>(OnPlayerMuteChangedEvent);
 
@@ -170,6 +172,10 @@ namespace Game.UI {
         private void OnPlayerMuteChangedEvent(PlayerMuteChangedEvent evt) {
             if(evt == null) return;
             OnPlayerMuteChanged(evt.PlayerId, evt.IsMuted);
+        }
+
+        private void OnVoiceOverlayResetEvent(VoiceOverlayResetEvent evt) {
+            ResetOverlayEntries();
         }
 
         protected override Dictionary<string, Type> GetRequiredElements() {
@@ -477,6 +483,29 @@ namespace Game.UI {
             var texture = await SteamManager.Instance.GetAvatarAsync(steamId);
             if(texture != null) {
                 avatarElement.style.backgroundImage = new StyleBackground(texture);
+            }
+        }
+
+        private void ResetOverlayEntries() {
+            if(_overlayContainer != null) {
+                foreach(var entry in _activeSpeakerElements.Values) {
+                    _overlayContainer.Remove(entry);
+                }
+            }
+
+            _activeSpeakerElements.Clear();
+            _participantToCanonicalId.Clear();
+            _participantMappingsToRemove.Clear();
+            RefreshLocalIdentityContext();
+
+            foreach(var player in _trackedPlayers.Values) {
+                if(player == null || player.IsSpawned == false) continue;
+                OnRemotePttChanged(player, player.isPttActive.Value);
+            }
+
+            var localPlayer = Player.PlayerController.LocalPlayer;
+            if(localPlayer != null) {
+                OnLocalPttStateChanged(localPlayer.isPttActive.Value);
             }
         }
     }

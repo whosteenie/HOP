@@ -62,6 +62,7 @@ namespace Network.Events {
             typeof(VoiceParticipantSpeechChangedEvent),
             typeof(VoiceParticipantRemovedEvent),
             typeof(VoiceLocalPttStateChangedEvent),
+            typeof(VoiceOverlayResetEvent),
             typeof(ChatMessageReceivedEvent),
             typeof(IndicatorTargetStateChangedEvent)
         };
