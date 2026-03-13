@@ -28,72 +28,25 @@ namespace Game.Player.Core {
 
             var now = Time.time;
             if(_player.NetIsDead is { Value: true }) {
-                _movementViolations.Clear();
-                _lastServerMovementPosition = position;
-                _lastServerMovementTime = now;
-                _hasServerMovementSample = true;
-                ObservedServerMovementSpeed = 0f;
+                ResetValidationSample(position, now);
                 return;
             }
 
             if(!_hasServerMovementSample) {
-                _lastServerMovementPosition = position;
-                _lastServerMovementTime = now;
-                _hasServerMovementSample = true;
-                ObservedServerMovementSpeed = 0f;
+                ResetValidationSample(position, now);
                 return;
             }
 
-            _movementViolations.RemoveAll(v => now - v.Time > config.movementViolationWindowSeconds);
+            PruneExpiredViolations(now, config);
 
             var delta = position - _lastServerMovementPosition;
             var distance = delta.magnitude;
             var dt = Mathf.Max(0.0001f, now - _lastServerMovementTime);
             var adjustedPosition = position;
 
-            if(distance > config.maxTeleportDistance) {
-                _movementViolations.Add(new MovementViolation { Time = now, WasSpeedViolation = false });
-
-                var teleportViolations = _movementViolations.Count(v => !v.WasSpeedViolation);
-                if(teleportViolations >= config.teleportViolationThreshold) {
-                    AntiCheatLogger.LogMovementEnforcement(_player.OwnerClientId,
-                        $"teleport {distance:F1}m (limit {config.maxTeleportDistance:F1}) - {teleportViolations} violations in window");
-
-                    if(delta.sqrMagnitude > 0.0001f) {
-                        var clamped = _lastServerMovementPosition + delta.normalized * config.maxTeleportDistance;
-                        _player.ApplyServerMovementCorrectionOwnerRpc(clamped, _player.PlayerTransform.rotation);
-                        adjustedPosition = clamped;
-                        delta = clamped - _lastServerMovementPosition;
-                        distance = delta.magnitude;
-                    } else {
-                        adjustedPosition = _lastServerMovementPosition;
-                    }
-                }
-            }
-
-            var speed = distance / dt;
-            ObservedServerMovementSpeed = speed;
-            if(speed > config.maxSpeedMetersPerSecond && delta.sqrMagnitude > 0.0001f) {
-                _movementViolations.Add(new MovementViolation { Time = now, WasSpeedViolation = true });
-
-                var speedViolations = _movementViolations.Count(v => v.WasSpeedViolation);
-                if(speedViolations >= config.speedViolationThreshold) {
-                    AntiCheatLogger.LogMovementEnforcement(_player.OwnerClientId,
-                        $"speed {speed:F1} m/s (limit {config.maxSpeedMetersPerSecond:F1}) - {speedViolations} violations in window");
-
-                    var allowedDistance = config.maxSpeedMetersPerSecond * dt;
-                    var clamped = _lastServerMovementPosition + delta.normalized * allowedDistance;
-                    _player.ApplyServerMovementCorrectionOwnerRpc(clamped, _player.PlayerTransform.rotation);
-                    adjustedPosition = clamped;
-                }
-            } else if(_movementViolations.Count == 0 ||
-                      now - _movementViolations[^1].Time > config.movementViolationWindowSeconds * 0.5f) {
-                _movementViolations.Clear();
-            }
-
-            _lastServerMovementPosition = adjustedPosition;
-            _lastServerMovementTime = now;
-            _hasServerMovementSample = true;
+            TryHandleTeleportViolation(ref adjustedPosition, ref delta, ref distance, now, config);
+            TryHandleSpeedViolation(ref adjustedPosition, delta, distance, dt, now, config);
+            FinalizeValidationSample(adjustedPosition, now);
         }
 
         public void ApplyServerMovementCorrection(Vector3 correctedPosition, Quaternion correctedRotation) {
@@ -120,6 +73,74 @@ namespace Game.Player.Core {
             if(characterController != null && shouldReEnableCharacterController) {
                 characterController.enabled = true;
             }
+        }
+
+        private void ResetValidationSample(Vector3 position, float now) {
+            _movementViolations.Clear();
+            _lastServerMovementPosition = position;
+            _lastServerMovementTime = now;
+            _hasServerMovementSample = true;
+            ObservedServerMovementSpeed = 0f;
+        }
+
+        private void PruneExpiredViolations(float now, AntiCheatConfig config) {
+            _movementViolations.RemoveAll(v => now - v.Time > config.movementViolationWindowSeconds);
+        }
+
+        private void TryHandleTeleportViolation(ref Vector3 adjustedPosition, ref Vector3 delta, ref float distance,
+            float now, AntiCheatConfig config) {
+            if(distance <= config.maxTeleportDistance) return;
+
+            _movementViolations.Add(new MovementViolation { Time = now, WasSpeedViolation = false });
+
+            var teleportViolations = _movementViolations.Count(v => !v.WasSpeedViolation);
+            if(teleportViolations < config.teleportViolationThreshold) return;
+
+            AntiCheatLogger.LogMovementEnforcement(_player.OwnerClientId,
+                $"teleport {distance:F1}m (limit {config.maxTeleportDistance:F1}) - {teleportViolations} violations in window");
+
+            if(delta.sqrMagnitude > 0.0001f) {
+                var clamped = _lastServerMovementPosition + delta.normalized * config.maxTeleportDistance;
+                _player.ApplyServerMovementCorrectionOwnerRpc(clamped, _player.PlayerTransform.rotation);
+                adjustedPosition = clamped;
+                delta = clamped - _lastServerMovementPosition;
+                distance = delta.magnitude;
+            } else {
+                adjustedPosition = _lastServerMovementPosition;
+            }
+        }
+
+        private void TryHandleSpeedViolation(ref Vector3 adjustedPosition, Vector3 delta, float distance, float dt,
+            float now, AntiCheatConfig config) {
+            var speed = distance / dt;
+            ObservedServerMovementSpeed = speed;
+
+            if(speed > config.maxSpeedMetersPerSecond && delta.sqrMagnitude > 0.0001f) {
+                _movementViolations.Add(new MovementViolation { Time = now, WasSpeedViolation = true });
+
+                var speedViolations = _movementViolations.Count(v => v.WasSpeedViolation);
+                if(speedViolations < config.speedViolationThreshold) return;
+
+                AntiCheatLogger.LogMovementEnforcement(_player.OwnerClientId,
+                    $"speed {speed:F1} m/s (limit {config.maxSpeedMetersPerSecond:F1}) - {speedViolations} violations in window");
+
+                var allowedDistance = config.maxSpeedMetersPerSecond * dt;
+                var clamped = _lastServerMovementPosition + delta.normalized * allowedDistance;
+                _player.ApplyServerMovementCorrectionOwnerRpc(clamped, _player.PlayerTransform.rotation);
+                adjustedPosition = clamped;
+                return;
+            }
+
+            if(_movementViolations.Count == 0 ||
+               now - _movementViolations[^1].Time > config.movementViolationWindowSeconds * 0.5f) {
+                _movementViolations.Clear();
+            }
+        }
+
+        private void FinalizeValidationSample(Vector3 adjustedPosition, float now) {
+            _lastServerMovementPosition = adjustedPosition;
+            _lastServerMovementTime = now;
+            _hasServerMovementSample = true;
         }
     }
 }
