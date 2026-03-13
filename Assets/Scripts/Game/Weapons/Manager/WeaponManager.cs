@@ -317,18 +317,18 @@ namespace Game.Weapons.Manager {
             _authorityCoordinator.ApplyDrainedAmmoOwnerClient(weaponIndex, ammo, magSize);
         }
 
-        [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
+        [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Owner)]
         internal void ReportWeaponStateSyncServerRpc(int weaponIndex, AmmoSyncReason reason, int localAmmoAfterEvent,
             RpcParams rpcParams = default) {
             _authorityCoordinator.ReportWeaponStateSyncServer(weaponIndex, reason, localAmmoAfterEvent, rpcParams);
         }
 
-        [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
+        [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Owner)]
         internal void ResetAllWeaponAmmoServerRpc(RpcParams rpcParams = default) {
             _authorityCoordinator.ResetAllWeaponAmmoServer(rpcParams);
         }
 
-        [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
+        [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Owner)]
         internal void ReportShotFiredServerRpc(int weaponIndex, ulong shotId, float clientShotTime, RpcParams rpcParams = default) {
             _authorityCoordinator.ReportShotFiredServer(weaponIndex, shotId, clientShotTime, rpcParams);
         }
@@ -355,23 +355,16 @@ namespace Game.Weapons.Manager {
                 playerController = GetComponentInParent<PlayerController>();
             }
 
-            if(CurrentWeaponInternal == null) {
-                CurrentWeaponInternal = GetComponent<Weapon>();
-                if(CurrentWeaponInternal == null) {
-                    CurrentWeaponInternal = GetComponentInChildren<Weapon>(true);
-                }
-
-                if(CurrentWeaponInternal == null) {
-                    CurrentWeaponInternal = GetComponentInParent<Weapon>();
-                }
+            if(CurrentWeaponInternal == null && playerController != null) {
+                CurrentWeaponInternal = playerController.WeaponComponent;
             }
 
             if(FpCameraRef == null && playerController != null) {
                 FpCameraRef = playerController.FpCamera;
             }
 
-            if(WeaponCameraRef == null && FpCameraRef != null) {
-                WeaponCameraRef = FpCameraRef.GetComponentInChildren<Camera>(true);
+            if(WeaponCameraRef == null && playerController != null) {
+                WeaponCameraRef = playerController.WeaponCamera;
             }
 
             if(WorldWeaponSocketRef == null && playerController != null) {
@@ -435,7 +428,7 @@ namespace Game.Weapons.Manager {
 
         internal void RefreshOwnerHolsterShadowState() {
             if(!IsOwner || playerController == null || playerController.PlayerShadow == null) return;
-            playerController.PlayerShadow.SetWorldWeaponRenderersShadowMode(UnityEngine.Rendering.ShadowCastingMode.ShadowsOnly);
+            playerController.PlayerShadow.UpdateHolsterShadowStateForOwner();
         }
 
         internal MatchPlayerStateProxy ResolvePlayerState() {
