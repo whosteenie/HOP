@@ -191,7 +191,7 @@ namespace Game.Player {
                     tagger = taggerClient.PlayerObject.GetComponent<PlayerController>();
                 }
                 if(tagger != null) {
-                    taggerName = tagger.playerName.Value.ToString();
+                    taggerName = tagger.PlayerName.Value.ToString();
                 }
             }
 
@@ -201,7 +201,7 @@ namespace Game.Player {
                     taggedPlayer = taggedClient.PlayerObject.GetComponent<PlayerController>();
                 }
                 if(taggedPlayer != null) {
-                    taggedName = taggedPlayer.playerName.Value.ToString();
+                    taggedName = taggedPlayer.PlayerName.Value.ToString();
                 }
             }
 
@@ -227,7 +227,7 @@ namespace Game.Player {
                     taggedPlayer = taggedClient.PlayerObject.GetComponent<PlayerController>();
                 }
                 if(taggedPlayer != null) {
-                    taggedName = taggedPlayer.playerName.Value.ToString();
+                    taggedName = taggedPlayer.PlayerName.Value.ToString();
                 }
             }
 

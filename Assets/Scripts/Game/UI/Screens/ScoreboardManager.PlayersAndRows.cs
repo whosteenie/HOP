@@ -305,8 +305,8 @@ namespace Game.UI {
             // Avatar (player icon based on color)
             if(avatar != null) {
                 ApplyFallbackAvatar(player, avatar);
-                if(player != null && player.steamId.Value != 0) {
-                    LoadSteamAvatar(player.steamId.Value, avatar).Forget();
+                if(player != null && player.SteamId.Value != 0) {
+                    LoadSteamAvatar(player.SteamId.Value, avatar).Forget();
                 }
             }
 
@@ -327,7 +327,7 @@ namespace Game.UI {
                 if(evt.button != 1 || player == null || player.IsOwner ||
                    InGameContextMenuManager.Instance == null) return;
                 Vector2 worldPos = evt.position;
-                InGameContextMenuManager.Instance.Show(player.steamId.Value, worldPos);
+                InGameContextMenuManager.Instance.Show(player.SteamId.Value, worldPos);
             });
 
             return row;

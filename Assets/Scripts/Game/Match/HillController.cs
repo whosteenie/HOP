@@ -150,7 +150,7 @@ namespace Game.Match {
             }
 
             if (_localPlayerInZone != null &&
-                _localPlayerInZone.netIsDead is { Value: false } &&
+                _localPlayerInZone.NetIsDead is { Value: false } &&
                 IsPointInsideZone(_localPlayerInZone.transform.position) &&
                 Progression.ProgressionManager.Instance != null) {
                  Progression.ProgressionManager.Instance.AddTimeAsKing(Time.deltaTime);
@@ -207,7 +207,7 @@ namespace Game.Match {
                     continue;
                 }
 
-                if(player.netIsDead.Value) continue;
+                if(player.NetIsDead.Value) continue;
                 if(!IsPointInsideZone(player.transform.position)) continue;
 
                 var teamMgr = player.TeamManager;

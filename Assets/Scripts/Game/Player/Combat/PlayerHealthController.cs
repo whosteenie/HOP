@@ -312,7 +312,7 @@ namespace Game.Player {
                 if(NetworkManager.Singleton.ConnectedClients.TryGetValue(attackerId, out var attackerClient)) {
                     if(attackerClient.PlayerObject == null) return false;
                     var attacker = attackerClient.PlayerObject.GetComponent<PlayerController>();
-                    if(attacker != null && attacker.damageDealt != null &&
+                    if(attacker != null && attacker.DamageDealt != null &&
                        attacker.TryGetComponent<PlayerHealthController>(out var attackerHealthController)) {
                         attackerHealthController.AddDamageDealtAuthority(actualDealt);
                     }
@@ -351,7 +351,7 @@ namespace Game.Player {
                             killerHealthController.AddKillAuthority();
                         }
                         AwardAssists(attackerId);
-                        var killerName = killer.playerName != null ? killer.playerName.Value.ToString() : "Player";
+                        var killerName = killer.PlayerName != null ? killer.PlayerName.Value.ToString() : "Player";
                         var victimName = "Player";
                         if(playerController != null && playerController.PlayerName != null) {
                             victimName = playerController.PlayerName.Value.ToString();

@@ -268,7 +268,7 @@ namespace Game.UI {
                    !_cachedSpeakingIndicators.TryGetValue(player.OwnerClientId, out var indicator)) continue;
 
                 // Get SteamID
-                var steamId = player.steamId.Value;
+                var steamId = player.SteamId.Value;
                 if(steamId == 0) continue; // Invalid steam ID
 
                 var isSpeaking = voiceMgr.IsSpeaking(steamId.ToString());

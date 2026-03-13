@@ -381,7 +381,7 @@ namespace Game.Match {
                 // Normal mode: sort by kills descending, then by damage as tie-breaker
                 sorted = allPlayers
                     .OrderByDescending(p => p.Kills.Value)
-                    .ThenByDescending(p => p.damageDealt.Value)
+                    .ThenByDescending(p => p.DamageDealt.Value)
                     .ToList();
             }
 
@@ -430,7 +430,7 @@ namespace Game.Match {
                 p.SetWorldModelVisibleRpc(isOnPodium); // you'll add this helper
             }
 
-            var firstName = topThree.Count > 0 ? topThree[0].playerName.Value.ToString() : string.Empty;
+            var firstName = topThree.Count > 0 ? topThree[0].PlayerName.Value.ToString() : string.Empty;
             var firstId = topThree.Count > 0 ? topThree[0].OwnerClientId : ulong.MaxValue;
             var firstScore = 0;
             if(topThree.Count > 0) {
@@ -442,7 +442,7 @@ namespace Game.Match {
                 }
             }
 
-            var secondName = topThree.Count > 1 ? topThree[1].playerName.Value.ToString() : string.Empty;
+            var secondName = topThree.Count > 1 ? topThree[1].PlayerName.Value.ToString() : string.Empty;
             var secondId = topThree.Count > 1 ? topThree[1].OwnerClientId : ulong.MaxValue;
             var secondScore = 0;
             if(topThree.Count > 1) {
@@ -454,7 +454,7 @@ namespace Game.Match {
                 }
             }
 
-            var thirdName = topThree.Count > 2 ? topThree[2].playerName.Value.ToString() : string.Empty;
+            var thirdName = topThree.Count > 2 ? topThree[2].PlayerName.Value.ToString() : string.Empty;
             var thirdId = topThree.Count > 2 ? topThree[2].OwnerClientId : ulong.MaxValue;
             var thirdScore = 0;
             if(topThree.Count > 2) {
