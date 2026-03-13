@@ -122,6 +122,8 @@ namespace Game.Weapons.Manager {
 
             if(_root.ReplicatedEquippedWeaponIndex.Value != newIndex) {
                 _root.ReplicatedEquippedWeaponIndex.Value = newIndex;
+            } else {
+                _root.ConfirmPredictedWeaponSwitchOwnerRpc(newIndex);
             }
         }
 
@@ -145,6 +147,18 @@ namespace Game.Weapons.Manager {
 
             ApplyApprovedLocalWeaponSwitch(approvedWeaponIndex, false);
             _root.LastApprovedWeaponIndex = approvedWeaponIndex;
+        }
+
+        public void ConfirmPredictedWeaponSwitchOwner(int approvedWeaponIndex) {
+            if(!_root.IsOwner) return;
+            if(approvedWeaponIndex < 0 || approvedWeaponIndex >= _root.WeaponDataListRef.Count) return;
+
+            _root.PendingPredictedWeaponIndex = -1;
+            _root.LastApprovedWeaponIndex = approvedWeaponIndex;
+
+            if(_root.CurrentWeaponIndexInternal != approvedWeaponIndex) {
+                ApplyApprovedLocalWeaponSwitch(approvedWeaponIndex, false);
+            }
         }
 
         public void ApplyApprovedLocalWeaponSwitch(int newIndex, bool playSwitchAudio = true) {
