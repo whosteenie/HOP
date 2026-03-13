@@ -246,6 +246,18 @@ namespace Game.UI {
 
             // For local player in PTT mode, ignore speech detection (handled by OnLocalPttStateChanged)
             var isLocalPlayer = IsLocalIdentity(rawParticipantId) || IsLocalIdentity(canonicalId);
+            var isResolvedRemotePlayer = resolvedPlayer != null;
+
+            // Avoid creating fallback "ghost" rows from raw Vivox participant identities before
+            // that participant has been mapped to a tracked network player.
+            if(!isLocalPlayer && !isResolvedRemotePlayer) {
+                if(!isSpeaking && _participantToCanonicalId.TryGetValue(rawParticipantId, out var mappedCanonicalId)) {
+                    RemoveSpeakerEntry(mappedCanonicalId);
+                    _participantToCanonicalId.Remove(rawParticipantId);
+                }
+                return;
+            }
+
             switch(isLocalPlayer) {
                 case true when SocialSettings.InputMode == VoiceInputMode.PushToTalk:
                 // Skip muted players
@@ -269,7 +281,7 @@ namespace Game.UI {
                 if(_activeSpeakerElements.ContainsKey(canonicalId)) return;
                 _participantToCanonicalId[rawParticipantId] = canonicalId;
 
-                if(resolvedPlayer != null) {
+                if(isResolvedRemotePlayer) {
                     CreateSpeakerEntry(resolvedPlayer.PlayerName.Value.ToString(), resolvedPlayer.steamId.Value, canonicalId);
                 } else {
                     ulong.TryParse(canonicalId, out var steamId);

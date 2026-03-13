@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using Cysharp.Threading.Tasks;
+using Game.Hopball;
 using Game.Match;
 using Game.Menu;
 using Game.Player;
@@ -192,9 +193,8 @@ namespace Network.Session {
                 IsPrivate = isPrivateMatch,
                 Type = MultiplayerSessionType,
                 SessionProperties = new Dictionary<string, SessionProperty> {
-                    [MultiplayerSessionModeKey] = new(SelectedGameMode ?? string.Empty, VisibilityPropertyOptions.Public),
-                    [MultiplayerSessionMatchTypeKey] = new(isPrivateMatch ? "Private" : "Public",
-                        VisibilityPropertyOptions.Public)
+                    [MultiplayerSessionModeKey] = new(SelectedGameMode ?? string.Empty),
+                    [MultiplayerSessionMatchTypeKey] = new(isPrivateMatch ? "Private" : "Public")
                 },
                 PlayerProperties = new Dictionary<string, PlayerProperty> {
                     ["displayName"] = new(LocalIdentity.GetDisplayName(), VisibilityPropertyOptions.Member)
@@ -379,7 +379,7 @@ namespace Network.Session {
             }
 
             try {
-                await UniTask.Delay(250);
+                await UniTask.Delay(250, cancellationToken: SessionLifetimeToken);
                 if(_activeMultiplayerSession == null || _isLeaving || _isShuttingDown) {
                     return;
                 }

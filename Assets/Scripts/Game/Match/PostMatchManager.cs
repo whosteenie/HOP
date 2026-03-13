@@ -82,6 +82,7 @@ namespace Game.Match {
         private bool HasPostMatchAuthority => NetworkAuthority.HasGlobalAuthority(this);
         private bool IsPodiumBlackoutActive { get; set; }
         public static bool IsPodiumBlackoutActiveLocal => Instance != null && Instance.IsPodiumBlackoutActive;
+        private Coroutine _localReturnToMenuRoutine;
 
         /// <summary>
         /// True once fade-to-black is fully black. Use this for movement lock so WASD stays active during the fade.
@@ -345,16 +346,6 @@ namespace Game.Match {
 
             // 4) Stay on podium for a bit
             yield return new WaitForSeconds(podiumDuration);
-
-            // 5) Fade back to black and return to main menu
-            // RequestFadeToMenuClientRpc();
-
-            // yield return new WaitForSeconds(fadeDuration + fadeBuffer);
-
-            // Back to main menu (same flow as QuitToMenu)
-            if(SessionManager.Instance != null) {
-                SessionManager.Instance.LeaveToMainMenuAsync().Forget();
-            }
         }
 
         /// <summary>
@@ -608,6 +599,8 @@ namespace Game.Match {
                     SceneTransitionManager.Instance.FadeInRespawnOverlay()
                 );
             }
+
+            StartLocalReturnToMenuCountdown();
         }
         [Rpc(SendTo.Everyone)]
         private void ActivatePodiumCameraClientRpc() {
@@ -902,6 +895,10 @@ namespace Game.Match {
             StopPodiumWorldSpaceTracking();
             IsPodiumBlackoutActive = false;
             IsPostMatchMovementLockedLocal = false;
+            if(_localReturnToMenuRoutine != null) {
+                StopCoroutine(_localReturnToMenuRoutine);
+                _localReturnToMenuRoutine = null;
+            }
             if(_blackoutReadyRoutine != null) {
                 StopCoroutine(_blackoutReadyRoutine);
                 _blackoutReadyRoutine = null;
@@ -922,6 +919,23 @@ namespace Game.Match {
 
             if(_xpDisplay != null) {
                 _xpDisplay.Hide();
+            }
+        }
+
+        private void StartLocalReturnToMenuCountdown() {
+            if(_localReturnToMenuRoutine != null) {
+                StopCoroutine(_localReturnToMenuRoutine);
+            }
+
+            _localReturnToMenuRoutine = StartCoroutine(LocalReturnToMenuCoroutine());
+        }
+
+        private IEnumerator LocalReturnToMenuCoroutine() {
+            yield return new WaitForSecondsRealtime(podiumDuration);
+            _localReturnToMenuRoutine = null;
+
+            if(SessionManager.Instance != null) {
+                SessionManager.Instance.LeaveToMainMenuAsync().Forget();
             }
         }
         private static void DisableHopballTargets() {
