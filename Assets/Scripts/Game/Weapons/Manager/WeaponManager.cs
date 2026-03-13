@@ -448,12 +448,9 @@ namespace Game.Weapons.Manager {
             }
 
             var ownerClientId = playerController.OwnerClientId;
-            if(MatchPlayerStateProxy.TryGetForPlayer(ownerClientId, out var playerState)) {
-                _cachedPlayerState = playerState;
-                return playerState;
-            }
-
-            return null;
+            if(!MatchPlayerStateProxy.TryGetForPlayer(ownerClientId, out var playerState)) return null;
+            _cachedPlayerState = playerState;
+            return playerState;
         }
 
         private void OnPlayerStateRegistered(ulong playerClientId, MatchPlayerStateProxy proxy) {
@@ -492,10 +489,9 @@ namespace Game.Weapons.Manager {
             MatchPlayerStateProxy.StateRegistered -= OnPlayerStateRegistered;
             MatchPlayerStateProxy.StateUnregistered -= OnPlayerStateUnregistered;
 
-            if(_boundPlayerState != null) {
-                _boundPlayerState.equippedWeaponIndex.OnValueChanged -= OnReplicatedEquippedWeaponIndexChanged;
-                _boundPlayerState = null;
-            }
+            if(_boundPlayerState == null) return;
+            _boundPlayerState.equippedWeaponIndex.OnValueChanged -= OnReplicatedEquippedWeaponIndexChanged;
+            _boundPlayerState = null;
         }
 
         private void OnReplicatedEquippedWeaponIndexChanged(int oldValue, int newValue) {
