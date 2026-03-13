@@ -2,12 +2,10 @@ using System;
 using System.Collections.Generic;
 using Audio.Networking;
 using Game.Match;
-using Game.Menu;
 using Game.Player.Combat;
 using Game.Player.Hopball;
 using Game.Player.Look;
 using Game.Player.Movement;
-using Game.Settings;
 using Game.UI;
 using Game.Weapons;
 using Network;
@@ -16,12 +14,10 @@ using Network.Core;
 using Network.Events;
 using Network.Rpc;
 using OSI;
-using Steamworks;
 using Unity.Cinemachine;
 using Unity.Collections;
 using Unity.Netcode;
 using UnityEngine;
-using UnityEngine.UIElements;
 using SessionManager = Network.Session.SessionManager;
 
 namespace Game.Player.Core {
@@ -150,6 +146,7 @@ namespace Game.Player.Core {
         private PlayerOutOfBoundsCoordinator _outOfBoundsCoordinator;
         private PlayerMovementValidationCoordinator _movementValidationCoordinator;
         private PlayerWeaponPresentationCoordinator _weaponPresentationCoordinator;
+        private PlayerSpawnPresentationCoordinator _spawnPresentationCoordinator;
         private PlayerUiEventBridge _uiEventBridge;
 
         #endregion
@@ -277,6 +274,9 @@ namespace Game.Player.Core {
         internal void AssignWeaponCamera(Camera assignedWeaponCamera) => weaponCamera = assignedWeaponCamera;
         internal void HandleResolvedHealthChanged(float oldValue, float newValue) => OnHealthChanged(oldValue, newValue);
         internal void HandleResolvedDeathChanged(bool oldValue, bool newValue) => OnDeathStateChanged(oldValue, newValue);
+        internal void BeginIdentitySyncFromSpawn(ulong localSteamId, string ugsPlayerId, string playerDisplayName) =>
+            BeginIdentitySync(localSteamId, ugsPlayerId, playerDisplayName);
+        internal void LoadMaterialCustomizationFromPrefsForSpawn() => LoadMaterialCustomizationFromPrefs();
 
         #endregion
 
@@ -289,6 +289,7 @@ namespace Game.Player.Core {
             _materialCustomizationCoordinator ??= new PlayerMaterialCustomizationCoordinator(this);
             _movementValidationCoordinator ??= new PlayerMovementValidationCoordinator(this);
             _weaponPresentationCoordinator ??= new PlayerWeaponPresentationCoordinator(this);
+            _spawnPresentationCoordinator ??= new PlayerSpawnPresentationCoordinator(this);
             _uiEventBridge ??= new PlayerUiEventBridge();
         }
 
@@ -345,81 +346,7 @@ namespace Game.Player.Core {
             SubscribeToNetworkVariables();
             TryBindPlayerStateSubscriptions();
             UpdatePlayerMaterialFromNetwork();
-
-            if(characterController.enabled == false && !NetIsDead.Value) {
-                characterController.enabled = true;
-            }
-
-            var gameMenu = GameMenuManager.Instance;
-            if(gameMenu != null && gameMenu.TryGetComponent(out UIDocument doc)) {
-                var root = doc.rootVisualElement;
-                VisualElement rootContainer = null;
-                if(root != null) {
-                    rootContainer = root.Q<VisualElement>("root-container");
-                }
-                if(rootContainer != null)
-                    rootContainer.style.display = DisplayStyle.Flex;
-            }
-
-            PlayerUiEventBridge.PublishShowHud();
-            if(IsOwner && fpCamera && lookController != null) {
-                fpCamera.Lens.FieldOfView = lookController.BaseFov;
-            }
-
-            if(animationController != null)
-                animationController.ResetSpawnTime();
-
-            if(!IsOwner && animationController != null) {
-                animationController.ApplyRemoteStateSnapshot(netIsJumping.Value, netIsFalling.Value, netIsSliding.Value);
-                animationController.ApplyRemoteWallRunState(netIsWallRunning.Value, netIsRightWallRun.Value,
-                    netWallRunDirection.Value);
-            }
-
-            if(GameMenuManager.Instance.IsPaused) {
-                GameMenuManager.Instance.TogglePause();
-            }
-
-            if(IsOwner) {
-                string pName;
-                ulong localSteamId = 0;
-                if(SteamClient.IsValid && SteamClient.IsLoggedOn) {
-                    pName = Social.StreamerMode.GetLocalDisplayName();
-                    localSteamId = SteamClient.SteamId.Value;
-                } else {
-                    pName = Social.StreamerMode.LocalDisplayName;
-                }
-
-                var ugsPlayerId = LocalIdentity.GetUgsPlayerId();
-                BeginIdentitySync(localSteamId, ugsPlayerId, pName);
-                
-                primaryWeaponIndex.Value = GameSettings.Data.player.primaryWeaponIndex;
-                secondaryWeaponIndex.Value = GameSettings.Data.player.secondaryWeaponIndex;
-                
-                LoadMaterialCustomizationFromPrefs();
-
-                PlayerUiEventBridge.PublishLocalPlayerReady(this);
-
-                var matchSettings = MatchSettingsManager.Instance;
-                if(matchSettings != null && matchSettings.selectedGameModeId == "Gun Tag" && tagController != null) {
-                    PlayerUiEventBridge.PublishTagStatus(tagController.IsTagged.Value);
-                }
-
-                if(playerShadow != null)
-                    playerShadow.ApplyOwnerDefaultShadowState();
-            } else {
-                if(playerModelRoot != null && !playerModelRoot.activeSelf) {
-                    playerModelRoot.SetActive(true);
-                }
-
-                if(visualController != null) {
-                    visualController.InvalidateRendererCache();
-                    visualController.SetRenderersEnabled(true);
-                    visualController.ForceRendererBoundsUpdate();
-                }
-
-                if(playerShadow != null)
-                    playerShadow.ApplyVisibleShadowState();
-            }
+            _spawnPresentationCoordinator.HandleNetworkSpawnPresentation();
         }
 
         private void DisableConflictingKinemationFrameworkComponents() {
