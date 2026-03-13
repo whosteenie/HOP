@@ -187,13 +187,13 @@ namespace Game.Player.Movement {
             var weapon = _weaponManager.CurrentWeapon;
             
             // Defensive check: Ensure NetworkVariable is initialized
-            if(weapon.netCurrentDamageMultiplier == null) {
+            if(weapon.NetCurrentDamageMultiplier == null) {
                 SetTrailActive(false);
                 return;
             }
             
             // Use the network-synced multiplier value
-            var currentMultiplier = weapon.netCurrentDamageMultiplier.Value;
+            var currentMultiplier = weapon.NetCurrentDamageMultiplier.Value;
 
             // Enable/disable trail based on multiplier threshold
             // Owners: only when dead (already checked above) AND multiplier >= threshold
