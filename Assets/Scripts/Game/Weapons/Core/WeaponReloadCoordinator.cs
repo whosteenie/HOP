@@ -21,23 +21,35 @@ namespace Game.Weapons.Core {
         }
 
         public void StartReload() {
+            if(_weapon.CurrentWeaponData && _weapon.Manager != null && !_weapon.Manager.IsPullingOut &&
+               _weapon.KinemationDriver == null) {
+                Debug.LogError(
+                    $"[Weapon][KIN-Strict] Reload blocked: missing KinemationFpWeaponDriver for '{(_weapon.CurrentWeaponData != null ? _weapon.CurrentWeaponData.weaponName : "(none)")}'.",
+                    _weapon);
+                return;
+            }
+
             if(!CanReload()) return;
 
             _weapon.AutoReloadArmed = false;
             _weapon.Reloading = true;
 
-            if(_weapon.KinemationDriver == null) {
-                Debug.LogError(
-                    $"[Weapon][KIN-Strict] Reload blocked: missing KinemationFpWeaponDriver for '{(_weapon.CurrentWeaponData != null ? _weapon.CurrentWeaponData.weaponName : "(none)")}'.",
-                    _weapon);
-                _weapon.Reloading = false;
-                return;
-            }
-
             _weapon.ReloadExpectedCompleteTime = Time.time + Weapon.KinemationReloadFallbackSeconds;
             _weapon.KinemationReloadFallbackDeadline = _weapon.ReloadExpectedCompleteTime;
             _weapon.SyncServerWeaponStateInternal(WeaponManager.AmmoSyncReason.ReloadStarted);
             _weapon.PlayReloadEffectsInternal();
+        }
+
+        public void InterruptReloadForShot() {
+            if(!_weapon.Reloading || _weapon.CurrentWeaponData == null || _weapon.CurrentWeaponData.useMagReload) return;
+
+            ConsumePendingSingleRoundReloadEvents();
+
+            if(_weapon.KinemationDriver != null) {
+                _weapon.KinemationDriver.NotifyDrakeReloadCanceledByShot();
+            }
+
+            CancelReload();
         }
 
         public void CancelReloadForWeaponSwitch() {
@@ -222,6 +234,15 @@ namespace Game.Weapons.Core {
 
             if(_weapon.CurrentWeaponData != null) {
                 _weapon.PublishOwnerAmmoToHudInternal();
+            }
+        }
+
+        private void ConsumePendingSingleRoundReloadEvents() {
+            if(_weapon.KinemationDriver == null) return;
+
+            var reloadSingleEvents = _weapon.KinemationDriver.ConsumeReloadSingleEventCount();
+            for(var i = 0; i < reloadSingleEvents; i++) {
+                HandleKinemationReloadSingleRound();
             }
         }
     }

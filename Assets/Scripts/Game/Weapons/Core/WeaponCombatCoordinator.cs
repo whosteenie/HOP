@@ -14,15 +14,12 @@ namespace Game.Weapons.Core {
 
         public bool CanFire() {
             if(!_weapon.CurrentWeaponData || _weapon.Manager == null || _weapon.Manager.IsPullingOut) return false;
-            if(_weapon.Reloading && (!_weapon.CurrentWeaponData.useMagReload || _weapon.CurrentAmmo <= 0)) {
-                return Time.time >= _weapon.LastFireTime + _weapon.CurrentWeaponData.fireRate &&
-                       _weapon.CurrentAmmo > 0 &&
-                       !_weapon.Reloading;
-            }
 
-            return Time.time >= _weapon.LastFireTime + _weapon.CurrentWeaponData.fireRate &&
-                   _weapon.CurrentAmmo > 0 &&
-                   !_weapon.Reloading;
+            var fireRateReady = Time.time >= _weapon.LastFireTime + _weapon.CurrentWeaponData.fireRate;
+            if(!fireRateReady || _weapon.CurrentAmmo <= 0) return false;
+            if(!_weapon.Reloading) return true;
+
+            return !_weapon.CurrentWeaponData.useMagReload;
         }
 
         public void HandleCannotFire() {
@@ -31,15 +28,27 @@ namespace Game.Weapons.Core {
                _weapon.CurrentAmmo != 0) return;
 
             _weapon.PlayDryFireSoundInternal();
+            _weapon.LastFireTime = Time.time;
             _weapon.AutoReloadArmed = true;
         }
 
         public void PerformShot() {
             var playerController = _weapon.PlayerController;
             if(playerController == null || _weapon.CurrentWeaponData == null) return;
+            var manager = _weapon.Manager;
+            if(manager == null) return;
 
             var fpCameraTransform = playerController.FpCameraTransform;
             if(fpCameraTransform == null) return;
+            var weaponIndex = manager.CurrentWeaponIndex;
+            if(weaponIndex < 0) return;
+
+            if(_weapon.Reloading && !_weapon.CurrentWeaponData.useMagReload) {
+                _weapon.InterruptReloadForShotInternal();
+            }
+
+            var ammoAuthority = manager.AmmoAuthorityRef;
+            if(ammoAuthority == null) return;
 
             _weapon.LastFireTime = Time.time;
             _weapon.CurrentAmmo = Mathf.Max(0, _weapon.CurrentAmmo - 1);
@@ -51,16 +60,11 @@ namespace Game.Weapons.Core {
 
             var startPosition = fpCameraTransform.position;
             var baseDirection = fpCameraTransform.forward;
-            var weaponIndex = _weapon.Manager != null ? _weapon.Manager.CurrentWeaponIndex : -1;
-            var shotId = _weapon.Manager != null
-                ? _weapon.Manager.AmmoAuthorityRef.GetLastShotId(
-                    _weapon.Manager.CurrentWeaponIndex,
-                    _weapon.Manager.GetWeaponDataByIndex,
-                    _weapon.Manager.ResolveWeaponCapacity) + 1UL
-                : 0UL;
-            if(_weapon.Manager != null) {
-                _weapon.Manager.ReportShotFired(_weapon.Manager.CurrentWeaponIndex, shotId, Time.time);
-            }
+            var shotId = ammoAuthority.GetLastShotId(
+                weaponIndex,
+                manager.GetWeaponDataByIndex,
+                manager.ResolveWeaponCapacity) + 1UL;
+            manager.ReportShotFired(weaponIndex, shotId, Time.time);
             var localMuzzlePosition = _weapon.HasLocalMuzzleFlashSpawnPositionForShot
                 ? _weapon.LocalMuzzleFlashSpawnPositionForShot
                 : startPosition;

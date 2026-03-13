@@ -478,6 +478,10 @@ namespace Game.Weapons.Core {
             _reloadCoordinator.CancelReload();
         }
 
+        internal void InterruptReloadForShotInternal() {
+            _reloadCoordinator.InterruptReloadForShot();
+        }
+
         #endregion
 
         #region Private Methods - Effects
