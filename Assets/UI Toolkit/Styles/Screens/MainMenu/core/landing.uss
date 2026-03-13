@@ -51,7 +51,7 @@
 .text-button {
     background-color: var(--color-bg-transparent); border-width: 0;
     color: rgb(240,240,240);
-    -unity-font-definition: url('project://database/Assets/Open%20Sans/static/OpenSans-SemiBold%20SDF.asset');
+    -unity-font-definition: url('project://database/Assets/UI%20Toolkit/Fonts/Open%20Sans/static/OpenSans-SemiBold%20SDF.asset');
     font-size: 36px; -unity-font-style: bold; -unity-text-align: middle-left;
     text-shadow: 0 2px 5px var(--color-shadow-solid);
     padding: 3px 0;

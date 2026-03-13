@@ -594,10 +594,6 @@ namespace Network.Session {
                 _partyLobbyEventCallbacks = callbacks;
                 _partyLobbyEventsSubscriptionRetryAttempt = 0;
                 await HandlePartyLobbyFollowStateAsync($"{context}/Initial");
-
-                if(Debug.isDebugBuild) {
-                    Debug.Log($"[SessionManager] Subscribed to party lobby events ({context}) lobbyId='{targetLobbyId}'.");
-                }
             } catch(Exception ex) {
                 if(ShouldEmitThrottledLog(ref _nextLobbyEventSubscriptionFailureLogTime, 10f)) {
                     Debug.LogWarning($"[SessionManager] Failed to subscribe to party lobby events ({context}): {ex.Message}");
@@ -967,7 +963,7 @@ namespace Network.Session {
         }
 
         private bool ShouldHeartbeatPartyLobby() {
-            // During gameplay we keep match lobby heartbeat alive for backfill/late-join paths,
+            // During gameplay, we keep match lobby heartbeat alive for backfill/late-join paths,
             // and pause party lobby heartbeat to reduce duplicate UGS pressure.
             return Phase != SessionPhase.InGame;
         }
