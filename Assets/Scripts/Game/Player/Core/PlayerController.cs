@@ -181,10 +181,10 @@ namespace Game.Player {
         private MatchPlayerStateProxy _boundPlayerState;
 
         private static readonly NetworkVariable<float> MissingHealthState = new(100f);
-        private static readonly NetworkVariable<bool> MissingDeathState = new(false);
-        private static readonly NetworkVariable<int> MissingIntState = new(0);
-        private static readonly NetworkVariable<float> MissingFloatState = new(0f);
-        private static readonly NetworkVariable<ulong> MissingSteamIdState = new(0);
+        private static readonly NetworkVariable<bool> MissingDeathState = new();
+        private static readonly NetworkVariable<int> MissingIntState = new();
+        private static readonly NetworkVariable<float> MissingFloatState = new();
+        private static readonly NetworkVariable<ulong> MissingSteamIdState = new();
         private static readonly NetworkVariable<FixedString128Bytes> MissingUgsIdState = new("");
         private static readonly NetworkVariable<FixedString64Bytes> MissingPlayerNameState = new("Player");
 
@@ -213,13 +213,43 @@ namespace Game.Player {
 
         #region Network Variables
 
-        public NetworkVariable<float> netHealth => ResolvePlayerState()?.netHealth ?? MissingHealthState;
-        public NetworkVariable<bool> netIsDead => ResolvePlayerState()?.netIsDead ?? MissingDeathState;
-        public NetworkVariable<int> kills => ResolvePlayerState()?.kills ?? MissingIntState;
-        public NetworkVariable<int> deaths => ResolvePlayerState()?.deaths ?? MissingIntState;
-        public NetworkVariable<int> assists => ResolvePlayerState()?.assists ?? MissingIntState;
+        public NetworkVariable<float> netHealth {
+            get {
+                var playerState = ResolvePlayerState();
+                return playerState != null ? playerState.netHealth : MissingHealthState;
+            }
+        }
+        public NetworkVariable<bool> netIsDead {
+            get {
+                var playerState = ResolvePlayerState();
+                return playerState != null ? playerState.netIsDead : MissingDeathState;
+            }
+        }
+        private NetworkVariable<int> kills {
+            get {
+                var playerState = ResolvePlayerState();
+                return playerState != null ? playerState.kills : MissingIntState;
+            }
+        }
+        private NetworkVariable<int> deaths {
+            get {
+                var playerState = ResolvePlayerState();
+                return playerState != null ? playerState.deaths : MissingIntState;
+            }
+        }
+        private NetworkVariable<int> assists {
+            get {
+                var playerState = ResolvePlayerState();
+                return playerState != null ? playerState.assists : MissingIntState;
+            }
+        }
 
-        public NetworkVariable<float> damageDealt => ResolvePlayerState()?.damageDealt ?? MissingFloatState;
+        public NetworkVariable<float> damageDealt {
+            get {
+                var playerState = ResolvePlayerState();
+                return playerState != null ? playerState.damageDealt : MissingFloatState;
+            }
+        }
 
         public NetworkVariable<int> playerMaterialIndex = new(0,
             NetworkVariableReadPermission.Everyone,
@@ -261,11 +291,26 @@ namespace Game.Player {
             NetworkVariableReadPermission.Everyone,
             NetworkVariableWritePermission.Owner);
 
-        public NetworkVariable<ulong> steamId => ResolvePlayerState()?.steamId ?? MissingSteamIdState;
+        public NetworkVariable<ulong> steamId {
+            get {
+                var playerState = ResolvePlayerState();
+                return playerState != null ? playerState.steamId : MissingSteamIdState;
+            }
+        }
         
-        public NetworkVariable<FixedString128Bytes> ugsId => ResolvePlayerState()?.ugsId ?? MissingUgsIdState;
+        public NetworkVariable<FixedString128Bytes> ugsId {
+            get {
+                var playerState = ResolvePlayerState();
+                return playerState != null ? playerState.ugsId : MissingUgsIdState;
+            }
+        }
 
-        public NetworkVariable<FixedString64Bytes> playerName => ResolvePlayerState()?.playerName ?? MissingPlayerNameState;
+        public NetworkVariable<FixedString64Bytes> playerName {
+            get {
+                var playerState = ResolvePlayerState();
+                return playerState != null ? playerState.playerName : MissingPlayerNameState;
+            }
+        }
 
         public NetworkVariable<bool> netIsCrouching = new(false,
             NetworkVariableReadPermission.Everyone,
@@ -392,7 +437,10 @@ namespace Game.Player {
             var gameMenu = GameMenuManager.Instance;
             if(gameMenu != null && gameMenu.TryGetComponent(out UIDocument doc)) {
                 var root = doc.rootVisualElement;
-                var rootContainer = root?.Q<VisualElement>("root-container");
+                VisualElement rootContainer = null;
+                if(root != null) {
+                    rootContainer = root.Q<VisualElement>("root-container");
+                }
                 if(rootContainer != null)
                     rootContainer.style.display = DisplayStyle.Flex;
             }

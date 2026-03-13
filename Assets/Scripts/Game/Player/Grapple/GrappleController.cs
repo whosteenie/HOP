@@ -79,7 +79,7 @@ namespace Game.Player {
 
         public bool CanGrapple { get; private set; } = true;
 
-        public Vector3 CurrentPullVelocity {
+        private Vector3 CurrentPullVelocity {
             get {
                 if(!IsGrappling || playerController == null) {
                     return Vector3.zero;

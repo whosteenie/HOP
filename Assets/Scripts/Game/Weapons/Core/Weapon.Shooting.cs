@@ -311,35 +311,7 @@ namespace Game.Weapons {
             return direction;
         }
 
-        private float CalculateDamage(float distance) {
-            if(!CurrentWeaponData) return 0f;
-
-            var baseDamage = CurrentWeaponData.baseDamage;
-
-            if(CurrentWeaponData.useDamageFalloff) {
-                var startRange = Mathf.Max(0f, CurrentWeaponData.maxDamageRange);
-                var endRange = Mathf.Max(startRange, CurrentWeaponData.minDamageRange);
-                var minDamage = Mathf.Clamp(CurrentWeaponData.minDamage, 0f, baseDamage);
-
-                if(distance <= startRange) {
-                    // baseDamage = baseDamage;
-                } else if(distance >= endRange) {
-                    baseDamage = minDamage;
-                } else {
-                    var t = Mathf.InverseLerp(startRange, endRange, distance);
-                    baseDamage = Mathf.Lerp(baseDamage, minDamage, t);
-                }
-            }
-
-            if(CurrentWeaponData.usePelletSpread) {
-                baseDamage *= Mathf.Max(0f, CurrentWeaponData.pelletDamageMultiplier);
-            }
-
-            var scaledDamage = baseDamage * CurrentDamageMultiplier;
-            return Mathf.Min(scaledDamage, CurrentWeaponData.damageCap);
-        }
-
-        public void UpdateDamageMultiplier() {
+        private void UpdateDamageMultiplier() {
             if(!IsOwner) return;
             if(!CurrentWeaponData) return;
 
@@ -349,7 +321,7 @@ namespace Game.Weapons {
                 ref _lastPeakTime, currentSpeed, isDead);
         }
 
-        private float AdvanceDamageMultiplier(float currentMultiplier, ref float peakMultiplier, ref float lastPeakTime,
+        private static float AdvanceDamageMultiplier(float currentMultiplier, ref float peakMultiplier, ref float lastPeakTime,
             float currentSpeed, bool isDead) {
             if(isDead) {
                 currentMultiplier = Mathf.MoveTowards(currentMultiplier, 1f, MultiplierDecayRate * Time.deltaTime);

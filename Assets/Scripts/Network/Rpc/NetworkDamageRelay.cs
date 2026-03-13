@@ -109,7 +109,7 @@ namespace Network.Rpc {
                 }
             }
 
-            if(shooterWeaponManager.IsFriendlyFireServer(shooterController, victim)) {
+            if(WeaponManager.IsFriendlyFireServer(shooterController, victim)) {
                 AntiCheatLogger.LogInvalidDamage(shooterId, "friendly fire rejected");
                 return;
             }

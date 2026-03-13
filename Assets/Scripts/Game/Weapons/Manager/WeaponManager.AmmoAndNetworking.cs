@@ -133,18 +133,16 @@ namespace Game.Weapons {
             reason = null;
             if(!HasWeaponAuthority) return true;
 
-            if(weaponIndex != GetServerAuthoritativeWeaponIndex()) {
-                reason = "weapon index mismatch";
-                return false;
-            }
-
-            return _ammoAuthority.ValidateServerHitClaim(
-                weaponIndex,
-                shotId,
-                GetWeaponDataByIndex,
-                ResolveWeaponCapacity,
-                out reason
-            );
+            if(weaponIndex == GetServerAuthoritativeWeaponIndex())
+                return _ammoAuthority.ValidateServerHitClaim(
+                    weaponIndex,
+                    shotId,
+                    GetWeaponDataByIndex,
+                    ResolveWeaponCapacity,
+                    out reason
+                );
+            reason = "weapon index mismatch";
+            return false;
         }
 
         public string GetCombatAuthorityDebugSummary(int requestedWeaponIndex = -1) {
@@ -210,7 +208,7 @@ namespace Game.Weapons {
             return damage > 0f;
         }
 
-        public bool IsFriendlyFireServer(PlayerController shooter, PlayerController victim) {
+        public static bool IsFriendlyFireServer(PlayerController shooter, PlayerController victim) {
             if(shooter == null || victim == null) return false;
 
             var matchSettings = MatchSettingsManager.Instance;
@@ -349,12 +347,9 @@ namespace Game.Weapons {
                 return false;
             }
 
-            if(weaponIndex != GetServerAuthoritativeWeaponIndex()) {
-                reason = "weapon index mismatch";
-                return false;
-            }
-
-            return true;
+            if(weaponIndex == GetServerAuthoritativeWeaponIndex()) return true;
+            reason = "weapon index mismatch";
+            return false;
         }
 
         private void UpdateServerWeaponState(int weaponIndex, AmmoSyncReason reason, int localAmmoAfterEvent) {
@@ -496,10 +491,9 @@ namespace Game.Weapons {
 
         public void ResetAllWeaponAmmoOnAuthority() {
             _ammoAuthority.ResetAllWeaponAmmo(weaponDataList, ResolveWeaponCapacity);
-            if(HasWeaponAuthority) {
-                ClearServerReloadState();
-                ResetServerDamageMultiplierForCurrentWeapon();
-            }
+            if(!HasWeaponAuthority) return;
+            ClearServerReloadState();
+            ResetServerDamageMultiplierForCurrentWeapon();
         }
     }
 }
