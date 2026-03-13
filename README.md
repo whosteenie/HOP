@@ -1,36 +1,121 @@
 # HOP
 
-HOP is a multiplayer movement shooter developed in Unity 6.3. The project implements high-speed traversal mechanics and team-based objectives within a networked environment.
+HOP is a fast-paced multiplayer movement shooter built in Unity.  
+It focuses on high-skill traversal, readable combat, and fully online play with public matchmaking.
 
-## Technical Details
-The game utilizes the Unity Netcode for GameObjects framework for synchronization and state management. Networking is handled via Unity Gaming Services, providing support for P2P lobbies and relay connectivity.
+---
 
-### Traversal Systems
-Movement is handled through a modular controller architecture. Key components include:
-* **Wall Running:** Surface detection and velocity redirection for horizontal wall movement.
-* **Grappling Physics:** Mechanics for pulling your character to a point.
-* **Ledge Mantling:** Automated detection and climbing of vertical ledge obstacles.
-* **Momentum Management:** Handling of air strafing, bunny hopping, and speed preservation.
+## Overview
 
-### Core Mechanics
-* **Hopball:** A team-based objective mode focused on ball possession.
-* **Deathmatch / Team Deathmatch:** Standard individual and team-based elimination modes.
-* **King of the Hill:** A territory control mode where the capture point wanders throughout the match.
-* **Tag:** A tag gamemode where the "It" player has to shoot another to tag them.
-* **Combat:** A weapon management system supporting various fire modes and projectile types.
-* **Social Systems:** Integration with Steam for player names, lobbies, and chat functionality.
+HOP is an in-progress game project:
 
-### Architecture and Dependencies
-The project follows a component-based design where player capabilities are isolated into individual controllers. This separation allows for easier debugging and extension of movement or combat logic.
+- First-person movement system with advanced traversal mechanics.
+- Multiple game modes and full match flow (from lobby to post-match).
+- Online multiplayer with public matchmaking and relay-backed connectivity.
+- A codebase structured for iteration: clear separation between gameplay, networking, UI, and tooling.
 
-**Key Dependencies:**
-* Unity 6.3 (6000.3.6f1)
-* Netcode for GameObjects
-* Unity Gaming Services (Lobby, Relay, Vivox)
-* Steamworks.NET
-* UniTask for asynchronous operations
+---
 
-## Repository Structure
-* **Assets/Scripts/Game:** Player controllers, health systems, and core gameplay modes.
-* **Assets/Scripts/Network:** Session management, Steam integration, and network synchronization logic.
-* **Assets/Scripts/UI:** HUD, menus, and communication tools.
+## Gameplay Features
+
+- **Advanced traversal**
+  - Grapple for pulling the player toward a point and chaining movement.
+  - Wall-running on eligible surfaces with velocity redirection.
+  - Ledge mantling for climbing vertical obstacles.
+  - Air-strafing, slides, bunny-hopping, and momentum preservation tuned for “feel.”
+
+- **Core modes**
+  - **Hopball** – ball-possession objective mode designed around traversal.
+  - **Deathmatch / Team Deathmatch** – standard elimination modes.
+  - **King of the Hill** – moving capture point that forces repositioning.
+  - **Tag** – one player is “it” and must tag others via combat.
+
+- **Combat**
+  - Weapon system supporting multiple weapon types and fire modes.
+  - Hit feedback via damage indicators, hitmarkers, and killfeed.
+  - First-person viewmodel presentation with separate logic for sway, bob, and animations.
+
+- **Momentum mechanics**
+  - **Momentum damage multiplier**
+    - Players build a damage multiplier by maintaining speed and staying in motion.
+    - Standing still (or slowing down) causes the multiplier to decay, encouraging constant repositioning.
+  - **Speed trails (multiplier feedback)**
+    - Players emit speed trails that scale with their current movement multiplier.
+    - Trails provide immediate visual feedback during high-speed combat.
+
+- **Social & progression**
+  - Lobbying and public matchmaking so players can find and join matches.
+  - Basic progression and post-match summary (e.g., XP, challenges) to support repeat play.
+
+---
+
+## Key Systems
+
+### Movement & Traversal
+
+The movement controller is organized into focused components for:
+
+- Ground and air movement, friction, and acceleration.
+- Grapple behavior, including momentum preservation and jump-pad interaction.
+- Wall-running, mantling, and jump-pad launches with apex tracking and compensation.
+
+The goal is to keep the “feel” of the game configurable and debuggable rather than hard-coded.
+
+### Networking & Matchmaking
+
+- Uses Unity’s multiplayer stack to support:
+  - Lobby creation and discovery.
+  - Relay-based connectivity so players can join without direct IP access.
+  - Distributed authority + host migration, allowing matches to continue if the session owner disconnects.
+  - Backfill, so open slots can be filled and lobbies don’t gradually dwindle as players leave.
+  - Match lifecycle: lobby → loading → match → post-match → back to lobby.
+
+- Player state, scores, objectives, and projectiles are synchronized over the network with an emphasis on:
+  - Ownership and authority boundaries that are easy to reason about.
+  - Clear separation between network messages and gameplay logic.
+
+### Game Modes & Rules
+
+Game rules are implemented as discrete mode controllers that handle:
+
+- Scoring and win conditions per mode (Hopball, KOTH, DM/TDM, Tag).
+- Round flow, including sudden death or overtime where applicable.
+- Integration with the HUD, scoreboard, and announcer/UI feedback.
+
+### UI & UX
+
+- Menu flow for:
+  - Main menu, settings, and matchmaking.
+  - In-game pause/options.
+- HUD elements for:
+  - Health, ammo, objectives, timers, and team scores.
+  - Chat and voice indicators where supported.
+- Designed to keep information readable during high-speed movement.
+
+---
+
+## Architecture Overview
+
+At a high level, the project is structured into:
+
+- **Gameplay** – player controllers, weapons, health/damage, game modes, progression.
+- **Networking** – session management, matchmaking, replication, and diagnostics.
+- **UI** – menus, HUD, overlays, and supporting UI frameworks.
+- **Editor & tooling** – custom inspectors and utilities to support content creation and debugging.
+
+Responsibility is split so that:
+
+- Movement, combat, and visuals are separate concerns.
+- Network-related code is grouped and testable in isolation.
+- UI components can evolve without rewriting core gameplay.
+
+For more detail, see `Assets/Scripts/README.md` in the repository.
+
+---
+
+## Technology
+
+- **Engine**: Unity (URP pipeline)
+- **Multiplayer**: Unity multiplayer stack (lobbies, relay, netcode-style synchronization)
+- **Audio / VFX**: Unity’s built-in audio system, post-processing, and VFX Graph
+- **Async / utilities**: Task-based utilities where appropriate for async workflows
