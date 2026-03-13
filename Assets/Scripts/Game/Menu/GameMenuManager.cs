@@ -1,14 +1,12 @@
 using System;
 using System.Collections.Generic;
 using Discord;
-using Game.Player;
 using Game.Progression;
 using Game.Settings;
 using Game.UI;
 using Game.Menu.Options;
 using Game.Match;
 using Game.Player.Core;
-using Game.Weapons;
 using Game.Weapons.Core;
 using Game.Weapons.Manager;
 using Network.Events;

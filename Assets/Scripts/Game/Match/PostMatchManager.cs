@@ -3,7 +3,6 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using Cysharp.Threading.Tasks;
-using Game.Player;
 using Game.Menu;
 using Game.Spawning;
 using Game.UI;

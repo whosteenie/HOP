@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using Game.Hopball;
 using Game.Match;
-using Game.Player;
 using Game.Player.Combat;
 using Game.Player.Core;
 using Game.Spawning;
