@@ -1,7 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
 using Game.Social;
-using Game.Player;
 using Game.Player.Core;
 using Network.Events;
 using UnityEngine;

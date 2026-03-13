@@ -339,6 +339,11 @@ namespace Game.Weapons.Manager {
             _switchCoordinator.RejectPredictedWeaponSwitchOwner(approvedWeaponIndex);
         }
 
+        [Rpc(SendTo.Owner)]
+        internal void ConfirmPredictedWeaponSwitchOwnerRpc(int approvedWeaponIndex) {
+            _switchCoordinator.ConfirmPredictedWeaponSwitchOwner(approvedWeaponIndex);
+        }
+
         #endregion
 
         #region Private Root Helpers
@@ -514,6 +519,9 @@ namespace Game.Weapons.Manager {
 
             if(ResolvePlayerState() != null) {
                 ServerAuthoritativeWeaponIndex = CurrentWeaponIndexInternal;
+                if(ReplicatedEquippedWeaponIndex.Value != CurrentWeaponIndexInternal) {
+                    ReplicatedEquippedWeaponIndex.Value = CurrentWeaponIndexInternal;
+                }
             }
 
             var data = GetWeaponDataByIndex(CurrentWeaponIndexInternal);
