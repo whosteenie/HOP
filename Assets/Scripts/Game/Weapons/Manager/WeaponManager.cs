@@ -3,31 +3,41 @@ using System.Collections.Generic;
 using Game.Match;
 using Game.Player;
 using Game.Player.Core;
+using Game.Weapons.World;
 using KINEMATION.FPSAnimationPack.Scripts.Weapon;
-using Network.Diagnostics;
+using Network.Core;
 using Unity.Cinemachine;
 using Unity.Netcode;
 using UnityEngine;
 
-namespace Game.Weapons {
-    public partial class WeaponManager : NetworkBehaviour {
+namespace Game.Weapons.Manager {
+    public class WeaponManager : NetworkBehaviour {
+        #region Types
+
+        public enum AmmoSyncReason : byte {
+            ReloadStarted,
+            ReloadSingleRound,
+            ReloadCompleted,
+            ReloadCanceled,
+            RefillCurrentWeapon
+        }
+
         [Serializable]
         internal class KinemationWeaponBinding {
             public WeaponData weaponData;
             public GameObject kinemationWeaponPrefab;
             public bool useCustomViewmodelPose;
-            public Vector3 viewmodelLocalPosition = Vector3.zero;
-            public Vector3 viewmodelLocalEulerAngles = Vector3.zero;
-            [Tooltip("Optional. Per-weapon grapple animation clip (e.g. A_FP_DGL_Grapple). If unset, controller default is used.")]
+            public Vector3 viewmodelLocalPosition;
+            public Vector3 viewmodelLocalEulerAngles;
+            [Tooltip("Optional grapple clip override for this weapon.")]
             public AnimationClip grappleClip;
         }
 
+        #endregion
+
+        #region Serialized Fields
+
         [SerializeField] private PlayerController playerController;
-        private CinemachineCamera _fpCamera;
-        private Camera _weaponCamera;
-        private Transform _worldWeaponSocket;
-        private Animator _playerAnimator;
-        private PlayerRenderer _playerRenderer;
 
         [Header("Weapon System")]
         [SerializeField, HideInInspector] private List<WeaponData> weaponDataList = new();
@@ -35,568 +45,499 @@ namespace Game.Weapons {
         [Header("KINEMATION FP Integration")]
         [SerializeField] private GameObject kinemationFpsPlayerPrefab;
         [SerializeField] private List<KinemationWeaponBinding> kinemationWeaponBindings = new();
-        [SerializeField, Range(0f, 1.99f)] private float kinemationSprintWalkGaitValue = 1.2f;
-        [SerializeField, Range(0f, 1f)] private float kinemationEquipUnlockNormalizedTime = 0.82f;
+        [SerializeField] private float kinemationSprintWalkGaitValue = 1.2f;
+        [SerializeField] private float kinemationEquipUnlockNormalizedTime = 0.82f;
         [SerializeField] private bool autoCompleteKinemationPullOut = true;
-        [SerializeField, Min(0f)] private float kinemationPullOutCompleteDelay = 0.12f;
-        [SerializeField, Min(0f)] private float postMatchPullOutFailSafeDelay = 0.65f;
+        [SerializeField] private float kinemationPullOutCompleteDelay = 0.12f;
+        [SerializeField] private float postMatchPullOutFailSafeDelay = 0.65f;
         [SerializeField] private Vector3 kinemationViewmodelLocalPosition = Vector3.zero;
         [SerializeField] private Vector3 kinemationViewmodelLocalEulerAngles = Vector3.zero;
 
-        private readonly List<GameObject> _fpWeaponInstances = new();
-        private readonly WeaponKinemationBindingCatalog _kinemationCatalog = new();
-        private readonly WeaponAmmoAuthority _ammoAuthority = new();
-        private readonly WeaponWorldWeaponRegistry _worldWeaponRegistry = new();
-        private GameObject _pendingTpWeapon; // Track pending TP weapon to show via animation event
-        private int _serverAuthoritativeWeaponIndex = -1;
-        private int _serverReloadWeaponIndex = -1;
-        private float _serverPullOutBlockedUntilTime;
-        private MatchPlayerStateProxy _cachedPlayerState;
-        private MatchPlayerStateProxy _boundPlayerState;
-        private int _lastApprovedWeaponIndex = -1;
-        private int _pendingPredictedWeaponIndex = -1;
+        [Header("FP Weapon Lighting")]
+        [SerializeField] private bool enableFpWeaponLightRig = true;
+        [SerializeField] private Vector3 fpKeyLightLocalPosition = new(0.08f, 0.06f, -0.04f);
+        [SerializeField] private Vector3 fpKeyLightLocalEulerAngles = new(12f, -15f, 0f);
+        [SerializeField] private float fpKeyLightIntensity = 1f;
+        [SerializeField] private float fpKeyLightRange = 3.5f;
+        [SerializeField] private float fpKeyLightSpotAngle = 75f;
+        [SerializeField] private Color fpKeyLightColor = new(1f, 0.97f, 0.92f, 1f);
+        [SerializeField] private Vector3 fpFillLightLocalPosition = new(-0.08f, -0.04f, -0.02f);
+        [SerializeField] private Vector3 fpFillLightLocalEulerAngles = new(16f, 18f, 0f);
+        [SerializeField] private float fpFillLightIntensity = 0.35f;
+        [SerializeField] private float fpFillLightRange = 3f;
+        [SerializeField] private float fpFillLightSpotAngle = 90f;
+        [SerializeField] private Color fpFillLightColor = new(0.92f, 0.96f, 1f, 1f);
 
-        public Weapon CurrentWeapon { get; private set; }
-        public GameObject CurrentWorldWeaponInstance { get; private set; }
+        #endregion
 
-        public int CurrentWeaponIndex { get; private set; } = -1;
-
-        public int WeaponCount => weaponDataList.Count;
-        public IReadOnlyList<WeaponData> PrimaryWeaponOptions => _kinemationCatalog.PrimaryWeaponOptions;
-        public IReadOnlyList<WeaponData> SecondaryWeaponOptions => _kinemationCatalog.SecondaryWeaponOptions;
-        public bool IsPullingOut { get; private set; }
+        #region Static State
 
         private static readonly int PullOutHash = Animator.StringToHash("PullOut");
         private static readonly int WeaponIndexHash = Animator.StringToHash("WeaponIndex");
-        public GameObject PrimaryHolster { get; private set; }
-
-        public GameObject SecondaryHolster { get; private set; }
-
-        private int _pendingHolsterHideSlot = -1;
-        private bool _suppressLoadoutRebuildCallbacks;
-        private bool _deferTpRevealUntilRespawn;
-        private GameObject _deferredRespawnWorldWeapon;
-        private Coroutine _kinemationPullOutCompletionCoroutine;
-        private bool _requiresKinemationEquipCompleteForCurrentPullOut;
-        private bool _hasLoggedStrictStartupValidation;
-        private bool _weaponsInitialized;
         private static readonly NetworkVariable<int> MissingEquippedWeaponIndexState = new(-1);
 
+        private const string FpLightRigRootName = "FpWeaponLightRig";
+        private const string FpKeyLightName = "FpWeaponKeyLight";
+        private const string FpFillLightName = "FpWeaponFillLight";
+
+        internal const string FpLightRigRootNameConst = FpLightRigRootName;
+        internal const string FpKeyLightNameConst = FpKeyLightName;
+        internal const string FpFillLightNameConst = FpFillLightName;
+
+        #endregion
+
+        #region Coordinator Fields
+
+        private WeaponAuthorityCoordinator _authorityCoordinator;
+        private WeaponLoadoutCoordinator _loadoutCoordinator;
+        private WeaponSwitchCoordinator _switchCoordinator;
+        private WeaponFpPresentationCoordinator _fpPresentationCoordinator;
+        private WeaponFpLightingCoordinator _fpLightingCoordinator;
+
+        #endregion
+
+        #region Runtime State
+
+        private MatchPlayerStateProxy _cachedPlayerState;
+        private MatchPlayerStateProxy _boundPlayerState;
+        private bool _hasLoggedStrictStartupValidation;
+
+        internal List<GameObject> FpWeaponInstancesRef { get; } = new();
+        internal WeaponAmmoAuthority AmmoAuthorityRef { get; } = new();
+        internal WeaponKinemationBindingCatalog KinemationCatalogRef { get; } = new();
+        private WeaponWorldWeaponRegistry WorldWeaponRegistryRef { get; } = new();
+
+        internal CinemachineCamera FpCameraRef { get; private set; }
+        internal Camera WeaponCameraRef { get; private set; }
+        internal Transform WorldWeaponSocketRef { get; private set; }
+        internal Animator PlayerAnimatorRef { get; private set; }
+        internal PlayerRenderer PlayerRendererRef { get; private set; }
+
+        internal GameObject PendingTpWeapon { get; set; }
+        internal GameObject CurrentWorldWeaponInstanceInternal { get; set; }
+        internal GameObject PrimaryHolsterInternal { get; set; }
+        internal GameObject SecondaryHolsterInternal { get; set; }
+        internal int CurrentWeaponIndexInternal { get; set; } = -1;
+        internal Weapon CurrentWeaponInternal { get; private set; }
+        internal bool IsPullingOutInternal { get; set; }
+
+        internal int ServerAuthoritativeWeaponIndex { get; set; } = -1;
+        internal int ServerReloadWeaponIndex { get; set; } = -1;
+        internal float ServerPullOutBlockedUntilTime { get; set; }
+        internal int LastApprovedWeaponIndex { get; set; } = -1;
+        internal int PendingPredictedWeaponIndex { get; set; } = -1;
+        internal int PendingHolsterHideSlot { get; set; } = -1;
+        internal bool SuppressLoadoutRebuildCallbacks { get; set; }
+        internal bool DeferTpRevealUntilRespawn { get; set; }
+        internal GameObject DeferredRespawnWorldWeapon { get; set; }
+        internal Coroutine KinemationPullOutCompletionCoroutine { get; set; }
+        internal bool RequiresKinemationEquipCompleteForCurrentPullOut { get; set; }
+
+        internal Transform FpLightRigRoot { get; set; }
+        internal Light FpKeyLight { get; set; }
+        internal Light FpFillLight { get; set; }
+        internal bool LoggedMissingWeaponLayer { get; set; }
+
+        #endregion
+
+        #region Public Properties
+
+        public Weapon CurrentWeapon => CurrentWeaponInternal;
+        public GameObject CurrentWorldWeaponInstance => CurrentWorldWeaponInstanceInternal;
+        public int CurrentWeaponIndex => CurrentWeaponIndexInternal;
+        public int WeaponCount => weaponDataList != null ? weaponDataList.Count : 0;
+        public IReadOnlyList<WeaponData> PrimaryWeaponOptions => KinemationCatalogRef.PrimaryWeaponOptions;
+        public IReadOnlyList<WeaponData> SecondaryWeaponOptions => KinemationCatalogRef.SecondaryWeaponOptions;
+        public bool IsPullingOut => IsPullingOutInternal;
+        public GameObject PrimaryHolster => PrimaryHolsterInternal;
+        public GameObject SecondaryHolster => SecondaryHolsterInternal;
+
+        #endregion
+
+        #region Internal Properties
+
+        internal PlayerController PlayerControllerRef => playerController;
+        internal List<WeaponData> WeaponDataListRef => weaponDataList;
+        internal GameObject KinemationFpsPlayerPrefabRef => kinemationFpsPlayerPrefab;
+        internal float KinemationSprintWalkGaitValue => kinemationSprintWalkGaitValue;
+        internal float KinemationEquipUnlockNormalizedTime => kinemationEquipUnlockNormalizedTime;
+        internal bool AutoCompleteKinemationPullOut => autoCompleteKinemationPullOut;
+        internal float KinemationPullOutCompleteDelay => kinemationPullOutCompleteDelay;
+        internal float PostMatchPullOutFailSafeDelay => postMatchPullOutFailSafeDelay;
+        internal Vector3 KinemationViewmodelLocalPosition => kinemationViewmodelLocalPosition;
+        internal Vector3 KinemationViewmodelLocalEulerAngles => kinemationViewmodelLocalEulerAngles;
+        internal bool EnableFpWeaponLightRig => enableFpWeaponLightRig;
+        internal Vector3 FpKeyLightLocalPosition => fpKeyLightLocalPosition;
+        internal Vector3 FpKeyLightLocalEulerAngles => fpKeyLightLocalEulerAngles;
+        internal float FpKeyLightIntensity => fpKeyLightIntensity;
+        internal float FpKeyLightRange => fpKeyLightRange;
+        internal float FpKeyLightSpotAngle => fpKeyLightSpotAngle;
+        internal Color FpKeyLightColor => fpKeyLightColor;
+        internal Vector3 FpFillLightLocalPosition => fpFillLightLocalPosition;
+        internal Vector3 FpFillLightLocalEulerAngles => fpFillLightLocalEulerAngles;
+        internal float FpFillLightIntensity => fpFillLightIntensity;
+        internal float FpFillLightRange => fpFillLightRange;
+        internal float FpFillLightSpotAngle => fpFillLightSpotAngle;
+        internal Color FpFillLightColor => fpFillLightColor;
+        internal int PullOutHashInternal => PullOutHash;
+        internal int WeaponIndexHashInternal => WeaponIndexHash;
+        internal NetworkVariable<int> ReplicatedEquippedWeaponIndex =>
+            ResolvePlayerState() != null ? ResolvePlayerState().equippedWeaponIndex : MissingEquippedWeaponIndexState;
+
+        private bool HasWeaponAuthority => NetworkAuthority.HasGlobalAuthority(this);
+
+        #endregion
+
+        #region Unity Lifecycle
+
         private void Awake() {
+            InitializeCoordinators();
             ValidateComponents();
         }
 
         public override void OnNetworkSpawn() {
             base.OnNetworkSpawn();
-            MatchPlayerStateProxy.StateRegistered -= OnPlayerStateRegistered;
-            MatchPlayerStateProxy.StateRegistered += OnPlayerStateRegistered;
-            MatchPlayerStateProxy.StateUnregistered -= OnPlayerStateUnregistered;
-            MatchPlayerStateProxy.StateUnregistered += OnPlayerStateUnregistered;
+            InitializeCoordinators();
+            ValidateComponents();
             TryBindPlayerStateSubscriptions();
         }
 
         public override void OnNetworkDespawn() {
-            UnbindPlayerStateSubscriptions();
-            MatchPlayerStateProxy.StateRegistered -= OnPlayerStateRegistered;
-            MatchPlayerStateProxy.StateUnregistered -= OnPlayerStateUnregistered;
-            _weaponsInitialized = false;
             base.OnNetworkDespawn();
+            UnbindPlayerStateSubscriptions();
+        }
+
+        private void Update() {
+            _switchCoordinator?.UpdateKinemationEquipCompletionGate();
+            if(IsOwner) {
+                _fpLightingCoordinator?.EnsureFpWeaponLightingRig();
+            }
+        }
+
+        #endregion
+
+        #region Public Facade
+
+        public void InitializeWeapons() => _loadoutCoordinator.InitializeWeapons();
+        public void ApplyTpWeaponStateOnRespawn() => _loadoutCoordinator.ApplyTpWeaponStateOnRespawn();
+        public WeaponData GetWeaponDataByIndex(int index) =>
+            index >= 0 && weaponDataList != null && index < weaponDataList.Count ? weaponDataList[index] : null;
+        public string GetWeaponIdByIndex(int index) => GetWeaponDataByIndex(index) != null ? GetWeaponDataByIndex(index).weaponName : string.Empty;
+        public void RefreshOwnerAmmoHudFromCurrentWeapon() => _authorityCoordinator.RefreshOwnerAmmoHudFromCurrentWeapon();
+        public void ResetAllWeaponAmmo() => _authorityCoordinator.ResetAllWeaponAmmo();
+        public void PrepareCurrentWeaponForPostMatchPodium() => _authorityCoordinator.PrepareCurrentWeaponForPostMatchPodium();
+        public void DrainCurrentWeaponAmmoForTag() => _authorityCoordinator.DrainCurrentWeaponAmmoForTag();
+        public bool RegisterServerShot(int weaponIndex, ulong shotId, float clientShotTime, out string reason) =>
+            _authorityCoordinator.RegisterServerShot(weaponIndex, shotId, clientShotTime, out reason);
+        public bool ValidateServerHitClaim(int weaponIndex, ulong shotId, out string reason) =>
+            _authorityCoordinator.ValidateServerHitClaim(weaponIndex, shotId, out reason);
+        public string GetCombatAuthorityDebugSummary(int requestedWeaponIndex = -1) =>
+            _authorityCoordinator.GetCombatAuthorityDebugSummary(requestedWeaponIndex);
+        public bool TryComputeServerDamage(int weaponIndex, Vector3 hitPoint, out float damage, out string reason) =>
+            _authorityCoordinator.TryComputeServerDamage(weaponIndex, hitPoint, out damage, out reason);
+        public void ReportWeaponStateSync(int weaponIndex, AmmoSyncReason reason, int localAmmoAfterEvent) =>
+            _authorityCoordinator.ReportWeaponStateSync(weaponIndex, reason, localAmmoAfterEvent);
+        public void ReportShotFired(int weaponIndex, ulong shotId, float clientShotTime) =>
+            _authorityCoordinator.ReportShotFired(weaponIndex, shotId, clientShotTime);
+        public void RegisterServerShotAndLogOnAuthority(int weaponIndex, ulong shotId, float clientShotTime) =>
+            _authorityCoordinator.RegisterServerShotAndLogOnAuthority(weaponIndex, shotId, clientShotTime);
+        public int GetPrimarySelectionIndex() => _loadoutCoordinator.GetPrimarySelectionIndex();
+        public int GetSecondarySelectionIndex() => _loadoutCoordinator.GetSecondarySelectionIndex();
+        public bool ApplyOwnerLoadoutSelection(int primaryIndex, int secondaryIndex, bool deferTpRevealUntilRespawn = true) =>
+            _loadoutCoordinator.ApplyOwnerLoadoutSelection(primaryIndex, secondaryIndex, deferTpRevealUntilRespawn);
+        public int GetCurrentHolsterSlot() => _loadoutCoordinator.GetCurrentHolsterSlot();
+        public void RefreshHolsterVisibility() => _loadoutCoordinator.RefreshHolsterVisibility();
+        public void SwitchWeapon(int newIndex) => _switchCoordinator.SwitchWeapon(newIndex);
+        public void ShowTpWeapon() => _switchCoordinator.ShowTpWeapon();
+        public void HandlePullOutCompleted() => _switchCoordinator.HandlePullOutCompleted();
+        public void HandleThirdPersonPullOutCompleted() => _switchCoordinator.HandleThirdPersonPullOutCompleted();
+        public void HandleKinemationEquipCompleted() => _switchCoordinator.HandleKinemationEquipCompleted();
+        public void TriggerPullOutAnimation() => _switchCoordinator.TriggerPullOutAnimation();
+        public void CancelPendingPullOutForPostMatch() => _switchCoordinator.CancelPendingPullOutForPostMatch();
+        public void SetTpWeaponIndexForPodium() => _switchCoordinator.SetTpWeaponIndexForPodium();
+        public void ProcessWeaponSwitchAuthorityRequest(int newIndex) => _switchCoordinator.ProcessWeaponSwitchAuthorityRequest(newIndex);
+        public GameObject GetCurrentFpWeapon() => _fpPresentationCoordinator != null ? _fpPresentationCoordinator.GetCurrentFpWeapon() : null;
+        public GameObject GetCurrentFpWeaponHolderRootForDisconnectDuplicate() =>
+            _fpPresentationCoordinator.GetCurrentFpWeaponHolderRootForDisconnectDuplicate();
+        public void UpdateAllFpArmTagGlow(bool isTagged) => _fpPresentationCoordinator.UpdateAllFpArmTagGlow(isTagged);
+        public void SetCurrentFpWeaponVisible(bool visible) => _fpPresentationCoordinator.SetCurrentFpWeaponVisible(visible);
+        public void HideFpVisualsForDisconnectTransition() => _fpPresentationCoordinator.HideFpVisualsForDisconnectTransition();
+        public void OffsetCurrentFpWeapon(Vector3 localPosition, Vector3 localEulerAngles) =>
+            _fpPresentationCoordinator.OffsetCurrentFpWeapon(localPosition, localEulerAngles);
+
+        public static bool IsFriendlyFireServer(PlayerController shooter, PlayerController victim) {
+            if(shooter == null || victim == null) return false;
+            var matchSettings = MatchSettingsManager.Instance;
+            if(matchSettings == null || !matchSettings.IsCurrentModeTeamBased()) return false;
+            if(shooter.TeamManager == null || victim.TeamManager == null) return false;
+            return shooter.TeamManager.netTeam.Value == victim.TeamManager.netTeam.Value;
+        }
+
+        #endregion
+
+        #region Internal Facade
+
+        internal void OnWeaponIndexChangedInternal(int oldValue, int newValue) => _loadoutCoordinator.OnWeaponIndexChanged(oldValue, newValue);
+        internal void ApplyDrainedAmmoOwnerClient(int weaponIndex, int ammo, int magSize) => _authorityCoordinator.ApplyDrainedAmmoOwnerClient(weaponIndex, ammo, magSize);
+        internal void ReportWeaponStateSyncServer(int weaponIndex, AmmoSyncReason reason, int localAmmoAfterEvent, RpcParams rpcParams) =>
+            _authorityCoordinator.ReportWeaponStateSyncServer(weaponIndex, reason, localAmmoAfterEvent, rpcParams);
+        internal void ResetAllWeaponAmmoServer(RpcParams rpcParams) => _authorityCoordinator.ResetAllWeaponAmmoServer(rpcParams);
+        internal void ReportShotFiredServer(int weaponIndex, ulong shotId, float clientShotTime, RpcParams rpcParams) =>
+            _authorityCoordinator.ReportShotFiredServer(weaponIndex, shotId, clientShotTime, rpcParams);
+        internal void UpdateServerWeaponStateOnAuthority(int weaponIndex, AmmoSyncReason reason, int localAmmoAfterEvent) =>
+            _authorityCoordinator.UpdateServerWeaponStateOnAuthority(weaponIndex, reason, localAmmoAfterEvent);
+        internal void ResetAllWeaponAmmoOnAuthority() => _authorityCoordinator.ResetAllWeaponAmmoOnAuthority();
+        internal GameObject ActivateFpWeaponInternal(int weaponIndex, WeaponData data, bool triggerPullOutAnimation) =>
+            _fpPresentationCoordinator.ActivateFpWeapon(weaponIndex, data, triggerPullOutAnimation);
+        internal void InstantiateFpWeaponInstancesInternal() => _fpPresentationCoordinator.InstantiateFpWeaponInstances();
+        internal void DestroyFpWeaponInstancesInternal() => _fpPresentationCoordinator.DestroyFpWeaponInstances();
+        internal bool TryGetKinemationDriverInternal(GameObject fpWeaponRoot, out KinemationFpWeaponDriver driver) =>
+            WeaponFpPresentationCoordinator.TryGetKinemationDriver(fpWeaponRoot, out driver);
+        internal void ApplyResolvedKinemationViewmodelPoseInternal(GameObject fpWeaponRoot, KinemationWeaponBinding binding) =>
+            _fpPresentationCoordinator.ApplyResolvedKinemationViewmodelPose(fpWeaponRoot, binding);
+        internal int GetFpWeaponLayerInternal() => _fpPresentationCoordinator.GetFpWeaponLayer();
+        internal void SetupFpWeaponSkinnedMeshRenderersInternal(GameObject fpWeaponInstance) =>
+            _fpPresentationCoordinator.SetupFpWeaponSkinnedMeshRenderers(fpWeaponInstance);
+        internal void EnsureHierarchyActiveInternal(GameObject instanceRoot) => WeaponFpPresentationCoordinator.EnsureHierarchyActive(instanceRoot);
+        internal void EnsureFpWeaponLightingRigInternal() => _fpLightingCoordinator.EnsureFpWeaponLightingRig();
+        internal int GetSlotForIndexInternal(int index) => _loadoutCoordinator.GetSlotForIndexInternal(index);
+        internal void ResolveCurrentWorldWeaponReferenceInternal() => _loadoutCoordinator.ResolveCurrentWorldWeaponReferenceInternal();
+        internal void EquipInitialWeaponInternal(int index) => EquipInitialWeapon(index);
+        internal void EnsureWorldWeaponShadowStateInternal() => _switchCoordinator.EnsureWorldWeaponShadowStateInternal();
+        internal void EnsureWeaponHierarchyActiveInternal() => _switchCoordinator.EnsureWeaponHierarchyActiveInternal();
+        internal void ApplyServerAuthoritativeWeaponSwitch(int weaponIndex) => _authorityCoordinator.ApplyServerAuthoritativeWeaponSwitch(weaponIndex);
+        internal void ValidateComponentsForPublicUse() => ValidateComponents();
+
+        #endregion
+
+        #region RPC Entry Points
+
+        [Rpc(SendTo.Owner)]
+        internal void ApplyDrainedAmmoOwnerClientRpc(int weaponIndex, int ammo, int magSize) {
+            _authorityCoordinator.ApplyDrainedAmmoOwnerClient(weaponIndex, ammo, magSize);
+        }
+
+        [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Owner)]
+        internal void ReportWeaponStateSyncServerRpc(int weaponIndex, AmmoSyncReason reason, int localAmmoAfterEvent,
+            RpcParams rpcParams = default) {
+            _authorityCoordinator.ReportWeaponStateSyncServer(weaponIndex, reason, localAmmoAfterEvent, rpcParams);
+        }
+
+        [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Owner)]
+        internal void ResetAllWeaponAmmoServerRpc(RpcParams rpcParams = default) {
+            _authorityCoordinator.ResetAllWeaponAmmoServer(rpcParams);
+        }
+
+        [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Owner)]
+        internal void ReportShotFiredServerRpc(int weaponIndex, ulong shotId, float clientShotTime, RpcParams rpcParams = default) {
+            _authorityCoordinator.ReportShotFiredServer(weaponIndex, shotId, clientShotTime, rpcParams);
+        }
+
+        [Rpc(SendTo.Owner)]
+        internal void RejectPredictedWeaponSwitchOwnerRpc(int approvedWeaponIndex) {
+            _switchCoordinator.RejectPredictedWeaponSwitchOwner(approvedWeaponIndex);
+        }
+
+        #endregion
+
+        #region Private Root Helpers
+
+        private void InitializeCoordinators() {
+            _authorityCoordinator ??= new WeaponAuthorityCoordinator(this);
+            _loadoutCoordinator ??= new WeaponLoadoutCoordinator(this);
+            _switchCoordinator ??= new WeaponSwitchCoordinator(this);
+            _fpPresentationCoordinator ??= new WeaponFpPresentationCoordinator(this);
+            _fpLightingCoordinator ??= new WeaponFpLightingCoordinator(this);
         }
 
         private void ValidateComponents() {
             if(playerController == null) {
-                playerController = this.GetComponentSafe<PlayerController>("WeaponManager.ValidateComponents");
+                playerController = GetComponentInParent<PlayerController>();
             }
 
-            if(playerController == null) {
-                enabled = false;
-                return;
+            if(CurrentWeaponInternal == null && playerController != null) {
+                CurrentWeaponInternal = playerController.WeaponComponent;
             }
 
-            if(CurrentWeapon == null) CurrentWeapon = playerController.WeaponComponent;
-            if(_fpCamera == null) _fpCamera = playerController.FpCamera;
-            if(_weaponCamera == null) _weaponCamera = playerController.WeaponCamera;
-            if(_worldWeaponSocket == null) _worldWeaponSocket = playerController.WorldWeaponSocket;
-            if(_playerAnimator == null) _playerAnimator = playerController.PlayerAnimator;
-            
-            // Validate PlayerRenderer (required for renderer operations)
-            if(_playerRenderer == null) _playerRenderer = playerController.PlayerRenderer;
-            if(_playerRenderer == null) {
-                // PlayerRenderer not found - event already published by GetComponentSafe if used
-                enabled = false;
-                return;
+            if(FpCameraRef == null && playerController != null) {
+                FpCameraRef = playerController.FpCamera;
             }
 
-            BuildKinemationWeaponLookup();
-        }
+            if(WeaponCameraRef == null && playerController != null) {
+                WeaponCameraRef = playerController.WeaponCamera;
+            }
 
-        private void Update() {
-            UpdateKinemationEquipCompletionGate();
-            EnsureFpWeaponLightingRig();
+            if(WorldWeaponSocketRef == null && playerController != null) {
+                WorldWeaponSocketRef = playerController.WorldWeaponSocket;
+            }
 
-            if((Time.frameCount & 7) == 0) {
-                ReconcileStableTpWeaponState();
+            if(PlayerAnimatorRef == null && playerController != null) {
+                PlayerAnimatorRef = playerController.PlayerAnimator;
+            }
+
+            if(PlayerRendererRef == null && playerController != null) {
+                PlayerRendererRef = playerController.PlayerRenderer;
             }
         }
 
-        private void BuildKinemationWeaponLookup() {
-            _kinemationCatalog.Rebuild(
-                kinemationWeaponBindings,
-                ResolveWeaponSlot,
-                Debug.LogError
-            );
+        internal void BuildKinemationWeaponLookup() {
+            KinemationCatalogRef.Rebuild(kinemationWeaponBindings, ResolveWeaponSlot, Debug.LogError);
         }
 
-        private bool TryGetKinemationBindingForData(WeaponData data, out KinemationWeaponBinding kinemationBinding) {
-            kinemationBinding = null;
-            if(_kinemationCatalog.IsEmpty) {
-                BuildKinemationWeaponLookup();
-            }
-
-            return _kinemationCatalog.TryGetBinding(kinemationFpsPlayerPrefab, data, out kinemationBinding);
+        internal bool TryGetKinemationBindingForData(WeaponData weaponData, out KinemationWeaponBinding binding) {
+            return KinemationCatalogRef.TryGetBinding(kinemationFpsPlayerPrefab, weaponData, out binding);
         }
 
-        private static int ResolveKinemationWeaponCapacity(GameObject kinemationWeaponPrefab) {
+        internal static int ResolveKinemationWeaponCapacity(GameObject kinemationWeaponPrefab) {
             if(kinemationWeaponPrefab == null) return 0;
             var fpsWeapon = kinemationWeaponPrefab.GetComponentInChildren<FPSWeapon>(true);
-            if(fpsWeapon == null || fpsWeapon.weaponSettings == null) return 0;
-            return Mathf.Max(1, fpsWeapon.weaponSettings.ammo);
+            var settings = fpsWeapon != null ? fpsWeapon.weaponSettings : null;
+            return settings != null ? Mathf.Max(0, settings.ammo) : 0;
         }
 
-        private int ResolveWeaponCapacity(WeaponData data) {
+        internal int ResolveWeaponCapacity(WeaponData data) {
             if(data == null) return 0;
-
-            if(!TryGetKinemationBindingForData(data, out var kinemationBinding)) {
-                Debug.LogError(
-                    $"[WeaponManager] Missing KINEMATION binding for '{data.weaponName}'. " +
-                    "Strict mode requires a KIN binding for every equipped weapon.");
-                return 0;
-            }
-
-            var kinemationCapacity = ResolveKinemationWeaponCapacity(kinemationBinding.kinemationWeaponPrefab);
-            if(kinemationCapacity > 0) return kinemationCapacity;
-            Debug.LogError(
-                $"[WeaponManager] Invalid KINEMATION ammo capacity for '{data.weaponName}'. " +
-                "Strict mode requires FPSWeaponSettings.ammo > 0.");
-            return 0;
-
+            if(!TryGetKinemationBindingForData(data, out var binding) || binding == null) return 0;
+            return ResolveKinemationWeaponCapacity(binding.kinemationWeaponPrefab);
         }
 
-        private bool TryValidateSwitchTargetStrict(int index, out WeaponData data, out int magCapacity) {
-            data = null;
+        internal bool TryValidateSwitchTargetStrict(int newIndex, out WeaponData data, out int magCapacity) {
             magCapacity = 0;
-
-            if(index < 0 || index >= weaponDataList.Count) {
-                Debug.LogError($"[WeaponManager][KIN-Strict] Invalid weapon index {index}.");
-                return false;
-            }
-
-            data = weaponDataList[index];
-            if(data == null) {
-                Debug.LogError($"[WeaponManager][KIN-Strict] WeaponData is null at index {index}.");
-                return false;
-            }
-
-            if(index >= _fpWeaponInstances.Count) {
-                Debug.LogError(
-                    $"[WeaponManager][KIN-Strict] Missing FP instance for '{data.weaponName}' at index {index}. " +
-                    "Blocking switch.");
-                return false;
-            }
-
-            var fpRoot = _fpWeaponInstances[index];
-            if(fpRoot == null || !TryGetKinemationDriver(fpRoot, out var kinemationDriver) || kinemationDriver == null) {
-                Debug.LogError(
-                    $"[WeaponManager][KIN-Strict] Missing KinemationFpWeaponDriver for '{data.weaponName}'. " +
-                    "Blocking switch.");
-                return false;
-            }
-
+            data = GetWeaponDataByIndex(newIndex);
+            if(data == null) return false;
             magCapacity = ResolveWeaponCapacity(data);
-            if(magCapacity <= 0) {
-                Debug.LogError(
-                    $"[WeaponManager][KIN-Strict] Invalid KIN ammo capacity for '{data.weaponName}'. " +
-                    "Blocking switch.");
-                return false;
-            }
-
-            var worldWeapon = ResolveWorldWeaponObject(data);
-            if(worldWeapon == null) {
-                Debug.LogError(
-                    $"[WeaponManager][KIN-Strict] Missing world weapon binding for '{data.weaponName}'. " +
-                    "Blocking switch.");
-                return false;
-            }
-
-            var worldBinding = worldWeapon.GetComponent<WorldWeaponBinding>();
-            if(worldBinding == null) {
-                Debug.LogError(
-                    $"[WeaponManager][KIN-Strict] Missing WorldWeaponBinding component on '{worldWeapon.name}' " +
-                    $"for '{data.weaponName}'. Blocking switch.");
-                return false;
-            }
-
-            if(worldBinding.TryGetRuntimeReferences(out _, out _)) return true;
-            Debug.LogError(
-                $"[WeaponManager][KIN-Strict] Missing assigned muzzle reference on world weapon '{worldWeapon.name}' " +
-                $"for '{data.weaponName}'. Blocking switch.");
-            return false;
-
+            return magCapacity > 0;
         }
 
-        private void LogStrictStartupValidationOnce() {
+        internal void LogStrictStartupValidationOnce() {
             if(_hasLoggedStrictStartupValidation) return;
             _hasLoggedStrictStartupValidation = true;
-
             if(weaponDataList == null || weaponDataList.Count == 0) {
-                Debug.LogError("[WeaponManager][KIN-Strict] Startup validation: equipped weapon list is empty.");
-                return;
-            }
-
-            for(var i = 0; i < weaponDataList.Count; i++) {
-                var data = weaponDataList[i];
-                if(data == null) {
-                    Debug.LogError($"[WeaponManager][KIN-Strict] Startup validation: WeaponData is null at index {i}.");
-                    continue;
-                }
-
-                if(!TryGetKinemationBindingForData(data, out var binding) || binding == null ||
-                   binding.kinemationWeaponPrefab == null) {
-                    Debug.LogError(
-                        $"[WeaponManager][KIN-Strict] Startup validation: missing KIN binding/prefab for '{data.weaponName}'.");
-                    continue;
-                }
-
-                var capacity = ResolveKinemationWeaponCapacity(binding.kinemationWeaponPrefab);
-                if(capacity <= 0) {
-                    Debug.LogError(
-                        $"[WeaponManager][KIN-Strict] Startup validation: invalid KIN ammo capacity for '{data.weaponName}'.");
-                }
-
-                var worldWeapon = ResolveWorldWeaponObject(data);
-                if(worldWeapon == null) {
-                    Debug.LogError(
-                        $"[WeaponManager][KIN-Strict] Startup validation: missing world weapon binding for '{data.weaponName}'.");
-                    continue;
-                }
-
-                var worldBinding = worldWeapon.GetComponent<WorldWeaponBinding>();
-                if(worldBinding == null) {
-                    Debug.LogError(
-                        $"[WeaponManager][KIN-Strict] Startup validation: missing WorldWeaponBinding on '{worldWeapon.name}' " +
-                        $"for '{data.weaponName}'.");
-                    continue;
-                }
-
-                if(!worldBinding.TryGetRuntimeReferences(out _, out _)) {
-                    Debug.LogError(
-                        $"[WeaponManager][KIN-Strict] Startup validation: missing assigned muzzle reference on world weapon '{worldWeapon.name}' " +
-                        $"for '{data.weaponName}'.");
-                }
+                Debug.LogWarning("[WeaponManager] No equipped weapons configured during strict startup validation.");
             }
         }
 
-        private bool BuildWorldWeaponLookup() {
-            return _worldWeaponRegistry.Rebuild(_worldWeaponSocket, Debug.LogError);
+        internal bool BuildWorldWeaponLookup() {
+            return WorldWeaponRegistryRef.Rebuild(WorldWeaponSocketRef, Debug.LogError);
         }
 
-        private GameObject ResolveWorldWeaponObject(WeaponData data) {
-            return _worldWeaponRegistry.Resolve(data);
+        internal GameObject ResolveWorldWeaponObject(WeaponData weaponData) => WorldWeaponRegistryRef.Resolve(weaponData);
+        internal GameObject ResolveHolsterWeaponObject(WeaponData weaponData) => WorldWeaponRegistryRef.ResolveHolster(weaponData);
+        internal int ResolveRestoredAmmo(int weaponIndex, int magCapacity, bool seedWhenMissing) =>
+            AmmoAuthorityRef.ResolveRestoredAmmo(weaponIndex, magCapacity, seedWhenMissing);
+
+        internal void RefreshOwnerHolsterShadowState() {
+            if(!IsOwner || playerController == null || playerController.PlayerShadow == null) return;
+            playerController.PlayerShadow.UpdateHolsterShadowStateForOwner();
         }
 
-        private GameObject ResolveHolsterWeaponObject(WeaponData data) {
-            return _worldWeaponRegistry.ResolveHolster(data);
-        }
-
-        private int ResolveRestoredAmmo(int weaponIndex, int magCapacity, bool seedWhenMissing) {
-            return _ammoAuthority.ResolveRestoredAmmo(weaponIndex, magCapacity, seedWhenMissing);
-        }
-
-        private void RefreshOwnerHolsterShadowState() {
-            if(IsOwner && playerController != null && playerController.PlayerShadow != null) {
-                playerController.PlayerShadow.UpdateHolsterShadowStateForOwner();
-            }
-        }
-
-        private NetworkVariable<int> ReplicatedEquippedWeaponIndex =>
-            ResolvePlayerState()?.equippedWeaponIndex ?? MissingEquippedWeaponIndexState;
-
-        public void InitializeWeapons() {
-            if(CurrentWeapon == null) {
-                Debug.LogError("[WeaponManager] Weapon component not assigned!");
-                return;
-            }
-
-            // Subscribe to weapon index changes to rebuild weapon list when they sync
-            if(playerController != null) {
-                playerController.primaryWeaponIndex.OnValueChanged -= OnWeaponIndexChanged;
-                playerController.primaryWeaponIndex.OnValueChanged += OnWeaponIndexChanged;
-                playerController.secondaryWeaponIndex.OnValueChanged -= OnWeaponIndexChanged;
-                playerController.secondaryWeaponIndex.OnValueChanged += OnWeaponIndexChanged;
-            }
-
-            BuildEquippedWeaponList();
-            if(!BuildWorldWeaponLookup()) return;
-            LogStrictStartupValidationOnce();
-            if(!ValidateStrictEquippedWeaponConfiguration()) return;
-            SetupHolsteredWeaponModels();
-            DisableUnequippedWorldWeapons();
-
-            if(weaponDataList == null || weaponDataList.Count == 0) {
-                Debug.LogError("[WeaponManager] weaponDataList is empty!");
-                return;
-            }
-
-            HideAllWorldWeapons();
-            InstantiateFpWeaponInstances();
-
-            if(_fpWeaponInstances.Count != weaponDataList.Count) {
-                Debug.LogError(
-                    $"[WeaponManager][KIN-Strict] FP instance count mismatch. expected={weaponDataList.Count} actual={_fpWeaponInstances.Count}");
-            }
-
-            // Switch to the replicated equipped weapon if available. This is required for
-            // late join/backfill so remote players don't reconstruct everyone at slot 0.
-            if(_fpWeaponInstances.Count > 0) {
-                EquipInitialWeapon(ResolveInitialEquippedWeaponIndex());
-                _weaponsInitialized = true;
-            } else {
-                Debug.LogError("[WeaponManager] No weapons instantiated!");
-            }
-
-            UpdateHolsterVisibility();
-
-            if(IsOwner) {
-                RefreshOwnerAmmoHudFromCurrentWeapon();
-            }
-
-            EnsureFpWeaponLightingRig();
-        }
-        public void ApplyTpWeaponStateOnRespawn() {
-            if(_playerAnimator != null) {
-                var slot = Mathf.Clamp(GetSlotForIndex(CurrentWeaponIndex), 0, 1);
-                _playerAnimator.SetInteger(WeaponIndexHash, slot);
-                _playerAnimator.Rebind();
-                _playerAnimator.Update(0f);
-            }
-
-            if(_deferredRespawnWorldWeapon != null) {
-                if(CurrentWorldWeaponInstance != null && CurrentWorldWeaponInstance != _deferredRespawnWorldWeapon) {
-                    CurrentWorldWeaponInstance.SetActive(false);
-                }
-
-                CurrentWorldWeaponInstance = _deferredRespawnWorldWeapon;
-                _deferredRespawnWorldWeapon = null;
-            }
-
-            ResolveCurrentWorldWeaponReference();
-            if(CurrentWorldWeaponInstance != null && !CurrentWorldWeaponInstance.activeSelf) {
-                CurrentWorldWeaponInstance.SetActive(true);
-            }
-
-            if(CurrentWorldWeaponInstance != null) {
-                EnsureWeaponHierarchyActive();
-                EnsureWorldWeaponShadowState();
-
-                if(IsOwner && _playerRenderer != null) {
-                    _playerRenderer.SetWorldWeaponRenderersEnabled(true);
-                }
-            }
-
-            if(IsOwner) {
-                var currentFpWeapon = GetCurrentFpWeapon();
-                if(currentFpWeapon != null) {
-                    if(CurrentWeaponIndex >= 0 && CurrentWeaponIndex < weaponDataList.Count &&
-                       TryGetKinemationDriver(currentFpWeapon, out _)) {
-                        var data = weaponDataList[CurrentWeaponIndex];
-                        TryGetKinemationBindingForData(data, out var kinemationBinding);
-                        ApplyResolvedKinemationViewmodelPose(currentFpWeapon, kinemationBinding);
-                    }
-
-                    EnsureHierarchyActive(currentFpWeapon);
-                    currentFpWeapon.SetActive(true);
-
-                    SetupFpWeaponSkinnedMeshRenderers(currentFpWeapon);
-                    if(_playerRenderer != null) {
-                        _playerRenderer.SetFpWeaponRenderersEnabled(true, currentFpWeapon);
-                        _playerRenderer.SetFpWeaponSkinnedRenderersEnabled(true, currentFpWeapon);
-                    }
-                }
-            }
-
-            _deferTpRevealUntilRespawn = false;
-            UpdateHolsterVisibility();
-        }
-
-        public WeaponData GetWeaponDataByIndex(int index) {
-            if(index < 0 || index >= weaponDataList.Count) return null;
-            return weaponDataList[index];
-        }
-
-        public string GetWeaponIdByIndex(int index) {
-            var data = GetWeaponDataByIndex(index);
-            return data != null ? data.weaponName : null;
-        }
-
-        private void EquipInitialWeapon(int index) {
-            if(index < 0 || index >= weaponDataList.Count) {
-                Debug.LogError($"[WeaponManager] EquipInitialWeapon: invalid index {index}");
-                return;
-            }
-
-            if(!TryValidateSwitchTargetStrict(index, out var data, out var magCapacity)) {
-                return;
-            }
-
-            CurrentWeaponIndex = index;
-            IsPullingOut = false;
-            _requiresKinemationEquipCompleteForCurrentPullOut = false;
-
-            var fp = ActivateFpWeapon(index, data, triggerPullOutAnimation: false);
-            if(fp == null) {
-                Debug.LogError(
-                    $"[WeaponManager][KIN-Strict] Failed to activate FP KIN weapon for '{data.weaponName}'.");
-                return;
-            }
-
-            // ---- 3P WORLD WEAPON ----
-            var worldWeaponInstance = ResolveWorldWeaponObject(data);
-            if(worldWeaponInstance != null) {
-                worldWeaponInstance.SetActive(true);
-                CurrentWorldWeaponInstance = worldWeaponInstance;
-            } else {
-                Debug.LogError(
-                    $"[WeaponManager][KIN-Strict] Missing world weapon for '{data.weaponName}'.");
-                return;
-            }
-
-            // ---- AMMO ----
-            var restoredAmmo = ResolveRestoredAmmo(index, magCapacity, seedWhenMissing: true);
-
-            // This sets weapon data, ammo, HUD, muzzle lights, etc.
-            CurrentWeapon.SwitchToWeapon(
-                data,
-                fp,
-                worldWeaponInstance,
-                restoredAmmo,
-                magCapacity
-            );
-
-            if(HasWeaponAuthority) {
-                _serverAuthoritativeWeaponIndex = index;
-                _serverReloadWeaponIndex = -1;
-                _serverPullOutBlockedUntilTime = 0f;
-            }
-
-            if(HasWeaponAuthority && ResolvePlayerState() != null) {
-                ReplicatedEquippedWeaponIndex.Value = index;
-            }
-
-            _pendingHolsterHideSlot = -1;
-            UpdateHolsterVisibility();
-            RefreshOwnerHolsterShadowState();
-            _lastApprovedWeaponIndex = index;
-            _pendingPredictedWeaponIndex = -1;
-        }
-
-        private int ResolveInitialEquippedWeaponIndex() {
-            var replicatedIndex = ReplicatedEquippedWeaponIndex.Value;
-            if(replicatedIndex >= 0 && replicatedIndex < weaponDataList.Count) {
-                return replicatedIndex;
-            }
-
-            return 0;
-        }
-
-        private MatchPlayerStateProxy ResolvePlayerState() {
-            if(playerController == null || playerController.OwnerClientId == ulong.MaxValue) {
-                return null;
-            }
-
-            if(_cachedPlayerState != null &&
-               _cachedPlayerState.NetworkObject != null &&
-               _cachedPlayerState.NetworkObject.IsSpawned &&
-               _cachedPlayerState.RepresentedClientId == playerController.OwnerClientId) {
+        internal MatchPlayerStateProxy ResolvePlayerState() {
+            if(_cachedPlayerState != null) {
                 return _cachedPlayerState;
             }
 
-            _cachedPlayerState = MatchPlayerStateProxy.GetForPlayer(playerController.OwnerClientId);
-            return _cachedPlayerState;
+            if(playerController == null || playerController.NetworkObject == null || !playerController.NetworkObject.IsSpawned) {
+                return null;
+            }
+
+            var ownerClientId = playerController.OwnerClientId;
+            if(!MatchPlayerStateProxy.TryGetForPlayer(ownerClientId, out var playerState)) return null;
+            _cachedPlayerState = playerState;
+            return playerState;
         }
 
         private void OnPlayerStateRegistered(ulong playerClientId, MatchPlayerStateProxy proxy) {
-            if(playerController == null || playerController.OwnerClientId != playerClientId) {
-                return;
-            }
-
+            if(playerController == null || playerController.NetworkObject == null || !playerController.NetworkObject.IsSpawned) return;
+            if(playerClientId != playerController.OwnerClientId) return;
             _cachedPlayerState = proxy;
             TryBindPlayerStateSubscriptions();
         }
 
         private void OnPlayerStateUnregistered(ulong playerClientId, MatchPlayerStateProxy proxy) {
-            if(playerController == null || playerController.OwnerClientId != playerClientId) {
-                return;
-            }
-
-            if(_boundPlayerState == proxy) {
-                UnbindPlayerStateSubscriptions();
-            }
-
-            if(_cachedPlayerState == proxy) {
-                _cachedPlayerState = null;
-            }
-        }
-
-        private void TryBindPlayerStateSubscriptions() {
-            var playerState = ResolvePlayerState();
-            if(playerState == null || _boundPlayerState == playerState) {
+            if(_boundPlayerState != proxy) return;
+            if(playerController != null && playerController.NetworkObject != null && playerController.NetworkObject.IsSpawned &&
+               playerClientId != playerController.OwnerClientId) {
                 return;
             }
 
             UnbindPlayerStateSubscriptions();
+            _cachedPlayerState = null;
+        }
+
+        private void TryBindPlayerStateSubscriptions() {
+            MatchPlayerStateProxy.StateRegistered -= OnPlayerStateRegistered;
+            MatchPlayerStateProxy.StateRegistered += OnPlayerStateRegistered;
+            MatchPlayerStateProxy.StateUnregistered -= OnPlayerStateUnregistered;
+            MatchPlayerStateProxy.StateUnregistered += OnPlayerStateUnregistered;
+
+            var playerState = ResolvePlayerState();
+            if(playerState == null || _boundPlayerState == playerState) return;
+
+            UnbindPlayerStateSubscriptions();
             playerState.equippedWeaponIndex.OnValueChanged += OnReplicatedEquippedWeaponIndexChanged;
             _boundPlayerState = playerState;
-
-            if(HasWeaponAuthority && CurrentWeaponIndex >= 0 && playerState.equippedWeaponIndex.Value != CurrentWeaponIndex) {
-                playerState.equippedWeaponIndex.Value = CurrentWeaponIndex;
-            }
         }
 
         private void UnbindPlayerStateSubscriptions() {
-            if(_boundPlayerState == null) {
-                return;
-            }
+            MatchPlayerStateProxy.StateRegistered -= OnPlayerStateRegistered;
+            MatchPlayerStateProxy.StateUnregistered -= OnPlayerStateUnregistered;
 
+            if(_boundPlayerState == null) return;
             _boundPlayerState.equippedWeaponIndex.OnValueChanged -= OnReplicatedEquippedWeaponIndexChanged;
             _boundPlayerState = null;
         }
 
-        private void OnReplicatedEquippedWeaponIndexChanged(int previousValue, int newValue) {
-            if(!_weaponsInitialized) return;
-            if(newValue < 0 || newValue >= weaponDataList.Count) return;
-
-            if(HasWeaponAuthority) {
-                ApplyServerAuthoritativeWeaponSwitch(newValue);
-            }
-
-            if(IsOwner) {
-                _lastApprovedWeaponIndex = newValue;
-                if(_pendingPredictedWeaponIndex == newValue) {
-                    _pendingPredictedWeaponIndex = -1;
-                }
-
-                if(newValue == CurrentWeaponIndex) {
-                    return;
-                }
-
-                ApplyApprovedLocalWeaponSwitch(newValue);
+        private void OnReplicatedEquippedWeaponIndexChanged(int oldValue, int newValue) {
+            if(newValue < 0 || newValue >= weaponDataList.Count) {
                 return;
             }
 
-            if(newValue == CurrentWeaponIndex) return;
+            LastApprovedWeaponIndex = newValue;
+            PendingPredictedWeaponIndex = -1;
 
-            ApplyRemoteWeaponSwitch(newValue);
+            if(HasWeaponAuthority) {
+                ServerAuthoritativeWeaponIndex = newValue;
+            }
+
+            if(IsOwner) {
+                _switchCoordinator.ApplyApprovedLocalWeaponSwitch(newValue, false);
+            } else {
+                _switchCoordinator.ApplyRemoteWeaponSwitch(newValue);
+            }
         }
 
+        private void EquipInitialWeapon(int index) {
+            CurrentWeaponIndexInternal = Mathf.Clamp(index, 0, Mathf.Max(0, weaponDataList.Count - 1));
+            LastApprovedWeaponIndex = CurrentWeaponIndexInternal;
+            PendingPredictedWeaponIndex = -1;
+
+            if(ResolvePlayerState() != null) {
+                ServerAuthoritativeWeaponIndex = CurrentWeaponIndexInternal;
+            }
+
+            var data = GetWeaponDataByIndex(CurrentWeaponIndexInternal);
+            if(data == null || CurrentWeaponInternal == null) return;
+
+            var fpWeapon = ActivateFpWeaponInternal(CurrentWeaponIndexInternal, data, false);
+            var magCapacity = ResolveWeaponCapacity(data);
+            var restoredAmmo = ResolveRestoredAmmo(CurrentWeaponIndexInternal, magCapacity, true);
+
+            CurrentWorldWeaponInstanceInternal = ResolveWorldWeaponObject(data);
+            if(CurrentWorldWeaponInstanceInternal != null) {
+                CurrentWorldWeaponInstanceInternal.SetActive(true);
+            }
+
+            CurrentWeaponInternal.SwitchToWeapon(data, fpWeapon, CurrentWorldWeaponInstanceInternal, restoredAmmo, magCapacity);
+            EnsureWorldWeaponShadowStateInternal();
+            EnsureWeaponHierarchyActiveInternal();
+        }
+
+        private static int ResolveWeaponSlot(WeaponData data) {
+            if(data == null) return -1;
+            var slot = data.WeaponSlotIndex;
+            return slot is 0 or 1 ? slot : -1;
+        }
+
+        #endregion
     }
 }

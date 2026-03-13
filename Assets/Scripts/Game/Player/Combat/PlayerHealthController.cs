@@ -9,6 +9,8 @@ using Game.Player.Movement;
 using Game.Spawning;
 using Game.UI;
 using Game.Weapons;
+using Game.Weapons.Manager;
+using Game.Weapons.Presentation;
 using Network.Components;
 using Network.Core;
 using Network.Diagnostics;

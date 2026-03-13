@@ -1,5 +1,6 @@
 using System.Collections;
 using Game.Player.Core;
+using Game.Weapons.Manager;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -15,7 +16,7 @@ namespace Game.Player {
 
         private PlayerShadow _playerShadow;
         private PlayerRenderer _playerRenderer;
-        private Weapons.WeaponManager _weaponManager;
+        private WeaponManager _weaponManager;
         private SkinnedMeshRenderer _playerMesh;
 
         private GameObject _playerModelRoot;

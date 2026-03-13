@@ -3,6 +3,8 @@ using Audio.Networking;
 using Game.Menu;
 using Game.Player.Core;
 using Game.UI;
+using Game.Weapons.Manager;
+using Game.Weapons.World;
 using Network.Core;
 using Network.Events;
 using Network.Rpc;

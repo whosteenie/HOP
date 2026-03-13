@@ -1,6 +1,7 @@
 using System;
 using Game.Player.Core;
 using Game.Weapons;
+using Game.Weapons.Manager;
 using UnityEngine;
 
 namespace Game.Player {

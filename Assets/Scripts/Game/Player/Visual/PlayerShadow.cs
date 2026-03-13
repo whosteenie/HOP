@@ -1,6 +1,7 @@
 using Game.Hopball;
 using Game.Menu;
 using Game.Player.Core;
+using Game.Weapons.Manager;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.Rendering;
@@ -16,7 +17,7 @@ namespace Game.Player {
         [Header("References")]
         [SerializeField] private PlayerController playerController;
 
-        private Weapons.WeaponManager _weaponManager;
+        private WeaponManager _weaponManager;
         private PlayerRenderer _playerRenderer;
         private Transform _worldWeaponSocket; // Socket containing all world weapon GameObjects
         private GameObject[] _worldWeaponPrefabs;
@@ -328,9 +329,9 @@ namespace Game.Player {
         }
 
         private sealed class WeaponHolsterData {
-            private readonly Weapons.WeaponManager _weaponManager;
+            private readonly WeaponManager _weaponManager;
 
-            public WeaponHolsterData(Weapons.WeaponManager weaponManager) {
+            public WeaponHolsterData(WeaponManager weaponManager) {
                 _weaponManager = weaponManager;
             }
 

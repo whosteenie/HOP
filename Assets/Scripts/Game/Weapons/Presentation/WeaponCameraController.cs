@@ -1,9 +1,9 @@
 using Game.Player.Core;
-using UnityEngine;
 using Unity.Cinemachine;
+using UnityEngine;
 using UnityEngine.Rendering.Universal;
 
-namespace Game.Weapons {
+namespace Game.Weapons.Presentation {
     /// <summary>
     /// Manages a separate camera that renders only the weapon layer, ensuring weapons always render above world/enemy geometry.
     /// </summary>
