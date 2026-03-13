@@ -120,6 +120,8 @@ namespace Network.Session {
         private const string UgsMatchIdKey = "matchId";
         private const string UgsFollowMatchLobbyIdKey = "followMatchLobbyId";
         private const string UgsLobbyStateKey = "lobbyState";
+        private const string UgsBackfillAllowedKey = "backfillAllowed";
+        private const string UgsBackfillReasonKey = "backfillReason";
         private const string UgsExpectedPlayersKey = "expectedPlayers";
         private const string UgsMemberReadyKey = "readyToLoad";
 

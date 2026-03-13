@@ -74,6 +74,11 @@ namespace Network.Session {
 
         private float _nextDistributedAuthorityJoinRetryTime;
         private float _nextDistributedAuthorityJoinRateLimitLogTime;
+        private float _nextBackfillEligibilityRefreshTime;
+        private bool? _lastPublishedBackfillAllowed;
+        private string _lastPublishedBackfillReason;
+        private bool _isBackfillEligibilityUpdateInFlight;
+        private const float BackfillEligibilityRefreshIntervalSeconds = 10f;
 
         private void Update() {
             if(_isLeaving || _isShuttingDown) return;
@@ -88,8 +93,55 @@ namespace Network.Session {
 
             if(!(Time.unscaledTime >= _nextUgsHeartbeatTime)) return;
             _nextUgsHeartbeatTime = Time.unscaledTime + UgsHeartbeatIntervalSeconds;
+            if(!_isBackfillEligibilityUpdateInFlight) {
+                LaunchSessionTask(RefreshPublicMatchBackfillEligibilityAsync(), "RefreshPublicMatchBackfillEligibility");
+            }
             if(!_isHeartbeatDispatchInFlight) {
                 LaunchSessionTask(SendPartyHeartbeatsAsync(), "SendPartyHeartbeats");
+            }
+        }
+
+        private async UniTask RefreshPublicMatchBackfillEligibilityAsync(bool force = false) {
+            if(_isBackfillEligibilityUpdateInFlight || _isLeaving || _isShuttingDown) {
+                return;
+            }
+
+            if(Phase != SessionPhase.InGame || _ugsMatchLobby?.Data == null) {
+                return;
+            }
+
+            if(!_ugsMatchLobby.Data.TryGetValue(UgsMatchTypeKey, out var matchTypeObj) || matchTypeObj == null ||
+               !string.Equals(matchTypeObj.Value, "Public", StringComparison.OrdinalIgnoreCase)) {
+                return;
+            }
+
+            var localId = AuthenticationService.Instance.PlayerId;
+            if(string.IsNullOrEmpty(localId) || !IsLobbyHostForLocalPlayer(_ugsMatchLobby, localId)) {
+                return;
+            }
+
+            if(!force && Time.unscaledTime < _nextBackfillEligibilityRefreshTime) {
+                return;
+            }
+
+            var (allowed, reason) = EvaluatePublicMatchBackfillEligibility();
+            if(!force &&
+               _lastPublishedBackfillAllowed.HasValue &&
+               _lastPublishedBackfillAllowed.Value == allowed &&
+               string.Equals(_lastPublishedBackfillReason, reason, StringComparison.Ordinal)) {
+                _nextBackfillEligibilityRefreshTime = Time.unscaledTime + BackfillEligibilityRefreshIntervalSeconds;
+                return;
+            }
+
+            _isBackfillEligibilityUpdateInFlight = true;
+            try {
+                if(await TryUpdatePublicMatchBackfillEligibilityAsync(allowed, reason, "HeartbeatRefresh")) {
+                    _lastPublishedBackfillAllowed = allowed;
+                    _lastPublishedBackfillReason = reason;
+                }
+            } finally {
+                _nextBackfillEligibilityRefreshTime = Time.unscaledTime + BackfillEligibilityRefreshIntervalSeconds;
+                _isBackfillEligibilityUpdateInFlight = false;
             }
         }
 

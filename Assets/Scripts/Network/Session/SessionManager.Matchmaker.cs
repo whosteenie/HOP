@@ -110,6 +110,18 @@ namespace Network.Session {
                    string.Equals(state, "InGame", StringComparison.OrdinalIgnoreCase);
         }
 
+        private static bool IsLobbyBackfillAllowed(Lobby lobby) {
+            if(lobby?.Data == null) {
+                return true;
+            }
+
+            if(lobby.Data.TryGetValue(UgsBackfillAllowedKey, out var backfillObj) == false || backfillObj == null) {
+                return true;
+            }
+
+            return !string.Equals(backfillObj.Value, "false", StringComparison.OrdinalIgnoreCase);
+        }
+
         private static bool IsPublicLobbyCandidateForJoinInProgress(Lobby lobby, string mode, int queueMaxPlayers) {
             if(lobby == null) return false;
             if(string.IsNullOrWhiteSpace(lobby.Id)) return false;
@@ -136,6 +148,10 @@ namespace Network.Session {
             }
 
             if(!IsJoinableInProgressLobbyState(stateObj.Value)) {
+                return false;
+            }
+
+            if(!IsLobbyBackfillAllowed(lobby)) {
                 return false;
             }
 
@@ -172,6 +188,10 @@ namespace Network.Session {
 
             if(!IsJoinableInProgressLobbyState(stateObj.Value)) {
                 return "StateNotJoinable";
+            }
+
+            if(!IsLobbyBackfillAllowed(lobby)) {
+                return "BackfillDisallowed";
             }
 
             var currentPlayers = lobby.Players != null ? lobby.Players.Count : 0;

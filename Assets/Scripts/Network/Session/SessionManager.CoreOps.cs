@@ -5,10 +5,12 @@ using System.Threading;
 using Cysharp.Threading.Tasks;
 using Game.Match;
 using Game.Menu;
+using Game.Player;
 using Game.Social;
 using Network.Core;
 using Network.Diagnostics;
 using Network.Events;
+using Game.Spawning;
 using Steamworks;
 using Unity.Netcode;
 using Unity.Netcode.Transports.UTP;
@@ -112,10 +114,25 @@ namespace Network.Session {
                 var stateObject = visibility == DataObject.VisibilityOptions.Public
                     ? new DataObject(visibility, lobbyState, DataObject.IndexOptions.S4)
                     : new DataObject(visibility, lobbyState);
-                var update = new UpdateLobbyOptions {
-                    Data = new Dictionary<string, DataObject> {
-                        [UgsLobbyStateKey] = stateObject
+                var data = new Dictionary<string, DataObject> {
+                    [UgsLobbyStateKey] = stateObject
+                };
+                if(visibility == DataObject.VisibilityOptions.Public &&
+                   _ugsMatchLobby?.Data != null) {
+                    if(_ugsMatchLobby.Data.TryGetValue(UgsBackfillAllowedKey, out var backfillAllowedObj) &&
+                       backfillAllowedObj != null) {
+                        data[UgsBackfillAllowedKey] =
+                            new(DataObject.VisibilityOptions.Public, backfillAllowedObj.Value);
                     }
+
+                    if(_ugsMatchLobby.Data.TryGetValue(UgsBackfillReasonKey, out var backfillReasonObj) &&
+                       backfillReasonObj != null) {
+                        data[UgsBackfillReasonKey] =
+                            new(DataObject.VisibilityOptions.Public, backfillReasonObj.Value);
+                    }
+                }
+                var update = new UpdateLobbyOptions {
+                    Data = data
                 };
                 _ugsMatchLobby = await LobbyService.Instance.UpdateLobbyAsync(_ugsMatchLobby.Id, update);
                 if(visibility == DataObject.VisibilityOptions.Public) {
@@ -149,13 +166,23 @@ namespace Network.Session {
             var state = data != null && data.TryGetValue(UgsLobbyStateKey, out var stateObj) && stateObj != null
                 ? stateObj.Value
                 : "";
+            var backfillAllowed = data != null &&
+                                  data.TryGetValue(UgsBackfillAllowedKey, out var backfillAllowedObj) &&
+                                  backfillAllowedObj != null
+                ? backfillAllowedObj.Value
+                : "";
+            var backfillReason = data != null &&
+                                 data.TryGetValue(UgsBackfillReasonKey, out var backfillReasonObj) &&
+                                 backfillReasonObj != null
+                ? backfillReasonObj.Value
+                : "";
             var matchId = data != null && data.TryGetValue(UgsMatchIdKey, out var matchIdObj) && matchIdObj != null
                 ? matchIdObj.Value
                 : "";
 
             var playerCount = _ugsMatchLobby.Players != null ? _ugsMatchLobby.Players.Count : 0;
             Debug.Log(
-                $"[SessionManager] PublicLobbySnapshot({context}): lobbyId='{_ugsMatchLobby.Id}' hostId='{_ugsMatchLobby.HostId}' players={playerCount}/{_ugsMatchLobby.MaxPlayers} mode='{mode}' state='{state}' matchId='{matchId}'");
+                $"[SessionManager] PublicLobbySnapshot({context}): lobbyId='{_ugsMatchLobby.Id}' hostId='{_ugsMatchLobby.HostId}' players={playerCount}/{_ugsMatchLobby.MaxPlayers} mode='{mode}' state='{state}' matchId='{matchId}' backfillAllowed='{backfillAllowed}' backfillReason='{backfillReason}'");
         }
 
         private SessionOptions BuildDistributedAuthoritySessionOptions(int maxPlayers, bool isPrivateMatch) {
@@ -674,9 +701,177 @@ namespace Network.Session {
                     [UgsRelayJoinCodeKey] = new(DataObject.VisibilityOptions.Member, networkJoinCode),
                     [UgsMatchIdKey] = new(DataObject.VisibilityOptions.Public, matchId, DataObject.IndexOptions.S1),
                     [UgsLobbyStateKey] =
-                        new(DataObject.VisibilityOptions.Public, "SynchronizingLoad", DataObject.IndexOptions.S4)
+                        new(DataObject.VisibilityOptions.Public, "SynchronizingLoad", DataObject.IndexOptions.S4),
+                    [UgsBackfillAllowedKey] = new(DataObject.VisibilityOptions.Public, "true"),
+                    [UgsBackfillReasonKey] = new(DataObject.VisibilityOptions.Public, "Eligible")
                 }
             };
+        }
+
+        private (bool allowed, string reason) EvaluatePublicMatchBackfillEligibility() {
+            var matchSettings = MatchSettingsManager.Instance;
+            var mode = matchSettings != null && string.IsNullOrWhiteSpace(matchSettings.selectedGameModeId) == false
+                ? matchSettings.selectedGameModeId
+                : SelectedGameMode;
+
+            if(string.IsNullOrWhiteSpace(mode)) {
+                return (true, "UnknownMode");
+            }
+
+            if(PostMatchManager.Instance != null && PostMatchManager.Instance.PostMatchFlowStarted) {
+                return (false, "PostMatch");
+            }
+
+            var timer = MatchTimerManager.Instance;
+            if(timer != null) {
+                if(timer.IsWaitingForPlayers || timer.IsPreMatch) {
+                    return (true, "PreMatch");
+                }
+
+                var duration = matchSettings != null ? matchSettings.GetMatchDurationSeconds() : 0;
+                if(duration > 0 && timer.TimeRemainingSeconds >= 0) {
+                    var remainingFraction = timer.TimeRemainingSeconds / (float)Mathf.Max(1, duration);
+                    var minRemainingFraction = ResolveBackfillTimeRemainingThreshold(mode);
+                    if(remainingFraction <= minRemainingFraction) {
+                        return (false, $"LateTime:{remainingFraction:0.00}");
+                    }
+                }
+            }
+
+            var scoreToWin = matchSettings != null ? matchSettings.GetScoreToWin() : 0;
+            if(scoreToWin <= 0) {
+                return (true, "Eligible");
+            }
+
+            var scoreProgress = ResolveBackfillScoreProgress(mode);
+            if(scoreProgress <= 0f) {
+                return (true, "Eligible");
+            }
+
+            var progressThreshold = ResolveBackfillScoreThreshold(mode);
+            if(progressThreshold <= 0f) {
+                return (true, "Eligible");
+            }
+
+            if(scoreProgress >= progressThreshold) {
+                return (false, $"LateScore:{scoreProgress:0.00}");
+            }
+
+            return (true, "Eligible");
+        }
+
+        private static float ResolveBackfillTimeRemainingThreshold(string mode) {
+            return mode switch {
+                "Hopball" => 0.20f,
+                "KOTH" => 0.20f,
+                "Team Deathmatch" => 0.20f,
+                "Deathmatch" => 0.20f,
+                "Gun Tag" => 0.20f,
+                _ => 0.15f
+            };
+        }
+
+        private static float ResolveBackfillScoreThreshold(string mode) {
+            return mode switch {
+                "Hopball" => 0.70f,
+                "KOTH" => 0.80f,
+                "Team Deathmatch" => 0.75f,
+                "Deathmatch" => 0.80f,
+                "Gun Tag" => 0f,
+                _ => 0.80f
+            };
+        }
+
+        private static float ResolveBackfillScoreProgress(string mode) {
+            return mode switch {
+                "Hopball" => ResolveLeadingTeamObjectiveProgress(HopballSpawnManager.Instance?.GetTeamAScore() ?? 0,
+                    HopballSpawnManager.Instance?.GetTeamBScore() ?? 0),
+                "KOTH" => ResolveLeadingTeamObjectiveProgress(KingOfTheHillManager.Instance?.GetTeamAScore() ?? 0,
+                    KingOfTheHillManager.Instance?.GetTeamBScore() ?? 0),
+                "Team Deathmatch" => ResolveLeadingTeamKillProgress(),
+                "Deathmatch" => ResolveLeadingFfaKillProgress(),
+                "Gun Tag" => 0f,
+                _ => 0f
+            };
+        }
+
+        private static float ResolveLeadingTeamObjectiveProgress(int teamAScore, int teamBScore) {
+            var scoreToWin = MatchSettingsManager.Instance != null ? MatchSettingsManager.Instance.GetScoreToWin() : 0;
+            if(scoreToWin <= 0) {
+                return 0f;
+            }
+
+            var leadingScore = Mathf.Max(teamAScore, teamBScore);
+            return leadingScore / (float)Mathf.Max(1, scoreToWin);
+        }
+
+        private static float ResolveLeadingFfaKillProgress() {
+            var scoreToWin = MatchSettingsManager.Instance != null ? MatchSettingsManager.Instance.GetScoreToWin() : 0;
+            if(scoreToWin <= 0) {
+                return 0f;
+            }
+
+            var leadingKills = 0;
+            foreach(var player in PlayerController.SpawnedPlayers) {
+                if(player == null || player.NetworkObject == null || !player.NetworkObject.IsSpawned) continue;
+                leadingKills = Mathf.Max(leadingKills, player.Kills.Value);
+            }
+
+            return leadingKills / (float)Mathf.Max(1, scoreToWin);
+        }
+
+        private static float ResolveLeadingTeamKillProgress() {
+            var scoreToWin = MatchSettingsManager.Instance != null ? MatchSettingsManager.Instance.GetScoreToWin() : 0;
+            if(scoreToWin <= 0) {
+                return 0f;
+            }
+
+            var teamAKills = 0;
+            var teamBKills = 0;
+            foreach(var player in PlayerController.SpawnedPlayers) {
+                if(player == null || player.NetworkObject == null || !player.NetworkObject.IsSpawned) continue;
+                var teamManager = player.TeamManager;
+                if(teamManager == null) continue;
+
+                switch(teamManager.netTeam.Value) {
+                    case SpawnPoint.Team.TeamA:
+                        teamAKills += player.Kills.Value;
+                        break;
+                    case SpawnPoint.Team.TeamB:
+                        teamBKills += player.Kills.Value;
+                        break;
+                }
+            }
+
+            return Mathf.Max(teamAKills, teamBKills) / (float)Mathf.Max(1, scoreToWin);
+        }
+
+        private async UniTask<bool> TryUpdatePublicMatchBackfillEligibilityAsync(bool allowed, string reason,
+            string context) {
+            if(_ugsMatchLobby == null || string.IsNullOrEmpty(_ugsMatchLobby.Id) || _ugsMatchLobby.Data == null) {
+                return false;
+            }
+
+            try {
+                var update = new UpdateLobbyOptions {
+                    Data = new Dictionary<string, DataObject> {
+                        [UgsBackfillAllowedKey] = new(DataObject.VisibilityOptions.Public, allowed ? "true" : "false"),
+                        [UgsBackfillReasonKey] = new(DataObject.VisibilityOptions.Public,
+                            string.IsNullOrWhiteSpace(reason) ? "Eligible" : reason)
+                    }
+                };
+
+                _ugsMatchLobby = await LobbyService.Instance.UpdateLobbyAsync(_ugsMatchLobby.Id, update);
+                if(Debug.isDebugBuild) {
+                    Debug.Log(
+                        $"[SessionManager] Updated public match backfill gate ({context}) allowed={allowed} reason='{reason}'.");
+                }
+                return true;
+            } catch(Exception ex) {
+                Debug.LogWarning(
+                    $"[SessionManager] Failed to update public match backfill gate during {context}: {ex.Message}");
+                return false;
+            }
         }
 
         private void ApplyLocalConnectionPayload(bool isPrivateMatch) {

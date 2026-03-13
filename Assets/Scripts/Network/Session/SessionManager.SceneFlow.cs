@@ -187,6 +187,7 @@ namespace Network.Session {
                         await TrySetMatchLobbyStateAsync("InGame",
                             Unity.Services.Lobbies.Models.DataObject.VisibilityOptions.Public,
                             "OnGameSceneLoadedAsync");
+                        await RefreshPublicMatchBackfillEligibilityAsync(force: true);
                     }
                 }
 
