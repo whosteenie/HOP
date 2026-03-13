@@ -1108,7 +1108,22 @@ namespace Game.Menu {
         }
 
         private void UpdateLocalProgressionDisplay() {
-            if(_localXpBar == null || _localLevelLabel == null) return;
+            // Ensure we have valid references to the local XP UI; if not, try to rebind from the visible local profile container.
+            if((_localXpBar == null || _localLevelLabel == null) && _localProfileContainer != null) {
+                var row = _localProfileContainer.Q<VisualElement>("local-xp-row");
+                var bar = _localProfileContainer.Q<ProgressBar>("local-xp-bar");
+                var levelLabel = _localProfileContainer.Q<Label>("local-level-label");
+
+                if(row != null && bar != null && levelLabel != null) {
+                    _localXpRow = row;
+                    _localXpBar = bar;
+                    _localLevelLabel = levelLabel;
+                }
+            }
+
+            if(_localXpBar == null || _localLevelLabel == null) {
+                return;
+            }
 
             var progression = ProgressionManager.Instance;
             if(progression == null || progression.Data == null) {
@@ -1124,19 +1139,9 @@ namespace Game.Menu {
             var currentXp = Mathf.Clamp(progression.Data.currentXp, 0, requiredXp);
 
             SetLocalProgressionRowVisible(true);
-            if(_lastProgressionLevel == level &&
-               _lastProgressionRequiredXp == requiredXp &&
-               _lastProgressionCurrentXp == currentXp) {
-                return;
-            }
-
             _localXpBar.lowValue = 0;
-            if(_lastProgressionRequiredXp != requiredXp) {
-                _localXpBar.highValue = requiredXp;
-            }
-            if(_lastProgressionCurrentXp != currentXp || _lastProgressionRequiredXp != requiredXp) {
-                _localXpBar.value = currentXp;
-            }
+            _localXpBar.highValue = requiredXp;
+            _localXpBar.value = currentXp;
 
             var levelText = $"LVL {level}";
             if(!string.Equals(_localLevelLabel.text, levelText, StringComparison.Ordinal)) {
