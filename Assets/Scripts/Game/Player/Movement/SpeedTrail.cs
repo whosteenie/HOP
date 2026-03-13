@@ -2,6 +2,7 @@ using System.Collections;
 using Game.Player.Core;
 using Game.Settings;
 using Game.Weapons;
+using Game.Weapons.Manager;
 using Unity.Netcode;
 using UnityEngine;
 

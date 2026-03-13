@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Game.Hopball;
 using Game.Player.Core;
+using Game.Weapons.Manager;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -17,7 +18,7 @@ namespace Game.Player {
         [Header("References")]
         [SerializeField] private PlayerController playerController;
 
-        private Weapons.WeaponManager _weaponManager;
+        private WeaponManager _weaponManager;
         private Transform _worldWeaponSocket;
         private Transform _fpCameraTransform;
         private SkinnedMeshRenderer _playerMesh;

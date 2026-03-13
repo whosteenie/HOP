@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using Game.Player;
 using Game.Player.Core;
 using Game.Weapons;
+using Game.Weapons.Manager;
 using Network.AntiCheat;
 using Network.Core;
 using Network.Diagnostics;
