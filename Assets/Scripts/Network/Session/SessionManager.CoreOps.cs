@@ -111,6 +111,8 @@ namespace Network.Session {
                 return false;
             }
 
+            var matchLobbyId = _ugsMatchLobby.Id;
+
             try {
                 var stateObject = visibility == DataObject.VisibilityOptions.Public
                     ? new DataObject(visibility, lobbyState, DataObject.IndexOptions.S4)
@@ -123,19 +125,19 @@ namespace Network.Session {
                     if(_ugsMatchLobby.Data.TryGetValue(UgsBackfillAllowedKey, out var backfillAllowedObj) &&
                        backfillAllowedObj != null) {
                         data[UgsBackfillAllowedKey] =
-                            new(DataObject.VisibilityOptions.Public, backfillAllowedObj.Value);
+                            new DataObject(DataObject.VisibilityOptions.Public, backfillAllowedObj.Value);
                     }
 
                     if(_ugsMatchLobby.Data.TryGetValue(UgsBackfillReasonKey, out var backfillReasonObj) &&
                        backfillReasonObj != null) {
                         data[UgsBackfillReasonKey] =
-                            new(DataObject.VisibilityOptions.Public, backfillReasonObj.Value);
+                            new DataObject(DataObject.VisibilityOptions.Public, backfillReasonObj.Value);
                     }
                 }
                 var update = new UpdateLobbyOptions {
                     Data = data
                 };
-                _ugsMatchLobby = await LobbyService.Instance.UpdateLobbyAsync(_ugsMatchLobby.Id, update);
+                _ugsMatchLobby = await LobbyService.Instance.UpdateLobbyAsync(matchLobbyId, update);
                 if(visibility == DataObject.VisibilityOptions.Public) {
                     LogPublicLobbySnapshot($"StateUpdate/{context}");
                 }
@@ -203,13 +205,13 @@ namespace Network.Session {
 
             if(string.IsNullOrEmpty(CurrentPartyId) == false) {
                 options.PlayerProperties[MultiplayerSessionPartyIdKey] =
-                    new(CurrentPartyId, VisibilityPropertyOptions.Member);
+                    new PlayerProperty(CurrentPartyId, VisibilityPropertyOptions.Member);
             }
 
             var steamId = LocalIdentity.GetSteamId();
             if(steamId != 0) {
                 options.PlayerProperties[MultiplayerSessionSteamIdKey] =
-                    new(steamId.ToString(), VisibilityPropertyOptions.Member);
+                    new PlayerProperty(steamId.ToString(), VisibilityPropertyOptions.Member);
             }
 
             return options.WithDistributedAuthorityNetwork();
@@ -330,13 +332,13 @@ namespace Network.Session {
                 };
                 if(string.IsNullOrEmpty(CurrentPartyId) == false) {
                     joinOptions.PlayerProperties[MultiplayerSessionPartyIdKey] =
-                        new(CurrentPartyId, VisibilityPropertyOptions.Member);
+                        new PlayerProperty(CurrentPartyId, VisibilityPropertyOptions.Member);
                 }
 
                 var steamId = LocalIdentity.GetSteamId();
                 if(steamId != 0) {
                     joinOptions.PlayerProperties[MultiplayerSessionSteamIdKey] =
-                        new(steamId.ToString(), VisibilityPropertyOptions.Member);
+                        new PlayerProperty(steamId.ToString(), VisibilityPropertyOptions.Member);
                 }
 
                 var session = await MultiplayerService.Instance.JoinSessionByCodeAsync(sessionCode, joinOptions);
@@ -429,17 +431,16 @@ namespace Network.Session {
                     continue;
                 }
 
-                if(player.Properties != null) {
-                    if(player.Properties.TryGetValue(MultiplayerSessionPartyIdKey, out var partyProperty) &&
-                       partyProperty != null &&
-                       !string.IsNullOrWhiteSpace(partyProperty.Value)) {
-                        partyId = partyProperty.Value;
-                    }
+                if(player.Properties == null) return true;
+                if(player.Properties.TryGetValue(MultiplayerSessionPartyIdKey, out var partyProperty) &&
+                   partyProperty != null &&
+                   !string.IsNullOrWhiteSpace(partyProperty.Value)) {
+                    partyId = partyProperty.Value;
+                }
 
-                    if(player.Properties.TryGetValue(MultiplayerSessionSteamIdKey, out var steamProperty) &&
-                       steamProperty != null) {
-                        ulong.TryParse(steamProperty.Value, out steamId);
-                    }
+                if(player.Properties.TryGetValue(MultiplayerSessionSteamIdKey, out var steamProperty) &&
+                   steamProperty != null) {
+                    ulong.TryParse(steamProperty.Value, out steamId);
                 }
 
                 return true;
@@ -463,17 +464,16 @@ namespace Network.Session {
                     continue;
                 }
 
-                if(player.Data != null) {
-                    if(player.Data.TryGetValue(MultiplayerSessionPartyIdKey, out var partyProperty) &&
-                       partyProperty != null &&
-                       !string.IsNullOrWhiteSpace(partyProperty.Value)) {
-                        partyId = partyProperty.Value;
-                    }
+                if(player.Data == null) return true;
+                if(player.Data.TryGetValue(MultiplayerSessionPartyIdKey, out var partyProperty) &&
+                   partyProperty != null &&
+                   !string.IsNullOrWhiteSpace(partyProperty.Value)) {
+                    partyId = partyProperty.Value;
+                }
 
-                    if(player.Data.TryGetValue(MultiplayerSessionSteamIdKey, out var steamProperty) &&
-                       steamProperty != null) {
-                        ulong.TryParse(steamProperty.Value, out steamId);
-                    }
+                if(player.Data.TryGetValue(MultiplayerSessionSteamIdKey, out var steamProperty) &&
+                   steamProperty != null) {
+                    ulong.TryParse(steamProperty.Value, out steamId);
                 }
 
                 return true;
@@ -753,11 +753,7 @@ namespace Network.Session {
                 return (true, "Eligible");
             }
 
-            if(scoreProgress >= progressThreshold) {
-                return (false, $"LateScore:{scoreProgress:0.00}");
-            }
-
-            return (true, "Eligible");
+            return scoreProgress >= progressThreshold ? (false, $"LateScore:{scoreProgress:0.00}") : (true, "Eligible");
         }
 
         private static float ResolveBackfillTimeRemainingThreshold(string mode) {
@@ -784,15 +780,23 @@ namespace Network.Session {
 
         private static float ResolveBackfillScoreProgress(string mode) {
             return mode switch {
-                "Hopball" => ResolveLeadingTeamObjectiveProgress(HopballSpawnManager.Instance?.GetTeamAScore() ?? 0,
-                    HopballSpawnManager.Instance?.GetTeamBScore() ?? 0),
-                "KOTH" => ResolveLeadingTeamObjectiveProgress(KingOfTheHillManager.Instance?.GetTeamAScore() ?? 0,
-                    KingOfTheHillManager.Instance?.GetTeamBScore() ?? 0),
+                "Hopball" => ResolveHopballBackfillScoreProgress(),
+                "KOTH" => ResolveKothBackfillScoreProgress(),
                 "Team Deathmatch" => ResolveLeadingTeamKillProgress(),
                 "Deathmatch" => ResolveLeadingFfaKillProgress(),
                 "Gun Tag" => 0f,
                 _ => 0f
             };
+        }
+
+        private static float ResolveHopballBackfillScoreProgress() {
+            var hopballManager = HopballSpawnManager.Instance;
+            return hopballManager == null ? 0f : ResolveLeadingTeamObjectiveProgress(hopballManager.GetTeamAScore(), hopballManager.GetTeamBScore());
+        }
+
+        private static float ResolveKothBackfillScoreProgress() {
+            var kothManager = KingOfTheHillManager.Instance;
+            return kothManager == null ? 0f : ResolveLeadingTeamObjectiveProgress(kothManager.GetTeamAScore(), kothManager.GetTeamBScore());
         }
 
         private static float ResolveLeadingTeamObjectiveProgress(int teamAScore, int teamBScore) {
@@ -840,6 +844,10 @@ namespace Network.Session {
                     case SpawnPoint.Team.TeamB:
                         teamBKills += player.Kills.Value;
                         break;
+                    case SpawnPoint.Team.None:
+                        break;
+                    default:
+                        throw new ArgumentOutOfRangeException();
                 }
             }
 
@@ -880,7 +888,9 @@ namespace Network.Session {
             if(_customNetworkManager == null) {
                 _customNetworkManager = networkManager.GetComponent<CustomNetworkManager>();
             }
-            _customNetworkManager?.ConfigureSessionMetadata(isPrivateMatch);
+            if(_customNetworkManager != null) {
+                _customNetworkManager.ConfigureSessionMetadata(isPrivateMatch);
+            }
 
             var payload = new ConnectionPayload {
                 partyId = CurrentPartyId,
