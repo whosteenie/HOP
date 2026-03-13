@@ -1,8 +1,10 @@
+using Game.Player.Core;
+using Game.Player.Movement;
 using Unity.Cinemachine;
 using Unity.Netcode;
 using UnityEngine;
 
-namespace Game.Player {
+namespace Game.Player.Combat {
     public class DeathCameraController : NetworkBehaviour {
         [Header("References")]
         [SerializeField] private PlayerController playerController;

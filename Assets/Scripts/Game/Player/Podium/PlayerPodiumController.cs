@@ -1,4 +1,6 @@
 using System.Collections;
+using Game.Player.Combat;
+using Game.Player.Core;
 using Network.Components;
 using Network.Core;
 using Unity.Netcode;

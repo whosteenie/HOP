@@ -1,5 +1,6 @@
 using UnityEngine;
 using Game.Player;
+using Game.Player.Core;
 
 namespace Network.Events {
     /// <summary>

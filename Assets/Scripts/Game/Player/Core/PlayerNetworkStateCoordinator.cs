@@ -4,7 +4,7 @@ using Unity.Collections;
 using Unity.Netcode;
 using UnityEngine;
 
-namespace Game.Player {
+namespace Game.Player.Core {
     internal sealed class PlayerNetworkStateCoordinator {
         private readonly PlayerController _player;
         private MatchPlayerStateProxy _cachedPlayerState;
@@ -44,13 +44,13 @@ namespace Game.Player {
             return _cachedPlayerState;
         }
 
-        public void OnPlayerStateRegistered(ulong playerClientId, MatchPlayerStateProxy proxy) {
+        private void OnPlayerStateRegistered(ulong playerClientId, MatchPlayerStateProxy proxy) {
             if(playerClientId != _player.OwnerClientId) return;
             _cachedPlayerState = proxy;
             TryBindPlayerStateSubscriptions();
         }
 
-        public void OnPlayerStateUnregistered(ulong playerClientId, MatchPlayerStateProxy proxy) {
+        private void OnPlayerStateUnregistered(ulong playerClientId, MatchPlayerStateProxy proxy) {
             if(playerClientId != _player.OwnerClientId) return;
 
             if(_boundPlayerState == proxy) {
@@ -74,7 +74,7 @@ namespace Game.Player {
             _boundPlayerState = playerState;
         }
 
-        public void UnbindPlayerStateSubscriptions() {
+        private void UnbindPlayerStateSubscriptions() {
             if(_boundPlayerState == null) return;
             _boundPlayerState.netHealth.OnValueChanged -= _player.HandleResolvedHealthChanged;
             _boundPlayerState.netIsDead.OnValueChanged -= _player.HandleResolvedDeathChanged;
@@ -95,7 +95,7 @@ namespace Game.Player {
             _identitySyncRoutine = null;
         }
 
-        public IEnumerator SendIdentityWhenAuthorityReady(ulong localSteamId, string ugsPlayerId, string playerDisplayName) {
+        private IEnumerator SendIdentityWhenAuthorityReady(ulong localSteamId, string ugsPlayerId, string playerDisplayName) {
             while(_player != null && _player.IsSpawned && !_identitySyncCompleted) {
                 var authority = MatchPlayerStateAuthority.Instance;
                 if(authority != null &&

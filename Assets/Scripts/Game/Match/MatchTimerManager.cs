@@ -2,6 +2,8 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using Game.Player;
+using Game.Player.Combat;
+using Game.Player.Core;
 using Network.Core;
 using Network.Diagnostics;
 using Network.Events;
@@ -416,7 +418,7 @@ namespace Game.Match {
             // Check if anyone is already tagged
             var anyoneTagged = allPlayers.Any(p => {
                 var tagCtrl = p.GetComponent<PlayerTagController>();
-                return tagCtrl != null && tagCtrl.isTagged.Value;
+                return tagCtrl != null && tagCtrl.IsTagged.Value;
             });
 
             if(anyoneTagged) yield break;
@@ -427,8 +429,8 @@ namespace Game.Match {
 
                 if(tagCtrl != null) {
                     // Tag the player
-                    tagCtrl.isTagged.Value = true;
-                    tagCtrl.tagged.Value++;
+                    tagCtrl.IsTagged.Value = true;
+                    tagCtrl.Tagged.Value++;
 
                     // Play tagged sound for the player who was designated as "it"
                     tagCtrl.PlayTaggedSoundClientRpc();

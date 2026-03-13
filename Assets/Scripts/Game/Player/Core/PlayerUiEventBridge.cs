@@ -1,6 +1,6 @@
 using Network.Events;
 
-namespace Game.Player {
+namespace Game.Player.Core {
     internal sealed class PlayerUiEventBridge {
         public static void PublishShowHud() {
             EventBus.Publish(new ShowHUDEvent());

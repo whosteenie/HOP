@@ -1,9 +1,10 @@
 using System.Linq;
+using Game.Player.Core;
 using Network.Diagnostics;
 using Unity.Netcode;
 using UnityEngine;
 
-namespace Game.Player {
+namespace Game.Player.Combat {
     public class PlayerRagdoll : NetworkBehaviour {
         [Header("References")]
         [SerializeField] private PlayerController playerController;

@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Game.Player;
+using Game.Player.Core;
 using UnityEngine;
 using UnityEngine.Rendering.Universal;
 

@@ -4,7 +4,7 @@ using Network.Core;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
-namespace Game.Player {
+namespace Game.Player.Core {
     internal sealed class PlayerOutOfBoundsCoordinator {
         private const float TriggerOutOfBoundsCountdownSeconds = 3f;
 
@@ -41,12 +41,12 @@ namespace Game.Player {
             return _cachedUseYLevelOutOfBoundsKill;
         }
 
-        public bool IsTriggerOutOfBoundsKillEnabled() {
+        private bool IsTriggerOutOfBoundsKillEnabled() {
             RefreshOutOfBoundsCacheIfNeeded();
             return _cachedUseTriggerOutOfBoundsKill;
         }
 
-        public Collider GetOutOfBoundsTriggerCollider() {
+        private Collider GetOutOfBoundsTriggerCollider() {
             RefreshOutOfBoundsCacheIfNeeded();
             return _cachedOutOfBoundsTriggerCollider;
         }
@@ -149,7 +149,7 @@ namespace Game.Player {
             }
         }
 
-        public void RefreshOutOfBoundsCacheIfNeeded() {
+        private void RefreshOutOfBoundsCacheIfNeeded() {
             var activeScene = SceneManager.GetActiveScene();
             if(_cachedOobSceneHandle == activeScene.handle) return;
 

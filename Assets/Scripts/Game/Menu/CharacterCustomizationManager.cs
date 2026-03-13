@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Game.Player;
+using Game.Player.Core;
 using Game.UI;
 using Game.Settings;
 using Network.Singletons;

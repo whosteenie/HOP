@@ -1,5 +1,6 @@
 using System.Collections;
 using Game.Player;
+using Game.Player.Core;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.VFX;

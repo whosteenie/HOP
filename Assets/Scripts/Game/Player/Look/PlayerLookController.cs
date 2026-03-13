@@ -1,9 +1,11 @@
+using Game.Player.Core;
+using Game.Player.Movement;
+using Game.Settings;
 using Unity.Cinemachine;
 using Unity.Netcode;
 using UnityEngine;
-using Game.Settings;
 
-namespace Game.Player {
+namespace Game.Player.Look {
     /// <summary>
     /// Handles camera/look logic for the player.
     /// </summary>

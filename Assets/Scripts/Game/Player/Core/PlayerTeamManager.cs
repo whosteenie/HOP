@@ -1,10 +1,11 @@
 using System.Collections;
 using Game.Match;
+using Game.Player.Combat;
 using Game.Spawning;
 using Unity.Netcode;
 using UnityEngine;
 
-namespace Game.Player {
+namespace Game.Player.Core {
     [RequireComponent(typeof(PlayerController))]
     public class PlayerTeamManager : NetworkBehaviour {
         public static int OutlineColorID { get; } = Shader.PropertyToID("_OutlineColor");
@@ -186,7 +187,7 @@ namespace Game.Player {
             }
 
             if(_cachedIsTagMode && _tagController != null) {
-                if(_tagController.isTagged.Value) {
+                if(_tagController.IsTagged.Value) {
                     _skinned.GetPropertyBlock(_tagPropertyBlock, 0);
                     var outlineSize = CalculateOutlineSize();
                     _tagPropertyBlock.SetColor(OutlineColorID, taggedGlow);
@@ -323,7 +324,7 @@ namespace Game.Player {
             if(!_cachedIsTeamBased && !_cachedIsTagMode) return;
 
             // For tag mode, only update if tagged
-            if(_cachedIsTagMode && (_tagController == null || !_tagController.isTagged.Value)) {
+            if(_cachedIsTagMode && (_tagController == null || !_tagController.IsTagged.Value)) {
                 return;
             }
 
@@ -334,7 +335,7 @@ namespace Game.Player {
             // Use cached last size instead of GetPropertyBlock every frame
             if(!(Mathf.Abs(_lastOutlineSize - outlineSize) > 0.001f)) return;
             // For tag mode, update the tag property block
-            if(_cachedIsTagMode && _tagController != null && _tagController.isTagged.Value) {
+            if(_cachedIsTagMode && _tagController != null && _tagController.IsTagged.Value) {
                 _tagPropertyBlock.SetFloat(Size, outlineSize);
                 _skinned.SetPropertyBlock(_tagPropertyBlock, 0);
             } else {

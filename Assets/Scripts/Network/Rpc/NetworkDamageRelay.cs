@@ -1,5 +1,6 @@
 using System;
 using Game.Player;
+using Game.Player.Core;
 using Game.Weapons;
 using Network.AntiCheat;
 using Network.Diagnostics;

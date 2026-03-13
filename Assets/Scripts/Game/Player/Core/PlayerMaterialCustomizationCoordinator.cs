@@ -1,7 +1,7 @@
 using Game.Settings;
 using UnityEngine;
 
-namespace Game.Player {
+namespace Game.Player.Core {
     internal sealed class PlayerMaterialCustomizationCoordinator {
         private readonly PlayerController _player;
 
@@ -39,11 +39,11 @@ namespace Game.Player {
             _player.PlayerEmissionColorState.OnValueChanged -= OnMaterialCustomizationChanged;
         }
 
-        public void OnMaterialPacketChanged() {
+        private void OnMaterialPacketChanged() {
             UpdatePlayerMaterialFromNetwork();
         }
 
-        public void OnMaterialCustomizationChanged() {
+        private void OnMaterialCustomizationChanged() {
             UpdatePlayerMaterialFromNetwork();
         }
 

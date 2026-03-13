@@ -1,6 +1,9 @@
 using System.Collections.Generic;
 using Game.Player;
+using Game.Player.Combat;
+using Game.Player.Core;
 using Game.Player.Look;
+using Game.Player.Movement;
 using Unity.MLAgents;
 using Unity.MLAgents.Actuators;
 using Unity.MLAgents.Policies;

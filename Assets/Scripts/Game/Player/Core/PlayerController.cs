@@ -2,16 +2,19 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Audio.Networking;
-using Game.Weapons;
-using Game.UI;
-using Game.Menu;
 using Game.Match;
+using Game.Menu;
+using Game.Player.Combat;
 using Game.Player.Hopball;
 using Game.Player.Look;
+using Game.Player.Movement;
+using Game.Settings;
+using Game.UI;
+using Game.Weapons;
 using Network;
-using Network.Core;
 using Network.AntiCheat;
 using Network.Components;
+using Network.Core;
 using Network.Events;
 using Network.Rpc;
 using OSI;
@@ -22,10 +25,9 @@ using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.UIElements;
-using Game.Settings;
 using SessionManager = Network.Session.SessionManager;
 
-namespace Game.Player {
+namespace Game.Player.Core {
     [DisallowMultipleComponent]
     [RequireComponent(typeof(CharacterController))]
     [RequireComponent(typeof(NetworkAudioRelay))]
@@ -413,7 +415,7 @@ namespace Game.Player {
 
                 var matchSettings = MatchSettingsManager.Instance;
                 if(matchSettings != null && matchSettings.selectedGameModeId == "Gun Tag" && tagController != null) {
-                    PlayerUiEventBridge.PublishTagStatus(tagController.isTagged.Value);
+                    PlayerUiEventBridge.PublishTagStatus(tagController.IsTagged.Value);
                 }
 
                 if(playerShadow != null)
@@ -1245,7 +1247,7 @@ namespace Game.Player {
         public NetworkVariable<ulong> SteamId => ResolvePlayerStateOrNull() != null ? ResolvePlayerStateOrNull().steamId : MissingSteamIdState;
         public NetworkVariable<FixedString128Bytes> UgsId => ResolvePlayerStateOrNull() != null ? ResolvePlayerStateOrNull().ugsId : MissingUgsIdState;
         public NetworkVariable<FixedString64Bytes> PlayerName => ResolvePlayerStateOrNull() != null ? ResolvePlayerStateOrNull().playerName : MissingPlayerNameState;
-        public int PingMs => statsController != null ? statsController.pingMs.Value : 0;
+        public int PingMs => statsController != null ? statsController.PingMs.Value : 0;
 
         #endregion
 
@@ -1279,7 +1281,7 @@ namespace Game.Player {
             return movementController != null ? movementController.CachedHorizontalSpeedSqr : 0f;
         }
 
-        public float AverageVelocity => statsController != null ? statsController.averageVelocity.Value : 0f;
+        public float AverageVelocity => statsController != null ? statsController.AverageVelocity.Value : 0f;
         public float ObservedServerMovementSpeed => _lastObservedServerMovementSpeed;
 
         public void SetVelocity(Vector3 horizontalVelocity) {
@@ -1298,10 +1300,10 @@ namespace Game.Player {
 
         #region Gun Tag Stats
 
-        public int Tags => tagController != null ? tagController.tags.Value : 0;
-        public int Tagged => tagController != null ? tagController.tagged.Value : 0;
-        public int TimeTagged => tagController != null ? tagController.timeTagged.Value : 0;
-        public bool IsTagged => tagController != null && tagController.isTagged.Value;
+        public int Tags => tagController != null ? tagController.Tags.Value : 0;
+        public int Tagged => tagController != null ? tagController.Tagged.Value : 0;
+        public int TimeTagged => tagController != null ? tagController.TimeTagged.Value : 0;
+        public bool IsTagged => tagController != null && tagController.IsTagged.Value;
 
         #endregion
 

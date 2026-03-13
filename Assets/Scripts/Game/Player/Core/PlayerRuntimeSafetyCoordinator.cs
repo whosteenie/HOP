@@ -2,7 +2,7 @@ using System;
 using Game.Weapons;
 using UnityEngine;
 
-namespace Game.Player {
+namespace Game.Player.Core {
     internal sealed class PlayerRuntimeSafetyCoordinator {
         private const string KinemationFpsCameraControllerTypeName =
             "KINEMATION.FPSAnimationFramework.Runtime.Camera.FPSCameraController";
@@ -37,7 +37,7 @@ namespace Game.Player {
             _childComponentCachesDirty = true;
         }
 
-        public void RefreshChildComponentCachesIfNeeded() {
+        private void RefreshChildComponentCachesIfNeeded() {
             if(!_childComponentCachesDirty) return;
             _cachedChildBehaviours = _player.GetComponentsInChildren<MonoBehaviour>(true);
             _cachedChildCameras = _player.GetComponentsInChildren<Camera>(true);
@@ -64,7 +64,7 @@ namespace Game.Player {
             }
         }
 
-        public bool ShouldDisableKinemationFrameworkComponent(string fullTypeName) {
+        private bool ShouldDisableKinemationFrameworkComponent(string fullTypeName) {
             var isCameraComponent = fullTypeName is KinemationFpsCameraControllerTypeName or
                 KinemationFpsCameraAnimationTypeName or KinemationFpsCameraShakeTypeName;
 

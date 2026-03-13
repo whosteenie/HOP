@@ -3,6 +3,7 @@ using Cysharp.Threading.Tasks;
 using Game.Match;
 using Game.Menu;
 using Game.Player;
+using Game.Player.Core;
 using Network.Core;
 using Network.Diagnostics;
 using Network.Events;

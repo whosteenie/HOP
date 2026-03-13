@@ -1,5 +1,6 @@
 using Game.Match;
 using Game.Player;
+using Game.Player.Core;
 using Game.Progression;
 using Unity.Netcode;
 using UnityEngine;

@@ -4,6 +4,7 @@ using Network.Core;
 using Unity.Netcode;
 using UnityEngine;
 using Game.Player;
+using Game.Player.Core;
 using Game.Spawning;
 using Random = UnityEngine.Random;
 

@@ -1,4 +1,5 @@
 using Game.Player;
+using Game.Player.Core;
 using Network.Core;
 using Network.Session;
 using Unity.Collections;

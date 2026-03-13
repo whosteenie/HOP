@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using Game.Hopball;
 using Game.Match;
 using Game.Player;
+using Game.Player.Combat;
+using Game.Player.Core;
 using Game.Spawning;
 using Network.Events;
 using Unity.Netcode;
@@ -793,7 +795,7 @@ namespace Game.UI {
                     var statsCtrl = GetCachedStatsController(player);
 
                     if(statsCtrl == null || velocityLabel == null) continue;
-                    var avgVelocity = statsCtrl.averageVelocity.Value;
+                    var avgVelocity = statsCtrl.AverageVelocity.Value;
                     // Only update if value actually changed (prevents unnecessary re-renders and flashing)
 
                     if(_previousVelocityValues.TryGetValue(player.OwnerClientId, out var prevVelocity) &&

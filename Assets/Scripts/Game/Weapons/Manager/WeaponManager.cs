@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Game.Match;
 using Game.Player;
+using Game.Player.Core;
 using KINEMATION.FPSAnimationPack.Scripts.Weapon;
 using Network.Diagnostics;
 using Unity.Cinemachine;

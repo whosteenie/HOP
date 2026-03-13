@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace Game.Player {
+namespace Game.Player.Movement {
     /// <summary>
     /// Attach to colliders that form a cylindrical (or curved) wall-run surface.
     /// Enables continuation/grace logic and provides cylinder geometry so the next segment normal

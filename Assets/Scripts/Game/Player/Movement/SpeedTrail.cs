@@ -1,10 +1,11 @@
+using System.Collections;
+using Game.Player.Core;
+using Game.Settings;
 using Game.Weapons;
 using Unity.Netcode;
 using UnityEngine;
-using Game.Settings;
-using System.Collections;
 
-namespace Game.Player {
+namespace Game.Player.Movement {
     public class SpeedTrail : NetworkBehaviour {
         [Header("References")]
         [SerializeField] private PlayerController playerController; // assign in inspector or auto-find

@@ -1,12 +1,13 @@
 using Audio.Networking;
 using Game.Menu;
+using Game.Player.Core;
+using Game.Progression;
 using Game.Weapons;
 using Unity.Cinemachine;
 using Unity.Netcode;
 using UnityEngine;
-using Game.Progression;
 
-namespace Game.Player {
+namespace Game.Player.Movement {
     /// <summary>
     /// Handles all movement-related logic for the player.
     /// </summary>

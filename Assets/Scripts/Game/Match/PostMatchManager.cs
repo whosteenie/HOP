@@ -8,6 +8,8 @@ using Game.Menu;
 using Game.Spawning;
 using Game.UI;
 using Game.Hopball;
+using Game.Player.Combat;
+using Game.Player.Core;
 using Game.Player.Hopball;
 using Network.Core;
 using Network.Diagnostics;
@@ -370,11 +372,11 @@ namespace Game.Match {
                 sorted = allPlayers
                     .OrderBy(p => {
                         var tagCtrl = p.GetComponent<PlayerTagController>();
-                        return tagCtrl != null ? tagCtrl.timeTagged.Value : int.MaxValue;
+                        return tagCtrl != null ? tagCtrl.TimeTagged.Value : int.MaxValue;
                     })
                     .ThenByDescending(p => {
                         var tagCtrl = p.GetComponent<PlayerTagController>();
-                        return tagCtrl != null ? tagCtrl.tags.Value : 0;
+                        return tagCtrl != null ? tagCtrl.Tags.Value : 0;
                     })
                     .ToList();
             } else {
@@ -436,7 +438,7 @@ namespace Game.Match {
             if(topThree.Count > 0) {
                 if(isTagMode) {
                     var tagController = topThree[0].GetComponent<PlayerTagController>();
-                    firstScore = tagController != null ? tagController.timeTagged.Value : 0;
+                    firstScore = tagController != null ? tagController.TimeTagged.Value : 0;
                 } else {
                     firstScore = topThree[0].Kills.Value;
                 }
@@ -448,7 +450,7 @@ namespace Game.Match {
             if(topThree.Count > 1) {
                 if(isTagMode) {
                     var tagController = topThree[1].GetComponent<PlayerTagController>();
-                    secondScore = tagController != null ? tagController.timeTagged.Value : 0;
+                    secondScore = tagController != null ? tagController.TimeTagged.Value : 0;
                 } else {
                     secondScore = topThree[1].Kills.Value;
                 }
@@ -460,7 +462,7 @@ namespace Game.Match {
             if(topThree.Count > 2) {
                 if(isTagMode) {
                     var tagController = topThree[2].GetComponent<PlayerTagController>();
-                    thirdScore = tagController != null ? tagController.timeTagged.Value : 0;
+                    thirdScore = tagController != null ? tagController.TimeTagged.Value : 0;
                 } else {
                     thirdScore = topThree[2].Kills.Value;
                 }
@@ -580,7 +582,7 @@ namespace Game.Match {
                 NetworkManager.Singleton.LocalClient.PlayerObject != null) {
                 var statsCtrl = NetworkManager.Singleton.LocalClient.PlayerObject.GetComponent<PlayerStatsController>();
                 if (statsCtrl != null) {
-                    Progression.ProgressionManager.Instance.RecordMatchAverageSpeed(statsCtrl.averageVelocity.Value);
+                    Progression.ProgressionManager.Instance.RecordMatchAverageSpeed(statsCtrl.AverageVelocity.Value);
                 }
             }
 

@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using Game.Hopball;
 using Game.Match;
 using Game.Player;
+using Game.Player.Combat;
+using Game.Player.Core;
 using Game.Spawning;
 using Network.Steam;
 using Unity.Netcode;
@@ -14,7 +16,7 @@ namespace Game.UI {
     public partial class ScoreboardManager {
         private string GetAverageVelocityText(PlayerController player) {
             var statsCtrl = GetCachedStatsController(player);
-            var avgVelocity = statsCtrl != null ? statsCtrl.averageVelocity.Value : 0f;
+            var avgVelocity = statsCtrl != null ? statsCtrl.AverageVelocity.Value : 0f;
             return $"{avgVelocity:F1} u/s";
         }
 
@@ -23,7 +25,7 @@ namespace Game.UI {
             if(!isTagMode) return player.Kills.Value;
 
             var tagCtrl = GetCachedTagController(player);
-            return tagCtrl != null ? tagCtrl.timeTagged.Value : int.MaxValue;
+            return tagCtrl != null ? tagCtrl.TimeTagged.Value : int.MaxValue;
         }
 
         private List<PlayerController> BuildSortedPlayerList(IReadOnlyCollection<PlayerController> players,
@@ -377,9 +379,9 @@ namespace Game.UI {
             if(isTagMode) {
                 // Tag mode stats: TT, Tags, Tagged, TTR, AV (5 stats, skip DMG and HS%)
                 var tagCtrl = GetCachedTagController(player);
-                var timeTaggedVal = tagCtrl != null ? tagCtrl.timeTagged.Value : 0;
-                var tagsVal = tagCtrl != null ? tagCtrl.tags.Value : 0;
-                var taggedVal = tagCtrl != null ? tagCtrl.tagged.Value : 0;
+                var timeTaggedVal = tagCtrl != null ? tagCtrl.TimeTagged.Value : 0;
+                var tagsVal = tagCtrl != null ? tagCtrl.Tags.Value : 0;
+                var taggedVal = tagCtrl != null ? tagCtrl.Tagged.Value : 0;
 
                 // Show only TT/Tags/Tagged/TTR/AV stat slots in Gun Tag.
                 statLabels[0].style.display = DisplayStyle.Flex;

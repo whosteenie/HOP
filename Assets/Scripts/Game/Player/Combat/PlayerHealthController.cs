@@ -1,13 +1,16 @@
 using System.Collections;
 using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
-using Game.Weapons;
 using Game.Hopball;
 using Game.Match;
+using Game.Player.Core;
+using Game.Player.Look;
+using Game.Player.Movement;
 using Game.Spawning;
 using Game.UI;
-using Network.Core;
+using Game.Weapons;
 using Network.Components;
+using Network.Core;
 using Network.Diagnostics;
 using Network.Events;
 using Network.Singletons;
@@ -15,7 +18,7 @@ using Unity.Cinemachine;
 using Unity.Netcode;
 using UnityEngine;
 
-namespace Game.Player {
+namespace Game.Player.Combat {
     /// <summary>
     /// Handles health, damage, death, and respawn logic for the player.
     /// </summary>
@@ -220,7 +223,7 @@ namespace Game.Player {
             if(attackerId == ulong.MaxValue) {
                 var oobMatchSettings = MatchSettingsManager.Instance;
                 var isOobTagMode = oobMatchSettings != null && oobMatchSettings.selectedGameModeId == "Gun Tag";
-                if(isOobTagMode && _tagController != null && !_tagController.isTagged.Value) {
+                if(isOobTagMode && _tagController != null && !_tagController.IsTagged.Value) {
                     _tagController.ApplyTimeTaggedDeltaAuthority(GunTagOobNonTaggedPenaltySeconds);
                 }
 
@@ -276,10 +279,10 @@ namespace Game.Player {
                     if(attacker == null) return false;
                     var attackerTagController = attacker.GetComponent<PlayerTagController>();
 
-                    if(attackerTagController != null && !attackerTagController.isTagged.Value && 
-                       _tagController != null && _tagController.isTagged.Value) {
+                    if(attackerTagController != null && !attackerTagController.IsTagged.Value && 
+                       _tagController != null && _tagController.IsTagged.Value) {
                         nonTaggedShootingTagged = true;
-                        if(attackerTagController.timeTagged.Value > 0) {
+                        if(attackerTagController.TimeTagged.Value > 0) {
                             attackerTagController.ApplyTimeTaggedDeltaAuthority(-1);
                         }
 

@@ -1,7 +1,8 @@
 using System.Collections;
+using Game.Player.Core;
 using UnityEngine;
 
-namespace Game.Player {
+namespace Game.Player.Movement {
     public class MantleController : MonoBehaviour {
         [Header("References")]
         [SerializeField] private PlayerController playerController;
