@@ -21,7 +21,6 @@ using Unity.Cinemachine;
 using Unity.Collections;
 using Unity.Netcode;
 using UnityEngine;
-using UnityEngine.Rendering;
 using UnityEngine.UIElements;
 using SessionManager = Network.Session.SessionManager;
 
@@ -145,14 +144,12 @@ namespace Game.Player.Core {
         private const float MinHeightStrength = 0.005f;
         private const float MaxHeightStrength = 0.08f;
 
-        // Cache MeshRenderers per weapon instance to avoid repeated GetComponentsInChildren calls
-        private readonly Dictionary<GameObject, MeshRenderer[]> _cachedWeaponRenderers = new();
-        private readonly Dictionary<GameObject, Collider[]> _cachedWeaponColliders = new();
         private PlayerNetworkStateCoordinator _networkStateCoordinator;
         private PlayerMaterialCustomizationCoordinator _materialCustomizationCoordinator;
         private PlayerRuntimeSafetyCoordinator _runtimeSafetyCoordinator;
         private PlayerOutOfBoundsCoordinator _outOfBoundsCoordinator;
         private PlayerMovementValidationCoordinator _movementValidationCoordinator;
+        private PlayerWeaponPresentationCoordinator _weaponPresentationCoordinator;
         private PlayerUiEventBridge _uiEventBridge;
 
         #endregion
@@ -291,6 +288,7 @@ namespace Game.Player.Core {
             _networkStateCoordinator ??= new PlayerNetworkStateCoordinator(this);
             _materialCustomizationCoordinator ??= new PlayerMaterialCustomizationCoordinator(this);
             _movementValidationCoordinator ??= new PlayerMovementValidationCoordinator(this);
+            _weaponPresentationCoordinator ??= new PlayerWeaponPresentationCoordinator(this);
             _uiEventBridge ??= new PlayerUiEventBridge();
         }
 
@@ -841,96 +839,7 @@ namespace Game.Player.Core {
         /// Resets the player's weapon state, ammo, and HUD.
         /// </summary>
         public void ResetWeaponState(bool resetAllAmmo = false, bool switchToWeapon0 = false, bool updateHUD = false) {
-            if(!IsOwner || weaponManager == null) return;
-
-            if(resetAllAmmo) {
-                weaponManager.ResetAllWeaponAmmo();
-            }
-
-            var currentWeapon = weaponManager.CurrentWeapon;
-            if(currentWeapon != null) {
-                currentWeapon.ResetWeapon();
-
-                var weaponInstance = currentWeapon.GetWeaponPrefab();
-                if(weaponInstance != null) {
-                    EnsureWeaponHierarchyActive(weaponInstance);
-                    EnsureWeaponShadowVisibility(weaponInstance);
-
-                    if(!_cachedWeaponRenderers.TryGetValue(weaponInstance, out var meshRenderers)) {
-                        meshRenderers = weaponInstance.GetComponentsInChildren<MeshRenderer>(true);
-                        _cachedWeaponRenderers[weaponInstance] = meshRenderers;
-                    }
-
-                    if(playerRenderer == null) {
-                        Debug.LogError("[PlayerController] PlayerRenderer not found!");
-                        return;
-                    }
-                    playerRenderer.SetWorldWeaponRenderersEnabled(true);
-                }
-
-                if(updateHUD) {
-                    PlayerUiEventBridge.PublishWeaponHudRefresh(currentWeapon.currentAmmo, currentWeapon.GetMagSize(),
-                        NetHealth.Value, 1f, Weapon.MaxDamageMultiplier);
-                }
-            }
-
-            if(switchToWeapon0) {
-                playerInput.SwitchWeapon(0);
-            }
-        }
-
-        /// <summary>
-        /// Ensures the FP weapon hierarchy (including parents and colliders) is active so it can render and cast shadows.
-        /// </summary>
-        private void EnsureWeaponHierarchyActive(GameObject weaponInstance) {
-            if(weaponInstance == null) return;
-
-            var parent = weaponInstance.transform;
-            while(parent != null) {
-                if(!parent.gameObject.activeSelf) {
-                    parent.gameObject.SetActive(true);
-                }
-
-                parent = parent.parent;
-            }
-
-            weaponInstance.SetActive(true);
-
-            if(!_cachedWeaponColliders.TryGetValue(weaponInstance, out var colliders)) {
-                colliders = weaponInstance.GetComponentsInChildren<Collider>(true);
-                _cachedWeaponColliders[weaponInstance] = colliders;
-            }
-
-            foreach(var col in colliders) {
-                if(col != null && !col.enabled) {
-                    col.enabled = true;
-                }
-            }
-        }
-
-        /// <summary>
-        /// Forces all renderers in the FP weapon hierarchy to be enabled and casting shadows.
-        /// </summary>
-        private void EnsureWeaponShadowVisibility(GameObject weaponInstance) {
-            if(weaponInstance == null) return;
-
-            if(!_cachedWeaponRenderers.TryGetValue(weaponInstance, out var meshRenderers)) {
-                meshRenderers = weaponInstance.GetComponentsInChildren<MeshRenderer>(true);
-                _cachedWeaponRenderers[weaponInstance] = meshRenderers;
-            }
-
-            // Use PlayerRenderer for enabled state, shadow mode is handled by PlayerShadow
-            if(playerRenderer == null) {
-                Debug.LogError("[PlayerController] PlayerRenderer not found! Cannot enable world weapon renderers.");
-                return;
-            }
-            playerRenderer.SetWorldWeaponRenderersEnabled(true);
-            
-            // Shadow mode is handled by PlayerShadow, but we set it here for initial setup
-            foreach(var meshRenderer in meshRenderers) {
-                if(meshRenderer == null) continue;
-                meshRenderer.shadowCastingMode = ShadowCastingMode.On;
-            }
+            _weaponPresentationCoordinator.ResetWeaponState(resetAllAmmo, switchToWeapon0, updateHUD);
         }
 
         #endregion
