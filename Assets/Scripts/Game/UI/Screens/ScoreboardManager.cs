@@ -102,7 +102,7 @@ namespace Game.UI {
         }
 
         private void OnEnable() {
-            // Subscribe to UI events
+            // Subscribe to UI and gameplay events
             EventBus.Subscribe<SetMatchTimeEvent>(OnSetMatchTime);
             EventBus.Subscribe<ShowScoreboardEvent>(OnShowScoreboard);
             EventBus.Subscribe<HideScoreboardEvent>(OnHideScoreboard);
@@ -112,12 +112,13 @@ namespace Game.UI {
             EventBus.Subscribe<ShowScoreDisplayEvent>(OnShowScoreDisplay);
             EventBus.Subscribe<PlayerNetworkSpawnedEvent>(OnPlayerNetworkSpawned);
             EventBus.Subscribe<PlayerNetworkDespawnedEvent>(OnPlayerNetworkDespawned);
+            EventBus.Subscribe<PlayerDiedEvent>(OnPlayerDied);
             MatchPlayerStateProxy.StateRegistered += OnPlayerStateRegistered;
             MatchPlayerStateProxy.StateUnregistered += OnPlayerStateUnregistered;
         }
 
         private void OnDisable() {
-            // Unsubscribe from UI events
+            // Unsubscribe from UI and gameplay events
             EventBus.Unsubscribe<SetMatchTimeEvent>(OnSetMatchTime);
             EventBus.Unsubscribe<ShowScoreboardEvent>(OnShowScoreboard);
             EventBus.Unsubscribe<HideScoreboardEvent>(OnHideScoreboard);
@@ -127,6 +128,7 @@ namespace Game.UI {
             EventBus.Unsubscribe<ShowScoreDisplayEvent>(OnShowScoreDisplay);
             EventBus.Unsubscribe<PlayerNetworkSpawnedEvent>(OnPlayerNetworkSpawned);
             EventBus.Unsubscribe<PlayerNetworkDespawnedEvent>(OnPlayerNetworkDespawned);
+            EventBus.Unsubscribe<PlayerDiedEvent>(OnPlayerDied);
             MatchPlayerStateProxy.StateRegistered -= OnPlayerStateRegistered;
             MatchPlayerStateProxy.StateUnregistered -= OnPlayerStateUnregistered;
 
@@ -148,6 +150,12 @@ namespace Game.UI {
 
         private void OnSetMatchTime(SetMatchTimeEvent evt) {
             SetMatchTime(evt.Seconds);
+        }
+
+        private void OnPlayerDied(PlayerDiedEvent evt) {
+            // Refresh scoreboard data and compact score display when a player dies.
+            UpdateScoreboard();
+            UpdateScoreDisplay();
         }
 
         private void OnShowScoreboard(ShowScoreboardEvent evt) {

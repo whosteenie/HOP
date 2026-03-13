@@ -249,11 +249,9 @@ namespace Game.Player.Combat {
                 
                 TryForceHopballDrop("OutOfBoundsDeath");
 
-                var victimName = "Player";
                 if(playerController != null && playerController.PlayerName != null) {
-                    victimName = playerController.PlayerName.Value.ToString();
                 }
-                BroadcastKillClientRpc("HOP", victimName, attackerId, OwnerClientId, null);
+                BroadcastKillClientRpc("HOP", attackerId, OwnerClientId, null);
                 
                 ReserveSpawnPointForDeath();
                 DieClientRpc(_lastBodyPartTag);
@@ -357,11 +355,9 @@ namespace Game.Player.Combat {
                         }
                         AwardAssists(attackerId);
                         var killerName = killer.PlayerName != null ? killer.PlayerName.Value.ToString() : "Player";
-                        var victimName = "Player";
                         if(playerController != null && playerController.PlayerName != null) {
-                            victimName = playerController.PlayerName.Value.ToString();
                         }
-                        BroadcastKillClientRpc(killerName, victimName, attackerId, OwnerClientId, weaponId);
+                        BroadcastKillClientRpc(killerName, attackerId, OwnerClientId, weaponId);
                     }
                 }
 
@@ -379,7 +375,7 @@ namespace Game.Player.Combat {
         }
 
         [Rpc(SendTo.Everyone)]
-        private void BroadcastKillClientRpc(string killerName, string victimName, ulong killerClientId,
+        private void BroadcastKillClientRpc(string killerName, ulong killerClientId,
             ulong victimClientId, string weaponId) { // Added weaponId
             var isLocalKiller = NetworkManager.Singleton.LocalClientId == killerClientId;
             
@@ -420,10 +416,6 @@ namespace Game.Player.Combat {
                  }
             }
 
-            if(KillFeedManager.Instance != null) {
-                EventBus.Publish(new AddKillFeedEntryEvent(killerName, victimName, isLocalKiller, killerClientId,
-                    victimClientId, wasKill: true));
-            }
         }
 
         [Rpc(SendTo.Everyone)]

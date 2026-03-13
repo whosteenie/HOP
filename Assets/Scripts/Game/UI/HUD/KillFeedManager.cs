@@ -44,23 +44,62 @@ namespace Game.UI.HUD {
         }
 
         private void OnEnable() {
-            // Subscribe to UI events
+            // Subscribe to UI and gameplay events
             EventBus.Subscribe<AddKillFeedEntryEvent>(OnAddKillFeedEntry);
             EventBus.Subscribe<ShowKillFeedEvent>(OnShowKillFeed);
             EventBus.Subscribe<HideKillFeedEvent>(OnHideKillFeed);
+            EventBus.Subscribe<PlayerDiedEvent>(OnPlayerDied);
         }
 
         private void OnDisable() {
-            // Unsubscribe from UI events
+            // Unsubscribe from UI and gameplay events
             EventBus.Unsubscribe<AddKillFeedEntryEvent>(OnAddKillFeedEntry);
             EventBus.Unsubscribe<ShowKillFeedEvent>(OnShowKillFeed);
             EventBus.Unsubscribe<HideKillFeedEvent>(OnHideKillFeed);
+            EventBus.Unsubscribe<PlayerDiedEvent>(OnPlayerDied);
         }
 
         #region Event Handlers
 
         private void OnAddKillFeedEntry(AddKillFeedEntryEvent evt) {
             AddEntryToFeed(evt.Killer, evt.Victim, evt.IsLocalKiller, evt.KillerId, evt.VictimId, evt.WasKill);
+        }
+
+        private void OnPlayerDied(PlayerDiedEvent evt) {
+            var networkManager = NetworkManager.Singleton;
+            if(networkManager == null) return;
+
+            // Resolve victim
+            var victimName = "Player";
+            var victimClientId = evt.PlayerId;
+            if(networkManager.ConnectedClients.TryGetValue(evt.PlayerId, out var victimClient) &&
+               victimClient.PlayerObject != null) {
+                var victimController = victimClient.PlayerObject.GetComponent<PlayerController>();
+                if(victimController != null && victimController.PlayerName != null) {
+                    victimName = victimController.PlayerName.Value.ToString();
+                }
+            }
+
+            // Resolve killer (HOP/environment if no player owner)
+            var killerName = "HOP";
+            var killerClientId = ulong.MaxValue;
+            var isLocalKiller = false;
+
+            if(evt.KillerId != ulong.MaxValue &&
+               networkManager.ConnectedClients.TryGetValue(evt.KillerId, out var killerClient) &&
+               killerClient.PlayerObject != null) {
+                var killerController = killerClient.PlayerObject.GetComponent<PlayerController>();
+                killerClientId = evt.KillerId;
+                if(killerController != null && killerController.PlayerName != null) {
+                    killerName = killerController.PlayerName.Value.ToString();
+                } else {
+                    killerName = "Player";
+                }
+
+                isLocalKiller = networkManager.LocalClientId == evt.KillerId;
+            }
+
+            AddEntryToFeed(killerName, victimName, isLocalKiller, killerClientId, victimClientId, wasKill: true);
         }
 
         private void OnShowKillFeed(ShowKillFeedEvent evt) {
