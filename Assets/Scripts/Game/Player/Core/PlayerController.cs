@@ -595,45 +595,9 @@ namespace Game.Player.Core {
         #region Collision Handling
 
         private void OnControllerColliderHit(ControllerColliderHit hit) {
-            if(hit.gameObject.CompareTag("JumpPad")) {
-                var wasGrappling = grappleController != null && grappleController.IsGrappling;
-                var applyJumpPadLaunchCompensation = wasGrappling &&
-                                                     movementController != null &&
-                                                     movementController.IsInJumpPadLaunch;
-
-                grappleController.CancelGrapple(forJumpPadLaunch: applyJumpPadLaunchCompensation);
-                var mantleWasActive = mantleController != null && mantleController.IsMantling;
-                if(mantleWasActive) {
-                    mantleController.CancelMantleForJumpPad();
-                }
-
-                if(movementController == null) {
-                    Debug.LogError("[PlayerController] MovementController not found!");
-                    return;
-                }
-                var padNormal = hit.gameObject.transform.up;
-                var ignoreGrounded = mantleWasActive || wasGrappling;
-                movementController.LaunchFromJumpPad(padNormal, ignoreGroundedRequirement: ignoreGrounded);
-            } else if(hit.gameObject.CompareTag("MegaPad")) {
-                var wasGrappling = grappleController != null && grappleController.IsGrappling;
-                var applyJumpPadLaunchCompensation = wasGrappling &&
-                                                     movementController != null &&
-                                                     movementController.IsInJumpPadLaunch;
-
-                grappleController.CancelGrapple(forJumpPadLaunch: applyJumpPadLaunchCompensation);
-                var mantleWasActive = mantleController != null && mantleController.IsMantling;
-                if(mantleWasActive) {
-                    mantleController.CancelMantleForJumpPad();
-                }
-
-                if(movementController == null) {
-                    Debug.LogError("[PlayerController] MovementController not found!");
-                    return;
-                }
-                var padNormal = hit.gameObject.transform.up;
-                var ignoreGrounded = mantleWasActive || wasGrappling;
-                movementController.LaunchFromJumpPad(padNormal, force: 30f, ignoreGroundedRequirement: ignoreGrounded);
-            } else {
+            if(movementController != null) {
+                movementController.HandleControllerColliderHit(hit);
+            } else if(grappleController != null) {
                 grappleController.CancelGrapple(fromCollision: true);
             }
         }
@@ -705,19 +669,11 @@ namespace Game.Player.Core {
         }
 
         public void SetPostMatchControlLock(bool locked, bool lockLook = true, bool resetVelocity = true) {
-            if(!IsOwner) return;
-
-            if(locked) {
-                moveInput = Vector2.zero;
-                lookInput = Vector2.zero;
-                sprintInput = false;
-                crouchInput = false;
-                if(resetVelocity && movementController != null) {
-                    movementController.ResetVelocity();
-                }
+            if(podiumController != null) {
+                podiumController.SetPostMatchControlLock(locked, lockLook, resetVelocity);
+            } else if(IsOwner) {
+                LockLook = locked && lockLook;
             }
-
-            LockLook = locked && lockLook;
         }
 
         public void ResetVelocity() {
@@ -733,40 +689,11 @@ namespace Game.Player.Core {
         }
 
         public void PlayWalkSound() {
-            if(!IsGrounded) return;
-            if(movementController == null) return;
-
-            if(characterController != null) {
-                var actual = characterController.velocity;
-                actual.y = 0f;
-                if(actual.sqrMagnitude < 0.3f * 0.3f) {
-                    return;
-                }
-            } else if(movementController.CachedHorizontalSpeedSqr < 0.5f * 0.5f) {
-                return;
-            }
-
-            if(!IsOwner || audioRelay == null) return;
-            audioRelay.RequestPlayAttached("foley.tile.walk", new NetworkObjectReference(NetworkObject), allowOverlap: true);
+            if(movementController != null) movementController.PlayWalkSound();
         }
 
         public void PlayRunSound() {
-            var isWallRunning = wallRunController != null && wallRunController.IsWallRunning;
-            if(!IsGrounded && !isWallRunning) return;
-            if(movementController == null) return;
-
-            if(characterController != null && IsGrounded) {
-                var actual = characterController.velocity;
-                actual.y = 0f;
-                if(actual.sqrMagnitude < 0.5f * 0.5f) {
-                    return;
-                }
-            } else if(movementController.CachedHorizontalSpeedSqr < 0.5f * 0.5f) {
-                return;
-            }
-
-            if(!IsOwner || audioRelay == null) return;
-            audioRelay.RequestPlayAttached("foley.tile.run", new NetworkObjectReference(NetworkObject), allowOverlap: true);
+            if(movementController != null) movementController.PlayRunSound();
         }
 
         public void PickupHopball() {

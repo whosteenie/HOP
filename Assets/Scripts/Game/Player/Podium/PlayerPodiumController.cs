@@ -146,6 +146,22 @@ namespace Game.Player.Podium {
             _awaitingPodiumSnap = true;
         }
 
+        public void SetPostMatchControlLock(bool locked, bool lockLook = true, bool resetVelocity = true) {
+            if(playerController == null || !playerController.IsOwner) return;
+
+            if(locked) {
+                playerController.moveInput = Vector2.zero;
+                playerController.lookInput = Vector2.zero;
+                playerController.sprintInput = false;
+                playerController.crouchInput = false;
+                if(resetVelocity && playerController.MovementController != null) {
+                    playerController.MovementController.ResetVelocity();
+                }
+            }
+
+            playerController.LockLook = locked && lockLook;
+        }
+
         /// <summary>
         /// Teleports the player to the podium position from the server.
         /// </summary>
