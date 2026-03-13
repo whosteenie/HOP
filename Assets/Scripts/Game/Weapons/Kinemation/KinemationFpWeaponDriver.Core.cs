@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Game.Weapons.Kinemation;
 using Game.Weapons.Manager;
 using KINEMATION.FPSAnimationPack.Scripts.Camera;
 using KINEMATION.FPSAnimationPack.Scripts.Player;

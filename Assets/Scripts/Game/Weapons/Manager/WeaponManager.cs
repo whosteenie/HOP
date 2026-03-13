@@ -4,6 +4,7 @@ using Game.Match;
 using Game.Player.Core;
 using Game.Player.Visual;
 using Game.Weapons.Core;
+using Game.Weapons.Kinemation;
 using Game.Weapons.World;
 using KINEMATION.FPSAnimationPack.Scripts.Weapon;
 using Network.Core;

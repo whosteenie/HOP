@@ -1,3 +1,4 @@
+using Game.Weapons.Kinemation;
 using KINEMATION.FPSAnimationPack.Scripts.Weapon;
 using KINEMATION.FPSAnimationPack.Scripts.Sounds;
 using UnityEngine;

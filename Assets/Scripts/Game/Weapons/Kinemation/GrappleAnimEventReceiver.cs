@@ -1,7 +1,7 @@
 using Network.Events;
 using UnityEngine;
 
-namespace Game.Weapons {
+namespace Game.Weapons.Kinemation {
     /// <summary>
     /// Receives animation events from the grapple clip.
     /// Added at runtime to the FP viewmodel so it's in the Animator's hierarchy.

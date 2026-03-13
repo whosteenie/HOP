@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Game.Weapons.Kinemation;
 using KINEMATION.FPSAnimationPack.Scripts.Sounds;
 using KINEMATION.FPSAnimationPack.Scripts.Weapon;
 using UnityEngine;
