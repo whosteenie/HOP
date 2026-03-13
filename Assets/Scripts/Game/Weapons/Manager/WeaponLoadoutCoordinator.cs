@@ -104,7 +104,6 @@ namespace Game.Weapons.Manager {
 
             if(_root.FpWeaponInstancesRef.Count > 0) {
                 _root.EquipInitialWeaponInternal(ResolveInitialEquippedWeaponIndex());
-                _root.WeaponsInitialized = true;
             } else {
                 Debug.LogError("[WeaponManager] No weapons instantiated!");
             }

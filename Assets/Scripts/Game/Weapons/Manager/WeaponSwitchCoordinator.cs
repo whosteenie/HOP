@@ -245,7 +245,7 @@ namespace Game.Weapons.Manager {
             _root.PlayerAnimatorRef.Play(stateName, layerIndex, 0f);
         }
 
-        public void ReconcileStableTpWeaponState() {
+        private void ReconcileStableTpWeaponState() {
             if(_root.DeferTpRevealUntilRespawn || _root.IsPullingOutInternal) return;
             if(_root.PlayerControllerRef == null) return;
             if(_root.PlayerControllerRef.NetIsDead is { Value: true }) return;
