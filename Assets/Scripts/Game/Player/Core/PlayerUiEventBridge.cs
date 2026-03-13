@@ -1,7 +1,7 @@
 using Network.Events;
 
 namespace Game.Player.Core {
-    internal sealed class PlayerUiEventBridge {
+    internal static class PlayerUiEventBridge {
         public static void PublishShowHud() {
             EventBus.Publish(new ShowHUDEvent());
         }

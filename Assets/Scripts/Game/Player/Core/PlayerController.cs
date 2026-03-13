@@ -149,7 +149,6 @@ namespace Game.Player.Core {
         private PlayerWeaponPresentationCoordinator _weaponPresentationCoordinator;
         private PlayerSpawnPresentationCoordinator _spawnPresentationCoordinator;
         private PlayerPresentationStateCoordinator _presentationStateCoordinator;
-        private PlayerUiEventBridge _uiEventBridge;
 
         #endregion
 
@@ -295,7 +294,6 @@ namespace Game.Player.Core {
             _weaponPresentationCoordinator ??= new PlayerWeaponPresentationCoordinator(this);
             _spawnPresentationCoordinator ??= new PlayerSpawnPresentationCoordinator(this);
             _presentationStateCoordinator ??= new PlayerPresentationStateCoordinator(this);
-            _uiEventBridge ??= new PlayerUiEventBridge();
         }
 
         private void Awake() {
@@ -823,11 +821,34 @@ namespace Game.Player.Core {
 
         public ClientNetworkTransform ClientNetworkTransform => clientNetworkTransform;
         private MatchPlayerStateProxy ResolvePlayerStateOrNull() => ResolvePlayerState();
-        private NetworkVariable<int> KillsState => ResolvePlayerState() != null ? ResolvePlayerState().kills : MissingIntState;
-        private NetworkVariable<int> DeathsState => ResolvePlayerState() != null ? ResolvePlayerState().deaths : MissingIntState;
-        private NetworkVariable<int> AssistsState => ResolvePlayerState() != null ? ResolvePlayerState().assists : MissingIntState;
+        private NetworkVariable<int> KillsState {
+            get {
+                var state = ResolvePlayerStateOrNull();
+                return state != null ? state.kills : MissingIntState;
+            }
+        }
 
-        public NetworkVariable<float> NetHealth => ResolvePlayerStateOrNull() != null ? ResolvePlayerStateOrNull().netHealth : MissingHealthState;
+        private NetworkVariable<int> DeathsState {
+            get {
+                var state = ResolvePlayerStateOrNull();
+                return state != null ? state.deaths : MissingIntState;
+            }
+        }
+
+        private NetworkVariable<int> AssistsState {
+            get {
+                var state = ResolvePlayerStateOrNull();
+                return state != null ? state.assists : MissingIntState;
+            }
+        }
+
+        public NetworkVariable<float> NetHealth {
+            get {
+                var state = ResolvePlayerStateOrNull();
+                return state != null ? state.netHealth : MissingHealthState;
+            }
+        }
+
         public NetworkVariable<bool> NetIsDead => ResolvePlayerStateOrNull() != null ? ResolvePlayerStateOrNull().netIsDead : MissingDeathState;
         public NetworkVariable<bool> NetIsCrouching => netIsCrouching;
         public NetworkVariable<bool> NetIsSliding => netIsSliding;
@@ -839,11 +860,35 @@ namespace Game.Player.Core {
         public NetworkVariable<int> Kills => KillsState;
         public NetworkVariable<int> Deaths => DeathsState;
         public NetworkVariable<int> Assists => AssistsState;
-        public NetworkVariable<float> DamageDealt => ResolvePlayerStateOrNull() != null ? ResolvePlayerStateOrNull().damageDealt : MissingFloatState;
+        public NetworkVariable<float> DamageDealt {
+            get {
+                var state = ResolvePlayerStateOrNull();
+                return state != null ? state.damageDealt : MissingFloatState;
+            }
+        }
+
         public NetworkVariable<int> PlayerMaterialIndex => playerMaterialIndex;
-        public NetworkVariable<ulong> SteamId => ResolvePlayerStateOrNull() != null ? ResolvePlayerStateOrNull().steamId : MissingSteamIdState;
-        public NetworkVariable<FixedString128Bytes> UgsId => ResolvePlayerStateOrNull() != null ? ResolvePlayerStateOrNull().ugsId : MissingUgsIdState;
-        public NetworkVariable<FixedString64Bytes> PlayerName => ResolvePlayerStateOrNull() != null ? ResolvePlayerStateOrNull().playerName : MissingPlayerNameState;
+        public NetworkVariable<ulong> SteamId {
+            get {
+                var state = ResolvePlayerStateOrNull();
+                return state != null ? state.steamId : MissingSteamIdState;
+            }
+        }
+
+        public NetworkVariable<FixedString128Bytes> UgsId {
+            get {
+                var state = ResolvePlayerStateOrNull();
+                return state != null ? state.ugsId : MissingUgsIdState;
+            }
+        }
+
+        public NetworkVariable<FixedString64Bytes> PlayerName {
+            get {
+                var state = ResolvePlayerStateOrNull();
+                return state != null ? state.playerName : MissingPlayerNameState;
+            }
+        }
+
         public int PingMs => statsController != null ? statsController.PingMs.Value : 0;
 
         #endregion
