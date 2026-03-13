@@ -6,6 +6,7 @@ using Game.Player.Combat;
 using Game.Player.Hopball;
 using Game.Player.Look;
 using Game.Player.Movement;
+using Game.Player.Podium;
 using Game.UI;
 using Game.Weapons;
 using Network;
@@ -147,6 +148,7 @@ namespace Game.Player.Core {
         private PlayerMovementValidationCoordinator _movementValidationCoordinator;
         private PlayerWeaponPresentationCoordinator _weaponPresentationCoordinator;
         private PlayerSpawnPresentationCoordinator _spawnPresentationCoordinator;
+        private PlayerPresentationStateCoordinator _presentationStateCoordinator;
         private PlayerUiEventBridge _uiEventBridge;
 
         #endregion
@@ -277,6 +279,8 @@ namespace Game.Player.Core {
         internal void BeginIdentitySyncFromSpawn(ulong localSteamId, string ugsPlayerId, string playerDisplayName) =>
             BeginIdentitySync(localSteamId, ugsPlayerId, playerDisplayName);
         internal void LoadMaterialCustomizationFromPrefsForSpawn() => LoadMaterialCustomizationFromPrefs();
+        internal void ClearTriggerOutOfBoundsCountdownFromPresentation() => ClearTriggerOutOfBoundsCountdownServer();
+        internal void HideTriggerOutOfBoundsCountdownLocalFromPresentation() => HideTriggerOutOfBoundsCountdownLocal();
 
         #endregion
 
@@ -290,6 +294,7 @@ namespace Game.Player.Core {
             _movementValidationCoordinator ??= new PlayerMovementValidationCoordinator(this);
             _weaponPresentationCoordinator ??= new PlayerWeaponPresentationCoordinator(this);
             _spawnPresentationCoordinator ??= new PlayerSpawnPresentationCoordinator(this);
+            _presentationStateCoordinator ??= new PlayerPresentationStateCoordinator(this);
             _uiEventBridge ??= new PlayerUiEventBridge();
         }
 
@@ -397,26 +402,7 @@ namespace Game.Player.Core {
             playerMaterialIndex.OnValueChanged -= OnMatChanged;
             playerMaterialIndex.OnValueChanged += OnMatChanged;
             _materialCustomizationCoordinator.Subscribe();
-            netIsCrouching.OnValueChanged -= OnCrouchStateChanged;
-            netIsCrouching.OnValueChanged += OnCrouchStateChanged;
-            netIsSliding.OnValueChanged -= OnSlidingStateChanged;
-            netIsSliding.OnValueChanged += OnSlidingStateChanged;
-            netIsJumping.OnValueChanged -= OnJumpingStateChanged;
-            netIsJumping.OnValueChanged += OnJumpingStateChanged;
-            netIsFalling.OnValueChanged -= OnFallingStateChanged;
-            netIsFalling.OnValueChanged += OnFallingStateChanged;
-            jumpAnimationSequence.OnValueChanged -= OnJumpAnimationSequenceChanged;
-            jumpAnimationSequence.OnValueChanged += OnJumpAnimationSequenceChanged;
-            landAnimationSequence.OnValueChanged -= OnLandAnimationSequenceChanged;
-            landAnimationSequence.OnValueChanged += OnLandAnimationSequenceChanged;
-            mantleAnimationSequence.OnValueChanged -= OnMantleAnimationSequenceChanged;
-            mantleAnimationSequence.OnValueChanged += OnMantleAnimationSequenceChanged;
-            netIsWallRunning.OnValueChanged -= OnWallRunStateChanged;
-            netIsWallRunning.OnValueChanged += OnWallRunStateChanged;
-            netIsRightWallRun.OnValueChanged -= OnWallRunOrientationChanged;
-            netIsRightWallRun.OnValueChanged += OnWallRunOrientationChanged;
-            netWallRunDirection.OnValueChanged -= OnWallRunDirectionChanged;
-            netWallRunDirection.OnValueChanged += OnWallRunDirectionChanged;
+            _presentationStateCoordinator.Subscribe();
         }
 
         /// <summary>
@@ -427,16 +413,7 @@ namespace Game.Player.Core {
 
             playerMaterialIndex.OnValueChanged -= OnMatChanged;
             _materialCustomizationCoordinator.Unsubscribe();
-            netIsCrouching.OnValueChanged -= OnCrouchStateChanged;
-            netIsSliding.OnValueChanged -= OnSlidingStateChanged;
-            netIsJumping.OnValueChanged -= OnJumpingStateChanged;
-            netIsFalling.OnValueChanged -= OnFallingStateChanged;
-            jumpAnimationSequence.OnValueChanged -= OnJumpAnimationSequenceChanged;
-            landAnimationSequence.OnValueChanged -= OnLandAnimationSequenceChanged;
-            mantleAnimationSequence.OnValueChanged -= OnMantleAnimationSequenceChanged;
-            netIsWallRunning.OnValueChanged -= OnWallRunStateChanged;
-            netIsRightWallRun.OnValueChanged -= OnWallRunOrientationChanged;
-            netWallRunDirection.OnValueChanged -= OnWallRunDirectionChanged;
+            _presentationStateCoordinator.Unsubscribe();
         }
 
         public MatchPlayerStateProxy PlayerState => _networkStateCoordinator.PlayerState;
@@ -473,77 +450,9 @@ namespace Game.Player.Core {
             _materialCustomizationCoordinator.SaveMaterialCustomizationToPrefs();
         }
 
-        private void OnHealthChanged(float _, float newV) {
-            if(IsOwner) PlayerUiEventBridge.PublishHealthUpdated(newV, 100f);
-        }
+        private void OnHealthChanged(float _, float newV) => _presentationStateCoordinator.OnHealthChanged(newV);
 
-        private void OnCrouchStateChanged(bool oldValue, bool newValue) {
-            if(movementController != null)
-                movementController.UpdateCrouch(fpCamera);
-        }
-
-        private void OnSlidingStateChanged(bool oldValue, bool newValue) {
-            if(IsOwner || animationController == null) return;
-            animationController.ApplyRemoteSlidingState(newValue, playTrigger: newValue && !oldValue);
-        }
-
-        private void OnJumpingStateChanged(bool oldValue, bool newValue) {
-            if(IsOwner || animationController == null) return;
-            animationController.ApplyRemoteJumpingState(newValue);
-        }
-
-        private void OnFallingStateChanged(bool oldValue, bool newValue) {
-            if(IsOwner || animationController == null) return;
-            animationController.ApplyRemoteFallingState(newValue);
-        }
-
-        private void OnJumpAnimationSequenceChanged(int oldValue, int newValue) {
-            if(IsOwner || animationController == null || newValue == oldValue) return;
-            animationController.PlayRemoteJumpAnimation();
-        }
-
-        private void OnLandAnimationSequenceChanged(int oldValue, int newValue) {
-            if(IsOwner || animationController == null || newValue == oldValue) return;
-            animationController.PlayRemoteLandingAnimation();
-        }
-
-        private void OnMantleAnimationSequenceChanged(int oldValue, int newValue) {
-            if(IsOwner || animationController == null || newValue == oldValue) return;
-            animationController.PlayRemoteMantleAnimation();
-        }
-
-        private void OnWallRunStateChanged(bool oldValue, bool newValue) {
-            RefreshRemoteWallRunState();
-        }
-
-        private void OnWallRunOrientationChanged(bool oldValue, bool newValue) {
-            RefreshRemoteWallRunState();
-        }
-
-        private void OnWallRunDirectionChanged(float oldValue, float newValue) {
-            RefreshRemoteWallRunState();
-        }
-
-        private void RefreshRemoteWallRunState() {
-            if(IsOwner || animationController == null) return;
-            animationController.ApplyRemoteWallRunState(netIsWallRunning.Value, netIsRightWallRun.Value,
-                netWallRunDirection.Value);
-        }
-
-        private void OnDeathStateChanged(bool _, bool newValue) {
-            switch(newValue) {
-                case true when characterController != null:
-                    characterController.enabled = false;
-                    break;
-                case false:
-                    return;
-            }
-
-            ClearTriggerOutOfBoundsCountdownServer();
-            if(IsOwner) {
-                HideTriggerOutOfBoundsCountdownLocal();
-            }
-        }
+        private void OnDeathStateChanged(bool _, bool newValue) => _presentationStateCoordinator.OnDeathStateChanged(newValue);
     
         /// <summary>
         /// Main update loop for core player logic, movement synchronization, and server validation.

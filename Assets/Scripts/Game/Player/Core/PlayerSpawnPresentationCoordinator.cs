@@ -3,6 +3,7 @@ using Game.Menu;
 using Game.Settings;
 using Network.Core;
 using Steamworks;
+using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace Game.Player.Core {
@@ -14,26 +15,27 @@ namespace Game.Player.Core {
         }
 
         public void HandleNetworkSpawnPresentation() {
-            EnsureCharacterControllerEnabledForAlivePlayer();
-            RestoreMenuPresentation();
-            ResetAnimationSpawnTime();
-            TogglePausedMenuOff();
+            EnsureCharacterControllerEnabled();
+            RestoreMenuAndHudPresentation();
+            ResetAnimationStateForSpawn();
+            ClearPausedMenuState();
 
             if(_player.IsOwner) {
                 ApplyOwnerSpawnPresentation();
-            } else {
-                ApplyRemoteSpawnPresentation();
+                return;
             }
+
+            ApplyRemoteSpawnPresentation();
         }
 
-        private void EnsureCharacterControllerEnabledForAlivePlayer() {
+        private void EnsureCharacterControllerEnabled() {
             var characterController = _player.CharacterController;
             if(characterController != null && characterController.enabled == false && !_player.NetIsDead.Value) {
                 characterController.enabled = true;
             }
         }
 
-        private static void RestoreMenuPresentation() {
+        private static void RestoreMenuAndHudPresentation() {
             var gameMenu = GameMenuManager.Instance;
             if(gameMenu != null && gameMenu.TryGetComponent(out UIDocument doc)) {
                 var root = doc.rootVisualElement;
@@ -50,7 +52,7 @@ namespace Game.Player.Core {
             PlayerUiEventBridge.PublishShowHud();
         }
 
-        private void ResetAnimationSpawnTime() {
+        private void ResetAnimationStateForSpawn() {
             var animationController = _player.AnimationController;
             if(animationController == null) return;
 
@@ -63,7 +65,7 @@ namespace Game.Player.Core {
                 _player.NetWallRunDirection.Value);
         }
 
-        private static void TogglePausedMenuOff() {
+        private static void ClearPausedMenuState() {
             if(GameMenuManager.Instance.IsPaused) {
                 GameMenuManager.Instance.TogglePause();
             }
@@ -91,8 +93,7 @@ namespace Game.Player.Core {
             PlayerUiEventBridge.PublishLocalPlayerReady(_player);
 
             var matchSettings = MatchSettingsManager.Instance;
-            if(matchSettings != null && matchSettings.selectedGameModeId == "Gun Tag" &&
-               _player.TagController != null) {
+            if(matchSettings != null && matchSettings.selectedGameModeId == "Gun Tag" && _player.TagController != null) {
                 PlayerUiEventBridge.PublishTagStatus(_player.TagController.IsTagged.Value);
             }
 
