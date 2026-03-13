@@ -79,50 +79,56 @@ namespace Game.UI {
 
             yield return new WaitForSeconds(1.0f); // Wait before animating
 
-            const float duration = 2.0f;
-            var elapsed = 0f;
+            const float totalDuration = 2.0f;
 
-            // Simple case: No level up
-            if (startLevel == endLevel) {
-                while (elapsed < duration) {
-                    elapsed += Time.deltaTime;
-                    var t = elapsed / duration;
-                    _xpBar.value = Mathf.Lerp(startXp, endXp, t);
+            if(startLevel == endLevel) {
+                yield return AnimateXpSegment(startXp, endXp, totalDuration);
+            } else {
+                var levelSpan = Mathf.Max(1, endLevel - startLevel);
+                var segmentDuration = totalDuration / (levelSpan + 1f);
+                var currentLevel = startLevel;
+                var currentXp = startXp;
+
+                while(currentLevel < endLevel) {
+                    var requiredXpForLevel = progression.GetXpRequiredForLevel(currentLevel);
+                    _xpBar.highValue = requiredXpForLevel;
+                    _levelLabel.text = $"LEVEL {currentLevel}";
+                    yield return AnimateXpSegment(currentXp, requiredXpForLevel, segmentDuration);
+
+                    currentLevel++;
+                    currentXp = 0;
+                    _levelLabel.text = $"LEVEL {currentLevel}";
+                    _xpBar.highValue = progression.GetXpRequiredForLevel(currentLevel);
+                    _xpBar.value = 0;
                     yield return null;
                 }
-            } 
-            else {
-                // Leveled Up Case
-                // 1. Fill to Max
-                const float firstLeg = duration / 2f;
-                elapsed = 0f;
-                while (elapsed < firstLeg) {
-                    elapsed += Time.deltaTime;
-                    var t = elapsed / firstLeg;
-                    _xpBar.value = Mathf.Lerp(startXp, maxXp, t);
-                    yield return null;
-                }
-                
-                // 2. Level Up Visuals
+
+                _xpBar.highValue = progression.GetXpRequiredForLevel(endLevel);
                 _levelLabel.text = $"LEVEL {endLevel}";
-                // Boom/Flash effect here?
-
-                // 3. Fill Remainder
-                var maxXpNew = progression.GetXpRequiredForLevel(endLevel);
-                _xpBar.highValue = maxXpNew;
-                _xpBar.value = 0;
-                
-                elapsed = 0f;
-                while (elapsed < firstLeg) {
-                    elapsed += Time.deltaTime;
-                    var t = elapsed / firstLeg;
-                    _xpBar.value = Mathf.Lerp(0, endXp, t);
-                    yield return null;
-                }
+                yield return AnimateXpSegment(0, endXp, segmentDuration);
             }
 
             _xpBar.value = endXp;
+            _xpBar.highValue = progression.GetXpRequiredForLevel(endLevel);
+            _levelLabel.text = $"LEVEL {endLevel}";
             _xpAnimationRoutine = null;
+        }
+
+        private IEnumerator AnimateXpSegment(float fromXp, float toXp, float duration) {
+            if(duration <= 0f) {
+                _xpBar.value = toXp;
+                yield break;
+            }
+
+            var elapsed = 0f;
+            while(elapsed < duration) {
+                elapsed += Time.deltaTime;
+                var t = Mathf.Clamp01(elapsed / duration);
+                _xpBar.value = Mathf.Lerp(fromXp, toXp, t);
+                yield return null;
+            }
+
+            _xpBar.value = toXp;
         }
 
         public void Hide() {
