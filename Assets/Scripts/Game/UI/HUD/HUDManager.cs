@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using Game.Match;
 using Game.Player;
+using Game.Player.Core;
 using Game.Settings;
 using Network.Events;
 using UnityEngine;
@@ -313,7 +314,7 @@ namespace Game.UI {
             if(IsTagMode()) return;
 
             var localPlayer = PlayerController.LocalPlayer;
-            var current = localPlayer != null ? localPlayer.netHealth.Value : 100f;
+            var current = localPlayer != null ? localPlayer.NetHealth.Value : 100f;
             const float max = 100f;
 
             _healthBar.style.display = DisplayStyle.Flex;

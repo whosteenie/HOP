@@ -1,6 +1,8 @@
 using System.Collections;
 using Audio.Networking;
 using Game.Match;
+using Game.Player.Combat;
+using Game.Player.Core;
 using Game.Progression;
 using Game.Weapons;
 using Network.Events;
@@ -8,7 +10,7 @@ using Unity.Cinemachine;
 using Unity.Netcode;
 using UnityEngine;
 
-namespace Game.Player {
+namespace Game.Player.Movement {
     public class GrappleController : NetworkBehaviour {
         [Header("Components")]
         [SerializeField] private PlayerController playerController;
@@ -118,7 +120,7 @@ namespace Game.Player {
             var matchSettings = MatchSettingsManager.Instance;
             var isTagMode = matchSettings != null && matchSettings.selectedGameModeId == "Gun Tag";
 
-            if(isTagMode && _tagController != null && _tagController.isTagged.Value) {
+            if(isTagMode && _tagController != null && _tagController.IsTagged.Value) {
                 return TaggedPlayerCooldown;
             }
 
@@ -195,7 +197,7 @@ namespace Game.Player {
                 EventBus.Subscribe<GrappleAnimFirstFrameEvent>(OnGrappleAnimFirstFrame);
                 EventBus.Subscribe<GrappleAnimHideEvent>(OnGrappleAnimHide);
                 if(_tagController != null) {
-                    _tagController.isTagged.OnValueChanged += OnTaggedStateChanged;
+                    _tagController.IsTagged.OnValueChanged += OnTaggedStateChanged;
                 }
             }
 
@@ -213,7 +215,7 @@ namespace Game.Player {
                 EventBus.Unsubscribe<GrappleAnimFirstFrameEvent>(OnGrappleAnimFirstFrame);
                 EventBus.Unsubscribe<GrappleAnimHideEvent>(OnGrappleAnimHide);
                 if(_tagController != null) {
-                    _tagController.isTagged.OnValueChanged -= OnTaggedStateChanged;
+                    _tagController.IsTagged.OnValueChanged -= OnTaggedStateChanged;
                 }
             }
 
@@ -247,7 +249,7 @@ namespace Game.Player {
                 EventBus.Unsubscribe<GrappleAnimFirstFrameEvent>(OnGrappleAnimFirstFrame);
                 EventBus.Unsubscribe<GrappleAnimHideEvent>(OnGrappleAnimHide);
                 if(_tagController != null) {
-                    _tagController.isTagged.OnValueChanged -= OnTaggedStateChanged;
+                    _tagController.IsTagged.OnValueChanged -= OnTaggedStateChanged;
                 }
             }
 

@@ -1,6 +1,8 @@
 using System.Collections;
 using Game.Match;
 using Game.Menu;
+using Game.Player.Core;
+using Game.Player.Movement;
 using Game.Settings;
 using Game.Social;
 using Game.UI;

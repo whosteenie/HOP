@@ -8,6 +8,8 @@ using Game.Menu;
 using Game.Spawning;
 using Game.UI;
 using Game.Hopball;
+using Game.Player.Combat;
+using Game.Player.Core;
 using Game.Player.Hopball;
 using Network.Core;
 using Network.Diagnostics;
@@ -370,18 +372,18 @@ namespace Game.Match {
                 sorted = allPlayers
                     .OrderBy(p => {
                         var tagCtrl = p.GetComponent<PlayerTagController>();
-                        return tagCtrl != null ? tagCtrl.timeTagged.Value : int.MaxValue;
+                        return tagCtrl != null ? tagCtrl.TimeTagged.Value : int.MaxValue;
                     })
                     .ThenByDescending(p => {
                         var tagCtrl = p.GetComponent<PlayerTagController>();
-                        return tagCtrl != null ? tagCtrl.tags.Value : 0;
+                        return tagCtrl != null ? tagCtrl.Tags.Value : 0;
                     })
                     .ToList();
             } else {
                 // Normal mode: sort by kills descending, then by damage as tie-breaker
                 sorted = allPlayers
                     .OrderByDescending(p => p.Kills.Value)
-                    .ThenByDescending(p => p.damageDealt.Value)
+                    .ThenByDescending(p => p.DamageDealt.Value)
                     .ToList();
             }
 
@@ -430,37 +432,37 @@ namespace Game.Match {
                 p.SetWorldModelVisibleRpc(isOnPodium); // you'll add this helper
             }
 
-            var firstName = topThree.Count > 0 ? topThree[0].playerName.Value.ToString() : string.Empty;
+            var firstName = topThree.Count > 0 ? topThree[0].PlayerName.Value.ToString() : string.Empty;
             var firstId = topThree.Count > 0 ? topThree[0].OwnerClientId : ulong.MaxValue;
             var firstScore = 0;
             if(topThree.Count > 0) {
                 if(isTagMode) {
                     var tagController = topThree[0].GetComponent<PlayerTagController>();
-                    firstScore = tagController != null ? tagController.timeTagged.Value : 0;
+                    firstScore = tagController != null ? tagController.TimeTagged.Value : 0;
                 } else {
                     firstScore = topThree[0].Kills.Value;
                 }
             }
 
-            var secondName = topThree.Count > 1 ? topThree[1].playerName.Value.ToString() : string.Empty;
+            var secondName = topThree.Count > 1 ? topThree[1].PlayerName.Value.ToString() : string.Empty;
             var secondId = topThree.Count > 1 ? topThree[1].OwnerClientId : ulong.MaxValue;
             var secondScore = 0;
             if(topThree.Count > 1) {
                 if(isTagMode) {
                     var tagController = topThree[1].GetComponent<PlayerTagController>();
-                    secondScore = tagController != null ? tagController.timeTagged.Value : 0;
+                    secondScore = tagController != null ? tagController.TimeTagged.Value : 0;
                 } else {
                     secondScore = topThree[1].Kills.Value;
                 }
             }
 
-            var thirdName = topThree.Count > 2 ? topThree[2].playerName.Value.ToString() : string.Empty;
+            var thirdName = topThree.Count > 2 ? topThree[2].PlayerName.Value.ToString() : string.Empty;
             var thirdId = topThree.Count > 2 ? topThree[2].OwnerClientId : ulong.MaxValue;
             var thirdScore = 0;
             if(topThree.Count > 2) {
                 if(isTagMode) {
                     var tagController = topThree[2].GetComponent<PlayerTagController>();
-                    thirdScore = tagController != null ? tagController.timeTagged.Value : 0;
+                    thirdScore = tagController != null ? tagController.TimeTagged.Value : 0;
                 } else {
                     thirdScore = topThree[2].Kills.Value;
                 }
@@ -580,7 +582,7 @@ namespace Game.Match {
                 NetworkManager.Singleton.LocalClient.PlayerObject != null) {
                 var statsCtrl = NetworkManager.Singleton.LocalClient.PlayerObject.GetComponent<PlayerStatsController>();
                 if (statsCtrl != null) {
-                    Progression.ProgressionManager.Instance.RecordMatchAverageSpeed(statsCtrl.averageVelocity.Value);
+                    Progression.ProgressionManager.Instance.RecordMatchAverageSpeed(statsCtrl.AverageVelocity.Value);
                 }
             }
 

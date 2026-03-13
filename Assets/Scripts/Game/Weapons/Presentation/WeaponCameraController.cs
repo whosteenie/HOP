@@ -1,4 +1,4 @@
-using Game.Player;
+using Game.Player.Core;
 using UnityEngine;
 using Unity.Cinemachine;
 using UnityEngine.Rendering.Universal;

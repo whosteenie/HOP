@@ -1,4 +1,4 @@
-using Game.Player;
+using Game.Player.Core;
 using UnityEngine;
 
 namespace Game.Weapons {

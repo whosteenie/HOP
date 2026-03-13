@@ -1,4 +1,5 @@
 using Game.Player;
+using Game.Player.Combat;
 using UnityEngine;
 using UnityEngine.Rendering;
 
@@ -142,7 +143,7 @@ namespace Game.Weapons {
 
             // Add tag glow update
             var tagController = playerController.GetComponent<PlayerTagController>();
-            if(tagController == null || !tagController.isTagged.Value) return;
+            if(tagController == null || !tagController.IsTagged.Value) return;
             var visualController = playerController.GetComponent<PlayerVisualController>();
             if (visualController != null) {
                 visualController.UpdateFpArmTagGlow(true, fpWeaponInstance);

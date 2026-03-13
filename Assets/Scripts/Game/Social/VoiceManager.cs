@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Game.Player.Core;
 using Network.Events;
 using Network.Session;
 using UnityEngine;
@@ -415,7 +416,7 @@ namespace Game.Social {
                 EventBus.Publish(new VoiceLocalPttStateChangedEvent(_isMicOpen));
                 
                 // Update NetworkVariable on local PlayerController so other clients see the indicator
-                var localPlayer = Player.PlayerController.LocalPlayer;
+                var localPlayer = PlayerController.LocalPlayer;
                 if (localPlayer != null) {
                     localPlayer.isPttActive.Value = _isMicOpen;
                 }

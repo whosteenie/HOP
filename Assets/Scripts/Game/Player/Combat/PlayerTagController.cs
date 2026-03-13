@@ -1,11 +1,12 @@
 using Game.Match;
+using Game.Player.Core;
 using Game.UI;
 using Network.Core;
 using Network.Events;
 using Unity.Netcode;
 using UnityEngine;
 
-namespace Game.Player {
+namespace Game.Player.Combat {
     /// <summary>
     /// Handles all Gun Tag mode logic including tag transfers, stats, and visual effects.
     /// </summary>
@@ -18,14 +19,37 @@ namespace Game.Player {
         private PlayerTeamManager _teamManager;
         private MatchPlayerStateProxy _cachedPlayerState;
         private MatchPlayerStateProxy _boundPlayerState;
-        private static readonly NetworkVariable<int> MissingIntState = new(0);
-        private static readonly NetworkVariable<bool> MissingBoolState = new(false);
+        private static readonly NetworkVariable<int> MissingIntState = new();
+        private static readonly NetworkVariable<bool> MissingBoolState = new();
 
         // Tag mode network variables
-        public NetworkVariable<int> tags => ResolvePlayerState()?.tags ?? MissingIntState;
-        public NetworkVariable<int> tagged => ResolvePlayerState()?.tagged ?? MissingIntState;
-        public NetworkVariable<int> timeTagged => ResolvePlayerState()?.timeTagged ?? MissingIntState; // Time tagged in seconds
-        public NetworkVariable<bool> isTagged => ResolvePlayerState()?.isTagged ?? MissingBoolState;
+        public NetworkVariable<int> Tags {
+            get {
+                var playerState = ResolvePlayerState();
+                return playerState != null ? playerState.tags : MissingIntState;
+            }
+        }
+
+        public NetworkVariable<int> Tagged {
+            get {
+                var playerState = ResolvePlayerState();
+                return playerState != null ? playerState.tagged : MissingIntState;
+            }
+        }
+
+        public NetworkVariable<int> TimeTagged {
+            get {
+                var playerState = ResolvePlayerState();
+                return playerState != null ? playerState.timeTagged : MissingIntState;
+            }
+        } // Time tagged in seconds
+
+        public NetworkVariable<bool> IsTagged {
+            get {
+                var playerState = ResolvePlayerState();
+                return playerState != null ? playerState.isTagged : MissingBoolState;
+            }
+        }
 
         // Throttling for network updates (at 90Hz: 5 ticks = ~55ms, 2 ticks = ~22ms)
         public float lastTagStatsUpdateTime; // Public for cross-reference in HandleTagTransfer
@@ -97,20 +121,20 @@ namespace Game.Player {
 
             _timer = 0f;
 
-            if(!isTagMode || !isTagged.Value) return;
+            if(!isTagMode || !IsTagged.Value) return;
 
             if(Time.time - lastTagStatsUpdateTime >= TagStatsUpdateInterval) {
-                timeTagged.Value++;
+                TimeTagged.Value++;
                 lastTagStatsUpdateTime = Time.time;
             } else {
-                var current = timeTagged.Value;
-                timeTagged.Value = current + 1;
+                var current = TimeTagged.Value;
+                TimeTagged.Value = current + 1;
             }
         }
         
         private void LateUpdate() {
             // Client-side progression tracking
-            if (IsOwner && isTagged.Value && Progression.ProgressionManager.Instance != null) {
+            if (IsOwner && IsTagged.Value && Progression.ProgressionManager.Instance != null) {
                  Progression.ProgressionManager.Instance.AddTimeTagged(Time.deltaTime);
             }
         }
@@ -133,7 +157,7 @@ namespace Game.Player {
                 attackerTagController = attacker.GetComponent<PlayerTagController>();
             }
 
-            if(attackerTagController == null || !attackerTagController.isTagged.Value) {
+            if(attackerTagController == null || !attackerTagController.IsTagged.Value) {
                 return;
             }
 
@@ -141,7 +165,7 @@ namespace Game.Player {
                 playerController.PlayHitEffectsClientRpc(hitPoint, amount);
             }
 
-            var wasTagged = isTagged.Value;
+            var wasTagged = IsTagged.Value;
             if(wasTagged) return;
             ApplyTagVictimAuthority();
 
@@ -191,7 +215,7 @@ namespace Game.Player {
                     tagger = taggerClient.PlayerObject.GetComponent<PlayerController>();
                 }
                 if(tagger != null) {
-                    taggerName = tagger.playerName.Value.ToString();
+                    taggerName = tagger.PlayerName.Value.ToString();
                 }
             }
 
@@ -201,7 +225,7 @@ namespace Game.Player {
                     taggedPlayer = taggedClient.PlayerObject.GetComponent<PlayerController>();
                 }
                 if(taggedPlayer != null) {
-                    taggedName = taggedPlayer.playerName.Value.ToString();
+                    taggedName = taggedPlayer.PlayerName.Value.ToString();
                 }
             }
 
@@ -227,7 +251,7 @@ namespace Game.Player {
                     taggedPlayer = taggedClient.PlayerObject.GetComponent<PlayerController>();
                 }
                 if(taggedPlayer != null) {
-                    taggedName = taggedPlayer.playerName.Value.ToString();
+                    taggedName = taggedPlayer.PlayerName.Value.ToString();
                 }
             }
 
@@ -276,23 +300,23 @@ namespace Game.Player {
         }
 
         public void ApplyTimeTaggedDeltaAuthority(int delta) {
-            timeTagged.Value = Mathf.Max(0, timeTagged.Value + delta);
+            TimeTagged.Value = Mathf.Max(0, TimeTagged.Value + delta);
         }
 
-        public void ApplyTagVictimAuthority() {
-            isTagged.Value = true;
+        private void ApplyTagVictimAuthority() {
+            IsTagged.Value = true;
 
             if(playerController != null && playerController.WeaponManager != null) {
                 playerController.WeaponManager.DrainCurrentWeaponAmmoForTag();
             }
 
-            tagged.Value++;
+            Tagged.Value++;
             lastTagStatsUpdateTime = Time.time;
         }
 
-        public void ApplyTagAttackerAuthority() {
-            isTagged.Value = false;
-            tags.Value++;
+        private void ApplyTagAttackerAuthority() {
+            IsTagged.Value = false;
+            Tags.Value++;
             lastTagStatsUpdateTime = Time.time;
         }
 

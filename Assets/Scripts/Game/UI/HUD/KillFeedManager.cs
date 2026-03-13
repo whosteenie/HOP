@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using Game.Match;
 using Game.Player;
+using Game.Player.Core;
 using Network.Events;
 using Unity.Netcode;
 using UnityEngine;

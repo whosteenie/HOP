@@ -1,8 +1,7 @@
 using System.Collections.Generic;
 using Audio.Networking;
-using Game.Match;
 using Game.Menu;
-using Game.Player;
+using Game.Player.Core;
 using Game.UI;
 using Network.Core;
 using Network.Events;
@@ -50,11 +49,11 @@ namespace Game.Weapons {
 
         private static readonly NetworkVariable<float> MissingDamageMultiplierState = new(1f);
 
-        public NetworkVariable<float> netCurrentDamageMultiplier =>
+        public NetworkVariable<float> NetCurrentDamageMultiplier =>
             playerController != null ? playerController.PlayerState?.replicatedDamageMultiplier ?? MissingDamageMultiplierState : MissingDamageMultiplierState;
 
-        public float CurrentDamageMultiplier {
-            get => IsOwner ? _localDamageMultiplier : netCurrentDamageMultiplier.Value;
+        private float CurrentDamageMultiplier {
+            get => IsOwner ? _localDamageMultiplier : NetCurrentDamageMultiplier.Value;
             set {
                 if(!IsOwner) return;
                 // Throttle network updates - only send if enough time has passed or value changed significantly
@@ -142,10 +141,6 @@ namespace Game.Weapons {
         public override void OnNetworkSpawn() {
             base.OnNetworkSpawn();
             ResetAuthorityObservedMotionBaseline();
-        }
-
-        public override void OnNetworkDespawn() {
-            base.OnNetworkDespawn();
         }
 
         private void ValidateComponents() {

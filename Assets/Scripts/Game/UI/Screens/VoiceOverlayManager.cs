@@ -6,6 +6,7 @@ using Network.Steam;
 using UnityEngine;
 using UnityEngine.UIElements;
 using Cysharp.Threading.Tasks;
+using Game.Player.Core;
 using Steamworks;
 using Unity.Netcode;
 
@@ -15,7 +16,7 @@ namespace Game.UI {
 
         // State
         private readonly Dictionary<string, VisualElement> _activeSpeakerElements = new(); // SteamId string -> Element
-        private readonly Dictionary<ulong, Player.PlayerController> _trackedPlayers = new(); // clientId -> player
+        private readonly Dictionary<ulong, PlayerController> _trackedPlayers = new(); // clientId -> player
         private readonly Dictionary<ulong, NetworkVariable<bool>.OnValueChangedDelegate> _pttHandlers = new();
         private readonly Dictionary<string, string> _participantToCanonicalId = new(StringComparer.Ordinal);
         private readonly List<string> _participantMappingsToRemove = new();
@@ -83,15 +84,15 @@ namespace Game.UI {
 
         private void RegisterPlayerLifecycleCallbacks() {
             if(_playerLifecycleCallbacksRegistered) return;
-            Player.PlayerController.PlayerSpawned += OnPlayerSpawned;
-            Player.PlayerController.PlayerDespawned += OnPlayerDespawned;
+            PlayerController.PlayerSpawned += OnPlayerSpawned;
+            PlayerController.PlayerDespawned += OnPlayerDespawned;
             _playerLifecycleCallbacksRegistered = true;
         }
 
         private void UnregisterPlayerLifecycleCallbacks() {
             if(_playerLifecycleCallbacksRegistered == false) return;
-            Player.PlayerController.PlayerSpawned -= OnPlayerSpawned;
-            Player.PlayerController.PlayerDespawned -= OnPlayerDespawned;
+            PlayerController.PlayerSpawned -= OnPlayerSpawned;
+            PlayerController.PlayerDespawned -= OnPlayerDespawned;
             _playerLifecycleCallbacksRegistered = false;
         }
 
@@ -103,17 +104,17 @@ namespace Game.UI {
             UnsubscribeClient(clientId);
         }
 
-        private void OnPlayerSpawned(Player.PlayerController player) {
+        private void OnPlayerSpawned(PlayerController player) {
             SubscribeToRemotePtt(player);
         }
 
-        private void OnPlayerDespawned(Player.PlayerController player) {
+        private void OnPlayerDespawned(PlayerController player) {
             if(player == null) return;
             UnsubscribeClient(player.OwnerClientId);
         }
 
         private void BootstrapTrackedPlayers() {
-            foreach(var player in Player.PlayerController.SpawnedPlayers) {
+            foreach(var player in PlayerController.SpawnedPlayers) {
                 SubscribeToRemotePtt(player);
             }
 
@@ -140,7 +141,7 @@ namespace Game.UI {
 
             var playerObject = client.PlayerObject;
             if(playerObject == null) return;
-            if(playerObject.TryGetComponent<Player.PlayerController>(out var player) == false) return;
+            if(playerObject.TryGetComponent<PlayerController>(out var player) == false) return;
             SubscribeToRemotePtt(player);
         }
 
@@ -187,7 +188,7 @@ namespace Game.UI {
         /// <summary>
         /// Called when a remote player's isPttActive NetworkVariable changes.
         /// </summary>
-        private void OnRemotePttChanged(Player.PlayerController player, bool isActive) {
+        private void OnRemotePttChanged(PlayerController player, bool isActive) {
             if(_overlayContainer == null || player == null) return;
 
             var canonicalId = GetCanonicalIdentityForPlayer(player);
@@ -201,7 +202,7 @@ namespace Game.UI {
 
             if(isActive) {
                 if(!_activeSpeakerElements.ContainsKey(canonicalId)) {
-                    CreateSpeakerEntry(player.PlayerName.Value.ToString(), player.steamId.Value, canonicalId);
+                    CreateSpeakerEntry(player.PlayerName.Value.ToString(), player.SteamId.Value, canonicalId);
                 }
             } else {
                 RemoveSpeakerEntry(canonicalId);
@@ -282,7 +283,7 @@ namespace Game.UI {
                 _participantToCanonicalId[rawParticipantId] = canonicalId;
 
                 if(isResolvedRemotePlayer) {
-                    CreateSpeakerEntry(resolvedPlayer.PlayerName.Value.ToString(), resolvedPlayer.steamId.Value, canonicalId);
+                    CreateSpeakerEntry(resolvedPlayer.PlayerName.Value.ToString(), resolvedPlayer.SteamId.Value, canonicalId);
                 } else {
                     ulong.TryParse(canonicalId, out var steamId);
                     CreateSpeakerEntry(displayName, steamId, canonicalId);
@@ -347,7 +348,7 @@ namespace Game.UI {
             _activeSpeakerElements.Remove(id);
         }
 
-        private void SubscribeToRemotePtt(Player.PlayerController player) {
+        private void SubscribeToRemotePtt(PlayerController player) {
             if(player == null || !player.IsSpawned) return;
 
             var clientId = player.OwnerClientId;
@@ -408,16 +409,16 @@ namespace Game.UI {
                 }
             }
 
-            var localPlayer = Player.PlayerController.LocalPlayer;
+            var localPlayer = PlayerController.LocalPlayer;
             if(localPlayer != null) {
-                var localSteamId = localPlayer.steamId.Value;
+                var localSteamId = localPlayer.SteamId.Value;
                 if(localSteamId != 0) {
                     var localSteamIdString = localSteamId.ToString();
                     _localIdentityAliases.Add(localSteamIdString);
                     _localCanonicalId ??= localSteamIdString;
                 }
 
-                var localUgsId = localPlayer.ugsId.Value.ToString();
+                var localUgsId = localPlayer.UgsId.Value.ToString();
                 if(string.IsNullOrEmpty(localUgsId) == false) {
                     _localIdentityAliases.Add(localUgsId);
                     _localCanonicalId ??= localUgsId;
@@ -435,7 +436,7 @@ namespace Game.UI {
             return !string.IsNullOrEmpty(identity) && _localIdentityAliases.Contains(identity);
         }
 
-        private string ResolveCanonicalIdentity(string rawIdentity, out Player.PlayerController resolvedPlayer) {
+        private string ResolveCanonicalIdentity(string rawIdentity, out PlayerController resolvedPlayer) {
             resolvedPlayer = null;
             if(string.IsNullOrEmpty(rawIdentity)) return rawIdentity;
 
@@ -452,7 +453,7 @@ namespace Game.UI {
             return TryResolveTrackedPlayer(rawIdentity, out resolvedPlayer, out canonicalId) ? canonicalId : rawIdentity;
         }
 
-        private bool TryResolveTrackedPlayer(string rawIdentity, out Player.PlayerController resolvedPlayer,
+        private bool TryResolveTrackedPlayer(string rawIdentity, out PlayerController resolvedPlayer,
             out string canonicalId) {
             resolvedPlayer = null;
             canonicalId = null;
@@ -460,9 +461,9 @@ namespace Game.UI {
             foreach(var player in _trackedPlayers.Values) {
                 if(player == null || player.IsSpawned == false) continue;
 
-                var steamId = player.steamId.Value;
+                var steamId = player.SteamId.Value;
                 var steamIdString = steamId != 0 ? steamId.ToString() : null;
-                var ugsIdString = player.ugsId.Value.ToString();
+                var ugsIdString = player.UgsId.Value.ToString();
 
                 if((string.IsNullOrEmpty(steamIdString) ||
                     !string.Equals(steamIdString, rawIdentity, StringComparison.Ordinal)) &&
@@ -476,14 +477,14 @@ namespace Game.UI {
             return false;
         }
 
-        private static string GetCanonicalIdentityForPlayer(Player.PlayerController player) {
+        private static string GetCanonicalIdentityForPlayer(PlayerController player) {
             if(player == null) return null;
 
-            if(player.steamId.Value != 0) {
-                return player.steamId.Value.ToString();
+            if(player.SteamId.Value != 0) {
+                return player.SteamId.Value.ToString();
             }
 
-            var ugsId = player.ugsId.Value.ToString();
+            var ugsId = player.UgsId.Value.ToString();
             return string.IsNullOrEmpty(ugsId) ? null : ugsId;
         }
 
@@ -515,7 +516,7 @@ namespace Game.UI {
                 OnRemotePttChanged(player, player.isPttActive.Value);
             }
 
-            var localPlayer = Player.PlayerController.LocalPlayer;
+            var localPlayer = PlayerController.LocalPlayer;
             if(localPlayer != null) {
                 OnLocalPttStateChanged(localPlayer.isPttActive.Value);
             }

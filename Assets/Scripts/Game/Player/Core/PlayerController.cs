@@ -1,37 +1,32 @@
 using System;
-using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
 using Audio.Networking;
-using Game.Weapons;
-using Game.UI;
-using Game.Menu;
 using Game.Match;
+using Game.Player.Combat;
 using Game.Player.Hopball;
 using Game.Player.Look;
+using Game.Player.Movement;
+using Game.Player.Podium;
+using Game.UI;
+using Game.Weapons;
 using Network;
-using Network.Core;
-using Network.AntiCheat;
 using Network.Components;
+using Network.Core;
 using Network.Events;
 using Network.Rpc;
 using OSI;
-using Steamworks;
 using Unity.Cinemachine;
 using Unity.Collections;
 using Unity.Netcode;
 using UnityEngine;
-using UnityEngine.Rendering;
-using UnityEngine.UIElements;
-using Game.Settings;
 using SessionManager = Network.Session.SessionManager;
 
-namespace Game.Player {
+namespace Game.Player.Core {
     [DisallowMultipleComponent]
     [RequireComponent(typeof(CharacterController))]
     [RequireComponent(typeof(NetworkAudioRelay))]
     [DefaultExecutionOrder(-100)] // Initialize before sub-controllers
-    public partial class PlayerController : NetworkBehaviour {
+    public class PlayerController : NetworkBehaviour {
         public static PlayerController LocalPlayer { get; private set; }
         public static event Action<PlayerController> PlayerSpawned;
         public static event Action<PlayerController> PlayerDespawned;
@@ -130,55 +125,10 @@ namespace Game.Player {
 
         #region Private Fields
 
-        private const string KinemationFpsCameraControllerTypeName =
-            "KINEMATION.FPSAnimationFramework.Runtime.Camera.FPSCameraController";
-
-        private const string KinemationFpsCameraAnimationTypeName =
-            "KINEMATION.FPSAnimationFramework.Runtime.Camera.FPSCameraAnimation";
-
-        private const string KinemationFpsCameraShakeTypeName =
-            "KINEMATION.FPSAnimationFramework.Runtime.Camera.FPSCameraShake";
-
-        private const string KinemationFpsAnimatorTypeName =
-            "KINEMATION.FPSAnimationFramework.Runtime.Core.FPSAnimator";
-
-        private const string KinemationFpsBoneControllerTypeName =
-            "KINEMATION.FPSAnimationFramework.Runtime.Core.FPSBoneController";
-
-        private const string KinemationFpsPlayablesControllerTypeName =
-            "KINEMATION.FPSAnimationFramework.Runtime.Playables.FPSPlayablesController";
-
-        private const string KinemationFpsAnimatorEntityTypeName =
-            "KINEMATION.FPSAnimationFramework.Runtime.Core.FPSAnimatorEntity";
-
-        private const string KinemationUserInputControllerTypeName =
-            "KINEMATION.Shared.KAnimationCore.Runtime.Input.UserInputController";
-
-        private const string KinemationProceduralRecoilTypeName =
-            "KINEMATION.ProceduralRecoilAnimationSystem.Runtime.RecoilAnimation";
-
-        private float _lastDeathTime; // Used for OOB check in Update()
-        private float _ignoreOutOfBoundsUntilTime;
         [Header("Out Of Bounds")]
         [SerializeField] private string outOfBoundsMarkerName = "OOB";
         [SerializeField] private string outOfBoundsMarkerTag = "OOB";
         [SerializeField] private float defaultOutOfBoundsY = 600f;
-        private int _cachedOobSceneHandle = -1;
-        private float _cachedOutOfBoundsY;
-        private bool _cachedUseYLevelOutOfBoundsKill = true;
-        private bool _cachedUseTriggerOutOfBoundsKill;
-        private Collider _cachedOutOfBoundsTriggerCollider;
-        private const float TriggerOutOfBoundsCountdownSeconds = 3f;
-        private bool _triggerOobCountdownActiveServer;
-        private float _triggerOobDeadlineServerTime;
-        private bool _triggerOobCountdownVisibleOwner;
-        private float _triggerOobDeadlineOwnerTime;
-        private Vector3 _lastServerMovementPosition;
-        private float _lastServerMovementTime;
-        private bool _hasServerMovementSample;
-        private float _lastObservedServerMovementSpeed;
-        private MatchPlayerStateProxy _cachedPlayerState;
-        private MatchPlayerStateProxy _boundPlayerState;
 
         private static readonly NetworkVariable<float> MissingHealthState = new(100f);
         private static readonly NetworkVariable<bool> MissingDeathState = new();
@@ -188,68 +138,21 @@ namespace Game.Player {
         private static readonly NetworkVariable<FixedString128Bytes> MissingUgsIdState = new("");
         private static readonly NetworkVariable<FixedString64Bytes> MissingPlayerNameState = new("Player");
 
-        // Movement violation tracking
-        private class MovementViolation {
-            public float Time;
-            public bool WasSpeedViolation;
-        }
-
-        private readonly List<MovementViolation> _movementViolations = new();
-
         private const float MinHeightStrength = 0.005f;
         private const float MaxHeightStrength = 0.08f;
 
-        // Cache MeshRenderers per weapon instance to avoid repeated GetComponentsInChildren calls
-        private readonly Dictionary<GameObject, MeshRenderer[]> _cachedWeaponRenderers = new();
-        private readonly Dictionary<GameObject, Collider[]> _cachedWeaponColliders = new();
-        private MonoBehaviour[] _cachedChildBehaviours = Array.Empty<MonoBehaviour>();
-        private Camera[] _cachedChildCameras = Array.Empty<Camera>();
-        private AudioListener[] _cachedChildAudioListeners = Array.Empty<AudioListener>();
-        private bool _childComponentCachesDirty = true;
-        private Coroutine _identitySyncRoutine;
-        private bool _identitySyncCompleted;
+        private PlayerNetworkStateCoordinator _networkStateCoordinator;
+        private PlayerMaterialCustomizationCoordinator _materialCustomizationCoordinator;
+        private PlayerRuntimeSafetyCoordinator _runtimeSafetyCoordinator;
+        private PlayerOutOfBoundsCoordinator _outOfBoundsCoordinator;
+        private PlayerMovementValidationCoordinator _movementValidationCoordinator;
+        private PlayerWeaponPresentationCoordinator _weaponPresentationCoordinator;
+        private PlayerSpawnPresentationCoordinator _spawnPresentationCoordinator;
+        private PlayerPresentationStateCoordinator _presentationStateCoordinator;
 
         #endregion
 
         #region Network Variables
-
-        public NetworkVariable<float> netHealth {
-            get {
-                var playerState = ResolvePlayerState();
-                return playerState != null ? playerState.netHealth : MissingHealthState;
-            }
-        }
-        public NetworkVariable<bool> netIsDead {
-            get {
-                var playerState = ResolvePlayerState();
-                return playerState != null ? playerState.netIsDead : MissingDeathState;
-            }
-        }
-        private NetworkVariable<int> kills {
-            get {
-                var playerState = ResolvePlayerState();
-                return playerState != null ? playerState.kills : MissingIntState;
-            }
-        }
-        private NetworkVariable<int> deaths {
-            get {
-                var playerState = ResolvePlayerState();
-                return playerState != null ? playerState.deaths : MissingIntState;
-            }
-        }
-        private NetworkVariable<int> assists {
-            get {
-                var playerState = ResolvePlayerState();
-                return playerState != null ? playerState.assists : MissingIntState;
-            }
-        }
-
-        public NetworkVariable<float> damageDealt {
-            get {
-                var playerState = ResolvePlayerState();
-                return playerState != null ? playerState.damageDealt : MissingFloatState;
-            }
-        }
 
         public NetworkVariable<int> playerMaterialIndex = new(0,
             NetworkVariableReadPermission.Everyone,
@@ -290,27 +193,6 @@ namespace Game.Player {
         public NetworkVariable<Vector4> playerEmissionColor = new(new Vector4(0f, 0f, 0f, 1f),
             NetworkVariableReadPermission.Everyone,
             NetworkVariableWritePermission.Owner);
-
-        public NetworkVariable<ulong> steamId {
-            get {
-                var playerState = ResolvePlayerState();
-                return playerState != null ? playerState.steamId : MissingSteamIdState;
-            }
-        }
-        
-        public NetworkVariable<FixedString128Bytes> ugsId {
-            get {
-                var playerState = ResolvePlayerState();
-                return playerState != null ? playerState.ugsId : MissingUgsIdState;
-            }
-        }
-
-        public NetworkVariable<FixedString64Bytes> playerName {
-            get {
-                var playerState = ResolvePlayerState();
-                return playerState != null ? playerState.playerName : MissingPlayerNameState;
-            }
-        }
 
         public NetworkVariable<bool> netIsCrouching = new(false,
             NetworkVariableReadPermission.Everyone,
@@ -373,11 +255,49 @@ namespace Game.Player {
         public float CurrentPitch => lookController != null ? lookController.CurrentPitch : 0f;
         public WallRunController WallRunController => wallRunController;
 
+        internal bool DisableKinemationFrameworkComponentsConfigured => disableKinemationFrameworkComponents;
+        internal bool DisableOnlyKinemationFrameworkCameraComponents => disableOnlyKinemationFrameworkCameraComponents;
+        internal bool LogKinemationFrameworkDisables => logKinemationFrameworkDisables;
+        internal bool DisableUnexpectedChildCamerasConfigured => disableUnexpectedChildCameras;
+        internal string OutOfBoundsMarkerName => outOfBoundsMarkerName;
+        internal string OutOfBoundsMarkerTag => outOfBoundsMarkerTag;
+        internal float DefaultOutOfBoundsY => defaultOutOfBoundsY;
+        internal NetworkVariable<int> PlayerMaterialPacketIndexState => playerMaterialPacketIndex;
+        internal NetworkVariable<Vector4> PlayerBaseColorState => playerBaseColor;
+        internal NetworkVariable<float> PlayerSmoothnessState => playerSmoothness;
+        internal NetworkVariable<float> PlayerMetallicState => playerMetallic;
+        internal NetworkVariable<Vector4> PlayerSpecularColorState => playerSpecularColor;
+        internal NetworkVariable<float> PlayerHeightStrengthState => playerHeightStrength;
+        internal NetworkVariable<bool> PlayerEmissionEnabledState => playerEmissionEnabled;
+        internal NetworkVariable<Vector4> PlayerEmissionColorState => playerEmissionColor;
+        internal static float MinHeightStrengthValue => MinHeightStrength;
+        internal static float MaxHeightStrengthValue => MaxHeightStrength;
+        internal void AssignWeaponCamera(Camera assignedWeaponCamera) => weaponCamera = assignedWeaponCamera;
+        internal void HandleResolvedHealthChanged(float oldValue, float newValue) => OnHealthChanged(oldValue, newValue);
+        internal void HandleResolvedDeathChanged(bool oldValue, bool newValue) => OnDeathStateChanged(oldValue, newValue);
+        internal void BeginIdentitySyncFromSpawn(ulong localSteamId, string ugsPlayerId, string playerDisplayName) =>
+            BeginIdentitySync(localSteamId, ugsPlayerId, playerDisplayName);
+        internal void LoadMaterialCustomizationFromPrefsForSpawn() => LoadMaterialCustomizationFromPrefs();
+        internal void ClearTriggerOutOfBoundsCountdownFromPresentation() => ClearTriggerOutOfBoundsCountdownServer();
+        internal void HideTriggerOutOfBoundsCountdownLocalFromPresentation() => HideTriggerOutOfBoundsCountdownLocal();
+
         #endregion
 
         #region Unity Lifecycle
 
+        private void InitializeCoordinators() {
+            _runtimeSafetyCoordinator ??= new PlayerRuntimeSafetyCoordinator(this);
+            _outOfBoundsCoordinator ??= new PlayerOutOfBoundsCoordinator(this);
+            _networkStateCoordinator ??= new PlayerNetworkStateCoordinator(this);
+            _materialCustomizationCoordinator ??= new PlayerMaterialCustomizationCoordinator(this);
+            _movementValidationCoordinator ??= new PlayerMovementValidationCoordinator(this);
+            _weaponPresentationCoordinator ??= new PlayerWeaponPresentationCoordinator(this);
+            _spawnPresentationCoordinator ??= new PlayerSpawnPresentationCoordinator(this);
+            _presentationStateCoordinator ??= new PlayerPresentationStateCoordinator(this);
+        }
+
         private void Awake() {
+            InitializeCoordinators();
             MarkChildComponentCachesDirty();
             DisableConflictingKinemationFrameworkComponents();
             DisableUnexpectedChildCamerasAndListeners();
@@ -388,6 +308,7 @@ namespace Game.Player {
         }
 
         private void OnTransformChildrenChanged() {
+            InitializeCoordinators();
             MarkChildComponentCachesDirty();
         }
 
@@ -405,9 +326,7 @@ namespace Game.Player {
 
         public override void OnDestroy() {
             CancelPendingIdentitySync();
-            UnbindPlayerStateSubscriptions();
-            MatchPlayerStateProxy.StateRegistered -= OnPlayerStateRegistered;
-            MatchPlayerStateProxy.StateUnregistered -= OnPlayerStateUnregistered;
+            UnsubscribeFromNetworkVariables();
             UnregisterSpawnedPlayer(this);
             if(LocalPlayer == this) {
                 LocalPlayer = null;
@@ -417,6 +336,7 @@ namespace Game.Player {
 
         public override void OnNetworkSpawn() {
             base.OnNetworkSpawn();
+            InitializeCoordinators();
             MarkChildComponentCachesDirty();
             DisableConflictingKinemationFrameworkComponents();
             DisableUnexpectedChildCamerasAndListeners();
@@ -429,172 +349,19 @@ namespace Game.Player {
             SubscribeToNetworkVariables();
             TryBindPlayerStateSubscriptions();
             UpdatePlayerMaterialFromNetwork();
-
-            if(characterController.enabled == false && !netIsDead.Value) {
-                characterController.enabled = true;
-            }
-
-            var gameMenu = GameMenuManager.Instance;
-            if(gameMenu != null && gameMenu.TryGetComponent(out UIDocument doc)) {
-                var root = doc.rootVisualElement;
-                VisualElement rootContainer = null;
-                if(root != null) {
-                    rootContainer = root.Q<VisualElement>("root-container");
-                }
-                if(rootContainer != null)
-                    rootContainer.style.display = DisplayStyle.Flex;
-            }
-
-            EventBus.Publish(new ShowHUDEvent());
-            if(IsOwner && fpCamera && lookController != null) {
-                fpCamera.Lens.FieldOfView = lookController.BaseFov;
-            }
-
-            if(animationController != null)
-                animationController.ResetSpawnTime();
-
-            if(!IsOwner && animationController != null) {
-                animationController.ApplyRemoteStateSnapshot(netIsJumping.Value, netIsFalling.Value, netIsSliding.Value);
-                animationController.ApplyRemoteWallRunState(netIsWallRunning.Value, netIsRightWallRun.Value,
-                    netWallRunDirection.Value);
-            }
-
-            if(GameMenuManager.Instance.IsPaused) {
-                GameMenuManager.Instance.TogglePause();
-            }
-
-            if(IsOwner) {
-                string pName;
-                ulong localSteamId = 0;
-                if(SteamClient.IsValid && SteamClient.IsLoggedOn) {
-                    pName = Social.StreamerMode.GetLocalDisplayName();
-                    localSteamId = SteamClient.SteamId.Value;
-                } else {
-                    pName = Social.StreamerMode.LocalDisplayName;
-                }
-
-                var ugsPlayerId = LocalIdentity.GetUgsPlayerId();
-                BeginIdentitySync(localSteamId, ugsPlayerId, pName);
-                
-                primaryWeaponIndex.Value = GameSettings.Data.player.primaryWeaponIndex;
-                secondaryWeaponIndex.Value = GameSettings.Data.player.secondaryWeaponIndex;
-                
-                LoadMaterialCustomizationFromPrefs();
-
-                EventBus.Publish(new LocalPlayerReadyEvent(this));
-
-                var matchSettings = MatchSettingsManager.Instance;
-                if(matchSettings != null && matchSettings.selectedGameModeId == "Gun Tag" && tagController != null) {
-                    EventBus.Publish(new UpdateTagStatusEvent(tagController.isTagged.Value));
-                }
-
-                if(playerShadow != null)
-                    playerShadow.ApplyOwnerDefaultShadowState();
-            } else {
-                if(playerModelRoot != null && !playerModelRoot.activeSelf) {
-                    playerModelRoot.SetActive(true);
-                }
-
-                if(visualController != null) {
-                    visualController.InvalidateRendererCache();
-                    visualController.SetRenderersEnabled(true);
-                    visualController.ForceRendererBoundsUpdate();
-                }
-
-                if(playerShadow != null)
-                    playerShadow.ApplyVisibleShadowState();
-            }
+            _spawnPresentationCoordinator.HandleNetworkSpawnPresentation();
         }
 
         private void DisableConflictingKinemationFrameworkComponents() {
-            if(!disableKinemationFrameworkComponents) return;
-
-            RefreshChildComponentCachesIfNeeded();
-            var behaviours = _cachedChildBehaviours;
-            foreach(var behaviour in behaviours) {
-                if(behaviour == null || !behaviour.enabled) continue;
-                if(IsRuntimeKinemationFpViewmodelComponent(behaviour)) continue;
-
-                var type = behaviour.GetType();
-                var fullName = type.FullName;
-                if(string.IsNullOrEmpty(fullName)) continue;
-                if(!ShouldDisableKinemationFrameworkComponent(fullName)) continue;
-
-                behaviour.enabled = false;
-                if(logKinemationFrameworkDisables) {
-                    Debug.Log($"[PlayerController] Disabled conflicting KINEMATION framework component: {fullName}",
-                        behaviour);
-                }
-            }
-        }
-
-        private bool ShouldDisableKinemationFrameworkComponent(string fullTypeName) {
-            var isCameraComponent = fullTypeName is KinemationFpsCameraControllerTypeName or KinemationFpsCameraAnimationTypeName or KinemationFpsCameraShakeTypeName;
-
-            if(disableOnlyKinemationFrameworkCameraComponents) {
-                return isCameraComponent;
-            }
-
-            if(isCameraComponent) return true;
-
-            return fullTypeName is KinemationFpsAnimatorTypeName or KinemationFpsBoneControllerTypeName or KinemationFpsPlayablesControllerTypeName or KinemationFpsAnimatorEntityTypeName or KinemationUserInputControllerTypeName or KinemationProceduralRecoilTypeName;
+            _runtimeSafetyCoordinator.DisableConflictingKinemationFrameworkComponents();
         }
 
         private void DisableUnexpectedChildCamerasAndListeners() {
-            if(!disableUnexpectedChildCameras) return;
-
-            RefreshChildComponentCachesIfNeeded();
-            var cameras = _cachedChildCameras;
-            var activeWeaponCamera = weaponCamera;
-            if(activeWeaponCamera == null) {
-                foreach(var candidate in cameras) {
-                    if(candidate == null || candidate.gameObject.name != "WeaponCamera") continue;
-                    activeWeaponCamera = candidate;
-                    weaponCamera = candidate;
-                    break;
-                }
-            }
-
-            foreach(var cameraComponent in cameras) {
-                if(cameraComponent == null || !cameraComponent.enabled) continue;
-                if(IsRuntimeKinemationFpViewmodelComponent(cameraComponent)) continue;
-                if(activeWeaponCamera != null && cameraComponent == activeWeaponCamera) continue;
-
-                cameraComponent.enabled = false;
-                if(logKinemationFrameworkDisables) {
-                    Debug.Log($"[PlayerController] Disabled unexpected child camera: {cameraComponent.name}",
-                        cameraComponent);
-                }
-            }
-
-            var listeners = _cachedChildAudioListeners;
-            foreach(var listener in listeners) {
-                if(listener == null || !listener.enabled) continue;
-                if(IsRuntimeKinemationFpViewmodelComponent(listener)) continue;
-                if(audioListener != null && listener == audioListener) continue;
-
-                listener.enabled = false;
-                if(logKinemationFrameworkDisables) {
-                    Debug.Log($"[PlayerController] Disabled unexpected child audio listener: {listener.name}", listener);
-                }
-            }
+            _runtimeSafetyCoordinator.DisableUnexpectedChildCamerasAndListeners();
         }
 
         private void MarkChildComponentCachesDirty() {
-            _childComponentCachesDirty = true;
-        }
-
-        private void RefreshChildComponentCachesIfNeeded() {
-            if(!_childComponentCachesDirty) return;
-            _cachedChildBehaviours = GetComponentsInChildren<MonoBehaviour>(true);
-            _cachedChildCameras = GetComponentsInChildren<Camera>(true);
-            _cachedChildAudioListeners = GetComponentsInChildren<AudioListener>(true);
-            _childComponentCachesDirty = false;
-        }
-
-        private static bool IsRuntimeKinemationFpViewmodelComponent(Component component) {
-            if(component == null) return false;
-            return component.GetComponentInParent<KinemationFpWeaponDriver>(true) != null;
+            _runtimeSafetyCoordinator.MarkChildComponentCachesDirty();
         }
 
         public override void OnNetworkDespawn() {
@@ -617,733 +384,241 @@ namespace Game.Player {
         }
 
         private void BeginIdentitySync(ulong localSteamId, string ugsPlayerId, string playerDisplayName) {
-            CancelPendingIdentitySync();
-            _identitySyncCompleted = false;
-            _identitySyncRoutine = StartCoroutine(SendIdentityWhenAuthorityReady(localSteamId,
-                string.IsNullOrEmpty(ugsPlayerId) ? string.Empty : ugsPlayerId,
-                string.IsNullOrWhiteSpace(playerDisplayName) ? "Player" : playerDisplayName));
+            _networkStateCoordinator.BeginIdentitySync(localSteamId, ugsPlayerId, playerDisplayName);
         }
 
         private void CancelPendingIdentitySync() {
-            if(_identitySyncRoutine == null) {
-                return;
-            }
-
-            StopCoroutine(_identitySyncRoutine);
-            _identitySyncRoutine = null;
-        }
-
-        private IEnumerator SendIdentityWhenAuthorityReady(ulong localSteamId, string ugsPlayerId,
-            string playerDisplayName) {
-            while(this != null && IsSpawned && !_identitySyncCompleted) {
-                var authority = MatchPlayerStateAuthority.Instance;
-                if(authority != null &&
-                   authority.NetworkObject != null &&
-                   authority.NetworkObject.IsSpawned &&
-                   NetworkObject != null &&
-                   NetworkObject.IsSpawned) {
-                    authority.RequestIdentitySyncAuthorityServerRpc(
-                        new NetworkObjectReference(NetworkObject),
-                        localSteamId,
-                        new FixedString128Bytes(ugsPlayerId),
-                        new FixedString64Bytes(playerDisplayName));
-                    _identitySyncCompleted = true;
-                    _identitySyncRoutine = null;
-                    yield break;
-                }
-
-                yield return null;
-            }
-
-            _identitySyncRoutine = null;
+            _networkStateCoordinator.CancelPendingIdentitySync();
         }
 
         /// <summary>
         /// Subscribes to all NetworkVariable value change callbacks.
         /// </summary>
         private void SubscribeToNetworkVariables() {
-            MatchPlayerStateProxy.StateRegistered -= OnPlayerStateRegistered;
-            MatchPlayerStateProxy.StateRegistered += OnPlayerStateRegistered;
-            MatchPlayerStateProxy.StateUnregistered -= OnPlayerStateUnregistered;
-            MatchPlayerStateProxy.StateUnregistered += OnPlayerStateUnregistered;
+            _networkStateCoordinator.Subscribe();
 
             playerMaterialIndex.OnValueChanged -= OnMatChanged;
             playerMaterialIndex.OnValueChanged += OnMatChanged;
-            
-            playerMaterialPacketIndex.OnValueChanged -= OnMaterialPacketChanged;
-            playerMaterialPacketIndex.OnValueChanged += OnMaterialPacketChanged;
-            playerBaseColor.OnValueChanged -= OnMaterialCustomizationChanged;
-            playerBaseColor.OnValueChanged += OnMaterialCustomizationChanged;
-            playerSmoothness.OnValueChanged -= OnMaterialCustomizationChanged;
-            playerSmoothness.OnValueChanged += OnMaterialCustomizationChanged;
-            playerMetallic.OnValueChanged -= OnMaterialCustomizationChanged;
-            playerMetallic.OnValueChanged += OnMaterialCustomizationChanged;
-            playerSpecularColor.OnValueChanged -= OnMaterialCustomizationChanged;
-            playerSpecularColor.OnValueChanged += OnMaterialCustomizationChanged;
-            playerHeightStrength.OnValueChanged -= OnMaterialCustomizationChanged;
-            playerHeightStrength.OnValueChanged += OnMaterialCustomizationChanged;
-            playerEmissionEnabled.OnValueChanged -= OnMaterialCustomizationChanged;
-            playerEmissionEnabled.OnValueChanged += OnMaterialCustomizationChanged;
-            playerEmissionColor.OnValueChanged -= OnMaterialCustomizationChanged;
-            playerEmissionColor.OnValueChanged += OnMaterialCustomizationChanged;
-            netIsCrouching.OnValueChanged -= OnCrouchStateChanged;
-            netIsCrouching.OnValueChanged += OnCrouchStateChanged;
-            netIsSliding.OnValueChanged -= OnSlidingStateChanged;
-            netIsSliding.OnValueChanged += OnSlidingStateChanged;
-            netIsJumping.OnValueChanged -= OnJumpingStateChanged;
-            netIsJumping.OnValueChanged += OnJumpingStateChanged;
-            netIsFalling.OnValueChanged -= OnFallingStateChanged;
-            netIsFalling.OnValueChanged += OnFallingStateChanged;
-            jumpAnimationSequence.OnValueChanged -= OnJumpAnimationSequenceChanged;
-            jumpAnimationSequence.OnValueChanged += OnJumpAnimationSequenceChanged;
-            landAnimationSequence.OnValueChanged -= OnLandAnimationSequenceChanged;
-            landAnimationSequence.OnValueChanged += OnLandAnimationSequenceChanged;
-            mantleAnimationSequence.OnValueChanged -= OnMantleAnimationSequenceChanged;
-            mantleAnimationSequence.OnValueChanged += OnMantleAnimationSequenceChanged;
-            netIsWallRunning.OnValueChanged -= OnWallRunStateChanged;
-            netIsWallRunning.OnValueChanged += OnWallRunStateChanged;
-            netIsRightWallRun.OnValueChanged -= OnWallRunOrientationChanged;
-            netIsRightWallRun.OnValueChanged += OnWallRunOrientationChanged;
-            netWallRunDirection.OnValueChanged -= OnWallRunDirectionChanged;
-            netWallRunDirection.OnValueChanged += OnWallRunDirectionChanged;
-            TryBindPlayerStateSubscriptions();
+            _materialCustomizationCoordinator.Subscribe();
+            _presentationStateCoordinator.Subscribe();
         }
 
         /// <summary>
         /// Unsubscribes from all NetworkVariable value change callbacks.
         /// </summary>
         private void UnsubscribeFromNetworkVariables() {
-            MatchPlayerStateProxy.StateRegistered -= OnPlayerStateRegistered;
-            MatchPlayerStateProxy.StateUnregistered -= OnPlayerStateUnregistered;
-            UnbindPlayerStateSubscriptions();
+            _networkStateCoordinator.Unsubscribe();
 
             playerMaterialIndex.OnValueChanged -= OnMatChanged;
-            playerMaterialPacketIndex.OnValueChanged -= OnMaterialPacketChanged;
-            playerBaseColor.OnValueChanged -= OnMaterialCustomizationChanged;
-            playerSmoothness.OnValueChanged -= OnMaterialCustomizationChanged;
-            playerMetallic.OnValueChanged -= OnMaterialCustomizationChanged;
-            playerSpecularColor.OnValueChanged -= OnMaterialCustomizationChanged;
-            playerHeightStrength.OnValueChanged -= OnMaterialCustomizationChanged;
-            playerEmissionEnabled.OnValueChanged -= OnMaterialCustomizationChanged;
-            playerEmissionColor.OnValueChanged -= OnMaterialCustomizationChanged;
-            netIsCrouching.OnValueChanged -= OnCrouchStateChanged;
-            netIsSliding.OnValueChanged -= OnSlidingStateChanged;
-            netIsJumping.OnValueChanged -= OnJumpingStateChanged;
-            netIsFalling.OnValueChanged -= OnFallingStateChanged;
-            jumpAnimationSequence.OnValueChanged -= OnJumpAnimationSequenceChanged;
-            landAnimationSequence.OnValueChanged -= OnLandAnimationSequenceChanged;
-            mantleAnimationSequence.OnValueChanged -= OnMantleAnimationSequenceChanged;
-            netIsWallRunning.OnValueChanged -= OnWallRunStateChanged;
-            netIsRightWallRun.OnValueChanged -= OnWallRunOrientationChanged;
-            netWallRunDirection.OnValueChanged -= OnWallRunDirectionChanged;
+            _materialCustomizationCoordinator.Unsubscribe();
+            _presentationStateCoordinator.Unsubscribe();
         }
 
-        public MatchPlayerStateProxy PlayerState => ResolvePlayerState();
+        public MatchPlayerStateProxy PlayerState => _networkStateCoordinator.PlayerState;
 
         private MatchPlayerStateProxy ResolvePlayerState() {
-            if(_cachedPlayerState != null &&
-               _cachedPlayerState.RepresentedClientId == OwnerClientId &&
-               _cachedPlayerState.NetworkObject != null &&
-               _cachedPlayerState.NetworkObject.IsSpawned) {
-                return _cachedPlayerState;
-            }
-
-            _cachedPlayerState = MatchPlayerStateProxy.GetForPlayer(OwnerClientId);
-            return _cachedPlayerState;
-        }
-
-        private void OnPlayerStateRegistered(ulong playerClientId, MatchPlayerStateProxy proxy) {
-            if(playerClientId != OwnerClientId) {
-                return;
-            }
-
-            _cachedPlayerState = proxy;
-            TryBindPlayerStateSubscriptions();
-        }
-
-        private void OnPlayerStateUnregistered(ulong playerClientId, MatchPlayerStateProxy proxy) {
-            if(playerClientId != OwnerClientId) {
-                return;
-            }
-
-            if(_boundPlayerState == proxy) {
-                UnbindPlayerStateSubscriptions();
-            }
-
-            if(_cachedPlayerState == proxy) {
-                _cachedPlayerState = null;
-            }
+            return _networkStateCoordinator.ResolvePlayerState();
         }
 
         private void TryBindPlayerStateSubscriptions() {
-            var playerState = ResolvePlayerState();
-            if(playerState == null || _boundPlayerState == playerState) {
-                return;
-            }
-
-            UnbindPlayerStateSubscriptions();
-
-            playerState.netHealth.OnValueChanged -= OnHealthChanged;
-            playerState.netHealth.OnValueChanged += OnHealthChanged;
-            playerState.netIsDead.OnValueChanged -= OnDeathStateChanged;
-            playerState.netIsDead.OnValueChanged += OnDeathStateChanged;
-            _boundPlayerState = playerState;
+            _networkStateCoordinator.TryBindPlayerStateSubscriptions();
         }
 
-        private void UnbindPlayerStateSubscriptions() {
-            if(_boundPlayerState == null) {
-                return;
-            }
-
-            _boundPlayerState.netHealth.OnValueChanged -= OnHealthChanged;
-            _boundPlayerState.netIsDead.OnValueChanged -= OnDeathStateChanged;
-            _boundPlayerState = null;
-        }
-
-        private static void OnMatChanged(int _, int newIdx) {
+        private static void OnMatChanged(int _, int __) {
         }
 
         /// <summary>
         /// Called when material packet index changes. Triggers material update.
         /// </summary>
-        private void OnMaterialPacketChanged(int _, int newIndex) {
-            UpdatePlayerMaterialFromNetwork();
-        }
-
-        /// <summary>
-        /// Called when any material customization value changes. Triggers material update.
-        /// </summary>
-        private void OnMaterialCustomizationChanged<T>(T _, T __) {
-            UpdatePlayerMaterialFromNetwork();
-        }
-
-        /// <summary>
-        /// Updates the player material using the new packet-based system from network values.
-        /// </summary>
         private void UpdatePlayerMaterialFromNetwork() {
-            if(visualController == null) return;
-
-            var baseColor = new Color(
-                playerBaseColor.Value.x,
-                playerBaseColor.Value.y,
-                playerBaseColor.Value.z,
-                playerBaseColor.Value.w
-            );
-
-            var specularColor = new Color(
-                playerSpecularColor.Value.x,
-                playerSpecularColor.Value.y,
-                playerSpecularColor.Value.z,
-                playerSpecularColor.Value.w
-            );
-
-            var emissionColor = new Color(
-                playerEmissionColor.Value.x,
-                playerEmissionColor.Value.y,
-                playerEmissionColor.Value.z,
-                playerEmissionColor.Value.w
-            );
-
-            visualController.ApplyPlayerMaterialCustomization(
-                playerMaterialPacketIndex.Value,
-                baseColor,
-                playerSmoothness.Value,
-                playerMetallic.Value,
-                specularColor,
-                Mathf.Clamp(playerHeightStrength.Value, MinHeightStrength, MaxHeightStrength),
-                playerEmissionEnabled.Value,
-                emissionColor
-            );
+            _materialCustomizationCoordinator.UpdatePlayerMaterialFromNetwork();
         }
 
         /// <summary>
         /// Loads material customization values from settings.json.
         /// </summary>
         private void LoadMaterialCustomizationFromPrefs() {
-            var c = GameSettings.Data.player.customization;
-
-            playerMaterialPacketIndex.Value = c.materialPacketIndex;
-            playerBaseColor.Value = c.baseColor;
-            playerSmoothness.Value = c.smoothness;
-            playerMetallic.Value = c.metallic;
-            playerSpecularColor.Value = c.specularColor;
-            playerHeightStrength.Value = Mathf.Clamp(c.heightStrength, MinHeightStrength, MaxHeightStrength);
-            playerEmissionEnabled.Value = c.emissionEnabled;
-            playerEmissionColor.Value = c.emissionColor;
-
-            UpdatePlayerMaterialFromNetwork();
+            _materialCustomizationCoordinator.LoadMaterialCustomizationFromPrefs();
         }
 
         /// <summary>
         /// Saves material customization values to settings.json.
         /// </summary>
         public void SaveMaterialCustomizationToPrefs() {
-            var c = GameSettings.Data.player.customization;
-            c.materialPacketIndex = playerMaterialPacketIndex.Value;
-            c.baseColor = playerBaseColor.Value;
-            c.smoothness = playerSmoothness.Value;
-            c.metallic = playerMetallic.Value;
-            c.specularColor = playerSpecularColor.Value;
-            c.heightStrength = Mathf.Clamp(playerHeightStrength.Value, MinHeightStrength, MaxHeightStrength);
-            c.emissionEnabled = playerEmissionEnabled.Value;
-            c.emissionColor = playerEmissionColor.Value;
-            GameSettings.Save();
+            _materialCustomizationCoordinator.SaveMaterialCustomizationToPrefs();
         }
 
-        private void OnHealthChanged(float oldV, float newV) {
-            if(IsOwner) EventBus.Publish(new UpdateHealthEvent(newV, 100f));
-        }
+        private void OnHealthChanged(float _, float newV) => _presentationStateCoordinator.OnHealthChanged(newV);
 
-        private void OnCrouchStateChanged(bool oldValue, bool newValue) {
-            if(movementController != null)
-                movementController.UpdateCrouch(fpCamera);
-        }
-
-        private void OnSlidingStateChanged(bool oldValue, bool newValue) {
-            if(IsOwner || animationController == null) return;
-            animationController.ApplyRemoteSlidingState(newValue, playTrigger: newValue && !oldValue);
-        }
-
-        private void OnJumpingStateChanged(bool oldValue, bool newValue) {
-            if(IsOwner || animationController == null) return;
-            animationController.ApplyRemoteJumpingState(newValue);
-        }
-
-        private void OnFallingStateChanged(bool oldValue, bool newValue) {
-            if(IsOwner || animationController == null) return;
-            animationController.ApplyRemoteFallingState(newValue);
-        }
-
-        private void OnJumpAnimationSequenceChanged(int oldValue, int newValue) {
-            if(IsOwner || animationController == null || newValue == oldValue) return;
-            animationController.PlayRemoteJumpAnimation();
-        }
-
-        private void OnLandAnimationSequenceChanged(int oldValue, int newValue) {
-            if(IsOwner || animationController == null || newValue == oldValue) return;
-            animationController.PlayRemoteLandingAnimation();
-        }
-
-        private void OnMantleAnimationSequenceChanged(int oldValue, int newValue) {
-            if(IsOwner || animationController == null || newValue == oldValue) return;
-            animationController.PlayRemoteMantleAnimation();
-        }
-
-        private void OnWallRunStateChanged(bool oldValue, bool newValue) {
-            RefreshRemoteWallRunState();
-        }
-
-        private void OnWallRunOrientationChanged(bool oldValue, bool newValue) {
-            RefreshRemoteWallRunState();
-        }
-
-        private void OnWallRunDirectionChanged(float oldValue, float newValue) {
-            RefreshRemoteWallRunState();
-        }
-
-        private void RefreshRemoteWallRunState() {
-            if(IsOwner || animationController == null) return;
-            animationController.ApplyRemoteWallRunState(netIsWallRunning.Value, netIsRightWallRun.Value,
-                netWallRunDirection.Value);
-        }
-
-        private void OnDeathStateChanged(bool oldValue, bool newValue) {
-            switch(newValue) {
-                case true when characterController != null:
-                    characterController.enabled = false;
-                    break;
-                case false:
-                    return;
-            }
-
-            ClearTriggerOutOfBoundsCountdownServer();
-            if(IsOwner) {
-                HideTriggerOutOfBoundsCountdownLocal();
-            }
-        }
+        private void OnDeathStateChanged(bool _, bool newValue) => _presentationStateCoordinator.OnDeathStateChanged(newValue);
     
         /// <summary>
         /// Main update loop for core player logic, movement synchronization, and server validation.
         /// </summary>
         private void Update() {
-            if((disableKinemationFrameworkComponents || disableUnexpectedChildCameras) &&
-               (Time.frameCount & 15) == 0) {
-                DisableConflictingKinemationFrameworkComponents();
-                DisableUnexpectedChildCamerasAndListeners();
-            }
-
-            if(NetworkAuthority.HasGlobalAuthority(this)) {
-                var authPos = clientNetworkTransform.transform.position;
-                ValidateServerMovement(authPos);
-                HandleOutOfBoundsChecks(authPos);
-                if(healthController != null) {
-                    healthController.UpdateHealthRegeneration();
-                }
-                if(statsController != null) {
-                    statsController.UpdateAuthorityStats();
-                }
-            }
+            UpdateRuntimeSafetyMaintenance();
+            UpdateAuthorityFrameState();
 
             if(IsOwner) {
                 UpdateTriggerOutOfBoundsCountdownUiOwner();
             }
 
-            if(netIsDead.Value || characterController.enabled == false) return;
+            if(NetIsDead.Value || characterController.enabled == false) return;
 
             if(IsOwner) {
-                if(movementController != null) {
-                    movementController.UpdateMovement(fpCamera);
-                    movementController.UpdateCrouch(fpCamera);
-
-                    if(animationController != null) {
-                        animationController.UpdateFallingState(movementController.IsGrounded,
-                            movementController.VerticalVelocity, playerTransform.position);
-
-                        var animHorizontal = movementController.HorizontalVelocity;
-                        var animSpeedSqr = movementController.CachedHorizontalSpeedSqr;
-                        if(characterController != null && movementController.IsGrounded) {
-                            var actual = characterController.velocity;
-                            actual.y = 0f;
-                            var actualSpeed = actual.magnitude;
-                            if(actualSpeed < 0.2f) {
-                                animHorizontal = actual;
-                                animSpeedSqr = actual.sqrMagnitude;
-                            } else {
-                                var intended = movementController.HorizontalVelocity;
-                                intended.y = 0f;
-                                var blendedSpeed = Mathf.Lerp(actualSpeed, intended.magnitude, 0.4f);
-                                if(actualSpeed > 0.0001f) {
-                                    animHorizontal = actual.normalized * blendedSpeed;
-                                } else {
-                                    animHorizontal = actual;
-                                }
-                                animSpeedSqr = animHorizontal.sqrMagnitude;
-                            }
-                        }
-
-                        animationController.UpdateAnimator(animHorizontal,
-                            movementController.MaxSpeed, animSpeedSqr);
-                    }
-                }
-
-                if(lookController != null)
-                    lookController.UpdateSpeedFov();
-
+                UpdateOwnerFrameState();
             } else {
-                if(movementController != null)
-                    movementController.UpdateCrouch(fpCamera);
-
-                if(animationController != null)
-                    animationController.SetCrouching(netIsCrouching.Value);
-
-                if(visualController == null || Time.frameCount % 60 != 0) return;
-                visualController.VerifyAndFixVisibility();
+                UpdateRemoteFrameState();
             }
         }
 
         private void LateUpdate() {
-            if(!IsOwner || netIsDead.Value) return;
+            if(!IsOwner || NetIsDead.Value) return;
 
             if(lookController != null)
                 lookController.UpdateLook();
+        }
+
+        private void UpdateRuntimeSafetyMaintenance() {
+            if((disableKinemationFrameworkComponents || disableUnexpectedChildCameras) &&
+               (Time.frameCount & 15) == 0) {
+                DisableConflictingKinemationFrameworkComponents();
+                DisableUnexpectedChildCamerasAndListeners();
+            }
+        }
+
+        private void UpdateAuthorityFrameState() {
+            if(!NetworkAuthority.HasGlobalAuthority(this)) return;
+
+            var authPos = clientNetworkTransform.transform.position;
+            ValidateServerMovement(authPos);
+            HandleOutOfBoundsChecks(authPos);
+
+            if(healthController != null) {
+                healthController.UpdateHealthRegeneration();
+            }
+
+            if(statsController != null) {
+                statsController.UpdateAuthorityStats();
+            }
+        }
+
+        private void UpdateOwnerFrameState() {
+            UpdateOwnerMovementAndAnimation();
+
+            if(lookController != null) {
+                lookController.UpdateSpeedFov();
+            }
+        }
+
+        private void UpdateOwnerMovementAndAnimation() {
+            if(movementController == null) return;
+
+            movementController.UpdateMovement(fpCamera);
+            movementController.UpdateCrouch(fpCamera);
+
+            if(animationController == null) return;
+
+            animationController.UpdateFallingState(movementController.IsGrounded,
+                movementController.VerticalVelocity, playerTransform.position);
+
+            var (animHorizontal, animSpeedSqr) = GetOwnerAnimationMotion();
+            animationController.UpdateAnimator(animHorizontal, movementController.MaxSpeed, animSpeedSqr);
+        }
+
+        private (Vector3 horizontalVelocity, float speedSqr) GetOwnerAnimationMotion() {
+            if(movementController == null) {
+                return (Vector3.zero, 0f);
+            }
+
+            var animHorizontal = movementController.HorizontalVelocity;
+            var animSpeedSqr = movementController.CachedHorizontalSpeedSqr;
+
+            if(characterController == null || !movementController.IsGrounded) {
+                return (animHorizontal, animSpeedSqr);
+            }
+
+            var actual = characterController.velocity;
+            actual.y = 0f;
+            var actualSpeed = actual.magnitude;
+            if(actualSpeed < 0.2f) {
+                return (actual, actual.sqrMagnitude);
+            }
+
+            var intended = movementController.HorizontalVelocity;
+            intended.y = 0f;
+            var blendedSpeed = Mathf.Lerp(actualSpeed, intended.magnitude, 0.4f);
+            if(actualSpeed > 0.0001f) {
+                animHorizontal = actual.normalized * blendedSpeed;
+            } else {
+                animHorizontal = actual;
+            }
+
+            return (animHorizontal, animHorizontal.sqrMagnitude);
+        }
+
+        private void UpdateRemoteFrameState() {
+            if(movementController != null) {
+                movementController.UpdateCrouch(fpCamera);
+            }
+
+            if(animationController != null) {
+                animationController.SetCrouching(netIsCrouching.Value);
+            }
+
+            if(visualController != null && Time.frameCount % 60 == 0) {
+                visualController.VerifyAndFixVisibility();
+            }
         }
 
         /// <summary>
         /// Validates client movement on the server to prevent cheating (teleporting/speed hacking).
         /// </summary>
         private void ValidateServerMovement(Vector3 position) {
-            var config = AntiCheatConfig.Instance;
-            if(config == null || clientNetworkTransform == null) return;
-
-            var now = Time.time;
-            if(netIsDead is { Value: true }) {
-                _movementViolations.Clear();
-                _lastServerMovementPosition = position;
-                _lastServerMovementTime = now;
-                _hasServerMovementSample = true;
-                _lastObservedServerMovementSpeed = 0f;
-                return;
-            }
-
-            if(!_hasServerMovementSample) {
-                _lastServerMovementPosition = position;
-                _lastServerMovementTime = now;
-                _hasServerMovementSample = true;
-                _lastObservedServerMovementSpeed = 0f;
-                return;
-            }
-
-            _movementViolations.RemoveAll(v => now - v.Time > config.movementViolationWindowSeconds);
-
-            var delta = position - _lastServerMovementPosition;
-            var distance = delta.magnitude;
-            var dt = Mathf.Max(0.0001f, now - _lastServerMovementTime);
-            var adjustedPosition = position;
-
-            if(distance > config.maxTeleportDistance) {
-                _movementViolations.Add(new MovementViolation { Time = now, WasSpeedViolation = false });
-                
-                var teleportViolations = _movementViolations.Count(v => !v.WasSpeedViolation);
-                
-                if(teleportViolations >= config.teleportViolationThreshold) {
-
-                    AntiCheatLogger.LogMovementEnforcement(OwnerClientId,
-                        $"teleport {distance:F1}m (limit {config.maxTeleportDistance:F1}) - {teleportViolations} violations in window");
-
-                    if(delta.sqrMagnitude > 0.0001f) {
-                        var clamped =
-                            _lastServerMovementPosition + delta.normalized * config.maxTeleportDistance;
-                        ApplyServerMovementCorrectionOwnerRpc(clamped, playerTransform.rotation);
-                        adjustedPosition = clamped;
-                        delta = clamped - _lastServerMovementPosition;
-                        distance = delta.magnitude;
-                    } else {
-                        adjustedPosition = _lastServerMovementPosition;
-                    }
-                }
-            }
-
-            var speed = distance / dt;
-            _lastObservedServerMovementSpeed = speed;
-            if(speed > config.maxSpeedMetersPerSecond && delta.sqrMagnitude > 0.0001f) {
-                _movementViolations.Add(new MovementViolation { Time = now, WasSpeedViolation = true });
-                
-                var speedViolations = _movementViolations.Count(v => v.WasSpeedViolation);
-                
-                if(speedViolations >= config.speedViolationThreshold) {
-
-                    AntiCheatLogger.LogMovementEnforcement(OwnerClientId,
-                        $"speed {speed:F1} m/s (limit {config.maxSpeedMetersPerSecond:F1}) - {speedViolations} violations in window");
-
-                    var allowedDistance = config.maxSpeedMetersPerSecond * dt;
-                    var clamped =
-                        _lastServerMovementPosition + delta.normalized * allowedDistance;
-                    ApplyServerMovementCorrectionOwnerRpc(clamped, playerTransform.rotation);
-                    adjustedPosition = clamped;
-                }
-            } else {
-                if(_movementViolations.Count == 0 || now - _movementViolations[^1].Time > config.movementViolationWindowSeconds * 0.5f) {
-                    _movementViolations.Clear();
-                }
-            }
-
-            _lastServerMovementPosition = adjustedPosition;
-            _lastServerMovementTime = now;
-            _hasServerMovementSample = true;
+            _movementValidationCoordinator.ValidateServerMovement(position);
         }
 
         [Rpc(SendTo.Owner)]
-        private void ApplyServerMovementCorrectionOwnerRpc(Vector3 correctedPosition, Quaternion correctedRotation) {
-            if(netIsDead is { Value: true }) return;
-
-            var shouldReEnableCharacterController = characterController != null && characterController.enabled;
-            if(characterController != null) {
-                characterController.enabled = false;
-            }
-
-            if(clientNetworkTransform != null) {
-                clientNetworkTransform.Teleport(correctedPosition, correctedRotation, Vector3.one);
-            } else if(playerTransform != null) {
-                playerTransform.SetPositionAndRotation(correctedPosition, correctedRotation);
-            }
-
-            if(movementController != null) {
-                movementController.ResetVelocity();
-            }
-
-            if(characterController != null && shouldReEnableCharacterController) {
-                characterController.enabled = true;
-            }
+        internal void ApplyServerMovementCorrectionOwnerRpc(Vector3 correctedPosition, Quaternion correctedRotation) {
+            _movementValidationCoordinator.ApplyServerMovementCorrection(correctedPosition, correctedRotation);
         }
 
         public void SetOutOfBoundsGraceWindow(float seconds) {
-            if(!NetworkAuthority.HasGlobalAuthority(this)) return;
-
-            var duration = Mathf.Max(0f, seconds);
-            _ignoreOutOfBoundsUntilTime = Mathf.Max(_ignoreOutOfBoundsUntilTime, Time.time + duration);
+            _outOfBoundsCoordinator.SetOutOfBoundsGraceWindow(seconds);
         }
 
         public float GetOutOfBoundsKillY() {
-            RefreshOutOfBoundsCacheIfNeeded();
-            return _cachedOutOfBoundsY;
+            return _outOfBoundsCoordinator.GetOutOfBoundsKillY();
         }
 
         public bool IsYLevelOutOfBoundsKillEnabled() {
-            RefreshOutOfBoundsCacheIfNeeded();
-            return _cachedUseYLevelOutOfBoundsKill;
-        }
-
-        private bool IsTriggerOutOfBoundsKillEnabled() {
-            RefreshOutOfBoundsCacheIfNeeded();
-            return _cachedUseTriggerOutOfBoundsKill;
-        }
-
-        private Collider GetOutOfBoundsTriggerCollider() {
-            RefreshOutOfBoundsCacheIfNeeded();
-            return _cachedOutOfBoundsTriggerCollider;
+            return _outOfBoundsCoordinator.IsYLevelOutOfBoundsKillEnabled();
         }
 
         private void HandleOutOfBoundsChecks(Vector3 authPos) {
-            if(!NetworkAuthority.HasGlobalAuthority(this)) return;
-
-            var aliveAndControllable = !netIsDead.Value && characterController != null && characterController.enabled;
-            if(!aliveAndControllable) {
-                ClearTriggerOutOfBoundsCountdownServer();
-                return;
-            }
-
-            if(Time.time < _ignoreOutOfBoundsUntilTime) {
-                ClearTriggerOutOfBoundsCountdownServer();
-                return;
-            }
-
-            if(IsYLevelOutOfBoundsKillEnabled() && authPos.y <= GetOutOfBoundsKillY()) {
-                if(!(Time.time - _lastDeathTime >= 4f)) return;
-                _lastDeathTime = Time.time;
-                ClearTriggerOutOfBoundsCountdownServer();
-                if(healthController != null) {
-                    healthController.ApplyDamageServer_Auth(1000f, playerTransform.position, Vector3.up, ulong.MaxValue);
-                }
-                return;
-            }
-
-            if(!IsTriggerOutOfBoundsKillEnabled()) {
-                ClearTriggerOutOfBoundsCountdownServer();
-                return;
-            }
-
-            var triggerCollider = GetOutOfBoundsTriggerCollider();
-            if(triggerCollider == null || !triggerCollider.enabled || !triggerCollider.gameObject.activeInHierarchy) {
-                ClearTriggerOutOfBoundsCountdownServer();
-                return;
-            }
-
-            var insideTrigger = IsPositionInsideTrigger(triggerCollider, authPos);
-            if(insideTrigger) {
-                ClearTriggerOutOfBoundsCountdownServer();
-                return;
-            }
-
-            if(!_triggerOobCountdownActiveServer) {
-                _triggerOobCountdownActiveServer = true;
-                _triggerOobDeadlineServerTime = Time.time + TriggerOutOfBoundsCountdownSeconds;
-                ShowTriggerOutOfBoundsCountdownOwnerRpc(TriggerOutOfBoundsCountdownSeconds);
-                return;
-            }
-
-            if(Time.time < _triggerOobDeadlineServerTime) return;
-            if(Time.time - _lastDeathTime < 4f) return;
-
-            _lastDeathTime = Time.time;
-            ClearTriggerOutOfBoundsCountdownServer();
-            if(healthController != null) {
-                healthController.ApplyDamageServer_Auth(1000f, playerTransform.position, Vector3.up, ulong.MaxValue);
-            }
-        }
-
-        private static bool IsPositionInsideTrigger(Collider triggerCollider, Vector3 worldPosition) {
-            var closest = triggerCollider.ClosestPoint(worldPosition);
-            return (closest - worldPosition).sqrMagnitude <= 0.0001f;
+            _outOfBoundsCoordinator.HandleOutOfBoundsChecks(authPos);
         }
 
         private void ClearTriggerOutOfBoundsCountdownServer() {
-            if(!NetworkAuthority.HasGlobalAuthority(this) || !_triggerOobCountdownActiveServer) return;
-            _triggerOobCountdownActiveServer = false;
-            _triggerOobDeadlineServerTime = 0f;
-            HideTriggerOutOfBoundsCountdownOwnerRpc();
+            _outOfBoundsCoordinator.ClearTriggerOutOfBoundsCountdownServer();
         }
 
         private void UpdateTriggerOutOfBoundsCountdownUiOwner() {
-            if(!IsOwner) return;
-            if(!_triggerOobCountdownVisibleOwner) return;
-
-            var aliveAndControllable = !netIsDead.Value && characterController != null && characterController.enabled;
-            if(!aliveAndControllable) {
-                HideTriggerOutOfBoundsCountdownLocal();
-                return;
-            }
-
-            var remaining = Mathf.Max(0f, _triggerOobDeadlineOwnerTime - Time.unscaledTime);
-            if(HUDManager.Instance != null) {
-                HUDManager.Instance.SetOutOfBoundsCountdown(true, remaining);
-            }
+            _outOfBoundsCoordinator.UpdateTriggerOutOfBoundsCountdownUiOwner();
         }
 
         [Rpc(SendTo.Owner)]
-        private void ShowTriggerOutOfBoundsCountdownOwnerRpc(float countdownSeconds) {
-            _triggerOobCountdownVisibleOwner = true;
-            _triggerOobDeadlineOwnerTime = Time.unscaledTime + Mathf.Max(0f, countdownSeconds);
+        internal void ShowTriggerOutOfBoundsCountdownOwnerRpc(float countdownSeconds) {
+            _outOfBoundsCoordinator.ShowTriggerOutOfBoundsCountdownOwner(countdownSeconds);
         }
 
         [Rpc(SendTo.Owner)]
-        private void HideTriggerOutOfBoundsCountdownOwnerRpc() {
+        internal void HideTriggerOutOfBoundsCountdownOwnerRpc() {
             HideTriggerOutOfBoundsCountdownLocal();
         }
 
         private void HideTriggerOutOfBoundsCountdownLocal() {
-            _triggerOobCountdownVisibleOwner = false;
-            _triggerOobDeadlineOwnerTime = 0f;
-            if(HUDManager.Instance != null) {
-                HUDManager.Instance.SetOutOfBoundsCountdown(false);
-            }
-        }
-
-        private void RefreshOutOfBoundsCacheIfNeeded() {
-            var activeScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
-            if(_cachedOobSceneHandle == activeScene.handle) {
-                return;
-            }
-
-            _cachedOobSceneHandle = activeScene.handle;
-            _cachedOutOfBoundsY = defaultOutOfBoundsY;
-            _cachedUseYLevelOutOfBoundsKill = MatchMapService.IsYLevelOutOfBoundsKillEnabled(activeScene.name);
-            _cachedUseTriggerOutOfBoundsKill = MatchMapService.IsTriggerOutOfBoundsKillEnabled(activeScene.name);
-            _cachedOutOfBoundsTriggerCollider = null;
-            _triggerOobCountdownActiveServer = false;
-            _triggerOobDeadlineServerTime = 0f;
-            if(IsOwner) {
-                HideTriggerOutOfBoundsCountdownLocal();
-            }
-
-            Transform marker = null;
-            if(!string.IsNullOrWhiteSpace(outOfBoundsMarkerTag)) {
-                try {
-                    var taggedObjects = GameObject.FindGameObjectsWithTag(outOfBoundsMarkerTag);
-                    foreach(var taggedObject in taggedObjects) {
-                        if(taggedObject == null) continue;
-
-                        if(marker == null) {
-                            marker = taggedObject.transform;
-                        }
-
-                        if(!_cachedUseTriggerOutOfBoundsKill || _cachedOutOfBoundsTriggerCollider != null) continue;
-                        if(taggedObject.TryGetComponent<Collider>(out var taggedCollider) && taggedCollider != null &&
-                           taggedCollider.isTrigger) {
-                            _cachedOutOfBoundsTriggerCollider = taggedCollider;
-                        }
-                    }
-                } catch(UnityException) {
-                    // Tag may be undefined in some projects/scenes; fallback to name lookup.
-                }
-            }
-
-            if(marker == null && !string.IsNullOrWhiteSpace(outOfBoundsMarkerName)) {
-                var namedObject = GameObject.Find(outOfBoundsMarkerName);
-                if(namedObject != null) {
-                    marker = namedObject.transform;
-                }
-            }
-
-            if(_cachedUseTriggerOutOfBoundsKill && _cachedOutOfBoundsTriggerCollider == null && marker != null) {
-                if(marker.TryGetComponent<Collider>(out var markerCollider) && markerCollider != null &&
-                   markerCollider.isTrigger) {
-                    _cachedOutOfBoundsTriggerCollider = markerCollider;
-                }
-            }
-
-            if(marker != null) {
-                _cachedOutOfBoundsY = marker.position.y;
-            }
+            _outOfBoundsCoordinator.HideTriggerOutOfBoundsCountdownLocal();
         }
 
         #endregion
@@ -1351,45 +626,9 @@ namespace Game.Player {
         #region Collision Handling
 
         private void OnControllerColliderHit(ControllerColliderHit hit) {
-            if(hit.gameObject.CompareTag("JumpPad")) {
-                var wasGrappling = grappleController != null && grappleController.IsGrappling;
-                var applyJumpPadLaunchCompensation = wasGrappling &&
-                                                     movementController != null &&
-                                                     movementController.IsInJumpPadLaunch;
-
-                grappleController.CancelGrapple(forJumpPadLaunch: applyJumpPadLaunchCompensation);
-                var mantleWasActive = mantleController != null && mantleController.IsMantling;
-                if(mantleWasActive) {
-                    mantleController.CancelMantleForJumpPad();
-                }
-
-                if(movementController == null) {
-                    Debug.LogError("[PlayerController] MovementController not found!");
-                    return;
-                }
-                var padNormal = hit.gameObject.transform.up;
-                var ignoreGrounded = mantleWasActive || wasGrappling;
-                movementController.LaunchFromJumpPad(padNormal, ignoreGroundedRequirement: ignoreGrounded);
-            } else if(hit.gameObject.CompareTag("MegaPad")) {
-                var wasGrappling = grappleController != null && grappleController.IsGrappling;
-                var applyJumpPadLaunchCompensation = wasGrappling &&
-                                                     movementController != null &&
-                                                     movementController.IsInJumpPadLaunch;
-
-                grappleController.CancelGrapple(forJumpPadLaunch: applyJumpPadLaunchCompensation);
-                var mantleWasActive = mantleController != null && mantleController.IsMantling;
-                if(mantleWasActive) {
-                    mantleController.CancelMantleForJumpPad();
-                }
-
-                if(movementController == null) {
-                    Debug.LogError("[PlayerController] MovementController not found!");
-                    return;
-                }
-                var padNormal = hit.gameObject.transform.up;
-                var ignoreGrounded = mantleWasActive || wasGrappling;
-                movementController.LaunchFromJumpPad(padNormal, force: 30f, ignoreGroundedRequirement: ignoreGrounded);
-            } else {
+            if(movementController != null) {
+                movementController.HandleControllerColliderHit(hit);
+            } else if(grappleController != null) {
                 grappleController.CancelGrapple(fromCollision: true);
             }
         }
@@ -1431,96 +670,341 @@ namespace Game.Player {
         /// Resets the player's weapon state, ammo, and HUD.
         /// </summary>
         public void ResetWeaponState(bool resetAllAmmo = false, bool switchToWeapon0 = false, bool updateHUD = false) {
-            if(!IsOwner || weaponManager == null) return;
+            _weaponPresentationCoordinator.ResetWeaponState(resetAllAmmo, switchToWeapon0, updateHUD);
+        }
 
-            if(resetAllAmmo) {
-                weaponManager.ResetAllWeaponAmmo();
+        #endregion
+
+        #region Public API
+
+        public void HideFpVisualsForDisconnectTransition() {
+            if(!IsOwner) return;
+            if(weaponManager != null) weaponManager.HideFpVisualsForDisconnectTransition();
+            if(playerHopballController != null) playerHopballController.HideFpVisualsForDisconnectTransition();
+        }
+
+        public void SetGameplayCameraActive(bool active) {
+            if(fpCamera != null) {
+                fpCamera.enabled = active;
             }
 
-            var currentWeapon = weaponManager.CurrentWeapon;
-            if(currentWeapon != null) {
-                currentWeapon.ResetWeapon();
-
-                var weaponInstance = currentWeapon.GetWeaponPrefab();
-                if(weaponInstance != null) {
-                    EnsureWeaponHierarchyActive(weaponInstance);
-                    EnsureWeaponShadowVisibility(weaponInstance);
-
-                    if(!_cachedWeaponRenderers.TryGetValue(weaponInstance, out var meshRenderers)) {
-                        meshRenderers = weaponInstance.GetComponentsInChildren<MeshRenderer>(true);
-                        _cachedWeaponRenderers[weaponInstance] = meshRenderers;
-                    }
-
-                    if(playerRenderer == null) {
-                        Debug.LogError("[PlayerController] PlayerRenderer not found!");
-                        return;
-                    }
-                    playerRenderer.SetWorldWeaponRenderersEnabled(true);
-                }
-
-                if(updateHUD) {
-                    EventBus.Publish(new UpdateAmmoEvent(currentWeapon.currentAmmo, currentWeapon.GetMagSize()));
-                    EventBus.Publish(new UpdateHealthEvent(netHealth.Value, 100f));
-                    EventBus.Publish(new UpdateMultiplierEvent(1f, Weapon.MaxDamageMultiplier));
-                }
+            if(deathCamera != null) {
+                deathCamera.enabled = active;
             }
 
-            if(switchToWeapon0) {
-                playerInput.SwitchWeapon(0);
+            if(weaponCameraController != null) {
+                weaponCameraController.SetWeaponCameraEnabled(active);
+            } else if(weaponCamera != null) {
+                weaponCamera.enabled = active;
             }
         }
 
-        /// <summary>
-        /// Ensures the FP weapon hierarchy (including parents and colliders) is active so it can render and cast shadows.
-        /// </summary>
-        private void EnsureWeaponHierarchyActive(GameObject weaponInstance) {
-            if(weaponInstance == null) return;
-
-            var parent = weaponInstance.transform;
-            while(parent != null) {
-                if(!parent.gameObject.activeSelf) {
-                    parent.gameObject.SetActive(true);
-                }
-
-                parent = parent.parent;
-            }
-
-            weaponInstance.SetActive(true);
-
-            if(!_cachedWeaponColliders.TryGetValue(weaponInstance, out var colliders)) {
-                colliders = weaponInstance.GetComponentsInChildren<Collider>(true);
-                _cachedWeaponColliders[weaponInstance] = colliders;
-            }
-
-            foreach(var col in colliders) {
-                if(col != null && !col.enabled) {
-                    col.enabled = true;
-                }
+        public void SetPostMatchControlLock(bool locked, bool lockLook = true, bool resetVelocity = true) {
+            if(podiumController != null) {
+                podiumController.SetPostMatchControlLock(locked, lockLook, resetVelocity);
+            } else if(IsOwner) {
+                LockLook = locked && lockLook;
             }
         }
 
-        /// <summary>
-        /// Forces all renderers in the FP weapon hierarchy to be enabled and casting shadows.
-        /// </summary>
-        private void EnsureWeaponShadowVisibility(GameObject weaponInstance) {
-            if(weaponInstance == null) return;
+        public void ResetVelocity() {
+            if(movementController != null) {
+                movementController.ResetVelocity();
+            }
+        }
 
-            if(!_cachedWeaponRenderers.TryGetValue(weaponInstance, out var meshRenderers)) {
-                meshRenderers = weaponInstance.GetComponentsInChildren<MeshRenderer>(true);
-                _cachedWeaponRenderers[weaponInstance] = meshRenderers;
+        public void TryJump(float height = 2f) {
+            if(movementController != null) {
+                movementController.TryJump(height);
+            }
+        }
+
+        public void PlayWalkSound() {
+            if(movementController != null) movementController.PlayWalkSound();
+        }
+
+        public void PlayRunSound() {
+            if(movementController != null) movementController.PlayRunSound();
+        }
+
+        public void PickupHopball() {
+            if(playerHopballController != null) {
+                playerHopballController.TryPickupHopball();
+            } else {
+                Debug.LogWarning("HopballController == null, cannot pick up hopball.");
+            }
+        }
+
+        public bool IsHoldingHopball => playerHopballController != null && playerHopballController.IsHoldingHopball;
+
+        public void DropHopball() {
+            if(playerHopballController != null) {
+                playerHopballController.DropHopball();
+            }
+        }
+
+        #endregion
+
+        #region Core Components
+
+        public Transform PlayerTransform => playerTransform != null ? playerTransform : transform;
+        public CharacterController CharacterController => characterController;
+        public PlayerInput PlayerInput => playerInput;
+        public UnityEngine.InputSystem.PlayerInput UnityPlayerInput => unityPlayerInput;
+        public AudioListener AudioListener => audioListener;
+        public Target PlayerTarget => playerTarget;
+        public LayerMask WorldLayer => worldLayer;
+        public LayerMask PlayerLayer => playerLayer;
+        public LayerMask EnemyLayer => enemyLayer;
+        public LayerMask WeaponLayer => weaponLayer;
+        public LayerMask HopballLayer => hopballLayer;
+
+        #endregion
+
+        #region Cameras
+
+        public CinemachineCamera FpCamera => fpCamera;
+        public Transform FpCameraTransform => fpCamera != null ? fpCamera.transform : null;
+        public Camera WeaponCamera => weaponCamera;
+        public CinemachineCamera DeathCamera => deathCamera;
+        public WeaponCameraController WeaponCameraController => weaponCameraController;
+
+        #endregion
+
+        #region Player Model
+
+        public GameObject PlayerModelRoot => playerModelRoot;
+        public SkinnedMeshRenderer PlayerMesh => playerMesh;
+        public Material[] PlayerMaterials => playerMaterials;
+        public PlayerVisualController VisualController => visualController;
+        public PlayerAnimationController AnimationController => animationController;
+        public PlayerShadow PlayerShadow => playerShadow;
+        public PlayerRenderer PlayerRenderer => playerRenderer;
+        public UpperBodyPitch UpperBodyPitch => upperBodyPitch;
+        public PlayerRagdoll PlayerRagdoll => playerRagdoll;
+        public SpeedTrail SpeedTrail => speedTrail;
+        public Transform DeathCameraTarget => deathCameraTarget;
+
+        #endregion
+
+        #region Gameplay Controllers
+
+        public PlayerMovementController MovementController => movementController;
+        public PlayerLookController LookController => lookController;
+        public PlayerStatsController StatsController => statsController;
+        public PlayerHealthController HealthController => healthController;
+        public PlayerTagController TagController => tagController;
+        public PlayerPodiumController PodiumController => podiumController;
+        public PlayerHopballController PlayerHopballController => playerHopballController;
+        public PlayerTeamManager TeamManager => playerTeamManager;
+        public MantleController MantleController => mantleController;
+        public DeathCameraController DeathCameraController => deathCameraController;
+
+        #endregion
+
+        #region Weapons
+
+        public WeaponManager WeaponManager => weaponManager;
+        public GrappleController GrappleController => grappleController;
+        public NetworkDamageRelay DamageRelay => damageRelay;
+        public NetworkFxRelay FxRelay => fxRelay;
+        public NetworkAudioRelay AudioRelay => audioRelay;
+        public CinemachineImpulseSource ImpulseSource => impulseSource;
+        public GameObject[] WorldWeaponPrefabs => worldWeaponPrefabs;
+        public Weapon WeaponComponent => weaponComponent;
+        public Animator PlayerAnimator => playerAnimator;
+        public Transform WorldWeaponSocket => worldWeaponSocket;
+
+        #endregion
+
+        #region Network Components
+
+        public ClientNetworkTransform ClientNetworkTransform => clientNetworkTransform;
+        private MatchPlayerStateProxy ResolvePlayerStateOrNull() => ResolvePlayerState();
+        private NetworkVariable<int> KillsState {
+            get {
+                var state = ResolvePlayerStateOrNull();
+                return state != null ? state.kills : MissingIntState;
+            }
+        }
+
+        private NetworkVariable<int> DeathsState {
+            get {
+                var state = ResolvePlayerStateOrNull();
+                return state != null ? state.deaths : MissingIntState;
+            }
+        }
+
+        private NetworkVariable<int> AssistsState {
+            get {
+                var state = ResolvePlayerStateOrNull();
+                return state != null ? state.assists : MissingIntState;
+            }
+        }
+
+        public NetworkVariable<float> NetHealth {
+            get {
+                var state = ResolvePlayerStateOrNull();
+                return state != null ? state.netHealth : MissingHealthState;
+            }
+        }
+
+        public NetworkVariable<bool> NetIsDead => ResolvePlayerStateOrNull() != null ? ResolvePlayerStateOrNull().netIsDead : MissingDeathState;
+        public NetworkVariable<bool> NetIsCrouching => netIsCrouching;
+        public NetworkVariable<bool> NetIsSliding => netIsSliding;
+        public NetworkVariable<bool> NetIsJumping => netIsJumping;
+        public NetworkVariable<bool> NetIsFalling => netIsFalling;
+        public NetworkVariable<bool> NetIsWallRunning => netIsWallRunning;
+        public NetworkVariable<bool> NetIsRightWallRun => netIsRightWallRun;
+        public NetworkVariable<float> NetWallRunDirection => netWallRunDirection;
+        public NetworkVariable<int> Kills => KillsState;
+        public NetworkVariable<int> Deaths => DeathsState;
+        public NetworkVariable<int> Assists => AssistsState;
+        public NetworkVariable<float> DamageDealt {
+            get {
+                var state = ResolvePlayerStateOrNull();
+                return state != null ? state.damageDealt : MissingFloatState;
+            }
+        }
+
+        public NetworkVariable<int> PlayerMaterialIndex => playerMaterialIndex;
+        public NetworkVariable<ulong> SteamId {
+            get {
+                var state = ResolvePlayerStateOrNull();
+                return state != null ? state.steamId : MissingSteamIdState;
+            }
+        }
+
+        public NetworkVariable<FixedString128Bytes> UgsId {
+            get {
+                var state = ResolvePlayerStateOrNull();
+                return state != null ? state.ugsId : MissingUgsIdState;
+            }
+        }
+
+        public NetworkVariable<FixedString64Bytes> PlayerName {
+            get {
+                var state = ResolvePlayerStateOrNull();
+                return state != null ? state.playerName : MissingPlayerNameState;
+            }
+        }
+
+        public int PingMs => statsController != null ? statsController.PingMs.Value : 0;
+
+        #endregion
+
+        #region Player State
+
+        public Vector3 Position => PlayerTransform.position;
+        public Quaternion Rotation => PlayerTransform.rotation;
+        public bool IsDead => NetIsDead is { Value: true };
+        public bool IsCrouching => netIsCrouching is { Value: true };
+        public bool IsGrounded => movementController != null && movementController.IsGrounded;
+
+        #endregion
+
+        #region Velocity Helpers
+
+        public Vector3 GetHorizontalVelocity() {
+            return movementController != null ? movementController.HorizontalVelocity : Vector3.zero;
+        }
+
+        public float GetVerticalVelocity() {
+            return movementController != null ? movementController.VerticalVelocity : 0f;
+        }
+
+        public Vector3 GetFullVelocity => movementController != null ? movementController.FullVelocity : Vector3.zero;
+
+        public float GetMaxSpeed() {
+            return movementController != null ? movementController.MaxSpeed : 5f;
+        }
+
+        public float GetCachedHorizontalSpeedSqr() {
+            return movementController != null ? movementController.CachedHorizontalSpeedSqr : 0f;
+        }
+
+        public float AverageVelocity => statsController != null ? statsController.AverageVelocity.Value : 0f;
+        public float ObservedServerMovementSpeed => _movementValidationCoordinator.ObservedServerMovementSpeed;
+
+        public void SetVelocity(Vector3 horizontalVelocity) {
+            if(movementController != null) {
+                movementController.SetVelocity(horizontalVelocity);
+            }
+        }
+
+        public void AddVerticalVelocity(float verticalBoost) {
+            if(movementController != null) {
+                movementController.AddVerticalVelocity(verticalBoost);
+            }
+        }
+
+        #endregion
+
+        #region Gun Tag Stats
+
+        public int Tags => tagController != null ? tagController.Tags.Value : 0;
+        public int Tagged => tagController != null ? tagController.Tagged.Value : 0;
+        public int TimeTagged => tagController != null ? tagController.TimeTagged.Value : 0;
+        public bool IsTagged => tagController != null && tagController.IsTagged.Value;
+
+        #endregion
+
+        #region Podium Methods
+
+        public void ForceRespawnForPodiumServer() {
+            if(podiumController != null) {
+                podiumController.ForceRespawnForPodiumServer();
+            }
+        }
+
+        public void TeleportToPodiumFromServer(Vector3 position, Quaternion rotation) {
+            if(podiumController != null) {
+                podiumController.TeleportToPodiumFromServer(position, rotation);
+            }
+        }
+
+        #endregion
+
+        #region Network RPCs
+
+        [Rpc(SendTo.Everyone)]
+        public void SetWorldModelVisibleRpc(bool visible) {
+            if(visualController != null) {
+                visualController.SetWorldModelVisible(visible);
+            }
+        }
+
+        [Rpc(SendTo.Everyone)]
+        public void ResetVelocityRpc() {
+            if(movementController != null) {
+                movementController.ResetVelocity();
+            }
+        }
+
+        [Rpc(SendTo.Everyone)]
+        public void PlayHitEffectsClientRpc(Vector3 hitPoint, float amount) {
+            if(IsOwner) {
+                if(Audio2.AudioService.Instance != null) {
+                    Audio2.AudioService.Instance.Play("ui.hit.hurt", Vector3.zero);
+                }
+
+                impulseSource.GenerateImpulse();
+
+                if(DamageVignetteUIManager.Instance && fpCamera) {
+                    var intensity = Mathf.Clamp01(amount / 50f);
+                    DamageVignetteUIManager.Instance.ShowHitFromWorldPoint(hitPoint, fpCamera.transform, intensity);
+                }
             }
 
-            // Use PlayerRenderer for enabled state, shadow mode is handled by PlayerShadow
-            if(playerRenderer == null) {
-                Debug.LogError("[PlayerController] PlayerRenderer not found! Cannot enable world weapon renderers.");
-                return;
+            if(animationController != null) {
+                animationController.PlayDamageAnimation();
             }
-            playerRenderer.SetWorldWeaponRenderersEnabled(true);
-            
-            // Shadow mode is handled by PlayerShadow, but we set it here for initial setup
-            foreach(var meshRenderer in meshRenderers) {
-                if(meshRenderer == null) continue;
-                meshRenderer.shadowCastingMode = ShadowCastingMode.On;
+        }
+
+        [Rpc(SendTo.Everyone)]
+        public void SnapPodiumVisualsClientRpc() {
+            if(podiumController != null) {
+                podiumController.SnapPodiumVisualsClientRpc();
             }
         }
 

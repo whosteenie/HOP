@@ -4,6 +4,8 @@ using System.Reflection;
 using Cysharp.Threading.Tasks;
 using Game.Hopball;
 using Game.Match;
+using Game.Player.Combat;
+using Game.Player.Core;
 using Game.Weapons;
 using Network.Diagnostics;
 using OSI;
@@ -1057,7 +1059,7 @@ namespace Game.Player.Hopball {
             DestroyWorldVisual();
             // Destroy arm immediately (death case, can't wait for animation)
             DestroyArmImmediate();
-            // Do not restore weapon visuals hereâ€”death flow handles showing weapons when appropriate
+            // Do not restore weapon visuals here, death flow handles showing weapons when appropriate
         }
 
         /// <summary>
@@ -1240,7 +1242,7 @@ namespace Game.Player.Hopball {
 
         /// <summary>
         /// Hides hopball FP visuals without destroying. Used to defer visible teardown during
-        /// unexpected disconnectâ€”hide first so when NGO despawns the player, the teardown is invisible.
+        /// unexpected disconnect, hide first so when NGO despawns the player, the teardown is invisible.
         /// </summary>
         public void HideFpVisualsForDisconnectTransition() {
             if(!IsOwner) return;

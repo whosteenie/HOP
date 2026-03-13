@@ -1,9 +1,10 @@
+using Game.Player.Core;
 using Game.Settings;
 using Unity.Cinemachine;
 using Unity.Netcode;
 using UnityEngine;
 
-namespace Game.Player {
+namespace Game.Player.Movement {
     public class WallRunController : NetworkBehaviour {
         #region Fields: References
 

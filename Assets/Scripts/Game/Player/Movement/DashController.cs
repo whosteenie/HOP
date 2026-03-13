@@ -1,7 +1,8 @@
+using Game.Player.Core;
 using Unity.Netcode;
 using UnityEngine;
 
-namespace Game.Player {
+namespace Game.Player.Movement {
     /// <summary>
     /// Shelved movement prototype.
     /// Not part of current production gameplay paths; retained for future experimentation.

@@ -2,6 +2,7 @@ using System.Collections;
 using System.Linq;
 using Game.Match;
 using Game.Player;
+using Game.Player.Core;
 using Game.Spawning;
 using Network.Core;
 using Network.Diagnostics;
@@ -579,7 +580,7 @@ namespace Network {
                 }
 
                 var updated = false;
-                var ugsPlayerId = controller.ugsId.Value.ToString();
+                var ugsPlayerId = controller.UgsId.Value.ToString();
                 if(!string.IsNullOrWhiteSpace(ugsPlayerId) &&
                    (!_clientUgsPlayerIds.TryGetValue(clientId, out var cachedUgsId) ||
                     !string.Equals(cachedUgsId, ugsPlayerId, System.StringComparison.Ordinal))) {
@@ -587,7 +588,7 @@ namespace Network {
                     updated = true;
                 }
 
-                var steamId = controller.steamId.Value;
+                var steamId = controller.SteamId.Value;
                 if(steamId != 0 && !_clientSteamIds.ContainsKey(clientId)) {
                     _clientSteamIds[clientId] = steamId;
                     updated = true;

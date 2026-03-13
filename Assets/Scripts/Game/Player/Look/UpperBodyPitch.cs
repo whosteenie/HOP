@@ -1,7 +1,9 @@
+using Game.Player.Combat;
+using Game.Player.Core;
 using Unity.Netcode;
 using UnityEngine;
 
-namespace Game.Player {
+namespace Game.Player.Look {
     public class UpperBodyPitch : NetworkBehaviour {
         [Header("References")]
         [SerializeField] private PlayerController playerController;

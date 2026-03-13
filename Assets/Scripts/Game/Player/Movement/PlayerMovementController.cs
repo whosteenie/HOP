@@ -1,12 +1,13 @@
 using Audio.Networking;
 using Game.Menu;
+using Game.Player.Core;
+using Game.Progression;
 using Game.Weapons;
 using Unity.Cinemachine;
 using Unity.Netcode;
 using UnityEngine;
-using Game.Progression;
 
-namespace Game.Player {
+namespace Game.Player.Movement {
     /// <summary>
     /// Handles all movement-related logic for the player.
     /// </summary>
@@ -139,6 +140,53 @@ namespace Game.Player {
             if(playerController == null) return;
             netIsCrouching = playerController.NetIsCrouching;
             netIsSliding = playerController.netIsSliding;
+        }
+
+        public void HandleControllerColliderHit(ControllerColliderHit hit) {
+            if(hit.gameObject.CompareTag("JumpPad")) {
+                HandleJumpPadCollision(hit, 15f);
+            } else if(hit.gameObject.CompareTag("MegaPad")) {
+                HandleJumpPadCollision(hit, 30f);
+            } else {
+                if(_grappleController != null) _grappleController.CancelGrapple(fromCollision: true);
+            }
+        }
+
+        public void PlayWalkSound() {
+            if(!IsGrounded) return;
+
+            if(_characterController != null) {
+                var actual = _characterController.velocity;
+                actual.y = 0f;
+                if(actual.sqrMagnitude < 0.3f * 0.3f) {
+                    return;
+                }
+            } else if(CachedHorizontalSpeedSqr < 0.5f * 0.5f) {
+                return;
+            }
+
+            if(!IsOwner || _audioRelay == null || playerController == null) return;
+            _audioRelay.RequestPlayAttached("foley.tile.walk", new NetworkObjectReference(playerController.NetworkObject),
+                allowOverlap: true);
+        }
+
+        public void PlayRunSound() {
+            var isWallRunning = _wallRunController != null && _wallRunController.IsWallRunning;
+            if(!IsGrounded && !isWallRunning) return;
+
+            if(_characterController != null && IsGrounded) {
+                var actual = _characterController.velocity;
+                actual.y = 0f;
+                if(actual.sqrMagnitude < 0.5f * 0.5f) {
+                    return;
+                }
+            } else if(CachedHorizontalSpeedSqr < 0.5f * 0.5f) {
+                return;
+            }
+
+            if(!IsOwner || _audioRelay == null || playerController == null) return;
+            _audioRelay.RequestPlayAttached("foley.tile.run", new NetworkObjectReference(playerController.NetworkObject),
+                allowOverlap: true);
         }
 
         /// <summary>
@@ -573,6 +621,30 @@ namespace Game.Player {
 
             if(_animationController)
                 _animationController.TriggerJumpAnimation();
+        }
+
+        private void HandleJumpPadCollision(ControllerColliderHit hit, float force) {
+            var wasGrappling = _grappleController != null && _grappleController.IsGrappling;
+            var applyJumpPadLaunchCompensation = wasGrappling && IsInJumpPadLaunch;
+
+            if(_grappleController != null) {
+                _grappleController.CancelGrapple(forJumpPadLaunch: applyJumpPadLaunchCompensation);
+            }
+
+            var mantleController = playerController != null ? playerController.MantleController : null;
+            var mantleWasActive = mantleController != null && mantleController.IsMantling;
+            if(mantleWasActive) {
+                mantleController.CancelMantleForJumpPad();
+            }
+
+            if(_characterController == null) {
+                Debug.LogError("[PlayerMovementController] CharacterController not found!");
+                return;
+            }
+
+            var padNormal = hit.gameObject.transform.up;
+            var ignoreGrounded = mantleWasActive || wasGrappling;
+            LaunchFromJumpPad(padNormal, force, ignoreGrounded);
         }
 
         private WeaponBob FindActiveWeaponBob() {

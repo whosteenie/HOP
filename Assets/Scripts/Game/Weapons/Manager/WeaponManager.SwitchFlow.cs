@@ -2,7 +2,6 @@ using System.Collections;
 using Game.Match;
 using Game.Menu;
 using Game.Player.Hopball;
-using Network.AntiCheat;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.Rendering;

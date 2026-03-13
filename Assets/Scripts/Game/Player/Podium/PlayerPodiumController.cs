@@ -1,10 +1,12 @@
 using System.Collections;
+using Game.Player.Combat;
+using Game.Player.Core;
 using Network.Components;
 using Network.Core;
 using Unity.Netcode;
 using UnityEngine;
 
-namespace Game.Player {
+namespace Game.Player.Podium {
     /// <summary>
     /// Handles podium-specific logic for post-match display.
     /// </summary>
@@ -142,6 +144,22 @@ namespace Game.Player {
             // Ragdoll components are set to Enemy layer in PlayerRagdoll.OnNetworkSpawn()
 
             _awaitingPodiumSnap = true;
+        }
+
+        public void SetPostMatchControlLock(bool locked, bool lockLook = true, bool resetVelocity = true) {
+            if(playerController == null || !playerController.IsOwner) return;
+
+            if(locked) {
+                playerController.moveInput = Vector2.zero;
+                playerController.lookInput = Vector2.zero;
+                playerController.sprintInput = false;
+                playerController.crouchInput = false;
+                if(resetVelocity && playerController.MovementController != null) {
+                    playerController.MovementController.ResetVelocity();
+                }
+            }
+
+            playerController.LockLook = locked && lockLook;
         }
 
         /// <summary>

@@ -1,5 +1,7 @@
 using System.Collections.Generic;
 using Game.Player;
+using Game.Player.Core;
+using Game.Player.Movement;
 using Unity.Cinemachine;
 using UnityEngine;
 using UnityEngine.SceneManagement;

@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using Game.Match;
 using Game.Player;
+using Game.Player.Core;
 using Game.Weapons;
 using Network.Diagnostics;
 using Unity.Netcode;
