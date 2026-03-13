@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using Audio.Networking;
 using Game.Match;
 using Game.Menu;
@@ -12,7 +11,6 @@ using Game.Settings;
 using Game.UI;
 using Game.Weapons;
 using Network;
-using Network.AntiCheat;
 using Network.Components;
 using Network.Core;
 using Network.Events;
@@ -135,10 +133,6 @@ namespace Game.Player.Core {
         [SerializeField] private string outOfBoundsMarkerName = "OOB";
         [SerializeField] private string outOfBoundsMarkerTag = "OOB";
         [SerializeField] private float defaultOutOfBoundsY = 600f;
-        private Vector3 _lastServerMovementPosition;
-        private float _lastServerMovementTime;
-        private bool _hasServerMovementSample;
-        private float _lastObservedServerMovementSpeed;
 
         private static readonly NetworkVariable<float> MissingHealthState = new(100f);
         private static readonly NetworkVariable<bool> MissingDeathState = new();
@@ -147,14 +141,6 @@ namespace Game.Player.Core {
         private static readonly NetworkVariable<ulong> MissingSteamIdState = new();
         private static readonly NetworkVariable<FixedString128Bytes> MissingUgsIdState = new("");
         private static readonly NetworkVariable<FixedString64Bytes> MissingPlayerNameState = new("Player");
-
-        // Movement violation tracking
-        private class MovementViolation {
-            public float Time;
-            public bool WasSpeedViolation;
-        }
-
-        private readonly List<MovementViolation> _movementViolations = new();
 
         private const float MinHeightStrength = 0.005f;
         private const float MaxHeightStrength = 0.08f;
@@ -166,6 +152,7 @@ namespace Game.Player.Core {
         private PlayerMaterialCustomizationCoordinator _materialCustomizationCoordinator;
         private PlayerRuntimeSafetyCoordinator _runtimeSafetyCoordinator;
         private PlayerOutOfBoundsCoordinator _outOfBoundsCoordinator;
+        private PlayerMovementValidationCoordinator _movementValidationCoordinator;
         private PlayerUiEventBridge _uiEventBridge;
 
         #endregion
@@ -288,8 +275,8 @@ namespace Game.Player.Core {
         internal NetworkVariable<float> PlayerHeightStrengthState => playerHeightStrength;
         internal NetworkVariable<bool> PlayerEmissionEnabledState => playerEmissionEnabled;
         internal NetworkVariable<Vector4> PlayerEmissionColorState => playerEmissionColor;
-        internal float MinHeightStrengthValue => MinHeightStrength;
-        internal float MaxHeightStrengthValue => MaxHeightStrength;
+        internal static float MinHeightStrengthValue => MinHeightStrength;
+        internal static float MaxHeightStrengthValue => MaxHeightStrength;
         internal void AssignWeaponCamera(Camera assignedWeaponCamera) => weaponCamera = assignedWeaponCamera;
         internal void HandleResolvedHealthChanged(float oldValue, float newValue) => OnHealthChanged(oldValue, newValue);
         internal void HandleResolvedDeathChanged(bool oldValue, bool newValue) => OnDeathStateChanged(oldValue, newValue);
@@ -303,6 +290,7 @@ namespace Game.Player.Core {
             _outOfBoundsCoordinator ??= new PlayerOutOfBoundsCoordinator(this);
             _networkStateCoordinator ??= new PlayerNetworkStateCoordinator(this);
             _materialCustomizationCoordinator ??= new PlayerMaterialCustomizationCoordinator(this);
+            _movementValidationCoordinator ??= new PlayerMovementValidationCoordinator(this);
             _uiEventBridge ??= new PlayerUiEventBridge();
         }
 
@@ -722,108 +710,12 @@ namespace Game.Player.Core {
         /// Validates client movement on the server to prevent cheating (teleporting/speed hacking).
         /// </summary>
         private void ValidateServerMovement(Vector3 position) {
-            var config = AntiCheatConfig.Instance;
-            if(config == null || clientNetworkTransform == null) return;
-
-            var now = Time.time;
-            if(NetIsDead is { Value: true }) {
-                _movementViolations.Clear();
-                _lastServerMovementPosition = position;
-                _lastServerMovementTime = now;
-                _hasServerMovementSample = true;
-                _lastObservedServerMovementSpeed = 0f;
-                return;
-            }
-
-            if(!_hasServerMovementSample) {
-                _lastServerMovementPosition = position;
-                _lastServerMovementTime = now;
-                _hasServerMovementSample = true;
-                _lastObservedServerMovementSpeed = 0f;
-                return;
-            }
-
-            _movementViolations.RemoveAll(v => now - v.Time > config.movementViolationWindowSeconds);
-
-            var delta = position - _lastServerMovementPosition;
-            var distance = delta.magnitude;
-            var dt = Mathf.Max(0.0001f, now - _lastServerMovementTime);
-            var adjustedPosition = position;
-
-            if(distance > config.maxTeleportDistance) {
-                _movementViolations.Add(new MovementViolation { Time = now, WasSpeedViolation = false });
-                
-                var teleportViolations = _movementViolations.Count(v => !v.WasSpeedViolation);
-                
-                if(teleportViolations >= config.teleportViolationThreshold) {
-
-                    AntiCheatLogger.LogMovementEnforcement(OwnerClientId,
-                        $"teleport {distance:F1}m (limit {config.maxTeleportDistance:F1}) - {teleportViolations} violations in window");
-
-                    if(delta.sqrMagnitude > 0.0001f) {
-                        var clamped =
-                            _lastServerMovementPosition + delta.normalized * config.maxTeleportDistance;
-                        ApplyServerMovementCorrectionOwnerRpc(clamped, playerTransform.rotation);
-                        adjustedPosition = clamped;
-                        delta = clamped - _lastServerMovementPosition;
-                        distance = delta.magnitude;
-                    } else {
-                        adjustedPosition = _lastServerMovementPosition;
-                    }
-                }
-            }
-
-            var speed = distance / dt;
-            _lastObservedServerMovementSpeed = speed;
-            if(speed > config.maxSpeedMetersPerSecond && delta.sqrMagnitude > 0.0001f) {
-                _movementViolations.Add(new MovementViolation { Time = now, WasSpeedViolation = true });
-                
-                var speedViolations = _movementViolations.Count(v => v.WasSpeedViolation);
-                
-                if(speedViolations >= config.speedViolationThreshold) {
-
-                    AntiCheatLogger.LogMovementEnforcement(OwnerClientId,
-                        $"speed {speed:F1} m/s (limit {config.maxSpeedMetersPerSecond:F1}) - {speedViolations} violations in window");
-
-                    var allowedDistance = config.maxSpeedMetersPerSecond * dt;
-                    var clamped =
-                        _lastServerMovementPosition + delta.normalized * allowedDistance;
-                    ApplyServerMovementCorrectionOwnerRpc(clamped, playerTransform.rotation);
-                    adjustedPosition = clamped;
-                }
-            } else {
-                if(_movementViolations.Count == 0 || now - _movementViolations[^1].Time > config.movementViolationWindowSeconds * 0.5f) {
-                    _movementViolations.Clear();
-                }
-            }
-
-            _lastServerMovementPosition = adjustedPosition;
-            _lastServerMovementTime = now;
-            _hasServerMovementSample = true;
+            _movementValidationCoordinator.ValidateServerMovement(position);
         }
 
         [Rpc(SendTo.Owner)]
-        private void ApplyServerMovementCorrectionOwnerRpc(Vector3 correctedPosition, Quaternion correctedRotation) {
-            if(NetIsDead is { Value: true }) return;
-
-            var shouldReEnableCharacterController = characterController != null && characterController.enabled;
-            if(characterController != null) {
-                characterController.enabled = false;
-            }
-
-            if(clientNetworkTransform != null) {
-                clientNetworkTransform.Teleport(correctedPosition, correctedRotation, Vector3.one);
-            } else if(playerTransform != null) {
-                playerTransform.SetPositionAndRotation(correctedPosition, correctedRotation);
-            }
-
-            if(movementController != null) {
-                movementController.ResetVelocity();
-            }
-
-            if(characterController != null && shouldReEnableCharacterController) {
-                characterController.enabled = true;
-            }
+        internal void ApplyServerMovementCorrectionOwnerRpc(Vector3 correctedPosition, Quaternion correctedRotation) {
+            _movementValidationCoordinator.ApplyServerMovementCorrection(correctedPosition, correctedRotation);
         }
 
         public void SetOutOfBoundsGraceWindow(float seconds) {
@@ -1282,7 +1174,7 @@ namespace Game.Player.Core {
         }
 
         public float AverageVelocity => statsController != null ? statsController.AverageVelocity.Value : 0f;
-        public float ObservedServerMovementSpeed => _lastObservedServerMovementSpeed;
+        public float ObservedServerMovementSpeed => _movementValidationCoordinator.ObservedServerMovementSpeed;
 
         public void SetVelocity(Vector3 horizontalVelocity) {
             if(movementController != null) {

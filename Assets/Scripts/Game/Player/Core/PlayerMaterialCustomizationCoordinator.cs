@@ -74,7 +74,7 @@ namespace Game.Player.Core {
                 _player.PlayerSmoothnessState.Value,
                 _player.PlayerMetallicState.Value,
                 specularColor,
-                Mathf.Clamp(_player.PlayerHeightStrengthState.Value, _player.MinHeightStrengthValue, _player.MaxHeightStrengthValue),
+                Mathf.Clamp(_player.PlayerHeightStrengthState.Value, PlayerController.MinHeightStrengthValue, PlayerController.MaxHeightStrengthValue),
                 _player.PlayerEmissionEnabledState.Value,
                 emissionColor);
         }
@@ -87,7 +87,7 @@ namespace Game.Player.Core {
             _player.PlayerMetallicState.Value = customization.metallic;
             _player.PlayerSpecularColorState.Value = customization.specularColor;
             _player.PlayerHeightStrengthState.Value = Mathf.Clamp(customization.heightStrength,
-                _player.MinHeightStrengthValue, _player.MaxHeightStrengthValue);
+                PlayerController.MinHeightStrengthValue, PlayerController.MaxHeightStrengthValue);
             _player.PlayerEmissionEnabledState.Value = customization.emissionEnabled;
             _player.PlayerEmissionColorState.Value = customization.emissionColor;
             UpdatePlayerMaterialFromNetwork();
@@ -101,7 +101,7 @@ namespace Game.Player.Core {
             customization.metallic = _player.PlayerMetallicState.Value;
             customization.specularColor = _player.PlayerSpecularColorState.Value;
             customization.heightStrength = Mathf.Clamp(_player.PlayerHeightStrengthState.Value,
-                _player.MinHeightStrengthValue, _player.MaxHeightStrengthValue);
+                PlayerController.MinHeightStrengthValue, PlayerController.MaxHeightStrengthValue);
             customization.emissionEnabled = _player.PlayerEmissionEnabledState.Value;
             customization.emissionColor = _player.PlayerEmissionColorState.Value;
             GameSettings.Save();
