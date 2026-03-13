@@ -4,11 +4,21 @@ using UnityEngine;
 
 namespace Game.Weapons.Manager {
     internal sealed class WeaponLoadoutCoordinator {
+        #region Fields
+
         private readonly WeaponManager _root;
+
+        #endregion
+
+        #region Construction
 
         public WeaponLoadoutCoordinator(WeaponManager root) {
             _root = root;
         }
+
+        #endregion
+
+        #region Public Loadout Selection
 
         public int GetPrimarySelectionIndex() {
             if(_root.KinemationCatalogRef.IsEmpty) {
@@ -66,8 +76,9 @@ namespace Game.Weapons.Manager {
             return true;
         }
 
-        public int GetCurrentHolsterSlot() => GetSlotForIndex(_root.CurrentWeaponIndexInternal);
-        public void RefreshHolsterVisibility() => UpdateHolsterVisibility();
+        #endregion
+
+        #region Public Lifecycle
 
         public void InitializeWeapons() {
             if(_root.CurrentWeaponInternal == null) {
@@ -185,110 +196,61 @@ namespace Game.Weapons.Manager {
             RebuildEquippedWeapons(!shouldDeferTpReveal, shouldDeferTpReveal);
         }
 
+        #endregion
+
+        #region Public Holster Facade
+
+        public int GetCurrentHolsterSlot() => GetSlotForIndex(_root.CurrentWeaponIndexInternal);
+
+        public void RefreshHolsterVisibility() => UpdateHolsterVisibility();
+
+        #endregion
+
+        #region Internal Facade
+
         internal int GetSlotForIndexInternal(int index) => GetSlotForIndex(index);
+
         internal void ResolveCurrentWorldWeaponReferenceInternal() => ResolveCurrentWorldWeaponReference();
 
-        private static bool IsValidSelectionIndex(IReadOnlyList<WeaponData> options, int requestedIndex, string slotLabel) {
-            if(options == null || options.Count == 0) {
-                Debug.LogError($"[WeaponManager] Cannot apply {slotLabel} selection. No options configured.");
-                return false;
+        #endregion
+
+        #region Private Initialization Helpers
+
+        private void BuildEquippedWeaponList() {
+            _root.BuildKinemationWeaponLookup();
+            _root.WeaponDataListRef.Clear();
+
+            if(_root.PlayerControllerRef == null) {
+                Debug.LogError("[WeaponManager] Missing PlayerController while building equipped weapon list.");
+                return;
             }
 
-            if(requestedIndex >= 0 && requestedIndex < options.Count) return true;
+            var primaryIndex = _root.PlayerControllerRef.primaryWeaponIndex.Value;
+            var secondaryIndex = _root.PlayerControllerRef.secondaryWeaponIndex.Value;
 
-            Debug.LogError(
-                $"[WeaponManager] Rejecting {slotLabel} selection index {requestedIndex}. Valid range is [0..{options.Count - 1}].");
-            return false;
-        }
-
-        private void SetupHolsteredWeaponModels() {
-            _root.PrimaryHolsterInternal = _root.ResolveHolsterWeaponObject(GetWeaponDataForSlot(0));
-            _root.SecondaryHolsterInternal = _root.ResolveHolsterWeaponObject(GetWeaponDataForSlot(1));
-
-            DisableUnequippedHolsterModels();
-
-            if(_root.PrimaryHolsterInternal == null) {
-                Debug.LogError("[WeaponManager] Missing Primary holster world weapon binding.");
+            var primary = GetWeaponFromOptions(_root.KinemationCatalogRef.PrimaryWeaponOptions, primaryIndex, "Primary");
+            if(primary != null) {
+                _root.WeaponDataListRef.Add(primary);
             }
 
-            if(_root.SecondaryHolsterInternal == null) {
-                Debug.LogError("[WeaponManager] Missing Secondary holster world weapon binding.");
-            }
-
-            DisableHolster(_root.PrimaryHolsterInternal);
-            DisableHolster(_root.SecondaryHolsterInternal);
-        }
-
-        private void DisableUnequippedHolsterModels() {
-            if(_root.WorldWeaponSocketRef == null || _root.WorldWeaponSocketRef.root == null) return;
-
-            var equippedHolsters = new HashSet<GameObject>();
-            if(_root.PrimaryHolsterInternal != null) equippedHolsters.Add(_root.PrimaryHolsterInternal);
-            if(_root.SecondaryHolsterInternal != null) equippedHolsters.Add(_root.SecondaryHolsterInternal);
-
-            var bindings = _root.WorldWeaponSocketRef.root.GetComponentsInChildren<WorldWeaponBinding>(true);
-            foreach(var binding in bindings) {
-                if(binding == null || binding.WeaponData == null) continue;
-                if(binding.transform.IsChildOf(_root.WorldWeaponSocketRef)) continue;
-
-                var holsterObject = binding.gameObject;
-                if(holsterObject == null) continue;
-
-                if(equippedHolsters.Contains(holsterObject)) continue;
-                if(holsterObject.activeSelf) {
-                    holsterObject.SetActive(false);
-                }
+            var secondary = GetWeaponFromOptions(_root.KinemationCatalogRef.SecondaryWeaponOptions, secondaryIndex, "Secondary");
+            if(secondary != null) {
+                _root.WeaponDataListRef.Add(secondary);
             }
         }
 
-        private WeaponData GetWeaponDataForSlot(int slot) {
-            if(_root.WeaponDataListRef == null || _root.WeaponDataListRef.Count == 0) return null;
-            foreach(var data in _root.WeaponDataListRef) {
-                if(data == null) continue;
-                var weaponSlot = ResolveWeaponSlot(data);
-                if(weaponSlot == slot) {
-                    return data;
-                }
+        private int ResolveInitialEquippedWeaponIndex() {
+            var replicatedIndex = _root.ReplicatedEquippedWeaponIndex.Value;
+            if(replicatedIndex >= 0 && replicatedIndex < _root.WeaponDataListRef.Count) {
+                return replicatedIndex;
             }
 
-            return null;
+            return 0;
         }
 
-        private static int ResolveWeaponSlot(WeaponData data) {
-            if(data == null) return -1;
-            var slot = data.WeaponSlotIndex;
-            return slot is 0 or 1 ? slot : -1;
-        }
+        #endregion
 
-        private static void DisableHolster(GameObject holster) {
-            if(holster == null) return;
-            if(holster.activeSelf) {
-                holster.SetActive(false);
-            }
-        }
-
-        private void UpdateHolsterVisibility() {
-            var currentSlot = GetSlotForIndex(_root.CurrentWeaponIndexInternal);
-
-            if(_root.PrimaryHolsterInternal != null) {
-                var showPrimary = currentSlot != 0 || _root.PendingHolsterHideSlot == 0;
-                if(_root.PrimaryHolsterInternal.activeSelf != showPrimary) {
-                    _root.PrimaryHolsterInternal.SetActive(showPrimary);
-                }
-            }
-
-            if(_root.SecondaryHolsterInternal == null) return;
-            var showSecondary = currentSlot != 1 || _root.PendingHolsterHideSlot == 1;
-            if(_root.SecondaryHolsterInternal.activeSelf != showSecondary) {
-                _root.SecondaryHolsterInternal.SetActive(showSecondary);
-            }
-        }
-
-        private int GetSlotForIndex(int index) {
-            var data = _root.GetWeaponDataByIndex(index);
-            if(data == null) return -1;
-            return ResolveWeaponSlot(data);
-        }
+        #region Private Rebuild Flow
 
         private void RebuildEquippedWeapons(bool preserveCurrentSlot, bool deferTpRevealUntilRespawn) {
             if(_root.CurrentWeaponInternal == null || _root.FpCameraRef == null) {
@@ -375,19 +337,77 @@ namespace Game.Weapons.Manager {
             _root.PendingTpWeapon = null;
         }
 
-        private int ResolveIndexForSlot(int slot) {
-            if(_root.WeaponDataListRef == null || _root.WeaponDataListRef.Count == 0) return 0;
+        #endregion
 
-            for(var i = 0; i < _root.WeaponDataListRef.Count; i++) {
-                var data = _root.WeaponDataListRef[i];
-                if(data == null) continue;
-                if(ResolveWeaponSlot(data) == slot) {
-                    return i;
+        #region Private Holster Helpers
+
+        private void SetupHolsteredWeaponModels() {
+            _root.PrimaryHolsterInternal = _root.ResolveHolsterWeaponObject(GetWeaponDataForSlot(0));
+            _root.SecondaryHolsterInternal = _root.ResolveHolsterWeaponObject(GetWeaponDataForSlot(1));
+
+            DisableUnequippedHolsterModels();
+
+            if(_root.PrimaryHolsterInternal == null) {
+                Debug.LogError("[WeaponManager] Missing Primary holster world weapon binding.");
+            }
+
+            if(_root.SecondaryHolsterInternal == null) {
+                Debug.LogError("[WeaponManager] Missing Secondary holster world weapon binding.");
+            }
+
+            DisableHolster(_root.PrimaryHolsterInternal);
+            DisableHolster(_root.SecondaryHolsterInternal);
+        }
+
+        private void DisableUnequippedHolsterModels() {
+            if(_root.WorldWeaponSocketRef == null || _root.WorldWeaponSocketRef.root == null) return;
+
+            var equippedHolsters = new HashSet<GameObject>();
+            if(_root.PrimaryHolsterInternal != null) equippedHolsters.Add(_root.PrimaryHolsterInternal);
+            if(_root.SecondaryHolsterInternal != null) equippedHolsters.Add(_root.SecondaryHolsterInternal);
+
+            var bindings = _root.WorldWeaponSocketRef.root.GetComponentsInChildren<WorldWeaponBinding>(true);
+            foreach(var binding in bindings) {
+                if(binding == null || binding.WeaponData == null) continue;
+                if(binding.transform.IsChildOf(_root.WorldWeaponSocketRef)) continue;
+
+                var holsterObject = binding.gameObject;
+                if(holsterObject == null) continue;
+
+                if(equippedHolsters.Contains(holsterObject)) continue;
+                if(holsterObject.activeSelf) {
+                    holsterObject.SetActive(false);
+                }
+            }
+        }
+
+        private void UpdateHolsterVisibility() {
+            var currentSlot = GetSlotForIndex(_root.CurrentWeaponIndexInternal);
+
+            if(_root.PrimaryHolsterInternal != null) {
+                var showPrimary = currentSlot != 0 || _root.PendingHolsterHideSlot == 0;
+                if(_root.PrimaryHolsterInternal.activeSelf != showPrimary) {
+                    _root.PrimaryHolsterInternal.SetActive(showPrimary);
                 }
             }
 
-            return Mathf.Clamp(slot, 0, _root.WeaponDataListRef.Count - 1);
+            if(_root.SecondaryHolsterInternal == null) return;
+            var showSecondary = currentSlot != 1 || _root.PendingHolsterHideSlot == 1;
+            if(_root.SecondaryHolsterInternal.activeSelf != showSecondary) {
+                _root.SecondaryHolsterInternal.SetActive(showSecondary);
+            }
         }
+
+        private static void DisableHolster(GameObject holster) {
+            if(holster == null) return;
+            if(holster.activeSelf) {
+                holster.SetActive(false);
+            }
+        }
+
+        #endregion
+
+        #region Private World Weapon Helpers
 
         private void ResolveCurrentWorldWeaponReference() {
             if(_root.WorldWeaponSocketRef == null) return;
@@ -428,6 +448,53 @@ namespace Game.Weapons.Manager {
                 }
             }
         }
+
+        #endregion
+
+        #region Private Resolution Helpers
+
+        private WeaponData GetWeaponDataForSlot(int slot) {
+            if(_root.WeaponDataListRef == null || _root.WeaponDataListRef.Count == 0) return null;
+            foreach(var data in _root.WeaponDataListRef) {
+                if(data == null) continue;
+                var weaponSlot = ResolveWeaponSlot(data);
+                if(weaponSlot == slot) {
+                    return data;
+                }
+            }
+
+            return null;
+        }
+
+        private int GetSlotForIndex(int index) {
+            var data = _root.GetWeaponDataByIndex(index);
+            if(data == null) return -1;
+            return ResolveWeaponSlot(data);
+        }
+
+        private int ResolveIndexForSlot(int slot) {
+            if(_root.WeaponDataListRef == null || _root.WeaponDataListRef.Count == 0) return 0;
+
+            for(var i = 0; i < _root.WeaponDataListRef.Count; i++) {
+                var data = _root.WeaponDataListRef[i];
+                if(data == null) continue;
+                if(ResolveWeaponSlot(data) == slot) {
+                    return i;
+                }
+            }
+
+            return Mathf.Clamp(slot, 0, _root.WeaponDataListRef.Count - 1);
+        }
+
+        private static int ResolveWeaponSlot(WeaponData data) {
+            if(data == null) return -1;
+            var slot = data.WeaponSlotIndex;
+            return slot is 0 or 1 ? slot : -1;
+        }
+
+        #endregion
+
+        #region Private Validation Helpers
 
         private bool ValidateStrictEquippedWeaponConfiguration() {
             if(_root.KinemationFpsPlayerPrefabRef == null) {
@@ -503,27 +570,17 @@ namespace Game.Weapons.Manager {
             return isValid;
         }
 
-        private void BuildEquippedWeaponList() {
-            _root.BuildKinemationWeaponLookup();
-            _root.WeaponDataListRef.Clear();
-
-            if(_root.PlayerControllerRef == null) {
-                Debug.LogError("[WeaponManager] Missing PlayerController while building equipped weapon list.");
-                return;
+        private static bool IsValidSelectionIndex(IReadOnlyList<WeaponData> options, int requestedIndex, string slotLabel) {
+            if(options == null || options.Count == 0) {
+                Debug.LogError($"[WeaponManager] Cannot apply {slotLabel} selection. No options configured.");
+                return false;
             }
 
-            var primaryIndex = _root.PlayerControllerRef.primaryWeaponIndex.Value;
-            var secondaryIndex = _root.PlayerControllerRef.secondaryWeaponIndex.Value;
+            if(requestedIndex >= 0 && requestedIndex < options.Count) return true;
 
-            var primary = GetWeaponFromOptions(_root.KinemationCatalogRef.PrimaryWeaponOptions, primaryIndex, "Primary");
-            if(primary != null) {
-                _root.WeaponDataListRef.Add(primary);
-            }
-
-            var secondary = GetWeaponFromOptions(_root.KinemationCatalogRef.SecondaryWeaponOptions, secondaryIndex, "Secondary");
-            if(secondary != null) {
-                _root.WeaponDataListRef.Add(secondary);
-            }
+            Debug.LogError(
+                $"[WeaponManager] Rejecting {slotLabel} selection index {requestedIndex}. Valid range is [0..{options.Count - 1}].");
+            return false;
         }
 
         private static WeaponData GetWeaponFromOptions(IReadOnlyList<WeaponData> options, int storedIndex, string slotLabel) {
@@ -545,13 +602,6 @@ namespace Game.Weapons.Manager {
             return weaponData;
         }
 
-        private int ResolveInitialEquippedWeaponIndex() {
-            var replicatedIndex = _root.ReplicatedEquippedWeaponIndex.Value;
-            if(replicatedIndex >= 0 && replicatedIndex < _root.WeaponDataListRef.Count) {
-                return replicatedIndex;
-            }
-
-            return 0;
-        }
+        #endregion
     }
 }

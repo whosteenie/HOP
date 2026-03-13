@@ -292,13 +292,13 @@ namespace Game.Weapons.Manager {
         internal void InstantiateFpWeaponInstancesInternal() => _fpPresentationCoordinator.InstantiateFpWeaponInstances();
         internal void DestroyFpWeaponInstancesInternal() => _fpPresentationCoordinator.DestroyFpWeaponInstances();
         internal bool TryGetKinemationDriverInternal(GameObject fpWeaponRoot, out KinemationFpWeaponDriver driver) =>
-            _fpPresentationCoordinator.TryGetKinemationDriver(fpWeaponRoot, out driver);
+            WeaponFpPresentationCoordinator.TryGetKinemationDriver(fpWeaponRoot, out driver);
         internal void ApplyResolvedKinemationViewmodelPoseInternal(GameObject fpWeaponRoot, KinemationWeaponBinding binding) =>
             _fpPresentationCoordinator.ApplyResolvedKinemationViewmodelPose(fpWeaponRoot, binding);
         internal int GetFpWeaponLayerInternal() => _fpPresentationCoordinator.GetFpWeaponLayer();
         internal void SetupFpWeaponSkinnedMeshRenderersInternal(GameObject fpWeaponInstance) =>
             _fpPresentationCoordinator.SetupFpWeaponSkinnedMeshRenderers(fpWeaponInstance);
-        internal void EnsureHierarchyActiveInternal(GameObject instanceRoot) => _fpPresentationCoordinator.EnsureHierarchyActive(instanceRoot);
+        internal void EnsureHierarchyActiveInternal(GameObject instanceRoot) => WeaponFpPresentationCoordinator.EnsureHierarchyActive(instanceRoot);
         internal void EnsureFpWeaponLightingRigInternal() => _fpLightingCoordinator.EnsureFpWeaponLightingRig();
         internal int GetSlotForIndexInternal(int index) => _loadoutCoordinator.GetSlotForIndexInternal(index);
         internal void ResolveCurrentWorldWeaponReferenceInternal() => _loadoutCoordinator.ResolveCurrentWorldWeaponReferenceInternal();

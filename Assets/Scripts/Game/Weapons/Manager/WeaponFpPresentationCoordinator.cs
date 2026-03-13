@@ -65,7 +65,7 @@ namespace Game.Weapons.Manager {
             fpWeaponRoot.transform.localEulerAngles = localEulerAngles;
         }
 
-        public bool TryGetKinemationDriver(GameObject fpWeaponRoot, out KinemationFpWeaponDriver driver) {
+        public static bool TryGetKinemationDriver(GameObject fpWeaponRoot, out KinemationFpWeaponDriver driver) {
             driver = fpWeaponRoot != null ? fpWeaponRoot.GetComponent<KinemationFpWeaponDriver>() : null;
             return driver != null;
         }
@@ -205,7 +205,7 @@ namespace Game.Weapons.Manager {
             }
         }
 
-        public void EnsureHierarchyActive(GameObject instanceRoot) {
+        public static void EnsureHierarchyActive(GameObject instanceRoot) {
             if(instanceRoot == null) return;
             var parent = instanceRoot.transform;
             while(parent != null) {
