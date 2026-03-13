@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
+using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
 using Game.Hopball;
 using Game.Match;
@@ -297,18 +298,33 @@ namespace Network.Session {
 
         private async UniTask<string> CreateDistributedAuthoritySessionAsync(int maxPlayers, bool isPrivateMatch,
             string contextLabel) {
-            await CleanupNetworkAsync();
-            ApplyLocalConnectionPayload(isPrivateMatch);
-
+            BeginDistributedAuthorityStartupWindow(contextLabel);
             try {
-                var hostSession = await MultiplayerService.Instance.CreateSessionAsync(
-                    BuildDistributedAuthoritySessionOptions(maxPlayers, isPrivateMatch));
-                BindActiveMultiplayerSession(hostSession, contextLabel);
-                return hostSession.Code;
-            } catch(Exception ex) {
-                Debug.LogError($"[SessionManager] Failed to create DA session during {contextLabel}: {ex}");
-                UnbindActiveMultiplayerSession();
+                await CleanupNetworkAsync();
+                ApplyLocalConnectionPayload(isPrivateMatch);
+
+                const int maxAttempts = 2;
+                for(var attempt = 1; attempt <= maxAttempts; attempt++) {
+                    try {
+                        var hostSession = await MultiplayerService.Instance.CreateSessionAsync(
+                            BuildDistributedAuthoritySessionOptions(maxPlayers, isPrivateMatch));
+                        BindActiveMultiplayerSession(hostSession, contextLabel);
+                        return hostSession.Code;
+                    } catch(Exception ex) when(attempt < maxAttempts &&
+                                                IsRetryableDistributedAuthorityStartupException(ex)) {
+                        Debug.LogWarning(
+                            $"[SessionManager] DA create canceled during {contextLabel} (attempt {attempt}/{maxAttempts}). Retrying...");
+                        await UniTask.Delay(350, cancellationToken: SessionLifetimeToken);
+                    } catch(Exception ex) {
+                        Debug.LogError($"[SessionManager] Failed to create DA session during {contextLabel}: {ex}");
+                        UnbindActiveMultiplayerSession();
+                        return null;
+                    }
+                }
+
                 return null;
+            } finally {
+                EndDistributedAuthorityStartupWindow(contextLabel);
             }
         }
 
@@ -320,41 +336,100 @@ namespace Network.Session {
                 return DistributedAuthoritySessionJoinResult.Failed;
             }
 
-            await CleanupNetworkAsync();
-            ApplyLocalConnectionPayload(isPrivateMatch);
-
+            BeginDistributedAuthorityStartupWindow(contextLabel);
             try {
-                var joinOptions = new JoinSessionOptions {
-                    Type = MultiplayerSessionType,
-                    PlayerProperties = new Dictionary<string, PlayerProperty> {
-                        ["displayName"] = new(LocalIdentity.GetDisplayName(), VisibilityPropertyOptions.Member)
+                await CleanupNetworkAsync();
+                ApplyLocalConnectionPayload(isPrivateMatch);
+
+                const int maxAttempts = 2;
+                for(var attempt = 1; attempt <= maxAttempts; attempt++) {
+                    try {
+                        var joinOptions = new JoinSessionOptions {
+                            Type = MultiplayerSessionType,
+                            PlayerProperties = new Dictionary<string, PlayerProperty> {
+                                ["displayName"] = new(LocalIdentity.GetDisplayName(), VisibilityPropertyOptions.Member)
+                            }
+                        };
+                        if(string.IsNullOrEmpty(CurrentPartyId) == false) {
+                            joinOptions.PlayerProperties[MultiplayerSessionPartyIdKey] =
+                                new PlayerProperty(CurrentPartyId, VisibilityPropertyOptions.Member);
+                        }
+
+                        var steamId = LocalIdentity.GetSteamId();
+                        if(steamId != 0) {
+                            joinOptions.PlayerProperties[MultiplayerSessionSteamIdKey] =
+                                new PlayerProperty(steamId.ToString(), VisibilityPropertyOptions.Member);
+                        }
+
+                        var session = await MultiplayerService.Instance.JoinSessionByCodeAsync(sessionCode, joinOptions);
+                        BindActiveMultiplayerSession(session, contextLabel);
+                        return DistributedAuthoritySessionJoinResult.Success;
+                    } catch(SessionException ex) when(ex.Error == SessionError.RateLimitExceeded) {
+                        Debug.LogWarning(
+                            $"[SessionManager] Rate limited joining DA session '{sessionCode}' during {contextLabel}. Retrying...");
+                        UnbindActiveMultiplayerSession();
+                        return DistributedAuthoritySessionJoinResult.RateLimited;
+                    } catch(Exception ex) when(attempt < maxAttempts &&
+                                                IsRetryableDistributedAuthorityStartupException(ex)) {
+                        Debug.LogWarning(
+                            $"[SessionManager] DA join canceled for code '{sessionCode}' during {contextLabel} (attempt {attempt}/{maxAttempts}). Retrying...");
+                        await UniTask.Delay(350, cancellationToken: SessionLifetimeToken);
+                    } catch(Exception ex) {
+                        Debug.LogError(
+                            $"[SessionManager] Failed to join DA session '{sessionCode}' during {contextLabel}: {ex}");
+                        UnbindActiveMultiplayerSession();
+                        return DistributedAuthoritySessionJoinResult.Failed;
                     }
-                };
-                if(string.IsNullOrEmpty(CurrentPartyId) == false) {
-                    joinOptions.PlayerProperties[MultiplayerSessionPartyIdKey] =
-                        new PlayerProperty(CurrentPartyId, VisibilityPropertyOptions.Member);
                 }
 
-                var steamId = LocalIdentity.GetSteamId();
-                if(steamId != 0) {
-                    joinOptions.PlayerProperties[MultiplayerSessionSteamIdKey] =
-                        new PlayerProperty(steamId.ToString(), VisibilityPropertyOptions.Member);
-                }
-
-                var session = await MultiplayerService.Instance.JoinSessionByCodeAsync(sessionCode, joinOptions);
-                BindActiveMultiplayerSession(session, contextLabel);
-                return DistributedAuthoritySessionJoinResult.Success;
-            } catch(SessionException ex) when(ex.Error == SessionError.RateLimitExceeded) {
-                Debug.LogWarning(
-                    $"[SessionManager] Rate limited joining DA session '{sessionCode}' during {contextLabel}. Retrying...");
-                UnbindActiveMultiplayerSession();
-                return DistributedAuthoritySessionJoinResult.RateLimited;
-            } catch(Exception ex) {
-                Debug.LogError(
-                    $"[SessionManager] Failed to join DA session '{sessionCode}' during {contextLabel}: {ex}");
-                UnbindActiveMultiplayerSession();
                 return DistributedAuthoritySessionJoinResult.Failed;
+            } finally {
+                EndDistributedAuthorityStartupWindow(contextLabel);
             }
+        }
+
+        private void BeginDistributedAuthorityStartupWindow(string contextLabel) {
+            _distributedAuthorityStartupDepth = Math.Max(0, _distributedAuthorityStartupDepth) + 1;
+            _distributedAuthorityStartupUntilTime =
+                Time.unscaledTime + DistributedAuthorityStartupDisconnectGraceSeconds;
+            if(Debug.isDebugBuild) {
+                Debug.Log(
+                    $"[SessionManager] DA startup window begin ({contextLabel}). depth={_distributedAuthorityStartupDepth}");
+            }
+        }
+
+        private void EndDistributedAuthorityStartupWindow(string contextLabel) {
+            _distributedAuthorityStartupDepth = Math.Max(0, _distributedAuthorityStartupDepth - 1);
+            if(_distributedAuthorityStartupDepth == 0) {
+                _distributedAuthorityStartupUntilTime = 0f;
+            }
+
+            if(Debug.isDebugBuild) {
+                Debug.Log(
+                    $"[SessionManager] DA startup window end ({contextLabel}). depth={_distributedAuthorityStartupDepth}");
+            }
+        }
+
+        private static bool IsRetryableDistributedAuthorityStartupException(Exception ex) {
+            if(ex == null) return false;
+            if(ex is TaskCanceledException or OperationCanceledException) return true;
+            if(ex is SessionException sessionEx &&
+               sessionEx.Error == SessionError.NetworkSetupFailed &&
+               ContainsCancellationException(sessionEx)) {
+                return true;
+            }
+
+            return ContainsCancellationException(ex);
+        }
+
+        private static bool ContainsCancellationException(Exception ex) {
+            for(var current = ex; current != null; current = current.InnerException) {
+                if(current is TaskCanceledException or OperationCanceledException) {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private async UniTask LeaveActiveMultiplayerSessionAsync(string contextLabel) {

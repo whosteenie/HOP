@@ -238,6 +238,14 @@ namespace Network.Session {
                 return;
             }
 
+            if(IsDistributedAuthorityStartupInFlight) {
+                if(Debug.isDebugBuild) {
+                    Debug.Log("[SessionManager] Ignoring local disconnect during DA startup window.");
+                }
+                NotifyPartyStateChanged();
+                return;
+            }
+
             if(!IsExpectedDisconnect) {
                 Debug.Log("[SessionManager] Unexpected local disconnect.");
                 TriggerUnexpectedDisconnectFlow("OnClientDisconnected");
@@ -254,6 +262,12 @@ namespace Network.Session {
         /// </summary>
         private void OnClientStopped(bool _) {
             if(IsExpectedDisconnect || _isLeaving) return;
+            if(IsDistributedAuthorityStartupInFlight) {
+                if(Debug.isDebugBuild) {
+                    Debug.Log("[SessionManager] Ignoring client-stopped callback during DA startup window.");
+                }
+                return;
+            }
             if(_networkManager != null && _networkManager.IsListening) return;
 
             if(_networkManager != null && _activeMultiplayerSession != null) {
@@ -302,6 +316,12 @@ namespace Network.Session {
 
         private void TriggerUnexpectedDisconnectFlow(string source) {
             if(_unexpectedDisconnectInFlight || _isLeaving || _isShuttingDown) {
+                return;
+            }
+            if(IsDistributedAuthorityStartupInFlight) {
+                if(Debug.isDebugBuild) {
+                    Debug.Log($"[SessionManager] Suppressed unexpected disconnect flow during DA startup ({source}).");
+                }
                 return;
             }
 

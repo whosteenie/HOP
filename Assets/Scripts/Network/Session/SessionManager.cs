@@ -140,6 +140,9 @@ namespace Network.Session {
         private int _activeSessionOperations;
         private int _expectedGamePlayerCount = 1;
         private bool _unexpectedDisconnectInFlight;
+        private int _distributedAuthorityStartupDepth;
+        private float _distributedAuthorityStartupUntilTime;
+        private const float DistributedAuthorityStartupDisconnectGraceSeconds = 8f;
         // Track if we expect a disconnect (e.g. intentionally leaving)
 
         /// <summary>True when we intentionally left (LeaveLobby etc.); used to skip disconnect capture in OnNetworkDespawn.</summary>
@@ -189,6 +192,8 @@ namespace Network.Session {
         }
 
         public int ExpectedGamePlayerCount => Mathf.Max(1, _expectedGamePlayerCount);
+        private bool IsDistributedAuthorityStartupInFlight =>
+            _distributedAuthorityStartupDepth > 0 && Time.unscaledTime <= _distributedAuthorityStartupUntilTime;
         private CancellationToken SessionLifetimeToken =>
             _sessionLifetimeCts != null ? _sessionLifetimeCts.Token : CancellationToken.None;
 
