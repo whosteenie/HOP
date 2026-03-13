@@ -458,23 +458,8 @@ namespace Game.Player.Core {
         /// Main update loop for core player logic, movement synchronization, and server validation.
         /// </summary>
         private void Update() {
-            if((disableKinemationFrameworkComponents || disableUnexpectedChildCameras) &&
-               (Time.frameCount & 15) == 0) {
-                DisableConflictingKinemationFrameworkComponents();
-                DisableUnexpectedChildCamerasAndListeners();
-            }
-
-            if(NetworkAuthority.HasGlobalAuthority(this)) {
-                var authPos = clientNetworkTransform.transform.position;
-                ValidateServerMovement(authPos);
-                HandleOutOfBoundsChecks(authPos);
-                if(healthController != null) {
-                    healthController.UpdateHealthRegeneration();
-                }
-                if(statsController != null) {
-                    statsController.UpdateAuthorityStats();
-                }
-            }
+            UpdateRuntimeSafetyMaintenance();
+            UpdateAuthorityFrameState();
 
             if(IsOwner) {
                 UpdateTriggerOutOfBoundsCountdownUiOwner();
@@ -483,53 +468,9 @@ namespace Game.Player.Core {
             if(NetIsDead.Value || characterController.enabled == false) return;
 
             if(IsOwner) {
-                if(movementController != null) {
-                    movementController.UpdateMovement(fpCamera);
-                    movementController.UpdateCrouch(fpCamera);
-
-                    if(animationController != null) {
-                        animationController.UpdateFallingState(movementController.IsGrounded,
-                            movementController.VerticalVelocity, playerTransform.position);
-
-                        var animHorizontal = movementController.HorizontalVelocity;
-                        var animSpeedSqr = movementController.CachedHorizontalSpeedSqr;
-                        if(characterController != null && movementController.IsGrounded) {
-                            var actual = characterController.velocity;
-                            actual.y = 0f;
-                            var actualSpeed = actual.magnitude;
-                            if(actualSpeed < 0.2f) {
-                                animHorizontal = actual;
-                                animSpeedSqr = actual.sqrMagnitude;
-                            } else {
-                                var intended = movementController.HorizontalVelocity;
-                                intended.y = 0f;
-                                var blendedSpeed = Mathf.Lerp(actualSpeed, intended.magnitude, 0.4f);
-                                if(actualSpeed > 0.0001f) {
-                                    animHorizontal = actual.normalized * blendedSpeed;
-                                } else {
-                                    animHorizontal = actual;
-                                }
-                                animSpeedSqr = animHorizontal.sqrMagnitude;
-                            }
-                        }
-
-                        animationController.UpdateAnimator(animHorizontal,
-                            movementController.MaxSpeed, animSpeedSqr);
-                    }
-                }
-
-                if(lookController != null)
-                    lookController.UpdateSpeedFov();
-
+                UpdateOwnerFrameState();
             } else {
-                if(movementController != null)
-                    movementController.UpdateCrouch(fpCamera);
-
-                if(animationController != null)
-                    animationController.SetCrouching(netIsCrouching.Value);
-
-                if(visualController == null || Time.frameCount % 60 != 0) return;
-                visualController.VerifyAndFixVisibility();
+                UpdateRemoteFrameState();
             }
         }
 
@@ -538,6 +479,98 @@ namespace Game.Player.Core {
 
             if(lookController != null)
                 lookController.UpdateLook();
+        }
+
+        private void UpdateRuntimeSafetyMaintenance() {
+            if((disableKinemationFrameworkComponents || disableUnexpectedChildCameras) &&
+               (Time.frameCount & 15) == 0) {
+                DisableConflictingKinemationFrameworkComponents();
+                DisableUnexpectedChildCamerasAndListeners();
+            }
+        }
+
+        private void UpdateAuthorityFrameState() {
+            if(!NetworkAuthority.HasGlobalAuthority(this)) return;
+
+            var authPos = clientNetworkTransform.transform.position;
+            ValidateServerMovement(authPos);
+            HandleOutOfBoundsChecks(authPos);
+
+            if(healthController != null) {
+                healthController.UpdateHealthRegeneration();
+            }
+
+            if(statsController != null) {
+                statsController.UpdateAuthorityStats();
+            }
+        }
+
+        private void UpdateOwnerFrameState() {
+            UpdateOwnerMovementAndAnimation();
+
+            if(lookController != null) {
+                lookController.UpdateSpeedFov();
+            }
+        }
+
+        private void UpdateOwnerMovementAndAnimation() {
+            if(movementController == null) return;
+
+            movementController.UpdateMovement(fpCamera);
+            movementController.UpdateCrouch(fpCamera);
+
+            if(animationController == null) return;
+
+            animationController.UpdateFallingState(movementController.IsGrounded,
+                movementController.VerticalVelocity, playerTransform.position);
+
+            var (animHorizontal, animSpeedSqr) = GetOwnerAnimationMotion();
+            animationController.UpdateAnimator(animHorizontal, movementController.MaxSpeed, animSpeedSqr);
+        }
+
+        private (Vector3 horizontalVelocity, float speedSqr) GetOwnerAnimationMotion() {
+            if(movementController == null) {
+                return (Vector3.zero, 0f);
+            }
+
+            var animHorizontal = movementController.HorizontalVelocity;
+            var animSpeedSqr = movementController.CachedHorizontalSpeedSqr;
+
+            if(characterController == null || !movementController.IsGrounded) {
+                return (animHorizontal, animSpeedSqr);
+            }
+
+            var actual = characterController.velocity;
+            actual.y = 0f;
+            var actualSpeed = actual.magnitude;
+            if(actualSpeed < 0.2f) {
+                return (actual, actual.sqrMagnitude);
+            }
+
+            var intended = movementController.HorizontalVelocity;
+            intended.y = 0f;
+            var blendedSpeed = Mathf.Lerp(actualSpeed, intended.magnitude, 0.4f);
+            if(actualSpeed > 0.0001f) {
+                animHorizontal = actual.normalized * blendedSpeed;
+            } else {
+                animHorizontal = actual;
+            }
+
+            return (animHorizontal, animHorizontal.sqrMagnitude);
+        }
+
+        private void UpdateRemoteFrameState() {
+            if(movementController != null) {
+                movementController.UpdateCrouch(fpCamera);
+            }
+
+            if(animationController != null) {
+                animationController.SetCrouching(netIsCrouching.Value);
+            }
+
+            if(visualController != null && Time.frameCount % 60 == 0) {
+                visualController.VerifyAndFixVisibility();
+            }
         }
 
         /// <summary>
