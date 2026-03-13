@@ -1,5 +1,6 @@
 using Game.Match;
 using Game.UI;
+using Game.Weapons.Core;
 using Network.AntiCheat;
 using Network.Core;
 using Network.Events;

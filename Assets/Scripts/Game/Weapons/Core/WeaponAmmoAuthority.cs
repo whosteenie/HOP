@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace Game.Weapons {
+namespace Game.Weapons.Core {
     internal sealed class WeaponAmmoAuthority {
         private sealed class ServerWeaponState {
             public float LastShotReceiveTime;

@@ -9,6 +9,7 @@ using Game.Menu.Options;
 using Game.Match;
 using Game.Player.Core;
 using Game.Weapons;
+using Game.Weapons.Core;
 using Game.Weapons.Manager;
 using Network.Events;
 using Network.Services;

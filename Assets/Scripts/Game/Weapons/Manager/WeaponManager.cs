@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Game.Match;
 using Game.Player;
 using Game.Player.Core;
+using Game.Weapons.Core;
 using Game.Weapons.World;
 using KINEMATION.FPSAnimationPack.Scripts.Weapon;
 using Network.Core;

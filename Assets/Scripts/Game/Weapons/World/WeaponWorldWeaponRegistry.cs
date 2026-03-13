@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Game.Weapons.Core;
 using UnityEngine;
 
 namespace Game.Weapons.World {

@@ -1,3 +1,4 @@
+using Game.Weapons.Core;
 using UnityEngine;
 
 namespace Game.Weapons.World {

@@ -2,7 +2,7 @@ using Game.Player.Core;
 using Game.Weapons.Manager;
 using UnityEngine;
 
-namespace Game.Weapons {
+namespace Game.Weapons.Core {
     /// <summary>
     /// Component attached to FP weapon GameObjects to handle animation events.
     /// Allows animation events to communicate with the weapon system.

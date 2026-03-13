@@ -1,5 +1,6 @@
 using Game.Player;
 using Game.Player.Combat;
+using Game.Weapons.Core;
 using Game.Weapons.Presentation;
 using UnityEngine;
 using UnityEngine.Rendering;

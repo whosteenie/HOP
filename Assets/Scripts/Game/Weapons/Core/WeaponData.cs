@@ -1,8 +1,8 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Serialization;
-using System.Collections.Generic;
 
-namespace Game.Weapons {
+namespace Game.Weapons.Core {
     [CreateAssetMenu(fileName = "New Weapon", menuName = "Weapon Data")]
     public class WeaponData : ScriptableObject {
         public enum WeaponSlotType {

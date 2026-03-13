@@ -3,6 +3,7 @@ using Audio.Networking;
 using Game.Menu;
 using Game.Player.Core;
 using Game.UI;
+using Game.Weapons.Core;
 using Game.Weapons.Manager;
 using Game.Weapons.World;
 using Network.Core;
@@ -52,7 +53,7 @@ namespace Game.Weapons {
         private static readonly NetworkVariable<float> MissingDamageMultiplierState = new(1f);
 
         public NetworkVariable<float> NetCurrentDamageMultiplier =>
-            playerController != null ? playerController.PlayerState?.replicatedDamageMultiplier ?? MissingDamageMultiplierState : MissingDamageMultiplierState;
+            playerController != null ? playerController.PlayerState != null ? playerController.PlayerState.replicatedDamageMultiplier ?? MissingDamageMultiplierState : MissingDamageMultiplierState : MissingDamageMultiplierState;
 
         private float CurrentDamageMultiplier {
             get => IsOwner ? _localDamageMultiplier : NetCurrentDamageMultiplier.Value;

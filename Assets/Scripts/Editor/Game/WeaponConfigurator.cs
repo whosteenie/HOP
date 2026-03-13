@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEditor;
 using Game.Weapons;
+using Game.Weapons.Core;
 
 namespace Game.Editor {
     public class WeaponConfigurator : EditorWindow {
