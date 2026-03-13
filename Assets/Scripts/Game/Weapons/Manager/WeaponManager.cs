@@ -256,7 +256,7 @@ namespace Game.Weapons.Manager {
         public void CancelPendingPullOutForPostMatch() => _switchCoordinator.CancelPendingPullOutForPostMatch();
         public void SetTpWeaponIndexForPodium() => _switchCoordinator.SetTpWeaponIndexForPodium();
         public void ProcessWeaponSwitchAuthorityRequest(int newIndex) => _switchCoordinator.ProcessWeaponSwitchAuthorityRequest(newIndex);
-        public GameObject GetCurrentFpWeapon() => _fpPresentationCoordinator.GetCurrentFpWeapon();
+        public GameObject GetCurrentFpWeapon() => _fpPresentationCoordinator != null ? _fpPresentationCoordinator.GetCurrentFpWeapon() : null;
         public GameObject GetCurrentFpWeaponHolderRootForDisconnectDuplicate() =>
             _fpPresentationCoordinator.GetCurrentFpWeaponHolderRootForDisconnectDuplicate();
         public void UpdateAllFpArmTagGlow(bool isTagged) => _fpPresentationCoordinator.UpdateAllFpArmTagGlow(isTagged);
@@ -357,6 +357,13 @@ namespace Game.Weapons.Manager {
 
             if(CurrentWeaponInternal == null) {
                 CurrentWeaponInternal = GetComponent<Weapon>();
+                if(CurrentWeaponInternal == null) {
+                    CurrentWeaponInternal = GetComponentInChildren<Weapon>(true);
+                }
+
+                if(CurrentWeaponInternal == null) {
+                    CurrentWeaponInternal = GetComponentInParent<Weapon>();
+                }
             }
 
             if(FpCameraRef == null && playerController != null) {
@@ -390,7 +397,8 @@ namespace Game.Weapons.Manager {
 
         internal static int ResolveKinemationWeaponCapacity(GameObject kinemationWeaponPrefab) {
             if(kinemationWeaponPrefab == null) return 0;
-            var settings = kinemationWeaponPrefab.GetComponentInChildren<FPSWeaponSettings>(true);
+            var fpsWeapon = kinemationWeaponPrefab.GetComponentInChildren<FPSWeapon>(true);
+            var settings = fpsWeapon != null ? fpsWeapon.weaponSettings : null;
             return settings != null ? Mathf.Max(0, settings.ammo) : 0;
         }
 
