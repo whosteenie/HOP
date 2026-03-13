@@ -3,7 +3,7 @@ using Game.Weapons;
 using UnityEngine;
 
 namespace Game.Player.Core {
-    internal sealed class PlayerRuntimeSafetyCoordinator {
+    internal sealed class PlayerRuntimeSafety {
         private const string KinemationFpsCameraControllerTypeName =
             "KINEMATION.FPSAnimationFramework.Runtime.Camera.FPSCameraController";
         private const string KinemationFpsCameraAnimationTypeName =
@@ -29,7 +29,7 @@ namespace Game.Player.Core {
         private AudioListener[] _cachedChildAudioListeners = Array.Empty<AudioListener>();
         private bool _childComponentCachesDirty = true;
 
-        public PlayerRuntimeSafetyCoordinator(PlayerController player) {
+        public PlayerRuntimeSafety(PlayerController player) {
             _player = player;
         }
 

@@ -144,14 +144,14 @@ namespace Game.Player.Core {
         private const float MinHeightStrength = 0.005f;
         private const float MaxHeightStrength = 0.08f;
 
-        private PlayerNetworkStateCoordinator _networkStateCoordinator;
-        private PlayerMaterialCustomizationCoordinator _materialCustomizationCoordinator;
-        private PlayerRuntimeSafetyCoordinator _runtimeSafetyCoordinator;
-        private PlayerOutOfBoundsCoordinator _outOfBoundsCoordinator;
-        private PlayerMovementValidationCoordinator _movementValidationCoordinator;
-        private PlayerWeaponPresentationCoordinator _weaponPresentationCoordinator;
-        private PlayerSpawnPresentationCoordinator _spawnPresentationCoordinator;
-        private PlayerPresentationStateCoordinator _presentationStateCoordinator;
+        private PlayerNetworkState _networkState;
+        private PlayerMaterialCustomization _materialCustomization;
+        private PlayerRuntimeSafety _runtimeSafety;
+        private PlayerOutOfBounds _outOfBounds;
+        private PlayerMovementValidation _movementValidation;
+        private PlayerWeaponPresentation _weaponPresentation;
+        private PlayerSpawnPresentation _spawnPresentation;
+        private PlayerPresentationState _presentationState;
 
         #endregion
 
@@ -289,14 +289,14 @@ namespace Game.Player.Core {
         #region Unity Lifecycle
 
         private void InitializeCoordinators() {
-            _runtimeSafetyCoordinator ??= new PlayerRuntimeSafetyCoordinator(this);
-            _outOfBoundsCoordinator ??= new PlayerOutOfBoundsCoordinator(this);
-            _networkStateCoordinator ??= new PlayerNetworkStateCoordinator(this);
-            _materialCustomizationCoordinator ??= new PlayerMaterialCustomizationCoordinator(this);
-            _movementValidationCoordinator ??= new PlayerMovementValidationCoordinator(this);
-            _weaponPresentationCoordinator ??= new PlayerWeaponPresentationCoordinator(this);
-            _spawnPresentationCoordinator ??= new PlayerSpawnPresentationCoordinator(this);
-            _presentationStateCoordinator ??= new PlayerPresentationStateCoordinator(this);
+            _runtimeSafety ??= new PlayerRuntimeSafety(this);
+            _outOfBounds ??= new PlayerOutOfBounds(this);
+            _networkState ??= new PlayerNetworkState(this);
+            _materialCustomization ??= new PlayerMaterialCustomization(this);
+            _movementValidation ??= new PlayerMovementValidation(this);
+            _weaponPresentation ??= new PlayerWeaponPresentation(this);
+            _spawnPresentation ??= new PlayerSpawnPresentation(this);
+            _presentationState ??= new PlayerPresentationState(this);
         }
 
         private void Awake() {
@@ -352,19 +352,19 @@ namespace Game.Player.Core {
             SubscribeToNetworkVariables();
             TryBindPlayerStateSubscriptions();
             UpdatePlayerMaterialFromNetwork();
-            _spawnPresentationCoordinator.HandleNetworkSpawnPresentation();
+            _spawnPresentation.HandleNetworkSpawnPresentation();
         }
 
         private void DisableConflictingKinemationFrameworkComponents() {
-            _runtimeSafetyCoordinator.DisableConflictingKinemationFrameworkComponents();
+            _runtimeSafety.DisableConflictingKinemationFrameworkComponents();
         }
 
         private void DisableUnexpectedChildCamerasAndListeners() {
-            _runtimeSafetyCoordinator.DisableUnexpectedChildCamerasAndListeners();
+            _runtimeSafety.DisableUnexpectedChildCamerasAndListeners();
         }
 
         private void MarkChildComponentCachesDirty() {
-            _runtimeSafetyCoordinator.MarkChildComponentCachesDirty();
+            _runtimeSafety.MarkChildComponentCachesDirty();
         }
 
         public override void OnNetworkDespawn() {
@@ -387,44 +387,44 @@ namespace Game.Player.Core {
         }
 
         private void BeginIdentitySync(ulong localSteamId, string ugsPlayerId, string playerDisplayName) {
-            _networkStateCoordinator.BeginIdentitySync(localSteamId, ugsPlayerId, playerDisplayName);
+            _networkState.BeginIdentitySync(localSteamId, ugsPlayerId, playerDisplayName);
         }
 
         private void CancelPendingIdentitySync() {
-            _networkStateCoordinator.CancelPendingIdentitySync();
+            _networkState.CancelPendingIdentitySync();
         }
 
         /// <summary>
         /// Subscribes to all NetworkVariable value change callbacks.
         /// </summary>
         private void SubscribeToNetworkVariables() {
-            _networkStateCoordinator.Subscribe();
+            _networkState.Subscribe();
 
             playerMaterialIndex.OnValueChanged -= OnMatChanged;
             playerMaterialIndex.OnValueChanged += OnMatChanged;
-            _materialCustomizationCoordinator.Subscribe();
-            _presentationStateCoordinator.Subscribe();
+            _materialCustomization.Subscribe();
+            _presentationState.Subscribe();
         }
 
         /// <summary>
         /// Unsubscribes from all NetworkVariable value change callbacks.
         /// </summary>
         private void UnsubscribeFromNetworkVariables() {
-            _networkStateCoordinator.Unsubscribe();
+            _networkState.Unsubscribe();
 
             playerMaterialIndex.OnValueChanged -= OnMatChanged;
-            _materialCustomizationCoordinator.Unsubscribe();
-            _presentationStateCoordinator.Unsubscribe();
+            _materialCustomization.Unsubscribe();
+            _presentationState.Unsubscribe();
         }
 
-        public MatchPlayerStateProxy PlayerState => _networkStateCoordinator.PlayerState;
+        public MatchPlayerStateProxy PlayerState => _networkState.PlayerState;
 
         private MatchPlayerStateProxy ResolvePlayerState() {
-            return _networkStateCoordinator.ResolvePlayerState();
+            return _networkState.ResolvePlayerState();
         }
 
         private void TryBindPlayerStateSubscriptions() {
-            _networkStateCoordinator.TryBindPlayerStateSubscriptions();
+            _networkState.TryBindPlayerStateSubscriptions();
         }
 
         private static void OnMatChanged(int _, int __) {
@@ -434,26 +434,26 @@ namespace Game.Player.Core {
         /// Called when material packet index changes. Triggers material update.
         /// </summary>
         private void UpdatePlayerMaterialFromNetwork() {
-            _materialCustomizationCoordinator.UpdatePlayerMaterialFromNetwork();
+            _materialCustomization.UpdatePlayerMaterialFromNetwork();
         }
 
         /// <summary>
         /// Loads material customization values from settings.json.
         /// </summary>
         private void LoadMaterialCustomizationFromPrefs() {
-            _materialCustomizationCoordinator.LoadMaterialCustomizationFromPrefs();
+            _materialCustomization.LoadMaterialCustomizationFromPrefs();
         }
 
         /// <summary>
         /// Saves material customization values to settings.json.
         /// </summary>
         public void SaveMaterialCustomizationToPrefs() {
-            _materialCustomizationCoordinator.SaveMaterialCustomizationToPrefs();
+            _materialCustomization.SaveMaterialCustomizationToPrefs();
         }
 
-        private void OnHealthChanged(float _, float newV) => _presentationStateCoordinator.OnHealthChanged(newV);
+        private void OnHealthChanged(float _, float newV) => _presentationState.OnHealthChanged(newV);
 
-        private void OnDeathStateChanged(bool _, bool newValue) => _presentationStateCoordinator.OnDeathStateChanged(newValue);
+        private void OnDeathStateChanged(bool _, bool newValue) => _presentationState.OnDeathStateChanged(newValue);
     
         /// <summary>
         /// Main update loop for core player logic, movement synchronization, and server validation.
@@ -578,41 +578,41 @@ namespace Game.Player.Core {
         /// Validates client movement on the server to prevent cheating (teleporting/speed hacking).
         /// </summary>
         private void ValidateServerMovement(Vector3 position) {
-            _movementValidationCoordinator.ValidateServerMovement(position);
+            _movementValidation.ValidateServerMovement(position);
         }
 
         [Rpc(SendTo.Owner)]
         internal void ApplyServerMovementCorrectionOwnerRpc(Vector3 correctedPosition, Quaternion correctedRotation) {
-            _movementValidationCoordinator.ApplyServerMovementCorrection(correctedPosition, correctedRotation);
+            _movementValidation.ApplyServerMovementCorrection(correctedPosition, correctedRotation);
         }
 
         public void SetOutOfBoundsGraceWindow(float seconds) {
-            _outOfBoundsCoordinator.SetOutOfBoundsGraceWindow(seconds);
+            _outOfBounds.SetOutOfBoundsGraceWindow(seconds);
         }
 
         public float GetOutOfBoundsKillY() {
-            return _outOfBoundsCoordinator.GetOutOfBoundsKillY();
+            return _outOfBounds.GetOutOfBoundsKillY();
         }
 
         public bool IsYLevelOutOfBoundsKillEnabled() {
-            return _outOfBoundsCoordinator.IsYLevelOutOfBoundsKillEnabled();
+            return _outOfBounds.IsYLevelOutOfBoundsKillEnabled();
         }
 
         private void HandleOutOfBoundsChecks(Vector3 authPos) {
-            _outOfBoundsCoordinator.HandleOutOfBoundsChecks(authPos);
+            _outOfBounds.HandleOutOfBoundsChecks(authPos);
         }
 
         private void ClearTriggerOutOfBoundsCountdownServer() {
-            _outOfBoundsCoordinator.ClearTriggerOutOfBoundsCountdownServer();
+            _outOfBounds.ClearTriggerOutOfBoundsCountdownServer();
         }
 
         private void UpdateTriggerOutOfBoundsCountdownUiOwner() {
-            _outOfBoundsCoordinator.UpdateTriggerOutOfBoundsCountdownUiOwner();
+            _outOfBounds.UpdateTriggerOutOfBoundsCountdownUiOwner();
         }
 
         [Rpc(SendTo.Owner)]
         internal void ShowTriggerOutOfBoundsCountdownOwnerRpc(float countdownSeconds) {
-            _outOfBoundsCoordinator.ShowTriggerOutOfBoundsCountdownOwner(countdownSeconds);
+            _outOfBounds.ShowTriggerOutOfBoundsCountdownOwner(countdownSeconds);
         }
 
         [Rpc(SendTo.Owner)]
@@ -621,7 +621,7 @@ namespace Game.Player.Core {
         }
 
         private void HideTriggerOutOfBoundsCountdownLocal() {
-            _outOfBoundsCoordinator.HideTriggerOutOfBoundsCountdownLocal();
+            _outOfBounds.HideTriggerOutOfBoundsCountdownLocal();
         }
 
         #endregion
@@ -673,7 +673,7 @@ namespace Game.Player.Core {
         /// Resets the player's weapon state, ammo, and HUD.
         /// </summary>
         public void ResetWeaponState(bool resetAllAmmo = false, bool switchToWeapon0 = false, bool updateHUD = false) {
-            _weaponPresentationCoordinator.ResetWeaponState(resetAllAmmo, switchToWeapon0, updateHUD);
+            _weaponPresentation.ResetWeaponState(resetAllAmmo, switchToWeapon0, updateHUD);
         }
 
         #endregion
@@ -927,7 +927,7 @@ namespace Game.Player.Core {
         }
 
         public float AverageVelocity => statsController != null ? statsController.AverageVelocity.Value : 0f;
-        public float ObservedServerMovementSpeed => _movementValidationCoordinator.ObservedServerMovementSpeed;
+        public float ObservedServerMovementSpeed => _movementValidation.ObservedServerMovementSpeed;
 
         public void SetVelocity(Vector3 horizontalVelocity) {
             if(movementController != null) {

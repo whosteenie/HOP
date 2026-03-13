@@ -4,7 +4,7 @@ using Game.Weapons.World;
 using UnityEngine;
 
 namespace Game.Weapons.Manager {
-    internal sealed class WeaponLoadoutCoordinator {
+    internal sealed class WeaponLoadout {
         #region Fields
 
         private readonly WeaponManager _root;
@@ -13,7 +13,7 @@ namespace Game.Weapons.Manager {
 
         #region Construction
 
-        public WeaponLoadoutCoordinator(WeaponManager root) {
+        public WeaponLoadout(WeaponManager root) {
             _root = root;
         }
 

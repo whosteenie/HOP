@@ -5,14 +5,14 @@ using Unity.Netcode;
 using UnityEngine;
 
 namespace Game.Player.Core {
-    internal sealed class PlayerNetworkStateCoordinator {
+    internal sealed class PlayerNetworkState {
         private readonly PlayerController _player;
         private MatchPlayerStateProxy _cachedPlayerState;
         private MatchPlayerStateProxy _boundPlayerState;
         private Coroutine _identitySyncRoutine;
         private bool _identitySyncCompleted;
 
-        public PlayerNetworkStateCoordinator(PlayerController player) {
+        public PlayerNetworkState(PlayerController player) {
             _player = player;
         }
 

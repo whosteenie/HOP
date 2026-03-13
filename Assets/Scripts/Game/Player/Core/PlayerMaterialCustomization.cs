@@ -2,10 +2,10 @@ using Game.Settings;
 using UnityEngine;
 
 namespace Game.Player.Core {
-    internal sealed class PlayerMaterialCustomizationCoordinator {
+    internal sealed class PlayerMaterialCustomization {
         private readonly PlayerController _player;
 
-        public PlayerMaterialCustomizationCoordinator(PlayerController player) {
+        public PlayerMaterialCustomization(PlayerController player) {
             _player = player;
         }
 

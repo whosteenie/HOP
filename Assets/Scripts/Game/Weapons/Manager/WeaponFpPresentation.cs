@@ -6,10 +6,10 @@ using UnityEngine;
 using UnityEngine.Rendering;
 
 namespace Game.Weapons.Manager {
-    internal sealed class WeaponFpPresentationCoordinator {
+    internal sealed class WeaponFpPresentation {
         private readonly WeaponManager _root;
 
-        public WeaponFpPresentationCoordinator(WeaponManager root) {
+        public WeaponFpPresentation(WeaponManager root) {
             _root = root;
         }
 

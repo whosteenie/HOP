@@ -87,13 +87,13 @@ namespace Game.Weapons.Manager {
 
         #endregion
 
-        #region Coordinator Fields
+        #region Subsystem Fields
 
-        private WeaponAuthorityCoordinator _authorityCoordinator;
-        private WeaponLoadoutCoordinator _loadoutCoordinator;
-        private WeaponSwitchCoordinator _switchCoordinator;
-        private WeaponFpPresentationCoordinator _fpPresentationCoordinator;
-        private WeaponFpLightingCoordinator _fpLightingCoordinator;
+        private WeaponAuthority _authority;
+        private WeaponLoadout _loadout;
+        private WeaponSwitch _switch;
+        private WeaponFpPresentation _fpPresentation;
+        private WeaponFpLighting _fpLighting;
 
         #endregion
 
@@ -209,9 +209,9 @@ namespace Game.Weapons.Manager {
         }
 
         private void Update() {
-            _switchCoordinator?.UpdateKinemationEquipCompletionGate();
+            _switch?.UpdateKinemationEquipCompletionGate();
             if(IsOwner) {
-                _fpLightingCoordinator?.EnsureFpWeaponLightingRig();
+                _fpLighting?.EnsureFpWeaponLightingRig();
             }
         }
 
@@ -219,52 +219,52 @@ namespace Game.Weapons.Manager {
 
         #region Public Facade
 
-        public void InitializeWeapons() => _loadoutCoordinator.InitializeWeapons();
-        public void ApplyTpWeaponStateOnRespawn() => _loadoutCoordinator.ApplyTpWeaponStateOnRespawn();
+        public void InitializeWeapons() => _loadout.InitializeWeapons();
+        public void ApplyTpWeaponStateOnRespawn() => _loadout.ApplyTpWeaponStateOnRespawn();
         public WeaponData GetWeaponDataByIndex(int index) =>
             index >= 0 && weaponDataList != null && index < weaponDataList.Count ? weaponDataList[index] : null;
         public string GetWeaponIdByIndex(int index) => GetWeaponDataByIndex(index) != null ? GetWeaponDataByIndex(index).weaponName : string.Empty;
-        public void RefreshOwnerAmmoHudFromCurrentWeapon() => _authorityCoordinator.RefreshOwnerAmmoHudFromCurrentWeapon();
-        public void ResetAllWeaponAmmo() => _authorityCoordinator.ResetAllWeaponAmmo();
-        public void PrepareCurrentWeaponForPostMatchPodium() => _authorityCoordinator.PrepareCurrentWeaponForPostMatchPodium();
-        public void DrainCurrentWeaponAmmoForTag() => _authorityCoordinator.DrainCurrentWeaponAmmoForTag();
+        public void RefreshOwnerAmmoHudFromCurrentWeapon() => _authority.RefreshOwnerAmmoHudFromCurrentWeapon();
+        public void ResetAllWeaponAmmo() => _authority.ResetAllWeaponAmmo();
+        public void PrepareCurrentWeaponForPostMatchPodium() => _authority.PrepareCurrentWeaponForPostMatchPodium();
+        public void DrainCurrentWeaponAmmoForTag() => _authority.DrainCurrentWeaponAmmoForTag();
         public bool RegisterServerShot(int weaponIndex, ulong shotId, float clientShotTime, out string reason) =>
-            _authorityCoordinator.RegisterServerShot(weaponIndex, shotId, clientShotTime, out reason);
+            _authority.RegisterServerShot(weaponIndex, shotId, clientShotTime, out reason);
         public bool ValidateServerHitClaim(int weaponIndex, ulong shotId, out string reason) =>
-            _authorityCoordinator.ValidateServerHitClaim(weaponIndex, shotId, out reason);
+            _authority.ValidateServerHitClaim(weaponIndex, shotId, out reason);
         public string GetCombatAuthorityDebugSummary(int requestedWeaponIndex = -1) =>
-            _authorityCoordinator.GetCombatAuthorityDebugSummary(requestedWeaponIndex);
+            _authority.GetCombatAuthorityDebugSummary(requestedWeaponIndex);
         public bool TryComputeServerDamage(int weaponIndex, Vector3 hitPoint, out float damage, out string reason) =>
-            _authorityCoordinator.TryComputeServerDamage(weaponIndex, hitPoint, out damage, out reason);
+            _authority.TryComputeServerDamage(weaponIndex, hitPoint, out damage, out reason);
         public void ReportWeaponStateSync(int weaponIndex, AmmoSyncReason reason, int localAmmoAfterEvent) =>
-            _authorityCoordinator.ReportWeaponStateSync(weaponIndex, reason, localAmmoAfterEvent);
+            _authority.ReportWeaponStateSync(weaponIndex, reason, localAmmoAfterEvent);
         public void ReportShotFired(int weaponIndex, ulong shotId, float clientShotTime) =>
-            _authorityCoordinator.ReportShotFired(weaponIndex, shotId, clientShotTime);
+            _authority.ReportShotFired(weaponIndex, shotId, clientShotTime);
         public void RegisterServerShotAndLogOnAuthority(int weaponIndex, ulong shotId, float clientShotTime) =>
-            _authorityCoordinator.RegisterServerShotAndLogOnAuthority(weaponIndex, shotId, clientShotTime);
-        public int GetPrimarySelectionIndex() => _loadoutCoordinator.GetPrimarySelectionIndex();
-        public int GetSecondarySelectionIndex() => _loadoutCoordinator.GetSecondarySelectionIndex();
+            _authority.RegisterServerShotAndLogOnAuthority(weaponIndex, shotId, clientShotTime);
+        public int GetPrimarySelectionIndex() => _loadout.GetPrimarySelectionIndex();
+        public int GetSecondarySelectionIndex() => _loadout.GetSecondarySelectionIndex();
         public bool ApplyOwnerLoadoutSelection(int primaryIndex, int secondaryIndex, bool deferTpRevealUntilRespawn = true) =>
-            _loadoutCoordinator.ApplyOwnerLoadoutSelection(primaryIndex, secondaryIndex, deferTpRevealUntilRespawn);
-        public int GetCurrentHolsterSlot() => _loadoutCoordinator.GetCurrentHolsterSlot();
-        public void RefreshHolsterVisibility() => _loadoutCoordinator.RefreshHolsterVisibility();
-        public void SwitchWeapon(int newIndex) => _switchCoordinator.SwitchWeapon(newIndex);
-        public void ShowTpWeapon() => _switchCoordinator.ShowTpWeapon();
-        public void HandlePullOutCompleted() => _switchCoordinator.HandlePullOutCompleted();
-        public void HandleThirdPersonPullOutCompleted() => _switchCoordinator.HandleThirdPersonPullOutCompleted();
-        public void HandleKinemationEquipCompleted() => _switchCoordinator.HandleKinemationEquipCompleted();
-        public void TriggerPullOutAnimation() => _switchCoordinator.TriggerPullOutAnimation();
-        public void CancelPendingPullOutForPostMatch() => _switchCoordinator.CancelPendingPullOutForPostMatch();
-        public void SetTpWeaponIndexForPodium() => _switchCoordinator.SetTpWeaponIndexForPodium();
-        public void ProcessWeaponSwitchAuthorityRequest(int newIndex) => _switchCoordinator.ProcessWeaponSwitchAuthorityRequest(newIndex);
-        public GameObject GetCurrentFpWeapon() => _fpPresentationCoordinator != null ? _fpPresentationCoordinator.GetCurrentFpWeapon() : null;
+            _loadout.ApplyOwnerLoadoutSelection(primaryIndex, secondaryIndex, deferTpRevealUntilRespawn);
+        public int GetCurrentHolsterSlot() => _loadout.GetCurrentHolsterSlot();
+        public void RefreshHolsterVisibility() => _loadout.RefreshHolsterVisibility();
+        public void SwitchWeapon(int newIndex) => _switch.SwitchWeapon(newIndex);
+        public void ShowTpWeapon() => _switch.ShowTpWeapon();
+        public void HandlePullOutCompleted() => _switch.HandlePullOutCompleted();
+        public void HandleThirdPersonPullOutCompleted() => _switch.HandleThirdPersonPullOutCompleted();
+        public void HandleKinemationEquipCompleted() => _switch.HandleKinemationEquipCompleted();
+        public void TriggerPullOutAnimation() => _switch.TriggerPullOutAnimation();
+        public void CancelPendingPullOutForPostMatch() => _switch.CancelPendingPullOutForPostMatch();
+        public void SetTpWeaponIndexForPodium() => _switch.SetTpWeaponIndexForPodium();
+        public void ProcessWeaponSwitchAuthorityRequest(int newIndex) => _switch.ProcessWeaponSwitchAuthorityRequest(newIndex);
+        public GameObject GetCurrentFpWeapon() => _fpPresentation != null ? _fpPresentation.GetCurrentFpWeapon() : null;
         public GameObject GetCurrentFpWeaponHolderRootForDisconnectDuplicate() =>
-            _fpPresentationCoordinator.GetCurrentFpWeaponHolderRootForDisconnectDuplicate();
-        public void UpdateAllFpArmTagGlow(bool isTagged) => _fpPresentationCoordinator.UpdateAllFpArmTagGlow(isTagged);
-        public void SetCurrentFpWeaponVisible(bool visible) => _fpPresentationCoordinator.SetCurrentFpWeaponVisible(visible);
-        public void HideFpVisualsForDisconnectTransition() => _fpPresentationCoordinator.HideFpVisualsForDisconnectTransition();
+            _fpPresentation.GetCurrentFpWeaponHolderRootForDisconnectDuplicate();
+        public void UpdateAllFpArmTagGlow(bool isTagged) => _fpPresentation.UpdateAllFpArmTagGlow(isTagged);
+        public void SetCurrentFpWeaponVisible(bool visible) => _fpPresentation.SetCurrentFpWeaponVisible(visible);
+        public void HideFpVisualsForDisconnectTransition() => _fpPresentation.HideFpVisualsForDisconnectTransition();
         public void OffsetCurrentFpWeapon(Vector3 localPosition, Vector3 localEulerAngles) =>
-            _fpPresentationCoordinator.OffsetCurrentFpWeapon(localPosition, localEulerAngles);
+            _fpPresentation.OffsetCurrentFpWeapon(localPosition, localEulerAngles);
 
         public static bool IsFriendlyFireServer(PlayerController shooter, PlayerController victim) {
             if(shooter == null || victim == null) return false;
@@ -278,35 +278,35 @@ namespace Game.Weapons.Manager {
 
         #region Internal Facade
 
-        internal void OnWeaponIndexChangedInternal(int oldValue, int newValue) => _loadoutCoordinator.OnWeaponIndexChanged(oldValue, newValue);
-        internal void ApplyDrainedAmmoOwnerClient(int weaponIndex, int ammo, int magSize) => _authorityCoordinator.ApplyDrainedAmmoOwnerClient(weaponIndex, ammo, magSize);
+        internal void OnWeaponIndexChangedInternal(int oldValue, int newValue) => _loadout.OnWeaponIndexChanged(oldValue, newValue);
+        internal void ApplyDrainedAmmoOwnerClient(int weaponIndex, int ammo, int magSize) => _authority.ApplyDrainedAmmoOwnerClient(weaponIndex, ammo, magSize);
         internal void ReportWeaponStateSyncServer(int weaponIndex, AmmoSyncReason reason, int localAmmoAfterEvent, RpcParams rpcParams) =>
-            _authorityCoordinator.ReportWeaponStateSyncServer(weaponIndex, reason, localAmmoAfterEvent, rpcParams);
-        internal void ResetAllWeaponAmmoServer(RpcParams rpcParams) => _authorityCoordinator.ResetAllWeaponAmmoServer(rpcParams);
+            _authority.ReportWeaponStateSyncServer(weaponIndex, reason, localAmmoAfterEvent, rpcParams);
+        internal void ResetAllWeaponAmmoServer(RpcParams rpcParams) => _authority.ResetAllWeaponAmmoServer(rpcParams);
         internal void ReportShotFiredServer(int weaponIndex, ulong shotId, float clientShotTime, RpcParams rpcParams) =>
-            _authorityCoordinator.ReportShotFiredServer(weaponIndex, shotId, clientShotTime, rpcParams);
+            _authority.ReportShotFiredServer(weaponIndex, shotId, clientShotTime, rpcParams);
         internal void UpdateServerWeaponStateOnAuthority(int weaponIndex, AmmoSyncReason reason, int localAmmoAfterEvent) =>
-            _authorityCoordinator.UpdateServerWeaponStateOnAuthority(weaponIndex, reason, localAmmoAfterEvent);
-        internal void ResetAllWeaponAmmoOnAuthority() => _authorityCoordinator.ResetAllWeaponAmmoOnAuthority();
+            _authority.UpdateServerWeaponStateOnAuthority(weaponIndex, reason, localAmmoAfterEvent);
+        internal void ResetAllWeaponAmmoOnAuthority() => _authority.ResetAllWeaponAmmoOnAuthority();
         internal GameObject ActivateFpWeaponInternal(int weaponIndex, WeaponData data, bool triggerPullOutAnimation) =>
-            _fpPresentationCoordinator.ActivateFpWeapon(weaponIndex, data, triggerPullOutAnimation);
-        internal void InstantiateFpWeaponInstancesInternal() => _fpPresentationCoordinator.InstantiateFpWeaponInstances();
-        internal void DestroyFpWeaponInstancesInternal() => _fpPresentationCoordinator.DestroyFpWeaponInstances();
+            _fpPresentation.ActivateFpWeapon(weaponIndex, data, triggerPullOutAnimation);
+        internal void InstantiateFpWeaponInstancesInternal() => _fpPresentation.InstantiateFpWeaponInstances();
+        internal void DestroyFpWeaponInstancesInternal() => _fpPresentation.DestroyFpWeaponInstances();
         internal bool TryGetKinemationDriverInternal(GameObject fpWeaponRoot, out KinemationFpWeaponDriver driver) =>
-            WeaponFpPresentationCoordinator.TryGetKinemationDriver(fpWeaponRoot, out driver);
+            WeaponFpPresentation.TryGetKinemationDriver(fpWeaponRoot, out driver);
         internal void ApplyResolvedKinemationViewmodelPoseInternal(GameObject fpWeaponRoot, KinemationWeaponBinding binding) =>
-            _fpPresentationCoordinator.ApplyResolvedKinemationViewmodelPose(fpWeaponRoot, binding);
-        internal int GetFpWeaponLayerInternal() => _fpPresentationCoordinator.GetFpWeaponLayer();
+            _fpPresentation.ApplyResolvedKinemationViewmodelPose(fpWeaponRoot, binding);
+        internal int GetFpWeaponLayerInternal() => _fpPresentation.GetFpWeaponLayer();
         internal void SetupFpWeaponSkinnedMeshRenderersInternal(GameObject fpWeaponInstance) =>
-            _fpPresentationCoordinator.SetupFpWeaponSkinnedMeshRenderers(fpWeaponInstance);
-        internal void EnsureHierarchyActiveInternal(GameObject instanceRoot) => WeaponFpPresentationCoordinator.EnsureHierarchyActive(instanceRoot);
-        internal void EnsureFpWeaponLightingRigInternal() => _fpLightingCoordinator.EnsureFpWeaponLightingRig();
-        internal int GetSlotForIndexInternal(int index) => _loadoutCoordinator.GetSlotForIndexInternal(index);
-        internal void ResolveCurrentWorldWeaponReferenceInternal() => _loadoutCoordinator.ResolveCurrentWorldWeaponReferenceInternal();
+            _fpPresentation.SetupFpWeaponSkinnedMeshRenderers(fpWeaponInstance);
+        internal void EnsureHierarchyActiveInternal(GameObject instanceRoot) => WeaponFpPresentation.EnsureHierarchyActive(instanceRoot);
+        internal void EnsureFpWeaponLightingRigInternal() => _fpLighting.EnsureFpWeaponLightingRig();
+        internal int GetSlotForIndexInternal(int index) => _loadout.GetSlotForIndexInternal(index);
+        internal void ResolveCurrentWorldWeaponReferenceInternal() => _loadout.ResolveCurrentWorldWeaponReferenceInternal();
         internal void EquipInitialWeaponInternal(int index) => EquipInitialWeapon(index);
-        internal void EnsureWorldWeaponShadowStateInternal() => _switchCoordinator.EnsureWorldWeaponShadowStateInternal();
-        internal void EnsureWeaponHierarchyActiveInternal() => _switchCoordinator.EnsureWeaponHierarchyActiveInternal();
-        internal void ApplyServerAuthoritativeWeaponSwitch(int weaponIndex) => _authorityCoordinator.ApplyServerAuthoritativeWeaponSwitch(weaponIndex);
+        internal void EnsureWorldWeaponShadowStateInternal() => _switch.EnsureWorldWeaponShadowStateInternal();
+        internal void EnsureWeaponHierarchyActiveInternal() => _switch.EnsureWeaponHierarchyActiveInternal();
+        internal void ApplyServerAuthoritativeWeaponSwitch(int weaponIndex) => _authority.ApplyServerAuthoritativeWeaponSwitch(weaponIndex);
         internal void ValidateComponentsForPublicUse() => ValidateComponents();
 
         #endregion
@@ -315,33 +315,33 @@ namespace Game.Weapons.Manager {
 
         [Rpc(SendTo.Owner)]
         internal void ApplyDrainedAmmoOwnerClientRpc(int weaponIndex, int ammo, int magSize) {
-            _authorityCoordinator.ApplyDrainedAmmoOwnerClient(weaponIndex, ammo, magSize);
+            _authority.ApplyDrainedAmmoOwnerClient(weaponIndex, ammo, magSize);
         }
 
         [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Owner)]
         internal void ReportWeaponStateSyncServerRpc(int weaponIndex, AmmoSyncReason reason, int localAmmoAfterEvent,
             RpcParams rpcParams = default) {
-            _authorityCoordinator.ReportWeaponStateSyncServer(weaponIndex, reason, localAmmoAfterEvent, rpcParams);
+            _authority.ReportWeaponStateSyncServer(weaponIndex, reason, localAmmoAfterEvent, rpcParams);
         }
 
         [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Owner)]
         internal void ResetAllWeaponAmmoServerRpc(RpcParams rpcParams = default) {
-            _authorityCoordinator.ResetAllWeaponAmmoServer(rpcParams);
+            _authority.ResetAllWeaponAmmoServer(rpcParams);
         }
 
         [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Owner)]
         internal void ReportShotFiredServerRpc(int weaponIndex, ulong shotId, float clientShotTime, RpcParams rpcParams = default) {
-            _authorityCoordinator.ReportShotFiredServer(weaponIndex, shotId, clientShotTime, rpcParams);
+            _authority.ReportShotFiredServer(weaponIndex, shotId, clientShotTime, rpcParams);
         }
 
         [Rpc(SendTo.Owner)]
         internal void RejectPredictedWeaponSwitchOwnerRpc(int approvedWeaponIndex) {
-            _switchCoordinator.RejectPredictedWeaponSwitchOwner(approvedWeaponIndex);
+            _switch.RejectPredictedWeaponSwitchOwner(approvedWeaponIndex);
         }
 
         [Rpc(SendTo.Owner)]
         internal void ConfirmPredictedWeaponSwitchOwnerRpc(int approvedWeaponIndex) {
-            _switchCoordinator.ConfirmPredictedWeaponSwitchOwner(approvedWeaponIndex);
+            _switch.ConfirmPredictedWeaponSwitchOwner(approvedWeaponIndex);
         }
 
         #endregion
@@ -349,11 +349,11 @@ namespace Game.Weapons.Manager {
         #region Private Root Helpers
 
         private void InitializeCoordinators() {
-            _authorityCoordinator ??= new WeaponAuthorityCoordinator(this);
-            _loadoutCoordinator ??= new WeaponLoadoutCoordinator(this);
-            _switchCoordinator ??= new WeaponSwitchCoordinator(this);
-            _fpPresentationCoordinator ??= new WeaponFpPresentationCoordinator(this);
-            _fpLightingCoordinator ??= new WeaponFpLightingCoordinator(this);
+            _authority ??= new WeaponAuthority(this);
+            _loadout ??= new WeaponLoadout(this);
+            _switch ??= new WeaponSwitch(this);
+            _fpPresentation ??= new WeaponFpPresentation(this);
+            _fpLighting ??= new WeaponFpLighting(this);
         }
 
         private void ValidateComponents() {
@@ -506,9 +506,9 @@ namespace Game.Weapons.Manager {
             }
 
             if(IsOwner) {
-                _switchCoordinator.ApplyApprovedLocalWeaponSwitch(newValue, false);
+                _switch.ApplyApprovedLocalWeaponSwitch(newValue, false);
             } else {
-                _switchCoordinator.ApplyRemoteWeaponSwitch(newValue);
+                _switch.ApplyRemoteWeaponSwitch(newValue);
             }
         }
 

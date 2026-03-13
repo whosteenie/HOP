@@ -1,10 +1,10 @@
 using UnityEngine;
 
 namespace Game.Weapons.Manager {
-    internal sealed class WeaponFpLightingCoordinator {
+    internal sealed class WeaponFpLighting {
         private readonly WeaponManager _root;
 
-        public WeaponFpLightingCoordinator(WeaponManager root) {
+        public WeaponFpLighting(WeaponManager root) {
             _root = root;
         }
 

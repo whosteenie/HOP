@@ -7,10 +7,10 @@ using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace Game.Player.Core {
-    internal sealed class PlayerSpawnPresentationCoordinator {
+    internal sealed class PlayerSpawnPresentation {
         private readonly PlayerController _player;
 
-        public PlayerSpawnPresentationCoordinator(PlayerController player) {
+        public PlayerSpawnPresentation(PlayerController player) {
             _player = player;
         }
 

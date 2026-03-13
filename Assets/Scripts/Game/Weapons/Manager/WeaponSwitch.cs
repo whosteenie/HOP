@@ -10,7 +10,7 @@ using UnityEngine;
 using UnityEngine.Rendering;
 
 namespace Game.Weapons.Manager {
-    internal sealed class WeaponSwitchCoordinator {
+    internal sealed class WeaponSwitch {
         #region Fields
 
         private readonly WeaponManager _root;
@@ -19,7 +19,7 @@ namespace Game.Weapons.Manager {
 
         #region Construction
 
-        public WeaponSwitchCoordinator(WeaponManager root) {
+        public WeaponSwitch(WeaponManager root) {
             _root = root;
         }
 

@@ -5,10 +5,10 @@ using UnityEngine;
 using UnityEngine.VFX;
 
 namespace Game.Weapons.Core {
-    internal sealed class WeaponEffectsCoordinator {
+    internal sealed class WeaponEffects {
         private readonly Weapon _weapon;
 
-        public WeaponEffectsCoordinator(Weapon weapon) {
+        public WeaponEffects(Weapon weapon) {
             _weapon = weapon;
         }
 

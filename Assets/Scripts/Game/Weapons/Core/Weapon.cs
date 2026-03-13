@@ -22,10 +22,10 @@ namespace Game.Weapons.Core {
 
         private CinemachineCamera _fpCamera;
         private Animator _playerAnimator;
-        private WeaponMountCoordinator _mountCoordinator;
-        private WeaponCombatCoordinator _combatCoordinator;
-        private WeaponReloadCoordinator _reloadCoordinator;
-        private WeaponEffectsCoordinator _effectsCoordinator;
+        private WeaponMount _mount;
+        private WeaponCombat _combat;
+        private WeaponReload _reload;
+        private WeaponEffects _effects;
 
         private int _currentMagCapacity = 1;
 
@@ -199,15 +199,15 @@ namespace Game.Weapons.Core {
 
         private void Awake() {
             ValidateComponents();
-            _mountCoordinator = new WeaponMountCoordinator(this);
-            _combatCoordinator = new WeaponCombatCoordinator(this);
-            _reloadCoordinator = new WeaponReloadCoordinator(this);
-            _effectsCoordinator = new WeaponEffectsCoordinator(this);
+            _mount = new WeaponMount(this);
+            _combat = new WeaponCombat(this);
+            _reload = new WeaponReload(this);
+            _effects = new WeaponEffects(this);
         }
 
         public override void OnNetworkSpawn() {
             base.OnNetworkSpawn();
-            _combatCoordinator.ResetAuthorityObservedMotionBaseline();
+            _combat.ResetAuthorityObservedMotionBaseline();
         }
 
         private void ValidateComponents() {
@@ -238,11 +238,11 @@ namespace Game.Weapons.Core {
         }
 
         private void LateUpdate() {
-            _combatCoordinator.UpdateLocalDamageMultiplier();
-            _combatCoordinator.UpdateAuthoritativeDamageMultiplier();
-            _reloadCoordinator.UpdateKinemationReloadState();
-            _effectsCoordinator.ProcessKinemationSoundEvents();
-            _reloadCoordinator.RunReloadWatchdog();
+            _combat.UpdateLocalDamageMultiplier();
+            _combat.UpdateAuthoritativeDamageMultiplier();
+            _reload.UpdateKinemationReloadState();
+            _effects.ProcessKinemationSoundEvents();
+            _reload.RunReloadWatchdog();
 
             if(FpMuzzleLight != null && FpMuzzleLight.activeSelf && Time.time >= FpLightOffTime) {
                 FpMuzzleLight.SetActive(false);
@@ -255,8 +255,8 @@ namespace Game.Weapons.Core {
         }
 
         private void Update() {
-            _mountCoordinator.TryPrewarmKinemationMuzzleIfNeeded();
-            _mountCoordinator.SyncKinemationLocomotion();
+            _mount.TryPrewarmKinemationMuzzleIfNeeded();
+            _mount.SyncKinemationLocomotion();
         }
 
         public override void OnDestroy() {
@@ -293,12 +293,12 @@ namespace Game.Weapons.Core {
         /// </summary>
         public void SwitchToWeapon(WeaponData newWeaponData, GameObject fpWeaponInstance,
             GameObject worldWeaponInstance, int restoredAmmo, int magCapacity) {
-            _mountCoordinator.SwitchToWeapon(newWeaponData, fpWeaponInstance, worldWeaponInstance, restoredAmmo,
+            _mount.SwitchToWeapon(newWeaponData, fpWeaponInstance, worldWeaponInstance, restoredAmmo,
                 magCapacity);
         }
 
         public bool TryGetRemoteWorldMuzzlePosition(out Vector3 muzzlePosition) {
-            return _mountCoordinator.TryGetRemoteWorldMuzzlePosition(out muzzlePosition);
+            return _mount.TryGetRemoteWorldMuzzlePosition(out muzzlePosition);
         }
 
         #endregion
@@ -306,25 +306,25 @@ namespace Game.Weapons.Core {
         #region Public Methods
 
         public void Shoot() {
-            if(!_combatCoordinator.CanFire()) {
-                _combatCoordinator.HandleCannotFire();
+            if(!_combat.CanFire()) {
+                _combat.HandleCannotFire();
                 return;
             }
 
-            _combatCoordinator.PerformShot();
-            _effectsCoordinator.PlayFireSound();
+            _combat.PerformShot();
+            _effects.PlayFireSound();
         }
 
         public bool TryAutoReloadFromEmptyClick() {
-            return _reloadCoordinator.TryAutoReloadFromEmptyClick();
+            return _reload.TryAutoReloadFromEmptyClick();
         }
 
         public void StartReload() {
-            _reloadCoordinator.StartReload();
+            _reload.StartReload();
         }
 
         public void CancelReloadForWeaponSwitch() {
-            _reloadCoordinator.CancelReloadForWeaponSwitch();
+            _reload.CancelReloadForWeaponSwitch();
         }
 
         private void SyncServerWeaponState(WeaponManager.AmmoSyncReason reason) {
@@ -339,7 +339,7 @@ namespace Game.Weapons.Core {
         }
 
         public void ResetWeapon() {
-            _reloadCoordinator.ResetWeapon();
+            _reload.ResetWeapon();
         }
 
         public void ResetAuthoritativeDamageMultiplierImmediate() {
@@ -366,11 +366,11 @@ namespace Game.Weapons.Core {
         }
 
         private void ResetAuthorityObservedMotionBaseline() {
-            _combatCoordinator.ResetAuthorityObservedMotionBaseline();
+            _combat.ResetAuthorityObservedMotionBaseline();
         }
 
         public void PrepareForPostMatchPodium() {
-            _reloadCoordinator.PrepareForPostMatchPodium();
+            _reload.PrepareForPostMatchPodium();
         }
 
         #endregion
@@ -392,7 +392,7 @@ namespace Game.Weapons.Core {
 
         #endregion
 
-        #region Internal Coordinator Facade
+        #region Internal Subsystem Facade
 
         internal int GetCurrentMagCapacityInternal() {
             return GetCurrentMagCapacity();
@@ -407,86 +407,86 @@ namespace Game.Weapons.Core {
         }
 
         internal void PlayLocalMuzzleFlashInternal(int authoritativeAmmoBeforeShot) {
-            _effectsCoordinator.PlayLocalMuzzleFlash(authoritativeAmmoBeforeShot);
+            _effects.PlayLocalMuzzleFlash(authoritativeAmmoBeforeShot);
         }
 
         internal void PlayDryFireSoundInternal() {
-            _effectsCoordinator.PlayDryFireSound();
+            _effects.PlayDryFireSound();
         }
 
         internal void PlayReloadEffectsInternal() {
-            _effectsCoordinator.PlayReloadEffects();
+            _effects.PlayReloadEffects();
         }
 
         internal void ExitReloadAnimationInternal() {
-            _effectsCoordinator.ExitReloadAnimation();
+            _effects.ExitReloadAnimation();
         }
 
         internal bool UseKinemationInternalSoundsInternal() {
-            return _effectsCoordinator.UseKinemationInternalSounds();
+            return _effects.UseKinemationInternalSounds();
         }
 
         internal bool ShouldSuppressLegacyReloadSoundInternal() {
-            return _effectsCoordinator.ShouldSuppressLegacyReloadSound();
+            return _effects.ShouldSuppressLegacyReloadSound();
         }
 
         internal void StopKinemationEventSoundsForCurrentWeaponInternal() {
-            _effectsCoordinator.StopKinemationEventSoundsForCurrentWeapon();
+            _effects.StopKinemationEventSoundsForCurrentWeapon();
         }
 
         internal void ClearKinemationLocalMuzzleFxInstanceInternal() {
-            _effectsCoordinator.ClearKinemationLocalMuzzleFxInstance();
+            _effects.ClearKinemationLocalMuzzleFxInstance();
         }
 
         internal void PrewarmKinemationLocalMuzzleFxInstanceInternal() {
-            _effectsCoordinator.PrewarmKinemationLocalMuzzleFxInstance();
+            _effects.PrewarmKinemationLocalMuzzleFxInstance();
         }
 
         internal void SpawnTracerLocalInternal(Vector3 start, Vector3 end, Vector3 hitNormal, bool madeImpact,
             bool hitPlayer, NetworkObjectReference hitPlayerRef = default, Vector3 shooterVelocity = default) {
-            _effectsCoordinator.SpawnTracerLocal(start, end, hitNormal, madeImpact, hitPlayer, hitPlayerRef,
+            _effects.SpawnTracerLocal(start, end, hitNormal, madeImpact, hitPlayer, hitPlayerRef,
                 shooterVelocity);
         }
 
         internal IEnumerator SpawnOwnerTracerLocalAfterViewUpdateInternal(Vector3 fallbackStart, Vector3 end,
             Vector3 hitNormal, bool madeImpact, bool hitPlayer, NetworkObjectReference hitPlayerRef,
             Vector3 shooterVelocity) {
-            return _effectsCoordinator.SpawnOwnerTracerLocalAfterViewUpdate(fallbackStart, end, hitNormal, madeImpact,
+            return _effects.SpawnOwnerTracerLocalAfterViewUpdate(fallbackStart, end, hitNormal, madeImpact,
                 hitPlayer, hitPlayerRef, shooterVelocity);
         }
 
         internal bool TryGetStrictWorldMuzzleTransformInternal(out Transform muzzleTransform, string context,
             bool allowOwnerInstance = false, bool logErrors = true) {
-            return _mountCoordinator.TryGetStrictWorldMuzzleTransform(out muzzleTransform, context, allowOwnerInstance,
+            return _mount.TryGetStrictWorldMuzzleTransform(out muzzleTransform, context, allowOwnerInstance,
                 logErrors);
         }
 
         internal bool TryGetRequiredOwnerMuzzleTransformInternal(out Transform muzzleTransform, string context,
             bool logErrors = true) {
-            return _mountCoordinator.TryGetRequiredOwnerMuzzleTransform(out muzzleTransform, context, logErrors);
+            return _mount.TryGetRequiredOwnerMuzzleTransform(out muzzleTransform, context, logErrors);
         }
 
         internal bool TryGetOwnerTracerStartPositionInternal(out Vector3 tracerStartPosition) {
-            return _mountCoordinator.TryGetOwnerTracerStartPosition(out tracerStartPosition);
+            return _mount.TryGetOwnerTracerStartPosition(out tracerStartPosition);
         }
 
         internal void InitializeTrailPoolInternal() {
-            _effectsCoordinator.InitializeTrailPoolFacade();
+            _effects.InitializeTrailPoolFacade();
         }
 
         internal void CancelReloadInternal() {
-            _reloadCoordinator.CancelReload();
+            _reload.CancelReload();
         }
 
         internal void InterruptReloadForShotInternal() {
-            _reloadCoordinator.InterruptReloadForShot();
+            _reload.InterruptReloadForShot();
         }
 
         #endregion
 
         #region Private Methods - Effects
 
-        private void ClearKinemationLocalMuzzleFxInstance() => _effectsCoordinator.ClearKinemationLocalMuzzleFxInstance();
+        private void ClearKinemationLocalMuzzleFxInstance() => _effects.ClearKinemationLocalMuzzleFxInstance();
 
         [Rpc(SendTo.Everyone)]
         internal void PlayShootAnimationServerRpc() {
@@ -501,12 +501,12 @@ namespace Game.Weapons.Core {
         /// Muzzle flash tracks the weapon muzzle each frame to avoid drift while moving fast.
         /// </summary>
         public void PlayNetworkedMuzzleFlash(Vector3 endPoint) {
-            _effectsCoordinator.PlayNetworkedMuzzleFlash(endPoint);
+            _effects.PlayNetworkedMuzzleFlash(endPoint);
         }
 
         public void SpawnTracerLocal(Vector3 start, Vector3 end, Vector3 hitNormal, bool madeImpact, bool hitPlayer,
             NetworkObjectReference hitPlayerRef = default, Vector3 shooterVelocity = default) {
-            _effectsCoordinator.SpawnTracerLocal(start, end, hitNormal, madeImpact, hitPlayer, hitPlayerRef,
+            _effects.SpawnTracerLocal(start, end, hitNormal, madeImpact, hitPlayer, hitPlayerRef,
                 shooterVelocity);
         }
 

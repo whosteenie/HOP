@@ -1,8 +1,8 @@
 namespace Game.Player.Core {
-    internal sealed class PlayerPresentationStateCoordinator {
+    internal sealed class PlayerPresentationState {
         private readonly PlayerController _player;
 
-        public PlayerPresentationStateCoordinator(PlayerController player) {
+        public PlayerPresentationState(PlayerController player) {
             _player = player;
         }
 

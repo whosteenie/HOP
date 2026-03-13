@@ -5,12 +5,12 @@ using UnityEngine;
 using UnityEngine.Rendering;
 
 namespace Game.Player.Core {
-    internal sealed class PlayerWeaponPresentationCoordinator {
+    internal sealed class PlayerWeaponPresentation {
         private readonly PlayerController _player;
         private readonly Dictionary<GameObject, MeshRenderer[]> _cachedWeaponRenderers = new();
         private readonly Dictionary<GameObject, Collider[]> _cachedWeaponColliders = new();
 
-        public PlayerWeaponPresentationCoordinator(PlayerController player) {
+        public PlayerWeaponPresentation(PlayerController player) {
             _player = player;
         }
 

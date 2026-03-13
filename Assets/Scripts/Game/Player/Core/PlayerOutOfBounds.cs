@@ -5,7 +5,7 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 
 namespace Game.Player.Core {
-    internal sealed class PlayerOutOfBoundsCoordinator {
+    internal sealed class PlayerOutOfBounds {
         private const float TriggerOutOfBoundsCountdownSeconds = 3f;
 
         private readonly PlayerController _player;
@@ -21,7 +21,7 @@ namespace Game.Player.Core {
         private bool _triggerOobCountdownVisibleOwner;
         private float _triggerOobDeadlineOwnerTime;
 
-        public PlayerOutOfBoundsCoordinator(PlayerController player) {
+        public PlayerOutOfBounds(PlayerController player) {
             _player = player;
         }
 

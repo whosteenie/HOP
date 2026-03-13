@@ -5,10 +5,10 @@ using UnityEngine;
 using Random = UnityEngine.Random;
 
 namespace Game.Weapons.Core {
-    internal sealed class WeaponCombatCoordinator {
+    internal sealed class WeaponCombat {
         private readonly Weapon _weapon;
 
-        public WeaponCombatCoordinator(Weapon weapon) {
+        public WeaponCombat(Weapon weapon) {
             _weapon = weapon;
         }
 

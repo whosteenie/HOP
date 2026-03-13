@@ -8,10 +8,10 @@ using Unity.Netcode;
 using UnityEngine;
 
 namespace Game.Weapons.Manager {
-    internal sealed class WeaponAuthorityCoordinator {
+    internal sealed class WeaponAuthority {
         private readonly WeaponManager _root;
 
-        public WeaponAuthorityCoordinator(WeaponManager root) {
+        public WeaponAuthority(WeaponManager root) {
             _root = root;
         }
 

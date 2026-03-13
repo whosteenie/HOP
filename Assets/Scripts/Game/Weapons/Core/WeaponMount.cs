@@ -3,10 +3,10 @@ using Game.Weapons.World;
 using UnityEngine;
 
 namespace Game.Weapons.Core {
-    internal sealed class WeaponMountCoordinator {
+    internal sealed class WeaponMount {
         private readonly Weapon _weapon;
 
-        public WeaponMountCoordinator(Weapon weapon) {
+        public WeaponMount(Weapon weapon) {
             _weapon = weapon;
         }
 

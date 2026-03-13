@@ -2,10 +2,10 @@ using Game.Weapons.Manager;
 using UnityEngine;
 
 namespace Game.Weapons.Core {
-    internal sealed class WeaponReloadCoordinator {
+    internal sealed class WeaponReload {
         private readonly Weapon _weapon;
 
-        public WeaponReloadCoordinator(Weapon weapon) {
+        public WeaponReload(Weapon weapon) {
             _weapon = weapon;
         }
 

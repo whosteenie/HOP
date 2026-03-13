@@ -4,7 +4,7 @@ using Network.AntiCheat;
 using UnityEngine;
 
 namespace Game.Player.Core {
-    internal sealed class PlayerMovementValidationCoordinator {
+    internal sealed class PlayerMovementValidation {
         private sealed class MovementViolation {
             public float Time;
             public bool WasSpeedViolation;
@@ -16,7 +16,7 @@ namespace Game.Player.Core {
         private float _lastServerMovementTime;
         private bool _hasServerMovementSample;
 
-        public PlayerMovementValidationCoordinator(PlayerController player) {
+        public PlayerMovementValidation(PlayerController player) {
             _player = player;
         }
 
