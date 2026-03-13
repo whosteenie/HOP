@@ -1,11 +1,10 @@
 using System;
-using Game.Weapons.Kinemation;
 using KINEMATION.FPSAnimationPack.Scripts.Sounds;
 using KINEMATION.FPSAnimationPack.Scripts.Weapon;
 using UnityEngine;
 using UnityEngine.VFX;
 
-namespace Game.Weapons {
+namespace Game.Weapons.Kinemation {
     internal sealed class KinemationActiveWeaponComponentCache {
         private int _cachedActiveWeaponInstanceId;
         private KinemationWeaponPartReferences _activeWeaponPartReferences;

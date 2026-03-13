@@ -200,7 +200,7 @@ namespace Game.Player.Core {
         public NetworkVariable<bool> netIsCrouching = new(false,
             NetworkVariableReadPermission.Everyone,
             NetworkVariableWritePermission.Owner);
-
+        
         public NetworkVariable<bool> netIsSliding = new(false,
             NetworkVariableReadPermission.Everyone,
             NetworkVariableWritePermission.Owner);
@@ -485,19 +485,19 @@ namespace Game.Player.Core {
         private void UpdateRuntimeSafetyMaintenance() {
             if((!disableKinemationFrameworkComponents && !disableUnexpectedChildCameras) ||
                (Time.frameCount & 15) != 0) return;
-            DisableConflictingKinemationFrameworkComponents();
-            DisableUnexpectedChildCamerasAndListeners();
-        }
+                DisableConflictingKinemationFrameworkComponents();
+                DisableUnexpectedChildCamerasAndListeners();
+            }
 
         private void UpdateAuthorityFrameState() {
             if(!NetworkAuthority.HasGlobalAuthority(this)) return;
 
-            var authPos = clientNetworkTransform.transform.position;
-            ValidateServerMovement(authPos);
-            HandleOutOfBoundsChecks(authPos);
+                var authPos = clientNetworkTransform.transform.position;
+                ValidateServerMovement(authPos);
+                HandleOutOfBoundsChecks(authPos);
 
             if(healthController != null) {
-                healthController.UpdateHealthRegeneration();
+                    healthController.UpdateHealthRegeneration();
             }
 
             if(statsController != null) {
@@ -516,13 +516,13 @@ namespace Game.Player.Core {
         private void UpdateOwnerMovementAndAnimation() {
             if(movementController == null) return;
 
-            movementController.UpdateMovement(fpCamera);
-            movementController.UpdateCrouch(fpCamera);
+                    movementController.UpdateMovement(fpCamera);
+                    movementController.UpdateCrouch(fpCamera);
 
             if(animationController == null) return;
 
-            animationController.UpdateFallingState(movementController.IsGrounded,
-                movementController.VerticalVelocity, playerTransform.position);
+                        animationController.UpdateFallingState(movementController.IsGrounded,
+                            movementController.VerticalVelocity, playerTransform.position);
 
             var (animHorizontal, animSpeedSqr) = GetOwnerAnimationMotion();
             animationController.UpdateAnimator(animHorizontal, movementController.MaxSpeed, animSpeedSqr);
@@ -533,27 +533,27 @@ namespace Game.Player.Core {
                 return (Vector3.zero, 0f);
             }
 
-            var animHorizontal = movementController.HorizontalVelocity;
-            var animSpeedSqr = movementController.CachedHorizontalSpeedSqr;
+                        var animHorizontal = movementController.HorizontalVelocity;
+                        var animSpeedSqr = movementController.CachedHorizontalSpeedSqr;
 
             if(characterController == null || !movementController.IsGrounded) {
                 return (animHorizontal, animSpeedSqr);
             }
 
-            var actual = characterController.velocity;
-            actual.y = 0f;
-            var actualSpeed = actual.magnitude;
-            if(actualSpeed < 0.2f) {
+                            var actual = characterController.velocity;
+                            actual.y = 0f;
+                            var actualSpeed = actual.magnitude;
+                            if(actualSpeed < 0.2f) {
                 return (actual, actual.sqrMagnitude);
             }
 
-            var intended = movementController.HorizontalVelocity;
-            intended.y = 0f;
-            var blendedSpeed = Mathf.Lerp(actualSpeed, intended.magnitude, 0.4f);
-            if(actualSpeed > 0.0001f) {
-                animHorizontal = actual.normalized * blendedSpeed;
-            } else {
-                animHorizontal = actual;
+                                var intended = movementController.HorizontalVelocity;
+                                intended.y = 0f;
+                                var blendedSpeed = Mathf.Lerp(actualSpeed, intended.magnitude, 0.4f);
+                                if(actualSpeed > 0.0001f) {
+                                    animHorizontal = actual.normalized * blendedSpeed;
+                                } else {
+                                    animHorizontal = actual;
             }
 
             return (animHorizontal, animHorizontal.sqrMagnitude);
@@ -561,11 +561,11 @@ namespace Game.Player.Core {
 
         private void UpdateRemoteFrameState() {
             if(movementController != null) {
-                movementController.UpdateCrouch(fpCamera);
+                    movementController.UpdateCrouch(fpCamera);
             }
 
             if(animationController != null) {
-                animationController.SetCrouching(netIsCrouching.Value);
+                    animationController.SetCrouching(netIsCrouching.Value);
             }
 
             if(visualController != null && Time.frameCount % 60 == 0) {

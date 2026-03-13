@@ -1,7 +1,9 @@
 using Game.Player.Combat;
 using Game.Player.Visual;
 using Game.Weapons.Core;
+using Game.Weapons.Kinemation;
 using Game.Weapons.Presentation;
+using KINEMATION.FPSAnimationPack.Scripts.Sounds;
 using UnityEngine;
 using UnityEngine.Rendering;
 
@@ -69,6 +71,58 @@ namespace Game.Weapons.Manager {
         public static bool TryGetKinemationDriver(GameObject fpWeaponRoot, out KinemationFpWeaponDriver driver) {
             driver = fpWeaponRoot != null ? fpWeaponRoot.GetComponent<KinemationFpWeaponDriver>() : null;
             return driver != null;
+        }
+
+        /// <summary>Sets layer on root and all descendants. Used when making FP viewmodel instance ready.</summary>
+        public static void SetLayerRecursive(GameObject root, int layer) {
+            if(root == null) return;
+            root.layer = layer;
+            foreach(Transform child in root.transform) {
+                SetLayerRecursive(child.gameObject, layer);
+            }
+        }
+
+        /// <summary>Disables shadow casting and receiving on all renderers under root. Used when making FP viewmodel ready.</summary>
+        public static void DisableViewmodelShadows(GameObject root) {
+            if(root == null) return;
+            var renderers = root.GetComponentsInChildren<Renderer>(true);
+            foreach(var r in renderers) {
+                if(r == null) continue;
+                r.shadowCastingMode = ShadowCastingMode.Off;
+                r.receiveShadows = false;
+            }
+        }
+
+        /// <summary>Attaches reload/event relays to animators and weapon sounds on the viewmodel, binds driver, and optionally destroys original sound components.</summary>
+        public static void AttachReloadEventRelays(GameObject viewmodelRoot, KinemationFpWeaponDriver driver,
+            bool weaponSoundPlaybackDisabled, bool disablePlayerSounds) {
+            if(viewmodelRoot == null || driver == null) return;
+
+            var animators = viewmodelRoot.GetComponentsInChildren<Animator>(true);
+            foreach(var animator in animators) {
+                if(animator == null) continue;
+                var relay = animator.GetComponent<KinemationReloadEventRelay>();
+                if(relay == null) relay = animator.gameObject.AddComponent<KinemationReloadEventRelay>();
+                relay.Bind(driver);
+            }
+
+            var weaponSounds = viewmodelRoot.GetComponentsInChildren<FPSWeaponSound>(true);
+            foreach(var weaponSound in weaponSounds) {
+                if(weaponSound == null) continue;
+                var relay = weaponSound.GetComponent<KinemationReloadEventRelay>();
+                if(relay == null) relay = weaponSound.gameObject.AddComponent<KinemationReloadEventRelay>();
+                relay.Bind(driver);
+                if(weaponSoundPlaybackDisabled) Object.Destroy(weaponSound);
+            }
+
+            if(!disablePlayerSounds) return;
+            var playerSounds = viewmodelRoot.GetComponentsInChildren<FPSPlayerSound>(true);
+            foreach(var playerSound in playerSounds) {
+                if(playerSound == null) continue;
+                if(playerSound.GetComponent<KinemationPlayerSoundEventRelay>() == null)
+                    playerSound.gameObject.AddComponent<KinemationPlayerSoundEventRelay>();
+                Object.Destroy(playerSound);
+            }
         }
 
         public int GetFpWeaponLayer() {
