@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Game.Weapons;
+using Game.Weapons.Core;
 using UnityEngine;
 using UnityEngine.Rendering;
 

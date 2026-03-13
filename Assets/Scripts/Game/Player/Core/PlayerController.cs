@@ -9,6 +9,7 @@ using Game.Player.Movement;
 using Game.Player.Podium;
 using Game.UI;
 using Game.Weapons;
+using Game.Weapons.Core;
 using Game.Weapons.Manager;
 using Game.Weapons.Presentation;
 using Network;
