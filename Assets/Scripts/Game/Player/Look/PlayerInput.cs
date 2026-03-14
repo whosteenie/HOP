@@ -7,6 +7,7 @@ using Game.Settings;
 using Game.Social;
 using Game.UI;
 using Game.UI.HUD;
+using Game.UI.Screens;
 using Game.Weapons.Core;
 using Game.Weapons.Manager;
 using JetBrains.Annotations;
