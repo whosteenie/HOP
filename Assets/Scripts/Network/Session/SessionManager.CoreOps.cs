@@ -411,15 +411,16 @@ namespace Network.Session {
         }
 
         private static bool IsRetryableDistributedAuthorityStartupException(Exception ex) {
-            if(ex == null) return false;
-            if(ex is TaskCanceledException or OperationCanceledException) return true;
-            if(ex is SessionException sessionEx &&
-               sessionEx.Error == SessionError.NetworkSetupFailed &&
-               ContainsCancellationException(sessionEx)) {
-                return true;
+            switch(ex) {
+                case null:
+                    return false;
+                case TaskCanceledException or OperationCanceledException:
+                case SessionException { Error: SessionError.NetworkSetupFailed } sessionEx when
+                    ContainsCancellationException(sessionEx):
+                    return true;
+                default:
+                    return ContainsCancellationException(ex);
             }
-
-            return ContainsCancellationException(ex);
         }
 
         private static bool ContainsCancellationException(Exception ex) {
