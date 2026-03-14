@@ -5,7 +5,7 @@ using Game.Weapons.Manager;
 using UnityEngine;
 
 namespace Game.Weapons.Kinemation {
-    internal sealed class WeaponKinemationBindingCatalog {
+    internal sealed class KinWeaponBindingCatalog {
         private readonly Dictionary<WeaponData, WeaponManager.KinemationWeaponBinding> _lookup = new();
         private readonly List<WeaponData> _primaryWeaponOptions = new();
         private readonly List<WeaponData> _secondaryWeaponOptions = new();

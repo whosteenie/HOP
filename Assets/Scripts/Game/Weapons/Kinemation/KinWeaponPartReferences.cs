@@ -2,7 +2,7 @@ using UnityEngine;
 
 namespace Game.Weapons.Kinemation {
     [DisallowMultipleComponent]
-    public sealed class KinemationWeaponPartReferences : MonoBehaviour {
+    public sealed class KinWeaponPartReferences : MonoBehaviour {
         [Header("Muzzle")]
         [Tooltip("Preferred FP muzzle transform used for local muzzle sampling/spawn.")]
         [SerializeField] private Transform fpMuzzleTransform;
@@ -35,7 +35,7 @@ namespace Game.Weapons.Kinemation {
             if(reference == transform || reference.IsChildOf(transform)) return;
 
             Debug.LogWarning(
-                $"[KinemationWeaponPartReferences] '{fieldName}' on '{name}' should point to this prefab hierarchy.",
+                $"[KINWeaponPartReferences] '{fieldName}' on '{name}' should point to this prefab hierarchy.",
                 this);
         }
 

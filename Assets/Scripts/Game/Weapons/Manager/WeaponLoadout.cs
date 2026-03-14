@@ -22,37 +22,37 @@ namespace Game.Weapons.Manager {
         #region Public Loadout Selection
 
         public int GetPrimarySelectionIndex() {
-            if(_root.KinemationCatalogRef.IsEmpty) {
+            if(_root.CatalogRef.IsEmpty) {
                 _root.BuildKinemationWeaponLookup();
             }
-            if(_root.PlayerControllerRef == null || _root.KinemationCatalogRef.PrimaryWeaponOptions.Count == 0) {
+            if(_root.PlayerControllerRef == null || _root.CatalogRef.PrimaryWeaponOptions.Count == 0) {
                 return 0;
             }
 
             return Mathf.Clamp(_root.PlayerControllerRef.primaryWeaponIndex.Value, 0,
-                _root.KinemationCatalogRef.PrimaryWeaponOptions.Count - 1);
+                _root.CatalogRef.PrimaryWeaponOptions.Count - 1);
         }
 
         public int GetSecondarySelectionIndex() {
-            if(_root.KinemationCatalogRef.IsEmpty) {
+            if(_root.CatalogRef.IsEmpty) {
                 _root.BuildKinemationWeaponLookup();
             }
-            if(_root.PlayerControllerRef == null || _root.KinemationCatalogRef.SecondaryWeaponOptions.Count == 0) {
+            if(_root.PlayerControllerRef == null || _root.CatalogRef.SecondaryWeaponOptions.Count == 0) {
                 return 0;
             }
 
             return Mathf.Clamp(_root.PlayerControllerRef.secondaryWeaponIndex.Value, 0,
-                _root.KinemationCatalogRef.SecondaryWeaponOptions.Count - 1);
+                _root.CatalogRef.SecondaryWeaponOptions.Count - 1);
         }
 
         public bool ApplyOwnerLoadoutSelection(int primaryIndex, int secondaryIndex, bool deferTpRevealUntilRespawn = true) {
             if(!_root.IsOwner || _root.PlayerControllerRef == null) return false;
-            if(_root.KinemationCatalogRef.IsEmpty) {
+            if(_root.CatalogRef.IsEmpty) {
                 _root.BuildKinemationWeaponLookup();
             }
 
-            if(!IsValidSelectionIndex(_root.KinemationCatalogRef.PrimaryWeaponOptions, primaryIndex, "Primary")) return false;
-            if(!IsValidSelectionIndex(_root.KinemationCatalogRef.SecondaryWeaponOptions, secondaryIndex, "Secondary")) return false;
+            if(!IsValidSelectionIndex(_root.CatalogRef.PrimaryWeaponOptions, primaryIndex, "Primary")) return false;
+            if(!IsValidSelectionIndex(_root.CatalogRef.SecondaryWeaponOptions, secondaryIndex, "Secondary")) return false;
 
             var primaryChanged = _root.PlayerControllerRef.primaryWeaponIndex.Value != primaryIndex;
             var secondaryChanged = _root.PlayerControllerRef.secondaryWeaponIndex.Value != secondaryIndex;
@@ -229,12 +229,12 @@ namespace Game.Weapons.Manager {
             var primaryIndex = _root.PlayerControllerRef.primaryWeaponIndex.Value;
             var secondaryIndex = _root.PlayerControllerRef.secondaryWeaponIndex.Value;
 
-            var primary = GetWeaponFromOptions(_root.KinemationCatalogRef.PrimaryWeaponOptions, primaryIndex, "Primary");
+            var primary = GetWeaponFromOptions(_root.CatalogRef.PrimaryWeaponOptions, primaryIndex, "Primary");
             if(primary != null) {
                 _root.WeaponDataListRef.Add(primary);
             }
 
-            var secondary = GetWeaponFromOptions(_root.KinemationCatalogRef.SecondaryWeaponOptions, secondaryIndex, "Secondary");
+            var secondary = GetWeaponFromOptions(_root.CatalogRef.SecondaryWeaponOptions, secondaryIndex, "Secondary");
             if(secondary != null) {
                 _root.WeaponDataListRef.Add(secondary);
             }

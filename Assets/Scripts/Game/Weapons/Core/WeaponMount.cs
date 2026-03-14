@@ -1,4 +1,5 @@
 using Game.Menu;
+using Game.Weapons.Kinemation;
 using Game.Weapons.World;
 using UnityEngine;
 
@@ -11,7 +12,7 @@ namespace Game.Weapons.Core {
         }
 
         public void SyncKinemationLocomotion() {
-            var kinemationDriver = _weapon.KinemationDriver;
+            var kinemationDriver = _weapon.KinDriver;
             var playerController = _weapon.PlayerController;
             if(kinemationDriver == null || playerController == null || !playerController.IsOwner) {
                 return;
@@ -64,7 +65,7 @@ namespace Game.Weapons.Core {
 
         public void TryPrewarmKinemationMuzzleIfNeeded() {
             if(_weapon.HasPrewarmedKinemationMuzzleForCurrentWeapon) return;
-            if(_weapon.KinemationDriver == null) return;
+            if(_weapon.KinDriver == null) return;
             if(_weapon.PlayerController == null || !_weapon.PlayerController.IsOwner) return;
             _weapon.PrewarmKinemationLocalMuzzleFxInstanceInternal();
         }
@@ -84,20 +85,20 @@ namespace Game.Weapons.Core {
                 ? worldWeaponInstance.GetComponent<WorldWeaponBinding>()
                 : null;
             _weapon.CurrentMagCapacity = magCapacity;
-            _weapon.KinemationDriver = fpWeaponInstance != null
-                ? fpWeaponInstance.GetComponent<KinemationFpWeaponDriver>()
+            _weapon.KinDriver = fpWeaponInstance != null
+                ? fpWeaponInstance.GetComponent<KinFpWeaponDriver>()
                 : null;
 
-            if(_weapon.KinemationDriver != null) {
+            if(_weapon.KinDriver != null) {
                 var fpLayer = _weapon.PlayerController != null && _weapon.PlayerController.IsOwner
                     ? LayerMask.NameToLayer("Weapon")
                     : LayerMask.NameToLayer("Masked");
-                _weapon.KinemationDriver.InitializeIfNeeded(fpLayer);
-                _weapon.KinemationDriver.ClearPendingWeaponSoundEvents();
+                _weapon.KinDriver.InitializeIfNeeded(fpLayer);
+                _weapon.KinDriver.ClearPendingWeaponSoundEvents();
             }
 
-            _weapon.FpMuzzleTransform = _weapon.KinemationDriver != null
-                ? _weapon.KinemationDriver.GetMuzzleTransform()
+            _weapon.FpMuzzleTransform = _weapon.KinDriver != null
+                ? _weapon.KinDriver.GetMuzzleTransform()
                 : null;
             _weapon.WorldMuzzleTransform = null;
             _weapon.WorldMuzzleLight = null;
@@ -111,13 +112,13 @@ namespace Game.Weapons.Core {
 
             _weapon.HasPrewarmedKinemationMuzzleForCurrentWeapon = false;
 
-            if(_weapon.KinemationDriver != null) {
+            if(_weapon.KinDriver != null) {
                 _weapon.PrewarmKinemationLocalMuzzleFxInstanceInternal();
             }
 
             _weapon.CurrentAmmo = Mathf.Clamp(restoredAmmo, 0, _weapon.GetCurrentMagCapacityInternal());
-            if(_weapon.KinemationDriver != null) {
-                _weapon.KinemationDriver.SyncActiveAmmo(_weapon.CurrentAmmo);
+            if(_weapon.KinDriver != null) {
+                _weapon.KinDriver.SyncActiveAmmo(_weapon.CurrentAmmo);
             }
 
             _weapon.Reloading = false;
@@ -125,7 +126,7 @@ namespace Game.Weapons.Core {
             _weapon.ReloadExpectedCompleteTime = float.PositiveInfinity;
 
             _weapon.FpMuzzleLight = null;
-            if(fpWeaponInstance != null && _weapon.KinemationDriver != null) {
+            if(fpWeaponInstance != null && _weapon.KinDriver != null) {
                 var fpLight = fpWeaponInstance.GetComponentInChildren<Light>(true);
                 _weapon.FpMuzzleLight = fpLight != null ? fpLight.gameObject : null;
                 if(_weapon.FpMuzzleLight != null) {
@@ -344,7 +345,7 @@ namespace Game.Weapons.Core {
                 return false;
             }
 
-            if(_weapon.KinemationDriver == null) {
+            if(_weapon.KinDriver == null) {
                 if(logErrors) {
                     Debug.LogError(
                         $"[Weapon][MuzzleStrict][{context}] Missing KinemationFpWeaponDriver for owner weapon " +
@@ -354,7 +355,7 @@ namespace Game.Weapons.Core {
                 return false;
             }
 
-            _weapon.FpMuzzleTransform = _weapon.KinemationDriver.GetMuzzleTransform();
+            _weapon.FpMuzzleTransform = _weapon.KinDriver.GetMuzzleTransform();
             if(_weapon.FpMuzzleTransform == null) {
                 if(logErrors) {
                     Debug.LogError(

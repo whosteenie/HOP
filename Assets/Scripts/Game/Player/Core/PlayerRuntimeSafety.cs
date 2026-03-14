@@ -1,5 +1,6 @@
 using System;
 using Game.Weapons;
+using Game.Weapons.Kinemation;
 using UnityEngine;
 
 namespace Game.Player.Core {
@@ -122,7 +123,7 @@ namespace Game.Player.Core {
 
         private static bool IsRuntimeKinemationFpViewmodelComponent(Component component) {
             if(component == null) return false;
-            return component.GetComponentInParent<KinemationFpWeaponDriver>(true) != null;
+            return component.GetComponentInParent<KinFpWeaponDriver>(true) != null;
         }
     }
 }

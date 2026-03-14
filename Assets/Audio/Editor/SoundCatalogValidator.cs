@@ -5,7 +5,7 @@ using Game.Audio2;
 using UnityEditor;
 using UnityEngine;
 
-namespace Game.Audio2.Editor {
+namespace Audio.Editor {
     public static class SoundCatalogValidator {
         [MenuItem("Tools/AudioService/Validate Selected SoundCatalog", priority = 0)]
         private static void ValidateSelected() {
@@ -21,7 +21,7 @@ namespace Game.Audio2.Editor {
             }
         }
 
-        public static bool Validate(SoundCatalog catalog, bool logToConsole) {
+        private static bool Validate(SoundCatalog catalog, bool logToConsole) {
             if(catalog == null) return false;
 
             var ok = true;
@@ -62,10 +62,9 @@ namespace Game.Audio2.Editor {
                     if(logToConsole) Debug.LogWarning($"[AudioService] Cue '{cue.name}' (id '{e.id}') has no valid variants.", cue);
                 }
 
-                if(cue.maxDistance < cue.minDistance) {
-                    ok = false;
-                    if(logToConsole) Debug.LogWarning($"[AudioService] Cue '{cue.name}' has maxDistance < minDistance.", cue);
-                }
+                if(!(cue.maxDistance < cue.minDistance)) continue;
+                ok = false;
+                if(logToConsole) Debug.LogWarning($"[AudioService] Cue '{cue.name}' has maxDistance < minDistance.", cue);
             }
 
             return ok;

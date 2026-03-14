@@ -35,10 +35,12 @@ namespace Game.Player.Core {
         public static event Action<PlayerController> PlayerDespawned;
         private static readonly HashSet<PlayerController> SpawnedPlayersRegistry = new();
         public static IReadOnlyCollection<PlayerController> SpawnedPlayers => SpawnedPlayersRegistry;
+
         #region Serialized Fields
 
         [Header("Core Components")]
         [SerializeField] private Transform playerTransform;
+
         [SerializeField] private CharacterController characterController;
         [SerializeField] private PlayerInput playerInput;
         [SerializeField] private UnityEngine.InputSystem.PlayerInput unityPlayerInput;
@@ -48,12 +50,14 @@ namespace Game.Player.Core {
 
         [Header("Cameras")]
         [SerializeField] private CinemachineCamera fpCamera;
+
         [SerializeField] private Camera weaponCamera;
         [SerializeField] private CinemachineCamera deathCamera;
 
 
         [Header("Player Model")]
         [SerializeField] private GameObject playerModelRoot;
+
         [SerializeField] private SkinnedMeshRenderer playerMesh;
         [SerializeField] private Material[] playerMaterials;
         [SerializeField] private PlayerVisualController visualController;
@@ -65,8 +69,11 @@ namespace Game.Player.Core {
 
         [Header("Movement Controllers")]
         [SerializeField] private PlayerMovementController movementController;
+
         [SerializeField] private PlayerLookController lookController;
+
         [SerializeField] private MantleController mantleController;
+
         // [SerializeField] private SwingGrapple swingGrapple;
         [SerializeField] private GrappleController grappleController;
         [SerializeField] private WallRunController wallRunController;
@@ -74,6 +81,7 @@ namespace Game.Player.Core {
 
         [Header("Gameplay Controllers")]
         [SerializeField] private PlayerStatsController statsController;
+
         [SerializeField] private PlayerHealthController healthController;
         [SerializeField] private PlayerAnimationController animationController;
         [SerializeField] private PlayerTagController tagController;
@@ -86,7 +94,9 @@ namespace Game.Player.Core {
 
         [Header("Weapon System")]
         [SerializeField] private WeaponManager weaponManager;
+
         [SerializeField] private Weapon weaponComponent;
+
         // [SerializeField] private MeshRenderer worldWeapon;
         [SerializeField] private Transform worldWeaponSocket;
         [SerializeField] private GameObject[] worldWeaponPrefabs;
@@ -94,6 +104,7 @@ namespace Game.Player.Core {
 
         [Header("Audio / Visual Effects")]
         [SerializeField] private AudioListener audioListener;
+
         [SerializeField] private NetworkDamageRelay damageRelay;
         [SerializeField] private NetworkFxRelay fxRelay;
         [SerializeField] private NetworkAudioRelay audioRelay;
@@ -103,6 +114,7 @@ namespace Game.Player.Core {
 
         [Header("Layers")]
         [SerializeField] private LayerMask worldLayer;
+
         [SerializeField] private LayerMask playerLayer;
         [SerializeField] private LayerMask enemyLayer;
         [SerializeField] private LayerMask weaponLayer;
@@ -110,6 +122,7 @@ namespace Game.Player.Core {
 
         [Header("KINEMATION Safeguards")]
         [SerializeField] private bool disableKinemationFrameworkComponents = true;
+
         [SerializeField] private bool disableOnlyKinemationFrameworkCameraComponents;
         [SerializeField] private bool logKinemationFrameworkDisables;
         [SerializeField] private bool disableUnexpectedChildCameras = true;
@@ -130,6 +143,7 @@ namespace Game.Player.Core {
 
         [Header("Out Of Bounds")]
         [SerializeField] private string outOfBoundsMarkerName = "OOB";
+
         [SerializeField] private string outOfBoundsMarkerTag = "OOB";
         [SerializeField] private float defaultOutOfBoundsY = 600f;
 
@@ -166,25 +180,25 @@ namespace Game.Player.Core {
         public NetworkVariable<int> playerMaterialPacketIndex = new(0,
             NetworkVariableReadPermission.Everyone,
             NetworkVariableWritePermission.Owner);
-        
+
         // Base color as Vector4 (RGBA) for network serialization
         public NetworkVariable<Vector4> playerBaseColor = new(new Vector4(1f, 1f, 1f, 1f),
             NetworkVariableReadPermission.Everyone,
             NetworkVariableWritePermission.Owner);
-        
+
         public NetworkVariable<float> playerSmoothness = new(0.5f,
             NetworkVariableReadPermission.Everyone,
             NetworkVariableWritePermission.Owner);
-        
+
         public NetworkVariable<float> playerMetallic = new(0f,
             NetworkVariableReadPermission.Everyone,
             NetworkVariableWritePermission.Owner);
-        
+
         // Specular color as Vector4 (RGBA) for network serialization
         public NetworkVariable<Vector4> playerSpecularColor = new(new Vector4(0.2f, 0.2f, 0.2f, 1f),
             NetworkVariableReadPermission.Everyone,
             NetworkVariableWritePermission.Owner);
-        
+
         public NetworkVariable<float> playerHeightStrength = new(0.02f,
             NetworkVariableReadPermission.Everyone,
             NetworkVariableWritePermission.Owner);
@@ -245,7 +259,7 @@ namespace Game.Player.Core {
         public NetworkVariable<int> secondaryWeaponIndex = new(0,
             NetworkVariableReadPermission.Everyone,
             NetworkVariableWritePermission.Owner);
-        
+
         // Voice PTT state (synced so other players see speaking indicator)
         public NetworkVariable<bool> isPttActive = new(false,
             NetworkVariableReadPermission.Everyone,
@@ -276,10 +290,16 @@ namespace Game.Player.Core {
         internal static float MinHeightStrengthValue => MinHeightStrength;
         internal static float MaxHeightStrengthValue => MaxHeightStrength;
         internal void AssignWeaponCamera(Camera assignedWeaponCamera) => weaponCamera = assignedWeaponCamera;
-        internal void HandleResolvedHealthChanged(float oldValue, float newValue) => OnHealthChanged(oldValue, newValue);
-        internal void HandleResolvedDeathChanged(bool oldValue, bool newValue) => OnDeathStateChanged(oldValue, newValue);
+
+        internal void HandleResolvedHealthChanged(float oldValue, float newValue) =>
+            OnHealthChanged(oldValue, newValue);
+
+        internal void HandleResolvedDeathChanged(bool oldValue, bool newValue) =>
+            OnDeathStateChanged(oldValue, newValue);
+
         internal void BeginIdentitySyncFromSpawn(ulong localSteamId, string ugsPlayerId, string playerDisplayName) =>
             BeginIdentitySync(localSteamId, ugsPlayerId, playerDisplayName);
+
         internal void LoadMaterialCustomizationFromPrefsForSpawn() => LoadMaterialCustomizationFromPrefs();
         internal void ClearTriggerOutOfBoundsCountdownFromPresentation() => ClearTriggerOutOfBoundsCountdownServer();
         internal void HideTriggerOutOfBoundsCountdownLocalFromPresentation() => HideTriggerOutOfBoundsCountdownLocal();
@@ -334,6 +354,7 @@ namespace Game.Player.Core {
             if(LocalPlayer == this) {
                 LocalPlayer = null;
             }
+
             base.OnDestroy();
         }
 
@@ -344,9 +365,10 @@ namespace Game.Player.Core {
             DisableConflictingKinemationFrameworkComponents();
             DisableUnexpectedChildCamerasAndListeners();
 
-            if (IsOwner) {
+            if(IsOwner) {
                 LocalPlayer = this;
             }
+
             RegisterSpawnedPlayer(this);
 
             SubscribeToNetworkVariables();
@@ -376,10 +398,11 @@ namespace Game.Player.Core {
             }
 
             base.OnNetworkDespawn();
-            
-            if (LocalPlayer == this) {
+
+            if(LocalPlayer == this) {
                 LocalPlayer = null;
             }
+
             UnregisterSpawnedPlayer(this);
             CancelPendingIdentitySync();
 
@@ -454,7 +477,7 @@ namespace Game.Player.Core {
         private void OnHealthChanged(float _, float newV) => _presentationState.OnHealthChanged(newV);
 
         private void OnDeathStateChanged(bool _, bool newValue) => _presentationState.OnDeathStateChanged(newValue);
-    
+
         /// <summary>
         /// Main update loop for core player logic, movement synchronization, and server validation.
         /// </summary>
@@ -521,8 +544,8 @@ namespace Game.Player.Core {
 
             if(animationController == null) return;
 
-            animationController.UpdateFallingState(movementController.IsGrounded,
-                movementController.VerticalVelocity, playerTransform.position);
+            animationController.UpdateFallingState(movementController.IsGrounded, movementController.VerticalVelocity,
+                playerTransform.position);
 
             var (animHorizontal, animSpeedSqr) = GetOwnerAnimationMotion();
             animationController.UpdateAnimator(animHorizontal, movementController.MaxSpeed, animSpeedSqr);
@@ -823,6 +846,7 @@ namespace Game.Player.Core {
 
         public ClientNetworkTransform ClientNetworkTransform => clientNetworkTransform;
         private MatchPlayerStateProxy ResolvePlayerStateOrNull() => ResolvePlayerState();
+
         private NetworkVariable<int> KillsState {
             get {
                 var state = ResolvePlayerStateOrNull();
@@ -851,7 +875,10 @@ namespace Game.Player.Core {
             }
         }
 
-        public NetworkVariable<bool> NetIsDead => ResolvePlayerStateOrNull() != null ? ResolvePlayerStateOrNull().netIsDead : MissingDeathState;
+        public NetworkVariable<bool> NetIsDead => ResolvePlayerStateOrNull() != null
+            ? ResolvePlayerStateOrNull().netIsDead
+            : MissingDeathState;
+
         public NetworkVariable<bool> NetIsCrouching => netIsCrouching;
         public NetworkVariable<bool> NetIsSliding => netIsSliding;
         public NetworkVariable<bool> NetIsJumping => netIsJumping;
@@ -862,6 +889,7 @@ namespace Game.Player.Core {
         public NetworkVariable<int> Kills => KillsState;
         public NetworkVariable<int> Deaths => DeathsState;
         public NetworkVariable<int> Assists => AssistsState;
+
         public NetworkVariable<float> DamageDealt {
             get {
                 var state = ResolvePlayerStateOrNull();
@@ -870,6 +898,7 @@ namespace Game.Player.Core {
         }
 
         public NetworkVariable<int> PlayerMaterialIndex => playerMaterialIndex;
+
         public NetworkVariable<ulong> SteamId {
             get {
                 var state = ResolvePlayerStateOrNull();

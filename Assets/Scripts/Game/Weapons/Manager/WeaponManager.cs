@@ -104,7 +104,7 @@ namespace Game.Weapons.Manager {
 
         internal List<GameObject> FpWeaponInstancesRef { get; } = new();
         internal WeaponAmmoAuthority AmmoAuthorityRef { get; } = new();
-        internal WeaponKinemationBindingCatalog KinemationCatalogRef { get; } = new();
+        internal KinWeaponBindingCatalog CatalogRef { get; } = new();
         private WeaponWorldWeaponRegistry WorldWeaponRegistryRef { get; } = new();
 
         internal CinemachineCamera FpCameraRef { get; private set; }
@@ -146,8 +146,8 @@ namespace Game.Weapons.Manager {
         public GameObject CurrentWorldWeaponInstance => CurrentWorldWeaponInstanceInternal;
         public int CurrentWeaponIndex => CurrentWeaponIndexInternal;
         public int WeaponCount => weaponDataList != null ? weaponDataList.Count : 0;
-        public IReadOnlyList<WeaponData> PrimaryWeaponOptions => KinemationCatalogRef.PrimaryWeaponOptions;
-        public IReadOnlyList<WeaponData> SecondaryWeaponOptions => KinemationCatalogRef.SecondaryWeaponOptions;
+        public IReadOnlyList<WeaponData> PrimaryWeaponOptions => CatalogRef.PrimaryWeaponOptions;
+        public IReadOnlyList<WeaponData> SecondaryWeaponOptions => CatalogRef.SecondaryWeaponOptions;
         public bool IsPullingOut => IsPullingOutInternal;
         public GameObject PrimaryHolster => PrimaryHolsterInternal;
         public GameObject SecondaryHolster => SecondaryHolsterInternal;
@@ -291,7 +291,7 @@ namespace Game.Weapons.Manager {
             _fpPresentation.ActivateFpWeapon(weaponIndex, data, triggerPullOutAnimation);
         internal void InstantiateFpWeaponInstancesInternal() => _fpPresentation.InstantiateFpWeaponInstances();
         internal void DestroyFpWeaponInstancesInternal() => _fpPresentation.DestroyFpWeaponInstances();
-        internal static bool TryGetKinemationDriverInternal(GameObject fpWeaponRoot, out KinemationFpWeaponDriver driver) =>
+        internal static bool TryGetKinemationDriverInternal(GameObject fpWeaponRoot, out KinFpWeaponDriver driver) =>
             WeaponFpPresentation.TryGetKinemationDriver(fpWeaponRoot, out driver);
         internal void ApplyResolvedKinemationViewmodelPoseInternal(GameObject fpWeaponRoot, KinemationWeaponBinding binding) =>
             _fpPresentation.ApplyResolvedKinemationViewmodelPose(fpWeaponRoot, binding);
@@ -386,11 +386,11 @@ namespace Game.Weapons.Manager {
         }
 
         internal void BuildKinemationWeaponLookup() {
-            KinemationCatalogRef.Rebuild(kinemationWeaponBindings, ResolveWeaponSlot, Debug.LogError);
+            CatalogRef.Rebuild(kinemationWeaponBindings, ResolveWeaponSlot, Debug.LogError);
         }
 
         internal bool TryGetKinemationBindingForData(WeaponData weaponData, out KinemationWeaponBinding binding) {
-            return KinemationCatalogRef.TryGetBinding(kinemationFpsPlayerPrefab, weaponData, out binding);
+            return CatalogRef.TryGetBinding(kinemationFpsPlayerPrefab, weaponData, out binding);
         }
 
         internal static int ResolveKinemationWeaponCapacity(GameObject kinemationWeaponPrefab) {

@@ -2,18 +2,18 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using Game.Weapons;
+using Game.Audio2;
 using Game.Weapons.Kinemation;
 using KINEMATION.FPSAnimationPack.Scripts.Weapon;
 using UnityEditor;
 using UnityEngine;
 
-namespace Game.Audio2.Editor {
+namespace Audio.Editor {
     public static class KinemationSoundCueGenerator {
         private const string KinemationCueRootFolder = "Assets/Audio/SoundCue/Weapons/Kinemation";
         private const string DefaultCatalogPath = "Assets/Audio/SoundCatalog.asset";
 
-        private struct WeaponSoundSource {
+        private readonly struct WeaponSoundSource {
             public readonly string Key;
             public readonly FPSWeaponSettings Settings;
 
@@ -58,8 +58,8 @@ namespace Game.Audio2.Editor {
                 var weaponFolder = $"{KinemationCueRootFolder}/{fileToken}";
                 EnsureFolderPath(weaponFolder);
 
-                if(settings.fireSounds != null && settings.fireSounds.Count > 0) {
-                    var fireId = KinemationSoundIdUtility.BuildFireSoundId(source.Key);
+                if(settings.fireSounds is { Count: > 0 }) {
+                    var fireId = KinSoundIdUtility.BuildFireSoundId(source.Key);
                     var firePath = $"{weaponFolder}/{fileToken}_fireCue.asset";
                     var fireCue = CreateOrUpdateCue(
                         firePath,
@@ -81,7 +81,7 @@ namespace Game.Audio2.Editor {
                     var clip = settings.weaponEventSounds[i];
                     if(clip == null) continue;
 
-                    var eventId = KinemationSoundIdUtility.BuildEventSoundId(source.Key, i);
+                    var eventId = KinSoundIdUtility.BuildEventSoundId(source.Key, i);
                     var eventPath = $"{weaponFolder}/{fileToken}_event_{i:D2}Cue.asset";
                     var eventCue = CreateOrUpdateCue(
                         eventPath,
@@ -128,7 +128,7 @@ namespace Game.Audio2.Editor {
                 var fpsWeapon = prefab.GetComponentInChildren<FPSWeapon>(true);
                 if(fpsWeapon == null || fpsWeapon.weaponSettings == null) continue;
 
-                var key = KinemationSoundIdUtility.BuildWeaponSoundKey(fpsWeapon.weaponSettings, prefab.name);
+                var key = KinSoundIdUtility.BuildWeaponSoundKey(fpsWeapon.weaponSettings, prefab.name);
                 var source = new WeaponSoundSource(key, fpsWeapon.weaponSettings);
                 if(!result.TryGetValue(key, out var existing)) {
                     result.Add(key, source);
@@ -181,8 +181,7 @@ namespace Game.Audio2.Editor {
                 ResolveFireVariantDefaults(settings, out firePitch, out fireRandomPitch, out fireVolumeDb);
             }
 
-            for(var i = 0; i < clips.Count; i++) {
-                var clip = clips[i];
+            foreach(var clip in clips) {
                 if(clip == null) continue;
 
                 cue.variants.Add(new SoundCue.Variant {

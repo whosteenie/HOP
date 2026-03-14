@@ -22,9 +22,9 @@ namespace Game.Weapons.Core {
 
         public void StartReload() {
             if(_weapon.CurrentWeaponData && _weapon.Manager != null && !_weapon.Manager.IsPullingOut &&
-               _weapon.KinemationDriver == null) {
+               _weapon.KinDriver == null) {
                 Debug.LogError(
-                    $"[Weapon][KIN-Strict] Reload blocked: missing KinemationFpWeaponDriver for '{(_weapon.CurrentWeaponData != null ? _weapon.CurrentWeaponData.weaponName : "(none)")}'.",
+                    $"[Weapon][KIN-Strict] Reload blocked: missing KinFpWeaponDriver for '{(_weapon.CurrentWeaponData != null ? _weapon.CurrentWeaponData.weaponName : "(none)")}'.",
                     _weapon);
                 return;
             }
@@ -45,8 +45,8 @@ namespace Game.Weapons.Core {
 
             ConsumePendingSingleRoundReloadEvents();
 
-            if(_weapon.KinemationDriver != null) {
-                _weapon.KinemationDriver.NotifyDrakeReloadCanceledByShot();
+            if(_weapon.KinDriver != null) {
+                _weapon.KinDriver.NotifyDrakeReloadCanceledByShot();
             }
 
             CancelReload();
@@ -70,16 +70,16 @@ namespace Game.Weapons.Core {
                 }
             }
 
-            if(_weapon.KinemationDriver != null) {
+            if(_weapon.KinDriver != null) {
                 _weapon.StopKinemationEventSoundsForCurrentWeaponInternal();
-                _weapon.KinemationDriver.AbortReloadAndSyncAmmo(_weapon.CurrentAmmo);
+                _weapon.KinDriver.AbortReloadAndSyncAmmo(_weapon.CurrentAmmo);
             }
 
             _weapon.Reloading = false;
             _weapon.ReloadExpectedCompleteTime = float.PositiveInfinity;
             _weapon.KinemationReloadFallbackDeadline = float.PositiveInfinity;
-            if(_weapon.KinemationDriver != null) {
-                _weapon.KinemationDriver.ResetReloadTracking();
+            if(_weapon.KinDriver != null) {
+                _weapon.KinDriver.ResetReloadTracking();
             }
 
             _weapon.ExitReloadAnimationInternal();
@@ -95,8 +95,8 @@ namespace Game.Weapons.Core {
             _weapon.AutoReloadArmed = false;
             _weapon.ReloadExpectedCompleteTime = float.PositiveInfinity;
             _weapon.KinemationReloadFallbackDeadline = float.PositiveInfinity;
-            if(_weapon.KinemationDriver != null) {
-                _weapon.KinemationDriver.ResetReloadTracking();
+            if(_weapon.KinDriver != null) {
+                _weapon.KinDriver.ResetReloadTracking();
             }
 
             _weapon.SyncServerWeaponStateInternal(WeaponManager.AmmoSyncReason.RefillCurrentWeapon);
@@ -119,10 +119,10 @@ namespace Game.Weapons.Core {
                     }
                 }
 
-                if(_weapon.KinemationDriver != null) {
+                if(_weapon.KinDriver != null) {
                     _weapon.StopKinemationEventSoundsForCurrentWeaponInternal();
-                    _weapon.KinemationDriver.AbortReloadAndSyncAmmo(_weapon.CurrentAmmo);
-                    _weapon.KinemationDriver.ResetReloadTracking();
+                    _weapon.KinDriver.AbortReloadAndSyncAmmo(_weapon.CurrentAmmo);
+                    _weapon.KinDriver.ResetReloadTracking();
                 }
 
                 _weapon.Reloading = false;
@@ -132,8 +132,8 @@ namespace Game.Weapons.Core {
             }
 
             _weapon.CurrentAmmo = _weapon.GetCurrentMagCapacityInternal();
-            if(_weapon.KinemationDriver != null) {
-                _weapon.KinemationDriver.SyncActiveAmmo(_weapon.CurrentAmmo);
+            if(_weapon.KinDriver != null) {
+                _weapon.KinDriver.SyncActiveAmmo(_weapon.CurrentAmmo);
             }
 
             _weapon.PublishOwnerAmmoToHudInternal();
@@ -155,19 +155,19 @@ namespace Game.Weapons.Core {
         }
 
         public void UpdateKinemationReloadState() {
-            if(!_weapon.Reloading || _weapon.KinemationDriver == null) return;
+            if(!_weapon.Reloading || _weapon.KinDriver == null) return;
 
-            var reloadSingleEvents = _weapon.KinemationDriver.ConsumeReloadSingleEventCount();
+            var reloadSingleEvents = _weapon.KinDriver.ConsumeReloadSingleEventCount();
             for(var i = 0; i < reloadSingleEvents; i++) {
                 HandleKinemationReloadSingleRound();
             }
 
-            if(_weapon.KinemationDriver.ConsumeReloadCompleteEvent()) {
+            if(_weapon.KinDriver.ConsumeReloadCompleteEvent()) {
                 CompleteReload();
                 return;
             }
 
-            if(!_weapon.KinemationDriver.IsReloadSequenceInProgress()) {
+            if(!_weapon.KinDriver.IsReloadSequenceInProgress()) {
                 if(_weapon.CurrentWeaponData != null && !_weapon.CurrentWeaponData.useMagReload) {
                     CompleteKinemationPartialReloadWithoutFilling();
                 } else {
@@ -189,7 +189,7 @@ namespace Game.Weapons.Core {
 
         private bool CanReload() {
             if(!_weapon.CurrentWeaponData || _weapon.Manager == null || _weapon.Manager.IsPullingOut) return false;
-            if(_weapon.KinemationDriver == null) return false;
+            if(_weapon.KinDriver == null) return false;
             return _weapon.CurrentAmmo < _weapon.GetCurrentMagCapacityInternal() && !_weapon.Reloading;
         }
 
@@ -200,8 +200,8 @@ namespace Game.Weapons.Core {
             _weapon.AutoReloadArmed = false;
             _weapon.ReloadExpectedCompleteTime = float.PositiveInfinity;
             _weapon.KinemationReloadFallbackDeadline = float.PositiveInfinity;
-            if(_weapon.KinemationDriver != null) {
-                _weapon.KinemationDriver.ResetReloadTracking();
+            if(_weapon.KinDriver != null) {
+                _weapon.KinDriver.ResetReloadTracking();
             }
 
             _weapon.ExitReloadAnimationInternal();
@@ -225,8 +225,8 @@ namespace Game.Weapons.Core {
             _weapon.AutoReloadArmed = false;
             _weapon.ReloadExpectedCompleteTime = float.PositiveInfinity;
             _weapon.KinemationReloadFallbackDeadline = float.PositiveInfinity;
-            if(_weapon.KinemationDriver != null) {
-                _weapon.KinemationDriver.ResetReloadTracking();
+            if(_weapon.KinDriver != null) {
+                _weapon.KinDriver.ResetReloadTracking();
             }
 
             _weapon.ExitReloadAnimationInternal();
@@ -238,9 +238,9 @@ namespace Game.Weapons.Core {
         }
 
         private void ConsumePendingSingleRoundReloadEvents() {
-            if(_weapon.KinemationDriver == null) return;
+            if(_weapon.KinDriver == null) return;
 
-            var reloadSingleEvents = _weapon.KinemationDriver.ConsumeReloadSingleEventCount();
+            var reloadSingleEvents = _weapon.KinDriver.ConsumeReloadSingleEventCount();
             for(var i = 0; i < reloadSingleEvents; i++) {
                 HandleKinemationReloadSingleRound();
             }

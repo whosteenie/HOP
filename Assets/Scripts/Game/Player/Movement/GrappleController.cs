@@ -5,6 +5,7 @@ using Game.Player.Combat;
 using Game.Player.Core;
 using Game.Progression;
 using Game.Weapons;
+using Game.Weapons.Kinemation;
 using Network.Events;
 using Unity.Cinemachine;
 using Unity.Netcode;
@@ -902,7 +903,7 @@ namespace Game.Player.Movement {
 
             var fpWeapon = playerController.WeaponManager != null ? playerController.WeaponManager.GetCurrentFpWeapon() : null;
 
-            var driver = fpWeapon != null ? fpWeapon.GetComponent<KinemationFpWeaponDriver>() : null;
+            var driver = fpWeapon != null ? fpWeapon.GetComponent<KinFpWeaponDriver>() : null;
 
             var handTransform = driver != null ? driver.GetGrappleOriginFpTransform() : null;
 
