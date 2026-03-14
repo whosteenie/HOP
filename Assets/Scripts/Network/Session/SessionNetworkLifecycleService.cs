@@ -535,6 +535,33 @@ namespace Network.Session {
         /// Subscribes to NGO NetworkManager callbacks for client connect/disconnect, client stopped, and session owner promoted.
         /// Call from SessionManager OnEnable after resolving NetworkManager.
         /// </summary>
+        /// <summary>
+        /// Runs the same logic as the OnClientStopped callback. Used by the registered delegate and by PlayMode tests.
+        /// </summary>
+        public static void RunOnClientStoppedLogic(
+            ISessionContext ctx,
+            ISceneFlowActions sceneActions,
+            NetworkManager networkManager,
+            Func<bool> hasActiveSession,
+            Action<string> triggerUnexpectedDisconnect) {
+            if(ctx.IsExpectedDisconnect || ctx.IsLeaving) return;
+            if(IsDistributedAuthorityStartupInFlight) {
+                if(Debug.isDebugBuild)
+                    Debug.Log("[SessionManager] Ignoring client-stopped callback during DA startup window.");
+                return;
+            }
+            if(networkManager != null && networkManager.IsListening) return;
+            if(networkManager != null && hasActiveSession()) {
+                ctx.LaunchSessionTask(
+                    VerifyDistributedAuthorityStopAsync(ctx, networkManager, () =>
+                        triggerUnexpectedDisconnect("OnClientStopped/DistributedAuthority")),
+                    "DistributedAuthority/VerifyClientStopped");
+                return;
+            }
+            Debug.Log("[SessionManager] Client stopped unexpectedly. Sending to main menu.");
+            triggerUnexpectedDisconnect("OnClientStopped");
+        }
+
         public static void RegisterNetworkCallbacks(
             NetworkManager networkManager,
             ISessionContext ctx,
@@ -571,24 +598,7 @@ namespace Network.Session {
                 ctx.NotifyPartyStateChanged();
             };
 
-            onClientStopped = _ => {
-                if(ctx.IsExpectedDisconnect || ctx.IsLeaving) return;
-                if(IsDistributedAuthorityStartupInFlight) {
-                    if(Debug.isDebugBuild)
-                        Debug.Log("[SessionManager] Ignoring client-stopped callback during DA startup window.");
-                    return;
-                }
-                if(networkManager != null && networkManager.IsListening) return;
-                if(networkManager != null && hasActiveSession()) {
-                    ctx.LaunchSessionTask(
-                        VerifyDistributedAuthorityStopAsync(ctx, networkManager, () =>
-                            triggerUnexpectedDisconnect("OnClientStopped/DistributedAuthority")),
-                        "DistributedAuthority/VerifyClientStopped");
-                    return;
-                }
-                Debug.Log("[SessionManager] Client stopped unexpectedly. Sending to main menu.");
-                triggerUnexpectedDisconnect("OnClientStopped");
-            };
+            onClientStopped = _ => RunOnClientStoppedLogic(ctx, sceneActions, networkManager, hasActiveSession, triggerUnexpectedDisconnect);
 
             onSessionOwnerPromoted = sessionOwnerPromoted => {
                 if(networkManager == null || !networkManager.DistributedAuthorityMode) return;

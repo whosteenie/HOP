@@ -678,7 +678,10 @@ namespace Network.Session {
         /// <summary>
         /// Leaves the current Steam social lobby context.
         /// </summary>
-        public void LeaveLobby() => _steamSocialBridge.LeaveSteamLobby();
+        public void LeaveLobby() {
+            _steamSocialBridge.LeaveSteamLobby();
+            LaunchSessionTask(TryLeaveVoiceChannelAsync(), "LeaveLobby_VoiceLeave");
+        }
 
         /// <summary>
         /// Transitions the local player back to the main menu and clears active match state.

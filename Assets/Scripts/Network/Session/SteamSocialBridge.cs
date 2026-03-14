@@ -266,9 +266,15 @@ namespace Network.Session {
         /// <summary>Pushes party data to Steam lobby if we are the owner.</summary>
         public static void UpdateSteamLobbyWithPartyDataIfOwner(ISessionContext ctx) {
             if(ctx is not { CurrentLobby: not null } || ctx.CurrentLobby.Value.Owner.Id != SteamClient.SteamId) return;
-            ctx.CurrentLobby.Value.SetData(PartyIdKey, ctx.CurrentPartyId);
-            ctx.CurrentLobby.Value.SetData(TargetModeKey, ctx.SelectedGameMode);
-            UpdateLocalDisplayNameInLobby(ctx);
+            if(!SteamClient.IsValid || !SteamClient.IsLoggedOn) return;
+            try {
+                ctx.CurrentLobby.Value.SetData(PartyIdKey, ctx.CurrentPartyId);
+                ctx.CurrentLobby.Value.SetData(TargetModeKey, ctx.SelectedGameMode);
+                UpdateLocalDisplayNameInLobby(ctx);
+            } catch(Exception ex) {
+                if(Debug.isDebugBuild)
+                    Debug.LogWarning($"[SessionManager] Failed to update Steam lobby party data: {ex.Message}");
+            }
         }
 
         /// <summary>Updates the local player's display name, avatar hidden, and player icon in the Steam lobby.</summary>
@@ -348,6 +354,7 @@ namespace Network.Session {
             ctx.SetFrontStatus(SessionPhase.Menu, "");
             ctx.SetIsPartyLeader(false);
             ctx.SetExpectedGamePlayerCount(1, "LeaveLobby");
+            ctx.NotifyPartyStateChanged();
         }
 
         /// <summary>Sets the game mode on the Steam lobby data if we are the owner. Call after ApplyRuntimeMode.</summary>

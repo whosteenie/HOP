@@ -140,7 +140,7 @@ namespace Network.Session {
             return ctx.IsPartyLeader;
         }
 
-        /// <summary>True when we are a resolved party member (i.e., there is a real party and we are not the leader).</summary>
+        /// <summary>True when we are a resolved party member (i.e., there is a real party, and we are not the leader).</summary>
         public static bool IsPartyMemberResolved(ISessionContext ctx) =>
             HasRealPartyMembers(ctx) && !IsLocalPartyLeaderResolved(ctx);
 

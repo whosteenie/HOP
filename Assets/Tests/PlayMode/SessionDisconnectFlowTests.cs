@@ -1,6 +1,7 @@
-using System.Collections;
 using System;
+using System.Collections;
 using System.Collections.Generic;
+using System.Reflection;
 using NUnit.Framework;
 using Unity.Netcode;
 using UnityEngine;
@@ -36,7 +37,9 @@ namespace Tests.PlayMode {
             Assert.That(SceneManager.GetActiveScene().name, Is.EqualTo("UnexpectedDisconnectTestScene"));
 
             _ = CreateSessionManagerForTest("SessionManagerTest");
-            PlayModeTestUtils.InvokePrivate(_sessionManagerComponent, "TriggerUnexpectedDisconnectFlow", "PlayModeTest");
+            var sceneFlowService = GetSceneFlowService();
+            Assert.That(sceneFlowService, Is.Not.Null, "SessionManager should have a SceneFlowService.");
+            InvokeTriggerUnexpectedDisconnectFlow(sceneFlowService, "PlayModeTest");
 
             var timeoutAt = Time.realtimeSinceStartup + 20f;
             while(Time.realtimeSinceStartup < timeoutAt) {
@@ -57,16 +60,18 @@ namespace Tests.PlayMode {
             Assert.That(SceneManager.GetActiveScene().name, Is.EqualTo("ExpectedDisconnectGuardScene"));
 
             _ = CreateSessionManagerForTest("SessionManagerExpectedDisconnectGuard");
+            var networkManager = _networkManagerObject.GetComponent<NetworkManager>();
             PlayModeTestUtils.SetAutoPropertyBackingField(_sessionManagerComponent, "IsExpectedDisconnect", true);
 
-            PlayModeTestUtils.InvokePrivate(_sessionManagerComponent, "OnClientStopped", false);
+            RunOnClientStoppedLogic(_sessionManagerComponent, networkManager, null);
             yield return null;
             yield return null;
 
             Assert.That(SceneManager.GetActiveScene().name, Is.EqualTo("ExpectedDisconnectGuardScene"),
                 "Expected disconnect should not trigger unexpected disconnect flow.");
 
-            Assert.That(PlayModeTestUtils.GetPrivateField<bool>(_sessionManagerComponent, "_unexpectedDisconnectInFlight"), Is.False,
+            var sceneFlowService = GetSceneFlowService();
+            Assert.That(GetUnexpectedDisconnectInFlight(sceneFlowService), Is.False,
                 "Unexpected disconnect flow should remain idle when disconnect was expected.");
         }
 
@@ -77,9 +82,12 @@ namespace Tests.PlayMode {
             Assert.That(SceneManager.GetActiveScene().name, Is.EqualTo("UnexpectedDisconnectViaClientStopped"));
 
             _ = CreateSessionManagerForTest("SessionManagerUnexpectedClientStopped");
+            var networkManager = _networkManagerObject.GetComponent<NetworkManager>();
+            var sceneFlowService = GetSceneFlowService();
+            Assert.That(sceneFlowService, Is.Not.Null);
             PlayModeTestUtils.SetAutoPropertyBackingField(_sessionManagerComponent, "IsExpectedDisconnect", false);
 
-            PlayModeTestUtils.InvokePrivate(_sessionManagerComponent, "OnClientStopped", false);
+            RunOnClientStoppedLogic(_sessionManagerComponent, networkManager, sceneFlowService);
 
             var timeoutAt = Time.realtimeSinceStartup + 20f;
             while(Time.realtimeSinceStartup < timeoutAt) {
@@ -93,12 +101,11 @@ namespace Tests.PlayMode {
                 "Unexpected OnClientStopped path should return client to MainMenu.");
 
             timeoutAt = Time.realtimeSinceStartup + 10f;
-            while(Time.realtimeSinceStartup < timeoutAt &&
-                  PlayModeTestUtils.GetPrivateField<bool>(_sessionManagerComponent, "_unexpectedDisconnectInFlight")) {
+            while(Time.realtimeSinceStartup < timeoutAt && GetUnexpectedDisconnectInFlight(sceneFlowService)) {
                 yield return null;
             }
 
-            Assert.That(PlayModeTestUtils.GetPrivateField<bool>(_sessionManagerComponent, "_unexpectedDisconnectInFlight"), Is.False,
+            Assert.That(GetUnexpectedDisconnectInFlight(sceneFlowService), Is.False,
                 "Unexpected disconnect flow should complete and clear in-flight guard.");
         }
 
@@ -119,5 +126,30 @@ namespace Tests.PlayMode {
             ((Behaviour)_sessionManagerComponent).enabled = false;
             return sessionManagerType;
         }
+
+        private object GetSceneFlowService() =>
+            PlayModeTestUtils.GetPrivateField<object>(_sessionManagerComponent, "_sceneFlowService");
+
+        private void InvokeTriggerUnexpectedDisconnectFlow(object sceneFlowService, string source) {
+            var method = sceneFlowService.GetType().GetMethod("TriggerUnexpectedDisconnectFlow",
+                BindingFlags.Public | BindingFlags.Instance, null, new[] { typeof(object), typeof(object), typeof(string) }, null);
+            Assert.That(method, Is.Not.Null, "TriggerUnexpectedDisconnectFlow(ISessionContext, ISceneFlowActions, string)");
+            method.Invoke(sceneFlowService, new object[] { _sessionManagerComponent, _sessionManagerComponent, source });
+        }
+
+        private void RunOnClientStoppedLogic(object sessionManager, NetworkManager networkManager, object sceneFlowService) {
+            var lifecycleType = Type.GetType("Network.Session.SessionNetworkLifecycleService, Assembly-CSharp");
+            Assert.That(lifecycleType, Is.Not.Null, "SessionNetworkLifecycleService type");
+            var method = lifecycleType.GetMethod("RunOnClientStoppedLogic", BindingFlags.Public | BindingFlags.Static);
+            Assert.That(method, Is.Not.Null, "RunOnClientStoppedLogic");
+            Func<bool> hasActiveSession = () => (bool)lifecycleType.GetProperty("HasActiveSession", BindingFlags.Public | BindingFlags.Static).GetValue(null);
+            Action<string> trigger = sceneFlowService != null
+                ? (Action<string>)(source => InvokeTriggerUnexpectedDisconnectFlow(sceneFlowService, source))
+                : _ => { };
+            method.Invoke(null, new object[] { sessionManager, sessionManager, networkManager, hasActiveSession, trigger });
+        }
+
+        private static bool GetUnexpectedDisconnectInFlight(object sceneFlowService) =>
+            PlayModeTestUtils.GetPrivateField<bool>(sceneFlowService, "_unexpectedDisconnectInFlight");
     }
 }
