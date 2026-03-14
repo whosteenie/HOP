@@ -17,102 +17,7 @@ namespace Network.Session {
         private const string SteamUgsPartyCodeKey = "UgsPartyCode";
         private const string SteamUgsMatchLobbyIdKey = "UgsMatchLobbyId";
 
-        #region Steam Callbacks
-
-        private void OnLobbyDataChanged(Lobby lobby) {
-            if(lobby.Id != CurrentLobby?.Id) return;
-
-            // Steam lobbies are social-only in the UGS session flow. We still mirror
-            // party metadata and mode selection for menu/presence UX.
-            var mode = lobby.GetData(TargetModeKey);
-            if(!string.IsNullOrEmpty(mode) && mode != SelectedGameMode) {
-                ApplyRuntimeMode(mode, "SteamSocialLobbyDataChanged");
-            }
-
-            var partyId = lobby.GetData(PartyIdKey);
-            if(!string.IsNullOrEmpty(partyId) && partyId != CurrentPartyId) {
-                CurrentPartyId = partyId;
-            }
-
-            var amILeader = lobby.Owner.Id == SteamClient.SteamId;
-            if(IsPartyLeader != amILeader) {
-                IsPartyLeader = amILeader;
-                EventBus.Publish(new FrontStatusChangedEvent(null));
-            }
-
-            NotifyPartyStateChanged();
-        }
-
-        /// <summary>
-        /// Steam callback for when a member's social metadata changes.
-        /// </summary>
-        private void OnLobbyMemberDataChanged(Lobby lobby, Friend friend) {
-            if(lobby.Id != CurrentLobby?.Id) return;
-            NotifyPartyStateChanged();
-        }
-
-        private void OnLobbyMemberJoined(Lobby lobby, Friend friend) {
-            if(Debug.isDebugBuild) {
-                Debug.Log($"[SessionManager] Member Joined: {friend.Name}");
-            }
-
-            if(!CurrentLobby.HasValue || CurrentLobby.Value.Id != lobby.Id) {
-                return;
-            }
-
-            if(friend.Id != SteamClient.SteamId && ChatManager.Instance != null) {
-                ChatManager.SendLobbyPresenceMessage(friend.Name, true);
-            }
-
-            if(CurrentLobby.HasValue && CurrentLobby.Value.Id == lobby.Id && lobby.MemberCount > 1) {
-                TryJoinVoiceForSteamSocialLobby(lobby.Id, "OnLobbyMemberJoined");
-            }
-
-            NotifyPartyStateChanged();
-        }
-
-        private void OnLobbyMemberLeave(Lobby lobby, Friend friend) {
-            if(Debug.isDebugBuild) {
-                Debug.Log($"[SessionManager] Member Left: {friend.Name}");
-            }
-
-            if(CurrentLobby.HasValue && CurrentLobby.Value.Id == lobby.Id &&
-               friend.Id != SteamClient.SteamId && ChatManager.Instance != null) {
-                ChatManager.SendLobbyPresenceMessage(friend.Name, false);
-            }
-
-            NotifyPartyStateChanged();
-        }
-
-        private void OnGameLobbyJoinRequested(Lobby lobby, SteamId id) {
-            LaunchSessionTask(HandleGameLobbyJoinRequestedAsync(lobby),
-                "SteamGameLobbyJoinRequested");
-        }
-
-        private async UniTask HandleGameLobbyJoinRequestedAsync(Lobby lobby) {
-            try {
-                if(Debug.isDebugBuild) {
-                    Debug.Log($"[SessionManager] Accepted Invite to Lobby {lobby.Id}");
-                }
-
-                var joined = await JoinSteamSocialLobbyAsync(lobby);
-                if(!joined) {
-                    SetFrontStatus(SessionPhase.Error, "Failed to join invited party.");
-                    return;
-                }
-
-                await FollowSessionContextFromSteamLobbyAsync(lobby);
-            } catch(Exception e) {
-                Debug.LogError($"[SessionManager] Failed to join invited lobby '{lobby.Id}': {e.Message}");
-                SetFrontStatus(SessionPhase.Error, "Failed to join invited lobby.");
-            }
-        }
-
-        private void OnGameRichPresenceJoinRequested(Friend friend, string connect) {
-            if(string.IsNullOrEmpty(connect)) return;
-            LaunchSessionTask(HandleSteamConnectStringAsync(connect),
-                "SteamRichPresenceJoinRequested");
-        }
+        #region Steam join/follow and presence (used by SteamSocialBridge via ISteamSessionActions)
 
         private async UniTask HandleSteamConnectStringAsync(string connect) {
             // Expected formats:
@@ -242,7 +147,7 @@ namespace Network.Session {
         /// <summary>
         /// Triggers session property refresh events to notify UI listeners.
         /// </summary>
-        private static void NotifyPartyStateChanged() {
+        private void NotifyPartyStateChanged() {
             EventBus.Publish(new SessionPropertiesRefreshedEvent());
         }
 

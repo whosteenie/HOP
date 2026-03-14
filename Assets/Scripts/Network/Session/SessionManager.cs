@@ -25,21 +25,7 @@ namespace Network.Session {
     /// Steam is used as a social layer (party metadata, invites, rich presence).
     /// Orchestrates NetworkManager lifecycle for host/client transitions.
     /// </summary>
-    public sealed partial class SessionManager : Singleton<SessionManager> {
-        private enum SessionPhase {
-            Menu,
-            Searching,
-            CreatingLobby,
-            JoiningLobby,
-            LobbyReady,
-            StartingHost,
-            StartingClient,
-            SynchronizingLoad,
-            LoadingScene,
-            InGame,
-            Error
-        }
-
+    public sealed partial class SessionManager : Singleton<SessionManager>, ISessionContext, ISteamSessionActions {
         // ===== State =====
         public Lobby? CurrentLobby { get; private set; }
         private SessionPhase _phase;
@@ -217,21 +203,21 @@ namespace Network.Session {
             }
             _sessionLifetimeCts = new CancellationTokenSource();
 
+            _partyModerationService = new SessionPartyModerationService();
+            _steamSocialBridge = new SteamSocialBridge();
+
             SelectedMapSceneName = MatchMapService.DefaultGameplaySceneName;
             SelectedMapId = MatchMapService.DefaultMapId;
         }
+
+        private SessionPartyModerationService _partyModerationService;
+        private SteamSocialBridge _steamSocialBridge;
 
         private void OnEnable() {
             RegisterNetworkCallbacks();
             SceneManager.sceneLoaded += OnSceneLoaded;
 
-            // Steam Callbacks
-            SteamMatchmaking.OnLobbyMemberJoined += OnLobbyMemberJoined;
-            SteamMatchmaking.OnLobbyMemberLeave += OnLobbyMemberLeave;
-            SteamMatchmaking.OnLobbyDataChanged += OnLobbyDataChanged;
-            SteamMatchmaking.OnLobbyMemberDataChanged += OnLobbyMemberDataChanged;
-            SteamFriends.OnGameLobbyJoinRequested += OnGameLobbyJoinRequested;
-            SteamFriends.OnGameRichPresenceJoinRequested += OnGameRichPresenceJoinRequested;
+            _steamSocialBridge.Register(this, this);
 
             EventBus.Unsubscribe<GameSettingsChangedEvent>(OnGameSettingsChanged);
             EventBus.Subscribe<GameSettingsChangedEvent>(OnGameSettingsChanged);
@@ -241,12 +227,7 @@ namespace Network.Session {
             UnregisterNetworkCallbacks();
             SceneManager.sceneLoaded -= OnSceneLoaded;
 
-            SteamMatchmaking.OnLobbyMemberJoined -= OnLobbyMemberJoined;
-            SteamMatchmaking.OnLobbyMemberLeave -= OnLobbyMemberLeave;
-            SteamMatchmaking.OnLobbyDataChanged -= OnLobbyDataChanged;
-            SteamMatchmaking.OnLobbyMemberDataChanged -= OnLobbyMemberDataChanged;
-            SteamFriends.OnGameLobbyJoinRequested -= OnGameLobbyJoinRequested;
-            SteamFriends.OnGameRichPresenceJoinRequested -= OnGameRichPresenceJoinRequested;
+            _steamSocialBridge?.Unregister();
 
             EventBus.Unsubscribe<GameSettingsChangedEvent>(OnGameSettingsChanged);
         }
@@ -554,6 +535,71 @@ namespace Network.Session {
         public static bool IsGameplaySceneName(string sceneName) {
             return MatchMapService.IsGameplayScene(sceneName);
         }
+
+        /// <summary>Removes a party member from the UGS party lobby.</summary>
+        public void KickMember(SteamId targetId) => _partyModerationService.KickMember(this, targetId);
+
+        /// <summary>Promotes a party member to be the new UGS party host.</summary>
+        public void PromoteMember(SteamId targetId) => _partyModerationService.PromoteMember(this, targetId);
+
+        #endregion
+
+        #region ISessionContext
+
+        SessionPhase ISessionContext.Phase => Phase;
+        float ISessionContext.PhaseStartTime => _phaseStartTime;
+        Lobby? ISessionContext.CurrentLobby => CurrentLobby;
+        string ISessionContext.CurrentPartyId => CurrentPartyId;
+        bool ISessionContext.IsPartyLeader => IsPartyLeader;
+        string ISessionContext.SelectedGameMode => SelectedGameMode;
+        string ISessionContext.SelectedMapId => SelectedMapId;
+        string ISessionContext.SelectedMapSceneName => SelectedMapSceneName;
+        Unity.Services.Lobbies.Models.Lobby ISessionContext.UgsPartyLobby => _ugsPartyLobby;
+        Unity.Services.Lobbies.Models.Lobby ISessionContext.UgsMatchLobby => _ugsMatchLobby;
+        bool ISessionContext.IsInGameplay => IsInGameplay;
+        bool ISessionContext.IsLeaving => _isLeaving;
+        bool ISessionContext.IsShuttingDown => _isShuttingDown;
+        bool ISessionContext.IsExpectedDisconnect => IsExpectedDisconnect;
+        bool ISessionContext.IsSearching => IsSearching;
+        bool ISessionContext.IsSessionBusy => IsSessionBusy;
+        int ISessionContext.ExpectedGamePlayerCount => ExpectedGamePlayerCount;
+        CancellationToken ISessionContext.SessionLifetimeToken => SessionLifetimeToken;
+
+        void ISessionContext.SetPhase(SessionPhase value) => Phase = value;
+        void ISessionContext.SetCurrentLobby(Lobby? value) => CurrentLobby = value;
+        void ISessionContext.SetCurrentPartyId(string value) => CurrentPartyId = value;
+        void ISessionContext.SetIsPartyLeader(bool value) => IsPartyLeader = value;
+        void ISessionContext.SetUgsPartyLobby(Unity.Services.Lobbies.Models.Lobby value) => _ugsPartyLobby = value;
+        void ISessionContext.SetUgsMatchLobby(Unity.Services.Lobbies.Models.Lobby value) => _ugsMatchLobby = value;
+        void ISessionContext.SetIsInGameplay(bool value) => IsInGameplay = value;
+        void ISessionContext.SetIsExpectedDisconnect(bool value) => IsExpectedDisconnect = value;
+
+        void ISessionContext.LaunchSessionTask(UniTask task, string label) => LaunchSessionTask(task, label);
+        bool ISessionContext.TryGetNetworkManager(string operationName, out NetworkManager networkManager) =>
+            TryGetNetworkManager(operationName, out networkManager);
+        bool ISessionContext.TryGetUnityTransport(string operationName, out NetworkManager networkManager, out Unity.Netcode.Transports.UTP.UnityTransport transport) =>
+            TryGetUnityTransport(operationName, out networkManager, out transport);
+        bool ISessionContext.TryBeginSessionOperation(string name) => TryBeginSessionOperation(name);
+        void ISessionContext.EndSessionOperation() => EndSessionOperation();
+
+        void ISessionContext.SetFrontStatus(SessionPhase phase, string message) => SetFrontStatus(phase, message);
+        void ISessionContext.SetExpectedGamePlayerCount(int count, string source) => SetExpectedGamePlayerCount(count, source);
+        void ISessionContext.ApplyRuntimeMode(string mode, string source, bool refreshUi) => ApplyRuntimeMode(mode, source, refreshUi);
+        void ISessionContext.LeaveLobby() => LeaveLobby();
+        UniTask ISessionContext.LeaveToMainMenuAsync(bool skipFadeOut) => LeaveToMainMenuAsync(skipFadeOut);
+        UniTask ISessionContext.EnsureSignedInAsync() => EnsureSignedInAsync();
+        void ISessionContext.NotifyPartyStateChanged() => NotifyPartyStateChanged();
+        void ISessionContext.UpdateSteamRichPresence() => UpdateSteamRichPresence();
+        void ISessionContext.UpdateLocalDisplayNameInLobby() => UpdateLocalDisplayNameInLobby();
+
+        #endregion
+
+        #region ISteamSessionActions
+
+        UniTask<bool> ISteamSessionActions.JoinSteamSocialLobbyAsync(Lobby lobby) => JoinSteamSocialLobbyAsync(lobby);
+        UniTask ISteamSessionActions.FollowSessionContextFromSteamLobbyAsync(Lobby lobby) => FollowSessionContextFromSteamLobbyAsync(lobby);
+        UniTask ISteamSessionActions.HandleSteamConnectStringAsync(string connect) => HandleSteamConnectStringAsync(connect);
+        void ISteamSessionActions.TryJoinVoiceForSteamSocialLobby(ulong lobbyId, string context) => TryJoinVoiceForSteamSocialLobby(lobbyId, context);
 
         #endregion
 
