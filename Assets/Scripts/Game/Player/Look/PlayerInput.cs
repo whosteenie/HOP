@@ -44,8 +44,6 @@ namespace Game.Player.Look {
         [SerializeField] private bool toggleSprint = true;
 
         [SerializeField] private bool toggleCrouch = true;
-        
-        [Header("Bot Control")] private bool IsBot { get; }
 
         #endregion
 
@@ -263,7 +261,7 @@ namespace Game.Player.Look {
         }
 
         private void Update() {
-            if(IsBot || !IsOwner) return;
+            if(!IsOwner) return;
             if(_queuedWeaponCycleOffset == 0) return;
 
             var offset = _queuedWeaponCycleOffset;
@@ -273,7 +271,6 @@ namespace Game.Player.Look {
 
         // Direct Input System polling for certain actions
         private void LateUpdate() {
-            if(IsBot) return;
             if(!IsOwner) return;
 
             UpdateHopballInteractPrompt();
@@ -555,7 +552,6 @@ namespace Game.Player.Look {
 
         [UsedImplicitly]
         private void OnLook(InputValue value) {
-            if(IsBot) return;
             if(!IsOwner) return;
             if(IsPausedOrDead || playerController.LockLook) {
                 playerController.lookInput = Vector2.zero;
@@ -570,7 +566,6 @@ namespace Game.Player.Look {
 
         [UsedImplicitly]
         private void OnMove(InputValue value) {
-            if(IsBot) return;
             if(!IsOwner) return;
             if(IsPausedOrDead || PostMatchManager.IsPostMatchMovementLockedLocal) {
                 playerController.moveInput = Vector2.zero;
@@ -584,7 +579,6 @@ namespace Game.Player.Look {
 
         [UsedImplicitly]
         private void OnSprint(InputValue value) {
-            if(IsBot) return;
             if(!IsOwner) return;
             if(IsPausedOrDead) {
                 if(!toggleSprint)
@@ -609,7 +603,6 @@ namespace Game.Player.Look {
 
         [UsedImplicitly]
         private void OnCrouch(InputValue value) {
-            if(IsBot) return;
             if(!IsOwner) return;
             var isMantling = MantleController != null && MantleController.IsMantling;
             if(IsPausedOrDead || isMantling) {
@@ -635,7 +628,6 @@ namespace Game.Player.Look {
 
         [UsedImplicitly]
         private void OnJump(InputValue value) {
-            if(IsBot) return;
             if(!IsOwner || IsPausedOrDead) return;
             var isMantling = MantleController != null && MantleController.IsMantling;
             if(isMantling) return;
@@ -678,7 +670,6 @@ namespace Game.Player.Look {
 
         [UsedImplicitly]
         private void OnAttack(InputValue value) {
-            if(IsBot) return;
             if(!IsOwner || IsPreMatchOrPausedOrDead) return;
             var isMantling = MantleController != null && MantleController.IsMantling;
             if(isMantling) return;
@@ -695,7 +686,6 @@ namespace Game.Player.Look {
 
         [UsedImplicitly]
         private void OnZoom(InputValue value) {
-            if(IsBot) return;
             if(!IsOwner || IsPausedOrDead) return;
             
             if(!value.isPressed) return;
@@ -723,7 +713,6 @@ namespace Game.Player.Look {
 
         [UsedImplicitly]
         private void OnGrapple(InputValue value) {
-            if(IsBot) return;
             if(!IsOwner || IsPreMatchOrPausedOrDead || GameMenuManager.Instance.IsPostMatch) return;
             var isMantling = MantleController != null && MantleController.IsMantling;
             if(isMantling) return;
@@ -744,7 +733,6 @@ namespace Game.Player.Look {
 
         [UsedImplicitly]
         private void OnPrimary(InputValue _) {
-            if(IsBot) return;
             if(!IsOwner || IsPausedOrDead) return;
             var isMantling = MantleController != null && MantleController.IsMantling;
             if(isMantling) return;
@@ -754,7 +742,6 @@ namespace Game.Player.Look {
 
         [UsedImplicitly]
         private void OnSecondary(InputValue _) {
-            if(IsBot) return;
             if(!IsOwner || IsPausedOrDead) return;
             var isMantling = MantleController != null && MantleController.IsMantling;
             if(isMantling) return;
@@ -763,7 +750,6 @@ namespace Game.Player.Look {
         }
 
         private void OnTertiary(InputValue _) {
-            if(IsBot) return;
             if(!IsOwner || IsPausedOrDead) return;
             var isMantling = MantleController != null && MantleController.IsMantling;
             if(isMantling) return;
@@ -783,7 +769,6 @@ namespace Game.Player.Look {
 
         private void TryCycleWeaponByOffset(int offset) {
             if(offset == 0) return;
-            if(IsBot) return;
             if(!IsOwner || IsPausedOrDead) return;
 
             var isMantling = MantleController != null && MantleController.IsMantling;
@@ -904,7 +889,6 @@ namespace Game.Player.Look {
 
         [UsedImplicitly]
         private void OnReload(InputValue _) {
-            if(IsBot) return;
             if(!IsOwner || IsPreMatchOrPausedOrDead || !CurrentWeapon) return;
             var isMantling = MantleController != null && MantleController.IsMantling;
             if(isMantling) return;
@@ -920,7 +904,6 @@ namespace Game.Player.Look {
 
         [UsedImplicitly]
         private void OnPause(InputValue _) {
-            if(IsBot) return;
             if(!IsOwner) return;
 
             // If chat is open, ignore pause input (Escape closes chat instead)
@@ -931,7 +914,6 @@ namespace Game.Player.Look {
 
         [UsedImplicitly]
         private void OnInteract(InputValue _) {
-            if(IsBot) return;
             if(!IsOwner || IsPausedOrDead) return;
             var isMantling = MantleController != null && MantleController.IsMantling;
             if(isMantling) return;
@@ -970,10 +952,6 @@ namespace Game.Player.Look {
         [SerializeField] private Vector3 sniperScopedWeaponRotation = Vector3.zero;
         [SerializeField] private Vector3 sniperMuzzleCameraOffset = new(0f, -0.05f, 0.15f);
         private float _sniperSensitivityMultiplier = 1f;
-
-        public PlayerInput(bool isBot) {
-            IsBot = isBot;
-        }
 
         public Vector3 SniperMuzzleCameraOffset => sniperMuzzleCameraOffset;
 

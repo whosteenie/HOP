@@ -569,7 +569,9 @@ namespace Network.Session {
             Func<bool> hasActiveSession,
             Action<string> triggerUnexpectedDisconnect) {
             if(networkManager == null) return;
-            UnregisterNetworkCallbacks(networkManager);
+            if(registeredNetworkManager != null && !ReferenceEquals(registeredNetworkManager, networkManager)) {
+                UnregisterNetworkCallbacks(registeredNetworkManager);
+            }
 
             registeredNetworkManager = networkManager;
 
