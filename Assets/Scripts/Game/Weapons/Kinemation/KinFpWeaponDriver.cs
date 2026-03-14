@@ -1,14 +1,13 @@
 using System.Collections.Generic;
 using Game.Weapons.Core;
-using Game.Weapons.Kinemation;
 using Game.Weapons.Manager;
 using KINEMATION.FPSAnimationPack.Scripts.Player;
 using Network.Events;
 using UnityEngine;
 
-namespace Game.Weapons {
+namespace Game.Weapons.Kinemation {
     [DisallowMultipleComponent]
-    public sealed class KinemationFpWeaponDriver : MonoBehaviour, IKinemationDriverResolverContext {
+    public sealed class KinFpWeaponDriver : MonoBehaviour, IKinDriverResolverContext {
         #region Serialized config
 
         [Header("KINEMATION")]
@@ -41,32 +40,32 @@ namespace Game.Weapons {
 
         #region Subsystems
 
-        private KinemationActiveWeaponResolver _resolver;
-        private KinemationDriverAudio _audio;
-        private KinemationDriverSoundEvents _soundEvents;
-        private KinemationReloadEquipTracker _tracker;
-        private KinemationDrakeKarVisuals _drakeKar;
-        private KinemationDriverWristBones _wristBones;
-        private KinemationLocomotionSync _locomotionSync;
-        private KinemationGrappleClavicle _grappleClavicle;
-        private KinemationDriverBootstrap _bootstrap;
-        private KinemationEquipReloadPlayback _playback;
+        private KinActiveWeaponResolver _resolver;
+        private KinDriverAudio _audio;
+        private KinDriverSoundEvents _soundEvents;
+        private KinReloadEquipTracker _tracker;
+        private KinDrakeKarVisuals _drakeKar;
+        private KinDriverWristBones _wristBones;
+        private KinLocomotionSync _locomotionSync;
+        private KinGrappleClavicle _grappleClavicle;
+        private KinDriverBootstrap _bootstrap;
+        private KINEquipReloadPlayback _playback;
 
         #endregion
 
-        #region IKinemationDriverResolverContext
+        #region IKINDriverResolverContext
 
-        GameObject IKinemationDriverResolverContext.PlayerInstance => _playerInstance;
-        Transform IKinemationDriverResolverContext.DriverTransform => transform;
-        FPSPlayer IKinemationDriverResolverContext.FpsPlayer => _fpsPlayer;
-        Animator IKinemationDriverResolverContext.FpsAnimator => _fpsAnimator;
-        int IKinemationDriverResolverContext.RenderLayer => _renderLayer;
-        WeaponManager IKinemationDriverResolverContext.WeaponManager => _weaponManager = _weaponManager ? _weaponManager : GetComponentInParent<WeaponManager>();
-        bool IKinemationDriverResolverContext.WeaponSoundPlaybackDisabled => disableKinemationWeaponSounds || routeWeaponSoundEventsToAudioService;
-        bool IKinemationDriverResolverContext.DisableKinemationPlayerSounds => disableKinemationPlayerSounds;
-        bool IKinemationDriverResolverContext.RouteWeaponSoundEventsToAudioService => routeWeaponSoundEventsToAudioService;
-        KinemationFpWeaponDriver IKinemationDriverResolverContext.DriverForRelays => this;
-        bool IKinemationDriverResolverContext.TryGetWeaponCameraTransform(out Transform cameraTransform) {
+        GameObject IKinDriverResolverContext.PlayerInstance => _playerInstance;
+        Transform IKinDriverResolverContext.DriverTransform => transform;
+        FPSPlayer IKinDriverResolverContext.FpsPlayer => _fpsPlayer;
+        Animator IKinDriverResolverContext.FpsAnimator => _fpsAnimator;
+        int IKinDriverResolverContext.RenderLayer => _renderLayer;
+        WeaponManager IKinDriverResolverContext.WeaponManager => _weaponManager = _weaponManager ? _weaponManager : GetComponentInParent<WeaponManager>();
+        bool IKinDriverResolverContext.WeaponSoundPlaybackDisabled => disableKinemationWeaponSounds || routeWeaponSoundEventsToAudioService;
+        bool IKinDriverResolverContext.DisableKinemationPlayerSounds => disableKinemationPlayerSounds;
+        bool IKinDriverResolverContext.RouteWeaponSoundEventsToAudioService => routeWeaponSoundEventsToAudioService;
+        KinFpWeaponDriver IKinDriverResolverContext.DriverForRelays => this;
+        bool IKinDriverResolverContext.TryGetWeaponCameraTransform(out Transform cameraTransform) {
             cameraTransform = null;
             var cam = GetComponentInParent<Camera>();
             if(cam == null) return false;
@@ -259,17 +258,17 @@ namespace Game.Weapons {
 
         private void EnsureSubsystems() {
             if(_resolver != null) return;
-            _resolver = new KinemationActiveWeaponResolver(this);
-            _audio = new KinemationDriverAudio(this, _resolver);
-            _soundEvents = new KinemationDriverSoundEvents(this, _resolver, _audio);
-            _tracker = new KinemationReloadEquipTracker();
-            _drakeKar = new KinemationDrakeKarVisuals(_resolver);
-            _wristBones = new KinemationDriverWristBones(this);
-            _locomotionSync = new KinemationLocomotionSync(this, freezeLocomotionInAir, forceWalkAnimationWhileSprinting,
+            _resolver = new KinActiveWeaponResolver(this);
+            _audio = new KinDriverAudio(this, _resolver);
+            _soundEvents = new KinDriverSoundEvents(this, _resolver, _audio);
+            _tracker = new KinReloadEquipTracker();
+            _drakeKar = new KinDrakeKarVisuals(_resolver);
+            _wristBones = new KinDriverWristBones(this);
+            _locomotionSync = new KinLocomotionSync(this, freezeLocomotionInAir, forceWalkAnimationWhileSprinting,
                 sprintWalkGaitValue, syncLookPitchWithPlayer, syncAirborneState);
-            _grappleClavicle = new KinemationGrappleClavicle(this, _resolver, _wristBones, enableRuntimeGrappleClavicleOffset);
-            _bootstrap = new KinemationDriverBootstrap(this, _audio);
-            _playback = new KinemationEquipReloadPlayback(this, _resolver, _tracker, _drakeKar, _audio, _grappleClavicle,
+            _grappleClavicle = new KinGrappleClavicle(this, _resolver, _wristBones, enableRuntimeGrappleClavicleOffset);
+            _bootstrap = new KinDriverBootstrap(this, _audio);
+            _playback = new KINEquipReloadPlayback(this, _resolver, _tracker, _drakeKar, _audio, _grappleClavicle,
                 TryCacheActiveWeapon, equipUnlockNormalizedTime);
         }
 

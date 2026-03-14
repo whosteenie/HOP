@@ -5,11 +5,11 @@ using Game.Audio2;
 using UnityEditor;
 using UnityEngine;
 
-namespace Game.Audio2.Editor {
+namespace Audio.Editor {
     [CustomEditor(typeof(SoundCue))]
     public sealed class SoundCueEditor : UnityEditor.Editor {
-        private static MethodInfo _playClip;
-        private static MethodInfo _stopAllClips;
+        private static MethodInfo playClip;
+        private static MethodInfo stopAllClips;
 
         public override void OnInspectorGUI() {
             serializedObject.Update();
@@ -98,16 +98,15 @@ namespace Game.Audio2.Editor {
                 }
             }
 
-            if(cue.variants != null && cue.variants.Count > 0) {
-                EditorGUILayout.Space(4);
-                for(var i = 0; i < cue.variants.Count; i++) {
-                    var v = cue.variants[i];
-                    using(new EditorGUILayout.HorizontalScope()) {
-                        EditorGUILayout.LabelField($"{i}", GUILayout.Width(18));
-                        EditorGUILayout.ObjectField(v.clip, typeof(AudioClip), allowSceneObjects: false);
-                        if(GUILayout.Button("Preview", GUILayout.Width(70))) {
-                            PreviewClip(v.clip);
-                        }
+            if(cue.variants is not { Count: > 0 }) return;
+            EditorGUILayout.Space(4);
+            for(var i = 0; i < cue.variants.Count; i++) {
+                var v = cue.variants[i];
+                using(new EditorGUILayout.HorizontalScope()) {
+                    EditorGUILayout.LabelField($"{i}", GUILayout.Width(18));
+                    EditorGUILayout.ObjectField(v.clip, typeof(AudioClip), allowSceneObjects: false);
+                    if(GUILayout.Button("Preview", GUILayout.Width(70))) {
+                        PreviewClip(v.clip);
                     }
                 }
             }
@@ -117,8 +116,7 @@ namespace Game.Audio2.Editor {
             if(cue == null || cue.variants == null || cue.variants.Count == 0) return;
 
             var total = 0f;
-            for(var i = 0; i < cue.variants.Count; i++) {
-                var v = cue.variants[i];
+            foreach(var v in cue.variants) {
                 if(v.clip == null) continue;
                 if(v.weight <= 0f) continue;
                 total += v.weight;
@@ -138,39 +136,35 @@ namespace Game.Audio2.Editor {
         }
 
         private static void EnsureAudioUtil() {
-            if(_playClip != null && _stopAllClips != null) return;
+            if(playClip != null && stopAllClips != null) return;
 
             var audioUtil = Type.GetType("UnityEditor.AudioUtil,UnityEditor");
             if(audioUtil == null) return;
 
             // Newer Unity: PlayPreviewClip(AudioClip, int, bool)
-            _playClip = audioUtil.GetMethod("PlayPreviewClip", BindingFlags.Public | BindingFlags.Static,
+            playClip = audioUtil.GetMethod("PlayPreviewClip", BindingFlags.Public | BindingFlags.Static,
                 null, new[] { typeof(AudioClip), typeof(int), typeof(bool) }, null);
 
             // Older Unity: PlayClip(AudioClip)
-            if(_playClip == null) {
-                _playClip = audioUtil.GetMethod("PlayClip", BindingFlags.Public | BindingFlags.Static,
+            if(playClip == null) {
+                playClip = audioUtil.GetMethod("PlayClip", BindingFlags.Public | BindingFlags.Static,
                     null, new[] { typeof(AudioClip) }, null);
             }
 
-            _stopAllClips = audioUtil.GetMethod("StopAllPreviewClips", BindingFlags.Public | BindingFlags.Static);
-            if(_stopAllClips == null) {
-                _stopAllClips = audioUtil.GetMethod("StopAllClips", BindingFlags.Public | BindingFlags.Static);
+            stopAllClips = audioUtil.GetMethod("StopAllPreviewClips", BindingFlags.Public | BindingFlags.Static);
+            if(stopAllClips == null) {
+                stopAllClips = audioUtil.GetMethod("StopAllClips", BindingFlags.Public | BindingFlags.Static);
             }
         }
 
         private static void PreviewClip(AudioClip clip) {
             if(clip == null) return;
             EnsureAudioUtil();
-            if(_playClip == null) return;
+            if(playClip == null) return;
 
             try {
-                var parms = _playClip.GetParameters();
-                if(parms.Length == 3) {
-                    _playClip.Invoke(null, new object[] { clip, 0, false });
-                } else {
-                    _playClip.Invoke(null, new object[] { clip });
-                }
+                var parms = playClip.GetParameters();
+                playClip.Invoke(null, parms.Length == 3 ? new object[] { clip, 0, false } : new object[] { clip });
             } catch {
                 // Ignore preview failures; editor-only helper.
             }
@@ -178,10 +172,11 @@ namespace Game.Audio2.Editor {
 
         private static void StopPreview() {
             EnsureAudioUtil();
-            if(_stopAllClips == null) return;
+            if(stopAllClips == null) return;
             try {
-                _stopAllClips.Invoke(null, null);
+                stopAllClips.Invoke(null, null);
             } catch {
+                // TODO: Handle exception
             }
         }
     }

@@ -7,18 +7,18 @@ using UnityEngine.InputSystem;
 
 namespace Game.Weapons.Kinemation {
     /// <summary>Viewmodel lifecycle: create player instance, build runtime settings, disable unneeded components, apply layer/shadows/relays.</summary>
-    internal sealed class KinemationDriverBootstrap {
+    internal sealed class KinDriverBootstrap {
         private static readonly MethodInfo FpsPlayerSetMovementEnabledMethod =
             typeof(FPSPlayer).GetMethod("SetCharacterControllerMovementEnabled",
                 BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
         private static readonly FieldInfo FpsPlayerAllowControllerMovementField =
             typeof(FPSPlayer).GetField("allowCharacterControllerMovement", BindingFlags.Instance | BindingFlags.NonPublic);
 
-        private readonly KinemationFpWeaponDriver _driver;
-        private readonly KinemationDriverAudio _audio;
+        private readonly KinFpWeaponDriver _driver;
+        private readonly KinDriverAudio _audio;
         private FPSPlayerSettings _runtimePlayerSettings;
 
-        public KinemationDriverBootstrap(KinemationFpWeaponDriver driver, KinemationDriverAudio audio) {
+        public KinDriverBootstrap(KinFpWeaponDriver driver, KinDriverAudio audio) {
             _driver = driver;
             _audio = audio;
         }

@@ -2,7 +2,7 @@ using System.Text;
 using KINEMATION.FPSAnimationPack.Scripts.Weapon;
 
 namespace Game.Weapons.Kinemation {
-    public static class KinemationSoundIdUtility {
+    public static class KinSoundIdUtility {
         private const string FireSuffix = ".fire";
         private const string EventPrefix = ".event.";
 

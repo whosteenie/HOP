@@ -6,17 +6,17 @@ using UnityEngine;
 
 namespace Game.Weapons.Kinemation {
     /// <summary>Dedicated weapon AudioSource, sound toggles, and fire/event sound metadata for the KIN viewmodel.</summary>
-    internal sealed class KinemationDriverAudio {
+    internal sealed class KinDriverAudio {
         private static readonly FieldInfo FpsWeaponSoundAudioSourceField =
             typeof(FPSWeaponSound).GetField("_audioSource", BindingFlags.Instance | BindingFlags.NonPublic);
 
-        private readonly IKinemationDriverResolverContext _context;
-        private readonly KinemationActiveWeaponResolver _resolver;
+        private readonly IKinDriverResolverContext _context;
+        private readonly KinActiveWeaponResolver _resolver;
         private AudioSource _weaponAudioSource;
         private string _activeWeaponSoundKey = "unknown";
         private string _activeWeaponFireSoundId = "";
 
-        public KinemationDriverAudio(IKinemationDriverResolverContext context, KinemationActiveWeaponResolver resolver) {
+        public KinDriverAudio(IKinDriverResolverContext context, KinActiveWeaponResolver resolver) {
             _context = context;
             _resolver = resolver;
         }
@@ -49,9 +49,9 @@ namespace Game.Weapons.Kinemation {
                 return;
             }
             var settings = activeWeapon.weaponSettings;
-            _activeWeaponSoundKey = KinemationSoundIdUtility.BuildWeaponSoundKey(settings, activeWeapon.name);
+            _activeWeaponSoundKey = KinSoundIdUtility.BuildWeaponSoundKey(settings, activeWeapon.name);
             _activeWeaponFireSoundId = settings != null && HasAnyValidAudioClip(settings.fireSounds)
-                ? KinemationSoundIdUtility.BuildFireSoundId(_activeWeaponSoundKey)
+                ? KinSoundIdUtility.BuildFireSoundId(_activeWeaponSoundKey)
                 : "";
             applyGrappleWeaponIndex?.Invoke();
         }

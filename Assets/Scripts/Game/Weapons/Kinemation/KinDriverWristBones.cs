@@ -2,11 +2,11 @@ using UnityEngine;
 
 namespace Game.Weapons.Kinemation {
     /// <summary>Caches wrist/debug bones and applies fixed offsets for the KIN viewmodel left arm.</summary>
-    internal sealed class KinemationDriverWristBones {
+    internal sealed class KinDriverWristBones {
         private static readonly Vector3 FixedUpperarmLeftPositionOffset = new(0f, 0.027f, 0f);
         private static readonly Vector3 FixedTwistLeftEulerOffset = new(0f, -7.5f, 0f);
 
-        private readonly IKinemationDriverResolverContext _context;
+        private readonly IKinDriverResolverContext _context;
         private bool _hasCached;
         private Transform _clavicleLeft;
         private Transform _wristDebugUpperarmLeft;
@@ -16,7 +16,7 @@ namespace Game.Weapons.Kinemation {
         private Transform _ikHandLeft;
         private Transform _grappleOrigin;
 
-        public KinemationDriverWristBones(IKinemationDriverResolverContext context) {
+        public KinDriverWristBones(IKinDriverResolverContext context) {
             _context = context;
         }
 

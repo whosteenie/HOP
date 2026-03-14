@@ -68,8 +68,8 @@ namespace Game.Weapons.Manager {
             fpWeaponRoot.transform.localEulerAngles = localEulerAngles;
         }
 
-        public static bool TryGetKinemationDriver(GameObject fpWeaponRoot, out KinemationFpWeaponDriver driver) {
-            driver = fpWeaponRoot != null ? fpWeaponRoot.GetComponent<KinemationFpWeaponDriver>() : null;
+        public static bool TryGetKinemationDriver(GameObject fpWeaponRoot, out KinFpWeaponDriver driver) {
+            driver = fpWeaponRoot != null ? fpWeaponRoot.GetComponent<KinFpWeaponDriver>() : null;
             return driver != null;
         }
 
@@ -94,23 +94,23 @@ namespace Game.Weapons.Manager {
         }
 
         /// <summary>Attaches reload/event relays to animators and weapon sounds on the viewmodel, binds driver, and optionally destroys original sound components.</summary>
-        public static void AttachReloadEventRelays(GameObject viewmodelRoot, KinemationFpWeaponDriver driver,
+        public static void AttachReloadEventRelays(GameObject viewmodelRoot, KinFpWeaponDriver driver,
             bool weaponSoundPlaybackDisabled, bool disablePlayerSounds) {
             if(viewmodelRoot == null || driver == null) return;
 
             var animators = viewmodelRoot.GetComponentsInChildren<Animator>(true);
             foreach(var animator in animators) {
                 if(animator == null) continue;
-                var relay = animator.GetComponent<KinemationReloadEventRelay>();
-                if(relay == null) relay = animator.gameObject.AddComponent<KinemationReloadEventRelay>();
+                var relay = animator.GetComponent<KinReloadEventRelay>();
+                if(relay == null) relay = animator.gameObject.AddComponent<KinReloadEventRelay>();
                 relay.Bind(driver);
             }
 
             var weaponSounds = viewmodelRoot.GetComponentsInChildren<FPSWeaponSound>(true);
             foreach(var weaponSound in weaponSounds) {
                 if(weaponSound == null) continue;
-                var relay = weaponSound.GetComponent<KinemationReloadEventRelay>();
-                if(relay == null) relay = weaponSound.gameObject.AddComponent<KinemationReloadEventRelay>();
+                var relay = weaponSound.GetComponent<KinReloadEventRelay>();
+                if(relay == null) relay = weaponSound.gameObject.AddComponent<KinReloadEventRelay>();
                 relay.Bind(driver);
                 if(weaponSoundPlaybackDisabled) Object.Destroy(weaponSound);
             }
@@ -119,8 +119,8 @@ namespace Game.Weapons.Manager {
             var playerSounds = viewmodelRoot.GetComponentsInChildren<FPSPlayerSound>(true);
             foreach(var playerSound in playerSounds) {
                 if(playerSound == null) continue;
-                if(playerSound.GetComponent<KinemationPlayerSoundEventRelay>() == null)
-                    playerSound.gameObject.AddComponent<KinemationPlayerSoundEventRelay>();
+                if(playerSound.GetComponent<KinPlayerSoundEventRelay>() == null)
+                    playerSound.gameObject.AddComponent<KinPlayerSoundEventRelay>();
                 Object.Destroy(playerSound);
             }
         }
@@ -206,7 +206,7 @@ namespace Game.Weapons.Manager {
                 const bool disableWeaponSounds = false;
                 const bool disablePlayerSounds = true;
 
-                var kinemationDriver = kinemationHolder.AddComponent<KinemationFpWeaponDriver>();
+                var kinemationDriver = kinemationHolder.AddComponent<KinFpWeaponDriver>();
                 kinemationDriver.Configure(
                     _root.KinemationFpsPlayerPrefabRef,
                     kinemationBinding.kinemationWeaponPrefab,

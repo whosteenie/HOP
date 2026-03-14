@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Audio.Networking;
 using Game.Player.Core;
 using Game.UI.HUD;
+using Game.Weapons.Kinemation;
 using Game.Weapons.Manager;
 using Game.Weapons.World;
 using Network.Core;
@@ -110,7 +111,7 @@ namespace Game.Weapons.Core {
 
         internal NetworkAudioRelay AudioRelay { get; private set; }
 
-        internal KinemationFpWeaponDriver KinemationDriver { get; set; }
+        internal KinFpWeaponDriver KinDriver { get; set; }
 
         internal GameObject CurrentFpWeaponInstance { get; set; }
 

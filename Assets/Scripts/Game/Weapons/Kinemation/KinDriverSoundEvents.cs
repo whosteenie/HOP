@@ -4,17 +4,17 @@ using UnityEngine;
 
 namespace Game.Weapons.Kinemation {
     /// <summary>Pending weapon fire/event sound queues and reload-event clip detection for KIN viewmodel sound routing.</summary>
-    internal sealed class KinemationDriverSoundEvents {
+    internal sealed class KinDriverSoundEvents {
         private static readonly HashSet<int> MissingKinemationReloadSoundIndexWarnings = new();
 
-        private readonly IKinemationDriverResolverContext _context;
-        private readonly KinemationActiveWeaponResolver _resolver;
-        private readonly KinemationDriverAudio _audio;
+        private readonly IKinDriverResolverContext _context;
+        private readonly KinActiveWeaponResolver _resolver;
+        private readonly KinDriverAudio _audio;
         private int _pendingWeaponFireSoundEvents;
         private readonly List<int> _pendingWeaponEventSoundIndices = new();
 
-        public KinemationDriverSoundEvents(IKinemationDriverResolverContext context, KinemationActiveWeaponResolver resolver,
-            KinemationDriverAudio audio) {
+        public KinDriverSoundEvents(IKinDriverResolverContext context, KinActiveWeaponResolver resolver,
+            KinDriverAudio audio) {
             _context = context;
             _resolver = resolver;
             _audio = audio;
@@ -91,7 +91,7 @@ namespace Game.Weapons.Kinemation {
             if(activeWeapon == null || activeWeapon.weaponSettings == null) return false;
             var eventSounds = activeWeapon.weaponSettings.weaponEventSounds;
             if(eventSounds == null || clipIndex >= eventSounds.Count || eventSounds[clipIndex] == null) return false;
-            soundId = KinemationSoundIdUtility.BuildEventSoundId(_audio.ActiveWeaponSoundKey, clipIndex);
+            soundId = KinSoundIdUtility.BuildEventSoundId(_audio.ActiveWeaponSoundKey, clipIndex);
             return !string.IsNullOrWhiteSpace(soundId);
         }
 

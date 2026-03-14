@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace Game.Weapons.Kinemation {
     /// <summary>Reload and equip state machine for the KIN viewmodel. Holds tracking flags, grace times, and Drake-related reload state.</summary>
-    internal sealed class KinemationReloadEquipTracker {
+    internal sealed class KinReloadEquipTracker {
         private const float ReloadEnterGraceSeconds = 0.2f;
         private const float ReloadSignalGraceSeconds = 0.25f;
         private const float EquipEnterGraceSeconds = 0.2f;

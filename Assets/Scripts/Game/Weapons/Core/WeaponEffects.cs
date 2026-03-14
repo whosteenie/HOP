@@ -1,5 +1,6 @@
 using System.Collections;
 using Game.Player.Core;
+using Game.Weapons.Kinemation;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.VFX;
@@ -18,7 +19,7 @@ namespace Game.Weapons.Core {
 
             if(_weapon.CurrentWeaponData != null && _weapon.CurrentWeaponData.muzzleFlashPrefab != null) {
                 if(_weapon.TryGetRequiredOwnerMuzzleTransformInternal(out var muzzleTransform, "PlayLocalMuzzleFlash")) {
-                    if(_weapon.KinemationDriver != null) {
+                    if(_weapon.KinDriver != null) {
                         var preferredDirection = Vector3.zero;
                         var fpCameraTransform = _weapon.PlayerController != null ? _weapon.PlayerController.FpCameraTransform : null;
                         if(fpCameraTransform != null) {
@@ -125,12 +126,12 @@ namespace Game.Weapons.Core {
         }
 
         public void PlayFireSound() {
-            if(UseKinemationEventSoundRouting() && _weapon.KinemationDriver != null &&
-               _weapon.KinemationDriver.HasKinemationFireSound()) {
+            if(UseKinemationEventSoundRouting() && _weapon.KinDriver != null &&
+               _weapon.KinDriver.HasKinemationFireSound()) {
                 if(_weapon.PlayerController == null || !_weapon.PlayerController.IsOwner) return;
                 if(_weapon.AudioRelay == null || _weapon.PlayerController.NetworkObject == null) return;
 
-                var kinemationFireSoundId = _weapon.KinemationDriver.GetKinemationFireSoundId();
+                var kinemationFireSoundId = _weapon.KinDriver.GetKinemationFireSoundId();
                 if(!string.IsNullOrWhiteSpace(kinemationFireSoundId)) {
                     _weapon.AudioRelay.RequestPlayAttached(
                         kinemationFireSoundId,
@@ -175,17 +176,17 @@ namespace Game.Weapons.Core {
         }
 
         public void ExitReloadAnimation() {
-            if(_weapon.KinemationDriver != null) {
-                KinemationFpWeaponDriver.PlayReloadCompleteAnimation();
+            if(_weapon.KinDriver != null) {
+                KinFpWeaponDriver.PlayReloadCompleteAnimation();
             }
         }
 
         public void ProcessKinemationSoundEvents() {
-            if(_weapon.KinemationDriver == null) return;
+            if(_weapon.KinDriver == null) return;
 
-            _weapon.KinemationDriver.ConsumeWeaponFireSoundEventCount();
+            _weapon.KinDriver.ConsumeWeaponFireSoundEventCount();
             _weapon.KinemationWeaponSoundEventBuffer.Clear();
-            _weapon.KinemationDriver.ConsumeWeaponEventSoundIndices(_weapon.KinemationWeaponSoundEventBuffer);
+            _weapon.KinDriver.ConsumeWeaponEventSoundIndices(_weapon.KinemationWeaponSoundEventBuffer);
 
             if(_weapon.KinemationWeaponSoundEventBuffer.Count == 0) return;
             if(!UseKinemationEventSoundRouting()) return;
@@ -194,39 +195,39 @@ namespace Game.Weapons.Core {
 
             var attachRef = new NetworkObjectReference(_weapon.PlayerController.NetworkObject);
             foreach(var clipIndex in _weapon.KinemationWeaponSoundEventBuffer) {
-                if(!_weapon.KinemationDriver.TryGetKinemationEventSoundId(clipIndex, out var eventSoundId)) continue;
+                if(!_weapon.KinDriver.TryGetKinemationEventSoundId(clipIndex, out var eventSoundId)) continue;
                 if(string.IsNullOrWhiteSpace(eventSoundId)) continue;
                 _weapon.AudioRelay.RequestPlayAttached(eventSoundId, attachRef, allowOverlap: true);
             }
         }
 
         public void StopKinemationEventSoundsForCurrentWeapon() {
-            if(_weapon.KinemationDriver == null) return;
+            if(_weapon.KinDriver == null) return;
             if(!UseKinemationEventSoundRouting()) return;
             if(_weapon.PlayerController == null || !_weapon.PlayerController.IsOwner) return;
             if(_weapon.AudioRelay == null) return;
 
-            var eventClipCount = _weapon.KinemationDriver.GetKinemationEventSoundClipCount();
+            var eventClipCount = _weapon.KinDriver.GetKinemationEventSoundClipCount();
             for(var clipIndex = 0; clipIndex < eventClipCount; clipIndex++) {
-                if(!_weapon.KinemationDriver.IsLikelyReloadEventSoundClip(clipIndex)) continue;
-                if(!_weapon.KinemationDriver.TryGetKinemationEventSoundId(clipIndex, out var eventSoundId)) continue;
+                if(!_weapon.KinDriver.IsLikelyReloadEventSoundClip(clipIndex)) continue;
+                if(!_weapon.KinDriver.TryGetKinemationEventSoundId(clipIndex, out var eventSoundId)) continue;
                 if(string.IsNullOrWhiteSpace(eventSoundId)) continue;
                 _weapon.AudioRelay.RequestStop(eventSoundId);
             }
         }
 
         public bool UseKinemationInternalSounds() {
-            return _weapon.KinemationDriver != null && _weapon.KinemationDriver.AreKinemationSoundsEnabled();
+            return _weapon.KinDriver != null && _weapon.KinDriver.AreKinemationSoundsEnabled();
         }
 
         private bool UseKinemationEventSoundRouting() {
-            return _weapon.KinemationDriver != null && _weapon.KinemationDriver.IsKinemationSoundEventRoutingEnabled();
+            return _weapon.KinDriver != null && _weapon.KinDriver.IsKinemationSoundEventRoutingEnabled();
         }
 
         public bool ShouldSuppressLegacyReloadSound() {
             return UseKinemationEventSoundRouting() &&
-                   _weapon.KinemationDriver != null &&
-                   _weapon.KinemationDriver.HasAnyKinemationEventSound();
+                   _weapon.KinDriver != null &&
+                   _weapon.KinDriver.HasAnyKinemationEventSound();
         }
 
         public void ClearKinemationLocalMuzzleFxInstance() {
@@ -242,7 +243,7 @@ namespace Game.Weapons.Core {
 
         public void PrewarmKinemationLocalMuzzleFxInstance() {
             if(_weapon.HasPrewarmedKinemationMuzzleForCurrentWeapon) return;
-            if(_weapon.KinemationDriver == null) return;
+            if(_weapon.KinDriver == null) return;
             if(_weapon.CurrentWeaponData == null || _weapon.CurrentWeaponData.muzzleFlashPrefab == null) return;
 
             if(!_weapon.TryGetRequiredOwnerMuzzleTransformInternal(out var muzzleTransform, "PrewarmKinemationLocalMuzzleFxInstance",
@@ -265,13 +266,13 @@ namespace Game.Weapons.Core {
         }
 
         private void PlayFireAnimationForCurrentWeapon(int authoritativeAmmoBeforeShot) {
-            if(_weapon.KinemationDriver == null) return;
-            _weapon.KinemationDriver.PlayFireAnimation(authoritativeAmmoBeforeShot);
+            if(_weapon.KinDriver == null) return;
+            _weapon.KinDriver.PlayFireAnimation(authoritativeAmmoBeforeShot);
         }
 
         private void PlayReloadAnimationForCurrentWeapon() {
-            if(_weapon.KinemationDriver != null) {
-                _weapon.KinemationDriver.PlayReloadAnimation();
+            if(_weapon.KinDriver != null) {
+                _weapon.KinDriver.PlayReloadAnimation();
             }
         }
 

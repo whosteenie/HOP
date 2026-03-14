@@ -5,9 +5,9 @@ using UnityEngine;
 using UnityEngine.VFX;
 
 namespace Game.Weapons.Kinemation {
-    internal sealed class KinemationActiveWeaponComponentCache {
+    internal sealed class KinActiveWeaponComponentCache {
         private int _cachedActiveWeaponInstanceId;
-        private KinemationWeaponPartReferences _activeWeaponPartReferences;
+        private KinWeaponPartReferences _activeWeaponPartReferences;
         private Animator[] _activeWeaponAnimators;
         private FPSWeaponSound[] _activeWeaponSounds;
         private ParticleSystem[] _activeWeaponParticleSystems;
@@ -79,14 +79,14 @@ namespace Game.Weapons.Kinemation {
             return GetActiveComponents(activeWeapon, ref _activeWeaponAudioSources);
         }
 
-        public KinemationWeaponPartReferences GetPartReferences(FPSWeapon activeWeapon) {
+        public KinWeaponPartReferences GetPartReferences(FPSWeapon activeWeapon) {
             if(activeWeapon == null) return null;
             Ensure(activeWeapon);
             if(_activeWeaponPartReferences != null) return _activeWeaponPartReferences;
 
-            _activeWeaponPartReferences = activeWeapon.GetComponent<KinemationWeaponPartReferences>();
+            _activeWeaponPartReferences = activeWeapon.GetComponent<KinWeaponPartReferences>();
             if(_activeWeaponPartReferences == null) {
-                _activeWeaponPartReferences = activeWeapon.GetComponentInChildren<KinemationWeaponPartReferences>(true);
+                _activeWeaponPartReferences = activeWeapon.GetComponentInChildren<KinWeaponPartReferences>(true);
             }
 
             return _activeWeaponPartReferences;

@@ -2,16 +2,16 @@ using UnityEngine;
 
 namespace Game.Weapons.Kinemation {
     [DisallowMultipleComponent]
-    public sealed class KinemationReloadEventRelay : MonoBehaviour {
-        [SerializeField] private KinemationFpWeaponDriver driver;
+    public sealed class KinReloadEventRelay : MonoBehaviour {
+        [SerializeField] private KinFpWeaponDriver driver;
 
-        public void Bind(KinemationFpWeaponDriver value) {
+        public void Bind(KinFpWeaponDriver value) {
             driver = value;
         }
 
-        private KinemationFpWeaponDriver ResolveDriver() {
+        private KinFpWeaponDriver ResolveDriver() {
             if(driver != null) return driver;
-            driver = GetComponentInParent<KinemationFpWeaponDriver>();
+            driver = GetComponentInParent<KinFpWeaponDriver>();
             return driver;
         }
 

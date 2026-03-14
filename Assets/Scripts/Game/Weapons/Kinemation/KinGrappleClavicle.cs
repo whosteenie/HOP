@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace Game.Weapons.Kinemation {
     /// <summary>Runtime grapple clavicle offset for the KIN viewmodel. Handles prepare/apply/clear and static AK anchor.</summary>
-    internal sealed class KinemationGrappleClavicle {
+    internal sealed class KinGrappleClavicle {
         private const float RuntimeGrappleClavicleOffsetScale = 1f;
         private const float GrappleOffsetBlendInNormalized = 0.06f;
         private const float GrappleOffsetBlendOutStartNormalized = 0.82f;
@@ -18,17 +18,17 @@ namespace Game.Weapons.Kinemation {
         private static bool sHasAkAnchorFrame1CameraReference;
         private static Vector3 sAkAnchorFrame1CameraLocal;
 
-        private readonly IKinemationDriverResolverContext _context;
-        private readonly KinemationActiveWeaponResolver _resolver;
-        private readonly KinemationDriverWristBones _wristBones;
+        private readonly IKinDriverResolverContext _context;
+        private readonly KinActiveWeaponResolver _resolver;
+        private readonly KinDriverWristBones _wristBones;
         private readonly bool _enableRuntimeGrappleClavicleOffset;
 
         private Vector3 _runtimeGrappleClavicleOffset;
         private bool _isRuntimeGrappleClavicleOffsetActive;
         private int _runtimeGrappleOffsetWeaponIndex;
 
-        public KinemationGrappleClavicle(IKinemationDriverResolverContext context, KinemationActiveWeaponResolver resolver,
-            KinemationDriverWristBones wristBones, bool enableRuntimeGrappleClavicleOffset) {
+        public KinGrappleClavicle(IKinDriverResolverContext context, KinActiveWeaponResolver resolver,
+            KinDriverWristBones wristBones, bool enableRuntimeGrappleClavicleOffset) {
             _context = context;
             _resolver = resolver;
             _wristBones = wristBones;

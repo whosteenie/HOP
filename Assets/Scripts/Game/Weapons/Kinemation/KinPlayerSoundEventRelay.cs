@@ -5,7 +5,7 @@ namespace Game.Weapons.Kinemation {
     /// No-op receiver for KINEMATION player sound animation events when internal player sounds are disabled.
     /// </summary>
     [DisallowMultipleComponent]
-    public sealed class KinemationPlayerSoundEventRelay : MonoBehaviour {
+    public sealed class KinPlayerSoundEventRelay : MonoBehaviour {
         public void PlayAimSound() {
         }
 

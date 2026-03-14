@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace Game.Weapons.Kinemation {
     /// <summary>Syncs locomotion (move/look/sprint/air) from game state into the KIN FPSPlayer viewmodel. Uses reflection for FPSPlayer internals.</summary>
-    internal sealed class KinemationLocomotionSync {
+    internal sealed class KinLocomotionSync {
         private static readonly FieldInfo FpsPlayerMoveInputField =
             typeof(FPSPlayer).GetField("_moveInput", BindingFlags.Instance | BindingFlags.NonPublic);
         private static readonly FieldInfo FpsPlayerLookInputField =
@@ -15,14 +15,14 @@ namespace Game.Weapons.Kinemation {
             typeof(FPSPlayer).GetField("_bTacSprinting", BindingFlags.Instance | BindingFlags.NonPublic);
         private static readonly int IsInAirHash = Animator.StringToHash("IsInAir");
 
-        private readonly IKinemationDriverResolverContext _context;
+        private readonly IKinDriverResolverContext _context;
         private readonly bool _freezeLocomotionInAir;
         private readonly bool _forceWalkAnimationWhileSprinting;
         private readonly float _sprintWalkGaitValue;
         private readonly bool _syncLookPitchWithPlayer;
         private readonly bool _syncAirborneState;
 
-        public KinemationLocomotionSync(IKinemationDriverResolverContext context,
+        public KinLocomotionSync(IKinDriverResolverContext context,
             bool freezeLocomotionInAir, bool forceWalkAnimationWhileSprinting, float sprintWalkGaitValue,
             bool syncLookPitchWithPlayer, bool syncAirborneState) {
             _context = context;

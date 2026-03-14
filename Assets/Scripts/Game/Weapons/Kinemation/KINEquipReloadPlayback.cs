@@ -7,7 +7,7 @@ using UnityEngine;
 
 namespace Game.Weapons.Kinemation {
     /// <summary>High-level equip/reload/fire playback and ammo sync. Coordinates resolver, tracker, Drake/Kar, and audio.</summary>
-    internal sealed class KinemationEquipReloadPlayback {
+    internal sealed class KINEquipReloadPlayback {
         private static readonly int IdleHash = Animator.StringToHash("Idle");
         private static readonly int EquipHash = Animator.StringToHash("Equip");
         private static readonly int EquipOverrideHash = Animator.StringToHash("Equip_Override");
@@ -24,18 +24,18 @@ namespace Game.Weapons.Kinemation {
         private static readonly FieldInfo Pdw90SmoothAmmoWeightField =
             typeof(Pdw90Animation).GetField("_smoothAmmoWeight", BindingFlags.Instance | BindingFlags.NonPublic);
 
-        private readonly IKinemationDriverResolverContext _context;
-        private readonly KinemationActiveWeaponResolver _resolver;
-        private readonly KinemationReloadEquipTracker _tracker;
-        private readonly KinemationDrakeKarVisuals _drakeKar;
-        private readonly KinemationDriverAudio _audio;
-        private readonly KinemationGrappleClavicle _grappleClavicle;
+        private readonly IKinDriverResolverContext _context;
+        private readonly KinActiveWeaponResolver _resolver;
+        private readonly KinReloadEquipTracker _tracker;
+        private readonly KinDrakeKarVisuals _drakeKar;
+        private readonly KinDriverAudio _audio;
+        private readonly KinGrappleClavicle _grappleClavicle;
         private readonly FuncBool _tryCacheActiveWeapon;
         private readonly float _equipUnlockNormalizedTime;
 
-        public KinemationEquipReloadPlayback(IKinemationDriverResolverContext context,
-            KinemationActiveWeaponResolver resolver, KinemationReloadEquipTracker tracker,
-            KinemationDrakeKarVisuals drakeKar, KinemationDriverAudio audio, KinemationGrappleClavicle grappleClavicle,
+        public KINEquipReloadPlayback(IKinDriverResolverContext context,
+            KinActiveWeaponResolver resolver, KinReloadEquipTracker tracker,
+            KinDrakeKarVisuals drakeKar, KinDriverAudio audio, KinGrappleClavicle grappleClavicle,
             FuncBool tryCacheActiveWeapon, float equipUnlockNormalizedTime) {
             _context = context;
             _resolver = resolver;

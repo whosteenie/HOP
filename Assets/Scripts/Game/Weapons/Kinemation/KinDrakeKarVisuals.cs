@@ -3,11 +3,11 @@ using UnityEngine;
 
 namespace Game.Weapons.Kinemation {
     /// <summary>Drake shell and Kar loop-bullet suppression/restore for the KIN viewmodel.</summary>
-    internal sealed class KinemationDrakeKarVisuals {
+    internal sealed class KinDrakeKarVisuals {
         private const float DrakeTopShellHideOffset = 0.75f;
         private const float KarLoopBulletHideOffset = 0.55f;
 
-        private readonly KinemationActiveWeaponResolver _resolver;
+        private readonly KinActiveWeaponResolver _resolver;
 
         // Drake top shell
         private Transform _suppressedDrakeTopShellTransform;
@@ -39,7 +39,7 @@ namespace Game.Weapons.Kinemation {
         private bool[] _karLoopBulletRendererEnabledStates;
         private bool _isKarLoopBulletHidden;
 
-        public KinemationDrakeKarVisuals(KinemationActiveWeaponResolver resolver) {
+        public KinDrakeKarVisuals(KinActiveWeaponResolver resolver) {
             _resolver = resolver;
         }
 

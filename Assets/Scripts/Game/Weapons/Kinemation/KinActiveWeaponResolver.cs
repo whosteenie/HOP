@@ -9,7 +9,7 @@ using UnityEngine.VFX;
 
 namespace Game.Weapons.Kinemation {
     /// <summary>Context the resolver needs from the driver (player instance, layer, weapon manager, sound flags for relay attach).</summary>
-    internal interface IKinemationDriverResolverContext {
+    internal interface IKinDriverResolverContext {
         GameObject PlayerInstance { get; }
         Transform DriverTransform { get; }
         FPSPlayer FpsPlayer { get; }
@@ -19,12 +19,12 @@ namespace Game.Weapons.Kinemation {
         bool WeaponSoundPlaybackDisabled { get; }
         bool DisableKinemationPlayerSounds { get; }
         bool RouteWeaponSoundEventsToAudioService { get; }
-        KinemationFpWeaponDriver DriverForRelays { get; }
+        KinFpWeaponDriver DriverForRelays { get; }
         bool TryGetWeaponCameraTransform(out Transform cameraTransform);
     }
 
     /// <summary>Resolves active FPS weapon, muzzle transform, part references, and weapon data. Owns component cache and part-reference warnings.</summary>
-    internal sealed class KinemationActiveWeaponResolver {
+    internal sealed class KinActiveWeaponResolver {
         private const int DrakeTopShellReferenceKey = 11;
         private const int DrakeBottomShellReferenceKey = 12;
         private const int KarLoopBulletReferenceKey = 13;
@@ -35,14 +35,14 @@ namespace Game.Weapons.Kinemation {
         private static readonly HashSet<int> MissingKinemationPartReferenceWarnings = new();
         private static readonly HashSet<int> InvalidKinemationPartReferenceWarnings = new();
 
-        private readonly IKinemationDriverResolverContext _context;
-        private readonly KinemationActiveWeaponComponentCache _cache = new();
+        private readonly IKinDriverResolverContext _context;
+        private readonly KinActiveWeaponComponentCache _cache = new();
         private readonly HashSet<int> _suppressedMuzzleFxWeaponIds = new();
 
         private FPSWeapon _activeWeapon;
         private Transform _muzzleTransform;
 
-        public KinemationActiveWeaponResolver(IKinemationDriverResolverContext context) {
+        public KinActiveWeaponResolver(IKinDriverResolverContext context) {
             _context = context;
         }
 
@@ -93,10 +93,10 @@ namespace Game.Weapons.Kinemation {
                 var partRefs = GetActiveWeaponPartReferences();
                 if(partRefs != null) {
                     TryResolvePartReference(partRefs.FpMuzzleTransform, FpMuzzleReferenceKey,
-                        nameof(KinemationWeaponPartReferences.FpMuzzleTransform), out _muzzleTransform);
+                        nameof(KinWeaponPartReferences.FpMuzzleTransform), out _muzzleTransform);
                 } else {
                     ReportMissingPartReference(FpMuzzleReferenceKey,
-                        nameof(KinemationWeaponPartReferences.FpMuzzleTransform), true);
+                        nameof(KinWeaponPartReferences.FpMuzzleTransform), true);
                 }
             }
 
@@ -168,7 +168,7 @@ namespace Game.Weapons.Kinemation {
         private Light[] GetWeaponLights(FPSWeapon weapon) => _cache.GetLights(_activeWeapon, weapon);
         public Pdw90Animation[] GetActiveWeaponPdwAnimations() => _cache.GetPdwAnimations(_activeWeapon);
         public AudioSource[] GetActiveWeaponAudioSources() => _cache.GetAudioSources(_activeWeapon);
-        private KinemationWeaponPartReferences GetActiveWeaponPartReferences() => _cache.GetPartReferences(_activeWeapon);
+        private KinWeaponPartReferences GetActiveWeaponPartReferences() => _cache.GetPartReferences(_activeWeapon);
 
         public void SuppressInternalMuzzleFx(FPSWeapon activeWeapon, bool disableMuzzleFx) {
             if(!disableMuzzleFx || activeWeapon == null) return;
@@ -214,11 +214,11 @@ namespace Game.Weapons.Kinemation {
             if(_activeWeapon == null) return false;
             var partRefs = GetActiveWeaponPartReferences();
             if(partRefs == null) {
-                ReportMissingPartReference(DrakeTopShellReferenceKey, nameof(KinemationWeaponPartReferences.DrakeTopShell), true);
+                ReportMissingPartReference(DrakeTopShellReferenceKey, nameof(KinWeaponPartReferences.DrakeTopShell), true);
                 return false;
             }
             return TryResolvePartReference(partRefs.DrakeTopShell, DrakeTopShellReferenceKey,
-                nameof(KinemationWeaponPartReferences.DrakeTopShell), out topShell);
+                nameof(KinWeaponPartReferences.DrakeTopShell), out topShell);
         }
 
         public bool TryResolveDrakeBottomShell(out Transform bottomShell) {
@@ -226,11 +226,11 @@ namespace Game.Weapons.Kinemation {
             if(_activeWeapon == null) return false;
             var partRefs = GetActiveWeaponPartReferences();
             if(partRefs == null) {
-                ReportMissingPartReference(DrakeBottomShellReferenceKey, nameof(KinemationWeaponPartReferences.DrakeBottomShell), true);
+                ReportMissingPartReference(DrakeBottomShellReferenceKey, nameof(KinWeaponPartReferences.DrakeBottomShell), true);
                 return false;
             }
             return TryResolvePartReference(partRefs.DrakeBottomShell, DrakeBottomShellReferenceKey,
-                nameof(KinemationWeaponPartReferences.DrakeBottomShell), out bottomShell);
+                nameof(KinWeaponPartReferences.DrakeBottomShell), out bottomShell);
         }
 
         public bool TryResolveKarLoopBullet(out Transform loopBullet) {
@@ -238,11 +238,11 @@ namespace Game.Weapons.Kinemation {
             if(_activeWeapon == null) return false;
             var partRefs = GetActiveWeaponPartReferences();
             if(partRefs == null) {
-                ReportMissingPartReference(KarLoopBulletReferenceKey, nameof(KinemationWeaponPartReferences.KarLoopBullet), true);
+                ReportMissingPartReference(KarLoopBulletReferenceKey, nameof(KinWeaponPartReferences.KarLoopBullet), true);
                 return false;
             }
             return TryResolvePartReference(partRefs.KarLoopBullet, KarLoopBulletReferenceKey,
-                nameof(KinemationWeaponPartReferences.KarLoopBullet), out loopBullet);
+                nameof(KinWeaponPartReferences.KarLoopBullet), out loopBullet);
         }
 
         private bool TryResolvePartReference(Transform configuredPart, int partKey, string partFieldName, out Transform resolved) {
@@ -270,8 +270,8 @@ namespace Game.Weapons.Kinemation {
             if(!MissingKinemationPartReferenceWarnings.Add(key)) return;
             var label = GetActiveWeaponLabel();
             var guidance = missingComponent
-                ? "Add KinemationWeaponPartReferences to the weapon prefab and assign required parts."
-                : "Assign this field on KinemationWeaponPartReferences.";
+                ? "Add KINWeaponPartReferences to the weapon prefab and assign required parts."
+                : "Assign this field on KINWeaponPartReferences.";
             Debug.LogError($"[KinemationFpWeaponDriver] Weapon '{label}' is missing explicit part reference '{partFieldName}'. {guidance}", _activeWeapon);
         }
 
