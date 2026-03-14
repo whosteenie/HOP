@@ -26,9 +26,11 @@ namespace Game.UI.Screens {
             VisualElement scoreboardContainer, VisualElement tdmScoreboardContainer, bool isTagMode,
             ScoreboardRowFactory rowFactory, ScoreboardPlayerData playerData, VisualElement root, Object logContext) {
             if(scoreboardContainer == null || tdmScoreboardContainer == null || playerRows == null) {
-                if(root != null) Debug.LogWarning("[ScoreboardManager] FFA scoreboard UI elements not initialized", logContext);
+                if(root != null)
+                    Debug.LogWarning("[ScoreboardManager] FFA scoreboard UI elements not initialized", logContext);
                 return;
             }
+
             if(!rowFactory.EnsureTemplateAssigned()) return;
             scoreboardContainer.RemoveFromClassList("hidden");
             tdmScoreboardContainer.AddToClassList("hidden");
@@ -40,6 +42,7 @@ namespace Game.UI.Screens {
                 currentPlayerIds.Add(player.OwnerClientId);
                 currentSortValues[player.OwnerClientId] = playerData.GetPlayerScore(player, isTagMode);
             }
+
             var needsRebuild = !currentPlayerIds.SetEquals(_previousPlayerIds);
             if(!needsRebuild) {
                 foreach(var kvp in currentSortValues) {
@@ -64,12 +67,14 @@ namespace Game.UI.Screens {
                     var labels = row.Query<Label>().ToList();
                     if(labels.Count > 0) _cachedVelocityLabels[player.OwnerClientId] = labels[^1];
                 }
+
                 while(rowCount < 10) {
                     var row = rowFactory.CreateEmptyRow(playerRows, isTagMode);
                     if(row == null) break;
                     if(rowCount % 2 == 1) row.AddToClassList("player-row-alt");
                     rowCount++;
                 }
+
                 _previousPlayerIds.Clear();
                 foreach(var id in currentPlayerIds) _previousPlayerIds.Add(id);
                 _previousSortValues.Clear();
@@ -81,7 +86,8 @@ namespace Game.UI.Screens {
                     var statsCtrl = playerData.GetStatsController(player);
                     if(statsCtrl == null || velocityLabel == null) continue;
                     var avgVelocity = statsCtrl.AverageVelocity.Value;
-                    if(_previousVelocityValues.TryGetValue(player.OwnerClientId, out var prev) && Mathf.Abs(prev - avgVelocity) <= 0.05f) continue;
+                    if(_previousVelocityValues.TryGetValue(player.OwnerClientId, out var prev) &&
+                       Mathf.Abs(prev - avgVelocity) <= 0.05f) continue;
                     velocityLabel.text = $"{avgVelocity:F1} u/s";
                     _previousVelocityValues[player.OwnerClientId] = avgVelocity;
                 }
@@ -89,14 +95,21 @@ namespace Game.UI.Screens {
         }
 
         /// <returns>True if TDM was updated; false if UI refs missing (caller should fall back to FFA).</returns>
-        public static bool UpdateTdm(IReadOnlyCollection<PlayerController> allControllers, VisualElement enemyTeamRows, VisualElement yourTeamRows,
-            VisualElement scoreboardContainer, VisualElement tdmScoreboardContainer, Label enemyScoreValue, Label yourScoreValue,
+        public static bool UpdateTdm(IReadOnlyCollection<PlayerController> allControllers, VisualElement enemyTeamRows,
+            VisualElement yourTeamRows,
+            VisualElement scoreboardContainer, VisualElement tdmScoreboardContainer, Label enemyScoreValue,
+            Label yourScoreValue,
             MatchSettingsManager matchSettings, ScoreboardRowFactory rowFactory, ScoreboardPlayerData playerData,
             VisualElement root, Object logContext) {
-            if(scoreboardContainer == null || tdmScoreboardContainer == null || enemyTeamRows == null || yourTeamRows == null) {
-                if(root != null) Debug.LogWarning("[ScoreboardManager] TDM scoreboard UI elements not initialized, falling back to FFA", logContext);
+            if(scoreboardContainer == null || tdmScoreboardContainer == null || enemyTeamRows == null ||
+               yourTeamRows == null) {
+                if(root != null)
+                    Debug.LogWarning(
+                        "[ScoreboardManager] TDM scoreboard UI elements not initialized, falling back to FFA",
+                        logContext);
                 return false;
             }
+
             if(!rowFactory.EnsureTemplateAssigned()) return false;
             scoreboardContainer.AddToClassList("hidden");
             tdmScoreboardContainer.RemoveFromClassList("hidden");
@@ -122,6 +135,7 @@ namespace Game.UI.Screens {
                 if(tm.netTeam.Value == localTeam) yourTeamPlayers.Add(player);
                 else enemyPlayers.Add(player);
             }
+
             enemyPlayers.Sort((a, b) => b.Kills.Value.CompareTo(a.Kills.Value));
             yourTeamPlayers.Sort((a, b) => b.Kills.Value.CompareTo(a.Kills.Value));
 
@@ -132,12 +146,14 @@ namespace Game.UI.Screens {
                 if(enemyCount % 2 == 1) row.AddToClassList("player-row-alt");
                 enemyCount++;
             }
+
             while(enemyCount < 5) {
                 var row = rowFactory.CreateEmptyRow(enemyTeamRows, false);
                 if(row == null) break;
                 if(enemyCount % 2 == 1) row.AddToClassList("player-row-alt");
                 enemyCount++;
             }
+
             var yourCount = 0;
             foreach(var player in yourTeamPlayers) {
                 var row = rowFactory.CreatePlayerRow(player, yourTeamRows, true, true);
@@ -145,6 +161,7 @@ namespace Game.UI.Screens {
                 if(yourCount % 2 == 1) row.AddToClassList("player-row-alt");
                 yourCount++;
             }
+
             while(yourCount < 5) {
                 var row = rowFactory.CreateEmptyRow(yourTeamRows, false);
                 if(row == null) break;
@@ -152,7 +169,8 @@ namespace Game.UI.Screens {
                 yourCount++;
             }
 
-            if(matchSettings != null && matchSettings.selectedGameModeId == "Hopball" && HopballSpawnManager.Instance != null) {
+            if(matchSettings != null && matchSettings.selectedGameModeId == "Hopball" &&
+               HopballSpawnManager.Instance != null) {
                 var teamA = HopballSpawnManager.Instance.GetTeamAScore();
                 var teamB = HopballSpawnManager.Instance.GetTeamBScore();
                 if(localTeam == SpawnPoint.Team.TeamA) {
@@ -162,7 +180,8 @@ namespace Game.UI.Screens {
                     if(yourScoreValue != null) yourScoreValue.text = teamB.ToString();
                     if(enemyScoreValue != null) enemyScoreValue.text = teamA.ToString();
                 }
-            } else if(matchSettings != null && matchSettings.selectedGameModeId == "KOTH" && KingOfTheHillManager.Instance != null) {
+            } else if(matchSettings != null && matchSettings.selectedGameModeId == "KOTH" &&
+                      KingOfTheHillManager.Instance != null) {
                 var teamA = KingOfTheHillManager.Instance.GetTeamAScore();
                 var teamB = KingOfTheHillManager.Instance.GetTeamBScore();
                 if(localTeam == SpawnPoint.Team.TeamA) {
@@ -177,6 +196,7 @@ namespace Game.UI.Screens {
                 if(enemyScoreValue != null) enemyScoreValue.text = enemyScore.ToString();
                 if(yourScoreValue != null) yourScoreValue.text = yourScore.ToString();
             }
+
             return true;
         }
     }

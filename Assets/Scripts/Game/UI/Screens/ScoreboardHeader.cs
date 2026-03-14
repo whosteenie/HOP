@@ -46,6 +46,7 @@ namespace Game.UI.Screens {
                     return;
                 }
             }
+
             if(_headerLabels == null) return;
 
             if(isTagMode) {
@@ -92,22 +93,27 @@ namespace Game.UI.Screens {
         private string ResolveScoreboardTitle(MatchSettingsManager matchSettings) {
             if(matchSettings == null) {
                 if(_missingGamemodeTitleLogged) return "UNKNOWN MODE";
-                Debug.LogError("[ScoreboardManager] MatchSettingsManager.Instance is null while updating scoreboard title.", _logContext);
+                Debug.LogError(
+                    "[ScoreboardManager] MatchSettingsManager.Instance is null while updating scoreboard title.",
+                    _logContext);
                 _missingGamemodeTitleLogged = true;
                 return "UNKNOWN MODE";
             }
+
             var id = matchSettings.selectedGameModeId;
             if(string.IsNullOrEmpty(id)) {
                 if(_missingGamemodeTitleLogged) return "UNKNOWN MODE";
-                Debug.LogError("[ScoreboardManager] selectedGameModeId is empty while updating scoreboard title.", _logContext);
+                Debug.LogError("[ScoreboardManager] selectedGameModeId is empty while updating scoreboard title.",
+                    _logContext);
                 _missingGamemodeTitleLogged = true;
                 return "UNKNOWN MODE";
             }
+
             _missingGamemodeTitleLogged = false;
             return id.ToUpperInvariant();
         }
 
-        private string ResolveScoreboardMapTitle(string sceneName) {
+        private static string ResolveScoreboardMapTitle(string sceneName) {
             var sessionManager = SessionManager.Instance;
             if(sessionManager != null && !string.IsNullOrWhiteSpace(sessionManager.SelectedMapId))
                 return FormatMapTitle(sessionManager.SelectedMapId);
@@ -127,6 +133,7 @@ namespace Game.UI.Screens {
                 mapId = string.IsNullOrWhiteSpace(map.MapId) ? map.name : map.MapId;
                 return !string.IsNullOrWhiteSpace(mapId);
             }
+
             return false;
         }
 

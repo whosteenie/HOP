@@ -284,7 +284,8 @@ namespace Game.UI.Screens {
                 _participantToCanonicalId[rawParticipantId] = canonicalId;
 
                 if(isResolvedRemotePlayer) {
-                    CreateSpeakerEntry(resolvedPlayer.PlayerName.Value.ToString(), resolvedPlayer.SteamId.Value, canonicalId);
+                    CreateSpeakerEntry(resolvedPlayer.PlayerName.Value.ToString(), resolvedPlayer.SteamId.Value,
+                        canonicalId);
                 } else {
                     ulong.TryParse(canonicalId, out var steamId);
                     CreateSpeakerEntry(displayName, steamId, canonicalId);
@@ -451,7 +452,9 @@ namespace Game.UI.Screens {
 
             // Opportunistically track from connected clients if the first pass misses.
             TrackConnectedClients();
-            return TryResolveTrackedPlayer(rawIdentity, out resolvedPlayer, out canonicalId) ? canonicalId : rawIdentity;
+            return TryResolveTrackedPlayer(rawIdentity, out resolvedPlayer, out canonicalId)
+                ? canonicalId
+                : rawIdentity;
         }
 
         private bool TryResolveTrackedPlayer(string rawIdentity, out PlayerController resolvedPlayer,

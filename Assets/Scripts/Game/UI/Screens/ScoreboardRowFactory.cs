@@ -34,7 +34,8 @@ namespace Game.UI.Screens {
             if(Social.VoiceManager.Instance == null) return;
             var voiceMgr = Social.VoiceManager.Instance;
             foreach(var player in controllers) {
-                if(player == null || !_speakingIndicators.TryGetValue(player.OwnerClientId, out var indicator)) continue;
+                if(player == null || !_speakingIndicators.TryGetValue(player.OwnerClientId, out var indicator))
+                    continue;
                 var steamId = player.SteamId.Value;
                 if(steamId == 0) continue;
                 if(voiceMgr.IsSpeaking(steamId.ToString()))
@@ -48,7 +49,9 @@ namespace Game.UI.Screens {
             if(_template != null) return true;
             if(_missingTemplateLogged) return false;
             _missingTemplateLogged = true;
-            Debug.LogError("[ScoreboardManager] Missing `scoreboardRowTemplate` assignment. Assign a scoreboard row VisualTreeAsset in the inspector.", _logContext);
+            Debug.LogError(
+                "[ScoreboardManager] Missing `scoreboardRowTemplate` assignment. Assign a scoreboard row VisualTreeAsset in the inspector.",
+                _logContext);
             return false;
         }
 
@@ -62,7 +65,8 @@ namespace Game.UI.Screens {
                 var timeTaggedVal = tagCtrl != null ? tagCtrl.TimeTagged.Value : 0;
                 var tagsVal = tagCtrl != null ? tagCtrl.Tags.Value : 0;
                 var taggedVal = tagCtrl != null ? tagCtrl.Tagged.Value : 0;
-                statLabels[0].style.display = statLabels[1].style.display = statLabels[2].style.display = statLabels[3].style.display = statLabels[6].style.display = DisplayStyle.Flex;
+                statLabels[0].style.display = statLabels[1].style.display = statLabels[2].style.display =
+                    statLabels[3].style.display = statLabels[6].style.display = DisplayStyle.Flex;
                 statLabels[4].style.display = statLabels[5].style.display = DisplayStyle.None;
                 statLabels[0].text = timeTaggedVal.ToString();
                 statLabels[1].text = tagsVal.ToString();
@@ -76,10 +80,12 @@ namespace Game.UI.Screens {
             } else {
                 AddNormalModeStats(row, player);
             }
+
             return row;
         }
 
-        public VisualElement CreatePlayerRow(PlayerController player, VisualElement parentContainer, bool simplifiedStats, bool isYourTeam) {
+        public VisualElement CreatePlayerRow(PlayerController player, VisualElement parentContainer,
+            bool simplifiedStats, bool isYourTeam) {
             if(!simplifiedStats) return CreatePlayerRow(player, parentContainer, false);
             var row = CreatePlayerRowBase(player, parentContainer, isYourTeam);
             if(row == null) return null;
@@ -91,42 +97,56 @@ namespace Game.UI.Screens {
             if(!EnsureTemplateAssigned()) return null;
             var row = _template.CloneTree();
             var rowRoot = row.Q<VisualElement>("scoreboard-row-root") ?? row;
-            if(!TryGetRequiredRowElements(row, out var pingLabel, out _, out _, out var nameLabel, out var statLabels)) return null;
+            if(!TryGetRequiredRowElements(row, out var pingLabel, out _, out _, out var nameLabel, out var statLabels))
+                return null;
             row.userData = statLabels;
             rowRoot.AddToClassList("player-row-empty");
             parentContainer.Add(row);
             if(pingLabel != null) pingLabel.text = "-";
             if(nameLabel != null) nameLabel.text = "-";
             foreach(var t in statLabels) t.text = "-";
-            if(isTagMode) { statLabels[4].style.display = DisplayStyle.None; statLabels[5].style.display = DisplayStyle.None; }
-            else { statLabels[4].style.display = DisplayStyle.Flex; statLabels[5].style.display = DisplayStyle.Flex; }
+            if(isTagMode) {
+                statLabels[4].style.display = DisplayStyle.None;
+                statLabels[5].style.display = DisplayStyle.None;
+            } else {
+                statLabels[4].style.display = DisplayStyle.Flex;
+                statLabels[5].style.display = DisplayStyle.Flex;
+            }
+
             return row;
         }
 
-        private VisualElement CreatePlayerRowBase(PlayerController player, VisualElement parentContainer, bool isYourTeam = false) {
+        private VisualElement CreatePlayerRowBase(PlayerController player, VisualElement parentContainer,
+            bool isYourTeam = false) {
             if(!EnsureTemplateAssigned()) return null;
             var row = _template.CloneTree();
             var rowRoot = row.Q<VisualElement>("scoreboard-row-root") ?? row;
-            if(!TryGetRequiredRowElements(row, out var pingLabel, out var avatar, out var speakingIndicator, out var nameLabel, out var statLabels)) return null;
+            if(!TryGetRequiredRowElements(row, out var pingLabel, out var avatar, out var speakingIndicator,
+                   out var nameLabel, out var statLabels)) return null;
             row.userData = statLabels;
             if(player.IsOwner) {
                 rowRoot.AddToClassList("player-row-local");
                 if(isYourTeam) rowRoot.AddToClassList("player-row-local-your-team");
             }
+
             parentContainer.Add(row);
             if(pingLabel != null) {
                 pingLabel.text = GetPingText(player);
                 var pingClass = GetPingColorClass(player);
                 if(!string.IsNullOrEmpty(pingClass)) pingLabel.AddToClassList(pingClass);
             }
+
             if(avatar != null) {
                 ApplyFallbackAvatar(player, avatar);
                 if(player != null && player.SteamId.Value != 0) LoadSteamAvatar(player.SteamId.Value, avatar).Forget();
             }
-            if(speakingIndicator != null && player != null) _speakingIndicators[player.OwnerClientId] = speakingIndicator;
+
+            if(speakingIndicator != null && player != null)
+                _speakingIndicators[player.OwnerClientId] = speakingIndicator;
             if(nameLabel != null) nameLabel.text = player.PlayerName.Value.ToString();
             rowRoot.RegisterCallback<PointerDownEvent>(evt => {
-                if(evt.button != 1 || player == null || player.IsOwner || InGameContextMenuManager.Instance == null) return;
+                if(evt.button != 1 || player == null || player.IsOwner ||
+                   InGameContextMenuManager.Instance == null) return;
                 InGameContextMenuManager.Instance.Show(player.SteamId.Value, evt.position);
             });
             return row;
@@ -162,15 +182,19 @@ namespace Game.UI.Screens {
             speakingIndicator = avatar?.Q<VisualElement>("speaking-indicator");
             nameLabel = row?.Q<Label>("name-label");
             statLabels = new Label[7];
-            var missing = row == null || pingLabel == null || avatar == null || speakingIndicator == null || nameLabel == null;
+            var missing = row == null || pingLabel == null || avatar == null || speakingIndicator == null ||
+                          nameLabel == null;
             for(var i = 0; i < 7; i++) {
                 statLabels[i] = row?.Q<Label>($"stat-{i}");
                 if(statLabels[i] == null) missing = true;
             }
+
             if(!missing) return true;
             if(_invalidTemplateLogged) return false;
             _invalidTemplateLogged = true;
-            Debug.LogError("[ScoreboardManager] `scoreboardRowTemplate` is missing required elements. Expected: `ping-label`, `avatar`, `speaking-indicator`, `name-label`, and `stat-0` through `stat-6`.", _logContext);
+            Debug.LogError(
+                "[ScoreboardManager] `scoreboardRowTemplate` is missing required elements. Expected: `ping-label`, `avatar`, `speaking-indicator`, `name-label`, and `stat-0` through `stat-6`.",
+                _logContext);
             return false;
         }
 
@@ -205,6 +229,7 @@ namespace Game.UI.Screens {
                 bestDist = distSq;
                 bestIndex = i;
             }
+
             return bestIndex;
         }
 
@@ -220,7 +245,8 @@ namespace Game.UI.Screens {
             if(SteamManager.Instance == null) return;
             try {
                 var texture = await SteamManager.Instance.GetAvatarAsync(steamId);
-                if(texture != null && avatarElement != null) avatarElement.style.backgroundImage = new StyleBackground(texture);
+                if(texture != null && avatarElement != null)
+                    avatarElement.style.backgroundImage = new StyleBackground(texture);
             } catch(Exception ex) {
                 Debug.LogWarning($"[ScoreboardManager] Steam avatar fetch failed for {steamId}: {ex.Message}");
             }

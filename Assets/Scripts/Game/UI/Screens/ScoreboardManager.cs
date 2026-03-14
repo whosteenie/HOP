@@ -61,6 +61,7 @@ namespace Game.UI.Screens {
                 Destroy(gameObject);
                 return;
             }
+
             Instance = this;
         }
 
@@ -100,7 +101,12 @@ namespace Game.UI.Screens {
         }
 
         private void OnSetMatchTime(SetMatchTimeEvent evt) => _topBar?.SetMatchTime(evt.Seconds);
-        private void OnPlayerDied(PlayerDiedEvent evt) { UpdateScoreboard(); UpdateScoreDisplay(); }
+
+        private void OnPlayerDied(PlayerDiedEvent evt) {
+            UpdateScoreboard();
+            UpdateScoreDisplay();
+        }
+
         private void OnShowScoreboard(ShowScoreboardEvent evt) => ShowScoreboard();
         private void OnHideScoreboard(HideScoreboardEvent evt) => HideScoreboard();
         private void OnScoreboardRefreshRequested(ScoreboardRefreshRequestedEvent evt) => UpdateScoreboard();
@@ -109,8 +115,12 @@ namespace Game.UI.Screens {
         private void OnShowScoreDisplay(ShowScoreDisplayEvent evt) => _topBar?.ShowScoreDisplay();
         private void OnPlayerNetworkSpawned(PlayerNetworkSpawnedEvent evt) => _registry?.Register(evt.Player);
         private void OnPlayerNetworkDespawned(PlayerNetworkDespawnedEvent evt) => _registry?.Unregister(evt.Player);
-        private void OnPlayerStateRegistered(ulong id, MatchPlayerStateProxy proxy) => _registry?.OnStateRegistered(id, proxy);
-        private void OnPlayerStateUnregistered(ulong id, MatchPlayerStateProxy proxy) => _registry?.OnStateUnregistered(id, proxy);
+
+        private void OnPlayerStateRegistered(ulong id, MatchPlayerStateProxy proxy) =>
+            _registry?.OnStateRegistered(id, proxy);
+
+        private void OnPlayerStateUnregistered(ulong id, MatchPlayerStateProxy proxy) =>
+            _registry?.OnStateUnregistered(id, proxy);
 
         public void Initialize(VisualElement root) {
             _root = root;
@@ -138,7 +148,8 @@ namespace Game.UI.Screens {
             _tableUpdater = new ScoreboardTableUpdater();
             _rowFactory = new ScoreboardRowFactory(scoreboardRowTemplate, _playerData, playerIconSprites, this);
             _header = new ScoreboardHeader(_root, this);
-            _topBar = new ScoreboardTopBar(_matchTimerLabel, _leftScoreContainer, _rightScoreContainer, _leftScoreValue, _rightScoreValue);
+            _topBar = new ScoreboardTopBar(_matchTimerLabel, _leftScoreContainer, _rightScoreContainer, _leftScoreValue,
+                _rightScoreValue);
             _registry = new ScoreboardPlayerRegistry(() => {
                 _tableUpdater.ClearCaches();
                 UpdateScoreboard();
@@ -157,7 +168,8 @@ namespace Game.UI.Screens {
         private void Update() {
             if(_localController == null && SessionManager.IsGameplaySceneName(_cachedSceneName))
                 FindLocalController();
-            if(!SessionManager.IsGameplaySceneName(_cachedSceneName) || !(Time.time - _lastScoreUpdateTime >= ScoreUpdateInterval)) return;
+            if(!SessionManager.IsGameplaySceneName(_cachedSceneName) ||
+               !(Time.time - _lastScoreUpdateTime >= ScoreUpdateInterval)) return;
             UpdateScoreDisplay();
             _lastScoreUpdateTime = Time.time;
             if(!IsScoreboardVisible) return;
@@ -200,7 +212,8 @@ namespace Game.UI.Screens {
 
         private bool IsTeamBased() {
             if(_cachedMatchSettings == null) _cachedMatchSettings = MatchSettingsManager.Instance;
-            return _cachedMatchSettings != null && MatchSettingsManager.IsTeamBasedMode(_cachedMatchSettings.selectedGameModeId);
+            return _cachedMatchSettings != null &&
+                   MatchSettingsManager.IsTeamBasedMode(_cachedMatchSettings.selectedGameModeId);
         }
 
         private void RefreshGamemode() {
@@ -239,6 +252,7 @@ namespace Game.UI.Screens {
                 Cursor.visible = false;
                 if(PlayerController.LocalPlayer != null) PlayerController.LocalPlayer.LockLook = false;
             }
+
             if(InGameContextMenuManager.Instance != null) InGameContextMenuManager.Instance.Hide();
         }
 
@@ -259,14 +273,17 @@ namespace Game.UI.Screens {
                     _scoreboardContainer, _tdmScoreboardContainer, _enemyScoreValue, _yourScoreValue,
                     _cachedMatchSettings, _rowFactory, _playerData, _root, this);
                 if(!updated)
-                    _tableUpdater.UpdateFfa(allControllers, _playerRows, _scoreboardContainer, _tdmScoreboardContainer, IsTagMode(), _rowFactory, _playerData, _root, this);
+                    _tableUpdater.UpdateFfa(allControllers, _playerRows, _scoreboardContainer, _tdmScoreboardContainer,
+                        IsTagMode(), _rowFactory, _playerData, _root, this);
             } else {
-                _tableUpdater.UpdateFfa(allControllers, _playerRows, _scoreboardContainer, _tdmScoreboardContainer, IsTagMode(), _rowFactory, _playerData, _root, this);
+                _tableUpdater.UpdateFfa(allControllers, _playerRows, _scoreboardContainer, _tdmScoreboardContainer,
+                    IsTagMode(), _rowFactory, _playerData, _root, this);
             }
         }
 
         private void UpdateScoreDisplay() {
-            _topBar?.UpdateScoreDisplay(_registry, _playerData, _cachedMatchSettings ? _cachedMatchSettings : MatchSettingsManager.Instance, _localController);
+            _topBar?.UpdateScoreDisplay(_registry, _playerData,
+                _cachedMatchSettings ? _cachedMatchSettings : MatchSettingsManager.Instance, _localController);
         }
 
         public bool GetLocalPlayerPlacement(out int placement, out int totalPlayers) {
@@ -284,6 +301,7 @@ namespace Game.UI.Screens {
                 placement = i + 1;
                 return true;
             }
+
             return false;
         }
     }

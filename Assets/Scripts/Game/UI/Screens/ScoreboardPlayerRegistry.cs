@@ -45,6 +45,7 @@ namespace Game.UI.Screens {
             foreach(var p in _players) {
                 if(p != null && p.OwnerClientId == clientId) return p;
             }
+
             return null;
         }
 
@@ -64,6 +65,7 @@ namespace Game.UI.Screens {
                 entry.Value.playerName.OnValueChanged -= OnPlayerProfileChanged;
                 entry.Value.steamId.OnValueChanged -= OnPlayerProfileChanged;
             }
+
             _boundProfileStates.Clear();
         }
 
@@ -91,7 +93,8 @@ namespace Game.UI.Screens {
             _boundProfileStates.Remove(clientId);
         }
 
-        private void OnPlayerProfileChanged(Unity.Collections.FixedString64Bytes oldV, Unity.Collections.FixedString64Bytes newV) {
+        private void OnPlayerProfileChanged(Unity.Collections.FixedString64Bytes oldV,
+            Unity.Collections.FixedString64Bytes newV) {
             ForceRefresh();
         }
 

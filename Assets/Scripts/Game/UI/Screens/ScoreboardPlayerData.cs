@@ -31,10 +31,9 @@ namespace Game.UI.Screens {
 
         public void RemovePlayersByClientId(ulong clientId, IReadOnlyCollection<PlayerController> allPlayers) {
             foreach(var p in allPlayers) {
-                if(p != null && p.OwnerClientId == clientId) {
-                    RemovePlayer(p);
-                    return;
-                }
+                if(p == null || p.OwnerClientId != clientId) continue;
+                RemovePlayer(p);
+                return;
             }
         }
 

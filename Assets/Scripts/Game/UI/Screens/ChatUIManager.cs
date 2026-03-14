@@ -47,7 +47,7 @@ namespace Game.UI.Screens {
                 RegisterCleanup(() => _chatInput.UnregisterCallback(keyDownHandler));
                 RegisterCleanup(() => _chatInput.UnregisterCallback(valueChangedHandler));
             }
-            
+
             // Start with chat non-interactive (closed state)
             if(_chatScroll != null) {
                 _chatScroll.pickingMode = PickingMode.Ignore;
@@ -76,19 +76,20 @@ namespace Game.UI.Screens {
             foreach(var msgElement in _messageElements) {
                 msgElement.Element?.RemoveFromHierarchy();
             }
+
             _messageElements.Clear();
-            
+
             // Clear visual message list
             if(_chatMessageList != null) {
                 _chatMessageList.Clear();
             }
-            
+
             // Stop lifetime check coroutine
             if(_lifetimeCheckCoroutine != null) {
                 StopCoroutine(_lifetimeCheckCoroutine);
                 _lifetimeCheckCoroutine = null;
             }
-            
+
             // Ensure chat is closed
             if(IsChatOpen) {
                 CloseChat();
@@ -113,33 +114,34 @@ namespace Game.UI.Screens {
 
         private void OpenChat() {
             if(_chatInput == null) return;
-            
+
             IsChatOpen = true;
-            
+
             // Show background and input
             if(_chatBackground != null) {
                 _chatBackground.RemoveFromClassList("minimized");
             }
+
             _chatInput.RemoveFromClassList("minimized");
             _chatInput.RemoveFromClassList("hidden"); // Also remove hidden if it was set by UXML
 
-            
+
             // Show scrollbar when open
             if(_chatScroll != null) {
                 _chatScroll.verticalScrollerVisibility = ScrollerVisibility.Auto;
             }
-            
+
             // Enable mouse interaction with scroll view
             if(_chatScroll != null) {
                 _chatScroll.pickingMode = PickingMode.Position;
             }
-            
+
             // Stop lifetime check
             if(_lifetimeCheckCoroutine != null) {
                 StopCoroutine(_lifetimeCheckCoroutine);
                 _lifetimeCheckCoroutine = null;
             }
-            
+
             // Show all messages (remove fading class)
             foreach(var msgElement in _messageElements) {
                 if(msgElement.Element == null) continue;
@@ -147,19 +149,19 @@ namespace Game.UI.Screens {
                 msgElement.Element.style.display = DisplayStyle.Flex;
                 msgElement.IsVisible = true;
             }
-            
+
             // Scroll to bottom
             StartCoroutine(ScrollToBottom());
-            
+
             // Focus input field after a frame
             StartCoroutine(FocusInputField());
-            
+
             // Unlock mouse
             Cursor.lockState = CursorLockMode.None;
             Cursor.visible = true;
-            
+
             // Lock player camera
-            if (PlayerController.LocalPlayer != null) {
+            if(PlayerController.LocalPlayer != null) {
                 PlayerController.LocalPlayer.LockLook = true;
             }
         }
@@ -177,7 +179,7 @@ namespace Game.UI.Screens {
             IsChatOpen = false;
             _chatInput.value = ""; // Clear input
             _chatInput.AddToClassList("minimized");
-            
+
             // Instantly hide any expired messages upon closing
             var currentTime = Time.time;
             foreach(var msgElement in _messageElements) {
@@ -187,59 +189,60 @@ namespace Game.UI.Screens {
                 msgElement.IsVisible = false;
             }
 
-            
+
             // Hide background (minimize)
             if(_chatBackground != null) {
                 _chatBackground.AddToClassList("minimized");
             }
-            
+
             // Hide scrollbar when closed
             if(_chatScroll != null) {
                 _chatScroll.verticalScrollerVisibility = ScrollerVisibility.Hidden;
             }
-            
+
             // Disable mouse interaction with scroll view
             if(_chatScroll != null) {
                 _chatScroll.pickingMode = PickingMode.Ignore;
             }
-            
+
             // Start lifetime-based visibility check
             StartLifetimeCheck();
-            
+
             // Ensure we are scrolled to the bottom so the newest messages are visible
             StartCoroutine(ScrollToBottom());
-            
+
             // Only re-lock if scoreboard isn't also visible
-            var scoreboardVisible = ScoreboardManager.Instance != null && ScoreboardManager.Instance.IsScoreboardVisible;
+            var scoreboardVisible =
+                ScoreboardManager.Instance != null && ScoreboardManager.Instance.IsScoreboardVisible;
             if(scoreboardVisible) return;
             Cursor.lockState = CursorLockMode.Locked;
             Cursor.visible = false;
-                
+
             // Unlock player camera
-            if (PlayerController.LocalPlayer != null) {
+            if(PlayerController.LocalPlayer != null) {
                 PlayerController.LocalPlayer.LockLook = false;
             }
         }
 
         private void SubmitChat() {
-             if(_chatInput == null) return;
-             
-             var message = ChatManager.ClampToUtf8ByteLimit(_chatInput.value, ChatManager.MaxChatInputBytes);
-             if(!string.IsNullOrWhiteSpace(message)) {
-                 // Send message and keep chat open
-                 if(ChatManager.Instance != null) {
-                     ChatManager.Instance.SendChatMessage(message);
-                 }
-                 
-                 // Clear input but keep chat open
-                 _chatInput.value = "";
-                 
-                 // Refocus input field
-                 StartCoroutine(FocusInputField());
-             } else {
-                 // Empty input - close chat
-                 CloseChat();
-             }
+            if(_chatInput == null) return;
+
+            var message = ChatManager.ClampToUtf8ByteLimit(_chatInput.value, ChatManager.MaxChatInputBytes);
+            if(!string.IsNullOrWhiteSpace(message)) {
+                // Send message and keep chat open
+                if(ChatManager.Instance != null) {
+                    ChatManager.Instance.SendChatMessage(message);
+                }
+
+                // Clear input but keep chat open
+                _chatInput.value = "";
+
+                // Refocus input field
+                StartCoroutine(FocusInputField());
+            } else {
+                // Empty input - close chat
+                CloseChat();
+            }
         }
 
         private static void OnChatInputKeyDown(KeyDownEvent evt) {
@@ -302,13 +305,13 @@ namespace Game.UI.Screens {
             } else {
                 // Click handler for context menu (Right-click)
                 row.RegisterCallback<PointerDownEvent>(evt => {
-                    if (evt.button != 1) return; // Right-click only
-                    if (msg.SenderSteamId == 0) return;
-                    
-                    // Don't show for self
-                    if (Steamworks.SteamClient.SteamId == msg.SenderSteamId) return;
+                    if(evt.button != 1) return; // Right-click only
+                    if(msg.SenderSteamId == 0) return;
 
-                    if (InGameContextMenuManager.Instance != null) {
+                    // Don't show for self
+                    if(Steamworks.SteamClient.SteamId == msg.SenderSteamId) return;
+
+                    if(InGameContextMenuManager.Instance != null) {
                         InGameContextMenuManager.Instance.Show(msg.SenderSteamId, evt.position);
                     }
                 });
@@ -335,6 +338,7 @@ namespace Game.UI.Screens {
             if(_lifetimeCheckCoroutine != null) {
                 StopCoroutine(_lifetimeCheckCoroutine);
             }
+
             _lifetimeCheckCoroutine = StartCoroutine(LifetimeCheckRoutine());
         }
 
@@ -347,7 +351,7 @@ namespace Game.UI.Screens {
                     if(msgElement.Element == null) continue;
 
                     var age = currentTime - msgElement.Timestamp;
-                    
+
                     // Start fading when approaching lifetime
                     if(!(age >= MessageLifetime) || !msgElement.IsVisible) continue;
                     msgElement.Element.AddToClassList("fading");
@@ -358,7 +362,7 @@ namespace Game.UI.Screens {
                 // Wait for fade duration, then hide faded messages
                 if(anyChanges) {
                     yield return new WaitForSeconds(FadeDuration);
-                    
+
                     foreach(var msgElement in _messageElements) {
                         if(msgElement.Element != null && !msgElement.IsVisible) {
                             msgElement.Element.style.display = DisplayStyle.None;
