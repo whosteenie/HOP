@@ -46,10 +46,9 @@ namespace Game.Weapons.Kinemation {
             }
 
             if(_forceWalkAnimationWhileSprinting && (sprinting || tacticalSprinting)) {
-                var gaitTarget = _sprintWalkGaitValue;
-                if(moveInput.sqrMagnitude > 0.0001f && gaitTarget > 0f) {
+                if(moveInput.sqrMagnitude > 0.0001f && _sprintWalkGaitValue > 0f) {
                     var moveDir = moveInput.normalized;
-                    var moveMag = Mathf.Max(moveInput.magnitude, gaitTarget);
+                    var moveMag = Mathf.Max(moveInput.magnitude, _sprintWalkGaitValue);
                     moveInput = moveDir * Mathf.Min(moveMag, 1.99f);
                 }
                 sprinting = false;

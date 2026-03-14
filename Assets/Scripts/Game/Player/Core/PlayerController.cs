@@ -516,13 +516,12 @@ namespace Game.Player.Core {
         private void UpdateOwnerMovementAndAnimation() {
             if(movementController == null) return;
 
-                    movementController.UpdateMovement(fpCamera);
-                    movementController.UpdateCrouch(fpCamera);
+            movementController.UpdateMovement(fpCamera);
+            movementController.UpdateCrouch(fpCamera);
 
             if(animationController == null) return;
 
-                        animationController.UpdateFallingState(movementController.IsGrounded,
-                            movementController.VerticalVelocity, playerTransform.position);
+            animationController.UpdateFallingState(movementController.IsGrounded, movementController.VerticalVelocity, playerTransform.position);
 
             var (animHorizontal, animSpeedSqr) = GetOwnerAnimationMotion();
             animationController.UpdateAnimator(animHorizontal, movementController.MaxSpeed, animSpeedSqr);
@@ -533,27 +532,27 @@ namespace Game.Player.Core {
                 return (Vector3.zero, 0f);
             }
 
-                        var animHorizontal = movementController.HorizontalVelocity;
-                        var animSpeedSqr = movementController.CachedHorizontalSpeedSqr;
+            var animHorizontal = movementController.HorizontalVelocity;
+            var animSpeedSqr = movementController.CachedHorizontalSpeedSqr;
 
             if(characterController == null || !movementController.IsGrounded) {
                 return (animHorizontal, animSpeedSqr);
             }
 
-                            var actual = characterController.velocity;
-                            actual.y = 0f;
-                            var actualSpeed = actual.magnitude;
-                            if(actualSpeed < 0.2f) {
+            var actual = characterController.velocity;
+            actual.y = 0f;
+            var actualSpeed = actual.magnitude;
+            if(actualSpeed < 0.2f) {
                 return (actual, actual.sqrMagnitude);
             }
 
-                                var intended = movementController.HorizontalVelocity;
-                                intended.y = 0f;
-                                var blendedSpeed = Mathf.Lerp(actualSpeed, intended.magnitude, 0.4f);
-                                if(actualSpeed > 0.0001f) {
-                                    animHorizontal = actual.normalized * blendedSpeed;
-                                } else {
-                                    animHorizontal = actual;
+            var intended = movementController.HorizontalVelocity;
+            intended.y = 0f;
+            var blendedSpeed = Mathf.Lerp(actualSpeed, intended.magnitude, 0.4f);
+            if(actualSpeed > 0.0001f) {
+                animHorizontal = actual.normalized * blendedSpeed;
+            } else {
+                animHorizontal = actual;
             }
 
             return (animHorizontal, animHorizontal.sqrMagnitude);

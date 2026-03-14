@@ -69,8 +69,9 @@ namespace Game.Weapons.Kinemation {
             var reloadBlocking = _tracker.IsTrackingReload ||
                                 (FpsWeaponIsReloadingField?.GetValue(activeWeapon) is true) ||
                                 isAnyReloadClipActive();
-            if(reloadBlocking && _resolver.GetActiveWeaponSpecialHandling() == WeaponData.KinemationSpecialHandling.DrakeShell) {
-                _tracker.MarkDrakeReloadCanceledByShot();
+            if(reloadBlocking) {
+                if(_resolver.GetActiveWeaponSpecialHandling() == WeaponData.KinemationSpecialHandling.DrakeShell)
+                    _tracker.MarkDrakeReloadCanceledByShot();
                 var ammo = authoritativeAmmoBeforeShot >= 0 ? authoritativeAmmoBeforeShot : GetActiveWeaponAmmoForInterrupt();
                 AbortReloadAndSyncAmmo(ammo);
             }

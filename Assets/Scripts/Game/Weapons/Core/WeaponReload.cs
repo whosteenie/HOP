@@ -24,7 +24,7 @@ namespace Game.Weapons.Core {
             if(_weapon.CurrentWeaponData && _weapon.Manager != null && !_weapon.Manager.IsPullingOut &&
                _weapon.KinDriver == null) {
                 Debug.LogError(
-                    $"[Weapon][KIN-Strict] Reload blocked: missing KinemationFpWeaponDriver for '{(_weapon.CurrentWeaponData != null ? _weapon.CurrentWeaponData.weaponName : "(none)")}'.",
+                    $"[Weapon][KIN-Strict] Reload blocked: missing KinFpWeaponDriver for '{(_weapon.CurrentWeaponData != null ? _weapon.CurrentWeaponData.weaponName : "(none)")}'.",
                     _weapon);
                 return;
             }
