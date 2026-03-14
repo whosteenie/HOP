@@ -55,6 +55,10 @@ namespace Game.UI.Screens {
         }
 
         public void Clear() {
+            foreach(var player in _players) {
+                if(player == null) continue;
+                player.playerBaseColor.OnValueChanged -= OnPlayerProfileChanged;
+            }
             ClearProfileStateSubscriptions();
             _players.Clear();
         }

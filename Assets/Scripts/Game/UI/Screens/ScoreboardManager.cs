@@ -97,7 +97,7 @@ namespace Game.UI.Screens {
                 NetworkManager.Singleton.OnClientDisconnectCallback -= OnClientDisconnected;
             SceneManager.sceneLoaded -= OnSceneLoaded;
             ClearCachedPlayerData();
-            _registry?.ClearProfileStateSubscriptions();
+            _registry?.Clear();
         }
 
         private void OnSetMatchTime(SetMatchTimeEvent evt) => _topBar?.SetMatchTime(evt.Seconds);

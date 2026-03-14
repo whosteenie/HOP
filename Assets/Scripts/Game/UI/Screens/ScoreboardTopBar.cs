@@ -163,26 +163,14 @@ namespace Game.UI.Screens {
             var sortedPlayers = playerData.BuildSortedScoreList(allControllers, isTagMode);
             var nextScore = 0;
             var foundNext = false;
-            if(isTagMode) {
-                for(var i = 0; i < sortedPlayers.Count; i++) {
-                    if(sortedPlayers[i].player != localController) continue;
-                    nextScore = i == 0
-                        ? (sortedPlayers.Count > 1 ? sortedPlayers[1].score : 0)
-                        : sortedPlayers[0].score;
-                    foundNext = true;
-                    break;
-                }
-            } else {
-                for(var i = 0; i < sortedPlayers.Count; i++) {
-                    if(sortedPlayers[i].player != localController) continue;
-                    nextScore = i == 0
-                        ? (sortedPlayers.Count > 1 ? sortedPlayers[1].score : 0)
-                        : sortedPlayers[0].score;
-                    foundNext = true;
-                    break;
-                }
+            for(var i = 0; i < sortedPlayers.Count; i++) {
+                if(sortedPlayers[i].player != localController) continue;
+                nextScore = i == 0
+                    ? (sortedPlayers.Count > 1 ? sortedPlayers[1].score : 0)
+                    : sortedPlayers[0].score;
+                foundNext = true;
+                break;
             }
-
             if(!foundNext && sortedPlayers.Count > 0) nextScore = sortedPlayers[0].score;
             _leftScoreValue.text = localScore.ToString();
             _rightScoreValue.text = nextScore.ToString();
