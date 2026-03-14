@@ -199,18 +199,19 @@ namespace Discord {
         private void OnDiscordStatusChanged(Client.Status status, Client.Error error, int errorDetail) {
             _isReady = status == Client.Status.Ready;
 
-            if (status == Client.Status.Ready) {
-                _isConnecting = false;
-                Debug.Log("[DiscordManager] Discord client is ready.");
-                if (SteamClient.IsValid && SteamClient.IsLoggedOn && !string.IsNullOrWhiteSpace(SteamClient.Name)) {
-                    _discord.UpdateProvisionalAccountDisplayName(SteamClient.Name, OnProvisionalDisplayNameUpdated);
+            switch(status) {
+                case Client.Status.Ready: {
+                    _isConnecting = false;
+                    Debug.Log("[DiscordManager] Discord client is ready.");
+                    if (SteamClient.IsValid && SteamClient.IsLoggedOn && !string.IsNullOrWhiteSpace(SteamClient.Name)) {
+                        _discord.UpdateProvisionalAccountDisplayName(SteamClient.Name, OnProvisionalDisplayNameUpdated);
+                    }
+                    FlushPendingPresence();
+                    return;
                 }
-                FlushPendingPresence();
-                return;
-            }
-
-            if (status == Client.Status.Disconnected) {
-                _isConnecting = false;
+                case Client.Status.Disconnected:
+                    _isConnecting = false;
+                    break;
             }
 
             if (error != Client.Error.None) {

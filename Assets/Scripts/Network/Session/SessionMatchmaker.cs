@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using Game.Match;
@@ -13,21 +14,26 @@ using UnityEngine;
 using Player = Unity.Services.Matchmaker.Models.Player;
 
 namespace Network.Session {
-    public sealed partial class SessionManager {
-        // ===== Matchmaker state =====
+    /// <summary>
+    /// UGS matchmaker ticketing, backfill join-in-progress, and assignment handling.
+    /// </summary>
+    public sealed class SessionMatchmaker {
+        private const string UgsMatchTypeKey = "matchType";
+        private const string UgsTargetModeKey = "targetMode";
+        private const string UgsLobbyStateKey = "lobbyState";
+        private const string UgsBackfillAllowedKey = "backfillAllowed";
+
+        private ISessionContext _ctx;
+        private IMatchmakerSessionActions _actions;
+        private SessionMatchLobby _matchLobby;
+
         private string _matchmakerTicketId;
         private string _matchmakerQueueName;
         private CancellationTokenSource _matchmakerCts;
         private float _nextMatchLobbyQueryFailureLogTime;
         private float _nextMatchmakerPollFailureLogTime;
         private int _consecutiveMatchmakerPollFailures;
-        public float MatchmakingStartTime { get; private set; }
 
-        #region UGS Matchmaker (Ticketing)
-
-        /// <summary>
-        /// Cancels active UGS matchmaking polling and clears local ticket state.
-        /// </summary>
         public void CancelMatchmaking() {
             if(_matchmakerCts != null) {
                 _matchmakerCts.Cancel();
@@ -36,24 +42,176 @@ namespace Network.Session {
             }
 
             if(!string.IsNullOrEmpty(_matchmakerTicketId)) {
-                LaunchSessionTask(DeleteMatchmakerTicketAsync(_matchmakerTicketId),
+                _ctx.LaunchSessionTask(DeleteMatchmakerTicketAsync(_matchmakerTicketId),
                     "CancelMatchmaking/DeleteTicket");
             }
 
             _matchmakerTicketId = null;
             _matchmakerQueueName = null;
             _consecutiveMatchmakerPollFailures = 0;
-            if(Phase != SessionPhase.InGame) {
-                SetFrontStatus(SessionPhase.Menu, "");
+            if(_ctx.Phase != SessionPhase.InGame) {
+                _ctx.SetFrontStatus(SessionPhase.Menu, "");
             }
+        }
+
+        public async UniTask StartMatchmakerQuickPlayAsync(string mode) {
+            if(_ctx == null || _actions == null) return;
+
+            await _ctx.EnsureSignedInAsync();
+            CancelMatchmaking();
+
+            mode = ResolveRequestedQuickPlayMode(mode);
+            var maxPlayers = ResolveMaxPlayersForMode(mode);
+
+            ResetPublicRuntimeMatchSettings(mode);
+            _ctx.SetPrivateMatchMapPreset(false);
+
+            _ctx.SetMatchmakingStartTime(Time.time);
+            _ctx.SetFrontStatus(SessionPhase.Searching, $"Searching for {mode}...");
+
+            if(await TryJoinInProgressPublicMatchAsync(mode, maxPlayers)) {
+                return;
+            }
+
+            _matchmakerQueueName = GetQueueNameForMode(mode);
+            if(string.IsNullOrEmpty(_matchmakerQueueName)) {
+                Debug.LogError("[SessionManager] Matchmaker queue name is empty.");
+                return;
+            }
+
+            FlowLog.Emit(FlowEventIds.QueueStarted,
+                ("mode", mode),
+                ("queue", _matchmakerQueueName),
+                ("maxPlayers", maxPlayers));
+
+            var attrs = BuildMatchmakerTicketAttributes(mode);
+            if(TryBuildMatchmakerPlayers(attrs, out var localPlayerId, out var players) == false) {
+                Debug.LogError("[SessionManager] Cannot start matchmaking: local UGS player id is unavailable.");
+                CancelMatchmaking();
+                return;
+            }
+
+            if(Debug.isDebugBuild) {
+                Debug.Log(
+                    $"[UGS Matchmaker] Creating ticket. mode='{mode}' queue='{_matchmakerQueueName}' playerId='{localPlayerId}'");
+            }
+
+            const int createTicketMaxAttempts = 3;
+            const int createTicketBaseDelayMs = 800;
+            CreateTicketResponse resp = null;
+            for(var attempt = 1; attempt <= createTicketMaxAttempts; attempt++) {
+                try {
+                    var options = new CreateTicketOptions(_matchmakerQueueName, attrs);
+                    resp = await MatchmakerService.Instance.CreateTicketAsync(players, options);
+                    break;
+                } catch(Exception e) when(attempt < createTicketMaxAttempts) {
+                    if(IsTransientCreateTicketError(e)) {
+                        var delayMs = createTicketBaseDelayMs * attempt;
+                        if(Debug.isDebugBuild) {
+                            Debug.LogWarning(
+                                $"[UGS Matchmaker] CreateTicketAsync transient failure (attempt {attempt}/{createTicketMaxAttempts}): {e.Message}. Retrying in {delayMs}ms.");
+                        }
+                        try {
+                            await UniTask.Delay(delayMs, cancellationToken: _ctx.SessionLifetimeToken);
+                        } catch(OperationCanceledException) {
+                            return;
+                        }
+                    } else {
+                        Debug.LogError($"[UGS Matchmaker] CreateTicketAsync failed (terminal): {e.Message}");
+                        CancelMatchmaking();
+                        return;
+                    }
+                } catch(Exception e) {
+                    Debug.LogError($"[UGS Matchmaker] CreateTicketAsync failed after {createTicketMaxAttempts} attempts: {e.Message}");
+                    CancelMatchmaking();
+                    return;
+                }
+            }
+
+            _matchmakerTicketId = resp != null ? resp.Id : null;
+            if(string.IsNullOrEmpty(_matchmakerTicketId)) {
+                Debug.LogError("[SessionManager] Matchmaker ticket id is empty.");
+                CancelMatchmaking();
+                return;
+            }
+
+            _matchmakerCts = new CancellationTokenSource();
+            try {
+                if(Debug.isDebugBuild) {
+                    Debug.Log($"[UGS Matchmaker] Ticket created: '{_matchmakerTicketId}'");
+                }
+
+                await PollMatchmakerTicketAsync(mode, maxPlayers, _matchmakerCts.Token);
+            } catch(OperationCanceledException) {
+                // Expected when user cancels matchmaking.
+            } finally {
+                if(_matchmakerCts != null) {
+                    _matchmakerCts.Dispose();
+                    _matchmakerCts = null;
+                }
+            }
+        }
+
+        public void SetContext(ISessionContext ctx, IMatchmakerSessionActions actions) {
+            _ctx = ctx;
+            _actions = actions;
+        }
+
+        public void SetMatchLobbyService(SessionMatchLobby matchLobby) {
+            _matchLobby = matchLobby;
+        }
+
+        /// <summary>Polls for the host-created match lobby by matchId then joins via actions. Called when matchmaker assigns this client as non-host.</summary>
+        public async UniTask JoinPublicMatchByIdAsync(string matchId) {
+            if(_ctx == null || _actions == null || _matchLobby == null) return;
+            await _ctx.EnsureSignedInAsync();
+            if(string.IsNullOrEmpty(matchId)) return;
+
+            if(Debug.isDebugBuild) {
+                Debug.Log($"[SessionManager] Joining match as non-host. matchId='{matchId}'");
+            }
+
+            for(var i = 0; i < MatchmakerPollingPolicy.MatchLobbyDiscoveryMaxAttempts; i++) {
+                if(Debug.isDebugBuild &&
+                   (i == 0 || (i + 1) % 5 == 0 || i == MatchmakerPollingPolicy.MatchLobbyDiscoveryMaxAttempts - 1)) {
+                    Debug.Log(
+                        $"[SessionManager] Polling for lobby... attempt {i + 1}/{MatchmakerPollingPolicy.MatchLobbyDiscoveryMaxAttempts}");
+                }
+
+                try {
+                    var lobby = await _matchLobby.QueryMatchLobbyByMatchIdAsync(matchId);
+                    if(lobby != null) {
+                        if(Debug.isDebugBuild) {
+                            Debug.Log($"[SessionManager] Found lobby! lobbyId='{lobby.Id}'. Joining...");
+                        }
+                        var joined = await _actions.JoinMatchLobbyByIdAsync(lobby.Id);
+                        if(joined) return;
+                    }
+                } catch(LobbyServiceException ex) when(ex.Reason == LobbyExceptionReason.RateLimited) {
+                    // Throttled; continue polling after delay.
+                } catch(Exception ex) {
+                    Debug.LogError($"[SessionManager] Terminal error querying match: {ex.Message}. Aborting...");
+                    break;
+                }
+
+                try {
+                    var delayMs = MatchmakerPollingPolicy.ResolveMatchLobbyDiscoveryDelayMs(i);
+                    await UniTask.Delay(delayMs, cancellationToken: _ctx.SessionLifetimeToken);
+                } catch(OperationCanceledException) {
+                    return;
+                }
+            }
+
+            Debug.LogError("[SessionManager] Timed out or failed waiting for match lobby. Returning to menu...");
+            await _ctx.LeaveToMainMenuAsync();
         }
 
         private string ResolveRequestedQuickPlayMode(string requestedMode) {
             if(string.IsNullOrEmpty(requestedMode)) {
-                return SelectedGameMode;
+                return _ctx.SelectedGameMode;
             }
 
-            ApplyRuntimeMode(requestedMode, "UgsQuickPlayRequest");
+            _ctx.ApplyRuntimeMode(requestedMode, "UgsQuickPlayRequest");
             return requestedMode;
         }
 
@@ -204,6 +362,13 @@ namespace Network.Session {
             return lobby?.Players == null ? 0 : lobby.Players.Count;
         }
 
+        private static bool ShouldEmitThrottledLog(ref float nextLogTime, float intervalSeconds) {
+            var now = Time.unscaledTime;
+            if(now < nextLogTime) return false;
+            nextLogTime = now + intervalSeconds;
+            return true;
+        }
+
         private async UniTask<QueryResponse> QueryLobbiesForBackfillAsync(QueryLobbiesOptions options,
             string mode, string queryLabel) {
             try {
@@ -233,9 +398,7 @@ namespace Network.Session {
             };
 
             var response = await QueryLobbiesForBackfillAsync(indexedOptions, mode, "IndexedModePublic");
-            if(response == null) {
-                return false;
-            }
+            if(response == null) return false;
 
             if(response.Results == null || response.Results.Count == 0) {
                 if(Debug.isDebugBuild) {
@@ -243,13 +406,9 @@ namespace Network.Session {
                         $"[SessionManager] Backfill indexed query returned 0 lobbies for mode='{mode}'. Falling back to broad query.");
                 }
 
-                var fallbackOptions = new QueryLobbiesOptions {
-                    Count = 100
-                };
+                var fallbackOptions = new QueryLobbiesOptions { Count = 100 };
                 response = await QueryLobbiesForBackfillAsync(fallbackOptions, mode, "BroadFallback");
-                if(response == null) {
-                    return false;
-                }
+                if(response == null) return false;
             }
 
             if(response.Results == null || response.Results.Count == 0) {
@@ -286,17 +445,16 @@ namespace Network.Session {
                 return false;
             }
 
-            // Prefer fuller lobbies first to reduce fragmentation.
             candidates.Sort((a, b) => GetLobbyPlayerCount(b).CompareTo(GetLobbyPlayerCount(a)));
 
-            SetFrontStatus(SessionPhase.JoiningLobby, $"Joining in-progress {mode}...");
+            _ctx.SetFrontStatus(SessionPhase.JoiningLobby, $"Joining in-progress {mode}...");
             foreach(var lobby in candidates) {
                 if(Debug.isDebugBuild) {
                     Debug.Log(
                         $"[SessionManager] Trying in-progress join: lobbyId='{lobby.Id}' players={GetLobbyPlayerCount(lobby)}/{lobby.MaxPlayers} mode='{mode}'.");
                 }
 
-                var joined = await JoinMatchLobbyByIdAsync(lobby.Id);
+                var joined = await _actions.JoinMatchLobbyByIdAsync(lobby.Id);
                 if(joined) {
                     FlowLog.Emit(FlowEventIds.QueueAssigned,
                         ("queue", "InProgressBackfill"),
@@ -330,11 +488,6 @@ namespace Network.Session {
             return WaitForPollingDelayAsync(delayMs, ct);
         }
 
-        private static UniTask<bool> WaitMatchLobbyDiscoveryPollIntervalAsync(int attemptIndex, CancellationToken ct) {
-            var delayMs = MatchmakerPollingPolicy.ResolveMatchLobbyDiscoveryDelayMs(attemptIndex);
-            return WaitForPollingDelayAsync(delayMs, ct);
-        }
-
         private async UniTask<bool> TryHandleFoundMatchAssignmentAsync(string mode, int maxPlayers,
             MatchIdAssignment assign) {
             if(string.IsNullOrEmpty(assign.MatchId)) {
@@ -361,6 +514,7 @@ namespace Network.Session {
         private async UniTask<StoredMatchmakingResults> TryFetchMatchmakingResultsWithRetryAsync(string matchId) {
             const int maxAttempts = 4;
             var delayMs = 250;
+            var ct = _matchmakerCts != null ? _matchmakerCts.Token : _ctx.SessionLifetimeToken;
 
             for(var attempt = 1; attempt <= maxAttempts; attempt++) {
                 try {
@@ -372,9 +526,7 @@ namespace Network.Session {
                     }
 
                     try {
-                        await UniTask.Delay(delayMs, cancellationToken: _matchmakerCts != null
-                            ? _matchmakerCts.Token
-                            : SessionLifetimeToken);
+                        await UniTask.Delay(delayMs, cancellationToken: ct);
                     } catch(OperationCanceledException) {
                         return null;
                     }
@@ -404,6 +556,40 @@ namespace Network.Session {
             };
         }
 
+        /// <summary>True if the error is transient (network, timeout, rate limit, 5xx). False if terminal (auth, bad config).</summary>
+        private static bool IsTransientCreateTicketError(Exception e) {
+            if(e == null) return false;
+            var msg = e.Message ?? "";
+            if(e is MatchmakerServiceException mse) {
+                var reasonStr = mse.Reason.ToString();
+                // Terminal: auth or bad request/config
+                if(reasonStr.IndexOf("Unauthorized", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                   reasonStr.IndexOf("Forbidden", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                   reasonStr.IndexOf("BadRequest", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                   reasonStr.IndexOf("NotFound", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                   reasonStr.IndexOf("Invalid", StringComparison.OrdinalIgnoreCase) >= 0)
+                    return false;
+                // Transient: network, timeout, rate limit, server errors
+                if(reasonStr.IndexOf("NetworkError", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                   reasonStr.IndexOf("Timeout", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                   reasonStr.IndexOf("RateLimit", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                   reasonStr.IndexOf("ServiceUnavailable", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                   reasonStr.IndexOf("GatewayTimeout", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                   reasonStr.IndexOf("InternalServerError", StringComparison.OrdinalIgnoreCase) >= 0)
+                    return true;
+            }
+            // Fallback: treat timeout/network in message as transient
+            if(msg.IndexOf("timeout", StringComparison.OrdinalIgnoreCase) >= 0 ||
+               msg.IndexOf("NetworkError", StringComparison.OrdinalIgnoreCase) >= 0 ||
+               msg.IndexOf("Request timeout", StringComparison.OrdinalIgnoreCase) >= 0)
+                return true;
+            if(msg.IndexOf("429", StringComparison.OrdinalIgnoreCase) >= 0 || msg.IndexOf("RateLimit", StringComparison.OrdinalIgnoreCase) >= 0)
+                return true;
+            return msg.IndexOf("401", StringComparison.OrdinalIgnoreCase) < 0 && msg.IndexOf("403", StringComparison.OrdinalIgnoreCase) < 0 &&
+                   msg.IndexOf("400", StringComparison.OrdinalIgnoreCase) < 0 && msg.IndexOf("404", StringComparison.OrdinalIgnoreCase) < 0;
+            // Unknown: treat as transient so we retry
+        }
+
         private async UniTask<bool> HandleMatchIdAssignmentStatusAsync(MatchIdAssignment assign, string mode,
             int maxPlayers, CancellationToken ct) {
             switch(assign.Status) {
@@ -411,7 +597,6 @@ namespace Network.Session {
                     if(Debug.isDebugBuild) {
                         Debug.Log($"[UGS Matchmaker] Ticket '{_matchmakerTicketId}' in progress...");
                     }
-
                     return await WaitMatchmakerPollIntervalAsync(0, ct);
                 }
                 case MatchIdAssignment.StatusOptions.Timeout:
@@ -426,7 +611,6 @@ namespace Network.Session {
                     if(Debug.isDebugBuild) {
                         Debug.Log($"[UGS Matchmaker] Ticket '{_matchmakerTicketId}' found matchId='{assign.MatchId}'");
                     }
-
                     return await TryHandleFoundMatchAssignmentAsync(mode, maxPlayers, assign);
                 }
                 default:
@@ -439,88 +623,8 @@ namespace Network.Session {
             try {
                 await MatchmakerService.Instance.DeleteTicketAsync(ticketId);
             } catch(Exception ex) {
-                // Ignore transient failures; ticket will expire server-side.
                 if(Debug.isDebugBuild) {
                     Debug.LogWarning($"[SessionManager] Failed to delete matchmaker ticket '{ticketId}': {ex.Message}");
-                }
-            }
-        }
-
-        /// <summary>
-        /// Starts UGS quick-play matchmaking for the provided mode and drives host/client follow-up on assignment.
-        /// </summary>
-        /// <param name="mode">Requested game mode id; falls back to current selected mode when empty.</param>
-        public async UniTask StartMatchmakerQuickPlayAsync(string mode) {
-            await EnsureSignedInAsync();
-            CancelMatchmaking();
-
-            mode = ResolveRequestedQuickPlayMode(mode);
-            var maxPlayers = ResolveMaxPlayersForMode(mode);
-
-            // Public queue must always use public defaults, never stale private match runtime overrides.
-            ResetPublicRuntimeMatchSettings(mode);
-            _privateMatchMapPreset = false;
-
-            MatchmakingStartTime = Time.time;
-            SetFrontStatus(SessionPhase.Searching, $"Searching for {mode}...");
-
-            if(await TryJoinInProgressPublicMatchAsync(mode, maxPlayers)) {
-                return;
-            }
-
-            _matchmakerQueueName = GetQueueNameForMode(mode);
-            if(string.IsNullOrEmpty(_matchmakerQueueName)) {
-                Debug.LogError("[SessionManager] Matchmaker queue name is empty.");
-                return;
-            }
-
-            FlowLog.Emit(FlowEventIds.QueueStarted,
-                ("mode", mode),
-                ("queue", _matchmakerQueueName),
-                ("maxPlayers", maxPlayers));
-
-            var attrs = BuildMatchmakerTicketAttributes(mode);
-            if(TryBuildMatchmakerPlayers(attrs, out var localPlayerId, out var players) == false) {
-                Debug.LogError("[SessionManager] Cannot start matchmaking: local UGS player id is unavailable.");
-                CancelMatchmaking();
-                return;
-            }
-
-            if(Debug.isDebugBuild) {
-                Debug.Log(
-                    $"[UGS Matchmaker] Creating ticket. mode='{mode}' queue='{_matchmakerQueueName}' playerId='{localPlayerId}'");
-            }
-
-            CreateTicketResponse resp;
-            try {
-                var options = new CreateTicketOptions(_matchmakerQueueName, attrs);
-                resp = await MatchmakerService.Instance.CreateTicketAsync(players, options);
-            } catch(Exception e) {
-                Debug.LogError($"[UGS Matchmaker] CreateTicketAsync failed: {e.Message}");
-                CancelMatchmaking();
-                return;
-            }
-
-            _matchmakerTicketId = resp != null ? resp.Id : null;
-            if(string.IsNullOrEmpty(_matchmakerTicketId)) {
-                Debug.LogError("[SessionManager] Matchmaker ticket id is empty.");
-                CancelMatchmaking();
-                return;
-            }
-
-            _matchmakerCts = new CancellationTokenSource();
-            try {
-                if(Debug.isDebugBuild) {
-                    Debug.Log($"[UGS Matchmaker] Ticket created: '{_matchmakerTicketId}'");
-                }
-
-                await PollMatchmakerTicketAsync(mode, maxPlayers, _matchmakerCts.Token);
-            } catch(OperationCanceledException) {
-                // Expected when user cancels matchmaking.
-            } finally {
-                if(_matchmakerCts != null) {
-                    _matchmakerCts.Dispose();
-                    _matchmakerCts = null;
                 }
             }
         }
@@ -560,7 +664,6 @@ namespace Network.Session {
                     return;
                 }
 
-                // Unknown/unsupported ticket type. Keep polling.
                 if(Debug.isDebugBuild) {
                     var typeName = status.Type != null ? status.Type.Name : "null";
                     Debug.Log($"[UGS Matchmaker] Ticket '{_matchmakerTicketId}' status type='{typeName}'");
@@ -575,21 +678,21 @@ namespace Network.Session {
             if(results == null) {
                 Debug.LogError(
                     $"[SessionManager] Matchmaker returned null results for matchId '{matchId}'. Returning to menu.");
-                await LeaveToMainMenuAsync();
+                await _ctx.LeaveToMainMenuAsync();
                 return;
             }
 
             if(results.MatchProperties?.Players == null) {
                 Debug.LogError(
                     $"[SessionManager] Matchmaker results missing player data for matchId '{matchId}'. Returning to menu.");
-                await LeaveToMainMenuAsync();
+                await _ctx.LeaveToMainMenuAsync();
                 return;
             }
 
             var localPlayerId = AuthenticationService.Instance.PlayerId;
             if(string.IsNullOrEmpty(localPlayerId)) {
                 Debug.LogError("[SessionManager] Cannot process match assignment: local UGS player id is missing.");
-                await LeaveToMainMenuAsync();
+                await _ctx.LeaveToMainMenuAsync();
                 return;
             }
 
@@ -597,15 +700,77 @@ namespace Network.Session {
             if(string.IsNullOrEmpty(hostId)) {
                 Debug.LogError(
                     $"[SessionManager] Could not determine deterministic host for matchId '{matchId}'. Returning to menu.");
-                await LeaveToMainMenuAsync();
+                await _ctx.LeaveToMainMenuAsync();
                 return;
             }
 
             if(localPlayerId == hostId) {
-                await StartPublicMatchAsHostAsync(mode, maxPlayers, matchId, results);
+                await RunStartPublicMatchAsHostAsync(mode, maxPlayers, matchId, results);
             } else {
                 await JoinPublicMatchByIdAsync(matchId);
             }
+        }
+
+        /// <summary>
+        /// Runs the full public match host flow: sign-in, mode, expected players, create DA session, create lobby, pre-fade, mark ready, wait for players, set lobby state, load scene.
+        /// Called by SessionManager.StartPublicMatchAsHostAsync (IMatchmakerSessionActions) and from assignment handler.
+        /// </summary>
+        public async UniTask RunStartPublicMatchAsHostAsync(string mode, int maxPlayers, string matchId,
+            StoredMatchmakingResults results) {
+            await _ctx.EnsureSignedInAsync();
+            if(Debug.isDebugBuild) {
+                Debug.Log(
+                    $"[SessionManager] StartPublicMatchAsHostAsync: mode='{mode}' maxPlayers={maxPlayers} matchId='{matchId}'");
+            }
+
+            _ctx.ApplyRuntimeMode(mode, "UgsPublicMatchHost");
+
+            var expectedPlayerIds = BuildExpectedPlayerIdsFromMatchResults(results);
+            if(expectedPlayerIds != null && Debug.isDebugBuild) {
+                Debug.Log($"[SessionManager] Expecting {expectedPlayerIds.Count} players for sync");
+            }
+
+            _ctx.SetExpectedGamePlayerCount(
+                expectedPlayerIds is { Count: > 0 } ? expectedPlayerIds.Count : 1,
+                "UgsPublicMatchHost");
+
+            var sessionCode =
+                await _actions.CreateDistributedAuthoritySessionAsync(maxPlayers, false, "StartPublicMatchAsHostAsync");
+            if(string.IsNullOrEmpty(sessionCode)) {
+                await _ctx.LeaveToMainMenuAsync();
+                return;
+            }
+
+            await _actions.CreatePublicMatchLobbyAsHostAsync(mode, maxPlayers, matchId, sessionCode);
+            await _actions.PreFadePublicHostAsync();
+            await _actions.MarkHostReadyInMatchLobbyAsync();
+
+            if(await _matchLobby.WaitForMatchPlayersReadyAsync(_ctx, expectedPlayerIds, 60f, "PublicMatch") ==
+               false) {
+                Debug.LogError("[SessionManager] Timed out waiting for all players. Aborting to menu...");
+                await _ctx.LeaveToMainMenuAsync();
+                return;
+            }
+
+            if(await _actions.TrySetMatchLobbyStateAsync("LoadingScene",
+                   DataObject.VisibilityOptions.Public,
+                   "StartPublicMatchAsHostAsync")) {
+                if(Debug.isDebugBuild) {
+                    Debug.Log("[SessionManager] Updated lobby state to 'LoadingScene'");
+                }
+            }
+
+            if(!_actions.TryLoadGameplaySceneAsHost("StartPublicMatchAsHostAsync/LoadScene")) {
+                await _ctx.LeaveToMainMenuAsync();
+            }
+        }
+
+        private static List<string> BuildExpectedPlayerIdsFromMatchResults(StoredMatchmakingResults results) {
+            if(results?.MatchProperties?.Players == null) return null;
+            return results.MatchProperties.Players
+                .Select(p => p != null ? p.Id : null)
+                .Where(id => !string.IsNullOrEmpty(id))
+                .ToList();
         }
 
         private static string DetermineDeterministicHostId(List<Player> players) {
@@ -627,7 +792,6 @@ namespace Network.Session {
         private static string GetQueueNameForMode(string mode) {
             if(string.IsNullOrEmpty(mode)) return "";
 
-            // Per-mode queues (hyphenated, no whitespace) to match Dashboard configuration.
             return mode switch {
                 "Hopball" => "Hopball",
                 "Deathmatch" => "Deathmatch",
@@ -637,146 +801,5 @@ namespace Network.Session {
                 _ => ""
             };
         }
-
-        private async UniTask StartPublicMatchAsHostAsync(string mode, int maxPlayers, string matchId,
-            StoredMatchmakingResults results) {
-            await EnsureSignedInAsync();
-            if(Debug.isDebugBuild) {
-                Debug.Log(
-                    $"[SessionManager] StartPublicMatchAsHostAsync: mode='{mode}' maxPlayers={maxPlayers} matchId='{matchId}'");
-            }
-
-            ApplyRuntimeMode(mode, "UgsPublicMatchHost");
-
-            // Store the expected player IDs from the matchmaker results for sync checking
-            var expectedPlayerIds = BuildExpectedPlayerIdsFromMatchResults(results);
-            if(expectedPlayerIds != null && Debug.isDebugBuild) {
-                Debug.Log($"[SessionManager] Expecting {expectedPlayerIds.Count} players for sync");
-            }
-
-            SetExpectedGamePlayerCount(
-                expectedPlayerIds is { Count: > 0 } ? expectedPlayerIds.Count : 1,
-                "UgsPublicMatchHost");
-
-            var sessionCode =
-                await CreateDistributedAuthoritySessionAsync(maxPlayers, false, "StartPublicMatchAsHostAsync");
-            if(string.IsNullOrEmpty(sessionCode)) {
-                await LeaveToMainMenuAsync();
-                return;
-            }
-
-            await CreatePublicMatchLobbyAsHostAsync(mode, maxPlayers, matchId, sessionCode);
-            await PreFadePublicHostAsync();
-
-            // Mark host as ready
-            var localUgsId = AuthenticationService.Instance.PlayerId;
-            try {
-                var opts = BuildReadyToLoadUpdatePlayerOptions();
-                _ugsMatchLobby = await LobbyService.Instance.UpdatePlayerAsync(_ugsMatchLobby.Id, localUgsId, opts);
-                _ugsLocalReadySubmitted = true;
-                if(Debug.isDebugBuild) {
-                    Debug.Log("[SessionManager] Host marked as ready");
-                }
-            } catch(Exception ex) {
-                Debug.LogWarning($"[SessionManager] Failed to mark host ready: {ex.Message}");
-            }
-
-            // Poll until all expected players have joined and are ready
-            if(await WaitForPublicMatchPlayersReadyAsync(expectedPlayerIds) == false) {
-                Debug.LogError("[SessionManager] Timed out waiting for all players. Aborting to menu...");
-                await LeaveToMainMenuAsync();
-                return;
-            }
-
-            // Update lobby state to LoadingScene
-            if(await TrySetMatchLobbyStateAsync("LoadingScene",
-                   DataObject.VisibilityOptions.Public,
-                   "StartPublicMatchAsHostAsync")) {
-                if(Debug.isDebugBuild) {
-                    Debug.Log("[SessionManager] Updated lobby state to 'LoadingScene'");
-                }
-            }
-
-            if(!TryLoadGameplaySceneAsHost("StartPublicMatchAsHostAsync/LoadScene")) {
-                await LeaveToMainMenuAsync();
-            }
-        }
-
-        private async UniTask JoinPublicMatchByIdAsync(string matchId) {
-            await EnsureSignedInAsync();
-            if(string.IsNullOrEmpty(matchId)) return;
-
-            if(Debug.isDebugBuild) {
-                Debug.Log($"[SessionManager] Joining match as non-host. matchId='{matchId}'");
-            }
-
-            // Poll lobby query until the host publishes the match lobby.
-            for(var i = 0; i < MatchmakerPollingPolicy.MatchLobbyDiscoveryMaxAttempts; i++) {
-                if(Debug.isDebugBuild &&
-                   (i == 0 || (i + 1) % 5 == 0 || i == MatchmakerPollingPolicy.MatchLobbyDiscoveryMaxAttempts - 1)) {
-                    Debug.Log(
-                        $"[SessionManager] Polling for lobby... attempt {i + 1}/{MatchmakerPollingPolicy.MatchLobbyDiscoveryMaxAttempts}");
-                }
-
-                try {
-                    var lobby = await QueryMatchLobbyByMatchIdAsync(matchId);
-                    if(lobby != null) {
-                        if(Debug.isDebugBuild) {
-                            Debug.Log($"[SessionManager] Found lobby! lobbyId='{lobby.Id}'. Joining...");
-                        }
-
-                        var joined = await JoinMatchLobbyByIdAsync(lobby.Id);
-                        if(joined) {
-                            return;
-                        }
-                    }
-                } catch(LobbyServiceException ex) when(ex.Reason == LobbyExceptionReason.RateLimited) {
-                    if(ShouldEmitThrottledLog(ref _nextMatchLobbyQueryFailureLogTime, 10f)) {
-                        Debug.LogWarning("[SessionManager] Rate limited querying match. Retrying...");
-                    }
-                } catch(Exception ex) {
-                    Debug.LogError($"[SessionManager] Terminal error querying match: {ex.Message}. Aborting...");
-                    break;
-                }
-
-                if(await WaitMatchLobbyDiscoveryPollIntervalAsync(i, SessionLifetimeToken) == false) {
-                    return;
-                }
-            }
-
-            Debug.LogError("[SessionManager] Timed out or failed waiting for match lobby. Returning to menu...");
-            await LeaveToMainMenuAsync();
-        }
-
-        private static async UniTask<Lobby>
-            QueryMatchLobbyByMatchIdAsync(string matchId) {
-            if(string.IsNullOrEmpty(matchId)) return null;
-
-            var opts = new QueryLobbiesOptions {
-                Filters = new List<QueryFilter> {
-                    new(QueryFilter.FieldOptions.S1, matchId, QueryFilter.OpOptions.EQ)
-                }
-            };
-
-            QueryResponse resp;
-            try {
-                resp = await LobbyService.Instance.QueryLobbiesAsync(opts);
-            } catch(Exception ex) {
-                var sessionManager = Instance;
-                if(sessionManager != null &&
-                   ShouldEmitThrottledLog(ref sessionManager._nextMatchLobbyQueryFailureLogTime, 10f)) {
-                    Debug.LogWarning(
-                        $"[SessionManager] Match lobby query failed for matchId '{matchId}': {ex.Message}");
-                }
-
-                return null;
-            }
-
-            if(resp == null) return null;
-            if(resp.Results == null) return null;
-            return resp.Results.Count == 0 ? null : resp.Results[0];
-        }
-
-        #endregion
     }
 }

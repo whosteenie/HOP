@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Game.Match;
 using Game.Player.Core;
 using Unity.Netcode;
@@ -7,6 +8,8 @@ using Random = UnityEngine.Random;
 namespace Game.Weapons.Core {
     internal sealed class WeaponCombat {
         private readonly Weapon _weapon;
+        // Local, client-side shot id tracking per weapon index to ensure monotonically increasing ids.
+        private readonly Dictionary<int, ulong> _localLastShotIdByWeapon = new();
 
         public WeaponCombat(Weapon weapon) {
             _weapon = weapon;
@@ -47,9 +50,6 @@ namespace Game.Weapons.Core {
                 _weapon.InterruptReloadForShotInternal();
             }
 
-            var ammoAuthority = manager.AmmoAuthorityRef;
-            if(ammoAuthority == null) return;
-
             _weapon.LastFireTime = Time.time;
             _weapon.CurrentAmmo = Mathf.Max(0, _weapon.CurrentAmmo - 1);
             _weapon.PublishOwnerAmmoToHudInternal();
@@ -60,10 +60,11 @@ namespace Game.Weapons.Core {
 
             var startPosition = fpCameraTransform.position;
             var baseDirection = fpCameraTransform.forward;
-            var shotId = ammoAuthority.GetLastShotId(
-                weaponIndex,
-                manager.GetWeaponDataByIndex,
-                manager.ResolveWeaponCapacity) + 1UL;
+            if(!_localLastShotIdByWeapon.TryGetValue(weaponIndex, out var lastShotId)) {
+                lastShotId = 0;
+            }
+            var shotId = lastShotId + 1UL;
+            _localLastShotIdByWeapon[weaponIndex] = shotId;
             manager.ReportShotFired(weaponIndex, shotId, Time.time);
             var localMuzzlePosition = _weapon.HasLocalMuzzleFlashSpawnPositionForShot
                 ? _weapon.LocalMuzzleFlashSpawnPositionForShot

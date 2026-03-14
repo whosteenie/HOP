@@ -166,7 +166,7 @@ namespace Game.UI.Screens {
             for(var i = 0; i < sortedPlayers.Count; i++) {
                 if(sortedPlayers[i].player != localController) continue;
                 nextScore = i == 0
-                    ? (sortedPlayers.Count > 1 ? sortedPlayers[1].score : 0)
+                    ? sortedPlayers.Count > 1 ? sortedPlayers[1].score : 0
                     : sortedPlayers[0].score;
                 foundNext = true;
                 break;

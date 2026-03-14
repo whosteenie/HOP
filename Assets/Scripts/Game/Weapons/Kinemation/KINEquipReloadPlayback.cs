@@ -7,7 +7,7 @@ using UnityEngine;
 
 namespace Game.Weapons.Kinemation {
     /// <summary>High-level equip/reload/fire playback and ammo sync. Coordinates resolver, tracker, Drake/Kar, and audio.</summary>
-    internal sealed class KINEquipReloadPlayback {
+    internal sealed class KinEquipReloadPlayback {
         private static readonly int IdleHash = Animator.StringToHash("Idle");
         private static readonly int EquipHash = Animator.StringToHash("Equip");
         private static readonly int EquipOverrideHash = Animator.StringToHash("Equip_Override");
@@ -33,7 +33,7 @@ namespace Game.Weapons.Kinemation {
         private readonly FuncBool _tryCacheActiveWeapon;
         private readonly float _equipUnlockNormalizedTime;
 
-        public KINEquipReloadPlayback(IKinDriverResolverContext context,
+        public KinEquipReloadPlayback(IKinDriverResolverContext context,
             KinActiveWeaponResolver resolver, KinReloadEquipTracker tracker,
             KinDrakeKarVisuals drakeKar, KinDriverAudio audio, KinGrappleClavicle grappleClavicle,
             FuncBool tryCacheActiveWeapon, float equipUnlockNormalizedTime) {
@@ -67,7 +67,7 @@ namespace Game.Weapons.Kinemation {
             var activeWeapon = _resolver.ActiveWeapon;
             if(activeWeapon == null) return;
             var reloadBlocking = _tracker.IsTrackingReload ||
-                                (FpsWeaponIsReloadingField?.GetValue(activeWeapon) is true) ||
+                                FpsWeaponIsReloadingField?.GetValue(activeWeapon) is true ||
                                 isAnyReloadClipActive();
             if(reloadBlocking) {
                 if(_resolver.GetActiveWeaponSpecialHandling() == WeaponData.KinemationSpecialHandling.DrakeShell)
@@ -91,7 +91,7 @@ namespace Game.Weapons.Kinemation {
             _tracker.SetDrakeReloadStartedEmpty(isDrake && ammoAtStart <= 0);
 
             var suppressTop = _tracker.GetSuppressDrakeTopShellOnNextReload() ||
-                              _tracker.ShouldHideDrakeTopShellForThisReload(isDrake,
+                              KinReloadEquipTracker.ShouldHideDrakeTopShellForThisReload(isDrake,
                                   _tracker.GetDrakeTopShellEjectedSinceReloadComplete(),
                                   _tracker.GetDrakeShotCanceledReloadAfterAmmoEject());
             if(suppressTop) _drakeKar.SuppressDrakeTopShellForReloadStart();

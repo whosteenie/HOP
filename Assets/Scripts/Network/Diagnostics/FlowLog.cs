@@ -17,6 +17,7 @@ namespace Network.Diagnostics {
         private static readonly string RunId = Guid.NewGuid().ToString("N")[..8];
         private static readonly object Gate = new();
 
+        // ReSharper disable once ConvertToConstant.Local
         private static readonly bool Enabled = true;
         private const bool EmitInEditor = false;
 

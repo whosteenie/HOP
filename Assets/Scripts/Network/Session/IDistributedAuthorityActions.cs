@@ -1,0 +1,16 @@
+using Unity.Services.Lobbies.Models;
+using Unity.Services.Multiplayer;
+
+namespace Network.Session {
+    /// <summary>
+    /// Callbacks used by SessionNetworkLifecycleService during DA create/join and match-lobby refresh.
+    /// Implemented by SessionManager.
+    /// </summary>
+    public interface IDistributedAuthorityActions {
+        void BindActiveMultiplayerSession(ISession session);
+        void UnbindActiveMultiplayerSession();
+        bool IsLocalPlayerMatchLobbyHost(Lobby lobby);
+        /// <summary>Called after match lobby is refreshed and local player is the new host (reset heartbeat state).</summary>
+        void OnPromotedToMatchLobbyHost();
+    }
+}

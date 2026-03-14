@@ -222,8 +222,6 @@ namespace Game.Menu {
             // Force init so dropdowns are bound regardless of script execution order (setup panel may be hidden at Start).
             if(Root != null)
                 privateMatchSetupManager.Initialize(Root);
-            if(uiManager != null)
-                privateMatchSetupManager.SetPartyMemberTemplate(uiManager.PartyMemberTemplate);
             if(sessionManager != null)
                 privateMatchSetupManager.SetSessionManager(sessionManager);
         }

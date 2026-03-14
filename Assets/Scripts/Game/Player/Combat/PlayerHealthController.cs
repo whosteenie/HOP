@@ -406,15 +406,13 @@ namespace Game.Player.Combat {
             }
             
             // Progression: Reset streak on death
-            if (NetworkManager.Singleton.LocalClientId == victimClientId) {
-                 _currentKillStreak = 0;
-                 // Record Death (Normal or OOB)
-                 if (Progression.ProgressionManager.Instance != null) {
-                     // Check if OOB (killer is "HOP")
-                     var isOob = killerName == "HOP";
-                     Progression.ProgressionManager.Instance.RecordDeath(isOob);
-                 }
-            }
+            if(NetworkManager.Singleton.LocalClientId != victimClientId) return;
+            _currentKillStreak = 0;
+            // Record Death (Normal or OOB)
+            if(Progression.ProgressionManager.Instance == null) return;
+            // Check if OOB (killer is "HOP")
+            var isOob = killerName == "HOP";
+            Progression.ProgressionManager.Instance.RecordDeath(isOob);
 
         }
 

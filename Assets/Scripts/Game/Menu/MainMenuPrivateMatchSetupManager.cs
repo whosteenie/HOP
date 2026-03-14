@@ -153,9 +153,6 @@ namespace Game.Menu {
             RefreshTeamPreview();
         }
 
-        public void SetPartyMemberTemplate(VisualTreeAsset template) {
-        }
-
         public void SetSessionManager(MainMenuSessionManager sessionManager) {
             _sessionManager = sessionManager;
         }

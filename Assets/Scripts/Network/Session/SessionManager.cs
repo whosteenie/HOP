@@ -2,8 +2,6 @@ using System;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using Game.Match;
-using Game.Settings;
-using Game.Social;
 using Network.Core;
 using Network.Diagnostics;
 using Network.Events;
@@ -12,12 +10,15 @@ using Network.Steam;
 using Network.UGS;
 using Steamworks;
 using Unity.Netcode;
-using Unity.Services.Authentication;
 using Unity.Services.Multiplayer;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityUtils;
 using Lobby = Steamworks.Data.Lobby;
+using System.Collections.Generic;
+using Unity.Netcode.Transports.UTP;
+using Unity.Services.Lobbies.Models;
+using Unity.Services.Matchmaker.Models;
 
 namespace Network.Session {
     /// <summary>
@@ -25,21 +26,10 @@ namespace Network.Session {
     /// Steam is used as a social layer (party metadata, invites, rich presence).
     /// Orchestrates NetworkManager lifecycle for host/client transitions.
     /// </summary>
-    public sealed partial class SessionManager : Singleton<SessionManager> {
-        private enum SessionPhase {
-            Menu,
-            Searching,
-            CreatingLobby,
-            JoiningLobby,
-            LobbyReady,
-            StartingHost,
-            StartingClient,
-            SynchronizingLoad,
-            LoadingScene,
-            InGame,
-            Error
-        }
-
+    public sealed class SessionManager : Singleton<SessionManager>, ISessionContext, ISteamSessionActions,
+        IMatchmakerSessionActions, IPartySessionActions, ILobbyEventActions,
+        IMatchSnapshotActions, IDistributedAuthorityActions, INetworkLifecycleActions, ISceneFlowActions,
+        ILeaveToMenuActions, IHostMapSceneActions, IOnGameSceneLoadedActions, IPrivateMatchHostActions {
         // ===== State =====
         public Lobby? CurrentLobby { get; private set; }
         private SessionPhase _phase;
@@ -74,62 +64,20 @@ namespace Network.Session {
         public string CurrentPartyId { get; private set; }
         private bool IsPartyLeader { get; set; }
 
-        public int CurrentPartySize {
-            get {
-                if(_ugsPartyLobby is { Players: { Count: > 0 } }) {
-                    return _ugsPartyLobby.Players.Count;
-                }
+        public int CurrentPartySize => SessionParty.GetCurrentPartySize(this);
 
-                if(!CurrentLobby.HasValue) return 1;
-                var memberCount = CurrentLobby.Value.MemberCount;
-                return memberCount > 0 ? memberCount : 1;
-            }
-        }
-
-        public bool HasRealPartyMembers => CurrentPartySize > 1;
+        public bool HasRealPartyMembers => SessionParty.HasRealPartyMembers(this);
         public bool HasPartyLobby => _ugsPartyLobby != null;
 
-        public bool IsLocalPartyLeaderResolved {
-            get {
-                // Solo users are always considered leaders of their own backend party context.
-                if(HasRealPartyMembers == false) return true;
+        public bool IsLocalPartyLeaderResolved => SessionParty.IsLocalPartyLeaderResolved(this);
 
-                if(_ugsPartyLobby != null) {
-                    var localUgsId = AuthenticationService.Instance.PlayerId;
-                    if(string.IsNullOrEmpty(localUgsId) == false) {
-                        return _ugsPartyLobby.HostId == localUgsId;
-                    }
-                }
-
-                if(!CurrentLobby.HasValue || !SteamClient.IsValid) return IsPartyLeader;
-                var localSteamId = SteamClient.SteamId;
-                if(localSteamId != 0) {
-                    return CurrentLobby.Value.Owner.Id == localSteamId;
-                }
-
-                return IsPartyLeader;
-            }
-        }
-
-        public bool IsPartyMemberResolved => HasRealPartyMembers && !IsLocalPartyLeaderResolved;
+        public bool IsPartyMemberResolved => SessionParty.IsPartyMemberResolved(this);
 
         // ===== UGS Lobby keys (separate namespace from Steam lobby data) =====
-        private const string UgsPartyIdKey = "partyId";
         private const string UgsMatchTypeKey = "matchType"; // "Public" | "Private"
-        private const string UgsTargetModeKey = "targetMode";
-        private const string UgsRelayJoinCodeKey = "relayJoinCode";
-        private const string UgsMatchIdKey = "matchId";
-        private const string UgsFollowMatchLobbyIdKey = "followMatchLobbyId";
-        private const string UgsLobbyStateKey = "lobbyState";
-        private const string UgsBackfillAllowedKey = "backfillAllowed";
-        private const string UgsBackfillReasonKey = "backfillReason";
-        private const string UgsExpectedPlayersKey = "expectedPlayers";
-        private const string UgsMemberReadyKey = "readyToLoad";
-
         // ===== UGS Lobby state =====
         private Unity.Services.Lobbies.Models.Lobby _ugsPartyLobby;
         private Unity.Services.Lobbies.Models.Lobby _ugsMatchLobby;
-        private ISession _activeMultiplayerSession;
 
         private CustomNetworkManager _customNetworkManager;
         private NetworkManager _networkManager;
@@ -139,10 +87,6 @@ namespace Network.Session {
         private int _leaveSequenceId;
         private int _activeSessionOperations;
         private int _expectedGamePlayerCount = 1;
-        private bool _unexpectedDisconnectInFlight;
-        private int _distributedAuthorityStartupDepth;
-        private float _distributedAuthorityStartupUntilTime;
-        private const float DistributedAuthorityStartupDisconnectGraceSeconds = 8f;
         // Track if we expect a disconnect (e.g. intentionally leaving)
 
         /// <summary>True when we intentionally left (LeaveLobby etc.); used to skip disconnect capture in OnNetworkDespawn.</summary>
@@ -192,10 +136,432 @@ namespace Network.Session {
         }
 
         public int ExpectedGamePlayerCount => Mathf.Max(1, _expectedGamePlayerCount);
-        private bool IsDistributedAuthorityStartupInFlight =>
-            _distributedAuthorityStartupDepth > 0 && Time.unscaledTime <= _distributedAuthorityStartupUntilTime;
+
         private CancellationToken SessionLifetimeToken =>
             _sessionLifetimeCts != null ? _sessionLifetimeCts.Token : CancellationToken.None;
+
+
+        #region Core Session Operations
+
+        private bool TryGetNetworkManager(string operationName, out NetworkManager networkManager) {
+            if(_networkManager == null) {
+                _networkManager = NetworkManager.Singleton;
+            }
+
+            networkManager = _networkManager;
+            if(networkManager != null) {
+                return true;
+            }
+
+            Debug.LogError($"[SessionManager] NetworkManager.Singleton is null during {operationName}.");
+            return false;
+        }
+
+        private bool TryGetUnityTransport(string operationName, out NetworkManager networkManager,
+            out UnityTransport transport) {
+            transport = null;
+            if(TryGetNetworkManager(operationName, out networkManager) == false) {
+                return false;
+            }
+
+            transport = networkManager.NetworkConfig.NetworkTransport as UnityTransport;
+            if(transport != null) {
+                return true;
+            }
+
+            transport = networkManager.GetComponent<UnityTransport>();
+            if(transport != null) {
+                return true;
+            }
+
+            Debug.LogError(
+                $"[SessionManager] No UnityTransport-compatible transport is configured on NetworkManager during {operationName}.");
+            return false;
+        }
+
+        private async UniTask<bool> TrySetMatchLobbyStateAsync(string lobbyState,
+            DataObject.VisibilityOptions visibility, string context) =>
+            await SessionMatchLobby.TrySetMatchLobbyStateAsync(this, lobbyState, visibility, context);
+
+        private async UniTask<string> CreateDistributedAuthoritySessionAsync(int maxPlayers, bool isPrivateMatch,
+            string contextLabel) =>
+            await SessionNetworkLifecycle.CreateDistributedAuthoritySessionAsync(
+                this, this, this, maxPlayers, isPrivateMatch, contextLabel);
+
+        private async UniTask<SessionNetworkLifecycle.DistributedAuthoritySessionJoinResult>
+            JoinDistributedAuthoritySessionAsync(
+                string sessionCode, bool isPrivateMatch,
+                string contextLabel) =>
+            await SessionNetworkLifecycle.JoinDistributedAuthoritySessionAsync(
+                sessionCode, isPrivateMatch, this, this, this, contextLabel);
+
+        private static async UniTask LeaveActiveMultiplayerSessionAsync(string contextLabel) {
+            var activeSession = SessionNetworkLifecycle.GetActiveSession();
+            if(activeSession == null) return;
+            SessionNetworkLifecycle.UnbindActiveMultiplayerSession();
+            await SessionNetworkLifecycle.LeaveSessionAsync(activeSession, contextLabel);
+        }
+
+        internal bool TryResolveDistributedAuthorityPlayerMetadata(string ugsPlayerId, out string partyId,
+            out ulong steamId) =>
+            SessionNetworkLifecycle.TryResolveDistributedAuthorityPlayerMetadata(
+                _ugsMatchLobby?.Players, _ugsPartyLobby?.Players, ugsPlayerId, out partyId, out steamId);
+
+        private bool TryLoadGameplaySceneAsHost(string contextLabel) =>
+            SessionSceneFlow.TryLoadGameplaySceneAsHost(this, this, contextLabel);
+
+        public string SelectedMapId { get; private set; }
+        private string SelectedMapSceneName { get; set; }
+
+        /// <summary>When true, host map selection uses existing SelectedMapId/SelectedMapSceneName from private match draft.</summary>
+        private bool _privateMatchMapPreset;
+
+        private void SetPrivateMatchMapPreset(bool value) => _privateMatchMapPreset = value;
+
+        /// <summary>Sets the map from a private match draft (map id). Skips random selection when loading the gameplay scene.</summary>
+        private void SetSelectedMapFromId(string mapId) =>
+            SessionSceneFlow.RunSetSelectedMapFromId(this, this, mapId);
+
+        private void SetSelectedMap(string mapId, string sceneName) {
+            SelectedMapId = mapId;
+            SelectedMapSceneName = sceneName;
+        }
+
+        private bool ConsumePrivateMatchMapPreset() {
+            var was = _privateMatchMapPreset;
+            _privateMatchMapPreset = false;
+            return was;
+        }
+
+        private void LoadSceneAsHost(string sceneName) {
+            if(TryGetNetworkManager("LoadSceneAsHost", out var networkManager))
+                networkManager.SceneManager.LoadScene(sceneName, LoadSceneMode.Single);
+        }
+
+        private void SetSteamLobbyMapIfOwner(string mapId, string sceneName) {
+            if(!CurrentLobby.HasValue || CurrentLobby.Value.Owner.Id != SteamClient.SteamId) return;
+            CurrentLobby.Value.SetData("TargetMapId", mapId ?? string.Empty);
+            CurrentLobby.Value.SetData("TargetMapScene", sceneName ?? string.Empty);
+        }
+
+        /// <summary>
+        /// Applies all private match draft settings before starting the match (gamemode, map, timer, score, tagged, team assignments).
+        /// Call from the menu flow before StartPrivateMatchAsync / StartOfflinePrivateMatchAsync.
+        /// </summary>
+        public void ApplyPrivateMatchSettings(
+            string mode,
+            string mapId,
+            int matchTimerSeconds,
+            bool usePreMatchCountdown,
+            bool swapWeaponsOnDeath,
+            int scoreToWin,
+            int kothHillSpeed,
+            int taggedPlayers,
+            IReadOnlyDictionary<ulong, int> teamAssignments) =>
+            SessionParty.RunApplyPrivateMatchSettings(this, this, mode, mapId, matchTimerSeconds,
+                usePreMatchCountdown, swapWeaponsOnDeath, scoreToWin, kothHillSpeed, taggedPlayers, teamAssignments);
+
+        /// <summary>
+        /// Shuts down the Netcode network manager and leaves the active UGS session.
+        /// </summary>
+        private async UniTask CleanupNetworkAsync() {
+            await SessionNetworkLifecycle.CleanupNetworkAsync(this, this);
+        }
+
+        private void CancelSessionLifetimeTasks() {
+            if(_sessionLifetimeCts == null) return;
+            if(_sessionLifetimeCts.IsCancellationRequested == false) {
+                _sessionLifetimeCts.Cancel();
+            }
+
+            _sessionLifetimeCts.Dispose();
+            _sessionLifetimeCts = null;
+        }
+
+        private static void LaunchSessionTask(UniTask task, string context, bool logCancellation = false) {
+            LaunchSessionTaskInternal(task, context, logCancellation).Forget();
+        }
+
+        private static async UniTaskVoid LaunchSessionTaskInternal(UniTask task, string context, bool logCancellation) {
+            try {
+                await task;
+            } catch(OperationCanceledException) {
+                if(logCancellation && Debug.isDebugBuild) {
+                    Debug.Log($"[SessionManager] Task canceled: {context}");
+                }
+            } catch(Exception ex) {
+                Debug.LogError($"[SessionManager] Task failed ({context}): {ex}");
+            }
+        }
+
+        private bool TryBeginSessionOperation(string operationName) {
+            if(IsSessionBusy) {
+                Debug.LogWarning($"[SessionManager] Ignoring '{operationName}' while session is busy.");
+                return false;
+            }
+
+            _activeSessionOperations++;
+            return true;
+        }
+
+        private void EndSessionOperation() {
+            if(_activeSessionOperations > 0) {
+                _activeSessionOperations--;
+            }
+        }
+
+        private static UniTask TryLeaveVoiceChannelAsync() =>
+            SessionVoice.TryLeaveVoiceChannelAsync();
+
+        private void TryJoinVoiceForSteamSocialLobby(ulong lobbyId, string context) =>
+            SessionVoice.TryJoinVoiceForSteamSocialLobby(lobbyId, context,
+                () => _isLeaving || _isShuttingDown, (t, l) => LaunchSessionTask(t, l));
+
+        private void TryJoinVoiceForActiveMatch(string context) =>
+            SessionVoice.TryJoinVoiceForActiveMatch(this, () => _isLeaving || _isShuttingDown, (t, l) => LaunchSessionTask(t, l), context);
+
+        public bool TryGetActiveVoiceChannelName(out string channelName) {
+            channelName = SessionVoice.GetActiveMatchVoiceChannelName(this);
+            return !string.IsNullOrEmpty(channelName);
+        }
+
+        private void SetExpectedGamePlayerCount(int count, string source) {
+            _expectedGamePlayerCount = Mathf.Max(1, count);
+            if(Debug.isDebugBuild) {
+                Debug.Log($"[SessionManager] Expected gameplay players set to {_expectedGamePlayerCount} ({source}).");
+            }
+        }
+
+        /// <summary>
+        /// Clears matchmaker state, cancelling any active ticket.
+        /// </summary>
+        private async UniTask ClearMatchmakingStateAsync() {
+            if(Debug.isDebugBuild) {
+                Debug.Log("[SessionManager] ClearMatchmakingState called");
+            }
+
+            _matchmaker.CancelMatchmaking();
+            await UniTask.Yield();
+        }
+
+        /// <summary>
+        /// Clears UGS match lobby state to avoid stale data affecting future matches.
+        /// </summary>
+        private async UniTask ClearMatchStateAsync() {
+            await _matchLobby.ClearMatchStateAsync(this, this, this);
+            var matchSettings = MatchSettingsManager.Instance;
+            if(matchSettings != null) {
+                matchSettings.preMatchCountdownEnabled = true;
+                matchSettings.swapWeaponsOnDeath = true;
+            }
+
+            UpdateSteamRichPresence();
+        }
+
+        private UniTask ResetPartyFollowStateIfHostAsync() =>
+            SessionParty.ResetPartyFollowStateIfHostAsync(this, this, _matchLobby);
+
+        /// <summary>
+        /// Updates the session phase and triggers status change events.
+        /// </summary>
+        /// <param name="phase">The new session phase.</param>
+        /// <param name="message">The status message to display.</param>
+        private void SetFrontStatus(SessionPhase phase, string message) {
+            Phase = phase;
+            EventBus.Publish(new FrontStatusChangedEvent(message));
+        }
+
+        private void RegisterNetworkCallbacks() {
+            if(TryGetNetworkManager("RegisterNetworkCallbacks", out var networkManager) == false) return;
+            SessionNetworkLifecycle.RegisterNetworkCallbacks(
+                networkManager,
+                this,
+                this,
+                () => SessionNetworkLifecycle.HasActiveSession,
+                source => _sceneFlow.TriggerUnexpectedDisconnectFlow(this, this, source));
+        }
+
+        private void UnregisterNetworkCallbacks() {
+            SessionNetworkLifecycle.UnregisterNetworkCallbacks(_networkManager);
+        }
+
+        private void ApplyRuntimeMode(string mode, string source, bool refreshUi = true) {
+            if(string.IsNullOrWhiteSpace(mode)) return;
+
+            var changed = SelectedGameMode != mode;
+            SelectedGameMode = mode;
+
+            var matchSettings = MatchSettingsManager.Instance;
+            if(matchSettings != null && matchSettings.selectedGameModeId != mode) {
+                matchSettings.selectedGameModeId = mode;
+                changed = true;
+            }
+
+            if(Debug.isDebugBuild) {
+                Debug.Log($"[SessionManager] Applied mode '{mode}' from {source}.");
+            }
+
+            FlowLog.Emit(FlowEventIds.ModeApply,
+                ("source", source),
+                ("mode", mode),
+                ("changed", changed));
+
+            if(changed && refreshUi) {
+                EventBus.Publish(new FrontStatusChangedEvent(null));
+            }
+        }
+
+        private bool TryGetAuthoritativeRuntimeMode(out string mode, out string source) =>
+            SessionMatchLobby.TryGetAuthoritativeRuntimeMode(this, out mode, out source);
+
+        #endregion
+
+        #region Steam join/follow and presence (delegated to SteamSocialBridge)
+
+        private async UniTask HandleSteamConnectStringAsync(string connect) =>
+            await _steamSocialBridge.HandleSteamConnectStringAsync(connect);
+
+        private async UniTask FollowSessionContextFromSteamLobbyAsync(Lobby lobby) =>
+            await _steamSocialBridge.FollowSessionContextFromSteamLobbyAsync(lobby);
+
+        private async UniTask<bool> JoinSteamSocialLobbyAsync(Lobby lobby) =>
+            await _steamSocialBridge.JoinSteamSocialLobbyAsync(lobby);
+
+        private void UpdateSteamRichPresence() => SteamSocialBridge.UpdateSteamRichPresence(this);
+
+        /// <summary>Triggers session property refresh events to notify UI listeners.</summary>
+        private static void NotifyPartyStateChanged() {
+            EventBus.Publish(new SessionPropertiesRefreshedEvent());
+        }
+
+        private void UpdateSteamLobbyWithPartyDataIfOwner() =>
+            SteamSocialBridge.UpdateSteamLobbyWithPartyDataIfOwner(this);
+
+        #endregion
+
+        #region Party + Match Flow
+
+        /// <summary>
+        /// Creates the UGS party lobby and optionally mirrors party context to a Steam social lobby.
+        /// </summary>
+        /// <param name="maxPlayers">Maximum members allowed in the party lobby.</param>
+        /// <param name="isPrivate">Whether the UGS party lobby should be private.</param>
+        public async UniTask CreatePartyLobbyAsync(int maxPlayers, bool isPrivate) =>
+            await _party.CreatePartyLobbyAsync(this, this, maxPlayers, isPrivate);
+
+        private async UniTask JoinPartyLobbyByCodeAsync(string code) =>
+            await SessionParty.JoinPartyLobbyByCodeAsync(this, this, code);
+
+        private UniTask PreFadePrivateHostAsync() =>
+            SessionSceneFlow.RunPreFadePrivateHostAsync(this, v => _ugsHostPreFadedOut = v);
+
+        private UniTask PreFadePublicHostAsync() =>
+            SessionSceneFlow.RunPreFadePublicHostAsync(this, v => _ugsHostPreFadedOut = v);
+
+        private UniTask CreatePublicMatchLobbyAsHostAsync(string mode, int maxPlayers, string matchId,
+            string joinCode) =>
+            _matchLobby.CreatePublicMatchLobbyAsHostAsync(this, this, this, mode, maxPlayers, matchId, joinCode);
+
+        /// <summary>
+        /// Starts a private match from the current UGS party lobby and drives sync-to-load for all members.
+        /// </summary>
+        /// <param name="mode">Game mode to apply to the created match lobby.</param>
+        /// <param name="maxPlayers">Maximum players for relay allocation and match lobby creation.</param>
+        public UniTask StartPrivateMatchAsync(string mode, int maxPlayers) =>
+            SessionParty.RunStartPrivateMatchAsync(mode, maxPlayers, this, this, this, this, _matchLobby, this);
+
+        private UniTask<bool> JoinMatchLobbyByIdAsync(string lobbyId) =>
+            _matchLobby.JoinMatchLobbyByIdAsync(this, this, this, this, lobbyId);
+
+        #endregion
+
+        // ===== Matchmaker (delegated to SessionMatchmakerService; state for JoinPublicMatchByIdAsync/query) =====
+        public float MatchmakingStartTime { get; private set; }
+
+        private void SetMatchmakingStartTime(float value) => MatchmakingStartTime = value;
+
+        #region UGS Matchmaker (Ticketing)
+
+        /// <summary>
+        /// Cancels active UGS matchmaking polling and clears local ticket state.
+        /// </summary>
+        public void CancelMatchmaking() => _matchmaker.CancelMatchmaking();
+
+        /// <summary>
+        /// Starts UGS quick-play matchmaking for the provided mode and drives host/client follow-up on assignment.
+        /// </summary>
+        public async UniTask StartMatchmakerQuickPlayAsync(string mode) =>
+            await _matchmaker.StartMatchmakerQuickPlayAsync(mode);
+
+        #endregion
+
+        #region Public match host/client (used by SessionMatchmakerService via IMatchmakerSessionActions)
+
+        private UniTask StartPublicMatchAsHostAsync(string mode, int maxPlayers, string matchId,
+            StoredMatchmakingResults results) =>
+            _matchmaker.RunStartPublicMatchAsHostAsync(mode, maxPlayers, matchId, results);
+
+        private UniTask MarkHostReadyInMatchLobbyAsync() =>
+            SessionMatchLobby.MarkHostReadyInMatchLobbyAsync(this, this);
+
+        private UniTask JoinPublicMatchByIdAsync(string matchId) =>
+            _matchmaker.JoinPublicMatchByIdAsync(matchId);
+
+        #endregion
+
+        private void SetNextUgsHeartbeatTime(float value) => _matchLobby.SetNextHeartbeatTime(value);
+
+        private bool _ugsHostPreFadedOut;
+
+        private void Update() {
+            if(_isLeaving || _isShuttingDown) return;
+            if(_ugsPartyLobby == null && _ugsMatchLobby == null) return;
+            _matchLobby.Tick(this);
+        }
+
+        private async UniTask RefreshPublicMatchBackfillEligibilityAsync(bool force = false) {
+            await _matchLobby.RefreshPublicMatchBackfillEligibilityAsync(this, force);
+        }
+
+        private void CompleteAndClearPlayersReadyWaiter(bool result) =>
+            _matchLobby.CompleteAndClearPlayersReadyWaiter(result);
+
+        private void SyncModeFromMatchLobby(Unity.Services.Lobbies.Models.Lobby lobby) =>
+            SessionMatchLobby.SyncModeFromMatchLobby(this, lobby);
+
+        private UniTask StartMatchSynchronizationAsync(bool skipFadeOut = false) =>
+            _matchLobby.StartMatchSynchronizationAsync(this, this, this, skipFadeOut);
+
+        private UniTask StartMatchClientAsync(bool useFadeOut = false, string expectedSessionCode = null,
+            bool? expectedIsPrivateMatch = null) =>
+            _matchLobby.StartMatchClientAsync(this, this, useFadeOut, expectedSessionCode,
+                expectedIsPrivateMatch);
+
+        private async UniTask EnsurePartyLobbyEventsSubscriptionAsync(string context) =>
+            await _matchLobby.EnsurePartyLobbyEventsSubscriptionAsync(this, this, context);
+
+        private async UniTask UnsubscribePartyLobbyEventsAsync(string context) =>
+            await _matchLobby.UnsubscribePartyLobbyEventsAsync(context);
+
+        private async UniTask UnsubscribeMatchLobbyEventsAsync(string context) =>
+            await _matchLobby.UnsubscribeMatchLobbyEventsAsync(this, context);
+
+        private int _gameScenePresentationSerial;
+
+        private void OnSceneLoaded(Scene scene, LoadSceneMode mode) {
+            if(IsGameplaySceneName(scene.name)) {
+                LaunchSessionTask(SessionSceneFlow.RunOnGameSceneLoadedAsync(this, this, this),
+                    "OnGameSceneLoadedAsync");
+            }
+        }
+
+        private void EnableGameplaySpawningAndSpawnAllIfHost() {
+            if(_customNetworkManager != null)
+                _customNetworkManager.EnableGameplaySpawningAndSpawnAll();
+        }
+
+        private void CaptureDuplicateFpVisualsForDisconnect() =>
+            SessionSceneFlow.CaptureDuplicateFpVisualsForDisconnect(this);
 
         #region Unity Lifecycle
 
@@ -215,23 +581,32 @@ namespace Network.Session {
             if(_networkManager != null) {
                 _customNetworkManager = _networkManager.GetComponent<CustomNetworkManager>();
             }
+
             _sessionLifetimeCts = new CancellationTokenSource();
+
+            _steamSocialBridge = new SteamSocialBridge();
+            _matchmaker = new SessionMatchmaker();
+            _matchmaker.SetContext(this, this);
+            _party = new SessionParty();
+            _matchLobby = new SessionMatchLobby();
+            _matchmaker.SetMatchLobbyService(_matchLobby);
+            _sceneFlow = new SessionSceneFlow();
 
             SelectedMapSceneName = MatchMapService.DefaultGameplaySceneName;
             SelectedMapId = MatchMapService.DefaultMapId;
         }
 
+        private SteamSocialBridge _steamSocialBridge;
+        private SessionMatchmaker _matchmaker;
+        private SessionParty _party;
+        private SessionMatchLobby _matchLobby;
+        private SessionSceneFlow _sceneFlow;
+
         private void OnEnable() {
             RegisterNetworkCallbacks();
             SceneManager.sceneLoaded += OnSceneLoaded;
 
-            // Steam Callbacks
-            SteamMatchmaking.OnLobbyMemberJoined += OnLobbyMemberJoined;
-            SteamMatchmaking.OnLobbyMemberLeave += OnLobbyMemberLeave;
-            SteamMatchmaking.OnLobbyDataChanged += OnLobbyDataChanged;
-            SteamMatchmaking.OnLobbyMemberDataChanged += OnLobbyMemberDataChanged;
-            SteamFriends.OnGameLobbyJoinRequested += OnGameLobbyJoinRequested;
-            SteamFriends.OnGameRichPresenceJoinRequested += OnGameRichPresenceJoinRequested;
+            _steamSocialBridge.Register(this, this);
 
             EventBus.Unsubscribe<GameSettingsChangedEvent>(OnGameSettingsChanged);
             EventBus.Subscribe<GameSettingsChangedEvent>(OnGameSettingsChanged);
@@ -241,46 +616,18 @@ namespace Network.Session {
             UnregisterNetworkCallbacks();
             SceneManager.sceneLoaded -= OnSceneLoaded;
 
-            SteamMatchmaking.OnLobbyMemberJoined -= OnLobbyMemberJoined;
-            SteamMatchmaking.OnLobbyMemberLeave -= OnLobbyMemberLeave;
-            SteamMatchmaking.OnLobbyDataChanged -= OnLobbyDataChanged;
-            SteamMatchmaking.OnLobbyMemberDataChanged -= OnLobbyMemberDataChanged;
-            SteamFriends.OnGameLobbyJoinRequested -= OnGameLobbyJoinRequested;
-            SteamFriends.OnGameRichPresenceJoinRequested -= OnGameRichPresenceJoinRequested;
+            _steamSocialBridge?.Unregister();
 
             EventBus.Unsubscribe<GameSettingsChangedEvent>(OnGameSettingsChanged);
         }
 
         private void OnLocalSettingsChanged() {
             // Streamer mode toggle can change the display name we want other players to see.
-            UpdateLocalDisplayNameInLobby();
+            SteamSocialBridge.UpdateLocalDisplayNameInLobby(this);
         }
 
         private void OnGameSettingsChanged(GameSettingsChangedEvent _) {
             OnLocalSettingsChanged();
-        }
-
-        private void UpdateLocalDisplayNameInLobby() {
-            if(!CurrentLobby.HasValue) return;
-            if(!SteamClient.IsValid || !SteamClient.IsLoggedOn) return;
-
-            try {
-                var displayName = StreamerMode.GetLocalDisplayName();
-                if(string.IsNullOrEmpty(displayName)) return;
-                CurrentLobby.Value.SetMemberData(DisplayNameKey, displayName);
-                var hide = StreamerMode.Enabled;
-                CurrentLobby.Value.SetMemberData(AvatarHiddenKey, hide ? "1" : "0");
-
-                var data = GameSettings.Data;
-                var baseColor = data.player.customization.baseColor;
-                var iconId = PlayerIconPicker.PickIconIdFromBaseColor(baseColor, hide);
-                CurrentLobby.Value.SetMemberData(PlayerIconKey, iconId);
-            } catch(Exception ex) {
-                // If Steam is transitioning offline, this can fail transiently.
-                if(Debug.isDebugBuild) {
-                    Debug.LogWarning($"[SessionManager] Failed to update local lobby display metadata: {ex.Message}");
-                }
-            }
         }
 
         private void Start() {
@@ -312,103 +659,11 @@ namespace Network.Session {
         /// Starts a local "private match" without Steam (offline).
         /// This is a host-only loopback session (LAN/multiplayer offline is handled later).
         /// </summary>
-        public async UniTask StartOfflinePrivateMatchAsync(string mode) {
-            if(!TryBeginSessionOperation("StartOfflinePrivateMatchAsync")) return;
-            try {
-                if(string.IsNullOrEmpty(mode)) return;
+        public UniTask StartOfflinePrivateMatchAsync(string mode) =>
+            SessionSceneFlow.RunStartOfflinePrivateMatchAsync(this, this, this, mode);
 
-                // Leave any Steam lobby context (safe even if Steam is offline).
-                LeaveLobby();
-                await TryLeaveVoiceChannelAsync();
-
-                // Shut down NGO if it was previously listening.
-                await CleanupNetworkAsync();
-
-                ApplyRuntimeMode(mode, "OfflinePrivateMatch");
-                SetExpectedGamePlayerCount(1, "OfflinePrivateMatch");
-
-                SetFrontStatus(SessionPhase.StartingHost, "Starting offline match...");
-
-                // Fade out (keeps UX consistent with Steam private match flow).
-                await FadeOutWithFallbackAsync(300);
-
-                if(TryGetUnityTransport("StartOfflinePrivateMatchAsync", out var networkManager, out var utp) ==
-                   false) {
-                    SetFrontStatus(SessionPhase.Error, "Offline networking not configured.");
-                    return;
-                }
-
-                // Ensure we use UTP loopback.
-                utp.SetConnectionData("127.0.0.1", 7777);
-                networkManager.NetworkConfig.NetworkTransport = utp;
-
-                // Start host and load the game scene via NGO scene management.
-                ApplyLocalConnectionPayload(true);
-                if(!networkManager.StartHost()) {
-                    Debug.LogError("[SessionManager] Failed to start offline host after cleanup.");
-                    SetFrontStatus(SessionPhase.Error, "Failed to start offline host.");
-                    if(SceneTransitionManager.Instance != null) {
-                        await SceneTransitionManager.Instance.FadeInAsync();
-                    }
-
-                    return;
-                }
-
-                if(!TryLoadGameplaySceneAsHost("StartOfflinePrivateMatchAsync/LoadScene")) {
-                    SetFrontStatus(SessionPhase.Error, "Failed to load offline match scene.");
-                    if(SceneTransitionManager.Instance != null) {
-                        await SceneTransitionManager.Instance.FadeInAsync();
-                    }
-                }
-            } finally {
-                EndSessionOperation();
-            }
-        }
-
-        private async UniTask<bool> CreateSteamSocialLobbyAsync(int maxMembers) {
-            try {
-                var result = await SteamMatchmaking.CreateLobbyAsync(maxMembers);
-                if(!result.HasValue) {
-                    SetFrontStatus(SessionPhase.Error, "Failed to create party lobby.");
-                    return false;
-                }
-
-                var lobby = result.Value;
-                lobby.SetPrivate();
-                lobby.SetJoinable(true);
-                lobby.SetData(TargetModeKey, SelectedGameMode);
-
-                if(string.IsNullOrEmpty(CurrentPartyId)) {
-                    CurrentPartyId = Guid.NewGuid().ToString();
-                }
-
-                lobby.SetData(PartyIdKey, CurrentPartyId);
-                CurrentLobby = lobby;
-                IsPartyLeader = true;
-                lobby.SetMemberData(PartyIdKey, CurrentPartyId);
-                UpdateLocalDisplayNameInLobby();
-
-                // Solo social lobbies do not need voice yet; join when the party has at least 2 members.
-                if(lobby.MemberCount > 1) {
-                    TryJoinVoiceForSteamSocialLobby(lobby.Id, "CreateSteamSocialLobbyAsync");
-                }
-
-                FlowLog.Emit(FlowEventIds.PartyLifecycle,
-                    ("action", "CreateSteamSocialLobby"),
-                    ("partyId", CurrentPartyId),
-                    ("steamLobbyId", lobby.Id),
-                    ("mode", SelectedGameMode));
-
-                UpdateSteamRichPresence();
-                SetFrontStatus(SessionPhase.LobbyReady, "Lobby Ready. Invite Friends!");
-                NotifyPartyStateChanged();
-                return true;
-            } catch(Exception ex) {
-                Debug.LogError($"[SessionManager] Failed to create Steam social lobby: {ex.Message}");
-                SetFrontStatus(SessionPhase.Error, "Failed to create party lobby.");
-                return false;
-            }
-        }
+        private async UniTask<bool> CreateSteamSocialLobbyAsync(int maxMembers) =>
+            await _steamSocialBridge.CreateSteamSocialLobbyAsync(maxMembers);
 
         /// <summary>
         /// Sets the selected gamemode and updates lobby data if hosting.
@@ -416,32 +671,16 @@ namespace Network.Session {
         /// <param name="mode">The gamemode ID.</param>
         public void SetGameMode(string mode) {
             ApplyRuntimeMode(mode, "MenuSelection", refreshUi: false);
-            if(CurrentLobby.HasValue && CurrentLobby.Value.Owner.Id == SteamClient.SteamId) {
-                CurrentLobby.Value.SetData(TargetModeKey, mode);
-            }
-
+            SteamSocialBridge.SetSteamLobbyGameMode(this, mode);
             EventBus.Publish(new FrontStatusChangedEvent(null));
         }
-
 
         /// <summary>
         /// Leaves the current Steam social lobby context.
         /// </summary>
         public void LeaveLobby() {
-            FlowLog.Emit(FlowEventIds.PartyLifecycle,
-                ("action", "LeaveLobby"),
-                ("partyId", CurrentPartyId),
-                ("steamLobbyId", CurrentLobby.HasValue ? CurrentLobby.Value.Id.ToString() : "none"));
-
-            IsExpectedDisconnect = true;
-            if(CurrentLobby.HasValue) {
-                CurrentLobby.Value.Leave();
-                CurrentLobby = null;
-            }
-
-            Phase = SessionPhase.Menu;
-            IsPartyLeader = false;
-            SetExpectedGamePlayerCount(1, "LeaveLobby");
+            _steamSocialBridge.LeaveSteamLobby();
+            LaunchSessionTask(TryLeaveVoiceChannelAsync(), "LeaveLobby_VoiceLeave");
         }
 
         /// <summary>
@@ -457,135 +696,332 @@ namespace Network.Session {
             _leaveSequenceId++;
             var leaveId = _leaveSequenceId;
             _isLeaving = true;
-
             try {
-                FlowLog.Emit(FlowEventIds.SessionExit,
-                    ("leaveId", leaveId),
-                    ("reason", "LeaveToMainMenu"),
-                    ("step", "EXIT_BEGIN"),
-                    ("phase", Phase),
-                    ("gameplay", IsInGameplay),
-                    ("scene", SceneManager.GetActiveScene().name));
-
-                // Cancel any active matchmaking first
-                await ClearMatchmakingStateAsync();
-                FlowLog.Emit(FlowEventIds.SessionExit, ("leaveId", leaveId), ("step", "EXIT_MATCHMAKING_CLEARED"));
-
-                if(Game.Audio2.AudioService.Instance != null) {
-                    Game.Audio2.AudioService.Instance.StopAll();
-                }
-
-                var currentScene = SceneManager.GetActiveScene().name;
-                var shouldFade = currentScene != "MainMenu";
-                var shouldRevealMenu = shouldFade || string.Equals(currentScene, "MainMenu", StringComparison.OrdinalIgnoreCase);
-                FlowLog.Emit(FlowEventIds.SessionExit,
-                    ("leaveId", leaveId),
-                    ("step", "EXIT_SCENE_SNAPSHOT"),
-                    ("currentScene", currentScene),
-                    ("shouldFade", shouldFade),
-                    ("shouldRevealMenu", shouldRevealMenu));
-
-                if(skipFadeOut && DisconnectTransitionController.Instance != null) {
-                    DisconnectTransitionController.Instance.CleanupDuplicate();
-                }
-
-                if(shouldFade && !skipFadeOut) {
-                    FlowLog.Emit(FlowEventIds.SessionExit, ("leaveId", leaveId), ("step", "EXIT_FADE_OUT_BEGIN"));
-                    await FadeOutWithFallbackAsync();
-                    FlowLog.Emit(FlowEventIds.SessionExit, ("leaveId", leaveId), ("step", "EXIT_FADE_OUT_DONE"));
-                }
-
-                FlowLog.Emit(FlowEventIds.SessionExit, ("leaveId", leaveId), ("step", "EXIT_VOICE_LEAVE_BEGIN"));
-                await TryLeaveVoiceChannelAsync();
-                FlowLog.Emit(FlowEventIds.SessionExit, ("leaveId", leaveId), ("step", "EXIT_VOICE_LEAVE_DONE"));
-
-                FlowLog.Emit(FlowEventIds.SessionExit,
-                    ("leaveId", leaveId),
-                    ("step", "EXIT_PARTY_FOLLOW_RESET_BEGIN"));
-                await ResetPartyFollowStateIfHostAsync();
-                FlowLog.Emit(FlowEventIds.SessionExit,
-                    ("leaveId", leaveId),
-                    ("step", "EXIT_PARTY_FOLLOW_RESET_DONE"));
-
-                LeaveLobby();
-                await ClearMatchStateAsync();
-                if(SteamManager.Instance != null) {
-                    SteamManager.Instance.ClearAvatarCache();
-                }
-                FlowLog.Emit(FlowEventIds.SessionExit, ("leaveId", leaveId), ("step", "EXIT_MATCH_STATE_CLEARED"));
-
-                await CleanupNetworkAsync();
-                FlowLog.Emit(FlowEventIds.SessionExit, ("leaveId", leaveId), ("step", "EXIT_NETWORK_CLEANUP_DONE"));
-
-                FlowLog.Emit(FlowEventIds.SessionExit, ("leaveId", leaveId), ("step", "EXIT_SCENE_LOAD_BEGIN"));
-                await EnsureMainMenuLoadedAndReadyAsync(currentScene);
-                FlowLog.Emit(FlowEventIds.SessionExit, ("leaveId", leaveId), ("step", "EXIT_SCENE_LOAD_DONE"));
-
-                if(shouldRevealMenu) {
-                    FlowLog.Emit(FlowEventIds.SessionExit, ("leaveId", leaveId), ("step", "EXIT_FADE_IN_BEGIN"));
-                    await FadeInWithFallbackAsync();
-                    FlowLog.Emit(FlowEventIds.SessionExit, ("leaveId", leaveId), ("step", "EXIT_FADE_IN_DONE"));
-                }
-
-                FlowLog.Emit(FlowEventIds.SessionExit, ("leaveId", leaveId), ("step", "EXIT_FINALIZED"));
+                await SessionSceneFlow.RunLeaveToMenuFlowAsync(this, this, leaveId, skipFadeOut);
             } finally {
                 _isLeaving = false;
                 FlowLog.Emit(FlowEventIds.SessionExit, ("leaveId", leaveId), ("step", "EXIT_LEAVE_FLAG_CLEARED"));
             }
         }
 
-        private async UniTask EnsureMainMenuLoadedAndReadyAsync(string currentScene) {
-            if(currentScene == "MainMenu") return;
-
-            SceneManager.LoadScene("MainMenu");
-
-            var sceneLoaded = await WaitForActiveSceneAsync("MainMenu", 15f, SessionLifetimeToken);
-            if(!sceneLoaded) {
-                Debug.LogWarning("[SessionManager] Timed out waiting for MainMenu scene activation during leave flow.");
-            }
-
-            var menuReady = await WaitForMainMenuReadyAsync(15f, SessionLifetimeToken);
-            if(!menuReady) {
-                Debug.LogWarning(
-                    "[SessionManager] Timed out waiting for MainMenuManager initialization during leave flow.");
-            }
-        }
+        private async UniTask EnsureMainMenuLoadedAndReadyAsync(string currentScene) =>
+            await SessionSceneFlow.EnsureMainMenuLoadedAndReadyAsync(this, currentScene);
 
         public static bool IsGameplaySceneName(string sceneName) {
             return MatchMapService.IsGameplayScene(sceneName);
         }
 
+        /// <summary>Removes a party member from the UGS party lobby.</summary>
+        public void KickMember(SteamId targetId) => SessionPartyModeration.KickMember(this, targetId);
+
+        /// <summary>Promotes a party member to be the new UGS party host.</summary>
+        public void PromoteMember(SteamId targetId) => SessionPartyModeration.PromoteMember(this, targetId);
+
+        #endregion
+
+        #region ISessionContext
+
+        SessionPhase ISessionContext.Phase => Phase;
+        float ISessionContext.PhaseStartTime => _phaseStartTime;
+        Lobby? ISessionContext.CurrentLobby => CurrentLobby;
+        string ISessionContext.CurrentPartyId => CurrentPartyId;
+        bool ISessionContext.IsPartyLeader => IsPartyLeader;
+        string ISessionContext.SelectedGameMode => SelectedGameMode;
+        string ISessionContext.SelectedMapId => SelectedMapId;
+        string ISessionContext.SelectedMapSceneName => SelectedMapSceneName;
+        Unity.Services.Lobbies.Models.Lobby ISessionContext.UgsPartyLobby => _ugsPartyLobby;
+        Unity.Services.Lobbies.Models.Lobby ISessionContext.UgsMatchLobby => _ugsMatchLobby;
+        bool ISessionContext.IsInGameplay => IsInGameplay;
+        bool ISessionContext.IsLeaving => _isLeaving;
+        bool ISessionContext.IsShuttingDown => _isShuttingDown;
+        bool ISessionContext.IsExpectedDisconnect => IsExpectedDisconnect;
+        bool ISessionContext.IsSearching => IsSearching;
+        bool ISessionContext.IsSessionBusy => IsSessionBusy;
+        int ISessionContext.ExpectedGamePlayerCount => ExpectedGamePlayerCount;
+        CancellationToken ISessionContext.SessionLifetimeToken => SessionLifetimeToken;
+        float ISessionContext.MatchmakingStartTime => MatchmakingStartTime;
+
+        void ISessionContext.SetPhase(SessionPhase value) => Phase = value;
+        void ISessionContext.SetCurrentLobby(Lobby? value) => CurrentLobby = value;
+        void ISessionContext.SetCurrentPartyId(string value) => CurrentPartyId = value;
+        void ISessionContext.SetIsPartyLeader(bool value) => IsPartyLeader = value;
+        void ISessionContext.SetUgsPartyLobby(Unity.Services.Lobbies.Models.Lobby value) => _ugsPartyLobby = value;
+        void ISessionContext.SetUgsMatchLobby(Unity.Services.Lobbies.Models.Lobby value) => _ugsMatchLobby = value;
+        void ISessionContext.SetIsInGameplay(bool value) => IsInGameplay = value;
+        void ISessionContext.SetIsExpectedDisconnect(bool value) => IsExpectedDisconnect = value;
+        void ISessionContext.SetPrivateMatchMapPreset(bool value) => SetPrivateMatchMapPreset(value);
+        void ISessionContext.SetMatchmakingStartTime(float value) => SetMatchmakingStartTime(value);
+        void ISessionContext.SetNextUgsHeartbeatTime(float value) => SetNextUgsHeartbeatTime(value);
+
+        void ISessionContext.LaunchSessionTask(UniTask task, string label) => LaunchSessionTask(task, label);
+
+        bool ISessionContext.TryGetNetworkManager(string operationName, out NetworkManager networkManager) =>
+            TryGetNetworkManager(operationName, out networkManager);
+
+        bool ISessionContext.TryGetUnityTransport(string operationName, out NetworkManager networkManager,
+            out UnityTransport transport) =>
+            TryGetUnityTransport(operationName, out networkManager, out transport);
+
+        bool ISessionContext.TryBeginSessionOperation(string operationName) => TryBeginSessionOperation(operationName);
+        void ISessionContext.EndSessionOperation() => EndSessionOperation();
+
+        void ISessionContext.SetFrontStatus(SessionPhase phase, string message) => SetFrontStatus(phase, message);
+
+        void ISessionContext.SetExpectedGamePlayerCount(int count, string source) =>
+            SetExpectedGamePlayerCount(count, source);
+
+        void ISessionContext.ApplyRuntimeMode(string mode, string source, bool refreshUi) =>
+            ApplyRuntimeMode(mode, source, refreshUi);
+
+        void ISessionContext.LeaveLobby() => LeaveLobby();
+        UniTask ISessionContext.LeaveToMainMenuAsync(bool skipFadeOut) => LeaveToMainMenuAsync(skipFadeOut);
+        UniTask ISessionContext.EnsureSignedInAsync() => EnsureSignedInAsync();
+        void ISessionContext.NotifyPartyStateChanged() => NotifyPartyStateChanged();
+        void ISessionContext.UpdateSteamRichPresence() => UpdateSteamRichPresence();
+        void ISessionContext.UpdateLocalDisplayNameInLobby() => SteamSocialBridge.UpdateLocalDisplayNameInLobby(this);
+
+        #endregion
+
+        #region ISteamSessionActions
+
+        UniTask<bool> ISteamSessionActions.JoinSteamSocialLobbyAsync(Lobby lobby) => JoinSteamSocialLobbyAsync(lobby);
+
+        UniTask ISteamSessionActions.FollowSessionContextFromSteamLobbyAsync(Lobby lobby) =>
+            FollowSessionContextFromSteamLobbyAsync(lobby);
+
+        UniTask ISteamSessionActions.HandleSteamConnectStringAsync(string connect) =>
+            HandleSteamConnectStringAsync(connect);
+
+        void ISteamSessionActions.TryJoinVoiceForSteamSocialLobby(ulong lobbyId, string context) =>
+            TryJoinVoiceForSteamSocialLobby(lobbyId, context);
+
+        UniTask ISteamSessionActions.JoinPartyLobbyByCodeAsync(string code) => JoinPartyLobbyByCodeAsync(code);
+        UniTask<bool> ISteamSessionActions.JoinMatchLobbyByIdAsync(string lobbyId) => JoinMatchLobbyByIdAsync(lobbyId);
+
+        #endregion
+
+        #region IMatchmakerSessionActions
+
+        UniTask<bool> IMatchmakerSessionActions.JoinMatchLobbyByIdAsync(string lobbyId) =>
+            JoinMatchLobbyByIdAsync(lobbyId);
+
+        UniTask IMatchmakerSessionActions.StartPublicMatchAsHostAsync(string mode, int maxPlayers, string matchId,
+            StoredMatchmakingResults results) =>
+            StartPublicMatchAsHostAsync(mode, maxPlayers, matchId, results);
+
+        UniTask IMatchmakerSessionActions.JoinPublicMatchByIdAsync(string matchId) => JoinPublicMatchByIdAsync(matchId);
+
+        UniTask<string> IMatchmakerSessionActions.CreateDistributedAuthoritySessionAsync(int maxPlayers,
+            bool isPrivateMatch, string contextLabel) =>
+            CreateDistributedAuthoritySessionAsync(maxPlayers, isPrivateMatch, contextLabel);
+
+        UniTask IMatchmakerSessionActions.CreatePublicMatchLobbyAsHostAsync(string mode, int maxPlayers, string matchId,
+            string joinCode) =>
+            CreatePublicMatchLobbyAsHostAsync(mode, maxPlayers, matchId, joinCode);
+
+        UniTask IMatchmakerSessionActions.PreFadePublicHostAsync() => PreFadePublicHostAsync();
+
+        UniTask IMatchmakerSessionActions.MarkHostReadyInMatchLobbyAsync() => MarkHostReadyInMatchLobbyAsync();
+
+        UniTask<bool> IMatchmakerSessionActions.TrySetMatchLobbyStateAsync(string lobbyState,
+            DataObject.VisibilityOptions visibility, string context) =>
+            TrySetMatchLobbyStateAsync(lobbyState, visibility, context);
+
+        bool IMatchmakerSessionActions.TryLoadGameplaySceneAsHost(string contextLabel) =>
+            TryLoadGameplaySceneAsHost(contextLabel);
+
+        #endregion
+
+        #region IPartySessionActions
+
+        UniTask IPartySessionActions.UnsubscribeMatchLobbyEventsAsync(string context) =>
+            UnsubscribeMatchLobbyEventsAsync(context);
+
+        UniTask IPartySessionActions.UnsubscribePartyLobbyEventsAsync(string context) =>
+            UnsubscribePartyLobbyEventsAsync(context);
+
+        UniTask IPartySessionActions.EnsurePartyLobbyEventsSubscriptionAsync(string context) =>
+            EnsurePartyLobbyEventsSubscriptionAsync(context);
+
+        UniTask<bool> IPartySessionActions.CreateSteamSocialLobbyAsync(int maxPlayers) =>
+            CreateSteamSocialLobbyAsync(maxPlayers);
+
+        void IPartySessionActions.SetNextUgsHeartbeatTime(float value) => SetNextUgsHeartbeatTime(value);
+        void IPartySessionActions.UpdateSteamLobbyWithPartyDataIfOwner() => UpdateSteamLobbyWithPartyDataIfOwner();
+        void IPartySessionActions.TryJoinVoiceForActiveMatch(string context) => TryJoinVoiceForActiveMatch(context);
+
+        #endregion
+
+        #region ILobbyEventActions
+
+        void ILobbyEventActions.CompleteAndClearPlayersReadyWaiter(bool result) =>
+            CompleteAndClearPlayersReadyWaiter(result);
+
+        #endregion
+
+        #region IMatchSnapshotActions
+
+        void IMatchSnapshotActions.SyncModeFromMatchLobby(Unity.Services.Lobbies.Models.Lobby lobby) =>
+            SyncModeFromMatchLobby(lobby);
+
+        UniTask IMatchSnapshotActions.StartMatchSynchronizationAsync(bool skipFadeOut) =>
+            StartMatchSynchronizationAsync(skipFadeOut);
+
+        UniTask IMatchSnapshotActions.StartMatchClientAsync(bool useFadeOut, string expectedSessionCode,
+            bool? expectedIsPrivateMatch) =>
+            StartMatchClientAsync(useFadeOut, expectedSessionCode, expectedIsPrivateMatch);
+
+        UniTask IMatchSnapshotActions.FadeOutWithFallbackAsync(int fallbackDelayMs) =>
+            FadeOutWithFallbackAsync(fallbackDelayMs);
+
+        UniTask IMatchSnapshotActions.LeaveToMainMenuAsync(bool skipFadeOut) => LeaveToMainMenuAsync(skipFadeOut);
+
+        UniTask<SessionNetworkLifecycle.DistributedAuthoritySessionJoinResult>
+            IMatchSnapshotActions.JoinDistributedAuthoritySessionAsync(string sessionCode, bool isPrivateMatch,
+                string contextLabel) =>
+            JoinDistributedAuthoritySessionAsync(sessionCode, isPrivateMatch, contextLabel);
+
+        UniTask<bool> IMatchSnapshotActions.JoinMatchLobbyByIdAsync(string lobbyId) =>
+            JoinMatchLobbyByIdAsync(lobbyId);
+
+        bool IMatchSnapshotActions.UgsLocalReadySubmitted { get; set; }
+
+        bool IMatchSnapshotActions.UgsSyncInProgress { get; set; }
+
+        bool IMatchSnapshotActions.UgsClientStartedForMatch { get; set; }
+
+        bool IMatchSnapshotActions.UgsHostPreFadedOut {
+            get => _ugsHostPreFadedOut;
+            set => _ugsHostPreFadedOut = value;
+        }
+
+        #endregion
+
+        #region IDistributedAuthorityActions
+
+        void IDistributedAuthorityActions.BindActiveMultiplayerSession(ISession session) =>
+            SessionNetworkLifecycle.BindActiveMultiplayerSession(session, this, this,
+                () => _networkManager != null && _networkManager.IsListening &&
+                      IsGameplaySceneName(SceneManager.GetActiveScene().name));
+
+        void IDistributedAuthorityActions.UnbindActiveMultiplayerSession() =>
+            SessionNetworkLifecycle.UnbindActiveMultiplayerSession();
+
+        bool IDistributedAuthorityActions.IsLocalPlayerMatchLobbyHost(Unity.Services.Lobbies.Models.Lobby lobby) =>
+            SessionMatchLobby.IsLocalPlayerLobbyHost(lobby);
+
+        void IDistributedAuthorityActions.OnPromotedToMatchLobbyHost() =>
+            _matchLobby.ResetMatchHeartbeatStateForNewHost();
+
+        #endregion
+
+        #region INetworkLifecycleActions
+
+        UniTask INetworkLifecycleActions.LeaveActiveMultiplayerSessionAsync(string contextLabel) =>
+            LeaveActiveMultiplayerSessionAsync(contextLabel);
+
+        UniTask INetworkLifecycleActions.CleanupNetworkAsync() => CleanupNetworkAsync();
+
+        #endregion
+
+        #region ISceneFlowActions
+
+        string ISceneFlowActions.GetActiveSceneName() => SceneManager.GetActiveScene().name;
+        bool ISceneFlowActions.IsGameplaySceneName(string sceneName) => IsGameplaySceneName(sceneName);
+        void ISceneFlowActions.SetFrontStatus(SessionPhase phase, string message) => SetFrontStatus(phase, message);
+
+        UniTask ISceneFlowActions.FadeOutWithFallbackAsync(int fallbackDelayMs) =>
+            FadeOutWithFallbackAsync(fallbackDelayMs);
+
+        UniTask ISceneFlowActions.LeaveToMainMenuAsync(bool skipFadeOut) => LeaveToMainMenuAsync(skipFadeOut);
+        void ISceneFlowActions.CaptureDuplicateFpVisualsForDisconnect() => CaptureDuplicateFpVisualsForDisconnect();
+
+        #endregion
+
+        #region ILeaveToMenuActions
+
+        UniTask ILeaveToMenuActions.ClearMatchmakingStateAsync() => ClearMatchmakingStateAsync();
+        UniTask ILeaveToMenuActions.TryLeaveVoiceChannelAsync() => TryLeaveVoiceChannelAsync();
+        UniTask ILeaveToMenuActions.ResetPartyFollowStateIfHostAsync() => ResetPartyFollowStateIfHostAsync();
+        void ILeaveToMenuActions.LeaveLobby() => LeaveLobby();
+        UniTask ILeaveToMenuActions.ClearMatchStateAsync() => ClearMatchStateAsync();
+        UniTask ILeaveToMenuActions.CleanupNetworkAsync() => CleanupNetworkAsync();
+
+        UniTask ILeaveToMenuActions.EnsureMainMenuLoadedAndReadyAsync(string currentScene) =>
+            EnsureMainMenuLoadedAndReadyAsync(currentScene);
+
+        string ILeaveToMenuActions.GetActiveSceneName() => SceneManager.GetActiveScene().name;
+
+        #endregion
+
+        #region IHostMapSceneActions
+
+        bool IHostMapSceneActions.TryGetNetworkManager(string context, out NetworkManager networkManager) =>
+            TryGetNetworkManager(context, out networkManager);
+
+        void IHostMapSceneActions.SetSelectedMap(string mapId, string sceneName) => SetSelectedMap(mapId, sceneName);
+        void IHostMapSceneActions.SetSelectedMapFromId(string mapId) => SetSelectedMapFromId(mapId);
+        bool IHostMapSceneActions.ConsumePrivateMatchMapPreset() => ConsumePrivateMatchMapPreset();
+        void IHostMapSceneActions.LoadScene(string sceneName) => LoadSceneAsHost(sceneName);
+
+        void IHostMapSceneActions.SetSteamLobbyMapIfOwner(string mapId, string sceneName) =>
+            SetSteamLobbyMapIfOwner(mapId, sceneName);
+
+        #endregion
+
+        #region IOnGameSceneLoadedActions
+
+        bool IOnGameSceneLoadedActions.TryGetAuthoritativeRuntimeMode(out string mode, out string source) =>
+            TryGetAuthoritativeRuntimeMode(out mode, out source);
+
+        void IOnGameSceneLoadedActions.TryJoinVoiceForActiveMatch(string context) =>
+            TryJoinVoiceForActiveMatch(context);
+
+        UniTask IOnGameSceneLoadedActions.TrySetMatchLobbyStateAsync(string lobbyState,
+            DataObject.VisibilityOptions visibility, string context) =>
+            TrySetMatchLobbyStateAsync(lobbyState, visibility, context);
+
+        UniTask IOnGameSceneLoadedActions.RefreshPublicMatchBackfillEligibilityAsync(bool force) =>
+            RefreshPublicMatchBackfillEligibilityAsync(force);
+
+        UniTask IOnGameSceneLoadedActions.UnsubscribeMatchLobbyEventsAsync(string context) =>
+            UnsubscribeMatchLobbyEventsAsync(context);
+
+        bool IOnGameSceneLoadedActions.TryGetNetworkManager(out NetworkManager networkManager) =>
+            TryGetNetworkManager("OnGameSceneLoaded", out networkManager);
+
+        void IOnGameSceneLoadedActions.EnableGameplaySpawningAndSpawnAllIfHost() =>
+            EnableGameplaySpawningAndSpawnAllIfHost();
+
+        int IOnGameSceneLoadedActions.StartGameScenePresentation() => ++_gameScenePresentationSerial;
+
+        bool IOnGameSceneLoadedActions.IsCurrentGameScenePresentation(int serial) =>
+            serial == _gameScenePresentationSerial;
+
+        bool IOnGameSceneLoadedActions.IsMatchLobbyPublic() =>
+            _ugsMatchLobby is { Data: not null } &&
+            _ugsMatchLobby.Data.TryGetValue(UgsMatchTypeKey, out var matchTypeObj) &&
+            matchTypeObj != null &&
+            string.Equals(matchTypeObj.Value, "Public", StringComparison.OrdinalIgnoreCase);
+
+        #endregion
+
+        #region IPrivateMatchHostActions
+
+        UniTask IPrivateMatchHostActions.PreFadePrivateHostAsync() => PreFadePrivateHostAsync();
+        UniTask<string> IPrivateMatchHostActions.CreateDistributedAuthoritySessionAsync(int maxPlayers, bool isPrivateMatch, string contextLabel) =>
+            CreateDistributedAuthoritySessionAsync(maxPlayers, isPrivateMatch, contextLabel);
+        UniTask<bool> IPrivateMatchHostActions.TrySetMatchLobbyStateAsync(string lobbyState, DataObject.VisibilityOptions visibility, string context) =>
+            TrySetMatchLobbyStateAsync(lobbyState, visibility, context);
+        bool IPrivateMatchHostActions.TryLoadGameplaySceneAsHost(string contextLabel) => TryLoadGameplaySceneAsHost(contextLabel);
+        UniTask IPrivateMatchHostActions.LeaveToMainMenuAsync(bool skipFadeOut) => LeaveToMainMenuAsync(skipFadeOut);
+
         #endregion
 
         #region Internal / Networking
 
-        private static async UniTask FadeOutWithFallbackAsync(int fallbackDelayMs = 500) {
-            if(SceneTransitionManager.Instance != null) {
-                await SceneTransitionManager.Instance.FadeOutAsync();
-                return;
-            }
-
-            await UniTask.Delay(fallbackDelayMs);
-        }
-
-        private static async UniTask FadeInWithFallbackAsync(int fallbackDelayMs = 500) {
-            if(SceneTransitionManager.Instance != null) {
-                await SceneTransitionManager.Instance.FadeInAsync();
-                return;
-            }
-
-            await UniTask.Delay(fallbackDelayMs);
-        }
-
-        private static bool ShouldEmitThrottledLog(ref float nextLogTime, float intervalSeconds) {
-            var now = Time.unscaledTime;
-            if(now < nextLogTime) {
-                return false;
-            }
-
-            nextLogTime = now + intervalSeconds;
-            return true;
-        }
+        private static async UniTask FadeOutWithFallbackAsync(int fallbackDelayMs = 500) =>
+            await SessionSceneFlow.FadeOutWithFallbackAsync(fallbackDelayMs);
 
         private static async UniTask EnsureSignedInAsync() {
             await UgsAuthService.InitializeAndSignInAsync();

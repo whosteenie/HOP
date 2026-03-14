@@ -177,8 +177,7 @@ namespace Game.Weapons.Kinemation {
         private Transform GetGrappleCalibrationAnchor() {
             if(_wristBones.IkHandLeft != null) return _wristBones.IkHandLeft;
             if(_wristBones.WristDebugHandLeft != null) return _wristBones.WristDebugHandLeft;
-            if(_wristBones.GrappleOrigin != null) return _wristBones.GrappleOrigin;
-            return _wristBones.ClavicleLeft;
+            return _wristBones.GrappleOrigin != null ? _wristBones.GrappleOrigin : _wristBones.ClavicleLeft;
         }
     }
 }

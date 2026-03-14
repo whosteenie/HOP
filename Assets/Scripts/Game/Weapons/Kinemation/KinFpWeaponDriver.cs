@@ -30,7 +30,6 @@ namespace Game.Weapons.Kinemation {
 
         #region Runtime state (set by Bootstrap / resolver)
 
-        private GameObject _playerInstance;
         private FPSPlayer _fpsPlayer;
         private Animator _fpsAnimator;
         private int _renderLayer = -1;
@@ -49,13 +48,13 @@ namespace Game.Weapons.Kinemation {
         private KinLocomotionSync _locomotionSync;
         private KinGrappleClavicle _grappleClavicle;
         private KinDriverBootstrap _bootstrap;
-        private KINEquipReloadPlayback _playback;
+        private KinEquipReloadPlayback _playback;
 
         #endregion
 
         #region IKINDriverResolverContext
 
-        GameObject IKinDriverResolverContext.PlayerInstance => _playerInstance;
+        GameObject IKinDriverResolverContext.PlayerInstance => PlayerInstance;
         Transform IKinDriverResolverContext.DriverTransform => transform;
         FPSPlayer IKinDriverResolverContext.FpsPlayer => _fpsPlayer;
         Animator IKinDriverResolverContext.FpsAnimator => _fpsAnimator;
@@ -78,7 +77,7 @@ namespace Game.Weapons.Kinemation {
 
         #region Public API (facade)
 
-        public GameObject PlayerInstance => _playerInstance;
+        public GameObject PlayerInstance { get; private set; }
 
         public void Configure(GameObject playerPrefab, GameObject fpWeaponPrefab, bool disableWeaponSounds,
             bool disablePlayerSounds, bool routeWeaponSoundEvents, bool syncLookPitch, bool syncInAirState,
@@ -100,8 +99,8 @@ namespace Game.Weapons.Kinemation {
             _renderLayer = renderLayer;
             _weaponManager = _weaponManager ? _weaponManager : GetComponentInParent<WeaponManager>();
             EnsureSubsystems();
-            if(_playerInstance != null) {
-                WeaponFpPresentation.SetLayerRecursive(_playerInstance, _renderLayer);
+            if(PlayerInstance != null) {
+                WeaponFpPresentation.SetLayerRecursive(PlayerInstance, _renderLayer);
                 return TryCacheActiveWeapon();
             }
             var weaponSoundPlaybackDisabled = disableKinemationWeaponSounds || routeWeaponSoundEventsToAudioService;
@@ -202,7 +201,7 @@ namespace Game.Weapons.Kinemation {
         #region Internal setters (Bootstrap)
 
         private void SetPlayerInstance(GameObject instance, FPSPlayer fpsPlayer, Animator fpsAnimator) {
-            _playerInstance = instance;
+            PlayerInstance = instance;
             _fpsPlayer = fpsPlayer;
             _fpsAnimator = fpsAnimator;
         }
@@ -234,7 +233,7 @@ namespace Game.Weapons.Kinemation {
         private void OnGrappleEnded(GrappleEndedEvent evt) => _grappleClavicle?.OnGrappleEnded(evt);
 
         private void Update() {
-            if(_playerInstance == null) return;
+            if(PlayerInstance == null) return;
             if(_resolver?.ActiveWeapon == null) TryCacheActiveWeapon();
         }
 
@@ -269,7 +268,7 @@ namespace Game.Weapons.Kinemation {
                 sprintWalkGaitValue, syncLookPitchWithPlayer, syncAirborneState);
             _grappleClavicle = new KinGrappleClavicle(this, _resolver, _wristBones, enableRuntimeGrappleClavicleOffset);
             _bootstrap = new KinDriverBootstrap(this, _audio);
-            _playback = new KINEquipReloadPlayback(this, _resolver, _tracker, _drakeKar, _audio, _grappleClavicle,
+            _playback = new KinEquipReloadPlayback(this, _resolver, _tracker, _drakeKar, _audio, _grappleClavicle,
                 TryCacheActiveWeapon, equipUnlockNormalizedTime);
         }
 

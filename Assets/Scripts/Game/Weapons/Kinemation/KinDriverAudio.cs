@@ -13,16 +13,15 @@ namespace Game.Weapons.Kinemation {
         private readonly IKinDriverResolverContext _context;
         private readonly KinActiveWeaponResolver _resolver;
         private AudioSource _weaponAudioSource;
-        private string _activeWeaponSoundKey = "unknown";
-        private string _activeWeaponFireSoundId = "";
 
         public KinDriverAudio(IKinDriverResolverContext context, KinActiveWeaponResolver resolver) {
             _context = context;
             _resolver = resolver;
         }
 
-        public string ActiveWeaponSoundKey => _activeWeaponSoundKey;
-        public string ActiveWeaponFireSoundId => _activeWeaponFireSoundId;
+        public string ActiveWeaponSoundKey { get; private set; } = "unknown";
+
+        public string ActiveWeaponFireSoundId { get; private set; } = "";
 
         public void ApplyActiveWeaponSoundToggles(FPSWeapon activeWeapon) {
             if(activeWeapon == null) return;
@@ -43,15 +42,15 @@ namespace Game.Weapons.Kinemation {
 
         public void RefreshActiveWeaponSoundMetadata(FPSWeapon activeWeapon, System.Action applyGrappleWeaponIndex) {
             if(activeWeapon == null) {
-                _activeWeaponSoundKey = "unknown";
-                _activeWeaponFireSoundId = "";
+                ActiveWeaponSoundKey = "unknown";
+                ActiveWeaponFireSoundId = "";
                 applyGrappleWeaponIndex?.Invoke();
                 return;
             }
             var settings = activeWeapon.weaponSettings;
-            _activeWeaponSoundKey = KinSoundIdUtility.BuildWeaponSoundKey(settings, activeWeapon.name);
-            _activeWeaponFireSoundId = settings != null && HasAnyValidAudioClip(settings.fireSounds)
-                ? KinSoundIdUtility.BuildFireSoundId(_activeWeaponSoundKey)
+            ActiveWeaponSoundKey = KinSoundIdUtility.BuildWeaponSoundKey(settings, activeWeapon.name);
+            ActiveWeaponFireSoundId = settings != null && HasAnyValidAudioClip(settings.fireSounds)
+                ? KinSoundIdUtility.BuildFireSoundId(ActiveWeaponSoundKey)
                 : "";
             applyGrappleWeaponIndex?.Invoke();
         }

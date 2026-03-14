@@ -296,19 +296,14 @@ namespace Game.Progression {
                 // Get the filter from the active challenge (dynamic) or definition (static)
                 var filterToUse = !string.IsNullOrEmpty(challenge.filterID) ? challenge.filterID : def.weaponID;
 
-                // Validate Weapon Filter / Context
-                if (type == ChallengeType.WeaponKill && !string.IsNullOrEmpty(filterToUse)) {
-                    if (contextId != filterToUse) continue;
-                }
-                
-                // Validate Gamemode for MatchesPlayed (uses filterID from active challenge)
-                if (type == ChallengeType.MatchesPlayed && !string.IsNullOrEmpty(filterToUse)) {
-                     if (contextId != filterToUse) continue;
-                }
-                
-                // Validate Placement Context (top5, top3 etc)
-                if (type == ChallengeType.Placement && !string.IsNullOrEmpty(filterToUse)) {
-                     if (contextId != filterToUse) continue;
+                switch(type) {
+                    // Validate Weapon Filter / Context
+                    case ChallengeType.WeaponKill when !string.IsNullOrEmpty(filterToUse) && contextId != filterToUse && contextId != filterToUse:
+                    // Validate Gamemode for MatchesPlayed (uses filterID from active challenge)
+                    case ChallengeType.MatchesPlayed when !string.IsNullOrEmpty(filterToUse) && contextId != filterToUse && contextId != filterToUse:
+                    // Validate Placement Context (top5, top3 etc)
+                    case ChallengeType.Placement when !string.IsNullOrEmpty(filterToUse) && contextId != filterToUse && contextId != filterToUse:
+                        continue;
                 }
 
                 var previousProgress = challenge.currentProgress;
