@@ -1,7 +1,7 @@
 using System.Diagnostics;
 using UnityEngine;
 
-namespace Game.HopDebug {
+namespace Game.Hopball {
     /// <summary>
     /// Debug component that tracks when a renderer's enabled state changes and logs who modified it.
     /// Can be assigned in inspector or will auto-find the renderer on the same GameObject.
