@@ -13,19 +13,19 @@ Scripts/
 │   ├── Menu/                # Main menu and in-game menus
 │   │   └── Options/         # Options subsystem (tab handlers, helpers)
 │   ├── Player/              # Player controllers, movement, grapple
-│   │   ├── Core/            # PlayerController (partials), PlayerTeamManager
+│   │   ├── Core/            # PlayerController, PlayerTeamManager
 │   │   ├── Movement/        # Movement, dash, wall run, mantle, speed trail
 │   │   ├── Grapple/         # GrappleController, SwingGrapple
 │   │   ├── Look/            # Look, UpperBodyPitch, PlayerInput
 │   │   ├── Combat/          # Health, tag, stats, ragdoll, death camera
-│   │   ├── Visual/         # Renderer, shadow, materials, animation
+│   │   ├── Visual/          # Renderer, shadow, materials, animation
 │   │   ├── Hopball/         # PlayerHopballController
 │   │   └── Podium/          # PlayerPodiumController
 │   ├── Progression/         # XP, challenges, progression store
 │   ├── Security/            # Secure file I/O
 │   ├── Settings/            # GameSettings, SettingsData, VideoSettingsApplier
 │   ├── Social/              # Chat, voice, streamer mode, profanity filter
-│   ├── Spawning/             # Spawn points, spawn manager
+│   ├── Spawning/            # Spawn points, spawn manager
 │   ├── UI/                  # HUD, scoreboard, chat UI, UIElementBase
 │   │   ├── Core/            # UIElementBase, UINavigator, UIBindingHelper, UIModalHost, DropdownOpenStateBinder
 │   │   ├── HUD/             # HUDManager, DamageVignette, GrappleUI, SniperOverlay, KillFeed
@@ -33,9 +33,9 @@ Scripts/
 │   │   └── Misc/            # ChallengeUiRenderer, PostMatchXpDisplay, LoadingBallAnimation
 │   ├── Visuals/             # Zone particles, effects
 │   └── Weapons/             # Weapon logic, Kinemation bindings
-│       ├── Core/            # Weapon (partials), WeaponData, WeaponAnimationEvents, WeaponAmmoAuthority
+│       ├── Core/            # Weapon, WeaponData, WeaponAnimationEvents, WeaponAmmoAuthority
 │       ├── Kinemation/      # FpWeaponDriver, ReloadEventRelay, SoundEventRelay, BindingCatalog
-│       ├── Manager/         # WeaponManager (partials)
+│       ├── Manager/         # WeaponManager
 │       ├── Presentation/    # Sway, Bob, CameraController, FpLighting, FpViewmodelPresentation
 │       └── World/           # WorldWeaponBinding, WeaponWorldWeaponRegistry, WeaponShadowManager
 ├── Network/                 # Multiplayer, Steam, session management
