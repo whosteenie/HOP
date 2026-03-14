@@ -92,6 +92,58 @@ namespace Network.Session {
             }
         }
 
+        /// <summary>
+        /// Computes the current party size, preferring the UGS party lobby when present, otherwise falling back to the Steam lobby.
+        /// </summary>
+        public static int GetCurrentPartySize(ISessionContext ctx) {
+            if(ctx == null) return 1;
+            var ugsParty = ctx.UgsPartyLobby;
+            if(ugsParty is { Players: { Count: > 0 } }) {
+                return ugsParty.Players.Count;
+            }
+
+            var steamLobby = ctx.CurrentLobby;
+            if(!steamLobby.HasValue) return 1;
+            var memberCount = steamLobby.Value.MemberCount;
+            return memberCount > 0 ? memberCount : 1;
+        }
+
+        /// <summary>True when there is more than one real party member.</summary>
+        public static bool HasRealPartyMembers(ISessionContext ctx) => GetCurrentPartySize(ctx) > 1;
+
+        /// <summary>
+        /// Determines whether the local player is the resolved party leader, using UGS party lobby when available,
+        /// otherwise falling back to Steam lobby ownership or the cached IsPartyLeader flag.
+        /// </summary>
+        public static bool IsLocalPartyLeaderResolved(ISessionContext ctx) {
+            if(ctx == null) return false;
+
+            // Solo users are always considered leaders of their own backend party context.
+            if(!HasRealPartyMembers(ctx)) return true;
+
+            var ugsParty = ctx.UgsPartyLobby;
+            if(ugsParty != null) {
+                var localUgsId = AuthenticationService.Instance.PlayerId;
+                if(!string.IsNullOrEmpty(localUgsId)) {
+                    return ugsParty.HostId == localUgsId;
+                }
+            }
+
+            var steamLobby = ctx.CurrentLobby;
+            if(!steamLobby.HasValue || !SteamClient.IsValid) return ctx.IsPartyLeader;
+
+            var localSteamId = SteamClient.SteamId;
+            if(localSteamId != 0) {
+                return steamLobby.Value.Owner.Id == localSteamId;
+            }
+
+            return ctx.IsPartyLeader;
+        }
+
+        /// <summary>True when we are a resolved party member (i.e., there is a real party and we are not the leader).</summary>
+        public static bool IsPartyMemberResolved(ISessionContext ctx) =>
+            HasRealPartyMembers(ctx) && !IsLocalPartyLeaderResolved(ctx);
+
         public static async UniTask JoinPartyLobbyByCodeAsync(ISessionContext ctx, IPartySessionActions actions, string code) {
             await ctx.EnsureSignedInAsync();
             if(string.IsNullOrEmpty(code)) return;

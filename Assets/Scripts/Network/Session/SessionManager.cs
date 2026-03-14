@@ -10,7 +10,6 @@ using Network.Steam;
 using Network.UGS;
 using Steamworks;
 using Unity.Netcode;
-using Unity.Services.Authentication;
 using Unity.Services.Multiplayer;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -65,44 +64,14 @@ namespace Network.Session {
         public string CurrentPartyId { get; private set; }
         private bool IsPartyLeader { get; set; }
 
-        public int CurrentPartySize {
-            get {
-                if(_ugsPartyLobby is { Players: { Count: > 0 } }) {
-                    return _ugsPartyLobby.Players.Count;
-                }
+        public int CurrentPartySize => SessionPartyService.GetCurrentPartySize(this);
 
-                if(!CurrentLobby.HasValue) return 1;
-                var memberCount = CurrentLobby.Value.MemberCount;
-                return memberCount > 0 ? memberCount : 1;
-            }
-        }
-
-        public bool HasRealPartyMembers => CurrentPartySize > 1;
+        public bool HasRealPartyMembers => SessionPartyService.HasRealPartyMembers(this);
         public bool HasPartyLobby => _ugsPartyLobby != null;
 
-        public bool IsLocalPartyLeaderResolved {
-            get {
-                // Solo users are always considered leaders of their own backend party context.
-                if(HasRealPartyMembers == false) return true;
+        public bool IsLocalPartyLeaderResolved => SessionPartyService.IsLocalPartyLeaderResolved(this);
 
-                if(_ugsPartyLobby != null) {
-                    var localUgsId = AuthenticationService.Instance.PlayerId;
-                    if(string.IsNullOrEmpty(localUgsId) == false) {
-                        return _ugsPartyLobby.HostId == localUgsId;
-                    }
-                }
-
-                if(!CurrentLobby.HasValue || !SteamClient.IsValid) return IsPartyLeader;
-                var localSteamId = SteamClient.SteamId;
-                if(localSteamId != 0) {
-                    return CurrentLobby.Value.Owner.Id == localSteamId;
-                }
-
-                return IsPartyLeader;
-            }
-        }
-
-        public bool IsPartyMemberResolved => HasRealPartyMembers && !IsLocalPartyLeaderResolved;
+        public bool IsPartyMemberResolved => SessionPartyService.IsPartyMemberResolved(this);
 
         // ===== UGS Lobby keys (separate namespace from Steam lobby data) =====
         private const string UgsMatchTypeKey = "matchType"; // "Public" | "Private"
