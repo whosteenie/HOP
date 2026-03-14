@@ -96,14 +96,36 @@ namespace Network.Session {
                     $"[UGS Matchmaker] Creating ticket. mode='{mode}' queue='{_matchmakerQueueName}' playerId='{localPlayerId}'");
             }
 
-            CreateTicketResponse resp;
-            try {
-                var options = new CreateTicketOptions(_matchmakerQueueName, attrs);
-                resp = await MatchmakerService.Instance.CreateTicketAsync(players, options);
-            } catch(Exception e) {
-                Debug.LogError($"[UGS Matchmaker] CreateTicketAsync failed: {e.Message}");
-                CancelMatchmaking();
-                return;
+            const int createTicketMaxAttempts = 3;
+            const int createTicketBaseDelayMs = 800;
+            CreateTicketResponse resp = null;
+            for(var attempt = 1; attempt <= createTicketMaxAttempts; attempt++) {
+                try {
+                    var options = new CreateTicketOptions(_matchmakerQueueName, attrs);
+                    resp = await MatchmakerService.Instance.CreateTicketAsync(players, options);
+                    break;
+                } catch(Exception e) when(attempt < createTicketMaxAttempts) {
+                    if(IsTransientCreateTicketError(e)) {
+                        var delayMs = createTicketBaseDelayMs * attempt;
+                        if(Debug.isDebugBuild) {
+                            Debug.LogWarning(
+                                $"[UGS Matchmaker] CreateTicketAsync transient failure (attempt {attempt}/{createTicketMaxAttempts}): {e.Message}. Retrying in {delayMs}ms.");
+                        }
+                        try {
+                            await UniTask.Delay(delayMs, cancellationToken: _ctx.SessionLifetimeToken);
+                        } catch(OperationCanceledException) {
+                            return;
+                        }
+                    } else {
+                        Debug.LogError($"[UGS Matchmaker] CreateTicketAsync failed (terminal): {e.Message}");
+                        CancelMatchmaking();
+                        return;
+                    }
+                } catch(Exception e) {
+                    Debug.LogError($"[UGS Matchmaker] CreateTicketAsync failed after {createTicketMaxAttempts} attempts: {e.Message}");
+                    CancelMatchmaking();
+                    return;
+                }
             }
 
             _matchmakerTicketId = resp != null ? resp.Id : null;
@@ -532,6 +554,42 @@ namespace Network.Session {
                      exception.Message.IndexOf("Not Found", StringComparison.OrdinalIgnoreCase) >= 0 ||
                      exception.Message.IndexOf("EntityNotFound", StringComparison.OrdinalIgnoreCase) >= 0
             };
+        }
+
+        /// <summary>True if the error is transient (network, timeout, rate limit, 5xx). False if terminal (auth, bad config).</summary>
+        private static bool IsTransientCreateTicketError(Exception e) {
+            if(e == null) return false;
+            var msg = e.Message ?? "";
+            if(e is MatchmakerServiceException mse) {
+                var reasonStr = mse.Reason.ToString();
+                // Terminal: auth or bad request/config
+                if(reasonStr.IndexOf("Unauthorized", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                   reasonStr.IndexOf("Forbidden", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                   reasonStr.IndexOf("BadRequest", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                   reasonStr.IndexOf("NotFound", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                   reasonStr.IndexOf("Invalid", StringComparison.OrdinalIgnoreCase) >= 0)
+                    return false;
+                // Transient: network, timeout, rate limit, server errors
+                if(reasonStr.IndexOf("NetworkError", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                   reasonStr.IndexOf("Timeout", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                   reasonStr.IndexOf("RateLimit", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                   reasonStr.IndexOf("ServiceUnavailable", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                   reasonStr.IndexOf("GatewayTimeout", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                   reasonStr.IndexOf("InternalServerError", StringComparison.OrdinalIgnoreCase) >= 0)
+                    return true;
+            }
+            // Fallback: treat timeout/network in message as transient
+            if(msg.IndexOf("timeout", StringComparison.OrdinalIgnoreCase) >= 0 ||
+               msg.IndexOf("NetworkError", StringComparison.OrdinalIgnoreCase) >= 0 ||
+               msg.IndexOf("Request timeout", StringComparison.OrdinalIgnoreCase) >= 0)
+                return true;
+            if(msg.IndexOf("429", StringComparison.OrdinalIgnoreCase) >= 0 || msg.IndexOf("RateLimit", StringComparison.OrdinalIgnoreCase) >= 0)
+                return true;
+            if(msg.IndexOf("401", StringComparison.OrdinalIgnoreCase) >= 0 || msg.IndexOf("403", StringComparison.OrdinalIgnoreCase) >= 0 ||
+               msg.IndexOf("400", StringComparison.OrdinalIgnoreCase) >= 0 || msg.IndexOf("404", StringComparison.OrdinalIgnoreCase) >= 0)
+                return false;
+            // Unknown: treat as transient so we retry
+            return true;
         }
 
         private async UniTask<bool> HandleMatchIdAssignmentStatusAsync(MatchIdAssignment assign, string mode,
