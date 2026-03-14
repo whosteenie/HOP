@@ -7,7 +7,6 @@ using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.TestTools;
-using Network.Session;
 
 namespace Tests.PlayMode {
     public class SessionDisconnectFlowTests {
@@ -132,8 +131,9 @@ namespace Tests.PlayMode {
             PlayModeTestUtils.GetPrivateField<object>(_sessionManagerComponent, "_sceneFlow");
 
         private void InvokeTriggerUnexpectedDisconnectFlow(object sceneFlowService, string source) {
-            var method = sceneFlowService.GetType().GetMethod("TriggerUnexpectedDisconnectFlow",
-                BindingFlags.Public | BindingFlags.Instance, null, new[] { typeof(ISessionContext), typeof(ISceneFlowActions), typeof(string) }, null);
+            var method = sceneFlowService.GetType().GetMethod(
+                "TriggerUnexpectedDisconnectFlow",
+                BindingFlags.Public | BindingFlags.Instance);
             Assert.That(method, Is.Not.Null, "TriggerUnexpectedDisconnectFlow(ISessionContext, ISceneFlowActions, string)");
             method.Invoke(sceneFlowService, new object[] { _sessionManagerComponent, _sessionManagerComponent, source });
         }
@@ -143,14 +143,17 @@ namespace Tests.PlayMode {
             Assert.That(lifecycleType, Is.Not.Null, "SessionNetworkLifecycle type");
             var method = lifecycleType.GetMethod("RunOnClientStoppedLogic", BindingFlags.NonPublic | BindingFlags.Static);
             Assert.That(method, Is.Not.Null, "RunOnClientStoppedLogic");
-            Func<bool> hasActiveSession = () => (bool)lifecycleType.GetProperty("HasActiveSession", BindingFlags.Public | BindingFlags.Static).GetValue(null);
-            Action<string> trigger = sceneFlowService != null
+            var trigger = sceneFlowService != null
                 ? (Action<string>)(source => InvokeTriggerUnexpectedDisconnectFlow(sceneFlowService, source))
                 : _ => { };
-            method.Invoke(null, new object[] { sessionManager, sessionManager, networkManager, hasActiveSession, trigger });
+            method.Invoke(null, new[] { sessionManager, sessionManager, networkManager, (Func<bool>)HasActiveSession, trigger });
+            return;
+            bool HasActiveSession() => (bool)lifecycleType.GetProperty("HasActiveSession", BindingFlags.Public | BindingFlags.Static).GetValue(null);
         }
 
-        private static bool GetUnexpectedDisconnectInFlight(object sceneFlowService) =>
-            PlayModeTestUtils.GetPrivateField<bool>(sceneFlowService, "_unexpectedDisconnectInFlight");
+        private static bool GetUnexpectedDisconnectInFlight(object sceneFlowService) {
+            Assert.That(sceneFlowService, Is.Not.Null, "Scene flow service should not be null.");
+            return PlayModeTestUtils.GetPrivateField<bool>(sceneFlowService, "_unexpectedDisconnectInFlight");
+        }
     }
 }
