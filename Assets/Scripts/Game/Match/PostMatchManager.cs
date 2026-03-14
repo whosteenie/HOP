@@ -5,7 +5,6 @@ using System.Linq;
 using Cysharp.Threading.Tasks;
 using Game.Menu;
 using Game.Spawning;
-using Game.UI;
 using Game.Hopball;
 using Game.Player.Combat;
 using Game.Player.Core;

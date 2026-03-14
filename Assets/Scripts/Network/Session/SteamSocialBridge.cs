@@ -279,7 +279,7 @@ namespace Network.Session {
 
         /// <summary>Updates the local player's display name, avatar hidden, and player icon in the Steam lobby.</summary>
         public static void UpdateLocalDisplayNameInLobby(ISessionContext ctx) {
-            if(ctx == null || !ctx.CurrentLobby.HasValue) return;
+            if(ctx is not { CurrentLobby: not null }) return;
             if(!SteamClient.IsValid || !SteamClient.IsLoggedOn) return;
             try {
                 var displayName = StreamerMode.GetLocalDisplayName();

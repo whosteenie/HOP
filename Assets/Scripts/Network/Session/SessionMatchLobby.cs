@@ -465,7 +465,7 @@ namespace Network.Session {
             return Mathf.Max(teamAKills, teamBKills) / (float)Mathf.Max(1, scoreToWin);
         }
 
-        private async UniTask<bool> TryUpdatePublicMatchBackfillEligibilityAsync(ISessionContext ctx, bool allowed, string reason, string context) {
+        private static async UniTask<bool> TryUpdatePublicMatchBackfillEligibilityAsync(ISessionContext ctx, bool allowed, string reason, string context) {
             var matchLobby = ctx.UgsMatchLobby;
             if(matchLobby == null || string.IsNullOrEmpty(matchLobby.Id) || matchLobby.Data == null) return false;
             try {

@@ -530,15 +530,11 @@ namespace Network.Session {
         private static Action<ulong> onClientDisconnected;
         private static Action<bool> onClientStopped;
         private static NetworkManager.OnSessionOwnerPromotedDelegateHandler onSessionOwnerPromoted;
-
-        /// <summary>
-        /// Subscribes to NGO NetworkManager callbacks for client connect/disconnect, client stopped, and session owner promoted.
-        /// Call from SessionManager OnEnable after resolving NetworkManager.
-        /// </summary>
+        
         /// <summary>
         /// Runs the same logic as the OnClientStopped callback. Used by the registered delegate and by PlayMode tests.
         /// </summary>
-        public static void RunOnClientStoppedLogic(
+        private static void RunOnClientStoppedLogic(
             ISessionContext ctx,
             ISceneFlowActions sceneActions,
             NetworkManager networkManager,
@@ -562,6 +558,10 @@ namespace Network.Session {
             triggerUnexpectedDisconnect("OnClientStopped");
         }
 
+        /// <summary>
+        /// Subscribes to NGO NetworkManager callbacks for client connect/disconnect, client stopped, and session owner promoted.
+        /// Call from SessionManager OnEnable after resolving NetworkManager.
+        /// </summary>
         public static void RegisterNetworkCallbacks(
             NetworkManager networkManager,
             ISessionContext ctx,

@@ -7,6 +7,7 @@ using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.TestTools;
+using Network.Session;
 
 namespace Tests.PlayMode {
     public class SessionDisconnectFlowTests {
@@ -128,19 +129,19 @@ namespace Tests.PlayMode {
         }
 
         private object GetSceneFlowService() =>
-            PlayModeTestUtils.GetPrivateField<object>(_sessionManagerComponent, "_sceneFlowService");
+            PlayModeTestUtils.GetPrivateField<object>(_sessionManagerComponent, "_sceneFlow");
 
         private void InvokeTriggerUnexpectedDisconnectFlow(object sceneFlowService, string source) {
             var method = sceneFlowService.GetType().GetMethod("TriggerUnexpectedDisconnectFlow",
-                BindingFlags.Public | BindingFlags.Instance, null, new[] { typeof(object), typeof(object), typeof(string) }, null);
+                BindingFlags.Public | BindingFlags.Instance, null, new[] { typeof(ISessionContext), typeof(ISceneFlowActions), typeof(string) }, null);
             Assert.That(method, Is.Not.Null, "TriggerUnexpectedDisconnectFlow(ISessionContext, ISceneFlowActions, string)");
             method.Invoke(sceneFlowService, new object[] { _sessionManagerComponent, _sessionManagerComponent, source });
         }
 
         private void RunOnClientStoppedLogic(object sessionManager, NetworkManager networkManager, object sceneFlowService) {
-            var lifecycleType = Type.GetType("Network.Session.SessionNetworkLifecycleService, Assembly-CSharp");
-            Assert.That(lifecycleType, Is.Not.Null, "SessionNetworkLifecycleService type");
-            var method = lifecycleType.GetMethod("RunOnClientStoppedLogic", BindingFlags.Public | BindingFlags.Static);
+            var lifecycleType = Type.GetType("Network.Session.SessionNetworkLifecycle, Assembly-CSharp");
+            Assert.That(lifecycleType, Is.Not.Null, "SessionNetworkLifecycle type");
+            var method = lifecycleType.GetMethod("RunOnClientStoppedLogic", BindingFlags.NonPublic | BindingFlags.Static);
             Assert.That(method, Is.Not.Null, "RunOnClientStoppedLogic");
             Func<bool> hasActiveSession = () => (bool)lifecycleType.GetProperty("HasActiveSession", BindingFlags.Public | BindingFlags.Static).GetValue(null);
             Action<string> trigger = sceneFlowService != null

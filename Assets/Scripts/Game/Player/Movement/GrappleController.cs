@@ -4,7 +4,6 @@ using Game.Match;
 using Game.Player.Combat;
 using Game.Player.Core;
 using Game.Progression;
-using Game.Weapons;
 using Game.Weapons.Kinemation;
 using Network.Events;
 using Unity.Cinemachine;

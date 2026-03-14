@@ -63,7 +63,7 @@ namespace Game.UI.Screens {
             _players.Clear();
         }
 
-        public void ClearProfileStateSubscriptions() {
+        private void ClearProfileStateSubscriptions() {
             foreach(var entry in _boundProfileStates) {
                 if(entry.Value == null) continue;
                 entry.Value.playerName.OnValueChanged -= OnPlayerProfileChanged;

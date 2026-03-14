@@ -585,11 +585,9 @@ namespace Network.Session {
                 return true;
             if(msg.IndexOf("429", StringComparison.OrdinalIgnoreCase) >= 0 || msg.IndexOf("RateLimit", StringComparison.OrdinalIgnoreCase) >= 0)
                 return true;
-            if(msg.IndexOf("401", StringComparison.OrdinalIgnoreCase) >= 0 || msg.IndexOf("403", StringComparison.OrdinalIgnoreCase) >= 0 ||
-               msg.IndexOf("400", StringComparison.OrdinalIgnoreCase) >= 0 || msg.IndexOf("404", StringComparison.OrdinalIgnoreCase) >= 0)
-                return false;
+            return msg.IndexOf("401", StringComparison.OrdinalIgnoreCase) < 0 && msg.IndexOf("403", StringComparison.OrdinalIgnoreCase) < 0 &&
+                   msg.IndexOf("400", StringComparison.OrdinalIgnoreCase) < 0 && msg.IndexOf("404", StringComparison.OrdinalIgnoreCase) < 0;
             // Unknown: treat as transient so we retry
-            return true;
         }
 
         private async UniTask<bool> HandleMatchIdAssignmentStatusAsync(MatchIdAssignment assign, string mode,

@@ -223,7 +223,7 @@ namespace Game.Menu {
             if(Root != null)
                 privateMatchSetupManager.Initialize(Root);
             if(uiManager != null)
-                privateMatchSetupManager.SetPartyMemberTemplate(uiManager.PartyMemberTemplate);
+                MainMenuPrivateMatchSetupManager.SetPartyMemberTemplate(uiManager.PartyMemberTemplate);
             if(sessionManager != null)
                 privateMatchSetupManager.SetSessionManager(sessionManager);
         }

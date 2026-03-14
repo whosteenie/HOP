@@ -221,7 +221,7 @@ namespace Game.Player.Visual {
         /// <summary>
         /// Plays the landing animation on all clients.
         /// </summary>
-        public void TriggerLandingAnimation() {
+        private void TriggerLandingAnimation() {
             if(_playerAnimator == null) return;
             if(!IsOwner) return;
 

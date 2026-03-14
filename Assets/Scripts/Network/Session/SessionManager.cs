@@ -195,7 +195,7 @@ namespace Network.Session {
             await SessionNetworkLifecycle.JoinDistributedAuthoritySessionAsync(
                 sessionCode, isPrivateMatch, this, this, this, contextLabel);
 
-        private async UniTask LeaveActiveMultiplayerSessionAsync(string contextLabel) {
+        private static async UniTask LeaveActiveMultiplayerSessionAsync(string contextLabel) {
             var activeSession = SessionNetworkLifecycle.GetActiveSession();
             if(activeSession == null) return;
             SessionNetworkLifecycle.UnbindActiveMultiplayerSession();

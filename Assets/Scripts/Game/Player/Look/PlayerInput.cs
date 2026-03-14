@@ -5,7 +5,6 @@ using Game.Player.Core;
 using Game.Player.Movement;
 using Game.Settings;
 using Game.Social;
-using Game.UI;
 using Game.UI.HUD;
 using Game.UI.Screens;
 using Game.Weapons.Core;
@@ -46,7 +45,7 @@ namespace Game.Player.Look {
 
         [SerializeField] private bool toggleCrouch = true;
         
-        [Header("Bot Control")] public bool IsBot { get; set; }
+        [Header("Bot Control")] private bool IsBot { get; }
 
         #endregion
 
@@ -971,6 +970,10 @@ namespace Game.Player.Look {
         [SerializeField] private Vector3 sniperScopedWeaponRotation = Vector3.zero;
         [SerializeField] private Vector3 sniperMuzzleCameraOffset = new(0f, -0.05f, 0.15f);
         private float _sniperSensitivityMultiplier = 1f;
+
+        public PlayerInput(bool isBot) {
+            IsBot = isBot;
+        }
 
         public Vector3 SniperMuzzleCameraOffset => sniperMuzzleCameraOffset;
 

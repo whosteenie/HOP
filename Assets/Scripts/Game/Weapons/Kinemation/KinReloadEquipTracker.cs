@@ -9,11 +9,9 @@ namespace Game.Weapons.Kinemation {
         private const float EquipEnterGraceSeconds = 0.2f;
         private const float EquipSignalGraceSeconds = 0.05f;
 
-        private bool _isTrackingReload;
         private bool _reloadHasBeenActive;
         private bool _reloadHasReceivedAnyEvent;
         private bool _reloadCompleteEventReceived;
-        private bool _isTrackingEquip;
         private bool _equipHasBeenActive;
         private bool _equipCompleteEventReceived;
         private int _pendingReloadSingleEvents;
@@ -37,19 +35,19 @@ namespace Game.Weapons.Kinemation {
         private bool _suppressDrakeBottomShellOnNextReload;
 
         public void StartReloadTracking() {
-            _isTrackingReload = true;
+            IsTrackingReload = true;
             _reloadTrackStartTime = Time.time;
             _lastReloadSignalTime = Time.time;
         }
 
         public void StartEquipTracking() {
-            _isTrackingEquip = true;
+            IsTrackingEquip = true;
             _equipTrackStartTime = Time.time;
             _lastEquipSignalTime = Time.time;
         }
 
         public void ResetReloadTracking() {
-            _isTrackingReload = false;
+            IsTrackingReload = false;
             _reloadHasBeenActive = false;
             _reloadHasReceivedAnyEvent = false;
             _reloadCompleteEventReceived = false;
@@ -66,7 +64,7 @@ namespace Game.Weapons.Kinemation {
         }
 
         public void ResetEquipTracking() {
-            _isTrackingEquip = false;
+            IsTrackingEquip = false;
             _equipHasBeenActive = false;
             _equipCompleteEventReceived = false;
             _equipTrackStartTime = 0f;
@@ -74,7 +72,7 @@ namespace Game.Weapons.Kinemation {
         }
 
         public bool IsReloadSequenceInProgress(bool reloadClipActiveNow) {
-            if(!_isTrackingReload) return false;
+            if(!IsTrackingReload) return false;
             if(_reloadCompleteEventReceived) return false;
             if(reloadClipActiveNow) {
                 _reloadHasBeenActive = true;
@@ -83,29 +81,32 @@ namespace Game.Weapons.Kinemation {
             }
             if(_reloadHasReceivedAnyEvent && Time.time - _lastReloadSignalTime <= ReloadSignalGraceSeconds) return true;
             if(!_reloadHasBeenActive) return Time.time - _reloadTrackStartTime < ReloadEnterGraceSeconds;
-            _isTrackingReload = false;
+            IsTrackingReload = false;
             return false;
         }
 
         public bool IsEquipSequenceInProgress(bool equipActiveNow, float equipProgress, float equipUnlockNormalizedTime) {
-            if(!_isTrackingEquip) return false;
+            if(!IsTrackingEquip) return false;
             if(_equipCompleteEventReceived) {
-                _isTrackingEquip = false;
+                IsTrackingEquip = false;
                 return false;
             }
             if(equipActiveNow) {
                 _equipHasBeenActive = true;
                 _lastEquipSignalTime = Time.time;
-                if(equipProgress >= equipUnlockNormalizedTime) {
-                    _isTrackingEquip = false;
-                    return false;
-                }
-                return true;
+                if(!(equipProgress >= equipUnlockNormalizedTime)) return true;
+                IsTrackingEquip = false;
+                return false;
             }
-            if(_equipHasBeenActive && Time.time - _lastEquipSignalTime <= EquipSignalGraceSeconds) return true;
-            if(!_equipHasBeenActive) return Time.time - _equipTrackStartTime < EquipEnterGraceSeconds;
-            _isTrackingEquip = false;
-            return false;
+            switch(_equipHasBeenActive) {
+                case true when Time.time - _lastEquipSignalTime <= EquipSignalGraceSeconds:
+                    return true;
+                case false:
+                    return Time.time - _equipTrackStartTime < EquipEnterGraceSeconds;
+                default:
+                    IsTrackingEquip = false;
+                    return false;
+            }
         }
 
         public int ConsumeReloadSingleEventCount() {
@@ -119,7 +120,7 @@ namespace Game.Weapons.Kinemation {
         public bool ConsumeReloadCompleteEvent() {
             if(!_reloadCompleteEventReceived) return false;
             _reloadCompleteEventReceived = false;
-            _isTrackingReload = false;
+            IsTrackingReload = false;
             return true;
         }
 
@@ -145,11 +146,11 @@ namespace Game.Weapons.Kinemation {
         }
 
         public void NotifyEquipCompleteEvent(Action onEquipComplete) {
-            if(!_isTrackingEquip) return;
+            if(!IsTrackingEquip) return;
             _equipHasBeenActive = true;
             _equipCompleteEventReceived = true;
             _lastEquipSignalTime = Time.time;
-            _isTrackingEquip = false;
+            IsTrackingEquip = false;
             onEquipComplete?.Invoke();
         }
 
@@ -170,12 +171,12 @@ namespace Game.Weapons.Kinemation {
             _drakeShotCanceledEmptyReloadAfterAmmoEject = false;
         }
 
-        public bool ShouldHideDrakeTopShellForThisReload(bool isDrake, bool drakeTopShellEjectedSinceReloadComplete, bool drakeShotCanceledReloadAfterAmmoEject) {
+        public static bool ShouldHideDrakeTopShellForThisReload(bool isDrake, bool drakeTopShellEjectedSinceReloadComplete, bool drakeShotCanceledReloadAfterAmmoEject) {
             return isDrake && drakeTopShellEjectedSinceReloadComplete && drakeShotCanceledReloadAfterAmmoEject;
         }
 
         public void NotifyAmmoEjectForDrake() {
-            if(_isTrackingReload) {
+            if(IsTrackingReload) {
                 _reloadHasReceivedAnyEvent = true;
                 _lastReloadSignalTime = Time.time;
                 _reloadHasBeenActive = true;
@@ -203,13 +204,13 @@ namespace Game.Weapons.Kinemation {
 
         public void MarkDrakeReloadCanceledByShot() {
             _drakeShotCanceledReloadAfterAmmoEject = true;
-            if(_drakeCurrentReloadStartedEmpty && _drakeCurrentEmptyReloadSawAmmoEject) {
-                _drakeShotCanceledEmptyReloadAfterAmmoEject = true;
-                _suppressDrakeBottomShellOnNextReload = true;
-            }
+            if(!_drakeCurrentReloadStartedEmpty || !_drakeCurrentEmptyReloadSawAmmoEject) return;
+            _drakeShotCanceledEmptyReloadAfterAmmoEject = true;
+            _suppressDrakeBottomShellOnNextReload = true;
         }
 
-        public bool IsTrackingReload => _isTrackingReload;
-        public bool IsTrackingEquip => _isTrackingEquip;
+        public bool IsTrackingReload { get; private set; }
+
+        private bool IsTrackingEquip { get; set; }
     }
 }
