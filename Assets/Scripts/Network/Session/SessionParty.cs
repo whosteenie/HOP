@@ -16,7 +16,7 @@ namespace Network.Session {
     /// <summary>
     /// Creates and joins UGS party lobbies; coordinates with Steam social lobby and event subscription.
     /// </summary>
-    public sealed class SessionPartyService {
+    public sealed class SessionParty {
         private const string UgsPartyIdKey = "partyId";
         private const string UgsFollowMatchLobbyIdKey = "followMatchLobbyId";
         private const string UgsLobbyStateKey = "lobbyState";
@@ -176,7 +176,7 @@ namespace Network.Session {
         }
 
         /// <summary>If local player is party host, clears followMatchLobbyId and lobbyState on the party lobby. Call during leave-to-menu.</summary>
-        public static async UniTask ResetPartyFollowStateIfHostAsync(ISessionContext ctx, IPartySessionActions partyActions, SessionMatchLobbyService matchLobbyService) {
+        public static async UniTask ResetPartyFollowStateIfHostAsync(ISessionContext ctx, IPartySessionActions partyActions, SessionMatchLobby matchLobby) {
             var partyLobby = ctx.UgsPartyLobby;
             if(partyLobby == null) return;
 
@@ -198,7 +198,7 @@ namespace Network.Session {
                 };
                 var updated = await LobbyService.Instance.UpdateLobbyAsync(partyLobby.Id, update);
                 ctx.SetUgsPartyLobby(updated);
-                matchLobbyService.ResetFollowState();
+                matchLobby.ResetFollowState();
                 if(Debug.isDebugBuild) Debug.Log("[SessionManager] Cleared stale followMatchLobbyId on party lobby.");
             } catch(LobbyServiceException ex) when(ex.Reason is LobbyExceptionReason.LobbyNotFound or LobbyExceptionReason.EntityNotFound) {
                 ctx.SetUgsPartyLobby(null);
@@ -257,7 +257,7 @@ namespace Network.Session {
             IMatchSnapshotActions snapshotActions,
             IPartySessionActions partyActions,
             ILobbyEventActions lobbyActions,
-            SessionMatchLobbyService matchLobbyService,
+            SessionMatchLobby matchLobby,
             IPrivateMatchHostActions hostActions) {
             if(!ctx.TryBeginSessionOperation("StartPrivateMatchAsync")) return;
             try {
@@ -287,15 +287,15 @@ namespace Network.Session {
                     return;
                 }
 
-                await matchLobbyService.CreatePrivateMatchLobbyAsync(ctx, partyActions, lobbyActions, mode, maxPlayers, sessionCode, expectedCsv);
+                await matchLobby.CreatePrivateMatchLobbyAsync(ctx, partyActions, lobbyActions, mode, maxPlayers, sessionCode, expectedCsv);
 
                 snapshotActions.UgsSyncInProgress = false;
                 snapshotActions.UgsLocalReadySubmitted = false;
                 snapshotActions.UgsClientStartedForMatch = false;
 
-                await matchLobbyService.StartMatchSynchronizationAsync(ctx, snapshotActions, lobbyActions, skipFadeOut: false);
+                await matchLobby.StartMatchSynchronizationAsync(ctx, snapshotActions, lobbyActions, skipFadeOut: false);
 
-                if(await matchLobbyService.WaitForMatchPlayersReadyAsync(ctx, expectedPlayers, 20f, "PrivateMatch") == false) {
+                if(await matchLobby.WaitForMatchPlayersReadyAsync(ctx, expectedPlayers, 20f, "PrivateMatch") == false) {
                     await hostActions.LeaveToMainMenuAsync();
                     return;
                 }

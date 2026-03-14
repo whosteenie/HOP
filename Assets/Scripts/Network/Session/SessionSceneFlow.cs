@@ -17,7 +17,7 @@ namespace Network.Session {
     /// <summary>
     /// Handles unexpected disconnect and gameplay readiness (wait for player/menu/timer ready).
     /// </summary>
-    public sealed class SessionSceneFlowService {
+    public sealed class SessionSceneFlow {
         private sealed class GameplayReadinessLatch {
             private readonly UniTaskCompletionSource<bool> _completion = new();
             private bool _localPlayerReady;
@@ -128,7 +128,7 @@ namespace Network.Session {
         /// </summary>
         public void TriggerUnexpectedDisconnectFlow(ISessionContext ctx, ISceneFlowActions actions, string source) {
             if(_unexpectedDisconnectInFlight || ctx.IsLeaving || ctx.IsShuttingDown) return;
-            if(SessionNetworkLifecycleService.IsDistributedAuthorityStartupInFlight) {
+            if(SessionNetworkLifecycle.IsDistributedAuthorityStartupInFlight) {
                 if(Debug.isDebugBuild) {
                     Debug.Log($"[SessionManager] Suppressed unexpected disconnect flow during DA startup ({source}).");
                 }
@@ -232,7 +232,7 @@ namespace Network.Session {
                 utp.SetConnectionData("127.0.0.1", 7777);
                 networkManager.NetworkConfig.NetworkTransport = utp;
 
-                SessionNetworkLifecycleService.ApplyLocalConnectionPayload(ctx, true);
+                SessionNetworkLifecycle.ApplyLocalConnectionPayload(ctx, true);
                 if(!networkManager.StartHost()) {
                     if(Debug.isDebugBuild) Debug.LogError("[SessionManager] Failed to start offline host after cleanup.");
                     ctx.SetFrontStatus(SessionPhase.Error, "Failed to start offline host.");

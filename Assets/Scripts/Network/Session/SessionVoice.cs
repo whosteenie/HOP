@@ -7,7 +7,7 @@ namespace Network.Session {
     /// <summary>
     /// Voice channel join/leave helpers for Steam social lobby and UGS match. Uses VoiceManager.
     /// </summary>
-    public static class SessionVoiceService {
+    public static class SessionVoice {
         /// <summary>Leaves the current voice channel. Call during leave-to-menu.</summary>
         public static async UniTask TryLeaveVoiceChannelAsync() {
             if(VoiceManager.Instance == null) return;

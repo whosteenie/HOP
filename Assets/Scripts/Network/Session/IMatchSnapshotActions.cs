@@ -12,7 +12,7 @@ namespace Network.Session {
         UniTask StartMatchClientAsync(bool useFadeOut = false, string expectedSessionCode = null, bool? expectedIsPrivateMatch = null);
         UniTask FadeOutWithFallbackAsync(int fallbackDelayMs = 500);
         UniTask LeaveToMainMenuAsync(bool skipFadeOut = false);
-        UniTask<SessionNetworkLifecycleService.DistributedAuthoritySessionJoinResult> JoinDistributedAuthoritySessionAsync(string sessionCode, bool isPrivateMatch, string contextLabel);
+        UniTask<SessionNetworkLifecycle.DistributedAuthoritySessionJoinResult> JoinDistributedAuthoritySessionAsync(string sessionCode, bool isPrivateMatch, string contextLabel);
         UniTask<bool> JoinMatchLobbyByIdAsync(string lobbyId);
 
         bool UgsLocalReadySubmitted { get; set; }

@@ -16,7 +16,7 @@ namespace Network.Session {
     /// Owns distributed authority (DA) create/join, match-lobby refresh after host change, and network cleanup.
     /// Shuts down Netcode/UGS session and NGO: leave DA session, then shutdown NetworkManager.
     /// </summary>
-    public static class SessionNetworkLifecycleService {
+    public static class SessionNetworkLifecycle {
         private const int ShutdownMaxWaitFrames = 240;
         private const string MultiplayerSessionType = "HOP.Match";
         private const string MultiplayerSessionModeKey = "mode";
@@ -155,7 +155,7 @@ namespace Network.Session {
             await UniTask.Yield(PlayerLoopTiming.LastPostLateUpdate);
         }
 
-        #region Distributed Authority create / join / refresh (moved from SessionManager)
+        #region Distributed Authority create / join / refresh
 
         /// <summary>
         /// Creates a DA session, cleans up first, applies connection payload, binds session via actions.

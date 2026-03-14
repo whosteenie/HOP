@@ -17,7 +17,7 @@ namespace Network.Session {
     /// <summary>
     /// Owns the UGS lobby tick schedule: SynchronizingLoad watchdog, backfill refresh, and party/match heartbeats.
     /// </summary>
-    public sealed class SessionMatchLobbyService {
+    public sealed class SessionMatchLobby {
         private const float UgsHeartbeatIntervalSeconds = 1f;
         private const float SynchronizingLoadWatchdogSeconds = 30f;
 
@@ -959,7 +959,7 @@ namespace Network.Session {
             if(ctx.IsLeaving || ctx.IsShuttingDown || string.IsNullOrWhiteSpace(sessionCode)) return;
             RefreshDistributedAuthorityJoinRetrySessionCode(sessionCode);
 
-            var delaySeconds = SessionNetworkLifecycleService.ComputeDistributedAuthorityJoinRetryDelaySeconds(_distributedAuthorityJoinRetryAttempt);
+            var delaySeconds = SessionNetworkLifecycle.ComputeDistributedAuthorityJoinRetryDelaySeconds(_distributedAuthorityJoinRetryAttempt);
             _distributedAuthorityJoinRetryAttempt++;
             _nextDistributedAuthorityJoinRetryTime = Time.unscaledTime + delaySeconds;
 
@@ -1099,11 +1099,11 @@ namespace Network.Session {
                 var isPrivateMatch = expectedIsPrivateMatch ?? IsPrivateMatchLobby(ctx.UgsMatchLobby);
                 var joinResult = await actions.JoinDistributedAuthoritySessionAsync(sessionCode, isPrivateMatch, "StartMatchClientAsync");
                 switch(joinResult) {
-                    case SessionNetworkLifecycleService.DistributedAuthoritySessionJoinResult.Success:
+                    case SessionNetworkLifecycle.DistributedAuthoritySessionJoinResult.Success:
                         ResetDistributedAuthorityJoinRetryState();
                         shouldResetClientStartFlag = false;
                         return;
-                    case SessionNetworkLifecycleService.DistributedAuthoritySessionJoinResult.RateLimited:
+                    case SessionNetworkLifecycle.DistributedAuthoritySessionJoinResult.RateLimited:
                         ScheduleDistributedAuthorityJoinRetry(ctx, actions, sessionCode, isPrivateMatch);
                         return;
                     default:

@@ -7,7 +7,7 @@ using UnityEngine;
 
 namespace Network.Session {
     /// <summary>Kick and promote party members in the UGS party lobby.</summary>
-    public static class SessionPartyModerationService {
+    public static class SessionPartyModeration {
         public static void KickMember(ISessionContext ctx, SteamId targetId) {
             if(targetId.Value == 0) return;
             if(ctx.UgsPartyLobby == null) {

@@ -17,7 +17,7 @@ namespace Network.Session {
     /// <summary>
     /// UGS matchmaker ticketing, backfill join-in-progress, and assignment handling.
     /// </summary>
-    public sealed class SessionMatchmakerService {
+    public sealed class SessionMatchmaker {
         private const string UgsMatchTypeKey = "matchType";
         private const string UgsTargetModeKey = "targetMode";
         private const string UgsLobbyStateKey = "lobbyState";
@@ -25,7 +25,7 @@ namespace Network.Session {
 
         private ISessionContext _ctx;
         private IMatchmakerSessionActions _actions;
-        private SessionMatchLobbyService _matchLobbyService;
+        private SessionMatchLobby _matchLobby;
 
         private string _matchmakerTicketId;
         private string _matchmakerQueueName;
@@ -157,13 +157,13 @@ namespace Network.Session {
             _actions = actions;
         }
 
-        public void SetMatchLobbyService(SessionMatchLobbyService matchLobbyService) {
-            _matchLobbyService = matchLobbyService;
+        public void SetMatchLobbyService(SessionMatchLobby matchLobby) {
+            _matchLobby = matchLobby;
         }
 
         /// <summary>Polls for the host-created match lobby by matchId then joins via actions. Called when matchmaker assigns this client as non-host.</summary>
         public async UniTask JoinPublicMatchByIdAsync(string matchId) {
-            if(_ctx == null || _actions == null || _matchLobbyService == null) return;
+            if(_ctx == null || _actions == null || _matchLobby == null) return;
             await _ctx.EnsureSignedInAsync();
             if(string.IsNullOrEmpty(matchId)) return;
 
@@ -179,7 +179,7 @@ namespace Network.Session {
                 }
 
                 try {
-                    var lobby = await _matchLobbyService.QueryMatchLobbyByMatchIdAsync(matchId);
+                    var lobby = await _matchLobby.QueryMatchLobbyByMatchIdAsync(matchId);
                     if(lobby != null) {
                         if(Debug.isDebugBuild) {
                             Debug.Log($"[SessionManager] Found lobby! lobbyId='{lobby.Id}'. Joining...");
@@ -747,7 +747,7 @@ namespace Network.Session {
             await _actions.PreFadePublicHostAsync();
             await _actions.MarkHostReadyInMatchLobbyAsync();
 
-            if(await _matchLobbyService.WaitForMatchPlayersReadyAsync(_ctx, expectedPlayerIds, 60f, "PublicMatch") ==
+            if(await _matchLobby.WaitForMatchPlayersReadyAsync(_ctx, expectedPlayerIds, 60f, "PublicMatch") ==
                false) {
                 Debug.LogError("[SessionManager] Timed out waiting for all players. Aborting to menu...");
                 await _ctx.LeaveToMainMenuAsync();
