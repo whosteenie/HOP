@@ -25,7 +25,7 @@ namespace Network.Session {
     /// Steam is used as a social layer (party metadata, invites, rich presence).
     /// Orchestrates NetworkManager lifecycle for host/client transitions.
     /// </summary>
-    public sealed partial class SessionManager : Singleton<SessionManager>, ISessionContext, ISteamSessionActions {
+    public sealed partial class SessionManager : Singleton<SessionManager>, ISessionContext, ISteamSessionActions, IMatchmakerSessionActions {
         // ===== State =====
         public Lobby? CurrentLobby { get; private set; }
         private SessionPhase _phase;
@@ -205,6 +205,8 @@ namespace Network.Session {
 
             _partyModerationService = new SessionPartyModerationService();
             _steamSocialBridge = new SteamSocialBridge();
+            _matchmakerService = new SessionMatchmakerService();
+            _matchmakerService.SetContext(this, this);
 
             SelectedMapSceneName = MatchMapService.DefaultGameplaySceneName;
             SelectedMapId = MatchMapService.DefaultMapId;
@@ -212,6 +214,7 @@ namespace Network.Session {
 
         private SessionPartyModerationService _partyModerationService;
         private SteamSocialBridge _steamSocialBridge;
+        private SessionMatchmakerService _matchmakerService;
 
         private void OnEnable() {
             RegisterNetworkCallbacks();
@@ -564,6 +567,7 @@ namespace Network.Session {
         bool ISessionContext.IsSessionBusy => IsSessionBusy;
         int ISessionContext.ExpectedGamePlayerCount => ExpectedGamePlayerCount;
         CancellationToken ISessionContext.SessionLifetimeToken => SessionLifetimeToken;
+        float ISessionContext.MatchmakingStartTime => MatchmakingStartTime;
 
         void ISessionContext.SetPhase(SessionPhase value) => Phase = value;
         void ISessionContext.SetCurrentLobby(Lobby? value) => CurrentLobby = value;
@@ -573,6 +577,8 @@ namespace Network.Session {
         void ISessionContext.SetUgsMatchLobby(Unity.Services.Lobbies.Models.Lobby value) => _ugsMatchLobby = value;
         void ISessionContext.SetIsInGameplay(bool value) => IsInGameplay = value;
         void ISessionContext.SetIsExpectedDisconnect(bool value) => IsExpectedDisconnect = value;
+        void ISessionContext.SetPrivateMatchMapPreset(bool value) => SetPrivateMatchMapPreset(value);
+        void ISessionContext.SetMatchmakingStartTime(float value) => SetMatchmakingStartTime(value);
 
         void ISessionContext.LaunchSessionTask(UniTask task, string label) => LaunchSessionTask(task, label);
         bool ISessionContext.TryGetNetworkManager(string operationName, out NetworkManager networkManager) =>
@@ -600,6 +606,14 @@ namespace Network.Session {
         UniTask ISteamSessionActions.FollowSessionContextFromSteamLobbyAsync(Lobby lobby) => FollowSessionContextFromSteamLobbyAsync(lobby);
         UniTask ISteamSessionActions.HandleSteamConnectStringAsync(string connect) => HandleSteamConnectStringAsync(connect);
         void ISteamSessionActions.TryJoinVoiceForSteamSocialLobby(ulong lobbyId, string context) => TryJoinVoiceForSteamSocialLobby(lobbyId, context);
+
+        #endregion
+
+        #region IMatchmakerSessionActions
+
+        UniTask<bool> IMatchmakerSessionActions.JoinMatchLobbyByIdAsync(string lobbyId) => JoinMatchLobbyByIdAsync(lobbyId);
+        UniTask IMatchmakerSessionActions.StartPublicMatchAsHostAsync(string mode, int maxPlayers, string matchId, Unity.Services.Matchmaker.Models.StoredMatchmakingResults results) => StartPublicMatchAsHostAsync(mode, maxPlayers, matchId, results);
+        UniTask IMatchmakerSessionActions.JoinPublicMatchByIdAsync(string matchId) => JoinPublicMatchByIdAsync(matchId);
 
         #endregion
 

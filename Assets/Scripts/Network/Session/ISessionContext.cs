@@ -31,6 +31,7 @@ namespace Network.Session {
         bool IsSessionBusy { get; }
         int ExpectedGamePlayerCount { get; }
         CancellationToken SessionLifetimeToken { get; }
+        float MatchmakingStartTime { get; }
 
         // --- State (write) ---
         void SetPhase(SessionPhase value);
@@ -41,6 +42,8 @@ namespace Network.Session {
         void SetUgsMatchLobby(Unity.Services.Lobbies.Models.Lobby value);
         void SetIsInGameplay(bool value);
         void SetIsExpectedDisconnect(bool value);
+        void SetPrivateMatchMapPreset(bool value);
+        void SetMatchmakingStartTime(float value);
 
         // --- Infrastructure ---
         void LaunchSessionTask(UniTask task, string label);

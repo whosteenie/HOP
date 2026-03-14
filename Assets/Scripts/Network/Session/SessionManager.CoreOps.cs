@@ -654,6 +654,8 @@ namespace Network.Session {
         /// <summary>When true, SelectMapForCurrentMode uses existing SelectedMapId/SelectedMapSceneName from private match draft data.</summary>
         private bool _privateMatchMapPreset;
 
+        private void SetPrivateMatchMapPreset(bool value) => _privateMatchMapPreset = value;
+
         private void SelectMapForCurrentMode(string context) {
             var usedPreset = _privateMatchMapPreset;
             if(_privateMatchMapPreset) {
@@ -1162,20 +1164,8 @@ namespace Network.Session {
                 Debug.Log("[SessionManager] ClearMatchmakingState called");
             }
 
-            // Cancel polling
-            if(_matchmakerCts != null) {
-                _matchmakerCts.Cancel();
-                _matchmakerCts.Dispose();
-                _matchmakerCts = null;
-            }
-
-            // Delete ticket from server if we have one
-            if(!string.IsNullOrEmpty(_matchmakerTicketId)) {
-                await DeleteMatchmakerTicketAsync(_matchmakerTicketId);
-                _matchmakerTicketId = null;
-            }
-
-            _matchmakerQueueName = null;
+            _matchmakerService.CancelMatchmaking();
+            await UniTask.Yield();
         }
 
         /// <summary>
