@@ -16,14 +16,13 @@ namespace Game.Weapons.Kinemation {
 
         private readonly KinFpWeaponDriver _driver;
         private readonly KinDriverAudio _audio;
-        private FPSPlayerSettings _runtimePlayerSettings;
 
         public KinDriverBootstrap(KinFpWeaponDriver driver, KinDriverAudio audio) {
             _driver = driver;
             _audio = audio;
         }
 
-        public FPSPlayerSettings RuntimePlayerSettings => _runtimePlayerSettings;
+        private FPSPlayerSettings RuntimePlayerSettings { get; set; }
 
         public bool InitializeIfNeeded(int renderLayer, GameObject fpsPlayerPrefab, GameObject weaponPrefab,
             bool weaponSoundPlaybackDisabled, bool disableKinemationPlayerSounds,
@@ -34,7 +33,7 @@ namespace Game.Weapons.Kinemation {
             }
 
             if(fpsPlayerPrefab == null || weaponPrefab == null) {
-                Debug.LogError("[KinemationFpWeaponDriver] Missing prefabs. Cannot initialize KINEMATION viewmodel.", _driver);
+                Debug.LogError("[KinFpWeaponDriver] Missing prefabs. Cannot initialize KINEMATION viewmodel.", _driver);
                 return false;
             }
 
@@ -44,7 +43,7 @@ namespace Game.Weapons.Kinemation {
 
             var fpsPlayer = playerInstance.GetComponentInChildren<FPSPlayer>(true);
             if(fpsPlayer == null) {
-                Debug.LogError("[KinemationFpWeaponDriver] FPSPlayer component missing on KINEMATION player prefab hierarchy.", _driver);
+                Debug.LogError("[KinFpWeaponDriver] FPSPlayer component missing on KINEMATION player prefab hierarchy.", _driver);
                 Object.Destroy(playerInstance);
                 return false;
             }
@@ -71,10 +70,9 @@ namespace Game.Weapons.Kinemation {
         }
 
         public void CleanupRuntimeSettings() {
-            if(_runtimePlayerSettings != null) {
-                Object.Destroy(_runtimePlayerSettings);
-                _runtimePlayerSettings = null;
-            }
+            if(RuntimePlayerSettings == null) return;
+            Object.Destroy(RuntimePlayerSettings);
+            RuntimePlayerSettings = null;
         }
 
         private static void DisableFpsPlayerMovementControl(FPSPlayer fpsPlayer) {
@@ -88,9 +86,9 @@ namespace Game.Weapons.Kinemation {
 
         private void BuildRuntimeSettings(FPSPlayer fpsPlayer, GameObject weaponPrefab) {
             var sourceSettings = fpsPlayer.playerSettings;
-            _runtimePlayerSettings = sourceSettings != null ? Object.Instantiate(sourceSettings) : ScriptableObject.CreateInstance<FPSPlayerSettings>();
-            _runtimePlayerSettings.weaponPrefabs = new System.Collections.Generic.List<GameObject> { weaponPrefab };
-            fpsPlayer.playerSettings = _runtimePlayerSettings;
+            RuntimePlayerSettings = sourceSettings != null ? Object.Instantiate(sourceSettings) : ScriptableObject.CreateInstance<FPSPlayerSettings>();
+            RuntimePlayerSettings.weaponPrefabs = new System.Collections.Generic.List<GameObject> { weaponPrefab };
+            fpsPlayer.playerSettings = RuntimePlayerSettings;
         }
 
         private static void DisableUnneededComponents(GameObject playerInstance) {

@@ -175,6 +175,11 @@ namespace Game.Weapons.Kinemation {
         }
 
         public void NotifyAmmoEjectForDrake() {
+            if(_isTrackingReload) {
+                _reloadHasReceivedAnyEvent = true;
+                _lastReloadSignalTime = Time.time;
+                _reloadHasBeenActive = true;
+            }
             _drakeTopShellEjectedSinceReloadComplete = true;
             _drakeShotCanceledReloadAfterAmmoEject = false;
             if(_drakeCurrentReloadStartedEmpty) _drakeCurrentEmptyReloadSawAmmoEject = true;

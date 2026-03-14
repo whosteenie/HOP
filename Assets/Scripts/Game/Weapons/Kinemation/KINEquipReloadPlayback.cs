@@ -75,7 +75,7 @@ namespace Game.Weapons.Kinemation {
                 var ammo = authoritativeAmmoBeforeShot >= 0 ? authoritativeAmmoBeforeShot : GetActiveWeaponAmmoForInterrupt();
                 AbortReloadAndSyncAmmo(ammo);
             }
-            _resolver.SuppressInternalMuzzleFx(activeWeapon, true);
+            _resolver.SuppressInternalMuzzleFx(activeWeapon, _context.DisableKinemationInternalMuzzleFx);
             activeWeapon.OnFirePressed();
             activeWeapon.OnFireReleased();
         }

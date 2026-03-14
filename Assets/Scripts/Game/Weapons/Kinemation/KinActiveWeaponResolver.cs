@@ -19,6 +19,7 @@ namespace Game.Weapons.Kinemation {
         bool WeaponSoundPlaybackDisabled { get; }
         bool DisableKinemationPlayerSounds { get; }
         bool RouteWeaponSoundEventsToAudioService { get; }
+        bool DisableKinemationInternalMuzzleFx { get; }
         KinFpWeaponDriver DriverForRelays { get; }
         bool TryGetWeaponCameraTransform(out Transform cameraTransform);
     }
@@ -39,14 +40,14 @@ namespace Game.Weapons.Kinemation {
         private readonly KinActiveWeaponComponentCache _cache = new();
         private readonly HashSet<int> _suppressedMuzzleFxWeaponIds = new();
 
-        private FPSWeapon _activeWeapon;
         private Transform _muzzleTransform;
 
         public KinActiveWeaponResolver(IKinDriverResolverContext context) {
             _context = context;
         }
 
-        public FPSWeapon ActiveWeapon => _activeWeapon;
+        public FPSWeapon ActiveWeapon { get; private set; }
+
         public Transform MuzzleTransform => _muzzleTransform;
 
         public bool TryCacheActiveWeapon(
@@ -57,30 +58,30 @@ namespace Game.Weapons.Kinemation {
             var fpsPlayer = _context.FpsPlayer;
             var renderLayer = _context.RenderLayer;
 
-            if(_activeWeapon != null && !_activeWeapon.gameObject.activeInHierarchy) {
+            if(ActiveWeapon != null && !ActiveWeapon.gameObject.activeInHierarchy) {
                 var resolved = FindActiveWeaponComponent();
-                if(resolved != null && resolved != _activeWeapon) {
-                    _activeWeapon = resolved;
+                if(resolved != null && resolved != ActiveWeapon) {
+                    ActiveWeapon = resolved;
                     _muzzleTransform = null;
                     _cache.Invalidate();
                     ApplyLayerShadowsAndRelays(playerInstance, renderLayer);
                 }
             }
 
-            if(_activeWeapon != null) _cache.Ensure(_activeWeapon);
+            if(ActiveWeapon != null) _cache.Ensure(ActiveWeapon);
 
-            if(_activeWeapon != null && _muzzleTransform != null && _activeWeapon.gameObject.activeInHierarchy) {
-                onApplySoundToggles?.Invoke(_activeWeapon);
-                onRefreshSoundMetadata?.Invoke(_activeWeapon);
-                onSuppressMuzzleFx?.Invoke(_activeWeapon);
+            if(ActiveWeapon != null && _muzzleTransform != null && ActiveWeapon.gameObject.activeInHierarchy) {
+                onApplySoundToggles?.Invoke(ActiveWeapon);
+                onRefreshSoundMetadata?.Invoke(ActiveWeapon);
+                onSuppressMuzzleFx?.Invoke(ActiveWeapon);
                 return true;
             }
 
             if(fpsPlayer == null || playerInstance == null) return false;
 
-            if(_activeWeapon == null) {
-                _activeWeapon = FindActiveWeaponComponent();
-                if(_activeWeapon == null) return false;
+            if(ActiveWeapon == null) {
+                ActiveWeapon = FindActiveWeaponComponent();
+                if(ActiveWeapon == null) return false;
                 _cache.Invalidate();
                 if(renderLayer >= 0) WeaponFpPresentation.SetLayerRecursive(playerInstance, renderLayer);
                 WeaponFpPresentation.DisableViewmodelShadows(playerInstance);
@@ -88,7 +89,7 @@ namespace Game.Weapons.Kinemation {
                     _context.WeaponSoundPlaybackDisabled, _context.DisableKinemationPlayerSounds);
             }
 
-            _cache.Ensure(_activeWeapon);
+            _cache.Ensure(ActiveWeapon);
             if(_muzzleTransform == null) {
                 var partRefs = GetActiveWeaponPartReferences();
                 if(partRefs != null) {
@@ -100,10 +101,10 @@ namespace Game.Weapons.Kinemation {
                 }
             }
 
-            onApplySoundToggles?.Invoke(_activeWeapon);
-            onRefreshSoundMetadata?.Invoke(_activeWeapon);
-            onSuppressMuzzleFx?.Invoke(_activeWeapon);
-            return _activeWeapon != null;
+            onApplySoundToggles?.Invoke(ActiveWeapon);
+            onRefreshSoundMetadata?.Invoke(ActiveWeapon);
+            onSuppressMuzzleFx?.Invoke(ActiveWeapon);
+            return ActiveWeapon != null;
         }
 
         private void ApplyLayerShadowsAndRelays(GameObject playerInstance, int renderLayer) {
@@ -160,15 +161,15 @@ namespace Game.Weapons.Kinemation {
             _cache.Invalidate();
         }
 
-        public Animator[] GetActiveWeaponAnimators() => _cache.GetAnimators(_activeWeapon);
-        public FPSWeaponSound[] GetActiveWeaponSounds() => _cache.GetSounds(_activeWeapon);
-        public FPSWeaponSound[] GetWeaponSounds(FPSWeapon weapon) => _cache.GetSounds(_activeWeapon, weapon);
-        private ParticleSystem[] GetWeaponParticleSystems(FPSWeapon weapon) => _cache.GetParticleSystems(_activeWeapon, weapon);
-        private VisualEffect[] GetWeaponVisualEffects(FPSWeapon weapon) => _cache.GetVisualEffects(_activeWeapon, weapon);
-        private Light[] GetWeaponLights(FPSWeapon weapon) => _cache.GetLights(_activeWeapon, weapon);
-        public Pdw90Animation[] GetActiveWeaponPdwAnimations() => _cache.GetPdwAnimations(_activeWeapon);
-        public AudioSource[] GetActiveWeaponAudioSources() => _cache.GetAudioSources(_activeWeapon);
-        private KinWeaponPartReferences GetActiveWeaponPartReferences() => _cache.GetPartReferences(_activeWeapon);
+        public Animator[] GetActiveWeaponAnimators() => _cache.GetAnimators(ActiveWeapon);
+        public FPSWeaponSound[] GetActiveWeaponSounds() => _cache.GetSounds(ActiveWeapon);
+        public FPSWeaponSound[] GetWeaponSounds(FPSWeapon weapon) => _cache.GetSounds(ActiveWeapon, weapon);
+        private ParticleSystem[] GetWeaponParticleSystems(FPSWeapon weapon) => _cache.GetParticleSystems(ActiveWeapon, weapon);
+        private VisualEffect[] GetWeaponVisualEffects(FPSWeapon weapon) => _cache.GetVisualEffects(ActiveWeapon, weapon);
+        private Light[] GetWeaponLights(FPSWeapon weapon) => _cache.GetLights(ActiveWeapon, weapon);
+        public Pdw90Animation[] GetActiveWeaponPdwAnimations() => _cache.GetPdwAnimations(ActiveWeapon);
+        public AudioSource[] GetActiveWeaponAudioSources() => _cache.GetAudioSources(ActiveWeapon);
+        private KinWeaponPartReferences GetActiveWeaponPartReferences() => _cache.GetPartReferences(ActiveWeapon);
 
         public void SuppressInternalMuzzleFx(FPSWeapon activeWeapon, bool disableMuzzleFx) {
             if(!disableMuzzleFx || activeWeapon == null) return;
@@ -211,48 +212,45 @@ namespace Game.Weapons.Kinemation {
 
         public bool TryResolveDrakeTopShell(out Transform topShell) {
             topShell = null;
-            if(_activeWeapon == null) return false;
+            if(ActiveWeapon == null) return false;
             var partRefs = GetActiveWeaponPartReferences();
-            if(partRefs == null) {
-                ReportMissingPartReference(DrakeTopShellReferenceKey, nameof(KinWeaponPartReferences.DrakeTopShell), true);
-                return false;
-            }
-            return TryResolvePartReference(partRefs.DrakeTopShell, DrakeTopShellReferenceKey,
-                nameof(KinWeaponPartReferences.DrakeTopShell), out topShell);
+            if(partRefs != null)
+                return TryResolvePartReference(partRefs.DrakeTopShell, DrakeTopShellReferenceKey,
+                    nameof(KinWeaponPartReferences.DrakeTopShell), out topShell);
+            ReportMissingPartReference(DrakeTopShellReferenceKey, nameof(KinWeaponPartReferences.DrakeTopShell), true);
+            return false;
         }
 
         public bool TryResolveDrakeBottomShell(out Transform bottomShell) {
             bottomShell = null;
-            if(_activeWeapon == null) return false;
+            if(ActiveWeapon == null) return false;
             var partRefs = GetActiveWeaponPartReferences();
-            if(partRefs == null) {
-                ReportMissingPartReference(DrakeBottomShellReferenceKey, nameof(KinWeaponPartReferences.DrakeBottomShell), true);
-                return false;
-            }
-            return TryResolvePartReference(partRefs.DrakeBottomShell, DrakeBottomShellReferenceKey,
-                nameof(KinWeaponPartReferences.DrakeBottomShell), out bottomShell);
+            if(partRefs != null)
+                return TryResolvePartReference(partRefs.DrakeBottomShell, DrakeBottomShellReferenceKey,
+                    nameof(KinWeaponPartReferences.DrakeBottomShell), out bottomShell);
+            ReportMissingPartReference(DrakeBottomShellReferenceKey, nameof(KinWeaponPartReferences.DrakeBottomShell), true);
+            return false;
         }
 
         public bool TryResolveKarLoopBullet(out Transform loopBullet) {
             loopBullet = null;
-            if(_activeWeapon == null) return false;
+            if(ActiveWeapon == null) return false;
             var partRefs = GetActiveWeaponPartReferences();
-            if(partRefs == null) {
-                ReportMissingPartReference(KarLoopBulletReferenceKey, nameof(KinWeaponPartReferences.KarLoopBullet), true);
-                return false;
-            }
-            return TryResolvePartReference(partRefs.KarLoopBullet, KarLoopBulletReferenceKey,
-                nameof(KinWeaponPartReferences.KarLoopBullet), out loopBullet);
+            if(partRefs != null)
+                return TryResolvePartReference(partRefs.KarLoopBullet, KarLoopBulletReferenceKey,
+                    nameof(KinWeaponPartReferences.KarLoopBullet), out loopBullet);
+            ReportMissingPartReference(KarLoopBulletReferenceKey, nameof(KinWeaponPartReferences.KarLoopBullet), true);
+            return false;
         }
 
         private bool TryResolvePartReference(Transform configuredPart, int partKey, string partFieldName, out Transform resolved) {
             resolved = null;
-            if(_activeWeapon == null) return false;
+            if(ActiveWeapon == null) return false;
             if(configuredPart == null) {
                 ReportMissingPartReference(partKey, partFieldName, false);
                 return false;
             }
-            if(!configuredPart.IsChildOf(_activeWeapon.transform)) {
+            if(!configuredPart.IsChildOf(ActiveWeapon.transform)) {
                 ReportInvalidPartReference(partKey, partFieldName, configuredPart);
                 return false;
             }
@@ -261,7 +259,7 @@ namespace Game.Weapons.Kinemation {
         }
 
         private int BuildPartReferenceWarningKey(int partKey) {
-            var weaponId = _activeWeapon != null ? _activeWeapon.GetInstanceID() : 0;
+            var weaponId = ActiveWeapon != null ? ActiveWeapon.GetInstanceID() : 0;
             return unchecked(weaponId * 397 ^ partKey);
         }
 
@@ -270,29 +268,29 @@ namespace Game.Weapons.Kinemation {
             if(!MissingKinemationPartReferenceWarnings.Add(key)) return;
             var label = GetActiveWeaponLabel();
             var guidance = missingComponent
-                ? "Add KINWeaponPartReferences to the weapon prefab and assign required parts."
-                : "Assign this field on KINWeaponPartReferences.";
-            Debug.LogError($"[KinemationFpWeaponDriver] Weapon '{label}' is missing explicit part reference '{partFieldName}'. {guidance}", _activeWeapon);
+                ? "Add KinWeaponPartReferences to the weapon prefab and assign required parts."
+                : "Assign this field on KinWeaponPartReferences.";
+            Debug.LogError($"[KinFpWeaponDriver] Weapon '{label}' is missing explicit part reference '{partFieldName}'. {guidance}", ActiveWeapon);
         }
 
         private void ReportInvalidPartReference(int partKey, string partFieldName, Transform configuredPart) {
             var key = BuildPartReferenceWarningKey(partKey);
             if(!InvalidKinemationPartReferenceWarnings.Add(key)) return;
             var label = GetActiveWeaponLabel();
-            Debug.LogError($"[KinemationFpWeaponDriver] Weapon '{label}' has invalid part reference '{partFieldName}' (assigned '{configuredPart.name}', outside active weapon hierarchy).", _activeWeapon);
+            Debug.LogError($"[KinFpWeaponDriver] Weapon '{label}' has invalid part reference '{partFieldName}' (assigned '{configuredPart.name}', outside active weapon hierarchy).", ActiveWeapon);
         }
 
         private static void ReportMissingAssignment(WeaponData data, HashSet<int> cache, string fieldName, string impact) {
             if(data == null || cache == null) return;
             if(!cache.Add(data.GetInstanceID())) return;
             var label = string.IsNullOrWhiteSpace(data.weaponName) ? data.name : data.weaponName;
-            Debug.LogError($"[KinemationFpWeaponDriver] WeaponData '{label}' has {fieldName}=NULL. {impact}", data);
+            Debug.LogError($"[KinFpWeaponDriver] WeaponData '{label}' has {fieldName}=NULL. {impact}", data);
         }
 
         private string GetActiveWeaponLabel() {
             var data = GetActiveWeaponData();
             if(data != null) return string.IsNullOrWhiteSpace(data.weaponName) ? data.name : data.weaponName;
-            return _activeWeapon != null ? _activeWeapon.name : "(unknown)";
+            return ActiveWeapon != null ? ActiveWeapon.name : "(unknown)";
         }
     }
 }

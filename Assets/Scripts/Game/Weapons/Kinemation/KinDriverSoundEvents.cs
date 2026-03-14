@@ -108,7 +108,7 @@ namespace Game.Weapons.Kinemation {
             if(!MissingKinemationReloadSoundIndexWarnings.Add(data.GetInstanceID())) return;
             var label = string.IsNullOrWhiteSpace(data.weaponName) ? data.name : data.weaponName;
             Debug.LogError(
-                $"[KinemationFpWeaponDriver] WeaponData '{label}' has no kinemationReloadEventSoundIndices configured. " +
+                $"[KinFpWeaponDriver] WeaponData '{label}' has no kinemationReloadEventSoundIndices configured. " +
                 "Reload event SFX stopping is strict and requires explicit index assignment.",
                 data);
         }
