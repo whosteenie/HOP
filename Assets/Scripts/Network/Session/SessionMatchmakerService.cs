@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using Game.Match;
@@ -24,6 +25,7 @@ namespace Network.Session {
 
         private ISessionContext _ctx;
         private IMatchmakerSessionActions _actions;
+        private SessionMatchLobbyService _matchLobbyService;
 
         private string _matchmakerTicketId;
         private string _matchmakerQueueName;
@@ -131,6 +133,55 @@ namespace Network.Session {
         public void SetContext(ISessionContext ctx, IMatchmakerSessionActions actions) {
             _ctx = ctx;
             _actions = actions;
+        }
+
+        public void SetMatchLobbyService(SessionMatchLobbyService matchLobbyService) {
+            _matchLobbyService = matchLobbyService;
+        }
+
+        /// <summary>Polls for the host-created match lobby by matchId then joins via actions. Called when matchmaker assigns this client as non-host.</summary>
+        public async UniTask JoinPublicMatchByIdAsync(string matchId) {
+            if(_ctx == null || _actions == null || _matchLobbyService == null) return;
+            await _ctx.EnsureSignedInAsync();
+            if(string.IsNullOrEmpty(matchId)) return;
+
+            if(Debug.isDebugBuild) {
+                Debug.Log($"[SessionManager] Joining match as non-host. matchId='{matchId}'");
+            }
+
+            for(var i = 0; i < MatchmakerPollingPolicy.MatchLobbyDiscoveryMaxAttempts; i++) {
+                if(Debug.isDebugBuild &&
+                   (i == 0 || (i + 1) % 5 == 0 || i == MatchmakerPollingPolicy.MatchLobbyDiscoveryMaxAttempts - 1)) {
+                    Debug.Log(
+                        $"[SessionManager] Polling for lobby... attempt {i + 1}/{MatchmakerPollingPolicy.MatchLobbyDiscoveryMaxAttempts}");
+                }
+
+                try {
+                    var lobby = await _matchLobbyService.QueryMatchLobbyByMatchIdAsync(matchId);
+                    if(lobby != null) {
+                        if(Debug.isDebugBuild) {
+                            Debug.Log($"[SessionManager] Found lobby! lobbyId='{lobby.Id}'. Joining...");
+                        }
+                        var joined = await _actions.JoinMatchLobbyByIdAsync(lobby.Id);
+                        if(joined) return;
+                    }
+                } catch(LobbyServiceException ex) when(ex.Reason == LobbyExceptionReason.RateLimited) {
+                    // Throttled; continue polling after delay.
+                } catch(Exception ex) {
+                    Debug.LogError($"[SessionManager] Terminal error querying match: {ex.Message}. Aborting...");
+                    break;
+                }
+
+                try {
+                    var delayMs = MatchmakerPollingPolicy.ResolveMatchLobbyDiscoveryDelayMs(i);
+                    await UniTask.Delay(delayMs, cancellationToken: _ctx.SessionLifetimeToken);
+                } catch(OperationCanceledException) {
+                    return;
+                }
+            }
+
+            Debug.LogError("[SessionManager] Timed out or failed waiting for match lobby. Returning to menu...");
+            await _ctx.LeaveToMainMenuAsync();
         }
 
         private string ResolveRequestedQuickPlayMode(string requestedMode) {
@@ -598,10 +649,72 @@ namespace Network.Session {
             }
 
             if(localPlayerId == hostId) {
-                await _actions.StartPublicMatchAsHostAsync(mode, maxPlayers, matchId, results);
+                await RunStartPublicMatchAsHostAsync(mode, maxPlayers, matchId, results);
             } else {
-                await _actions.JoinPublicMatchByIdAsync(matchId);
+                await JoinPublicMatchByIdAsync(matchId);
             }
+        }
+
+        /// <summary>
+        /// Runs the full public match host flow: sign-in, mode, expected players, create DA session, create lobby, pre-fade, mark ready, wait for players, set lobby state, load scene.
+        /// Called by SessionManager.StartPublicMatchAsHostAsync (IMatchmakerSessionActions) and from assignment handler.
+        /// </summary>
+        public async UniTask RunStartPublicMatchAsHostAsync(string mode, int maxPlayers, string matchId,
+            StoredMatchmakingResults results) {
+            await _ctx.EnsureSignedInAsync();
+            if(Debug.isDebugBuild) {
+                Debug.Log(
+                    $"[SessionManager] StartPublicMatchAsHostAsync: mode='{mode}' maxPlayers={maxPlayers} matchId='{matchId}'");
+            }
+
+            _ctx.ApplyRuntimeMode(mode, "UgsPublicMatchHost");
+
+            var expectedPlayerIds = BuildExpectedPlayerIdsFromMatchResults(results);
+            if(expectedPlayerIds != null && Debug.isDebugBuild) {
+                Debug.Log($"[SessionManager] Expecting {expectedPlayerIds.Count} players for sync");
+            }
+
+            _ctx.SetExpectedGamePlayerCount(
+                expectedPlayerIds is { Count: > 0 } ? expectedPlayerIds.Count : 1,
+                "UgsPublicMatchHost");
+
+            var sessionCode =
+                await _actions.CreateDistributedAuthoritySessionAsync(maxPlayers, false, "StartPublicMatchAsHostAsync");
+            if(string.IsNullOrEmpty(sessionCode)) {
+                await _ctx.LeaveToMainMenuAsync();
+                return;
+            }
+
+            await _actions.CreatePublicMatchLobbyAsHostAsync(mode, maxPlayers, matchId, sessionCode);
+            await _actions.PreFadePublicHostAsync();
+            await _actions.MarkHostReadyInMatchLobbyAsync();
+
+            if(await _matchLobbyService.WaitForMatchPlayersReadyAsync(_ctx, expectedPlayerIds, 60f, "PublicMatch") ==
+               false) {
+                Debug.LogError("[SessionManager] Timed out waiting for all players. Aborting to menu...");
+                await _ctx.LeaveToMainMenuAsync();
+                return;
+            }
+
+            if(await _actions.TrySetMatchLobbyStateAsync("LoadingScene",
+                   DataObject.VisibilityOptions.Public,
+                   "StartPublicMatchAsHostAsync")) {
+                if(Debug.isDebugBuild) {
+                    Debug.Log("[SessionManager] Updated lobby state to 'LoadingScene'");
+                }
+            }
+
+            if(!_actions.TryLoadGameplaySceneAsHost("StartPublicMatchAsHostAsync/LoadScene")) {
+                await _ctx.LeaveToMainMenuAsync();
+            }
+        }
+
+        private static List<string> BuildExpectedPlayerIdsFromMatchResults(StoredMatchmakingResults results) {
+            if(results?.MatchProperties?.Players == null) return null;
+            return results.MatchProperties.Players
+                .Select(p => p != null ? p.Id : null)
+                .Where(id => !string.IsNullOrEmpty(id))
+                .ToList();
         }
 
         private static string DetermineDeterministicHostId(List<Player> players) {

@@ -1,9 +1,7 @@
 using System.Threading;
 using Cysharp.Threading.Tasks;
-using Steamworks;
 using Unity.Netcode;
 using Unity.Netcode.Transports.UTP;
-using Unity.Services.Lobbies.Models;
 using Lobby = Steamworks.Data.Lobby;
 
 namespace Network.Session {
@@ -44,6 +42,7 @@ namespace Network.Session {
         void SetIsExpectedDisconnect(bool value);
         void SetPrivateMatchMapPreset(bool value);
         void SetMatchmakingStartTime(float value);
+        void SetNextUgsHeartbeatTime(float value);
 
         // --- Infrastructure ---
         void LaunchSessionTask(UniTask task, string label);

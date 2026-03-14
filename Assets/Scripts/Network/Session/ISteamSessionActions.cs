@@ -1,5 +1,4 @@
 using Cysharp.Threading.Tasks;
-using Steamworks;
 using Lobby = Steamworks.Data.Lobby;
 
 namespace Network.Session {
@@ -12,5 +11,9 @@ namespace Network.Session {
         UniTask FollowSessionContextFromSteamLobbyAsync(Lobby lobby);
         UniTask HandleSteamConnectStringAsync(string connect);
         void TryJoinVoiceForSteamSocialLobby(ulong lobbyId, string context);
+        /// <summary>Used by SteamSocialBridge for connect string and follow. Implemented by SessionManager.</summary>
+        UniTask JoinPartyLobbyByCodeAsync(string code);
+        /// <summary>Used by SteamSocialBridge for connect string and follow. Implemented by SessionManager.</summary>
+        UniTask<bool> JoinMatchLobbyByIdAsync(string lobbyId);
     }
 }

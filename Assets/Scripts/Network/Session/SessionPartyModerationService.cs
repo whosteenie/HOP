@@ -7,8 +7,8 @@ using UnityEngine;
 
 namespace Network.Session {
     /// <summary>Kick and promote party members in the UGS party lobby.</summary>
-    public sealed class SessionPartyModerationService {
-        public void KickMember(ISessionContext ctx, SteamId targetId) {
+    public static class SessionPartyModerationService {
+        public static void KickMember(ISessionContext ctx, SteamId targetId) {
             if(targetId.Value == 0) return;
             if(ctx.UgsPartyLobby == null) {
                 Debug.LogWarning("[SessionManager] KickMember ignored: no active UGS party lobby.");
@@ -35,7 +35,7 @@ namespace Network.Session {
             ctx.LaunchSessionTask(KickPartyMemberAsync(ctx, targetUgsId, targetId), "KickPartyMember");
         }
 
-        public void PromoteMember(ISessionContext ctx, SteamId targetId) {
+        public static void PromoteMember(ISessionContext ctx, SteamId targetId) {
             if(targetId.Value == 0) return;
             if(ctx.UgsPartyLobby == null) {
                 Debug.LogWarning("[SessionManager] PromoteMember ignored: no active UGS party lobby.");
