@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
 
-namespace Editor.Game {
+namespace Game.Editor {
     /// <summary>
     /// Deterministic baker for per-weapon grapple clips.
     /// Each target clip gets AK clavicle_l local-position curves plus:

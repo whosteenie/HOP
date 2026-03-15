@@ -3,7 +3,7 @@ using System.Text.RegularExpressions;
 using UnityEditor;
 using UnityEngine;
 
-namespace Editor.Build {
+namespace Game.Editor.Build {
     /// <summary>
     /// Ensures steam_appid.txt exists in the project root while running in the Unity Editor.
     /// This is required for Steamworks to initialize when pressing Play in-editor (non-Steam launch).

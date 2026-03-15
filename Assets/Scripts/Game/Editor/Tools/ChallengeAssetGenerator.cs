@@ -3,7 +3,7 @@ using Game.Progression;
 using UnityEditor;
 using UnityEngine;
 
-namespace Editor.Tools {
+namespace Game.Editor.Tools {
     public static class ChallengeAssetGenerator {
     [MenuItem("HOP/Progression/Generate Challenge Assets")]
     public static void GenerateAssets() {

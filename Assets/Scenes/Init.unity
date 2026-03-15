@@ -614,9 +614,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 2133805635}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 122ea796e572f1549b05242142b84968, type: 3}
+  m_Script: {fileID: 11500000, guid: 973f01dad8d7c5846990a783dfd8afd6, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Discord.DiscordManager
+  m_EditorClassIdentifier: Assembly-CSharp::Game.Social.DiscordManager
 --- !u!114 &771809372539791604
 MonoBehaviour:
   m_ObjectHideFlags: 0

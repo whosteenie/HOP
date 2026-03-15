@@ -4,7 +4,7 @@ using UnityEditor;
 using UnityEditor.Callbacks;
 using UnityEngine;
 
-namespace Editor.Build {
+namespace Game.Editor.Build {
     /// <summary>
     /// Post-build helper for Steam runtime DLL placement and local testing conveniences.
     /// </summary>

@@ -1,7 +1,7 @@
 using UnityEngine;
 using UnityEngine.Rendering;
 
-namespace Rendering {
+namespace Game.UI.Misc {
     /// <summary>
     /// Drives a dedicated global volume weight for menu/options blur.
     /// Assign the target Volume in the inspector.

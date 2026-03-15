@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
-using Discord;
+using Game.Social;
 using Game.Match;
 using Network.Services;
 using UnityEngine;
@@ -10,8 +10,8 @@ using UnityEngine.UIElements;
 using Game.Menu.Options;
 using Game.Settings;
 using Game.UI.Core;
+using Game.UI.Misc;
 using Game.UI.Screens;
-using Rendering;
 using UnityEngine.Rendering;
 using Cursor = UnityEngine.Cursor;
 using SessionManager = Network.Session.SessionManager;

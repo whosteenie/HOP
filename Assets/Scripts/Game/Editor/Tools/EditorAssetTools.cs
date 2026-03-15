@@ -1,7 +1,7 @@
 using UnityEditor;
 using UnityEngine;
 
-namespace Editor.Tools {
+namespace Game.Editor.Tools {
     public static class EditorAssetTools {
     [MenuItem("Tools/Force Unload Assets")]
     public static void ForceUnload() {

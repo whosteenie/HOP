@@ -4,7 +4,7 @@ using UnityEditor;
 using UnityEditor.Animations;
 using UnityEngine;
 
-namespace Editor.Game {
+namespace Game.Editor {
     [CustomEditor(typeof(PlayerMannequinConfig))]
     public class PlayerMannequinConfigEditor : UnityEditor.Editor {
         public override void OnInspectorGUI() {

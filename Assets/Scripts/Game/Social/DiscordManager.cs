@@ -4,7 +4,7 @@ using Discord.Sdk;
 using Steamworks;
 using UnityEngine;
 
-namespace Discord {
+namespace Game.Social {
     public class DiscordManager : MonoBehaviour {
         public static DiscordManager Instance { get; private set; }
 

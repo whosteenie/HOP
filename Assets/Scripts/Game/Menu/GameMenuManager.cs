@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-using Discord;
+using Game.Social;
 using Game.Progression;
 using Game.Settings;
 using Game.Menu.Options;
@@ -14,7 +14,6 @@ using Game.Weapons.Core;
 using Game.Weapons.Manager;
 using Network.Events;
 using Network.Services;
-using Rendering;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.SceneManagement;
