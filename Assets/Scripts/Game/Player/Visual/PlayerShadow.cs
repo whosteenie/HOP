@@ -70,10 +70,8 @@ namespace Game.Player.Visual {
             ApplyOwnerDefaultShadowState();
         }
 
-        /// <summary>
-        /// Sets shadow casting mode for all SkinnedMeshRenderers.
-        /// </summary>
-        private void SetSkinnedMeshRenderersShadowMode(ShadowCastingMode mode, ShadowCastingMode? ownerMode = null, bool? isEnabled = null) {
+        /// <summary>Sets shadow casting mode for all SkinnedMeshRenderers.</summary>
+        private void SetSkinnedMeshShadowMode(ShadowCastingMode mode, ShadowCastingMode? ownerMode = null, bool? isEnabled = null) {
             RefreshRendererCacheIfNeeded();
             var isOwner = playerController != null && playerController.IsOwner;
 
@@ -142,12 +140,8 @@ namespace Game.Player.Visual {
             }
         }
 
-        /// <summary>
-        /// Sets shadow casting mode for world weapon renderers.
-        /// Gets the currently equipped weapon from the weapon socket.
-        /// Caches renderers to prevent GetComponentsInChildren allocations.
-        /// </summary>
-        public void SetWorldWeaponRenderersShadowMode(ShadowCastingMode mode, bool isEnabled = true) {
+        /// <summary>Sets shadow casting mode for world weapon renderers.</summary>
+        public void SetWorldWeaponShadowMode(ShadowCastingMode mode, bool isEnabled = true) {
             // Get the currently equipped world weapon from the socket
             var currentWorldWeapon = GetCurrentWorldWeapon();
 
@@ -221,9 +215,9 @@ namespace Game.Player.Visual {
         public void ApplyOwnerDefaultShadowState() {
             // Ensure renderers are enabled (they may have been disabled during death)
             // Set shadow modes to ShadowsOnly so owner sees their shadow but not the model
-            SetSkinnedMeshRenderersShadowMode(ShadowCastingMode.ShadowsOnly, null, true);
+            SetSkinnedMeshShadowMode(ShadowCastingMode.ShadowsOnly, null, true);
             SetMeshRenderersShadowMode(ShadowCastingMode.ShadowsOnly, true);
-            SetWorldWeaponRenderersShadowMode(ShadowCastingMode.ShadowsOnly);
+            SetWorldWeaponShadowMode(ShadowCastingMode.ShadowsOnly);
             TrySetHolsterShadowState(true, false, ShadowCastingMode.ShadowsOnly);
         }
 
@@ -233,12 +227,12 @@ namespace Game.Player.Visual {
         /// <param name="wasHoldingHopball">Whether the player was holding a hopball at death.</param>
         public void ApplyDeathShadowState(bool wasHoldingHopball = false) {
             // For death camera, all third-person models should be ShadowsOn (visible)
-            SetSkinnedMeshRenderersShadowMode(ShadowCastingMode.On);
+            SetSkinnedMeshShadowMode(ShadowCastingMode.On);
             SetMeshRenderersShadowMode(ShadowCastingMode.On);
-            SetWorldWeaponRenderersShadowMode(ShadowCastingMode.On);
+            SetWorldWeaponShadowMode(ShadowCastingMode.On);
             
             // Show both holsters only if holding hopball, otherwise show only unequipped holster
-            // The equipped weapon's in-hand model is already visible via SetWorldWeaponRenderersShadowMode
+            // The equipped weapon's in-hand model is already visible via SetWorldWeaponShadowMode
             TrySetHolsterShadowState(true, wasHoldingHopball, ShadowCastingMode.On);
         }
 
@@ -246,8 +240,8 @@ namespace Game.Player.Visual {
         /// Applies the visible shadow state for non-owners.
         /// </summary>
         public void ApplyVisibleShadowState() {
-            SetSkinnedMeshRenderersShadowMode(ShadowCastingMode.On, null, true);
-            SetWorldWeaponRenderersShadowMode(ShadowCastingMode.On);
+            SetSkinnedMeshShadowMode(ShadowCastingMode.On, null, true);
+            SetWorldWeaponShadowMode(ShadowCastingMode.On);
             TrySetHolsterShadowState(false, false);
         }
 
@@ -255,8 +249,8 @@ namespace Game.Player.Visual {
         /// Applies the shadow state for the podium display.
         /// </summary>
         public void ApplyPodiumShadowState() {
-            SetSkinnedMeshRenderersShadowMode(ShadowCastingMode.On, null, true);
-            SetWorldWeaponRenderersShadowMode(ShadowCastingMode.On);
+            SetSkinnedMeshShadowMode(ShadowCastingMode.On, null, true);
+            SetWorldWeaponShadowMode(ShadowCastingMode.On);
             TrySetHolsterShadowState(true, false, ShadowCastingMode.On);
         }
 
@@ -275,7 +269,7 @@ namespace Game.Player.Visual {
             // Owners: ShadowsOff and disable (they see shadows only)
             // Non-owners: ShadowsOff and disable (they see the model, but we hide it when holding hopball)
             if(holdingHopball) {
-                SetWorldWeaponRenderersShadowMode(ShadowCastingMode.Off, false);
+                SetWorldWeaponShadowMode(ShadowCastingMode.Off, false);
             }
         }
 
@@ -283,7 +277,8 @@ namespace Game.Player.Visual {
         /// Updates holster shadow state for owners after weapon switches.
         /// Only updates holster shadows, not player body or world weapon shadows.
         /// </summary>
-        public void UpdateHolsterShadowStateForOwner() {
+        /// <summary>Updates holster shadow state for the owner.</summary>
+        public void UpdateHolsterShadowState() {
             if(playerController == null || !playerController.IsOwner) return;
             var isPostMatch = GameMenuManager.Instance != null && GameMenuManager.Instance.IsPostMatch;
             if(isPostMatch) {

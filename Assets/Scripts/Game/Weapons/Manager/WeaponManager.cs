@@ -433,7 +433,7 @@ namespace Game.Weapons.Manager {
 
         internal void RefreshOwnerHolsterShadowState() {
             if(!IsOwner || playerController == null || playerController.PlayerShadow == null) return;
-            playerController.PlayerShadow.UpdateHolsterShadowStateForOwner();
+            playerController.PlayerShadow.UpdateHolsterShadowState();
         }
 
         internal MatchPlayerStateProxy ResolvePlayerState() {

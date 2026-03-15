@@ -532,7 +532,7 @@ namespace Game.Hopball {
                NetworkManager.LocalClientId == update.DissolveHolderClientId) {
                 foreach(var controller in PlayerHopballController.Instances) {
                     if(controller != null && controller.OwnerClientId == update.DissolveHolderClientId) {
-                        controller.RunCleanupAndRestoreWeaponsAfterDissolve();
+                        controller.RunCleanupAndRestoreWeapons();
                         break;
                     }
                 }

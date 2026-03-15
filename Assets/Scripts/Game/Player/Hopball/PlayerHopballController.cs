@@ -1,4 +1,3 @@
-using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
@@ -487,7 +486,7 @@ namespace Game.Player.Hopball {
             _fpHopballVisualInstance.transform.localRotation = Quaternion.identity;
             _fpHopballVisualInstance.SetActive(true);
             if(!_fpParticlesPrewarmed) {
-                WarmupActiveHopballParticles(_fpHopballVisualInstance, ResolveCurrentHopballVisualEnergyRatio());
+                WarmupActiveHopballParticles(_fpHopballVisualInstance, ResolveHopballVisualEnergyRatio());
                 _fpParticlesPrewarmed = true;
             }
 
@@ -699,10 +698,11 @@ namespace Game.Player.Hopball {
 
             var warmupScale = Mathf.Clamp01(energyRatio);
             var configuredWarmupTime = Mathf.Max(0f, hopballParticleWarmupSeconds * warmupScale);
-            WarmupActiveHopballVisualEffects(visualRoot, configuredWarmupTime);
+            WarmupHopballVisualEffects(visualRoot, configuredWarmupTime);
         }
 
-        private static void WarmupActiveHopballVisualEffects(GameObject visualRoot, float warmupTime) {
+        /// <summary>Warmups hopball VFX on the given visual root.</summary>
+        private static void WarmupHopballVisualEffects(GameObject visualRoot, float warmupTime) {
             if(visualRoot == null) return;
 
             var vfxComponents = visualRoot.GetComponentsInChildren<VisualEffect>(true);
@@ -742,7 +742,8 @@ namespace Game.Player.Hopball {
             }
         }
 
-        private float ResolveCurrentHopballVisualEnergyRatio() {
+        /// <summary>Resolves current hopball visual energy ratio for warmup.</summary>
+        private float ResolveHopballVisualEnergyRatio() {
             var hopball = _currentHopballController != null ? _currentHopballController : HopballController.Instance;
             return hopball == null ? 1f : hopball.VisualEnergyRatio;
         }
@@ -1020,8 +1021,7 @@ namespace Game.Player.Hopball {
             if(requestingController == null) return;
             var controller = requestingController.PlayerHopballController;
             if(controller == null) return;
-            var rpcParams = new ClientRpcParams { Send = new ClientRpcSendParams { TargetClientIds = new List<ulong> { controller.OwnerClientId } } };
-            controller.DisablePlayerTargetClientRpc(rpcParams);
+            controller.DisablePlayerTargetClientRpc();
         }
 
         /// <summary>
@@ -1047,14 +1047,14 @@ namespace Game.Player.Hopball {
                 HopballSpawnManager.Instance.RequestDropAuthority(hopball.NetworkObject, dropPosition,
                     dropRotation, deathVelocity, HopballDropReason.PlayerDeath.ToString());
             }
-            CleanupVisualsAndRestoreWeaponsClientRpc();
+            CleanupAndRestoreWeaponsClientRpc();
         }
 
         /// <summary>
         /// Client RPC to clean up visuals and restore weapons after death drop.
         /// </summary>
         [ClientRpc]
-        private void CleanupVisualsAndRestoreWeaponsClientRpc() {
+        private void CleanupAndRestoreWeaponsClientRpc() {
             // Only cleanup on the owner's client
             if(!IsOwner) return;
 
@@ -1067,10 +1067,9 @@ namespace Game.Player.Hopball {
         }
 
         /// <summary>
-        /// Runs cleanup and restore-weapons logic locally. Used by the state-update path (DA-compatible)
-        /// and by CleanupVisualsAndRestoreWeaponsAfterDissolveClientRpc when RPC is used.
+        /// Runs cleanup and restore-weapons logic locally. Used by the state-update path (DA-compatible).
         /// </summary>
-        public void RunCleanupAndRestoreWeaponsAfterDissolve() {
+        public void RunCleanupAndRestoreWeapons() {
             var postMatchTransitionActive = IsPostMatchTransitionActive();
 
             _currentHopballController = null;
@@ -1099,35 +1098,10 @@ namespace Game.Player.Hopball {
         }
 
         /// <summary>
-        /// Client RPC to clean up visuals and restore weapons after dissolve.
-        /// Call with ClientRpcParams targeting the owner so only the holder's client runs cleanup.
-        /// In DA mode the state-update path is used instead (holder runs cleanup when applying state).
-        /// </summary>
-        [ClientRpc]
-        public void CleanupVisualsAndRestoreWeaponsAfterDissolveClientRpc(ClientRpcParams clientRpcParams = default) {
-            RunCleanupAndRestoreWeaponsAfterDissolve();
-        }
-
-        /// <summary>
-        /// Client RPC to trigger pullout animation when hopball dissolves.
-        /// Ensures all clients see smooth weapon restoration in normal gameplay.
-        /// </summary>
-        [ClientRpc]
-        private void TriggerPullOutAnimationClientRpc(ClientRpcParams clientRpcParams = default) {
-            if(_weaponManager == null) return;
-            if(IsPostMatchTransitionActive()) {
-                _weaponManager.CancelPendingPullOutForPostMatch();
-                return;
-            }
-
-            _weaponManager.TriggerPullOutAnimation();
-        }
-
-        /// <summary>
         /// Disables the OSI Target on the holder's client. Pass ClientRpcParams targeting owner when only holder should run it.
         /// </summary>
         [ClientRpc]
-        public void DisablePlayerTargetClientRpc(ClientRpcParams clientRpcParams = default) {
+        private void DisablePlayerTargetClientRpc() {
             if(_playerTarget != null) {
                 _playerTarget.enabled = false;
             }
@@ -1215,7 +1189,7 @@ namespace Game.Player.Hopball {
         /// Cancels local hopball dissolve/weapon transition visuals for post-match podium flow.
         /// This should be called while fade-to-black is active.
         /// </summary>
-        public void CancelPostMatchHopballVisualTransitions() {
+        public void CancelPostMatchHopballTransitions() {
             _putAwayAnimationTriggered = true;
             HopballController.VisualStateChanged -= OnHopballVisualStateChanged;
             HideFpHopballVisualImmediate();

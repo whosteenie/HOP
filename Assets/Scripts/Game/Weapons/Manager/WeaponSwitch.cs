@@ -408,7 +408,7 @@ namespace Game.Weapons.Manager {
                 }
 
                 if(_root.PlayerControllerRef.PlayerShadow != null) {
-                    _root.PlayerControllerRef.PlayerShadow.SetWorldWeaponRenderersShadowMode(ShadowCastingMode.On);
+                    _root.PlayerControllerRef.PlayerShadow.SetWorldWeaponShadowMode(ShadowCastingMode.On);
                 }
             }
 
@@ -587,7 +587,7 @@ namespace Game.Weapons.Manager {
 
             var playerShadow = _root.PlayerControllerRef != null ? _root.PlayerControllerRef.PlayerShadow : null;
             if(playerShadow != null) {
-                playerShadow.SetWorldWeaponRenderersShadowMode(targetMode);
+                playerShadow.SetWorldWeaponShadowMode(targetMode);
                 return;
             }
 

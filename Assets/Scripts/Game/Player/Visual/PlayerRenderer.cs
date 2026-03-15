@@ -225,7 +225,7 @@ namespace Game.Player.Visual {
         /// <summary>
         /// Sets enabled state for hopball visual renderers.
         /// </summary>
-        public static void SetHopballVisualRenderersEnabled(bool isEnabled, GameObject hopballVisual = null) {
+        public static void SetHopballRenderersEnabled(bool isEnabled, GameObject hopballVisual = null) {
             if(hopballVisual == null) return;
             var renderers = hopballVisual.GetComponentsInChildren<MeshRenderer>(true);
             foreach(var mr in renderers) {
@@ -241,7 +241,7 @@ namespace Game.Player.Visual {
         /// <summary>
         /// Forces all SkinnedMeshRenderers to update their bounds to prevent culling issues.
         /// </summary>
-        public void ForceAllSkinnedRendererBoundsUpdate() {
+        public void ForceAllRendererBoundsUpdate() {
             RefreshRendererCacheIfNeeded();
             foreach(var smr in _cachedSkinnedRenderers) {
                 if(smr == null) continue;
@@ -280,7 +280,7 @@ namespace Game.Player.Visual {
             }
 
             if(needsFix) {
-                ForceAllSkinnedRendererBoundsUpdate();
+                ForceAllRendererBoundsUpdate();
             }
         }
 

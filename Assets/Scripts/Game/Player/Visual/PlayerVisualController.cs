@@ -209,7 +209,7 @@ namespace Game.Player.Visual {
 
                 // Force bounds update immediately
                 if(_playerRenderer != null) {
-                    _playerRenderer.ForceAllSkinnedRendererBoundsUpdate();
+                    _playerRenderer.ForceAllRendererBoundsUpdate();
                 }
 
                 // Schedule delayed bounds update to ensure Unity has positioned everything
@@ -235,7 +235,7 @@ namespace Game.Player.Visual {
             if(_playerRenderer == null) return;
             _playerRenderer.SetAllRenderersEnabled(isEnabled, excludeGrappleLine);
             if(isEnabled) {
-                _playerRenderer.ForceAllSkinnedRendererBoundsUpdate();
+                _playerRenderer.ForceAllRendererBoundsUpdate();
             }
         }
 
@@ -252,7 +252,7 @@ namespace Game.Player.Visual {
         /// </summary>
         public void ForceRendererBoundsUpdate() {
             if(_playerRenderer == null) return;
-            _playerRenderer.ForceAllSkinnedRendererBoundsUpdate();
+            _playerRenderer.ForceAllRendererBoundsUpdate();
         }
 
         /// <summary>
@@ -279,13 +279,13 @@ namespace Game.Player.Visual {
 
             // Force bounds update again after positioning
             if(_playerRenderer != null) {
-                _playerRenderer.ForceAllSkinnedRendererBoundsUpdate();
+                _playerRenderer.ForceAllRendererBoundsUpdate();
             }
 
             // Wait another frame and update once more to be thorough
             yield return null;
             if(_playerRenderer != null) {
-                _playerRenderer.ForceAllSkinnedRendererBoundsUpdate();
+                _playerRenderer.ForceAllRendererBoundsUpdate();
             }
         }
 

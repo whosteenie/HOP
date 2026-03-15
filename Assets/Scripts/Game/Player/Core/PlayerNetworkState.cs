@@ -23,13 +23,13 @@ namespace Game.Player.Core {
             MatchPlayerStateProxy.StateRegistered += OnPlayerStateRegistered;
             MatchPlayerStateProxy.StateUnregistered -= OnPlayerStateUnregistered;
             MatchPlayerStateProxy.StateUnregistered += OnPlayerStateUnregistered;
-            TryBindPlayerStateSubscriptions();
+            TryBindStateSubscriptions();
         }
 
         public void Unsubscribe() {
             MatchPlayerStateProxy.StateRegistered -= OnPlayerStateRegistered;
             MatchPlayerStateProxy.StateUnregistered -= OnPlayerStateUnregistered;
-            UnbindPlayerStateSubscriptions();
+            UnbindStateSubscriptions();
         }
 
         public MatchPlayerStateProxy ResolvePlayerState() {
@@ -47,14 +47,14 @@ namespace Game.Player.Core {
         private void OnPlayerStateRegistered(ulong playerClientId, MatchPlayerStateProxy proxy) {
             if(playerClientId != _player.OwnerClientId) return;
             _cachedPlayerState = proxy;
-            TryBindPlayerStateSubscriptions();
+            TryBindStateSubscriptions();
         }
 
         private void OnPlayerStateUnregistered(ulong playerClientId, MatchPlayerStateProxy proxy) {
             if(playerClientId != _player.OwnerClientId) return;
 
             if(_boundPlayerState == proxy) {
-                UnbindPlayerStateSubscriptions();
+                UnbindStateSubscriptions();
             }
 
             if(_cachedPlayerState == proxy) {
@@ -62,11 +62,11 @@ namespace Game.Player.Core {
             }
         }
 
-        public void TryBindPlayerStateSubscriptions() {
+        public void TryBindStateSubscriptions() {
             var playerState = ResolvePlayerState();
             if(playerState == null || _boundPlayerState == playerState) return;
 
-            UnbindPlayerStateSubscriptions();
+            UnbindStateSubscriptions();
             playerState.netHealth.OnValueChanged -= _player.HandleResolvedHealthChanged;
             playerState.netHealth.OnValueChanged += _player.HandleResolvedHealthChanged;
             playerState.netIsDead.OnValueChanged -= _player.HandleResolvedDeathChanged;
@@ -74,7 +74,7 @@ namespace Game.Player.Core {
             _boundPlayerState = playerState;
         }
 
-        private void UnbindPlayerStateSubscriptions() {
+        private void UnbindStateSubscriptions() {
             if(_boundPlayerState == null) return;
             _boundPlayerState.netHealth.OnValueChanged -= _player.HandleResolvedHealthChanged;
             _boundPlayerState.netIsDead.OnValueChanged -= _player.HandleResolvedDeathChanged;

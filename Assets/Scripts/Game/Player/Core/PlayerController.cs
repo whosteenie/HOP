@@ -372,7 +372,7 @@ namespace Game.Player.Core {
             RegisterSpawnedPlayer(this);
 
             SubscribeToNetworkVariables();
-            TryBindPlayerStateSubscriptions();
+            TryBindStateSubscriptions();
             UpdatePlayerMaterialFromNetwork();
             _spawnPresentation.HandleNetworkSpawnPresentation();
         }
@@ -446,8 +446,8 @@ namespace Game.Player.Core {
             return _networkState.ResolvePlayerState();
         }
 
-        private void TryBindPlayerStateSubscriptions() {
-            _networkState.TryBindPlayerStateSubscriptions();
+        private void TryBindStateSubscriptions() {
+            _networkState.TryBindStateSubscriptions();
         }
 
         private static void OnMatChanged(int _, int __) {

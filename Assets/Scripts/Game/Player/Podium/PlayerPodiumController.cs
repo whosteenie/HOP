@@ -95,7 +95,7 @@ namespace Game.Player.Podium {
             if(playerController != null) {
                 // Force-clear any lingering hopball visual state before podium snapshot.
                 if(playerController.PlayerHopballController != null) {
-                    playerController.PlayerHopballController.CancelPostMatchHopballVisualTransitions();
+                    playerController.PlayerHopballController.CancelPostMatchHopballTransitions();
                     playerController.PlayerHopballController.ClearHopballReference();
                     playerController.PlayerHopballController.CleanupHopballVisuals();
                 }
