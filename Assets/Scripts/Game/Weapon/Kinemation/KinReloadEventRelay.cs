@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace Game.Weapons.Kinemation {
+namespace Game.Weapon.Kinemation {
     [DisallowMultipleComponent]
     public sealed class KinReloadEventRelay : MonoBehaviour {
         [SerializeField] private KinFpWeaponDriver driver;

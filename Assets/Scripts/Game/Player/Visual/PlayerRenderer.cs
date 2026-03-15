@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using Game.Hopball;
 using Game.Player.Core;
-using Game.Weapons.Manager;
+using Game.Weapon.Manager;
 using Unity.Netcode;
 using UnityEngine;
 

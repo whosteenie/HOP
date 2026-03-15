@@ -1,13 +1,13 @@
 using Game.Match;
 using Game.UI.HUD;
-using Game.Weapons.Core;
+using Game.Weapon.Core;
 using Network.AntiCheat;
 using Network.Core;
 using Network.Events;
 using Unity.Netcode;
 using UnityEngine;
 
-namespace Game.Weapons.Manager {
+namespace Game.Weapon.Manager {
     internal sealed class WeaponAuthority {
         private readonly WeaponManager _root;
 

@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using Game.Weapons.Core;
+using Game.Weapon.Core;
 using KINEMATION.FPSAnimationPack.Scripts.Weapon;
 using UnityEditor;
 using UnityEngine;

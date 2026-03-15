@@ -1,9 +1,9 @@
 using System;
 using System.Collections.Generic;
-using Game.Weapons.Core;
+using Game.Weapon.Core;
 using UnityEngine;
 
-namespace Game.Weapons.World {
+namespace Game.Weapon.World {
     internal sealed class WeaponWorldWeaponRegistry {
         private readonly Dictionary<WeaponData, GameObject> _worldWeaponByData = new();
         private readonly Dictionary<WeaponData, GameObject> _holsterWeaponByData = new();

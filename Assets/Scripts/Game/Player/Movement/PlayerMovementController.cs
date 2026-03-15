@@ -3,7 +3,7 @@ using Game.Menu;
 using Game.Player.Core;
 using Game.Player.Visual;
 using Game.Progression;
-using Game.Weapons.Presentation;
+using Game.Weapon.Presentation;
 using Unity.Cinemachine;
 using Unity.Netcode;
 using UnityEngine;

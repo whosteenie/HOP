@@ -1,9 +1,9 @@
 using System.Collections.Generic;
-using Game.Weapons.Core;
-using Game.Weapons.World;
+using Game.Weapon.Core;
+using Game.Weapon.World;
 using UnityEngine;
 
-namespace Game.Weapons.Manager {
+namespace Game.Weapon.Manager {
     internal sealed class WeaponLoadout {
         #region Fields
 

@@ -2,7 +2,7 @@ using System.Reflection;
 using KINEMATION.FPSAnimationPack.Scripts.Player;
 using UnityEngine;
 
-namespace Game.Weapons.Kinemation {
+namespace Game.Weapon.Kinemation {
     /// <summary>Syncs locomotion (move/look/sprint/air) from game state into the KIN FPSPlayer viewmodel. Uses reflection for FPSPlayer internals.</summary>
     internal sealed class KinLocomotionSync {
         private static readonly FieldInfo FpsPlayerMoveInputField =

@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace Game.Weapons.Kinemation {
+namespace Game.Weapon.Kinemation {
     /// <summary>
     /// No-op receiver for KINEMATION player sound animation events when internal player sounds are disabled.
     /// </summary>

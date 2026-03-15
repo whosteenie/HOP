@@ -1,13 +1,13 @@
 using Game.Player.Combat;
 using Game.Player.Visual;
-using Game.Weapons.Core;
-using Game.Weapons.Kinemation;
-using Game.Weapons.Presentation;
+using Game.Weapon.Core;
+using Game.Weapon.Kinemation;
+using Game.Weapon.Presentation;
 using KINEMATION.FPSAnimationPack.Scripts.Sounds;
 using UnityEngine;
 using UnityEngine.Rendering;
 
-namespace Game.Weapons.Manager {
+namespace Game.Weapon.Manager {
     internal sealed class WeaponFpPresentation {
         private readonly WeaponManager _root;
 

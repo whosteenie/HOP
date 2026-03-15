@@ -1,7 +1,7 @@
 using Unity.Cinemachine;
 using UnityEngine;
 
-namespace Game.Weapons.Presentation {
+namespace Game.Weapon.Presentation {
     [DisallowMultipleComponent]
     public class WeaponSway : MonoBehaviour {
         [Header("References")]

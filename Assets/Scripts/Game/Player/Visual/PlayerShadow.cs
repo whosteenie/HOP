@@ -1,7 +1,7 @@
 using Game.Hopball;
 using Game.Menu;
 using Game.Player.Core;
-using Game.Weapons.Manager;
+using Game.Weapon.Manager;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.Rendering;

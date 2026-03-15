@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace Game.Weapons.Kinemation {
+namespace Game.Weapon.Kinemation {
     [DisallowMultipleComponent]
     public sealed class KinWeaponPartReferences : MonoBehaviour {
         [Header("Muzzle")]

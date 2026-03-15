@@ -1,7 +1,7 @@
 using Network.Events;
 using UnityEngine;
 
-namespace Game.Weapons.Kinemation {
+namespace Game.Weapon.Kinemation {
     /// <summary>Runtime grapple clavicle offset for the KIN viewmodel. Handles prepare/apply/clear and static AK anchor.</summary>
     internal sealed class KinGrappleClavicle {
         private const float RuntimeGrappleClavicleOffsetScale = 1f;

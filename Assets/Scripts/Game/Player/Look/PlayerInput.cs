@@ -8,8 +8,8 @@ using Game.Social;
 using Game.UI.HUD;
 using Game.UI.Screens;
 using Game.UI.Screens.Scoreboard;
-using Game.Weapons.Core;
-using Game.Weapons.Manager;
+using Game.Weapon.Core;
+using Game.Weapon.Manager;
 using JetBrains.Annotations;
 using Network.Diagnostics;
 using Network.Events;
@@ -94,7 +94,7 @@ namespace Game.Player.Look {
             }
         }
 
-        private Weapon CurrentWeapon => WeaponManager == null ? null : WeaponManager.CurrentWeapon;
+        private Weapon.Core.Weapon CurrentWeapon => WeaponManager == null ? null : WeaponManager.CurrentWeapon;
 
         private bool _sprintBtnDown;
         private bool _crouchBtnDown;

@@ -1,7 +1,7 @@
-using Game.Weapons.Core;
+using Game.Weapon.Core;
 using UnityEngine;
 
-namespace Game.Weapons.Kinemation {
+namespace Game.Weapon.Kinemation {
     /// <summary>Drake shell and Kar loop-bullet suppression/restore for the KIN viewmodel.</summary>
     internal sealed class KinDrakeKarVisuals {
         private const float DrakeTopShellHideOffset = 0.75f;

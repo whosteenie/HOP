@@ -8,9 +8,8 @@ using Game.Player.Look;
 using Game.Player.Movement;
 using Game.Player.Visual;
 using Game.UI.HUD;
-using Game.Weapons.Core;
-using Game.Weapons.Manager;
-using Game.Weapons.Presentation;
+using Game.Weapon.Manager;
+using Game.Weapon.Presentation;
 using Network.Components;
 using Network.Core;
 using Network.Events;
@@ -94,7 +93,7 @@ namespace Game.Player.Core {
         [Header("Weapon System")]
         [SerializeField] private WeaponManager weaponManager;
 
-        [SerializeField] private Weapon weaponComponent;
+        [SerializeField] private Weapon.Core.Weapon weaponComponent;
 
         // [SerializeField] private MeshRenderer worldWeapon;
         [SerializeField] private Transform worldWeaponSocket;
@@ -835,7 +834,7 @@ namespace Game.Player.Core {
         public NetworkAudioRelay AudioRelay => audioRelay;
         public CinemachineImpulseSource ImpulseSource => impulseSource;
         public GameObject[] WorldWeaponPrefabs => worldWeaponPrefabs;
-        public Weapon WeaponComponent => weaponComponent;
+        public Weapon.Core.Weapon WeaponComponent => weaponComponent;
         public Animator PlayerAnimator => playerAnimator;
         public Transform WorldWeaponSocket => worldWeaponSocket;
 

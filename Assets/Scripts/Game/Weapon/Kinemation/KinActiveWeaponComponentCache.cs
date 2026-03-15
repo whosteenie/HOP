@@ -4,7 +4,7 @@ using KINEMATION.FPSAnimationPack.Scripts.Weapon;
 using UnityEngine;
 using UnityEngine.VFX;
 
-namespace Game.Weapons.Kinemation {
+namespace Game.Weapon.Kinemation {
     internal sealed class KinActiveWeaponComponentCache {
         private int _cachedActiveWeaponInstanceId;
         private KinWeaponPartReferences _activeWeaponPartReferences;

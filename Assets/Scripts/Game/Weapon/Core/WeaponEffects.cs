@@ -1,11 +1,11 @@
 using System.Collections;
 using Game.Player.Core;
-using Game.Weapons.Kinemation;
+using Game.Weapon.Kinemation;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.VFX;
 
-namespace Game.Weapons.Core {
+namespace Game.Weapon.Core {
     internal sealed class WeaponEffects {
         private readonly Weapon _weapon;
 

@@ -1,8 +1,8 @@
 using System.Collections.Generic;
-using Game.Weapons.Core;
+using Game.Weapon.Core;
 using UnityEngine;
 
-namespace Game.Weapons.Kinemation {
+namespace Game.Weapon.Kinemation {
     /// <summary>Pending weapon fire/event sound queues and reload-event clip detection for KIN viewmodel sound routing.</summary>
     internal sealed class KinDriverSoundEvents {
         private static readonly HashSet<int> MissingKinemationReloadSoundIndexWarnings = new();

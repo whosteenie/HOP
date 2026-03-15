@@ -1,8 +1,8 @@
 using Game.Player.Core;
-using Game.Weapons.Manager;
+using Game.Weapon.Manager;
 using UnityEngine;
 
-namespace Game.Weapons.Core {
+namespace Game.Weapon.Core {
     /// <summary>
     /// Component attached to FP weapon GameObjects to handle animation events.
     /// Allows animation events to communicate with the weapon system.

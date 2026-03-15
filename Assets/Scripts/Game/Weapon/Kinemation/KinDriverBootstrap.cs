@@ -1,11 +1,11 @@
 using System.Reflection;
-using Game.Weapons.Manager;
+using Game.Weapon.Manager;
 using KINEMATION.FPSAnimationPack.Scripts.Camera;
 using KINEMATION.FPSAnimationPack.Scripts.Player;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
-namespace Game.Weapons.Kinemation {
+namespace Game.Weapon.Kinemation {
     /// <summary>Viewmodel lifecycle: create player instance, build runtime settings, disable unneeded components, apply layer/shadows/relays.</summary>
     internal sealed class KinDriverBootstrap {
         private static readonly MethodInfo FpsPlayerSetMovementEnabledMethod =

@@ -1,7 +1,7 @@
-using Game.Weapons.Manager;
+using Game.Weapon.Manager;
 using UnityEngine;
 
-namespace Game.Weapons.Core {
+namespace Game.Weapon.Core {
     internal sealed class WeaponReload {
         private readonly Weapon _weapon;
 

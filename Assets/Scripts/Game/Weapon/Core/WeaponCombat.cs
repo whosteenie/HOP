@@ -5,7 +5,7 @@ using Unity.Netcode;
 using UnityEngine;
 using Random = UnityEngine.Random;
 
-namespace Game.Weapons.Core {
+namespace Game.Weapon.Core {
     internal sealed class WeaponCombat {
         private readonly Weapon _weapon;
         // Local, client-side shot id tracking per weapon index to ensure monotonically increasing ids.

@@ -3,7 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using Game.Audio2;
-using Game.Weapons.Kinemation;
+using Game.Weapon.Kinemation;
 using KINEMATION.FPSAnimationPack.Scripts.Weapon;
 using UnityEditor;
 using UnityEngine;

@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 using Game.Player.Core;
-using Game.Weapons.Manager;
+using Game.Weapon.Manager;
 using Network.AntiCheat;
 using Network.Core;
 using Network.Diagnostics;

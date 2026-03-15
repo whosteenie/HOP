@@ -1,6 +1,6 @@
 using System;
 using Game.Player.Core;
-using Game.Weapons.Manager;
+using Game.Weapon.Manager;
 using Network.AntiCheat;
 using Network.Diagnostics;
 using Unity.Netcode;

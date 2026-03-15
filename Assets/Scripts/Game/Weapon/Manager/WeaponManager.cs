@@ -3,16 +3,16 @@ using System.Collections.Generic;
 using Game.Match;
 using Game.Player.Core;
 using Game.Player.Visual;
-using Game.Weapons.Core;
-using Game.Weapons.Kinemation;
-using Game.Weapons.World;
+using Game.Weapon.Core;
+using Game.Weapon.Kinemation;
+using Game.Weapon.World;
 using KINEMATION.FPSAnimationPack.Scripts.Weapon;
 using Network.Core;
 using Unity.Cinemachine;
 using Unity.Netcode;
 using UnityEngine;
 
-namespace Game.Weapons.Manager {
+namespace Game.Weapon.Manager {
     public class WeaponManager : NetworkBehaviour {
         #region Types
 
@@ -118,7 +118,7 @@ namespace Game.Weapons.Manager {
         internal GameObject PrimaryHolsterInternal { get; set; }
         internal GameObject SecondaryHolsterInternal { get; set; }
         internal int CurrentWeaponIndexInternal { get; set; } = -1;
-        internal Weapon CurrentWeaponInternal { get; private set; }
+        internal Weapon.Core.Weapon CurrentWeaponInternal { get; private set; }
         internal bool IsPullingOutInternal { get; set; }
 
         internal int ServerAuthoritativeWeaponIndex { get; set; } = -1;
@@ -142,7 +142,7 @@ namespace Game.Weapons.Manager {
 
         #region Public Properties
 
-        public Weapon CurrentWeapon => CurrentWeaponInternal;
+        public Weapon.Core.Weapon CurrentWeapon => CurrentWeaponInternal;
         public GameObject CurrentWorldWeaponInstance => CurrentWorldWeaponInstanceInternal;
         public int CurrentWeaponIndex => CurrentWeaponIndexInternal;
         public int WeaponCount => weaponDataList != null ? weaponDataList.Count : 0;

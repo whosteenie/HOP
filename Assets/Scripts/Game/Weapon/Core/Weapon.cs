@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using Audio.Networking;
 using Game.Player.Core;
 using Game.UI.HUD;
-using Game.Weapons.Kinemation;
-using Game.Weapons.Manager;
-using Game.Weapons.World;
+using Game.Weapon.Kinemation;
+using Game.Weapon.Manager;
+using Game.Weapon.World;
 using Network.Core;
 using Network.Events;
 using Network.Rpc;
@@ -14,7 +14,7 @@ using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.VFX;
 
-namespace Game.Weapons.Core {
+namespace Game.Weapon.Core {
     public class Weapon : NetworkBehaviour {
         public const float MaxDamageMultiplier = 3f;
 

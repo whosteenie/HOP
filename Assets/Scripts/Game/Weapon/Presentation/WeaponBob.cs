@@ -1,7 +1,7 @@
 using Game.Player.Core;
 using UnityEngine;
 
-namespace Game.Weapons.Presentation {
+namespace Game.Weapon.Presentation {
     [DisallowMultipleComponent]
     public class WeaponBob : MonoBehaviour {
         [Header("Bob Settings")]

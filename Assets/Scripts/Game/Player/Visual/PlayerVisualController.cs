@@ -1,6 +1,6 @@
 using System.Collections;
 using Game.Player.Core;
-using Game.Weapons.Manager;
+using Game.Weapon.Manager;
 using Unity.Netcode;
 using UnityEngine;
 

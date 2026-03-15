@@ -6,7 +6,7 @@ using Game.Match;
 using Game.Player.Combat;
 using Game.Player.Core;
 using Game.Player.Visual;
-using Game.Weapons.Manager;
+using Game.Weapon.Manager;
 using Network.Diagnostics;
 using OSI;
 using Unity.Cinemachine;

@@ -1,13 +1,13 @@
 using System.Collections.Generic;
-using Game.Weapons.Core;
-using Game.Weapons.Manager;
+using Game.Weapon.Core;
+using Game.Weapon.Manager;
 using KINEMATION.FPSAnimationPack.Scripts.Player;
 using KINEMATION.FPSAnimationPack.Scripts.Sounds;
 using KINEMATION.FPSAnimationPack.Scripts.Weapon;
 using UnityEngine;
 using UnityEngine.VFX;
 
-namespace Game.Weapons.Kinemation {
+namespace Game.Weapon.Kinemation {
     /// <summary>Context the resolver needs from the driver (player instance, layer, weapon manager, sound flags for relay attach).</summary>
     internal interface IKinDriverResolverContext {
         GameObject PlayerInstance { get; }

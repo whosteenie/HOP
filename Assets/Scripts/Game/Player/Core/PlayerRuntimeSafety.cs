@@ -1,5 +1,5 @@
 using System;
-using Game.Weapons.Kinemation;
+using Game.Weapon.Kinemation;
 using UnityEngine;
 
 namespace Game.Player.Core {

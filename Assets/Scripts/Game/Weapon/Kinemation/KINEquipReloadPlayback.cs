@@ -1,11 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.Reflection;
-using Game.Weapons.Core;
+using Game.Weapon.Core;
 using KINEMATION.FPSAnimationPack.Scripts.Weapon;
 using UnityEngine;
 
-namespace Game.Weapons.Kinemation {
+namespace Game.Weapon.Kinemation {
     /// <summary>High-level equip/reload/fire playback and ammo sync. Coordinates resolver, tracker, Drake/Kar, and audio.</summary>
     internal sealed class KinEquipReloadPlayback {
         private static readonly int IdleHash = Animator.StringToHash("Idle");

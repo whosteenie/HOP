@@ -1,4 +1,4 @@
-using Game.Weapons.Core;
+using Game.Weapon.Core;
 using UnityEditor;
 using UnityEngine;
 

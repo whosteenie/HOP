@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace Game.Weapons.Kinemation {
+namespace Game.Weapon.Kinemation {
     /// <summary>Caches wrist/debug bones and applies fixed offsets for the KIN viewmodel left arm.</summary>
     internal sealed class KinDriverWristBones {
         private static readonly Vector3 FixedUpperarmLeftPositionOffset = new(0f, 0.027f, 0f);

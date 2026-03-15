@@ -1,11 +1,11 @@
 using System.Collections.Generic;
-using Game.Weapons.Core;
-using Game.Weapons.Manager;
+using Game.Weapon.Core;
+using Game.Weapon.Manager;
 using KINEMATION.FPSAnimationPack.Scripts.Player;
 using Network.Events;
 using UnityEngine;
 
-namespace Game.Weapons.Kinemation {
+namespace Game.Weapon.Kinemation {
     [DisallowMultipleComponent]
     public sealed class KinFpWeaponDriver : MonoBehaviour, IKinDriverResolverContext {
         #region Serialized config

@@ -1,8 +1,8 @@
 using System.Collections.Generic;
 using Game.Match;
 using Game.Player.Core;
-using Game.Weapons.Core;
-using Game.Weapons.Manager;
+using Game.Weapon.Core;
+using Game.Weapon.Manager;
 using Network.Diagnostics;
 using Unity.Netcode;
 using UnityEngine;

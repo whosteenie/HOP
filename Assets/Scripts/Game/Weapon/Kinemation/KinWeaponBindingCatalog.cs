@@ -1,10 +1,10 @@
 using System;
 using System.Collections.Generic;
-using Game.Weapons.Core;
-using Game.Weapons.Manager;
+using Game.Weapon.Core;
+using Game.Weapon.Manager;
 using UnityEngine;
 
-namespace Game.Weapons.Kinemation {
+namespace Game.Weapon.Kinemation {
     internal sealed class KinWeaponBindingCatalog {
         private readonly Dictionary<WeaponData, WeaponManager.KinemationWeaponBinding> _lookup = new();
         private readonly List<WeaponData> _primaryWeaponOptions = new();

@@ -4,7 +4,7 @@ using KINEMATION.FPSAnimationPack.Scripts.Sounds;
 using KINEMATION.FPSAnimationPack.Scripts.Weapon;
 using UnityEngine;
 
-namespace Game.Weapons.Kinemation {
+namespace Game.Weapon.Kinemation {
     /// <summary>Dedicated weapon AudioSource, sound toggles, and fire/event sound metadata for the KIN viewmodel.</summary>
     internal sealed class KinDriverAudio {
         private static readonly FieldInfo FpsWeaponSoundAudioSourceField =

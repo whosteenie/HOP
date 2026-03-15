@@ -1,7 +1,7 @@
-using Game.Weapons.Core;
+using Game.Weapon.Core;
 using UnityEngine;
 
-namespace Game.Weapons.World {
+namespace Game.Weapon.World {
     [DisallowMultipleComponent]
     public class WorldWeaponBinding : MonoBehaviour {
         [SerializeField] private WeaponData weaponData;

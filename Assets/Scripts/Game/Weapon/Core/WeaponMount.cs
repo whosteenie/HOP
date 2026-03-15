@@ -1,9 +1,9 @@
 using Game.Menu;
-using Game.Weapons.Kinemation;
-using Game.Weapons.World;
+using Game.Weapon.Kinemation;
+using Game.Weapon.World;
 using UnityEngine;
 
-namespace Game.Weapons.Core {
+namespace Game.Weapon.Core {
     internal sealed class WeaponMount {
         private readonly Weapon _weapon;
 
