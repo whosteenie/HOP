@@ -745,7 +745,7 @@ namespace Network.Session {
             await _actions.PreFadePublicHostAsync();
             await _actions.MarkHostReadyAsync();
 
-            if(await _matchLobby.WaitForMatchPlayersReadyAsync(_ctx, expectedPlayerIds, 60f, "PublicMatch") ==
+            if(await _matchLobby.WaitForPlayersReadyAsync(_ctx, expectedPlayerIds, 60f, "PublicMatch") ==
                false) {
                 Debug.LogError("[SessionManager] Timed out waiting for all players. Aborting to menu...");
                 await _ctx.LeaveToMainMenuAsync();

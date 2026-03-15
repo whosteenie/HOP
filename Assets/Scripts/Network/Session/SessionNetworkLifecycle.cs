@@ -80,17 +80,17 @@ namespace Network.Session {
         }
 
         /// <summary>True while DA create/join is in progress; used to suppress disconnect handling during the grace window.</summary>
-        public static bool IsDistributedAuthorityStartupInFlight =>
+        public static bool IsDaStartupInFlight =>
             distributedAuthorityStartupDepth > 0 && Time.unscaledTime <= distributedAuthorityStartupUntilTime;
 
-        private static void BeginDistributedAuthorityStartupWindow(string contextLabel) {
+        private static void BeginDaStartupWindow(string contextLabel) {
             distributedAuthorityStartupDepth = Math.Max(0, distributedAuthorityStartupDepth) + 1;
             distributedAuthorityStartupUntilTime = Time.unscaledTime + DistributedAuthorityStartupDisconnectGraceSeconds;
             if(Debug.isDebugBuild)
                 Debug.Log($"[SessionManager] DA startup window begin ({contextLabel}). depth={distributedAuthorityStartupDepth}");
         }
 
-        private static void EndDistributedAuthorityStartupWindow(string contextLabel) {
+        private static void EndDaStartupWindow(string contextLabel) {
             distributedAuthorityStartupDepth = Math.Max(0, distributedAuthorityStartupDepth - 1);
             if(distributedAuthorityStartupDepth == 0)
                 distributedAuthorityStartupUntilTime = 0f;
@@ -167,7 +167,7 @@ namespace Network.Session {
             int maxPlayers,
             bool isPrivateMatch,
             string contextLabel) {
-            BeginDistributedAuthorityStartupWindow(contextLabel);
+            BeginDaStartupWindow(contextLabel);
             try {
                 await lifecycleActions.CleanupNetworkAsync();
                 ApplyLocalConnectionPayload(ctx, isPrivateMatch);
@@ -175,11 +175,11 @@ namespace Network.Session {
                 const int maxAttempts = 2;
                 for(var attempt = 1; attempt <= maxAttempts; attempt++) {
                     try {
-                        var options = BuildDistributedAuthoritySessionOptions(ctx, maxPlayers, isPrivateMatch);
+                        var options = BuildDaSessionOptions(ctx, maxPlayers, isPrivateMatch);
                         var hostSession = await MultiplayerService.Instance.CreateSessionAsync(options);
                         daActions.BindActiveSession(hostSession);
                         return hostSession.Code;
-                    } catch(Exception ex) when(attempt < maxAttempts && IsRetryableDistributedAuthorityStartupException(ex)) {
+                    } catch(Exception ex) when(attempt < maxAttempts && IsRetryableDaStartupException(ex)) {
                         Debug.LogWarning(
                             $"[SessionManager] DA create canceled during {contextLabel} (attempt {attempt}/{maxAttempts}). Retrying...");
                         await UniTask.Delay(350, cancellationToken: ctx.SessionLifetimeToken);
@@ -192,7 +192,7 @@ namespace Network.Session {
 
                 return null;
             } finally {
-                EndDistributedAuthorityStartupWindow(contextLabel);
+                EndDaStartupWindow(contextLabel);
             }
         }
 
@@ -211,7 +211,7 @@ namespace Network.Session {
                 return DaSessionJoinResult.Failed;
             }
 
-            BeginDistributedAuthorityStartupWindow(contextLabel);
+            BeginDaStartupWindow(contextLabel);
             try {
                 await lifecycleActions.CleanupNetworkAsync();
                 ApplyLocalConnectionPayload(ctx, isPrivateMatch);
@@ -228,7 +228,7 @@ namespace Network.Session {
                             $"[SessionManager] Rate limited joining DA session '{sessionCode}' during {contextLabel}. Retrying...");
                         daActions.UnbindActiveSession();
                         return DaSessionJoinResult.RateLimited;
-                    } catch(Exception ex) when(attempt < maxAttempts && IsRetryableDistributedAuthorityStartupException(ex)) {
+                    } catch(Exception ex) when(attempt < maxAttempts && IsRetryableDaStartupException(ex)) {
                         Debug.LogWarning(
                             $"[SessionManager] DA join canceled for code '{sessionCode}' during {contextLabel} (attempt {attempt}/{maxAttempts}). Retrying...");
                         await UniTask.Delay(350, cancellationToken: ctx.SessionLifetimeToken);
@@ -242,7 +242,7 @@ namespace Network.Session {
 
                 return DaSessionJoinResult.Failed;
             } finally {
-                EndDistributedAuthorityStartupWindow(contextLabel);
+                EndDaStartupWindow(contextLabel);
             }
         }
 
@@ -270,7 +270,7 @@ namespace Network.Session {
         /// <summary>
         /// Builds SessionOptions for DA create (name, max players, session/player properties, DA network).
         /// </summary>
-        private static SessionOptions BuildDistributedAuthoritySessionOptions(ISessionContext ctx, int maxPlayers, bool isPrivateMatch) {
+        private static SessionOptions BuildDaSessionOptions(ISessionContext ctx, int maxPlayers, bool isPrivateMatch) {
             var options = new SessionOptions {
                 Name = $"HOP {ctx.SelectedGameMode}",
                 MaxPlayers = Mathf.Max(1, maxPlayers),
@@ -376,7 +376,7 @@ namespace Network.Session {
         /// <summary>
         /// Refreshes match lobby after DA host change; updates context and notifies when local player is promoted to host.
         /// </summary>
-        private static async UniTask RefreshMatchLobbyAfterDistributedAuthorityHostChangeAsync(
+        private static async UniTask RefreshMatchLobbyAfterHostChangeAsync(
             ISessionContext ctx,
             IDistributedAuthorityActions daActions,
             string reason,
@@ -448,7 +448,7 @@ namespace Network.Session {
             }
         }
 
-        private static bool IsRetryableDistributedAuthorityStartupException(Exception ex) {
+        private static bool IsRetryableDaStartupException(Exception ex) {
             switch(ex) {
                 case null:
                     return false;
@@ -468,7 +468,7 @@ namespace Network.Session {
         }
 
         /// <summary>Refreshes the active DA session after a delay. Call from DA event handlers.</summary>
-        private static async UniTask RefreshActiveMultiplayerSessionAsync(ISessionContext ctx, ISession session, string reason) {
+        private static async UniTask RefreshActiveSessionAsync(ISessionContext ctx, ISession session, string reason) {
             if(session == null || ctx.IsLeaving || ctx.IsShuttingDown) return;
             try {
                 await UniTask.Delay(250, cancellationToken: ctx.SessionLifetimeToken);
@@ -486,10 +486,10 @@ namespace Network.Session {
             ISession session, string newHostId) {
             if(Debug.isDebugBuild)
                 Debug.Log($"[SessionManager] DA session host changed to '{newHostId}'.");
-            ctx.LaunchSessionTask(RefreshActiveMultiplayerSessionAsync(ctx, session, "HostChanged"),
+            ctx.LaunchSessionTask(RefreshActiveSessionAsync(ctx, session, "HostChanged"),
                 "DistributedAuthority/RefreshHostChanged");
             ctx.LaunchSessionTask(
-                RefreshMatchLobbyAfterDistributedAuthorityHostChangeAsync(ctx, daActions, "HostChanged", newHostId),
+                RefreshMatchLobbyAfterHostChangeAsync(ctx, daActions, "HostChanged", newHostId),
                 "DistributedAuthority/RefreshMatchLobbyHostChanged");
             ctx.NotifyPartyStateChanged();
         }
@@ -499,10 +499,10 @@ namespace Network.Session {
             ISession session, Func<bool> isInGameplayAndListening) {
             if(Debug.isDebugBuild)
                 Debug.Log("[SessionManager] DA session migration completed.");
-            ctx.LaunchSessionTask(RefreshActiveMultiplayerSessionAsync(ctx, session, "Migrated"),
+            ctx.LaunchSessionTask(RefreshActiveSessionAsync(ctx, session, "Migrated"),
                 "DistributedAuthority/RefreshMigrated");
             ctx.LaunchSessionTask(
-                RefreshMatchLobbyAfterDistributedAuthorityHostChangeAsync(ctx, daActions, "Migrated", null),
+                RefreshMatchLobbyAfterHostChangeAsync(ctx, daActions, "Migrated", null),
                 "DistributedAuthority/RefreshMatchLobbyMigrated");
             if(isInGameplayAndListening != null && isInGameplayAndListening())
                 ctx.SetFrontStatus(SessionPhase.InGame, "");
@@ -540,7 +540,7 @@ namespace Network.Session {
             Func<bool> hasActiveSession,
             Action<string> triggerUnexpectedDisconnect) {
             if(ctx.IsExpectedDisconnect || ctx.IsLeaving) return;
-            if(IsDistributedAuthorityStartupInFlight) {
+            if(IsDaStartupInFlight) {
                 if(Debug.isDebugBuild)
                     Debug.Log("[SessionManager] Ignoring client-stopped callback during DA startup window.");
                 return;
@@ -548,7 +548,7 @@ namespace Network.Session {
             if(networkManager != null && networkManager.IsListening) return;
             if(networkManager != null && hasActiveSession()) {
                 ctx.LaunchSessionTask(
-                    VerifyDistributedAuthorityStopAsync(ctx, networkManager, () =>
+                    VerifyDaStopAsync(ctx, networkManager, () =>
                         triggerUnexpectedDisconnect("OnClientStopped/DistributedAuthority")),
                     "DistributedAuthority/VerifyClientStopped");
                 return;
@@ -584,7 +584,7 @@ namespace Network.Session {
                     ctx.NotifyPartyStateChanged();
                     return;
                 }
-                if(IsDistributedAuthorityStartupInFlight) {
+                if(IsDaStartupInFlight) {
                     if(Debug.isDebugBuild)
                         Debug.Log("[SessionManager] Ignoring local disconnect during DA startup window.");
                     ctx.NotifyPartyStateChanged();
@@ -639,7 +639,7 @@ namespace Network.Session {
                 registeredNetworkManager = null;
         }
 
-        private static async UniTask VerifyDistributedAuthorityStopAsync(
+        private static async UniTask VerifyDaStopAsync(
             ISessionContext ctx,
             NetworkManager networkManager,
             Action triggerUnexpectedDisconnect) {

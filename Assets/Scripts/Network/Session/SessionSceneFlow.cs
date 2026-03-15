@@ -128,7 +128,7 @@ namespace Network.Session {
         /// </summary>
         public void TriggerUnexpectedDisconnectFlow(ISessionContext ctx, ISceneFlowActions actions, string source) {
             if(_unexpectedDisconnectInFlight || ctx.IsLeaving || ctx.IsShuttingDown) return;
-            if(SessionNetworkLifecycle.IsDistributedAuthorityStartupInFlight) {
+            if(SessionNetworkLifecycle.IsDaStartupInFlight) {
                 if(Debug.isDebugBuild) {
                     Debug.Log($"[SessionManager] Suppressed unexpected disconnect flow during DA startup ({source}).");
                 }
@@ -486,7 +486,7 @@ namespace Network.Session {
 
                 if(actions.TryGetNetworkManager(out var networkManager) && NetworkAuthority.HasGlobalAuthority(networkManager)) {
                     ctx.SetIsInGameplay(true);
-                    actions.EnableGameplaySpawningAndSpawnAllIfHost();
+                    actions.EnableGameplaySpawningIfHost();
 
                     if(actions.IsMatchLobbyPublic()) {
                         await actions.TrySetMatchLobbyStateAsync("InGame",

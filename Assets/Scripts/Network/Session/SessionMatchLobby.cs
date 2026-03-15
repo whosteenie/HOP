@@ -346,7 +346,7 @@ namespace Network.Session {
 
             if(!force && Time.unscaledTime < _nextBackfillEligibilityRefreshTime) return;
 
-            var (allowed, reason) = EvaluatePublicMatchBackfillEligibility(ctx);
+            var (allowed, reason) = EvaluateBackfillEligibility(ctx);
             if(!force &&
                _lastPublishedBackfillAllowed == allowed &&
                string.Equals(_lastPublishedBackfillReason, reason, StringComparison.Ordinal)) {
@@ -356,7 +356,7 @@ namespace Network.Session {
 
             IsBackfillEligibilityUpdateInFlight = true;
             try {
-                if(await TryUpdatePublicMatchBackfillEligibilityAsync(ctx, allowed, reason, "HeartbeatRefresh")) {
+                if(await TryUpdateBackfillEligibilityAsync(ctx, allowed, reason, "HeartbeatRefresh")) {
                     _lastPublishedBackfillAllowed = allowed;
                     _lastPublishedBackfillReason = reason;
                 }
@@ -367,7 +367,7 @@ namespace Network.Session {
         }
 
         /// <summary>Game rules: whether this public match is still eligible for backfill join-in-progress.</summary>
-        private static (bool allowed, string reason) EvaluatePublicMatchBackfillEligibility(ISessionContext ctx) {
+        private static (bool allowed, string reason) EvaluateBackfillEligibility(ISessionContext ctx) {
             var matchSettings = MatchSettingsManager.Instance;
             var mode = matchSettings != null && !string.IsNullOrWhiteSpace(matchSettings.selectedGameModeId)
                 ? matchSettings.selectedGameModeId
@@ -465,7 +465,7 @@ namespace Network.Session {
             return Mathf.Max(teamAKills, teamBKills) / (float)Mathf.Max(1, scoreToWin);
         }
 
-        private static async UniTask<bool> TryUpdatePublicMatchBackfillEligibilityAsync(ISessionContext ctx, bool allowed, string reason, string context) {
+        private static async UniTask<bool> TryUpdateBackfillEligibilityAsync(ISessionContext ctx, bool allowed, string reason, string context) {
             var matchLobby = ctx.UgsMatchLobby;
             if(matchLobby == null || string.IsNullOrEmpty(matchLobby.Id) || matchLobby.Data == null) return false;
             try {
@@ -580,7 +580,7 @@ namespace Network.Session {
             return phase != SessionPhase.InGame;
         }
 
-        private void RefreshHeartbeatSchedulesForCurrentLobbies(ISessionContext ctx, float now) {
+        private void RefreshHeartbeatSchedules(ISessionContext ctx, float now) {
             var partyLobby = ctx.UgsPartyLobby;
             var matchLobby = ctx.UgsMatchLobby;
 
@@ -669,7 +669,7 @@ namespace Network.Session {
                 var localId = AuthenticationService.Instance.PlayerId;
                 if(string.IsNullOrEmpty(localId)) return;
                 var now = Time.unscaledTime;
-                RefreshHeartbeatSchedulesForCurrentLobbies(ctx, now);
+                RefreshHeartbeatSchedules(ctx, now);
 
                 var partyLobby = ctx.UgsPartyLobby;
                 var matchLobby = ctx.UgsMatchLobby;
@@ -769,7 +769,7 @@ namespace Network.Session {
         /// Waits until all expected players are in the match lobby and marked ready (or timeout / cancel).
         /// Call from SessionManager for private or public match sync.
         /// </summary>
-        public async UniTask<bool> WaitForMatchPlayersReadyAsync(ISessionContext ctx, List<string> expectedPlayerIds,
+        public async UniTask<bool> WaitForPlayersReadyAsync(ISessionContext ctx, List<string> expectedPlayerIds,
             float timeoutSeconds, string contextLabel) {
             if(ctx.IsLeaving || ctx.IsShuttingDown || ctx.UgsMatchLobby == null) return false;
             if(expectedPlayerIds == null || expectedPlayerIds.Count == 0) return true;
@@ -893,7 +893,7 @@ namespace Network.Session {
             switch(stateObj.Value) {
                 case "SynchronizingLoad":
                     if(!actions.UgsLocalReadySubmitted) {
-                        ctx.LaunchSessionTask(StartMatchSynchronizationAsync(ctx, actions, lobbyActions), $"{source}/SynchronizingLoad");
+                        ctx.LaunchSessionTask(StartMatchSyncAsync(ctx, actions, lobbyActions), $"{source}/SynchronizingLoad");
                     }
                     return;
                 case "LoadingScene":
@@ -999,7 +999,7 @@ namespace Network.Session {
             }
         }
 
-        public async UniTask StartMatchSynchronizationAsync(ISessionContext ctx, IMatchSnapshotActions actions, ILobbyEventActions lobbyActions, bool skipFadeOut = false) {
+        public async UniTask StartMatchSyncAsync(ISessionContext ctx, IMatchSnapshotActions actions, ILobbyEventActions lobbyActions, bool skipFadeOut = false) {
             if(ctx.UgsMatchLobby == null || actions.UgsLocalReadySubmitted || actions.UgsSyncInProgress) return;
 
             actions.UgsSyncInProgress = true;
@@ -1053,7 +1053,7 @@ namespace Network.Session {
                         retryDelayMs = Mathf.Min(retryDelayMs + 500, 5000);
                         continue;
                     }
-                    await StartMatchSynchronizationAsync(ctx, actions, lobbyActions, skipFadeOut: true);
+                    await StartMatchSyncAsync(ctx, actions, lobbyActions, skipFadeOut: true);
                     retryDelayMs = Mathf.Min(retryDelayMs + 500, 5000);
                 }
             } finally {

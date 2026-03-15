@@ -8,7 +8,7 @@ namespace Network.Session {
     /// </summary>
     public interface IMatchSnapshotActions {
         void SyncModeFromMatchLobby(Lobby lobby);
-        UniTask StartMatchSynchronizationAsync(bool skipFadeOut);
+        UniTask StartMatchSyncAsync(bool skipFadeOut);
         UniTask StartMatchClientAsync(bool useFadeOut = false, string expectedSessionCode = null, bool? expectedIsPrivateMatch = null);
         UniTask FadeOutWithFallbackAsync(int fallbackDelayMs = 500);
         UniTask LeaveToMainMenuAsync(bool skipFadeOut = false);

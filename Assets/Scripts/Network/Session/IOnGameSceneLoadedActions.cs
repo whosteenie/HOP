@@ -14,7 +14,7 @@ namespace Network.Session {
         UniTask RefreshBackfillEligibilityAsync(bool force);
         UniTask UnsubscribeMatchLobbyAsync(string context);
         bool TryGetNetworkManager(out NetworkManager networkManager);
-        void EnableGameplaySpawningAndSpawnAllIfHost();
+        void EnableGameplaySpawningIfHost();
         int StartGameScenePresentation();
         bool IsCurrentGameScenePresentation(int serial);
         bool IsMatchLobbyPublic();

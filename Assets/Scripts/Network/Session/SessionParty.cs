@@ -293,9 +293,9 @@ namespace Network.Session {
                 snapshotActions.UgsLocalReadySubmitted = false;
                 snapshotActions.UgsClientStartedForMatch = false;
 
-                await matchLobby.StartMatchSynchronizationAsync(ctx, snapshotActions, lobbyActions, skipFadeOut: false);
+                await matchLobby.StartMatchSyncAsync(ctx, snapshotActions, lobbyActions, skipFadeOut: false);
 
-                if(await matchLobby.WaitForMatchPlayersReadyAsync(ctx, expectedPlayers, 20f, "PrivateMatch") == false) {
+                if(await matchLobby.WaitForPlayersReadyAsync(ctx, expectedPlayers, 20f, "PrivateMatch") == false) {
                     await hostActions.LeaveToMainMenuAsync();
                     return;
                 }

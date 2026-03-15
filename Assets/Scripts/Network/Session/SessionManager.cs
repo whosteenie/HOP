@@ -529,8 +529,8 @@ namespace Network.Session {
         private void SyncModeFromMatchLobby(Unity.Services.Lobbies.Models.Lobby lobby) =>
             SessionMatchLobby.SyncModeFromMatchLobby(this, lobby);
 
-        private UniTask StartMatchSynchronizationAsync(bool skipFadeOut = false) =>
-            _matchLobby.StartMatchSynchronizationAsync(this, this, this, skipFadeOut);
+        private UniTask StartMatchSyncAsync(bool skipFadeOut = false) =>
+            _matchLobby.StartMatchSyncAsync(this, this, this, skipFadeOut);
 
         private UniTask StartMatchClientAsync(bool useFadeOut = false, string expectedSessionCode = null,
             bool? expectedIsPrivateMatch = null) =>
@@ -555,7 +555,7 @@ namespace Network.Session {
             }
         }
 
-        private void EnableGameplaySpawningAndSpawnAllIfHost() {
+        private void EnableGameplaySpawningIfHost() {
             if(_customNetworkManager != null)
                 _customNetworkManager.EnableGameplaySpawningAndSpawnAll();
         }
@@ -864,8 +864,8 @@ namespace Network.Session {
         void IMatchSnapshotActions.SyncModeFromMatchLobby(Unity.Services.Lobbies.Models.Lobby lobby) =>
             SyncModeFromMatchLobby(lobby);
 
-        UniTask IMatchSnapshotActions.StartMatchSynchronizationAsync(bool skipFadeOut) =>
-            StartMatchSynchronizationAsync(skipFadeOut);
+        UniTask IMatchSnapshotActions.StartMatchSyncAsync(bool skipFadeOut) =>
+            StartMatchSyncAsync(skipFadeOut);
 
         UniTask IMatchSnapshotActions.StartMatchClientAsync(bool useFadeOut, string expectedSessionCode,
             bool? expectedIsPrivateMatch) =>
@@ -990,8 +990,8 @@ namespace Network.Session {
         bool IOnGameSceneLoadedActions.TryGetNetworkManager(out NetworkManager networkManager) =>
             TryGetNetworkManager("OnGameSceneLoaded", out networkManager);
 
-        void IOnGameSceneLoadedActions.EnableGameplaySpawningAndSpawnAllIfHost() =>
-            EnableGameplaySpawningAndSpawnAllIfHost();
+        void IOnGameSceneLoadedActions.EnableGameplaySpawningIfHost() =>
+            EnableGameplaySpawningIfHost();
 
         int IOnGameSceneLoadedActions.StartGameScenePresentation() => ++_gameScenePresentationSerial;
 
