@@ -393,7 +393,7 @@ namespace Game.Player.Core {
             // Capture FP duplicate for unexpected disconnect *before* base/cleanup; player hierarchy still exists.
             if(IsOwner && SessionManager.Instance != null && !SessionManager.Instance.IsExpectedDisconnect) {
                 if(DisconnectTransitionController.Instance != null) {
-                    DisconnectTransitionController.Instance.CaptureAndShowDuplicateFpVisuals(this);
+                    DisconnectTransitionController.Instance.CaptureDuplicateFpVisuals(this);
                 }
             }
 

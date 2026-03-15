@@ -20,10 +20,10 @@ namespace Tests.PlayMode {
         }
 
         [Test]
-        public void CaptureAndShowDuplicateFpVisuals_WithNullPlayer_ReturnsFalse_AndStaysInactive() {
+        public void CaptureDuplicateFpVisuals_WithNullPlayer_ReturnsFalse_AndStaysInactive() {
             var controller = EnsureController();
 
-            var captureMethod = controller.GetType().GetMethod("CaptureAndShowDuplicateFpVisuals");
+            var captureMethod = controller.GetType().GetMethod("CaptureDuplicateFpVisuals");
             Assert.That(captureMethod, Is.Not.Null);
             var result = (bool)captureMethod.Invoke(controller, new object[] { null });
 

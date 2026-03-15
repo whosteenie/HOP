@@ -39,8 +39,8 @@ namespace Network.Singletons {
         /// Call synchronously at disconnect, before any await.
         /// Returns true if duplicate was shown; false if fallback (hide) should be used instead.
         /// </summary>
-        public bool CaptureAndShowDuplicateFpVisuals(PlayerController player) {
-            if(Debug.isDebugBuild) Debug.Log("[DisconnectTransition] CaptureAndShowDuplicateFpVisuals called");
+        public bool CaptureDuplicateFpVisuals(PlayerController player) {
+            if(Debug.isDebugBuild) Debug.Log("[DisconnectTransition] CaptureDuplicateFpVisuals called");
             if(player == null || !player.IsOwner) { if(Debug.isDebugBuild) Debug.Log("[DisconnectTransition] FAIL: player null or not owner"); return false; }
             CleanupDuplicate();
 
@@ -59,7 +59,7 @@ namespace Network.Singletons {
             var weaponCam = player.WeaponCamera;
             if(weaponCam == null) { if(Debug.isDebugBuild) Debug.Log("[DisconnectTransition] FAIL: weaponCam null"); return false; }
 
-            ApplyWeaponCameraSettingsToOverlay(weaponCam);
+            ApplyWeaponCameraToOverlay(weaponCam);
 
             _duplicateFpVisualsRoot = Instantiate(holderRoot, _standbyOverlayCamera.transform, false);
             _duplicateFpVisualsRoot.name = "DisconnectFpVisualsDuplicate";
@@ -128,7 +128,7 @@ namespace Network.Singletons {
             if(camData != null) camData.renderType = CameraRenderType.Overlay;
         }
 
-        private void ApplyWeaponCameraSettingsToOverlay(Camera weaponCamera) {
+        private void ApplyWeaponCameraToOverlay(Camera weaponCamera) {
             if(_standbyOverlayCamera == null || weaponCamera == null) return;
             _standbyOverlayCamera.fieldOfView = weaponCamera.fieldOfView;
             _standbyOverlayCamera.nearClipPlane = weaponCamera.nearClipPlane;

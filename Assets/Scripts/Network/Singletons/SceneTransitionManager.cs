@@ -200,7 +200,7 @@ namespace Network.Singletons {
                 _loadingBallAnimation.StartAnimation(_loadingBall);
             }
 
-            yield return WaitForOpacityTransitionAsync(_transitionOverlay, duration).ToCoroutine();
+            yield return WaitForOpacityAsync(_transitionOverlay, duration).ToCoroutine();
             _transitionOverlayState = OverlayVisualState.Opaque;
         }
 
@@ -236,7 +236,7 @@ namespace Network.Singletons {
             _transitionOverlay.AddToClassList("hidden");
             _transitionOverlayState = OverlayVisualState.FadingIn;
 
-            yield return WaitForOpacityTransitionAsync(_transitionOverlay, duration).ToCoroutine();
+            yield return WaitForOpacityAsync(_transitionOverlay, duration).ToCoroutine();
 
             _transitionOverlay.pickingMode = PickingMode.Ignore;
             _transitionOverlay.style.display = DisplayStyle.None;
@@ -274,7 +274,7 @@ namespace Network.Singletons {
             _respawnFadeOverlay.AddToClassList("visible");
             _respawnOverlayState = OverlayVisualState.FadingOut;
 
-            yield return WaitForOpacityTransitionAsync(_respawnFadeOverlay, duration).ToCoroutine();
+            yield return WaitForOpacityAsync(_respawnFadeOverlay, duration).ToCoroutine();
             _respawnOverlayState = OverlayVisualState.Opaque;
         }
 
@@ -306,7 +306,7 @@ namespace Network.Singletons {
             _respawnFadeOverlay.AddToClassList("hidden");
             _respawnOverlayState = OverlayVisualState.FadingIn;
 
-            yield return WaitForOpacityTransitionAsync(_respawnFadeOverlay, duration).ToCoroutine();
+            yield return WaitForOpacityAsync(_respawnFadeOverlay, duration).ToCoroutine();
 
             _respawnFadeOverlay.pickingMode = PickingMode.Ignore;
             _respawnFadeOverlay.style.display = DisplayStyle.None;
@@ -374,7 +374,7 @@ namespace Network.Singletons {
                 var fadeInSignaled = _serverSignaledFadeIn;
                 if(!_serverSignaledFadeIn) {
                     async UniTask WaitForSignalAsync() {
-                        fadeInSignaled = await WaitForRespawnFadeInSignalAsync(_respawnFadeInSignal);
+                        fadeInSignaled = await WaitForRespawnFadeInAsync(_respawnFadeInSignal);
                     }
 
                     yield return WaitForSignalAsync().ToCoroutine();
@@ -496,7 +496,7 @@ namespace Network.Singletons {
             return _menuMusicPlayer;
         }
 
-        private async UniTask WaitForOpacityTransitionAsync(VisualElement overlay, float expectedDurationSeconds) {
+        private async UniTask WaitForOpacityAsync(VisualElement overlay, float expectedDurationSeconds) {
             if(overlay?.panel == null) return;
 
             var transitionCompleted = new UniTaskCompletionSource<bool>();
@@ -518,7 +518,7 @@ namespace Network.Singletons {
 
             try {
                 await UniTask.WhenAny(
-                    WaitForTransitionCompletedAsync(),
+                    WaitForTransitionAsync(),
                     UniTask.Delay(TimeSpan.FromSeconds(timeoutSeconds),
                         cancellationToken: this.GetCancellationTokenOnDestroy()));
             } catch(OperationCanceledException) {
@@ -530,12 +530,12 @@ namespace Network.Singletons {
 
             return;
 
-            async UniTask WaitForTransitionCompletedAsync() {
+            async UniTask WaitForTransitionAsync() {
                 await transitionCompleted.Task;
             }
         }
 
-        private async UniTask<bool> WaitForRespawnFadeInSignalAsync(UniTaskCompletionSource<bool> signal) {
+        private async UniTask<bool> WaitForRespawnFadeInAsync(UniTaskCompletionSource<bool> signal) {
             if(signal == null) return true;
 
             var signalReceived = false;
