@@ -136,7 +136,7 @@ namespace Network.Steam {
                     return null;
                 }
 
-                var texture = CreateTextureFromSteamImage(image.Value);
+                var texture = CreateTextureFromImage(image.Value);
                 if(texture == null) {
                     MarkAvatarFetchFailure(steamId);
                     return null;
@@ -240,7 +240,7 @@ namespace Network.Steam {
             _avatarFailureCooldownUntil[steamId] = Time.unscaledTime + cooldownDuration;
         }
 
-        private static Texture2D CreateTextureFromSteamImage(Steamworks.Data.Image image) {
+        private static Texture2D CreateTextureFromImage(Steamworks.Data.Image image) {
             var width = (int)image.Width;
             var height = (int)image.Height;
             var data = image.Data;

@@ -24,7 +24,7 @@ namespace Network.Rpc {
             float clientShotTime = 0f, ulong shotId = 0, RpcParams rpcParams = default) {
             var senderClientId = rpcParams.Receive.SenderClientId;
             if(senderClientId != OwnerClientId) {
-                AntiCheatLogger.LogAuthorityViolation("NetworkDamageRelay.RequestDamageServerRpc", senderClientId);
+                AntiCheatLogger.LogAuthorityViolate("NetworkDamageRelay.RequestDamageServerRpc", senderClientId);
                 return;
             }
 

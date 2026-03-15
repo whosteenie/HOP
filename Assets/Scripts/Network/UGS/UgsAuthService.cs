@@ -19,7 +19,7 @@ namespace Network.UGS {
         private static Task inFlightSignInTask;
         private static string lastAuthProvider = "Unknown";
 
-        public static async UniTask InitializeAndSignInAsync() {
+        public static async UniTask InitAndSignInAsync() {
             if(UnityServices.State != ServicesInitializationState.Initialized) {
                 var options = new InitializationOptions();
 
@@ -40,7 +40,7 @@ namespace Network.UGS {
             Task inFlight;
             lock(SignInGate) {
                 if(inFlightSignInTask == null) {
-                    inFlightSignInTask = InitializeAndSignInInternalAsync();
+                    inFlightSignInTask = SignInInternalAsync();
                 }
 
                 inFlight = inFlightSignInTask;
@@ -65,7 +65,7 @@ namespace Network.UGS {
             }
         }
 
-        private static async Task InitializeAndSignInInternalAsync() {
+        private static async Task SignInInternalAsync() {
             try {
                 if(AuthenticationService.Instance.IsSignedIn) return;
 

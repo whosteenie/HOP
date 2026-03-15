@@ -15,7 +15,7 @@ namespace Game.Hopball {
     public class HopballController : NetworkBehaviour {
     private bool EnsureServerAuthority(string action) {
         if(HasHopballAuthority) return true;
-        AntiCheatLogger.LogAuthorityViolation($"Hopball.{action}", OwnerClientId);
+        AntiCheatLogger.LogAuthorityViolate($"Hopball.{action}", OwnerClientId);
         return false;
     }
     public static HopballController Instance { get; private set; }

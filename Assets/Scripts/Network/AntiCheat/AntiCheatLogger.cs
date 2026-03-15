@@ -22,13 +22,13 @@ namespace Network.AntiCheat {
 #endif
         }
 
-        public static void LogMovementEnforcement(ulong clientId, string details) {
+        public static void LogMovementEnforce(ulong clientId, string details) {
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
             Debug.LogError($"[AntiCheat][Movement] Client {clientId} ENFORCED: {details}");
 #endif
         }
 
-        public static void LogAuthorityViolation(string context, ulong clientId = ulong.MaxValue) {
+        public static void LogAuthorityViolate(string context, ulong clientId = ulong.MaxValue) {
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
             Debug.LogWarning(clientId == ulong.MaxValue
                 ? $"[AntiCheat][Authority] {context} invoked without server authority."

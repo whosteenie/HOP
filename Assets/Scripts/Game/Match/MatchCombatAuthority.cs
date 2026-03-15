@@ -197,7 +197,7 @@ namespace Game.Match {
 
             var shooter = shooterObject.GetComponent<PlayerController>();
             if(shooter == null || shooter.OwnerClientId != senderClientId) {
-                AntiCheatLogger.LogAuthorityViolation("MatchCombatAuthority.RequestShotFxServerRpc",
+                AntiCheatLogger.LogAuthorityViolate("MatchCombatAuthority.RequestShotFxServerRpc",
                     senderClientId);
                 return;
             }
@@ -243,7 +243,7 @@ namespace Game.Match {
             }
 
             if(player.OwnerClientId != senderClientId) {
-                AntiCheatLogger.LogAuthorityViolation("MatchCombatAuthority.RequestShotReportServerRpc",
+                AntiCheatLogger.LogAuthorityViolate("MatchCombatAuthority.RequestShotReportServerRpc",
                     senderClientId);
                 return;
             }
@@ -270,7 +270,7 @@ namespace Game.Match {
             }
 
             if(player.OwnerClientId != senderClientId) {
-                AntiCheatLogger.LogAuthorityViolation("MatchCombatAuthority.RequestWeaponSwitchServerRpc",
+                AntiCheatLogger.LogAuthorityViolate("MatchCombatAuthority.RequestWeaponSwitchServerRpc",
                     senderClientId);
                 return;
             }
@@ -297,7 +297,7 @@ namespace Game.Match {
             }
 
             if(player.OwnerClientId != senderClientId) {
-                AntiCheatLogger.LogAuthorityViolation("MatchCombatAuthority.RequestWeaponStateSyncServerRpc",
+                AntiCheatLogger.LogAuthorityViolate("MatchCombatAuthority.RequestWeaponStateSyncServerRpc",
                     senderClientId);
                 return;
             }
@@ -324,7 +324,7 @@ namespace Game.Match {
             }
 
             if(player.OwnerClientId != senderClientId) {
-                AntiCheatLogger.LogAuthorityViolation("MatchCombatAuthority.RequestResetWeaponAmmoServerRpc",
+                AntiCheatLogger.LogAuthorityViolate("MatchCombatAuthority.RequestResetWeaponAmmoServerRpc",
                     senderClientId);
                 return;
             }
@@ -351,7 +351,7 @@ namespace Game.Match {
             }
 
             if(player.OwnerClientId != senderClientId) {
-                AntiCheatLogger.LogAuthorityViolation("MatchCombatAuthority.RequestRespawnServerRpc",
+                AntiCheatLogger.LogAuthorityViolate("MatchCombatAuthority.RequestRespawnServerRpc",
                     senderClientId);
                 return;
             }

@@ -84,7 +84,7 @@ namespace Game.Social {
 
         private async Task InitializeVivoxAsync() {
             try {
-                await UgsAuthService.InitializeAndSignInAsync();
+                await UgsAuthService.InitAndSignInAsync();
 
                 // Must be registered before initializing Vivox when Test Mode is disabled and no client signing key is present.
                 VivoxService.Instance.SetTokenProvider(new VivoxCloudCodeTokenProvider());

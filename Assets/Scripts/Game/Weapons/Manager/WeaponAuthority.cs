@@ -213,7 +213,7 @@ namespace Game.Weapons.Manager {
         public void ReportWeaponStateSyncServer(int weaponIndex, WeaponManager.AmmoSyncReason reason, int localAmmoAfterEvent,
             RpcParams rpcParams) {
             if(rpcParams.Receive.SenderClientId != _root.OwnerClientId) {
-                AntiCheatLogger.LogAuthorityViolation("WeaponManager.ReportWeaponStateSyncServerRpc",
+                AntiCheatLogger.LogAuthorityViolate("WeaponManager.ReportWeaponStateSyncServerRpc",
                     rpcParams.Receive.SenderClientId);
                 return;
             }
@@ -223,7 +223,7 @@ namespace Game.Weapons.Manager {
 
         public void ResetAllWeaponAmmoServer(RpcParams rpcParams) {
             if(rpcParams.Receive.SenderClientId != _root.OwnerClientId) {
-                AntiCheatLogger.LogAuthorityViolation("WeaponManager.ResetAllWeaponAmmoServerRpc",
+                AntiCheatLogger.LogAuthorityViolate("WeaponManager.ResetAllWeaponAmmoServerRpc",
                     rpcParams.Receive.SenderClientId);
                 return;
             }
@@ -233,7 +233,7 @@ namespace Game.Weapons.Manager {
 
         public void ReportShotFiredServer(int weaponIndex, ulong shotId, float clientShotTime, RpcParams rpcParams) {
             if(rpcParams.Receive.SenderClientId != _root.OwnerClientId) {
-                AntiCheatLogger.LogAuthorityViolation("WeaponManager.ReportShotFiredServerRpc",
+                AntiCheatLogger.LogAuthorityViolate("WeaponManager.ReportShotFiredServerRpc",
                     rpcParams.Receive.SenderClientId);
                 return;
             }

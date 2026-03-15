@@ -636,7 +636,7 @@ namespace Network.Session {
             }
 
             // Bootstrap UGS identity early so Lobby/Matchmaker/Vivox can rely on it later.
-            LaunchSessionTask(UgsAuthService.InitializeAndSignInAsync(),
+            LaunchSessionTask(UgsAuthService.InitAndSignInAsync(),
                 "BootstrapUGSAuth");
         }
 
@@ -1024,7 +1024,7 @@ namespace Network.Session {
             await SessionSceneFlow.FadeOutWithFallbackAsync(fallbackDelayMs);
 
         private static async UniTask EnsureSignedInAsync() {
-            await UgsAuthService.InitializeAndSignInAsync();
+            await UgsAuthService.InitAndSignInAsync();
         }
 
         #endregion

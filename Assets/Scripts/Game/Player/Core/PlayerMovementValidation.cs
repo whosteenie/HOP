@@ -96,7 +96,7 @@ namespace Game.Player.Core {
             var teleportViolations = _movementViolations.Count(v => !v.WasSpeedViolation);
             if(teleportViolations < config.teleportViolationThreshold) return;
 
-            AntiCheatLogger.LogMovementEnforcement(_player.OwnerClientId,
+            AntiCheatLogger.LogMovementEnforce(_player.OwnerClientId,
                 $"teleport {distance:F1}m (limit {config.maxTeleportDistance:F1}) - {teleportViolations} violations in window");
 
             if(delta.sqrMagnitude > 0.0001f) {
@@ -121,7 +121,7 @@ namespace Game.Player.Core {
                 var speedViolations = _movementViolations.Count(v => v.WasSpeedViolation);
                 if(speedViolations < config.speedViolationThreshold) return;
 
-                AntiCheatLogger.LogMovementEnforcement(_player.OwnerClientId,
+                AntiCheatLogger.LogMovementEnforce(_player.OwnerClientId,
                     $"speed {speed:F1} m/s (limit {config.maxSpeedMetersPerSecond:F1}) - {speedViolations} violations in window");
 
                 var allowedDistance = config.maxSpeedMetersPerSecond * dt;
