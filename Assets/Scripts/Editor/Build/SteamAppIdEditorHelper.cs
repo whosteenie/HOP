@@ -3,7 +3,7 @@ using System.Text.RegularExpressions;
 using UnityEditor;
 using UnityEngine;
 
-namespace Game.Editor.Build {
+namespace Editor.Build {
     /// <summary>
     /// Ensures steam_appid.txt exists in the project root while running in the Unity Editor.
     /// This is required for Steamworks to initialize when pressing Play in-editor (non-Steam launch).
@@ -27,11 +27,10 @@ namespace Game.Editor.Build {
             var projectRoot = Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
             var appIdPath = Path.Combine(projectRoot, "steam_appid.txt");
 
-            uint appId;
-            if(!TryReadAppIdFromInitScene(projectRoot, out appId)) {
+            if(!TryReadAppIdFromInitScene(projectRoot, out var appId)) {
                 appId = DefaultTestingAppId;
                 Debug.LogWarning(
-                    $"[SteamEditor] Could not read Steam AppID from Assets/Scenes/Init.unity. " +
+                    "[SteamEditor] Could not read Steam AppID from Assets/Scenes/Init.unity. " +
                     $"Writing {appId} (Spacewar) to steam_appid.txt for editor testing."
                 );
             }

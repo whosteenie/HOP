@@ -2,8 +2,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
-using Network.Events;
 using UnityEditor;
 using UnityEngine;
 
@@ -21,7 +19,7 @@ namespace Network.Events.Editor {
         private string _eventFilter = "";
         private bool _autoScroll = true;
         
-        private int _selectedTab = 0;
+        private int _selectedTab;
         private readonly string[] _tabNames = { "Event Stream", "Subscriptions", "Performance", "History" };
         
         private readonly Dictionary<string, int> _eventCounts = new();
@@ -52,36 +50,32 @@ namespace Network.Events.Editor {
         }
         
         private void OnEditorUpdate() {
-            if(Application.isPlaying) {
-                // Capture events from EventBus history
-                var history = EventBus.GetEventHistory();
-                if(history != null && history.Count > 0) {
-                    // Parse new entries (simple parsing - format: "[Frame X] EventName from Caller → N subscriber(s)")
-                    var lastKnownCount = _eventLog.Count;
-                    for(var i = lastKnownCount; i < history.Count && i < MaxLogEntries; i++) {
-                        var entry = ParseHistoryEntry(history[i]);
-                        if(entry.HasValue) {
-                            _eventLog.Add(entry.Value);
+            if(!Application.isPlaying) return;
+            // Capture events from EventBus history
+            var history = EventBus.GetEventHistory();
+            if(history is { Count: > 0 }) {
+                // Parse new entries (simple parsing - format: "[Frame X] EventName from Caller → N subscriber(s)")
+                var lastKnownCount = _eventLog.Count;
+                for(var i = lastKnownCount; i < history.Count && i < MaxLogEntries; i++) {
+                    var entry = ParseHistoryEntry(history[i]);
+                    if(!entry.HasValue) continue;
+                    _eventLog.Add(entry.Value);
                             
-                            // Update event counts
-                            if(!_eventCounts.ContainsKey(entry.Value.EventName)) {
-                                _eventCounts[entry.Value.EventName] = 0;
-                            }
-                            _eventCounts[entry.Value.EventName]++;
-                        }
-                    }
-                    
-                    // Trim log if too large
-                    if(_eventLog.Count > MaxLogEntries) {
-                        _eventLog.RemoveRange(0, _eventLog.Count - MaxLogEntries);
-                    }
+                    // Update event counts
+                    _eventCounts.TryAdd(entry.Value.EventName, 0);
+                    _eventCounts[entry.Value.EventName]++;
                 }
-                
-                Repaint();
+                    
+                // Trim log if too large
+                if(_eventLog.Count > MaxLogEntries) {
+                    _eventLog.RemoveRange(0, _eventLog.Count - MaxLogEntries);
+                }
             }
+                
+            Repaint();
         }
         
-        private EventLogEntry? ParseHistoryEntry(string entry) {
+        private static EventLogEntry? ParseHistoryEntry(string entry) {
             try {
                 // Format: "[Frame X] EventName from Caller → N subscriber(s)"
                 if(string.IsNullOrEmpty(entry)) return null;
@@ -236,7 +230,7 @@ namespace Network.Events.Editor {
             }
         }
         
-        private void DrawEventEntry(EventLogEntry entry) {
+        private static void DrawEventEntry(EventLogEntry entry) {
             EditorGUILayout.BeginHorizontal(EditorStyles.helpBox);
             
             // Color code by subscriber count
@@ -277,8 +271,8 @@ namespace Network.Events.Editor {
                 
                 foreach(var handler in kvp.Value) {
                     var method = handler.GetType().GetMethod("Invoke");
-                    string declaringType = "Unknown";
-                    string methodName = "Unknown";
+                    var declaringType = "Unknown";
+                    var methodName = "Unknown";
                     if(method != null) {
                         methodName = method.Name;
                         var decType = method.DeclaringType;

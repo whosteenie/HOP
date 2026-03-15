@@ -1,9 +1,8 @@
-using UnityEngine;
-using UnityEditor;
-using Game.Weapons;
 using Game.Weapons.Core;
+using UnityEditor;
+using UnityEngine;
 
-namespace Game.Editor {
+namespace Editor.Game {
     public class WeaponConfigurator : EditorWindow {
 
         [MenuItem("Tools/Apply Weapon HitReg Defaults")]

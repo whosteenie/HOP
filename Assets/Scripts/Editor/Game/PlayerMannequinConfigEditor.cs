@@ -1,62 +1,64 @@
-using Game.Player;
 using System.Collections.Generic;
 using Game.Player.Visual;
-using UnityEditor.Animations;
 using UnityEditor;
+using UnityEditor.Animations;
 using UnityEngine;
 
-namespace Game.Editor {
+namespace Editor.Game {
     [CustomEditor(typeof(PlayerMannequinConfig))]
     public class PlayerMannequinConfigEditor : UnityEditor.Editor {
         public override void OnInspectorGUI() {
             serializedObject.Update();
 
-            DrawOrderedPropertiesWithInlineBaseLayerPopup((PlayerMannequinConfig)target);
+            DrawOrderedPropertiesWithBaseLayerPopup((PlayerMannequinConfig)target);
 
             serializedObject.ApplyModifiedProperties();
 
-            if(GUI.changed) {
-                var mannequin = (PlayerMannequinConfig)target;
-                mannequin.ApplyNow();
-                EditorUtility.SetDirty(mannequin);
-            }
+            if(!GUI.changed) return;
+            var mannequin = (PlayerMannequinConfig)target;
+            mannequin.ApplyNow();
+            EditorUtility.SetDirty(mannequin);
         }
 
-        private void DrawOrderedPropertiesWithInlineBaseLayerPopup(PlayerMannequinConfig mannequin) {
+        private void DrawOrderedPropertiesWithBaseLayerPopup(PlayerMannequinConfig mannequin) {
             var iterator = serializedObject.GetIterator();
             var enterChildren = true;
 
             while(iterator.NextVisible(enterChildren)) {
                 enterChildren = false;
 
-                if(iterator.name == "m_Script") {
-                    using(new EditorGUI.DisabledScope(true)) {
-                        EditorGUILayout.PropertyField(iterator, true);
+                switch(iterator.name) {
+                    case "m_Script": {
+                        using(new EditorGUI.DisabledScope(true)) {
+                            EditorGUILayout.PropertyField(iterator, true);
+                        }
+                        continue;
                     }
-                    continue;
-                }
-
-                if(iterator.name == "selectedPrimaryIndex" ||
-                   iterator.name == "selectedSecondaryIndex" ||
-                   iterator.name == "baseLayerStateName" ||
-                   iterator.name == "poseSourceMode" ||
-                   iterator.name == "freezePose" ||
-                   iterator.name == "overrideBaseLayerState" ||
-                   iterator.name == "logLookDebug" ||
-                   iterator.name == "logLookDebugEveryApply" ||
-                   iterator.name == "logShotDebug" ||
-                   iterator.name == "logShotDebugEveryApply") {
-                    continue;
+                    case "selectedPrimaryIndex":
+                    case "selectedSecondaryIndex":
+                    case "baseLayerStateName":
+                    case "poseSourceMode":
+                    case "freezePose":
+                    case "overrideBaseLayerState":
+                    case "logLookDebug":
+                    case "logLookDebugEveryApply":
+                    case "logShotDebug":
+                    case "logShotDebugEveryApply":
+                        continue;
                 }
 
                 EditorGUILayout.PropertyField(iterator, true);
 
-                if(iterator.name == "baseLayerNormalizedTime") {
-                    DrawBaseLayerStatePopup();
-                } else if(iterator.name == "handWeaponSlot") {
-                    DrawWeaponSelectionPopups(mannequin);
-                } else if(iterator.name == "velocityGizmoScale") {
-                    DrawDebugControls();
+                switch(iterator.name) {
+                    case "baseLayerNormalizedTime":
+                        DrawBaseLayerStatePopup();
+                        break;
+                    case "handWeaponSlot":
+                        DrawWeaponSelectionPopups(mannequin);
+                        break;
+                    case "velocityGizmoScale":
+                        DrawDebugControls();
+                        break;
                 }
             }
         }

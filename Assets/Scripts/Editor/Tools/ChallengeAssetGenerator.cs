@@ -3,11 +3,11 @@ using Game.Progression;
 using UnityEditor;
 using UnityEngine;
 
-namespace Game.Editor.Tools {
+namespace Editor.Tools {
     public static class ChallengeAssetGenerator {
     [MenuItem("HOP/Progression/Generate Challenge Assets")]
     public static void GenerateAssets() {
-        string path = "Assets/Resources/Challenges";
+        const string path = "Assets/Resources/Challenges";
         if (!Directory.Exists(path)) {
             Directory.CreateDirectory(path);
         }
@@ -44,7 +44,7 @@ namespace Game.Editor.Tools {
     }
 
     private static void CreateFilteredChallenge(string id, ChallengeType type, string filter, string desc, int min, int max, int xp) {
-        ChallengeDefinition asset = ScriptableObject.CreateInstance<ChallengeDefinition>();
+        var asset = ScriptableObject.CreateInstance<ChallengeDefinition>();
         asset.id = id;
         asset.type = type;
         asset.weaponID = filter; // Using WeaponID as generic Filter ID
@@ -57,7 +57,7 @@ namespace Game.Editor.Tools {
         asset.includeInDaily = true;
         asset.includeInWeekly = true;
 
-        string assetPath = $"Assets/Resources/Challenges/{id}.asset";
+        var assetPath = $"Assets/Resources/Challenges/{id}.asset";
         AssetDatabase.CreateAsset(asset, assetPath);
     }
 

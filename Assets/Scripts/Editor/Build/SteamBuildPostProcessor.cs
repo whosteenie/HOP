@@ -1,10 +1,10 @@
-using UnityEditor;
-using UnityEditor.Callbacks;
 using System.IO;
 using System.Text.RegularExpressions;
+using UnityEditor;
+using UnityEditor.Callbacks;
 using UnityEngine;
 
-namespace Game.Editor.Build {
+namespace Editor.Build {
     /// <summary>
     /// Post-build helper for Steam runtime DLL placement and local testing conveniences.
     /// </summary>
@@ -17,12 +17,12 @@ namespace Game.Editor.Build {
             }
 
             // Path to the directory containing the .exe
-            string buildDir = Path.GetDirectoryName(pathToBuiltProject);
+            var buildDir = Path.GetDirectoryName(pathToBuiltProject);
             if (string.IsNullOrEmpty(buildDir)) return;
 
             // For local/non-Steam launches, Steamworks requires steam_appid.txt to resolve an AppID.
             // We only generate this for Development builds (so we don't accidentally ship it).
-            TryCreateSteamAppIdFileForDevelopmentBuild(buildDir);
+            TryCreateSteamAppIdForDevBuild(buildDir);
 
             // Copy Steam runtime DLL(s).
             // Steam does NOT provide steam_api(64).dll for you at runtime; it must be shipped with your build content.
@@ -30,14 +30,13 @@ namespace Game.Editor.Build {
             CopySteamRuntimeDlls(target, pathToBuiltProject, buildDir);
         }
 
-        private static void TryCreateSteamAppIdFileForDevelopmentBuild(string buildDir) {
+        private static void TryCreateSteamAppIdForDevBuild(string buildDir) {
             // In legacy PostProcessBuild callbacks, BuildReport is unavailable; use editor build setting.
-            bool isDevelopmentBuild = EditorUserBuildSettings.development;
+            var isDevelopmentBuild = EditorUserBuildSettings.development;
             if(!isDevelopmentBuild) return;
 
             const uint defaultTestingAppId = 480;
-            uint appId;
-            if(!TryReadAppIdFromInitScene(out appId)) {
+            if(!TryReadAppIdFromInitScene(out var appId)) {
                 appId = defaultTestingAppId;
                 Debug.LogWarning($"[SteamBuild] Could not read Steam AppID from Init scene. Writing {appId} (Spacewar) to steam_appid.txt.");
             }
@@ -88,7 +87,7 @@ namespace Game.Editor.Build {
                     return;
                 }
 
-                CopySteamDllToBuildLocations(src, buildDir, dataDir, "x86_64");
+                CopySteamDllToBuild(src, buildDir, dataDir, "x86_64");
                 return;
             }
 
@@ -100,19 +99,24 @@ namespace Game.Editor.Build {
                 return;
             }
 
-            CopySteamDllToBuildLocations(src32, buildDir, dataDir, "x86");
+            CopySteamDllToBuild(src32, buildDir, dataDir, "x86");
         }
 
         private static string ResolveSteamDllPath(string projectRoot, string dllName) {
             // Known Facepunch redistributable locations in this repo.
             var facepunchBase = Path.Combine(projectRoot, "Assets", "Facepunch.Steamworks.2.4.1", "Unity", "redistributable_bin");
 
-            if(dllName == "steam_api64.dll") {
-                var p = Path.Combine(facepunchBase, "win64", dllName);
-                if(File.Exists(p)) return p;
-            } else if(dllName == "steam_api.dll") {
-                var p = Path.Combine(facepunchBase, dllName);
-                if(File.Exists(p)) return p;
+            switch(dllName) {
+                case "steam_api64.dll": {
+                    var p = Path.Combine(facepunchBase, "win64", dllName);
+                    if(File.Exists(p)) return p;
+                    break;
+                }
+                case "steam_api.dll": {
+                    var p = Path.Combine(facepunchBase, dllName);
+                    if(File.Exists(p)) return p;
+                    break;
+                }
             }
 
             // Alternate common Unity plugin locations (if you later move the DLL under Assets/Plugins).
@@ -120,12 +124,10 @@ namespace Game.Editor.Build {
             if(File.Exists(alt1)) return alt1;
 
             var alt2 = Path.Combine(projectRoot, "Assets", "Plugins", dllName);
-            if(File.Exists(alt2)) return alt2;
-
-            return null;
+            return File.Exists(alt2) ? alt2 : null;
         }
 
-        private static void CopySteamDllToBuildLocations(string srcDllPath, string buildDir, string dataDir, string cpuFolderName) {
+        private static void CopySteamDllToBuild(string srcDllPath, string buildDir, string dataDir, string cpuFolderName) {
             var dllName = Path.GetFileName(srcDllPath);
 
             try {

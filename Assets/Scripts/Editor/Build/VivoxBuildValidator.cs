@@ -6,13 +6,13 @@ using UnityEditor.Build;
 using UnityEditor.Build.Reporting;
 using UnityEngine;
 
-namespace Game.Editor.Build {
+namespace Editor.Build {
     /// <summary>
     /// Prevents shipping builds that still have Vivox Test Mode enabled or a Vivox signing key present in project settings.
     /// If either is present, Vivox will generate tokens locally (insecure) and log warnings at runtime.
     /// </summary>
     public sealed class VivoxBuildValidator : IPreprocessBuildWithReport {
-        public int callbackOrder { get { return 0; } }
+        public int callbackOrder => 0;
 
         public void OnPreprocessBuild(BuildReport report) {
             var isDevelopmentBuild = (report.summary.options & BuildOptions.Development) != 0;
@@ -22,33 +22,25 @@ namespace Game.Editor.Build {
 
             if(!File.Exists(settingsPath)) {
                 var missingSettingsMessage = $"[VivoxBuildValidator] Vivox settings file not found at '{settingsPath}'. Cannot validate Test Mode/token key.";
-                if(isDevelopmentBuild) {
-                    Debug.LogWarning(missingSettingsMessage);
-                    return;
-                }
-                throw new BuildFailedException(missingSettingsMessage);
+                if(!isDevelopmentBuild) throw new BuildFailedException(missingSettingsMessage);
+                Debug.LogWarning(missingSettingsMessage);
+                return;
             }
 
             var settingsText = File.ReadAllText(settingsPath);
             if(string.IsNullOrEmpty(settingsText)) {
                 var emptySettingsMessage = $"[VivoxBuildValidator] Vivox settings file is empty at '{settingsPath}'. Cannot validate Test Mode/token key.";
-                if(isDevelopmentBuild) {
-                    Debug.LogWarning(emptySettingsMessage);
-                    return;
-                }
-                throw new BuildFailedException(emptySettingsMessage);
+                if(!isDevelopmentBuild) throw new BuildFailedException(emptySettingsMessage);
+                Debug.LogWarning(emptySettingsMessage);
+                return;
             }
 
-            bool isTestMode;
-            string tokenKey;
-            var parsed = TryReadVivoxSettings(settingsText, out isTestMode, out tokenKey);
+            var parsed = TryReadVivoxSettings(settingsText, out var isTestMode, out var tokenKey);
             if(!parsed) {
-                var parseFailedMessage = "[VivoxBuildValidator] Failed to parse Vivox settings; cannot validate Test Mode/token key.";
-                if(isDevelopmentBuild) {
-                    Debug.LogWarning(parseFailedMessage);
-                    return;
-                }
-                throw new BuildFailedException(parseFailedMessage);
+                const string parseFailedMessage = "[VivoxBuildValidator] Failed to parse Vivox settings; cannot validate Test Mode/token key.";
+                if(!isDevelopmentBuild) throw new BuildFailedException(parseFailedMessage);
+                Debug.LogWarning(parseFailedMessage);
+                return;
             }
 
             var hasTokenKey = !string.IsNullOrEmpty(tokenKey);
@@ -61,12 +53,8 @@ namespace Game.Editor.Build {
                 "\n- Then use server-side tokens (UGS Cloud Code token provider is already wired in VoiceManager)." +
                 $"\nDetected: isTestMode={isTestMode}, tokenKeyPresent={hasTokenKey}";
 
-            if(isDevelopmentBuild) {
-                Debug.LogWarning(invalidConfigMessage);
-                return;
-            }
-
-            throw new BuildFailedException(invalidConfigMessage);
+            if(!isDevelopmentBuild) throw new BuildFailedException(invalidConfigMessage);
+            Debug.LogWarning(invalidConfigMessage);
         }
 
         private static bool TryReadVivoxSettings(string settingsText, out bool isTestMode, out string tokenKey) {
@@ -90,10 +78,13 @@ namespace Game.Editor.Build {
                     var keyStr = key.Value<string>();
                     if(string.IsNullOrEmpty(keyStr)) continue;
 
-                    if(keyStr == "isTestMode") {
-                        isTestMode = ReadUnitySettingsWrappedBool(entry["value"]);
-                    } else if(keyStr == "tokenKey") {
-                        tokenKey = ReadUnitySettingsWrappedString(entry["value"]);
+                    switch(keyStr) {
+                        case "isTestMode":
+                            isTestMode = ReadWrappedBool(entry["value"]);
+                            break;
+                        case "tokenKey":
+                            tokenKey = ReadWrappedString(entry["value"]);
+                            break;
                     }
                 }
                 return true;
@@ -103,7 +94,7 @@ namespace Game.Editor.Build {
             }
         }
 
-        private static string ReadUnitySettingsWrappedString(JToken valueToken) {
+        private static string ReadWrappedString(JToken valueToken) {
             if(valueToken == null) return string.Empty;
 
             var raw = valueToken.Value<string>();
@@ -114,14 +105,13 @@ namespace Game.Editor.Build {
                 var innerValue = inner["m_Value"];
                 if(innerValue == null) return string.Empty;
                 var s = innerValue.Value<string>();
-                if(string.IsNullOrEmpty(s)) return string.Empty;
-                return s;
+                return string.IsNullOrEmpty(s) ? string.Empty : s;
             } catch {
                 return string.Empty;
             }
         }
 
-        private static bool ReadUnitySettingsWrappedBool(JToken valueToken) {
+        private static bool ReadWrappedBool(JToken valueToken) {
             if(valueToken == null) return false;
 
             var raw = valueToken.Value<string>();
@@ -130,8 +120,7 @@ namespace Game.Editor.Build {
             try {
                 var inner = JObject.Parse(raw);
                 var innerValue = inner["m_Value"];
-                if(innerValue == null) return false;
-                return innerValue.Value<bool>();
+                return innerValue != null && innerValue.Value<bool>();
             } catch {
                 return false;
             }

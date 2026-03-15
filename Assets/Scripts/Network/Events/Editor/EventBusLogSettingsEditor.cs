@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Network.Events;
 using UnityEditor;
 using UnityEngine;
 
@@ -35,9 +34,9 @@ namespace Network.Events.Editor {
         private SerializedProperty _failureCaptureEnabled;
         private SerializedProperty _failureFileLoggingEnabled;
         private SerializedProperty _failureEchoToUnityConsole;
-        private SerializedProperty _failureIncludePublisherStackTrace;
+        private SerializedProperty _failurePublisherStackTrace;
         private SerializedProperty _failureIncludeEventPayload;
-        private SerializedProperty _failureFailFastOnHandlerException;
+        private SerializedProperty _failureFailFast;
         private SerializedProperty _failureFlushIntervalSeconds;
         private SerializedProperty _failureMaxFileSizeMb;
         private SerializedProperty _failureMaxRecordsPerSession;
@@ -50,9 +49,9 @@ namespace Network.Events.Editor {
             _failureCaptureEnabled = serializedObject.FindProperty("failureCaptureEnabled");
             _failureFileLoggingEnabled = serializedObject.FindProperty("failureFileLoggingEnabled");
             _failureEchoToUnityConsole = serializedObject.FindProperty("failureEchoToUnityConsole");
-            _failureIncludePublisherStackTrace = serializedObject.FindProperty("failureIncludePublisherStackTrace");
+            _failurePublisherStackTrace = serializedObject.FindProperty("failureIncludePublisherStackTrace");
             _failureIncludeEventPayload = serializedObject.FindProperty("failureIncludeEventPayload");
-            _failureFailFastOnHandlerException = serializedObject.FindProperty("failureFailFastOnHandlerException");
+            _failureFailFast = serializedObject.FindProperty("failureFailFastOnHandlerException");
             _failureFlushIntervalSeconds = serializedObject.FindProperty("failureFlushIntervalSeconds");
             _failureMaxFileSizeMb = serializedObject.FindProperty("failureMaxFileSizeMb");
             _failureMaxRecordsPerSession = serializedObject.FindProperty("failureMaxRecordsPerSession");
@@ -71,7 +70,7 @@ namespace Network.Events.Editor {
             EditorGUILayout.Space();
             DrawPerEventSection();
             EditorGUILayout.Space();
-            DrawFailureDiagnosticsSection();
+            DrawFailureDiagnostics();
             EditorGUILayout.Space();
             DrawHelpSection();
 
@@ -289,14 +288,14 @@ namespace Network.Events.Editor {
             return fullTypeName[(separator + 1)..];
         }
 
-        private void DrawFailureDiagnosticsSection() {
+        private void DrawFailureDiagnostics() {
             EditorGUILayout.LabelField("Failure Diagnostics", EditorStyles.boldLabel);
             EditorGUILayout.PropertyField(_failureCaptureEnabled);
             EditorGUILayout.PropertyField(_failureFileLoggingEnabled);
             EditorGUILayout.PropertyField(_failureEchoToUnityConsole);
-            EditorGUILayout.PropertyField(_failureIncludePublisherStackTrace);
+            EditorGUILayout.PropertyField(_failurePublisherStackTrace);
             EditorGUILayout.PropertyField(_failureIncludeEventPayload);
-            EditorGUILayout.PropertyField(_failureFailFastOnHandlerException);
+            EditorGUILayout.PropertyField(_failureFailFast);
             EditorGUILayout.PropertyField(_failureFlushIntervalSeconds);
             EditorGUILayout.PropertyField(_failureMaxFileSizeMb);
             EditorGUILayout.PropertyField(_failureMaxRecordsPerSession);

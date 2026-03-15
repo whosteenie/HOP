@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
 
-namespace Game.Editor {
+namespace Editor.Game {
     /// <summary>
     /// Deterministic baker for per-weapon grapple clips.
     /// Each target clip gets AK clavicle_l local-position curves plus:
@@ -110,8 +110,7 @@ namespace Game.Editor {
             var sampleTimes = CollectSampleTimes(akX, akY, akZ);
 
             var modified = 0;
-            for(var i = 0; i < WeaponBindings.Length; i++) {
-                var weapon = WeaponBindings[i];
+            foreach(var weapon in WeaponBindings) {
                 var targetPath = $"{GrappleAnimFolder}/{weapon.ClipName}.anim";
                 var targetClip = AssetDatabase.LoadAssetAtPath<AnimationClip>(targetPath);
                 if(targetClip == null) {
@@ -125,7 +124,7 @@ namespace Game.Editor {
                 var rootOffset = AkViewmodelLocalPosition - weapon.ViewmodelLocalPosition;
                 var convertedOffsets = BuildConstantOffsets(sampleTimes, rootOffset);
                 var usedRigPath = "constant-fallback";
-                if(TryBuildConvertedOffsetsFromRig(akClip, akClaviclePath, sampleTimes, rootOffset, out var rigOffsets,
+                if(TryBuildOffsetsFromRig(akClip, akClaviclePath, sampleTimes, rootOffset, out var rigOffsets,
                        out var rigPath)) {
                     convertedOffsets = rigOffsets;
                     usedRigPath = rigPath;
@@ -142,7 +141,7 @@ namespace Game.Editor {
                 AnimationUtility.SetEditorCurve(targetClip, MakeLocalPositionBinding(targetClaviclePath, 'y'), bakedY);
                 AnimationUtility.SetEditorCurve(targetClip, MakeLocalPositionBinding(targetClaviclePath, 'z'), bakedZ);
                 var armPoseCurvesApplied = ApplyEarlyArmPoseMatch(akClip, targetClip, verbose);
-                var forcedArmBaseCurvesApplied = ApplyForcedUpperAndLowerArmRotations(
+                var forcedArmCurvesApplied = ApplyForcedArmRotations(
                     targetClip, targetClaviclePath, sampleTimes, verbose);
 
                 EditorUtility.SetDirty(targetClip);
@@ -164,7 +163,7 @@ namespace Game.Editor {
                         $"weaponVM={Format(weapon.ViewmodelLocalPosition)} rootOffset={Format(rootOffset)} " +
                         $"firstLocalOffset={Format(firstLocalOffset)} midLocalOffset={Format(midLocalOffset)} " +
                         $"additionalLocalOffset={Format(weapon.AdditionalClavicleLocalOffset)} " +
-                        $"armPoseCurvesApplied={armPoseCurvesApplied} forcedArmBaseCurvesApplied={forcedArmBaseCurvesApplied} " +
+                        $"armPoseCurvesApplied={armPoseCurvesApplied} forcedArmCurvesApplied={forcedArmCurvesApplied} " +
                         $"rig={usedRigPath} " +
                         $"first={Format(first)} last={Format(last)}");
                 } else {
@@ -172,7 +171,7 @@ namespace Game.Editor {
                         $"[GrappleBake] Baked {weapon.ClipName} rootOffset={Format(rootOffset)} " +
                         $"additionalLocalOffset={Format(weapon.AdditionalClavicleLocalOffset)} " +
                         $"armPoseCurvesApplied={armPoseCurvesApplied} " +
-                        $"forcedArmBaseCurvesApplied={forcedArmBaseCurvesApplied} rig={usedRigPath}");
+                        $"forcedArmCurvesApplied={forcedArmCurvesApplied} rig={usedRigPath}");
                 }
             }
 
@@ -185,9 +184,8 @@ namespace Game.Editor {
             var bindings = AnimationUtility.GetCurveBindings(clip);
             var bestScore = -1;
 
-            var scores = new System.Collections.Generic.Dictionary<string, int>();
-            for(var i = 0; i < bindings.Length; i++) {
-                var binding = bindings[i];
+            var scores = new Dictionary<string, int>();
+            foreach(var binding in bindings) {
                 if(binding.type != typeof(Transform)) continue;
                 if(!binding.path.EndsWith(ClavicleBoneName)) continue;
 
@@ -221,8 +219,7 @@ namespace Game.Editor {
             var bindings = AnimationUtility.GetCurveBindings(clip);
             var bestScore = -1;
             var scores = new Dictionary<string, int>();
-            for(var i = 0; i < bindings.Length; i++) {
-                var binding = bindings[i];
+            foreach(var binding in bindings) {
                 if(binding.type != typeof(Transform)) continue;
                 if(!binding.path.EndsWith(boneName)) continue;
 
@@ -270,8 +267,8 @@ namespace Game.Editor {
         private static void AddCurveTimes(AnimationCurve curve, ISet<float> destination) {
             if(curve == null || destination == null) return;
             var keys = curve.keys;
-            for(var i = 0; i < keys.Length; i++) {
-                destination.Add(keys[i].time);
+            foreach(var k in keys) {
+                destination.Add(k.time);
             }
         }
 
@@ -280,8 +277,7 @@ namespace Game.Editor {
 
             var appliedCurveCount = 0;
             var akBindings = AnimationUtility.GetCurveBindings(sourceAkClip);
-            for(var boneIndex = 0; boneIndex < ArmPoseBones.Length; boneIndex++) {
-                var boneName = ArmPoseBones[boneIndex];
+            foreach(var boneName in ArmPoseBones) {
                 if(!TryGetBonePath(sourceAkClip, boneName, out var akBonePath)) {
                     if(verbose) {
                         Debug.LogWarning($"[GrappleBake] Missing AK bone path for {boneName}.");
@@ -296,8 +292,7 @@ namespace Game.Editor {
                     continue;
                 }
 
-                for(var bindingIndex = 0; bindingIndex < akBindings.Length; bindingIndex++) {
-                    var akBinding = akBindings[bindingIndex];
+                foreach(var akBinding in akBindings) {
                     if(akBinding.type != typeof(Transform)) continue;
                     if(!string.Equals(akBinding.path, akBonePath, StringComparison.Ordinal)) continue;
                     if(!IsCopiedPosePropertyName(akBinding.propertyName)) continue;
@@ -355,7 +350,7 @@ namespace Game.Editor {
             };
         }
 
-        private static int ApplyForcedUpperAndLowerArmRotations(AnimationClip targetClip, string targetClaviclePath,
+        private static int ApplyForcedArmRotations(AnimationClip targetClip, string targetClaviclePath,
             float[] sampleTimes, bool verbose) {
             if(targetClip == null || string.IsNullOrEmpty(targetClaviclePath)) return 0;
 
@@ -382,8 +377,7 @@ namespace Game.Editor {
 
             var keyTimes = BuildConstantCurveTimes(sampleTimes, targetClip.length);
             var applied = 0;
-            for(var i = 0; i < ForcedEulerProperties.Length; i++) {
-                var propertyName = ForcedEulerProperties[i];
+            foreach(var propertyName in ForcedEulerProperties) {
                 var axis = GetAxisFromPropertyName(propertyName);
                 if(axis < 0) continue;
 
@@ -396,26 +390,17 @@ namespace Game.Editor {
         }
 
         private static float[] BuildConstantCurveTimes(float[] sampleTimes, float clipLength) {
-            if(sampleTimes != null && sampleTimes.Length > 0) {
-                var first = sampleTimes[0];
-                var last = sampleTimes[sampleTimes.Length - 1];
-                if(last < clipLength - TimeEpsilon) {
-                    var result = new float[sampleTimes.Length + 1];
-                    for(var i = 0; i < sampleTimes.Length; i++) {
-                        result[i] = sampleTimes[i];
-                    }
-                    result[sampleTimes.Length] = clipLength;
-                    return result;
-                }
-
-                return sampleTimes;
+            if(sampleTimes is not { Length: > 0 })
+                return clipLength > TimeEpsilon ? new[] { 0f, clipLength } : new[] { 0f };
+            var last = sampleTimes[^1];
+            if(!(last < clipLength - TimeEpsilon)) return sampleTimes;
+            var result = new float[sampleTimes.Length + 1];
+            for(var i = 0; i < sampleTimes.Length; i++) {
+                result[i] = sampleTimes[i];
             }
+            result[sampleTimes.Length] = clipLength;
+            return result;
 
-            if(clipLength > TimeEpsilon) {
-                return new[] { 0f, clipLength };
-            }
-
-            return new[] { 0f };
         }
 
         private static AnimationCurve BuildConstantCurve(float[] keyTimes, float value) {
@@ -439,7 +424,7 @@ namespace Game.Editor {
             return -1;
         }
 
-        private static bool TryBuildConvertedOffsetsFromRig(AnimationClip sourceClip, string claviclePath, float[] sampleTimes,
+        private static bool TryBuildOffsetsFromRig(AnimationClip sourceClip, string claviclePath, float[] sampleTimes,
             Vector3 rootOffset, out Vector3[] convertedOffsets, out string usedRigPath) {
             convertedOffsets = null;
             usedRigPath = null;
@@ -453,8 +438,7 @@ namespace Game.Editor {
                 return false;
             }
 
-            for(var candidateIndex = 0; candidateIndex < RigModelCandidatePaths.Length; candidateIndex++) {
-                var candidatePath = RigModelCandidatePaths[candidateIndex];
+            foreach(var candidatePath in RigModelCandidatePaths) {
                 var rigAsset = AssetDatabase.LoadAssetAtPath<GameObject>(candidatePath);
                 if(rigAsset == null) continue;
 
@@ -492,8 +476,7 @@ namespace Game.Editor {
             if(root == null || string.IsNullOrEmpty(relativePath)) return null;
             var segments = relativePath.Split('/');
             var current = root;
-            for(var i = 0; i < segments.Length; i++) {
-                var segment = segments[i];
+            foreach(var segment in segments) {
                 if(string.IsNullOrEmpty(segment)) return null;
 
                 Transform next = null;
@@ -533,8 +516,7 @@ namespace Game.Editor {
         private static string GetParentPath(string path) {
             if(string.IsNullOrEmpty(path)) return string.Empty;
             var slashIndex = path.LastIndexOf('/');
-            if(slashIndex <= 0) return string.Empty;
-            return path.Substring(0, slashIndex);
+            return slashIndex <= 0 ? string.Empty : path[..slashIndex];
         }
 
         private static EditorCurveBinding MakeTransformBinding(string path, string propertyName) {
@@ -614,9 +596,11 @@ namespace Game.Editor {
         }
 
         private static float GetAxis(Vector3 value, int axis) {
-            if(axis == 0) return value.x;
-            if(axis == 1) return value.y;
-            return value.z;
+            return axis switch {
+                0 => value.x,
+                1 => value.y,
+                _ => value.z
+            };
         }
 
         private static string Format(Vector3 value) {

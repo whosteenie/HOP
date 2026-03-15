@@ -1,14 +1,13 @@
-using Game.Weapons;
-using KINEMATION.FPSAnimationPack.Scripts.Weapon;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Game.Weapons.Core;
+using KINEMATION.FPSAnimationPack.Scripts.Weapon;
 using UnityEditor;
 using UnityEngine;
 
-namespace Game.Editor {
+namespace Editor.Game {
     [CustomEditor(typeof(WeaponData))]
     public class WeaponDataEditor : UnityEditor.Editor {
         public override void OnInspectorGUI() {
@@ -26,36 +25,26 @@ namespace Game.Editor {
             while(iterator.NextVisible(enterChildren)) {
                 enterChildren = false;
 
-                if(iterator.name == "m_Script") {
-                    using(new EditorGUI.DisabledScope(true)) {
-                        EditorGUILayout.PropertyField(iterator, true);
+                switch(iterator.name) {
+                    case "m_Script": {
+                        using(new EditorGUI.DisabledScope(true)) {
+                            EditorGUILayout.PropertyField(iterator, true);
+                        }
+                        continue;
                     }
-                    continue;
+                    case "maxDamageRange" or "minDamageRange" or "minDamage" when
+                        useDamageFalloffProp is { boolValue: false }:
+                    case "pelletCount" or "pelletDamageMultiplier" when
+                        usePelletSpreadProp is { boolValue: false }:
+                    case "kinemationReloadEventSoundIndices":
+                        continue;
+                    default:
+                        EditorGUILayout.PropertyField(iterator, true);
+                        break;
                 }
-
-                if((iterator.name == "maxDamageRange" ||
-                    iterator.name == "minDamageRange" ||
-                    iterator.name == "minDamage") &&
-                   useDamageFalloffProp != null &&
-                   !useDamageFalloffProp.boolValue) {
-                    continue;
-                }
-
-                if((iterator.name == "pelletCount" ||
-                    iterator.name == "pelletDamageMultiplier") &&
-                   usePelletSpreadProp != null &&
-                   !usePelletSpreadProp.boolValue) {
-                    continue;
-                }
-
-                if(iterator.name == "kinemationReloadEventSoundIndices") {
-                    continue;
-                }
-
-                EditorGUILayout.PropertyField(iterator, true);
             }
 
-            DrawKinemationReloadEventSoundIndicesEditor(kinemationReloadEventSoundIndicesProp);
+            DrawReloadEventSoundIndicesEditor(kinemationReloadEventSoundIndicesProp);
 
             if(IsEnumSetToNull(kinemationSpecialHandlingProp)) {
                 EditorGUILayout.HelpBox(
@@ -70,9 +59,7 @@ namespace Game.Editor {
                     MessageType.Error);
             }
 
-            if(kinemationReloadEventSoundIndicesProp != null &&
-               kinemationReloadEventSoundIndicesProp.isArray &&
-               kinemationReloadEventSoundIndicesProp.arraySize == 0) {
+            if(kinemationReloadEventSoundIndicesProp is { isArray: true, arraySize: 0 }) {
                 EditorGUILayout.HelpBox(
                     "KINEMATION Reload Event Sound Indices are required. Empty list disables strict reload SFX stop matching.",
                     MessageType.Error);
@@ -82,7 +69,7 @@ namespace Game.Editor {
         }
 
         private static bool IsEnumSetToNull(SerializedProperty property) {
-            if(property == null || property.propertyType != SerializedPropertyType.Enum) {
+            if(property is not { propertyType: SerializedPropertyType.Enum }) {
                 return false;
             }
 
@@ -94,8 +81,8 @@ namespace Game.Editor {
             return property.enumNames[index] == "Null";
         }
 
-        private void DrawKinemationReloadEventSoundIndicesEditor(SerializedProperty indicesProp) {
-            if(indicesProp == null || !indicesProp.isArray) return;
+        private void DrawReloadEventSoundIndicesEditor(SerializedProperty indicesProp) {
+            if(indicesProp is not { isArray: true }) return;
 
             var data = target as WeaponData;
             if(data == null) return;
@@ -124,7 +111,7 @@ namespace Game.Editor {
                 return;
             }
 
-            var suggestedIndices = CollectReloadEventSoundIndices(reloadAnimationsFolder);
+            var suggestedIndices = CollectReloadSoundIndices(reloadAnimationsFolder);
             if(suggestedIndices.Count > 0 && eventSoundCount > 0) {
                 suggestedIndices.RemoveWhere(index => index >= eventSoundCount);
             }
@@ -146,6 +133,7 @@ namespace Game.Editor {
             var selectedIndices = ReadIndexSet(indicesProp);
             var changed = false;
             for(var index = 0; index < eventSoundCount; index++) {
+                if(eventSounds == null) continue;
                 var clip = eventSounds[index];
                 var clipName = clip != null ? clip.name : "(missing clip)";
                 var isSuggested = suggestedIndices.Contains(index);
@@ -194,7 +182,7 @@ namespace Game.Editor {
 
         private static HashSet<int> ReadIndexSet(SerializedProperty indicesProp) {
             var set = new HashSet<int>();
-            if(indicesProp == null || !indicesProp.isArray) return set;
+            if(indicesProp is not { isArray: true }) return set;
 
             for(var i = 0; i < indicesProp.arraySize; i++) {
                 var entry = indicesProp.GetArrayElementAtIndex(i);
@@ -208,7 +196,7 @@ namespace Game.Editor {
         }
 
         private static void SetIndexSet(SerializedProperty indicesProp, IEnumerable<int> indices) {
-            if(indicesProp == null || !indicesProp.isArray) return;
+            if(indicesProp is not { isArray: true }) return;
 
             var ordered = indices == null
                 ? Array.Empty<int>()
@@ -220,7 +208,7 @@ namespace Game.Editor {
             }
         }
 
-        private static HashSet<int> CollectReloadEventSoundIndices(string reloadAnimationsFolder) {
+        private static HashSet<int> CollectReloadSoundIndices(string reloadAnimationsFolder) {
             var indices = new HashSet<int>();
             if(string.IsNullOrWhiteSpace(reloadAnimationsFolder)) return indices;
             if(!AssetDatabase.IsValidFolder(reloadAnimationsFolder)) return indices;
@@ -253,10 +241,10 @@ namespace Game.Editor {
 
             for(var i = start; i <= end; i++) {
                 var line = lines[i];
-                var marker = "intParameter:";
+                const string marker = "intParameter:";
                 var markerIndex = line.IndexOf(marker, StringComparison.Ordinal);
                 if(markerIndex < 0) continue;
-                var raw = line.Substring(markerIndex + marker.Length).Trim();
+                var raw = line[(markerIndex + marker.Length)..].Trim();
                 if(int.TryParse(raw, out var parsed)) {
                     return parsed;
                 }

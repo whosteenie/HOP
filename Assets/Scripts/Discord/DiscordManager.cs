@@ -51,7 +51,7 @@ namespace Discord {
                     $"LaunchRegistered={registeredLaunchCommand} " +
                     $"SteamLaunchRegistered={registeredSteamLaunch}");
 
-                BeginAuthenticationAndConnect().Forget();
+                BeginAuthAndConnect().Forget();
             } catch (Exception e) {
                 Debug.LogWarning($"[DiscordManager] Failed to initialize Discord SDK: {e.Message}");
                 _discord = null;
@@ -121,7 +121,7 @@ namespace Discord {
             }
         }
 
-        private async UniTaskVoid BeginAuthenticationAndConnect() {
+        private async UniTaskVoid BeginAuthAndConnect() {
             if (_discord == null || _isConnecting) {
                 return;
             }
@@ -152,14 +152,14 @@ namespace Discord {
                     AppId,
                     AuthenticationExternalAuthType.SteamSessionTicket,
                     externalAuthToken,
-                    OnProvisionalTokenReceived);
+                    OnProvisionalToken);
             } catch (Exception e) {
                 Debug.LogWarning($"[DiscordManager] Failed to begin Discord authentication: {e.Message}");
                 _isConnecting = false;
             }
         }
 
-        private void OnProvisionalTokenReceived(
+        private void OnProvisionalToken(
             ClientResult result,
             string accessToken,
             string refreshToken,
@@ -204,7 +204,7 @@ namespace Discord {
                     _isConnecting = false;
                     Debug.Log("[DiscordManager] Discord client is ready.");
                     if (SteamClient.IsValid && SteamClient.IsLoggedOn && !string.IsNullOrWhiteSpace(SteamClient.Name)) {
-                        _discord.UpdateProvisionalAccountDisplayName(SteamClient.Name, OnProvisionalDisplayNameUpdated);
+                        _discord.UpdateProvisionalAccountDisplayName(SteamClient.Name, OnDisplayNameUpdated);
                     }
                     FlushPendingPresence();
                     return;
@@ -234,7 +234,7 @@ namespace Discord {
                 $"RetryAfter={res.RetryAfter()} Response={res.ResponseBody()}");
         }
 
-        private static void OnProvisionalDisplayNameUpdated(ClientResult result) {
+        private static void OnDisplayNameUpdated(ClientResult result) {
             if (result.Successful()) {
                 return;
             }
