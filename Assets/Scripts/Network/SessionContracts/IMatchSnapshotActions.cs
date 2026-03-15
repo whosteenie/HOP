@@ -1,7 +1,8 @@
 using Cysharp.Threading.Tasks;
+using Network.Session;
 using Unity.Services.Lobbies.Models;
 
-namespace Network.Session.Interface {
+namespace Network.SessionContracts {
     /// <summary>
     /// Actions used by SessionMatchLobbyService for snapshot/follow/sync/client-start flow.
     /// Implemented by SessionManager.

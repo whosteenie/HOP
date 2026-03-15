@@ -2,7 +2,7 @@ using Cysharp.Threading.Tasks;
 using Unity.Services.Lobbies.Models;
 using Unity.Services.Matchmaker.Models;
 
-namespace Network.Session.Interface {
+namespace Network.SessionContracts {
     /// <summary>
     /// Matchmaker follow-up actions: join or host a match. Implemented by SessionManager.
     /// Host flow steps are used by SessionMatchmakerService to run StartPublicMatchAsHostAsync.

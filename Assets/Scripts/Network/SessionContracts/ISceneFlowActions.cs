@@ -1,6 +1,6 @@
 using Cysharp.Threading.Tasks;
 
-namespace Network.Session.Interface {
+namespace Network.SessionContracts {
     /// <summary>
     /// Actions used during unexpected disconnect / scene flow (fade, capture FP, leave to menu).
     /// Implemented by SessionManager.

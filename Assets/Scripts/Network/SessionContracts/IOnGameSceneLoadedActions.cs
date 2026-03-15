@@ -2,7 +2,7 @@ using Cysharp.Threading.Tasks;
 using Unity.Netcode;
 using Unity.Services.Lobbies.Models;
 
-namespace Network.Session.Interface {
+namespace Network.SessionContracts {
     /// <summary>
     /// Actions used by SessionSceneFlowService when the gameplay scene has loaded (mode sync, voice, lobby state, fade-in).
     /// Implemented by SessionManager.

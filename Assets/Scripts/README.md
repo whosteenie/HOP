@@ -38,10 +38,10 @@ Scripts/
 │   ├── Session/               # SessionManager, SessionParty, SessionMatchmaker, SessionVoice, interfaces (namespace Network.Session, Network.Session.Interface)
 │   ├── Singletons/            # KeybindManager, InitSceneManager, SceneTransitionManager, DisconnectTransitionController, PlayerMaterialPacketManager
 │   └── Steam/                 # SteamManager, FacepunchTransport
-├── Events/                    # Central event bus (namespace Network.Events)
-│   ├── Editor/                # EventBusDebugWindow, EventBusLogSettingsEditor (namespace Network.Events.Editor)
+├── Events/                    # Central event bus
+│   ├── Editor/                # EventBusDebugWindow, EventBusLogSettingsEditor
 │   └── (event types, EventBus, EventBusLogSettings, MatchEvents, SessionEvents, GameplayEvents, UIEvents, etc.)
-├── Diagnostics/               # Network diagnostics (namespace Network.Diagnostics)
+├── Diagnostics/               # Network diagnostics
 │   └── (DebugHelpers, FlowLog, FlowEventIds, DebugEventLogger, MeshTriangleWarningDiagnostics)
 ├── Editor/                    # Editor-only tools (not in builds)
 │   ├── Build/                 # Steam/Vivox build processors, SteamAppIdEditorHelper (namespace Editor.Build)

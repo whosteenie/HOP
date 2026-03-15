@@ -1,6 +1,6 @@
 using Cysharp.Threading.Tasks;
 
-namespace Network.Session.Interface {
+namespace Network.SessionContracts {
     /// <summary>
     /// Steps invoked by SessionSceneFlowService during the leave-to-menu flow.
     /// Implemented by SessionManager.

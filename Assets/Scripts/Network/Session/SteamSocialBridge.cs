@@ -4,7 +4,7 @@ using Diagnostics;
 using Events;
 using Game.Settings;
 using Game.Social;
-using Network.Session.Interface;
+using Network.SessionContracts;
 using Steamworks;
 using UnityEngine;
 using Lobby = Steamworks.Data.Lobby;

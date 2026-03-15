@@ -16,7 +16,7 @@ using Lobby = Steamworks.Data.Lobby;
 using System.Collections.Generic;
 using Diagnostics;
 using Events;
-using Network.Session.Interface;
+using Network.SessionContracts;
 using Unity.Netcode.Transports.UTP;
 using Unity.Services.Lobbies.Models;
 using Unity.Services.Matchmaker.Models;

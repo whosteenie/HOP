@@ -7,7 +7,7 @@ using Game.Match;
 using Game.Menu;
 using Game.Player.Core;
 using Network.Core;
-using Network.Session.Interface;
+using Network.SessionContracts;
 using Network.Singletons;
 using Network.Steam;
 using Unity.Services.Lobbies.Models;

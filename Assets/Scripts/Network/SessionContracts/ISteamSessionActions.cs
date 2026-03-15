@@ -1,7 +1,7 @@
 using Cysharp.Threading.Tasks;
 using Lobby = Steamworks.Data.Lobby;
 
-namespace Network.Session.Interface {
+namespace Network.SessionContracts {
     /// <summary>
     /// Steam join/follow actions used by SteamSocialBridge. Implemented by SessionManager
     /// until party/matchmaker flows are fully extracted.
