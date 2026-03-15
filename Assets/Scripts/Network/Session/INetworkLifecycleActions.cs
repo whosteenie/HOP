@@ -6,7 +6,7 @@ namespace Network.Session {
     /// Implemented by SessionManager.
     /// </summary>
     public interface INetworkLifecycleActions {
-        UniTask LeaveActiveMultiplayerSessionAsync(string contextLabel);
+        UniTask LeaveActiveSessionAsync(string contextLabel);
         /// <summary>Leaves active DA session and shuts down NetworkManager. Used at start of DA create/join.</summary>
         UniTask CleanupNetworkAsync();
     }

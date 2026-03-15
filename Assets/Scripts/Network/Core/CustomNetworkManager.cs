@@ -553,7 +553,7 @@ namespace Network.Core {
 
             var sessionManager = Session.SessionManager.Instance;
             if(sessionManager == null ||
-               !sessionManager.TryResolveDistributedAuthorityPlayerMetadata(ugsPlayerId, out var partyId, out var steamId)) {
+               !sessionManager.TryResolveDaPlayerMetadata(ugsPlayerId, out var partyId, out var steamId)) {
                 return;
             }
 

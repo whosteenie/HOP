@@ -65,8 +65,8 @@ namespace Network.Session {
                 var localUgsId = AuthenticationService.Instance.PlayerId;
                 ctx.SetIsPartyLeader(partyLobby != null && partyLobby.HostId == localUgsId);
 
-                await actions.UnsubscribeMatchLobbyEventsAsync("CreatePartyLobbyAsync/ResetMatch");
-                await actions.EnsurePartyLobbyEventsSubscriptionAsync("CreatePartyLobbyAsync");
+                await actions.UnsubscribeMatchLobbyAsync("CreatePartyLobbyAsync/ResetMatch");
+                await actions.EnsurePartyLobbySubscriptionAsync("CreatePartyLobbyAsync");
 
                 if(SteamClient.IsValid && SteamClient.IsLoggedOn) {
                     if(!ctx.CurrentLobby.HasValue) {
@@ -158,8 +158,8 @@ namespace Network.Session {
             var localUgsId = AuthenticationService.Instance.PlayerId;
             ctx.SetIsPartyLeader(partyLobby != null && partyLobby.HostId == localUgsId);
 
-            await actions.UnsubscribeMatchLobbyEventsAsync("JoinPartyLobbyByCodeAsync/ResetMatch");
-            await actions.EnsurePartyLobbyEventsSubscriptionAsync("JoinPartyLobbyByCodeAsync");
+            await actions.UnsubscribeMatchLobbyAsync("JoinPartyLobbyByCodeAsync/ResetMatch");
+            await actions.EnsurePartyLobbySubscriptionAsync("JoinPartyLobbyByCodeAsync");
 
             if(partyLobby is { Data: not null } && partyLobby.Data.TryGetValue(UgsPartyIdKey, out var partyIdObj) &&
                partyIdObj != null && !string.IsNullOrEmpty(partyIdObj.Value)) {
@@ -202,7 +202,7 @@ namespace Network.Session {
                 if(Debug.isDebugBuild) Debug.Log("[SessionManager] Cleared stale followMatchLobbyId on party lobby.");
             } catch(LobbyServiceException ex) when(ex.Reason is LobbyExceptionReason.LobbyNotFound or LobbyExceptionReason.EntityNotFound) {
                 ctx.SetUgsPartyLobby(null);
-                await partyActions.UnsubscribePartyLobbyEventsAsync("ResetPartyFollowStateIfHostAsync/LobbyMissing");
+                await partyActions.UnsubscribePartyLobbyAsync("ResetPartyFollowStateIfHostAsync/LobbyMissing");
             } catch(Exception ex) {
                 Debug.LogWarning($"[SessionManager] Failed to clear followMatchLobbyId on party lobby: {ex.Message}");
             }
@@ -281,7 +281,7 @@ namespace Network.Session {
                 ctx.SetExpectedGamePlayerCount(expectedPlayers.Count, "UgsPrivateMatchHost");
                 var expectedCsv = string.Join(",", expectedPlayers);
 
-                var sessionCode = await hostActions.CreateDistributedAuthoritySessionAsync(maxPlayers, true, "StartPrivateMatchAsync");
+                var sessionCode = await hostActions.CreateDaSessionAsync(maxPlayers, true, "StartPrivateMatchAsync");
                 if(string.IsNullOrEmpty(sessionCode)) {
                     await hostActions.LeaveToMainMenuAsync();
                     return;

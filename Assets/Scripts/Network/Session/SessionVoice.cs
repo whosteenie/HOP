@@ -44,7 +44,7 @@ namespace Network.Session {
             string context) {
             if(isLeavingOrShuttingDown != null && isLeavingOrShuttingDown()) return;
             if(VoiceManager.Instance == null || !VoiceManager.Instance.IsLoggedIn) return;
-            var channelName = GetActiveMatchVoiceChannelName(ctx);
+            var channelName = GetMatchVoiceChannelName(ctx);
             if(string.IsNullOrEmpty(channelName)) {
                 if(Debug.isDebugBuild)
                     Debug.Log($"[SessionManager] No active match channel available for voice join ({context}).");
@@ -58,7 +58,7 @@ namespace Network.Session {
         }
 
         /// <summary>Returns the voice channel name for the current match (UGS match lobby id or Steam lobby id), or null.</summary>
-        public static string GetActiveMatchVoiceChannelName(ISessionContext ctx) {
+        public static string GetMatchVoiceChannelName(ISessionContext ctx) {
             if(ctx == null) return null;
             var ugsMatch = ctx.UgsMatchLobby;
             if(ugsMatch != null && !string.IsNullOrEmpty(ugsMatch.Id))

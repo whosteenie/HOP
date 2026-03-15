@@ -7,10 +7,10 @@ namespace Network.Session {
     /// Implemented by SessionManager.
     /// </summary>
     public interface IDistributedAuthorityActions {
-        void BindActiveMultiplayerSession(ISession session);
-        void UnbindActiveMultiplayerSession();
+        void BindActiveSession(ISession session);
+        void UnbindActiveSession();
         bool IsLocalPlayerMatchLobbyHost(Lobby lobby);
         /// <summary>Called after match lobby is refreshed and local player is the new host (reset heartbeat state).</summary>
-        void OnPromotedToMatchLobbyHost();
+        void OnPromotedToMatchHost();
     }
 }

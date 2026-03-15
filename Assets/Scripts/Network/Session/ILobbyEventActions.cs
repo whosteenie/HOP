@@ -4,6 +4,6 @@ namespace Network.Session {
     /// Implemented by SessionManager.
     /// </summary>
     public interface ILobbyEventActions {
-        void CompleteAndClearPlayersReadyWaiter(bool result);
+        void CompletePlayersReadyWaiter(bool result);
     }
 }

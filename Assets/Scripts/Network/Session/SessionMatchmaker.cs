@@ -735,15 +735,15 @@ namespace Network.Session {
                 "UgsPublicMatchHost");
 
             var sessionCode =
-                await _actions.CreateDistributedAuthoritySessionAsync(maxPlayers, false, "StartPublicMatchAsHostAsync");
+                await _actions.CreateDaSessionAsync(maxPlayers, false, "StartPublicMatchAsHostAsync");
             if(string.IsNullOrEmpty(sessionCode)) {
                 await _ctx.LeaveToMainMenuAsync();
                 return;
             }
 
-            await _actions.CreatePublicMatchLobbyAsHostAsync(mode, maxPlayers, matchId, sessionCode);
+            await _actions.CreatePublicMatchLobbyAsync(mode, maxPlayers, matchId, sessionCode);
             await _actions.PreFadePublicHostAsync();
-            await _actions.MarkHostReadyInMatchLobbyAsync();
+            await _actions.MarkHostReadyAsync();
 
             if(await _matchLobby.WaitForMatchPlayersReadyAsync(_ctx, expectedPlayerIds, 60f, "PublicMatch") ==
                false) {

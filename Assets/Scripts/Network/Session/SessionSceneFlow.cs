@@ -464,7 +464,7 @@ namespace Network.Session {
 
                 var presentationSerial = actions.StartGameScenePresentation();
 
-                if(actions.TryGetAuthoritativeRuntimeMode(out var mode, out var source)) {
+                if(actions.TryGetRuntimeMode(out var mode, out var source)) {
                     if(!string.Equals(ctx.SelectedGameMode, mode, StringComparison.OrdinalIgnoreCase)) {
                         FlowLog.Emit(FlowEventIds.AnomalyModeMismatch,
                             ("selected", ctx.SelectedGameMode),
@@ -492,11 +492,11 @@ namespace Network.Session {
                         await actions.TrySetMatchLobbyStateAsync("InGame",
                             DataObject.VisibilityOptions.Public,
                             "OnGameSceneLoadedAsync");
-                        await actions.RefreshPublicMatchBackfillEligibilityAsync(force: true);
+                        await actions.RefreshBackfillEligibilityAsync(force: true);
                     }
                 }
 
-                await actions.UnsubscribeMatchLobbyEventsAsync("OnGameSceneLoadedAsync/InGame");
+                await actions.UnsubscribeMatchLobbyAsync("OnGameSceneLoadedAsync/InGame");
 
                 if(SceneTransitionManager.Instance != null) {
                     var ready = await WaitForGameplayReadyAsync(ctx, sceneActions, 20f);

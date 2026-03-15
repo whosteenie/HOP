@@ -13,10 +13,10 @@ namespace Network.Session {
         UniTask StartPublicMatchAsHostAsync(string mode, int maxPlayers, string matchId, StoredMatchmakingResults results);
         UniTask JoinPublicMatchByIdAsync(string matchId);
 
-        UniTask<string> CreateDistributedAuthoritySessionAsync(int maxPlayers, bool isPrivateMatch, string contextLabel);
-        UniTask CreatePublicMatchLobbyAsHostAsync(string mode, int maxPlayers, string matchId, string joinCode);
+        UniTask<string> CreateDaSessionAsync(int maxPlayers, bool isPrivateMatch, string contextLabel);
+        UniTask CreatePublicMatchLobbyAsync(string mode, int maxPlayers, string matchId, string joinCode);
         UniTask PreFadePublicHostAsync();
-        UniTask MarkHostReadyInMatchLobbyAsync();
+        UniTask MarkHostReadyAsync();
         UniTask<bool> TrySetMatchLobbyStateAsync(string lobbyState, DataObject.VisibilityOptions visibility, string context);
         bool TryLoadGameplaySceneAsHost(string contextLabel);
     }

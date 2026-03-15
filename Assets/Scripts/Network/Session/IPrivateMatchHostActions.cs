@@ -7,7 +7,7 @@ namespace Network.Session {
     /// </summary>
     public interface IPrivateMatchHostActions {
         UniTask PreFadePrivateHostAsync();
-        UniTask<string> CreateDistributedAuthoritySessionAsync(int maxPlayers, bool isPrivateMatch, string contextLabel);
+        UniTask<string> CreateDaSessionAsync(int maxPlayers, bool isPrivateMatch, string contextLabel);
         UniTask<bool> TrySetMatchLobbyStateAsync(string lobbyState, Unity.Services.Lobbies.Models.DataObject.VisibilityOptions visibility, string context);
         bool TryLoadGameplaySceneAsHost(string contextLabel);
         UniTask LeaveToMainMenuAsync(bool skipFadeOut = false);

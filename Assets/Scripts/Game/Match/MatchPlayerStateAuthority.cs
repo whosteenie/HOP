@@ -92,7 +92,7 @@ namespace Game.Match {
             var sessionManager = SessionManager.Instance;
             if(sessionManager != null &&
                !string.IsNullOrWhiteSpace(resolvedUgsId) &&
-               sessionManager.TryResolveDistributedAuthorityPlayerMetadata(resolvedUgsId, out _,
+               sessionManager.TryResolveDaPlayerMetadata(resolvedUgsId, out _,
                    out var authoritativeSteamId) &&
                authoritativeSteamId != 0) {
                 resolvedSteamId = authoritativeSteamId;

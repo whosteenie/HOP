@@ -45,19 +45,19 @@ namespace Network.Session {
         public static bool HasActiveSession => activeSession != null;
 
         /// <summary>Binds a DA session, subscribes to its events, and publishes SessionJoinedEvent. Call after create/join.</summary>
-        public static void BindActiveMultiplayerSession(ISession session, ISessionContext ctx, IDistributedAuthorityActions daActions, Func<bool> isInGameplayAndListening) {
-            UnbindActiveMultiplayerSession();
+        public static void BindActiveSession(ISession session, ISessionContext ctx, IDistributedAuthorityActions daActions, Func<bool> isInGameplayAndListening) {
+            UnbindActiveSession();
             if(session == null) return;
             activeSession = session;
             onHostChanged = newHostId => OnActiveSessionHostChanged(ctx, daActions, session, newHostId);
             onMigrated = () => OnActiveSessionMigrated(ctx, daActions, session, isInGameplayAndListening);
             onRemoved = () => {
                 if(Debug.isDebugBuild) Debug.LogWarning("[SessionManager] Removed from active DA session.");
-                UnbindActiveMultiplayerSession();
+                UnbindActiveSession();
             };
             onDeleted = () => {
                 if(Debug.isDebugBuild) Debug.LogWarning("[SessionManager] Active DA session was deleted.");
-                UnbindActiveMultiplayerSession();
+                UnbindActiveSession();
             };
             session.SessionHostChanged += onHostChanged;
             session.SessionMigrated += onMigrated;
@@ -69,7 +69,7 @@ namespace Network.Session {
         }
 
         /// <summary>Unbinds the current DA session and unsubscribes from its events.</summary>
-        public static void UnbindActiveMultiplayerSession() {
+        public static void UnbindActiveSession() {
             var session = activeSession;
             if(session == null) return;
             if(onHostChanged != null) { session.SessionHostChanged -= onHostChanged; onHostChanged = null; }
@@ -115,13 +115,13 @@ namespace Network.Session {
             networkManager.NetworkConfig.ConnectionData = ConnectionPayload.Encode(payload);
         }
 
-        public enum DistributedAuthoritySessionJoinResult {
+        public enum DaSessionJoinResult {
             Success,
             RateLimited,
             Failed
         }
 
-        public static float ComputeDistributedAuthorityJoinRetryDelaySeconds(int attempt) {
+        public static float ComputeDaJoinRetryDelaySeconds(int attempt) {
             var exponent = Mathf.Clamp(attempt, 0, DistributedAuthorityJoinRetryMaxExponent);
             var rawBackoff = DistributedAuthorityJoinRetryBaseDelaySeconds * Mathf.Pow(2f, exponent);
             var jitter = UnityEngine.Random.Range(0f, 1.25f);
@@ -132,7 +132,7 @@ namespace Network.Session {
         /// Leaves the active UGS multiplayer session and shuts down the Netcode NetworkManager.
         /// </summary>
         public static async UniTask CleanupNetworkAsync(ISessionContext ctx, INetworkLifecycleActions actions) {
-            await actions.LeaveActiveMultiplayerSessionAsync("CleanupNetworkAsync");
+            await actions.LeaveActiveSessionAsync("CleanupNetworkAsync");
 
             if(ctx.TryGetNetworkManager("CleanupNetworkAsync", out var networkManager) == false) return;
 
@@ -160,7 +160,7 @@ namespace Network.Session {
         /// <summary>
         /// Creates a DA session, cleans up first, applies connection payload, binds session via actions.
         /// </summary>
-        public static async UniTask<string> CreateDistributedAuthoritySessionAsync(
+        public static async UniTask<string> CreateDaSessionAsync(
             ISessionContext ctx,
             IDistributedAuthorityActions daActions,
             INetworkLifecycleActions lifecycleActions,
@@ -177,7 +177,7 @@ namespace Network.Session {
                     try {
                         var options = BuildDistributedAuthoritySessionOptions(ctx, maxPlayers, isPrivateMatch);
                         var hostSession = await MultiplayerService.Instance.CreateSessionAsync(options);
-                        daActions.BindActiveMultiplayerSession(hostSession);
+                        daActions.BindActiveSession(hostSession);
                         return hostSession.Code;
                     } catch(Exception ex) when(attempt < maxAttempts && IsRetryableDistributedAuthorityStartupException(ex)) {
                         Debug.LogWarning(
@@ -185,7 +185,7 @@ namespace Network.Session {
                         await UniTask.Delay(350, cancellationToken: ctx.SessionLifetimeToken);
                     } catch(Exception ex) {
                         Debug.LogError($"[SessionManager] Failed to create DA session during {contextLabel}: {ex}");
-                        daActions.UnbindActiveMultiplayerSession();
+                        daActions.UnbindActiveSession();
                         return null;
                     }
                 }
@@ -199,7 +199,7 @@ namespace Network.Session {
         /// <summary>
         /// Joins a DA session by code, cleans up first, applies connection payload, binds session via actions.
         /// </summary>
-        public static async UniTask<DistributedAuthoritySessionJoinResult> JoinDistributedAuthoritySessionAsync(
+        public static async UniTask<DaSessionJoinResult> JoinDaSessionAsync(
             string sessionCode,
             bool isPrivateMatch,
             ISessionContext ctx,
@@ -208,7 +208,7 @@ namespace Network.Session {
             string contextLabel) {
             if(string.IsNullOrWhiteSpace(sessionCode)) {
                 Debug.LogError($"[SessionManager] Cannot join DA session during {contextLabel}: session code is empty.");
-                return DistributedAuthoritySessionJoinResult.Failed;
+                return DaSessionJoinResult.Failed;
             }
 
             BeginDistributedAuthorityStartupWindow(contextLabel);
@@ -221,13 +221,13 @@ namespace Network.Session {
                     try {
                         var joinOptions = BuildJoinSessionOptions(ctx);
                         var session = await MultiplayerService.Instance.JoinSessionByCodeAsync(sessionCode, joinOptions);
-                        daActions.BindActiveMultiplayerSession(session);
-                        return DistributedAuthoritySessionJoinResult.Success;
+                        daActions.BindActiveSession(session);
+                        return DaSessionJoinResult.Success;
                     } catch(SessionException ex) when(ex.Error == SessionError.RateLimitExceeded) {
                         Debug.LogWarning(
                             $"[SessionManager] Rate limited joining DA session '{sessionCode}' during {contextLabel}. Retrying...");
-                        daActions.UnbindActiveMultiplayerSession();
-                        return DistributedAuthoritySessionJoinResult.RateLimited;
+                        daActions.UnbindActiveSession();
+                        return DaSessionJoinResult.RateLimited;
                     } catch(Exception ex) when(attempt < maxAttempts && IsRetryableDistributedAuthorityStartupException(ex)) {
                         Debug.LogWarning(
                             $"[SessionManager] DA join canceled for code '{sessionCode}' during {contextLabel} (attempt {attempt}/{maxAttempts}). Retrying...");
@@ -235,12 +235,12 @@ namespace Network.Session {
                     } catch(Exception ex) {
                         Debug.LogError(
                             $"[SessionManager] Failed to join DA session '{sessionCode}' during {contextLabel}: {ex}");
-                        daActions.UnbindActiveMultiplayerSession();
-                        return DistributedAuthoritySessionJoinResult.Failed;
+                        daActions.UnbindActiveSession();
+                        return DaSessionJoinResult.Failed;
                     }
                 }
 
-                return DistributedAuthoritySessionJoinResult.Failed;
+                return DaSessionJoinResult.Failed;
             } finally {
                 EndDistributedAuthorityStartupWindow(contextLabel);
             }
@@ -302,7 +302,7 @@ namespace Network.Session {
         /// <summary>
         /// Resolves partyId and steamId for a UGS player from DA session players, then match lobby, then party lobby.
         /// </summary>
-        private static bool TryResolveDistributedAuthorityPlayerMetadata(
+        private static bool TryResolveDaPlayerMetadata(
             IReadOnlyList<IReadOnlyPlayer> sessionPlayers,
             IReadOnlyList<Player> matchLobbyPlayers,
             IReadOnlyList<Player> partyLobbyPlayers,
@@ -323,13 +323,13 @@ namespace Network.Session {
         /// <summary>
         /// Resolves partyId and steamId using the currently bound DA session, then match lobby, then party lobby.
         /// </summary>
-        public static bool TryResolveDistributedAuthorityPlayerMetadata(
+        public static bool TryResolveDaPlayerMetadata(
             IReadOnlyList<Player> matchLobbyPlayers,
             IReadOnlyList<Player> partyLobbyPlayers,
             string ugsPlayerId,
             out string partyId,
             out ulong steamId) =>
-            TryResolveDistributedAuthorityPlayerMetadata(activeSession?.Players, matchLobbyPlayers, partyLobbyPlayers, ugsPlayerId, out partyId, out steamId);
+            TryResolveDaPlayerMetadata(activeSession?.Players, matchLobbyPlayers, partyLobbyPlayers, ugsPlayerId, out partyId, out steamId);
 
         private static bool TryResolveFromSessionPlayers(
             IReadOnlyList<IReadOnlyPlayer> players, string ugsPlayerId, out string partyId, out ulong steamId) {
@@ -416,7 +416,7 @@ namespace Network.Session {
                     var hostMatchesExpectation = string.IsNullOrEmpty(expectedHostId) ||
                                                 string.Equals(refreshedLobby.HostId, expectedHostId, StringComparison.Ordinal);
                     if(daActions.IsLocalPlayerMatchLobbyHost(refreshedLobby)) {
-                        daActions.OnPromotedToMatchLobbyHost();
+                        daActions.OnPromotedToMatchHost();
                         if(Debug.isDebugBuild) {
                             Debug.Log(
                                 $"[SessionManager] Local player now owns match lobby heartbeats after DA {reason}. lobbyId='{targetLobbyId}'.");
@@ -509,7 +509,7 @@ namespace Network.Session {
             ctx.NotifyPartyStateChanged();
         }
 
-        /// <summary>Leaves the given DA session (call after unbinding). Used by manager's LeaveActiveMultiplayerSessionAsync.</summary>
+        /// <summary>Leaves the given DA session (call after unbinding). Used by manager's LeaveActiveSessionAsync.</summary>
         public static async UniTask LeaveSessionAsync(ISession session, string contextLabel) {
             if(session == null) return;
             try {
@@ -536,7 +536,6 @@ namespace Network.Session {
         /// </summary>
         private static void RunOnClientStoppedLogic(
             ISessionContext ctx,
-            ISceneFlowActions sceneActions,
             NetworkManager networkManager,
             Func<bool> hasActiveSession,
             Action<string> triggerUnexpectedDisconnect) {
@@ -600,7 +599,7 @@ namespace Network.Session {
                 ctx.NotifyPartyStateChanged();
             };
 
-            onClientStopped = _ => RunOnClientStoppedLogic(ctx, sceneActions, networkManager, hasActiveSession, triggerUnexpectedDisconnect);
+            onClientStopped = _ => RunOnClientStoppedLogic(ctx, networkManager, hasActiveSession, triggerUnexpectedDisconnect);
 
             onSessionOwnerPromoted = sessionOwnerPromoted => {
                 if(networkManager == null || !networkManager.DistributedAuthorityMode) return;

@@ -54,7 +54,7 @@ namespace Network.Session {
         }
 
         /// <summary>Gets the authoritative game mode from match lobby data or selected mode. Used by scene flow and game-load.</summary>
-        public static bool TryGetAuthoritativeRuntimeMode(ISessionContext ctx, out string mode, out string source) {
+        public static bool TryGetRuntimeMode(ISessionContext ctx, out string mode, out string source) {
             mode = null;
             source = null;
             var lobby = ctx?.UgsMatchLobby;
@@ -80,7 +80,7 @@ namespace Network.Session {
         }
 
         /// <summary>Marks the local player as ready in the match lobby (readyToLoad=1). Call for public match host after pre-fade.</summary>
-        public static async UniTask MarkHostReadyInMatchLobbyAsync(ISessionContext ctx, IMatchSnapshotActions snapshotActions) {
+        public static async UniTask MarkHostReadyAsync(ISessionContext ctx, IMatchSnapshotActions snapshotActions) {
             if(ctx?.UgsMatchLobby == null) return;
             var localUgsId = AuthenticationService.Instance.PlayerId;
             if(string.IsNullOrEmpty(localUgsId)) return;
@@ -161,26 +161,26 @@ namespace Network.Session {
             var create = BuildPrivateMatchCreateOptions(ctx.CurrentPartyId, mode, joinCode, expectedCsv, BuildLobbyPlayer());
             var lobby = await LobbyService.Instance.CreateLobbyAsync("HOP Match", maxPlayers, create);
             ctx.SetUgsMatchLobby(lobby);
-            await EnsureMatchLobbyEventsSubscriptionAsync(ctx, lobbyEventActions, "CreatePrivateMatchLobbyAsync");
+            await EnsureMatchLobbySubscriptionAsync(ctx, lobbyEventActions, "CreatePrivateMatchLobbyAsync");
             partyActions.TryJoinVoiceForActiveMatch("CreatePrivateMatchLobbyAsync");
 
             var partyLobby = ctx.UgsPartyLobby;
             if(partyLobby != null && !string.IsNullOrEmpty(partyLobby.Id)) {
                 var update = BuildPartyFollowMatchOptions(lobby.Id);
                 await LobbyService.Instance.UpdateLobbyAsync(partyLobby.Id, update);
-                await partyActions.EnsurePartyLobbyEventsSubscriptionAsync("CreatePrivateMatchLobbyAsync/PartyUpdate");
+                await partyActions.EnsurePartyLobbySubscriptionAsync("CreatePrivateMatchLobbyAsync/PartyUpdate");
             }
             ctx.UpdateSteamRichPresence();
         }
 
         /// <summary>Creates a public match lobby as host. Call after DA session is created.</summary>
-        public async UniTask CreatePublicMatchLobbyAsHostAsync(ISessionContext ctx, IPartySessionActions partyActions,
+        public async UniTask CreatePublicMatchLobbyAsync(ISessionContext ctx, IPartySessionActions partyActions,
             ILobbyEventActions lobbyEventActions, string mode, int maxPlayers, string matchId, string joinCode) {
             var create = BuildPublicMatchCreateOptions(mode, joinCode, matchId, BuildLobbyPlayer());
             var lobby = await LobbyService.Instance.CreateLobbyAsync("HOP Match", maxPlayers, create);
             ctx.SetUgsMatchLobby(lobby);
-            await EnsureMatchLobbyEventsSubscriptionAsync(ctx, lobbyEventActions, "CreatePublicMatchLobbyAsHostAsync");
-            partyActions.TryJoinVoiceForActiveMatch("CreatePublicMatchLobbyAsHostAsync");
+            await EnsureMatchLobbySubscriptionAsync(ctx, lobbyEventActions, "CreatePublicMatchLobbyAsync");
+            partyActions.TryJoinVoiceForActiveMatch("CreatePublicMatchLobbyAsync");
             ctx.UpdateSteamRichPresence();
             if(Debug.isDebugBuild) {
                 Debug.Log($"[SessionManager] Created UGS lobby in SynchronizingLoad state. lobbyId='{lobby.Id}'");
@@ -223,7 +223,7 @@ namespace Network.Session {
             }
 
             ctx.SetUgsMatchLobby(matchLobby);
-            await EnsureMatchLobbyEventsSubscriptionAsync(ctx, lobbyEventActions, "JoinMatchLobbyByIdAsync");
+            await EnsureMatchLobbySubscriptionAsync(ctx, lobbyEventActions, "JoinMatchLobbyByIdAsync");
             partyActions.TryJoinVoiceForActiveMatch("JoinMatchLobbyByIdAsync");
             ctx.UpdateSteamRichPresence();
             if(Debug.isDebugBuild) {
@@ -291,7 +291,7 @@ namespace Network.Session {
         /// <summary>
         /// Call when local player is promoted to match lobby host (e.g. after DA host change). Resets match heartbeat state so keepalive resumes immediately.
         /// </summary>
-        public void ResetMatchHeartbeatStateForNewHost() {
+        public void ResetMatchHeartbeatForNewHost() {
             _nextMatchHeartbeatTime = 0f;
             _matchHeartbeatBackoffUntil = 0f;
             _matchHeartbeatRateLimitStreak = 0;
@@ -318,8 +318,8 @@ namespace Network.Session {
             _nextUgsHeartbeatTime = Time.unscaledTime + UgsHeartbeatIntervalSeconds;
 
             if(!IsBackfillEligibilityUpdateInFlight) {
-                ctx.LaunchSessionTask(RefreshPublicMatchBackfillEligibilityAsync(ctx, force: false),
-                    "RefreshPublicMatchBackfillEligibility");
+                ctx.LaunchSessionTask(RefreshBackfillEligibilityAsync(ctx, force: false),
+                    "RefreshBackfillEligibility");
             }
 
             if(!_isHeartbeatDispatchInFlight) {
@@ -330,7 +330,7 @@ namespace Network.Session {
         /// <summary>
         /// Run backfill eligibility refresh (evaluate from game rules + update lobby). Call from SessionManager when force refresh is needed (e.g. OnGameSceneLoadedAsync).
         /// </summary>
-        public async UniTask RefreshPublicMatchBackfillEligibilityAsync(ISessionContext ctx, bool force = false) {
+        public async UniTask RefreshBackfillEligibilityAsync(ISessionContext ctx, bool force = false) {
             if(IsBackfillEligibilityUpdateInFlight || ctx.IsLeaving || ctx.IsShuttingDown) return;
 
             var matchLobby = ctx.UgsMatchLobby;
@@ -739,7 +739,7 @@ namespace Network.Session {
         }
 
         private UniTaskCompletionSource<bool> ArmPlayersReadyWaiter(string lobbyId, List<string> expectedPlayerIds) {
-            CompleteAndClearPlayersReadyWaiter(false);
+            CompletePlayersReadyWaiter(false);
             _playersReadyWaiter = new UniTaskCompletionSource<bool>();
             _playersReadyLobbyId = lobbyId;
             _playersReadyExpectedPlayerIds = expectedPlayerIds != null ? new List<string>(expectedPlayerIds) : null;
@@ -753,7 +753,7 @@ namespace Network.Session {
             _playersReadyLobbyId = null;
         }
 
-        public void CompleteAndClearPlayersReadyWaiter(bool result) {
+        public void CompletePlayersReadyWaiter(bool result) {
             var waiter = _playersReadyWaiter;
             _playersReadyWaiter = null;
             _playersReadyExpectedPlayerIds = null;
@@ -819,8 +819,8 @@ namespace Network.Session {
             var matchLobbyId = ctx.UgsMatchLobby?.Id;
             if(!string.IsNullOrEmpty(matchLobbyId)) await LeaveMatchLobbyAsync(matchLobbyId);
 
-            CompleteAndClearPlayersReadyWaiter(false);
-            await UnsubscribeMatchLobbyEventsAsync(lobbyEventActions, "ClearMatchStateAsync");
+            CompletePlayersReadyWaiter(false);
+            await UnsubscribeMatchLobbyAsync(lobbyEventActions, "ClearMatchStateAsync");
             ctx.SetUgsMatchLobby(null);
             snapshotActions.UgsSyncInProgress = false;
             snapshotActions.UgsLocalReadySubmitted = false;
@@ -959,7 +959,7 @@ namespace Network.Session {
             if(ctx.IsLeaving || ctx.IsShuttingDown || string.IsNullOrWhiteSpace(sessionCode)) return;
             RefreshDistributedAuthorityJoinRetrySessionCode(sessionCode);
 
-            var delaySeconds = SessionNetworkLifecycle.ComputeDistributedAuthorityJoinRetryDelaySeconds(_distributedAuthorityJoinRetryAttempt);
+            var delaySeconds = SessionNetworkLifecycle.ComputeDaJoinRetryDelaySeconds(_distributedAuthorityJoinRetryAttempt);
             _distributedAuthorityJoinRetryAttempt++;
             _nextDistributedAuthorityJoinRetryTime = Time.unscaledTime + delaySeconds;
 
@@ -1097,13 +1097,13 @@ namespace Network.Session {
                 }
 
                 var isPrivateMatch = expectedIsPrivateMatch ?? IsPrivateMatchLobby(ctx.UgsMatchLobby);
-                var joinResult = await actions.JoinDistributedAuthoritySessionAsync(sessionCode, isPrivateMatch, "StartMatchClientAsync");
+                var joinResult = await actions.JoinDaSessionAsync(sessionCode, isPrivateMatch, "StartMatchClientAsync");
                 switch(joinResult) {
-                    case SessionNetworkLifecycle.DistributedAuthoritySessionJoinResult.Success:
+                    case SessionNetworkLifecycle.DaSessionJoinResult.Success:
                         ResetDistributedAuthorityJoinRetryState();
                         shouldResetClientStartFlag = false;
                         return;
-                    case SessionNetworkLifecycle.DistributedAuthoritySessionJoinResult.RateLimited:
+                    case SessionNetworkLifecycle.DaSessionJoinResult.RateLimited:
                         ScheduleDistributedAuthorityJoinRetry(ctx, actions, sessionCode, isPrivateMatch);
                         return;
                     default:
@@ -1138,10 +1138,10 @@ namespace Network.Session {
         private ILobbyEvents _partyLobbyEvents;
         private ILobbyEvents _matchLobbyEvents;
 
-        public async UniTask EnsurePartyLobbyEventsSubscriptionAsync(ISessionContext ctx, ILobbyEventActions actions, string context) {
+        public async UniTask EnsurePartyLobbySubscriptionAsync(ISessionContext ctx, ILobbyEventActions actions, string context) {
             var partyLobby = ctx.UgsPartyLobby;
             if(partyLobby == null || string.IsNullOrEmpty(partyLobby.Id)) {
-                await UnsubscribePartyLobbyEventsAsync(context + "/NoPartyLobby");
+                await UnsubscribePartyLobbyAsync(context + "/NoPartyLobby");
                 return;
             }
 
@@ -1152,7 +1152,7 @@ namespace Network.Session {
 
             _isSubscribingPartyLobbyEvents = true;
             try {
-                await UnsubscribePartyLobbyEventsAsync(context + "/Replace");
+                await UnsubscribePartyLobbyAsync(context + "/Replace");
 
                 var snapshotActions = actions as IMatchSnapshotActions;
                 var callbacks = new LobbyEventCallbacks();
@@ -1179,10 +1179,10 @@ namespace Network.Session {
             }
         }
 
-        private async UniTask EnsureMatchLobbyEventsSubscriptionAsync(ISessionContext ctx, ILobbyEventActions actions, string context) {
+        private async UniTask EnsureMatchLobbySubscriptionAsync(ISessionContext ctx, ILobbyEventActions actions, string context) {
             var matchLobby = ctx.UgsMatchLobby;
             if(matchLobby == null || string.IsNullOrEmpty(matchLobby.Id)) {
-                await UnsubscribeMatchLobbyEventsAsync(actions, context + "/NoMatchLobby");
+                await UnsubscribeMatchLobbyAsync(actions, context + "/NoMatchLobby");
                 return;
             }
 
@@ -1193,7 +1193,7 @@ namespace Network.Session {
 
             _isSubscribingMatchLobbyEvents = true;
             try {
-                await UnsubscribeMatchLobbyEventsAsync(actions, context + "/Replace");
+                await UnsubscribeMatchLobbyAsync(actions, context + "/Replace");
 
                 var snapshotActions = actions as IMatchSnapshotActions;
                 var callbacks = new LobbyEventCallbacks();
@@ -1221,7 +1221,7 @@ namespace Network.Session {
             }
         }
 
-        public async UniTask UnsubscribePartyLobbyEventsAsync(string context) {
+        public async UniTask UnsubscribePartyLobbyAsync(string context) {
             var eventsHandle = _partyLobbyEvents;
 
             _partyLobbyEvents = null;
@@ -1238,8 +1238,8 @@ namespace Network.Session {
             }
         }
 
-        public async UniTask UnsubscribeMatchLobbyEventsAsync(ILobbyEventActions actions, string context) {
-            actions.CompleteAndClearPlayersReadyWaiter(false);
+        public async UniTask UnsubscribeMatchLobbyAsync(ILobbyEventActions actions, string context) {
+            actions.CompletePlayersReadyWaiter(false);
 
             var eventsHandle = _matchLobbyEvents;
 
@@ -1296,7 +1296,7 @@ namespace Network.Session {
             if(_isRetryingPartyLobbyEventsSubscription) return;
             _partyLobbyEventsSubscriptionRetryAttempt = 0;
             _isRetryingPartyLobbyEventsSubscription = true;
-            ctx.LaunchSessionTask(RetryEnsurePartyLobbyEventsSubscriptionAsync(ctx, actions, context), "PartyLobbyEvents/RetryEnsure");
+            ctx.LaunchSessionTask(RetryEnsurePartyLobbySubscriptionAsync(ctx, actions, context), "PartyLobbyEvents/RetryEnsure");
         }
 
         private void ScheduleMatchLobbyEventsSubscriptionRetry(ISessionContext ctx, ILobbyEventActions actions, string context) {
@@ -1304,10 +1304,10 @@ namespace Network.Session {
             if(_isRetryingMatchLobbyEventsSubscription) return;
             _matchLobbyEventsSubscriptionRetryAttempt = 0;
             _isRetryingMatchLobbyEventsSubscription = true;
-            ctx.LaunchSessionTask(RetryEnsureMatchLobbyEventsSubscriptionAsync(ctx, actions, context), "MatchLobbyEvents/RetryEnsure");
+            ctx.LaunchSessionTask(RetryEnsureMatchLobbySubscriptionAsync(ctx, actions, context), "MatchLobbyEvents/RetryEnsure");
         }
 
-        private async UniTask RetryEnsurePartyLobbyEventsSubscriptionAsync(ISessionContext ctx, ILobbyEventActions actions, string context) {
+        private async UniTask RetryEnsurePartyLobbySubscriptionAsync(ISessionContext ctx, ILobbyEventActions actions, string context) {
             try {
                 while(!ctx.IsLeaving && !ctx.IsShuttingDown) {
                     if(ctx.UgsPartyLobby == null || string.IsNullOrEmpty(ctx.UgsPartyLobby.Id)) return;
@@ -1323,14 +1323,14 @@ namespace Network.Session {
                     } catch(OperationCanceledException) {
                         return;
                     }
-                    await EnsurePartyLobbyEventsSubscriptionAsync(ctx, actions, context + "/Retry#" + _partyLobbyEventsSubscriptionRetryAttempt);
+                    await EnsurePartyLobbySubscriptionAsync(ctx, actions, context + "/Retry#" + _partyLobbyEventsSubscriptionRetryAttempt);
                 }
             } finally {
                 _isRetryingPartyLobbyEventsSubscription = false;
             }
         }
 
-        private async UniTask RetryEnsureMatchLobbyEventsSubscriptionAsync(ISessionContext ctx, ILobbyEventActions actions, string context) {
+        private async UniTask RetryEnsureMatchLobbySubscriptionAsync(ISessionContext ctx, ILobbyEventActions actions, string context) {
             try {
                 while(!ctx.IsLeaving && !ctx.IsShuttingDown) {
                     if(ctx.UgsMatchLobby == null || string.IsNullOrEmpty(ctx.UgsMatchLobby.Id)) return;
@@ -1346,7 +1346,7 @@ namespace Network.Session {
                     } catch(OperationCanceledException) {
                         return;
                     }
-                    await EnsureMatchLobbyEventsSubscriptionAsync(ctx, actions, context + "/Retry#" + _matchLobbyEventsSubscriptionRetryAttempt);
+                    await EnsureMatchLobbySubscriptionAsync(ctx, actions, context + "/Retry#" + _matchLobbyEventsSubscriptionRetryAttempt);
                 }
             } finally {
                 _isRetryingMatchLobbyEventsSubscription = false;
@@ -1395,7 +1395,7 @@ namespace Network.Session {
             ctx.SetUgsPartyLobby(null);
             ctx.SetIsPartyLeader(false);
             ResetFollowState();
-            await UnsubscribePartyLobbyEventsAsync($"PartyLobbyEvents/{reason}");
+            await UnsubscribePartyLobbyAsync($"PartyLobbyEvents/{reason}");
             ctx.NotifyPartyStateChanged();
         }
 
@@ -1435,7 +1435,7 @@ namespace Network.Session {
             await UniTask.SwitchToMainThread();
             if(Debug.isDebugBuild)
                 Debug.LogWarning($"[SessionManager] Match lobby event: {reason}. Clearing local match lobby cache.");
-            lobbyActions.CompleteAndClearPlayersReadyWaiter(false);
+            lobbyActions.CompletePlayersReadyWaiter(false);
             snapshotActions.UgsSyncInProgress = false;
             snapshotActions.UgsClientStartedForMatch = false;
             snapshotActions.UgsHostPreFadedOut = false;
@@ -1443,7 +1443,7 @@ namespace Network.Session {
                 snapshotActions.UgsLocalReadySubmitted = false;
                 ctx.SetUgsMatchLobby(null);
             }
-            await UnsubscribeMatchLobbyEventsAsync(lobbyActions, $"MatchLobbyEvents/{reason}");
+            await UnsubscribeMatchLobbyAsync(lobbyActions, $"MatchLobbyEvents/{reason}");
             ctx.UpdateSteamRichPresence();
         }
 

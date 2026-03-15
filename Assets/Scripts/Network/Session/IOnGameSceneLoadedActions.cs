@@ -8,11 +8,11 @@ namespace Network.Session {
     /// Implemented by SessionManager.
     /// </summary>
     public interface IOnGameSceneLoadedActions {
-        bool TryGetAuthoritativeRuntimeMode(out string mode, out string source);
+        bool TryGetRuntimeMode(out string mode, out string source);
         void TryJoinVoiceForActiveMatch(string context);
         UniTask TrySetMatchLobbyStateAsync(string lobbyState, DataObject.VisibilityOptions visibility, string context);
-        UniTask RefreshPublicMatchBackfillEligibilityAsync(bool force);
-        UniTask UnsubscribeMatchLobbyEventsAsync(string context);
+        UniTask RefreshBackfillEligibilityAsync(bool force);
+        UniTask UnsubscribeMatchLobbyAsync(string context);
         bool TryGetNetworkManager(out NetworkManager networkManager);
         void EnableGameplaySpawningAndSpawnAllIfHost();
         int StartGameScenePresentation();

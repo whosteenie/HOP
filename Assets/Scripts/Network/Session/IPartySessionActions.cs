@@ -6,9 +6,9 @@ namespace Network.Session {
     /// Implemented by SessionManager.
     /// </summary>
     public interface IPartySessionActions {
-        UniTask UnsubscribeMatchLobbyEventsAsync(string context);
-        UniTask UnsubscribePartyLobbyEventsAsync(string context);
-        UniTask EnsurePartyLobbyEventsSubscriptionAsync(string context);
+        UniTask UnsubscribeMatchLobbyAsync(string context);
+        UniTask UnsubscribePartyLobbyAsync(string context);
+        UniTask EnsurePartyLobbySubscriptionAsync(string context);
         UniTask<bool> CreateSteamSocialLobbyAsync(int maxPlayers);
         void SetNextUgsHeartbeatTime(float value);
         void UpdateSteamLobbyWithPartyDataIfOwner();
