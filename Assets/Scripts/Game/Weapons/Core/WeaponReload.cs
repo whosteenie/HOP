@@ -43,7 +43,7 @@ namespace Game.Weapons.Core {
         public void InterruptReloadForShot() {
             if(!_weapon.Reloading || _weapon.CurrentWeaponData == null || _weapon.CurrentWeaponData.useMagReload) return;
 
-            ConsumePendingSingleRoundReloadEvents();
+            ConsumePendingSingleRoundEvents();
 
             if(_weapon.KinDriver != null) {
                 _weapon.KinDriver.NotifyDrakeReloadCanceledByShot();
@@ -71,7 +71,7 @@ namespace Game.Weapons.Core {
             }
 
             if(_weapon.KinDriver != null) {
-                _weapon.StopKinemationEventSoundsForCurrentWeaponInternal();
+                _weapon.StopKinemationEventSoundsInternal();
                 _weapon.KinDriver.AbortReloadAndSyncAmmo(_weapon.CurrentAmmo);
             }
 
@@ -89,7 +89,7 @@ namespace Game.Weapons.Core {
         public void ResetWeapon() {
             if(!_weapon.CurrentWeaponData) return;
 
-            _weapon.CurrentAmmo = _weapon.GetCurrentMagCapacityInternal();
+            _weapon.CurrentAmmo = _weapon.GetMagCapacityInternal();
             _weapon.Reloading = false;
             _weapon.LastFireTime = Time.time;
             _weapon.AutoReloadArmed = false;
@@ -120,7 +120,7 @@ namespace Game.Weapons.Core {
                 }
 
                 if(_weapon.KinDriver != null) {
-                    _weapon.StopKinemationEventSoundsForCurrentWeaponInternal();
+                    _weapon.StopKinemationEventSoundsInternal();
                     _weapon.KinDriver.AbortReloadAndSyncAmmo(_weapon.CurrentAmmo);
                     _weapon.KinDriver.ResetReloadTracking();
                 }
@@ -131,12 +131,12 @@ namespace Game.Weapons.Core {
                 _weapon.ExitReloadAnimationInternal();
             }
 
-            _weapon.CurrentAmmo = _weapon.GetCurrentMagCapacityInternal();
+            _weapon.CurrentAmmo = _weapon.GetMagCapacityInternal();
             if(_weapon.KinDriver != null) {
                 _weapon.KinDriver.SyncActiveAmmo(_weapon.CurrentAmmo);
             }
 
-            _weapon.PublishOwnerAmmoToHudInternal();
+            _weapon.PublishAmmoToHudInternal();
             _weapon.SyncServerWeaponStateInternal(WeaponManager.AmmoSyncReason.RefillCurrentWeapon);
         }
 
@@ -146,7 +146,7 @@ namespace Game.Weapons.Core {
             if(Time.time <= _weapon.ReloadExpectedCompleteTime) return;
 
             if(_weapon.CurrentWeaponData != null && !_weapon.CurrentWeaponData.useMagReload) {
-                CompleteKinemationPartialReloadWithoutFilling();
+                CompleteKinemationPartialReload();
             } else {
                 CompleteReload();
             }
@@ -169,7 +169,7 @@ namespace Game.Weapons.Core {
 
             if(!_weapon.KinDriver.IsReloadSequenceInProgress()) {
                 if(_weapon.CurrentWeaponData != null && !_weapon.CurrentWeaponData.useMagReload) {
-                    CompleteKinemationPartialReloadWithoutFilling();
+                    CompleteKinemationPartialReload();
                 } else {
                     CompleteReload();
                 }
@@ -179,7 +179,7 @@ namespace Game.Weapons.Core {
 
             if(Time.time <= _weapon.KinemationReloadFallbackDeadline) return;
             if(_weapon.CurrentWeaponData != null && !_weapon.CurrentWeaponData.useMagReload) {
-                CompleteKinemationPartialReloadWithoutFilling();
+                CompleteKinemationPartialReload();
             } else {
                 CompleteReload();
             }
@@ -190,12 +190,12 @@ namespace Game.Weapons.Core {
         private bool CanReload() {
             if(!_weapon.CurrentWeaponData || _weapon.Manager == null || _weapon.Manager.IsPullingOut) return false;
             if(_weapon.KinDriver == null) return false;
-            return _weapon.CurrentAmmo < _weapon.GetCurrentMagCapacityInternal() && !_weapon.Reloading;
+            return _weapon.CurrentAmmo < _weapon.GetMagCapacityInternal() && !_weapon.Reloading;
         }
 
         private void CompleteReload() {
             if(!_weapon.CurrentWeaponData) return;
-            _weapon.CurrentAmmo = _weapon.GetCurrentMagCapacityInternal();
+            _weapon.CurrentAmmo = _weapon.GetMagCapacityInternal();
             _weapon.Reloading = false;
             _weapon.AutoReloadArmed = false;
             _weapon.ReloadExpectedCompleteTime = float.PositiveInfinity;
@@ -205,22 +205,22 @@ namespace Game.Weapons.Core {
             }
 
             _weapon.ExitReloadAnimationInternal();
-            _weapon.PublishOwnerAmmoToHudInternal();
+            _weapon.PublishAmmoToHudInternal();
             _weapon.SyncServerWeaponStateInternal(WeaponManager.AmmoSyncReason.ReloadCompleted);
         }
 
         private void HandleKinemationReloadSingleRound() {
             if(!_weapon.Reloading || _weapon.CurrentWeaponData == null) return;
             if(_weapon.CurrentWeaponData.useMagReload) return;
-            var magCapacity = _weapon.GetCurrentMagCapacityInternal();
+            var magCapacity = _weapon.GetMagCapacityInternal();
             if(_weapon.CurrentAmmo >= magCapacity) return;
 
             _weapon.CurrentAmmo = Mathf.Min(_weapon.CurrentAmmo + 1, magCapacity);
-            _weapon.PublishOwnerAmmoToHudInternal(magCapacity);
+            _weapon.PublishAmmoToHudInternal(magCapacity);
             _weapon.SyncServerWeaponStateInternal(WeaponManager.AmmoSyncReason.ReloadSingleRound);
         }
 
-        private void CompleteKinemationPartialReloadWithoutFilling() {
+        private void CompleteKinemationPartialReload() {
             _weapon.Reloading = false;
             _weapon.AutoReloadArmed = false;
             _weapon.ReloadExpectedCompleteTime = float.PositiveInfinity;
@@ -233,11 +233,11 @@ namespace Game.Weapons.Core {
             _weapon.SyncServerWeaponStateInternal(WeaponManager.AmmoSyncReason.ReloadCanceled);
 
             if(_weapon.CurrentWeaponData != null) {
-                _weapon.PublishOwnerAmmoToHudInternal();
+                _weapon.PublishAmmoToHudInternal();
             }
         }
 
-        private void ConsumePendingSingleRoundReloadEvents() {
+        private void ConsumePendingSingleRoundEvents() {
             if(_weapon.KinDriver == null) return;
 
             var reloadSingleEvents = _weapon.KinDriver.ConsumeReloadSingleEventCount();

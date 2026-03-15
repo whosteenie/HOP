@@ -67,7 +67,7 @@ namespace Game.Weapons.Core {
             if(_weapon.HasPrewarmedKinemationMuzzleForCurrentWeapon) return;
             if(_weapon.KinDriver == null) return;
             if(_weapon.PlayerController == null || !_weapon.PlayerController.IsOwner) return;
-            _weapon.PrewarmKinemationLocalMuzzleFxInstanceInternal();
+            _weapon.PrewarmKinemationMuzzleFxInternal();
         }
 
         public void SwitchToWeapon(WeaponData newWeaponData, GameObject fpWeaponInstance,
@@ -76,7 +76,7 @@ namespace Game.Weapons.Core {
                 _weapon.CancelReloadInternal();
             }
 
-            _weapon.ClearKinemationLocalMuzzleFxInstanceInternal();
+            _weapon.ClearKinemationMuzzleFxInternal();
 
             _weapon.CurrentWeaponData = newWeaponData;
             _weapon.CurrentFpWeaponInstance = fpWeaponInstance;
@@ -113,10 +113,10 @@ namespace Game.Weapons.Core {
             _weapon.HasPrewarmedKinemationMuzzleForCurrentWeapon = false;
 
             if(_weapon.KinDriver != null) {
-                _weapon.PrewarmKinemationLocalMuzzleFxInstanceInternal();
+                _weapon.PrewarmKinemationMuzzleFxInternal();
             }
 
-            _weapon.CurrentAmmo = Mathf.Clamp(restoredAmmo, 0, _weapon.GetCurrentMagCapacityInternal());
+            _weapon.CurrentAmmo = Mathf.Clamp(restoredAmmo, 0, _weapon.GetMagCapacityInternal());
             if(_weapon.KinDriver != null) {
                 _weapon.KinDriver.SyncActiveAmmo(_weapon.CurrentAmmo);
             }
@@ -143,7 +143,7 @@ namespace Game.Weapons.Core {
             }
 
             if(newWeaponData != null) {
-                _weapon.PublishOwnerAmmoToHudInternal();
+                _weapon.PublishAmmoToHudInternal();
             }
         }
 

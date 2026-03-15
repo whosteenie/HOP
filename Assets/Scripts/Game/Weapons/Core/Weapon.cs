@@ -208,7 +208,7 @@ namespace Game.Weapons.Core {
 
         public override void OnNetworkSpawn() {
             base.OnNetworkSpawn();
-            _combat.ResetAuthorityObservedMotionBaseline();
+            _combat.ResetMotionBaseline();
         }
 
         private void ValidateComponents() {
@@ -240,7 +240,7 @@ namespace Game.Weapons.Core {
 
         private void LateUpdate() {
             _combat.UpdateLocalDamageMultiplier();
-            _combat.UpdateAuthoritativeDamageMultiplier();
+            _combat.UpdateDamageMultiplier();
             _reload.UpdateKinemationReloadState();
             _effects.ProcessKinemationSoundEvents();
             _reload.RunReloadWatchdog();
@@ -265,7 +265,7 @@ namespace Game.Weapons.Core {
                 DamageRelay.OnHitConfirm -= OnHitConfirm;
             }
 
-            ClearKinemationLocalMuzzleFxInstance();
+            ClearKinemationMuzzleFx();
             base.OnDestroy();
         }
 
@@ -343,12 +343,12 @@ namespace Game.Weapons.Core {
             _reload.ResetWeapon();
         }
 
-        public void ResetAuthoritativeDamageMultiplierImmediate() {
+        public void ResetDamageMultiplierImmediate() {
             if(NetworkAuthority.HasGlobalAuthority(this)) {
                 AuthoritativeDamageMultiplier = 1f;
                 AuthoritativePeakDamageMultiplier = 1f;
                 AuthoritativeLastPeakTime = 0f;
-                ResetAuthorityObservedMotionBaseline();
+                ResetMotionBaseline();
                 if(playerController != null && playerController.PlayerState != null) {
                     playerController.PlayerState.replicatedDamageMultiplier.Value = 1f;
                 }
@@ -362,12 +362,12 @@ namespace Game.Weapons.Core {
             EventBus.Publish(new UpdateMultiplierEvent(_localDamageMultiplier, MaxDamageMultiplier));
         }
 
-        public float GetAuthoritativeDamageMultiplier() {
+        public float GetDamageMultiplier() {
             return Mathf.Clamp(AuthoritativeDamageMultiplier, 1f, MaxDamageMultiplier);
         }
 
-        private void ResetAuthorityObservedMotionBaseline() {
-            _combat.ResetAuthorityObservedMotionBaseline();
+        private void ResetMotionBaseline() {
+            _combat.ResetMotionBaseline();
         }
 
         public void PrepareForPostMatchPodium() {
@@ -395,7 +395,7 @@ namespace Game.Weapons.Core {
 
         #region Internal Subsystem Facade
 
-        internal int GetCurrentMagCapacityInternal() {
+        internal int GetMagCapacityInternal() {
             return GetCurrentMagCapacity();
         }
 
@@ -403,7 +403,7 @@ namespace Game.Weapons.Core {
             SyncServerWeaponState(reason);
         }
 
-        internal void PublishOwnerAmmoToHudInternal(int maxAmmoOverride = -1) {
+        internal void PublishAmmoToHudInternal(int maxAmmoOverride = -1) {
             PublishOwnerAmmoToHud(maxAmmoOverride);
         }
 
@@ -431,16 +431,16 @@ namespace Game.Weapons.Core {
             return _effects.ShouldSuppressLegacyReloadSound();
         }
 
-        internal void StopKinemationEventSoundsForCurrentWeaponInternal() {
-            _effects.StopKinemationEventSoundsForCurrentWeapon();
+        internal void StopKinemationEventSoundsInternal() {
+            _effects.StopKinemationEventSounds();
         }
 
-        internal void ClearKinemationLocalMuzzleFxInstanceInternal() {
-            _effects.ClearKinemationLocalMuzzleFxInstance();
+        internal void ClearKinemationMuzzleFxInternal() {
+            _effects.ClearKinemationMuzzleFx();
         }
 
-        internal void PrewarmKinemationLocalMuzzleFxInstanceInternal() {
-            _effects.PrewarmKinemationLocalMuzzleFxInstance();
+        internal void PrewarmKinemationMuzzleFxInternal() {
+            _effects.PrewarmKinemationMuzzleFx();
         }
 
         internal void SpawnTracerLocalInternal(Vector3 start, Vector3 end, Vector3 hitNormal, bool madeImpact,
@@ -449,7 +449,7 @@ namespace Game.Weapons.Core {
                 shooterVelocity);
         }
 
-        internal IEnumerator SpawnOwnerTracerLocalAfterViewUpdateInternal(Vector3 fallbackStart, Vector3 end,
+        internal IEnumerator SpawnOwnerTracerAfterViewUpdateInternal(Vector3 fallbackStart, Vector3 end,
             Vector3 hitNormal, bool madeImpact, bool hitPlayer, NetworkObjectReference hitPlayerRef,
             Vector3 shooterVelocity) {
             return _effects.SpawnOwnerTracerLocalAfterViewUpdate(fallbackStart, end, hitNormal, madeImpact,
@@ -487,7 +487,7 @@ namespace Game.Weapons.Core {
 
         #region Private Methods - Effects
 
-        private void ClearKinemationLocalMuzzleFxInstance() => _effects.ClearKinemationLocalMuzzleFxInstance();
+        private void ClearKinemationMuzzleFx() => _effects.ClearKinemationMuzzleFx();
 
         [Rpc(SendTo.Everyone)]
         internal void PlayShootAnimationServerRpc() {

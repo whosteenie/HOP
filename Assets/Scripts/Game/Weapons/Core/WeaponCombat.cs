@@ -52,9 +52,9 @@ namespace Game.Weapons.Core {
 
             _weapon.LastFireTime = Time.time;
             _weapon.CurrentAmmo = Mathf.Max(0, _weapon.CurrentAmmo - 1);
-            _weapon.PublishOwnerAmmoToHudInternal();
+            _weapon.PublishAmmoToHudInternal();
 
-            var authoritativeAmmoBeforeShot = Mathf.Clamp(_weapon.CurrentAmmo + 1, 0, _weapon.GetCurrentMagCapacityInternal());
+            var authoritativeAmmoBeforeShot = Mathf.Clamp(_weapon.CurrentAmmo + 1, 0, _weapon.GetMagCapacityInternal());
 
             _weapon.PlayLocalMuzzleFlashInternal(authoritativeAmmoBeforeShot);
 
@@ -116,12 +116,12 @@ namespace Game.Weapons.Core {
             _weapon.LastPeakTime = lastPeakTime;
         }
 
-        public void UpdateAuthoritativeDamageMultiplier() {
+        public void UpdateDamageMultiplier() {
             if(!Network.Core.NetworkAuthority.HasGlobalAuthority(_weapon)) return;
             if(!_weapon.CurrentWeaponData) return;
 
             var isDead = _weapon.PlayerController != null && _weapon.PlayerController.IsDead;
-            var observedSpeed = SampleAuthorityObservedSpeed();
+            var observedSpeed = SampleObservedSpeed();
             var authoritativePeakMultiplier = _weapon.AuthoritativePeakDamageMultiplier;
             var authoritativeLastPeakTime = _weapon.AuthoritativeLastPeakTime;
             _weapon.AuthoritativeDamageMultiplier = AdvanceDamageMultiplier(
@@ -135,11 +135,11 @@ namespace Game.Weapons.Core {
 
             if(_weapon.PlayerController != null && _weapon.PlayerController.PlayerState != null) {
                 _weapon.PlayerController.PlayerState.replicatedDamageMultiplier.Value =
-                    _weapon.GetAuthoritativeDamageMultiplier();
+                    _weapon.GetDamageMultiplier();
             }
         }
 
-        public void ResetAuthorityObservedMotionBaseline() {
+        public void ResetMotionBaseline() {
             var sampleTransform = _weapon.PlayerController != null ? _weapon.PlayerController.PlayerTransform : _weapon.transform;
             _weapon.LastAuthorityObservedPosition = sampleTransform != null ? sampleTransform.position : _weapon.transform.position;
             _weapon.LastAuthorityObservedTime = Time.time;
@@ -260,7 +260,7 @@ namespace Game.Weapons.Core {
             }
 
             if(_weapon.PlayerController != null && _weapon.PlayerController.IsOwner) {
-                _weapon.StartCoroutine(_weapon.SpawnOwnerTracerLocalAfterViewUpdateInternal(
+                _weapon.StartCoroutine(_weapon.SpawnOwnerTracerAfterViewUpdateInternal(
                     tracerStartPosition,
                     endPoint,
                     hitNormal,
@@ -345,7 +345,7 @@ namespace Game.Weapons.Core {
             return (forward + offset).normalized;
         }
 
-        private float SampleAuthorityObservedSpeed() {
+        private float SampleObservedSpeed() {
             var sampleTransform = _weapon.PlayerController != null ? _weapon.PlayerController.PlayerTransform : _weapon.transform;
             var currentPosition = sampleTransform != null ? sampleTransform.position : _weapon.transform.position;
             var now = Time.time;

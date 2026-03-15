@@ -127,10 +127,10 @@ namespace Game.Weapons.Core {
             sphereCastRadius = Mathf.Max(0f, sphereCastRadius);
             sphereCastGrowthStartDist = Mathf.Max(0f, sphereCastGrowthStartDist);
             sphereCastMaxRadius = Mathf.Max(sphereCastRadius, sphereCastMaxRadius);
-            NormalizeKinemationReloadEventSoundIndices();
+            NormalizeKinemationReloadSoundIndices();
         }
 
-        private void NormalizeKinemationReloadEventSoundIndices() {
+        private void NormalizeKinemationReloadSoundIndices() {
             if(kinemationReloadEventSoundIndices == null || kinemationReloadEventSoundIndices.Length == 0) {
                 kinemationReloadEventSoundIndices = System.Array.Empty<int>();
                 return;

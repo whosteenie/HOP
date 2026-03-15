@@ -175,7 +175,7 @@ namespace Game.Weapons.Manager {
 
             var multiplier = 1f;
             if(_root.CurrentWeaponInternal != null && _root.CurrentWeaponIndexInternal == weaponIndex) {
-                multiplier = _root.CurrentWeaponInternal.GetAuthoritativeDamageMultiplier();
+                multiplier = _root.CurrentWeaponInternal.GetDamageMultiplier();
             }
 
             damage = Mathf.Min(baseDamage * multiplier, data.damageCap);
@@ -408,7 +408,7 @@ namespace Game.Weapons.Manager {
         private void ResetServerDamageMultiplierForCurrentWeapon() {
             if(!HasWeaponAuthority) return;
             if(_root.CurrentWeaponInternal == null) return;
-            _root.CurrentWeaponInternal.ResetAuthoritativeDamageMultiplierImmediate();
+            _root.CurrentWeaponInternal.ResetDamageMultiplierImmediate();
         }
 
         private bool TryValidateServerWeaponStateRequest(int weaponIndex, out WeaponData data, out int magCapacity,

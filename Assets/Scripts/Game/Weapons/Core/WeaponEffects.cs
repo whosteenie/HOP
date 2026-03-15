@@ -27,7 +27,7 @@ namespace Game.Weapons.Core {
                         }
 
                         var desiredWorldRotation = ResolveKinemationMuzzleFxRotation(muzzleTransform, preferredDirection);
-                        var fxGo = EnsureKinemationLocalMuzzleFxInstance(muzzleTransform, desiredWorldRotation);
+                        var fxGo = EnsureKinemationMuzzleFx(muzzleTransform, desiredWorldRotation);
                         if(fxGo != null) {
                             _weapon.LocalMuzzleFlashSpawnPositionForShot = fxGo.transform.position;
                             _weapon.HasLocalMuzzleFlashSpawnPositionForShot = true;
@@ -201,7 +201,7 @@ namespace Game.Weapons.Core {
             }
         }
 
-        public void StopKinemationEventSoundsForCurrentWeapon() {
+        public void StopKinemationEventSounds() {
             if(_weapon.KinDriver == null) return;
             if(!UseKinemationEventSoundRouting()) return;
             if(_weapon.PlayerController == null || !_weapon.PlayerController.IsOwner) return;
@@ -230,7 +230,7 @@ namespace Game.Weapons.Core {
                    _weapon.KinDriver.HasAnyKinemationEventSound();
         }
 
-        public void ClearKinemationLocalMuzzleFxInstance() {
+        public void ClearKinemationMuzzleFx() {
             if(_weapon.KinemationLocalMuzzleFxInstance != null) {
                 QuiesceMuzzleFxInstance(_weapon.KinemationLocalMuzzleFxInstance, _weapon.KinemationLocalMuzzleVfx);
                 Object.Destroy(_weapon.KinemationLocalMuzzleFxInstance);
@@ -241,12 +241,12 @@ namespace Game.Weapons.Core {
             _weapon.KinemationLocalMuzzleSourcePrefab = null;
         }
 
-        public void PrewarmKinemationLocalMuzzleFxInstance() {
+        public void PrewarmKinemationMuzzleFx() {
             if(_weapon.HasPrewarmedKinemationMuzzleForCurrentWeapon) return;
             if(_weapon.KinDriver == null) return;
             if(_weapon.CurrentWeaponData == null || _weapon.CurrentWeaponData.muzzleFlashPrefab == null) return;
 
-            if(!_weapon.TryGetRequiredOwnerMuzzleTransformInternal(out var muzzleTransform, "PrewarmKinemationLocalMuzzleFxInstance",
+            if(!_weapon.TryGetRequiredOwnerMuzzleTransformInternal(out var muzzleTransform, "PrewarmKinemationMuzzleFx",
                    logErrors: false)) {
                 return;
             }
@@ -258,7 +258,7 @@ namespace Game.Weapons.Core {
             }
 
             var desiredWorldRotation = ResolveKinemationMuzzleFxRotation(muzzleTransform, preferredDirection);
-            var fxGo = EnsureKinemationLocalMuzzleFxInstance(muzzleTransform, desiredWorldRotation);
+            var fxGo = EnsureKinemationMuzzleFx(muzzleTransform, desiredWorldRotation);
             if(fxGo == null) return;
 
             QuiesceMuzzleFxInstance(fxGo, _weapon.KinemationLocalMuzzleVfx);
@@ -303,7 +303,7 @@ namespace Game.Weapons.Core {
             return Quaternion.LookRotation(direction, up);
         }
 
-        private GameObject EnsureKinemationLocalMuzzleFxInstance(Transform muzzleTransform, Quaternion spawnRotation) {
+        private GameObject EnsureKinemationMuzzleFx(Transform muzzleTransform, Quaternion spawnRotation) {
             if(_weapon.CurrentWeaponData == null || _weapon.CurrentWeaponData.muzzleFlashPrefab == null || muzzleTransform == null) {
                 return null;
             }
