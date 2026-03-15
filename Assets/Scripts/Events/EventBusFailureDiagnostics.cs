@@ -5,9 +5,10 @@ using System.Text;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+
 // ReSharper disable NotAccessedField.Local
 
-namespace Network.Events {
+namespace Events {
     /// <summary>
     /// Centralized failure diagnostics for EventBus handler exceptions.
     /// Writes one local NDJSON file per play session and can optionally echo to Unity logs.

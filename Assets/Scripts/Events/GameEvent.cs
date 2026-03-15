@@ -5,7 +5,7 @@ using System.Text;
 using Unity.Netcode;
 using UnityEngine;
 
-namespace Network.Events {
+namespace Events {
     /// <summary>
     /// Base class for all game events.
     /// All events must inherit from this class to be published through the EventBus.

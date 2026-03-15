@@ -1,6 +1,6 @@
+using Events;
 using Game.Match;
 using Game.Player.Core;
-using Network.Events;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.SceneManagement;

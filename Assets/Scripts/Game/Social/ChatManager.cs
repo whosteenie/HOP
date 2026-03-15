@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 using System.Threading.Tasks;
-using Network.Events;
+using Events;
 using Unity.Services.Vivox;
 using UnityEngine;
 using SessionManager = Network.Session.SessionManager;

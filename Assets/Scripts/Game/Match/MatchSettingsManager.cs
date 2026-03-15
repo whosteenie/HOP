@@ -1,8 +1,8 @@
 using UnityEngine;
-using Network.Events;
 using Steamworks;
 using Steamworks.Data;
 using System.Collections.Generic;
+using Events;
 using SessionManager = Network.Session.SessionManager;
 
 namespace Game.Match {

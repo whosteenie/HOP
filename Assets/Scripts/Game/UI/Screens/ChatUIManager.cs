@@ -1,10 +1,10 @@
 using System.Collections;
 using System.Collections.Generic;
+using Events;
 using Game.Player.Core;
 using Game.Social;
 using Game.UI.Core;
 using Game.UI.Screens.Scoreboard;
-using Network.Events;
 using UnityEngine;
 using UnityEngine.UIElements;
 using Cursor = UnityEngine.Cursor;

@@ -1,9 +1,9 @@
 using System;
 using Cysharp.Threading.Tasks;
+using Events;
 using Game.Settings;
 using Game.Social;
 using Network.Diagnostics;
-using Network.Events;
 using Network.Session.Interface;
 using Steamworks;
 using UnityEngine;

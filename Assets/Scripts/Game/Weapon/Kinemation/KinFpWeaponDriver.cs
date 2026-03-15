@@ -1,8 +1,8 @@
 using System.Collections.Generic;
+using Events;
 using Game.Weapon.Core;
 using Game.Weapon.Manager;
 using KINEMATION.FPSAnimationPack.Scripts.Player;
-using Network.Events;
 using UnityEngine;
 
 namespace Game.Weapon.Kinemation {

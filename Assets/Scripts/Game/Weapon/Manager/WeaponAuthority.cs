@@ -1,9 +1,9 @@
+using Events;
 using Game.Match;
 using Game.UI.HUD;
 using Game.Weapon.Core;
 using Network.AntiCheat;
 using Network.Core;
-using Network.Events;
 using Unity.Netcode;
 using UnityEngine;
 

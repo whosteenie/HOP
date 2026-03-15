@@ -1,4 +1,4 @@
-using Network.Events;
+using Events;
 using UnityEngine;
 
 namespace Game.Weapon.Kinemation {

@@ -1,10 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Events;
 using Game.Match;
 using Game.Social;
 using Game.UI.Core;
-using Network.Events;
 using Network.Steam;
 using Steamworks;
 using UnityEngine;

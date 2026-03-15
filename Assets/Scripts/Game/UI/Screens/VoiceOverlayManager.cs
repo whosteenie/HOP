@@ -1,10 +1,10 @@
 using System;
 using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
+using Events;
 using Game.Player.Core;
 using Game.Social;
 using Game.UI.Core;
-using Network.Events;
 using Network.Steam;
 using Steamworks;
 using Unity.Netcode;

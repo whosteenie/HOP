@@ -1,4 +1,4 @@
-namespace Network.Events {
+namespace Events {
     /// <summary>
     /// Event published when player health should be updated in the HUD.
     /// </summary>

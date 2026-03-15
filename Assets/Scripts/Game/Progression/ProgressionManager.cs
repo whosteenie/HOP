@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
-using Network.Events;
+using Events;
 using UnityEngine;
 using Game.Match;
 

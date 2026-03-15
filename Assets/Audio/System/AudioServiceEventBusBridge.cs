@@ -1,7 +1,7 @@
+using Events;
 using Game.Audio2;
 using Game.Player;
 using Game.Player.Core;
-using Network.Events;
 using UnityEngine;
 
 namespace Game.Audio2 {

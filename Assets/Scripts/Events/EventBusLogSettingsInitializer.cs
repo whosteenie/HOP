@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace Network.Events {
+namespace Events {
     /// <summary>
     /// Simple MonoBehaviour to initialize EventBus log settings at startup.
     /// Attach this to a GameObject in your initial scene (e.g., a GameManager or NetworkManager).

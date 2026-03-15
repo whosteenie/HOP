@@ -1,8 +1,8 @@
 using System.Collections;
 using System.Collections.Generic;
+using Events;
 using Game.Match;
 using Game.Player.Core;
-using Network.Events;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.UIElements;

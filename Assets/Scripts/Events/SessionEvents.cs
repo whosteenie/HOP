@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using Unity.Services.Multiplayer;
 
-namespace Network.Events {
+namespace Events {
     /// <summary>
     /// Event published when the player list changes in a session.
     /// </summary>

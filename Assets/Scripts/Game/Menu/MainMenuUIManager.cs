@@ -1,9 +1,9 @@
 using System.Collections;
 using System.Collections.Generic;
+using Events;
 using Game.Progression;
 using Game.UI.Core;
 using Game.UI.Misc;
-using Network.Events;
 using UnityEngine;
 using UnityEngine.UIElements;
 using Cursor = UnityEngine.Cursor;

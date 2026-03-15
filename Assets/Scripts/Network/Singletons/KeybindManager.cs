@@ -1,7 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using Network.Events;
+using Events;
 using Game.Settings;
 using UnityEngine;
 using UnityEngine.InputSystem;

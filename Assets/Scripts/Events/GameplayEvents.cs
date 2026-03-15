@@ -1,7 +1,7 @@
-using UnityEngine;
 using Game.Player.Core;
+using UnityEngine;
 
-namespace Network.Events {
+namespace Events {
     /// <summary>
     /// Event published when a player dies.
     /// </summary>

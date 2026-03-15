@@ -1,6 +1,5 @@
-﻿using UnityEngine;
-
-using Network.Events;
+﻿using Events;
+using UnityEngine;
 
 namespace OSI {
     /// <summary>

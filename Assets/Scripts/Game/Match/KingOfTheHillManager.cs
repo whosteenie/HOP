@@ -1,10 +1,10 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using Events;
 using Game.Spawning;
 using Network.Core;
 using Network.Diagnostics;
-using Network.Events;
 using Unity.Netcode;
 using UnityEngine;
 using Random = UnityEngine.Random;

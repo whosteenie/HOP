@@ -1,13 +1,13 @@
 using System.Collections;
 using System.Collections.Generic;
 using Audio.Networking;
+using Events;
 using Game.Player.Core;
 using Game.UI.HUD;
 using Game.Weapon.Kinemation;
 using Game.Weapon.Manager;
 using Game.Weapon.World;
 using Network.Core;
-using Network.Events;
 using Network.Rpc;
 using Unity.Cinemachine;
 using Unity.Netcode;

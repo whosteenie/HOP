@@ -1,3 +1,4 @@
+using Events;
 using Network.Events;
 using NUnit.Framework;
 

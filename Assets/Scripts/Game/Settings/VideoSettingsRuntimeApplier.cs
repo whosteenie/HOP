@@ -2,8 +2,8 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
-using Network.Events;
 using System.Collections.Generic;
+using Events;
 
 namespace Game.Settings {
     /// <summary>

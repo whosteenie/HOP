@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Audio.Networking;
+using Events;
 using Game.Hopball;
 using Game.Match;
 using Game.Player.Combat;
@@ -12,7 +13,6 @@ using Game.Weapon.Manager;
 using Game.Weapon.Presentation;
 using Network.Components;
 using Network.Core;
-using Network.Events;
 using Network.Rpc;
 using Network.Singletons;
 using OSI;

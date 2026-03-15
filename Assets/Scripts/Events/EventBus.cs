@@ -4,7 +4,7 @@ using System.Runtime.CompilerServices;
 using System.Threading;
 using UnityEngine;
 
-namespace Network.Events {
+namespace Events {
     /// <summary>
     /// Central event bus for decoupled communication between systems.
     /// Provides type-safe event publishing and subscription with comprehensive debugging features.

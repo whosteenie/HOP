@@ -1,9 +1,9 @@
 using System.Collections.Generic;
+using Events;
 using Game.Match;
 using Game.Player.Core;
 using Game.Settings;
 using Game.UI.Core;
-using Network.Events;
 using UnityEngine;
 using UnityEngine.UIElements;
 

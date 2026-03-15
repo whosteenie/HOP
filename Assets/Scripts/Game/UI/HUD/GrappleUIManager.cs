@@ -1,9 +1,9 @@
 using System.Collections.Generic;
+using Events;
 using Game.Player.Core;
 using Game.Player.Movement;
 using Game.Settings;
 using Game.UI.Core;
-using Network.Events;
 using Unity.Cinemachine;
 using UnityEngine;
 using UnityEngine.SceneManagement;

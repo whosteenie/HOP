@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Events;
 using Game.Social;
 using Game.Progression;
 using Game.Settings;
@@ -13,7 +14,6 @@ using Game.UI.Screens;
 using Game.UI.Screens.Scoreboard;
 using Game.Weapon.Core;
 using Game.Weapon.Manager;
-using Network.Events;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.SceneManagement;

@@ -1,11 +1,11 @@
 using System.Collections;
 using Audio.Networking;
+using Events;
 using Game.Match;
 using Game.Player.Combat;
 using Game.Player.Core;
 using Game.Progression;
 using Game.Weapon.Kinemation;
-using Network.Events;
 using Unity.Cinemachine;
 using Unity.Netcode;
 using UnityEngine;

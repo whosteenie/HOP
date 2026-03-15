@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace Network.Events {
+namespace Events {
     /// <summary>
     /// Extension methods for easier EventBus cleanup in MonoBehaviours.
     /// </summary>
@@ -17,31 +17,31 @@ namespace Network.Events {
         /// Adds publisher context key/value metadata to an event in a fluent style.
         /// </summary>
         public static T WithContext<T>(this T gameEvent, string key, string value) where T : GameEvent {
-            if(gameEvent == null) return gameEvent;
+            if(gameEvent == null) return null;
             gameEvent.SetContext(key, value);
             return gameEvent;
         }
 
         public static T WithContext<T>(this T gameEvent, string key, int value) where T : GameEvent {
-            if(gameEvent == null) return gameEvent;
+            if(gameEvent == null) return null;
             gameEvent.SetContext(key, value);
             return gameEvent;
         }
 
         public static T WithContext<T>(this T gameEvent, string key, long value) where T : GameEvent {
-            if(gameEvent == null) return gameEvent;
+            if(gameEvent == null) return null;
             gameEvent.SetContext(key, value);
             return gameEvent;
         }
 
         public static T WithContext<T>(this T gameEvent, string key, bool value) where T : GameEvent {
-            if(gameEvent == null) return gameEvent;
+            if(gameEvent == null) return null;
             gameEvent.SetContext(key, value);
             return gameEvent;
         }
 
         public static T WithContext<T>(this T gameEvent, string key, float value) where T : GameEvent {
-            if(gameEvent == null) return gameEvent;
+            if(gameEvent == null) return null;
             gameEvent.SetContext(key, value);
             return gameEvent;
         }
@@ -60,7 +60,7 @@ namespace Network.Events {
         /// Useful for RPC forwarding helpers.
         /// </summary>
         public static T WithCurrentCorrelation<T>(this T gameEvent) where T : GameEvent {
-            if(gameEvent == null) return gameEvent;
+            if(gameEvent == null) return null;
             EventBus.AttachCurrentCorrelation(gameEvent);
             return gameEvent;
         }

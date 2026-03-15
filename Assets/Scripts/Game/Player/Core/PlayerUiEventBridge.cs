@@ -1,4 +1,4 @@
-using Network.Events;
+using Events;
 
 namespace Game.Player.Core {
     internal static class PlayerUiEventBridge {

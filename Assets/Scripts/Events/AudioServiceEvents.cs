@@ -1,7 +1,7 @@
 using Unity.Netcode;
 using UnityEngine;
 
-namespace Network.Events {
+namespace Events {
     // Local-only playback events (no networking).
     public sealed class PlayLocalSoundIdEvent : GameEvent {
         public readonly string SoundId;

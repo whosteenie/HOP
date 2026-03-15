@@ -1,11 +1,11 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using Events;
 using Game.Player.Combat;
 using Game.Player.Core;
 using Network.Core;
 using Network.Diagnostics;
-using Network.Events;
 using Unity.Netcode;
 using UnityEngine;
 using SessionManager = Network.Session.SessionManager;

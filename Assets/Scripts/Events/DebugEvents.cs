@@ -1,6 +1,6 @@
 using System;
 
-namespace Network.Events {
+namespace Events {
     /// <summary>
     /// Event published when a component lookup fails.
     /// </summary>

@@ -1,6 +1,6 @@
 using System;
 using System.Diagnostics;
-using Network.Events;
+using Events;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.SceneManagement;

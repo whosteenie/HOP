@@ -1,8 +1,8 @@
+using Events;
 using Game.Match;
 using Game.Player.Core;
 using Game.UI.HUD;
 using Network.Core;
-using Network.Events;
 using Unity.Netcode;
 using UnityEngine;
 

@@ -1,8 +1,8 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using Events;
 using Game.Player.Visual;
-using Network.Events;
 using Network.Singletons;
 using Game.Progression;
 using Game.Settings;

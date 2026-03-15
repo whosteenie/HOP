@@ -1,5 +1,5 @@
 ﻿using System.Collections.Generic;
-using Network.Events;
+using Events;
 using UnityEngine;
 
 namespace OSI {

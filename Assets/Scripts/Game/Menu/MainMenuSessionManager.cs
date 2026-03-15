@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using Cysharp.Threading.Tasks;
+using Events;
 using Game.Progression;
 using Game.Settings;
-using Network.Events;
 using Network.Steam;
 using Game.Social;
 using Game.UI.Core; // Added

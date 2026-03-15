@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace Network.Events {
+namespace Events {
     /// <summary>
     /// ScriptableObject for configuring EventBus logging per event type.
     /// Create an instance in Project window, then assign it to EventBus via SetLogSettings().
