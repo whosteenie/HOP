@@ -2,7 +2,6 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
 using Cysharp.Threading.Tasks;
-using Game.Hopball;
 using Game.Match;
 using Game.Player.Combat;
 using Game.Player.Core;
@@ -16,7 +15,7 @@ using UnityEngine;
 using UnityEngine.VFX;
 using Random = UnityEngine.Random;
 
-namespace Game.Player.Hopball {
+namespace Game.Hopball {
     /// <summary>
     /// Handles hopball pickup, equipping, and dropping for the player.
     /// Manages weapon visibility and prevents shooting/reloading while holding the ball.

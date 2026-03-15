@@ -4,7 +4,7 @@ using System.Security.Cryptography;
 using System.Text;
 using UnityEngine;
 
-namespace Game.Security {
+namespace Game.Settings {
     /// <summary>
     /// Obfuscates JSON payloads and rejects tampered files via HMAC signature validation.
     /// Intended to prevent casual save editing, not to provide strong anti-cheat guarantees.

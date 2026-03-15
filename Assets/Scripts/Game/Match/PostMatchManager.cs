@@ -8,7 +8,6 @@ using Game.Spawning;
 using Game.Hopball;
 using Game.Player.Combat;
 using Game.Player.Core;
-using Game.Player.Hopball;
 using Game.UI.HUD;
 using Game.UI.Misc;
 using Game.UI.Screens;

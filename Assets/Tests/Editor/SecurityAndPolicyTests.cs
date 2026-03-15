@@ -1,6 +1,6 @@
 using System;
 using System.Reflection;
-using Game.Security;
+using Game.Settings;
 using Network.Events;
 using NUnit.Framework;
 

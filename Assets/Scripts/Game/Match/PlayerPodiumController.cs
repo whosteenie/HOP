@@ -7,7 +7,7 @@ using Network.Core;
 using Unity.Netcode;
 using UnityEngine;
 
-namespace Game.Player.Podium {
+namespace Game.Match {
     /// <summary>
     /// Handles podium-specific logic for post-match display.
     /// </summary>

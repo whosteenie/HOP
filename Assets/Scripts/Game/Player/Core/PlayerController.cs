@@ -1,12 +1,11 @@
 using System;
 using System.Collections.Generic;
 using Audio.Networking;
+using Game.Hopball;
 using Game.Match;
 using Game.Player.Combat;
-using Game.Player.Hopball;
 using Game.Player.Look;
 using Game.Player.Movement;
-using Game.Player.Podium;
 using Game.Player.Visual;
 using Game.UI.HUD;
 using Game.Weapons.Core;

@@ -1,6 +1,6 @@
 using System;
 using System.IO;
-using Game.Security;
+using Game.Settings;
 using UnityEngine;
 
 namespace Game.Progression {

@@ -1,7 +1,7 @@
 using System.Collections;
+using Game.Hopball;
 using Game.Match;
 using Game.Menu;
-using Game.Player.Hopball;
 using Game.Weapons.Core;
 using Network.AntiCheat;
 using Network.Core;
