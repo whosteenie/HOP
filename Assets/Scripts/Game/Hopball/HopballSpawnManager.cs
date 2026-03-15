@@ -245,20 +245,17 @@ namespace Game.Hopball {
             _hasSpawnedInitial = true;
             _isSpawning = false;
 
-            PrewarmHopballVisualPoolsClientRpc();
+            PrewarmVisualPoolsClientRpc();
 
             // Play spawn sound at spawn location (directional, same falloff as gunshots)
-            PlayHopballSpawnSoundClientRpc(spawnPoint.transform.position);
+            PlaySpawnSoundClientRpc(spawnPoint.transform.position);
         }
 
-        /// <summary>
-        /// Respawns the hopball at a new random location with full energy.
-        /// Called by Hopball when dissolve completes.
-        /// </summary>
-        public void RespawnHopballAtNewLocation() {
+        /// <summary>Respawns the hopball at a new spawn point (authority only).</summary>
+        public void RespawnAtNewLocation() {
             if(!HasHopballAuthority || CurrentHopballController == null) {
                 Debug.LogWarning(
-                    "[HopballSpawnManager] RespawnHopballAtNewLocation: Cannot respawn (not server or no hopball)");
+                    "[HopballSpawnManager] RespawnAtNewLocation: Cannot respawn (not server or no hopball)");
                 return;
             }
 
@@ -314,9 +311,9 @@ namespace Game.Hopball {
 
             _currentHolderId = 0;
 
-            PrewarmHopballVisualPoolsClientRpc();
+            PrewarmVisualPoolsClientRpc();
 
-            PlayHopballSpawnSoundClientRpc(spawnPoint.transform.position);
+            PlaySpawnSoundClientRpc(spawnPoint.transform.position);
 
             _respawnCoroutine = null;
         }
@@ -334,28 +331,31 @@ namespace Game.Hopball {
             }
 
             if(CurrentHopballController == null || !CurrentHopballController.IsSpawned || _mostRecentSpawnPoint == null) return;
-            if(!IsYLevelOutOfBoundsKillEnabled()) return;
-            var outOfBoundsY = GetOutOfBoundsKillY();
+            if(!IsOobKillEnabled()) return;
+            var outOfBoundsY = GetOobKillY();
             // Check if hopball is dropped (not equipped) and OOB
             if(!CurrentHopballController.IsEquipped && 
                !CurrentHopballController.IsDissolving && 
                !CurrentHopballController.IsAwaitingRespawn && 
                CurrentHopballController.transform.position.y <= outOfBoundsY) {
-                TeleportHopballToMostRecentSpawn();
+                TeleportToMostRecentSpawn();
             }
         }
 
-        private float GetOutOfBoundsKillY() {
-            RefreshOutOfBoundsCacheIfNeeded();
+        /// <summary>Y threshold below which the holder is killed (out-of-bounds).</summary>
+        private float GetOobKillY() {
+            RefreshOobCacheIfNeeded();
             return _cachedOutOfBoundsY;
         }
 
-        private bool IsYLevelOutOfBoundsKillEnabled() {
-            RefreshOutOfBoundsCacheIfNeeded();
+        /// <summary>True if the current map uses Y-level out-of-bounds kill.</summary>
+        private bool IsOobKillEnabled() {
+            RefreshOobCacheIfNeeded();
             return _cachedUseYLevelOutOfBoundsKill;
         }
 
-        private void RefreshOutOfBoundsCacheIfNeeded() {
+        /// <summary>Refreshes cached OOB Y and enable flag for the current scene.</summary>
+        private void RefreshOobCacheIfNeeded() {
             var activeScene = SceneManager.GetActiveScene();
             if(_cachedOobSceneHandle == activeScene.handle) {
                 return;
@@ -390,11 +390,8 @@ namespace Game.Hopball {
             }
         }
 
-        /// <summary>
-        /// Teleports hopball back to its most recent spawn point and makes it kinematic.
-        /// Retains current energy.
-        /// </summary>
-        private void TeleportHopballToMostRecentSpawn() {
+        /// <summary>Moves the hopball to the most recent spawn point (OOB recovery). Retains energy.</summary>
+        private void TeleportToMostRecentSpawn() {
             if(CurrentHopballController == null || _mostRecentSpawnPoint == null) return;
 
             // Don't reposition if post-match has started
@@ -414,13 +411,11 @@ namespace Game.Hopball {
                 ("to", position));
 
             // Play spawn sound at reposition location (directional, same falloff as gunshots)
-            PlayHopballSpawnSoundClientRpc(_mostRecentSpawnPoint.transform.position);
+            PlaySpawnSoundClientRpc(_mostRecentSpawnPoint.transform.position);
         }
 
-        /// <summary>
-        /// Called by HopballController when player picks up ball. Tracks energy for scoring.
-        /// </summary>
-        private void OnPlayerPickedUpHopball(ulong playerId) {
+        /// <summary>Called when a player picks up the hopball. Tracks holder for scoring.</summary>
+        private void OnPlayerPickedUp(ulong playerId) {
             if(!HasHopballAuthority || CurrentHopballController == null) return;
 
             // Track who picked it up and at what energy
@@ -504,13 +499,10 @@ namespace Game.Hopball {
             return client.PlayerObject == null ? null : client.PlayerObject.GetComponent<PlayerController>();
         }
 
-        /// <summary>
-        /// Plays hopball spawn sound at the specified position (directional, same falloff as gunshots).
-        /// Called via RPC to play on all clients.
-        /// </summary>
+        /// <summary>Plays spawn sound at position on all clients.</summary>
         [Rpc(SendTo.Everyone)]
         // ReSharper disable once MemberCanBeMadeStatic.Local
-        private void PlayHopballSpawnSoundClientRpc(Vector3 position) {
+        private void PlaySpawnSoundClientRpc(Vector3 position) {
             if(Audio2.AudioService.Instance == null) return;
 
             const string soundId = "gameplay.hopball.spawn";
@@ -518,20 +510,19 @@ namespace Game.Hopball {
             Audio2.AudioService.Instance.Play(soundId, position);
         }
 
+        /// <summary>Prewarms hopball visual object pools on all clients.</summary>
         [Rpc(SendTo.Everyone)]
         // ReSharper disable once MemberCanBeMadeStatic.Local
-        private void PrewarmHopballVisualPoolsClientRpc() {
+        private void PrewarmVisualPoolsClientRpc() {
             foreach(var controller in PlayerHopballController.Instances) {
                 if(controller == null) continue;
                 controller.PrewarmHopballVisualsIfNeeded();
             }
         }
 
-        /// <summary>
-        /// Editor helper: Find all HopballSpawnPoints in scene.
-        /// </summary>
+        /// <summary>Finds and caches all HopballSpawnPoint in the scene.</summary>
         [ContextMenu("Find All Hopball Spawn Points in Scene")]
-        private void FindAllSpawnPointsInScene() {
+        private void FindSpawnPointsInScene() {
             hopballSpawnPoints = HopballSpawnPoint.Instances.Where(p => p != null).ToList();
         }
 
@@ -551,40 +542,43 @@ namespace Game.Hopball {
             _hasSpawnedInitial = false;
         }
 
-        public void RequestEquipHopballAuthority(NetworkObjectReference hopballRef) {
+        /// <summary>Requests server to grant equip for the given hopball to the local client.</summary>
+        public void RequestEquipAuthority(NetworkObjectReference hopballRef) {
             if(HasHopballAuthority) {
-                ProcessEquipHopballRequest(hopballRef, NetworkManager != null ? NetworkManager.LocalClientId : OwnerClientId);
+                ProcessEquipRequest(hopballRef, NetworkManager != null ? NetworkManager.LocalClientId : OwnerClientId);
                 return;
             }
 
-            RequestEquipHopballAuthorityServerRpc(hopballRef);
+            RequestEquipAuthorityServerRpc(hopballRef);
         }
 
-        public void RequestDropHopballAuthority(NetworkObjectReference hopballRef, Vector3 dropPosition,
+        /// <summary>Requests server to drop the hopball at the given position/rotation.</summary>
+        public void RequestDropAuthority(NetworkObjectReference hopballRef, Vector3 dropPosition,
             Quaternion dropRotation, Vector3 playerVelocity, string dropReason) {
             if(HasHopballAuthority) {
-                ProcessDropHopballRequest(hopballRef, dropPosition, dropRotation, playerVelocity, dropReason,
+                ProcessDropRequest(hopballRef, dropPosition, dropRotation, playerVelocity, dropReason,
                     NetworkManager != null ? NetworkManager.LocalClientId : OwnerClientId);
                 return;
             }
 
-            RequestDropHopballAuthorityServerRpc(hopballRef, dropPosition, dropRotation, playerVelocity, dropReason);
+            RequestDropAuthorityServerRpc(hopballRef, dropPosition, dropRotation, playerVelocity, dropReason);
         }
 
         [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
-        private void RequestEquipHopballAuthorityServerRpc(NetworkObjectReference hopballRef,
+        private void RequestEquipAuthorityServerRpc(NetworkObjectReference hopballRef,
             RpcParams rpcParams = default) {
-            ProcessEquipHopballRequest(hopballRef, rpcParams.Receive.SenderClientId);
+            ProcessEquipRequest(hopballRef, rpcParams.Receive.SenderClientId);
         }
 
         [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
-        private void RequestDropHopballAuthorityServerRpc(NetworkObjectReference hopballRef, Vector3 dropPosition,
+        private void RequestDropAuthorityServerRpc(NetworkObjectReference hopballRef, Vector3 dropPosition,
             Quaternion dropRotation, Vector3 playerVelocity, string dropReason, RpcParams rpcParams = default) {
-            ProcessDropHopballRequest(hopballRef, dropPosition, dropRotation, playerVelocity, dropReason,
+            ProcessDropRequest(hopballRef, dropPosition, dropRotation, playerVelocity, dropReason,
                 rpcParams.Receive.SenderClientId);
         }
 
-        private void ProcessEquipHopballRequest(NetworkObjectReference hopballRef, ulong requestingClientId) {
+        /// <summary>Handles an equip request (resolve ref, validate, assign holder).</summary>
+        private void ProcessEquipRequest(NetworkObjectReference hopballRef, ulong requestingClientId) {
             if(!HasHopballAuthority) return;
             if(!hopballRef.TryGet(out var networkObject) || networkObject == null) return;
 
@@ -617,11 +611,12 @@ namespace Game.Hopball {
 
             hopball.SetEquipped(true, controller);
 
-            OnPlayerPickedUpHopball(requestingClientId);
+            OnPlayerPickedUp(requestingClientId);
             controller.OnHopballEquippedClientRpc(hopballRef, requestingClientId);
         }
 
-        private void ProcessDropHopballRequest(NetworkObjectReference hopballRef, Vector3 dropPosition,
+        /// <summary>Handles a drop request (position, rotation, velocity, reason).</summary>
+        private void ProcessDropRequest(NetworkObjectReference hopballRef, Vector3 dropPosition,
             Quaternion dropRotation, Vector3 playerVelocity, string dropReason, ulong requestingClientId) {
             if(!HasHopballAuthority) return;
             if(!hopballRef.TryGet(out var networkObject) || networkObject == null) return;

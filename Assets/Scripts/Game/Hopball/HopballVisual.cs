@@ -38,12 +38,12 @@ namespace Game.Hopball {
     }
 
     private void OnEnable() {
-        HopballController.VisualStateChanged += OnHopballVisualStateChanged;
+        HopballController.VisualStateChanged += OnVisualStateChanged;
         ApplyCurrentState();
     }
 
     private void OnDisable() {
-        HopballController.VisualStateChanged -= OnHopballVisualStateChanged;
+        HopballController.VisualStateChanged -= OnVisualStateChanged;
     }
 
     private void Update() {
@@ -76,7 +76,7 @@ namespace Game.Hopball {
     private void ApplyCurrentState() {
         var hopball = HopballController.Instance;
         if(hopball == null) return;
-        OnHopballVisualStateChanged(hopball.CurrentVisualState);
+        OnVisualStateChanged(hopball.CurrentVisualState);
         // Force immediate application for initial state
         if(effects != null && effects.gameObject.activeSelf) {
             effects.localScale = _targetScale;
@@ -91,7 +91,8 @@ namespace Game.Hopball {
         _materialInstance.SetFloat(hopball.DissolveAmountID, _targetDissolve);
     }
 
-    private void OnHopballVisualStateChanged(HopballController.HopballVisualState state) {
+    /// <summary>Callback when hopball visual state (scale, intensity, dissolve) changes.</summary>
+    private void OnVisualStateChanged(HopballController.HopballVisualState state) {
         _targetScale = state.EffectScale;
         _targetLightIntensity = state.LightIntensity;
         _targetEmission = state.EmissionIntensity;

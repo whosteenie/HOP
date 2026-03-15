@@ -168,7 +168,7 @@ namespace Game.Hopball {
         // Initialize energy display
         _displayEnergy = MaxEnergy;
         _nextDrainAt = -1f;
-        InvalidateVisualWriteCache();
+        InvalidateVisualCache();
         UpdateEffects(_displayEnergy);
         NotifyVisualStateChanged(true);
 
@@ -214,7 +214,7 @@ namespace Game.Hopball {
 
         // Holder/controller references are local-only state. After migration, treat the ball as needing a clean respawn.
         if(!IsAwaitingRespawn && HopballSpawnManager.Instance != null && (IsEquipped || HolderController == null && !IsDropped)) {
-            HopballSpawnManager.Instance.RespawnHopballAtNewLocation();
+            HopballSpawnManager.Instance.RespawnAtNewLocation();
         }
     }
 
@@ -263,7 +263,7 @@ namespace Game.Hopball {
             // This ensures effects recede into the ball surface and aren't visible during dissolve
             // Only call ClientRpc from server (ClientRpcs can only be called from server)
             if(HasHopballAuthority) {
-                SetEffectsScaleToZeroClientRpc();
+                SetEffectsScaleZeroClientRpc();
             } else {
                 // On clients, set effects scale to 0 locally
                 SetEffectsScaleToZero();
@@ -515,12 +515,13 @@ namespace Game.Hopball {
     private void BroadcastStateUpdate(HopballStateUpdate update) {
         ApplyHopballState(update);
         if(HasHopballAuthority) {
-            ApplyHopballStateClientRpc(update);
+            ApplyStateClientRpc(update);
         }
     }
 
+    /// <summary>Applies the given hopball state on clients (authority already applied locally).</summary>
     [ClientRpc]
-    private void ApplyHopballStateClientRpc(HopballStateUpdate update) {
+    private void ApplyStateClientRpc(HopballStateUpdate update) {
         if(HasHopballAuthority) return; // already applied on authority
         ApplyHopballState(update);
     }
@@ -650,12 +651,9 @@ namespace Game.Hopball {
                a.TargetEnabled == b.TargetEnabled;
     }
 
-    /// <summary>
-    /// ClientRpc to set effects scale to 0 immediately before dissolve starts.
-    /// Ensures effects recede into the ball surface and aren't visible during dissolve.
-    /// </summary>
+    /// <summary>Sets effects scale and light to zero on clients before dissolve starts.</summary>
     [ClientRpc]
-    private void SetEffectsScaleToZeroClientRpc() {
+    private void SetEffectsScaleZeroClientRpc() {
         SetEffectsScaleToZero();
     }
 
@@ -731,7 +729,7 @@ namespace Game.Hopball {
 
         // Respawn at new location (server only)
         if(HasHopballAuthority && HopballSpawnManager.Instance != null) {
-            HopballSpawnManager.Instance.RespawnHopballAtNewLocation();
+            HopballSpawnManager.Instance.RespawnAtNewLocation();
         }
 
         BroadcastStateUpdate(new HopballStateUpdate {
@@ -779,7 +777,7 @@ namespace Game.Hopball {
             _networkEnergy.Value = MaxEnergy;
         }
 
-        InvalidateVisualWriteCache();
+        InvalidateVisualCache();
         _displayEnergy = _networkEnergy.Value;
         UpdateEffects(_displayEnergy);
 
@@ -825,7 +823,8 @@ namespace Game.Hopball {
         return true;
     }
 
-    private void InvalidateVisualWriteCache() {
+    /// <summary>Clears cached visual write values so the next update re-applies.</summary>
+    private void InvalidateVisualCache() {
         _lastAppliedEffectScale = new Vector3(float.NaN, float.NaN, float.NaN);
         _lastAppliedLightIntensity = float.NaN;
         _lastAppliedEmissionIntensity = float.NaN;
