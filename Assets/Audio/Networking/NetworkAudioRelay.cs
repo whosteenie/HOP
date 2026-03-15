@@ -74,7 +74,7 @@ namespace Audio.Networking {
 
             // Resolve parent if attaching; if lookup fails, fall back to world position.
             if(attachTo) {
-                if(DebugHelpers.TryGetNetworkObjectSafe(attachRef, out var no, NetworkManager.LocalClientId,
+                if(DebugHelpers.TryGetNetworkObject(attachRef, out var no, NetworkManager.LocalClientId,
                        "NetworkAudioRelay.PlayClientRpc")) {
                     svc.PlayAttached(soundId, no.transform, seed);
                     return;

@@ -99,7 +99,7 @@ namespace Network.Core {
             if(_networkManager != null &&
                _networkManager.DistributedAuthorityMode &&
                Session.SessionManager.IsGameplaySceneName(SceneManager.GetActiveScene().name)) {
-                StartCoroutine(HandleDistributedAuthorityClientStopped());
+                StartCoroutine(HandleDaClientStopped());
                 return;
             }
 
@@ -127,7 +127,7 @@ namespace Network.Core {
 
             if(!string.IsNullOrWhiteSpace(payload.ugsPlayerId)) {
                 _clientUgsPlayerIds[request.ClientNetworkId] = payload.ugsPlayerId;
-                TryRefreshClientMetadataFromDistributedAuthoritySession(request.ClientNetworkId);
+                TryRefreshClientMetadataFromDaSession(request.ClientNetworkId);
             }
 
             if(_hasSessionPrivateFlag) return;
@@ -138,7 +138,7 @@ namespace Network.Core {
         private void OnClientConnected(ulong clientId) {
             if(!_allowPlayerSpawns || !NetworkAuthority.HasGlobalAuthority(NetworkManager.Singleton)) return;
             SpawnPlayerFor(clientId);
-            SchedulePlayerVisibilityReconciliation("OnClientConnected");
+            ScheduleVisibilityReconciliation("OnClientConnected");
         }
 
         private void OnSessionOwnerPromoted(ulong _) {
@@ -160,10 +160,10 @@ namespace Network.Core {
                 SpawnPlayerFor(clientId);
             }
 
-            SchedulePlayerVisibilityReconciliation("OnSessionOwnerPromoted");
+            ScheduleVisibilityReconciliation("OnSessionOwnerPromoted");
         }
 
-        private IEnumerator HandleDistributedAuthorityClientStopped() {
+        private IEnumerator HandleDaClientStopped() {
             const float graceSeconds = 2f;
             yield return new WaitForSeconds(graceSeconds);
 
@@ -191,7 +191,7 @@ namespace Network.Core {
         /// <summary>
         /// Called by SessionManager when the "Game" scene is loaded on the host.
         /// </summary>
-        public void EnableGameplaySpawningAndSpawnAll() {
+        public void EnableGameplaySpawning() {
             _allowPlayerSpawns = true;
 
             if(!NetworkAuthority.HasGlobalAuthority(NetworkManager.Singleton)) {
@@ -240,18 +240,18 @@ namespace Network.Core {
 
             // Clear pending assignments after batch spawn
             _pendingTeamAssignments.Clear();
-            SchedulePlayerVisibilityReconciliation("EnableGameplaySpawningAndSpawnAll");
+            ScheduleVisibilityReconciliation("EnableGameplaySpawning");
         }
 
-        private void SchedulePlayerVisibilityReconciliation(string context) {
+        private void ScheduleVisibilityReconciliation(string context) {
             if(!isActiveAndEnabled) {
                 return;
             }
 
-            StartCoroutine(ReconcilePlayerVisibilityAfterSpawn(context));
+            StartCoroutine(ReconcileVisibilityAfterSpawn(context));
         }
 
-        private IEnumerator ReconcilePlayerVisibilityAfterSpawn(string context) {
+        private IEnumerator ReconcileVisibilityAfterSpawn(string context) {
             const int passes = 8;
             const float retryDelaySeconds = 0.25f;
 
@@ -267,12 +267,12 @@ namespace Network.Core {
                     yield break;
                 }
 
-                EnsureAllSpawnedPlayerObjectsVisible($"{context}/pass{pass + 1}");
+                EnsureAllSpawnedPlayersVisible($"{context}/pass{pass + 1}");
                 yield return new WaitForSeconds(retryDelaySeconds);
             }
         }
 
-        private void EnsureAllSpawnedPlayerObjectsVisible(string context) {
+        private void EnsureAllSpawnedPlayersVisible(string context) {
             if(_networkManager == null || !NetworkAuthority.HasGlobalAuthority(_networkManager)) {
                 return;
             }
@@ -282,11 +282,11 @@ namespace Network.Core {
                     continue;
                 }
 
-                EnsureNetworkObjectVisibleToAllConnectedClients(client.PlayerObject, context);
+                EnsureNetworkObjectVisibleToAll(client.PlayerObject, context);
             }
         }
 
-        private void EnsureNetworkObjectVisibleToAllConnectedClients(NetworkObject networkObject, string context) {
+        private void EnsureNetworkObjectVisibleToAll(NetworkObject networkObject, string context) {
             if(networkObject == null || !networkObject.IsSpawned || _networkManager == null) {
                 return;
             }
@@ -380,7 +380,7 @@ namespace Network.Core {
 
                 // 6. Spawn as player object
                 instance.SpawnAsPlayerObject(clientId);
-                EnsureNetworkObjectVisibleToAllConnectedClients(instance, $"SpawnPlayerFor/{clientId}");
+                EnsureNetworkObjectVisibleToAll(instance, $"SpawnPlayerFor/{clientId}");
                 FlowLog.Emit(FlowEventIds.PlayerSpawned,
                     ("clientId", clientId),
                     ("team", isTeamBased ? assignedTeam.ToString() : "None"),
@@ -458,7 +458,7 @@ namespace Network.Core {
             _pendingTeamAssignments.Clear();
 
             foreach(var clientId in clients) {
-                TryRefreshClientMetadataFromDistributedAuthoritySession(clientId);
+                TryRefreshClientMetadataFromDaSession(clientId);
             }
 
             // 1. Group clients by PartyID (from connection payload).
@@ -546,7 +546,7 @@ namespace Network.Core {
             Debug.Log($"[CustomNetworkManager] Distributed Teams (Public): TeamA={teamAMembers.Count}, TeamB={teamBMembers.Count}");
         }
 
-        private void TryRefreshClientMetadataFromDistributedAuthoritySession(ulong clientId) {
+        private void TryRefreshClientMetadataFromDaSession(ulong clientId) {
             if(!_clientUgsPlayerIds.TryGetValue(clientId, out var ugsPlayerId) || string.IsNullOrWhiteSpace(ugsPlayerId)) {
                 return;
             }
@@ -589,7 +589,7 @@ namespace Network.Core {
                 }
 
                 if(updated) {
-                    TryRefreshClientMetadataFromDistributedAuthoritySession(clientId);
+                    TryRefreshClientMetadataFromDaSession(clientId);
                 }
 
                 var hasResolvedUgs = _clientUgsPlayerIds.ContainsKey(clientId);

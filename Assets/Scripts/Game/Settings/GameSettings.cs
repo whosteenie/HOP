@@ -113,7 +113,7 @@ namespace Game.Settings {
         private static void ApplyEventBusDiagnostics(SettingsData d) {
             var diagnosticsEnabled = d?.social == null || d.social.EventBusDiagnosticsEnabled;
             EventBus.SetFailureCaptureEnabled(diagnosticsEnabled);
-            EventBus.SetFailureFileLoggingEnabled(diagnosticsEnabled);
+            EventBus.SetFailureFileLogging(diagnosticsEnabled);
         }
 
         private static void TrimList(List<string> list, int max) {

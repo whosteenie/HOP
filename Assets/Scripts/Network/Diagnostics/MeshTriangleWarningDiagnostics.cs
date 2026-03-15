@@ -94,43 +94,43 @@ namespace Network.Diagnostics {
             var candidates = new List<string>();
             var seenPaths = new HashSet<string>();
 
-            AddMeshColliderCandidates(meshHints, candidates, seenPaths);
-            AddMeshFilterCandidates(meshHints, candidates, seenPaths);
-            AddSkinnedMeshCandidates(meshHints, candidates, seenPaths);
+            AddColliderCandidates(meshHints, candidates, seenPaths);
+            AddFilterCandidates(meshHints, candidates, seenPaths);
+            AddSkinnedCandidates(meshHints, candidates, seenPaths);
 
             return candidates;
         }
 
-        private static void AddMeshColliderCandidates(List<string> meshHints, List<string> candidates, HashSet<string> seenPaths) {
-            var colliders = CollectComponentsInLoadedScenes<MeshCollider>();
+        private static void AddColliderCandidates(List<string> meshHints, List<string> candidates, HashSet<string> seenPaths) {
+            var colliders = CollectInLoadedScenes<MeshCollider>();
             foreach(var c in colliders) {
                 if(c == null) continue;
                 var mesh = c.sharedMesh;
                 if(mesh == null) continue;
                 if(IsMeshMatch(mesh.name, meshHints) == false) continue;
-                AddCandidateLine(c.gameObject, "MeshCollider", mesh.name, candidates, seenPaths);
+                AddCandidate(c.gameObject, "MeshCollider", mesh.name, candidates, seenPaths);
             }
         }
 
-        private static void AddMeshFilterCandidates(List<string> meshHints, List<string> candidates, HashSet<string> seenPaths) {
-            var filters = CollectComponentsInLoadedScenes<MeshFilter>();
+        private static void AddFilterCandidates(List<string> meshHints, List<string> candidates, HashSet<string> seenPaths) {
+            var filters = CollectInLoadedScenes<MeshFilter>();
             foreach(var f in filters) {
                 if(f == null) continue;
                 var mesh = f.sharedMesh;
                 if(mesh == null) continue;
                 if(IsMeshMatch(mesh.name, meshHints) == false) continue;
-                AddCandidateLine(f.gameObject, "MeshFilter", mesh.name, candidates, seenPaths);
+                AddCandidate(f.gameObject, "MeshFilter", mesh.name, candidates, seenPaths);
             }
         }
 
-        private static void AddSkinnedMeshCandidates(List<string> meshHints, List<string> candidates, HashSet<string> seenPaths) {
-            var skinned = CollectComponentsInLoadedScenes<SkinnedMeshRenderer>();
+        private static void AddSkinnedCandidates(List<string> meshHints, List<string> candidates, HashSet<string> seenPaths) {
+            var skinned = CollectInLoadedScenes<SkinnedMeshRenderer>();
             foreach(var r in skinned) {
                 if(r == null) continue;
                 var mesh = r.sharedMesh;
                 if(mesh == null) continue;
                 if(IsMeshMatch(mesh.name, meshHints) == false) continue;
-                AddCandidateLine(r.gameObject, "SkinnedMeshRenderer", mesh.name, candidates, seenPaths);
+                AddCandidate(r.gameObject, "SkinnedMeshRenderer", mesh.name, candidates, seenPaths);
             }
         }
 
@@ -147,7 +147,7 @@ namespace Network.Diagnostics {
             return false;
         }
 
-        private static void AddCandidateLine(GameObject go, string componentType, string meshName, List<string> candidates, HashSet<string> seenPaths) {
+        private static void AddCandidate(GameObject go, string componentType, string meshName, List<string> candidates, HashSet<string> seenPaths) {
             var path = GetHierarchyPath(go != null ? go.transform : null);
             if(string.IsNullOrEmpty(path)) return;
             if(seenPaths.Add(path) == false) return;
@@ -164,7 +164,7 @@ namespace Network.Diagnostics {
             return path;
         }
 
-        private static List<T> CollectComponentsInLoadedScenes<T>() where T : Component {
+        private static List<T> CollectInLoadedScenes<T>() where T : Component {
             var result = new List<T>();
             var sceneCount = SceneManager.sceneCount;
             for(var i = 0; i < sceneCount; i++) {

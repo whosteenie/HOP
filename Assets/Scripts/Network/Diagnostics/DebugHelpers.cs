@@ -64,7 +64,7 @@ namespace Network.Diagnostics {
         /// <summary>
         /// Safely tries to get a NetworkObject from a NetworkObjectReference, publishing a debug event if it fails.
         /// </summary>
-        public static bool TryGetNetworkObjectSafe(NetworkObjectReference reference, out NetworkObject networkObject, 
+        public static bool TryGetNetworkObject(NetworkObjectReference reference, out NetworkObject networkObject, 
             ulong clientId, string context = null) {
             if(reference.TryGet(out networkObject) && networkObject != null && networkObject.IsSpawned) return true;
             var reason = networkObject == null ? "null" : !networkObject.IsSpawned ? "not spawned" : "TryGet failed";
@@ -86,14 +86,14 @@ namespace Network.Diagnostics {
         /// Safely finds the first object of type, publishing a debug event if not found.
         /// </summary>
         public static T FindFirstObjectByTypeSafe<T>(string context = null) where T : UnityEngine.Object {
-            var obj = FindFirstObjectInLoadedScenes<T>();
+            var obj = FindFirstInLoadedScenes<T>();
             if(obj != null) return obj;
             var contextStr = context ?? $"Finding first {typeof(T).Name}";
             EventBus.Publish(new ComponentNotFoundEvent(typeof(T).Name, "Scene", contextStr));
             return obj;
         }
 
-        private static T FindFirstObjectInLoadedScenes<T>() where T : UnityEngine.Object {
+        private static T FindFirstInLoadedScenes<T>() where T : UnityEngine.Object {
             var targetType = typeof(T);
             var isComponentType = typeof(Component).IsAssignableFrom(targetType);
             var isGameObjectType = targetType == typeof(GameObject);
@@ -132,7 +132,7 @@ namespace Network.Diagnostics {
         /// <summary>
         /// Publishes a network RPC failure event.
         /// </summary>
-        public static void PublishNetworkRpcFailed(string rpcName, ulong targetClientId, string reason) {
+        public static void PublishRpcFailed(string rpcName, ulong targetClientId, string reason) {
             EventBus.Publish(new NetworkRpcFailedEvent(rpcName, targetClientId, reason));
         }
     }

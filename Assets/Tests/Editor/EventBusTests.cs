@@ -12,7 +12,7 @@ namespace Tests.Editor {
             EventBus.Clear();
             EventBus.SetLoggingEnabled(false);
             EventBus.SetFailureCaptureEnabled(false);
-            EventBus.SetFailureFileLoggingEnabled(false);
+            EventBus.SetFailureFileLogging(false);
             EventBus.SetFailureFailFastEnabled(false);
         }
 

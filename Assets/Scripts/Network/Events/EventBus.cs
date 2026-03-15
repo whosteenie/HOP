@@ -358,7 +358,7 @@ namespace Network.Events {
         /// <summary>
         /// Enables/disables file logging for EventBus failures at runtime.
         /// </summary>
-        public static void SetFailureFileLoggingEnabled(bool enabled) {
+        public static void SetFailureFileLogging(bool enabled) {
             EventBusFailureDiagnostics.SetFileLoggingEnabled(enabled);
         }
 
@@ -393,7 +393,7 @@ namespace Network.Events {
         /// <summary>
         /// Returns the parent correlation ID currently active on this thread, if any.
         /// </summary>
-        public static string GetCurrentParentCorrelationId() {
+        public static string GetParentCorrelationId() {
             return currentCorrelationContext.ParentCorrelationId ?? string.Empty;
         }
 

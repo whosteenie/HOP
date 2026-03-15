@@ -557,7 +557,7 @@ namespace Network.Session {
 
         private void EnableGameplaySpawningIfHost() {
             if(_customNetworkManager != null)
-                _customNetworkManager.EnableGameplaySpawningAndSpawnAll();
+                _customNetworkManager.EnableGameplaySpawning();
         }
 
         private void CaptureDuplicateFpVisualsForDisconnect() =>

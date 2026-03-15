@@ -37,7 +37,7 @@ namespace Network.Rpc {
                 }
             }
 
-            if(!DebugHelpers.TryGetNetworkObjectSafe(targetRef, out var networkObject, senderClientId,
+            if(!DebugHelpers.TryGetNetworkObject(targetRef, out var networkObject, senderClientId,
                     "NetworkDamageRelay.RequestDamageServerRpc")) {
                 return;
             }

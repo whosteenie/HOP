@@ -96,7 +96,7 @@ namespace Game.Match {
                 }
             }
 
-            if(!DebugHelpers.TryGetNetworkObjectSafe(targetRef, out var targetObject, shooterId,
+            if(!DebugHelpers.TryGetNetworkObject(targetRef, out var targetObject, shooterId,
                     "MatchCombatAuthority.RequestDamageServerRpc")) {
                 return;
             }

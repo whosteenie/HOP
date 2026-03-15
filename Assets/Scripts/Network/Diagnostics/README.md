@@ -51,7 +51,7 @@ var renderer = gameObject.GetComponentInChildrenSafe<Renderer>(includeInactive: 
 ### Network Object References
 ```csharp
 // Instead of: if(!targetRef.TryGet(out var networkObject))
-if(!DebugHelpers.TryGetNetworkObjectSafe(targetRef, out var networkObject, OwnerClientId, "Context")) {
+if(!DebugHelpers.TryGetNetworkObject(targetRef, out var networkObject, OwnerClientId, "Context")) {
     return;
 }
 ```
@@ -94,7 +94,7 @@ When you encounter silent failures in your code:
 1. Replace direct Unity API calls with helper methods:
    - `GetComponent<T>()` → `GetComponentSafe<T>("context")`
    - `FindFirstObjectByType<T>()` → `FindFirstObjectByTypeSafe<T>("context")`
-   - `TryGet()` → `TryGetNetworkObjectSafe()`
+   - `TryGet()` → `TryGetNetworkObject()`
 
 2. Wrap exception handlers with `PublishCriticalError()`:
    ```csharp
@@ -127,7 +127,7 @@ public class MyComponent : MonoBehaviour {
     
     private void OnNetworkObjectReference(NetworkObjectReference ref) {
         // This will publish NetworkObjectReferenceFailedEvent if TryGet fails
-        if(!DebugHelpers.TryGetNetworkObjectSafe(ref, out var networkObject, OwnerClientId, 
+        if(!DebugHelpers.TryGetNetworkObject(ref, out var networkObject, OwnerClientId, 
                "MyComponent.OnNetworkObjectReference")) {
             return;
         }
