@@ -1,20 +1,20 @@
 using UnityEngine;
 using UnityEngine.UIElements;
 
-namespace Network.Services {
+namespace Game.UI.Core {
     /// <summary>
     /// Centralized service for UI sound effects.
     /// Provides consistent sound playing across all menu managers.
     /// </summary>
-    public static class UISoundService {
+    public static class UISound {
         /// <summary>
         /// Plays a button click sound (normal or back button).
         /// </summary>
         /// <param name="isBack">If true, plays back button sound; otherwise plays normal click sound.</param>
         public static void PlayButtonClick(bool isBack = false) {
-            if(Game.Audio2.AudioService.Instance == null) return;
+            if(Audio2.AudioService.Instance == null) return;
             var soundId = !isBack ? "ui.button.forward" : "ui.button.back";
-            Game.Audio2.AudioService.Instance.Play(soundId, Vector3.zero);
+            Audio2.AudioService.Instance.Play(soundId, Vector3.zero);
         }
 
         /// <summary>
@@ -22,8 +22,8 @@ namespace Network.Services {
         /// Uses MouseEnterEvent which only fires when entering the element, preventing multiple triggers from child elements.
         /// </summary>
         public static void PlayButtonHover() {
-            if(Game.Audio2.AudioService.Instance == null) return;
-            Game.Audio2.AudioService.Instance.Play("ui.button.hover", Vector3.zero);
+            if(Audio2.AudioService.Instance == null) return;
+            Audio2.AudioService.Instance.Play("ui.button.hover", Vector3.zero);
         }
 
         /// <summary>

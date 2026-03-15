@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
 using Game.Social;
 using Game.Match;
-using Network.Services;
 using UnityEngine;
 using UnityEngine.Audio;
 using UnityEngine.UIElements;
@@ -174,7 +173,7 @@ namespace Game.Menu {
             _privateMatchBackButton = _privateMatchSetupPanel?.Q<Button>("private-match-back-button");
             if(_privateMatchBackButton != null) {
                 _privateMatchBackClickHandler = () => {
-                    UISoundService.PlayButtonClick(isBack: true);
+                    UISound.PlayButtonClick(isBack: true);
                     TransitionToState(MainMenuPanelState.GamemodeSelect);
                     if(privateMatchSetupManager != null) privateMatchSetupManager.OnBackRequested?.Invoke();
                 };
@@ -497,14 +496,14 @@ namespace Game.Menu {
             if(optionsMenuManager == null) return;
 
             optionsMenuManager.OnButtonClickedCallback = OnButtonClicked;
-            optionsMenuManager.MouseEnterCallback = _ => UISoundService.PlayButtonHover();
+            optionsMenuManager.MouseEnterCallback = _ => UISound.PlayButtonHover();
             optionsMenuManager.OnBackFromOptionsCallback = ReturnToMainMenuFromOptions;
             optionsMenuManager.Initialize();
 
             if(characterCustomizationManager == null) return;
             {
                 characterCustomizationManager.OnButtonClickedCallback = OnButtonClicked;
-                characterCustomizationManager.MouseEnterCallback = _ => UISoundService.PlayButtonHover();
+                characterCustomizationManager.MouseEnterCallback = _ => UISound.PlayButtonHover();
                 characterCustomizationManager.OnBackFromCustomizationCallback =
                     () => TransitionToState(MainMenuPanelState.Loadout);
             }
@@ -526,11 +525,11 @@ namespace Game.Menu {
         #region UI Utilities
 
         public static void OnButtonClicked(bool isBack = false) {
-            UISoundService.PlayButtonClick(isBack);
+            UISound.PlayButtonClick(isBack);
         }
 
         public static void MouseEnter(MouseEnterEvent evt) {
-            UISoundService.PlayButtonHover();
+            UISound.PlayButtonHover();
         }
 
         #endregion

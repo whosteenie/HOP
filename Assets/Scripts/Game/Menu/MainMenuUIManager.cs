@@ -4,7 +4,6 @@ using Game.Progression;
 using Game.UI.Core;
 using Game.UI.Misc;
 using Network.Events;
-using Network.Services;
 using UnityEngine;
 using UnityEngine.UIElements;
 using Cursor = UnityEngine.Cursor;
@@ -295,7 +294,7 @@ namespace Game.Menu {
             // Register hover for Context buttons
             var ctxButtons = new[] { CtxProfile, CtxSteamProfile, CtxMuteChat, CtxMuteVoice, CtxBlock, CtxMakeHost, CtxKick, CtxLeave, CtxSwitchTeam };
             foreach(var b in ctxButtons) {
-                if(b != null) UISoundService.RegisterButtonHover(b);
+                if(b != null) UISound.RegisterButtonHover(b);
             }
         }
 
@@ -312,8 +311,8 @@ namespace Game.Menu {
             foreach(var b in _buttons) {
                 if(b == null) continue;
                 try {
-                    UISoundService.RegisterButtonHover(b);
-                    System.Action clickHandler = () => UISoundService.PlayButtonClick();
+                    UISound.RegisterButtonHover(b);
+                    System.Action clickHandler = () => UISound.PlayButtonClick();
                     b.clicked += clickHandler;
                     RegisterCleanup(() => b.clicked -= clickHandler);
                 } catch(System.Exception ex) {
@@ -324,7 +323,7 @@ namespace Game.Menu {
             foreach(var b in _backButtons) {
                 if(b == null) continue;
                 try {
-                    UISoundService.RegisterButtonHover(b);
+                    UISound.RegisterButtonHover(b);
                     // No generic click here, handled in specialized ones below
                 } catch(System.Exception ex) {
                     Debug.LogError($"[MainMenuUIManager] Failed to bind hover for back button `{b.name}`: {ex}", this);
@@ -365,7 +364,7 @@ namespace Game.Menu {
 
             _quitButton.clicked += ShowQuitConfirmation;
             RegisterCleanup(() => _quitButton.clicked -= ShowQuitConfirmation);
-            UISoundService.RegisterButtonHover(_quitButton);
+            UISound.RegisterButtonHover(_quitButton);
 
             // Gamemode Card Clicks
             if (_cardDeathmatch != null) {
@@ -412,7 +411,7 @@ namespace Game.Menu {
             }
             if (_backGamemodesButton != null) {
                 System.Action backHandler = () => {
-                    UISoundService.PlayButtonClick(isBack: true);
+                    UISound.PlayButtonClick(isBack: true);
                     OnShowPanel?.Invoke(MainMenuPanel);
                 };
                 _backGamemodesButton.clicked += backHandler;
@@ -420,7 +419,7 @@ namespace Game.Menu {
             }
             if (_backCreditsButton != null) {
                 System.Action backHandler = () => {
-                    UISoundService.PlayButtonClick(isBack: true);
+                    UISound.PlayButtonClick(isBack: true);
                     OnShowPanel?.Invoke(MainMenuPanel);
                 };
                 _backCreditsButton.clicked += backHandler;
@@ -437,7 +436,7 @@ namespace Game.Menu {
             foreach (var opt in _gamemodeOptions) {
                 if (opt == null) continue;
                 System.Action optHandler = () => {
-                    UISoundService.PlayButtonClick();
+                    UISound.PlayButtonClick();
                     OnGamemodeSelected?.Invoke(opt.text);
                 };
                 opt.clicked += optHandler;
@@ -447,53 +446,53 @@ namespace Game.Menu {
             // Quit confirmation modal
             if(_quitConfirmationYes != null) {
                 System.Action yesHandler = () => {
-                    UISoundService.PlayButtonClick();
+                    UISound.PlayButtonClick();
                     _modalHost.HideModal("quit-confirmation");
                     OnQuitConfirmed?.Invoke();
                 };
                 _quitConfirmationYes.clicked += yesHandler;
                 RegisterCleanup(() => _quitConfirmationYes.clicked -= yesHandler);
-                UISoundService.RegisterButtonHover(_quitConfirmationYes);
+                UISound.RegisterButtonHover(_quitConfirmationYes);
             }
 
             if(_quitConfirmationNo != null) {
                 System.Action noHandler = () => {
-                    UISoundService.PlayButtonClick();
+                    UISound.PlayButtonClick();
                     _modalHost.HideModal("quit-confirmation");
                     OnQuitCancelled?.Invoke();
                 };
                 _quitConfirmationNo.clicked += noHandler;
                 RegisterCleanup(() => _quitConfirmationNo.clicked -= noHandler);
-                UISoundService.RegisterButtonHover(_quitConfirmationNo);
+                UISound.RegisterButtonHover(_quitConfirmationNo);
             }
 
             // Lobby leave modal
             if(_lobbyLeaveYes != null) {
                 System.Action yesHandler = () => {
-                    UISoundService.PlayButtonClick(isBack: true);
+                    UISound.PlayButtonClick(isBack: true);
                     _modalHost.HideModal("lobby-leave");
                     OnLobbyLeaveConfirmed?.Invoke();
                 };
                 _lobbyLeaveYes.clicked += yesHandler;
                 RegisterCleanup(() => _lobbyLeaveYes.clicked -= yesHandler);
-                UISoundService.RegisterButtonHover(_lobbyLeaveYes);
+                UISound.RegisterButtonHover(_lobbyLeaveYes);
             }
 
             if(_lobbyLeaveNo != null) {
                 System.Action noHandler = () => {
-                    UISoundService.PlayButtonClick();
+                    UISound.PlayButtonClick();
                     _modalHost.HideModal("lobby-leave");
                     OnLobbyLeaveCancelled?.Invoke();
                 };
                 _lobbyLeaveNo.clicked += noHandler;
                 RegisterCleanup(() => _lobbyLeaveNo.clicked -= noHandler);
-                UISoundService.RegisterButtonHover(_lobbyLeaveNo);
+                UISound.RegisterButtonHover(_lobbyLeaveNo);
             }
 
             // Credits
             if(_logoGithub != null) {
                 EventCallback<ClickEvent> clickHandler = _ => Application.OpenURL("https://github.com/whosteenie/HOP");
-                EventCallback<MouseEnterEvent> hoverHandler = _ => UISoundService.PlayButtonHover();
+                EventCallback<MouseEnterEvent> hoverHandler = _ => UISound.PlayButtonHover();
                 _logoGithub.RegisterCallback(clickHandler);
                 _logoGithub.RegisterCallback(hoverHandler);
                 RegisterCleanup(() => {
@@ -534,10 +533,10 @@ namespace Game.Menu {
 
             if (enabled) {
                 if (!isTextButton) button.AddToClassList("menu-chip-enabled");
-                UISoundService.RegisterButtonHover(button);
+                UISound.RegisterButtonHover(button);
             } else {
                 button.RemoveFromClassList("menu-chip-enabled");
-                UISoundService.UnregisterButtonHover(button);
+                UISound.UnregisterButtonHover(button);
             }
         }
 
@@ -559,7 +558,7 @@ namespace Game.Menu {
         /// Shows the quit confirmation modal.
         /// </summary>
         private void ShowQuitConfirmation() {
-            UISoundService.PlayButtonClick(isBack: true);
+            UISound.PlayButtonClick(isBack: true);
             if(_quitConfirmationModal != null) {
                 _modalHost.ShowExistingModal(_quitConfirmationModal, "quit-confirmation");
             }
@@ -569,7 +568,7 @@ namespace Game.Menu {
         /// Shows the confirmation modal for leaving a lobby.
         /// </summary>
         public void ShowLobbyLeaveConfirmation() {
-            UISoundService.PlayButtonClick(isBack: true);
+            UISound.PlayButtonClick(isBack: true);
             if(_lobbyLeaveModal != null) {
                 _modalHost.ShowExistingModal(_lobbyLeaveModal, "lobby-leave");
             }

@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using Network.Services;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -69,7 +68,7 @@ namespace Game.UI.Core {
                     HideModal(modalIdFinal);
                     onYes?.Invoke();
                 };
-                UISoundService.RegisterButtonHover(yesButton);
+                UISound.RegisterButtonHover(yesButton);
             }
             if(noButton != null) {
                 noButton.text = noText;
@@ -77,7 +76,7 @@ namespace Game.UI.Core {
                     HideModal(modalIdFinal);
                     onNo?.Invoke();
                 };
-                UISoundService.RegisterButtonHover(noButton);
+                UISound.RegisterButtonHover(noButton);
             }
 
             _root.Add(modalContainer);

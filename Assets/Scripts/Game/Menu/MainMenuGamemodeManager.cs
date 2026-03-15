@@ -7,7 +7,6 @@ using Steamworks.Data;
 using UnityEngine.UIElements;
 using Game.Match;
 using Game.UI.Core;
-using Network.Services;
 using SessionManager = Network.Session.SessionManager;
 
 namespace Game.Menu {
@@ -84,7 +83,7 @@ namespace Game.Menu {
             if(btn == null) return;
             Action clickHandler = () => {
                 if (!_isHost) return;
-                UISoundService.PlayButtonClick();
+                UISound.PlayButtonClick();
                 HandleGameModeSelected(modeName);
             };
             btn.clicked += clickHandler;
@@ -129,7 +128,7 @@ namespace Game.Menu {
 
         private void OnGamemodeLabelClicked(ClickEvent evt) {
             if(!_isHost) return;
-            UISoundService.PlayButtonClick();
+            UISound.PlayButtonClick();
             ToggleGamemodeDropdown();
         }
 

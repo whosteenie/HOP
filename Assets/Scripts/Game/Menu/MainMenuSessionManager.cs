@@ -6,7 +6,6 @@ using Cysharp.Threading.Tasks;
 using Game.Progression;
 using Game.Settings;
 using Network.Events;
-using Network.Services;
 using Network.Steam;
 using Game.Social;
 using Game.UI.Core; // Added
@@ -417,7 +416,7 @@ namespace Game.Menu {
         private void RegisterUIEvents() {
             if(_inviteButton != null) {
                 Action inviteHandler = () => {
-                    UISoundService.PlayButtonClick();
+                    UISound.PlayButtonClick();
                     LaunchUiTask(OpenSteamInviteOverlay(),
                         "OpenSteamInviteOverlay");
                 };
@@ -427,7 +426,7 @@ namespace Game.Menu {
 
             if(uiManager == null) return;
             uiManager.OnCancelMatchmakingClicked = () => {
-                UISoundService.PlayButtonClick(isBack: true);
+                UISound.PlayButtonClick(isBack: true);
                 if(SessionManager.Instance != null) {
                     SessionManager.Instance.CancelMatchmaking();
                 }
@@ -577,7 +576,7 @@ namespace Game.Menu {
                 uiManager.PartyContextMenu.BringToFront();
             }
 
-            UISoundService.PlayButtonClick();
+            UISound.PlayButtonClick();
         }
 
         private void HandleContextAction(string action) {
@@ -852,10 +851,10 @@ namespace Game.Menu {
             var isHidden = uiManager.GamemodeDropdownMenu.ClassListContains("hidden");
             if(isHidden) {
                 uiManager.GamemodeDropdownMenu.RemoveFromClassList("hidden");
-                UISoundService.PlayButtonClick();
+                UISound.PlayButtonClick();
             } else {
                 uiManager.GamemodeDropdownMenu.AddToClassList("hidden");
-                UISoundService.PlayButtonClick(isBack: true);
+                UISound.PlayButtonClick(isBack: true);
             }
         }
 

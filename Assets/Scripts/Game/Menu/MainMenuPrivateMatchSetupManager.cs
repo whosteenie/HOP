@@ -5,7 +5,6 @@ using Game.Match;
 using Game.Social;
 using Game.UI.Core;
 using Network.Events;
-using Network.Services;
 using Network.Steam;
 using Steamworks;
 using UnityEngine;
@@ -297,14 +296,14 @@ namespace Game.Menu {
 
             _startButton.clicked += OnStartClicked;
             RegisterCleanup(() => _startButton.clicked -= OnStartClicked);
-            UISoundService.RegisterButtonHover(_startButton);
-            RegisterCleanup(() => UISoundService.UnregisterButtonHover(_startButton));
+            UISound.RegisterButtonHover(_startButton);
+            RegisterCleanup(() => UISound.UnregisterButtonHover(_startButton));
 
             if(_backButton == null) return;
             _backButton.clicked += OnBackClicked;
             RegisterCleanup(() => _backButton.clicked -= OnBackClicked);
-            UISoundService.RegisterButtonHover(_backButton);
-            RegisterCleanup(() => UISoundService.UnregisterButtonHover(_backButton));
+            UISound.RegisterButtonHover(_backButton);
+            RegisterCleanup(() => UISound.UnregisterButtonHover(_backButton));
         }
 
         /// <summary>
@@ -953,12 +952,12 @@ namespace Game.Menu {
         }
 
         private void OnStartClicked() {
-            UISoundService.PlayButtonClick();
+            UISound.PlayButtonClick();
             OnStartRequested?.Invoke(_draft);
         }
 
         private void OnBackClicked() {
-            UISoundService.PlayButtonClick(isBack: true);
+            UISound.PlayButtonClick(isBack: true);
             OnBackRequested?.Invoke();
         }
 

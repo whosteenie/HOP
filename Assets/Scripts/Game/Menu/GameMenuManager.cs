@@ -13,7 +13,6 @@ using Game.UI.Screens;
 using Game.Weapons.Core;
 using Game.Weapons.Manager;
 using Network.Events;
-using Network.Services;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.SceneManagement;
@@ -422,35 +421,35 @@ namespace Game.Menu {
         }
 
         private void RegisterUIEvents() {
-            Action resumeHandler = () => { UISoundService.PlayButtonClick(); ResumeGame(); };
+            Action resumeHandler = () => { UISound.PlayButtonClick(); ResumeGame(); };
             _resumeButton.clicked += resumeHandler;
             RegisterCleanup(() => _resumeButton.clicked -= resumeHandler);
-            UISoundService.RegisterButtonHover(_resumeButton);
+            UISound.RegisterButtonHover(_resumeButton);
 
-            Action optionsHandler = () => { UISoundService.PlayButtonClick(); ShowOptions(); };
+            Action optionsHandler = () => { UISound.PlayButtonClick(); ShowOptions(); };
             _optionsButton.clicked += optionsHandler;
             RegisterCleanup(() => _optionsButton.clicked -= optionsHandler);
-            UISoundService.RegisterButtonHover(_optionsButton);
+            UISound.RegisterButtonHover(_optionsButton);
 
-            Action quitHandler = () => { UISoundService.PlayButtonClick(isBack: true); ShowQuitConfirmation(); };
+            Action quitHandler = () => { UISound.PlayButtonClick(isBack: true); ShowQuitConfirmation(); };
             _quitButton.clicked += quitHandler;
             RegisterCleanup(() => _quitButton.clicked -= quitHandler);
-            UISoundService.RegisterButtonHover(_quitButton);
+            UISound.RegisterButtonHover(_quitButton);
 
             if(_quitConfirmationYes != null) {
                 Action yesHandler = () => { 
-                    UISoundService.PlayButtonClick(isBack: true); 
+                    UISound.PlayButtonClick(isBack: true); 
                     _modalHost.HideModal("quit-confirmation"); 
                     QuitToMenu(); 
                 };
                 _quitConfirmationYes.clicked += yesHandler;
                 RegisterCleanup(() => _quitConfirmationYes.clicked -= yesHandler);
-                UISoundService.RegisterButtonHover(_quitConfirmationYes);
+                UISound.RegisterButtonHover(_quitConfirmationYes);
             }
 
             if(_quitConfirmationNo != null) {
                 Action noHandler = () => {
-                    UISoundService.PlayButtonClick();
+                    UISound.PlayButtonClick();
                     _modalHost.HideModal("quit-confirmation");
                     // Show pause menu and challenges again when canceling quit
                     if(_pauseMenuPanel != null) {
@@ -463,7 +462,7 @@ namespace Game.Menu {
                 };
                 _quitConfirmationNo.clicked += noHandler;
                 RegisterCleanup(() => _quitConfirmationNo.clicked -= noHandler);
-                UISoundService.RegisterButtonHover(_quitConfirmationNo);
+                UISound.RegisterButtonHover(_quitConfirmationNo);
             }
 
             RegisterPauseLoadoutEvents();
@@ -544,7 +543,7 @@ namespace Game.Menu {
             if(slot == null) return;
 
             EventCallback<ClickEvent> clickHandler = evt => {
-                UISoundService.PlayButtonClick();
+                UISound.PlayButtonClick();
                 TogglePauseLoadoutDropdown(dropdown);
                 if(evt == null) return;
                 evt.StopPropagation();
@@ -553,7 +552,7 @@ namespace Game.Menu {
             slot.RegisterCallback(clickHandler);
             RegisterCleanup(() => slot.UnregisterCallback(clickHandler));
 
-            EventCallback<MouseEnterEvent> hoverHandler = _ => UISoundService.PlayButtonHover();
+            EventCallback<MouseEnterEvent> hoverHandler = _ => UISound.PlayButtonHover();
             slot.RegisterCallback(hoverHandler);
             RegisterCleanup(() => slot.UnregisterCallback(hoverHandler));
         }
@@ -633,9 +632,9 @@ namespace Game.Menu {
 
                 var index = i;
                 var option = CreatePauseLoadoutOption(options[i]);
-                option.RegisterCallback<MouseEnterEvent>(_ => UISoundService.PlayButtonHover());
+                option.RegisterCallback<MouseEnterEvent>(_ => UISound.PlayButtonHover());
                 option.RegisterCallback<ClickEvent>(evt => {
-                    UISoundService.PlayButtonClick();
+                    UISound.PlayButtonClick();
                     onSelect(index);
                     ClosePauseLoadoutDropdowns();
                     if(evt == null) return;
@@ -873,9 +872,9 @@ namespace Game.Menu {
         #region Setup Methods
         private void SetupOptionsMenuManager() {
             if(optionsMenuManager == null) return;
-            optionsMenuManager.OnButtonClickedCallback = UISoundService.PlayButtonClick;
-            optionsMenuManager.MouseEnterCallback = _ => UISoundService.PlayButtonHover();
-            optionsMenuManager.MouseHoverCallback = _ => UISoundService.PlayButtonHover();
+            optionsMenuManager.OnButtonClickedCallback = UISound.PlayButtonClick;
+            optionsMenuManager.MouseEnterCallback = _ => UISound.PlayButtonHover();
+            optionsMenuManager.MouseHoverCallback = _ => UISound.PlayButtonHover();
             optionsMenuManager.OnBackFromOptionsCallback = HideOptions;
             optionsMenuManager.Initialize();
         }

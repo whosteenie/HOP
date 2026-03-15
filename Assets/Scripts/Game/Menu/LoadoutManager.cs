@@ -3,7 +3,6 @@ using System.Collections;
 using System.Collections.Generic;
 using Game.Player.Visual;
 using Network.Events;
-using Network.Services;
 using Network.Singletons;
 using Game.Progression;
 using Game.Settings;
@@ -496,7 +495,7 @@ namespace Game.Menu {
             _statsButton = QRequired<Button>("career-toggle-button");
             Action statsClickHandler = () => {
                 // Play positive sound when going to career, negative when going back to loadout
-                UISoundService.PlayButtonClick(isBack: _showingStats);
+                UISound.PlayButtonClick(isBack: _showingStats);
                 ToggleStats();
             };
             _statsButton.clicked += statsClickHandler;
