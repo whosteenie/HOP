@@ -1,6 +1,6 @@
 using Cysharp.Threading.Tasks;
 
-namespace Network.Session {
+namespace Network.Session.Interface {
     /// <summary>
     /// Party lifecycle actions: event subscription, Steam social lobby creation, heartbeat schedule.
     /// Implemented by SessionManager.

@@ -2,7 +2,6 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
-using Game.Audio;
 using Game.Menu;
 using Game.UI.Misc;
 using UnityEngine;
@@ -33,7 +32,7 @@ namespace Network.Singletons {
         private UniTaskCompletionSource<bool> _respawnFadeInSignal;
         private OverlayVisualState _transitionOverlayState = OverlayVisualState.Hidden;
         private OverlayVisualState _respawnOverlayState = OverlayVisualState.Hidden;
-        private MenuMusicPlayer _menuMusicPlayer;
+        private MainMenuMusicPlayer _mainMenuMusicPlayer;
 
         // Cache scene name to avoid string allocations
         private string _cachedSceneName;
@@ -487,13 +486,13 @@ namespace Network.Singletons {
             overlay.style.transitionDuration = durationList;
         }
 
-        private MenuMusicPlayer ResolveMenuMusicPlayer() {
-            if(_menuMusicPlayer != null) {
-                return _menuMusicPlayer;
+        private MainMenuMusicPlayer ResolveMenuMusicPlayer() {
+            if(_mainMenuMusicPlayer != null) {
+                return _mainMenuMusicPlayer;
             }
 
-            _menuMusicPlayer = MenuMusicPlayer.Instance;
-            return _menuMusicPlayer;
+            _mainMenuMusicPlayer = MainMenuMusicPlayer.Instance;
+            return _mainMenuMusicPlayer;
         }
 
         private async UniTask WaitForOpacityAsync(VisualElement overlay, float expectedDurationSeconds) {

@@ -6,7 +6,7 @@ using UnityEditor.Build;
 using UnityEditor.Build.Reporting;
 using UnityEngine;
 
-namespace Game.Editor.Build {
+namespace Editor.Build {
     /// <summary>
     /// Prevents shipping builds that still have Vivox Test Mode enabled or a Vivox signing key present in project settings.
     /// If either is present, Vivox will generate tokens locally (insecure) and log warnings at runtime.

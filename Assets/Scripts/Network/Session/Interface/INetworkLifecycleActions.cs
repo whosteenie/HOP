@@ -1,6 +1,6 @@
 using Cysharp.Threading.Tasks;
 
-namespace Network.Session {
+namespace Network.Session.Interface {
     /// <summary>
     /// Actions used during network cleanup and DA create/join (leave session, full cleanup).
     /// Implemented by SessionManager.

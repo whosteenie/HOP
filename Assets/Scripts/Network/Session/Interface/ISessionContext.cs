@@ -4,7 +4,7 @@ using Unity.Netcode;
 using Unity.Netcode.Transports.UTP;
 using Lobby = Steamworks.Data.Lobby;
 
-namespace Network.Session {
+namespace Network.Session.Interface {
     /// <summary>
     /// Read/write and orchestration surface for session state. Implemented by SessionManager;
     /// services receive this to avoid holding a direct reference to the manager.

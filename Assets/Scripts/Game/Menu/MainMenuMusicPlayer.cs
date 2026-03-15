@@ -1,9 +1,9 @@
 using UnityEngine;
 using UnityEngine.Audio;
 
-namespace Game.Audio {
-    public class MenuMusicPlayer : MonoBehaviour {
-        public static MenuMusicPlayer Instance { get; private set; }
+namespace Game.Menu {
+    public class MainMenuMusicPlayer : MonoBehaviour {
+        public static MainMenuMusicPlayer Instance { get; private set; }
 
         [Header("Menu Music")]
         [SerializeField] private AudioClip[] menuMusicTracks;

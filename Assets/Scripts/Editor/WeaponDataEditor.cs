@@ -7,7 +7,7 @@ using KINEMATION.FPSAnimationPack.Scripts.Weapon;
 using UnityEditor;
 using UnityEngine;
 
-namespace Game.Editor {
+namespace Editor {
     [CustomEditor(typeof(WeaponData))]
     public class WeaponDataEditor : UnityEditor.Editor {
         public override void OnInspectorGUI() {

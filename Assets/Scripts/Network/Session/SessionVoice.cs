@@ -1,6 +1,7 @@
 using System;
 using Cysharp.Threading.Tasks;
 using Game.Social;
+using Network.Session.Interface;
 using UnityEngine;
 
 namespace Network.Session {

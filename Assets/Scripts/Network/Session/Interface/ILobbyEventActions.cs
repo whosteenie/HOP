@@ -1,4 +1,4 @@
-namespace Network.Session {
+namespace Network.Session.Interface {
     /// <summary>
     /// Actions used by SessionMatchLobbyService when unsubscribing or when match lobby is deleted/kicked.
     /// Implemented by SessionManager.

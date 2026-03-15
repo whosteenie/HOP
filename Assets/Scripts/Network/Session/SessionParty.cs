@@ -4,6 +4,7 @@ using Cysharp.Threading.Tasks;
 using Game.Match;
 using Network.Core;
 using Network.Diagnostics;
+using Network.Session.Interface;
 using Steamworks;
 using Unity.Services.Authentication;
 using Unity.Services.Lobbies;

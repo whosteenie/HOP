@@ -7,6 +7,7 @@ using Game.Player.Core;
 using Network.Core;
 using Network.Diagnostics;
 using Network.Events;
+using Network.Session.Interface;
 using Network.Singletons;
 using Network.Steam;
 using Unity.Services.Lobbies.Models;
