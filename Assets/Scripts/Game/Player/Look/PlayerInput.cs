@@ -1,4 +1,5 @@
 using System.Collections;
+using Diagnostics;
 using Events;
 using Game.Match;
 using Game.Menu;
@@ -12,7 +13,6 @@ using Game.UI.Screens.Scoreboard;
 using Game.Weapon.Core;
 using Game.Weapon.Manager;
 using JetBrains.Annotations;
-using Network.Diagnostics;
 using Network.Singletons;
 using Unity.Cinemachine;
 using Unity.Netcode;

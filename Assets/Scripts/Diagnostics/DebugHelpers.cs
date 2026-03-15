@@ -5,7 +5,7 @@ using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
-namespace Network.Diagnostics {
+namespace Diagnostics {
     /// <summary>
     /// Helper methods for safe component lookups, network operations, and singleton access.
     /// These methods publish debug events when failures occur, making silent failures visible.

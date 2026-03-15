@@ -5,7 +5,7 @@ using System.Text.RegularExpressions;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
-namespace Network.Diagnostics {
+namespace Diagnostics {
     /// <summary>
     /// Event-driven diagnostics for low-repro mesh triangle warnings.
     /// Activates when Unity emits the warning and logs candidate scene objects using that mesh.

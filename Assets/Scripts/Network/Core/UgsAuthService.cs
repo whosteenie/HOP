@@ -1,7 +1,7 @@
 using System.Text;
 using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
-using Network.Diagnostics;
+using Diagnostics;
 using Steamworks;
 using Unity.Services.Authentication;
 using Unity.Services.Core;

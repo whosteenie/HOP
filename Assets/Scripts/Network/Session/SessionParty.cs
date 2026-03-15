@@ -1,9 +1,9 @@
 using System;
 using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
+using Diagnostics;
 using Game.Match;
 using Network.Core;
-using Network.Diagnostics;
 using Network.Session.Interface;
 using Steamworks;
 using Unity.Services.Authentication;

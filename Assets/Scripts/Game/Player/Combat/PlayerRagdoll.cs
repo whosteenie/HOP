@@ -1,6 +1,6 @@
 using System.Linq;
+using Diagnostics;
 using Game.Player.Core;
-using Network.Diagnostics;
 using Unity.Netcode;
 using UnityEngine;
 

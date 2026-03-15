@@ -1,7 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using Network.Diagnostics;
+using Diagnostics;
 using Steamworks;
 using Steamworks.Data;
 using UnityEngine.UIElements;

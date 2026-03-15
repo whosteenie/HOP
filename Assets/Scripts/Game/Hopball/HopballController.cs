@@ -1,10 +1,10 @@
 using System;
 using System.Collections.Generic;
+using Diagnostics;
 using Game.Player.Core;
 using Network.Core;
 using OSI;
 using Network.AntiCheat;
-using Network.Diagnostics;
 using Unity.Netcode;
 using Unity.Netcode.Components;
 using UnityEngine;

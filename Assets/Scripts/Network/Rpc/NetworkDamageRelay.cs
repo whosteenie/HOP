@@ -1,8 +1,8 @@
 using System;
+using Diagnostics;
 using Game.Player.Core;
 using Game.Weapon.Manager;
 using Network.AntiCheat;
-using Network.Diagnostics;
 using Unity.Netcode;
 using UnityEngine;
 

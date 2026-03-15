@@ -1,4 +1,4 @@
-namespace Network.Diagnostics {
+namespace Diagnostics {
     /// <summary>
     /// Stable event IDs for structured flow logging.
     /// </summary>

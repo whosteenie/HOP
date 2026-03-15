@@ -6,7 +6,7 @@ using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
-namespace Network.Diagnostics {
+namespace Diagnostics {
     /// <summary>
     /// Build-safe structured flow logger for runtime diagnostics.
     /// </summary>
@@ -114,8 +114,8 @@ namespace Network.Diagnostics {
         }
 
         private static string GetSessionId() {
-            if(Session.SessionManager.HasInstance == false) return "none";
-            var sessionManager = Session.SessionManager.Instance;
+            if(Network.Session.SessionManager.HasInstance == false) return "none";
+            var sessionManager = Network.Session.SessionManager.Instance;
             if(sessionManager == null) return "none";
 
             return string.IsNullOrEmpty(sessionManager.FlowSessionId) == false ? sessionManager.FlowSessionId : "none";

@@ -1,7 +1,7 @@
 using Events;
 using UnityEngine;
 
-namespace Network.Diagnostics {
+namespace Diagnostics {
     /// <summary>
     /// Subscribes to all debug events and logs them with context.
     /// Add this component to a GameObject in your scene to enable debug event logging.

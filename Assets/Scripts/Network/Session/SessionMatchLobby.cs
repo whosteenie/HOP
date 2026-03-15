@@ -1,12 +1,12 @@
 using System;
 using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
+using Diagnostics;
 using Game.Hopball;
 using Game.Match;
 using Game.Player.Core;
 using Game.Spawning;
 using Network.Core;
-using Network.Diagnostics;
 using Network.Session.Interface;
 using Unity.Services.Authentication;
 using Unity.Services.Lobbies;

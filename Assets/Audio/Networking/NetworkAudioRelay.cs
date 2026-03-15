@@ -1,5 +1,5 @@
+using Diagnostics;
 using Network.AntiCheat;
-using Network.Diagnostics;
 using Unity.Netcode;
 using UnityEngine;
 

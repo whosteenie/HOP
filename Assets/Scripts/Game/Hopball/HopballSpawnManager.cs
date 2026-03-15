@@ -1,12 +1,12 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using Diagnostics;
 using Events;
 using Game.Match;
 using Game.Player.Core;
 using Game.Spawning;
 using Network.Core;
-using Network.Diagnostics;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.SceneManagement;

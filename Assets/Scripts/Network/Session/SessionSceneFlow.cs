@@ -1,12 +1,12 @@
 using System;
 using System.Threading;
 using Cysharp.Threading.Tasks;
+using Diagnostics;
 using Events;
 using Game.Match;
 using Game.Menu;
 using Game.Player.Core;
 using Network.Core;
-using Network.Diagnostics;
 using Network.Session.Interface;
 using Network.Singletons;
 using Network.Steam;

@@ -1,9 +1,9 @@
 using System.Collections;
 using System.Linq;
+using Diagnostics;
 using Game.Match;
 using Game.Player.Core;
 using Game.Spawning;
-using Network.Diagnostics;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.SceneManagement;

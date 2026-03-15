@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
+using Diagnostics;
 using Events;
 using Game.Hopball;
 using Game.Match;
@@ -14,7 +15,6 @@ using Game.Weapon.Manager;
 using Game.Weapon.Presentation;
 using Network.Components;
 using Network.Core;
-using Network.Diagnostics;
 using Network.Singletons;
 using Unity.Cinemachine;
 using Unity.Netcode;

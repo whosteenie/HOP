@@ -24,7 +24,7 @@ Scripts/
 │   │   ├── HUD/               # HUDManager, DamageVignette, GrappleUI, SniperOverlay, KillFeed
 │   │   ├── Screens/           # Scoreboard, Chat, VoiceOverlay, InGameContextMenu
 │   │   └── Misc/              # MenuBlurVolumeController, ChallengeUiRenderer, PostMatchXpDisplay, LoadingBallAnimation
-│   └── Weapon/                # Weapon logic, Kinemation bindings (namespace Game.Weapons.*)
+│   └── Weapon/                # Weapon logic, Kinemation bindings
 │       ├── Core/              # Weapon, WeaponData, WeaponCombat, WeaponMount, WeaponReload, WeaponAmmoAuthority
 │       ├── Kinemation/        # KinFpWeaponDriver, KinDriverAudio, KinGrappleClavicle, binding catalog, etc.
 │       ├── Manager/           # WeaponManager, WeaponAuthority, WeaponSwitch, WeaponLoadout, FpPresentation, FpLighting
