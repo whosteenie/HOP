@@ -111,7 +111,7 @@ namespace Game.Menu {
             }
             if(backgroundRandomizer != null) {
                 var backgroundSelection = GameSettings.Data.video?.mainMenuBackgroundSelection;
-                backgroundRandomizer.ApplySelectionForMainMenuEntry(backgroundSelection);
+                backgroundRandomizer.ApplySelection(backgroundSelection);
             }
 
             if(uiManager != null) MainMenuUIManager.InitializeGameMenuVisibility();
@@ -407,7 +407,7 @@ namespace Game.Menu {
             _navigator.Show(panel);
             if(backgroundRandomizer != null) {
                 var suppressBackgroundDepthOfField = panel == _loadoutPanel;
-                backgroundRandomizer.SetBackgroundDepthOfFieldSuppressed(suppressBackgroundDepthOfField);
+                backgroundRandomizer.SetDepthOfFieldSuppressed(suppressBackgroundDepthOfField);
             }
 
             var useMenuOverlay = panel == _optionsPanel || panel == _privateMatchSetupPanel;

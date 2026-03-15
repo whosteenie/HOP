@@ -56,9 +56,6 @@ namespace Game.Menu {
         private bool? _lastStatusVisible;
         private MenuButtonMode _lastMenuButtonMode = MenuButtonMode.Unknown;
         private bool _lastMenuButtonsEnabled;
-        private int _lastProgressionLevel = -1;
-        private int _lastProgressionRequiredXp = -1;
-        private int _lastProgressionCurrentXp = -1;
         private bool? _lastProgressionRowVisible;
 
         private enum MenuButtonMode : byte {
@@ -135,7 +132,7 @@ namespace Game.Menu {
         }
 
         protected override void OnDisable() {
-            CancelUiTaskCancellationSource();
+            CancelUiTaskSource();
             _partyUiRefreshSerial++;
             ResetUiUpdateCache();
             EventBus.Unsubscribe<FrontStatusChangedEvent>(OnFrontStatusChanged);
@@ -155,7 +152,8 @@ namespace Game.Menu {
             _uiTaskCts = new CancellationTokenSource();
         }
 
-        private void CancelUiTaskCancellationSource() {
+        /// <summary>Cancels and disposes the UI task cancellation source.</summary>
+        private void CancelUiTaskSource() {
             if(_uiTaskCts == null) return;
             if(_uiTaskCts.IsCancellationRequested == false) {
                 _uiTaskCts.Cancel();
@@ -193,7 +191,7 @@ namespace Game.Menu {
             if(uiManager != null && uiManager.PartyContainer != null) {
                 uiManager.PartyContainer.style.display = DisplayStyle.Flex;
             }
-            ApplyInviteVisibilityForCurrentState();
+            ApplyInviteVisibility();
             DrawSoloPlayer();
         }
 
@@ -244,13 +242,11 @@ namespace Game.Menu {
             _lastStatusVisible = null;
             _lastMenuButtonMode = MenuButtonMode.Unknown;
             _lastMenuButtonsEnabled = false;
-            _lastProgressionLevel = -1;
-            _lastProgressionRequiredXp = -1;
-            _lastProgressionCurrentXp = -1;
             _lastProgressionRowVisible = null;
         }
 
-        private void ApplyInviteVisibilityForCurrentState() {
+        /// <summary>Updates invite button/separator visibility from current session state.</summary>
+        private void ApplyInviteVisibility() {
             var session = SessionManager.Instance;
             if(session == null) {
                 return;
@@ -287,7 +283,7 @@ namespace Game.Menu {
             var currentPartySize = SessionManager.Instance.CurrentPartySize;
 
             if(_inviteButton != null) {
-                ApplyInviteVisibilityForCurrentState();
+                ApplyInviteVisibility();
                 var inviteTooltip = steamOnline ? "Invite friends" : "Steam is offline. Invites unavailable.";
                 if(!string.Equals(_lastInviteTooltip, inviteTooltip, StringComparison.Ordinal)) {
                     _inviteButton.tooltip = inviteTooltip;
@@ -906,7 +902,7 @@ namespace Game.Menu {
             LaunchUiTask(CreatePlayerRow(displayName, displayId, iconId, true, _localProfileContainer),
                 "DrawSoloPlayer/CreatePlayerRow");
 
-            ApplyInviteVisibilityForCurrentState();
+            ApplyInviteVisibility();
         }
 
         /// <summary>
@@ -954,7 +950,7 @@ namespace Game.Menu {
                 }
             }
 
-            ApplyInviteVisibilityForCurrentState();
+            ApplyInviteVisibility();
         }
 
         /// <summary>
@@ -1128,9 +1124,6 @@ namespace Game.Menu {
             var progression = ProgressionManager.Instance;
             if(progression == null || progression.Data == null) {
                 SetLocalProgressionRowVisible(false);
-                _lastProgressionLevel = -1;
-                _lastProgressionRequiredXp = -1;
-                _lastProgressionCurrentXp = -1;
                 return;
             }
 
@@ -1147,10 +1140,6 @@ namespace Game.Menu {
             if(!string.Equals(_localLevelLabel.text, levelText, StringComparison.Ordinal)) {
                 _localLevelLabel.text = levelText;
             }
-
-            _lastProgressionLevel = level;
-            _lastProgressionRequiredXp = requiredXp;
-            _lastProgressionCurrentXp = currentXp;
         }
 
         private void SetLocalProgressionRowVisible(bool visible) {
@@ -1172,7 +1161,7 @@ namespace Game.Menu {
         }
 
         protected override void OnCleanup() {
-            CancelUiTaskCancellationSource();
+            CancelUiTaskSource();
             base.OnCleanup();
         }
 

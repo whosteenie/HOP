@@ -306,7 +306,7 @@ namespace Game.Menu {
         }
 
         private void Update() {
-            TryApplyPendingLoadoutWhileDead();
+            TryApplyPendingLoadoutWhenDead();
 
             if(!IsPaused) return;
             UpdatePauseChallengesIfDirty();
@@ -526,9 +526,9 @@ namespace Game.Menu {
         private void RegisterPauseLoadoutEvents() {
             if(_pauseLoadoutContainer == null) return;
 
-            RegisterPauseLoadoutSlotEvents(_pausePrimarySlot, _pausePrimaryDropdown);
-            RegisterPauseLoadoutSlotEvents(_pauseSecondarySlot, _pauseSecondaryDropdown);
-            RegisterPauseLoadoutSlotEvents(_pauseTertiarySlot, _pauseTertiaryDropdown);
+            RegisterPauseLoadoutEvents(_pausePrimarySlot, _pausePrimaryDropdown);
+            RegisterPauseLoadoutEvents(_pauseSecondarySlot, _pauseSecondaryDropdown);
+            RegisterPauseLoadoutEvents(_pauseTertiarySlot, _pauseTertiaryDropdown);
 
             if(_pauseLoadoutOutsideClickRegistered || Root == null) return;
             Root.RegisterCallback<PointerDownEvent>(OnPauseLoadoutRootPointerDown, TrickleDown.TrickleDown);
@@ -540,7 +540,8 @@ namespace Game.Menu {
             _pauseLoadoutOutsideClickRegistered = true;
         }
 
-        private void RegisterPauseLoadoutSlotEvents(VisualElement slot, VisualElement dropdown) {
+        /// <summary>Registers click/hover for a pause loadout slot and its dropdown.</summary>
+        private void RegisterPauseLoadoutEvents(VisualElement slot, VisualElement dropdown) {
             if(slot == null) return;
 
             EventCallback<ClickEvent> clickHandler = evt => {
@@ -560,11 +561,11 @@ namespace Game.Menu {
 
         private void OnPauseLoadoutRootPointerDown(PointerDownEvent evt) {
             if(_pauseCurrentOpenDropdown == null || evt == null) return;
-            if(IsPointerWithinPauseDropdownOrSlot(evt.position)) return;
+            if(IsPointerInPauseDropdownOrSlot(evt.position)) return;
             ClosePauseLoadoutDropdowns();
         }
 
-        private bool IsPointerWithinPauseDropdownOrSlot(Vector2 pointerPosition) {
+        private bool IsPointerInPauseDropdownOrSlot(Vector2 pointerPosition) {
             if(_pauseCurrentOpenDropdown == null) return false;
 
             if(_pauseCurrentOpenDropdown.worldBound.Contains(pointerPosition)) {
@@ -678,14 +679,14 @@ namespace Game.Menu {
         private void SelectPausePrimaryWeapon(int index) {
             _pauseSelectedPrimaryIndex = index;
             SavePauseLoadoutSelections();
-            QueuePrimarySecondaryLoadoutApply();
+            QueueLoadoutApply();
             RefreshPauseLoadoutVisuals();
         }
 
         private void SelectPauseSecondaryWeapon(int index) {
             _pauseSelectedSecondaryIndex = index;
             SavePauseLoadoutSelections();
-            QueuePrimarySecondaryLoadoutApply();
+            QueueLoadoutApply();
             RefreshPauseLoadoutVisuals();
         }
 
@@ -703,7 +704,8 @@ namespace Game.Menu {
             GameSettings.Save();
         }
 
-        private void QueuePrimarySecondaryLoadoutApply() {
+        /// <summary>Queues primary/secondary loadout apply (or applies now if not swapping on death).</summary>
+        private void QueueLoadoutApply() {
             if(!ShouldSwapWeaponsOnDeath()) {
                 ApplyLoadoutNow(deferTpRevealUntilRespawn: false);
                 return;
@@ -715,7 +717,8 @@ namespace Game.Menu {
             }
         }
 
-        private void TryApplyPendingLoadoutWhileDead() {
+        /// <summary>Applies pending loadout if still dead (e.g. after respawn timer).</summary>
+        private void TryApplyPendingLoadoutWhenDead() {
             if(!_pauseLoadoutPendingApply) return;
             if(!IsLocalPlayerDead()) return;
             ApplyPendingLoadoutNow();

@@ -98,7 +98,7 @@ namespace Game.UI.HUD {
             _waitingForPlayersLabel = QOptional<Label>("waiting-for-players-label");
 
             ApplyCrosshairSettings();
-            SyncPreMatchWaitingToastState();
+            SyncPreMatchWaitingToast();
             BindHudEvents();
         }
 
@@ -208,7 +208,7 @@ namespace Game.UI.HUD {
             // Check if we're in Tag mode (always check fresh)
             if(!IsTagMode()) {
                 // Ensure we restore numeric health if tag text was previously shown.
-                TryRestoreHealthDisplayFromLocalPlayer();
+                TryRestoreHealthFromLocalPlayer();
                 return;
             }
 
@@ -278,17 +278,17 @@ namespace Game.UI.HUD {
             ApplyCrosshairSettings();
             SetHopballInteractPrompt(false);
             SetOutOfBoundsCountdown(false);
-            SyncPreMatchWaitingToastState();
+            SyncPreMatchWaitingToast();
             
             // Reset healthbar display mode based on current game mode
             ResetHealthbarDisplayMode();
 
             // If we're not in tag mode, immediately restore numeric health text/value.
             if(!IsTagMode()) {
-                TryRestoreHealthDisplayFromLocalPlayer();
+                TryRestoreHealthFromLocalPlayer();
             }
 
-            TryRestoreAmmoDisplayFromLocalPlayer();
+            TryRestoreAmmoFromLocalPlayer();
         }
 
         /// <summary>
@@ -309,7 +309,8 @@ namespace Game.UI.HUD {
         /// Restores numeric health text/value using local player's current health when not in Gun Tag.
         /// This prevents stale "You're it!" text persisting across mode transitions.
         /// </summary>
-        private void TryRestoreHealthDisplayFromLocalPlayer() {
+        /// <summary>Restores health display from local player if available.</summary>
+        private void TryRestoreHealthFromLocalPlayer() {
             if(_healthBar == null || _healthValue == null) return;
             if(IsTagMode()) return;
 
@@ -326,7 +327,8 @@ namespace Game.UI.HUD {
             _cachedHealthText = healthText;
         }
 
-        private void TryRestoreAmmoDisplayFromLocalPlayer() {
+        /// <summary>Restores ammo display from local player if available.</summary>
+        private void TryRestoreAmmoFromLocalPlayer() {
             var localPlayer = PlayerController.LocalPlayer;
             if(localPlayer == null) return;
 
@@ -361,7 +363,8 @@ namespace Game.UI.HUD {
             RefreshTopStatusToast();
         }
 
-        private void SyncPreMatchWaitingToastState() {
+        /// <summary>Syncs pre-match waiting-for-players toast visibility.</summary>
+        private void SyncPreMatchWaitingToast() {
             var matchTimer = MatchTimerManager.Instance;
             var shouldShowWaiting = matchTimer != null && matchTimer.IsPreMatch && matchTimer.IsWaitingForPlayers;
             SetWaitingForPlayersToast(shouldShowWaiting);

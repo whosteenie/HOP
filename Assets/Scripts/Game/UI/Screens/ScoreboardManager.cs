@@ -173,7 +173,7 @@ namespace Game.UI.Screens {
             UpdateScoreDisplay();
             _lastScoreUpdateTime = Time.time;
             if(!IsScoreboardVisible) return;
-            RefreshHoverStateForCursorMode();
+            RefreshCursorModeHover();
             _rowFactory?.UpdateSpeakingIndicators(_registry?.GetAllPlayers());
         }
 
@@ -235,7 +235,7 @@ namespace Game.UI.Screens {
             UpdateScoreboardTitle();
             _scoreboardPanel.style.display = DisplayStyle.Flex;
             _scoreboardPanel.RemoveFromClassList("hidden");
-            RefreshHoverStateForCursorMode(force: true);
+            RefreshCursorModeHover(force: true);
             _header?.UpdateHeaderColumns(IsTagMode());
             UpdateScoreboard();
         }
@@ -256,7 +256,8 @@ namespace Game.UI.Screens {
             if(InGameContextMenuManager.Instance != null) InGameContextMenuManager.Instance.Hide();
         }
 
-        private void RefreshHoverStateForCursorMode(bool force = false) {
+        /// <summary>Refreshes hover state for the current cursor mode.</summary>
+        private void RefreshCursorModeHover(bool force = false) {
             if(_scoreboardPanel == null) return;
             var shouldDisable = Cursor.lockState == CursorLockMode.Locked || !Cursor.visible;
             if(!force && shouldDisable == _hoverDisabledForMouseLook) return;

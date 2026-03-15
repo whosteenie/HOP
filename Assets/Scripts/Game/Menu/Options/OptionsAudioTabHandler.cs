@@ -55,8 +55,8 @@ namespace Game.Menu.Options {
             ctx.RegisterCleanup(OptionsSettingsHelpers.BindSliderToPercentTextField(_voiceVolumeSlider, _voiceVolumeValue));
             ctx.RegisterCleanup(OptionsSettingsHelpers.BindSliderToPercentTextField(_voiceInputVolumeSlider, _voiceInputVolumeValue));
 
-            RefreshVoiceDeviceDropdownChoices();
-            RefreshVoiceDeviceDropdownChoicesDeferred(ctx.Root);
+            RefreshVoiceDeviceChoices();
+            RefreshVoiceDeviceChoicesDeferred(ctx.Root);
 
             ctx.RegisterCleanup(OptionsSettingsHelpers.SetupVolumeInputField(_masterVolumeSlider, _masterVolumeValue, 0f, 1f, true));
             ctx.RegisterCleanup(OptionsSettingsHelpers.SetupVolumeInputField(_musicVolumeSlider, _musicVolumeValue, 0f, 1f, true));
@@ -76,7 +76,7 @@ namespace Game.Menu.Options {
             if(_voiceVolumeValue != null) _voiceVolumeValue.value = Mathf.RoundToInt(SocialSettings.VoiceVolume * 100) + "%";
             if(_voiceInputVolumeSlider != null) _voiceInputVolumeSlider.value = SocialSettings.VoiceInputVolume;
             if(_voiceInputVolumeValue != null) _voiceInputVolumeValue.value = Mathf.RoundToInt(SocialSettings.VoiceInputVolume * 100) + "%";
-            RefreshVoiceDeviceDropdownChoices();
+            RefreshVoiceDeviceChoices();
         }
 
         public void Save(SettingsData data) {
@@ -134,12 +134,12 @@ namespace Game.Menu.Options {
                 _audioMixer.SetFloat("soundFXVolume", OptionsSettingsHelpers.LinearToDb(_sfxVolumeSlider.value));
         }
 
-        public void RefreshVoiceDeviceDropdownChoicesForPanel(VisualElement root) {
-            RefreshVoiceDeviceDropdownChoices();
-            RefreshVoiceDeviceDropdownChoicesDeferred(root);
+        public void RefreshVoiceDeviceChoicesForPanel(VisualElement root) {
+            RefreshVoiceDeviceChoices();
+            RefreshVoiceDeviceChoicesDeferred(root);
         }
 
-        private void RefreshVoiceDeviceDropdownChoices(string preferredDevice = null) {
+        private void RefreshVoiceDeviceChoices(string preferredDevice = null) {
             if(_voiceDeviceDropdown == null) return;
             var devices = VoiceManager.Instance != null
                 ? VoiceManager.GetAvailableInputDevices()
@@ -152,11 +152,11 @@ namespace Game.Menu.Options {
             _voiceDeviceDropdown.index = selectedIndex;
         }
 
-        private void RefreshVoiceDeviceDropdownChoicesDeferred(VisualElement root) {
+        private void RefreshVoiceDeviceChoicesDeferred(VisualElement root) {
             if(root == null) return;
-            root.schedule.Execute(() => RefreshVoiceDeviceDropdownChoices()).StartingIn(200);
-            root.schedule.Execute(() => RefreshVoiceDeviceDropdownChoices()).StartingIn(700);
-            root.schedule.Execute(() => RefreshVoiceDeviceDropdownChoices()).StartingIn(1500);
+            root.schedule.Execute(() => RefreshVoiceDeviceChoices()).StartingIn(200);
+            root.schedule.Execute(() => RefreshVoiceDeviceChoices()).StartingIn(700);
+            root.schedule.Execute(() => RefreshVoiceDeviceChoices()).StartingIn(1500);
         }
 
         private static bool FloatChanged(float? a, float b) => a.HasValue && !Mathf.Approximately(a.Value, b);

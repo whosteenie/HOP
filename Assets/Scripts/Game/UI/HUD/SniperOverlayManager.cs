@@ -51,14 +51,14 @@ namespace Game.UI.HUD {
             _crosshairContainer = root.Q<VisualElement>("crosshair-container");
             _grappleIndicator = root.Q<VisualElement>("grapple-indicator");
 
-            InitializeSniperOverlayVisual();
+            InitializeOverlayVisual();
         }
 
         private void OnDisable() {
-            CleanupSniperOverlayTexture();
+            CleanupOverlayTexture();
 
             if(_sniperOverlay != null && _sniperOverlayGeometryHooked) {
-                _sniperOverlay.UnregisterCallback<GeometryChangedEvent>(OnSniperOverlayGeometryChanged);
+                _sniperOverlay.UnregisterCallback<GeometryChangedEvent>(OnOverlayGeometryChanged);
                 _sniperOverlayGeometryHooked = false;
             }
 
@@ -69,7 +69,7 @@ namespace Game.UI.HUD {
             if(_sniperOverlay == null) return;
 
             if(show && _sniperOverlayTexture == null) {
-                GenerateSniperOverlayTexture();
+                GenerateOverlayTexture();
             }
 
             if(show) {
@@ -81,19 +81,20 @@ namespace Game.UI.HUD {
             SetSniperOverlayHudHidden(show);
         }
 
-        private void InitializeSniperOverlayVisual() {
+        /// <summary>Initializes sniper overlay visual and geometry callback.</summary>
+        private void InitializeOverlayVisual() {
             if(_sniperOverlay == null) return;
 
             if(_sniperOverlayGeometryHooked) {
-                _sniperOverlay.UnregisterCallback<GeometryChangedEvent>(OnSniperOverlayGeometryChanged);
+                _sniperOverlay.UnregisterCallback<GeometryChangedEvent>(OnOverlayGeometryChanged);
                 _sniperOverlayGeometryHooked = false;
             }
 
-            _sniperOverlay.RegisterCallback<GeometryChangedEvent>(OnSniperOverlayGeometryChanged);
+            _sniperOverlay.RegisterCallback<GeometryChangedEvent>(OnOverlayGeometryChanged);
             _sniperOverlayGeometryHooked = true;
         }
 
-        private void OnSniperOverlayGeometryChanged(GeometryChangedEvent evt) {
+        private void OnOverlayGeometryChanged(GeometryChangedEvent evt) {
             if(evt.newRect.width <= 0f || evt.newRect.height <= 0f) return;
             
             // Only regenerate if dimensions actually changed
@@ -105,10 +106,11 @@ namespace Game.UI.HUD {
             
             _cachedOverlayWidth = evt.newRect.width;
             _cachedOverlayHeight = evt.newRect.height;
-            GenerateSniperOverlayTexture();
+            GenerateOverlayTexture();
         }
 
-        private void GenerateSniperOverlayTexture() {
+        /// <summary>Generates or updates the sniper overlay texture.</summary>
+        private void GenerateOverlayTexture() {
             if(_sniperOverlay == null) return;
 
             // Use cached dimensions if available, otherwise get from resolvedStyle
@@ -194,7 +196,8 @@ namespace Game.UI.HUD {
             _sniperOverlay.style.backgroundImage = new StyleBackground(_sniperOverlayTexture);
         }
 
-        private void CleanupSniperOverlayTexture() {
+        /// <summary>Destroys overlay texture and clears caches.</summary>
+        private void CleanupOverlayTexture() {
             if(_sniperOverlayTexture == null) return;
             Destroy(_sniperOverlayTexture);
             _sniperOverlayTexture = null;

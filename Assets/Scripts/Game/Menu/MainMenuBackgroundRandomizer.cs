@@ -56,40 +56,42 @@ namespace Game.Menu {
         }
 
         private void OnDisable() {
-            RestoreCachedDepthOfFieldStates();
+            RestoreCachedDofStates();
         }
 
         private void OnDestroy() {
             if(Instance == this) {
                 Instance = null;
             }
-            RestoreCachedDepthOfFieldStates();
+            RestoreCachedDofStates();
         }
 
         private void OnValidate() {
             _selectionCacheDirty = true;
         }
 
-        public void SetBackgroundDepthOfFieldSuppressed(bool suppressed) {
+        /// <summary>Suppresses or restores depth-of-field for the background (e.g. when loadout is open).</summary>
+        public void SetDepthOfFieldSuppressed(bool suppressed) {
             _suppressDepthOfFieldForLoadout = suppressed;
             if(!_suppressDepthOfFieldForLoadout) {
-                RestoreCachedDepthOfFieldStates();
+                RestoreCachedDofStates();
                 return;
             }
 
-            ApplyDepthOfFieldSuppressionToActiveSelection();
+            ApplyDepthOfFieldToActiveSelection();
         }
 
         private void RandomizeForMainMenuEntry() {
             if(!TryGetRandomSelection(out var mapIndex, out var mannequinIndex)) {
-                DeactivateAllRegisteredObjects();
+                DeactivateAllRegistered();
                 return;
             }
 
             ActivateSelection(mapIndex, mannequinIndex);
         }
 
-        public void ApplySelectionForMainMenuEntry(string selectionName) {
+        /// <summary>Applies the given background selection by name (or randomizes if Random).</summary>
+        public void ApplySelection(string selectionName) {
             if(IsRandomSelection(selectionName)) {
                 RandomizeForMainMenuEntry();
                 return;
@@ -119,17 +121,17 @@ namespace Game.Menu {
         }
 
         [ContextMenu("Activate Random Background")]
-        public void ActivateRandomBackgroundContextMenu() {
+        public void ActivateRandomBackgroundMenu() {
             RandomizeForMainMenuEntry();
         }
 
         [ContextMenu("Deactivate All Registered Background Objects")]
-        public void DeactivateAllRegisteredObjectsContextMenu() {
-            DeactivateAllRegisteredObjects();
+        public void DeactivateAllRegisteredContextMenu() {
+            DeactivateAllRegistered();
         }
 
         private void ActivateSelection(int mapIndex, int mannequinIndex) {
-            DeactivateAllRegisteredObjects();
+            DeactivateAllRegistered();
 
             if(mapIndex < 0 || mapIndex >= mapEntries.Count) return;
             var mapEntry = mapEntries[mapIndex];
@@ -152,11 +154,11 @@ namespace Game.Menu {
             _activeSetupRoot = selectedSetup;
 
             if(enforceSingleActiveMannequinCamera) {
-                SetAllRegisteredMannequinCamerasEnabled(false);
+                SetMannequinCamerasEnabled(false);
                 SetSetupCamerasEnabled(selectedSetup, true);
             }
 
-            ApplyDepthOfFieldSuppressionToActiveSelection();
+            ApplyDepthOfFieldToActiveSelection();
 
             lastSelectedMap = string.IsNullOrWhiteSpace(mapEntry.mapId) ? $"Map {mapIndex + 1}" : mapEntry.mapId;
             lastSelectedSetup = selectedSetup != null ? selectedSetup.name : "(none)";
@@ -181,7 +183,8 @@ namespace Game.Menu {
             return true;
         }
 
-        private void DeactivateAllRegisteredObjects() {
+        /// <summary>Deactivates all registered map/mannequin background objects.</summary>
+        private void DeactivateAllRegistered() {
             if(mapEntries == null) return;
             _activeMapRoot = null;
             _activeSetupRoot = null;
@@ -202,14 +205,14 @@ namespace Game.Menu {
             }
         }
 
-        private void ApplyDepthOfFieldSuppressionToActiveSelection() {
+        private void ApplyDepthOfFieldToActiveSelection() {
             if(!_suppressDepthOfFieldForLoadout) {
                 return;
             }
 
             // If the active background changes while loadout is open, restore prior volumes first.
-            RestoreCachedDepthOfFieldStates();
-            var activeMannequinSetup = ResolveActiveMannequinSetupForDepthOfField();
+            RestoreCachedDofStates();
+            var activeMannequinSetup = ResolveActiveMannequinSetupForDof();
             if(activeMannequinSetup == null) {
                 Debug.LogWarning("[MainMenuBackgroundRandomizer][DoF] Unable to resolve active mannequin setup for suppression.", this);
                 return;
@@ -243,7 +246,7 @@ namespace Game.Menu {
                 this);
         }
 
-        private GameObject ResolveActiveMannequinSetupForDepthOfField() {
+        private GameObject ResolveActiveMannequinSetupForDof() {
             if(_activeSetupRoot != null && _activeSetupRoot.activeInHierarchy) {
                 Debug.Log(
                     $"[MainMenuBackgroundRandomizer][DoF] Using active setup root '{GetHierarchyPath(_activeSetupRoot.transform)}'.",
@@ -311,7 +314,8 @@ namespace Game.Menu {
             return _activeSetupRoot;
         }
 
-        private void RestoreCachedDepthOfFieldStates() {
+        /// <summary>Restores cached depth-of-field states on all tracked volumes.</summary>
+        private void RestoreCachedDofStates() {
             foreach(var kvp in _cachedDepthOfFieldDefaultStates) {
                 if(kvp.Key == null) continue;
                 kvp.Key.enabled = kvp.Value;
@@ -339,7 +343,8 @@ namespace Game.Menu {
             return string.Join("/", stack);
         }
 
-        private void SetAllRegisteredMannequinCamerasEnabled(bool mannequinEnabled) {
+        /// <summary>Enables or disables cameras in all registered mannequin setups.</summary>
+        private void SetMannequinCamerasEnabled(bool mannequinEnabled) {
             if(mapEntries == null) return;
             foreach(var entry in mapEntries) {
                 if(entry == null) continue;

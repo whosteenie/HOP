@@ -17,14 +17,14 @@ namespace Game.UI.Screens {
         public void Register(PlayerController player) {
             if(player == null || !_players.Add(player)) return;
             player.playerBaseColor.OnValueChanged += OnPlayerProfileChanged;
-            RebindProfileStateSubscriptions(player);
+            RebindProfileSubscriptions(player);
             _onRefreshRequested();
         }
 
         public void Unregister(PlayerController player) {
             if(player == null || !_players.Contains(player)) return;
             player.playerBaseColor.OnValueChanged -= OnPlayerProfileChanged;
-            UnbindProfileStateSubscriptions(player.OwnerClientId);
+            UnbindProfileSubscriptions(player.OwnerClientId);
             _players.Remove(player);
             _onRefreshRequested();
         }
@@ -32,12 +32,12 @@ namespace Game.UI.Screens {
         public void OnStateRegistered(ulong playerClientId, MatchPlayerStateProxy proxy) {
             var player = Find(playerClientId);
             if(player == null) return;
-            RebindProfileStateSubscriptions(player);
+            RebindProfileSubscriptions(player);
             ForceRefresh();
         }
 
         public void OnStateUnregistered(ulong playerClientId, MatchPlayerStateProxy proxy) {
-            UnbindProfileStateSubscriptions(playerClientId, proxy);
+            UnbindProfileSubscriptions(playerClientId, proxy);
             ForceRefresh();
         }
 
@@ -59,11 +59,12 @@ namespace Game.UI.Screens {
                 if(player == null) continue;
                 player.playerBaseColor.OnValueChanged -= OnPlayerProfileChanged;
             }
-            ClearProfileStateSubscriptions();
+            ClearProfileSubscriptions();
             _players.Clear();
         }
 
-        private void ClearProfileStateSubscriptions() {
+        /// <summary>Clears all profile state subscriptions.</summary>
+        private void ClearProfileSubscriptions() {
             foreach(var entry in _boundProfileStates) {
                 if(entry.Value == null) continue;
                 entry.Value.playerName.OnValueChanged -= OnPlayerProfileChanged;
@@ -77,9 +78,10 @@ namespace Game.UI.Screens {
             _onRefreshRequested();
         }
 
-        private void RebindProfileStateSubscriptions(PlayerController player) {
+        /// <summary>Rebinds profile state subscriptions for the given player.</summary>
+        private void RebindProfileSubscriptions(PlayerController player) {
             if(player == null) return;
-            UnbindProfileStateSubscriptions(player.OwnerClientId);
+            UnbindProfileSubscriptions(player.OwnerClientId);
             var playerState = player.PlayerState;
             if(playerState == null) return;
             playerState.playerName.OnValueChanged -= OnPlayerProfileChanged;
@@ -89,7 +91,8 @@ namespace Game.UI.Screens {
             _boundProfileStates[player.OwnerClientId] = playerState;
         }
 
-        private void UnbindProfileStateSubscriptions(ulong clientId, MatchPlayerStateProxy expectedState = null) {
+        /// <summary>Unbinds profile state subscriptions for the given client.</summary>
+        private void UnbindProfileSubscriptions(ulong clientId, MatchPlayerStateProxy expectedState = null) {
             if(!_boundProfileStates.TryGetValue(clientId, out var bound) || bound == null) return;
             if(expectedState != null && bound != expectedState) return;
             bound.playerName.OnValueChanged -= OnPlayerProfileChanged;

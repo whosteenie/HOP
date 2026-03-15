@@ -118,8 +118,8 @@ namespace Game.Menu {
             BindEvents();
             RefreshMapChoicesForGamemode(_draft.GamemodeId);
             RefreshMapPreview();
-            RefreshScoreToWinRowVisibility();
-            RefreshKothHillSpeedRowVisibility();
+            RefreshScoreToWinVisibility();
+            RefreshKothHillSpeedVisibility();
             RefreshTaggedRowVisibility();
             RefreshStatusLabel();
             RefreshValidationAndStartButton();
@@ -187,8 +187,8 @@ namespace Game.Menu {
             }
             RefreshMapChoicesForGamemode(_draft.GamemodeId);
             RefreshMapPreview();
-            RefreshScoreToWinRowVisibility();
-            RefreshKothHillSpeedRowVisibility();
+            RefreshScoreToWinVisibility();
+            RefreshKothHillSpeedVisibility();
             RefreshTaggedRowVisibility();
             RefreshStatusLabel();
             RefreshValidationAndStartButton();
@@ -218,10 +218,10 @@ namespace Game.Menu {
 
             _draft = new PrivateMatchDraftSettings {
                 GamemodeId = initialMode,
-                MatchTimerSeconds = Mathf.Max(60, GetDefaultMatchTimerForGamemode()),
+                MatchTimerSeconds = Mathf.Max(60, GetDefaultMatchTimer()),
                 UsePreMatchCountdown = true,
                 SwapWeaponsOnDeath = true,
-                ScoreToWin = Mathf.Max(1, GetDefaultScoreToWinForGamemode(initialMode)),
+                ScoreToWin = Mathf.Max(1, GetDefaultScoreToWin(initialMode)),
                 KothHillSpeed = Mathf.Max(1, GetDefaultKothHillSpeed()),
                 TaggedPlayers = Mathf.Max(1, defaultTaggedPlayers),
                 MapId = string.Empty
@@ -238,8 +238,8 @@ namespace Game.Menu {
             _suppressEvents = false;
             ApplyInfiniteFieldDisplay(_matchTimerField, _draft.MatchTimerSeconds == 0);
             ApplyInfiniteFieldDisplay(_scoreToWinField, _draft.ScoreToWin == 0);
-            RefreshScoreToWinRowVisibility();
-            RefreshKothHillSpeedRowVisibility();
+            RefreshScoreToWinVisibility();
+            RefreshKothHillSpeedVisibility();
             RefreshTaggedRowVisibility();
         }
 
@@ -385,12 +385,14 @@ namespace Game.Menu {
             return choices;
         }
 
-        private static int GetDefaultMatchTimerForGamemode() {
+        /// <summary>Returns default match timer for the current gamemode.</summary>
+        private static int GetDefaultMatchTimer() {
             var settings = MatchSettingsManager.Instance;
             return settings != null ? Mathf.Max(60, settings.defaultMatchDurationSeconds) : 600;
         }
 
-        private static int GetDefaultScoreToWinForGamemode(string gamemodeId) {
+        /// <summary>Returns default score-to-win for the given gamemode.</summary>
+        private static int GetDefaultScoreToWin(string gamemodeId) {
             if(string.IsNullOrWhiteSpace(gamemodeId)) return 50;
             if(string.Equals(gamemodeId, "Hopball", StringComparison.OrdinalIgnoreCase)) return 60;
             return string.Equals(gamemodeId, "KOTH", StringComparison.OrdinalIgnoreCase) ? 200 : 50;
@@ -402,8 +404,8 @@ namespace Game.Menu {
         }
 
         private void ApplyGamemodeDefaults(string gamemodeId) {
-            _draft.MatchTimerSeconds = Mathf.Max(60, GetDefaultMatchTimerForGamemode());
-            _draft.ScoreToWin = Mathf.Max(1, GetDefaultScoreToWinForGamemode(gamemodeId));
+            _draft.MatchTimerSeconds = Mathf.Max(60, GetDefaultMatchTimer());
+            _draft.ScoreToWin = Mathf.Max(1, GetDefaultScoreToWin(gamemodeId));
             _draft.KothHillSpeed = Mathf.Max(1, GetDefaultKothHillSpeed());
             if(_matchTimerField != null) {
                 _suppressEvents = true;
@@ -477,7 +479,8 @@ namespace Game.Menu {
                    || string.Equals(gamemodeId, "Hopball", StringComparison.OrdinalIgnoreCase);
         }
 
-        private void RefreshScoreToWinRowVisibility() {
+        /// <summary>Shows or hides the score-to-win row based on gamemode.</summary>
+        private void RefreshScoreToWinVisibility() {
             if(_scoreToWinRow == null) return;
             var show = UsesScoreWinCondition(_draft.GamemodeId);
             if(show) {
@@ -489,7 +492,8 @@ namespace Game.Menu {
             }
         }
 
-        private void RefreshKothHillSpeedRowVisibility() {
+        /// <summary>Shows or hides the KOTH hill speed row based on gamemode.</summary>
+        private void RefreshKothHillSpeedVisibility() {
             if(_kothHillSpeedRow == null) return;
             var show = IsKoth(_draft.GamemodeId);
             if(show) {
@@ -772,8 +776,8 @@ namespace Game.Menu {
             _draft.GamemodeId = string.IsNullOrWhiteSpace(evt.newValue) ? "Deathmatch" : evt.newValue;
             ApplyGamemodeDefaults(_draft.GamemodeId);
             RefreshMapChoicesForGamemode(_draft.GamemodeId);
-            RefreshScoreToWinRowVisibility();
-            RefreshKothHillSpeedRowVisibility();
+            RefreshScoreToWinVisibility();
+            RefreshKothHillSpeedVisibility();
             RefreshTaggedRowVisibility();
             RefreshMapPreview();
             RefreshStatusLabel();

@@ -48,7 +48,7 @@ namespace Game.UI.Screens {
 
             // Subscribe to lifecycle events and bootstrap existing players.
             RegisterNetworkCallbacks();
-            RegisterPlayerLifecycleCallbacks();
+            RegisterPlayerCallbacks();
             BootstrapTrackedPlayers();
         }
 
@@ -83,14 +83,16 @@ namespace Game.UI.Screens {
             _networkCallbacksRegistered = false;
         }
 
-        private void RegisterPlayerLifecycleCallbacks() {
+        /// <summary>Subscribes to player spawn/despawn for voice overlay tracking.</summary>
+        private void RegisterPlayerCallbacks() {
             if(_playerLifecycleCallbacksRegistered) return;
             PlayerController.PlayerSpawned += OnPlayerSpawned;
             PlayerController.PlayerDespawned += OnPlayerDespawned;
             _playerLifecycleCallbacksRegistered = true;
         }
 
-        private void UnregisterPlayerLifecycleCallbacks() {
+        /// <summary>Unsubscribes from player spawn/despawn.</summary>
+        private void UnregisterPlayerCallbacks() {
             if(_playerLifecycleCallbacksRegistered == false) return;
             PlayerController.PlayerSpawned -= OnPlayerSpawned;
             PlayerController.PlayerDespawned -= OnPlayerDespawned;
@@ -148,7 +150,7 @@ namespace Game.UI.Screens {
 
         protected override void OnCleanup() {
             this.UnsubscribeFromEventBus();
-            UnregisterPlayerLifecycleCallbacks();
+            UnregisterPlayerCallbacks();
             UnregisterNetworkCallbacks();
             foreach(var clientId in new List<ulong>(_trackedPlayers.Keys)) {
                 UnsubscribeClient(clientId);
@@ -192,7 +194,7 @@ namespace Game.UI.Screens {
         private void OnRemotePttChanged(PlayerController player, bool isActive) {
             if(_overlayContainer == null || player == null) return;
 
-            var canonicalId = GetCanonicalIdentityForPlayer(player);
+            var canonicalId = GetCanonicalIdForPlayer(player);
             if(string.IsNullOrEmpty(canonicalId)) return;
 
             // Skip local player (handled by OnLocalPttStateChanged)
@@ -368,7 +370,7 @@ namespace Game.UI.Screens {
 
         private void UnsubscribeClient(ulong clientId) {
             var canonicalId = _trackedPlayers.TryGetValue(clientId, out var player)
-                ? GetCanonicalIdentityForPlayer(player)
+                ? GetCanonicalIdForPlayer(player)
                 : null;
 
             if(player != null && _pttHandlers.TryGetValue(clientId, out var handler)) {
@@ -380,10 +382,11 @@ namespace Game.UI.Screens {
 
             if(string.IsNullOrEmpty(canonicalId)) return;
             RemoveSpeakerEntry(canonicalId);
-            RemoveParticipantMappingsForCanonicalId(canonicalId);
+            RemoveMappingsForCanonicalId(canonicalId);
         }
 
-        private void RemoveParticipantMappingsForCanonicalId(string canonicalId) {
+        /// <summary>Removes all participant-to-canonical-id mappings for the given canonical id.</summary>
+        private void RemoveMappingsForCanonicalId(string canonicalId) {
             _participantMappingsToRemove.Clear();
 
             foreach(var (participantId, participantCanonicalId) in _participantToCanonicalId) {
@@ -474,14 +477,15 @@ namespace Game.UI.Screens {
                    (string.IsNullOrEmpty(ugsIdString) ||
                     !string.Equals(ugsIdString, rawIdentity, StringComparison.Ordinal))) continue;
                 resolvedPlayer = player;
-                canonicalId = GetCanonicalIdentityForPlayer(player);
+                canonicalId = GetCanonicalIdForPlayer(player);
                 return true;
             }
 
             return false;
         }
 
-        private static string GetCanonicalIdentityForPlayer(PlayerController player) {
+        /// <summary>Returns a canonical identity string for the player (Steam or UGS id).</summary>
+        private static string GetCanonicalIdForPlayer(PlayerController player) {
             if(player == null) return null;
 
             if(player.SteamId.Value != 0) {

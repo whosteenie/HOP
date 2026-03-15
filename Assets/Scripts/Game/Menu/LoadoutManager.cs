@@ -345,7 +345,7 @@ namespace Game.Menu {
         private void ReleasePreviewRenderTexture(bool destroyAsset = true) {
             if(_previewRenderTexture == null) return;
 
-            ClearPreviewBackgroundTextureReference();
+            ClearPreviewTextureRef();
 
             if(previewCamera != null && previewCamera.targetTexture == _previewRenderTexture) {
                 previewCamera.targetTexture = null;
@@ -364,7 +364,8 @@ namespace Game.Menu {
             _previewRenderTexture = null;
         }
 
-        private void ClearPreviewBackgroundTextureReference() {
+        /// <summary>Clears the preview background texture reference.</summary>
+        private void ClearPreviewTextureRef() {
             if(_backgroundElement != null) {
                 _backgroundElement.style.backgroundImage = StyleKeyword.Null;
             }
@@ -1750,7 +1751,7 @@ namespace Game.Menu {
         }
 
         private void ShowLoadoutUnsavedModal() {
-            SetPreviewRotationBlockedByUnsavedModal(true);
+            SetPreviewRotationBlocked(true);
             if(_loadoutUnsavedModal == null) return;
             _loadoutUnsavedModal.RemoveFromClassList("hidden");
             _loadoutUnsavedModal.style.display = DisplayStyle.Flex;
@@ -1758,7 +1759,7 @@ namespace Game.Menu {
         }
 
         private void HideLoadoutUnsavedModal() {
-            SetPreviewRotationBlockedByUnsavedModal(false);
+            SetPreviewRotationBlocked(false);
             if(_loadoutUnsavedModal == null) return;
             _loadoutUnsavedModal.AddToClassList("hidden");
             _loadoutUnsavedModal.style.display = StyleKeyword.Null;
@@ -1830,7 +1831,8 @@ namespace Game.Menu {
             return _rotationEnabled && !_previewRotationBlockedByUnsavedModal;
         }
 
-        private void SetPreviewRotationBlockedByUnsavedModal(bool blocked) {
+        /// <summary>Blocks or unblocks preview rotation when an unsaved-changes modal is open.</summary>
+        private void SetPreviewRotationBlocked(bool blocked) {
             _previewRotationBlockedByUnsavedModal = blocked;
             if(!blocked) return;
 

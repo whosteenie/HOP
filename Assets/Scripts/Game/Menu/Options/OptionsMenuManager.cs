@@ -115,7 +115,7 @@ namespace Game.Menu.Options {
         protected override void OnInitialize() {
             _audioHandler = new OptionsAudioTabHandler(audioMixer);
             _videoHandler = new OptionsVideoTabHandler();
-            _gameHandler = new OptionsGameTabHandler(ResolveMainMenuBackgroundRandomizer);
+            _gameHandler = new OptionsGameTabHandler(ResolveBackgroundRandomizer);
             _controlsHandler = new OptionsControlsTabHandler();
 
             FindSharedElements();
@@ -330,7 +330,7 @@ namespace Game.Menu.Options {
             SetDefaultDescriptionForTab(tabName);
         }
 
-        private MainMenuBackgroundRandomizer ResolveMainMenuBackgroundRandomizer() {
+        private MainMenuBackgroundRandomizer ResolveBackgroundRandomizer() {
             var r = GetComponentInParent<MainMenuBackgroundRandomizer>();
             return r != null ? r : MainMenuBackgroundRandomizer.Instance;
         }
@@ -408,7 +408,7 @@ namespace Game.Menu.Options {
 
         private void ApplySettings() {
             var data = GameSettings.Data;
-            var mainMenuBackgroundSelectionChanged = _gameHandler.HasMainMenuBackgroundChange();
+            var mainMenuBackgroundSelectionChanged = _gameHandler.HasBackgroundChange();
             _audioHandler.Save(data);
             _controlsHandler.Save(data);
             _gameHandler.Save(data);
@@ -416,7 +416,7 @@ namespace Game.Menu.Options {
             if(KeybindManager.Instance != null) KeybindManager.Instance.SaveBindings();
             GameSettings.Save();
             ApplySettingsInternal();
-            if(mainMenuBackgroundSelectionChanged) _gameHandler.ApplyMainMenuBackgroundPreviewFromCurrent(onlyIfNotRandom: true);
+            if(mainMenuBackgroundSelectionChanged) _gameHandler.ApplyBackgroundPreviewFromCurrent(onlyIfNotRandom: true);
             _audioHandler.StoreOriginal();
             _controlsHandler.StoreOriginal();
             _gameHandler.StoreOriginal();
@@ -467,7 +467,7 @@ namespace Game.Menu.Options {
             OnButtonClicked(true);
             OptionsControlsTabHandler.CancelKeybindBindings();
             LoadSettings();
-            _gameHandler.ApplyMainMenuBackgroundPreviewFromCurrent();
+            _gameHandler.ApplyBackgroundPreviewFromCurrent();
             HideUnsavedChangesDialog();
             NavigateBackFromOptions();
         }
@@ -497,8 +497,8 @@ namespace Game.Menu.Options {
         #region Public
 
         public void OnOptionsPanelShown() {
-            _audioHandler.RefreshVoiceDeviceDropdownChoicesForPanel(Root);
-            _gameHandler.RefreshMainMenuBackgroundChoicesForPanel(preserveCurrentSelection: true);
+            _audioHandler.RefreshVoiceDeviceChoicesForPanel(Root);
+            _gameHandler.RefreshBackgroundChoicesForPanel(preserveCurrentSelection: true);
             var optionsPanel = Root?.Q<VisualElement>("options-panel");
             optionsPanel?.schedule.Execute(() => {
                 _tabVideo?.SetEnabled(true);

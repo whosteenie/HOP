@@ -34,7 +34,7 @@ namespace Game.Menu.Options {
         }
 
         public void SetupCallbacks(IOptionsTabContext ctx) {
-            SetupMainMenuBackgroundDropdown(ctx);
+            SetupBackgroundDropdown(ctx);
             if(_grappleIndicatorDropdown != null)
                 _grappleIndicatorDropdown.choices = new List<string> { "Crosshair", "Bottom", "None" };
             if(_crosshairStyleDropdown != null)
@@ -43,20 +43,20 @@ namespace Game.Menu.Options {
                 _crosshairColorDropdown.choices = new List<string> { "Red", "Blue", "Green", "Yellow" };
         }
 
-        private void SetupMainMenuBackgroundDropdown(IOptionsTabContext ctx) {
+        private void SetupBackgroundDropdown(IOptionsTabContext ctx) {
             if(_mainMenuBackgroundDropdown == null) return;
-            RefreshMainMenuBackgroundDropdownChoices(preserveCurrentSelection: false);
+            RefreshBackgroundDropdownChoices(preserveCurrentSelection: false);
             EventCallback<ChangeEvent<string>> handler = evt => {
-                var normalizedSelection = NormalizeMainMenuBackgroundSelection(evt.newValue);
+                var normalizedSelection = NormalizeBackgroundSelection(evt.newValue);
                 if(!string.Equals(_mainMenuBackgroundDropdown.value, normalizedSelection, StringComparison.Ordinal))
                     _mainMenuBackgroundDropdown.SetValueWithoutNotify(normalizedSelection);
-                ApplyMainMenuBackgroundSelectionPreview(normalizedSelection);
+                ApplyBackgroundSelectionPreview(normalizedSelection);
             };
             _mainMenuBackgroundDropdown.RegisterValueChangedCallback(handler);
             ctx.RegisterCleanup(() => _mainMenuBackgroundDropdown.UnregisterCallback(handler));
         }
 
-        private void RefreshMainMenuBackgroundDropdownChoices(bool preserveCurrentSelection) {
+        private void RefreshBackgroundDropdownChoices(bool preserveCurrentSelection) {
             if(_mainMenuBackgroundDropdown == null) return;
             var previousSelection = preserveCurrentSelection ? _mainMenuBackgroundDropdown.value : null;
             var choices = new List<string> { MainMenuBackgroundRandomizer.RandomSelectionOption };
@@ -67,7 +67,7 @@ namespace Game.Menu.Options {
                     choices.Add(backgroundName);
                 }
             } else {
-                var persistedSelection = NormalizeMainMenuBackgroundSelection(GameSettings.Data.video?.mainMenuBackgroundSelection);
+                var persistedSelection = NormalizeBackgroundSelection(GameSettings.Data.video?.mainMenuBackgroundSelection);
                 if(!MainMenuBackgroundRandomizer.IsRandomSelection(persistedSelection) && !choices.Contains(persistedSelection))
                     choices.Add(persistedSelection);
                 if(!string.IsNullOrWhiteSpace(previousSelection) &&
@@ -77,25 +77,25 @@ namespace Game.Menu.Options {
             }
             _mainMenuBackgroundDropdown.choices = choices;
             var selectionToSet = previousSelection ?? GameSettings.Data.video?.mainMenuBackgroundSelection;
-            selectionToSet = NormalizeMainMenuBackgroundSelection(selectionToSet);
+            selectionToSet = NormalizeBackgroundSelection(selectionToSet);
             if(!choices.Contains(selectionToSet)) selectionToSet = MainMenuBackgroundRandomizer.RandomSelectionOption;
             _mainMenuBackgroundDropdown.SetValueWithoutNotify(selectionToSet);
             _mainMenuBackgroundDropdown.SetEnabled(randomizer != null && choices.Count > 1);
         }
 
-        private static string NormalizeMainMenuBackgroundSelection(string selection) =>
+        private static string NormalizeBackgroundSelection(string selection) =>
             MainMenuBackgroundRandomizer.IsRandomSelection(selection) ? MainMenuBackgroundRandomizer.RandomSelectionOption : selection;
 
-        private void ApplyMainMenuBackgroundSelectionPreview(string selection) {
+        private void ApplyBackgroundSelectionPreview(string selection) {
             var randomizer = _resolveRandomizer();
-            if(randomizer != null) randomizer.ApplySelectionForMainMenuEntry(selection);
+            if(randomizer != null) randomizer.ApplySelection(selection);
         }
 
         public void Load(SettingsData data) {
-            RefreshMainMenuBackgroundDropdownChoices(preserveCurrentSelection: false);
+            RefreshBackgroundDropdownChoices(preserveCurrentSelection: false);
             if(_mainMenuBackgroundDropdown != null) {
                 var savedBackgroundSelection = data.video?.mainMenuBackgroundSelection;
-                var normalizedSelection = NormalizeMainMenuBackgroundSelection(savedBackgroundSelection);
+                var normalizedSelection = NormalizeBackgroundSelection(savedBackgroundSelection);
                 if(!_mainMenuBackgroundDropdown.choices.Contains(normalizedSelection))
                     normalizedSelection = MainMenuBackgroundRandomizer.RandomSelectionOption;
                 _mainMenuBackgroundDropdown.SetValueWithoutNotify(normalizedSelection);
@@ -120,7 +120,7 @@ namespace Game.Menu.Options {
 
         public void Save(SettingsData data) {
             if(data.video != null && _mainMenuBackgroundDropdown != null)
-                data.video.mainMenuBackgroundSelection = NormalizeMainMenuBackgroundSelection(_mainMenuBackgroundDropdown.value);
+                data.video.mainMenuBackgroundSelection = NormalizeBackgroundSelection(_mainMenuBackgroundDropdown.value);
             if(_grappleIndicatorDropdown != null && data.controls != null) data.controls.grappleIndicator = _grappleIndicatorDropdown.index;
             if(_crosshairStyleDropdown != null && data.controls != null) data.controls.crosshairStyle = _crosshairStyleDropdown.index;
             if(_crosshairColorDropdown != null && data.controls != null) data.controls.crosshairColor = _crosshairColorDropdown.index;
@@ -129,7 +129,7 @@ namespace Game.Menu.Options {
 
         public void StoreOriginal() {
             _originalMainMenuBackgroundSelection = _mainMenuBackgroundDropdown != null
-                ? NormalizeMainMenuBackgroundSelection(_mainMenuBackgroundDropdown.value)
+                ? NormalizeBackgroundSelection(_mainMenuBackgroundDropdown.value)
                 : MainMenuBackgroundRandomizer.RandomSelectionOption;
             _originalGrappleIndicator = _grappleIndicatorDropdown?.index ?? 0;
             _originalCrosshairStyle = _crosshairStyleDropdown?.index ?? 0;
@@ -151,12 +151,12 @@ namespace Game.Menu.Options {
 
         public void ApplyToRuntime() { }
 
-        public void RefreshMainMenuBackgroundChoicesForPanel(bool preserveCurrentSelection = true) {
-            RefreshMainMenuBackgroundDropdownChoices(preserveCurrentSelection);
+        public void RefreshBackgroundChoicesForPanel(bool preserveCurrentSelection = true) {
+            RefreshBackgroundDropdownChoices(preserveCurrentSelection);
         }
 
-        public void ApplyMainMenuBackgroundPreview(string selection) {
-            ApplyMainMenuBackgroundSelectionPreview(NormalizeMainMenuBackgroundSelection(selection));
+        public void ApplyBackgroundPreview(string selection) {
+            ApplyBackgroundSelectionPreview(NormalizeBackgroundSelection(selection));
         }
 
         /// <summary>
@@ -164,19 +164,19 @@ namespace Game.Menu.Options {
         /// When called after Apply with a non-Random selection, only applies if not Random (matches original behavior).
         /// When called after Load (e.g. discard), always applies to restore display.
         /// </summary>
-        public void ApplyMainMenuBackgroundPreviewFromCurrent(bool onlyIfNotRandom = false) {
+        public void ApplyBackgroundPreviewFromCurrent(bool onlyIfNotRandom = false) {
             if(_mainMenuBackgroundDropdown == null) return;
-            var selection = NormalizeMainMenuBackgroundSelection(_mainMenuBackgroundDropdown.value);
+            var selection = NormalizeBackgroundSelection(_mainMenuBackgroundDropdown.value);
             if(onlyIfNotRandom && MainMenuBackgroundRandomizer.IsRandomSelection(selection)) return;
-            ApplyMainMenuBackgroundSelectionPreview(selection);
+            ApplyBackgroundSelectionPreview(selection);
         }
 
         /// <summary>
         /// Returns true if the main menu background selection has changed from the stored original.
         /// </summary>
-        public bool HasMainMenuBackgroundChange() {
+        public bool HasBackgroundChange() {
             return _mainMenuBackgroundDropdown != null &&
-                   !string.Equals(NormalizeMainMenuBackgroundSelection(_mainMenuBackgroundDropdown.value), _originalMainMenuBackgroundSelection, StringComparison.Ordinal);
+                   !string.Equals(NormalizeBackgroundSelection(_mainMenuBackgroundDropdown.value), _originalMainMenuBackgroundSelection, StringComparison.Ordinal);
         }
 
         private static bool IndexChanged(DropdownField d, int orig) => d != null && d.index != orig;
