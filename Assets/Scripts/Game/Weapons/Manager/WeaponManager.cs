@@ -225,7 +225,7 @@ namespace Game.Weapons.Manager {
         public WeaponData GetWeaponDataByIndex(int index) =>
             index >= 0 && weaponDataList != null && index < weaponDataList.Count ? weaponDataList[index] : null;
         public string GetWeaponIdByIndex(int index) => GetWeaponDataByIndex(index) != null ? GetWeaponDataByIndex(index).weaponName : string.Empty;
-        public void RefreshOwnerAmmoHudFromCurrentWeapon() => _authority.RefreshOwnerAmmoHudFromCurrentWeapon();
+        public void RefreshAmmoHud() => _authority.RefreshAmmoHud();
         public void ResetAllWeaponAmmo() => _authority.ResetAllWeaponAmmo();
         public void PrepareCurrentWeaponForPostMatchPodium() => _authority.PrepareCurrentWeaponForPostMatchPodium();
         public void DrainCurrentWeaponAmmoForTag() => _authority.DrainCurrentWeaponAmmoForTag();
@@ -255,7 +255,7 @@ namespace Game.Weapons.Manager {
         public void TriggerPullOutAnimation() => _switch.TriggerPullOutAnimation();
         public void CancelPendingPullOutForPostMatch() => _switch.CancelPendingPullOutForPostMatch();
         public void SetTpWeaponIndexForPodium() => _switch.SetTpWeaponIndexForPodium();
-        public void ProcessWeaponSwitchAuthorityRequest(int newIndex) => _switch.ProcessWeaponSwitchAuthorityRequest(newIndex);
+        public void ProcessWeaponSwitchRequest(int newIndex) => _switch.ProcessWeaponSwitchRequest(newIndex);
         public GameObject GetCurrentFpWeapon() => _fpPresentation != null ? _fpPresentation.GetCurrentFpWeapon() : null;
         public GameObject GetCurrentFpWeaponHolderRootForDisconnectDuplicate() =>
             _fpPresentation.GetCurrentFpWeaponHolderRootForDisconnectDuplicate();
@@ -284,8 +284,8 @@ namespace Game.Weapons.Manager {
         internal void ResetAllWeaponAmmoServer(RpcParams rpcParams) => _authority.ResetAllWeaponAmmoServer(rpcParams);
         internal void ReportShotFiredServer(int weaponIndex, ulong shotId, float clientShotTime, RpcParams rpcParams) =>
             _authority.ReportShotFiredServer(weaponIndex, shotId, clientShotTime, rpcParams);
-        internal void UpdateServerWeaponStateOnAuthority(int weaponIndex, AmmoSyncReason reason, int localAmmoAfterEvent) =>
-            _authority.UpdateServerWeaponStateOnAuthority(weaponIndex, reason, localAmmoAfterEvent);
+        internal void UpdateServerWeaponState(int weaponIndex, AmmoSyncReason reason, int localAmmoAfterEvent) =>
+            _authority.UpdateServerWeaponState(weaponIndex, reason, localAmmoAfterEvent);
         internal void ResetAllWeaponAmmoOnAuthority() => _authority.ResetAllWeaponAmmoOnAuthority();
         internal GameObject ActivateFpWeaponInternal(int weaponIndex, WeaponData data, bool triggerPullOutAnimation) =>
             _fpPresentation.ActivateFpWeapon(weaponIndex, data, triggerPullOutAnimation);
@@ -305,7 +305,7 @@ namespace Game.Weapons.Manager {
         internal void EquipInitialWeaponInternal(int index) => EquipInitialWeapon(index);
         internal void EnsureWorldWeaponShadowStateInternal() => _switch.EnsureWorldWeaponShadowStateInternal();
         internal void EnsureWeaponHierarchyActiveInternal() => _switch.EnsureWeaponHierarchyActiveInternal();
-        internal void ApplyServerAuthoritativeWeaponSwitch(int weaponIndex) => _authority.ApplyServerAuthoritativeWeaponSwitch(weaponIndex);
+        internal void ApplyServerWeaponSwitch(int weaponIndex) => _authority.ApplyServerWeaponSwitch(weaponIndex);
         internal void ValidateComponentsForPublicUse() => ValidateComponents();
 
         #endregion

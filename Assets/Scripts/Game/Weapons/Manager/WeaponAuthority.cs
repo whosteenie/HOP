@@ -17,7 +17,8 @@ namespace Game.Weapons.Manager {
 
         private bool HasWeaponAuthority => NetworkAuthority.HasGlobalAuthority(_root);
 
-        public void RefreshOwnerAmmoHudFromCurrentWeapon() {
+        /// <summary>Refreshes owner ammo HUD from current weapon.</summary>
+        public void RefreshAmmoHud() {
             if(!_root.IsOwner) return;
             if(_root.CurrentWeaponInternal == null) return;
 
@@ -192,7 +193,7 @@ namespace Game.Weapons.Manager {
                 return;
             }
 
-            UpdateServerWeaponStateOnAuthority(weaponIndex, reason, localAmmoAfterEvent);
+            UpdateServerWeaponState(weaponIndex, reason, localAmmoAfterEvent);
         }
 
         public void ReportShotFired(int weaponIndex, ulong shotId, float clientShotTime) {
@@ -217,7 +218,7 @@ namespace Game.Weapons.Manager {
                 return;
             }
 
-            UpdateServerWeaponStateOnAuthority(weaponIndex, reason, localAmmoAfterEvent);
+            UpdateServerWeaponState(weaponIndex, reason, localAmmoAfterEvent);
         }
 
         public void ResetAllWeaponAmmoServer(RpcParams rpcParams) {
@@ -240,7 +241,7 @@ namespace Game.Weapons.Manager {
             RegisterServerShotAndLogOnAuthority(weaponIndex, shotId, clientShotTime);
         }
 
-        public void UpdateServerWeaponStateOnAuthority(int weaponIndex, WeaponManager.AmmoSyncReason reason, int localAmmoAfterEvent) {
+        public void UpdateServerWeaponState(int weaponIndex, WeaponManager.AmmoSyncReason reason, int localAmmoAfterEvent) {
             if(!HasWeaponAuthority) return;
             if(!TryValidateServerWeaponStateRequest(weaponIndex, out var data, out var magCapacity,
                    out var validationReason)) {
@@ -369,7 +370,7 @@ namespace Game.Weapons.Manager {
             ResetServerDamageMultiplierForCurrentWeapon();
         }
 
-        public void ApplyServerAuthoritativeWeaponSwitch(int weaponIndex) {
+        public void ApplyServerWeaponSwitch(int weaponIndex) {
             if(!HasWeaponAuthority) return;
             _root.ServerAuthoritativeWeaponIndex = weaponIndex;
             ClearServerReloadState();

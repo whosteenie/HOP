@@ -135,7 +135,7 @@ namespace Game.Player.Combat {
         public override void OnNetworkSpawn() {
             base.OnNetworkSpawn();
             RefreshStateBindings();
-            SyncAuthoritativeHealthShadowFromReplicated();
+            SyncHealthShadowFromReplicated();
         }
 
         private void RefreshStateBindings() {
@@ -148,7 +148,8 @@ namespace Game.Player.Combat {
             deaths = playerController.Deaths;
         }
 
-        private void SyncAuthoritativeHealthShadowFromReplicated() {
+        /// <summary>Syncs authoritative health shadow from replicated network state.</summary>
+        private void SyncHealthShadowFromReplicated() {
             if(netHealth == null || netIsDead == null) {
                 return;
             }
@@ -166,9 +167,10 @@ namespace Game.Player.Combat {
             _authoritativeHealthShadowValidUntil = Time.time + AuthoritativeHealthShadowWindowSeconds;
         }
 
-        private float ResolveAuthoritativeCurrentHealth() {
+        /// <summary>Resolves current authoritative health (from shadow or replicated).</summary>
+        private float ResolveAuthoritativeHealth() {
             if(!_hasAuthoritativeHealthShadow || Time.time > _authoritativeHealthShadowValidUntil) {
-                SyncAuthoritativeHealthShadowFromReplicated();
+                SyncHealthShadowFromReplicated();
             }
 
             return _hasAuthoritativeHealthShadow
@@ -229,7 +231,7 @@ namespace Game.Player.Combat {
                     _tagController.ApplyTimeTaggedDeltaAuthority(GunTagOobNonTaggedPenaltySeconds);
                 }
 
-                var healthBefore = ResolveAuthoritativeCurrentHealth();
+                var healthBefore = ResolveAuthoritativeHealth();
                 ApplyHealthStateAuthority(0f, true, incrementDeaths: true, hitPoint, hitDirection, bodyPartTag);
                 CommitAuthoritativeHealthShadow(0f, true);
                 _deathStatePending = true;
@@ -299,7 +301,7 @@ namespace Game.Player.Combat {
                 // No kill in tag mode (except OOB)
             } else {
                 // Normal damage mode
-                var pre = ResolveAuthoritativeCurrentHealth();
+                var pre = ResolveAuthoritativeHealth();
                 var newHp = Mathf.Max(0f, pre - amount);
                 var actualDealt = pre - newHp;
                 var isLethalHit = newHp <= 0f;

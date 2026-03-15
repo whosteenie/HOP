@@ -37,7 +37,8 @@ namespace Game.Player.Core {
             _childComponentCachesDirty = true;
         }
 
-        private void RefreshChildComponentCachesIfNeeded() {
+        /// <summary>Refreshes child component caches if dirty.</summary>
+        private void RefreshChildCachesIfNeeded() {
             if(!_childComponentCachesDirty) return;
             _cachedChildBehaviours = _player.GetComponentsInChildren<MonoBehaviour>(true);
             _cachedChildCameras = _player.GetComponentsInChildren<Camera>(true);
@@ -45,16 +46,16 @@ namespace Game.Player.Core {
             _childComponentCachesDirty = false;
         }
 
-        public void DisableConflictingKinemationFrameworkComponents() {
+        public void DisableConflictingKinemationComponents() {
             if(!_player.DisableKinemationFrameworkComponentsConfigured) return;
 
-            RefreshChildComponentCachesIfNeeded();
+            RefreshChildCachesIfNeeded();
             foreach(var behaviour in _cachedChildBehaviours) {
                 if(behaviour == null || !behaviour.enabled) continue;
                 if(IsRuntimeKinemationFpViewmodelComponent(behaviour)) continue;
 
                 var fullName = behaviour.GetType().FullName;
-                if(string.IsNullOrEmpty(fullName) || !ShouldDisableKinemationFrameworkComponent(fullName)) continue;
+                if(string.IsNullOrEmpty(fullName) || !ShouldDisableKinemationComponent(fullName)) continue;
 
                 behaviour.enabled = false;
                 if(_player.LogKinemationFrameworkDisables) {
@@ -64,7 +65,7 @@ namespace Game.Player.Core {
             }
         }
 
-        private bool ShouldDisableKinemationFrameworkComponent(string fullTypeName) {
+        private bool ShouldDisableKinemationComponent(string fullTypeName) {
             var isCameraComponent = fullTypeName is KinemationFpsCameraControllerTypeName or
                 KinemationFpsCameraAnimationTypeName or KinemationFpsCameraShakeTypeName;
 
@@ -82,10 +83,10 @@ namespace Game.Player.Core {
                 KinemationProceduralRecoilTypeName;
         }
 
-        public void DisableUnexpectedChildCamerasAndListeners() {
+        public void DisableUnexpectedCamerasAndListeners() {
             if(!_player.DisableUnexpectedChildCamerasConfigured) return;
 
-            RefreshChildComponentCachesIfNeeded();
+            RefreshChildCachesIfNeeded();
             var activeWeaponCamera = _player.WeaponCamera;
             if(activeWeaponCamera == null) {
                 foreach(var candidate in _cachedChildCameras) {

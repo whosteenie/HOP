@@ -301,8 +301,8 @@ namespace Game.Player.Core {
             BeginIdentitySync(localSteamId, ugsPlayerId, playerDisplayName);
 
         internal void LoadMaterialCustomizationFromPrefsForSpawn() => LoadMaterialCustomizationFromPrefs();
-        internal void ClearTriggerOutOfBoundsCountdownFromPresentation() => ClearTriggerOutOfBoundsCountdownServer();
-        internal void HideTriggerOutOfBoundsCountdownLocalFromPresentation() => HideTriggerOutOfBoundsCountdownLocal();
+        internal void ClearTriggerOobCountdownFromPresentation() => ClearTriggerOobCountdownServer();
+        internal void HideTriggerOobCountdownLocalFromPresentation() => HideTriggerOobCountdownLocal();
 
         #endregion
 
@@ -322,8 +322,8 @@ namespace Game.Player.Core {
         private void Awake() {
             InitializeCoordinators();
             MarkChildComponentCachesDirty();
-            DisableConflictingKinemationFrameworkComponents();
-            DisableUnexpectedChildCamerasAndListeners();
+            DisableConflictingKinemationComponents();
+            DisableUnexpectedCamerasAndListeners();
 
             if(audioRelay == null) {
                 audioRelay = GetComponent<NetworkAudioRelay>();
@@ -362,8 +362,8 @@ namespace Game.Player.Core {
             base.OnNetworkSpawn();
             InitializeCoordinators();
             MarkChildComponentCachesDirty();
-            DisableConflictingKinemationFrameworkComponents();
-            DisableUnexpectedChildCamerasAndListeners();
+            DisableConflictingKinemationComponents();
+            DisableUnexpectedCamerasAndListeners();
 
             if(IsOwner) {
                 LocalPlayer = this;
@@ -377,12 +377,12 @@ namespace Game.Player.Core {
             _spawnPresentation.HandleNetworkSpawnPresentation();
         }
 
-        private void DisableConflictingKinemationFrameworkComponents() {
-            _runtimeSafety.DisableConflictingKinemationFrameworkComponents();
+        private void DisableConflictingKinemationComponents() {
+            _runtimeSafety.DisableConflictingKinemationComponents();
         }
 
-        private void DisableUnexpectedChildCamerasAndListeners() {
-            _runtimeSafety.DisableUnexpectedChildCamerasAndListeners();
+        private void DisableUnexpectedCamerasAndListeners() {
+            _runtimeSafety.DisableUnexpectedCamerasAndListeners();
         }
 
         private void MarkChildComponentCachesDirty() {
@@ -486,7 +486,7 @@ namespace Game.Player.Core {
             UpdateAuthorityFrameState();
 
             if(IsOwner) {
-                UpdateTriggerOutOfBoundsCountdownUiOwner();
+                UpdateTriggerOobCountdownUi();
             }
 
             if(NetIsDead.Value || characterController.enabled == false) return;
@@ -508,8 +508,8 @@ namespace Game.Player.Core {
         private void UpdateRuntimeSafetyMaintenance() {
             if((!disableKinemationFrameworkComponents && !disableUnexpectedChildCameras) ||
                (Time.frameCount & 15) != 0) return;
-            DisableConflictingKinemationFrameworkComponents();
-            DisableUnexpectedChildCamerasAndListeners();
+            DisableConflictingKinemationComponents();
+            DisableUnexpectedCamerasAndListeners();
         }
 
         private void UpdateAuthorityFrameState() {
@@ -624,26 +624,26 @@ namespace Game.Player.Core {
             _outOfBounds.HandleOutOfBoundsChecks(authPos);
         }
 
-        private void ClearTriggerOutOfBoundsCountdownServer() {
-            _outOfBounds.ClearTriggerOutOfBoundsCountdownServer();
+        private void ClearTriggerOobCountdownServer() {
+            _outOfBounds.ClearTriggerOobCountdownServer();
         }
 
-        private void UpdateTriggerOutOfBoundsCountdownUiOwner() {
-            _outOfBounds.UpdateTriggerOutOfBoundsCountdownUiOwner();
-        }
-
-        [Rpc(SendTo.Owner)]
-        internal void ShowTriggerOutOfBoundsCountdownOwnerRpc(float countdownSeconds) {
-            _outOfBounds.ShowTriggerOutOfBoundsCountdownOwner(countdownSeconds);
+        private void UpdateTriggerOobCountdownUi() {
+            _outOfBounds.UpdateTriggerOobCountdownUi();
         }
 
         [Rpc(SendTo.Owner)]
-        internal void HideTriggerOutOfBoundsCountdownOwnerRpc() {
-            HideTriggerOutOfBoundsCountdownLocal();
+        internal void ShowTriggerOobCountdownOwnerRpc(float countdownSeconds) {
+            _outOfBounds.ShowTriggerOobCountdownOwner(countdownSeconds);
         }
 
-        private void HideTriggerOutOfBoundsCountdownLocal() {
-            _outOfBounds.HideTriggerOutOfBoundsCountdownLocal();
+        [Rpc(SendTo.Owner)]
+        internal void HideTriggerOobCountdownOwnerRpc() {
+            HideTriggerOobCountdownLocal();
+        }
+
+        private void HideTriggerOobCountdownLocal() {
+            _outOfBounds.HideTriggerOobCountdownLocal();
         }
 
         #endregion

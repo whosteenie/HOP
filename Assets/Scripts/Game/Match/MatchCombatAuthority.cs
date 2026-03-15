@@ -275,7 +275,7 @@ namespace Game.Match {
                 return;
             }
 
-            weaponManager.ProcessWeaponSwitchAuthorityRequest(newIndex);
+            weaponManager.ProcessWeaponSwitchRequest(newIndex);
         }
 
         [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
@@ -302,7 +302,7 @@ namespace Game.Match {
                 return;
             }
 
-            weaponManager.UpdateServerWeaponStateOnAuthority(weaponIndex, reason, localAmmoAfterEvent);
+            weaponManager.UpdateServerWeaponState(weaponIndex, reason, localAmmoAfterEvent);
         }
 
         [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]

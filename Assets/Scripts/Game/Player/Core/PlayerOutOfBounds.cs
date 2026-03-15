@@ -58,19 +58,19 @@ namespace Game.Player.Core {
                 _player.CharacterController != null &&
                 _player.CharacterController.enabled;
             if(!aliveAndControllable) {
-                ClearTriggerOutOfBoundsCountdownServer();
+                ClearTriggerOobCountdownServer();
                 return;
             }
 
             if(Time.time < _ignoreOutOfBoundsUntilTime) {
-                ClearTriggerOutOfBoundsCountdownServer();
+                ClearTriggerOobCountdownServer();
                 return;
             }
 
             if(IsYLevelOutOfBoundsKillEnabled() && authPos.y <= GetOutOfBoundsKillY()) {
                 if(Time.time - _lastDeathTime < 4f) return;
                 _lastDeathTime = Time.time;
-                ClearTriggerOutOfBoundsCountdownServer();
+                ClearTriggerOobCountdownServer();
                 if(_player.HealthController != null) {
                     _player.HealthController.ApplyDamageServer_Auth(1000f, _player.PlayerTransform.position, Vector3.up,
                         ulong.MaxValue);
@@ -79,25 +79,25 @@ namespace Game.Player.Core {
             }
 
             if(!IsTriggerOutOfBoundsKillEnabled()) {
-                ClearTriggerOutOfBoundsCountdownServer();
+                ClearTriggerOobCountdownServer();
                 return;
             }
 
             var triggerCollider = GetOutOfBoundsTriggerCollider();
             if(triggerCollider == null || !triggerCollider.enabled || !triggerCollider.gameObject.activeInHierarchy) {
-                ClearTriggerOutOfBoundsCountdownServer();
+                ClearTriggerOobCountdownServer();
                 return;
             }
 
             if(IsPositionInsideTrigger(triggerCollider, authPos)) {
-                ClearTriggerOutOfBoundsCountdownServer();
+                ClearTriggerOobCountdownServer();
                 return;
             }
 
             if(!_triggerOobCountdownActiveServer) {
                 _triggerOobCountdownActiveServer = true;
                 _triggerOobDeadlineServerTime = Time.time + TriggerOutOfBoundsCountdownSeconds;
-                _player.ShowTriggerOutOfBoundsCountdownOwnerRpc(TriggerOutOfBoundsCountdownSeconds);
+                _player.ShowTriggerOobCountdownOwnerRpc(TriggerOutOfBoundsCountdownSeconds);
                 return;
             }
 
@@ -105,28 +105,30 @@ namespace Game.Player.Core {
             if(Time.time - _lastDeathTime < 4f) return;
 
             _lastDeathTime = Time.time;
-            ClearTriggerOutOfBoundsCountdownServer();
+            ClearTriggerOobCountdownServer();
             if(_player.HealthController != null) {
                 _player.HealthController.ApplyDamageServer_Auth(1000f, _player.PlayerTransform.position, Vector3.up,
                     ulong.MaxValue);
             }
         }
 
-        public void ClearTriggerOutOfBoundsCountdownServer() {
+        /// <summary>Clears the trigger OOB countdown on the server.</summary>
+        public void ClearTriggerOobCountdownServer() {
             if(!NetworkAuthority.HasGlobalAuthority(_player) || !_triggerOobCountdownActiveServer) return;
             _triggerOobCountdownActiveServer = false;
             _triggerOobDeadlineServerTime = 0f;
-            _player.HideTriggerOutOfBoundsCountdownOwnerRpc();
+            _player.HideTriggerOobCountdownOwnerRpc();
         }
 
-        public void UpdateTriggerOutOfBoundsCountdownUiOwner() {
+        /// <summary>Updates the trigger OOB countdown UI for the owner.</summary>
+        public void UpdateTriggerOobCountdownUi() {
             if(!_player.IsOwner || !_triggerOobCountdownVisibleOwner) return;
 
             var aliveAndControllable = !_player.NetIsDead.Value &&
                 _player.CharacterController != null &&
                 _player.CharacterController.enabled;
             if(!aliveAndControllable) {
-                HideTriggerOutOfBoundsCountdownLocal();
+                HideTriggerOobCountdownLocal();
                 return;
             }
 
@@ -136,12 +138,12 @@ namespace Game.Player.Core {
             }
         }
 
-        public void ShowTriggerOutOfBoundsCountdownOwner(float countdownSeconds) {
+        public void ShowTriggerOobCountdownOwner(float countdownSeconds) {
             _triggerOobCountdownVisibleOwner = true;
             _triggerOobDeadlineOwnerTime = Time.unscaledTime + Mathf.Max(0f, countdownSeconds);
         }
 
-        public void HideTriggerOutOfBoundsCountdownLocal() {
+        public void HideTriggerOobCountdownLocal() {
             _triggerOobCountdownVisibleOwner = false;
             _triggerOobDeadlineOwnerTime = 0f;
             if(HUDManager.Instance != null) {
@@ -161,7 +163,7 @@ namespace Game.Player.Core {
             _triggerOobCountdownActiveServer = false;
             _triggerOobDeadlineServerTime = 0f;
             if(_player.IsOwner) {
-                HideTriggerOutOfBoundsCountdownLocal();
+                HideTriggerOobCountdownLocal();
             }
 
             Transform marker = null;

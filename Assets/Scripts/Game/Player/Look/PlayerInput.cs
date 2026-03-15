@@ -186,7 +186,7 @@ namespace Game.Player.Look {
                 WeaponManager.InitializeWeapons();
 
             if(IsOwner && WeaponManager != null) {
-                WeaponManager.RefreshOwnerAmmoHudFromCurrentWeapon();
+                WeaponManager.RefreshAmmoHud();
                 if(_deferredAmmoHudRefreshRoutine != null) {
                     StopCoroutine(_deferredAmmoHudRefreshRoutine);
                 }
@@ -242,12 +242,12 @@ namespace Game.Player.Look {
         private IEnumerator RefreshOwnerAmmoHudDeferred() {
             yield return null;
             if(IsOwner && WeaponManager != null) {
-                WeaponManager.RefreshOwnerAmmoHudFromCurrentWeapon();
+                WeaponManager.RefreshAmmoHud();
             }
 
             yield return new WaitForSeconds(0.05f);
             if(IsOwner && WeaponManager != null) {
-                WeaponManager.RefreshOwnerAmmoHudFromCurrentWeapon();
+                WeaponManager.RefreshAmmoHud();
             }
 
             _deferredAmmoHudRefreshRoutine = null;
@@ -935,7 +935,7 @@ namespace Game.Player.Look {
                     SniperOverlayManager.Instance.ToggleSniperOverlay(false);
                 }
                 ApplySniperOverlayEffects(false, playZoomSound: false);
-                UpdateSniperSensitivityMultiplier();
+                UpdateSniperSensitivity();
                 return;
             }
 
@@ -943,7 +943,7 @@ namespace Game.Player.Look {
                 SniperOverlayManager.Instance.ToggleSniperOverlay(IsSniperOverlayActive);
             }
             ApplySniperOverlayEffects(IsSniperOverlayActive, playZoomSound: false);
-            UpdateSniperSensitivityMultiplier();
+            UpdateSniperSensitivity();
         }
 
         private Vector3? _cachedFpWeaponPosition;
@@ -991,10 +991,11 @@ namespace Game.Player.Look {
                     Audio2.AudioService.Instance.Play("ui.sniper.zoom", Vector3.zero);
                 }
             }
-            UpdateSniperSensitivityMultiplier();
+            UpdateSniperSensitivity();
         }
 
-        private void UpdateSniperSensitivityMultiplier() {
+        /// <summary>Updates sniper scope sensitivity multiplier from settings.</summary>
+        private void UpdateSniperSensitivity() {
             if(_defaultFpFov <= 0f) return;
             _sniperSensitivityMultiplier = Mathf.Clamp(sniperZoomFov / _defaultFpFov, 0.01f, 1f);
         }

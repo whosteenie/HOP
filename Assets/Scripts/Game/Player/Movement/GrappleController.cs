@@ -690,7 +690,7 @@ namespace Game.Player.Movement {
         }
 
         private void HandleJumpPadSweepHit(RaycastHit sphereHit, bool isMegaPad) {
-            HandleJumpPadHandoffFromCollider(sphereHit.collider, isMegaPad);
+            HandleJumpPadHandoff(sphereHit.collider, isMegaPad);
         }
 
         private bool TryHandleJumpPadAnchorProximity() {
@@ -728,11 +728,12 @@ namespace Game.Player.Movement {
                 return false;
             }
 
-            HandleJumpPadHandoffFromCollider(bestCollider, bestIsMegaPad);
+            HandleJumpPadHandoff(bestCollider, bestIsMegaPad);
             return true;
         }
 
-        private void HandleJumpPadHandoffFromCollider(Collider padCollider, bool isMegaPad) {
+        /// <summary>Handles jump pad handoff from the given collider.</summary>
+        private void HandleJumpPadHandoff(Collider padCollider, bool isMegaPad) {
             if(playerController == null) {
                 EndGrapple(true);
                 return;

@@ -97,7 +97,7 @@ namespace Game.Social {
                 VivoxService.Instance.ParticipantRemovedFromChannel += OnParticipantRemovedFromChannel;
 
                 // Login automatically if we have a user
-                await EnsureLoggedInForCurrentIdentityAsync();
+                await EnsureLoggedInForIdentityAsync();
 
             } catch (Exception e) {
                 Debug.LogError($"[VoiceManager] Initialization Failed: {e.Message}");
@@ -129,7 +129,7 @@ namespace Game.Social {
             return StreamerMode.GetLocalDisplayName();
         }
 
-        private async Task<bool> EnsureLoggedInForCurrentIdentityAsync(bool forceRelogin = false) {
+        private async Task<bool> EnsureLoggedInForIdentityAsync(bool forceRelogin = false) {
             if(!IsInitialized || VivoxService.Instance == null) return false;
 
             var identity = ResolvePreferredIdentity();
@@ -141,7 +141,7 @@ namespace Game.Social {
 
             if(VivoxService.Instance.IsLoggedIn) {
                 try {
-                    await LeaveCurrentChannelInternalAsync("EnsureLoggedInForCurrentIdentity");
+                    await LeaveCurrentChannelAsync("EnsureLoggedInForIdentity");
                 } catch {
                     // Continue with logout even if channel leave reports stale state.
                 }
@@ -160,7 +160,7 @@ namespace Game.Social {
             return IsLoggedIn;
         }
 
-        private async Task LeaveCurrentChannelInternalAsync(string reason) {
+        private async Task LeaveCurrentChannelAsync(string reason) {
             if(VivoxService.Instance == null) {
                 PublishVoiceOverlayReset();
                 _currentChannelName = null;
@@ -229,7 +229,7 @@ namespace Game.Social {
             }
 
             try {
-                var reloggedIn = await EnsureLoggedInForCurrentIdentityAsync(forceRelogin: true);
+                var reloggedIn = await EnsureLoggedInForIdentityAsync(forceRelogin: true);
                 if(reloggedIn == false && ShouldEmitThrottledLog(ref _nextJoinFailureLogTime, 5f)) {
                     Debug.LogWarning("[VoiceManager] Vivox re-authentication failed after claims mismatch.");
                 }
@@ -266,7 +266,7 @@ namespace Game.Social {
 
                 Exception lastException = null;
                 for(var attempt = 1; attempt <= MaxJoinAttempts; attempt++) {
-                    if(await EnsureLoggedInForCurrentIdentityAsync() == false) {
+                    if(await EnsureLoggedInForIdentityAsync() == false) {
                         if(ShouldEmitThrottledLog(ref _nextJoinFailureLogTime, 5f)) {
                             Debug.LogWarning("[VoiceManager] JoinChannelAsync aborted because Vivox login is unavailable.");
                         }
@@ -275,7 +275,7 @@ namespace Game.Social {
 
                     try {
                         if(!string.IsNullOrEmpty(_currentChannelName) && _currentChannelName != channelName) {
-                            await LeaveCurrentChannelInternalAsync("SwitchChannel");
+                            await LeaveCurrentChannelAsync("SwitchChannel");
                         }
 
                         if(!Application.isEditor && Debug.isDebugBuild &&
@@ -353,7 +353,7 @@ namespace Game.Social {
             await _channelOperationGate.WaitAsync();
             try {
                 if(!IsLoggedIn && string.IsNullOrEmpty(_currentChannelName)) return;
-                await LeaveCurrentChannelInternalAsync("LeaveChannelAsync");
+                await LeaveCurrentChannelAsync("LeaveChannelAsync");
                 Debug.Log("[VoiceManager] Channel left.");
             } finally {
                 _channelOperationGate.Release();

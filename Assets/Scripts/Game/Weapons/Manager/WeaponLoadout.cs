@@ -123,7 +123,7 @@ namespace Game.Weapons.Manager {
             UpdateHolsterVisibility();
 
             if(_root.IsOwner) {
-                _root.RefreshOwnerAmmoHudFromCurrentWeapon();
+                _root.RefreshAmmoHud();
             }
 
             _root.EnsureFpWeaponLightingRigInternal();

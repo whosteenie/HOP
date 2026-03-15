@@ -83,7 +83,7 @@ namespace Game.Weapons.Manager {
             }
 
             if(HasWeaponAuthority) {
-                ProcessWeaponSwitchAuthorityRequest(newIndex);
+                ProcessWeaponSwitchRequest(newIndex);
                 return;
             }
 
@@ -102,7 +102,7 @@ namespace Game.Weapons.Manager {
             }
         }
 
-        public void ProcessWeaponSwitchAuthorityRequest(int newIndex) {
+        public void ProcessWeaponSwitchRequest(int newIndex) {
             if(!HasWeaponAuthority) return;
             var approvedWeaponIndex = GetServerAuthoritativeWeaponIndex();
             if(!TryConsumeWeaponSwitchQuota()) {
@@ -115,7 +115,7 @@ namespace Game.Weapons.Manager {
                 return;
             }
 
-            _root.ApplyServerAuthoritativeWeaponSwitch(newIndex);
+            _root.ApplyServerWeaponSwitch(newIndex);
             if(_root.ResolvePlayerState() == null) {
                 _root.RejectPredictedWeaponSwitchOwnerRpc(approvedWeaponIndex);
                 return;
