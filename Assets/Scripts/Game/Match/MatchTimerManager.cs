@@ -206,8 +206,9 @@ namespace Game.Match {
             _clientsScenePresented.Remove(clientId);
         }
 
+        /// <summary>Server RPC: client reports that the gameplay scene is loaded and presented.</summary>
         [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
-        public void ReportClientScenePresentedServerRpc(RpcParams rpcParams = default) {
+        public void ReportScenePresentedServerRpc(RpcParams rpcParams = default) {
             if(!HasMatchAuthority) return;
             MarkClientScenePresented(rpcParams.Receive.SenderClientId, "ClientServerRpc");
         }

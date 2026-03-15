@@ -423,7 +423,7 @@ namespace Network.Session {
                     Debug.Log(
                         $"[SessionManager] Using preset private match map ({context}) mapId='{ctx.SelectedMapId}' scene='{ctx.SelectedMapSceneName}'.");
                 }
-            } else if(MatchMapService.TrySelectRandomSceneForGamemode(ctx.SelectedGameMode, out var sceneName, out var mapId)) {
+            } else if(MatchMapService.TrySelectRandomScene(ctx.SelectedGameMode, out var sceneName, out var mapId)) {
                 actions.SetSelectedMap(mapId, sceneName);
             } else {
                 actions.SetSelectedMap(MatchMapService.DefaultMapId, MatchMapService.DefaultGameplaySceneName);
@@ -511,7 +511,7 @@ namespace Network.Session {
                             if(NetworkAuthority.HasGlobalAuthority(nm)) {
                                 MatchTimerManager.Instance.MarkClientScenePresented(nm.LocalClientId, "HostLocalFadeIn");
                             } else {
-                                MatchTimerManager.Instance.ReportClientScenePresentedServerRpc();
+                                MatchTimerManager.Instance.ReportScenePresentedServerRpc();
                             }
                         }
                     }
@@ -519,7 +519,7 @@ namespace Network.Session {
                     if(NetworkAuthority.HasGlobalAuthority(nm)) {
                         MatchTimerManager.Instance.MarkClientScenePresented(nm.LocalClientId, "HostNoTransitionManager");
                     } else {
-                        MatchTimerManager.Instance.ReportClientScenePresentedServerRpc();
+                        MatchTimerManager.Instance.ReportScenePresentedServerRpc();
                     }
                 }
             } catch(Exception ex) {

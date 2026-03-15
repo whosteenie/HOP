@@ -28,7 +28,7 @@ namespace Game.Match {
                     return pool.FallbackGameplaySceneName;
                 }
 
-                var inferred = InferFallbackGameplaySceneFromBuildSettings();
+                var inferred = InferFallbackGameplayScene();
                 return string.IsNullOrWhiteSpace(inferred) ? LegacyFallbackScene : inferred;
             }
         }
@@ -63,7 +63,8 @@ namespace Game.Match {
             return false;
         }
 
-        public static bool TrySelectRandomSceneForGamemode(string gamemodeId, out string sceneName, out string mapId) {
+        /// <summary>Selects a random enabled map scene that supports the given gamemode.</summary>
+        public static bool TrySelectRandomScene(string gamemodeId, out string sceneName, out string mapId) {
             EnsureLoaded();
 
             if(pool == null || pool.Maps == null || pool.Maps.Count == 0) {
@@ -140,7 +141,8 @@ namespace Game.Match {
             return false;
         }
 
-        public static bool IsYLevelOutOfBoundsKillEnabled(string sceneName) {
+        /// <summary>True if the map for the given scene uses Y-level out-of-bounds kill.</summary>
+        public static bool IsOobKillEnabled(string sceneName) {
             if(string.IsNullOrWhiteSpace(sceneName)) {
                 return true;
             }
@@ -159,7 +161,8 @@ namespace Game.Match {
             return true;
         }
 
-        public static bool IsTriggerOutOfBoundsKillEnabled(string sceneName) {
+        /// <summary>True if the map for the given scene uses trigger-based out-of-bounds kill.</summary>
+        public static bool IsTriggerOobKillEnabled(string sceneName) {
             if(string.IsNullOrWhiteSpace(sceneName)) {
                 return false;
             }
@@ -184,7 +187,8 @@ namespace Game.Match {
             pool = Resources.Load<MapPoolDefinition>(ResourcePath);
         }
 
-        private static string InferFallbackGameplaySceneFromBuildSettings() {
+        /// <summary>Infers a fallback gameplay scene from build settings when no map pool is set.</summary>
+        private static string InferFallbackGameplayScene() {
             var count = SceneManager.sceneCountInBuildSettings;
             if(count <= 0) {
                 return LegacyFallbackScene;

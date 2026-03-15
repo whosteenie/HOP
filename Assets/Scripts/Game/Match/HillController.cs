@@ -79,7 +79,7 @@ namespace Game.Match {
                 
                 _isMoving = true;
                 RegisterNetworkCallbacks();
-                RefreshTrackedPlayersFromNetwork();
+                RefreshTrackedPlayers();
             }
 
             _currentState.OnValueChanged += OnStateChanged;
@@ -122,7 +122,7 @@ namespace Game.Match {
             _targetPosition.Normalize();
             _isMoving = true;
             RegisterNetworkCallbacks();
-            RefreshTrackedPlayersFromNetwork();
+            RefreshTrackedPlayers();
         }
 
         private void OnStateChanged(HillState previous, HillState current) {
@@ -158,7 +158,7 @@ namespace Game.Match {
 
             if (!HasHillAuthority) return;
             if(_pendingTrackedPlayersRefresh || Time.unscaledTime >= _nextTrackedPlayersRefreshTime) {
-                RefreshTrackedPlayersFromNetwork();
+                RefreshTrackedPlayers();
             }
 
             // Roomba Movement Logic
@@ -288,7 +288,8 @@ namespace Game.Match {
             _trackedPlayers.Remove(clientId);
         }
 
-        private void RefreshTrackedPlayersFromNetwork() {
+        /// <summary>Refreshes the set of tracked players from the network.</summary>
+        private void RefreshTrackedPlayers() {
             var networkManager = NetworkManager.Singleton;
             if(networkManager == null) {
                 _trackedPlayers.Clear();

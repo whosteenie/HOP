@@ -155,8 +155,8 @@ namespace Game.Player.Core {
 
             _cachedOobSceneHandle = activeScene.handle;
             _cachedOutOfBoundsY = _player.DefaultOutOfBoundsY;
-            _cachedUseYLevelOutOfBoundsKill = MatchMapService.IsYLevelOutOfBoundsKillEnabled(activeScene.name);
-            _cachedUseTriggerOutOfBoundsKill = MatchMapService.IsTriggerOutOfBoundsKillEnabled(activeScene.name);
+            _cachedUseYLevelOutOfBoundsKill = MatchMapService.IsOobKillEnabled(activeScene.name);
+            _cachedUseTriggerOutOfBoundsKill = MatchMapService.IsTriggerOobKillEnabled(activeScene.name);
             _cachedOutOfBoundsTriggerCollider = null;
             _triggerOobCountdownActiveServer = false;
             _triggerOobDeadlineServerTime = 0f;

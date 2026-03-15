@@ -94,7 +94,7 @@ namespace Game.Weapons.Manager {
             if(MatchCombatAuthority.Instance != null && _root.NetworkObject != null && _root.NetworkObject.IsSpawned) {
                 ApplyApprovedLocalWeaponSwitch(newIndex);
                 _root.PendingPredictedWeaponIndex = newIndex;
-                MatchCombatAuthority.Instance.RequestWeaponSwitchAuthorityServerRpc(
+                MatchCombatAuthority.Instance.RequestWeaponSwitchServerRpc(
                     new NetworkObjectReference(_root.NetworkObject), newIndex);
             } else {
                 Debug.LogError(

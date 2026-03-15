@@ -69,7 +69,7 @@ namespace Game.Match {
         }
 
         [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
-        public void RequestDamageAuthorityServerRpc(NetworkObjectReference targetRef, Vector3 hitPoint,
+        public void RequestDamageServerRpc(NetworkObjectReference targetRef, Vector3 hitPoint,
             Vector3 hitDirection, string bodyPartTag = null, bool isHeadshot = false, int weaponIndex = -1,
             float clientShotTime = 0f, ulong shotId = 0, RpcParams rpcParams = default) {
             var shooterId = rpcParams.Receive.SenderClientId;
@@ -97,7 +97,7 @@ namespace Game.Match {
             }
 
             if(!DebugHelpers.TryGetNetworkObjectSafe(targetRef, out var targetObject, shooterId,
-                    "MatchCombatAuthority.RequestDamageAuthorityServerRpc")) {
+                    "MatchCombatAuthority.RequestDamageServerRpc")) {
                 return;
             }
 
@@ -183,7 +183,7 @@ namespace Game.Match {
         }
 
         [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
-        public void RequestShotFxAuthorityServerRpc(NetworkObjectReference shooterRef, Vector3 endPoint,
+        public void RequestShotFxServerRpc(NetworkObjectReference shooterRef, Vector3 endPoint,
             Vector3 hitNormal, bool madeImpact, bool hitPlayer, NetworkObjectReference hitPlayerRef,
             bool playMuzzleFlash, Vector3 shooterVelocity, RpcParams rpcParams = default) {
             if(!NetworkAuthority.HasGlobalAuthority(this)) {
@@ -197,7 +197,7 @@ namespace Game.Match {
 
             var shooter = shooterObject.GetComponent<PlayerController>();
             if(shooter == null || shooter.OwnerClientId != senderClientId) {
-                AntiCheatLogger.LogAuthorityViolation("MatchCombatAuthority.RequestShotFxAuthorityServerRpc",
+                AntiCheatLogger.LogAuthorityViolation("MatchCombatAuthority.RequestShotFxServerRpc",
                     senderClientId);
                 return;
             }
@@ -225,7 +225,7 @@ namespace Game.Match {
         }
 
         [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
-        public void RequestShotReportAuthorityServerRpc(NetworkObjectReference playerRef, int weaponIndex, ulong shotId,
+        public void RequestShotReportServerRpc(NetworkObjectReference playerRef, int weaponIndex, ulong shotId,
             float clientShotTime, RpcParams rpcParams = default) {
             if(!NetworkAuthority.HasGlobalAuthority(this)) {
                 return;
@@ -243,7 +243,7 @@ namespace Game.Match {
             }
 
             if(player.OwnerClientId != senderClientId) {
-                AntiCheatLogger.LogAuthorityViolation("MatchCombatAuthority.RequestShotReportAuthorityServerRpc",
+                AntiCheatLogger.LogAuthorityViolation("MatchCombatAuthority.RequestShotReportServerRpc",
                     senderClientId);
                 return;
             }
@@ -252,7 +252,7 @@ namespace Game.Match {
         }
 
         [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
-        public void RequestWeaponSwitchAuthorityServerRpc(NetworkObjectReference playerRef, int newIndex,
+        public void RequestWeaponSwitchServerRpc(NetworkObjectReference playerRef, int newIndex,
             RpcParams rpcParams = default) {
             if(!NetworkAuthority.HasGlobalAuthority(this)) {
                 return;
@@ -270,7 +270,7 @@ namespace Game.Match {
             }
 
             if(player.OwnerClientId != senderClientId) {
-                AntiCheatLogger.LogAuthorityViolation("MatchCombatAuthority.RequestWeaponSwitchAuthorityServerRpc",
+                AntiCheatLogger.LogAuthorityViolation("MatchCombatAuthority.RequestWeaponSwitchServerRpc",
                     senderClientId);
                 return;
             }
@@ -279,7 +279,7 @@ namespace Game.Match {
         }
 
         [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
-        public void RequestWeaponStateSyncAuthorityServerRpc(NetworkObjectReference playerRef, int weaponIndex,
+        public void RequestWeaponStateSyncServerRpc(NetworkObjectReference playerRef, int weaponIndex,
             WeaponManager.AmmoSyncReason reason, int localAmmoAfterEvent, RpcParams rpcParams = default) {
             if(!NetworkAuthority.HasGlobalAuthority(this)) {
                 return;
@@ -297,7 +297,7 @@ namespace Game.Match {
             }
 
             if(player.OwnerClientId != senderClientId) {
-                AntiCheatLogger.LogAuthorityViolation("MatchCombatAuthority.RequestWeaponStateSyncAuthorityServerRpc",
+                AntiCheatLogger.LogAuthorityViolation("MatchCombatAuthority.RequestWeaponStateSyncServerRpc",
                     senderClientId);
                 return;
             }
@@ -306,7 +306,7 @@ namespace Game.Match {
         }
 
         [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
-        public void RequestResetWeaponAmmoAuthorityServerRpc(NetworkObjectReference playerRef,
+        public void RequestResetWeaponAmmoServerRpc(NetworkObjectReference playerRef,
             RpcParams rpcParams = default) {
             if(!NetworkAuthority.HasGlobalAuthority(this)) {
                 return;
@@ -324,7 +324,7 @@ namespace Game.Match {
             }
 
             if(player.OwnerClientId != senderClientId) {
-                AntiCheatLogger.LogAuthorityViolation("MatchCombatAuthority.RequestResetWeaponAmmoAuthorityServerRpc",
+                AntiCheatLogger.LogAuthorityViolation("MatchCombatAuthority.RequestResetWeaponAmmoServerRpc",
                     senderClientId);
                 return;
             }
@@ -333,7 +333,7 @@ namespace Game.Match {
         }
 
         [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
-        public void RequestRespawnAuthorityServerRpc(NetworkObjectReference playerRef, RpcParams rpcParams = default) {
+        public void RequestRespawnServerRpc(NetworkObjectReference playerRef, RpcParams rpcParams = default) {
             if(!NetworkAuthority.HasGlobalAuthority(this)) {
                 return;
             }
@@ -351,7 +351,7 @@ namespace Game.Match {
             }
 
             if(player.OwnerClientId != senderClientId) {
-                AntiCheatLogger.LogAuthorityViolation("MatchCombatAuthority.RequestRespawnAuthorityServerRpc",
+                AntiCheatLogger.LogAuthorityViolation("MatchCombatAuthority.RequestRespawnServerRpc",
                     senderClientId);
                 return;
             }

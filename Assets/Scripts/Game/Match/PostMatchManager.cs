@@ -28,12 +28,14 @@ namespace Game.Match {
 
         [Header("Podium Setup")]
         [SerializeField] private CinemachineCamera podiumCamera;
+
         [SerializeField] private Transform firstPlaceAnchor;
         [SerializeField] private Transform secondPlaceAnchor;
         [SerializeField] private Transform thirdPlaceAnchor;
 
         [Header("UI")]
         [SerializeField] private UIDocument uiDocument;
+
         [SerializeField] private PostMatchXpDisplay xpDisplay;
 
         [Header("Timing")]
@@ -107,6 +109,7 @@ namespace Game.Match {
             if(uiDocument == null) {
                 uiDocument = GetComponent<UIDocument>();
             }
+
             if(uiDocument == null) {
                 Debug.LogError("[PostMatchManager] UIDocument is not assigned on PostMatchManager. " +
                                "Assign UIDocument on Game scene object 'PostMatchManager'.");
@@ -182,6 +185,7 @@ namespace Game.Match {
             if(_xpDisplay == null) {
                 _xpDisplay = xpDisplay != null ? xpDisplay : GetComponent<PostMatchXpDisplay>();
             }
+
             if(_xpDisplay != null && _xpDisplay.uiDocument == null) {
                 _xpDisplay.uiDocument = uiDocument;
             }
@@ -189,7 +193,9 @@ namespace Game.Match {
             var currentRoot = uiDocument.rootVisualElement;
             if(currentRoot == null) {
                 if(_missingUiReferenceLogged) return false;
-                Debug.LogError("[PostMatchManager] UIDocument rootVisualElement is null; cannot bind post-match UI references.", this);
+                Debug.LogError(
+                    "[PostMatchManager] UIDocument rootVisualElement is null; cannot bind post-match UI references.",
+                    this);
                 _missingUiReferenceLogged = true;
                 return false;
             }
@@ -328,7 +334,7 @@ namespace Game.Match {
 
         private IEnumerator PostMatchSequence() {
             // 1) Tell all clients to fade to black + hide HUD bits
-            RequestFadeToPodiumClientRpc();
+            FadeToPodiumClientRpc();
 
             // 1b) Announce results and award XP
             // We need to fetch the winner if we came from score.
@@ -345,7 +351,7 @@ namespace Game.Match {
             ActivatePodiumCameraClientRpc();
 
             yield return null; // small frame delay before fade in
-            RequestFadeInFromPodiumClientRpc();
+            FadeInFromPodiumClientRpc();
 
             // 4) Stay on podium for a bit
             yield return new WaitForSeconds(podiumDuration);
@@ -474,8 +480,9 @@ namespace Game.Match {
         }
 
         // --- CLIENT RPCs ---
+        /// <summary>Fades to black and prepares HUD for podium (all clients).</summary>
         [Rpc(SendTo.Everyone)]
-        private void RequestFadeToPodiumClientRpc() {
+        private void FadeToPodiumClientRpc() {
             try {
                 EnsureUiReferencesBound();
                 ResetPostMatchUiState();
@@ -493,7 +500,8 @@ namespace Game.Match {
                         SceneTransitionManager.Instance.FadeOutRespawnOverlay()
                     );
                 }
-                _blackoutReadyRoutine = StartCoroutine(MarkPodiumBlackoutReadyAfterFade());
+
+                _blackoutReadyRoutine = StartCoroutine(MarkBlackoutReadyAfterFade());
 
                 // Enter post-match HUD mode (hide crosshair, timer, etc.)
                 if(GameMenuManager.Instance != null) {
@@ -514,17 +522,19 @@ namespace Game.Match {
                 if(HUDManager.Instance != null) {
                     EventBus.Publish(new HideHUDEvent());
                 }
+
                 HideInGameHudForPostMatch();
                 DisableHopballTargets();
             } catch(Exception e) {
-                DebugHelpers.PublishCriticalError($"PostMatchManager.RequestFadeToPodiumClientRpc failed: {e.Message}", 
-                    "PostMatchManager.RequestFadeToPodiumClientRpc", e);
+                DebugHelpers.PublishCriticalError($"PostMatchManager.FadeToPodiumClientRpc failed: {e.Message}",
+                    "PostMatchManager.FadeToPodiumClientRpc", e);
                 Debug.LogException(e);
             }
         }
+
         [Rpc(SendTo.Everyone)]
         private void AnnounceMatchResultClientRpc(SpawnPoint.Team winningTeam) {
-            if (Progression.ProgressionManager.Instance == null) return;
+            if(Progression.ProgressionManager.Instance == null) return;
 
             // Match Completion XP
             Progression.ProgressionManager.Instance.AddXp(100);
@@ -533,45 +543,45 @@ namespace Game.Match {
             // We need to check our local team.
             // Assumption: PlayerTeamManager sets the local player's team in a way we can access, or we check NetworkManager.LocalClient
             var localTeam = SpawnPoint.Team.None;
-            if (NetworkManager.Singleton != null && NetworkManager.Singleton.LocalClient != null && 
-                NetworkManager.Singleton.LocalClient.PlayerObject != null) {
+            if(NetworkManager.Singleton != null && NetworkManager.Singleton.LocalClient != null &&
+               NetworkManager.Singleton.LocalClient.PlayerObject != null) {
                 var teamManager = NetworkManager.Singleton.LocalClient.PlayerObject.GetComponent<PlayerTeamManager>();
-                if (teamManager != null) {
+                if(teamManager != null) {
                     localTeam = teamManager.netTeam.Value;
                 }
             }
 
             var matchSettings = MatchSettingsManager.Instance;
-            var isTrackedGamemode = matchSettings != null && 
+            var isTrackedGamemode = matchSettings != null &&
                                     matchSettings.selectedGameModeId is "Team Deathmatch" or "Hopball" or "KOTH";
 
-            if (isTrackedGamemode && localTeam != SpawnPoint.Team.None) {
-                if (localTeam == winningTeam) {
-                     Progression.ProgressionManager.Instance.AddXp(500); // Win Bonus
-                     Progression.ProgressionManager.Instance.RecordWin();
-                } else if (winningTeam != SpawnPoint.Team.None) {
-                     // Only record loss if there was a winner (not a draw) and we didn't win
-                     Progression.ProgressionManager.Instance.RecordLoss();
+            if(isTrackedGamemode && localTeam != SpawnPoint.Team.None) {
+                if(localTeam == winningTeam) {
+                    Progression.ProgressionManager.Instance.AddXp(500); // Win Bonus
+                    Progression.ProgressionManager.Instance.RecordWin();
+                } else if(winningTeam != SpawnPoint.Team.None) {
+                    // Only record loss if there was a winner (not a draw) and we didn't win
+                    Progression.ProgressionManager.Instance.RecordLoss();
                 }
-                
-                // Track "Matches Played" for team modes, but NOT placement for now.
-                Progression.ProgressionManager.Instance.RecordMatchComplete(matchSettings.selectedGameModeId, 0); // 0 = no placement context
 
+                // Track "Matches Played" for team modes, but NOT placement for now.
+                Progression.ProgressionManager.Instance.RecordMatchComplete(matchSettings.selectedGameModeId,
+                    0); // 0 = no placement context
             } else {
                 // FFA Mode (Gun Tag, Deathmatch)
-                if (ScoreboardManager.Instance != null && 
-                    ScoreboardManager.Instance.GetLocalPlayerPlacement(out var rank, out _)) {
-                    
+                if(ScoreboardManager.Instance != null &&
+                   ScoreboardManager.Instance.GetLocalPlayerPlacement(out var rank, out _)) {
                     // Award Win if Rank 1?
-                    if (rank == 1) {
+                    if(rank == 1) {
                         Progression.ProgressionManager.Instance.AddXp(500);
                         Progression.ProgressionManager.Instance.RecordWin();
                     } else {
                         Progression.ProgressionManager.Instance.RecordLoss();
                     }
-                    
-                    if (matchSettings != null) {
-                        Progression.ProgressionManager.Instance.RecordMatchComplete(matchSettings.selectedGameModeId, rank);
+
+                    if(matchSettings != null) {
+                        Progression.ProgressionManager.Instance.RecordMatchComplete(matchSettings.selectedGameModeId,
+                            rank);
                     }
                 }
             }
@@ -579,18 +589,20 @@ namespace Game.Match {
             // Record Average Speed for this match
 
             // Record Average Speed for this match
-            if (NetworkManager.Singleton != null && NetworkManager.Singleton.LocalClient != null && 
-                NetworkManager.Singleton.LocalClient.PlayerObject != null) {
+            if(NetworkManager.Singleton != null && NetworkManager.Singleton.LocalClient != null &&
+               NetworkManager.Singleton.LocalClient.PlayerObject != null) {
                 var statsCtrl = NetworkManager.Singleton.LocalClient.PlayerObject.GetComponent<PlayerStatsController>();
-                if (statsCtrl != null) {
+                if(statsCtrl != null) {
                     Progression.ProgressionManager.Instance.RecordMatchAverageSpeed(statsCtrl.AverageVelocity.Value);
                 }
             }
 
             Progression.ProgressionManager.Instance.EndMatch();
         }
+
+        /// <summary>Fades back in from black after podium (all clients).</summary>
         [Rpc(SendTo.Everyone)]
-        private void RequestFadeInFromPodiumClientRpc() {
+        private void FadeInFromPodiumClientRpc() {
             IsPodiumBlackoutActive = false;
             if(_blackoutReadyRoutine != null) {
                 StopCoroutine(_blackoutReadyRoutine);
@@ -603,8 +615,9 @@ namespace Game.Match {
                 );
             }
 
-            StartLocalReturnToMenuCountdown();
+            StartReturnToMenuCountdown();
         }
+
         [Rpc(SendTo.Everyone)]
         private void ActivatePodiumCameraClientRpc() {
             if(podiumCamera == null) return;
@@ -623,6 +636,7 @@ namespace Game.Match {
             // Optionally, give it the highest priority if you're using multiple cams
             // podiumCamera.Priority = 100;
         }
+
         [Rpc(SendTo.Everyone)]
         private void UpdatePodiumUiClientRpc(
             string firstName, int firstScore,
@@ -636,7 +650,7 @@ namespace Game.Match {
             _secondPlacePlayerId = secondPlayerId;
             _thirdPlacePlayerId = thirdPlayerId;
             SetPodiumSlots(firstName, firstScore, secondName, secondScore, thirdName, thirdScore);
-            StartPodiumWorldSpaceTracking();
+            StartPodiumWorldTracking();
         }
 
         private void SetPodiumSlots(
@@ -662,10 +676,10 @@ namespace Game.Match {
             if(_xpDisplay == null || Progression.ProgressionManager.Instance == null) return;
             var pm = Progression.ProgressionManager.Instance;
             pm.GetXpRequiredForLevel(pm.StartMatchLevel);
-                
+
             // Note: If we leveled up multiple times, the animation might be a bit weird with just start/end,
             // but PostMatchXPDisplay handles basic level up logic.
-                
+
             _xpDisplay.ShowXp(
                 pm.StartMatchLevel,
                 pm.StartMatchCurrentXp,
@@ -726,46 +740,47 @@ namespace Game.Match {
             EventBus.Publish(new ShowGrappleUIEvent());
         }
 
-        private void StartPodiumWorldSpaceTracking() {
+        /// <summary>Starts tracking podium slots in world space.</summary>
+        private void StartPodiumWorldTracking() {
             if(!EnsureUiReferencesBound()) return;
-            StopPodiumWorldSpaceTracking();
+            StopPodiumWorldTracking();
             if(_podiumContainer == null) return;
 
-            PrepareContainerForWorldSpacePositioning(_podiumContainer);
-            PrepareSlotForWorldSpacePositioning(_podiumFirstSlot);
-            PrepareSlotForWorldSpacePositioning(_podiumSecondSlot);
-            PrepareSlotForWorldSpacePositioning(_podiumThirdSlot);
+            PrepareContainerForWorldSpace(_podiumContainer);
+            PrepareSlotForWorldSpace(_podiumFirstSlot);
+            PrepareSlotForWorldSpace(_podiumSecondSlot);
+            PrepareSlotForWorldSpace(_podiumThirdSlot);
 
-            _podiumWorldSpaceTrackingRoutine = StartCoroutine(PodiumWorldSpaceTrackingCoroutine());
+            _podiumWorldSpaceTrackingRoutine = StartCoroutine(PodiumWorldTrackingCoroutine());
         }
 
-        private void StopPodiumWorldSpaceTracking() {
+        private void StopPodiumWorldTracking() {
             if(_podiumWorldSpaceTrackingRoutine == null) return;
             StopCoroutine(_podiumWorldSpaceTrackingRoutine);
             _podiumWorldSpaceTrackingRoutine = null;
         }
 
-        private IEnumerator PodiumWorldSpaceTrackingCoroutine() {
+        private IEnumerator PodiumWorldTrackingCoroutine() {
             while(_podiumContainer != null && _podiumContainer.resolvedStyle.display != DisplayStyle.None) {
-                UpdatePodiumWorldSpacePositions();
+                UpdatePodiumWorldPositions();
                 yield return null;
             }
 
             _podiumWorldSpaceTrackingRoutine = null;
         }
 
-        private void UpdatePodiumWorldSpacePositions() {
+        private void UpdatePodiumWorldPositions() {
             if(_root?.panel == null) return;
 
             var worldCamera = ResolveWorldCamera();
             if(worldCamera == null) return;
 
-            UpdatePodiumSlotWorldPosition(_podiumFirstSlot, _firstPlacePlayerId, firstPlaceAnchor, worldCamera);
-            UpdatePodiumSlotWorldPosition(_podiumSecondSlot, _secondPlacePlayerId, secondPlaceAnchor, worldCamera);
-            UpdatePodiumSlotWorldPosition(_podiumThirdSlot, _thirdPlacePlayerId, thirdPlaceAnchor, worldCamera);
+            UpdatePodiumSlotPosition(_podiumFirstSlot, _firstPlacePlayerId, firstPlaceAnchor, worldCamera);
+            UpdatePodiumSlotPosition(_podiumSecondSlot, _secondPlacePlayerId, secondPlaceAnchor, worldCamera);
+            UpdatePodiumSlotPosition(_podiumThirdSlot, _thirdPlacePlayerId, thirdPlaceAnchor, worldCamera);
         }
 
-        private void UpdatePodiumSlotWorldPosition(VisualElement slot, ulong playerId, Transform slotAnchor,
+        private void UpdatePodiumSlotPosition(VisualElement slot, ulong playerId, Transform slotAnchor,
             Camera worldCamera) {
             if(slot == null) return;
 
@@ -785,7 +800,8 @@ namespace Game.Match {
                 return;
             }
 
-            var panelFeet = RuntimePanelUtils.CameraTransformWorldToPanel(_root.panel, targetWorldPosition, worldCamera);
+            var panelFeet =
+                RuntimePanelUtils.CameraTransformWorldToPanel(_root.panel, targetWorldPosition, worldCamera);
             var slotWidth = GetResolvedLength(slot.resolvedStyle.width, 200f);
             var slotHeight = Mathf.Max(1f, podiumCardFixedHeight);
             var downOffsetPx = ComputeBelowFeetOffsetPixels(slotAnchor, worldCamera);
@@ -827,7 +843,7 @@ namespace Game.Match {
             return float.IsNaN(value) || value <= 0f ? fallback : value;
         }
 
-        private static void PrepareContainerForWorldSpacePositioning(VisualElement container) {
+        private static void PrepareContainerForWorldSpace(VisualElement container) {
             if(container == null) return;
             container.style.position = Position.Absolute;
             container.style.left = 0f;
@@ -840,7 +856,7 @@ namespace Game.Match {
             container.style.translate = new Translate(0f, 0f);
         }
 
-        private static void PrepareSlotForWorldSpacePositioning(VisualElement slot) {
+        private static void PrepareSlotForWorldSpace(VisualElement slot) {
             if(slot == null) return;
             slot.style.position = Position.Absolute;
             slot.style.left = StyleKeyword.Null;
@@ -871,7 +887,9 @@ namespace Game.Match {
             var cc = player.CharacterController;
             if(cc == null) return player.transform.position;
             var bounds = cc.bounds;
-            return bounds.size.y > 0.001f ? new Vector3(bounds.center.x, bounds.min.y, bounds.center.z) : player.transform.position;
+            return bounds.size.y > 0.001f
+                ? new Vector3(bounds.center.x, bounds.min.y, bounds.center.z)
+                : player.transform.position;
         }
 
         private static bool TryGetPodiumPlayer(ulong playerId, out PlayerController player) {
@@ -895,13 +913,14 @@ namespace Game.Match {
 
         private void ResetPostMatchUiState() {
             EnsureUiReferencesBound();
-            StopPodiumWorldSpaceTracking();
+            StopPodiumWorldTracking();
             IsPodiumBlackoutActive = false;
             IsPostMatchMovementLockedLocal = false;
             if(_localReturnToMenuRoutine != null) {
                 StopCoroutine(_localReturnToMenuRoutine);
                 _localReturnToMenuRoutine = null;
             }
+
             if(_blackoutReadyRoutine != null) {
                 StopCoroutine(_blackoutReadyRoutine);
                 _blackoutReadyRoutine = null;
@@ -925,7 +944,8 @@ namespace Game.Match {
             }
         }
 
-        private void StartLocalReturnToMenuCountdown() {
+        /// <summary>Starts the countdown after which the local client returns to menu.</summary>
+        private void StartReturnToMenuCountdown() {
             if(_localReturnToMenuRoutine != null) {
                 StopCoroutine(_localReturnToMenuRoutine);
             }
@@ -941,6 +961,7 @@ namespace Game.Match {
                 SessionManager.Instance.LeaveToMainMenuAsync().Forget();
             }
         }
+
         private static void DisableHopballTargets() {
             // Disable Hopball target
             if(HopballController.Instance != null) {
@@ -958,7 +979,7 @@ namespace Game.Match {
             }
         }
 
-        private IEnumerator MarkPodiumBlackoutReadyAfterFade() {
+        private IEnumerator MarkBlackoutReadyAfterFade() {
             yield return new WaitForSeconds(fadeDuration + fadeBuffer);
             IsPodiumBlackoutActive = true;
             IsPostMatchMovementLockedLocal = true;
@@ -967,10 +988,10 @@ namespace Game.Match {
             // Lock movement now that fade is fully black (same pattern as momentum zero in SetupTopThreeOnServer)
             if(NetworkManager.Singleton == null || NetworkManager.Singleton.LocalClient == null) yield break;
             var localPlayer = NetworkManager.Singleton.LocalClient.PlayerObject;
-            
+
             if(localPlayer == null) yield break;
             var localController = localPlayer.GetComponent<PlayerController>();
-            
+
             if(localController == null) yield break;
             if(localController.WeaponManager != null) {
                 localController.WeaponManager.PrepareCurrentWeaponForPostMatchPodium();

@@ -519,7 +519,7 @@ namespace Game.Player.Combat {
             if(netIsDead is not { Value: true }) return;
             if(MatchCombatAuthority.Instance == null || NetworkObject == null || !NetworkObject.IsSpawned) return;
 
-            MatchCombatAuthority.Instance.RequestRespawnAuthorityServerRpc(new NetworkObjectReference(NetworkObject));
+            MatchCombatAuthority.Instance.RequestRespawnServerRpc(new NetworkObjectReference(NetworkObject));
         }
 
         public void ProcessRespawnAuthorityRequest() {

@@ -29,7 +29,7 @@ namespace Game.Weapons.Manager {
         public void ResetAllWeaponAmmo() {
             if(!HasWeaponAuthority) {
                 if(MatchCombatAuthority.Instance != null && _root.NetworkObject != null && _root.NetworkObject.IsSpawned) {
-                    MatchCombatAuthority.Instance.RequestResetWeaponAmmoAuthorityServerRpc(
+                    MatchCombatAuthority.Instance.RequestResetWeaponAmmoServerRpc(
                         new NetworkObjectReference(_root.NetworkObject));
                 } else {
                     _root.ResetAllWeaponAmmoServerRpc();
@@ -184,7 +184,7 @@ namespace Game.Weapons.Manager {
         public void ReportWeaponStateSync(int weaponIndex, WeaponManager.AmmoSyncReason reason, int localAmmoAfterEvent) {
             if(!HasWeaponAuthority) {
                 if(MatchCombatAuthority.Instance != null && _root.NetworkObject != null && _root.NetworkObject.IsSpawned) {
-                    MatchCombatAuthority.Instance.RequestWeaponStateSyncAuthorityServerRpc(
+                    MatchCombatAuthority.Instance.RequestWeaponStateSyncServerRpc(
                         new NetworkObjectReference(_root.NetworkObject), weaponIndex, reason, localAmmoAfterEvent);
                 } else {
                     _root.ReportWeaponStateSyncServerRpc(weaponIndex, reason, localAmmoAfterEvent);
@@ -198,7 +198,7 @@ namespace Game.Weapons.Manager {
         public void ReportShotFired(int weaponIndex, ulong shotId, float clientShotTime) {
             if(!HasWeaponAuthority) {
                 if(MatchCombatAuthority.Instance != null && _root.NetworkObject != null && _root.NetworkObject.IsSpawned) {
-                    MatchCombatAuthority.Instance.RequestShotReportAuthorityServerRpc(
+                    MatchCombatAuthority.Instance.RequestShotReportServerRpc(
                         new NetworkObjectReference(_root.NetworkObject), weaponIndex, shotId, clientShotTime);
                 } else {
                     _root.ReportShotFiredServerRpc(weaponIndex, shotId, clientShotTime);

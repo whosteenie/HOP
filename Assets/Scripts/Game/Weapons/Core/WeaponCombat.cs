@@ -316,7 +316,7 @@ namespace Game.Weapons.Core {
 
             var targetRef = new NetworkObjectReference(target);
             if(MatchCombatAuthority.Instance != null) {
-                MatchCombatAuthority.Instance.RequestDamageAuthorityServerRpc(
+                MatchCombatAuthority.Instance.RequestDamageServerRpc(
                     targetRef,
                     hit.point,
                     hitDirection,

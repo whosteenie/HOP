@@ -363,7 +363,7 @@ namespace Game.Hopball {
 
             _cachedOobSceneHandle = activeScene.handle;
             _cachedOutOfBoundsY = oobThreshold;
-            _cachedUseYLevelOutOfBoundsKill = MatchMapService.IsYLevelOutOfBoundsKillEnabled(activeScene.name);
+            _cachedUseYLevelOutOfBoundsKill = MatchMapService.IsOobKillEnabled(activeScene.name);
 
             Transform marker = null;
             if(!string.IsNullOrWhiteSpace(outOfBoundsMarkerTag)) {

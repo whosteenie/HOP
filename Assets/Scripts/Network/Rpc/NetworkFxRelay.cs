@@ -76,7 +76,7 @@ namespace Network.Rpc {
             if(!playerController.IsOwner || !_playerNetworkObject.IsSpawned) return;
             if(MatchCombatAuthority.Instance == null) return;
 
-            MatchCombatAuthority.Instance.RequestShotFxAuthorityServerRpc(_playerNetworkObject, endPoint, hitNormal,
+            MatchCombatAuthority.Instance.RequestShotFxServerRpc(_playerNetworkObject, endPoint, hitNormal,
                 madeImpact, hitPlayer, hitPlayerRef, playMuzzleFlash, shooterVelocity);
         }
 

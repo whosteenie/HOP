@@ -103,7 +103,7 @@ namespace Game.Player.Core {
                    authority.NetworkObject.IsSpawned &&
                    _player.NetworkObject != null &&
                    _player.NetworkObject.IsSpawned) {
-                    authority.RequestIdentitySyncAuthorityServerRpc(
+                    authority.RequestIdentitySyncServerRpc(
                         new NetworkObjectReference(_player.NetworkObject),
                         localSteamId,
                         new FixedString128Bytes(ugsPlayerId),

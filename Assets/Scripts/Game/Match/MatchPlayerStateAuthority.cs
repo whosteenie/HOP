@@ -29,7 +29,7 @@ namespace Game.Match {
             RegisterCallbacks();
 
             if(NetworkAuthority.HasGlobalAuthority(this)) {
-                EnsureAllConnectedPlayerStates();
+                EnsureAllPlayerStates();
             }
         }
 
@@ -75,7 +75,8 @@ namespace Game.Match {
             return instance;
         }
 
-        private void ApplyIdentityForPlayerOnAuthority(ulong playerClientId, ulong submittedSteamId,
+        /// <summary>Applies submitted identity for a player on the authority.</summary>
+        private void ApplyIdentityForPlayer(ulong playerClientId, ulong submittedSteamId,
             FixedString128Bytes submittedUgsId, FixedString64Bytes submittedPlayerName) {
             if(!NetworkAuthority.HasGlobalAuthority(this)) {
                 return;
@@ -154,10 +155,11 @@ namespace Game.Match {
         private void OnSessionOwnerPromoted(ulong _) {
             if(!NetworkAuthority.HasGlobalAuthority(this)) return;
             NetworkAuthority.TryConfigureSessionOwnerObject(this);
-            EnsureAllConnectedPlayerStates();
+            EnsureAllPlayerStates();
         }
 
-        private void EnsureAllConnectedPlayerStates() {
+        /// <summary>Ensures a networked state exists for all connected players.</summary>
+        private void EnsureAllPlayerStates() {
             if(NetworkManager == null) {
                 return;
             }
@@ -181,8 +183,9 @@ namespace Game.Match {
             }
         }
 
+        /// <summary>Server RPC: submit identity (Steam/UGS/name) for sync to server state.</summary>
         [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
-        public void RequestIdentitySyncAuthorityServerRpc(NetworkObjectReference playerRef, ulong submittedSteamId,
+        public void RequestIdentitySyncServerRpc(NetworkObjectReference playerRef, ulong submittedSteamId,
             FixedString128Bytes submittedUgsId, FixedString64Bytes submittedPlayerName, RpcParams rpcParams = default) {
             if(!NetworkAuthority.HasGlobalAuthority(this)) {
                 return;
@@ -198,7 +201,7 @@ namespace Game.Match {
                 return;
             }
 
-            ApplyIdentityForPlayerOnAuthority(player.OwnerClientId, submittedSteamId, submittedUgsId,
+            ApplyIdentityForPlayer(player.OwnerClientId, submittedSteamId, submittedUgsId,
                 submittedPlayerName);
         }
     }
