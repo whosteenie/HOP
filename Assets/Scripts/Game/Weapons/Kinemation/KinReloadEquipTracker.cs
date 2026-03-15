@@ -147,18 +147,18 @@ namespace Game.Weapons.Kinemation {
         // Drake state
         public void SetDrakeReloadStartedEmpty(bool value) => _drakeCurrentReloadStartedEmpty = value;
 
-        public bool GetSuppressDrakeTopShellOnNextReload() => _suppressDrakeTopShellEjectOnNextReload;
-        public bool GetSuppressDrakeBottomShellOnNextReload() => _suppressDrakeBottomShellOnNextReload;
-        public bool GetDrakeTopShellEjectedSinceReloadComplete() => _drakeTopShellEjectedSinceReloadComplete;
-        public bool GetDrakeShotCanceledReloadAfterAmmoEject() => _drakeShotCanceledReloadAfterAmmoEject;
+        public bool GetSuppressTopShellOnNextReload() => _suppressDrakeTopShellEjectOnNextReload;
+        public bool GetSuppressBottomShellOnNextReload() => _suppressDrakeBottomShellOnNextReload;
+        public bool GetTopShellEjectedSinceReloadComplete() => _drakeTopShellEjectedSinceReloadComplete;
+        public bool GetShotCanceledReloadAfterEject() => _drakeShotCanceledReloadAfterAmmoEject;
 
-        public void ClearSuppressDrakeFlagsAfterReloadStart() {
+        public void ClearSuppressDrakeFlagsAfterReload() {
             _suppressDrakeTopShellEjectOnNextReload = false;
             _suppressDrakeBottomShellOnNextReload = false;
             _drakeShotCanceledReloadAfterAmmoEject = false;
         }
 
-        public static bool ShouldHideDrakeTopShellForThisReload(bool isDrake,
+        public static bool ShouldHideTopShellForThisReload(bool isDrake,
             bool drakeTopShellEjectedSinceReloadComplete, bool drakeShotCanceledReloadAfterAmmoEject) {
             return isDrake && drakeTopShellEjectedSinceReloadComplete && drakeShotCanceledReloadAfterAmmoEject;
         }
@@ -175,21 +175,21 @@ namespace Game.Weapons.Kinemation {
             if(_drakeCurrentReloadStartedEmpty) _drakeCurrentEmptyReloadSawAmmoEject = true;
         }
 
-        public void NotifyShellShowClearDrakeState() {
+        public void NotifyShellShowClearDrake() {
             _drakeTopShellEjectedSinceReloadComplete = false;
             _drakeShotCanceledReloadAfterAmmoEject = false;
             _suppressDrakeTopShellEjectOnNextReload = false;
             _suppressDrakeBottomShellOnNextReload = false;
         }
 
-        public void NotifyReloadCompleteClearDrakeState() {
+        public void NotifyReloadCompleteClearDrake() {
             _drakeTopShellEjectedSinceReloadComplete = false;
             _drakeShotCanceledReloadAfterAmmoEject = false;
             _suppressDrakeTopShellEjectOnNextReload = false;
             _suppressDrakeBottomShellOnNextReload = false;
         }
 
-        public void MarkDrakeReloadCanceledByShot() {
+        public void MarkReloadCanceledByShot() {
             _drakeShotCanceledReloadAfterAmmoEject = true;
             if(!_drakeCurrentReloadStartedEmpty || !_drakeCurrentEmptyReloadSawAmmoEject) return;
             _suppressDrakeBottomShellOnNextReload = true;

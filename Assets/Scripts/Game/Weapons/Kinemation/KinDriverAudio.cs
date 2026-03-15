@@ -29,7 +29,7 @@ namespace Game.Weapons.Kinemation {
             if(weaponSounds == null || weaponSounds.Length == 0) return;
 
             var shouldEnable = !_context.WeaponSoundPlaybackDisabled;
-            var sharedSource = shouldEnable ? EnsureDedicatedWeaponAudioSource() : null;
+            var sharedSource = shouldEnable ? EnsureWeaponAudioSource() : null;
             foreach(var ws in weaponSounds) {
                 if(ws == null) continue;
                 var resolved = shouldEnable ? GetOrAssignWeaponSoundAudioSource(ws, sharedSource) : null;
@@ -40,7 +40,7 @@ namespace Game.Weapons.Kinemation {
             }
         }
 
-        public void RefreshActiveWeaponSoundMetadata(FPSWeapon activeWeapon, System.Action applyGrappleWeaponIndex) {
+        public void RefreshWeaponSoundMetadata(FPSWeapon activeWeapon, System.Action applyGrappleWeaponIndex) {
             if(activeWeapon == null) {
                 ActiveWeaponSoundKey = "unknown";
                 ActiveWeaponFireSoundId = "";
@@ -66,7 +66,7 @@ namespace Game.Weapons.Kinemation {
             }
         }
 
-        public AudioSource EnsureDedicatedWeaponAudioSource() {
+        public AudioSource EnsureWeaponAudioSource() {
             var playerInstance = _context.PlayerInstance;
             if(playerInstance == null) return null;
             if(_weaponAudioSource == null) {
@@ -84,7 +84,7 @@ namespace Game.Weapons.Kinemation {
             if(weaponSound == null) return null;
             var assigned = FpsWeaponSoundAudioSourceField?.GetValue(weaponSound) as AudioSource;
             if(assigned != null) return assigned;
-            var resolved = preferred != null ? preferred : EnsureDedicatedWeaponAudioSource();
+            var resolved = preferred != null ? preferred : EnsureWeaponAudioSource();
             resolved = resolved != null ? resolved : weaponSound.transform.root.GetComponentInChildren<AudioSource>(true);
             if(resolved == null) return null;
             FpsWeaponSoundAudioSourceField?.SetValue(weaponSound, resolved);

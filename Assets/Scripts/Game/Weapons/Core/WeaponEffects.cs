@@ -195,7 +195,7 @@ namespace Game.Weapons.Core {
 
             var attachRef = new NetworkObjectReference(_weapon.PlayerController.NetworkObject);
             foreach(var clipIndex in _weapon.KinemationWeaponSoundEventBuffer) {
-                if(!_weapon.KinDriver.TryGetKinemationEventSoundId(clipIndex, out var eventSoundId)) continue;
+                if(!_weapon.KinDriver.TryGetKinemationSoundId(clipIndex, out var eventSoundId)) continue;
                 if(string.IsNullOrWhiteSpace(eventSoundId)) continue;
                 _weapon.AudioRelay.RequestPlayAttached(eventSoundId, attachRef, allowOverlap: true);
             }
@@ -207,10 +207,10 @@ namespace Game.Weapons.Core {
             if(_weapon.PlayerController == null || !_weapon.PlayerController.IsOwner) return;
             if(_weapon.AudioRelay == null) return;
 
-            var eventClipCount = _weapon.KinDriver.GetKinemationEventSoundClipCount();
+            var eventClipCount = _weapon.KinDriver.GetKinemationSoundClipCount();
             for(var clipIndex = 0; clipIndex < eventClipCount; clipIndex++) {
                 if(!_weapon.KinDriver.IsLikelyReloadEventSoundClip(clipIndex)) continue;
-                if(!_weapon.KinDriver.TryGetKinemationEventSoundId(clipIndex, out var eventSoundId)) continue;
+                if(!_weapon.KinDriver.TryGetKinemationSoundId(clipIndex, out var eventSoundId)) continue;
                 if(string.IsNullOrWhiteSpace(eventSoundId)) continue;
                 _weapon.AudioRelay.RequestStop(eventSoundId);
             }
@@ -221,7 +221,7 @@ namespace Game.Weapons.Core {
         }
 
         private bool UseKinemationEventSoundRouting() {
-            return _weapon.KinDriver != null && _weapon.KinDriver.IsKinemationSoundEventRoutingEnabled();
+            return _weapon.KinDriver != null && _weapon.KinDriver.IsKinemationSoundRoutingEnabled();
         }
 
         public bool ShouldSuppressLegacyReloadSound() {

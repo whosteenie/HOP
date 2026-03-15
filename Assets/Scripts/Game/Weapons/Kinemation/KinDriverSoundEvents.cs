@@ -20,12 +20,12 @@ namespace Game.Weapons.Kinemation {
             _audio = audio;
         }
 
-        public bool IsKinemationSoundEventRoutingEnabled(FuncBool tryCacheActiveWeapon) {
+        public bool IsKinemationSoundRoutingEnabled(FuncBool tryCacheActiveWeapon) {
             if(!_context.RouteWeaponSoundEventsToAudioService) return false;
             return tryCacheActiveWeapon() && _resolver.ActiveWeapon != null && _resolver.ActiveWeapon.weaponSettings != null;
         }
 
-        public int GetKinemationEventSoundClipCount(FuncBool tryCacheActiveWeapon) {
+        public int GetKinemationSoundClipCount(FuncBool tryCacheActiveWeapon) {
             if(!tryCacheActiveWeapon() || _resolver.ActiveWeapon == null || _resolver.ActiveWeapon.weaponSettings == null)
                 return 0;
             var eventSounds = _resolver.ActiveWeapon.weaponSettings.weaponEventSounds;
@@ -84,7 +84,7 @@ namespace Game.Weapons.Kinemation {
             _pendingWeaponEventSoundIndices.Clear();
         }
 
-        public bool TryGetKinemationEventSoundId(int clipIndex, out string soundId) {
+        public bool TryGetKinemationSoundId(int clipIndex, out string soundId) {
             soundId = "";
             if(clipIndex < 0) return false;
             var activeWeapon = _resolver.ActiveWeapon;

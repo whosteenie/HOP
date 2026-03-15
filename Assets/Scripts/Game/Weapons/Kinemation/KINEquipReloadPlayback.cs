@@ -11,16 +11,22 @@ namespace Game.Weapons.Kinemation {
         private static readonly int IdleHash = Animator.StringToHash("Idle");
         private static readonly int EquipHash = Animator.StringToHash("Equip");
         private static readonly int EquipOverrideHash = Animator.StringToHash("Equip_Override");
+
         private static readonly FieldInfo FpsWeaponActiveAmmoField =
             typeof(FPSWeapon).GetField("_activeAmmo", BindingFlags.Instance | BindingFlags.NonPublic);
+
         private static readonly FieldInfo FpsWeaponIsReloadingField =
             typeof(FPSWeapon).GetField("_isReloading", BindingFlags.Instance | BindingFlags.NonPublic);
+
         private static readonly FieldInfo FpsWeaponIsFiringField =
             typeof(FPSWeapon).GetField("_isFiring", BindingFlags.Instance | BindingFlags.NonPublic);
+
         private static readonly FieldInfo FpsWeaponCharacterAnimatorField =
             typeof(FPSWeapon).GetField("characterAnimator", BindingFlags.Instance | BindingFlags.NonPublic);
+
         private static readonly FieldInfo FpsWeaponAnimatorField =
             typeof(FPSWeapon).GetField("weaponAnimator", BindingFlags.Instance | BindingFlags.NonPublic);
+
         private static readonly FieldInfo Pdw90SmoothAmmoWeightField =
             typeof(Pdw90Animation).GetField("_smoothAmmoWeight", BindingFlags.Instance | BindingFlags.NonPublic);
 
@@ -31,12 +37,11 @@ namespace Game.Weapons.Kinemation {
         private readonly KinDriverAudio _audio;
         private readonly KinGrappleClavicle _grappleClavicle;
         private readonly FuncBool _tryCacheActiveWeapon;
-        private readonly float _equipUnlockNormalizedTime;
 
         public KinEquipReloadPlayback(IKinDriverResolverContext context,
             KinActiveWeaponResolver resolver, KinReloadEquipTracker tracker,
             KinDrakeKarVisuals drakeKar, KinDriverAudio audio, KinGrappleClavicle grappleClavicle,
-            FuncBool tryCacheActiveWeapon, float equipUnlockNormalizedTime) {
+            FuncBool tryCacheActiveWeapon) {
             _context = context;
             _resolver = resolver;
             _tracker = tracker;
@@ -44,7 +49,6 @@ namespace Game.Weapons.Kinemation {
             _audio = audio;
             _grappleClavicle = grappleClavicle;
             _tryCacheActiveWeapon = tryCacheActiveWeapon;
-            _equipUnlockNormalizedTime = Mathf.Clamp01(equipUnlockNormalizedTime);
         }
 
         public void PlayEquipAnimation(bool immediate) {
@@ -59,6 +63,7 @@ namespace Game.Weapons.Kinemation {
                 _tracker.StartEquipTracking();
                 activeWeapon.OnEquipped();
             }
+
             _grappleClavicle.ApplyGrappleWeaponIndex();
         }
 
@@ -67,14 +72,17 @@ namespace Game.Weapons.Kinemation {
             var activeWeapon = _resolver.ActiveWeapon;
             if(activeWeapon == null) return;
             var reloadBlocking = _tracker.IsTrackingReload ||
-                                FpsWeaponIsReloadingField?.GetValue(activeWeapon) is true ||
-                                isAnyReloadClipActive();
+                                 FpsWeaponIsReloadingField?.GetValue(activeWeapon) is true ||
+                                 isAnyReloadClipActive();
             if(reloadBlocking) {
-                if(_resolver.GetActiveWeaponSpecialHandling() == WeaponData.KinemationSpecialHandling.DrakeShell)
-                    _tracker.MarkDrakeReloadCanceledByShot();
-                var ammo = authoritativeAmmoBeforeShot >= 0 ? authoritativeAmmoBeforeShot : GetActiveWeaponAmmoForInterrupt();
+                if(_resolver.GetActiveWeaponHandling() == WeaponData.KinemationSpecialHandling.DrakeShell)
+                    _tracker.MarkReloadCanceledByShot();
+                var ammo = authoritativeAmmoBeforeShot >= 0
+                    ? authoritativeAmmoBeforeShot
+                    : GetActiveWeaponAmmoForInterrupt();
                 AbortReloadAndSyncAmmo(ammo);
             }
+
             _resolver.SuppressInternalMuzzleFx(activeWeapon, _context.DisableKinemationInternalMuzzleFx);
             activeWeapon.OnFirePressed();
             activeWeapon.OnFireReleased();
@@ -87,22 +95,22 @@ namespace Game.Weapons.Kinemation {
             _tracker.ResetReloadTracking();
             _tracker.StartReloadTracking();
             var ammoAtStart = GetActiveWeaponAmmoForInterrupt();
-            var isDrake = _resolver.GetActiveWeaponSpecialHandling() == WeaponData.KinemationSpecialHandling.DrakeShell;
+            var isDrake = _resolver.GetActiveWeaponHandling() == WeaponData.KinemationSpecialHandling.DrakeShell;
             _tracker.SetDrakeReloadStartedEmpty(isDrake && ammoAtStart <= 0);
 
-            var suppressTop = _tracker.GetSuppressDrakeTopShellOnNextReload() ||
-                              KinReloadEquipTracker.ShouldHideDrakeTopShellForThisReload(isDrake,
-                                  _tracker.GetDrakeTopShellEjectedSinceReloadComplete(),
-                                  _tracker.GetDrakeShotCanceledReloadAfterAmmoEject());
-            if(suppressTop) _drakeKar.SuppressDrakeTopShellForReloadStart();
-            if(_tracker.GetSuppressDrakeBottomShellOnNextReload()) _drakeKar.SuppressDrakeBottomShellForReloadStart();
-            _tracker.ClearSuppressDrakeFlagsAfterReloadStart();
+            var suppressTop = _tracker.GetSuppressTopShellOnNextReload() ||
+                              KinReloadEquipTracker.ShouldHideTopShellForThisReload(isDrake,
+                                  _tracker.GetTopShellEjectedSinceReloadComplete(),
+                                  _tracker.GetShotCanceledReloadAfterEject());
+            if(suppressTop) _drakeKar.SuppressTopShellForReload();
+            if(_tracker.GetSuppressBottomShellOnNextReload()) _drakeKar.SuppressBottomShellForReload();
+            _tracker.ClearSuppressDrakeFlagsAfterReload();
             activeWeapon.OnReload();
         }
 
         public void SyncActiveAmmo(int authoritativeAmmo) {
             if(!_tryCacheActiveWeapon() || _resolver.ActiveWeapon == null) return;
-            ApplyAuthoritativeAmmoToActiveWeapon(authoritativeAmmo, false, out var clamped, out var maxAmmo);
+            ApplyAuthoritativeAmmoToWeapon(authoritativeAmmo, false, out var clamped, out var maxAmmo);
             SyncAmmoDrivenViewmodelVisuals(clamped, maxAmmo);
         }
 
@@ -111,7 +119,7 @@ namespace Game.Weapons.Kinemation {
             var activeWeapon = _resolver.ActiveWeapon;
             activeWeapon.CancelInvoke();
             activeWeapon.OnFireReleased();
-            ApplyAuthoritativeAmmoToActiveWeapon(authoritativeAmmo, false, out var clamped, out var maxAmmo);
+            ApplyAuthoritativeAmmoToWeapon(authoritativeAmmo, false, out var clamped, out var maxAmmo);
             SyncAmmoDrivenViewmodelVisuals(clamped, maxAmmo);
             ForceReloadAnimatorsToIdle();
             _audio.StopActiveWeaponAudioPlayback();
@@ -127,12 +135,17 @@ namespace Game.Weapons.Kinemation {
             foreach(var a in animators) {
                 if(a != null && a != _context.FpsAnimator && AnimatorHasReloadClip(a)) return true;
             }
+
             return false;
         }
 
         public bool TryGetEquipStateProgress(out float normalizedProgress) {
             normalizedProgress = 0f;
-            if(TryGetAnimatorEquipProgress(_context.FpsAnimator, out var p)) { normalizedProgress = p; return true; }
+            if(TryGetAnimatorEquipProgress(_context.FpsAnimator, out var p)) {
+                normalizedProgress = p;
+                return true;
+            }
+
             var activeWeapon = _resolver.ActiveWeapon;
             if(activeWeapon == null) return false;
             var animators = _resolver.GetActiveWeaponAnimators();
@@ -140,8 +153,10 @@ namespace Game.Weapons.Kinemation {
             foreach(var a in animators) {
                 if(a == null || a == _context.FpsAnimator) continue;
                 if(!TryGetAnimatorEquipProgress(a, out var wp)) continue;
-                normalizedProgress = Mathf.Max(normalizedProgress, wp); return true;
+                normalizedProgress = Mathf.Max(normalizedProgress, wp);
+                return true;
             }
+
             return false;
         }
 
@@ -170,17 +185,21 @@ namespace Game.Weapons.Kinemation {
             AddUnique(animators, FpsWeaponAnimatorField?.GetValue(activeWeapon) as Animator);
             AddUnique(animators, _context.FpsAnimator);
             var weaponAnimators = _resolver.GetActiveWeaponAnimators();
-            if(weaponAnimators != null) foreach(var a in weaponAnimators) AddUnique(animators, a);
+            if(weaponAnimators != null)
+                foreach(var a in weaponAnimators)
+                    AddUnique(animators, a);
             foreach(var t in animators) SnapAnimatorToIdle(t, true);
         }
 
-        private void ApplyAuthoritativeAmmoToActiveWeapon(int authoritativeAmmo, bool cancelPendingInvokes, out int clampedAmmo, out int maxAmmo) {
+        private void ApplyAuthoritativeAmmoToWeapon(int authoritativeAmmo, bool cancelPendingInvokes,
+            out int clampedAmmo, out int maxAmmo) {
             clampedAmmo = 0;
             maxAmmo = 1;
             var activeWeapon = _resolver.ActiveWeapon;
             if(activeWeapon == null) return;
             if(cancelPendingInvokes) activeWeapon.CancelInvoke();
-            maxAmmo = Mathf.Max(1, activeWeapon.weaponSettings != null ? activeWeapon.weaponSettings.ammo : authoritativeAmmo);
+            maxAmmo = Mathf.Max(1,
+                activeWeapon.weaponSettings != null ? activeWeapon.weaponSettings.ammo : authoritativeAmmo);
             clampedAmmo = Mathf.Clamp(authoritativeAmmo, 0, maxAmmo);
             FpsWeaponActiveAmmoField?.SetValue(activeWeapon, clampedAmmo);
             FpsWeaponIsReloadingField?.SetValue(activeWeapon, false);
@@ -195,7 +214,8 @@ namespace Game.Weapons.Kinemation {
             var pdwAnimations = _resolver.GetActiveWeaponPdwAnimations();
             if(pdwAnimations == null) return;
             foreach(var pdw in pdwAnimations)
-                if(pdw != null) Pdw90SmoothAmmoWeightField?.SetValue(pdw, targetWeight);
+                if(pdw != null)
+                    Pdw90SmoothAmmoWeightField?.SetValue(pdw, targetWeight);
         }
 
         private static void SnapAnimatorToIdle(Animator animator, bool forceRebindIfReloadStillActive = false) {
@@ -206,13 +226,20 @@ namespace Game.Weapons.Kinemation {
                 animator.Play(IdleHash, layer, 0f);
                 playedIdle = true;
             }
-            if(!playedIdle) { animator.Rebind(); animator.Update(0f); return; }
+
+            if(!playedIdle) {
+                animator.Rebind();
+                animator.Update(0f);
+                return;
+            }
+
             animator.Update(0f);
             if(!forceRebindIfReloadStillActive || !AnimatorHasReloadClip(animator)) return;
             animator.Rebind();
             animator.Update(0f);
             for(var layer = 0; layer < animator.layerCount; layer++)
-                if(animator.HasState(layer, IdleHash)) animator.Play(IdleHash, layer, 0f);
+                if(animator.HasState(layer, IdleHash))
+                    animator.Play(IdleHash, layer, 0f);
             animator.Update(0f);
         }
 
@@ -226,6 +253,7 @@ namespace Game.Weapons.Kinemation {
                     if(info.clip.name.IndexOf("reload", StringComparison.OrdinalIgnoreCase) >= 0) return true;
                 }
             }
+
             return false;
         }
 
@@ -238,12 +266,14 @@ namespace Game.Weapons.Kinemation {
                     normalizedProgress = Mathf.Max(normalizedProgress, Mathf.Clamp01(state.normalizedTime));
                     return true;
                 }
+
                 if(!animator.IsInTransition(layer)) continue;
                 var next = animator.GetNextAnimatorStateInfo(layer);
                 if(next.shortNameHash != EquipHash && next.shortNameHash != EquipOverrideHash) continue;
                 normalizedProgress = Mathf.Max(normalizedProgress, Mathf.Clamp01(next.normalizedTime));
                 return true;
             }
+
             return false;
         }
 

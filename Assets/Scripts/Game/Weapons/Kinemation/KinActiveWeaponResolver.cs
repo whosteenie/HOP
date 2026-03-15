@@ -91,7 +91,7 @@ namespace Game.Weapons.Kinemation {
 
             _cache.Ensure(ActiveWeapon);
             if(_muzzleTransform == null) {
-                var partRefs = GetActiveWeaponPartReferences();
+                var partRefs = GetActivePartReferences();
                 if(partRefs != null) {
                     TryResolvePartReference(partRefs.FpMuzzleTransform, FpMuzzleReferenceKey,
                         nameof(KinWeaponPartReferences.FpMuzzleTransform), out _muzzleTransform);
@@ -134,7 +134,7 @@ namespace Game.Weapons.Kinemation {
             return wm.CurrentWeapon.CurrentWeaponData;
         }
 
-        public WeaponData.KinemationSpecialHandling GetActiveWeaponSpecialHandling() {
+        public WeaponData.KinemationSpecialHandling GetActiveWeaponHandling() {
             var data = GetActiveWeaponData();
             if(data == null) return WeaponData.KinemationSpecialHandling.Null;
             if(data.kinemationSpecialHandling == WeaponData.KinemationSpecialHandling.Null) {
@@ -169,7 +169,7 @@ namespace Game.Weapons.Kinemation {
         private Light[] GetWeaponLights(FPSWeapon weapon) => _cache.GetLights(ActiveWeapon, weapon);
         public Pdw90Animation[] GetActiveWeaponPdwAnimations() => _cache.GetPdwAnimations(ActiveWeapon);
         public AudioSource[] GetActiveWeaponAudioSources() => _cache.GetAudioSources(ActiveWeapon);
-        private KinWeaponPartReferences GetActiveWeaponPartReferences() => _cache.GetPartReferences(ActiveWeapon);
+        private KinWeaponPartReferences GetActivePartReferences() => _cache.GetPartReferences(ActiveWeapon);
 
         public void SuppressInternalMuzzleFx(FPSWeapon activeWeapon, bool disableMuzzleFx) {
             if(!disableMuzzleFx || activeWeapon == null) return;
@@ -213,7 +213,7 @@ namespace Game.Weapons.Kinemation {
         public bool TryResolveDrakeTopShell(out Transform topShell) {
             topShell = null;
             if(ActiveWeapon == null) return false;
-            var partRefs = GetActiveWeaponPartReferences();
+            var partRefs = GetActivePartReferences();
             if(partRefs != null)
                 return TryResolvePartReference(partRefs.DrakeTopShell, DrakeTopShellReferenceKey,
                     nameof(KinWeaponPartReferences.DrakeTopShell), out topShell);
@@ -224,7 +224,7 @@ namespace Game.Weapons.Kinemation {
         public bool TryResolveDrakeBottomShell(out Transform bottomShell) {
             bottomShell = null;
             if(ActiveWeapon == null) return false;
-            var partRefs = GetActiveWeaponPartReferences();
+            var partRefs = GetActivePartReferences();
             if(partRefs != null)
                 return TryResolvePartReference(partRefs.DrakeBottomShell, DrakeBottomShellReferenceKey,
                     nameof(KinWeaponPartReferences.DrakeBottomShell), out bottomShell);
@@ -235,7 +235,7 @@ namespace Game.Weapons.Kinemation {
         public bool TryResolveKarLoopBullet(out Transform loopBullet) {
             loopBullet = null;
             if(ActiveWeapon == null) return false;
-            var partRefs = GetActiveWeaponPartReferences();
+            var partRefs = GetActivePartReferences();
             if(partRefs != null)
                 return TryResolvePartReference(partRefs.KarLoopBullet, KarLoopBulletReferenceKey,
                     nameof(KinWeaponPartReferences.KarLoopBullet), out loopBullet);

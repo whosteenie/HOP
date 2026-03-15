@@ -46,7 +46,7 @@ namespace Game.Weapons.Core {
             ConsumePendingSingleRoundEvents();
 
             if(_weapon.KinDriver != null) {
-                _weapon.KinDriver.NotifyDrakeReloadCanceledByShot();
+                _weapon.KinDriver.NotifyReloadCanceledByShot();
             }
 
             CancelReload();

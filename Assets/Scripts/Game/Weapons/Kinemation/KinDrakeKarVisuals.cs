@@ -40,8 +40,8 @@ namespace Game.Weapons.Kinemation {
             _resolver = resolver;
         }
 
-        private bool IsDrake => _resolver.GetActiveWeaponSpecialHandling() == WeaponData.KinemationSpecialHandling.DrakeShell;
-        private bool IsKar => _resolver.GetActiveWeaponSpecialHandling() == WeaponData.KinemationSpecialHandling.KarLoopBullet;
+        private bool IsDrake => _resolver.GetActiveWeaponHandling() == WeaponData.KinemationSpecialHandling.DrakeShell;
+        private bool IsKar => _resolver.GetActiveWeaponHandling() == WeaponData.KinemationSpecialHandling.KarLoopBullet;
 
         private bool IsDrakeTopShellSuppressionApplied { get; set; }
 
@@ -49,25 +49,25 @@ namespace Game.Weapons.Kinemation {
 
         private bool IsKarLoopBulletHidden { get; set; }
 
-        public void SuppressDrakeTopShellForReloadStart() {
+        public void SuppressTopShellForReload() {
             if(_resolver.ActiveWeapon == null || !IsDrake) return;
             if(!EnsureDrakeTopShellTarget()) return;
-            ApplyDrakeTopShellSuppressionNow();
+            ApplyTopShellSuppressionNow();
         }
 
-        public void SuppressDrakeBottomShellForReloadStart() {
+        public void SuppressBottomShellForReload() {
             if(_resolver.ActiveWeapon == null || !IsDrake) return;
-            if(!EnsureDrakeBottomShellTarget()) return;
-            ApplyDrakeBottomShellSuppressionNow();
+            if(!EnsureBottomShellTarget()) return;
+            ApplyBottomShellSuppressionNow();
         }
 
-        public void HideKarLoopBulletForReloadLoop() {
+        public void HideKarLoopForReload() {
             if(_resolver.ActiveWeapon == null || !IsKar) return;
             if(!EnsureKarLoopBulletTarget()) return;
             ApplyKarLoopBulletHiddenNow();
         }
 
-        public void ApplySuppressedDrakeTopShellPose() {
+        public void ApplySuppressedTopShellPose() {
             if(!IsDrakeTopShellSuppressionApplied || _suppressedDrakeTopShellTransform == null) return;
             if(_hasSuppressedDrakeTopShellOriginalLocalPosition)
                 _suppressedDrakeTopShellTransform.localPosition = _suppressedDrakeTopShellOriginalLocalPosition + Vector3.down * DrakeTopShellHideOffset;
@@ -76,7 +76,7 @@ namespace Game.Weapons.Kinemation {
             foreach(var r in _suppressedDrakeTopShellRenderers) { if(r != null && r.enabled) r.enabled = false; }
         }
 
-        public void ApplySuppressedDrakeBottomShellPose() {
+        public void ApplySuppressedBottomShellPose() {
             if(!IsDrakeBottomShellSuppressionApplied || _suppressedDrakeBottomShellTransform == null) return;
             if(_hasSuppressedDrakeBottomShellOriginalLocalPosition)
                 _suppressedDrakeBottomShellTransform.localPosition = _suppressedDrakeBottomShellOriginalLocalPosition + Vector3.down * DrakeTopShellHideOffset;
@@ -85,7 +85,7 @@ namespace Game.Weapons.Kinemation {
             foreach(var r in _suppressedDrakeBottomShellRenderers) { if(r != null && r.enabled) r.enabled = false; }
         }
 
-        public void ApplyHiddenKarLoopBulletPose() {
+        public void ApplyHiddenKarLoopPose() {
             if(!IsKarLoopBulletHidden || _karLoopBulletTransform == null) return;
             if(_hasKarLoopBulletOriginalLocalPosition)
                 _karLoopBulletTransform.localPosition = _karLoopBulletOriginalLocalPosition + Vector3.down * KarLoopBulletHideOffset;
@@ -94,7 +94,7 @@ namespace Game.Weapons.Kinemation {
             foreach(var r in _karLoopBulletRenderers) { if(r != null && r.enabled) r.enabled = false; }
         }
 
-        public void RestoreDrakeTopShellImmediate() {
+        public void RestoreTopShellImmediate() {
             if(_suppressedDrakeTopShellRenderers != null && _suppressedDrakeTopShellRendererEnabledStates != null) {
                 var limit = Mathf.Min(_suppressedDrakeTopShellRenderers.Length, _suppressedDrakeTopShellRendererEnabledStates.Length);
                 for(var i = 0; i < limit; i++) {
@@ -109,7 +109,7 @@ namespace Game.Weapons.Kinemation {
             ClearDrakeTopShellState();
         }
 
-        public void RestoreDrakeBottomShellImmediate() {
+        public void RestoreBottomShellImmediate() {
             if(_suppressedDrakeBottomShellRenderers != null && _suppressedDrakeBottomShellRendererEnabledStates != null) {
                 var limit = Mathf.Min(_suppressedDrakeBottomShellRenderers.Length, _suppressedDrakeBottomShellRendererEnabledStates.Length);
                 for(var i = 0; i < limit; i++) {
@@ -124,7 +124,7 @@ namespace Game.Weapons.Kinemation {
             ClearDrakeBottomShellState();
         }
 
-        public void RestoreKarLoopBulletImmediate() {
+        public void RestoreKarLoopImmediate() {
             if(_karLoopBulletRenderers != null && _karLoopBulletRendererEnabledStates != null) {
                 var limit = Mathf.Min(_karLoopBulletRenderers.Length, _karLoopBulletRendererEnabledStates.Length);
                 for(var i = 0; i < limit; i++) {
@@ -141,23 +141,23 @@ namespace Game.Weapons.Kinemation {
 
         public void OnAmmoEjectEvent() {
             if(!IsDrake) return;
-            if(IsDrakeBottomShellSuppressionApplied) RestoreDrakeBottomShellImmediate();
+            if(IsDrakeBottomShellSuppressionApplied) RestoreBottomShellImmediate();
         }
 
         public void OnShellShowEvent() {
             if(IsDrake) {
-                RestoreDrakeTopShellImmediate();
-                RestoreDrakeBottomShellImmediate();
+                RestoreTopShellImmediate();
+                RestoreBottomShellImmediate();
             }
-            if(IsKar) RestoreKarLoopBulletImmediate();
+            if(IsKar) RestoreKarLoopImmediate();
         }
 
         public void OnReloadCompleteEvent() {
             if(IsDrake) {
-                RestoreDrakeTopShellImmediate();
-                RestoreDrakeBottomShellImmediate();
+                RestoreTopShellImmediate();
+                RestoreBottomShellImmediate();
             }
-            if(IsKar) RestoreKarLoopBulletImmediate();
+            if(IsKar) RestoreKarLoopImmediate();
         }
 
         private bool EnsureDrakeTopShellTarget() {
@@ -178,7 +178,7 @@ namespace Game.Weapons.Kinemation {
             return true;
         }
 
-        private void ApplyDrakeTopShellSuppressionNow() {
+        private void ApplyTopShellSuppressionNow() {
             if(_suppressedDrakeTopShellTransform == null) return;
             if(_hasSuppressedDrakeTopShellOriginalLocalPosition)
                 _suppressedDrakeTopShellTransform.localPosition = _suppressedDrakeTopShellOriginalLocalPosition + Vector3.down * DrakeTopShellHideOffset;
@@ -199,7 +199,7 @@ namespace Game.Weapons.Kinemation {
             IsDrakeTopShellSuppressionApplied = false;
         }
 
-        private bool EnsureDrakeBottomShellTarget() {
+        private bool EnsureBottomShellTarget() {
             if(_suppressedDrakeBottomShellTransform != null) return true;
             if(!_resolver.TryResolveDrakeBottomShell(out var t) || t == null) return false;
             _suppressedDrakeBottomShellTransform = t;
@@ -217,7 +217,7 @@ namespace Game.Weapons.Kinemation {
             return true;
         }
 
-        private void ApplyDrakeBottomShellSuppressionNow() {
+        private void ApplyBottomShellSuppressionNow() {
             if(_suppressedDrakeBottomShellTransform == null) return;
             if(_hasSuppressedDrakeBottomShellOriginalLocalPosition)
                 _suppressedDrakeBottomShellTransform.localPosition = _suppressedDrakeBottomShellOriginalLocalPosition + Vector3.down * DrakeTopShellHideOffset;

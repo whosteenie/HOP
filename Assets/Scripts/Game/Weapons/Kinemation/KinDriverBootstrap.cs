@@ -53,7 +53,7 @@ namespace Game.Weapons.Kinemation {
 
             BuildRuntimeSettings(fpsPlayer, weaponPrefab);
             setPlayerInstance(playerInstance, fpsPlayer, fpsAnimator);
-            _audio.EnsureDedicatedWeaponAudioSource();
+            _audio.EnsureWeaponAudioSource();
 
             DisableUnneededComponents(playerInstance);
             WeaponFpPresentation.SetLayerRecursive(playerInstance, renderLayer);

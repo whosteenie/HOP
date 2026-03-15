@@ -12,6 +12,7 @@ namespace Game.Weapons.Kinemation {
 
         [Header("KINEMATION")]
         [SerializeField] private GameObject fpsPlayerPrefab;
+
         [SerializeField] private GameObject weaponPrefab;
         [SerializeField] private bool disableKinemationWeaponSounds;
         [SerializeField] private bool disableKinemationPlayerSounds = true;
@@ -23,6 +24,7 @@ namespace Game.Weapons.Kinemation {
         [SerializeField] private bool forceWalkAnimationWhileSprinting = true;
         [SerializeField, Range(0f, 1.99f)] private float sprintWalkGaitValue = 1.2f;
         [SerializeField, Range(0f, 1f)] private float equipUnlockNormalizedTime = 0.82f;
+
         [Header("Grapple")]
         [SerializeField] private bool enableRuntimeGrappleClavicleOffset;
 
@@ -59,12 +61,18 @@ namespace Game.Weapons.Kinemation {
         FPSPlayer IKinDriverResolverContext.FpsPlayer => _fpsPlayer;
         Animator IKinDriverResolverContext.FpsAnimator => _fpsAnimator;
         int IKinDriverResolverContext.RenderLayer => _renderLayer;
-        WeaponManager IKinDriverResolverContext.WeaponManager => _weaponManager = _weaponManager ? _weaponManager : GetComponentInParent<WeaponManager>();
-        bool IKinDriverResolverContext.WeaponSoundPlaybackDisabled => disableKinemationWeaponSounds || routeWeaponSoundEventsToAudioService;
+
+        WeaponManager IKinDriverResolverContext.WeaponManager =>
+            _weaponManager = _weaponManager ? _weaponManager : GetComponentInParent<WeaponManager>();
+
+        bool IKinDriverResolverContext.WeaponSoundPlaybackDisabled =>
+            disableKinemationWeaponSounds || routeWeaponSoundEventsToAudioService;
+
         bool IKinDriverResolverContext.DisableKinemationPlayerSounds => disableKinemationPlayerSounds;
         bool IKinDriverResolverContext.RouteWeaponSoundEventsToAudioService => routeWeaponSoundEventsToAudioService;
         bool IKinDriverResolverContext.DisableKinemationInternalMuzzleFx => disableKinemationInternalMuzzleFx;
         KinFpWeaponDriver IKinDriverResolverContext.DriverForRelays => this;
+
         bool IKinDriverResolverContext.TryGetWeaponCameraTransform(out Transform cameraTransform) {
             cameraTransform = null;
             var cam = GetComponentInParent<Camera>();
@@ -81,7 +89,8 @@ namespace Game.Weapons.Kinemation {
 
         public void Configure(GameObject playerPrefab, GameObject fpWeaponPrefab, bool disableWeaponSounds,
             bool disablePlayerSounds, bool routeWeaponSoundEvents, bool syncLookPitch, bool syncInAirState,
-            bool freezeAirLocomotion, bool forceWalkWhileSprinting, float sprintGaitValue, float equipUnlockNormalizedProgress) {
+            bool freezeAirLocomotion, bool forceWalkWhileSprinting, float sprintGaitValue,
+            float equipUnlockNormalizedProgress) {
             fpsPlayerPrefab = playerPrefab;
             weaponPrefab = fpWeaponPrefab;
             disableKinemationWeaponSounds = disableWeaponSounds;
@@ -103,9 +112,11 @@ namespace Game.Weapons.Kinemation {
                 WeaponFpPresentation.SetLayerRecursive(PlayerInstance, _renderLayer);
                 return TryCacheActiveWeapon();
             }
+
             var weaponSoundPlaybackDisabled = disableKinemationWeaponSounds || routeWeaponSoundEventsToAudioService;
             return _bootstrap.InitializeIfNeeded(renderLayer, fpsPlayerPrefab, weaponPrefab,
-                weaponSoundPlaybackDisabled, disableKinemationPlayerSounds, SetPlayerInstance) && TryCacheActiveWeapon();
+                       weaponSoundPlaybackDisabled, disableKinemationPlayerSounds, SetPlayerInstance) &&
+                   TryCacheActiveWeapon();
         }
 
         public Transform GetMuzzleTransform() {
@@ -116,73 +127,109 @@ namespace Game.Weapons.Kinemation {
         public Transform GetGrappleOriginFpTransform() => _wristBones?.GetGrappleOriginFpTransform();
 
         public void PlayEquipAnimation(bool immediate) => _playback?.PlayEquipAnimation(immediate);
+
         public void PlayFireAnimation(int authoritativeAmmoBeforeShot = -1) =>
             _playback?.PlayFireAnimation(authoritativeAmmoBeforeShot, () => _playback.IsAnyReloadClipActive());
-        public void PlayReloadAnimation() => _playback?.PlayReloadAnimation();
-        public static void PlayReloadCompleteAnimation() { }
 
-        public void SyncLocomotion(Vector2 moveInput, bool sprinting, bool tacticalSprinting, bool isGrounded, float lookPitchDegrees) =>
+        public void PlayReloadAnimation() => _playback?.PlayReloadAnimation();
+
+        public static void PlayReloadCompleteAnimation() {
+        }
+
+        public void SyncLocomotion(Vector2 moveInput, bool sprinting, bool tacticalSprinting, bool isGrounded,
+            float lookPitchDegrees) =>
             _locomotionSync?.SyncLocomotion(moveInput, sprinting, tacticalSprinting, isGrounded, lookPitchDegrees);
+
         public void SyncActiveAmmo(int authoritativeAmmo) => _playback?.SyncActiveAmmo(authoritativeAmmo);
+
         public void AbortReloadAndSyncAmmo(int authoritativeAmmo) {
             _playback?.AbortReloadAndSyncAmmo(authoritativeAmmo);
             _soundEvents?.ClearPendingWeaponSoundEvents();
         }
 
-        public bool IsReloadSequenceInProgress() => _tracker != null && _tracker.IsReloadSequenceInProgress(_playback != null && _playback.IsAnyReloadClipActive());
+        public bool IsReloadSequenceInProgress() => _tracker != null &&
+                                                    _tracker.IsReloadSequenceInProgress(_playback != null &&
+                                                        _playback.IsAnyReloadClipActive());
+
         public bool IsEquipSequenceInProgress() {
             if(_tracker == null || _playback == null) return false;
             var equipActiveNow = _playback.TryGetEquipStateProgress(out var progress);
             return _tracker.IsEquipSequenceInProgress(equipActiveNow, progress, equipUnlockNormalizedTime);
         }
+
         public int ConsumeReloadSingleEventCount() => _tracker?.ConsumeReloadSingleEventCount() ?? 0;
         public bool ConsumeReloadCompleteEvent() => _tracker?.ConsumeReloadCompleteEvent() ?? false;
         public void ResetReloadTracking() => _tracker?.ResetReloadTracking();
 
-        public void NotifyReloadSingleEvent(string sourceTag = null) {
+        public void NotifyReloadSingleEvent() {
             _tracker?.NotifyReloadSingleEvent(Time.frameCount, _tracker.IsTrackingReload);
-            if(_resolver != null && _resolver.GetActiveWeaponSpecialHandling() == WeaponData.KinemationSpecialHandling.KarLoopBullet)
-                _drakeKar?.HideKarLoopBulletForReloadLoop();
+            if(_resolver != null && _resolver.GetActiveWeaponHandling() ==
+               WeaponData.KinemationSpecialHandling.KarLoopBullet)
+                _drakeKar?.HideKarLoopForReload();
         }
+
         public void NotifyAmmoEjectEvent() {
             _tracker?.NotifyAmmoEjectForDrake();
             _drakeKar?.OnAmmoEjectEvent();
         }
+
         public void NotifyShellShowEvent() {
-            _tracker?.NotifyShellShowClearDrakeState();
+            _tracker?.NotifyShellShowClearDrake();
             _drakeKar?.OnShellShowEvent();
         }
-        public void NotifyReloadCompleteEvent(string sourceTag = null) {
+
+        public void NotifyReloadCompleteEvent() {
             _tracker?.NotifyReloadCompleteEvent();
-            _tracker?.NotifyReloadCompleteClearDrakeState();
+            _tracker?.NotifyReloadCompleteClearDrake();
             _drakeKar?.OnReloadCompleteEvent();
         }
-        public void NotifyWeaponFireSoundEvent() => _soundEvents?.NotifyWeaponFireSoundEvent(() => _soundEvents.IsKinemationSoundEventRoutingEnabled(TryCacheActiveWeapon));
-        public void NotifyWeaponEventSoundEvent(int clipIndex) => _soundEvents?.NotifyWeaponEventSoundEvent(clipIndex, () => _soundEvents.IsKinemationSoundEventRoutingEnabled(TryCacheActiveWeapon));
+
+        public void NotifyWeaponFireSoundEvent() => _soundEvents?.NotifyWeaponFireSoundEvent(() =>
+            _soundEvents.IsKinemationSoundRoutingEnabled(TryCacheActiveWeapon));
+
+        public void NotifyWeaponEventSoundEvent(int clipIndex) => _soundEvents?.NotifyWeaponEventSoundEvent(clipIndex,
+            () => _soundEvents.IsKinemationSoundRoutingEnabled(TryCacheActiveWeapon));
+
         public void NotifyEquipCompleteEvent() => _tracker?.NotifyEquipCompleteEvent(() => {
             if(_weaponManager != null) _weaponManager.HandleKinemationEquipCompleted();
         });
 
-        public void ArmDrakeTopShellEjectSuppressionOnNextReload() => _tracker?.MarkDrakeReloadCanceledByShot();
-        public void NotifyDrakeReloadCanceledByShot() => _tracker?.MarkDrakeReloadCanceledByShot();
+        public void ArmTopShellEjectSuppressionOnNextReload() => _tracker?.MarkReloadCanceledByShot();
+        public void NotifyReloadCanceledByShot() => _tracker?.MarkReloadCanceledByShot();
 
-        public bool IsKinemationSoundEventRoutingEnabled() => _soundEvents != null && _soundEvents.IsKinemationSoundEventRoutingEnabled(TryCacheActiveWeapon);
-        public int GetKinemationEventSoundClipCount() => _soundEvents?.GetKinemationEventSoundClipCount(TryCacheActiveWeapon) ?? 0;
-        public bool IsLikelyReloadEventSoundClip(int clipIndex) => _soundEvents != null && _soundEvents.IsLikelyReloadEventSoundClip(clipIndex, TryCacheActiveWeapon);
+        public bool IsKinemationSoundRoutingEnabled() => _soundEvents != null &&
+                                                         _soundEvents.IsKinemationSoundRoutingEnabled(
+                                                             TryCacheActiveWeapon);
+
+        public int GetKinemationSoundClipCount() =>
+            _soundEvents?.GetKinemationSoundClipCount(TryCacheActiveWeapon) ?? 0;
+
+        public bool IsLikelyReloadEventSoundClip(int clipIndex) => _soundEvents != null &&
+                                                                   _soundEvents.IsLikelyReloadEventSoundClip(clipIndex,
+                                                                       TryCacheActiveWeapon);
+
         public string GetKinemationFireSoundId() => TryCacheActiveWeapon() ? _audio?.ActiveWeaponFireSoundId ?? "" : "";
         public bool HasKinemationFireSound() => !string.IsNullOrWhiteSpace(GetKinemationFireSoundId());
+
         public bool HasAnyKinemationEventSound() {
-            if(!TryCacheActiveWeapon() || _resolver?.ActiveWeapon == null || _resolver.ActiveWeapon.weaponSettings == null || _resolver.ActiveWeapon.weaponSettings.weaponEventSounds == null) return false;
+            if(!TryCacheActiveWeapon() || _resolver?.ActiveWeapon == null ||
+               _resolver.ActiveWeapon.weaponSettings == null ||
+               _resolver.ActiveWeapon.weaponSettings.weaponEventSounds == null) return false;
             foreach(var c in _resolver.ActiveWeapon.weaponSettings.weaponEventSounds)
-                if(c != null) return true;
+                if(c != null)
+                    return true;
             return false;
         }
+
         public int ConsumeWeaponFireSoundEventCount() => _soundEvents?.ConsumeWeaponFireSoundEventCount() ?? 0;
         public void ClearPendingWeaponSoundEvents() => _soundEvents?.ClearPendingWeaponSoundEvents();
-        public void ConsumeWeaponEventSoundIndices(List<int> destination) => _soundEvents?.ConsumeWeaponEventSoundIndices(destination);
-        public bool TryGetKinemationEventSoundId(int clipIndex, out string soundId) {
+
+        public void ConsumeWeaponEventSoundIndices(List<int> destination) =>
+            _soundEvents?.ConsumeWeaponEventSoundIndices(destination);
+
+        public bool TryGetKinemationSoundId(int clipIndex, out string soundId) {
             soundId = "";
-            return _soundEvents != null && _soundEvents.TryGetKinemationEventSoundId(clipIndex, out soundId);
+            return _soundEvents != null && _soundEvents.TryGetKinemationSoundId(clipIndex, out soundId);
         }
 
         public bool AreKinemationSoundsEnabled() {
@@ -191,9 +238,11 @@ namespace Game.Weapons.Kinemation {
             var sounds = _resolver.GetActiveWeaponSounds();
             if(sounds == null) return false;
             foreach(var ws in sounds)
-                if(ws != null && ws.enabled) return true;
+                if(ws != null && ws.enabled)
+                    return true;
             return false;
         }
+
         public bool HasActiveWeapon() => TryCacheActiveWeapon();
 
         #endregion
@@ -228,7 +277,10 @@ namespace Game.Weapons.Kinemation {
         }
 
         private void OnGrappleStarted(GrappleStartedEvent evt) => _grappleClavicle?.OnGrappleStarted(evt);
-        private void OnGrappleAnimFirstFrame(GrappleAnimFirstFrameEvent evt) => _grappleClavicle?.OnGrappleAnimFirstFrame(evt);
+
+        private void OnGrappleAnimFirstFrame(GrappleAnimFirstFrameEvent evt) =>
+            _grappleClavicle?.OnGrappleAnimFirstFrame(evt);
+
         private void OnGrappleAnimHide(GrappleAnimHideEvent evt) => _grappleClavicle?.OnGrappleAnimHide(evt);
         private void OnGrappleEnded(GrappleEndedEvent evt) => _grappleClavicle?.OnGrappleEnded(evt);
 
@@ -240,15 +292,15 @@ namespace Game.Weapons.Kinemation {
         private void LateUpdate() {
             _grappleClavicle?.ApplyRuntimeGrappleClavicleOffset();
             _wristBones?.ApplyFixedWristOffsets();
-            _drakeKar?.ApplySuppressedDrakeTopShellPose();
-            _drakeKar?.ApplySuppressedDrakeBottomShellPose();
-            _drakeKar?.ApplyHiddenKarLoopBulletPose();
+            _drakeKar?.ApplySuppressedTopShellPose();
+            _drakeKar?.ApplySuppressedBottomShellPose();
+            _drakeKar?.ApplyHiddenKarLoopPose();
         }
 
         private void OnDestroy() {
-            _drakeKar?.RestoreDrakeTopShellImmediate();
-            _drakeKar?.RestoreDrakeBottomShellImmediate();
-            _drakeKar?.RestoreKarLoopBulletImmediate();
+            _drakeKar?.RestoreTopShellImmediate();
+            _drakeKar?.RestoreBottomShellImmediate();
+            _drakeKar?.RestoreKarLoopImmediate();
             _bootstrap?.CleanupRuntimeSettings();
         }
 
@@ -269,14 +321,14 @@ namespace Game.Weapons.Kinemation {
             _grappleClavicle = new KinGrappleClavicle(this, _resolver, _wristBones, enableRuntimeGrappleClavicleOffset);
             _bootstrap = new KinDriverBootstrap(this, _audio);
             _playback = new KinEquipReloadPlayback(this, _resolver, _tracker, _drakeKar, _audio, _grappleClavicle,
-                TryCacheActiveWeapon, equipUnlockNormalizedTime);
+                TryCacheActiveWeapon);
         }
 
         private bool TryCacheActiveWeapon() {
             EnsureSubsystems();
             return _resolver.TryCacheActiveWeapon(
                 _audio.ApplyActiveWeaponSoundToggles,
-                w => _audio.RefreshActiveWeaponSoundMetadata(w, () => _grappleClavicle.ApplyGrappleWeaponIndex()),
+                w => _audio.RefreshWeaponSoundMetadata(w, () => _grappleClavicle.ApplyGrappleWeaponIndex()),
                 w => _resolver.SuppressInternalMuzzleFx(w, disableKinemationInternalMuzzleFx));
         }
 
