@@ -91,7 +91,7 @@ namespace Game.Hopball {
     /// </summary>
     private float CurrentLightIntensity => IsDissolving ? 0f : effectLight.intensity;
 
-    [System.Flags]
+    [Flags]
     private enum HopballStateFlags : byte {
         HideReal = 1 << 0,
         ShowRealDropped = 1 << 1,
@@ -530,10 +530,9 @@ namespace Game.Hopball {
             if(update.DissolveHolderClientIdSpecified && NetworkManager != null &&
                NetworkManager.LocalClientId == update.DissolveHolderClientId) {
                 foreach(var controller in PlayerHopballController.Instances) {
-                    if(controller != null && controller.OwnerClientId == update.DissolveHolderClientId) {
-                        controller.RunCleanupAndRestoreWeapons();
-                        break;
-                    }
+                    if(controller == null || controller.OwnerClientId != update.DissolveHolderClientId) continue;
+                    controller.RunCleanupAndRestoreWeapons();
+                    break;
                 }
             }
             foreach(var controller in PlayerHopballController.Instances) {

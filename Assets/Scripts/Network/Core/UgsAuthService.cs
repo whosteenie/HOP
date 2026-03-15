@@ -7,7 +7,7 @@ using Unity.Services.Authentication;
 using Unity.Services.Core;
 using UnityEngine;
 
-namespace Network.UGS {
+namespace Network.Core {
     /// <summary>
     /// Centralized UGS initialization + authentication.
     /// Prefers Steam sign-in when Steam is available, falls back to anonymous.

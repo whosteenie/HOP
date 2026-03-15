@@ -5,12 +5,12 @@ using System.Threading;
 using System.Threading.Tasks;
 using Events;
 using Game.Player.Core;
+using Network.Core;
 using Network.Session;
 using UnityEngine;
 using Unity.Services.Authentication;
 using Unity.Services.Vivox;
 using Steamworks;
-using Network.UGS;
 
 namespace Game.Social {
     public class VoiceManager : MonoBehaviour {

@@ -5,7 +5,6 @@ using Game.Match;
 using Network.Core;
 using Network.Singletons;
 using Network.Steam;
-using Network.UGS;
 using Steamworks;
 using Unity.Netcode;
 using Unity.Services.Multiplayer;

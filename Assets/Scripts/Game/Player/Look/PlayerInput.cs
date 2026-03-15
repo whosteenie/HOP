@@ -8,7 +8,6 @@ using Game.Player.Movement;
 using Game.Settings;
 using Game.Social;
 using Game.UI.HUD;
-using Game.UI.Screens;
 using Game.UI.Screens.Scoreboard;
 using Game.Weapon.Core;
 using Game.Weapon.Manager;
