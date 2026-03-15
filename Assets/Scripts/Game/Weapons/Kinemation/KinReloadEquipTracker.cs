@@ -18,10 +18,6 @@ namespace Game.Weapons.Kinemation {
         private float _reloadTrackStartTime;
         private float _lastReloadSignalTime;
         private int _lastReloadSingleEventFrame = -1;
-        private float _lastReloadSingleEventTime = -1f;
-        private string _lastReloadSingleEventSource = "";
-        private int _reloadSingleEventsReceivedDuringCurrentReload;
-        private int _reloadSingleEventsConsumedDuringCurrentReload;
         private float _equipTrackStartTime;
         private float _lastEquipSignalTime;
 
@@ -30,7 +26,6 @@ namespace Game.Weapons.Kinemation {
         private bool _drakeCurrentEmptyReloadSawAmmoEject;
         private bool _drakeTopShellEjectedSinceReloadComplete;
         private bool _drakeShotCanceledReloadAfterAmmoEject;
-        private bool _drakeShotCanceledEmptyReloadAfterAmmoEject;
         private bool _suppressDrakeTopShellEjectOnNextReload;
         private bool _suppressDrakeBottomShellOnNextReload;
 
@@ -57,10 +52,6 @@ namespace Game.Weapons.Kinemation {
             _reloadTrackStartTime = 0f;
             _lastReloadSignalTime = 0f;
             _lastReloadSingleEventFrame = -1;
-            _lastReloadSingleEventTime = -1f;
-            _lastReloadSingleEventSource = "";
-            _reloadSingleEventsReceivedDuringCurrentReload = 0;
-            _reloadSingleEventsConsumedDuringCurrentReload = 0;
         }
 
         public void ResetEquipTracking() {
@@ -79,18 +70,21 @@ namespace Game.Weapons.Kinemation {
                 _lastReloadSignalTime = Time.time;
                 return true;
             }
+
             if(_reloadHasReceivedAnyEvent && Time.time - _lastReloadSignalTime <= ReloadSignalGraceSeconds) return true;
             if(!_reloadHasBeenActive) return Time.time - _reloadTrackStartTime < ReloadEnterGraceSeconds;
             IsTrackingReload = false;
             return false;
         }
 
-        public bool IsEquipSequenceInProgress(bool equipActiveNow, float equipProgress, float equipUnlockNormalizedTime) {
+        public bool IsEquipSequenceInProgress(bool equipActiveNow, float equipProgress,
+            float equipUnlockNormalizedTime) {
             if(!IsTrackingEquip) return false;
             if(_equipCompleteEventReceived) {
                 IsTrackingEquip = false;
                 return false;
             }
+
             if(equipActiveNow) {
                 _equipHasBeenActive = true;
                 _lastEquipSignalTime = Time.time;
@@ -98,6 +92,7 @@ namespace Game.Weapons.Kinemation {
                 IsTrackingEquip = false;
                 return false;
             }
+
             switch(_equipHasBeenActive) {
                 case true when Time.time - _lastEquipSignalTime <= EquipSignalGraceSeconds:
                     return true;
@@ -113,7 +108,6 @@ namespace Game.Weapons.Kinemation {
             if(_pendingReloadSingleEvents <= 0) return 0;
             var count = _pendingReloadSingleEvents;
             _pendingReloadSingleEvents = 0;
-            _reloadSingleEventsConsumedDuringCurrentReload += count;
             return count;
         }
 
@@ -124,21 +118,17 @@ namespace Game.Weapons.Kinemation {
             return true;
         }
 
-        public void NotifyReloadSingleEvent(string sourceTag, int currentFrame, bool isTrackingReload) {
-            var source = string.IsNullOrWhiteSpace(sourceTag) ? "(unknown)" : sourceTag;
+        public void NotifyReloadSingleEvent(int currentFrame, bool isTrackingReload) {
             if(!isTrackingReload) return;
             if(currentFrame == _lastReloadSingleEventFrame) return;
             _lastReloadSingleEventFrame = currentFrame;
-            _lastReloadSingleEventTime = Time.time;
-            _lastReloadSingleEventSource = source;
             _reloadHasReceivedAnyEvent = true;
             _reloadHasBeenActive = true;
             _lastReloadSignalTime = Time.time;
             _pendingReloadSingleEvents++;
-            _reloadSingleEventsReceivedDuringCurrentReload++;
         }
 
-        public void NotifyReloadCompleteEvent(string sourceTag) {
+        public void NotifyReloadCompleteEvent() {
             _reloadHasReceivedAnyEvent = true;
             _reloadHasBeenActive = true;
             _lastReloadSignalTime = Time.time;
@@ -156,8 +146,6 @@ namespace Game.Weapons.Kinemation {
 
         // Drake state
         public void SetDrakeReloadStartedEmpty(bool value) => _drakeCurrentReloadStartedEmpty = value;
-        public bool GetDrakeCurrentReloadStartedEmpty() => _drakeCurrentReloadStartedEmpty;
-        public bool GetDrakeCurrentEmptyReloadSawAmmoEject() => _drakeCurrentEmptyReloadSawAmmoEject;
 
         public bool GetSuppressDrakeTopShellOnNextReload() => _suppressDrakeTopShellEjectOnNextReload;
         public bool GetSuppressDrakeBottomShellOnNextReload() => _suppressDrakeBottomShellOnNextReload;
@@ -168,10 +156,10 @@ namespace Game.Weapons.Kinemation {
             _suppressDrakeTopShellEjectOnNextReload = false;
             _suppressDrakeBottomShellOnNextReload = false;
             _drakeShotCanceledReloadAfterAmmoEject = false;
-            _drakeShotCanceledEmptyReloadAfterAmmoEject = false;
         }
 
-        public static bool ShouldHideDrakeTopShellForThisReload(bool isDrake, bool drakeTopShellEjectedSinceReloadComplete, bool drakeShotCanceledReloadAfterAmmoEject) {
+        public static bool ShouldHideDrakeTopShellForThisReload(bool isDrake,
+            bool drakeTopShellEjectedSinceReloadComplete, bool drakeShotCanceledReloadAfterAmmoEject) {
             return isDrake && drakeTopShellEjectedSinceReloadComplete && drakeShotCanceledReloadAfterAmmoEject;
         }
 
@@ -181,6 +169,7 @@ namespace Game.Weapons.Kinemation {
                 _lastReloadSignalTime = Time.time;
                 _reloadHasBeenActive = true;
             }
+
             _drakeTopShellEjectedSinceReloadComplete = true;
             _drakeShotCanceledReloadAfterAmmoEject = false;
             if(_drakeCurrentReloadStartedEmpty) _drakeCurrentEmptyReloadSawAmmoEject = true;
@@ -189,7 +178,6 @@ namespace Game.Weapons.Kinemation {
         public void NotifyShellShowClearDrakeState() {
             _drakeTopShellEjectedSinceReloadComplete = false;
             _drakeShotCanceledReloadAfterAmmoEject = false;
-            _drakeShotCanceledEmptyReloadAfterAmmoEject = false;
             _suppressDrakeTopShellEjectOnNextReload = false;
             _suppressDrakeBottomShellOnNextReload = false;
         }
@@ -197,7 +185,6 @@ namespace Game.Weapons.Kinemation {
         public void NotifyReloadCompleteClearDrakeState() {
             _drakeTopShellEjectedSinceReloadComplete = false;
             _drakeShotCanceledReloadAfterAmmoEject = false;
-            _drakeShotCanceledEmptyReloadAfterAmmoEject = false;
             _suppressDrakeTopShellEjectOnNextReload = false;
             _suppressDrakeBottomShellOnNextReload = false;
         }
@@ -205,7 +192,6 @@ namespace Game.Weapons.Kinemation {
         public void MarkDrakeReloadCanceledByShot() {
             _drakeShotCanceledReloadAfterAmmoEject = true;
             if(!_drakeCurrentReloadStartedEmpty || !_drakeCurrentEmptyReloadSawAmmoEject) return;
-            _drakeShotCanceledEmptyReloadAfterAmmoEject = true;
             _suppressDrakeBottomShellOnNextReload = true;
         }
 

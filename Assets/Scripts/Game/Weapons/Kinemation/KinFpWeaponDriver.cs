@@ -140,7 +140,7 @@ namespace Game.Weapons.Kinemation {
         public void ResetReloadTracking() => _tracker?.ResetReloadTracking();
 
         public void NotifyReloadSingleEvent(string sourceTag = null) {
-            _tracker?.NotifyReloadSingleEvent(sourceTag, Time.frameCount, _tracker.IsTrackingReload);
+            _tracker?.NotifyReloadSingleEvent(Time.frameCount, _tracker.IsTrackingReload);
             if(_resolver != null && _resolver.GetActiveWeaponSpecialHandling() == WeaponData.KinemationSpecialHandling.KarLoopBullet)
                 _drakeKar?.HideKarLoopBulletForReloadLoop();
         }
@@ -153,7 +153,7 @@ namespace Game.Weapons.Kinemation {
             _drakeKar?.OnShellShowEvent();
         }
         public void NotifyReloadCompleteEvent(string sourceTag = null) {
-            _tracker?.NotifyReloadCompleteEvent(sourceTag);
+            _tracker?.NotifyReloadCompleteEvent();
             _tracker?.NotifyReloadCompleteClearDrakeState();
             _drakeKar?.OnReloadCompleteEvent();
         }
