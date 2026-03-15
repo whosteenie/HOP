@@ -1128,7 +1128,7 @@ namespace Game.Menu {
             }
 
             var level = Mathf.Max(1, progression.Data.level);
-            var requiredXp = Mathf.Max(1, progression.GetXpRequiredForLevel(level));
+            var requiredXp = Mathf.Max(1, progression.GetXpForLevel(level));
             var currentXp = Mathf.Clamp(progression.Data.currentXp, 0, requiredXp);
 
             SetLocalProgressionRowVisible(true);

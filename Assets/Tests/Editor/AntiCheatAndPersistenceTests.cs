@@ -90,12 +90,12 @@ namespace Tests.Editor {
         }
 
         [Test]
-        public void SettingsFile_QuarantineCorruptFile_MovesCurrentSettings() {
+        public void SettingsFile_QuarantineCorrupt_MovesCurrentSettings() {
             Directory.CreateDirectory(Application.persistentDataPath);
             File.WriteAllText(SettingsPath, "corrupt_payload");
 
             var existing = new HashSet<string>(Directory.GetFiles(Application.persistentDataPath, "settings.corrupt.*.json"));
-            SettingsFile.QuarantineCorruptFile();
+            SettingsFile.QuarantineCorrupt();
 
             Assert.That(File.Exists(SettingsPath), Is.False);
             var updated = new HashSet<string>(Directory.GetFiles(Application.persistentDataPath, "settings.corrupt.*.json"));

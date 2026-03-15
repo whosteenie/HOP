@@ -113,7 +113,7 @@ namespace Game.Audio {
             _musicFadeCoroutine = StartCoroutine(FadeOutAndStop(fadeDuration));
         }
 
-        public void StopForTransitionImmediate() {
+        public void StopForTransition() {
             _allowAutoAdvance = false;
 
             if(_musicFadeCoroutine != null) {

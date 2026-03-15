@@ -19,7 +19,6 @@ namespace Game.Spawning {
         private readonly List<SpawnPoint> _ffaPoints = new();
 
         private const float SpawnClearRadius = 1.5f;
-        private const int MaxSpawnAttempts = 30;
         private const float ReservationTimeout = 10f; // Release reservation after 10 seconds if not used
 
         // Spawn point reservations: maps SpawnPoint to the client ID that reserved it
@@ -49,7 +48,7 @@ namespace Game.Spawning {
         public override void OnNetworkSpawn() {
             base.OnNetworkSpawn();
             NetworkAuthority.TryConfigureSessionOwnerObject(this);
-            RegisterSessionOwnerCallbacks();
+            RegisterSessionCallbacks();
 
             // Hook into client disconnect callback to release reservations
             if(NetworkAuthority.HasGlobalAuthority(this)) {
@@ -64,7 +63,7 @@ namespace Game.Spawning {
                 NetworkManager.Singleton.OnClientDisconnectCallback -= OnClientDisconnect;
             }
 
-            UnregisterSessionOwnerCallbacks();
+            UnregisterSessionCallbacks();
         }
 
         private void Update() {
@@ -75,13 +74,13 @@ namespace Game.Spawning {
             CleanupExpiredReservations();
         }
 
-        private void RegisterSessionOwnerCallbacks() {
+        private void RegisterSessionCallbacks() {
             if(_sessionOwnerCallbacksRegistered || NetworkManager == null) return;
             NetworkManager.OnSessionOwnerPromoted += OnSessionOwnerPromoted;
             _sessionOwnerCallbacksRegistered = true;
         }
 
-        private void UnregisterSessionOwnerCallbacks() {
+        private void UnregisterSessionCallbacks() {
             if(!_sessionOwnerCallbacksRegistered || NetworkManager == null) return;
             NetworkManager.OnSessionOwnerPromoted -= OnSessionOwnerPromoted;
             _sessionOwnerCallbacksRegistered = false;
@@ -170,14 +169,14 @@ namespace Game.Spawning {
             if(!NetworkAuthority.HasGlobalAuthority(this)) return null;
 
             var list = GetSpawnPointList(team);
-            return ReserveSpawnPointFromList(clientId, list, $"Team {team}");
+            return ReserveFromList(clientId, list, $"Team {team}");
         }
 
         /// <summary>
         /// Reserves a spawn point for a player in FFA mode.
         /// </summary>
         public SpawnPoint ReserveSpawnPoint(ulong clientId) {
-            return !NetworkAuthority.HasGlobalAuthority(this) ? null : ReserveSpawnPointFromList(clientId, _ffaPoints, "FFA");
+            return !NetworkAuthority.HasGlobalAuthority(this) ? null : ReserveFromList(clientId, _ffaPoints, "FFA");
         }
 
         /// <summary>
@@ -185,7 +184,7 @@ namespace Game.Spawning {
         /// This method is kept for backward compatibility but should not be used for respawning.
         /// Use ReserveSpawnPoint instead when player dies.
         /// </summary>
-        public SpawnPoint GetNextSpawnPointForRespawn(SpawnPoint.Team team) {
+        public SpawnPoint GetNextSpawnForRespawn(SpawnPoint.Team team) {
             // This method is kept for backward compatibility but should not be used for respawning
             // Use ReserveSpawnPoint instead when player dies
             var list = GetSpawnPointList(team);
@@ -201,7 +200,7 @@ namespace Game.Spawning {
         /// This method is kept for backward compatibility but should not be used for respawning.
         /// Use ReserveSpawnPoint instead when player dies.
         /// </summary>
-        public SpawnPoint GetNextSpawnPointForRespawn() {
+        public SpawnPoint GetNextSpawnForRespawn() {
             if(_ffaPoints.Count == 0) return null;
 
             lock(_reservationLock) {
@@ -316,7 +315,7 @@ namespace Game.Spawning {
         /// <summary>
         /// Reserves a spawn point from a list for a player.
         /// </summary>
-        private SpawnPoint ReserveSpawnPointFromList(ulong clientId, List<SpawnPoint> list, string context) {
+        private SpawnPoint ReserveFromList(ulong clientId, List<SpawnPoint> list, string context) {
             if(list == null || list.Count == 0) return null;
 
             lock(_reservationLock) {

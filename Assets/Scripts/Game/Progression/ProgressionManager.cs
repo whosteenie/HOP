@@ -65,7 +65,7 @@ namespace Game.Progression {
 
             var changed = false;
             foreach (var challenge in challenges) {
-                var def = GetChallengeDefinition(challenge.challengeID);
+                var def = GetChallenge(challenge.challengeID);
                 if (def == null) continue;
 
                 var minTarget = Mathf.Max(1, def.GetMinTarget(weeklyVariant));
@@ -197,7 +197,7 @@ namespace Game.Progression {
             // Check KillStreak challenges
             foreach(var challenge in Data.dailyChallenges) {
                 if (challenge.isCompleted) continue;
-                var def = GetChallengeDefinition(challenge.challengeID);
+                var def = GetChallenge(challenge.challengeID);
                 if (def == null || def.type != ChallengeType.KillStreak) continue;
 
                 // Update progress to the highest streak achieved
@@ -290,7 +290,7 @@ namespace Game.Progression {
              var changed = false;
              foreach(var challenge in list) {
                 if (challenge.isCompleted) continue;
-                var def = GetChallengeDefinition(challenge.challengeID);
+                var def = GetChallenge(challenge.challengeID);
                 if (def == null || def.type != type) continue;
 
                 // Get the filter from the active challenge (dynamic) or definition (static)
@@ -360,7 +360,7 @@ namespace Game.Progression {
         }
 
         private void CheckLevelUp() {
-            var xpRequired = GetXpRequiredForLevel(Data.level);
+            var xpRequired = GetXpForLevel(Data.level);
             var leveledUp = false;
 
             while (Data.currentXp >= xpRequired) {
@@ -369,7 +369,7 @@ namespace Game.Progression {
                 leveledUp = true;
                 
                 // Recalculate for next level
-                xpRequired = GetXpRequiredForLevel(Data.level);
+                xpRequired = GetXpForLevel(Data.level);
             }
             
             if (leveledUp) {
@@ -377,7 +377,7 @@ namespace Game.Progression {
             }
         }
 
-        public int GetXpRequiredForLevel(int level) {
+        public int GetXpForLevel(int level) {
             // Formula: Base * (Multiplier ^ (Level - 1))
             return Mathf.FloorToInt(baseXp * Mathf.Pow(xpMultiplier, level - 1));
         }
@@ -416,7 +416,7 @@ namespace Game.Progression {
         private void CheckWeeklyReset() {
              var needsReset = false;
              var now = DateTime.Now;
-             var currentWeeklyBoundary = GetCurrentWeeklyBoundary(now);
+             var currentWeeklyBoundary = GetWeeklyBoundary(now);
 
              if (string.IsNullOrEmpty(Data.lastWeeklyReset)) {
                  needsReset = true;
@@ -445,7 +445,7 @@ namespace Game.Progression {
 
             foreach (var challenge in challenges) {
                 if (string.IsNullOrEmpty(challenge.challengeID)) return true;
-                var def = GetChallengeDefinition(challenge.challengeID);
+                var def = GetChallenge(challenge.challengeID);
                 if (def == null) return true;
                 var minTarget = Mathf.Max(1, def.GetMinTarget(weeklyVariant));
                 var maxTarget = Mathf.Max(minTarget, def.GetMaxTarget(weeklyVariant));
@@ -468,12 +468,12 @@ namespace Game.Progression {
              if (Data == null) return TimeSpan.Zero;
 
              var now = DateTime.Now;
-             var nextReset = GetCurrentWeeklyBoundary(now).AddDays(7);
+             var nextReset = GetWeeklyBoundary(now).AddDays(7);
              var remaining = nextReset - now;
              return remaining > TimeSpan.Zero ? remaining : TimeSpan.Zero;
         }
 
-        private static DateTime GetCurrentWeeklyBoundary(DateTime now) {
+        private static DateTime GetWeeklyBoundary(DateTime now) {
             var midnightToday = now.Date;
             var daysSinceResetDay = ((int)midnightToday.DayOfWeek - (int)WeeklyResetDay + 7) % 7;
             return midnightToday.AddDays(-daysSinceResetDay);
@@ -753,20 +753,20 @@ namespace Game.Progression {
             EventBus.Publish(new ChallengesUpdatedEvent());
         }
         
-        public ChallengeDefinition GetChallengeDefinition(string id) {
+        public ChallengeDefinition GetChallenge(string id) {
             return challengePool.Find(c => c.id == id);
         }
         
-        public string GetGamemodeDisplayName(string gamemodeId) {
+        public string GetGamemodeName(string gamemodeId) {
             return string.IsNullOrEmpty(gamemodeId) ? "" : GamemodeDisplayNames.GetValueOrDefault(gamemodeId, gamemodeId);
         }
         
-        public string GetWeaponDisplayName(string weaponId) {
+        public string GetWeaponName(string weaponId) {
             return string.IsNullOrEmpty(weaponId) ? "" : WeaponDisplayNames.GetValueOrDefault(weaponId, weaponId);
         }
         
         // Unified filter display name lookup (tries gamemode first, then weapon)
-        public static string GetFilterDisplayName(string filterId) {
+        public static string GetFilterName(string filterId) {
             if (string.IsNullOrEmpty(filterId)) return "";
             return GamemodeDisplayNames.TryGetValue(filterId, out var gmName) ? gmName : WeaponDisplayNames.GetValueOrDefault(filterId, filterId);
         }

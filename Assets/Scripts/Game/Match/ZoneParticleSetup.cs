@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace Game.Visuals {
+namespace Game.Match {
     [RequireComponent(typeof(ParticleSystem))]
     public class ZoneParticleSetup : MonoBehaviour {
         [Header("Zone Settings")]

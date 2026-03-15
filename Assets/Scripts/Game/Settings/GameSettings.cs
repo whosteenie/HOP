@@ -27,24 +27,24 @@ namespace Game.Settings {
             if(SettingsFile.TryLoad(out var settingsData) && settingsData != null) {
                 data = settingsData;
                 ValidateAndClamp(data);
-                ApplyEventBusDiagnosticsSetting(data);
+                ApplyEventBusDiagnostics(data);
                 return;
             }
 
             // If load failed, quarantine any existing file and regenerate.
-            SettingsFile.QuarantineCorruptFile();
+            SettingsFile.QuarantineCorrupt();
 
             data = new SettingsData();
-            MigrateFromPlayerPrefsIfPresent(data);
+            MigrateFromPlayerPrefs(data);
             ValidateAndClamp(data);
-            ApplyEventBusDiagnosticsSetting(data);
+            ApplyEventBusDiagnostics(data);
             SettingsFile.Save(data);
         }
 
         public static void Save() {
             EnsureLoaded();
             ValidateAndClamp(data);
-            ApplyEventBusDiagnosticsSetting(data);
+            ApplyEventBusDiagnostics(data);
             SettingsFile.Save(data);
             EventBus.Publish(new GameSettingsChangedEvent());
         }
@@ -110,7 +110,7 @@ namespace Game.Settings {
             }
         }
 
-        private static void ApplyEventBusDiagnosticsSetting(SettingsData d) {
+        private static void ApplyEventBusDiagnostics(SettingsData d) {
             var diagnosticsEnabled = d?.social == null || d.social.EventBusDiagnosticsEnabled;
             EventBus.SetFailureCaptureEnabled(diagnosticsEnabled);
             EventBus.SetFailureFileLoggingEnabled(diagnosticsEnabled);
@@ -149,7 +149,7 @@ namespace Game.Settings {
             }
         }
 
-        private static void MigrateFromPlayerPrefsIfPresent(SettingsData d) {
+        private static void MigrateFromPlayerPrefs(SettingsData d) {
             if(d == null) return;
 
             // Audio

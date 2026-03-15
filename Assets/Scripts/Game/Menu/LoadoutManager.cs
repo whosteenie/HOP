@@ -2087,7 +2087,7 @@ namespace Game.Menu {
             if(levelLabel != null) levelLabel.text = $"LEVEL {data.level}";
 
             // XP
-            var maxXp = pm.GetXpRequiredForLevel(data.level);
+            var maxXp = pm.GetXpForLevel(data.level);
             var bar = _statsContainer.Q<ProgressBar>("stats-xp-bar");
             if(bar != null) {
                 bar.lowValue = 0;

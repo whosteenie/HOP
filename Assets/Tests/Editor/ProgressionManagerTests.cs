@@ -108,13 +108,13 @@ namespace Tests.Editor {
         }
 
         [Test]
-        public void GetXpRequiredForLevel_UsesConfiguredCurve() {
+        public void GetXpForLevel_UsesConfiguredCurve() {
             _baseXpField.SetValue(_manager, 200);
             _xpMultiplierField.SetValue(_manager, 1.5f);
 
-            Assert.That(_manager.GetXpRequiredForLevel(1), Is.EqualTo(200));
-            Assert.That(_manager.GetXpRequiredForLevel(2), Is.EqualTo(300));
-            Assert.That(_manager.GetXpRequiredForLevel(3), Is.EqualTo(450));
+            Assert.That(_manager.GetXpForLevel(1), Is.EqualTo(200));
+            Assert.That(_manager.GetXpForLevel(2), Is.EqualTo(300));
+            Assert.That(_manager.GetXpForLevel(3), Is.EqualTo(450));
         }
     }
 }

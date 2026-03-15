@@ -597,7 +597,7 @@ namespace Game.Player.Combat {
         private static (Vector3 pos, Quaternion rot) GetSpawnPointForTeam(SpawnPoint.Team team) {
             SpawnPoint point = null;
             if(SpawnManager.Instance != null) {
-                point = SpawnManager.Instance.GetNextSpawnPointForRespawn(team);
+                point = SpawnManager.Instance.GetNextSpawnForRespawn(team);
             }
 
             if(point == null) {
@@ -611,7 +611,7 @@ namespace Game.Player.Combat {
         private static (Vector3 pos, Quaternion rot) GetSpawnPointFfa() {
             SpawnPoint point = null;
             if(SpawnManager.Instance != null) {
-                point = SpawnManager.Instance.GetNextSpawnPointForRespawn();
+                point = SpawnManager.Instance.GetNextSpawnForRespawn();
             }
 
             if(point == null) {

@@ -675,7 +675,7 @@ namespace Game.Match {
             // Show XP Bar for local player
             if(_xpDisplay == null || Progression.ProgressionManager.Instance == null) return;
             var pm = Progression.ProgressionManager.Instance;
-            pm.GetXpRequiredForLevel(pm.StartMatchLevel);
+            pm.GetXpForLevel(pm.StartMatchLevel);
 
             // Note: If we leveled up multiple times, the animation might be a bit weird with just start/end,
             // but PostMatchXPDisplay handles basic level up logic.

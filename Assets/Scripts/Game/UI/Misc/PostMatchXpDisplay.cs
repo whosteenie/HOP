@@ -72,7 +72,7 @@ namespace Game.UI.Misc {
             _levelLabel.text = $"LEVEL {startLevel}";
             _xpGainedLabel.text = $"+{gained} XP";
 
-            var maxXp = progression.GetXpRequiredForLevel(startLevel);
+            var maxXp = progression.GetXpForLevel(startLevel);
             
             _xpBar.lowValue = 0;
             _xpBar.highValue = maxXp;
@@ -91,7 +91,7 @@ namespace Game.UI.Misc {
                 var currentXp = startXp;
 
                 while(currentLevel < endLevel) {
-                    var requiredXpForLevel = progression.GetXpRequiredForLevel(currentLevel);
+                    var requiredXpForLevel = progression.GetXpForLevel(currentLevel);
                     _xpBar.highValue = requiredXpForLevel;
                     _levelLabel.text = $"LEVEL {currentLevel}";
                     yield return AnimateXpSegment(currentXp, requiredXpForLevel, segmentDuration);
@@ -99,18 +99,18 @@ namespace Game.UI.Misc {
                     currentLevel++;
                     currentXp = 0;
                     _levelLabel.text = $"LEVEL {currentLevel}";
-                    _xpBar.highValue = progression.GetXpRequiredForLevel(currentLevel);
+                    _xpBar.highValue = progression.GetXpForLevel(currentLevel);
                     _xpBar.value = 0;
                     yield return null;
                 }
 
-                _xpBar.highValue = progression.GetXpRequiredForLevel(endLevel);
+                _xpBar.highValue = progression.GetXpForLevel(endLevel);
                 _levelLabel.text = $"LEVEL {endLevel}";
                 yield return AnimateXpSegment(0, endXp, segmentDuration);
             }
 
             _xpBar.value = endXp;
-            _xpBar.highValue = progression.GetXpRequiredForLevel(endLevel);
+            _xpBar.highValue = progression.GetXpForLevel(endLevel);
             _levelLabel.text = $"LEVEL {endLevel}";
             _xpAnimationRoutine = null;
         }

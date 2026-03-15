@@ -13,7 +13,7 @@ namespace Tests.Editor {
         public void OneTimeSetUp() {
             var gameSettingsType = typeof(GameSettings);
             _validateAndClampMethod = gameSettingsType.GetMethod("ValidateAndClamp", BindingFlags.NonPublic | BindingFlags.Static);
-            _migrateFromPlayerPrefsMethod = gameSettingsType.GetMethod("MigrateFromPlayerPrefsIfPresent", BindingFlags.NonPublic | BindingFlags.Static);
+            _migrateFromPlayerPrefsMethod = gameSettingsType.GetMethod("MigrateFromPlayerPrefs", BindingFlags.NonPublic | BindingFlags.Static);
 
             Assert.That(_validateAndClampMethod, Is.Not.Null);
             Assert.That(_migrateFromPlayerPrefsMethod, Is.Not.Null);

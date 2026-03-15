@@ -30,14 +30,14 @@ namespace Game.Progression {
                 var decodeResult = SecureJsonFile.TryDecode(path, raw, out var json);
                 if (decodeResult == SecureJsonFile.DecodeResult.InvalidOrTampered) {
                     Debug.LogWarning("[ProgressionStore] progression.json failed integrity checks. Resetting progression.");
-                    QuarantineCorruptFile(path);
+                    QuarantineCorrupt(path);
                     return new PlayerProgressionData();
                 }
 
                 var loaded = JsonUtility.FromJson<PlayerProgressionData>(json);
                 if (loaded == null) {
                     Debug.LogWarning("[ProgressionStore] progression.json parsed as null. Resetting progression.");
-                    QuarantineCorruptFile(path);
+                    QuarantineCorrupt(path);
                     return new PlayerProgressionData();
                 }
 
@@ -48,12 +48,12 @@ namespace Game.Progression {
                 return loaded;
             } catch (Exception e) {
                 Debug.LogError($"[ProgressionStore] Failed to load, creating new: {e.Message}");
-                QuarantineCorruptFile(path);
+                QuarantineCorrupt(path);
                 return new PlayerProgressionData();
             }
         }
 
-        private static void QuarantineCorruptFile(string path) {
+        private static void QuarantineCorrupt(string path) {
             if (!File.Exists(path)) return;
 
             try {

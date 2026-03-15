@@ -21,18 +21,18 @@ namespace Game.Settings {
             EventBus.Unsubscribe<GameSettingsChangedEvent>(OnGameSettingsChanged);
             EventBus.Subscribe<GameSettingsChangedEvent>(OnGameSettingsChanged);
 
-            ApplyFromSavedSettings();
+            ApplySaved();
         }
 
         private static void OnSceneLoaded(Scene scene, LoadSceneMode mode) {
-            ApplyFromSavedSettings();
+            ApplySaved();
         }
 
         private static void OnGameSettingsChanged(GameSettingsChangedEvent _) {
-            ApplyFromSavedSettings();
+            ApplySaved();
         }
 
-        private static void ApplyFromSavedSettings() {
+        private static void ApplySaved() {
             var video = GameSettings.Data.video;
             var bloomEnabled = video == null || video.bloomEnabled;
             var motionBlurEnabled = video == null || video.motionBlurEnabled;

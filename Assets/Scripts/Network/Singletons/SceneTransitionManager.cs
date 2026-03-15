@@ -441,7 +441,7 @@ namespace Network.Singletons {
             // Also fade out music instantly
             var menuMusicPlayer = ResolveMenuMusicPlayer();
             if(menuMusicPlayer != null) {
-                menuMusicPlayer.StopForTransitionImmediate();
+                menuMusicPlayer.StopForTransition();
             }
 
             // Restore normal transition duration after one frame

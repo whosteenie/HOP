@@ -91,7 +91,7 @@ namespace Game.Settings {
             }
         }
 
-        public static void QuarantineCorruptFile() {
+        public static void QuarantineCorrupt() {
             var path = GetSettingsPath();
             if(!File.Exists(path)) return;
 

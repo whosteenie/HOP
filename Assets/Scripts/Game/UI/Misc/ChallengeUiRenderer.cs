@@ -152,7 +152,7 @@ namespace Game.UI.Misc {
 
             var visibleRowCount = 0;
             foreach(var activeChallenge in challenges) {
-                var def = progressionManager.GetChallengeDefinition(activeChallenge.challengeID);
+                var def = progressionManager.GetChallenge(activeChallenge.challengeID);
                 if(def == null) continue;
 
                 var row = EnsureRowBinding(state, visibleRowCount, rowTemplate, listContainer, ref templateErrorLogged, context);
@@ -259,7 +259,7 @@ namespace Game.UI.Misc {
 
         private static string BuildDescriptionText(ChallengeDefinition def, ActiveChallengeData activeChallenge, int target) {
             var filterToUse = !string.IsNullOrEmpty(activeChallenge.filterID) ? activeChallenge.filterID : def.weaponID;
-            var displayFilter = ProgressionManager.GetFilterDisplayName(filterToUse);
+            var displayFilter = ProgressionManager.GetFilterName(filterToUse);
             if(string.IsNullOrEmpty(displayFilter)) {
                 displayFilter = def.type switch {
                     ChallengeType.MatchesPlayed => "Any Mode",
