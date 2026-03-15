@@ -97,7 +97,7 @@ namespace Game.Weapons.Manager {
             BuildEquippedWeaponList();
             if(!_root.BuildWorldWeaponLookup()) return;
             _root.LogStrictStartupValidationOnce();
-            if(!ValidateStrictEquippedWeaponConfiguration()) return;
+            if(!ValidateStrictEquippedConfig()) return;
             SetupHolsteredWeaponModels();
             DisableUnequippedWorldWeapons();
 
@@ -147,7 +147,7 @@ namespace Game.Weapons.Manager {
                 _root.DeferredRespawnWorldWeapon = null;
             }
 
-            ResolveCurrentWorldWeaponReference();
+            ResolveCurrentWorldWeaponRef();
             if(_root.CurrentWorldWeaponInstanceInternal != null && !_root.CurrentWorldWeaponInstanceInternal.activeSelf) {
                 _root.CurrentWorldWeaponInstanceInternal.SetActive(true);
             }
@@ -167,8 +167,8 @@ namespace Game.Weapons.Manager {
                     if(_root.CurrentWeaponIndexInternal >= 0 && _root.CurrentWeaponIndexInternal < _root.WeaponDataListRef.Count &&
                        WeaponManager.TryGetKinemationDriverInternal(currentFpWeapon, out _)) {
                         var data = _root.WeaponDataListRef[_root.CurrentWeaponIndexInternal];
-                        _root.TryGetKinemationBindingForData(data, out var kinemationBinding);
-                        _root.ApplyResolvedKinemationViewmodelPoseInternal(currentFpWeapon, kinemationBinding);
+                        _root.TryGetKinemationBinding(data, out var kinemationBinding);
+                        _root.ApplyKinemationViewmodelPoseInternal(currentFpWeapon, kinemationBinding);
                     }
 
                     WeaponManager.EnsureHierarchyActiveInternal(currentFpWeapon);
@@ -211,7 +211,7 @@ namespace Game.Weapons.Manager {
 
         internal int GetSlotForIndexInternal(int index) => GetSlotForIndex(index);
 
-        internal void ResolveCurrentWorldWeaponReferenceInternal() => ResolveCurrentWorldWeaponReference();
+        internal void ResolveCurrentWorldWeaponRefInternal() => ResolveCurrentWorldWeaponRef();
 
         #endregion
 
@@ -271,7 +271,7 @@ namespace Game.Weapons.Manager {
 
             BuildEquippedWeaponList();
             if(!_root.BuildWorldWeaponLookup()) return;
-            if(!ValidateStrictEquippedWeaponConfiguration()) return;
+            if(!ValidateStrictEquippedConfig()) return;
             SetupHolsteredWeaponModels();
             DisableUnequippedWorldWeapons();
 
@@ -312,7 +312,7 @@ namespace Game.Weapons.Manager {
                 }
             } else {
                 _root.DeferredRespawnWorldWeapon = null;
-                ResolveCurrentWorldWeaponReference();
+                ResolveCurrentWorldWeaponRef();
                 if(_root.CurrentWorldWeaponInstanceInternal != null && !_root.CurrentWorldWeaponInstanceInternal.activeSelf) {
                     _root.CurrentWorldWeaponInstanceInternal.SetActive(true);
                 }
@@ -410,7 +410,7 @@ namespace Game.Weapons.Manager {
 
         #region Private World Weapon Helpers
 
-        private void ResolveCurrentWorldWeaponReference() {
+        private void ResolveCurrentWorldWeaponRef() {
             if(_root.WorldWeaponSocketRef == null) return;
             if(_root.CurrentWeaponIndexInternal < 0 || _root.CurrentWeaponIndexInternal >= _root.WeaponDataListRef.Count) return;
 
@@ -497,7 +497,7 @@ namespace Game.Weapons.Manager {
 
         #region Private Validation Helpers
 
-        private bool ValidateStrictEquippedWeaponConfiguration() {
+        private bool ValidateStrictEquippedConfig() {
             if(_root.KinemationFpsPlayerPrefabRef == null) {
                 Debug.LogError("[WeaponManager] Missing KINEMATION FPS player prefab.");
                 return false;
@@ -530,14 +530,14 @@ namespace Game.Weapons.Manager {
                     isValid = false;
                 }
 
-                if(!_root.TryGetKinemationBindingForData(data, out var binding) || binding == null ||
+                if(!_root.TryGetKinemationBinding(data, out var binding) || binding == null ||
                    binding.kinemationWeaponPrefab == null) {
                     Debug.LogError($"[WeaponManager] Weapon '{data.weaponName}' is missing a KINEMATION binding/prefab.");
                     isValid = false;
                     continue;
                 }
 
-                if(WeaponManager.ResolveKinemationWeaponCapacity(binding.kinemationWeaponPrefab) <= 0) {
+                if(WeaponManager.ResolveKinemationCapacity(binding.kinemationWeaponPrefab) <= 0) {
                     Debug.LogError(
                         $"[WeaponManager] Weapon '{data.weaponName}' has invalid KINEMATION ammo capacity. " +
                         "Set FPSWeaponSettings.ammo > 0.");

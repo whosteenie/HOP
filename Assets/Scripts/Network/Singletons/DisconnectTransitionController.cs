@@ -47,7 +47,7 @@ namespace Network.Singletons {
             var weaponManager = player.WeaponManager;
             if(weaponManager == null) { if(Debug.isDebugBuild) Debug.Log("[DisconnectTransition] FAIL: weaponManager null"); return false; }
 
-            var holderRoot = weaponManager.GetCurrentFpWeaponHolderRootForDisconnectDuplicate();
+            var holderRoot = weaponManager.GetFpWeaponHolderRootForDisconnect();
             if(holderRoot == null) { if(Debug.isDebugBuild) Debug.Log("[DisconnectTransition] FAIL: holderRoot null (no FP weapon?)"); return false; }
 
             var mainCamera = Camera.main;

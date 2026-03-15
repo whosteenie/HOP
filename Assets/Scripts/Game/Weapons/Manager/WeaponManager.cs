@@ -257,8 +257,8 @@ namespace Game.Weapons.Manager {
         public void SetTpWeaponIndexForPodium() => _switch.SetTpWeaponIndexForPodium();
         public void ProcessWeaponSwitchRequest(int newIndex) => _switch.ProcessWeaponSwitchRequest(newIndex);
         public GameObject GetCurrentFpWeapon() => _fpPresentation != null ? _fpPresentation.GetCurrentFpWeapon() : null;
-        public GameObject GetCurrentFpWeaponHolderRootForDisconnectDuplicate() =>
-            _fpPresentation.GetCurrentFpWeaponHolderRootForDisconnectDuplicate();
+        public GameObject GetFpWeaponHolderRootForDisconnect() =>
+            _fpPresentation.GetFpWeaponHolderRootForDisconnect();
         public void UpdateAllFpArmTagGlow(bool isTagged) => _fpPresentation.UpdateAllFpArmTagGlow(isTagged);
         public void SetCurrentFpWeaponVisible(bool visible) => _fpPresentation.SetCurrentFpWeaponVisible(visible);
         public void HideFpVisualsForDisconnectTransition() => _fpPresentation.HideFpVisualsForDisconnectTransition();
@@ -293,15 +293,15 @@ namespace Game.Weapons.Manager {
         internal void DestroyFpWeaponInstancesInternal() => _fpPresentation.DestroyFpWeaponInstances();
         internal static bool TryGetKinemationDriverInternal(GameObject fpWeaponRoot, out KinFpWeaponDriver driver) =>
             WeaponFpPresentation.TryGetKinemationDriver(fpWeaponRoot, out driver);
-        internal void ApplyResolvedKinemationViewmodelPoseInternal(GameObject fpWeaponRoot, KinemationWeaponBinding binding) =>
-            _fpPresentation.ApplyResolvedKinemationViewmodelPose(fpWeaponRoot, binding);
+        internal void ApplyKinemationViewmodelPoseInternal(GameObject fpWeaponRoot, KinemationWeaponBinding binding) =>
+            _fpPresentation.ApplyKinemationViewmodelPose(fpWeaponRoot, binding);
         internal int GetFpWeaponLayerInternal() => _fpPresentation.GetFpWeaponLayer();
         internal void SetupFpWeaponSkinnedMeshRenderersInternal(GameObject fpWeaponInstance) =>
             _fpPresentation.SetupFpWeaponSkinnedMeshRenderers(fpWeaponInstance);
         internal static void EnsureHierarchyActiveInternal(GameObject instanceRoot) => WeaponFpPresentation.EnsureHierarchyActive(instanceRoot);
         internal void EnsureFpWeaponLightingRigInternal() => _fpLighting.EnsureFpWeaponLightingRig();
         internal int GetSlotForIndexInternal(int index) => _loadout.GetSlotForIndexInternal(index);
-        internal void ResolveCurrentWorldWeaponReferenceInternal() => _loadout.ResolveCurrentWorldWeaponReferenceInternal();
+        internal void ResolveCurrentWorldWeaponRefInternal() => _loadout.ResolveCurrentWorldWeaponRefInternal();
         internal void EquipInitialWeaponInternal(int index) => EquipInitialWeapon(index);
         internal void EnsureWorldWeaponShadowStateInternal() => _switch.EnsureWorldWeaponShadowStateInternal();
         internal void EnsureWeaponHierarchyActiveInternal() => _switch.EnsureWeaponHierarchyActiveInternal();
@@ -389,11 +389,11 @@ namespace Game.Weapons.Manager {
             CatalogRef.Rebuild(kinemationWeaponBindings, ResolveWeaponSlot, Debug.LogError);
         }
 
-        internal bool TryGetKinemationBindingForData(WeaponData weaponData, out KinemationWeaponBinding binding) {
+        internal bool TryGetKinemationBinding(WeaponData weaponData, out KinemationWeaponBinding binding) {
             return CatalogRef.TryGetBinding(kinemationFpsPlayerPrefab, weaponData, out binding);
         }
 
-        internal static int ResolveKinemationWeaponCapacity(GameObject kinemationWeaponPrefab) {
+        internal static int ResolveKinemationCapacity(GameObject kinemationWeaponPrefab) {
             if(kinemationWeaponPrefab == null) return 0;
             var fpsWeapon = kinemationWeaponPrefab.GetComponentInChildren<FPSWeapon>(true);
             var settings = fpsWeapon != null ? fpsWeapon.weaponSettings : null;
@@ -402,8 +402,8 @@ namespace Game.Weapons.Manager {
 
         internal int ResolveWeaponCapacity(WeaponData data) {
             if(data == null) return 0;
-            if(!TryGetKinemationBindingForData(data, out var binding) || binding == null) return 0;
-            return ResolveKinemationWeaponCapacity(binding.kinemationWeaponPrefab);
+            if(!TryGetKinemationBinding(data, out var binding) || binding == null) return 0;
+            return ResolveKinemationCapacity(binding.kinemationWeaponPrefab);
         }
 
         internal bool TryValidateSwitchTargetStrict(int newIndex, out WeaponData data, out int magCapacity) {
@@ -431,7 +431,7 @@ namespace Game.Weapons.Manager {
         internal int ResolveRestoredAmmo(int weaponIndex, int magCapacity, bool seedWhenMissing) =>
             AmmoAuthorityRef.ResolveRestoredAmmo(weaponIndex, magCapacity, seedWhenMissing);
 
-        internal void RefreshOwnerHolsterShadowState() {
+        internal void RefreshHolsterShadowState() {
             if(!IsOwner || playerController == null || playerController.PlayerShadow == null) return;
             playerController.PlayerShadow.UpdateHolsterShadowState();
         }

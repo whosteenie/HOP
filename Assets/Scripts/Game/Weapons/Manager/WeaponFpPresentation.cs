@@ -20,7 +20,7 @@ namespace Game.Weapons.Manager {
             return _root.FpWeaponInstancesRef[_root.CurrentWeaponIndexInternal];
         }
 
-        public GameObject GetCurrentFpWeaponHolderRootForDisconnectDuplicate() {
+        public GameObject GetFpWeaponHolderRootForDisconnect() {
             var fpWeapon = GetCurrentFpWeapon();
             if(fpWeapon == null || !fpWeapon.activeSelf) return null;
             var holderRoot = ResolveFpHolderRoot(fpWeapon);
@@ -61,7 +61,7 @@ namespace Game.Weapons.Manager {
             fpWeapon.transform.localEulerAngles = localEulerAngles;
         }
 
-        public void ApplyResolvedKinemationViewmodelPose(GameObject fpWeaponRoot, WeaponManager.KinemationWeaponBinding binding) {
+        public void ApplyKinemationViewmodelPose(GameObject fpWeaponRoot, WeaponManager.KinemationWeaponBinding binding) {
             if(fpWeaponRoot == null) return;
             ResolveKinemationViewmodelPose(binding, out var localPosition, out var localEulerAngles);
             fpWeaponRoot.transform.localPosition = localPosition;
@@ -139,8 +139,8 @@ namespace Game.Weapons.Manager {
                 return null;
             }
 
-            _root.TryGetKinemationBindingForData(data, out var kinemationBinding);
-            ApplyResolvedKinemationViewmodelPose(fp, kinemationBinding);
+            _root.TryGetKinemationBinding(data, out var kinemationBinding);
+            ApplyKinemationViewmodelPose(fp, kinemationBinding);
             fp.SetActive(true);
             kinemationDriver.InitializeIfNeeded(GetFpWeaponLayer());
             kinemationDriver.PlayEquipAnimation(immediate: !triggerPullOutAnimation);
@@ -171,7 +171,7 @@ namespace Game.Weapons.Manager {
                     continue;
                 }
 
-                if(!_root.TryGetKinemationBindingForData(data, out var kinemationBinding)) {
+                if(!_root.TryGetKinemationBinding(data, out var kinemationBinding)) {
                     Debug.LogError($"[WeaponManager] Weapon '{data.weaponName}' is missing a KINEMATION binding.");
                     continue;
                 }

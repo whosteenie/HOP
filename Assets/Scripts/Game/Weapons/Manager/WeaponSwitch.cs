@@ -1,4 +1,3 @@
-using System;
 using System.Collections;
 using Game.Match;
 using Game.Menu;
@@ -225,13 +224,13 @@ namespace Game.Weapons.Manager {
             _root.CurrentWeaponInternal.SwitchToWeapon(data, fp, null, restoredAmmo, magCapacity);
             _root.IsPullingOutInternal = true;
             if(isPostMatch) {
-                ScheduleKinemationPullOutCompletionIfNeeded(
+                ScheduleKinemationPullOutIfNeeded(
                     _root.CurrentWeaponIndexInternal,
                     Mathf.Max(_root.KinemationPullOutCompleteDelay, _root.PostMatchPullOutFailSafeDelay),
                     forceSchedule: true
                 );
             } else {
-                ScheduleKinemationPullOutCompletionIfNeeded(_root.CurrentWeaponIndexInternal);
+                ScheduleKinemationPullOutIfNeeded(_root.CurrentWeaponIndexInternal);
             }
 
             if(_root.PlayerAnimatorRef != null) {
@@ -239,7 +238,7 @@ namespace Game.Weapons.Manager {
             }
 
             _root.RefreshHolsterVisibility();
-            _root.RefreshOwnerHolsterShadowState();
+            _root.RefreshHolsterShadowState();
         }
 
         public void ApplyRemoteWeaponSwitch(int newIndex) {
@@ -302,7 +301,7 @@ namespace Game.Weapons.Manager {
 
             _root.PendingHolsterHideSlot = -1;
             _root.RefreshHolsterVisibility();
-            _root.RefreshOwnerHolsterShadowState();
+            _root.RefreshHolsterShadowState();
         }
 
         public void HandlePullOutCompleted() {
@@ -345,8 +344,8 @@ namespace Game.Weapons.Manager {
                     if(!fpWeapon.activeSelf) {
                         fpWeapon = _root.ActivateFpWeaponInternal(_root.CurrentWeaponIndexInternal, data, true);
                     } else if(WeaponManager.TryGetKinemationDriverInternal(fpWeapon, out var kinemationDriver) && kinemationDriver != null) {
-                        _root.TryGetKinemationBindingForData(data, out var kinemationBinding);
-                        _root.ApplyResolvedKinemationViewmodelPoseInternal(fpWeapon, kinemationBinding);
+                        _root.TryGetKinemationBinding(data, out var kinemationBinding);
+                        _root.ApplyKinemationViewmodelPoseInternal(fpWeapon, kinemationBinding);
                         kinemationDriver.InitializeIfNeeded(_root.GetFpWeaponLayerInternal());
                         kinemationDriver.PlayEquipAnimation(immediate: false);
                     }
@@ -368,13 +367,13 @@ namespace Game.Weapons.Manager {
             _root.IsPullingOutInternal = true;
             _root.RequiresKinemationEquipCompleteForCurrentPullOut = requiresKinemationEquipCompletion && !isPostMatch;
             if(isPostMatch) {
-                ScheduleKinemationPullOutCompletionIfNeeded(
+                ScheduleKinemationPullOutIfNeeded(
                     _root.CurrentWeaponIndexInternal,
                     Mathf.Max(_root.KinemationPullOutCompleteDelay, _root.PostMatchPullOutFailSafeDelay),
                     forceSchedule: true
                 );
             } else {
-                ScheduleKinemationPullOutCompletionIfNeeded(_root.CurrentWeaponIndexInternal);
+                ScheduleKinemationPullOutIfNeeded(_root.CurrentWeaponIndexInternal);
             }
         }
 
@@ -392,7 +391,7 @@ namespace Game.Weapons.Manager {
             }
 
             if(_root.CurrentWorldWeaponInstanceInternal == null) {
-                _root.ResolveCurrentWorldWeaponReferenceInternal();
+                _root.ResolveCurrentWorldWeaponRefInternal();
             }
 
             _root.PendingTpWeapon = null;
@@ -508,20 +507,20 @@ namespace Game.Weapons.Manager {
             _root.PendingHolsterHideSlot = -1;
 
             if(repairedPresentationState) {
-                SyncCurrentWeaponPresentationToResolvedWorldWeapon(_root.CurrentWorldWeaponInstanceInternal);
+                SyncWeaponPresentationToWorldWeapon(_root.CurrentWorldWeaponInstanceInternal);
             }
 
             _root.EnsureWeaponHierarchyActiveInternal();
             _root.EnsureWorldWeaponShadowStateInternal();
             _root.RefreshHolsterVisibility();
-            _root.RefreshOwnerHolsterShadowState();
+            _root.RefreshHolsterShadowState();
         }
 
         #endregion
 
         #region Private Pull-Out Timing
 
-        private void ScheduleKinemationPullOutCompletionIfNeeded(int weaponIndex, float? delayOverride = null,
+        private void ScheduleKinemationPullOutIfNeeded(int weaponIndex, float? delayOverride = null,
             bool forceSchedule = false) {
             if(!forceSchedule && !_root.AutoCompleteKinemationPullOut) return;
             if(_root.RequiresKinemationEquipCompleteForCurrentPullOut) return;
@@ -620,7 +619,7 @@ namespace Game.Weapons.Manager {
 
         #region Private Presentation Repair
 
-        private void SyncCurrentWeaponPresentationToResolvedWorldWeapon(GameObject worldWeaponInstance) {
+        private void SyncWeaponPresentationToWorldWeapon(GameObject worldWeaponInstance) {
             if(_root.CurrentWeaponInternal == null) return;
             if(_root.CurrentWeaponIndexInternal < 0 || _root.CurrentWeaponIndexInternal >= _root.WeaponDataListRef.Count) return;
 
