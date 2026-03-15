@@ -8,7 +8,7 @@ using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.UIElements;
 
-namespace Game.UI.Screens {
+namespace Game.UI.Screens.Scoreboard {
     /// <summary>Match timer label and compact score display (left/right values next to timer).</summary>
     internal sealed class ScoreboardTopBar {
         private readonly Label _matchTimerLabel;

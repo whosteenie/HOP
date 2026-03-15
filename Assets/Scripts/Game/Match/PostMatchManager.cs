@@ -11,6 +11,7 @@ using Game.Player.Core;
 using Game.UI.HUD;
 using Game.UI.Misc;
 using Game.UI.Screens;
+using Game.UI.Screens.Scoreboard;
 using Network.Core;
 using Network.Diagnostics;
 using Network.Events;

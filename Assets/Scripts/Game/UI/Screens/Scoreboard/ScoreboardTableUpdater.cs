@@ -7,7 +7,7 @@ using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.UIElements;
 
-namespace Game.UI.Screens {
+namespace Game.UI.Screens.Scoreboard {
     /// <summary>Updates FFA and TDM scoreboard tables (player rows, velocity cache, team scores).</summary>
     internal sealed class ScoreboardTableUpdater {
         private readonly HashSet<ulong> _previousPlayerIds = new();

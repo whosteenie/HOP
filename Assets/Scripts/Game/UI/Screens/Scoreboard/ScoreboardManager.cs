@@ -8,7 +8,7 @@ using UnityEngine.UIElements;
 using Cursor = UnityEngine.Cursor;
 using SessionManager = Network.Session.SessionManager;
 
-namespace Game.UI.Screens {
+namespace Game.UI.Screens.Scoreboard {
     /// <summary>
     /// Manages the scoreboard UI, including FFA and TDM scoreboards, player rows, and match timer.
     /// Coordinates subsystems: registry, player data, header, top bar, row factory, table updater.

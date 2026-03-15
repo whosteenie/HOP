@@ -4,7 +4,7 @@ using UnityEngine;
 using UnityEngine.UIElements;
 using SessionManager = Network.Session.SessionManager;
 
-namespace Game.UI.Screens {
+namespace Game.UI.Screens.Scoreboard {
     /// <summary>Scoreboard title/map resolution and header column labels (Tag vs normal mode).</summary>
     internal sealed class ScoreboardHeader {
         private readonly VisualElement _root;

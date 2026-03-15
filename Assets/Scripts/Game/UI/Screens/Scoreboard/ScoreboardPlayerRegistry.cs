@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using Game.Match;
 using Game.Player.Core;
 
-namespace Game.UI.Screens {
+namespace Game.UI.Screens.Scoreboard {
     /// <summary>Registry of players on the scoreboard and profile/state subscriptions; invokes refresh callback on changes.</summary>
     internal sealed class ScoreboardPlayerRegistry {
         private readonly HashSet<PlayerController> _players = new();

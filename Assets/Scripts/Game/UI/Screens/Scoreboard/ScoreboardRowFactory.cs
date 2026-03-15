@@ -7,7 +7,7 @@ using UnityEngine;
 using UnityEngine.UIElements;
 using Color = UnityEngine.Color;
 
-namespace Game.UI.Screens {
+namespace Game.UI.Screens.Scoreboard {
     /// <summary>Builds scoreboard rows from template and updates speaking indicators.</summary>
     internal sealed class ScoreboardRowFactory {
         private readonly VisualTreeAsset _template;

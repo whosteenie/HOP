@@ -10,6 +10,7 @@ using Game.UI.Core;
 using Game.UI.HUD;
 using Game.UI.Misc;
 using Game.UI.Screens;
+using Game.UI.Screens.Scoreboard;
 using Game.Weapons.Core;
 using Game.Weapons.Manager;
 using Network.Events;

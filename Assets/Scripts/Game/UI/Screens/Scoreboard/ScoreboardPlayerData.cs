@@ -4,7 +4,7 @@ using Game.Player.Core;
 using Game.Spawning;
 using UnityEngine;
 
-namespace Game.UI.Screens {
+namespace Game.UI.Screens.Scoreboard {
     /// <summary>Component cache and score/sort logic for scoreboard players (tag, stats, KDR, team kills).</summary>
     internal sealed class ScoreboardPlayerData {
         private readonly Dictionary<PlayerController, PlayerTagController> _tagControllers = new();
