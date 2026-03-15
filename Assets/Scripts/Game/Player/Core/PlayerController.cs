@@ -845,38 +845,37 @@ namespace Game.Player.Core {
         #region Network Components
 
         public ClientNetworkTransform ClientNetworkTransform => clientNetworkTransform;
-        private MatchPlayerStateProxy ResolvePlayerStateOrNull() => ResolvePlayerState();
 
         private NetworkVariable<int> KillsState {
             get {
-                var state = ResolvePlayerStateOrNull();
+                var state = ResolvePlayerState();
                 return state != null ? state.kills : MissingIntState;
             }
         }
 
         private NetworkVariable<int> DeathsState {
             get {
-                var state = ResolvePlayerStateOrNull();
+                var state = ResolvePlayerState();
                 return state != null ? state.deaths : MissingIntState;
             }
         }
 
         private NetworkVariable<int> AssistsState {
             get {
-                var state = ResolvePlayerStateOrNull();
+                var state = ResolvePlayerState();
                 return state != null ? state.assists : MissingIntState;
             }
         }
 
         public NetworkVariable<float> NetHealth {
             get {
-                var state = ResolvePlayerStateOrNull();
+                var state = ResolvePlayerState();
                 return state != null ? state.netHealth : MissingHealthState;
             }
         }
 
-        public NetworkVariable<bool> NetIsDead => ResolvePlayerStateOrNull() != null
-            ? ResolvePlayerStateOrNull().netIsDead
+        public NetworkVariable<bool> NetIsDead => ResolvePlayerState() != null
+            ? ResolvePlayerState().netIsDead
             : MissingDeathState;
 
         public NetworkVariable<bool> NetIsCrouching => netIsCrouching;
@@ -892,7 +891,7 @@ namespace Game.Player.Core {
 
         public NetworkVariable<float> DamageDealt {
             get {
-                var state = ResolvePlayerStateOrNull();
+                var state = ResolvePlayerState();
                 return state != null ? state.damageDealt : MissingFloatState;
             }
         }
@@ -901,21 +900,21 @@ namespace Game.Player.Core {
 
         public NetworkVariable<ulong> SteamId {
             get {
-                var state = ResolvePlayerStateOrNull();
+                var state = ResolvePlayerState();
                 return state != null ? state.steamId : MissingSteamIdState;
             }
         }
 
         public NetworkVariable<FixedString128Bytes> UgsId {
             get {
-                var state = ResolvePlayerStateOrNull();
+                var state = ResolvePlayerState();
                 return state != null ? state.ugsId : MissingUgsIdState;
             }
         }
 
         public NetworkVariable<FixedString64Bytes> PlayerName {
             get {
-                var state = ResolvePlayerStateOrNull();
+                var state = ResolvePlayerState();
                 return state != null ? state.playerName : MissingPlayerNameState;
             }
         }
