@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
@@ -14,6 +15,7 @@ using Unity.Cinemachine;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.VFX;
+using Random = UnityEngine.Random;
 
 namespace Game.Player.Hopball {
     /// <summary>
@@ -1018,7 +1020,8 @@ namespace Game.Player.Hopball {
             if(requestingController == null) return;
             var controller = requestingController.PlayerHopballController;
             if(controller == null) return;
-            controller.DisablePlayerTargetClientRpc();
+            var rpcParams = new ClientRpcParams { Send = new ClientRpcSendParams { TargetClientIds = new List<ulong> { controller.OwnerClientId } } };
+            controller.DisablePlayerTargetClientRpc(rpcParams);
         }
 
         /// <summary>
@@ -1064,49 +1067,45 @@ namespace Game.Player.Hopball {
         }
 
         /// <summary>
-        /// Client RPC to clean up visuals and restore weapons after dissolve.
+        /// Runs cleanup and restore-weapons logic locally. Used by the state-update path (DA-compatible)
+        /// and by CleanupVisualsAndRestoreWeaponsAfterDissolveClientRpc when RPC is used.
         /// </summary>
-        [ClientRpc]
-        public void CleanupVisualsAndRestoreWeaponsAfterDissolveClientRpc() {
+        public void RunCleanupAndRestoreWeaponsAfterDissolve() {
             var postMatchTransitionActive = IsPostMatchTransitionActive();
 
-            // Clear hopball reference
             _currentHopballController = null;
-
-            // Unsubscribe from visual state changes
             HopballController.VisualStateChanged -= OnHopballVisualStateChanged;
 
             if(IsOwner) {
-                // Progression: Record Hopball Dissolve Challenge
-                if (Progression.ProgressionManager.Instance != null) {
+                if(Progression.ProgressionManager.Instance != null) {
                     Progression.ProgressionManager.Instance.RecordHopballDissolve();
                 }
-
-                // Owner: Destroy visuals and restore weapons
                 DestroyFpVisual();
                 DestroyWorldVisual();
-                if(postMatchTransitionActive) {
-                    DestroyArmImmediate();
-                }
+                if(postMatchTransitionActive) DestroyArmImmediate();
                 ShowWeapons();
-                
-                // Transition animation layers back to weapon hold (revert from hopball hold)
                 TransitionToWeaponLayers();
+                if(_playerTarget != null) _playerTarget.enabled = false;
             } else {
-                // Non-owner: Just destroy world visual (FP visual doesn't exist for non-owners)
                 DestroyWorldVisual();
             }
 
             if(postMatchTransitionActive) {
-                if(_weaponManager != null) {
-                    _weaponManager.CancelPendingPullOutForPostMatch();
-                }
-
+                if(_weaponManager != null) _weaponManager.CancelPendingPullOutForPostMatch();
                 return;
             }
 
-            // Keep normal dissolve behavior outside post-match transition.
-            TriggerPullOutAnimationClientRpc();
+            if(_weaponManager != null) _weaponManager.TriggerPullOutAnimation();
+        }
+
+        /// <summary>
+        /// Client RPC to clean up visuals and restore weapons after dissolve.
+        /// Call with ClientRpcParams targeting the owner so only the holder's client runs cleanup.
+        /// In DA mode the state-update path is used instead (holder runs cleanup when applying state).
+        /// </summary>
+        [ClientRpc]
+        public void CleanupVisualsAndRestoreWeaponsAfterDissolveClientRpc(ClientRpcParams clientRpcParams = default) {
+            RunCleanupAndRestoreWeaponsAfterDissolve();
         }
 
         /// <summary>
@@ -1114,7 +1113,7 @@ namespace Game.Player.Hopball {
         /// Ensures all clients see smooth weapon restoration in normal gameplay.
         /// </summary>
         [ClientRpc]
-        private void TriggerPullOutAnimationClientRpc() {
+        private void TriggerPullOutAnimationClientRpc(ClientRpcParams clientRpcParams = default) {
             if(_weaponManager == null) return;
             if(IsPostMatchTransitionActive()) {
                 _weaponManager.CancelPendingPullOutForPostMatch();
@@ -1125,10 +1124,10 @@ namespace Game.Player.Hopball {
         }
 
         /// <summary>
-        /// Disables the OSI Target on all clients (holder no longer holding ball).
+        /// Disables the OSI Target on the holder's client. Pass ClientRpcParams targeting owner when only holder should run it.
         /// </summary>
         [ClientRpc]
-        public void DisablePlayerTargetClientRpc() {
+        public void DisablePlayerTargetClientRpc(ClientRpcParams clientRpcParams = default) {
             if(_playerTarget != null) {
                 _playerTarget.enabled = false;
             }

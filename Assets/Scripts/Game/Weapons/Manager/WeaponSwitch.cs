@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using Game.Match;
 using Game.Menu;
@@ -340,7 +341,6 @@ namespace Game.Weapons.Manager {
                _root.CurrentWeaponIndexInternal < _root.FpWeaponInstancesRef.Count) {
                 var data = _root.WeaponDataListRef[_root.CurrentWeaponIndexInternal];
                 var fpWeapon = _root.FpWeaponInstancesRef[_root.CurrentWeaponIndexInternal];
-
                 if(data != null && fpWeapon != null) {
                     if(!fpWeapon.activeSelf) {
                         fpWeapon = _root.ActivateFpWeaponInternal(_root.CurrentWeaponIndexInternal, data, true);

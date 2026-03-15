@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Game.Player.Core;
 using Game.Player.Hopball;
@@ -106,6 +107,9 @@ namespace Game.Hopball {
         public bool PositionSpecified;
         public Vector3 Position;
         public Quaternion Rotation;
+        /// <summary>When true, the client with this ID should run full cleanup+restore (DA-compatible path).</summary>
+        public bool DissolveHolderClientIdSpecified;
+        public ulong DissolveHolderClientId;
 
         public void NetworkSerialize<T>(BufferSerializer<T> serializer) where T : IReaderWriter {
             serializer.SerializeValue(ref Flags);
@@ -114,6 +118,8 @@ namespace Game.Hopball {
             serializer.SerializeValue(ref PositionSpecified);
             serializer.SerializeValue(ref Position);
             serializer.SerializeValue(ref Rotation);
+            serializer.SerializeValue(ref DissolveHolderClientIdSpecified);
+            serializer.SerializeValue(ref DissolveHolderClientId);
         }
     }
 
@@ -357,14 +363,12 @@ namespace Game.Hopball {
         if(!EnsureServerAuthority(nameof(RespawnAtLocation))) return;
         // Clear equipped state FIRST to ensure controllers know they're not holding it
         // Also disable the previous holder's Target indicator and clean up visuals
+        ulong? dissolveHolderId = null;
         if(_equippedController != null) {
             var controller = _equippedController; // Cache before clearing
+            dissolveHolderId = controller.OwnerClientId;
             controller.ClearHopballReference();
-            // Disable the holder's Target indicator on all clients
-            controller.DisablePlayerTargetClientRpc();
             controller.OnHopballReleasedClientRpc();
-            // Clean up visuals on the owner client
-            controller.CleanupVisualsAndRestoreWeaponsAfterDissolveClientRpc();
             _equippedController = null;
             HolderController = null;
         }
@@ -382,14 +386,19 @@ namespace Game.Hopball {
         IsAwaitingRespawn = false;
         ResetToInitialState();
 
-        BroadcastStateUpdate(new HopballStateUpdate {
+        var update = new HopballStateUpdate {
             Flags = HopballStateFlags.CleanupVisuals | HopballStateFlags.ShowRealImmediate,
             TargetStateSpecified = true,
             TargetEnabled = false,
             PositionSpecified = true,
             Position = position,
             Rotation = rotation
-        });
+        };
+        if(dissolveHolderId.HasValue) {
+            update.DissolveHolderClientIdSpecified = true;
+            update.DissolveHolderClientId = dissolveHolderId.Value;
+        }
+        BroadcastStateUpdate(update);
     }
 
     /// <summary>
@@ -518,6 +527,15 @@ namespace Game.Hopball {
 
     private void ApplyHopballState(HopballStateUpdate update) {
         if((update.Flags & HopballStateFlags.CleanupVisuals) != 0) {
+            if(update.DissolveHolderClientIdSpecified && NetworkManager != null &&
+               NetworkManager.LocalClientId == update.DissolveHolderClientId) {
+                foreach(var controller in PlayerHopballController.Instances) {
+                    if(controller != null && controller.OwnerClientId == update.DissolveHolderClientId) {
+                        controller.RunCleanupAndRestoreWeaponsAfterDissolve();
+                        break;
+                    }
+                }
+            }
             foreach(var controller in PlayerHopballController.Instances) {
                 if(controller == null) continue;
                 controller.CleanupHopballVisuals();
@@ -691,13 +709,15 @@ namespace Game.Hopball {
             ("hopballNetId", NetworkObjectId),
             ("respawnDelay", "ConfiguredBySpawnManager"));
 
-        // If equipped, notify the owner client to clean up visuals and restore weapons
+        // If equipped, notify the holder client to clean up visuals and restore weapons (via state update; DA-compatible)
         var controller = _equippedController; // Cache reference before clearing
         if(IsEquipped && controller != null) {
-            // Notify owner client to clean up visuals and restore weapons
-            controller.CleanupVisualsAndRestoreWeaponsAfterDissolveClientRpc();
-            // Disable player Target indicator (ball dissolved, no longer holding)
-            controller.DisablePlayerTargetClientRpc();
+            var ownerId = controller.OwnerClientId;
+            BroadcastStateUpdate(new HopballStateUpdate {
+                Flags = HopballStateFlags.CleanupVisuals,
+                DissolveHolderClientIdSpecified = true,
+                DissolveHolderClientId = ownerId
+            });
         }
 
         // Clear equipped state to prevent any lingering references
