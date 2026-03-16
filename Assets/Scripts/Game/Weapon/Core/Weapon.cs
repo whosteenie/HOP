@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using Events;
 using Game.Audio.System;
 using Game.Player.Core;
-using Game.UI.HUD;
 using Game.Weapon.Kinemation;
 using Game.Weapon.Manager;
 using Game.Weapon.Presentation;
@@ -334,7 +333,6 @@ namespace Game.Weapon.Core {
 
         private void PublishOwnerAmmoToHud(int maxAmmoOverride = -1) {
             if(playerController == null || !playerController.IsOwner) return;
-            if(HUDManager.Instance == null) return;
             var maxAmmo = maxAmmoOverride > 0 ? maxAmmoOverride : GetCurrentMagCapacity();
             EventBus.Publish(new UpdateAmmoEvent(currentAmmo, maxAmmo));
         }

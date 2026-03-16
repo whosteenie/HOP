@@ -309,6 +309,7 @@ namespace Game.Match {
 
             ResetPostMatchUiState();
             PostMatchFlowStarted = true;
+            EventBus.Publish(new PostMatchStartedEvent());
             StartCoroutine(PostMatchSequence());
         }
 
@@ -329,6 +330,7 @@ namespace Game.Match {
             ResetPostMatchUiState();
             _winningTeam = winningTeam;
             PostMatchFlowStarted = true;
+            EventBus.Publish(new PostMatchStartedEvent());
             StartCoroutine(PostMatchSequence());
         }
 

@@ -3,12 +3,13 @@ using System.Collections.Generic;
 using System.Globalization;
 using Events;
 using UnityEngine;
-using Game.Match;
 
 namespace Game.Progression {
     public class ProgressionManager : MonoBehaviour {
         public static ProgressionManager Instance { get; private set; }
         private const DayOfWeek WeeklyResetDay = DayOfWeek.Monday;
+        private bool _isMatchActive;
+        private bool _eventsBound;
 
         [Header("Settings")]
         [SerializeField] private List<ChallengeDefinition> challengePool;
@@ -36,14 +37,47 @@ namespace Game.Progression {
             }
 
             LoadData();
+            BindEvents();
         }
 
         private void Start() {
             CheckDailyReset();
         }
 
+        private void OnDestroy() {
+            UnbindEvents();
+        }
+
         private void OnApplicationQuit() {
             SaveData();
+        }
+
+        private void BindEvents() {
+            if(_eventsBound) return;
+            EventBus.Subscribe<MatchStartedEvent>(OnMatchStarted);
+            EventBus.Subscribe<MatchEndedEvent>(OnMatchEnded);
+            EventBus.Subscribe<PostMatchStartedEvent>(OnPostMatchStarted);
+            _eventsBound = true;
+        }
+
+        private void UnbindEvents() {
+            if(!_eventsBound) return;
+            EventBus.Unsubscribe<MatchStartedEvent>(OnMatchStarted);
+            EventBus.Unsubscribe<MatchEndedEvent>(OnMatchEnded);
+            EventBus.Unsubscribe<PostMatchStartedEvent>(OnPostMatchStarted);
+            _eventsBound = false;
+        }
+
+        private void OnMatchStarted(MatchStartedEvent _) {
+            _isMatchActive = true;
+        }
+
+        private void OnMatchEnded(MatchEndedEvent _) {
+            _isMatchActive = false;
+        }
+
+        private void OnPostMatchStarted(PostMatchStartedEvent _) {
+            _isMatchActive = false;
         }
         
         // --- Core Data ---
@@ -332,7 +366,7 @@ namespace Game.Progression {
         private void Update() {
             if(Data == null) return;
             // Only track playtime if in active match
-            if (IsMatchActive()) {
+            if(_isMatchActive) {
                 Data.stats.totalPlayTimeSeconds += Time.deltaTime;
             }
 
@@ -341,22 +375,6 @@ namespace Game.Progression {
             CheckDailyReset();
             CheckWeeklyReset(); // Also check weekly
             _nextChallengeCheckTime = Time.time + ChallengeCheckInterval;
-        }
-
-        private static bool IsMatchActive() {
-            // 1. Must have MatchTimerManager (implies we are in a game scene)
-            if (MatchTimerManager.Instance == null) return false;
-
-            // 2. Must not be in pre-match
-            if (MatchTimerManager.Instance.IsPreMatch) return false;
-
-            // 3. Timer must be running, unless this match is configured as infinite time.
-            var settings = MatchSettingsManager.Instance;
-            var isInfiniteTimer = settings != null && settings.IsInfiniteMatchTimer();
-            if (!isInfiniteTimer && MatchTimerManager.Instance.TimeRemainingSeconds <= 0) return false;
-
-            // 4. Must not be in post-match flow
-            return PostMatchManager.Instance == null || !PostMatchManager.Instance.PostMatchFlowStarted;
         }
 
         private void CheckLevelUp() {

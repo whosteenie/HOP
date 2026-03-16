@@ -1,6 +1,5 @@
 using Events;
 using Game.Match;
-using Game.UI.HUD;
 using Game.Weapon.Core;
 using Network.AntiCheat;
 using Network.Core;
@@ -74,7 +73,7 @@ namespace Game.Weapon.Manager {
                 _root.CurrentWeaponInternal.currentAmmo = Mathf.Max(0, ammo);
             }
 
-            if(_root.IsOwner && HUDManager.Instance != null && _root.CurrentWeaponIndexInternal == weaponIndex) {
+            if(_root.IsOwner && _root.CurrentWeaponIndexInternal == weaponIndex) {
                 EventBus.Publish(new UpdateAmmoEvent(Mathf.Max(0, ammo), Mathf.Max(0, magSize)));
             }
         }
