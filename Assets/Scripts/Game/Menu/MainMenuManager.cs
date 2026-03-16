@@ -82,6 +82,9 @@ namespace Game.Menu {
         private Button _privateMatchBackButton;
         private Action _privateMatchBackClickHandler;
 
+        public Action OnLoadoutPanelRequested;
+        public Action<ulong, string, bool> OnLoadoutProfileViewRequested;
+
         #endregion
 
         #region Unity Lifecycle
@@ -214,7 +217,6 @@ namespace Game.Menu {
             if(gamemodeManager && gamemodeManager.uiDocument == null) {
                 gamemodeManager.uiDocument = uiDocument;
             }
-
             if(privateMatchSetupManager == null) return;
             if(privateMatchSetupManager.uiDocument == null)
                 privateMatchSetupManager.uiDocument = uiDocument;
@@ -226,16 +228,12 @@ namespace Game.Menu {
         }
 
         public void ShowLoadoutPanel() {
-            var loadoutManager = LoadoutManager.Instance;
-            if(loadoutManager != null) loadoutManager.ShowLoadout();
+            OnLoadoutPanelRequested?.Invoke();
             TransitionToState(MainMenuPanelState.Loadout);
         }
 
         public void ShowProfileView(ulong steamId, string playerName, bool isEditable) {
-            var loadoutManager = LoadoutManager.Instance;
-            if(loadoutManager != null) {
-                loadoutManager.ShowProfileView(steamId, playerName, isEditable);
-            }
+            OnLoadoutProfileViewRequested?.Invoke(steamId, playerName, isEditable);
             TransitionToState(MainMenuPanelState.Loadout);
         }
 
@@ -263,11 +261,7 @@ namespace Game.Menu {
             };
             uiManager.OnGamemodeDropdownClicked = () => sessionManager.ToggleGamemodeDropdown();
             uiManager.OnCancelMatchmakingClicked = () => sessionManager.HandleCancelMatchmakingClicked();
-            uiManager.OnLoadoutClicked = () => {
-                var loadoutManager = LoadoutManager.Instance;
-                if(loadoutManager != null) loadoutManager.ShowLoadout();
-                TransitionToState(MainMenuPanelState.Loadout);
-            };
+            uiManager.OnLoadoutClicked = ShowLoadoutPanel;
             uiManager.OnOptionsClicked = () => {
                 if(optionsMenuManager != null) {
                     optionsMenuManager.OnBackFromOptionsCallback = ReturnToMainMenuFromOptions;
@@ -323,6 +317,8 @@ namespace Game.Menu {
             sessionManager.OnHostStatusChanged = (isHost, wasHost) => {
                 if(gamemodeManager != null) gamemodeManager.SetHostStatus(isHost, wasHost);
             };
+            sessionManager.OnLocalProfileRequested = ShowLoadoutPanel;
+            sessionManager.OnProfileRequested = ShowProfileView;
             sessionManager.ShouldShowSwitchTeamInContextMenu = () =>
                 _currentPanelState == MainMenuPanelState.PrivateMatchSetup &&
                 privateMatchSetupManager != null &&

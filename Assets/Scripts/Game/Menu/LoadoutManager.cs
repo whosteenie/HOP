@@ -174,12 +174,22 @@ namespace Game.Menu {
 
         protected override void OnEnable() {
             base.OnEnable();
+            if(mainMenuManager != null) {
+                mainMenuManager.OnLoadoutPanelRequested -= ShowLoadout;
+                mainMenuManager.OnLoadoutPanelRequested += ShowLoadout;
+                mainMenuManager.OnLoadoutProfileViewRequested -= ShowProfileView;
+                mainMenuManager.OnLoadoutProfileViewRequested += ShowProfileView;
+            }
             // Subscribe to resolution changes
             EventBus.Unsubscribe<ResolutionChangedEvent>(OnResolutionChanged);
             EventBus.Subscribe<ResolutionChangedEvent>(OnResolutionChanged);
         }
 
         protected override void OnDisable() {
+            if(mainMenuManager != null) {
+                mainMenuManager.OnLoadoutPanelRequested -= ShowLoadout;
+                mainMenuManager.OnLoadoutProfileViewRequested -= ShowProfileView;
+            }
             // Stop brute force rendering
             _previewActive = false;
             _showingStats = false;

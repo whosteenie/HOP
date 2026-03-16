@@ -70,6 +70,8 @@ namespace Game.Menu {
         public Func<bool> ShouldShowSwitchTeamInContextMenu;
         /// <summary> Fired when the host chooses "Switch Team" for a player in the private match setup (team modes only). </summary>
         public Action<SteamId> OnSwitchTeamRequested;
+        public Action OnLocalProfileRequested;
+        public Action<ulong, string, bool> OnProfileRequested;
 
         protected override void OnInitialize() {
             FindUIElements();
@@ -614,16 +616,13 @@ namespace Game.Menu {
                     }
 
                     var isMe = _contextMenuTargetId == SteamClient.SteamId;
-                    var mainMenuManager = MainMenuManager.Instance;
 
                     if(isMe) {
-                        if(mainMenuManager != null) mainMenuManager.ShowLoadoutPanel();
+                        OnLocalProfileRequested?.Invoke();
                         break;
                     }
 
-                    if(mainMenuManager != null) {
-                        mainMenuManager.ShowProfileView(_contextMenuTargetId, targetName, false);
-                    }
+                    OnProfileRequested?.Invoke(_contextMenuTargetId, targetName, false);
 
                     break;
                 case "SteamProfile":
