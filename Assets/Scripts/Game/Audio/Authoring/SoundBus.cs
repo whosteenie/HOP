@@ -1,6 +1,6 @@
 using System;
 
-namespace Game.Audio.System {
+namespace Game.Audio.Authoring {
     [Serializable]
     public enum SoundBus : byte {
         Master = 0,
@@ -13,4 +13,3 @@ namespace Game.Audio.System {
         Gameplay = 7
     }
 }
-

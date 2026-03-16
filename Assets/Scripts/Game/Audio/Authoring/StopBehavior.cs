@@ -1,6 +1,6 @@
 using System;
 
-namespace Game.Audio.System {
+namespace Game.Audio.Authoring {
     [Serializable]
     public enum StopBehavior : byte {
         NotStoppable = 0,
@@ -8,4 +8,3 @@ namespace Game.Audio.System {
         StopAll = 2
     }
 }
-
