@@ -30,15 +30,15 @@ namespace Game.Social {
                 var displayName = StreamerMode.GetLocalDisplayName();
                 if (string.IsNullOrEmpty(displayName)) return;
 
-                ctx.CurrentLobby.Value.SetMemberData("DisplayName", displayName);
+                ctx.CurrentLobby.Value.SetMemberData(SteamSocialBridge.DisplayNameKey, displayName);
 
                 var hide = StreamerMode.Enabled;
-                ctx.CurrentLobby.Value.SetMemberData("AvatarHidden", hide ? "1" : "0");
+                ctx.CurrentLobby.Value.SetMemberData(SteamSocialBridge.AvatarHiddenKey, hide ? "1" : "0");
 
                 var data = GameSettings.Data;
                 var baseColor = data.player.customization.baseColor;
                 var iconId = PlayerIconPicker.PickIconIdFromBaseColor(baseColor, hide);
-                ctx.CurrentLobby.Value.SetMemberData("PlayerIcon", iconId);
+                ctx.CurrentLobby.Value.SetMemberData(SteamSocialBridge.PlayerIconKey, iconId);
             } catch (System.Exception ex) {
                 if (Debug.isDebugBuild) {
                     Debug.LogWarning($"[SessionManager] Failed to update local lobby display metadata: {ex.Message}");

@@ -18,7 +18,9 @@ namespace Network.Session {
     /// Shuts down Netcode/UGS session and NGO: leave DA session, then shutdown NetworkManager.
     /// </summary>
     public static class SessionNetworkLifecycle {
-        // Game-provided identity hooks. Default to using LocalIdentity if not overridden.
+        // Game-provided identity hooks. Until wired by a game adapter, these
+        // return placeholder values (0 / empty / "Player") so the network layer
+        // can run without depending directly on Game.Social.LocalIdentity.
         public static Func<ulong> GetSteamIdProvider { get; set; } = () => 0UL;
         public static Func<string> GetUgsPlayerIdProvider { get; set; } = () => "";
         public static Func<string> GetDisplayNameProvider { get; set; } = () => "Player";

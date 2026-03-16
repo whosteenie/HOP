@@ -231,12 +231,23 @@ namespace Network.Session {
         }
 
         private static int ResolveMaxPlayersForMode(string mode) {
+            int resolved;
             if(resolveMaxPlayersForMode != null) {
-                return resolveMaxPlayersForMode(mode);
+                resolved = resolveMaxPlayersForMode(mode);
+            } else {
+                // Sensible default when no provider is registered.
+                resolved = 10;
             }
 
-            // Sensible default when no provider is registered.
-            return 10;
+            if(resolved <= 0) {
+                if(Debug.isDebugBuild) {
+                    Debug.LogWarning(
+                        $"[SessionMatchmaker] resolveMaxPlayersForMode returned {resolved} for mode '{mode}'. Clamping to 1.");
+                }
+                resolved = 1;
+            }
+
+            return resolved;
         }
 
         private static void ResetPublicRuntimeMatchSettings(string mode) {

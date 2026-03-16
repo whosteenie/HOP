@@ -288,7 +288,8 @@ namespace Network.Session {
         /// </summary>
         public static async UniTask RunPreFadePrivateHostAsync(ISessionContext ctx, Action<bool> setHostPreFadedOut) {
             setHostPreFadedOut?.Invoke(false);
-            if(hasSceneTransitionProvider != null && hasSceneTransitionProvider() == false) return;
+            // Only run pre-fade when the game has an actual scene transition system.
+            if(hasSceneTransitionProvider == null || hasSceneTransitionProvider() == false) return;
             setHostPreFadedOut?.Invoke(true);
             ctx.SetFrontStatus(SessionPhase.SynchronizingLoad, "Waiting for party...");
             await FadeOutWithFallbackAsync();

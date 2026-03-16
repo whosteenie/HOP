@@ -377,7 +377,15 @@ namespace Network.Session {
         /// <summary>Game rules: whether this public match is still eligible for backfill join-in-progress.</summary>
         private static (bool allowed, string reason) EvaluateBackfillEligibility(ISessionContext ctx) {
             if(BackfillEligibilityProvider != null) {
-                return BackfillEligibilityProvider(ctx);
+                try {
+                    return BackfillEligibilityProvider(ctx);
+                } catch(Exception ex) {
+                    if(Debug.isDebugBuild) {
+                        Debug.LogWarning($"[SessionMatchLobby] BackfillEligibilityProvider threw: {ex.Message}");
+                    }
+                    // Fail-open: allow backfill but surface the reason.
+                    return (true, "ProviderException");
+                }
             }
 
             // If no provider is registered, default to allowing backfill.

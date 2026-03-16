@@ -17,6 +17,11 @@ namespace Network.Session {
         private const string SteamUgsPartyCodeKey = "UgsPartyCode";
         private const string SteamUgsMatchLobbyIdKey = "UgsMatchLobbyId";
 
+        // Shared Steam lobby member-data keys used by game-side adapters.
+        public const string DisplayNameKey = "DisplayName";
+        public const string AvatarHiddenKey = "AvatarHidden";
+        public const string PlayerIconKey = "PlayerIcon";
+
         private ISessionContext _ctx;
         private ISteamSessionActions _actions;
 
