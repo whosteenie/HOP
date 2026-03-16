@@ -2,7 +2,6 @@ using Events;
 using Game.Audio.System;
 using Game.Match;
 using Game.Player.Core;
-using Game.UI.HUD;
 using Network.Core;
 using Unity.Netcode;
 using UnityEngine;
@@ -231,10 +230,8 @@ namespace Game.Player.Combat {
             }
 
             var isLocalTagger = NetworkManager.Singleton.LocalClientId == taggerClientId;
-            if(KillFeedManager.Instance != null) {
-                EventBus.Publish(new AddKillFeedEntryEvent(taggerName, taggedName, isLocalTagger, taggerClientId,
-                    taggedClientId, wasKill: false));
-            }
+            EventBus.Publish(new AddKillFeedEntryEvent(taggerName, taggedName, isLocalTagger, taggerClientId,
+                taggedClientId, wasKill: false));
         }
 
         /// <summary>
@@ -257,9 +254,8 @@ namespace Game.Player.Combat {
             }
 
             // HOP is never the local player, so isLocalTagger is always false
-            if(KillFeedManager.Instance != null) {
-                EventBus.Publish(new AddKillFeedEntryEvent("HOP", taggedName, false, ulong.MaxValue, taggedClientId, wasKill: false));
-            }
+            EventBus.Publish(new AddKillFeedEntryEvent("HOP", taggedName, false, ulong.MaxValue, taggedClientId,
+                wasKill: false));
         }
 
         /// <summary>

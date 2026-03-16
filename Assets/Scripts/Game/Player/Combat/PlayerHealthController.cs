@@ -10,7 +10,6 @@ using Game.Player.Look;
 using Game.Player.Movement;
 using Game.Player.Visual;
 using Game.Spawning;
-using Game.UI.HUD;
 using Game.UI.Misc;
 using Game.Weapon.Manager;
 using Game.Weapon.Presentation;
@@ -443,9 +442,7 @@ namespace Game.Player.Combat {
                     _weaponCameraController.SetWeaponCameraEnabled(false);
                 }
 
-                if(HUDManager.Instance != null) {
-                    EventBus.Publish(new HideHUDEvent());
-                }
+                EventBus.Publish(new HideHUDEvent());
                 if(_deathCameraController != null) {
                     _deathCameraController.EnableDeathCamera();
                 }
@@ -702,9 +699,7 @@ namespace Game.Player.Combat {
                 _fpCamera.transform.localRotation = Quaternion.identity;
             }
 
-            if(HUDManager.Instance != null) {
-                EventBus.Publish(new ShowHUDEvent());
-            }
+            EventBus.Publish(new ShowHUDEvent());
 
             ShowRespawnVisualsClientRpc(_playerTransform.position);
 

@@ -98,6 +98,43 @@ namespace Events {
     }
 
     /// <summary>
+    /// Event published when the out-of-bounds countdown toast should update.
+    /// </summary>
+    public class UpdateOutOfBoundsCountdownEvent : GameEvent {
+        public readonly bool IsVisible;
+        public readonly float RemainingSeconds;
+
+        public UpdateOutOfBoundsCountdownEvent(bool isVisible, float remainingSeconds = 0f) {
+            IsVisible = isVisible;
+            RemainingSeconds = remainingSeconds;
+        }
+    }
+
+    /// <summary>
+    /// Event published when the hopball interact prompt should update.
+    /// </summary>
+    public class UpdateHopballInteractPromptEvent : GameEvent {
+        public readonly bool IsVisible;
+        public readonly string Text;
+
+        public UpdateHopballInteractPromptEvent(bool isVisible, string text) {
+            IsVisible = isVisible;
+            Text = text;
+        }
+    }
+
+    /// <summary>
+    /// Event published when the sniper overlay visibility should change.
+    /// </summary>
+    public class SetSniperOverlayVisibilityEvent : GameEvent {
+        public readonly bool IsVisible;
+
+        public SetSniperOverlayVisibilityEvent(bool isVisible) {
+            IsVisible = isVisible;
+        }
+    }
+
+    /// <summary>
     /// Event published when a kill feed entry should be added.
     /// </summary>
     public class AddKillFeedEntryEvent : GameEvent {
@@ -151,6 +188,17 @@ namespace Events {
     /// Event published when the scoreboard should be hidden.
     /// </summary>
     public class HideScoreboardEvent : GameEvent {
+    }
+
+    /// <summary>
+    /// Event published when scoreboard visibility changes.
+    /// </summary>
+    public class ScoreboardVisibilityChangedEvent : GameEvent {
+        public readonly bool IsVisible;
+
+        public ScoreboardVisibilityChangedEvent(bool isVisible) {
+            IsVisible = isVisible;
+        }
     }
 
     /// <summary>

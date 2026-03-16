@@ -1,9 +1,10 @@
+using Events;
 using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace Game.UI.HUD {
     public class SniperOverlayManager : MonoBehaviour {
-        public static SniperOverlayManager Instance { get; private set; }
+        private static SniperOverlayManager Instance { get; set; }
 
         #region Serialized Fields
 
@@ -55,6 +56,7 @@ namespace Game.UI.HUD {
         }
 
         private void OnDisable() {
+            EventBus.Unsubscribe<SetSniperOverlayVisibilityEvent>(OnSetSniperOverlayVisibility);
             CleanupOverlayTexture();
 
             if(_sniperOverlay != null && _sniperOverlayGeometryHooked) {
@@ -65,7 +67,12 @@ namespace Game.UI.HUD {
             SetSniperOverlayHudHidden(false);
         }
 
-        public void ToggleSniperOverlay(bool show) {
+        private void OnEnable() {
+            EventBus.Unsubscribe<SetSniperOverlayVisibilityEvent>(OnSetSniperOverlayVisibility);
+            EventBus.Subscribe<SetSniperOverlayVisibilityEvent>(OnSetSniperOverlayVisibility);
+        }
+
+        private void ToggleSniperOverlay(bool show) {
             if(_sniperOverlay == null) return;
 
             if(show && _sniperOverlayTexture == null) {
@@ -79,6 +86,11 @@ namespace Game.UI.HUD {
             }
 
             SetSniperOverlayHudHidden(show);
+        }
+
+        private void OnSetSniperOverlayVisibility(SetSniperOverlayVisibilityEvent evt) {
+            if(evt == null) return;
+            ToggleSniperOverlay(evt.IsVisible);
         }
 
         /// <summary>Initializes sniper overlay visual and geometry callback.</summary>

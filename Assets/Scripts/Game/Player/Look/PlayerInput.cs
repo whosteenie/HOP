@@ -7,8 +7,6 @@ using Game.Player.Core;
 using Game.Player.Movement;
 using Game.Settings;
 using Game.Social;
-using Game.UI.HUD;
-using Game.UI.Screens.Scoreboard;
 using Game.Weapon.Core;
 using Game.Weapon.Manager;
 using JetBrains.Annotations;
@@ -48,6 +46,7 @@ namespace Game.Player.Look {
 
         private bool _isPauseMenuOpen;
         private bool _isChatOpen;
+        private bool _isScoreboardVisible;
 
         private bool IsPausedOrDead {
             get {
@@ -100,7 +99,6 @@ namespace Game.Player.Look {
         private bool _attackBtnDown;
         private bool _lastHopballPromptVisible;
         private string _lastHopballPromptText = "";
-        private HUDManager _lastHudManager;
         private Coroutine _deferredAmmoHudRefreshRoutine;
         private int _queuedWeaponCycleOffset;
         private bool _jumpScrollUpBound;
@@ -174,9 +172,11 @@ namespace Game.Player.Look {
             EventBus.Unsubscribe<BindingsAppliedEvent>(OnBindingsApplied);
             EventBus.Unsubscribe<PauseMenuStateChangedEvent>(OnPauseMenuStateChanged);
             EventBus.Unsubscribe<ChatOpenStateChangedEvent>(OnChatOpenStateChanged);
+            EventBus.Unsubscribe<ScoreboardVisibilityChangedEvent>(OnScoreboardVisibilityChanged);
             EventBus.Subscribe<BindingsAppliedEvent>(OnBindingsApplied);
             EventBus.Subscribe<PauseMenuStateChangedEvent>(OnPauseMenuStateChanged);
             EventBus.Subscribe<ChatOpenStateChangedEvent>(OnChatOpenStateChanged);
+            EventBus.Subscribe<ScoreboardVisibilityChangedEvent>(OnScoreboardVisibilityChanged);
             RefreshCachedScrollBindings();
         }
 
@@ -234,10 +234,8 @@ namespace Game.Player.Look {
                 ("enabled", false),
                 ("reason", "PlayerInputComponentDisabled"));
             IsSniperOverlayActive = false;
-            if(SniperOverlayManager.Instance != null) {
-                SniperOverlayManager.Instance.ToggleSniperOverlay(false);
-                ApplySniperOverlayEffects(false, playZoomSound: false);
-            }
+            EventBus.Publish(new SetSniperOverlayVisibilityEvent(false));
+            ApplySniperOverlayEffects(false, playZoomSound: false);
 
             ApplyHopballInteractPrompt(false, "PRESS INTERACT");
         }
@@ -366,15 +364,13 @@ namespace Game.Player.Look {
             }
 
             if(!_isPauseMenuOpen && Keyboard.current.tabKey.isPressed) {
-                if(ScoreboardManager.Instance != null) {
-                    EventBus.Publish(new ShowScoreboardEvent());
-                }
-            } else if(ScoreboardManager.Instance != null && ScoreboardManager.Instance.IsScoreboardVisible) {
+                EventBus.Publish(new ShowScoreboardEvent());
+            } else if(_isScoreboardVisible) {
                 EventBus.Publish(new HideScoreboardEvent());
             }
             
             // Handle right-click to unlock mouse when scoreboard is open
-            if(ScoreboardManager.Instance == null || !ScoreboardManager.Instance.IsScoreboardVisible) return;
+            if(!_isScoreboardVisible) return;
             if(Mouse.current == null || !Mouse.current.rightButton.wasPressedThisFrame ||
                Cursor.lockState != CursorLockMode.Locked) return;
             Cursor.lockState = CursorLockMode.None;
@@ -404,14 +400,10 @@ namespace Game.Player.Look {
         }
 
         private void ApplyHopballInteractPrompt(bool visible, string text) {
-            var hud = HUDManager.Instance;
-            var shouldApply = hud != _lastHudManager || visible != _lastHopballPromptVisible ||
-                              !string.Equals(text, _lastHopballPromptText);
+            var shouldApply = visible != _lastHopballPromptVisible || !string.Equals(text, _lastHopballPromptText);
             if(!shouldApply) return;
 
-            if(hud != null) hud.SetHopballInteractPrompt(visible, text);
-
-            _lastHudManager = hud;
+            EventBus.Publish(new UpdateHopballInteractPromptEvent(visible, text));
             _lastHopballPromptVisible = visible;
             _lastHopballPromptText = text;
         }
@@ -700,17 +692,13 @@ namespace Game.Player.Look {
                     IsSniperOverlayActive = false;
                 }
 
-                if(SniperOverlayManager.Instance != null) {
-                    SniperOverlayManager.Instance.ToggleSniperOverlay(false);
-                }
+                EventBus.Publish(new SetSniperOverlayVisibilityEvent(false));
 
                 return;
             }
 
             IsSniperOverlayActive = !IsSniperOverlayActive;
-            if(SniperOverlayManager.Instance != null) {
-                SniperOverlayManager.Instance.ToggleSniperOverlay(IsSniperOverlayActive);
-            }
+            EventBus.Publish(new SetSniperOverlayVisibilityEvent(IsSniperOverlayActive));
             ApplySniperOverlayEffects(IsSniperOverlayActive, playZoomSound: true);
         }
 
@@ -839,6 +827,10 @@ namespace Game.Player.Look {
             _isChatOpen = evt.IsOpen;
         }
 
+        private void OnScoreboardVisibilityChanged(ScoreboardVisibilityChangedEvent evt) {
+            _isScoreboardVisible = evt.IsVisible;
+        }
+
         private void RefreshCachedScrollBindings() {
             _jumpScrollUpBound = false;
             _jumpScrollDownBound = false;
@@ -942,17 +934,13 @@ namespace Game.Player.Look {
                     IsSniperOverlayActive = false;
                 }
 
-                if(SniperOverlayManager.Instance != null) {
-                    SniperOverlayManager.Instance.ToggleSniperOverlay(false);
-                }
+                EventBus.Publish(new SetSniperOverlayVisibilityEvent(false));
                 ApplySniperOverlayEffects(false, playZoomSound: false);
                 UpdateSniperSensitivity();
                 return;
             }
 
-            if(SniperOverlayManager.Instance != null) {
-                SniperOverlayManager.Instance.ToggleSniperOverlay(IsSniperOverlayActive);
-            }
+            EventBus.Publish(new SetSniperOverlayVisibilityEvent(IsSniperOverlayActive));
             ApplySniperOverlayEffects(IsSniperOverlayActive, playZoomSound: false);
             UpdateSniperSensitivity();
         }
@@ -1016,16 +1004,12 @@ namespace Game.Player.Look {
         /// </summary>
         public void ForceDisableSniperOverlay(bool playZoomSound) {
             if(!IsSniperOverlayActive) {
-                if(SniperOverlayManager.Instance != null) {
-                    SniperOverlayManager.Instance.ToggleSniperOverlay(false);
-                }
+                EventBus.Publish(new SetSniperOverlayVisibilityEvent(false));
                 return;
             }
 
             IsSniperOverlayActive = false;
-            if(SniperOverlayManager.Instance != null) {
-                SniperOverlayManager.Instance.ToggleSniperOverlay(false);
-            }
+            EventBus.Publish(new SetSniperOverlayVisibilityEvent(false));
             ApplySniperOverlayEffects(false, playZoomSound);
         }
 

@@ -255,6 +255,7 @@ namespace Game.UI.Screens.Scoreboard {
         private void ShowScoreboard() {
             if(!SessionManager.IsGameplaySceneName(_cachedSceneName)) return;
             IsScoreboardVisible = true;
+            EventBus.Publish(new ScoreboardVisibilityChangedEvent(true));
             var rootContainer = _root.Q<VisualElement>("root-container");
             if(rootContainer != null) rootContainer.style.display = DisplayStyle.Flex;
             UpdateScoreboardTitle();
@@ -268,6 +269,7 @@ namespace Game.UI.Screens.Scoreboard {
         private void HideScoreboard() {
             if(!SessionManager.IsGameplaySceneName(_cachedSceneName)) return;
             IsScoreboardVisible = false;
+            EventBus.Publish(new ScoreboardVisibilityChangedEvent(false));
             _scoreboardPanel.style.display = StyleKeyword.Null;
             _scoreboardPanel.AddToClassList("hidden");
             _scoreboardPanel.EnableInClassList("scoreboard-hover-disabled", false);

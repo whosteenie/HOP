@@ -1,5 +1,5 @@
+using Events;
 using Game.Match;
-using Game.UI.HUD;
 using Network.Core;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -133,9 +133,7 @@ namespace Game.Player.Core {
             }
 
             var remaining = Mathf.Max(0f, _triggerOobDeadlineOwnerTime - Time.unscaledTime);
-            if(HUDManager.Instance != null) {
-                HUDManager.Instance.SetOutOfBoundsCountdown(true, remaining);
-            }
+            EventBus.Publish(new UpdateOutOfBoundsCountdownEvent(true, remaining));
         }
 
         public void ShowTriggerOobCountdownOwner(float countdownSeconds) {
@@ -146,9 +144,7 @@ namespace Game.Player.Core {
         public void HideTriggerOobCountdownLocal() {
             _triggerOobCountdownVisibleOwner = false;
             _triggerOobDeadlineOwnerTime = 0f;
-            if(HUDManager.Instance != null) {
-                HUDManager.Instance.SetOutOfBoundsCountdown(false);
-            }
+            EventBus.Publish(new UpdateOutOfBoundsCountdownEvent(false));
         }
 
         private void RefreshOutOfBoundsCacheIfNeeded() {

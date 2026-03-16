@@ -137,6 +137,16 @@ namespace Game.UI.HUD {
             HideHUD();
         }
 
+        private void OnUpdateOutOfBoundsCountdown(UpdateOutOfBoundsCountdownEvent evt) {
+            if(evt == null) return;
+            SetOutOfBoundsCountdown(evt.IsVisible, evt.RemainingSeconds);
+        }
+
+        private void OnUpdateHopballInteractPrompt(UpdateHopballInteractPromptEvent evt) {
+            if(evt == null) return;
+            SetHopballInteractPrompt(evt.IsVisible, evt.Text);
+        }
+
         private void OnPreMatchWaitingForPlayers(PreMatchWaitingForPlayersEvent evt) {
             SetWaitingForPlayersToast(evt.IsWaiting);
         }
@@ -340,7 +350,7 @@ namespace Game.UI.HUD {
             UpdateAmmo(current, max);
         }
 
-        public void SetHopballInteractPrompt(bool visible, string text = null) {
+        private void SetHopballInteractPrompt(bool visible, string text = null) {
             if(_hopballInteractPrompt == null) return;
 
             _hopballInteractPrompt.style.display = visible ? DisplayStyle.Flex : DisplayStyle.None;
@@ -349,7 +359,7 @@ namespace Game.UI.HUD {
             }
         }
 
-        public void SetOutOfBoundsCountdown(bool visible, float remainingSeconds = 0f) {
+        private void SetOutOfBoundsCountdown(bool visible, float remainingSeconds = 0f) {
             if(_outOfBoundsStatusContainer == null) return;
 
             _isOutOfBoundsCountdownVisible = visible;
@@ -448,6 +458,8 @@ namespace Game.UI.HUD {
             EventBus.Unsubscribe<UpdateMultiplierEvent>(OnUpdateMultiplier);
             EventBus.Unsubscribe<ShowHUDEvent>(OnShowHUD);
             EventBus.Unsubscribe<HideHUDEvent>(OnHideHUD);
+            EventBus.Unsubscribe<UpdateOutOfBoundsCountdownEvent>(OnUpdateOutOfBoundsCountdown);
+            EventBus.Unsubscribe<UpdateHopballInteractPromptEvent>(OnUpdateHopballInteractPrompt);
             EventBus.Unsubscribe<PreMatchWaitingForPlayersEvent>(OnPreMatchWaitingForPlayers);
             EventBus.Unsubscribe<PreMatchCountdownEvent>(OnPreMatchCountdown);
             EventBus.Unsubscribe<GameSettingsChangedEvent>(OnGameSettingsChanged);
@@ -458,6 +470,8 @@ namespace Game.UI.HUD {
             EventBus.Subscribe<UpdateMultiplierEvent>(OnUpdateMultiplier);
             EventBus.Subscribe<ShowHUDEvent>(OnShowHUD);
             EventBus.Subscribe<HideHUDEvent>(OnHideHUD);
+            EventBus.Subscribe<UpdateOutOfBoundsCountdownEvent>(OnUpdateOutOfBoundsCountdown);
+            EventBus.Subscribe<UpdateHopballInteractPromptEvent>(OnUpdateHopballInteractPrompt);
             EventBus.Subscribe<PreMatchWaitingForPlayersEvent>(OnPreMatchWaitingForPlayers);
             EventBus.Subscribe<PreMatchCountdownEvent>(OnPreMatchCountdown);
             EventBus.Subscribe<GameSettingsChangedEvent>(OnGameSettingsChanged);
@@ -474,6 +488,8 @@ namespace Game.UI.HUD {
             EventBus.Unsubscribe<UpdateMultiplierEvent>(OnUpdateMultiplier);
             EventBus.Unsubscribe<ShowHUDEvent>(OnShowHUD);
             EventBus.Unsubscribe<HideHUDEvent>(OnHideHUD);
+            EventBus.Unsubscribe<UpdateOutOfBoundsCountdownEvent>(OnUpdateOutOfBoundsCountdown);
+            EventBus.Unsubscribe<UpdateHopballInteractPromptEvent>(OnUpdateHopballInteractPrompt);
             EventBus.Unsubscribe<PreMatchWaitingForPlayersEvent>(OnPreMatchWaitingForPlayers);
             EventBus.Unsubscribe<PreMatchCountdownEvent>(OnPreMatchCountdown);
             EventBus.Unsubscribe<GameSettingsChangedEvent>(OnGameSettingsChanged);
