@@ -28,7 +28,6 @@ namespace Events {
         private static int recordCount;
         private static long bytesWritten;
         private static float nextFlushAt;
-        private static EventBusFailureDiagnosticsDriver driver;
         private static bool hasFailureCaptureRuntimeOverride;
         private static bool failureCaptureRuntimeOverride;
         private static bool hasFileLoggingRuntimeOverride;
@@ -308,15 +307,6 @@ namespace Events {
             }
         }
 
-        private static void CreateDriverLocked() {
-            if(driver != null) return;
-            var go = new GameObject("EventBusFailureDiagnosticsDriver") {
-                hideFlags = HideFlags.HideAndDontSave
-            };
-            UnityEngine.Object.DontDestroyOnLoad(go);
-            driver = go.AddComponent<EventBusFailureDiagnosticsDriver>();
-        }
-
         private static void ApplyWriterStateLocked() {
             if(settings.FileLoggingEnabled == false) {
                 if(writer != null) {
@@ -331,7 +321,6 @@ namespace Events {
                 }
                 activeLogPath = null;
                 sessionStartWritten = false;
-                DestroyDriverLocked();
 
                 return;
             }
@@ -354,7 +343,6 @@ namespace Events {
                 bytesWritten = 0;
                 maxFileSizeReached = false;
                 nextFlushAt = Time.unscaledTime + settings.FlushIntervalSeconds;
-                CreateDriverLocked();
                 if(sessionStartWritten) return;
                 WriteSessionBoundaryLocked("session_start");
                 sessionStartWritten = true;
@@ -366,15 +354,6 @@ namespace Events {
 
                 writer = null;
                 activeLogPath = null;
-            }
-        }
-
-        private static void DestroyDriverLocked() {
-            if(driver == null) return;
-            var diagnosticsDriver = driver;
-            driver = null;
-            if(diagnosticsDriver != null) {
-                UnityEngine.Object.Destroy(diagnosticsDriver.gameObject);
             }
         }
 
@@ -575,6 +554,18 @@ namespace Events {
     }
 
     internal sealed class EventBusFailureDiagnosticsDriver : MonoBehaviour {
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
+        private static void CreateInstance() {
+            // Avoid creating duplicates if something else already added one.
+            if(FindFirstObjectByType<EventBusFailureDiagnosticsDriver>() != null) return;
+
+            var go = new GameObject("EventBusFailureDiagnosticsDriver") {
+                hideFlags = HideFlags.HideAndDontSave
+            };
+            DontDestroyOnLoad(go);
+            go.AddComponent<EventBusFailureDiagnosticsDriver>();
+        }
+
         private void Update() {
             EventBusFailureDiagnostics.Tick();
         }
