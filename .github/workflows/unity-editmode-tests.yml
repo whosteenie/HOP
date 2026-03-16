@@ -1,11 +1,6 @@
 name: Unity Tests
 
 on:
-  push:
-    branches:
-      - main
-      - develop
-      - feature/**
   pull_request:
 
 permissions:
