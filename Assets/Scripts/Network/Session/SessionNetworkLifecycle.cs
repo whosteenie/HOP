@@ -19,9 +19,9 @@ namespace Network.Session {
     /// </summary>
     public static class SessionNetworkLifecycle {
         // Game-provided identity hooks. Default to using LocalIdentity if not overridden.
-        public static Func<ulong> GetSteamIdProvider { get; } = () => 0UL;
-        private static Func<string> GetUgsPlayerIdProvider { get; } = () => "";
-        public static Func<string> GetDisplayNameProvider { get; } = () => "Player";
+        public static Func<ulong> GetSteamIdProvider { get; set; } = () => 0UL;
+        public static Func<string> GetUgsPlayerIdProvider { get; set; } = () => "";
+        public static Func<string> GetDisplayNameProvider { get; set; } = () => "Player";
         private const int ShutdownMaxWaitFrames = 240;
         private const string MultiplayerSessionType = "HOP.Match";
         private const string MultiplayerSessionModeKey = "mode";
