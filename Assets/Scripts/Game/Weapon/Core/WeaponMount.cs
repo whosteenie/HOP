@@ -1,4 +1,4 @@
-using Game.Menu;
+using Game.Match;
 using Game.Weapon.Kinemation;
 using Game.Weapon.World;
 using UnityEngine;
@@ -12,10 +12,6 @@ namespace Game.Weapon.Core {
             _weapon = weapon;
         }
 
-        private void Start() {
-            _mainSceneCamera = Camera.main;
-        }
-
         public void SyncKinemationLocomotion() {
             var kinemationDriver = _weapon.KinDriver;
             var playerController = _weapon.PlayerController;
@@ -27,8 +23,8 @@ namespace Game.Weapon.Core {
             var wallRunController = playerController.WallRunController;
             var isSliding = movementController != null && movementController.IsSliding;
             var isWallRunning = wallRunController != null && wallRunController.IsWallRunning;
-            var isPreMatch = GameMenuManager.Instance != null && GameMenuManager.IsPreMatch;
-            var isPostMatch = GameMenuManager.Instance != null && GameMenuManager.Instance.IsPostMatch;
+            var isPreMatch = MatchTimerManager.Instance != null && MatchTimerManager.Instance.IsPreMatch;
+            var isPostMatch = PostMatchManager.Instance != null && PostMatchManager.Instance.PostMatchFlowStarted;
 
             var moveInput = playerController.moveInput;
             var sprintInput = playerController.sprintInput;
@@ -245,7 +241,7 @@ namespace Game.Weapon.Core {
                 return false;
             }
 
-            var isPostMatch = GameMenuManager.Instance != null && GameMenuManager.Instance.IsPostMatch;
+            var isPostMatch = PostMatchManager.Instance != null && PostMatchManager.Instance.PostMatchFlowStarted;
             return isPostMatch
                 ? TryGetStrictWorldMuzzleTransform(out muzzleTransform, context, allowOwnerInstance: true,
                     logErrors: logErrors)
@@ -391,23 +387,33 @@ namespace Game.Weapon.Core {
             var playerController = _weapon.PlayerController;
             if(playerController == null) return;
             if(!playerController.IsOwner) return;
-            if(GameMenuManager.Instance != null && GameMenuManager.Instance.IsPostMatch) return;
+            if(PostMatchManager.Instance != null && PostMatchManager.Instance.PostMatchFlowStarted) return;
             if(playerController.PlayerInput != null && playerController.PlayerInput.IsSniperOverlayActive) return;
 
             var weaponCamera = playerController.WeaponCamera;
-            if(weaponCamera == null || _mainSceneCamera == null) return;
-            if(weaponCamera == _mainSceneCamera) return;
+            if(weaponCamera == null) return;
+            if(!TryResolveMainSceneCamera(weaponCamera, out var mainSceneCamera)) return;
+            if(weaponCamera == mainSceneCamera) return;
 
             var viewportInWeaponCamera = weaponCamera.WorldToViewportPoint(sourcePoint);
             if(viewportInWeaponCamera.z <= 0f) return;
 
-            var transformCamera = _mainSceneCamera.transform;
+            var transformCamera = mainSceneCamera.transform;
             var preferredDepth = Vector3.Dot(sourcePoint - transformCamera.position, transformCamera.forward);
-            var remapDepth = Mathf.Max(_mainSceneCamera.nearClipPlane + 0.02f, preferredDepth);
-            remappedPoint = _mainSceneCamera.ViewportToWorldPoint(new Vector3(
+            var remapDepth = Mathf.Max(mainSceneCamera.nearClipPlane + 0.02f, preferredDepth);
+            remappedPoint = mainSceneCamera.ViewportToWorldPoint(new Vector3(
                 viewportInWeaponCamera.x,
                 viewportInWeaponCamera.y,
                 remapDepth));
+        }
+
+        private bool TryResolveMainSceneCamera(Camera weaponCamera, out Camera mainSceneCamera) {
+            if(_mainSceneCamera == null || _mainSceneCamera == weaponCamera) {
+                _mainSceneCamera = Camera.main;
+            }
+
+            mainSceneCamera = _mainSceneCamera;
+            return mainSceneCamera != null;
         }
 
         private static string GetTransformPath(Transform transform) {

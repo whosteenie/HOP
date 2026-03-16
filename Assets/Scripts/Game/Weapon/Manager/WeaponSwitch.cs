@@ -2,7 +2,6 @@ using System.Collections;
 using Game.Audio.System;
 using Game.Hopball;
 using Game.Match;
-using Game.Menu;
 using Game.Weapon.Core;
 using Network.AntiCheat;
 using Network.Core;
@@ -167,7 +166,7 @@ namespace Game.Weapon.Manager {
                 return;
             }
 
-            var isPostMatch = GameMenuManager.Instance != null && GameMenuManager.Instance.IsPostMatch;
+            var isPostMatch = PostMatchManager.Instance != null && PostMatchManager.Instance.PostMatchFlowStarted;
             if(!_root.TryValidateSwitchTargetStrict(newIndex, out var data, out var magCapacity)) {
                 return;
             }
@@ -307,7 +306,7 @@ namespace Game.Weapon.Manager {
 
         public void HandlePullOutCompleted() {
             if(_root.PendingTpWeapon != null &&
-               (GameMenuManager.Instance != null && GameMenuManager.Instance.IsPostMatch ||
+               (PostMatchManager.Instance != null && PostMatchManager.Instance.PostMatchFlowStarted ||
                 _root.CurrentWorldWeaponInstanceInternal == null ||
                 !_root.CurrentWorldWeaponInstanceInternal.activeSelf)) {
                 ShowTpWeapon();
@@ -334,7 +333,7 @@ namespace Game.Weapon.Manager {
         }
 
         public void TriggerPullOutAnimation() {
-            var isPostMatch = GameMenuManager.Instance != null && GameMenuManager.Instance.IsPostMatch;
+            var isPostMatch = PostMatchManager.Instance != null && PostMatchManager.Instance.PostMatchFlowStarted;
 
             var requiresKinemationEquipCompletion = false;
             if(_root.IsOwner && _root.CurrentWeaponIndexInternal >= 0 && _root.CurrentWeaponIndexInternal < _root.WeaponDataListRef.Count &&
@@ -582,7 +581,7 @@ namespace Game.Weapon.Manager {
             }
 
             var isOwner = _root.PlayerControllerRef != null && _root.PlayerControllerRef.IsOwner;
-            var isPostMatch = GameMenuManager.Instance != null && GameMenuManager.Instance.IsPostMatch;
+            var isPostMatch = PostMatchManager.Instance != null && PostMatchManager.Instance.PostMatchFlowStarted;
             var targetMode = isOwner && !isPostMatch ? ShadowCastingMode.ShadowsOnly : ShadowCastingMode.On;
 
             var playerShadow = _root.PlayerControllerRef != null ? _root.PlayerControllerRef.PlayerShadow : null;
